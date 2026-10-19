@@ -24,7 +24,9 @@ ENVELOPE = "adaptive_difficulty.daily_spend_cap_usd"
 #: The model-call receipts' owner kinds the cap counts.
 FORECAST_OWNER_KIND = "ad_item_forecast"
 AUDIT_OWNER_KIND = "ad_feature_audit"
-OWNER_KINDS = (FORECAST_OWNER_KIND, AUDIT_OWNER_KIND)
+#: AD2+AD3: the relatedness proposal (spec §5.10), inside the same daily cap.
+RELATEDNESS_OWNER_KIND = "ad_relatedness"
+OWNER_KINDS = (FORECAST_OWNER_KIND, AUDIT_OWNER_KIND, RELATEDNESS_OWNER_KIND)
 MODELS_ENV = "LEARNLOOP_AD_MODELS"
 
 
@@ -40,5 +42,5 @@ def ad_envelope(vault: Any, repository: Any, *, clock: Clock | None = None) -> S
     )
 
 
-__all__ = ["AUDIT_OWNER_KIND", "ENVELOPE", "FORECAST_OWNER_KIND", "MODELS_ENV", "OWNER_KINDS", "ad_envelope",
-           "models_off"]
+__all__ = ["AUDIT_OWNER_KIND", "ENVELOPE", "FORECAST_OWNER_KIND", "MODELS_ENV", "OWNER_KINDS", "RELATEDNESS_OWNER_KIND",
+           "ad_envelope", "models_off"]

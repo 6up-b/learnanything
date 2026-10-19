@@ -100,12 +100,15 @@ class ReplaySettings:
     timing: bool = False
     outside: bool = False
     updates: bool = True
+    #: The report's prior sensitivity (§5.8): ``(coordinate, mean)`` overrides of ``ad_priors_v1``.
+    prior_means: tuple[tuple[str, float], ...] = ()
 
     def key(self) -> str:
         return json.dumps({"coupling": self.coupling, "reading": self.reading, "verdicts": self.verdicts,
                            "hyper": self.hyper, "fixed": self.fixed_point.key() if self.fixed_point else None,
                            "rating": self.rating, "timing": self.timing, "outside": self.outside,
-                           "updates": self.updates}, sort_keys=True)
+                           "updates": self.updates, "prior_means": [list(p) for p in self.prior_means]},
+                          sort_keys=True)
 
     @classmethod
     def from_config(cls, config: Any) -> "ReplaySettings":
@@ -256,6 +259,24 @@ def _audited(connection: Any, item: Any, content_hash: str | None, as_of: str) -
     return resolved or None
 
 
+def surface_group(item: Any) -> str:
+    """The item's surface group (mirrors ``substrate.canonical_projection.surface_group_id``,
+    pinned equal by a test): a shared stimulus, source-example or solution-template family,
+    else the legacy surface family, else the item."""
+
+    fp = getattr(item, "evidence_fingerprint", None)
+    for candidate in (getattr(fp, "shared_stimulus_id", None), getattr(fp, "source_family", None),
+                      getattr(fp, "solution_recipe_family", None), getattr(item, "surface_family", None)):
+        if candidate:
+            return str(candidate)
+    return f"item:{item.id}"
+
+
+def _type_mass(vault: Any, attempt_type: str) -> float:
+    entry = getattr(getattr(vault.config, "evidence", None), "attempt_types", {}).get(attempt_type)
+    return 1.0 if entry is None else float(getattr(entry, "evidence_mass", 1.0))
+
+
 def _exposures(connection: Any) -> dict[str, list[float]]:
     by_lo: dict[str, list[float]] = {}
     for lo, created_at in connection.execute("SELECT learning_object_id, created_at FROM practice_attempts"):
@@ -305,7 +326,12 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
     except Exception:  # noqa: BLE001 - fail closed: nothing of an unreadable protection updates the state
         LOG.warning("held-out material unavailable: AD replay reads no attempt", exc_info=True)
         held_out, held_out_ok = frozenset(), False
+    from learnloop.db.stores.observation_ledger import load_authoritative_observation_ledger
+
     rows = {row.attempt_id: row for row in load_attempt_rows(connection, vault)}
+    # Graded, quarantine and the current epoch from the authoritative ledger itself (never from
+    # field's revision resolution: an attempt with frozen serve inputs needs none).
+    ledger = {str(entry["attempt_id"]): entry for entry in load_authoritative_observation_ledger(connection)}
     held = held_for_review_attempts(connection)
     serve_inputs: dict[str, dict[str, Any]] = {}
     if receipt_store.has_table(connection, receipt_store.SERVE_INPUTS):
@@ -375,8 +401,9 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
             continue
         summary["attempts"] += 1
         row = rows.get(attempt_id)
+        source = ledger.get(attempt_id) or {}
         attempt_type = str(attempt.get("attempt_type") or "")
-        if row is None or attempt_type == "skip":
+        if not source.get("evidence") or attempt_type == "skip":
             continue  # ungraded: no window closes, no update
         if attempt_type == "self_report":
             continue  # D8: never read, and it closes no window
@@ -386,6 +413,8 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
             content_hash = str(frozen["content_hash"])
             item = snapshot(content_hash)
             status = "frozen" if item is not None else "excluded"
+        elif row is None:
+            item, content_hash, status = None, None, "excluded"
         elif row.revision_status == "exact":
             content_hash = row.item_snapshot_hash
             item = snapshot(content_hash)
@@ -404,7 +433,12 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
             raw_weights = receipt_store._loads(attempt.get("evidence_weights_json"), {})
             raw_facets = receipt_store._loads(attempt.get("evidence_facets_json"), [])
             weights = {vault.canonical_facet_id(f): w for f, w in normalized_weights(raw_weights, raw_facets).items()}
-        surface = str(row.surface_group_id or attempt["practice_item_id"])
+        if item is not None:
+            surface = surface_group(item)
+        elif row is not None and row.surface_group_id:
+            surface = str(row.surface_group_id)
+        else:
+            surface = f"item:{attempt['practice_item_id']}"
         first_surface = surface not in surfaces
         surfaces.add(surface)
         served_at = presentations.get(str(presentation_id)) if presentation_id else None
@@ -418,7 +452,8 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
             reason = "repeat_surface"
         elif attempt_id in held:
             reason = "held_for_review"
-        elif not (row.effective_mass > 0):
+        elif (source.get("quarantine_state") == "quarantined" or attempt_type == "unassessable"
+              or _type_mass(vault, attempt_type) <= 0):
             reason = "zero_mass"
         elif not held_out_ok or str(attempt["practice_item_id"]) in held_out:
             reason = "held_out"
@@ -428,7 +463,7 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
         if reason is None:
             facts = O.AttemptFacts(
                 correctness=(float(attempt["correctness"]) if attempt.get("correctness") is not None
-                             else float(row.outcome)),
+                             else (float(row.outcome) if row is not None else None)),
                 hints_used=int(attempt.get("hints_used") or 0),
                 first_hint_progress=attempt.get("first_hint_progress"),
                 help_questions=O.help_questions_from_rows(help_rows.get(attempt_id, ())),
@@ -551,17 +586,25 @@ def _grid(settings: ReplaySettings) -> tuple[P.HyperPoint, ...]:
     return P.uniform_points(grid) if not settings.coupling else grid
 
 
+def _override(bank: M.Bank, settings: ReplaySettings) -> M.Bank:
+    for name, mean in settings.prior_means:
+        if bank.has(name):
+            bank.mu[:, bank.index[name]] = float(mean)
+    return bank
+
+
 def _new_subject_view(settings: ReplaySettings, structure: M.Structure) -> View:
     bank = M.Bank(_grid(settings), structure=structure if settings.coupling else M.Structure(),
                   reading=True, verdict=True, rating=settings.rating, timing=settings.timing,
                   outside=settings.outside)
-    return View(bank, subject_view=True, reading=settings.reading, verdicts=settings.verdicts,
+    return View(_override(bank, settings), subject_view=True, reading=settings.reading, verdicts=settings.verdicts,
                 signals=P.BASE_SIGNALS + (("z_v1",) if settings.outside else ()))
 
 
 def _new_lo_view(settings: ReplaySettings) -> View:
     bank = M.Bank((P.LO_VIEW_POINT,), rating=settings.rating, timing=settings.timing, outside=settings.outside)
-    return View(bank, subject_view=False, signals=P.BASE_SIGNALS + (("z_v1",) if settings.outside else ()))
+    return View(_override(bank, settings), subject_view=False,
+                signals=P.BASE_SIGNALS + (("z_v1",) if settings.outside else ()))
 
 
 def _apply_claim(view: View, claim: ClaimEvent, events: Events, *, observed_subjects: set[str],
@@ -611,8 +654,26 @@ def _mixture(view: View, record: M.UpdateRecord) -> dict[str, Any]:
     return out
 
 
-def run(events: Events, settings: ReplaySettings = ReplaySettings(), *, trace: bool = True) -> Snapshot:
-    """Replay the events into both views (§5.6), in fixed order, float64."""
+@dataclass(frozen=True)
+class Context:
+    """What a prequential observer knows about an attempt before its update (the harness, §10.4)."""
+
+    first_attempt_lo: bool
+    first_surface_cell: bool
+    after_reading: bool
+    after_verdict: bool
+    #: The verdict class of the latest self-check on the LO since its last answer (D22), if any.
+    verdict_class: str | None = None
+    #: Each reading kind's dose on the attempt's facets since their last answer (the dose report).
+    doses: Mapping[str, float] = field(default_factory=dict)
+
+
+def run(events: Events, settings: ReplaySettings = ReplaySettings(), *, trace: bool = True,
+        observer: Any = None) -> Snapshot:
+    """Replay the events into both views (§5.6), in fixed order, float64.
+
+    ``observer(attempt, subject_view, lo_view, context)`` is called before each eligible
+    attempt's update (the prequential harness reads its predictions there)."""
 
     structure = events.structure
     subject = _new_subject_view(settings, structure)
@@ -620,6 +681,9 @@ def run(events: Events, settings: ReplaySettings = ReplaySettings(), *, trace: b
     rows: list[dict[str, Any]] = []
     snap = Snapshot(subject, los, rows, events, settings)
     lo_observed_facets: dict[str, set[str]] = {}
+    read_since: dict[str, bool] = {}
+    verdict_since: dict[str, str] = {}
+    dose_since: dict[str, dict[str, float]] = {}
     for kind, event in events.ordered():
         structure.now = event.at
         if kind == "claim":
@@ -630,14 +694,27 @@ def run(events: Events, settings: ReplaySettings = ReplaySettings(), *, trace: b
                              observed_facets=lo_observed_facets.get(lo, set()), los=[lo])
             continue
         if kind == "opportunity":
+            read_since[event.learning_object_id] = True
             if event.subkind in P.VERDICT_CLASSES:
+                verdict_since[event.learning_object_id] = event.subkind
                 subject.verdict(event.subject, event.subkind, event.facet_doses, event.at)
             else:
+                bucket = dose_since.setdefault(event.learning_object_id, {})
+                bucket[event.kind] = bucket.get(event.kind, 0.0) + sum(event.facet_doses.values())
                 subject.reading(event.subject, event.kind, event.facet_doses, event.at)
             continue
         attempt: AttemptEvent = event
         if attempt.eligible and attempt.spec is not None and attempt.category is not None:
             spec = attempt.spec
+            if observer is not None:
+                lo_now = los.get(attempt.learning_object_id) or snap.lo_view(attempt.learning_object_id)
+                observer(attempt, subject, lo_now, Context(
+                    first_attempt_lo=attempt.learning_object_id not in snap.observed_los,
+                    first_surface_cell=spec.cell() not in snap.observed_cells,
+                    after_reading=bool(read_since.get(attempt.learning_object_id)),
+                    after_verdict=bool(verdict_since.get(attempt.learning_object_id)),
+                    verdict_class=verdict_since.get(attempt.learning_object_id),
+                    doses=dict(dose_since.get(attempt.learning_object_id, {}))))
             record = subject.observe(spec, attempt.category, attempt.at, warmth=attempt.warmth,
                                      in_passage_kind=attempt.in_passage_kind, rating=attempt.rating,
                                      log_latency_ratio=attempt.log_latency_ratio, learn=settings.updates) \
@@ -680,6 +757,9 @@ def run(events: Events, settings: ReplaySettings = ReplaySettings(), *, trace: b
                          "points": None, "detail": {"excluded": attempt.reason}})
         if attempt.closes:
             subject.close_windows(attempt.closes)
+            read_since.pop(attempt.learning_object_id, None)
+            verdict_since.pop(attempt.learning_object_id, None)
+            dose_since.pop(attempt.learning_object_id, None)
     structure.now = math.inf
     return snap
 

@@ -224,6 +224,10 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # and one feature-audit dimension judged by the LLM (background work).
     "ad_item_forecast": "ad_forecast_llm",
     "ad_feature_audit": "ad_feature_audit",
+    # Adaptive difficulty AD2+AD3: the relatedness proposal (one call per
+    # subject; vault content only, never learner text), on the field harness's
+    # frontier route (spec §5.10).
+    "ad_relatedness": "llm_probability_llm",
     # Slice 2 T4 shadow contamination flags (owner-run report only).
     "contamination_leak_judgment": "contamination_judge",
     "contamination_reveal_judgment": "contamination_judge",

@@ -38,7 +38,12 @@ _WHEN = {
         "Only when you run the offline llm_probability harness yourself (field.enabled and "
         "field.llm_probability_enabled, then an explicit --prepare-llm). V1 sends item content "
         "only; V2 adds your recent right/wrong results; V3 adds excerpts of your earlier answers, "
-        "their grades, diagnosis hypotheses and your tutor questions."
+        "their grades, diagnosis hypotheses and your tutor questions. At mvp-0.28, while "
+        "adaptive_difficulty.learned_coupling is on, adaptive difficulty's relatedness proposal also uses "
+        "this route: once per subject when you run learnloop ad relatedness, then when a subject's content "
+        "changes, it sends the subject's topic and facet titles and summaries, the concept graph and the "
+        "practice questions' wording (never your answers, grades or any other learner text, never a "
+        "reference answer, never exam material)."
     ),
     "router": (
         "From mvp-0.24, while router.enabled is on and router.mode is mixture: each time Today chooses "

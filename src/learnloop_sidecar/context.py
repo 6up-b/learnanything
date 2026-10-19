@@ -243,6 +243,19 @@ class SidecarContext:
                                    live_vault=self.loaded_vault)
         except Exception:  # noqa: BLE001 - never block a reload
             _LOGGER.warning("could not schedule AD preparation of new item revisions", exc_info=True)
+        if previous is None and item_ids is None:
+            return  # a first open schedules nothing (the owner's backfill comes first)
+        try:
+            # AD2+AD3 (spec §5.10): a subject whose content changed is re-proposed
+            # (only after the owner's backfill adopted a coupling version for it).
+            from learnloop.adaptive_difficulty.relatedness_jobs import schedule_reproposals
+
+            clients = getattr(self, "ad_clients", None)
+            schedule_reproposals(self.vault, self.repository.sqlite_path,
+                                 client=getattr(clients, "llm", None) if clients is not None else None,
+                                 builds=self.map_builds, live_vault=self.loaded_vault)
+        except Exception:  # noqa: BLE001 - never block a reload
+            _LOGGER.warning("could not schedule AD relatedness re-proposals", exc_info=True)
 
     @property
     def loaded_vault(self) -> "LoadedVaultProvider":
