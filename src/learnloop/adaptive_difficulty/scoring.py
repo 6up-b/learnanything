@@ -110,10 +110,15 @@ def score_rows(connection: Any, vault: Any, repository: Any) -> list[dict[str, A
 def rebuild(vault: Any, repository: Any) -> dict[str, Any]:
     """Clear and rebuild ``item_forecast_scores`` (zero model calls)."""
 
+    from learnloop.adaptive_difficulty.successor import successor_active
+
     with repository.atomic():
         connection = repository.connection()
         if not store.has_table(connection, store.SCORES):
             return {"written": 0, "skipped": "schema"}
+        if not successor_active(vault.config):
+            store.clear_derived(connection, (store.SCORES,))
+            return {"written": 0, "skipped": "below_successor"}
         rows = score_rows(connection, vault, repository)
         store.clear_derived(connection, (store.SCORES,))
         written = store.write_scores(connection, rows)

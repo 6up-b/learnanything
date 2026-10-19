@@ -131,10 +131,24 @@ def _record(kind: str, subkind: str, source_table: str, **extra: object) -> dict
             **extra}
 
 
-_LISTED = set(SF.LEARNING_OPPORTUNITY_SOURCES)
+#: §5.11's table, exactly: (kind, subkind, source table).
+_LISTED = {
+    ("reading", "section_read", "reader_section_progress"),
+    ("reading", "passage_viewed", "source_exposure_events"),
+    *{("reader_tutor_exchange", mode, "question_events")
+      for mode in ("answer_directly", "help_me_reason", "ask_me_first", "unknown")},
+    ("worked_example", "shown", "source_exposure_events"),
+    ("worked_example", "in_completed_section", "reader_section_progress"),
+    *{("in_passage_question", style, "reader_authored_questions")
+      for style in ("recall", "next_step", "why_step", "assumptions")},
+    ("in_passage_question", "owner_placed", "interaction_events"),
+    ("in_passage_question", "self_check:matched", "judgment_ledger"),
+    ("in_passage_question", "self_check:missed", "judgment_ledger"),
+}
+_KINDS = ("reading", "reader_tutor_exchange", "worked_example", "in_passage_question")
 _CANDIDATES = sorted({(kind, subkind, table)
-                      for kind in [*SF.LEARNING_OPPORTUNITY_KINDS, *SF.READING_EVENT_KINDS, *SF.SALIENCE_PROJECTIONS]
-                      for subkind in {s for _k, s, _t in SF.LEARNING_OPPORTUNITY_SOURCES} | {kind, "dwell", "skipped"}
+                      for kind in [*_KINDS, *SF.READING_EVENT_KINDS, *SF.SALIENCE_PROJECTIONS]
+                      for subkind in {s for _k, s, _t in _LISTED} | {kind, "dwell", "skipped", "reconstruct"}
                       for table in _SOURCE_TABLES})
 
 
@@ -164,6 +178,7 @@ def test_firewall_carve_out_admits_only_listed_kinds(source) -> None:
 def test_carve_out_allowlist_is_the_sweeps_list_and_the_only_typed_value_is_the_verdict() -> None:
     from learnloop.adaptive_difficulty import reading
 
+    assert set(SF.LEARNING_OPPORTUNITY_SOURCES) == _LISTED
     assert reading.SOURCES is SF.LEARNING_OPPORTUNITY_SOURCES
     verdicts = [(k, s, t) for k, s, t in SF.LEARNING_OPPORTUNITY_SOURCES if s.startswith("self_check:")]
     assert verdicts == [("in_passage_question", "self_check:matched", "judgment_ledger"),

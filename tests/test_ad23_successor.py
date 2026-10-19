@@ -214,3 +214,26 @@ def test_every_switch_false_serves_the_predecessor_on_fixture_copies(tmp_path, m
     assert reads[0] == reads[1]
     paths = type("P", (), {"sqlite_path": root_a / "state.sqlite"})()
     assert selections(paths) == []
+
+
+def test_below_the_tag_a_rebuild_writes_no_ad_state(tmp_path):
+    """Below the tag nothing reads AD's DERIVED state, so a whole-vault rebuild leaves its tables
+    empty (the predecessor's rebuild exactly), and a rolled-back vault's rows are cleared."""
+
+    from learnloop.db.repositories import Repository
+    from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
+
+    paths = ad23_vault(tmp_path, version="mvp-0.27")
+    repository = Repository(paths.sqlite_path)
+    rebuild_all_derived_state(load_vault(paths.root), repository)
+    with repository.connection() as connection:
+        for table in ("ad_state", "ad_attempt_trace", "item_forecast_scores"):
+            assert connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0, table
+    set_algorithm_version(paths, "mvp-0.28")
+    rebuild_all_derived_state(load_vault(paths.root), repository)
+    with repository.connection() as connection:
+        assert connection.execute("SELECT COUNT(*) FROM ad_state").fetchone()[0] > 0
+    set_algorithm_version(paths, "mvp-0.27")
+    rebuild_all_derived_state(load_vault(paths.root), repository)
+    with repository.connection() as connection:
+        assert connection.execute("SELECT COUNT(*) FROM ad_state").fetchone()[0] == 0

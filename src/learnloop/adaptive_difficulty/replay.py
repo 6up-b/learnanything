@@ -852,10 +852,17 @@ def state_rows(snap: Snapshot, *, as_of: str | None) -> list[dict[str, Any]]:
 def rebuild(vault: Any, repository: Any) -> dict[str, Any]:
     """The AD replayer (``ad_state``, ``ad_attempt_trace``): clear and rebuild, zero model calls."""
 
+    from learnloop.adaptive_difficulty.successor import successor_active
+
     with repository.atomic():
         connection = repository.connection()
         if not serving_store.has_table(connection, serving_store.STATE):
             return {"written": 0, "skipped": "schema"}
+        if not successor_active(vault.config):
+            # Below the tag (or with AD off) nothing reads AD's state: the tables stay empty, so a
+            # rebuild is the predecessor's exactly (a rolled-back vault's rows are cleared).
+            serving_store.clear_derived(connection, (serving_store.STATE, serving_store.TRACE))
+            return {"written": 0, "skipped": "below_successor", "accounted_attempt_ids": []}
         settings = ReplaySettings.from_config(vault.config)
         events = load_events(connection, vault, repository, settings=settings)
         snap = run(events, settings)
