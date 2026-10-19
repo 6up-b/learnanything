@@ -1277,3 +1277,39 @@ All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was f
 | `db_generate_reference.py` then `db_validate_reference.py` | **0 errors**. Only commit labels and line citations moved. |
 
 There is no migration, no config key and no RPC or serializer change.
+
+## Fix round 15
+
+The verify (Codex job `20261019-001604-0hP1VP`, at `4ef3edf67`) found no counting, priming or fence defect. It
+passed 46,656 fold comparisons, 60 assistance cases and 120 fence cases. Two masking leaks remained. Both are fixed
+in `cae0df9ce`. **Paid calls: none ($0.00).**
+
+| item | title | verdict | test (all fail on `4ef3edf67`) |
+|---|---|---|---|
+| 1 | The chooser's state read the stored verdicts directly | fixed | `test_reader_rw2b_fix15.py::test_item1_the_choosers_state_reads_the_switch_now` (`symbolically_checked` 1, then 0 once off); `test_architecture.py::test_only_the_hint_context_reads_its_raw_verdicts` |
+| 2 | The diagnoser re-gated the trace before a blocking retrieval | fixed | `test_item2_a_switch_off_during_context_assembly_masks_the_rendered_trace`: a stand-in for the registry retrieval turns the switch off during assembly; the rendered context, its hash and its receipt carry the model's reading |
+
+* **Item 1.**
+  * `WorkbenchHintContext`'s verdicts are now the private field `_raw_verdicts`, and only `current()` reads it.
+  * The public `verdicts` is a property returning `current()`'s masked verdicts.
+  * Every consumer therefore gets the live-masked verdicts: `decider_extra` for both the suggestion and the
+    taken-rung draw (it also calls `current()` explicitly), `prompt_block`, and row serialization.
+  * The two constructors (the ladder, `run_check`) pass `_raw_verdicts=`.
+  * The new AST test fails on any read of `._raw_verdicts` outside the class.
+* **Item 2.** `assemble_diagnosis_context` re-reads the switch from the live config file (`symbolic_view.switch_now`)
+  and maps the trace (`trace_view`) right before `build()` renders the context. That is after every blocking step,
+  the registry shortlist included. The context hash, the receipt and `AssembledContext.current` are computed from
+  the masked context. Round 14's earlier re-gate in `jobs.py` stays and is now redundant.
+
+### Gate (fix round 15)
+
+All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was free.
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2`, `uv run lint-imports --no-cache` | ok; **27 kept, 0 broken** |
+| `uv run pytest -n auto` over round 14's 110 files plus `test_reader_rw2b_fix15.py` | **2150 passed, 2 xfailed** (95.8 s) |
+| `uv run pytest -n 8 --durable-sqlite` over `test_reader_rw2b_fix15.py`, `test_reader_rw2b_fix14.py`, `test_workbench_trace.py` | **9 passed** |
+| `db_generate_reference.py` then `db_validate_reference.py` | **0 errors**. Only commit labels and line citations moved. |
+
+There is no migration, no config key, no RPC or serializer change and no frontend change.
