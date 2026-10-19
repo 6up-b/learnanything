@@ -315,6 +315,28 @@ def commission_draw(vault: Any, repository: Any, snapshot: RP.Snapshot, view: An
     })
 
 
+def why_for_presentation(connection: Any, presentation_id: str) -> dict[str, Any] | None:
+    """"Why this item" for a served plan item (§12): the one line of the draw that chose it, or
+    None when no AD draw chose it (below the tag, ``selection`` off, a predecessor serve)."""
+
+    if not store.has_table(connection, store.SELECTIONS) or not store.has_table(connection, "plan_presentations"):
+        return None
+    found = connection.execute("SELECT block_id, practice_item_id FROM plan_presentations WHERE id = ?",
+                               (presentation_id,)).fetchone()
+    if found is None:
+        return None
+    block_id, item_id = str(found[0]), str(found[1])
+    for row in reversed(store.selections(connection, kind="serve")):
+        if str(row.get("block_id")) != block_id or row.get("chosen_item_id") != item_id:
+            continue
+        if row["mode"] not in (S.MODE_BAND, S.MODE_CALIBRATE) or not row.get("support"):
+            return None
+        draw = S.recompute(row)
+        kind = "calibrate" if row["mode"] == S.MODE_CALIBRATE else ("band" if item_id in draw.near_tie else "overlap")
+        return {"mode": kind, "why": WHY[kind], "selection_id": row["id"]}
+    return None
+
+
 # -- serve-time receipts (§8.2) and the loadings in force (§7.5) ------------------------------------
 
 def frozen_loadings(vault: Any, repository: Any, connection: Any, content_hash: str, served_at: str
@@ -397,4 +419,5 @@ __all__ = [
     "slot_applies",
     "threshold_receipts",
     "view_for",
+    "why_for_presentation",
 ]

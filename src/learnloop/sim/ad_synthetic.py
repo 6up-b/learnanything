@@ -43,6 +43,10 @@ from learnloop.adaptive_difficulty import priors as P
 from learnloop.adaptive_difficulty import selection as S
 from learnloop.adaptive_difficulty.relatedness import VaultStructure
 from learnloop.adaptive_difficulty.state import ItemSpec, View
+from learnloop.config import MasteryConfig
+from learnloop.curriculum.depth_rungs import DEFAULT_TRAJECTORY, UNCERTAIN_EVIDENCE_COUNT, UNCERTAIN_OPTIMISM_STEPS
+from learnloop.learner.mastery import MasteryObservation, display_mastery, initial_mastery_state, update_mastery
+from learnloop.scheduling.randomization_layer import draw_from, reading_dose_propensities
 
 ITEMS_PER_POINT = 8
 SUBJECT = "s"
@@ -69,8 +73,6 @@ def coding(point: Mapping[str, Any] | None) -> np.ndarray:
 
 def waypoint_points() -> list[dict[str, Any]]:
     """The default trajectory's four waypoint tuples (the incumbent ladder's points)."""
-
-    from learnloop.curriculum.depth_rungs import DEFAULT_TRAJECTORY
 
     return [{**dict(w.features), "tools": ["closed_book"]} for w in DEFAULT_TRAJECTORY]
 
@@ -279,15 +281,11 @@ class Incumbent:
     name = "incumbent"
 
     def __init__(self, n: int) -> None:
-        from learnloop.config import MasteryConfig
-
         self.n = n
         self.config = MasteryConfig()
         self.states: dict[str, list[Any]] = {}
 
     def _state(self, lo: str) -> list[Any]:
-        from learnloop.learner.mastery import initial_mastery_state
-
         if lo not in self.states:
             self.states[lo] = [initial_mastery_state(lo, "sim", "2026-10-01T00:00:00Z",
                                                      logit_variance=float(self.config.cold_start_prior_logit_variance))
@@ -295,9 +293,6 @@ class Incumbent:
         return self.states[lo]
 
     def waypoint(self, lo: str) -> np.ndarray:
-        from learnloop.curriculum.depth_rungs import UNCERTAIN_EVIDENCE_COUNT, UNCERTAIN_OPTIMISM_STEPS
-        from learnloop.learner.mastery import display_mastery
-
         out = np.zeros(self.n, dtype=int)
         developing = float(self.config.display_developing_threshold)
         strong = float(self.config.display_strong_threshold)
@@ -311,8 +306,6 @@ class Incumbent:
 
     def observe(self, lo: str, category: np.ndarray, at_index: int) -> None:
         from datetime import UTC, datetime, timedelta
-
-        from learnloop.learner.mastery import MasteryObservation, update_mastery
 
         states = self._state(lo)
         when = datetime(2026, 10, 1, tzinfo=UTC) + timedelta(minutes=3 * at_index)
@@ -1089,8 +1082,6 @@ def readers(*, scenario: str, n: int = 200, los: int = 1250, windows: int = 4, f
     (G-AD3-15: one judged question per window, its verdict carrying no signal, or misses predicting
     cold failure at ``λ_missed = -0.4``). ``arms``: ``on`` (reading on) and ``off`` (reading off)
     scored prequentially on the same answers."""
-
-    from learnloop.scheduling.randomization_layer import draw_from, reading_dose_propensities
 
     rng = rng_for(f"{seed}:{scenario}:{floor}:{verdicts}:{rise}")
     curves = dict(BASE_CURVES)

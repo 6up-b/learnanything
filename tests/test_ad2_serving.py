@@ -669,3 +669,26 @@ def test_deferral_switch_off_serves_the_item(tmp_path):
     reveal(paths, "pi_a", amount=0.2, at=iso(clock.now() - timedelta(minutes=30)))
     assert _serve_until(env, paths, clock, 3) == ["pi_a"]
     assert not block_events(paths, "item_displaced") and not selections(paths)
+
+
+def test_why_this_item_names_the_draw_that_chose_it(tmp_path):
+    """§12: the served item's "why this item" line, by the draw's mode (here calibrate: a new
+    cell's posterior is too wide to target the band); none for an item no AD draw chose."""
+
+    import learnloop_sidecar.handlers  # noqa: F401 - registers the RPCs
+    from learnloop_sidecar.context import SidecarContext
+    from learnloop_sidecar.registry import METHOD_REGISTRY
+
+    from learnloop.adaptive_difficulty.serving import WHY, why_for_presentation
+
+    paths, env, _clock, _record = _plan(tmp_path, ("pi_h", "pi_e1", "pi_e2"), features={"pi_h": HARD})
+    _record, step = advance(env, serve=True)
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        found = why_for_presentation(connection, step["presentation_id"])
+        assert found["mode"] == "calibrate" and found["why"] == WHY["calibrate"]
+        assert why_for_presentation(connection, "pp_missing") is None
+    ctx = SidecarContext()
+    ctx.load(paths.root)
+    spec = METHOD_REGISTRY["adaptive_difficulty.why_item"]
+    result = spec.handler(ctx, spec.params_model.model_validate({"planPresentationId": step["presentation_id"]}))
+    assert result["why"] == WHY["calibrate"] and result["mode"] == "calibrate"

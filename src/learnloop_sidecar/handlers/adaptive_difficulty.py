@@ -8,7 +8,9 @@
   ``taken`` or ``dismissed`` row (never changing the draw);
 * ``adaptive_difficulty.readiness`` -- an LO's readiness lines from the
   subject view, labelled as predictions, with the untested rule (a pure read;
-  "exam level: not yet predicted" with ``promoted_predictor`` off).
+  "exam level: not yet predicted" with ``promoted_predictor`` off);
+* ``adaptive_difficulty.why_item`` -- "why this item" for a served plan item:
+  the one line of the draw that chose it (§12), or none (a pure read).
 
 None of them reads a salience magnitude or writes evidence (A2, A12). Desktop
 only (pinned in tests/test_mobile_allowlist.py).
@@ -23,7 +25,8 @@ from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
 
-AD23_RPCS = ("reader.dose_offer", "reader.dose_offer_event", "adaptive_difficulty.readiness")
+AD23_RPCS = ("reader.dose_offer", "reader.dose_offer_event", "adaptive_difficulty.readiness",
+             "adaptive_difficulty.why_item")
 
 
 class ReaderDoseOfferInput(ParamsModel):
@@ -90,6 +93,25 @@ def adaptive_difficulty_readiness(ctx: SidecarContext, params: AdaptiveDifficult
     if params.learning_object_id not in vault.learning_objects:
         raise SidecarError("not_found", f"No learning object {params.learning_object_id!r}.")
     return versioned(lo_readiness(vault, repository, params.learning_object_id))
+
+
+class AdaptiveDifficultyWhyItemInput(ParamsModel):
+    plan_presentation_id: str
+
+
+@method("adaptive_difficulty.why_item", AdaptiveDifficultyWhyItemInput)
+def adaptive_difficulty_why_item(ctx: SidecarContext, params: AdaptiveDifficultyWhyItemInput) -> dict[str, Any]:
+    """"Why this item" (§12): ``{"why": null}`` when no AD draw chose the served item. Writes nothing."""
+
+    from contextlib import closing
+
+    from learnloop.adaptive_difficulty.serving import why_for_presentation
+    from learnloop.db.connection import connect
+
+    _vault, repository = ctx.require_vault()
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        found = why_for_presentation(connection, params.plan_presentation_id)
+    return versioned({"why": found["why"] if found else None, "mode": found["mode"] if found else None})
 
 
 __all__ = ["AD23_RPCS"]

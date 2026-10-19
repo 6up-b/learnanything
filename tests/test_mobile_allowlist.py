@@ -304,7 +304,8 @@ def test_the_pinned_hints_h2b_rpcs_are_all_of_them():
 # Adaptive difficulty AD2+AD3 (spec_adaptive_difficulty_v1 §5.12, §9.5): the
 # Reader's randomized dose offer and its uptake rows, and an LO's readiness
 # lines from the subject view. Desktop only.
-AD23_RPCS = ("reader.dose_offer", "reader.dose_offer_event", "adaptive_difficulty.readiness")
+AD23_RPCS = ("reader.dose_offer", "reader.dose_offer_event", "adaptive_difficulty.readiness",
+             "adaptive_difficulty.why_item")
 
 
 def test_the_pinned_ad23_rpcs_are_all_of_them():

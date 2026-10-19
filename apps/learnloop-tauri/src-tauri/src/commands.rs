@@ -1357,6 +1357,12 @@ sidecar_passthrough!(reader_library_compare, "reader.library_compare");
 sidecar_passthrough!(reader_library_ask_tutor, "reader.library_ask_tutor");
 sidecar_passthrough!(reader_library_job, "reader.library_job");
 sidecar_passthrough!(reader_library_job_cancel, "reader.library_job_cancel");
+// Adaptive difficulty AD2+AD3 (the Reader's randomized dose offer and its uptake rows,
+// an LO's readiness lines, "why this item"): desktop only.
+sidecar_passthrough!(reader_dose_offer, "reader.dose_offer");
+sidecar_passthrough!(reader_dose_offer_event, "reader.dose_offer_event");
+sidecar_passthrough!(adaptive_difficulty_readiness, "adaptive_difficulty.readiness");
+sidecar_passthrough!(adaptive_difficulty_why_item, "adaptive_difficulty.why_item");
 sidecar_passthrough!(reader_block_health, "reader.block_health");
 sidecar_passthrough!(reader_block_original_region, "reader.block_original_region");
 sidecar_passthrough!(reader_translate_selection, "reader.translate_selection");

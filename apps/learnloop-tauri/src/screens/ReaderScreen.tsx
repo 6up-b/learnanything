@@ -48,6 +48,7 @@ import { highlightFromPlacement, kindLabel, type PdfHighlight } from "../compone
 import { exactNode } from "../components/pdfSelection/model";
 import { RectUnionOverlay } from "../components/RectUnionOverlay";
 import { errorMessage } from "../errors";
+import { DoseOffer } from "./reader/DoseOffer";
 import { type AuthoredQuestionStatus } from "./reader/authoredQuestion";
 import { searchBasisLabel } from "./reader/searchBasis";
 import { readGuidePlan } from "./reader/guidePlan";
@@ -110,6 +111,8 @@ import {
   type ReaderSelection,
 } from "./reader/readerShared";
 
+/** A stable empty list for the dose offer before the guide plan loads. */
+const NO_SECTIONS: never[] = [];
 const READER_MODE_OPTIONS = [
   { value: "skim", label: "skim quickly" },
   { value: "anchor", label: "read closely" },
@@ -383,6 +386,9 @@ export function ReaderScreen({
     completeSection, jumpToSpan, noteUserScroll, onPlaybackSpan, onPlaybackSeek, settleOpening, placeAtOpen,
     hydrateProgress, resetProgress,
   } = progress;
+
+  // Adaptive difficulty AD2+AD3: the dose offer's visit (a stable reader of the live visit).
+  const doseVisitId = useCallback(() => visit.visitRef.current?.id ?? null, [visit.visitRef]);
 
   const refreshAnnotations = useCallback(async () => {
     if (!render || offline) return;
@@ -2840,6 +2846,24 @@ export function ReaderScreen({
               ))}
             </div>
           ) : null}
+
+          {/* Adaptive difficulty AD2+AD3 (§5.12, D21): now and then, one more thing to try at a
+              section's end (a randomized offer, logged before it shows). */}
+          <DoseOffer
+            extractionId={render.extractionId}
+            sectionId={completedSections[completedSections.length - 1] ?? null}
+            visitId={doseVisitId}
+            boundaryChecksAvailable={boundaryChecksAvailable}
+            cueDensityOff={cueCtl.cues?.density === "off"}
+            skim={mode === "skim"}
+            restoredSpanId={progress.restoredSpan ?? null}
+            sections={guidePlan?.sections ?? NO_SECTIONS}
+            onShowExample={(spanId) => jumpToSpan(spanId)}
+            onShowQuestion={() => {
+              const section = completedSections[completedSections.length - 1];
+              if (section) openQuickCheck(section);
+            }}
+          />
 
           <GuideRail
             visible={railTab === "guide"}

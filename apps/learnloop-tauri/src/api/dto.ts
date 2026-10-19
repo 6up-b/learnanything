@@ -8512,3 +8512,45 @@ export interface HintRequestInput {
   takenLevel?: 4 | 5;
   secondsOnItem?: number;
 }
+
+// -- Adaptive difficulty AD2+AD3 (spec_adaptive_difficulty_v1 §5.12, §9.5, §12): desktop only --
+
+/** The Reader's randomized dose offer at a section boundary (§5.12): null when nothing is offered. */
+export interface ReaderDoseOfferDto {
+  version: number;
+  eligible: boolean;
+  reason: string | null;
+  drawId: string | null;
+  offer: {
+    drawId: string;
+    variant: "extra_worked_example" | "extra_question";
+    text: string;
+    /** The glass box's line: "Offered at random, to learn how much of this helps you". */
+    why: string;
+    content: { extractionId?: string; spanId?: string; questionId?: string; style?: string };
+  } | null;
+}
+
+export type ReaderDoseOfferEvent = "delivered" | "not_delivered" | "taken" | "dismissed";
+
+/** An LO's readiness lines from the subject view, labelled as predictions (§9.5). */
+export interface AdaptiveReadinessDto {
+  version: number;
+  predicted: boolean;
+  line: string;
+  cells: Array<{
+    facet: string;
+    capability: string;
+    untested: boolean;
+    pBarAtTop: number | null;
+    label: string;
+    kind: "prediction";
+  }>;
+}
+
+/** "Why this item" (§12): the one line of the draw that chose a served plan item, or null. */
+export interface AdaptiveWhyItemDto {
+  version: number;
+  why: string | null;
+  mode: "band" | "overlap" | "calibrate" | null;
+}
