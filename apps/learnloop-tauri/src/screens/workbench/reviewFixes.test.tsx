@@ -169,6 +169,7 @@ it("F8: when the latest edits can't be saved, no hint or suggestion is asked for
 it("F14: a hint's own claims are shown under it, each labelled checked or the model's reading", async () => {
   api.workbenchHelpState.mockResolvedValue({ version: 1, check: null, storedHelpStyle: "balanced", helpStyle: null, hintsEnabled: true,
     hints: [{ ...HINT_RESULT, assistId: "ha_claims", kind: "next_step", level: 3, hintMd: "Your step 1 stands.", aboutStepId: "c1",
+      symbolicEnabled: true,
       continueFromStepId: null, discriminatingAnswer: null, bridge: null,
       claims: [
         { step: 1, statement: "step 1 is the antiderivative of the density", status: "checked", label: "checked", kind: "integration", reason: "" },
@@ -179,3 +180,18 @@ it("F14: a hint's own claims are shown under it, each labelled checked or the mo
   expect(claims.textContent).toContain("✓ step 1 is the antiderivative of the density — checked");
   expect(claims.textContent).toContain("≈ step 1 stands as written — model's reading, not checked");
 });
+
+// RW2b fix round 11: the hint job's symbolicEnabled reaches the hint view, so
+// a claim is "✓" only while the server says the switch is on.
+it.each([[true, "✓ x + x = 2x — checked"], [false, "≈ x + x = 2x — model's reading, not checked"]])(
+  "a hint job's claims follow the server's symbolic switch (%s)", async (enabled, line) => {
+    const claims = [{ step: 1, statement: "x + x = 2x", status: "checked", label: "checked", kind: "equivalence", reason: "" }];
+    api.workbenchSuggestHelp.mockResolvedValue(done({ status: "ready", suggestion: null, steps: HINT_RESULT.steps }, "sug"));
+    api.workbenchRequestHelp.mockResolvedValue(done({ ...HINT_RESULT, claims, symbolicEnabled: enabled }, "hint"));
+    render(<Workbench {...props({ initial: session({ steps: [] }) })} />);
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: /^help ·/ })); });
+    const block = await screen.findByTestId("workbench-problem-help");
+    await act(async () => { fireEvent.keyDown(within(block).getByTestId("help-ladder"), { key: "Enter" }); });
+    const shown = await screen.findByTestId("workbench-hint-claims");
+    expect(shown.textContent).toContain(line);
+  });

@@ -185,7 +185,8 @@ export function verdictMark(verdict: { method: string; verdict: string; mark: st
 } {
   // Fix round 10: with symbolic checks off (the server's switch), no stored
   // symbolic verdict is shown as checked either.
-  if (symbolicEnabled !== false && CHECKED_METHODS.has(verdict.method)) return { mark: verdict.mark, label: verdict.label };
+  // Fix round 11: only an explicit true lets a checked mark through.
+  if (symbolicEnabled === true && CHECKED_METHODS.has(verdict.method)) return { mark: verdict.mark, label: verdict.label };
   const mark = verdict.verdict === "valid" ? "≈" : verdict.verdict === "questionable" ? "?" : "·";
   return { mark, label: MODEL_LABEL };
 }
@@ -194,7 +195,7 @@ export function verdictMark(verdict: { method: string; verdict: string; mark: st
  *  "✓" only for a claim the check decided; every other claim reads "≈". */
 export function claimLine(claim: { statement: string; status: string; label: string },
   symbolicEnabled?: boolean): string {
-  const checked = symbolicEnabled !== false && CHECKED_METHODS.has(claim.status);
+  const checked = symbolicEnabled === true && CHECKED_METHODS.has(claim.status);
   const mark = checked ? "✓" : "≈";
   const label = checked ? claim.label : claim.status === "model" || CHECKED_METHODS.has(claim.status) ? MODEL_LABEL
     : claim.label;

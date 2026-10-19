@@ -24,6 +24,7 @@ import json
 from typing import Any
 
 from learnloop.db.connection import connect
+from learnloop.symbolic_view import verdict_records
 
 SUFFIX = "+workbench-v1"
 #: ``practice_attempts.entry_surface`` of a workbench submit.
@@ -46,9 +47,12 @@ def _json(value: Any, default: Any) -> Any:
         return default
 
 
-def trace_for_attempt(repository: Any, attempt: Mapping[str, Any]) -> dict[str, Any] | None:
+def trace_for_attempt(repository: Any, attempt: Mapping[str, Any], *,
+                      symbolic_enabled: bool = False) -> dict[str, Any] | None:
     """The trace of a workbench attempt, or None (any other attempt, or a
-    workbench attempt with no shown assist)."""
+    workbench attempt with no shown assist). A check's verdicts are read
+    through :mod:`learnloop.symbolic_view` with the CURRENT symbolic switch
+    (fix round 11): off, a stored checked verdict is the model's reading."""
 
     if str(attempt.get("entry_surface") or "") not in WORKBENCH_SURFACES:
         return None
@@ -82,7 +86,7 @@ def trace_for_attempt(repository: Any, attempt: Mapping[str, Any]) -> dict[str, 
             entry["work_before"] = work
             last_work = work
         if row["assist_kind"] == "check":
-            verdicts = _json(row.get("step_verdicts_json"), [])
+            verdicts = verdict_records(row, enabled=symbolic_enabled)
             entry.update({
                 "assist": "check",
                 "verdicts": [{"step": numbers.get(str(v.get("chain_id"))), "verdict": v.get("verdict"),

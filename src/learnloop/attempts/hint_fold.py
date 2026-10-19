@@ -72,13 +72,14 @@ def combine_held(client_hints: int, parts: Any, *, authored_hints: int | None = 
     ``hintsUsed`` and each problem's book plus carried hints. ``authoredHints``
     is ignored.
 
-    (b) **Otherwise**, the sum of distinct components: the client part
-    (``max(authoredHints, carried)`` when sent, else the legacy
-    ``max(hintsUsed, carried + book)``), the book once when it is not already
-    inside the client part, and the size of the union of server assist ids
-    over ALL open problems (never a per-problem maximum). With
-    ``authoredHints`` the total is never below the client's ``hintsUsed``
-    (round 5's overlap rule)."""
+    (b) **Otherwise** (fix round 11, the client floor): ``non_server`` is the
+    larger of the client's ``hintsUsed`` and the client part plus the book
+    when the book is not already inside it (with ``authoredHints``:
+    ``max(authoredHints, carried) + book``; without, the legacy
+    ``carried + book``), so a book the client holds counts even when no open
+    problem holds it; the count is ``non_server`` plus the size of the union
+    of server assist ids over ALL open problems (never a per-problem
+    maximum)."""
 
     client = int(client_hints)
     parts = [_part(part) for part in parts]
@@ -89,8 +90,10 @@ def combine_held(client_hints: int, parts: Any, *, authored_hints: int | None = 
     has_book = bool(found_book if book is None else (book or found_book))
     most_carried = max(found_carried, int(carried or 0))
     if authored_hints is None:
-        return max(client, most_carried + int(has_book)) + len(ids)
-    return max(client, max(int(authored_hints), most_carried) + int(has_book) + len(ids))
+        non_server = max(client, most_carried + int(has_book))
+    else:
+        non_server = max(client, max(int(authored_hints), most_carried) + int(has_book))
+    return non_server + len(ids)
 
 
 @dataclass(frozen=True)
@@ -241,13 +244,17 @@ def refolded_draft(connection: Any, draft: Any) -> tuple[Any, ServerHintFold | N
         # Fix round 10 (c): the UNION of the ids seen before grading and now,
         # so no id already counted is dropped; the book and carried likewise.
         now_union, now_book, now_carried = held_components(now_parts)
-        components = (tuple(sorted(set(fold.held_union) | set(now_union))), bool(fold.held_book) or now_book,
-                      max(int(fold.held_carried), now_carried))
-        # The RW2a parts (used when no server assist was ever seen): only raised.
-        before = combine_held(fold.held_client_hints, fold.held_parts)
-        parts = now_parts if combine_held(fold.held_client_hints, now_parts) >= before else tuple(fold.held_parts)
-        largest = max((book + carried + len(ids) for book, carried, ids in map(_part, parts)), default=0)
-        held = (max(largest, int(fold.held_hints)), bool(now_primed) or bool(fold.held_primed), parts)
+        if not fold.held_union and not now_union:
+            # Fix round 11 (a): no RW2b server assist before grading or in the
+            # transaction: RW2a's PRE-GRADING count and type stand exactly, as
+            # at 7d4c5f4ce (only the H2b window fold below refolds).
+            held = (fold.held_hints, bool(now_primed) or bool(fold.held_primed), tuple(fold.held_parts))
+        else:
+            # (b) with every component; the union never drops an id (c).
+            components = (tuple(sorted(set(fold.held_union) | set(now_union))), bool(fold.held_book) or now_book,
+                          max(int(fold.held_carried), now_carried))
+            largest = max((book + carried + len(ids) for book, carried, ids in now_parts), default=0)
+            held = (max(largest, int(fold.held_hints)), bool(now_primed) or bool(fold.held_primed), now_parts)
     if since != fold.since:
         # The window the attempt attaches (:func:`attach_keyless`) is the one
         # read here, under the write lock.

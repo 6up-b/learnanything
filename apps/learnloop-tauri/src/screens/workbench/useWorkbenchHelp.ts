@@ -300,6 +300,8 @@ export function useWorkbenchHelp(options: {
           aboutStepId: result.steps?.aboutStepId ?? stepId, continueFromStepId: result.steps?.continueFromStepId ?? null,
           stepLine: result.stepLine ?? "", replies: result.replies ?? [], discriminatingAnswer: null, bridge: null,
           claims: result.claims ?? [],
+          // Fix round 11: the server's CURRENT symbolic switch, carried to the view.
+          symbolicEnabled: result.symbolicEnabled === true,
         };
         setHints((current) => [...current, view]);
         if (result.record) onRecordRef.current(result.record);

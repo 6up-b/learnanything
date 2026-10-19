@@ -19,8 +19,10 @@ it("a model's-reading verdict never shows a checked mark, whatever marker arrive
     { mark: "≈", label: "model's reading, not checked" });
   expect(verdictMark(verdict("model", "questionable", "≠", "checked")).mark).toBe("?");
   expect(verdictMark(verdict("model", "unchecked", "·", "model's reading, not checked")).mark).toBe("·");
-  // A verdict the check decided keeps its marker.
-  expect(verdictMark(verdict("checked", "valid", "✓", "checked"))).toEqual({ mark: "✓", label: "checked" });
+  // A verdict the check decided keeps its marker, only with the switch on.
+  expect(verdictMark(verdict("checked", "valid", "✓", "checked"), true)).toEqual({ mark: "✓", label: "checked" });
+  // Fix round 11: a missing switch refuses it too.
+  expect(verdictMark(verdict("checked", "valid", "✓", "checked")).mark).toBe("≈");
 });
 
 it("the verdict cell renders the guarded marker", () => {
@@ -32,7 +34,9 @@ it("a claim is shown with ✓ only when the check decided it", () => {
   expect(claimLine({ statement: "x = 1", status: "model", label: "model's reading, not checked" }))
     .toBe("≈ x = 1 — model's reading, not checked");
   expect(claimLine({ statement: "x = 1", status: "failed", label: "doesn't hold" })).toBe("≈ x = 1 — doesn't hold");
-  expect(claimLine({ statement: "x = 1", status: "checked", label: "checked" })).toBe("✓ x = 1 — checked");
+  expect(claimLine({ statement: "x = 1", status: "checked", label: "checked" }, true)).toBe("✓ x = 1 — checked");
+  expect(claimLine({ statement: "x = 1", status: "checked", label: "checked" })).toBe(
+    "≈ x = 1 — model's reading, not checked");
 });
 
 // RW2b fix round 10: the server sends the switch; off, even a stored checked

@@ -8600,6 +8600,8 @@ export interface WorkbenchHelpResultDto {
   replies?: string[];
   stepLine?: string;
   claims?: HintClaimDto[];
+  /** Fix round 11: workbench.symbolic_checks_enabled at read time. */
+  symbolicEnabled?: boolean;
   bridgeJobId?: string | null;
   /** A bridge (bridge jobs). */
   line?: string;

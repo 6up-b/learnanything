@@ -82,13 +82,11 @@ def _verdicts(check: Mapping[str, Any] | None, steps: Sequence[hint_workbench.Wo
 
     if check is None:
         return []
-    try:
-        records = json.loads(check.get("step_verdicts_json") or "[]")
-    except (TypeError, ValueError):
-        return []
+    from learnloop.symbolic_view import verdict_records
+
     hashes = {step.chain_id: step.content_hash for step in steps}
-    verdicts = [hint_workbench.unchecked_verdict(hint_workbench.verdict_from_record(record), symbolic_enabled)
-                for record in records]
+    verdicts = [hint_workbench.verdict_from_record(record)
+                for record in verdict_records(check, enabled=symbolic_enabled)]
     return [verdict for verdict in verdicts if hashes.get(verdict.chain_id) == verdict.content_hash]
 
 
@@ -237,11 +235,9 @@ def row_claims(row: Mapping[str, Any], *, symbolic_enabled: bool = False) -> lis
     with symbolic checks off a stored checked claim is the model's reading
     (fix round 10)."""
 
-    try:
-        claims = list(json.loads(row.get("contract_failures_json") or "{}").get("claims") or [])
-    except (TypeError, ValueError, AttributeError):
-        return []
-    return [hint_workbench.unchecked_claim(claim, symbolic_enabled) for claim in claims if isinstance(claim, Mapping)]
+    from learnloop.symbolic_view import stored_claims
+
+    return stored_claims(row, enabled=symbolic_enabled)
 
 
 def served_claims(repository: Repository, assist_id: str | None, *,

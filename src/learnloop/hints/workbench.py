@@ -764,32 +764,13 @@ def check_steps(check: Check, output: Any, *, target: Target, context: Workbench
     return check
 
 
-#: How a verdict or claim was decided by the symbolic check (fix round 10).
-SYMBOLIC_METHODS = frozenset(("checked", "checked_numerically"))
-
-
 def symbolic_enabled(vault: Any) -> bool:
-    """``workbench.symbolic_checks_enabled`` now (off by default, fix round 9)."""
+    """``workbench.symbolic_checks_enabled`` now (off by default, fix round 9),
+    read through the one accessor (:mod:`learnloop.symbolic_view`)."""
 
-    return bool(getattr(getattr(getattr(vault, "config", None), "workbench", None), "symbolic_checks_enabled", False))
+    from learnloop.symbolic_view import switch
 
-
-def unchecked_verdict(verdict: StepVerdict, enabled: bool) -> StepVerdict:
-    """Fix round 10: with symbolic checks off, a stored symbolic verdict reads
-    as the model's reading on every read path (the stored row is history and
-    stays as it was)."""
-
-    return verdict if enabled or verdict.method not in SYMBOLIC_METHODS else replace(verdict, method="model")
-
-
-def unchecked_claim(claim: Mapping[str, Any], enabled: bool) -> dict[str, Any]:
-    """Fix round 10: a stored checked claim, read with symbolic checks off,
-    is the model's reading."""
-
-    out = dict(claim)
-    if not enabled and out.get("status") in SYMBOLIC_METHODS:
-        out.update(status="model", label=CLAIM_LABELS["model"])
-    return out
+    return switch(vault)
 
 
 def text_fingerprint(text: str) -> str:
@@ -1078,11 +1059,8 @@ def schedule_map(vault: Any, sqlite_path: Any, practice_item_id: str, *, client:
 
 
 __all__ = [
-    "SYMBOLIC_METHODS",
     "symbolic_enabled",
     "text_fingerprint",
-    "unchecked_claim",
-    "unchecked_verdict",
     "DISCRIMINATING_RUNG_LABEL",
     "ERROR_KINDS",
     "FALLBACK_KIND",

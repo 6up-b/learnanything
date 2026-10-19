@@ -65,7 +65,7 @@ function props(overrides: Partial<ComponentProps<typeof Workbench>> = {}): Compo
 const CHECK = {
   assistId: "ha_check", checkedAt: "2026-10-18T09:05:00Z", firstQuestionableStepId: "c2",
   errorKind: { kind: "conceptual", label: "looks like a concept applied the wrong way (model's guess)", reason: "" },
-  assumptions: ["X has density 2x on [0, 1]"], symbolicAvailable: true, stale: false, changedSteps: [],
+  assumptions: ["X has density 2x on [0, 1]"], symbolicAvailable: true, symbolicEnabled: true, stale: false, changedSteps: [],
   verdicts: [
     { chainId: "c1", number: 1, verdict: "valid", method: "checked", mark: "✓", label: "checked", reason: "", dependsOn: [], assumption: "", first: false, editedSinceCheck: false, deletedSinceCheck: false },
     { chainId: "c2", number: 2, verdict: "questionable", method: "model", mark: "?", label: "model's reading, not checked", reason: "a CDF value is already a probability — “F(1/2) + 1”", dependsOn: ["c1"], assumption: "", first: true, editedSinceCheck: false, deletedSinceCheck: false },

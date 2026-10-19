@@ -739,9 +739,11 @@ def check_view(row: Mapping[str, Any], steps: Sequence[hint_workbench.WorkbenchS
     default) a stored symbolic verdict reads as the model's reading, and the
     view says so (``symbolic_enabled``)."""
 
+    from learnloop.symbolic_view import verdict_records
+
     try:
-        verdicts = [hint_workbench.unchecked_verdict(hint_workbench.verdict_from_record(record), symbolic_enabled)
-                    for record in json.loads(row.get("step_verdicts_json") or "[]")]
+        verdicts = [hint_workbench.verdict_from_record(record)
+                    for record in verdict_records(row, enabled=symbolic_enabled)]
     except (TypeError, ValueError):
         verdicts = []
     placement = json.loads(row.get("placement_json") or "{}")

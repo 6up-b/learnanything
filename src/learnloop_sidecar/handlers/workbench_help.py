@@ -308,9 +308,9 @@ def request_help(ctx: SidecarContext, params: RequestHelpInput) -> dict[str, Any
                                            claim_verifier=verifier)
         payload = result.as_dict()
         # Reader §5.3 (F14): the hint's claims as checked, each labelled.
-        payload["claims"] = help_module.served_claims(worker_repo, result.assist_id,
-                                                      symbolic_enabled=hint_workbench.symbolic_enabled(vault))
-        payload["symbolic_enabled"] = hint_workbench.symbolic_enabled(vault)
+        # Stored as decided; every read remaps them with the CURRENT switch
+        # (``_payload``: fix round 11).
+        payload["claims"] = help_module.served_claims(worker_repo, result.assist_id, symbolic_enabled=True)
         payload["steps"] = labels
         payload["step_line"] = hint_workbench.step_labels(context)["line"]
         if result.status == hint_service.UNAVAILABLE and result.reason in help_module.WRITER_DOWN_REASONS:
@@ -427,6 +427,12 @@ def _payload(ctx: SidecarContext, job_id: str) -> dict[str, Any]:
             result["record"] = _record(ctx, meta.session_id)
         if meta.kind == HINT and job.delivered:
             result["record"] = _record(ctx, meta.session_id)
+        if meta.kind == HINT:
+            # Fix round 11: the cached payload's claims as read NOW (the switch
+            # may have changed since the job finished), and the current switch.
+            from learnloop.symbolic_view import hint_result_view, switch
+
+            result = hint_result_view(result, enabled=switch(_vault))
     return versioned({**base, "state": "done", "result": to_camel(result)})
 
 

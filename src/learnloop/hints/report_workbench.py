@@ -33,6 +33,7 @@ import sqlite3
 from typing import Any
 
 from learnloop.db.connection import connect
+from learnloop.symbolic_view import symbolic_outcomes, verdict_records
 
 REPORT_VERSION = "workbench-help-report-v1"
 
@@ -71,11 +72,6 @@ def _week(value: Any) -> str:
         return "unknown"
     year, week, _day = when.isocalendar()
     return f"{year}-W{week:02d}"
-
-
-def _method(value: Any, symbolic_enabled: bool) -> str:
-    method = str(value or "model")
-    return method if symbolic_enabled or method not in ("checked", "checked_numerically") else "model"
 
 
 def build_workbench_report(sqlite_path: Path | str, *, item_facets: Mapping[str, Iterable[str]] | None = None,
@@ -122,11 +118,12 @@ def build_workbench_report(sqlite_path: Path | str, *, item_facets: Mapping[str,
     guesses: Counter[str] = Counter()
     sandbox_missing = 0
     for row in shown_checks:
-        for verdict in _loads(row["step_verdicts_json"], []):
-            methods[_method(verdict.get("method"), symbolic_enabled)] += 1
+        # Fix round 11: through the one accessor, with the switch given.
+        for verdict in verdict_records(row, enabled=symbolic_enabled):
+            methods[str(verdict["method"])] += 1
         placement = _loads(row["placement_json"], {})
-        for entry in placement.get("symbolic") or ():
-            kinds_declared[_method(entry.get("method"), symbolic_enabled)] += 1
+        for entry in symbolic_outcomes(placement, enabled=symbolic_enabled):
+            kinds_declared[str(entry["method"])] += 1
         if placement.get("symbolic_problem") == "sandbox_unavailable":
             sandbox_missing += 1
         if row["error_kind_guess"]:

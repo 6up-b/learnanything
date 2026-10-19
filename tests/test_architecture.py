@@ -565,3 +565,76 @@ def test_runtime_constructed_module_references_resolve() -> None:
         if spec.source_of_value != "module_constant":
             continue
         parameter_registry._resolve_module_constant(spec.path)
+
+
+# -- RW2b fix round 11: one accessor for stored symbolic results ---------------------------------
+
+#: Raw reads of a stored symbolic method or claim status: the check's verdict
+#: records, the placement's ``symbolic`` outcomes, a hint's ``claims``.
+_SYMBOLIC_FIELD_TOKENS = {
+    "step_verdicts_json": re.compile(r"step_verdicts_json"),
+    "verdict_from_record": re.compile(r"verdict_from_record"),
+    "checked_numerically": re.compile(r"checked_numerically"),
+    "symbolic_key": re.compile(r"""\.get\(\s*["']symbolic["']|\[\s*["']symbolic["']\s*\]"""),
+    "claims_key": re.compile(r"""\.get\(\s*["']claims["']|\[\s*["']claims["']\s*\]"""),
+}
+#: Who may touch the raw fields, and which tokens: the accessor, the writers
+#: (they decide and store the methods), and modules whose ``claims`` belong to
+#: another domain. Every READER goes through ``learnloop.symbolic_view`` with
+#: the current switch (fix round 11, the orchestrator's ruling).
+_SYMBOLIC_FIELD_ALLOWED = {
+    "src/learnloop/symbolic_view.py": set(_SYMBOLIC_FIELD_TOKENS),  # the one accessor
+    "src/learnloop/workbench/symbolic.py": {"checked_numerically", "claims_key"},  # writer: the harness
+    "src/learnloop/workbench/check.py": {"step_verdicts_json", "verdict_from_record", "checked_numerically"},  # writer
+    "src/learnloop/hints/workbench.py": {"step_verdicts_json", "verdict_from_record", "checked_numerically"},  # writer
+    "src/learnloop/hints/service.py": {"claims_key"},  # writer: a round's claims
+    "src/learnloop/db/stores/help_assists.py": {"step_verdicts_json"},  # the store's columns
+    "src/learnloop/workbench/ladder.py": {"verdict_from_record"},  # decodes the accessor's records
+    "src/learnloop_sidecar/handlers/workbench_help.py": {"claims_key"},  # writes the job's claims as decided
+    "src/learnloop/hints/report_workbench.py": {"step_verdicts_json"},  # a waypoint's map node (no method) only
+    # Another domain's "claims":
+    "src/learnloop/cli/evsi.py": {"claims_key"},
+    "src/learnloop/evsi_calibration/compare.py": {"claims_key"},
+    "src/learnloop/diagnosis/offline_review/judge.py": {"claims_key"},
+    "src/learnloop/content/synthesis/source_set_synthesis.py": {"claims_key"},
+    "src/learnloop/content/synthesis/vault_epigraphs.py": {"claims_key"},
+    "src/learnloop/content/synthesis/append_neighborhood.py": {"claims_key"},  # source inventories' claims
+    "src/learnloop/content/synthesis/graph_nomination.py": {"claims_key"},
+    "src/learnloop/content/synthesis/source_coverage.py": {"claims_key"},
+    "src/learnloop/content/synthesis/source_unit_inventory.py": {"claims_key"},
+    "src/learnloop/db/repositories.py": {"claims_key"},
+}
+#: The readers, each through the accessor.
+_SYMBOLIC_READERS = (
+    "src/learnloop/workbench/check.py",
+    "src/learnloop/workbench/ladder.py",
+    "src/learnloop/hints/report_workbench.py",
+    "src/learnloop/diagnosis/split/workbench_trace.py",
+    "src/learnloop_sidecar/handlers/workbench_help.py",
+)
+
+
+def _symbolic_field_violations(files: dict[str, str]) -> list[str]:
+    out = []
+    for relative, text in files.items():
+        allowed = _SYMBOLIC_FIELD_ALLOWED.get(relative, set())
+        for name, pattern in _SYMBOLIC_FIELD_TOKENS.items():
+            if name not in allowed and pattern.search(text):
+                out.append(f"{relative}: {name}")
+    return sorted(out)
+
+
+def test_symbolic_field_detector_rejects_a_synthetic_reader() -> None:
+    assert _symbolic_field_violations({"src/learnloop/new_reader.py": 'row.get("step_verdicts_json")'}) == [
+        "src/learnloop/new_reader.py: step_verdicts_json"]
+    assert _symbolic_field_violations({"src/learnloop/hints/service.py": 'x = "checked_numerically"'}) == [
+        "src/learnloop/hints/service.py: checked_numerically"]
+
+
+def test_stored_symbolic_results_are_read_only_through_the_one_accessor() -> None:
+    files = {}
+    for path in sorted((REPOSITORY_ROOT / "src").rglob("*.py")):
+        files[path.relative_to(REPOSITORY_ROOT).as_posix()] = path.read_text(encoding="utf-8")
+    assert _symbolic_field_violations(files) == []
+    for relative in _SYMBOLIC_READERS:
+        assert "learnloop.symbolic_view" in files[relative], relative
