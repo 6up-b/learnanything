@@ -375,6 +375,7 @@ def ask_question(
     learner_draft_md: str | None = None,
     linked_reference_filter: LinkedReferenceFilter | None = None,
     reader_tutor: reader_modes.ReaderTutorRequest | None = None,
+    reader_caller: Mapping[str, Any] | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """``question_context`` carries the §13.4 generating-process fields
@@ -405,7 +406,12 @@ def ask_question(
     (as RW4a's pinned provider does), the retrieved passages join the
     selection and its neighbours after them, and the answer comes in RW1c's
     three modes with abstention (``reader_modes.finalize``). None keeps the
-    Reader tutor of before, byte for byte."""
+    Reader tutor of before, byte for byte. ``reader_caller`` (RW1c, Codex
+    re-review F2) is the server-derived restriction a Reader question was
+    asked under (a cold administration, a bound item), stored on the
+    question's ``source_context`` as it lands so anything later rebuilt from
+    it (``instructional.policy.caller_for_question_event``) is never wider;
+    None (an unrestricted question) stores nothing."""
 
     if context not in QUESTION_CONTEXTS:
         raise TutorQAError(f"Unknown question context {context!r}")
@@ -619,6 +625,8 @@ def ask_question(
                     source_context["suggested_learning_objects"] = suggestions
             if delivery:
                 source_context["delivery"] = dict(delivery)
+            if reader_caller:
+                source_context["reader_caller"] = dict(reader_caller)
         event_id = repository.insert_question_event(
             {**question_row, "source_context": source_context}, clock=clock,
         )
@@ -738,11 +746,15 @@ def ask_question(
         # reveal accounting below; ``practice_item_id`` follows it so the
         # episode and the dialogue's causal join name the same item.
         item, practice_item_id = bound_item, bound_item.id
-    hint_equivalent = item is not None and answer.question_type in HINT_EQUIVALENT_TYPES
+    hint_equivalent = item is not None and answer.question_type in HINT_EQUIVALENT_TYPES and not (
+        # RW1c (Codex re-review F1): the client's cold path already counts
+        # this question as a hint on the bound item; its reveals still land.
+        bound_item is not None and bool(getattr(reader_tutor, "hint_counted_elsewhere", False)))
     leak_overlap = (
-        # A bound Reader answer shows its excerpt and bridge too: every
-        # displayed component is scored, once, as the tutor's answer.
-        answer_leak_overlap(reader_modes.displayed_text(answer.answer_md, reader_view)
+        # A bound Reader answer shows its bridge too, scored with the
+        # explanation; the excerpt is debited once, with the passages it
+        # opens, as a source review below (Codex re-review F11).
+        answer_leak_overlap(reader_modes.displayed_text(answer.answer_md, reader_view, excerpt=False)
                             if bound_item is not None else answer.answer_md, item.expected_answer)
         if item is not None
         else 0.0
@@ -791,6 +803,8 @@ def ask_question(
             # shown under the answer; what they expose of the key is a source
             # review, as T6's cited retrieved spans are (the guard keeps a
             # passage that reproduces the key out of the context entirely).
+            # The excerpt is counted here only: the tutor_answer overlap above
+            # leaves it out (Codex re-review F11).
             shown_spans = [*citations, *([reader_view["excerpt"]] if (reader_view or {}).get("excerpt") else [])]
             span_overlap = max(
                 _cited_span_overlap(shown_spans, ai_context.source_spans, item.expected_answer),

@@ -22,6 +22,7 @@ and the tutor is today's, byte for byte) and ``reader_tutor.offers_enabled``
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from learnloop_sidecar.errors import SidecarError
@@ -81,7 +82,56 @@ def _ancestors(exchanges: list[dict[str, Any]], parent_id: str | None) -> list[d
     return list(reversed(chain))
 
 
-def build_request(ctx: Any, vault: Any, repository: Any, params: Any) -> Any:
+@dataclass(frozen=True)
+class ReaderRestriction:
+    """What one ``reader.ask`` is restricted to, derived on the server
+    whatever the retrieval switch says (Codex re-review F2).
+
+    ``policy`` is the caller's derived policy (``cold_attempt`` when the
+    client says cold, or when the server derives a cold administration of the
+    bound item); ``item_id`` is the item a workbench session binds the
+    question to. ``active`` is False while both RW1c switches are off: the
+    Reader is then the base's, byte for byte (only the client's cold flag
+    counts, as before RW1c)."""
+
+    caller: Any
+    policy: str
+    item_id: str | None
+    client_cold: bool
+    active: bool
+
+    @property
+    def cold(self) -> bool:
+        return self.policy == "cold_attempt"
+
+    def stored(self) -> dict[str, Any] | None:
+        """The restriction persisted on the question (``source_context.reader_caller``),
+        so a caller rebuilt from it later is never wider; None when unrestricted."""
+
+        if not self.active or not (self.cold or self.item_id):
+            return None
+        return {"policy": self.policy, "cold": self.cold, "item_id": self.item_id,
+                "derived_from": "client_cold" if self.client_cold else "server"}
+
+
+def restriction(vault: Any, repository: Any, params: Any) -> ReaderRestriction:
+    """The question's restriction (see :class:`ReaderRestriction`)."""
+
+    client_cold = bool(params.cold_active)
+    if not (retrieval_enabled(vault) or offers_enabled(vault)):
+        return ReaderRestriction(caller=None, policy="cold_attempt" if client_cold else "reading",
+                                 item_id=None, client_cold=client_cold, active=False)
+    from learnloop.source_retrieval.policy import derive_policy
+    from learnloop_sidecar.handlers.library_ask import reader_caller
+
+    caller = reader_caller(vault, repository, extraction_id=params.extraction_id,
+                           workbench_session_id=params.workbench_session_id)
+    policy = "cold_attempt" if client_cold else derive_policy(caller)[0]
+    return ReaderRestriction(caller=caller, policy=policy, item_id=caller.item_id or None,
+                             client_cold=client_cold, active=True)
+
+
+def build_request(ctx: Any, vault: Any, repository: Any, params: Any, restricted: ReaderRestriction) -> Any:
     """The ``ReaderTutorRequest`` for one ``reader.ask``, or None while retrieval is off."""
 
     if not retrieval_enabled(vault):
@@ -92,18 +142,14 @@ def build_request(ctx: Any, vault: Any, repository: Any, params: Any) -> Any:
     from learnloop.reader import reader_dialogue as RD
     from learnloop.source_retrieval import reader_tutor as RT
     from learnloop.source_retrieval.library_ask import open_questions
-    from learnloop.source_retrieval.policy import derive_policy
     from learnloop.tutor.reader_modes import ReaderTutorRequest
-    from learnloop_sidecar.handlers.library_ask import reader_caller
 
     intent = params.retrieval_intent
     if intent != "explain" and not params.parent_exchange_id:
         raise SidecarError("validation_error", "Another way and that didn't help follow an answer: name its exchange.")
-    caller = reader_caller(vault, repository, extraction_id=params.extraction_id,
-                           workbench_session_id=params.workbench_session_id)
-    policy = "cold_attempt" if params.cold_active else derive_policy(caller)[0]
+    caller, policy = restricted.caller, restricted.policy
     item = vault.practice_items.get(caller.item_id) if caller.item_id else None
-    bound_item, practice_session_id = _accounting_binding(vault, repository, params, item)
+    bound_item, practice_session_id, hint_elsewhere = _accounting_binding(vault, repository, params, item)
     history = RD.ask_history(repository, extraction_id=params.extraction_id, branches=True) \
         if params.parent_exchange_id else []
     ancestors = _ancestors(history, params.parent_exchange_id)
@@ -148,26 +194,28 @@ def build_request(ctx: Any, vault: Any, repository: Any, params: Any) -> Any:
     assisted = item if policy == "assisted_practice" else None
     return ReaderTutorRequest(retrieve=lookup, intent=intent if service else "explain", personalized=personalized,
                               learner_work=work, item=assisted, policy=policy, bound_item=bound_item,
-                              practice_session_id=practice_session_id,
+                              practice_session_id=practice_session_id, hint_counted_elsewhere=hint_elsewhere,
                               context_guard=RT.ItemBoundGuard(repository, assisted) if assisted is not None else None,
                               shown_span_keys=shown if intent == "alternative" else ())
 
 
-def _accounting_binding(vault: Any, repository: Any, params: Any, item: Any) -> tuple[Any, str | None]:
-    """The item a bound workbench session practises and the practice session
-    its submit counts questions in (the workbench's own resolution,
-    ``handlers.workbench._question_hints``): the Reader question is help on
-    that item whatever the policy (Codex review F1). None when no session
-    binds one, or when the client's cold path already records this question
-    as a hint on that same item (``reader_dialogue._record_cold_hint_equivalent``),
-    so nothing is counted twice."""
+def _accounting_binding(vault: Any, repository: Any, params: Any, item: Any) -> tuple[Any, str | None, bool]:
+    """``(item, practice session, hint counted elsewhere)``: the item a bound
+    workbench session practises and the practice session its submit counts
+    questions in (the workbench's own resolution,
+    ``handlers.workbench._question_hints``). The Reader question is help on
+    that item whatever the policy (Codex review F1), so its reveals always
+    land. When the client's cold path already records this question as a hint
+    on that same item (``reader_dialogue._record_cold_hint_equivalent``), the
+    binding is kept and only the hint count is left to that row (Codex
+    re-review F1). ``(None, None, False)`` when no session binds an item."""
 
     if item is None or not params.workbench_session_id:
-        return None, None
+        return None, None, False
+    hint_elsewhere = False
     if params.cold_active and params.cold_attempt_id:
         attempt = repository.fetch_practice_attempt(params.cold_attempt_id) or {}
-        if attempt.get("practice_item_id") == item.id:
-            return None, None
+        hint_elsewhere = attempt.get("practice_item_id") == item.id
     from learnloop.reader import workbench as WB
 
     session = WB.session_row(repository, params.workbench_session_id)
@@ -179,29 +227,18 @@ def _accounting_binding(vault: Any, repository: Any, params: Any, item: Any) -> 
     if not practice_session:
         recent = repository.most_recent_open_session()
         practice_session = recent["id"] if recent else None
-    return item, practice_session
+    return item, practice_session, hint_elsewhere
 
 
-def item_bound(request: Any) -> bool:
-    """A workbench session bound the question to an item (its tools would read wider)."""
-
-    return request is not None and getattr(request, "item", None) is not None
-
-
-def tools_refused(request: Any, *, cold_active: bool) -> bool:
+def tools_refused(restricted: ReaderRestriction) -> bool:
     """No tool, practice request or offer lookup may run for this question
-    (G48, Codex review F2): during a cold administration, whether the client
-    says so (``coldActive``) or the server derives it from the bound item,
-    and inside a bound session, where the tools would be rebuilt from the
-    stored reader question under ``reading`` (wider than the session's
-    ``assisted_practice``)."""
+    (G48, Codex review F2, re-review F2): during a cold administration,
+    whether the client says so (``coldActive``) or the server derives it from
+    the bound item, and inside a bound session, where a tool's own caller
+    would read wider than the session's ``assisted_practice``. Derived from
+    the restriction, never from the retrieval switch."""
 
-    if cold_active:
-        return True
-    if request is None:
-        return False
-    return getattr(request, "policy", "reading") == "cold_attempt" or getattr(request, "bound_item", None) is not None \
-        or item_bound(request)
+    return restricted.cold or (restricted.active and restricted.item_id is not None)
 
 
 def offers(vault: Any, repository: Any, result: dict[str, Any], *, extraction_id: str) -> dict[str, Any] | None:
@@ -256,12 +293,13 @@ def record_excerpt_exposure(repository: Any, result: dict[str, Any]) -> list[str
 __all__ = [
     "FALLBACK_PRACTICE_VERSION",
     "build_request",
+    "ReaderRestriction",
     "fallback_practice_request",
-    "item_bound",
     "offers",
     "offers_enabled",
     "prompt_contract_fields",
     "record_excerpt_exposure",
+    "restriction",
     "retrieval_enabled",
     "tools_refused",
 ]

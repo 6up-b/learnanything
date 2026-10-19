@@ -253,3 +253,138 @@ def test_another_way_shown_set_reaches_the_request(tmp_path, monkeypatch, intent
     # Nothing it shows was shown by the answer it is under.
     first = {f"{c['extractionId']}:{c['spanId']}" for c in root["citations"]} | {"ext_text:t3"}
     assert not shown & first
+
+
+# --- Re-review (Codex re-review of 015e02706) ---------------------------------------------------------
+
+
+def _cold_attempt(repository, vault, attempt_id: str, session_id: str) -> None:
+    item = vault.practice_items[ITEM]
+    repository.insert_practice_attempt({
+        "id": attempt_id, "practice_item_id": item.id, "learning_object_id": item.learning_object_id,
+        "practice_mode": "short_answer", "attempt_type": "independent_attempt", "session_id": session_id,
+        "created_at": "2026-01-01T00:00:00Z",
+    })
+
+
+def _reveals(repository, event_id: str) -> list[dict]:
+    with repository.connection() as connection:
+        return [dict(row) for row in connection.execute(
+            "SELECT source_kind, amount, basis FROM reveal_events WHERE question_event_id = ?", (event_id,))]
+
+
+def test_a_cold_bound_question_keeps_its_reveals_and_counts_one_hint(tmp_path, monkeypatch):
+    """F1 (reopened): the client's cold path records the hint; the bound question
+    still carries the item, so what the answer showed reaches the reveal ledger."""
+
+    from learnloop.tutor.tutor_qa import hint_equivalents_for_submission
+
+    key = "Swapping two rows multiplies the determinant by minus one, so it flips."
+    tutor = LookupTutor(answer_md=key)
+    paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    set_item_answer(paths, ITEM, key)
+    ctx = _rebind(paths, ctx)
+    vault, _repository = ctx.require_vault()
+    practice_session = repository.create_session()
+    _cold_attempt(repository, vault, "att_cold_rw1c", practice_session)
+    session = _bound_session(repository, ITEM)
+    answer = ask(ctx, workbenchSessionId=session, coldActive=True, coldAttemptId="att_cold_rw1c")
+    event = repository.question_event(answer["eventId"])
+    assert event["practice_item_id"] == ITEM
+    # The hint is counted once: by the cold path's practice row, not again by the bound question.
+    assert event["hint_equivalent"] is False
+    assert hint_equivalents_for_submission(repository, ITEM, practice_session) == 1
+    tutor_reveal = [row for row in _reveals(repository, answer["eventId"]) if row["source_kind"] == "tutor_answer"]
+    assert tutor_reveal and tutor_reveal[0]["amount"] >= 0.8
+
+
+def test_an_explicitly_cold_question_rebuilds_cold(tmp_path, monkeypatch):
+    """F2 (reopened): a cold Ask with no item binding never rebuilds as reading."""
+
+    from learnloop.instructional.policy import caller_for_question_event
+    from learnloop.source_retrieval.policy import derive_policy
+
+    tutor = LookupTutor()
+    _paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    vault, _repository = ctx.require_vault()
+    answer = ask(ctx, coldActive=True)
+    assert repository.question_event(answer["eventId"])["practice_item_id"] is None
+    assert derive_policy(caller_for_question_event(vault, repository, answer["eventId"]))[0] == "cold_attempt"
+    found = call(ctx, "find_sources", {"query": "determinant sign swap", "intent": "explain",
+                                       "caller": {"kind": "tutor", "ref": answer["eventId"]}})
+    assert found["policy"] == "cold_attempt"
+    plain = ask(ctx, "and outside the check?")
+    assert derive_policy(caller_for_question_event(vault, repository, plain["eventId"]))[0] == "reading"
+
+
+@pytest.mark.parametrize("retrieval", [False, True])
+def test_a_server_derived_cold_refuses_tools_whatever_the_retrieval_switch(tmp_path, monkeypatch, retrieval):
+    """F2 (reopened): retrieval off and offers on, the server's own cold status still refuses everything."""
+
+    import learnloop.instructional.policy as policy
+
+    tutor = LookupTutor(tool_requests=REQUESTS)
+    _paths, ctx, repository, _spans = reader_ctx(
+        tmp_path, monkeypatch, tutor,
+        config={"reader_tutor": {"retrieval_enabled": retrieval, "offers_enabled": True}})
+    vault, _repository = ctx.require_vault()
+    plain = ask(ctx)
+    assert plain.get("practiceRequest") or plain.get("toolRequests")  # the control: tools on
+    session = _bound_session(repository, ITEM)
+    monkeypatch.setattr(policy, "cold_administration_open", lambda repo, item_id: item_id == ITEM)
+    before = table_counts(repository, ["source_tool_calls"])
+    answer = ask(ctx, "during the check?", workbenchSessionId=session)
+    assert "practiceRequest" not in answer and "toolRequests" not in answer and "tutorOffers" not in answer
+    assert table_counts(repository, ["source_tool_calls"]) == before
+    from learnloop.instructional.policy import caller_for_question_event
+    from learnloop.source_retrieval.policy import derive_policy
+
+    assert derive_policy(caller_for_question_event(vault, repository, answer["eventId"]))[0] == "cold_attempt"
+
+
+def test_retrieval_off_a_bound_question_offers_nothing_and_rebuilds_as_its_item(tmp_path, monkeypatch):
+    """F2 (reopened): the bound restriction does not depend on the retrieval switch either."""
+
+    from learnloop.instructional.policy import caller_for_question_event
+    from learnloop.source_retrieval.policy import derive_policy
+
+    tutor = LookupTutor(tool_requests=REQUESTS)
+    _paths, ctx, repository, _spans = reader_ctx(
+        tmp_path, monkeypatch, tutor, config={"reader_tutor": {"retrieval_enabled": False, "offers_enabled": True}})
+    vault, _repository = ctx.require_vault()
+    session = _bound_session(repository, ITEM)
+    answer = ask(ctx, workbenchSessionId=session)
+    assert "practiceRequest" not in answer and "toolRequests" not in answer
+    caller = caller_for_question_event(vault, repository, answer["eventId"])
+    assert caller.item_id == ITEM and derive_policy(caller)[0] == "assisted_practice"
+
+
+EXCERPT_PASSAGE = "Cofactor expansion computes a determinant along any row or column."
+PARTIAL_KEY = ("Cofactor expansion along column three; triangular reduction gives pivots whose product "
+               "equals twelve exactly.")
+
+
+def test_a_displayed_excerpt_is_debited_once(tmp_path, monkeypatch):
+    """F11: the excerpt is one displayed component; its partial exposure (about
+    0.29 of the key) is recorded once, so it does not cross the 0.35 auto-prime
+    threshold by being counted twice."""
+
+    from learnloop.attempts.attempts import AUTO_PRIME_REVEAL_THRESHOLD, reveal_total_for_submission
+    from learnloop.tutor.tutor_qa import span_answer_overlap
+
+    tutor = LookupTutor(
+        answer_md="Think about what each step does.", cite=lambda context: [],
+        excerpt=lambda context: next(
+            ({"extraction_id": s["extraction_id"], "span_id": s["span_id"], "quote": s["text"]}
+             for s in context["source_spans"] if s["text"] == EXCERPT_PASSAGE), None))
+    paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    set_item_answer(paths, ITEM, PARTIAL_KEY)
+    ctx = _rebind(paths, ctx)
+    repository.create_session()
+    exposure = span_answer_overlap(EXCERPT_PASSAGE, PARTIAL_KEY)
+    assert exposure < AUTO_PRIME_REVEAL_THRESHOLD <= 2 * exposure  # crosses only when counted twice
+    answer = ask(ctx, workbenchSessionId=_bound_session(repository, ITEM))
+    assert answer["tutor"]["excerpt"]["quote"] == EXCERPT_PASSAGE and not answer["citations"]
+    reveals = _reveals(repository, answer["eventId"])
+    assert sum(row["amount"] for row in reveals) == pytest.approx(exposure)
+    assert reveal_total_for_submission(repository, ITEM) < AUTO_PRIME_REVEAL_THRESHOLD

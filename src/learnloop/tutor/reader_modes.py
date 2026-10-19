@@ -78,6 +78,11 @@ class ReaderTutorRequest:
     #: component's answer overlap reach the attempt (Codex review F1).
     bound_item: Any = None
     practice_session_id: str | None = None
+    #: The client's cold path already records this question as a hint on the
+    #: bound item (``reader_dialogue._record_cold_hint_equivalent``): the bound
+    #: question keeps the item for its reveals and is not counted as a hint a
+    #: second time (Codex re-review F1).
+    hint_counted_elsewhere: bool = False
     #: Item-bound, the guard every delivered span passes (the selection, its
     #: neighbours, the blocks they cite and the retrieved passages):
     #: ``guard(spans) -> (kept, counts)``. Injected by the adapter (this
@@ -225,12 +230,16 @@ def finalize(answer: Any, spans: Sequence[Mapping[str, Any]], citations: list[di
     return view, displayed
 
 
-def displayed_text(answer_md: str | None, view: Mapping[str, Any] | None) -> str:
+def displayed_text(answer_md: str | None, view: Mapping[str, Any] | None, *, excerpt: bool = True) -> str:
     """Everything a Reader answer shows as text: the explanation, the excerpt
-    and the bridge (what a bound item's answer overlap is measured on)."""
+    and the bridge. ``excerpt=False`` leaves the excerpt out: a bound item's
+    ``tutor_answer`` overlap is measured on the explanation and the bridge,
+    and the excerpt is debited with the passages it opens (``source_review``),
+    so each displayed component is counted once (Codex re-review F11)."""
 
     view = view or {}
-    parts = [str(answer_md or ""), str((view.get("excerpt") or {}).get("quote") or ""), str(view.get("bridge_md") or "")]
+    parts = [str(answer_md or ""), str((view.get("excerpt") or {}).get("quote") or "") if excerpt else "",
+             str(view.get("bridge_md") or "")]
     return "\n\n".join(part for part in parts if part.strip())
 
 

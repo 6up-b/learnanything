@@ -128,14 +128,16 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
         )
     from learnloop_sidecar.handlers import reader_tutor as RTU
 
-    # RW1c: the tutor that looks things up (None while the switch is off).
-    lookup = RTU.build_request(ctx, vault, repository, params)
+    # RW1c: the question's restriction, derived on the server whatever the
+    # retrieval switch (Codex re-review F2), and the tutor that looks things
+    # up (None while the retrieval switch is off).
+    restricted = RTU.restriction(vault, repository, params)
+    lookup = RTU.build_request(ctx, vault, repository, params, restricted)
     # A question a workbench session binds to an item reads under
-    # assisted_practice; the tutor's tools would be rebuilt from the reader
-    # question under reading, so it writes none there (never wider). During a
-    # cold administration -- the client's flag or the server's own derivation
-    # -- every tool is refused (G48, Codex review F2).
-    tools_allowed = not RTU.tools_refused(lookup, cold_active=params.cold_active)
+    # assisted_practice; its tools would read wider, so it writes none there.
+    # During a cold administration -- the client's flag or the server's own
+    # derivation -- every tool is refused (G48, Codex review F2).
+    tools_allowed = not RTU.tools_refused(restricted)
     try:
         result = RD.ask(
             vault,
@@ -159,6 +161,8 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
             # None during a cold administration: every tool is refused then (G2).
             tool_request_handler=_reader_tool_handler(vault) if tools_allowed else None,
             **({"reader_tutor": lookup} if lookup is not None else {}),
+            # Stored with the question, so nothing rebuilt from it reads wider.
+            **({"reader_caller": restricted.stored()} if restricted.stored() else {}),
         )
     except QuestionLimitReached as exc:
         raise SidecarError(
@@ -208,9 +212,8 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
     # RW1c on (either switch): nothing is offered when the tools are refused,
     # since the Reader runs a practice request's lookup as the answer lands
     # (G59); both off, the wire is the base's.
-    rw1c = lookup is not None or RTU.offers_enabled(vault)
     practice_request = tutor_practice_request(vault, repository, result["event_id"]) \
-        if tools_allowed or (params.cold_active and not rw1c) else None
+        if tools_allowed or (params.cold_active and not restricted.active) else None
     if result.get("tool_requests"):
         response["tool_requests"] = result["tool_requests"]
         if any(entry.get("tool") == "find_practice" for entry in result["tool_requests"]):
@@ -220,7 +223,7 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
         response["tutor"] = result["tutor"]
         RTU.record_excerpt_exposure(repository, result)
     # No buttons at all during a cold administration (nothing is offered then).
-    cold = params.cold_active or getattr(lookup, "policy", None) == "cold_attempt"
+    cold = restricted.cold
     offers = None if cold else RTU.offers(vault, repository, result, extraction_id=params.extraction_id)
     if offers is not None:
         # RW1c: the Reader's own buttons; and, without the sources service, a

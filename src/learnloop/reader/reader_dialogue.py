@@ -511,9 +511,14 @@ def ask(
     tool_request_handler: Any | None = None,
     source_span_provider: Any | None = None,
     reader_tutor: Any | None = None,
+    reader_caller: Mapping[str, Any] | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Answer a span-grounded reader question (§7.6).
+
+    ``reader_caller`` (RW1c, Codex re-review F2): the restriction the adapter
+    derived on the server (cold, a bound item), stored with the question
+    (``tutor_qa.ask_question``); None stores nothing.
 
     ``reader_tutor`` (reader workbench RW1c, a
     ``tutor.reader_modes.ReaderTutorRequest`` the adapter builds): the tutor
@@ -666,6 +671,7 @@ def ask(
         tool_request_handler=tool_request_handler,
         source_span_provider=source_span_provider,
         reader_tutor=reader_tutor,
+        reader_caller=reader_caller,
         clock=clock,
     )
     if source_span_provider is not None or "reader_tutor" in result:
