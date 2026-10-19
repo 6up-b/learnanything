@@ -157,15 +157,19 @@ round does not take them on, so as not to widen the stage:
    (§10.4), recomputed from the prequential records. The report stays a pure
    read with no history table. The alternative is a persisted report-run
    history, which needs a table. Accept the windows, or ask for persistence?
+   **Owner decision 2026-10-19:** "F8. Readiness's "two consecutive reports" uses deterministic report windows (one per 200 AD selections), with no history table. Accepted as built; just record the decision." Recorded; no code change (the spec's §10.4 flag table now says so).
 2. **F5, a commission whose generation fails or is rejected.** The
    commission stays open, so §6.1's "at most one open per cell" suppresses
    further commissions for that cell. The job runs once per commission, which
    bounds spend. Should an unlanded commission expire, for example after its
    job has finished plus N days, so that a fresh one can be drawn? A
    generated item routed to review lands only after it is accepted.
+   **Owner decision 2026-10-19:** "F5. An unlanded commission (its generation failed or was rejected) EXPIRES 7 days after its job finished, so a fresh one can be drawn for that cell. Keep "at most one open per cell". A commission routed to review stays open while its item is in review. Add tests." Done in the final round below (`ad_serving.open_commissions`, three tests).
 3. **F8, density lowerings.** These are matched to a visit by time, because
    `cue_density_changed` events carry no `visit_id`. Should the Reader send
    the visit with the preference change?
+   **Owner, 2026-10-19:** not in scope here. **Follow-up for a Reader stage:** the Reader sends the
+   visit id with the cue-density change, and the burden flag joins on it instead of on time.
 
 ## Gate (this fix step)
 
@@ -268,6 +272,7 @@ on `resolved == []`, because the client seam was called once with
    answer). Accept "two consecutive reports" as two consecutive 200-selection
    windows (§10.4), or ask for a persisted report-run history, which needs a
    table and a migration?
+   **Owner decision 2026-10-19:** "F8. Readiness's "two consecutive reports" uses deterministic report windows (one per 200 AD selections), with no history table. Accepted as built; just record the decision."
 2. and 3. Unchanged from the first round.
 4. **Field's PF-c merge (new, out of this stage).** `field.outcomes._load`
    still reads an attempt's grade as the latest surviving row of each
@@ -291,3 +296,73 @@ Targeted tests only (owner rule 2026-10-17).
 `schedule_commission_generation`, `ad_commission`, `practice_expansion`,
 `enqueue_practice_expansion` and `grading_epochs`, plus the AD suites, the
 PF-c readers and the contract tests): test_ad23_fix_review.py, test_ad23_migration.py, test_ad23_successor.py, test_ad23_sim.py, test_ad2_model.py, test_ad2_serving.py, test_ad3_reading.py, test_ad3_subject_view.py, test_ad3_monitoring.py, test_ad3_dose_arm.py, test_ad3_relatedness.py, test_adaptive_difficulty_ad1.py, test_architecture.py, test_characterization_certification_ledger.py, test_contract_commissioning.py, test_ingest_runner.py, test_ingest_jobs.py, test_ingest_queue_store.py, test_reader_progression.py, test_reader_recap_review_r3.py, test_rebuild_orchestrator.py, test_regrade_contract_successor.py, test_sidecar_measurement.py, test_pfc_unverified_unassessed.py, test_pfc_unassessed_readers.py, test_field_split_outcomes.py, test_desktop_rpc_contract.py, test_coordinated_migrations.py, test_table_roles.py, test_tracked_fixture_databases.py.
+
+## Final verify and the owner's decisions (2026-10-19)
+
+Codex's final verify of `9854531f0..3c1a83c58` (codex-job `20261019-030226-tPl9CI`, verdict
+REOPENED) confirmed F1 and F10 as fixed, reopened F8 and raised F11. The owner then decided F8, F5,
+the history fallback and the failed simulation gates (`adaptive-difficulty-ad23.md` §3.4 and its open
+questions 1, 4 and 8). This round applies the decisions and fixes F11. The regressions are in
+`tests/test_ad23_owner_decisions.py`. No model calls: fakes only (the generator is a
+`StructuredClientFake`; the production client seam is monkeypatched).
+
+| Id | Severity | Title | Verdict | Test or decision |
+|---|---|---|---|---|
+| F8 | Medium | The readiness flag has no persisted report history | accepted as built | **Owner decision 2026-10-19:** "F8. Readiness's "two consecutive reports" uses deterministic report windows (one per 200 AD selections), with no history table. Accepted as built; just record the decision." |
+| F11 | Medium | Automatic commission retry overrides explicit cancellation | fixed | `test_a_cancelled_commission_stays_cancelled_when_models_come_back_on`: queued, failed with `ad_models_off`, cancelled, models back on and the ordinary schedule run twice: the batch stays cancelled, the job failed, no client resolved; only the learner's explicit resume runs it |
+| F5 | (open question 2) | An unlanded commission blocks its cell for ever | decided and built | **Owner decision 2026-10-19:** "F5. An unlanded commission (its generation failed or was rejected) EXPIRES 7 days after its job finished, so a fresh one can be drawn for that cell. Keep "at most one open per cell". A commission routed to review stays open while its item is in review. Add tests." Tests: `test_an_unlanded_commission_expires_seven_days_after_its_job_and_a_fresh_one_is_drawn`, `test_a_commission_whose_item_is_in_review_stays_open_until_the_decision`, `test_a_commission_waiting_on_models_stays_open_and_a_cancelled_one_expires` |
+
+**Fail-first.** The six tests of `tests/test_ad23_owner_decisions.py` were run against
+`3c1a83c58`'s `src/` and `migrations/` (`git archive` into a scratch directory, `-o pythonpath`
+pointing at it): **6 of 6 fail**. F11's test fails on its assertion ("an automatic retry cleared the
+learner's cancellation": `cancel_requested` false and the job requeued). The three F5 tests fail
+because `open_commissions` takes no time (the old commission is open for ever). The defaults test
+fails on `history_fallback`, and the history test on `excluded == reconstructed_current`.
+
+### What changed
+
+- **F11.** `IngestRunner.requeue_failed_unless_cancelled(batch_id, error_code=...)` checks the batch's
+  cancellation and requeues the jobs that failed with that code in one `atomic()` transaction, and
+  never clears a cancellation. `DurableIngestJobs.enqueue_practice_expansion` uses it for a
+  commission's `ad_models_off` job instead of `resume_batch()`. Clearing a cancellation stays with the
+  explicit `resume_batch` (the learner's resume).
+- **F5.** `ad_serving.open_commissions(connection, *, now=None)`: a commission is open while it has no
+  landed result and has neither expired nor been superseded.
+  - It expires 7 days (`COMMISSION_EXPIRY_DAYS`) after its generation finished without landing: the
+    job completed (nothing landed), failed for any reason other than waiting on models that are off,
+    or its batch was cancelled. If a review decision on an item proposed for its LO since the draw
+    came later, the 7 days run from that decision.
+  - It stays open while its job is not queued, still queued or running, or waiting on the models; and
+    while an item proposed for its LO since the draw is in review (a pending `practice_item` creation
+    that is not `invalid`).
+  - A commission the generation path drew for itself has no job of its own, so its clock starts at
+    the draw.
+  - It is **superseded** by a later commission for the same cell. The one-open rule allows that only
+    after this one closed, so an expiry is never undone, and an explicit resume of an old job finds
+    its commission closed (the handler's no-op).
+  - Every caller passes its decision time: the serve draw, the generation path, the landing receipts
+    and the job handler. The scheduler uses the wall clock. The job's outcome is read through
+    `ingest_queue.batch_outcome`, so the queue's SQL keeps its one owner.
+- **The defaults** (`adaptive-difficulty-ad23.md` §3.4 and open question 4): `calibrate_below = 0.25`
+  (amendment A17); `learned_coupling = false`; `adaptive_difficulty.history_fallback =
+  "current_content"`, read by AD's replay and the AD report's field comparators. `field.legacy_fallback`
+  stays `"exclude"`, because it also drives the field harness and field's DERIVED facet-outcome view.
+  The new key is classified in the parameter registry (decision, constraint; `ENUM_DECISION_LEAVES`).
+  The 20 defaults snapshots were recomputed.
+- **Density lowerings' `visit_id`** (open question 3): not in scope; recorded as a follow-up for a
+  Reader stage, here and in the spec's §10.4.
+
+### Gate (this round; owner rule 2026-10-17: targeted only)
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 27 kept, 0 broken |
+| targeted pytest, `uv run pytest -n auto` over 88 files: every `test_ad*` file (`test_ad23_sim.py` included), `test_salience_firewall.py`, the config, registry, defaults-snapshot and CLI/serializer snapshot tests (every file naming `DEFAULTS_SNAPSHOT`, `defaults_fingerprint` or the parameter registry), the content pipeline job tests (`test_ingest_jobs`, `test_ingest_runner`, `test_ingest_queue_store`, `test_question_promotion_jobs`), `test_architecture.py`, `test_mobile_allowlist.py` | **7,149 passed, 36 xfailed, 1 failed** (1,063.9 s). The failure, `test_ingest_queue_store.py::test_ingest_queue_sql_has_one_persistence_owner`, was this round's queue SQL in `ad_serving`; it moved to `ingest_queue.batch_outcome` |
+| after that fix: `test_ingest_queue_store`, `test_ad23_owner_decisions`, `test_ad23_fix_review`, `test_ad2_serving`, `test_architecture` | 75 passed |
+| and `test_ingest_jobs`, `test_ingest_runner`, `test_ad23_successor`, `test_ad3_subject_view`, `test_ad3_relatedness`, `test_ad2_model`, `test_mobile_allowlist`, `test_registry_audit`, `test_config_refactor` | 397 passed |
+| `-m durability tests/test_ad23_migration.py` | 1 passed |
+| the 36 xfails | the strict xfails of the failed simulation gates, all still failing at `calibrate_below = 0.25` |
+| `python -m learnloop.sim.ad_gates` | re-run at 0.25; figures in `adaptive-difficulty-ad23.md` §3.4 |
+| references: `db_generate_reference.py`, `db_validate_reference.py` | 0 errors (927 configuration leaves; the two prose counts updated) |
+| CLI help snapshot | unchanged (no command or option changed); `test_cli_help_snapshot.py` passed in the run |
+| vitest, `cargo check` | not applicable: no frontend or `src-tauri` change |

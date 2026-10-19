@@ -27,7 +27,7 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
 
-from tests.ad23_fakes import LO, ProposalLLM, ad23_vault, answer, env_for, rows, selections, set_item
+from tests.ad23_fakes import COUPLED, LO, ProposalLLM, ad23_vault, answer, env_for, rows, selections, set_item
 
 OTHER = ("pi_o1", "pi_o2", "pi_o3", "pi_o4")
 MINE = ("pi_m1", "pi_m2")
@@ -207,7 +207,7 @@ def test_coupling_is_prediction_only(tmp_path):
 
     results = {}
     for name in ("plain", "adversarial"):
-        paths = _two_los(tmp_path / name)
+        paths = _two_los(tmp_path / name, ad=COUPLED)
         vault = load_vault(paths.root)
         repository = Repository(paths.sqlite_path)
         if name == "adversarial":
@@ -326,7 +326,7 @@ def test_shadow_report_names_what_a_new_version_reinterprets(tmp_path):
     """A new coupling version applies through its shadow rebuild: the report (in memory) shows the
     change before anything is adopted."""
 
-    paths = _two_los(tmp_path)
+    paths = _two_los(tmp_path, ad=COUPLED)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     env, clock = env_for(paths, items=OTHER + MINE)

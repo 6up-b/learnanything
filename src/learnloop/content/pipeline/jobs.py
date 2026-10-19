@@ -3152,13 +3152,17 @@ def handle_source_exercise_import(ctx: JobContext) -> dict[str, Any]:
 
 
 def ad_commission_batch_id(commission_id: str) -> str:
-    """The one durable batch of an adaptive difficulty commission's generation."""
+    """The one durable batch of an adaptive difficulty commission's generation (the store's
+    name for it: a commission's expiry reads its job, Codex review F5)."""
 
-    return f"batch_ad_commission_{commission_id}"
+    from learnloop.db.stores.ad_serving import commission_batch_id
+
+    return commission_batch_id(commission_id)
 
 
-#: A commission's job that ran with ``LEARNLOOP_AD_MODELS=off``: failed retryable, resumed by
-#: the next schedule with models on (Codex re-review F10).
+#: A commission's job that ran with ``LEARNLOOP_AD_MODELS=off``: failed retryable, requeued by
+#: the next schedule with models on unless its batch was cancelled (Codex re-review F10, verify
+#: F11). Its commission stays open meanwhile (the store's ``MODELS_OFF_CODE``).
 AD_MODELS_OFF_CODE = "ad_models_off"
 
 
@@ -3180,7 +3184,8 @@ def _handle_ad_commission(ctx: JobContext, lo_ids: list[str], commission_id: str
     if not contract_on(vault.config):
         return {"generated": 0, "skipped_reason": "generation_contract off"}
     with ctx.repo.atomic():
-        open_ids = {str(row["id"]) for row in ad_serving.open_commissions(ctx.repo.connection())}
+        open_ids = {str(row["id"]) for row in ad_serving.open_commissions(ctx.repo.connection(),
+                                                                           now=utc_now_iso(ctx.clock))}
     if commission_id not in open_ids:
         return {"generated": 0, "skipped_reason": "commission no longer open"}
     from learnloop.adaptive_difficulty.spend import models_off
@@ -4500,7 +4505,10 @@ class DurableIngestJobs:
         batch id is the commission's, so enqueuing it again (a retried
         schedule, a restart) finds the same durable batch, never a second
         generation. A job of that batch that ran with adaptive difficulty's models off
-        (``AD_MODELS_OFF_CODE``) is resumed here once they are on again (Codex re-review F10)."""
+        (``AD_MODELS_OFF_CODE``) is requeued here once they are on again (Codex re-review F10),
+        but only while its batch is uncancelled: the check and the requeue are one
+        transaction, and an explicit cancellation stays until the user resumes the batch
+        (Codex verify F11)."""
 
         runner = self._require_runner()
         if ad_commission_id:
@@ -4512,8 +4520,9 @@ class DurableIngestJobs:
                 if job.get("status") == "failed" and (job.get("error") or {}).get("code") == AD_MODELS_OFF_CODE
             ]
             if waiting:
-                if not models_off():
-                    runner.resume_batch(existing)
+                if not models_off() and runner.requeue_failed_unless_cancelled(
+                    existing, error_code=AD_MODELS_OFF_CODE
+                ):
                     self._ensure_worker()
                 return existing
         payload: dict[str, Any] = {

@@ -20,6 +20,9 @@ from learnloop.adaptive_difficulty import priors as P
 from learnloop.sim import ad_gates as G
 
 FAILED_GATE = "pre-registered gate fails (docs/reviews/adaptive-difficulty-ad23.md §3): "
+#: Owner decision 2026-10-19 (the review's §3.4): the successor merges with these gates kept as
+#: monitors, their strict xfails staying with the figures; ``calibrate_below`` is 0.25 (amendment
+#: A17, after the results), and the G-AD2-18 reasons cite the re-run's figures beside §3.1's.
 
 
 def _assert_pass(result: dict) -> None:
@@ -51,9 +54,10 @@ def test_help_and_reveal_are_censored_not_dropped():
     _assert_pass(G.g_ad2_14())
 
 
-@pytest.mark.xfail(strict=True, reason=FAILED_GATE + "band mode never engages (the learning rate's uncertainty "
-                   "keeps the predictive sd near 0.95 > 0.74), and an oracle hits the band on only 0.33 of answers "
-                   "16-30 with the pre-registered pools (< 0.35)")
+@pytest.mark.xfail(strict=True, reason=FAILED_GATE + "band mode by answer 15 for 66% (< 80%) at calibrate_below "
+                   "0.25 (A17; 0% at the registered 0.35: the learning rate's uncertainty keeps the predictive sd "
+                   "near 0.95 > 0.74); band hits 16-30 0.105 (0.096 at 0.35; < 0.35), and an oracle hits the band "
+                   "on only 0.33 of answers 16-30 with the pre-registered pools")
 def test_time_to_usable_one_cell():
     """G-AD2-18, one LO and one cell: band mode by the 15th answer for >= 80% of learners and a
     band-hit rate >= 0.35 over answers 16-30."""
@@ -61,8 +65,8 @@ def test_time_to_usable_one_cell():
     _assert_pass(G.g_ad2_18("one_cell"))
 
 
-@pytest.mark.xfail(strict=True, reason=FAILED_GATE + "the wrong-prior band-hit rate is 0.09 (< 0.30); the oracle "
-                   "bound is 0.33")
+@pytest.mark.xfail(strict=True, reason=FAILED_GATE + "the wrong-prior band-hit rate is 0.110 at calibrate_below "
+                   "0.25 (A17; 0.093 at 0.35; < 0.30); the oracle bound is 0.34")
 def test_time_to_usable_wrong_prior():
     """G-AD2-18, wrong prior (true subject level +-1.5): band-hit rate >= 0.30 over answers 16-30."""
 
@@ -70,7 +74,8 @@ def test_time_to_usable_wrong_prior():
 
 
 @pytest.mark.xfail(strict=True, reason=FAILED_GATE + "AD's band hits beat the incumbent's and the no-update "
-                   "arm's, but its trivial-success rate (0.016) is above the incumbent's (0.0)")
+                   "arm's, but its trivial-success rate (0.018 at calibrate_below 0.25, A17; 0.016 at 0.35) is "
+                   "above the incumbent's (0.0)")
 def test_time_to_usable_plan_flow():
     """G-AD2-18, the plan's flow in the subject view: band hits at least the incumbent waypoint
     ladder's and AD-without-updates', trivial successes no more than the incumbent's."""
@@ -97,8 +102,8 @@ def test_hyperparameters_learned_on_synthetic_vaults(request, point):
 
 
 @pytest.mark.xfail(strict=True, reason=FAILED_GATE + "first-attempt log loss on the mates is lower (interval "
-                   "excludes 0) and the unrelated LO is not dragged, but band mode never engages on a mate in "
-                   "either arm (the 2-fewer-answers condition)")
+                   "excludes 0) and the unrelated LO is not dragged, but the mates' median own answers before band "
+                   "mode is unreached in both arms (the 2-fewer-answers condition)")
 def test_related_topics_adapt_faster_practice_correct():
     """G-AD3-7, 15 answers on A then its mates, correct proposal: a mate engages band mode with at
     least 2 fewer own answers (median) and its first-attempt log loss is lower, interval excluding
@@ -109,7 +114,8 @@ def test_related_topics_adapt_faster_practice_correct():
 
 @pytest.mark.parametrize("proposal", ["noisy", "wrong"])
 @pytest.mark.xfail(strict=True, reason=FAILED_GATE + "the unrelated LO's first attempt is dragged: +0.026 nats "
-                   "(noisy) and +0.240 nats (wrong) against uniform sharing (> 0.02); band hits are not")
+                   "(noisy) and +0.230 nats (wrong; +0.240 at calibrate_below 0.35) against uniform sharing "
+                   "(> 0.02); band hits are not")
 def test_unrelated_topics_not_dragged(proposal):
     """G-AD3-7, noisy and wrong proposals: cluster 2's A no worse than uniform sharing by more than
     0.02 nats on its first attempt nor 0.03 in band hits over its own 15 answers."""

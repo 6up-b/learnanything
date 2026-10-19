@@ -279,7 +279,7 @@ def _maybe_commission(vault: Any, repository: Any, snapshot: RP.Snapshot, view: 
         return None
     connection = repository.connection()
     if any(row.get("cell_facet") == cell and row.get("cell_capability") == capability_name
-           for row in store.open_commissions(connection)):
+           for row in store.open_commissions(connection, now=request.now)):
         return None
     specs = []
     for item_id in request.cell_pool:

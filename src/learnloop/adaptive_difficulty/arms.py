@@ -162,12 +162,18 @@ class _GridArm:
 
 
 def _field_arms(connection: Any, vault: Any, sink: dict[str, Record]) -> dict[str, int]:
-    """Field's ``mastery_ekf`` and ``lo_general`` on field's rows, prequentially (predict, observe)."""
+    """Field's ``mastery_ekf`` and ``lo_general`` on field's rows (read through AD's history fallback),
+    prequentially (predict, observe)."""
 
     from learnloop.field.outcomes import load_attempt_rows
     from learnloop.field.predictors import create_predictor
 
-    rows = sorted(load_attempt_rows(connection, vault), key=lambda r: (r.observed_at, r.attempt_id))
+    from learnloop.adaptive_difficulty.successor import history_fallback
+
+    # The comparators read the same history as AD's replay (its history fallback), so every arm
+    # is scored on the same past.
+    rows = sorted(load_attempt_rows(connection, vault, legacy_fallback=history_fallback(vault.config)),
+                  key=lambda r: (r.observed_at, r.attempt_id))
     covered: dict[str, int] = {}
     for name in FIELD_ARMS:
         arm = create_predictor(name, config=vault.config.mastery)

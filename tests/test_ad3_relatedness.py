@@ -23,7 +23,7 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores import ad_serving
 from learnloop.vault.loader import load_vault
 
-from tests.ad23_fakes import ProposalLLM, ad23_vault, rows, set_item
+from tests.ad23_fakes import COUPLED, ProposalLLM, ad23_vault, rows, set_item
 from tests.helpers import set_algorithm_version
 
 SENTINEL = "SENTINEL-AD3-4-ZQX"
@@ -32,6 +32,8 @@ LOS = {"lo_ra": ("pi_ra1", "pi_ra2"), "lo_rb": ("pi_rb1",), "lo_rc": ("pi_rc1",)
 
 
 def _vault(tmp_path, *, ad: str = ""):
+    # learned_coupling is off by default (owner decision 2026-10-19); the proposal needs it on.
+    ad = ad if "learned_coupling" in ad else COUPLED + ad
     paths = ad23_vault(tmp_path, items=LOS["lo_ra"], learning_objects={"lo_rb": LOS["lo_rb"], "lo_rc": LOS["lo_rc"]},
                        ad=ad)
     # Distinct facets per LO (the default vault gives every item the facet "recall").
@@ -111,6 +113,7 @@ def test_relatedness_proposal_reads_no_learner_or_held_out_data(tmp_path):
                                                                         "statement") else None
         connection.commit()
     vault = load_vault(paths.root)
+    vault.config.adaptive_difficulty.learned_coupling = True  # off by default (owner decision 2026-10-19)
     subject = vault.learning_objects[lo].subjects[0]
     inputs = R.subject_inputs(vault, repository, subject)
     assert set(inputs["payload"]) == {"subject", "learning_objects", "facets", "concept_graph", "items"}

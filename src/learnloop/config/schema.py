@@ -3146,10 +3146,18 @@ class AdaptiveDifficultyConfig(BaseModel):
       subject view (§6.1, §9.5, §10.1). Off: each LO's own view, and no AD
       readiness numbers.
     * ``learned_coupling``: the subject view's learned loadings and couplings and
-      their proposal (§5.10). Off: uniform sharing, no proposal call.
+      their proposal (§5.10). Off: uniform sharing, no proposal call. **Off by
+      default** (owner decision 2026-10-19): on only after the owner has
+      spot-checked the relatedness proposal and adopted a coupling version.
     * ``reading_opportunities``: reading raises the subject view's predicted level
       (§5.11). Off: no reading transitions.
     * ``reading_self_check``: the self-check verdict term (D22). Off: removed.
+
+    ``history_fallback`` (owner decision 2026-10-19): how AD's replay reads a
+    historical attempt whose exact item revision was not saved.
+    ``"current_content"`` (the default) reads it against today's item text;
+    ``"exclude"`` leaves it out. AD's own setting: ``field.legacy_fallback``,
+    which the field harness and its projections read, is unchanged.
 
     Outside the successor, at every version: ``reading_dose_offers`` (D21, live by
     owner decision): at an eligible section boundary the Reader may offer one
@@ -3174,7 +3182,7 @@ class AdaptiveDifficultyConfig(BaseModel):
     selection: bool = True
     generation_contract: bool = True
     promoted_predictor: bool = True
-    learned_coupling: bool = True
+    learned_coupling: bool = False
     reading_opportunities: bool = True
     reading_self_check: bool = True
     reading_dose_offers: bool = True
@@ -3184,8 +3192,9 @@ class AdaptiveDifficultyConfig(BaseModel):
     overlap_band: tuple[float, float] = (0.55, 0.90)
     overlap_share: float = Field(default=0.10, ge=0.0, le=1.0)
     near_tie_margin: float = Field(default=0.05, ge=0.0, le=1.0)
-    calibrate_below: float = Field(default=0.35, ge=0.0, le=1.0)
+    calibrate_below: float = Field(default=0.25, ge=0.0, le=1.0)
     ready_threshold: float = Field(default=0.8, gt=0.0, lt=1.0)
+    history_fallback: Literal["exclude", "current_content"] = "current_content"
     priors: Literal["ad_priors_v1"] = "ad_priors_v1"
     hyper: Literal["ad_hyper_v1"] = "ad_hyper_v1"
     ladder: Literal["ad_ladder_v1"] = "ad_ladder_v1"

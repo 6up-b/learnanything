@@ -371,11 +371,24 @@ Scored prequentially, chronologically, on §5.3's event, first-attempt split fir
 - **A16. `I_c`'s inner rule** is 24 Gauss-Hermite nodes, as §1.1 registers (the code had used 32);
   the logistic is evaluated as `1/(1 + exp(-clip(x)))`. Both changed before the first full run.
 
+**A17 (a separate, later amendment, made AFTER the results of §3.1 were reported; owner decision
+2026-10-19, §3.4).** `calibrate_below` (§1.2, `ad_select_v1`'s band-mode trigger, which is also the
+serve-time commission trigger of §6.1) is lowered from 0.35 to **0.25**. **Reason:** G-AD2-18 showed
+band mode cannot engage at 0.35 while the learning rate is uncertain (§3.2: the predictive sd floors
+near 0.95 logits, and `max P_band >= 0.35` needs about 0.74); the post-hoc diagnostic of §3.2 had
+0.25 engaging band mode by answer 15 for 66% of the one-cell learners. This is a change made in the
+light of the results, not a pre-registered value: **the results of §3.1 stand as reported at 0.35**,
+no other threshold, pass condition, scenario, seed or constant changed, and the gates' pass
+conditions are unchanged, so the re-run's figures (§3.4) are reported beside the old ones and every
+gate that failed still fails. The code's default, the config default and the defaults snapshots
+carry 0.25.
+
 **What ran when.** The exploratory runs before the gate module existed (G-AD2-18's one-cell and
 wrong-prior scenarios, a 50-learner G-AD3-7 practice run, G-AD3-11's base and downturn scenarios)
 changed nothing registered: A4-A16 were fixed before the runs whose figures §3 reports, all on
 `learnloop.sim.ad_gates` at commit `2778e23fe`'s code (A7's sequence included). The diagnostics in
-§3.2 were run **after** the gates, are labelled post hoc, and changed nothing.
+§3.2 were run **after** the gates, are labelled post hoc, and changed nothing. A17 came after all of
+them, by owner decision, and its re-run is reported separately (§3.4).
 
 ## 2. What was built
 
@@ -488,7 +501,8 @@ notes, the CLI snapshot, the references), and this file's commit.
 
 The failing conditions are strict xfails in `tests/test_ad23_sim.py` with these figures, so the
 suite stays readable and the marker turns red the day a gate passes. **The successor should not
-merge on these results**: the owner decides what changes (§3.3).
+merge on these results**: the owner decides what changes (§3.3). *(The owner decided on 2026-10-19:
+merge with fixes, the failing gates kept as monitors; §3.4.)*
 
 ### 3.2 Why (diagnostics run after the gates, post hoc; nothing changed on them)
 
@@ -533,6 +547,50 @@ merge on these results**: the owner decides what changes (§3.3).
 5. **Coupling safeguards**: a smaller `χ_C` grid cap, or the coupling flag on a sequence with a smaller
    `n0`; or keep `learned_coupling` off until the owner's backfill is spot-checked.
 
+### 3.4 The owner's decision and the re-run at `calibrate_below = 0.25` (2026-10-19)
+
+**Owner decision 2026-10-19:** "Merge with fixes, option 1 + option 2 + option 5 of §3.3. The successor merges with `selection` on, and the failing gates are kept as monitors: their strict xfails stay, with the figures. Lower `calibrate_below` to 0.25. Record it as a NEW, separately recorded pre-registration amendment, made after the reported results, with the reason. The earlier results stand as reported. Re-run `python -m learnloop.sim.ad_gates` and record the new G-AD2-18 figures beside the old ones. Don't change any other threshold. `learned_coupling` defaults to OFF until the owner has spot-checked the relatedness proposal. Update the defaults, the snapshots, the docs and the owner-run commands: show how to turn it on after adopting a coupling version."
+
+**What was done.** The successor keeps `selection` on; every failing condition keeps its strict xfail
+in `tests/test_ad23_sim.py`, its reason now citing the figures at 0.25. `calibrate_below` is 0.25
+(amendment A17, §1.9) in `SelectionConstants`, the config schema and the 20 defaults snapshots.
+`learned_coupling` is `false` by default (option 5); §8 shows how the owner turns it on after
+adopting a coupling version. No other threshold changed.
+
+**The re-run** (`uv run python -m learnloop.sim.ad_gates`, every gate but G-AD3-6, which draws ladder
+points uniformly and has no selection step; same seeds, 200 learners or seeds). G-AD2-18 beside the
+§3.1 figures:
+
+| G-AD2-18 scenario | condition | §3.1 (0.35, as registered) | at 0.25 (A17) | result |
+|---|---|---|---|---|
+| one LO, one cell | band mode by answer 15 (>= 80%) | 0% | **66.0%** | fail |
+| | band hits, answers 16-30 (>= 0.35) | 0.096 | **0.105** | fail |
+| | band hits 1-15; band-mode share; trivial successes | not reported | 0.141; 0.211; 0.279 | |
+| | oracle bound, 16-30 | 0.330 | 0.330 | |
+| wrong prior | band hits, answers 16-30 (>= 0.30) | 0.093 | **0.110** | fail |
+| | band mode by answer 15 | not reported | 67.5% | |
+| | oracle bound, 16-30 | 0.337 | 0.337 | |
+| the plan's flow | AD's band hits 16-30 >= the incumbent's (0.036) | 0.122 | **0.122** | met |
+| | AD's >= no-update's (0.122) | 0.122 | **0.122** (0.12200 >= 0.12167) | met |
+| | AD's trivial successes <= the incumbent's (0.0) | 0.016 | **0.018** | fail |
+| | LO view: band hits; trivial successes | 0.125; 0.022 | 0.123; 0.022 | |
+| | band-mode share: subject view; LO view | 0%; 0% | 6.7%; 3.1% | |
+| | own answers before band mode (median, per cell) | never | never, but `f2:retrieval` 4 in the subject view | |
+
+Band mode now engages for two thirds of learners, but the band-hit rate barely moves: once engaged,
+the predictive sd at the served point is near the 0.74 limit and the registered pools reach the band
+for only a third of answers (the oracle bound, unchanged). The other gates keep their pass or fail
+(the strict xfails hold); the figures of the gates that run the selection rule moved slightly:
+G-AD3-7 practice, correct: mates -0.101 nats (-0.128, -0.073; was -0.103), the 2-fewer condition still
+failing (the pooled median is unreached in both arms); noisy: unrelated +0.026 (unchanged); wrong:
+unrelated +0.230 (was +0.240); the shrink (47%, 0%), G-AD3-8 (0.24), G-AD3-9 (86.5-100%, 99%) and
+G-AD3-15 (6) (-0.42; 0.07, 0.12) figures as in §3.1, and G-AD3-11's conditions pass and fail as there. The full output is the run's JSON lines (20 gates, 7.5 min on a machine shared with another
+stage).
+
+The other decisions of the same day (F8 accepted as built, F5's commission expiry, the final
+verify's F11, the history fallback) are recorded with their tests and gate in
+`adaptive-difficulty-ad23-codex-review.md`, "Final verify and the owner's decisions".
+
 ## 4. Deviations (each recorded; the conservative option where the spec and the code disagree)
 
 1. **Eligible attempt types** add `hinted_attempt` and `dont_know` to §5.6's four (the practice screen
@@ -540,7 +598,8 @@ merge on these results**: the owner decides what changes (§3.3).
 2. **History needs the field's fallback**: a historical attempt resolves `exact` only where the field
    finds its graded revision; on the committed `linear_algebra` snapshot every one of 62 historical
    attempts is `excluded` unless `field.legacy_fallback = "current_content"` (then 31 eligible). The
-   owner decides per vault (open question 4).
+   owner decides per vault (open question 4). *Resolved 2026-10-19 (open question 4): AD's own
+   `adaptive_difficulty.history_fallback`, `"current_content"` by default; field's default unchanged.*
 3. **No Reader surface grades an in-passage answer as an attempt** at this base, so the replay never
    sets the "in place of `γ`" path; the model's path is tested (`test_an_in_passage_answer_graded...`).
 4. **`λ` at its prior mean** (G-AD3-15 (1)): a latent `λ ~ N(0, 0.3²)` adds `0.09·D²` of variance even
@@ -653,12 +712,23 @@ uv run learnloop ad backfill --vault fixtures-local/la_ad23 --reading
 uv run learnloop ad report --vault fixtures-local/la_ad23 --dry-run --json
 uv run learnloop ad report --vault fixtures-local/la_ad23
 uv run learnloop ad report --vault fixtures-local/la_ad23 --json > ad23-report.json
-#    optional, on the copy only: read the history through the field's fallback (deviation 2)
-#    printf '\n[field]\nlegacy_fallback = "current_content"\n' >> fixtures-local/la_ad23/learnloop.toml
-# 4. the relatedness proposal (one call per subject on ai.routing.llm_probability_llm), dry-run first,
-#    then the backfill and the first coupling version
+#    AD reads the history through its own current-content fallback by default (owner decision
+#    2026-10-19; adaptive_difficulty.history_fallback); field.legacy_fallback is not needed. To compare
+#    without it, on a second copy only, set it to "exclude" and run the report again:
+#    uv run python -c "from pathlib import Path; from learnloop.ops.settings_store import apply_config_updates as a; a(Path('fixtures-local/la_ad23_exclude/learnloop.toml'), {('adaptive_difficulty', 'history_fallback'): 'exclude'})"
+# 4. the relatedness proposal. learned_coupling is OFF by default (owner decision 2026-10-19) and the
+#    proposal runs only with it on, so turn it on in the copy first (tomlkit keeps the file's other keys):
+uv run python -c "from pathlib import Path; from learnloop.ops.settings_store import apply_config_updates as a; a(Path('fixtures-local/la_ad23/learnloop.toml'), {('adaptive_difficulty', 'learned_coupling'): True})"
+#    dry-run first (one call per subject on ai.routing.llm_probability_llm), then the proposal alone,
+#    with no adoption: spot-check its loadings and couplings in the JSON (and in judgment_ledger,
+#    task ad_relatedness) before adopting
 uv run learnloop ad relatedness --vault fixtures-local/la_ad23 --dry-run --json
+uv run learnloop ad relatedness --vault fixtures-local/la_ad23 --json > ad23-relatedness.json
+# 4b. after the spot-check: adopt the first coupling version
 uv run learnloop ad relatedness --vault fixtures-local/la_ad23 --adopt
+# 4c. only then turn learned_coupling on in the vault you use (the same one-liner with its own path);
+#     until then the subject view stays at its uniform-sharing points and no proposal is ever sent
+uv run python -c "from pathlib import Path; from learnloop.ops.settings_store import apply_config_updates as a; a(Path('<vault>/learnloop.toml'), {('adaptive_difficulty', 'learned_coupling'): True})"
 # 5. later, a reinterpretation: its shadow report first, then the confirmed adoption
 uv run learnloop ad relatedness --vault fixtures-local/la_ad23 --shadow --json
 uv run learnloop ad relatedness --vault fixtures-local/la_ad23 --adopt --confirm-reinterpretation
@@ -672,7 +742,9 @@ uv run learnloop rebuild --shadow --json --vault fixtures-local/la_ad23 \
 uv run python -m learnloop.sim.ad_gates
 ```
 
-The relatedness proposal is the stage's only paid call: one per subject on the field harness's
+Running the proposal again with `--adopt` after the spot-check proposes nothing new (only units whose
+fingerprint changed are re-proposed) and adopts what is in force. The relatedness proposal is the
+stage's only paid call: one per subject on the field harness's
 frontier route (empty: the active provider; Codex `estimated_only`), inside
 `adaptive_difficulty.daily_spend_cap_usd` ($0.50); a metered route needs
 `adaptive_difficulty.price_per_million` or is refused before sending. After adoption, a reload
@@ -703,10 +775,19 @@ embeddings off, learner-text gaps off), API-key variables unset, empty `HOME` / 
 
 1. **The failed simulation gates (§3).** [The successor does not merge on them; the owner picks among
    §3.3's options or re-pre-registers.]
+   **Owner decision 2026-10-19:** "Merge with fixes, option 1 + option 2 + option 5 of §3.3. The successor merges with `selection` on, and the failing gates are kept as monitors: their strict xfails stay, with the figures. Lower `calibrate_below` to 0.25. Record it as a NEW, separately recorded pre-registration amendment, made after the reported results, with the reason. The earlier results stand as reported. Re-run `python -m learnloop.sim.ad_gates` and record the new G-AD2-18 figures beside the old ones. Don't change any other threshold. `learned_coupling` defaults to OFF until the owner has spot-checked the relatedness proposal. Update the defaults, the snapshots, the docs and the owner-run commands: show how to turn it on after adopting a coupling version." Done: §3.4 (the re-run's figures), amendment A17 (§1.9), §8 (turning `learned_coupling` on).
 2. **A1** (G-AD2-1's thresholds amended before any test, §1.9). [As amended.]
 3. **A3** ("never labels tested" at most 5% of seeds). [As amended.]
 4. **History through the field's fallback** (deviation 2). [Off: a historical attempt without an exact
    revision is excluded, so AD's state starts from the attempts served since AD1.]
+   **Owner decision 2026-10-19:** "History fallback. AD reads historical attempts through the current-content fallback by default, so the owner's vaults start with usable history. First check what `field.legacy_fallback` controls beyond AD. If it affects anything outside AD (the field harness or other projections), DON'T change the field default. Add an AD-scoped setting, e.g. `adaptive_difficulty.history_fallback = "current_content"`, that AD's replay reads, and leave the field's default unchanged. Classify the new key in the parameter registry. Record what it means: historical attempts are read against today's item text where the exact revision wasn't saved." Done: `field.legacy_fallback` also drives the field harness (`learnloop field`,
+   `success-head`, `eval`) and field's DERIVED facet-outcome view (`rebuild_outcome_view`), so its
+   default stays `"exclude"`. AD has its own key, `adaptive_difficulty.history_fallback`
+   (`"current_content"` by default, `"exclude"` to leave such attempts out), read by AD's replay
+   (`replay.load_events`) and by the AD report's field comparators (so every arm is scored on the same
+   past); AD1's forecast receipts and data check keep field's setting. **What it means:** a historical
+   attempt whose exact item revision was not saved is read against today's item text
+   (`reconstructed_current`). The key is classified in the parameter registry (decision, constraint).
 5. **`λ`'s spread at its prior mean** (deviation 4): a verdict widens the prediction slightly before
    the term is learned. [Kept: the priors are §5.5's; the mean is D20's exactly.]
 6. **The dose arm live by default** (D21). [On, with `dose_floor = 0.10`, three a day.]
@@ -714,6 +795,8 @@ embeddings off, learner-text gaps off), API-key variables unset, empty `HOME` / 
    runs before it.]
 8. **`promoted_predictor` on by default given G-AD3-7's drag under a wrong proposal.** [On, per D3; the
    coupling only exists after the owner adopts a proposal, and `learned_coupling = false` removes it.]
+   Answered by the owner decision of 2026-10-19 under question 1 (option 5): `promoted_predictor` stays
+   on and `learned_coupling` is off by default until the owner has spot-checked the proposal.
 9. **Readiness on the default target until AD4** (deviation 7). [Default target, labelled "Top level for
    this goal".]
 

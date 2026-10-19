@@ -27,7 +27,7 @@ from learnloop.clock import FrozenClock
 from learnloop.db.copies import copy_tree_with_databases
 from learnloop.vault.loader import load_vault
 
-from tests.ad23_fakes import ad23_vault, selections
+from tests.ad23_fakes import COUPLED, ad23_vault, selections
 from tests.helpers import append_config_toml, create_placement_vault, set_algorithm_version
 
 T0 = datetime(2026, 10, 12, 9, 0, tzinfo=UTC)
@@ -46,7 +46,7 @@ def test_the_successor_is_the_next_link_with_its_defaults_snapshot():
 
 
 def test_below_the_tag_every_switch_reads_off_whatever_the_config_says(tmp_path):
-    paths = ad23_vault(tmp_path, version="mvp-0.27")
+    paths = ad23_vault(tmp_path, version="mvp-0.27", ad=COUPLED)
     vault = load_vault(paths.root)
     assert all(getattr(vault.config.adaptive_difficulty, name) for name in SC.SWITCHES)
     assert not SC.successor_active(vault.config)
@@ -123,12 +123,16 @@ def test_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest(tmp
 
 
 def test_new_vaults_start_at_the_successor_with_every_switch_on(tmp_path):
+    """Every switch but ``learned_coupling``, which is off until the owner has spot-checked the
+    relatedness proposal and adopted a coupling version (owner decision 2026-10-19)."""
+
     from learnloop.bootstrap import init_vault
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(T0))
     fresh = load_vault(tmp_path / "fresh")
     assert fresh.config.algorithms.algorithm_version == "mvp-0.28"
-    assert all(SC.switch_on(fresh.config, name) for name in SC.SWITCHES) and SC.dose_offers_on(fresh.config)
+    assert all(SC.switch_on(fresh.config, name) for name in SC.SWITCHES if name != "learned_coupling")
+    assert not SC.switch_on(fresh.config, "learned_coupling") and SC.dose_offers_on(fresh.config)
 
 
 def test_every_new_key_is_a_classified_config_leaf():

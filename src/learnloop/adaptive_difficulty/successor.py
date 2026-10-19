@@ -88,6 +88,22 @@ def dose_offers_on(config: Any) -> bool:
     return ad_enabled(config) and bool(getattr(_section(config), DOSE_SWITCH, False))
 
 
+HISTORY_FALLBACKS = ("exclude", "current_content")
+
+
+def history_fallback(config: Any) -> str:
+    """How AD reads a historical attempt whose exact item revision was not saved
+    (``adaptive_difficulty.history_fallback``; owner decision 2026-10-19): ``"current_content"``
+    (the default) reads it against today's item text, ``"exclude"`` leaves it out. AD's own
+    setting, passed to field's revision resolution for AD's reads only; ``field.legacy_fallback``,
+    which the field harness and its projections read, is unchanged."""
+
+    value = str(getattr(_section(config), "history_fallback", "current_content") or "current_content")
+    if value not in HISTORY_FALLBACKS:
+        raise ValueError("adaptive_difficulty.history_fallback must be exclude or current_content")
+    return value
+
+
 def settings(config: Any) -> dict[str, bool]:
     return {
         "successor": successor_active(config),
@@ -99,11 +115,13 @@ def settings(config: Any) -> dict[str, bool]:
 
 __all__ = [
     "DOSE_SWITCH",
+    "HISTORY_FALLBACKS",
     "SUCCESSOR",
     "SWITCHES",
     "coupling_on",
     "dose_offers_on",
     "generation_contract_on",
+    "history_fallback",
     "reading_on",
     "selection_on",
     "settings",

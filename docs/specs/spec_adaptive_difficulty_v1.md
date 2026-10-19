@@ -577,7 +577,7 @@ For cell `c` and a candidate feature point `x` (a not-yet-written item; `z = 0`)
 
 ### 5.9 How fast the estimate becomes usable (owner target, 2026-10-14)
 
-**The target (D15).** A usable estimate within 10–15 answered questions per subject, not per cell. "Usable" means the practice draw can target the band: band mode engages (`max P_band ≥ calibrate_below = 0.35`, §6.1 step 2). On the model's scale that needs a posterior sd of about 0.74 logits at the served point, about ±11 points of success around 75%.
+**The target (D15).** A usable estimate within 10–15 answered questions per subject, not per cell. "Usable" means the practice draw can target the band: band mode engages (`max P_band ≥ calibrate_below`, §6.1 step 2; 0.35 as registered, 0.25 since the owner decision of 2026-10-19, below). On the model's scale that needs a posterior sd of about 0.74 logits at the served point, about ±11 points of success around 75%.
 
 **The information arithmetic.**
 - **At `a = 1`, with no item residual.** One answer near the threshold carries `p(1 − p)` units of Fisher information: about 0.19 at 75% and 0.25 at 50%. From a prior variance of about 3.0 logits², 12 well-chosen answers leave about ±0.6 logits, about ±12 points around 75%; 30 leave about ±0.4 logits, about ±7 points.
@@ -623,6 +623,8 @@ For cell `c` and a candidate feature point `x` (a not-yet-written item; `z = 0`)
 - **It never collapses.** `γ`'s remaining uncertainty and the daily drift act as process noise. Treating `Var(γ) = 0.01` as fresh noise at every opportunity holds a practised cell's steady-state sd near 0.5 logits (±8 points). Since `γ` is one coordinate learned from every cell, the real figure is lower.
 
 *Finding at AD2+AD3 (2026-10-19; `docs/reviews/adaptive-difficulty-ad23.md` §3; not an amendment):* the last bullet's figure does not hold for the model as built. `γ` is one persistent latent coordinate, so its remaining uncertainty enters a practised cell's prediction as `t²·Var(γ | data)`, not as fresh noise per opportunity; in G-AD2-18's one-cell scenario the predictive sd at the best served point floors near 0.95 logits after 9-15 answers (0.64 with the learning transition off). Band mode needs `max P_band ≥ 0.35`, which needs an sd of at most 0.74 at a well-centred point, so band mode never engaged there and the draw stayed in calibrate mode. The owner's options are in the review.
+
+**Owner decision 2026-10-19** (`docs/reviews/adaptive-difficulty-ad23.md` §3.4): "Merge with fixes, option 1 + option 2 + option 5 of §3.3. The successor merges with `selection` on, and the failing gates are kept as monitors: their strict xfails stay, with the figures. Lower `calibrate_below` to 0.25. Record it as a NEW, separately recorded pre-registration amendment, made after the reported results, with the reason. The earlier results stand as reported. Re-run `python -m learnloop.sim.ad_gates` and record the new G-AD2-18 figures beside the old ones. Don't change any other threshold. `learned_coupling` defaults to OFF until the owner has spot-checked the relatedness proposal. Update the defaults, the snapshots, the docs and the owner-run commands: show how to turn it on after adopting a coupling version." *Recorded:* `calibrate_below` is 0.25 (amendment A17 of the review's §1.9, made after the results, which stand as reported); at 0.25 band mode engages by the 15th answer for 66% of G-AD2-18's one-cell learners (0% at 0.35), and the gate still fails (band hits 16-30 0.105 against 0.35; the review's §3.4). `learned_coupling` is off by default (§11.4).
 
 **Self-correction.** A wrong prior mean costs answers, not direction. A run of easy successes raises the estimate, and the next band draw steps up; failures step it down. The prior's variance (3.0 at a fresh cell, never shrunk by a claim) keeps the data in charge. After 12 answers, the prior carries about a sixth of the weight on the quantity they inform.
 
@@ -861,10 +863,12 @@ AD makes two kinds of draw, logged separately: a **serve draw** over items that 
 **Commission candidates `X_c` and rule.**
 - `X_c`: the rungs of every ladder instance that applies to the cell (each active goal's ladder and the default ladder, §9.1) and their one-step neighbours on a single ordinal dimension, clipped to the depth envelope.
 - A commission draw runs in two places, for the cell of the slot or LO at hand (its highest-weight facet, ties by facet id, at its capability):
-  - at a serve draw, when the cell pool `P_c` (not the slot support) has no item with `P_band ≥ 0.35`;
+  - at a serve draw, when the cell pool `P_c` (not the slot support) has no item with `P_band ≥ calibrate_below` (0.35 as registered; 0.25 since the owner decision of 2026-10-19, §5.9);
   - under `generation_contract`, wherever the existing generation path picks a waypoint for an LO (`select_rung`, `content/authoring/practice_generation.py:383-390`). That is how a cell whose pool is empty, and which so has no slot, gets new items.
 - It uses the same rule as the serve draw: steps 1–4 over feature points with `z = 0`, with its own propensity, seed and `ad_selections` row (`kind = commission`).
 - The chosen point is commissioned for generation (§7) and runs in the background. AD keeps at most one open commission per active cell.
+  - **Owner decision 2026-10-19** (`docs/reviews/adaptive-difficulty-ad23-codex-review.md` open question 2, F5): "An unlanded commission (its generation failed or was rejected) EXPIRES 7 days after its job finished, so a fresh one can be drawn for that cell. Keep "at most one open per cell". A commission routed to review stays open while its item is in review. Add tests."
+  - *Recorded (AD2+AD3):* a commission is open until a result lands (§7.4), it expires, or a later commission for its cell supersedes it (which the one-open rule allows only once it closed, so an expiry is never undone). It expires 7 days after its generation finished without landing: the job completed, failed (other than waiting on models that are off) or its batch was cancelled, or, if later, the last review decision on an item proposed for its LO since the draw. It stays open while its job has not run or waits on the models, and while such an item is in review (pending and not invalid). A commission the generation path drew for itself has no job of its own; its clock starts at the draw (`db/stores/ad_serving.open_commissions`).
 - A commission changes only what can be served later. Its propensity is logged for completeness but never multiplied into a served item's weight.
 
 **Why not Thompson sampling.**
@@ -1016,6 +1020,7 @@ The features and signals an AD decision or update reads are fixed when the item 
 - **Replay reads the receipt.** The update for an attempt uses exactly the row of the presentation it is bound to (the chain of §8.3).
 - **Historical attempts** have no row: they predate AD1 or have no bound presentation. `ad_feature_resolution_v1` resolves them as of the attempt:
   - the answered revision follows the field's graded-revision rule (`spec_learner_field_v1.md` §3, "Historical revisions"; resolver `field/outcomes.py:154-233`): `exact` when the graded revision is found and matches; `reconstructed_current` only under `field.legacy_fallback = "current_content"`; otherwise `excluded`. Current content is never silently used;
+    - **Owner decision 2026-10-19** (`docs/reviews/adaptive-difficulty-ad23.md` open question 4): "History fallback. AD reads historical attempts through the current-content fallback by default, so the owner's vaults start with usable history. First check what `field.legacy_fallback` controls beyond AD. If it affects anything outside AD (the field harness or other projections), DON'T change the field default. Add an AD-scoped setting, e.g. `adaptive_difficulty.history_fallback = "current_content"`, that AD's replay reads, and leave the field's default unchanged. Classify the new key in the parameter registry. Record what it means: historical attempts are read against today's item text where the exact revision wasn't saved." *Recorded (AD2+AD3):* `field.legacy_fallback` also drives the field harness (`learnloop field`, `success-head`, `eval`) and field's DERIVED facet-outcome view, so its default stays `"exclude"`. AD's replay and its report's comparators pass AD's own `adaptive_difficulty.history_fallback` (default `"current_content"`) to the same resolver: a historical attempt whose exact revision was not saved is read against today's item text (`reconstructed_current`); `"exclude"` leaves it out. The choice is explicit, in the config and in each attempt's resolution status, so current content is still never used silently;
   - from that revision: its stamped tuple, and its own `difficulty` for `z_llm`;
   - audits with `created_at` before the attempt (none exist before AD1), and no receipt-based signals.
 
@@ -1297,9 +1302,11 @@ The analysis is reported per vault, beside the AD report's other sections, and t
 | Coupling worse than uniform sharing | `@subject` is worse than `@subject_uniform` on first attempts at never-seen LOs, the confidence sequence excluding 0 | `learned_coupling = false` |
 | Reading worse than no reading | `@subject` is worse than `@subject:noread` on first attempts after reading (§5.11), the confidence sequence excluding 0 | `reading_opportunities = false` |
 | Verdicts worse than no verdicts | `@subject` is worse than `@subject:noverdict` on first attempts after a self-check verdict (§5.11, D22), the confidence sequence excluding 0 | `reading_self_check = false` |
-| Readiness miscalibrated | the band-region reliability error of `@subject` exceeds 0.05 in two consecutive reports | `promoted_predictor = false` |
+| Readiness miscalibrated | the band-region reliability error of `@subject` exceeds 0.05 in two consecutive reports (a report is a window of 200 AD selections, recomputed from the prequential records; no report history is stored; owner decision 2026-10-19, below) | `promoted_predictor = false` |
 | Band missed | realized success on AD-selected practice outside 0.60–0.88 over 200 selections | `selection = false` |
 | Dose offers a burden | of the last 30 delivered extra offers (§5.12), at least 80% dismissed; or the learner lowered the cue density within a visit after an offer, three times in 14 days | `reading_dose_offers = false` |
+
+**Owner decision 2026-10-19** (`docs/reviews/adaptive-difficulty-ad23-codex-review.md` open question 1, F8): "Readiness's "two consecutive reports" uses deterministic report windows (one per 200 AD selections), with no history table. Accepted as built; just record the decision." *Follow-up for a Reader stage:* the burden flag's density lowerings are matched to an offer's visit by time, because `cue_density_changed` events carry no `visit_id`; the Reader should send the visit with the preference change.
 
 The owner flips a switch; code never edits the vault config. Each switch restores its predecessor exactly (§11.1).
 
@@ -1402,7 +1409,7 @@ feature_audit = true
 selection = true              # AD2/AD3 tag (one successor); waits for no harness result (D3)
 generation_contract = true    # AD2/AD3 tag
 promoted_predictor = true     # AD2/AD3 tag: the subject view steers live from the start (D3)
-learned_coupling = true       # AD2/AD3 tag: loadings, couplings and their proposal (§5.10, D19)
+learned_coupling = false      # AD2/AD3 tag: loadings, couplings and their proposal (§5.10, D19); off until the owner adopts a coupling version (owner decision 2026-10-19)
 reading_opportunities = true  # AD2/AD3 tag: reading raises the predicted level (§5.11, D20)
 reading_self_check = true     # AD2/AD3 tag: self-check verdicts on in-passage questions as their own learned term (§5.11, D22)
 reading_dose_offers = true    # AD2+AD3 stage, outside the successor: randomized dose offers in the Reader, live by owner decision (§5.12, D21)
@@ -1414,7 +1421,8 @@ practice_band = [0.70, 0.80]
 overlap_band = [0.55, 0.90]
 overlap_share = 0.10
 near_tie_margin = 0.05
-calibrate_below = 0.35
+calibrate_below = 0.25           # 0.35 as registered; amendment A17, owner decision 2026-10-19 (§5.9)
+history_fallback = "current_content"   # AD's own reading of history without a saved revision (§7.5; owner decision 2026-10-19)
 exam_target_quantile = 0.8
 ready_threshold = 0.8
 exam_target_calibration = false   # §6.2, D12
@@ -1423,6 +1431,12 @@ hyper = "ad_hyper_v1"             # the hyperparameter grid and its uniform prio
 ladder = "ad_ladder_v1"
 daily_spend_cap_usd = 0.50        # outside forecasters and the relatedness proposal on paid routes
 ```
+
+**Owner decision 2026-10-19** (`docs/reviews/adaptive-difficulty-ad23.md` §3.4): "Merge with fixes, option 1 + option 2 + option 5 of §3.3. The successor merges with `selection` on, and the failing gates are kept as monitors: their strict xfails stay, with the figures. Lower `calibrate_below` to 0.25. Record it as a NEW, separately recorded pre-registration amendment, made after the reported results, with the reason. The earlier results stand as reported. Re-run `python -m learnloop.sim.ad_gates` and record the new G-AD2-18 figures beside the old ones. Don't change any other threshold. `learned_coupling` defaults to OFF until the owner has spot-checked the relatedness proposal. Update the defaults, the snapshots, the docs and the owner-run commands: show how to turn it on after adopting a coupling version."
+
+**Owner decision 2026-10-19** (`docs/reviews/adaptive-difficulty-ad23.md` open question 4): "History fallback. AD reads historical attempts through the current-content fallback by default, so the owner's vaults start with usable history. First check what `field.legacy_fallback` controls beyond AD. If it affects anything outside AD (the field harness or other projections), DON'T change the field default. Add an AD-scoped setting, e.g. `adaptive_difficulty.history_fallback = "current_content"`, that AD's replay reads, and leave the field's default unchanged. Classify the new key in the parameter registry. Record what it means: historical attempts are read against today's item text where the exact revision wasn't saved."
+
+*Recorded:* `learned_coupling` turns on only after the owner has run the relatedness proposal on a copy, spot-checked it and adopted a coupling version (`learnloop ad relatedness --adopt`); the proposal itself runs only with the switch on, so the owner sets it on the copy for the proposal and on the vault after adoption (the review's §8). `history_fallback` is classified in the parameter registry (decision, constraint).
 
 ---
 

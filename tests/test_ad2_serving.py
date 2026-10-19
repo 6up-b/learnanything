@@ -211,10 +211,11 @@ def test_coordination_requires_envelope(tmp_path):
 
 
 def test_calibrate_mode_prefers_overlap_band():
-    """With ``max P_band < 0.35`` the draw calibrates: the most informative item of the overlap
-    set (near-ties within 5% relative), mixed with the overlap share (§6.2)."""
+    """With ``max P_band < calibrate_below`` (0.25, amendment A17) the draw calibrates: the most
+    informative item of the overlap set (near-ties within 5% relative), mixed with the overlap
+    share (§6.2)."""
 
-    scored = [S.Scored("a", 0.20, 0.60, 0.15), S.Scored("b", 0.30, 0.95, 0.40), S.Scored("c", 0.10, 0.70, 0.30),
+    scored = [S.Scored("a", 0.20, 0.60, 0.15), S.Scored("b", 0.24, 0.95, 0.40), S.Scored("c", 0.10, 0.70, 0.30),
               S.Scored("d", 0.10, 0.80, 0.296)]
     mode, pi, tied, overlap, q = S.propensities(scored)
     assert mode == S.MODE_CALIBRATE

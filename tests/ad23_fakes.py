@@ -35,6 +35,9 @@ feature_audit = false
 """
 EASY = {"complexity": 0, "transfer": "same_context", "scaffolding": "cue", "span": "atomic",
         "response": "short_constructed", "tools": ["closed_book"]}
+#: ``learned_coupling`` is off by default (owner decision 2026-10-19: on only after the owner adopts
+#: a coupling version); the tests of the proposal and the coupled subject view turn it on.
+COUPLED = "learned_coupling = true\n"
 HARD = {"complexity": 2, "transfer": "near", "scaffolding": "none", "span": "single_step",
         "response": "long_constructed", "tools": ["closed_book"]}
 

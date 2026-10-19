@@ -110,15 +110,120 @@ def _decode_selection(row: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def open_commissions(connection: sqlite3.Connection) -> list[dict[str, Any]]:
-    """Commission draws with no landed result yet (§6.1: at most one open per active cell)."""
+#: An unlanded commission whose generation has finished (failed, rejected or cancelled) expires
+#: this many days after its job finished, or after the last review decision on an item proposed
+#: for its LO since the draw, whichever is later (Codex review F5; owner decision 2026-10-19).
+COMMISSION_EXPIRY_DAYS = 7.0
+#: The durable job-queue batch of a serve-time commission's generation (one per commission).
+COMMISSION_BATCH_PREFIX = "batch_ad_commission_"
+#: A commission's job that ran with ``LEARNLOOP_AD_MODELS=off``: it waits, it has not finished.
+MODELS_OFF_CODE = "ad_models_off"
+
+
+def commission_batch_id(selection_id: str) -> str:
+    return f"{COMMISSION_BATCH_PREFIX}{selection_id}"
+
+
+def open_commissions(connection: sqlite3.Connection, *, now: str | None = None) -> list[dict[str, Any]]:
+    """Commission draws still open at ``now`` (default: the current UTC time). §6.1 allows at most
+    one open per active cell, so an open commission suppresses further draws for its cell.
+
+    A commission is open while it has no landed result (§7.4) and has not expired or been
+    superseded. **Expiry** (Codex review F5; owner decision 2026-10-19): once its generation has
+    finished without landing (the job failed, its batch was cancelled, or what it wrote was
+    rejected), it expires :data:`COMMISSION_EXPIRY_DAYS` after the job finished (or after the
+    last review decision on an item proposed for its LO since the draw, if later), so a fresh
+    commission can be drawn for the cell. It stays open while its job has not run or is waiting
+    on models that are off, and while an item proposed for its LO since the draw is in review. A
+    commission the generation path drew for itself has no job of its own: that path generated it
+    at the draw, so its clock starts at the draw. **Superseded**: a later commission for the same
+    cell, which the one-open rule allows only once this one closed, so expiry is never undone (an
+    explicit resume of the old job later finds its commission closed)."""
 
     if not has_table(connection, SELECTIONS):
         return []
-    rows = _select(connection, f"SELECT s.* FROM {SELECTIONS} s WHERE s.kind = 'commission' AND "
-                               "s.chosen_point_json IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "
-                               f"{COMMISSION_RESULTS} r WHERE r.selection_id = s.id) ORDER BY s.created_at, s.id")
-    return [_decode_selection(row) for row in rows]
+    rows = [_decode_selection(row) for row in _select(
+        connection, f"SELECT s.* FROM {SELECTIONS} s WHERE s.kind = 'commission' AND "
+                    "s.chosen_point_json IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "
+                    f"{COMMISSION_RESULTS} r WHERE r.selection_id = s.id) ORDER BY s.created_at, s.id")]
+    if not rows:
+        return []
+    latest: dict[tuple[Any, Any], tuple[str, str]] = {}
+    for created_at, selection_id, facet, capability in connection.execute(
+            f"SELECT created_at, id, cell_facet, cell_capability FROM {SELECTIONS} "
+            "WHERE kind = 'commission' AND chosen_point_json IS NOT NULL"):
+        key = (facet, capability)
+        stamp = (str(created_at), str(selection_id))
+        if key not in latest or stamp > latest[key]:
+            latest[key] = stamp
+    if now is None:
+        from learnloop.clock import utc_now_iso
+
+        now = utc_now_iso()
+    current = _instant(now)
+    out = []
+    for row in rows:
+        if latest.get((row.get("cell_facet"), row.get("cell_capability"))) != (str(row["created_at"]), str(row["id"])):
+            continue  # superseded
+        since = _expiry_clock(connection, row)
+        if since is not None and current is not None and (current - since).total_seconds() >= \
+                COMMISSION_EXPIRY_DAYS * 86400.0:
+            continue  # expired
+        out.append(row)
+    return out
+
+
+def _instant(value: Any) -> Any:
+    from datetime import UTC, datetime
+
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+
+
+def _expiry_clock(connection: sqlite3.Connection, row: Mapping[str, Any]) -> Any:
+    """When an unlanded commission's expiry clock started, or None while it cannot expire."""
+
+    created = str(row.get("created_at") or "")
+    learning_object_id = row.get("learning_object_id")
+    decided = None
+    if learning_object_id and has_table(connection, "proposed_patch_items"):
+        proposals = connection.execute(
+            "SELECT decision, validation_status, decided_at FROM proposed_patch_items "
+            "WHERE item_type = 'practice_item' AND operation = 'create' AND created_at >= ? AND "
+            "json_extract(COALESCE(edited_payload_json, payload_json), '$.learning_object_id') = ?",
+            (created, str(learning_object_id))).fetchall()
+        if any(decision == "pending" and validation != "invalid" for decision, validation, _at in proposals):
+            return None  # its item is in review
+        decided = max((_instant(at) for _d, _v, at in proposals if at and _instant(at) is not None), default=None)
+    if ":serve:" in str(row.get("decision_key") or ""):
+        from learnloop.db.stores.ingest_queue import batch_outcome
+
+        if not has_table(connection, "ingest_batches"):
+            return None
+        outcome = batch_outcome(connection, commission_batch_id(str(row["id"])))
+        if outcome is None or not outcome[2]:
+            return None  # its job has not been queued yet
+        cancelled, batch_finished, jobs = outcome
+        ends = []
+        for status, code, finished_at in jobs:
+            if status == "failed" and code == MODELS_OFF_CODE and not cancelled:
+                return None  # waiting until the models are back on
+            if status not in ("completed", "failed", "cancelled") and not cancelled:
+                return None  # not finished
+            ends.append(_instant(finished_at) or _instant(batch_finished))
+        if any(end is None for end in ends):
+            return None
+        end = max(ends)
+    else:
+        end = _instant(created)
+        if end is None:
+            return None
+    return max(end, decided) if decided is not None else end
 
 
 # -- ad_commission_results --------------------------------------------------------------------
@@ -324,6 +429,10 @@ __all__ = [
     "insert_selection",
     "loads",
     "open_commissions",
+    "commission_batch_id",
+    "COMMISSION_BATCH_PREFIX",
+    "COMMISSION_EXPIRY_DAYS",
+    "MODELS_OFF_CODE",
     "read_scores",
     "read_state",
     "read_trace",

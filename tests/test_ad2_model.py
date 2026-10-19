@@ -115,7 +115,7 @@ def _serve_and_answer(paths, env, clock, *, correct=True, hints=0, first_hint_pr
 def _events(paths, settings=RP.ReplaySettings(), *, fallback: str | None = None):
     vault = load_vault(paths.root)
     if fallback is not None:
-        vault.config.field.legacy_fallback = fallback
+        vault.config.adaptive_difficulty.history_fallback = fallback
     with closing(connect(paths.sqlite_path, read_only=True)) as connection:
         return RP.load_events(connection, vault, Repository(paths.sqlite_path), settings=settings)
 
@@ -502,8 +502,10 @@ def test_unknown_hint_timing_through_the_replay(tmp_path):
 
 def test_replay_uses_frozen_inputs_and_explicit_history(tmp_path):
     """Each attempt's factor is built from its ``item_serve_inputs`` row, never the current item; a
-    historical attempt resolves ``exact``, ``reconstructed_current`` only under the field's
-    fallback, else ``excluded``, and an ``excluded`` attempt never updates (§7.5)."""
+    historical attempt resolves ``exact``, else ``reconstructed_current`` under AD's history
+    fallback (``adaptive_difficulty.history_fallback``, ``current_content`` by default, owner
+    decision 2026-10-19), or ``excluded`` with it set to ``exclude``; an ``excluded`` attempt never
+    updates (§7.5). Field's own ``legacy_fallback`` is untouched."""
 
     import yaml
 
@@ -516,16 +518,16 @@ def test_replay_uses_frozen_inputs_and_explicit_history(tmp_path):
     path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
     again = next(e for e in _events(paths).attempts if e.attempt_id == event.attempt_id)
     assert again.input_status == "frozen" and dict(again.spec.features) == frozen_features
-    # A historical attempt (no bound presentation) on another item: excluded by default.
+    # A historical attempt (no bound presentation) on another item: excluded under "exclude".
     answer(paths, "pi_a5", correct=True, presentation_id=None, clock=clock)
-    historical = next(e for e in _events(paths).attempts if e.practice_item_id == "pi_a5")
+    historical = next(e for e in _events(paths, fallback="exclude").attempts if e.practice_item_id == "pi_a5")
     assert historical.input_status == "excluded" and not historical.eligible
-    events = _events(paths)
+    events = _events(paths, fallback="exclude")
     with_excluded = RP.run(events).subject.bank.state_hash()
     events.attempts = [e for e in events.attempts if e.practice_item_id != "pi_a5"]
     assert RP.run(events).subject.bank.state_hash() == with_excluded
-    # Under the field's explicit fallback the same attempt resolves reconstructed_current.
-    resolved = next(e for e in _events(paths, fallback="current_content").attempts if e.practice_item_id == "pi_a5")
+    # By default (AD's current-content fallback) the same attempt resolves reconstructed_current.
+    resolved = next(e for e in _events(paths).attempts if e.practice_item_id == "pi_a5")
     assert resolved.input_status == "reconstructed_current"
 
 

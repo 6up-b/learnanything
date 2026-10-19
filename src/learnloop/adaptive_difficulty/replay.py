@@ -7,7 +7,8 @@ read only through the reading-signal firewall's carve-out,
 audit and relatedness rows with the adopted coupling versions,
 ``practice_item_snapshots``, the allowlisted claims, ``ad_priors_v1`` and
 ``ad_hyper_v1``. Current vault content is read only for a historical attempt
-resolved ``reconstructed_current`` under the field's explicit fallback (§7.5),
+resolved ``reconstructed_current`` under AD's history fallback (§7.5;
+``adaptive_difficulty.history_fallback``, ``"current_content"`` by owner decision 2026-10-19),
 and for the facet-to-LO map the coupling structure uses. Outside forecasts
 and the relatedness proposal are read from their rows, never re-asked.
 
@@ -354,7 +355,13 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
         held_out, held_out_ok = frozenset(), False
     from learnloop.db.stores.observation_ledger import load_authoritative_observation_ledger
 
-    rows = {row.attempt_id: row for row in load_attempt_rows(connection, vault)}
+    # The revision policy is AD's own (``adaptive_difficulty.history_fallback``, owner decision
+    # 2026-10-19: by default a historical attempt is read against today's item text where its
+    # exact revision was not saved); field's own default is untouched.
+    from learnloop.adaptive_difficulty.successor import history_fallback
+
+    rows = {row.attempt_id: row for row in load_attempt_rows(
+        connection, vault, legacy_fallback=history_fallback(vault.config))}
     # Graded, quarantine and the current epoch from the authoritative ledger itself (never from
     # field's revision resolution: an attempt with frozen serve inputs needs none).
     ledger = {str(entry["attempt_id"]): entry for entry in load_authoritative_observation_ledger(connection)}

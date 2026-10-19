@@ -42,6 +42,29 @@ def owns_ingest_job(connection, job_id: str, owner: JobOwner) -> bool:
     return row is not None and tuple(row) == ("running", owner.worker_id, owner.attempt_count)
 
 
+def batch_outcome(connection, batch_id: str) -> tuple[bool, str | None, list[tuple[str, str | None, str | None]]] | None:
+    """A batch's cancellation latch, finish time and each job's ``(status, error code,
+    finished_at)``, read on the caller's connection (an adaptive difficulty commission's expiry
+    reads its generation's outcome). None when the batch does not exist."""
+
+    batch = connection.execute(
+        "SELECT cancel_requested, finished_at FROM ingest_batches WHERE id = ?", (batch_id,)
+    ).fetchone()
+    if batch is None:
+        return None
+    jobs = []
+    for status, error_json, finished_at in connection.execute(
+        "SELECT status, error_json, finished_at FROM ingest_jobs WHERE batch_id = ? ORDER BY ordinal, id",
+        (batch_id,),
+    ).fetchall():
+        try:
+            code = (json.loads(error_json) or {}).get("code") if error_json else None
+        except (TypeError, ValueError, AttributeError):
+            code = None
+        jobs.append((str(status), code, finished_at))
+    return bool(batch[0]), batch[1], jobs
+
+
 def _json(data: Any) -> str:
     return json.dumps(data, sort_keys=True, separators=(",", ":"))
 

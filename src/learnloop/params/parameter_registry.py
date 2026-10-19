@@ -1031,6 +1031,18 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "AD's practice draw: the 70-80% band (D1), the acceptable-success overlap interval and its share "
         "(D6), the near-tie margin, the band-mode trigger and the 'likely ready' threshold; a serving draw "
         "with exact propensities and a labelled prediction, never evidence or certification (A2, A11)."),
+    # Adaptive difficulty AD2+AD3 (owner decision 2026-10-19): which historical
+    # attempts AD's replay reads. "current_content" (the default) reads an
+    # attempt whose exact item revision was not saved against today's item
+    # text; "exclude" leaves it out. AD's own key: field.legacy_fallback (the
+    # field harness and its projections) is unchanged. A string leaf, so the
+    # numeric walk never sees it: registered through ENUM_DECISION_LEAVES.
+    _ConfigRule(_exact(
+        "adaptive_difficulty.history_fallback",
+    ), "decision", "constraint",
+        "which historical attempts enter AD's replay: those without a saved item revision read against "
+        "today's item text (current_content, the default) or left out (exclude); membership of AD's serving "
+        "state only, never evidence, mastery, FSRS or certification (A2); field.legacy_fallback unchanged."),
     # Adaptive difficulty AD2+AD3 (D21, outside the successor): the Reader's
     # randomized dose offers' floor per variant and daily friction budget. They
     # decide what the Reader may offer (an extra worked example or question),
@@ -1607,6 +1619,13 @@ BOOLEAN_DECISION_LEAVES: tuple[str, ...] = (
 )
 
 
+#: String (enum) config leaves that are DECISIONS: like the booleans above, the
+#: numeric walk skips them, so each is enumerated here.
+ENUM_DECISION_LEAVES: tuple[str, ...] = (
+    "adaptive_difficulty.history_fallback",
+)
+
+
 def _build_config_specs() -> None:
     for path in sorted(config_numeric_leaves().keys()):
         _register_config_path(path)
@@ -1614,6 +1633,11 @@ def _build_config_specs() -> None:
         if not _register_config_path(path):
             raise RuntimeError(
                 f"boolean decision leaf {path} has no classification rule"
+            )
+    for path in ENUM_DECISION_LEAVES:
+        if not _register_config_path(path):
+            raise RuntimeError(
+                f"enum decision leaf {path} has no classification rule"
             )
 
 

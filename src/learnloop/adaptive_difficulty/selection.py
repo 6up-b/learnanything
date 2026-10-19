@@ -6,7 +6,8 @@
 1. ``P_band`` and ``p̄`` for every candidate (mixtures over the grid in the
    subject view: a probability under a mixture is the weighted sum of the
    component probabilities, so the propensities stay exact, §5.7);
-2. **calibrate** instead when ``max P_band < calibrate_below`` (0.35): choose
+2. **calibrate** instead when ``max P_band < calibrate_below`` (0.25; 0.35 as
+   pre-registered, lowered by the owner on 2026-10-19 after the gates, amendment A17): choose
    by the cell information ``I_c`` among the overlap set (near-ties within 5%
    of the maximum, relative, broken uniformly), or, with the overlap set
    empty, the candidate whose ``p̄`` is nearest ``[0.55, 0.90]``, ties by id;
@@ -48,7 +49,7 @@ class SelectionConstants:
     overlap: tuple[float, float] = (0.55, 0.90)
     overlap_share: float = 0.10
     near_tie: float = 0.05
-    calibrate_below: float = 0.35
+    calibrate_below: float = 0.25
     info_near_tie: float = 0.05
 
     def as_dict(self) -> dict[str, Any]:
@@ -66,7 +67,7 @@ def constants_from_config(config: Any) -> SelectionConstants:
         overlap=tuple(float(v) for v in getattr(section, "overlap_band", (0.55, 0.90))),  # type: ignore[arg-type]
         overlap_share=float(getattr(section, "overlap_share", 0.10)),
         near_tie=float(getattr(section, "near_tie_margin", 0.05)),
-        calibrate_below=float(getattr(section, "calibrate_below", 0.35)),
+        calibrate_below=float(getattr(section, "calibrate_below", 0.25)),
     )
 
 
@@ -192,7 +193,7 @@ def recompute(row: Mapping[str, Any], constants: SelectionConstants | None = Non
     constants = constants or SelectionConstants(
         band=tuple(raw.get("band", (0.70, 0.80))), overlap=tuple(raw.get("overlap", (0.55, 0.90))),  # type: ignore[arg-type]
         overlap_share=float(raw.get("overlap_share", 0.10)), near_tie=float(raw.get("near_tie", 0.05)),
-        calibrate_below=float(raw.get("calibrate_below", 0.35)), info_near_tie=float(raw.get("info_near_tie", 0.05)),
+        calibrate_below=float(raw.get("calibrate_below", 0.25)), info_near_tie=float(raw.get("info_near_tie", 0.05)),
     )
     mode, pi, tied, overlap, q = propensities(scored, constants)
     seed = str(row["seed"])
