@@ -29,7 +29,7 @@ from tests.structured_ai import StructuredClientFake, _request_context
 STEP_1 = "F(x) = x^2 on [0, 1]"
 STEP_2 = "so P(X <= 1/2) = F(1/2) + 1"
 
-__all__ = ["CheckFake", "ITEM", "STEP_1", "STEP_2", "call", "check_answer", "help_rows", "open_problem",
+__all__ = ["CheckFake", "FUNCTION_FREE_PROMPT", "ITEM", "STEP_1", "STEP_2", "call", "check_answer", "help_rows", "open_problem",
            "run_job", "sidecar", "wb_answer"]
 
 
@@ -157,12 +157,20 @@ def call(ctx: SidecarContext, name: str, params: dict[str, Any]) -> Any:
     return spec.handler(ctx, spec.params_model.model_validate(params))
 
 
-def sidecar(tmp_path: Any, config: str = "", *, map_: bool = True, writer: Any = None, check: Any = None,
-            chooser: Any = None, maps_enabled: bool = True):
-    """The CDF item's vault with a map, a sidecar running jobs inline, the
-    hint writer, check and chooser fakes, and an open practice session."""
+#: RW2b fix round 8: a problem statement with no function notation (the CDF
+#: item's "f(x) = 2x ... P(X <= 1/2)" disables every symbolic check), for the
+#: tests whose steps must come back checked.
+FUNCTION_FREE_PROMPT = "X has density 2x on the unit interval. Work out the asked value."
 
-    paths = hint_vault(tmp_path, config='[hints]\nchoice_policy = "sample"\n' + config)
+
+def sidecar(tmp_path: Any, config: str = "", *, map_: bool = True, writer: Any = None, check: Any = None,
+            chooser: Any = None, maps_enabled: bool = True, prompt: str | None = None):
+    """The CDF item's vault with a map, a sidecar running jobs inline, the
+    hint writer, check and chooser fakes, and an open practice session.
+    ``prompt`` replaces the item's problem statement (fix round 8)."""
+
+    item = {} if prompt is None else {"prompt": prompt}
+    paths = hint_vault(tmp_path, config='[hints]\nchoice_policy = "sample"\n' + config, **item)
     if not maps_enabled:
         toml = paths.root / "learnloop.toml"
         toml.write_text(toml.read_text().replace("build_on_serve = false\n", "build_on_serve = false\nenabled = false\n", 1))

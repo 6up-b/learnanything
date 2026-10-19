@@ -27,7 +27,7 @@ from learnloop.content.authoring.pf_sandbox import sandbox_available
 from learnloop.workbench.symbolic import CHECKED, MODEL, SymbolicClaim, run_checks
 from tests.hint_fakes import ITEM, WORK, ChooserFake, WriterFake, prefer
 from tests.test_hint_h2b_review import grader  # noqa: F401 - the blind grader fixture
-from tests.workbench_help_fakes import call, open_problem, run_job, sidecar, wb_answer
+from tests.workbench_help_fakes import FUNCTION_FREE_PROMPT, call, open_problem, run_job, sidecar, wb_answer
 
 needs_bwrap = pytest.mark.skipif(not sandbox_available(), reason="bubblewrap is not installed")
 
@@ -98,7 +98,8 @@ def test_items_1_2_a_hint_claim_through_a_restricted_name_is_never_checked(tmp_p
     claim = {"step": 1, "statement": "f(1) = 0", "kind": "substitution", "expression": "x-1", "result": "0",
              "variable": "x", "value": "1", "lower": "", "upper": "", "relation": ""}
     writer = WriterFake([lambda context: {**wb_answer(context), "claims": [claim]}, wb_answer])
-    _paths, ctx, _session = sidecar(tmp_path, writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
+    _paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT,
+                                    writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
     wb, _chains = open_problem(ctx, steps=(r"f(x)=\frac{(x-1)^2}{x-1}",))
     hint = run_job(ctx, call(ctx, "workbench.request_help", {"sessionId": wb, "takenLevel": 3}))
     assert [entry["status"] for entry in hint["claims"]] == ["model"]

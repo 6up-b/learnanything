@@ -27,11 +27,11 @@ CASES = [
     ("differentiation", dict(expression="x**3", result="3*x**2", variable="x"),
      r"\frac{d}{dx}\left(x^3\right) = 3x^2", r"\frac{d}{dx}\left(x^3\right) = 3x^2 + 1", {}),
     ("integration", dict(expression="exp(-t)", result="-exp(-t)", variable="t"),
-     r"\int \exp(-t) \, dt = -\exp(-t)", r"\int \exp(-t) \, dt = t - \exp(-t)", {}),
+     r"\int \exp(-t)  dt = -\exp(-t)", r"\int \exp(-t)  dt = t - \exp(-t)", {}),
     ("integration", dict(expression="2*x", result="1", variable="x", lower="0", upper="1"),
-     r"\int_0^1 2x \, dx = 1", r"\int_0^1 2x \, dx = 2", {}),
+     r"\int_0^1 2x  dx = 1", r"\int_0^1 2x  dx = 2", {}),
     ("normalization", dict(expression="2*x", result="1", variable="x", lower="0", upper="1"),
-     r"\int_{0}^{1} 2x \, dx = 1", None, {}),
+     r"\int_{0}^{1} 2x  dx = 1", None, {}),
     ("limit", dict(expression="x^2 + 1", result="5", variable="x", value="2"),
      r"\lim_{x \to 2} (x^2 + 1) = 5", r"\lim_{x \to 2} (x^2 + 1) = 4", {}),
     ("sum", dict(expression="k", result="n*(n+1)/2", variable="k", lower="1", upper="n"),
@@ -60,9 +60,9 @@ def test_each_supported_kind_checks_a_correct_written_step_and_catches_a_wrong_o
 @needs_bwrap
 def test_a_definite_integral_with_other_declared_bounds_is_never_checked():
     outcomes, _problem = run_checks([
-        SymbolicClaim(1, "integration", "2*x", "1", "x", lower="0", upper="2", text=r"\int_0^1 2x \, dx = 1"),
+        SymbolicClaim(1, "integration", "2*x", "1", "x", lower="0", upper="2", text=r"\int_0^1 2x  dx = 1"),
         # A normalization must equal one; otherwise it is an integration.
-        SymbolicClaim(2, "normalization", "2*x", "", "x", lower="0", upper="1", text=r"\int_0^1 2x \, dx = 2"),
+        SymbolicClaim(2, "normalization", "2*x", "", "x", lower="0", upper="1", text=r"\int_0^1 2x  dx = 2"),
     ])
     assert [(o.method, o.holds, o.bound) for o in outcomes] == [(MODEL, None, False), (MODEL, None, False)]
 
@@ -103,8 +103,8 @@ def test_an_antiderivative_is_checked_up_to_a_constant_with_a_negative_control_t
     # The antiderivative plus a constant still holds; the perturbed control
     # (one more times the variable) must be rejected, or nothing is trusted.
     outcomes, _problem = run_checks([
-        SymbolicClaim(1, "integration", "2*x", "x**2 + 7", "x", text=r"\int 2x \, dx = x^2 + 7"),
-        SymbolicClaim(2, "integration", "2*x", "x**2 + C", "x", text=r"\int 2x \, dx = x^2 + C"),
+        SymbolicClaim(1, "integration", "2*x", "x**2 + 7", "x", text=r"\int 2x  dx = x^2 + 7"),
+        SymbolicClaim(2, "integration", "2*x", "x**2 + C", "x", text=r"\int 2x  dx = x^2 + C"),
     ])
     assert [(o.method, o.holds) for o in outcomes] == [(CHECKED, True), (CHECKED, True)]
 

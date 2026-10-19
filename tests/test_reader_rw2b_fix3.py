@@ -22,7 +22,8 @@ import pytest
 
 from learnloop.content.authoring.pf_sandbox import sandbox_available
 from tests.hint_fakes import ChooserFake, WriterFake, prefer
-from tests.workbench_help_fakes import CheckFake, call, help_rows, open_problem, run_job, sidecar, step_check, wb_answer
+from tests.workbench_help_fakes import (FUNCTION_FREE_PROMPT, CheckFake, call, help_rows, open_problem,
+                                       run_job, sidecar, step_check, wb_answer)
 
 pytestmark = pytest.mark.skipif(not sandbox_available(), reason="bubblewrap is not installed")
 
@@ -50,7 +51,8 @@ def _last_step_check(transformation, verdict="questionable"):
 
 
 def _check_last(tmp_path, steps, transformation, verdict="questionable"):
-    paths, ctx, _session = sidecar(tmp_path, check=CheckFake([_last_step_check(transformation, verdict)]))
+    paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT,
+                                   check=CheckFake([_last_step_check(transformation, verdict)]))
     wb, _chains = open_problem(ctx, steps=tuple(steps))
     view = run_job(ctx, call(ctx, "workbench.check", {"sessionId": wb}))["check"]
     last = view["verdicts"][-1]
@@ -112,11 +114,11 @@ POSITIVE = [
      dict(kind="equivalence", expression="(2*x + 2)/2", result="x + 1")),
     ("differentiation", [r"\frac{d}{dx}\left(\frac{x^2}{2}\right) = x"],
      dict(kind="differentiation", expression="x**2/2", result="x", variable="x")),
-    ("definite integral", [r"\int_0^1 x \, dx = \frac{1}{2}"],
+    ("definite integral", [r"\int_0^1 x  dx = \frac{1}{2}"],
      dict(kind="integration", expression="x", result="1/2", variable="x", lower="0", upper="1")),
-    ("antiderivative", [r"\int x \, dx = \frac{x^2}{2} + C"],
+    ("antiderivative", [r"\int x  dx = \frac{x^2}{2} + C"],
      dict(kind="integration", expression="x", result="x**2/2 + C", variable="x")),
-    ("normalization", [r"\int_0^2 \frac{x}{2} \, dx = 1"],
+    ("normalization", [r"\int_0^2 \frac{x}{2}  dx = 1"],
      dict(kind="normalization", expression="x/2", result="1", variable="x", lower="0", upper="2")),
     ("limit", [r"\lim_{x \to 1} \left(\frac{x}{2} + 1\right) = \frac{3}{2}"],
      dict(kind="limit", expression="x/2 + 1", result="3/2", variable="x", value="1")),
@@ -164,7 +166,8 @@ def _claim(step, statement, **values):
 def _hint_with(tmp_path, steps, *answers):
     writer = WriterFake([lambda context, claims=claims: {**wb_answer(context), "claims": list(claims)}
                          for claims in answers] + [wb_answer])
-    paths, ctx, _session = sidecar(tmp_path, writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
+    paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT,
+                                   writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
     wb, _chains = open_problem(ctx, steps=tuple(steps))
     hint = run_job(ctx, call(ctx, "workbench.request_help", {"sessionId": wb, "takenLevel": 3}))
     return hint, writer, paths, wb, ctx
@@ -189,9 +192,9 @@ def test_a_hints_claim_about_the_wrong_integral_is_never_checked(tmp_path):
 
 
 def test_a_hints_claim_whose_own_statement_is_the_wrong_integral_does_not_hold(tmp_path):
-    wrong = _claim(1, r"\int_0^2 2x \, dx = 1", kind="integration", expression="2*x", result="1", variable="x",
+    wrong = _claim(1, r"\int_0^2 2x  dx = 1", kind="integration", expression="2*x", result="1", variable="x",
                    lower="0", upper="2")
-    right = _claim(1, r"\int_0^2 2x \, dx = 4", kind="integration", expression="2*x", result="4", variable="x",
+    right = _claim(1, r"\int_0^2 2x  dx = 4", kind="integration", expression="2*x", result="4", variable="x",
                    lower="0", upper="2")
     hint, writer, *_rest = _hint_with(tmp_path, [r"\int_0^2 2*x dx = 1"], [wrong], [right])
     assert writer.calls == 2

@@ -31,7 +31,7 @@ from learnloop.workbench.symbolic import CHECKED, MODEL, SymbolicClaim, run_chec
 from learnloop_sidecar.errors import SidecarError
 from tests.hint_fakes import ITEM, WORK, ChooserFake, WriterFake, prefer
 from tests.test_hint_h2b_review import grader  # noqa: F401 - the blind grader fixture
-from tests.workbench_help_fakes import call, help_rows, open_problem, run_job, sidecar, wb_answer
+from tests.workbench_help_fakes import FUNCTION_FREE_PROMPT, call, help_rows, open_problem, run_job, sidecar, wb_answer
 
 needs_bwrap = pytest.mark.skipif(not sandbox_available(), reason="bubblewrap is not installed")
 
@@ -117,7 +117,8 @@ def test_item6_odd_roots_and_fractional_powers_of_a_possibly_negative_base_are_n
 
 def _hint_with(tmp_path, steps, claims):
     writer = WriterFake([lambda context: {**wb_answer(context), "claims": list(claims)}, wb_answer])
-    paths, ctx, _session = sidecar(tmp_path, writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
+    paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT,
+                                   writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
     wb, _chains = open_problem(ctx, steps=tuple(steps))
     hint = run_job(ctx, call(ctx, "workbench.request_help", {"sessionId": wb, "takenLevel": 3}))
     return hint, paths, ctx, wb

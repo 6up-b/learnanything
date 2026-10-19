@@ -542,6 +542,12 @@ def name_rule(text, names):
     included), any subscript on an identifier, and any identifier that is a
     NAME (:func:`scan_names`)."""
     raw = str(text or "")
+    if not raw.isascii():
+        # Fix round 8, rule 2: the checked text is ASCII only.
+        return "not_ascii"
+    if re.search(r"\\[^A-Za-z]", raw) or "~" in raw:
+        # Fix round 8, rule 2: no spacing (\\, \\! \\; ...) or symbol command.
+        return "spacing_or_symbol_command"
     for command in re.findall(r"\\([A-Za-z]+)", raw):
         if command not in _ALLOWED_COMMANDS:
             return "formatting_or_command"
@@ -553,6 +559,50 @@ def name_rule(text, names):
     if identifiers(raw) & names:
         return "names_a_name"
     return ""
+
+
+_SPACING = re.compile(r"\\[!,;:> ]|\\qquad(?![A-Za-z])|\\quad(?![A-Za-z])|~")
+_FORMAT_COMMANDS = re.compile(
+    r"\\(?:mathrm|operatorname|text|textrm|textit|textbf|textsf|texttt|textnormal|mathbf|mathit|mathsf|mathtt|"
+    r"mathcal|mathbb|mathfrak|mathscr|mathnormal|boldsymbol|bm|mbox|hbox|rm|it|bf|sf|tt|cal|displaystyle|"
+    r"textstyle|scriptstyle)(?![A-Za-z])")
+_SIZED = r"\\(?:left|right|bigl|bigr|Bigl|Bigr|biggl|biggr|Biggl|Biggr|big|Big|bigg|Bigg)(?![A-Za-z])"
+_NOTATION_TOKEN = re.compile(r"\\[A-Za-z]+|\\.|.", re.S)
+_NOTATION_NEXT = ("(", "[", "'", "\\prime")
+
+
+def normalised(text):
+    """Fix round 8, rule 1: a text reduced so no spelling hides function
+    notation: spacing commands and ``~`` out, all whitespace out, formatting
+    commands out (their argument kept), every brace out, ``\\left.`` and
+    ``\\right.`` out, and ``\\left``/``\\right`` before any other delimiter
+    out (the delimiter kept, so ``f\\left(x\\right)`` is ``f(x)``)."""
+    out = _SPACING.sub("", str(text or ""))
+    out = re.sub(r"\s+", "", out)
+    out = _FORMAT_COMMANDS.sub("", out)
+    out = out.replace("{", "").replace("}", "")
+    out = re.sub(_SIZED + r"\.", "", out)
+    return re.sub(_SIZED, "", out)
+
+
+def function_notation(text):
+    """Fix round 8, rule 1: whether a (normalised) text uses function
+    notation: any letter (Unicode ``str.isalpha``) or command, other than the
+    parser's built-ins, immediately followed by ``(``, ``[``, ``'``,
+    ``\\prime`` or ``^\\prime``. Over-matching is intended: prose such as
+    "f (x)" or "on [0, 1]" counts."""
+    tokens = _NOTATION_TOKEN.findall(normalised(text))
+    for index, token in enumerate(tokens[:-1]):
+        after = tokens[index + 1]
+        primed = after == "^" and index + 2 < len(tokens) and tokens[index + 2] == "\\prime"
+        if after not in _NOTATION_NEXT and not primed:
+            continue
+        if token.startswith("\\") and len(token) > 1 and token[1:].isalpha():
+            if token[1:] not in _MATH_COMMANDS:
+                return True
+        elif len(token) == 1 and token.isalpha():
+            return True
+    return False
 
 
 def applies_a_name(tree, source):
@@ -648,9 +698,9 @@ def classify(relation, declared_kind):
 
 
 def solved_equation(claim, variable, names):
-    """For ``x = value`` (fix round 7, rule 2): the equation it solves, as a
-    residual, read ONLY from the immediately preceding step (never an older
-    one), or for a first step from the problem's single equation. That text
+    """For ``x = value`` (fix rounds 7-8): the equation it solves, as a
+    residual, read ONLY from the immediately preceding learner step (never
+    an older one, never the problem: a first step is not checked). That text
     must be exactly one relation, pass the name rule, and have no
     restriction token in its written text (a denominator, log, root, or a
     power that is not a whole number). Otherwise nothing is checked."""
@@ -678,15 +728,9 @@ def solved_equation(claim, variable, names):
     earlier = list(claim.get("earlier") or [])
     if earlier:
         return equation_of(earlier[-1])
-    found = []
-    for text in segments(claim.get("problem")):
-        try:
-            found.append(equation_of(text))
-        except NotChecked:
-            continue
-    if len(found) != 1:
-        raise NotChecked("no_single_equation")
-    return found[0]
+    # Fix round 8, rule 3: a first step that solves is never checked (no
+    # equation of the problem is ever selected).
+    raise NotChecked("first_step_solve")
 
 
 def compare(claim, parsed):
@@ -894,8 +938,13 @@ def run(claim, checkable):
         # resolved. Every NAME in the problem, the earlier steps and the text
         # itself, by a blunt token scan; a text that formats, subscripts or
         # writes one is never checked.
-        names = scan_names([claim.get("problem")] + list(claim.get("earlier") or [])
-                           + list(claim.get("names_context") or []) + [claim.get("text")])
+        context = [claim.get("problem")] + list(claim.get("earlier") or []) + list(claim.get("names_context") or [])
+        if any(function_notation(text) for text in context):
+            # Fix round 8, rule 1 (the orchestrator's ruling): function
+            # notation anywhere in the problem (prose included) or an earlier
+            # step disables every check on this problem.
+            raise NotChecked("function_notation")
+        names = scan_names(context + [claim.get("text")])
         refused = name_rule(claim.get("text"), names)
         if refused:
             raise NotChecked(refused)

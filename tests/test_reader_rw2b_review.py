@@ -12,7 +12,7 @@ import sqlite3
 import learnloop_sidecar.handlers.practice as practice_handler
 from tests.hint_fakes import ITEM, WORK, ChooserFake, prefer
 from tests.test_hint_h2b_review import grader  # noqa: F401 - the blind grader fixture
-from tests.workbench_help_fakes import call, help_rows, open_problem, run_job, sidecar
+from tests.workbench_help_fakes import FUNCTION_FREE_PROMPT, call, help_rows, open_problem, run_job, sidecar
 
 
 def _rows(paths, sql, params=()):
@@ -307,7 +307,7 @@ def test_f3_an_unrelated_checked_expression_never_validates_the_learners_step(tm
 
     _needs_bwrap()
     check = CheckFake([_arithmetic_check(_transformation(kind="equivalence", expression="1+1", result="2"))])
-    paths, ctx, _session = sidecar(tmp_path, check=check)
+    paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT, check=check)
     wb, _chains = open_problem(ctx, steps=("6 * 7 = 43",))
     [verdict] = run_job(ctx, call(ctx, "workbench.check", {"sessionId": wb}))["check"]["verdicts"]
     assert (verdict["verdict"], verdict["method"], verdict["mark"]) == ("questionable", "model", "?")
@@ -323,7 +323,7 @@ def test_f3_the_learners_own_expression_is_checked_and_decides_the_step(tmp_path
 
     _needs_bwrap()
     check = CheckFake([_arithmetic_check(_transformation(kind="equivalence", expression="6*7", result="43"))])
-    _paths, ctx, _session = sidecar(tmp_path, check=check)
+    _paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT, check=check)
     wb, _chains = open_problem(ctx, steps=("6 * 7 = 43",))
     [verdict] = run_job(ctx, call(ctx, "workbench.check", {"sessionId": wb}))["check"]["verdicts"]
     assert (verdict["verdict"], verdict["method"], verdict["mark"]) == ("questionable", "checked", "≠")
@@ -425,10 +425,10 @@ def test_f10_a_check_appends_the_models_and_the_verifiers_verdicts_with_the_row(
         payload["steps"][1]["reason"] = "the answer is 1/4, not this"
         return payload
 
-    paths, ctx, _session = sidecar(tmp_path, check=CheckFake([answer]))
+    paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT, check=CheckFake([answer]))
     # Fix round 3: the verifier checks the step as written, so step 1 is in LaTeX.
     assert STEP_1.endswith("on [0, 1]")
-    wb, chains = open_problem(ctx, steps=(r"\int 2x \, dx = x^2", "so P(X <= 1/2) = F(1/2) + 1"))
+    wb, chains = open_problem(ctx, steps=(r"\int 2x  dx = x^2", "so P(X <= 1/2) = F(1/2) + 1"))
     result = run_job(ctx, call(ctx, "workbench.check", {"sessionId": wb}))
     rows = _rows(paths, "SELECT * FROM judgment_ledger WHERE left_kind = 'help_assist' AND left_id = ? "
                         "ORDER BY task, right_id", (result["assistId"],))
@@ -474,10 +474,12 @@ def _with_claims(*claims):
 
 # Fix round 3: a claim is checked only when its own statement parses (LaTeX,
 # one relation) and holds; its declaration must agree with that parse.
-TRUE_CLAIM = _claim(1, r"\int 2x \, dx = x^2", kind="integration", expression="2*x", result="x**2", variable="x")
+TRUE_CLAIM = _claim(1, r"\int 2x  dx = x^2", kind="integration", expression="2*x", result="x**2", variable="x")
 FALSE_CLAIM = _claim(2, r"\frac{d}{dx}\left(x^2\right) = 2x + 1", kind="differentiation", expression="x^2",
                      result="2*x + 1", variable="x")
-FALSE_STEPS = ("F(x) = x^2 on [0, 1]", "F'(x) = 2")
+# Fix round 8: no function notation in the steps (it would disable every check).
+FALSE_STEPS = ("x^2 = x^2", "2x = 2x")
+TRUE_STEPS = FALSE_STEPS
 
 
 def test_f14_a_hints_checkable_claim_is_verified_and_labelled_checked(tmp_path):
@@ -485,8 +487,9 @@ def test_f14_a_hints_checkable_claim_is_verified_and_labelled_checked(tmp_path):
 
     _needs_bwrap()
     writer = WriterFake([_with_claims(TRUE_CLAIM)])
-    _paths, ctx, _session = sidecar(tmp_path, writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
-    wb, _chains = open_problem(ctx)
+    _paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT,
+                                    writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
+    wb, _chains = open_problem(ctx, steps=TRUE_STEPS)
     hint = _take(ctx, wb, 3)
     assert hint["status"] == "ready" and writer.calls == 1
     assert [(claim["status"], claim["label"]) for claim in hint["claims"]] == [("checked", "checked")]
@@ -501,7 +504,8 @@ def test_f14_a_claim_that_does_not_hold_is_reasked_once_naming_it(tmp_path):
 
     _needs_bwrap()
     writer = WriterFake([_with_claims(FALSE_CLAIM), _with_claims(TRUE_CLAIM)])
-    _paths, ctx, _session = sidecar(tmp_path, writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
+    _paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT,
+                                    writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
     wb, _chains = open_problem(ctx, steps=FALSE_STEPS)
     hint = _take(ctx, wb, 3)
     assert hint["status"] == "ready" and writer.calls == 2
@@ -515,7 +519,8 @@ def test_f14_a_claim_failing_twice_falls_to_the_next_step_without_it(tmp_path):
 
     _needs_bwrap()
     writer = WriterFake([_with_claims(FALSE_CLAIM), _with_claims(FALSE_CLAIM), wb_answer])
-    paths, ctx, _session = sidecar(tmp_path, writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
+    paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT,
+                                   writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
     wb, _chains = open_problem(ctx, steps=FALSE_STEPS)
     hint = _take(ctx, wb, 3)
     assert writer.calls == 3 and hint["status"] == "ready" and hint["kind"] == "next_step"
@@ -576,7 +581,7 @@ def test_f3r_a_transformation_of_part_of_the_learners_side_never_validates_the_s
                 "first_questionable_step": 1, "error_kind_guess": "invalid_algebra",
                 "error_kind_reason": "a slip", "error_readings": [], "assumptions": []}
 
-    _paths, ctx, _session = sidecar(tmp_path, check=CheckFake([answer]))
+    _paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT, check=CheckFake([answer]))
     wb, _chains = open_problem(ctx, steps=("x + x = 2*x + 1",))
     [verdict] = run_job(ctx, call(ctx, "workbench.check", {"sessionId": wb}))["check"]["verdicts"]
     assert (verdict["verdict"], verdict["method"], verdict["mark"]) == ("questionable", "model", "?")
@@ -612,12 +617,12 @@ def test_f3r_an_operator_is_checked_on_its_written_operand_and_names_on_their_de
     # The problem's prose is not a definition: F is not defined by it.
     problem = "X has density f(x) = 2x on [0, 1]. Find P(X ≤ 1/2)."
     assert _checks(["F(x) = x^2 on [0, 1]"], integral, problem=problem) == ("model", None)
-    assert _checks([r"\int 2x \, dx = x^2"], integral) == ("checked", True)
-    assert _checks([r"\int 2x + 1 \, dx = x^2"], integral) == ("model", None)
+    assert _checks([r"\int 2x  dx = x^2"], integral) == ("checked", True)
+    assert _checks([r"\int 2x + 1  dx = x^2"], integral) == ("model", None)
     normalization = {"kind": "normalization", "expression": "2*x", "result": "", "variable": "x", "lower": "0",
                      "upper": "1"}
-    assert _checks([r"\int_0^1 2x \, dx = 1"], normalization) == ("checked", True)
-    assert _checks([r"\int_0^1 2x \, dx = 2"], normalization) == ("model", None)
+    assert _checks([r"\int_0^1 2x  dx = 1"], normalization) == ("checked", True)
+    assert _checks([r"\int_0^1 2x  dx = 2"], normalization) == ("model", None)
     solving = {"kind": "solving", "expression": "x^2 - 4 = 0", "result": "2", "variable": "x"}
     assert _checks(["x^2 - 4 = 0", "x = 2"], solving) == ("checked", True)
     assert _checks(["x^2 - 4 = 5", "x = 2"], solving) == ("model", None)

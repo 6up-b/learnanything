@@ -22,7 +22,7 @@ import pytest
 from learnloop.content.authoring.pf_sandbox import sandbox_available
 from learnloop.workbench.symbolic import CHECKED, MODEL, SymbolicClaim, run_checks
 from tests.hint_fakes import ChooserFake, WriterFake, prefer
-from tests.workbench_help_fakes import call, open_problem, run_job, sidecar, wb_answer
+from tests.workbench_help_fakes import FUNCTION_FREE_PROMPT, call, open_problem, run_job, sidecar, wb_answer
 
 pytestmark = pytest.mark.skipif(not sandbox_available(), reason="bubblewrap is not installed")
 
@@ -90,7 +90,8 @@ def test_a_solve_checks_only_against_the_immediately_preceding_step():
                text="x = 6"),
         _claim(3, [], kind="solving", expression="2*x = 12", result="6", variable="x", text="x = 6",
                problem="Solve $2x = 12$."),
-    ) == [(MODEL, None), (CHECKED, True), (CHECKED, True)]
+        # Fix round 8, rule 3: a first step that solves is never checked against the problem.
+    ) == [(MODEL, None), (CHECKED, True), (MODEL, None)]
 
 
 # -- Positive controls: name-free steps of each kind still check -------------------------------------
@@ -102,10 +103,10 @@ def test_name_free_steps_of_each_kind_still_check():
         _claim(2, kind="differentiation", expression="x**3", result="3*x**2", variable="x",
                text=r"\frac{d}{dx}\left(x^3\right) = 3x^2"),
         _claim(3, kind="integration", expression="2*x", result="1", variable="x", lower="0", upper="1",
-               text=r"\int_0^1 2x \, dx = 1"),
-        _claim(4, kind="integration", expression="2*x", result="x**2 + C", variable="x", text=r"\int 2x \, dx = x^2 + C"),
+               text=r"\int_0^1 2x  dx = 1"),
+        _claim(4, kind="integration", expression="2*x", result="x**2 + C", variable="x", text=r"\int 2x  dx = x^2 + C"),
         _claim(5, kind="normalization", expression="3*x**2", result="1", variable="x", lower="0", upper="1",
-               text=r"\int_0^1 3x^2 \, dx = 1"),
+               text=r"\int_0^1 3x^2  dx = 1"),
         _claim(6, kind="limit", expression="x^2 + 1", result="5", variable="x", value="2",
                text=r"\lim_{x \to 2} (x^2 + 1) = 5"),
         _claim(7, kind="sum", expression="k", result="6", variable="k", lower="1", upper="3", text=r"\sum_{k=1}^{3} k = 6"),
@@ -118,7 +119,8 @@ def test_name_free_steps_of_each_kind_still_check():
 
 def _hint_claims(tmp_path, steps, claim):
     writer = WriterFake([lambda context: {**wb_answer(context), "claims": [claim]}, wb_answer])
-    _paths, ctx, _session = sidecar(tmp_path, writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
+    _paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT,
+                                    writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
     wb, _chains = open_problem(ctx, steps=tuple(steps))
     hint = run_job(ctx, call(ctx, "workbench.request_help", {"sessionId": wb, "takenLevel": 3}))
     return [entry["status"] for entry in hint["claims"]]
