@@ -47,7 +47,7 @@ from learnloop.content.sources.exam_material import held_out_material
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.ingest.block_roles import lead_role
-from learnloop.source_retrieval.corpus import block_roles
+from learnloop.source_retrieval.corpus import block_roles, item_exclusions
 from learnloop.source_retrieval.tutor import ITEM_BOUND_LEAD_ROLES
 from learnloop.source_retrieval.verify import verification_route
 from learnloop.tutor.tutor_qa import span_leaks_expected
@@ -192,20 +192,66 @@ class ReaderLookup:
 
         held = held_out_material(self.vault, self.repository)
         item = self.item if self.policy == "assisted_practice" else None
-        kept: list[dict[str, Any]] = []
-        counts = {"held_out": 0, "exercise_or_solution": 0, "answer_overlap": 0}
+        counts = {"held_out": 0}
+        unheld: list[dict[str, Any]] = []
         for hit in hits:
-            text = str(hit.get("text") or "")
             if held.covers(str(hit["extraction_id"]), str(hit["span_id"])):
                 counts["held_out"] += 1
-            elif item is not None and (lead_role(text) in ITEM_BOUND_LEAD_ROLES
-                                       or hit.get("role") in ITEM_BOUND_LEAD_ROLES):
-                counts["exercise_or_solution"] += 1
-            elif item is not None and span_leaks_expected(text, item.expected_answer):
-                counts["answer_overlap"] += 1
             else:
-                kept.append(hit)
+                unheld.append(hit)
+        kept = unheld
+        if item is not None:
+            kept, bound = ItemBoundGuard(self.repository, item)(unheld)
+            counts.update(bound)
         return kept, {key: value for key, value in counts.items() if value}
+
+
+#: The learner's own selection: a problem statement they chose to read is
+#: theirs to ask about, so the exercise rule does not drop it (a solution, a
+#: passage linked to the item or one stating its answer still never reaches
+#: the tutor).
+SELECTION_RELATIONS = frozenset({"selected_text", "in_view"})
+
+
+@dataclass
+class ItemBoundGuard:
+    """T6's item-bound exclusions over every span the tutor would be given
+    (Codex review F3): the passages linked to the item (``item_exclusions``:
+    its own worked answer, whatever the relation), every exercise and
+    solution block (by lead and by effective role) and every passage that
+    reproduces the item's answer (``span_leaks_expected``, which catches a
+    short key a long-answer overlap misses). ``guard(spans) -> (kept, counts)``."""
+
+    repository: Repository
+    item: PracticeItem
+    _exclusions: Any = None
+
+    def __call__(self, spans: Sequence[Mapping[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, int]]:
+        if self._exclusions is None:
+            self._exclusions = item_exclusions(self.repository, self.item)
+        exclusions = self._exclusions
+        keys = [(str(span.get("extraction_id")), str(span.get("span_id"))) for span in spans]
+        with closing(connect(self.repository.sqlite_path, read_only=True)) as connection:
+            roles = block_roles(connection, [key for key in keys if key[0] and key[1]])
+        kept: list[dict[str, Any]] = []
+        counts: dict[str, int] = {}
+        for span, key in zip(spans, keys):
+            text = str(span.get("text") or "")
+            role = span.get("role") or roles.get(key)
+            selection = span.get("relation") in SELECTION_RELATIONS
+            if key[0] in exclusions.extractions or key in exclusions.spans:
+                why = "linked_to_item"
+            elif role == "solution" or lead_role(text) == "solution":
+                why = "exercise_or_solution"
+            elif not selection and (role in ITEM_BOUND_LEAD_ROLES or lead_role(text) in ITEM_BOUND_LEAD_ROLES):
+                why = "exercise_or_solution"
+            elif span_leaks_expected(text, self.item.expected_answer):
+                why = "answer_overlap"
+            else:
+                kept.append(dict(span))
+                continue
+            counts[why] = counts.get(why, 0) + 1
+        return kept, counts
 
 
 # ---------------------------------------------------------------------------
@@ -261,6 +307,35 @@ def shown_span_keys(exchanges: Sequence[Mapping[str, Any]]) -> list[str]:
             extraction, _, span = str(key).partition(":")
             add(extraction, span)
     return keys
+
+
+def offer_shown_span_keys(repository: Repository, exchanges: Sequence[Mapping[str, Any]]) -> list[str]:
+    """The passages the inquiry's offers showed (Codex review F7): the
+    exposure rows a pressed passage or comparison offer wrote
+    (``record_source_offer_shown``: entity ``source_tool_call``, a request the
+    tutor made from one of these questions) and the excerpts' own rows
+    (entity ``question_event``)."""
+
+    question_ids = [str(e["question_event_id"]) for e in exchanges if e.get("question_event_id")]
+    if not question_ids:
+        return []
+    marks = ", ".join("?" for _ in question_ids)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        tables = {row[0] for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN "
+            "('source_exposure_events', 'source_tool_calls')")}
+        if "source_exposure_events" not in tables:
+            return []
+        rows = list(connection.execute(
+            f"SELECT extraction_id, span_id FROM source_exposure_events WHERE entity_type = 'question_event' "
+            f"AND entity_id IN ({marks}) ORDER BY created_at, id", tuple(question_ids)))
+        if "source_tool_calls" in tables:
+            rows += list(connection.execute(
+                "SELECT e.extraction_id, e.span_id FROM source_exposure_events e JOIN source_tool_calls c "
+                "ON e.entity_type = 'source_tool_call' AND e.entity_id = c.id "
+                f"WHERE c.caller_kind = 'tutor' AND c.caller_ref IN ({marks}) ORDER BY e.created_at, e.id",
+                tuple(question_ids)))
+    return list(dict.fromkeys(f"{row[0]}:{row[1]}" for row in rows if row[0] and row[1]))
 
 
 def shown_source_ids(repository: Repository, keys: Sequence[str]) -> list[str]:
@@ -401,6 +476,7 @@ def citation_dicts(raw: Any) -> list[dict[str, Any]]:
 
 __all__ = [
     "FROM_ANOTHER_BOOK",
+    "ItemBoundGuard",
     "NEXT_STEP_ROLES",
     "READER_INTENTS",
     "ReaderLookup",
@@ -412,6 +488,7 @@ __all__ = [
     "learner_work",
     "named_gap_hypotheses",
     "next_step_buttons",
+    "offer_shown_span_keys",
     "passage_learning_objects",
     "reader_query",
     "shown_source_ids",

@@ -145,6 +145,9 @@ export interface ReaderInquiryInput {
   /** RW1c: the bound workbench session the learner is working in, if any, so
    *  the tutor's retrieval reads as that item's practice (never wider). */
   workbenchSessionRef?: MutableRefObject<string | null>;
+  /** RW1c: the composer's personalized chip while the tutor looks things up
+   *  (null: retrieval off, nothing sent and the server's default holds). */
+  personalizedRef?: MutableRefObject<boolean | null>;
   /** The screen's openSource (a restore may reopen the source a detour left). */
   openSourceRef: MutableRefObject<
     ((card: SourceLibraryCard, jumpSpan?: string,
@@ -214,7 +217,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     render, offline, inquiry, muted, library, sourceTitle, selection, setSelection, setSelectionActions,
     activeSpan, railTab, setRailTab, answerMode, setBusy, onError, annotations, refreshAnnotations, setArc,
     visit, readingSpan, guideSectionBySpan, jumpToSpan, onReadingScroll, jumpGuardRef, bodyRef,
-    askComposerRef, openSourceRef, onRestored, workbenchSessionRef,
+    askComposerRef, openSourceRef, onRestored, workbenchSessionRef, personalizedRef,
   } = input;
   const { visitPayload, touchVisit, noteBackToReading, noteUsableResult } = visit;
   const [question, setQuestion] = useState("");
@@ -602,6 +605,9 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
         ...(inquiry && selectionSourceQuote ? { selectionSourceQuote } : {}),
         // RW1c: inside a bound workbench session the retrieval reads as its item's practice.
         ...(workbenchSessionRef?.current ? { workbenchSessionId: workbenchSessionRef.current } : {}),
+        // RW1c (Codex review F8): the visible personalized chip, for every
+        // question and follow-up (another way and that didn't help included).
+        ...(personalizedRef && personalizedRef.current !== null ? { personalized: personalizedRef.current } : {}),
         // RW1c: "another way" / "that didn't help" (only sent from their buttons).
         ...(override?.retrievalIntent && override.retrievalIntent !== "explain"
           ? { retrievalIntent: override.retrievalIntent } : {}),

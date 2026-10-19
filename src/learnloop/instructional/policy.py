@@ -111,6 +111,12 @@ def caller_for_question_event(vault: LoadedVault, repository: Repository, event_
         raise PolicyRefused("unknown_caller", f"Unknown question event {event_id}")
     context = str(event.get("context") or "")
     item_id = event.get("practice_item_id") if context in ITEM_BOUND_CONTEXTS else None
+    if context == "reader" and event.get("practice_item_id"):
+        # Reader workbench RW1c (Codex review F2): a Reader question asked
+        # inside a workbench session bound to an item is stored on that item;
+        # anything later rebuilt from it reads as that item's practice (or
+        # cold), never wider than the question was asked under.
+        item_id, context = event.get("practice_item_id"), "practice"
     return CallerContext(
         kind="tutor", ref=event_id, context=context, item_id=item_id,
         attempt_id=event.get("attempt_id"),

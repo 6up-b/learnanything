@@ -231,6 +231,13 @@ export function ReaderAskBranches({
                 <button type="button" key={index} onClick={() => onShowPassage(citation.spanId)} style={buttonStyle}>
                   <span aria-hidden="true">§ </span>source: {citation.label || citation.spanId}
                 </button>
+              ) : citation.sourceId && tutor?.onOpenPassage ? (
+                // RW1c (Codex review F9): a passage from another book opens there.
+                <button type="button" key={index} data-open-citation="" style={buttonStyle} onClick={() => tutor.onOpenPassage?.({
+                  extractionId: citation.extractionId, spanId: citation.spanId, sourceId: citation.sourceId,
+                })}>
+                  <span aria-hidden="true">§ </span>source: {citation.label || citation.spanId}
+                </button>
               ) : <span key={index}>{citation.label || citation.spanId}</span>)}
             </div>
             {isRoot ? statusChips(exchange) : null}

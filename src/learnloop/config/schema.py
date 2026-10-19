@@ -2287,7 +2287,10 @@ class ReaderTutorConfig(BaseModel):
     derivation or worked example). Off: no buttons under answers in the
     Reader. Retrieval is context and display, buttons are learner picks (T6's
     ruling): nothing in scoring, scheduling, projection or serving reads
-    either, so no algorithm successor. The sources service's
+    either, so no algorithm successor. A Reader question asked inside a
+    workbench session bound to an item is stored on that item and practice
+    session, so the existing question hint-equivalents and reveals carry it
+    to the attempt, with their existing meaning. The sources service's
     ``source_service.tutor_tools`` gates the tutor's requests themselves.
     """
 

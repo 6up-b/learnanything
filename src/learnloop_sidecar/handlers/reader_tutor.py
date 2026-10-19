@@ -103,6 +103,7 @@ def build_request(ctx: Any, vault: Any, repository: Any, params: Any) -> Any:
                            workbench_session_id=params.workbench_session_id)
     policy = "cold_attempt" if params.cold_active else derive_policy(caller)[0]
     item = vault.practice_items.get(caller.item_id) if caller.item_id else None
+    bound_item, practice_session_id = _accounting_binding(vault, repository, params, item)
     history = RD.ask_history(repository, extraction_id=params.extraction_id, branches=True) \
         if params.parent_exchange_id else []
     ancestors = _ancestors(history, params.parent_exchange_id)
@@ -120,7 +121,8 @@ def build_request(ctx: Any, vault: Any, repository: Any, params: Any) -> Any:
         query = RT.reader_query(ancestors[-1]["question_md"], ancestors=ancestors[:-1], gaps=gaps)
     else:
         query = RT.reader_query(params.question, ancestors=ancestors, gaps=gaps)
-    shown = RT.shown_span_keys(inquiry) if intent in ("alternative", "remediate") else []
+    shown = list(dict.fromkeys([*RT.shown_span_keys(inquiry), *RT.offer_shown_span_keys(repository, inquiry)])) \
+        if intent in ("alternative", "remediate") else []
     service = bool(vault.config.source_service.enabled)
 
     if service:
@@ -143,14 +145,63 @@ def build_request(ctx: Any, vault: Any, repository: Any, params: Any) -> Any:
         personalized=personalized, item=item if policy == "assisted_practice" else None,
         rerank_client=getattr(ctx, "reader_tutor_rerank_client", None), service=service,
     )
+    assisted = item if policy == "assisted_practice" else None
     return ReaderTutorRequest(retrieve=lookup, intent=intent if service else "explain", personalized=personalized,
-                              learner_work=work, item=item if policy == "assisted_practice" else None)
+                              learner_work=work, item=assisted, policy=policy, bound_item=bound_item,
+                              practice_session_id=practice_session_id,
+                              context_guard=RT.ItemBoundGuard(repository, assisted) if assisted is not None else None,
+                              shown_span_keys=shown if intent == "alternative" else ())
+
+
+def _accounting_binding(vault: Any, repository: Any, params: Any, item: Any) -> tuple[Any, str | None]:
+    """The item a bound workbench session practises and the practice session
+    its submit counts questions in (the workbench's own resolution,
+    ``handlers.workbench._question_hints``): the Reader question is help on
+    that item whatever the policy (Codex review F1). None when no session
+    binds one, or when the client's cold path already records this question
+    as a hint on that same item (``reader_dialogue._record_cold_hint_equivalent``),
+    so nothing is counted twice."""
+
+    if item is None or not params.workbench_session_id:
+        return None, None
+    if params.cold_active and params.cold_attempt_id:
+        attempt = repository.fetch_practice_attempt(params.cold_attempt_id) or {}
+        if attempt.get("practice_item_id") == item.id:
+            return None, None
+    from learnloop.reader import workbench as WB
+
+    session = WB.session_row(repository, params.workbench_session_id)
+    practice_session = session.get("practice_session_id")
+    if practice_session:
+        row = repository.fetch_session(practice_session)
+        if row is None or row.get("ended_at") is not None:
+            practice_session = None
+    if not practice_session:
+        recent = repository.most_recent_open_session()
+        practice_session = recent["id"] if recent else None
+    return item, practice_session
 
 
 def item_bound(request: Any) -> bool:
     """A workbench session bound the question to an item (its tools would read wider)."""
 
     return request is not None and getattr(request, "item", None) is not None
+
+
+def tools_refused(request: Any, *, cold_active: bool) -> bool:
+    """No tool, practice request or offer lookup may run for this question
+    (G48, Codex review F2): during a cold administration, whether the client
+    says so (``coldActive``) or the server derives it from the bound item,
+    and inside a bound session, where the tools would be rebuilt from the
+    stored reader question under ``reading`` (wider than the session's
+    ``assisted_practice``)."""
+
+    if cold_active:
+        return True
+    if request is None:
+        return False
+    return getattr(request, "policy", "reading") == "cold_attempt" or getattr(request, "bound_item", None) is not None \
+        or item_bound(request)
 
 
 def offers(vault: Any, repository: Any, result: dict[str, Any], *, extraction_id: str) -> dict[str, Any] | None:
@@ -212,4 +263,5 @@ __all__ = [
     "prompt_contract_fields",
     "record_excerpt_exposure",
     "retrieval_enabled",
+    "tools_refused",
 ]

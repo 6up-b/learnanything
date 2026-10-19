@@ -132,8 +132,10 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
     lookup = RTU.build_request(ctx, vault, repository, params)
     # A question a workbench session binds to an item reads under
     # assisted_practice; the tutor's tools would be rebuilt from the reader
-    # question under reading, so it writes none there (never wider).
-    tools_allowed = not params.cold_active and not RTU.item_bound(lookup)
+    # question under reading, so it writes none there (never wider). During a
+    # cold administration -- the client's flag or the server's own derivation
+    # -- every tool is refused (G48, Codex review F2).
+    tools_allowed = not RTU.tools_refused(lookup, cold_active=params.cold_active)
     try:
         result = RD.ask(
             vault,
@@ -203,8 +205,12 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
     # request; the Reader spec renders it (absent when the offer is off).
     from learnloop_sidecar.handlers.tutor_qa import tutor_practice_request
 
-    practice_request = tutor_practice_request(vault, repository, result["event_id"]) if tools_allowed or \
-        params.cold_active else None
+    # RW1c on (either switch): nothing is offered when the tools are refused,
+    # since the Reader runs a practice request's lookup as the answer lands
+    # (G59); both off, the wire is the base's.
+    rw1c = lookup is not None or RTU.offers_enabled(vault)
+    practice_request = tutor_practice_request(vault, repository, result["event_id"]) \
+        if tools_allowed or (params.cold_active and not rw1c) else None
     if result.get("tool_requests"):
         response["tool_requests"] = result["tool_requests"]
         if any(entry.get("tool") == "find_practice" for entry in result["tool_requests"]):
@@ -213,7 +219,9 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
         # RW1c: the answer's modes (absent while reader_tutor.retrieval_enabled is off).
         response["tutor"] = result["tutor"]
         RTU.record_excerpt_exposure(repository, result)
-    offers = RTU.offers(vault, repository, result, extraction_id=params.extraction_id)
+    # No buttons at all during a cold administration (nothing is offered then).
+    cold = params.cold_active or getattr(lookup, "policy", None) == "cold_attempt"
+    offers = None if cold else RTU.offers(vault, repository, result, extraction_id=params.extraction_id)
     if offers is not None:
         # RW1c: the Reader's own buttons; and, without the sources service, a
         # plain "Practice this" on the learner's question (§4.6).

@@ -79,6 +79,7 @@ import {
 } from "./reader/activity";
 import { goTo as stackGoTo } from "./reader/returnStack";
 import { AskRail } from "./reader/AskRail";
+import { createTutorOfferStore } from "./reader/TutorOffers";
 import { GuideRail, SectionBoundaryOffer } from "./reader/GuideRail";
 import { useReaderRecap } from "./reader/useReaderRecap";
 import { RecapCard } from "./reader/RecapCard";
@@ -350,6 +351,16 @@ export function ReaderScreen({
   const readerTutor = contract?.readerTutor ?? null;
   // RW1c: the bound workbench session an Ask comes from (set once the workbench hook runs below).
   const askWorkbenchSessionRef = useRef<string | null>(null);
+  // RW1c (Codex review F8): the composer's personalized chip, at the vault's
+  // default until the learner switches it; sent with every Ask while the
+  // tutor looks things up.
+  const [askPersonalized, setAskPersonalized] = useState<boolean | null>(null);
+  const askPersonalizedOn = askPersonalized ?? readerTutor?.personalizedDefault ?? true;
+  const askPersonalizedRef = useRef<boolean | null>(null);
+  askPersonalizedRef.current = readerTutor?.retrieval ? askPersonalizedOn : null;
+  // RW1c (Codex review F6): the offers' lookups belong to their exchanges, so
+  // collapsing an answer runs nothing again.
+  const [tutorOfferStore] = useState(createTutorOfferStore);
 
   const blocks: ReaderRenderBlockDto[] = useMemo(
     () => (render?.blocks ?? []).filter((b) => !FURNITURE_BLOCK_TYPES.has(b.blockType ?? "")),
@@ -456,6 +467,7 @@ export function ReaderScreen({
     jumpGuardRef: progress.jumpGuardRef, bodyRef, askComposerRef, openSourceRef,
     onRestored: progress.noteRestored,
     workbenchSessionRef: askWorkbenchSessionRef,
+    personalizedRef: askPersonalizedRef,
   });
 
   // RW3a: margin cues from the Guide's own citations (screens/reader/useReaderCues).
@@ -2299,7 +2311,7 @@ export function ReaderScreen({
   };
   // RW4a: "open" a library hit: this book jumps to it (a peek crumb); another
   // book opens in the left pane as a detour (Alt+← comes back here).
-  const openLibraryHit = (hit: LibraryHitDto) => {
+  const openLibraryHit = (hit: Pick<LibraryHitDto, "sourceId" | "spanId" | "extractionId">) => {
     if (render && hit.sourceId === render.sourceId) {
       peekPassage(hit.spanId);
       return;
@@ -2996,6 +3008,7 @@ export function ReaderScreen({
               // RW1c: the tutor looks things up; another way, that didn't
               // help and the offers under its answers (absent while off).
               lookingUp: readerTutor.retrieval,
+              personalized: readerTutor.retrieval ? { on: askPersonalizedOn, onToggle: setAskPersonalized } : null,
               tutor: {
                 anotherWay: readerTutor.anotherWay && inquiry && !offline,
                 offers: readerTutor.offers && !offline,
@@ -3007,6 +3020,18 @@ export function ReaderScreen({
                 onTryNextStep: readerTutor.tryNextStep && activeReadingOn
                   ? (spanId: string) => void activeCtl.start("next_step", [spanId], localFold([spanId]))
                   : null,
+                // RW1c (Codex review F9): an excerpt or citation opens where
+                // it is (this book peeks; another opens as a detour).
+                onOpenPassage: offline ? null : (passage) => {
+                  if (render && passage.extractionId === render.extractionId) {
+                    peekPassage(passage.spanId);
+                    return;
+                  }
+                  if (passage.sourceId) {
+                    openLibraryHit({ sourceId: passage.sourceId, spanId: passage.spanId, extractionId: passage.extractionId });
+                  }
+                },
+                offerStore: tutorOfferStore,
               },
             } : {})}
           />

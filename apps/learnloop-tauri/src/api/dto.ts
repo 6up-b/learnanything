@@ -2094,6 +2094,8 @@ export interface TutorCitationDto {
   extractionId: string;
   spanId: string;
   label: string | null;
+  /** RW1c: a retrieved passage's source, so the Reader can open it there. */
+  sourceId?: string | null;
 }
 
 export interface TutorAnswerDto {
@@ -2283,6 +2285,7 @@ export interface SourceToolRunDto {
     relations?: Array<Record<string, unknown>>;
     missingPerspectives?: string[];
     unverifiedSources?: Array<Record<string, unknown>>;
+    alsoDiscussedIn?: Array<Record<string, unknown>>;
     labels?: Record<string, string>;
     withheldAnswerOverlap?: number;
   };
@@ -6699,6 +6702,8 @@ export interface ReaderTutorViewDto {
   intent: ReaderRetrievalIntent;
   personalized: boolean;
   withheldCitations?: number;
+  /** "Another way": citations of passages the inquiry already showed, not shown again. */
+  repeatedCitations?: number;
   retrieval: {
     status?: string | null;
     policy?: string | null;

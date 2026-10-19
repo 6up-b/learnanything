@@ -150,3 +150,41 @@ it("another way sends the follow-up with its retrieval intent", async () => {
   await screen.findByText("Third answer");
   expect(api.readerAsk.mock.calls[2][0]).toMatchObject({ question: "still lost", retrievalIntent: "remediate" });
 });
+
+it("the personalized chip is visible in the composer and its value is sent with every Ask (Codex review F8)", async () => {
+  contract.value = { readerEnabled: true, inquiryEnabled: true, readerTutor: TUTOR };
+  api.findPractice.mockResolvedValue({ version: 1, status: "ok", proposalId: "p", items: [] });
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  const block = await screen.findByText(view.blocks[1].markdown);
+  fireEvent.click(screen.getByRole("button", { name: "ask" }));
+  select(block);
+  api.readerAsk.mockResolvedValue(landed(view.blocks[1].spanId ?? ""));
+  const chip = screen.getByRole("button", { name: "personalized ●" });
+  expect(chip.getAttribute("aria-pressed")).toBe("true");
+  fireEvent.change(screen.getByPlaceholderText("ask about this passage…"), { target: { value: "why?" } });
+  fireEvent.click(screen.getByRole("button", { name: /^ask (follow-up )?· ctrl\+↵$/ }));
+  await screen.findByText("Landed answer");
+  expect(api.readerAsk.mock.calls[0][0]).toMatchObject({ personalized: true });
+  // Off: the next question, and another way under it, say so.
+  fireEvent.click(screen.getByRole("button", { name: "personalized ●" }));
+  expect(screen.getByRole("button", { name: "personalized ○" }).getAttribute("aria-pressed")).toBe("false");
+  api.readerAsk.mockResolvedValue({ ...landed(view.blocks[1].spanId ?? ""), readerAnswerEventId: "a2", parentExchangeId: "a1", answerMd: "Another answer" });
+  fireEvent.click(screen.getByRole("button", { name: "another way" }));
+  await screen.findByText("Another answer");
+  expect(api.readerAsk.mock.calls[1][0]).toMatchObject({ personalized: false, retrievalIntent: "alternative" });
+});
+
+it("without the tutor looking things up there is no chip and nothing is sent", async () => {
+  contract.value = { readerEnabled: true, inquiryEnabled: true, readerTutor: { ...TUTOR, retrieval: false, anotherWay: false } };
+  api.findPractice.mockResolvedValue({ version: 1, status: "ok", proposalId: "p", items: [] });
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  const block = await screen.findByText(view.blocks[1].markdown);
+  fireEvent.click(screen.getByRole("button", { name: "ask" }));
+  select(block);
+  expect(screen.queryByRole("button", { name: /^personalized/ })).toBeNull();
+  api.readerAsk.mockResolvedValue(landed(view.blocks[1].spanId ?? ""));
+  fireEvent.change(screen.getByPlaceholderText("ask about this passage…"), { target: { value: "why?" } });
+  fireEvent.click(screen.getByRole("button", { name: /^ask (follow-up )?· ctrl\+↵$/ }));
+  await screen.findByText("Landed answer");
+  expect(api.readerAsk.mock.calls[0][0]).not.toHaveProperty("personalized");
+});

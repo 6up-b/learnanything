@@ -530,6 +530,17 @@ def ask_question(
     provided_spans: list[dict[str, Any]] | None = None
     # RW1c: the Reader tutor's own retrieval (None: not a lookup).
     lookup = context == "reader" and reader_tutor is not None and source_span_provider is None
+    # RW1c (Codex review F1): a Reader question asked inside a workbench
+    # session bound to an item is help on that item. The server-derived
+    # binding (never the client's word) is persisted on the question row, so
+    # the submit's existing fold (``hint_equivalents_for_submission``, on the
+    # item and the practice session) and the reveal ledger see it, as they
+    # see a practice-context question.
+    bound_item: PracticeItem | None = getattr(reader_tutor, "bound_item", None) if lookup else None
+    if bound_item is not None:
+        question_row["practice_item_id"] = bound_item.id
+        question_row["session_id"] = getattr(reader_tutor, "practice_session_id", None)
+        question_row["assessment_contract_version_id"] = _question_contract(vault, repository, bound_item, None)
     lookup_spans: list[dict[str, Any]] | None = None
     lookup_manifest: dict[str, Any] = {}
     # What the source delivery recorded (a trim, a drop, a reference followed
@@ -722,9 +733,17 @@ def ask_question(
     # the practice context let a fully revealed answer be re-recorded as clean
     # unassisted evidence. Reader/library asks stay exempt: no item is bound,
     # so there is nothing to contaminate.
+    if bound_item is not None:
+        # RW1c (Codex review F1): the bound workbench item, for the hint and
+        # reveal accounting below; ``practice_item_id`` follows it so the
+        # episode and the dialogue's causal join name the same item.
+        item, practice_item_id = bound_item, bound_item.id
     hint_equivalent = item is not None and answer.question_type in HINT_EQUIVALENT_TYPES
     leak_overlap = (
-        answer_leak_overlap(answer.answer_md, item.expected_answer)
+        # A bound Reader answer shows its excerpt and bridge too: every
+        # displayed component is scored, once, as the tutor's answer.
+        answer_leak_overlap(reader_modes.displayed_text(answer.answer_md, reader_view)
+                            if bound_item is not None else answer.answer_md, item.expected_answer)
         if item is not None
         else 0.0
     )
@@ -767,6 +786,29 @@ def ask_question(
             attempt_id=attempt_id,
             clock=clock,
         )
+        if bound_item is not None and (citations or (reader_view or {}).get("excerpt")):
+            # RW1c (Codex review F1): the cited passages and the excerpt are
+            # shown under the answer; what they expose of the key is a source
+            # review, as T6's cited retrieved spans are (the guard keeps a
+            # passage that reproduces the key out of the context entirely).
+            shown_spans = [*citations, *([reader_view["excerpt"]] if (reader_view or {}).get("excerpt") else [])]
+            span_overlap = max(
+                _cited_span_overlap(shown_spans, ai_context.source_spans, item.expected_answer),
+                span_answer_overlap(str(((reader_view or {}).get("excerpt") or {}).get("quote") or ""),
+                                    item.expected_answer),
+            )
+            record_reveal(
+                repository,
+                practice_item_id=item.id,
+                learning_object_id=item.learning_object_id,
+                remediation_episode_id=episode,
+                source_kind="source_review",
+                amount=span_overlap,
+                basis="tutor_qa:reader:workbench_cited_source_span",
+                question_event_id=event_id,
+                attempt_id=attempt_id,
+                clock=clock,
+            )
         if provided_spans is not None and citations:
             # Slice 2 T6: a cited retrieved span opens in the Ask overlay, so
             # what it exposes of the expected answer is a reveal of its own
@@ -1506,7 +1548,22 @@ def _reader_lookup_context(
     spans = [dict(span) for span in retrieved or ()]
     if spans and expanded:
         spans, _completed = hydrate(BlockSource(repository.sqlite_path), spans)
+    guard = getattr(request, "context_guard", None)
+    guarded: dict[str, int] = {}
+    if guard is not None:
+        # Item-bound (Codex review F3): the item's scope, role and
+        # answer-overlap guards hold for the COMPLETE delivered context -- the
+        # selection, its neighbours, the blocks they cite and the retrieved
+        # passages (after hydration, which may complete a block) -- not only
+        # for what retrieval added.
+        reader_spans, near = guard(reader_spans)
+        spans, far = guard(spans)
+        for counts in (near, far):
+            for key, value in counts.items():
+                guarded[key] = guarded.get(key, 0) + value
     kept, receipt = reader_modes.deliver(reader_spans, spans, budget_tokens=budget_tokens, withheld=withheld)
+    if delivery_receipt is not None and guarded:
+        delivery_receipt["item_bound_withheld"] = dict(sorted(guarded.items()))
     if delivery_receipt is not None and spans:
         delivery_receipt["retrieved"] = receipt["retrieved"]
         if receipt.get("trimmed") or receipt.get("dropped"):

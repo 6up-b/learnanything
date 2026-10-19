@@ -7,7 +7,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { PracticeRequestDto, SourceToolRequestDto } from "../../api/dto";
-import { OFFER_COPY, TutorOffers } from "./TutorOffers";
+import { defaultTutorOfferStore, OFFER_COPY, TutorOffers } from "./TutorOffers";
 
 const { api } = vi.hoisted(() => ({
   api: { findPractice: vi.fn(), runSourceTool: vi.fn(), recordProposalImpressions: vi.fn(), recordSourceOfferShown: vi.fn() },
@@ -35,12 +35,14 @@ const practiceResult = { version: 1, status: "ok", proposalId: "prop_1", items: 
 const passageRun = { version: 1, tool: "find_sources", policy: "reading", toolCallId: "stc_p", runId: "r1", result: { passages: [
   { spanKey: "ext_book:s7", sourceTitle: "Linear Algebra Notes", section: "Determinants", page: 1, revisionId: "rev", text: "The determinant changes sign when two rows are swapped.", label: "source-authored" },
 ] } };
-const compareRun = { version: 1, tool: "compare_sources", policy: "reading", toolCallId: "stc_c", runId: "r2", result: { status: "compared", sources: [
-  { ref: "s1", sourceId: "src_book", sourceTitle: "Linear Algebra Notes", page: 1, label: "source-authored", contributions: [{ contribution: "states the sign rule", quote: "changes sign" }] },
+const compareRun = { version: 1, tool: "compare_sources", policy: "reading", toolCallId: "stc_c", runId: "r2", result: { status: "ok", sources: [
+  { ref: "s1", sourceId: "src_book", sourceTitle: "Linear Algebra Notes", extractionId: "ext_book", spanId: "s7", page: 1, passage: "x", label: "source-authored", contributions: [{ contribution: "states the sign rule", quote: "changes sign" }] },
 ] } };
 
 beforeEach(() => {
   for (const mock of Object.values(api)) mock.mockReset();
+  // The offers' state is the exchange's (Codex review F6); every test's exchange is "a1".
+  defaultTutorOfferStore.clear();
   api.recordProposalImpressions.mockResolvedValue({ recorded: 1 });
   api.recordSourceOfferShown.mockResolvedValue({ interventionId: null, recorded: false });
 });

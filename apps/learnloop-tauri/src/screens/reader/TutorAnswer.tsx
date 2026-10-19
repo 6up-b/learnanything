@@ -15,7 +15,7 @@ import type { PracticeRequestDto, ReaderTutorButtonDto, SourceToolRequestDto } f
 import { COLOR, FONT_MONO } from "../../components/term";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import type { ReaderExchange } from "./ReaderAskBranches";
-import { TutorOffers, type OfferItem } from "./TutorOffers";
+import { TutorOffers, type OfferItem, type TutorOfferStore } from "./TutorOffers";
 import { MeaningLabel, ModelVoice, SourceVoice } from "./voices";
 
 export const TUTOR_COPY = {
@@ -30,7 +30,15 @@ export const TUTOR_COPY = {
   cancel: "cancel",
   didntHelpDefault: "That didn't help.",
   anotherWayQuestion: "Explain it another way",
+  openPassage: "open in your book",
 } as const;
+
+/** A passage the tutor showed, wherever it is: this source or another one. */
+export interface TutorPassageRef {
+  extractionId: string;
+  spanId: string;
+  sourceId?: string | null;
+}
 
 /** The offers a freshly landed answer carries (never restored from history). */
 export interface ExchangeOffers {
@@ -48,6 +56,11 @@ export interface TutorRailProps {
   onDidntHelp?: (exchange: ReaderExchange, text: string) => void;
   onPracticePick?: ((item: OfferItem, proposalId: string | null) => void) | null;
   onTryNextStep?: ((spanId: string) => void) | null;
+  /** Open a passage the answer quotes or cites: this source peeks at it,
+   *  another book opens as a detour (Alt+← comes back). Absent: not offered. */
+  onOpenPassage?: ((passage: TutorPassageRef) => void) | null;
+  /** The screen's exchange-scoped offer state (lookups survive a collapse). */
+  offerStore?: TutorOfferStore;
 }
 
 const linkStyle = {
@@ -80,6 +93,13 @@ export function TutorAnswer({ exchange, tutor }: { exchange: ReaderExchange; tut
           <blockquote data-excerpt="" style={{ margin: 0 }}>
             <MarkdownMath value={excerpt.quote} />
           </blockquote>
+          {tutor?.onOpenPassage ? (
+            <button type="button" data-open-excerpt="" style={linkStyle} onClick={() => tutor.onOpenPassage?.({
+              extractionId: excerpt.extractionId, spanId: excerpt.spanId, sourceId: excerpt.sourceId ?? null,
+            })}>
+              {TUTOR_COPY.openPassage} ▸
+            </button>
+          ) : null}
         </SourceVoice>
       ) : null}
       {label && !view?.abstained ? <MeaningLabel>{label}</MeaningLabel> : null}
@@ -137,6 +157,7 @@ export function TutorAnswer({ exchange, tutor }: { exchange: ReaderExchange; tut
           buttons={exchange.offers.buttons ?? []}
           onPracticePick={tutor.onPracticePick ?? null}
           onTryNextStep={tutor.onTryNextStep ?? null}
+          {...(tutor.offerStore ? { store: tutor.offerStore } : {})}
         />
       ) : null}
     </div>

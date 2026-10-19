@@ -64,7 +64,16 @@ export interface AskRailProps {
    *  controls under answers; absent while reader_tutor is off. */
   lookingUp?: boolean;
   tutor?: TutorRailProps;
+  /** RW1c (Codex review F8): the visible personalized chip while the tutor
+   *  looks things up; absent: no chip (retrieval off). */
+  personalized?: { on: boolean; onToggle: (on: boolean) => void } | null;
 }
+
+export const PERSONALIZED_COPY = {
+  on: "personalized ●",
+  off: "personalized ○",
+  why: "On: the tutor may connect its answer to your open questions and recent work on this passage. Off: nothing about you is sent.",
+} as const;
 
 export function AskRail({
   visible,
@@ -107,6 +116,7 @@ export function AskRail({
   protectionMessage = null,
   lookingUp = false,
   tutor,
+  personalized = null,
 }: AskRailProps) {
   const peek = inquiry && peekPassage ? peekPassage : jumpToSpan;
   return (
@@ -163,6 +173,18 @@ export function AskRail({
                   onChange={changeAnswerMode}
                   width={160}
                 />
+                {personalized ? (
+                  <button
+                    type="button"
+                    data-ask-personalized=""
+                    aria-pressed={personalized.on}
+                    title={PERSONALIZED_COPY.why}
+                    onClick={() => personalized.onToggle(!personalized.on)}
+                    style={{ border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 11, cursor: "pointer", padding: 0 }}
+                  >
+                    {personalized.on ? PERSONALIZED_COPY.on : PERSONALIZED_COPY.off}
+                  </button>
+                ) : null}
               </div>
               <textarea
                 key={`${activeSpan}:${askComposerVersion}`}

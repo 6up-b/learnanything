@@ -1009,8 +1009,11 @@ _CONFIG_RULES: list[_ConfigRule] = [
     # Inventory A's numeric walk never reaches them; classified here so every
     # new key has a rule). Retrieval is context and display, the offers are
     # learner picks; off restores today's selection-and-neighbours tutor and
-    # no buttons. A shown answer reaches an attempt only through a
-    # tutor_answer reveal on key overlap, exactly as before.
+    # no buttons. A Reader question asked inside a workbench session bound to
+    # an item is stored on that item and practice session (Codex review F1),
+    # so it reaches the attempt only through the existing fields: the
+    # submit's question hint-equivalents and tutor_answer / source_review
+    # reveals on key overlap of everything it showed.
     _ConfigRule(_exact(
         "reader_tutor.retrieval_enabled",
         "reader_tutor.offers_enabled",

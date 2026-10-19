@@ -1391,8 +1391,11 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # template): the Reader tutor's retrieval, three answer modes,
     # abstention, another way and that didn't help, and the offer buttons
     # under its answers. Retrieval is context and display and the buttons are
-    # learner picks (T6's ruling); a shown answer reaches an attempt only
-    # through a tutor_answer reveal with its existing meaning, so no scoring,
+    # learner picks (T6's ruling); a Reader question asked inside a workbench
+    # session bound to an item is stored on that item and practice session,
+    # so it reaches the attempt only through the existing question
+    # hint-equivalents and tutor_answer / source_review reveals (their
+    # existing meaning; Codex review F1), so no scoring,
     # scheduling, projection or serving change and no successor; it adds no
     # route (the tutor's own; the sources service's for its functions) and
     # acts at every version. Every snapshot moves only because the effective

@@ -67,6 +67,27 @@ class ReaderTutorRequest:
     personalized: bool = True
     learner_work: list[dict[str, Any]] = field(default_factory=list)
     item: Any = None
+    #: The caller's derived policy (``reading``, ``assisted_practice`` or
+    #: ``cold_attempt``), kept apart from ``item`` so a cold administration
+    #: (which binds no exclusion item) is never read as ``reading`` (Codex
+    #: review F2).
+    policy: str = "reading"
+    #: The item a bound workbench session is practising and the practice
+    #: session its submit counts in, whatever the policy: the question is
+    #: persisted on them, so its hint equivalence and every displayed
+    #: component's answer overlap reach the attempt (Codex review F1).
+    bound_item: Any = None
+    practice_session_id: str | None = None
+    #: Item-bound, the guard every delivered span passes (the selection, its
+    #: neighbours, the blocks they cite and the retrieved passages):
+    #: ``guard(spans) -> (kept, counts)``. Injected by the adapter (this
+    #: package never imports retrieval); None outside a bound session.
+    context_guard: Callable[[Sequence[Mapping[str, Any]]], tuple[list[dict[str, Any]], dict[str, int]]] | None = None
+    #: "Another way": every passage the inquiry has shown (its exchanges'
+    #: selections, citations, excerpts and retrieved passages, and the
+    #: passages its pressed offers showed). No new excerpt or citation shown
+    #: may be one of them (Codex review F7); they stay in the tutor's context.
+    shown_span_keys: Sequence[str] = ()
 
 
 def run_retrieval(request: ReaderTutorRequest) -> tuple[list[dict[str, Any]] | None, dict[str, Any]]:
@@ -114,7 +135,7 @@ def verify_excerpt(excerpt: Any, spans: Sequence[Mapping[str, Any]], *, withheld
                    item: Any = None) -> tuple[dict[str, Any] | None, str | None]:
     """``(excerpt, None)`` when it quotes a passage the tutor was given, else ``(None, why)``."""
 
-    from learnloop.tutor.tutor_qa import answer_leaks_expected
+    from learnloop.tutor.tutor_qa import span_leaks_expected
 
     if excerpt is None:
         return None, None
@@ -137,7 +158,10 @@ def verify_excerpt(excerpt: Any, spans: Sequence[Mapping[str, Any]], *, withheld
         return None, "its text is not in the passage"
     if withheld is not None and withheld.covers(extraction_id, span_id):
         return None, "held-out material"
-    if item is not None and answer_leaks_expected(quote, item.expected_answer):
+    if item is not None and (span_leaks_expected(quote, item.expected_answer)
+                             or span_leaks_expected(str(found.get("text") or ""), item.expected_answer)):
+        # The span guard (Codex review F3): a short key ("2/13") is exposed by
+        # a passage that states it, which the long-answer overlap misses.
         return None, "it reproduces the answer to the item being practised"
     return {"extraction_id": extraction_id, "span_id": span_id, "quote": quote,
             "label": found.get("label"), "relation": found.get("relation"),
@@ -156,6 +180,20 @@ def finalize(answer: Any, spans: Sequence[Mapping[str, Any]], citations: list[di
     excerpt, dropped = verify_excerpt(getattr(answer, "excerpt", None), spans, withheld=withheld, item=item)
     if abstained and excerpt is not None:
         excerpt, dropped = None, "the books don't cover this, so nothing is quoted as theirs"
+    shown = set(request.shown_span_keys) if request.intent == "alternative" else set()
+    if excerpt is not None and f"{excerpt['extraction_id']}:{excerpt['span_id']}" in shown:
+        # "Another way" never repeats a passage the inquiry showed (G48).
+        excerpt, dropped = None, "this inquiry has already shown that passage"
+    repeated = [c for c in citations if f"{c.get('extraction_id')}:{c.get('span_id')}" in shown]
+    if repeated:
+        citations = [c for c in citations if c not in repeated]
+    # A citation of a passage from another book carries its source, so the
+    # Reader can open it there (Codex review F9).
+    sources = {(str(span.get("extraction_id")), str(span.get("span_id"))): span.get("source_id")
+               for span in spans if span.get("source_id")}
+    citations = [{**c, "source_id": sources[(str(c.get("extraction_id")), str(c.get("span_id")))]}
+                 if (str(c.get("extraction_id")), str(c.get("span_id"))) in sources else dict(c)
+                 for c in citations]
     bridge: str | None = str(getattr(answer, "bridge_md", None) or "").strip() or None
     bridge_dropped = None
     if bridge and not (request.personalized and request.learner_work):
@@ -179,10 +217,21 @@ def finalize(answer: Any, spans: Sequence[Mapping[str, Any]], citations: list[di
             "status", "policy", "intent", "label", "passages", "span_keys", "books_cover", "reason")
             if key in retrieval},
     }
-    shown = [] if abstained else list(citations)
+    if repeated:
+        view["repeated_citations"] = len(repeated)
+    displayed = [] if abstained else list(citations)
     if abstained and citations:
         view["withheld_citations"] = len(citations)
-    return view, shown
+    return view, displayed
+
+
+def displayed_text(answer_md: str | None, view: Mapping[str, Any] | None) -> str:
+    """Everything a Reader answer shows as text: the explanation, the excerpt
+    and the bridge (what a bound item's answer overlap is measured on)."""
+
+    view = view or {}
+    parts = [str(answer_md or ""), str((view.get("excerpt") or {}).get("quote") or ""), str(view.get("bridge_md") or "")]
+    return "\n\n".join(part for part in parts if part.strip())
 
 
 def delivery_receipt(receipt: Mapping[str, Any]) -> dict[str, Any] | None:
@@ -203,6 +252,7 @@ __all__ = [
     "ReaderTutorRequest",
     "deliver",
     "delivery_receipt",
+    "displayed_text",
     "finalize",
     "run_retrieval",
     "verify_excerpt",
