@@ -318,3 +318,421 @@ Scored prequentially, chronologically, on §5.3's event, first-attempt split fir
 - **A3. "Never labels … tested by randomized offers"** (G-AD3-11) cannot hold literally for a
   procedure with a nonzero false-positive rate over 200 seeds; the test requires at most 5% of
   seeds (the sequence's `α`). Open question 2.
+- **A4. Pools for the incumbent** (G-AD2-18, plan flow): each cell's pool holds 8 items at every
+  point of `X_c` **and at the default trajectory's four waypoint tuples**, so the incumbent
+  comparator can serve "uniform among the waypoint's items". Made before the first plan-flow run.
+- **A5. G-AD3-11's answer point** is the retrieval entry point `e_retrieval` (demand 0 plus
+  `α_origin`), fixed, as G-AD3-7's shrink check fixes its point: the gate tests the reading curves,
+  not the selection rule, and a fixed point keeps the doses the only thing varying. Made before
+  the first G-AD3-11 run.
+- **A6. "The no-effect kind's full effect has posterior mean below 0.05"** (G-AD3-11) is read as
+  "in at least 90% of seeds", as G-AD3-8's no-rise condition says. Made before the run.
+- **A7. The confidence sequence** (§1.4) is the two-sided normal-mixture boundary on the sum of the
+  increments with each increment's **predictable range** (a log-loss difference can take only the
+  two values the two forecasts give it, both fixed before the outcome; an offer's IPW term its
+  `[0, 1/π]` or `[-1/π, 0]`), so the variance process is `V_n = Σ((b_i - a_i)/2)²` (Hoeffding's
+  lemma) and `ρ = V_0/(L + log(1 + L))`, `L = -2 log α`, tuned at `n0 = 200` increments of the mean
+  range. `α = 0.05` two-sided, as registered. Reason, computed a priori: with every increment
+  bounded by `c = 5.30`, the registered boundary's half-width at `n = 200` is about 1.14 nats per
+  attempt (1.0 at 300), so no flag could fire on a realistic difference and G-AD3-9 would fail by
+  construction. Made before any simulation run. The null coverage of the new sequence is tested
+  (`test_confidence_sequence_is_anytime_valid_under_the_null`, 400 runs, 0-5%).
+- **A8. G-AD2-14's design**: the 60 answers are at ladder points drawn uniformly (not AD's draw); help
+  is an ordinary hint with no timing marker (a success with it is censored `{0, 1}`, less is 0) and
+  the reveal is a primed answer during the presentation (censored); the true mean unassisted success
+  at a point is `E_ε[(1 - h(m))(1 - r(m))(1 - λ)σ(m)]`; "within 2 posterior sd" is counted per
+  (seed, point) pair. Made before the run.
+- **A9. G-AD3-6's design**: the 300 answers are spread over the 12 LOs in a fixed random order at
+  ladder points drawn uniformly; every LO's coordinates are created up front in LO order, in the
+  truth's bank and the filter's alike, so "drawn from the model at that point" is exactly the
+  filter's own joint prior. Made before the run.
+- **A10. G-AD3-7's reading flow** (5 sections read on A, no answer on A) is gated on the first-attempt
+  log loss and on "unrelated not dragged" only. A priori: with no answer on A, A's coordinates carry
+  no information beyond the prior and the reading curve's prior, so the coupled regression cannot
+  reduce a mate's predictive variance (§5.10's construction) and band mode cannot engage earlier
+  than under uniform sharing; the band-mode median is reported, not gated. Made before the run.
+- **A11. G-AD3-9's power**: "the flags fire when their condition holds" is read as "in at least 80% of
+  seeds". The worse model is the truth shifted by a constant logit `δ` whose expected excess log
+  loss over `p ~ U(0.3, 0.9)` is 0.15 nats (`δ = 1.22`); the null is two equally noisy forecasters
+  (logit noise sd 0.3 each); readiness: a forecaster 0.10 too high in the band region, twice;
+  band missed: realized 0.50 against 0.75 over 200 selections; dose burden: 90% of 30 dismissed,
+  or three density lowerings in 14 days, against 30%. Made before the run.
+- **A12. A draw in the simulations is over feature points**, then the point's next unused item: items
+  at one point are exchangeable to AD (same features and signals), so this is the item-level rule
+  with equal counts per point. Made before any run.
+- **A13. G-AD2-8's learner** has true growth (`γ ~ N(0.2, 0.1²)`) and **true `β` drawn from
+  `ad_priors_v1`** (a calibration check under the actual policy, §5.8 "simulation recovery"); G-AD2-7's
+  learner has `β = 0` ("no feature effect"). Made before the run.
+- **A14. G-AD3-11's visit minutes** are `Σ minutes_κ · count_κ + max(N(1, 0.5²), 0)` per window (the
+  constant and its noise were not registered). Made before the run.
+- **A15. G-AD3-8's synthetic readers** use §1.7's four windows per LO (500 LOs for the 2000 windows);
+  "first attempts after reading" is every window's answer (each follows a section read). Made before
+  the run.
+- **A16. `I_c`'s inner rule** is 24 Gauss-Hermite nodes, as §1.1 registers (the code had used 32);
+  the logistic is evaluated as `1/(1 + exp(-clip(x)))`. Both changed before the first full run.
+
+**What ran when.** The exploratory runs before the gate module existed (G-AD2-18's one-cell and
+wrong-prior scenarios, a 50-learner G-AD3-7 practice run, G-AD3-11's base and downturn scenarios)
+changed nothing registered: A4-A16 were fixed before the runs whose figures §3 reports, all on
+`learnloop.sim.ad_gates` at commit `2778e23fe`'s code (A7's sequence included). The diagnostics in
+§3.2 were run **after** the gates, are labelled post hoc, and changed nothing.
+
+## 2. What was built
+
+Commits on `adaptive-difficulty/ad23` (base `29a49b5e6`): `69bec8228` (plan and
+pre-registration), `c57b20577` (the model, both views' replay, the slot draw, the generation
+contract, migration 214), `b53128b68` (the `mvp-0.28` successor, the head fixture at 214, the dose
+arm, the readiness numbers), `eb8d296d5` (the report, the arms, the dose-and-burden analysis, the
+CLI, the re-proposals), `2778e23fe` (every gate test, the simulation gates and the fixes they
+found), `1660b0b1e` (the desktop's three call sites), `707c6624e` (the spec's records, the KM and P3
+notes, the CLI snapshot, the references), and this file's commit.
+
+- **The model** (`adaptive_difficulty/model.py`, `state.py`, `priors.py`, `outcomes.py`): §5 exactly: a
+  bank of Gaussian filters (one per grid point, or learners x points in the simulations) over one
+  event skeleton; lazy subject / capability / facet / cell coordinates; the coupled construction by
+  regression on the a-priori covariance; the joint factor (32-node Gauss-Hermite on `η` with the
+  residual folded in, 5 per link coordinate for `+rating` / `+timing`); learning, reading (four kinds,
+  two dose scales, hierarchical `γ̄ + δ`) and verdict (`λ_matched`, `λ_missed`) transitions as linear
+  maps; `p̄`, `P_band` (exact through `F_x⁻¹`), `I_c` (24 x 24); §5.3's categories with the explicit
+  unknown help timing and the censored factor.
+- **The replay** (`replay.py`): both views from the attempt ledger, the frozen serve inputs, the
+  reading receipt **only through the firewall's carve-out**, the allowlisted claims at their own time,
+  the adopted coupling versions; `ad_state` and `ad_attempt_trace` (DERIVED, one replayer
+  `adaptive_difficulty`); `item_forecast_scores` (DERIVED, `scoring.py`, replayer
+  `item_forecast_scores`); zero model calls; byte-identical rebuilds; a live cache keyed by a table
+  fingerprint.
+- **The serving** (`selection.py`, `serving.py`, `daily_plan/ad_slot.py`, `daily_plan/engine.py`,
+  `records.py`): the slot support with checks 0-4 re-read at the draw (no exemption for the slot
+  item), `ad_select_v1` (band, calibrate, the overlap share, exact propensities, seeds),
+  `ad_selections` written before the serve in the serve transaction, `item_substituted` folded into the
+  plan record, `item_displaced` with `ad_ineligible` and the AD deferrals in the plan's exclusion set
+  (the boundary's context, the projection, a later plan of the day), cleared by the draw's own checks
+  at each boundary with the decision recording what it applied and cleared; the commission draw over
+  `X_c` (at a serve when the cell pool has no `P_band >= 0.35`, and under the generation contract);
+  `ad_commission_results`; the `ad_threshold@subject`, `@subject_uniform` and `@lo` receipts; the
+  loadings in force and the coupling version on `item_serve_inputs`; `feature_overlap` and
+  `reading_dose` in the randomization layer; the pair propensity `π_router · π_AD` (`π_router = 1`
+  for a deterministic chooser).
+- **The generation contract** (`generation.py`, `practice_generation.py`): a commissioned `RungTarget`
+  (`max` = the point), the band lines and the band check dropped, §7.1's text; the re-forecast of a
+  landed commission.
+- **The subject view live and readiness** (`readiness.py`, `router/card.py`, `daily_plan/router_card.py`):
+  live draws read the subject view with `promoted_predictor` on and the LO's own view with it off; the
+  readiness lines with the untested rule; the router card's AD fields (card version `+ad23` only when
+  present).
+- **Learned relatedness** (`relatedness.py`, `relatedness_jobs.py`, `cli/ad.py`): the proposal on
+  `ai.routing.llm_probability_llm` through `SendGuard` and the durable claims, inside the AD day cap
+  (owner kind `ad_relatedness`), dry-run first; validation (ids, subject, self, caps); one
+  `judgment_ledger` row per loading and coupling; `ad_relatedness_runs` with **per-unit fingerprints, so
+  a change re-proposes only the units it touches**; `ad_coupling_versions` (the first adopted applies to
+  the whole history; a later one only with `--confirm-reinterpretation` after its in-memory
+  `--shadow` report); background re-proposals on the reload, at most 2 subjects a trigger, only for an
+  adopted subject; the coupling cap of 3 applied after symmetrizing.
+- **Reading** (`attempts/salience_firewall.py`): the rule text names the exception and its four
+  limits; `learning_opportunity_events` is the only path, with the allowlist moved there (AD1's sweep
+  reads the same list); every existing firewall check and test unchanged.
+- **The dose arm** (`dose.py`, sidecar `reader.dose_offer` / `reader.dose_offer_event`, the Reader's
+  `DoseOffer`): eligibility, the friction budget, `reading_dose_v1` with exact logged propensities
+  before anything is shown, the dose already taken recorded as the moderator, uptake rows; outside the
+  successor, switch `reading_dose_offers`.
+- **The monitoring and the report** (`monitoring.py`, `arms.py`, `report.py`, `dose_report.py`,
+  `learnloop ad report` / `ad eval`): §10.4's arms, field's rule as a monitor, the sequences, the honest
+  lines, the seven auto-flags (each naming its switch), identifiability (feature-time correlation,
+  aliased directions, contraction, prior sensitivity, the hyperparameter margins, the reading kinds),
+  time to usable, trivial successes, commissions, the dose arm, the dose-and-burden analysis (gain per
+  event, minutes by NNLS, the practice reference, the useful dose, the randomized offers' effects with
+  their dose and level-band moderation, the "helps when" lines, burden, the plain lines), the
+  self-check calibration. Read-only, zero model calls.
+- **The successor** (`algorithm_versions.py`, `ad_successor_upgrade.py`, `successor.py`, config):
+  `mvp-0.28`, `learnloop upgrade --to mvp-0.28` (from `mvp-0.27`, or `mvp-0.9`..`mvp-0.26` through the
+  chain; AD's DERIVED state prepared before the rename), the defaults snapshot, the six switches (each
+  read only at the tag), the dose arm's switch, every numeric key classified.
+- **The simulations** (`sim/ad_synthetic.py`, `sim/ad_gates.py`): synthetic learners, vaults with
+  known structure and synthetic readers on the real model and selection rule, the incumbent's ladder on
+  the production EKF; every gate's figures (`uv run python -m learnloop.sim.ad_gates [gate ...]`).
+- **The desktop** (narrow call sites only): `WhyThisItem` under the practice card's presentation
+  (`adaptive_difficulty.why_item`), `DoseOffer` above the Reader's guide rail, `ReadinessLine` on the
+  inspector's LO page; four Tauri passthroughs; every new RPC desktop-only.
+- **Migration 214**: `ad_selections`, `ad_commission_results`, `ad_dose_offers`, `ad_relatedness_runs`,
+  `ad_coupling_versions` (append-only, triggers), `ad_state`, `ad_attempt_trace`, `item_forecast_scores`
+  (DERIVED); table roles; the head fixture `migration_head_214` (backup API, rollback mode) and every
+  path naming it; the references (head 214, 0 errors).
+
+## 3. The gates
+
+### 3.1 Results (all pre-registered conditions; 200 learners or seeds unless stated)
+
+| Gate | Result | Figures |
+|---|---|---|
+| G-AD2-1..6, 9..13, 15..17 | **pass** | `tests/test_ad2_model.py`, 23 tests |
+| G-AD2-7 confound | **pass** | monotone ladder: complexity and transfer labelled confounded in 100% of seeds |
+| G-AD2-8 recovery | **pass** | every identified `β` within 2 sd in 91-100% of the seeds where it is identified; the 9 never-varied coordinates prior-dependent in every seed |
+| G-AD2-14 censoring | **pass** | within 2 sd in 98.5% of (seed, point) pairs; censored bias -0.0006; dropping assisted attempts +0.021 (one-sided lower bound +0.012) |
+| G-AD2-18 one LO, one cell | **FAIL** | band mode by answer 15: **0%** (>= 80%); band hits 16-30: **0.096** (>= 0.35); an oracle bound 0.330 |
+| G-AD2-18 wrong prior | **FAIL** | band hits 16-30: **0.093** (>= 0.30); an oracle bound 0.337 |
+| G-AD2-18 plan flow | **FAIL (1 of 3)** | band hits 16-30: AD 0.122, incumbent 0.036, no-update 0.122 (both met); trivial successes AD **0.016** > incumbent 0.0 (failed); LO view 0.125 / 0.022; band mode 0% in every arm; an oracle bound 0.325; every cell is first visited in its only block (no seen-cell figures) |
+| G-AD2-19..31 | **pass** | `tests/test_ad2_serving.py`, 34 tests |
+| G-AD3-1..5, 10, 12..14 | **pass** | `test_ad3_subject_view.py`, `test_ad3_relatedness.py`, `test_ad3_reading.py`, `test_ad3_dose_arm.py`, `test_ad3_monitoring.py`, the carve-out in `test_salience_firewall.py` |
+| G-AD3-6 (synthetic part) | **FAIL (24 of 36 points)** | half the weight on the generating point and its neighbours in >= 80% of 25 seeds at 12 points (the `χ_Q = 0.25` column but `2.25/0.75/0.25` and `0.75/0.75/0.25`, and `1.5/0/0`, `1.5/0.5/0`); 0.08-0.76 at the others (edges and corners) |
+| G-AD3-7 related faster (practice, correct) | **FAIL (1 of 4)** | mates' first-attempt log loss -0.103 nats against uniform sharing (95% interval -0.130, -0.073: met); unrelated not dragged (met); band mode never engaged on a mate in either arm (the 2-fewer condition failed) |
+| G-AD3-7 related faster (reading, correct) | **pass** | mates -0.041 nats (-0.057, -0.025); unrelated -0.010 nats, band hits -0.004 |
+| G-AD3-7 unrelated not dragged (noisy, wrong) | **FAIL** | the unrelated LO's first attempt **+0.026** (noisy) and **+0.240** nats (wrong) against uniform (<= 0.02); band hits +0.001 / +0.002 (met) |
+| G-AD3-7 a wrong proposal shrinks | **FAIL** | weight on `χ_C = 0` reaches 0.5 within 100 first attempts in **47%** of seeds (>= 80%); the coupling flag within 200 in **0%** (>= 80%); correct proposal: flag in 0% (<= 5%: met) |
+| G-AD3-8 (synthetic part) | **FAIL (1 of 3)** | true rise: log loss on - off -0.00098 (interval excludes 0: met); no rise: full effect stays **0.24** (below 0.05 in 0%; >= 90%); flag 0% (met) |
+| G-AD3-9 flags | **pass** | fire when worse in 86.5-100% (>= 80%); none fires when nothing is worse in 99% of seeds (>= 95%); each names its switch |
+| G-AD3-11 recovery (floor 0.10 and 0.30) | **FAIL** | curves within 2 sd: reading 0.995, tutor 0.90-0.92, worked examples 0.985, **questions 0.725-0.775** (>= 0.90); `n*` within one 99.5-100% (every true `n*` is 0 at the registered minutes); the no-effect kind's full effect below 0.05 in **4.5-6.5%** |
+| G-AD3-11 downturn | **FAIL** | downturn found in **0%** (>= 80%); worked-example coverage 0.055 |
+| G-AD3-11 confounding (0.10, 0.30) | **pass** | the offer's 95% interval covers 0 in 93-94.5%; "tested" in 0-2% |
+| G-AD3-15 (1)-(5) | **pass** | `tests/test_ad3_reading.py` |
+| G-AD3-15 (6) | **FAIL (1 of 2)** | misses predicting cold failure: `λ_missed` -0.42, interval excluding 0 in 100% (met); no signal: |mean| 0.07, sd 0.12 (ok in 0%; >= 90%) |
+
+The failing conditions are strict xfails in `tests/test_ad23_sim.py` with these figures, so the
+suite stays readable and the marker turns red the day a gate passes. **The successor should not
+merge on these results**: the owner decides what changes (§3.3).
+
+### 3.2 Why (diagnostics run after the gates, post hoc; nothing changed on them)
+
+- **G-AD2-18: band mode cannot engage while the learning rate is uncertain.** `P_band <= 2Φ(w/2s) - 1`
+  with `w = F⁻¹(0.80) - F⁻¹(0.70) = 0.671`: band mode (`max P_band >= 0.35`) needs the predictive sd
+  `s <= 0.74` at a well-centred point. With `γ` a persistent latent coordinate (prior sd 0.1), the
+  uncertainty of the cumulative learning enters as `t²·Var(γ | data)`: the median best-point sd floors
+  at 0.93-0.97 after 9-15 answers (0.64 with the learning transition removed). On the same 200
+  learners: `γ` known in the filter: band mode by 15 for 36%; `γ` known and the truth's `γ` fixed at
+  0.2: 39%; `calibrate_below = 0.25`: 66%; no learning in truth or filter: 30%. Band hits stay
+  0.09-0.21 in every variant.
+- **G-AD2-18: the registered pools cannot reach most learners' band.** The prior's spread (`θ - α`
+  sd 1.8) exceeds `X_c(retrieval)`'s demand range (-0.5 to 1.5 at the prior means): an oracle that
+  always served the best pool point would land in the band on only **0.330** of answers 16-30, below
+  the 0.35 threshold. §5.9's arithmetic assumed a point in the band always exists.
+- **G-AD3-11, G-AD3-8, G-AD3-15 (6): one learner's reading data move the curves little.** After 5000
+  windows the posterior sd of a kind's coefficients is 0.07 / 0.12 against the priors' 0.10 / 0.14:
+  each window's answer has about 0.12 nats of information about the facet's level, which the LO's own
+  offset (variance 1.5) mostly absorbs, and a section read every window is collinear with the practice
+  increment. Truths far from the prior means (a no-effect kind, the downturn, a flat verdict term) stay
+  near the prior; truths near them pass.
+- **G-AD3-7: coupling helps the mates' first attempts but drags an unrelated LO under a wrong
+  proposal, and the mixture does not unlearn it fast.** The mates' first attempts improve by 0.10 nats
+  with the correct proposal (0.12 noisy, 0.01 wrong). With the wrong proposal the unrelated LO's first
+  attempt is 0.24 nats worse; over 100 first attempts the weight on `χ_C = 0` passes 0.5 for only 47%
+  of learners, and the mixture's predictions move toward uniform sharing so the arms' difference
+  shrinks below what the sequence can separate (the flag never fires).
+- **G-AD3-6: one learner identifies the grid's edges weakly.** Interior points pass; corners (where
+  "neighbours" are 8 of 36 points) and the `χ_Q = 0.5` / `χ_C = 0.75` edges do not.
+
+### 3.3 Options for the owner (none taken)
+
+1. **Accept the figures as monitoring**: merge with `selection` on (calibrate mode serves acceptable,
+   informative items; the incumbent's band hits are lower still, 0.036) and read the AD report.
+2. **Give band mode a reachable target**: lower `calibrate_below` (0.25 engaged band mode by answer 15
+   for 66% in the one-cell scenario), or treat `Var(γ)` as the §5.9 "fresh noise" approximation
+   (a changed `ad_priors_v1`: a successor-level change of persisted meaning).
+3. **Widen the commission ladder**: `X_c` from the whole default trajectory's envelope (and scaffolding
+   `worked`), so a pool can reach the band for learners far from the prior mean.
+4. **Re-pre-register the simulation gates** with figures the model can meet (as a later, separately
+   recorded registration; the present results stand as reported).
+5. **Coupling safeguards**: a smaller `χ_C` grid cap, or the coupling flag on a sequence with a smaller
+   `n0`; or keep `learned_coupling` off until the owner's backfill is spot-checked.
+
+## 4. Deviations (each recorded; the conservative option where the spec and the code disagree)
+
+1. **Eligible attempt types** add `hinted_attempt` and `dont_know` to §5.6's four (the practice screen
+   records a hinted answer and an old "I don't know" as such; a hint is then help timing, §5.3).
+2. **History needs the field's fallback**: a historical attempt resolves `exact` only where the field
+   finds its graded revision; on the committed `linear_algebra` snapshot every one of 62 historical
+   attempts is `excluded` unless `field.legacy_fallback = "current_content"` (then 31 eligible). The
+   owner decides per vault (open question 4).
+3. **No Reader surface grades an in-passage answer as an attempt** at this base, so the replay never
+   sets the "in place of `γ`" path; the model's path is tested (`test_an_in_passage_answer_graded...`).
+4. **`λ` at its prior mean** (G-AD3-15 (1)): a latent `λ ~ N(0, 0.3²)` adds `0.09·D²` of variance even
+   at mean 0, so "equal to D20's exactly" holds for the mean and, exactly, with `λ`'s spread at 0; the
+   test pins that. With the spread, a verdict widens the prediction slightly (open question 5).
+5. **`ad_relatedness_runs` and `ad_coupling_versions`** are tables §11.2 did not list (the run receipt
+   with per-unit fingerprints; the adopted versions); §11.2 is amended.
+6. **A later coupling version** is refused unless `--confirm-reinterpretation` after its `--shadow`
+   report (computed in memory; the playbook's shadow rebuild for a reinterpretation).
+7. **Readiness reads the default target**: no goal ladders or exam targets exist before AD4, so
+   "Ready for exam level" is "Top level for this goal" on the default ladder (§9.5's last paragraph).
+8. **The router card's AD fields** omit "demonstrated level / K" (AD4's).
+9. **`dose_floor <= 1/3`** in the config (three feasible variants must keep a distribution); the spec
+   says so.
+10. **The dose arm's decision point** is a section the Reader marks completed (the Reader's own
+    boundary), not a separate boundary event; the cue-density and skim conditions are the Reader's.
+11. **Moderators**: the "helps when" lines use the predicted level band, the tutor exchange's answer
+    mode and the question's style from the replay's per-subkind doses; the randomized offers moderate
+    by level band and dose taken.
+12. **The simulations live in `learnloop.sim`** with five justified entries in the frozen-cycles
+    contract's ignore list (leaf modules nothing in the runtime imports).
+
+## 5. Fail-first
+
+Run against the base tree (`git archive 29a49b5e6` with the new test files, in its own rootdir,
+`-o pythonpath=src`): the nine new test files fail at collection (`cannot import name 'priors' /
+'model' / 'replay' ... from 'learnloop.adaptive_difficulty'`: no model, state, replay, serving,
+relatedness, dose arm, report or successor existed); in `tests/test_salience_firewall.py` the 5474
+carve-out cases and the two new tests fail (`module 'learnloop.attempts.salience_firewall' has no
+attribute 'learning_opportunity_events'`) while the **62 existing tests pass unchanged**.
+
+## 6. Gate (this step; owner rule 2026-10-17: no full suite here)
+
+- `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2`; `TMPDIR = fixtures-local/tmp`.
+- `uv run lint-imports --no-cache`: **27 kept, 0 broken** (the frozen-cycles contract gains five
+  justified ignores for the simulation modules).
+- **Targeted pytest** (`uv run pytest -n auto`, 186 files: every new or changed test file, every file
+  that names a changed module or function, and the contract pins): **9468 passed, 36 xfailed, 1 failed**
+  in 21 min 35 s. The failure (`test_mvp017_route_check_replay.py::test_an_mvp017_vault_replays_its_grades_exactly`:
+  a rebuild below the tag wrote `ad_state` rows) was fixed in `f54909bc1` with a test that fails on the
+  previous tip (`test_below_the_tag_a_rebuild_writes_no_ad_state`); rerun after the fix:
+  `test_mvp017_route_check_replay.py`, `test_ad23_successor.py`, `test_ad2_model.py`,
+  `test_ad3_subject_view.py`, `test_ad3_relatedness.py`, `test_rebuild_orchestrator.py`,
+  `test_shadow_rebuild.py`: **63 passed**. The 36 xfails are the strict xfails of §3.1. The file list is at
+  the end of this file.
+- The AD2+AD3 files alone: `test_ad2_model.py` 23, `test_ad2_serving.py` 34, `test_ad23_sim.py` 56
+  (20 passed, 36 strict xfails, 5 min at `-n 6`), `test_ad23_successor.py` 11, `test_ad3_dose_arm.py` 12,
+  `test_ad3_monitoring.py` 5, `test_ad3_reading.py` 10, `test_ad3_relatedness.py` 7,
+  `test_ad3_subject_view.py` 8, `test_ad23_migration.py` 4, `test_salience_firewall.py` 5536 (62 of them
+  the unchanged existing tests).
+- **Durability lane** (`-m durability`): `test_ad23_migration.py`, `test_ad1_migration.py`,
+  `test_approach_maps_schema.py`, `test_help_assists_schema.py`, `test_library_asks_migration.py`:
+  **5 passed** (214's FK check and rollback-mode head fixture in `test_ad23_migration.py`).
+- **Frontend** (`apps/learnloop-tauri`): `npm install`; `npm run typecheck` clean; vitest on the three
+  new files and everything they touch (`src/screens/ReaderScreen*`, `src/screens/PracticeScreen*`,
+  `src/components/InspectorOverlay*`, `src/screens/reader`, `src/screens/practice`,
+  `src/components/ReadinessLine*`, `src/api`): **67 files, 515 passed**; `npm run frontend:build` ok.
+- `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml`: ok (four passthroughs).
+- **References**: `db_generate_reference.py` then `db_validate_reference.py`: **0 errors** (head 214,
+  341 table notes, 926 configuration leaves; the two prose counts updated).
+- CLI help snapshot regenerated (`ad report`, `ad eval`, `ad relatedness`, `upgrade --to mvp-0.28`).
+- **Simulations**: `uv run python -m learnloop.sim.ad_gates` and `... G-AD3-6` on the final code: the
+  figures of §3.1 (13 min and 4 min on a machine shared with another stage).
+- **Model calls: 0.** Every model-backed path is tested with fakes; the copies below ran with every
+  route off.
+
+## 7. Files
+
+New: `src/learnloop/sim/ad_synthetic.py`, `src/learnloop/sim/ad_gates.py`; in `adaptive_difficulty/`
+`model.py`, `state.py`, `priors.py`, `outcomes.py`, `replay.py`, `scoring.py`, `selection.py`,
+`serving.py`, `predict.py`, `generation.py`, `relatedness.py`, `relatedness_jobs.py`, `dose.py`,
+`dose_report.py`, `readiness.py`, `monitoring.py`, `report.py`, `arms.py`, `successor.py`;
+`src/learnloop/ad_successor_upgrade.py`, `src/learnloop/daily_plan/ad_slot.py`,
+`src/learnloop/db/stores/ad_serving.py`, `src/learnloop_sidecar/handlers/adaptive_difficulty.py`,
+`migrations/214_adaptive_difficulty_serving.sql`, `fixtures/migration_head_214/` (renamed from 213);
+frontend `screens/practice/WhyThisItem.tsx`, `screens/reader/DoseOffer.tsx`,
+`components/ReadinessLine.tsx` with their tests; tests `ad23_fakes.py`, `test_ad2_model.py`,
+`test_ad2_serving.py`, `test_ad23_sim.py`, `test_ad23_successor.py`, `test_ad23_migration.py`,
+`test_ad3_dose_arm.py`, `test_ad3_monitoring.py`, `test_ad3_reading.py`, `test_ad3_relatedness.py`,
+`test_ad3_subject_view.py`; the eight new table notes of the references.
+Changed: `attempts/salience_firewall.py` (rule text, the carve-out), `adaptive_difficulty/reading.py`
+(the list from the firewall, a taken offer's id), `serve.py`, `spend.py`, `backfill.py`;
+`daily_plan/engine.py`, `records.py`, `router_card.py`; `router/card.py`;
+`content/authoring/practice_generation.py`; `scheduling/randomization_layer.py`;
+`algorithm_versions.py`, `config/schema.py`, `config/template.py`, `params/parameter_registry.py`,
+`cli/app.py`, `cli/ad.py`, `ai/routing.py`, `ai/disclosures.py`, `db/table_roles.py`,
+`substrate/rebuild_orchestrator.py`, `learnloop_sidecar/context.py`, `handlers/__init__.py`;
+frontend `api/client.ts`, `api/dto.ts`, `PracticeScreen.tsx` (one line), `ReaderScreen.tsx` (one
+block), `InspectorOverlay.tsx` (one line), `src-tauri/src/commands.rs`, `main.rs`; `pyproject.toml`
+(contracts); tests `test_salience_firewall.py` (appended), `test_architecture.py`,
+`test_mobile_allowlist.py`, `test_ad1_migration.py` and the sibling migration tests, the `mvp-0.10` ..
+`mvp-0.24` upgrade tests and others pinning the chain's last link, `cli_help_snapshot.json`; specs
+`spec_adaptive_difficulty_v1.md` (§5.9 finding, §11.2 two receipts, §11.4 dose floor, §17 Q8),
+`spec_knowledge_model.md` §8.3 and `spec_p3_reader_integration.md` §8.2, §15.4 (dated notes); the
+regenerated references.
+
+## 8. Owner-run commands (on a backup copy; dry-run first; never on the working vaults)
+
+From the main checkout after the branch is available, with the vault at `mvp-0.27`:
+
+```bash
+# 0. a backup-API copy of the vault
+uv run python -c "from pathlib import Path; from learnloop.db.copies import copy_tree_with_databases as c; c(Path('fixtures/linear_algebra'), Path('fixtures-local/la_ad23'))"
+# 1. the successor on the copy (AD's DERIVED state is prepared before the rename; no model call)
+uv run learnloop upgrade --vault fixtures-local/la_ad23 --to mvp-0.28
+# 2. AD1's reading backfill if not yet run (the report's reading lines need it), dry-run first
+uv run learnloop ad backfill --vault fixtures-local/la_ad23 --reading --dry-run --json
+uv run learnloop ad backfill --vault fixtures-local/la_ad23 --reading
+# 3. the AD2/AD3 report: dry-run first, then the report (read-only, no model call, about a second)
+uv run learnloop ad report --vault fixtures-local/la_ad23 --dry-run --json
+uv run learnloop ad report --vault fixtures-local/la_ad23
+uv run learnloop ad report --vault fixtures-local/la_ad23 --json > ad23-report.json
+#    optional, on the copy only: read the history through the field's fallback (deviation 2)
+#    printf '\n[field]\nlegacy_fallback = "current_content"\n' >> fixtures-local/la_ad23/learnloop.toml
+# 4. the relatedness proposal (one call per subject on ai.routing.llm_probability_llm), dry-run first,
+#    then the backfill and the first coupling version
+uv run learnloop ad relatedness --vault fixtures-local/la_ad23 --dry-run --json
+uv run learnloop ad relatedness --vault fixtures-local/la_ad23 --adopt
+# 5. later, a reinterpretation: its shadow report first, then the confirmed adoption
+uv run learnloop ad relatedness --vault fixtures-local/la_ad23 --shadow --json
+uv run learnloop ad relatedness --vault fixtures-local/la_ad23 --adopt --confirm-reinterpretation
+# 6. the playbook's shadow rebuild against the predecessor and with the six switches off
+uv run learnloop rebuild --shadow --json --vault fixtures-local/la_ad23 --set algorithms.algorithm_version=mvp-0.27
+uv run learnloop rebuild --shadow --json --vault fixtures-local/la_ad23 \
+  --set adaptive_difficulty.selection=false --set adaptive_difficulty.generation_contract=false \
+  --set adaptive_difficulty.promoted_predictor=false --set adaptive_difficulty.learned_coupling=false \
+  --set adaptive_difficulty.reading_opportunities=false --set adaptive_difficulty.reading_self_check=false
+# the simulation gates' figures (no vault, no model)
+uv run python -m learnloop.sim.ad_gates
+```
+
+The relatedness proposal is the stage's only paid call: one per subject on the field harness's
+frontier route (empty: the active provider; Codex `estimated_only`), inside
+`adaptive_difficulty.daily_spend_cap_usd` ($0.50); a metered route needs
+`adaptive_difficulty.price_per_million` or is refused before sending. After adoption, a reload
+re-proposes only the units whose content changed (at most 2 subjects a trigger).
+
+## 9. On a backup copy in this stage (no model call)
+
+A backup-API copy of the worktree's tracked `fixtures/linear_algebra` (the committed snapshot,
+`mvp-0.8`, rewritten to `mvp-0.27` for the test) in `fixtures-local/`, every model route off
+(`outside_forecasters = []`, `feature_audit = false`, hints' outcome placement and map builds off,
+embeddings off, learner-text gaps off), API-key variables unset, empty `HOME` / `CODEX_HOME` /
+`LEARNLOOP_CONFIG_DIR`, `LEARNLOOP_AD_MODELS=off`:
+
+- `learnloop upgrade --to mvp-0.28`: ok (82 s on the shared machine).
+- **Shadow rebuilds** (`learnloop rebuild --shadow`), live database unchanged in each: the default
+  successor, the candidate at `mvp-0.27`, and the six switches off. The learner-state deltas (facet
+  recall, mastery, schedule against the copy's pre-upgrade state) are **identical** between `mvp-0.28`
+  and `mvp-0.28` with the switches off, and identical to `mvp-0.27`'s once the version stamp is set
+  aside (61 semantic changes each, the copy's own drift since August); the AD replayers ran in each.
+- `learnloop ad report`: dry run, then the report, about 1 s. Every historical attempt is `excluded`
+  (no exact revision on this snapshot); with the field's fallback on the copy, 31 eligible:
+  `@subject` log loss 0.544 (first attempts at a new LO 0.538, n 8), `@lo` 0.563 (0.726), `mastery_ekf`
+  0.759 (n 28), `lo_general` 0.824; every honest line "can't tell yet"; no flag fires; the split's
+  posterior leans to 2.25 (0.51); no reading opportunities (the AD1 backfill not run on the copy).
+- The copy was removed afterwards.
+
+## 10. Open questions (default taken in brackets)
+
+1. **The failed simulation gates (§3).** [The successor does not merge on them; the owner picks among
+   §3.3's options or re-pre-registers.]
+2. **A1** (G-AD2-1's thresholds amended before any test, §1.9). [As amended.]
+3. **A3** ("never labels tested" at most 5% of seeds). [As amended.]
+4. **History through the field's fallback** (deviation 2). [Off: a historical attempt without an exact
+   revision is excluded, so AD's state starts from the attempts served since AD1.]
+5. **`λ`'s spread at its prior mean** (deviation 4): a verdict widens the prediction slightly before
+   the term is learned. [Kept: the priors are §5.5's; the mean is D20's exactly.]
+6. **The dose arm live by default** (D21). [On, with `dose_floor = 0.10`, three a day.]
+7. **Background re-proposals after adoption** (§5.10 "When"). [On after the owner's `--adopt`; nothing
+   runs before it.]
+8. **`promoted_predictor` on by default given G-AD3-7's drag under a wrong proposal.** [On, per D3; the
+   coupling only exists after the owner adopts a proposal, and `learned_coupling = false` removes it.]
+9. **Readiness on the default target until AD4** (deviation 7). [Default target, labelled "Top level for
+   this goal".]
+
+## 11. Friction notes for AD4 and AD5
+
+- **AD4 (levels).** The ladders (`ad_ladder_v1`: `entry_point`, `default_target`, `ladder`,
+  `ladder_id`, `feature_level`, `point_key`) live in `adaptive_difficulty/selection.py`; AD4's A11
+  contract forbids certification from importing the AD package, so move them to a neutral module
+  (beside `curriculum/depth_rungs.py`) first. The readiness lines and the router card's fields read the
+  default target and omit "level / K"; AD4 adds both. `S.within_envelope` is the default trajectory's
+  envelope, which also bounds `X_c`.
+- **AD4 / exam targets.** `t_c` (§9.5) is not built; `readiness.py` and `commission_candidates` take a
+  `targets` list ready for it.
+- **AD5 (probes).** `q_h` needs the truncated expectation over at most two linear functionals of the
+  live view's Gaussian state (`serving.view_for` picks the view; `View.cell_vector`, `point_moments` and
+  `cell_information` are the building blocks); the snapshot's `ad_composition` block is not built.
+- **Simulation cost.** A 36-point bank over 200 learners is about 7200 rows; the gate module chunks by
+  50 learners and computes `I_c` only on the overlap set. Banks are exact under marginalization of
+  coordinates no later event reads (`Bank.marginalize`).
+- **Time to usable** is the binding finding (§3.2): any AD4/AD5 work that leans on band mode inherits it.
+
+**The targeted run's 186 files:** test_ad1_codex_rereview_fixes.py, test_ad1_codex_review_fixes.py, test_ad1_fix_round4.py, test_ad1_fix_round9.py, test_ad1_migration.py, test_ad1_outside_and_cli.py, test_ad1_reading_opportunities.py, test_ad1_send_guard.py, test_ad23_migration.py, test_ad23_sim.py, test_ad23_successor.py, test_ad2_model.py, test_ad2_serving.py, test_ad3_dose_arm.py, test_ad3_monitoring.py, test_ad3_reading.py, test_ad3_relatedness.py, test_ad3_subject_view.py, test_adaptive_difficulty_ad1.py, test_ai_config.py, test_ai_tool_isolation.py, test_approach_map_replay.py, test_approach_maps_schema.py, test_architecture.py, test_assumed_known.py, test_block_chooser_interface.py, test_card_lineage.py, test_chatgpt_plan_provider.py, test_chatgpt_plan_workspace.py, test_cli_help_snapshot.py, test_config_refactor.py, test_constraint_engine.py, test_contract_commissioning.py, test_coordinated_migrations.py, test_daily_plan_build.py, test_daily_plan_composition.py, test_daily_plan_kill_switch.py, test_daily_plan_owner_decisions.py, test_daily_plan_reentry.py, test_daily_plan_replay.py, test_daily_plan_review_regressions.py, test_daily_plan_rpc.py, test_decider_client.py, test_decider_landing.py, test_desktop_rpc_contract.py, test_diagnosis_context.py, test_diagnosis_history_modes.py, test_diagnosis_input_provenance.py, test_diagnosis_replay.py, test_diagnostic_pack.py, test_difficulty_band_guards.py, test_embedding_store.py, test_eval_harness.py, test_evsi_router_composition.py, test_evsi_staged_binding.py, test_exam_protection_landing.py, test_exam_protection_review.py, test_facet_diagnostics_v03.py, test_facet_identity_actions.py, test_family_memory_projection.py, test_field_config.py, test_forecast_receipts.py, test_forecast_receipts_landing.py, test_goal_scope_material.py, test_grading_cli.py, test_held_grade_composition.py, test_held_grade_evidence.py, test_help_assists_schema.py, test_hint_feedback_widening.py, test_hint_telemetry.py, test_ingest_instrument_gates.py, test_ingest_runner.py, test_intervention_outcomes_replayer.py, test_item_fingerprints.py, test_judge_routes.py, test_kinship_feature.py, test_km2_activation.py, test_learner_pick_proposal.py, test_learner_text_gaps_flow.py, test_learner_text_source_widening.py, test_library_ask.py, test_library_asks_migration.py, test_mcp_c1a_landing.py, test_mcp_c1a_narrow.py, test_mcp_tools.py, test_method_explicit_landing.py, test_method_explicit_upgrade.py, test_migrations.py, test_mobile_allowlist.py, test_mvp010_upgrade.py, test_mvp011_upgrade.py, test_mvp013_upgrade.py, test_mvp014_upgrade.py, test_mvp015_upgrade.py, test_mvp016_upgrade.py, test_mvp017_route_check_replay.py, test_mvp017_upgrade.py, test_mvp018_upgrade.py, test_mvp020_upgrade.py, test_mvp021_upgrade.py, test_mvp022_upgrade.py, test_mvp023_upgrade.py, test_mvp024_upgrade.py, test_mvp09_upgrade.py, test_open_world_gate.py, test_openai_embedding_client.py, test_p0_cutover_mvp08.py, test_p3_journeys.py, test_persona_gate.py, test_pfc_unassessed_readers.py, test_pfc_unverified_unassessed.py, test_plan_determinism.py, test_plan_determinism_landing.py, test_practice_index_dossiers.py, test_practice_item_quality_gates.py, test_practice_leakage.py, test_predictor_interface.py, test_probability_arms.py, test_probability_cli.py, test_probability_prep.py, test_project_cli.py, test_project_experiment_store.py, test_project_probes.py, test_project_report.py, test_randomization_layer.py, test_reader_active_reading.py, test_reader_activity.py, test_reader_authoring.py, test_reader_cues.py, test_reader_dialogue.py, test_reader_formative_texts.py, test_reader_intent.py, test_reader_progression.py, test_reader_recap_review_r3.py, test_reader_reconstruct.py, test_reader_restoration.py, test_reader_workbench_rw2a.py, test_reading_step_switch.py, test_rebuild_orchestrator.py, test_recall_coverage_interventions.py, test_recurrence_commands.py, test_recurrence_live.py, test_recurrence_merge_composition.py, test_registry_audit.py, test_regrade_contract_replay.py, test_regrade_contract_successor.py, test_regrade_contract_upgrade.py, test_required_method_authority.py, test_required_method_grading.py, test_reread_safety_landing.py, test_route_rules_in_grader.py, test_router_card.py, test_router_coldness_covariates.py, test_router_g1_feasibility.py, test_router_g4_restraint.py, test_router_g7_fallback.py, test_router_offer_log.py, test_router_outcomes.py, test_router_presentations.py, test_router_r1_composition.py, test_router_r2a_landing.py, test_router_r2a_serving.py, test_router_r2b_serving.py, test_router_r2c_retrieval.py, test_router_r2c_teach_back.py, test_router_why_copy.py, test_salience_firewall.py, test_sensitivity_certificates.py, test_serve_eligibility.py, test_serve_eligibility_review.py, test_shadow_rebuild.py, test_sidecar_serializer_snapshot.py, test_source_block_fts.py, test_sqlite_wal_lifecycle.py, test_stuck_prompt.py, test_stuck_prompt_replay.py, test_success_head_cli.py, test_table_roles.py, test_tier1_decider.py, test_tracked_fixture_databases.py, test_tutor_promotion_w2.py, test_ux_phase4_feedback.py, test_ux_phase4_landing.py, test_voi_merge_composition.py, test_voi_stopping.py, test_voi_v2.py.

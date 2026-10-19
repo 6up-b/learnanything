@@ -109,7 +109,7 @@ def test_related_topics_adapt_faster_practice_correct():
 
 @pytest.mark.parametrize("proposal", ["noisy", "wrong"])
 @pytest.mark.xfail(strict=True, reason=FAILED_GATE + "the unrelated LO's first attempt is dragged: +0.026 nats "
-                   "(noisy) and +0.276 nats (wrong) against uniform sharing (> 0.02); band hits are not")
+                   "(noisy) and +0.240 nats (wrong) against uniform sharing (> 0.02); band hits are not")
 def test_unrelated_topics_not_dragged(proposal):
     """G-AD3-7, noisy and wrong proposals: cluster 2's A no worse than uniform sharing by more than
     0.02 nats on its first attempt nor 0.03 in band hits over its own 15 answers."""
@@ -126,7 +126,7 @@ def test_related_topics_after_reading():
 
 
 @pytest.mark.xfail(strict=True, reason=FAILED_GATE + "the weight on chi_C = 0 reaches 0.5 within 100 first attempts "
-                   "in 52% of seeds (< 80%), and the coupling flag fires in none (< 80%): the mixture discounts "
+                   "in 47% of seeds (< 80%), and the coupling flag fires in none (< 80%): the mixture discounts "
                    "the wrong coupling before the sequence can separate the arms")
 def test_wrong_proposal_shrinks():
     """G-AD3-7, a wrong proposal on 210 LOs: weight on ``χ_C = 0`` reaches 0.5 within 100 first
