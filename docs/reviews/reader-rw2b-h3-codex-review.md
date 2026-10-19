@@ -985,3 +985,91 @@ All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was f
 
 There is no migration and no config key. The check view and the hint views gain `symbolicEnabled`, which is
 additive.
+
+## Fix round 11 (orchestrator)
+
+The verify (Codex job `20261018-210716-tgbjPD`, at `d8cbf3f3c`) confirmed:
+
+* the no-assist arithmetic, over 17,550 combinations;
+* the concurrent id union;
+* the RPC guards.
+
+It found four Highs. Fixed in `6ff2176bc`. **Paid calls: none ($0.00).**
+
+| item | severity | title | verdict | test (all fail on `d8cbf3f3c`) |
+|---|---|---|---|---|
+| 1 | High | A cached hint job bypasses the switch, and the frontend drops the flag | fixed | `test_reader_rw2b_fix11.py::test_item1_a_hint_job_finished_while_on_reads_as_the_models_after_the_switch_goes_off`; `reviewFixes.test.tsx` "a hint job's claims follow the server's symbolic switch" (×2) |
+| 4 | High | Historical checked verdicts reach the diagnoser unchanged | fixed | `test_item1_the_diagnosers_trace_reads_a_stored_checked_verdict_as_the_models_when_off` |
+| 1, 4 | (structural) | No reader can miss the switch again | fixed | `test_architecture.py::test_stored_symbolic_results_are_read_only_through_the_one_accessor`. Run against the `d8cbf3f3c` tree, it reports 5 raw reads and 5 readers without the accessor. |
+| 2 | High | A client-held book absorbs a distinct RW2b assist | fixed | `test_item2_a_client_held_book_and_a_check_on_another_problem_are_two`, `test_item2_the_refold_applies_the_same_floor` |
+| 3 | High | The no-assist refold is not byte-identical to the base | fixed | `test_item3_a_book_opened_during_grading_leaves_the_count_and_type_as_the_base_stores_them`, run against `git archive 7d4c5f4ce`: both store `0, independent_attempt` |
+
+**Items 1 and 4: one accessor, `learnloop.symbolic_view`.**
+
+* It is dependency-free, so the diagnosis package may import it under `evidence-never-reads-the-workbench`. It
+  provides:
+  * `switch(config)`;
+  * `symbolic_view(raw, *, enabled)`;
+  * `verdict_records(row, *, enabled)`;
+  * `symbolic_outcomes(placement, *, enabled)`;
+  * `stored_claims(row, *, enabled)`;
+  * `claims_view(...)`;
+  * `hint_result_view(result, *, enabled)`.
+* Every reader goes through it, with the CURRENT switch at read time:
+  * `check_view` (help_state, the check job, a recheck's reused view);
+  * `ladder._verdicts` (the hint context) and `row_claims`/`served_claims`;
+  * the hint job's payload on EVERY read, first delivery and cached alike. The job stores claims as decided, and
+    `_payload` remaps them and sets the current `symbolic_enabled` each time;
+  * `build_workbench_report`;
+  * `diagnosis/split/workbench_trace.trace_for_attempt`, given the switch by `current_attempt_for`.
+* Round 10's `unchecked_verdict` and `unchecked_claim` are removed.
+* **Architecture test.** `_SYMBOLIC_FIELD_TOKENS` is grep-based. It covers `step_verdicts_json`,
+  `verdict_from_record`, `checked_numerically`, the placement's `symbolic` key and the claims key. It fails on any
+  module under `src/` that reads one of these, unless the module and that token are in `_SYMBOLIC_FIELD_ALLOWED`.
+  The allow-list holds:
+  * the accessor;
+  * the writers: the harness, `check.run_check`, `hints.workbench`, `hints.service`, the store's columns, and the
+    hint job writing claims as decided;
+  * `ladder` decoding the accessor's records;
+  * the report's waypoint map-node read, which reads no method;
+  * modules whose `claims` belong to another domain: the evsi comparisons, source synthesis, and
+    `repositories`.
+
+  The five named readers must import the accessor, and a synthetic reader is rejected.
+* **Frontend.** `useWorkbenchHelp` carries the job result's `symbolicEnabled` into the hint view.
+  `verdictMark`/`claimLine` show `✓`/`≠` only when the flag is exactly `true`, so a missing flag refuses too. The
+  vitest fixtures that show a checked mark now pass `symbolicEnabled: true`.
+
+**Item 2: the client floor** (`combine_held`, path (b)).
+
+* `non_server = max(hintsUsed, client part + book)`, where the client part is `max(authoredHints, carried)` when
+  `authoredHints` is sent. Without it, round 10's legacy `max(hintsUsed, carried + book)` is unchanged.
+* `count = non_server + |union of assist ids| + window fold`.
+* A book the client holds (`bookLeft`) therefore counts even when no open problem holds it.
+* The refold uses the same rule with the unioned ids.
+
+**Item 3: the base path in the refold** (`refolded_draft`).
+
+* While the accumulated union of RW2b assist ids is empty, both before grading and in the transaction, the refold
+  keeps RW2a's PRE-GRADING count, parts and type exactly. Only H2b's window fold refolds, as at `7d4c5f4ce`, and
+  priming still ORs in.
+* If the union becomes non-empty in the transaction, the refold switches to path (b) with every component.
+* `tests/rw2b_fix11_base_sequence.py` runs the sequence through the base code and the code under test: an
+  independent answer-box attempt while another process opens the book on the item's open Reader problem during
+  grading.
+
+### Gate (fix round 11)
+
+All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was free (`flock -n`).
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **27 kept, 0 broken** |
+| `uv run pytest -n auto` over 101 files: round 10's 62, plus `test_reader_rw2b_fix11.py` and `test_architecture.py`, plus every test file that imports `learnloop.diagnosis.split` (42) | **2027 passed, 2 xfailed** (94.2 s) |
+| `uv run pytest -n 8 --durable-sqlite` over `test_reader_rw2b_fix11.py`, `test_reader_rw2b_fix10.py`, `test_workbench_trace.py`, `test_workbench_assistance.py` | **31 passed** |
+| `npx vitest run src/screens/workbench src/screens/PracticeScreen.workbench.test.tsx src/screens/ReaderScreen.workbench.test.tsx` | **9 files, 102 passed** |
+| `npm run typecheck`, `npm run frontend:build` | ok |
+| `db_generate_reference.py` then `db_validate_reference.py` | **0 errors**. Only commit labels and line citations moved. |
+
+There is no migration and no config key. The hint job result gains `symbolicEnabled`, which is additive.

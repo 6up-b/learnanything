@@ -3,8 +3,8 @@ title: "Config - recall_coverage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "4ae737c4f829e3080b203fca75dc4f594765d558"
-source_commit_timestamp: "2026-10-18T21:02:29-04:00"
+source_commit: "6ff2176bc831e03e403b4bdb79366f1cb3b673f3"
+source_commit_timestamp: "2026-10-18T21:23:50-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml recall_coverage"
@@ -37,11 +37,11 @@ source_paths:
   - "tests/mcp_world.py"
   - "tests/openai_fakes.py"
   - "tests/rw2b_fix10_base_sequence.py"
+  - "tests/rw2b_fix11_base_sequence.py"
   - "tests/split_live_helpers.py"
   - "tests/test_activity_backfill.py"
   - "tests/test_activity_substrate.py"
   - "tests/test_administration_adapters.py"
-  - "tests/test_agent_run_tokens.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/recall-coverage"
@@ -168,11 +168,11 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/mcp_world.py`
 - `tests/openai_fakes.py`
 - `tests/rw2b_fix10_base_sequence.py`
+- `tests/rw2b_fix11_base_sequence.py`
 - `tests/split_live_helpers.py`
 - `tests/test_activity_backfill.py`
 - `tests/test_activity_substrate.py`
 - `tests/test_administration_adapters.py`
-- `tests/test_agent_run_tokens.py`
 
 ## Extension and modification guidance
 

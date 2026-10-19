@@ -3,8 +3,8 @@ title: "Config - workbench"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "4ae737c4f829e3080b203fca75dc4f594765d558"
-source_commit_timestamp: "2026-10-18T21:02:29-04:00"
+source_commit: "6ff2176bc831e03e403b4bdb79366f1cb3b673f3"
+source_commit_timestamp: "2026-10-18T21:23:50-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml workbench"
@@ -30,13 +30,13 @@ source_paths:
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
   - "tests/rw2b_fix10_base_sequence.py"
+  - "tests/rw2b_fix11_base_sequence.py"
   - "tests/split_live_helpers.py"
   - "tests/test_ai_config.py"
   - "tests/test_approach_maps.py"
   - "tests/test_capability_residual.py"
   - "tests/test_chatgpt_plan_provider.py"
   - "tests/test_cli_ingest.py"
-  - "tests/test_codex_isolation_mcp_check.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/workbench"
@@ -61,10 +61,10 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `workbench.open_session_days` | `30` | integer | modeled default or validator seed | Days an open workbench problem may go untouched before the recap shows it as "unfinished", without alarm. A display limit only: nothing is closed automatically. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2109`; `src/learnloop/reader/workbench.py:130`; `src/learnloop_sidecar/context.py:544` |
 | `workbench.help_enabled` | `true` | boolean | modeled default or validator seed | Turns help behavior on or off within reader workbench RW2a: the resumable scratchpad (a problem worked in steps beside the source, submitted through the ordinary attempt path with a visible book as one hint-equivalent): the kill switch, and how long an untouched open problem waits before the recap calls it unfinished (a display limit; nothing is closed automatically). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2113`; `src/learnloop/diagnosis/text_gaps/jobs.py:199`; `src/learnloop/workbench/ladder.py:52` |
 | `workbench.symbolic_checks_enabled` | `false` | boolean | modeled default or validator seed | Turns symbolic checks behavior on or off within reader workbench RW2a: the resumable scratchpad (a problem worked in steps beside the source, submitted through the ordinary attempt path with a visible book as one hint-equivalent): the kill switch, and how long an untouched open problem waits before the recap calls it unfinished (a display limit; nothing is closed automatically). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2120`; `src/learnloop/cli/hints.py:86`; `src/learnloop/workbench/check.py:504` |
-| `workbench.discriminate_enabled` | `true` | boolean | modeled default or validator seed | Turns discriminate behavior on or off within reader workbench RW2a: the resumable scratchpad (a problem worked in steps beside the source, submitted through the ordinary attempt path with a visible book as one hint-equivalent): the kill switch, and how long an untouched open problem waits before the recap calls it unfinished (a display limit; nothing is closed automatically). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2123`; `src/learnloop/workbench/ladder.py:141` |
-| `workbench.error_kind_enabled` | `true` | boolean | modeled default or validator seed | Turns error kind behavior on or off within reader workbench RW2a: the resumable scratchpad (a problem worked in steps beside the source, submitted through the ordinary attempt path with a visible book as one hint-equivalent): the kill switch, and how long an untouched open problem waits before the recap calls it unfinished (a display limit; nothing is closed automatically). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2125`; `src/learnloop/workbench/check.py:694`; `src/learnloop/workbench/ladder.py:137` |
+| `workbench.discriminate_enabled` | `true` | boolean | modeled default or validator seed | Turns discriminate behavior on or off within reader workbench RW2a: the resumable scratchpad (a problem worked in steps beside the source, submitted through the ordinary attempt path with a visible book as one hint-equivalent): the kill switch, and how long an untouched open problem waits before the recap calls it unfinished (a display limit; nothing is closed automatically). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2123`; `src/learnloop/workbench/ladder.py:139` |
+| `workbench.error_kind_enabled` | `true` | boolean | modeled default or validator seed | Turns error kind behavior on or off within reader workbench RW2a: the resumable scratchpad (a problem worked in steps beside the source, submitted through the ordinary attempt path with a visible book as one hint-equivalent): the kill switch, and how long an untouched open problem waits before the recap calls it unfinished (a display limit; nothing is closed automatically). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2125`; `src/learnloop/workbench/check.py:694`; `src/learnloop/workbench/ladder.py:135` |
 | `workbench.bridge_enabled` | `true` | boolean | modeled default or validator seed | Turns bridge behavior on or off within reader workbench RW2a: the resumable scratchpad (a problem worked in steps beside the source, submitted through the ordinary attempt path with a visible book as one hint-equivalent): the kill switch, and how long an untouched open problem waits before the recap calls it unfinished (a display limit; nothing is closed automatically). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2128`; `src/learnloop_sidecar/context.py:545`; `src/learnloop_sidecar/handlers/workbench_help.py:394` |
-| `workbench.max_calls_per_session` | `24` | integer | modeled default or validator seed | Caps calls per session allowed by reader workbench RW2a: the resumable scratchpad (a problem worked in steps beside the source, submitted through the ordinary attempt path with a visible book as one hint-equivalent): the kill switch, and how long an untouched open problem waits before the recap calls it unfinished (a display limit; nothing is closed automatically). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2131`; `src/learnloop/workbench/check.py:261`; `src/learnloop_sidecar/handlers/workbench_help.py:501` |
+| `workbench.max_calls_per_session` | `24` | integer | modeled default or validator seed | Caps calls per session allowed by reader workbench RW2a: the resumable scratchpad (a problem worked in steps beside the source, submitted through the ordinary attempt path with a visible book as one hint-equivalent): the kill switch, and how long an untouched open problem waits before the recap calls it unfinished (a display limit; nothing is closed automatically). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2131`; `src/learnloop/workbench/check.py:261`; `src/learnloop_sidecar/handlers/workbench_help.py:507` |
 | `workbench.max_daily_cost_usd` | `1.0` | number | modeled default or validator seed | Caps daily cost usd allowed by reader workbench RW2a: the resumable scratchpad (a problem worked in steps beside the source, submitted through the ordinary attempt path with a visible book as one hint-equivalent): the kill switch, and how long an untouched open problem waits before the recap calls it unfinished (a display limit; nothing is closed automatically). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2133`; `src/learnloop/workbench/check.py:211` |
 | `workbench.price_per_million` | `null` | nullable | modeled default or validator seed | Controls price per million in reader workbench RW2a: the resumable scratchpad (a problem worked in steps beside the source, submitted through the ordinary attempt path with a visible book as one hint-equivalent): the kill switch, and how long an untouched open problem waits before the recap calls it unfinished (a display limit; nothing is closed automatically), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2137`; `src/learnloop/workbench/check.py:213` |
 
@@ -80,13 +80,13 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
 - `tests/rw2b_fix10_base_sequence.py`
+- `tests/rw2b_fix11_base_sequence.py`
 - `tests/split_live_helpers.py`
 - `tests/test_ai_config.py`
 - `tests/test_approach_maps.py`
 - `tests/test_capability_residual.py`
 - `tests/test_chatgpt_plan_provider.py`
 - `tests/test_cli_ingest.py`
-- `tests/test_codex_isolation_mcp_check.py`
 
 ## Extension and modification guidance
 
