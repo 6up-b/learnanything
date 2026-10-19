@@ -180,11 +180,11 @@ def current_attempt_for(
         with repository.connection() as connection:
             contract = answered_contracts(connection, [str(attempt["id"])]).get(str(attempt["id"]))
         # RW2b: a workbench attempt's step trace (None for every other).
-        from learnloop.symbolic_view import switch as symbolic_switch
+        from learnloop.symbolic_view import switch_now as symbolic_switch_now
 
-        # Fix round 11: the CURRENT symbolic switch (a stored checked verdict
-        # reads as the model's reading while it is off).
-        trace = trace_for_attempt(repository, attempt, symbolic_enabled=symbolic_switch(vault))
+        # Fix rounds 11 and 14: the CURRENT symbolic switch, read from the
+        # live config file per job (a drain's captured vault may be stale).
+        trace = trace_for_attempt(repository, attempt, symbolic_enabled=symbolic_switch_now(vault))
     return current_attempt_from(
         vault,
         item,

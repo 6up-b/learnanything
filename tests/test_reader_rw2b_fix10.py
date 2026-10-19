@@ -152,6 +152,11 @@ def test_item3_the_refold_never_drops_an_assist_it_already_counted(tmp_path, gra
             entered.append(True)
             # Another process submits problem A, then problem B shows a second check.
             done.append(call(ctx, "workbench.submit", {"sessionId": first, "practiceSessionId": session}))
+            # Fix round 14 (item 4): a row requested in the same second as an
+            # attempt of the item is closed; B2 comes a second later.
+            import time
+
+            time.sleep(1.05)
             call(ctx, "workbench.save_step", {"sessionId": second, "clientIdempotencyKey": "more", "op": "add",
                                               "bodyMd": "so P = 1/4"})
             done.append(run_job(ctx, call(ctx, "workbench.check", {"sessionId": second})))

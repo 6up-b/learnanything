@@ -136,7 +136,15 @@ _CLOSED = (
     "OR EXISTS (SELECT 1 FROM practice_attempts "
     "WHERE practice_attempts.session_id = help_assists.practice_session_id "
     "AND practice_attempts.practice_item_id = help_assists.practice_item_id "
-    "AND practice_attempts.created_at >= help_assists.requested_at)"
+    "AND practice_attempts.created_at >= help_assists.requested_at) "
+    # RW2b fix round 14, item 4: a workbench row with no practice session is
+    # counted by the item-wide window (:data:`_WINDOW`), so ANY attempt of the
+    # item committed at or after it was requested closes it (the same-second
+    # rule as above).
+    "OR (help_assists.surface = 'workbench' AND help_assists.practice_session_id IS NULL "
+    "AND EXISTS (SELECT 1 FROM practice_attempts "
+    "WHERE practice_attempts.practice_item_id = help_assists.practice_item_id "
+    "AND practice_attempts.created_at >= help_assists.requested_at))"
 )
 
 
@@ -374,7 +382,7 @@ def workbench_assist_ids(connection: sqlite3.Connection, *, workbench_session_id
 #: session), whatever their problem's status (open, abandoned, reopened).
 _WINDOW = (
     "surface = 'workbench' AND practice_item_id = ? AND attempt_id IS NULL AND shown = 1 "
-    "AND counted_by = 'server' AND (assist_kind = 'check' OR (assist_kind = 'hint' AND level BETWEEN 1 AND 3)) "
+    "AND counted_by = 'server' AND (assist_kind = 'check' OR (assist_kind = 'hint' AND level BETWEEN 1 AND 5)) "
     # ">=": timestamps are whole seconds, and an unattached row in the last
     # attempt's second is never lost (an attempt that counted it took it).
     "AND requested_at >= COALESCE((SELECT MAX(attempts.created_at) FROM practice_attempts AS attempts "
@@ -383,16 +391,27 @@ _WINDOW = (
 )
 
 
-def workbench_window_ids(connection: sqlite3.Connection, *, practice_item_id: str) -> tuple[str, ...]:
-    """The ids of the item's workbench server assists in the window
-    (:data:`_WINDOW`): what an attempt of the item counts and attaches."""
+def workbench_window(connection: sqlite3.Connection, *, practice_item_id: str
+                     ) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """The item's workbench server assists in the window (:data:`_WINDOW`):
+    ``(counted, worked)``: the checks and level 1-3 hints an attempt of the
+    item counts, and the level 4-5 hints that prime it (fix round 14, item 1:
+    never counted); the attempt attaches both."""
 
     if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
                           ).fetchone() is None:
-        return ()
-    rows = connection.execute(f"SELECT id FROM help_assists WHERE {_WINDOW} ORDER BY id",
+        return (), ()
+    rows = connection.execute(f"SELECT id, assist_kind, level FROM help_assists WHERE {_WINDOW} ORDER BY id",
                               (practice_item_id,)).fetchall()
-    return tuple(str(row[0]) for row in rows)
+    counted = tuple(str(row[0]) for row in rows if row[1] == "check" or int(row[2] or 0) <= 3)
+    worked = tuple(str(row[0]) for row in rows if row[1] == "hint" and int(row[2] or 0) >= 4)
+    return counted, worked
+
+
+def workbench_window_ids(connection: sqlite3.Connection, *, practice_item_id: str) -> tuple[str, ...]:
+    """The ids an attempt of the item counts (:func:`workbench_window`)."""
+
+    return workbench_window(connection, practice_item_id=practice_item_id)[0]
 
 
 def unattached_ids(connection: sqlite3.Connection, ids: Sequence[str]) -> set[str]:
@@ -503,6 +522,7 @@ __all__ = [
     "attach_workbench_rows",
     "unattached_ids",
     "workbench_assist_ids",
+    "workbench_window",
     "workbench_window_ids",
     "COLUMNS", "TABLE", "assist", "attach_keyless_fold", "attach_submission", "count_closed", "fold_row_count",
     "insert_assist", "keyless_window_start", "mark_shown", "server_fold", "stamp_submitted",

@@ -37,6 +37,41 @@ def switch(config: Any) -> bool:
     return bool(getattr(section, "symbolic_checks_enabled", False))
 
 
+def switch_now(vault: Any) -> bool:
+    """``workbench.symbolic_checks_enabled`` as the vault's config file says
+    NOW (fix round 14, item 3): a job that holds a vault captured earlier (a
+    post-attempt drain) reads the live file, never the captured snapshot.
+    Unreadable: off."""
+
+    root = getattr(vault, "root", None)
+    if root is None:
+        return switch(vault)
+    try:
+        from pathlib import Path
+
+        from learnloop.config.loader import load_config
+
+        return switch(load_config(Path(root) / "learnloop.toml", load_environment=False))
+    except Exception:  # noqa: BLE001 - fail closed
+        return False
+
+
+def trace_view(trace: Mapping[str, Any] | None, *, enabled: bool) -> dict[str, Any] | None:
+    """A diagnoser's workbench trace with each check's verdicts as read now."""
+
+    if not trace:
+        return trace  # type: ignore[return-value]
+    assists = []
+    for entry in trace.get("assists") or ():
+        if isinstance(entry, Mapping) and entry.get("assist") == "check":
+            verdicts = [{**verdict, "method": symbolic_view(verdict.get("method"), enabled=enabled)}
+                        for verdict in entry.get("verdicts") or () if isinstance(verdict, Mapping)]
+            assists.append({**entry, "verdicts": verdicts})
+        else:
+            assists.append(entry)
+    return {**trace, "assists": assists}
+
+
 def symbolic_view(raw: Any, *, enabled: bool) -> str:
     """A stored method or claim status as it may be read now."""
 
@@ -145,6 +180,8 @@ __all__ = [
     "rounds_view",
     "stored_claims",
     "switch",
+    "switch_now",
+    "trace_view",
     "symbolic_outcomes",
     "symbolic_view",
     "verdict_records",

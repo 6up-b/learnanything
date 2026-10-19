@@ -179,6 +179,9 @@ class ServerHintFold:
     held_known: bool = False
     #: Fix round 12, item 2: the client says the book counted (``bookCounted``).
     held_client_book: bool = False
+    #: Fix round 14, item 1: the window's level 4-5 rows: they prime the
+    #: attempt (never counted) and it attaches them with the counted ones.
+    held_worked: tuple[str, ...] = ()
     #: The client's authored reveals, sent on their own (fix round 5); None
     #: for an older client (round 4's rule).
     held_authored_hints: int | None = None
@@ -252,13 +255,24 @@ def refolded_draft(connection: Any, draft: Any) -> tuple[Any, ServerHintFold | N
                                      session_id=fold.session_id, submission_id=fold.submission_id)
     held = (fold.held_hints, fold.held_primed, tuple(fold.held_parts))
     components = (tuple(fold.held_union), bool(fold.held_book), int(fold.held_carried))
+    worked = tuple(fold.held_worked)
     if fold.held_reader is not None:
         # RW2b (fix round 1, F1): the open problems' help, under the same
         # lock; only ever raised (a problem another process submitted in
         # between keeps the count read before grading). Fix round 4, item 4:
         # the same rule as before grading (:func:`combine_held`).
-        now_parts, now_primed = fold.held_reader(connection)
+        read = tuple(fold.held_reader(connection))
+        now_parts, now_primed = read[0], read[1]
+        now_worked = tuple(read[2]) if len(read) > 2 else ()
         now_parts = tuple(_part(part) for part in now_parts)
+        # Fix round 14, item 1: the worked rows seen now, with those seen
+        # before grading that no other attempt attached in between; primed
+        # is derived from them (the window, not the problems' state).
+        before_worked = set(fold.held_worked)
+        kept_worked = unattached_ids(connection, sorted(before_worked)) if before_worked else set()
+        worked = tuple(sorted(set(now_worked) | (before_worked & kept_worked)))
+        if fold.held_worked or now_worked:
+            now_primed = bool(worked)
         # Fix round 10 (c): the UNION of the ids seen before grading and now,
         # so no id already counted is dropped; the book and carried likewise.
         now_union, now_book, now_carried = held_components(now_parts)
@@ -266,7 +280,8 @@ def refolded_draft(connection: Any, draft: Any) -> tuple[Any, ServerHintFold | N
             # Fix round 11 (a): no RW2b server assist before grading or in the
             # transaction: RW2a's PRE-GRADING count and type stand exactly, as
             # at 7d4c5f4ce (only the H2b window fold below refolds).
-            held = (fold.held_hints, bool(now_primed) or bool(fold.held_primed), tuple(fold.held_parts))
+            held = (fold.held_hints, bool(now_primed) if (fold.held_worked or now_worked)
+                    else bool(now_primed) or bool(fold.held_primed), tuple(fold.held_parts))
         else:
             # (b) with every component. Fix round 13 (H2b's R1 rule): the
             # window read now, with the ids seen before grading that no other
@@ -276,7 +291,8 @@ def refolded_draft(connection: Any, draft: Any) -> tuple[Any, ServerHintFold | N
             components = (tuple(sorted(set(now_union) | (before & kept))), bool(fold.held_book) or now_book,
                           max(int(fold.held_carried), now_carried))
             largest = max((book + carried + len(ids) for book, carried, ids in now_parts), default=0)
-            held = (max(largest, int(fold.held_hints)), bool(now_primed) or bool(fold.held_primed), now_parts)
+            held = (max(largest, int(fold.held_hints)), bool(now_primed) if (fold.held_worked or now_worked)
+                    else bool(now_primed) or bool(fold.held_primed), now_parts)
     if since != fold.since:
         # The window the attempt attaches (:func:`attach_keyless`) is the one
         # read here, under the write lock.
@@ -284,11 +300,11 @@ def refolded_draft(connection: Any, draft: Any) -> tuple[Any, ServerHintFold | N
         fold = draft.server_hint_fold
     if (count, primed) == (fold.folded_hints, fold.folded_primed) and held == (
             fold.held_hints, fold.held_primed, tuple(fold.held_parts)) and components == (
-            tuple(fold.held_union), bool(fold.held_book), int(fold.held_carried)):
+            tuple(fold.held_union), bool(fold.held_book), int(fold.held_carried)) and worked == tuple(fold.held_worked):
         return draft, None
     now = replace(fold, folded_hints=count, folded_primed=primed, since=since, held_hints=held[0],
                   held_primed=held[1], held_parts=held[2], held_union=components[0], held_book=components[1],
-                  held_carried=components[2])
+                  held_carried=components[2], held_worked=worked)
     return replace(
         draft,
         hints_used=now.hints_used(),
@@ -304,14 +320,16 @@ def attach_held(connection: Any, draft: Any, attempt_id: str) -> int:
     transaction, so no later attempt counts them again."""
 
     fold: ServerHintFold | None = getattr(draft, "server_hint_fold", None)
-    if fold is None or fold.held_reader is None or not fold.held_union:
+    if fold is None or fold.held_reader is None or not (fold.held_union or fold.held_worked):
         return 0
     exists = connection.execute(
         "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
     ).fetchone()
     if exists is None:
         return 0
-    return attach_workbench_rows(connection, list(fold.held_union), attempt_id, submitted_at=fold.submitted_at)
+    # Fix round 14, item 1: the worked (level 4-5) rows too: attached, never counted.
+    return attach_workbench_rows(connection, list(fold.held_union) + list(fold.held_worked), attempt_id,
+                                 submitted_at=fold.submitted_at)
 
 
 def attach_keyless(connection: Any, draft: Any, attempt_id: str) -> int:

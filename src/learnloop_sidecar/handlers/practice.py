@@ -959,11 +959,11 @@ def _held_read(repository, item) -> tuple[tuple[tuple[int, int], ...], bool]:
     from learnloop.db.connection import connect
     try:
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-            parts, primed = _held_parts_with_window(connection, item.id)
+            parts, primed, worked = _held_parts_with_window(connection, item.id)
     except Exception as exc:  # noqa: BLE001 -- a vault without the tables holds nothing
         log_event("workbench_held_read_failed", practice_item_id=item.id, error=type(exc).__name__)
-        return (), False
-    return tuple(parts), bool(primed)
+        return (), False, ()
+    return tuple(parts), bool(primed), tuple(worked)
 
 
 def _held_parts_with_window(connection, practice_item_id: str):
@@ -972,13 +972,16 @@ def _held_parts_with_window(connection, practice_item_id: str):
     rule, whatever their problem's status, ``help_assists.workbench_window_ids``),
     which the attempt counts once and attaches in its own transaction."""
 
-    from learnloop.db.stores.help_assists import workbench_window_ids
+    from learnloop.db.stores.help_assists import workbench_window
     from learnloop.reader.workbench import held_parts_on
 
-    parts, primed = held_parts_on(connection, practice_item_id)
-    window = workbench_window_ids(connection, practice_item_id=practice_item_id)
+    parts, _problem_primed = held_parts_on(connection, practice_item_id)
+    window, worked = workbench_window(connection, practice_item_id=practice_item_id)
     rw2a = tuple((int(book), int(carried), ()) for book, carried, _ids in parts)
-    return rw2a + (((0, 0, tuple(window)),) if window else ()), bool(primed)
+    # Fix round 14, item 1: primed is derived from the WINDOW (any level 4-5
+    # row in it, whatever its problem's status), never from the problem's
+    # state; those rows are attached but never counted.
+    return rw2a + (((0, 0, tuple(window)),) if window else ()), bool(worked), tuple(worked)
 
 
 def _held_reader(practice_item_id: str):
@@ -993,7 +996,7 @@ def _held_reader(practice_item_id: str):
             return _held_parts_with_window(connection, practice_item_id)
         except sqlite3.OperationalError:
             # A vault without the workbench tables holds nothing.
-            return (), False
+            return (), False, ()
 
     return read
 
@@ -1011,6 +1014,7 @@ def _held_fields(item, held: tuple[tuple[Any, ...], bool], *, client_hints: int,
             "held_extra_hints": int(extra_hints),
             "held_hints": max((book + carried + len(ids) for book, carried, ids in parts), default=0),
             "held_parts": parts, "held_primed": bool(held[1]), "held_authored_hints": authored_hints,
+            "held_worked": tuple(held[2]) if len(held) > 2 else (),
             "held_types": tuple(item.attempt_types_allowed or ()) if attempt_types else None}
 
 

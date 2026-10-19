@@ -896,6 +896,16 @@ def _diagnose(
             admitted["requests"] += 1
             yield call
 
+    if current.workbench_trace:
+        # RW2b fix round 14, item 3: re-gate the trace right before the
+        # prompt is built, with the switch read NOW (the live config file).
+        from dataclasses import replace as _replace
+
+        from learnloop.symbolic_view import switch_now as _symbolic_switch_now
+        from learnloop.symbolic_view import trace_view as _trace_view
+
+        current = _replace(current, workbench_trace=_trace_view(current.workbench_trace,
+                                                                enabled=_symbolic_switch_now(vault)))
     started = time.monotonic()
     try:
         with job_spend.collector.observing():
