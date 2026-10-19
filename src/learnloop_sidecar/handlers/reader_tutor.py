@@ -149,7 +149,7 @@ def build_request(ctx: Any, vault: Any, repository: Any, params: Any, restricted
         raise SidecarError("validation_error", "Another way and that didn't help follow an answer: name its exchange.")
     caller, policy = restricted.caller, restricted.policy
     item = vault.practice_items.get(caller.item_id) if caller.item_id else None
-    bound_item, practice_session_id, hint_elsewhere = _accounting_binding(vault, repository, params, item)
+    bound_item, practice_session_id, cold_hint = _accounting_binding(vault, repository, params, item)
     history = RD.ask_history(repository, extraction_id=params.extraction_id, branches=True) \
         if params.parent_exchange_id else []
     ancestors = _ancestors(history, params.parent_exchange_id)
@@ -191,31 +191,42 @@ def build_request(ctx: Any, vault: Any, repository: Any, params: Any, restricted
         personalized=personalized, item=item if policy == "assisted_practice" else None,
         rerank_client=getattr(ctx, "reader_tutor_rerank_client", None), service=service,
     )
-    assisted = item if policy == "assisted_practice" else None
-    return ReaderTutorRequest(retrieve=lookup, intent=intent if service else "explain", personalized=personalized,
-                              learner_work=work, item=assisted, policy=policy, bound_item=bound_item,
-                              practice_session_id=practice_session_id, hint_counted_elsewhere=hint_elsewhere,
-                              context_guard=RT.ItemBoundGuard(repository, assisted) if assisted is not None else None,
+    # The bound item's guards hold for whatever the tutor is given, under
+    # assisted practice and during a cold administration of the item alike
+    # (fix round 4, F2): cold, retrieval adds nothing, but the selection's
+    # neighbours are still delivered, and a solution beside the exercise is
+    # the item's answer. Retrieval, tools and offers stay refused on their own
+    # (the cold policy, ``tools_refused``).
+    guarded = item if bound_item is not None else None
+    # The requested intent is the PRESENTATION's (fix round 4, F4): "another
+    # way" never repeats a shown passage, with the sources service off too.
+    # Only the service's effective retrieval intent falls back to explain,
+    # inside the lookup (``ReaderLookup``: G53's base find_sources).
+    return ReaderTutorRequest(retrieve=lookup, intent=intent, personalized=personalized,
+                              learner_work=work, item=guarded, policy=policy, bound_item=bound_item,
+                              practice_session_id=practice_session_id, carries_cold_hint=cold_hint,
+                              context_guard=RT.ItemBoundGuard(repository, guarded) if guarded is not None else None,
                               shown_span_keys=shown if intent == "alternative" else ())
 
 
 def _accounting_binding(vault: Any, repository: Any, params: Any, item: Any) -> tuple[Any, str | None, bool]:
-    """``(item, practice session, hint counted elsewhere)``: the item a bound
-    workbench session practises and the practice session its submit counts
-    questions in (the workbench's own resolution,
-    ``handlers.workbench._question_hints``). The Reader question is help on
-    that item whatever the policy (Codex review F1), so its reveals always
-    land. ``(None, None, False)`` when no session binds an item.
+    """``(item, practice session, carries the cold hint)``: the item a bound
+    workbench session practises and the practice session it is asked in (the
+    workbench's own resolution, ``handlers.workbench._question_hints``; the
+    record of where it was asked). The Reader question is help on that item
+    whatever the policy (Codex review F1), so its reveals always land.
+    ``(None, None, False)`` when no session binds an item.
 
-    The hint is left to the client's cold path
-    (``reader_dialogue._record_cold_hint_equivalent``) only when that path's
-    row counts in the same submission window the bound question would: the
-    same item and the same practice session (``count_hint_equivalent_question_events``
-    filters on both; the window start is the item's, so it is shared). The
-    session is resolved first, so a cold attempt in another session, or in
-    none, never takes the hint out of this one: the bound question then keeps
-    it, and a hint shown in session B counts in B's next submission once
-    (Codex re-review F1, final verify)."""
+    Its hint counts in the ITEM window whatever the practice session, or none
+    (fix round 4, F1: ``Repository.count_hint_equivalent_question_events``),
+    so a submit after the session changed, or one that opens the first
+    session, still counts it, once. When the client's cold path names an
+    attempt on the bound item, the question is a hint under L6 whatever its
+    type and this row carries it: the cold path's practice row, which counts
+    only in its attempt's session, leaves its flag off
+    (``reader_dialogue._record_cold_hint_equivalent``). Exactly one row
+    counts, in every session arrangement (round 3's same-session dedup,
+    without the session condition)."""
 
     if item is None or not params.workbench_session_id:
         return None, None, False
@@ -230,14 +241,12 @@ def _accounting_binding(vault: Any, repository: Any, params: Any, item: Any) -> 
     if not practice_session:
         recent = repository.most_recent_open_session()
         practice_session = recent["id"] if recent else None
-    hint_elsewhere = False
+    cold_hint = False
     if params.cold_active and params.cold_attempt_id:
-        # The cold path writes its row only for an attempt it can fetch, on that
-        # attempt's (item, session); it replaces this question's count only there.
+        # The cold path writes its row only for an attempt it can fetch.
         attempt = repository.fetch_practice_attempt(params.cold_attempt_id)
-        hint_elsewhere = (attempt is not None and attempt.get("practice_item_id") == item.id
-                          and attempt.get("session_id") == practice_session)
-    return item, practice_session, hint_elsewhere
+        cold_hint = attempt is not None and attempt.get("practice_item_id") == item.id
+    return item, practice_session, cold_hint
 
 
 def tools_refused(restricted: ReaderRestriction) -> bool:

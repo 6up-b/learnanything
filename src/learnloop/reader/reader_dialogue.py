@@ -775,6 +775,7 @@ def ask(
         cold_hint_event_id = _record_cold_hint_equivalent(
             repository,
             cold_attempt_id=cold_attempt_id,
+            question_event_id=str(result["event_id"]),
             question_md=question_md,
             answer_md=result["answer_md"],
             span_key=span_key,
@@ -883,14 +884,24 @@ def _record_cold_hint_equivalent(
     answer_md: str | None,
     span_key: str,
     clock: Clock | None,
+    question_event_id: str | None = None,
 ) -> str | None:
     """Record the cold reader Ask as a hint-equivalent PRACTICE question_event tied to
     the cold attempt's (item, session), so the practice evidence path counts it (L6).
-    No-op when the attempt cannot be resolved."""
+    No-op when the attempt cannot be resolved.
+
+    RW1c (fix round 4, F1): when the Reader question itself already counts as
+    a hint on the same item (a workbench session bound it: its row carries
+    the hint in the item's window, whatever the practice session), this row
+    is still written, as the link to the cold attempt, with its flag off, so
+    the hint counts once and is not lost when the session changes."""
 
     attempt = repository.fetch_practice_attempt(cold_attempt_id)
     if attempt is None:
         return None
+    asked = repository.question_event(question_event_id) if question_event_id else None
+    carried = bool(asked and asked.get("hint_equivalent")
+                   and asked.get("practice_item_id") == attempt.get("practice_item_id"))
     return repository.insert_question_event(
         {
             "context": "practice",
@@ -900,7 +911,7 @@ def _record_cold_hint_equivalent(
             "question_md": question_md,
             "answer_md": answer_md,
             "question_type": "other",
-            "hint_equivalent": True,
+            "hint_equivalent": not carried,
             "answer_status": "answered",
             "signal_channel": "interaction_preference",
             "provider": "reader",

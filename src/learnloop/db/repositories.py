@@ -60,6 +60,12 @@ OBSERVATION_CHANNEL_BLIND_PROBE = "blind_probe"
 #: A falsifiable expectation extracted from the learner's own tutor question.
 OBSERVATION_CHANNEL_LEARNER_QUESTION = "learner_question_embedded"
 
+#: Question contexts whose hint-equivalent rows count in the item's window
+#: whatever their practice session (``count_hint_equivalent_question_events``).
+#: A Reader question carries an item only when a workbench session binds it
+#: (RW1c), and that help is on the item, not on a practice session (fix round 4, F1).
+ITEM_WINDOW_QUESTION_CONTEXTS: tuple[str, ...] = ("reader",)
+
 #: The undo of one delete intent (reader-pdf-selection): a disposition event
 #: naming the delete it withdraws. ``{delete}`` is the delete event's id and
 #: ``{annotation}`` the annotation id, as SQL expressions.
@@ -4473,12 +4479,25 @@ class Repository(
         *,
         since: str | None = None,
         until: str | None = None,
+        item_window_only: bool = False,
     ) -> int:
         """Substantive questions on this item in the hint-equivalence window.
 
         Questions on this (item, session) newer than ``since`` (typically the
         previous attempt on the item) and, when ``until`` is given, at or before
         it (for reconstructing the count post hoc).
+
+        A Reader question bound to the item by a workbench session
+        (``context = 'reader'`` with an item: only RW1c's server-derived
+        binding writes one, ``ITEM_WINDOW_QUESTION_CONTEXTS``) counts in the
+        ITEM window whatever its practice session, or none: the learner can
+        ask before any practice session is open, or in one that ends before
+        they submit in the next, and the help is still on the item (RW1c fix
+        round 4, F1, the rule RW2b's held help already follows). The window
+        start is the item's last attempt, so whichever attempt of the item
+        commits next counts it once and the window then moves past it.
+        ``item_window_only`` counts only those (a submit that will open its
+        own practice session sees no other session's practice rows).
 
         Deliberately NOT filtered by context. A mechanism question asked from
         the *feedback* screen — where the graded solution is already on screen —
@@ -4493,9 +4512,13 @@ class Repository(
             "WHERE hint_equivalent = 1 AND practice_item_id = ?"
         )
         parameters: list[Any] = [practice_item_id]
-        if session_id is not None:
-            query += " AND session_id = ?"
-            parameters.append(session_id)
+        item_window = ", ".join("?" for _ in ITEM_WINDOW_QUESTION_CONTEXTS)
+        if item_window_only:
+            query += f" AND context IN ({item_window})"
+            parameters.extend(ITEM_WINDOW_QUESTION_CONTEXTS)
+        elif session_id is not None:
+            query += f" AND (session_id = ? OR context IN ({item_window}))"
+            parameters.extend([session_id, *ITEM_WINDOW_QUESTION_CONTEXTS])
         if since is not None:
             query += " AND created_at > ?"
             parameters.append(since)

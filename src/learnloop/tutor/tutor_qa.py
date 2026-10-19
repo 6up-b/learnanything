@@ -746,11 +746,12 @@ def ask_question(
         # reveal accounting below; ``practice_item_id`` follows it so the
         # episode and the dialogue's causal join name the same item.
         item, practice_item_id = bound_item, bound_item.id
-    hint_equivalent = item is not None and answer.question_type in HINT_EQUIVALENT_TYPES and not (
-        # RW1c (Codex re-review F1): the client's cold path already counts
-        # this question as a hint on the bound item, in the same practice
-        # session; its reveals still land.
-        bound_item is not None and bool(getattr(reader_tutor, "hint_counted_elsewhere", False)))
+    hint_equivalent = item is not None and (answer.question_type in HINT_EQUIVALENT_TYPES or (
+        # RW1c (fix round 4, F1): a cold Ask is a hint under L6 whatever its
+        # type. On the bound item this row carries it, in the item's window;
+        # the cold path's session-scoped practice row then leaves its flag off
+        # (``reader_dialogue._record_cold_hint_equivalent``), so it counts once.
+        bound_item is not None and bool(getattr(reader_tutor, "carries_cold_hint", False))))
     leak_overlap = (
         # A bound Reader answer shows its bridge too, scored with the
         # explanation; the excerpt is debited once, with the passages it
@@ -1016,6 +1017,7 @@ def hint_equivalents_for_submission(
     session_id: str | None,
     *,
     until: str | None = None,
+    item_window_only: bool = False,
 ) -> int:
     """Hint-equivalent questions since the item was last attempted.
 
@@ -1023,12 +1025,15 @@ def hint_equivalents_for_submission(
     (questions asked before an already-graded attempt were already dampened
     into that attempt's evidence). Practice- and feedback-context questions
     both count: the window explicitly spans the feedback screen shown between
-    attempt N and attempt N+1."""
+    attempt N and attempt N+1. A Reader question a workbench session binds
+    to the item counts whatever its practice session (RW1c fix round 4, F1:
+    ``Repository.count_hint_equivalent_question_events``); ``item_window_only``
+    counts only those."""
 
     attempts = repository.list_recent_attempts_by_practice_item(practice_item_id, limit=1)
     since = attempts[0]["created_at"] if attempts else None
     return repository.count_hint_equivalent_question_events(
-        practice_item_id, session_id, since=since, until=until
+        practice_item_id, session_id, since=since, until=until, item_window_only=item_window_only,
     )
 
 
@@ -1037,7 +1042,8 @@ def hint_equivalents_for_attempt(repository: Repository, attempt: dict[str, Any]
 
     Same window as ``hint_equivalents_for_submission``, evaluated post hoc:
     questions on (item, session) after the previous attempt on the item and at
-    or before this attempt."""
+    or before this attempt (a workbench-bound Reader question on the item in
+    any session, RW1c fix round 4, F1)."""
 
     prior = [
         row

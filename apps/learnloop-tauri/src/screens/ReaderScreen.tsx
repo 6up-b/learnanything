@@ -516,7 +516,11 @@ export function ReaderScreen({
     onError,
   });
   const working = wbCtl.active !== null;
-  askWorkbenchSessionRef.current = readerTutor?.retrieval && wbCtl.active?.session.practiceItemId
+  // Sent whenever EITHER RW1c switch is on (fix round 4, F3): the server
+  // derives the bound item's restriction from it (a cold administration
+  // refuses tools and offers), with retrieval off too. `readerTutor` is
+  // in the contract only while one of them is on.
+  askWorkbenchSessionRef.current = readerTutor && wbCtl.active?.session.practiceItemId
     ? wbCtl.active.session.sessionId : null;
   const cueCtl = useReaderCues({
     working,

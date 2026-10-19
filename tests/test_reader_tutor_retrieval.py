@@ -449,7 +449,9 @@ def test_with_the_service_absent_the_base_find_sources_serves_explain(tmp_path, 
     other = ask(ctx, "Explain it another way", parentExchangeId=root["readerAnswerEventId"],
                 retrievalIntent="alternative")
     assert calls[-1]["intent"] == "explain" and "ext_text:t3" in calls[-1]["exclude_span_keys"]
-    assert other["tutor"]["intent"] == "explain"
+    # Fix round 4 (F4): the presentation keeps "another way" (its shown
+    # passages are never repeated); only the base lookup's intent is explain.
+    assert other["tutor"]["intent"] == "alternative" and other["tutor"]["retrieval"]["intent"] == "explain"
 
 
 def test_with_the_service_faked_the_readers_calls_are_the_documented_ones(tmp_path, monkeypatch):

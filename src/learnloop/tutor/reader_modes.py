@@ -78,12 +78,13 @@ class ReaderTutorRequest:
     #: component's answer overlap reach the attempt (Codex review F1).
     bound_item: Any = None
     practice_session_id: str | None = None
-    #: The client's cold path already records this question as a hint on the
-    #: bound item in the bound practice session, the same submission window
-    #: (``reader_dialogue._record_cold_hint_equivalent``): the bound question
-    #: keeps the item for its reveals and is not counted as a hint a second
-    #: time (Codex re-review F1). Never set for a cold row in another session.
-    hint_counted_elsewhere: bool = False
+    #: The client's cold path names an attempt on the bound item
+    #: (``reader_dialogue._record_cold_hint_equivalent``): this question is a
+    #: hint under L6 whatever its type, and the bound row carries it in the
+    #: item's window (any practice session, or none), so the cold path's
+    #: session-scoped practice row leaves its flag off and the hint counts
+    #: once (Codex re-review F1; fix round 4, F1).
+    carries_cold_hint: bool = False
     #: Item-bound, the guard every delivered span passes (the selection, its
     #: neighbours, the blocks they cite and the retrieved passages):
     #: ``guard(spans) -> (kept, counts)``. Injected by the adapter (this

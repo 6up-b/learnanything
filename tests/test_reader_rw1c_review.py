@@ -17,12 +17,13 @@
 """
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from learnloop.tutor import reader_modes
-from tests.reader_tutor_fakes import LookupTutor, ask, call, reader_ctx, spans_given
+from tests.reader_tutor_fakes import ROOT_QUESTION, LookupTutor, ask, call, reader_ctx, spans_given
 from tests.source_service_fakes import set_item_answer, table_counts
 from tests.test_reader_tutor_retrieval import _bound_session, _workbench_steps
 
@@ -267,6 +268,16 @@ def _cold_attempt(repository, vault, attempt_id: str, session_id: str | None) ->
     })
 
 
+def _cold_row(repository, answer: dict) -> dict:
+    """The cold path's practice row for this Ask (not on the wire: read from the store)."""
+
+    with repository.connection() as connection:
+        (row,) = connection.execute(
+            "SELECT id, hint_equivalent FROM question_events WHERE context = 'practice' AND provider = 'reader' "
+            "AND question_md = (SELECT question_md FROM question_events WHERE id = ?)", (answer["eventId"],)).fetchall()
+    return {"id": row["id"], "hint_equivalent": bool(row["hint_equivalent"])}
+
+
 def _reveals(repository, event_id: str) -> list[dict]:
     with repository.connection() as connection:
         return [dict(row) for row in connection.execute(
@@ -291,8 +302,10 @@ def test_a_cold_bound_question_keeps_its_reveals_and_counts_one_hint(tmp_path, m
     answer = ask(ctx, workbenchSessionId=session, coldActive=True, coldAttemptId="att_cold_rw1c")
     event = repository.question_event(answer["eventId"])
     assert event["practice_item_id"] == ITEM
-    # The hint is counted once: by the cold path's practice row, not again by the bound question.
-    assert event["hint_equivalent"] is False
+    # The hint is counted once (fix round 4, F1): by the bound question, in the
+    # item's window; the cold path's practice row is the link, its flag off.
+    assert event["hint_equivalent"] is True
+    assert _cold_row(repository, answer)["hint_equivalent"] is False
     assert hint_equivalents_for_submission(repository, ITEM, practice_session) == 1
     tutor_reveal = [row for row in _reveals(repository, answer["eventId"]) if row["source_kind"] == "tutor_answer"]
     assert tutor_reveal and tutor_reveal[0]["amount"] >= 0.8
@@ -445,11 +458,15 @@ def test_a_hint_shown_in_the_bound_session_counts_there_once(tmp_path, monkeypat
     assert hint_equivalents_for_submission(repository, ITEM, session_b) == 1
     assert hint_equivalents_for_attempt(repository, _later_attempt(repository, vault, "att_b_rw1c", session_b)) == 1
     assert event["hint_equivalent"] is True
+    if cold_attempt == "other_session":
+        # Fix round 4 (F1): the cold row in A no longer counts too, so A never sees 2.
+        assert _cold_row(repository, answer)["hint_equivalent"] is False
 
 
 def test_a_same_session_cold_hint_still_counts_once(tmp_path, monkeypatch):
-    """The control: the cold row is in the bound session's own window, so the bound
-    question leaves the hint to it (1, never 2), at submission and post hoc."""
+    """The control: the cold row is in the bound session's own window, and only one
+    of the two rows counts (1, never 2), at submission and post hoc. Since fix
+    round 4 (F1) the bound question carries it, so a session change cannot lose it."""
 
     from learnloop.tutor.tutor_qa import hint_equivalents_for_attempt, hint_equivalents_for_submission
 
@@ -464,6 +481,215 @@ def test_a_same_session_cold_hint_still_counts_once(tmp_path, monkeypatch):
     _cold_attempt(repository, vault, "att_cold_rw1c_b", session_b)
     answer = ask(ctx, workbenchSessionId=_bound_to(repository, ITEM, session_b),
                  coldActive=True, coldAttemptId="att_cold_rw1c_b")
-    assert repository.question_event(answer["eventId"])["hint_equivalent"] is False
     assert hint_equivalents_for_submission(repository, ITEM, session_b) == 1
     assert hint_equivalents_for_attempt(repository, _later_attempt(repository, vault, "att_b_rw1c", session_b)) == 1
+    assert repository.question_event(answer["eventId"])["hint_equivalent"] is True
+    assert _cold_row(repository, answer)["hint_equivalent"] is False
+
+
+# --- Fix round 4 (orchestrator) ------------------------------------------------------------------------
+
+
+def _end(repository, session_id: str) -> None:
+    repository.end_session(session_id)
+
+
+def test_a_bound_hint_asked_before_any_practice_session_counts_once(tmp_path, monkeypatch):
+    """F1 (round 4): no practice session is open when the learner asks; the
+    submit then opens one. The bound question counts in the item's window,
+    whatever its session (here none), so that submit counts it once, and the
+    workbench's own line says so before the submit."""
+
+    from learnloop.tutor.tutor_qa import hint_equivalents_for_attempt, hint_equivalents_for_submission
+    from learnloop_sidecar.handlers.workbench import _question_hints
+
+    tutor = LookupTutor()
+    _paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    vault, _repository = ctx.require_vault()
+    assert repository.most_recent_open_session() is None
+    workbench = _bound_session(repository, ITEM)
+    answer = ask(ctx, workbenchSessionId=workbench)
+    event = repository.question_event(answer["eventId"])
+    assert event["practice_item_id"] == ITEM and event["session_id"] is None and event["hint_equivalent"] is True
+    from learnloop.reader import workbench as WB
+
+    assert _question_hints(vault, repository, WB.session_row(repository, workbench)) == 1
+    session_c = repository.create_session()
+    assert hint_equivalents_for_submission(repository, ITEM, session_c) == 1
+    first = _later_attempt(repository, vault, "att_c_rw1c", session_c)
+    assert hint_equivalents_for_attempt(repository, first) == 1
+
+
+def test_a_bound_hint_asked_in_an_ended_session_counts_in_the_next(tmp_path, monkeypatch):
+    """F1 (round 4): asked in practice session B, B ends, the learner resumes
+    and submits in C: C's submit counts the hint once; the next attempt after
+    that counts 0 (the window moved past it)."""
+
+    from learnloop.tutor.tutor_qa import hint_equivalents_for_attempt, hint_equivalents_for_submission
+
+    tutor = LookupTutor()
+    _paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    vault, _repository = ctx.require_vault()
+    session_b = repository.create_session()
+    answer = ask(ctx, workbenchSessionId=_bound_to(repository, ITEM, session_b))
+    assert repository.question_event(answer["eventId"])["session_id"] == session_b
+    _end(repository, session_b)
+    session_c = repository.create_session()
+    assert hint_equivalents_for_submission(repository, ITEM, session_c) == 1
+    first = _later_attempt(repository, vault, "att_c_rw1c", session_c)
+    assert hint_equivalents_for_attempt(repository, first) == 1
+    # Counted once: a later attempt of the item, in any session, counts 0.
+    assert hint_equivalents_for_submission(repository, ITEM, session_c) == 0
+    assert hint_equivalents_for_submission(repository, ITEM, session_b) == 0
+    item = vault.practice_items[ITEM]
+    repository.insert_practice_attempt({
+        "id": "att_c2_rw1c", "practice_item_id": item.id, "learning_object_id": item.learning_object_id,
+        "practice_mode": "short_answer", "attempt_type": "independent_attempt", "session_id": session_c,
+        "created_at": "2999-01-02T00:00:00Z",
+    })
+    assert hint_equivalents_for_attempt(repository, repository.fetch_practice_attempt("att_c2_rw1c")) == 0
+
+
+def test_a_cold_bound_hint_survives_a_session_change_once(tmp_path, monkeypatch):
+    """F1 (round 4) with the cold path: asked cold in A (the cold attempt and the
+    workbench both in A), A ends, the learner submits in C: counted once in C,
+    never twice in A."""
+
+    from learnloop.tutor.tutor_qa import hint_equivalents_for_submission
+
+    tutor = LookupTutor()
+    _paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    vault, _repository = ctx.require_vault()
+    session_a = repository.create_session()
+    _cold_attempt(repository, vault, "att_cold_rw1c_a", session_a)
+    ask(ctx, workbenchSessionId=_bound_to(repository, ITEM, session_a), coldActive=True,
+        coldAttemptId="att_cold_rw1c_a")
+    assert hint_equivalents_for_submission(repository, ITEM, session_a) == 1
+    _end(repository, session_a)
+    session_c = repository.create_session()
+    assert hint_equivalents_for_submission(repository, ITEM, session_c) == 1
+
+
+def test_an_unbound_reader_question_still_counts_nowhere(tmp_path, monkeypatch):
+    """F1 (round 4) control: an unbound Reader question binds no item, so no
+    window counts it, as before."""
+
+    from learnloop.tutor.tutor_qa import hint_equivalents_for_submission
+
+    tutor = LookupTutor()
+    _paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    session = repository.create_session()
+    answer = ask(ctx)
+    assert repository.question_event(answer["eventId"])["practice_item_id"] is None
+    assert hint_equivalents_for_submission(repository, ITEM, session) == 0
+    assert hint_equivalents_for_submission(repository, ITEM, None) == 0
+
+
+#: The verify's case (fix round 4, F2): the exercise's own solution states the key.
+PROBABILITY_KEY = "2/13"
+PROBABILITY_SOLUTION = "The required probability is 2/13."
+
+
+def _probability_book(monkeypatch) -> None:
+    import tests.source_service_fakes as fakes
+
+    book = dict(fakes.TEXTBOOK)
+    header, rows = book["solutions"]
+    # First, so it is the selected exercise's nearest neighbour.
+    book["solutions"] = (header, [(PROBABILITY_SOLUTION, 30), *rows[:2]])
+    monkeypatch.setattr(fakes, "TEXTBOOK", book)
+
+
+@pytest.mark.parametrize("cold", ["client", "server"])
+def test_a_cold_bound_question_keeps_the_items_guards(tmp_path, monkeypatch, cold):
+    """F2 (round 4): while the bound item is cold, retrieval adds nothing, but
+    the selection's neighbours are still delivered; the item's guards hold for
+    them, so the solution stating 2/13 reaches neither the tutor nor the excerpt."""
+
+    import learnloop.instructional.policy as policy
+
+    _probability_book(monkeypatch)
+    tutor = LookupTutor(excerpt=lambda context: next(
+        ({"extraction_id": s["extraction_id"], "span_id": s["span_id"], "quote": s["text"]}
+         for s in context["source_spans"] if PROBABILITY_KEY in s["text"]), None))
+    paths, ctx, repository, spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    set_item_answer(paths, ITEM, PROBABILITY_KEY)
+    ctx = _rebind(paths, ctx)
+    session = _bound_session(repository, ITEM)
+    last_exercise = spans["exercises"][-1]
+    selection = {"spanId": last_exercise, "selectionSpanIds": [last_exercise],
+                 "selectionQuote": "Compute the eigenvalues of the diagonal matrix"}
+    control = ask(ctx, **selection)
+    assert any(PROBABILITY_KEY in s["text"] for s in tutor.contexts[-1]["source_spans"]), \
+        "the control: unbound, the solution neighbour is delivered"
+    assert control["tutor"]["excerpt"] and PROBABILITY_KEY in control["tutor"]["excerpt"]["quote"]
+    extra: dict = {"coldActive": True} if cold == "client" else {}
+    if cold == "server":
+        monkeypatch.setattr(policy, "cold_administration_open", lambda repo, item_id: item_id == ITEM)
+    answer = ask(ctx, "how do I start?", workbenchSessionId=session, **selection, **extra)
+    given = tutor.contexts[-1]["source_spans"]
+    assert not any(PROBABILITY_KEY in s["text"] for s in given)
+    assert ("ext_text", last_exercise) in {(s["extraction_id"], s["span_id"]) for s in given}
+    assert not (answer.get("tutor") or {}).get("excerpt")
+    assert answer["tutor"]["retrieval"]["policy"] == "cold_attempt"
+    assert "toolRequests" not in answer and "practiceRequest" not in answer and "tutorOffers" not in answer
+
+
+def test_another_way_in_the_fallback_repeats_nothing(tmp_path, monkeypatch):
+    """F4 (round 4): with the sources service off, "another way" keeps its
+    presentation intent, so the passages the inquiry showed are neither quoted
+    nor cited again; only the lookup's retrieval intent falls back to explain."""
+
+    tutor = LookupTutor(excerpt=lambda context: next(
+        ({"extraction_id": s["extraction_id"], "span_id": s["span_id"], "quote": s["text"]}
+         for s in context["source_spans"] if s["span_id"] == "t3"), None))
+    _paths, ctx, _repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor,
+                                                  config={"source_service": {"enabled": False}})
+    root = ask(ctx)
+    assert root["tutor"]["excerpt"]["spanId"] == "t3"  # the control: the selection is quoted
+    # Verification unavailable: no abstention, so the shown selection is still the tutor's to quote.
+    ctx.reader_tutor_rerank_client = None
+    other = ask(ctx, "Explain it another way", parentExchangeId=root["readerAnswerEventId"],
+                retrievalIntent="alternative")
+    first = {f"{c['extractionId']}:{c['spanId']}" for c in root["citations"]} | {"ext_text:t3"}
+    shown = {f"{c['extractionId']}:{c['spanId']}" for c in other["citations"]}
+    assert not shown & first
+    assert not other["tutor"].get("excerpt")
+    assert other["tutor"]["droppedExcerpt"] == "this inquiry has already shown that passage"
+    assert other["tutor"]["intent"] == "alternative" and other["tutor"]["retrieval"]["intent"] == "explain"
+
+
+DESKTOP_BOUND_ASK = (Path(__file__).resolve().parents[1] / "apps" / "learnloop-tauri" / "src" / "fixtures"
+                     / "readerBoundOffersOnlyAsk.json")
+
+
+def test_the_desktops_offers_only_bound_ask_refuses_tools_when_cold(tmp_path, monkeypatch):
+    """F3 (round 4), the backend half of ``tutorBoundAsk.test.tsx``: the request
+    the desktop sends from a bound workbench with only offers on (the shared
+    fixture's keys), replayed through the handler while the server derives a
+    cold administration of the item: no tool requests, no practice request, no
+    offers, no tool call written. The control is the request the desktop sent
+    before the fix (no binding): read as plain reading, its tools run."""
+
+    import json
+
+    import learnloop.instructional.policy as policy
+
+    fixture = json.loads(DESKTOP_BOUND_ASK.read_text(encoding="utf-8"))
+    tutor = LookupTutor(tool_requests=REQUESTS)
+    _paths, ctx, repository, _spans = reader_ctx(
+        tmp_path, monkeypatch, tutor, config={"reader_tutor": {"retrieval_enabled": False, "offers_enabled": True}})
+    session = _bound_session(repository, ITEM)
+    monkeypatch.setattr(policy, "cold_administration_open", lambda repo, item_id: item_id == ITEM)
+    values = {"answerMode": "answer_directly", "extractionId": "ext_text", "parentExchangeId": None,
+              "question": ROOT_QUESTION, "selectionQuote": "the determinant changes sign",
+              "selectionSpanIds": ["t3"], "spanId": "t3", "workbenchSessionId": session}
+    request = {key: values[key] for key in fixture["requestKeys"]}
+    assert request["workbenchSessionId"] == session
+    unbound = call(ctx, "reader.ask", {key: value for key, value in request.items() if key != "workbenchSessionId"})
+    assert unbound.get("practiceRequest") or unbound.get("toolRequests"), "the control: unbound, tools run"
+    before = table_counts(repository, ["source_tool_calls"])
+    answer = call(ctx, "reader.ask", {**request, "question": "how do I start?"})
+    for key in fixture["absentFromAnswer"]:
+        assert key not in answer, key
+    assert table_counts(repository, ["source_tool_calls"]) == before
