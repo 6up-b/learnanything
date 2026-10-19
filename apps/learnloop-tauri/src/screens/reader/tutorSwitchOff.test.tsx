@@ -38,9 +38,11 @@ vi.mock("../../components/PdfReaderPane", () => ({ PdfReaderPane: () => null }))
 
 const source = { card: { sourceId: view.sourceId, title: "Matrices", canonicalUri: "book.pdf", readiness: "ready", readerEnabled: true } as SourceLibraryCard, spanId: "span_spectral_worked" };
 
-/** React's generated ids depend on render order; the markup is the contract. */
+/** React's generated ids depend on render order, and a landed answer is
+ *  stamped with the clock; the markup is the contract. */
 function markup(container: HTMLElement): string {
-  return container.innerHTML.replace(/:r[0-9a-z]+:/g, ":r:").replace(/«r[0-9a-z]+»/g, "«r»");
+  return container.innerHTML.replace(/:r[0-9a-z]+:/g, ":r:").replace(/«r[0-9a-z]+»/g, "«r»")
+    .replace(/\d{1,2}\/\d{1,2}\/\d{4}, \d{1,2}:\d{2}:\d{2}\s?[AP]M/g, "<time>");
 }
 
 function select(block: HTMLElement): void {
@@ -100,7 +102,7 @@ it.each(OFF_CONTRACTS)("an answer in the Reader is today's with %s", async (_lab
   const block = await screen.findByText(view.blocks[1].markdown);
   fireEvent.click(screen.getByRole("button", { name: "ask" }));
   select(block);
-  api.readerAsk.mockResolvedValue(answer(view.blocks[1].spanId));
+  api.readerAsk.mockResolvedValue(answer(view.blocks[1].spanId ?? ""));
   fireEvent.change(screen.getByPlaceholderText("ask about this passage…"), { target: { value: "why?" } });
   fireEvent.click(screen.getByRole("button", { name: /^ask (follow-up )?· ctrl\+↵$/ }));
   await screen.findByText("Landed answer");
@@ -111,8 +113,8 @@ it.each(OFF_CONTRACTS)("an answer in the Reader is today's with %s", async (_lab
 it.each(OFF_CONTRACTS)("a saved exchange is today's with %s", async (_label, value) => {
   contract.value = value;
   api.readerAskHistory.mockResolvedValue({ exchanges: [{
-    eventId: "a0", parentExchangeId: null, selectionSpanIds: [view.blocks[1].spanId], selectionQuoteMd: "the words",
-    questionEventId: "q0", resolution: "open", extractionId: view.extractionId, spanId: view.blocks[1].spanId,
+    eventId: "a0", parentExchangeId: null, selectionSpanIds: [view.blocks[1].spanId ?? ""], selectionQuoteMd: "the words",
+    questionEventId: "q0", resolution: "open", extractionId: view.extractionId, spanId: view.blocks[1].spanId ?? "",
     questionMd: "saved question?", answerMd: "Saved answer", answerMode: "answer_directly", citations: [], createdAt: null,
   }] });
   const view_ = render(<ReaderScreen initialSource={source} onError={vi.fn()} />);

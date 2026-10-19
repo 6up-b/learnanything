@@ -346,6 +346,8 @@ export function ReaderScreen({
   // reader_inquiry on): the intent box, and active reading.
   const intentContract = inquiry && !offline ? contract?.intent ?? null : null;
   const activeReadingOn = inquiry && !offline && Boolean(contract?.activeReading);
+  // RW1c: the tutor that looks things up (absent from the contract while both its switches are off).
+  const readerTutor = contract?.readerTutor ?? null;
 
   const blocks: ReaderRenderBlockDto[] = useMemo(
     () => (render?.blocks ?? []).filter((b) => !FURNITURE_BLOCK_TYPES.has(b.blockType ?? "")),
@@ -439,7 +441,8 @@ export function ReaderScreen({
     question, setQuestion, askComposerVersion, parentExchange, setParentExchange, history, visibleAskHistory,
     normalizedAskFind, collapsedAskIds, setCollapsedAskIds, askFindOpen, setAskFindOpen, askFindQuery,
     setAskFindQuery, askFindInputRef, askPhase, askTabMarked, returnStack, returnStackRef, reconnect,
-    inquiryChecks, passageCheckOffered, submitAsk, ask, cancelAsk, setInquiryStatus, markBranchDone, commitInquiry,
+    inquiryChecks, passageCheckOffered, submitAsk, ask, askAnotherWay, askDidntHelp, cancelAsk, setInquiryStatus,
+    markBranchDone, commitInquiry,
     committedFor, openInquiry, startQuickCheck, cancelQuickCheck, dismissInquiryCheck, answerReconnect, inquiryCheckAction,
     escalateInquiryCheck, peekPassage, restoreEntry, onBodyScroll, noteSourceOpened, rememberLeftSource,
     resetInquiryState,
@@ -2984,6 +2987,23 @@ export function ReaderScreen({
             onCommit={(root, preset) => void commitInquiry(root, preset)}
             committed={committedFor}
             renderInquiryTop={renderInquiryTop}
+            {...(readerTutor ? {
+              // RW1c: the tutor looks things up; another way, that didn't
+              // help and the offers under its answers (absent while off).
+              lookingUp: readerTutor.retrieval,
+              tutor: {
+                anotherWay: readerTutor.anotherWay && inquiry && !offline,
+                offers: readerTutor.offers && !offline,
+                busy: busy || offline,
+                onAnotherWay: askAnotherWay,
+                onDidntHelp: askDidntHelp,
+                onPracticePick: onCheckMe ? (item, proposalId) => pickLibraryPractice(
+                  { practiceItemId: item.practiceItemId, prompt: item.prompt } as ProposedItemDto, proposalId) : null,
+                onTryNextStep: readerTutor.tryNextStep && activeReadingOn
+                  ? (spanId: string) => void activeCtl.start("next_step", [spanId], localFold([spanId]))
+                  : null,
+              },
+            } : {})}
           />
           {recapCtl.wrapUpOffered && !recapCtl.wrapUpOpen ? (
             // RW6a: offered once the session has activity (D34), never while
