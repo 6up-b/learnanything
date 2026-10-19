@@ -46,7 +46,7 @@ from tests.recurrence_fakes import (
 )
 from tests.split_live_helpers import at, drain_jobs, enable_embeddings, split_vault, submit
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_213"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_214"
 CLOCK = FrozenClock(datetime(2026, 9, 1, 12, 0, tzinfo=UTC))
 CAPS = SpendCaps(max_candidates=100, max_pairs=100, max_retries=20, max_calls=100, max_total_tokens=500_000, max_estimated_usd=1.0)
 STATEMENTS = {
@@ -99,6 +99,7 @@ def test_successor_vocabulary():
     Decider judgments (mvp-0.22) follow it and keep recurrence groups."""
 
     from learnloop.algorithm_versions import (
+        ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION,
         DAILY_PLAN_ALGORITHM_VERSION,
         DECIDER_TIER1_ALGORITHM_VERSION,
         LATEST_ALGORITHM_VERSION,
@@ -135,7 +136,7 @@ def test_successor_vocabulary():
         SOURCE_REFERENCE_GATE_ALGORITHM_VERSION, SOURCE_FIRST_NEEDS_ALGORITHM_VERSION, ROUTE_RULES_ALGORITHM_VERSION,
         VOI_STOPPING_ALGORITHM_VERSION, DECIDER_TIER1_ALGORITHM_VERSION, ROUTER_STAGED_FRAME_ALGORITHM_VERSION,
         ROUTER_MIXTURE_ALGORITHM_VERSION, METHOD_EXPLICIT_ALGORITHM_VERSION, REGRADE_CONTRACT_ALGORITHM_VERSION,
-        ELIGIBILITY_DECISION_ALGORITHM_VERSION,
+        ELIGIBILITY_DECISION_ALGORITHM_VERSION, ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION,
     }
     # Router R2a's staged frame (mvp-0.23), R2b + R2c's model mixture
     # (mvp-0.24), method-explicit items (mvp-0.25) and regrade contracts
@@ -143,7 +144,7 @@ def test_successor_vocabulary():
     assert METHOD_EXPLICIT_ALGORITHM_VERSION == "mvp-0.25"
     assert REGRADE_CONTRACT_ALGORITHM_VERSION == "mvp-0.26"
     # The one eligibility decision (mvp-0.27) follows them all.
-    assert LATEST_ALGORITHM_VERSION == ELIGIBILITY_DECISION_ALGORITHM_VERSION == "mvp-0.27"
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.28"
 
 
 def test_defaults_fingerprint_is_recorded_for_the_successor():

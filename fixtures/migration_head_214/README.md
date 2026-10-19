@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-213. Migration 167 adds the learner-field F1 read model
+214. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -223,13 +223,29 @@ indexes and no-update and no-delete triggers) and `item_forecast_payloads`
 migration 206's `forecast_receipts`, no table of their own. The new tables
 are empty here.
 
-Built as a backup-API copy of the base's `migration_head_212` (git
+Migration 214 comes from adaptive difficulty AD2+AD3 (`adaptive-difficulty/ad23`,
+practice in the band and the subject view live, one successor `mvp-0.28`;
+docs/reviews/adaptive-difficulty-ad23.md): it adds `ad_selections` and
+`ad_dose_offers` (RAW_LEDGER), `ad_commission_results`, `ad_relatedness_runs`
+and `ad_coupling_versions` (RECEIPT; each of the five append-only by trigger,
+with its indexes), and `ad_state`, `ad_attempt_trace` (DERIVED, the AD
+replayer) and `item_forecast_scores` (DERIVED, the forecast-score replayer).
+It alters no existing table. The new tables are empty here.
+
+Built as a backup-API copy of the base's `migration_head_213` (git
+`29a49b5e6`, the committed head extracted from git) with only 214 applied,
+through `learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade
+allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
+`foreign_key_check` empty), copied into place with the backup API, with no
+companion files; `migration_head_213` was renamed to this directory.
+`migration_head_213` was built as a backup-API copy of the base's `migration_head_212` (git
 `16a0071f2`) with only 213 applied, through
 `learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade
 allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
 `journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
 `foreign_key_check` empty), copied into place with the backup API, with no
-companion files; `migration_head_212` was renamed to this directory. Rebuilt
+companion files; `migration_head_212` was renamed to that directory. Rebuilt
 the same way at AD1 fix round 4 (V5, `answer_mode` added inside 213): the
 same `migration_head_212` of git `16a0071f2`, only 213 applied,
 `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`, header bytes

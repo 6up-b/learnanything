@@ -509,6 +509,26 @@ def _keys(connection: Any, event: _Event, lo_id: str) -> str | None:
     return f"in_passage_question:{event.identity}:{lo_id}"
 
 
+def _taken_offers(connection: Any) -> dict[str, str]:
+    from learnloop.db.stores import ad_serving
+
+    if not ad_serving.has_table(connection, ad_serving.DOSE_OFFERS):
+        return {}
+    from learnloop.adaptive_difficulty.dose import taken_offers
+
+    return taken_offers(connection)
+
+
+def _offer_for(offers: Mapping[str, str], event: "_Event") -> str | None:
+    if not offers:
+        return None
+    if event.source_table == "reader_authored_questions":
+        return offers.get(f"question:{event.source_id}")
+    if event.kind == "worked_example":
+        return offers.get(f"span:{event.identity}")
+    return None
+
+
 def sweep(vault: Any, repository: Any, *, as_of: str, sweep_kind: str = "serve", sweep_ref: str | None = None,
           reading_map: ReadingMap | None = None, clock: Clock | None = None) -> SweepResult:
     """Record every listed opportunity written no later than ``as_of``.
@@ -542,6 +562,8 @@ def sweep(vault: Any, repository: Any, *, as_of: str, sweep_kind: str = "serve",
             events.extend(collect(connection, mapping, lower, upper))
         events.sort(key=lambda event: (event.written_at, event.source_table, event.source_id, event.subkind))
         result.considered = len(events)
+        # AD2+AD3 (§5.12): a taken dose offer's extra carries the offer's id on its receipt.
+        offers = _taken_offers(connection)
         for event in events:
             for lo_id in event.learning_object_ids:
                 if store.reading_opportunity_exists(
@@ -554,7 +576,8 @@ def sweep(vault: Any, repository: Any, *, as_of: str, sweep_kind: str = "serve",
                     "opportunity_key": key, "kind": event.kind, "subkind": event.subkind,
                     "source_table": event.source_table, "source_id": event.source_id,
                     "source_written_at": event.written_at, "learning_object_id": lo_id,
-                    "facet_doses": _doses(mapping, lo_id, event.named_facets), "dose_offer_id": None,
+                    "facet_doses": _doses(mapping, lo_id, event.named_facets),
+                    "dose_offer_id": _offer_for(offers, event),
                     "mapping_version": MAPPING_VERSION, "sweep": sweep_kind, "sweep_ref": sweep_ref,
                     "swept_at": swept_at,
                 })

@@ -70,7 +70,7 @@ from tests.helpers import NOW, create_placement_vault, set_algorithm_version
 from tests.split_live_helpers import split_vault
 from tests.test_recurrence_commands import _pass_guard
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_213"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_214"
 CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, tzinfo=UTC))
 
 
@@ -79,16 +79,16 @@ def test_the_sources_successors_follow_the_route_check_and_keep_every_predecesso
     # The route rules in the grader (mvp-0.20), value-of-information stopping
     # (mvp-0.21) and Tier 1's Decider judgments (mvp-0.22) followed them.
     # Router R2a's staged frame (mvp-0.23) followed them all.
-    assert SUCCESSOR_CHAIN[-11:-5] == (
+    assert SUCCESSOR_CHAIN[-12:-6] == (
         PROOF_ROUTE_CHECK_ALGORITHM_VERSION, SOURCE_REFERENCE_GATE_ALGORITHM_VERSION,
         SOURCE_FIRST_NEEDS_ALGORITHM_VERSION, ROUTE_RULES_ALGORITHM_VERSION, VOI_STOPPING_ALGORITHM_VERSION,
         DECIDER_TIER1_ALGORITHM_VERSION,
     )
-    assert LATEST_ALGORITHM_VERSION == "mvp-0.27"
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.28"
     assert SOURCE_REFERENCE_GATE_VERSIONS == frozenset(
-        {"mvp-0.18", "mvp-0.19", "mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27"}
+        {"mvp-0.18", "mvp-0.19", "mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.28"}
     )
-    assert SOURCE_FIRST_NEEDS_VERSIONS == frozenset({"mvp-0.19", "mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27"})
+    assert SOURCE_FIRST_NEEDS_VERSIONS == frozenset({"mvp-0.19", "mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.28"})
     # The chain is linear: each means every predecessor's semantics PLUS its own.
     for version in (SOURCE_REFERENCE_GATE_ALGORITHM_VERSION, SOURCE_FIRST_NEEDS_ALGORITHM_VERSION):
         for versions in (
@@ -190,7 +190,7 @@ def test_upgrade_command_defaults_to_the_latest(tmp_path):
     paths = create_placement_vault(tmp_path / "vault", version="mvp-0.17")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
-    assert "mvp-0.17 -> mvp-0.27" in result.output
+    assert "mvp-0.17 -> mvp-0.28" in result.output
     explicit = create_placement_vault(tmp_path / "explicit", version="mvp-0.17")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(explicit.root), "--to", "mvp-0.18"])
     assert result.exit_code == 0, result.output

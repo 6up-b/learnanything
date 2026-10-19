@@ -43,7 +43,7 @@ from tests.test_regrade_contract_successor import JOINT, _settle, _vault
 TARGET = REGRADE_CONTRACT_ALGORITHM_VERSION
 PREDECESSOR = METHOD_EXPLICIT_ALGORITHM_VERSION
 CLOCK = FrozenClock(datetime(2026, 12, 1, 12, 0, tzinfo=UTC))
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_213"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_214"
 
 
 def _attempt_rows(repository):
@@ -227,12 +227,12 @@ def test_upgrade_command_reaches_the_successor(tmp_path):
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root), "--to", TARGET])
     assert result.exit_code == 0, result.output
     assert f"{PREDECESSOR} -> {TARGET}" in result.output
-    # The default target is the latest successor (the one eligibility
-    # decision, mvp-0.27), through this step.
+    # The default target is the latest successor (adaptive difficulty
+    # AD2+AD3, mvp-0.28), through this step.
     default = create_placement_vault(tmp_path / "default", version=PREDECESSOR)
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(default.root)])
     assert result.exit_code == 0, result.output
-    assert f"{PREDECESSOR} -> mvp-0.27" in result.output
+    assert f"{PREDECESSOR} -> mvp-0.28" in result.output
     explicit = create_placement_vault(tmp_path / "explicit", version="mvp-0.24")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(explicit.root), "--to", TARGET])
     assert result.exit_code == 0, result.output

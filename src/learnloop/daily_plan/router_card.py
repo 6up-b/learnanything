@@ -375,12 +375,32 @@ class CardGatherer:
                     recalls.append(forgetting_curve(float(stability), elapsed))
             if recalls:
                 row["recall_now"] = round(sum(recalls) / len(recalls), 4)
+            ad_fields = self._adaptive_difficulty(lo, unknowns)
+            if ad_fields is not None:
+                # Adaptive difficulty AD2+AD3 (spec §10.1): the subject view's
+                # readiness numbers, labelled as predictions, with
+                # promoted_predictor on; absent otherwise (the card unchanged).
+                row["adaptive_difficulty"] = ad_fields
             out[lo] = row
             if status == "untested" and lo in candidate_los:
                 unknowns.append(f"never tested: {titles.get(lo, lo)}")
             elif status == "assumed":
                 unknowns.append(f"assumed known (not demonstrated): {titles.get(lo, lo)}")
         return out
+
+    def _adaptive_difficulty(self, lo: str, unknowns: list[str]) -> dict[str, Any] | None:
+        from learnloop.adaptive_difficulty.successor import subject_view_live
+
+        if not subject_view_live(self.vault.config):
+            return None
+        try:
+            from learnloop.adaptive_difficulty.readiness import card_fields
+
+            return card_fields(self.vault, self.repository, lo)
+        except Exception:  # noqa: BLE001 - named as unknown
+            if "adaptive difficulty's predictions are unavailable" not in unknowns:
+                unknowns.append("adaptive difficulty's predictions are unavailable")
+            return None
 
     def _interaction(self, connection: Any, now_iso: str, unknowns: list[str]) -> dict[str, Any]:
         now = parse_utc(now_iso)

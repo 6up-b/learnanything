@@ -163,11 +163,10 @@ def propensities(scored: Sequence[Scored], constants: SelectionConstants = Selec
         mode = MODE_BAND
         tied = tuple(ref for ref in refs if by_ref[ref].p_band >= best - constants.near_tie)
     q = constants.overlap_share if overlap else 0.0
-    pi = {ref: 0.0 for ref in refs}
-    for ref in tied:
-        pi[ref] += (1.0 - q) / len(tied)
-    for ref in overlap:
-        pi[ref] += q / len(overlap)
+    # The randomization layer's ``feature_overlap`` design owns the formula (spec §10.1).
+    from learnloop.scheduling.randomization_layer import feature_overlap_propensities
+
+    pi = feature_overlap_propensities(refs, tied, overlap, q)
     return mode, pi, tied, overlap, q
 
 

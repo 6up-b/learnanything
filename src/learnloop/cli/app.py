@@ -79,7 +79,8 @@ def upgrade(
             help=(
                 "Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, "
                 "mvp-0.12, mvp-0.13, mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19, "
-                "mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23, mvp-0.24, mvp-0.25, mvp-0.26 or mvp-0.27); default: the latest."
+                "mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23, mvp-0.24, mvp-0.25, mvp-0.26, mvp-0.27 or mvp-0.28); default: "
+                "the latest."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
@@ -158,13 +159,21 @@ def upgrade(
     regrade cite the contract it graded against and replay read the current
     grade's own contract, holding for review a grade whose contract was never
     recorded, over an mvp-0.25 vault (or an mvp-0.9 to mvp-0.24 vault through
-    the chain; no kill switch). ``--to mvp-0.27`` (default, the latest
-    successor) makes every serve path ask the one eligibility decision submit
+    the chain; no kill switch). ``--to mvp-0.27`` makes every serve path ask the one eligibility decision submit
     asks (a cold check its item can no longer take cold is withdrawn and the
     item served as practice; an item whose answer was shown is never a probe
     or a quick-check offer) and bounds a historical writer's auto-prime at its
     own instant, over an mvp-0.26 vault (or an mvp-0.9 to mvp-0.25 vault
-    through the chain; kill switch: ``eligibility.enabled = false``)."""
+    through the chain; kill switch: ``eligibility.enabled = false``). ``--to mvp-0.28``
+    (default, the latest successor) serves a planned new-material slot by
+    adaptive difficulty's draw (practice in the 70-80% band, calibration within
+    acceptable difficulty, exact logged chances), asks generation for an item
+    at a feature point with no difficulty band, and reads the subject view
+    (learned relatedness and reading) for live decisions and readiness, over
+    an mvp-0.27 vault (or an mvp-0.9 to mvp-0.26 vault through the chain; kill
+    switches under ``[adaptive_difficulty]``: ``selection``,
+    ``generation_contract``, ``promoted_predictor``, ``learned_coupling``,
+    ``reading_opportunities``, ``reading_self_check``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
@@ -248,12 +257,16 @@ def upgrade(
         from learnloop.eligibility_decision_upgrade import upgrade_to_mvp027
 
         result = upgrade_to_mvp027(_root(vault))
+    elif to == "mvp-0.28":
+        from learnloop.ad_successor_upgrade import upgrade_to_mvp028
+
+        result = upgrade_to_mvp028(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
             f"{to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12, mvp-0.13, "
             "mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19, mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23, "
-            "mvp-0.24, mvp-0.25, mvp-0.26 or mvp-0.27."
+            "mvp-0.24, mvp-0.25, mvp-0.26, mvp-0.27 or mvp-0.28."
         )
         raise typer.Exit(code=2)
     if result.upgraded:
