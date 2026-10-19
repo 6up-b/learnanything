@@ -50,28 +50,47 @@ def _part(part: Any) -> HeldPart:
     return 0, int(carried), tuple(f"#{index}" for index in range(int(server)))
 
 
-def combine_held(client_hints: int, parts: Any, *, authored_hints: int | None = None) -> int:
-    """The submit's count from the client's and the open problems' help.
+def held_components(parts: Any) -> tuple[tuple[str, ...], bool, int]:
+    """The open problems' help as components: the UNION of their server
+    assist ids, whether any counted the book, and the largest carried count."""
 
-    With ``authored_hints`` (the client's authored reveals, sent on their
-    own: fix round 5, items 4-5) it is the sum of distinct components:
-    the authored reveals (the larger of the client's and the carried count,
-    the same reveals counted twice), the book once (any problem that counted
-    it), and every distinct server assist id over all the problems (a row
-    belongs to one problem, so none is counted twice); never less than the
-    client's own total. Without it (an older client) it is round 4's rule:
-    per problem the larger of the client's count and the problem's carried
-    part (book and carried hints), plus its server assists, the larger total
-    over the problems."""
+    parts = [_part(part) for part in parts]
+    union = tuple(sorted({entry for _book, _carried, ids in parts for entry in ids}))
+    return union, any(book for book, _carried, _ids in parts), max((carried for _b, carried, _i in parts), default=0)
+
+
+def combine_held(client_hints: int, parts: Any, *, authored_hints: int | None = None,
+                 union: Any = None, book: bool | None = None, carried: int | None = None) -> int:
+    """The submit's count from the client's and the open problems' help
+    (RW2b fix round 10, one rule). ``union``, ``book`` and ``carried`` are the
+    components observed so far (:func:`held_components`; the refold passes
+    the union of what it saw before grading and in its transaction).
+
+    (a) **No RW2b server assist** (the union of check and level 1-3 hint ids
+    over the open problems is empty): RW2a's count exactly, as at
+    ``7d4c5f4ce`` (``_held_assistance``): the larger of the client's
+    ``hintsUsed`` and each problem's book plus carried hints. ``authoredHints``
+    is ignored.
+
+    (b) **Otherwise**, the sum of distinct components: the client part
+    (``max(authoredHints, carried)`` when sent, else the legacy
+    ``max(hintsUsed, carried + book)``), the book once when it is not already
+    inside the client part, and the size of the union of server assist ids
+    over ALL open problems (never a per-problem maximum). With
+    ``authoredHints`` the total is never below the client's ``hintsUsed``
+    (round 5's overlap rule)."""
 
     client = int(client_hints)
     parts = [_part(part) for part in parts]
+    found_union, found_book, found_carried = held_components(parts)
+    ids = set(found_union) | set(union or ())
+    if not ids:
+        return max([client] + [part_book + part_carried for part_book, part_carried, _ids in parts])
+    has_book = bool(found_book if book is None else (book or found_book))
+    most_carried = max(found_carried, int(carried or 0))
     if authored_hints is None:
-        return max([client] + [max(client, book + carried) + len(ids) for book, carried, ids in parts])
-    authored = max([int(authored_hints)] + [carried for _book, carried, _ids in parts])
-    book = 1 if any(book for book, _carried, _ids in parts) else 0
-    distinct = {entry for _book, _carried, ids in parts for entry in ids}
-    return max(client, authored + book + len(distinct))
+        return max(client, most_carried + int(has_book)) + len(ids)
+    return max(client, max(int(authored_hints), most_carried) + int(has_book) + len(ids))
 
 
 @dataclass(frozen=True)
@@ -137,6 +156,11 @@ class ServerHintFold:
     held_primed: bool = False
     #: Each open problem's ``(book, carried, assist_ids)`` help (:func:`combine_held`).
     held_parts: tuple[Any, ...] = ()
+    #: Fix round 10: the components observed so far, never dropped by the
+    #: refold: the union of server assist ids, the book, the largest carried.
+    held_union: tuple[str, ...] = ()
+    held_book: bool = False
+    held_carried: int = 0
     #: The client's authored reveals, sent on their own (fix round 5); None
     #: for an older client (round 4's rule).
     held_authored_hints: int | None = None
@@ -149,8 +173,9 @@ class ServerHintFold:
         if self.held_reader is None:
             return int(self.base_hints)
         parts = self.held_parts or (((0, int(self.held_hints), ()),) if self.held_hints else ())
-        return combine_held(self.held_client_hints, parts,
-                            authored_hints=self.held_authored_hints) + int(self.held_extra_hints)
+        return combine_held(self.held_client_hints, parts, authored_hints=self.held_authored_hints,
+                            union=self.held_union, book=self.held_book,
+                            carried=self.held_carried) + int(self.held_extra_hints)
 
     def hints_used(self, folded: int | None = None) -> int:
         count = self.folded_hints if folded is None else int(folded)
@@ -205,6 +230,7 @@ def refolded_draft(connection: Any, draft: Any) -> tuple[Any, ServerHintFold | N
     count, primed, since = read_fold(connection, practice_item_id=fold.practice_item_id,
                                      session_id=fold.session_id, submission_id=fold.submission_id)
     held = (fold.held_hints, fold.held_primed, tuple(fold.held_parts))
+    components = (tuple(fold.held_union), bool(fold.held_book), int(fold.held_carried))
     if fold.held_reader is not None:
         # RW2b (fix round 1, F1): the open problems' help, under the same
         # lock; only ever raised (a problem another process submitted in
@@ -212,10 +238,14 @@ def refolded_draft(connection: Any, draft: Any) -> tuple[Any, ServerHintFold | N
         # the same rule as before grading (:func:`combine_held`).
         now_parts, now_primed = fold.held_reader(connection)
         now_parts = tuple(_part(part) for part in now_parts)
-        authored = fold.held_authored_hints
-        before = combine_held(fold.held_client_hints, fold.held_parts, authored_hints=authored)
-        parts = (now_parts if combine_held(fold.held_client_hints, now_parts, authored_hints=authored) >= before
-                 else tuple(fold.held_parts))
+        # Fix round 10 (c): the UNION of the ids seen before grading and now,
+        # so no id already counted is dropped; the book and carried likewise.
+        now_union, now_book, now_carried = held_components(now_parts)
+        components = (tuple(sorted(set(fold.held_union) | set(now_union))), bool(fold.held_book) or now_book,
+                      max(int(fold.held_carried), now_carried))
+        # The RW2a parts (used when no server assist was ever seen): only raised.
+        before = combine_held(fold.held_client_hints, fold.held_parts)
+        parts = now_parts if combine_held(fold.held_client_hints, now_parts) >= before else tuple(fold.held_parts)
         largest = max((book + carried + len(ids) for book, carried, ids in map(_part, parts)), default=0)
         held = (max(largest, int(fold.held_hints)), bool(now_primed) or bool(fold.held_primed), parts)
     if since != fold.since:
@@ -224,10 +254,12 @@ def refolded_draft(connection: Any, draft: Any) -> tuple[Any, ServerHintFold | N
         draft = replace(draft, server_hint_fold=replace(fold, since=since))
         fold = draft.server_hint_fold
     if (count, primed) == (fold.folded_hints, fold.folded_primed) and held == (
-            fold.held_hints, fold.held_primed, tuple(fold.held_parts)):
+            fold.held_hints, fold.held_primed, tuple(fold.held_parts)) and components == (
+            tuple(fold.held_union), bool(fold.held_book), int(fold.held_carried)):
         return draft, None
     now = replace(fold, folded_hints=count, folded_primed=primed, since=since, held_hints=held[0],
-                  held_primed=held[1], held_parts=held[2])
+                  held_primed=held[1], held_parts=held[2], held_union=components[0], held_book=components[1],
+                  held_carried=components[2])
     return replace(
         draft,
         hints_used=now.hints_used(),
@@ -255,4 +287,5 @@ def attach_keyless(connection: Any, draft: Any, attempt_id: str) -> int:
                                since=fold.since, attempt_id=attempt_id, submitted_at=fold.submitted_at)
 
 
-__all__ = ["HeldPart", "ServerHintFold", "attach_keyless", "combine_held", "read_fold", "refolded_draft"]
+__all__ = ["HeldPart", "ServerHintFold", "attach_keyless", "combine_held", "held_components", "read_fold",
+           "refolded_draft"]

@@ -308,7 +308,9 @@ def request_help(ctx: SidecarContext, params: RequestHelpInput) -> dict[str, Any
                                            claim_verifier=verifier)
         payload = result.as_dict()
         # Reader §5.3 (F14): the hint's claims as checked, each labelled.
-        payload["claims"] = help_module.served_claims(worker_repo, result.assist_id)
+        payload["claims"] = help_module.served_claims(worker_repo, result.assist_id,
+                                                      symbolic_enabled=hint_workbench.symbolic_enabled(vault))
+        payload["symbolic_enabled"] = hint_workbench.symbolic_enabled(vault)
         payload["steps"] = labels
         payload["step_line"] = hint_workbench.step_labels(context)["line"]
         if result.status == hint_service.UNAVAILABLE and result.reason in help_module.WRITER_DOWN_REASONS:
@@ -376,7 +378,8 @@ def _check_payload(ctx: SidecarContext, meta: _JobMeta, result: dict[str, Any]) 
 
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         row = assist_row(connection, str(result["assist_id"])) if result.get("assist_id") else None
-    view = check_module.check_view(row, steps) if row is not None else None
+    view = check_module.check_view(row, steps, symbolic_enabled=hint_workbench.symbolic_enabled(vault)) \
+        if row is not None else None
     return {**result, "check": view}
 
 
@@ -588,7 +591,8 @@ def help_state(ctx: SidecarContext, params: WorkbenchHelpStateInput) -> dict[str
         rows = workbench_rows(connection, params.session_id)
     check = help_module.last_shown_check(rows)
     return versioned(to_camel({
-        "check": check_module.check_view(check, steps) if check is not None else None,
+        "check": check_module.check_view(check, steps, symbolic_enabled=hint_workbench.symbolic_enabled(vault))
+        if check is not None else None,
         "hints": help_module.hint_views(vault, repository, params.session_id),
         "help_style": session.get("help_style"),
         "stored_help_style": vault.config.hints.help_style,

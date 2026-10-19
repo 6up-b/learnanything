@@ -73,9 +73,12 @@ def last_shown_check(rows: Sequence[Mapping[str, Any]]) -> Mapping[str, Any] | N
     return shown[-1] if shown else None
 
 
-def _verdicts(check: Mapping[str, Any] | None,
-              steps: Sequence[hint_workbench.WorkbenchStep]) -> list[hint_workbench.StepVerdict]:
-    """The check's verdicts that still describe the steps (same text)."""
+def _verdicts(check: Mapping[str, Any] | None, steps: Sequence[hint_workbench.WorkbenchStep], *,
+              symbolic_enabled: bool = False) -> list[hint_workbench.StepVerdict]:
+    """The check's verdicts that still describe the steps (same text). Fix
+    round 10: with symbolic checks off a stored symbolic verdict is the
+    model's reading, so it is never told to the writer or copied into a new
+    hint row as checked."""
 
     if check is None:
         return []
@@ -84,7 +87,8 @@ def _verdicts(check: Mapping[str, Any] | None,
     except (TypeError, ValueError):
         return []
     hashes = {step.chain_id: step.content_hash for step in steps}
-    verdicts = [hint_workbench.verdict_from_record(record) for record in records]
+    verdicts = [hint_workbench.unchecked_verdict(hint_workbench.verdict_from_record(record), symbolic_enabled)
+                for record in records]
     return [verdict for verdict in verdicts if hashes.get(verdict.chain_id) == verdict.content_hash]
 
 
@@ -106,7 +110,7 @@ def hint_context(
     live = list(steps) if steps is not None else live_workbench_steps(repository, str(session["id"]))
     rows = _rows(repository, str(session["id"]))
     check = last_shown_check(rows)
-    verdicts = _verdicts(check, live)
+    verdicts = _verdicts(check, live, symbolic_enabled=hint_workbench.symbolic_enabled(vault))
     chains = {step.chain_id for step in live}
     first = next((verdict.chain_id for verdict in verdicts if verdict.verdict == "questionable"), None)
     alternatives: tuple[tuple[str, str], ...] = ()
@@ -222,21 +226,26 @@ def hint_views(vault: Any, repository: Repository, session_id: str) -> list[dict
                                       .get("settled") else UNSETTLED_LINE}
             if answer is not None else None,
             "bridge": bridge_view(bridge) if bridge is not None else None,
-            "claims": row_claims(row),
+            "claims": row_claims(row, symbolic_enabled=hint_workbench.symbolic_enabled(vault)),
+            "symbolic_enabled": hint_workbench.symbolic_enabled(vault),
         })
     return views
 
 
-def row_claims(row: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """A hint row's own claims as checked (Reader §5.3; fix round 1, F14)."""
+def row_claims(row: Mapping[str, Any], *, symbolic_enabled: bool = False) -> list[dict[str, Any]]:
+    """A hint row's own claims as checked (Reader §5.3; fix round 1, F14);
+    with symbolic checks off a stored checked claim is the model's reading
+    (fix round 10)."""
 
     try:
-        return list(json.loads(row.get("contract_failures_json") or "{}").get("claims") or [])
+        claims = list(json.loads(row.get("contract_failures_json") or "{}").get("claims") or [])
     except (TypeError, ValueError, AttributeError):
         return []
+    return [hint_workbench.unchecked_claim(claim, symbolic_enabled) for claim in claims if isinstance(claim, Mapping)]
 
 
-def served_claims(repository: Repository, assist_id: str | None) -> list[dict[str, Any]]:
+def served_claims(repository: Repository, assist_id: str | None, *,
+                  symbolic_enabled: bool = False) -> list[dict[str, Any]]:
     """The claims of the hint ``assist_id`` (``[]`` when it has none)."""
 
     if not assist_id:
@@ -248,7 +257,7 @@ def served_claims(repository: Repository, assist_id: str | None) -> list[dict[st
 
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         row = assist(connection, assist_id)
-    return row_claims(row) if row is not None else []
+    return row_claims(row, symbolic_enabled=symbolic_enabled) if row is not None else []
 
 
 def _step_line(about: int | None, continue_from: int | None) -> str:

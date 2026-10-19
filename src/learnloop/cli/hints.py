@@ -82,7 +82,8 @@ def hints_report(
 
             block = build_workbench_report(path, since=_since(since, now), item_facets={
                 item.id: [loaded.canonical_facet_id(str(facet)) for facet in item.evidence_facets]
-                for item in loaded.practice_items.values()})
+                for item in loaded.practice_items.values()},
+                symbolic_enabled=bool(loaded.config.workbench.symbolic_checks_enabled))
             if block is not None:
                 report["workbench"] = block
         from learnloop.hints.map_report import build_maps_report

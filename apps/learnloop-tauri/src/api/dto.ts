@@ -8542,6 +8542,8 @@ export interface CheckViewDto {
   firstQuestionableStepId: string | null;
   errorKind: { kind: string; label: string; reason: string } | null;
   assumptions: string[];
+  /** Fix round 10: workbench.symbolic_checks_enabled now; off, nothing shows as checked. */
+  symbolicEnabled?: boolean;
   symbolicAvailable: boolean;
   stale: boolean;
   changedSteps: number[];
@@ -8630,6 +8632,8 @@ export interface WorkbenchHintViewDto {
   bridge: { assistId: string; line: string; spanId: string | null; extractionId: string | null; label: string | null } | null;
   /** The hint's own checkable claims as verified (Reader §5.3, review F14). */
   claims?: HintClaimDto[];
+  /** Fix round 10: workbench.symbolic_checks_enabled now; off, no claim shows ✓. */
+  symbolicEnabled?: boolean;
 }
 
 export interface HintClaimDto {

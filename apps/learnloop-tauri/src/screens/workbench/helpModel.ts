@@ -178,21 +178,27 @@ const MODEL_LABEL = "model's reading, not checked";
  *  (and a "checked" label) appear only for a verdict the server says the
  *  symbolic check decided; anything else reads as the model's reading,
  *  whatever marker arrives (symbolic checks are off by default). */
-export function verdictMark(verdict: { method: string; verdict: string; mark: string; label: string }): {
+export function verdictMark(verdict: { method: string; verdict: string; mark: string; label: string },
+  symbolicEnabled?: boolean): {
   mark: string;
   label: string;
 } {
-  if (CHECKED_METHODS.has(verdict.method)) return { mark: verdict.mark, label: verdict.label };
+  // Fix round 10: with symbolic checks off (the server's switch), no stored
+  // symbolic verdict is shown as checked either.
+  if (symbolicEnabled !== false && CHECKED_METHODS.has(verdict.method)) return { mark: verdict.mark, label: verdict.label };
   const mark = verdict.verdict === "valid" ? "≈" : verdict.verdict === "questionable" ? "?" : "·";
   return { mark, label: MODEL_LABEL };
 }
 
 /** A hint's claim as shown under it (Reader §5.3, review F14). Fix round 9:
  *  "✓" only for a claim the check decided; every other claim reads "≈". */
-export function claimLine(claim: { statement: string; status: string; label: string }): string {
-  const checked = CHECKED_METHODS.has(claim.status);
+export function claimLine(claim: { statement: string; status: string; label: string },
+  symbolicEnabled?: boolean): string {
+  const checked = symbolicEnabled !== false && CHECKED_METHODS.has(claim.status);
   const mark = checked ? "✓" : "≈";
-  return `${mark} ${claim.statement} — ${checked ? claim.label : claim.status === "model" ? MODEL_LABEL : claim.label}`;
+  const label = checked ? claim.label : claim.status === "model" || CHECKED_METHODS.has(claim.status) ? MODEL_LABEL
+    : claim.label;
+  return `${mark} ${claim.statement} — ${label}`;
 }
 
 /** "checked your steps as of 21:42 — step 3 has changed since" (UX §5.4). */

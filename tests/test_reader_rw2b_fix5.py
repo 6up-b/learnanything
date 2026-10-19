@@ -174,7 +174,10 @@ def test_items_4_5_a_book_on_another_surface_and_an_authored_hint_record_two(tmp
     assert call(ctx, "workbench.get", {"sessionId": wb})["session"]["record"]["bookCounted"] is True
     # The answer box had not seen the book yet: it sends its one authored reveal.
     attempt = _box_submit(ctx, session, "book-and-authored", hints_used=1, authored=1)
-    assert _attempt(paths, attempt["attemptId"])["hints_used"] == 2
+    # Fix round 10, ruling (a), supersedes round 5 here: with no RW2b server
+    # assist on any open problem the count is RW2a's exactly (as at 7d4c5f4ce),
+    # authoredHints ignored: the larger of the client's 1 and the book's 1.
+    assert _attempt(paths, attempt["attemptId"])["hints_used"] == 1
 
 
 def test_items_4_5_a_book_alone_records_one(tmp_path, grader):

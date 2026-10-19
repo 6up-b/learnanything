@@ -515,7 +515,7 @@ export function Workbench(props: WorkbenchProps) {
                   </div>
                 ) : null}
               </div>
-              {helpOn && check ? <VerdictCell verdict={verdict} /> : null}
+              {helpOn && check ? <VerdictCell verdict={verdict} symbolicEnabled={check.symbolicEnabled} /> : null}
               {!readOnly ? (
                 <button type="button" aria-label={`delete step ${number}`} aria-disabled={leaving} style={{ ...linkStyle, fontSize: 10, color: COLOR.textDim }} onClick={() => wb.deleteStep(step.key)}>
                   delete

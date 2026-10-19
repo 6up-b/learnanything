@@ -73,9 +73,17 @@ def _week(value: Any) -> str:
     return f"{year}-W{week:02d}"
 
 
+def _method(value: Any, symbolic_enabled: bool) -> str:
+    method = str(value or "model")
+    return method if symbolic_enabled or method not in ("checked", "checked_numerically") else "model"
+
+
 def build_workbench_report(sqlite_path: Path | str, *, item_facets: Mapping[str, Iterable[str]] | None = None,
-                           since: str | None = None) -> dict[str, Any] | None:
-    """The workbench block, or None when the vault has no workbench rows."""
+                           since: str | None = None, symbolic_enabled: bool = False) -> dict[str, Any] | None:
+    """The workbench block, or None when the vault has no workbench rows.
+    Fix round 10: historical symbolic counts are reported only while
+    ``workbench.symbolic_checks_enabled`` is on; otherwise they fold into
+    ``model`` (the rows stay as they were)."""
 
     facets_of = {item: sorted(set(values)) for item, values in (item_facets or {}).items()}
     since_at = _when(since) if since else None
@@ -115,10 +123,10 @@ def build_workbench_report(sqlite_path: Path | str, *, item_facets: Mapping[str,
     sandbox_missing = 0
     for row in shown_checks:
         for verdict in _loads(row["step_verdicts_json"], []):
-            methods[str(verdict.get("method") or "model")] += 1
+            methods[_method(verdict.get("method"), symbolic_enabled)] += 1
         placement = _loads(row["placement_json"], {})
         for entry in placement.get("symbolic") or ():
-            kinds_declared[str(entry.get("method") or "model")] += 1
+            kinds_declared[_method(entry.get("method"), symbolic_enabled)] += 1
         if placement.get("symbolic_problem") == "sandbox_unavailable":
             sandbox_missing += 1
         if row["error_kind_guess"]:

@@ -34,3 +34,16 @@ it("a claim is shown with ✓ only when the check decided it", () => {
   expect(claimLine({ statement: "x = 1", status: "failed", label: "doesn't hold" })).toBe("≈ x = 1 — doesn't hold");
   expect(claimLine({ statement: "x = 1", status: "checked", label: "checked" })).toBe("✓ x = 1 — checked");
 });
+
+// RW2b fix round 10: the server sends the switch; off, even a stored checked
+// verdict or claim never shows ✓ or ≠.
+it("with the switch off, a stored checked verdict or claim reads as the model's", () => {
+  expect(verdictMark(verdict("checked", "valid", "✓", "checked"), false)).toEqual(
+    { mark: "≈", label: "model's reading, not checked" });
+  expect(verdictMark(verdict("checked", "questionable", "≠", "checked"), false).mark).toBe("?");
+  expect(claimLine({ statement: "x = 1", status: "checked", label: "checked" }, false))
+    .toBe("≈ x = 1 — model's reading, not checked");
+  render(<VerdictCell verdict={verdict("checked_numerically", "valid", "✓", "checked numerically")}
+    symbolicEnabled={false} />);
+  expect(screen.getByTestId("workbench-verdict").textContent).toBe("≈ model's reading, not checked");
+});

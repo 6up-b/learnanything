@@ -979,8 +979,12 @@ def _held_reader(practice_item_id: str):
 
 def _held_fields(item, held: tuple[tuple[Any, ...], bool], *, client_hints: int, extra_hints: int,
                  attempt_types: bool, authored_hints: int | None = None) -> dict[str, Any]:
+    from learnloop.attempts.hint_fold import held_components
+
     parts = tuple(held[0])
+    union, book, carried = held_components(parts)
     return {"held_reader": _held_reader(item.id), "held_client_hints": int(client_hints),
+            "held_union": union, "held_book": book, "held_carried": carried,
             "held_extra_hints": int(extra_hints),
             "held_hints": max((book + carried + len(ids) for book, carried, ids in parts), default=0),
             "held_parts": parts, "held_primed": bool(held[1]), "held_authored_hints": authored_hints,

@@ -9,16 +9,17 @@ import type { CheckStepVerdictDto, CheckViewDto } from "../../api/dto";
 import { MeaningLabel } from "../reader/voices";
 import { HELP_COPY, staleLine, verdictMark } from "./helpModel";
 
-export function VerdictCell({ verdict }: { verdict: CheckStepVerdictDto | null }) {
+export function VerdictCell({ verdict, symbolicEnabled }: { verdict: CheckStepVerdictDto | null;
+  symbolicEnabled?: boolean }) {
   if (!verdict) return <span style={{ width: 120, flexShrink: 0 }} />;
-  const shown = verdictMark(verdict);
+  const shown = verdictMark(verdict, symbolicEnabled);
   const words = verdict.first ? `${shown.mark} first` : `${shown.mark} ${shown.label}`;
   return (
     <span
       data-testid="workbench-verdict"
       data-verdict={verdict.verdict}
       data-method={verdict.method}
-      title={verdict.method === "checked" || verdict.method === "checked_numerically"
+      title={shown.label === verdict.label && (verdict.method === "checked" || verdict.method === "checked_numerically")
         ? `${shown.label} (${HELP_COPY.methodLine})` : shown.label}
       style={{ width: 120, flexShrink: 0, paddingTop: 4, opacity: verdict.editedSinceCheck ? 0.5 : 1 }}
     >
@@ -36,7 +37,7 @@ export function QuestionableNote({ check, chainId }: { check: CheckViewDto; chai
   if (!verdict || !verdict.first) return null;
   return (
     <div data-testid="workbench-first-questionable" style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 2 }}>
-      <MeaningLabel style={{ fontSize: 11 }}>{`${verdictMark(verdict).mark} ${verdict.reason || "this is where it stops holding"}`}</MeaningLabel>
+      <MeaningLabel style={{ fontSize: 11 }}>{`${verdictMark(verdict, check.symbolicEnabled).mark} ${verdict.reason || "this is where it stops holding"}`}</MeaningLabel>
       {check.errorKind ? <MeaningLabel style={{ fontSize: 11 }}>{check.errorKind.label}</MeaningLabel> : null}
     </div>
   );

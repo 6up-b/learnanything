@@ -731,12 +731,16 @@ def run_check(
     return CheckResult("ready", assist_id=assist_id, row=row)
 
 
-def check_view(row: Mapping[str, Any], steps: Sequence[hint_workbench.WorkbenchStep]) -> dict[str, Any]:
+def check_view(row: Mapping[str, Any], steps: Sequence[hint_workbench.WorkbenchStep], *,
+               symbolic_enabled: bool = False) -> dict[str, Any]:
     """What the workbench shows of a check (no map node or route: the map
-    contains the solution and reaches the learner only through hints)."""
+    contains the solution and reaches the learner only through hints). Fix
+    round 10: with symbolic checks off (``symbolic_enabled`` false, the
+    default) a stored symbolic verdict reads as the model's reading, and the
+    view says so (``symbolic_enabled``)."""
 
     try:
-        verdicts = [hint_workbench.verdict_from_record(record)
+        verdicts = [hint_workbench.unchecked_verdict(hint_workbench.verdict_from_record(record), symbolic_enabled)
                     for record in json.loads(row.get("step_verdicts_json") or "[]")]
     except (TypeError, ValueError):
         verdicts = []
@@ -776,6 +780,7 @@ def check_view(row: Mapping[str, Any], steps: Sequence[hint_workbench.WorkbenchS
         "verdicts": shown, "first_questionable_step_id": row.get("first_questionable_step_id"),
         "error_kind": error_kind, "assumptions": placement.get("assumptions") or [],
         "symbolic_available": placement.get("symbolic_problem") != "sandbox_unavailable",
+        "symbolic_enabled": bool(symbolic_enabled),
         "stale": bool(changed_numbers) or any(step.chain_id not in snapshot for step in steps
                                               if step.body_md.strip()),
         "changed_steps": changed_numbers,

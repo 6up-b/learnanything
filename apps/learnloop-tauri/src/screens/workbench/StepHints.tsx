@@ -155,7 +155,7 @@ export function HintCard({
           <div data-testid="workbench-hint-claims" style={{ display: "flex", flexDirection: "column", gap: 1 }}>
             {hint.claims.map((claim, index) => (
               <MeaningLabel key={index} style={{ fontSize: 11 }}>
-                <span data-claim-status={claim.status}>{claimLine(claim)}</span>
+                <span data-claim-status={claim.status}>{claimLine(claim, hint.symbolicEnabled)}</span>
               </MeaningLabel>
             ))}
           </div>
