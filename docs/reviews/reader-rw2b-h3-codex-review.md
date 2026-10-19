@@ -1217,3 +1217,63 @@ All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was f
 | `db_generate_reference.py` then `db_validate_reference.py` | **0 errors**. Only commit labels and line citations moved. |
 
 There is no migration and no config key. The app snapshot's `workbench.help` gains `symbolic`, which is additive.
+
+## Fix round 14
+
+The verify (Codex job `20261018-235617-HVruxj`, at `4727180b0`) confirmed:
+
+* 82,944 empty-window base-versus-tip comparisons;
+* the architecture tests;
+* that `>=` never recounts an attached row.
+
+It found three Highs and one Medium. Three are fixed in `2dc95abbc` and one is rejected under the orchestrator's
+ruling. **Paid calls: none ($0.00).**
+
+| item | severity | title | verdict | test (`tests/test_reader_rw2b_fix14.py`; all fail on `4727180b0`) |
+|---|---|---|---|---|
+| 1 | High | Worked help loses its priming after abandon | fixed | `test_item1_worked_help_on_an_abandoned_problem_primes_the_answer_box_attempt_once` (primed 1, hints 0, row attached; a later submit primed 0) |
+| 2 | High (as reported) | Checked results can be stored as the switch flips during persistence | **rejected as a defect** | `test_items_2_3_a_row_stored_checked_reads_as_the_models_everywhere_once_the_switch_is_off` pins the guarantee |
+| 3 | High | Queued diagnoses keep an obsolete switch | fixed | the same test (a drain's stale vault, with the trace read as the model's), `test_item3_the_trace_is_regated_by_the_accessor` |
+| 4 | Medium | Workbench delivery is not fenced like the counting window | fixed | `test_item4_a_workbench_check_is_not_delivered_after_another_surfaces_attempt_of_the_item` |
+
+* **Item 1.**
+  * `_WINDOW` now includes level 4-5 workbench hints. `help_assists.workbench_window` returns `(counted, worked)`:
+    checks and level 1-3 hints are counted, and level 4-5 hints are worked.
+  * The sidecar's held read derives `primed` from the window's worked rows, never from the problem's state.
+  * `ServerHintFold.held_worked` carries the worked ids, and `attach_held` attaches them with the counted rows in
+    the attempt's own transaction. They are never added to `hints_used`.
+  * The refold unions the worked rows seen now with those seen before grading that are still unattached, and
+    derives `primed` from that union.
+  * A later attempt finds them attached and does not re-prime.
+* **Item 2: rejected, with the orchestrator's reason.** The guarantee is that no checked or `≠` label is DISPLAYED
+  or USED (UI, writer, diagnoser, report) while the switch is off. Every read goes through `learnloop.symbolic_view`
+  with the switch read at that moment, which earlier verifies confirmed. A row stored as the switch flips is
+  history, exactly like rows stored while it was on. The pre-serialization re-read added in round 13 stays, and no
+  configuration lock is added. The new test pins the guarantee across the view, help_state, the report and the
+  diagnoser.
+* **Item 3.**
+  * `symbolic_view.switch_now(vault)` reads `workbench.symbolic_checks_enabled` from the vault's `learnloop.toml`
+    NOW. It uses `load_config(..., load_environment=False)`, and an unreadable file counts as off.
+  * `current_attempt_for` uses it per job, so a `PostAttemptWorker` drain's captured vault no longer decides.
+  * `diagnosis/split/jobs.py` re-gates the trace (`symbolic_view.trace_view`) right before `run_diagnosis` builds
+    the prompt.
+* **Item 4.** `_CLOSED`, the delivery fence `mark_shown` applies, gains an item-wide clause. A workbench row with
+  no practice session is closed by ANY attempt of the item committed at or after the row's `requested_at`. This is
+  the same same-second rule as the session clause, and it matches the counting window.
+  * Round 10's refold test now waits a second before its check B2, because a row requested in the same second as an
+    attempt of the item is closed. That is the rule both sides share.
+
+### Gate (fix round 14)
+
+All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was free (`flock -n`).
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **27 kept, 0 broken** |
+| `uv run pytest -n auto` over 110 files: round 13's 103, plus `test_reader_rw2b_fix14.py`, plus every test file naming `post_attempt_worker`/`PostAttemptWorker` (12, some already in); the diagnosis split files are among round 11's | **2147 passed, 2 xfailed** (95.9 s) |
+| `uv run pytest -n 8 --durable-sqlite` over `test_reader_rw2b_fix14.py`, `test_reader_rw2b_fix13.py`, `test_workbench_trace.py`, `test_workbench_assistance.py` | **32 passed** |
+| `npx vitest run src/screens/workbench`, `npm run typecheck` | **7 files, 76 passed**; typecheck ok. No frontend change this round. |
+| `db_generate_reference.py` then `db_validate_reference.py` | **0 errors**. Only commit labels and line citations moved. |
+
+There is no migration, no config key and no RPC or serializer change.
