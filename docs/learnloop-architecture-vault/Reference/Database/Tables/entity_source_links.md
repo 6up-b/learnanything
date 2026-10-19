@@ -3,8 +3,8 @@ title: "entity_source_links"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "892078de42f35c2762d5b1d74c606e26ed05c1a3"
-source_commit_timestamp: "2026-10-19T00:38:02-04:00"
+source_commit: "3da2da5b00f680568bdbc2021273b7e1b8b2d94e"
+source_commit_timestamp: "2026-10-19T02:08:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite entity_source_links"
@@ -114,6 +114,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_block_fts.py`
 - `src/learnloop/ops/doctor.py`
+- `src/learnloop/source_retrieval/reader_tutor.py`
 - `src/learnloop/substrate/dataset.py`
 
 ### Direct SQL writers
