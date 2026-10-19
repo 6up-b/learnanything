@@ -144,6 +144,9 @@ Test files run: test_active_errors_overlay.py test_ai_compare.py test_approach_m
    claim edited out.
 3. **Binding is textual (F3, F14).** A learner who writes `\frac{1}{2}` where the model writes `1/2` gets the model's
    reading, never a wrong `checked`. A sympy-level binding that parses the learner's LaTeX is left for later.
+4. **Owner note (fix round 9).** Symbolic checks are off by default until the renderer-equivalent checker lands. The
+   owner can turn them on (`[workbench] symbolic_checks_enabled = true`) knowing the limits recorded in "Fix round 9
+   (orchestrator decision)".
 
 ## Re-review (Codex job `20261018-172852-5htI4v`, `ca196c450..reader/rw2b`)
 
@@ -776,3 +779,128 @@ All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was f
 | vitest | not run: no rendering changed |
 
 There is no migration, no config key and no RPC or serializer change.
+
+## Fix round 9 (orchestrator decision)
+
+The verify (Codex job `20261018-202749-h7GveE`, at `dd56cf6ed`) confirmed counting, the fingerprints and the
+first-step solve fix. It found two more Highs and a Medium:
+
+1. **High: rendered function notation bypasses the normaliser.**
+   * `Let $f\lparen x\rparen=x$.`, `Figure 1 caption: f&#40;x&#41;=x.` and `Let **f**(x)=x.` all render as `f(x)=x`.
+   * With any of them, `\frac{d}{dx}(f)=0` came back `✓`, on both paths.
+2. **High: an unbraced exponent is parsed differently from how KaTeX displays it.**
+   * `$2^12=4096$` came back `✓`. KaTeX superscripts only the `1`, while sympy reads the exponent `12`.
+   * `$2^12=4$` came back `≠ checked`, although the displayed `2^1 2 = 4` is right. This was already present at
+     `367d43ac5`.
+3. **Medium: a subscripted function does not disable the problem.**
+   * On `Let $f_1(x)=x$.`, an unrelated `1+1=2` still checks. So does `f_1'=1`.
+
+**Decision.** Six rounds have shown that a LaTeX-text checker cannot be made to agree with the renderer by
+patching. **RW2b ships with symbolic checks OFF by default.** The three findings are not fixed. They are recorded
+below with every bypass found in rounds 3-8, as the test corpus for a follow-up stage. Fixed (by decision) in
+`fa3c6bbfb`. **Paid calls: none ($0.00).**
+
+| item | severity | title | verdict | test |
+|---|---|---|---|---|
+| 1-3 | High, High, Medium | Rendered function notation, unbraced exponents, subscripted functions | **deferred**: symbolic checks off by default; corpus recorded below | `tests/test_reader_rw2b_fix9.py` (6 tests, all fail or error on `dd56cf6ed`); `symbolicOff.test.tsx` (3, fail on `dd56cf6ed`: no `verdictMark`, and `claimLine` showed `✓` for a non-checked claim) |
+
+**What changed:**
+
+* **The default.** `workbench.symbolic_checks_enabled` now defaults to **false**.
+  * It is a modelled default, so the decision-only template does not write it. The schema comment and the
+    template's history comments are updated.
+  * All 19 `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries were recomputed with `defaults_fingerprint_for_version`, after
+    clearing the config `.pyc` first.
+  * The parameter registry records no default (its rule is unchanged). The CLI help does not show it, and its
+    snapshot is unchanged.
+  * The config references were regenerated.
+* **At the default, every path is the model's reading**, and the sandbox is never invoked (pinned by
+  `test_reader_rw2b_fix9.py`, each test at the default switch):
+  * the check: every verdict is `model` and its mark `≈`, `?` or `·`;
+  * `placement_json.symbolic` is `[]`;
+  * `step_verdicts_json` holds `model` only;
+  * `judgment_ledger` has no `workbench_check_symbolic` row, and the `llm` rows' method is `model`;
+  * `help_state` shows no `✓` or `≠`;
+  * the workbench report's `verdict_methods` is `{"model": n}` and `symbolic_outcomes` is `{}`;
+  * a hint's claims are stored and restored as `model`.
+* **The frontend guard** (`helpModel.verdictMark`, `claimLine`, `CheckColumn`). A `✓` or `≠` marker, or a
+  "checked" label, is shown only when the verdict's method is `checked` or `checked_numerically`, whatever marker
+  arrives. Every other verdict reads `≈`, `?` or `·` with "model's reading, not checked". A claim is `✓` only when
+  its status is `checked` or `checked_numerically`. Before this round, `failed` showed `✓`.
+* **The checker stays unchanged behind the switch.** Its tests turn it on: `workbench_help_fakes.sidecar(...,
+  symbolic=True)`, and the direct `run_checks` tests need no switch.
+
+**Follow-up stage: renderer-equivalent symbolic checks.** Parse the KaTeX output (MathML) rather than the LaTeX
+text, so what is checked is what is displayed.
+
+Design note:
+
+* KaTeX renders the step's LaTeX to MathML, the same renderer the learner sees, with the same macros and grouping.
+  The client sends the MathML with the step, or the server renders it with the same KaTeX version.
+* The server converts a small MathML subset to sympy: `mn`, `mi` (single letters and Greek), `mo` (`+ − × · / = ( )`),
+  `mfrac`, `msup` with an `mn` or `mrow` exponent, `msqrt`, `munderover`/`msubsup` for `∫` and `∑` with bounds,
+  and `\lim` as `munder`.
+* Anything outside that subset is the model's reading. This includes any `mi` that is followed by `(`, `mo` stretchy
+  delimiters around an argument after an identifier, any `msub` on an identifier, any `mtext` and any `mi` with
+  `mathvariant`, and any Unicode outside the subset.
+* Function notation is then judged on the rendered problem and steps, with Markdown and HTML entities already
+  resolved, not on their source.
+
+**Test corpus** (every bypass found, rounds 3-9; each must come back the model's reading, or `≠` where the
+displayed relation is false):
+
+* **round 3** (heuristic binding):
+  * a name resolved to the wrong definition: `f(x)=x^3`, `g(x)=x^2`, then `g'(x)=3x^2`;
+  * `d/dy (x^3) = 3x^2` checked as `d/dx`;
+  * `\int_0^2 2x dx = 1` checked over `[0,1]`;
+  * `\lim_{x \to 2} x^2 = 1` checked at 1;
+  * `x^{2+1} = x^2+1` losing its grouping;
+  * the same integral through the hint-claim path.
+* **round 4:**
+  * `"1=1" + 1997 spaces + "+1"` truncated to `1=1`;
+  * `\frac{x^2}{x}=2x`, then `x=0`;
+  * a 479-character claim `0=N-N` clipped to `0=N`;
+  * `\sqrt[3]{-8}=-2`, where sympy uses the principal complex root;
+  * `max(client, held)` losing a distinct assist (counting: fixed, not deferred).
+* **round 5:**
+  * `f(x)=\frac{x^2}{x}`, `f(x)-f(x)=x`, then `x=0`;
+  * `f(x)=\frac{(x-1)^2}{x-1}`, then `f(1)=0`;
+  * a stale-check comparison truncated at 2,000 characters (fixed);
+  * two open problems' checks counted once (fixed);
+  * a book against an authored hint (fixed).
+* **round 6:**
+  * `f(\alpha)=\frac{(\alpha-1)^2}{\alpha-1}`, then `f(1)=0`;
+  * `\phi(x)=\frac{(x-1)^2}{x-1}`, then `\phi(1)=0`;
+  * `f(x)=x`, `f(x)=x^{\frac{1}{2}}`, then `f(4)=4`;
+  * `g(x)=1/x`, `f(x)=x`, `f(x)=g(x)`, then `f(4)=4`.
+* **round 7:**
+  * `f(x_1)=x_1`, `f_1(x)=x`, `\mathrm{f}(x)=x` and `\operatorname{f}(x)=x`, each then `\frac{d}{dx}(f)=0`;
+  * `2x=0`, `\frac{x^2}{x}=0`, `x=0`, also with `\dfrac` and `\tfrac`.
+* **round 8:**
+  * `f\!(x)`, `f\,(x)`, `f\;(x)`, `{f}(x)` and `f\left.(x)`, each `=x`, then `\frac{d}{dx}(f)=0`;
+  * `α(x)=x`;
+  * `Let alpha(x)=x.`;
+  * `Solve $2x=0$ and $\frac{x^2}{x}=0$.` with the first step `x=0`;
+  * `Solve $2x=0$ subject to $x>0$.` with the first step `x=0`.
+* **round 9:**
+  * `Let $f\lparen x\rparen=x$.`, `Figure 1 caption: f&#40;x&#41;=x.` and `Let **f**(x)=x.`, each then
+    `\frac{d}{dx}(f)=0`;
+  * `$2^12=4096$`, which displays as `2^1 2`, and `$2^12=4$`;
+  * `Let $f_1(x)=x$.`, then `1+1=2`, and `f_1'=1`.
+
+### Gate (fix round 9)
+
+All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was free (`flock -n`).
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **27 kept, 0 broken** |
+| `uv run pytest -n auto` over round 8's files, `test_reader_rw2b_fix9.py`, `test_config_refactor.py` (the defaults snapshot) and `test_cli_help_snapshot.py`; `test_registry_audit.py` is among round 8's | **1187 passed** (81.2 s) |
+| `uv run pytest -n 8 --durable-sqlite` over `test_reader_rw2b_fix9.py`, `test_reader_rw2b_fix8.py`, `test_reader_rw2b_fix3.py`, `test_workbench_check.py` | **57 passed** |
+| `npx vitest run src/screens/workbench src/screens/PracticeScreen.workbench.test.tsx src/screens/ReaderScreen.workbench.test.tsx` | **9 files, 99 passed** |
+| `npm run typecheck`, `npm run frontend:build` | ok |
+| `db_generate_reference.py` then `db_validate_reference.py` | **0 errors**. The workbench config reference now shows the default `false`, and commit labels and line citations moved. |
+
+There is no migration and no RPC or serializer change. The one config change is the default of
+`workbench.symbolic_checks_enabled`.

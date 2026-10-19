@@ -284,3 +284,8 @@ deviation 5 and open question 1 (the check now runs on Codex, `estimated_only`, 
 expressions. It parses the learner's own LaTeX step (sympy, lark backend) and checks that relation. The
 declaration only picks the kind, and inequality and boundary are no longer checked. See the review file's "Fix
 round 3".
+
+**Fix round 9 (orchestrator decision).** `workbench.symbolic_checks_enabled` now defaults to **false**. RW2b ships
+with every symbolic verdict labelled "model's reading, not checked", and the sandbox is never invoked. The checker
+stays behind the switch until a renderer-equivalent (MathML) checker lands. The review file's "Fix round 9" records
+the limits and the test corpus for that stage.
