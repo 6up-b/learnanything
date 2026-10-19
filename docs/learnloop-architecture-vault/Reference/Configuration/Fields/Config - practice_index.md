@@ -3,8 +3,8 @@ title: "Config - practice_index"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "015e0270653ead506e571b2c26fd88b8254ac1ce"
-source_commit_timestamp: "2026-10-19T03:10:43-04:00"
+source_commit: "6ab56047b0686880421e9f2d601ed2f19594fc71"
+source_commit_timestamp: "2026-10-19T04:56:19-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml practice_index"
@@ -56,7 +56,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `practice_index.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for find_practice (sidecar RPC, CLI and agent tool). It only proposes items; turning it off changes nothing the scheduler serves. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2650`; `src/learnloop/practice_index/retrieval.py:910`; `src/learnloop_sidecar/handlers/reader_tutor.py:231` |
+| `practice_index.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for find_practice (sidecar RPC, CLI and agent tool). It only proposes items; turning it off changes nothing the scheduler serves. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2650`; `src/learnloop/practice_index/retrieval.py:910`; `src/learnloop_sidecar/handlers/reader_tutor.py:268` |
 | `practice_index.retrieval_path` | `"auto"` | string | modeled default or validator seed | auto uses the two-level dossier path only when the latest retrieval evaluation on the current index found that it beats direct item search; direct and dossier force a path (dossier falls back to direct while the dossier index is incomplete). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2653`; `src/learnloop/practice_index/retrieval.py:627` |
 | `practice_index.rerank_enabled` | `true` | boolean | modeled default or validator seed | Lets find_practice ask the practice_rerank route to judge and pick from its candidate pool; every verdict is appended to judgment_ledger (task practice_relevance). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2655`; `src/learnloop/practice_index/retrieval.py:936` |
 | `practice_index.rerank_price_per_million` | `null` | nullable | modeled default or validator seed | USD per million tokens for a metered rerank route; without it a metered rerank is skipped. Codex routes run on the subscription and need no price. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2658`; `src/learnloop/instructional/harvest.py:157`; `src/learnloop/practice_index/retrieval.py:744` |

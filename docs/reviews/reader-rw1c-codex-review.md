@@ -133,3 +133,78 @@ Vitest files run (55): every `*.test.ts(x)` in `src/screens/reader/` (35, includ
 `tutorReader.test.tsx`, `TutorOffers.test.tsx`, `TutorAnswer.test.tsx`, `tutorSwitchOff.test.tsx`), the 17
 `src/screens/ReaderScreen.*.test.tsx`, `src/app/App.wrapUpSkim.test.tsx`, `src/screens/attentionBudget.test.tsx` and
 `src/screens/workbench/switchOff.test.tsx`.
+
+## Re-review (fix round 2)
+
+Codex re-reviewed fix round 1 (`015e02706`; job `20261019-043710-eeEcM1`, read-only). Verdict **REOPENED**. F1
+and F2 (High) were reopened, F3 (High) was confirmed fixed, and one new finding was raised, F11 (Medium). Each
+reopened or new finding was reproduced with a test that fails on the round-1 code, then fixed. **None were
+rejected.** The fixes are in `6ab56047b`. The references regenerated on top of it are committed with this record.
+
+**Paid calls: none ($0.00).** Every model is a fake. No vault copy was opened, and no manual run was made.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 (reopened) | High | The cold de-duplication path drops a bound question's reveals | fixed | `6ab56047b` | `test_reader_rw1c_review.py::test_a_cold_bound_question_keeps_its_reveals_and_counts_one_hint`. Old code: `practice_item_id` was None and no `tutor_answer` reveal was written |
+| F2 (reopened) | High | A cold question rebuilds as `reading`; with retrieval off, server cold is not derived | fixed | `6ab56047b` | `::test_an_explicitly_cold_question_rebuilds_cold`. Old code: the caller rebuilt as `reading`, and `find_sources` under the question's ref was not cold. `::test_a_server_derived_cold_refuses_tools_whatever_the_retrieval_switch[False]`. Old code: a `practiceRequest` and `toolRequests` were returned. `::test_retrieval_off_a_bound_question_offers_nothing_and_rebuilds_as_its_item`. Old code: tools ran, and the caller rebuilt as `reading`. The `[True]` case is a control that passes on both trees |
+| F3 | High | Assisted-practice filtering stops before the complete tutor context | confirmed fixed by Codex (round 1, `015e02706`) | — | no change |
+| F11 | Medium | A displayed excerpt is debited twice | fixed | `6ab56047b` | `::test_a_displayed_excerpt_is_debited_once`. The excerpt exposes 0.286 of the key. Old code wrote two reveal rows summing to 0.571, which crosses the 0.35 auto-prime threshold. Now one row of 0.286 is written and `reveal_total_for_submission` stays below 0.35 |
+
+### What each fix does
+
+* **F1.** `handlers/reader_tutor._accounting_binding` keeps the binding when the client's cold path names an
+  attempt on the same item. The bound question is still stored on the item and the practice session, so its
+  `tutor_answer` and `source_review` reveals are written. The new field
+  `ReaderTutorRequest.hint_counted_elsewhere` marks the question. `tutor_qa.ask_question` then leaves the bound
+  row's `hint_equivalent` false, because the cold path's practice row
+  (`reader_dialogue._record_cold_hint_equivalent`, unconditionally hint-equivalent under L6) already counts the
+  hint. The submit's `hint_equivalents_for_submission` therefore sees exactly 1.
+* **F2.** `handlers/reader_tutor.restriction` derives a `ReaderRestriction` (caller, policy, bound item, client
+  cold) on the server for every `reader.ask` while either RW1c switch is on. It no longer depends on
+  `retrieval_enabled`. `tools_refused(restriction)` refuses tools, the practice request, the fallback request and
+  the offers when the question is cold (the client's flag, or the server's derivation for the bound item) or bound.
+  `build_request` reuses the same caller and policy. The restriction is stored on the question as it lands
+  (`source_context.reader_caller`: policy, cold, item, derived_from), through a new `reader_caller` argument on
+  `reader_dialogue.ask` and `tutor_qa.ask_question`. `instructional.policy.caller_for_question_event` reads it
+  back, and it also reads the lookup's own `reader_tutor.retrieval.policy`. A stored cold stays cold whatever
+  today's status, and a stored item rebuilds as that item's practice. Source-service RPCs that rebuild the caller
+  (`find_sources`, `find_practice`, tool requests, interventions) are therefore never wider than the question.
+  With both switches off nothing is derived or stored. Only the client's cold flag counts, as on the base, so the
+  switch-off golden is unchanged. This is deliberate: the kill switches restore the base byte for byte.
+* **F11.** For a bound item, the `tutor_answer` overlap is measured on the explanation and the bridge only
+  (`reader_modes.displayed_text(..., excerpt=False)`). The excerpt is debited once, in the `source_review` entry
+  with the passages the answer opens: the maximum of its passage and its quote, together with the citations. Each
+  displayed component is counted once.
+
+### Gate (fix round 2)
+
+All steps ran in the worktree with `TMPDIR=fixtures-local/tmp`. Only targeted tests were run (owner rule
+2026-10-17).
+
+| step | result |
+|---|---|
+| `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | 28 kept, 0 broken |
+| fail-before: the 6 new cases on the round-1 code (`8ca83b080`), before the fix | 5 failed, 1 passed (the `[True]` control). The F11 case first failed for an unrelated reason (its question retrieved no passage), so it was switched to the root question. It then failed on the double debit (0.571 against 0.286) |
+| targeted pytest, `uv run pytest -n auto` over 114 files (list below) | **2,777 passed, 2 xfailed** |
+| targeted pytest, `uv run pytest -n auto` over `test_reader_rw2b_review.py`, `test_keep_local_retired.py`, `test_registry_audit.py`, `test_reader_tutor_offers.py`, `test_config_refactor.py` and the 14 `test_workbench*.py` | **229 passed** |
+| `uv run pytest -n auto` over `test_reader_rw1c_review.py`, `test_reader_tutor_retrieval.py`, `test_reader_tutor_offers.py`, `test_reader_tutor_switch_off.py` (after the fix) | **54 passed** |
+| `db_generate_reference.py`, then `db_validate_reference.py` | 0 errors (head 213). Before the regeneration, 8 configuration line citations into the changed files were stale |
+| `module_validate.py`; `validate_vault.py` | 508/508 notes; links resolved; vault validation passed (1130 notes) |
+| `git diff --check` | clean |
+
+Not run, by the owner rule: the full suite, the whole durability lane and the whole vitest run. Those belong to the
+landing gate. Other steps were skipped because nothing triggered them:
+
+* No migration and no DB/connection change, so no durability tests.
+* No frontend change, so no npm or vitest run.
+* Nothing under `src-tauri`, so no `cargo check`.
+* No configuration key change, so no defaults snapshot.
+
+`module_generate.py` stops on missing package descriptions that predate this stage, and it wrote nothing.
+
+Pytest files in the 114-file run: `test_ad1_fix_round4.py`, `test_ad1_reading_opportunities.py`, `test_ai_config.py`, `test_assumed_known.py`, `test_capture_desktop.py`, `test_capture_route_recovery.py`, `test_causal_p2_acceptance.py`, `test_chatgpt_plan_provider.py`, `test_chatgpt_plan_workspace.py`, `test_codex_output_schema.py`, `test_coldness_receipt.py`, `test_config_refactor.py`, `test_contamination_report.py`, `test_daily_loop_reader_authored_practice.py`, `test_daily_loop_reader_retire.py`, `test_daily_loop_reference_adoption.py`, `test_daily_plan_composition.py`, `test_diagnosis_input_provenance_landing.py`, `test_diagnosis_input_provenance.py`, `test_dialogue_causal_join.py`, `test_embedding_route_isolation.py`, `test_exam_protection.py`, `test_exam_protection_review.py`, `test_facet_locks_landing.py`, `test_family_memory_projection.py`, `test_field_signal_production_paths.py`, `test_find_sources_intents.py`, `test_hint_h2a_review_round2.py`, `test_integration_daily_loop_field.py`, `test_judge_routes.py`, `test_learner_text_gaps_composition.py`, `test_learner_text_gaps_flow.py`, `test_learner_text_gaps.py`, `test_learner_text_gaps_review.py`, `test_library_ask.py`, `test_library_ask_review.py`, `test_method_explicit_landing.py`, `test_mobile_allowlist.py`, `test_model_usage_report.py`, `test_output_budget.py`, `test_p2_leakage_suite.py`, `test_p3_journeys.py`, `test_pinned_span_bridge.py`, `test_placement_opening_probes.py`, `test_placement_signals.py`, `test_practice_availability.py`, `test_question_context.py`, `test_question_promotions.py`, `test_question_signal.py`, `test_quick_check.py`, `test_reader_active_reading.py`, `test_reader_activity.py`, `test_reader_branches.py`, `test_reader_cues.py`, `test_reader_dialogue.py`, `test_reader_find_sources_callers.py`, `test_reader_guidance.py`, `test_reader_inquiry_kill_switch.py`, `test_reader_inquiry_status.py`, `test_reader_intent.py`, `test_reader_observation_records.py`, `test_reader_passage_check.py`, `test_reader_recap.py`, `test_reader_recap_review.py`, `test_reader_recap_review_r2.py`, `test_reader_reconnect.py`, `test_reader_report.py`, `test_reader_rw1b_review.py`, `test_reader_rw1c_review.py`, `test_reader_tutor_retrieval.py`, `test_reader_tutor_switch_off.py`, `test_reader_wrap_up.py`, `test_reading_hardening_landing.py`, `test_retrieval_interventions_write_points.py`, `test_reveal_ledger.py`, `test_rw4_kill_switches.py`, `test_serve_eligibility.py`, `test_serve_eligibility_review.py`, `test_sidecar_reader_p3.py`, `test_sidecar_reader.py`, `test_sidecar_serializer_snapshot.py`, `test_sidecar_source_retrieval.py`, `test_sidecar_teach_back.py`, `test_source_retrieval_followup.py`, `test_source_retrieval_guards.py`, `test_source_retrieval_rereview_cost.py`, `test_source_retrieval_rereview.py`, `test_source_retrieval_search.py`, `test_source_retrieval_tutor.py`, `test_source_service_spend_envelopes.py`, `test_sources_merge_composition.py`, `test_structured_transport_parity.py`, `test_stuck_prompt.py`, `test_tool_dispatch_policy.py`, `test_tool_results_withhold_answers.py`, `test_tutor_citations.py`, `test_tutor_delivery_fixes.py`, `test_tutor_practice_request.py`, `test_tutor_promotion_w2.py`, `test_tutor_qa.py`, `test_tutor_tool_requests.py`, `test_ux_phase1_connect_ai.py`, `test_ux_phase1_landing.py`, `test_ux_phase1_usability_round1.py`, `test_ux_phase4_feedback.py`, `test_ux_phase4_landing.py`, `test_valuation_calibration_fields.py`, `test_architecture.py`, `test_desktop_rpc_contract.py`,
+`test_coordinated_migrations.py`, `test_tracked_fixture_databases.py`, `test_table_roles.py`,
+`test_sqlite_file_copies.py`, `test_cli_help_snapshot.py` (all under `tests/`). The 107 listed first are every
+test file that names `caller_for_question_event`, `instructional.policy`, `reader_modes`, `reader_dialogue`,
+`reader.ask`, the reader handlers, `displayed_text`, `tutor_qa`, `reveal_ledger` or `hint_equivalents_for`.
