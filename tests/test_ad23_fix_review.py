@@ -7,6 +7,7 @@ network, no model call, no paid call.
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from contextlib import closing
 from datetime import UTC, datetime
@@ -89,6 +90,46 @@ def test_a_wholly_unassessed_frozen_attempt_trains_nothing_and_tests_no_cell(tmp
     assert not snap.observed_cells and not snap.observed_los
     assert all(row.get("detail", {}).get("excluded") == "unassessed" for row in snap.trace
                if row["attempt_id"] == attempt_id)
+
+
+def test_a_historical_regrade_reads_its_current_epoch_not_a_surviving_obsolete_criterion(tmp_path):
+    """F1 (re-review): a historical (pre-successor) regrade. The first grade, revision 0, scored
+    ``c_obsolete`` and it was verified; the regrade, written later without a revision and
+    superseding only the self-grade tier, dropped that criterion and left every one of its own
+    criteria PF-c unverified. Both epochs' rows stand; the current epoch is the regrade's
+    (``grading_epochs.current_epoch``), so the attempt measures nothing. Failed before: the
+    per-criterion merge across epochs kept ``c_obsolete`` and the attempt trained."""
+
+    from learnloop.db.stores.observation_ledger import load_authoritative_observation_ledger
+    from learnloop.field.outcomes import current_criterion_evidence, wholly_unassessed
+    from learnloop.grading_epochs import current_epoch
+
+    paths, vault, repository, attempt_id = _frozen_pfc_attempt(tmp_path, _ZeroEverythingWithoutAttribution())
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        connection.row_factory = sqlite3.Row
+        live = [dict(r) for r in connection.execute(
+            "SELECT * FROM grading_evidence WHERE attempt_id = ? AND superseded_at IS NULL ORDER BY id",
+            (attempt_id,))]
+        assert live
+        # The PF-c grade becomes the revision-less regrade; the first grade (revision 0) is older.
+        connection.execute("UPDATE grading_evidence SET grading_revision = NULL WHERE attempt_id = ?", (attempt_id,))
+        obsolete = dict(live[0], id="ge_obsolete", criterion_id="c_obsolete", points_awarded=1.0,
+                        attribution_json=None, observation_id=None, grading_revision=0,
+                        created_at="2026-11-01T11:30:00Z")
+        columns = ", ".join(obsolete)
+        connection.execute(f"INSERT INTO grading_evidence ({columns}) VALUES ({', '.join('?' for _ in obsolete)})",
+                           tuple(obsolete.values()))
+        connection.commit()
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        (entry,) = [e for e in load_authoritative_observation_ledger(connection) if str(e["attempt_id"]) == attempt_id]
+    epoch = current_epoch(entry["evidence"])
+    assert epoch is not None and "c_obsolete" not in epoch.criterion_ids
+    assert wholly_unassessed(epoch.rows)
+    # The merged reading is what kept the obsolete criterion alive.
+    assert "c_obsolete" in {r["criterion_id"] for r in current_criterion_evidence(entry["evidence"])}
+    event = _event(paths, vault, repository, attempt_id)
+    assert event.input_status == "frozen"
+    assert not event.eligible and event.reason == "unassessed"
 
 
 def test_a_partly_unverified_frozen_attempt_reads_its_assessed_grade(tmp_path):
@@ -343,6 +384,90 @@ def test_a_serve_commission_queues_its_generation_once_at_its_point(tmp_path):
     assert target["target_task_features"] == rung_features(commission["chosen_point"])
     result = job.get("result") or json.loads(job.get("result_json") or "{}")
     assert result.get("ad_commission_id") == commission["id"] and result.get("commissioned_targets") == 1
+
+
+def test_a_commission_queued_before_models_go_off_waits_and_resumes(tmp_path, monkeypatch):
+    """F10 (re-review): a commission is queued while models are on; the worker then runs it with
+    ``LEARNLOOP_AD_MODELS=off``. The durable handler resolves no client (only an injected test
+    factory may run with models off) and leaves the job resumable; once models are back on, the
+    next schedule resumes the same batch and generates the item once. Failed before: the
+    handler checked only the contract and the commission, so it resolved the default (live)
+    client with models off."""
+
+    from learnloop.adaptive_difficulty.generation import schedule_commission_generation
+    from learnloop.adaptive_difficulty.spend import MODELS_ENV
+    from learnloop.content.pipeline import jobs as J
+    from learnloop.content.proposals.ai_contracts import AuthoringProposal
+
+    from tests.structured_ai import StructuredClientFake
+
+    HARD = {"complexity": 3, "transfer": "far", "scaffolding": "none", "span": "multi_step",
+            "response": "long_constructed", "tools": ["closed_book"]}
+    items = ("pi_k1", "pi_k2")
+    paths = ad23_vault(tmp_path, items=items, features={i: HARD for i in items}, config=ROUTER_OFF)
+    env, _clock = env_for(paths, items=items)
+    build_plan(env, kind="normal", budget=3.0, remembered=3, minutes_source="chip")
+    _record, step = advance(env, serve=True)
+    assert step["kind"] == "item"
+    (commission,) = selections(paths, kind="commission")
+
+    class _Generator(StructuredClientFake):
+        provider_name = "codex"
+        provider_type = "test"
+        model = "fake-generator"
+
+        def __init__(self) -> None:
+            self.contexts: list[Any] = []
+
+        def run_authoring_proposal(self, context):
+            self.contexts.append(context)
+            return AuthoringProposal.model_validate({"summary": "commissioned", "source_refs": [], "items": []})
+
+    generator = _Generator()
+    resolved: list[str] = []
+
+    def default_client(_ctx):  # the production resolver's seam: never a live client here
+        resolved.append(os.environ.get(MODELS_ENV, ""))
+        return generator
+
+    monkeypatch.setattr(J, "default_synthesis_client", default_client)
+    repository = Repository(paths.sqlite_path)
+    jobs = J.DurableIngestJobs()
+    jobs.bind(repository, paths.root, background=False)  # no injected factory: production's seam
+    vault = load_vault(paths.root)
+
+    def enqueue(commission_id: str, learning_object_id: str) -> str:
+        return jobs.enqueue_practice_expansion(learning_object_ids=[learning_object_id],
+                                               ad_commission_id=commission_id)
+
+    # Queued with models on, but the worker has not claimed it yet.
+    monkeypatch.delenv(MODELS_ENV, raising=False)
+    monkeypatch.setattr(jobs, "_ensure_worker", lambda: None)
+    assert schedule_commission_generation(vault, repository, enqueue) == [commission["id"]]
+    batch_id = J.ad_commission_batch_id(commission["id"])
+    (job,) = repository.ingest_jobs_for_batch(batch_id)
+    assert job["status"] == "queued"
+    # The worker starts with models off.
+    monkeypatch.setenv(MODELS_ENV, "off")
+    jobs.drain_foreground()
+    assert resolved == [] and generator.contexts == []
+    (job,) = repository.ingest_jobs_for_batch(batch_id)
+    assert job["status"] == "failed" and job["error"]["code"] == J.AD_MODELS_OFF_CODE and job["error"]["retryable"]
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        assert commission["id"] in {str(r["id"]) for r in ad_serving.open_commissions(connection)}
+    # Still off: scheduling again leaves it waiting.
+    schedule_commission_generation(vault, repository, enqueue)
+    jobs.drain_foreground()
+    assert resolved == [] and repository.ingest_jobs_for_batch(batch_id)[0]["status"] == "failed"
+    # Models back on: the next schedule resumes the same batch, and it generates once.
+    monkeypatch.delenv(MODELS_ENV, raising=False)
+    schedule_commission_generation(vault, repository, enqueue)
+    jobs.drain_foreground()
+    (job,) = repository.ingest_jobs_for_batch(batch_id)
+    assert job["status"] == "completed" and resolved == [""] and len(generator.contexts) == 1
+    schedule_commission_generation(vault, repository, enqueue)
+    jobs.drain_foreground()
+    assert len(generator.contexts) == 1
 
 
 def test_the_sidecar_queues_a_serve_commission_after_the_serve(tmp_path, monkeypatch):

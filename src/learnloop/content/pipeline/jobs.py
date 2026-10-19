@@ -3157,6 +3157,11 @@ def ad_commission_batch_id(commission_id: str) -> str:
     return f"batch_ad_commission_{commission_id}"
 
 
+#: A commission's job that ran with ``LEARNLOOP_AD_MODELS=off``: failed retryable, resumed by
+#: the next schedule with models on (Codex re-review F10).
+AD_MODELS_OFF_CODE = "ad_models_off"
+
+
 def _handle_ad_commission(ctx: JobContext, lo_ids: list[str], commission_id: str) -> dict[str, Any]:
     """One item at an open AD commission's point, through the ordinary generation path and
     its gates (spec_adaptive_difficulty_v1 §6.1 "runs in the background", §7.1, §7.4). A
@@ -3178,6 +3183,16 @@ def _handle_ad_commission(ctx: JobContext, lo_ids: list[str], commission_id: str
         open_ids = {str(row["id"]) for row in ad_serving.open_commissions(ctx.repo.connection())}
     if commission_id not in open_ids:
         return {"generated": 0, "skipped_reason": "commission no longer open"}
+    from learnloop.adaptive_difficulty.spend import models_off
+
+    # Codex re-review F10: work queued before the switch went off still makes no model call.
+    # Only an explicitly injected client (a test's fake) runs with models off. The job fails
+    # retryable rather than completing, so its batch stays resumable and the commission open.
+    if models_off() and ctx.services.synthesis_client_factory is None:
+        raise IngestRunnerError(
+            "Adaptive difficulty's models are off, so this question waits until they are back on.",
+            code=AD_MODELS_OFF_CODE, retryable=True, details={"ad_commission_id": commission_id},
+        )
     ctx.report("generation", message="Writing a question at the level adaptive difficulty asked for")
     client = ctx.services.synthesis_client(ctx)
     try:
@@ -4484,9 +4499,23 @@ class DurableIngestJobs:
         (spec_adaptive_difficulty_v1 §6.1, §7.1): one item at its point. The
         batch id is the commission's, so enqueuing it again (a retried
         schedule, a restart) finds the same durable batch, never a second
-        generation."""
+        generation. A job of that batch that ran with adaptive difficulty's models off
+        (``AD_MODELS_OFF_CODE``) is resumed here once they are on again (Codex re-review F10)."""
 
         runner = self._require_runner()
+        if ad_commission_id:
+            from learnloop.adaptive_difficulty.spend import models_off
+
+            existing = ad_commission_batch_id(ad_commission_id)
+            waiting = [
+                job for job in runner.repo.ingest_jobs_for_batch(existing)
+                if job.get("status") == "failed" and (job.get("error") or {}).get("code") == AD_MODELS_OFF_CODE
+            ]
+            if waiting:
+                if not models_off():
+                    runner.resume_batch(existing)
+                    self._ensure_worker()
+                return existing
         payload: dict[str, Any] = {
             "learning_object_ids": list(learning_object_ids),
             "reason": reason or ("ad_commission" if ad_commission_id else "reader_section_completed"),

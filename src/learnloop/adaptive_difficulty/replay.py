@@ -320,6 +320,18 @@ def _warmth(exposures: Mapping[str, Sequence[float]], lo: str, served: float, ow
     return float(math.exp(-hours / P.WARMTH_HOURS))
 
 
+def _current_grade_unassessed(evidence: Sequence[Mapping[str, Any]], wholly_unassessed: Any) -> bool:
+    """PF-c over the attempt's current grading epoch (``grading_epochs.current_epoch``), never a
+    per-criterion merge of every live epoch (Codex re-review F1): a historical regrade that
+    dropped a verified criterion and left its own criteria unverified measures nothing, though
+    the dropped criterion's row from the first grade still stands."""
+
+    from learnloop.grading_epochs import current_epoch
+
+    epoch = current_epoch(evidence)
+    return epoch is not None and wholly_unassessed(epoch.rows)
+
+
 def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | None = None,
                 settings: ReplaySettings = ReplaySettings()) -> Events:
     """Read every replay input (no model call; current content only for ``reconstructed_current``)."""
@@ -469,7 +481,7 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
             reason = "repeat_surface"
         elif attempt_id in held:
             reason = "held_for_review"
-        elif wholly_unassessed(source["evidence"]):
+        elif _current_grade_unassessed(source["evidence"], wholly_unassessed):
             # PF-c: every criterion of the current grade unverified. It may schedule as correct;
             # it measures nothing (owner decision 2026-10-12), so it trains nothing and tests no cell.
             reason = "unassessed"
