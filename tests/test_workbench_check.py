@@ -123,7 +123,7 @@ def test_a_checked_step_says_checked_only_when_the_sandbox_ran_and_its_controls_
         out = ("@@PF-SANDBOX-RESULT@@" + json.dumps({"results": results})).encode()
         return type("Done", (), {"returncode": 0, "stdout": out, "stderr": b""})()
 
-    _paths, ctx, _session = sidecar(tmp_path, check=CheckFake([answer]))
+    _paths, ctx, _session = sidecar(tmp_path, symbolic=True, check=CheckFake([answer]))
     ctx.workbench_sandbox_run = fake_run
     import learnloop.content.authoring.pf_sandbox as pf
 
@@ -156,7 +156,7 @@ def test_a_harness_verdict_without_the_learners_parse_is_never_shown_as_checked(
         out = ("@@PF-SANDBOX-RESULT@@" + json.dumps({"results": results})).encode()
         return type("Done", (), {"returncode": 0, "stdout": out, "stderr": b""})()
 
-    _paths, ctx, _session = sidecar(tmp_path, check=CheckFake([answer]))
+    _paths, ctx, _session = sidecar(tmp_path, symbolic=True, check=CheckFake([answer]))
     ctx.workbench_sandbox_run = fake_run
     import learnloop.content.authoring.pf_sandbox as pf
 
@@ -179,7 +179,7 @@ def test_without_bubblewrap_every_verdict_reads_as_the_models_reading(tmp_path, 
     import learnloop.content.authoring.pf_sandbox as pf
 
     monkeypatch.setattr(pf, "_sandbox_bwrap_path", lambda: None)
-    _paths, ctx, _session = sidecar(tmp_path, check=CheckFake([answer]))
+    _paths, ctx, _session = sidecar(tmp_path, symbolic=True, check=CheckFake([answer]))
     wb, _chains = open_problem(ctx)
     view = _check(ctx, wb)["check"]
     assert {entry["method"] for entry in view["verdicts"]} == {"model"}

@@ -117,7 +117,7 @@ def test_item6_odd_roots_and_fractional_powers_of_a_possibly_negative_base_are_n
 
 def _hint_with(tmp_path, steps, claims):
     writer = WriterFake([lambda context: {**wb_answer(context), "claims": list(claims)}, wb_answer])
-    paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT,
+    paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT, symbolic=True,
                                    writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
     wb, _chains = open_problem(ctx, steps=tuple(steps))
     hint = run_job(ctx, call(ctx, "workbench.request_help", {"sessionId": wb, "takenLevel": 3}))

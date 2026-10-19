@@ -119,7 +119,7 @@ def test_name_free_steps_of_each_kind_still_check():
 
 def _hint_claims(tmp_path, steps, claim):
     writer = WriterFake([lambda context: {**wb_answer(context), "claims": [claim]}, wb_answer])
-    _paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT,
+    _paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT, symbolic=True,
                                     writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
     wb, _chains = open_problem(ctx, steps=tuple(steps))
     hint = run_job(ctx, call(ctx, "workbench.request_help", {"sessionId": wb, "takenLevel": 3}))

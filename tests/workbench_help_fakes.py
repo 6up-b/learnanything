@@ -164,12 +164,18 @@ FUNCTION_FREE_PROMPT = "X has density 2x on the unit interval. Work out the aske
 
 
 def sidecar(tmp_path: Any, config: str = "", *, map_: bool = True, writer: Any = None, check: Any = None,
-            chooser: Any = None, maps_enabled: bool = True, prompt: str | None = None):
+            chooser: Any = None, maps_enabled: bool = True, prompt: str | None = None,
+            symbolic: bool = False):
     """The CDF item's vault with a map, a sidecar running jobs inline, the
     hint writer, check and chooser fakes, and an open practice session.
-    ``prompt`` replaces the item's problem statement (fix round 8)."""
+    ``prompt`` replaces the item's problem statement (fix round 8);
+    ``symbolic`` turns ``workbench.symbolic_checks_enabled`` on (off by
+    default since fix round 9)."""
 
     item = {} if prompt is None else {"prompt": prompt}
+    if symbolic:
+        config = config + "\n[workbench]\nsymbolic_checks_enabled = true\n" if "[workbench]" not in config else \
+            config.replace("[workbench]\n", "[workbench]\nsymbolic_checks_enabled = true\n", 1)
     paths = hint_vault(tmp_path, config='[hints]\nchoice_policy = "sample"\n' + config, **item)
     if not maps_enabled:
         toml = paths.root / "learnloop.toml"

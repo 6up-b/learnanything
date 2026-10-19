@@ -2112,8 +2112,12 @@ class WorkbenchConfig(BaseModel):
     #: (no check, no ladder; every RW2a RPC byte-identical).
     help_enabled: bool = True
     #: Declared symbolic checks run in the PF-b sandbox (§5.3); off, every
-    #: verdict is the model's reading.
-    symbolic_checks_enabled: bool = True
+    #: verdict is the model's reading and the sandbox is never invoked.
+    #: Off by default (RW2b fix round 9, the orchestrator's decision): a
+    #: LaTeX-text checker could not be made to agree with what KaTeX displays;
+    #: on again once the renderer-equivalent (MathML) checker lands, or by the
+    #: owner knowing the limits recorded in the RW2b review.
+    symbolic_checks_enabled: bool = False
     #: Off: ``discriminating`` is never among the workbench's options and
     #: rung 1 is an ordinary question (§5.9).
     discriminate_enabled: bool = True

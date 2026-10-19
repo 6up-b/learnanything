@@ -98,7 +98,7 @@ def test_items_1_2_a_hint_claim_through_a_restricted_name_is_never_checked(tmp_p
     claim = {"step": 1, "statement": "f(1) = 0", "kind": "substitution", "expression": "x-1", "result": "0",
              "variable": "x", "value": "1", "lower": "", "upper": "", "relation": ""}
     writer = WriterFake([lambda context: {**wb_answer(context), "claims": [claim]}, wb_answer])
-    _paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT,
+    _paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT, symbolic=True,
                                     writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
     wb, _chains = open_problem(ctx, steps=(r"f(x)=\frac{(x-1)^2}{x-1}",))
     hint = run_job(ctx, call(ctx, "workbench.request_help", {"sessionId": wb, "takenLevel": 3}))

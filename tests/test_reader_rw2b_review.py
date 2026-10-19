@@ -307,7 +307,7 @@ def test_f3_an_unrelated_checked_expression_never_validates_the_learners_step(tm
 
     _needs_bwrap()
     check = CheckFake([_arithmetic_check(_transformation(kind="equivalence", expression="1+1", result="2"))])
-    paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT, check=check)
+    paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT, symbolic=True, check=check)
     wb, _chains = open_problem(ctx, steps=("6 * 7 = 43",))
     [verdict] = run_job(ctx, call(ctx, "workbench.check", {"sessionId": wb}))["check"]["verdicts"]
     assert (verdict["verdict"], verdict["method"], verdict["mark"]) == ("questionable", "model", "?")
@@ -323,7 +323,7 @@ def test_f3_the_learners_own_expression_is_checked_and_decides_the_step(tmp_path
 
     _needs_bwrap()
     check = CheckFake([_arithmetic_check(_transformation(kind="equivalence", expression="6*7", result="43"))])
-    _paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT, check=check)
+    _paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT, symbolic=True, check=check)
     wb, _chains = open_problem(ctx, steps=("6 * 7 = 43",))
     [verdict] = run_job(ctx, call(ctx, "workbench.check", {"sessionId": wb}))["check"]["verdicts"]
     assert (verdict["verdict"], verdict["method"], verdict["mark"]) == ("questionable", "checked", "≠")
@@ -425,7 +425,7 @@ def test_f10_a_check_appends_the_models_and_the_verifiers_verdicts_with_the_row(
         payload["steps"][1]["reason"] = "the answer is 1/4, not this"
         return payload
 
-    paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT, check=CheckFake([answer]))
+    paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT, symbolic=True, check=CheckFake([answer]))
     # Fix round 3: the verifier checks the step as written, so step 1 is in LaTeX.
     assert STEP_1.endswith("on [0, 1]")
     wb, chains = open_problem(ctx, steps=(r"\int 2x  dx = x^2", "so P(X <= 1/2) = F(1/2) + 1"))
@@ -487,7 +487,7 @@ def test_f14_a_hints_checkable_claim_is_verified_and_labelled_checked(tmp_path):
 
     _needs_bwrap()
     writer = WriterFake([_with_claims(TRUE_CLAIM)])
-    _paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT,
+    _paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT, symbolic=True,
                                     writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
     wb, _chains = open_problem(ctx, steps=TRUE_STEPS)
     hint = _take(ctx, wb, 3)
@@ -504,7 +504,7 @@ def test_f14_a_claim_that_does_not_hold_is_reasked_once_naming_it(tmp_path):
 
     _needs_bwrap()
     writer = WriterFake([_with_claims(FALSE_CLAIM), _with_claims(TRUE_CLAIM)])
-    _paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT,
+    _paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT, symbolic=True,
                                     writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
     wb, _chains = open_problem(ctx, steps=FALSE_STEPS)
     hint = _take(ctx, wb, 3)
@@ -519,7 +519,7 @@ def test_f14_a_claim_failing_twice_falls_to_the_next_step_without_it(tmp_path):
 
     _needs_bwrap()
     writer = WriterFake([_with_claims(FALSE_CLAIM), _with_claims(FALSE_CLAIM), wb_answer])
-    paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT,
+    paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT, symbolic=True,
                                    writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
     wb, _chains = open_problem(ctx, steps=FALSE_STEPS)
     hint = _take(ctx, wb, 3)
@@ -581,7 +581,7 @@ def test_f3r_a_transformation_of_part_of_the_learners_side_never_validates_the_s
                 "first_questionable_step": 1, "error_kind_guess": "invalid_algebra",
                 "error_kind_reason": "a slip", "error_readings": [], "assumptions": []}
 
-    _paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT, check=CheckFake([answer]))
+    _paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT, symbolic=True, check=CheckFake([answer]))
     wb, _chains = open_problem(ctx, steps=("x + x = 2*x + 1",))
     [verdict] = run_job(ctx, call(ctx, "workbench.check", {"sessionId": wb}))["check"]["verdicts"]
     assert (verdict["verdict"], verdict["method"], verdict["mark"]) == ("questionable", "model", "?")

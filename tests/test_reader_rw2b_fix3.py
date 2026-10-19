@@ -51,7 +51,7 @@ def _last_step_check(transformation, verdict="questionable"):
 
 
 def _check_last(tmp_path, steps, transformation, verdict="questionable"):
-    paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT,
+    paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT, symbolic=True,
                                    check=CheckFake([_last_step_check(transformation, verdict)]))
     wb, _chains = open_problem(ctx, steps=tuple(steps))
     view = run_job(ctx, call(ctx, "workbench.check", {"sessionId": wb}))["check"]
@@ -166,7 +166,7 @@ def _claim(step, statement, **values):
 def _hint_with(tmp_path, steps, *answers):
     writer = WriterFake([lambda context, claims=claims: {**wb_answer(context), "claims": list(claims)}
                          for claims in answers] + [wb_answer])
-    paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT,
+    paths, ctx, _session = sidecar(tmp_path, prompt=FUNCTION_FREE_PROMPT, symbolic=True,
                                    writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
     wb, _chains = open_problem(ctx, steps=tuple(steps))
     hint = run_job(ctx, call(ctx, "workbench.request_help", {"sessionId": wb, "takenLevel": 3}))

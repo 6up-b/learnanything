@@ -171,10 +171,28 @@ export function withLocalEdits(
   return { ...check, verdicts, stale: true, changedSteps: [...changed].sort((a, b) => a - b) };
 }
 
-/** A hint's claim as shown under it (Reader §5.3, review F14). */
+const CHECKED_METHODS = new Set(["checked", "checked_numerically"]);
+const MODEL_LABEL = "model's reading, not checked";
+
+/** RW2b fix round 9: a verdict's marker and label as shown. "✓" and "≠"
+ *  (and a "checked" label) appear only for a verdict the server says the
+ *  symbolic check decided; anything else reads as the model's reading,
+ *  whatever marker arrives (symbolic checks are off by default). */
+export function verdictMark(verdict: { method: string; verdict: string; mark: string; label: string }): {
+  mark: string;
+  label: string;
+} {
+  if (CHECKED_METHODS.has(verdict.method)) return { mark: verdict.mark, label: verdict.label };
+  const mark = verdict.verdict === "valid" ? "≈" : verdict.verdict === "questionable" ? "?" : "·";
+  return { mark, label: MODEL_LABEL };
+}
+
+/** A hint's claim as shown under it (Reader §5.3, review F14). Fix round 9:
+ *  "✓" only for a claim the check decided; every other claim reads "≈". */
 export function claimLine(claim: { statement: string; status: string; label: string }): string {
-  const mark = claim.status === "model" ? "≈" : "✓";
-  return `${mark} ${claim.statement} — ${claim.label}`;
+  const checked = CHECKED_METHODS.has(claim.status);
+  const mark = checked ? "✓" : "≈";
+  return `${mark} ${claim.statement} — ${checked ? claim.label : claim.status === "model" ? MODEL_LABEL : claim.label}`;
 }
 
 /** "checked your steps as of 21:42 — step 3 has changed since" (UX §5.4). */
