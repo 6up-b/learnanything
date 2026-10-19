@@ -289,3 +289,244 @@ round 3".
 with every symbolic verdict labelled "model's reading, not checked", and the sandbox is never invoked. The checker
 stays behind the switch until a renderer-equivalent (MathML) checker lands. The review file's "Fix round 9" records
 the limits and the test corpus for that stage.
+
+## Landing onto main
+
+Landed in the `learnanything-merge2` worktree on branch `merge/rw2b-onto-main`, cut from main at `29a49b5e6` (the AD1
+landing, migration head 213). The stage tip is `1754d0d3d`, unchanged; its base was `7d4c5f4ce` (the H2b landing),
+so AD1 came in with the merge. The orchestrator's final whole-stage verify (Codex job `20261019-002911-DDMlXt`) is
+clean: no High, one Medium accepted as non-blocking (below). Main was neither fast-forwarded nor pushed here.
+
+**Commits:**
+- `892078de4`: a `--no-ff` merge of `reader/rw2b` onto `29a49b5e6`, with the conflicts composed and every defaults
+  snapshot from `mvp-0.9` to `mvp-0.27` recomputed.
+- `9db0938d1`: the references regenerated on the merged tree.
+- `89878cfe9`: one gate fix (the copy-site audit, below).
+- This record.
+
+### Merge
+
+- **Code conflicts** (seven files). Every one was resolved by keeping both sides:
+  - `ai/routing.py`: the AD routes (`ad_forecast_llm`, `ad_forecast_decider`, `ad_feature_audit`) and their task
+    map entries, next to `workbench_check`;
+  - `ai/disclosures.py`, `config/schema.py` (`AIRoutingConfig`): the three AD routes next to `workbench_check`;
+  - `tests/test_judge_routes.py`: the pinned judge set now holds both stages' routes;
+  - `tests/conftest.py`: `LEARNLOOP_AD_MODELS=off` next to `LEARNLOOP_WORKBENCH_MODELS=off`;
+  - `apps/learnloop-tauri/src/app/algoConfig.ts`: AD1's `ratingTap` and `firstHintProgress` next to RW2b's
+    `workbenchHelp` (type, defaults and `setAlgoConfig`);
+  - `config/template.py`: both stages' history comments are kept. A per-version line for RW2b was added to
+    `mvp-0.10`..`mvp-0.27`, and all 19 entries from `mvp-0.9` to `mvp-0.27` were recomputed from the composed
+    defaults (`defaults_fingerprint_for_version`, after clearing the config `.pyc`). The entries before `mvp-0.9`
+    were already equal.
+- **Merged without conflict, checked by hand.** Both sides changed `handlers/practice.py`, `api/dto.ts`,
+  `api/client.ts`, `PracticeScreen.tsx`, `attempts/attempts.py`, `params/parameter_registry.py`,
+  `learnloop_sidecar/context.py`, `tests/test_architecture.py` and `pyproject.toml`. Both stages' fields and call
+  sites survive:
+  - `SubmitAttemptInput` and `DontKnowInput` carry AD1's `difficulty_rating` and `first_hint_progress` and RW2b's
+    `authored_hints` and `book_counted`;
+  - the queued resubmit passes all four;
+  - the draft envelope keeps AD1's `first_hint_progress` and `hint_seen`;
+  - the two submit payloads in `PracticeScreen.tsx` send `authoredHints`/`bookCounted` and the tap and marker.
+- **Generated references** (395 notes under `Reference/`, all `source_commit` lines): main's side was taken, then
+  the references were regenerated.
+- **`uv.lock`**: `uv lock` on the merged `pyproject.toml` resolved 179 packages with no change beyond the stage's
+  `lark 1.3.1`.
+- **No migration**, so no head fixture, table role or coordinated-migration change. `migration_head_213` is main's.
+  `src-tauri` changed (17 lines, the eight passthroughs), so `cargo check` ran.
+
+### Regenerated
+
+- **References.** `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**, `schema_head` 213, 333
+  table notes, 397 notes changed. The configuration catalog went from 908 to **917** leaves (RW2b's 9 on AD1's 908).
+  The two hand-written prose counts (`Reference/Configuration/Configuration.md`, `Reference/Database/Database.md`)
+  were moved to 917; the validator failed on them until then.
+- **Defaults snapshots.** Recomputed in the merge (above). Afterwards **0 mismatches** over every
+  `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entry, and none of the old hashes is named anywhere in `src/` or `tests/`.
+- **CLI help snapshot.** `python tests/test_cli_help_snapshot.py --write`: no change.
+- **RPC pins and the parameter registry.** The serializer snapshot, desktop RPC contract, mobile allowlist (the
+  eight RW2b RPCs and the new submit fields desktop-only), CLI help, registry audit, `test_grading_cli.py`,
+  `test_p0_cutover_mvp08.py`, `test_config_refactor.py` and `test_judge_routes.py`: **315 passed**, no file
+  rewritten.
+- **`validate_vault.py`**: passes (1,129 notes; 1,127 of 1,127 reachable).
+- **Known failures, from before this stage, not fixed:**
+  - `desktop_validate.py` stops on `apps/learnloop-tauri/src/components/pdfSelection/testing/syntheticBook.ts`, as
+    at the AD1 landing;
+  - `module_validate.py` reports **900** issues, up from 879 at the AD1 landing. The rise is RW2b's new modules
+    without module notes (`learnloop/workbench/*`, `hints/workbench.py`, `hints/report_workbench.py`,
+    `symbolic_view.py`).
+
+### Gate
+
+Python 3.12.14. `TMPDIR` was merge2's `fixtures-local/tmp`, and every command after the install ran as `uv run
+--no-sync`. Both suite lanes ran under `flock /tmp/learnloop-fullsuite.lock`. The AD2+AD3 worktree and its
+processes were not touched. Every test uses fakes. **This is the first full run over the stage's code**: every
+stage step and the 15 fix rounds ran targeted tests only (owner rule 2026-10-17).
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (`lark 1.3.1` installed by the sync) |
+| `lint-imports --no-cache` | **28 kept**, 0 broken |
+| full suite `pytest -n auto` on `9db0938d1` | **14,032 passed, 2 xfailed, 1 failed** (21 min 38 s; `fixtures-local/rw2b-landing-fullsuite.log`). The AD1 landing ran 13,738 |
+| the one failure | `test_sqlite_file_copies.py::test_every_file_copy_site_is_an_audited_sqlite_copier`: real, from the stage, fixed in `89878cfe9` (below); the file then passes |
+| `pytest -m durability` on `89878cfe9` | **113 passed**, 13,922 deselected (3 min 58 s; `fixtures-local/rw2b-landing-durability.log`) |
+| `npm install`, `npm run typecheck` | up to date; clean |
+| `npm test` (the whole vitest run) | **138 files, 1,098 tests passed** on the first run. The `FeedbackScreen` flake did not fire |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | ok |
+| thread, lock and timing tests | all passed on the first run, so none was rerun. The `"8841"` MCP flake did not fire |
+| tracked fixtures, worktree | `git status` clean after both lanes and the frontend run, apart from this record; no `-wal` beside a fixture |
+
+**The gate fix (`89878cfe9`).** Fix rounds 10 and 11 added `tests/test_reader_rw2b_fix10.py` and `_fix11.py`. Each
+`shutil.copy`s a Python helper script (`rw2b_fix10_base_sequence.py`, `rw2b_fix11_base_sequence.py`) into an
+archived base-code tree. Neither copies a database, but the copy-site audit fails on any unlisted copy call, and no
+targeted run included it. Both sites are now in `AUDITED_COPIERS` with that reason. The test failed first (in the
+full run) and passes after the fix. No code changed.
+
+### Parity (backup-API copies; no model call completed)
+
+**Setup:**
+- **Copies.** The owner's `fixtures/linear_algebra` and `fixtures/probability` (probability with its
+  `.learnloop/state.sqlite`) were copied once with `copy_tree_with_databases` from the main checkout into
+  `fixtures-local/landing-rw2b/orig/`. Every other copy came from `orig/`, or from its upgraded copy `u27/`,
+  through the same helper. `arxiv_v2` was not opened. Both vaults start at schema 165, label `mvp-0.8`, with 0
+  `model_call_receipts`.
+- **Code.** Main's code is `git archive 29a49b5e6` and the merge's is `git archive 9db0938d1` (`src`, `migrations`,
+  `pyproject.toml`; `src` is the same at the tip), each first on `sys.path`.
+- **Environment.** Every run went through `env -i` with only `PATH`, `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`,
+  `TMPDIR` and `LANG`. `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR` were empty directories and still are. No key
+  or provider variable was set.
+- **Model routes, set before anything ran.** H2b's `neutralize3.py`, run under each code (54 routes on main, 55 on
+  the merge), sent every field of that code's `AIRoutingConfig` to `127.0.0.1:9`:
+  - chat routes to `blackhole` (`openai_chat` at `http://127.0.0.1:9/v1`): `hint_writer`, `approach_map`,
+    `hint_outcome`, `workbench_check`, `ad_forecast_llm`, `ad_feature_audit` and the rest;
+  - decider-only routes to `blackhole_decider`: `hint_chooser`, `ad_forecast_decider`, `tier1_decider` (the
+    Decider) and the rest;
+  - `ai.active_provider` to `blackhole`, the fallback cleared;
+  - `query_rewrite`, `tutor_query_rewrite`, `tutor_rerank`, `dense` and `[embedding]` off;
+  - `[learner_text_gaps] enabled = false`;
+  - `[hints.maps] build_on_serve = false` and `[hints] outcome_placement_enabled = false` on every copy.
+  - A copy upgraded by main's code got `workbench_check = "blackhole"` before the merge's code opened it.
+  - A resolver check over every `AITask` (57 on main, 58 on the merge) found nothing outside those two profiles
+    except `embedding` (disabled, keyless).
+- **The profiles' key variable** (`LL_LANDING_NO_KEY`) was unset, except in the two (e) runs that say so.
+
+**(a) Schema and rows, and (b) nothing served changes**
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| **(a)** open (migrate), main's code / the merge's | 165 → 213 (48) / the same | the same |
+| schema, main@213 vs merge@213 | **identical**: 1,414 objects each, none on one side only, no SQL differs | **identical** (1,413) |
+| rows of every table (338), all columns | **identical** (16,539 rows); `schema_migrations` differs only in `applied_at` (the open's time) | **identical** (7,637 rows; the same) |
+| `foreign_key_check` / `integrity_check`, both sides | 0 / ok | 0 / ok |
+| `rebuild --shadow --json` | **0 differences** after normalisation (raw: the marker id and database hashes); facet 0, mastery 2, schedule 8; live database unchanged on both | **0 differences** (facet 0, mastery 1, schedule 1) |
+| `doctor --json` | **0 differences** (raw: the copy paths); 57 issues, 1 error | **0 differences**; 101 issues, 48 errors |
+| **(b)** at `mvp-0.8`: certification, recipe gaps and curves; the Today queue at a frozen clock (2026-10-19 09:00 UTC; no session, a session, greedy); the daily plan | **byte-identical** (39 facets, 84 points; queue 41; the plan is off below `mvp-0.14`) | **byte-identical** (29 facets; queue 67) |
+| upgraded by main's code to `mvp-0.27` (`--to mvp-0.9`, `--to mvp-0.27`, `rebuild-derived-state` twice), then opened by each code | certification and curves **byte-identical** (82 points, 7 corrections); Today queue **byte-identical** (43) | **byte-identical** (queue 67) |
+| the daily plan at `mvp-0.27` (the sidecar's handlers in process, frozen clock: read, serve, serve again, read; the plan tables, `plan_presentations`, the `plan_block` decisions) | identical except `router_decisions.card_hash`, `snapshot_hash` and the card hash in `detail_json`, which hash a card carrying the plan's ULID. **A second run of main's code differs from the first in exactly these three**, and the merge differs in nothing else | the same |
+
+**(c) Practice through the real sidecar** (stdio), on copies of probability at `mvp-0.27` (`u27/`), so the daily
+plan serves. The sequence:
+- `initialize`, `get_config`, `set_grading_provider manual`, `start_session`;
+- one daily-plan serve (`get_daily_plan`, `next_plan_item` with `serve` true: `pi_three_independent_birthd`), then
+  a 12 s wait for AD's background jobs;
+- on `pi_prob_derive_complement`: `get_practice_item`, `get_probe_contract`, `practice.record_hint_reveal`
+  (authored hint 0), `save_practice_draft`, `submit_attempt` with self-grade, the `submissionId` and
+  `difficultyRating: "hard"`, then `acknowledge_practice_submission`;
+- `submit_dont_know` on `pi_incl_derive_intersections` (another LO), acknowledged;
+- a hint-free workbench `open`, `get` and `submit` on `pi_story_binomial_translation` (a third LO);
+- `get_session`, `shutdown`.
+
+The runs: (i) main (`ci`, plus `ci2`, main again as the baseline); (ii) the merge with
+`[workbench] help_enabled = false` (`cii`); (iii) the merge at the defaults (`ciii`).
+
+| Check | Result |
+|---|---|
+| every response (21 calls), (i) vs (ii) vs (iii) | **identical** after AD1's normalisation (ULIDs, timestamps, the copy path, `initialize`'s schema-head fields) **except two keys**. First, `initialize`'s method list gains the eight RPCs in (ii) and (iii): `workbench.check`, `.suggest_help`, `.request_help`, `.help_job`, `.cancel_help`, `.answer_discriminating`, `.set_help_style`, `.help_state`. Second, in (iii) only, `get_config` carries `workbench.help: {enabled: true, bridge: true, symbolic: false}`. In (ii), `get_config` is raw-identical to main's |
+| the database delta | (ii) and (iii) differ from (i) only in tables where `ci2` (main again) also differs from `ci`: wall-clock floats in `attempt_debug_payloads`, `scheduler_explanations` and `scheduler_slate_candidates`; the router card hash in `attention_block_events`; and AD's background rows (`judgment_ledger` uuids, `item_forecast_payloads` request hashes). No merge-only table or column was written |
+| the attempts, all four runs | **identical** evidence fields: the `open_text` attempt has `hints_used` 1, `primed` 0, correctness 1.0, `difficulty_rating` **hard**, `first_hint_progress` NULL (not sent); the `dont_know` is recorded as stuck (`declared_stuck` 1, scored 0), `hints_used` 0; the workbench attempt (`desktop_practice_workbench`) has `hints_used` 0, `primed` 0. The activity classes are the same, there are 0 `reveal_events` rows, and one `help_assists` row (the client-counted authored reveal, level 3, attached to the first attempt) |
+
+**(d) Counting** (merge at the defaults vs main, on `pi_prob_derive_complement`)
+
+| Run | Sequence | Attempt |
+|---|---|---|
+| `d1` main / merge | an authored reveal on the answer box, the draft (`hintsUsed` 1), *Work in steps* (`workbench.open` with `carriedHints` 1; the record line reads *1 hint (1 shown on the answer box) → practice with help ◌*), no help taken, `workbench.submit` | **identical**: `desktop_practice_workbench`, `hints_used` **1**, `primed` 0, `declared_stuck` 1, scored 0, assisted, not certifying |
+| `d2` main / merge | the reveal, then an old-client `submit_attempt` (`hintsUsed` 1, no `authoredHints` or `bookCounted`) | **identical**: `desktop_practice`, `hints_used` **1**, `primed` 0, correctness 1.0; the reveal's row attached to it |
+| `d3` merge | the same with the new client's `authoredHints: 1, bookCounted: false` | the same as `d2` |
+
+**(e) Check my work at the default** (on `pi_story_binomial_translation`, one step, `workbench.check` once, then
+`workbench.help_job` until done):
+- **Key unset, and the dummy key set** (`emerge`, `ekmerge`). The request started as a job (`pending`) and ended
+  `unavailable`, reason `unpriced`: *"A metered check route needs workbench.price_per_million."* It was refused
+  before sending, with no receipt and no `help_assists` row.
+- **The dummy key and `workbench.price_per_million = 1.0`** (`epmerge`, so the request reaches the loopback). The
+  job ended `unavailable`, reason `check_failed`: *"Couldn't check your steps just now. They're saved — try again
+  ↵"*. It wrote 6 `model_call_receipts` rows (3 requests, each a parent and a `chat_request` child), all
+  **`failed`**, and no `help_assists` row.
+- In all three runs, `help_state` returned `check: null` and no hints, and the record line read *your own attempt*.
+  No workbench response contains "checked", `✓` or `≠`.
+
+**(f) Help switched off** (`[workbench] help_enabled = false`). All eight RPCs refused **`help_disabled`**:
+`workbench.check`, `.suggest_help`, `.request_help` (rung 1), `.help_job`, `.cancel_help`,
+`.answer_discriminating`, `.set_help_style` and `.help_state`. The workbench itself still opened, saved a step and
+read its record.
+
+**`model_call_receipts` across all 44 databases** under `landing-rw2b/` (copies and their base backups): 6 rows,
+**all `failed`**, all in (e)'s `epmerge` at `127.0.0.1:9`. There are **0** `completed` rows.
+
+### New findings
+
+- **Fixed: a gate gap from targeted runs.** The copy-site audit was outside every targeted run, so fix rounds 10 and
+  11's helper copies reached the landing unaudited (`89878cfe9`).
+- **Behaviour to know, not a defect.** A metered `workbench_check` route without `workbench.price_per_million` is
+  refused before sending (`unpriced`). With a price set and the route down, one press of *Check my work* made 3
+  requests before answering *Couldn't check your steps just now*. Nothing is counted or shown either way.
+
+### For the owner
+
+- **No migration and no `--to` command.** Nothing served changes (parity (a)-(c)).
+- **New dependency: `lark` 1.3.1** (the parser behind the symbolic checker). `uv sync` pulls it in.
+- **What appears in the workbench** (Reader *Work in steps*, and the practice screen's *Work in steps*):
+  - *check my work · counts as a hint · ctrl+k*: a verdict column beside the steps, with the first questionable
+    step's quoted reason and the check's guess, labelled *(model's guess)*;
+  - *help · ctrl+h*: the help ladder, five rungs at once with a ▸ *suggested* one. The hints sit under the step
+    they are about, with *this doesn't connect…* and its four shortcuts, *a smaller step toward this goal*, *show
+    me the book's way*, and, in the Reader, a line that finds the matching step in the book;
+  - the header's help style for this problem;
+  - the record line and footer naming every check and hint;
+  - an optional answer-confidence row.
+
+  A shown check counts as one hint, as does each level 1-3 hint; a level 4-5 hint primes the attempt.
+- **Check my work runs on the active provider, which is Codex in the owner's vaults.** That is allowed, but slow
+  (about 30 s). For speed, route `ai.routing.workbench_check` to the ChatGPT plan or a fast OpenRouter profile. A
+  metered profile also needs `[workbench] price_per_million`, or every check is refused before sending.
+- **Hints still need the ChatGPT sign-in or a priced OpenRouter route for `hint_writer`.** Without it, rung 3 serves
+  the item's own hints, and the other rungs say tailored hints are unavailable.
+- **Symbolic checks are off by default.** Every verdict reads *model's reading, not checked*, and the sandbox never
+  runs. The follow-up stage is **renderer-equivalent symbolic checks** (codex review, "Fix round 9"). To turn the
+  current checker on, set `[workbench] symbolic_checks_enabled = true`, knowing the limits recorded there.
+- **Turning help off:** `[workbench] help_enabled = false`. RW2a's workbench then returns exactly, and the eight RPCs
+  refuse (parity (c)(ii) and (f)).
+- **Open questions (defaults taken), from §8 and the codex review:**
+  - 1: the check on Codex. Superseded in fix round 1: it is allowed (`estimated_only`);
+  - 2: a hint's checkable claims. Superseded in fix round 1: they are verified before showing (F14), and with
+    symbolic checks off they are the model's reading;
+  - 3: *a short problem instead*: not built;
+  - 4: the same steps checked again count nothing;
+  - 5: an open problem's help is held by an answer-box submit and again by the problem's own submit. Superseded in
+    fix round 13 for RW2b's server assists, which follow H2b's R1 window, so whichever attempt commits first takes
+    them;
+  - 6: a refused submit's stamp makes a hint still pending then undeliverable (the learner asks again);
+  - 7: the rail's tabs in the header's `⋯`: not yet;
+  - 8: the suggestion's ledger row names a reserved assist id;
+  - 9: rung 1 off the questionable step is an approach question;
+  - binding (codex review): textual and strict, so it yields fewer checked verdicts and never a wrong one. This is
+    moot at the default (symbolic off).
+- **Open items:**
+  - the last verify's accepted **Medium** (job `20261019-002911-DDMlXt`): an in-flight toggle of
+    `workbench.symbolic_checks_enabled` during diagnosis provenance and admission;
+  - the follow-up stage **renderer-equivalent symbolic checks** (MathML; the corpus is in the codex review's "Fix
+    round 9");
+  - **RW2a's pre-existing undercount.** When there is no RW2b assist, a book counted on another surface plus an
+    authored reveal is undercounted. The count there is RW2a's base path, byte-identical to `7d4c5f4ce` by design.
+    This is a follow-up;
+  - `desktop_validate.py` (`syntheticBook.ts`) and `module_validate.py` (900 issues), both from before this stage.
