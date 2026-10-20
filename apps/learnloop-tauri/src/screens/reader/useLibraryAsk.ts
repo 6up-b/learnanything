@@ -140,6 +140,8 @@ export function useLibraryAsk({
 }) {
   const settings = contract?.libraryAsk ?? null;
   const enabled = Boolean(settings);
+  // RW4d: keep this comparison and its perspectives field (absent while off).
+  const keep = settings && contract?.compareKeep?.library ? contract.compareKeep : null;
   const [state, setState] = useState<LibraryAskState | null>(null);
   const keyRef = useRef(0);
   const stateRef = useRef<LibraryAskState | null>(null);
@@ -277,22 +279,25 @@ export function useLibraryAsk({
     return state.pinned.length >= 2 && sources.size >= 2;
   })();
 
-  const compare = useCallback(async () => {
+  /** Compare the pins; RW4d's requested perspectives go along only when given (and only while keep is on). */
+  const compare = useCallback(async (perspectives: string[] = []) => {
     const current = stateRef.current;
     if (!current?.ask.value || !settings?.compare) return;
     const key = current.key;
     update(key, () => ({ compare: { phase: "pending", value: null, failure: null } }));
     const askId = current.ask.value.askId;
     const pinnedSpanKeys = current.pinned;
+    const requested = keep?.perspectives ? perspectives.slice(0, keep.maxPerspectives) : [];
     try {
-      const table = await runJob("compare", () => api.readerLibraryCompare({ askId, pinnedSpanKeys, openSourceId }));
+      const table = await runJob("compare", () => api.readerLibraryCompare(
+        requested.length ? { askId, pinnedSpanKeys, openSourceId, requestedPerspectives: requested } : { askId, pinnedSpanKeys, openSourceId }));
       if (table === null) return;
       const phase = comparePhase(table.status);
       update(key, () => ({ compare: { phase, value: table, failure: phase === "failed" ? "Couldn't compare these passages." : null } }));
     } catch (error) {
       update(key, () => ({ compare: { phase: phaseForError(error), value: null, failure: failureLine(error, "Couldn't compare these passages.") } }));
     }
-  }, [settings, openSourceId, runJob, update]);
+  }, [settings, keep, openSourceId, runJob, update]);
 
   const askTutor = useCallback(async (question: string) => {
     const current = stateRef.current;
@@ -382,7 +387,7 @@ export function useLibraryAsk({
   }, [enabled, cancelStage]);
 
   return {
-    enabled, settings, state, open: state !== null, ask, retry, setPersonalized, retryNotes, togglePin, canCompare,
+    enabled, settings, keep, state, open: state !== null, ask, retry, setPersonalized, retryNotes, togglePin, canCompare,
     compare, askTutor, practice, peek, closePeek, close, cancelNotes, cancelCompare, cancelTutor,
   };
 }

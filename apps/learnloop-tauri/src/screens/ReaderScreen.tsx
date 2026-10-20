@@ -92,6 +92,9 @@ import { useActiveReading } from "./reader/useActiveReading";
 import { ActiveReadingCard, NextStepFoldLine } from "./reader/ActiveReadingCard";
 import { useLibraryAsk } from "./reader/useLibraryAsk";
 import { LibraryPane } from "./reader/LibraryPane";
+import { CompareKeepContext } from "./reader/compareKeepContext";
+import { KeptMark } from "./reader/KeptMark";
+import { useKeptComparisons } from "./reader/useKeptComparisons";
 import { LibraryAnswer } from "./reader/LibraryAnswer";
 import type { ReaderIntentActionDto } from "../api/dto";
 import { algoConfig } from "../app/algoConfig";
@@ -1191,6 +1194,8 @@ export function ReaderScreen({
   // (and in place on the library page). Off (no `libraryAsk` in the contract)
   // nothing renders and no key does anything new.
   const libraryCtl = useLibraryAsk({ contract, openSourceId: render?.sourceId ?? null, onError });
+  // RW4d: the ⇄ marks of comparisons the learner kept (off: none, nothing read).
+  const keptCtl = useKeptComparisons({ contract, extractionId: render?.extractionId ?? null, sourceId: render?.sourceId ?? null, offline });
   const [libraryCompose, setLibraryCompose] = useState<string | null>(null);
   const comparing = Boolean(render) && !offline && !working && (libraryCtl.open || libraryCompose !== null);
   const askLibraryHere = useCallback((query: string, entry: LibraryAskEntry, spanIds: string[]) => {
@@ -2410,6 +2415,7 @@ export function ReaderScreen({
   };
 
   return (
+    <CompareKeepContext.Provider value={keptCtl.context}>
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       <div style={{ flexShrink: 0, borderBottom: `1px solid ${COLOR.border}`, padding: "22px 32px", display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
@@ -2681,12 +2687,13 @@ export function ReaderScreen({
                   background: block.spanId && annotatedSpans.has(block.spanId) ? "rgba(245, 166, 35, 0.04)" : guidePassage ? COLOR.washPurple : undefined,
                   paddingLeft: 12,
                   // RW3a: a margin mark sits in the column's gutter, beside its passage.
-                  position: cueMark || (block.spanId && wbResumeBySpan.has(block.spanId) && !working) ? "relative" : undefined,
+                  position: cueMark || (block.spanId && (wbResumeBySpan.has(block.spanId) || keptCtl.marks.has(block.spanId)) && !working) ? "relative" : undefined,
                 }}
               >
                 {folded ? null : (<>
                 {cueMark ? renderMark(cueMark, "text") : null}
                 {resumeMark(block.spanId)}
+                {block.spanId && !working && keptCtl.marks.get(block.spanId) ? <KeptMark mark={keptCtl.marks.get(block.spanId)!} /> : null}
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   {guidePassage ? <Pill color="purple">worth a second look</Pill> : null}
                   {BADGED_HEALTH.has(block.health.status) ? (
@@ -3183,5 +3190,6 @@ export function ReaderScreen({
         right={{ key: "^p", label: "palette" }}
       />
     </div>
+    </CompareKeepContext.Provider>
   );
 }

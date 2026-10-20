@@ -6555,6 +6555,17 @@ export interface ReaderPromptContractDto {
   libraryExercises?: { fallback: boolean };
   /** RW1c: the tutor that looks things up (present only while reader_tutor.retrieval_enabled or offers_enabled is on). */
   readerTutor?: ReaderTutorContractDto;
+  /** RW4d: keep a comparison (present only while reader_compare.keep_enabled and compare are on). */
+  compareKeep?: CompareKeepContractDto;
+}
+/** RW4d (spec §7.8): where a comparison can be kept, and the perspectives field. */
+export interface CompareKeepContractDto {
+  /** A library ask's comparison (the library answer is on). */
+  library: boolean;
+  /** The tutor's comparison (RW1c's "how do your books treat this?"). */
+  tutor: boolean;
+  perspectives: boolean;
+  maxPerspectives: number;
 }
 /** RW1c (spec §4.6): which parts of the tutor that looks things up are on. */
 export interface ReaderTutorContractDto {
@@ -8535,6 +8546,8 @@ export interface LibraryAskDto {
   expandGraph: boolean;
   sourceCount: number;
   passageCount: number;
+  /** RW4d: kept comparisons sharing these passages ("you compared these on 3 Oct"); absent while off. */
+  comparedOn?: Array<{ askId: string; keptAt: string; keys: string[] }>;
 }
 
 export interface LibraryNoteDto {
@@ -8592,6 +8605,55 @@ export interface CompareTableDto {
   /** How the counterparts' verification went (capped, unreachable, timed out, …). */
   verification?: { status: string | null; stopped: string | null; verifiedSources?: number | null };
   exposureEventIds?: string[];
+  /** RW4d: the perspectives asked for, and those no source covered (only when some were asked). */
+  requestedPerspectives?: string[];
+  missingPerspectives?: string[];
+  /** RW4d: whether this comparison is kept (absent while reader_compare.keep_enabled is off). */
+  kept?: KeptComparisonDto | null;
+  /** RW4d (a reopened kept comparison): its kept relations with their fine labels. */
+  keptRelations?: Array<{ fine: string; relationType: string; statement: string | null }>;
+  query?: string | null;
+}
+
+/** RW4d (spec §7.8): a kept comparison, as proposals (ids, types, fine labels, the learner's takes). */
+export interface KeptComparisonDto {
+  askId: string;
+  keptAt: string;
+  objects: Array<{ id: string; key: string; objectType: "claim" | "definition"; sourceTitle: string | null }>;
+  relations: Array<{ id: string; relationType: string; fine: string }>;
+  takes: Array<{ id: string; keys: string[]; learnerText: string }>;
+  notKept: number;
+  status: "proposed";
+  label: string;
+}
+
+export interface KeepComparisonResultDto {
+  version?: number;
+  askId: string;
+  kept: KeptComparisonDto;
+  addedTakes: number;
+  alreadyKept: boolean;
+  toolCallId?: string;
+}
+
+export interface KeptMarkDto {
+  spanId: string;
+  askIds: string[];
+  keptAt: string;
+  otherSources: string[];
+}
+
+export interface KeptMarksDto {
+  version?: number;
+  extractionId: string;
+  marks: KeptMarkDto[];
+  label: string;
+}
+
+/** A take on a pair (two keys) or a claim (one key), as the table's rows name them. */
+export interface KeepTakeDto {
+  text: string;
+  keys: string[];
 }
 
 /** A library request running off the request path (reader.library_job). */

@@ -32,6 +32,10 @@
 // question", and a lookup whose only proposals are exercises is ready (so
 // "nothing … fits" shows only when the block has nothing either). Without
 // `exercises` the offers are RW1c's, unchanged.
+//
+// RW4d: a shown comparison can be kept (CompareKeep, under the table), only
+// while the Reader provides its compareKeep context; without it nothing more
+// renders.
 import { useEffect, useReducer } from "react";
 import { api } from "../../api/client";
 import type {
@@ -46,6 +50,7 @@ import type {
 import { COLOR, FONT_MONO } from "../../components/term";
 import { logReaderAction } from "./activity";
 import { practiceFromToolRun } from "./exerciseCandidates";
+import { CompareKeep } from "./CompareKeep";
 import { CompareTable } from "./LibraryAnswer";
 import { ProposalExercises, type LibraryExercisesProps } from "./ProposalExercises";
 import { clip } from "./readerShared";
@@ -497,6 +502,10 @@ function OfferResult({ offer, lookup, onPracticePick, exercises, extractionId }:
   return (
     <ModelVoice note="how your books treat this · LearnLoop's comparison">
       {lookup.table ? <CompareTable table={lookup.table} /> : null}
+      {/* RW4d: keep the tutor's comparison (renders nothing while keep is off). */}
+      {lookup.table && offer.toolCallId ? (
+        <CompareKeep table={lookup.table} target={{ toolCallId: offer.toolCallId, extractionId }} />
+      ) : null}
       {lookup.missingPerspectives?.length ? (
         <span data-missing-perspectives="">
           <MeaningLabel style={{ fontSize: 11 }}>
