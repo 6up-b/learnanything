@@ -76,6 +76,9 @@ def _record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, offers: bool = F
         # tree) adds its own key at its defaults; these pins are about RW1c's
         # switches, so everything else stays byte for byte (RW4b landing).
         assert contract.pop("libraryExercises") == {"fallback": False}
+        # RW4d (after this golden too): its own key at its defaults (the tutor's comparison can be kept).
+        assert contract.pop("compareKeep") == {"library": True, "tutor": True, "perspectives": True,
+                                               "maxPerspectives": 4}
     events = [
         {"kind": event["kind"], "payload": event.get("payload")}
         for kind in ("reader_answer_submitted", "learner_question_asked", "reader_answer_mode_set")

@@ -92,6 +92,9 @@ import { useActiveReading } from "./reader/useActiveReading";
 import { ActiveReadingCard, NextStepFoldLine } from "./reader/ActiveReadingCard";
 import { useLibraryAsk } from "./reader/useLibraryAsk";
 import { LibraryPane } from "./reader/LibraryPane";
+import { CompareKeepContext } from "./reader/compareKeepContext";
+import { KeptMark } from "./reader/KeptMark";
+import { useKeptComparisons } from "./reader/useKeptComparisons";
 import { LibraryAnswer } from "./reader/LibraryAnswer";
 import type { ReaderIntentActionDto } from "../api/dto";
 import { algoConfig } from "../app/algoConfig";
@@ -1196,6 +1199,21 @@ export function ReaderScreen({
   // (and in place on the library page). Off (no `libraryAsk` in the contract)
   // nothing renders and no key does anything new.
   const libraryCtl = useLibraryAsk({ contract, openSourceId: render?.sourceId ?? null, onError });
+  // RW4d: the ⇄ marks of comparisons the learner kept (off: none, nothing read).
+  const keptCtl = useKeptComparisons({ contract, extractionId: render?.extractionId ?? null, sourceId: render?.sourceId ?? null, offline });
+  // RW4d on the original PDF (Codex review F10): the ⇄ marks join the page's
+  // overlay gutter beside the cue marks. They are the learner's own marks:
+  // added after the cue placement, so the density setting never counts them.
+  const pdfMarks = (): ReadonlyMap<string, ReactNode> | null => {
+    const cues = cueMarksFor("pdf");
+    if (working || keptCtl.marks.size === 0) return cues;
+    const merged = new Map<string, ReactNode>(cues ?? []);
+    for (const [spanId, mark] of keptCtl.marks) {
+      const cue = merged.get(spanId);
+      merged.set(spanId, <Fragment key={`kept-${spanId}`}>{cue}<KeptMark mark={mark} surface="pdf" below={Boolean(cue)} /></Fragment>);
+    }
+    return merged;
+  };
   const [libraryCompose, setLibraryCompose] = useState<string | null>(null);
   const comparing = Boolean(render) && !offline && !working && (libraryCtl.open || libraryCompose !== null);
   const askLibraryHere = useCallback((query: string, entry: LibraryAskEntry, spanIds: string[]) => {
@@ -2152,6 +2170,8 @@ export function ReaderScreen({
               </div>
               {libraryCtl.enabled ? <Faint style={{ fontSize: 10 }}>↵ search by meaning · ⇧↵ ask your library</Faint> : null}
               {libraryCtl.open ? (
+                // RW4d: keep and reopen work on the library page too (Codex review F3).
+                <CompareKeepContext.Provider value={keptCtl.context}>
                 <Card style={{ padding: 0 }}>
                   <LibraryAnswer
                     ctl={libraryCtl}
@@ -2164,6 +2184,7 @@ export function ReaderScreen({
                     exercises={exerciseProps}
                   />
                 </Card>
+                </CompareKeepContext.Provider>
               ) : null}
               {searchError ? (
                 <div role="alert" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.red }}>
@@ -2417,6 +2438,7 @@ export function ReaderScreen({
   };
 
   return (
+    <CompareKeepContext.Provider value={keptCtl.context}>
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       <div style={{ flexShrink: 0, borderBottom: `1px solid ${COLOR.border}`, padding: "22px 32px", display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
@@ -2601,7 +2623,7 @@ export function ReaderScreen({
               onTagMenu={setTagMenu}
               onError={onError}
               inlineNote={inlineReconnect && reconnect ? { spanId: reconnect.spanId, node: inlineReconnect } : null}
-              marks={cueMarksFor("pdf")}
+              marks={pdfMarks()}
               onPageLayout={setPdfLayout}
               {...(activeCtl.folded.size ? { coveredSpans: activeCtl.folded } : {})}
             />
@@ -2688,12 +2710,13 @@ export function ReaderScreen({
                   background: block.spanId && annotatedSpans.has(block.spanId) ? "rgba(245, 166, 35, 0.04)" : guidePassage ? COLOR.washPurple : undefined,
                   paddingLeft: 12,
                   // RW3a: a margin mark sits in the column's gutter, beside its passage.
-                  position: cueMark || (block.spanId && wbResumeBySpan.has(block.spanId) && !working) ? "relative" : undefined,
+                  position: cueMark || (block.spanId && (wbResumeBySpan.has(block.spanId) || keptCtl.marks.has(block.spanId)) && !working) ? "relative" : undefined,
                 }}
               >
                 {folded ? null : (<>
                 {cueMark ? renderMark(cueMark, "text") : null}
                 {resumeMark(block.spanId)}
+                {block.spanId && !working && keptCtl.marks.get(block.spanId) ? <KeptMark mark={keptCtl.marks.get(block.spanId)!} /> : null}
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   {guidePassage ? <Pill color="purple">worth a second look</Pill> : null}
                   {BADGED_HEALTH.has(block.health.status) ? (
@@ -3191,5 +3214,6 @@ export function ReaderScreen({
         right={{ key: "^p", label: "palette" }}
       />
     </div>
+    </CompareKeepContext.Provider>
   );
 }

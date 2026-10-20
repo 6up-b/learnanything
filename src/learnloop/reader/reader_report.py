@@ -302,8 +302,19 @@ def build_reader_report(
              "organizer": json.loads(row["organizer_json"] or "{}"), "compared": row["comparison_id"] is not None,
              "tutor": row["question_event_id"] is not None}
             for row in connection.execute(
+                # The learner's asks (RW4d's keep of a tutor comparison records
+                # a row with caller 'tutor'; it is counted under comparisons).
                 "SELECT entry, personalized, organizer_json, comparison_id, question_event_id, created_at "
-                "FROM library_asks ORDER BY created_at, id"
+                "FROM library_asks WHERE caller = 'learner' ORDER BY created_at, id"
+            ) if in_window(row["created_at"])
+        ] if has_asks else []
+        # RW4d: kept comparisons, counted from kept_json (ids and labels; the
+        # takes are counted, never quoted).
+        kept_comparisons = [
+            {"caller": row["caller"], "kept": json.loads(row["kept_json"]), "live": row["kept_at"] is not None}
+            for row in connection.execute(
+                "SELECT caller, kept_json, kept_at, created_at FROM library_asks WHERE kept_json IS NOT NULL "
+                "ORDER BY created_at, id"
             ) if in_window(row["created_at"])
         ] if has_asks else []
 
@@ -575,6 +586,18 @@ def build_reader_report(
             "lines_dropped": sum(len(a["organizer"].get("dropped_lines") or []) for a in library_asks),
             "compared": _share(sum(1 for a in library_asks if a["compared"]), len(library_asks)),
             "tutor_asked": _share(sum(1 for a in library_asks if a["tutor"]), len(library_asks)),
+        },
+        # RW4d: comparisons kept (as proposals), by caller; removed; the
+        # learner's takes; kept relations by coarse type and by fine label.
+        "comparisons": {
+            "kept": sum(1 for k in kept_comparisons if k["live"]),
+            "removed": sum(1 for k in kept_comparisons if k["kept"].get("removed")),
+            "by_caller": dict(Counter(k["caller"] for k in kept_comparisons if k["live"])),
+            "takes": sum(len(k["kept"].get("takes") or ()) for k in kept_comparisons if k["live"]),
+            "relations_by_type": dict(Counter(rel.get("relation_type") for k in kept_comparisons if k["live"]
+                                              for rel in k["kept"].get("relations") or ())),
+            "relations_by_label": dict(Counter(rel.get("fine") for k in kept_comparisons if k["live"]
+                                               for rel in k["kept"].get("relations") or ())),
         },
         # RW1c: answers by mode, abstentions and excerpts dropped by quote
         # verification (a proxy for unsupported content), "another way" and

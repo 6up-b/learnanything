@@ -2367,11 +2367,19 @@ class ReaderCompareConfig(BaseModel):
     (whose own switch is ``source_service.compare`` and whose bounds are
     ``source_service.compare_max_prompt_tokens`` / ``compare_max_cost_usd``):
     a table with one row per source, each cell a quote-verified line, no
-    consensus. Display only until RW4d's keep. ``enabled`` is the kill switch:
-    off, no compare action and the RPC refuses.
+    consensus. ``enabled`` is the kill switch: off, no compare action and the
+    RPC refuses.
+
+    RW4d (§7.8): ``keep_enabled`` is the kill switch of "Keep this
+    comparison" (the kept claims and relations as source-object proposals,
+    the learner's own take, ``⇄`` marks, requested perspectives and Keep on
+    the tutor's comparison). Proposals and display only: nothing becomes a
+    concept edge, facet merge, prerequisite, LO change or evidence. Off, the
+    compare display is RW4a's exactly and the keep RPCs refuse.
     """
 
     enabled: bool = True
+    keep_enabled: bool = True
 
 
 class LearnerTextGapsConfig(BaseModel):

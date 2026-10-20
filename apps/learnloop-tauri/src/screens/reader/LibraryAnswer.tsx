@@ -16,6 +16,7 @@ import { useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { CompareTableDto, LibraryHitDto, LibraryNoteDto, ProposedItemDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { MarkdownMath } from "../../render/MarkdownMath";
+import { CompareKeep, KEEP_COPY, KeptComparisonView, shortDate } from "./CompareKeep";
 import { ModelActionState } from "./ModelActionState";
 import { ProposalExercises, type LibraryExercisesProps } from "./ProposalExercises";
 import { LIBRARY_COPY, type LibraryAskController } from "./useLibraryAsk";
@@ -125,6 +126,15 @@ export function CompareTable({ table }: { table: CompareTableDto }) {
   return (
     <div data-compare-table="" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <span style={headStyle}>compare · {table.rows.length} sources · {table.header}</span>
+      {table.requestedPerspectives?.length ? (
+        // RW4d: the perspectives asked for, and those no source covers.
+        <span data-perspectives="" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <MeaningLabel style={{ fontSize: 11 }}>perspectives: {table.requestedPerspectives.join(", ")}</MeaningLabel>
+          {table.missingPerspectives?.length ? (
+            <MeaningLabel style={{ fontSize: 11 }}>not found in your library: {table.missingPerspectives.join(", ")}</MeaningLabel>
+          ) : null}
+        </span>
+      ) : null}
       {table.status === "too_few_sources" ? (
         unverified.length ? (
           <MeaningLabel style={{ fontSize: 11 }}>
@@ -191,6 +201,9 @@ export function LibraryAnswer({
   exercises?: LibraryExercisesProps | null;
 }) {
   const [question, setQuestion] = useState("");
+  // RW4d: the requested perspectives (typed, comma-separated) and a reopened kept comparison.
+  const [perspectives, setPerspectives] = useState("");
+  const [reopened, setReopened] = useState<string | null>(null);
   const state = ctl.state;
   if (!state) return null;
   const ask = state.ask.value;
@@ -238,6 +251,7 @@ export function LibraryAnswer({
     );
   };
   const prerequisites = ask?.expansions.find((expansion) => expansion.expansion === "prerequisites");
+  const perspectiveList = () => perspectives.split(",").map((value) => value.trim()).filter(Boolean);
   // The comparing keys (UX §3.5), only while focus is inside the answer (never
   // on the reading surface): ↑ ↓ move between passages · Space peek · p pin ·
   // o open · c compare pinned · Ctrl+↵ ask the tutor about pinned.
@@ -282,7 +296,7 @@ export function LibraryAnswer({
       }
     } else if (event.key === "c" && ctl.canCompare) {
       event.preventDefault();
-      void ctl.compare();
+      void ctl.compare(perspectiveList());
     }
   };
   return (
@@ -337,6 +351,19 @@ export function LibraryAnswer({
               />
             ) : null}
             {ask.hits.length === 0 ? <MeaningLabel style={{ fontSize: 12 }}>{LIBRARY_COPY.nothing}</MeaningLabel> : null}
+            {ctl.keep && ask.comparedOn?.length ? (
+              // RW4d: a kept comparison already holds some of these passages.
+              <div data-compared-on="" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {ask.comparedOn.map((entry) => (
+                  <MeaningLabel key={entry.askId} style={{ fontSize: 11 }}>
+                    {KEEP_COPY.comparedOn} {shortDate(entry.keptAt)} ·{" "}
+                    <button type="button" style={linkStyle} aria-expanded={reopened === entry.askId}
+                      onClick={() => setReopened(reopened === entry.askId ? null : entry.askId)}>{KEEP_COPY.reopen}</button>
+                  </MeaningLabel>
+                ))}
+                {reopened ? <KeptComparisonView askId={reopened} onClose={() => setReopened(null)} Table={CompareTable} /> : null}
+              </div>
+            ) : null}
             {prerequisites && ask.entry === "what_do_i_need_first" ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <span style={headStyle}>{LIBRARY_COPY.prerequisitesTitle}</span>
@@ -390,9 +417,22 @@ export function LibraryAnswer({
             {ask.hits.length > 0 ? (
               <div style={{ borderTop: `1px solid ${COLOR.border}`, paddingTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
                 <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "baseline" }}>
+                  {ctl.settings?.compare && ctl.keep?.perspectives && ctl.canCompare ? (
+                    // RW4d: "a geometric view", "an application" (W10's perspectives field).
+                    <label style={{ display: "flex", gap: 6, alignItems: "baseline", fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textDim }}>
+                      perspectives:
+                      <input
+                        value={perspectives}
+                        onChange={(event) => setPerspectives(event.target.value)}
+                        placeholder="a geometric view, an application"
+                        aria-label="perspectives to compare"
+                        style={{ fontFamily: FONT_MONO, fontSize: 11, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: "2px 6px", width: 200 }}
+                      />
+                    </label>
+                  ) : null}
                   {ctl.settings?.compare ? (
                     ctl.canCompare ? (
-                      <button type="button" onClick={() => void ctl.compare()} style={linkStyle}>{LIBRARY_COPY.compare} ({state.pinned.length})</button>
+                      <button type="button" onClick={() => void ctl.compare(perspectiveList())} style={linkStyle}>{LIBRARY_COPY.compare} ({state.pinned.length})</button>
                     ) : (
                       <MeaningLabel style={{ fontSize: 10 }}>{LIBRARY_COPY.compareNeeds}</MeaningLabel>
                     )
@@ -409,9 +449,10 @@ export function LibraryAnswer({
                     capRoute="comparison"
                     fallback="Reading the passages"
                     onCancel={ctl.cancelCompare}
-                    onRetry={() => void ctl.compare()}
+                    onRetry={() => void ctl.compare(perspectiveList())}
                   >
                     {state.compare.value ? <CompareTable table={state.compare.value} /> : null}
+                    {state.compare.value && ctl.keep ? <CompareKeep table={state.compare.value} target={{ askId: state.compare.value.askId }} /> : null}
                   </ModelActionState>
                 ) : null}
                 {state.pinned.length > 0 ? (

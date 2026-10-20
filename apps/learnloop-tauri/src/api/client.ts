@@ -5,6 +5,9 @@ import type {
   DifficultyRating,
   FirstHintProgress,
   CompareTableDto,
+  KeepComparisonResultDto,
+  KeepTakeDto,
+  KeptMarksDto,
   LibraryAskDto,
   LibraryAskEntry,
   LibraryExpansion,
@@ -1561,8 +1564,17 @@ export const api = {
   // readerLibraryJobCancel (a cancelled job never answers).
   readerLibraryAskNotes: (input: { askId: string }) =>
     call<LibraryJobDto<LibraryNotesDto>>("reader_library_ask_notes", { input }),
-  readerLibraryCompare: (input: { askId: string; pinnedSpanKeys: string[]; openSourceId?: string | null }) =>
+  readerLibraryCompare: (input: { askId: string; pinnedSpanKeys: string[]; openSourceId?: string | null; requestedPerspectives?: string[] }) =>
     call<LibraryJobDto<CompareTableDto>>("reader_library_compare", { input }),
+  // Reader workbench RW4d: keep a comparison as proposals, remove it, reopen it, a reading's ⇄ marks.
+  readerLibraryCompareKeep: (input: { askId?: string; comparisonId?: string | null; toolCallId?: string; extractionId?: string | null; takes?: KeepTakeDto[] }) =>
+    call<KeepComparisonResultDto>("reader_library_compare_keep", { input }),
+  readerLibraryCompareRemove: (input: { askId: string; comparisonId?: string | null }) =>
+    call<{ askId: string; kept: null; removed: boolean }>("reader_library_compare_remove", { input }),
+  readerLibraryCompareReopen: (input: { askId: string; openSourceId?: string | null }) =>
+    call<CompareTableDto>("reader_library_compare_reopen", { input }),
+  readerKeptComparisons: (input: { extractionId: string }) =>
+    call<KeptMarksDto>("reader_kept_comparisons", { input }),
   readerLibraryAskTutor: (input: { askId: string; pinnedSpanKeys: string[]; question?: string | null }) =>
     call<LibraryJobDto<LibraryTutorDto>>("reader_library_ask_tutor", { input }),
   readerLibraryJob: <T>(input: { jobId: string }) =>

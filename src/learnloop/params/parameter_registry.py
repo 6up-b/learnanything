@@ -1056,6 +1056,18 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "cue judge's calls per source open / its calls per source per rolling 24 hours, over every open, counted from "
         "the durable receipts / its metered spend a UTC day; a display experiment and spend bounds, no "
         "measurement authority (cues are display only)."),
+    # Reader workbench RW4d: the kill switch of "Keep this comparison" (a
+    # boolean, so Inventory A's numeric walk never reaches it; classified here
+    # so every new key has a rule). Keep writes source-object proposals (P3
+    # §7) and the learner's own take; nothing reads them for grading,
+    # scheduling, serving, replay or evidence, and nothing becomes a concept
+    # edge, facet merge, prerequisite or LO change.
+    _ConfigRule(_exact(
+        "reader_compare.keep_enabled",
+    ), "structural", "operational",
+        "kill switch for keeping a source comparison as source-object proposals (with the learner's take, "
+        "the kept-comparison mark and requested perspectives); proposals and display, no measurement, "
+        "scheduling or serving authority."),
     # Adaptive hints H1: the approach-map builds' (and merges') metered spend a
     # UTC day (maps are stored help, read by no grading, scheduling, serving or
     # replay path; validation verdicts go to judgment_ledger, never evidence).

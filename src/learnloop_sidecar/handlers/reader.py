@@ -456,6 +456,11 @@ def reader_prompt_contract(ctx: SidecarContext, _params: ParamsModel) -> dict[st
     from learnloop_sidecar.handlers.library_exercises import prompt_contract_fields as library_exercise_fields
 
     contract.update(library_exercise_fields(vault))
+
+    # RW4d's kept comparisons (absent while reader_compare.keep_enabled is off).
+    from learnloop_sidecar.handlers.kept_comparisons import prompt_contract_fields as kept_comparison_fields
+
+    contract.update(kept_comparison_fields(vault))
     return versioned(contract)
 
 
@@ -1135,10 +1140,20 @@ class ReaderSourceObjectsInput(ParamsModel):
     source_id: str
 
 
+#: Every registered RPC that returns source objects (their versions and
+#: citations) and its read path: each goes through the guarded service call
+#: (exam protection, failing closed) and none reads the repository's raw rows.
+#: tests/test_compare_sources_keep.py enumerates the registered handlers of
+#: every entry point against it (Codex verify of RW4d fix round 2, F2).
+SOURCE_OBJECT_READ_PATHS: dict[str, str] = {"reader.source_objects": "SO.source_objects_for_source(vault, ...)"}
+
+
 @method("reader.source_objects", ReaderSourceObjectsInput)
 def reader_source_objects(ctx: SidecarContext, params: ReaderSourceObjectsInput) -> dict[str, Any]:
-    _vault, repository = _require_reader(ctx)
-    return versioned({"source_objects": SO.source_objects_for_source(repository, source_id=params.source_id)})
+    vault, repository = _require_reader(ctx)
+    # Exam protection, fail closed: an object whose material is held out now is
+    # not returned (its quotes, content and citations; the rows stay).
+    return versioned({"source_objects": SO.source_objects_for_source(vault, repository, source_id=params.source_id)})
 
 
 class ReaderReviewSourceObjectInput(ParamsModel):
@@ -1186,8 +1201,9 @@ class ReaderProposalInboxInput(ParamsModel):
 
 @method("reader.proposal_inbox", ReaderProposalInboxInput)
 def reader_proposal_inbox(ctx: SidecarContext, params: ReaderProposalInboxInput) -> dict[str, Any]:
-    _vault, repository = _require_reader(ctx)
-    return versioned(SO.proposal_inbox(repository, status=params.status, source_object_id=params.source_object_id))
+    vault, repository = _require_reader(ctx)
+    return versioned(SO.proposal_inbox(vault, repository, status=params.status,
+                                       source_object_id=params.source_object_id))
 
 
 class ReaderDecideProposalInput(ParamsModel):
