@@ -3,8 +3,8 @@ title: "source_object_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3feedbc7c5d35214d8c7dba3449cebe120b9ec07"
-source_commit_timestamp: "2026-10-20T14:08:39-04:00"
+source_commit: "781991538bd63b24f6e901d5be416988fdd96092"
+source_commit_timestamp: "2026-10-20T15:31:59-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_object_versions"
@@ -116,6 +116,8 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_compare_keep_switch_off.py`
+- `tests/test_compare_sources_keep.py`
 - `tests/test_reader_compare_table.py`
 - `tests/test_reread_safety.py`
 - `tests/test_ad1_reading_opportunities.py`

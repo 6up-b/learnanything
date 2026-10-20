@@ -3,8 +3,8 @@ title: "Config - graph_nomination"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3feedbc7c5d35214d8c7dba3449cebe120b9ec07"
-source_commit_timestamp: "2026-10-20T14:08:39-04:00"
+source_commit: "781991538bd63b24f6e901d5be416988fdd96092"
+source_commit_timestamp: "2026-10-20T15:31:59-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml graph_nomination"
@@ -32,7 +32,7 @@ source_paths:
   - "tests/test_chatgpt_plan_provider.py"
   - "tests/test_cli_ingest.py"
   - "tests/test_codex_isolation_mcp_check.py"
-  - "tests/test_concept_animation_service.py"
+  - "tests/test_compare_sources_keep.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/graph-nomination"
@@ -53,13 +53,13 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `graph_nomination.enabled` | `true` | boolean | modeled default or validator seed | Turns graph nomination behavior on or off within Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2593`; `src/learnloop/content/synthesis/facet_doctor.py:74`; `src/learnloop/content/synthesis/graph_nomination.py:864` |
-| `graph_nomination.top_k` | `5` | integer | modeled default or validator seed | Controls top k in Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2596`; `src/learnloop/content/synthesis/graph_nomination.py:361`; `src/learnloop/ops/graph_nomination_report.py:325` |
-| `graph_nomination.embed_new_text` | `true` | boolean | modeled default or validator seed | Turns embed new text behavior on or off within Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2597`; `src/learnloop/content/synthesis/graph_nomination.py:363` |
-| `graph_nomination.max_query_texts` | `256` | integer | modeled default or validator seed | Caps query texts allowed by Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2598`; `src/learnloop/content/synthesis/graph_nomination.py:379` |
-| `graph_nomination.max_query_calls` | `8` | integer | modeled default or validator seed | Caps query calls allowed by Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2599`; `src/learnloop/content/synthesis/graph_nomination.py:381` |
-| `graph_nomination.max_query_tokens` | `200000` | integer | modeled default or validator seed | Caps query tokens allowed by Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2600`; `src/learnloop/content/synthesis/graph_nomination.py:382` |
-| `graph_nomination.max_query_cost_usd` | `0.05` | number | modeled default or validator seed | Caps query cost usd allowed by Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2601`; `src/learnloop/content/synthesis/graph_nomination.py:383` |
+| `graph_nomination.enabled` | `true` | boolean | modeled default or validator seed | Turns graph nomination behavior on or off within Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2601`; `src/learnloop/content/synthesis/facet_doctor.py:74`; `src/learnloop/content/synthesis/graph_nomination.py:864` |
+| `graph_nomination.top_k` | `5` | integer | modeled default or validator seed | Controls top k in Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2604`; `src/learnloop/content/synthesis/graph_nomination.py:361`; `src/learnloop/ops/graph_nomination_report.py:325` |
+| `graph_nomination.embed_new_text` | `true` | boolean | modeled default or validator seed | Turns embed new text behavior on or off within Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2605`; `src/learnloop/content/synthesis/graph_nomination.py:363` |
+| `graph_nomination.max_query_texts` | `256` | integer | modeled default or validator seed | Caps query texts allowed by Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2606`; `src/learnloop/content/synthesis/graph_nomination.py:379` |
+| `graph_nomination.max_query_calls` | `8` | integer | modeled default or validator seed | Caps query calls allowed by Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2607`; `src/learnloop/content/synthesis/graph_nomination.py:381` |
+| `graph_nomination.max_query_tokens` | `200000` | integer | modeled default or validator seed | Caps query tokens allowed by Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2608`; `src/learnloop/content/synthesis/graph_nomination.py:382` |
+| `graph_nomination.max_query_cost_usd` | `0.05` | number | modeled default or validator seed | Caps query cost usd allowed by Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2609`; `src/learnloop/content/synthesis/graph_nomination.py:383` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -79,7 +79,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_chatgpt_plan_provider.py`
 - `tests/test_cli_ingest.py`
 - `tests/test_codex_isolation_mcp_check.py`
-- `tests/test_concept_animation_service.py`
+- `tests/test_compare_sources_keep.py`
 
 ## Extension and modification guidance
 

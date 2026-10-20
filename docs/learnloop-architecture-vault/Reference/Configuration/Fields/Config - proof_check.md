@@ -3,8 +3,8 @@ title: "Config - proof_check"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3feedbc7c5d35214d8c7dba3449cebe120b9ec07"
-source_commit_timestamp: "2026-10-20T14:08:39-04:00"
+source_commit: "781991538bd63b24f6e901d5be416988fdd96092"
+source_commit_timestamp: "2026-10-20T15:31:59-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml proof_check"
@@ -30,7 +30,7 @@ source_paths:
   - "tests/test_chatgpt_plan_provider.py"
   - "tests/test_cli_ingest.py"
   - "tests/test_codex_isolation_mcp_check.py"
-  - "tests/test_concept_animation_service.py"
+  - "tests/test_compare_sources_keep.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/proof-check"
@@ -51,7 +51,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `proof_check.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for mvp-0.20's own-route rules. On, the blind grader's prompt grades every criterion on the learner's own route and marks down only by quoting the failing step, and a server-side rule leaves a mark-down on a divergent route that quotes nothing from the learner's words, an omitted criterion, or one the grader declares it cannot verify unassessed (holding the grade for review when nothing is then assessed and nothing validated) and appends the verdict to judgment_ledger: one grading call. Off, new answers grade as mvp-0.19 now does (whose grading is mvp-0.16's: mvp-0.17's separate route check was removed on 2026-10-13). Dormant below mvp-0.20; replay reads the blind record and evidence rows, never this switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2439`; `src/learnloop/attempts/grading_support.py:257` |
+| `proof_check.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for mvp-0.20's own-route rules. On, the blind grader's prompt grades every criterion on the learner's own route and marks down only by quoting the failing step, and a server-side rule leaves a mark-down on a divergent route that quotes nothing from the learner's words, an omitted criterion, or one the grader declares it cannot verify unassessed (holding the grade for review when nothing is then assessed and nothing validated) and appends the verdict to judgment_ledger: one grading call. Off, new answers grade as mvp-0.19 now does (whose grading is mvp-0.16's: mvp-0.17's separate route check was removed on 2026-10-13). Dormant below mvp-0.20; replay reads the blind record and evidence rows, never this switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2447`; `src/learnloop/attempts/grading_support.py:257` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -71,7 +71,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_chatgpt_plan_provider.py`
 - `tests/test_cli_ingest.py`
 - `tests/test_codex_isolation_mcp_check.py`
-- `tests/test_concept_animation_service.py`
+- `tests/test_compare_sources_keep.py`
 
 ## Extension and modification guidance
 

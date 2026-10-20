@@ -3,8 +3,8 @@ title: "source_object_relations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3feedbc7c5d35214d8c7dba3449cebe120b9ec07"
-source_commit_timestamp: "2026-10-20T14:08:39-04:00"
+source_commit: "781991538bd63b24f6e901d5be416988fdd96092"
+source_commit_timestamp: "2026-10-20T15:31:59-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_object_relations"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/094_source_objects.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/source_retrieval/kept_comparisons.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/reader/source_objects.py"
 tags:
@@ -83,6 +84,7 @@ Indexes and uniqueness:
 - `Repository.create_source_object_relation()`
 - `Repository.delete_source_artifact()`
 - `Repository.relations_for_object()`
+- `Repository.source_object_relation()`
 
 ### Direct SQL readers
 
@@ -102,6 +104,8 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_compare_keep_switch_off.py`
+- `tests/test_compare_sources_keep.py`
 - `tests/test_reader_compare_table.py`
 - `tests/test_ad1_reading_opportunities.py`
 

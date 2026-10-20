@@ -3,8 +3,8 @@ title: "Config - library_exercises"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3feedbc7c5d35214d8c7dba3449cebe120b9ec07"
-source_commit_timestamp: "2026-10-20T14:08:39-04:00"
+source_commit: "781991538bd63b24f6e901d5be416988fdd96092"
+source_commit_timestamp: "2026-10-20T15:31:59-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml library_exercises"
@@ -31,7 +31,7 @@ source_paths:
   - "tests/test_chatgpt_plan_provider.py"
   - "tests/test_cli_ingest.py"
   - "tests/test_codex_isolation_mcp_check.py"
-  - "tests/test_concept_animation_service.py"
+  - "tests/test_compare_sources_keep.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/library-exercises"
@@ -73,7 +73,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_chatgpt_plan_provider.py`
 - `tests/test_cli_ingest.py`
 - `tests/test_codex_isolation_mcp_check.py`
-- `tests/test_concept_animation_service.py`
+- `tests/test_compare_sources_keep.py`
 
 ## Extension and modification guidance
 
