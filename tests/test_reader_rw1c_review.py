@@ -1695,3 +1695,227 @@ def test_no_bound_model_call_receives_item_text_from_outside_the_plan(tmp_path, 
     assert contexts, "the verification ran"
     assert all(context.get("practice_question") == planned for context in contexts)
     assert not any("equally likely outcomes" in prompt for prompt in tutor.prompts)
+
+
+# --- Fix round 11 (orchestrator rulings) ---------------------------------------------------------------
+
+SPACED_KEY = "x = 2, y = 3, z = 4, a = 5, b = 6"
+
+
+def _fuzz(text: str, variant: str) -> str:
+    """The same words with whitespace, invisible characters or case varied."""
+
+    return {
+        "spaces": lambda: text.replace(" ", "  "),
+        "tabs": lambda: text.replace(" ", "\t"),
+        "newlines": lambda: text.replace(" ", "\n"),
+        "nbsp": lambda: text.replace(" ", " "),
+        "zero_width": lambda: text.replace("=", "=​").replace(", ", ",​ "),
+        "casing": lambda: text.upper(),
+    }[variant]()
+
+
+def _record_rewrites(monkeypatch) -> list[str]:
+    """Every rewrite prompt the search would send (the production prompt builder,
+    from the text the search hands the rewrite)."""
+
+    import learnloop.source_retrieval.queries as queries
+    import learnloop.source_retrieval.search as search
+
+    prompts: list[str] = []
+
+    def rewrite(vault, repository, question, *, context=None, **_kwargs):
+        prompts.append(queries.rewrite_prompt(question, context))
+        return queries.Rewrite("unavailable", reason="recorded by the test")
+
+    monkeypatch.setattr(search, "rewrite_query", rewrite)
+    return prompts
+
+
+def _prompt_payload(prompt: str) -> dict:
+    import json
+
+    return json.loads(prompt[prompt.index("{"):])["context"]
+
+
+@pytest.mark.parametrize("service", [True, False])
+@pytest.mark.parametrize("intent", ["explain", "alternative", "remediate"])
+@pytest.mark.parametrize("variant", ["spaces", "newlines", "tabs"])
+def test_a_whitespace_variant_of_the_key_never_reaches_the_rewrite(tmp_path, monkeypatch, variant, intent,
+                                                                   service):
+    """R1, R2, R5 (F8, the verify's 18 cases): a gap statement that is the key
+    with its spaces doubled, or turned into newlines or tabs, scored 0.0 as
+    written; the search's whitespace collapse then sent the exact key to the
+    rewrite (and the verification). The guard reads the canonical form, so it
+    is withheld, and nothing sent scores as leaking."""
+
+    from learnloop.tutor.tutor_qa import span_leaks_expected
+
+    gap = _fuzz(SPACED_KEY, variant)
+    assert not span_leaks_expected(gap, SPACED_KEY) and span_leaks_expected(" ".join(gap.split()), SPACED_KEY)
+    tutor = LookupTutor()
+    paths, ctx, repository, _spans = reader_ctx(
+        tmp_path, monkeypatch, tutor,
+        config={"source_service": {"enabled": service}, "source_retrieval": {"query_rewrite": True}})
+    set_item_answer(paths, ITEM, SPACED_KEY)
+    ctx = _rebind(paths, ctx)
+    vault, _repository = ctx.require_vault()
+    _misconception(repository, vault, gap)
+    rewrites = _record_rewrites(monkeypatch)
+    verifier = ctx.reader_tutor_rerank_client
+    _bound_lookups(ctx, repository, ITEM, intent)
+    assert rewrites and verifier.prompts, "the rewrite and the verification were built"
+    for prompt in rewrites:
+        assert not span_leaks_expected(_prompt_payload(prompt)["question"], SPACED_KEY)
+    for context in _verification_contexts(verifier, 0):
+        assert not span_leaks_expected(_verification_texts(context), SPACED_KEY)
+
+
+VARIANTS = ["spaces", "tabs", "newlines", "nbsp", "zero_width", "casing"]
+
+
+@pytest.mark.parametrize("variant", VARIANTS)
+@pytest.mark.parametrize("cold", [False, True])
+@pytest.mark.parametrize("service", [True, False])
+@pytest.mark.parametrize("intent", ["explain", "alternative", "remediate"])
+def test_every_sent_model_written_fragment_was_checked(tmp_path, monkeypatch, intent, service, cold, variant):
+    """R3, the send-boundary contract: for the tutor, the rewrite and the
+    verification calls of a bound request, the exact prompts the fake models
+    receive carry (a) only model-written text the final pass of the delivery
+    plan checked (each fragment, canonical, is a slot it read) and (b) a
+    model-written union, with the item's question, the guard passes. The
+    planted texts vary whitespace, tabs, newlines, no-break and zero-width
+    spaces and case; one is the whole key, others parts of it."""
+
+    import learnloop.tutor.reader_modes as reader_modes
+    from learnloop.source_retrieval.reader_tutor import ItemBoundGuard
+    from learnloop.text_canon import canonical
+
+    tutor = LookupTutor(answer_md=_fuzz("z = 4, a = 5, b = 6", variant))
+    paths, ctx, repository, _spans = reader_ctx(
+        tmp_path, monkeypatch, tutor,
+        config={"source_service": {"enabled": service}, "source_retrieval": {"query_rewrite": True}})
+    set_item_answer(paths, ITEM, SPACED_KEY)
+    ctx = _rebind(paths, ctx)
+    vault, _repository = ctx.require_vault()
+    for statement, correction in ((_fuzz(SPACED_KEY, variant), None), (_fuzz("x = 2, y = 3", variant), None),
+                                  ("Which outcomes are equally likely?", _fuzz("a = 5, b = 6", variant))):
+        _misconception(repository, vault, statement, correction)
+    guard = ItemBoundGuard(repository, vault.practice_items[ITEM])
+    plans: list = []
+    real_plan = reader_modes.plan_bound_delivery
+    monkeypatch.setattr(reader_modes, "plan_bound_delivery",
+                        lambda *a, **k: plans.append(real_plan(*a, **k)) or plans[-1])
+    rewrites = _record_rewrites(monkeypatch)
+    verifier = ctx.reader_tutor_rerank_client
+    session = _bound_session(repository, ITEM)
+    root = ask(ctx, BEGIN, personalized=True, workbenchSessionId=session, **PASSAGE_T2)
+    marks = (len(tutor.prompts), len(rewrites), len(verifier.prompts))
+    # A new question for explain: the same one again would read the cached verdicts.
+    final = {"explain": ("how do I go on from here?", {}), "alternative": ("Explain it another way", {"retrievalIntent": "alternative"}),
+             "remediate": ("That didn't help.", {"retrievalIntent": "remediate"})}[intent]
+    extra = {**final[1], **({"coldActive": True} if cold else {})}
+    if intent != "explain":
+        extra["parentExchangeId"] = root["readerAnswerEventId"]
+    ask(ctx, final[0], personalized=True, workbenchSessionId=session, **PASSAGE_T2, **extra)
+    plan = plans[-1]
+    assert plan.withheld.get("gaps", 0) >= 1  # the whole key, in its variant, was read as the key
+    lookup = plan.checked.get("lookup", [])
+    tutor_checked = plan.checked.get("tutor", [])
+    slots = lambda checked, name: [text for slot, text in checked if slot == name]  # noqa: E731
+
+    def passes(texts: list[str]) -> bool:
+        return not guard.text_leaks("\n\n".join(text for text in texts if text))
+
+    learner = {"explain": final[0], "alternative": BEGIN, "remediate": f"That didn't help. {BEGIN}"}[intent]
+    gaps = slots(lookup, "gaps")
+    for prompt in [*rewrites[marks[1]:], *verifier.prompts[marks[2]:]]:
+        payload = _prompt_payload(prompt)
+        question = canonical(payload["question"])
+        assert question == plan.query  # (a) the query the plan checked, unchanged
+        assert canonical(question[len(learner):]) == " ".join(gaps)
+        delivered = list(gaps)
+        for record in payload.get("misconceptions") or []:
+            text = canonical(" ".join(filter(None, [record.get("statement"), record.get("correction")])))
+            assert text in slots(lookup, "misconceptions")
+            delivered.append(text)
+        if payload.get("practice_question"):
+            assert payload["practice_question"] == plan.practice_question
+            delivered.append(payload["practice_question"])
+        assert passes(delivered)  # (b)
+    assert cold or verifier.prompts[marks[2]:], "the verification ran"
+    for context in tutor.contexts[marks[0]:]:
+        delivered = []
+        for turn in context["thread"]:
+            assert turn["answer_md"] in slots(tutor_checked, "answers") or not turn["answer_md"]
+            delivered.append(turn["answer_md"])
+        for entry in (context.get("reader_tutor") or {}).get("learner_work") or []:
+            if entry.get("kind") == "open_question":
+                assert entry["statement"] in slots(tutor_checked, "gaps")
+                delivered.append(entry["statement"])
+            elif entry.get("problem"):
+                assert entry["problem"] in slots(tutor_checked, "problems")
+                delivered.append(entry["problem"])
+        assert passes(delivered)
+
+
+def test_unbound_queries_are_built_as_before(tmp_path, monkeypatch):
+    """R2: unbound, the learner's and the statements' text is normalised only as
+    the search already did (whitespace collapsed); a zero-width character is
+    still sent as written (pinned)."""
+
+    from learnloop.source_retrieval.reader_tutor import QUERY_CHARS
+
+    tutor = LookupTutor()
+    paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    vault, _repository = ctx.require_vault()
+    gap = _fuzz("x = 2, y = 3", "zero_width").replace(" ", "\t")
+    _misconception(repository, vault, gap)
+    queries = _recording_lookups(monkeypatch)
+    ask(ctx, "how  should\tI begin?", personalized=True, **PASSAGE_T2)
+    assert queries[-1] == f"how should I begin? {' '.join(gap.split())}"[:QUERY_CHARS]
+    assert "​" in queries[-1]
+
+
+GROUPS = {
+    "display": "$$ a + b = 2/13 $$",
+    "inline": "$ a + b = 2/13 $",
+    "paren": "\\( a + b = 2/13 \\)",
+    "bracket": "\\[ a + b = 2/13 \\]",
+    "brace": "\\frac{ a + b }{ 2 13 }",
+}
+
+
+def _groups_closed(text: str) -> bool:
+    """An independent reading: every delimiter of the sweep's groups is matched."""
+
+    rest = text.replace("$$", "")
+    return (text.count("$$") % 2 == 0 and rest.count("$") % 2 == 0 and text.count("\\(") == text.count("\\)")
+            and text.count("\\[") == text.count("\\]") and text.count("{") == text.count("}"))
+
+
+@pytest.mark.parametrize("group", sorted(GROUPS))
+def test_a_cut_never_opens_a_group_it_does_not_close(group):
+    """R4, R5 (F10): every limit across a display, inline, ``\\(...\\)``,
+    ``\\[...\\]`` or brace group: the cut falls at a space with every group
+    closed, so the group is delivered whole or not at all."""
+
+    from learnloop.tutor.reader_modes import whole_token_cut
+
+    text = f"Start {GROUPS[group]} finish with more words"
+    for limit in range(1, len(text) + 2):
+        cut = whole_token_cut(text, limit)
+        assert len(cut) <= limit and text.startswith(cut), (limit, cut)
+        assert not cut or len(cut) == len(text) or text[len(cut)] == " ", (limit, cut)
+        assert _groups_closed(cut), (limit, cut)
+
+
+def test_the_verifys_display_math_case_is_cut_before_the_group():
+    """F10, the verify's reproduction: an unclosed-looking ``$$`` near the
+    700-character limit is never left open."""
+
+    from learnloop.tutor.reader_modes import whole_token_cut
+
+    stem = "word " * 137 + "Start $$ a + b $$ finish"
+    cut = whole_token_cut(stem, 700)
+    assert _groups_closed(cut) and cut.endswith("Start")

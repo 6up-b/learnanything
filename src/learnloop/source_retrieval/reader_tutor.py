@@ -52,6 +52,7 @@ from learnloop.source_retrieval.find_sources import QUESTION_CHARS
 from learnloop.source_retrieval.queries import MAX_QUERY_CHARS
 from learnloop.source_retrieval.tutor import ITEM_BOUND_LEAD_ROLES
 from learnloop.source_retrieval.verify import verification_route
+from learnloop.text_canon import canonical
 from learnloop.tutor import reader_modes
 from learnloop.tutor.tutor_qa import span_answer_overlap, span_leaks_expected
 from learnloop.vault.models import LoadedVault, PracticeItem
@@ -313,17 +314,25 @@ class ItemBoundGuard:
         a block (fix round 5, R2: an earlier answer in the thread, a line of
         the learner-work context): it leads as a solution or reproduces the
         item's answer. The block-only rules (linked to the item, an exercise
-        lead) have no block to read here."""
+        lead) have no block to read here.
 
-        return lead_role(text) == "solution" or span_leaks_expected(text, self.item.expected_answer)
+        Scored on the CANONICAL form (fix round 11, R1: ``text_canon.canonical``,
+        NFKC, no invisible characters, whitespace collapsed), the form the
+        delivery plan sends: "x  =  2" is read as the "x = 2" a later
+        whitespace collapse would make of it."""
+
+        value = canonical(text)
+        return lead_role(value) == "solution" or span_leaks_expected(value, self.item.expected_answer)
 
     def text_overlap(self, text: str) -> float:
         """The same matcher's score for one text (fix round 6, R1): how much of
         the item's answer it exposes, a solution lead counting as all of it.
         It ranks which earlier answer to withhold first when only their
-        combination gives the answer away (``reader_modes.withhold``)."""
+        combination gives the answer away (``reader_modes.withhold``). On the
+        canonical form, as :meth:`text_leaks`."""
 
-        return 1.0 if lead_role(text) == "solution" else span_answer_overlap(text, self.item.expected_answer)
+        value = canonical(text)
+        return 1.0 if lead_role(value) == "solution" else span_answer_overlap(value, self.item.expected_answer)
 
 
 # ---------------------------------------------------------------------------

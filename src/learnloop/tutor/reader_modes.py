@@ -27,11 +27,14 @@ imports the retrieval package: the adapter injects the retrieval as
 """
 from __future__ import annotations
 
+import dataclasses
 import unicodedata
+from types import SimpleNamespace
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from learnloop.text_canon import canonical
 from learnloop.tutor.context_delivery import apply_budget, notable
 
 #: The line an answer opens with when the learner's books don't cover it.
@@ -204,25 +207,60 @@ def fit_slots(learner: str, slots: Sequence[str], *, limit: int, join: str = " "
     return join.join(part for part in [learner, *(texts[index] for index in fitted)] if part), fitted
 
 
+#: The math groups a cut never splits: opening delimiter -> closing one.
+_MATH_GROUPS = {"$$": "$$", "$": "$", "\\(": "\\)", "\\[": "\\]"}
+
+
 def whole_token_cut(text: str, limit: int) -> str:
     """``text`` on one line within ``limit`` characters, cut only at a space
-    outside braces and outside ``$...$`` math (fix round 10, R1): a token, a
-    number or a LaTeX group is never split ("2/130" never becomes "2/13").
-    A text with no such boundary within the limit becomes empty."""
+    where every group is closed (fix round 10, R1; fix round 11, R4): a
+    token, a number or a LaTeX group is never split ("2/130" never becomes
+    "2/13"). The groups are explicit matched states: inline ``$...$``,
+    display ``$$...$$``, ``\\(...\\)``, ``\\[...\\]`` and brace depth; an
+    escaped delimiter (``\\$``, ``\\{``) opens nothing. A text with no such
+    boundary within the limit becomes empty."""
 
     value = " ".join(str(text or "").split())
     if len(value) <= limit:
         return value
-    depth, dollars, cut = 0, 0, 0
-    for index, char in enumerate(value[: limit + 1]):
-        if char == " " and depth == 0 and dollars % 2 == 0:
-            cut = index
-        elif char == "{" and (index == 0 or value[index - 1] != "\\"):
+    math: str | None = None  # the closing delimiter of the open math group
+    depth, cut, index = 0, 0, 0
+    while index <= limit and index < len(value):
+        char, pair = value[index], value[index:index + 2]
+        if char == " ":
+            if depth == 0 and math is None:
+                cut = index
+            index += 1
+        elif char == "\\" and pair in ("\\(", "\\["):
+            if math is None:
+                math = _MATH_GROUPS[pair]
+            index += 2
+        elif char == "\\" and pair in ("\\)", "\\]"):
+            if math == pair:
+                math = None
+            index += 2
+        elif char == "\\":
+            index += 2  # an escaped character (\\$, \\{, \\}) is not a delimiter
+        elif pair == "$$":
+            if math is None:
+                math = "$$"
+            elif math == "$$":
+                math = None
+            index += 2
+        elif char == "$":
+            if math is None:
+                math = "$"
+            elif math == "$":
+                math = None
+            index += 1
+        elif char == "{":
             depth += 1
-        elif char == "}" and (index == 0 or value[index - 1] != "\\"):
+            index += 1
+        elif char == "}":
             depth = max(0, depth - 1)
-        elif char == "$" and (index == 0 or value[index - 1] != "\\"):
-            dollars += 1
+            index += 1
+        else:
+            index += 1
     return value[:cut].rstrip()
 
 
@@ -236,6 +274,17 @@ def open_question_work(gaps: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]
 
     return [{"kind": "open_question", "statement": entry["statement"], "author": "LearnLoop's reading",
              "learning_object_id": entry.get("learning_object_id")} for entry in list(gaps)[:QUERY_GAPS]]
+
+
+def _canonical_record(record: Any) -> Any:
+    """A misconception record with its statement and correction canonical (the
+    form the plan reads and the verification is sent, fix round 11)."""
+
+    changes = {"statement": canonical(getattr(record, "statement", "")),
+               "correction_statement": canonical(getattr(record, "correction_statement", "")) or None}
+    if dataclasses.is_dataclass(record) and not isinstance(record, type):
+        return dataclasses.replace(record, **changes)
+    return SimpleNamespace(**{**vars(record), **changes})
 
 
 def _misconception_text(record: Any) -> str:
@@ -264,6 +313,11 @@ class BoundDelivery:
     #: The lookup's query exactly as the plan checked it (fitted within its
     #: limit, fix rounds 8 and 9); None when the plan fitted none.
     query: str | None = None
+    #: The final pass's delivered texts per model call (``lookup``: the
+    #: verification, whose query also feeds the rewrite; ``tutor``), as
+    #: ``(slot, canonical text)``: what the plan checked is what is sent
+    #: (fix round 11, R2 and R3).
+    checked: dict[str, list[tuple[str, str]]] = field(default_factory=dict)
     #: The verification's practice question as the plan fitted and read it (a
     #: fixed member of that call's union: never withheld, fix round 10); None
     #: when the call carries none. ``stem_leaks_alone`` records an item whose
@@ -336,16 +390,22 @@ def plan_bound_delivery(binding: BoundAsk | None, *, thread: Sequence[Mapping[st
     # The replacement is validated too (round 6, R1): a key that the fixed
     # line itself states gets the empty answer instead.
     placeholder = "" if binding.answer_guard(EARLIER_ANSWER_LEFT_OUT) else EARLIER_ANSWER_LEFT_OUT
-    answers = [str(turn.get("answer_md") or "") for turn in turns]
-    statements = [str(entry.get("statement") or "") for entry in gaps]
-    problems = [str(entry.get("problem") or "") for entry in others]
+    # Fix round 11 (R1, R2): every model-written text is read AND sent in its
+    # canonical form (``text_canon.canonical``: NFKC, no invisible
+    # characters, whitespace collapsed), so a later whitespace collapse (the
+    # search's, the rewrite's) can never turn a checked text into another.
+    # The learner's own words are not touched here.
+    answers = [canonical(turn.get("answer_md")) for turn in turns]
+    statements = [canonical(entry.get("statement")) for entry in gaps]
+    problems = [canonical(entry.get("problem")) for entry in others]
+    records = None if records is None else [_canonical_record(record) for record in records]
     withheld: dict[str, set[int]] = {"answers": set(), "gaps": set(), "misconceptions": set(), "problems": set()}
     stem: str | None = None
     if practice_question_limit is not None:
         from learnloop.vault.required_method import fit_presented_prompt
 
         item = binding.item
-        stem = fit_presented_prompt(getattr(item, "prompt", ""), getattr(item, "required_method", None),
+        stem = fit_presented_prompt(canonical(getattr(item, "prompt", "")), getattr(item, "required_method", None),
                                     practice_question_limit, whole_token_cut)
     stem_leaks_alone = bool(stem) and binding.answer_guard(stem)
 
@@ -392,13 +452,20 @@ def plan_bound_delivery(binding: BoundAsk | None, *, thread: Sequence[Mapping[st
                      for name, pairs in tutor for i, text in pairs if text]
         if binding.answer_guard(_JOIN.join(delivered)):
             placeholder = ""
-    for index in withheld["answers"]:
-        turns[index]["answer_md"] = placeholder
-    kept_gaps = [entry for i, entry in enumerate(gaps) if i not in withheld["gaps"]]
+    (lookup_slots, _none), (tutor_slots, _stand_ins) = calls(placeholder)
+    checked = {
+        "lookup": [(name, text) for name, pairs in lookup_slots for _i, text in pairs if text],
+        "tutor": [(name, placeholder if name == "answers" and i in withheld["answers"] else text)
+                  for name, pairs in tutor_slots for i, text in pairs if text],
+    }
+    for index, turn in enumerate(turns):
+        if turn.get("answer_md"):
+            turn["answer_md"] = placeholder if index in withheld["answers"] else answers[index]
+    kept_gaps = [{**entry, "statement": statements[i]} for i, entry in enumerate(gaps) if i not in withheld["gaps"]]
     kept_others = []
     for i, entry in enumerate(others):
-        if i in withheld["problems"]:
-            entry = {**entry, "problem": ""}
+        if "problem" in entry:
+            entry = {**entry, "problem": "" if i in withheld["problems"] else problems[i]}
         kept_others.append(entry)
     # The bridge's open questions are the kept gap statements, the learner's
     # own steps follow as given (only the problem line, source text, guarded).
@@ -410,6 +477,7 @@ def plan_bound_delivery(binding: BoundAsk | None, *, thread: Sequence[Mapping[st
         learner_work=[*open_questions, *kept_others],
         withheld={name: len(indexes) for name, indexes in withheld.items() if indexes},
         query=fitted_query()[0],
+        checked=checked,
         practice_question=stem,
         stem_leaks_alone=stem_leaks_alone,
     )
