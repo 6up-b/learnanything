@@ -212,3 +212,51 @@ test uses fakes. The reference scripts ran only under `env -i` with an empty
 - Fail first, frontend: the new test file ran on `27215b877`'s `apps/learnloop-tauri`, extracted to the scratchpad with the worktree's `node_modules`. **1 failed** (the new F1 test) and 14 passed.
 - References: `db_generate_reference.py` then `db_validate_reference.py`: 0 errors.
 - Not run: `cargo check`, because nothing under `src-tauri` changed.
+
+## Fix round 3 (orchestrator)
+
+The verify of round 2 (Codex job `20261020-165958-KahjKV`, VERDICT: REOPENED) confirmed the duplicate-keep, card and stored-caller fixes. It also confirmed the proposal boundaries, atomicity, mapping, tutor gating, takes and both switch-off pins. Two findings remained. Each has a test that fails on `91fa03116`, and each is fixed in `79a6f7e12`. References were regenerated in `76d1b2442`: commit labels, and `library_asks`' note now lists `reader/source_objects.py`. The schema is unchanged, head 213, 0 errors. Same rules as round 2: no model call, fakes only, the reference scripts only under `env -i`.
+
+| id | severity | title | verdict | test |
+|---|---|---|---|---|
+| F1 | High | The comparison's question, copied into every object, carried a withheld quotation | fixed | `test_a_question_quoting_a_held_out_passage_is_redacted_in_every_object` (the quoted-question regression), `test_a_held_out_passage_the_question_came_from_redacts_the_shared_fields`, `test_shared_comparison_fields_fail_closed` |
+| F2 | Low | The pin did not enumerate individual RPC readers | fixed | `test_every_registered_handler_reading_source_objects_is_pinned`, `test_the_pin_catches_a_second_raw_reader` |
+
+- **F1.** `reader.source_objects.comparison_passages` names every passage that contributed to a comparison:
+  - the stored comparison's sources, counterparts, unverified sources and dropped pins;
+  - the ask's anchor, or the tutor request's selection.
+
+  `withheld_comparisons` asks the one predicate once over all of them. It fails closed: an unreadable comparison or predicate counts as withheld.
+
+  While any contributing passage is held out now, the shared fields read `(withheld: part of this comparison is held out for an exam now)`. The shared fields are `query`, `question`, `requested_perspectives` and `missing_perspectives`. They are redacted at read time, so already-stored objects are covered. The redaction applies to:
+  - every object of the comparison in `reader.source_objects`, whose own lines and citations stay;
+  - the `⇄` marks' comparison entries;
+  - the reopened table's question and perspectives.
+
+  The card omits such an episode. `reader.proposal_inbox` carries no comparison field (kept comparisons write no mapping proposals). It is still read in both regressions.
+
+  **Decision.** The ask's anchor counts as contributing: a question is typed from the passage it was asked about.
+- **F2.** `handlers/reader.py` declares `SOURCE_OBJECT_READ_PATHS = {"reader.source_objects": "SO.source_objects_for_source(vault, ...)"}`.
+  - **The pin.** It parses every module of the sidecar, MCP, mobile and CLI packages (AST). It lists each function that reads source objects, with the RPC it is registered as and its read paths. Guarded service calls (the vault first) are kept apart from raw reads: a repository reader named or passed, or SQL over the source-object tables. That list must equal the declaration, and the declared RPC must be the handler `METHOD_REGISTRY` serves.
+  - **The mutation check.** It appends each of these to `handlers/reader.py`, and each fails the pin:
+    - a second RPC returning `repository.source_objects_for_source(...)`;
+    - an RPC with raw SQL;
+    - a second guarded RPC;
+    - a raw helper.
+
+    Swapping the declared guarded call for a raw one fails it too.
+
+### Fail first
+
+- The 5 new tests ran on `91fa03116`'s `src` (`git archive`, `-o pythonpath=`): **5 of 5 failed**.
+- `91fa03116`'s own pin was run against its tree with a second raw RPC appended to `handlers/reader.py`. It **passed**: the gap the verify reproduced.
+
+### Gate (round 2's)
+
+- `lint-imports --no-cache`: **28 kept**, 0 broken.
+- `pytest -n auto` over the same 17 files: **482 passed**.
+- `--durable-sqlite` on `test_compare_sources_keep` and `test_compare_keep_switch_off`: **55 passed**.
+- `npm run typecheck`: clean.
+- vitest `src/screens/reader`: **61 files, 463 tests passed**.
+- `npm run frontend:build`: built.
+- No frontend file changed in this round.
