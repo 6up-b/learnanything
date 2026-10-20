@@ -287,3 +287,230 @@ test_source_objects test_source_service_spend_envelopes test_sources_merge_compo
 test_sqlite_file_copies test_stuck_prompt_replay test_table_roles test_tool_registry 
 test_tool_results_withhold_answers test_tools_cli test_tracked_fixture_databases test_tutor_tool_requests 
 ```
+
+## 12. Landing onto main
+
+Landed in the `learnanything-merge2` worktree on branch `merge/rw4d-onto-main`, cut from main at `f93c93b54` (the
+RW3b landing record; main has DL2, successor mvp-0.29 with 20 defaults snapshots, and RW3b, migration head 215 with
+`migration_head_215` and 937 configuration leaves). The stage tip is `856634d96` (base `3988cf778`), unchanged.
+Main was neither fast-forwarded nor pushed here.
+
+**The orchestrator's last verify** (Codex job `20261020-182310-SFSyDg` on `856634d96`) found one High, which the
+orchestrator **ruled non-blocking**:
+
+> With `reader_compare.keep_enabled = false`, `reader.source_objects` and `reader.proposal_inbox` still leave out
+> source objects (and their proposals) whose material is exam or held out now, or that were kept from a comparison
+> withheld whole. Base `3988cf778` returned them.
+
+**The ruling.** This is exam protection, not part of keeping. The keep switch turns keeping off, not protection, and
+turning protection off would return held-out text. Switch-off is therefore base-identical **except** that withheld
+material is not shown. On the two owner-vault copies no source object is withheld, so parity (c) found the
+switched-off reads byte-identical to main's (below).
+
+### Commits and conflicts
+
+- `ee20a4204`: a `--no-ff` merge of `reader/rw4d` onto `f93c93b54`. Three source conflicts, each composed so that
+  both sides survive:
+  - `config/template.py` (19 hunks): DL2's and RW3b's notes kept on every defaults snapshot, RW4d's
+    `[reader_compare] keep_enabled` note added beside them (in full under mvp-0.9's, a one-line pointer on the others,
+    **mvp-0.29 included**); the hashes were left at main's in the merge and recomputed in the next commit.
+  - `params/parameter_registry.py`: RW3b's two `[cues]` rules and RW4d's `reader_compare.keep_enabled` rule both kept.
+  - `tests/test_mobile_allowlist.py`: the desktop-only parametrization lists both `READER_RW3B_RPCS` and
+    `READER_RW4D_RPCS`.
+  - 401 generated reference notes took main's side and were regenerated afterwards.
+  - Auto-merged without conflict, then checked by the gate: `ReaderScreen.tsx` (RW3b's cue and density wiring beside
+    RW4d's `⇄` hook-up; RW4d's PDF-gutter merge `pdfMarks()` wraps `cueMarksFor("pdf")`, whose signature RW3b kept),
+    `TutorOffers.tsx`, `LibraryAnswer.tsx`, the reader and library-ask handlers and the handler registry,
+    `reader/source_objects.py`, `config/schema.py`, `dto.ts` / `client.ts`, `commands.rs` / `main.rs`, the CLI help
+    snapshot and the RPC pins.
+  - **RW4b's statement-reader pin** (`test_library_exercises::test_r2_no_handler_reader_module_or_s1_path_reads_an_exercise_statement_another_way`,
+    repaired in RW4d's round 5) passes on the merged tree unchanged: RW3b added no reader it flags, and the pin was
+    not touched.
+- `45a372824`: the regeneration (below).
+- `22432096e`: the RW4d x RW3b interaction test (`tests/test_rw4d_rw3b_composition.py`, 3 tests; the gate head).
+- This record.
+
+### Regeneration
+
+- **Defaults snapshots.** With the template's `.pyc` cleared, all **20** `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries
+  (mvp-0.9 … mvp-0.27, mvp-0.29) were recomputed from the composed defaults (`defaults_fingerprint_for_version`); 0
+  mismatches after.
+- **References.** `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**, `schema_head` **215**,
+  **335** table notes, **938** configuration leaves in **66** sections (RW4d's `reader_compare.keep_enabled` on
+  RW3b's 937). The two prose counts in `Configuration.md` and `Database.md` were moved by hand (937 → 938); the rest
+  is commit labels, RW4d's tests and cited lines in the table notes and the `reader_compare` field notes (404 files).
+- **CLI help snapshot and RPC pins.** A pin run of 526 tests (`test_cli_help_snapshot`,
+  `test_sidecar_serializer_snapshot`, `test_desktop_rpc_contract`, `test_mobile_allowlist`, `test_sidecar_contract`,
+  `test_config_refactor`, `test_registry_audit`, `test_library_exercises`, `test_architecture`, `test_table_roles`,
+  `test_tracked_fixture_databases`, `test_sqlite_file_copies`, both RW4d files) passed; no snapshot needed
+  rewriting. RW4d's four RPCs stay desktop-only.
+- **Head fixture.** No migration: `migration_head_215` stays main's.
+- **`validate_vault.py`**: passes (1,135 notes, 1,133/1,133 reachable).
+- **Known failures from before this stage, not fixed:** `desktop_validate.py` still stops on
+  `components/pdfSelection/testing/syntheticBook.ts`; `module_validate.py` reports **958** issues (954 at the RW3b
+  landing; RW4d adds modules without module notes, such as `source_retrieval/kept_comparisons.py` and
+  `learnloop_sidecar/handlers/kept_comparisons.py`).
+
+### Gate
+
+Python 3.12.14. `TMPDIR` was merge2's `fixtures-local/tmp`; every command after the install ran as `uv run
+--no-sync`. Both suite lanes ran under `flock /tmp/learnloop-fullsuite.lock` on `22432096e` (the gate head; this
+record changes docs only). The AD2+AD3 (`learnanything-ad1`), RW5a (`learnanything-dl2`) and RW4d stage
+(`learnanything-rw4b`) worktrees and their processes were not touched. Every test uses fakes. **This is the first full
+run over RW4d's code**: the stage and its six fix rounds ran targeted tests only.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `lint-imports --no-cache` | **28 kept**, 0 broken |
+| full suite `pytest -n auto` | **14,973 passed, 2 xfailed, 0 failed** (19 min 58 s; `fixtures-local/rw4d-landing/fullsuite.log`). RW3b's landing ran 14,889 |
+| `pytest -m durability` | **114 passed**, 14,861 deselected (2 min 57 s; `fixtures-local/rw4d-landing/durability.log`) |
+| `npm install`, `npm run typecheck` | ok; clean |
+| `npm test` (the whole vitest run, default workers) | **160 files, 1,272 tests passed** on the first run (RW3b's landing: 158 / 1,254). This settles fix round 6's `--maxWorkers=3` note: the whole run passes at default workers (load average about 3 at the time) |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | ok (RW4d's four passthroughs) |
+| thread, lock and timing tests | all passed on the first run, so none was rerun |
+| tracked fixtures, worktree | `git status` clean after both lanes and the frontend run; no non-empty `-wal` beside a fixture |
+
+**The interaction test** (`tests/test_rw4d_rw3b_composition.py`, added because no existing test put RW3b's cues and
+RW4d's marks on one passage):
+- *A cue and a `⇄` mark on one passage are independent*: after discovery marks the row-swap passage, keeping a
+  comparison on it changes neither the cue marks nor the cue budget's `withheld` counts, and a second discovery
+  changes no kept mark. Holding the passage out removes both: no cue on the chapter, no `⇄` on either book, reopen
+  refused `comparison_withheld`, no kept object returned.
+- *Discovery on a source whose kept comparison is withheld*: holding out the **other** book's pinned passage withholds
+  the comparison whole (no mark, no reopen, no object), while discovery on the open book still marks its own,
+  unprotected passage; the cue payload carries none of the comparison id, the ask id, the other book's passage or its
+  ids, and the judge's prompts never held that passage.
+- *One protection, never looser in the cues*: with a chapter of each book held out, every key RW4d's predicate
+  (`exam_withheld`) withholds is one RW3b's guard (`passage_cues.protection`: `teaching_exclusions`, which contains the
+  same exam material, plus `held_out_material`) does not allow.
+- So they are **independent by construction**: the `⇄` mark is the learner's own (outside the cue budget, merged after
+  cue placement), RW3b's cues read only the open source's own passages, and the cues' guard contains RW4d's
+  predicate. Whole-comparison withholding is RW4d's alone and never hides a passage's own cue.
+
+No failure, so no landing fix.
+
+### Parity (backup-API copies; no model call completed)
+
+**Setup** (scripts in `fixtures-local/landing-rw4d/scripts/`, adapted from the RW3b landing's):
+- **Copies.** `fixtures/linear_algebra` and `fixtures/probability` were copied once, with `copy_tree_with_databases`,
+  from the main checkout into `fixtures-local/landing-rw4d/orig/`; every other copy came from `orig/` or its upgraded
+  copies through the same helper. `arxiv_v2` was not opened. Both vaults start at schema 165, label `mvp-0.8`;
+  linear_algebra holds 4 source objects, probability 5.
+- **Code.** Main's code is `git archive f93c93b54`; the merge's is `git archive 22432096e`.
+- **Environment.** Every run went through `env -i` with only `PATH`, `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`,
+  `TMPDIR` and `LANG` (empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`).
+- **Routes.** `neutralize3.py`, under each code, sent all 56 route fields to `127.0.0.1:9` (the reader, tutor,
+  library, sources and `source_compare`, cue, hint, workbench, AD and Decider routes included), the active provider to
+  that loopback profile with no fallback; `query_rewrite`, `tutor_query_rewrite`, `tutor_rerank`, `dense`,
+  `[embedding]` and `[learner_text_gaps]` off; `build_on_serve` and outcome placement off. `routes.py` resolved all 59
+  `AITask`s on both codes: nothing outside the loopback profiles except `embedding`, disabled and keyless.
+
+**(a) No schema change**
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| open (migrate), main's code / the merge's | 165 → 215 (49 applied) / the same | the same |
+| schema, main vs merge | **identical** (1,428 objects; none on one side only; no SQL differs) | **identical** (1,427) |
+| rows of every table (340), all columns | **identical** (16,540 rows); `schema_migrations` differs only in `applied_at` | **identical** (7,638 rows; the same) |
+| `foreign_key_check` / `integrity_check` | 0 / ok, both sides | the same |
+| `rebuild --shadow --json`, main vs merge | **0 differences** after normalisation (facet 0, mastery 2, schedule 8 on both); live database unchanged on both | **0 differences** (0 / 1 / 1) |
+| `doctor --json`, main vs merge | **0 differences** after normalisation (57 issues, 1 error) | **0 differences** (101 issues, 48 errors) |
+
+**(b) Nothing served changes** (frozen clock 2026-10-19 09:00 UTC; certification with recipe gaps and curves, the
+Today queue with no session / a session / greedy, the daily plan read, served twice and read again)
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| at `mvp-0.8` (the copies' label) | cert **byte-identical** (132,860 bytes), Today **byte-identical** (504,488), plan byte-identical (off below mvp-0.14) | cert (17,494), Today (709,910), plan: all **byte-identical** |
+| upgraded by main's code to `mvp-0.27` (`--to mvp-0.9`, `--to mvp-0.27`, `rebuild-derived-state` twice; all rc 0), opened by each code | cert **byte-identical** (129,651), Today **byte-identical** (528,665) | cert (17,495), Today (741,269): **byte-identical** |
+| then by main's code to `mvp-0.29` (`--to mvp-0.29`, `rebuild-derived-state` twice; all rc 0), opened by each code | cert and Today **byte-identical** (the same sizes) | the same |
+| the daily plan at mvp-0.27 and at mvp-0.29 | identical except `router_decisions.card_hash`, `snapshot_hash` and the card hash inside `detail_json`; a second run of main's code on a fresh copy differs from the first in exactly these three (`plan_repeat.sh`), as at the RW3b and DL2 landings | the same |
+
+**(c) The real sidecar** (stdio, `SystemClock` frozen at 2026-10-19 09:00 UTC through `sidecar_clock.py`;
+`kept_run.py`, compared by `ccmp.py` with run-generated ids normalised) on copies of main's mvp-0.29 vaults: (i)
+`cm`, main's code; (ii) `coff`, the merge with `[reader_compare] keep_enabled = false`; (iii) `cdef`, the merge at its
+defaults. Each: `reader.prompt_contract`; `reader.source_objects` for the book that has objects (probability
+`src_01KYMSH13FAGNWVPPHCQ2FY3B4`, 5 objects; linear_algebra `src_01KY2YG27G1SDWA4FN939ZBB34`, 4) and
+`reader.proposal_inbox`; `reader.kept_comparisons` on that book's reading; `reader.library_ask` on one of the
+objects' passages (a job, polled); `reader.library_compare` on two of the objects' passages (a job, polled); the keep
+RPCs (`library_compare_keep`, `_reopen`, `_remove`, `kept_comparisons`) on that ask; the reads again; on probability a
+manual-graded attempt on `pi_prob_derive_complement`; `shutdown`.
+
+| Step | (i) main vs (ii) keep off | (iii) defaults, every difference from (i) |
+|---|---|---|
+| `initialize` | identical apart from the vault path and the method list, which gains RW4d's four RPCs (registered, refusing) | the same |
+| `reader.prompt_contract` | **byte-identical** (both vaults) | gains `compareKeep {library: true, tutor: true, perspectives: true, maxPerspectives: 4}` |
+| `reader.source_objects` (both reads) | **byte-identical**: all 5 / 4 objects returned on both. **No object is withheld** on these copies (no exam or held-out material touches them and no comparison is kept), so the ruled exception lists no object id here | byte-identical to (i) |
+| `reader.proposal_inbox` (both reads) | **byte-identical** (1 / 4 proposals) | byte-identical to (i) |
+| `reader.library_ask` (the job's result) | **byte-identical** | gains `comparedOn: []` |
+| `reader.library_compare` | **byte-identical**: `too_few_sources` (both passages are in one book; refused before any model call) | the same, plus `kept: null` |
+| keep RPCs | (i) `method_not_found`; (ii) each refused `reader_compare_keep_disabled` ("Keeping comparisons is switched off …"), nothing written | `library_compare_keep` refused `stale_comparison`, `library_compare_reopen` refused `not_found`, `library_compare_remove` answers `{kept: null, removed: false}`, `kept_comparisons` answers `marks: []` (both reads) |
+| the attempt (probability) | the rows it added in 26 tables are **identical** across (i), (ii) and (iii), apart from the new attempt's id in `response_ref` | identical, as left |
+| `library_asks` | one learner row per run, `kept_json` / `kept_at` NULL, on all three; no source-object row added | the same |
+
+**`model_call_receipts`**: 34 learner databases under `landing-rw4d/` carry the table; **no row** in any of them
+(none completed, none attempted: the compare refused before calling).
+
+### New findings
+
+1. **No composition failure.** RW4d's three conflicts were bookkeeping (snapshots, registry rules, the RPC pin list);
+   RW3b's cue paths and RW4d's keep paths compose without a code change, and the interaction test pins it.
+2. **Keep on an ask that has no comparison is refused `stale_comparison`**, whose message ("This isn't the comparison
+   this question shows any more, and it isn't kept. Compare again to keep it.") reads oddly when nothing was ever
+   compared; *remove* on such an ask succeeds with `removed: false`. Nothing is written either way, and the UI only
+   offers Keep under a shown table. Low; not changed.
+3. **The four RW4d RPCs are registered while switched off** (they refuse), so `initialize`'s method list differs from
+   base with the switch off. Same as every earlier Reader kill switch; Low.
+
+### For the owner
+
+- **No migration.** Nothing changes in your database until you press *keep comparison*; your algorithm version is
+  unchanged and nothing served moves (parity (a), (b)).
+- **What you see in the Reader.**
+  - **Keep this comparison**: under a compare table (library answer, or the tutor's *how do your books treat this?*),
+    *keep comparison ⇄* keeps each book's claim with its quote, and the relation LearnLoop infers between them (in
+    LearnLoop's voice, labelled AI-written, with its fine label such as "different assumptions"), as **proposals**:
+    nothing changes your study map until you review them. *remove* supersedes a keep; nothing is deleted.
+  - **Your take (optional)**: a line in your own voice on a pair or a claim, kept as your note. It is never read for
+    gaps and never grades you.
+  - **`⇄` marks**: beside a passage you kept a comparison on (text view and the original PDF), outside the cue
+    budget; pressing it reopens the kept table with no model call. A later library ask on the same passages says
+    *you compared these on 3 Oct · reopen ⇄*.
+  - **Requested perspectives**: *perspectives:* beside *compare pinned* ("a geometric view, an application"); the
+    table says which were "not found in your library".
+  - **Withheld comparisons say why**: when any passage behind a comparison is exam or held-out material now, the
+    whole comparison is withheld (no table, mark, keep or take) and the Reader says so, instead of showing part of it.
+- **The kill switch** `[reader_compare] keep_enabled = false` (default true) turns off keeping, takes, the `⇄` marks,
+  reopen, perspectives and the contract's `compareKeep`; the compare and tutor tables are then RW4a's and RW1c's.
+  It does **not** turn off exam protection: source objects (and their proposals) whose material is exam or held out
+  now, or kept from a comparison withheld whole, stay out of `reader.source_objects` and `reader.proposal_inbox`
+  (the orchestrator's ruling above). `reader_compare.enabled = false` turns comparing off altogether.
+
+### Open questions (defaults in force)
+
+1. *Default on?* **Yes** (`keep_enabled = true`); Keep writes proposals only on your press.
+2. *Should a take be read for gaps?* **No** (UX §4.10).
+3. *`⇄` on the PDF surface?* **Done** in fix round 1 (F10), beside RW3b's marks and outside their count.
+4. *Atomic keep?* **Yes** since fix round 1 (F1: one `Repository.atomic()` per keep, take and remove).
+5. *Remove then keep again* writes a new set of proposals (the old ones stay superseded). **Default: yes.**
+6. *A kept comparison held out later* shows no mark and refuses to reopen; its rows stay (removing them would be a
+   deletion), and *remove* stays offered (fix round 5's F4 ruling). **Default: keep the rows.**
+7. *Relation lineage without a migration* (fix round 1's F7): the supersession record lives on the ask row; a
+   `supersedes_relation_id` column (migration 216) is **deferred** unless P3's review inbox needs relation heads from
+   the table.
+
+### Open items
+
+- **Queued follow-up: "whole-comparison provenance for `compare_sources` and tutor tool runs (RW4a/S3/RW1c
+  surfaces)".** The direct `compare_sources` RPC and `instructional/tools.py` `_comparison_view` check only the
+  displayed passages, the same as on main; RW4d's own reads and writes withhold the whole comparison.
+- **F4 (Remove on a withheld comparison) was rejected by ruling**: Remove is cleanup with a status-only response.
+- **Dropped pins count as contributing passages**, so a comparison that pinned an exam passage is never keepable
+  while that passage is protected.
+- **A comparison whose dropped pins name a deleted passage** is never shown or kept (fail closed).
+- **Vitest under load**: fix round 6 passed only with `--maxWorkers=3`; this gate's whole run passed at default
+  workers on the first run (above), so the item is settled.
+- **Findings 2 and 3** above (Low).
+- **From before this stage:** `desktop_validate.py` (`syntheticBook.ts`) and `module_validate.py` (958 issues).
