@@ -76,6 +76,9 @@ export interface SelectionPayload {
   quote: string;
   nodes: SpanNode[];
   text: string;
+  /** Reader RW5a: a Ctrl+drag box over a figure (its block, page and box in
+   *  the block's coordinate space), when the Reader asks for regions. */
+  region?: { spanId: string; page: number; bbox: number[] };
 }
 
 function isSelectable(block: ReaderPdfBlockDto): boolean {

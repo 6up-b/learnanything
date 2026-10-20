@@ -41,7 +41,9 @@ const source = { card: { sourceId: view.sourceId, title: "Matrices", canonicalUr
 /** The intent palette as the sidecar sends it with RW4a off: no library rows. */
 function intentWithoutLibrary(): ReaderIntentContractDto {
   const strip = (groups: ReaderIntentContractDto["palette"]) => groups
-    .map((group) => ({ ...group, actions: group.actions.filter((action) => (action.effect.kind as string) !== "library_ask") }))
+    // RW5a's "make this explorable" (figures.enabled) is not RW4a's: the base's snapshot has neither.
+    .map((group) => ({ ...group, actions: group.actions.filter((action) => (action.effect.kind as string) !== "library_ask"
+      && (action.effect.kind as string) !== "figure") }))
     .filter((group) => group.actions.length > 0);
   return { ...readerIntentContractFixture, palette: strip(readerIntentContractFixture.palette), notesPalette: strip(readerIntentContractFixture.notesPalette) };
 }

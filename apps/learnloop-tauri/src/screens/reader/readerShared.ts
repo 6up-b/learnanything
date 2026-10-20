@@ -44,6 +44,8 @@ export interface ReaderSelection {
   /** Learner-edited combined passage (capture editor). The nodes keep
    *  anchoring the original blocks; this overrides the exercise surface. */
   editedText?: string;
+  /** Reader RW5a: a Ctrl+drag region of a figure on the original page. */
+  region?: { spanId: string; page: number; bbox: number[] };
 }
 
 export function selectionNodes(sel: {
