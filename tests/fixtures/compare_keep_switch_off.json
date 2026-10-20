@@ -718,7 +718,14 @@
  },
  "rows": [
   {
-   "anchor_json": "{\"learning_object_ids\": [\"lo_matrices\"], \"span_ids\": [\"t3\"]}",
+   "anchor_json": {
+    "learning_object_ids": [
+     "lo_matrices"
+    ],
+    "span_ids": [
+     "t3"
+    ]
+   },
    "caller": "learner",
    "comparison_id": "scmp_<ULID10>",
    "entry": "reader",
@@ -726,15 +733,392 @@
    "id": "la_<ULID0>",
    "kept_at": null,
    "kept_json": null,
-   "manifest_json": "{\"caller\": {\"context\": null, \"derived_from\": \"reader caller with no item bound\", \"item_id\": null, \"kind\": \"reader\", \"policy\": \"reading\", \"ref\": \"ext_text\"}, \"expansions\": [{\"expansion\": \"prerequisites\", \"from_learning_object_ids\": [\"lo_matrices\"], \"kept\": [\"ext_book:s11\"], \"learning_object_ids\": [\"lo_vectors\"], \"manifest\": {\"caller\": {\"kind\": \"reader\", \"ref\": \"ext_text\"}, \"excluded_span_keys\": [], \"expand\": [], \"extractions\": [{\"extraction_id\": \"ext_book\", \"revision_id\": \"rev_book\"}, {\"extraction_id\": \"ext_exam\", \"revision_id\": \"rev_exam\"}, {\"extraction_id\": \"ext_text\", \"revision_id\": \"rev_text\"}], \"facet_ids\": [], \"facets_targeted\": [], \"intent\": \"explain\", \"personalized\": true, \"policy\": \"reading\", \"policy_derived_from\": \"reader caller with no item bound\", \"query_hash\": \"82397678392fb32f1ba23bbd83847f14\", \"returned\": [[\"ext_book\", \"s11\"], [\"ext_book\", \"s7\"], [\"ext_text\", \"t3\"], [\"ext_text\", \"t9\"], [\"ext_book\", \"s8\"], [\"ext_book\", \"s6\"], [\"ext_book\", \"s12\"], [\"ext_book\", \"s9\"]], \"roles\": [], \"scope\": {\"excluded_spans\": 0, \"name\": \"library\", \"notes\": [], \"sources\": 3}, \"search\": {\"basis\": \"keyword+provenance\", \"dense\": {\"covered\": 0, \"expected\": 0, \"model_id\": null, \"reason\": \"embeddings are disabled (embedding.enabled = false)\", \"sources\": 0, \"sources_covered\": 0, \"status\": \"disabled\"}, \"hits\": 8, \"lists\": [\"keyword\", \"provenance\"], \"notes\": [\"embeddings are disabled (embedding.enabled = false)\"], \"pool\": {\"fallback\": null, \"mode\": \"hybrid_rrf\", \"requested\": \"hybrid_rrf\"}, \"query_embedding\": {}, \"rewrite\": {\"keywords\": 0, \"model\": null, \"reason\": \"Codex checkout path is not configured. Set LEARNLOOP_CODEX_CHECKOUT_PATH in your global learnloop settings (~/.config/learnloop/settings.env).\", \"status\": \"unavailable\"}, \"scope\": {\"excluded_spans\": 0, \"name\": \"library\", \"notes\": [], \"sources\": 3}, \"timings_ms\": {\"rewrite\": 0, \"total\": 6}}, \"target_hypotheses\": [], \"verification\": {\"label\": \"unverified: retrieval rank only\", \"status\": \"not_requested\"}, \"withheld_answer_overlap\": []}, \"status\": \"ok\"}, {\"expansion\": \"applications\", \"from_learning_object_ids\": [\"lo_matrices\"], \"kept\": [], \"learning_object_ids\": [\"lo_inner\"], \"manifest\": {\"caller\": {\"kind\": \"reader\", \"ref\": \"ext_text\"}, \"excluded_span_keys\": [], \"expand\": [], \"extractions\": [{\"extraction_id\": \"ext_book\", \"revision_id\": \"rev_book\"}, {\"extraction_id\": \"ext_exam\", \"revision_id\": \"rev_exam\"}, {\"extraction_id\": \"ext_text\", \"revision_id\": \"rev_text\"}], \"facet_ids\": [], \"facets_targeted\": [], \"intent\": \"explain\", \"personalized\": true, \"policy\": \"reading\", \"policy_derived_from\": \"reader caller with no item bound\", \"query_hash\": \"82397678392fb32f1ba23bbd83847f14\", \"returned\": [[\"ext_book\", \"s12\"], [\"ext_book\", \"s7\"], [\"ext_text\", \"t3\"], [\"ext_text\", \"t9\"], [\"ext_book\", \"s8\"], [\"ext_book\", \"s6\"], [\"ext_book\", \"s9\"]], \"roles\": [], \"scope\": {\"excluded_spans\": 0, \"name\": \"library\", \"notes\": [], \"sources\": 3}, \"search\": {\"basis\": \"keyword+provenance\", \"dense\": {\"covered\": 0, \"expected\": 0, \"model_id\": null, \"reason\": \"embeddings are disabled (embedding.enabled = false)\", \"sources\": 0, \"sources_covered\": 0, \"status\": \"disabled\"}, \"hits\": 7, \"lists\": [\"keyword\", \"provenance\"], \"notes\": [\"embeddings are disabled (embedding.enabled = false)\"], \"pool\": {\"fallback\": null, \"mode\": \"hybrid_rrf\", \"requested\": \"hybrid_rrf\"}, \"query_embedding\": {}, \"rewrite\": {\"keywords\": 0, \"model\": null, \"reason\": \"Codex checkout path is not configured. Set LEARNLOOP_CODEX_CHECKOUT_PATH in your global learnloop settings (~/.config/learnloop/settings.env).\", \"status\": \"unavailable\"}, \"scope\": {\"excluded_spans\": 0, \"name\": \"library\", \"notes\": [], \"sources\": 3}, \"timings_ms\": {\"rewrite\": 0, \"total\": 6}}, \"target_hypotheses\": [], \"verification\": {\"label\": \"unverified: retrieval rank only\", \"status\": \"not_requested\"}, \"withheld_answer_overlap\": []}, \"status\": \"ok\"}], \"main\": {\"caller\": {\"kind\": \"reader\", \"ref\": \"ext_text\"}, \"excluded_span_keys\": [], \"expand\": [], \"extractions\": [{\"extraction_id\": \"ext_book\", \"revision_id\": \"rev_book\"}, {\"extraction_id\": \"ext_exam\", \"revision_id\": \"rev_exam\"}, {\"extraction_id\": \"ext_text\", \"revision_id\": \"rev_text\"}], \"facet_ids\": [], \"facets_targeted\": [], \"intent\": \"explain\", \"personalized\": true, \"policy\": \"reading\", \"policy_derived_from\": \"reader caller with no item bound\", \"query_hash\": \"82397678392fb32f1ba23bbd83847f14\", \"returned\": [[\"ext_book\", \"s2\"], [\"ext_book\", \"s7\"], [\"ext_text\", \"t2\"], [\"ext_text\", \"t3\"], [\"ext_text\", \"t9\"], [\"ext_book\", \"s8\"], [\"ext_book\", \"s6\"], [\"ext_book\", \"s12\"]], \"roles\": [], \"scope\": {\"excluded_spans\": 0, \"name\": \"library\", \"notes\": [], \"sources\": 3}, \"search\": {\"basis\": \"keyword+provenance\", \"dense\": {\"covered\": 0, \"expected\": 0, \"model_id\": null, \"reason\": \"embeddings are disabled (embedding.enabled = false)\", \"sources\": 0, \"sources_covered\": 0, \"status\": \"disabled\"}, \"hits\": 9, \"lists\": [\"keyword\", \"provenance\"], \"notes\": [\"embeddings are disabled (embedding.enabled = false)\"], \"pool\": {\"fallback\": null, \"mode\": \"hybrid_rrf\", \"requested\": \"hybrid_rrf\"}, \"query_embedding\": {}, \"rewrite\": {\"keywords\": 0, \"model\": null, \"reason\": \"Codex checkout path is not configured. Set LEARNLOOP_CODEX_CHECKOUT_PATH in your global learnloop settings (~/.config/learnloop/settings.env).\", \"status\": \"unavailable\"}, \"scope\": {\"excluded_spans\": 0, \"name\": \"library\", \"notes\": [], \"sources\": 3}, \"timings_ms\": {\"rewrite\": 0, \"total\": 6}}, \"status\": \"ok\", \"target_hypotheses\": [], \"verification\": {\"label\": \"unverified: retrieval rank only\", \"status\": \"not_requested\"}, \"withheld_answer_overlap\": []}, \"policy\": \"reading\"}",
+   "manifest_json": {
+    "caller": {
+     "context": null,
+     "derived_from": "reader caller with no item bound",
+     "item_id": null,
+     "kind": "reader",
+     "policy": "reading",
+     "ref": "ext_text"
+    },
+    "expansions": [
+     {
+      "expansion": "prerequisites",
+      "from_learning_object_ids": [
+       "lo_matrices"
+      ],
+      "kept": [
+       "ext_book:s11"
+      ],
+      "learning_object_ids": [
+       "lo_vectors"
+      ],
+      "manifest": {
+       "caller": {
+        "kind": "reader",
+        "ref": "ext_text"
+       },
+       "excluded_span_keys": [],
+       "expand": [],
+       "extractions": [
+        {
+         "extraction_id": "ext_book",
+         "revision_id": "rev_book"
+        },
+        {
+         "extraction_id": "ext_exam",
+         "revision_id": "rev_exam"
+        },
+        {
+         "extraction_id": "ext_text",
+         "revision_id": "rev_text"
+        }
+       ],
+       "facet_ids": [],
+       "facets_targeted": [],
+       "intent": "explain",
+       "personalized": true,
+       "policy": "reading",
+       "policy_derived_from": "reader caller with no item bound",
+       "query_hash": "82397678392fb32f1ba23bbd83847f14",
+       "returned": [
+        [
+         "ext_book",
+         "s11"
+        ],
+        [
+         "ext_book",
+         "s7"
+        ],
+        [
+         "ext_text",
+         "t3"
+        ],
+        [
+         "ext_text",
+         "t9"
+        ],
+        [
+         "ext_book",
+         "s8"
+        ],
+        [
+         "ext_book",
+         "s6"
+        ],
+        [
+         "ext_book",
+         "s12"
+        ],
+        [
+         "ext_book",
+         "s9"
+        ]
+       ],
+       "roles": [],
+       "scope": {
+        "excluded_spans": 0,
+        "name": "library",
+        "notes": [],
+        "sources": 3
+       },
+       "search": {
+        "basis": "keyword+provenance",
+        "dense": {
+         "covered": 0,
+         "expected": 0,
+         "model_id": null,
+         "reason": "embeddings are disabled (embedding.enabled = false)",
+         "sources": 0,
+         "sources_covered": 0,
+         "status": "disabled"
+        },
+        "hits": 8,
+        "lists": [
+         "keyword",
+         "provenance"
+        ],
+        "notes": [
+         "embeddings are disabled (embedding.enabled = false)"
+        ],
+        "pool": {
+         "fallback": null,
+         "mode": "hybrid_rrf",
+         "requested": "hybrid_rrf"
+        },
+        "query_embedding": {},
+        "rewrite": {
+         "keywords": 0,
+         "model": null,
+         "reason": "Codex checkout path is not configured. Set LEARNLOOP_CODEX_CHECKOUT_PATH in your global learnloop settings (~/.config/learnloop/settings.env).",
+         "status": "unavailable"
+        },
+        "scope": {
+         "excluded_spans": 0,
+         "name": "library",
+         "notes": [],
+         "sources": 3
+        }
+       },
+       "target_hypotheses": [],
+       "verification": {
+        "label": "unverified: retrieval rank only",
+        "status": "not_requested"
+       },
+       "withheld_answer_overlap": []
+      },
+      "status": "ok"
+     },
+     {
+      "expansion": "applications",
+      "from_learning_object_ids": [
+       "lo_matrices"
+      ],
+      "kept": [],
+      "learning_object_ids": [
+       "lo_inner"
+      ],
+      "manifest": {
+       "caller": {
+        "kind": "reader",
+        "ref": "ext_text"
+       },
+       "excluded_span_keys": [],
+       "expand": [],
+       "extractions": [
+        {
+         "extraction_id": "ext_book",
+         "revision_id": "rev_book"
+        },
+        {
+         "extraction_id": "ext_exam",
+         "revision_id": "rev_exam"
+        },
+        {
+         "extraction_id": "ext_text",
+         "revision_id": "rev_text"
+        }
+       ],
+       "facet_ids": [],
+       "facets_targeted": [],
+       "intent": "explain",
+       "personalized": true,
+       "policy": "reading",
+       "policy_derived_from": "reader caller with no item bound",
+       "query_hash": "82397678392fb32f1ba23bbd83847f14",
+       "returned": [
+        [
+         "ext_book",
+         "s12"
+        ],
+        [
+         "ext_book",
+         "s7"
+        ],
+        [
+         "ext_text",
+         "t3"
+        ],
+        [
+         "ext_text",
+         "t9"
+        ],
+        [
+         "ext_book",
+         "s8"
+        ],
+        [
+         "ext_book",
+         "s6"
+        ],
+        [
+         "ext_book",
+         "s9"
+        ]
+       ],
+       "roles": [],
+       "scope": {
+        "excluded_spans": 0,
+        "name": "library",
+        "notes": [],
+        "sources": 3
+       },
+       "search": {
+        "basis": "keyword+provenance",
+        "dense": {
+         "covered": 0,
+         "expected": 0,
+         "model_id": null,
+         "reason": "embeddings are disabled (embedding.enabled = false)",
+         "sources": 0,
+         "sources_covered": 0,
+         "status": "disabled"
+        },
+        "hits": 7,
+        "lists": [
+         "keyword",
+         "provenance"
+        ],
+        "notes": [
+         "embeddings are disabled (embedding.enabled = false)"
+        ],
+        "pool": {
+         "fallback": null,
+         "mode": "hybrid_rrf",
+         "requested": "hybrid_rrf"
+        },
+        "query_embedding": {},
+        "rewrite": {
+         "keywords": 0,
+         "model": null,
+         "reason": "Codex checkout path is not configured. Set LEARNLOOP_CODEX_CHECKOUT_PATH in your global learnloop settings (~/.config/learnloop/settings.env).",
+         "status": "unavailable"
+        },
+        "scope": {
+         "excluded_spans": 0,
+         "name": "library",
+         "notes": [],
+         "sources": 3
+        }
+       },
+       "target_hypotheses": [],
+       "verification": {
+        "label": "unverified: retrieval rank only",
+        "status": "not_requested"
+       },
+       "withheld_answer_overlap": []
+      },
+      "status": "ok"
+     }
+    ],
+    "main": {
+     "caller": {
+      "kind": "reader",
+      "ref": "ext_text"
+     },
+     "excluded_span_keys": [],
+     "expand": [],
+     "extractions": [
+      {
+       "extraction_id": "ext_book",
+       "revision_id": "rev_book"
+      },
+      {
+       "extraction_id": "ext_exam",
+       "revision_id": "rev_exam"
+      },
+      {
+       "extraction_id": "ext_text",
+       "revision_id": "rev_text"
+      }
+     ],
+     "facet_ids": [],
+     "facets_targeted": [],
+     "intent": "explain",
+     "personalized": true,
+     "policy": "reading",
+     "policy_derived_from": "reader caller with no item bound",
+     "query_hash": "82397678392fb32f1ba23bbd83847f14",
+     "returned": [
+      [
+       "ext_book",
+       "s2"
+      ],
+      [
+       "ext_book",
+       "s7"
+      ],
+      [
+       "ext_text",
+       "t2"
+      ],
+      [
+       "ext_text",
+       "t3"
+      ],
+      [
+       "ext_text",
+       "t9"
+      ],
+      [
+       "ext_book",
+       "s8"
+      ],
+      [
+       "ext_book",
+       "s6"
+      ],
+      [
+       "ext_book",
+       "s12"
+      ]
+     ],
+     "roles": [],
+     "scope": {
+      "excluded_spans": 0,
+      "name": "library",
+      "notes": [],
+      "sources": 3
+     },
+     "search": {
+      "basis": "keyword+provenance",
+      "dense": {
+       "covered": 0,
+       "expected": 0,
+       "model_id": null,
+       "reason": "embeddings are disabled (embedding.enabled = false)",
+       "sources": 0,
+       "sources_covered": 0,
+       "status": "disabled"
+      },
+      "hits": 9,
+      "lists": [
+       "keyword",
+       "provenance"
+      ],
+      "notes": [
+       "embeddings are disabled (embedding.enabled = false)"
+      ],
+      "pool": {
+       "fallback": null,
+       "mode": "hybrid_rrf",
+       "requested": "hybrid_rrf"
+      },
+      "query_embedding": {},
+      "rewrite": {
+       "keywords": 0,
+       "model": null,
+       "reason": "Codex checkout path is not configured. Set LEARNLOOP_CODEX_CHECKOUT_PATH in your global learnloop settings (~/.config/learnloop/settings.env).",
+       "status": "unavailable"
+      },
+      "scope": {
+       "excluded_spans": 0,
+       "name": "library",
+       "notes": [],
+       "sources": 3
+      }
+     },
+     "status": "ok",
+     "target_hypotheses": [],
+     "verification": {
+      "label": "unverified: retrieval rank only",
+      "status": "not_requested"
+     },
+     "withheld_answer_overlap": []
+    },
+    "policy": "reading"
+   },
    "model": null,
-   "organizer_json": "{\"status\": \"not_run\"}",
+   "organizer_json": {
+    "status": "not_run"
+   },
    "personalized": 1,
    "prompt_version": "library_organizer.v1",
    "query_hash": "776b0b712c75d73f45a5a7f8298fa669",
    "query_md": "why does the determinant change sign when two rows are swapped",
    "question_event_id": null,
-   "requested_perspectives_json": "[]"
+   "requested_perspectives_json": []
   }
  ],
  "table": {

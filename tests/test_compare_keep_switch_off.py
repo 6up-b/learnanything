@@ -65,7 +65,10 @@ def _record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     table = call(ctx, "reader.library_compare", {"askId": asked["askId"],
                                                   "pinnedSpanKeys": ["ext_book:s6", "ext_text:t3"],
                                                   "openSourceId": "src_text"})
-    rows = [{key: value for key, value in row.items() if key != "created_at"} for row in ask_rows(repository)]
+    # The row's JSON columns are read as JSON, so their wall-clock fields
+    # (the search's timings) are left out like any other.
+    rows = [{key: (json.loads(value) if key.endswith("_json") and isinstance(value, str) else value)
+             for key, value in row.items() if key != "created_at"} for row in ask_rows(repository)]
     return _normalized(_without({
         "contract": contract, "ask": asked, "table": table, "rows": rows,
         "proposals": table_counts(repository, PROPOSAL_TABLES),
