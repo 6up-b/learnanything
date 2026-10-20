@@ -629,3 +629,66 @@ All steps ran in the worktree with `TMPDIR=fixtures-local/tmp`. Only targeted te
 Not run, by the owner rule: the full suite, the whole durability lane and the whole vitest run. Pre-existing and
 unchanged: `desktop_validate.py` (`syntheticBook.ts`) and `module_validate.py` (missing module notes). No migration, no
 DB or connection change, nothing under `src-tauri` and no configuration key change.
+
+## Fix round 8 (orchestrator ruling)
+
+Codex's verify of fix round 7 (`3c0f97753`; job `20261019-215502-FCtES7`, read-only) confirmed the union rule (9,168
+split checks), counting, and unbound and switch-off parity, and **reopened F8 (High) on one path**: the bound lookup
+query was cut at 2,000 characters AFTER the plan, so a passing gap statement could be cut into the key. The fix is in
+`fc70cf041`. The references regenerated on top of it are committed with this record. **Nothing was rejected.**
+
+**Paid calls: none ($0.00).** Every model is a fake. No vault copy was opened, and no manual run was made.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F8 (round 8, reopened) | High | Query truncation can create a leak after the delivery plan | fixed (R1) | `fc70cf041` | `test_reader_rw1c_review.py::test_a_length_limit_never_cuts_a_statement_into_the_key` ×6 (explain, another way, that didn't help × sources service on/off; old code: "The probability is 2/130." became "… The probability is 2/13" in the query and the verification's question). Controls: `::test_a_statement_that_fits_whole_is_still_delivered`, `::test_the_learners_question_is_truncated_as_before[False]` (unbound: the old query, byte for byte) pass on both trees; `[True]` fails on the old code (the bound query ended in the cut statement) |
+| F9 (round 7) | High | Same-second timestamp boundary | non-blocking (orchestrator ruling, round 7); its own follow-up | — | unchanged, see round 7's open questions |
+
+### What the fix does
+
+* **One helper, `reader_modes.fit_slots`,** builds any bound, length-limited, model-bound string from planned slots:
+  * the learner's own text first, truncated at the limit as before (it is theirs);
+  * then the model-written slots WHOLE, in order; the first that does not fit is dropped with every later one (the
+    latest, lowest priority first); no model-written slot is ever cut mid-text;
+  * then a final check: the binding's guard reads the model-written fragments actually present
+    (`withhold`, the plan's own rule), and any slot it names is dropped and the string rebuilt.
+* **The bound lookup query** (`source_retrieval.reader_tutor.reader_query`, with the plan's binding passed through
+  `BoundDelivery.lookup_inputs`) uses it at `BOUND_QUERY_CHARS`, the smallest of its own limit and every later cut of
+  the same string: the search and the rewrite cut the whitespace-normalized query at `MAX_QUERY_CHARS`, the
+  verification prompts at `QUESTION_CHARS` (all 2,000 today). The bound query is whitespace-normalized and within that
+  limit, so none of those later cuts reaches a statement; the rewrite's input and the verification's question are
+  that query. Unbound, `reader_query` is unchanged.
+* **The audit of the other cuts on these paths:**
+  * The verification's `context.misconceptions` (statements and corrections) and the tutor's thread and bridge lines
+    are not cut after the plan.
+  * `open_questions` (300 characters a statement) and the workbench problem line (300) are cut BEFORE the plan, so the
+    plan's guard reads exactly the delivered text; such a cut cannot turn a checked text into a leaking one.
+  * One cut after a guard was found outside the model-written slots: the context budget (`reader_modes.deliver`) can
+    trim a retrieved passage after the item's span guard read it whole. `_reader_lookup_context` now runs the guard
+    again over what is delivered, and the counts join `item_bound_withheld`.
+* **A test-isolation fix found on the way.** `instructional.tools` binds `propose_sources` by name when it is first
+  imported. Under xdist's scheduling with this round's added tests, a worker could first import it inside
+  `test_reader_tutor_retrieval.py::test_without_a_ready_verification_nothing_is_retrieved_or_claimed`, while that
+  test's failing stand-in was patched in, so a later offers test in the worker failed ("retrieved without
+  verification"; 3 of 10 runs). That test (and this round's recording helper) now imports `instructional.tools` before
+  patching: 0 failures in 15 repeated runs of the four RW1c files. On the round-7 tree, without the new tests, 0 of 8
+  runs failed.
+
+### Gate (fix round 8)
+
+All steps ran in the worktree with `TMPDIR=fixtures-local/tmp`. Only targeted tests were run (owner rule
+2026-10-17). The pytest runs took `/tmp/learnloop-fullsuite.lock`.
+
+| step | result |
+|---|---|
+| backend fail-before on `3c0f97753` (`git archive` of `src` and `migrations` into `fixtures-local/rw1c-r8-base`, run with this branch's tests and `-o pythonpath=fixtures-local/rw1c-r8-base/src`) | 9 new cases: **7 failed, 2 passed** (the passes are the fits-whole and unbound controls) |
+| `uv run lint-imports --no-cache` | 28 kept, 0 broken |
+| targeted pytest, `uv run pytest -n auto` over the 54-file list | **1,117 passed** (55 s) |
+| `--durable-sqlite` on the 9 new cases | **9 passed** |
+| vitest, `src/screens/reader/` and the `ReaderScreen.*.test.tsx` files (no frontend change) | **399 passed** |
+| `db_generate_reference.py`, then `db_validate_reference.py` | 0 errors (head 213). Before the regeneration, 2 configuration line citations into the changed files were stale |
+| `git diff --check` | clean |
+
+Not run, by the owner rule: the full suite, the whole durability lane and the whole vitest run. Pre-existing and
+unchanged: `desktop_validate.py` (`syntheticBook.ts`) and `module_validate.py` (missing module notes). No migration, no
+DB or connection change, nothing under `src-tauri` and no configuration key change.
