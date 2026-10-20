@@ -225,24 +225,36 @@ def _earlier_work(vault: Any, repository: Repository, error: Any, pending: set[s
     whole when the popover's clip shortens the statement; otherwise the item
     as it is now, exactly as before."""
 
-    attempt = repository.fetch_practice_attempt(error.attempt_id) if error.attempt_id else None
+    return earlier_work(vault, repository, attempt_id=error.attempt_id, fallback_at=error.created_at,
+                        statement=error.misconception_statement or None,
+                        pending=bool(error.attempt_id and error.attempt_id in pending))
+
+
+def earlier_work(vault: Any, repository: Repository, *, attempt_id: str | None, fallback_at: str | None = None,
+                 statement: str | None = None, pending: bool = False) -> dict[str, Any]:
+    """"Open · what you worked on" for one cited attempt: the question as it
+    was answered, the answer in the learner's words, and ``statement`` in
+    LearnLoop's model's voice (RW3a's Guide cues; RW3b's discovered cues name
+    their target's own statement, Codex review F12)."""
+
+    attempt = repository.fetch_practice_attempt(attempt_id) if attempt_id else None
     item_id = str((attempt or {}).get("practice_item_id") or "") or None
     item = vault.practice_items.get(item_id) if item_id else None
-    answered_at = str((attempt or {}).get("created_at") or error.created_at or "") or None
+    answered_at = str((attempt or {}).get("created_at") or fallback_at or "") or None
     contract = None
     if attempt is not None:
         with repository.connection() as connection:
-            contract = answered_contracts(connection, [str(error.attempt_id)]).get(str(error.attempt_id))
-    statement, method = answered_question(item, contract)
+            contract = answered_contracts(connection, [str(attempt_id)]).get(str(attempt_id))
+    question, method = answered_question(item, contract)
     return {
-        "attempt_id": error.attempt_id,
+        "attempt_id": attempt_id,
         "practice_item_id": item_id,
-        "prompt": _clip_question(statement, method),
+        "prompt": _clip_question(question, method),
         "answer": _clip_answer((attempt or {}).get("learner_answer_md")),
         "answered_at": answered_at,
         "answered_on": _day(answered_at),
-        "statement": (error.misconception_statement or None),
-        "statement_pending": bool(error.attempt_id and error.attempt_id in pending),
+        "statement": statement,
+        "statement_pending": pending,
     }
 
 
@@ -579,6 +591,7 @@ __all__ = [
     "DISCOVERED_TAP_ACTIONS",
     "RW3B_SERVER_CUE_EVENTS",
     "current_verdicts",
+    "earlier_work",
     "CUE_TASK",
     "CUE_TEMPLATES",
     "CueError",

@@ -7212,6 +7212,11 @@ export interface ReaderCueEarlierDto {
   statement: string | null;
   /** The answer's diagnosis is still being written. */
   statementPending: boolean;
+  /** RW3b, discovered cues: the learner's own words a named gap was read
+   *  from (a question to the tutor, a workbench step), clipped; learner text. */
+  learnerText?: string | null;
+  /** Where those words were written (`tutor_question`, `workbench_text`, …). */
+  learnerTextKind?: string | null;
 }
 
 /** A margin mark's kind: RW3a's Guide cue (`◌┆`), and RW3b's discovered
@@ -7268,6 +7273,9 @@ export interface ReaderCueDiscoveryDto {
   holdoutRate: number;
   valueOrder: boolean;
   tryFirst: boolean;
+  /** Background work (a learner-text gap being read) can still name a new
+   *  target: the Reader re-reads the plan while it is true. */
+  targetsPending?: boolean;
   /** Discovered cues withheld by the holdout (never drawn; their impression is logged in view). */
   heldOut: ReaderCueDto[];
   /** Cues cut by the density budget. */

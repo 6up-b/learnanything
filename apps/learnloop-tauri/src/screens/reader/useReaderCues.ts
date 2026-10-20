@@ -139,13 +139,22 @@ export interface ReaderCues {
 interface PlacedIds {
   shown: string[];
   suppressed: Array<{ cueId: string; reason: CueSuppression }>;
+  /** RW3b: held-out cues placed as if drawn, and those a rule set aside (Codex review F4). */
+  heldOutPlaced?: string[];
+  heldOutSuppressed?: Array<{ cueId: string; reason: CueSuppression }>;
 }
 
 const NO_PLACEMENT: PlacedIds = { shown: [], suppressed: [] };
 const FOCUS_RETRIES = 10;
 
+function sameHeldOut(a: PlacedIds, b: PlacedIds): boolean {
+  const left = [...(a.heldOutPlaced ?? []), ...(a.heldOutSuppressed ?? []).map((entry) => `${entry.cueId}:${entry.reason}`)];
+  const right = [...(b.heldOutPlaced ?? []), ...(b.heldOutSuppressed ?? []).map((entry) => `${entry.cueId}:${entry.reason}`)];
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
 function samePlacement(a: PlacedIds, b: PlacedIds): boolean {
-  return a.shown.length === b.shown.length
+  return sameHeldOut(a, b) && a.shown.length === b.shown.length
     && a.shown.every((cueId, index) => cueId === b.shown[index])
     && a.suppressed.length === b.suppressed.length
     && a.suppressed.every((entry, index) => entry.cueId === b.suppressed[index].cueId && entry.reason === b.suppressed[index].reason);
@@ -168,7 +177,8 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
   const [preferenceReceipt, setPreferenceReceipt] = useState<CueReceipt | null>(null);
   const [resizeTick, setResizeTick] = useState(0);
   const loggedRef = useRef<Set<string>>(new Set());
-  const marksKey = (cues?.marks ?? []).map((cue) => `${cue.cueId}:${cue.rank}`).join("|");
+  const marksKey = [...(cues?.marks ?? []), ...(cues?.discovery?.heldOut ?? []).map((cue) => ({ ...cue, cueId: `h:${cue.cueId}` }))]
+    .map((cue) => `${cue.cueId}:${cue.rank}`).join("|");
 
   // The visit a request belongs to (review F3): it changes when the learner
   // leaves the source (another book, the Library) and when the Reader closes,
@@ -201,7 +211,8 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
   // Which marks are drawn: computed when the text is laid out (a layout
   // effect, before paint), never while scrolling.
   useLayoutEffect(() => {
-    if (!cues || cues.marks.length === 0) {
+    const heldOut = cues?.discovery?.heldOut;
+    if (!cues || (cues.marks.length === 0 && (heldOut ?? []).length === 0)) {
       setPlacedIds((current) => (current.shown.length === 0 && current.suppressed.length === 0 ? current : NO_PLACEMENT));
       return;
     }
@@ -237,10 +248,15 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
       onePerViewport: cues.onePerViewport,
       positionOf,
       viewportHeight,
+      ...(heldOut ? { heldOut } : {}),
     });
     const ids: PlacedIds = {
       shown: next.shown.map((cue) => cue.cueId),
       suppressed: next.suppressed.map(({ cue, reason }) => ({ cueId: cue.cueId, reason })),
+      ...(heldOut ? {
+        heldOutPlaced: (next.heldOutPlaced ?? []).map((cue) => cue.cueId),
+        heldOutSuppressed: (next.heldOutSuppressed ?? []).map(({ cue, reason }) => ({ cueId: cue.cueId, reason })),
+      } : {}),
     };
     setPlacedIds((current) => (samePlacement(current, ids) ? current : ids));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -251,12 +267,20 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
   // once in its popover, without moving any mark.
   const placement = useMemo<CuePlacement>(() => {
     const byId = new Map((cues?.marks ?? []).map((cue) => [cue.cueId, cue]));
+    const heldById = new Map((cues?.discovery?.heldOut ?? []).map((cue) => [cue.cueId, cue]));
     return {
       shown: placedIds.shown.flatMap((cueId) => byId.get(cueId) ?? []),
       suppressed: placedIds.suppressed.flatMap(({ cueId, reason }) => {
         const cue = byId.get(cueId);
         return cue ? [{ cue, reason }] : [];
       }),
+      ...(placedIds.heldOutPlaced ? {
+        heldOutPlaced: placedIds.heldOutPlaced.flatMap((cueId) => heldById.get(cueId) ?? []),
+        heldOutSuppressed: (placedIds.heldOutSuppressed ?? []).flatMap(({ cueId, reason }) => {
+          const cue = heldById.get(cueId);
+          return cue ? [{ cue, reason }] : [];
+        }),
+      } : {}),
     };
   }, [placedIds, cues]);
 

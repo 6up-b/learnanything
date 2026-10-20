@@ -6,7 +6,8 @@ never held out; a cue cut by the density budget, the spacing rule or the
 restored-line rule is not a holdout, and its impression says why. The server
 records what it decides (holdout, density) whatever the client claims, and
 the seed, propensity, ``p_open`` and density come from its own computation.
-Fakes only.
+Only a cue the density budget admits is randomized (Codex review F4): a cut
+one carries no propensity. Fakes only.
 """
 
 from __future__ import annotations
@@ -124,7 +125,8 @@ def test_impressions_record_shown_holdout_density_and_the_clients_restraint_reas
         if source["found_by"] == "guide":
             assert row["link_id"] is None and row["propensity"] is None and row["seed"] is None
         else:
-            assert row["link_id"] == source["link_id"] and row["propensity"] == source["propensity"]
+            # A density cut was never randomized (Codex review F4): no propensity.
+            assert row["link_id"] == source["link_id"] and row["propensity"] == source.get("propensity")
 
 
 def test_one_impression_per_visit_and_cue_and_the_client_cannot_invent_one(tmp_path, monkeypatch):

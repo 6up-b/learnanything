@@ -67,14 +67,18 @@ def cues_discover(
     vault: Annotated[Path, typer.Option("--vault", help="Vault root.")],
     source: Annotated[str, typer.Option("--source", help="The source (or extraction) to discover cue links for.")],
     dry_run: Annotated[
-        bool, typer.Option("--dry-run", help="List the targets and their shortlists; call and write nothing.")
+        bool, typer.Option("--dry-run", help="List the targets, their keyword shortlists and a spend plan; call and "
+                                             "write nothing.")
     ] = False,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Find a source's discovered margin-cue links now (what opening it in the Reader
     does in the background): the open targets, each one's shortlist and one cue
-    judgment each, under cues.max_calls_per_source_open and cues.max_daily_cost_usd.
-    Run --dry-run first: it reads keyword matches only and calls nothing."""
+    judgment each, under cues.max_calls_per_source_open (every request, a retry
+    included) and cues.max_daily_cost_usd (query embeddings included). Run
+    --dry-run first: it reads keyword matches only, names the targets already
+    settled, and gives the spend plan (route, cost basis, estimated tokens and
+    dollars, caps); it calls nothing."""
 
     from learnloop.content.sources.source_outline import resolve_extraction_id
     from learnloop.practice_index.paid import planning_repository

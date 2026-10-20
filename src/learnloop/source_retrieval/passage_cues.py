@@ -62,7 +62,7 @@ from typing import Any, Literal
 from learnloop.ai.errors import AIInvalidOutput
 from learnloop.ai.execution import content_key
 from learnloop.ai.schemas import WireModel
-from learnloop.ai.spend import SpendEstimate, SpendLimitExceeded
+from learnloop.ai.spend import SpendBudget, SpendCaps, spend_envelopes
 from learnloop.ai.transport import render_structured_prompt
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.sources.exam_material import held_out_material
@@ -71,8 +71,16 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_gaps as gap_store
 from learnloop.db.stores import reader_cue_links as store
 from learnloop.db.stores.source_block_fts import blocks_by_key
-from learnloop.practice_index.listwise import ListwiseTask, judge_listwise, listwise_caps, task_output_tokens
-from learnloop.practice_index.paid import checkpoint_key, plan_route, receipt_answer
+from learnloop.practice_index.listwise import ListwiseTask, judge_listwise, route_skip, task_output_tokens
+from learnloop.practice_index.paid import (
+    PaidCalls,
+    checkpoint_key,
+    estimated_call_tokens,
+    plan_route,
+    receipt_answer,
+    resolve_client,
+    transport_problem,
+)
 from learnloop.reader import reader_cues as RCU
 from learnloop.reader.reader_progression import learning_objects_for_span
 from learnloop.source_retrieval.corpus import (
@@ -90,16 +98,22 @@ from learnloop.source_retrieval.service_spend import SharedDailyEnvelope, midnig
 from learnloop.text_canon import canonical
 from learnloop.vault.models import LoadedVault, learning_object_facet_union
 
-PROMPT_VERSION = "passage_cue_judge.v1"
+PROMPT_VERSION = "passage_cue_judge.v2"
 CUES_VERSION = "rw3b-discovered-cues-v1"
 #: The judge's left kind: one target at one state, on one extraction.
 TARGET_LEFT_KIND = "cue_target"
 SPAN_RIGHT_KIND = "reader_span"
 #: The learner_card verdicts on a discovered cue name its target this way.
 TARGET_RIGHT_KIND = "cue_target"
-TARGET_KINDS = ("recurrence_group", "hypothesis", "misconception", "learner_text_gap", "demonstrated_facet")
-#: Targets that are an open question about the learner (try first fits them).
-OPEN_TARGET_KINDS = frozenset({"hypothesis", "misconception", "learner_text_gap"})
+TARGET_KINDS = ("recurrence_group", "hypothesis", "misconception", "learner_text_gap", "demonstrated_facet",
+                "unchecked_claim")
+#: Targets that are an open question about the learner (try first fits them):
+#: a hypothesis, a recurrence group, a misconception, a named gap, and a
+#: claim needing an independent check (RW6a, §9.1; Codex review F9).
+OPEN_TARGET_KINDS = frozenset({"recurrence_group", "hypothesis", "misconception", "learner_text_gap",
+                               "unchecked_claim"})
+#: A claim needing an independent check offers only "try this step first".
+TRY_FIRST_ONLY_KINDS = frozenset({"unchecked_claim"})
 RELATIONS = ("clarifies_distinction", "new_application", "prerequisite_for", "try_first", "none")
 LINK_RELATIONS = RELATIONS[:-1]
 #: The mark kind a relation is drawn as (``◌┆``, ``●┆``, ``▹┆``).
@@ -119,8 +133,8 @@ JUDGE_ENVELOPE = "cues.max_daily_cost_usd"
 #: The holdout's draws are seeded per link, so a link's draw reproduces.
 HOLDOUT_SALT = "rw3b-holdout-v1"
 #: Where each target's ``p_open`` comes from (the impression records it).
-P_OPEN_SOURCES = ("misconception_lifecycle", "episode_posterior", "gap_status", "predictor", "error_lifecycle",
-                  "unavailable")
+P_OPEN_SOURCES = ("misconception_lifecycle", "episode_posterior", "candidate_lifecycle", "gap_status", "predictor",
+                  "error_lifecycle", "unavailable")
 
 # -- the fixed templates of discovered cues (G16) ----------------------------------------
 NOTE_PREREQUISITE = "Comes before something you worked on: {topic}."
@@ -129,8 +143,9 @@ NOTE_TRY_FIRST = "Try the next step before reading it?"
 BECAUSE_WORK = "Because: your work on {topic} · found by LearnLoop's model, not by a test"
 BECAUSE_QUESTION = "Because: a question you raised about {topic} · found by LearnLoop's model, not by a test"
 BECAUSE_SHOWN = "Because: what you've shown on {topic} · found by LearnLoop's model, not by a test"
+BECAUSE_CLAIM = "Because: work on {topic} done with help so far · found by LearnLoop's model, not by a test"
 DISCOVERED_TEMPLATES: tuple[str, ...] = (NOTE_PREREQUISITE, NOTE_APPLICATION, NOTE_TRY_FIRST, BECAUSE_WORK,
-                                         BECAUSE_QUESTION, BECAUSE_SHOWN)
+                                         BECAUSE_QUESTION, BECAUSE_SHOWN, BECAUSE_CLAIM)
 
 
 #: ``LEARNLOOP_CUE_JUDGE_MODELS=off``: the cue judge resolves no real client
@@ -194,6 +209,14 @@ class CueTarget:
     p_open: float | None
     p_open_source: str
     misconception_id: str | None = None
+    #: The facets the target is about (the holdout's outcome reads the next
+    #: attempt on them; Codex review F11). Empty: the LOs stand in.
+    facet_ids: tuple[str, ...] = ()
+    #: Where the target came from, for "Open · what you worked on" (Codex
+    #: review F12): ``attempt_id`` (the cited answer), ``learner_text`` and
+    #: ``learner_text_kind`` (the learner's own words a gap was named from).
+    #: Not part of the target's identity or state.
+    provenance: Mapping[str, Any] = field(default_factory=dict, compare=False)
 
     @property
     def open(self) -> bool:
@@ -289,10 +312,66 @@ def _misconception_status(record: Any) -> str:
     return str(getattr(record, "lifecycle_disposition", None) or getattr(record, "status", "") or "active")
 
 
-def _episode_targets(vault: LoadedVault, repository: Repository, lo_id: str,
-                     topic: str) -> list[CueTarget]:
-    """An open probe episode's concrete hypotheses that name a misconception,
-    each with its posterior mass (§6.2 item 4: "the open episode's posterior")."""
+def _flat(text: str | None) -> str:
+    return " ".join(str(text or "").casefold().split())
+
+
+def _facets(*groups: Any) -> tuple[str, ...]:
+    out: list[str] = []
+    for group in groups:
+        values = [group] if isinstance(group, str) else list(group or [])
+        for value in values:
+            if value and str(value) not in out:
+                out.append(str(value))
+    return tuple(out)
+
+
+class _Provenance:
+    """Reads of the rows a target was named from (one read per id)."""
+
+    def __init__(self, repository: Repository) -> None:
+        self._repository = repository
+        self._events: dict[str, dict[str, Any] | None] = {}
+        self._hypotheses: dict[str, dict[str, Any] | None] = {}
+
+    def event(self, event_id: str | None) -> dict[str, Any] | None:
+        if not event_id:
+            return None
+        if event_id not in self._events:
+            with closing(connect(self._repository.sqlite_path, read_only=True)) as connection:
+                row = connection.execute("SELECT id, attempt_id, created_at, misconception_statement "
+                                         "FROM error_events WHERE id = ?", (event_id,)).fetchone()
+            self._events[event_id] = dict(row) if row is not None else None
+        return self._events[event_id]
+
+    def latest_attempt(self, event_ids: Sequence[str]) -> dict[str, Any]:
+        """The newest of these error events' attempts: the answer the target was read from."""
+
+        events = [event for event in (self.event(str(e)) for e in event_ids or []) if event and event["attempt_id"]]
+        if not events:
+            return {}
+        latest = max(events, key=lambda event: (str(event["created_at"] or ""), str(event["id"])))
+        return {"attempt_id": str(latest["attempt_id"]), "at": latest["created_at"]}
+
+    def hypothesis(self, hypothesis_id: str) -> dict[str, Any] | None:
+        if hypothesis_id not in self._hypotheses:
+            self._hypotheses[hypothesis_id] = self._repository.causal_hypothesis(hypothesis_id)
+        return self._hypotheses[hypothesis_id]
+
+    def hypotheses_attempt(self, hypothesis_ids: Sequence[str]) -> dict[str, Any]:
+        rows = [row for row in (self.hypothesis(str(h)) for h in hypothesis_ids or []) if row and row.get("attempt_id")]
+        if not rows:
+            return {}
+        latest = max(rows, key=lambda row: (str(row.get("created_at") or ""), str(row["id"])))
+        return {"attempt_id": str(latest["attempt_id"]), "at": latest.get("created_at")}
+
+
+def _episode_targets(vault: LoadedVault, repository: Repository, lo_id: str, topic: str,
+                     reads: _Provenance) -> list[CueTarget]:
+    """An open probe episode's concrete hypotheses, each with its posterior
+    mass (§6.2 item 4: "the open episode's posterior"): a registry hypothesis
+    by its misconception's statement, a legacy one by the statement of the
+    error event it was entered from (Codex review F9)."""
 
     episode = repository.open_probe_episode(lo_id)
     if episode is None:
@@ -310,18 +389,56 @@ def _episode_targets(vault: LoadedVault, repository: Repository, lo_id: str,
     out: list[CueTarget] = []
     for hypothesis in hypothesis_set.hypotheses:
         misconception_id = getattr(hypothesis, "misconception_id", None)
-        if not misconception_id:
-            continue
-        record = repository.misconception(str(misconception_id))
-        statement = str(getattr(record, "statement", "") or "").strip()
-        if record is None or not statement:
-            continue
+        record = repository.misconception(str(misconception_id)) if misconception_id else None
+        event = reads.event(getattr(hypothesis, "source_error_event_id", None))
+        statement = str(getattr(record, "statement", "") or (event or {}).get("misconception_statement") or "").strip()
+        if not statement:
+            continue  # a hypothesis with no statement (no error, a bare type) has nothing to connect to
+        provenance = reads.latest_attempt([event["id"]]) if event else {}
+        if not provenance and record is not None:
+            provenance = reads.latest_attempt(list(record.source_error_event_ids))
         mass = float(posterior.posterior.get(hypothesis.label, 0.0))
         out.append(CueTarget(
             kind="hypothesis", id=f"{episode.id}:{hypothesis.label}", statement=_clip(statement, STATEMENT_CHARS),
             status=f"episode:{episode.status}", learning_object_ids=(lo_id,), topic=topic,
             p_open=round(min(max(mass, 0.0), 1.0), 6), p_open_source="episode_posterior",
-            misconception_id=str(misconception_id)))
+            misconception_id=str(misconception_id) if misconception_id else None,
+            facet_ids=_facets(getattr(record, "facet_ids", None), getattr(record, "target_facet", None)),
+            provenance=provenance))
+    return out
+
+
+def _candidate_targets(vault: LoadedVault, repository: Repository, lo_id: str, topic: str, reads: _Provenance,
+                       covered: set[str], statements: set[str]) -> list[CueTarget]:
+    """The holding pen's candidates on this LO (``misconception_candidates``
+    and the open causal hypotheses projected into it, grouped by their
+    recurrence key, Slice 2 T1): a class seen more than once is a recurrence
+    group, a single one a hypothesis; open by its lifecycle (Codex review F9)."""
+
+    try:
+        rows = repository.misconception_candidates_for_learning_object(lo_id)
+    except Exception:  # noqa: BLE001 - a holding-pen read never fails the cues
+        return []
+    out: list[CueTarget] = []
+    for row in rows:
+        statement = str(row.get("statement") or "").strip()
+        if not statement or _flat(statement) in statements:
+            continue
+        if row.get("promoted_misconception_id") and str(row["promoted_misconception_id"]) in covered:
+            continue
+        key = str(row.get("statement_normalized") or _flat(statement))
+        members = [str(member) for member in row.get("causal_hypothesis_ids") or []]
+        group = int(row.get("occurrence_count") or 1) > 1
+        ident = "rg_" + content_key(["recurrence", lo_id, key])[:20] if group else (
+            f"ch_{members[0]}" if members else f"cand_{row['id']}")
+        provenance = reads.hypotheses_attempt(members) or reads.latest_attempt(row.get("source_error_event_ids") or [])
+        statements.add(_flat(statement))
+        covered.add(str(row["id"]))
+        out.append(CueTarget(
+            kind="recurrence_group" if group else "hypothesis", id=ident, statement=_clip(statement, STATEMENT_CHARS),
+            status=f"candidate:{'group' if group else 'single'}", learning_object_ids=(lo_id,), topic=topic,
+            p_open=1.0, p_open_source="candidate_lifecycle",
+            facet_ids=_facets(row.get("facet_ids"), row.get("target_facet")), provenance=provenance))
     return out
 
 
@@ -329,7 +446,7 @@ def _gap_targets(vault: LoadedVault, repository: Repository, lo_ids: Sequence[st
                  covered: set[str]) -> list[CueTarget]:
     """Named learner-text gaps on these LOs, not undone (the learner's "not what
     I meant" hides a gap from cue targets, D37); a gap naming a misconception
-    already a target is that target, not a second one."""
+    or a holding-pen candidate already a target is that target, not a second one."""
 
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         rows = gap_store.gaps(connection, learning_object_ids=list(lo_ids))
@@ -338,7 +455,7 @@ def _gap_targets(vault: LoadedVault, repository: Repository, lo_ids: Sequence[st
     for row in rows:
         if row["id"] in undone or row.get("kind") in (None, "none", "unread", "slip", "wording"):
             continue
-        if row.get("target_kind") == "durable" and str(row.get("target_id") or "") in covered:
+        if row.get("target_kind") in ("durable", "candidate") and str(row.get("target_id") or "") in covered:
             continue
         named = row.get("named") or row.get("named_json") or {}
         if isinstance(named, str):
@@ -355,11 +472,26 @@ def _gap_targets(vault: LoadedVault, repository: Repository, lo_ids: Sequence[st
         los = tuple(lo for lo in dict.fromkeys([anchor, target_lo]) if lo and lo in vault.learning_objects)
         if not los:
             continue
+        provenance: dict[str, Any] = {}
+        if row.get("attempt_id"):
+            provenance["attempt_id"] = str(row["attempt_id"])
+        # The learner's own words the gap was named from (a question, a step,
+        # a note); an answer's text is shown as the answer itself.
+        if row.get("source_kind") not in ("stuck_answer", "diagnosis") and str(row.get("learner_text") or "").strip():
+            provenance["learner_text"] = str(row["learner_text"])
+            provenance["learner_text_kind"] = str(row.get("source_kind") or "")
         out.append(CueTarget(
             kind="learner_text_gap", id=str(row["id"]), statement=_clip(statement, STATEMENT_CHARS),
             status=f"named:{row.get('kind')}", learning_object_ids=los, topic=_topic(vault, los[0]),
-            p_open=1.0, p_open_source="gap_status"))
+            p_open=1.0, p_open_source="gap_status", provenance=provenance))
     return out
+
+
+def _facet_title(vault: LoadedVault, facet_id: str) -> tuple[str, str]:
+    facet = vault.evidence_facets.get(facet_id)
+    title = str(getattr(facet, "title", None) or facet_id)
+    statement = str(getattr(facet, "claim", None) or getattr(facet, "description", None) or title)
+    return title, statement
 
 
 def _facet_targets(vault: LoadedVault, repository: Repository, lo_ids: Sequence[str],
@@ -385,14 +517,76 @@ def _facet_targets(vault: LoadedVault, repository: Repository, lo_ids: Sequence[
                 capabilities = []
             if not capabilities:
                 continue
-            facet = vault.evidence_facets.get(facet_id)
-            title = str(getattr(facet, "title", None) or facet_id)
-            statement = str(getattr(facet, "claim", None) or getattr(facet, "description", None) or title)
+            title, statement = _facet_title(vault, facet_id)
             p_fail = failure(lo_id)
             out.append(CueTarget(
                 kind="demonstrated_facet", id=facet_id, statement=_clip(f"{title}: {statement}", STATEMENT_CHARS),
                 status="demonstrated:" + ",".join(capabilities), learning_object_ids=(lo_id,), topic=title,
-                p_open=p_fail, p_open_source="predictor" if p_fail is not None else "unavailable"))
+                p_open=p_fail, p_open_source="predictor" if p_fail is not None else "unavailable",
+                facet_ids=(facet_id,)))
+    return out
+
+
+def unchecked_claims(vault: LoadedVault, repository: Repository, extraction_id: str, *,
+                     now: Any | None = None) -> list[dict[str, Any]]:
+    """RW6a's "claims needing an independent check" (§9.1) on this source:
+    facets whose work in the current or the previous reader session was
+    assisted only, with no unassisted success since (``recap.session_summary``,
+    a pure read). Empty when it cannot be read."""
+
+    from datetime import datetime, timezone
+
+    from learnloop.reader import reader_sessions as RS
+    from learnloop.reader.recap import session_summary
+
+    moment = now or datetime.now(timezone.utc)
+    try:
+        sessions = RS.sessions_for_source(repository, extraction_id)
+        previous, current = RS.split_sessions(sessions, current_visit_id=None, now=moment,
+                                              extraction_id=extraction_id)
+        claims: dict[str, dict[str, Any]] = {}
+        for session in (previous, current):
+            if session is None:
+                continue
+            summary = session_summary(vault, repository, extraction_id=extraction_id, session=session, now=moment)
+            for claim in summary.get("claims_needing_independent_check") or []:
+                claims.setdefault(str(claim["facet_id"]), dict(claim))
+    except Exception:  # noqa: BLE001 - an order read never fails the cues
+        return []
+    return [claims[facet] for facet in sorted(claims)]
+
+
+def _claim_targets(vault: LoadedVault, repository: Repository, extraction_id: str, lo_ids: Sequence[str],
+                   failure: Callable[[str | None], float | None]) -> list[CueTarget]:
+    """A claim needing an independent check on a facet of these LOs: a target
+    for "try this step first" only (§6.1, G42; Codex review F9)."""
+
+    if not try_first_enabled(vault):
+        return []
+    claims = unchecked_claims(vault, repository, extraction_id)
+    if not claims:
+        return []
+    facet_los: dict[str, str] = {}
+    for lo_id in lo_ids:
+        learning_object = vault.learning_objects.get(lo_id)
+        if learning_object is None:
+            continue
+        for raw in learning_object_facet_union(learning_object):
+            facet_los.setdefault(vault.canonical_facet_id(str(raw)), lo_id)
+    out: list[CueTarget] = []
+    for claim in claims:
+        facet_id = str(claim["facet_id"])
+        lo_id = facet_los.get(facet_id)
+        if lo_id is None:
+            continue
+        title, statement = _facet_title(vault, facet_id)
+        p_fail = failure(lo_id)
+        attempts = [str(attempt) for attempt in claim.get("attempt_ids") or []]
+        out.append(CueTarget(
+            kind="unchecked_claim", id=facet_id, statement=_clip(f"{title}: {statement}", STATEMENT_CHARS),
+            status=f"assisted:{claim.get('basis') or 'help'}", learning_object_ids=(lo_id,), topic=title,
+            p_open=p_fail, p_open_source="predictor" if p_fail is not None else "unavailable",
+            facet_ids=(facet_id,), provenance={"attempt_id": attempts[-1]} if attempts else {}))
     return out
 
 
@@ -400,35 +594,50 @@ def cue_targets(vault: LoadedVault, repository: Repository, extraction_id: str, 
                 failure: Callable[[str | None], float | None] | None = None) -> list[CueTarget]:
     """Every target the open source's cues can connect to (reads only).
 
-    Order: open hypotheses first (an episode's posterior), then durable
-    misconceptions not in an episode, named gaps, demonstrated facets.
-    Recurrence groups are reserved (``passage_links.target_kind`` admits
-    them); v1 reads them through the misconceptions and hypotheses they group."""
+    Order: an open episode's hypotheses (its posterior), durable
+    misconceptions not in an episode, the holding pen's candidates (a
+    recurrence group when seen more than once), named gaps, demonstrated
+    facets, then the claims needing an independent check (try first only).
+    One statement is one target: a candidate or gap that a misconception or
+    hypothesis already states is not a second one."""
 
     los = source_learning_objects(vault, repository, extraction_id)
     if not los:
         return []
     failure = failure or _Failure(vault, repository)
+    reads = _Provenance(repository)
     targets: list[CueTarget] = []
     covered: set[str] = set()
+    statements: set[str] = set()
     for lo_id in los:
         topic = _topic(vault, lo_id)
-        for target in _episode_targets(vault, repository, lo_id, topic):
+        for target in _episode_targets(vault, repository, lo_id, topic, reads):
+            if _flat(target.statement) in statements:
+                continue
             targets.append(target)
-            covered.add(str(target.misconception_id))
+            statements.add(_flat(target.statement))
+            if target.misconception_id:
+                covered.add(str(target.misconception_id))
     for lo_id in los:
         topic = _topic(vault, lo_id)
         for record in repository.misconceptions_for_learning_object(lo_id, statuses=("active",)):
             statement = str(getattr(record, "statement", "") or "").strip()
-            if not statement or record.id in covered:
+            if not statement or record.id in covered or _flat(statement) in statements:
                 continue
             covered.add(record.id)
+            statements.add(_flat(statement))
             targets.append(CueTarget(
                 kind="misconception", id=record.id, statement=_clip(statement, STATEMENT_CHARS),
                 status=_misconception_status(record), learning_object_ids=(lo_id,), topic=topic, p_open=1.0,
-                p_open_source="misconception_lifecycle", misconception_id=record.id))
-    targets.extend(_gap_targets(vault, repository, los, covered))
+                p_open_source="misconception_lifecycle", misconception_id=record.id,
+                facet_ids=_facets(record.facet_ids, getattr(record, "target_facet", None)),
+                provenance=reads.latest_attempt(list(record.source_error_event_ids))))
+    for lo_id in los:
+        targets.extend(_candidate_targets(vault, repository, lo_id, _topic(vault, lo_id), reads, covered, statements))
+    targets.extend(target for target in _gap_targets(vault, repository, los, covered)
+                   if _flat(target.statement) not in statements)
     targets.extend(_facet_targets(vault, repository, los, failure))
+    targets.extend(_claim_targets(vault, repository, extraction_id, los, failure))
     return targets
 
 
@@ -549,7 +758,7 @@ class Shortlist:
 
 def shortlist(vault: LoadedVault, repository: Repository, target: CueTarget, extraction_id: str, *,
               guard: Protection | None = None, embedder: Any | None = None, limit: int = SHORTLIST,
-              owner_id: str = "", deep: bool = True) -> Shortlist:
+              owner_id: str = "", deep: bool = True, budget: SpendBudget | None = None) -> Shortlist:
     """The target's shortlisted passages, every one protected before a model sees it."""
 
     guard = guard or protection(vault, repository, extraction_id)
@@ -571,7 +780,7 @@ def shortlist(vault: LoadedVault, repository: Repository, target: CueTarget, ext
     # Twice the shortlist is read, so passages withheld below never shrink it.
     search = search_spans(vault, repository, target.statement, _scope(repository, extraction_id, guard),
                           limit=limit * 2, deep=deep, rewrite=False, extra_lists=extra or None, embedder=embedder,
-                          owner_id=owner_id, pool="hybrid_rrf")
+                          owner_id=owner_id, pool="hybrid_rrf", budget=budget)
     result.lists = {name: len(keys) for name, keys in extra.items()}
     result.lists.update({name: sum(1 for hit in search.hits if name in hit.ranks) for name in search.lists
                          if name not in extra})
@@ -647,7 +856,8 @@ _INSTRUCTIONS = (
     "the distinction the target is about, or corrects the belief), new_application (the passage uses the "
     "shown skill in a new way), prerequisite_for (the passage teaches something the target rests on), "
     "try_first (a worked example or derivation where the learner could try the next step themselves before "
-    "reading it; only for a target that is an open question, never for a shown skill), or none. For each, "
+    "reading it; only for a target that is an open question, never for a shown skill), or none. A target "
+    "marked try_first_only is a skill done with help so far: judge it try_first or none only. For each, "
     "write ONE short line (rationale) about the passage itself, copy into quote the exact words of THIS "
     "passage the relation rests on (empty for none), and propose the instructional roles the passage plays, "
     "from the roles list only, each with a confidence. Then pick at most two passages worth a margin note, "
@@ -659,7 +869,7 @@ _INSTRUCTIONS = (
 def judge_prompt(target: CueTarget, candidates: Sequence[Mapping[str, Any]]) -> str:
     context = {
         "target": {"kind": target.kind, "statement": target.statement, "topic": target.topic,
-                   "open_question": target.open},
+                   "open_question": target.open, "try_first_only": target.kind in TRY_FIRST_ONLY_KINDS},
         "relations": list(RELATIONS), "roles": list(ROLES), "pick_at_most": PICK_AT_MOST,
         "candidates": list(candidates),
     }
@@ -681,22 +891,23 @@ def _judge_envelope(vault: LoadedVault, repository: Repository, *, clock: Clock 
         price_per_million=vault.config.source_retrieval.llm_price_per_million)
 
 
-class _Admission:
-    """Each metered judge attempt reserved under the shared daily cap."""
+def _calls_cap(vault: LoadedVault) -> int:
+    return max(0, int(getattr(_cues(vault), "max_calls_per_source_open", 12)))
 
-    def __init__(self, envelope: SharedDailyEnvelope) -> None:
-        self.envelope = envelope
-        self.handles: list[object] = []
 
-    def __call__(self, estimate: SpendEstimate) -> None:
-        if estimate.estimated_usd is None:
-            raise SpendLimitExceeded(f"{JUDGE_ENVELOPE}: an unpriced metered request")
-        self.handles.append(self.envelope.reserve(Decimal(str(estimate.estimated_usd))))
+def discovery_budget(vault: LoadedVault, *, cancelled: Callable[[], bool] | None = None) -> SpendBudget:
+    """The judge's caps for one whole discovery (one source open), shared by
+    every target (Codex review F3): each admitted judge request counts once,
+    a failure and a retry included, against ``cues.max_calls_per_source_open``;
+    metered dollars against ``cues.max_daily_cost_usd``. A subscription
+    request (Codex) is priced $0 here and is never refused for money; its
+    calls still count (the call cap is no money cap)."""
 
-    def release(self) -> None:
-        handles, self.handles = self.handles, []
-        for handle in handles:
-            self.envelope.unreserve(handle)
+    cap = _calls_cap(vault)
+    return SpendBudget(SpendCaps(
+        max_candidates=SHORTLIST * cap, max_pairs=SHORTLIST * cap, max_retries=cap, max_calls=cap,
+        max_total_tokens=400_000 * max(cap, 1),
+        max_estimated_usd=float(getattr(_cues(vault), "max_daily_cost_usd", 0.5))), cancelled=cancelled)
 
 
 def _recovered(repository: Repository, route: Any, prompt: str,
@@ -724,8 +935,14 @@ def _link_id(extraction_id: str, target: CueTarget, span_id: str) -> str:
 
 
 def judge_target(vault: LoadedVault, repository: Repository, listed: Shortlist, extraction_id: str, *,
-                 client: Any | None = None, clock: Clock | None = None) -> dict[str, Any]:
-    """One listwise judgment of a target's shortlist; picks become links."""
+                 client: Any | None = None, clock: Clock | None = None, budget: SpendBudget | None = None,
+                 route: Any | None = None, envelope: SharedDailyEnvelope | None = None) -> dict[str, Any]:
+    """One listwise judgment of a target's shortlist; picks become links.
+
+    ``budget``: the discovery's shared caps (:func:`discovery_budget`; alone,
+    a fresh one); ``route`` and ``client`` may be resolved by the caller;
+    ``envelope``: the discovery's cue envelope, already active (one
+    reservation per metered request, never two)."""
 
     target = listed.target
     if not listed.keys:
@@ -746,23 +963,19 @@ def judge_target(vault: LoadedVault, repository: Repository, listed: Shortlist, 
             captured.setdefault(judgment.ref, judgment)
         return value
 
-    route = plan_route(vault, CUE_JUDGE_TASK.route_task, client)
-    subscription = route.billing == "subscription"
-    cap = float(getattr(_cues(vault), "max_daily_cost_usd", 0.5))
-    admission = None if subscription else _Admission(_judge_envelope(vault, repository, clock=clock))
+    route = route or plan_route(vault, CUE_JUDGE_TASK.route_task, client)
     left_id = target.left_id(extraction_id)
-    try:
+    # One discovery's caps (shared by its targets) or, called alone, one
+    # call's; metered requests reserve under the shared daily envelope.
+    budget = budget or discovery_budget(vault)
+    with spend_envelopes(envelope or _judge_envelope(vault, repository, clock=clock)):
         outcome = judge_listwise(
             vault, repository, CUE_JUDGE_TASK, prompt=prompt, refs=refs, left_id=left_id,
             right_id=lambda key: f"{key[0]}/{key[1]}", id_parts=lambda key: [f"{key[0]}/{key[1]}"],
-            pick_at_most=PICK_AT_MOST,
-            caps=listwise_caps(len(refs), max_total_tokens=400_000, max_estimated_usd=None if subscription else cap),
+            pick_at_most=PICK_AT_MOST, caps=budget.caps,
             price=vault.config.source_retrieval.llm_price_per_million, owner_id=left_id, client=client, route=route,
-            validate=validate, clock=clock, admit=admission,
+            validate=validate, clock=clock, budget=budget,
         )
-    finally:
-        if admission is not None:
-            admission.release()
     status = "capped" if outcome.status == "over_budget" else outcome.status
     if not outcome.judged:
         return {"status": status, "reason": outcome.reason, "links": [], "dropped": []}
@@ -787,6 +1000,8 @@ def judge_target(vault: LoadedVault, repository: Repository, listed: Shortlist, 
                 reason = "its quote is not this passage's words"
             elif relation == "try_first" and not (target.open and listed.roles.get(key) in NEXT_STEP_ROLES):
                 reason = "try first fits only a worked example or derivation on an open question"
+            elif target.kind in TRY_FIRST_ONLY_KINDS and relation != "try_first":
+                reason = "a claim needing an independent check offers only try first"
             if reason is not None:
                 dropped.append({"span_id": key[1], "relation": relation, "reason": reason})
                 continue
@@ -797,7 +1012,8 @@ def judge_target(vault: LoadedVault, repository: Repository, listed: Shortlist, 
                 "id": _link_id(extraction_id, target, key[1]), "extraction_id": extraction_id, "span_id": key[1],
                 "target_kind": target.kind, "target_id": target.id, "relation": relation,
                 "quote": canonical(judgment.quote), "pick_rank": rank, "ranks": listed.ranks.get(key) or {},
-                "roles": roles, "ledger_id": str(row["id"]), "state_key": target.state_key,
+                "roles": roles, "target_facets": list(target.facet_ids), "ledger_id": str(row["id"]),
+                "state_key": target.state_key,
                 "model": str(row["judge_model"] or outcome.model or "unspecified"), "prompt_version": PROMPT_VERSION,
                 "created_at": now,
             }
@@ -838,54 +1054,179 @@ def _settled(repository: Repository, targets: Sequence[CueTarget], extraction_id
     return settled
 
 
+def _judge_readiness(vault: LoadedVault, client: Any | None) -> tuple[Any, Any | None, str | None, str | None]:
+    """The judge's route and client, resolved before anything is paid for
+    (Codex review F2): ``(route, client, status, reason)``; a status means no
+    target is retrieved deeply or judged."""
+
+    route = plan_route(vault, CUE_JUDGE_TASK.route_task, client)
+    skip = route_skip(route, vault.config.source_retrieval.llm_price_per_million, injected=client is not None,
+                      price_setting=CUE_JUDGE_TASK.price_setting, route_label=CUE_JUDGE_TASK.route_label)
+    if skip is not None:
+        return route, None, skip, None
+    if client is None and models_off():
+        return route, None, "unavailable", f"{MODELS_ENV}=off: no cue judge model is reached"
+    if client is None:
+        client, reason = resolve_client(vault, route)
+    else:
+        reason = transport_problem(route, client)
+    if client is None or reason is not None:
+        return route, None, "unavailable", reason
+    return route, client, None, None
+
+
+def _metered_room(vault: LoadedVault, repository: Repository, route: Any, *, clock: Clock | None) -> bool:
+    """Whether a metered judge has any of today's allowance left (a
+    subscription judge is never refused for money)."""
+
+    if route.billing == "subscription":
+        return True
+    envelope = _judge_envelope(vault, repository, clock=clock)
+    return envelope.max_usd > Decimal(str(envelope._total()))
+
+
+def _spend_plan(vault: LoadedVault, repository: Repository, route: Any, pending: Sequence[tuple[CueTarget, Shortlist]],
+                *, clock: Clock | None) -> dict[str, Any]:
+    """The dry run's read-only spend plan (Codex review F13): the resolved
+    route and its cost basis, the judge calls a run would send (each target's
+    prompt as the dry run's keyword shortlist builds it, so the real one may
+    differ in its passages), the query embeddings retrieval may buy, and the
+    caps with what today has spent."""
+
+    price = vault.config.source_retrieval.llm_price_per_million
+    calls = PaidCalls(route=route, budget=discovery_budget(vault), price_per_million=price, repository=None,
+                      owner_kind=CUE_JUDGE_TASK.route_task, owner_id="dry_run")
+    cap = _calls_cap(vault)
+    output_tokens = task_output_tokens(CUE_JUDGE_TASK, route)
+    tokens = []
+    for target, listed in list(pending)[:cap]:
+        if not listed.keys:
+            continue
+        candidates = [{"ref": f"p{index}", "passage": listed.texts[key][:PASSAGE_CHARS],
+                       "role": listed.roles.get(key) or "text"} for index, key in enumerate(listed.keys, start=1)]
+        tokens.append(estimated_call_tokens(judge_prompt(target, candidates), CueJudgeResult, output_tokens))
+    judge = calls.plan(tokens, candidates=sum(1 for _ in tokens))
+    envelope = _judge_envelope(vault, repository, clock=clock)
+    spent = float(envelope._total())
+    embedding = vault.config.embedding
+    return {
+        "route": route.as_dict(),
+        "judge": judge,
+        "retries_at_most": "a retry counts as a call under cues.max_calls_per_source_open",
+        "query_embeddings": {
+            "enabled": bool(embedding.enabled),
+            "route": getattr(vault.config.ai.routing, "embedding", None),
+            "requests_at_most": len(tokens) if embedding.enabled else 0,
+            "cost_basis": "metered_estimate" if embedding.enabled else None,
+            "note": "the run embeds each pending target's statement when a dense index is usable; refused by "
+                    "the daily cap, the shortlist falls back to keyword lists",
+        },
+        "caps": {"max_calls_per_source_open": cap, "max_daily_cost_usd": float(envelope.max_usd),
+                 "spent_today_usd": spent, "remaining_today_usd": max(0.0, float(envelope.max_usd) - spent),
+                 "subscription_exempt_from_dollar_cap": route.billing == "subscription"},
+    }
+
+
 def discover(vault: LoadedVault, repository: Repository, extraction_id: str, *, client: Any | None = None,
              embedder: Any | None = None, clock: Clock | None = None, dry_run: bool = False,
              cancelled: Callable[[], bool] = lambda: False) -> dict[str, Any]:
     """Compute the open source's missing links, at most
-    ``cues.max_calls_per_source_open`` judge calls, highest ``p_open`` first.
-    ``dry_run``: the targets and shortlists only; no model is called and
-    nothing is written."""
+    ``cues.max_calls_per_source_open`` judge requests in all (a failure and a
+    retry count), highest ``p_open`` first.
+
+    The judge's route is checked before any retrieval is paid for, and every
+    metered request of the run, the query embeddings included, reserves under
+    the cue envelope ``cues.max_daily_cost_usd`` (Codex review F2): refused,
+    the shortlist keeps its keyword lists. ``cancelled`` is asked before each
+    target and before every request (the sidecar: a reload, a vault switch, a
+    switch turned off, shutdown; Codex review F1). Protection is read again
+    for each target. ``dry_run``: settled targets are named as skipped, the
+    rest get keyword shortlists and a spend plan; nothing is called or
+    written."""
 
     if not discovery_enabled(vault):
         return {"status": "disabled", "targets": []}
     guard = protection(vault, repository, extraction_id)
     targets = cue_targets(vault, repository, extraction_id)
     out: dict[str, Any] = {"status": "done", "extraction_id": extraction_id, "targets_key": targets_key(targets),
-                           "targets": [], "calls": 0, "dry_run": dry_run}
+                           "targets": [], "calls": 0, "judged": 0, "dry_run": dry_run}
     if guard.whole:
         out["status"] = "withheld"
         return out
-    settled = set() if dry_run else _settled(repository, targets, extraction_id)
+    settled = _settled(repository, targets, extraction_id)
     pending = [target for target in targets if target.left_id(extraction_id) not in settled]
     pending.sort(key=lambda target: -(target.p_open if target.p_open is not None else -1.0))
-    budget = int(getattr(_cues(vault), "max_calls_per_source_open", 12))
+    cap = _calls_cap(vault)
     for target in targets:
         if target.left_id(extraction_id) in settled:
             out["targets"].append({**target.describe(), "status": "current"})
-    for target in pending:
-        if cancelled():
-            out["status"] = "cancelled"
-            break
-        if not dry_run and out["calls"] >= budget:
-            out["targets"].append({**target.describe(), "status": "capped",
-                                   "reason": "cues.max_calls_per_source_open"})
-            continue
-        # A dry run reads the keyword list only: no query is embedded (paid).
-        listed = shortlist(vault, repository, target, extraction_id, guard=guard, embedder=embedder,
-                           owner_id=target.left_id(extraction_id), deep=not dry_run)
-        entry = {**target.describe(), "manifest": listed.manifest()}
-        if dry_run:
-            entry["status"] = "dry_run"
+    if dry_run:
+        route = plan_route(vault, CUE_JUDGE_TASK.route_task, client)
+        listed_pending: list[tuple[CueTarget, Shortlist]] = []
+        for index, target in enumerate(pending):
+            # A dry run reads the keyword list only: no query is embedded (paid).
+            listed = shortlist(vault, repository, target, extraction_id, guard=guard, deep=False,
+                               owner_id=target.left_id(extraction_id))
+            listed_pending.append((target, listed))
+            out["targets"].append({**target.describe(), "manifest": listed.manifest(),
+                                   "status": "dry_run" if index < cap else "would_cap"})
+        out["spend_plan"] = _spend_plan(vault, repository, route, listed_pending, clock=clock)
+        return out
+    route, ready_client, skip, reason = _judge_readiness(vault, client)
+    if skip is not None:
+        # Nothing is retrieved deeply (no query embedding is bought) for a judge that cannot run.
+        for target in pending:
+            out["targets"].append({**target.describe(), "status": skip, **({"reason": reason} if reason else {})})
+        out["status"] = "unavailable"
+        return out
+    budget = discovery_budget(vault, cancelled=cancelled)
+    envelope = _judge_envelope(vault, repository, clock=clock)
+    from learnloop.source_retrieval.queries import QUERY_EMBEDDING_CAPS
+
+    with spend_envelopes(envelope):
+        for target in pending:
+            if cancelled():
+                out["status"] = "cancelled"
+                break
+            if budget.used.calls >= cap:
+                out["targets"].append({**target.describe(), "status": "capped",
+                                       "reason": "cues.max_calls_per_source_open"})
+                continue
+            if not _metered_room(vault, repository, route, clock=clock):
+                out["targets"].append({**target.describe(), "status": "capped", "reason": JUDGE_ENVELOPE})
+                continue
+            # Protection is read again for each target: a passage held out
+            # since the run began never reaches the judge.
+            guard = protection(vault, repository, extraction_id)
+            if guard.whole:
+                out["status"] = "withheld"
+                break
+            listed = shortlist(vault, repository, target, extraction_id, guard=guard, embedder=embedder,
+                               owner_id=target.left_id(extraction_id), deep=True,
+                               budget=SpendBudget(QUERY_EMBEDDING_CAPS, cancelled=cancelled))
+            entry = {**target.describe(), "manifest": listed.manifest()}
+            if cancelled():
+                out["status"] = "cancelled"
+                entry["status"] = "cancelled"
+                out["targets"].append(entry)
+                break
+            judged = judge_target(vault, repository, listed, extraction_id, client=ready_client, clock=clock,
+                                  budget=budget, route=route, envelope=envelope)
+            if judged["status"] == "judged":
+                out["judged"] += 1
+            entry.update({"status": judged["status"], "links": [link["id"] for link in judged["links"]],
+                          "dropped": judged["dropped"]})
+            if judged.get("reason"):
+                entry["reason"] = judged["reason"]
             out["targets"].append(entry)
-            continue
-        judged = judge_target(vault, repository, listed, extraction_id, client=client, clock=clock)
-        if judged["status"] == "judged":
-            out["calls"] += 1
-        entry.update({"status": judged["status"], "links": [link["id"] for link in judged["links"]],
-                      "dropped": judged["dropped"]})
-        if judged.get("reason"):
-            entry["reason"] = judged["reason"]
-        out["targets"].append(entry)
+            if judged["status"] == "cancelled":
+                out["status"] = "cancelled"
+                break
+    # Every admitted judge request, a failed one and a retry included (Codex review F3).
+    out["calls"] = int(budget.used.calls)
+    out["usage"] = {"requests": int(budget.used.calls), "retries": int(budget.used.retries),
+                    "judged_targets": out["judged"], "billing": route.billing,
+                    "cost_basis": "estimated_only" if route.billing == "subscription" else "metered_estimate"}
     return out
 
 
@@ -906,7 +1247,8 @@ def holdout_draw(link_id: str, rate: float) -> dict[str, Any]:
 
 
 def _because(target: CueTarget) -> str:
-    template = {"learner_text_gap": BECAUSE_QUESTION, "demonstrated_facet": BECAUSE_SHOWN}.get(target.kind, BECAUSE_WORK)
+    template = {"learner_text_gap": BECAUSE_QUESTION, "demonstrated_facet": BECAUSE_SHOWN,
+                "unchecked_claim": BECAUSE_CLAIM}.get(target.kind, BECAUSE_WORK)
     return template.format(topic=target.topic.strip().rstrip(".") or "this idea")
 
 
@@ -918,6 +1260,33 @@ def _note(relation: str, target: CueTarget, passage_topic: str) -> str:
     if relation == "prerequisite_for":
         return NOTE_PREREQUISITE.format(topic=passage_topic)
     return RCU.render_note(passage_topic)
+
+
+#: The learner's own words a gap was named from, as "Open" shows them.
+MAX_LEARNER_TEXT_CHARS = RCU.MAX_ANSWER_CHARS
+
+
+def _earlier(vault: LoadedVault, repository: Repository, target: CueTarget,
+             cache: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """"Open · what you worked on" for a discovered cue (spec §6.1, UX §4.4;
+    Codex review F12): the cited answer the target was read from (the question
+    as it was answered, the answer in the learner's words), the learner's own
+    words a gap was named from, and the target's statement in LearnLoop's
+    model's voice."""
+
+    if target.ref in cache:
+        return cache[target.ref]
+    provenance = target.provenance or {}
+    attempt_id = provenance.get("attempt_id")
+    earlier = RCU.earlier_work(vault, repository, attempt_id=str(attempt_id) if attempt_id else None,
+                               fallback_at=provenance.get("at"), statement=target.statement)
+    if not attempt_id:
+        earlier["answered_at"] = earlier["answered_on"] = None
+    text = _clip(provenance.get("learner_text"), MAX_LEARNER_TEXT_CHARS) if provenance.get("learner_text") else None
+    earlier["learner_text"] = text or None
+    earlier["learner_text_kind"] = str(provenance.get("learner_text_kind") or "") or None if text else None
+    cache[target.ref] = earlier
+    return earlier
 
 
 def discovered_candidates(vault: LoadedVault, repository: Repository, *, extraction_id: str,
@@ -942,6 +1311,7 @@ def discovered_candidates(vault: LoadedVault, repository: Repository, *, extract
             section_of[str(span_id)] = (ordinal, section)
     try_first = try_first_enabled(vault)
     learning_objects = SpanLearningObjects(vault, repository, extraction_id)
+    earlier_cache: dict[str, dict[str, Any]] = {}
     out: list[dict[str, Any]] = []
     for link in links:
         target = by_state.get((link["target_kind"], link["target_id"], link["state_key"]))
@@ -988,10 +1358,7 @@ def discovered_candidates(vault: LoadedVault, repository: Repository, *, extract
             "because": because,
             "label": RCU.LABEL_TEMPLATE.format(note=note, because=because),
             "found_by": "model",
-            "earlier": {
-                "attempt_id": None, "practice_item_id": None, "prompt": None, "answer": None, "answered_at": None,
-                "answered_on": None, "statement": target.statement, "statement_pending": False,
-            },
+            "earlier": _earlier(vault, repository, target, earlier_cache),
         })
     return out
 
@@ -1002,17 +1369,79 @@ def _guide_p_open(_cue: Mapping[str, Any]) -> tuple[float, str]:
     return 1.0, "error_lifecycle"
 
 
+def seen_targets(vault: LoadedVault, repository: Repository, *, extraction_id: str,
+                 candidates: Sequence[Mapping[str, Any]], now: str | None = None) -> set[str]:
+    """The targets whose cue the learner actually had in view during this
+    visit (Codex review F10): the shown impressions of the current reader
+    session on this source (impressions less than ``SESSION_GAP`` apart, the
+    newest less than that before ``now``; RW6a's session), read back to their
+    target (a discovered cue by its link, a Guide cue by the cue it still is).
+    Read when the plan is built (a layout boundary), never while scrolling."""
+
+    from datetime import datetime
+
+    from learnloop.reader.reader_sessions import SESSION_GAP
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        if not store.tables_present(connection):
+            return set()
+        rows = store.shown_impressions(connection, extraction_id)
+    if not rows:
+        return set()
+
+    def when(value: Any) -> datetime | None:
+        try:
+            return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except ValueError:
+            return None
+
+    moment = when(now or utc_now_iso())
+    session: list[dict[str, Any]] = []
+    later = moment
+    for row in sorted(rows, key=lambda row: (str(row["created_at"]), str(row["id"])), reverse=True):
+        at = when(row["created_at"])
+        if at is None or later is None or (later - at) > SESSION_GAP:
+            break
+        session.append(row)
+        later = at
+    by_cue = {str(cue["cue_id"]): str(cue["target_id"]) for cue in candidates}
+    seen: set[str] = set()
+    for row in session:
+        if row.get("target_kind") and row.get("target_id"):
+            seen.add(f"{row['target_kind']}:{row['target_id']}")
+        elif str(row["cue_id"]) in by_cue:
+            seen.add(by_cue[str(row["cue_id"])])
+    return seen
+
+
+def targets_pending(vault: LoadedVault, repository: Repository) -> bool:
+    """Background work that can name a new target (Codex review F8): a
+    learner-text gap job queued or running. While it is, the Reader re-reads
+    the plan, so a gap that lands asks for discovery in the same session."""
+
+    try:
+        from learnloop.diagnosis.text_gaps.jobs import pending_jobs, pipeline_enabled
+
+        return pipeline_enabled(vault) and bool(pending_jobs(repository))
+    except Exception:  # noqa: BLE001 - a status read never fails the cues
+        return False
+
+
 def merged_cues(vault: LoadedVault, repository: Repository, *, extraction_id: str,
-                plan: Mapping[str, Any]) -> dict[str, Any]:
+                plan: Mapping[str, Any], now: str | None = None) -> dict[str, Any]:
     """RW3a's cue payload with RW3b's discovered cues merged in (reads only).
 
     Per section in reading order: the Guide's and the discovered candidates,
-    minus the learner's "not relevant" and books switched off; an eligible
-    discovered cue is held out by its seeded draw; the rest are ordered by
-    ``p_open``, then the judge's pick rank, Guide first on ties, with a target
-    already given a mark in an earlier section after every target not yet
-    given one (value order; off: the Guide's order, discovered after); then
-    the density budget. Ranked for the Reader's spacing rule as RW3a ranks."""
+    minus the learner's "not relevant" and books switched off, are ordered
+    (value order: ``p_open``, then the judge's pick rank, Guide first on
+    ties; a target the learner already had in view this visit, or already
+    given a slot in this section, after every target not yet shown; off: the
+    Guide's order, discovered after) and cut by the density budget. Only then
+    is an eligible discovered cue held out by its seeded draw (Codex review
+    F4): a held-out cue keeps its place and its rank, so the shown and the
+    held-out arms are the same population, and its slot is not given to a
+    cue the budget cut. A density cut is never a holdout. The Reader applies
+    its spacing and restored-line rules to held-out cues as to drawn ones."""
 
     density = RCU.cue_density(vault)
     budget = RCU.DENSITY_BUDGET[density]
@@ -1034,6 +1463,8 @@ def merged_cues(vault: LoadedVault, repository: Repository, *, extraction_id: st
     verdicts = RCU.current_verdicts(repository, extraction_id)
     rate = holdout_rate(vault)
     value_order = value_order_enabled(vault)
+    seen = seen_targets(vault, repository, extraction_id=extraction_id, candidates=[*guide, *discovered], now=now) \
+        if value_order else set()
     withheld = {"held_out": held, "not_relevant": 0, "density": 0, "source_off": 0, "holdout": 0}
     held_out: list[dict[str, Any]] = []
     suppressed: list[dict[str, Any]] = []
@@ -1044,8 +1475,13 @@ def merged_cues(vault: LoadedVault, repository: Repository, *, extraction_id: st
         by_section.setdefault(cue["section_ordinal"], []).append((0, {**cue, "_order": index}))
     for cue in discovered:
         by_section.setdefault(cue["section_ordinal"], []).append((1, {**cue, "_order": cue["pick_rank"]}))
-    kept: list[dict[str, Any]] = []
-    shown_targets: set[str] = set()
+
+    def value_key(entry: tuple[int, dict[str, Any]]) -> tuple[Any, ...]:
+        origin, cue = entry
+        return (-(cue["p_open"] if cue["p_open"] is not None else -1.0), cue["pick_rank"] if origin == 1 else 0,
+                origin, cue["_order"])
+
+    eligible: list[dict[str, Any]] = []
     for ordinal in sorted(by_section):
         entries = []
         for origin, cue in by_section[ordinal]:
@@ -1056,32 +1492,39 @@ def merged_cues(vault: LoadedVault, repository: Repository, *, extraction_id: st
             if source_off:
                 withheld["source_off"] += 1
                 continue
-            if origin == 1:
-                draw = holdout_draw(str(cue["link_id"]), rate)
-                cue = {**cue, "seed": draw["seed"], "propensity": draw["propensity"]}
-                if draw["held_out"]:
-                    withheld["holdout"] += 1
-                    held_out.append(_public(cue))
-                    continue
             entries.append((origin, cue))
         if value_order:
-            entries.sort(key=lambda entry: (entry[1]["target_id"] in shown_targets,
-                                            -(entry[1]["p_open"] if entry[1]["p_open"] is not None else -1.0),
-                                            entry[1]["pick_rank"] if entry[0] == 1 else 0, entry[0],
-                                            entry[1]["_order"]))
+            # Greedy by value: at each slot the best entry whose target was not
+            # yet shown this visit nor given a slot here, else the best left.
+            remaining = sorted(entries, key=value_key)
+            ordered: list[tuple[int, dict[str, Any]]] = []
+            taken: set[str] = set()
+            while remaining:
+                pick = next((entry for entry in remaining
+                             if entry[1]["target_id"] not in seen and entry[1]["target_id"] not in taken), remaining[0])
+                remaining.remove(pick)
+                ordered.append(pick)
+                taken.add(pick[1]["target_id"])
+            entries = ordered
         else:
             entries.sort(key=lambda entry: (entry[0], entry[1]["_order"]))
-        count = 0
-        for origin, cue in entries:
-            if count >= budget:
+        for slot, (origin, cue) in enumerate(entries):
+            if slot >= budget:
                 withheld["density"] += 1
                 suppressed.append({**_public(cue), "reason": "density"})
                 continue
-            count += 1
-            shown_targets.add(cue["target_id"])
-            kept.append({**cue, "section_rank": count - 1})
-    kept.sort(key=lambda cue: (cue["section_rank"], cue["section_ordinal"], cue["position"]))
-    marks = [{**_public(cue), "rank": rank} for rank, cue in enumerate(kept)]
+            if origin == 1:
+                draw = holdout_draw(str(cue["link_id"]), rate)
+                cue = {**cue, "seed": draw["seed"], "propensity": draw["propensity"], "_held": draw["held_out"]}
+            eligible.append({**cue, "section_rank": slot})
+    eligible.sort(key=lambda cue: (cue["section_rank"], cue["section_ordinal"], cue["position"]))
+    marks: list[dict[str, Any]] = []
+    for rank, cue in enumerate(eligible):
+        if cue.get("_held"):
+            withheld["holdout"] += 1
+            held_out.append({**_public(cue), "rank": rank})
+        else:
+            marks.append({**_public(cue), "rank": rank})
     return {
         "version": RCU.CUES_VERSION,
         "density": density,
@@ -1094,6 +1537,7 @@ def merged_cues(vault: LoadedVault, repository: Repository, *, extraction_id: st
             "version": CUES_VERSION,
             "targets_key": targets_key(targets),
             "targets": len(targets),
+            "targets_pending": targets_pending(vault, repository),
             "holdout_rate": rate,
             "value_order": value_order,
             "try_first": try_first_enabled(vault),
@@ -1103,7 +1547,7 @@ def merged_cues(vault: LoadedVault, repository: Repository, *, extraction_id: st
     }
 
 
-_PRIVATE = frozenset({"section_ordinal", "position", "_order"})
+_PRIVATE = frozenset({"section_ordinal", "position", "_order", "_held"})
 
 
 def _public(cue: Mapping[str, Any]) -> dict[str, Any]:
@@ -1125,6 +1569,7 @@ def find_discovered(vault: LoadedVault, repository: Repository, *, extraction_id
 
 
 __all__ = [
+    "BECAUSE_CLAIM",
     "BECAUSE_QUESTION",
     "BECAUSE_SHOWN",
     "BECAUSE_WORK",
@@ -1158,6 +1603,9 @@ __all__ = [
     "judge_target",
     "merged_cues",
     "protection",
+    "seen_targets",
+    "targets_pending",
+    "unchecked_claims",
     "quote_verifies",
     "shortlist",
     "source_learning_objects",

@@ -130,9 +130,12 @@ class _Job:
     job_id: str
     extraction_id: str
     started: float
+    #: The vault generation the job was started on (a reload or switch ends it).
+    generation: int = 0
     done: threading.Event = field(default_factory=threading.Event)
     result: dict[str, Any] | None = None
     error: SidecarError | None = None
+    cancelled: bool = False
 
 
 class CueDiscoveryJobs:
@@ -145,23 +148,41 @@ class CueDiscoveryJobs:
     def running(self, extraction_id: str) -> _Job | None:
         with self._lock:
             return next((job for job in self._kept.values()
-                         if job.extraction_id == extraction_id and not job.done.is_set()), None)
+                         if job.extraction_id == extraction_id and not job.done.is_set() and not job.cancelled), None)
 
     def start(self, ctx: SidecarContext, extraction_id: str) -> _Job:
         from learnloop.ids import new_ulid
 
+        provider = ctx.loaded_vault
+        vault, generation = provider.snapshot()
         running = self.running(extraction_id)
         if running is not None:
-            return running
-        job = _Job(f"cjob_{new_ulid()}", extraction_id, time.monotonic())
+            if running.generation == generation and not running.cancelled:
+                return running
+            # Started on a vault since reloaded or replaced: it stops at its next check.
+            running.cancelled = True
+        _vault, repository = ctx.require_vault()
+        if vault is None:
+            vault = _vault
+        job = _Job(f"cjob_{new_ulid()}", extraction_id, time.monotonic(), generation=generation)
         with self._lock:
             self._kept[job.job_id] = job
             while len(self._kept) > MAX_KEPT_JOBS:
                 self._kept.pop(next(iter(self._kept)))
-        vault, repository = ctx.require_vault()
         sqlite_path = repository.sqlite_path
         client = getattr(ctx, "cue_judge_client", None)
         embedder = getattr(ctx, "cue_embedder", None)
+
+        def cancelled() -> bool:
+            """Asked before each target and each request (Codex review F1):
+            the job ends on a cancel, shutdown, a reload or a vault switch
+            (the generation it started on is no longer the published one),
+            or once discovery is switched off in the vault loaded now."""
+
+            if job.cancelled or ctx.shutdown_requested or not provider.admit(generation):
+                return True
+            current = provider()
+            return current is None or not PC.discovery_enabled(current)
 
         def run() -> None:
             from learnloop.ai.execution import record_model_calls
@@ -171,7 +192,8 @@ class CueDiscoveryJobs:
                 worker_repo = Repository.attach(sqlite_path)
                 with record_model_calls(worker_repo, owner_kind="sidecar_rpc",
                                         owner_id=f"reader.cue_discovery:{job.job_id}"):
-                    job.result = PC.discover(vault, worker_repo, extraction_id, client=client, embedder=embedder)
+                    job.result = PC.discover(vault, worker_repo, extraction_id, client=client, embedder=embedder,
+                                             cancelled=cancelled)
             except BaseException as exc:  # noqa: BLE001 - every failure answers the job, never the loop
                 LOG.warning("cue discovery failed: %s", type(exc).__name__, exc_info=exc)
                 job.error = SidecarError("internal_error", "LearnLoop couldn't look for margin notes just now.",
@@ -319,9 +341,13 @@ def reader_cue_impressions(ctx: SidecarContext, params: CueImpressionsInput) -> 
                 store.record_response(connection, stored["id"], response="fewer", text_hash=None, at=now)
                 recorded.append({"cue_id": entry.cue_id, "response": "fewer"})
                 continue
-            # What the server decides, it records, whatever the client says.
+            # What the server decides, it records, whatever the client says;
+            # a held-out cue the Reader's own rules would not have drawn (the
+            # spacing or the restored line, applied to held-out cues as to
+            # drawn ones) is recorded with that reason, outside both arms
+            # (Codex review F4).
             if where == "holdout":
-                shown, reason = False, "holdout"
+                shown, reason = False, entry.reason if entry.reason in CLIENT_REASONS else "holdout"
             elif where == "density":
                 shown, reason = False, "density"
             elif entry.shown:
@@ -360,16 +386,25 @@ def reader_cue_tap(ctx: SidecarContext, params: CueTapInput) -> dict[str, Any]:
     if params.action not in RCU.DISCOVERED_TAP_ACTIONS:
         raise SidecarError("validation_error", f"unknown cue action {params.action!r}")
     try:
-        plan = RG.build_guide_plan(vault, repository, extraction_id=extraction_id)
+        # A drawn mark resolves through the plan's cues kept for this reading;
+        # the plan is built only for a cue not among them (a "not relevant"
+        # being undone), never for an ordinary tap (RW3a friction note 5).
+        found_now = _index(_cues_now(ctx, vault, repository, extraction_id)).get(params.cue_id)
+        cached = found_now[1] if found_now is not None and found_now[0] == "mark" else None
+        if cached is not None and not PC.protection(vault, repository, extraction_id).allows(
+                (extraction_id, str(cached["span_id"]))):
+            cached = None  # held out since the plan was read: resolved (and refused) afresh
         if params.cue_id.startswith("dcue_"):
-            cue = PC.find_discovered(vault, repository, extraction_id=extraction_id, cue_id=params.cue_id, plan=plan)
+            cue = cached or PC.find_discovered(vault, repository, extraction_id=extraction_id, cue_id=params.cue_id,
+                                               plan=RG.build_guide_plan(vault, repository, extraction_id=extraction_id))
             if params.action == "try_first" and cue.get("relation") != "try_first":
                 raise SidecarError("validation_error", "Only a try-this-step-first note offers that.")
             right_kind = PC.TARGET_RIGHT_KIND
         else:
             if params.action == "try_first":
                 raise SidecarError("validation_error", "Only a try-this-step-first note offers that.")
-            cue = RCU.find_cue(vault, repository, extraction_id=extraction_id, cue_id=params.cue_id, plan=plan)
+            cue = cached or RCU.find_cue(vault, repository, extraction_id=extraction_id, cue_id=params.cue_id,
+                                         plan=RG.build_guide_plan(vault, repository, extraction_id=extraction_id))
             right_kind = RCU.CUE_RIGHT_KIND
         result = RCU.record_cue_tap(repository, extraction_id=extraction_id, cue=cue, action=params.action,
                                     text=params.text, actions=RCU.DISCOVERED_TAP_ACTIONS, right_kind=right_kind)

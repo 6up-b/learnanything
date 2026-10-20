@@ -106,8 +106,8 @@ def test_the_holdout_estimate_weights_by_propensity_and_leaves_other_suppression
     estimate = _holdout_estimate(rows)
     shown = (1 / 0.9 + 1 / 0.5) / (2 / 0.9 + 1 / 0.5)
     held = (1 / 0.5) / (1 / 0.1 + 1 / 0.5)
-    assert estimate["shown"] == {"n": 3, "mean": round(shown, 4)}
-    assert estimate["held_out"] == {"n": 2, "mean": round(held, 4)}
+    assert estimate["shown"] == {"n": 3, "links": 3, "pending": 0, "mean": round(shown, 4)}
+    assert estimate["held_out"] == {"n": 2, "links": 2, "pending": 0, "mean": round(held, 4)}
     assert estimate["effect"] == round(round(shown, 4) - round(held, 4), 4)
     low, high = estimate["interval_95"]
     assert low < estimate["effect"] < high

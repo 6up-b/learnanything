@@ -48,6 +48,12 @@ export interface MarginMarkProps {
 /** At least this share of the mark in view counts as seen. */
 const SEEN_THRESHOLD = 0.5;
 
+/** The label over the learner's own words a gap was named from (RW3b). */
+function yourWords(kind: string | null | undefined): string {
+  const labels: Record<string, string> = DISCOVERED_COPY.yourWords;
+  return labels[kind ?? ""] ?? DISCOVERED_COPY.yourWords.other;
+}
+
 const ACTION_STYLE = {
   border: 0,
   background: "transparent",
@@ -256,6 +262,29 @@ export function MarginMark({
                 <span style={{ color: COLOR.textDim }}>
                   {DISCOVERED_COPY.quoteLabel}: “{cue.quote}”
                 </span>
+              ) : null}
+              {/* The earlier work the target was read from (Codex review F12): the
+                  cited answer and the question it answered, and the learner's own
+                  words a gap was named from, in the learner's voice. */}
+              {earlier.attemptId ? (
+                <MeaningLabel>
+                  {earlier.answeredOn ? `${CUE_COPY.answeredOn} ${earlier.answeredOn}.` : CUE_COPY.answeredUndated}
+                </MeaningLabel>
+              ) : null}
+              {earlier.prompt ? (
+                <span style={{ color: COLOR.textDim }}>
+                  {CUE_COPY.question}: “{earlier.prompt}”
+                </span>
+              ) : null}
+              {earlier.answer ? (
+                <LearnerVoice label={CUE_COPY.yourAnswer}>
+                  <span style={{ whiteSpace: "pre-wrap", fontSize: 11 }}>{earlier.answer}</span>
+                </LearnerVoice>
+              ) : null}
+              {earlier.learnerText ? (
+                <LearnerVoice label={yourWords(earlier.learnerTextKind)}>
+                  <span style={{ whiteSpace: "pre-wrap", fontSize: 11 }}>{earlier.learnerText}</span>
+                </LearnerVoice>
               ) : null}
               {earlier.statement ? <ModelVoice note={DISCOVERED_COPY.statementNote}>{earlier.statement}</ModelVoice> : null}
               <MeaningLabel>{DISCOVERED_COPY.foundBy}</MeaningLabel>

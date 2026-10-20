@@ -1,0 +1,202 @@
+// Reader RW3b, Codex review fixes on the real hooks (docs/reviews/reader-rw3b-codex-review.md):
+// F4 a held-out cue goes through the Reader's spacing and restored-line rules
+// as a mark does, keeps its place and is never drawn; F5 both arms are
+// measured by their passage, and on the original PDF neither is recorded;
+// F6 a receipt queued in one book is sent to that book with its visit when
+// the learner opens another, and sent again once when the sidecar did not take
+// it; F7 a search that answered for older targets (a joined job) is asked
+// again for the current ones.
+import { act, cleanup, renderHook } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import type { ReaderCueDto, ReaderCuesDto } from "../../api/dto";
+import { placeCueMarks, type CuePlacement } from "./cues";
+
+const api = vi.hoisted(() => ({
+  readerCueImpressions: vi.fn(), readerCueDiscovery: vi.fn(), readerCueDiscoveryJob: vi.fn(),
+}));
+vi.mock("../../api/client", () => ({ api }));
+
+import { useCueImpressions, IMPRESSION_FLUSH_MS, IMPRESSION_RETRY_MS } from "./useCueImpressions";
+import { useCueDiscovery, DISCOVERY_POLL_MS } from "./useCueDiscovery";
+
+function cue(spanId: string, rank: number, extra: Partial<ReaderCueDto> = {}): ReaderCueDto {
+  return {
+    cueId: `cue_${spanId}`, kind: "revisit", spanId, sectionId: "u1", learningObjectId: "lo", learningObjectTitle: "LO",
+    targetId: "err_1", rank, sectionRank: rank, note: "n", because: "b", label: "l",
+    earlier: { attemptId: null, practiceItemId: null, prompt: null, answer: null, answeredAt: null, answeredOn: null,
+      statement: null, statementPending: false },
+    foundBy: "guide", linkId: null, ...extra,
+  };
+}
+const discovered = (spanId: string, rank: number) =>
+  cue(spanId, rank, { cueId: `dcue_${spanId}`, kind: "distinction", foundBy: "model", linkId: `plink_${spanId}`, propensity: 0.9 });
+
+function cues(marks: ReaderCueDto[], heldOut: ReaderCueDto[] = [], targetsKey = "tk1"): ReaderCuesDto {
+  return {
+    version: "v", density: "normal", budgetPerSection: 2, onePerViewport: true, sourceOff: false, marks, withheld: {},
+    discovery: { version: "d", targetsKey, targets: 1, holdoutRate: 0.1, valueOrder: true, tryFirst: true, heldOut,
+      suppressed: [] },
+  } as ReaderCuesDto;
+}
+
+const EMPTY: CuePlacement = { shown: [], suppressed: [] };
+
+beforeEach(() => {
+  vi.resetAllMocks();
+  api.readerCueImpressions.mockResolvedValue({ recorded: [] });
+});
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+// -- F4 ---------------------------------------------------------------------------------------
+
+it("F4: a held-out cue is placed like a mark, spaces out a lower mark, and is never drawn", () => {
+  const tops: Record<string, number> = { a: 100, b: 300, c: 1200, d: 2000 };
+  const base = { muted: false, working: false, onePerViewport: true, viewportHeight: 600,
+    positionOf: (spanId: string) => tops[spanId] ?? null };
+  const held = discovered("a", 0);
+  const placement = placeCueMarks({ ...base, restoredSpanId: "c", marks: [discovered("b", 1), discovered("d", 3)],
+    heldOut: [held, discovered("c", 2)] });
+  expect(placement.shown.map((entry) => entry.spanId)).toEqual(["d"]);
+  expect(placement.heldOutPlaced?.map((entry) => entry.spanId)).toEqual(["a"]);
+  // b sits within a screenful of the held-out a: spaced out exactly as if a were drawn.
+  expect(placement.suppressed).toEqual([{ cue: expect.objectContaining({ spanId: "b" }), reason: "spacing" }]);
+  // A held-out cue on the restored line was never eligible to show: not a control.
+  expect(placement.heldOutSuppressed).toEqual([{ cue: expect.objectContaining({ spanId: "c" }), reason: "restored_line" }]);
+  // Without held-out cues the placement is RW3a's, key for key.
+  expect(Object.keys(placeCueMarks({ ...base, restoredSpanId: null, marks: [cue("a", 0)] }))).toEqual(["shown", "suppressed"]);
+});
+
+// -- F5 ---------------------------------------------------------------------------------------
+
+class FakeObserver {
+  static all: FakeObserver[] = [];
+  callback: IntersectionObserverCallback;
+  targets: Element[] = [];
+  constructor(callback: IntersectionObserverCallback) {
+    this.callback = callback;
+    FakeObserver.all.push(this);
+  }
+  observe(target: Element) { this.targets.push(target); }
+  unobserve() {}
+  disconnect() {}
+}
+
+function body(spans: string[]) {
+  const element = document.createElement("div");
+  element.innerHTML = spans.map((spanId) => `<p data-span-id="${spanId}"></p>`).join("");
+  return { current: element };
+}
+
+it("F5: both arms are measured by their passage on the text view (a tall passage counts by the reading area)", async () => {
+  vi.useFakeTimers();
+  FakeObserver.all = [];
+  vi.stubGlobal("IntersectionObserver", FakeObserver);
+  const shown = discovered("s1", 0);
+  const held = discovered("s2", 1);
+  const placement: CuePlacement = { shown: [shown], suppressed: [], heldOutPlaced: [held], heldOutSuppressed: [] };
+  const { result } = renderHook(() => useCueImpressions({ extractionId: "A", cues: cues([shown], [held]), placement,
+    surface: "text", bodyRef: body(["s1", "s2"]), visitId: () => "visit_A" }));
+  // MarginMark's "in view" for a discovered mark is not its receipt (its button is not the passage).
+  act(() => result.current.noteShown(shown));
+  const observer = FakeObserver.all[FakeObserver.all.length - 1];
+  expect(observer.targets).toHaveLength(2);
+  act(() => {
+    observer.callback(observer.targets.map((target) => ({ isIntersecting: true, intersectionRatio: 0.3, target,
+      intersectionRect: { height: 400 }, rootBounds: { height: 600 } })) as unknown as IntersectionObserverEntry[],
+    observer as unknown as IntersectionObserver);
+  });
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+  const sent = api.readerCueImpressions.mock.calls.flatMap((call) => call[0].entries);
+  expect(sent).toEqual([{ cueId: "dcue_s1", shown: true }, { cueId: "dcue_s2", shown: false }]);
+});
+
+it("F5: on the original PDF no discovered cue is recorded in either arm; a Guide mark still is", async () => {
+  vi.useFakeTimers();
+  FakeObserver.all = [];
+  vi.stubGlobal("IntersectionObserver", FakeObserver);
+  const shown = discovered("s1", 0);
+  const guideMark = cue("s3", 2);
+  const placement: CuePlacement = { shown: [shown, guideMark], suppressed: [], heldOutPlaced: [discovered("s2", 1)],
+    heldOutSuppressed: [] };
+  const { result } = renderHook(() => useCueImpressions({ extractionId: "A", cues: cues([shown, guideMark]),
+    placement, surface: "pdf", bodyRef: body([]), visitId: () => "visit_A" }));
+  act(() => {
+    result.current.noteShown(shown);
+    result.current.noteShown(guideMark);
+  });
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+  expect(FakeObserver.all).toHaveLength(0);
+  expect(api.readerCueImpressions.mock.calls.flatMap((call) => call[0].entries)).toEqual([{ cueId: "cue_s3", shown: true }]);
+});
+
+// -- F6 ---------------------------------------------------------------------------------------
+
+it("F6: opening another book sends the first book's queued receipts to it, with its visit", async () => {
+  vi.useFakeTimers();
+  const guideMark = cue("a1", 0);
+  const { result, rerender } = renderHook(({ extraction }: { extraction: string }) => useCueImpressions({
+    extractionId: extraction, cues: cues([guideMark]), placement: EMPTY, surface: "pdf", bodyRef: body([]),
+    visitId: () => `visit_${extraction}`,
+  }), { initialProps: { extraction: "A" } });
+  act(() => result.current.noteShown(guideMark));
+  rerender({ extraction: "B" });  // before the flush
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+  expect(api.readerCueImpressions).toHaveBeenCalledTimes(1);
+  expect(api.readerCueImpressions).toHaveBeenCalledWith({ extractionId: "A", visitId: "visit_A",
+    entries: [{ cueId: "cue_a1", shown: true }] });
+});
+
+it("F6: a batch the sidecar did not take is sent again once", async () => {
+  vi.useFakeTimers();
+  api.readerCueImpressions.mockRejectedValueOnce(new Error("busy")).mockResolvedValue({ recorded: [] });
+  const guideMark = cue("a1", 0);
+  const { result } = renderHook(() => useCueImpressions({ extractionId: "A", cues: cues([guideMark]),
+    placement: EMPTY, surface: "pdf", bodyRef: body([]), visitId: () => "visit_A" }));
+  act(() => result.current.noteShown(guideMark));
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_RETRY_MS + 10); });
+  expect(api.readerCueImpressions).toHaveBeenCalledTimes(2);
+  expect(api.readerCueImpressions.mock.calls[1][0]).toEqual({ extractionId: "A", visitId: "visit_A",
+    entries: [{ cueId: "cue_a1", shown: true }] });
+});
+
+// -- F7 ---------------------------------------------------------------------------------------
+
+it("F7: a search that answered for older targets is asked again for the current ones", async () => {
+  vi.useFakeTimers();
+  const reload = vi.fn().mockResolvedValue(undefined);
+  // The first ask starts K1's job; the second (K2) joins it; K1's job then answers for K1.
+  api.readerCueDiscovery
+    .mockResolvedValueOnce({ jobId: "j1", extractionId: "A", state: "pending", result: null })
+    .mockResolvedValueOnce({ jobId: "j1", extractionId: "A", state: "pending", result: null })
+    .mockResolvedValueOnce({ jobId: "j2", extractionId: "A", state: "done",
+      result: { status: "done", targetsKey: "K2", calls: 1, links: 1 } });
+  api.readerCueDiscoveryJob.mockResolvedValue({ jobId: "j1", extractionId: "A", state: "done",
+    result: { status: "done", targetsKey: "K1", calls: 1, links: 0 } });
+  const discovery = (key: string) => cues([], [], key).discovery ?? null;
+  const { rerender } = renderHook(({ key }: { key: string }) => useCueDiscovery({ extractionId: "A",
+    discovery: discovery(key), offline: false, reloadGuidePlan: reload }), { initialProps: { key: "K1" } });
+  await act(async () => { await Promise.resolve(); });
+  rerender({ key: "K2" });
+  await act(async () => { await Promise.resolve(); });
+  await act(async () => { vi.advanceTimersByTime(DISCOVERY_POLL_MS[0] + 10); });
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  expect(api.readerCueDiscovery).toHaveBeenCalledTimes(3);
+  // The answer for K2 found links: the plan is re-read.
+  expect(reload).toHaveBeenCalled();
+});
+
+it("F7: a search answered for the targets asked is not asked again", async () => {
+  api.readerCueDiscovery.mockResolvedValue({ jobId: "j1", extractionId: "A", state: "done",
+    result: { status: "done", targetsKey: "K1", calls: 0, links: 0 } });
+  const reload = vi.fn().mockResolvedValue(undefined);
+  renderHook(() => useCueDiscovery({ extractionId: "A", discovery: cues([], [], "K1").discovery ?? null,
+    offline: false, reloadGuidePlan: reload }));
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  expect(api.readerCueDiscovery).toHaveBeenCalledTimes(1);
+  expect(reload).not.toHaveBeenCalled();
+});

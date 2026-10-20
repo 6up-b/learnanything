@@ -1,8 +1,9 @@
 """Reader workbench RW3b: cue value and the density control (spec_reader_workbench_v1 §6.2 item 4; G42).
 
 Cues are ordered by the stored ``p_open``, then the judge's pick rank, Guide
-first on ties; a target already given a mark in an earlier section ranks after
-every target not yet given one; the order uses no hand-set weight (any
+first on ties; a target the learner already had in view this visit (its
+impressions) ranks after every target not yet seen, and a target given a slot
+in a section waits behind targets not yet given one (Codex review F10); the order uses no hand-set weight (any
 monotone rescaling of ``p_open`` gives the same order); the density control
 changes only how many show; ``cues.value_order_enabled`` off gives the
 judge's order, the Guide's first. Targets are injected here so ``p_open`` is
@@ -78,13 +79,66 @@ def test_the_density_control_changes_only_how_many_show(tmp_path, monkeypatch, d
     assert cues["withheld"]["density"] == 3 - shown
 
 
-def test_a_target_marked_in_an_earlier_section_ranks_after_targets_not_yet_marked(tmp_path, monkeypatch):
+def _shown(repository, cue_id: str, *, visit_id: str = "visit_1", at: str | None = None) -> None:
+    from learnloop.clock import utc_now_iso
+    from learnloop.db.stores import reader_cue_links as store
+
+    with repository.connection() as connection:
+        store.insert_impression(connection, {
+            "id": f"cimp_{cue_id}", "cue_id": cue_id, "link_id": f"plink_{cue_id[len('dcue_'):]}"
+            if cue_id.startswith("dcue_") else None, "extraction_id": "ext_text", "span_id": "t3",
+            "learning_object_id": "lo_matrices", "kind": "distinction", "visit_id": visit_id, "shown": True,
+            "suppressed_reason": None, "propensity": 1.0, "seed": "s", "p_open": 1.0, "p_open_source": "x",
+            "density": "fewer", "created_at": at or utc_now_iso()})
+        connection.commit()
+
+
+def test_a_target_seen_this_visit_ranks_after_targets_not_yet_seen_and_placement_alone_never_demotes(
+        tmp_path, monkeypatch):
+    """Codex review F10: "already shown" is what the learner had in view this
+    visit (its impressions), never a mark placed in an earlier section."""
+
     repeat, fresh = target("misconception", "m_repeat", p_open=1.0), target("hypothesis", "h_fresh", p_open=0.4)
-    # m_repeat is marked in ch5 (t3); in the worked section it also links t5, as does h_fresh (lower p_open).
-    cues, _ = _setup(tmp_path, monkeypatch, [repeat, fresh], [(repeat, "t3"), (repeat, "t5"), (fresh, "t4")],
-                     density="fewer")
+    links = [(repeat, "t3"), (repeat, "t5"), (fresh, "t4")]
+    # m_repeat has a mark in ch5 (t3), never seen: in the worked section it still outranks h_fresh.
+    cues, _ = _setup(tmp_path / "a", monkeypatch, [repeat, fresh], links, density="fewer")
     worked = [mark for mark in cues["marks"] if mark["section_id"] == "worked"]
+    assert [mark["target_id"] for mark in worked] == ["misconception:m_repeat"]
+    # Once its ch5 mark was in view this visit, the next plan puts h_fresh first there.
+    paths, repository, _spans = build_cue_vault(tmp_path / "b", misconception=False)
+    set_config(paths, "cues", density="fewer", holdout_rate=0.0)
+    for entry in links:
+        seed_link(repository, *entry)
+    monkeypatch.setattr(PC, "cue_targets", lambda *args, **kwargs: [repeat, fresh])
+    vault = loaded(paths)
+    plan = build_guide_plan(vault, repository, extraction_id="ext_text")
+    first = PC.merged_cues(vault, repository, extraction_id="ext_text", plan=plan)
+    seen_mark = next(mark for mark in first["marks"] if mark["span_id"] == "t3")
+    _shown(repository, seen_mark["cue_id"])
+    again = PC.merged_cues(vault, repository, extraction_id="ext_text", plan=plan)
+    worked = [mark for mark in again["marks"] if mark["section_id"] == "worked"]
     assert [mark["target_id"] for mark in worked] == ["hypothesis:h_fresh"]
+    # A visit long past (more than a reader session's gap) is not this visit.
+    paths_c, repository_c, _ = build_cue_vault(tmp_path / "c", misconception=False)
+    set_config(paths_c, "cues", density="fewer", holdout_rate=0.0)
+    for entry in links:
+        seed_link(repository_c, *entry)
+    vault_c = loaded(paths_c)
+    _shown(repository_c, seen_mark["cue_id"], at="2026-01-01T00:00:00Z")
+    old = PC.merged_cues(vault_c, repository_c, extraction_id="ext_text",
+                         plan=build_guide_plan(vault_c, repository_c, extraction_id="ext_text"))
+    assert [m["target_id"] for m in old["marks"] if m["section_id"] == "worked"] == ["misconception:m_repeat"]
+
+
+def test_a_targets_second_passage_in_a_section_waits_behind_targets_not_yet_given_a_slot(tmp_path, monkeypatch):
+    """Codex review F10: one sort of a section let a repeated target take two
+    slots ahead of an unseen one; the greedy order gives each target one first."""
+
+    repeat, fresh = target("misconception", "m_repeat", p_open=1.0), target("hypothesis", "h_fresh", p_open=0.4)
+    cues, _ = _setup(tmp_path, monkeypatch, [repeat, fresh], [(repeat, "t1"), (repeat, "t3"), (fresh, "t2")],
+                     density="normal")
+    ch5 = sorted((m for m in cues["marks"] if m["section_id"] == "ch5"), key=lambda m: m["section_rank"])
+    assert [m["target_id"] for m in ch5] == ["misconception:m_repeat", "hypothesis:h_fresh"]
 
 
 def test_value_order_off_is_the_judges_order_with_the_guide_first(tmp_path, monkeypatch):

@@ -14,7 +14,8 @@
 -- judge's judgment_ledger verdict, carries the quote the judge relied on
 -- (verified in code against the block), the pick rank, the ranks the
 -- passage had in each retrieval list (the contrast and correction-span lists
--- among them) and the instructional roles the judge proposed for RW4e (used
+-- among them), the facets the target is about (the holdout's outcome reads
+-- the next attempt on them) and the instructional roles the judge proposed for RW4e (used
 -- only positively, never to exclude; G44). Append-only: a new state writes
 -- new rows.
 --
@@ -36,7 +37,7 @@ CREATE TABLE passage_links (
   extraction_id TEXT NOT NULL,
   span_id TEXT NOT NULL,
   target_kind TEXT NOT NULL CHECK (target_kind IN (
-    'recurrence_group', 'hypothesis', 'misconception', 'learner_text_gap', 'demonstrated_facet'
+    'recurrence_group', 'hypothesis', 'misconception', 'learner_text_gap', 'demonstrated_facet', 'unchecked_claim'
   )),
   target_id TEXT NOT NULL,
   relation TEXT NOT NULL CHECK (relation IN (
@@ -46,6 +47,7 @@ CREATE TABLE passage_links (
   pick_rank INTEGER NOT NULL CHECK (pick_rank >= 1),
   ranks_json TEXT NOT NULL DEFAULT '{}',
   roles_json TEXT NOT NULL DEFAULT '[]',
+  target_facets_json TEXT NOT NULL DEFAULT '[]',
   ledger_id TEXT NOT NULL REFERENCES judgment_ledger(id),
   state_key TEXT NOT NULL,
   model TEXT NOT NULL,

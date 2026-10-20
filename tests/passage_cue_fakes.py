@@ -158,7 +158,8 @@ def seed_link(repository: Repository, target: Any, span_id: str, *, relation: st
         link_id = store.insert_link(connection, {
             "id": PC._link_id(extraction_id, target, span_id), "extraction_id": extraction_id, "span_id": span_id,
             "target_kind": target.kind, "target_id": target.id, "relation": relation, "quote": quote,
-            "pick_rank": pick_rank, "roles": roles or [], "ledger_id": ledger_id, "state_key": target.state_key,
+            "pick_rank": pick_rank, "roles": roles or [], "target_facets": list(getattr(target, "facet_ids", ())),
+            "ledger_id": ledger_id, "state_key": target.state_key,
             "model": "m", "prompt_version": PC.PROMPT_VERSION, "created_at": "2026-10-01T00:00:00Z"})
         connection.commit()
     return link_id

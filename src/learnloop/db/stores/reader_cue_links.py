@@ -15,7 +15,8 @@ import sqlite3
 from typing import Any
 
 LINK_COLUMNS = ("id", "extraction_id", "span_id", "target_kind", "target_id", "relation", "quote", "pick_rank",
-                "ranks_json", "roles_json", "ledger_id", "state_key", "model", "prompt_version", "created_at")
+                "ranks_json", "roles_json", "target_facets_json", "ledger_id", "state_key", "model", "prompt_version",
+                "created_at")
 IMPRESSION_COLUMNS = ("id", "cue_id", "link_id", "extraction_id", "span_id", "learning_object_id", "kind", "visit_id",
                       "shown",
                       "suppressed_reason", "propensity", "seed", "p_open", "p_open_source", "density", "response",
@@ -32,6 +33,7 @@ def _link(row: Any) -> dict[str, Any]:
     value = dict(zip(LINK_COLUMNS, row))
     value["ranks"] = json.loads(value.pop("ranks_json") or "{}")
     value["roles"] = json.loads(value.pop("roles_json") or "[]")
+    value["target_facets"] = json.loads(value.pop("target_facets_json") or "[]")
     return value
 
 
@@ -42,11 +44,12 @@ def insert_link(connection: sqlite3.Connection, row: Mapping[str, Any]) -> str:
 
     connection.execute(
         "INSERT OR IGNORE INTO passage_links (id, extraction_id, span_id, target_kind, target_id, relation, quote, "
-        "pick_rank, ranks_json, roles_json, ledger_id, state_key, model, prompt_version, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "pick_rank, ranks_json, roles_json, target_facets_json, ledger_id, state_key, model, prompt_version, "
+        "created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (row["id"], row["extraction_id"], row["span_id"], row["target_kind"], row["target_id"], row["relation"],
          row["quote"], int(row["pick_rank"]), json.dumps(dict(row.get("ranks") or {}), sort_keys=True),
-         json.dumps(list(row.get("roles") or [])), row["ledger_id"], row["state_key"], row["model"],
+         json.dumps(list(row.get("roles") or [])), json.dumps(sorted({str(f) for f in row.get("target_facets") or []})),
+         row["ledger_id"], row["state_key"], row["model"],
          row["prompt_version"], row["created_at"]),
     )
     found = connection.execute(
@@ -153,6 +156,17 @@ def record_response(connection: sqlite3.Connection, impression_id: str, *, respo
     return cursor.rowcount == 1
 
 
+def shown_impressions(connection: sqlite3.Connection, extraction_id: str) -> list[dict[str, Any]]:
+    """The cues shown on one extraction (every visit), each with its link's
+    target when it has one: what "already shown this visit" is read from."""
+
+    rows = connection.execute(
+        "SELECT i.id, i.cue_id, i.visit_id, i.created_at, l.target_kind, l.target_id "
+        "FROM reader_cue_impressions i LEFT JOIN passage_links l ON l.id = i.link_id "
+        "WHERE i.extraction_id = ? AND i.shown = 1 ORDER BY i.created_at, i.id", (extraction_id,)).fetchall()
+    return [dict(zip(("id", "cue_id", "visit_id", "created_at", "target_kind", "target_id"), row)) for row in rows]
+
+
 def impressions(connection: sqlite3.Connection, *, since: str | None = None) -> list[dict[str, Any]]:
     if connection.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='reader_cue_impressions'").fetchone() is None:
@@ -177,5 +191,6 @@ __all__ = [
     "links_for_extraction",
     "links_with_roles",
     "record_response",
+    "shown_impressions",
     "tables_present",
 ]
