@@ -154,7 +154,8 @@ class CheckState:
     commitment_id: str
     date: datetime
     date_source: str
-    #: Items it decides (§5.3 step 2), in id order. Empty: replaced everywhere.
+    #: Items it decides (§5.3 step 2), in id order. Empty: replaced
+    #: everywhere (``replaced``), or a scope with no items yet (round 7).
     candidates: tuple[str, ...]
     due: bool
     answered_by: str | None = None
@@ -179,11 +180,17 @@ class CheckState:
         return tuple(item_id for item_id, refusal in self.refused
                      if refusal.get("constraint_key") == "assessment_reservation")
 
+    #: Every item it covered is decided by another commitment (DL2 fix
+    #: round 7, F21: tracked apart from candidate availability, so a scope
+    #: with no items yet is not "replaced").
+    replaced: bool = False
+
     @property
     def pending(self) -> bool:
-        """Due, unanswered and not replaced everywhere: the plan accounts for it."""
+        """Due, unanswered and not replaced everywhere: the plan accounts for
+        it, with no candidates (``no_candidates``) as with any (F21)."""
 
-        return self.due and self.answered_by is None and bool(self.candidates)
+        return self.due and self.answered_by is None and not self.replaced
 
     @property
     def servable(self) -> tuple[str, ...]:
@@ -498,6 +505,15 @@ def build_checks(
                 if resolution.for_item(item_id, item_los.get(item_id)).decided_by == snapshot.id
             )
         )
+        # F21: replaced when it covered items and another commitment decides
+        # every one, or, covering none, when no LO it targets is still its own.
+        if covered:
+            replaced = not decided
+        else:
+            replaced = not any(
+                resolution.for_learning_object(lo_id).decided_by == snapshot.id
+                for lo_id in snapshot.learning_object_targets
+            )
         when_iso = when.strftime("%Y-%m-%dT%H:%M:%SZ")
         attempts = attempts_since(list(decided), when_iso) if decided and when <= now else []
         answer: Mapping[str, Any] | None = None
@@ -525,6 +541,7 @@ def build_checks(
             item_level=bool(snapshot.item_targets),
             provenance=dict(snapshot.provenance),
             created_at=snapshot.created_at,
+            replaced=replaced,
         )
         if answer is not None:
             answered.append(replace(snapshot, disposition="satisfied", satisfied_at=str(answer["created_at"])))

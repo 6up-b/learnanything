@@ -21,8 +21,10 @@ and DL1's pair alike. A check is exempt from value and count composition
    (verify F19): ``hard_exposure_collision`` and the rest, with the
    constraint's own key. Nothing else changes under DL1's pair.
 
-A read that fails refuses every candidate (``constraints_unavailable``):
-fail closed, as the frame does. Each refusal is kept on the check
+A read that fails refuses every candidate (``constraints_unavailable``,
+``detail.input`` naming the failing input: one of the three protected sets,
+``build_admission`` or ``staged_frame``; round 7, F22): fail closed, as the
+frame does. Each refusal is kept on the check
 (``CheckState.refused``), so a due check is either planned or recorded with
 its candidates' reasons (verify F20).
 
@@ -48,6 +50,8 @@ ASSESSMENT_RESERVATION_KEY = "assessment_reservation"
 EXAM_POOL_KEY = "exam_pool"
 ADMISSION_KEY = "build_admission"
 UNAVAILABLE_KEY = "constraints_unavailable"
+#: The input name of the staged frame's evaluation in an unavailable refusal.
+FRAME_INPUT = "staged_frame"
 #: The frame's maintain block budget (``daily_plan.types.BLOCK_MAX_MINUTES``).
 _BLOCK_MINUTES = 15.0
 
@@ -88,25 +92,30 @@ class CheckGate:
         self.now = now
         self.admission = admission
         self.candidate_ids = tuple(dict.fromkeys(candidate_ids))
-        self._sets: dict[str, frozenset[str]] | None = None
-        self._sets_error: str | None = None
+        self._sets: dict[str, frozenset[str]] = {}
+        #: ``{input: error}`` for each protected set that could not be read.
+        self._sets_errors: dict[str, str] = {}
         self._frame: dict[str, tuple[dict[str, Any], ...]] | None = None
+        self._frame_error: str | None = None
 
     # -- the reads ------------------------------------------------------------
 
-    def _protected(self) -> dict[str, frozenset[str]] | None:
-        if self._sets is None and self._sets_error is None:
+    def _protected(self, key: str) -> frozenset[str] | None:
+        """One protected set, read once; None when it could not be read
+        (round 7, F22: each input fails closed under its own name)."""
+
+        if key not in self._sets and key not in self._sets_errors:
+            readers = {
+                HELD_OUT_KEY: lambda: EM.held_out_items(self.vault, self.repository),
+                ASSESSMENT_RESERVATION_KEY: lambda: reserved_assessment_items(self.repository),
+                EXAM_POOL_KEY: lambda: exam_pool.reserved_item_ids(self.repository),
+            }
             try:
-                self._sets = {
-                    HELD_OUT_KEY: frozenset(str(item_id) for item_id in EM.held_out_items(self.vault, self.repository)),
-                    ASSESSMENT_RESERVATION_KEY: reserved_assessment_items(self.repository),
-                    EXAM_POOL_KEY: frozenset(str(item_id) for item_id in exam_pool.reserved_item_ids(self.repository)),
-                }
+                self._sets[key] = frozenset(str(item_id) for item_id in readers[key]())
             except Exception as exc:  # noqa: BLE001 - fail closed: no candidate passes
-                _LOG.warning("check gate: the protected sets could not be read; every candidate is refused",
-                             exc_info=True)
-                self._sets_error = type(exc).__name__
-        return self._sets
+                _LOG.warning("check gate: %s could not be read; every candidate is refused", key, exc_info=True)
+                self._sets_errors[key] = type(exc).__name__
+        return self._sets.get(key)
 
     def _frame_refusals(self) -> dict[str, tuple[dict[str, Any], ...]]:
         if self._frame is None:
@@ -156,23 +165,31 @@ class CheckGate:
 
         if item_id not in self.vault.practice_items:
             return _refusal(ADMISSION_KEY, "unknown_item")
-        sets = self._protected()
-        if sets is None:
-            return _refusal(UNAVAILABLE_KEY, "protected_sets_unreadable", error=self._sets_error)
         for key in (HELD_OUT_KEY, ASSESSMENT_RESERVATION_KEY, EXAM_POOL_KEY):
-            if item_id in sets[key]:
+            found = self._protected(key)
+            if found is None:
+                return _refusal(UNAVAILABLE_KEY, f"{key}_unreadable", input=key, error=self._sets_errors[key])
+            if item_id in found:
                 return _refusal(key, key)
         if self.admission is not None:
-            verdict = self.admission(item_id)
+            try:
+                verdict = self.admission(item_id)
+            except Exception as exc:  # noqa: BLE001 - fail closed (round 7, F22)
+                _LOG.warning("check gate: the admission predicate failed for %s; refused", item_id, exc_info=True)
+                return _refusal(UNAVAILABLE_KEY, f"{ADMISSION_KEY}_unreadable", input=ADMISSION_KEY,
+                                error=type(exc).__name__)
             if verdict is False:
                 return _refusal(ADMISSION_KEY, "not_admitted")
             if isinstance(verdict, str):
                 return _refusal(ADMISSION_KEY, verdict)
-        try:
-            frame = self._frame_refusals()
-        except Exception as exc:  # noqa: BLE001 - fail closed
-            _LOG.warning("check gate: the frame's constraints could not be evaluated", exc_info=True)
-            return _refusal(UNAVAILABLE_KEY, "frame_unavailable", error=type(exc).__name__)
+        if self._frame_error is None:
+            try:
+                frame = self._frame_refusals()
+            except Exception as exc:  # noqa: BLE001 - fail closed
+                _LOG.warning("check gate: the frame's constraints could not be evaluated", exc_info=True)
+                self._frame_error = type(exc).__name__
+        if self._frame_error is not None:
+            return _refusal(UNAVAILABLE_KEY, "staged_frame_unreadable", input=FRAME_INPUT, error=self._frame_error)
         reasons = frame.get(item_id)
         if reasons:
             first = dict(reasons[0])

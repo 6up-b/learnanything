@@ -1353,6 +1353,10 @@ CHECK_CANDIDATES_HELD = "candidates_held"
 #: A servable candidate never reached the plan's pool (never expected:
 #: recorded so a gap is visible, not silent).
 CHECK_NOT_IN_POOL = "not_in_pool"
+#: The check's scope has no practice items yet (round 7, F21): it stays due.
+CHECK_NO_CANDIDATES = "no_candidates"
+#: The learner-facing line of a check with nothing to check yet.
+NO_CANDIDATES_LINE = "Nothing to check yet: this topic has no questions."
 
 
 def _check_commitment(intent: Any, practice_item_id: str) -> str | None:
@@ -1386,8 +1390,9 @@ def _select_checks(
     policy), so a pool item marked ``check_once`` is a feasible one. Every
     due, unanswered, unreplaced check is accounted for: planned, or recorded
     in ``checks_unplanned`` with its reason (minutes exhausted, every
-    candidate refused, its candidates held, or none in the pool) and every
-    refused candidate's key."""
+    candidate refused, its candidates held, none in the pool, or, round 7,
+    no candidates at all: a scope with no items yet) and every refused
+    candidate's key."""
 
     taken = set(taken)
     checks: list[PoolItem] = []
@@ -1425,7 +1430,9 @@ def _select_checks(
         if check.commitment_id in accounted:
             continue
         refused = _refused_rows(check)
-        if check.servable:
+        if not check.candidates:
+            reason = CHECK_NO_CANDIDATES
+        elif check.servable:
             reason = CHECK_NOT_IN_POOL
         elif check.held:
             reason = CHECK_CANDIDATES_HELD
@@ -1439,6 +1446,8 @@ def _select_checks(
         }
         if reason == CHECK_CANDIDATES_HELD:
             row["held_item_ids"] = sorted(check.held)
+        if reason == CHECK_NO_CANDIDATES:
+            row["line"] = NO_CANDIDATES_LINE
         logging.getLogger(__name__).info("daily plan: due check %s not planned: %s %s", check.commitment_id, reason,
                                          refused)
         unplanned.append(row)
