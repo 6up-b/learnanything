@@ -261,8 +261,16 @@ class MaterialView:
         """Whether a drawn dose extra's content is withheld now (its question, or its example span)."""
 
         content = content or {}
+        if not self.available:
+            return True
         if variant == "extra_question":
-            return self.question(connection, content.get("question_id")) is None
+            # Withheld when the question is protected now; a question since deleted is merely absent
+            # from current content, and the offer record stands (as a frozen dose does, F30).
+            if not _has_table(connection, "reader_authored_questions"):
+                return False
+            found = _rows(connection, "SELECT * FROM reader_authored_questions WHERE id = ?",
+                          (str(content.get("question_id")),))
+            return bool(found) and self.question_withheld(found[0])
         if variant == "extra_worked_example":
             return self.material_withheld(content.get("extraction_id"), content.get("span_id"))
         return False
@@ -417,6 +425,30 @@ class MaterialView:
             self._answered = {key: tuple(sorted(values)) for key, values in answered.items()}
         return self._answered
 
+    def answered_revision_items(self, connection: Any, attempt_id: Any) -> list[Any]:
+        """The saved revisions an attempt answered, as items (to freeze their source identities for
+        a later revalidation; fix round 10, R4). Content is never returned to a prompt from here."""
+
+        from learnloop.vault.models import PracticeItem
+
+        out = []
+        for content_hash in self._answered_revisions(connection).get(str(attempt_id), ()):
+            found = connection.execute("SELECT item_json FROM practice_item_snapshots WHERE content_hash = ?",
+                                       (content_hash,)).fetchone()
+            if found is None:
+                continue
+            try:
+                out.append(PracticeItem.model_validate_json(found[0]))
+            except ValueError:
+                continue
+        return out
+
+    def attempt_withheld_by_id(self, connection: Any, attempt_id: Any) -> bool:
+        """Whether an attempt (by id) is withheld now; a missing attempt is withheld (fail closed)."""
+
+        found = _rows(connection, "SELECT * FROM practice_attempts WHERE id = ?", (str(attempt_id),))
+        return not self.available or not found or self.attempt_withheld(connection, found[0])
+
     def attempt_withheld(self, connection: Any, row: Mapping[str, Any]) -> bool:
         """Whether an attempt is withheld: its item is withheld now, or a revision it answered is
         (Codex verify F20: a public item's historical revision cut from held-out material)."""
@@ -461,6 +493,18 @@ class MaterialView:
         visible = {str(row["id"]) for row in self.attempts(connection)}
         return {str(entry["attempt_id"]): entry for entry in load_authoritative_observation_ledger(connection)
                 if str(entry["attempt_id"]) in visible}
+
+    def graded_counts(self, connection: Any) -> dict[str, int]:
+        """Each LO's visible graded answers (the replay's window-closing cohort): the evidence count
+        AD's commissioned path gives the rung selection instead of the incumbent's (fix round 10)."""
+
+        ledger = self.ledger(connection)
+        counts: dict[str, int] = {}
+        for row in self.attempts(connection):
+            if closes_window(row, ledger.get(str(row["id"]))):
+                lo = str(row.get("learning_object_id"))
+                counts[lo] = counts.get(lo, 0) + 1
+        return counts
 
     def window_cutoff(self, connection: Any, learning_object_ids: Sequence[str]) -> str | None:
         """When the reading window of these LOs last closed: their last visible attempt that closes
@@ -524,13 +568,58 @@ class MaterialView:
         row = self.presentation(connection, presentation_id)
         return ("withheld", None) if row is None else ("ok", row)
 
+    def plan_event_visible(self, connection: Any) -> Any:
+        """The rule for plan block events AD may read (the feedback dwell of AD's candidate
+        estimates; Codex verify F28, fix round 10): an event naming a withheld item, an event of a
+        withheld presentation (its block and item), or a completion of a withheld attempt, is
+        invisible. Everything is invisible while unavailable."""
+
+        attempts = {str(row["id"]): row for row in _rows(connection, "SELECT * FROM practice_attempts")}
+        # A serve is withheld with its presentation (its frozen revision): the plan's events name
+        # no presentation, so it is found by its block and item.
+        withheld_serves: set[tuple[str, str]] = set()
+        if self.available and _has_table(connection, "plan_presentations"):
+            for row in _rows(connection, "SELECT * FROM plan_presentations"):
+                if self._presentation_withheld(connection, row):
+                    withheld_serves.add((str(row.get("block_id")), str(row.get("practice_item_id"))))
+
+        def visible(kind: str, detail: Mapping[str, Any], block_id: str | None = None) -> bool:
+            if not self.available:
+                return False
+            item_id = detail.get("practice_item_id")
+            if item_id and self.withheld(item_id):
+                return False
+            if item_id and block_id is not None and (str(block_id), str(item_id)) in withheld_serves:
+                return False
+            attempt = attempts.get(str(detail.get("attempt_id"))) if detail.get("attempt_id") else None
+            return attempt is None or not self.attempt_withheld(connection, attempt)
+
+        return visible
+
     def reveals(self, connection: Any) -> list[dict[str, Any]]:
-        """``reveal_events`` rows of visible items (an exposure warms its LO, §5.2)."""
+        """``reveal_events`` rows AD may see (an exposure warms its LO, §5.2).
+
+        A reveal is withheld with its item, and with the attempt it belongs to (its ``attempt_id``,
+        or its tutor question's attempt): an attempt withheld for the revision it answered withholds
+        its reveals too (Codex verify F20, fix round 10)."""
 
         if not self.available or not _has_table(connection, "reveal_events"):
             return []
-        return [row for row in _rows(connection, "SELECT * FROM reveal_events ORDER BY created_at, id")
-                if not row.get("practice_item_id") or not self.withheld(row.get("practice_item_id"))]
+        attempts = {str(row["id"]): row for row in _rows(connection, "SELECT * FROM practice_attempts")}
+        question_attempts: dict[str, str] = {}
+        if _has_table(connection, "question_events"):
+            question_attempts = {str(qid): str(aid) for qid, aid in connection.execute(
+                "SELECT id, attempt_id FROM question_events WHERE attempt_id IS NOT NULL")}
+        out = []
+        for row in _rows(connection, "SELECT * FROM reveal_events ORDER BY created_at, id"):
+            if row.get("practice_item_id") and self.withheld(row.get("practice_item_id")):
+                continue
+            attempt_id = row.get("attempt_id") or question_attempts.get(str(row.get("question_event_id") or ""))
+            attempt = attempts.get(str(attempt_id)) if attempt_id else None
+            if attempt is not None and self.attempt_withheld(connection, attempt):
+                continue
+            out.append(row)
+        return out
 
     def forecast_receipts(self, connection: Any, *, kind: str) -> list[dict[str, Any]]:
         """Forecast receipts of visible items and revisions (Codex verify F24: a calibration fit and

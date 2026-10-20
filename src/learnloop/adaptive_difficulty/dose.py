@@ -94,10 +94,15 @@ def _day(stamp: str) -> str:
     return parsed.date().isoformat() if parsed is not None else str(stamp)[:10]
 
 
-def budget(connection: Any, *, extraction_id: str, section_id: str, now: str, daily: int) -> str | None:
-    """Why the friction budget has no room (None when it has): one extra per section, ``daily`` a day."""
+def budget(connection: Any, *, extraction_id: str, section_id: str, now: str, daily: int,
+           view: Any) -> str | None:
+    """Why the friction budget has no room (None when it has): one extra per section, ``daily`` a day.
 
-    rows = [row for row in store.dose_rows(connection) if row["row_kind"] == "draw"]
+    The offers counted are the material view's dose cohort (fix round 10's self-audit): an offer
+    whose extra is withheld now is, for AD, as if it had not been made (A8's "protected == absent"),
+    so it neither spends nor reveals anything."""
+
+    rows = [row for row in view.dose_rows(connection) if row["row_kind"] == "draw"]
     extras = [row for row in rows if row.get("chosen_variant") not in (None, NONE)]
     if any(row.get("extraction_id") == extraction_id and row.get("section_id") == section_id for row in extras):
         return "section_offered"
@@ -255,7 +260,7 @@ def decide(vault: Any, repository: Any, boundary: Boundary, *, clock: Clock | No
             return DoseDecision(True, "drawn", str(existing["id"]), existing.get("chosen_variant"),
                                 existing.get("propensities") or {}, existing.get("content"))
         why = budget(connection, extraction_id=boundary.extraction_id, section_id=boundary.section_id, now=now,
-                     daily=int(settings.dose_daily_offers))
+                     daily=int(settings.dose_daily_offers), view=view)
         if why is not None:
             return DoseDecision(False, why)
         feasible, infeasible, content = feasible_variants(vault, repository, connection, boundary, los,
@@ -287,11 +292,23 @@ def offer_withheld(connection: Any, view: Any, variant: Any, content: Any) -> bo
     return view.dose_extra_withheld(connection, variant, content)
 
 
-def record_uptake(vault: Any, repository: Any, draw_id: str, kind: str, *, clock: Clock | None = None) -> str:
-    """Append ``delivered``, ``not_delivered``, ``taken`` or ``dismissed`` (never changing the draw)."""
+def record_uptake(vault: Any, repository: Any, draw_id: str, kind: str, *, clock: Clock | None = None,
+                  view: Any = None) -> str | None:
+    """Append ``delivered``, ``not_delivered``, ``taken`` or ``dismissed`` (never changing the draw).
+
+    Gated at the write boundary (Codex verify F36, fix round 10): with AD or ``reading_dose_offers``
+    off, the held-out predicate unavailable, or the draw's extra withheld now, nothing is written
+    and None is returned (a harmless no-op for a late callback)."""
 
     if kind not in UPTAKE:
         raise ValueError(f"unknown dose uptake {kind!r}")
+    if not dose_offers_on(vault.config):
+        return None
+    from learnloop.adaptive_difficulty.material_view import material_view
+
+    view = material_view(vault, repository, view)
+    if not view.available:
+        return None
     with repository.atomic():
         connection = repository.connection()
         draw = next((row for row in store.dose_rows(connection) if row["id"] == draw_id and row["row_kind"] == "draw"),
@@ -300,14 +317,17 @@ def record_uptake(vault: Any, repository: Any, draw_id: str, kind: str, *, clock
             raise ValueError(f"no dose draw {draw_id!r}")
         if draw.get("chosen_variant") in (None, NONE):
             raise ValueError("the draw offered nothing")
+        if view.dose_extra_withheld(connection, draw.get("chosen_variant"), draw.get("content")):
+            return None
         return store.insert_dose_row(connection, {"row_kind": kind, "draw_id": draw_id,
                                                   "created_at": utc_now_iso(clock)})
 
 
-def taken_offers(connection: Any) -> dict[str, str]:
-    """Each taken extra's content key -> its draw id (a reading opportunity carries the id)."""
+def taken_offers(connection: Any, *, view: Any) -> dict[str, str]:
+    """Each taken extra's content key -> its draw id (a reading opportunity carries the id), from the
+    material view's dose cohort (a withheld extra's draw is not one; fix round 10's self-audit)."""
 
-    rows = store.dose_rows(connection)
+    rows = view.dose_rows(connection)
     taken = {row["draw_id"] for row in rows if row["row_kind"] == "taken"}
     out: dict[str, str] = {}
     for row in rows:

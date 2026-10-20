@@ -67,6 +67,44 @@ def request_authoring_proposal(
     )
 
 
+class AuthoringRequestRefused(ValueError):
+    """A guarded authoring request was refused before it was sent (adaptive difficulty's A8
+    revalidation): a refusal, never an ordinary provider or repair failure. Its message is generic:
+    what the request quoted (withheld ids, facets, families) stays in the guard's log and the
+    chained cause, never in a persisted run's error message."""
+
+
+REFUSED_MESSAGE = "the commissioned authoring request was refused by its protection guard"
+
+
+def _check_request(request_guard: Callable[[str], None], context: AuthoringContext) -> None:
+    try:
+        request_guard(authoring_prompt(context))
+    except Exception as exc:  # noqa: BLE001 - any guard failure refuses the request (fail closed)
+        raise AuthoringRequestRefused(REFUSED_MESSAGE) from exc
+
+
+def dispatch_authoring_request(
+    client: AIProviderClient,
+    context: AuthoringContext,
+    *,
+    request_guard: Callable[[str], None] | None = None,
+    commissioned: bool = False,
+) -> AuthoringProposal:
+    """The one place an authoring request is sent (fix round 10, R5): the first request and every
+    repair. A commissioned request (adaptive difficulty's) is revalidated by ``request_guard`` on
+    the serialized request immediately before it goes out, with protection read afresh; one that
+    quotes withheld material, or whose protection cannot be read, is refused
+    (:class:`AuthoringRequestRefused`). A commissioned request without a guard is refused too. Every
+    other path (``commissioned=False``, no guard) sends exactly as before."""
+
+    if commissioned and request_guard is None:
+        raise AuthoringRequestRefused("a commissioned authoring request has no protection guard")
+    if request_guard is not None:
+        _check_request(request_guard, context)
+    return request_authoring_proposal(client, context)
+
+
 def list_proposals(root: Path) -> list[dict]:
     vault = load_vault(root)
     repository = vault_repository(VaultPaths(vault.root, vault.config))
@@ -473,7 +511,8 @@ def generate_authoring_proposal(
         focus_facets=focus_facets,
     )
     if request_guard is not None:
-        request_guard(authoring_prompt(context))
+        # Checked before the agent run is recorded, and again at dispatch with fresh protection.
+        _check_request(request_guard, context)
     now = utc_now_iso(clock)
     provider_fields = _agent_provider_fields(codex_client, model=model, provider_revision=codex_revision)
     agent_run_id = repository.insert_agent_run(
@@ -490,7 +529,8 @@ def generate_authoring_proposal(
         }
     )
     try:
-        proposal = request_authoring_proposal(codex_client, context)
+        proposal = dispatch_authoring_request(codex_client, context, request_guard=request_guard,
+                                              commissioned=request_guard is not None)
     except (CodexUnavailable, TimeoutError, ValueError) as exc:
         finish_agent_run(
             repository, agent_run_id, codex_client,
@@ -513,6 +553,7 @@ def generate_authoring_proposal(
         vault=vault,
         provider=provider,
         now=now,
+        request_guard=request_guard,
     )
     # A7: the repair pass is a second billed call against an already-completed
     # run (closing it earlier is deliberate — see `_repair_invalid_proposal_items`
@@ -735,7 +776,7 @@ def generate_diagnostic_proposal(
         }
     )
     try:
-        proposal = request_authoring_proposal(client, context)
+        proposal = dispatch_authoring_request(client, context)
     except (CodexUnavailable, TimeoutError, ValueError) as exc:
         finish_agent_run(
             repository, agent_run_id, client,
@@ -1546,8 +1587,12 @@ def _repair_invalid_proposal_items(
     vault: LoadedVault,
     provider: str,
     now: str,
+    request_guard: Callable[[str], None] | None = None,
 ) -> tuple[AuthoringProposal, list[dict[str, Any]]]:
     """One-shot self-repair for items that failed deterministic validation.
+
+    ``request_guard``: the first request's guard; the repair is dispatched through the same
+    guarded function with protection read afresh, and a refusal propagates as a refusal.
 
     Feeds the failing items and their error codes back to the provider once and
     merges corrected items by ``client_item_id``. Best-effort: any provider
@@ -1580,10 +1625,15 @@ def _repair_invalid_proposal_items(
         + json.dumps(failing, sort_keys=True, ensure_ascii=False)
     )
     try:
-        repaired = request_authoring_proposal(
+        repaired = dispatch_authoring_request(
             codex_client,
             replace(context, instructions=instructions),
+            request_guard=request_guard,
+            commissioned=request_guard is not None,
         )
+    except AuthoringRequestRefused:
+        # A protection refusal is never a repair failure: the whole commissioned run stops.
+        raise
     except (CodexInterrupted, CodexTurnTimeout):
         # Stops and deadlines are terminal control flow, not best-effort repair
         # failures. Let the durable runner finish the job before any first-pass

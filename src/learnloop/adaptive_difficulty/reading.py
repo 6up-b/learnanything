@@ -485,14 +485,14 @@ def _keys(connection: Any, event: _Event, lo_id: str) -> str | None:
     return f"in_passage_question:{event.identity}:{lo_id}"
 
 
-def _taken_offers(connection: Any) -> dict[str, str]:
+def _taken_offers(connection: Any, view: Any) -> dict[str, str]:
     from learnloop.db.stores import ad_serving
 
     if not ad_serving.has_table(connection, ad_serving.DOSE_OFFERS):
         return {}
     from learnloop.adaptive_difficulty.dose import taken_offers
 
-    return taken_offers(connection)
+    return taken_offers(connection, view=view)
 
 
 def _offer_for(offers: Mapping[str, str], event: "_Event") -> str | None:
@@ -547,7 +547,7 @@ def sweep(vault: Any, repository: Any, *, as_of: str, sweep_kind: str = "serve",
         events.sort(key=lambda event: (event.written_at, event.source_table, event.source_id, event.subkind))
         result.considered = len(events)
         # AD2+AD3 (§5.12): a taken dose offer's extra carries the offer's id on its receipt.
-        offers = _taken_offers(connection)
+        offers = _taken_offers(connection, material)
         for event in events:
             for lo_id in event.learning_object_ids:
                 if store.reading_opportunity_exists(

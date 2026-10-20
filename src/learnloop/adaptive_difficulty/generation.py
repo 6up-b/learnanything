@@ -73,14 +73,22 @@ class CommissionedRequestGuard:
         return self.view.vault_view()
 
     def __call__(self, request_text: str) -> None:
+        """Revalidate one serialized request with protection read afresh (the vault reloaded from
+        its root), so a source held out between the first request and a repair, or a predicate
+        that became unreadable, refuses the request (fix round 10, R5)."""
+
         from contextlib import closing
 
         from learnloop.db.connection import connect
+        from learnloop.vault.loader import load_vault
+
+        from learnloop.adaptive_difficulty.material_view import material_view
 
         if self.view is None:
             raise ProtectedRequest("the commissioned request was built without AD's material view")
-        with closing(connect(self.view.repository.sqlite_path, read_only=True)) as connection:
-            leaks = self.view.request_leaks(request_text, connection)
+        fresh = material_view(load_vault(self.view.vault.root), self.view.repository)
+        with closing(connect(fresh.repository.sqlite_path, read_only=True)) as connection:
+            leaks = fresh.request_leaks(request_text, connection)
         if leaks:
             LOG.warning("AD commissioned generation request refused: it quotes withheld material (%s)",
                         "; ".join(leaks))

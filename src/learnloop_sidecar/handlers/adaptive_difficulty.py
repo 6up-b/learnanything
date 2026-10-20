@@ -107,10 +107,12 @@ def reader_dose_offer_event(ctx: SidecarContext, params: ReaderDoseOfferEventInp
         raise SidecarError("validation_error", f"unknown dose offer event {params.event!r}")
     vault, repository = ctx.require_vault()
     try:
+        # Gated at the write (fix round 10, F36): AD or the dose arm off, protection unavailable,
+        # or the offer withheld now records nothing and answers a harmless no-op.
         row_id = record_uptake(vault, repository, params.draw_id, params.event)
     except ValueError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
-    return versioned({"row_id": row_id, "event": params.event})
+    return versioned({"row_id": row_id, "event": params.event, "recorded": row_id is not None})
 
 
 class AdaptiveDifficultyReadinessInput(ParamsModel):

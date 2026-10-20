@@ -1555,7 +1555,7 @@ export const api = {
     showingQuestionId?: string | null;
   }) => call<import("./dto").ReaderDoseOfferDto>("reader_dose_offer", { input }),
   readerDoseOfferEvent: (input: { drawId: string; event: import("./dto").ReaderDoseOfferEvent }) =>
-    call<{ version: number; rowId: string; event: string }>("reader_dose_offer_event", { input }),
+    call<{ version: number; rowId: string | null; event: string; recorded: boolean }>("reader_dose_offer_event", { input }),
   adaptiveDifficultyReadiness: (input: { learningObjectId: string }) =>
     call<import("./dto").AdaptiveReadinessDto>("adaptive_difficulty_readiness", { input }),
   adaptiveDifficultyWhyItem: (input: { planPresentationId: string }) =>

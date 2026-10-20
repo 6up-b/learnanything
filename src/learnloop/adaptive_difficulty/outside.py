@@ -174,12 +174,15 @@ def source_identity(item: Any, practice_item_id: str | None = None) -> dict[str,
 
 def history_card(vault: Any, connection: Any, item: Any, *, served_at: str, view: Any,
                  incumbent: Mapping[str, Any] | None,
-                 identities: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+                 identities: list[dict[str, Any]] | None = None,
+                 attempt_ids: list[str] | None = None) -> dict[str, Any]:
     """The learner's history on the item's LO and its prerequisites, as of the serve, read through
     the serve's material view (no withheld item's attempt is ever on the card).
 
     ``identities``, when given, receives the :func:`source_identity` of each
-    attempt's item the card includes (Codex re-review F11)."""
+    attempt's item the card includes (Codex re-review F11), and of every revision
+    that attempt answered (Codex verify F33, fix round 10); ``attempt_ids``, when
+    given, receives each included attempt's id. A dispatch revalidates both."""
 
     lo = vault.learning_objects.get(item.learning_object_id)
     scope = [item.learning_object_id, *[str(prerequisite) for prerequisite in (getattr(lo, "prerequisites", None) or [])]]
@@ -198,6 +201,10 @@ def history_card(vault: Any, connection: Any, item: Any, *, served_at: str, view
         past = view.item(row[1])
         if identities is not None:
             identities.append(source_identity(past, str(row[1])))
+            for answered in view.answered_revision_items(connection, row[0]):
+                identities.append({**source_identity(answered, str(row[1])), "attempt_id": str(row[0])})
+        if attempt_ids is not None:
+            attempt_ids.append(str(row[0]))
         attempts.append({
             "item": _excerpt(past.prompt, HISTORY_STEM_LIMIT) if past is not None else "(an item no longer in the vault)",
             "topic": (vault.learning_objects[str(row[2])].title if str(row[2]) in vault.learning_objects else str(row[2])),
@@ -547,15 +554,18 @@ def freeze_presentation_inputs(vault: Any, connection: Any, item: Any, *, presen
         return None
     content_hash, _json = item_revision(item)
     history: list[dict[str, Any]] = []
+    history_attempts: list[str] = []
     state = {"item": item_view(vault, item),
              "learner": history_card(vault, connection, item, served_at=served_at, view=view,
-                                     incumbent=_incumbent_inputs(connection, presentation_id), identities=history)}
+                                     incumbent=_incumbent_inputs(connection, presentation_id), identities=history,
+                                     attempt_ids=history_attempts)}
     key = frozen_state_key(presentation_id)
     store.insert_payload(connection, owner_key=key, forecaster=FROZEN_STATE_FORECASTER, kind="request", content={
         "state": state, "state_version": STATE_VERSION, "state_hash": content_key(state),
         "practice_item_id": str(item.id), "learning_object_id": item.learning_object_id,
         "content_hash": content_hash, "inputs_as_of": served_at,
-        "protection_identities": {"target": source_identity(item), "history": history},
+        "protection_identities": {"target": source_identity(item), "history": history,
+                                  "history_attempts": history_attempts},
     }, created_at=served_at)
     return key
 
@@ -569,7 +579,10 @@ def _frozen_inputs(connection: Any, presentation_id: str) -> dict[str, Any] | No
             # Without the identities of what the state quotes, the frozen
             # inputs cannot be revalidated, so they are never sent (F11).
             if not (isinstance(identities, dict) and isinstance(identities.get("target"), dict)
-                    and isinstance(identities.get("history"), list)):
+                    and isinstance(identities.get("history"), list)
+                    and isinstance(identities.get("history_attempts"), list)):
+                # Fix round 10 (F33): without the attempts behind the history, the answered
+                # revisions cannot be revalidated either, so these inputs are never sent.
                 continue
             if content.get("state_hash") == content_key(content["state"]):
                 return content
@@ -628,7 +641,8 @@ def forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, 
             # F11): a refusal refuses the rest of the job.
             identities = frozen["protection_identities"]
             send = SendGuard(vault, repository, items=[item], item_ids=[item_id],
-                             identities=[identities["target"], *identities["history"]], live_vault=live_vault)
+                             identities=[identities["target"], *identities["history"]],
+                             attempt_ids=identities["history_attempts"], live_vault=live_vault)
             try:
                 send.check("the presentation forecasts")
             except ProtectedContent as exc:

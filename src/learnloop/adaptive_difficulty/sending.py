@@ -98,7 +98,7 @@ class SendGuard:
 
     def __init__(self, vault: Any, repository: Any, *, items: Iterable[Any] = (), item_ids: Iterable[str] = (),
                  identities: Iterable[Mapping[str, Any]] = (), protected: Any = None,
-                 live_vault: Callable[[], Any] | None = None) -> None:
+                 live_vault: Callable[[], Any] | None = None, attempt_ids: Iterable[str] = ()) -> None:
         self._vault = vault
         self._live_vault = live_vault
         self._repository = repository
@@ -106,6 +106,9 @@ class SendGuard:
         self._item_ids = frozenset(str(value) for value in item_ids) | frozenset(
             str(getattr(item, "id", "")) for item in self._items)
         self._identities = [identity for identity in identities]
+        #: Attempts a frozen history quotes: each is judged afresh through AD's material view
+        #: (withheld with its item or any revision it answered; Codex verify F33, fix round 10).
+        self._attempt_ids = [str(value) for value in attempt_ids]
         caller = getattr(protected, "ids", protected)
         self._earlier = frozenset(str(value) for value in (caller or ()))
         self._lock = threading.Lock()
@@ -250,6 +253,18 @@ class SendGuard:
             if current.covers_identity(identity):
                 practice_item_id = identity.get("practice_item_id") if isinstance(identity, Mapping) else None
                 return f"a frozen revision of item {practice_item_id} is protected"
+        if self._attempt_ids:
+            from contextlib import closing
+
+            from learnloop.db.connection import connect
+
+            from learnloop.adaptive_difficulty.material_view import MaterialView
+
+            view = MaterialView(vault, self._repository, current)
+            with closing(connect(self._repository.sqlite_path, read_only=True)) as connection:
+                for attempt_id in self._attempt_ids:
+                    if view.attempt_withheld_by_id(connection, attempt_id):
+                        return f"attempt {attempt_id} of the frozen history is withheld"
         return None
 
 

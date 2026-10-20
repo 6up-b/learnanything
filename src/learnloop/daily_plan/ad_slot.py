@@ -80,8 +80,9 @@ def _estimator(env: Any, view: Any) -> Any:
     config = env.plan_config
     with env.repository.connection() as connection:
         rows = view.attempts(connection)
-    evidence = load_duration_evidence(env.repository, latency_cap_minutes=float(config.latency_cap_minutes),
-                                      attempt_rows=rows)
+        event_visible = view.plan_event_visible(connection)
+        evidence = load_duration_evidence(env.repository, latency_cap_minutes=float(config.latency_cap_minutes),
+                                          attempt_rows=rows, event_visible=event_visible)
     return Estimator(evidence=evidence, read_words_per_minute=int(config.read_words_per_minute))
 
 

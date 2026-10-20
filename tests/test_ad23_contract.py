@@ -7,9 +7,13 @@ stays as a lint). One vault is built and copied twice:
   current item with sentinel stem, facet and surface family; a held-out item sharing the public
   items' LO, facet and family; a public item whose earlier ANSWERED revision is held out (its
   snapshot, presentation, frozen serve inputs and attempt); answers on protected material with
-  extreme latencies and correct grades; a reveal of a held-out item; a commission result on a
-  held-out item; a reading receipt from a held-out span; a Reader question citing a held-out span
-  and a dose draw that offered it;
+  extreme latencies; a reveal of a held-out item; a reveal on the public item that belongs to the
+  answer given to its held-out revision (F20, fix round 10); protected completion -> next-serve
+  pairs in an earlier plan (F28's feedback dwell); wrong protected answers that would carry the
+  incumbent's evidence count past the legacy rung's uncertainty threshold (F21); a commission result
+  on a held-out item; a reading receipt from a held-out span; a Reader question citing a held-out
+  span, and three delivered dose offers of it, each followed in its visit by a cue-density lowering
+  (F35; the visits and lowerings are in both copies);
 * **absent**: the copy where that protected material does not exist at all (rows never written;
   the AD decisions that are not derived from it, the base commission draw and the dose draw, are
   kept).
@@ -27,14 +31,21 @@ sweep on a Reader map, the relatedness proposal, readiness and the router card, 
    two copies (the report's ``protection`` disclosure block aside).
 
 Then the same harness with the held-out predicate unavailable (the incumbent serves, no AD model
-request, no AD write), and a no-protection parity case pinning F30 (a frozen dose on a facet absent
-from current content stands).
+request, no AD write, late uptake callbacks write nothing), and a no-protection parity case pinning
+F30 (a frozen dose on a facet absent from current content stands).
+
+Fix round 10 adds protection that changes over time (the last section): a frozen outside-forecast
+history dispatched after an answered revision behind it is held out (F33), a commissioned repair
+after protection changed or became unavailable mid-call (F34, with the structural AST test of the
+one guarded dispatch), and uptake callbacks with AD off, the dose arm off or the predicate
+unavailable (F36).
 
 Fakes only: no network, no model call, no paid call.
 """
 
 from __future__ import annotations
 
+import ast
 import json
 import re
 from contextlib import closing
@@ -120,7 +131,8 @@ def _base(tmp_path) -> Any:
                        config="[router]\nenabled = false\n[hints.maps]\nbuild_on_serve = false\n")
     for item in (*PUBLIC, "pi_hist"):
         set_item(paths, item, surface_family="fam_public")
-    _attempt(paths, "pi_hist", at=T0 - timedelta(days=2), latency=90)
+    _attempt(paths, "pi_hist", at=T0 - timedelta(days=2), latency=90, correct=False)
+    _attempt(paths, "pi_hist", at=T0 - timedelta(days=1, hours=12), latency=90, correct=False)
     env, _clock = env_for(paths, items=PUBLIC)
     from learnloop.daily_plan.engine import build_plan
 
@@ -166,7 +178,9 @@ def _protect(paths) -> dict[str, Any]:
                canonical_exercise=exercise("h2"))
     # Protected answers: correct, with extreme latencies, on shared LO, facet and family.
     _attempt(paths, "pi_secret", at=T0 - timedelta(hours=3), latency=60000)
-    _attempt(paths, "pi_shared", at=T0 - timedelta(hours=2), latency=60000)
+    _attempt(paths, "pi_shared", at=T0 - timedelta(hours=2), latency=60000, correct=False)
+    _attempt(paths, "pi_shared", at=T0 - timedelta(hours=1, minutes=30), latency=60000, correct=False)
+    _attempt(paths, "pi_shared", at=T0 - timedelta(hours=1, minutes=15), latency=60000, correct=False)
     # A public item's earlier answered revision, cut from held-out material.
     vault = load_vault(paths.root)
     from learnloop.vault.models import CanonicalExercise
@@ -189,12 +203,42 @@ def _protect(paths) -> dict[str, Any]:
             "'pi_hist', ?, ?, ?, '{}', '{}', 0, 'r9', ?)",
             (LO, content_hash, _iso(T0 - timedelta(hours=1)), _iso(T0 - timedelta(hours=1))))
         connection.commit()
-    _attempt(paths, "pi_hist", at=T0 - timedelta(minutes=50), latency=60000, presentation_id="pp_hist_r9")
+    # Wrong, so the incumbent's evidence on the LO reaches three with a low ability: the legacy rung
+    # would drop its uncertainty step (Codex verify F21's threshold transition, fix round 10).
+    hist_attempt = _attempt(paths, "pi_hist", at=T0 - timedelta(minutes=50), latency=60000,
+                            presentation_id="pp_hist_r9", correct=False)
     repository = Repository(paths.sqlite_path)
     with closing(connect(paths.sqlite_path)) as connection:
         connection.execute("INSERT INTO reveal_events(id, practice_item_id, learning_object_id, source_kind, amount, "
                            "basis, created_at) VALUES ('rv_r9', 'pi_secret', ?, 'tutor_answer', 1.0, 'overlap', ?)",
                            (LO, _iso(T0 - timedelta(minutes=40))))
+        # A reveal on the PUBLIC item, belonging to the answer given to its held-out revision (F20).
+        connection.execute("INSERT INTO reveal_events(id, practice_item_id, learning_object_id, source_kind, amount, "
+                           "basis, attempt_id, created_at) VALUES ('rv_hist_r9', 'pi_hist', ?, 'answer_display', 1.0, "
+                           "'overlap', ?, ?)", (LO, hist_attempt, _iso(T0 - timedelta(minutes=45))))
+        # Protected completion -> next-serve pairs on an earlier plan (F28): five-minute feedback dwell.
+        secret_attempt = connection.execute(
+            "SELECT id FROM practice_attempts WHERE practice_item_id = 'pi_secret'").fetchone()[0]
+        connection.execute(
+            "INSERT INTO daily_plans(id, local_date, kind, minutes_budget, remembered_minutes, minutes_source, "
+            "split_json, admission_json, estimator_version, source, chooser, status, algorithm_version, config_hash, "
+            "created_at, updated_at) VALUES ('plan_old_r9', '2026-10-05', 'normal', 60, 60, 'chip', '{}', '{}', 'x', "
+            "'x', 'x', 'complete', 'mvp-0.28', 'h', '2026-10-05T09:00:00Z', '2026-10-05T09:00:00Z')")
+        connection.execute(
+            "INSERT INTO attention_blocks(id, action, budget_minutes, content_hash, created_at, daily_plan_id, "
+            "plan_ordinal) VALUES ('blk_old_r9', 'practice', 60, 'h', '2026-10-05T09:00:00Z', 'plan_old_r9', 1)")
+        for k in range(10):
+            done = datetime(2026, 10, 5, 9, 0, tzinfo=UTC) + timedelta(minutes=10 * k)
+            connection.execute(
+                "INSERT INTO attention_block_events(id, block_id, event_ordinal, kind, detail_json, created_at) "
+                "VALUES (?, 'blk_old_r9', ?, 'item_done', ?, ?)",
+                (f"ev_done_r9_{k}", 2 * k, json.dumps({"practice_item_id": "pi_secret", "attempt_id": secret_attempt,
+                                                       "done_at": _iso(done)}), _iso(done)))
+            connection.execute(
+                "INSERT INTO attention_block_events(id, block_id, event_ordinal, kind, detail_json, created_at) "
+                "VALUES (?, 'blk_old_r9', ?, 'item_served', ?, ?)",
+                (f"ev_served_r9_{k}", 2 * k + 1, json.dumps({"practice_item_id": "pi_shared"}),
+                 _iso(done + timedelta(minutes=5))))
         secret = load_vault(paths.root).practice_items["pi_secret"]
         ad_serving.insert_commission_result(connection, {
             "selection_id": BASE_COMMISSION, "practice_item_id": "pi_secret",
@@ -238,17 +282,44 @@ class _Frozen:
         return self.at
 
 
-def _dose_draw(paths, question_id: str) -> None:
+def _protected_offers(paths, question_id: str) -> None:
+    """Three dose draws that offered the protected question, each delivered in its own visit (F35).
+    They are derived from protected material, so the absent copy never has them."""
+
     from learnloop.db.stores import ad_serving
 
     with closing(connect(paths.sqlite_path)) as connection:
-        ad_serving.insert_dose_row(connection, {
-            "id": DOSE_DRAW_ID, "row_kind": "draw", "draw_key": f"visit_old:{EXT}:sec1", "visit_id": "visit_old",
-            "extraction_id": EXT, "section_id": "sec1", "learning_object_ids": [LO],
-            "feasible": ["none", "extra_question"], "infeasible": {}, "base_version": "b", "floor": 0.1,
-            "propensities": {"none": 0.9, "extra_question": 0.1}, "seed": "s", "u": 0.95,
-            "chosen_variant": "extra_question", "content": {"question_id": question_id, "style": "recall"},
-            "forecast_p": None, "detail": {}, "created_at": _iso(T0 - timedelta(minutes=10))})
+        for k in range(3):
+            at = _iso(T0 - timedelta(days=3 - k, minutes=-5))
+            draw = ad_serving.insert_dose_row(connection, {
+                "id": f"{DOSE_DRAW_ID}_{k}", "row_kind": "draw", "draw_key": f"visit_r9_{k}:{EXT}:sec{k + 2}",
+                "visit_id": f"visit_r9_{k}", "extraction_id": EXT, "section_id": f"sec{k + 2}",
+                "learning_object_ids": [LO], "feasible": ["none", "extra_question"], "infeasible": {}, "base_version": "b",
+                "floor": 0.1, "propensities": {"none": 0.9, "extra_question": 0.1}, "seed": "s", "u": 0.95,
+                "chosen_variant": "extra_question", "content": {"question_id": question_id, "style": "recall"},
+                "forecast_p": None, "detail": {}, "created_at": at})
+            ad_serving.insert_dose_row(connection, {"row_kind": "delivered", "draw_id": draw, "created_at": at})
+        connection.commit()
+
+
+def _visits_with_lowerings(paths) -> None:
+    """Reader telemetry in both copies: three visits, each with a cue-density lowering after the time
+    an offer was (in the protected copy) delivered. Not protected material: the extraction is not held
+    out as a whole."""
+
+    with closing(connect(paths.sqlite_path)) as connection:
+        for k in range(3):
+            start = T0 - timedelta(days=3 - k)
+            events = (("reader_view_opened", {"visit_id": f"visit_r9_{k}", "extraction_id": EXT}, start),
+                      ("reader_action_invoked", {"event": "cue_density_changed", "from": "normal", "to": "fewer",
+                                                 "extraction_id": EXT}, start + timedelta(minutes=6)),
+                      ("reader_view_closed", {"visit_id": f"visit_r9_{k}", "active_seconds": 60},
+                       start + timedelta(minutes=30)))
+            for kind, payload, at in events:
+                connection.execute(
+                    "INSERT INTO interaction_events(id, kind, origin, subject_type, subject_id, payload_json, created_at) "
+                    "VALUES (?, ?, 'learner', 'reader', ?, ?, ?)",
+                    (f"ev_{kind}_{k}_r9", kind, EXT, json.dumps(payload), _iso(at)))
         connection.commit()
 
 
@@ -474,7 +545,11 @@ def _run(paths, monkeypatch) -> dict[str, Any]:
                      clock=_Frozen(RUN), reading_map=_ReadingMap(dose_view), view=dose_view)
     old = D.decide(vault, repository, D.Boundary(visit_id="visit_old", extraction_id=EXT, section_id="sec1"),
                    clock=_Frozen(RUN), reading_map=_ReadingMap(dose_view), view=dose_view)
-    out["dose"] = [fresh.as_dict(), old.as_dict()]
+    out["dose"] = [fresh.as_dict()]
+    out["dose_old_boundary"] = old.as_dict()
+    # A late uptake callback for each earlier offer (protected in one copy, absent in the other).
+    out["uptake"] = [D.record_uptake(vault, repository, f"{DOSE_DRAW_ID}_{k}", "taken", clock=_Frozen(RUN))
+                     if _has_draw(paths, f"{DOSE_DRAW_ID}_{k}") else None for k in range(3)]
 
     # The reading sweep (a backfill: every source).
     _reset_ids(monkeypatch, 5)
@@ -507,6 +582,11 @@ def _normalized(out: dict[str, Any], root: Path) -> dict[str, Any]:
     return json.loads(json.dumps(out, default=str).replace(str(root), "<vault>"))
 
 
+def _has_draw(paths, draw_id: str) -> bool:
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        return connection.execute("SELECT 1 FROM ad_dose_offers WHERE id = ?", (draw_id,)).fetchone() is not None
+
+
 def _sentinel_hits(texts: list[str]) -> list[str]:
     return [f"{token} in a captured request" for token in SENTINELS for text in texts
             if re.search(rf"(?<![\w-]){re.escape(token)}(?![\w-])", text)]
@@ -519,9 +599,10 @@ def copies(tmp_path, monkeypatch):
     copy_tree_with_databases(base.root, protected)
     copy_tree_with_databases(base.root, absent)
     protected_paths, absent_paths = _paths(protected), _paths(absent)
+    for paths in (protected_paths, absent_paths):
+        _visits_with_lowerings(paths)
     seeded = _protect(protected_paths)
-    _dose_draw(protected_paths, seeded["question"])
-    _dose_draw(absent_paths, seeded["question"])
+    _protected_offers(protected_paths, seeded["question"])
     return protected_paths, absent_paths
 
 
@@ -581,6 +662,7 @@ def test_with_the_predicate_unavailable_ad_does_nothing_and_the_incumbent_serves
     assert all("item_unassisted_success" not in json.dumps(row, default=str) for row in writes["forecast_receipts"])
     assert seen["relatedness"] == "unavailable" and seen["dose"][0]["reason"] == "protection_unavailable"
     assert seen["sweep"]["written"] == 0
+    assert seen["uptake"] == [None, None, None], "a late uptake callback writes nothing (F36)"
     # Generation takes the predecessor's target: no AD contract text, no commission.
     from learnloop.adaptive_difficulty.generation import CONTRACT_TEXT
 
@@ -613,3 +695,368 @@ def test_with_no_protection_a_frozen_dose_on_an_absent_facet_stands(tmp_path):
         events = RP.load_events(connection, load_vault(paths.root), Repository(paths.sqlite_path))
     (opportunity,) = events.opportunities
     assert opportunity.facet_doses == {"f_only_gone": 1.0}
+
+
+# -- fix round 10 (R8): protection that changes over time --------------------------------------------
+#
+# The scenarios above compare two copies at one moment. These pin what happens when protection
+# changes between two moments of one operation: a frozen history dispatched later (F33), a repair
+# requested after the first request (F34), and a late uptake callback (F36).
+
+
+def _hold(monkeypatch, spans) -> None:
+    from learnloop.content.sources import exam_material
+
+    material = exam_material.Material(spans=frozenset((EXT, span) for span in spans))
+    monkeypatch.setattr(exam_material, "held_out_material", lambda *_args, **_kwargs: material)
+
+
+# -- F33 ---------------------------------------------------------------------------------------------
+
+
+def test_a_frozen_history_is_refused_once_an_answered_revision_behind_it_is_held_out(tmp_path, monkeypatch):
+    """R4: the history card is frozen while ``pi_hist``'s earlier answered revision (span ``h3``) is
+    public: its entry records the attempt and that revision's source identity. ``h3`` is then held
+    out; dispatching the frozen request is refused for both forecasters and nothing reaches the
+    model (failed before: only the current revision's identity was frozen, so it was sent)."""
+
+    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.outside import Clients, forecast_presentation, freeze_presentation_inputs
+    from learnloop.adaptive_difficulty.switches import LLM_V3_DECIDER, LLM_V3_LLM
+
+    from tests.ad_fakes import AuditDecider, ForecastLLM
+
+    paths = _base(tmp_path)
+    _protect(paths)
+    _hold(monkeypatch, [span for span in HELD if span != "h3"])
+    vault = load_vault(paths.root)
+    vault.config.adaptive_difficulty.outside_forecasters = [LLM_V3_LLM, LLM_V3_DECIDER]
+    repository = Repository(paths.sqlite_path)
+    with closing(connect(paths.sqlite_path)) as connection:
+        (block_id,) = connection.execute("SELECT id FROM attention_blocks ORDER BY rowid LIMIT 1").fetchone()
+        connection.execute("INSERT INTO plan_presentations(id, block_id, practice_item_id, origin, served_at) "
+                           "VALUES ('pp_target_r10', ?, 'pi_p3', 'chooser', ?)", (block_id, _iso(RUN)))
+        view = material_view(vault, repository)
+        key = freeze_presentation_inputs(vault, connection, vault.practice_items["pi_p3"],
+                                         presentation_id="pp_target_r10", served_at=_iso(RUN),
+                                         protected=view.protection, view=view)
+        connection.commit()
+    assert key is not None
+    from learnloop.db.stores import ad_receipts
+
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        (frozen,) = [row["content"] for row in ad_receipts.payloads(connection, [key])]
+    identities = frozen["protection_identities"]
+    assert identities["history_attempts"], "the history quotes the held-out revision's answer"
+    assert any(identity.get("attempt_id") and ["ext_r9", "h3"] in identity.get("keys", [])
+               for identity in identities["history"])
+    _hold(monkeypatch, HELD)  # h3 is held out now
+    llm = ForecastLLM()
+    outcomes = forecast_presentation(vault, repository, "pp_target_r10", clients=Clients(llm=llm, decider=AuditDecider()))
+    assert {outcome.status for outcome in outcomes} == {"protected"} and llm.prompts == []
+
+
+# -- F34 ---------------------------------------------------------------------------------------------
+
+
+def _flipping_client(monkeypatch, flip):
+    from learnloop.content.proposals.ai_contracts import AuthoringProposal
+
+    from tests.test_proposal_persistence import _QueueAuthoringClient, _generated_practice_proposal_payload
+
+    broken = _generated_practice_proposal_payload({"evidence_facets": ["application"],
+                                                   "evidence_weights": {"application": 1.0}})
+    broken["items"][0]["audit"] = {"audit_type": "deterministic_validator", "status": "not_applicable_with_trace",
+                                   "summary": "Conceptual item; no numeric validation."}
+
+    class Flipping(_QueueAuthoringClient):
+        def run_authoring_proposal(self, context):
+            proposal = super().run_authoring_proposal(context)
+            flip()  # protection changes while the first request runs
+            return proposal
+
+    return Flipping([AuthoringProposal.model_validate(broken), AuthoringProposal.model_validate(broken)])
+
+
+@pytest.mark.parametrize("change", ["held_out", "unavailable"])
+def test_a_commissioned_repair_after_protection_changed_mid_call_is_refused(tmp_path, monkeypatch, change):
+    """R5: the first commissioned request passes its guard; during it a context item becomes held
+    out (or the predicate becomes unreadable), and its answer has an invalid item, so a repair is
+    due. The repair goes through the one guarded dispatch with protection read afresh: refused,
+    propagated as a refusal, and never sent (failed before: the repair was sent with the protected
+    context, or a guard failure was swallowed as a repair failure)."""
+
+    import yaml
+
+    from learnloop.adaptive_difficulty.generation import CommissionedRequestGuard
+    from learnloop.clock import FrozenClock
+    from learnloop.content.proposals.proposals import AuthoringRequestRefused, generate_authoring_proposal
+
+    from tests.helpers import create_basic_vault, write_yaml
+
+    paths = create_basic_vault(tmp_path / "vault")
+    item_path = paths.practice_item_path("linear-algebra", "pi_svd_define_001")
+    payload = yaml.safe_load(item_path.read_text(encoding="utf-8"))
+    payload["canonical_exercise"] = {"source_id": "src_r9", "extraction_id": EXT, "span_ids": ["h_mid"]}
+    write_yaml(item_path, payload)
+    _hold(monkeypatch, [])
+
+    def flip() -> None:
+        if change == "held_out":
+            _hold(monkeypatch, ["h_mid"])
+        else:
+            _predicate_raises(monkeypatch)
+
+    client = _flipping_client(monkeypatch, flip)
+    guard = CommissionedRequestGuard()
+    with pytest.raises(AuthoringRequestRefused):
+        generate_authoring_proposal(paths.root, client, vault_view=guard.vault_view, request_guard=guard,
+                                    clock=FrozenClock(T0))
+    assert len(client.contexts) == 1, "the repair request was never sent"
+
+
+def test_request_authoring_proposal_is_called_from_the_guarded_dispatch_only():
+    """R5 (structural): the authoring model request is made in one function,
+    ``dispatch_authoring_request``; every plan-based generator that can carry an AD commission
+    passes AD's request options, and the only unguarded caller is the diagnostic authoring path
+    (never commissioned)."""
+
+    root = Path(__file__).resolve().parents[1] / "src" / "learnloop"
+    callers: list[tuple[str, str]] = []
+    unguarded: list[tuple[str, str]] = []
+    for path in root.rglob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for function in [n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]:
+            for node in ast.walk(function):
+                if not isinstance(node, ast.Call):
+                    continue
+                name = node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, "id", None)
+                if name == "request_authoring_proposal":
+                    callers.append((path.name, function.name))
+                if name == "dispatch_authoring_request" and not any(k.arg == "request_guard" for k in node.keywords):
+                    unguarded.append((path.name, function.name))
+    assert set(callers) == {("proposals.py", "dispatch_authoring_request")}
+    assert set(unguarded) == {("proposals.py", "generate_diagnostic_proposal")}, unguarded
+    source = (root / "content" / "authoring" / "practice_generation.py").read_text(encoding="utf-8")
+    for generator in ("generate_post_probe_practice_proposal", "generate_goal_practice_proposal",
+                      "generate_cross_source_practice_proposal"):
+        body = source[source.index(f"def {generator}("):]
+        body = body[:body.index("\ndef ", 1)]
+        assert "**_ad_request_options(plan)" in body, generator
+
+
+# -- F36 ---------------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("state", ["ad_off", "dose_off", "unavailable"])
+def test_a_late_uptake_callback_writes_nothing_when_ad_cannot_record_it(tmp_path, monkeypatch, state):
+    """R7: an offer exists; then AD is turned off, the dose arm is turned off, or the predicate
+    becomes unavailable. The callback writes no row and answers a no-op (failed before: it appended
+    ``taken`` whatever the switches)."""
+
+    from learnloop.adaptive_difficulty import dose as D
+    from learnloop.db.stores import ad_serving
+
+    from tests.test_ad3_dose_arm import _arm, _boundary, _draws, _mapping
+    from tests.test_ad1_reading_opportunities import _question, at
+
+    paths, vault, repo = _arm(tmp_path)
+    _question(repo, "recall", 1, answer=False)
+    with closing(connect(paths.sqlite_path)) as connection:
+        draw = ad_serving.insert_dose_row(connection, {
+            "row_kind": "draw", "draw_key": "visit_r10:ext1:u1", "visit_id": "visit_r10", "extraction_id": "ext1",
+            "section_id": "u1", "learning_object_ids": ["lo_svd_definition"], "feasible": ["none", "extra_worked_example"],
+            "infeasible": {}, "base_version": "b", "floor": 0.1,
+            "propensities": {"none": 0.9, "extra_worked_example": 0.1}, "seed": "s", "u": 0.95,
+            "chosen_variant": "extra_worked_example", "content": {"extraction_id": "ext1", "span_id": "we2"},
+            "forecast_p": None, "detail": {}, "created_at": "2026-10-12T09:00:00Z"})
+        connection.commit()
+    if state == "ad_off":
+        vault.config.adaptive_difficulty.enabled = False
+    elif state == "dose_off":
+        vault.config.adaptive_difficulty.reading_dose_offers = False
+    else:
+        _predicate_raises(monkeypatch)
+    assert D.record_uptake(vault, repo, draw, "taken", clock=at(3)) is None
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        assert [row for row in ad_serving.dose_rows(connection) if row["row_kind"] != "draw"] == []
+
+
+def test_the_sidecar_uptake_callback_answers_a_no_op_with_ad_off(tmp_path):
+    """R7 at the RPC: ``reader.dose_offer_event`` for an existing offer after AD is turned off
+    records nothing and says so (``recorded: false``); with AD on it records (failed before: the
+    handler wrote ``taken`` whatever the switches)."""
+
+    import learnloop_sidecar.handlers  # noqa: F401 - registers the RPCs
+    from learnloop.db.stores import ad_serving
+    from learnloop_sidecar.context import SidecarContext
+    from learnloop_sidecar.registry import METHOD_REGISTRY
+
+    from tests.test_ad3_dose_arm import _arm
+
+    paths, _vault, _repo = _arm(tmp_path)
+    with closing(connect(paths.sqlite_path)) as connection:
+        draws = [ad_serving.insert_dose_row(connection, {
+            "row_kind": "draw", "draw_key": f"visit_s{k}:ext1:u1", "visit_id": f"visit_s{k}", "extraction_id": "ext1",
+            "section_id": "u1", "learning_object_ids": ["lo_svd_definition"], "feasible": ["none", "extra_worked_example"],
+            "infeasible": {}, "base_version": "b", "floor": 0.1,
+            "propensities": {"none": 0.9, "extra_worked_example": 0.1}, "seed": "s", "u": 0.95,
+            "chosen_variant": "extra_worked_example", "content": {"extraction_id": "ext1", "span_id": "we2"},
+            "forecast_p": None, "detail": {}, "created_at": "2026-10-12T09:00:00Z"}) for k in range(2)]
+        connection.commit()
+    spec = METHOD_REGISTRY["reader.dose_offer_event"]
+    ctx = SidecarContext()
+    ctx.load(paths.root)
+    try:
+        on = spec.handler(ctx, spec.params_model.model_validate({"drawId": draws[0], "event": "taken"}))
+        vault, _repository = ctx.require_vault()
+        vault.config.adaptive_difficulty.enabled = False
+        off = spec.handler(ctx, spec.params_model.model_validate({"drawId": draws[1], "event": "taken"}))
+    finally:
+        ctx.map_builds.close()
+    assert on["recorded"] is True and on["rowId"]
+    assert off["recorded"] is False and off["rowId"] is None
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        assert [row["draw_id"] for row in ad_serving.dose_rows(connection) if row["row_kind"] == "taken"] == [draws[0]]
+
+
+# -- F28 (R3): a serve withheld with its presentation ---------------------------------------------------
+
+
+def test_feedback_dwell_skips_a_serve_withheld_with_its_presentation(tmp_path, monkeypatch):
+    """R3: plan events name no presentation, so a serve of a PUBLIC item whose presentation froze a
+    held-out revision is found by its block and item. AD's dwell skips it, and the completion that
+    follows it, as if neither were written: done(pi_p1) -> served(pi_p2) is one 4-minute pair, as on
+    a copy without them; the incumbent's default reader still pairs every event (1 and 1 minute).
+    Failed before: AD's estimator had no event rule (the plan's raw dwell)."""
+
+    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.daily_plan.estimates import load_duration_evidence
+
+    paths = _base(tmp_path)
+    _protect(paths)
+    _hold_out(monkeypatch)
+    with closing(connect(paths.sqlite_path)) as connection:
+        (content_hash,) = connection.execute(
+            "SELECT content_hash FROM item_serve_inputs WHERE id = 'isi_hist_r9'").fetchone()
+        connection.execute("INSERT INTO plan_presentations(id, block_id, practice_item_id, origin, served_at) "
+                           "VALUES ('pp_hist_old_r10', 'blk_old_r9', 'pi_hist', 'chooser', '2026-10-05T12:01:00Z')")
+        connection.execute(
+            "INSERT INTO item_serve_inputs(id, receipt_key, presentation_kind, plan_presentation_id, practice_item_id, "
+            "learning_object_id, content_hash, served_at, audit_json, signals_json, pre_exposed, resolution_version, "
+            "created_at) VALUES ('isi_hist_old_r10', 'plan_presentation:pp_hist_old_r10', 'plan_presentation', "
+            "'pp_hist_old_r10', 'pi_hist', ?, ?, '2026-10-05T12:01:00Z', '{}', '{}', 0, 'r10', "
+            "'2026-10-05T12:01:00Z')", (LO, content_hash))
+        events = (("item_done", {"practice_item_id": "pi_p1", "done_at": "2026-10-05T12:00:00Z"}, "12:00"),
+                  ("item_served", {"practice_item_id": "pi_hist"}, "12:01"),
+                  ("item_done", {"practice_item_id": "pi_hist", "done_at": "2026-10-05T12:03:00Z"}, "12:03"),
+                  ("item_served", {"practice_item_id": "pi_p2"}, "12:04"))
+        for ordinal, (kind, detail, at) in enumerate(events, start=100):
+            connection.execute(
+                "INSERT INTO attention_block_events(id, block_id, event_ordinal, kind, detail_json, created_at) "
+                "VALUES (?, 'blk_old_r9', ?, ?, ?, ?)",
+                (f"ev_r10_{ordinal}", ordinal, kind, json.dumps(detail), f"2026-10-05T{at}:00Z"))
+        connection.commit()
+    repository = Repository(paths.sqlite_path)
+    view = material_view(load_vault(paths.root), repository)
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        assert view.presentation(connection, "pp_hist_old_r10") is None, "the presentation froze a held-out revision"
+        with repository.connection() as live:
+            filtered = load_duration_evidence(repository, latency_cap_minutes=30.0,
+                                              attempt_rows=view.attempts(live),
+                                              event_visible=view.plan_event_visible(live))
+    raw = load_duration_evidence(repository, latency_cap_minutes=30.0)
+    assert list(filtered.feedback_dwell) == [4.0]
+    assert sorted(raw.feedback_dwell)[:2] == [1.0, 1.0] and len(raw.feedback_dwell) == 12
+
+
+# -- fix round 10's self-audit: readers that bypassed the view ------------------------------------------
+
+
+def test_withheld_dose_offers_neither_spend_the_budget_nor_count_as_taken(tmp_path, monkeypatch):
+    """Self-audit (dose budget, taken offers, the report's visits): an offer whose extra is withheld
+    now is, for AD, an offer never made, so it neither spends the section's budget nor tags a
+    reading receipt as taken; a Reader visit to an extraction held out as a whole is not a report
+    visit. With nothing held out the same rows count (failed before: the three readers took no
+    view and read the raw rows)."""
+
+    from learnloop.adaptive_difficulty import dose as D
+    from learnloop.adaptive_difficulty import report as REP
+    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.content.sources import exam_material
+    from learnloop.db.stores import ad_serving
+
+    from tests.test_ad3_dose_arm import _arm
+
+    paths, vault, repo = _arm(tmp_path)
+    with closing(connect(paths.sqlite_path)) as connection:
+        draw = ad_serving.insert_dose_row(connection, {
+            "row_kind": "draw", "draw_key": "visit_a:ext1:u1", "visit_id": "visit_a", "extraction_id": "ext1",
+            "section_id": "u1", "learning_object_ids": ["lo_svd_definition"], "feasible": ["none", "extra_worked_example"],
+            "infeasible": {}, "base_version": "b", "floor": 0.1,
+            "propensities": {"none": 0.9, "extra_worked_example": 0.1}, "seed": "s", "u": 0.95,
+            "chosen_variant": "extra_worked_example", "content": {"extraction_id": "ext1", "span_id": "we2"},
+            "forecast_p": None, "detail": {}, "created_at": "2026-10-12T09:00:00Z"})
+        ad_serving.insert_dose_row(connection, {"row_kind": "taken", "draw_id": draw,
+                                                "created_at": "2026-10-12T09:01:00Z"})
+        for event_id, kind, payload, at in (
+                ("ev_open_r10", "reader_view_opened", {"visit_id": "visit_w", "extraction_id": "ext_whole"},
+                 "2026-10-12T08:00:00Z"),
+                ("ev_close_r10", "reader_view_closed", {"visit_id": "visit_w", "active_seconds": 120},
+                 "2026-10-12T08:30:00Z")):
+            connection.execute(
+                "INSERT INTO interaction_events(id, kind, origin, subject_type, subject_id, payload_json, created_at) "
+                "VALUES (?, ?, 'learner', 'reader', 'ext_whole', ?, ?)", (event_id, kind, json.dumps(payload), at))
+        connection.commit()
+
+    def view_of(material):
+        monkeypatch.setattr(exam_material, "held_out_material", lambda *_args, **_kwargs: material)
+        return material_view(vault, repo)
+
+    public = view_of(exam_material.Material())
+    held = view_of(exam_material.Material(extractions=frozenset({"ext_whole"}), spans=frozenset({("ext1", "we2")})))
+    snapshot = SimpleNamespace(events=SimpleNamespace(opportunities=[]))
+    budget = {"extraction_id": "ext1", "section_id": "u1", "now": "2026-10-12T10:00:00Z", "daily": 5}
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        assert D.budget(connection, **budget, view=public) == "section_offered"
+        assert D.budget(connection, **budget, view=held) is None
+        assert D.taken_offers(connection, view=public) == {"span:ext1/we2": draw}
+        assert D.taken_offers(connection, view=held) == {}
+        assert [visit["visit_id"] for visit in REP._visits(connection, snapshot, view=public)] == ["visit_w"]
+        assert REP._visits(connection, snapshot, view=held) == []
+
+
+def test_the_commissioned_generation_path_reads_no_incumbent_diagnosis_or_probe_counts(tmp_path, monkeypatch):
+    """Self-audit (R2's neighbours): under AD's view the rung selection skips the probe episode's
+    hypothesis (the incumbent's diagnosis, which can count withheld answers), a commissioned
+    target's request carries no probe counts, and the post-generation gates compare against the
+    vault AD sees. The predecessor's reads are unchanged (failed before: ``select_rung`` had no
+    switch, the counts were in the request and the gates read the whole vault)."""
+
+    import learnloop.curriculum.depth_rungs as depth_rungs
+    from learnloop.content.authoring.practice_generation import PracticeExpansionTarget, _ad_gate_vault
+    from learnloop.curriculum.depth_rungs import select_rung
+
+    from tests.helpers import create_basic_vault
+
+    paths = create_basic_vault(tmp_path / "vault")
+    vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
+    monkeypatch.setattr(depth_rungs, "_rung_from_episode_hypothesis", lambda *_args: "select_method")
+    lo = sorted(vault.learning_objects)[0]
+    diagnosed = select_rung(vault, repository, learning_object_id=lo, mastery_mean=None)
+    blind = select_rung(vault, repository, learning_object_id=lo, mastery_mean=None, episode_hypotheses=False)
+    assert diagnosed.waypoint_slug == "select_method" and blind.waypoint_slug != "select_method"
+
+    target = PracticeExpansionTarget(
+        learning_object_id=lo, title="t", subjects=["s"], concept="c", existing_practice_items=0,
+        requested_new_items=1, probe_attempts_completed=3, probe_attempts_target=4, mastery_mean=0.2,
+        recommended_difficulty_band=(0.0, 1.0))
+    assert target.as_dict()["probe_attempts_completed"] == 3, "the predecessor's request keeps its counts"
+    from dataclasses import replace
+
+    commissioned = replace(target, ad_commission_id="sel_r10").as_dict()
+    assert not {"probe_attempts_completed", "probe_attempts_target", "mastery_mean"} & set(commissioned)
+
+    seen = SimpleNamespace(vault_view=lambda: "the view's vault")
+    assert _ad_gate_vault(SimpleNamespace(material_view=seen), vault) == "the view's vault"
+    assert _ad_gate_vault(SimpleNamespace(material_view=None), vault) is vault

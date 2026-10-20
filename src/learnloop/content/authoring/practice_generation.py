@@ -119,6 +119,9 @@ class PracticeExpansionTarget:
             # fix round 9's contract).
             payload.pop("recommended_difficulty_band")
             payload.pop("mastery_mean")
+            # The probe counts are the incumbent's evidence too (fix round 10).
+            payload.pop("probe_attempts_completed")
+            payload.pop("probe_attempts_target")
             payload["ad_commission_id"] = self.ad_commission_id
         if self.commissioned_cells:
             payload["commissioned_cells"] = self.commissioned_cells
@@ -335,6 +338,10 @@ def build_practice_expansion_plan(
     subject_filter = set(subjects or [])
     concept_filter = set(focus_concepts or [])
     ad_items = ad_view.items() if ad_view is not None else None
+    ad_counts: dict[str, int] = {}
+    if ad_view is not None:
+        with repository.connection() as connection:
+            ad_counts = ad_view.graded_counts(connection)
     item_counts = _active_practice_item_counts(vault, repository, exclude_item_ids=exclude_item_ids, items=ad_items)
     facet_unions = _active_evidence_facet_unions(vault, repository, items=ad_items)
     surface_families = _active_surface_families(vault, repository, items=ad_items)
@@ -390,15 +397,25 @@ def build_practice_expansion_plan(
             # An explicitly forced LO or an unresolved contract commission past
             # the count target still needs one focused item.
             requested = 1
-        mastery = repository.mastery_state(learning_object.id)
-        mastery_mean = display_mastery(mastery).mastery_mean if mastery is not None else None
-        # With no mastery state at all, the learner claim (if any) sets both the
-        # rung entry point and the ability the difficulty band inverts around. A
-        # claim-seeded mastery state already carries the claim in mastery_mean.
-        claimed_level: float | None = None
-        if mastery is None:
+        if ad_view is not None:
+            # Adaptive difficulty's commissioned path reads no incumbent mastery or evidence (A8;
+            # Codex verify F21, fix round 10): the incumbent's state counts answers AD withholds.
+            # The rung is selected from the learner's claim and the view's own count of graded
+            # answers (the rung's default prior otherwise), never from mastery_ekf.
+            mastery = None
+            mastery_mean = None
             claim = covering_learner_claim(vault, repository, learning_object.id)
             claimed_level = float(claim["claimed_level"]) if claim is not None else None
+        else:
+            mastery = repository.mastery_state(learning_object.id)
+            mastery_mean = display_mastery(mastery).mastery_mean if mastery is not None else None
+            # With no mastery state at all, the learner claim (if any) sets both the
+            # rung entry point and the ability the difficulty band inverts around. A
+            # claim-seeded mastery state already carries the claim in mastery_mean.
+            claimed_level: float | None = None
+            if mastery is None:
+                claim = covering_learner_claim(vault, repository, learning_object.id)
+                claimed_level = float(claim["claimed_level"]) if claim is not None else None
         # Rung-correct generation (Stage 5.1 / Meas §5.8.2): when this LO's own
         # blueprint names cells no authored item can observe, the CONTRACT sets the
         # waypoint — the head of the commissioning queue for this LO, honouring
@@ -415,8 +432,10 @@ def build_practice_expansion_plan(
                 repository,
                 learning_object_id=learning_object.id,
                 mastery_mean=mastery_mean,
-                evidence_count=(mastery.evidence_count if mastery is not None else 0),
+                evidence_count=(ad_counts.get(learning_object.id, 0) if ad_view is not None
+                                else mastery.evidence_count if mastery is not None else 0),
                 claimed_level=claimed_level,
+                **({"episode_hypotheses": False} if ad_view is not None else {}),
             )
         # Adaptive difficulty AD2+AD3 (spec §6.1, §7.1; switch generation_contract,
         # dormant below mvp-0.28): AD's commission draw names the feature point at
@@ -473,6 +492,15 @@ def build_practice_expansion_plan(
     if max_los is not None:
         targets = targets[:max_los]
     return PracticeExpansionPlan(targets=targets, material_view=ad_view)
+
+
+def _ad_gate_vault(plan: Any, vault: LoadedVault) -> LoadedVault:
+    """The vault the post-generation gates compare a commissioned batch against: AD's material view
+    of it (fix round 10), so a withheld item's surface family or facet never decides whether a
+    commissioned item is kept. The predecessor's plan (no view) uses the vault as loaded."""
+
+    view = getattr(plan, "material_view", None)
+    return view.vault_view() if view is not None else vault
 
 
 def _ad_request_options(plan: Any) -> dict[str, Any]:
@@ -896,7 +924,7 @@ def generate_post_probe_practice_proposal(
     # SAME target band the rung gate already uses (`success_band_difficulty`'s
     # inversion), so "the target difficulty band" means one thing in this vault.
     gates = build_instrument_gates(
-        vault,
+        _ad_gate_vault(plan, vault),
         repository,
         grading_client=codex_client,
         rung_gate=rung_gate,
@@ -1036,7 +1064,7 @@ def generate_goal_practice_proposal(
     # Meas §3.0 (see `generate_post_probe_practice_proposal` for the tier note);
     # Meas §3.A4 band note ditto. One shared composition: `authoring_gates`.
     gates = build_instrument_gates(
-        vault,
+        _ad_gate_vault(plan, vault),
         repository,
         grading_client=codex_client,
         rung_gate=rung_gate,
@@ -1313,7 +1341,7 @@ def generate_cross_source_practice_proposal(
     # additionally runs its leakage gate FIRST, as a `leading` hook on the one
     # shared composition.
     gates = build_instrument_gates(
-        vault,
+        _ad_gate_vault(plan, vault),
         repository,
         grading_client=codex_client,
         rung_gate=rung_gate,

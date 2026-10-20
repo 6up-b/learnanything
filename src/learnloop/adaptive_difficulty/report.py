@@ -322,13 +322,14 @@ def _trivial_success(connection: Any, snapshot: RP.Snapshot) -> dict[str, Any]:
     return {"successes": successes, "trivial": trivial, "rate": (trivial / successes) if successes else None}
 
 
-def _visits(connection: Any, snapshot: RP.Snapshot) -> list[dict[str, Any]]:
+def _visits(connection: Any, snapshot: RP.Snapshot, *, view: Any) -> list[dict[str, Any]]:
     """Reader visits with their active minutes (a cost, read as the Reader report reads it) and the
-    count of each kind of opportunity inside them."""
+    count of each kind of opportunity inside them. A visit to an extraction held out as a whole is
+    left out, and none is read while the predicate is unavailable (fix round 10's self-audit)."""
 
     import json
 
-    if not store.has_table(connection, "interaction_events"):
+    if not view.available or not store.has_table(connection, "interaction_events"):
         return []
     opened: dict[str, str] = {}
     visits = []
@@ -341,6 +342,8 @@ def _visits(connection: Any, snapshot: RP.Snapshot) -> list[dict[str, Any]]:
             data = {}
         visit = data.get("visit_id")
         if not visit:
+            continue
+        if data.get("extraction_id") and view.material_withheld(data.get("extraction_id")):
             continue
         if kind == "reader_view_opened":
             opened.setdefault(str(visit), str(created_at))
@@ -473,19 +476,24 @@ def readiness_errors(records: Sequence[A.Record], selection_times: Sequence[str]
     return errors
 
 
-def density_lowerings(connection: Any) -> list[str]:
+def density_lowerings(connection: Any, *, view: Any) -> list[str]:
     """When the learner lowered the cue density within a visit after an extra offer (§10.4, F8).
 
     A lowering is a ``cue_density_changed`` preference event to a lower density. It counts when
     it falls after a delivered extra offer and no later than the end of that offer's visit (its
     close, else its last event carrying the visit), on the same source when the event names one.
-    Each lowering counts once, however many offers preceded it."""
+    Each lowering counts once, however many offers preceded it.
+
+    The offers are the material view's dose cohort (``view.dose_rows``: a delivered offer whose
+    extra is withheld now is not one; Codex verify F35, fix round 10), and a lowering on an
+    extraction held out as a whole is not counted. With the predicate unavailable there are none,
+    so the burden flag is suppressed."""
 
     import json
 
-    if not store.has_table(connection, "interaction_events"):
+    if not view.available or not store.has_table(connection, "interaction_events"):
         return []
-    rows = store.dose_rows(connection)
+    rows = view.dose_rows(connection)
     draws = {row["id"]: row for row in rows if row["row_kind"] == "draw"}
     closed: dict[str, str] = {}
     last_seen: dict[str, str] = {}
@@ -509,7 +517,8 @@ def density_lowerings(connection: Any) -> list[str]:
             before, after = data.get("from"), data.get("to")
             if before in CUE_DENSITIES and after in CUE_DENSITIES and \
                     CUE_DENSITIES.index(after) < CUE_DENSITIES.index(before):
-                lowerings.append((str(created_at), data.get("extraction_id")))
+                if not (data.get("extraction_id") and view.material_withheld(data.get("extraction_id"))):
+                    lowerings.append((str(created_at), data.get("extraction_id")))
     offers = []
     for row in rows:
         draw = draws.get(row.get("draw_id")) if row["row_kind"] == "delivered" else None
@@ -553,10 +562,10 @@ def build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] =
                                             if row["kind"] == "serve"], every=report_every)
         previous_errors = errors[:-1]
     flags, lines = _flags_and_lines(records, previous_errors, selected_outcomes=stats["realized_outcomes"],
-                                    delivered=dose_arm["delivered"], lowerings=density_lowerings(connection),
+                                    delivered=dose_arm["delivered"], lowerings=density_lowerings(connection, view=view),
                                     now=now)
     selections = store.selections(connection)
-    dose = DR.analyse(snapshot.subject, visits=_visits(connection, snapshot),
+    dose = DR.analyse(snapshot.subject, visits=_visits(connection, snapshot, view=view),
                       answer_minutes=_answer_minutes(connection, view=view),
                       median_doses=_median_doses(records), offers=_offer_outcomes(connection, snapshot, view=view),
                       records=[{"y": r.y, "p": r.p.get(A.SUBJECT), "doses": r.doses} for r in records])
