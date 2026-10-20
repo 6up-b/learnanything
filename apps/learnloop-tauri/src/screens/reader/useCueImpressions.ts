@@ -114,6 +114,17 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
   const queueRef = useRef<Queued[]>([]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // The fallback visit (no funnel visit) ends on every source transition,
+  // leaving for the Library (null) included, whether or not anything called
+  // for it meanwhile (Codex verify F27): coming back to a source is a new
+  // visit, with its own first-seen plans and dedupe (both keyed by the visit
+  // id). Receipts already queued keep the visit and plan they were seen in.
+  const visitSourceRef = useRef<string | null>(extractionId);
+  if (visitSourceRef.current !== extractionId) {
+    visitSourceRef.current = extractionId;
+    localVisitRef.current = null;
+  }
+
   const currentVisit = useCallback((): string | null => {
     if (!extractionId) return null;
     const funnel = visitId();

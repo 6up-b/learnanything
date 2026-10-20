@@ -837,3 +837,53 @@ over. Result: **2 failed, 29 passed**. Both regressions submitted `plan_B`.
 | Python, references, `cargo check` | not run: frontend only |
 
 **Model calls: none.** Nothing was run outside vitest and the build.
+
+## Fix round 10 (orchestrator)
+
+Codex's verify of round 9 (job `20261020-170126-sxqjnu`, verdict REOPENED)
+confirmed:
+
+- F26;
+- that callbacks from disconnected generations are rejected;
+- that discovery off matches the base;
+- protection, spend, config and the migrations.
+
+One Medium remained, F27. It reproduced on `d1518fa86` and is fixed here
+under the orchestrator's ruling.
+
+| id | severity | title | verdict | test |
+|---|---|---|---|---|
+| F27 | Medium | the fallback visit survives source transitions | fixed | `rw3bReview.test.tsx` "F27: with no funnel visit, A → Library → A …" and "F27: with no funnel visit, A → an unseen B → A …" |
+
+### What changed
+
+In `useCueImpressions.ts`, the fallback visit (used when there is no
+funnel visit) now ends on every source transition. That includes leaving
+for the Library (`extractionId` null) and passing through a source where
+nothing asked for a visit. The hook compares the source with the previous
+render's and clears the fallback visit when it changed.
+
+Coming back to a source is therefore a new visit. First-seen plans and the
+`sentRef` dedupe are keyed by the visit id, so they start fresh. Receipts
+already queued keep the visit and plan ids they were seen with, and leaving a
+source still flushes them to it (F6).
+
+### Fail-before (`d1518fa86`)
+
+`d1518fa86`'s `apps/learnloop-tauri` was extracted to the scratchpad, with
+the worktree's `node_modules` symlinked in and the new test file copied
+over. Result: **2 failed, 31 passed**. Both transitions reused the old
+visit id. With the fix, each regression gets a new `cues_…` visit, `plan_B`
+as the first-seen plan, and a second receipt `{visitId: <new>, planId:
+plan_B}`.
+
+### Gate
+
+| Check | Result |
+|---|---|
+| `npm run typecheck` | clean |
+| `npx vitest run src/screens/reader/ src/screens/ReaderScreen src/components/PdfReaderPane.marks.test.tsx` | **447 passed** (58 files) |
+| `npm run frontend:build` | built |
+| Python, references, `cargo check` | not run: frontend only |
+
+**Model calls: none.** Nothing was run outside vitest and the build.

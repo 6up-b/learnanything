@@ -754,3 +754,44 @@ it("F26: a Guide mark whose receipt failed twice under A is recorded under A whe
   expect(api.readerCueImpressions.mock.calls[2][0]).toEqual({ extractionId: "A", visitId: "visit_A", planId: "plan_A",
     entries: [{ cueId: "cue_g1", shown: true }] });
 });
+
+// -- Fix round 10 (verify) -----------------------------------------------------------------------
+
+for (const away of [null, "B"] as const) {
+  it(`F27: with no funnel visit, A → ${away === null ? "Library" : "an unseen B"} → A is a new visit with its own plan and a fresh receipt`, async () => {
+    vi.useFakeTimers();
+    const guideMark = cue("a1", 0);
+    const found = discovered("a2", 1);
+    const { result, rerender } = renderHook(({ extraction, plan }: { extraction: string | null; plan: string }) =>
+      useCueImpressions({ extractionId: extraction, cues: cues([guideMark, found], [], "tk1", plan), placement: EMPTY,
+        surface: "pdf", bodyRef: body([]), visitId: () => null }),
+    { initialProps: { extraction: "A" as string | null, plan: "plan_A" } });
+    act(() => {
+      result.current.noteShown(guideMark, "plan_A");
+      result.current.noteShown(found, "plan_A");  // remembered, no receipt (PDF)
+    });
+    await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+    const first = api.readerCueImpressions.mock.calls[0][0] as { visitId: string; planId: string };
+    expect(first.planId).toBe("plan_A");
+    const firstVisit = result.current.visitId();
+    expect(firstVisit).toBe(first.visitId);
+    // Away (nothing there asks for a visit), then back to A under a new plan.
+    rerender({ extraction: away, plan: "plan_X" });
+    rerender({ extraction: "A", plan: "plan_B" });
+    act(() => {
+      result.current.noteShown(guideMark, "plan_B");
+      result.current.noteShown(found, "plan_B");
+    });
+    const secondVisit = result.current.visitId();
+    expect(secondVisit).toMatch(/^cues_/);
+    expect(secondVisit).not.toBe(firstVisit);
+    expect(result.current.planFor(found)).toBe("plan_B");
+    expect(result.current.planFor(guideMark)).toBe("plan_B");
+    await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+    // A fresh receipt in the new visit, under the new plan.
+    expect(api.readerCueImpressions.mock.calls.map((call) => call[0])).toEqual([
+      { extractionId: "A", visitId: firstVisit, planId: "plan_A", entries: [{ cueId: "cue_a1", shown: true }] },
+      { extractionId: "A", visitId: secondVisit, planId: "plan_B", entries: [{ cueId: "cue_a1", shown: true }] },
+    ]);
+  });
+}
