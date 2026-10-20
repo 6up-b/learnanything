@@ -316,3 +316,126 @@ Paid or live calls: none ($0.00).
 1. **F3, a hold that lapses between the serve and the submit** (default: the decision is
    read at the submission instant, so such an attempt answers the check). Alternative:
    any hold seen at the serve makes the attempt practice (this needs the serve recorded).
+
+---
+
+# Fix round 3 (orchestrator rulings)
+
+The final verify (Codex job `20261020-013947-7LLooy`, on `32040fcbc`) confirmed F1, F2
+and F3 fixed, **reopened F11** (Medium) and found **F12** (Medium). The orchestrator
+ruled the structural fix for both, so these stop recurring:
+
+- **R1, one admission predicate.** Every per-item gate `build_due_queue` applies is
+  expressed once and asked by both the build and the "Check once" candidate
+  selection; cold-over-practice preference is applied only among the candidates it
+  admits. Incumbent queue order unchanged.
+- **R2, one "disclosures attributable to this attempt" function.** Submit's exemption
+  (retry key + frozen trace hash, own-disclosure rows) is shared, and
+  `check_once_at_attempt` uses it for both the exposure and the LO hold; other items'
+  or unrelated disclosures still hold.
+- **R3,** fail-before tests on `32040fcbc` for both verify reproductions as written.
+
+## Findings
+
+| ID | Sev | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F11 | Medium | A fresh diagnostic-probe sibling suppresses the only servable "Check once" candidate (reopened: the freshness gate stood outside the shared predicate) | **fixed** (R1) | `3f7be0a90` | `test_f11_a_fresh_diagnostic_probe_never_suppresses_the_servable_candidate`, `test_f11_the_plan_pool_offers_the_admitted_candidate` (+ control `test_f11_an_admitted_cold_sibling_is_still_preferred`); structure: `test_r1_every_gate_of_the_build_is_the_admission_predicates`, `test_r1_check_selection_asks_the_builds_admission_predicate`, `test_r1_the_predicate_names_the_freshness_reserve_for_a_check_candidate` |
+| F12 | Medium | A frozen self-grade's own key display postpones the check it answers | **fixed** (R2) | `3f7be0a90` | `test_f12_a_frozen_self_grade_answers_the_check`, `test_f12_a_repeated_self_grade_never_postpones` (+ control `test_f12_an_unrelated_disclosure_still_holds`); structure: `test_r2_one_attributable_disclosure_function` |
+
+All in `tests/test_intent_orchestrator_rulings.py`. The F12 tests drive the desktop's
+real flow through the sidecar handlers: `save_practice_draft`, the freeze
+(`record_self_grade_disclosure`), the key's display (the same call with a `displayId`,
+an unlinked row), `submit_attempt` with a self-grade, `acknowledge_practice_submission`.
+
+**Fail-before on `32040fcbc`** (its `src/` and `migrations/` from `git archive`, with
+`-o pythonpath=` pointing at them; log `fixtures-local/tmp/dl2-fix3-failfirst.txt`):
+**4 failed, 2 passed** (the controls). F11: `pi_a1` missing from the queue
+(`['pi_b1', 'pi_c1', 'pi_c2']`), and the plan view's check item was `pi_a2` (the
+fresh probe) instead of `pi_a1`; F12: `settle_answered_checks` returned `[]` for the
+self-graded attempt (submit had admitted it unprimed), on the first check and on the
+repeated one. The four R1/R2 structure tests name the new functions and have no
+predecessor to fail on.
+
+## What changed
+
+### R1 / F11: `serving_exclusions.admission_reason`
+
+- `admission_reason(vault, item, state, exclusions, gates, *, requested, intent_gate)`
+  is the scheduler's whole per-item admission, in `build_due_queue`'s order and with
+  its reason codes (`ADMISSION_GATES` = `ROUTINE_GATES` + `BUILD_GATES`): the routine
+  gate (`routine_withhold_reason`, unchanged); the build's intent gate when given; then
+  the build's gates (`BuildGates`): the diagnostic freshness reserve, placement and the
+  cold-start gate (a request is exempt from both, as before), and the probe-episode
+  gates (`diagnostic_reserved`, `voi_value_below_minutes_cost`).
+- `scheduler._BuildAdmission` implements the build's gates over one build's reads,
+  each item's read once: the placement decision and the probe scoring (the ranking
+  components and, in an in-progress episode, the probe's value) moved out of the loop
+  verbatim, so the gate and the ranking read the same values. The loop now asks
+  `admission_reason` once per item (the only gate call; `zero_priority` stays the one
+  ranking filter, which a request, as every check candidate is, never meets because
+  of the requested floor). The reserved-surface slate annotation and
+  `probe_item_ids` are recorded as before.
+- The check's split (eligible / held / exposed) is now made lazily
+  (`IntentServing.checks`, `split_check`) among the candidates the predicate admits as
+  a request. `build_due_queue` binds its own admission
+  (`IntentServing.bind_admission(admission.admits_check_candidate)`) before it reads a
+  check (the request filter and the follow-up filter moved after the binding; the base
+  reads stay where they were). A view built outside the queue (the plan's pool and
+  re-planning, `served_check`, `settle_answered_checks`, `answered_check`, the
+  headline) gets the same predicate over its own reads, with no session and nothing
+  written (`scheduler.check_admission`, each read on first use).
+- Incumbent order: the extraction is behaviour-preserving (the reason codes, their
+  order and the components' key order are unchanged); the previous rounds' parity and
+  determinism pins are in the gate below and pass.
+
+### R2 / F12: `serve_eligibility.attributable_disclosure_ids`
+
+- The disclosure identity (`trace_hash`, `disclosure_identity`, `is_own_disclosure`,
+  the encoding version) moved into `serve_eligibility` (it stays a leaf: `json`,
+  `hashlib`); `reveal_ledger` re-exports the same names, so writers and readers are
+  unchanged.
+- `attributable_disclosure_ids(rows, *, practice_item_id, submission_id,
+  learner_answer_md)` is the one exemption: the item's own `answer_display` rows whose
+  identity is exactly that retry key and trace. `gather` (submit, via
+  `attempts.submit_eligibility_inputs`) computes `exempt_reveal_ids` with it;
+  `check_once_at_attempt` recovers the attempt's own key and stored trace
+  (`attempt_submission`, which `reveal_ledger._production_trace` now delegates to) and
+  computes the same set.
+- `cold_task_holds` skips exempt rows, so the attempt's own disclosure neither exposes
+  it nor holds its LO. Only `check_once_at_attempt` and submit pass exempt rows, and
+  submit does not read holds, so every other path is unchanged. A sibling's
+  disclosure, another draft's, or any other display still holds (the control).
+
+## Gate (fix round 3; targeted, per the owner rule of 2026-10-17)
+
+`TMPDIR` in the worktree's `fixtures-local/tmp`. The full suite, the whole durability
+lane and the whole vitest run are the landing gate's.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | OK |
+| `uv run lint-imports --no-cache` | **28 kept, 0 broken** |
+| Fail-before: the 6 behaviour tests of `test_intent_orchestrator_rulings.py` on `32040fcbc` | **4 failed, 2 passed** (the controls) |
+| `pytest -n auto` on 278 files (list in `fixtures-local/tmp/dl2-fix3-affected.txt`): the re-review step's 176 (every `test_intent_*` file, every `build_due_queue` / plan / re-entry / headline / `serve_eligibility` / `served_check` / `recall_targets` / `held_grades` user, the successor-chain users and the contract pins `test_architecture`, `test_config_refactor`, `test_registry_audit`, `test_sidecar_registry`, `test_sidecar_serializer_snapshot`, `test_cli_help_snapshot`, `test_desktop_rpc_contract`, `test_table_roles`, `test_coordinated_migrations`, `test_tracked_fixture_databases`, `test_vault_template`, `test_mobile_allowlist`, `test_sqlite_file_copies`, `test_ai_config`, `test_plan_determinism`, `test_reading_step_switch`); the new `test_intent_orchestrator_rulings.py`; every test naming the reveal ledger, the disclosure identity, `submit_eligibility_inputs`, `serving_exclusions`, `intent_serving` or the self-grade disclosure; every test of production admissibility, coldness receipts, `submit_attempt` or `complete_self_graded_attempt` | **4,981 passed** (10 min) |
+| `pytest -n auto --durable-sqlite tests/test_intent_*.py` (11 files) | **133 passed** |
+| Frontend | unchanged: no npm, vitest or build run needed |
+| `cargo check` | not run: nothing under `src-tauri` changed |
+| `db_generate_reference.py`, `db_validate_reference.py` | **0 errors** (head 213; commit labels and line citations; commit `ef3d6042b`) |
+| Migrations | none (217 unused) |
+| Tracked working vaults | untouched; no manual runs on copies (all behaviour under test with fakes) |
+
+Paid or live calls: none ($0.00).
+
+## Open questions (fix round 3)
+
+1. **The session in a view built outside the queue** (default: `check_admission` reads
+   no session, so no calibration-session cap lift and no short-session probe rule).
+   The queue build binds its own session-aware admission; the plan, the practice view
+   and settling read the session-free one. They can differ only for a diagnostic
+   surface of an in-progress probe episode in a short or calibration session.
+   Alternative: thread the session into `intent_serving`.
+2. **Slate composition is not admission** (default: unchanged). The teach-back value
+   admission / session cap and `limit` act on the composed slate, after
+   `pick_checks`, so a teach-back chosen as a check's item could still be dropped by
+   the teach-back cap for that build. Alternative: apply `pick_checks` after the
+   teach-back composition.
