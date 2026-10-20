@@ -216,6 +216,10 @@ export function useReaderWorkbench(input: {
   // in flight at a time. The server acknowledges it only when the pick's
   // hand-off opens the problem; a hand-off that failed is released, so the
   // next sight of the problem (this visit or after a restart) tries again.
+  // The shell's hand-off resolves once the pick is made and served, so the
+  // acknowledging open (the "check me" below naming `admitsSessionId`) holds
+  // the hand-off until it settles, and releases it when it fails (re-review
+  // F2): nothing was acknowledged, and the next pick brings its own serve.
   const admitting = useRef(new Set<string>());
   const onAdmittedRef = useRef(props?.onExerciseAdmitted);
   onAdmittedRef.current = props?.onExerciseAdmitted;
@@ -225,6 +229,13 @@ export function useReaderWorkbench(input: {
     const owed = session.exercisePick;
     const open = cardRef.current;
     if (!owed?.due || !session.practiceItemId || !open || admitting.current.has(session.sessionId)) return;
+    // The pick names the book the exercise is in (re-review F6): a late
+    // answer for a problem on another book (an import refresh still in flight
+    // when the learner moved on), or a moment when the open card and the
+    // open extraction disagree, admits nothing. The pick stays owed on the
+    // problem until its own book is open again.
+    if (!session.extractionId || session.extractionId !== extractionRef.current) return;
+    if (!session.sourceId || session.sourceId !== open.sourceId) return;
     const handOff = onAdmittedRef.current;
     if (!handOff) return;
     admitting.current.add(session.sessionId);
@@ -319,6 +330,9 @@ export function useReaderWorkbench(input: {
         });
       })
       .catch((error) => {
+        // Not acknowledged: the exercise's pick is owed still, so its
+        // hand-off is released for the next sight of the problem (F2).
+        if (checkMe.admitsSessionId) admitting.current.delete(checkMe.admitsSessionId);
         props?.onCheckMeShown?.();
         onError(errorMessage(error, "Couldn't open the check."));
       });
