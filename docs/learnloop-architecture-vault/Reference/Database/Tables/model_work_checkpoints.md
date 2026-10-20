@@ -3,13 +3,13 @@ title: "model_work_checkpoints"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8bb003daebe1bc05c564017fea6dcaa17ae78317"
-source_commit_timestamp: "2026-10-20T15:55:44-04:00"
+source_commit: "8e50f38e581044a2484fb84e2bf6debfb4ac272f"
+source_commit_timestamp: "2026-10-20T17:57:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_work_checkpoints"
   - "table model_work_checkpoints"
-schema_head: 213
+schema_head: 215
 table_name: "model_work_checkpoints"
 table_role: "workflow"
 functionality_status: "active"
@@ -107,6 +107,7 @@ None found by exact static reference scan.
 - `tests/test_model_work_checkpoints.py`
 - `tests/test_practice_index_dossiers.py`
 - `tests/test_practice_index_find.py`
+- `tests/test_reader_rw3b_protection.py`
 - `tests/test_recurrence_benchmarks.py`
 - `tests/test_source_ingestion_v2lite.py`
 - `tests/test_t6_followup_review.py`

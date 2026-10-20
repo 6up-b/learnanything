@@ -3,13 +3,13 @@ title: "learner_text_gap_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8bb003daebe1bc05c564017fea6dcaa17ae78317"
-source_commit_timestamp: "2026-10-20T15:55:44-04:00"
+source_commit: "8e50f38e581044a2484fb84e2bf6debfb4ac272f"
+source_commit_timestamp: "2026-10-20T17:57:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gap_jobs"
   - "table learner_text_gap_jobs"
-schema_head: 213
+schema_head: 215
 table_name: "learner_text_gap_jobs"
 table_role: "workflow"
 functionality_status: "active"
@@ -116,6 +116,7 @@ None found by exact static reference scan.
 - `tests/test_reader_active_reading.py`
 - `tests/test_reader_formative_texts.py`
 - `tests/test_reader_rw1b_review.py`
+- `tests/test_reader_rw3b_protection.py`
 - `tests/test_workbench_in_session_gaps.py`
 - `tests/test_workbench_text_gaps.py`
 

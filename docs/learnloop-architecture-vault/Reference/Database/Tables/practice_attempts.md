@@ -3,13 +3,13 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8bb003daebe1bc05c564017fea6dcaa17ae78317"
-source_commit_timestamp: "2026-10-20T15:55:44-04:00"
+source_commit: "8e50f38e581044a2484fb84e2bf6debfb4ac272f"
+source_commit_timestamp: "2026-10-20T17:57:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
   - "table practice_attempts"
-schema_head: 213
+schema_head: 215
 table_name: "practice_attempts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -241,6 +241,7 @@ Indexes and uniqueness:
 - `src/learnloop/placement/report.py`
 - `src/learnloop/placement/state.py`
 - `src/learnloop/practice_index/retrieval.py`
+- `src/learnloop/reader/reader_report.py`
 - `src/learnloop/reader/recap.py`
 - `src/learnloop/remote/views.py`
 - `src/learnloop/router/outcomes.py`

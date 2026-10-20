@@ -3,13 +3,13 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8bb003daebe1bc05c564017fea6dcaa17ae78317"
-source_commit_timestamp: "2026-10-20T15:55:44-04:00"
+source_commit: "8e50f38e581044a2484fb84e2bf6debfb4ac272f"
+source_commit_timestamp: "2026-10-20T17:57:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
   - "table judgment_ledger"
-schema_head: 213
+schema_head: 215
 table_name: "judgment_ledger"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -50,7 +50,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/166_embedding_substrate_and_judgments.sql`.
-- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`, `168_activity_family_membership.sql`, `169_practice_index.sql`, `174_pf_generation.sql`, `175_decider_judgments_and_receipt_labels.sql`, `176_recurrence_groups.sql`, `182_learner_text_gaps.sql`, `183_facet_identity_actions.sql`, `197_facet_registry_saves.sql`, `202_router_staged_frame.sql`, `209_library_asks.sql`, `213_adaptive_difficulty_receipts.sql`.
+- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`, `168_activity_family_membership.sql`, `169_practice_index.sql`, `174_pf_generation.sql`, `175_decider_judgments_and_receipt_labels.sql`, `176_recurrence_groups.sql`, `182_learner_text_gaps.sql`, `183_facet_identity_actions.sql`, `197_facet_registry_saves.sql`, `202_router_staged_frame.sql`, `209_library_asks.sql`, `213_adaptive_difficulty_receipts.sql`, `215_reader_discovered_cues.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -118,6 +118,7 @@ None found by exact static reference scan.
 - `src/learnloop/db/stores/families.py`
 - `src/learnloop/db/stores/pf.py`
 - `src/learnloop/db/stores/practice_index.py`
+- `src/learnloop/db/stores/reader_cue_links.py`
 - `src/learnloop/db/stores/recurrence.py`
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/decider_judgments.py`
@@ -151,6 +152,7 @@ None found by exact static reference scan.
 - `src/learnloop/reader/reader_cues.py`
 - `src/learnloop/reader/reader_intent.py`
 - `src/learnloop/reader/reader_quick_check.py`
+- `src/learnloop/source_retrieval/passage_cues.py`
 - `src/learnloop/substrate/families.py`
 - `src/learnloop/substrate/intervention_outcomes.py`
 
@@ -170,6 +172,7 @@ None found by exact static reference scan.
 - `tests/ad_fakes.py`
 - `tests/approach_map_fakes.py`
 - `tests/hint_fakes.py`
+- `tests/passage_cue_fakes.py`
 - `tests/recurrence_fakes.py`
 - `tests/test_activity_families.py`
 - `tests/test_ad1_codex_review_fixes.py`
@@ -186,7 +189,6 @@ None found by exact static reference scan.
 - `tests/test_assumed_known.py`
 - `tests/test_attach_to_family.py`
 - `tests/test_contamination_report.py`
-- `tests/test_coordinated_migrations.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

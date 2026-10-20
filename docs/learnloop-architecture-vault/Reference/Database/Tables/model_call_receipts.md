@@ -3,13 +3,13 @@ title: "model_call_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8bb003daebe1bc05c564017fea6dcaa17ae78317"
-source_commit_timestamp: "2026-10-20T15:55:44-04:00"
+source_commit: "8e50f38e581044a2484fb84e2bf6debfb4ac272f"
+source_commit_timestamp: "2026-10-20T17:57:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_call_receipts"
   - "table model_call_receipts"
-schema_head: 213
+schema_head: 215
 table_name: "model_call_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -126,6 +126,7 @@ None found by exact static reference scan.
 - `src/learnloop/hints/map_report.py`
 - `src/learnloop/hints/report_adaptive.py`
 - `src/learnloop/ops/pf_reports.py`
+- `src/learnloop/source_retrieval/passage_cues.py`
 - `src/learnloop/source_retrieval/timing.py`
 - `src/learnloop/substrate/data_quality.py`
 - `src/learnloop/substrate/model_usage.py`

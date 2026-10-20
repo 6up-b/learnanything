@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8bb003daebe1bc05c564017fea6dcaa17ae78317"
-source_commit_timestamp: "2026-10-20T15:55:44-04:00"
+source_commit: "8e50f38e581044a2484fb84e2bf6debfb4ac272f"
+source_commit_timestamp: "2026-10-20T17:57:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 213
-table_count: 333
+schema_head: 215
+table_count: 335
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_213/state.sqlite"
+  - "fixtures/migration_head_215/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-213"
+  - "learnloop/database/schema-head-215"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 333 user tables at migration head 213. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 335 user tables at migration head 215. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -40,15 +40,15 @@ This is the exhaustive map of the 333 user tables at migration head 213. Use [[T
 |---|---:|
 | [[Table Roles#Raw Ledger|`raw_ledger`]] | 148 |
 | [[Table Roles#Derived|`derived`]] | 19 |
-| [[Table Roles#Receipt|`receipt`]] | 70 |
-| [[Table Roles#Workflow|`workflow`]] | 86 |
+| [[Table Roles#Receipt|`receipt`]] | 71 |
+| [[Table Roles#Workflow|`workflow`]] | 87 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
 ### By functionality status
 
 | Status | Tables |
 |---|---:|
-| `active` | 320 |
+| `active` | 322 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -338,6 +338,7 @@ Reader rendering, annotations, capture, progress, and source-object interaction.
 - [[Reference/Database/Tables/reader_authored_questions|reader_authored_questions]] — `workflow` · `active` · Gives reader authored question a stable database identity so reader interactions remain anchored to durable source content as extraction and rendering evolve. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `extraction_id`, `section_id`, `source_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/reader_background_requests|reader_background_requests]] — `workflow` · `active` · Queues a durable, retryable request for reader background so reader interactions remain anchored to durable source content as extraction and rendering evolve. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `source_id`, `revision_id`, `extraction_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/reader_capture_outbox|reader_capture_outbox]] — `workflow` · `active` · Gives reader capture outbox a stable database identity so reader interactions remain anchored to durable source content as extraction and rendering evolve. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `annotation_id`, `commitment_id`, `source_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/reader_cue_impressions|reader_cue_impressions]] — `receipt` · `active` · Gives reader cue impression a stable database identity so reader interactions remain anchored to durable source content as extraction and rendering evolve. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `cue_id`, `link_id`, `extraction_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/reader_section_progress|reader_section_progress]] — `workflow` · `active` · Gives reader section progress a stable database identity so reader interactions remain anchored to durable source content as extraction and rendering evolve. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `extraction_id`, `section_id`, `generation_batch_id`, making the operational relationship explicit.
 
 ## Tutor And Remediation
@@ -450,6 +451,7 @@ Maintenance, generic observations, and optional generated media. This is a navig
 - [[Reference/Database/Tables/model_work_checkpoints|model_work_checkpoints]] — `workflow` · `active` · Preserves validated inventory windows and synthesis passes under content hashes so interrupted jobs reuse completed model work. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `cache_key`, `purpose`, making the operational relationship explicit.
 - [[Reference/Database/Tables/observation_events|observation_events]] — `raw_ledger` · `active` · Stores observations captured through registered observation templates. It supplies replay-stable input rather than a disposable cache. Rows bind `template_id`, `session_id`, `related_learning_object_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/observation_templates|observation_templates]] — `raw_ledger` · `active` · Stores reusable schemas for manually recorded observations. It supplies replay-stable input rather than a disposable cache. Rows bind `domain`, `version`, `title`, making the operational relationship explicit.
+- [[Reference/Database/Tables/passage_links|passage_links]] — `workflow` · `active` · Preserves explicit relationship edges for passage so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `extraction_id`, `span_id`, `target_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/pf_candidates|pf_candidates]] — `workflow` · `active` · Holds candidates for pf while policy selects or reviews one so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `run_id`, `mint_request_id`, `family_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/placement_quick_check_items|placement_quick_check_items]] — `workflow` · `active` · Gives placement quick check item a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `calibration_session_id`, `practice_item_id`, `learning_object_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/placement_quick_checks|placement_quick_checks]] — `workflow` · `active` · Gives placement quick check a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `calibration_session_id`, `session_id`, `request_id`, making the operational relationship explicit.

@@ -3,13 +3,13 @@ title: "reference_key_checks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8bb003daebe1bc05c564017fea6dcaa17ae78317"
-source_commit_timestamp: "2026-10-20T15:55:44-04:00"
+source_commit: "8e50f38e581044a2484fb84e2bf6debfb4ac272f"
+source_commit_timestamp: "2026-10-20T17:57:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reference_key_checks"
   - "table reference_key_checks"
-schema_head: 213
+schema_head: 215
 table_name: "reference_key_checks"
 table_role: "raw_ledger"
 functionality_status: "active"
