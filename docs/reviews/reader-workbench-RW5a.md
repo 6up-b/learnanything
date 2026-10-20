@@ -116,3 +116,255 @@ sandbox and with fakes, downgrade, refusal, unsupported, G23, G45); `tests/test_
 `tests/test_figures_rpc.py` (caps with fakes, held-out refusal before any call, reuse by `input_hash`,
 switch-off pins, events); `tests/test_figures_migration.py` (table roles, triggers, durability);
 `FigureInline.test.tsx`; the mobile allowlist, parameter registry, config, CLI and RPC pins.
+
+## 1. What was built
+
+### 1.1 The grammar and its two evaluators (`learnloop.figures.grammar`, `figureGrammar.ts`)
+
+- A hand-written tokenizer (ASCII only: a Unicode digit or a no-break space is outside the grammar),
+  recursive-descent parser and tree-walking evaluator, line for line in Python and TypeScript. The
+  grammar is §8.2's: numbers, names, `+ - * / ^` (right-associative power), unary minus, the thirteen
+  functions (`Phi` is the standard normal CDF, `min`/`max` take 2-8 arguments), `piecewise((cond,
+  expr)…, else)` with `< <= > >= == !=` joined by `and`/`or` (chained comparisons refused), `pi`, `e`,
+  `integral(expr, var, a, b)` and `sum(expr, k, a, b)`. Caps: 2,000 characters, 400 nodes, depth 40,
+  4,000 nodes once definitions are expanded, 10,001 sum terms, 200,000 integrand evaluations; no
+  integral or sum inside an integral or sum (definitions count). An unbound name is NaN.
+- Arithmetic is IEEE doubles as JavaScript computes them (the Python twin emulates `1/0`, `log(0)`,
+  `0^-1`, `1^NaN`, `NaN` in `min`/`max`, …). `erf`/`erfc` in TypeScript are Sun's fdlibm (checked to
+  2e-16 / 2e-15 of the C library over 25,000 points); Python calls `math.erf`/`math.erfc`; `Phi` is
+  `erfc(-x/√2)/2` in both (no cancellation in the left tail).
+- **The integration rule** (deviation, see §2): adaptive Simpson with Richardson's correction,
+  tolerance 1e-10 halving per level, levels 3 to 24, with **one-sided endpoint values**: every
+  interval reads its endpoints 2^-40 of its width inside itself, so a `piecewise` jump at an endpoint
+  or a bisection point is integrated from the correct side. Without it the flagship's
+  `integral(f, x, -40, 0)` read `f(0)` from the right branch and missed `p` by up to 4e-5.
+- `to_sympy` translates a parsed expression (definitions expanded, decimals as exact `Rational`s) for
+  the verifier's sandboxed check.
+
+### 1.2 The spec (`learnloop.figures.spec`, `figureSpec.ts`)
+
+`InteractiveFigureSpecV1` (pydantic, unknown keys refused): §8.2's fields with `function_plot`
+(series, markers, `shade` under a named series between two bound expressions), `pmf_bars` (series over
+whole-number `k`, at most 200 bars, `highlight`), `linear_map_2d` (2×2 matrix of expressions, the unit
+square's image and the determinant), `readout` (`format` number | percent); invariants `finite`,
+`bounded`, `nonnegative`, `integrates_to_one`, `sums_to_one`, `monotone_nondecreasing` (each over
+`var` from..to) and `equals_source` (names the definition that is the book's equation); predictions
+`{prompt, change, observe: {kind: direction | area, expr}}`; annotations. At most 4 parameters (the
+3^4 = 81 grid). The compiler resolves every name (definitions may name only earlier ones; panel
+expressions only the parameters and the panel's variable). `evaluate_figure` / `evaluateFigure` give
+every panel's data at a parameter set (121 samples per plot, the shaded areas' and highlights' values),
+and `prediction_outcome` decides a prediction by code: direction = rises / falls / same (1e-6
+relative) of the observed expression before and after the change; area = the one shaded area whose
+value equals the observed one.
+
+### 1.3 Verification (`learnloop.figures.verify`)
+
+Step 1 (every shown value finite at every grid point), step 2 (each invariant at every grid point;
+`integrates_to_one` within 1e-3 by the shared Simpson rule, `sums_to_one` within 1e-9; every shaded
+area's readout within 1e-6 of an independent 10-point Gauss-Legendre integration on 200 panels per
+piece, split at the series' piecewise breakpoints), step 3 for `kind = reconstructed` only: the
+claims' quotes must be verbatim (whitespace collapsed) in the span they name; the verifier (one call)
+returns the quoted equation in sympy and `check(reference, answer)`; the PF-b sandbox
+(`run_equivalence_checks`, bubblewrap, never in-process) runs it on the spec's definition and on our
+two negative controls (×8/7 and ÷2) plus the sandbox's standard ones (`degenerate`). Verified only
+when the definition is accepted and every control refused. Anything that keeps step 3 from running
+(no quote, no `equals_source`, the verifier unrouted/capped/failing, a transcription of a quote the
+spec never claimed, no sandbox) is a reason: the figure is `illustrative` with its label, never
+verified. Steps 1-2 failing: `failed`, stored, never shown. Undecidable predictions are dropped
+(listed in the report), not failed. One `judgment_ledger` row per build (task `figure_verified`,
+judge `verifier`, verdict the outcome).
+
+### 1.4 Routes, caps and spend (`learnloop.figures.routes`)
+
+`figure_author` and `figure_verifier` are `AITask`s with `ai.routing.*` keys (unset: the active
+provider; Codex allowed, `estimated_only`). Per request at most **two author attempts** (the second is
+told the first's problems) and **one verifier call**, each one physical request (`max_retries = 0`).
+A metered route is held to `figures.max_daily_cost_usd` (1.00) at `figures.price_per_million` by a
+`SharedDailyEnvelope` named `figures.max_daily_cost_usd` (the transactional reservation ledger every
+paid role shares); unpriced is refused before sending, a spent envelope is `capped`.
+`LEARNLOOP_FIGURE_MODELS=off` (set in `tests/conftest.py`) resolves no real client. The author's
+prompt carries a per-request id, so "try again" after a failure asks afresh instead of recovering the
+failed answer from its receipt. The figure author is in `ai.disclosures.JUDGE_ROUTES` (Settings): it
+receives a learner's "not right?" note.
+
+**Image input** (new, small): `StructuredRequest.images` and the `image_input` capability;
+`execute_structured_operation` refuses images to a transport that does not declare it, before any
+request; `openai_chat` / OpenRouter declare it when the profile lists `image` in `input_modalities`
+and send `image_url` parts; `PaidCalls.call(images=…)` passes them through (the prompt names the
+image's digest, so a checkpoint never answers another image).
+
+### 1.5 The service (`learnloop.figures.service`)
+
+`check_request` (the switches, then exam and held-out material refused through
+`exam_material(vault, repo)`'s `covers`/`withheld` on the selection, the region's block and, for a
+revision, the base figure: before any job or call) → `build_figure`: the source context (the selected
+blocks, two blocks each side unless held out), the crop (`build_block_region`, a region's box clipped
+to its figure block, or the figure block's crop when the route reads images; a region with a
+text-only route is refused `no_image_input`), `input_hash` (spec, prompt and verifier versions, the
+request, the passage and context text, the image digest, the revision note), reuse of the newest
+shown or unsupported row with that hash (a failed row is never reused), the author attempts, the
+verification, one row and its ledger verdict in one transaction. `list_figures` shows per version
+chain the newest shown version (else the newest failed or unsupported one), current spec version
+only, never one whose passage is held out now. `record_prediction` (code decides `matched`;
+idempotent per figure and prediction) and `record_explanation` (once).
+
+### 1.6 Data: migration 216, table roles, head fixture
+
+`migrations/216_interactive_figures.sql`: `interactive_figures` (WORKFLOW; §8.5's columns, CHECKs on
+origin, verification, kind and that a verified figure is a reconstruction with a spec; three indexes)
+and `figure_predictions` (RAW_LEDGER; plus `extraction_id` for RW6a's read; unique per figure and
+prediction; the no-delete trigger and the explanation-once trigger). Classified in
+`db/table_roles.py`; no DERIVED table, so no replayer. `fixtures/migration_head_213` →
+`fixtures/migration_head_216` (git rename; backup-API copy, only 216 applied under
+`UPGRADE_SCRATCH_COPY`, `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`, header bytes
+1/1, `integrity_check` ok, `foreign_key_check` empty, no companion files; README paragraph); every
+path naming it (33 files: 31 tests, both reference scripts with `SCHEMA_HEAD = 216`,
+`docs/decider-tier1-migration.md`); the head pins at 216; AD1's, H1's, H0's and RW4a's "nothing else
+changed" diffs subtract `RW5A_ADDED_OBJECTS` (`tests/test_figures_migration.py`), and AD1's
+`_upgrade` now expects 213 first (216 follows on the way to head).
+
+### 1.7 Formative records (W1 tier 2)
+
+A missed prediction is a `reader_formative` learner text through the existing adapter: figure
+prediction ids are prefixed `fpr_`; `text_gaps.sources.formative_row` / `reader_formative_text`,
+`provenance.formative_record` and `missed_formative_ids` (the backlog sweep) dispatch on the prefix
+(by SQL; `learnloop.diagnosis` never imports the figure package). The text is the learner's answer in
+words and, when written, "What changed, in my words: …"; the context is the prediction's question,
+the figure's own passage and what the figure showed (computed by code, labelled as not the book's
+words). `jobs.enqueue_figure_prediction` queues it on RW1b's rule (`learner_text_gaps.enabled` and
+`reader_formative.enabled`), at the prediction and again (idempotently) at "what changed?". A matched
+prediction queues nothing. RW6a's `prediction_observations` now finds missed predictions (its read
+was already written for this table).
+
+### 1.8 Sidecar (`learnloop_sidecar/handlers/figures.py`), events, contract, intent
+
+Seven desktop-only RPCs (`FIGURE_RPCS`, pinned in `tests/test_mobile_allowlist.py`; Tauri
+passthroughs in `commands.rs`/`main.rs`; `api/client.ts`): `reader.figure_request`,
+`reader.figure_revise` (each refused at once or answering with a job on RW4a's `LibraryJobs` runner,
+`ctx.figure_jobs`, delivery re-checking held-out material), `reader.figure_job`,
+`reader.figure_job_cancel`, `reader.figures`, `reader.figure_predict`, `reader.figure_explain`.
+`reader.prompt_contract` gains `figures: {predictions, region, revisions}` only while on. The intent
+catalogue gains `make_explorable` ("make this explorable", Understand, effect `{kind: "figure"}`) only
+while on (`Availability.figures`). Events: server-owned `figure_requested`,
+`figure_region_selected`, `figure_revision_requested`, `figure_predicted`, `figure_explained`
+(`reader_inquiry.RW5A_SERVER_EVENTS`; ids and status only, never the learner's words), client
+`figure_opened` and `figure_animated` (`CLIENT_ACTION_EVENTS`; `figure_id` and `parameter` added to
+the kept activity fields); all salience-only. The reader report gains a `figures` block (built by
+verification, unsupported requests by kind, revisions, regions, predictions, missed, "what changed").
+
+### 1.9 The Reader (frontend)
+
+- `screens/reader/figures/useFigures.ts`: loads `reader.figures` for the open source, runs builds as
+  paced jobs (1.5 s) with cancel and try again, keeps the one expanded figure, lands a new version in
+  place of the one it supersedes (a "not right?" version that did not verify leaves the earlier one
+  and says why). Inert with no `figures` in the contract.
+- `FigureInline.tsx`: the pending line (*◐ building an interactive version — keep reading* · cancel),
+  the failed line (its reason · try again), the unsupported line (*can't draw this yet — needs … ·
+  noted*), and the collapsed line *▸ interactive version · {label}* that expands in place, one at a
+  time. Open: what it shows (◇, AI-written) and what it assumes (quoted § where verified), the
+  prediction before the first change (sliders locked until answered or skipped; "A prediction is for
+  you: it is never graded"), the readout before → after (*30.0% → 30.0%*) and "what changed?
+  (optional)" with its "where this goes", sliders with numeric fields, `▶ play` on an `animate`
+  parameter (40 steps through the same `evaluateFigure`; nothing moves until pressed; `◂ step` /
+  `step ▸` under `prefers-reduced-motion`), the values table (`t`, or the button), annotations,
+  "not right?" with its "where this goes".
+- `FigurePanels.tsx`: SVG function plots (series by line style as well as colour, shaded areas by wash
+  and hatch, markers), PMF bars (the highlighted range filled), the unit square and its image, readouts;
+  a data table per panel.
+- `ReaderScreen.tsx` (narrow): the `figure` intent effect (selection spans, or the PDF region), the
+  slot under each passage in the text view, and on the PDF the pane's new `inlineNotes` slots and
+  `regionSelection`. `usePdfSelection`: with `regionAt` (only while `figures.region_enabled`), one
+  Ctrl+drag box whose centre lies in a Figure/Picture block is a region of it (the selection carries
+  `region: {spanId, page, bbox}`); otherwise today's word marquee, unchanged.
+
+### 1.10 Config
+
+`[figures]` (`FiguresConfig`): `enabled`, `predictions_enabled`, `region_enabled`,
+`revisions_enabled` (true), `max_daily_cost_usd` (1.00), `price_per_million` (unset); routes
+`ai.routing.figure_author`, `ai.routing.figure_verifier`. Every `figures.*` key is classified in
+`params/parameter_registry.py` (structural / operational). The 20 `DEFAULTS_SNAPSHOT_BY_ALGORITHM`
+entries were recomputed (template `.pyc` cleared; 0 mismatches) with the usual note (no serving
+change, no successor). `db_generate_reference.py` gained the section's description and places the two
+tables in the reader family with their own purpose lines.
+
+## 2. Deviations (each with its reason)
+
+1. **One-sided endpoint values in the Simpson rule** (§1.1). The spec says "the same fixed adaptive
+   Simpson rule (same depth and tolerance)"; it still is one rule, identical in both evaluators, but a
+   plain Simpson rule cannot meet G45's 1e-6 when a density jumps at an endpoint. Max level 24 (not a
+   lower number) so a jump strictly inside an interval converges to about 1e-6 of the jump.
+2. **At most 4 parameters**, so §8.3's grid is exactly {min, default, max}^n ≤ 81.
+3. **Predictions are `direction` or `area`, decided by code** (no free-word answers): the learner
+   answers "in a word, a choice or a click on an area" — the choices are the words. No model judges a
+   prediction.
+4. **`figure_predictions.extraction_id`** beyond §8.5's columns: RW6a's recap already reads it.
+5. **`interactive_figures.kind`** is the spec's kind as written; a downgraded reconstruction is
+   `kind = reconstructed`, `verification = illustrative`.
+6. **The ◇▸ margin mark** of a built figure is not drawn (the collapsed line carries the figure under
+   its passage instead); RW3a's margin gutter allows one LearnLoop mark per screenful, and a second
+   kind of mark there needs its own density rule. Open question 3.
+7. **"about N s"** is never shown: the reader report does not yet measure figure builds (W14 says
+   only once measured).
+8. **On the original-page (PDF) view** the figure is drawn as an overlay just below its passage's box
+   (the pane's inline-note mechanism, now a list), covering the page below it while expanded; the
+   extracted-text view reflows it inline. The PDF page cannot reflow.
+9. **Codex reads no images here**: the Codex SDK transport does not declare `image_input` (it runs
+   with `view_image` off), so a region needs an OpenRouter/OpenAI-compatible profile with `image` in
+   `input_modalities` on `ai.routing.figure_author`; a region with a text-only route is refused before
+   any call. A figure block selected with a text-only route is sent as its text (caption and
+   neighbours).
+10. **No CLI.** The app is the only entry; there is nothing batch-like to dry-run.
+
+## 3. Tests
+
+New: `tests/test_figure_grammar.py` (152: the corpus, coverage of every construct and panel kind,
+rejected inputs, the fuzz, the G21 AST lint, G45, the jump rule, the caps, `to_sympy`),
+`tests/test_figure_verification.py` (18: invariants, structure, independent shading, quotes, the
+sandboxed source match with its negative controls (real bubblewrap), never in-process, G23 labels,
+downgrades, the half-density control never shown, the second attempt, unsupported, undecidable
+predictions, no answer sent early), `tests/test_figures_rpc.py` (17: contract and intent with the
+switch, switch-off refusals with no call, held-out refusal before any call, held out later is not
+shown, context privacy, reuse by `input_hash`, failed not reused, the two caps, unpriced and capped
+metered spend, the capped verifier downgrades, no learning-state writes, salience events, client
+events, cancel, validation), `tests/test_figure_region.py` (9: only the crop is sent, clipping, no
+crop no call, no image route refused before any call, figure-block crop only with image input, the
+switch, the transport refusal, `image_url` parts), `tests/test_figure_predictions.py` (10: G24 table
+diff, the formative queue, matched queues nothing, the switches, once and validated, "what changed?"
+read with it, the append-only triggers, the backlog sweep, RW6a, the report),
+`tests/test_figure_revisions.py` (6), `tests/test_figures_migration.py` (6, one `durability`),
+`tests/test_figures_switch_off.py` (2: the golden recorded on an export of `e14b4e4ff`),
+`FigureInline.test.tsx` (13), `readerFigures.test.tsx` (2), `figureGrammar.test.ts` (147, the same
+corpus). Changed pins: the intent catalogue (`test_reader_intentions.py`, `test_reader_intent.py`'s
+base-contract parity turns figures off), RW1c's switch-off golden (pops RW5a's key and action, as the
+RW4b landing did), `test_judge_routes.py` (the figure author's disclosure), the mobile allowlist,
+`test_architecture.py` (the store's SQL), the head-fixture files, the TS intent fixture, RW4a's
+switch-off snapshot helper (strips RW5a's action), the attention lint (covers the figure components).
+
+## 4. Owner-run commands
+
+None needed. To try it on a backup copy (never the tracked vaults): set `ai.routing.figure_author` to
+an image-capable profile if you want regions (OpenRouter vision model with
+`input_modalities = ["text", "image"]`), select an equation in the Reader → *make this explorable*.
+Switch off with `[figures] enabled = false` (or the sub-switches).
+
+## 5. Open questions (with the defaults in force)
+
+1. **Grid size.** Default: at most 4 parameters (81 grid points). Allow more with a sampled grid?
+2. **Image route.** Default: the active provider (often Codex, text only); regions need an
+   image-capable `figure_author`. Recommend an OpenRouter vision profile for `figure_author`?
+3. **The ◇▸ margin mark** (deviation 6). Default: none; the collapsed line is the mark.
+4. **One prediction per figure.** Default: the first only; later ones in the spec are not asked.
+5. **"Try again" after a failed build** makes a new paid request (inside the caps). Default: yes.
+
+## 6. Friction notes for RW5b and RW6b
+
+- RW5b: add panels to `spec.py`/`figureSpec.ts` and their data to `evaluate_figure` with corpus cases
+  (the corpus test fails until both evaluators agree); RK4 must be written in the same operation order
+  in both. Offers (`origin = library | tutor`) already have their column values; `FigureRequest.origin`
+  accepts them, the RPC does not yet take one.
+- RW5b: verification is O(grid × samples × integrand); the normal-CDF corpus figure (an integral per
+  sample) takes about 10 s in Python. Heavier panels want a coarser verification sample.
+- RW6b: missed predictions are `reader_formative` texts with ids `fpr_…` and RW6a's
+  `prediction_observations` returns them; the recap's "worth a second look" already has copy for them.
+- The `LibraryJobs` runner records receipts under the sidecar's own owner (`sidecar_rpc`); the figure
+  envelope counts its reservations, which is what admission reads.

@@ -3,8 +3,8 @@ title: "interactive_figures"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "924e0756f341f88c29d8ae1ff5083921c59e7c23"
-source_commit_timestamp: "2026-10-20T19:18:15-04:00"
+source_commit: "80b5a8c697e2365e4c842ea73638f97876f5e042"
+source_commit_timestamp: "2026-10-20T19:51:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interactive_figures"
@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop/diagnosis/text_gaps/provenance.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
   - "src/learnloop/figures/service.py"
+  - "src/learnloop/reader/reader_report.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -101,6 +102,7 @@ None found by exact static reference scan.
 - `src/learnloop/db/stores/figures.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
+- `src/learnloop/reader/reader_report.py`
 
 ### Direct SQL writers
 
