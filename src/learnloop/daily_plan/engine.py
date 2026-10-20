@@ -2901,9 +2901,14 @@ def _present(
     origin: str,
     candidate_id: str | None,
     served_at: str,
+    strict: bool = False,
 ) -> str | None:
     """Router R2a: the served item's ``plan_presentations`` row, in the serve's
     own transaction (one per block and item: a reopen returns the first).
+
+    ``strict`` (a keyed pick, Reader RW4b fix round 7): the row is required,
+    so a refused insert (or a vault without the table) PROPAGATES and rolls
+    the whole keyed pick back; unkeyed serves keep the logging behaviour.
 
     The router decision that placed the item (its block's, or the
     ``plan_interrupt`` decision that inserted a follow-up: Codex review F1)
@@ -2915,6 +2920,8 @@ def _present(
     from learnloop.db.stores import plan_presentations as presentations
 
     if not presentations.plan_presentations_present(connection):
+        if strict:
+            raise RuntimeError("a keyed learner pick needs its plan presentation, and this vault has no table for it")
         return None
     connection.execute("SAVEPOINT plan_presentation")
     try:
@@ -2941,9 +2948,11 @@ def _present(
                 "served_at": served_at,
             },
         )
-    except Exception:  # noqa: BLE001 - the receipt never blocks serving
+    except Exception:  # noqa: BLE001 - the receipt never blocks serving (unless strict)
         connection.execute("ROLLBACK TO plan_presentation")
         connection.execute("RELEASE plan_presentation")
+        if strict:
+            raise
         import logging
 
         logging.getLogger(__name__).warning("plan presentation of %s not recorded", practice_item_id, exc_info=True)
@@ -2952,8 +2961,10 @@ def _present(
     return presentation_id
 
 
-def _serve(env: PlanEnv, block: PlannedBlock, item: PlannedItem, *, candidate_id: str | None) -> str | None:
-    """Record the item as served; returns its presentation (router R2a)."""
+def _serve(env: PlanEnv, block: PlannedBlock, item: PlannedItem, *, candidate_id: str | None,
+           strict: bool = False) -> str | None:
+    """Record the item as served; returns its presentation (router R2a).
+    ``strict``: a keyed pick's serve, whose presentation is required (fix round 7)."""
 
     now = env.now_iso()
     with env.repository.atomic(), env.repository.connection() as connection:
@@ -2992,6 +3003,7 @@ def _serve(env: PlanEnv, block: PlannedBlock, item: PlannedItem, *, candidate_id
             origin=item.origin,
             candidate_id=candidate_id,
             served_at=item.served_at or now,
+            strict=strict,
         )
         if presentation_id is not None and fresh:
             # Adaptive difficulty AD1 (spec §7.5, §8.1, §5.11): the reading
@@ -3049,8 +3061,45 @@ def _offered_candidate(env: PlanEnv, candidate_id: str | None, practice_item_id:
     return candidate_id
 
 
+#: The keyed receipt of a learner pick made under an idempotency key (Reader
+#: RW4b fix round 6): an ``attention_block_events`` row on the block that
+#: served it, naming the key, the item and the presentation. It is written in
+#: the serve's own transaction, so it exists only once the pick is complete.
+PICK_KEYED = "pick_keyed"
+
+#: Work a keyed pick's caller does in the pick's own transaction (its
+#: proposal's delivery): given the plan record and the step, after the serve.
+WithinPick = Callable[["PlanRecord | None", dict[str, Any]], None]
+
+
+def _keyed_pick_scope(env: PlanEnv, idempotency_key: str | None) -> Any:
+    """A keyed pick's one transaction (fix round 6, F13): the block, the
+    serve, the keyed receipt and the caller's ``within`` commit together or
+    not at all, so no reserved-but-unserved pick can exist. An unkeyed pick
+    keeps its own transactions, as before."""
+
+    from contextlib import nullcontext
+
+    return env.repository.atomic() if idempotency_key else nullcontext()
+
+
+def _record_pick_key(env: PlanEnv, connection: Any, *, block_id: str, practice_item_id: str,
+                     presentation_id: str | None, idempotency_key: str | None) -> None:
+    """The keyed receipt, only ever with the presentation it names (fix
+    round 7): a keyed pick without one refuses, and its transaction rolls back."""
+
+    if idempotency_key and not presentation_id:
+        raise RuntimeError(f"a keyed learner pick of {practice_item_id} has no presentation; nothing is recorded")
+    if idempotency_key:
+        _event(connection, block_id, PICK_KEYED, {"idempotency_key": idempotency_key,
+                                                  "practice_item_id": practice_item_id,
+                                                  "presentation_id": presentation_id,
+                                                  "session_id": env.session_id}, env.now_iso())
+
+
 def learner_pick(
-    env: PlanEnv, practice_item_id: str, *, offer_candidate_id: str | None = None
+    env: PlanEnv, practice_item_id: str, *, offer_candidate_id: str | None = None,
+    idempotency_key: str | None = None, within: WithinPick | None = None,
 ) -> tuple[PlanRecord | None, dict[str, Any]]:
     """§6.1, L3, G12: opening an item from the full list is a one-item block.
 
@@ -3059,11 +3108,27 @@ def learner_pick(
     planned item opened from the list is simply served. A plan that is no
     longer open does not grow: the item is served as an open-list pick.
     ``offer_candidate_id`` is the full list's offer it was picked from.
+
+    ``idempotency_key`` (Reader RW4b fix rounds 5 and 6): a caller that may
+    retry the same pick (a picked exercise's admission) names it. On every
+    branch (a planned item's serve, a new one-item block, an open-list pick
+    after the plan closed) the pick writes a keyed receipt (``PICK_KEYED``)
+    linking the key to the presentation, in ONE transaction with the block,
+    the serve and ``within`` (the caller's delivery). A pick already made
+    under the key, under this plan or an earlier one, is returned as it was
+    made (its original block and presentation), writing nothing.
+    ``within`` is accepted only with a key.
     """
 
     vault = env.vault
     if practice_item_id not in vault.practice_items:
         raise KeyError(practice_item_id)
+    if within is not None and not idempotency_key:
+        raise ValueError("work inside a pick's transaction needs the pick's idempotency key")
+    if idempotency_key:
+        made = picked_under(env, idempotency_key, practice_item_id)
+        if made is not None:
+            return made
     record = get_or_create_today(env)
     assert record is not None
     record = reconcile(env, record)
@@ -3077,19 +3142,32 @@ def learner_pick(
     )
     if planned is not None:
         block = next(b for b in record.blocks if b.id == planned.block_id)
-        presentation_id = _serve(env, block, planned, candidate_id=candidate_id)
-        record = _reload(env, record.id)
-        block = next(b for b in record.blocks if b.id == planned.block_id)
-        return record, _item_step(
-            env, record, block, planned, boundary=False, candidate_id=candidate_id, presentation_id=presentation_id
-        )
+        with _keyed_pick_scope(env, idempotency_key):
+            presentation_id = _serve(env, block, planned, candidate_id=candidate_id,
+                                     strict=bool(idempotency_key))
+            record = _reload(env, record.id)
+            block = next(b for b in record.blocks if b.id == planned.block_id)
+            step = _item_step(
+                env, record, block, planned, boundary=False, candidate_id=candidate_id,
+                presentation_id=presentation_id,
+            )
+            # Fix round 6 (Codex verify F2): the planned branch keys its
+            # EXISTING presentation too, in the serve's transaction.
+            if idempotency_key:
+                with env.repository.connection() as connection:
+                    _record_pick_key(env, connection, block_id=block.id, practice_item_id=practice_item_id,
+                                     presentation_id=presentation_id, idempotency_key=idempotency_key)
+            if within is not None:
+                within(record, step)
+        return record, step
     if not record.is_open:
         # The plan does not grow ("keep going" is the only extension), but the
         # pick is still the learner's choice: an open-list pick receipt keeps
         # its learner_pick / serving_origin record (review F10).
         practice_item = vault.practice_items[practice_item_id]
         est = built.estimator.item_minutes(vault, practice_item_id)
-        with env.repository.atomic(), env.repository.connection() as connection:
+        with _keyed_pick_scope(env, idempotency_key), env.repository.atomic(), \
+                env.repository.connection() as connection:
             receipt_id = _persist_receipt(
                 env,
                 connection,
@@ -3110,6 +3188,7 @@ def learner_pick(
                     "fallback": False,
                     "plan_status": record.status,
                     "candidate_set": [],
+                    **({"idempotency_key": idempotency_key} if idempotency_key else {}),
                 },
             )
             _event(
@@ -3136,18 +3215,25 @@ def learner_pick(
                 origin="open_list",
                 candidate_id=candidate_id,
                 served_at=env.now_iso(),
+                strict=bool(idempotency_key),
             )
-        return _reload(env, record.id), {
-            "kind": "item",
-            "plan_id": None,
-            "block_id": None,
-            "practice_item_id": practice_item_id,
-            "learning_object_id": practice_item.learning_object_id,
-            "scheduler_candidate_id": candidate_id,
-            "presentation_id": presentation_id,
-            "origin": "open_list",
-            "boundary": False,
-        }
+            _record_pick_key(env, connection, block_id=receipt_id, practice_item_id=practice_item_id,
+                             presentation_id=presentation_id, idempotency_key=idempotency_key)
+            record = _reload(env, record.id)
+            step = {
+                "kind": "item",
+                "plan_id": None,
+                "block_id": None,
+                "practice_item_id": practice_item_id,
+                "learning_object_id": practice_item.learning_object_id,
+                "scheduler_candidate_id": candidate_id,
+                "presentation_id": presentation_id,
+                "origin": "open_list",
+                "boundary": False,
+            }
+            if within is not None:
+                within(record, step)
+        return record, step
     pool_item = next((item for item in built.pool if item.practice_item_id == practice_item_id), None)
     est = pool_item.est_minutes if pool_item is not None else built.estimator.item_minutes(vault, practice_item_id)
     practice_item = vault.practice_items[practice_item_id]
@@ -3174,6 +3260,21 @@ def learner_pick(
         est_minutes=est,
         never_attempted=False,
     )
+    with _keyed_pick_scope(env, idempotency_key):
+        return _pick_new_block(
+            env, record, item, practice_item_id=practice_item_id, est=est, lane=lane, lo_id=lo_id,
+            deductions=deductions, lefts=lefts, candidate_id=candidate_id, idempotency_key=idempotency_key,
+            within=within)
+
+
+def _pick_new_block(env: PlanEnv, record: PlanRecord, item: PoolItem, *, practice_item_id: str, est: float,
+                    lane: str | None, lo_id: str, deductions: dict[str, float], lefts: Mapping[str, float],
+                    candidate_id: str | None, idempotency_key: str | None,
+                    within: WithinPick | None) -> tuple[PlanRecord, dict[str, Any]]:
+    """The one-item learner-pick block (L3): its block, its serve and, for a
+    keyed pick, its keyed receipt and ``within`` (one transaction then)."""
+
+    vault = env.vault
     with env.repository.atomic(), env.repository.connection() as connection:
         need = record.minutes_planned() + est - record.budget
         overrun = 0.0
@@ -3197,6 +3298,7 @@ def learner_pick(
             "overrun_minutes": round(max(overrun, 0.0), 4),
             "candidate_set": [],
             "state": {"minutes_left": round(record.minutes_left(), 4), "lane_minutes_left": {k: round(v, 4) for k, v in lefts.items()}},
+            **({"idempotency_key": idempotency_key} if idempotency_key else {}),
         }
         # Router R2a (G9; Codex review F4): the pick is the learner's own block
         # decision, logged (no propensity) in this block's transaction before
@@ -3239,12 +3341,68 @@ def learner_pick(
     record = _reload(env, record.id)
     block = next(b for b in record.blocks if b.id == block_id)
     planned_item = block.items[0]
-    presentation_id = _serve(env, block, planned_item, candidate_id=candidate_id)
+    presentation_id = _serve(env, block, planned_item, candidate_id=candidate_id, strict=bool(idempotency_key))
     record = _reload(env, record.id)
     block = next(b for b in record.blocks if b.id == block_id)
-    return record, _item_step(
+    step = _item_step(
         env, record, block, block.items[0], boundary=False, candidate_id=candidate_id, presentation_id=presentation_id
     )
+    if idempotency_key:
+        with env.repository.connection() as connection:
+            _record_pick_key(env, connection, block_id=block_id, practice_item_id=practice_item_id,
+                             presentation_id=presentation_id, idempotency_key=idempotency_key)
+    if within is not None:
+        within(record, step)
+    return record, step
+
+
+def picked_under(env: PlanEnv, idempotency_key: str,
+                 practice_item_id: str) -> tuple[PlanRecord | None, dict[str, Any]] | None:
+    """The learner pick already made under ``idempotency_key``, as
+    :func:`learner_pick` returned it: its ORIGINAL block, candidate and
+    presentation, found by its keyed receipt (``PICK_KEYED``) under any plan
+    (today's, or one replaced since). None when no pick was made under it;
+    a keyed receipt exists only for a complete pick (fix round 6)."""
+
+    with env.repository.connection() as connection:
+        row = connection.execute(
+            "SELECT e.block_id, b.daily_plan_id, json_extract(e.detail_json, '$.presentation_id') "
+            "FROM attention_block_events e JOIN attention_blocks b ON b.id = e.block_id "
+            "WHERE e.kind = ? AND json_extract(e.detail_json, '$.idempotency_key') = ? "
+            "AND json_extract(e.detail_json, '$.practice_item_id') = ? "
+            "ORDER BY e.created_at, e.id LIMIT 1",
+            (PICK_KEYED, idempotency_key, practice_item_id),
+        ).fetchone()
+        if row is None:
+            return None
+        block_id, plan_id, keyed_presentation = str(row[0]), row[1], row[2]
+        from learnloop.db.stores import plan_presentations as presentations
+
+        presentation = None
+        if presentations.plan_presentations_present(connection):
+            presentation = (presentations.presentation_by_id(connection, str(keyed_presentation))
+                            if keyed_presentation else None) or presentations.presentation_for(
+                connection, block_id, practice_item_id)
+    record = _reload(env, str(plan_id)) if plan_id else None
+    block = next((b for b in record.blocks if b.id == block_id), None) if record is not None else None
+    candidate_id = (presentation or {}).get("scheduler_candidate_id")
+    presentation_id = str(presentation["id"]) if presentation else None
+    if block is not None and block.items:
+        planned = next((item for item in block.items if item.practice_item_id == practice_item_id), block.items[0])
+        return record, _item_step(env, record, block, planned, boundary=False, candidate_id=candidate_id,
+                                  presentation_id=presentation_id)
+    practice_item = env.vault.practice_items[practice_item_id]
+    return record, {
+        "kind": "item",
+        "plan_id": None,
+        "block_id": None,
+        "practice_item_id": practice_item_id,
+        "learning_object_id": practice_item.learning_object_id,
+        "scheduler_candidate_id": candidate_id,
+        "presentation_id": presentation_id,
+        "origin": "open_list",
+        "boundary": False,
+    }
 
 
 # -- minutes, keep going, more new, reading ----------------------------------------
@@ -3503,6 +3661,7 @@ __all__ = [
     "keep_going",
     "latest_today",
     "learner_pick",
+    "PICK_KEYED",
     "legacy_source",
     "load_records",
     "load_records_from_connection",

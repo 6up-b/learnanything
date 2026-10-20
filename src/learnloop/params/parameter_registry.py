@@ -1021,6 +1021,19 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switches for the Reader tutor's retrieval, answer modes, abstention, another way and that "
         "didn't help / the offer buttons under its answers; context and display, no measurement, scheduling "
         "or serving authority."),
+    # Reader workbench RW4b: the kill switches of the textbook-exercise view and
+    # of its retired fallback search (booleans, so Inventory A's numeric walk
+    # never reaches them; classified here so every new key has a rule, as
+    # RW2b's fix round 1 F11 did). The view only displays the sources
+    # service's candidates and hands a learner's pick to its existing import
+    # and pick paths, so neither changes a measurement.
+    _ConfigRule(_exact(
+        "library_exercises.enabled",
+        "library_exercises.fallback_enabled",
+    ), "structural", "operational",
+        "kill switches for the Reader's view of textbook-exercise candidates / the learner-initiated fallback "
+        "search; on-off availability of display and of the existing import path, no measurement, scheduling "
+        "or serving authority."),
     # Adaptive hints H1: the approach-map builds' (and merges') metered spend a
     # UTC day (maps are stored help, read by no grading, scheduling, serving or
     # replay path; validation verdicts go to judgment_ledger, never evidence).

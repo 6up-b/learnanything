@@ -1332,6 +1332,8 @@ sidecar_passthrough!(workbench_reopen, "workbench.reopen");
 sidecar_passthrough!(workbench_refresh_import, "workbench.refresh_import");
 sidecar_passthrough!(workbench_bind, "workbench.bind");
 sidecar_passthrough!(workbench_retry_import, "workbench.retry_import");
+// Reader RW4b fix round 4 (R1): a picked exercise's admission, one server operation.
+sidecar_passthrough!(workbench_admit, "workbench.admit");
 sidecar_passthrough!(workbench_submit, "workbench.submit");
 sidecar_passthrough!(workbench_session_for_attempt, "workbench.session_for_attempt");
 sidecar_passthrough!(workbench_for_item, "workbench.for_item");
@@ -1366,6 +1368,9 @@ sidecar_passthrough!(reader_library_compare, "reader.library_compare");
 sidecar_passthrough!(reader_library_ask_tutor, "reader.library_ask_tutor");
 sidecar_passthrough!(reader_library_job, "reader.library_job");
 sidecar_passthrough!(reader_library_job_cancel, "reader.library_job_cancel");
+// Reader workbench RW4b (exercises from my sources: the view, the fallback): desktop only.
+sidecar_passthrough!(reader_exercise_candidates, "reader.exercise_candidates");
+sidecar_passthrough!(reader_find_exercises, "reader.find_exercises");
 sidecar_passthrough!(reader_block_health, "reader.block_health");
 sidecar_passthrough!(reader_block_original_region, "reader.block_original_region");
 sidecar_passthrough!(reader_translate_selection, "reader.translate_selection");

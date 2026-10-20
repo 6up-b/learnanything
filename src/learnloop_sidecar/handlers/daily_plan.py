@@ -14,6 +14,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, Literal
 
+from pydantic import Field
+
 from learnloop.daily_plan.engine import (
     PlanEnv,
     PlanInactiveError,
@@ -22,6 +24,7 @@ from learnloop.daily_plan.engine import (
     keep_going,
     learner_pick,
     more_new,
+    picked_under,
     plan_active,
     plan_scheduler_session,
     reading_ended,
@@ -102,6 +105,10 @@ class PlanLearnerPickInput(ParamsModel):
     #: proposed textbook exercise (with ``proposal_id``): serving it delivers
     #: that exercise.
     source_exercise_import_id: str | None = None
+    #: Reader RW4b fix round 5 (R1): a caller that may retry the same pick (a
+    #: picked exercise's admission) names it; the pick's receipt keeps it, and
+    #: a pick already made under it is returned as made, recording nothing again.
+    idempotency_key: str | None = Field(default=None, max_length=200)
 
 
 def _env(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | None, *, serve: bool = False) -> PlanEnv:
@@ -326,6 +333,15 @@ def plan_learner_pick(ctx: SidecarContext, params: PlanLearnerPickInput) -> dict
     the item was served, its delivery (S5's intervention, with the exact router
     decision of the block that served it)."""
 
+    if params.idempotency_key:
+        retried = _require(ctx, params.session_id)
+        if retried is not None:
+            made = picked_under(retried[2], params.idempotency_key, params.practice_item_id)
+            if made is not None:
+                # The same pick, retried (Reader RW4b fix round 5, R1):
+                # answered as it was made. Its selection and delivery were
+                # recorded with it; nothing is recorded again.
+                return versioned({"enabled": True, "step": made[1], **_current_view(retried[2])})
     if params.source_exercise_import_id and not params.proposal_id:
         raise SidecarError("validation_error", "An imported exercise is delivered with its proposal.",
                            details={"field": "proposalId"})
@@ -348,14 +364,28 @@ def plan_learner_pick(ctx: SidecarContext, params: PlanLearnerPickInput) -> dict
     # A pick revalidates a cold check like every other serve (rounds 5, 6;
     # the one eligibility decision).
     revalidate_cold_check(env.vault, env.repository, params.practice_item_id)
+    delivered: dict[str, Any] = {}
+
+    def deliver(served_record: Any, served_step: dict[str, Any]) -> None:
+        # Reader RW4b fix round 6 (F13): a keyed pick's delivery is written
+        # in the pick's own transaction (block, serve, keyed receipt), so a
+        # failure anywhere leaves nothing to recover and a retry makes it all once.
+        delivered["pick"] = _proposal_delivery(ctx, params, selection,
+                                               router_decision_id=_served_decision(served_record, served_step))
+
+    keyed_delivery = bool(params.idempotency_key) and selection is not None
     try:
         record, step = learner_pick(
-            env, params.practice_item_id, offer_candidate_id=params.scheduler_candidate_id
+            env, params.practice_item_id, offer_candidate_id=params.scheduler_candidate_id,
+            idempotency_key=params.idempotency_key, within=deliver if keyed_delivery else None,
         )
     except KeyError as exc:
         raise SidecarError("not_found", f"Unknown Practice Item {params.practice_item_id}.") from exc
     result = {"enabled": True, "step": step, **_current_view(env)}
-    if selection is not None:
+    if keyed_delivery:
+        if "pick" in delivered:  # absent: the pick was made already, and delivered with it
+            result["proposal_pick"] = delivered["pick"]
+    elif selection is not None:
         result["proposal_pick"] = _proposal_delivery(ctx, params, selection,
                                                      router_decision_id=_served_decision(record, step))
     _schedule_ad(ctx, env, step=step)

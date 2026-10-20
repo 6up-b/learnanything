@@ -118,6 +118,11 @@ def _require(ctx: SidecarContext, session_id: str, *, bound: bool = True, open_:
         raise SidecarError(exc.code, exc.message) from exc
     if open_ and session["status"] != "open":
         raise SidecarError("not_open", "This problem isn't open; reopen it to keep working.")
+    # Reader RW4b fix round 5 (R2): help on a picked exercise whose region is
+    # held out now reads and sends nothing of it (the workbench's one gate).
+    from learnloop_sidecar.handlers.workbench import _refuse_withheld_exercise
+
+    _refuse_withheld_exercise(vault, repository, session)
     item = None
     if bound:
         item_id = session.get("practice_item_id")
@@ -406,6 +411,19 @@ def _payload(ctx: SidecarContext, job_id: str) -> dict[str, Any]:
     _vault, repository = ctx.require_vault()
     if job is None or meta is None or job.sqlite_path != str(repository.sqlite_path):
         raise SidecarError("not_found", "That request is no longer kept; ask again.")
+    # Reader RW4b fix round 6 (F7): a kept help job is delivered only while
+    # its problem's statement may be shown. A picked exercise held out since
+    # the job was asked refuses ``exercise_withheld``, and an undelivered job
+    # is cancelled so it is never delivered later.
+    from learnloop_sidecar.handlers.workbench import _refuse_withheld_exercise, _run
+
+    try:
+        _refuse_withheld_exercise(_vault, repository, _run(WB.session_row, repository, meta.session_id))
+    except SidecarError:
+        with job.lock:
+            if not job.delivered:
+                job.cancelled = True
+        raise
     base = {"job_id": job.job_id, "kind": meta.kind}
     with job.lock:
         if meta.kind == BRIDGE and not job.delivered and not bool(_vault.config.workbench.bridge_enabled):
@@ -454,10 +472,10 @@ def _payload(ctx: SidecarContext, job_id: str) -> dict[str, Any]:
 
 
 def _record(ctx: SidecarContext, session_id: str) -> dict[str, Any]:
-    from learnloop_sidecar.handlers.workbench import _view
+    from learnloop_sidecar.handlers.workbench import record_line
 
     vault, repository = ctx.require_vault()
-    return _view(vault, repository, session_id)["record"]
+    return record_line(vault, repository, session_id)["record"]
 
 
 @method("workbench.help_job", HelpJobInput)

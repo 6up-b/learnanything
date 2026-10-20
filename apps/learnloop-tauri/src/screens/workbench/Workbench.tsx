@@ -24,6 +24,7 @@ import { LiveMarkdownEditor, type LiveMarkdownKeyInfo } from "../../render/LiveM
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { errorMessage, getCommandError } from "../../errors";
 import { LearnerVoice, MeaningLabel, SourceVoice } from "../reader/voices";
+import { EXERCISE_COPY, keyStatusLine } from "../reader/exerciseCandidates";
 import { WORKBENCH_COPY, liveSteps, problemTitle, savedLabel, stepChain } from "./stepModel";
 import { useWorkbenchSession } from "./useWorkbenchSession";
 import { algoConfig } from "../../app/algoConfig";
@@ -39,6 +40,10 @@ export type WorkbenchLayout = "split" | "stacked" | "full";
 
 export interface WorkbenchProps {
   initial: WorkbenchSessionDto;
+  /** RW4b fix round 4 (R6): the server's newer view of this same problem
+   *  (an exercise's admission corrects its exposure and key). Applied to the
+   *  mounted problem; its unsaved steps and write queue stay as they are. */
+  serverSession?: WorkbenchSessionDto;
   layout: WorkbenchLayout;
   /** A submitted problem, shown with its steps and what it recorded (UX S6). */
   readOnly?: boolean;
@@ -84,6 +89,11 @@ export function Workbench(props: WorkbenchProps) {
   const { initial, layout, readOnly = false, practiceSessionId = null, onError } = props;
   const wb = useWorkbenchSession(initial, { readOnly, onSession: props.onSession, onError });
   const { session, steps, record } = wb;
+  const serverSession = props.serverSession;
+  const applyServer = wb.applyServer;
+  useEffect(() => {
+    if (serverSession) applyServer(serverSession);
+  }, [serverSession, applyServer]);
   const regionRef = useRef<HTMLElement | null>(null);
   const [focus, setFocus] = useState<{ key: string; n: number } | null>(() => {
     const first = steps[0];
@@ -359,7 +369,26 @@ export function Workbench(props: WorkbenchProps) {
           <button type="button" style={linkStyle} onClick={() => void wb.retryImport()}>try again ↵</button>
         </MeaningLabel>
       </div>
+    ) : session.importStatus === "bound" && session.sourceExercise ? (
+      // RW4b: a textbook exercise from a proposal says what is verbatim, who
+      // wrote the answer, and the key's honest status (the sources service's).
+      <div data-testid="workbench-key-status">
+        <MeaningLabel style={{ fontSize: 11 }}>
+          {keyStatusLine(session.sourceExercise.keyStatus, session.sourceExercise.keyLabel)}
+        </MeaningLabel>
+      </div>
     ) : null
+  ) : null;
+  // RW4b: a picked exercise seen since it was offered (the server reads the
+  // exposure rule at the pick and again at admission, Codex review F3) says
+  // why, and that it is practice beside the book, not a check on your own.
+  const pickedExposure = session.exercisePick?.exposure ?? null;
+  const exposureNote = !readOnly && session.status !== "submitted" && pickedExposure?.exposed ? (
+    <div data-testid="workbench-exercise-exposure">
+      <MeaningLabel style={{ fontSize: 11 }}>
+        {[pickedExposure.label, EXERCISE_COPY.practiceNotCheck].filter(Boolean).join(" · ")}
+      </MeaningLabel>
+    </div>
   ) : null;
 
   // Bound, the problem is the item's whole frozen presentation (a required
@@ -638,6 +667,7 @@ export function Workbench(props: WorkbenchProps) {
     >
       {header}
       {setup}
+      {exposureNote}
       {props.hideProblem ? null : problem}
       {bookLine}
       {work}

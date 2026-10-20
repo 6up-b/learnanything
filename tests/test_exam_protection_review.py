@@ -371,19 +371,21 @@ def test_a_held_out_assessment_signal_is_held_out_for_the_reader_and_the_gate_al
 
 
 def test_a_reader_import_of_a_held_out_signal_is_refused(textbook, monkeypatch):
-    from learnloop.content.authoring.source_exercise_import import selection_for_region
     from learnloop.content.pipeline import jobs
     from learnloop.content.pipeline.runner import IngestRunnerError, JobContext, RunnerServices
     from tests.source_service_fakes import FakeServiceLLM
 
     paths, repository, _spans = textbook
     question = _exam_question_span(repository)
+    # A Reader selection over the blocks, made by hand: the one statement
+    # reader (RW4b fix round 5) would refuse to read exam material at all.
+    selection = {"nodes": [{"span_id": question, "start": 0, "end": 1}]}
     _held_out_signal(repository, question)
     llm = FakeServiceLLM()
     ctx = JobContext(repo=repository, vault_root=paths.root,
                      job={"id": "job_1", "attempt_count": 1,
                           "payload": {"extraction_id": "ext_exam", "source_id": "src_exam",
-                                      "raw_selection": selection_for_region(repository, "ext_exam", [question])}},
+                                      "raw_selection": selection}},
                      clock=CLOCK, worker_id="w",
                      services=RunnerServices(exercise_import_client_factory=lambda _ctx: llm,
                                              background_key_checks=False))

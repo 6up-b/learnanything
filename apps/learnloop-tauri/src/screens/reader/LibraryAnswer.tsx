@@ -7,12 +7,17 @@
 // one row per source, each cell quoting its own source, no consensus) or put
 // to the tutor ("answers only from these N passages"). "Practice this
 // question" lists proposals; picking one is a learner pick the plan serves.
+// RW4b: with `exercises` (library_exercises on), the proposals' textbook
+// exercises show beside the items as RW4b's candidate cards, and "nothing
+// fits" offers "find an exercise in my sources" while the fallback is on;
+// without it the block renders exactly as RW4a's.
 // Nothing here takes focus, animates or opens a modal (G54).
 import { useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { CompareTableDto, LibraryHitDto, LibraryNoteDto, ProposedItemDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { ModelActionState } from "./ModelActionState";
+import { ProposalExercises, type LibraryExercisesProps } from "./ProposalExercises";
 import { LIBRARY_COPY, type LibraryAskController } from "./useLibraryAsk";
 import { EvidenceMarker, MeaningLabel, ModelVoice, SourceVoice } from "./voices";
 
@@ -167,11 +172,14 @@ export function CompareTable({ table }: { table: CompareTableDto }) {
   );
 }
 
+export type { LibraryExercisesProps };
+
 export function LibraryAnswer({
   ctl,
   onOpenHit,
   onPracticePick,
   onClose,
+  exercises = null,
 }: {
   ctl: LibraryAskController;
   /** Open a hit in the left pane (a crumb: Alt+← comes back). */
@@ -179,6 +187,8 @@ export function LibraryAnswer({
   /** A learner pick of a practice proposal (the plan serves it). */
   onPracticePick: ((item: ProposedItemDto, proposalId: string | null) => void) | null;
   onClose: () => void;
+  /** RW4b (absent while library_exercises is off: the block is RW4a's). */
+  exercises?: LibraryExercisesProps | null;
 }) {
   const [question, setQuestion] = useState("");
   const state = ctl.state;
@@ -193,6 +203,24 @@ export function LibraryAnswer({
     const right = order.indexOf(b);
     return (left < 0 ? 999 : left) - (right < 0 ? 999 : right);
   }) : keys);
+  const itemList = (items: ProposedItemDto[]) => (
+    <ul aria-label="practice for this question" style={{ margin: 0, paddingLeft: 16, display: "flex", flexDirection: "column", gap: 6 }}>
+      {items.map((item) => (
+        <li key={item.practiceItemId} style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
+          {clip(item.prompt, 160)}
+          {item.learningObjectTitle ? <span style={{ color: COLOR.textDim }}> · {item.learningObjectTitle}</span> : null}
+          {onPracticePick ? (
+            <>
+              {" "}
+              <button type="button" onClick={() => onPracticePick(item, state.practice.value?.proposalId ?? null)} style={linkStyle}>
+                practice this ▸
+              </button>
+            </>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  );
   const block = (key: string) => {
     const hit = hits.get(key);
     if (!hit) return null;
@@ -438,23 +466,20 @@ export function LibraryAnswer({
                     failure={state.practice.failure ?? undefined}
                     onRetry={() => void ctl.practice()}
                   >
-                    {state.practice.value && state.practice.value.items.length ? (
-                      <ul aria-label="practice for this question" style={{ margin: 0, paddingLeft: 16, display: "flex", flexDirection: "column", gap: 6 }}>
-                        {state.practice.value.items.map((item) => (
-                          <li key={item.practiceItemId} style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
-                            {clip(item.prompt, 160)}
-                            {item.learningObjectTitle ? <span style={{ color: COLOR.textDim }}> · {item.learningObjectTitle}</span> : null}
-                            {onPracticePick ? (
-                              <>
-                                {" "}
-                                <button type="button" onClick={() => onPracticePick(item, state.practice.value?.proposalId ?? null)} style={linkStyle}>
-                                  practice this ▸
-                                </button>
-                              </>
-                            ) : null}
-                          </li>
-                        ))}
-                      </ul>
+                    {exercises && state.practice.value ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {state.practice.value.items.length ? itemList(state.practice.value.items) : null}
+                        <ProposalExercises
+                          practice={state.practice.value}
+                          itemsShown={state.practice.value.items.length}
+                          exercises={exercises}
+                          query={ask.query}
+                          learningObjectIds={ask.learningObjectIds}
+                          extractionId={ask.extractionId}
+                        />
+                      </div>
+                    ) : state.practice.value && state.practice.value.items.length ? (
+                      itemList(state.practice.value.items)
                     ) : (
                       <MeaningLabel style={{ fontSize: 11 }}>{LIBRARY_COPY.practiceNothing}</MeaningLabel>
                     )}

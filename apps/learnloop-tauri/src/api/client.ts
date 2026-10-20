@@ -12,6 +12,7 @@ import type {
   LibraryNotesDto,
   LibraryTutorDto,
   WorkbenchOpenInput,
+  WorkbenchAdmitDto,
   WorkbenchSaveStepDto,
   WorkbenchSaveStepInput,
   WorkbenchSessionDto,
@@ -53,6 +54,8 @@ import type {
   PracticeCallerDto,
   PracticeRequestDto,
   SourceExerciseImportDto,
+  ExerciseCandidatesDto,
+  FindExercisesDto,
   SourceToolRunDto,
   AnswerCalibrationReportDto,
   CreateVaultInput,
@@ -1548,6 +1551,15 @@ export const api = {
     call<LibraryJobDto<T>>("reader_library_job", { input }),
   readerLibraryJobCancel: (input: { jobId: string }) =>
     call<LibraryJobDto<null>>("reader_library_job_cancel", { input }),
+  // Reader workbench RW4b: the view of a proposal's textbook exercises (the
+  // sources service's exposure rule; held-out material left out) and the
+  // learner-initiated fallback search. Desktop only; neither serves anything.
+  // Each answers at once with a library job (the exposure rule's judge and the
+  // fallback's retrieval may call a model): read it with readerLibraryJob.
+  readerExerciseCandidates: (input: { proposalId: string; keys: Array<{ extractionId: string; spanIds: string[] }> }) =>
+    call<LibraryJobDto<ExerciseCandidatesDto>>("reader_exercise_candidates", { input }),
+  readerFindExercises: (input: { query: string; learningObjectIds: string[]; extractionId?: string | null }) =>
+    call<LibraryJobDto<FindExercisesDto>>("reader_find_exercises", { input }),
   // Reader workbench RW3a: a tap on a margin cue (open, check me, not relevant
   // and its undo) and the learner's cue preferences (density, a book off).
   readerCueAction: (input: { extractionId: string; cueId: string; action: ReaderCueAction; text?: string | null }) =>
@@ -1589,6 +1601,10 @@ export const api = {
     call<{ version: number; session: WorkbenchSessionDto }>("workbench_bind", { input }),
   workbenchRetryImport: (input: { sessionId: string }) =>
     mutatingReader(call<{ version: number; session: WorkbenchSessionDto }>("workbench_retry_import", { input }), [TAG.queue, TAG.proposals]),
+  // RW4b fix round 4 (R1): a picked exercise's owed learner pick, made,
+  // served and recorded on the named problem by the server, idempotently.
+  workbenchAdmit: (input: { sessionId: string; practiceSessionId?: string | null }) =>
+    mutating([TAG.queue, TAG.proposals], call<WorkbenchAdmitDto>("workbench_admit", { input })),
   workbenchSubmit: (input: WorkbenchSubmitInput) =>
     mutating(ATTEMPT_TAGS, call<WorkbenchSubmitDto>("workbench_submit", { input })),
   workbenchSessionForAttempt: (input: { attemptId: string }) =>

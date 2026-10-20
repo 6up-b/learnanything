@@ -28,9 +28,9 @@ import { OpenInSource } from "../components/OpenInSource";
 import { QuickAddDialog } from "../components/QuickAddDialog";
 import { NewVaultWizard } from "../components/NewVaultWizard";
 import { GoldenPathSetup } from "../components/goldenpath/GoldenPathSetup";
-import type { ReaderCheckMeRequest, ReaderOpenSource } from "../screens/ReaderScreen";
+import type { ReaderCheckMeRequest, ReaderExerciseRequest, ReaderOpenSource } from "../screens/ReaderScreen";
 import { keepReaderReturn, readerCheckOffer, returnsToReader, type ReaderReturn } from "./readerCheck";
-import { readerTargetBack, readerWorkbenchCheck, sessionAfterWorkbenchSubmit, workbenchReturn } from "./readerWorkbench";
+import { consumeShown, readerTargetBack, readerWorkbenchCheck, sessionAfterWorkbenchSubmit, workbenchReturn } from "./readerWorkbench";
 import { algoConfig } from "./algoConfig";
 import type { ReaderWorkbenchCheck, ReaderWorkbenchProps } from "../screens/reader/useReaderWorkbench";
 import { ExemplarConfirmDialog } from "../components/ExemplarConfirmDialog";
@@ -234,6 +234,11 @@ export function App() {
   // RW2a (D40): a cue's "check me", picked and served, waiting for the Reader
   // to open it in the working posture with the book hidden.
   const [readerCheck, setReaderCheck] = useState<ReaderWorkbenchCheck | null>(null);
+  // RW4b: "use this one" on a textbook exercise, waiting for the Reader to
+  // open it (its source open) or for a session to begin; and the card it came
+  // from, kept so its admitted item opens as that exercise's learner pick.
+  const [readerExercise, setReaderExercise] = useState<ReaderExerciseRequest | null>(null);
+  const [pendingExercise, setPendingExercise] = useState<ReaderExerciseRequest | null>(null);
   // Same stash-and-resume for a guided redo begun with NO session open:
   // start_guided_redo has already committed the repair episode to treatment on
   // the redo item, so dropping the DTO here would strand that episode exactly
@@ -535,6 +540,12 @@ export function App() {
       void pickCheckMe(pendingCheckMe, next.sessionId, { fromStart: true });
       return;
     }
+    // RW4b: an exercise waiting on a session opens now, in the Reader.
+    if (pendingExercise) {
+      setPendingExercise(null);
+      openReaderExercise(pendingExercise, { fromStart: true });
+      return;
+    }
     // Daily-loop DL1: Begin starts today's plan at its first step (§6.7).
     if (firstStep && !pendingRedo && !pendingPrimedItemId) {
       const action = planStepAction(firstStep, { viaBlockLine: false });
@@ -616,10 +627,13 @@ export function App() {
   // included), and the Reader opens it in the working posture with the book
   // hidden, answering the pick's own candidate and presentation. Feedback's
   // back returns to the problem, Next to the passage.
-  async function pickCheckMe(request: ReaderCheckMeRequest, sessionId: string, options: { fromStart?: boolean } = {}) {
+  // Resolves whether the pick was made and served.
+  async function pickCheckMe(request: ReaderCheckMeRequest, sessionId: string, options: { fromStart?: boolean } = {}): Promise<boolean> {
     try {
-      const result = await api.planLearnerPick(request.practiceItemId, sessionId, null, request.proposalId ?? null);
-      const offer = readerCheckOffer(result, request.practiceItemId, request.proposalId ?? null);
+      const result = await api.planLearnerPick(
+        request.practiceItemId, sessionId, null, request.proposalId ?? null, request.importId ?? null
+      );
+      const offer = readerCheckOffer(result, request.practiceItemId, request.proposalId ?? null, request.importId ?? null);
       if (algoConfig().workbench) {
         const served = await api.getPracticeItem(request.practiceItemId, sessionId, offer.proposalOrigin ?? null);
         setReaderCheck(readerWorkbenchCheck(request, offer, served.prompt));
@@ -628,7 +642,7 @@ export function App() {
           setReaderOpenSeq((seq) => seq + 1);
           setTab("reader");
         }
-        return;
+        return true;
       }
       setPracticeOffer(offer);
       setReaderReturn({ card: request.card, spanId: request.spanId, practiceItemId: request.practiceItemId });
@@ -638,8 +652,10 @@ export function App() {
       setPracticeItemId(request.practiceItemId);
       setTab("today");
       setTodayStage("practice");
+      return true;
     } catch (error) {
       onError(errorMessage(error, "Could not open the check."));
+      return false;
     }
   }
 
@@ -664,9 +680,38 @@ export function App() {
         initialAttemptId: readerWorkbenchAttempt,
         onInitialAttemptShown: () => setReaderWorkbenchAttempt(null),
         checkMe: readerCheck,
-        onCheckMeShown: () => setReaderCheck(null),
+        // RW4b fix round 4 (F9): the shell forgets the request the Reader
+        // showed, by identity; a newer one queued since stays.
+        onCheckMeShown: (shown) => setReaderCheck((current) => consumeShown(current, shown)),
+        exercise: readerExercise,
+        onExerciseShown: (shown) => setReaderExercise((current) => consumeShown(current, shown)),
+        // RW4b fix round 4 (R1): an exercise's admission may have started the
+        // practice session its pick was made in.
+        onPracticeSession: (practiceSession) => setSession((current) => sessionAfterWorkbenchSubmit(current, practiceSession)),
       }
     : undefined;
+
+  // RW4b (spec §7.4): "use this one" on a textbook exercise. Like a check, it
+  // needs a session (its item becomes a learner pick); the Reader opens the
+  // problem at once on the verbatim statement while the import runs.
+  function openReaderExercise(request: ReaderExerciseRequest, options: { fromStart?: boolean } = {}) {
+    setReaderExercise(request);
+    if (options.fromStart) {
+      setReaderSource({ card: request.card, spanId: request.spanIds[0] ?? "" });
+      setReaderOpenSeq((seq) => seq + 1);
+      setTab("reader");
+    }
+  }
+
+  function exerciseFromReader(request: ReaderExerciseRequest) {
+    if (!session) {
+      setPendingExercise(request);
+      setTab("start");
+      setToast(NEEDS_SESSION.exercise);
+      return;
+    }
+    openReaderExercise(request);
+  }
 
   function checkMeFromReader(request: ReaderCheckMeRequest) {
     if (!session) {
@@ -1459,11 +1504,11 @@ export function App() {
               }}
               onError={onError}
             />
-            <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />
+            <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />
           </div>
         );
       }
-      return <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />;
+      return <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />;
     }
     if (tab === "maintain") {
       return (

@@ -23,44 +23,35 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
-import re
 from typing import Any
 
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_block_fts import (
-    MAX_REGION_BLOCKS,
-    REGION_BODY_HINTS,
     block_content_hashes,
     blocks_by_key,
-    extraction_hint_rows,
-    section_header_titles,
     spans_with_content_hashes,
 )
 from learnloop.db.stores.source_service import exercise_key as _store_exercise_key, imported_regions
 from learnloop.ingest.locators import parse_block_span
-from learnloop.source_retrieval.corpus import Scope, effective_hint, teaching_scope
+from learnloop.source_retrieval.corpus import Scope, teaching_scope
 from learnloop.source_retrieval.search import POOL_HYBRID_RRF, SpanSearch, search_spans
+# Reader RW4b fix round 5 (R2): the exercise regions and their one statement
+# reader live with the exam predicate in ``content.sources`` so S1's import
+# worker, its selection and the Reader all read a statement one way.
+from learnloop.content.sources.exercise_statements import (  # noqa: F401 - re-exported
+    PAGE_FURNITURE,
+    ExerciseRegion,
+    LABEL_RE as _LABEL_RE,
+    NUMBER_RE as _NUMBER_RE,
+    exercise_regions,
+    starts_exercise,
+)
 from learnloop.vault.models import LoadedVault
 
 #: Characters of an exercise statement a proposal carries (display and prompt
 #: size bound, not a learning threshold).
 STATEMENT_CHARS = 1800
-_LABEL_RE = re.compile(r"^\s*((?:exercise|problem|question)s?\s*[\dA-Za-z.()\-]*\d[\dA-Za-z.()\-]*)", re.IGNORECASE)
-_NUMBER_RE = re.compile(r"^\s*(\(?\d+(?:\.\d+)*[.)]?|\([a-z]\))\s")
-
-
-@dataclass(frozen=True)
-class ExerciseRegion:
-    extraction_id: str
-    span_ids: tuple[str, ...]
-    text: str
-
-    @property
-    def key(self) -> tuple[str, ...]:
-        return (self.extraction_id, *self.span_ids)
-
-
 @dataclass
 class ExercisePool:
     """The arm's candidates for one request, best fused rank first."""
@@ -76,69 +67,6 @@ class ExercisePool:
     def describe(self) -> dict[str, Any]:
         return {"candidates": len(self.candidates), "search": self.search, "dropped": dict(self.dropped),
                 "scope": self.scope, "list_ends": dict(self.list_ends), "unjudged": self.unjudged}
-
-
-def starts_exercise(text: str | None) -> bool:
-    """Whether a block's own text opens an exercise: "20 Suppose ...",
-    "3. Show ...", "Exercise 4.12", "Problem 2". A sub-part "(a)" does not."""
-
-    value = text or ""
-    if _LABEL_RE.match(value):
-        return True
-    number = _NUMBER_RE.match(value)
-    return number is not None and re.fullmatch(r"\([a-z]\)", number.group(1)) is None
-
-
-#: Marker's page furniture: never an exercise, never part of one.
-PAGE_FURNITURE = frozenset({"PageHeader", "PageFooter"})
-
-
-def exercise_regions(connection, extraction_id: str) -> list[ExerciseRegion]:
-    """One extraction's exercise regions in document order.
-
-    A block whose effective hint is ``exercise`` leads a region; the unhinted
-    body after it (prose, equations, tables, figures) joins it, up to the next
-    section header, the next lead or ``MAX_REGION_BLOCKS``.
-    """
-
-    titles = section_header_titles(connection, extraction_id)
-    regions: list[ExerciseRegion] = []
-    current: list[Any] = []
-    body_left = 0
-
-    def close() -> None:
-        if current:
-            regions.append(ExerciseRegion(
-                extraction_id, tuple(row.span_id for row in current),
-                "\n\n".join(" ".join(row.text.split()) for row in current if row.text.strip())))
-        current.clear()
-
-    for row in extraction_hint_rows(connection, extraction_id):
-        if row.block_type in PAGE_FURNITURE or not (row.text or "").strip():
-            # Page headers, footers and empty blocks neither lead nor end a
-            # region (an exercise can run across a page break).
-            continue
-        hint = effective_hint(row, titles)
-        if (hint == "exercise" and row.block_type != "SectionHeader" and current and body_left
-                and not starts_exercise(row.text)):
-            # Under an "Exercises" heading every block carries the heading's
-            # hint; only a numbered or labelled block starts a new exercise.
-            # The rest ("Find a subspace W ..." after "20 Suppose U = ...", a
-            # "Hint:" line) belong to the exercise they follow.
-            current.append(row)
-            body_left -= 1
-        elif hint == "exercise" and row.block_type != "SectionHeader":
-            close()
-            current.append(row)
-            body_left = MAX_REGION_BLOCKS
-        elif current and body_left and hint in REGION_BODY_HINTS and row.block_type != "SectionHeader":
-            current.append(row)
-            body_left -= 1
-        else:
-            close()
-            body_left = 0
-    close()
-    return regions
 
 
 def exercise_label(text: str, page: int | None) -> str:

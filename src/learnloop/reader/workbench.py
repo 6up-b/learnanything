@@ -55,6 +55,7 @@ from typing import Any
 
 from learnloop.attempts.salience_firewall import salience_payload
 from learnloop.clock import Clock, parse_utc, utc_now_iso
+from learnloop.content.sources.exercise_statements import read_exercise_statement
 from learnloop.db.stores import help_assists as assists_store
 from learnloop.db.stores import workbench as store
 from learnloop.db.stores.help_assists import WorkbenchFold
@@ -896,6 +897,134 @@ def import_request(session: Mapping[str, Any]) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
+# -- Reader RW4b: a textbook exercise the learner picked ("use this one") ------------------------------
+
+#: The record a problem opened from a textbook exercise the learner picked in
+#: the Reader keeps inside its stored import request (Reader RW4b, spec §7.4;
+#: Codex review F2): the proposal it came from (None for the fallback's), the
+#: exercise's region, the exposure the server read when it was chosen and when
+#: it was admitted, and ``admitted_at``, set only once the learner pick of the
+#: item the import wrote was delivered. Durable, so a restart or a resume
+#: elsewhere still owes (and never repeats) that pick; no new column.
+EXERCISE_PICK_KEY = "reader_exercise"
+#: The payload ``event`` RW4b adds on ``reader_action_invoked`` (salience only).
+EXERCISE_WORKBENCH_EVENTS: tuple[str, ...] = ("workbench_exercise_admitted",)
+
+
+def exercise_pick(session: Mapping[str, Any]) -> dict[str, Any] | None:
+    """The picked exercise's record, or None for every other problem."""
+
+    value = (import_request(session) or {}).get(EXERCISE_PICK_KEY)
+    return dict(value) if isinstance(value, dict) else None
+
+
+def exercise_pick_due(session: Mapping[str, Any]) -> bool:
+    """The import bound the problem to the item it wrote and the learner pick
+    of that item was not delivered yet: the shell owes it, once."""
+
+    pick = exercise_pick(session)
+    return bool(
+        pick is not None and not pick.get("admitted_at") and session.get("import_status") == "bound"
+        and session.get("practice_item_id") and session.get("status") == "open"
+    )
+
+
+#: The stored import request of a textbook exercise picked from a
+#: ``find_practice`` proposal (the sources service's import, S1).
+SOURCE_EXERCISE_KIND = "source_exercise"
+
+
+def exercise_region(session: Mapping[str, Any]) -> tuple[str, list[str]] | None:
+    """A picked textbook exercise's region (its extraction and spans), from
+    its stored request; None for every other problem."""
+
+    return exercise_request_region(import_request(session))
+
+
+def exercise_request_region(request: Mapping[str, Any] | None) -> tuple[str, list[str]] | None:
+    """The same, from an import request (a stored one, or one about to be queued)."""
+
+    request = dict(request or {})
+    if request.get("kind") == SOURCE_EXERCISE_KIND:
+        return str(request.get("extraction_id") or ""), [str(span) for span in request.get("span_ids") or []]
+    pick = request.get(EXERCISE_PICK_KEY)
+    if isinstance(pick, dict):
+        return str(pick.get("extraction_id") or ""), [str(span) for span in pick.get("span_ids") or []]
+    return None
+
+
+def statement_cleared(vault: Any, repository: Any, session: Mapping[str, Any]) -> bool:
+    """Whether a problem's statement may be shown now (Reader RW4b fix round
+    5, R2): every problem but a picked textbook exercise, and a picked one
+    only while the one statement reader still reads its region (not exam or
+    held-out material now, the predicate readable). The one gate every
+    statement-bearing workbench response passes."""
+
+    region = exercise_region(session)
+    if region is None:
+        return True
+    return read_exercise_statement(vault, repository, region[0], region[1]) is not None
+
+
+def record_admission_stage(repository: Any, session_id: str, stage: Mapping[str, Any]) -> dict[str, Any]:
+    """Keep a step of a picked exercise's admission on the problem (fix round
+    5, R1): ``picked`` (the learner pick made, with its serve and practice
+    session) and ``served``. A retry after a failure completes only what is
+    missing; nothing here marks the pick admitted."""
+
+    with repository.atomic():
+        connection = repository.connection()
+        session = _require(connection, session_id)
+        request = import_request(session) or {}
+        pick = request.get(EXERCISE_PICK_KEY)
+        if not isinstance(pick, dict) or pick.get("admitted_at"):
+            return session
+        pick = {**pick, "admission": {**(pick.get("admission") or {}), **dict(stage)}}
+        request[EXERCISE_PICK_KEY] = pick
+        store.update_session(connection, session_id, {"import_request_json": json.dumps(request, sort_keys=True)})
+        return _require(connection, session_id)
+
+
+def admit_exercise_pick(
+    repository: Any,
+    session_id: str,
+    *,
+    practice_item_id: str,
+    exposure: Mapping[str, Any] | None,
+    serve: Mapping[str, str | None] | None = None,
+    practice_session_id: str | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """Record that the learner pick of the exercise's item was made and served
+    for THIS problem, in one transaction (RW4b fix round 4, R1): the pick's
+    serve (its scheduler offer and plan presentation) stored on this problem,
+    the practice session it was made in, the exposure read again at that
+    moment, and ``admitted_at``. Idempotent: a problem admitted already, one
+    bound to another item, or one that is no exercise is left as it is (an
+    admitted one keeps the serve and session of its admission)."""
+
+    now = utc_now_iso(clock)
+    with repository.atomic():
+        connection = repository.connection()
+        session = _require(connection, session_id)
+        request = import_request(session) or {}
+        pick = request.get(EXERCISE_PICK_KEY)
+        if (not isinstance(pick, dict) or pick.get("admitted_at") or session.get("import_status") != "bound"
+                or session.get("practice_item_id") != practice_item_id or session.get("status") != "open"):
+            return session
+        updated = {**pick, "admitted_at": now, "practice_session_id": practice_session_id}
+        if exposure is not None:
+            updated.update(exposure=dict(exposure), exposure_checked="admission")
+        request[EXERCISE_PICK_KEY] = updated
+        changes: dict[str, Any] = {"import_request_json": json.dumps(request, sort_keys=True), "updated_at": now}
+        changes.update(_serve_changes(serve))
+        store.update_session(connection, session_id, changes)
+        session = _require(connection, session_id)
+        _log(repository, session, "workbench_exercise_admitted", clock,
+             exposed=bool((exposure or {}).get("exposed")))
+    return session
+
+
 def mark_import(
     repository: Any,
     session_id: str,
@@ -1233,6 +1362,8 @@ __all__ = [
     "ENTRIES",
     "ENTRY_SURFACE_PRACTICE",
     "ENTRY_SURFACE_READER",
+    "EXERCISE_PICK_KEY",
+    "EXERCISE_WORKBENCH_EVENTS",
     "HELP_STYLES",
     "HELP_WORKBENCH_EVENTS",
     "IMPORT_STATUSES",
@@ -1245,6 +1376,12 @@ __all__ = [
     "SubmissionPlan",
     "WorkbenchError",
     "abandon",
+    "SOURCE_EXERCISE_KIND",
+    "admit_exercise_pick",
+    "exercise_region",
+    "exercise_request_region",
+    "record_admission_stage",
+    "statement_cleared",
     "bind",
     "book_counted",
     "book_hints",
@@ -1252,6 +1389,8 @@ __all__ = [
     "compose_answer",
     "default_book_visible",
     "ensure_contract",
+    "exercise_pick",
+    "exercise_pick_due",
     "held_hints",
     "held_on",
     "held_parts_on",

@@ -43,6 +43,8 @@ def make(tmp_path):
 def _without_library(contract: dict) -> dict:
     out = copy.deepcopy(contract)
     out.pop("libraryAsk", None)
+    # RW4b's exercises live inside the library answer: off with it.
+    out.pop("libraryExercises", None)
     intent = out.get("intent")
     if intent:
         for name in ("palette", "notesPalette"):

@@ -6,10 +6,11 @@
 // record line and Ctrl+Enter through the ordinary submit, waiting for an
 // import to bind, Leave for now (Esc twice) and Abandon in the ⋯ menu. Nothing
 // a save or a poll returns moves focus.
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import type { ComponentProps } from "react";
+import { StrictMode, type ComponentProps } from "react";
 import { Workbench } from "./Workbench";
+import { useWorkbenchSession } from "./useWorkbenchSession";
 import type { WorkbenchSessionDto } from "../../api/dto";
 
 const api = vi.hoisted(() => ({
@@ -726,4 +727,107 @@ it("round 4 F8: a departure held by a refusal gives editing back with the first-
   expect(await screen.findByText(/^saved/)).toBeTruthy();
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: /leave for now/ })); });
   await waitFor(() => expect(onLeave).toHaveBeenCalledTimes(1));
+});
+
+// RW4b, Codex review F3: a picked textbook exercise the server found exposed
+// at the pick (or again at admission) says why, and that it is practice beside
+// the book; unexposed, nothing is added.
+it("RW4b: a picked exercise seen since it was offered says why, and that it is practice beside the book", () => {
+  const exposure = { exposed: true, reasons: ["source_exposed"], label: "you've recently seen this page or its solution", note: null,
+    offeredAs: "practice" as const, exposureRuleVersion: "reading_exposure_v1" };
+  const pick = { proposalId: "pp_1", exposure, exposureChecked: "admission" as const, admitted: true, due: false };
+  render(<Workbench {...props({ initial: session({ exercisePick: pick }) })} />);
+  expect(screen.getByTestId("workbench-exercise-exposure").textContent)
+    .toBe("you've recently seen this page or its solution · practice beside the book, not a check on your own");
+  cleanup();
+  render(<Workbench {...props({ initial: session({ exercisePick: { ...pick, exposure: { ...exposure, exposed: false, reasons: [], label: null, offeredAs: "check_on_your_own" as const } } }) })} />);
+  expect(screen.queryByTestId("workbench-exercise-exposure")).toBeNull();
+});
+
+// RW4b fix round 4, R6 (Codex final verify F3): the exercise was picked
+// unexposed; while it imported the learner read its passage; the admission
+// corrects the exposure. The mounted workbench (same problem, same key) shows
+// the correction, and keeps the step being typed and its write.
+it("R6 (verify F3): the admission's exposure correction reaches the mounted workbench, keeping the unsaved step", async () => {
+  const unexposed = { exposed: false, reasons: [], label: null, note: null, offeredAs: "check_on_your_own" as const,
+    exposureRuleVersion: "reading_exposure_v1" };
+  const pick = { proposalId: "pp_1", exposure: unexposed, exposureChecked: "selection" as const, admitted: false, due: true };
+  const first = session({ sourceVisible: false, exercisePick: pick });
+  const onSession = vi.fn();
+  const view = render(<Workbench {...props({ initial: first, serverSession: first, onSession })} />);
+  expect(screen.queryByTestId("workbench-exercise-exposure")).toBeNull();
+  await typeStep(1, "3x = 15, so");
+  const corrected = session({
+    sourceVisible: false, schedulerCandidateId: "cand_admit",
+    exercisePick: { ...pick, admitted: true, due: false, exposureChecked: "admission",
+      exposure: { exposed: true, reasons: ["source_exposed"], label: "you've recently seen this page or its solution", note: null,
+        offeredAs: "practice" as const, exposureRuleVersion: "reading_exposure_v1" } },
+  });
+  view.rerender(<Workbench {...props({ initial: first, serverSession: corrected, onSession })} />);
+  expect(screen.getByTestId("workbench-exercise-exposure").textContent)
+    .toBe("you've recently seen this page or its solution · practice beside the book, not a check on your own");
+  expect(stepBox(1).value).toBe("3x = 15, so");
+  await waitFor(() => expect(api.workbenchSaveStep).toHaveBeenCalledWith(expect.objectContaining({ bodyMd: "3x = 15, so" })));
+});
+
+// RW4b fix round 5, R4 (Codex final verify F3, reopened): under StrictMode
+// (setup, cleanup, setup) the mounted workbench stays live: an import
+// refresh lands, and the admission's exposure correction is applied.
+it("R4 (verify F3): under StrictMode the import refresh lands and is handed on", async () => {
+  const pendingSession = session({ practiceItemId: null, importStatus: "pending" });
+  api.workbenchRefreshImport.mockResolvedValue({ session: session({ importStatus: "bound" }) });
+  const onSession = vi.fn();
+  render(<StrictMode><Workbench {...props({ initial: pendingSession, onSession })} /></StrictMode>);
+  await waitFor(() => expect(onSession).toHaveBeenCalledWith(expect.objectContaining({ importStatus: "bound" })), { timeout: 4000 });
+  await waitFor(() => expect(screen.getByRole("button", { name: /^submit/ }).textContent).not.toContain("available once setup finishes"));
+}, 8000);
+
+it("R4 (verify F3): under StrictMode the admission's exposure correction reaches the mounted workbench", async () => {
+  const unexposed = { exposed: false, reasons: [], label: null, note: null, offeredAs: "check_on_your_own" as const,
+    exposureRuleVersion: "reading_exposure_v1" };
+  const pick = { proposalId: "pp_1", exposure: unexposed, exposureChecked: "selection" as const, admitted: false, due: true };
+  const first = session({ sourceVisible: false, exercisePick: pick });
+  const view = render(<StrictMode><Workbench {...props({ initial: first, serverSession: first })} /></StrictMode>);
+  await typeStep(1, "3x = 15, so");
+  const corrected = session({ sourceVisible: false, exercisePick: { ...pick, admitted: true, due: false, exposureChecked: "admission",
+    exposure: { exposed: true, reasons: ["family_revealed"], label: "you've seen the answer to a question like this one", note: null,
+      offeredAs: "practice" as const, exposureRuleVersion: "reading_exposure_v1" } } });
+  view.rerender(<StrictMode><Workbench {...props({ initial: first, serverSession: corrected })} /></StrictMode>);
+  expect(screen.getByTestId("workbench-exercise-exposure").textContent)
+    .toBe("you've seen the answer to a question like this one · practice beside the book, not a check on your own");
+  expect(stepBox(1).value).toBe("3x = 15, so");
+});
+
+it("R4: a refresh sent under an earlier setup changes nothing after unmount", async () => {
+  let release!: (value: { session: WorkbenchSessionDto }) => void;
+  api.workbenchRefreshImport.mockImplementation(() => new Promise((resolve) => { release = resolve; }));
+  const onSession = vi.fn();
+  const view = render(<Workbench {...props({ initial: session({ practiceItemId: null, importStatus: "pending" }), onSession })} />);
+  await waitFor(() => expect(api.workbenchRefreshImport).toHaveBeenCalledTimes(1), { timeout: 4000 });
+  view.unmount();
+  await act(async () => { release({ session: session({ importStatus: "bound" }) }); });
+  expect(onSession).not.toHaveBeenCalled();
+}, 8000);
+
+// Fix round 5 audit: the session hook's own requests (bind, reopen, retry,
+// abandon, submit) answer only the setup that sent them; one landing after
+// the workbench went changes nothing and is never handed on.
+it("round 5 audit: a bind or reopen answered after unmount is never handed on", async () => {
+  const bindAnswer: { resolve?: (value: { session: WorkbenchSessionDto }) => void } = {};
+  const reopenAnswer: { resolve?: (value: { session: WorkbenchSessionDto }) => void } = {};
+  api.workbenchBind.mockImplementation(() => new Promise((resolve) => { bindAnswer.resolve = resolve; }));
+  api.workbenchReopen.mockImplementation(() => new Promise((resolve) => { reopenAnswer.resolve = resolve; }));
+  const onSession = vi.fn();
+  const view = renderHook(() => useWorkbenchSession(session({ practiceItemId: null }), { onSession, onError: vi.fn() }));
+  let binding!: Promise<void>;
+  let reopening!: Promise<void>;
+  act(() => { binding = view.result.current.bind("pi_part_a"); reopening = view.result.current.reopen(); });
+  view.unmount();
+  await act(async () => {
+    bindAnswer.resolve!({ session: session({ practiceItemId: "pi_part_a" }) });
+    reopenAnswer.resolve!({ session: session({ status: "open" }) });
+    await binding;
+    await reopening;
+  });
+  expect(onSession).not.toHaveBeenCalled();
 });
