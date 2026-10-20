@@ -652,6 +652,12 @@ ignore_imports = [
     # tutor.tutor_qa reads the same module under the same exemption.
     "learnloop.placement.state -> learnloop.attempts.reveal_ledger",
     "learnloop.attempts.attempts -> learnloop.diagnosis.causal_activity_policy",
+    # Daily-loop DL2: the recall-target anchor is the attempt path's own
+    # FSRS-eligibility decision (spec §5.3), read from the same leaf
+    # (diagnosis.causal_activity_policy imports only dataclasses, typing and
+    # the top-level learnloop.causal_activity_policy), so the scheduler's
+    # intent read cannot cycle at import time.
+    "learnloop.scheduling.intent.recall_targets -> learnloop.diagnosis.causal_activity_policy",
     "learnloop.attempts.attempts -> learnloop.diagnosis.causal_attribution",
     "learnloop.attempts.attempts -> learnloop.diagnosis.diagnostic_augmentation",
     "learnloop.attempts.attempts -> learnloop.diagnosis.discrimination_profiles",

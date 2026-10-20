@@ -78,6 +78,8 @@ ASSUMED_CHECK_REASON = "the first review of a topic assumed known (not tested): 
 #: forward), worded as the scheduler's own reasons are.
 GAP_COMMITMENT_CHECK_REASON = "the one check on a topic added from your question"
 GAP_SOONER_CHECK_REASON = "a check brought forward: your question pointed at this topic"
+#: DL2: an attempted item under Learn or Master that is not due yet (§6.1 push).
+INTENT_PUSH_REASON = "you chose Learn or Master here, not due yet"
 
 
 @dataclass(frozen=True)
@@ -182,8 +184,15 @@ def classify_item(
     deadline: bool = False,
     open_problem: bool | None = None,
     probe_value: Mapping[str, Any] | None = None,
+    due_override: bool | None = None,
+    intent_push: bool = False,
 ) -> PoolItem:
     """§6.1: the first lane that matches, in order.
+
+    DL2 (intent): ``due_override`` is the item's due test on its effective due
+    (§5.3) instead of the stored ``due_at``; ``intent_push`` puts an attempted
+    item under Learn or Master that is not yet due in the push lane (§5.4).
+    Both default to DL1's behaviour exactly.
 
     ``probe_value`` (mvp-0.21) is a due project probe's value-of-information
     decision: when given, the probe takes the maintain lane exactly when that
@@ -198,6 +207,8 @@ def classify_item(
     never_attempted = state is None or getattr(state, "last_attempt_at", None) is None
     due_at = parse_utc(getattr(state, "due_at", None)) if state is not None else None
     due = due_at is not None and due_at <= now
+    if due_override is not None:
+        due = bool(due_override)
     frontier = float(components.get("goal_frontier", 0.0) or 0.0) > 0.0
     followup = is_followup(scheduled)
     base = dict(
@@ -263,6 +274,8 @@ def classify_item(
         return PoolItem(lane="maintain", reason="your request" if requested and not due else "past its review date", **base)
     if frontier:
         return PoolItem(lane="push", reason="on your goal's frontier, not due yet", **base)
+    if intent_push:
+        return PoolItem(lane="push", reason=INTENT_PUSH_REASON, **base)
     return PoolItem(lane=None, reason="later", **base)
 
 
@@ -280,6 +293,8 @@ def classify_pool(
     project_probe_admission: (
         Callable[[Sequence[tuple[Any, float]]], Sequence[tuple[str, Mapping[str, Any]]]] | None
     ) = None,
+    is_due: Callable[[str, Any], bool] | None = None,
+    push_ids: Iterable[str] = (),
 ) -> list[PoolItem]:
     """Classify the scheduler's ranked list, in rank order (§6.1).
 
@@ -300,6 +315,7 @@ def classify_pool(
     """
 
     requested = set(requested_ids)
+    pushes = set(push_ids)
     open_problems = None if open_problem_learning_object_ids is None else set(open_problem_learning_object_ids)
     deadline_los = set(deadline_learning_object_ids)
     # Due project probes beyond the cap stay "later"; automation / all_at_once
@@ -338,6 +354,8 @@ def classify_pool(
                 deadline=scheduled.learning_object_id in deadline_los,
                 open_problem=None if open_problems is None else scheduled.learning_object_id in open_problems,
                 probe_value=values.get(item_id),
+                due_override=None if is_due is None else is_due(item_id, item_states.get(item_id)),
+                intent_push=item_id in pushes,
             )
         )
     if values:
@@ -368,15 +386,28 @@ def _order_probes_by_value(pool: list[PoolItem], admitted_order: Sequence[str]) 
     return reordered
 
 
-def reentry_order(pool: Sequence[PoolItem]) -> list[PoolItem]:
-    """§7: assumed-known checks that came due, then intent tier (goals with
-    deadlines; then the rest: DL1 has no Keep or Light touch yet), then rank."""
+def reentry_order(pool: Sequence[PoolItem], tiers: Mapping[str, int] | None = None) -> list[PoolItem]:
+    """§7: assumed-known checks that came due, then intent tier (Master,
+    Learn and goals with deadlines; then Keep; then uncommitted), then rank.
 
+    ``tiers`` (DL2) maps an item to its intent tier (``learnloop.scheduling.intent.model``:
+    0 Master/Learn, 1 Keep, 2 uncommitted); None is DL1's order exactly
+    (deadlines first, then the rest). Light touch is left out by the caller."""
+
+    if tiers is None:
+        return sorted(
+            pool,
+            key=lambda item: (
+                0 if item.check_kind == "assumed_check" else 1,
+                0 if item.deadline else 1,
+                item.order_rank,
+            ),
+        )
     return sorted(
         pool,
         key=lambda item: (
             0 if item.check_kind == "assumed_check" else 1,
-            0 if item.deadline else 1,
+            0 if item.deadline else min(int(tiers.get(item.practice_item_id, 2)), 2),
             item.order_rank,
         ),
     )
@@ -422,10 +453,16 @@ def _lane_reason(lane: str, items: Sequence[PoolItem], titles: Mapping[str, str]
                 return f"maintain: the one check on {topic}, added from your question"
             if kinds == {"assumed_check"} and reasons == {GAP_SOONER_CHECK_REASON}:
                 return f"maintain: the check on {topic}, brought forward by your question"
+            if kinds == {"check_once"}:
+                # DL2 (§5.2, Reader §9.3 item 10): the plan line keeps its
+                # purpose before the check; the check itself locates nothing.
+                return f"check · on your own · {count} check{plural} you asked for ({topic})"
             return f"maintain: {count} scheduled check{plural} ({topic})"
         return f"maintain: {count} review{plural} past their 90% recall target ({topic})"
     if lane == "new":
         return f"new: {count} new item{plural} on {topic}"
+    if any(item.reason == INTENT_PUSH_REASON for item in items) and not any(item.goal_frontier for item in items):
+        return f"push: {count} item{plural} on {topic}, which you chose to learn, not due yet"
     return f"push: {count} item{plural} toward your goal on {topic}, not due yet"
 
 

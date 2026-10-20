@@ -13,6 +13,7 @@ from learnloop.substrate.instrument_serving import (
 )
 from learnloop.content.proposals.proposals import queue_accepted_diagnostic_followups
 from learnloop.daily_plan.engine import plan_active
+from learnloop.intent.checks import settle_answered_checks
 from learnloop.projects.capture import auto_sweep
 from learnloop.scheduling.reentry_summary import reentry_session_cap
 from learnloop.router.decisions import (
@@ -112,6 +113,10 @@ def prepare_queue_build(ctx: SidecarContext, vault: Any, repository: Any, sessio
     # the Today refresh.
     with repository.pinned():
         queue_accepted_diagnostic_followups(repository)
+    # Daily-loop DL2: a "Check once" an attempt answered is satisfied (the
+    # commitment's own disposition; serving already reads it so). A no-op
+    # without commitments or with intent.enabled off.
+    settle_answered_checks(vault, repository)
     _wait_for_session_diagnoses(ctx, vault, repository, session_id)
 
 

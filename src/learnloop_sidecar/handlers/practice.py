@@ -356,6 +356,16 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
         from learnloop_sidecar.handlers.queue import eligibility_dto
 
         detail["eligibility"] = eligibility_dto(eligibility)
+    if params.session_id is not None:
+        # Daily-loop DL2: a due "Check once" is served cold (Reader §9.3 item
+        # 10): the banner, help never blocked with its consequence stated, and
+        # a header that locates nothing until feedback. Absent otherwise.
+        from learnloop.clock import SystemClock
+        from learnloop.intent.checks import served_check
+
+        check = served_check(vault, repository, item.id, now=SystemClock().now())
+        if check is not None:
+            detail["intentCheck"] = to_camel(check)
     detail["elicitation"] = (
         None
         if params.session_id is None

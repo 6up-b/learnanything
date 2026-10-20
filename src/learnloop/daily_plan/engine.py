@@ -55,6 +55,7 @@ from learnloop.daily_plan.lanes import (
     LegacyLanesSource,
     PoolItem,
     SOURCE_NAME,
+    ScheduledCheck,
     classify_pool,
     reentry_order,
     scheduled_checks,
@@ -232,6 +233,8 @@ class PoolContext:
     #: The pool with those items still in it, in pool order (round 8: what
     #: the boundary could choose from once a hold lifts).
     pool_with_held: tuple[PoolItem, ...] = ()
+    #: DL2: committed LOs' intent views (empty: every LO uncommitted, as DL1).
+    intent_views: Mapping[str, IntentView] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -624,6 +627,9 @@ class _Pool:
     #: requests under one rule, in pool order. None: the split selects them
     #: from the classified pool (no probe valuation, as before).
     request_ids: tuple[str, ...] | None = None
+    #: DL2: the build's intent view (``learnloop.scheduling.intent.serving``), None when
+    #: intent changes nothing (every branch then DL1's exactly).
+    intent: Any = None
 
 
 def _open_problems(env: PlanEnv) -> tuple[frozenset[str] | None, str]:
@@ -758,9 +764,34 @@ def _classified_pool(
     # and the hold lifts today (``PlanWaiting``).
     estimator = _estimator(env)
     states = env.repository.practice_item_states()
-    requested = env.repository.requested_practice_item_ids()
+    intent = intent_view(env)
     ids = [item.practice_item_id for item in scheduled]
     checks = scheduled_checks(env.vault, env.repository, ids)
+    if intent is None:
+        requested = env.repository.requested_practice_item_ids()
+        push_ids: list[str] = []
+        tiers: dict[str, int] | None = None
+        light_touch: set[str] = set()
+    else:
+        # DL2 (§5.2, §5.3): the same request rule as the scheduler, and each
+        # due "Check once" is a scheduled check in the maintain lane (the
+        # check_once provider), not a requests-first slot. Minutes, not a
+        # count, bound how many are planned (Reader §9.3 item 6).
+        check_items = _check_once_checks(intent, ids)
+        for item_id, check in check_items.items():
+            checks.setdefault(item_id, check)
+        requested = [
+            item_id
+            for item_id in intent.filter_requests(
+                env.repository.requested_practice_item_ids(
+                    skip_commitment_ids=intent.intent_control_request_commitments()
+                )
+            )
+            if item_id not in check_items
+        ]
+        push_ids = [item_id for item_id in ids if intent.pushes(item_id, states.get(item_id))]
+        tiers = {item_id: intent.intent(item_id).tier for item_id in ids}
+        light_touch = {item_id for item_id in ids if intent.intent(item_id).choice == "light_touch"}
     probes_planned = sum(
         1 for record_ in day for item in record_.active_items() if item.check_kind == "project_probe"
     )
@@ -779,9 +810,19 @@ def _classified_pool(
             deadline_learning_object_ids=deadlines,
             open_problem_learning_object_ids=open_problems,
             project_probe_admission=admission,
+            is_due=intent.due if intent is not None else None,
+            push_ids=push_ids,
         )
         if reentry:
-            classified = reentry_order(classified)
+            classified = reentry_order(classified, tiers)
+            if light_touch:
+                # §7: Light touch is left out of re-entry (lapses are fine).
+                classified = [
+                    replace(item, lane=None, reason="light touch: left out of re-entry")
+                    if item.practice_item_id in light_touch
+                    else item
+                    for item in classified
+                ]
         return [item if item.lane in lanes_allowed else replace(item, lane=None) for item in classified]
 
     admission = None
@@ -842,7 +883,24 @@ def _classified_pool(
         deadlines=deadlines,
         repair_rule=repair_rule,
         request_ids=request_ids,
+        intent=intent,
     )
+
+
+def intent_view(env: PlanEnv) -> Any:
+    """DL2's intent view for this build (None when intent changes nothing)."""
+
+    from learnloop.scheduling.intent.serving import intent_serving
+
+    return intent_serving(env.vault, env.repository, now=env.now())
+
+
+def _check_once_checks(intent: Any, item_ids: Sequence[str]) -> dict[str, ScheduledCheck]:
+    """DL2's ``check_once`` provider (``lanes.ScheduledCheck``): the due
+    "Check once" items among the pool, one per check, in pool order. Called
+    with the plan's clock (the registry's providers take none)."""
+
+    return {item_id: ScheduledCheck("check_once") for item_id in intent.check_item_ids(item_ids)}
 
 
 def _project_probe_admission(
@@ -953,7 +1011,10 @@ def _project_probe_admission(
     return admit
 
 
-def _review_items(env: PlanEnv, estimator: Estimator) -> list[ReviewItem]:
+def _review_items(env: PlanEnv, estimator: Estimator, intent: Any = None) -> list[ReviewItem]:
+    """The review-load population (§6.3): items with memory state, at their
+    effective due (DL2, §5.3), in non-excluded intents."""
+
     from learnloop.vault.lifecycle import practice_item_servable
 
     vault = env.vault
@@ -964,10 +1025,17 @@ def _review_items(env: PlanEnv, estimator: Estimator) -> list[ReviewItem]:
         item = vault.practice_items.get(item_id)
         if item is None or item.status != "active" or not practice_item_servable(vault, item):
             continue
+        due_at = state.due_at
+        if intent is not None:
+            if intent.withhold_reason(item_id) is not None:
+                continue
+            effective = intent.effective(item_id, state).due
+            if effective is not None:
+                due_at = effective.strftime("%Y-%m-%dT%H:%M:%SZ")
         items.append(
             ReviewItem(
                 practice_item_id=item_id,
-                due_at=state.due_at,
+                due_at=due_at,
                 last_review_at=state.last_attempt_at,
                 est_minutes=estimator.item_minutes(vault, item_id),
             )
@@ -1092,8 +1160,10 @@ def _prepare_plan(
         for item in rest
         if item.lane == "new" and item.never_attempted
     ]
+    if built.intent is not None:
+        new_candidates = _intent_admission_order(built.intent, new_candidates)
     review_load = projected_review_load(
-        _review_items(env, built.estimator), now=env.now(), horizon_days=int(config.load_horizon_days)
+        _review_items(env, built.estimator, built.intent), now=env.now(), horizon_days=int(config.load_horizon_days)
     )
     # L is a daily load, so its ceiling is 0.80 of a daily budget: the plan's
     # own M for the day's plan, the remembered budget for an extension or the
@@ -1410,6 +1480,7 @@ def _context(env: PlanEnv, record: PlanRecord, built: _Pool, *, day: Sequence[Pl
         deadlines=built.deadlines,
         held_until=held_until,
         pool_with_held=pool_with_held if held_until else (),
+        intent_views=_intent_views(env, built, (item.learning_object_id for item in pool)),
     )
 
 
@@ -1555,7 +1626,54 @@ def _items_left(record: PlanRecord, *, forced_items: int = 0) -> int | None:
 
 def _intents(context: PoolContext) -> dict[str, IntentView]:
     los = {item.learning_object_id for item in context.pool}
-    return {lo: IntentView(deadline=context.deadlines.get(lo)) for lo in sorted(los)}
+    views = context.intent_views
+    return {
+        lo: replace(views[lo], deadline=context.deadlines.get(lo)) if lo in views else IntentView(deadline=context.deadlines.get(lo))
+        for lo in sorted(los)
+    }
+
+
+def _intent_admission_order(intent: Any, candidates: Sequence[NewCandidate]) -> list[NewCandidate]:
+    """§6.3 by intent: requests stay exempt and first; then Learn and Master,
+    then uncommitted, each in the scheduler's (Phase 6's) order. Keep and
+    Light touch add no new material of the system's choosing."""
+
+    from learnloop.scheduling.intent.model import TIER_KEEP, TIER_LIGHT, TIER_PUSH
+
+    requested = [candidate for candidate in candidates if candidate.requested]
+    ordinary = [
+        (intent.intent(candidate.practice_item_id).tier, index, candidate)
+        for index, candidate in enumerate(candidates)
+        if not candidate.requested
+    ]
+    kept = [entry for entry in ordinary if entry[0] not in (TIER_KEEP, TIER_LIGHT)]
+    kept.sort(key=lambda entry: (0 if entry[0] == TIER_PUSH else 1, entry[1]))
+    return [*requested, *(candidate for _tier, _index, candidate in kept)]
+
+
+def _intent_views(env: PlanEnv, built: _Pool, learning_object_ids: Iterable[str]) -> dict[str, IntentView]:
+    """§5: each LO's intent as the chooser may read it (committed LOs only;
+    the rest keep DL1's uncommitted default). An LO assumed known (not tested)
+    with no commitment is Keep for its check (§5.6)."""
+
+    intent = built.intent
+    if intent is None:
+        return {}
+    from learnloop.scheduling.intent.model import CHOICE_PRESET
+
+    assumed = {item.learning_object_id for item in built.pool if item.check_kind == "assumed_check"}
+    keep_target = float(env.vault.config.intent.recall_targets.get(CHOICE_PRESET["keep"], 0.85))
+    views: dict[str, IntentView] = {}
+    for lo_id in sorted(set(learning_object_ids)):
+        resolved = intent.resolution.for_learning_object(lo_id)
+        if resolved.uncommitted:
+            if lo_id in assumed:
+                views[lo_id] = IntentView(choice="keep", disposition="active", recall_target=keep_target)
+            continue
+        views[lo_id] = IntentView(
+            choice=resolved.choice, disposition=resolved.disposition, recall_target=resolved.recall_target
+        )
+    return views
 
 
 @dataclass(frozen=True)

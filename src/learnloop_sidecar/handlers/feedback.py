@@ -198,6 +198,14 @@ def get_feedback(ctx: SidecarContext, params: FeedbackInput) -> dict[str, Any]:
         _debit_repair_display_reveals(vault, repository, attempt, stored_feedback)
     bundle = feedback_bundle(vault, repository, params.attempt_id)
     _attach_common_repair(repository, params.attempt_id, bundle)
+    # Daily-loop DL2: an attempt that answered a "Check once" says so after
+    # the measurement, with the way back to where it was studied when the
+    # check's provenance carries one (Reader §9.3 item 9). Absent otherwise.
+    from learnloop.intent.checks import answered_check
+
+    check = answered_check(vault, repository, params.attempt_id)
+    if check is not None:
+        bundle["intentCheck"] = to_camel(check)
     log_event(
         "feedback_shown",
         session_id=session_id,

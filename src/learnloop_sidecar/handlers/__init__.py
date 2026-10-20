@@ -28,6 +28,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     hints,
     ingest,
     inspector,
+    intent,
     item_authoring,
     knowledge_map,
     knowledge_model,

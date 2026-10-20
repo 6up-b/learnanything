@@ -111,6 +111,21 @@ def test_the_pinned_daily_plan_rpcs_are_all_of_them():
     assert set(DAILY_PLAN_RPCS) == set(registered)
 
 
+# Daily-loop DL2 (intent; a live change behind intent.enabled): the single
+# control and deadlines are desktop-only. DL2 also extends the practice serve
+# (a due "Check once" carries its cold banner and help header), the feedback
+# read (the answered check and its way back) and the Today queue (intent's
+# exclusion, recall targets and the dated check branch), pinned here too.
+INTENT_RPCS = ("get_intent", "set_intent", "set_intent_deadline")
+INTENT_EXTENDED_RPCS = ("get_practice_item", "get_feedback")
+
+
+def test_the_pinned_intent_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.intent import INTENT_RPCS as registered
+
+    assert set(INTENT_RPCS) == set(registered)
+
+
 # The ChatGPT-plan provider's desktop sign-in ("Continue with ChatGPT"), its
 # status and plan-usage actions. Machine credentials: desktop only, never phone.
 CHATGPT_PLAN_RPCS = (
@@ -511,7 +526,8 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     + ROUTER_R2A_RPCS + GLM_OCR_RPCS + GLM_OCR_EXTENDED_RPCS + REREAD_SAFETY_RPCS + REREAD_SAFETY_EXTENDED_RPCS
     + READER_PDF_SELECTION_RPCS + READER_PDF_SELECTION_EXTENDED_RPCS + UX_PHASE4_RPCS + UX_PHASE4_EXTENDED_RPCS
     + HINTS_H0_RPCS + HINTS_H0_EXTENDED_RPCS + HINTS_H2A_RPCS + HINTS_H2A_EXTENDED_RPCS
-    + HINTS_H2B_RPCS + READER_RW2B_RPCS + READER_RW2B_EXTENDED_RPCS + READER_RW2B_FIX5_EXTENDED_RPCS,
+    + HINTS_H2B_RPCS + READER_RW2B_RPCS + READER_RW2B_EXTENDED_RPCS + READER_RW2B_FIX5_EXTENDED_RPCS
+    + INTENT_RPCS + INTENT_EXTENDED_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

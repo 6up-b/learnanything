@@ -72,17 +72,21 @@ def plan_report_command(
 
     from learnloop.daily_plan.engine import load_records_from_connection, plan_active
     from learnloop.daily_plan.report import plan_report
+    from learnloop.intent.report import intent_report
 
     try:
         loaded = _load(vault)
         with closing(connect(VaultPaths(loaded.root, loaded.config).sqlite_path, read_only=True)) as connection:
             connection.execute("BEGIN")
             records = load_records_from_connection(connection)
+            # DL2: what is committed, and the recall-target fallbacks (§5.3).
+            intent = intent_report(loaded, connection)
         _emit(
             {
                 "active": plan_active(loaded),
                 "algorithm_version": loaded.config.algorithms.algorithm_version,
                 **plan_report(records),
+                "intent": intent,
             },
             json_output,
         )

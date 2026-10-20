@@ -258,7 +258,16 @@ def build_due_queue(
     # requested-items reorder floor must see the same set — a fresh sibling has
     # no attempts, stability, or due_at, so without the eligibility floor it
     # zeroes out at the priority filter and the reorder floor never sees it.
-    requested_item_ids = repository.requested_practice_item_ids()
+    # Daily-loop DL2 (intent; a live change behind intent.enabled): None when
+    # intent changes nothing (switch off, or no commitment covers an item),
+    # and every branch below is then exactly the predecessor's.
+    intent_view = _intent_serving(vault, repository, now)
+    if intent_view is None:
+        requested_item_ids = repository.requested_practice_item_ids()
+    else:
+        requested_item_ids = intent_view.filter_requests(
+            repository.requested_practice_item_ids(skip_commitment_ids=intent_view.intent_control_request_commitments())
+        )
     requested_id_set = set(requested_item_ids)
     # P4 §14.2 step 3 (design §A.2 rule 3): during the dual-controller cutover the
     # staged policy owns P2 golden-path commitments. Their practice items are EXCLUDED
@@ -423,6 +432,13 @@ def build_due_queue(
         if not practice_item_servable(vault, item):
             withheld("lifecycle_put_away", item.id)
             continue
+        # DL2 (§5.3): Pause, Reference, Let go and an answered "Check once"
+        # are not served (requests included); a check holds its items back
+        # until its date. After the routine exclusions, so a held-out or
+        # reserved item is never a check.
+        if intent_view is not None and (intent_reason := intent_view.withhold_reason(item.id)) is not None:
+            withheld(intent_reason, item.id)
+            continue
         mastery = mastery_states.get(learning_object.id)
         episode = open_episodes.get(learning_object.id)
         in_probe = (
@@ -507,7 +523,12 @@ def build_due_queue(
 
         goal_frontier_component = _goal_frontier(vault, item, frontier_entry)
         components: dict[str, float] = {
-            "forgetting_risk": _forgetting_risk(state, now, fsrs_weights),
+            "forgetting_risk": _forgetting_risk(
+                state,
+                now,
+                fsrs_weights,
+                effective_due=intent_view.effective_due_or_none(item.id, state) if intent_view is not None else None,
+            ),
             "recent_error": _recent_error(errors_by_lo.get(learning_object.id, []), now),
             "probe_eig": 0.0,
             # DISPLAY ONLY (never a priority input — _priority reads exactly its
@@ -718,6 +739,11 @@ def build_due_queue(
             # a pending_items one — keeps its never-attempted LO practicable for
             # belief-only ordinary practice instead of blocking on instruments.
             priority = max(priority, _TEACH_BACK_PRIORITY_FLOOR)
+        if intent_view is not None and intent_view.pushes(item.id, state):
+            # DL2 (§6.1): Learn and Master keep their not-yet-due items in
+            # reach of the push lane, as a goal frontier does.
+            components["intent_push"] = 1.0
+            priority = max(priority, _TEACH_BACK_PRIORITY_FLOOR)
         if item.id in requested_id_set:
             # Requested-items eligibility floor: the learner explicitly asked
             # for this card (promotion or easier/harder variant) and it has no
@@ -757,6 +783,15 @@ def build_due_queue(
     )
     if placement_serving is not None:
         queue = _order_new_material(vault, repository, queue, placement_serving)
+    if intent_view is not None and intent_view.due_checks():
+        # DL2 (§5.2): one item per due "Check once", the top-ranked of its
+        # candidates; the dated request is that item.
+        queue, chosen_checks = intent_view.pick_checks(queue)
+        chosen = set(chosen_checks)
+        candidates = {item_id for check in intent_view.due_checks() for item_id in check.candidates}
+        requested_item_ids = [
+            item_id for item_id in requested_item_ids if item_id not in candidates or item_id in chosen
+        ]
     # Propensity is computed on the greedy-sorted order, before exploration reorders
     # it: it is P(this candidate is served | slate) under the seeded exploration
     # policy, which is what off-policy estimation reweights by.
@@ -3071,10 +3106,15 @@ def _forgetting_risk(
     state: PracticeItemState | None,
     now: datetime,
     weights: tuple[float, ...] = FSRS6_DEFAULT_WEIGHTS,
+    *,
+    effective_due: datetime | None = None,
 ) -> float:
+    """``effective_due`` (DL2, §5.3) replaces ``due_at`` as the due gate when
+    given; the retrievability is the item's own, as before."""
+
     if state is None or state.due_at is None:
         return 0.0
-    due_at = parse_utc(state.due_at)
+    due_at = effective_due if effective_due is not None else parse_utc(state.due_at)
     if due_at is None or due_at > now:
         return 0.0
     if state.stability is None:
@@ -3082,6 +3122,14 @@ def _forgetting_risk(
     last_attempt_at = parse_utc(state.last_attempt_at) or due_at
     elapsed_days = max(0.0, (now - last_attempt_at).total_seconds() / 86400)
     return 1 - forgetting_curve(state.stability, elapsed_days, weights)
+
+
+def _intent_serving(vault: LoadedVault, repository: Repository, now: datetime):
+    """DL2's per-build intent view (``learnloop.scheduling.intent.serving``), or None."""
+
+    from learnloop.scheduling.intent.serving import intent_serving
+
+    return intent_serving(vault, repository, now=now)
 
 
 def _goal_frontier(vault: LoadedVault, item: PracticeItem, entry) -> float:
