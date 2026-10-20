@@ -3,8 +3,8 @@ title: "followup_tasks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3f7be0a9042a6625d8c1f2d027e87accf4635c63"
-source_commit_timestamp: "2026-10-20T02:13:08-04:00"
+source_commit: "33a8ca802caec867c877485f9f394455e49a080c"
+source_commit_timestamp: "2026-10-20T12:44:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_tasks"
@@ -139,6 +139,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop/goals/certification_cold_probe.py`
 - `src/learnloop/instructional/policy.py`
+- `src/learnloop/intent/checks.py`
 - `src/learnloop/learner_protection.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/scheduling/serving_exclusions.py`
@@ -156,6 +157,7 @@ Indexes and uniqueness:
 - `tests/test_causal_cold_outcomes.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_forecast_receipts.py`
+- `tests/test_intent_fix_round4.py`
 - `tests/test_mcp_c1a_landing.py`
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_remediation_cold_retry.py`
@@ -171,7 +173,6 @@ Indexes and uniqueness:
 - `tests/test_instrument_servability_journeys.py`
 - `tests/test_intent_codex_rereview.py`
 - `tests/test_intent_codex_review.py`
-- `tests/test_item_authoring.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
