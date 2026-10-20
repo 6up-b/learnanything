@@ -311,3 +311,75 @@ def test_f7_a_finished_help_job_on_a_problem_held_out_since_is_never_delivered(t
     # The gate is the only reason: cleared again, the kept job reads as before.
     held_out["now"] = False
     assert call(wctx, "workbench.help_job", {"jobId": started["jobId"]})["state"] == "done"
+
+
+# -- fix round 7 (Codex verify 20261020-132303-baF0w3, F13): a keyed pick needs its presentation -----
+
+
+def _break_presentation_once(monkeypatch) -> list[int]:
+    from learnloop.db.stores import plan_presentations
+
+    return _fail_once(monkeypatch, plan_presentations, "insert_plan_presentation",
+                      sqlite3.IntegrityError("the presentation could not be written"))
+
+
+def _item_served(repository, item: str) -> int:
+    return _count(repository, "SELECT COUNT(*) FROM attention_block_events WHERE kind = 'item_served' "
+                              "AND json_extract(detail_json, '$.practice_item_id') = ?", item)
+
+
+@pytest.mark.parametrize("promoted", [None, "pi_svd_define_001"], ids=["planned", "new_block"])
+def test_r7_a_failed_presentation_write_rolls_the_whole_keyed_pick_back(ctx, monkeypatch, promoted):
+    """A refused ``plan_presentations`` insert inside a keyed pick propagates:
+    no item_served, no keyed receipt, no delivery is kept; the retry makes
+    exactly one presentation, one keyed receipt and one delivery."""
+
+    _draw(monkeypatch, promoted)
+    context, _paths = ctx
+    session_id = _call(context, "start_session", {"availableMinutes": 25})["sessionId"]
+    _vault, repository = context.require_vault()
+    _break_presentation_once(monkeypatch)
+    with pytest.raises(sqlite3.IntegrityError):
+        _pick(context, session_id)
+    assert (_item_served(repository, "pi_extra_1"), _keyed(repository, "workbench_admission:wbs_9"),
+            _presentations(repository, "pi_extra_1"), len(_interventions(repository)),
+            _learner_pick_blocks(repository)) == (0, 0, 0, 0, 0)
+    result = _pick(context, session_id)
+    assert result["step"]["presentationId"]
+    assert (_keyed(repository, "workbench_admission:wbs_9"), _presentations(repository, "pi_extra_1"),
+            len(_interventions(repository))) == (1, 1, 1)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        keyed = connection.execute(
+            "SELECT json_extract(detail_json, '$.presentation_id') FROM attention_block_events WHERE kind = ?",
+            (PICK_KEYED,)).fetchone()[0]
+    assert keyed == result["step"]["presentationId"]
+
+
+def test_r7_an_open_list_keyed_pick_also_rolls_back_and_an_unkeyed_one_still_serves(tmp_path, monkeypatch):
+    from tests.daily_plan_fakes import MovableClock
+
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=LOS, version="mvp-0.22")
+    clock = MovableClock()
+    env = make_env(paths.root, _items(), clock=clock, session_id="s1")
+    _seed(env, clock.now())
+    build_plan(env, kind="normal", budget=4.0, remembered=4, minutes_source="chip")
+    E.stop_today(env)  # the open-list branch
+    _break_presentation_once(monkeypatch)
+    with pytest.raises(sqlite3.IntegrityError):
+        learner_pick(env, "pi_m1c", idempotency_key="workbench_admission:wbs_7")
+    assert (_item_served(env.repository, "pi_m1c"), _keyed(env.repository, "workbench_admission:wbs_7"),
+            _presentations(env.repository, "pi_m1c")) == (0, 0, 0)
+    _record, step = learner_pick(env, "pi_m1c", idempotency_key="workbench_admission:wbs_7")
+    assert step["presentation_id"]
+    assert (_item_served(env.repository, "pi_m1c"), _keyed(env.repository, "workbench_admission:wbs_7"),
+            _presentations(env.repository, "pi_m1c")) == (1, 1, 1)
+    # Unkeyed, unchanged: a refused presentation is logged and the item is still served.
+    _break_presentation_once(monkeypatch)
+    _record, unkeyed = learner_pick(env, "pi_m1b")
+    assert unkeyed["presentation_id"] is None and _item_served(env.repository, "pi_m1b") == 1
+
+
+def test_r7_a_keyed_receipt_is_never_written_without_its_presentation():
+    with pytest.raises(RuntimeError):
+        E._record_pick_key(None, None, block_id="b", practice_item_id="pi", presentation_id=None,  # type: ignore[arg-type]
+                           idempotency_key="k")

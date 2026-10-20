@@ -2901,9 +2901,14 @@ def _present(
     origin: str,
     candidate_id: str | None,
     served_at: str,
+    strict: bool = False,
 ) -> str | None:
     """Router R2a: the served item's ``plan_presentations`` row, in the serve's
     own transaction (one per block and item: a reopen returns the first).
+
+    ``strict`` (a keyed pick, Reader RW4b fix round 7): the row is required,
+    so a refused insert (or a vault without the table) PROPAGATES and rolls
+    the whole keyed pick back; unkeyed serves keep the logging behaviour.
 
     The router decision that placed the item (its block's, or the
     ``plan_interrupt`` decision that inserted a follow-up: Codex review F1)
@@ -2915,6 +2920,8 @@ def _present(
     from learnloop.db.stores import plan_presentations as presentations
 
     if not presentations.plan_presentations_present(connection):
+        if strict:
+            raise RuntimeError("a keyed learner pick needs its plan presentation, and this vault has no table for it")
         return None
     connection.execute("SAVEPOINT plan_presentation")
     try:
@@ -2941,9 +2948,11 @@ def _present(
                 "served_at": served_at,
             },
         )
-    except Exception:  # noqa: BLE001 - the receipt never blocks serving
+    except Exception:  # noqa: BLE001 - the receipt never blocks serving (unless strict)
         connection.execute("ROLLBACK TO plan_presentation")
         connection.execute("RELEASE plan_presentation")
+        if strict:
+            raise
         import logging
 
         logging.getLogger(__name__).warning("plan presentation of %s not recorded", practice_item_id, exc_info=True)
@@ -2952,8 +2961,10 @@ def _present(
     return presentation_id
 
 
-def _serve(env: PlanEnv, block: PlannedBlock, item: PlannedItem, *, candidate_id: str | None) -> str | None:
-    """Record the item as served; returns its presentation (router R2a)."""
+def _serve(env: PlanEnv, block: PlannedBlock, item: PlannedItem, *, candidate_id: str | None,
+           strict: bool = False) -> str | None:
+    """Record the item as served; returns its presentation (router R2a).
+    ``strict``: a keyed pick's serve, whose presentation is required (fix round 7)."""
 
     now = env.now_iso()
     with env.repository.atomic(), env.repository.connection() as connection:
@@ -2992,6 +3003,7 @@ def _serve(env: PlanEnv, block: PlannedBlock, item: PlannedItem, *, candidate_id
             origin=item.origin,
             candidate_id=candidate_id,
             served_at=item.served_at or now,
+            strict=strict,
         )
         if presentation_id is not None and fresh:
             # Adaptive difficulty AD1 (spec §7.5, §8.1, §5.11): the reading
@@ -3073,6 +3085,11 @@ def _keyed_pick_scope(env: PlanEnv, idempotency_key: str | None) -> Any:
 
 def _record_pick_key(env: PlanEnv, connection: Any, *, block_id: str, practice_item_id: str,
                      presentation_id: str | None, idempotency_key: str | None) -> None:
+    """The keyed receipt, only ever with the presentation it names (fix
+    round 7): a keyed pick without one refuses, and its transaction rolls back."""
+
+    if idempotency_key and not presentation_id:
+        raise RuntimeError(f"a keyed learner pick of {practice_item_id} has no presentation; nothing is recorded")
     if idempotency_key:
         _event(connection, block_id, PICK_KEYED, {"idempotency_key": idempotency_key,
                                                   "practice_item_id": practice_item_id,
@@ -3126,7 +3143,8 @@ def learner_pick(
     if planned is not None:
         block = next(b for b in record.blocks if b.id == planned.block_id)
         with _keyed_pick_scope(env, idempotency_key):
-            presentation_id = _serve(env, block, planned, candidate_id=candidate_id)
+            presentation_id = _serve(env, block, planned, candidate_id=candidate_id,
+                                     strict=bool(idempotency_key))
             record = _reload(env, record.id)
             block = next(b for b in record.blocks if b.id == planned.block_id)
             step = _item_step(
@@ -3197,6 +3215,7 @@ def learner_pick(
                 origin="open_list",
                 candidate_id=candidate_id,
                 served_at=env.now_iso(),
+                strict=bool(idempotency_key),
             )
             _record_pick_key(env, connection, block_id=receipt_id, practice_item_id=practice_item_id,
                              presentation_id=presentation_id, idempotency_key=idempotency_key)
@@ -3322,7 +3341,7 @@ def _pick_new_block(env: PlanEnv, record: PlanRecord, item: PoolItem, *, practic
     record = _reload(env, record.id)
     block = next(b for b in record.blocks if b.id == block_id)
     planned_item = block.items[0]
-    presentation_id = _serve(env, block, planned_item, candidate_id=candidate_id)
+    presentation_id = _serve(env, block, planned_item, candidate_id=candidate_id, strict=bool(idempotency_key))
     record = _reload(env, record.id)
     block = next(b for b in record.blocks if b.id == block_id)
     step = _item_step(
