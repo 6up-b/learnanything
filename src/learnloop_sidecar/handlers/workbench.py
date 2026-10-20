@@ -852,19 +852,22 @@ def _admit(ctx: SidecarContext, session_id: str, requested_practice_session: str
     2. the practice session is resolved, or started (the submit's own rule);
     3. the plan's learner pick is made with the proposal and import ids,
        under the admission's own idempotency key (``admission_key``, derived
-       from the workbench session id and stored with the pick's receipt), and
-       the step is kept on the problem (``picked``);
+       from the workbench session id). The plan writes the pick's block, its
+       serve, its keyed receipt and the proposal's delivery in ONE
+       transaction (fix round 6), and the step is then kept on the problem
+       (``picked``);
     4. the item is served in that session (the practice screen's serve,
-       which records a plan-off proposal's delivery), kept as ``served``;
+       which records a plan-off proposal's delivery) and kept as ``served``,
+       in one transaction (fix round 6);
     5. in one transaction: that serve is stored on THIS problem, with the
        practice session, the exposure read again (the bound item's own
        attempts and family reveals counted, fix round 5, R3), and
        ``admitted_at``.
 
-    Idempotent (fix round 5, R1): a retry after any failure completes only
-    what is missing. A pick already kept is never made again; a pick whose
-    record was lost is found by its key in the plan's receipts; a serve
-    already kept is not repeated. A problem admitted already returns its
+    Idempotent (fix rounds 5 and 6): a retry after any failure completes
+    only what is missing. A pick already kept is never made again; a pick
+    whose record was lost is found by its keyed receipt, under any plan, with
+    its original presentation; a serve already kept is not repeated. A problem admitted already returns its
     admission (the same practice session). Returns the practice session the
     problem is admitted in, or None when nothing is owed."""
 
@@ -921,10 +924,13 @@ def _admit(ctx: SidecarContext, session_id: str, requested_practice_session: str
             # delivery (as the shell's serve did); the plan on: its pick did.
             origin = {} if picked_stage.get("plan_enabled") or not proposal_id else {
                 "proposal_id": proposal_id, "source_exercise_import_id": import_id}
-            get_practice_item(ctx, ServePracticeItemInput(practice_item_id=item_id, session_id=practice_session_id,
-                                                          **origin))
-            vault, repository = ctx.require_vault()
-            _run(WB.record_admission_stage, repository, session_id, {"served": True})
+            # Fix round 6 (F13): the serve, a plan-off proposal's delivery and
+            # the ``served`` record commit in ONE transaction, so a failure
+            # between them leaves nothing written and the retry serves once.
+            with repository.atomic():
+                get_practice_item(ctx, ServePracticeItemInput(practice_item_id=item_id,
+                                                              session_id=practice_session_id, **origin))
+                _run(WB.record_admission_stage, repository, session_id, {"served": True})
         _run(WB.admit_exercise_pick, repository, session_id, practice_item_id=item_id,
              exposure=LX.pick_exposure(vault, repository, pick, practice_item_id=item_id),
              serve=dict(picked_stage.get("serve") or {}), practice_session_id=practice_session_id)

@@ -27,6 +27,7 @@ another source, peeking or saving meanwhile is answered at once.
 """
 from __future__ import annotations
 
+import copy
 import logging
 import threading
 import time
@@ -156,6 +157,9 @@ def _ask_row(repository: Any, ask_id: str) -> dict[str, Any]:
 
 #: One job's work: given the worker's own repository, the result payload (or a SidecarError).
 Work = Callable[[Any], dict[str, Any]]
+#: A job's delivery check (Reader RW4b fix round 6, F7): given the finished
+#: result, what may go out NOW. Run on every read of the job, never cached.
+Deliver = Callable[[dict[str, Any]], dict[str, Any]]
 
 
 @dataclass
@@ -169,6 +173,9 @@ class _Job:
     result: dict[str, Any] | None = None
     error: SidecarError | None = None
     cancelled: bool = False
+    #: Revalidates the kept result at each delivery (exercise jobs: the
+    #: statement reader's withholding gate); None for a job that needs none.
+    deliver: Deliver | None = None
 
 
 def _as_sidecar_error(exc: BaseException) -> SidecarError:
@@ -188,10 +195,11 @@ class LibraryJobs:
         self._lock = threading.Lock()
         self._kept: dict[str, _Job] = {}
 
-    def start(self, ctx: SidecarContext, kind: str, ask_id: str | None, work: Work) -> _Job:
+    def start(self, ctx: SidecarContext, kind: str, ask_id: str | None, work: Work, *,
+              deliver: Deliver | None = None) -> _Job:
         from learnloop.ids import new_ulid
 
-        job = _Job(f"ljob_{new_ulid()}", kind, ask_id, time.monotonic())
+        job = _Job(f"ljob_{new_ulid()}", kind, ask_id, time.monotonic(), deliver=deliver)
         with self._lock:
             self._kept[job.job_id] = job
             while len(self._kept) > MAX_KEPT_JOBS:
@@ -245,7 +253,13 @@ def _job_payload(job: _Job) -> dict[str, Any]:
         return versioned({**base, "state": "pending", "result": None})
     if job.error is not None:
         raise job.error
-    return versioned({**base, "state": "done", "result": job.result})
+    result = job.result
+    if job.deliver is not None and result is not None:
+        # Fix round 6 (F7): what a finished job kept is checked again as it
+        # goes out (an exercise held out since the job finished is dropped);
+        # the kept result itself is never changed.
+        result = job.deliver(copy.deepcopy(result))
+    return versioned({**base, "state": "done", "result": result})
 
 
 def _start(ctx: SidecarContext, kind: str, ask_id: str | None, work: Work) -> dict[str, Any]:

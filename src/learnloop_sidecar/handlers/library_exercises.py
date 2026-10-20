@@ -283,11 +283,44 @@ class ExerciseCandidatesInput(ParamsModel):
 
 
 def _start_job(ctx: SidecarContext, kind: str, work: Any) -> dict[str, Any]:
-    """RW4a's library job runner: the work runs off the request path, on its own repository."""
+    """RW4a's library job runner: the work runs off the request path, on its own repository.
+
+    Every read of an exercise job's result (``reader.library_job``, and the
+    first answer) goes through :func:`deliver_exercise_result` (fix round 6,
+    F7): a candidate held out since the job finished never goes out."""
 
     from learnloop_sidecar.handlers.library_ask import _job_payload, _jobs
 
-    return _job_payload(_jobs(ctx).start(ctx, kind, None, work))
+    return _job_payload(_jobs(ctx).start(ctx, kind, None, work,
+                                         deliver=lambda result: deliver_exercise_result(ctx, result)))
+
+
+def deliver_exercise_result(ctx: SidecarContext, result: dict[str, Any]) -> dict[str, Any]:
+    """A finished exercise job's result as it may go out NOW (Reader RW4b
+    fix round 6, F7): each candidate's region is read again through the one
+    statement reader, at delivery. A candidate whose region is exam or
+    held-out material now (or cannot be read) is dropped and counted as
+    withheld, so neither its statement nor its permission to render the
+    proposal's stored statement goes out. Fails closed: with no vault, or
+    the switch off since, nothing is delivered."""
+
+    vault, repository = _require(ctx)
+    kept: list[dict[str, Any]] = []
+    withheld = 0
+    for candidate in result.get("candidates") or ():
+        spans = [str(span) for span in candidate.get("span_ids") or ()]
+        if read_exercise_statement(vault, repository, str(candidate.get("extraction_id") or ""), spans) is None:
+            withheld += 1
+            continue
+        kept.append(candidate)
+    result["candidates"] = kept
+    if "withheld" in result:
+        result["withheld"] = int(result.get("withheld") or 0) + withheld
+    if isinstance(result.get("dropped"), dict):
+        result["dropped"]["withheld"] = int(result["dropped"].get("withheld") or 0) + withheld
+        if result.get("status") == "ok" and not kept:
+            result["status"] = "none_found"
+    return result
 
 
 @method("reader.exercise_candidates", ExerciseCandidatesInput)

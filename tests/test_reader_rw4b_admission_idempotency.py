@@ -162,11 +162,11 @@ def test_r1_a_lost_pick_record_is_found_by_its_key_in_the_plans_receipt(tmp_path
 
 
 def test_r1_a_lost_serve_record_repeats_no_pick_and_no_presentation(tmp_path, monkeypatch):
-    """The pick and its serve commit; the problem's record of the serve
-    (``served``) fails. The retry makes no second pick and no second
-    presentation; it repeats only the open-list serve, whose proposal records
-    are idempotent (the usage signal, the delivery deduped by
-    ``_pick_delivery``)."""
+    """The pick commits; the problem's record of the serve (``served``)
+    fails. The retry makes no second pick and no second presentation. Since
+    fix round 6 the serve and its ``served`` record share one transaction,
+    so the failed serve rolled back with it and the retry's serve is the
+    only one (``test_reader_rw4b_fix6.py`` pins that)."""
 
     ctx, repository, session_id = _sidecar(tmp_path, monkeypatch)
     real = WB.record_admission_stage

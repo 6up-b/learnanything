@@ -364,15 +364,28 @@ def plan_learner_pick(ctx: SidecarContext, params: PlanLearnerPickInput) -> dict
     # A pick revalidates a cold check like every other serve (rounds 5, 6;
     # the one eligibility decision).
     revalidate_cold_check(env.vault, env.repository, params.practice_item_id)
+    delivered: dict[str, Any] = {}
+
+    def deliver(served_record: Any, served_step: dict[str, Any]) -> None:
+        # Reader RW4b fix round 6 (F13): a keyed pick's delivery is written
+        # in the pick's own transaction (block, serve, keyed receipt), so a
+        # failure anywhere leaves nothing to recover and a retry makes it all once.
+        delivered["pick"] = _proposal_delivery(ctx, params, selection,
+                                               router_decision_id=_served_decision(served_record, served_step))
+
+    keyed_delivery = bool(params.idempotency_key) and selection is not None
     try:
         record, step = learner_pick(
             env, params.practice_item_id, offer_candidate_id=params.scheduler_candidate_id,
-            idempotency_key=params.idempotency_key,
+            idempotency_key=params.idempotency_key, within=deliver if keyed_delivery else None,
         )
     except KeyError as exc:
         raise SidecarError("not_found", f"Unknown Practice Item {params.practice_item_id}.") from exc
     result = {"enabled": True, "step": step, **_current_view(env)}
-    if selection is not None:
+    if keyed_delivery:
+        if "pick" in delivered:  # absent: the pick was made already, and delivered with it
+            result["proposal_pick"] = delivered["pick"]
+    elif selection is not None:
         result["proposal_pick"] = _proposal_delivery(ctx, params, selection,
                                                      router_decision_id=_served_decision(record, step))
     _schedule_ad(ctx, env, step=step)

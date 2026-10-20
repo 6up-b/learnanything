@@ -1150,7 +1150,27 @@ def _params_for(spec, ids: dict[str, Any]) -> dict[str, Any]:
             raise AssertionError(f"{spec.name}: the contract test has no value for {field!r}; add one")
     if spec.name == "reader.exercise_candidates":
         params["keys"] = ids["keys"]
+    if spec.name == "reader.library_job":
+        params["jobId"] = ids["library_job"]
     return params
+
+
+def _finished_exercise_jobs(ctx, proposal: dict[str, Any], exercise: dict[str, Any]) -> dict[str, str]:
+    """A finished ``reader.exercise_candidates`` and ``reader.find_exercises``
+    job, both showing ``exercise`` while it may be shown; their job ids."""
+
+    from tests.library_ask_fixtures import finish_job as finish
+
+    started = {
+        "exercise_candidates": call_rpc(ctx, "reader.exercise_candidates",
+                                        {"proposalId": proposal["proposal_id"], "keys": _keys(proposal)}),
+        "find_exercises": call_rpc(ctx, "reader.find_exercises", {"query": QUERY, "learningObjectIds": ["lo_matrices"],
+                                                                  "extractionId": "ext_text"}),
+    }
+    for kind, job in started.items():
+        result = finish(ctx, job)
+        assert exercise["key"] in [candidate["key"] for candidate in result["candidates"]], kind
+    return {kind: job["jobId"] for kind, job in started.items()}
 
 
 def test_r2_contract_no_workbench_or_reader_exercise_rpc_returns_a_held_out_statement(library, imports, grader):
@@ -1169,6 +1189,8 @@ def test_r2_contract_no_workbench_or_reader_exercise_rpc_returns_a_held_out_stat
     proposal = _proposal(paths, repository)
     exercise = _sentinel_exercise(proposal)
     ctx = context(paths.root)
+    # Fix round 6 (F7): finished exercise jobs, kept from before the hold-out.
+    jobs = _finished_exercise_jobs(ctx, proposal, exercise)
     session = _use_this_one(ctx, proposal, exercise)
     call(ctx, "workbench.save_step", {"sessionId": session["sessionId"], "clientIdempotencyKey": "s1", "op": "add",
                                       "bodyMd": "3t = 15"})
@@ -1180,9 +1202,13 @@ def test_r2_contract_no_workbench_or_reader_exercise_rpc_returns_a_held_out_stat
                     if list(r.span_ids) == exercise["span_ids"]]
     _hold_out(repository, spans)
     ids = {"session": session["sessionId"], "item": bound["practiceItemId"], "attempt": "att_unknown",
-           "proposal": proposal["proposal_id"], "keys": _keys(proposal)}
-    names = sorted(name for name in METHOD_REGISTRY if name.startswith("workbench.") or name in LIBRARY_EXERCISE_RPCS)
-    assert {"workbench.get", "workbench.admit", "workbench.submit", "reader.exercise_candidates"} <= set(names)
+           "proposal": proposal["proposal_id"], "keys": _keys(proposal), "library_job": jobs["find_exercises"]}
+    # The reads of kept jobs (fix round 6): every registered ``reader.library_job*``
+    # read, beside the workbench and the exercise RPCs.
+    names = sorted(name for name in METHOD_REGISTRY if name.startswith("workbench.") or name in LIBRARY_EXERCISE_RPCS
+                   or name == "reader.library_job")
+    assert {"workbench.get", "workbench.admit", "workbench.submit", "reader.exercise_candidates",
+            "reader.library_job"} <= set(names)
     sentinels = ("An eigenvalue t satisfies", region.text[-24:])
     answered: dict[str, str] = {}
     for name in names:
@@ -1195,6 +1221,14 @@ def test_r2_contract_no_workbench_or_reader_exercise_rpc_returns_a_held_out_stat
             answered[name] = exc.code
         for sentinel in sentinels:
             assert sentinel not in text, (name, answered[name])
+    # Every kept exercise job, read after the hold-out: the candidate is gone
+    # (its statement, and its permission to render the proposal's stored one).
+    for kind, job_id in jobs.items():
+        read = call_rpc(ctx, "reader.library_job", {"jobId": job_id})
+        text = json.dumps(read, default=str)
+        assert read["state"] == "done" and exercise["key"] not in text, kind
+        for sentinel in sentinels:
+            assert sentinel not in text, kind
     # The statement-bearing ones refuse with the existing code.
     for name in ("workbench.get", "workbench.open", "workbench.admit", "workbench.submit", "workbench.leave",
                  "workbench.refresh_import"):
@@ -1230,3 +1264,34 @@ def test_r3_verify_f11_admission_reads_the_bound_items_own_exposure_and_says_pra
     # Kept: a later read shows the same classification.
     again = call(ctx, "workbench.get", {"sessionId": session["sessionId"]})["session"]["exercisePick"]["exposure"]
     assert again == exposure
+
+
+# -- fix round 6 (orchestrator rulings): F7, kept exercise jobs revalidated at delivery -----------------
+
+
+def test_r6_verify_f7_a_finished_exercise_job_read_after_its_region_is_held_out_never_delivers_it(library):
+    """Codex verify (round 5) F7: ``reader.find_exercises`` (and the
+    candidates view) finished while the exercise was allowed; its region is
+    then held out. ``reader.library_job`` drops it at delivery, counted as
+    withheld; the kept result itself is unchanged, and a region that is
+    still allowed is still delivered."""
+
+    paths, repository, spans = library
+    set_config(paths, "library_exercises", fallback_enabled=True)
+    proposal = _proposal(paths, repository)
+    exercise = _sentinel_exercise(proposal)
+    ctx = context(paths.root)
+    jobs = _finished_exercise_jobs(ctx, proposal, exercise)
+    found_before = call_rpc(ctx, "reader.library_job", {"jobId": jobs["find_exercises"]})["result"]
+    assert "An eigenvalue t satisfies" in _all_text(found_before["candidates"])
+    _hold_out(repository, spans)
+    found = call_rpc(ctx, "reader.library_job", {"jobId": jobs["find_exercises"]})["result"]
+    assert "An eigenvalue t satisfies" not in _all_text(found)
+    assert exercise["key"] not in [candidate["key"] for candidate in found["candidates"]]
+    assert found["dropped"]["withheld"] >= 1
+    view = call_rpc(ctx, "reader.library_job", {"jobId": jobs["exercise_candidates"]})["result"]
+    assert exercise["key"] not in [candidate["key"] for candidate in view["candidates"]]
+    assert view["withheld"] >= 1
+    # The kept result is not rewritten: the gate runs at every read.
+    kept = ctx.library_ask_jobs.get(jobs["find_exercises"]).result
+    assert exercise["key"] in [candidate["key"] for candidate in kept["candidates"]]
