@@ -689,6 +689,10 @@ def build_recap(
         if summary["status"] not in ("open", "abandoned"):
             continue
         row = WB.session_row(repository, summary["session_id"])
+        if not WB.statement_cleared(vault, repository, row):
+            # Reader RW4b fix round 5 (R2): a picked exercise held out since
+            # is not named here (its title is its statement).
+            continue
         carried = WB.carried_hints(row)
         unfinished.append({
             "session_id": summary["session_id"],
@@ -803,6 +807,8 @@ def build_wrap_up(
         if not (line["book_counted"] or line["hints"]):
             continue
         row = rows.get(line["session_id"]) or {}
+        if row and not WB.statement_cleared(vault, repository, row):
+            continue  # Reader RW4b fix round 5 (R2): a held-out exercise is not named
         worth.append({
             "kind": "with_help", "marker": MARK_WITH_HELP, "session_id": line["session_id"],
             "title": excerpt(str(row.get("stem_md") or "").splitlines()[0] if row.get("stem_md") else "", TITLE_CHARS),

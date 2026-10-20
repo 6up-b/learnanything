@@ -132,8 +132,11 @@ export interface ReaderWorkbench {
   /** The session changed inside the workbench (the book, the binding); the
    *  generation the workbench was shown in, when it knows it. */
   update: (session: WorkbenchSessionDto, generation?: number) => void;
-  /** Collapse back into reading; returns the passage to return to. */
-  close: (session: WorkbenchSessionDto | null, options?: { abandoned?: boolean }) => string | null;
+  /** Collapse back into reading; returns the passage to return to. A
+   *  departure from a workbench (Leave, Abandon) names the problem it leaves
+   *  and the generation it was shown in: a stale one changes nothing and
+   *  returns null, so nothing jumps (fix round 5, R5). */
+  close: (session: WorkbenchSessionDto | null, options?: { abandoned?: boolean; generation?: number }) => string | null;
   submitted: (result: WorkbenchSubmitDto, generation?: number) => void;
 }
 
@@ -206,12 +209,17 @@ export function useReaderWorkbench(input: {
   const admits = useCallback((sent: Ticket, session: WorkbenchSessionDto) => fresh(sent) && onOpenBook(session, sent),
     [fresh, onOpenBook]);
 
+  // The marks' list: the newest request's answer wins (round 5 audit), on the
+  // book it was asked for.
+  const refreshSeq = useRef(0);
   const refresh = useCallback(async () => {
     const current = extractionRef.current;
     if (!enabled || !current) return;
+    refreshSeq.current += 1;
+    const asked = refreshSeq.current;
     try {
       const result = await api.workbenchForSource({ extractionId: current });
-      if (extractionRef.current === current) setSessions(result.sessions);
+      if (extractionRef.current === current && refreshSeq.current === asked) setSessions(result.sessions);
     } catch {
       // The marks are a convenience: without them the source still reads.
     }
@@ -435,15 +443,21 @@ export function useReaderWorkbench(input: {
     admit(session);
   }, [admit, onOpenBook]);
 
-  const close = useCallback((session: WorkbenchSessionDto | null, options?: { abandoned?: boolean }) => {
-    const target = session ?? active?.session ?? null;
+  const close = useCallback((session: WorkbenchSessionDto | null, options?: { abandoned?: boolean; generation?: number }) => {
+    // R5: a departure (Leave, Abandon) that completes after another problem
+    // was opened, or after its own workbench went, closes nothing, sets no
+    // receipt and jumps nowhere.
+    const shown = activeRef.current;
+    if (options?.generation !== undefined && options.generation !== generation.current) return null;
+    if (session && (!shown || shown.session.sessionId !== session.sessionId)) return null;
+    const target = session ?? shown?.session ?? null;
     bump(); // Leave: everything still in flight for the problem left is stale
     setActive(null);
     setSheetOpen(false);
     setAbandoned(options?.abandoned && target ? target : null);
     void refresh();
     return target?.spanIds[0] ?? null;
-  }, [active, bump, refresh]);
+  }, [bump, refresh]);
 
   // A submit answers the problem it was made on. When that problem is no
   // longer the one shown (left, another book, another problem took its

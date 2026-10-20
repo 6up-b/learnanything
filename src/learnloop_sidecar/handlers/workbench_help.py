@@ -118,6 +118,11 @@ def _require(ctx: SidecarContext, session_id: str, *, bound: bool = True, open_:
         raise SidecarError(exc.code, exc.message) from exc
     if open_ and session["status"] != "open":
         raise SidecarError("not_open", "This problem isn't open; reopen it to keep working.")
+    # Reader RW4b fix round 5 (R2): help on a picked exercise whose region is
+    # held out now reads and sends nothing of it (the workbench's one gate).
+    from learnloop_sidecar.handlers.workbench import _refuse_withheld_exercise
+
+    _refuse_withheld_exercise(vault, repository, session)
     item = None
     if bound:
         item_id = session.get("practice_item_id")
@@ -454,10 +459,10 @@ def _payload(ctx: SidecarContext, job_id: str) -> dict[str, Any]:
 
 
 def _record(ctx: SidecarContext, session_id: str) -> dict[str, Any]:
-    from learnloop_sidecar.handlers.workbench import _view
+    from learnloop_sidecar.handlers.workbench import record_line
 
     vault, repository = ctx.require_vault()
-    return _view(vault, repository, session_id)["record"]
+    return record_line(vault, repository, session_id)["record"]
 
 
 @method("workbench.help_job", HelpJobInput)

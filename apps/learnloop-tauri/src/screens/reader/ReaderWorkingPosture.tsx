@@ -30,8 +30,9 @@ export function ReaderWorkingPosture({
   bookHidden: boolean;
   sourceShown: boolean;
   practiceSessionId: string | null;
-  onLeave: (session: WorkbenchSessionDto) => void;
-  onAbandoned: (session: WorkbenchSessionDto) => void;
+  /** Leave and Abandon carry the generation the workbench was shown in (R5). */
+  onLeave: (session: WorkbenchSessionDto, generation: number) => void;
+  onAbandoned: (session: WorkbenchSessionDto, generation: number) => void;
   /** RW2b: "compare with the book" peeks its passage in the source pane. */
   onPeekPassage: (spanId: string) => void;
   onError: (message: string) => void;
@@ -107,8 +108,8 @@ export function ReaderWorkingPosture({
           // R5: the workbench's own callbacks carry the generation it was
           // shown in, so a late one after Leave or a book change is dropped.
           onSession={(next) => wbCtl.update(next, active.generation)}
-          onLeave={onLeave}
-          onAbandoned={onAbandoned}
+          onLeave={(session) => onLeave(session, active.generation)}
+          onAbandoned={(session) => onAbandoned(session, active.generation)}
           onSubmitted={(result) => wbCtl.submitted(result, active.generation)}
           onShowInBook={() => wbCtl.setSheetOpen(!wbCtl.sheetOpen)}
           onPeekPassage={onPeekPassage}

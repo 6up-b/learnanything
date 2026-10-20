@@ -342,3 +342,59 @@ it("R5: unmounting makes every answer still in flight stale", async () => {
   expect(api.workbenchAdmit).not.toHaveBeenCalled();
   expect(onError).not.toHaveBeenCalled();
 });
+
+// Fix round 5, R5 (Codex final verify F12, as written): Leave on A is under
+// way (its flush and RPC pending) when the learner opens B; A's departure
+// then completes. It closes nothing, sets no receipt and jumps nowhere.
+it("R5 (verify F12): a delayed Leave or Abandon of A never closes B", async () => {
+  api.workbenchOpen.mockImplementation(async (params: { sessionId: string }) => ({ version: 1,
+    session: params.sessionId === "wbs_1" ? session() : session({ sessionId: "wbs_3", stemMd: "3. Another." }), resumed: true }));
+  const { result } = hook(book, null);
+  await act(async () => result.current.resume("wbs_1"));
+  const a = result.current.active!;
+  await act(async () => result.current.resume("wbs_3")); // B opens while A's Leave is pending
+  expect(result.current.active?.session.sessionId).toBe("wbs_3");
+  let jump: string | null = "unset";
+  act(() => { jump = result.current.close(a.session, { generation: a.generation }); }); // A's Leave completes
+  expect(jump).toBeNull();
+  expect(result.current.active?.session.sessionId).toBe("wbs_3");
+  act(() => { jump = result.current.close(a.session, { abandoned: true, generation: a.generation }); }); // or its Abandon
+  expect(jump).toBeNull();
+  expect(result.current.active?.session.sessionId).toBe("wbs_3");
+  expect(result.current.abandoned).toBeNull();
+  // B's own Leave still leaves, at B's passage.
+  const b = result.current.active!;
+  act(() => { jump = result.current.close(b.session, { generation: b.generation }); });
+  expect(jump).toBe("t6");
+  expect(result.current.active).toBeNull();
+});
+
+it("R5: a departure from a workbench shown in an earlier generation (left, another book) changes nothing", async () => {
+  api.workbenchOpen.mockResolvedValue({ version: 1, session: session(), resumed: true });
+  const { result } = hook(book, null);
+  await act(async () => result.current.resume("wbs_1"));
+  const first = result.current.active!;
+  act(() => { result.current.close(first.session, { generation: first.generation }); });
+  await act(async () => result.current.resume("wbs_1")); // the same problem, shown again
+  let jump: string | null = "unset";
+  act(() => { jump = result.current.close(first.session, { generation: first.generation }); }); // the old view's late Leave
+  expect(jump).toBeNull();
+  expect(result.current.active?.session.sessionId).toBe("wbs_1");
+});
+
+// Fix round 5 audit: the marks' list answers in the order they were asked.
+// An older refresh (the book's first) that lands after a newer one (after a
+// Leave) never puts back the stale list.
+it("round 5 audit: an older marks refresh landing late never replaces a newer one", async () => {
+  const first = deferred<{ sessions: unknown[] }>();
+  const newer = [{ sessionId: "wbs_1", status: "open" }];
+  api.workbenchForSource.mockReturnValueOnce(first.promise).mockResolvedValue({ sessions: newer });
+  api.workbenchOpen.mockResolvedValue({ version: 1, session: session(), resumed: true });
+  const { result } = hook(book, null);
+  await act(async () => result.current.resume("wbs_1"));
+  const a = result.current.active!;
+  await act(async () => { result.current.close(a.session, { generation: a.generation }); }); // the newer refresh
+  await waitFor(() => expect(result.current.sessions).toEqual(newer));
+  await act(async () => { first.resolve({ sessions: [] }); });
+  expect(result.current.sessions).toEqual(newer);
+});

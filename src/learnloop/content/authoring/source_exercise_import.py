@@ -68,6 +68,7 @@ from learnloop.content.authoring.exercise_authoring import (
 from learnloop.content.authoring.pf_sandbox import SandboxLimits
 from learnloop.content.authoring.practice_leakage import build_held_out_inventory, screen_practice_payload
 from learnloop.content.sources.exam_material import exam_material
+from learnloop.content.sources.exercise_statements import read_exercise_statement, selection_nodes
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.judgment_claims import (
@@ -185,23 +186,24 @@ SOLUTION_MATCH_TASK = ListwiseTask(
 )
 
 
-def selection_for_region(repository: Repository, extraction_id: str, span_ids: Sequence[str]) -> dict[str, Any]:
+def selection_for_region(repository: Repository, extraction_id: str, span_ids: Sequence[str], *,
+                         vault: LoadedVault) -> dict[str, Any]:
     """A Reader-style selection over whole blocks: ``start = 0``, ``end = len(text)``.
 
     The annotation crosswalk accepts span ids with offsets
     (``reader.annotations.translate_selection``), so a source exercise found by
-    retrieval goes through exactly the import a Reader selection does.
+    retrieval goes through exactly the import a Reader selection does. Its
+    blocks are read through the one statement reader (Reader RW4b fix round
+    5, R2): exam or held-out material now, an unreadable predicate, or a
+    missing block refuses (``ExerciseAuthoringError``), nothing is read.
     """
 
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        blocks = blocks_by_key(connection, [(extraction_id, str(span)) for span in span_ids])
-    nodes = []
-    for span in span_ids:
-        block = blocks.get((extraction_id, str(span)))
-        if block is None:
-            raise ExerciseAuthoringError(f"block {span} is not in extraction {extraction_id}")
-        nodes.append({"span_id": str(span), "start": 0, "end": len(block.text)})
-    return {"nodes": nodes}
+    statement = read_exercise_statement(vault, repository, extraction_id, span_ids)
+    if statement is None:
+        raise ExerciseAuthoringError(
+            f"the exercise at {extraction_id} {', '.join(str(span) for span in span_ids)} cannot be read: it is exam "
+            "or held-out material now, or its blocks are not there")
+    return selection_nodes(statement)
 
 
 # -- rung 1's search: the book's own solution --------------------------------
@@ -1198,16 +1200,20 @@ def _import_source_exercise(
         return fail("rejected", "exam_material: this exercise is exam or held-out material now, so it never "
                     "becomes practice", verification={"exam_material": [exam.verdict(*key).as_dict()
                                                                         for key in flagged[:5]]})
+    # The statement is read through the one reader (Reader RW4b fix round 5,
+    # R2): it widens to the complete region and fails closed, so a region
+    # whose other blocks are held out is refused here too.
+    statement = read_exercise_statement(vault, repository, str(extraction_id), [str(span) for span in span_ids])
+    if statement is None:
+        return fail("rejected", "exam_material: this exercise's region is exam or held-out material now (or "
+                    "cannot be read), so it never becomes practice")
     started = time.monotonic()
     deadline = None if time_box_seconds is None else started + float(time_box_seconds)
-    selection = selection_for_region(repository, extraction_id, span_ids)
+    selection = selection_nodes(statement)
     statement_hint = " ".join(span_ids)
     solution: dict[str, Any] = {"status": "disabled"}
     if service.exercise_verification:
-        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-            blocks = blocks_by_key(connection, [(extraction_id, str(span)) for span in span_ids])
-        statement_hint = "\n\n".join(blocks[(extraction_id, str(span))].text for span in span_ids
-                                     if (extraction_id, str(span)) in blocks)
+        statement_hint = "\n\n".join(body for _span, body in statement.blocks)
         solution = find_book_solution(vault, repository, extraction_id=extraction_id, label=label or "",
                                       statement=statement_hint, client=clients.get("solution_match"),
                                       owner_id=import_id, deadline=deadline)

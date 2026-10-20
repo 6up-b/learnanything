@@ -963,7 +963,7 @@ def test_r4_a_problem_opened_before_its_region_was_held_out_is_not_shown_again(l
 
 
 def test_r4_the_statement_reader_fails_closed(library, monkeypatch):
-    import learnloop.source_retrieval.corpus as corpus
+    from learnloop.content.sources import exercise_statements as shared
     from learnloop_sidecar.handlers import library_exercises as LX
 
     paths, repository, _spans = library
@@ -975,55 +975,115 @@ def test_r4_the_statement_reader_fails_closed(library, monkeypatch):
     def broken(*args, **kwargs):
         raise RuntimeError("the predicate could not be read")
 
-    monkeypatch.setattr(corpus, "exam_withheld", broken)
+    monkeypatch.setattr(shared.EM, "exam_withheld", broken)
     assert LX.read_exercise_statement(vault, repository, exercise["extraction_id"], exercise["span_ids"]) is None
     ctx = context(paths.root)
     view = _view(ctx, proposal)
     assert view["candidates"] == [] and view["withheld"] == len(proposal["source_exercises"])
 
 
-#: What reads an exercise statement: the regions' text, the blocks' text and the
-#: exam predicate that clears them. Only the one reader may touch them.
-_STATEMENT_READS = frozenset({"exercise_regions", "blocks_by_key", "exam_withheld", "full_statement"})
-_THE_READER = frozenset({"read_exercise_statement", "exercise_region_spans"})
+#: What reads an exercise statement (fix rounds 4 and 5): the regions, the
+#: blocks' text and the exam predicate that clears them. Only the one shared
+#: reader (``learnloop.content.sources.exercise_statements``) touches them.
+_STATEMENT_READS = frozenset({"exercise_regions", "blocks_by_key", "extraction_hint_rows", "exam_withheld",
+                              "full_statement"})
+#: S1's two paths that read a statement (its import worker, its selection):
+#: scanned too, and each must read through the shared reader.
+_S1_PATHS = {"selection_for_region", "_import_source_exercise"}
+#: The modules that build responses carrying a stored statement (a problem's
+#: stem, a list's titles), and the gates such a response must pass.
+_RESPONSE_MODULES = {"src/learnloop_sidecar/handlers/workbench.py", "src/learnloop_sidecar/handlers/workbench_help.py",
+                     "src/learnloop_sidecar/handlers/library_exercises.py", "src/learnloop/reader/recap.py"}
+_GATES = frozenset({"statement_cleared", "_refuse_withheld_exercise", "_cleared", "_view"})
+#: Builders allowed without a gate, and why.
+_UNGATED = {
+    "record_line": "returns the record line and save time only, never the statement",
+    "_view": "is the gate's own caller (it calls _refuse_withheld_exercise first)",
+}
+_STORED_READS = frozenset({"session_view", "sessions_for_source", "sessions_for_item"})
 
 
-def test_r4_no_handler_or_reader_module_reads_an_exercise_statement_another_way():
-    roots = [ROOT / "src" / "learnloop_sidecar" / "handlers", ROOT / "src" / "learnloop" / "reader"]
-    found: list[str] = []
-    for root in roots:
+def _functions(path: Path) -> dict[str, ast.AST]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    return {node.name: node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+
+
+def _names(node: ast.AST) -> set[str]:
+    found: set[str] = set()
+    for child in ast.walk(node):
+        if isinstance(child, ast.Name):
+            found.add(child.id)
+        elif isinstance(child, ast.Attribute):
+            found.add(child.attr)
+        elif isinstance(child, ast.ImportFrom):
+            found.update(alias.name for alias in child.names)
+    return found
+
+
+def _literals(node: ast.AST) -> set[str]:
+    return {child.value for child in ast.walk(node) if isinstance(child, ast.Constant) and isinstance(child.value, str)}
+
+
+def _scanned() -> dict[tuple[str, str], ast.AST]:
+    functions: dict[tuple[str, str], ast.AST] = {}
+    for root in (ROOT / "src" / "learnloop_sidecar" / "handlers", ROOT / "src" / "learnloop" / "reader"):
         for path in sorted(root.rglob("*.py")):
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-            for node in ast.walk(tree):
-                name = (node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute)
-                        else None)
-                imported = [alias.name for alias in node.names] if isinstance(node, ast.ImportFrom) else []
-                hits = ({name} if name else set()) | set(imported)
-                hits &= _STATEMENT_READS
-                if not hits:
-                    continue
-                owner = _innermost_owner(tree, node)
-                if path.name == "library_exercises.py" and owner in _THE_READER:
-                    continue
-                found.append(f"{path.relative_to(ROOT)}:{node.lineno} {sorted(hits)} in {owner}")
-            # In RW4b's own modules, a statement key read from a stored record (a
-            # proposal's entry) is another way too.
-            if path.name not in {"library_exercises.py", "workbench.py"}:
+            for name, node in _functions(path).items():
+                functions[(str(path.relative_to(ROOT)), name)] = node
+    s1 = ROOT / "src" / "learnloop" / "content" / "authoring" / "source_exercise_import.py"
+    for name, node in _functions(s1).items():
+        if name in _S1_PATHS:
+            functions[(str(s1.relative_to(ROOT)), name)] = node
+    return functions
+
+
+def test_r2_no_handler_reader_module_or_s1_path_reads_an_exercise_statement_another_way():
+    """Direct reads, and indirect ones through a helper that reads (transitively)."""
+
+    functions = _scanned()
+    direct = {key for key, node in functions.items() if _names(node) & _STATEMENT_READS}
+    # A function that calls a scanned function that reads is a reader too.
+    by_name: dict[str, set[tuple[str, str]]] = {}
+    for key in functions:
+        by_name.setdefault(key[1], set()).add(key)
+    readers = set(direct)
+    changed = True
+    while changed:
+        changed = False
+        for key, node in functions.items():
+            if key in readers:
                 continue
-            for node in ast.walk(tree):
-                if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "get"
-                        and node.args and isinstance(node.args[0], ast.Constant) and node.args[0].value == "statement"):
-                    found.append(f"{path.relative_to(ROOT)}:{node.lineno} .get('statement')")
+            called = {n for n in _names(node) if n != key[1]}
+            if any(other in readers for name in called for other in by_name.get(name, ())):
+                readers.add(key)
+                changed = True
+    assert sorted(f"{path}:{name}" for path, name in readers) == []
+    # S1's worker and its selection read through the shared reader.
+    for (path, name), node in functions.items():
+        if name in _S1_PATHS:
+            assert "read_exercise_statement" in _names(node), name
+
+
+def test_r2_every_response_carrying_a_stored_statement_passes_the_gate():
+    found: list[str] = []
+    for (path, name), node in _scanned().items():
+        if path not in _RESPONSE_MODULES or name in _UNGATED:
+            continue
+        stored = bool(_names(node) & _STORED_READS) or "stem_md" in _literals(node)
+        if stored and not (_names(node) & _GATES):
+            found.append(f"{path}:{name}")
     assert found == []
 
 
-def _innermost_owner(tree: ast.AST, target: ast.AST) -> str | None:
-    owner = None
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and any(child is target for child in ast.walk(node)):
-            if owner is None or node.lineno >= owner.lineno:
-                owner = node
-    return owner.name if owner is not None else None
+def test_r2_the_shared_reader_lives_where_s1_and_the_reader_import_it():
+    from learnloop.content.sources import exercise_statements as shared
+    from learnloop.content.authoring import source_exercise_import as s1
+    from learnloop.instructional import exercises as arm
+    from learnloop_sidecar.handlers import library_exercises as LX
+
+    assert LX.read_exercise_statement is shared.read_exercise_statement
+    assert s1.read_exercise_statement is shared.read_exercise_statement
+    assert arm.exercise_regions is shared.exercise_regions
 
 
 def test_r1_admit_is_a_workbench_rpc_that_refuses_while_switched_off(library):
@@ -1037,3 +1097,136 @@ def test_r1_admit_is_a_workbench_rpc_that_refuses_while_switched_off(library):
 def _rows(repository, table: str) -> int:
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         return connection.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0]
+
+
+# -- fix round 5 (orchestrator rulings): R2 contract, R3 item exposure ------------------------------
+
+
+def _hold_out(repository, spans) -> None:
+    save_unit_selection(repository, "ext_text", list(spans), exam_use_modes={"exercises": "held_out_evaluation"})
+
+
+def _sentinel_exercise(proposal: dict[str, Any]) -> dict[str, Any]:
+    return next(e for e in proposal["source_exercises"] if "An eigenvalue t satisfies" in e["statement"])
+
+
+def test_r2_verify_f7_get_refresh_and_an_admitted_admit_never_return_a_withheld_statement(library, imports):
+    """Codex final verify (round 4) F7, as written: an allowed exercise is
+    opened, then its region is held out; ``workbench.get``,
+    ``workbench.refresh_import`` and an already-admitted ``workbench.admit``
+    refuse, and nothing of the statement is returned."""
+
+    paths, repository, spans = library
+    proposal = _proposal(paths, repository)
+    exercise = _sentinel_exercise(proposal)
+    ctx = context(paths.root)
+    session = _use_this_one(ctx, proposal, exercise)
+    assert "An eigenvalue t satisfies" in session["stemMd"]
+    _bind(paths, repository, ctx, imports, session)
+    _admit(ctx, session["sessionId"])
+    _hold_out(repository, spans)
+    for name in ("workbench.get", "workbench.refresh_import", "workbench.admit"):
+        with pytest.raises(SidecarError) as caught:
+            call(ctx, name, {"sessionId": session["sessionId"]})
+        assert caught.value.code == "exercise_withheld", name
+        assert "eigenvalue" not in caught.value.message
+
+
+#: Every parameter an enumerated RPC may require, and what it is given.
+def _params_for(spec, ids: dict[str, Any]) -> dict[str, Any]:
+    from pydantic.alias_generators import to_camel as camel
+
+    fill = {
+        "session_id": ids["session"], "practice_item_id": ids["item"], "extraction_id": "ext_text",
+        "attempt_id": ids["attempt"], "job_id": "job_unknown", "origin": "reader", "entry": "resume",
+        "client_idempotency_key": "contract-k", "op": "add", "body_md": "x = 5", "visible": True,
+        "proposal_id": ids["proposal"], "query": QUERY, "question_assist_id": "qa_unknown", "answer_md": "x = 5",
+    }
+    params: dict[str, Any] = {}
+    for field, info in spec.params_model.model_fields.items():
+        if field in fill:
+            params[camel(field)] = fill[field]
+        elif info.is_required():
+            raise AssertionError(f"{spec.name}: the contract test has no value for {field!r}; add one")
+    if spec.name == "reader.exercise_candidates":
+        params["keys"] = ids["keys"]
+    return params
+
+
+def test_r2_contract_no_workbench_or_reader_exercise_rpc_returns_a_held_out_statement(library, imports, grader):
+    """Every registered ``workbench.*`` RPC and every reader exercise RPC
+    (from the registry, so a new one is covered as it is added) is called
+    once the open exercise's region is held out: whatever each answers or
+    refuses, the statement is never in it."""
+
+    import json
+
+    from learnloop_sidecar.registry import METHOD_REGISTRY
+    from learnloop_sidecar.handlers.library_exercises import LIBRARY_EXERCISE_RPCS
+
+    paths, repository, spans = library
+    set_config(paths, "library_exercises", fallback_enabled=True)
+    proposal = _proposal(paths, repository)
+    exercise = _sentinel_exercise(proposal)
+    ctx = context(paths.root)
+    session = _use_this_one(ctx, proposal, exercise)
+    call(ctx, "workbench.save_step", {"sessionId": session["sessionId"], "clientIdempotencyKey": "s1", "op": "add",
+                                      "bodyMd": "3t = 15"})
+    bound = _bind(paths, repository, ctx, imports, session)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        from learnloop.instructional.exercises import exercise_regions
+
+        [region] = [r for r in exercise_regions(connection, exercise["extraction_id"])
+                    if list(r.span_ids) == exercise["span_ids"]]
+    _hold_out(repository, spans)
+    ids = {"session": session["sessionId"], "item": bound["practiceItemId"], "attempt": "att_unknown",
+           "proposal": proposal["proposal_id"], "keys": _keys(proposal)}
+    names = sorted(name for name in METHOD_REGISTRY if name.startswith("workbench.") or name in LIBRARY_EXERCISE_RPCS)
+    assert {"workbench.get", "workbench.admit", "workbench.submit", "reader.exercise_candidates"} <= set(names)
+    sentinels = ("An eigenvalue t satisfies", region.text[-24:])
+    answered: dict[str, str] = {}
+    for name in names:
+        params = _params_for(METHOD_REGISTRY[name], ids)
+        try:
+            text = json.dumps(call(ctx, name, params), default=str)
+            answered[name] = "answered"
+        except SidecarError as exc:
+            text = f"{exc.code} {exc.message} {json.dumps(exc.details, default=str)}"
+            answered[name] = exc.code
+        for sentinel in sentinels:
+            assert sentinel not in text, (name, answered[name])
+    # The statement-bearing ones refuse with the existing code.
+    for name in ("workbench.get", "workbench.open", "workbench.admit", "workbench.submit", "workbench.leave",
+                 "workbench.refresh_import"):
+        assert answered[name] == "exercise_withheld", (name, answered[name])
+    # The lists leave the problem out; its steps are kept.
+    assert call(ctx, "workbench.for_source", {"extractionId": "ext_text"})["sessions"] == []
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM workbench_steps WHERE session_id = ?",
+                                  (session["sessionId"],)).fetchone()[0] >= 1
+
+
+def test_r3_verify_f11_admission_reads_the_bound_items_own_exposure_and_says_practice_only(library, imports):
+    """Codex final verify (round 4) F11: the bound item's answer (or a family
+    member's) was revealed after the pick; admission's exposure reading now
+    includes the item, so the problem is practice only, kept and shown."""
+
+    paths, repository, _spans = library
+    proposal = _proposal(paths, repository)
+    exercise = proposal["source_exercises"][0]
+    ctx = context(paths.root)
+    session = _use_this_one(ctx, proposal, exercise)
+    assert session["exercisePick"]["exposure"]["exposed"] is False
+    bound = _bind(paths, repository, ctx, imports, session)
+    from learnloop.attempts.reveal_ledger import record_reveal_strict
+
+    # The item's answer is shown (a full answer display), after the pick.
+    record_reveal_strict(repository, practice_item_id=bound["practiceItemId"], source_kind="answer_display", amount=1.0)
+    admitted = _admit(ctx, session["sessionId"])
+    exposure = admitted["exercisePick"]["exposure"]
+    assert exposure["exposed"] is True and exposure["offeredAs"] == "practice"
+    assert set(exposure["reasons"]) & {"revealed", "family_revealed"}
+    assert admitted["exercisePick"]["exposureChecked"] == "admission"
+    # Kept: a later read shows the same classification.
+    again = call(ctx, "workbench.get", {"sessionId": session["sessionId"]})["session"]["exercisePick"]["exposure"]
+    assert again == exposure

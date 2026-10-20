@@ -42,11 +42,15 @@ defaults off).
 from __future__ import annotations
 
 from contextlib import closing
-from dataclasses import dataclass
 from typing import Any
 
 from pydantic import Field
 
+from learnloop.content.sources.exercise_statements import (
+    ExerciseStatement,
+    exercise_region_spans,
+    read_exercise_statement,
+)
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel
 from learnloop_sidecar.errors import SidecarError
@@ -152,7 +156,7 @@ def _proposal_lo_ids(found: dict[str, Any]) -> list[str]:
 
 
 def _proposal_candidate(entry: dict[str, Any], span_ids: list[str], lo_ids: list[str],
-                        read: "ExerciseStatement") -> dict[str, Any]:
+                        read: ExerciseStatement) -> dict[str, Any]:
     """A proposal's exercise as the exposure rule reads it: the same input at
     display, at the pick and at admission, so the rule's one judge answers a
     second reading from its ledger. Its statement is the one reader's (fix
@@ -170,84 +174,9 @@ def _preview(text: str) -> str:
     return text if len(text) <= STATEMENT_CHARS else text[:STATEMENT_CHARS - 1] + "…"
 
 
-# -- the one reader of an exercise's statement (RW4b fix round 4, R4) ----------------------------------
-
-
-@dataclass(frozen=True)
-class ExerciseStatement:
-    """A textbook exercise's statement, read now and cleared for showing."""
-
-    extraction_id: str
-    #: The spans asked for, in order.
-    span_ids: tuple[str, ...]
-    #: Every span the check covered: the complete exercise region(s) the asked
-    #: spans sit in, and the asked spans themselves.
-    checked_span_ids: tuple[str, ...]
-    #: The complete verbatim statement: the region's text when the spans are
-    #: exactly one region, else the blocks themselves, joined as a region joins them.
-    text: str
-
-
-def exercise_region_spans(connection: Any, extraction_id: str, span_id: str,
-                          cache: dict[str, list[Any]] | None = None) -> tuple[str, ...] | None:
-    """The span ids of the exercise region a span sits in (boundaries only,
-    never its text), or None. ``cache``: regions by extraction, for a list."""
-
-    from learnloop.instructional.exercises import exercise_regions
-
-    regions = cache.get(extraction_id) if cache is not None else None
-    if regions is None:
-        regions = exercise_regions(connection, extraction_id)
-        if cache is not None:
-            cache[extraction_id] = regions
-    region = next((region for region in regions if span_id in region.span_ids), None)
-    return tuple(region.span_ids) if region is not None else None
-
-
-def read_exercise_statement(vault: Any, repository: Any, extraction_id: str,
-                            span_ids: list[str] | tuple[str, ...]) -> ExerciseStatement | None:
-    """THE one way RW4b reads a textbook exercise's statement, for every path
-    that reads or returns one: the candidate view's withholding, the
-    fallback's listing, the picked exercise ``workbench.open`` shows, its
-    exposure reading and the import "use this one" queues (Codex final verify
-    F7). At read time it widens the spans to their complete exercise
-    region(s) and asks the one exam/held-out predicate
-    (``source_retrieval.corpus.exam_withheld``) about every one of them, so
-    a region held out after it was shown is never read again, not even the
-    part a card's preview did not show. It fails closed: a predicate that
-    cannot be read, or spans with no text, give None, and nothing is shown.
-    ``tests/test_library_exercises.py`` pins that no handler or reader module
-    reads a statement any other way."""
-
-    from learnloop.db.connection import connect
-    from learnloop.db.stores.source_block_fts import blocks_by_key
-    from learnloop.instructional.exercises import exercise_regions
-    from learnloop.source_retrieval.corpus import exam_withheld
-
-    wanted = tuple(str(span) for span in span_ids)
-    if not extraction_id or not wanted:
-        return None
-    try:
-        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-            regions = exercise_regions(connection, extraction_id)
-            covering = [region for region in regions if set(region.span_ids) & set(wanted)]
-            checked = tuple(dict.fromkeys([*(span for region in covering for span in region.span_ids), *wanted]))
-            if exam_withheld(vault, repository, [(extraction_id, span) for span in checked]):
-                return None
-            exact = next((region for region in covering if tuple(region.span_ids) == wanted), None)
-            if exact is not None:
-                text = exact.text
-            else:
-                blocks = blocks_by_key(connection, [(extraction_id, span) for span in wanted])
-                text = "\n\n".join(" ".join(blocks[(extraction_id, span)].text.split()) for span in wanted
-                                    if (extraction_id, span) in blocks
-                                    and (blocks[(extraction_id, span)].text or "").strip())
-    except Exception:  # noqa: BLE001 - an unreadable predicate never shows the statement (fail closed)
-        return None
-    if not (text or "").strip():
-        return None
-    return ExerciseStatement(extraction_id=extraction_id, span_ids=wanted, checked_span_ids=checked, text=text)
-
+# -- the one reader of an exercise's statement (fix rounds 4 and 5, R4/R2) -------------------------------
+# It lives in ``learnloop.content.sources.exercise_statements`` (shared with
+# S1's import worker and its selection); RW4b reads statements only through it.
 
 #: The verdict when the rule could not be read at the pick: practice beside the
 #: book (fail closed), never a check on your own.
@@ -273,13 +202,21 @@ def _own_listing_events(repository: Any, event_ids: list[str], extraction_id: st
     return frozenset(str(row[0]) for row in rows)
 
 
-def pick_exposure(vault: Any, repository: Any, pick: dict[str, Any]) -> dict[str, Any] | None:
+def pick_exposure(vault: Any, repository: Any, pick: dict[str, Any], *,
+                  practice_item_id: str | None = None) -> dict[str, Any] | None:
     """The exposure rule read again for a picked exercise (Codex review F3): at
     the pick, which decides how it opens, and at admission, which the problem
     then shows. The same candidate the list read (the judge answers from its
     ledger unless something new was studied since). None when the exercise is
     not one the proposal proposed (its import refuses it anyway); a rule that
-    cannot be read fails closed, as practice beside the book."""
+    cannot be read fails closed, as practice beside the book.
+
+    ``practice_item_id`` (fix round 5, R3; Codex final verify F11): at
+    admission, the item the import wrote and bound. The rule then reads the
+    item too (its attempts, its own and its family's revealed answers, its
+    impressions) as well as the source spans, with the originating proposal's
+    own impression still exempt, so a fresh exercise attached to a family
+    whose answer was revealed is practice only."""
 
     from learnloop.db.connection import connect
     from learnloop.db.stores.practice_index import proposal as stored_proposal
@@ -302,15 +239,18 @@ def pick_exposure(vault: Any, repository: Any, pick: dict[str, Any]) -> dict[str
             proposed = read_exercise_statement(vault, repository, str(entry.get("extraction_id")), spans)
             if proposed is None:
                 raise LookupError("withheld or unreadable")  # fail closed, below
-            return exposure_view(vault, repository,
-                                 _proposal_candidate(entry, spans, _proposal_lo_ids(found), proposed),
-                                 proposal_id=str(proposal_id))
+            candidate = _proposal_candidate(entry, spans, _proposal_lo_ids(found), proposed)
+            if practice_item_id:
+                candidate["practice_item_id"] = practice_item_id
+            return exposure_view(vault, repository, candidate, proposal_id=str(proposal_id))
         read = read_exercise_statement(vault, repository, extraction_id, span_ids)
         if read is None:
             return None
         candidate = {"key": exercise_key(extraction_id, span_ids), "extraction_id": extraction_id,
                      "span_ids": span_ids, "statement": _preview(read.text),
                      "learning_object_ids": [str(lo) for lo in pick.get("learning_object_ids") or ()]}
+        if practice_item_id:
+            candidate["practice_item_id"] = practice_item_id
         own = _own_listing_events(repository, list(pick.get("shown_event_ids") or ()), extraction_id, span_ids)
         return exposure_view(vault, repository, candidate, proposal_id=None, own_listing_event_ids=own)
     except Exception:  # noqa: BLE001 - an unreadable rule never opens the book-hidden check
@@ -489,7 +429,8 @@ def _fallback_candidates(vault: Any, repository: Any, hits: Any, lo_ids: list[st
         candidate["import_request"] = {
             "extraction_id": candidate["extraction_id"], "source_id": candidate["source_id"],
             "revision_id": candidate["revision_id"],
-            "raw_selection": selection_for_region(repository, candidate["extraction_id"], candidate["span_ids"]),
+            "raw_selection": selection_for_region(repository, candidate["extraction_id"], candidate["span_ids"],
+                                                  vault=vault),
             **({"learning_object_id": lo_ids[0]} if len(lo_ids) == 1 else {}),
         }
         candidate.pop("learning_object_ids", None)

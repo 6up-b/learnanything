@@ -2352,8 +2352,9 @@ export function ReaderScreen({
       }
     });
   };
-  const leaveWorkbench = (session: Parameters<typeof wbCtl.close>[0], abandonedNow = false) => {
-    const spanId = wbCtl.close(session, { abandoned: abandonedNow });
+  const leaveWorkbench = (session: Parameters<typeof wbCtl.close>[0], abandonedNow = false, generation?: number) => {
+    // A stale departure (another problem opened since) returns null: nothing jumps (RW4b fix round 5, R5).
+    const spanId = wbCtl.close(session, { abandoned: abandonedNow, ...(generation !== undefined ? { generation } : {}) });
     // Collapse back into ordinary reading at the problem's passage.
     if (spanId) window.setTimeout(() => jumpToSpan(spanId), 0);
   };
@@ -2718,8 +2719,8 @@ export function ReaderScreen({
             bookHidden={wbBookHidden}
             sourceShown={wbSourceShown}
             practiceSessionId={workbench?.practiceSessionId ?? null}
-            onLeave={(session) => leaveWorkbench(session)}
-            onAbandoned={(session) => leaveWorkbench(session, true)}
+            onLeave={(session, generation) => leaveWorkbench(session, false, generation)}
+            onAbandoned={(session, generation) => leaveWorkbench(session, true, generation)}
             onPeekPassage={peekPassage}
             onError={onError}
           />
