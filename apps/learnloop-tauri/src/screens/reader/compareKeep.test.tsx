@@ -402,3 +402,26 @@ it("⇄ marks the original PDF too, beside the cue marks and outside their count
   await screen.findByRole("table", { name: "how your sources treat this" });
   expect(api.readerLibraryCompareReopen).toHaveBeenCalledWith({ askId: "la_0", openSourceId: view.sourceId });
 });
+
+// -- fix round 2 (orchestrator; Codex verify of fix round 1, F1) --------------------------------
+
+it("a take on a comparison another question keeps goes to the row that keeps it (verify F1)", async () => {
+  // The service reused the comparison for a second question (la_b); the table shows la_a's keep.
+  const reused: CompareTableDto = { ...TABLE, askId: "la_b", kept: kept({ askId: "la_a" }) };
+  api.readerLibraryCompareKeep.mockResolvedValue({ askId: "la_a", kept: kept({ askId: "la_a", takes: [{ id: "t1", keys: ["ext_other:o1"], learnerText: "mine" }] }), addedTakes: 1, alreadyKept: true });
+  const { node } = withKeep(<CompareKeep table={reused} target={{ askId: "la_b" }} />);
+  render(node);
+  fireEvent.change(screen.getByRole("textbox", { name: "your take on these passages" }), { target: { value: "mine" } });
+  fireEvent.change(screen.getByRole("combobox", { name: "your take is about" }), { target: { value: "ext_other:o1" } });
+  fireEvent.click(screen.getByRole("button", { name: KEEP_COPY.addTake }));
+  await waitFor(() => expect(api.readerLibraryCompareKeep).toHaveBeenCalledWith({ askId: "la_a", comparisonId: "scmp_1", takes: [{ text: "mine", keys: ["ext_other:o1"] }] }));
+  cleanup();
+  // A tutor comparison kept already: its take names the keep's row too.
+  api.readerLibraryCompareKeep.mockClear();
+  const tutor = withKeep(<CompareKeep table={{ ...TABLE, kept: kept({ askId: "la_t" }) }} target={{ toolCallId: "stc_c", extractionId: "ext_text" }} />);
+  render(tutor.node);
+  fireEvent.change(screen.getByRole("textbox", { name: "your take on these passages" }), { target: { value: "mine" } });
+  fireEvent.change(screen.getByRole("combobox", { name: "your take is about" }), { target: { value: "ext_other:o1" } });
+  fireEvent.click(screen.getByRole("button", { name: KEEP_COPY.addTake }));
+  await waitFor(() => expect(api.readerLibraryCompareKeep).toHaveBeenCalledWith({ askId: "la_t", comparisonId: "scmp_1", takes: [{ text: "mine", keys: ["ext_other:o1"] }] }));
+});

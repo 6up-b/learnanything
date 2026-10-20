@@ -1131,8 +1131,10 @@ class ReaderSourceObjectsInput(ParamsModel):
 
 @method("reader.source_objects", ReaderSourceObjectsInput)
 def reader_source_objects(ctx: SidecarContext, params: ReaderSourceObjectsInput) -> dict[str, Any]:
-    _vault, repository = _require_reader(ctx)
-    return versioned({"source_objects": SO.source_objects_for_source(repository, source_id=params.source_id)})
+    vault, repository = _require_reader(ctx)
+    # Exam protection, fail closed: an object whose material is held out now is
+    # not returned (its quotes, content and citations; the rows stay).
+    return versioned({"source_objects": SO.source_objects_for_source(vault, repository, source_id=params.source_id)})
 
 
 class ReaderReviewSourceObjectInput(ParamsModel):

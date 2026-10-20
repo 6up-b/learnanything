@@ -560,20 +560,22 @@ def test_a_second_comparison_of_a_kept_question_is_kept_on_its_own_row(compared,
 
 def test_the_router_cards_read_is_typed_and_pure(compared):
     _paths, ctx, repository, _spans, asked, _table = compared
-    assert KC.kept_comparisons_for_card(repository, learning_object_ids=["lo_matrices"]) == []
+    vault, _repo = ctx.require_vault()
+    assert KC.kept_comparisons_for_card(vault, repository, learning_object_ids=["lo_matrices"]) == []
     call(ctx, "reader.library_compare_keep", {"askId": asked["askId"], "takes": [
         {"text": "mine", "keys": [_table["rows"][0]["key"]]}]})
     before = _all_counts(repository)
     row = [r for r in ask_rows(repository) if r["id"] == asked["askId"]][0]
     los = json.loads(row["kept_json"])["learning_object_ids"]
     assert los
-    card = KC.kept_comparisons_for_card(repository, learning_object_ids=los, as_of="2999-01-01T00:00:00Z")
+    card = KC.kept_comparisons_for_card(vault, repository, learning_object_ids=los, as_of="2999-01-01T00:00:00Z")
     assert len(card) == 1 and card[0]["status"] == "proposed" and card[0]["takes"] == 1
     assert card[0]["relations"][0] == {"relation_type": "refines", "fine": "different_notation",
                                        "relation_id": card[0]["relations"][0]["relation_id"]}
     assert "mine" not in json.dumps(card)  # no prose: the take is counted, never quoted
-    assert KC.kept_comparisons_for_card(repository, learning_object_ids=los, as_of="2000-01-01T00:00:00Z") == []
-    assert KC.kept_comparisons_for_card(repository, learning_object_ids=["lo_unrelated"]) == []
+    assert KC.kept_comparisons_for_card(vault, repository, learning_object_ids=los,
+                                        as_of="2000-01-01T00:00:00Z") == []
+    assert KC.kept_comparisons_for_card(vault, repository, learning_object_ids=["lo_unrelated"]) == []
     assert _all_counts(repository) == before  # a pure read
 
 
@@ -813,7 +815,7 @@ def test_the_card_reads_keeps_takes_and_removals_as_of(compared):
 
     def card(day: int | None):
         as_of = None if day is None else f"2026-10-{day:02d}T12:00:00Z"
-        return KC.kept_comparisons_for_card(repository, learning_object_ids=los, as_of=as_of)
+        return KC.kept_comparisons_for_card(vault, repository, learning_object_ids=los, as_of=as_of)
 
     before = card(4)
     assert len(before) == 1 and before[0]["takes"] == 1
@@ -868,3 +870,253 @@ def test_a_passages_mark_lists_every_comparison_kept_on_it(compared, monkeypatch
     assert set(mark["askIds"]) == {asked["askId"], second["askId"]}
     assert {entry["askId"] for entry in mark["comparisons"]} == {asked["askId"], second["askId"]}
     assert all(entry["keptAt"] and entry["query"] == QUESTION for entry in mark["comparisons"])
+
+
+# -- fix round 2 (orchestrator; Codex verify of fix round 1, F1-F4) -------------------------------
+
+
+def _live_keeps(repository) -> list[dict]:
+    return [r for r in ask_rows(repository) if r["kept_at"]]
+
+
+def test_a_comparison_another_ask_keeps_is_modified_there_never_kept_twice(compared):
+    """F1: keep C under A; ask again under B and compare the same passages (the
+    service reuses C); a take sent under B (or a plain press) lands on A's keep."""
+
+    _paths, ctx, repository, _spans, asked, table = compared
+    c_id = table["comparisonId"]
+    call(ctx, "reader.library_compare_keep", {"askId": asked["askId"], "comparisonId": c_id})
+    assert _keep_counts(repository)["source_objects"] == 2
+    second = call(ctx, "reader.library_ask", {"query": QUESTION, "extractionId": "ext_text", "spanIds": ["t3"],
+                                              "learningObjectIds": ["lo_matrices"]})
+    assert second["askId"] != asked["askId"]
+    shown = call(ctx, "reader.library_compare", {"askId": second["askId"], "pinnedSpanKeys": PINS})
+    assert shown["comparisonId"] == c_id  # the service reused the stored comparison
+    assert shown["kept"]["askId"] == asked["askId"]  # and the table shows A's keep
+    take = {"text": "added under the second question", "keys": [table["rows"][0]["key"]]}
+    added = call(ctx, "reader.library_compare_keep", {"askId": second["askId"], "comparisonId": c_id,
+                                                      "takes": [take]})
+    assert added["askId"] == asked["askId"] and added["alreadyKept"] is True and added["addedTakes"] == 1
+    pressed = call(ctx, "reader.library_compare_keep", {"askId": second["askId"]})
+    assert pressed["askId"] == asked["askId"] and pressed["alreadyKept"] is True
+    assert _keep_counts(repository)["source_objects"] == 2
+    live = _live_keeps(repository)
+    assert [row["id"] for row in live] == [asked["askId"]]
+    assert [t["learner_text"] for t in json.loads(live[0]["kept_json"])["takes"]] == [take["text"]]
+
+
+def test_the_tutor_shown_a_comparison_the_learner_keeps_modifies_that_keep(compared):
+    """F1: the tutor's run of a comparison already kept keeps nothing new."""
+
+    from learnloop.db.stores import source_service as store
+
+    _paths, ctx, repository, _spans, asked, table = compared
+    vault, _repo = ctx.require_vault()
+    KC.keep(vault, repository, asked["askId"])
+    with repository.connection() as connection:
+        store.insert_tool_call(connection, id="stc_req", created_at="2026-10-03T09:00:00Z", row_kind="request",
+                               caller_kind="tutor", caller_ref="qe_1", context={}, policy="reading",
+                               tool="compare_sources", arguments={}, status="requested")
+        store.insert_tool_call(connection, id="stc_run", parent_id="stc_req", created_at="2026-10-03T09:00:01Z",
+                               row_kind="run", caller_kind="tutor", caller_ref="qe_1", context={}, policy="reading",
+                               tool="compare_sources", arguments={}, status="ran", result_ref=table["comparisonId"],
+                               result_keys=PINS)
+        connection.commit()
+    counts, rows = _keep_counts(repository), len(ask_rows(repository))
+    guarded: list[str] = []
+    kept = KC.keep_tutor(vault, repository, "stc_req", guard=lambda row: guarded.append(row["id"]))
+    assert kept["ask_id"] == asked["askId"] and kept["already_kept"] is True
+    assert guarded == [asked["askId"]]  # checked under the keep's own row
+    assert _keep_counts(repository) == counts and len(ask_rows(repository)) == rows
+
+
+def _withholding_reads(ctx, repository) -> dict[str, object]:
+    """Every RPC that returns source objects or what a keep holds, read once."""
+
+    out: dict[str, object] = {}
+    for source in ("src_text", "src_book"):
+        out[f"reader.source_objects:{source}"] = call(ctx, "reader.source_objects", {"sourceId": source})
+    out["reader.proposal_inbox"] = call(ctx, "reader.proposal_inbox", {"status": "proposed"})
+    for extraction in ("ext_text", "ext_book"):
+        out[f"reader.kept_comparisons:{extraction}"] = call(ctx, "reader.kept_comparisons",
+                                                            {"extractionId": extraction})
+    return out
+
+
+#: The entry-point packages (every RPC, MCP tool, mobile route and CLI command).
+_ENTRY_POINTS = ("src/learnloop_sidecar", "src/learnloop_mcp", "src/learnloop_mobile", "src/learnloop/cli")
+#: The readers of source objects, their versions and citations.
+_SOURCE_OBJECT_READERS = ("source_objects_for_source", "source_object_head", "relations_for_object",
+                          "source_object_relation", "source_object_versions", "source_object_citations",
+                          "withheld_source_objects")
+
+
+def test_every_entry_point_reading_source_objects_is_pinned():
+    """F2: the RPCs that return source objects are enumerated here; each is
+    covered by the keep-then-withhold-then-read test below."""
+
+    import re
+    from pathlib import Path
+
+    import learnloop_sidecar
+
+    # The packages as imported (the tree under test), not this checkout's paths.
+    src = Path(learnloop_sidecar.__file__).resolve().parents[1]
+    pattern = re.compile(r"\b(" + "|".join(_SOURCE_OBJECT_READERS) + r")\b")
+    found = set()
+    for package in _ENTRY_POINTS:
+        for path in sorted((src / package.removeprefix("src/")).rglob("*.py")):
+            for line in path.read_text(encoding="utf-8").splitlines():
+                if line.lstrip().startswith("#"):
+                    continue
+                for name in pattern.findall(line):
+                    found.add((path.relative_to(src).as_posix(), name))
+    assert found == {("learnloop_sidecar/handlers/reader.py", "source_objects_for_source")}
+    text = (src / "learnloop_sidecar/handlers/reader.py").read_text(encoding="utf-8")
+    assert "SO.source_objects_for_source(vault, repository," in text  # with the protection context
+
+
+def test_a_kept_comparison_held_out_later_is_not_returned_by_any_reader_rpc(compared):
+    """F2: keep, then withhold, then read every RPC that returns source objects:
+    no protected exact text, quote or citation; the rows stay in the ledger."""
+
+    _paths, ctx, repository, spans, asked, table = compared
+    call(ctx, "reader.library_compare_keep", {"askId": asked["askId"], "takes": [
+        {"text": "my note", "keys": [table["rows"][0]["key"]]}]})
+    protected = [obj for obj in _rows(repository, "SELECT v.exact_text, c.span_id, c.exact_quote "
+                                                  "FROM source_object_versions v JOIN source_object_citations c "
+                                                  "ON c.source_object_version_id = v.id") if obj["span_id"] == "t3"]
+    assert protected and protected[0]["exact_text"]
+    quote = protected[0]["exact_text"]
+    before = _withholding_reads(ctx, repository)
+    assert quote in json.dumps(before["reader.source_objects:src_text"])
+    assert before["reader.kept_comparisons:ext_text"]["marks"]
+    counts = _keep_counts(repository)
+    _hold_out_chapter(repository, spans)
+    after = _withholding_reads(ctx, repository)
+    for name, result in after.items():
+        dumped = json.dumps(result)
+        assert quote not in dumped, name
+        assert "t3" not in [c.get("spanId") for head in result.get("sourceObjects", [])  # type: ignore[union-attr]
+                            for c in head.get("citations") or ()], name
+    assert after["reader.source_objects:src_text"]["sourceObjects"] == []
+    # The book's own claim is not held out: it is still returned.
+    assert len(after["reader.source_objects:src_book"]["sourceObjects"]) == 1
+    assert after["reader.kept_comparisons:ext_text"]["marks"] == []
+    assert after["reader.kept_comparisons:ext_book"]["marks"] == []
+    with pytest.raises(SidecarError) as caught:
+        call(ctx, "reader.library_compare_reopen", {"askId": asked["askId"]})
+    assert caught.value.code == "exam_material"
+    assert _keep_counts(repository) == counts  # nothing deleted
+
+
+def test_source_objects_fail_closed(compared, monkeypatch):
+    """F2: an unreadable predicate returns no source object; one with no span to
+    place is withheld while its book has protected material."""
+
+    from learnloop.content.sources import exam_material as EM
+    from learnloop.reader import source_objects as SO
+
+    _paths, ctx, repository, spans, asked, _table = compared
+    call(ctx, "reader.library_compare_keep", {"askId": asked["askId"]})
+    assert call(ctx, "reader.source_objects", {"sourceId": "src_text"})["sourceObjects"]
+    real = EM.exam_material
+
+    def broken(*_args, **_kwargs):
+        raise RuntimeError("predicate unreadable")
+
+    monkeypatch.setattr(EM, "exam_material", broken)
+    for source in ("src_text", "src_book"):
+        assert call(ctx, "reader.source_objects", {"sourceId": source})["sourceObjects"] == []
+    monkeypatch.setattr(EM, "exam_material", real)
+    revision = _rows(repository, "SELECT revision_id FROM source_object_versions v JOIN source_objects o "
+                                 "ON o.id = v.source_object_id WHERE o.source_id = 'src_text'")[0]["revision_id"]
+    SO.author_source_object(repository, source_id="src_text", revision_id=revision, object_type="claim",
+                            exact_text="no span to place")
+    assert "no span to place" in json.dumps(call(ctx, "reader.source_objects", {"sourceId": "src_text"}))
+    _hold_out_chapter(repository, spans)
+    assert "no span to place" not in json.dumps(call(ctx, "reader.source_objects", {"sourceId": "src_text"}))
+
+
+def test_the_card_omits_a_comparison_held_out_now_at_every_as_of(compared, monkeypatch):
+    """F3: the card read asks the held-out predicate now, at any ``as_of``,
+    and shows nothing when it cannot be read."""
+
+    from datetime import datetime, UTC
+
+    from learnloop.clock import FrozenClock
+
+    _paths, ctx, repository, spans, asked, _table = compared
+    vault, _repo = ctx.require_vault()
+    KC.keep(vault, repository, asked["askId"], clock=FrozenClock(datetime(2026, 10, 3, 9, tzinfo=UTC)))
+    los = json.loads(_ask(repository, asked["askId"])["kept_json"])["learning_object_ids"]
+
+    def card(as_of):
+        return KC.kept_comparisons_for_card(vault, repository, learning_object_ids=los, as_of=as_of)
+
+    assert len(card(None)) == 1 and len(card("2026-10-04T12:00:00Z")) == 1
+    real = KC.EM.exam_withheld
+
+    def broken(*_args, **_kwargs):
+        raise RuntimeError("predicate unreadable")
+
+    monkeypatch.setattr(KC.EM, "exam_withheld", broken)
+    assert card(None) == [] and card("2026-10-04T12:00:00Z") == []
+    monkeypatch.setattr(KC.EM, "exam_withheld", real)
+    _hold_out_chapter(repository, spans)
+    assert card(None) == []
+    assert card("2026-10-04T12:00:00Z") == []  # held out now, so the past card omits it too
+
+
+def _tutor_keep_with_library_off(tmp_path, monkeypatch):
+    import learnloop.instructional.tools as tools
+    from tests.reader_tutor_fakes import LookupTutor, ask, reader_ctx
+
+    tutor = LookupTutor(tool_requests=[{"tool": "compare_sources", "query": "determinant sign when rows are swapped",
+                                        "reason": "How do your books treat this?", "facet_ids": []}],
+                        cite=lambda context: [("ext_text", "t3")])
+    _paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor,
+                                                 config={"library_ask": {"enabled": False}})
+    verifier = ctx.reader_tutor_rerank_client
+    real = tools.run_requested_tool
+    monkeypatch.setattr(tools, "run_requested_tool", lambda vault, repo, request_id, **kw: real(
+        vault, repo, request_id, **{**kw, "clients": {"source_rerank": verifier, "source_compare": FakeServiceLLM()}}))
+    answer = ask(ctx)
+    (request,) = [r for r in answer["toolRequests"] if r["tool"] == "compare_sources"]
+    pressed = call(ctx, "run_source_tool", {"toolCallId": request["toolCallId"]})
+    kept = call(ctx, "reader.library_compare_keep", {"toolCallId": request["toolCallId"], "extractionId": "ext_text"})
+    return ctx, repository, kept, pressed
+
+
+def test_a_tutor_keep_takes_a_take_with_the_library_answer_off(tmp_path, monkeypatch):
+    """F4: library ask off, the tutor's keep on: reopening the tutor's keep and
+    adding a take to it follow the tutor keep's rules, its cold check included."""
+
+    ctx, repository, kept, pressed = _tutor_keep_with_library_off(tmp_path, monkeypatch)
+    contract = call(ctx, "reader.prompt_contract", {})["compareKeep"]
+    assert contract["library"] is False and contract["tutor"] is True
+    ask_id, comparison_id = kept["askId"], pressed["result"]["comparisonId"]
+    reopened = call(ctx, "reader.library_compare_reopen", {"askId": ask_id})
+    key = reopened["rows"][0]["key"]
+    added = call(ctx, "reader.library_compare_keep", {"askId": ask_id, "comparisonId": comparison_id,
+                                                      "takes": [{"text": "my own reading", "keys": [key]}]})
+    assert added["askId"] == ask_id and added["alreadyKept"] is True and added["addedTakes"] == 1
+    assert call(ctx, "reader.kept_comparisons", {"extractionId": "ext_text"})["marks"]
+    # While the tutor request's item has a cold attempt open, neither is allowed.
+    import learnloop.instructional.policy as policy
+
+    with repository.connection() as connection:
+        manifest = json.loads(connection.execute("SELECT manifest_json FROM library_asks WHERE id = ?",
+                                                 (ask_id,)).fetchone()[0])
+        manifest["caller"] = {**(manifest.get("caller") or {}), "item_id": "item_cold"}
+        connection.execute("UPDATE library_asks SET manifest_json = ? WHERE id = ?", (json.dumps(manifest), ask_id))
+        connection.commit()
+    monkeypatch.setattr(policy, "cold_administration_open", lambda _repo, item_id: item_id == "item_cold")
+    before = _all_counts(repository)
+    for name, params in (("reader.library_compare_reopen", {"askId": ask_id}),
+                         ("reader.library_compare_keep", {"askId": ask_id, "comparisonId": comparison_id,
+                                                          "takes": [{"text": "during the attempt", "keys": [key]}]})):
+        with pytest.raises(SidecarError) as caught:
+            call(ctx, name, params)
+        assert caught.value.code == "cold_attempt", name
+    assert _all_counts(repository) == before

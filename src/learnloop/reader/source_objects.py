@@ -11,10 +11,15 @@ accepting a mapping never overwrites the source object nor deletes the annotatio
 
 from __future__ import annotations
 
+import json
+from collections.abc import Sequence
 from typing import Any, Mapping
 
 from learnloop.clock import Clock
+from learnloop.content.sources import exam_material as EM
+from learnloop.content.sources.span_aliases import CitationResolver
 from learnloop.db.repositories import Repository
+from learnloop.db.stores.source_block_fts import source_extraction_ids
 
 OBJECT_TYPES = (
     "claim", "definition", "procedure", "worked_example",
@@ -173,8 +178,74 @@ def reject_mapping(repository: Repository, *, proposal_id: str, clock: Clock | N
     return row
 
 
-def source_objects_for_source(repository: Repository, *, source_id: str) -> list[dict[str, Any]]:
-    return repository.source_objects_for_source(source_id)
+def withheld_source_objects(vault: Any, repository: Repository,
+                            heads: Sequence[Mapping[str, Any]]) -> frozenset[str]:
+    """The ids among ``heads`` whose material is exam or held out **now** (exam
+    protection's one predicate, ``exam_material``), read from each object's own
+    provenance: every citation's span on the reading it was made on, on its
+    book's current reading and on every reading of its revision, and the spans
+    its selection named. Fail closed: when the predicate cannot be read every
+    object is withheld, and an object with no span to place is withheld while
+    its book has any exam or held-out material. The rows stay in the ledger;
+    only what is returned is filtered (Codex verify of RW4d fix round 1, F2:
+    a kept comparison's quotes, held out after the keep)."""
+
+    ids = [str(head["object"]["id"]) for head in heads if head and head.get("object")]
+    if not ids:
+        return frozenset()
+    try:
+        material = EM.exam_material(vault, repository)
+        resolver = CitationResolver(repository)
+        withheld: set[str] = set()
+        with repository.connection() as connection:
+            readings: dict[str, list[str]] = {}
+
+            def of_revision(revision_id: Any) -> list[str]:
+                key = str(revision_id or "")
+                if key and key not in readings:
+                    readings[key] = source_extraction_ids(connection, revision_id=key)
+                return readings.get(key, [])
+
+            for head in heads:
+                if not head or not head.get("object"):
+                    continue
+                obj, version = head["object"], head.get("version") or {}
+                keys: set[tuple[str, str]] = set()
+                for citation in head.get("citations") or ():
+                    span = str(citation.get("span_id") or "")
+                    resolution = resolver.resolve(citation)
+                    if resolution is not None:
+                        keys.add((str(resolution.from_extraction_id), str(resolution.from_span_id)))
+                        if resolution.key is not None:
+                            keys.add((str(resolution.key[0]), str(resolution.key[1])))
+                    for reading in of_revision(citation.get("revision_id") or version.get("revision_id")):
+                        keys.add((reading, span))
+                content = json.loads(version.get("content_json") or "{}") if version else {}
+                for span in (content.get("selected_span_ids") or []) if isinstance(content, Mapping) else []:
+                    for reading in of_revision(version.get("revision_id")):
+                        keys.add((reading, str(span)))
+                keys = {key for key in keys if key[0] and key[1]}
+                if keys:
+                    if any(material.covers(*key) for key in keys):
+                        withheld.add(str(obj["id"]))
+                    continue
+                book = set(source_extraction_ids(connection, source_id=str(obj.get("source_id") or ""))) | set(
+                    of_revision(version.get("revision_id")))
+                if not book or book & material.material.touched:
+                    withheld.add(str(obj["id"]))
+        return frozenset(withheld)
+    except Exception:  # noqa: BLE001 - an unreadable predicate returns no material (fail closed)
+        return frozenset(ids)
+
+
+def source_objects_for_source(vault: Any, repository: Repository, *, source_id: str) -> list[dict[str, Any]]:
+    """A book's source objects (each head version with its citations), without
+    any whose material is exam or held out now (:func:`withheld_source_objects`):
+    their exact text, content, quotes and citations are never returned."""
+
+    heads = [head for head in repository.source_objects_for_source(source_id) if head]
+    hidden = withheld_source_objects(vault, repository, heads)
+    return [head for head in heads if str(head["object"]["id"]) not in hidden]
 
 
 def proposal_inbox(

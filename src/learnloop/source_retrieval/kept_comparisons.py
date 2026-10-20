@@ -28,6 +28,13 @@ proposals in P3 §7's source-object layer, through ``reader.source_objects``:
   (``relation_successors``), the only writer of relation successors, and
   :func:`relation_head` reads a relation's current head from it.
 
+A comparison is kept at most once: the compare service reuses a stored
+comparison for the same question and passages, so Keep (and adding a take)
+first resolves the row that keeps it now (:func:`live_keep_of`), whichever ask
+holds it, and that row's own caller chooses the availability check
+(``guard``). The card's read (:func:`kept_comparisons_for_card`) asks the
+held-out predicate too, failing closed.
+
 Keep, adding a take and remove each run as one transaction
 (``Repository.atomic()``, ``BEGIN IMMEDIATE``): the state read, the proposals,
 the keep record and the event commit together or not at all, and a second
@@ -50,7 +57,7 @@ and the sources service's ``compare``).
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 import hashlib
 import json
 from typing import Any
@@ -98,6 +105,9 @@ MAX_PERSPECTIVE_CHARS = 80
 KEPT_VERSION = 1
 #: Salience-only reader events RW4d's sidecar writes (never evidence).
 EVENTS: tuple[str, ...] = ("comparison_kept", "comparison_removed", "comparison_reopened")
+#: The availability check of the row a keep writes on, chosen by the caller
+#: (the sidecar) from that row's persisted caller; it raises to refuse.
+RowGuard = Callable[[Mapping[str, Any]], None]
 
 
 def keep_enabled(vault: LoadedVault) -> bool:
@@ -467,6 +477,12 @@ def _row(repository: Repository, ask_id: str) -> dict[str, Any]:
     return row
 
 
+def kept_ask(repository: Repository, ask_id: str) -> dict[str, Any]:
+    """An ask's caller, comparison and keep state (``not_found`` when unknown)."""
+
+    return _row(repository, ask_id)
+
+
 def _stale() -> LibraryAskError:
     return LibraryAskError(
         "stale_comparison",
@@ -493,15 +509,43 @@ def _fork_for(repository: Repository, row: Mapping[str, Any], comparison_id: str
     return _row(repository, new_id)
 
 
+def live_keep_of(repository: Repository, comparison_id: str | None, *,
+                 prefer: str | None = None) -> dict[str, Any] | None:
+    """The row that keeps ``comparison_id`` now, whichever ask holds it: the
+    ask named by ``prefer`` when it does, else the earliest live keep of that
+    comparison (any caller). The compare service reuses a stored comparison for
+    the same question and passages, so a second ask (or the tutor) can be shown
+    a comparison another row keeps; a comparison already kept is never kept
+    twice (Codex verify of fix round 1, F1). Through the repository's
+    connection: inside ``atomic()`` the read serializes with the keep's writes."""
+
+    if not comparison_id:
+        return None
+    if prefer:
+        found = _row(repository, prefer)
+        if found.get("kept_at") and (found.get("kept") or {}).get("comparison_id") == comparison_id:
+            return found
+    live = [row for row in _live(repository) if (row.get("kept") or {}).get("comparison_id") == comparison_id]
+    live.sort(key=lambda row: (str(row.get("kept_at") or ""), str(row.get("created_at") or ""), row["id"]))
+    return live[0] if live else None
+
+
 def keep(vault: LoadedVault, repository: Repository, ask_id: str, *, comparison_id: str | None = None,
-         takes: Sequence[Mapping[str, Any]] = (), clock: Clock | None = None) -> dict[str, Any]:
+         takes: Sequence[Mapping[str, Any]] = (), clock: Clock | None = None,
+         guard: RowGuard | None = None) -> dict[str, Any]:
     """Keep a library ask's comparison (the learner pressed *keep comparison*),
     or add a take to it once kept.
 
     ``comparison_id`` is the comparison the learner was shown (the table's, or
     a reopened keep's); without it, the ask's latest. A take on an older kept
-    comparison stays on that keep; the ask's newer comparison is kept on its
-    own row; a comparison the ask neither shows nor keeps is refused."""
+    comparison stays on that keep; a comparison another row keeps already (the
+    service reused it for a second ask) is modified on that row, never kept
+    again; the ask's newer comparison is kept on its own row; a comparison the
+    ask neither shows nor keeps is refused.
+
+    ``guard`` is asked about the row that will be written, inside the
+    transaction and before anything is written: an existing keep is checked
+    by its own persisted caller (a tutor keep by the tutor's rules)."""
 
     with repository.atomic():
         row = _row(repository, ask_id)
@@ -510,14 +554,25 @@ def keep(vault: LoadedVault, repository: Repository, ask_id: str, *, comparison_
         if row.get("kept_at") and kept.get("comparison_id") == target:
             pass  # this row keeps it: a second press, or a take added to it
         elif target and target == row.get("comparison_id"):
-            if row.get("kept_at"):
+            existing = live_keep_of(repository, str(target))
+            if existing is not None:
+                # Kept already on another row (the service reused this
+                # comparison for this ask): that keep is the one modified.
+                row = existing
+            elif row.get("kept_at"):
                 # This question's first comparison is kept and the learner
                 # compared again (other pins or perspectives): the new
                 # comparison is kept on its own row, so each kept comparison
                 # keeps its own ids and history (a second press finds it).
+                # The fork copies this row's caller, so its guard is this row's.
+                if guard is not None:
+                    guard(row)
                 row = _fork_for(repository, row, str(target), clock=clock)
+                guard = None
         else:
             raise _stale()
+        if guard is not None:
+            guard(row)
         return _keep(vault, repository, row, shown=None, takes=takes, caller=str(row.get("caller") or "learner"),
                      clock=clock)
 
@@ -525,18 +580,12 @@ def keep(vault: LoadedVault, repository: Repository, ask_id: str, *, comparison_
 def compare_kept_state(repository: Repository, ask_id: str, comparison_id: str | None) -> dict[str, Any] | None:
     """Whether the comparison just shown is the one this ask keeps (for the table)."""
 
-    if not comparison_id:
+    # The same resolution Keep makes (live_keep_of): the table shows the keep
+    # that a press would modify.
+    found = live_keep_of(repository, comparison_id, prefer=ask_id)
+    if found is None:
         return None
-    row = _row(repository, ask_id)
-    with repository.connection() as connection:
-        candidates = [ask_id, *ask_store.asks_for_comparison(connection, comparison_id,
-                                                             caller=str(row.get("caller") or "learner"))]
-    for candidate in dict.fromkeys(candidates):
-        found = _row(repository, candidate)
-        kept = found.get("kept") or {}
-        if found.get("kept_at") and kept.get("comparison_id") == comparison_id:
-            return {**(kept_state(kept, kept_at=found["kept_at"]) or {}), "ask_id": candidate}
-    return None
+    return {**(kept_state(found["kept"], kept_at=found["kept_at"]) or {}), "ask_id": found["id"]}
 
 
 def tutor_comparison(repository: Repository, tool_call_id: str) -> dict[str, Any]:
@@ -556,17 +605,23 @@ def tutor_comparison(repository: Repository, tool_call_id: str) -> dict[str, Any
 
 
 def keep_tutor(vault: LoadedVault, repository: Repository, tool_call_id: str, *, extraction_id: str | None = None,
-               takes: Sequence[Mapping[str, Any]] = (), clock: Clock | None = None) -> dict[str, Any]:
+               takes: Sequence[Mapping[str, Any]] = (), clock: Clock | None = None,
+               guard: RowGuard | None = None) -> dict[str, Any]:
     """Keep the tutor's comparison (RW1c's *how do your books treat this?*,
     pressed and shown). Only the sources its run showed are kept; the keep is
-    recorded on a ``library_asks`` row with ``caller = 'tutor'``."""
+    recorded on a ``library_asks`` row with ``caller = 'tutor'``. A comparison
+    another row keeps already is modified there (never kept twice), checked
+    by ``guard`` under that row's own caller."""
 
     with repository.atomic():
         found = tutor_comparison(repository, tool_call_id)
         with repository.connection() as connection:
             existing = ask_store.asks_for_comparison(connection, found["comparison_id"], caller="tutor")
-        if existing:
-            row = _row(repository, existing[0])
+        live = live_keep_of(repository, found["comparison_id"], prefer=existing[0] if existing else None)
+        if live is not None or existing:
+            row = live if live is not None else _row(repository, existing[0])
+            if guard is not None:
+                guard(row)
         else:
             stored = _stored(repository, found["comparison_id"])
             # Nothing is written for a comparison that cannot be kept (held out).
@@ -667,14 +722,18 @@ def _live(repository: Repository) -> list[dict[str, Any]]:
         return ask_store.kept_asks(connection)
 
 
-def kept_marks(vault: LoadedVault, repository: Repository, extraction_id: str) -> dict[str, Any]:
+def kept_marks(vault: LoadedVault, repository: Repository, extraction_id: str, *,
+               available: Callable[[Mapping[str, Any]], bool] | None = None) -> dict[str, Any]:
     """The ``⇄`` marks for one reading: each span with a live kept comparison
     (the learner's own mark, outside the cue budget). A comparison with held-out
-    material now is left out (its table could not be reopened)."""
+    material now is left out (its table could not be reopened), and so is one
+    ``available`` refuses (its caller's switch is off: reopen would refuse it)."""
 
     marks: dict[str, dict[str, Any]] = {}
     rows = []
     for row in _live(repository):
+        if available is not None and not available(row):
+            continue
         kept = row["kept"] or {}
         keys = [tuple(key.split(":", 1)) for key in kept.get("keys") or ()]
         mine = [key for key in keys if key[0] == extraction_id]
@@ -783,7 +842,23 @@ def _episodes(row: Mapping[str, Any]) -> list[tuple[dict[str, Any], str, str | N
     return episodes
 
 
-def kept_comparisons_for_card(repository: Repository, *, learning_object_ids: Sequence[str],
+def _episode_keys(kept: Mapping[str, Any]) -> set[tuple[str, str]]:
+    """Every passage a keep holds: its keys and each kept object's span."""
+
+    named = [str(key) for key in kept.get("keys") or ()]
+    for obj in kept.get("objects") or ():
+        if isinstance(obj, Mapping):
+            named.append(f"{obj.get('extraction_id') or ''}:{obj.get('span_id') or ''}")
+            named.append(str(obj.get("key") or ""))
+    keys: set[tuple[str, str]] = set()
+    for key in named:
+        extraction, _sep, span = key.partition(":")
+        if extraction and span:
+            keys.add((extraction, span))
+    return keys
+
+
+def kept_comparisons_for_card(vault: LoadedVault, repository: Repository, *, learning_object_ids: Sequence[str],
                               as_of: str | None = None) -> list[dict[str, Any]]:
     """Kept comparisons on these LOs (for RW6b's ``reader_activity_for_card``,
     spec §9.4): a pure, deterministic read of ``library_asks.kept_json``,
@@ -791,7 +866,13 @@ def kept_comparisons_for_card(repository: Repository, *, learning_object_ids: Se
 
     ``as_of`` reads the card as it was then: the keeps live at that time
     (kept by then, not removed by then, from the removal history's snapshots)
-    and only the takes written by then. Without it, the keeps live now."""
+    and only the takes written by then. Without it, the keeps live now.
+
+    Held out **now** (exam protection), at any ``as_of``: an episode holding
+    any passage the one predicate (``exam_material.exam_withheld``) withholds
+    today is left out, and so is one whose passages cannot be named. The
+    predicate is asked once; if it cannot be read, no entry is returned (fail
+    closed; Codex verify of fix round 1, F3)."""
 
     wanted = set(learning_object_ids)
     cutoff = parse_utc(as_of) if as_of else None
@@ -800,25 +881,35 @@ def kept_comparisons_for_card(repository: Repository, *, learning_object_ids: Se
         when = parse_utc(str(value)) if value else None
         return cutoff is None or (when is not None and when <= cutoff)
 
-    entries = []
+    candidates = []
     for row in _with_keeps(repository):
         for kept, kept_at, removed_at in _episodes(row):
             live = removed_at is None if cutoff is None else (
                 by_then(kept_at) and (removed_at is None or not by_then(removed_at)))
             los = [lo for lo in kept.get("learning_object_ids") or () if lo in wanted]
-            if not los or not live:
-                continue
-            entries.append({
-                "kind": "kept_comparison", "ask_id": row["id"], "kept_at": kept_at,
-                "caller": kept.get("caller") or row["caller"],
-                "learning_object_ids": los,
-                "sources": [{"source_id": obj.get("source_id"), "key": obj["key"], "object_type": obj["object_type"],
-                             "source_object_id": obj["id"]} for obj in kept.get("objects") or ()],
-                "relations": [{"relation_type": rel["relation_type"], "fine": rel["fine"], "relation_id": rel["id"]}
-                              for rel in kept.get("relations") or ()],
-                "takes": sum(1 for take in kept.get("takes") or () if by_then(take.get("created_at"))),
-                "status": "proposed",
-            })
+            if los and live:
+                candidates.append((row, kept, kept_at, los, _episode_keys(kept)))
+    if not candidates:
+        return []
+    try:
+        withheld = EM.exam_withheld(vault, repository, sorted({key for *_rest, keys in candidates for key in keys}))
+    except Exception:  # noqa: BLE001 - an unreadable predicate shows nothing (fail closed)
+        return []
+    entries = []
+    for row, kept, kept_at, los, keys in candidates:
+        if not keys or keys & set(withheld):
+            continue
+        entries.append({
+            "kind": "kept_comparison", "ask_id": row["id"], "kept_at": kept_at,
+            "caller": kept.get("caller") or row["caller"],
+            "learning_object_ids": los,
+            "sources": [{"source_id": obj.get("source_id"), "key": obj["key"], "object_type": obj["object_type"],
+                         "source_object_id": obj["id"]} for obj in kept.get("objects") or ()],
+            "relations": [{"relation_type": rel["relation_type"], "fine": rel["fine"], "relation_id": rel["id"]}
+                          for rel in kept.get("relations") or ()],
+            "takes": sum(1 for take in kept.get("takes") or () if by_then(take.get("created_at"))),
+            "status": "proposed",
+        })
     entries.sort(key=lambda entry: (entry["kept_at"], entry["ask_id"]))
     return entries
 
@@ -827,6 +918,7 @@ __all__ = [
     "EVENTS",
     "MAX_PERSPECTIVES",
     "RELATION_MAP",
+    "RowGuard",
     "TAKE_RELATION",
     "clean_perspectives",
     "coarse_relation",
@@ -836,7 +928,9 @@ __all__ = [
     "keep",
     "keep_enabled",
     "keep_tutor",
+    "kept_ask",
     "kept_comparisons_for_card",
+    "live_keep_of",
     "kept_marks",
     "kept_state",
     "relation_head",

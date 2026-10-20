@@ -144,8 +144,14 @@ export function CompareKeep({ table, target }: { table: CompareTableDto; target:
     setFailure(null);
     try {
       const result = await api.readerLibraryCompareKeep({
-        // The comparison shown: a take on an older kept comparison stays on it (Codex review F2).
-        ...("askId" in target ? { askId: target.askId, comparisonId } : { toolCallId: target.toolCallId, extractionId: target.extractionId }),
+        // An existing keep is modified on the row that keeps it (kept.askId),
+        // which may be another question's or the tutor's: the service reuses a
+        // comparison, and it is never kept twice (Codex verify, F1). The
+        // comparison shown goes with it: a take on an older kept comparison
+        // stays on it (Codex review F2).
+        ...(kept
+          ? { askId: kept.askId, comparisonId }
+          : "askId" in target ? { askId: target.askId, comparisonId } : { toolCallId: target.toolCallId, extractionId: target.extractionId }),
         takes,
       });
       setKept(result.kept);

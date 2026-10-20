@@ -13,6 +13,12 @@ tutor offers are as they were. A follow-up on a library ask is bound by the
 ask's stored caller (RW4a's ``follow_up_caller``): while a cold administration
 of its item is open nothing is kept or reopened; a tutor comparison likewise
 by its request's stored item.
+
+An existing keep is checked by its own persisted caller (:func:`_row_guard`),
+whichever RPC or ask names it: a tutor keep by the tutor keep's switch and its
+request's cold attempt, a library keep by the library keep's switch and its
+ask's binding. Reopening it, adding a take to it and its ``⇄`` mark follow the
+same rule (Codex verify of fix round 1, F4).
 """
 from __future__ import annotations
 
@@ -59,6 +65,39 @@ def _require(ctx: SidecarContext, *, tutor: bool = False):
 
 def _error(exc: LA.LibraryAskError) -> SidecarError:
     return SidecarError(exc.code, str(exc))
+
+
+def _require_any(ctx: SidecarContext):
+    """Keeping is on for some surface (the library's or the tutor's); each row
+    is then checked by its own caller (:func:`_row_guard`)."""
+
+    vault, repository = ctx.require_vault()
+    if not (KC.keep_enabled(vault) or KC.tutor_keep_enabled(vault)):
+        _require(ctx)
+    return vault, repository
+
+
+def _is_tutor_row(row: Any) -> bool:
+    return str(row.get("caller") or "") == "tutor"
+
+
+def _switch_on(vault: Any, row: Any) -> bool:
+    """The switch of the surface that kept ``row`` (its persisted caller)."""
+
+    return KC.tutor_keep_enabled(vault) if _is_tutor_row(row) else KC.keep_enabled(vault)
+
+
+def _row_guard(vault: Any, repository: Any, row: Any) -> None:
+    """The availability rules of an existing keep's row, chosen by its
+    persisted caller: the tutor keep's switch and cold check for a tutor keep,
+    the library keep's switch and its ask's binding for a library keep."""
+
+    if not _switch_on(vault, row):
+        raise SidecarError("reader_compare_keep_disabled",
+                           "Keeping this comparison is switched off (reader_compare.keep_enabled, the "
+                           + ("reader tutor" if _is_tutor_row(row) else "library answer")
+                           + " or source_service.compare is false).")
+    _cold_guard(vault, repository, str(row["id"]))
 
 
 def _cold_guard(vault: Any, repository: Any, ask_id: str) -> None:
@@ -122,14 +161,16 @@ def reader_library_compare_keep(ctx: SidecarContext, params: KeepInput) -> dict[
             raise SidecarError("cold_attempt", "Nothing from your books is kept while a cold attempt is open.")
         try:
             return versioned(KC.keep_tutor(vault, repository, params.tool_call_id,
-                                           extraction_id=params.extraction_id, takes=takes))
+                                           extraction_id=params.extraction_id, takes=takes,
+                                           guard=lambda row: _row_guard(vault, repository, row)))
         except LA.LibraryAskError as exc:
             raise _error(exc) from exc
-    vault, repository = _require(ctx)
-    _cold_guard(vault, repository, str(params.ask_id))
+    # The row written is resolved inside Keep's transaction (an existing keep
+    # of this comparison, whichever ask holds it); its own caller's rules apply.
+    vault, repository = _require_any(ctx)
     try:
         return versioned(KC.keep(vault, repository, str(params.ask_id), comparison_id=params.comparison_id,
-                                 takes=takes))
+                                 takes=takes, guard=lambda row: _row_guard(vault, repository, row)))
     except LA.LibraryAskError as exc:
         raise _error(exc) from exc
 
@@ -158,11 +199,9 @@ def reader_library_compare_remove(ctx: SidecarContext, params: KeptAskInput) -> 
 def reader_library_compare_reopen(ctx: SidecarContext, params: KeptAskInput) -> dict[str, Any]:
     """A kept comparison's table again (from ``⇄``), from the stored row; no model call."""
 
-    vault, repository = ctx.require_vault()
-    if not (KC.keep_enabled(vault) or KC.tutor_keep_enabled(vault)):
-        _require(ctx)
-    _cold_guard(vault, repository, params.ask_id)
+    vault, repository = _require_any(ctx)
     try:
+        _row_guard(vault, repository, KC.kept_ask(repository, params.ask_id))
         return versioned(KC.reopen(vault, repository, params.ask_id, open_source_id=params.open_source_id))
     except LA.LibraryAskError as exc:
         raise _error(exc) from exc
@@ -178,11 +217,10 @@ def reader_kept_comparisons(ctx: SidecarContext, params: KeptMarksInput) -> dict
 
     from learnloop.content.sources.source_outline import resolve_extraction_id
 
-    vault, repository = ctx.require_vault()
-    if not (KC.keep_enabled(vault) or KC.tutor_keep_enabled(vault)):
-        _require(ctx)
+    vault, repository = _require_any(ctx)
     extraction_id = resolve_extraction_id(repository, params.extraction_id) or params.extraction_id
-    return versioned(KC.kept_marks(vault, repository, extraction_id))
+    # A mark opens its table, so it follows reopen's rule: its keep's own switch.
+    return versioned(KC.kept_marks(vault, repository, extraction_id, available=lambda row: _switch_on(vault, row)))
 
 
 __all__ = ["KEPT_COMPARISON_RPCS", "prompt_contract_fields"]
