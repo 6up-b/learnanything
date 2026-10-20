@@ -3,8 +3,8 @@ title: "queue_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "892078de42f35c2762d5b1d74c606e26ed05c1a3"
-source_commit_timestamp: "2026-10-19T00:38:02-04:00"
+source_commit: "462f02eaf8f6af6eb47ce6b7a895e21b04be309a"
+source_commit_timestamp: "2026-10-19T23:41:22-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite queue_state"
@@ -95,6 +95,9 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probe_remint.py`
 - `src/learnloop/diagnosis/text_gaps/actions.py`
 - `src/learnloop/diagnosis/text_gaps/pipeline.py`
+- `src/learnloop/intent/checks.py`
+- `src/learnloop/intent/control.py`
+- `src/learnloop/intent/deadline.py`
 - `src/learnloop/ops/pf_publish.py`
 - `src/learnloop/placement/decisions.py`
 - `src/learnloop/tutor/promotions.py`

@@ -3,8 +3,8 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "892078de42f35c2762d5b1d74c606e26ed05c1a3"
-source_commit_timestamp: "2026-10-19T00:38:02-04:00"
+source_commit: "462f02eaf8f6af6eb47ce6b7a895e21b04be309a"
+source_commit_timestamp: "2026-10-19T23:41:22-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
@@ -198,6 +198,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/db/stores/diagnoses.py`
 - `src/learnloop/db/stores/help_assists.py`
+- `src/learnloop/db/stores/intent_reads.py`
 - `src/learnloop/db/stores/observation_ledger.py`
 - `src/learnloop/db/stores/plan_presentations.py`
 - `src/learnloop/db/stores/practice_index.py`

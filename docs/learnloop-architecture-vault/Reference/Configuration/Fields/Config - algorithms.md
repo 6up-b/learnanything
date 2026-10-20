@@ -3,8 +3,8 @@ title: "Config - algorithms"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "892078de42f35c2762d5b1d74c606e26ed05c1a3"
-source_commit_timestamp: "2026-10-19T00:38:02-04:00"
+source_commit: "462f02eaf8f6af6eb47ce6b7a895e21b04be309a"
+source_commit_timestamp: "2026-10-19T23:41:22-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml algorithms"
@@ -21,6 +21,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/outside.py"
   - "src/learnloop/adaptive_difficulty/serve.py"
   - "tests/helpers.py"
+  - "tests/intent_fakes.py"
   - "tests/mcp_world.py"
   - "tests/test_administration_adapters.py"
   - "tests/test_ai_config.py"
@@ -31,7 +32,6 @@ source_paths:
   - "tests/test_canonical_projection_rollout.py"
   - "tests/test_causal_activity_policy.py"
   - "tests/test_causal_attribution_p2.py"
-  - "tests/test_causal_factor_deferral.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/algorithms"
@@ -62,6 +62,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/helpers.py`
+- `tests/intent_fakes.py`
 - `tests/mcp_world.py`
 - `tests/test_administration_adapters.py`
 - `tests/test_ai_config.py`
@@ -72,7 +73,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_canonical_projection_rollout.py`
 - `tests/test_causal_activity_policy.py`
 - `tests/test_causal_attribution_p2.py`
-- `tests/test_causal_factor_deferral.py`
 
 ## Extension and modification guidance
 

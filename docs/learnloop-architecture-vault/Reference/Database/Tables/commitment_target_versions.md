@@ -3,8 +3,8 @@ title: "commitment_target_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "892078de42f35c2762d5b1d74c606e26ed05c1a3"
-source_commit_timestamp: "2026-10-19T00:38:02-04:00"
+source_commit: "462f02eaf8f6af6eb47ce6b7a895e21b04be309a"
+source_commit_timestamp: "2026-10-19T23:41:22-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitment_target_versions"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/072_commitments.sql"
   - "src/learnloop/curriculum/commitments.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/intent_reads.py"
   - "src/learnloop/reader/reader_authoring.py"
   - "src/learnloop/content/authoring/rung_variants.py"
   - "src/learnloop/daily_plan/engine.py"
@@ -89,6 +90,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/intent_reads.py`
 - `src/learnloop/reader/reader_authoring.py`
 
 ### Direct SQL writers
@@ -108,6 +110,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/intent_fakes.py`
 - `tests/test_commitments.py`
 - `tests/test_daily_loop_reader_retire.py`
 - `tests/test_question_promotions.py`

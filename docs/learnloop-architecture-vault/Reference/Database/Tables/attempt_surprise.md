@@ -3,8 +3,8 @@ title: "attempt_surprise"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "892078de42f35c2762d5b1d74c606e26ed05c1a3"
-source_commit_timestamp: "2026-10-19T00:38:02-04:00"
+source_commit: "462f02eaf8f6af6eb47ce6b7a895e21b04be309a"
+source_commit_timestamp: "2026-10-19T23:41:22-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_surprise"
@@ -20,12 +20,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/intent_reads.py"
   - "src/learnloop/diagnosis/followups.py"
   - "src/learnloop/diagnosis/signal_quantiles.py"
   - "src/learnloop/diagnosis/voi_stopping.py"
   - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/ops/debug_time.py"
-  - "src/learnloop/ops/doctor.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/proposals/proposals.py"
@@ -110,6 +110,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/intent_reads.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop_sidecar/handlers/sessions.py`
 
@@ -146,6 +147,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_gate_fit.py`
+- `tests/test_intent_recall_targets.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_signal_quantiles.py`
 - `tests/test_voi_forecasts.py`
@@ -164,7 +166,6 @@ Indexes and uniqueness:
 - `tests/test_followups.py`
 - `tests/test_held_grade_evidence.py`
 - `tests/test_instrument_servability_journeys.py`
-- `tests/test_irt_end_to_end.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

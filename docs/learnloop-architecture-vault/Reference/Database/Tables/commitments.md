@@ -3,8 +3,8 @@ title: "commitments"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "892078de42f35c2762d5b1d74c606e26ed05c1a3"
-source_commit_timestamp: "2026-10-19T00:38:02-04:00"
+source_commit: "462f02eaf8f6af6eb47ce6b7a895e21b04be309a"
+source_commit_timestamp: "2026-10-19T23:41:22-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitments"
@@ -20,16 +20,16 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/072_commitments.sql"
   - "src/learnloop/cli/app.py"
+  - "src/learnloop/config/schema.py"
   - "src/learnloop/curriculum/commitment_arcs.py"
   - "src/learnloop/curriculum/commitments.py"
   - "src/learnloop/curriculum/depth_edge_authoring.py"
   - "src/learnloop/curriculum/depth_rungs.py"
   - "src/learnloop/curriculum/depth_transition.py"
   - "src/learnloop/curriculum/golden_path_confirm.py"
-  - "src/learnloop/curriculum/golden_path_restoration.py"
   - "src/learnloop/content/authoring/rung_variants.py"
   - "src/learnloop/daily_plan/engine.py"
-  - "src/learnloop/reader/active_reading.py"
+  - "src/learnloop/intent/control.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -93,6 +93,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/intent_reads.py`
 - `src/learnloop/reader/active_reading.py`
 - `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/scheduling/controller_store.py`
@@ -107,6 +108,7 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/commitments.py`
 - `src/learnloop/curriculum/golden_path_confirm.py`
 - `src/learnloop/daily_plan/engine.py`
+- `src/learnloop/intent/control.py`
 - `src/learnloop/reader/active_reading.py`
 - `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/reader/reader_capture.py`
@@ -134,12 +136,12 @@ Indexes and uniqueness:
 - `tests/test_dual_authority_administration.py`
 - `tests/test_golden_path_assessment.py`
 - `tests/test_golden_path_confirm.py`
+- `tests/test_intent_checks.py`
+- `tests/test_intent_exclusion.py`
+- `tests/test_intent_goal_deadline.py`
+- `tests/test_intent_resolution.py`
 - `tests/test_journey6.py`
 - `tests/test_learner_text_gaps.py`
-- `tests/test_learner_text_gaps_review.py`
-- `tests/test_reader_adoption_ownership.py`
-- `tests/test_reader_authoring.py`
-- `tests/test_reader_capture.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

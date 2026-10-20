@@ -3,8 +3,8 @@ title: "Config - storage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "892078de42f35c2762d5b1d74c606e26ed05c1a3"
-source_commit_timestamp: "2026-10-19T00:38:02-04:00"
+source_commit: "462f02eaf8f6af6eb47ce6b7a895e21b04be309a"
+source_commit_timestamp: "2026-10-19T23:41:22-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml storage"
@@ -27,11 +27,11 @@ source_paths:
   - "tests/diagnosis_split_helpers.py"
   - "tests/helpers.py"
   - "tests/hint_fakes.py"
+  - "tests/intent_fakes.py"
   - "tests/pf_fakes.py"
   - "tests/rw2b_fix10_base_sequence.py"
   - "tests/rw2b_fix11_base_sequence.py"
   - "tests/source_retrieval_fakes.py"
-  - "tests/split_live_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/storage"
@@ -68,11 +68,11 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/diagnosis_split_helpers.py`
 - `tests/helpers.py`
 - `tests/hint_fakes.py`
+- `tests/intent_fakes.py`
 - `tests/pf_fakes.py`
 - `tests/rw2b_fix10_base_sequence.py`
 - `tests/rw2b_fix11_base_sequence.py`
 - `tests/source_retrieval_fakes.py`
-- `tests/split_live_helpers.py`
 
 ## Extension and modification guidance
 

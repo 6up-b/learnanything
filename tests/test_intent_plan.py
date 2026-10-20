@@ -222,3 +222,26 @@ def test_the_reentry_panel_counts_active_intents_against_their_own_targets(tmp_p
     panel = reentry_panel(iv.vault, iv.repository, now=NOW, gap=gap, intent=iv.serving(NOW))
     counted = baseline.solid_count + baseline.slipped_count
     assert panel.solid_count + panel.slipped_count == counted - 2
+
+
+def test_an_assumed_lo_with_no_commitment_reads_as_keep_for_its_check(tmp_path):
+    """§5.6: an LO assumed known (not tested) with no commitment is Keep for
+    its check (maintain lane, target 0.85); an explicit commitment wins."""
+
+    from learnloop.daily_plan.engine import _Pool, _intent_views
+    from learnloop.daily_plan.lanes import PoolItem
+
+    iv = make_intent_vault(tmp_path / "vault")
+    iv.choose("learning_object", "lo_b", "master", NOW)
+    env = _env(iv, NOW + timedelta(minutes=1))
+
+    def check(item_id, lo_id):
+        return PoolItem(practice_item_id=item_id, learning_object_id=lo_id, rank=0, priority=1.0, lane="maintain",
+                        reason="assumed", est_minutes=2.5, never_attempted=True, check_kind="assumed_check")
+
+    built = _Pool(scheduled=[], pool=[check("pi_a1", "lo_a"), check("pi_b1", "lo_b")], estimator=None, deadlines={},
+                  intent=iv.serving(NOW + timedelta(minutes=1)))
+    views = _intent_views(env, built, ["lo_a", "lo_b", "lo_c"])
+    assert views["lo_a"] == IntentView(choice="keep", disposition="active", recall_target=0.85)
+    assert views["lo_b"].choice == "master" and views["lo_b"].recall_target == pytest.approx(0.92)
+    assert "lo_c" not in views  # uncommitted, not assumed: DL1's default view

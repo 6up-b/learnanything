@@ -3,8 +3,8 @@ title: "Config - eligibility"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "892078de42f35c2762d5b1d74c606e26ed05c1a3"
-source_commit_timestamp: "2026-10-19T00:38:02-04:00"
+source_commit: "462f02eaf8f6af6eb47ce6b7a895e21b04be309a"
+source_commit_timestamp: "2026-10-19T23:41:22-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml eligibility"
@@ -50,7 +50,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `eligibility.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for the one eligibility decision's successor (mvp-0.27; learnloop.serve_eligibility). On, every serve path asks the decision submit asks: an item submit would prime is never served as a cold check, a probe or a quick-check offer; a cold check its item can no longer take cold (the answer shown with no lapse, or the item practised since the check was set) is withdrawn with its typed disposition (unmeasurable_no_held_out_surface for a repair cold retry; an expired certification probe) and the item served as ordinary practice; exam seeding, an exam's finish and a kept-state sim count only reveals up to their own instant when auto-priming. Off, every path serves and admits exactly as mvp-0.26. Dormant below the successor; replay reads each attempt's recorded primed flag, never this switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3127` |
+| `eligibility.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for the one eligibility decision's successor (mvp-0.27; learnloop.serve_eligibility). On, every serve path asks the decision submit asks: an item submit would prime is never served as a cold check, a probe or a quick-check offer; a cold check its item can no longer take cold (the answer shown with no lapse, or the item practised since the check was set) is withdrawn with its typed disposition (unmeasurable_no_held_out_surface for a repair cold retry; an expired certification probe) and the item served as ordinary practice; exam seeding, an exam's finish and a kept-state sim count only reveals up to their own instant when auto-priming. Off, every path serves and admits exactly as mvp-0.26. Dormant below the successor; replay reads each attempt's recorded primed flag, never this switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3183` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

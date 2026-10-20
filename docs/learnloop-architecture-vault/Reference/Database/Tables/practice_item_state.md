@@ -3,8 +3,8 @@ title: "practice_item_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "892078de42f35c2762d5b1d74c606e26ed05c1a3"
-source_commit_timestamp: "2026-10-19T00:38:02-04:00"
+source_commit: "462f02eaf8f6af6eb47ce6b7a895e21b04be309a"
+source_commit_timestamp: "2026-10-19T23:41:22-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_state"
@@ -99,6 +99,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/intent/report.py`
 
 ### Direct SQL writers
 
@@ -115,6 +116,7 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/golden_path_compose.py`
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/headline.py`
+- `src/learnloop/daily_plan/intent_cost.py`
 - `src/learnloop/daily_plan/reentry.py`
 - `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/daily_plan/staged_frame.py`
@@ -125,7 +127,6 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/diagnostic_surface_supply.py`
 - `src/learnloop/diagnosis/followups.py`
-- `src/learnloop/diagnosis/probe_dialogue.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -151,7 +152,7 @@ Indexes and uniqueness:
 - `tests/test_field_cli.py`
 - `tests/test_held_grade_evidence.py`
 - `tests/test_hot_path_eligibility_cutover.py`
-- `tests/test_item_authoring.py`
+- `tests/test_intent_recall_targets.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
