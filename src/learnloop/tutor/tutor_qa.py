@@ -580,6 +580,8 @@ def ask_question(
             learner_work=reader_tutor.learner_work if lookup and reader_tutor is not None else (),
             query_learner=reader_tutor.query_learner if lookup and reader_tutor is not None else None,
             query_limit=reader_tutor.query_limit if lookup and reader_tutor is not None else None,
+            practice_question_limit=reader_tutor.practice_question_limit
+            if lookup and reader_tutor is not None else None,
         )
         thread = bound_plan.thread
         if lookup and reader_tutor is not None:
@@ -589,6 +591,10 @@ def ask_question(
             delivery["earlier_answers_left_out"] = bound_plan.withheld["answers"]
         if bound_plan.withheld:
             delivery["bound_withheld"] = dict(sorted(bound_plan.withheld.items()))
+        if bound_plan.stem_leaks_alone:
+            # Recorded, Low (fix round 10, R2): the item's own question states
+            # its answer; nothing is withheld on its account.
+            delivery["practice_question_states_key"] = True
 
     def build_context() -> TutorQAContext:
         return _build_context(

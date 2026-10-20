@@ -465,8 +465,13 @@ def verification_question(query: str, intent: str, misconceptions: Sequence[Any]
 def verification_context(intent: str, *, policy: str, misconceptions: Sequence[Any] = (),
                          excluded: Iterable[SpanKey] = (), learner_work_md: str | None = None,
                          item: PracticeItem | None = None,
-                         facet_labels: Sequence[Mapping[str, str]] = ()) -> dict[str, Any]:
-    """The request-specific context the verification is given beside its candidates."""
+                         facet_labels: Sequence[Mapping[str, str]] = (),
+                         planned_practice_question: str | None = None) -> dict[str, Any]:
+    """The request-specific context the verification is given beside its candidates.
+
+    ``planned_practice_question`` (RW1c fix round 10): a bound Reader
+    lookup's practice question as its delivery plan fitted and checked it,
+    sent unchanged; None builds it here, as every other caller does."""
 
     context: dict[str, Any] = {}
     if intent == "remediate" and misconceptions:
@@ -479,7 +484,8 @@ def verification_context(intent: str, *, policy: str, misconceptions: Sequence[A
         context["learner_work"] = learner_work_md[:3000]
     if item is not None and policy == "assisted_practice":
         # Review F5: the statement is shortened, never the instruction.
-        context["practice_question"] = practice_question(item)
+        context["practice_question"] = (planned_practice_question if planned_practice_question is not None
+                                        else practice_question(item))
     if facet_labels:
         # Facet targeting: the passage should bear on these facets.
         context["target_facets"] = [entry["label"] for entry in facet_labels]
@@ -588,6 +594,7 @@ def find_sources(
     caller: CallerContext | None = None,
     compare_client: Any | None = None,
     rewrite: bool | None = None,
+    planned_practice_question: str | None = None,
 ) -> SourceHits:
     """Verbatim passages for ``intent`` under ``policy`` (the caller's, derived on the server).
 
@@ -597,6 +604,9 @@ def find_sources(
     search's query-rewrite switch (None: the config and the conceptual-question
     gate, as every existing caller; False: never, for a background caller that
     pays for no rewrite, adaptive hints H1's map seeds).
+    ``planned_practice_question``: a bound Reader lookup's practice question,
+    planned and checked by its delivery plan (RW1c fix round 10), which the
+    verification sends unchanged instead of building and cutting its own.
     """
 
     if policy not in POLICIES:
@@ -691,7 +701,8 @@ def find_sources(
     verification: dict[str, Any] = {"status": "not_requested"}
     if must_verify and page:
         context = verification_context(intent, policy=policy, misconceptions=misconceptions, excluded=excluded,
-                                       learner_work_md=learner_work_md, item=item, facet_labels=facet_labels)
+                                       learner_work_md=learner_work_md, item=item, facet_labels=facet_labels,
+                                       planned_practice_question=planned_practice_question)
         status, rows, picks, reason = _verify(
             vault, repository, intent=intent, question=query_text, pool=page, pick_at_most=int(limit),
             context=context, client=rerank_client, owner_id=owner_id or query_hash, deadline=deadline, clock=clock)

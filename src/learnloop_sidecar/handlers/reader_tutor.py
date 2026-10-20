@@ -230,6 +230,7 @@ def build_request(ctx: Any, vault: Any, repository: Any, params: Any, restricted
         return None
     from learnloop.reader import reader_dialogue as RD
     from learnloop.source_retrieval import reader_tutor as RT
+    from learnloop.source_retrieval.verify import PRACTICE_QUESTION_CHARS
     from learnloop.tutor.reader_modes import ReaderTutorRequest
 
     intent = params.retrieval_intent
@@ -294,6 +295,10 @@ def build_request(ctx: Any, vault: Any, repository: Any, params: Any, restricted
                               learner_work=inputs.learner_work, gaps=inputs.gaps,
                               misconceptions=inputs.misconceptions, policy=policy,
                               query_learner=lookup.learner_query, query_limit=RT.BOUND_QUERY_CHARS,
+                              # The verification reads the item's question only
+                              # under assisted practice (``verification_context``).
+                              practice_question_limit=PRACTICE_QUESTION_CHARS
+                              if policy == "assisted_practice" and item is not None else None,
                               shown_span_keys=shown if intent == "alternative" else ())
 
 

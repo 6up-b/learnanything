@@ -112,7 +112,7 @@ _JOIN = "\n\n"
 
 
 def withhold(texts: Sequence[str], binding: BoundAsk | None, *, placeholders: Sequence[str] | None = None,
-             already: Collection[int] = ()) -> set[int]:
+             already: Collection[int] = (), fixed: Collection[int] = ()) -> set[int]:
     """The indexes of the model-written ``texts`` one model call carries to withhold under the binding.
 
     A text that gives the item's answer away alone is withheld; then, while
@@ -121,7 +121,8 @@ def withhold(texts: Sequence[str], binding: BoundAsk | None, *, placeholders: Se
     highest individual overlap (ties: the most recent, the highest index) is
     withheld and the whole is checked again (fix round 6, R1). ``already``
     are withheld from the start (another call's decision on the same text).
-    Empty texts are ignored."""
+    ``fixed`` are read with the rest but never withheld (fix round 10, R2:
+    the item's own question). Empty texts are ignored."""
 
     if binding is None or binding.answer_guard is None:
         return set(already)
@@ -129,13 +130,14 @@ def withhold(texts: Sequence[str], binding: BoundAsk | None, *, placeholders: Se
     overlap = binding.answer_overlap or (lambda text: 1.0 if leaks(text) else 0.0)
     stand_in = list(placeholders) if placeholders is not None else [""] * len(texts)
     present = [index for index, text in enumerate(texts) if text]
-    out = set(already) | {index for index in present if leaks(texts[index])}
+    held = set(fixed)
+    out = set(already) | {index for index in present if index not in held and leaks(texts[index])}
 
     def combined() -> str:
         return _JOIN.join(stand_in[index] if index in out else texts[index] for index in present)
 
     while leaks(combined()):
-        kept = [index for index in present if index not in out]
+        kept = [index for index in present if index not in out and index not in held]
         if not kept:
             break
         out.add(max(kept, key=lambda index: (overlap(texts[index]), index)))
@@ -149,7 +151,8 @@ Slot = tuple[str, Sequence[tuple[int, str]]]
 
 def withhold_for_call(slots: Sequence[Slot], binding: BoundAsk | None, *,
                       placeholders: Mapping[str, str] | None = None,
-                      already: Mapping[str, Collection[int]] | None = None) -> dict[str, set[int]]:
+                      already: Mapping[str, Collection[int]] | None = None,
+                      fixed: Collection[str] = ()) -> dict[str, set[int]]:
     """The withheld indexes, per slot, of ONE model call (fix round 7, R1).
 
     The union of every model-written text the call is given (each slot's
@@ -158,15 +161,17 @@ def withhold_for_call(slots: Sequence[Slot], binding: BoundAsk | None, *,
     misconception's correction) are never delivered together when together
     they give the item's answer away. ``placeholders`` is what a withheld
     text of a slot is delivered as (empty: dropped); ``already`` are the
-    indexes another call withheld."""
+    indexes another call withheld; the slots named in ``fixed`` are read but
+    never withheld (fix round 10, R2)."""
 
     placeholders, already = dict(placeholders or {}), dict(already or {})
     keys = [(name, index) for name, pairs in slots for index, _text in pairs]
     texts = [text for _name, pairs in slots for _index, text in pairs]
     stand_in = [placeholders.get(name, "") for name, _index in keys]
     seeded = {n for n, (name, index) in enumerate(keys) if index in already.get(name, ())}
+    held = {n for n, (name, _index) in enumerate(keys) if name in fixed}
     out: dict[str, set[int]] = {name: set(already.get(name, ())) for name, _pairs in slots}
-    for n in withhold(texts, binding, placeholders=stand_in, already=seeded):
+    for n in withhold(texts, binding, placeholders=stand_in, already=seeded, fixed=held):
         name, index = keys[n]
         out[name].add(index)
     return out
@@ -197,6 +202,28 @@ def fit_slots(learner: str, slots: Sequence[str], *, limit: int, join: str = " "
         fitted.append(index)
         length += added
     return join.join(part for part in [learner, *(texts[index] for index in fitted)] if part), fitted
+
+
+def whole_token_cut(text: str, limit: int) -> str:
+    """``text`` on one line within ``limit`` characters, cut only at a space
+    outside braces and outside ``$...$`` math (fix round 10, R1): a token, a
+    number or a LaTeX group is never split ("2/130" never becomes "2/13").
+    A text with no such boundary within the limit becomes empty."""
+
+    value = " ".join(str(text or "").split())
+    if len(value) <= limit:
+        return value
+    depth, dollars, cut = 0, 0, 0
+    for index, char in enumerate(value[: limit + 1]):
+        if char == " " and depth == 0 and dollars % 2 == 0:
+            cut = index
+        elif char == "{" and (index == 0 or value[index - 1] != "\\"):
+            depth += 1
+        elif char == "}" and (index == 0 or value[index - 1] != "\\"):
+            depth = max(0, depth - 1)
+        elif char == "$" and (index == 0 or value[index - 1] != "\\"):
+            dollars += 1
+    return value[:cut].rstrip()
 
 
 #: How many open questions the lookup query and the bridge's work carry
@@ -237,16 +264,25 @@ class BoundDelivery:
     #: The lookup's query exactly as the plan checked it (fitted within its
     #: limit, fix rounds 8 and 9); None when the plan fitted none.
     query: str | None = None
+    #: The verification's practice question as the plan fitted and read it (a
+    #: fixed member of that call's union: never withheld, fix round 10); None
+    #: when the call carries none. ``stem_leaks_alone`` records an item whose
+    #: own question, fitted, states its answer: its authoring, not this
+    #: stage's, so nothing is withheld on its account.
+    practice_question: str | None = None
+    stem_leaks_alone: bool = False
 
     @property
     def lookup_inputs(self) -> dict[str, Any]:
-        return {"gaps": list(self.gaps), "misconceptions": self.misconceptions, "query": self.query}
+        return {"gaps": list(self.gaps), "misconceptions": self.misconceptions, "query": self.query,
+                "practice_question": self.practice_question}
 
 
 def plan_bound_delivery(binding: BoundAsk | None, *, thread: Sequence[Mapping[str, Any]],
                         gaps: Sequence[Mapping[str, Any]] = (), misconceptions: Sequence[Any] | None = None,
                         learner_work: Sequence[Mapping[str, Any]] = (), query_learner: str | None = None,
-                        query_limit: int | None = None) -> BoundDelivery:
+                        query_limit: int | None = None, practice_question_limit: int | None = None,
+                        ) -> BoundDelivery:
     """Every model-written text a bound request delivers, withheld once (fix round 7, R1).
 
     Two model calls read them: the lookup's verification (and its query
@@ -273,7 +309,20 @@ def plan_bound_delivery(binding: BoundAsk | None, *, thread: Sequence[Mapping[st
     another is withheld changes it again: every call is rebuilt and read
     again after every new withholding, until nothing changes. It ends:
     withholding only ever grows, and the last pass reads every call as it
-    is delivered. The plan's ``query`` is what the lookup sends."""
+    is delivered. The plan's ``query`` is what the lookup sends.
+
+    Fix round 10 (R1, R2): the verification's practice question is planned
+    too. With ``practice_question_limit`` (the verification carries one:
+    an assisted-practice lookup), the item's presented question is fitted
+    here ONCE, cut only between whole tokens (:func:`whole_token_cut`, the
+    required method's instruction kept whole), and the retrieval sends that
+    text unchanged (``practice_question`` in :attr:`BoundDelivery.lookup_inputs`).
+    It is a FIXED member of the verification call's union: read with the
+    rest, never withheld (it is the problem the learner is looking at), so a
+    statement that completes the key with it is withheld instead. A fitted
+    question that states the key alone is the item's own authoring:
+    recorded (``stem_leaks_alone``), left out of the union read, and nothing
+    is withheld on its account."""
 
     turns = [dict(turn) for turn in thread]
     gaps, work = list(gaps), [dict(entry) for entry in learner_work]
@@ -291,6 +340,14 @@ def plan_bound_delivery(binding: BoundAsk | None, *, thread: Sequence[Mapping[st
     statements = [str(entry.get("statement") or "") for entry in gaps]
     problems = [str(entry.get("problem") or "") for entry in others]
     withheld: dict[str, set[int]] = {"answers": set(), "gaps": set(), "misconceptions": set(), "problems": set()}
+    stem: str | None = None
+    if practice_question_limit is not None:
+        from learnloop.vault.required_method import fit_presented_prompt
+
+        item = binding.item
+        stem = fit_presented_prompt(getattr(item, "prompt", ""), getattr(item, "required_method", None),
+                                    practice_question_limit, whole_token_cut)
+    stem_leaks_alone = bool(stem) and binding.answer_guard(stem)
 
     def fitted_query() -> tuple[str | None, list[tuple[int, str]]]:
         kept = [(i, statements[i]) for i in range(len(gaps)) if i not in withheld["gaps"]][:QUERY_GAPS]
@@ -306,6 +363,8 @@ def plan_bound_delivery(binding: BoundAsk | None, *, thread: Sequence[Mapping[st
         if records is not None:
             lookup.append(("misconceptions", [(i, _misconception_text(record)) for i, record in enumerate(records)
                                               if i not in withheld["misconceptions"]]))
+        if stem and not stem_leaks_alone:
+            lookup.append(("practice_question", [(0, stem)]))
         # The withheld answers are delivered as the placeholder; the dropped
         # statements and lines are not delivered at all.
         tutor: list[Slot] = [
@@ -320,7 +379,8 @@ def plan_bound_delivery(binding: BoundAsk | None, *, thread: Sequence[Mapping[st
         changed = False
         for slots, stand_ins in calls(placeholder):
             found = withhold_for_call(slots, binding, placeholders=stand_ins,
-                                      already={"answers": withheld["answers"]})
+                                      already={"answers": withheld["answers"]}, fixed=("practice_question",))
+            found.pop("practice_question", None)
             for name, indexes in found.items():
                 if indexes - withheld[name]:
                     withheld[name] |= indexes
@@ -350,6 +410,8 @@ def plan_bound_delivery(binding: BoundAsk | None, *, thread: Sequence[Mapping[st
         learner_work=[*open_questions, *kept_others],
         withheld={name: len(indexes) for name, indexes in withheld.items() if indexes},
         query=fitted_query()[0],
+        practice_question=stem,
+        stem_leaks_alone=stem_leaks_alone,
     )
 
 
@@ -390,6 +452,10 @@ class ReaderTutorRequest:
     #: (fix round 9); None: no lookup query to fit.
     query_learner: str | None = None
     query_limit: int | None = None
+    #: The verification's practice-question limit when it carries the item's
+    #: question (an assisted-practice lookup): the plan fits it once and the
+    #: retrieval sends that text (fix round 10); None: it carries none.
+    practice_question_limit: int | None = None
     #: The caller's derived policy (``reading``, ``assisted_practice`` or
     #: ``cold_attempt``), kept apart from the binding so a cold
     #: administration is never read as ``reading`` (Codex review F2).
@@ -581,6 +647,7 @@ __all__ = [
     "plan_bound_delivery",
     "run_retrieval",
     "verify_excerpt",
+    "whole_token_cut",
     "withhold",
     "withhold_for_call",
 ]

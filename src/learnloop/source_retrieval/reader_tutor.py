@@ -186,8 +186,10 @@ class ReaderLookup:
         vault, repository = self.vault, self.repository
         gaps = self.gaps if inputs is None else inputs.get("gaps") or []
         misconceptions = self.misconceptions if inputs is None else inputs.get("misconceptions")
-        # Bound: the query exactly as the plan fitted and checked it.
+        # Bound: the query and the practice question exactly as the plan
+        # fitted and checked them (fix rounds 9 and 10).
         planned = None if inputs is None else inputs.get("query")
+        planned_question = None if inputs is None else inputs.get("practice_question")
         intent = self.intent if self.service else "explain"
         manifest: dict[str, Any] = {"basis": "reader_lookup", "policy": self.policy, "intent": intent,
                                     "requested_intent": self.intent, "service": self.service,
@@ -214,6 +216,7 @@ class ReaderLookup:
             # Bound "that didn't help": the kept targets, never the
             # service's own (unguarded) resolution.
             **({"misconceptions": list(misconceptions)} if misconceptions is not None else {}),
+            **({"planned_practice_question": planned_question} if planned_question is not None else {}),
         )
         found = hits.as_dict() if hasattr(hits, "as_dict") else dict(hits)
         found_manifest = dict(found.get("manifest") or {})

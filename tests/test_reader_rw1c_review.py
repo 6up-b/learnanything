@@ -1523,3 +1523,175 @@ def test_a_misconception_beside_a_fitted_gap_never_reaches_the_verification(tmp_
         texts = [context["question"], *(f"{m.get('statement') or ''} {m.get('correction') or ''}"
                                         for m in context.get("misconceptions") or [])]
         assert not span_leaks_expected("\n\n".join(texts), PROBABILITY_KEY)
+
+
+# --- Fix round 10 (orchestrator rulings) ---------------------------------------------------------------
+
+FAVORABLE_GAP = "The favorable count is 2"
+COUNT_STEM = "13 equally likely outcomes make up the sample space. What is the probability?"
+
+
+def _cut_stem() -> str:
+    """A model-authored stem whose plain 700-character cut ends inside "2/130"."""
+
+    tail = " A comparison probability is 2/13"
+    stem = "y" * (700 - len(tail)) + tail + "0. What is the probability?"
+    assert " ".join(stem.split())[:700].endswith("2/13")
+    return stem
+
+
+def _set_item_prompt(paths, item_id: str, prompt: str) -> None:
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+
+    path = paths.practice_item_path("linear-algebra", item_id)
+    payload = read_yaml(path)
+    payload["prompt"] = prompt
+    write_yaml(path, payload)
+
+
+def _verification_contexts(verifier, since: int) -> list[dict]:
+    from tests.reader_tutor_fakes import prompt_context
+
+    return [prompt_context(prompt) for prompt in verifier.prompts[since:]]
+
+
+def _verification_texts(context: dict) -> str:
+    texts = [context["question"], *(f"{m.get('statement') or ''} {m.get('correction') or ''}"
+                                    for m in context.get("misconceptions") or [])]
+    if context.get("practice_question"):
+        texts.append(context["practice_question"])
+    return "\n\n".join(texts)
+
+
+def _bound_lookups(ctx, repository, item_id: str, intent: str) -> None:
+    """A bound root ask and, for another way / that didn't help, its follow-up."""
+
+    session = _bound_session(repository, item_id)
+    root = ask(ctx, BEGIN, personalized=True, workbenchSessionId=session, **PASSAGE_T2)
+    follow_up = {"alternative": "Explain it another way", "remediate": "That didn't help."}.get(intent)
+    if follow_up:
+        ask(ctx, follow_up, parentExchangeId=root["readerAnswerEventId"], retrievalIntent=intent,
+            personalized=True, workbenchSessionId=session, **PASSAGE_T2)
+
+
+@pytest.mark.parametrize("service", [True, False])
+@pytest.mark.parametrize("intent", ["explain", "alternative", "remediate"])
+@pytest.mark.parametrize("case", ["union", "cut"])
+def test_the_practice_question_is_a_planned_member_of_the_verification(tmp_path, monkeypatch, case, intent,
+                                                                       service):
+    """R1-R3 (F8, the verify's two reproductions end to end): (union) a gap
+    "The favorable count is 2" and the model-authored stem "13 equally likely
+    outcomes make up the sample space. ..." each pass alone and give 2/13
+    away together: the gap is withheld, the stem never; (cut) a stem whose
+    plain 700-character cut ends "... 2/13" is cut between whole tokens. No
+    verification prompt's union gives the key away, and its practice
+    question is the plan's, unchanged."""
+
+    from learnloop.tutor.tutor_qa import span_leaks_expected
+
+    tutor = LookupTutor()
+    paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor,
+                                                config={"source_service": {"enabled": service}})
+    set_item_answer(paths, ITEM, PROBABILITY_KEY)
+    stem = COUNT_STEM if case == "union" else _cut_stem()
+    _set_item_prompt(paths, ITEM, stem)
+    ctx = _rebind(paths, ctx)
+    vault, _repository = ctx.require_vault()
+    if case == "union":
+        _misconception(repository, vault, FAVORABLE_GAP)
+        assert not span_leaks_expected(FAVORABLE_GAP, PROBABILITY_KEY)
+        assert not span_leaks_expected(COUNT_STEM, PROBABILITY_KEY)
+        assert span_leaks_expected(f"{FAVORABLE_GAP}\n\n{COUNT_STEM}", PROBABILITY_KEY)
+    verifier = ctx.reader_tutor_rerank_client
+    _bound_lookups(ctx, repository, ITEM, intent)
+    contexts = _verification_contexts(verifier, 0)
+    assert contexts, "the verification ran"
+    for context in contexts:
+        assert not span_leaks_expected(_verification_texts(context), PROBABILITY_KEY)
+        question = context.get("practice_question")
+        assert question, "the item's question is never withheld"
+        if case == "union":
+            assert question == COUNT_STEM and FAVORABLE_GAP not in context["question"]
+        else:
+            assert not question.endswith("2/13") and not span_leaks_expected(question, PROBABILITY_KEY)
+
+
+@pytest.mark.parametrize("limit", range(1, 80))
+def test_a_whole_token_cut_never_splits_a_token_or_a_group(limit):
+    """R1: the cut falls on a space outside braces and ``$...$`` math, at or
+    before the limit; "2/130" never becomes "2/13" and a LaTeX group is
+    never opened without being closed."""
+
+    from learnloop.tutor.reader_modes import whole_token_cut
+
+    text = "A comparison probability is 2/130. Then $\\frac{2}{ 130 }$ and \\frac{ 2 }{13} again."
+    cut = whole_token_cut(text, limit)
+    assert len(cut) <= limit and text.startswith(cut)
+    assert len(cut) == len(text) or text[len(cut)] == " "
+    assert not cut.endswith("2/13") and cut.count("{") == cut.count("}") and cut.count("$") % 2 == 0
+
+
+def test_the_stem_is_never_withheld():
+    """R2: the item's question is a fixed member of the verification's
+    union. With a statement that completes the key, the statement is
+    withheld; a question that states the key alone is recorded and withholds
+    nothing on its account; it is delivered in both cases."""
+
+    from learnloop.tutor.reader_modes import plan_bound_delivery
+
+    binding, guard = _real_binding(PROBABILITY_KEY)
+    binding = replace_item(binding, prompt=COUNT_STEM)
+    plan = plan_bound_delivery(binding, thread=[], gaps=[{"statement": FAVORABLE_GAP}], misconceptions=None,
+                               query_learner=BEGIN, query_limit=2000, practice_question_limit=700)
+    assert plan.practice_question == COUNT_STEM and plan.withheld == {"gaps": 1}
+    assert FAVORABLE_GAP not in (plan.query or "")
+    stating = replace_item(binding, prompt="Show that the probability is 2/13.")
+    plan = plan_bound_delivery(stating, thread=[], gaps=[{"statement": FAVORABLE_GAP}], misconceptions=None,
+                               query_learner=BEGIN, query_limit=2000, practice_question_limit=700)
+    assert plan.stem_leaks_alone and plan.withheld == {}
+    assert plan.practice_question == "Show that the probability is 2/13."
+
+
+def replace_item(binding, **changes):
+    """The binding with its item's fields changed (the guard reads the same key)."""
+
+    from dataclasses import replace
+
+    item = SimpleNamespace(**{**vars(binding.item), "required_method": None, **changes})
+    return replace(binding, item=item)
+
+
+@pytest.mark.parametrize("service", [True, False])
+@pytest.mark.parametrize("intent", ["explain", "alternative", "remediate"])
+def test_no_bound_model_call_receives_item_text_from_outside_the_plan(tmp_path, monkeypatch, intent, service):
+    """R3 (scan): during a bound request nothing builds the item's question on
+    its own (both builders refuse), every verification prompt carries the
+    plan's fitted question, and no tutor prompt carries the item's text."""
+
+    import learnloop.source_retrieval.find_sources as find_sources_module
+    import learnloop.source_retrieval.verify as verify_module
+    from learnloop.tutor.reader_modes import whole_token_cut
+    from learnloop.vault.required_method import fit_presented_prompt
+
+    tutor = LookupTutor()
+    paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor,
+                                                config={"source_service": {"enabled": service}})
+    set_item_answer(paths, ITEM, PROBABILITY_KEY)
+    _set_item_prompt(paths, ITEM, COUNT_STEM)
+    ctx = _rebind(paths, ctx)
+    vault, _repository = ctx.require_vault()
+    item = vault.practice_items[ITEM]
+
+    def refuse(*_args, **_kwargs):
+        raise AssertionError("the item's question was built outside the delivery plan")
+
+    monkeypatch.setattr(find_sources_module, "practice_question", refuse)
+    monkeypatch.setattr(verify_module, "practice_question", refuse)
+    verifier = ctx.reader_tutor_rerank_client
+    _bound_lookups(ctx, repository, ITEM, intent)
+    planned = fit_presented_prompt(item.prompt, item.required_method, verify_module.PRACTICE_QUESTION_CHARS,
+                                   whole_token_cut)
+    contexts = _verification_contexts(verifier, 0)
+    assert contexts, "the verification ran"
+    assert all(context.get("practice_question") == planned for context in contexts)
+    assert not any("equally likely outcomes" in prompt for prompt in tutor.prompts)
