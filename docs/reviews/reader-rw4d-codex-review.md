@@ -260,3 +260,55 @@ The verify of round 2 (Codex job `20261020-165958-KahjKV`, VERDICT: REOPENED) co
 - vitest `src/screens/reader`: **61 files, 463 tests passed**.
 - `npm run frontend:build`: built.
 - No frontend file changed in this round.
+
+## Fix round 4 (orchestrator ruling)
+
+The verify of round 3 (Codex job `20261020-171709-CsefBL`, VERDICT: REOPENED) confirmed:
+- the registered-handler pin, with all its mutations rejected;
+- the card omission;
+- the allowlisted fine labels;
+- every non-protection invariant.
+
+It found two Highs. F1: comparison-derived prose survived the round-3 redaction (`lines[].text` and `.perspective`, relation statements, `kept_relations`, takes). F2: Keep ignored a withheld contributing anchor.
+
+The orchestrator's binding ruling was to stop redacting fields. The round-3 redaction (`redact_shared`, `SHARED_WITHHELD`) is removed. Fixed in `7764235c3`; references were regenerated in `519ce7ca0` (schema unchanged, head 213, 0 errors).
+
+**The rule.** If **any** contributing passage of a comparison is withheld now, or its protection or provenance cannot be resolved, the comparison is withheld **whole**. Contributing passages are:
+- its sources, counterparts, unverified sources and dropped pins;
+- the ask's anchor and binding;
+- the tutor question's passage and given spans.
+
+**Reads.** `reader.source_objects` and `reader.proposal_inbox` leave out every object kept from such a comparison (`hidden_source_objects`); `proposal_inbox` now takes the vault. The ⇄ marks, "you compared these on", the table's keep state (`compare_kept_state`) and the card also omit it. Reopen refuses with `comparison_withheld`, so no object, line, relation, statement or take derived from the comparison is returned. Ledger rows stay.
+
+**Writes.** These check every contributing passage inside the transaction, before any write:
+- Keep, also before writing a fork row;
+- `keep_tutor`, before its ask row;
+- adding a take, on the library and tutor paths alike.
+
+`comparison_passages` now also reads the tutor question's passages. These cases refuse with `comparison_withheld`:
+- a withheld passage;
+- an unreadable comparison, ask or question;
+- a tutor request that names no question;
+- an unreadable predicate.
+
+Earlier refusals of a kept comparison (`exam_material`) now use this one code. The UI shows any refusal's message, so no frontend change was needed.
+
+| id | severity | title | verdict | test |
+|---|---|---|---|---|
+| F1 | High | Comparison-derived prose survives | fixed (whole withholding) | `test_a_withheld_quotation_in_any_derived_field_is_never_returned[lines_text, lines_perspective, relation_statement, kept_relations, take]` |
+| F2 | High | Keep ignores a withheld contributing anchor | fixed | `test_withholding_the_anchor_before_the_first_keep_refuses_it_with_no_writes`, `test_a_new_take_on_an_existing_keep_after_withholding_is_refused`, `test_a_tutor_keep_checks_its_question_passage_before_any_write`; fail-closed: `test_an_unreadable_comparison_is_withheld_whole` |
+
+**Fail first on `9f182a473`'s `src`.** All 9 new tests failed.
+- The three write tests and the tutor test failed on substance (`DID NOT RAISE`).
+- The other six (the 5 field cases and the unreadable-comparison test) first stopped at the new `compare_kept_state(vault, …)` signature.
+- A throwaway copy of the test file with the base signatures, deleted afterwards, showed all 6 failing on substance. The quotation leaked through reopen (relation statement, `kept_relations`, take) and `reader.source_objects` (the lines), and the take's text leaked from the unreadable comparison.
+
+**Gate (round 3's).**
+- `lint-imports`: 28 kept, 0 broken.
+- `pytest -n auto` over the same 17 files: **488 passed**.
+- `--durable-sqlite` on the two RW4d files: **61 passed**.
+- `typecheck`: clean.
+- vitest `src/screens/reader`: **61 files, 463 tests passed**.
+- `frontend:build`: built.
+
+**Rule note.** In rounds 2 to 4, small Python scripts that only rewrote source and test text ran without `env -i`. One read-only `sqlite3` query of `fixtures/migration_head_213` (column nullability) also ran without it. None imported LearnLoop or could reach a model or network, and no vault was opened. From round 4's test edits on, every such script ran under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`.
