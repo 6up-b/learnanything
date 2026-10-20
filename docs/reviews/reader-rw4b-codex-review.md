@@ -571,3 +571,272 @@ venv and `node_modules`; no worktree or stash). The logs are
   **0 errors** (head 213). Commit labels and line citations were refreshed
   in `df68e6488`.
 - No live or paid model call was made.
+
+## Fix round 5 (orchestrator rulings)
+
+The Codex verify `20261020-022437-5OEypp` (at `5929ff4fb`) confirmed F8, F9
+and F10 fixed. It reopened F2 (High), F3 (Medium) and F7 (High), and raised
+F11 (High) and F12 (Medium). The orchestrator's rulings:
+
+| ruling | finding | what it requires |
+|---|---|---|
+| R1 | F2 | The learner pick carries a durable idempotency identity derived from the workbench session id, stored with its receipt; a retry completes only the missing admission write and never picks again. |
+| R2 | F7 | One builder of every statement-bearing workbench response, revalidating through the shared reader; the reader moves to a package S1's import worker and `selection_for_region` also use; the AST test covers indirect helpers and stored-statement returns; a registry-enumerated contract test. |
+| R3 | F11 | Admission's exposure recheck includes the bound `practice_item_id` (item attempts and family reveals count), keeping the source spans and the originating-proposal exemption; the practice-only result is persisted and rendered. |
+| R4 | F3 | Lifecycle validity is an effect generation, set on setup and cleared on cleanup, so StrictMode works and an earlier setup's answers stay stale. |
+| R5 | F12 | Departure callbacks (Leave, Abandon, the jump to the passage) carry and validate both the generation and the session id. |
+| audit | — | Every remaining client callback in `useReaderWorkbench` and `useWorkbenchSession` checked for the same stale-identity pattern. |
+
+### Findings
+
+| id | severity | title | verdict | commit | test (fail before → pass after) |
+|----|----------|-------|---------|--------|---------------------------------|
+| F2 | High (reopened) | A retry after an admission-write failure delivers another learner pick | fixed (R1) | `ae8339e6a` | pytest `test_reader_rw4b_admission_idempotency.py` (5 tests): `test_r1_a_retry_after_a_locked_final_write_makes_no_second_pick` (Codex's reproduction), `test_r1_a_lost_pick_record_is_found_by_its_key_in_the_plans_receipt`, `test_r1_a_lost_serve_record_repeats_no_pick_and_no_presentation`, `test_a_pick_made_under_a_key_is_made_once[plan_open/plan_closed]` |
+| F7 | High (reopened) | Workbench responses still return newly withheld statements | fixed (R2) | `ae8339e6a` | pytest `test_library_exercises.py`: `test_r2_verify_f7_get_refresh_and_an_admitted_admit_never_return_a_withheld_statement`, `test_r2_contract_no_workbench_or_reader_exercise_rpc_returns_a_held_out_statement`, `test_r2_no_handler_reader_module_or_s1_path_reads_an_exercise_statement_another_way`, `test_r2_every_response_carrying_a_stored_statement_passes_the_gate`, `test_r2_the_shared_reader_lives_where_s1_and_the_reader_import_it`, `test_r4_the_statement_reader_fails_closed` (moved to the shared module); `test_exam_protection.py::test_a_reader_import_of_held_out_material_is_refused_before_any_model_call` (now also asserts `selection_for_region` refuses once held out) |
+| F11 | High | Admission misses a revealed sibling and keeps the independent-check offer | fixed (R3) | `ae8339e6a` | pytest `test_r3_verify_f11_admission_reads_the_bound_items_own_exposure_and_says_practice_only` |
+| F3 | Medium (reopened) | StrictMode blocks import refreshes and admission metadata | fixed (R4) | `ae8339e6a` | vitest `Workbench.test.tsx` › "R4 (verify F3): under StrictMode the import refresh lands and is handed on", "R4 (verify F3): under StrictMode the admission's exposure correction reaches the mounted workbench", "R4: a refresh sent under an earlier setup changes nothing after unmount" (a guard; it passes on both) |
+| F12 | Medium | A delayed Leave or Abandon closes a newer problem | fixed (R5) | `ae8339e6a` | vitest `readerWorkbenchExercise.test.tsx` › "R5 (verify F12): a delayed Leave or Abandon of A never closes B", "R5: a departure from a workbench shown in an earlier generation … changes nothing" |
+| audit | — | Two more stale-answer paths | fixed | `ae8339e6a` | vitest "round 5 audit: an older marks refresh landing late never replaces a newer one" (`readerWorkbenchExercise.test.tsx`), "round 5 audit: a bind or reopen answered after unmount is never handed on" (`Workbench.test.tsx`) |
+
+No ruling was rejected. One residual window is recorded under R1.
+
+### Fail-before evidence
+
+Every new or changed test was run against an export of `5929ff4fb`
+(`git archive` into the session scratchpad: the backend with the
+worktree's venv and `-o pythonpath=<export>/src`, the frontend's `apps/`
+with the worktree's `node_modules` linked in; no worktree change, no stash).
+
+**Pytest: 12 new or rewritten tests, 12 failed.** The 3 round 4 tests the
+same filter selected passed on both trees.
+
+- **F2, as Codex wrote it.** With today's plan closed and a `database is
+  locked` injected on the final admission write, the retry left
+  **2 presentations and 2 pick receipts** (`assert (2, 2) == (1, 1)`). After
+  the fix: 1 and 1, and the problem names that presentation.
+- **R1's other 4.** `learner_pick` had no `idempotency_key`, and
+  `WB.record_admission_stage` (the kept admission steps) did not exist.
+- **F7.** `workbench.get`, `workbench.refresh_import` and an admitted
+  `workbench.admit` returned the statement (`DID NOT RAISE`). The
+  registry-enumerated contract test found the sentinel in the first RPC it
+  reached (`workbench.abandon` answered with the stem).
+- **The AST tests.** The indirect-reader scan found 331 functions reaching a
+  statement read outside the shared reader, the first being S1's
+  `_import_source_exercise`. The stored-statement scan found 4 ungated
+  builders (`workbench_for_item`, `workbench_for_source`, `build_recap`,
+  `build_wrap_up`). `learnloop.content.sources.exercise_statements` did not
+  exist (2 tests).
+- **F11.** With the bound item's answer revealed after the pick, admission
+  read `exposed: False` (`assert (False is True)`).
+- **Updated tests.** 5 existing tests in `test_exam_protection.py`,
+  `test_exam_protection_review.py` and `test_import_split_parity.py` fail on
+  the export only because `selection_for_region` now takes `vault=` (one
+  needs `fixtures/migration_head_213`, absent from the export). They are API
+  changes, not fail-before evidence.
+
+**Vitest: 7 new tests, 6 failed.** The unmount guard passes on both trees,
+as a guard should.
+
+- **F12.** A's delayed Leave after B opened returned A's passage (`expected
+  't6' to be null`) and closed B. The same for a Leave from a workbench shown
+  in an earlier generation.
+- **F3.** Under StrictMode the bound import refresh was never handed on,
+  and the exposure note never appeared on the mounted workbench.
+- **Audit.** An older marks refresh replaced the newer list (`expected [] to
+  deeply equal [{ sessionId: 'wbs_1', … }]`). A bind and a reopen answered
+  after unmount were handed on (`called 2 times`).
+- `Workbench.test.tsx` › "F8: a vault switch freezes …" also failed once in
+  that run on the export, under a load average near 67. It passed alone on
+  the export and in every worktree run. It is a timing flake, not evidence.
+
+### What changed
+
+#### R1: the learner pick's idempotency identity (F2)
+
+- **The key.** `handlers/workbench.py:admission_key(session_id)` is
+  `workbench_admission:<workbench session id>`. `_admit` passes it to the
+  plan's learner pick (`PlanLearnerPickInput.idempotency_key`, at most 200
+  characters).
+- **Stored with the receipt.** `daily_plan.engine.learner_pick` writes the
+  key into the pick's `block_chosen` event detail on both branches: the open
+  plan's one-item block and the closed plan's open-list pick.
+- **Found on retry.** `engine.picked_under(env, key, item)` reads that
+  receipt and returns the pick as it was made: its block, candidate and
+  presentation. Both `learner_pick` and the sidecar's `plan_learner_pick`
+  answer from it before anything is written. A retried pick therefore
+  records nothing again: no receipt, presentation, router decision or
+  delivery.
+- **The admission's own steps.** `WB.record_admission_stage` keeps them on
+  the problem's stored pick record:
+  - `picked`: the practice session, whether the plan was on, and the serve
+    pair;
+  - `served`.
+  A retry reads them and does only what is missing: no pick when `picked`
+  is kept, no serve when `served` is kept, then the one admission write.
+- **A lost `picked` record.** If the pick commits but its record on the
+  problem fails, the retry asks the plan again under the same key, and
+  `picked_under` returns the existing pick.
+- **Residual window.** If the serve commits but the `served` record fails,
+  the retry serves once more. That serve makes no pick and no presentation
+  (the test pins this). Its proposal delivery is deduped, but the serve's
+  own side effects can repeat (the diagnosis-serve count, an elicitation
+  decision). The pick, the serve and the admission still run as separate
+  transactions inside the vault lock, so one transaction cannot span them.
+
+#### R2: one gate, one shared reader (F7)
+
+- **The reader moved.** `learnloop/content/sources/exercise_statements.py`
+  now holds `exercise_regions`, `starts_exercise`, `ExerciseRegion`,
+  `exercise_region_spans`, `read_exercise_statement` and `selection_nodes`,
+  beside the exam predicate. It sits there because S1's
+  `content.authoring` is imported by `instructional` and so cannot import
+  it. `instructional.exercises` and `library_exercises` re-export it.
+  - The reader now also fails closed on a missing asked span.
+  - It returns each asked block's stored text, for S1's selection.
+- **S1 routed through it.**
+  - `source_exercise_import.selection_for_region` now takes `vault=` and
+    refuses (`ExerciseAuthoringError`) a region that is exam or held-out
+    material now, unreadable, or missing.
+  - `_import_source_exercise` reads its statement and selection through the
+    reader after the existing exam check, so a region whose other blocks are
+    held out is refused too.
+  - The fallback listing passes `vault`.
+- **The one builder.** `handlers/workbench.py:_view` builds every response
+  that carries a problem, and it calls `_refuse_withheld_exercise` (via
+  `WB.statement_cleared`, the shared reader on the problem's stored region)
+  before building anything. Every RPC that answers with the problem (`get`,
+  `open`, `refresh_import`, `admit` whether admitted or not, `submit`,
+  `leave`, `abandon`, `reopen`, `bind`, `set_book`, `session_for_attempt`
+  and the rest) then answers `exercise_withheld` instead. Submitted problems
+  are no longer exempt.
+- **Other surfaces.**
+  - **Gated.** `workbench.submit` checks before admitting or grading. The
+    help handlers check in `_require`.
+  - **Filtered out of the lists.** `workbench.for_item` and
+    `workbench.for_source`, through `_cleared`. The problem's steps are
+    kept.
+  - **Not named.** The recap's unfinished problems and the wrap-up's "with
+    help" lines.
+- **Saves without the statement.** `workbench.save_step` and the help
+  ladder's record now use `record_line`: the record line and save time
+  only, never the statement. A problem whose region is held out keeps saving
+  its steps, and nothing of it is returned.
+- **The AST tests.**
+  - `test_r2_no_handler_reader_module_or_s1_path_reads_an_exercise_statement_another_way`
+    scans `handlers/**`, `reader/**` and S1's two statement paths. It
+    closes over indirect calls (a function that calls a reader is a
+    reader), and it requires both S1 paths to call `read_exercise_statement`.
+  - `test_r2_every_response_carrying_a_stored_statement_passes_the_gate`
+    requires every function in the four response modules that reads a
+    stored statement (`session_view`, the session lists, `stem_md`) to name
+    a gate. The two ungated builders are listed with their reasons.
+- **The contract test.** It enumerates every `workbench.*` method and every
+  `LIBRARY_EXERCISE_RPCS` method from `METHOD_REGISTRY`, so a new RPC is
+  covered without editing the test. A method with a required parameter the
+  test cannot fill fails the test.
+  - The setup opens the sentinel exercise, saves a step, binds it, then
+    holds its region out, and calls each RPC.
+  - Neither the lead sentinel nor the region's tail appears in any answer
+    or refusal.
+  - The six statement-bearing RPCs refuse `exercise_withheld`, and the
+    source list leaves the problem out.
+
+#### R3: the bound item counts at admission (F11)
+
+- `library_exercises.pick_exposure(..., practice_item_id=)` adds the bound
+  item to the candidate the exposure rule reads, on both the proposal path
+  and the fallback path. The rule then counts the item's attempts, its own
+  and its family's revealed answers, and its impressions, alongside the
+  source spans. The originating proposal's own impression stays exempt
+  (`proposal_id`), and so do a fallback's own listing events.
+- `_admit` passes the item it bound. `admit_exercise_pick` persists the
+  result with `exposureChecked: "admission"`.
+- The workbench renders it through the round 4 R6 path. The test reads it
+  back through `workbench.get`: `exposed`, `offeredAs: "practice"`.
+
+#### R4: the lifecycle generation (F3)
+
+- `useWorkbenchSession` replaces the `closed` gate with an effect
+  generation. Each setup takes a new number (`live`), and its cleanup clears
+  it. StrictMode's setup, cleanup, setup therefore leaves the hook live, and
+  the import refresh, `applyServer`, abandon, reopen, retry, bind and submit
+  apply an answer only while the setup that sent it is still current.
+- `closed` remains only for the write queue's retry bound after a close.
+- The book write still lands whatever happened to the window; only a live
+  workbench shows its answer.
+
+#### R5: departures carry their identity (F12)
+
+- `ReaderWorkingPosture` binds `onLeave` and `onAbandoned` to
+  `active.generation`, and ReaderScreen's `leaveWorkbench` passes it on.
+- `useReaderWorkbench.close` returns null and changes nothing in two cases:
+  the generation is stale, or the session is not the one shown. It sets no
+  abandoned receipt and returns no passage, so nothing jumps. Its fallback
+  target is read from `activeRef`, not the render's `active`.
+
+#### Audit of the remaining client callbacks
+
+- **`useReaderWorkbench`.**
+  - **Fixed.** The marks refresh (`workbench.for_source`) now applies only
+    the newest request's answer.
+  - **Already guarded.** `admit` checks its generation and that the answer
+    is the problem it asked about. Every open path (`openSelection`,
+    `openItem`, `resume`, check me, "use this one", the read-only attempt)
+    uses `ticket`/`admits`. `update` and `submitted` take the shown
+    generation, and `reopenAbandoned` goes through `resume`.
+- **`useWorkbenchSession`.**
+  - **Fixed.** Bind, reopen, retry, abandon and submit now check the setup
+    generation; before, they were handed on after unmount.
+  - **Unchanged.** The write queue (`pump`) still finishes after unmount by
+    design ("the queue finishes on its own"). Its answers update only this
+    hook's own state, and a book write's answer is shown only while the
+    hook is live. A step the server refuses is still reported. Leave's `run`
+    returns to its caller, whose `onLeave` is now validated (R5).
+
+### Notes for the landing
+
+- **`selection_for_region` signature.** It takes a required keyword `vault`
+  and now refuses held-out or missing regions. Its three in-tree callers
+  and the tests were updated. Other stages calling it will need `vault=`.
+- **Behaviour change: submitted problems are no longer exempt.** A
+  submitted picked exercise whose region is held out later now refuses
+  `exercise_withheld` from `workbench.get` and
+  `workbench.session_for_attempt` too. The Reader's back-from-feedback open
+  swallows the error, and the problem is not shown.
+- **Re-export.** `instructional.exercises` re-exports the moved region
+  helpers (`noqa: F401`), so other importers keep working.
+- **Help on a withheld problem.** The help handlers now import
+  `_refuse_withheld_exercise` from `handlers.workbench` lazily.
+- No migration, no new config key, no new RPC, and no Rust change.
+
+### Gate (fix round 5; targeted, per the owner's 2026-10-17 rule)
+
+- **Pytest.** The 303 files of `fixtures-local/tmp/rw4b-fix5-pytest-files.txt`
+  were run with `-n 12`: round 4's 189, plus the files that exercise the
+  daily-plan engine, the exercise arm, exam protection, the recap and S1's
+  import, plus the new `test_reader_rw4b_admission_idempotency.py`.
+  - **First run: 5,245 passed, 2 xfailed, 2 failed.** Both failures were in
+    `test_architecture.py`:
+    - a new function-local edge `reader.workbench ->
+      content.sources.exercise_statements`;
+    - `instructional.exercises` importing the private `_LABEL_RE` and
+      `_NUMBER_RE`.
+  - **Fixed before the commit.** The import in `reader/workbench.py` is now
+    module-level, and the shared module exports `LABEL_RE` and `NUMBER_RE`,
+    which the arm aliases.
+  - **Rerun:** `test_architecture.py` plus the 35 workbench, reader, recap,
+    exam-protection, exercise, import-split, registry and architecture files
+    of the list: **736 passed**.
+- `uv run lint-imports --no-cache`: **28 kept, 0 broken**.
+- **Frontend.**
+  - `npm run typecheck` clean.
+  - **Vitest**, round 4's 50 files (`fixtures-local/tmp/rw4b-fix4-vitest-files.txt`,
+    `CI=true`): **50 files, 454 passed** (447 + the 7 new).
+  - `npm run frontend:build`: ok.
+  - No Rust change, so no cargo check.
+- Durability: none needed (no migration, and no connection or pragma code
+  changed).
+- **References.** `db_generate_reference.py` then `db_validate_reference.py`:
+  **0 errors** (head 213, 919 leaves). Commit labels and line citations were
+  refreshed in `34f5237f8`.
+- No live or paid model call was made, and no owner vault was opened.
