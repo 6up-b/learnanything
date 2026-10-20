@@ -30,9 +30,9 @@ import { NewVaultWizard } from "../components/NewVaultWizard";
 import { GoldenPathSetup } from "../components/goldenpath/GoldenPathSetup";
 import type { ReaderCheckMeRequest, ReaderExerciseRequest, ReaderOpenSource } from "../screens/ReaderScreen";
 import { keepReaderReturn, readerCheckOffer, returnsToReader, type ReaderReturn } from "./readerCheck";
-import { readerTargetBack, readerWorkbenchCheck, sessionAfterWorkbenchSubmit, workbenchReturn } from "./readerWorkbench";
+import { consumeShown, readerTargetBack, readerWorkbenchCheck, sessionAfterWorkbenchSubmit, workbenchReturn } from "./readerWorkbench";
 import { algoConfig } from "./algoConfig";
-import type { ReaderExerciseAdmitted, ReaderWorkbenchCheck, ReaderWorkbenchProps } from "../screens/reader/useReaderWorkbench";
+import type { ReaderWorkbenchCheck, ReaderWorkbenchProps } from "../screens/reader/useReaderWorkbench";
 import { ExemplarConfirmDialog } from "../components/ExemplarConfirmDialog";
 import { WhyDiagnosisOverlay } from "../components/WhyDiagnosisOverlay";
 import { AdjudicationOverlay } from "../components/AdjudicationOverlay";
@@ -636,8 +636,6 @@ export function App() {
       const offer = readerCheckOffer(result, request.practiceItemId, request.proposalId ?? null, request.importId ?? null);
       if (algoConfig().workbench) {
         const served = await api.getPracticeItem(request.practiceItemId, sessionId, offer.proposalOrigin ?? null);
-        // The slot carries only the check to show now (a cue's); an
-        // exercise's owed pick never goes through it (RW4b fix round 3, R1).
         setReaderCheck(readerWorkbenchCheck(request, offer, served.prompt));
         if (options.fromStart) {
           setReaderSource({ card: request.card, spanId: request.spanId });
@@ -682,10 +680,14 @@ export function App() {
         initialAttemptId: readerWorkbenchAttempt,
         onInitialAttemptShown: () => setReaderWorkbenchAttempt(null),
         checkMe: readerCheck,
-        onCheckMeShown: () => setReaderCheck(null),
+        // RW4b fix round 4 (F9): the shell forgets the request the Reader
+        // showed, by identity; a newer one queued since stays.
+        onCheckMeShown: (shown) => setReaderCheck((current) => consumeShown(current, shown)),
         exercise: readerExercise,
-        onExerciseShown: () => setReaderExercise(null),
-        onExerciseAdmitted: exerciseAdmitted,
+        onExerciseShown: (shown) => setReaderExercise((current) => consumeShown(current, shown)),
+        // RW4b fix round 4 (R1): an exercise's admission may have started the
+        // practice session its pick was made in.
+        onPracticeSession: (practiceSession) => setSession((current) => sessionAfterWorkbenchSubmit(current, practiceSession)),
       }
     : undefined;
 
@@ -709,31 +711,6 @@ export function App() {
       return;
     }
     openReaderExercise(request);
-  }
-
-  // The exercise's import wrote its item and bound the problem, and its pick
-  // is owed (kept on the problem, so after a restart too): the item becomes
-  // the learner's pick (the plan's pick path, with the proposal and the
-  // import), served once, and the served check goes back to the Reader,
-  // which keeps it with that problem (fix round 3, R1: never the shared
-  // `readerCheck` slot, where another problem's check could replace it) and
-  // resumes the problem as that pick's serve, which acknowledges the pick.
-  // No session yet, the workbench off, or a failed pick: null, still owed.
-  async function exerciseAdmitted(admitted: ReaderExerciseAdmitted): Promise<ReaderWorkbenchCheck | null> {
-    if (!session || !algoConfig().workbench) return null;
-    const request = {
-      practiceItemId: admitted.practiceItemId, proposalId: admitted.proposalId, spanId: admitted.spanId,
-      card: admitted.card, entry: "practice_this" as const, admitsSessionId: admitted.workbenchSessionId,
-    };
-    try {
-      const result = await api.planLearnerPick(admitted.practiceItemId, session.sessionId, null, admitted.proposalId, admitted.importId);
-      const offer = readerCheckOffer(result, admitted.practiceItemId, admitted.proposalId, admitted.importId);
-      const served = await api.getPracticeItem(admitted.practiceItemId, session.sessionId, offer.proposalOrigin ?? null);
-      return readerWorkbenchCheck(request, offer, served.prompt);
-    } catch (error) {
-      onError(errorMessage(error, "Could not open the check."));
-      return null;
-    }
   }
 
   function checkMeFromReader(request: ReaderCheckMeRequest) {

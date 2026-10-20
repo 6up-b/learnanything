@@ -8148,9 +8148,15 @@ export interface WorkbenchOpenInput {
   /** RW4b: a fallback exercise the learner picked: its listing's `pick`, sent
    *  back as it came (beside its importRequest). */
   exercisePick?: ExercisePickDto | null;
-  /** RW4b: the learner pick of a picked exercise's item was delivered: the
-   *  problem it admits (resumed by this open, on that item; Codex review F2). */
-  admittedSessionId?: string | null;
+}
+
+/** RW4b fix round 4 (R1): `workbench.admit`, the server's one admission of a
+ *  picked exercise's owed learner pick, for the problem named by its id. */
+export interface WorkbenchAdmitDto {
+  version?: number;
+  session: WorkbenchSessionDto;
+  /** The practice session the pick was made in (started when none was open). */
+  practiceSession: SessionSnapshot | null;
 }
 
 // -- Reader workbench RW4b: exercises from my sources (spec §7.4, UX §4.6) --

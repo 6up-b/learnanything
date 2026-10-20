@@ -183,8 +183,6 @@ export interface ReaderCheckMeRequest extends CueCheckMeRequest {
   importId?: string | null;
   /** RW4b: an admitted exercise resumes its own problem ("practice_this"). */
   entry?: "check_me" | "practice_this";
-  /** RW4b: the exercise problem this pick admits (acknowledged once it opens). */
-  admitsSessionId?: string;
 }
 
 /** RW4b "use this one" on a textbook exercise: the problem to open at once

@@ -1332,6 +1332,8 @@ sidecar_passthrough!(workbench_reopen, "workbench.reopen");
 sidecar_passthrough!(workbench_refresh_import, "workbench.refresh_import");
 sidecar_passthrough!(workbench_bind, "workbench.bind");
 sidecar_passthrough!(workbench_retry_import, "workbench.retry_import");
+// Reader RW4b fix round 4 (R1): a picked exercise's admission, one server operation.
+sidecar_passthrough!(workbench_admit, "workbench.admit");
 sidecar_passthrough!(workbench_submit, "workbench.submit");
 sidecar_passthrough!(workbench_session_for_attempt, "workbench.session_for_attempt");
 sidecar_passthrough!(workbench_for_item, "workbench.for_item");

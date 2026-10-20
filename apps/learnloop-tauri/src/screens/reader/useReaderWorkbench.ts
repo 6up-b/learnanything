@@ -21,23 +21,27 @@
 // problem opens at once on the verbatim statement while the import runs (the
 // sources service's for a proposal's exercise, the Reader's own for the
 // fallback's), book hidden unless the exercise was already seen (the server
-// reads that at the pick). When that import has bound the problem to the item
-// it wrote and the learner pick of it is still owed (`exercisePick.due`, kept
-// on the problem, so a restart or a resume still owes it), the shell is told
-// (`onExerciseAdmitted`), so the item becomes a learner pick; the pick's
-// hand-off acknowledges it (`admittedSessionId`) only once it succeeded.
+// reads that at the pick).
 //
-// Fix round 3 (orchestrator rulings R1-R3): what each problem is owed is kept
-// per problem (`owed`, session id -> its hand-off), so no other problem's pick
-// can displace it; every answer (an open, a resume, a check, an import
-// refresh, a submit) is checked against the request it answers before
-// anything changes (`issue`/`admits`), so no problem is activated on a book
-// that is not the open one; and a submit goes back to the submitted problem's
-// own book (`ActiveWorkbench.card`).
+// Fix round 4 (orchestrator rulings): the server owns the admission. When the
+// import has bound the problem to the item it wrote and its learner pick is
+// still owed (`exercisePick.due`, durable on the problem), the hook asks the
+// server's one operation, `workbench.admit`, for THAT problem by its id; the
+// server makes the pick, serves it and records both on the problem, and a
+// submit admits first itself (R1, R2). The hook keeps no hand-off state of its
+// own: it renders what admit and open return, after checking that the answer
+// is for the problem it asked about. One generation counter (bumped on Leave,
+// a book change and unmount) is captured by every async callback (open,
+// resume, refresh, admit, submit, check), and a stale one is dropped before
+// any state change or shell callback (R5); the newest open wins among opens.
+// The shell's queued exercise and check are consumed by identity, so an older
+// completion never clears a newer request. A submit goes back to the
+// submitted problem's own book (round 3, R3).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
 import type {
   ReaderImportExerciseInput,
+  SessionSnapshot,
   SourceLibraryCard,
   WorkbenchSessionDto,
   WorkbenchSubmitDto,
@@ -64,45 +68,27 @@ export interface ReaderWorkbenchCheck {
   stemMd: string;
   schedulerCandidateId: string | null;
   planPresentationId: string | null;
-  /** RW4b: "practice_this" when the pick is an admitted exercise's (its own
-   *  problem resumes with the book as the learner left it); else "check_me". */
+  /** "practice_this" resumes a problem with the book as the learner left it;
+   *  else "check_me" (the book hidden). */
   entry?: "check_me" | "practice_this";
-  /** RW4b: the exercise problem this pick admits (acknowledged by its open). */
-  admitsSessionId?: string;
-}
-
-/** RW4b: an exercise's import wrote its item, and the problem is bound to it. */
-export interface ReaderExerciseAdmitted {
-  practiceItemId: string;
-  proposalId: string | null;
-  /** The sources service's import (a proposal's exercise); null for the fallback's. */
-  importId: string | null;
-  sourceId: string;
-  /** The source the exercise is in (where back from its feedback returns). */
-  card: SourceLibraryCard;
-  spanId: string;
-  stemMd: string;
-  workbenchSessionId: string;
 }
 
 export interface ReaderWorkbenchProps {
-  /** The app's open practice session, when there is one (the submit uses it). */
+  /** The app's open practice session, when there is one (the submit and an
+   *  exercise's admission use it). */
   practiceSessionId?: string | null;
   /** RW4b: "use this one" to open once its source is open (the shell picked it). */
   exercise?: ReaderWorkbenchExercise | null;
-  /** The exercise's problem opened (the shell forgets it). */
-  onExerciseShown?: () => void;
-  /** The exercise's import bound the problem and its learner pick is owed:
-   *  the shell records and serves the pick, and resolves the served check,
-   *  which this problem keeps until its own acknowledging open (R1). Resolves
-   *  false or null when it could not (no session, a refused pick): nothing
-   *  was acknowledged, so it is owed still. `true` means the shell hands the
-   *  check over through `checkMe` instead (it is then kept the same way). */
-  onExerciseAdmitted?: (admitted: ReaderExerciseAdmitted) => Promise<ReaderWorkbenchCheck | boolean | null> | ReaderWorkbenchCheck | boolean | null | void;
+  /** That exercise's problem opened: the shell forgets THIS request (by
+   *  identity), never a newer one queued since (fix round 4, F9). */
+  onExerciseShown?: (shown: ReaderWorkbenchExercise) => void;
+  /** RW4b fix round 4: an exercise's admission started (or resolved) the
+   *  practice session its learner pick was made in. */
+  onPracticeSession?: (practiceSession: SessionSnapshot) => void;
   /** "Check me" to open in the working posture, book hidden (D40). */
   checkMe?: ReaderWorkbenchCheck | null;
-  /** The check opened (the shell forgets it). */
-  onCheckMeShown?: () => void;
+  /** That check opened (or failed): the shell forgets THIS one, by identity. */
+  onCheckMeShown?: (shown: ReaderWorkbenchCheck) => void;
   /** A submit hands its attempt to the shell, with the way back to its passage. */
   onSubmitted?: (result: WorkbenchSubmitDto, at: { card: SourceLibraryCard; spanId: string }) => void;
   /** Back from feedback: open this attempt's problem read-only (UX S6). */
@@ -120,8 +106,11 @@ export interface ActiveWorkbench {
   schedulerCandidateId?: string | null;
   planPresentationId?: string | null;
   /** The book the problem is on (its own source, checked when it was
-   *  activated): where back from its feedback returns (R3). */
+   *  activated): where back from its feedback returns (round 3, R3). */
   card: SourceLibraryCard;
+  /** The generation it was shown in: the workbench's own callbacks (its
+   *  import refresh, its submit) carry it back, and a stale one is dropped. */
+  generation: number;
 }
 
 export interface ReaderWorkbench {
@@ -140,16 +129,19 @@ export interface ReaderWorkbench {
   openItem: (input: { practiceItemId: string; stemMd: string; spanIds: string[] }) => Promise<void>;
   resume: (sessionId: string) => Promise<void>;
   reopenAbandoned: () => Promise<void>;
-  /** The session changed inside the workbench (the book, the binding). */
-  update: (session: WorkbenchSessionDto) => void;
+  /** The session changed inside the workbench (the book, the binding); the
+   *  generation the workbench was shown in, when it knows it. */
+  update: (session: WorkbenchSessionDto, generation?: number) => void;
   /** Collapse back into reading; returns the passage to return to. */
   close: (session: WorkbenchSessionDto | null, options?: { abandoned?: boolean }) => string | null;
-  submitted: (result: WorkbenchSubmitDto) => void;
+  submitted: (result: WorkbenchSubmitDto, generation?: number) => void;
 }
 
-/** R2: what a request was sent against (its token, and the open book). */
+/** What an async request was sent against: the generation, the open book,
+ *  and (for an open) its place among opens. */
 interface Ticket {
-  seq: number;
+  generation: number;
+  open: number;
   extractionId: string | null;
   sourceId: string | null;
 }
@@ -179,29 +171,40 @@ export function useReaderWorkbench(input: {
   cardRef.current = card;
   const activeRef = useRef<ActiveWorkbench | null>(null);
   activeRef.current = active;
+  const propsRef = useRef(props);
+  propsRef.current = props;
 
-  // R2: every request that can change what the workbench shows takes a
-  // ticket (the request token, and the book and extraction open when it was
-  // sent). Its answer is admitted only while it is still the newest request
-  // and the same book is open, and only for a problem on that book; anything
-  // else is dropped before any state changes, and the problem stays
-  // resumable (and owed, if its pick is).
-  const requestSeq = useRef(0);
-  const issue = useCallback((): Ticket => {
-    requestSeq.current += 1;
-    return { seq: requestSeq.current, extractionId: extractionRef.current, sourceId: cardRef.current?.sourceId ?? null };
+  // R5: the one generation counter. Leave, a book change and unmount bump it;
+  // every async callback captured it when it was sent and is dropped, before
+  // any state change or shell callback, once it is stale. Among opens the
+  // newest wins too (`openSeq`), so a slower earlier open never replaces a
+  // later one. Only an answer for a problem on the open book is admitted.
+  const generation = useRef(0);
+  const openSeq = useRef(0);
+  const bump = useCallback(() => {
+    generation.current += 1;
   }, []);
-  const stillOpen = useCallback((ticket: Ticket) => (
-    requestSeq.current === ticket.seq
-      && extractionRef.current === ticket.extractionId
-      && (cardRef.current?.sourceId ?? null) === ticket.sourceId
+  useEffect(() => () => bump(), [bump]);
+  const ticket = useCallback((isOpen: boolean): Ticket => {
+    if (isOpen) openSeq.current += 1;
+    return {
+      generation: generation.current, open: openSeq.current,
+      extractionId: extractionRef.current, sourceId: cardRef.current?.sourceId ?? null,
+    };
+  }, []);
+  const fresh = useCallback((sent: Ticket) => (
+    generation.current === sent.generation
+      && openSeq.current === sent.open
+      && extractionRef.current === sent.extractionId
+      && (cardRef.current?.sourceId ?? null) === sent.sourceId
   ), []);
-  const onOpenBook = useCallback((session: WorkbenchSessionDto, ticket: Pick<Ticket, "extractionId" | "sourceId">) => (
-    Boolean(ticket.extractionId) && Boolean(ticket.sourceId)
-      && (!session.extractionId || session.extractionId === ticket.extractionId)
-      && (!session.sourceId || session.sourceId === ticket.sourceId)
+  const onOpenBook = useCallback((session: WorkbenchSessionDto, book: Pick<Ticket, "extractionId" | "sourceId">) => (
+    Boolean(book.extractionId) && Boolean(book.sourceId)
+      && (!session.extractionId || session.extractionId === book.extractionId)
+      && (!session.sourceId || session.sourceId === book.sourceId)
   ), []);
-  const admits = useCallback((ticket: Ticket, session: WorkbenchSessionDto) => stillOpen(ticket) && onOpenBook(session, ticket), [onOpenBook, stillOpen]);
+  const admits = useCallback((sent: Ticket, session: WorkbenchSessionDto) => fresh(sent) && onOpenBook(session, sent),
+    [fresh, onOpenBook]);
 
   const refresh = useCallback(async () => {
     const current = extractionRef.current;
@@ -215,13 +218,13 @@ export function useReaderWorkbench(input: {
   }, [enabled]);
 
   useEffect(() => {
-    // Another book: every answer still in flight is for the one left (R2).
-    requestSeq.current += 1;
+    // Another book: every answer still in flight is for the one left.
+    bump();
     setSessions([]);
     setActive(null);
     setAbandoned(null);
     void refresh();
-  }, [extractionId, refresh]);
+  }, [extractionId, refresh, bump]);
 
   // Back from feedback (UX S6): the submitted problem, read-only.
   // It opens once the source it belongs to is open, and only once.
@@ -230,18 +233,18 @@ export function useReaderWorkbench(input: {
   useEffect(() => {
     if (!enabled || !initialAttemptId || !extractionId || openedAttemptRef.current === initialAttemptId) return;
     openedAttemptRef.current = initialAttemptId;
-    const ticket = issue();
+    const sent = ticket(true);
     void api.workbenchSessionForAttempt({ attemptId: initialAttemptId })
       .then((result) => {
         const session = result.session;
         const shown = cardRef.current;
-        if (session && shown && session.extractionId === extractionId && admits(ticket, session)) {
-          setActive({ session, readOnly: true, autoFocus: false, card: shown });
-          props?.onInitialAttemptShown?.();
+        if (session && shown && session.extractionId === extractionId && admits(sent, session)) {
+          setActive({ session, readOnly: true, autoFocus: false, card: shown, generation: sent.generation });
+          propsRef.current?.onInitialAttemptShown?.();
         }
       })
       .catch(() => undefined);
-  }, [enabled, initialAttemptId, extractionId]);
+  }, [enabled, initialAttemptId, extractionId, admits, ticket]);
 
   useEffect(() => {
     if (!enabled) return undefined;
@@ -263,205 +266,121 @@ export function useReaderWorkbench(input: {
     });
   }, []);
 
-  // RW4b: a problem whose exercise pick is owed (the server's durable
-  // `exercisePick.due`, Codex review F2) is handed to the shell, which makes
-  // and serves the pick; the server acknowledges it only when that pick's own
-  // open (`admittedSessionId`) succeeds.
-  //
-  // R1 (fix round 3): what each problem is owed is kept here per problem
-  // (session id -> its hand-off), never in one shared slot:
-  // - "picking": the shell is making and serving the pick;
-  // - "served": the served check, kept until this problem's own book is open
-  //   and the problem is seen (opened, resumed, refreshed), when it is opened
-  //   as that pick; a pick served while another book is open, or after the
-  //   learner moved on, waits here, and no other problem's pick displaces it;
-  // - "opening": its acknowledging open is in flight;
-  // - "delivered": that open succeeded (acknowledged), so this visit never
-  //   hands it over again, even if a late answer still calls it due.
-  // A failed pick or a failed acknowledging open removes the entry: nothing
-  // was acknowledged, so the next sight of the problem (this visit, or after
-  // a restart, from the server's `due`) hands it over again, with a new
-  // serve. Nothing retries at once.
-  type Owed =
-    | { phase: "picking"; ticket: Ticket }
-    | { phase: "served"; check: ReaderWorkbenchCheck; ticket: Ticket | null }
-    | { phase: "opening" }
-    | { phase: "delivered" };
-  const owed = useRef(new Map<string, Owed>());
-  const onAdmittedRef = useRef(props?.onExerciseAdmitted);
-  onAdmittedRef.current = props?.onExerciseAdmitted;
-  const beginRef = useRef<(session: WorkbenchSessionDto, ticket: Ticket, readOnly?: boolean, serve?: Serve) => void>(() => undefined);
-
-  // The served pick opens its problem as that pick's serve, acknowledging it.
-  const deliver = useCallback((sessionId: string, check: ReaderWorkbenchCheck) => {
-    const ticket = issue();
-    owed.current.set(sessionId, { phase: "opening" });
-    void api.workbenchOpen({
-      origin: "reader", entry: check.entry ?? "check_me", practiceItemId: check.practiceItemId, stemMd: check.stemMd,
-      extractionId: ticket.extractionId, spanIds: [check.spanId], clientIdempotencyKey: newKey(),
-      schedulerCandidateId: check.schedulerCandidateId, planPresentationId: check.planPresentationId,
-      admittedSessionId: sessionId,
-    })
+  // RW4b fix round 4 (R1): a problem whose exercise pick is owed (the
+  // server's durable `exercisePick.due`) is admitted by the server's one
+  // operation, for THAT problem by its id. Nothing is remembered here but
+  // which admissions are in flight (no two at once for one problem); a
+  // failed one stays owed on the server and is asked again on the problem's
+  // next sight. The answer is admitted only while its generation is current
+  // and it is for the problem asked about; it then refreshes the shown
+  // problem (its exposure, its serve) through the workbench's update path.
+  const admitting = useRef(new Set<string>());
+  const admit = useCallback((session: WorkbenchSessionDto) => {
+    const book = { extractionId: extractionRef.current, sourceId: cardRef.current?.sourceId ?? null };
+    if (!session.exercisePick?.due || !session.practiceItemId || session.status !== "open") return;
+    if (!session.extractionId || !session.sourceId || !onOpenBook(session, book)) return;
+    if (admitting.current.has(session.sessionId)) return;
+    admitting.current.add(session.sessionId);
+    const sentGeneration = generation.current;
+    const asked = session.sessionId;
+    void api.workbenchAdmit({ sessionId: asked, practiceSessionId: propsRef.current?.practiceSessionId ?? null })
       .then((result) => {
-        // Acknowledged by its own open, whether or not it is still shown.
-        owed.current.set(sessionId, { phase: "delivered" });
-        if (!admits(ticket, result.session)) return;
-        beginRef.current(result.session, ticket, false, {
-          schedulerCandidateId: check.schedulerCandidateId, planPresentationId: check.planPresentationId,
-        });
+        if (generation.current !== sentGeneration || result.session.sessionId !== asked) return;
+        if (!onOpenBook(result.session, { extractionId: extractionRef.current, sourceId: cardRef.current?.sourceId ?? null })) return;
+        setActive((current) => (current && current.session.sessionId === asked ? { ...current, session: result.session } : current));
+        if (result.practiceSession) propsRef.current?.onPracticeSession?.(result.practiceSession);
       })
       .catch((error) => {
-        // Not acknowledged: owed still, handed over again on its next sight.
-        owed.current.delete(sessionId);
-        onError(errorMessage(error, "Couldn't open the check."));
-      });
-  }, [admits, issue, onError]);
-
-  // A served check for a problem: kept; opened now only when it answers the
-  // newest request on the problem's own book (else on the problem's next sight).
-  const served = useCallback((sessionId: string, check: ReaderWorkbenchCheck, ticket: Ticket | null) => {
-    owed.current.set(sessionId, { phase: "served", check, ticket });
-    const now = ticket ? stillOpen(ticket) : true;
-    if (now && cardRef.current?.sourceId === check.sourceId) deliver(sessionId, check);
-  }, [deliver, stillOpen]);
-
-  const noteAdmission = useCallback((session: WorkbenchSessionDto) => {
-    const open = cardRef.current;
-    // The pick names the book the exercise is in (re-review F6): a problem on
-    // another book than the open one (or while the open card and extraction
-    // disagree) admits nothing; it stays owed until its own book is open.
-    const book = { extractionId: extractionRef.current, sourceId: open?.sourceId ?? null };
-    if (!open || !session.extractionId || !session.sourceId || !onOpenBook(session, book)) return;
-    const entry = owed.current.get(session.sessionId);
-    if (entry?.phase === "served") {
-      deliver(session.sessionId, entry.check);
-      return;
-    }
-    if (entry) return; // picking, opening or delivered
-    const due = session.exercisePick;
-    if (!due?.due || !session.practiceItemId) return;
-    const handOff = onAdmittedRef.current;
-    if (!handOff) return;
-    const ticket: Ticket = { seq: requestSeq.current, ...book };
-    owed.current.set(session.sessionId, { phase: "picking", ticket });
-    const release = () => {
-      if (owed.current.get(session.sessionId)?.phase === "picking") owed.current.delete(session.sessionId);
-    };
-    Promise.resolve()
-      .then(() => handOff({
-        practiceItemId: session.practiceItemId as string,
-        proposalId: due.proposalId,
-        importId: session.sourceExercise?.importId ?? null,
-        sourceId: open.sourceId,
-        card: open,
-        spanId: session.spanIds[0] ?? "",
-        stemMd: session.stemMd,
-        workbenchSessionId: session.sessionId,
-      }))
-      .then((outcome) => {
-        if (outcome && typeof outcome === "object") {
-          if (owed.current.get(session.sessionId)?.phase === "picking") served(session.sessionId, outcome, ticket);
-          return;
-        }
-        // `true`: the check comes through `checkMe` (kept below); else owed.
-        if (outcome !== true) release();
+        if (generation.current !== sentGeneration) return;
+        onError(errorMessage(error, "Couldn't add this exercise to your practice yet."));
       })
-      .catch(release);
-  }, [deliver, onOpenBook, served]);
+      .finally(() => admitting.current.delete(asked));
+  }, [onError, onOpenBook]);
 
   type Serve = { schedulerCandidateId: string | null; planPresentationId: string | null };
   // Only an admitted answer begins a problem (its ticket was checked, so the
   // open card is the problem's own book).
-  const begin = useCallback((session: WorkbenchSessionDto, _ticket: Ticket, readOnly = false, serve?: Serve) => {
+  const begin = useCallback((session: WorkbenchSessionDto, sent: Ticket, readOnly = false, serve?: Serve) => {
     const shown = cardRef.current;
     if (!shown) return;
     setAbandoned(null);
     setSheetOpen(false);
-    setActive({ session, readOnly, autoFocus: !readOnly, card: shown, ...(serve ?? {}) });
-    noteAdmission(session);
-  }, [noteAdmission]);
-  beginRef.current = begin;
+    setActive({ session, readOnly, autoFocus: !readOnly, card: shown, generation: sent.generation, ...(serve ?? {}) });
+    admit(session);
+  }, [admit]);
 
   const openSelection = useCallback(async (request: { stemMd: string; spanIds: string[]; importRequest: ReaderImportExerciseInput }) => {
     if (!enabled || !extractionId) return;
-    const ticket = issue();
+    const sent = ticket(true);
     try {
       const result = await api.workbenchOpen({
         origin: "reader", entry: "work_through", stemMd: request.stemMd, extractionId,
         spanIds: request.spanIds, importRequest: request.importRequest, clientIdempotencyKey: newKey(),
       });
-      if (admits(ticket, result.session)) begin(result.session, ticket);
+      if (admits(sent, result.session)) begin(result.session, sent);
     } catch (error) {
-      onError(errorMessage(error, "Couldn't open the workbench."));
+      if (fresh(sent)) onError(errorMessage(error, "Couldn't open the workbench."));
     }
-  }, [admits, begin, enabled, extractionId, issue, onError]);
+  }, [admits, begin, enabled, extractionId, fresh, onError, ticket]);
 
   const openItem = useCallback(async (request: { practiceItemId: string; stemMd: string; spanIds: string[] }) => {
     if (!enabled || !extractionId) return;
-    const ticket = issue();
+    const sent = ticket(true);
     try {
       const result = await api.workbenchOpen({
         origin: "reader", entry: "work_through", practiceItemId: request.practiceItemId, stemMd: request.stemMd,
         extractionId, spanIds: request.spanIds, clientIdempotencyKey: newKey(),
       });
-      if (admits(ticket, result.session)) begin(result.session, ticket);
+      if (admits(sent, result.session)) begin(result.session, sent);
     } catch (error) {
-      onError(errorMessage(error, "Couldn't open the workbench."));
+      if (fresh(sent)) onError(errorMessage(error, "Couldn't open the workbench."));
     }
-  }, [admits, begin, enabled, extractionId, issue, onError]);
+  }, [admits, begin, enabled, extractionId, fresh, onError, ticket]);
 
   const resume = useCallback(async (sessionId: string) => {
-    const ticket = issue();
+    const sent = ticket(true);
     try {
-      // One explicit resume: reopened when set aside, and moved into the
-      // Reader (its anchors here, the book hidden once steps exist) when it
-      // was worked on the practice screen (review F4).
-      const result = await api.workbenchOpen({ origin: "reader", entry: "resume", sessionId, extractionId: ticket.extractionId });
-      // R2: an answer for a book no longer open, or overtaken by a newer
-      // request, changes nothing; the problem stays resumable (and owed).
-      if (admits(ticket, result.session)) begin(result.session, ticket);
+      // One explicit resume, by the problem's id (round 4, R3): reopened when
+      // set aside, and moved into the Reader (its anchors here, the book
+      // hidden once steps exist) when it was worked on the practice screen
+      // (review F4). The answer must be that problem, on the open book.
+      const result = await api.workbenchOpen({ origin: "reader", entry: "resume", sessionId, extractionId: sent.extractionId });
+      if (result.session.sessionId === sessionId && admits(sent, result.session)) begin(result.session, sent);
     } catch (error) {
-      onError(errorMessage(error, "Couldn't reopen this problem."));
+      if (fresh(sent)) onError(errorMessage(error, "Couldn't reopen this problem."));
     }
-  }, [admits, begin, issue, onError]);
+  }, [admits, begin, fresh, onError, ticket]);
 
   // "Check me" (D40): once its source is the one open, the check opens in the
-  // working posture with the book hidden, as the pick's own serve. An
-  // exercise's pick handed over this way (`admitsSessionId`) leaves the
-  // shell's slot at once and is kept with its problem (R1), so a later check
-  // replacing the slot cannot displace it.
+  // working posture with the book hidden, as the pick's own serve. The shell
+  // forgets this check (by identity) once it opened or failed, never a newer
+  // one; an answer gone stale changes nothing, and the check is opened again
+  // when it can be (a later generation).
   const checkMe = props?.checkMe ?? null;
-  const openedCheckRef = useRef<ReaderWorkbenchCheck | null>(null);
+  const openedCheckRef = useRef<{ check: ReaderWorkbenchCheck; generation: number } | null>(null);
   useEffect(() => {
-    if (!enabled || !checkMe || openedCheckRef.current === checkMe) return;
-    if (checkMe.admitsSessionId) {
-      openedCheckRef.current = checkMe;
-      const entry = owed.current.get(checkMe.admitsSessionId);
-      props?.onCheckMeShown?.();
-      if (entry?.phase === "opening" || entry?.phase === "delivered") return;
-      served(checkMe.admitsSessionId, checkMe, entry?.phase === "picking" ? entry.ticket : null);
-      return;
-    }
-    if (!extractionId || !card || card.sourceId !== checkMe.sourceId) return;
-    openedCheckRef.current = checkMe;
-    const ticket = issue();
+    if (!enabled || !checkMe || !extractionId || !card || card.sourceId !== checkMe.sourceId) return;
+    if (openedCheckRef.current?.check === checkMe && openedCheckRef.current.generation === generation.current) return;
+    openedCheckRef.current = { check: checkMe, generation: generation.current };
+    const sent = ticket(true);
     void api.workbenchOpen({
       origin: "reader", entry: checkMe.entry ?? "check_me", practiceItemId: checkMe.practiceItemId, stemMd: checkMe.stemMd,
-      extractionId: ticket.extractionId, spanIds: [checkMe.spanId], clientIdempotencyKey: newKey(),
+      extractionId: sent.extractionId, spanIds: [checkMe.spanId], clientIdempotencyKey: newKey(),
       // The pick's serve goes on the problem itself, so leaving and resuming
       // it still submits as that serve (review F13); the server also hides
       // the book on a reused problem, keeping what it counted (F14).
       schedulerCandidateId: checkMe.schedulerCandidateId, planPresentationId: checkMe.planPresentationId,
     })
       .then((result) => {
-        props?.onCheckMeShown?.();
-        if (!admits(ticket, result.session)) return;
-        begin(result.session, ticket, false, {
+        if (!admits(sent, result.session)) return;
+        propsRef.current?.onCheckMeShown?.(checkMe);
+        begin(result.session, sent, false, {
           schedulerCandidateId: checkMe.schedulerCandidateId, planPresentationId: checkMe.planPresentationId,
         });
       })
       .catch((error) => {
-        props?.onCheckMeShown?.();
+        if (!fresh(sent)) return;
+        propsRef.current?.onCheckMeShown?.(checkMe);
         onError(errorMessage(error, "Couldn't open the check."));
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -469,13 +388,15 @@ export function useReaderWorkbench(input: {
 
   // RW4b: "use this one" (the shell picked it): once its source is open, the
   // problem opens at once on the verbatim statement while its import runs.
+  // Consumed by identity (round 4, F9): an older open's answer never clears a
+  // newer exercise the learner chose since.
   const exercise = props?.exercise ?? null;
-  const openedExerciseRef = useRef<ReaderWorkbenchExercise | null>(null);
+  const openedExerciseRef = useRef<{ exercise: ReaderWorkbenchExercise; generation: number } | null>(null);
   useEffect(() => {
     if (!enabled || !exercise || !extractionId || !card || card.sourceId !== exercise.sourceId) return;
-    if (openedExerciseRef.current === exercise) return;
-    openedExerciseRef.current = exercise;
-    const ticket = issue();
+    if (openedExerciseRef.current?.exercise === exercise && openedExerciseRef.current.generation === generation.current) return;
+    openedExerciseRef.current = { exercise, generation: generation.current };
+    const sent = ticket(true);
     void api.workbenchOpen({
       origin: "reader", entry: exercise.entry, stemMd: exercise.stemMd, extractionId: exercise.extractionId,
       spanIds: exercise.spanIds, clientIdempotencyKey: newKey(),
@@ -484,12 +405,13 @@ export function useReaderWorkbench(input: {
         : { importRequest: exercise.importRequest ?? null, ...(exercise.exercisePick ? { exercisePick: exercise.exercisePick } : {}) }),
     })
       .then((result) => {
-        props?.onExerciseShown?.();
-        if (!admits(ticket, result.session)) return;
-        begin(result.session, ticket);
+        if (!admits(sent, result.session)) return;
+        propsRef.current?.onExerciseShown?.(exercise);
+        begin(result.session, sent);
       })
       .catch((error) => {
-        props?.onExerciseShown?.();
+        if (!fresh(sent)) return;
+        propsRef.current?.onExerciseShown?.(exercise);
         onError(errorMessage(error, "Couldn't open this exercise."));
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -500,44 +422,48 @@ export function useReaderWorkbench(input: {
     await resume(abandoned.sessionId);
   }, [abandoned, resume]);
 
-  // An import refresh (or any change inside the workbench) answers the problem
-  // shown: one for a problem on a book no longer open changes nothing (R2).
-  const update = useCallback((session: WorkbenchSessionDto) => {
-    const book = { extractionId: extractionRef.current, sourceId: cardRef.current?.sourceId ?? null };
-    if (!onOpenBook(session, book)) return;
-    setActive((current) => (current && current.session.sessionId === session.sessionId ? { ...current, session } : current));
-    noteAdmission(session);
-  }, [noteAdmission, onOpenBook]);
+  // A change inside the shown workbench (its book, its import refresh). R5:
+  // one from a workbench shown in an earlier generation (left, another book,
+  // unmounted), or for a problem that is not the one shown, changes nothing
+  // and admits nothing (Codex final verify F8).
+  const update = useCallback((session: WorkbenchSessionDto, shownIn?: number) => {
+    if (shownIn !== undefined && shownIn !== generation.current) return;
+    const current = activeRef.current;
+    if (!current || current.session.sessionId !== session.sessionId) return;
+    if (!onOpenBook(session, { extractionId: extractionRef.current, sourceId: cardRef.current?.sourceId ?? null })) return;
+    setActive((now) => (now && now.session.sessionId === session.sessionId ? { ...now, session } : now));
+    admit(session);
+  }, [admit, onOpenBook]);
 
   const close = useCallback((session: WorkbenchSessionDto | null, options?: { abandoned?: boolean }) => {
     const target = session ?? active?.session ?? null;
-    requestSeq.current += 1; // leaving overtakes an open still in flight
+    bump(); // Leave: everything still in flight for the problem left is stale
     setActive(null);
     setSheetOpen(false);
     setAbandoned(options?.abandoned && target ? target : null);
     void refresh();
     return target?.spanIds[0] ?? null;
-  }, [active, refresh]);
+  }, [active, bump, refresh]);
 
-  // A submit answers the problem it was made on. R2: when that problem is no
-  // longer the one shown (another book's extraction opened, or another
-  // problem took its place), the answer is dropped: it closes nothing and
-  // leaves for no feedback (the attempt is kept, and the marks refresh).
-  // R3: the way back is the submitted problem's own book and passage, as it
-  // was checked when the problem was activated, never the card shown now
-  // (the open card can run ahead of the extraction while a book opens).
-  const submitted = useCallback((result: WorkbenchSubmitDto) => {
+  // A submit answers the problem it was made on. When that problem is no
+  // longer the one shown (left, another book, another problem took its
+  // place, a stale generation), the answer is dropped: it closes nothing and
+  // leaves for no feedback (the attempt is kept, and the marks refresh). The
+  // way back is the submitted problem's own book and passage, as checked
+  // when it was activated, never the card shown now (round 3, R3).
+  const submitted = useCallback((result: WorkbenchSubmitDto, shownIn?: number) => {
     const current = activeRef.current;
     const shown = current !== null
+      && (shownIn === undefined || shownIn === generation.current)
       && current.session.sessionId === result.session.sessionId
       && (!result.session.extractionId || result.session.extractionId === extractionRef.current);
     void refresh();
     if (!current || !shown) return;
-    requestSeq.current += 1; // an open still in flight does not reopen over feedback
+    bump(); // an open still in flight does not reopen over feedback
     const spanId = result.session.spanIds[0] ?? current.session.spanIds[0] ?? "";
     setActive(null);
-    props?.onSubmitted?.(result, { card: current.card, spanId });
-  }, [props, refresh]);
+    propsRef.current?.onSubmitted?.(result, { card: current.card, spanId });
+  }, [bump, refresh]);
 
   return {
     enabled,

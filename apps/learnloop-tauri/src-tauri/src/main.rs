@@ -569,6 +569,7 @@ fn main() {
             workbench_refresh_import,
             workbench_bind,
             workbench_retry_import,
+            workbench_admit,
             workbench_submit,
             workbench_session_for_attempt,
             workbench_for_item,

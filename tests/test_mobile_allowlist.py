@@ -259,21 +259,29 @@ def test_the_pinned_rw4a_rpcs_are_all_of_them():
 
 
 # Reader workbench RW4b (spec_reader_workbench_v1 §7.4): the view of a
-# proposal's textbook exercises (their exposure) and the fallback search; it
-# extends reader.prompt_contract (libraryExercises) and workbench.open
-# (sourceExercise: the sources service's import in the workbench). Desktop only.
+# proposal's textbook exercises (their exposure) and the fallback search, and
+# (fix round 4, R1) the one server operation that admits a picked exercise's
+# learner pick; it extends reader.prompt_contract (libraryExercises),
+# workbench.open (sourceExercise: the sources service's import in the
+# workbench) and workbench.submit (an owed pick is admitted first, R2).
+# Desktop only.
 READER_RW4B_RPCS = (
     "reader.exercise_candidates",
     "reader.find_exercises",
+    "workbench.admit",
     "reader.prompt_contract",
     "workbench.open",
+    "workbench.submit",
 )
+READER_RW4B_EXTENDED_RPCS = ("reader.prompt_contract", "workbench.open", "workbench.submit")
 
 
 def test_the_pinned_rw4b_rpcs_are_all_of_them():
     from learnloop_sidecar.handlers.library_exercises import LIBRARY_EXERCISE_RPCS
+    from learnloop_sidecar.handlers.workbench import EXERCISE_ADMISSION_RPCS
 
-    assert set(READER_RW4B_RPCS) - {"reader.prompt_contract", "workbench.open"} == set(LIBRARY_EXERCISE_RPCS)
+    assert set(READER_RW4B_RPCS) - set(READER_RW4B_EXTENDED_RPCS) == {
+        *LIBRARY_EXERCISE_RPCS, *EXERCISE_ADMISSION_RPCS}
 
 
 # Adaptive hints H0 (spec_adaptive_hints_v1 §9, G-H13): the practice screen's

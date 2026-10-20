@@ -38,6 +38,10 @@ from learnloop_sidecar.registry import method
 
 T = TypeVar("T")
 
+#: Reader RW4b fix round 4 (R1): the RPC this module adds for a picked
+#: exercise's admission (pinned desktop-only in tests/test_mobile_allowlist.py).
+EXERCISE_ADMISSION_RPCS: tuple[str, ...] = ("workbench.admit",)
+
 #: Import job statuses that are still running (``reader.exercise_import_status``).
 _IMPORT_RUNNING = frozenset({"queued", "running", "blocked", "pending"})
 
@@ -269,6 +273,14 @@ def _enqueue_import(ctx: SidecarContext, vault, repository, request: dict[str, A
     for a picked textbook exercise proposal, exactly as ``import_source_exercise``
     does (the same helper: the import row, the pick's usage verdict, the job)."""
 
+    region = _picked_region(request)
+    if region is not None:
+        # The import reads the exercise's statement: only through the one
+        # reader, re-checked now (fix round 4, R4).
+        from learnloop_sidecar.handlers import library_exercises as LX
+
+        if LX.read_exercise_statement(vault, repository, region[0], region[1]) is None:
+            raise SidecarError(EXERCISE_WITHHELD, EXERCISE_WITHHELD_MESSAGE)
     if _is_source_exercise(request):
         from learnloop_sidecar.handlers.source_service import queue_source_exercise_import
 
@@ -384,10 +396,6 @@ class WorkbenchOpenInput(ParamsModel):
     #: Reader RW4b: the fallback's exercise ("use this one" beside its
     #: ``import_request``), so the server reads its exposure and records the pick.
     exercise_pick: WorkbenchExercisePickInput | None = None
-    #: Reader RW4b: the learner pick of a picked exercise's item, delivered:
-    #: the problem it admits (resumed by this open, on that item). Recorded on
-    #: it only now, after the pick and its serve succeeded (Codex review F2).
-    admitted_session_id: str | None = None
 
 
 class WorkbenchSessionInput(ParamsModel):
@@ -424,6 +432,12 @@ class WorkbenchSubmitInput(ParamsModel):
     plan_presentation_id: str | None = None
 
 
+class WorkbenchAdmitInput(ParamsModel):
+    session_id: str
+    #: The app's open practice session, when there is one.
+    practice_session_id: str | None = None
+
+
 class WorkbenchAttemptInput(ParamsModel):
     attempt_id: str
 
@@ -449,6 +463,20 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
     carried = max(0, int(params.carried_hints or 0))
     serve = _named_serve(params)
     if params.session_id:
+        # RW4b fix round 4, R3: a resume opens the problem it names, by its id,
+        # and only that problem: one asked for with another item, or for
+        # another book than the one it is on, is refused; and a picked
+        # exercise whose region is exam or held-out material now is not shown
+        # again (R4, the one statement reader; its steps are kept).
+        named = _run(WB.session_row, repository, params.session_id)
+        if params.practice_item_id and named.get("practice_item_id") != params.practice_item_id:
+            raise SidecarError("validation_error", "That problem is for another item.",
+                               details={"sessionId": params.session_id})
+        if (params.origin == "reader" and params.extraction_id and named.get("extraction_id")
+                and named["extraction_id"] != params.extraction_id):
+            raise SidecarError("validation_error", "That problem is in another book.",
+                               details={"sessionId": params.session_id})
+        _refuse_withheld_exercise(vault, repository, named)
         row = _run(
             WB.resume_session, repository, params.session_id, origin=params.origin, entry=params.entry,
             extraction_id=params.extraction_id, span_ids=params.span_ids, carried=carried,
@@ -460,8 +488,6 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
     entry = params.entry
     import_status, batch_id, error = "none", None, None
     request = dict(params.import_request) if params.import_request else None
-    if params.admitted_session_id and not params.practice_item_id:
-        raise SidecarError("validation_error", "An exercise is admitted on the item its import wrote.")
     if params.practice_item_id:
         item = vault.practice_items.get(params.practice_item_id)
         if item is None:
@@ -504,8 +530,8 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
         carried_book=params.carried_book, serve=serve,
     )
     _ensure_contract(vault, repository, row["id"])
-    if params.admitted_session_id and params.practice_item_id:
-        _admit_exercise(vault, repository, params.admitted_session_id, params.practice_item_id)
+    if resumed:
+        _refuse_withheld_exercise(vault, repository, _run(WB.session_row, repository, row["id"]))
     return _answer({"session": _view(vault, repository, row["id"]), "resumed": resumed})
 
 
@@ -513,31 +539,79 @@ def _picked_exercise(vault, repository, params: WorkbenchOpenInput, request: dic
                      stem: str) -> tuple[str, str, dict[str, Any]]:
     """What a textbook exercise the learner picked opens as (Reader RW4b),
     decided here rather than by the card that offered it: its complete
-    statement read from its validated spans (Codex review F4; the card's is a
-    preview), how it opens from the exposure rule read now (F3: exposed since
-    it was shown, it opens as practice beside the book), and the pick's
-    record kept on the problem (F2)."""
+    statement, read through the one statement reader (fix round 4, R4: an
+    exercise held out since its card was shown is refused before anything of
+    it is read or returned; Codex review F4: the card's is a preview), how it
+    opens from the exposure rule read now (F3: exposed since it was shown, it
+    opens as practice beside the book), and the pick's record kept on the
+    problem (F2)."""
 
     from learnloop_sidecar.handlers import library_exercises as LX
 
-    if params.source_exercise is not None:
-        extraction_id, span_ids = params.source_exercise.extraction_id, list(params.source_exercise.span_ids)
-        pick: dict[str, Any] = {"proposal_id": params.source_exercise.proposal_id}
-    else:
-        selection = ReaderImportSelection.model_validate(request)
-        extraction_id = selection.extraction_id
-        span_ids = [str(node.get("span_id") or node.get("spanId") or "")
-                    for node in (selection.raw_selection.get("nodes") or []) if isinstance(node, dict)]
-        span_ids = [span for span in span_ids if span]
-        if not span_ids:
-            raise SidecarError("validation_error", "A fallback exercise opens on its region's blocks.")
-        dumped = params.exercise_pick.model_dump() if params.exercise_pick is not None else {}
-        pick = {"proposal_id": None, **dumped}
+    extraction_id, span_ids, pick = _exercise_region(params, request)
+    statement = LX.read_exercise_statement(vault, repository, extraction_id, span_ids)
+    if statement is None:
+        raise SidecarError(EXERCISE_WITHHELD, EXERCISE_WITHHELD_MESSAGE)
     pick.update(extraction_id=extraction_id, span_ids=span_ids, admitted_at=None)
     exposure = LX.pick_exposure(vault, repository, pick)
     pick.update(exposure=exposure, exposure_checked="selection")
-    full = LX.full_statement(repository, extraction_id, span_ids) if exposure is not None else None
+    # Only an exercise the proposal proposed (or the fallback's listed region)
+    # opens on its own statement; anything else keeps the asked stem and its
+    # import refuses it.
+    full = statement.text if exposure is not None else None
     return (full or stem), LX.pick_entry(exposure, params.entry), {**request, WB.EXERCISE_PICK_KEY: pick}
+
+
+#: A picked exercise whose region is exam or held-out material now (or whose
+#: check could not be read): nothing of it is shown, opened or imported.
+EXERCISE_WITHHELD = "exercise_withheld"
+EXERCISE_WITHHELD_MESSAGE = "This exercise is no longer available to practise (it is kept for an exam or a held-out check)."
+
+
+def _exercise_region(params: WorkbenchOpenInput, request: dict[str, Any]) -> tuple[str, list[str], dict[str, Any]]:
+    """The picked exercise's extraction, spans and the pick's record to keep."""
+
+    if params.source_exercise is not None:
+        extraction_id, span_ids = params.source_exercise.extraction_id, list(params.source_exercise.span_ids)
+        return extraction_id, span_ids, {"proposal_id": params.source_exercise.proposal_id}
+    selection = ReaderImportSelection.model_validate(request)
+    span_ids = _selection_spans(selection.raw_selection)
+    if not span_ids:
+        raise SidecarError("validation_error", "A fallback exercise opens on its region's blocks.")
+    dumped = params.exercise_pick.model_dump() if params.exercise_pick is not None else {}
+    return selection.extraction_id, span_ids, {"proposal_id": None, **dumped}
+
+
+def _selection_spans(raw_selection: dict[str, Any]) -> list[str]:
+    spans = [str(node.get("span_id") or node.get("spanId") or "")
+             for node in (raw_selection.get("nodes") or []) if isinstance(node, dict)]
+    return [span for span in spans if span]
+
+
+def _picked_region(request: dict[str, Any] | None) -> tuple[str, list[str]] | None:
+    """A picked exercise's region from its import request (None for every other problem)."""
+
+    request = request or {}
+    pick = request.get(WB.EXERCISE_PICK_KEY)
+    if _is_source_exercise(request):
+        return str(request.get("extraction_id") or ""), [str(span) for span in request.get("span_ids") or []]
+    if isinstance(pick, dict):
+        return str(pick.get("extraction_id") or ""), [str(span) for span in pick.get("span_ids") or []]
+    return None
+
+
+def _refuse_withheld_exercise(vault, repository, row: dict[str, Any]) -> None:
+    """A picked exercise is shown again only while its region may be (R4)."""
+
+    from learnloop_sidecar.handlers import library_exercises as LX
+
+    if row.get("status") == "submitted":
+        return
+    region = _picked_region(WB.import_request(row))
+    if region is None:
+        return
+    if LX.read_exercise_statement(vault, repository, region[0], region[1]) is None:
+        raise SidecarError(EXERCISE_WITHHELD, EXERCISE_WITHHELD_MESSAGE)
 
 
 class ReaderImportSelection(ParamsModel):
@@ -548,24 +622,6 @@ class ReaderImportSelection(ParamsModel):
 
     extraction_id: str
     raw_selection: dict[str, Any]
-
-
-def _admit_exercise(vault, repository, session_id: str, practice_item_id: str) -> None:
-    """The learner pick of a picked exercise's item was delivered: record it on
-    the problem, with the exposure read again now (Codex review F2, F3). The
-    problem then shows that reading; a problem with nothing owed is untouched."""
-
-    from learnloop_sidecar.handlers import library_exercises as LX
-
-    try:
-        row = _run(WB.session_row, repository, session_id)
-    except SidecarError:
-        return
-    if not row or not WB.exercise_pick_due(row) or row.get("practice_item_id") != practice_item_id:
-        return
-    pick = WB.exercise_pick(row) or {}
-    _run(WB.admit_exercise_pick, repository, session_id, practice_item_id=practice_item_id,
-         exposure=LX.pick_exposure(vault, repository, pick))
 
 
 def _named_serve(params: ParamsModel) -> dict[str, str | None] | None:
@@ -750,6 +806,13 @@ def _kept_offer(repository, candidate_id: str | None, practice_session_id: str, 
     return candidate_id if open_offer else None
 
 
+def _session_open(repository, practice_session_id: str | None) -> bool:
+    if not practice_session_id:
+        return False
+    session = repository.fetch_session(practice_session_id)
+    return session is not None and session["ended_at"] is None
+
+
 def _practice_session(ctx: SidecarContext, repository, requested: str | None) -> str:
     """The practice session a workbench submit runs in: the app's open one,
     else the most recent open one, else a new one (``start_session``)."""
@@ -764,6 +827,102 @@ def _practice_session(ctx: SidecarContext, repository, requested: str | None) ->
     from learnloop_sidecar.handlers.sessions import SessionStartInput, start_session
 
     return str(start_session(ctx, SessionStartInput())["sessionId"])
+
+
+# -- RW4b fix round 4, R1: the exercise's admission, one server operation ---------------------------------
+
+#: A submit on a picked exercise whose learner pick could not be made and
+#: served now: nothing was submitted, the problem stays open, try again.
+ADMISSION_PENDING = "admission_pending"
+
+
+def _admit(ctx: SidecarContext, session_id: str, requested_practice_session: str | None) -> str | None:
+    """Admit a picked exercise's item as the learner's pick, for THIS problem
+    (Reader RW4b fix round 4, R1). Keyed by the workbench session id, never by
+    the item (Codex final verify F10), under the vault mutation lock:
+
+    1. the problem is read by its id and must still owe its pick (bound to
+       the item its import wrote, open, not admitted);
+    2. the practice session is resolved, or started (the submit's own rule);
+    3. the plan's learner pick is made with the proposal and import ids, and
+       the item is served in that session (the practice screen's serve, which
+       records a plan-off proposal's delivery);
+    4. in one transaction: that serve is stored on THIS problem, with the
+       practice session, the exposure read again, and ``admitted_at``.
+
+    Idempotent: a problem admitted already returns its admission (the same
+    practice session) and makes no second pick. A failure anywhere before
+    step 4 leaves the pick owed, to retry. Returns the practice session the
+    problem is admitted in, or None when nothing is owed (another problem, a
+    selection, a fallback that wrote no item)."""
+
+    from learnloop.vault_lock import vault_mutation_lock
+    from learnloop_sidecar.handlers import library_exercises as LX
+    from learnloop_sidecar.handlers.daily_plan import PlanLearnerPickInput, plan_learner_pick
+    from learnloop_sidecar.handlers.practice import ServePracticeItemInput, get_practice_item
+
+    vault, repository = _require(ctx)
+    row = _run(WB.session_row, repository, session_id)
+    pick = WB.exercise_pick(row)
+    if pick is None:
+        return None
+    if pick.get("admitted_at"):
+        return pick.get("practice_session_id") or None
+    if not WB.exercise_pick_due(row):
+        return None
+    with vault_mutation_lock(vault.root, purpose="workbench_admit"):
+        vault, repository = _require(ctx)
+        row = _run(WB.session_row, repository, session_id)
+        pick = WB.exercise_pick(row) or {}
+        if pick.get("admitted_at"):
+            return pick.get("practice_session_id") or None
+        if not WB.exercise_pick_due(row):
+            return None
+        _refuse_withheld_exercise(vault, repository, row)
+        item_id = str(row["practice_item_id"])
+        proposal_id = pick.get("proposal_id") or None
+        import_id = (_source_exercise_view(vault, repository, row) or {}).get("import_id") if proposal_id else None
+        practice_session_id = _practice_session(ctx, repository, requested_practice_session)
+        picked = plan_learner_pick(ctx, PlanLearnerPickInput(
+            practice_item_id=item_id, session_id=practice_session_id, proposal_id=proposal_id,
+            source_exercise_import_id=import_id))
+        enabled = bool(picked.get("enabled"))
+        step = picked.get("step") if isinstance(picked.get("step"), dict) else {}
+        item_step = step if step.get("kind") == "item" else {}
+        serve = {
+            "scheduler_candidate_id": item_step.get("schedulerCandidateId"),
+            "plan_presentation_id": item_step.get("presentationId") if enabled else None,
+        }
+        # The plan off: the open list's serve records the proposal's delivery
+        # (as the shell's serve did); the plan on: its pick already did.
+        origin = {} if enabled or not proposal_id else {"proposal_id": proposal_id,
+                                                         "source_exercise_import_id": import_id}
+        get_practice_item(ctx, ServePracticeItemInput(practice_item_id=item_id, session_id=practice_session_id,
+                                                      **origin))
+        vault, repository = ctx.require_vault()
+        _run(WB.admit_exercise_pick, repository, session_id, practice_item_id=item_id,
+             exposure=LX.pick_exposure(vault, repository, pick), serve=serve,
+             practice_session_id=practice_session_id)
+    admitted = WB.exercise_pick(_run(WB.session_row, repository, session_id)) or {}
+    if not admitted.get("admitted_at"):
+        raise SidecarError(ADMISSION_PENDING, "This exercise couldn't be added to your practice yet. Try again.",
+                           details={"retryable": True})
+    return admitted.get("practice_session_id") or practice_session_id
+
+
+@method("workbench.admit", WorkbenchAdmitInput)
+def workbench_admit(ctx: SidecarContext, params: WorkbenchAdmitInput) -> dict[str, Any]:
+    """Make a picked exercise's owed learner pick, for the problem named
+    (Reader RW4b fix round 4, R1): see ``_admit``. Answers the problem as it
+    now stands and the practice session it was admitted in."""
+
+    _require(ctx)
+    practice_session_id = _admit(ctx, params.session_id, params.practice_session_id)
+    vault, repository = _require(ctx)
+    return _answer({
+        "session": _view(vault, repository, params.session_id),
+        "practiceSession": session_snapshot(repository, practice_session_id) if practice_session_id else None,
+    })
 
 
 @method("workbench.submit", WorkbenchSubmitInput)
@@ -783,6 +942,26 @@ def workbench_submit(ctx: SidecarContext, params: WorkbenchSubmitInput) -> dict[
 
     vault, repository = _require(ctx)
     row = _run(WB.session_row, repository, params.session_id)
+    admitted_in: str | None = None
+    if row["status"] == "open" and WB.exercise_pick_due(row):
+        # RW4b fix round 4, R2: a picked exercise's owed pick is made, served
+        # and recorded on the problem before anything is submitted; when it
+        # cannot be, nothing is submitted and the problem stays open to retry
+        # (Codex final verify F2: never a submission that leaves it owed).
+        try:
+            admitted_in = _admit(ctx, params.session_id, params.practice_session_id)
+        except SidecarError as exc:
+            if exc.code == EXERCISE_WITHHELD:
+                raise
+            raise SidecarError(ADMISSION_PENDING, "This exercise couldn't be added to your practice yet, so "
+                               "nothing was submitted. Try again.", details={"retryable": True}) from exc
+        vault, repository = _require(ctx)
+        row = _run(WB.session_row, repository, params.session_id)
+        if WB.exercise_pick_due(row):
+            raise SidecarError(ADMISSION_PENDING, "This exercise couldn't be added to your practice yet, so "
+                               "nothing was submitted. Try again.", details={"retryable": True})
+    elif row["status"] == "open":
+        admitted_in = (WB.exercise_pick(row) or {}).get("practice_session_id") or None
     if row["status"] == "submitted" and row.get("attempt_id") and row.get("practice_item_id"):
         cached = _cached_submission(
             ctx, vault, repository, WB.submission_id_for(row["id"]), row["practice_item_id"]
@@ -806,10 +985,15 @@ def workbench_submit(ctx: SidecarContext, params: WorkbenchSubmitInput) -> dict[
     item = vault.practice_items.get(plan.practice_item_id)
     if item is None:
         raise SidecarError("not_found", f"Unknown Practice Item {plan.practice_item_id}.")
-    practice_session_id = _practice_session(ctx, repository, params.practice_session_id)
+    # An admitted exercise answers its admission's serve, made in that
+    # practice session (while it is open; else the submit's own rule).
+    practice_session_id = _practice_session(ctx, repository, admitted_in if _session_open(repository, admitted_in)
+                                            else params.practice_session_id)
     # The serve is one pair (review F15): the one the request names, both
-    # identifiers, or else the one the session kept, both identifiers.
-    named = _named_serve(params)
+    # identifiers, or else the one the session kept, both identifiers. An
+    # admitted exercise's kept serve is its admission's: a named one never
+    # replaces it.
+    named = None if (WB.exercise_pick(row) or {}).get("admitted_at") else _named_serve(params)
     if named is not None:
         scheduler_candidate_id, plan_presentation_id = named["scheduler_candidate_id"], named["plan_presentation_id"]
     else:

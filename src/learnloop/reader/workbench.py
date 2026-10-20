@@ -934,12 +934,17 @@ def admit_exercise_pick(
     *,
     practice_item_id: str,
     exposure: Mapping[str, Any] | None,
+    serve: Mapping[str, str | None] | None = None,
+    practice_session_id: str | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
-    """Record that the learner pick of the exercise's item was delivered, with
-    the exposure read again at that moment. Idempotent: a problem admitted
-    already, one bound to another item, or one that is no exercise is left
-    as it is."""
+    """Record that the learner pick of the exercise's item was made and served
+    for THIS problem, in one transaction (RW4b fix round 4, R1): the pick's
+    serve (its scheduler offer and plan presentation) stored on this problem,
+    the practice session it was made in, the exposure read again at that
+    moment, and ``admitted_at``. Idempotent: a problem admitted already, one
+    bound to another item, or one that is no exercise is left as it is (an
+    admitted one keeps the serve and session of its admission)."""
 
     now = utc_now_iso(clock)
     with repository.atomic():
@@ -948,13 +953,15 @@ def admit_exercise_pick(
         request = import_request(session) or {}
         pick = request.get(EXERCISE_PICK_KEY)
         if (not isinstance(pick, dict) or pick.get("admitted_at") or session.get("import_status") != "bound"
-                or session.get("practice_item_id") != practice_item_id):
+                or session.get("practice_item_id") != practice_item_id or session.get("status") != "open"):
             return session
-        updated = {**pick, "admitted_at": now}
+        updated = {**pick, "admitted_at": now, "practice_session_id": practice_session_id}
         if exposure is not None:
             updated.update(exposure=dict(exposure), exposure_checked="admission")
         request[EXERCISE_PICK_KEY] = updated
-        store.update_session(connection, session_id, {"import_request_json": json.dumps(request, sort_keys=True)})
+        changes: dict[str, Any] = {"import_request_json": json.dumps(request, sort_keys=True), "updated_at": now}
+        changes.update(_serve_changes(serve))
+        store.update_session(connection, session_id, changes)
         session = _require(connection, session_id)
         _log(repository, session, "workbench_exercise_admitted", clock,
              exposed=bool((exposure or {}).get("exposed")))

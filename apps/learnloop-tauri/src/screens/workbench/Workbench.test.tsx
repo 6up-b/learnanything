@@ -742,3 +742,29 @@ it("RW4b: a picked exercise seen since it was offered says why, and that it is p
   render(<Workbench {...props({ initial: session({ exercisePick: { ...pick, exposure: { ...exposure, exposed: false, reasons: [], label: null, offeredAs: "check_on_your_own" as const } } }) })} />);
   expect(screen.queryByTestId("workbench-exercise-exposure")).toBeNull();
 });
+
+// RW4b fix round 4, R6 (Codex final verify F3): the exercise was picked
+// unexposed; while it imported the learner read its passage; the admission
+// corrects the exposure. The mounted workbench (same problem, same key) shows
+// the correction, and keeps the step being typed and its write.
+it("R6 (verify F3): the admission's exposure correction reaches the mounted workbench, keeping the unsaved step", async () => {
+  const unexposed = { exposed: false, reasons: [], label: null, note: null, offeredAs: "check_on_your_own" as const,
+    exposureRuleVersion: "reading_exposure_v1" };
+  const pick = { proposalId: "pp_1", exposure: unexposed, exposureChecked: "selection" as const, admitted: false, due: true };
+  const first = session({ sourceVisible: false, exercisePick: pick });
+  const onSession = vi.fn();
+  const view = render(<Workbench {...props({ initial: first, serverSession: first, onSession })} />);
+  expect(screen.queryByTestId("workbench-exercise-exposure")).toBeNull();
+  await typeStep(1, "3x = 15, so");
+  const corrected = session({
+    sourceVisible: false, schedulerCandidateId: "cand_admit",
+    exercisePick: { ...pick, admitted: true, due: false, exposureChecked: "admission",
+      exposure: { exposed: true, reasons: ["source_exposed"], label: "you've recently seen this page or its solution", note: null,
+        offeredAs: "practice" as const, exposureRuleVersion: "reading_exposure_v1" } },
+  });
+  view.rerender(<Workbench {...props({ initial: first, serverSession: corrected, onSession })} />);
+  expect(screen.getByTestId("workbench-exercise-exposure").textContent)
+    .toBe("you've recently seen this page or its solution · practice beside the book, not a check on your own");
+  expect(stepBox(1).value).toBe("3x = 15, so");
+  await waitFor(() => expect(api.workbenchSaveStep).toHaveBeenCalledWith(expect.objectContaining({ bodyMd: "3x = 15, so" })));
+});

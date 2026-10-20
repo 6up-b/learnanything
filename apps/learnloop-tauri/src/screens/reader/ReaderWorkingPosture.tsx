@@ -97,16 +97,19 @@ export function ReaderWorkingPosture({
         <Workbench
           key={active.session.sessionId}
           initial={active.session}
+          serverSession={active.session}
           layout={stacked ? "stacked" : "split"}
           readOnly={active.readOnly}
           autoFocus={active.autoFocus}
           practiceSessionId={practiceSessionId}
           schedulerCandidateId={active.schedulerCandidateId}
           planPresentationId={active.planPresentationId}
-          onSession={wbCtl.update}
+          // R5: the workbench's own callbacks carry the generation it was
+          // shown in, so a late one after Leave or a book change is dropped.
+          onSession={(next) => wbCtl.update(next, active.generation)}
           onLeave={onLeave}
           onAbandoned={onAbandoned}
-          onSubmitted={wbCtl.submitted}
+          onSubmitted={(result) => wbCtl.submitted(result, active.generation)}
           onShowInBook={() => wbCtl.setSheetOpen(!wbCtl.sheetOpen)}
           onPeekPassage={onPeekPassage}
           onError={onError}

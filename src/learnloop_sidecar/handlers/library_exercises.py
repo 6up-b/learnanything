@@ -42,6 +42,7 @@ defaults off).
 from __future__ import annotations
 
 from contextlib import closing
+from dataclasses import dataclass
 from typing import Any
 
 from pydantic import Field
@@ -144,27 +145,21 @@ def exposure_view(vault: Any, repository: Any, candidate: dict[str, Any], *,
     }
 
 
-def _withheld(vault: Any, repository: Any, extraction_id: str, span_ids: list[str]) -> bool:
-    """Exam or held-out material (the one predicate), now, whatever was proposed."""
-
-    from learnloop.source_retrieval.corpus import exam_withheld
-
-    return bool(exam_withheld(vault, repository, [(extraction_id, str(span)) for span in span_ids]))
-
-
 def _proposal_lo_ids(found: dict[str, Any]) -> list[str]:
     """The request's learning objects: they scope the rule's studied worked examples."""
 
     return [str(lo) for lo in ((found.get("constraints") or {}).get("learning_object_ids") or ())]
 
 
-def _proposal_candidate(entry: dict[str, Any], span_ids: list[str], lo_ids: list[str]) -> dict[str, Any]:
+def _proposal_candidate(entry: dict[str, Any], span_ids: list[str], lo_ids: list[str],
+                        read: "ExerciseStatement") -> dict[str, Any]:
     """A proposal's exercise as the exposure rule reads it: the same input at
     display, at the pick and at admission, so the rule's one judge answers a
-    second reading from its ledger."""
+    second reading from its ledger. Its statement is the one reader's (fix
+    round 4, R4), bounded as the arm bounds a proposal's."""
 
     return {"extraction_id": str(entry.get("extraction_id")), "span_ids": list(span_ids), "key": entry.get("key"),
-            "statement": entry.get("statement"), "learning_object_ids": list(lo_ids)}
+            "statement": _preview(read.text), "learning_object_ids": list(lo_ids)}
 
 
 def _preview(text: str) -> str:
@@ -175,29 +170,83 @@ def _preview(text: str) -> str:
     return text if len(text) <= STATEMENT_CHARS else text[:STATEMENT_CHARS - 1] + "…"
 
 
-# -- "use this one": what opens, decided on the server at the pick --------------------------------------
+# -- the one reader of an exercise's statement (RW4b fix round 4, R4) ----------------------------------
 
 
-def full_statement(repository: Any, extraction_id: str, span_ids: list[str]) -> str | None:
-    """The exercise's complete verbatim statement (Codex review F4): its
-    exercise region's text, read from the validated spans, never the list's
-    preview (which stops at ``STATEMENT_CHARS``). The blocks themselves, joined
-    as a region joins them, when the region reads differently now."""
+@dataclass(frozen=True)
+class ExerciseStatement:
+    """A textbook exercise's statement, read now and cleared for showing."""
+
+    extraction_id: str
+    #: The spans asked for, in order.
+    span_ids: tuple[str, ...]
+    #: Every span the check covered: the complete exercise region(s) the asked
+    #: spans sit in, and the asked spans themselves.
+    checked_span_ids: tuple[str, ...]
+    #: The complete verbatim statement: the region's text when the spans are
+    #: exactly one region, else the blocks themselves, joined as a region joins them.
+    text: str
+
+
+def exercise_region_spans(connection: Any, extraction_id: str, span_id: str,
+                          cache: dict[str, list[Any]] | None = None) -> tuple[str, ...] | None:
+    """The span ids of the exercise region a span sits in (boundaries only,
+    never its text), or None. ``cache``: regions by extraction, for a list."""
+
+    from learnloop.instructional.exercises import exercise_regions
+
+    regions = cache.get(extraction_id) if cache is not None else None
+    if regions is None:
+        regions = exercise_regions(connection, extraction_id)
+        if cache is not None:
+            cache[extraction_id] = regions
+    region = next((region for region in regions if span_id in region.span_ids), None)
+    return tuple(region.span_ids) if region is not None else None
+
+
+def read_exercise_statement(vault: Any, repository: Any, extraction_id: str,
+                            span_ids: list[str] | tuple[str, ...]) -> ExerciseStatement | None:
+    """THE one way RW4b reads a textbook exercise's statement, for every path
+    that reads or returns one: the candidate view's withholding, the
+    fallback's listing, the picked exercise ``workbench.open`` shows, its
+    exposure reading and the import "use this one" queues (Codex final verify
+    F7). At read time it widens the spans to their complete exercise
+    region(s) and asks the one exam/held-out predicate
+    (``source_retrieval.corpus.exam_withheld``) about every one of them, so
+    a region held out after it was shown is never read again, not even the
+    part a card's preview did not show. It fails closed: a predicate that
+    cannot be read, or spans with no text, give None, and nothing is shown.
+    ``tests/test_library_exercises.py`` pins that no handler or reader module
+    reads a statement any other way."""
 
     from learnloop.db.connection import connect
     from learnloop.db.stores.source_block_fts import blocks_by_key
     from learnloop.instructional.exercises import exercise_regions
+    from learnloop.source_retrieval.corpus import exam_withheld
 
     wanted = tuple(str(span) for span in span_ids)
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        region = next((region for region in exercise_regions(connection, extraction_id)
-                       if region.span_ids == wanted), None)
-        if region is not None:
-            return region.text
-        blocks = blocks_by_key(connection, [(extraction_id, span) for span in wanted])
-    texts = [" ".join(blocks[(extraction_id, span)].text.split()) for span in wanted
-             if (extraction_id, span) in blocks and (blocks[(extraction_id, span)].text or "").strip()]
-    return "\n\n".join(texts) or None
+    if not extraction_id or not wanted:
+        return None
+    try:
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            regions = exercise_regions(connection, extraction_id)
+            covering = [region for region in regions if set(region.span_ids) & set(wanted)]
+            checked = tuple(dict.fromkeys([*(span for region in covering for span in region.span_ids), *wanted]))
+            if exam_withheld(vault, repository, [(extraction_id, span) for span in checked]):
+                return None
+            exact = next((region for region in covering if tuple(region.span_ids) == wanted), None)
+            if exact is not None:
+                text = exact.text
+            else:
+                blocks = blocks_by_key(connection, [(extraction_id, span) for span in wanted])
+                text = "\n\n".join(" ".join(blocks[(extraction_id, span)].text.split()) for span in wanted
+                                    if (extraction_id, span) in blocks
+                                    and (blocks[(extraction_id, span)].text or "").strip())
+    except Exception:  # noqa: BLE001 - an unreadable predicate never shows the statement (fail closed)
+        return None
+    if not (text or "").strip():
+        return None
+    return ExerciseStatement(extraction_id=extraction_id, span_ids=wanted, checked_span_ids=checked, text=text)
 
 
 #: The verdict when the rule could not be read at the pick: practice beside the
@@ -250,13 +299,17 @@ def pick_exposure(vault: Any, repository: Any, pick: dict[str, Any]) -> dict[str
             with closing(connect(repository.sqlite_path, read_only=True)) as connection:
                 found = stored_proposal(connection, str(proposal_id)) or {}
             spans = [str(span) for span in entry.get("span_ids") or span_ids]
-            return exposure_view(vault, repository, _proposal_candidate(entry, spans, _proposal_lo_ids(found)),
+            proposed = read_exercise_statement(vault, repository, str(entry.get("extraction_id")), spans)
+            if proposed is None:
+                raise LookupError("withheld or unreadable")  # fail closed, below
+            return exposure_view(vault, repository,
+                                 _proposal_candidate(entry, spans, _proposal_lo_ids(found), proposed),
                                  proposal_id=str(proposal_id))
-        statement = full_statement(repository, extraction_id, span_ids)
-        if statement is None:
+        read = read_exercise_statement(vault, repository, extraction_id, span_ids)
+        if read is None:
             return None
         candidate = {"key": exercise_key(extraction_id, span_ids), "extraction_id": extraction_id,
-                     "span_ids": span_ids, "statement": _preview(statement),
+                     "span_ids": span_ids, "statement": _preview(read.text),
                      "learning_object_ids": [str(lo) for lo in pick.get("learning_object_ids") or ()]}
         own = _own_listing_events(repository, list(pick.get("shown_event_ids") or ()), extraction_id, span_ids)
         return exposure_view(vault, repository, candidate, proposal_id=None, own_listing_event_ids=own)
@@ -331,10 +384,13 @@ def reader_exercise_candidates(ctx: SidecarContext, params: ExerciseCandidatesIn
         withheld = 0
         for entry, span_ids in entries:
             extraction_id = str(entry.get("extraction_id"))
-            if _withheld(vault, worker_repo, extraction_id, span_ids):
+            # Read through the one reader (R4): a region held out now, or a
+            # predicate that cannot be read, leaves the candidate out.
+            read = read_exercise_statement(vault, worker_repo, extraction_id, span_ids)
+            if read is None:
                 withheld += 1
                 continue
-            candidate = _proposal_candidate(entry, span_ids, lo_ids)
+            candidate = _proposal_candidate(entry, span_ids, lo_ids, read)
             candidates.append({
                 "key": entry.get("key"), "extraction_id": extraction_id, "span_ids": span_ids,
                 "source_id": entry.get("source_id"), "revision_id": entry.get("revision_id"),
@@ -354,15 +410,6 @@ class FindExercisesInput(ParamsModel):
     #: The source the Reader has open (the caller's reference; the policy is derived).
     extraction_id: str | None = None
     limit: int = Field(default=FALLBACK_LIMIT, ge=1, le=10)
-
-
-def _region_for(regions_by_extraction: dict[str, list[Any]], connection: Any, extraction_id: str,
-                span_id: str) -> Any | None:
-    from learnloop.instructional.exercises import exercise_regions
-
-    if extraction_id not in regions_by_extraction:
-        regions_by_extraction[extraction_id] = exercise_regions(connection, extraction_id)
-    return next((region for region in regions_by_extraction[extraction_id] if span_id in region.span_ids), None)
 
 
 @method("reader.find_exercises", FindExercisesInput)
@@ -404,33 +451,34 @@ def _fallback_candidates(vault: Any, repository: Any, hits: Any, lo_ids: list[st
     imported = imported_span_keys(vault, repository)
     candidates: list[dict[str, Any]] = []
     dropped = {"no_region": 0, "already_imported": 0, "withheld": 0, "duplicate": 0}
-    seen: set[tuple[str, ...]] = set()
+    seen: set[tuple[str, tuple[str, ...]]] = set()
     regions: dict[str, list[Any]] = {}
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         for hit in hits.hits:
             extraction_id, span_id = str(hit["extraction_id"]), str(hit["span_id"])
-            region = _region_for(regions, connection, extraction_id, span_id)
-            if region is None:
+            region_spans = exercise_region_spans(connection, extraction_id, span_id, regions)
+            if region_spans is None:
                 dropped["no_region"] += 1
                 continue
-            if region.key in seen:
+            if (extraction_id, region_spans) in seen:
                 dropped["duplicate"] += 1
                 continue
-            seen.add(region.key)
-            span_ids = list(region.span_ids)
+            seen.add((extraction_id, region_spans))
+            span_ids = list(region_spans)
             if any((extraction_id, span) in imported for span in span_ids):
                 dropped["already_imported"] += 1
                 continue
-            if _withheld(vault, repository, extraction_id, span_ids):
+            read = read_exercise_statement(vault, repository, extraction_id, span_ids)
+            if read is None:
                 dropped["withheld"] += 1
                 continue
-            statement = _preview(region.text)
+            statement = _preview(read.text)
             key = exercise_key(extraction_id, span_ids)
             candidates.append({
                 "key": key, "extraction_id": extraction_id, "span_ids": span_ids,
                 "source_id": hit.get("source_id"), "revision_id": hit.get("revision_id"),
                 "source_title": hit.get("source_title"), "page": hit.get("page"),
-                "label": exercise_label(region.text, hit.get("page")), "statement": statement,
+                "label": exercise_label(read.text, hit.get("page")), "statement": statement,
                 "learning_object_ids": lo_ids,
             })
             if len(candidates) >= limit:
@@ -476,8 +524,10 @@ __all__ = [
     "exercises_enabled",
     "exposure_view",
     "fallback_enabled",
-    "full_statement",
+    "ExerciseStatement",
+    "exercise_region_spans",
     "pick_entry",
     "pick_exposure",
     "prompt_contract_fields",
+    "read_exercise_statement",
 ]

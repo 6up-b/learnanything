@@ -40,6 +40,10 @@ export type WorkbenchLayout = "split" | "stacked" | "full";
 
 export interface WorkbenchProps {
   initial: WorkbenchSessionDto;
+  /** RW4b fix round 4 (R6): the server's newer view of this same problem
+   *  (an exercise's admission corrects its exposure and key). Applied to the
+   *  mounted problem; its unsaved steps and write queue stay as they are. */
+  serverSession?: WorkbenchSessionDto;
   layout: WorkbenchLayout;
   /** A submitted problem, shown with its steps and what it recorded (UX S6). */
   readOnly?: boolean;
@@ -85,6 +89,11 @@ export function Workbench(props: WorkbenchProps) {
   const { initial, layout, readOnly = false, practiceSessionId = null, onError } = props;
   const wb = useWorkbenchSession(initial, { readOnly, onSession: props.onSession, onError });
   const { session, steps, record } = wb;
+  const serverSession = props.serverSession;
+  const applyServer = wb.applyServer;
+  useEffect(() => {
+    if (serverSession) applyServer(serverSession);
+  }, [serverSession, applyServer]);
   const regionRef = useRef<HTMLElement | null>(null);
   const [focus, setFocus] = useState<{ key: string; n: number } | null>(() => {
     const first = steps[0];

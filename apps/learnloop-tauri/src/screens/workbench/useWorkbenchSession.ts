@@ -128,6 +128,11 @@ export interface WorkbenchSessionControls {
   submit: (input: Omit<WorkbenchSubmitInput, "sessionId">) => Promise<WorkbenchSubmitDto>;
   /** RW2b: the record line after a check or a hint was shown (G62). */
   applyRecord: (record: WorkbenchRecordDto) => void;
+  /** RW4b fix round 4 (R6): the server's newer view of this problem (an
+   *  exercise's admission: its exposure, its key, its serve) applied to the
+   *  mounted problem. The learner's steps, the book choice and the write
+   *  queue are this window's and stay as they are. */
+  applyServer: (next: WorkbenchSessionDto) => void;
 }
 
 export function useWorkbenchSession(
@@ -561,6 +566,9 @@ export function useWorkbenchSession(
     const timer = setInterval(() => {
       void api.workbenchRefreshImport({ sessionId: sessionRef.current.sessionId })
         .then((result) => {
+          // Unmounted (left, another problem): a late answer changes nothing
+          // here, and is never handed on (fix round 4, F8).
+          if (closed.current) return;
           const next = result.session;
           const current = sessionRef.current;
           if (next.importStatus !== current.importStatus || next.practiceItemId !== current.practiceItemId || (next.parts?.length ?? 0) !== (current.parts?.length ?? 0)) {
@@ -593,8 +601,22 @@ export function useWorkbenchSession(
 
   const applyRecord = useCallback((next: WorkbenchRecordDto) => setRecord(next), []);
 
+  const applyServer = useCallback((next: WorkbenchSessionDto) => {
+    const current = sessionRef.current;
+    if (next === current || next.sessionId !== current.sessionId || closed.current) return;
+    // The server's metadata; this window's steps, book and queue.
+    commitSession({
+      ...next,
+      steps: current.steps,
+      lastEditedStepId: current.lastEditedStepId,
+      sourceVisible: current.sourceVisible,
+      sourceHiddenAt: current.sourceHiddenAt,
+      sourceShownAt: current.sourceShownAt,
+    }, false);
+  }, [commitSession]);
+
   return {
     session, steps, record, save, started, frozen, leaving, setBody, addStep, deleteStep, undoDelete, flushEdits, drained,
-    setBook, leave, abandon, reopen, retryImport, bind, submit, applyRecord,
+    setBook, leave, abandon, reopen, retryImport, bind, submit, applyRecord, applyServer,
   };
 }

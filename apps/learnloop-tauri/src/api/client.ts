@@ -12,6 +12,7 @@ import type {
   LibraryNotesDto,
   LibraryTutorDto,
   WorkbenchOpenInput,
+  WorkbenchAdmitDto,
   WorkbenchSaveStepDto,
   WorkbenchSaveStepInput,
   WorkbenchSessionDto,
@@ -1600,6 +1601,10 @@ export const api = {
     call<{ version: number; session: WorkbenchSessionDto }>("workbench_bind", { input }),
   workbenchRetryImport: (input: { sessionId: string }) =>
     mutatingReader(call<{ version: number; session: WorkbenchSessionDto }>("workbench_retry_import", { input }), [TAG.queue, TAG.proposals]),
+  // RW4b fix round 4 (R1): a picked exercise's owed learner pick, made,
+  // served and recorded on the named problem by the server, idempotently.
+  workbenchAdmit: (input: { sessionId: string; practiceSessionId?: string | null }) =>
+    mutating([TAG.queue, TAG.proposals], call<WorkbenchAdmitDto>("workbench_admit", { input })),
   workbenchSubmit: (input: WorkbenchSubmitInput) =>
     mutating(ATTEMPT_TAGS, call<WorkbenchSubmitDto>("workbench_submit", { input })),
   workbenchSessionForAttempt: (input: { attemptId: string }) =>

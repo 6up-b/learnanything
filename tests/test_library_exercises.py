@@ -329,7 +329,7 @@ def test_use_this_one_opens_at_once_on_the_verbatim_stem_while_the_import_runs(l
     assert again["sessionId"] == session["sessionId"] and len(imports["queued"]) == 1
 
 
-def test_admitted_the_problem_binds_to_the_written_item_and_becomes_a_learner_pick(library, imports):
+def test_admitted_the_problem_binds_to_the_written_item_and_becomes_a_learner_pick(library, imports, monkeypatch):
     paths, repository, _spans = library
     proposal = _proposal(paths, repository)
     exercise = proposal["source_exercises"][0]
@@ -346,22 +346,17 @@ def test_admitted_the_problem_binds_to_the_written_item_and_becomes_a_learner_pi
     # The key's honest status, as the sources service labels it.
     source = bound["sourceExercise"]
     assert source["importStatus"] == "written" and source["keyStatus"] and source["keyLabel"]
-    # The shell's pick: the plan's own learner pick, with the proposal and the import.
-    picked = call(ctx, "plan_learner_pick", {
-        "practiceItemId": bound["practiceItemId"], "proposalId": proposal["proposal_id"],
-        "sourceExerciseImportId": source["importId"]})
-    if picked.get("enabled"):
-        assert picked["proposalPick"]["importId"] == source["importId"]
-    else:  # the plan off: the selection is recorded, the open's serve delivers it
-        assert picked["proposalPick"]["delivery"] == "on_open"
-    # The check-me hand-off reopens the same problem with the pick's serve, its book choice kept.
-    reopened = call(ctx, "workbench.open", {"origin": "reader", "entry": "practice_this",
-                                            "practiceItemId": bound["practiceItemId"], "stemMd": exercise["statement"],
-                                            "extractionId": "ext_text", "spanIds": exercise["span_ids"],
-                                            "schedulerCandidateId": "cand_1", "planPresentationId": None})
-    assert reopened["resumed"] is True and reopened["session"]["sessionId"] == session["sessionId"]
-    assert reopened["session"]["schedulerCandidateId"] == "cand_1"
-    assert reopened["session"]["sourceVisible"] is False
+    # The pick (fix round 4, R1): the server's one admission, for this problem
+    # by its id: the plan's own learner pick with the proposal and the import,
+    # served, its serve kept on THIS problem, the book choice kept.
+    picks = _spy_picks(monkeypatch)
+    admitted = call(ctx, "workbench.admit", {"sessionId": session["sessionId"]})
+    assert admitted["session"]["sessionId"] == session["sessionId"]
+    assert admitted["session"]["exercisePick"]["admitted"] is True and admitted["session"]["sourceVisible"] is False
+    [picked] = picks
+    assert (picked.practice_item_id, picked.proposal_id, picked.source_exercise_import_id) == (
+        bound["practiceItemId"], proposal["proposal_id"], source["importId"])
+    assert admitted["practiceSession"]["sessionId"] == picked.session_id
 
 
 def test_a_refused_import_is_shown_with_its_reason_binds_nothing_and_tries_the_same_import_again(library, imports):
@@ -541,13 +536,26 @@ def _bind(paths, repository, ctx, imports, session: dict[str, Any]) -> dict[str,
     return bound
 
 
-def _admitting_open(ctx, bound: dict[str, Any], exercise: dict[str, Any]) -> dict[str, Any]:
-    """The shell's hand-off after the learner pick and its serve succeeded."""
+def _admit(ctx, session_id: str, **params: Any) -> dict[str, Any]:
+    """The server's one admission of a picked exercise's learner pick (fix round 4, R1)."""
 
-    return call(ctx, "workbench.open", {"origin": "reader", "entry": "practice_this",
-                                        "practiceItemId": bound["practiceItemId"], "stemMd": exercise["statement"],
-                                        "extractionId": "ext_text", "spanIds": exercise["span_ids"],
-                                        "admittedSessionId": bound["sessionId"]})["session"]
+    return call(ctx, "workbench.admit", {"sessionId": session_id, **params})["session"]
+
+
+def _spy_picks(monkeypatch) -> list[Any]:
+    """Every learner pick the admission makes (the plan's own pick path)."""
+
+    from learnloop_sidecar.handlers import daily_plan
+
+    made: list[Any] = []
+    real = daily_plan.plan_learner_pick
+
+    def spy(ctx, params):
+        made.append(params)
+        return real(ctx, params)
+
+    monkeypatch.setattr(daily_plan, "plan_learner_pick", spy)
+    return made
 
 
 def _admitted_events(repository, session_id: str) -> list[dict[str, Any]]:
@@ -582,26 +590,28 @@ def test_the_learner_pick_is_owed_durably_across_a_restart_and_acknowledged_only
     assert resumed["exercisePick"]["due"] is True
     again = _use_this_one(restarted, proposal, exercise)  # "use this one" on the already-bound problem
     assert again["sessionId"] == session["sessionId"] and again["exercisePick"]["due"] is True
-    # A failed delivery acknowledges nothing: the pick stays owed, to retry.
-    with pytest.raises(SidecarError):
-        call(restarted, "plan_learner_pick", {"practiceItemId": bound["practiceItemId"],
-                                              "proposalId": proposal["proposal_id"],
-                                              "sourceExerciseImportId": "sei_not_this_one"})
+    # A failed admission acknowledges nothing: the pick stays owed, to retry.
+    from learnloop_sidecar.handlers import daily_plan
+
+    real_pick = daily_plan.plan_learner_pick
+
+    def refused(ctx, params):
+        raise SidecarError("validation_error", "refused")
+
+    daily_plan.plan_learner_pick = refused
+    try:
+        with pytest.raises(SidecarError):
+            _admit(restarted, session["sessionId"])
+    finally:
+        daily_plan.plan_learner_pick = real_pick
     assert call(restarted, "workbench.get", {"sessionId": session["sessionId"]})["session"]["exercisePick"]["due"] is True
-    # A hand-off that admits nothing (no admitted session named) acknowledges nothing either.
-    call(restarted, "workbench.open", {"origin": "reader", "entry": "practice_this", "practiceItemId": bound["practiceItemId"],
-                                       "stemMd": exercise["statement"], "extractionId": "ext_text",
-                                       "spanIds": exercise["span_ids"]})
-    assert call(restarted, "workbench.get", {"sessionId": session["sessionId"]})["session"]["exercisePick"]["due"] is True
-    # Delivered: the plan's pick, then the hand-off that resumes the problem.
-    call(restarted, "plan_learner_pick", {"practiceItemId": bound["practiceItemId"], "proposalId": proposal["proposal_id"],
-                                          "sourceExerciseImportId": bound["sourceExercise"]["importId"]})
-    admitted = _admitting_open(restarted, bound, exercise)
+    # Admitted: the server's one operation, for this problem.
+    admitted = _admit(restarted, session["sessionId"])
     assert admitted["sessionId"] == session["sessionId"]
     assert admitted["exercisePick"]["admitted"] is True and admitted["exercisePick"]["due"] is False
     assert admitted["exercisePick"]["exposureChecked"] == "admission"
-    # Once: a repeated hand-off and another restart owe nothing more.
-    _admitting_open(restarted, bound, exercise)
+    # Once: a repeated admission and another restart owe nothing more.
+    _admit(restarted, session["sessionId"])
     assert call(context(paths.root), "workbench.get", {"sessionId": session["sessionId"]})["session"]["exercisePick"]["due"] is False
     [event] = _admitted_events(repository, session["sessionId"])
     assert event["payload"]["authority_class"] == SF.SALIENCE_ONLY
@@ -609,34 +619,26 @@ def test_the_learner_pick_is_owed_durably_across_a_restart_and_acknowledged_only
         SF.reject_salience(event)
 
 
-def test_admitting_needs_the_item_and_never_marks_another_problem(library, imports):
+def test_admitting_needs_the_item_and_never_marks_another_problem(library, imports, monkeypatch):
     paths, repository, _spans = library
     proposal = _proposal(paths, repository)
     exercise = proposal["source_exercises"][0]
     ctx = context(paths.root)
     session = _use_this_one(ctx, proposal, exercise)
-    with pytest.raises(SidecarError) as caught:
-        call(ctx, "workbench.open", {"origin": "reader", "entry": "practice_this", "stemMd": "x",
-                                     "extractionId": "ext_text", "spanIds": ["t1"],
-                                     "importRequest": {"extractionId": "ext_text", "rawSelection": {}},
+    picks = _spy_picks(monkeypatch)
+    # Still running: nothing is owed yet, and nothing is picked or marked.
+    pending = _admit(ctx, session["sessionId"])
+    assert pending["exercisePick"]["admitted"] is False and picks == []
+    # The open hand-off of PR rounds 1-3 is gone: an open never admits anything.
+    with pytest.raises(Exception):
+        call(ctx, "workbench.open", {"origin": "reader", "entry": "practice_this", "practiceItemId": "pi_eigen_1",
+                                     "stemMd": "Solve it", "extractionId": "ext_text", "spanIds": ["t6"],
                                      "admittedSessionId": session["sessionId"]})
-    assert caught.value.code == "validation_error"
-    # Still running: an admission names a problem that owes nothing yet, and is ignored.
-    call(ctx, "workbench.open", {"origin": "reader", "entry": "work_through", "practiceItemId": "pi_eigen_1",
-                                 "stemMd": "Solve it", "extractionId": "ext_text", "spanIds": ["t6"],
-                                 "admittedSessionId": session["sessionId"]})
-    pending = call(ctx, "workbench.get", {"sessionId": session["sessionId"]})["session"]
-    assert pending["exercisePick"]["admitted"] is False
     bound = _bind(paths, repository, ctx, imports, session)
-    # Another item's hand-off never admits this problem.
-    call(ctx, "workbench.open", {"origin": "reader", "entry": "work_through", "practiceItemId": "pi_eigen_1",
-                                 "stemMd": "Solve it", "extractionId": "ext_text", "spanIds": ["t6"],
-                                 "admittedSessionId": session["sessionId"]})
-    assert call(ctx, "workbench.get", {"sessionId": bound["sessionId"]})["session"]["exercisePick"]["due"] is True
-    # An unknown problem named as admitted: the hand-off still opens, nothing is marked.
-    call(ctx, "workbench.open", {"origin": "reader", "entry": "practice_this", "practiceItemId": bound["practiceItemId"],
-                                 "stemMd": "Solve it", "extractionId": "ext_text", "spanIds": ["t6"],
-                                 "admittedSessionId": "wbs_unknown"})
+    # A problem that is no exercise admits nothing.
+    plain = call(ctx, "workbench.open", {"origin": "reader", "entry": "work_through", "practiceItemId": "pi_eigen_1",
+                                         "stemMd": "Solve it", "extractionId": "ext_text", "spanIds": ["t6"]})["session"]
+    assert "exercisePick" not in _admit(ctx, plain["sessionId"]) and picks == []
     assert call(ctx, "workbench.get", {"sessionId": bound["sessionId"]})["session"]["exercisePick"]["due"] is True
     assert _admitted_events(repository, session["sessionId"]) == []
 
@@ -675,9 +677,7 @@ def test_exposure_since_the_pick_is_read_again_at_admission_and_shown(library, i
     bound = _bind(paths, repository, ctx, imports, session)
     record_shown_spans(repository, [f"ext_text:{exercise['span_ids'][0]}"], context="library",
                        entity_type="library_ask", entity_id="later")
-    call(ctx, "plan_learner_pick", {"practiceItemId": bound["practiceItemId"], "proposalId": proposal["proposal_id"],
-                                    "sourceExerciseImportId": bound["sourceExercise"]["importId"]})
-    admitted = _admitting_open(ctx, bound, exercise)
+    admitted = _admit(ctx, bound["sessionId"])
     exposure = admitted["exercisePick"]["exposure"]
     assert admitted["exercisePick"]["exposureChecked"] == "admission"
     assert exposure["exposed"] is True and exposure["offeredAs"] == "practice"
@@ -752,3 +752,288 @@ def test_the_rw4b_switches_are_classified_in_the_parameter_registry():
         rule = registry.classify_config_path(key)
         assert rule is not None, key
         assert (rule.kind, rule.param_class) == ("structural", "operational"), key
+
+
+# -- fix round 4 (orchestrator rulings): the server owns the admission ---------------------------------
+# R1: one server operation admits a picked exercise's learner pick, keyed by
+# the workbench session id. R2: a submit admits an owed pick first, or refuses
+# (retryable) and submits nothing. R3: a resume opens the problem it names and
+# checks its item and book. R4: one statement reader re-checks the exam and
+# held-out predicate on the complete region at read time and fails closed.
+
+
+@pytest.fixture
+def grader(monkeypatch):
+    """A blind grader fake behind the sidecar's grading provider (as RW2a's tests)."""
+
+    import learnloop_sidecar.handlers.practice as practice
+    from tests.split_live_helpers import ReadyRuntime
+    from tests.test_stuck_prompt import StuckFake
+
+    client = StuckFake()
+    monkeypatch.setattr(practice, "ready_grading_provider",
+                        lambda vault, override=None: ("fake", ReadyRuntime(), client))
+    return client
+
+
+def _end_open_sessions(ctx, repository) -> None:
+    while (recent := repository.most_recent_open_session()) is not None:
+        call(ctx, "end_session", {"sessionId": recent["id"]})
+
+
+def test_r2_verify_f2_submit_with_no_practice_session_admits_the_owed_pick_first(library, imports, grader):
+    """Codex final verify F2, end to end: the exercise was left while it
+    imported, the practice session ended, and the problem is resumed and
+    submitted with no practice session in the app. The submit admits the owed
+    pick first (the practice session it starts, the learner pick, the serve on
+    this problem), so nothing is left owed or lost."""
+
+    paths, repository, _spans = library
+    proposal = _proposal(paths, repository)
+    exercise = proposal["source_exercises"][0]
+    ctx = context(paths.root)
+    session = _use_this_one(ctx, proposal, exercise)
+    call(ctx, "workbench.save_step", {"sessionId": session["sessionId"], "clientIdempotencyKey": "s1", "op": "add",
+                                      "bodyMd": "3x = 15, so x = 5"})
+    call(ctx, "workbench.leave", {"sessionId": session["sessionId"]})
+    bound = _bind(paths, repository, ctx, imports, session)
+    assert bound["exercisePick"]["due"] is True
+    _end_open_sessions(ctx, repository)
+    resumed = call(ctx, "workbench.open", {"origin": "reader", "entry": "resume", "sessionId": session["sessionId"],
+                                           "extractionId": "ext_text"})["session"]
+    assert resumed["exercisePick"]["due"] is True
+    submitted = call(ctx, "workbench.submit", {"sessionId": session["sessionId"]})
+    view = submitted["session"]
+    assert view["status"] == "submitted"
+    assert view["exercisePick"]["admitted"] is True and view["exercisePick"]["due"] is False
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        row = connection.execute("SELECT import_request_json, practice_session_id FROM workbench_sessions WHERE id = ?",
+                                 (session["sessionId"],)).fetchone()
+    import json
+
+    pick = json.loads(row[0])["reader_exercise"]
+    assert pick["admitted_at"] and pick["practice_session_id"] == row[1] == submitted["practiceSession"]["sessionId"]
+    assert len(_admitted_events(repository, session["sessionId"])) == 1
+    # After a restart nothing is owed, and nothing is lost: the submit is answered from its receipt.
+    again = call(context(paths.root), "workbench.submit", {"sessionId": session["sessionId"]})
+    assert again["attempt"]["attemptId"] == submitted["attempt"]["attemptId"]
+
+
+def test_r2_a_submit_whose_admission_fails_submits_nothing_and_stays_retryable(library, imports, grader, monkeypatch):
+    from learnloop_sidecar.handlers import daily_plan
+
+    paths, repository, _spans = library
+    proposal = _proposal(paths, repository)
+    exercise = proposal["source_exercises"][0]
+    ctx = context(paths.root)
+    session = _use_this_one(ctx, proposal, exercise)
+    call(ctx, "workbench.save_step", {"sessionId": session["sessionId"], "clientIdempotencyKey": "s1", "op": "add",
+                                      "bodyMd": "x = 5"})
+    _bind(paths, repository, ctx, imports, session)
+    attempts = _rows(repository, "practice_attempts")
+    real = daily_plan.plan_learner_pick
+
+    def refused(ctx, params):
+        raise SidecarError("validation_error", "the plan refused the pick")
+
+    monkeypatch.setattr(daily_plan, "plan_learner_pick", refused)
+    with pytest.raises(SidecarError) as caught:
+        call(ctx, "workbench.submit", {"sessionId": session["sessionId"]})
+    assert caught.value.code == "admission_pending"
+    view = call(ctx, "workbench.get", {"sessionId": session["sessionId"]})["session"]
+    assert view["status"] == "open" and view["exercisePick"]["due"] is True and view["steps"]
+    assert _rows(repository, "practice_attempts") == attempts
+    # Retried: admitted, then submitted.
+    monkeypatch.setattr(daily_plan, "plan_learner_pick", real)
+    done = call(ctx, "workbench.submit", {"sessionId": session["sessionId"]})["session"]
+    assert done["status"] == "submitted" and done["exercisePick"]["admitted"] is True
+
+
+def test_r1_verify_f10_admission_names_its_problem_never_another_with_the_same_item(library, imports, monkeypatch):
+    """Codex final verify F10: two open problems share the item (A abandoned,
+    B opened on the item, A reopened, B touched last). Delivering A's pick
+    returns A, keeps A's serve on A and marks A admitted; B is untouched."""
+
+    paths, repository, _spans = library
+    proposal = _proposal(paths, repository)
+    exercise = proposal["source_exercises"][0]
+    ctx = context(paths.root)
+    a = _use_this_one(ctx, proposal, exercise)
+    bound = _bind(paths, repository, ctx, imports, a)
+    call(ctx, "workbench.abandon", {"sessionId": a["sessionId"]})
+    b = call(ctx, "workbench.open", {"origin": "reader", "entry": "work_through", "practiceItemId": bound["practiceItemId"],
+                                     "stemMd": exercise["statement"], "extractionId": "ext_text",
+                                     "spanIds": exercise["span_ids"]})["session"]
+    assert b["sessionId"] != a["sessionId"]
+    call(ctx, "workbench.reopen", {"sessionId": a["sessionId"]})
+    call(ctx, "workbench.save_step", {"sessionId": b["sessionId"], "clientIdempotencyKey": "b1", "op": "add",
+                                      "bodyMd": "B's step"})
+    delivered = _deliver_pick(ctx, a["sessionId"], bound["practiceItemId"], proposal["proposal_id"],
+                              bound["sourceExercise"]["importId"])
+    assert delivered["sessionId"] == a["sessionId"]
+    a_now = call(ctx, "workbench.get", {"sessionId": a["sessionId"]})["session"]
+    b_now = call(ctx, "workbench.get", {"sessionId": b["sessionId"]})["session"]
+    assert a_now["exercisePick"]["admitted"] is True
+    assert (b_now["schedulerCandidateId"], b_now["planPresentationId"]) == (None, None)
+    assert "exercisePick" not in b_now
+
+
+def _deliver_pick(ctx, session_id: str, item_id: str, proposal_id: str, import_id: str) -> dict[str, Any]:
+    """Delivering a picked exercise's owed pick: the server's one admission."""
+
+    return _admit(ctx, session_id)
+
+
+def test_r1_admission_is_idempotent_one_pick_one_admission(library, imports, monkeypatch):
+    paths, repository, _spans = library
+    proposal = _proposal(paths, repository)
+    exercise = proposal["source_exercises"][0]
+    ctx = context(paths.root)
+    session = _use_this_one(ctx, proposal, exercise)
+    _bind(paths, repository, ctx, imports, session)
+    picks = _spy_picks(monkeypatch)
+    first = call(ctx, "workbench.admit", {"sessionId": session["sessionId"]})
+    second = call(context(paths.root), "workbench.admit", {"sessionId": session["sessionId"]})
+    assert len(picks) == 1 and len(_admitted_events(repository, session["sessionId"])) == 1
+    assert first["practiceSession"]["sessionId"] == second["practiceSession"]["sessionId"]
+    assert first["session"]["exercisePick"] == second["session"]["exercisePick"]
+
+
+def test_r3_a_resume_opens_the_problem_it_names_on_its_own_item_and_book(library, imports):
+    paths, repository, _spans = library
+    proposal = _proposal(paths, repository)
+    exercise = proposal["source_exercises"][0]
+    ctx = context(paths.root)
+    session = _use_this_one(ctx, proposal, exercise)
+    bound = _bind(paths, repository, ctx, imports, session)
+    for wrong in ({"practiceItemId": "pi_eigen_1"}, {"extractionId": "ext_other"}):
+        with pytest.raises(SidecarError) as caught:
+            call(ctx, "workbench.open", {"origin": "reader", "entry": "resume", "sessionId": session["sessionId"],
+                                         "extractionId": "ext_text", **wrong})
+        assert caught.value.code == "validation_error"
+    resumed = call(ctx, "workbench.open", {"origin": "reader", "entry": "resume", "sessionId": session["sessionId"],
+                                           "practiceItemId": bound["practiceItemId"], "extractionId": "ext_text"})
+    assert resumed["session"]["sessionId"] == session["sessionId"]
+
+
+def test_r4_verify_f7_an_exercise_held_out_after_its_card_was_shown_is_never_read_or_opened(library, imports):
+    """Codex final verify F7: the card was shown (eligible), then its region
+    was held out; "use this one" reads nothing of it, opens nothing, imports
+    nothing, and no part of its statement (the preview's tail included) is
+    returned."""
+
+    from learnloop.instructional.exercises import exercise_regions
+
+    paths, repository, spans = library
+    proposal = _proposal(paths, repository)
+    sentinel = "An eigenvalue t satisfies 3t + 5 = 20"
+    exercise = next(e for e in proposal["source_exercises"] if sentinel[:20] in e["statement"])
+    ctx = context(paths.root)
+    assert any(c["key"] == exercise["key"] for c in _view(ctx, proposal)["candidates"])  # shown, eligible
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        [region] = [r for r in exercise_regions(connection, exercise["extraction_id"])
+                    if list(r.span_ids) == exercise["span_ids"]]
+    save_unit_selection(repository, "ext_text", list(spans), exam_use_modes={"exercises": "held_out_evaluation"})
+    with pytest.raises(SidecarError) as caught:
+        call(ctx, "workbench.open", {
+            "origin": "reader", "entry": "practice_this", "stemMd": exercise["statement"],
+            "extractionId": exercise["extraction_id"], "spanIds": exercise["span_ids"], "clientIdempotencyKey": "k",
+            "sourceExercise": {"proposalId": proposal["proposal_id"], "extractionId": exercise["extraction_id"],
+                               "spanIds": exercise["span_ids"]}})
+    assert caught.value.code == "exercise_withheld"
+    assert region.text[-15:] not in caught.value.message and sentinel not in caught.value.message
+    assert imports["queued"] == []
+    assert _rows(repository, "workbench_sessions") == 0
+
+
+def test_r4_a_problem_opened_before_its_region_was_held_out_is_not_shown_again(library, imports):
+    paths, repository, spans = library
+    proposal = _proposal(paths, repository)
+    exercise = proposal["source_exercises"][0]
+    ctx = context(paths.root)
+    session = _use_this_one(ctx, proposal, exercise)
+    save_unit_selection(repository, "ext_text", list(spans), exam_use_modes={"exercises": "held_out_evaluation"})
+    for params in ({"entry": "resume", "sessionId": session["sessionId"], "extractionId": "ext_text"},):
+        with pytest.raises(SidecarError) as caught:
+            call(ctx, "workbench.open", {"origin": "reader", **params})
+        assert caught.value.code == "exercise_withheld"
+    with pytest.raises(SidecarError) as caught:
+        _use_this_one(ctx, proposal, exercise)
+    assert caught.value.code == "exercise_withheld"
+
+
+def test_r4_the_statement_reader_fails_closed(library, monkeypatch):
+    import learnloop.source_retrieval.corpus as corpus
+    from learnloop_sidecar.handlers import library_exercises as LX
+
+    paths, repository, _spans = library
+    proposal = _proposal(paths, repository)
+    exercise = proposal["source_exercises"][0]
+    vault = load_vault(paths.root)
+    assert LX.read_exercise_statement(vault, repository, exercise["extraction_id"], exercise["span_ids"]) is not None
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("the predicate could not be read")
+
+    monkeypatch.setattr(corpus, "exam_withheld", broken)
+    assert LX.read_exercise_statement(vault, repository, exercise["extraction_id"], exercise["span_ids"]) is None
+    ctx = context(paths.root)
+    view = _view(ctx, proposal)
+    assert view["candidates"] == [] and view["withheld"] == len(proposal["source_exercises"])
+
+
+#: What reads an exercise statement: the regions' text, the blocks' text and the
+#: exam predicate that clears them. Only the one reader may touch them.
+_STATEMENT_READS = frozenset({"exercise_regions", "blocks_by_key", "exam_withheld", "full_statement"})
+_THE_READER = frozenset({"read_exercise_statement", "exercise_region_spans"})
+
+
+def test_r4_no_handler_or_reader_module_reads_an_exercise_statement_another_way():
+    roots = [ROOT / "src" / "learnloop_sidecar" / "handlers", ROOT / "src" / "learnloop" / "reader"]
+    found: list[str] = []
+    for root in roots:
+        for path in sorted(root.rglob("*.py")):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                name = (node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute)
+                        else None)
+                imported = [alias.name for alias in node.names] if isinstance(node, ast.ImportFrom) else []
+                hits = ({name} if name else set()) | set(imported)
+                hits &= _STATEMENT_READS
+                if not hits:
+                    continue
+                owner = _innermost_owner(tree, node)
+                if path.name == "library_exercises.py" and owner in _THE_READER:
+                    continue
+                found.append(f"{path.relative_to(ROOT)}:{node.lineno} {sorted(hits)} in {owner}")
+            # In RW4b's own modules, a statement key read from a stored record (a
+            # proposal's entry) is another way too.
+            if path.name not in {"library_exercises.py", "workbench.py"}:
+                continue
+            for node in ast.walk(tree):
+                if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "get"
+                        and node.args and isinstance(node.args[0], ast.Constant) and node.args[0].value == "statement"):
+                    found.append(f"{path.relative_to(ROOT)}:{node.lineno} .get('statement')")
+    assert found == []
+
+
+def _innermost_owner(tree: ast.AST, target: ast.AST) -> str | None:
+    owner = None
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and any(child is target for child in ast.walk(node)):
+            if owner is None or node.lineno >= owner.lineno:
+                owner = node
+    return owner.name if owner is not None else None
+
+
+def test_r1_admit_is_a_workbench_rpc_that_refuses_while_switched_off(library):
+    paths, _repository, _spans = library
+    set_config(paths, "workbench", enabled=False)
+    with pytest.raises(SidecarError) as caught:
+        call(context(paths.root), "workbench.admit", {"sessionId": "wbs_x"})
+    assert caught.value.code == "workbench_disabled"
+
+
+def _rows(repository, table: str) -> int:
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        return connection.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0]

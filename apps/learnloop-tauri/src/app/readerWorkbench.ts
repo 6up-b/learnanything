@@ -60,7 +60,7 @@ export function sessionAfterWorkbenchSubmit(
 export function readerWorkbenchCheck(
   request: {
     practiceItemId: string; spanId: string; card: SourceLibraryCard;
-    entry?: ReaderWorkbenchCheck["entry"]; admitsSessionId?: string;
+    entry?: ReaderWorkbenchCheck["entry"];
   },
   offer: PracticeOffer,
   servedPrompt: string,
@@ -72,10 +72,18 @@ export function readerWorkbenchCheck(
     stemMd: servedPrompt,
     schedulerCandidateId: offer.candidateId ?? null,
     planPresentationId: offer.presentationId ?? null,
-    // RW4b: an admitted exercise resumes its own problem, keeping the
-    // learner's book choice ("practice_this"); a cue's check hides the book.
+    // "practice_this" resumes a problem keeping the learner's book choice; a
+    // cue's check hides the book.
     ...(request.entry ? { entry: request.entry } : {}),
-    // ...and the server acknowledges that exercise's pick when it opens.
-    ...(request.admitsSessionId ? { admitsSessionId: request.admitsSessionId } : {}),
   };
+}
+
+/**
+ * RW4b fix round 4 (F9): a queued Reader request (an exercise, a check) the
+ * Reader reports shown is forgotten only if it is still the one queued; a
+ * newer request queued since stays, so an older open's completion never
+ * clears it.
+ */
+export function consumeShown<T>(current: T | null, shown: unknown): T | null {
+  return current === shown ? null : current;
 }
