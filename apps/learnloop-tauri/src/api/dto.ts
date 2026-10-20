@@ -1086,6 +1086,12 @@ export interface IntentCheckDto {
   helpHeader?: string;
   /** D46: nothing that locates the exercise is shown until feedback. */
   locatorsHidden?: boolean;
+  /**
+   * DL2 fix round 4 (F15): the item is also measured under a stricter duty
+   * (a cold follow-up, an active diagnostic). The server then sends the
+   * measured banner and no help header: the duty's own safeguards apply.
+   */
+  duty?: "cold_followup" | "diagnostic";
   restoration: IntentRestorationDto | null;
 }
 
@@ -1349,6 +1355,8 @@ export interface ProbeContractDto {
   capabilitySummary?: string;
   feedbackNote?: string;
   actions?: { stopAndTeach: boolean; leaveAndResume: boolean };
+  /** DL2 fix round 4 (F15): a due "Check once" served as this probe, in its measured view. */
+  intentCheck?: IntentCheckDto;
 }
 
 export interface StopProbeResultDto {

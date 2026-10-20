@@ -856,7 +856,7 @@ def _classified_pool(
             # them is conditioned on as the build would have.
             pending = 0.0
             if not record.blocks and not record.receipts:
-                for row in record.split.get("requested") or []:
+                for row in _forced_rows(record.split):
                     pending += float(row.get("est_minutes") or 0.0)
                     held[str(row.get("practice_item_id"))] = voi.REASON_LEARNER_REQUEST
             usable = _usable_probe_minutes(
@@ -1123,6 +1123,15 @@ class _Prepared:
     admission: Any
     row: dict[str, Any]
     day: list[PlanRecord]
+    #: DL2 fix round 4 (R2): the due "Check once" items planned first.
+    checks: list[PoolItem] = field(default_factory=list)
+
+    @property
+    def forced(self) -> list[PoolItem]:
+        """What the first block places whatever is chosen: the requests (L3),
+        then the due checks (R2)."""
+
+        return [*self.requests, *self.checks]
 
     def record(self, plan_id: str = "preview") -> PlanRecord:
         """The plan as it would be loaded, with no blocks (a dry run)."""
@@ -1176,12 +1185,25 @@ def _prepare_plan(
     else:
         requests, requested_minutes = _select_requests(pool, budget=budget, per_session=per_session)
     request_ids = {item.practice_item_id for item in requests}
-    rest = [item for item in pool if item.practice_item_id not in request_ids]
+    # DL2 fix round 4 (R2): every due "Check once" is the learner's own
+    # request, so it is planned in the first block within the plan's minutes,
+    # its minutes off the budget before the split, as requests are; it stays
+    # a scheduled check in the maintain lane (§5.2, §6.1). One the minutes
+    # cannot hold is recorded (``checks_unplanned``), never left silently.
+    checks: list[PoolItem] = []
+    check_minutes = 0.0
+    checks_unplanned: list[dict[str, Any]] = []
+    if built.intent is not None:
+        checks, check_minutes, checks_unplanned = _select_checks(
+            built.intent, pool, budget=max(budget - requested_minutes, 0.0), taken=request_ids
+        )
+    forced_ids = request_ids | {item.practice_item_id for item in checks}
+    rest = [item for item in pool if item.practice_item_id not in forced_ids]
     loads = {lane: 0.0 for lane in LANES}
     for item in rest:
         if item.lane in loads and item.lane != "new":
             loads[item.lane] += item.est_minutes
-    m = max(budget - requested_minutes, 0.0)
+    m = max(budget - requested_minutes - check_minutes, 0.0)
     new_candidates = [
         NewCandidate(item.practice_item_id, item.est_minutes, requested=item.requested)
         for item in rest
@@ -1244,7 +1266,7 @@ def _prepare_plan(
     loads["new"] = admitted_new_minutes
     split = split_v1(
         budget=budget,
-        requested_minutes=requested_minutes,
+        requested_minutes=requested_minutes + check_minutes,
         loads=loads,
         admitted_new_minutes=admitted_new_minutes,
         push_candidates=any(item.lane == "push" for item in rest),
@@ -1282,6 +1304,16 @@ def _prepare_plan(
         "repair_rule": built.repair_rule,
         "new_first": "more_new" if override == "more_new" else ("after_reentry" if after_reentry else None),
     }
+    if built.intent is not None:
+        split_json["checks"] = [
+            {
+                "practice_item_id": item.practice_item_id,
+                "commitment_id": _check_commitment(built.intent, item.practice_item_id),
+                "est_minutes": round(item.est_minutes, 4),
+            }
+            for item in checks
+        ]
+        split_json["checks_unplanned"] = checks_unplanned
     now = env.now_iso()
     row = {
         "local_date": env.today(),
@@ -1303,7 +1335,69 @@ def _prepare_plan(
         "updated_at": now,
         "completed_at": None,
     }
-    return _Prepared(built=built, requests=requests, admission=admission, row=row, day=list(day))
+    return _Prepared(built=built, requests=requests, admission=admission, row=row, day=list(day), checks=checks)
+
+
+#: Why a due "Check once" is not in a plan's first block (R2): the only
+#: allowed reason not to serve it is that the plan's minutes cannot hold it.
+CHECK_MINUTES_EXHAUSTED = "plan_minutes_exhausted"
+#: A due check none of whose items reached the plan's pool (never expected:
+#: recorded so a gap is visible, not silent).
+CHECK_NOT_IN_POOL = "not_in_pool"
+
+
+def _check_commitment(intent: Any, practice_item_id: str) -> str | None:
+    check = intent.check_for(practice_item_id)
+    return check.commitment_id if check is not None else None
+
+
+def _select_checks(
+    intent: Any, pool: Sequence[PoolItem], *, budget: float, taken: Iterable[str]
+) -> tuple[list[PoolItem], float, list[dict[str, Any]]]:
+    """DL2 fix round 4 (R2): the due "Check once" items, in pool order, while
+    their estimates fit ``budget`` (what the requests left); each one that
+    does not fit, and each due check with no item in the pool, recorded with
+    its reason. Never valued or capped: the learner asked for the check."""
+
+    taken = set(taken)
+    checks: list[PoolItem] = []
+    minutes = 0.0
+    unplanned: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in pool:
+        if item.check_kind != "check_once" or item.lane is None:
+            continue
+        commitment_id = _check_commitment(intent, item.practice_item_id)
+        if commitment_id is not None:
+            seen.add(commitment_id)
+        if item.practice_item_id in taken:
+            continue
+        if minutes + item.est_minutes > budget + _EPS:
+            unplanned.append(
+                {
+                    "practice_item_id": item.practice_item_id,
+                    "commitment_id": commitment_id,
+                    "est_minutes": round(item.est_minutes, 4),
+                    "minutes_left": round(max(budget - minutes, 0.0), 4),
+                    "reason": CHECK_MINUTES_EXHAUSTED,
+                }
+            )
+            continue
+        checks.append(item)
+        minutes += item.est_minutes
+    for check in intent.due_checks():
+        if check.commitment_id not in seen:
+            unplanned.append(
+                {"practice_item_id": None, "commitment_id": check.commitment_id, "reason": CHECK_NOT_IN_POOL}
+            )
+    return checks, minutes, unplanned
+
+
+def _forced_rows(split: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    """The first block's forced items as the split recorded them: the
+    requests (L3), then the due checks (R2)."""
+
+    return [*(split.get("requested") or []), *(split.get("checks") or [])]
 
 
 def simulate_blocks(
@@ -1394,7 +1488,7 @@ def _empty_extension(env: PlanEnv, prepared: _Prepared) -> bool:
     feasible block at its first boundary). Decided by the container's
     feasibility, never by asking the live chooser."""
 
-    if prepared.requests:
+    if prepared.forced:
         return False
     record = prepared.record()
     context = _context(env, record, prepared.built, day=prepared.day)
@@ -1447,7 +1541,7 @@ def build_plan(
     record = _reload(env, plan_id)
     context = _context_from_build(env, record, prepared.built)
     try:
-        _boundary(env, record, context, forced=prepared.requests, forced_origin=ORIGIN_REQUESTED)
+        _boundary(env, record, context, forced=prepared.forced, forced_origin=ORIGIN_REQUESTED)
     except DecisionPending:
         # Router R2b: the first block's models are still out (Today's open is a
         # read). The plan stands without a block; the next call decides it
@@ -2163,7 +2257,13 @@ def _boundary(
         los = list(dict.fromkeys(item.learning_object_id for item in forced))
         chosen_by = "learner_pick" if forced_origin == ORIGIN_REQUESTED else "lane_quota"
         decision_ref = None
-        detail["why"] = "your requested item comes first" if forced_origin == ORIGIN_REQUESTED else "a follow-up from this session's answer"
+        detail["why"] = (
+            "a follow-up from this session's answer"
+            if forced_origin != ORIGIN_REQUESTED
+            else "the delayed check you asked for comes first"
+            if all(getattr(item, "check_kind", None) == "check_once" for item in forced)
+            else "your requested item comes first"
+        )
     for item, origin in items[: len(forced)]:
         los = list(dict.fromkeys([item.learning_object_id, *los]))
     with env.repository.atomic(), env.repository.connection() as connection:
@@ -2973,14 +3073,15 @@ def advance_with_context(
     block = record.current_block()
     if block is None:
         forced_origin = ORIGIN_FOLLOWUP
-        if not record.blocks and not record.receipts and record.split.get("requested"):
+        if not record.blocks and not record.receipts and _forced_rows(record.split):
             # The plan row was written but its first block was not (a crash
-            # between the two writes): place its requests first now, as the
-            # build would have (L3; review F10). Follow-ups wait one step.
+            # between the two writes): place its requests (and due checks,
+            # R2) first now, as the build would have (L3; review F10).
+            # Follow-ups wait one step.
             by_id = {item.practice_item_id: item for item in context.pool}
             forced = [
                 by_id[row["practice_item_id"]]
-                for row in record.split.get("requested") or []
+                for row in _forced_rows(record.split)
                 if row.get("practice_item_id") in by_id
             ]
             forced_origin = ORIGIN_REQUESTED
@@ -3473,7 +3574,7 @@ def set_minutes(env: PlanEnv, minutes: int) -> PlanRecord:
         loads = {lane: spent[lane] + pool_loads[lane] for lane in LANES}
         admitted_new = float(split.get("admitted_new_minutes") or 0.0)
         loads["new"] = admitted_new
-        requested_minutes = sum(float(row.get("est_minutes") or 0.0) for row in split.get("requested") or [])
+        requested_minutes = sum(float(row.get("est_minutes") or 0.0) for row in _forced_rows(split))
         new_split = split_v1(
             budget=budget,
             requested_minutes=requested_minutes,
@@ -3566,7 +3667,7 @@ def more_new(env: PlanEnv, *, confirm: bool) -> tuple[PlanRecord | None, dict[st
     )
     draft = prepared.record()
     context = _context(env, draft, prepared.built, day=prepared.day)
-    simulated = simulate_blocks(draft, context, env.policy, forced=prepared.requests)
+    simulated = simulate_blocks(draft, context, env.policy, forced=prepared.forced)
     new_items = [item for _decision, block in simulated for item in block.items if item.new_admitted]
     chosen = [NewCandidate(item.practice_item_id, item.est_minutes) for item in new_items]
     preview = {

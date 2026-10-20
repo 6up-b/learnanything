@@ -13,6 +13,16 @@
   item be taken cold now (DL2 Codex review F3): an item whose answer was
   shown is labelled practice instead, with no cold banner or ladder header,
   and the check comes back after its delay.
+* **A stricter measurement duty** (DL2 verify F15, orchestrator ruling R3 of
+  fix round 4): when the check's item is also a due cold follow-up
+  (``cold_retry``, ``certification_cold_probe``) or an active diagnostic
+  presentation, it is served under that duty, whose safeguards stay as they
+  are (no hints on a cold check; hints disabled in a diagnostic block). The
+  view says so honestly (:data:`MEASURED_BANNER`, no help ladder header),
+  chosen here, server-side: the practice item's serve reads the cold
+  follow-up, the probe contract passes ``duty="diagnostic"``. An answer on
+  your own completes the duty and answers the check (a pure diagnostic is on
+  your own by the activity policy).
 * :func:`restoration_link` (Reader §9.3 item 9): after the measurement, "Back
   to where you studied this" when the commitment's provenance carries inquiry
   roots or anchor spans (RW6b supplies them; rendered only when present).
@@ -41,6 +51,15 @@ PRACTICE_BANNER = (
     "Practice: you've seen this answer, so this one is practice, not your check on your own. "
     "Your check comes back later."
 )
+#: F15 (R3): the check's item is also measured under a stricter duty (a cold
+#: follow-up, a diagnostic): no help is promised, because none is offered.
+MEASURED_BANNER = "A check on your own: this one is measured on your own, so no help is offered."
+#: The stricter duties a check's item can carry.
+DUTY_COLD_FOLLOWUP = "cold_followup"
+DUTY_DIAGNOSTIC = "diagnostic"
+#: The follow-up lanes whose claim is an unassisted attempt
+#: (``serve_eligibility.COLD_FOLLOWUP_TASK_KINDS``).
+_COLD_FOLLOWUP_KINDS = ("cold_retry", "certification_cold_probe")
 
 
 def settle_answered_checks(vault: Any, repository: Any, *, clock: Clock | None = None) -> list[str]:
@@ -82,6 +101,35 @@ def restoration_link(provenance: Mapping[str, Any]) -> dict[str, Any] | None:
     }
 
 
+def _measured_view(check: CheckState, *, duty: str) -> dict[str, Any]:
+    """F15 (R3): a cold check served under the item's stricter duty, whose
+    safeguards refuse help; the view promises none and offers no ladder
+    header. (A check that is not cold is practice: :func:`_view`.)"""
+
+    return {
+        "kind": "check_once",
+        "commitment_id": check.commitment_id,
+        "due_since": check.date.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "date_source": check.date_source,
+        "cold": True,
+        "duty": duty,
+        "banner": MEASURED_BANNER,
+        "locators_hidden": True,
+        "restoration": restoration_link(check.provenance),
+    }
+
+
+def cold_followup_duty(repository: Any, practice_item_id: str, *, now: datetime) -> str | None:
+    """``"cold_followup"`` when a due cold follow-up selects the item (the
+    task submit answers and refuses help for), else None."""
+
+    at = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    for kind in _COLD_FOLLOWUP_KINDS:
+        if repository.active_followup_task_for_item(practice_item_id, kind=kind, at=at) is not None:
+            return DUTY_COLD_FOLLOWUP
+    return None
+
+
 def _view(check: CheckState, *, cold: bool) -> dict[str, Any]:
     if not cold:
         # F3: practice, honestly labelled; nothing to protect, so the item
@@ -110,10 +158,16 @@ def _view(check: CheckState, *, cold: bool) -> dict[str, Any]:
     }
 
 
-def served_check(vault: Any, repository: Any, practice_item_id: str, *, now: datetime) -> dict[str, Any] | None:
+def served_check(
+    vault: Any, repository: Any, practice_item_id: str, *, now: datetime, duty: str | None = None
+) -> dict[str, Any] | None:
     """The practice view of ``practice_item_id`` when it is a due check now:
     cold only when the one eligibility decision says so at this serve (F3:
-    an exposure after the check was planned is read here)."""
+    an exposure after the check was planned is read here).
+
+    ``duty``: a stricter measurement the caller is serving the item under
+    (``"diagnostic"``: the probe contract); with none given, a due cold
+    follow-up on the item is read here. Either gives the measured view (F15)."""
 
     serving = intent_serving(vault, repository, now=now)
     if serving is None:
@@ -121,7 +175,16 @@ def served_check(vault: Any, repository: Any, practice_item_id: str, *, now: dat
     check = serving.check_for(practice_item_id)
     if check is None or not check.due or check.answered_by is not None or practice_item_id not in check.candidates:
         return None
-    return _view(check, cold=check.cold(practice_item_id))
+    cold = check.cold(practice_item_id)
+    if not cold:
+        # F3: practice whatever else the item carries; the measured banner
+        # would claim a check this attempt cannot answer.
+        return _view(check, cold=False)
+    if duty is None:
+        duty = cold_followup_duty(repository, practice_item_id, now=now)
+    if duty is not None:
+        return _measured_view(check, duty=duty)
+    return _view(check, cold=True)
 
 
 def answered_check(vault: Any, repository: Any, attempt_id: str) -> dict[str, Any] | None:
@@ -161,10 +224,14 @@ def answered_check(vault: Any, repository: Any, attempt_id: str) -> dict[str, An
 
 __all__ = [
     "COLD_BANNER",
+    "DUTY_COLD_FOLLOWUP",
+    "DUTY_DIAGNOSTIC",
     "HELP_LADDER_HEADER",
+    "MEASURED_BANNER",
     "PLAN_LINE",
     "PRACTICE_BANNER",
     "answered_check",
+    "cold_followup_duty",
     "restoration_link",
     "served_check",
     "settle_answered_checks",

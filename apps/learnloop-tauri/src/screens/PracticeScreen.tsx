@@ -938,7 +938,10 @@ export function PracticeScreen({
   // rung (its button, or the hint key again) is the ladder's ordinary
   // choose-then-take step, with no confirmation dialog (D42). Until feedback
   // the header names the book and nothing that locates the exercise (D46).
-  const intentCheck = item?.intentCheck ?? null;
+  // DL2 fix round 4 (F15): an item served as a diagnostic probe is measured
+  // under the probe's duty; the contract carries the check's view for it
+  // (chosen server-side: no help promised, no ladder header).
+  const intentCheck = (probeActive ? probe?.intentCheck : undefined) ?? item?.intentCheck ?? null;
   const [checkHelpOpen, setCheckHelpOpen] = useState(false);
   useEffect(() => setCheckHelpOpen(false), [item?.id]);
 

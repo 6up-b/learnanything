@@ -292,9 +292,22 @@ def test_f12_an_unrelated_disclosure_still_holds(side):
 
     iv, context = side
     commitment = _check_once(iv, "lo_a", _real_now() - timedelta(days=8))
+    # B's own frozen self-grade key, displayed: B's, not A's. B is not
+    # submitted (DL2 fix round 4): a submitted B is itself an on-your-own
+    # answer of the LO's check (its own disclosure is attributable to it), so
+    # the control held only when every write fell in one wall-clock second
+    # (it failed under --durable-sqlite, at 8e0ca1875 as at the tip).
+    sibling_session = _call(context, "start_session", {"availableMinutes": 20})["sessionId"]
+    _call(context, "save_practice_draft", {
+        "sessionId": sibling_session, "practiceItemId": "pi_a2", "answerMd": "my own answer",
+        "submissionId": "sub_sibling",
+    })
+    for display in ({}, {"displayId": "display_sub_sibling"}):  # freeze, then display
+        _call(context, "record_self_grade_disclosure", {
+            "sessionId": sibling_session, "practiceItemId": "pi_a2", "submissionId": "sub_sibling",
+            "answerMd": "my own answer", **display,
+        })
     session_id = _call(context, "start_session", {"availableMinutes": 20})["sessionId"]
-    # B's own frozen self-grade, displayed: B's, not A's.
-    _self_grade_flow(context, session_id, "pi_a2", "sub_sibling")
     _self_grade_flow(context, session_id, "pi_a1", "sub_after")
 
     later = FrozenClock(_real_now() + timedelta(minutes=1))

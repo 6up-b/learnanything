@@ -658,6 +658,10 @@ ignore_imports = [
     # the top-level learnloop.causal_activity_policy), so the scheduler's
     # intent read cannot cycle at import time.
     "learnloop.scheduling.intent.recall_targets -> learnloop.diagnosis.causal_activity_policy",
+    # DL2 fix round 4 (verify F13, ruling R1): "Check once" completion asks the
+    # same leaf's canonical assistance classification (attempt_counts_as_assisted),
+    # so a check is answered only by what the activity policy calls unassisted.
+    "learnloop.scheduling.intent.serving -> learnloop.diagnosis.causal_activity_policy",
     "learnloop.attempts.attempts -> learnloop.diagnosis.causal_attribution",
     "learnloop.attempts.attempts -> learnloop.diagnosis.diagnostic_augmentation",
     "learnloop.attempts.attempts -> learnloop.diagnosis.discrimination_profiles",

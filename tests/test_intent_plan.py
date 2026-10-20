@@ -71,7 +71,10 @@ def _many_checks_vault(tmp_path, count: int = 8):
     return vault, repository
 
 
-@pytest.mark.parametrize("budget,at_most,at_least", [(10, 2, 2), (40, 8, 5)])
+# Fix round 4 (R2): due checks are planned first within the minutes (the
+# estimator puts each at about 2.8 minutes, so three fit in 10; the other five
+# are recorded in ``checks_unplanned`` as minutes exhausted).
+@pytest.mark.parametrize("budget,at_most,at_least", [(10, 3, 2), (40, 8, 5)])
 def test_several_checks_due_on_one_day_are_bounded_by_the_minutes_not_a_count(tmp_path, budget, at_most, at_least):
     vault, repository = _many_checks_vault(tmp_path)
     clock = MovableClock(NOW + timedelta(days=8))

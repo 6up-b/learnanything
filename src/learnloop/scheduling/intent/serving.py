@@ -25,8 +25,8 @@ Otherwise :class:`IntentServing` answers, per item:
   sort). Held-out and reserved exam items never reach it: the scheduler's
   routine exclusions run before the intent gate.
 
-A check is **answered** by an attempt *on your own* (not primed, no hints,
-not a hinted attempt) on an item it decides at or after its date, which the
+A check is **answered** by an attempt *on your own* (one the activity
+policy does not count as assisted: :func:`on_your_own`) on an item it decides at or after its date, which the
 one eligibility decision would have served cold at that attempt
 (``serve_eligibility.check_once_at_attempt``: a sibling's reveal holding the
 LO, or a routine display covering it, makes it practice although submit did
@@ -73,6 +73,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from learnloop.clock import parse_utc
+from learnloop.diagnosis.causal_activity_policy import attempt_counts_as_assisted
 from learnloop.params.fitted_params import resolve_fsrs_weights
 from learnloop.scheduling.intent.model import CommitmentSnapshot
 from learnloop.scheduling.intent.recall_targets import EffectiveDue, effective_due, load_anchors
@@ -90,13 +91,18 @@ _SERVE_AS_ORDINARY = "serve_as_ordinary"
 
 
 def on_your_own(row: Mapping[str, Any]) -> bool:
-    """An attempt that can answer a "Check once": not primed, no hints, not a
-    hinted attempt (submit's own record of help and exposure)."""
+    """An attempt that can answer a "Check once": one the activity policy does
+    not count as assisted (``causal_activity_policy.attempt_counts_as_assisted``,
+    the one classification the projection, the facet timeline and
+    certification read: a primed attempt, one with hints, a hinted attempt, a
+    guided walkthrough or a reconstruction after one, an instructional
+    diagnostic). Anything assisted is practice: it answers nothing and dates
+    the check again (DL2 verify F13, orchestrator ruling R1 of fix round 4)."""
 
-    return (
-        not bool(row.get("primed") or 0)
-        and int(row.get("hints_used") or 0) == 0
-        and str(row.get("attempt_type") or "") != "hinted_attempt"
+    return not attempt_counts_as_assisted(
+        attempt_type=str(row.get("attempt_type") or ""),
+        primed=bool(row.get("primed") or 0),
+        hints_used=int(row.get("hints_used") or 0),
     )
 
 

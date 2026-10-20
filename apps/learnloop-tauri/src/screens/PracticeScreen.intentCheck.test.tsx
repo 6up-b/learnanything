@@ -163,3 +163,60 @@ it("a check whose answer was seen is practice: labelled so, locators shown, help
   await screen.findByText("Split the integral at the mixing point.");
   expect(screen.queryByTestId("intent-check-help")).toBeNull();
 });
+
+// DL2 fix round 4 (R3, Codex verify F15): a check whose item also carries a
+// stricter measurement duty is served under that duty. The server chooses the
+// banner (``served_check``'s measured variant: no help promised, no ladder
+// header); the card shows it and keeps the duty's own safeguards.
+const MEASURED_BANNER = "A check on your own: this one is measured on your own, so no help is offered.";
+const MEASURED = (duty: "cold_followup" | "diagnostic") => ({
+  kind: "check_once", commitmentId: "c_1", dueSince: "2026-10-19T09:00:00Z", dateSource: "test_me_later_days",
+  cold: true, duty, banner: MEASURED_BANNER, locatorsHidden: true, restoration: null
+});
+
+it("a check with a cold follow-up: the measured banner, and the cold guard refuses help (no ladder)", async () => {
+  const onError = vi.fn();
+  setAlgoConfig({ ui: { practiceFeedback: "simple" } });
+  api.getPracticeItem.mockResolvedValue(item({ intentCheck: MEASURED("cold_followup"), activeFollowupKind: "cold_retry" }));
+  const view = render(<PracticeScreen {...props()} onError={onError} />);
+  await screen.findByRole("textbox", { name: "answer" });
+  await waitFor(() => expect(api.getProbeContract).toHaveBeenCalled());
+  expect(screen.getByTestId("intent-check-banner").textContent).toBe(MEASURED_BANNER);
+  expect(view.container.textContent).not.toContain(BANNER);
+  await act(async () => {
+    fireEvent.keyDown(window, { key: "h", ctrlKey: true });
+  });
+  expect(onError).toHaveBeenCalledWith("No hints on this one: it's a check on your own.");
+  expect(screen.queryByTestId("intent-check-help")).toBeNull();
+  expect(screen.queryByText("Split the integral at the mixing point.")).toBeNull();
+  expect(api.recordHintReveal).not.toHaveBeenCalled();
+});
+
+it("a check under an active diagnostic: the contract's measured banner, and the probe guard refuses help (no ladder)", async () => {
+  const onError = vi.fn();
+  setAlgoConfig({ ui: { practiceFeedback: "classic" } });
+  // The practice item alone says an ordinary check (it cannot know the probe
+  // is committed); the probe contract, the server's word that it is, carries
+  // the variant the card shows.
+  api.getPracticeItem.mockResolvedValue(item({ intentCheck: CHECK }));
+  api.getProbeContract.mockResolvedValue({
+    version: 1, active: true, presentationId: "pres_1", episodeId: "ep_1", observationNumber: 1, maximumObservations: 4,
+    forcedAttemptType: "diagnostic_probe",
+    restrictions: { hintsDisabled: true, askTutorDisabled: true, workedExampleDisabled: true, answerRevealDisabled: true, feedbackDeferred: true },
+    capabilitySummary: "Checking what you already know.", feedbackNote: "Feedback later.",
+    actions: { stopAndTeach: true, leaveAndResume: true },
+    intentCheck: MEASURED("diagnostic")
+  });
+  const view = render(<PracticeScreen {...props()} onError={onError} />);
+  await screen.findByRole("textbox", { name: "answer" });
+  await waitFor(() => expect(screen.getByTestId("intent-check-banner").textContent).toBe(MEASURED_BANNER));
+  expect(view.container.textContent).not.toContain(BANNER);
+  await act(async () => {
+    fireEvent.keyDown(window, { key: "h", ctrlKey: true });
+  });
+  expect(screen.queryByTestId("intent-check-help")).toBeNull();
+  expect(onError).toHaveBeenCalledWith(
+    "hints are disabled during a diagnostic check — answer with what you know, or stop diagnosing."
+  );
+  expect(api.recordHintReveal).not.toHaveBeenCalled();
+});

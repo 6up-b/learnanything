@@ -547,11 +547,15 @@ def build_due_queue(
     )
     if placement_serving is not None:
         queue = _order_new_material(vault, repository, queue, placement_serving)
+    # DL2 (§5.2): the items due "Check once" requests chose; composition never
+    # drops them for value or cost (fix round 4, R2: the learner asked).
+    check_item_ids: frozenset[str] = frozenset()
     if intent_view is not None and intent_view.due_checks():
         # DL2 (§5.2): one item per due "Check once", the top-ranked of its
         # candidates; the dated request is that item.
         queue, chosen_checks = intent_view.pick_checks(queue)
         chosen = set(chosen_checks)
+        check_item_ids = frozenset(chosen)
         candidates = {item_id for check in intent_view.due_checks() for item_id in check.candidates}
         requested_item_ids = [
             item_id for item_id in requested_item_ids if item_id not in candidates or item_id in chosen
@@ -565,8 +569,16 @@ def build_due_queue(
     # while its value, conditional on those already kept, pays for its
     # minutes (a teach-back is a valued probe, router D11). Valued once,
     # before the draw.
+    # A due check's teach-back is the learner's request, served, not valued
+    # (DL2 verify F14, fix round 4 R2): it is left out of the value
+    # admission and kept by the cap without counting toward it.
     teach_back_admitted, teach_back_voi_decisions = _teach_back_value_admission(
-        vault, voi_context, greedy_queue, config
+        vault,
+        voi_context,
+        [scheduled for scheduled in greedy_queue if scheduled.practice_item_id not in check_item_ids]
+        if check_item_ids
+        else greedy_queue,
+        config,
     )
     queue = _apply_seeded_exploration(queue, session, config, now)
 
@@ -576,7 +588,7 @@ def build_due_queue(
         # offer's logged propensity is computed through exactly these steps;
         # ``record`` is False only for those counterfactuals (no audit rows).
         composed = _enforce_teach_back_session_cap(
-            composed, config.teach_back.session_cap, admitted=teach_back_admitted
+            composed, config.teach_back.session_cap, admitted=teach_back_admitted, keep=check_item_ids
         )
         # Goal-composition quota: guarantee a floor share of goal-frontier items in the
         # ordered queue while a goal has at-risk facets. Applied before the limit slice
@@ -2506,9 +2518,13 @@ def _enforce_teach_back_session_cap(
     cap: int,
     *,
     admitted: frozenset[str] | None = None,
+    keep: frozenset[str] = frozenset(),
 ) -> list[ScheduledItem]:
     """Keep at most ``cap`` teach_back items per built queue (config
     ``teach_back.session_cap``), preserving order for everything else.
+
+    ``keep`` (DL2 fix round 4, R2): a due "Check once"'s item, which always
+    stays and counts toward neither the cap nor the value admission.
 
     ``admitted`` (mvp-0.21, ``voi_stopping``): the teach-backs whose value of
     information pays for their minutes, each valued conditionally on those
@@ -2519,7 +2535,7 @@ def _enforce_teach_back_session_cap(
     capped: list[ScheduledItem] = []
     teach_back_count = 0
     for scheduled in queue:
-        if scheduled.selected_mode == "teach_back":
+        if scheduled.selected_mode == "teach_back" and scheduled.practice_item_id not in keep:
             if admitted is not None:
                 if scheduled.practice_item_id not in admitted:
                     continue
