@@ -6,6 +6,7 @@
 // wrote (running → admitted), so the item becomes a learner pick; a refused
 // import binds nothing and admits nothing.
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { beforeEach, expect, it, vi } from "vitest";
 import type { SourceLibraryCard, WorkbenchSessionDto } from "../../api/dto";
 import { readerCheckOffer } from "../../app/readerCheck";
@@ -246,4 +247,172 @@ it("a problem whose source is not the open card's admits nothing", async () => {
   await act(async () => result.current.resume("wbs_1"));
   await act(async () => undefined);
   expect(onExerciseAdmitted).not.toHaveBeenCalled();
+});
+
+// ── Fix round 3 (orchestrator rulings R1-R4) ─────────────────────────────────
+// R1: what a problem is owed is kept per problem (session id -> its hand-off),
+// never in one shared slot, so another problem's pick cannot displace it.
+// R2: every answer is checked against the request it answers (the book, the
+// extraction, the request token) before anything changes. R3: a submit goes
+// back to the submitted problem's own book.
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
+  return { promise, resolve, reject };
+}
+
+// Book B's owed exercise (a second problem, on the other book).
+const ADMITTED_B = { practiceItemId: "pi_ex_2", workbenchSessionId: "wbs_2", sourceId: "src_other", spanId: "o3" };
+function boundB(extra: Partial<WorkbenchSessionDto> = {}): WorkbenchSessionDto {
+  return bound({ sessionId: "wbs_2", practiceItemId: "pi_ex_2", extractionId: "ext_other", sourceId: "src_other", spanIds: ["o3"],
+    stemMd: "2. Invert the matrix.", ...extra });
+}
+const ACK = { ...OWED, due: false, admitted: true };
+function checkFor(admitted: { practiceItemId: string; workbenchSessionId: string; sourceId: string; spanId: string }, serve: string) {
+  return {
+    practiceItemId: admitted.practiceItemId, spanId: admitted.spanId, sourceId: admitted.sourceId, stemMd: "served",
+    entry: "practice_this" as const, schedulerCandidateId: serve, planPresentationId: null, admitsSessionId: admitted.workbenchSessionId,
+  };
+}
+// The server: a resume answers the problem as it stands; an acknowledging open
+// (admittedSessionId) acknowledges that problem's pick and resumes it.
+function serverFor(sessions: Record<string, () => WorkbenchSessionDto>, gates: Record<string, Promise<void>> = {}) {
+  api.workbenchOpen.mockImplementation(async (params: Record<string, unknown>) => {
+    const id = (params.admittedSessionId ?? params.sessionId) as string;
+    if (id in gates && !params.admittedSessionId) await gates[id];
+    const session = sessions[id]();
+    if (params.admittedSessionId) {
+      return { version: 1, session: { ...session, exercisePick: ACK, schedulerCandidateId: params.schedulerCandidateId }, resumed: true };
+    }
+    return { version: 1, session, resumed: true };
+  });
+}
+const acknowledging = (sessionId: string) => api.workbenchOpen.mock.calls.filter(([params]) => params.admittedSessionId === sessionId);
+const extractionOf = (card: SourceLibraryCard) => (card.sourceId === "src_text" ? "ext_text" : "ext_other");
+
+// Codex final verify F2, exactly as written, with the shell's single check
+// slot as App.tsx keeps it (the pick resolves after setting the slot).
+it("R1 (verify F2): a pending pick for A survives B's check replacing it in the shell's slot, and A gets it on return", async () => {
+  serverFor({ wbs_1: () => bound(), wbs_2: () => boundB() });
+  const picks: Record<string, ReturnType<typeof deferred<void>>> = { wbs_1: deferred<void>(), wbs_2: deferred<void>() };
+  const setSlot: { current: (check: ReturnType<typeof checkFor> | null) => void } = { current: () => undefined };
+  const onExerciseAdmitted = vi.fn(async (admitted: typeof ADMITTED_B) => {
+    await picks[admitted.workbenchSessionId].promise; // the pick and its serve
+    setSlot.current(checkFor(admitted, `sc_${admitted.workbenchSessionId}`));
+    return true;
+  });
+  const { result, rerender } = renderHook(({ card }) => {
+    const [slot, setSlotState] = useState<ReturnType<typeof checkFor> | null>(null);
+    setSlot.current = setSlotState;
+    return useReaderWorkbench({ enabled: true, extractionId: extractionOf(card), card, onError: vi.fn(),
+      props: { checkMe: slot, onCheckMeShown: () => setSlotState(null), onExerciseAdmitted } });
+  }, { initialProps: { card: book } });
+  // 1. Resume A's bound exercise; its pick and serve are delayed.
+  await act(async () => result.current.resume("wbs_1"));
+  await waitFor(() => expect(onExerciseAdmitted).toHaveBeenCalledTimes(1));
+  // 2. Switch to book B, then finish A's serve: its check waits in the slot.
+  rerender({ card: other });
+  await act(async () => { picks.wbs_1.resolve(); await picks.wbs_1.promise; });
+  await act(async () => undefined);
+  // 3. Resume B's owed exercise: its check replaces A's in the slot and opens.
+  await act(async () => result.current.resume("wbs_2"));
+  await act(async () => { picks.wbs_2.resolve(); await picks.wbs_2.promise; });
+  await waitFor(() => expect(acknowledging("wbs_2")).toHaveLength(1));
+  // 4. Return to A and resume its still-due problem: A's pick is handed over.
+  rerender({ card: book });
+  await act(async () => result.current.resume("wbs_1"));
+  await waitFor(() => expect(acknowledging("wbs_1")).toHaveLength(1));
+  expect(acknowledging("wbs_1")[0][0]).toMatchObject({ schedulerCandidateId: "sc_wbs_1", extractionId: "ext_text" });
+  await waitFor(() => expect(result.current.active?.session.exercisePick?.admitted).toBe(true));
+  expect(result.current.active?.session.sessionId).toBe("wbs_1");
+});
+
+// The shell's hand-off resolves the served pick itself (App.tsx after R1):
+// A, B, A. A's pick is made once and delivered exactly once, on A's return.
+it("R1: A/B/A interleaving delivers A's owed pick exactly once after returning to A", async () => {
+  serverFor({ wbs_1: () => bound(), wbs_2: () => boundB() });
+  const pickA = deferred<ReturnType<typeof checkFor>>();
+  const onExerciseAdmitted = vi.fn((admitted: typeof ADMITTED_B) => (admitted.workbenchSessionId === "wbs_1"
+    ? pickA.promise : Promise.resolve(checkFor(admitted, "sc_b"))));
+  const { result, rerender } = renderHook(({ card }) => useReaderWorkbench({ enabled: true, extractionId: extractionOf(card), card,
+    onError: vi.fn(), props: { onExerciseAdmitted } }), { initialProps: { card: book } });
+  await act(async () => result.current.resume("wbs_1")); // A
+  await waitFor(() => expect(onExerciseAdmitted).toHaveBeenCalledTimes(1));
+  rerender({ card: other }); // B
+  await act(async () => { pickA.resolve(checkFor({ ...ADMITTED, sourceId: "src_text" }, "sc_a")); await pickA.promise; });
+  expect(acknowledging("wbs_1")).toHaveLength(0); // not on A's book: it waits, owed
+  await act(async () => result.current.resume("wbs_2"));
+  await waitFor(() => expect(acknowledging("wbs_2")).toHaveLength(1));
+  expect(acknowledging("wbs_1")).toHaveLength(0);
+  rerender({ card: book }); // A again
+  await act(async () => result.current.resume("wbs_1"));
+  await waitFor(() => expect(acknowledging("wbs_1")).toHaveLength(1));
+  expect(acknowledging("wbs_1")[0][0]).toMatchObject({ schedulerCandidateId: "sc_a" });
+  await waitFor(() => expect(result.current.active?.session.sessionId).toBe("wbs_1"));
+  // More sights of A change nothing: one pick, one delivery.
+  act(() => result.current.update(bound({ exercisePick: ACK })));
+  await act(async () => result.current.resume("wbs_1"));
+  await act(async () => undefined);
+  expect(onExerciseAdmitted.mock.calls.filter(([admitted]) => admitted.workbenchSessionId === "wbs_1")).toHaveLength(1);
+  expect(acknowledging("wbs_1")).toHaveLength(1);
+});
+
+// Codex final verify F6, exactly as written.
+it("R2 (verify F6): a late resume for A's exercise, answering after book B opened, activates nothing", async () => {
+  const gate = deferred<void>();
+  serverFor({ wbs_1: () => bound() }, { wbs_1: gate.promise });
+  const onSubmitted = vi.fn();
+  const { result, rerender } = renderHook(({ card }) => useReaderWorkbench({ enabled: true, extractionId: extractionOf(card), card,
+    onError: vi.fn(), props: { onSubmitted, onExerciseAdmitted: vi.fn().mockResolvedValue(true) } }), { initialProps: { card: book } });
+  // 1. Start resuming A's exercise, its open delayed. 2. Switch to B.
+  let resumed!: Promise<void>;
+  act(() => { resumed = result.current.resume("wbs_1"); });
+  rerender({ card: other });
+  // 3. A's resume answers.
+  await act(async () => { gate.resolve(); await resumed; });
+  expect(result.current.active).toBeNull(); // B is displayed: A's problem is not active
+  // 4. A submit of A's problem landing now changes nothing either.
+  act(() => result.current.submitted({ attempt: { attemptId: "att_1" }, session: { ...bound(), status: "submitted" }, practiceSession: null } as never));
+  expect(onSubmitted).not.toHaveBeenCalled();
+});
+
+it("R2: a stale open is dropped; the newer request's problem stays", async () => {
+  const gate = deferred<void>();
+  serverFor({ wbs_1: () => bound(), wbs_3: () => session({ sessionId: "wbs_3", stemMd: "3. Another." }) }, { wbs_1: gate.promise });
+  const { result } = renderHook(() => useReaderWorkbench({ enabled: true, extractionId: "ext_text", card: book, onError: vi.fn(),
+    props: { onExerciseAdmitted: vi.fn().mockResolvedValue(true) } }));
+  let first!: Promise<void>;
+  act(() => { first = result.current.resume("wbs_1"); });
+  await act(async () => result.current.resume("wbs_3")); // the learner moved on
+  expect(result.current.active?.session.sessionId).toBe("wbs_3");
+  await act(async () => { gate.resolve(); await first; }); // the first answer arrives late
+  expect(result.current.active?.session.sessionId).toBe("wbs_3");
+});
+
+it("R2: a stale post-attempt answer is dropped; it neither closes the problem now open nor leaves for feedback", async () => {
+  serverFor({ wbs_1: () => bound(), wbs_3: () => session({ sessionId: "wbs_3", stemMd: "3. Another." }) });
+  const onSubmitted = vi.fn();
+  const { result } = renderHook(() => useReaderWorkbench({ enabled: true, extractionId: "ext_text", card: book, onError: vi.fn(),
+    props: { onSubmitted } }));
+  await act(async () => result.current.resume("wbs_1"));
+  await act(async () => result.current.resume("wbs_3")); // A's submit is still in flight
+  act(() => result.current.submitted({ attempt: { attemptId: "att_1" }, session: { ...bound(), status: "submitted" }, practiceSession: null } as never));
+  expect(result.current.active?.session.sessionId).toBe("wbs_3");
+  expect(onSubmitted).not.toHaveBeenCalled();
+});
+
+it("R3: a submit returns to the submitted problem's own book and passage, not the card shown at submit time", async () => {
+  serverFor({ wbs_1: () => bound() });
+  const onSubmitted = vi.fn();
+  const { result, rerender } = renderHook(({ card }) => useReaderWorkbench({ enabled: true, extractionId: "ext_text", card, onError: vi.fn(),
+    props: { onSubmitted } }), { initialProps: { card: book } });
+  await act(async () => result.current.resume("wbs_1"));
+  expect(result.current.active?.session.sessionId).toBe("wbs_1");
+  // The open card moves to another book a moment before its extraction does.
+  rerender({ card: other });
+  const submittedResult = { attempt: { attemptId: "att_1" }, session: { ...bound(), status: "submitted" }, practiceSession: null } as never;
+  act(() => result.current.submitted(submittedResult));
+  expect(onSubmitted).toHaveBeenCalledWith(submittedResult, { card: book, spanId: "t6" });
 });
