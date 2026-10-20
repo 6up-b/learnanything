@@ -990,3 +990,180 @@ def test_switching_both_off_restores_the_base_history_projection(tmp_path, monke
     import json
 
     assert json.loads(payload)["tutor"]["excerpt"]["span_id"] == "t3"
+
+
+# --- Fix round 6 (orchestrator rulings) ----------------------------------------------------------------
+
+SPLIT_KEY = "Swapping two rows multiplies the determinant by minus one, so it flips."
+SPLIT_FIRST = "Swapping two rows multiplies the determinant."
+SPLIT_SECOND = "By minus one, so it flips."
+UNRELATED_ANSWER = "Think of the permutations behind each term."
+
+
+@pytest.mark.parametrize("retrieval", [True, False])
+@pytest.mark.parametrize("cold", [False, True])
+def test_an_answer_split_across_earlier_turns_is_not_delivered_whole(tmp_path, monkeypatch, retrieval, cold):
+    """R1 (F5 reopened): two earlier answers that each say part of the key
+    (0.67 and 0.33 alone) say all of it side by side. Bound, the one with the
+    higher overlap is left out, so the delivered thread and the manifest no
+    longer expose the key; the unrelated root answer and every learner
+    question are kept."""
+
+    from learnloop.tutor.reader_modes import EARLIER_ANSWER_LEFT_OUT
+    from learnloop.tutor.tutor_qa import span_leaks_expected
+
+    assert not span_leaks_expected(SPLIT_FIRST, SPLIT_KEY) and not span_leaks_expected(SPLIT_SECOND, SPLIT_KEY)
+    assert span_leaks_expected(f"{SPLIT_FIRST}\n\n{SPLIT_SECOND}", SPLIT_KEY)
+    tutor = LookupTutor(answer_md=UNRELATED_ANSWER)
+    paths, ctx, repository, _spans = reader_ctx(
+        tmp_path, monkeypatch, tutor, config={"reader_tutor": {"retrieval_enabled": retrieval, "offers_enabled": True}})
+    set_item_answer(paths, ITEM, SPLIT_KEY)
+    ctx = _rebind(paths, ctx)
+    root = ask(ctx)
+    tutor.answer_md = SPLIT_FIRST
+    first = ask(ctx, "what does a swap do?", parentExchangeId=root["readerAnswerEventId"])
+    tutor.answer_md = SPLIT_SECOND
+    second = ask(ctx, "by how much?", parentExchangeId=first["readerAnswerEventId"])
+    tutor.answer_md = "Start from one row swap."
+    session = _bound_session(repository, ITEM)
+    follow = ask(ctx, "how do I start?", parentExchangeId=second["readerAnswerEventId"], workbenchSessionId=session,
+                 **({"coldActive": True} if cold else {}))
+    thread = tutor.contexts[-1]["thread"]
+    assert [turn["question_md"] for turn in thread] == [ROOT_QUESTION, "what does a swap do?", "by how much?"]
+    assert [turn["answer_md"] for turn in thread] == [UNRELATED_ANSWER, EARLIER_ANSWER_LEFT_OUT, SPLIT_SECOND]
+    assert not span_leaks_expected("\n\n".join(turn["answer_md"] for turn in thread), SPLIT_KEY)
+    prior = follow["manifest"]["priorExchanges"]
+    assert not span_leaks_expected("\n\n".join(turn["answerMd"] for turn in prior), SPLIT_KEY)
+    assert follow["manifest"]["delivery"]["earlierAnswersLeftOut"] == 1
+
+
+def test_a_placeholder_the_key_matches_is_replaced_by_nothing():
+    """R1: the replacement is validated too. A degenerate key that the fixed
+    line itself states ("while you work this problem") gets the empty answer,
+    so nothing delivered matches the guard; the question stays."""
+
+    from learnloop.source_retrieval.reader_tutor import ItemBoundGuard
+    from learnloop.tutor.reader_modes import EARLIER_ANSWER_LEFT_OUT, BoundAsk, guard_thread
+
+    guard = ItemBoundGuard(repository=None, item=SimpleNamespace(id=ITEM, expected_answer="while you work this problem"))
+    assert guard.text_leaks(EARLIER_ANSWER_LEFT_OUT)
+    binding = BoundAsk(item=guard.item, answer_guard=guard.text_leaks, answer_overlap=guard.text_overlap)
+    thread = [{"question_md": "how?", "answer_md": "Keep going while you work this problem.", "question_type": "other"},
+              {"question_md": "and?", "answer_md": UNRELATED_ANSWER, "question_type": "other"}]
+    turns, left_out = guard_thread(thread, binding)
+    assert left_out == 1 and [turn["answer_md"] for turn in turns] == ["", UNRELATED_ANSWER]
+    assert [turn["question_md"] for turn in turns] == ["how?", "and?"]
+    assert not guard.text_leaks("\n\n".join(turn["answer_md"] for turn in turns))
+
+
+def test_a_mapped_lo_does_not_suppress_the_attribution(tmp_path, monkeypatch):
+    """R2 (F6 reopened): the passage maps to the item's LO, the item's subject
+    is ``math`` and the question recorded none, so its own row (subject
+    ``default``) does not attribute. The zero-mass row always does; it changes
+    no other signal, no mass, no coldness, assistance or hint count (compared
+    with the derivation without the window link)."""
+
+    from contextlib import closing
+    from dataclasses import replace
+
+    import learnloop.field.signals as field_signals
+    from learnloop.db.connection import connect
+    from learnloop.field.signals import BOUND_QUESTION_SIGNAL, blocks_fast_track, enrich_attempts
+    from learnloop.tutor.tutor_qa import hint_equivalents_for_attempt
+
+    tutor = LookupTutor()  # mechanism
+    _paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    vault, _repository = ctx.require_vault()
+    session = repository.create_session()
+    _cold_attempt(repository, vault, "att_cold_r6", session)
+    lo_id = vault.practice_items[ITEM].learning_object_id
+    import learnloop.reader.reader_progression as progression
+
+    # The passage is mapped to the item's LO (a section-provenance link).
+    monkeypatch.setattr(progression, "learning_objects_for_span", lambda *args, **kwargs: [lo_id])
+    answer = ask(ctx, workbenchSessionId=_bound_to(repository, ITEM, session))
+    assert lo_id in repository.question_event(answer["eventId"])["source_context"]["candidate_learning_object_ids"]
+    later = _later_attempt(repository, vault, "att_next_r6", session)
+    rows = [replace(row, features=replace(row.features, subject_id="math")) for row in _field_rows(
+        vault, [("att_cold_r6", "2026-01-01T00:00:00Z"), ("att_next_r6", "2999-01-01T00:00:00Z")])]
+
+    def derive():
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            signals = field_signals.load_interaction_signals(connection, vault, rows)
+        return signals, {row.attempt_id: row for row in enrich_attempts(rows, signals)}
+
+    signals, enriched = derive()
+    monkeypatch.setattr(field_signals, "ITEM_WINDOW_QUESTION_CONTEXTS", ())
+    unlinked, baseline = derive()
+    assert enriched["att_next_r6"].preceded_by_question is True
+    assert baseline["att_next_r6"].preceded_by_question is False  # what the suppressed row left
+    (bound,) = [s for s in signals if s.signal_type == BOUND_QUESTION_SIGNAL]
+    assert (bound.effective_mass, bound.outcome, bound.attempt_id, bound.subject_id) == (0.0, None, None, "math")
+    assert not blocks_fast_track(bound)
+    assert [s for s in signals if s.signal_type != BOUND_QUESTION_SIGNAL] == list(unlinked)
+    for attempt_id in ("att_cold_r6", "att_next_r6"):
+        assert replace(enriched[attempt_id], preceded_by_question=False) == replace(
+            baseline[attempt_id], preceded_by_question=False)
+    assert hint_equivalents_for_attempt(repository, later) == 1
+
+
+GAP_STATEMENT = "The required probability is 2/13."
+
+
+def _leaking_gap(repository, vault) -> None:
+    """A model-written open question on the passage's (and the item's) LO that states the key."""
+
+    repository.insert_misconception(learning_object_id=vault.practice_items[ITEM].learning_object_id,
+                                    statement=GAP_STATEMENT)
+
+
+def test_a_leaking_gap_statement_never_reaches_the_lookup(tmp_path, monkeypatch):
+    """R3 (F8): retrieval and personalization on, a non-cold bound question on
+    a passage whose LO has the open question "The required probability is
+    2/13." (the key): neither the lookup query nor the verification's prompt
+    carries it, nor the bridge's work. The unbound control's query does."""
+
+    import learnloop.instructional.sources as service
+
+    tutor = LookupTutor()
+    paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    set_item_answer(paths, ITEM, PROBABILITY_KEY)
+    ctx = _rebind(paths, ctx)
+    vault, _repository = ctx.require_vault()
+    _leaking_gap(repository, vault)
+    queries: list[str] = []
+    real = service.propose_sources
+    monkeypatch.setattr(service, "propose_sources",
+                        lambda vault, repo, query, **kw: queries.append(query) or real(vault, repo, query, **kw))
+    passage = {"spanId": "t2", "selectionSpanIds": ["t2"], "selectionQuote": "Eigenvalues are the roots"}
+    ask(ctx, "How should I start?", personalized=True, **passage)
+    assert GAP_STATEMENT in queries[-1], "the control: unbound, the open question joins the query"
+    verifier = ctx.reader_tutor_rerank_client
+    seen = len(verifier.prompts)
+    ask(ctx, "How should I start?", personalized=True, workbenchSessionId=_bound_session(repository, ITEM), **passage)
+    assert PROBABILITY_KEY not in queries[-1] and queries[-1].startswith("How should I start?")
+    assert verifier.prompts[seen:], "the verification ran"
+    assert not any(PROBABILITY_KEY in prompt for prompt in verifier.prompts[seen:])
+    work = tutor.contexts[-1]["reader_tutor"]["learner_work"]
+    assert not any(PROBABILITY_KEY in str(entry) for entry in work)
+
+
+def test_that_didnt_help_bound_withholds_a_leaking_misconception(tmp_path, monkeypatch):
+    """R3's audit: "that didn't help" under a binding sends the item's LO's
+    misconceptions (statement and correction) to the verification's context;
+    one that states the key is withheld there too."""
+
+    tutor = LookupTutor()
+    paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    set_item_answer(paths, ITEM, PROBABILITY_KEY)
+    ctx = _rebind(paths, ctx)
+    vault, _repository = ctx.require_vault()
+    _leaking_gap(repository, vault)
+    session = _bound_session(repository, ITEM)
+    root = ask(ctx, workbenchSessionId=session)
+    verifier = ctx.reader_tutor_rerank_client
+    seen = len(verifier.prompts)
+    ask(ctx, "That didn't help.", parentExchangeId=root["readerAnswerEventId"], retrievalIntent="remediate",
+        workbenchSessionId=session)
+    assert verifier.prompts[seen:], "the verification ran"
+    assert not any(PROBABILITY_KEY in prompt for prompt in verifier.prompts[seen:])

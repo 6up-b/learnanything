@@ -50,7 +50,7 @@ from learnloop.ingest.block_roles import lead_role
 from learnloop.source_retrieval.corpus import block_roles, item_exclusions
 from learnloop.source_retrieval.tutor import ITEM_BOUND_LEAD_ROLES
 from learnloop.source_retrieval.verify import verification_route
-from learnloop.tutor.tutor_qa import span_leaks_expected
+from learnloop.tutor.tutor_qa import span_answer_overlap, span_leaks_expected
 from learnloop.vault.models import LoadedVault, PracticeItem
 
 #: The intents the Reader tutor retrieves with (the sources spec's names).
@@ -262,6 +262,14 @@ class ItemBoundGuard:
 
         return lead_role(text) == "solution" or span_leaks_expected(text, self.item.expected_answer)
 
+    def text_overlap(self, text: str) -> float:
+        """The same matcher's score for one text (fix round 6, R1): how much of
+        the item's answer it exposes, a solution lead counting as all of it.
+        It ranks which earlier answer to withhold first when only their
+        combination gives the answer away (``reader_modes.withhold``)."""
+
+        return 1.0 if lead_role(text) == "solution" else span_answer_overlap(text, self.item.expected_answer)
+
 
 # ---------------------------------------------------------------------------
 # The inquiry: what it has shown, the gaps it named
@@ -405,20 +413,26 @@ def passage_learning_objects(vault: LoadedVault, repository: Repository, *, extr
     return [str(row[0]) for row in rows if str(row[0]) in vault.learning_objects]
 
 
-def learner_work(vault: LoadedVault, repository: Repository, learning_object_ids: Sequence[str]) -> list[dict[str, Any]]:
+def learner_work(vault: LoadedVault, repository: Repository, learning_object_ids: Sequence[str], *,
+                 gaps: Sequence[Mapping[str, Any]] | None = None) -> list[dict[str, Any]]:
     """The learner's open questions (statements, labelled LearnLoop's reading)
     and most recent workbench steps (their own words) on these LOs: the same
-    class of data the hint writer already sends (spec §5.8)."""
+    class of data the hint writer already sends (spec §5.8).
+
+    ``gaps`` are the open questions the caller already read (and, bound,
+    guarded: fix round 6, R3), so the query and the bridge share one copy;
+    None reads them here."""
 
     from learnloop.source_retrieval.library_ask import open_questions
 
     lo_ids = [lo for lo in dict.fromkeys(learning_object_ids) if lo in vault.learning_objects]
     if not lo_ids:
         return []
+    statements = open_questions(vault, repository, lo_ids) if gaps is None else gaps
     work: list[dict[str, Any]] = [
         {"kind": "open_question", "statement": entry["statement"], "author": "LearnLoop's reading",
          "learning_object_id": entry.get("learning_object_id")}
-        for entry in open_questions(vault, repository, lo_ids)[:QUERY_GAPS]
+        for entry in list(statements)[:QUERY_GAPS]
     ]
     items = [item_id for item_id, item in vault.practice_items.items() if item.learning_object_id in lo_ids]
     if items:

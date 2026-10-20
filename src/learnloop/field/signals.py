@@ -302,12 +302,15 @@ def derive_interaction_signals(
                 leak_suspected=leak,
             ))
         window = by_attempt.get(event.get("_window_attempt_id"))
-        if window is not None and window.lo_id not in los:
+        if window is not None:
             # RW1c fix round 5 (R3): a bound Reader question precedes the
             # attempt its item window gives it (``_link_practice_questions``),
             # whatever the cold practice row's flag. Attribution only: no
             # outcome, no mass, no attempt link (so coldness and assistance
-            # are unchanged) and a type that blocks nothing.
+            # are unchanged) and a type that blocks nothing. Always emitted
+            # (fix round 6, R2): the question's own row on the same LO may
+            # carry another subject (none was recorded with the question), so
+            # it does not attribute; this row carries the attempt's.
             signals.append(SignalRow(
                 signal_id=f"{kind}:{event_id}:window:{window.attempt_id}", lo_id=window.lo_id,
                 observed_at=logged_at, signal_type=BOUND_QUESTION_SIGNAL,

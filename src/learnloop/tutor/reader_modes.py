@@ -76,8 +76,12 @@ class BoundAsk:
       (the selection, its neighbours, the blocks they cite, the retrieved
       passages): ``guard(spans) -> (kept, counts)``.
     * ``answer_guard``: the same guard's check for one text
-      (``text -> leaks``): earlier answers in the thread and model-written
-      learner-work lines pass it before the prompt is built (R2).
+      (``text -> leaks``): earlier answers in the thread, model-written
+      learner-work lines and every model-written input to the lookup pass it
+      before anything model-visible is built (R2; fix round 6, R1 and R3).
+    * ``answer_overlap``: the same matcher's score for one text
+      (``text -> 0..1``), which picks the answer to withhold first when only
+      their combination gives the item's answer away (fix round 6, R1).
 
     The guards are injected by the adapter; this package never imports
     retrieval."""
@@ -87,6 +91,7 @@ class BoundAsk:
     cold: bool = False
     context_guard: Callable[[Sequence[Mapping[str, Any]]], tuple[list[dict[str, Any]], dict[str, int]]] | None = None
     answer_guard: Callable[[str], bool] | None = None
+    answer_overlap: Callable[[str], float] | None = None
 
     def hint_equivalent(self, substantive: bool) -> bool:
         """The bound row's hint flag, the one value stored and returned (R1).
@@ -101,35 +106,91 @@ class BoundAsk:
         return bool(self.cold or substantive)
 
 
+#: How the texts one prompt carries together are read as one: the matcher
+#: sees them as the tutor does, side by side.
+_JOIN = "\n\n"
+
+
+def withhold(texts: Sequence[str], binding: BoundAsk | None, *, placeholder: str = "") -> set[int]:
+    """The indexes of the model-written ``texts`` to withhold under the binding.
+
+    Fix round 6 (R1): a text that gives the item's answer away alone is
+    withheld; then, while the texts kept (with ``placeholder`` where one was
+    withheld) still give it away TOGETHER, the kept text with the highest
+    individual overlap (ties: the most recent, the highest index) is withheld
+    and the whole is checked again. Two answers that each say half the key
+    ("Swapping two rows multiplies the determinant." and "By minus one, so it
+    flips.") are not delivered side by side. Empty texts are ignored."""
+
+    if binding is None or binding.answer_guard is None:
+        return set()
+    leaks = binding.answer_guard
+    overlap = binding.answer_overlap or (lambda text: 1.0 if leaks(text) else 0.0)
+    present = [index for index, text in enumerate(texts) if text]
+    out = {index for index in present if leaks(texts[index])}
+
+    def combined() -> str:
+        return _JOIN.join(placeholder if index in out else texts[index] for index in present)
+
+    while leaks(combined()):
+        kept = [index for index in present if index not in out]
+        if not kept:
+            break
+        out.add(max(kept, key=lambda index: (overlap(texts[index]), index)))
+    return out
+
+
 def guard_thread(thread: Sequence[Mapping[str, Any]], binding: BoundAsk | None) -> tuple[list[dict[str, Any]], int]:
-    """The thread a bound request's prompt carries, and how many earlier answers it left out (R2).
+    """The thread a bound request's prompt carries, and how many earlier answers it left out.
 
     Every earlier answer is model-written text the tutor would read again:
-    it passes the same check as the source spans, under the CURRENT
-    restriction. An answer given while reading unbound ("The required
-    probability is 2/13.") is the item's answer once the workbench binds it,
-    so it is replaced by :data:`EARLIER_ANSWER_LEFT_OUT`. The thread keeps
-    its shape (the learner's questions stay), nothing is refused, and the
-    stored exchange is untouched."""
+    under the CURRENT restriction it passes the same check as the source
+    spans, alone and combined with the other earlier answers it would be
+    delivered with (fix round 5, R2; fix round 6, R1: :func:`withhold`). An
+    answer given while reading unbound ("The required probability is
+    2/13.") is the item's answer once the workbench binds it, so it is
+    replaced by :data:`EARLIER_ANSWER_LEFT_OUT`, or by nothing when that
+    line itself would match this item's guard (a degenerate key). The
+    thread keeps its shape (the learner's questions stay), nothing is
+    refused, and the stored exchange is untouched."""
 
     turns = [dict(turn) for turn in thread]
     if binding is None or binding.answer_guard is None:
         return turns, 0
-    left_out = 0
-    for turn in turns:
-        if turn.get("answer_md") and binding.answer_guard(str(turn["answer_md"])):
-            turn["answer_md"] = EARLIER_ANSWER_LEFT_OUT
-            left_out += 1
-    return turns, left_out
+    # The replacement is validated too (round 6, R1): a key that the fixed
+    # line itself states gets the empty answer instead.
+    placeholder = "" if binding.answer_guard(EARLIER_ANSWER_LEFT_OUT) else EARLIER_ANSWER_LEFT_OUT
+    answers = [str(turn.get("answer_md") or "") for turn in turns]
+    out = withhold(answers, binding, placeholder=placeholder)
+    if placeholder and binding.answer_guard(_JOIN.join(
+            placeholder if index in out else text for index, text in enumerate(answers) if text)):
+        placeholder = ""
+    for index in out:
+        turns[index]["answer_md"] = placeholder
+    return turns, len(out)
+
+
+def guard_statements(entries: Sequence[Any], binding: BoundAsk | None, *,
+                     text: Callable[[Any], str]) -> list[Any]:
+    """The model-written ``entries`` a bound request may use (fix round 6, R3):
+    every one whose ``text`` :func:`withhold` withholds is dropped, so an
+    open-gap statement, a misconception and its correction never reach the
+    lookup query, its rewrite, the verification's context or the bridge.
+    The entries kept are returned as given (statements or records)."""
+
+    kept = list(entries)
+    out = withhold([text(entry) for entry in kept], binding)
+    return [entry for index, entry in enumerate(kept) if index not in out]
 
 
 def guard_learner_work(work: Sequence[Mapping[str, Any]], binding: BoundAsk | None) -> list[dict[str, Any]]:
-    """The bridge's learner-work context under a binding (R2's audit).
+    """The bridge's learner-work context under a binding (round 5, R2's audit).
 
     The learner's own steps are theirs and stay. Two lines are not theirs:
-    an open question's statement is LearnLoop's reading (model-written) and a
-    workbench session's problem is source text; either is left out when the
-    guard says it would give the item's answer away."""
+    an open question's statement is LearnLoop's reading (model-written; the
+    adapter already built it from :func:`guard_statements`' output, round 6,
+    R3) and a workbench session's problem is source text; either is left out
+    when the guard says it would give the item's answer away."""
 
     entries = [dict(entry) for entry in work]
     if binding is None or binding.answer_guard is None:
@@ -343,7 +404,9 @@ __all__ = [
     "displayed_text",
     "finalize",
     "guard_learner_work",
+    "guard_statements",
     "guard_thread",
     "run_retrieval",
     "verify_excerpt",
+    "withhold",
 ]
