@@ -407,3 +407,16 @@ it("a held-out selection's ask says why it was refused (F1)", async () => {
   const pane = await screen.findByRole("region", { name: "ask your library" });
   expect(await within(pane).findByText(/This passage is held out of LearnLoop's models\./)).toBeTruthy();
 });
+
+it("a comparison withheld whole says why, and shows nothing of it (RW4d fix round 5, F2)", async () => {
+  api.readerLibraryCompare.mockRejectedValueOnce({ code: "comparison_withheld", message: "Part of this comparison is held out for an exam now (or its sources can't be checked), so it isn't shown.", retryable: false });
+  await askFromSelection();
+  const pane = await screen.findByRole("region", { name: "ask your library" });
+  await within(pane).findByText("gives the transpose definition");
+  const pins = within(pane).getAllByRole("button", { name: "pin" });
+  fireEvent.click(pins[0]);
+  fireEvent.click(pins[1]);
+  fireEvent.click(within(pane).getByRole("button", { name: /compare pinned \(2\)/ }));
+  expect(await within(pane).findByText(/held out for an exam now/)).toBeTruthy();
+  expect(within(pane).queryByRole("table", { name: "how your sources treat this" })).toBeNull();
+});

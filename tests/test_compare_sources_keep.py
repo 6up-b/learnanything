@@ -395,7 +395,11 @@ def test_a_comparison_holding_exam_material_is_refused(library, monkeypatch):
         (exam_span,) = connection.execute(
             "SELECT span_id FROM source_document_blocks WHERE extraction_id = 'ext_exam' AND text != '' "
             "ORDER BY ordinal LIMIT 1").fetchone()
-    _stored(monkeypatch, ctx, repository, asked["askId"], ["unclear"], extra_sources=[f"ext_exam:{exam_span}"])
+    # The comparison job's own delivery refuses it whole (fix round 5, F2) ...
+    with pytest.raises(SidecarError) as caught:
+        _stored(monkeypatch, ctx, repository, asked["askId"], ["unclear"], extra_sources=[f"ext_exam:{exam_span}"])
+    assert caught.value.code == "comparison_withheld"
+    # ... and Keep refuses it too, writing nothing.
     before = table_counts(repository, PROPOSAL_TABLES)
     with pytest.raises(SidecarError) as caught:
         call(ctx, "reader.library_compare_keep", {"askId": asked["askId"]})
@@ -1437,3 +1441,172 @@ def test_an_unreadable_comparison_is_withheld_whole(library, monkeypatch):
             {"text": "another", "keys": [READABLE[0]]}]})
     assert caught.value.code == "comparison_withheld"
     assert _all_counts(repository) == before
+
+
+
+# -- fix round 5 (orchestrator rulings; Codex verify of fix round 4, F1-F4) -----------------------
+
+
+def _ask_at(ctx, span_id: str) -> str:
+    """A library question anchored at ext_text:<span_id> (same words as the fixture's)."""
+
+    return call(ctx, "reader.library_ask", {"query": QUESTION, "extractionId": "ext_text", "spanIds": [span_id],
+                                            "learningObjectIds": ["lo_matrices"]})["askId"]
+
+
+def _reads_hidden(ctx, repository, ask_id: str, comparison_id: str, secret: str) -> None:
+    after = _every_read(ctx, repository, ask_id, comparison_id)
+    assert secret not in json.dumps(after, default=str)
+    assert after["reader.library_compare_reopen"]["refused"] == "comparison_withheld"
+    for source in ("src_text", "src_book"):
+        assert after[f"reader.source_objects:{source}"]["sourceObjects"] == []
+    for extraction in ("ext_text", "ext_book"):
+        assert after[f"reader.kept_comparisons:{extraction}"]["marks"] == []
+    assert after["compare_kept_state"] is None and after["compared_on"] == [] and after["card"] == []
+
+
+def test_reuse_keeps_every_asks_provenance(library, monkeypatch):
+    """F1: C kept under A (anchor readable); B (anchor ext_text:t3) is shown C.
+    With B's anchor held out, a take through B is refused; a take B added
+    earlier is hidden once B's anchor is held out, even after B moved on."""
+
+    _paths, ctx, repository, spans, _asked = library
+    a_id = _ask_at(ctx, "t5")
+    table = _stored(monkeypatch, ctx, repository, a_id, ["complementary"], keys=READABLE)
+    comparison_id = table["comparisonId"]
+    call(ctx, "reader.library_compare_keep", {"askId": a_id})
+    b_id = _ask_at(ctx, "t3")
+    shown = call(ctx, "reader.library_compare", {"askId": b_id, "pinnedSpanKeys": READABLE})
+    assert shown["comparisonId"] == comparison_id and shown["kept"]["askId"] == a_id  # reused
+    # Withheld B anchor: the take through B is refused, nothing written.
+    _hold_out_chapter(repository, spans)
+    before = _all_counts(repository)
+    with pytest.raises(SidecarError) as caught:
+        call(ctx, "reader.library_compare_keep", {"askId": b_id, "comparisonId": comparison_id,
+                                                  "takes": [{"text": "through B", "keys": [READABLE[0]]}]})
+    assert caught.value.code == "comparison_withheld"
+    assert _all_counts(repository) == before
+    _reads_hidden(ctx, repository, a_id, comparison_id, "through B")
+
+
+def test_a_take_another_ask_added_stays_its_provenance_after_it_moves_on(library, monkeypatch):
+    """F1 (durable): B adds a take to A's keep, then compares something else;
+    holding out B's anchor still hides A's keep with B's take."""
+
+    _paths, ctx, repository, spans, _asked = library
+    a_id = _ask_at(ctx, "t5")
+    table = _stored(monkeypatch, ctx, repository, a_id, ["complementary"], keys=READABLE)
+    comparison_id = table["comparisonId"]
+    call(ctx, "reader.library_compare_keep", {"askId": a_id})
+    b_id = _ask_at(ctx, "t3")
+    call(ctx, "reader.library_compare", {"askId": b_id, "pinnedSpanKeys": READABLE})
+    added = call(ctx, "reader.library_compare_keep", {"askId": b_id, "comparisonId": comparison_id,
+                                                      "takes": [{"text": "B's own take", "keys": [READABLE[0]]}]})
+    assert added["askId"] == a_id and added["addedTakes"] == 1
+    kept = json.loads(_ask(repository, a_id)["kept_json"])
+    assert {"ask_id": b_id} in kept["contributors"]
+    # B moves on: it compares again and no longer shows C.
+    moved = _stored(monkeypatch, ctx, repository, b_id, ["unclear"], keys=READABLE)
+    assert moved["comparisonId"] != comparison_id and _ask(repository, b_id)["comparison_id"] != comparison_id
+    _hold_out_chapter(repository, spans)
+    _reads_hidden(ctx, repository, a_id, comparison_id, "B's own take")
+
+
+def test_a_tutor_take_on_a_learner_keep_is_hidden_once_its_question_is_held_out(library, monkeypatch):
+    """F1 (tutor): the tutor's question adds a take to the learner's keep of the
+    same comparison; holding out the question's passage later hides it."""
+
+    from learnloop.db.stores import source_service as store
+
+    _paths, ctx, repository, spans, _asked = library
+    vault, _repo = ctx.require_vault()
+    a_id = _ask_at(ctx, "t5")
+    table = _stored(monkeypatch, ctx, repository, a_id, ["complementary"], keys=READABLE)
+    comparison_id = table["comparisonId"]
+    call(ctx, "reader.library_compare_keep", {"askId": a_id})
+    _tutor_question(repository, "qe_t", extraction_id="ext_text", span_id="t3")
+    with repository.connection() as connection:
+        store.insert_tool_call(connection, id="stc_q", created_at="2026-10-03T09:00:00Z", row_kind="request",
+                               caller_kind="tutor", caller_ref="qe_t", context={}, policy="reading",
+                               tool="compare_sources", arguments={}, status="requested")
+        store.insert_tool_call(connection, id="stc_q_run", parent_id="stc_q", created_at="2026-10-03T09:00:01Z",
+                               row_kind="run", caller_kind="tutor", caller_ref="qe_t", context={}, policy="reading",
+                               tool="compare_sources", arguments={}, status="ran", result_ref=comparison_id,
+                               result_keys=READABLE)
+        connection.commit()
+    kept = KC.keep_tutor(vault, repository, "stc_q", takes=[{"text": "the tutor's take", "keys": [READABLE[0]]}])
+    assert kept["ask_id"] == a_id and kept["added_takes"] == 1
+    _hold_out_chapter(repository, spans)
+    _reads_hidden(ctx, repository, a_id, comparison_id, "the tutor's take")
+
+
+def test_a_comparison_job_read_after_withholding_returns_nothing_of_it(compared, monkeypatch):
+    """F2: a finished compare job (its table, keep state and take) read again
+    through reader.library_job after a contributing passage is held out."""
+
+    from tests.recap_fixtures import call as call_rpc
+
+    _paths, ctx, repository, spans, asked, table = compared
+    take = "a take kept in the job"
+    call(ctx, "reader.library_compare_keep", {"askId": asked["askId"], "takes": [
+        {"text": take, "keys": [table["rows"][0]["key"]]}]})
+    started = call_rpc(ctx, "reader.library_compare", {"askId": asked["askId"], "pinnedSpanKeys": PINS})
+    job = ctx.library_ask_jobs.get(started["jobId"])
+    assert job is not None and job.done.wait(60)
+    done = call_rpc(ctx, "reader.library_job", {"jobId": started["jobId"]})
+    assert done["state"] == "done" and take in json.dumps(done)  # the cached keep state carries the take
+    _hold_out_chapter(repository, spans)
+    with pytest.raises(SidecarError) as caught:
+        call_rpc(ctx, "reader.library_job", {"jobId": started["jobId"]})
+    assert caught.value.code == "comparison_withheld" and take not in str(caught.value)
+
+
+def test_a_comparison_jobs_first_delivery_is_withheld_whole(library, monkeypatch):
+    """F2: the first delivery too: a comparison whose question's anchor is held
+    out is refused as it goes out (its passages themselves are readable)."""
+
+    _paths, ctx, repository, spans, asked = library
+    _hold_out_chapter(repository, spans)
+    with pytest.raises(SidecarError) as caught:
+        _stored(monkeypatch, ctx, repository, asked["askId"], ["complementary"], keys=READABLE)
+    assert caught.value.code == "comparison_withheld"
+
+
+def test_a_dropped_pin_naming_no_passage_withholds_the_comparison(library, monkeypatch):
+    """F3: every named contributor is resolved; a dropped pin naming a passage
+    that does not exist withholds the whole comparison (fail closed)."""
+
+    _paths, ctx, repository, _spans, _asked = library
+    a_id = _ask_at(ctx, "t5")
+    table = _stored(monkeypatch, ctx, repository, a_id, ["complementary"], keys=READABLE)
+    comparison_id = table["comparisonId"]
+    call(ctx, "reader.library_compare_keep", {"askId": a_id, "takes": [{"text": "kept before",
+                                                                        "keys": [READABLE[0]]}]})
+    with repository.connection() as connection:
+        connection.execute("UPDATE source_comparisons SET dropped_pins_json = ? WHERE id = ?",
+                           (json.dumps([{"extraction_id": "ext_text", "span_id": "t999",
+                                         "reason": "no such passage"}]), comparison_id))
+        connection.commit()
+    _reads_hidden(ctx, repository, a_id, comparison_id, "kept before")
+    before = _all_counts(repository)
+    with pytest.raises(SidecarError) as caught:
+        call(ctx, "reader.library_compare_keep", {"askId": a_id, "takes": [{"text": "x", "keys": [READABLE[0]]}]})
+    assert caught.value.code == "comparison_withheld"
+    assert _all_counts(repository) == before
+
+
+def test_remove_on_a_withheld_comparison_answers_only_a_status(library, monkeypatch):
+    """F4 (rejected: Remove stays allowed, it writes nothing derived): its
+    response carries no table, take or quote, only the status."""
+
+    _paths, ctx, repository, spans, asked = library
+    quote = _anchor_quote(repository)
+    _stored(monkeypatch, ctx, repository, asked["askId"], ["complementary"], keys=READABLE)
+    call(ctx, "reader.library_compare_keep", {"askId": asked["askId"], "takes": [
+        {"text": f"my take: {quote}", "keys": [READABLE[0]]}]})
+    _hold_out_chapter(repository, spans)
+    removed = call(ctx, "reader.library_compare_remove", {"askId": asked["askId"]})
+    assert {key: value for key, value in removed.items() if key != "version"} == {
+        "askId": asked["askId"], "kept": None, "removed": True}
+    assert quote not in json.dumps(removed)
+    assert _ask(repository, asked["askId"])["kept_at"] is None

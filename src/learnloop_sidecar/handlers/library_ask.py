@@ -263,8 +263,33 @@ def _job_payload(job: _Job) -> dict[str, Any]:
     return versioned({**base, "state": "done", "result": result})
 
 
-def _start(ctx: SidecarContext, kind: str, ask_id: str | None, work: Work) -> dict[str, Any]:
-    return _job_payload(_jobs(ctx).start(ctx, kind, ask_id, work))
+def _start(ctx: SidecarContext, kind: str, ask_id: str | None, work: Work, *,
+           deliver: Deliver | None = None) -> dict[str, Any]:
+    return _job_payload(_jobs(ctx).start(ctx, kind, ask_id, work, deliver=deliver))
+
+
+def deliver_comparison(ctx: SidecarContext, ask_id: str, result: dict[str, Any]) -> dict[str, Any]:
+    """A comparison job's result as it may go out NOW (RW4d fix round 5, F2),
+    at every delivery (the first one, and each cached read through
+    ``reader.library_job``): a comparison any of whose contributing passages
+    is withheld now, or whose provenance cannot be resolved, is refused whole
+    (``comparison_withheld``: no table, no keep state, no take). Otherwise its
+    keep state is read again (a keep removed or withheld since the job ended
+    is not shown)."""
+
+    from learnloop.reader import source_objects as SO
+
+    comparison_id = result.get("comparison_id")
+    if not comparison_id:
+        return result  # nothing was compared (too few sources): no comparison to withhold
+    vault, repository = ctx.require_vault()
+    if SO.withheld_comparisons(vault, repository, [(str(comparison_id), ask_id)]):
+        raise SidecarError("comparison_withheld",
+                           "Part of this comparison is held out for an exam now (or its sources can't be checked), "
+                           "so it isn't shown.")
+    if "kept" in result:
+        result["kept"] = KC.compare_kept_state(vault, repository, ask_id, str(comparison_id))
+    return result
 
 
 class LibraryJobInput(ParamsModel):
@@ -426,7 +451,8 @@ def reader_library_compare(ctx: SidecarContext, params: LibraryCompareInput) -> 
                                                   table.get("comparison_id"))
         return table
 
-    return _start(ctx, "compare", params.ask_id, work)
+    return _start(ctx, "compare", params.ask_id, work,
+                  deliver=lambda result: deliver_comparison(ctx, params.ask_id, result))
 
 
 class LibraryAskTutorInput(ParamsModel):

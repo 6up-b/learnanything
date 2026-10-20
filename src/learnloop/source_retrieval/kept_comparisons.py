@@ -205,7 +205,8 @@ def _comparison_withheld() -> LibraryAskError:
 
 def _refuse_comparison(vault: LoadedVault, repository: Repository, comparison_id: str | None, *,
                        ask_id: str | None = None, question_event_id: str | None = None,
-                       keys: Sequence[tuple[str, str]] = ()) -> None:
+                       keys: Sequence[tuple[str, str]] = (), ask_ids: Sequence[str] = (),
+                       question_event_ids: Sequence[str] = ()) -> None:
     """Refuse (``comparison_withheld``) unless every passage that contributed
     to the comparison is readable now: its sources, counterparts, unverified
     sources and dropped pins, the ask's anchor and binding, the tutor
@@ -217,7 +218,8 @@ def _refuse_comparison(vault: LoadedVault, repository: Repository, comparison_id
         raise LibraryAskError("validation_error", "Compare the passages first; there is no comparison to keep.")
     try:
         passages = SO.comparison_passages(repository, str(comparison_id), ask_id=ask_id,
-                                          question_event_id=question_event_id)
+                                          question_event_id=question_event_id, ask_ids=ask_ids,
+                                          question_event_ids=question_event_ids)
     except Exception as exc:  # noqa: BLE001 - unresolvable provenance is withheld (fail closed)
         raise _comparison_withheld() from exc
     wanted = sorted(passages | {key for key in keys if key[0] and key[1]})
@@ -463,14 +465,34 @@ def kept_state(kept: Mapping[str, Any] | None, *, kept_at: str | None) -> dict[s
     }
 
 
+def _contributors(kept: Mapping[str, Any], *, ask_id: str, acting_ask_id: str | None,
+                  question_event_id: str | None) -> list[dict[str, Any]]:
+    """The keep's recorded contributors with the ask or tutor question acting
+    now added: the provenance a later reuse cannot drop (fix round 5, F1)."""
+
+    recorded = [dict(entry) for entry in kept.get("contributors") or () if isinstance(entry, Mapping)]
+    wanted = []
+    if acting_ask_id and acting_ask_id != ask_id:
+        wanted.append({"ask_id": acting_ask_id})
+    if question_event_id:
+        wanted.append({"question_event_id": question_event_id})
+    for entry in wanted:
+        if entry not in recorded:
+            recorded.append(entry)
+    return recorded
+
+
 def _keep(vault: LoadedVault, repository: Repository, ask: Mapping[str, Any], *, shown: Sequence[str] | None,
           takes: Sequence[Mapping[str, Any]], caller: str, clock: Clock | None,
-          question_event_id: str | None = None) -> dict[str, Any]:
-    # Every passage that contributed to the comparison (the anchor and the
-    # tutor question's included) is readable now, before anything is written.
+          question_event_id: str | None = None, acting_ask_id: str | None = None) -> dict[str, Any]:
+    # Every passage that contributed to the comparison, as the union across
+    # its reuse (every ask and tutor question that has shown, kept or added a
+    # take to it, the one acting now included) is readable now, before
+    # anything is written.
     live = bool(ask.get("kept") and ask.get("kept_at"))
     _refuse_comparison(vault, repository, (ask.get("kept") or {}).get("comparison_id") if live
                        else ask.get("comparison_id"), ask_id=str(ask["id"]), question_event_id=question_event_id,
+                       ask_ids=[acting_ask_id] if acting_ask_id else (),
                        keys=[tuple(key.split(":", 1)) for key in (ask.get("kept") or {}).get("keys") or ()
                              if ":" in key] if live else ())
     if live:
@@ -479,6 +501,10 @@ def _keep(vault: LoadedVault, repository: Repository, ask: Mapping[str, Any], *,
         kept = dict(ask["kept"])
         added = _add_takes(repository, kept, takes, clock=clock) if takes else []
         if added:
+            # Whoever added it (another ask, the tutor's question) is recorded
+            # on the keep, so every later read checks its passages too.
+            kept["contributors"] = _contributors(kept, ask_id=str(ask["id"]), acting_ask_id=acting_ask_id,
+                                                 question_event_id=question_event_id)
             _save(repository, ask["id"], kept, kept_at=ask["kept_at"])
         return {"ask_id": ask["id"], "kept": {**(kept_state(kept, kept_at=ask["kept_at"]) or {}), "ask_id": ask["id"]},
                 "added_takes": len(added), "already_kept": True}
@@ -493,6 +519,8 @@ def _keep(vault: LoadedVault, repository: Repository, ask: Mapping[str, Any], *,
     if (ask.get("kept") or {}).get("removed"):
         # Kept again after a remove: the earlier keep's history stays on the row.
         kept["removed"] = list(ask["kept"]["removed"])
+    kept["contributors"] = _contributors(ask.get("kept") or {}, ask_id=str(ask["id"]),
+                                         acting_ask_id=acting_ask_id, question_event_id=question_event_id)
     if takes:
         _add_takes(repository, kept, takes, clock=clock)
     _save(repository, ask["id"], kept, kept_at=kept["kept_at"])
@@ -614,7 +642,7 @@ def keep(vault: LoadedVault, repository: Repository, ask_id: str, *, comparison_
                 if guard is not None:
                     guard(row)
                 # Refused before the fork row is written (the fork's anchor is this row's).
-                _refuse_comparison(vault, repository, str(target), ask_id=str(row["id"]))
+                _refuse_comparison(vault, repository, str(target), ask_id=str(row["id"]), ask_ids=[ask_id])
                 row = _fork_for(repository, row, str(target), clock=clock)
                 guard = None
         else:
@@ -622,7 +650,7 @@ def keep(vault: LoadedVault, repository: Repository, ask_id: str, *, comparison_
         if guard is not None:
             guard(row)
         return _keep(vault, repository, row, shown=None, takes=takes, caller=str(row.get("caller") or "learner"),
-                     clock=clock)
+                     clock=clock, acting_ask_id=ask_id)
 
 
 def compare_kept_state(vault: LoadedVault, repository: Repository, ask_id: str,
@@ -705,7 +733,7 @@ def keep_tutor(vault: LoadedVault, repository: Repository, tool_call_id: str, *,
 
 #: What a removal's history keeps of the keep it removed (for the card's ``as_of``).
 _SNAPSHOT_FIELDS = ("comparison_id", "caller", "kept_at", "objects", "relations", "takes", "keys",
-                    "learning_object_ids")
+                    "learning_object_ids", "contributors")
 
 
 def remove(vault: LoadedVault, repository: Repository, ask_id: str, *, comparison_id: str | None = None,

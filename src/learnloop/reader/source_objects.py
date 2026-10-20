@@ -253,13 +253,20 @@ def _span_key(value: Any) -> tuple[str, str] | None:
 
 
 def _question_passages(repository: Repository, question_event_id: str) -> list[Any]:
-    """The passages a tutor question was asked from: its passage and the spans it was given."""
+    """The passages a tutor question was asked from: its passage and the spans
+    it was given. A question with no source context names none; one naming a
+    reading without a passage (or the reverse) is malformed."""
 
     event = repository.question_event(str(question_event_id))
     if event is None:
         raise LookupError(f"unknown question event {question_event_id!r}")
     context = event.get("source_context") or {}
-    found: list[Any] = [(context.get("extraction_id"), context.get("span_id")), *(context.get("source_spans") or ())]
+    if not isinstance(context, Mapping):
+        raise LookupError(f"question event {question_event_id!r} has a malformed source context")
+    found: list[Any] = []
+    if context.get("extraction_id") or context.get("span_id"):
+        found.append((context.get("extraction_id"), context.get("span_id")))
+    found.extend(context.get("source_spans") or ())
     delivery = context.get("delivery") or {}
     if isinstance(delivery, Mapping):
         found.extend(delivery.get("source_spans") or ())
@@ -267,41 +274,106 @@ def _question_passages(repository: Repository, question_event_id: str) -> list[A
 
 
 def comparison_passages(repository: Repository, comparison_id: str, *, ask_id: str | None = None,
-                        question_event_id: str | None = None) -> set[tuple[str, str]]:
-    """Every passage that contributed to a stored comparison: its compared
-    sources, its counterparts, its unverified sources and dropped pins, the
-    passage its question was asked from (the ask's anchor and binding) and,
-    for a tutor's comparison, the tutor question's passage and the spans it
-    was given (``question_event_id``, or the ask row's). Raises
-    ``LookupError`` when the comparison, the ask or the question cannot be
-    read, or nothing is named: callers withhold (fail closed)."""
+                        question_event_id: str | None = None, ask_ids: Sequence[str] = (),
+                        question_event_ids: Sequence[str] = ()) -> set[tuple[str, str]]:
+    """Every passage that contributed to a stored comparison, as the **union
+    across its reuse** (Codex verify of RW4d fix round 4, F1):
 
+    * the stored comparison: its compared sources, counterparts, unverified
+      sources and dropped pins, and its own ``caller_ref`` (a tutor question;
+      for the Reader, the reading it was asked in);
+    * every ask that refers to it (showing it now, keeping it, a removal's
+      snapshot, or a contributor its keep recorded), with each ask's anchor,
+      binding and question, and ``ask_id`` / ``ask_ids`` (an ask acting now);
+    * every tutor question whose request ran it (``source_tool_calls``), the
+      contributors' questions, and ``question_event_id`` / ``question_event_ids``.
+
+    Every named contributor is resolved (Codex verify of fix round 4, F3):
+    each passage must exist as a block of its reading, each ask, question and
+    reading must exist. Anything malformed or unresolvable raises
+    ``LookupError``; callers withhold the whole comparison (fail closed)."""
+
+    from learnloop.db.stores.source_block_fts import existing_spans
+    from learnloop.db.stores.source_service import tool_requests_for_result
+
+    if not comparison_id:
+        raise LookupError("no comparison named")
+    found: list[Any] = []
+    asks: list[str] = [str(value) for value in (ask_id, *ask_ids) if value]
+    events: list[str] = [str(value) for value in (question_event_id, *question_event_ids) if value]
+    readings: list[str] = []
     with repository.connection() as connection:
-        stored = comparison_row(connection, str(comparison_id)) if comparison_id else None
-        ask = ask_store.ask_row(connection, str(ask_id)) if ask_id else None
-    if stored is None:
-        raise LookupError(f"unknown comparison {comparison_id!r}")
-    if ask_id and ask is None:
-        raise LookupError(f"unknown library question {ask_id!r}")
-    found: list[Any] = [*((stored.get("comparison") or {}).get("sources") or ()),
-                        *(stored.get("counterpart_keys") or ()), *(stored.get("unverified_sources") or ()),
-                        *(stored.get("dropped_pins") or ())]
-    events = [question_event_id] if question_event_id else []
-    if ask is not None:
-        extraction = ask.get("extraction_id")
-        found.extend((extraction, span) for span in (ask.get("anchor") or {}).get("span_ids") or ())
-        caller = (ask.get("manifest") or {}).get("caller")
-        if isinstance(caller, Mapping):
-            reading = caller.get("extraction_id") or extraction
-            spans = [caller.get("span_id"), *(caller.get("span_ids") or ()), *(caller.get("selection_span_ids") or ())]
-            found.extend((reading, span) for span in spans if span)
-        if ask.get("question_event_id"):
-            events.append(str(ask["question_event_id"]))
+        stored = comparison_row(connection, str(comparison_id))
+        if stored is None:
+            raise LookupError(f"unknown comparison {comparison_id!r}")
+        found.extend([*((stored.get("comparison") or {}).get("sources") or ()),
+                      *(stored.get("counterpart_keys") or ()), *(stored.get("unverified_sources") or ()),
+                      *(stored.get("dropped_pins") or ())])
+        caller_ref = stored.get("caller_ref")
+        if caller_ref:
+            if str(stored.get("caller") or "") == "tutor":
+                events.append(str(caller_ref))
+            else:
+                readings.append(str(caller_ref))
+        asks.extend(ask_store.asks_referencing_comparison(connection, str(comparison_id)))
+        for request in tool_requests_for_result(connection, str(comparison_id)):
+            if not request.get("caller_ref"):
+                raise LookupError(f"a run of comparison {comparison_id!r} names no question")
+            events.append(str(request["caller_ref"]))
+        seen: set[str] = set()
+        while asks:
+            current = asks.pop(0)
+            if current in seen:
+                continue
+            seen.add(current)
+            ask = ask_store.ask_row(connection, current)
+            kept_row = ask_store.kept_row(connection, current)
+            if ask is None or kept_row is None:
+                raise LookupError(f"unknown library question {current!r}")
+            extraction = ask.get("extraction_id")
+            spans = list((ask.get("anchor") or {}).get("span_ids") or ())
+            if spans and not extraction:
+                raise LookupError(f"library question {current!r} names an anchor without its reading")
+            found.extend((extraction, span) for span in spans)
+            if extraction:
+                readings.append(str(extraction))
+            caller = (ask.get("manifest") or {}).get("caller")
+            if isinstance(caller, Mapping):
+                reading = caller.get("extraction_id") or extraction
+                named = [caller.get("span_id"), *(caller.get("span_ids") or ()),
+                         *(caller.get("selection_span_ids") or ())]
+                found.extend((reading, span) for span in named if span)
+            if ask.get("question_event_id"):
+                events.append(str(ask["question_event_id"]))
+            kept = kept_row.get("kept") or {}
+            recorded = [*(kept.get("contributors") or ()),
+                        *(contributor for entry in kept.get("removed") or () if isinstance(entry, Mapping)
+                          for contributor in ((entry.get("kept") or {}).get("contributors") or ()))]
+            for contributor in recorded:
+                if not isinstance(contributor, Mapping):
+                    raise LookupError(f"library question {current!r} records a malformed contributor")
+                if contributor.get("ask_id"):
+                    asks.append(str(contributor["ask_id"]))
+                if contributor.get("question_event_id"):
+                    events.append(str(contributor["question_event_id"]))
+        for reading in dict.fromkeys(readings):
+            if connection.execute("SELECT 1 FROM source_extraction_runs WHERE id = ?", (reading,)).fetchone() is None:
+                raise LookupError(f"unknown reading {reading!r}")
     for event_id in dict.fromkeys(events):
         found.extend(_question_passages(repository, event_id))
-    keys = {key for value in found if (key := _span_key(value)) is not None}
+    keys: set[tuple[str, str]] = set()
+    for value in found:
+        key = _span_key(value)
+        if key is None:
+            raise LookupError(f"comparison {comparison_id!r} names a malformed passage: {value!r}")
+        keys.add(key)
     if not keys:
         raise LookupError(f"comparison {comparison_id!r} names no passage")
+    with repository.connection() as connection:
+        present = existing_spans(connection, keys)
+    missing = keys - present
+    if missing:
+        raise LookupError(f"comparison {comparison_id!r} names passages that do not resolve: {sorted(missing)!r}")
     return keys
 
 
@@ -327,7 +399,7 @@ def withheld_comparisons(vault: Any, repository: Repository,
         except Exception:  # noqa: BLE001 - unresolvable provenance is withheld (fail closed)
             unknown.add(pair)
     try:
-        held = EM.exam_withheld(vault, repository, sorted({key for keys in passages.values() for key in keys}))
+        held = EM.exam_material(vault, repository).withheld(sorted({key for keys in passages.values() for key in keys}))
     except Exception:  # noqa: BLE001 - an unreadable predicate withholds every comparison (fail closed)
         return frozenset(wanted)
     return frozenset(unknown | {pair for pair, keys in passages.items() if keys & set(held)})

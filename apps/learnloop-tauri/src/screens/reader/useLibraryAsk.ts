@@ -92,9 +92,14 @@ function pause(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** A refusal that says why (held-out material), else the stage's own line. */
+/** Refusals that say why: held-out material, or (RW4d fix round 5) a
+ *  comparison withheld whole because a passage it drew on is held out now. */
+const SAYS_WHY = new Set(["exam_material", "comparison_withheld"]);
+
+/** A refusal that says why, else the stage's own line. */
 function failureLine(error: unknown, fallback: string): string {
-  return getCommandError(error)?.code === "exam_material" ? errorMessage(error) : fallback;
+  const code = getCommandError(error)?.code;
+  return code && SAYS_WHY.has(code) ? errorMessage(error) : fallback;
 }
 
 export interface LibraryAskState {

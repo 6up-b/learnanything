@@ -303,6 +303,26 @@ def extraction_source_ids(connection: sqlite3.Connection, extraction_ids: Iterab
     return found
 
 
+def existing_spans(connection: sqlite3.Connection,
+                   keys: Iterable[tuple[str, str]]) -> set[tuple[str, str]]:
+    """Which of ``keys`` (extraction, span) name a block that exists: keys
+    only, never a block's text (RW4d fix round 5: a comparison's contributors
+    are resolved before its protection is checked)."""
+
+    wanted = sorted({(str(key[0]), str(key[1])) for key in keys if key and key[0] and key[1]})
+    by_reading: dict[str, list[str]] = {}
+    for extraction_id, span_id in wanted:
+        by_reading.setdefault(extraction_id, []).append(span_id)
+    found: set[tuple[str, str]] = set()
+    for extraction_id, span_ids in by_reading.items():
+        for start in range(0, len(span_ids), 500):
+            chunk = span_ids[start:start + 500]
+            found.update((extraction_id, str(row[0])) for row in connection.execute(
+                "SELECT span_id FROM source_document_blocks WHERE extraction_id = ? "
+                f"AND span_id IN ({', '.join('?' for _ in chunk)})", (extraction_id, *chunk)))
+    return found
+
+
 def spans_with_content_hashes(connection: sqlite3.Connection, extraction_id: str,
                               content_hashes: Collection[str]) -> list[str]:
     """Span ids of one extraction's blocks whose text hashes to one of ``content_hashes``."""

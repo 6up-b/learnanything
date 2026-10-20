@@ -110,6 +110,18 @@ def asks_for_comparison(connection: sqlite3.Connection, comparison_id: str, *, c
         (comparison_id, caller)).fetchall()]
 
 
+def asks_referencing_comparison(connection: sqlite3.Connection, comparison_id: str) -> list[str]:
+    """RW4d fix round 5: every ask that refers to a comparison, oldest first:
+    the asks showing it now (``comparison_id``) and every ask whose keep
+    record names it (its live keep, a removal's snapshot, a contributor). The
+    match on ``kept_json`` is textual, so it may only over-include (callers
+    read more provenance, never less)."""
+
+    return [str(row[0]) for row in connection.execute(
+        "SELECT id FROM library_asks WHERE comparison_id = ? OR instr(COALESCE(kept_json, ''), ?) > 0 "
+        "ORDER BY created_at, id", (comparison_id, json.dumps(str(comparison_id)))).fetchall()]
+
+
 def notes_for_ledger_ids(connection: sqlite3.Connection, ledger_ids: Sequence[str]) -> dict[str, dict[str, Any]]:
     """The validated organizer notes an earlier ask stored for these ledger rows."""
 
