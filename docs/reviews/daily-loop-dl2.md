@@ -414,3 +414,14 @@ gate's. Run here, with `TMPDIR` in the worktree's `fixtures-local/tmp`:
 | `cargo check` | OK |
 | `db_generate_reference.py`, `db_validate_reference.py` | **0 errors** (925 leaves in 64 sections; prose counts updated; the rest is commit labels) |
 | Tracked working vaults | untouched (copies only) |
+
+## Codex review (fix step)
+
+The Codex review of `bbb0b05d3` (job `20261020-000102-fgOsoH`) and its fixes are in
+`docs/reviews/daily-loop-dl2-codex-review.md`: F1 and F3-F10 fixed (intent at follow-up
+insertion and in plans already built; "Check once" through the one eligibility decision
+with an honest practice label; held grades never anchor; the review interval from the
+anchor; re-entry's order through the chooser; reading by the source's intent; deadline
+goals scoped by facets, recoverable and serialized; the headline's population by
+intent). F2 (an `intent_v1` successor) rejected under the standing live-change ruling,
+an open question there. Where this file's claims above differ, that file is current.

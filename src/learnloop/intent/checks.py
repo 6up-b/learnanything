@@ -9,7 +9,10 @@
   Reader §9.3 item 10, D42, D46): the cold banner; help is never blocked, and
   the help ladder's header states the consequence (no confirmation dialog);
   the header locates nothing (no exercise number, page, section, link or
-  *why*) until feedback.
+  *why*) until feedback. Only when the one eligibility decision lets the
+  item be taken cold now (DL2 Codex review F3): an item whose answer was
+  shown is labelled practice instead, with no cold banner or ladder header,
+  and the check comes back after its delay.
 * :func:`restoration_link` (Reader §9.3 item 9): after the measurement, "Back
   to where you studied this" when the commitment's provenance carries inquiry
   roots or anchor spans (RW6b supplies them; rendered only when present).
@@ -32,6 +35,12 @@ COLD_BANNER = "A check on your own. Help is still here — using it makes this p
 HELP_LADDER_HEADER = "Taking any help makes this attempt practice with help, not a check on your own."
 #: The plan line's purpose before the check (kept; the check itself says none).
 PLAN_LINE = "check · on your own"
+#: F3: a check's item that cannot be taken cold now (its answer was shown):
+#: honest about what this attempt is, and that the check is not lost.
+PRACTICE_BANNER = (
+    "Practice: you've seen this answer, so this one is practice, not your check on your own. "
+    "Your check comes back later."
+)
 
 
 def settle_answered_checks(vault: Any, repository: Any, *, clock: Clock | None = None) -> list[str]:
@@ -73,12 +82,26 @@ def restoration_link(provenance: Mapping[str, Any]) -> dict[str, Any] | None:
     }
 
 
-def _view(check: CheckState) -> dict[str, Any]:
+def _view(check: CheckState, *, cold: bool) -> dict[str, Any]:
+    if not cold:
+        # F3: practice, honestly labelled; nothing to protect, so the item
+        # shows as any practice does (no ladder header, locators shown).
+        return {
+            "kind": "check_once",
+            "commitment_id": check.commitment_id,
+            "due_since": check.date.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "date_source": check.date_source,
+            "cold": False,
+            "banner": PRACTICE_BANNER,
+            "locators_hidden": False,
+            "restoration": None,
+        }
     return {
         "kind": "check_once",
         "commitment_id": check.commitment_id,
         "due_since": check.date.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "date_source": check.date_source,
+        "cold": True,
         "banner": COLD_BANNER,
         "help_header": HELP_LADDER_HEADER,
         # D46: the header names nothing that locates the exercise until feedback.
@@ -88,7 +111,9 @@ def _view(check: CheckState) -> dict[str, Any]:
 
 
 def served_check(vault: Any, repository: Any, practice_item_id: str, *, now: datetime) -> dict[str, Any] | None:
-    """The practice view of ``practice_item_id`` when it is a due check now."""
+    """The practice view of ``practice_item_id`` when it is a due check now:
+    cold only when the one eligibility decision says so at this serve (F3:
+    an exposure after the check was planned is read here)."""
 
     serving = intent_serving(vault, repository, now=now)
     if serving is None:
@@ -96,7 +121,7 @@ def served_check(vault: Any, repository: Any, practice_item_id: str, *, now: dat
     check = serving.check_for(practice_item_id)
     if check is None or not check.due or check.answered_by is not None or practice_item_id not in check.candidates:
         return None
-    return _view(check)
+    return _view(check, cold=check.cold(practice_item_id))
 
 
 def answered_check(vault: Any, repository: Any, attempt_id: str) -> dict[str, Any] | None:
@@ -138,6 +163,7 @@ __all__ = [
     "COLD_BANNER",
     "HELP_LADDER_HEADER",
     "PLAN_LINE",
+    "PRACTICE_BANNER",
     "answered_check",
     "restoration_link",
     "served_check",

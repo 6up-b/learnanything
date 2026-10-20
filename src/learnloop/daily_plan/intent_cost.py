@@ -86,7 +86,10 @@ def projected_cost(
             ReviewItem(
                 practice_item_id=item_id,
                 due_at=due.strftime("%Y-%m-%dT%H:%M:%SZ") if due is not None else state.due_at,
-                last_review_at=state.last_attempt_at,
+                # Codex review F5: the review that set ``due_at`` (a primed
+                # retry or diagnostic moves only ``last_attempt_at``); imported
+                # state with no qualifying attempt falls back to it.
+                last_review_at=anchor[0] if anchor else state.last_attempt_at,
                 est_minutes=context.estimator.item_minutes(vault, item_id),
             )
         )

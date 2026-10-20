@@ -127,7 +127,8 @@ def attempts_for_anchor(connection: sqlite3.Connection) -> list[dict[str, Any]]:
 
 
 def attempts_since(connection: sqlite3.Connection, item_ids: list[str], since: str) -> list[dict[str, Any]]:
-    """Attempts on these items at or after ``since`` (a check's date), oldest first."""
+    """Attempts on these items at or after ``since`` (a check's date), oldest
+    first, with what decides whether one was on your own (primed, hints)."""
 
     if not item_ids:
         return []
@@ -138,7 +139,7 @@ def attempts_since(connection: sqlite3.Connection, item_ids: list[str], since: s
             dict(row)
             for row in connection.execute(
                 f"""
-                SELECT id, practice_item_id, created_at
+                SELECT id, practice_item_id, created_at, attempt_type, primed, hints_used
                 FROM practice_attempts
                 WHERE practice_item_id IN ({_in_clause(chunk)}) AND created_at >= ?
                 ORDER BY created_at, id
@@ -146,6 +147,7 @@ def attempts_since(connection: sqlite3.Connection, item_ids: list[str], since: s
                 [*chunk, since],
             ).fetchall()
         )
+    out.sort(key=lambda row: (str(row["created_at"]), str(row["id"])))
     return out
 
 

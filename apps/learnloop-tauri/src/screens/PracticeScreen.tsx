@@ -948,8 +948,10 @@ export function PracticeScreen({
       onError("No hints on this one: it's a check on your own.");
       return;
     }
-    if (intentCheck && !checkHelpOpen) {
+    if (intentCheck?.helpHeader && !checkHelpOpen) {
       // D42: open the ladder first; its header says what taking help means.
+      // Only on a check served cold: an item whose answer was seen is
+      // practice already (Codex review F3), so help is taken as usual.
       setCheckHelpOpen(true);
       return;
     }
@@ -1890,7 +1892,7 @@ export function PracticeScreen({
                 {simple ? <Pill tone="amber">hint</Pill> : <Pill tone="amber">hint {index + 1}/{item.hints.length}</Pill>} {hint}
               </div>
             ))}
-            {intentCheck && checkHelpOpen && hintsUsed === 0 && adaptiveHints.entries.length === 0 ? (
+            {intentCheck?.helpHeader && checkHelpOpen && hintsUsed === 0 && adaptiveHints.entries.length === 0 ? (
               // DL2 (D42): the help ladder's header states the consequence;
               // nothing is shown until a rung is taken.
               <div className="hint-banner" data-testid="intent-check-help" style={{ display: "grid", gap: 6 }}>

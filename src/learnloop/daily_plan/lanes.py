@@ -403,7 +403,7 @@ def reentry_order(pool: Sequence[PoolItem], tiers: Mapping[str, int] | None = No
                 item.order_rank,
             ),
         )
-    return sorted(
+    ordered = sorted(
         pool,
         key=lambda item: (
             0 if item.check_kind == "assumed_check" else 1,
@@ -411,6 +411,13 @@ def reentry_order(pool: Sequence[PoolItem], tiers: Mapping[str, int] | None = No
             item.order_rank,
         ),
     )
+    # Codex review F6: the block source scores blocks by ``order_rank``
+    # (``planner_value``, the chooser's tie-break), so the intent order is
+    # carried into it: each item takes the rank of the position it moves
+    # into as its ``plan_rank``, as an admitted project probe does
+    # (``_order_probes_by_value``). Otherwise the chooser would undo it.
+    ranks = sorted(item.order_rank for item in pool)
+    return [replace(item, plan_rank=rank) for item, rank in zip(ordered, ranks)]
 
 
 def _candidate_id(lane: str, item_ids: Sequence[str], reading: ReadingTarget | None) -> str:

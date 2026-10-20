@@ -1073,10 +1073,16 @@ export interface IntentCheckDto {
   kind: "check_once";
   commitmentId: string;
   dueSince?: string;
-  dateSource?: "due_hint" | "test_me_later_days";
-  /** "A check on your own. Help is still here — using it makes this practice with help." */
+  /** "after_practice": dated again after an attempt that was not on your own. */
+  dateSource?: "due_hint" | "test_me_later_days" | "after_practice";
+  /**
+   * Served cold now (the one eligibility decision). False: the item's answer
+   * was seen, so this is practice, labelled so, and the check comes back later.
+   */
+  cold?: boolean;
+  /** The cold banner, or the practice label when not cold. */
   banner?: string;
-  /** The help ladder's header during the check (D42). */
+  /** The help ladder's header during a cold check (D42); absent when not cold. */
   helpHeader?: string;
   /** D46: nothing that locates the exercise is shown until feedback. */
   locatorsHidden?: boolean;

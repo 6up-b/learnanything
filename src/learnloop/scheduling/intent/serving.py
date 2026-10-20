@@ -24,9 +24,22 @@ Otherwise :class:`IntentServing` answers, per item:
   sort). Held-out and reserved exam items never reach it: the scheduler's
   routine exclusions run before the intent gate.
 
-A check is **answered** by an attempt on an item it decides at or after its
-date; resolution then reads it as ``satisfied`` (deriving it keeps serving
-right before ``checks.settle_answered_checks`` writes the event).
+A check is **answered** by an attempt *on your own* (not primed, no hints,
+not a hinted attempt) on an item it decides at or after its date;
+resolution then reads it as ``satisfied`` (deriving it keeps serving right
+before ``checks.settle_answered_checks`` writes the event). An attempt that
+is not on your own (help taken, or the answer seen first) is practice: it
+answers nothing and dates the check again, ``capture.test_me_later_days``
+after it (DL2 Codex review F3).
+
+**Cold eligibility** (DL2 Codex review F3): a due check is a measurement of
+the item alone, so each candidate asks the one eligibility decision
+(``serve_eligibility.decide(..., CHECK_ONCE)``). Eligible candidates are the
+check's; when none is, a time-bounded hold (a routine display, a reveal
+since the check was chosen) makes the check wait, and standing exposure
+(the answer shown, which only an attempt absorbs) serves the item as
+practice, labelled so (``CheckState.servable``, ``eligible``). Nothing is
+persisted: the decision is recomputed at every build and every serve.
 """
 
 from __future__ import annotations
@@ -44,6 +57,24 @@ from learnloop.scheduling.intent.resolution import ItemIntent, Resolution, load_
 
 DATE_FROM_DUE_HINT = "due_hint"
 DATE_FROM_DEFAULT = "test_me_later_days"
+#: Dated again after an attempt that was not on your own (F3).
+DATE_FROM_PRACTICE = "after_practice"
+
+#: Eligibility verdicts a check reads (``serve_eligibility``'s, as strings so
+#: this module stays free of it; :func:`intent_serving` passes the decision).
+_SERVE = "serve"
+_SERVE_AS_ORDINARY = "serve_as_ordinary"
+
+
+def on_your_own(row: Mapping[str, Any]) -> bool:
+    """An attempt that can answer a "Check once": not primed, no hints, not a
+    hinted attempt (submit's own record of help and exposure)."""
+
+    return (
+        not bool(row.get("primed") or 0)
+        and int(row.get("hints_used") or 0) == 0
+        and str(row.get("attempt_type") or "") != "hinted_attempt"
+    )
 
 
 def intent_enabled(config: Any) -> bool:
@@ -85,6 +116,29 @@ class CheckState:
     answered_by: str | None = None
     item_level: bool = False
     provenance: Mapping[str, Any] = field(default_factory=dict)
+    #: Due candidates the eligibility decision lets serve cold (F3).
+    eligible: tuple[str, ...] = ()
+    #: Due candidates under a time-bounded hold (they wait).
+    held: tuple[str, ...] = ()
+    #: Due candidates with standing exposure (practice only).
+    exposed: tuple[str, ...] = ()
+    created_at: str = ""
+
+    @property
+    def servable(self) -> tuple[str, ...]:
+        """The candidates this check may serve now: the eligible ones; with
+        none, nothing while a hold lasts; else the exposed ones, as practice."""
+
+        if not self.due or self.answered_by is not None:
+            return ()
+        if self.eligible:
+            return self.eligible
+        if self.held:
+            return ()
+        return self.exposed
+
+    def cold(self, item_id: str) -> bool:
+        return item_id in self.eligible
 
 
 @dataclass
@@ -127,17 +181,30 @@ class IntentServing:
             check = self.check_for(item_id)
             if check is None or not check.due:
                 return "intent_check_waiting"
+            if item_id not in check.servable:
+                # F3: a hold on this candidate, or another can be taken cold.
+                return "intent_check_held"
         return None
 
     def is_check_candidate(self, item_id: str) -> bool:
         check = self.check_for(item_id)
-        return check is not None and check.due and item_id in check.candidates
+        return check is not None and item_id in check.servable
 
     def _anchor(self, item_id: str) -> str | None:
         if self._anchors is None:
             self._anchors = self._anchor_loader() if self._anchor_loader is not None else {}
         found = self._anchors.get(item_id)
         return found[0] if found is not None else None
+
+    def last_review_at(self, item_id: str, state: Any) -> str | None:
+        """The review that set ``due_at`` (the anchor), for the review-load
+        interval (§6.3, F5); an item with no qualifying attempt (imported
+        state) falls back to its ``last_attempt_at``, as DL1 reads it."""
+
+        anchor = self._anchor(item_id)
+        if anchor is not None:
+            return anchor
+        return getattr(state, "last_attempt_at", None) if state is not None else None
 
     def effective(self, item_id: str, state: Any) -> EffectiveDue:
         """§5.3's effective due (the stored ``due_at`` at 0.90 or with recall
@@ -213,7 +280,7 @@ class IntentServing:
         ]
         seen = set(kept)
         for check in self.due_checks():
-            for item_id in check.candidates:
+            for item_id in check.servable:
                 if item_id not in seen:
                     kept.append(item_id)
                     seen.add(item_id)
@@ -221,7 +288,7 @@ class IntentServing:
 
     def due_checks(self) -> list[CheckState]:
         return sorted(
-            (check for check in self.checks.values() if check.due and check.candidates and check.answered_by is None),
+            (check for check in self.checks.values() if check.servable),
             key=lambda check: (check.date, check.commitment_id),
         )
 
@@ -234,7 +301,7 @@ class IntentServing:
         positions = {getattr(entry, "practice_item_id", None): index for index, entry in enumerate(queue)}
         for check in self.due_checks():
             ranked = sorted(
-                (item_id for item_id in check.candidates if item_id in positions),
+                (item_id for item_id in check.servable if item_id in positions),
                 key=lambda item_id: positions[item_id],
             )
             if not ranked:
@@ -253,9 +320,9 @@ class IntentServing:
         claimed: set[str] = set()
         for item_id in item_ids:
             check = self.check_for(item_id)
-            if check is None or not check.due or check.answered_by is not None:
+            if check is None or item_id not in check.servable:
                 continue
-            if check.commitment_id in claimed or item_id not in check.candidates:
+            if check.commitment_id in claimed:
                 continue
             claimed.add(check.commitment_id)
             found[item_id] = check
@@ -284,9 +351,15 @@ def build_checks(
     now: datetime,
     default_days: int,
     attempts_since: Any,
+    eligibility: Any = None,
 ) -> tuple[dict[str, CheckState], Resolution]:
     """Every pending "Check once" with its date and the items it decides;
-    answered ones are folded to ``satisfied`` in the returned resolution."""
+    answered ones are folded to ``satisfied`` in the returned resolution.
+
+    ``attempts_since(item_ids, since)`` returns attempt rows (``id``,
+    ``created_at``, ``primed``, ``hints_used``, ``attempt_type``), oldest
+    first; ``eligibility(item_id, check_created_at)`` the one eligibility
+    decision's verdict for a due candidate (None: every candidate eligible)."""
 
     checks: dict[str, CheckState] = {}
     answered: list[CommitmentSnapshot] = []
@@ -306,19 +379,50 @@ def build_checks(
         )
         when_iso = when.strftime("%Y-%m-%dT%H:%M:%SZ")
         attempts = attempts_since(list(decided), when_iso) if decided and when <= now else []
-        answered_by = str(attempts[0]["id"]) if attempts else None
+        answer: Mapping[str, Any] | None = None
+        for row in attempts:
+            at = parse_utc(str(row["created_at"]))
+            if at is None or at < when:
+                continue
+            if at > now:
+                break
+            if on_your_own(row):
+                answer = row
+                break
+            # Practice, not a check on your own (help taken, or the answer
+            # seen first): it answers nothing, and the check waits its delay
+            # again from this attempt (F3).
+            when, source = at + timedelta(days=int(default_days)), DATE_FROM_PRACTICE
+        answered_by = str(answer["id"]) if answer is not None else None
+        due = when <= now
+        eligible: list[str] = []
+        held: list[str] = []
+        exposed: list[str] = []
+        if due and answered_by is None:
+            for item_id in decided:
+                verdict = _SERVE if eligibility is None else eligibility(item_id, snapshot.created_at)
+                if verdict == _SERVE:
+                    eligible.append(item_id)
+                elif verdict == _SERVE_AS_ORDINARY:
+                    exposed.append(item_id)
+                else:
+                    held.append(item_id)
         checks[snapshot.id] = CheckState(
             commitment_id=snapshot.id,
             date=when,
             date_source=source,
             candidates=decided,
-            due=when <= now,
+            due=due,
             answered_by=answered_by,
             item_level=bool(snapshot.item_targets),
             provenance=dict(snapshot.provenance),
+            eligible=tuple(eligible),
+            held=tuple(held),
+            exposed=tuple(exposed),
+            created_at=snapshot.created_at,
         )
-        if answered_by is not None:
-            answered.append(replace(snapshot, disposition="satisfied", satisfied_at=str(attempts[0]["created_at"])))
+        if answer is not None:
+            answered.append(replace(snapshot, disposition="satisfied", satisfied_at=str(answer["created_at"])))
     for snapshot in answered:
         resolution = resolution.with_snapshot(snapshot)
     return checks, resolution
@@ -355,6 +459,21 @@ def intent_serving(
         with repository.connection() as connection:
             return reads.attempts_since(connection, item_ids, since)
 
+    now_iso = now.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def eligibility(item_id: str, check_created_at: str) -> str:
+        # F3: the one eligibility decision, as every measurement asks it.
+        from learnloop import serve_eligibility
+
+        inputs = serve_eligibility.gather(
+            repository,
+            practice_item_id=item_id,
+            learning_object_id=item_los.get(item_id),
+            at=now_iso,
+            check_created_at=check_created_at,
+        )
+        return serve_eligibility.decide(inputs, serve_eligibility.CHECK_ONCE).verdict
+
     checks, resolution = build_checks(
         resolution,
         by_lo=by_lo,
@@ -362,6 +481,7 @@ def intent_serving(
         now=now,
         default_days=int(config.capture.test_me_later_days),
         attempts_since=attempts_since,
+        eligibility=eligibility,
     )
 
     def anchors() -> dict[str, tuple[str, str]]:
@@ -383,9 +503,11 @@ __all__ = [
     "CheckState",
     "DATE_FROM_DEFAULT",
     "DATE_FROM_DUE_HINT",
+    "DATE_FROM_PRACTICE",
     "IntentServing",
     "build_checks",
     "check_date",
     "intent_enabled",
     "intent_serving",
+    "on_your_own",
 ]

@@ -60,7 +60,7 @@ from learnloop.daily_plan.lanes import (
     reentry_order,
     scheduled_checks,
 )
-from learnloop.daily_plan.reading import next_reading_target, section_start_span
+from learnloop.daily_plan.reading import as_you_read_extraction_ids, next_reading_target, section_start_span
 from learnloop.daily_plan.records import (
     ORIGIN_CHOOSER,
     ORIGIN_FOLLOWUP,
@@ -895,6 +895,28 @@ def intent_view(env: PlanEnv) -> Any:
     return intent_serving(env.vault, env.repository, now=env.now())
 
 
+def reading_allowed(env: PlanEnv, intent: Any, extraction_id: str) -> bool:
+    """§6.10 by intent (Codex review F7): a reading's source reads under Learn
+    or Master, or uncommitted. A source's intent is its LOs' (the source
+    control fans out to them, ``intent.control.scope_contents``): it reads
+    while any LO it teaches is uncommitted or under an active Learn or
+    Master; Pause, Reference, Let go, Keep, Light touch and "Check once" on
+    every one of them stop new reading (maintenance only, or nothing)."""
+
+    from learnloop.reader.recap import source_learning_objects
+
+    lo_ids = source_learning_objects(env.vault, env.repository, extraction_id)
+    if not lo_ids:
+        return True
+    for lo_id in lo_ids:
+        resolved = intent.resolution.for_learning_object(lo_id)
+        if resolved.uncommitted:
+            return True
+        if resolved.disposition == "active" and resolved.choice in ("learn", "master"):
+            return True
+    return False
+
+
 def _check_once_checks(intent: Any, item_ids: Sequence[str]) -> dict[str, ScheduledCheck]:
     """DL2's ``check_once`` provider (``lanes.ScheduledCheck``): the due
     "Check once" items among the pool, one per check, in pool order. Called
@@ -1026,17 +1048,22 @@ def _review_items(env: PlanEnv, estimator: Estimator, intent: Any = None) -> lis
         if item is None or item.status != "active" or not practice_item_servable(vault, item):
             continue
         due_at = state.due_at
+        last_review_at = state.last_attempt_at
         if intent is not None:
             if intent.withhold_reason(item_id) is not None:
                 continue
             effective = intent.effective(item_id, state).due
             if effective is not None:
                 due_at = effective.strftime("%Y-%m-%dT%H:%M:%SZ")
+            # Codex review F5: the interval runs from the review that set
+            # ``due_at`` (the anchor), not from a later primed retry or
+            # diagnostic that moved only ``last_attempt_at``.
+            last_review_at = intent.last_review_at(item_id, state)
         items.append(
             ReviewItem(
                 practice_item_id=item_id,
                 due_at=due_at,
-                last_review_at=state.last_attempt_at,
+                last_review_at=last_review_at,
                 est_minutes=estimator.item_minutes(vault, item_id),
             )
         )
@@ -1198,7 +1225,19 @@ def _prepare_plan(
         protected = reading_rule != READING_RULE_DL1
         exam = _exam_material(env.vault, env.repository) if protected else None
         if not (protected and exam is None):
-            reading = next_reading_target(env.repository, from_furthest=from_furthest, exam=exam)
+            # DL2 (Codex review F7, §6.10): only a source under Learn or
+            # Master (or uncommitted) reads; with intent changing nothing the
+            # candidates are DL1's (None: the step reads them itself).
+            extraction_ids = None
+            if built.intent is not None:
+                extraction_ids = [
+                    extraction_id
+                    for extraction_id in as_you_read_extraction_ids(env.repository)
+                    if reading_allowed(env, built.intent, extraction_id)
+                ]
+            reading = next_reading_target(
+                env.repository, extraction_ids=extraction_ids, from_furthest=from_furthest, exam=exam
+            )
         if reading is not None:
             reading_full = built.estimator.reading_minutes(reading.words_left)
     admitted_new_minutes = admission.admitted_minutes + (reading_full or 0.0)
@@ -1457,7 +1496,13 @@ def _context(env: PlanEnv, record: PlanRecord, built: _Pool, *, day: Sequence[Pl
     reading_row = split.get("reading")
     reading = None
     reading_full = None
-    if reading_row and not any(block.is_reading for block in record.blocks):
+    if (
+        reading_row
+        and not any(block.is_reading for block in record.blocks)
+        # DL2 (Codex review F7): a choice since the plan was built can take
+        # the reading's source out of reading.
+        and (built.intent is None or reading_allowed(env, built.intent, str(reading_row.get("extraction_id") or "")))
+    ):
         reading = ReadingTarget(**{key: reading_row[key] for key in ("source_id", "extraction_id", "section_id", "section_title", "words_left")})
         reading_full = float(split.get("reading_full_minutes") or 0.0)
     gap_row = split.get("reentry_gap") or {}
@@ -2315,6 +2360,11 @@ def reconcile(env: PlanEnv, record: PlanRecord) -> PlanRecord:
     # is served; one a routine display covers is displaced (its task deferred
     # until that coverage ends, when the queue serves it again).
     cold_items = _open_cold_check_items(env)
+    # DL2 (Codex review F1): a choice made after the plan was built (Pause,
+    # Reference, Let go, a "Check once" that now holds an item, an answered
+    # check) applies to the plan's unserved items too; with intent changing
+    # nothing this is None and reconciliation is DL1's.
+    intent = intent_view(env) if any(item.served_at is None for item in open_items) else None
     if open_items:
         earliest = min(item.planned_at for item in open_items)
         ids = sorted({item.practice_item_id for item in open_items})
@@ -2372,6 +2422,15 @@ def reconcile(env: PlanEnv, record: PlanRecord) -> PlanRecord:
                 )
                 item.displaced_at = now
                 continue
+            if (
+                intent is not None
+                and item.served_at is None
+                and item.origin != ORIGIN_LEARNER_PICK
+                and (withheld := intent.withhold_reason(item.practice_item_id)) is not None
+            ):
+                writes.append((item.block_id, "item_displaced", {"practice_item_id": item.practice_item_id, "reason": withheld}))
+                item.displaced_at = now
+                continue
             if item.served_at is None and item.practice_item_id in cold_items:
                 from learnloop.scheduling.scheduler import cold_check_serve_hold
 
@@ -2385,6 +2444,16 @@ def reconcile(env: PlanEnv, record: PlanRecord) -> PlanRecord:
         if block.ended_at is None and not block.is_reading and block.items and all(item.resolved for item in block.items):
             writes.append((block.id, "block_ended", {"outcome": "completed", "minutes_counted": round(block.est_minutes(), 4)}))
             block.ended_at = now
+        elif block.ended_at is None and block.is_reading and block.started_at is None:
+            # DL2 (Codex review F7): a reading block not yet started whose
+            # source a later choice took out of reading (Pause, Reference,
+            # Let go, Keep, Light touch, "Check once") is ended unread; its
+            # minutes are not counted.
+            reading_intent = intent if intent is not None else intent_view(env)
+            extraction = str((block.reading or {}).get("extraction_id") or "")
+            if reading_intent is not None and extraction and not reading_allowed(env, reading_intent, extraction):
+                writes.append((block.id, "block_ended", {"outcome": "displaced", "reason": "intent", "minutes_counted": 0.0}))
+                block.ended_at = now
     if writes:
         with env.repository.atomic(), env.repository.connection() as connection:
             for block_id, kind, detail in writes:

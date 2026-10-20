@@ -15,7 +15,10 @@ the item's latest attempt that fed FSRS, i.e. one ``classify_attempt_activity``
 marks ``eligible_for_fsrs`` from the row's attempt type, ``primed`` and
 ``hints_used`` (the attempt path's own decision before it writes ``due_at``).
 It is never ``last_attempt_at``: a primed retry or a diagnostic administration
-between two reviews advances ``last_attempt_at`` but keeps ``due_at``.
+between two reviews advances ``last_attempt_at`` but keeps ``due_at``. Nor is
+it an attempt whose grade is held for review now (``held_grades``: the
+attempt path leaves FSRS state exactly as it was for a held grade, until a
+regrade or an adjudication assesses it; Codex review F4).
 
 Fallbacks (counted by ``learnloop plan report``): no item state or a null
 ``due_at`` has no effective due (not due-classified, as today); no qualifying
@@ -66,13 +69,16 @@ def fsrs_eligible(row: Mapping[str, Any]) -> bool:
     )
 
 
-def anchors_from_attempts(rows: Iterable[Mapping[str, Any]]) -> dict[str, tuple[str, str]]:
-    """``{item id: (anchor created_at, attempt id)}``: the latest FSRS-eligible
-    attempt per item. ``rows`` in any order."""
+def anchors_from_attempts(
+    rows: Iterable[Mapping[str, Any]], *, held: frozenset[str] = frozenset()
+) -> dict[str, tuple[str, str]]:
+    """``{item id: (anchor created_at, attempt id)}``: the latest attempt per
+    item that wrote FSRS state (eligible, and not ``held`` for review).
+    ``rows`` in any order."""
 
     anchors: dict[str, tuple[str, str]] = {}
     for row in rows:
-        if not fsrs_eligible(row):
+        if not fsrs_eligible(row) or str(row["id"]) in held:
             continue
         item_id = str(row["practice_item_id"])
         key = (str(row["created_at"]), str(row["id"]))
@@ -84,8 +90,12 @@ def anchors_from_attempts(rows: Iterable[Mapping[str, Any]]) -> dict[str, tuple[
 
 def load_anchors(connection: Any) -> dict[str, tuple[str, str]]:
     from learnloop.db.stores import intent_reads as reads
+    from learnloop.held_grades import held_for_review_attempts
 
-    return anchors_from_attempts(reads.attempts_for_anchor(connection))
+    rows = reads.attempts_for_anchor(connection)
+    eligible = [str(row["id"]) for row in rows if fsrs_eligible(row)]
+    held = held_for_review_attempts(connection, eligible) if eligible else frozenset()
+    return anchors_from_attempts(rows, held=frozenset(held))
 
 
 @dataclass(frozen=True)

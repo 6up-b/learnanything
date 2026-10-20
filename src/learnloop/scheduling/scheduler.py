@@ -317,6 +317,18 @@ def build_due_queue(
     pending_followups, cold_deferrals = _defer_revealed_cold_followups(
         vault, repository, pending_followups, clock=clock, persist=persist_explanations
     )
+    if intent_view is not None:
+        # DL2 (Codex review F1): follow-up insertion is a second door that
+        # rebuilds an item by id after the ranked loop, so the intent gate
+        # applies here too: a paused, referenced, let-go or answered-check
+        # item, or one a "Check once" still holds, is never resurrected. The
+        # task stays pending (nothing is written) and serves once intent
+        # allows it again.
+        pending_followups = [
+            pending
+            for pending in pending_followups
+            if intent_view.withhold_reason(str(pending["practice_item_id"])) is None
+        ]
     # KM2b: canonical shared facet state under mvp-0.7 (byte-identical legacy
     # per-LO reads under mvp-0.6). One reader build feeds the whole vault sweep.
     facet_states_by_lo = read_facet_states_by_lo(vault, repository)

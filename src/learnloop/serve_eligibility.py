@@ -19,7 +19,10 @@ Now one pure function, :func:`decide`, answers for every path:
   TUI's open, the CLI's attempt);
 * **a probe or placement presentation** (the probe commit, the TUI's probe,
   the causal offer, a precommitted block);
-* **a quick-check offer** (the placement quick check's candidates).
+* **a quick-check offer** (the placement quick check's candidates);
+* **a learner's "Check once"** (daily-loop DL2: a ``test_me_later``
+  commitment's check on your own, selected and served by
+  ``scheduling.intent``; DL2 Codex review F3).
 
 Submit's rule is persisted meaning (it decides whether an attempt counts as
 cold), so it is kept exactly (:func:`submit_exposure` reproduces
@@ -101,8 +104,12 @@ COLD_CHECK = "cold_check"
 PROBE = "probe"
 #: Offer the item in the placement quick check.
 QUICK_CHECK = "quick_check"
+#: Serve the item as a learner's own "Check once" (daily-loop DL2, a
+#: ``test_me_later`` commitment, not a follow-up task): a check on your own
+#: is a measurement of the item alone, so it asks what a cold check asks.
+CHECK_ONCE = "check_once"
 
-REQUESTS = (SUBMIT, COLD_CHECK, PROBE, QUICK_CHECK)
+REQUESTS = (SUBMIT, COLD_CHECK, PROBE, QUICK_CHECK, CHECK_ONCE)
 
 SERVE = "serve"
 SERVE_AS_ORDINARY = "serve_as_ordinary"
@@ -144,6 +151,11 @@ COLD_CHECK_AUTO_PRIMED = "cold_check_auto_primed"
 PROBE_ITEM_ANSWER_SHOWN = "probe_item_answer_shown"
 #: A quick-check offer of an item submit would prime.
 QUICK_CHECK_ANSWER_SHOWN = "quick_check_answer_shown"
+#: A "Check once" whose item submit would prime and no lapse of time clears
+#: (a non-routine reveal since its last attempt): it can only be practice now
+#: (DL2 Codex review F3). Time-bounded exposure defers the check instead
+#: (``COLD_CHECK_ROUTINE_DISPLAY`` / ``COLD_CHECK_REVEALED_SINCE_SCHEDULED``).
+CHECK_ONCE_ANSWER_SHOWN = "check_once_answer_shown"
 
 #: The refusal submit has always raised for a cold check (tests match on it).
 COLD_CHECK_REFUSAL = "a cold retry must be unassisted and unprimed"
@@ -251,6 +263,10 @@ class EligibilityInputs:
     auto_primed: bool = False
     hints_used: int = 0
     attempt_type: str | None = None
+    #: ``check_once`` only: when the "Check once" was chosen (its commitment's
+    #: creation). Reveals before it were visible to the learner's choice, as
+    #: reveals before a cold task were visible to the decision that set it.
+    check_created_at: str | None = None
 
 
 # -- the decision record --------------------------------------------------------------------------
@@ -503,6 +519,8 @@ def decide(inputs: EligibilityInputs, request: str) -> EligibilityDecision:
         return _decide_submit(inputs, exposure, base)
     if request == COLD_CHECK:
         return _decide_cold_check(inputs, exposure, base)
+    if request == CHECK_ONCE:
+        return _decide_check_once(inputs, exposure, base)
     # A probe, placement presentation or quick-check offer is a measurement
     # of the item alone: never administered on an item submit would prime,
     # nor (probes, the round-6 guard kept) while a routine display covers it.
@@ -630,6 +648,43 @@ def _decide_cold_check(inputs: EligibilityInputs, exposure: SubmitExposure, base
     )
 
 
+def _decide_check_once(inputs: EligibilityInputs, exposure: SubmitExposure, base: dict[str, Any]) -> EligibilityDecision:
+    """A learner's "Check once" (daily-loop DL2) asks the cold check's question
+    without a task: the same holds (:func:`cold_task_holds`, counted from the
+    check's choice), the same standing exposure. Nothing is persisted: the
+    check is dated by its commitment and recomputed at every build, so a hold
+    defers it (``defer_until``, no re-time) and standing exposure makes the
+    item practice, honestly labelled (``serve_as_ordinary``); an attempt that
+    is not on your own then dates the check again (``scheduling.intent``)."""
+
+    if exposure.primed_by_ledger and exposure.lapses_at is None:
+        return EligibilityDecision(
+            **base, verdict=SERVE_AS_ORDINARY, reason=CHECK_ONCE_ANSWER_SHOWN,
+            reveal_event_ids=_ids(exposure.counted),
+            message="Practice: you've seen this answer, so this one is practice, not your check on your own.",
+        )
+    pseudo = FollowupTask(
+        id="check_once", kind=CHECK_ONCE, created_at=inputs.check_created_at or "", not_before=None, expires_at=None,
+    )
+    holds = cold_task_holds(inputs, pseudo)
+    rows = [row for row, _released, _reason in holds]
+    releases = [released for _row, released, _reason in holds]
+    reasons = {reason for _row, _released, reason in holds}
+    if exposure.primed_by_ledger and exposure.lapses_at is not None:
+        releases.append(exposure.lapses_at)
+        rows.extend(exposure.counted)
+        reasons.add(COLD_CHECK_ROUTINE_DISPLAY)
+    pending = [released for released in releases if released > inputs.at]
+    if not pending:
+        return EligibilityDecision(**base, verdict=SERVE, reason=ELIGIBLE)
+    return EligibilityDecision(
+        **base, verdict=DEFER_UNTIL,
+        reason=COLD_CHECK_ROUTINE_DISPLAY if COLD_CHECK_ROUTINE_DISPLAY in reasons else COLD_CHECK_REVEALED_SINCE_SCHEDULED,
+        until=max(pending), reveal_event_ids=_ids(sorted(rows, key=lambda row: (row.created_at, row.id))),
+        message="Its answer was shown recently, so your check waits until it is cold again.",
+    )
+
+
 # -- the imperative shell ---------------------------------------------------------------------------
 
 
@@ -646,6 +701,7 @@ def gather(
     hints_used: int = 0,
     attempt_type: str | None = None,
     reveal_rows: Sequence[Mapping[str, Any]] | None = None,
+    check_created_at: str | None = None,
 ) -> EligibilityInputs:
     """Read the decision's inputs for one item from ``repository``.
 
@@ -685,6 +741,7 @@ def gather(
         auto_primed=auto_primed,
         hints_used=int(hints_used or 0),
         attempt_type=attempt_type,
+        check_created_at=check_created_at,
     )
 
 
@@ -752,6 +809,8 @@ def log_decision(decision: EligibilityDecision, *, path: str) -> None:
 
 __all__ = [
     "AUTO_PRIME_REVEAL_THRESHOLD",
+    "CHECK_ONCE",
+    "CHECK_ONCE_ANSWER_SHOWN",
     "COLD_CHECK",
     "COLD_CHECK_ANSWER_SHOWN",
     "COLD_CHECK_AUTO_PRIMED",

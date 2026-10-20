@@ -2,7 +2,8 @@
 
 "Add a deadline" creates (or moves) a ``Goal`` with ``creation_source:
 "learner"``, the due date and the commitment's LOs (their concepts) as its
-scope, and links it through a commitment version's ``goal_id``. Linking is not
+scope (their facets: Codex review F8), and links it through a commitment
+version's ``goal_id``. Linking is not
 a choice: it never moves the commitment's choice time. The goal machinery
 then treats those LOs as deadline LOs (the plan's deadlines and push).
 """
@@ -34,7 +35,9 @@ def test_a_deadline_creates_a_learner_goal_linked_by_goal_id(iv):
     goal = next(goal for goal in iv.vault.goals if goal.id == result["goal_id"])
     assert goal.creation_source == "learner" and goal.status == "active"
     assert goal.due_at == "2026-12-01T23:59:59Z"
-    assert goal.facet_scope.concepts == [iv.vault.learning_objects["lo_a"].concept]
+    # Codex review F8: the LOs' facets, never their concepts (a concept pulls
+    # in every other LO on it).
+    assert goal.facet_scope.concepts == [] and goal.facet_scope.facets == ["recall"]
     assert goal.target_recall == pytest.approx(0.90)
     assert C.resolve_head(iv.repository, applied.commitment_id).goal_id == goal.id
     assert "lo_a" in _deadlines(iv.vault, iv.repository)

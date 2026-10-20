@@ -145,3 +145,21 @@ it("an ordinary item keeps its locators and its direct hint", async () => {
   await screen.findByText("Split the integral at the mixing point.");
   expect(screen.queryByTestId("intent-check-help")).toBeNull();
 });
+
+it("a check whose answer was seen is practice: labelled so, locators shown, help taken directly (Codex F3)", async () => {
+  const practice = {
+    kind: "check_once", commitmentId: "c_1", dueSince: "2026-10-19T09:00:00Z", dateSource: "test_me_later_days",
+    cold: false,
+    banner: "Practice: you've seen this answer, so this one is practice, not your check on your own. Your check comes back later.",
+    locatorsHidden: false, restoration: null
+  };
+  const view = await open("classic", { intentCheck: practice });
+  expect(screen.getByTestId("intent-check-banner").textContent).toBe(practice.banner);
+  expect(view.container.textContent).not.toContain(BANNER);
+  expect(view.container.textContent).toContain("Exercise 5.19");
+  await act(async () => {
+    fireEvent.keyDown(window, { key: "h", ctrlKey: true });
+  });
+  await screen.findByText("Split the integral at the mixing point.");
+  expect(screen.queryByTestId("intent-check-help")).toBeNull();
+});
