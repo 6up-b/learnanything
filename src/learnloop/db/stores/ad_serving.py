@@ -102,6 +102,16 @@ def selections(connection: sqlite3.Connection, *, kind: str | None = None) -> li
     return [_decode_selection(row) for row in _select(connection, sql, (kind,) if kind else ())]
 
 
+def commissions_in_draw_order(connection: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Every commission draw in its total draw order, ``(created_at, rowid)``: timestamps carry
+    whole seconds, so two draws of one second are ordered by insertion (Codex verify F16)."""
+
+    if not has_table(connection, SELECTIONS):
+        return []
+    return [_decode_selection(row) for row in _select(
+        connection, f"SELECT * FROM {SELECTIONS} WHERE kind = 'commission' ORDER BY created_at, rowid")]
+
+
 def _decode_selection(row: dict[str, Any]) -> dict[str, Any]:
     out = dict(row)
     for name in ("support", "excluded", "constants", "chosen_point", "versions"):
@@ -152,14 +162,13 @@ def open_commissions(connection: sqlite3.Connection, *, now: str | None = None) 
                     f"{COMMISSION_RESULTS} r WHERE r.selection_id = s.id) ORDER BY s.created_at, s.id")]
     if not rows:
         return []
-    latest: dict[tuple[Any, Any], tuple[str, str]] = {}
-    for created_at, selection_id, facet, capability in connection.execute(
-            f"SELECT created_at, id, cell_facet, cell_capability FROM {SELECTIONS} "
-            "WHERE kind = 'commission' AND chosen_point_json IS NOT NULL"):
-        key = (facet, capability)
-        stamp = (str(created_at), str(selection_id))
-        if key not in latest or stamp > latest[key]:
-            latest[key] = stamp
+    # The latest commission of each cell in the total draw order ``(created_at, rowid)``, the
+    # order landing ownership reads too (Codex verify F16).
+    latest: dict[tuple[Any, Any], str] = {}
+    for selection_id, facet, capability in connection.execute(
+            f"SELECT id, cell_facet, cell_capability FROM {SELECTIONS} "
+            "WHERE kind = 'commission' AND chosen_point_json IS NOT NULL ORDER BY created_at, rowid"):
+        latest[(facet, capability)] = str(selection_id)
     if now is None:
         from learnloop.clock import utc_now_iso
 
@@ -167,7 +176,7 @@ def open_commissions(connection: sqlite3.Connection, *, now: str | None = None) 
     current = _instant(now)
     out = []
     for row in rows:
-        if latest.get((row.get("cell_facet"), row.get("cell_capability"))) != (str(row["created_at"]), str(row["id"])):
+        if latest.get((row.get("cell_facet"), row.get("cell_capability"))) != str(row["id"]):
             continue  # superseded
         expires = commission_expires_at(connection, row)
         if expires is not None and current is not None and current >= expires:
@@ -276,6 +285,8 @@ def insert_commission_result(connection: sqlite3.Connection, row: Mapping[str, A
     values.setdefault("id", new_ulid())
     if "features" in values:
         values["features_json"] = dumps(values.pop("features"))
+    # Idempotent for the same attribution. A second owner for the item is refused by
+    # ``UNIQUE(practice_item_id)`` (Codex verify F16): it raises, never writes.
     existing = connection.execute(
         f"SELECT id FROM {COMMISSION_RESULTS} WHERE selection_id = ? AND practice_item_id = ?",
         (values["selection_id"], values["practice_item_id"]),

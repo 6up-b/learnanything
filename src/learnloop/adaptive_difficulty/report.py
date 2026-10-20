@@ -291,6 +291,7 @@ def _selection_stats(connection: Any, snapshot: RP.Snapshot) -> dict[str, Any]:
         "own_answers_before_band_by_lo": {lo: {"answers": n, "coupled": coupled[lo]} for lo, n in sorted(per_lo.items())},
         "commissions": {"draws": len(commissions), "results": len(results),
                         "landed_after_expiry": sum(1 for r in results if r.get("landed_after_expiry")),
+                        "off_point": sum(1 for r in results if not r.get("features_match", 1)),
                         "miss_rate_by_point": {k: (v["realized_out_of_band"] / sum(v.values())) for k, v in by_point.items()}},
     }
 

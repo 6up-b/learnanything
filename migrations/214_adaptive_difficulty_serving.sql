@@ -82,8 +82,13 @@ CREATE TABLE ad_commission_results (
   -- 1 when the item landed after its commission had expired (Codex verify
   -- F15): the landing is recorded whatever the commission's expiry.
   landed_after_expiry INTEGER NOT NULL DEFAULT 0 CHECK (landed_after_expiry IN (0, 1)),
+  -- Ownership is by cell and landing order, not by feature match (verify F15,
+  -- round 6): `features_json` holds the item's realized features, and this is 1
+  -- when they are the commission's requested point.
+  features_match INTEGER NOT NULL DEFAULT 1 CHECK (features_match IN (0, 1)),
   created_at TEXT NOT NULL,
-  UNIQUE (selection_id, practice_item_id)
+  -- One owner per landed item (verify F16): the first attribution is final.
+  UNIQUE (practice_item_id)
 );
 
 CREATE TRIGGER ad_commission_results_no_update

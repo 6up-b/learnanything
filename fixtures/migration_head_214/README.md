@@ -234,7 +234,9 @@ replayer) and `item_forecast_scores` (DERIVED, the forecast-score replayer).
 commission was drawn in (its expiry starts when that job finishes) and
 `ad_commission_results.landed_after_expiry` marks a landing recorded after its
 commission expired (both added inside 214 at the stage's fix round 5, Codex
-verify F14 and F15). It alters no existing table. The new tables are empty here.
+verify F14 and F15); at fix round 6 `ad_commission_results` gained
+`features_match` and its uniqueness became `UNIQUE(practice_item_id)` (one
+owner per landed item, verify F15 and F16). It alters no existing table. The new tables are empty here.
 
 Built as a backup-API copy of the base's `migration_head_213` (git
 `29a49b5e6`, the committed head extracted from git) with only 214 applied,
@@ -243,7 +245,7 @@ allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
 `journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
 `foreign_key_check` empty), copied into place with the backup API, with no
 companion files; `migration_head_213` was renamed to this directory. Rebuilt
-the same way at fix round 5 (the two columns above added inside 214): the
+the same way at fix rounds 5 and 6 (the columns and uniqueness above, inside 214): the
 base's `migration_head_213` of git `29a49b5e6`, only 214 applied,
 `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`, header bytes 1/1,
 `integrity_check` ok, `foreign_key_check` empty, no companion files.

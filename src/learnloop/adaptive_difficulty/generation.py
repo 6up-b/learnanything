@@ -23,7 +23,7 @@ row is never mutated.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import closing
 from typing import Any
 
@@ -186,21 +186,25 @@ def schedule_commission_generation(vault: Any, repository: Any,
     return queued
 
 
-def _matches(vault: Any, item: Any, row: Mapping[str, Any]) -> bool:
-    if item.learning_object_id != row.get("learning_object_id") or getattr(item, "status", "active") != "active":
-        return False
-    if PR.capability(item) != row.get("cell_capability"):
-        return False
-    if PR.facet_weights(vault, item).get(str(row.get("cell_facet")), 0.0) <= 0:
-        return False
+def _cells(vault: Any, item: Any) -> list[tuple[str, str]]:
+    """The cells a landed (active) item belongs to: each of its facets at its capability."""
+
+    if getattr(item, "status", "active") != "active":
+        return []
+    capability = PR.capability(item)
+    return [(str(facet), str(capability)) for facet, weight in sorted(PR.facet_weights(vault, item).items())
+            if weight > 0]
+
+
+def _matches_point(item: Any, row: Mapping[str, Any]) -> bool:
+    """Whether the item's realized features are the commission's requested point (recorded, never
+    a condition of ownership: Codex verify F15, round 6)."""
+
     features = getattr(item, "task_features", None)
     point = row.get("chosen_point") or {}
     if not isinstance(features, Mapping):
         return False
-    if any(features.get(dim) != point.get(dim) for dim in MODELLED if dim in point):
-        return False
-    created = str(getattr(item, "created_at", "") or "")
-    return bool(created) and created >= str(row.get("created_at") or "")
+    return all(features.get(dim) == point.get(dim) for dim in MODELLED if dim in point)
 
 
 def _at_or_after(stamp: str, other: str) -> bool:
@@ -208,68 +212,79 @@ def _at_or_after(stamp: str, other: str) -> bool:
     return left >= right if left is not None and right is not None else stamp >= other
 
 
-def record_landed_commissions(vault: Any, repository: Any, connection: Any, *, now: str) -> list[str]:
-    """§7.4: append an ``ad_commission_results`` receipt for each landed commissioned item.
+def landing_owner(vault: Any, item: Any, commissions: Sequence[Mapping[str, Any]]) -> Mapping[str, Any] | None:
+    """The commission that owns a landed item: of the commissions of the item's cells drawn at or
+    before it landed, the last in draw order (``commissions`` is in ``(created_at, rowid)`` order,
+    a total order even within one second). Ownership is by cell and order only, never by feature
+    match (Codex verify F15, round 6); None when no commission of its cells preceded it."""
 
-    Every commission without a receipt is reconciled, open or not (Codex verify F15): expiry and
-    supersession only close a commission to new draws, so an item that landed before (or after)
-    its commission expired still gets its receipt and its re-forecast; one that landed after is
-    marked ``landed_after_expiry``. An item belongs to the commission that was its cell's latest
-    when it landed: drawn at or before the item, with no later commission for the cell drawn
-    before it (the one-open rule makes that the commission open, or last open, at the landing),
-    so no item is attributed to two commissions. Reads only; content and evidence are untouched."""
+    created = str(getattr(item, "created_at", "") or "")
+    cells = set(_cells(vault, item))
+    if not created or not cells:
+        return None
+    owner = None
+    for row in commissions:
+        if (str(row.get("cell_facet")), str(row.get("cell_capability"))) not in cells:
+            continue
+        if not _at_or_after(created, str(row.get("created_at") or "")):
+            continue
+        owner = row
+    return owner
+
+
+def record_landed_commissions(vault: Any, repository: Any, connection: Any, *, now: str) -> list[str]:
+    """§7.4: append an ``ad_commission_results`` receipt for each item that landed in a commissioned
+    cell.
+
+    Ownership is by cell and order (Codex verify F15, F16): an active item belongs to the commission
+    of its cells that was latest when it landed (:func:`landing_owner`), whether that commission is
+    open, expired or superseded now, and whether or not the item's realized features are the point
+    it asked for. The receipt records the realized features and their re-forecast, with
+    ``features_match`` saying whether they are the requested point and ``landed_after_expiry``
+    whether the commission had expired. Each item has at most one receipt, enforced by
+    ``UNIQUE(practice_item_id)``: an item that already has one is skipped, so the first attribution
+    is final (a commission drawn later in the same second as the landing never takes it over). An
+    item that landed before any commission of its cells is not a commissioned landing. Reads only;
+    content and evidence are untouched."""
 
     if not successor_active(vault.config) or not store.has_table(connection, store.COMMISSION_RESULTS):
         return []
-    commissions = [row for row in store.selections(connection, kind="commission") if row.get("chosen_point")]
-    receipted = {str(row["selection_id"]) for row in store.commission_results(connection)}
-    if all(str(row["id"]) in receipted for row in commissions):
+    commissions = [row for row in store.commissions_in_draw_order(connection) if row.get("chosen_point")]
+    if not commissions:
         return []
-    # The next commission of each cell (``selections`` is in draw order): where this one's landings end.
-    next_draw: dict[str, str] = {}
-    last: dict[tuple[Any, Any], str] = {}
-    for row in reversed(commissions):
-        cell = (row.get("cell_facet"), row.get("cell_capability"))
-        if cell in last:
-            next_draw[str(row["id"])] = last[cell]
-        last[cell] = str(row["created_at"])
-    items_by_lo: dict[str, list[Any]] = {}
-    for item in sorted(vault.practice_items.values(), key=lambda i: str(i.id)):
-        items_by_lo.setdefault(str(item.learning_object_id), []).append(item)
+    receipted = {str(row["practice_item_id"]) for row in store.commission_results(connection)}
     constants = S.constants_from_config(vault.config)
     written: list[str] = []
     snapshot = None
-    for row in commissions:
-        if str(row["id"]) in receipted:
+    for item in sorted(vault.practice_items.values(), key=lambda i: str(i.id)):
+        if str(item.id) in receipted:
             continue
-        until = next_draw.get(str(row["id"]))
-        for item in items_by_lo.get(str(row.get("learning_object_id")), ()):
-            if not _matches(vault, item, row):
-                continue
-            created = str(getattr(item, "created_at", "") or "")
-            if until is not None and _at_or_after(created, until):
-                continue  # landed once a later commission was its cell's: that one's
-            if snapshot is None:
-                snapshot = RP.snapshot(vault, repository, connection=connection)
-            from learnloop.adaptive_difficulty.feature_audit import item_revision
-            from learnloop.adaptive_difficulty.serving import view_for
+        row = landing_owner(vault, item, commissions)
+        if row is None:
+            continue
+        if snapshot is None:
+            snapshot = RP.snapshot(vault, repository, connection=connection)
+        from learnloop.adaptive_difficulty.feature_audit import item_revision
+        from learnloop.adaptive_difficulty.serving import view_for
 
-            view, _name = view_for(snapshot, vault.config, item.learning_object_id)
-            content_hash, _json = item_revision(item)
-            spec = PR.current_spec(vault, connection, item, at=now,
-                                   loadings=snapshot.events.structure.loadings(content_hash, RP.days(now)))
-            p_bar = PR.predict(view, spec, band=constants.band).p_bar
-            in_band = constants.overlap[0] <= p_bar <= constants.overlap[1]
-            result = store.insert_commission_result(connection, {
-                "selection_id": row["id"], "practice_item_id": str(item.id), "content_hash": content_hash,
-                "features": dict(spec.features or {}), "p_bar": round(p_bar, 12),
-                "status": "in_band" if in_band else "realized_out_of_band", "state_hash": snapshot.state_hash(),
-                "landed_after_expiry": 1 if store.landed_after_expiry(connection, row, created) else 0,
-                "created_at": now,
-            })
-            if result is not None:
-                written.append(result)
-            break
+        view, _name = view_for(snapshot, vault.config, item.learning_object_id)
+        content_hash, _json = item_revision(item)
+        spec = PR.current_spec(vault, connection, item, at=now,
+                               loadings=snapshot.events.structure.loadings(content_hash, RP.days(now)))
+        p_bar = PR.predict(view, spec, band=constants.band).p_bar
+        in_band = constants.overlap[0] <= p_bar <= constants.overlap[1]
+        created = str(getattr(item, "created_at", "") or "")
+        result = store.insert_commission_result(connection, {
+            "selection_id": row["id"], "practice_item_id": str(item.id), "content_hash": content_hash,
+            "features": dict(spec.features or {}), "p_bar": round(p_bar, 12),
+            "status": "in_band" if in_band else "realized_out_of_band", "state_hash": snapshot.state_hash(),
+            "features_match": 1 if _matches_point(item, row) else 0,
+            "landed_after_expiry": 1 if store.landed_after_expiry(connection, row, created) else 0,
+            "created_at": now,
+        })
+        if result is not None:
+            written.append(result)
+            receipted.add(str(item.id))
     return written
 
 
@@ -279,6 +294,7 @@ __all__ = [
     "SOURCE",
     "WAYPOINT_CLAUSE",
     "commission_point",
+    "landing_owner",
     "contract_on",
     "lo_cell_facet",
     "record_landed_commissions",

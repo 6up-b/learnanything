@@ -411,6 +411,9 @@ def test_an_item_that_lands_after_expiry_gets_a_marked_receipt_and_a_later_draw_
     _reconcile(paths, drawn + timedelta(days=11, hours=1))
     assert [(r["selection_id"], r["practice_item_id"]) for r in _results(paths) if r["selection_id"] == old["id"]] \
         == [(old["id"], "pi_late")]
+    # Round 6 (F15): ownership is by cell and order, so the fresh commission owns it.
+    assert [(r["selection_id"], r["practice_item_id"]) for r in _results(paths) if r["selection_id"] != old["id"]] \
+        == [(fresh[2], "pi_after_fresh")]
     with closing(connect(paths.sqlite_path, read_only=True)) as connection:
         report = REP.build(load_vault(paths.root), repository, connection, sensitivity=False)
     assert report["selection"]["commissions"]["landed_after_expiry"] == 1

@@ -112,7 +112,7 @@ def _check(database: Path) -> None:
         with pytest.raises(sqlite3.IntegrityError):  # foreign key to its selection
             connection.execute(
                 "INSERT INTO ad_commission_results(id, selection_id, practice_item_id, p_bar, status, state_hash, "
-                "created_at) VALUES ('c2', 'missing', 'pi', 0.7, 'in_band', 'h', 't')")
+                "created_at) VALUES ('c2', 'missing', 'pi2', 0.7, 'in_band', 'h', 't')")
         connection.execute(
             "INSERT INTO ad_dose_offers(id, row_kind, draw_key, chosen_variant, created_at) VALUES "
             "('d1', 'draw', 'visit:section', 'none', 't')")
