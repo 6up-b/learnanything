@@ -153,13 +153,18 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
 
   const queue = useCallback((key: string, entry: ReaderCueImpressionInput, seenOn?: string | null) => {
     const visit = currentVisit();
-    // The plan the sighting was made under (an observer generation's own), else the plan served now.
-    const planId = seenOn ?? discovery?.planId;
-    if (!discovery || !planId || !visit || !extractionId) return;
+    if (!discovery || !visit || !extractionId) return;
+    // Every receipt goes to the plan the cue was first seen on this visit
+    // (Codex verify F26): a sighting on its mark before its passage counted,
+    // or a receipt whose sends failed, keeps that plan. Only a cue not seen
+    // before takes the plan of the sighting (an observer generation's own,
+    // else the plan served now), which becomes its first-seen plan.
+    const seenKey = `${extractionId}:${visit}:${entry.cueId}`;
+    const planId = firstPlanRef.current.get(seenKey) ?? seenOn ?? discovery.planId;
+    if (!planId) return;
     const once = `${extractionId}:${visit}:${key}:${entry.cueId}`;
     if (sentRef.current.has(once)) return;
     sentRef.current.add(once);
-    const seenKey = `${extractionId}:${visit}:${entry.cueId}`;
     if (!firstPlanRef.current.has(seenKey)) firstPlanRef.current.set(seenKey, planId);
     queueRef.current.push({ extractionId, visitId: visit, planId, once, entry, attempts: 0 });
     if (timerRef.current === null) timerRef.current = setTimeout(() => flushRef.current(), IMPRESSION_FLUSH_MS);

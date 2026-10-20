@@ -793,3 +793,47 @@ The F23 test also passes on `c9ad9cce1` (RW3a): 17 of 17.
 | Python, references, `cargo check` | not run: frontend only |
 
 **Model calls: none.** Nothing was run outside vitest and the build.
+
+## Fix round 9 (orchestrator)
+
+Codex's verify of round 8 (job `20261020-165636-s3ij4K`, verdict REOPENED)
+confirmed:
+
+- F23, and that discovery off no longer differs from the base;
+- the tap side of F24 and F25;
+- the migration fixture.
+
+One Medium remained, F26. It reproduced on `5568692fa` and is fixed here
+under the orchestrator's ruling.
+
+| id | severity | title | verdict | test |
+|---|---|---|---|---|
+| F26 | Medium | automatic receipts bypass the first-seen plan | fixed | `rw3bReview.test.tsx` "F26: a discovered mark seen under A before its passage counted is recorded under A when the passage counts under B" and "F26: a Guide mark whose receipt failed twice under A is recorded under A when it is observed again under B" |
+
+### What changed
+
+`useCueImpressions.ts`'s `queue` now resolves the plan for every receipt,
+whether from the passage observers, a Guide mark's sighting or "fewer". It
+uses the cue's remembered first-seen plan for the visit when there is one.
+Otherwise it takes the sighting's own plan (the observer generation's, else
+the plan served now), which then becomes the cue's first-seen plan.
+
+The rejection of callbacks from disconnected generations (F21, F22) is
+unchanged: such a callback still never reaches `queue`.
+
+### Fail-before (`5568692fa`)
+
+`5568692fa`'s `apps/learnloop-tauri` was extracted to the scratchpad, with
+the worktree's `node_modules` symlinked in and the new test file copied
+over. Result: **2 failed, 29 passed**. Both regressions submitted `plan_B`.
+
+### Gate
+
+| Check | Result |
+|---|---|
+| `npm run typecheck` | clean |
+| `npx vitest run src/screens/reader/ src/screens/ReaderScreen src/components/PdfReaderPane.marks.test.tsx` | **445 passed** (58 files) |
+| `npm run frontend:build` | built |
+| Python, references, `cargo check` | not run: frontend only |
+
+**Model calls: none.** Nothing was run outside vitest and the build.

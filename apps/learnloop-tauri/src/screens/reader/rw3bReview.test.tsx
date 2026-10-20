@@ -708,3 +708,49 @@ for (const surface of ["pdf", "text"] as const) {
     });
   }
 }
+
+// -- Fix round 9 (verify) ------------------------------------------------------------------------
+
+it("F26: a discovered mark seen under A before its passage counted is recorded under A when the passage counts under B", async () => {
+  vi.useFakeTimers();
+  MarkObserver.all = [];
+  vi.stubGlobal("IntersectionObserver", MarkObserver);
+  const mark = discovered("d1", 0);
+  const view = render(<DiscoveredMarkHarness plan="plan_A" mark={mark} surface="text" />);
+  const node = view.container.querySelector(`[data-cue-mark="${mark.cueId}"]`) as HTMLButtonElement;
+  // The mark is in view under A; its passage has not met the criterion yet.
+  const markObserver = MarkObserver.all.find((observer) => observer.connected && observer.targets.includes(node))!;
+  act(() => markObserver.deliver(node));
+  view.rerender(<DiscoveredMarkHarness plan="plan_B" mark={mark} surface="text" />);
+  // Under B the passage's (new generation's) observer sees it qualify.
+  const passageObservers = MarkObserver.all.filter((observer) => observer.connected
+    && observer.targets.some((target) => target.getAttribute("data-span-id") === mark.spanId));
+  expect(passageObservers).toHaveLength(1);
+  const passage = passageObservers[0].targets.find((target) => target.getAttribute("data-span-id") === mark.spanId)!;
+  act(() => passageObservers[0].deliver(passage));
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+  expect(api.readerCueImpressions.mock.calls.map((call) => call[0])).toEqual([
+    { extractionId: "A", visitId: "visit_A", planId: "plan_A", entries: [{ cueId: "dcue_d1", shown: true }] }]);
+});
+
+it("F26: a Guide mark whose receipt failed twice under A is recorded under A when it is observed again under B", async () => {
+  vi.useFakeTimers();
+  api.readerCueImpressions.mockRejectedValueOnce(new Error("busy")).mockRejectedValueOnce(new Error("busy"))
+    .mockResolvedValue({ recorded: [] });
+  MarkObserver.all = [];
+  vi.stubGlobal("IntersectionObserver", MarkObserver);
+  const mark = cue("g1", 0);
+  const view = render(<GuideMarkHarness plan="plan_A" mark={mark} />);
+  const node = view.container.querySelector(`[data-cue-mark="${mark.cueId}"]`)!;
+  const live = () => MarkObserver.all.filter((observer) => observer.connected && observer.targets.includes(node));
+  act(() => live()[0].deliver(node));
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_RETRY_MS + 10); });
+  expect(api.readerCueImpressions).toHaveBeenCalledTimes(2);
+  view.rerender(<GuideMarkHarness plan="plan_B" mark={mark} />);
+  act(() => live()[0].deliver(node));
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+  expect(api.readerCueImpressions).toHaveBeenCalledTimes(3);
+  expect(api.readerCueImpressions.mock.calls[2][0]).toEqual({ extractionId: "A", visitId: "visit_A", planId: "plan_A",
+    entries: [{ cueId: "cue_g1", shown: true }] });
+});
