@@ -174,9 +174,7 @@ holds by facets (F8).
 
 ## Open questions
 
-1. **F2, the successor** (default in force: no tag, a live change behind
-   `intent.enabled`, per the standing ruling). Owner/orchestrator to confirm, or ask for
-   `mvp-0.29`.
+1. **F2, the successor**: resolved by the re-review (below): DL2 is `mvp-0.29`.
 2. **F3, a check after help** (default: an attempt that is not on your own does not use
    up the check, which comes back `capture.test_me_later_days` later). Alternative: any
    attempt ends it.
@@ -204,3 +202,117 @@ landing gate's. Run here, with `TMPDIR` in the worktree's `fixtures-local/tmp`:
 | Tracked working vaults | untouched; no manual runs on copies were needed (all behaviour is under test with fakes) |
 
 Paid or live calls: none ($0.00).
+
+---
+
+# Re-review (Codex job `20261020-003824-5riC17`)
+
+Codex re-reviewed `a220306fb` read-only: F1 **confirmed fixed**; F2 and F3 **reopened**;
+one new finding, F11. Every reopened or new finding was reproduced first by
+`tests/test_intent_codex_rereview.py`, run on `a220306fb`: **6 failed** for the reasons
+the findings give (F2: the ranked list and plan moved with commitments at `mvp-0.27`,
+intent was live there, a paused item's pending cold retry was withheld below any tag,
+and `get_intent` answered `enabled: true` at `mvp-0.27`; F3: the unprimed attempt under
+a sibling's LO hold satisfied the check; F11: `pi_a1` was missing from the queue with a
+retired or a held-out cold sibling), **2 controls passed** (a cold attempt with its own
+feedback row still answers the check; an available cold sibling is still preferred).
+The F2 chain, gate, upgrade and new-vault pins name the new tag and have no predecessor
+to fail on. No paid or live model calls ($0.00); no migration (217 still unused).
+
+## Findings
+
+| ID | Sev | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Intent exclusion bypassed by follow-ups and existing plan blocks | confirmed fixed (no change) | `1d5ba0272` | the F1 tests in `test_intent_codex_review.py`, rerun green at `mvp-0.29` |
+| F2 | High | Missing intent successor (reopened) | **fixed** | `0fc6e3e96` | `test_f2_below_the_tag_commitments_change_nothing_with_the_switch_on`, `test_f2_below_the_tag_a_paused_items_cold_retry_is_still_served`, `test_f2_the_intent_control_is_off_below_the_tag`, `test_f2_the_chain_ends_at_the_intent_successor`, `test_f2_the_gate_reads_the_version_and_the_switch`, `test_f2_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest`, `test_f2_new_vaults_start_at_the_successor_with_intent_live` |
+| F3 | High | "Check once" bypasses cold-measurement eligibility at completion (reopened) | **fixed** | `0fc6e3e96` | `test_f3_an_attempt_under_a_siblings_hold_is_practice_not_the_check` (+ control `test_f3_a_cold_attempt_still_answers_the_check_its_own_feedback_notwithstanding`) |
+| F11 | Medium | An unavailable cold sibling suppresses the only servable practice candidate | **fixed** | `0fc6e3e96` | `test_f11_a_retired_cold_sibling_never_suppresses_the_servable_candidate`, `test_f11_a_held_out_cold_sibling_never_suppresses_the_servable_candidate` (+ control `test_f11_an_available_cold_sibling_is_still_preferred`) |
+
+## What changed
+
+### F2: intent is the successor `mvp-0.29`
+
+The first fix step's rejection rested on "no measurement is admitted or withheld
+differently". The re-review is right that F1's follow-up gate withholds a paused item's
+pending cold retry, and that a "Check once" is a cold measurement of its own, so the
+2026-10-17 rule (`docs/algorithm-change-playbook.md`) applies and the rejection is
+withdrawn. The orchestrator had reserved `mvp-0.29` for this.
+
+- `algorithm_versions`: `INTENT_ALGORITHM_VERSION = "mvp-0.29"`, appended to
+  `SUCCESSOR_CHAIN` (so `LATEST_ALGORITHM_VERSION`, new vaults and every
+  `successors_from` set follow), and `INTENT_VERSIONS`.
+- `scheduling.intent.serving.intent_enabled` reads the version **and** the switch. It is
+  the one gate: `intent_serving` (the scheduler, the plan engine, reconcile, the
+  headline, `served_check`, `settle_answered_checks`), `plan report`'s intent section and
+  the sidecar's `get_intent` / `set_intent` / `set_intent_deadline`. Below the tag, or
+  switched off, `intent_serving` returns `None` and every scheduler and plan branch is
+  the predecessor's own code (not a re-derivation); the control answers
+  `enabled: false` and the writes refuse with a message naming the version.
+- `learnloop upgrade --to mvp-0.29` (the default target; `intent_upgrade.upgrade_to_mvp029`):
+  from `mvp-0.27`, or from `mvp-0.9` onwards through `upgrade_to_mvp027`; a tag change
+  plus the idempotent projection rebuild (no projection change: replay never reads
+  intent, as the implement step's shadow rebuilds showed, 0 / 0 / 0). Refuses anything
+  older; a chained refusal passes through.
+- `DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.29"]` (only the version string moves it).
+- **Landing note:** `mvp-0.28` is AD2+AD3's and lands first. The landing merge puts
+  `INTENT_ALGORITHM_VERSION` after `mvp-0.28` in `SUCCESSOR_CHAIN`, points
+  `intent_upgrade.PREDECESSOR` / `_upgrade_to_predecessor` at mvp-0.28's constant and
+  upgrade, moves the chain-tail pins by one more and recomputes the snapshot comments
+  ("until mvp-0.29 merged").
+- Tests: the intent test vaults (`tests/intent_fakes.make_intent_vault` and three direct
+  `create_daily_plan_vault` calls) now run at `mvp-0.29`; the chain-tail pins in 19 test
+  files moved by one; the CLI help snapshot (only `upgrade --help` changed).
+- Docs: the spec's §11 row (`intent_v1` = `mvp-0.29`), the two ruling sections of
+  `daily-loop-dl2.md` (marked superseded) and its owner commands (an upgrade step),
+  `Algorithm Versions and Reproducibility.md`, the schema/template/registry comments,
+  the reference generator's `[intent]` note and an `intent.enabled` catalog entry.
+
+### F3: completion asks the eligibility decision at the attempt
+
+`serve_eligibility.check_once_at_attempt` is the `CHECK_ONCE` decision as it stood when
+the attempt was submitted: the window bounded at the attempt (Q33's bound: later reveals
+do not count), the attempt's own linked rows (its feedback) left out, and the exposure
+read since the item's previous attempt. `build_checks` takes it as `cold_at`: an attempt
+answers the check only when it is on your own **and** that decision is `serve`. Any other
+attempt is practice and dates the check again `capture.test_me_later_days` after it,
+which is what the practice view already promised. Pure read; nothing persisted; submit
+unchanged. The decision is read at the submission instant, so a hold that lapsed
+between the serve and the submit no longer counts (the hold is one cold delay, already
+elapsed); a reveal of a sibling while the attempt is open does count.
+
+### F11: the routine gate first
+
+`serving_exclusions.routine_withhold_reason(vault, item, state, exclusions)` is the
+scheduler's per-item routine gate (retired, inactive state, exam reservation, held-out
+material, pending-variant hold, staged ownership, dialogue-turn instances, administered
+probes, unservable stimuli, no LO, put-away LO), with its reason codes and order;
+`build_due_queue`'s loop now calls it (a behaviour-preserving extraction). A due check's
+candidates pass it (`build_checks(routinely_servable=...)`, read lazily once per build)
+before the eligible / held / exposed split, so a candidate routine serving can never
+offer neither is the check nor suppresses one that can be served.
+
+## Gate (re-review fix step; targeted, per the owner rule of 2026-10-17)
+
+`TMPDIR` in the worktree's `fixtures-local/tmp`. The full suite, the whole durability
+lane and the whole vitest run are the landing gate's.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | OK |
+| `uv run lint-imports --no-cache` | **28 kept, 0 broken** |
+| Fail-first: the 8 behaviour tests of `test_intent_codex_rereview.py` on `a220306fb` | **6 failed, 2 passed** (the controls) |
+| `pytest -n auto` on 176 files (list in `fixtures-local/tmp/dl2-rr-affected.txt`): the previous fix step's 163 (the `test_intent_*` files, every `build_due_queue` / plan / re-entry / headline / `serve_eligibility` / `served_check` / `recall_targets` / `held_grades` user and the contract pins `test_architecture`, `test_config_refactor`, `test_registry_audit`, `test_sidecar_registry`, `test_sidecar_serializer_snapshot`, `test_cli_help_snapshot`, `test_desktop_rpc_contract`, `test_table_roles`, `test_coordinated_migrations`, `test_tracked_fixture_databases`, `test_vault_template`, `test_mobile_allowlist`, `test_sqlite_file_copies`, `test_ai_config`, `test_plan_determinism`, `test_reading_step_switch`); every test naming `SUCCESSOR_CHAIN`, `LATEST_ALGORITHM_VERSION`, `DEFAULTS_SNAPSHOT_BY_ALGORITHM` or an upgrade (the `test_mvp0*_upgrade.py` files, `test_method_explicit_upgrade`, `test_regrade_contract_*`, `test_serve_eligibility_review`, `test_recurrence_commands`, `test_route_rules_in_grader`, `test_required_method_grading`, ...); every test naming `serving_exclusions`, `serve_eligibility` or the intent handler; and the new `test_intent_codex_rereview.py` | **3,773 passed** (one earlier run: 3,772 passed, 1 failed, `test_architecture`'s function-local edge inventory, fixed by importing the routine gate's two helpers at module level) |
+| `pytest -n auto --durable-sqlite tests/test_intent_*.py` (10 files) | **123 passed** |
+| Frontend | unchanged: no npm, vitest or build run needed |
+| `cargo check` | not run: nothing under `src-tauri` changed |
+| `db_generate_reference.py`, `db_validate_reference.py` | **0 errors** (head 213; the `mvp-0.29` snapshot, the intent catalog entries, commit labels; commit `c618fa765`) |
+| Migrations | none (217 unused) |
+| Tracked working vaults | untouched; no manual runs on copies (all behaviour under test with fakes) |
+
+Paid or live calls: none ($0.00).
+
+## Open questions (re-review)
+
+1. **F3, a hold that lapses between the serve and the submit** (default: the decision is
+   read at the submission instant, so such an attempt answers the check). Alternative:
+   any hold seen at the serve makes the attempt practice (this needs the serve recorded).
