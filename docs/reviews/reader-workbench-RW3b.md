@@ -108,3 +108,231 @@ byte-identical to `c9ad9cce1` (pinned in pytest and vitest before any change).
 `adaptive_difficulty/`, scheduling intent, `daily_plan` or RW4b's exercise
 files; `ReaderScreen.tsx` changes are a few wiring lines, the behaviour lives
 in `screens/reader/`. No live model call anywhere in this stage.
+
+## 1. What was built
+
+Commits on `reader/rw3b` (base `c9ad9cce1`): `8ee16cbd1` (this plan and the
+switch-off pins, written and generated on the unchanged base), `e8ecf17dd`
+(backend), `e086fc460` (frontend), then the references and this record.
+
+**Migration 215** (`migrations/215_reader_discovered_cues.sql`). The runner
+has no contiguity rule and no test rejects the 213 -> 215 gap, so it is
+numbered **215** as the orchestrator asked (AD2+AD3 keeps 214); nothing needs
+renumbering at the landing unless 214 lands with a conflicting object name
+(it does not: its tables are `ad_*` and `item_forecast_scores`).
+- `passage_links` (WORKFLOW, append-only by trigger): §6.3's columns plus
+  `pick_rank`, `ranks_json` (the passage's rank in each retrieval list, the
+  contrast and correction lists among them) and `roles_json` (the judge's role
+  proposals with confidence). `ledger_id` references `judgment_ledger(id)`;
+  one row per (extraction, target, state key, span).
+- `reader_cue_impressions` (RECEIPT): §6.3's columns plus `cue_id`, `kind`,
+  `extraction_id`, `span_id` and `learning_object_id` (the holdout estimate
+  reads the next attempt on it). CHECKs: shown iff no reason; a holdout names
+  a link; a response has its time. Append-only but for the first response,
+  written once (trigger). One row per (visit, cue).
+- `table_roles` classifies both; `fixtures/migration_head_213` was renamed
+  `migration_head_215` and its `state.sqlite` rebuilt: a backup-API copy of
+  the base's 213 head with only 215 applied (`UPGRADE_SCRATCH_COPY`,
+  `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`, header 1/1,
+  `integrity_check` ok, `foreign_key_check` empty, no companions), placed with
+  the backup API. README updated; every hard-coded path (30 test files and
+  the two reference scripts, `SCHEMA_HEAD = 215`) moved.
+
+**Backend.**
+- `src/learnloop/source_retrieval/passage_cues.py` (the Reader package sits
+  below `source_retrieval`, so the retrieval-and-judge code lives here, as
+  RW4a's and RW1c's do):
+  - **Targets** (`cue_targets`): the LOs the open source teaches (section
+    provenance, RW6a's reading, plus teaching links into this extraction);
+    on them, the concrete hypotheses of an open probe episode that name a
+    misconception (`p_open` = the episode posterior's mass), durable
+    misconceptions not in an episode (`p_open` 1.0 from the lifecycle), named
+    learner-text gaps not undone and not naming a targeted misconception
+    (`p_open` 1.0 from the gap's status), and facets with a demonstrated
+    capability (`demonstrated_capabilities_for_facet`, for "a new
+    application"). `state_key` = statement + status.
+  - **Protection before the judge** (`protection`, `shortlist`): the scope
+    excludes `teaching_exclusions` (exam and held-out material, roles without
+    teaching authority, exercise and assessment links) and a reading held out
+    whole is never searched; the pool is filtered again by
+    `model_reader_withheld` (solutions, assessment lanes) and
+    `held_out_material`. No new leak predicate.
+  - **Shortlist**: `search_spans` (statement as the query, no rewrite, RRF
+    pool, twice the shortlist read so withheld passages never shrink it) with
+    `extra_lists`: `contrast` (RW4e proposals through the sources spec's
+    `source_object_lists(…, "remediate", …)` plus this judge's own
+    contrast/counterexample proposals, kept only on the target's LOs or their
+    confusables) and the misconception's `correction_lists` (facets, sources).
+    The manifest names every list and its size (G42).
+  - **Judge** (`judge_target`): `judge_listwise` with `CUE_JUDGE_TASK` (route
+    `passage_cue_judge`, ledger task `passage_cue`, left kind `cue_target`,
+    right kind `reader_span`, picks at most two, `none` never picked), the full
+    answer captured through `validate` (as RW4a's organizer), recovered from
+    the checkpoint or receipt when the ledger answers "cached" but the links
+    were never written. A pick is dropped, never repaired, when its quote is
+    not the passage's words (`text_canon.canonical`, 12 characters at least)
+    or a `try_first` is not on a worked example or derivation
+    (`reader_tutor.NEXT_STEP_ROLES`) for an open target. Spend: Codex
+    (`ai.active_provider`, empty route) is `estimated_only` and never refused
+    by the metered cap; a metered route without a price is skipped and
+    labelled; with one it reserves under the shared daily envelope
+    `cues.max_daily_cost_usd` (RW4a's `SharedDailyEnvelope`).
+  - **Discovery** (`discover`): targets not yet settled (judged at this state,
+    links written), highest `p_open` first, at most
+    `cues.max_calls_per_source_open` paid calls; `dry_run` reads keyword lists
+    only and calls and writes nothing. `LEARNLOOP_CUE_JUDGE_MODELS=off` (set by
+    `tests/conftest.py`) resolves no real client.
+  - **Merge** (`merged_cues`): RW3a's candidates and the discovered ones; a
+    Guide-marked passage keeps the Guide's mark; one discovered mark per
+    passage; not relevant and books off honoured; the seeded holdout
+    (`holdout_draw`: seed = sha256 of salt and link id, draw = seed/2^64,
+    propensity = the drawn arm's probability); value order; the density budget;
+    RW3a's spacing rank. The payload is RW3a's plus `discovery` (`targets_key`,
+    the switches, `held_out`, `suppressed`).
+- `src/learnloop/reader/reader_cues.py`: `DISCOVERED_TAP_ACTIONS` (adds
+  `try_first` -> `cue_try_first`, `same`), `RW3B_SERVER_CUE_EVENTS`,
+  `current_verdicts`, and `record_cue_tap(actions=…, right_kind=…)` with
+  RW3a's defaults (RW3a's calls unchanged).
+- `src/learnloop_sidecar/handlers/reader_cue_discovery.py`: the four RPCs
+  (§0 item 9); `reader.guide_plan` merges discovered cues only while
+  `cues.discovery_enabled`, else calls `RCU.guide_cues` exactly as before.
+  Taps and impressions resolve a cue from the plan's merged cues kept per
+  source in the context (RW3a friction note 5), rebuilt on a miss.
+- Config `[cues]`: `discovery_enabled`, `try_first_enabled`,
+  `value_order_enabled` (true), `holdout_rate` (0.1), `max_calls_per_source_open`
+  (12), `max_daily_cost_usd` (0.5); route `ai.routing.passage_cue_judge`
+  (`AITask`, `ROUTE_FOR_OPERATION`, a privacy disclosure in Settings). Every
+  new key is classified in `params/parameter_registry.py` (structural,
+  operational). All 19 `DEFAULTS_SNAPSHOT_BY_ALGORITHM` fingerprints were
+  recomputed from the composed defaults (template `.pyc` cleared). No
+  algorithm successor: display only.
+- `learnloop reader cues discover --vault --source [--dry-run] [--json]`;
+  `learnloop reader report` gains `cues.discovered` only once impressions
+  exist (reasons, kinds, responses, the share of `●` marks, and the holdout
+  estimate: the next attempt's `correctness` on the cue's LO, each arm
+  weighted by 1/propensity, self-normalized, with a normal 95% interval and
+  the sample sizes; density, spacing and restored-line suppressions left out;
+  an arm with fewer than two outcomes gets counts only).
+
+**Frontend.** `api/dto.ts`, `api/client.ts` (four calls), Tauri passthroughs
+(`commands.rs`, `main.rs`); `screens/reader/cues.ts` (`DISCOVERED_COPY`,
+`markClass`), `MarginMark.tsx` (kind class and `data-cue-kind` only on a
+discovered mark; open shows the passage's own words and the statement in the
+model's voice; *try the next step first* as the first action; the legend's
+discovered marks), `styles/app.css` (static `●┆`, `▹┆` glyphs),
+`useCueDiscovery.ts` (the background search once per `targetsKey`, read back
+without waiting, the plan re-read when it found something),
+`useCueImpressions.ts` (receipts once per visit: a drawn mark in view; a
+held-out, density-cut, spaced or restored-line cue when its passage is in
+view), `useReaderCues.ts` (taps through `reader.cue_tap` with the visit while
+discovery is on; `tryFirst`, `fewerOn`). `ReaderScreen.tsx`: 11 lines (the
+try-first callback through a ref to RW1b's `activeCtl.start("next_step", …)`,
+the mark's two props, the footer's legend prop); none of RW4b's hunks.
+
+## 2. Deviations and decisions within the spec
+
+1. **Extra columns** (recorded in the migration): `pick_rank`, `ranks_json`,
+   `roles_json` on links; `cue_id`, `kind`, `extraction_id`, `span_id`,
+   `learning_object_id` on impressions. The spec's columns are all there.
+2. **Role proposals are kept on the link, not written to `source_objects`.**
+   RW4e owns the proposal rows (§7.9); it reads `passage_links.roles_json`
+   (with the judge, ledger id and prompt version on the same row) as it reads
+   RW4a's organizer roles. They already widen RW3b's own contrast list
+   (positive only, G44).
+3. **"A target already shown during this visit"** is read within the plan:
+   a target given a mark in an earlier section ranks after every target not
+   yet given one. Re-ranking on what was seen mid-visit would move marks while
+   the learner reads (RW3a's "nothing appears or disappears while scrolling").
+4. **Recurrence-group targets are reserved** (the CHECK admits them): v1 reads
+   the misconceptions and open hypotheses they group. A group target needs the
+   group's own statement and openness, which T1's projection does not store.
+5. **"Unchecked claim"** for try-first is read as an open target (a
+   misconception, hypothesis or named gap); RW6a's claims needing an
+   independent check are per session and not a cue input yet.
+6. **A held-out cue's impression is logged when its passage is in view**, as a
+   shown mark's is (symmetric arms for the estimate). The original PDF draws
+   no element per passage, so on the PDF surface only drawn marks are logged.
+7. **The holdout is per link** (a link is shown or withheld for its life at a
+   given rate), so a learner's arm does not flip between visits.
+8. **In-session updates** are client-driven: the Reader asks for discovery
+   again whenever a plan read shows a new `targetsKey` (a tap, a diagnosis
+   landing, reopening). No hook was added inside the learner-text gap or
+   diagnosis pipelines (other stages own them).
+9. **Opening a vault may open a probe episode** for an active misconception;
+   its target is then the hypothesis (with the episode's posterior, often
+   small, so it ranks below the Guide's cues). That is the spec's reading of
+   `p_open`; the owner may want the lifecycle's 1.0 instead (Q2).
+
+## 3. Tests (all fakes; no model call)
+
+New: `test_passage_links.py` (16: targets, protected shortlist, contrast and
+correction lists in the manifest, G15 judge stubbed to none, ledger verdict
+and verified quote, dropped quotes, state-key recompute and ledger cache,
+recovery without paying again, per-open cap, metered skip and cap, Codex not
+refused, dry run, switch off, G44 roles), `test_reader_cue_holdout.py` (8:
+seed reproduces the draw, propensity equals the draw probability, rate,
+Guide never held out, rate 0, impressions recorded by the server's decision,
+once per visit and cue, fewer, RPCs refuse while off),
+`test_reader_cue_value.py` (6 functions, 9 cases: p_open then pick rank,
+Guide first on ties, monotone rescaling keeps the order, density changes only
+how many, seen targets rank after, value order off, predictor P(failure) for
+a new application), `test_reader_try_first.py` (5, G42),
+`test_reader_rw3b_protection.py` (6: held-out sentinel over the judge
+prompt, stored quotes and rendered cues; a link made before its passage was
+held out never shown or tapped; a whole held-out reading never searched; G13
+display only; not-relevant text is never learner text; G16 lint),
+`test_reader_cues_cli_report.py` (5), `test_reader_rw3b_migration.py` (4,
+one durability), `test_reader_rw3b_switch_off.py` (2, pinned on the base).
+Changed: `test_salience_firewall.py` (+2: `cue_try_first` salience-only and
+not client-recordable; no belief, scheduling, grading or plan module reads
+the RW3b tables), `test_mobile_allowlist.py` (RW3b's four RPCs desktop only),
+`test_judge_routes.py`, `test_architecture.py` (the store is a registered SQL
+owner), the four earlier migration tests (215's objects on the way to head),
+the 30 head-path files. Vitest: `ReaderScreen.cuesSwitchOff.test.tsx`
+(snapshots written on the base), `ReaderScreen.discoveredCues.test.tsx` (8).
+
+## 4. Owner-run commands (dry run first; no paid call was made in this stage)
+
+On a backup-API copy only:
+`uv run python -c "from pathlib import Path; from learnloop.db.copies import copy_tree_with_databases as c; c(Path('fixtures/probability'), Path('fixtures-local/rw3b-prob'))"`,
+`uv run learnloop doctor --fix-state --vault fixtures-local/rw3b-prob`
+(applies 215), then
+`uv run learnloop reader cues discover --vault fixtures-local/rw3b-prob --source <source id> --dry-run --json`
+(targets and keyword shortlists; nothing called or written), then without
+`--dry-run` (one Codex call per target, at most 12, `estimated_only`). In the
+app: open the book; marks arrive in the background. `uv run learnloop reader
+report --json --vault <copy>` shows `cues.discovered` once impressions exist.
+Switches in the copy's `learnloop.toml` `[cues]`: `discovery_enabled = false`
+(RW3a's cues, byte for byte), `try_first_enabled`, `value_order_enabled`,
+`holdout_rate = 0`, `max_calls_per_source_open`, `max_daily_cost_usd`.
+
+## 5. Open questions (defaults applied)
+
+- **Q1.** Holdout rate 0.1 on every discovered cue from day one (spec default).
+  Default: kept.
+- **Q2.** A misconception inside an open probe episode is ordered by the
+  episode's posterior mass (often well below 1), so its cues rank after the
+  Guide's at every density. Default: the spec's reading (posterior); the
+  alternative is the lifecycle's 1.0.
+- **Q3.** Discovery runs on every source open with discovery on (Codex, up to
+  12 calls per open for unsettled targets; settled targets cost nothing).
+  Default: on (generous defaults).
+- **Q4.** Recurrence groups as their own targets (deviation 4). Default:
+  deferred.
+
+## 6. Friction notes
+
+- **RW4d** (kept comparisons): `⇄` is the learner's mark, outside the
+  budget; the discovered marks share RW3a's gutter slot, so a passage with a
+  cue and a kept comparison needs RW2a's offset (its friction note 6).
+- **RW4e** (roles): the cue judge already proposes roles per judged passage;
+  only picked passages are stored (`passage_links.roles_json`, with judge,
+  ledger id, prompt version). Persist them as `source_objects` proposals
+  there; `contrast_list` reads both RW4e's proposals and these.
+- **RW2c** (worked example in your route): `passage_cues.shortlist` is a
+  reusable protected T6 shortlist for one target statement; a try-first link
+  marks worked examples worth offering.
+- **RW6b** (follow-ups): `reader_cue_impressions` (shown vs held out with
+  propensities) and the `passage_cue` learner-card verdicts are the cue's
+  outcome inputs; the report's `cues.discovered.holdout` is the first
+  estimate. `targets_key` is a cheap "did the open questions change" signal.

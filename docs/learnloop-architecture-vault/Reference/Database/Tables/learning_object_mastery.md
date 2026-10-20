@@ -3,13 +3,13 @@ title: "learning_object_mastery"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7b028edf0147d47a194a62108a40b65d57fc03bd"
-source_commit_timestamp: "2026-10-20T11:09:02-04:00"
+source_commit: "e086fc460dc148f693f76731741d0229ddb8f942"
+source_commit_timestamp: "2026-10-20T14:05:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learning_object_mastery"
   - "table learning_object_mastery"
-schema_head: 213
+schema_head: 215
 table_name: "learning_object_mastery"
 table_role: "derived"
 functionality_status: "active"
@@ -130,6 +130,7 @@ Indexes and uniqueness:
 - `tests/test_learner_text_gaps.py`
 - `tests/test_migrations.py`
 - `tests/test_p0_cutover_mvp08.py`
+- `tests/test_reader_rw3b_protection.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_shadow_rebuild.py`
 - `tests/test_table_roles.py`
@@ -144,7 +145,6 @@ Indexes and uniqueness:
 - `tests/test_codex_attempt_flow.py`
 - `tests/test_contract_commissioning.py`
 - `tests/test_daily_loop_reader_authored_practice.py`
-- `tests/test_daily_plan_review_regressions.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
