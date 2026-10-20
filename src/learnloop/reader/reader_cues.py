@@ -68,10 +68,18 @@ CUE_TAP_ACTIONS: Mapping[str, tuple[str, str]] = {
     "not_relevant": ("cue_not_relevant", "different"),
     "not_relevant_undone": ("cue_not_relevant_undone", "undone"),
 }
+#: Reader workbench RW3b: a tap a discovered cue also offers ("try this step
+#: first" opens RW1b's next-step question; a learner pick, never a gate).
+DISCOVERED_TAP_ACTIONS: Mapping[str, tuple[str, str]] = {
+    **CUE_TAP_ACTIONS,
+    "try_first": ("cue_try_first", "same"),
+}
 #: Preference changes, written by the sidecar with the config write.
 CUE_PREFERENCE_EVENTS: tuple[str, ...] = ("cue_density_changed", "cue_source_off", "cue_source_on")
 #: Every ``event`` value RW3a's server writes on ``reader_action_invoked``.
 SERVER_CUE_EVENTS: tuple[str, ...] = tuple(event for event, _verdict in CUE_TAP_ACTIONS.values()) + CUE_PREFERENCE_EVENTS
+#: The events RW3b adds (salience only; the UI cannot record them either).
+RW3B_SERVER_CUE_EVENTS: tuple[str, ...] = ("cue_try_first",)
 #: Where a preference change was made (the funnel's denominators).
 PREFERENCE_VIA: tuple[str, ...] = ("footer", "fewer", "popover", "settings", "undo")
 
@@ -256,6 +264,10 @@ def _current_verdicts(repository: Repository, extraction_id: str) -> dict[tuple[
     return current
 
 
+#: RW3b reads the learner's verdicts through the same function.
+current_verdicts = _current_verdicts
+
+
 def cue_candidates(vault: Any, repository: Repository, *, extraction_id: str,
                    plan: Mapping[str, Any]) -> tuple[list[dict[str, Any]], int]:
     """Every cue the plan's sections would carry, in the rail's order per
@@ -388,7 +400,9 @@ def find_cue(vault: Any, repository: Repository, *, extraction_id: str, cue_id: 
 # ---------------------------------------------------------------------------
 
 def record_cue_tap(repository: Repository, *, extraction_id: str, cue: Mapping[str, Any], action: str,
-                   text: str | None = None, clock: Clock | None = None) -> dict[str, Any]:
+                   text: str | None = None, clock: Clock | None = None,
+                   actions: Mapping[str, tuple[str, str]] = CUE_TAP_ACTIONS,
+                   right_kind: str = CUE_RIGHT_KIND) -> dict[str, Any]:
     """Record a tap on a cue: one salience-only event and, when it changes the
     learner's verdict, one ``learner_card`` row on ``passage_cue`` (the
     question is (span, target)); a repeated verdict appends nothing and an
@@ -396,9 +410,9 @@ def record_cue_tap(repository: Repository, *, extraction_id: str, cue: Mapping[s
     stays judge feedback (the verdict's rationale): it is never learner text
     for gaps and never reaches the event. Validated before any write."""
 
-    if action not in CUE_TAP_ACTIONS:
+    if action not in actions:
         raise CueError(f"unknown cue action {action!r}")
-    event, verdict = CUE_TAP_ACTIONS[action]
+    event, verdict = actions[action]
     reason = " ".join((text or "").split())[:MAX_NOT_RELEVANT_CHARS] if action == "not_relevant" else ""
     left_id = f"{extraction_id}/{cue['span_id']}"
     right_id = str(cue["target_id"])
@@ -408,7 +422,7 @@ def record_cue_tap(repository: Repository, *, extraction_id: str, cue: Mapping[s
         rows = connection.execute(
             "SELECT id, verdict, supersedes_id FROM judgment_ledger WHERE task = ? AND left_kind = ? "
             "AND left_id = ? AND right_kind = ? AND right_id = ? AND judge = 'learner_card'",
-            (CUE_TASK, CUE_LEFT_KIND, left_id, CUE_RIGHT_KIND, right_id),
+            (CUE_TASK, CUE_LEFT_KIND, left_id, right_kind, right_id),
         ).fetchall()
         superseded = {row[2] for row in rows if row[2]}
         current = next((row for row in rows if row[0] not in superseded), None)
@@ -421,6 +435,7 @@ def record_cue_tap(repository: Repository, *, extraction_id: str, cue: Mapping[s
                 "check_me": "the learner asked to be checked on the cue's idea, on their own",
                 "not_relevant": "the learner marked the cue not relevant",
                 "not_relevant_undone": "the learner undid 'not relevant'",
+                "try_first": "the learner tried the next step first",
             }[action]
             if reason:
                 rationale = f"{rationale}, because: {reason}"
@@ -430,7 +445,7 @@ def record_cue_tap(repository: Repository, *, extraction_id: str, cue: Mapping[s
                 task=CUE_TASK,
                 left_kind=CUE_LEFT_KIND,
                 left_id=left_id,
-                right_kind=CUE_RIGHT_KIND,
+                right_kind=right_kind,
                 right_id=right_id,
                 judge="learner_card",
                 input_hash=_digest([cue.get("cue_id"), cue.get("learning_object_id"), cue.get("note")]),
@@ -561,6 +576,9 @@ __all__ = [
     "CUE_KIND_REVISIT",
     "CUE_PREFERENCE_EVENTS",
     "CUE_TAP_ACTIONS",
+    "DISCOVERED_TAP_ACTIONS",
+    "RW3B_SERVER_CUE_EVENTS",
+    "current_verdicts",
     "CUE_TASK",
     "CUE_TEMPLATES",
     "CueError",

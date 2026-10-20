@@ -916,8 +916,16 @@
     "sha256": "e37e8b720c83ffb155441afc3156a9b7694735bb1402082555c9492821da0934"
   },
   "reader": {
-    "bytes": 1757,
-    "sha256": "7d394662dde4e183e5fdacabdd3eb9e4c3ef8959f89fe7956746fa6746209b78"
+    "bytes": 1842,
+    "sha256": "6b949a6d423c3d2baf9c94f0695a0f1c732c0ffdd1115a8d798fd52a8d195c53"
+  },
+  "reader cues": {
+    "bytes": 2097,
+    "sha256": "23afaeec2d0ae13b516c3ffde4b5ce828c575e2d8b5e17b8645eaaf7639dd215"
+  },
+  "reader cues discover": {
+    "bytes": 1874,
+    "sha256": "815a757062f2f98e198381e1c88aed1394f07aa1091ea6ecd48b06f1e1ebd7e9"
   },
   "reader report": {
     "bytes": 1457,

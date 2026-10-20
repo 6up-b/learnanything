@@ -24,8 +24,9 @@ from learnloop.db.connection import connect
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, \
     upgrade_allowance
 from learnloop.db.table_roles import TableRole, role_for_table
+from tests.test_reader_rw3b_migration import RW3B_ADDED_OBJECTS
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_213" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_215" / "state.sqlite"
 #: What 213 adds and alters: the earlier migrations' "nothing else changed"
 #: diffs on the way to head read these (tests/test_approach_maps_schema.py,
 #: test_help_assists_schema.py, test_library_asks_migration.py).
@@ -75,9 +76,10 @@ def _upgrade(tmp_path: Path) -> Path:
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    assert [migration.version for migration in applied] == [213]
+    # Reader RW3b's 215 (its own two tables, altering nothing) follows on the way to head.
+    assert [migration.version for migration in applied] == [213, 215]
     after = _schema(database)
-    assert set(after) - set(before) == {name for name in NEW_OBJECTS if not name.startswith("sqlite_autoindex")} | {
+    assert set(after) - set(before) - RW3B_ADDED_OBJECTS == {name for name in NEW_OBJECTS if not name.startswith("sqlite_autoindex")} | {
         name for name in after if name.startswith("sqlite_autoindex") and name.split("_autoindex_")[1].rsplit("_", 1)[0]
         in NEW_TABLES}
     changed = {name for name in before if before[name] != after.get(name)}
@@ -155,12 +157,13 @@ def test_213_on_the_durability_lane(tmp_path):
     _check(database)
 
 
-def test_the_head_fixture_is_at_213_with_empty_ad1_tables(tmp_path):
+def test_the_head_fixture_is_at_head_with_empty_ad1_tables(tmp_path):
     from learnloop.db.copies import backup_database
 
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
-        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 213
+        # Reader RW3b's 215 is the head now (tests/test_reader_rw3b_migration.py).
+        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 215
         assert all(connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0 for table in NEW_TABLES)
     database = tmp_path / "head.sqlite"
     backup_database(HEAD, database)

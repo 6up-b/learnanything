@@ -111,3 +111,32 @@ def test_belief_modules_never_import_the_reading_firewall() -> None:
         text = path.read_text(encoding="utf-8")
         assert "salience_firewall" not in text, module
         assert "reader_capture" not in text, module
+
+
+# -- Reader workbench RW3b: discovered cues (stage reader-rw3b) --------------------------------------
+
+
+@pytest.mark.parametrize("event", ("cue_try_first",))
+def test_rw3b_cue_events_are_salience_only_server_events_the_client_cannot_record(event: str) -> None:
+    from learnloop.reader import reader_cues as RCU
+    from learnloop.reader import reader_inquiry as RI
+
+    assert event in RCU.RW3B_SERVER_CUE_EVENTS
+    assert event not in RI.CLIENT_ACTION_EVENTS
+    tapped = {"kind": "reader_action_invoked", "payload": SF.salience_payload({"event": event})}
+    with pytest.raises(SF.SalienceEvidenceRejected):
+        SF.reject_salience(tapped)
+
+
+def test_belief_modules_never_import_rw3b_cue_links_or_impressions() -> None:
+    """RW3b's receipts (``reader_cue_impressions``) and paid links
+    (``passage_links``) are display: no belief, certification, projection,
+    grading or scheduling module reads them."""
+
+    src = Path(__file__).resolve().parents[1] / "src" / "learnloop"
+    for package in ("attempts", "learner", "scheduling", "goals", "diagnosis", "substrate", "placement", "field",
+                    "router", "daily_plan"):
+        for path in (src / package).rglob("*.py"):
+            text = path.read_text(encoding="utf-8")
+            for name in ("reader_cue_links", "passage_cues", "reader_cue_impressions", "passage_links"):
+                assert name not in text, f"{path.relative_to(src)} reads {name}"

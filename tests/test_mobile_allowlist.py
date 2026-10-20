@@ -176,6 +176,24 @@ READER_RW3A_RPCS = (
 )
 
 
+# Reader workbench RW3b (discovered cues) adds four RPCs -- the background
+# discovery and its job read, the impressions and a tap on any cue while
+# discovery is on -- and extends reader.guide_plan (discovered cues merged).
+# Desktop only (spec D20).
+READER_RW3B_RPCS = (
+    "reader.cue_discovery",
+    "reader.cue_discovery_job",
+    "reader.cue_impressions",
+    "reader.cue_tap",
+)
+
+
+def test_reader_rw3b_rpcs_are_the_modules_own():
+    from learnloop_sidecar.handlers.reader_cue_discovery import CUE_DISCOVERY_RPCS
+
+    assert set(READER_RW3B_RPCS) == set(CUE_DISCOVERY_RPCS)
+
+
 # Reader workbench RW2a (the resumable scratchpad) adds fourteen RPCs -- a
 # session's open, read, step save, book choice, leave, abandon, reopen, import
 # binding (refresh, bind a part, retry), submit, and the reads for an attempt,
@@ -506,7 +524,7 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     "method",
     DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
     + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS + ROUTER_R1_LOGGING_RPCS
-    + LEARNER_TEXT_GAP_RPCS + FACET_IDENTITY_RPCS + CHATGPT_PLAN_RPCS + READER_RW1A_RPCS + READER_RW3A_RPCS
+    + LEARNER_TEXT_GAP_RPCS + FACET_IDENTITY_RPCS + CHATGPT_PLAN_RPCS + READER_RW1A_RPCS + READER_RW3A_RPCS + READER_RW3B_RPCS
     + READER_RW2A_RPCS + READER_RW6A_RPCS + READER_RW1B_RPCS + READER_RW4A_RPCS + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS
     + ROUTER_R2A_RPCS + GLM_OCR_RPCS + GLM_OCR_EXTENDED_RPCS + REREAD_SAFETY_RPCS + REREAD_SAFETY_EXTENDED_RPCS
     + READER_PDF_SELECTION_RPCS + READER_PDF_SELECTION_EXTENDED_RPCS + UX_PHASE4_RPCS + UX_PHASE4_EXTENDED_RPCS

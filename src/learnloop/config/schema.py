@@ -1373,6 +1373,14 @@ class AIRoutingConfig(BaseModel):
     # for latency, reported, not enforced). A metered profile is held to workbench.max_daily_cost_usd at
     # workbench.price_per_million (unset: refused before sending).
     workbench_check: str | None = None
+    # Reader workbench RW3b (spec_reader_workbench_v1 §6.2, §6.4): the cue
+    # judge, one listwise call per cue target (a verdict, a quote and the
+    # instructional roles per passage), in the background when a source opens
+    # (never on a request path). Empty = ai.active_provider (Codex by default,
+    # estimated_only); a metered route needs
+    # source_retrieval.llm_price_per_million and is held to
+    # cues.max_daily_cost_usd, or the judgment is skipped and labelled.
+    passage_cue_judge: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -2096,12 +2104,36 @@ class CuesConfig(BaseModel):
     remembered here so it holds across devices. ``one_per_viewport`` keeps at
     most one mark per screenful at every density (off: the per-section budget
     alone). ``off_sources`` are the books the learner switched cues off for.
+
+    Reader workbench RW3b (discovered cues, §6.2 items 1-6): with
+    ``discovery_enabled``, passages the Guide's citations miss are found per
+    target (a durable misconception, an open hypothesis, a named learner-text
+    gap, a demonstrated facet) through T6 retrieval over the open source and
+    one listwise judgment per target (``ai.routing.passage_cue_judge``, ledger
+    task ``passage_cue``), in the background when a source opens, at most
+    ``max_calls_per_source_open`` judge calls per open and
+    ``max_daily_cost_usd`` metered a UTC day (Codex is ``estimated_only``).
+    ``try_first_enabled``: the judge's "try this step first" offers on worked
+    examples and derivations (pressing one opens RW1b's next-step question).
+    ``value_order_enabled``: cues are ordered by the probability their target
+    is still open, then the judge's rank, Guide first on ties (off: the
+    Guide's order, discovered cues after). ``holdout_rate``: the share of
+    eligible discovered cues withheld at random, seed and propensity logged
+    (0 turns the holdout off; Guide cues are never held out). Display only:
+    nothing here reaches evidence, mastery, grading or serving, so no
+    algorithm successor.
     """
 
     enabled: bool = True
     density: Literal["off", "fewer", "normal", "more"] = "normal"
     one_per_viewport: bool = True
     off_sources: list[str] = Field(default_factory=list)
+    discovery_enabled: bool = True
+    try_first_enabled: bool = True
+    value_order_enabled: bool = True
+    holdout_rate: float = Field(default=0.1, ge=0.0, lt=1.0)
+    max_calls_per_source_open: int = Field(default=12, ge=0)
+    max_daily_cost_usd: float = Field(default=0.5, ge=0.0)
 
 
 class WorkbenchConfig(BaseModel):

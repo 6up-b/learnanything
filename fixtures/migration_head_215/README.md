@@ -1,7 +1,8 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-213. Migration 167 adds the learner-field F1 read model
+215 (214 is held by adaptive difficulty AD2+AD3 on its own branch; the
+runner has no contiguity rule, so this fixture has no 214). Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -223,7 +224,23 @@ indexes and no-update and no-delete triggers) and `item_forecast_payloads`
 migration 206's `forecast_receipts`, no table of their own. The new tables
 are empty here.
 
-Built as a backup-API copy of the base's `migration_head_212` (git
+Migration 215 comes from reader workbench RW3b (`reader/rw3b`, discovered
+cues, docs/reviews/reader-workbench-RW3b.md): it adds `passage_links`
+(WORKFLOW, append-only by trigger: the cue judge's picks per target state and
+passage, each citing its `judgment_ledger` verdict, with its verified quote,
+pick rank, retrieval ranks and proposed roles) and `reader_cue_impressions`
+(RECEIPT: one row per visit and cue, shown or not with its reason, the
+holdout's seed and propensity, `p_open` and its source, and the learner's
+first response, written once by trigger). Both tables are empty here.
+
+Built as a backup-API copy of the base's `migration_head_213` (git
+`c9ad9cce1`) with only 215 applied, through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade
+allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
+`foreign_key_check` empty), copied into place with the backup API, with no
+companion files; `migration_head_213` was renamed to this directory.
+`migration_head_213` was itself a backup-API copy of the base's `migration_head_212` (git
 `16a0071f2`) with only 213 applied, through
 `learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade
 allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),

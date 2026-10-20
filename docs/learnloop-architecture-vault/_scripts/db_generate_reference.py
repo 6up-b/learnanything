@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_213/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_215/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_213" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_215" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 213
+SCHEMA_HEAD = 215
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -878,7 +878,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "reader_inquiry": "reader workbench RW1a: branching Ask, inquiry status with reopen, the return stack and detour strip, the reconnect line with its passage-scoped quick check, and the Reader's funnel activity (content and display only)",
     "workbench": "reader workbench RW2a: the resumable scratchpad (a problem worked in steps beside the source, submitted through the ordinary attempt path with a visible book as one hint-equivalent): the kill switch, and how long an untouched open problem waits before the recap calls it unfinished (a display limit; nothing is closed automatically)",
     "recap": "reader workbench RW6a: \"Last time here\" (the returning card at the head of the Guide) and Wrap up (offered in the rail after activity and once where the learner lands after leaving a source): two kill switches over pure reads of existing ledgers (salience-only events only; no model call, nothing stored)",
-    "cues": "reader workbench RW3a: margin cues from the Guide's own citations (display only): the kill switch, the learner's density per section, at most one mark per screenful, and the books cues are switched off for",
+    "cues": "reader workbench RW3a: margin cues from the Guide's own citations (display only): the kill switch, the learner's density per section, at most one mark per screenful, and the books cues are switched off for; RW3b: discovered cues (passages found per open target by T6 retrieval and one listwise judgment each through ai.routing.passage_cue_judge, in the background; ordered by the probability the target is still open; try this step first on worked examples; a logged holdout with seed and propensity): its switches, the holdout rate, and the judge's per-open call cap and metered daily spend (display only, no successor)",
     "reader_intent": "reader workbench RW1b: the intent box (a small, unfocused box under a selection whose words one typed Decider choice routes to a palette action, run exactly as the palette's own; the palette grouped by the five learner intentions): the kill switch, speculative routing once typing pauses (its switch and pause), the routing's timeout and the route's daily call cap (speculation stops at 80% of it); routing writes ledger rows and salience-only events only",
     "reader_active_reading": "reader workbench RW1b: active reading on a selected derivation or worked example (try the next step with the book's next lines folded, why does this step work, what does this assume, reconstruct this later, another way to see this): the kill switch; the questions are the quick-check producer's formative rows and never an attempt",
     "reader_formative": "reader workbench RW1b: a next-step, why-step or assumption answer the learner marks partly or no becomes reader_formative learner text for learner-text gaps (tier 2: never evidence, mastery or FSRS): the kill switch",
@@ -2035,7 +2035,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_213/state.sqlite",
+                "fixtures/migration_head_215/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

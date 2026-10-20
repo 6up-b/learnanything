@@ -1021,6 +1021,26 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switches for the Reader tutor's retrieval, answer modes, abstention, another way and that "
         "didn't help / the offer buttons under its answers; context and display, no measurement, scheduling "
         "or serving authority."),
+    # Reader workbench RW3b: discovered cues. The switches are booleans
+    # (classified so every new key has a rule); the holdout rate is the
+    # display experiment's logged draw (a withheld cue is only not shown; its
+    # seed and propensity are receipts, never evidence); the call cap and the
+    # metered daily spend bound the background cue judge.
+    _ConfigRule(_exact(
+        "cues.discovery_enabled",
+        "cues.try_first_enabled",
+        "cues.value_order_enabled",
+    ), "structural", "operational",
+        "kill switches for discovered margin cues / their try-this-step-first offers / their value order; "
+        "display only, no measurement, scheduling or serving authority."),
+    _ConfigRule(_exact(
+        "cues.holdout_rate",
+        "cues.max_calls_per_source_open",
+        "cues.max_daily_cost_usd",
+    ), "structural", "operational",
+        "the share of eligible discovered margin cues withheld at random (seed and propensity logged) / the "
+        "cue judge's calls per source open / its metered spend a UTC day; a display experiment and spend "
+        "bounds, no measurement authority (cues are display only)."),
     # Adaptive hints H1: the approach-map builds' (and merges') metered spend a
     # UTC day (maps are stored help, read by no grading, scheduling, serving or
     # replay path; validation verdicts go to judgment_ledger, never evidence).

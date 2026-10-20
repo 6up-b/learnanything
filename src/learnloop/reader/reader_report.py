@@ -88,6 +88,75 @@ def _when(value: str | None) -> datetime | None:
         return None
 
 
+#: An arm with fewer outcomes than this gets counts, never an estimate.
+HOLDOUT_MIN_PER_ARM = 2
+
+
+def _holdout_estimate(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Shown vs held-out discovered cues: the next attempt on the cue's LO,
+    each arm's mean outcome weighted by 1/propensity (self-normalized IPS),
+    their difference with a normal-approximation 95% interval and the sample
+    sizes. Density, spacing and restored-line suppressions are left out (not
+    a holdout); an arm too small gets counts only."""
+
+    arms: dict[str, list[tuple[float, float]]] = {"shown": [], "held_out": []}
+    for row in rows:
+        if row.get("outcome") is None or not row.get("propensity"):
+            continue
+        arm = "shown" if row["shown"] else "held_out"
+        arms[arm].append((float(row["outcome"]), 1.0 / float(row["propensity"])))
+
+    def arm_summary(values: list[tuple[float, float]]) -> dict[str, Any]:
+        if not values:
+            return {"n": 0, "mean": None}
+        total = sum(weight for _y, weight in values)
+        mean = sum(y * weight for y, weight in values) / total
+        variance = sum((weight / total) ** 2 * (y - mean) ** 2 for y, weight in values)
+        return {"n": len(values), "mean": round(mean, 4), "variance": variance}
+
+    shown, held = arm_summary(arms["shown"]), arm_summary(arms["held_out"])
+    out: dict[str, Any] = {"shown": {"n": shown["n"], "mean": shown["mean"]},
+                           "held_out": {"n": held["n"], "mean": held["mean"]},
+                           "effect": None, "interval_95": None, "weighting": "1/propensity (self-normalized)"}
+    if shown["n"] >= HOLDOUT_MIN_PER_ARM and held["n"] >= HOLDOUT_MIN_PER_ARM:
+        effect = shown["mean"] - held["mean"]
+        half = 1.96 * math.sqrt(shown["variance"] + held["variance"])
+        out["effect"] = round(effect, 4)
+        out["interval_95"] = [round(effect - half, 4), round(effect + half, 4)]
+    return out
+
+
+def _discovered_cues(connection: Any, in_window: Any) -> dict[str, Any] | None:
+    """RW3b's impressions (``reader_cue_impressions``): reasons, kinds,
+    responses against marks shown, the share of new-application marks, and the
+    holdout's estimate. None when there are none (the report is as before)."""
+
+    if connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='reader_cue_impressions'").fetchone() is None:
+        return None
+    rows = [dict(row) for row in connection.execute(
+        "SELECT i.*, (SELECT a.correctness FROM practice_attempts a WHERE a.learning_object_id = i.learning_object_id "
+        "AND a.created_at > i.created_at AND a.correctness IS NOT NULL ORDER BY a.created_at, a.id LIMIT 1) AS outcome "
+        "FROM reader_cue_impressions i ORDER BY i.created_at, i.id")
+        if in_window(row["created_at"])]
+    if not rows:
+        return None
+    shown = [row for row in rows if row["shown"]]
+    discovered = [row for row in rows if row["link_id"]]
+    marks = Counter(row["kind"] for row in shown)
+    return {
+        "impressions": len(rows),
+        "shown": len(shown),
+        "not_shown": dict(Counter(str(row["suppressed_reason"]) for row in rows if not row["shown"])),
+        "shown_by_kind": dict(marks),
+        "new_application_share": _share(marks.get("application", 0), len(shown)),
+        "responses": {response: _share(sum(1 for row in shown if row["response"] == response), len(shown))
+                      for response in ("opened", "check_me", "try_first", "not_relevant", "fewer")},
+        "holdout": _holdout_estimate([row for row in discovered
+                                      if row["shown"] or row["suppressed_reason"] == "holdout"]),
+    }
+
+
 def build_reader_report(
     sqlite_path: Path | str,
     *,
@@ -125,6 +194,8 @@ def build_reader_report(
             str(row["id"]): str(row["resolution"] or "open")
             for row in connection.execute("SELECT id, resolution FROM question_events WHERE context = 'reader'")
         }
+        # Reader workbench RW3b: the impressions table (absent: as before).
+        discovered_cues = _discovered_cues(connection, in_window)
         has_scopes = any(
             row[1] == "scope_kind"
             for row in connection.execute("PRAGMA table_info(reader_authored_questions)")
@@ -388,6 +459,7 @@ def build_reader_report(
             )),
             "books_switched_off": len(actions("cue_source_off")),
             "books_switched_on": len(actions("cue_source_on")),
+            **({"discovered": discovered_cues} if discovered_cues is not None else {}),
         },
         "waiting": _share(waited_with_activity, len(completions)),
         "visits": {
