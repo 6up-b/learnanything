@@ -379,3 +379,219 @@ was read. One stray helper left in `fixtures-local/tmp` by an earlier stage
 its guard found its backup-API copy already present (dated 2026-10-18), so it
 copied nothing. Later scripts ran isolated (`python -I`) from
 `fixtures-local/rw3b-scripts/`.
+
+## 8. Landing onto main
+
+Landed in the `learnanything-merge2` worktree on branch `merge/rw3b-onto-main`, cut from main at `e14b4e4ff` (the
+DL2 landing record; main has RW4b and DL2, successor mvp-0.29 with 20 defaults snapshots, migration head 213). The
+stage tip is `837208ad2` (base `c9ad9cce1`), unchanged. The orchestrator's last verify (Codex job
+`20261020-171319-9xYYRQ` on `837208ad2`) is clean: no High, no Medium. Main was neither fast-forwarded nor pushed
+here.
+
+### Commits and conflicts
+
+- `8e50f38e5`: a `--no-ff` merge of `reader/rw3b` onto `e14b4e4ff`. Three source conflicts, each composed so that
+  both sides survive:
+  - `config/template.py`: RW4b's, DL2's and RW3b's notes kept on every defaults snapshot (RW3b's `[cues]` note under
+    mvp-0.9's, a one-line pointer on the others, mvp-0.29 included), and all **20** snapshots (mvp-0.9 … mvp-0.27,
+    mvp-0.29) recomputed from the composed defaults with the template `.pyc` cleared.
+  - `params/parameter_registry.py`: RW4b's `[library_exercises]` rule and RW3b's two `[cues]` rules both kept.
+  - `tests/test_mobile_allowlist.py`: the desktop-only parametrization lists both `READER_RW3B_RPCS` and
+    `READER_RW4B_RPCS`.
+  - 400 generated reference notes took main's side and were regenerated afterwards.
+  - `docs/decider-tier1-migration.md`: the head-fixture path moves to `migration_head_215` (the stage had missed
+    this one prose path).
+  - Auto-merged without conflict, then checked by the gate: `ReaderScreen.tsx` (RW3b's 11 wiring lines beside RW4b's
+    hunks), the reader handlers and the handler registry, `config/schema.py`, `dto.ts` / `client.ts`, `commands.rs` /
+    `main.rs`, the CLI help snapshot, the RPC pins and the 35 head-fixture paths.
+- `2f669764f`: the references regenerated on the merged tree (the gate head).
+- This record.
+
+**Migration numbering.** 215 lands with a gap: main's head is 213 and AD2+AD3 holds 214. `db/migrate.py` `_migrate`
+applies every migration not yet applied, so a vault at 213 takes 215 now and 214 later. Every test, script and
+reference generator accepts the gap: the full suite and the durability lane pass with `migration_head_215`,
+`db_generate_reference.py` / `db_validate_reference.py` run with `SCHEMA_HEAD = 215` and 0 errors, and parity (a)
+opens real vault copies from 165 straight to 215 (49 migrations, no 214).
+
+### Regeneration
+
+- **References.** `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**, `schema_head` 215,
+  **335** table notes, **937** configuration leaves in **66** sections (RW3b's eight new leaves, seven `[cues]` keys
+  and `ai.routing.passage_cue_judge`, on DL2's 929). The two prose counts in `Configuration.md` and `Database.md`
+  were moved by hand; the rest is commit labels, RW3b's tests in the table notes and the field notes (405 files).
+- **Defaults snapshots.** With the template's `.pyc` cleared, all **20** `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries
+  match `defaults_fingerprint_for_version` (recomputed in the merge commit; 0 mismatches after).
+- **CLI help snapshot and RPC pins** (serializer snapshot, desktop RPC contract, mobile allowlist, sidecar
+  registry): a pin run of 773 tests (those files plus every test naming the snapshots, `test_table_roles`,
+  `test_tracked_fixture_databases`, `test_coordinated_migrations`, `test_migrations`, `test_rebuild_orchestrator`,
+  `test_architecture`, `test_registry_audit`, `test_config_refactor`, `test_sqlite_file_copies`) passed; no file
+  needed rewriting. RW3b's four RPCs stay desktop-only.
+- **Head fixture 215.** Main changed neither `migration_head_213` nor `migrations/` since `c9ad9cce1`, so the
+  stage's fixture stands. Checked: a backup-API copy of main's `migration_head_213` with 215 applied under
+  `UPGRADE_SCRATCH_COPY` (`wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`) is identical to the tracked
+  `fixtures/migration_head_215/state.sqlite` in schema (1,427 objects) and in every row of all 340 tables (apart
+  from `schema_migrations.applied_at`); both have header bytes 1/1, `integrity_check` ok, empty
+  `foreign_key_check`, and no `-wal` or `-shm`. Not rebuilt.
+- **`validate_vault.py`**: passes (1,135 notes, 1,133/1,133 reachable).
+- **Known failures from before this stage, not fixed:** `desktop_validate.py` still stops on
+  `components/pdfSelection/testing/syntheticBook.ts`; `module_validate.py` reports **954** issues (948 at the DL2
+  landing: RW3b adds modules without module notes, such as `source_retrieval/passage_cues.py` and
+  `db/stores/reader_cue_links.py`).
+
+### Gate
+
+Python 3.12.14. `TMPDIR` was merge2's `fixtures-local/tmp`; every command after the install ran as `uv run
+--no-sync`. Both suite lanes ran under `flock /tmp/learnloop-fullsuite.lock` on `2f669764f` (the gate head; this
+record changes docs only). The AD2+AD3 (`learnanything-ad1`) and RW4d (`learnanything-rw4b`) worktrees and their
+processes were not touched. Every test uses fakes. **This is the first full run over RW3b's code**: the stage and
+its 11 fix rounds ran targeted tests only.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `lint-imports --no-cache` | **28 kept**, 0 broken |
+| full suite `pytest -n auto` | **14,889 passed, 2 xfailed, 0 failed** (24 min 53 s; `fixtures-local/rw3b-landing-fullsuite.log`). The DL2 landing ran 14,783 |
+| `pytest -m durability` | **114 passed**, 14,777 deselected (3 min 14 s; `fixtures-local/rw3b-landing-durability.log`). DL2's was 113; RW3b adds one |
+| `npm install`, `npm run typecheck` | up to date (lockfile unchanged); clean |
+| `npm test` (the whole vitest run) | **158 files, 1,254 tests passed** on the first run (DL2's landing: 154 / 1,206) |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | ok (RW3b's four passthroughs in `commands.rs` / `main.rs`) |
+| thread, lock and timing tests | all passed on the first run, so none was rerun |
+| tracked fixtures, worktree | `git status` clean after both lanes and the frontend run; no non-empty `-wal` beside a fixture |
+
+No failure, so no landing fix.
+
+### Parity (backup-API copies; no model call completed)
+
+**Setup** (scripts in `fixtures-local/landing-rw3b/scripts/`, adapted from the DL2 landing's):
+- **Copies.** `fixtures/linear_algebra` and `fixtures/probability` were copied once, with `copy_tree_with_databases`,
+  from the main checkout into `fixtures-local/landing-rw3b/orig/`; every other copy came from `orig/` or its
+  upgraded copies through the same helper. `arxiv_v2` was not opened. Both vaults start at schema 165, label
+  `mvp-0.8`.
+- **Code.** Main's code is `git archive e14b4e4ff`; the merge's is `git archive 2f669764f`.
+- **Environment.** Every run went through `env -i` with only `PATH`, `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`,
+  `TMPDIR` and `LANG` (empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`).
+- **Routes.** `neutralize3.py`, under each code, sent every route field to `127.0.0.1:9` (55 on main, 56 on the
+  merge: `passage_cue_judge` is the new one; the reader, tutor, sources, hint, workbench, AD and Decider routes
+  included), the active provider to that loopback profile with no fallback; `query_rewrite`,
+  `tutor_query_rewrite`, `tutor_rerank`, `dense`, `[embedding]` and `[learner_text_gaps]` off; `build_on_serve` and
+  outcome placement off. `routes.py` resolved all 58 `AITask`s on main and 59 on the merge (`passage_cue_judge` to
+  `blackhole` at `127.0.0.1:9`): nothing outside the loopback profiles except `embedding`, disabled and keyless.
+
+**(a) Migration 215**
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| open (migrate), main's code / the merge's | 165 → 213 (48 applied) / 165 → **215** (49 applied, no 214) | the same |
+| schema, main@213 vs merge@215 | merge-only objects are exactly **14**: `passage_links`, `reader_cue_impressions`, their 4 named indexes, 4 `sqlite_autoindex` (UNIQUE) indexes and 4 triggers (`*_no_update`, `*_no_delete`, `reader_cue_impressions_response_once`); none main-only; no shared object's SQL differs (1,414 → 1,428) | the same 14 (1,413 → 1,427) |
+| rows of every existing table (338), all columns | **identical** (16,539 rows); `schema_migrations` + 215, the common rows differ only in `applied_at`; both new tables empty | **identical** (7,637 rows; the same) |
+| `foreign_key_check` / `integrity_check` | 0 / ok, both sides | the same |
+| `rebuild --shadow --json`, main@213 vs merge@215 | **0 differences** after normalisation (facet 0, mastery 2, schedule 8 on both); live database unchanged on both | **0 differences** (0 / 1 / 1) |
+| `doctor --json`, main@213 vs merge@215 | **0 differences** after normalisation (57 issues, 1 error) | **0 differences** (101 issues, 48 errors) |
+
+**(b) Nothing served changes** (frozen clock 2026-10-19 09:00 UTC; certification with recipe gaps and curves, the
+Today queue with no session / a session / greedy, the daily plan read, served twice and read again)
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| at `mvp-0.8` (the copies' label) | cert **byte-identical** (132,860 bytes), Today **byte-identical** (504,488), plan byte-identical (off below mvp-0.14) | cert (17,494), Today (709,910), plan: all **byte-identical** |
+| upgraded by main's code to `mvp-0.27` (`--to mvp-0.9`, `--to mvp-0.27`, `rebuild-derived-state` twice; all rc 0), opened by each code | cert **byte-identical** (129,651), Today **byte-identical** (528,665) | cert (17,495), Today (741,269): **byte-identical** |
+| then by main's code to `mvp-0.29` (`--to mvp-0.29`, `rebuild-derived-state` twice; all rc 0), opened by each code | cert and Today **byte-identical** (the same sizes) | the same |
+| the daily plan at mvp-0.27 and at mvp-0.29 | identical except `router_decisions.card_hash`, `snapshot_hash` and the card hash inside `detail_json`; a second run of main's code on a fresh copy differs from the first in exactly these three | the same |
+
+**(c) The real sidecar** (stdio, `SystemClock` frozen at 2026-10-19 09:00 UTC through `sidecar_clock.py`;
+`cue_run.py`) on copies of main's mvp-0.29 vaults: (i) `cm`, main's code; (ii) `coff`, the merge with `[cues]`
+`discovery_enabled`, `try_first_enabled`, `value_order_enabled` = false and `holdout_rate` = 0; (iii) `cdef`, the
+merge at its defaults. Each: `reader.prompt_contract`; `reader.guide_plan` on a source (probability
+`ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY`, linear_algebra `ext_01KY2YGNVCCVEQCGCE4RH3BWHQ`); `reader.cue_discovery` with a
+`source_open_id`, polled through `reader.cue_discovery_job`; the guide plan again; on probability a manual-graded
+attempt on `pi_prob_derive_complement`; `shutdown`.
+
+| Step | (i) main vs (ii) switches off | (iii) defaults |
+|---|---|---|
+| `reader.prompt_contract` | **byte-identical** (both vaults) | byte-identical to (i) |
+| `reader.guide_plan`, both reads (RW3a's Guide cues) | **byte-identical** (both vaults, both reads): probability 2 marks, linear_algebra 8 | the same marks, the same cue ids in the same order. Differences, all additive: every Guide mark gains `foundBy` "guide", `pOpen` 1.0 and `pOpenSource` "error_lifecycle"; `cues.withheld` gains `holdout` 0; `cues.discovery` is present (`planId`, `holdoutRate` 0.1, `tryFirst`, `valueOrder`, `targets` (probability 0, linear_algebra 3), `targetsKey`, `targetsPending` false, `heldOut` [], `suppressed`: the Guide cues the density budget cut, with reason `density`, probability 1 and linear_algebra 3) |
+| `reader.cue_discovery` | (i) `method_not_found`; (ii) refused, `cues_disabled` ("Discovered margin cues are switched off …") | started at once (`pending`), done within 1 s, **0 calls**: probability `unavailable` with no target; linear_algebra 3 targets (two hypotheses, one demonstrated facet), each `skipped: metered cue judge route without source_retrieval.llm_price_per_million` |
+| the attempt (probability) | the rows it added in 24 tables are **identical** across (i), (ii) and (iii) with ids normalised; `attempt_debug_payloads` differs only in the attempt id and the diagnosis receipt id | identical, as left |
+| RW3b's tables, receipts | (ii): `passage_links` 0, `reader_cue_impressions` 0; `passage_cue` ledger 0; `model_call_receipts` 0 | the same: 0 / 0 / 0 / 0 |
+
+A fourth run, **(iv) the route actually tried**: linear_algebra at the defaults with
+`source_retrieval.llm_price_per_million = 1.0` and a dummy key in the loopback profile's variable, so the metered
+judge sends its requests to `127.0.0.1:9`. The job ran **12** requests (the per-open cap) and stopped: the first target
+`capped` ("calls exceeds max_calls"), the other two `capped` (`cues.max_calls_per_source_open`). 24
+`model_call_receipts`, every one `failed` (12 judge requests, `AIProviderUnavailable`, each with its transport child,
+`APIConnectionError`); no link, no ledger row, the guide plan unchanged.
+
+**(d) The dry-run CLI.** `learnloop reader cues discover --vault <copy> --source <source> --dry-run --json` on
+merge-migrated copies of both mvp-0.29 vaults: rc 0, `calls` 0, `judged` 0, `dry_run` true; the spend plan names the
+caps (`max_calls_per_source_open` 12, `max_calls_per_source_per_day` 36 with window "rolling 24 hours (UTC)",
+`source_calls_last_24h` 0, `max_daily_cost_usd` 0.5, `remaining_today_usd` 0.5) and the judge's estimate
+(linear_algebra 3 calls, 69,686 tokens; probability 0). The database file is byte-identical before and after (its
+logical dump too): `model_call_receipts`, `passage_links` and the `passage_cue` ledger stay 0. The run leaves an
+empty `-wal` and a `-shm` beside the copy's database (finding 3).
+
+**`model_call_receipts`**: 40 learner databases under `landing-rw3b/` carry the table; **no row is `completed`** in
+any of them. The only rows are run (iv)'s 24, all `failed`.
+
+### New findings
+
+1. **No composition failure.** RW3b's three conflicts were bookkeeping (snapshots, registry rules, the RPC pin
+   list); RW4b's and DL2's code paths compose with RW3b's without a change.
+2. **Against an unreachable metered route, the first target spends the whole per-open allowance on retries**
+   (`judge_listwise(..., max_retries=cap, max_calls=cap)`): 12 failed requests on one target, the other targets
+   capped. That is the designed count (F3: every request and retry counts) and the caps hold (12 per open, 36 per
+   source per rolling 24 hours), so it stays at most three such opens a day per source. Low; not changed.
+3. **The dry run leaves an empty `-wal` and a `-shm`** beside a WAL-mode database it only read. The database file
+   and its contents are unchanged. Harmless (the CLAUDE.md note on empty companions); Low.
+4. **With discovery on, every Guide mark carries `foundBy`, `pOpen` and `pOpenSource`**, and the plan a
+   `discovery` block, even when nothing was discovered. Display payload only; the client renders the same marks.
+
+### For the owner
+
+- **Migration 215 applies on the next open.** Back up the vault, close the app, the MCP server and the mobile host
+  first. It adds two empty tables (`passage_links`, `reader_cue_impressions`) with their indexes and triggers and
+  changes no existing row (parity (a)). No successor: your algorithm version is unchanged, and nothing served moves
+  (parity (b)). AD2+AD3's 214 will apply later on top; the gap is expected.
+- **What you see in the Reader.**
+  - New margin marks beside the Guide's `◌┆`: a discovered distinction `◌┆` ("Connects to something you worked
+    on: …"), a new application `●┆` ("A new use of something you've shown: …") and a try-first `▹┆`. Each one's
+    "because" line says it was found by LearnLoop's model, not by a test; opening it shows the passage's own words and
+    what you worked on.
+  - **"Try this step first"**: on a worked example or derivation, it opens the Reader's *let me try the next step* at
+    that line. It is your pick, never a gate.
+  - **The density control** (off, fewer, normal, more, plus "fewer" on a mark) decides how many marks a section
+    shows, one per screenful. About one eligible discovered cue in ten is held back at random (logged, so the report
+    can tell whether the marks help).
+- **Discovery** runs in the background when you open a source, on Codex by default (`ai.active_provider`; counted as
+  an estimate, not billed per call). At most **12 calls per open** and **36 per source per rolling 24 hours**, inside
+  the cue spend cap (`cues.max_daily_cost_usd` 0.50 for metered routes). Targets already judged in their current
+  state cost nothing. Try it on a copy first: `uv run learnloop reader cues discover --vault <copy> --source <id>
+  --dry-run --json` (no call), then without `--dry-run`.
+- **The switches** (`[cues]` in `learnloop.toml`): `discovery_enabled = false` gives RW3a's cues byte for byte
+  (parity (c)); `try_first_enabled`, `value_order_enabled`, `holdout_rate = 0`, `max_calls_per_source_open`,
+  `max_calls_per_source_per_day`, `max_daily_cost_usd`; `enabled = false` turns every cue off. The judge's route is
+  `ai.routing.passage_cue_judge` (empty = the active provider).
+
+### Open questions (defaults in force)
+
+1. **Q1.** Holdout rate 0.1 on every discovered cue from day one: **kept**.
+2. **Q2.** A misconception inside an open probe episode is ordered by the episode's posterior mass (so often after the
+   Guide's cues): **the posterior** (the alternative is the lifecycle's 1.0).
+3. **Q3.** Discovery on every source open (Codex, up to 12 calls per open, 36 per source per day): **on**.
+4. **Q5.** "Check me" on a discovered cue asks for practice on the cue's whole learning object: **unchanged** (not
+   narrowed to the target's facets or to `intent="discriminate"` for rival hypotheses).
+5. **Q6.** An unchecked-claim target reads RW6a's claims from the current and previous reader sessions only:
+   **those two**.
+
+(Q4, recurrence groups as targets, was settled by fix round 1's F9: they are targets.)
+
+### Open items
+
+- **Accepted Lows:**
+  - the per-source daily cap is exact within one process, so a CLI run at the same instant as the sidecar can pass
+    the check concurrently;
+  - the retention bounds: 4,096 opens, 256 plans for 12 h;
+  - the holdout interval is withheld when outcomes are shared across arms.
+- **Findings 2 and 3** above (Low).
+- **Friction notes for RW4d, RW4e, RW2c and RW6b** stand as written in §6.
+- **From before this stage:** `desktop_validate.py` (`syntheticBook.ts`) and `module_validate.py` (954 issues).
