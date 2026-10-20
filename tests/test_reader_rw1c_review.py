@@ -1299,3 +1299,113 @@ def test_a_three_slot_split_is_withheld_as_one(tmp_path, monkeypatch):
     assert context["thread"][0]["answer_md"] == first and second in union and third not in union
     steps = next(e for e in context["reader_tutor"]["learner_work"] if e.get("kind") == "workbench_steps")
     assert steps["steps"] == ["swap rows 1 and 2"] and steps["problem"] == ""
+
+
+# --- Fix round 8 (orchestrator ruling) -----------------------------------------------------------------
+
+NEAR_KEY_GAP = "The probability is 2/130."
+
+
+def _long_question(length: int) -> str:
+    head = "How should I reason about the determinant when two rows are swapped? "
+    return head + "x" * (length - len(head))
+
+
+def _recording_lookups(monkeypatch) -> list[str]:
+    """Every query the Reader's lookup hands the sources (service on or off)."""
+
+    import learnloop.instructional.sources as service
+    import learnloop.instructional.tools  # noqa: F401 - bound by name at import: import before patching
+    import learnloop.source_retrieval.find_sources as base
+
+    queries: list[str] = []
+    real_service, real_base = service.propose_sources, base.find_sources_for_caller
+    monkeypatch.setattr(service, "propose_sources",
+                        lambda vault, repo, query, **kw: queries.append(query) or real_service(vault, repo, query, **kw))
+    monkeypatch.setattr(base, "find_sources_for_caller",
+                        lambda vault, repo, query, **kw: queries.append(query) or real_base(vault, repo, query, **kw))
+    return queries
+
+
+@pytest.mark.parametrize("service", [True, False])
+@pytest.mark.parametrize("intent", ["explain", "alternative", "remediate"])
+def test_a_length_limit_never_cuts_a_statement_into_the_key(tmp_path, monkeypatch, intent, service):
+    """R1 (F8, the verify's reproduction): key 2/13, a passing open gap "The
+    probability is 2/130." (whole, it scores 0) and a 1,976-character
+    learner question: the old 2,000-character cut turned the gap into "... 2/13"
+    in the query, its rewrite and the verification's question. Bound, the
+    statement is dropped whole, so no delivered query or verification prompt
+    holds a text the guard scores as leaking. "Another way" reads its parent's
+    question; "that didn't help" adds its own words before the parent's."""
+
+    from tests.reader_tutor_fakes import prompt_context
+
+    from learnloop.tutor.tutor_qa import span_leaks_expected
+
+    assert not span_leaks_expected(NEAR_KEY_GAP, PROBABILITY_KEY)
+    tutor = LookupTutor()
+    paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor,
+                                                config={"source_service": {"enabled": service}})
+    set_item_answer(paths, ITEM, PROBABILITY_KEY)
+    ctx = _rebind(paths, ctx)
+    vault, _repository = ctx.require_vault()
+    _misconception(repository, vault, NEAR_KEY_GAP)
+    queries = _recording_lookups(monkeypatch)
+    verifier = ctx.reader_tutor_rerank_client
+    session = _bound_session(repository, ITEM)
+    follow_up = {"alternative": "Explain it another way", "remediate": "That didn't help."}.get(intent)
+    # The parent's length puts the gap across the 2,000-character limit of the query the intent builds.
+    question = _long_question(1976 if intent != "remediate" else 1976 - len("That didn't help.") - 1)
+    root = ask(ctx, question, personalized=True, workbenchSessionId=session, **PASSAGE_T2)
+    if follow_up:
+        ask(ctx, follow_up, parentExchangeId=root["readerAnswerEventId"], retrievalIntent=intent,
+            personalized=True, workbenchSessionId=session, **PASSAGE_T2)
+    assert queries and verifier.prompts, "the lookup and its verification ran"
+    assert all(not span_leaks_expected(query, PROBABILITY_KEY) for query in queries)
+    for prompt in verifier.prompts:
+        context = prompt_context(prompt)
+        texts = [context["question"], *(f"{m.get('statement') or ''} {m.get('correction') or ''}"
+                                        for m in context.get("misconceptions") or [])]
+        assert not any(span_leaks_expected(text, PROBABILITY_KEY) for text in texts)
+    assert all(len(query) <= 2000 for query in queries)
+
+
+def test_a_statement_that_fits_whole_is_still_delivered(tmp_path, monkeypatch):
+    """R1: the limit drops only what does not fit whole; a short question
+    keeps the gap statement in the bound query."""
+
+    tutor = LookupTutor()
+    paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    set_item_answer(paths, ITEM, PROBABILITY_KEY)
+    ctx = _rebind(paths, ctx)
+    vault, _repository = ctx.require_vault()
+    _misconception(repository, vault, NEAR_KEY_GAP)
+    queries = _recording_lookups(monkeypatch)
+    ask(ctx, BEGIN, personalized=True, workbenchSessionId=_bound_session(repository, ITEM), **PASSAGE_T2)
+    assert queries[-1] == f"{BEGIN} {NEAR_KEY_GAP}"
+
+
+@pytest.mark.parametrize("bound", [True, False])
+def test_the_learners_question_is_truncated_as_before(tmp_path, monkeypatch, bound):
+    """R1: the learner's own text is still cut at the limit as before; unbound,
+    the whole query is the old one (the old cut, statement included)."""
+
+    from learnloop.source_retrieval.reader_tutor import QUERY_CHARS
+
+    tutor = LookupTutor()
+    paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    set_item_answer(paths, ITEM, PROBABILITY_KEY)
+    ctx = _rebind(paths, ctx)
+    vault, _repository = ctx.require_vault()
+    _misconception(repository, vault, NEAR_KEY_GAP)
+    queries = _recording_lookups(monkeypatch)
+    extra = {"workbenchSessionId": _bound_session(repository, ITEM)} if bound else {}
+    long_question = _long_question(2500)
+    ask(ctx, long_question, personalized=True, **extra, **PASSAGE_T2)
+    assert queries[-1] == long_question[:QUERY_CHARS]
+    near = _long_question(1976)
+    ask(ctx, near, personalized=True, **extra, **PASSAGE_T2)
+    old = f"{near} {NEAR_KEY_GAP}"[:QUERY_CHARS]
+    assert queries[-1] == (near if bound else old)
+    if not bound:
+        assert old.endswith("2/13")  # the unbound query is exactly the base RW1c one

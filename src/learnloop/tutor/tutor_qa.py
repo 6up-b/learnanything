@@ -1641,6 +1641,13 @@ def _reader_lookup_context(
         for key, value in far.items():
             guarded[key] = guarded.get(key, 0) + value
     kept, receipt = reader_modes.deliver(reader_spans, spans, budget_tokens=budget_tokens, withheld=withheld)
+    if guard is not None:
+        # Fix round 8 (R1's audit): the budget may trim a passage after the
+        # guard read it whole, and a trimmed text can state what the whole
+        # did not ("2/130" cut to "2/13"); the guard reads what is delivered.
+        kept, trimmed = guard(kept)
+        for key, value in trimmed.items():
+            guarded[key] = guarded.get(key, 0) + value
     if delivery_receipt is not None and guarded:
         delivery_receipt["item_bound_withheld"] = dict(sorted(guarded.items()))
     if delivery_receipt is not None and spans:

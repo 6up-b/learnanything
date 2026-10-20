@@ -172,6 +172,39 @@ def withhold_for_call(slots: Sequence[Slot], binding: BoundAsk | None, *,
     return out
 
 
+def fit_slots(learner: str, slots: Sequence[str], *, limit: int, binding: BoundAsk | None,
+              join: str = " ") -> tuple[str, list[int]]:
+    """A model-bound string of at most ``limit`` characters: the learner's own
+    text, then WHOLE model-written ``slots``; ``(text, indexes of the slots in it)``.
+
+    Fix round 8 (R1): no model-written slot is ever cut mid-text. A length
+    limit applied after the plan could turn a passing statement into a
+    leaking one ("The probability is 2/130." cut to "... 2/13"), so the
+    learner's text may be truncated as before (it is theirs), and a slot that
+    does not fit whole is dropped with every later one (the latest, lowest
+    priority first). Then, as a final check, the binding's guard reads the
+    model-written fragments actually present; a slot :func:`withhold` names is
+    dropped and the string rebuilt. Every builder that limits a bound,
+    model-bound string built from planned slots uses this one helper."""
+
+    learner = learner[:limit]
+    texts = [str(slot or "") for slot in slots]
+    fitted: list[int] = []
+    length = len(learner)
+    for index, text in enumerate(texts):
+        if not text:
+            continue
+        added = len(text) + (len(join) if length else 0)
+        if length + added > limit:
+            break
+        fitted.append(index)
+        length += added
+    if fitted and binding is not None and binding.answer_guard is not None:
+        out = withhold([texts[index] for index in fitted], binding)
+        fitted = [index for n, index in enumerate(fitted) if n not in out]
+    return join.join(part for part in [learner, *(texts[index] for index in fitted)] if part), fitted
+
+
 #: How many open questions the lookup query and the bridge's work carry
 #: (the first ones kept; ``source_retrieval.reader_tutor`` reads it).
 QUERY_GAPS = 3
@@ -207,10 +240,13 @@ class BoundDelivery:
     misconceptions: list[Any] | None
     learner_work: list[dict[str, Any]]
     withheld: dict[str, int]
+    #: The binding, for the lookup's own final check when it limits its query
+    #: (:func:`fit_slots`, fix round 8).
+    binding: Any = None
 
     @property
     def lookup_inputs(self) -> dict[str, Any]:
-        return {"gaps": list(self.gaps), "misconceptions": self.misconceptions}
+        return {"gaps": list(self.gaps), "misconceptions": self.misconceptions, "binding": self.binding}
 
 
 def plan_bound_delivery(binding: BoundAsk | None, *, thread: Sequence[Mapping[str, Any]],
@@ -298,6 +334,7 @@ def plan_bound_delivery(binding: BoundAsk | None, *, thread: Sequence[Mapping[st
                                                      if i not in withheld["misconceptions"]],
         learner_work=[*open_questions, *kept_others],
         withheld={name: len(indexes) for name, indexes in withheld.items() if indexes},
+        binding=binding,
     )
 
 
@@ -514,6 +551,7 @@ __all__ = [
     "ReaderTutorRequest",
     "deliver",
     "delivery_receipt",
+    "fit_slots",
     "displayed_text",
     "finalize",
     "BoundDelivery",

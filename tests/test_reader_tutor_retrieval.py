@@ -200,6 +200,11 @@ def test_a_cold_attempt_retrieves_nothing(tmp_path, monkeypatch):
 
 def test_without_a_ready_verification_nothing_is_retrieved_or_claimed(tmp_path, monkeypatch):
     import learnloop.instructional.sources as service
+    # ``instructional.tools`` binds ``propose_sources`` by name when it is
+    # first imported; imported first under the patch below (which xdist's
+    # scheduling can arrange), it would keep the failing stand-in for every
+    # later test in this worker. Import it before patching.
+    import learnloop.instructional.tools  # noqa: F401
 
     tutor = LookupTutor()
     _paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)

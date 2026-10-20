@@ -48,6 +48,8 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.ingest.block_roles import lead_role
 from learnloop.source_retrieval.corpus import block_roles, item_exclusions
+from learnloop.source_retrieval.find_sources import QUESTION_CHARS
+from learnloop.source_retrieval.queries import MAX_QUERY_CHARS
 from learnloop.source_retrieval.tutor import ITEM_BOUND_LEAD_ROLES
 from learnloop.source_retrieval.verify import verification_route
 from learnloop.tutor import reader_modes
@@ -62,6 +64,11 @@ QUERY_ANCESTORS = 2
 #: open questions are the same first ones: ``reader_modes.QUERY_GAPS``).
 QUERY_GAPS = reader_modes.QUERY_GAPS
 QUERY_CHARS = 2000
+#: A bound query's limit: the smallest of its own and every later cut of it
+#: (the search's and the rewrite's ``MAX_QUERY_CHARS``, the verification's
+#: ``QUESTION_CHARS``), so no later cut reaches a model-written statement
+#: (fix round 8). The query is whitespace-normalized, which those cuts apply.
+BOUND_QUERY_CHARS = min(QUERY_CHARS, MAX_QUERY_CHARS, QUESTION_CHARS)
 #: Roles a cited block has when "Try the next step first" fits it (a
 #: derivation or a worked example, RW1b's next-step question at that line).
 NEXT_STEP_ROLES = frozenset({"proof", "worked_example"})
@@ -76,19 +83,30 @@ WORK_STEPS = 4
 
 
 def reader_query(question_md: str, *, ancestors: Sequence[Mapping[str, Any]] = (),
-                 gaps: Sequence[Mapping[str, Any]] = ()) -> str:
+                 gaps: Sequence[Mapping[str, Any]] = (), binding: Any = None) -> str:
     """The tutor's own query: the question, its latest ancestors' questions and
-    (personalized) the open-gap statements, within ``QUERY_CHARS``."""
+    (personalized) the open-gap statements, within ``QUERY_CHARS``.
+
+    ``binding`` (a ``reader_modes.BoundAsk``, fix round 8): the gap
+    statements are model-written slots the plan read whole, so the limit
+    drops whole statements instead of cutting one (``reader_modes.fit_slots``,
+    with its final guard check); the learner's own questions are truncated as
+    before. The limit is also every later cut's (the search, the rewrite and
+    the verification prompts cut the whitespace-normalized query at
+    ``MAX_QUERY_CHARS`` / ``QUESTION_CHARS``), so none of them cuts a
+    statement either. Unbound, the query is built as before."""
 
     parts = [" ".join(str(question_md or "").split())]
     for ancestor in list(ancestors)[-QUERY_ANCESTORS:][::-1]:
         text = " ".join(str(ancestor.get("question_md") or "").split())
         if text and text not in parts:
             parts.append(text)
-    for gap in list(gaps)[:QUERY_GAPS]:
-        text = " ".join(str(gap.get("statement") or "").split())
-        if text:
-            parts.append(text)
+    statements = [" ".join(str(gap.get("statement") or "").split()) for gap in list(gaps)[:QUERY_GAPS]]
+    if binding is not None:
+        learner = " ".join(part for part in parts if part)
+        query, _fitted = reader_modes.fit_slots(learner, statements, limit=BOUND_QUERY_CHARS, binding=binding)
+        return query
+    parts.extend(text for text in statements if text)
     return " ".join(part for part in parts if part)[:QUERY_CHARS]
 
 
@@ -149,15 +167,17 @@ class ReaderLookup:
     service: bool = True
     notes: list[str] = field(default_factory=list)
 
-    def query(self, gaps: Sequence[Mapping[str, Any]] | None = None) -> str:
+    def query(self, gaps: Sequence[Mapping[str, Any]] | None = None, *, binding: Any = None) -> str:
         """The tutor's own query, from these gap statements (default: as read)."""
 
-        return reader_query(self.question, ancestors=self.ancestors, gaps=self.gaps if gaps is None else gaps)
+        return reader_query(self.question, ancestors=self.ancestors, gaps=self.gaps if gaps is None else gaps,
+                            binding=binding)
 
     def __call__(self, inputs: Mapping[str, Any] | None = None) -> tuple[list[dict[str, Any]] | None, dict[str, Any]]:
         vault, repository = self.vault, self.repository
         gaps = self.gaps if inputs is None else inputs.get("gaps") or []
         misconceptions = self.misconceptions if inputs is None else inputs.get("misconceptions")
+        binding = None if inputs is None else inputs.get("binding")
         intent = self.intent if self.service else "explain"
         manifest: dict[str, Any] = {"basis": "reader_lookup", "policy": self.policy, "intent": intent,
                                     "requested_intent": self.intent, "service": self.service,
@@ -177,7 +197,7 @@ class ReaderLookup:
             return None, {**manifest, "status": f"skipped: verification {ready.skip}", "books_cover": None,
                           "reason": ready.reason}
         hits = self.find(
-            self.query(gaps), intent=intent, scope="library", learning_object_ids=list(self.learning_object_ids),
+            self.query(gaps, binding=binding), intent=intent, scope="library", learning_object_ids=list(self.learning_object_ids),
             exclude_span_keys=list(self.exclude_span_keys),
             target_hypotheses=[dict(ref) for ref in self.target_hypotheses] if intent == "remediate" else [],
             personalized=self.personalized, verify=True, limit=config.tutor_spans, rerank_client=ready.client,
