@@ -3,8 +3,8 @@ title: "activity_surface_reservations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "33a8ca802caec867c877485f9f394455e49a080c"
-source_commit_timestamp: "2026-10-20T12:44:25-04:00"
+source_commit: "3240203723d79c44a6ee1c40f4303cbd4e061a1f"
+source_commit_timestamp: "2026-10-20T13:30:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_surface_reservations"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/065_activity_lineage_substrate.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ops/contamination/recipes.py"
+  - "src/learnloop/scheduling/intent/serving.py"
   - "src/learnloop/curriculum/golden_path_confirm.py"
   - "src/learnloop/daily_plan/staged_frame.py"
   - "src/learnloop/goals/goal_contracts.py"
@@ -116,6 +117,7 @@ Indexes and uniqueness:
 - `src/learnloop/learner_protection.py`
 - `src/learnloop/reader/reader_dialogue.py`
 - `src/learnloop/scheduling/controller_snapshot.py`
+- `src/learnloop/scheduling/intent/serving.py`
 - `src/learnloop/substrate/activities.py`
 
 > [!note] Static-reference boundary
@@ -126,6 +128,7 @@ Indexes and uniqueness:
 - `tests/test_activity_substrate.py`
 - `tests/test_contamination_report.py`
 - `tests/test_golden_path_confirm.py`
+- `tests/test_intent_fix_round5.py`
 - `tests/test_administration_adapters.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

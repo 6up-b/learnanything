@@ -3,8 +3,8 @@ title: "activity_surfaces"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "33a8ca802caec867c877485f9f394455e49a080c"
-source_commit_timestamp: "2026-10-20T12:44:25-04:00"
+source_commit: "3240203723d79c44a6ee1c40f4303cbd4e061a1f"
+source_commit_timestamp: "2026-10-20T13:30:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_surfaces"
@@ -121,6 +121,7 @@ Indexes and uniqueness:
 - `src/learnloop/learner_protection.py`
 - `src/learnloop/reader/reader_dialogue.py`
 - `src/learnloop/scheduling/controller_snapshot.py`
+- `src/learnloop/scheduling/intent/serving.py`
 - `src/learnloop/substrate/activities.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
 - `src/learnloop/substrate/surface_mint.py`
