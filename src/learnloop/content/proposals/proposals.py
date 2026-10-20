@@ -77,9 +77,24 @@ class AuthoringRequestRefused(ValueError):
 REFUSED_MESSAGE = "the commissioned authoring request was refused by its protection guard"
 
 
-def _check_request(request_guard: Callable[[str], None], context: AuthoringContext) -> None:
+def context_sources(context: AuthoringContext) -> list[tuple[str, str | None]]:
+    """The source-layer identities an authoring context quotes: each source ref's extraction and
+    span ids (the whole extraction when it names no span). Note-backed refs name none."""
+
+    out: list[tuple[str, str | None]] = []
+    for ref in context.source_refs or []:
+        extraction = ref.get("extraction_id") if isinstance(ref, dict) else getattr(ref, "extraction_id", None)
+        spans = (ref.get("span_ids") if isinstance(ref, dict) else getattr(ref, "span_ids", None)) or []
+        if not extraction:
+            continue
+        out.extend((str(extraction), str(span)) for span in spans) if spans else out.append((str(extraction), None))
+    return out
+
+
+def _check_request(request_guard: Callable[..., None], context: AuthoringContext) -> None:
     try:
-        request_guard(authoring_prompt(context))
+        # The serialized request and the source identities it quotes (fix round 11, F34).
+        request_guard(authoring_prompt(context), sources=context_sources(context))
     except Exception as exc:  # noqa: BLE001 - any guard failure refuses the request (fail closed)
         raise AuthoringRequestRefused(REFUSED_MESSAGE) from exc
 
@@ -88,7 +103,7 @@ def dispatch_authoring_request(
     client: AIProviderClient,
     context: AuthoringContext,
     *,
-    request_guard: Callable[[str], None] | None = None,
+    request_guard: Callable[..., None] | None = None,
     commissioned: bool = False,
 ) -> AuthoringProposal:
     """The one place an authoring request is sent (fix round 10, R5): the first request and every
@@ -480,7 +495,7 @@ def generate_authoring_proposal(
     prompt_version: str | None = None,
     clock: Clock | None = None,
     vault_view: Callable[[LoadedVault, Any], LoadedVault] | None = None,
-    request_guard: Callable[[str], None] | None = None,
+    request_guard: Callable[..., None] | None = None,
 ) -> str:
     """Run authoring generation through a AIProviderClient and persist the result.
 
@@ -1587,7 +1602,7 @@ def _repair_invalid_proposal_items(
     vault: LoadedVault,
     provider: str,
     now: str,
-    request_guard: Callable[[str], None] | None = None,
+    request_guard: Callable[..., None] | None = None,
 ) -> tuple[AuthoringProposal, list[dict[str, Any]]]:
     """One-shot self-repair for items that failed deterministic validation.
 

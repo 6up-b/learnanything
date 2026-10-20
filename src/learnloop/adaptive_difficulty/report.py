@@ -251,7 +251,8 @@ def _selection_stats(connection: Any, snapshot: RP.Snapshot, *, view: Any) -> di
     commission result on a withheld item or revision is not counted, and with the predicate
     unavailable the section is suppressed (no draw, result or outcome is read)."""
 
-    selections = store.selections(connection) if view.available else []
+    # One protection-aware cohort for every statistic (Codex verify F39, fix round 11).
+    selections = view.selections(connection)
     serves = [row for row in selections if row["kind"] == "serve"]
     modes = Counter(row["mode"] for row in serves)
     by_presentation = {}
@@ -558,13 +559,13 @@ def build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] =
     stats = _selection_stats(connection, snapshot, view=view)
     dose_arm = _dose_arm(connection, view=view)
     if previous_errors is None:
-        errors = readiness_errors(records, [row["created_at"] for row in store.selections(connection)
-                                            if row["kind"] == "serve"], every=report_every)
+        errors = readiness_errors(records, [row["created_at"] for row in view.selections(connection, kind="serve")],
+                                  every=report_every)
         previous_errors = errors[:-1]
     flags, lines = _flags_and_lines(records, previous_errors, selected_outcomes=stats["realized_outcomes"],
                                     delivered=dose_arm["delivered"], lowerings=density_lowerings(connection, view=view),
                                     now=now)
-    selections = store.selections(connection)
+    selections = view.selections(connection)
     dose = DR.analyse(snapshot.subject, visits=_visits(connection, snapshot, view=view),
                       answer_minutes=_answer_minutes(connection, view=view),
                       median_doses=_median_doses(records), offers=_offer_outcomes(connection, snapshot, view=view),

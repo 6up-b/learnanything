@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from math import log
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from learnloop.content.proposals.ai_contracts import PRACTICE_GENERATION_PROMPT_VERSION
 
@@ -503,17 +503,20 @@ def _ad_gate_vault(plan: Any, vault: LoadedVault) -> LoadedVault:
     return view.vault_view() if view is not None else vault
 
 
-def _ad_request_options(plan: Any) -> dict[str, Any]:
+def _ad_request_options(plan: Any, *, grounding: Sequence[tuple[Any, Any]] = ()) -> dict[str, Any]:
     """The authoring call's AD options (fix round 9, R2): with a plan built through AD's material
     view, the authoring context is built from the vault that view sees (re-read at send time), and
     the serialized request is revalidated before it is sent; a request quoting withheld material
-    is refused. The predecessor's call (no view) is unchanged."""
+    is refused. ``grounding``: the source spans the instructions quote (cross-source grounding),
+    revalidated at every dispatch, repairs included (fix round 11, F34). The predecessor's call (no
+    view) is unchanged."""
 
     if getattr(plan, "material_view", None) is None:
         return {}
     from learnloop.adaptive_difficulty.generation import CommissionedRequestGuard
 
     guard = CommissionedRequestGuard()
+    guard.ground(grounding)
     return {"vault_view": guard.vault_view, "request_guard": guard}
 
 
@@ -1010,6 +1013,13 @@ def build_goal_practice_plan(
         exclude_item_ids=reserved,
         force_named_targets=False,
     )
+    if plan.material_view is not None:
+        # Adaptive difficulty's generation contract (Codex verify F37, fix round 11): the focus is
+        # AD's own forecast on visible evidence, never the incumbent's goal projection.
+        from learnloop.adaptive_difficulty.generation import goal_focus_facets
+
+        return plan, goal_focus_facets(vault, repository, scope=sorted(scope), target_recall=goal.target_recall,
+                                       view=plan.material_view)
     report = goal_report(vault, repository, goal)
     at_risk_facets = sorted({facet.facet_id for facet in report.facets if not facet.on_track})
     return plan, at_risk_facets
@@ -1367,7 +1377,8 @@ def generate_cross_source_practice_proposal(
         codex_revision=codex_revision,
         prompt_version=PRACTICE_GENERATION_PROMPT_VERSION,
         row_transform=gates,
-        **_ad_request_options(plan),
+        **_ad_request_options(plan, grounding=[(span["extraction_id"], span["span_id"])
+                                               for spans in context_by_lo.values() for span in spans]),
     )
     return CrossSourcePracticeResult(
         patch_id=patch_id,

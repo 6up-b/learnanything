@@ -108,10 +108,15 @@ def out_of_timing_serving_exclusions(
     cold_followup_kinds: Iterable[str],
     reveal_window: timedelta,
     clock: Clock | None = None,
+    exclude_reveal_ids: Iterable[str] | None = None,
 ) -> ServingExclusions:
     """The routine sets plus the items reserved by open cold follow-up tasks of
     ``cold_followup_kinds`` and the items revealed within ``reveal_window``
-    (the cold retrieval delay), read once."""
+    (the cold retrieval delay), read once.
+
+    ``exclude_reveal_ids``: reveal rows the caller may not read (adaptive
+    difficulty's material view withholds them); None reads every row, as the
+    scheduler does."""
 
     from learnloop.db.stores.practice_index import items_revealed_between
 
@@ -125,6 +130,7 @@ def out_of_timing_serving_exclusions(
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         revealed = items_revealed_between(
             connection, since=_iso(now - reveal_window), until=_iso(now),
+            exclude_ids=exclude_reveal_ids,
         )
     routine = routine_serving_exclusions(vault, repository)
     return ServingExclusions(

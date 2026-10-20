@@ -700,7 +700,7 @@ def load_structure(connection: Any, vault: Any, *, view: Any, coupled: bool = Tr
     later runs from their write time. With ``coupled`` false (``learned_coupling`` off) none.
     ``override`` (the shadow report) replaces a subject's adopted version by a candidate.
     ``view``: the operation's material view, whose facet maps name no facet only withheld items
-    name (Codex verify F19)."""
+    name (Codex verify F19), and through which every saved loading is revalidated (F38)."""
 
     facet_to_los, lo_to_facets = view.facet_maps()
     if not coupled or not serving_store.has_table(connection, serving_store.COUPLING_VERSIONS):
@@ -742,6 +742,13 @@ def load_structure(connection: Any, vault: Any, *, view: Any, coupled: bool = Tr
                 per_unit.setdefault(unit, {})[str(right_id)] = float(score or 0.0)
             for unit, values in per_unit.items():
                 kind, ident = unit.split(":", 1)
+                if kind != "lo":
+                    # A saved loading is revalidated now (Codex verify F38, fix round 11): a withheld
+                    # revision (its support) has no unit at all, and no loading lands on a facet only
+                    # withheld material names. The judgment ledger itself is never changed.
+                    if view.revision_hash_withheld(connection, ident):
+                        continue
+                    values = view.visible_loadings(connection, ident, values)
                 target = couplings if kind == "lo" else loadings
                 target.setdefault(ident, []).append(_UnitProposal(at, values))
     return VaultStructure(facet_los=facet_to_los, lo_facets=lo_to_facets, couplings=couplings, loadings=loadings,

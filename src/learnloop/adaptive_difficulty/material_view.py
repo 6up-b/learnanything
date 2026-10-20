@@ -88,6 +88,7 @@ class MaterialView:
         self._universe: set[str] | None = None
         self._answered: dict[str, tuple[str, ...]] | None = None
         self._frozen: dict[str, str] | None = None
+        self._protected_only: dict[bool, set[str]] = {}
 
     # -- items -----------------------------------------------------------------------------------
 
@@ -199,11 +200,15 @@ class MaterialView:
 
         if not self.available:
             return set()
-        withheld, visible = self._withheld_and_visible_revisions(connection)
-        canonical = self.vault.canonical_facet_id
-        named = {canonical(str(f)) for item in withheld for f in (item.evidence_facets or ())}
-        kept = set(self.facet_universe()) | {canonical(str(f)) for item in visible for f in (item.evidence_facets or ())}
-        return named - kept
+        key = connection is not None  # with a connection the saved revisions are judged too
+        if key not in self._protected_only:
+            withheld, visible = self._withheld_and_visible_revisions(connection)
+            canonical = self.vault.canonical_facet_id
+            named = {canonical(str(f)) for item in withheld for f in (item.evidence_facets or ())}
+            kept = set(self.facet_universe()) | {canonical(str(f)) for item in visible
+                                                 for f in (item.evidence_facets or ())}
+            self._protected_only[key] = named - kept
+        return set(self._protected_only[key])
 
     def request_leaks(self, text: str, connection: Any = None) -> list[str]:
         """What a serialized model request quotes of withheld material (fix round 9, R2): a withheld
@@ -289,12 +294,17 @@ class MaterialView:
         return [row for row in rows if str(row["id"]) not in dropped and str(row.get("draw_id")) not in dropped]
 
     def open_commissions(self, connection: Any, *, now: str | None = None) -> list[dict[str, Any]]:
-        """Open commissions as the view sees them: a result on a withheld item does not land."""
+        """Open commissions as the view sees them: a result on a withheld item does not land, and a
+        commission of a cell whose facet only withheld material names is not open (the same cohort
+        as :meth:`selections`, fix round 11)."""
 
         from learnloop.db.stores import ad_serving
 
         landed = {str(row["selection_id"]) for row in self.visible_commission_results(connection)}
-        return ad_serving.open_commissions(connection, now=now, landed=landed)
+        facets = self.protected_only_facets(connection)
+        canonical = getattr(self.vault, "canonical_facet_id", lambda value: value)
+        return [row for row in ad_serving.open_commissions(connection, now=now, landed=landed)
+                if not (row.get("cell_facet") and canonical(str(row["cell_facet"])) in facets)]
 
     def revision(self, connection: Any, content_hash: str | None) -> Any:
         """A saved revision (``practice_item_snapshots``) as an item, or None when it is missing or
@@ -577,11 +587,7 @@ class MaterialView:
         attempts = {str(row["id"]): row for row in _rows(connection, "SELECT * FROM practice_attempts")}
         # A serve is withheld with its presentation (its frozen revision): the plan's events name
         # no presentation, so it is found by its block and item.
-        withheld_serves: set[tuple[str, str]] = set()
-        if self.available and _has_table(connection, "plan_presentations"):
-            for row in _rows(connection, "SELECT * FROM plan_presentations"):
-                if self._presentation_withheld(connection, row):
-                    withheld_serves.add((str(row.get("block_id")), str(row.get("practice_item_id"))))
+        withheld_serves = self._withheld_serves(connection) if self.available else set()
 
         def visible(kind: str, detail: Mapping[str, Any], block_id: str | None = None) -> bool:
             if not self.available:
@@ -620,6 +626,83 @@ class MaterialView:
                 continue
             out.append(row)
         return out
+
+    def withheld_reveal_ids(self, connection: Any) -> set[str]:
+        """The ``reveal_events`` ids AD may not read (every one while unavailable): for a reader
+        outside AD that takes an exclusion list (the recent-reveal exclusion, fix round 11)."""
+
+        if not _has_table(connection, "reveal_events"):
+            return set()
+        every = {str(row[0]) for row in connection.execute("SELECT id FROM reveal_events")}
+        return every - {str(row["id"]) for row in self.reveals(connection)}
+
+    def _withheld_serves(self, connection: Any) -> set[tuple[str, str]]:
+        """``(block_id, practice_item_id)`` of every presentation withheld with its frozen revision."""
+
+        if not _has_table(connection, "plan_presentations"):
+            return set()
+        return {(str(row.get("block_id")), str(row.get("practice_item_id")))
+                for row in _rows(connection, "SELECT * FROM plan_presentations")
+                if self._presentation_withheld(connection, row)}
+
+    def selections(self, connection: Any, *, kind: str | None = None) -> list[dict[str, Any]]:
+        """``ad_selections`` as AD's report may count them (Codex verify F39, fix round 11): a draw
+        that chose a withheld item, chose it into a presentation withheld with its frozen revision,
+        or commissioned a cell whose facet only withheld material names is left out of every
+        statistic and window boundary. The ledger itself is never changed. Empty while
+        unavailable."""
+
+        from learnloop.db.stores import ad_serving
+
+        if not self.available or not _has_table(connection, ad_serving.SELECTIONS):
+            return []
+        rows = ad_serving.selections(connection, kind=kind) if kind else ad_serving.selections(connection)
+        serves = self._withheld_serves(connection)
+        facets = self.protected_only_facets(connection)
+        canonical = getattr(self.vault, "canonical_facet_id", lambda value: value)
+        out = []
+        for row in rows:
+            item = row.get("chosen_item_id")
+            if item and (self.withheld(item) or (str(row.get("block_id")), str(item)) in serves):
+                continue
+            if row.get("cell_facet") and canonical(str(row["cell_facet"])) in facets:
+                continue
+            out.append(row)
+        return out
+
+    def revision_hash_withheld(self, connection: Any, content_hash: Any) -> bool:
+        """Whether a revision named only by its hash is withheld: a saved revision is judged by its
+        own sources, else a current item with that revision by the item. A hash no saved revision
+        or current item has is merely unknown (not withheld)."""
+
+        if not self.available:
+            return True
+        if not content_hash:
+            return False
+        found = connection.execute("SELECT 1 FROM practice_item_snapshots WHERE content_hash = ?",
+                                   (str(content_hash),)).fetchone()
+        if found is not None:
+            return self.revision(connection, str(content_hash)) is None
+        from learnloop.adaptive_difficulty.feature_audit import item_revision
+
+        for item_id, item in (getattr(self.vault, "practice_items", {}) or {}).items():
+            if item_revision(item)[0] == str(content_hash):
+                return self.withheld(item_id) or self.covers(item)
+        return False
+
+    def visible_loadings(self, connection: Any, content_hash: Any,
+                         loadings: Mapping[str, Any] | None) -> dict[str, float]:
+        """A revision's relatedness loadings as AD may use them (Codex verify F38, fix round 11):
+        none when the revision is withheld (its support), and no loading onto a facet only withheld
+        material names. A facet merely absent from current content keeps its loading (as F30's
+        frozen dose does)."""
+
+        if not self.available or not loadings or self.revision_hash_withheld(connection, content_hash):
+            return {}
+        facets = self.protected_only_facets(connection)
+        canonical = getattr(self.vault, "canonical_facet_id", lambda value: value)
+        return {str(facet): float(score) for facet, score in loadings.items()
+                if canonical(str(facet)) not in facets}
 
     def forecast_receipts(self, connection: Any, *, kind: str) -> list[dict[str, Any]]:
         """Forecast receipts of visible items and revisions (Codex verify F24: a calibration fit and

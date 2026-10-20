@@ -501,7 +501,10 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
                 features = receipt_store._loads(frozen.get("resolved_features_json"), None)
                 signals = _frozen_signals(frozen)
                 frozen_loadings = receipt_store._loads(frozen.get("loadings_json"), None)
-                loadings = ({str(f): float(q) for f, q in (frozen_loadings.get("loadings") or {}).items()}
+                # A frozen loading is revalidated against protection now, as a saved one is in the
+                # structure (Codex verify F38, fix round 11): a facet only withheld material names
+                # drops out; the frozen row itself is never rewritten.
+                loadings = (view.visible_loadings(connection, content_hash, frozen_loadings.get("loadings") or {})
                             if isinstance(frozen_loadings, Mapping) else structure.loadings(content_hash, -math.inf))
             else:
                 features = _audited(connection, item, content_hash, str(attempt["created_at"]))

@@ -65,6 +65,14 @@ class CommissionedRequestGuard:
 
     def __init__(self) -> None:
         self.view: Any = None
+        #: The source identities ``(extraction_id, span_id or None)`` the request grounds itself in
+        #: beyond its authoring context's own refs (cross-source grounding spans; fix round 11, F34).
+        self.sources: list[tuple[str, str | None]] = []
+
+    def ground(self, sources: Sequence[tuple[Any, Any]]) -> None:
+        """Register grounding spans the request quotes: each is revalidated at every dispatch."""
+
+        self.sources.extend((str(extraction), None if span is None else str(span)) for extraction, span in sources)
 
     def vault_view(self, vault: Any, repository: Any) -> Any:
         from learnloop.adaptive_difficulty.material_view import material_view
@@ -72,10 +80,15 @@ class CommissionedRequestGuard:
         self.view = material_view(vault, repository)
         return self.view.vault_view()
 
-    def __call__(self, request_text: str) -> None:
+    def __call__(self, request_text: str, sources: Sequence[tuple[Any, Any]] = ()) -> None:
         """Revalidate one serialized request with protection read afresh (the vault reloaded from
         its root), so a source held out between the first request and a repair, or a predicate
-        that became unreadable, refuses the request (fix round 10, R5)."""
+        that became unreadable, refuses the request (fix round 10, R5).
+
+        ``sources``: the source identities the request's context quotes (its source refs); with the
+        grounding spans registered by :meth:`ground`, each is judged against the fresh protection,
+        so a span held out since the request was built refuses it, whether or not any practice item
+        derives from it (Codex verify F34, fix round 11)."""
 
         from contextlib import closing
 
@@ -89,6 +102,9 @@ class CommissionedRequestGuard:
         fresh = material_view(load_vault(self.view.vault.root), self.view.repository)
         with closing(connect(fresh.repository.sqlite_path, read_only=True)) as connection:
             leaks = fresh.request_leaks(request_text, connection)
+        for extraction, span in [*self.sources, *sources]:
+            if fresh.material_withheld(extraction, span):
+                leaks.append(f"source {extraction}/{span}" if span is not None else f"source {extraction}")
         if leaks:
             LOG.warning("AD commissioned generation request refused: it quotes withheld material (%s)",
                         "; ".join(leaks))
@@ -196,6 +212,35 @@ def commission_point(vault: Any, repository: Any, *, learning_object_id: str, in
     if row is None or not row.get("chosen_point"):
         return None
     return rung_features(row["chosen_point"]), capability, selection_id
+
+
+def goal_focus_facets(vault: Any, repository: Any, *, scope: Sequence[str], target_recall: float,
+                      view: Any) -> list[str]:
+    """Under the generation contract, the goal's facets a generation request focuses on (Codex
+    verify F37, fix round 11): those whose AD forecast of an unassisted success at the retrieval
+    entry point sits below the goal's ``target_recall``. Everything is read through ``view``: the
+    LOs' visible facets and AD's own state on visible evidence, never the incumbent's goal
+    projection (which counts answers AD withholds). The predecessor's path keeps that projection."""
+
+    from learnloop.db.connection import connect
+
+    if not view.available:
+        return []
+    out: set[str] = set()
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        snapshot = RP.snapshot(vault, repository, connection=connection, view=view)
+        point = S.entry_point("retrieval") or {}
+        for lo_id in sorted(set(scope)):
+            lo = vault.learning_objects.get(lo_id)
+            if lo is None:
+                continue
+            subject = (list(getattr(lo, "subjects", None) or []) or ["default"])[0]
+            for facet in view.lo_facets(lo):
+                spec = PR.point_spec(point, learning_object_id=lo_id, subject=subject, facet=facet,
+                                     capability_name="retrieval")
+                if PR.predict(snapshot.subject, spec).p_bar < float(target_recall):
+                    out.add(facet)
+    return sorted(out)
 
 
 def serve_commissions(connection: Any, *, view: Any, now: str | None = None) -> list[dict[str, Any]]:
@@ -370,6 +415,7 @@ __all__ = [
     "CONTRACT_TEXT",
     "CommissionedRequestGuard",
     "ProtectedRequest",
+    "goal_focus_facets",
     "CONTRACT_VERSION",
     "SOURCE",
     "WAYPOINT_CLAUSE",

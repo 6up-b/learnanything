@@ -69,13 +69,42 @@ def never_attempted(connection: Any, practice_item_id: str, served_at: str, *, v
     return True
 
 
-def pre_exposed(repository: Any, item: Any, served_at: str) -> bool:
-    """§5.3: the item's reveal sum before ``served_at`` already reaches the auto-prime threshold."""
+def pre_exposed(repository: Any, item: Any, served_at: str, *, view: Any, connection: Any = None) -> bool:
+    """§5.3: the item's reveal sum before ``served_at`` already reaches the auto-prime threshold.
+
+    Read through the operation's material view (Codex verify F20, fix round 11): the reveals are
+    the view's (a reveal belonging to an answer given to a held-out revision is not one) and the
+    "last attempt" that opens the window is the item's last visible attempt, so a withheld answer
+    neither adds exposure nor resets it. The rule itself is the incumbent's
+    (``serve_eligibility.submit_exposure``); the incumbent's own reader is unchanged."""
+
+    from contextlib import closing
+    from dataclasses import replace
 
     from learnloop.serve_eligibility import gather, submit_exposure
 
+    def read(conn: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        reveals = [row for row in view.reveals(conn)
+                   if str(row.get("practice_item_id") or "") == str(item.id)
+                   or str(row.get("learning_object_id") or "") == str(item.learning_object_id)]
+        attempts = [row for row in view.attempts(conn)
+                    if str(row.get("practice_item_id")) == str(item.id) and _before(row.get("created_at"), served_at)]
+        return reveals, attempts
+
+    if connection is not None:
+        reveals, attempts = read(connection)
+    else:
+        from learnloop.db.connection import connect
+
+        with closing(connect(repository.sqlite_path, read_only=True)) as conn:
+            reveals, attempts = read(conn)
     inputs = gather(repository, practice_item_id=str(item.id), learning_object_id=item.learning_object_id,
-                    at=served_at, window_until=served_at)
+                    at=served_at, window_until=served_at, reveal_rows=reveals)
+    last = None
+    for row in attempts:  # oldest first: the last one at the latest stamp, as the repository's read
+        if last is None or str(row["created_at"]) >= str(last["created_at"]):
+            last = row
+    inputs = replace(inputs, last_attempt=(str(last["id"]), str(last["created_at"])) if last is not None else None)
     return bool(submit_exposure(inputs).primed_by_ledger)
 
 
@@ -262,7 +291,7 @@ def build_row(repository: Any, connection: Any, item: Any, *, presentation_kind:
         "served_at": served_at,
         "signals": signals,
         "z_v1_recalibration": recalibration,
-        "pre_exposed": pre_exposed(repository, item, served_at),
+        "pre_exposed": pre_exposed(repository, item, served_at, view=view, connection=connection),
         "resolution_version": RESOLUTION_VERSION,
         "loadings": None,
         "coupling_version": None,

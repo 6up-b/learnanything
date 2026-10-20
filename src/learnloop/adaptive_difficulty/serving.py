@@ -338,7 +338,7 @@ def why_for_presentation(connection: Any, presentation_id: str, *, view: Any) ->
     if found is None:
         return None
     block_id, item_id = str(found["block_id"]), str(found["practice_item_id"])
-    for row in reversed(store.selections(connection, kind="serve")):
+    for row in reversed(view.selections(connection, kind="serve")):
         if str(row.get("block_id")) != block_id or row.get("chosen_item_id") != item_id:
             continue
         if row["mode"] not in (S.MODE_BAND, S.MODE_CALIBRATE) or not row.get("support"):
@@ -360,9 +360,13 @@ def frozen_loadings(vault: Any, repository: Any, connection: Any, content_hash: 
     snapshot = RP.snapshot(vault, repository, connection=connection, view=view)
     structure = snapshot.events.structure
     loadings = structure.loadings(content_hash, RP.days(served_at))
+    # The judgments behind the loadings in force only (fix round 11): a judgment onto a facet only
+    # withheld material names has no loading in force, so it is not named here either.
+    in_force = {vault.canonical_facet_id(str(facet)) for facet in loadings}
     ids = [row[0] for row in connection.execute(
-        "SELECT id FROM judgment_ledger WHERE task = 'ad_relatedness' AND left_kind = 'practice_item_revision' "
-        "AND left_id = ? ORDER BY created_at, rowid", (content_hash,))] if loadings else []
+        "SELECT id, right_id FROM judgment_ledger WHERE task = 'ad_relatedness' AND left_kind = "
+        "'practice_item_revision' AND left_id = ? ORDER BY created_at, rowid", (content_hash,))
+        if vault.canonical_facet_id(str(row[1])) in in_force] if loadings else []
     version = ",".join(f"{subject}={value}" for subject, value in sorted(structure.versions.items())) or None
     return {"loadings": {f: round(float(q), 12) for f, q in sorted(loadings.items())}, "judgment_ids": ids}, version
 

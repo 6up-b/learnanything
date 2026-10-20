@@ -175,10 +175,10 @@ def test_exam_reserved_and_retired_items_never_selected(tmp_path, monkeypatch):
     env.vault = load_vault(paths.root)
     real = ad_slot._exclusions
 
-    def reserved(env_: Any) -> Any:
+    def reserved(env_: Any, view: Any) -> Any:
         from dataclasses import replace
 
-        found = real(env_)
+        found = real(env_, view)
         return replace(found, reserved_exam_item_ids=found.reserved_exam_item_ids | {"pi_e1"})
 
     monkeypatch.setattr(ad_slot, "_exclusions", reserved)
@@ -489,10 +489,10 @@ def test_support_rechecked_at_draw_slot_item_included(tmp_path, monkeypatch, cha
         real = ad_slot._exclusions
         field = "reserved_exam_item_ids" if change == "exam_reserved" else "cold_check_reserved_item_ids"
 
-        def changed(env_: Any) -> Any:
+        def changed(env_: Any, view: Any) -> Any:
             from dataclasses import replace
 
-            found = real(env_)
+            found = real(env_, view)
             return replace(found, **{field: getattr(found, field) | {target}})
 
         monkeypatch.setattr(ad_slot, "_exclusions", changed)
@@ -645,10 +645,10 @@ def test_cold_followup_hold_readmits_once_the_task_closes(tmp_path, monkeypatch)
     held = {"open": True}
     real = ad_slot._exclusions
 
-    def exclusions(env_: Any) -> Any:
+    def exclusions(env_: Any, view: Any) -> Any:
         from dataclasses import replace
 
-        found = real(env_)
+        found = real(env_, view)
         if held["open"]:
             return replace(found, cold_check_reserved_item_ids=found.cold_check_reserved_item_ids | {"pi_a"})
         return found

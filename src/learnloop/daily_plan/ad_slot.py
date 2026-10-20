@@ -91,15 +91,23 @@ def _attempted(env: Any, view: Any) -> set[str]:
         return view.attempted_item_ids(connection)
 
 
-def _exclusions(env: Any) -> Any:
+def _exclusions(env: Any, view: Any) -> Any:
+    """The exclusions a selector outside the scheduler's timing honours, with AD's recent-reveal set
+    read from the view's reveals (Codex verify F20, fix round 11): a reveal the view withholds (one
+    belonging to an answer given to a held-out revision) excludes nothing. The incumbent's own
+    exclusions are unchanged."""
+
     from learnloop.attempts.attempts import COLD_FOLLOWUP_TASK_KINDS
     from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
     from learnloop.scheduling.serving_exclusions import out_of_timing_serving_exclusions
 
     try:
+        with env.repository.connection() as connection:
+            withheld = view.withheld_reveal_ids(connection)
         return out_of_timing_serving_exclusions(env.vault, env.repository,
                                                 cold_followup_kinds=COLD_FOLLOWUP_TASK_KINDS,
-                                                reveal_window=COLD_RETRIEVAL_DELAY, clock=env.clock)
+                                                reveal_window=COLD_RETRIEVAL_DELAY, clock=env.clock,
+                                                exclude_reveal_ids=withheld)
     except AdUnavailable:
         raise
     except Exception as exc:  # noqa: BLE001 - the routine exclusions failed: AD is unavailable (F22)
@@ -133,7 +141,7 @@ def eligibility_failures(env: Any, item: Any, *, slot_facets: Iterable[str], cap
     if PR.capability(item) == "coordination" or not within_envelope(features):
         failed.append("envelope")
     try:
-        if pre_exposed(env.repository, item, env.now_iso()):
+        if pre_exposed(env.repository, item, env.now_iso(), view=view):
             failed.append("pre_exposed")
     except Exception:  # noqa: BLE001 - an unreadable reveal ledger fails closed
         failed.append("pre_exposed")
@@ -200,7 +208,7 @@ def build_request(env: Any, record: Any, block: Any, slot: Any, built: Any, *, d
     from learnloop.adaptive_difficulty.serving import SlotCandidate, SlotRequest
 
     vault = env.vault
-    exclusions = _exclusions(env)
+    exclusions = _exclusions(env, view)
     slot_item = view.item(slot.practice_item_id)
     if slot_item is None:
         # Not in the vault, or withheld (A8): no AD candidate, so the slot is displaced as ineligible.
@@ -288,7 +296,7 @@ def deferrals_to_clear(env: Any, deferrals: Mapping[str, Mapping[str, Any]], *, 
         return []
     try:
         view = slot_view(env)
-        exclusions = _exclusions(env)
+        exclusions = _exclusions(env, view)
     except AdUnavailable:
         # Fail closed: with AD unavailable no deferral is released (nothing is re-admitted).
         return []
