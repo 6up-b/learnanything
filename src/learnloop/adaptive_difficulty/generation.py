@@ -124,11 +124,15 @@ def commission_point(vault: Any, repository: Any, *, learning_object_id: str, in
         snapshot = RP.snapshot(vault, repository, connection=connection)
         from learnloop.adaptive_difficulty.serving import commission_draw, view_for
 
+        from learnloop.db.scopes import current_ingest_job_id
+
         view, view_name = view_for(snapshot, vault.config, learning_object_id)
+        # The durable job generating now, if any (a practice-expansion job): its finish, not the
+        # draw, starts the commission's expiry (Codex verify F14).
         selection_id = commission_draw(vault, repository, snapshot, view, view_name,
                                        learning_object_id=learning_object_id, subject=subject, facet=facet,
                                        capability_name=capability, key=f"generation:{learning_object_id}:{now}",
-                                       now=now)
+                                       now=now, generating_job_id=current_ingest_job_id(repository.sqlite_path))
         if selection_id is None:
             return None
         row = store.selection(connection, selection_id)
@@ -199,21 +203,52 @@ def _matches(vault: Any, item: Any, row: Mapping[str, Any]) -> bool:
     return bool(created) and created >= str(row.get("created_at") or "")
 
 
+def _at_or_after(stamp: str, other: str) -> bool:
+    left, right = store.instant(stamp), store.instant(other)
+    return left >= right if left is not None and right is not None else stamp >= other
+
+
 def record_landed_commissions(vault: Any, repository: Any, connection: Any, *, now: str) -> list[str]:
-    """§7.4: append an ``ad_commission_results`` receipt for each landed commissioned item."""
+    """§7.4: append an ``ad_commission_results`` receipt for each landed commissioned item.
+
+    Every commission without a receipt is reconciled, open or not (Codex verify F15): expiry and
+    supersession only close a commission to new draws, so an item that landed before (or after)
+    its commission expired still gets its receipt and its re-forecast; one that landed after is
+    marked ``landed_after_expiry``. An item belongs to the commission that was its cell's latest
+    when it landed: drawn at or before the item, with no later commission for the cell drawn
+    before it (the one-open rule makes that the commission open, or last open, at the landing),
+    so no item is attributed to two commissions. Reads only; content and evidence are untouched."""
 
     if not successor_active(vault.config) or not store.has_table(connection, store.COMMISSION_RESULTS):
         return []
-    opened = store.open_commissions(connection, now=now)
-    if not opened:
+    commissions = [row for row in store.selections(connection, kind="commission") if row.get("chosen_point")]
+    receipted = {str(row["selection_id"]) for row in store.commission_results(connection)}
+    if all(str(row["id"]) in receipted for row in commissions):
         return []
+    # The next commission of each cell (``selections`` is in draw order): where this one's landings end.
+    next_draw: dict[str, str] = {}
+    last: dict[tuple[Any, Any], str] = {}
+    for row in reversed(commissions):
+        cell = (row.get("cell_facet"), row.get("cell_capability"))
+        if cell in last:
+            next_draw[str(row["id"])] = last[cell]
+        last[cell] = str(row["created_at"])
+    items_by_lo: dict[str, list[Any]] = {}
+    for item in sorted(vault.practice_items.values(), key=lambda i: str(i.id)):
+        items_by_lo.setdefault(str(item.learning_object_id), []).append(item)
     constants = S.constants_from_config(vault.config)
     written: list[str] = []
     snapshot = None
-    for row in opened:
-        for item in sorted(vault.practice_items.values(), key=lambda i: str(i.id)):
+    for row in commissions:
+        if str(row["id"]) in receipted:
+            continue
+        until = next_draw.get(str(row["id"]))
+        for item in items_by_lo.get(str(row.get("learning_object_id")), ()):
             if not _matches(vault, item, row):
                 continue
+            created = str(getattr(item, "created_at", "") or "")
+            if until is not None and _at_or_after(created, until):
+                continue  # landed once a later commission was its cell's: that one's
             if snapshot is None:
                 snapshot = RP.snapshot(vault, repository, connection=connection)
             from learnloop.adaptive_difficulty.feature_audit import item_revision
@@ -229,6 +264,7 @@ def record_landed_commissions(vault: Any, repository: Any, connection: Any, *, n
                 "selection_id": row["id"], "practice_item_id": str(item.id), "content_hash": content_hash,
                 "features": dict(spec.features or {}), "p_bar": round(p_bar, 12),
                 "status": "in_band" if in_band else "realized_out_of_band", "state_hash": snapshot.state_hash(),
+                "landed_after_expiry": 1 if store.landed_after_expiry(connection, row, created) else 0,
                 "created_at": now,
             })
             if result is not None:

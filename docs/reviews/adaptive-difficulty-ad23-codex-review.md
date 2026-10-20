@@ -336,7 +336,8 @@ fails on `history_fallback`, and the history test on `excluded == reconstructed_
     while an item proposed for its LO since the draw is in review (a pending `practice_item` creation
     that is not `invalid`).
   - A commission the generation path drew for itself has no job of its own, so its clock starts at
-    the draw.
+    the draw. (Superseded at fix round 5, F14 below: such a commission names the job it was drawn
+    in and its clock starts when that job finished.)
   - It is **superseded** by a later commission for the same cell. The one-open rule allows that only
     after this one closed, so an expiry is never undone, and an explicit resume of an old job finds
     its commission closed (the handler's no-op).

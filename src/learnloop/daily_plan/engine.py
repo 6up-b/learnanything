@@ -1225,8 +1225,10 @@ def simulate_blocks(
     reading_used = any(block.is_reading for block in sim.blocks)
     pending = list(forced)
     for _ in range(max_blocks):
-        # Adaptive difficulty AD2+AD3 (spec §6.1 step 0): the plan's exclusion
-        # set (planned, skipped and AD deferrals), held fixed by the projection.
+        # The plan's planned and skipped items, plus adaptive difficulty AD2+AD3's
+        # deferrals (spec §6.1 step 0) only as the switch-aware context states them:
+        # none with ``selection`` off, less what a boundary released (Codex verify
+        # F13). Held fixed by the projection.
         taken = sim.exclusion_ids() | set(context.ad_deferred)
         taken |= {item.practice_item_id for item in pending}  # forced: never packed again (re-review F11)
         view = replace(

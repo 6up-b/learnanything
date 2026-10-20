@@ -46,6 +46,11 @@ CREATE TABLE ad_selections (
   state_hash TEXT NOT NULL,
   versions_json TEXT NOT NULL,
   algorithm_version TEXT NOT NULL,
+  -- A commission the generation path drew inside a durable job: that job
+  -- (`ingest_jobs.id`, no foreign key: jobs may be pruned). Its expiry clock
+  -- starts when the job finishes (Codex verify F14). NULL for a serve draw,
+  -- a serve-time commission (its batch is named by it) and a draw outside a job.
+  generating_job_id TEXT,
   created_at TEXT NOT NULL
 );
 CREATE INDEX idx_ad_selections_cell ON ad_selections(kind, cell_facet, cell_capability, created_at);
@@ -74,6 +79,9 @@ CREATE TABLE ad_commission_results (
   p_bar REAL NOT NULL,
   status TEXT NOT NULL CHECK (status IN ('in_band', 'realized_out_of_band')),
   state_hash TEXT NOT NULL,
+  -- 1 when the item landed after its commission had expired (Codex verify
+  -- F15): the landing is recorded whatever the commission's expiry.
+  landed_after_expiry INTEGER NOT NULL DEFAULT 0 CHECK (landed_after_expiry IN (0, 1)),
   created_at TEXT NOT NULL,
   UNIQUE (selection_id, practice_item_id)
 );

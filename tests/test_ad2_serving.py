@@ -578,7 +578,10 @@ def test_ineligible_displacement_defers_until_condition_clears(tmp_path, router)
                 if item.practice_item_id == "pi_a" and not item.displaced]
     assert set(plan.ad_deferrals()) == {"pi_a"}
     rebuilt = load_records(env.repository, [plan.id])[0]
-    assert rebuilt.exclusion_ids() == plan.exclusion_ids() and "pi_a" in rebuilt.exclusion_ids()
+    assert rebuilt.exclusion_ids() == plan.exclusion_ids()
+    # The deferral is folded from the plan's events, so the rebuilt record has it too; it reaches a
+    # pool only through the switch-aware context (Codex verify F13), never the exclusion set.
+    assert rebuilt.ad_deferrals() == plan.ad_deferrals() and "pi_a" in rebuilt.ad_deferrals()
     extension = keep_going(env)
     assert all(item.practice_item_id != "pi_a" for block in extension.blocks for item in block.items)
 

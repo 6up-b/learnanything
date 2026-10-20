@@ -193,10 +193,16 @@ def _field_arms(connection: Any, vault: Any, sink: dict[str, Record]) -> dict[st
 
 def prequential(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] = DEFAULT_ARMS
                 ) -> dict[str, Any]:
-    """Every arm's prequential predictions, keyed by attempt (zero model calls)."""
+    """Every arm's prequential predictions, keyed by attempt (zero model calls).
+
+    The base run (``ad_threshold@subject`` and the arms read from its filters) replays with the
+    settings serving and the replayer read, :meth:`RP.ReplaySettings.from_config` (Codex verify
+    F12): with ``learned_coupling`` off the report scores the predictor that serves, with no
+    learned coupling, never a coupled one the learner was not served. The ablation arms vary one
+    part of those settings."""
 
     selected = set(arms)
-    base_settings = RP.ReplaySettings(coupling=True, reading=True, verdicts=True)
+    base_settings = RP.ReplaySettings.from_config(vault.config)
     events = RP.load_events(connection, vault, repository, settings=base_settings)
     sink: dict[str, Record] = {}
     _run(events, base_settings, base=True, sink=sink, names={"subject": SUBJECT, "lo": LO},
@@ -218,7 +224,7 @@ def prequential(vault: Any, repository: Any, connection: Any, *, arms: Sequence[
         _run(sub_events, settings, base=False, sink=sink, names=names)
     coverage = _field_arms(connection, vault, sink) if set(FIELD_ARMS) & selected else {}
     records = sorted(sink.values(), key=lambda r: (r.created_at, r.attempt_id))
-    return {"records": records, "field_coverage": coverage, "events": events}
+    return {"records": records, "field_coverage": coverage, "events": events, "settings": base_settings}
 
 
 __all__ = ["DEFAULT_ARMS", "FIELD_ARMS", "GRID", "HYPER_FINE", "LO", "NOREAD", "NOVERDICT", "Record", "SUBJECT",

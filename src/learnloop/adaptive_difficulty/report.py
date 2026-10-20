@@ -290,6 +290,7 @@ def _selection_stats(connection: Any, snapshot: RP.Snapshot) -> dict[str, Any]:
         "time_to_usable_by_subject": usable,
         "own_answers_before_band_by_lo": {lo: {"answers": n, "coupled": coupled[lo]} for lo, n in sorted(per_lo.items())},
         "commissions": {"draws": len(commissions), "results": len(results),
+                        "landed_after_expiry": sum(1 for r in results if r.get("landed_after_expiry")),
                         "miss_rate_by_point": {k: (v["realized_out_of_band"] / sum(v.values())) for k, v in by_point.items()}},
     }
 
@@ -520,8 +521,9 @@ def build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] =
     now = now or utc_now_iso()
     log = A.prequential(vault, repository, connection, arms=arms)
     records: list[A.Record] = log["records"]
-    settings = RP.ReplaySettings(coupling=True, reading=True, verdicts=True)
-    snapshot = RP.run(log["events"], settings, trace=False)
+    # The snapshot replays the events the base arm loaded, with its settings: the configured ones
+    # serving reads (Codex verify F12), so the report describes the predictor that serves.
+    snapshot = RP.run(log["events"], log["settings"], trace=False)
     names = _arm_names(records)
     scores = {name: {("all" if split is None else split): arm_scores(records, name, split) for split in SPLITS}
               for name in names}

@@ -102,6 +102,18 @@ def guard_ingest_writes(path, job_id, worker_id, attempt_count):
         _job_guard.reset(token)
 
 
+def current_ingest_job_id(path) -> str | None:
+    """The durable job running on this thread for the database at ``path``, if any.
+
+    Work that a job does for itself can name it durably (an adaptive difficulty commission drawn by
+    a generation job starts its expiry clock when that job finishes, Codex verify F14)."""
+
+    guard = _job_guard.get()
+    if guard is not None and Path(path).resolve() == guard.path:
+        return guard.job_id
+    return None
+
+
 def guarded_connection(connection, path):
     guard = _job_guard.get()
     if guard is not None and Path(path).resolve() == guard.path:

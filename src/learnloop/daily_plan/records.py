@@ -277,10 +277,15 @@ class PlanRecord:
         return active
 
     def exclusion_ids(self) -> set[str]:
-        """What a pool source never offers this plan: planned and skipped items and AD deferrals."""
+        """What a pool source never offers this plan whatever the switches say: its planned and
+        skipped items.
 
-        return (self.planned_ids() | {item.practice_item_id for item in self.items() if item.skipped}
-                | set(self.ad_deferrals()))
+        AD deferrals (:meth:`ad_deferrals`) are not here (Codex verify F13): they apply only while
+        ``selection`` is on and only until a boundary releases them, so they enter a pool through
+        the switch-aware context (``engine._context``, ``PoolContext.ad_deferred``). Folding them
+        in here re-applied them with the kill switch off."""
+
+        return self.planned_ids() | {item.practice_item_id for item in self.items() if item.skipped}
 
     def item_count(self) -> int:
         return len(self.active_items())

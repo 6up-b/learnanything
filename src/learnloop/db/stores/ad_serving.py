@@ -135,10 +135,14 @@ def open_commissions(connection: sqlite3.Connection, *, now: str | None = None) 
     last review decision on an item proposed for its LO since the draw, if later), so a fresh
     commission can be drawn for the cell. It stays open while its job has not run or is waiting
     on models that are off, and while an item proposed for its LO since the draw is in review. A
-    commission the generation path drew for itself has no job of its own: that path generated it
-    at the draw, so its clock starts at the draw. **Superseded**: a later commission for the same
+    commission the generation path drew for itself inside a durable job (``generating_job_id``)
+    starts its clock when that job finished, in any terminal state, and stays open while the job
+    is queued or running (Codex verify F14). **Superseded**: a later commission for the same
     cell, which the one-open rule allows only once this one closed, so expiry is never undone (an
-    explicit resume of the old job later finds its commission closed)."""
+    explicit resume of the old job later finds its commission closed).
+
+    Expiry only closes a commission to new draws. A commission whose item landed gets its receipt
+    whatever its expiry (``generation.record_landed_commissions``, Codex verify F15)."""
 
     if not has_table(connection, SELECTIONS):
         return []
@@ -165,12 +169,33 @@ def open_commissions(connection: sqlite3.Connection, *, now: str | None = None) 
     for row in rows:
         if latest.get((row.get("cell_facet"), row.get("cell_capability"))) != (str(row["created_at"]), str(row["id"])):
             continue  # superseded
-        since = _expiry_clock(connection, row)
-        if since is not None and current is not None and (current - since).total_seconds() >= \
-                COMMISSION_EXPIRY_DAYS * 86400.0:
+        expires = commission_expires_at(connection, row)
+        if expires is not None and current is not None and current >= expires:
             continue  # expired
         out.append(row)
     return out
+
+
+def commission_expires_at(connection: sqlite3.Connection, row: Mapping[str, Any]) -> Any:
+    """When an unlanded commission expires (an aware ``datetime``), or None while it cannot."""
+
+    from datetime import timedelta
+
+    since = _expiry_clock(connection, row)
+    return None if since is None else since + timedelta(days=COMMISSION_EXPIRY_DAYS)
+
+
+def landed_after_expiry(connection: sqlite3.Connection, row: Mapping[str, Any], landed_at: Any) -> bool:
+    """Whether an item that landed at ``landed_at`` landed after its commission had expired."""
+
+    expires, landed = commission_expires_at(connection, row), _instant(landed_at)
+    return expires is not None and landed is not None and landed >= expires
+
+
+def instant(value: Any) -> Any:
+    """An ISO timestamp as an aware ``datetime`` (naive reads as UTC), or None."""
+
+    return _instant(value)
 
 
 def _instant(value: Any) -> Any:
@@ -219,7 +244,25 @@ def _expiry_clock(connection: sqlite3.Connection, row: Mapping[str, Any]) -> Any
         if any(end is None for end in ends):
             return None
         end = max(ends)
+    elif row.get("generating_job_id"):
+        # Drawn by the generation path inside a durable job (Codex verify F14): the generation
+        # finishes when that job does.
+        from learnloop.db.stores.ingest_queue import job_outcome
+
+        outcome = job_outcome(connection, str(row["generating_job_id"])) \
+            if has_table(connection, "ingest_jobs") else None
+        if outcome is not None and outcome[0] not in ("completed", "failed", "cancelled"):
+            return None  # queued, running or waiting for input: not finished
+        # A finished job's own finish time. When the job row is gone (deleted or pruned), its
+        # finish time is lost with it: the clock falls back to the draw, the job's earliest
+        # possible finish, so the commission can still expire rather than block its cell for ever.
+        end = _instant(outcome[1]) if outcome is not None else None
+        end = end or _instant(created)
+        if end is None:
+            return None
     else:
+        # Drawn outside any job (a synchronous generation run, such as the CLI's): that run
+        # generated at the draw, in the same call, so its clock starts at the draw.
         end = _instant(created)
         if end is None:
             return None

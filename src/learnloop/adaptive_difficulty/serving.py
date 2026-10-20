@@ -300,9 +300,11 @@ def _maybe_commission(vault: Any, repository: Any, snapshot: RP.Snapshot, view: 
 def commission_draw(vault: Any, repository: Any, snapshot: RP.Snapshot, view: Any, view_name: str, *,
                     learning_object_id: str, subject: str, facet: str, capability_name: str, key: str, now: str,
                     constants: S.SelectionConstants | None = None,
-                    targets: Sequence[Mapping[str, Any] | None] = (None,)) -> str | None:
+                    targets: Sequence[Mapping[str, Any] | None] = (None,),
+                    generating_job_id: str | None = None) -> str | None:
     """A commission draw over ``X_c`` (§6.1): the same rule over feature points with ``z = 0``,
-    its own seed and ``ad_selections`` row (``kind = commission``)."""
+    its own seed and ``ad_selections`` row (``kind = commission``). ``generating_job_id``: the
+    durable job the generation path drew it in, whose finish starts its expiry (Codex verify F14)."""
 
     constants = constants or S.constants_from_config(vault.config)
     connection = repository.connection()
@@ -325,7 +327,8 @@ def commission_draw(vault: Any, repository: Any, snapshot: RP.Snapshot, view: An
         "excluded": [], "seed": draw.seed, "u": draw.u, "chosen_item_id": None, "chosen_point": chosen,
         "propensity": draw.propensity, "empty_support": False, "state_hash": snapshot.state_hash(),
         "versions": {**_versions(vault, snapshot, view_name), "commission": S.COMMISSION_VERSION},
-        "algorithm_version": vault.config.algorithms.algorithm_version, "created_at": now,
+        "algorithm_version": vault.config.algorithms.algorithm_version, "generating_job_id": generating_job_id,
+        "created_at": now,
     })
 
 

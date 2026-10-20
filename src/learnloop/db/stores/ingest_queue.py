@@ -65,6 +65,15 @@ def batch_outcome(connection, batch_id: str) -> tuple[bool, str | None, list[tup
     return bool(batch[0]), batch[1], jobs
 
 
+def job_outcome(connection, job_id: str) -> tuple[str, str | None] | None:
+    """One job's ``(status, finished_at)``, read on the caller's connection (an adaptive
+    difficulty commission drawn by a generation job starts its expiry when that job finished).
+    None when the job row does not exist."""
+
+    row = connection.execute("SELECT status, finished_at FROM ingest_jobs WHERE id = ?", (job_id,)).fetchone()
+    return None if row is None else (str(row[0]), row[1])
+
+
 def _json(data: Any) -> str:
     return json.dumps(data, sort_keys=True, separators=(",", ":"))
 
