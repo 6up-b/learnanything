@@ -29,6 +29,10 @@ import type {
   CueDensity,
   ReaderCueAction,
   ReaderCueActionDto,
+  ReaderCueDiscoveryJobDto,
+  ReaderCueImpressionInput,
+  ReaderCueTapAction,
+  ReaderCueTapDto,
   ReaderCuePreferencesDto,
   ReaderInquiryQuestionActionInput,
   ReaderInquiryQuestionDto,
@@ -1552,6 +1556,15 @@ export const api = {
   // and its undo) and the learner's cue preferences (density, a book off).
   readerCueAction: (input: { extractionId: string; cueId: string; action: ReaderCueAction; text?: string | null }) =>
     mutatingReader(call<ReaderCueActionDto>("reader_cue_action", { input })),
+  // Reader workbench RW3b: discovered cues (desktop only).
+  readerCueDiscovery: (input: { extractionId: string }) =>
+    call<ReaderCueDiscoveryJobDto>("reader_cue_discovery", { input }),
+  readerCueDiscoveryJob: (input: { jobId: string }) =>
+    call<ReaderCueDiscoveryJobDto>("reader_cue_discovery_job", { input }),
+  readerCueImpressions: (input: { extractionId: string; visitId: string; entries: ReaderCueImpressionInput[] }) =>
+    call<{ recorded: unknown[] }>("reader_cue_impressions", { input }),
+  readerCueTap: (input: { extractionId: string; cueId: string; action: ReaderCueTapAction; text?: string | null; visitId?: string | null }) =>
+    mutatingReader(call<ReaderCueTapDto>("reader_cue_tap", { input })),
   readerCuePreferences: (input: { sourceId?: string | null } = {}) =>
     call<ReaderCuePreferencesDto>("reader_cue_preferences", { input }),
   readerSetCuePreferences: (input: {

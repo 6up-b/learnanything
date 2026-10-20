@@ -24,6 +24,13 @@
 //   source; a preference's receipt is the latest one;
 // * F5 the original PDF's spacing reads each page's own size (cues.ts);
 // * F6 a mark is "shown" when it was in view (MarginMark), not when placed.
+//
+// Reader workbench RW3b (only while the plan carries `discovery`; off, every
+// path below is RW3a's): the discovered marks come in the same plan, already
+// ordered and within the budget; the background search for missing links
+// (useCueDiscovery), the impression receipts (useCueImpressions), taps through
+// `reader.cue_tap` with the visit, and "try the next step first", which opens
+// RW1b's next-step question at that line (the learner's pick).
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { api } from "../../api/client";
 import type {
@@ -41,6 +48,8 @@ import {
   type CuePlacement, type CueSuppression, type PdfPageLayout,
 } from "./cues";
 import type { CueCheckPhase, CueReceipt } from "./MarginMark";
+import { useCueDiscovery } from "./useCueDiscovery";
+import { useCueImpressions } from "./useCueImpressions";
 
 /** What "check me" hands the shell: the item to open, as a learner pick. */
 export interface CueCheckMeRequest {
@@ -88,6 +97,9 @@ export interface ReaderCuesInput {
   notePlacement: () => void;
   /** Opens the item "check me" found; absent: no check me (W11). */
   onCheckMe?: (request: CueCheckMeRequest, origin: CueRequestOrigin) => void;
+  /** RW3b: opens RW1b's "let me try the next step" at a line; absent: no
+   *  try-first action (W11). */
+  onTryFirst?: (spanId: string) => void;
   onError: (message: string) => void;
 }
 
@@ -114,6 +126,13 @@ export interface ReaderCues {
   offEverywhere: () => void;
   setDensity: (density: CueDensity) => void;
   turnOnBook: () => void;
+  /** RW3b: "try the next step first" can open (a try-first cue offers it). */
+  canTryFirst: boolean;
+  tryFirst: (cue: ReaderCueDto) => void;
+  /** "Fewer marks like this" pressed on this mark (its receipt, with discovery on). */
+  fewerOn: (cue: ReaderCueDto) => void;
+  /** RW3b: discovery is on (the footer's legend names the discovered marks). */
+  discovered: { tryFirst: boolean } | null;
 }
 
 /** Which marks are drawn, by id: their content is always the newest plan's. */
@@ -135,7 +154,7 @@ function samePlacement(a: PlacedIds, b: PlacedIds): boolean {
 export function useReaderCues(input: ReaderCuesInput): ReaderCues {
   const {
     render, offline, guidePlan, reloadGuidePlan, skimming, restoredSpanId, surface, pdfBlocks, pdfLayout,
-    bodyRef, layoutKey, spanOrder, readingSpan, visitPayload, jumpToSpan, notePlacement, onCheckMe, onError,
+    bodyRef, layoutKey, spanOrder, readingSpan, visitPayload, jumpToSpan, notePlacement, onCheckMe, onTryFirst, onError,
   } = input;
   // RW2a: the workbench's source pane while working shows no LearnLoop marks.
   const working = input.working ?? false;
@@ -241,6 +260,12 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
     };
   }, [placedIds, cues]);
 
+  // RW3b: the background search for missing links, and the receipts.
+  const discovery = cues?.discovery ?? null;
+  useCueDiscovery({ extractionId, discovery, offline, reloadGuidePlan });
+  const funnelVisit = useCallback(() => visitPayload().visit_id, [visitPayload]);
+  const impressions = useCueImpressions({ extractionId, cues, placement, surface, bodyRef, visitId: funnelVisit });
+
   // Each mark the learner could see counts once per visit (the report's
   // proactive load): MarginMark says when it came into view (review F6).
   const cuesRef = useRef(cues);
@@ -253,7 +278,8 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
       ...visitPayload(), cue_id: cue.cueId, span_id: cue.spanId, cue_kind: cue.kind,
       density: current.density, element: "margin_mark",
     });
-  }, [visitPayload]);
+    if (current.discovery) impressions.noteShown(cue);
+  }, [visitPayload, impressions]);
 
   const shownBySpan = useMemo(() => new Map(placement.shown.map((cue) => [cue.spanId, cue])), [placement]);
   const markOn = useCallback((spanId: string) => shownBySpan.get(spanId) ?? null, [shownBySpan]);
@@ -318,8 +344,14 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
 
   const tap = useCallback(async (cue: ReaderCueDto, action: "opened" | "check_me" | "not_relevant" | "not_relevant_undone", text?: string) => {
     if (!render) throw new Error("no source");
+    // RW3b: with discovery on, every tap goes through reader.cue_tap with the
+    // visit (its impression's response); off, RW3a's own call as before.
+    if (cuesRef.current?.discovery) {
+      return api.readerCueTap({ extractionId: render.extractionId, cueId: cue.cueId, action, text: text || null,
+        visitId: impressions.visitId() });
+    }
     return api.readerCueAction({ extractionId: render.extractionId, cueId: cue.cueId, action, text: text || null });
-  }, [render]);
+  }, [render, impressions]);
 
   const setPreferences = useCallback(async (change: { density?: CueDensity; sourceOff?: boolean }, via: "footer" | "fewer" | "popover" | "undo") => {
     if (!render) return;
@@ -444,6 +476,24 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
     void setPreferences({ sourceOff: false }, "footer");
   }, [setPreferences]);
 
+  // RW3b: "try the next step first" opens at once (the learner's act); the
+  // tap is recorded beside it.
+  const canTryFirst = Boolean(onTryFirst) && Boolean(discovery?.tryFirst);
+  const tryFirst = useCallback((cue: ReaderCueDto) => {
+    if (!onTryFirst || !render || cue.kind !== "try_first") return;
+    setOpenCueId(null);
+    onTryFirst(cue.spanId);
+    void api.readerCueTap({ extractionId: render.extractionId, cueId: cue.cueId, action: "try_first",
+      visitId: impressions.visitId() }).catch(() => undefined);
+  }, [onTryFirst, render, impressions]);
+  const fewerOn = useCallback((cue: ReaderCueDto) => {
+    if (cuesRef.current?.discovery) impressions.noteFewer(cue);
+    fewer();
+  }, [fewer, impressions]);
+  const discoveredTryFirst = discovery ? discovery.tryFirst : null;
+  const discovered = useMemo(
+    () => (discoveredTryFirst === null ? null : { tryFirst: discoveredTryFirst }), [discoveredTryFirst]);
+
   const checkPhase = useCallback((cueId: string) => checkPhases[cueId] ?? "idle", [checkPhases]);
   const receipts = useMemo(
     () => (preferenceReceipt ? [...dismissals, preferenceReceipt] : dismissals),
@@ -453,5 +503,6 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
   return {
     cues, placement, markOn, noteSeen, openCueId, setOpenCueId, checkPhase, canCheckMe: Boolean(onCheckMe), receipts,
     openEarlier, checkMe, notRelevant, fewer, offBook, offEverywhere, setDensity, turnOnBook,
+    canTryFirst, tryFirst, fewerOn, discovered,
   };
 }

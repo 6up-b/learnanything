@@ -69,6 +69,29 @@ export const CUE_COPY = {
   close: "close",
 } as const;
 
+/** RW3b: the copy of discovered cues (G16: what connects or what is on offer,
+ *  never what the learner lacks; the note and "because" lines are the
+ *  sidecar's fixed templates). */
+export const DISCOVERED_COPY = {
+  /** The glyph each kind draws (the CSS draws it; this names it for the legend). */
+  glyphs: { revisit: "◌┆", distinction: "◌┆", prerequisite: "◌┆", application: "●┆", try_first: "▹┆" },
+  tryFirst: "try the next step first",
+  tryFirstHint: "the next lines fold while you try; nothing is graded",
+  quoteLabel: "the passage's own words",
+  statementNote: "what LearnLoop's model connected it to",
+  foundBy: "found by LearnLoop's model, not by a test",
+  legendDistinction: "connects to something you worked on (found by LearnLoop's model)",
+  legendApplication: "a new use of something you've shown",
+  legendTryFirst: "try the next step first (on worked examples)",
+} as const;
+
+/** The mark's class: RW3a's own for a Guide cue (unchanged), a kind class
+ *  added for a discovered one. */
+export function markClass(cue: ReaderCueDto): string {
+  if (cue.foundBy !== "model") return "ll-reader-cue-mark";
+  return `ll-reader-cue-mark ll-reader-cue-mark--${cue.kind === "try_first" ? "try-first" : cue.kind}`;
+}
+
 /** Why a cue the sidecar sent is not drawn (never a holdout: RW3a has none). */
 export type CueSuppression = "skim" | "working" | "restored_line" | "spacing" | "no_place";
 

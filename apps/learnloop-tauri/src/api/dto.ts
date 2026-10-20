@@ -7214,10 +7214,17 @@ export interface ReaderCueEarlierDto {
   statementPending: boolean;
 }
 
-/** One margin cue (RW3a): one of the Guide's own passages, with fixed copy. */
+/** A margin mark's kind: RW3a's Guide cue (`◌┆`), and RW3b's discovered
+ *  kinds: a distinction (`◌┆`), a prerequisite (`◌┆`), a new application of
+ *  something shown (`●┆`), try this step first (`▹┆`). */
+export type ReaderCueKind = "revisit" | "distinction" | "prerequisite" | "application" | "try_first";
+
+/** One margin cue (RW3a): one of the Guide's own passages, with fixed copy.
+ *  RW3b adds discovered cues (`foundBy: "model"`) and, while discovery is on,
+ *  the value each cue was ordered by. */
 export interface ReaderCueDto {
   cueId: string;
-  kind: "revisit";
+  kind: ReaderCueKind;
   spanId: string;
   sectionId: string;
   learningObjectId: string;
@@ -7234,6 +7241,37 @@ export interface ReaderCueDto {
   /** The screen reader's full sentence. */
   label: string;
   earlier: ReaderCueEarlierDto;
+  /** RW3b (present while discovery is on): who found it ("guide": the
+   *  Guide's citations; "model": LearnLoop's model, never a test). */
+  foundBy?: "guide" | "model";
+  /** RW3b, discovered cues: the link, the judge's relation and rank, the
+   *  verified words of the passage it rests on, the target's kind. */
+  linkId?: string | null;
+  relation?: string;
+  pickRank?: number;
+  quote?: string;
+  targetKind?: string;
+  /** RW3b: the probability its target is still open (the order) and where it came from. */
+  pOpen?: number | null;
+  pOpenSource?: string;
+  /** RW3b, discovered cues: the holdout's seed and the propensity of the arm drawn. */
+  seed?: string;
+  propensity?: number;
+}
+
+/** RW3b: the plan's discovery state (present while cues.discovery_enabled). */
+export interface ReaderCueDiscoveryDto {
+  version: string;
+  /** Changes when a target is new or resolved: the Reader asks for discovery again. */
+  targetsKey: string;
+  targets: number;
+  holdoutRate: number;
+  valueOrder: boolean;
+  tryFirst: boolean;
+  /** Discovered cues withheld by the holdout (never drawn; their impression is logged in view). */
+  heldOut: ReaderCueDto[];
+  /** Cues cut by the density budget. */
+  suppressed: Array<ReaderCueDto & { reason: "density" }>;
 }
 
 export interface ReaderCuesDto {
@@ -7245,6 +7283,8 @@ export interface ReaderCuesDto {
   sourceOff: boolean;
   marks: ReaderCueDto[];
   withheld: Record<string, number>;
+  /** RW3b: absent while discovery is off (the cues are RW3a's, byte for byte). */
+  discovery?: ReaderCueDiscoveryDto;
 }
 
 export type ReaderCueAction = "opened" | "check_me" | "not_relevant" | "not_relevant_undone";
@@ -7266,6 +7306,31 @@ export interface ReaderCueActionDto {
   ledgerId: string | null;
   /** "Check me": one item proposed for an ordinary attempt on your own. */
   check: ReaderCueCheckDto | null;
+}
+
+/** RW3b: a tap on any cue while discovery is on (reader.cue_tap). */
+export type ReaderCueTapAction = ReaderCueAction | "try_first";
+
+export interface ReaderCueTapDto extends Omit<ReaderCueActionDto, "action"> {
+  action: ReaderCueTapAction;
+  /** "Try this step first": the line where RW1b's next-step question opens. */
+  tryFirst: { spanId: string } | null;
+}
+
+/** RW3b: the background discovery job (reader.cue_discovery / _job). */
+export interface ReaderCueDiscoveryJobDto {
+  jobId: string;
+  extractionId: string;
+  state: "pending" | "done";
+  result: { status: string; targetsKey: string | null; calls: number; links: number } | null;
+}
+
+/** RW3b: one impression the Reader reports (reader.cue_impressions). */
+export interface ReaderCueImpressionInput {
+  cueId: string;
+  shown?: boolean;
+  reason?: "spacing" | "restored_line" | null;
+  response?: "fewer" | null;
 }
 
 export interface ReaderCuePreferencesDto {

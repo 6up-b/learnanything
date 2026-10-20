@@ -16,7 +16,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CueDensity, ReaderCueDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
-import { CUE_COPY, CUE_DENSITIES } from "./cues";
+import { CUE_COPY, CUE_DENSITIES, DISCOVERED_COPY, markClass } from "./cues";
 import { LearnerVoice, MeaningLabel, ModelVoice } from "./voices";
 
 export type CueCheckPhase = "idle" | "finding" | "none" | "failed";
@@ -40,6 +40,9 @@ export interface MarginMarkProps {
   /** The mark came into the learner's view (or was hovered, focused or
    *  opened); the controller counts it once per visit. */
   onSeen?: () => void;
+  /** RW3b: "try the next step first" on a try-first cue (RW1b's next-step
+   *  question at that line); absent: no such action (W11). */
+  onTryFirst?: () => void;
 }
 
 /** At least this share of the mark in view counts as seen. */
@@ -70,6 +73,7 @@ export function MarginMark({
   onOffBook,
   onOffEverywhere,
   onSeen,
+  onTryFirst,
 }: MarginMarkProps) {
   const markRef = useRef<HTMLButtonElement | null>(null);
   const firstActionRef = useRef<HTMLButtonElement | null>(null);
@@ -114,6 +118,9 @@ export function MarginMark({
     markRef.current?.focus({ preventScroll: true });
   };
   const earlier = cue.earlier;
+  // RW3b: a cue LearnLoop's model found (absent while discovery is off).
+  const discovered = cue.foundBy === "model";
+  const tryFirst = discovered && cue.kind === "try_first" && onTryFirst ? onTryFirst : null;
   const onPage = surface === "pdf";
   // The text view's gutter is the column's left padding; the original's
   // overlay and a transcript's time column place the mark themselves.
@@ -134,9 +141,10 @@ export function MarginMark({
         type="button"
         data-cue-mark={cue.cueId}
         data-cue-span={cue.spanId}
+        {...(discovered ? { "data-cue-kind": cue.kind } : {})}
         aria-label={cue.label}
         aria-expanded={open}
-        className="ll-reader-cue-mark"
+        className={markClass(cue)}
         onClick={() => {
           seen();
           onOpenChange(!open);
@@ -225,8 +233,13 @@ export function MarginMark({
         >
           <span>{cue.note}</span>
           <MeaningLabel>{cue.because}</MeaningLabel>
+          {tryFirst ? (
+            <button ref={firstActionRef} type="button" onClick={tryFirst} style={ACTION_STYLE}>
+              {DISCOVERED_COPY.tryFirst} · {DISCOVERED_COPY.tryFirstHint}
+            </button>
+          ) : null}
           <button
-            ref={firstActionRef}
+            ref={tryFirst ? undefined : firstActionRef}
             type="button"
             aria-expanded={earlierShown}
             onClick={() => {
@@ -237,7 +250,18 @@ export function MarginMark({
           >
             {CUE_COPY.open} · {CUE_COPY.openTitle}
           </button>
-          {earlierShown ? (
+          {earlierShown && discovered ? (
+            <span data-cue-earlier="" style={{ display: "flex", flexDirection: "column", gap: 4, paddingLeft: 8 }}>
+              {cue.quote ? (
+                <span style={{ color: COLOR.textDim }}>
+                  {DISCOVERED_COPY.quoteLabel}: “{cue.quote}”
+                </span>
+              ) : null}
+              {earlier.statement ? <ModelVoice note={DISCOVERED_COPY.statementNote}>{earlier.statement}</ModelVoice> : null}
+              <MeaningLabel>{DISCOVERED_COPY.foundBy}</MeaningLabel>
+            </span>
+          ) : null}
+          {earlierShown && !discovered ? (
             <span data-cue-earlier="" style={{ display: "flex", flexDirection: "column", gap: 4, paddingLeft: 8 }}>
               <MeaningLabel>
                 {earlier.answeredOn ? `${CUE_COPY.answeredOn} ${earlier.answeredOn}.` : CUE_COPY.answeredUndated}
@@ -334,12 +358,15 @@ export function CueFooter({
   receipts,
   onDensity,
   onTurnOnBook,
+  discovered,
 }: {
   density: CueDensity;
   bookOff: boolean;
   receipts: readonly CueReceipt[];
   onDensity: (density: CueDensity) => void;
   onTurnOnBook: () => void;
+  /** RW3b: discovered cues are on (the legend names their marks too). */
+  discovered?: { tryFirst: boolean } | null;
 }) {
   const [legend, setLegend] = useState(false);
   return (
@@ -381,6 +408,18 @@ export function CueFooter({
         <span style={{ display: "flex", gap: 8, fontFamily: FONT_MONO, fontSize: 11 }}>
           <span aria-hidden="true" style={{ color: COLOR.purpleText }}>{CUE_COPY.glyph}</span>
           <MeaningLabel>{CUE_COPY.legendRevisit}</MeaningLabel>
+        </span>
+      ) : null}
+      {legend && discovered ? (
+        <span data-cue-legend-discovered="" style={{ display: "flex", flexDirection: "column", gap: 2, fontFamily: FONT_MONO, fontSize: 11 }}>
+          {([["distinction", DISCOVERED_COPY.legendDistinction], ["application", DISCOVERED_COPY.legendApplication],
+            ...(discovered.tryFirst ? [["try_first", DISCOVERED_COPY.legendTryFirst]] : [])] as Array<[keyof typeof DISCOVERED_COPY.glyphs, string]>)
+            .map(([kind, text]) => (
+              <span key={kind} style={{ display: "flex", gap: 8 }}>
+                <span aria-hidden="true" style={{ color: COLOR.purpleText }}>{DISCOVERED_COPY.glyphs[kind]}</span>
+                <MeaningLabel>{text}</MeaningLabel>
+              </span>
+            ))}
         </span>
       ) : null}
     </div>
