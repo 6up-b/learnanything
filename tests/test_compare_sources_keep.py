@@ -20,9 +20,12 @@
 """
 from __future__ import annotations
 
+import ast
 from contextlib import closing
 import hashlib
 import json
+from pathlib import Path
+import re
 
 import pytest
 
@@ -100,7 +103,8 @@ def _block_text(repository, key: str) -> str:
         return blocks_by_key(connection, [(extraction, span)])[(extraction, span)].text
 
 
-def _stored(monkeypatch, ctx, repository, ask_id: str, relations: list[dict], *, keys=PINS, extra_sources=()):
+def _stored(monkeypatch, ctx, repository, ask_id: str, relations: list[dict], *, keys=PINS, extra_sources=(),
+            query: str = QUESTION):
     """A stored comparison with the given relations between the two pinned
     passages (quotes are each passage's own first words), surfaced through a
     faked ``compare_sources`` so the ask row refers to it."""
@@ -123,7 +127,7 @@ def _stored(monkeypatch, ctx, repository, ask_id: str, relations: list[dict], *,
     comparison_id = "scmp_test" + str(len(ask_rows(repository)))
     with repository.connection() as connection:
         insert_comparison(connection, id=comparison_id, created_at="2026-10-03T09:00:00Z", query_hash="h",
-                          query_md=QUESTION, requested_perspectives=[], counterpart_keys=[k.split(":") for k in keys],
+                          query_md=query, requested_perspectives=[], counterpart_keys=[k.split(":") for k in keys],
                           comparison={"sources": sources, "relations": rels, "missing_perspectives": []},
                           dropped_lines=[], dropped_pins=[], unverified_sources=[], policy="reading",
                           caller_context={"kind": "reader"}, model="fake-compare", prompt_version="source_compare.v1",
@@ -944,36 +948,146 @@ def _withholding_reads(ctx, repository) -> dict[str, object]:
 
 
 #: The entry-point packages (every RPC, MCP tool, mobile route and CLI command).
-_ENTRY_POINTS = ("src/learnloop_sidecar", "src/learnloop_mcp", "src/learnloop_mobile", "src/learnloop/cli")
-#: The readers of source objects, their versions and citations.
-_SOURCE_OBJECT_READERS = ("source_objects_for_source", "source_object_head", "relations_for_object",
-                          "source_object_relation", "source_object_versions", "source_object_citations",
-                          "withheld_source_objects")
+_ENTRY_POINTS = ("learnloop_sidecar", "learnloop_mcp", "learnloop_mobile", "learnloop/cli")
+#: The repository's raw readers of source objects, their versions, citations and relations.
+_RAW_READERS = frozenset({"source_objects_for_source", "source_object_head", "relations_for_object",
+                          "source_object_relation", "withheld_source_objects"})
+_RAW_TABLES = re.compile(r"\b(source_objects|source_object_versions|source_object_citations|source_object_relations)\b")
+#: The guarded service call (the vault's protection context first).
+_GUARDED = "SO.source_objects_for_source(vault, ...)"
 
 
-def test_every_entry_point_reading_source_objects_is_pinned():
-    """F2: the RPCs that return source objects are enumerated here; each is
-    covered by the keep-then-withhold-then-read test below."""
+def _rpc_name(function: ast.AST) -> str | None:
+    for decorator in getattr(function, "decorator_list", ()):
+        if (isinstance(decorator, ast.Call) and ast.unparse(decorator.func).endswith("method") and decorator.args
+                and isinstance(decorator.args[0], ast.Constant)):
+            return str(decorator.args[0].value)
+    return None
 
-    import re
-    from pathlib import Path
 
+def _source_object_reads(source: str) -> dict[str, dict]:
+    """Per function of a module that reads source objects: the RPC it is
+    registered as (or None), its guarded service calls and its raw reads (a
+    repository reader named or passed, or SQL over the tables)."""
+
+    found: dict[str, dict] = {}
+    for function in ast.walk(ast.parse(source)):
+        if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        guarded: list[str] = []
+        raw: list[str] = []
+        guarded_funcs: set[int] = set()
+        for node in ast.walk(function):
+            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "source_objects_for_source" and ast.unparse(node.func.value) == "SO"
+                    and node.args and ast.unparse(node.args[0]) == "vault"):
+                guarded.append(_GUARDED)
+                guarded_funcs.add(id(node.func))
+        for node in ast.walk(function):
+            if isinstance(node, ast.Attribute) and node.attr in _RAW_READERS and id(node) not in guarded_funcs:
+                raw.append(f"{ast.unparse(node.value)}.{node.attr}")
+            elif isinstance(node, ast.Name) and node.id in _RAW_READERS:
+                raw.append(node.id)
+            elif isinstance(node, ast.Constant) and isinstance(node.value, str) and _RAW_TABLES.search(node.value) \
+                    and "SELECT" in node.value.upper():
+                raw.append("sql:" + _RAW_TABLES.search(node.value).group(1))
+        if guarded or raw:
+            found[function.name] = {"rpc": _rpc_name(function), "guarded": sorted(guarded), "raw": sorted(raw)}
+    return found
+
+
+def _read_paths(files: dict[str, str]) -> dict[str, dict]:
+    """``{rpc or module:function: its read paths}`` over every entry-point file."""
+
+    paths: dict[str, dict] = {}
+    for name, source in sorted(files.items()):
+        for function, reads in _source_object_reads(source).items():
+            paths[reads["rpc"] or f"{name}:{function}"] = {"guarded": reads["guarded"], "raw": reads["raw"]}
+    return paths
+
+
+def _pin_violations(files: dict[str, str], declared: dict[str, str]) -> list[str]:
+    paths = _read_paths(files)
+    wanted = {rpc: {"guarded": [path], "raw": []} for rpc, path in declared.items()}
+    return [f"{key}: {paths.get(key)} (declared {wanted.get(key)})" for key in sorted(set(paths) | set(wanted))
+            if paths.get(key) != wanted.get(key)]
+
+
+def _entry_point_files() -> dict[str, str]:
     import learnloop_sidecar
 
     # The packages as imported (the tree under test), not this checkout's paths.
     src = Path(learnloop_sidecar.__file__).resolve().parents[1]
-    pattern = re.compile(r"\b(" + "|".join(_SOURCE_OBJECT_READERS) + r")\b")
-    found = set()
-    for package in _ENTRY_POINTS:
-        for path in sorted((src / package.removeprefix("src/")).rglob("*.py")):
-            for line in path.read_text(encoding="utf-8").splitlines():
-                if line.lstrip().startswith("#"):
-                    continue
-                for name in pattern.findall(line):
-                    found.add((path.relative_to(src).as_posix(), name))
-    assert found == {("learnloop_sidecar/handlers/reader.py", "source_objects_for_source")}
-    text = (src / "learnloop_sidecar/handlers/reader.py").read_text(encoding="utf-8")
-    assert "SO.source_objects_for_source(vault, repository," in text  # with the protection context
+    return {path.relative_to(src).as_posix(): path.read_text(encoding="utf-8")
+            for package in _ENTRY_POINTS for path in sorted((src / package).rglob("*.py"))}
+
+
+def test_every_registered_handler_reading_source_objects_is_pinned():
+    """F2 (fix rounds 2 and 3): each registered handler of every entry point is
+    enumerated with its read path; the only one that returns source objects is
+    the declared guarded call, and no handler or helper reads the raw rows."""
+
+    from learnloop_sidecar.handlers import reader as reader_handlers
+    from learnloop_sidecar.registry import METHOD_REGISTRY
+
+    declared = reader_handlers.SOURCE_OBJECT_READ_PATHS
+    assert declared == {"reader.source_objects": _GUARDED}
+    files = _entry_point_files()
+    assert _pin_violations(files, declared) == []
+    # The enumerated RPCs are the registered ones, served by the handlers read.
+    for rpc in declared:
+        handler = METHOD_REGISTRY[rpc].handler
+        reads = _source_object_reads(files["learnloop_sidecar/handlers/reader.py"])
+        assert reads[handler.__name__]["rpc"] == rpc and handler.__module__ == reader_handlers.__name__
+
+
+def test_the_pin_catches_a_second_raw_reader():
+    """F2 mutation check: a second RPC in handlers/reader.py that returns the
+    repository's rows unguarded (or a guarded read under an undeclared RPC, or a
+    raw read in a helper) fails the pin."""
+
+    from learnloop_sidecar.handlers import reader as reader_handlers
+
+    declared = reader_handlers.SOURCE_OBJECT_READ_PATHS
+    files = _entry_point_files()
+    name = "learnloop_sidecar/handlers/reader.py"
+    mutations = {
+        "raw RPC": """
+
+@method("reader.source_objects_raw", ReaderSourceObjectsInput)
+def reader_source_objects_raw(ctx, params):
+    _vault, repository = _require_reader(ctx)
+    return versioned({"source_objects": repository.source_objects_for_source(params.source_id)})
+""",
+        "raw SQL": """
+
+@method("reader.source_object_texts", ReaderSourceObjectsInput)
+def reader_source_object_texts(ctx, params):
+    _vault, repository = _require_reader(ctx)
+    with repository.connection() as connection:
+        return versioned({"texts": [r[0] for r in connection.execute("SELECT exact_text FROM source_object_versions")]})
+""",
+        "second guarded RPC": """
+
+@method("reader.source_objects_again", ReaderSourceObjectsInput)
+def reader_source_objects_again(ctx, params):
+    vault, repository = _require_reader(ctx)
+    return versioned({"source_objects": SO.source_objects_for_source(vault, repository, source_id=params.source_id)})
+""",
+        "raw helper": """
+
+def _heads(repository, source_id):
+    return [repository.source_object_head(source_id)]
+""",
+    }
+    for label, extra in mutations.items():
+        mutated = {**files, name: files[name] + extra}
+        assert _pin_violations(mutated, declared), label
+    # And an unguarded call in place of the declared one.
+    guarded = "SO.source_objects_for_source(vault, repository, source_id=params.source_id)"
+    assert guarded in files[name]
+    swapped = {**files, name: files[name].replace(guarded, "repository.source_objects_for_source(params.source_id)")}
+    assert _pin_violations(swapped, declared)
 
 
 def test_a_kept_comparison_held_out_later_is_not_returned_by_any_reader_rpc(compared):
@@ -1120,3 +1234,111 @@ def test_a_tutor_keep_takes_a_take_with_the_library_answer_off(tmp_path, monkeyp
             call(ctx, name, params)
         assert caught.value.code == "cold_attempt", name
     assert _all_counts(repository) == before
+
+
+# -- fix round 3 (orchestrator; Codex verify of fix round 2, F1) ---------------------------------
+
+
+def _quoted_question(repository) -> tuple[str, str]:
+    """A question quoting ext_text:t3 (held out with its chapter) word for word."""
+
+    quote = " ".join(_block_text(repository, "ext_text:t3").split()[:9])
+    return quote, f'why is it true that "{quote}"?'
+
+
+def _shared_reads(ctx, asked) -> dict[str, object]:
+    out = {f"reader.source_objects:{source}": call(ctx, "reader.source_objects", {"sourceId": source})
+           for source in ("src_text", "src_book")}
+    out["reader.proposal_inbox"] = call(ctx, "reader.proposal_inbox", {"status": "proposed"})
+    for extraction in ("ext_text", "ext_book"):
+        out[f"reader.kept_comparisons:{extraction}"] = call(ctx, "reader.kept_comparisons",
+                                                            {"extractionId": extraction})
+    return out
+
+
+def _contents(result) -> list[dict]:
+    return [json.loads(head["version"]["contentJson"]) for head in result["sourceObjects"]]
+
+
+def test_a_question_quoting_a_held_out_passage_is_redacted_in_every_object(library, monkeypatch):
+    """F1: compare A (ext_text:t3) and B (ext_book:s6) on a question quoting A,
+    keep, withhold A: B's object is still returned, its shared question redacted."""
+
+    _paths, ctx, repository, spans, asked = library
+    quote, question = _quoted_question(repository)
+    _stored(monkeypatch, ctx, repository, asked["askId"], ["different_notation"], query=question)
+    call(ctx, "reader.library_compare_keep", {"askId": asked["askId"]})
+    before = _shared_reads(ctx, asked)
+    assert quote in json.dumps(before["reader.source_objects:src_book"])  # B's object holds the question
+    _hold_out_chapter(repository, spans)
+    after = _shared_reads(ctx, asked)
+    for name, result in after.items():
+        assert quote not in json.dumps(result), name
+    (book,) = _contents(after["reader.source_objects:src_book"])
+    assert book["query"] == SO_SHARED_WITHHELD and book["lines"]  # B's own lines stay
+    assert after["reader.source_objects:src_text"]["sourceObjects"] == []
+    vault, _repo = ctx.require_vault()
+    los = json.loads(_ask(repository, asked["askId"])["kept_json"])["learning_object_ids"]
+    assert KC.kept_comparisons_for_card(vault, repository, learning_object_ids=los) == []
+
+
+def test_a_held_out_passage_the_question_came_from_redacts_the_shared_fields(library, monkeypatch):
+    """F1: the comparison's kept passages (ext_book:s6, ext_text:t5) stay
+    readable, but the passage its question was asked from (ext_text:t3) is
+    held out now: every object, the mark and the reopened table read the
+    placeholder for the question and perspectives; the card omits it."""
+
+    _paths, ctx, repository, spans, asked = library
+    quote, question = _quoted_question(repository)
+    keys = ["ext_book:s6", "ext_text:t5"]
+    _stored(monkeypatch, ctx, repository, asked["askId"], ["complementary"], keys=keys, query=question)
+    with repository.connection() as connection:
+        connection.execute("UPDATE source_comparisons SET requested_perspectives_json = ? WHERE query_md = ?",
+                           (json.dumps([f"as {quote}"]), question))
+        connection.commit()
+    call(ctx, "reader.library_compare_keep", {"askId": asked["askId"]})
+    vault, _repo = ctx.require_vault()
+    los = json.loads(_ask(repository, asked["askId"])["kept_json"])["learning_object_ids"]
+    assert KC.kept_comparisons_for_card(vault, repository, learning_object_ids=los)
+    assert quote in json.dumps(call(ctx, "reader.library_compare_reopen", {"askId": asked["askId"]}))
+    _hold_out_chapter(repository, spans)
+    after = _shared_reads(ctx, asked)
+    reopened = call(ctx, "reader.library_compare_reopen", {"askId": asked["askId"]})
+    for name, result in {**after, "reader.library_compare_reopen": reopened}.items():
+        assert quote not in json.dumps(result), name
+    objects = [*_contents(after["reader.source_objects:src_text"]), *_contents(after["reader.source_objects:src_book"])]
+    assert len(objects) == 2 and {obj["query"] for obj in objects} == {SO_SHARED_WITHHELD}
+    (mark,) = [m for m in after["reader.kept_comparisons:ext_text"]["marks"] if m["spanId"] == "t5"]
+    assert {entry["query"] for entry in mark["comparisons"]} == {SO_SHARED_WITHHELD}
+    assert reopened["query"] == SO_SHARED_WITHHELD and reopened["rows"]
+    assert reopened["requestedPerspectives"] == [SO_SHARED_WITHHELD]
+    assert KC.kept_comparisons_for_card(vault, repository, learning_object_ids=los) == []
+
+
+def test_shared_comparison_fields_fail_closed(library, monkeypatch):
+    """F1: when a comparison's passages cannot be read, its shared fields are
+    redacted (and the card shows nothing); the rest of each object stays."""
+
+    from learnloop.reader import source_objects as SO
+
+    _paths, ctx, repository, _spans, asked = library
+    quote, question = _quoted_question(repository)
+    _stored(monkeypatch, ctx, repository, asked["askId"], ["different_notation"], query=question)
+    call(ctx, "reader.library_compare_keep", {"askId": asked["askId"]})
+
+    def broken(*_args, **_kwargs):
+        raise RuntimeError("comparison unreadable")
+
+    monkeypatch.setattr(SO, "comparison_passages", broken)
+    after = _shared_reads(ctx, asked)
+    for name, result in after.items():
+        assert quote not in json.dumps(result), name
+    objects = [*_contents(after["reader.source_objects:src_text"]), *_contents(after["reader.source_objects:src_book"])]
+    assert len(objects) == 2 and {obj["query"] for obj in objects} == {SO_SHARED_WITHHELD}
+    vault, _repo = ctx.require_vault()
+    los = json.loads(_ask(repository, asked["askId"])["kept_json"])["learning_object_ids"]
+    assert KC.kept_comparisons_for_card(vault, repository, learning_object_ids=los) == []
+
+
+#: The placeholder a shared comparison field reads while it is withheld.
+SO_SHARED_WITHHELD = "(withheld: part of this comparison is held out for an exam now)"

@@ -19,7 +19,9 @@ from learnloop.clock import Clock
 from learnloop.content.sources import exam_material as EM
 from learnloop.content.sources.span_aliases import CitationResolver
 from learnloop.db.repositories import Repository
+from learnloop.db.stores import library_asks as ask_store
 from learnloop.db.stores.source_block_fts import source_extraction_ids
+from learnloop.db.stores.source_service import comparison_row
 
 OBJECT_TYPES = (
     "claim", "definition", "procedure", "worked_example",
@@ -238,14 +240,123 @@ def withheld_source_objects(vault: Any, repository: Repository,
         return frozenset(ids)
 
 
+#: What a kept comparison copies into each of its objects (and what its keep
+#: and its reopened table carry): the question and the perspectives asked for.
+#: They speak for the whole comparison, so they are checked comparison-wide.
+COMPARISON_SHARED_FIELDS: tuple[str, ...] = ("query", "question", "requested_perspectives", "missing_perspectives")
+#: What a shared field reads while any passage of its comparison is held out.
+SHARED_WITHHELD = "(withheld: part of this comparison is held out for an exam now)"
+
+
+def _span_key(value: Any) -> tuple[str, str] | None:
+    if isinstance(value, Mapping):
+        pair = (value.get("extraction_id") or value.get("extractionId"), value.get("span_id") or value.get("spanId"))
+    elif isinstance(value, str):
+        pair = tuple(value.split(":", 1)) if ":" in value else (None, None)  # type: ignore[assignment]
+    elif isinstance(value, Sequence) and len(value) == 2:
+        pair = (value[0], value[1])
+    else:
+        return None
+    return (str(pair[0]), str(pair[1])) if pair[0] and pair[1] else None
+
+
+def comparison_passages(repository: Repository, comparison_id: str, *,
+                        ask_id: str | None = None) -> set[tuple[str, str]]:
+    """Every passage that contributed to a stored comparison: its compared
+    sources, its counterparts, its unverified sources and dropped pins, and the
+    passage its question was asked from (the ask's anchor, or the tutor
+    request's selection). Raises ``LookupError`` when the comparison cannot be
+    read or names no passage (callers fail closed)."""
+
+    with repository.connection() as connection:
+        stored = comparison_row(connection, str(comparison_id)) if comparison_id else None
+        ask = ask_store.ask_row(connection, str(ask_id)) if ask_id else None
+    if stored is None:
+        raise LookupError(f"unknown comparison {comparison_id!r}")
+    found: list[Any] = [*((stored.get("comparison") or {}).get("sources") or ()),
+                        *(stored.get("counterpart_keys") or ()), *(stored.get("unverified_sources") or ()),
+                        *(stored.get("dropped_pins") or ())]
+    if ask is not None:
+        extraction = ask.get("extraction_id")
+        found.extend((extraction, span) for span in (ask.get("anchor") or {}).get("span_ids") or ())
+        caller = (ask.get("manifest") or {}).get("caller")
+        if isinstance(caller, Mapping):
+            reading = caller.get("extraction_id") or extraction
+            spans = [caller.get("span_id"), *(caller.get("span_ids") or ()), *(caller.get("selection_span_ids") or ())]
+            found.extend((reading, span) for span in spans if span)
+    keys = {key for value in found if (key := _span_key(value)) is not None}
+    if not keys:
+        raise LookupError(f"comparison {comparison_id!r} names no passage")
+    return keys
+
+
+def withheld_comparisons(vault: Any, repository: Repository,
+                         comparisons: Sequence[tuple[str, str | None]]) -> frozenset[tuple[str, str | None]]:
+    """The ``(comparison id, ask id)`` pairs with **any** contributing passage
+    (:func:`comparison_passages`) that is exam or held out now: their shared
+    fields are redacted wherever they are read. Fail closed: a comparison that
+    cannot be read, or a predicate that cannot be, counts as withheld."""
+
+    wanted = list(dict.fromkeys((str(cid), None if ask is None else str(ask)) for cid, ask in comparisons if cid))
+    if not wanted:
+        return frozenset()
+    passages: dict[tuple[str, str | None], set[tuple[str, str]]] = {}
+    unknown: set[tuple[str, str | None]] = set()
+    for pair in wanted:
+        try:
+            passages[pair] = comparison_passages(repository, pair[0], ask_id=pair[1])
+        except Exception:  # noqa: BLE001 - an unreadable comparison is withheld (fail closed)
+            unknown.add(pair)
+    try:
+        held = EM.exam_withheld(vault, repository, sorted({key for keys in passages.values() for key in keys}))
+    except Exception:  # noqa: BLE001 - an unreadable predicate withholds every comparison (fail closed)
+        return frozenset(wanted)
+    return frozenset(unknown | {pair for pair, keys in passages.items() if keys & set(held)})
+
+
+def redact_shared(content: Mapping[str, Any]) -> dict[str, Any]:
+    """``content`` with each shared comparison field (:data:`COMPARISON_SHARED_FIELDS`) replaced."""
+
+    out = dict(content)
+    for name in COMPARISON_SHARED_FIELDS:
+        if name in out and out[name] not in (None, "", []):
+            out[name] = [SHARED_WITHHELD] if isinstance(out[name], list) else SHARED_WITHHELD
+    return out
+
+
+def _comparison_of(head: Mapping[str, Any]) -> tuple[str, str | None] | None:
+    try:
+        content = json.loads((head.get("version") or {}).get("content_json") or "{}")
+    except (TypeError, ValueError):
+        return None
+    if isinstance(content, Mapping) and content.get("comparison_id"):
+        return (str(content["comparison_id"]), str(content["ask_id"]) if content.get("ask_id") else None)
+    return None
+
+
 def source_objects_for_source(vault: Any, repository: Repository, *, source_id: str) -> list[dict[str, Any]]:
     """A book's source objects (each head version with its citations), without
     any whose material is exam or held out now (:func:`withheld_source_objects`):
-    their exact text, content, quotes and citations are never returned."""
+    their exact text, content, quotes and citations are never returned. An
+    object kept from a comparison carries the comparison's shared fields (its
+    question): while any passage of that comparison is held out, they read
+    :data:`SHARED_WITHHELD` in every object of it, stored ones included
+    (Codex verify of fix round 2, F1)."""
 
     heads = [head for head in repository.source_objects_for_source(source_id) if head]
     hidden = withheld_source_objects(vault, repository, heads)
-    return [head for head in heads if str(head["object"]["id"]) not in hidden]
+    visible = [head for head in heads if str(head["object"]["id"]) not in hidden]
+    shared = withheld_comparisons(vault, repository, [pair for head in visible if (pair := _comparison_of(head))])
+    out = []
+    for head in visible:
+        pair = _comparison_of(head)
+        if pair is not None and pair in shared:
+            version = dict(head["version"])
+            version["content_json"] = json.dumps(redact_shared(json.loads(version.get("content_json") or "{}")),
+                                                 sort_keys=True)
+            head = {**head, "version": version}
+        out.append(head)
+    return out
 
 
 def proposal_inbox(

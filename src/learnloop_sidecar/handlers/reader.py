@@ -1129,6 +1129,14 @@ class ReaderSourceObjectsInput(ParamsModel):
     source_id: str
 
 
+#: Every registered RPC that returns source objects (their versions and
+#: citations) and its read path: each goes through the guarded service call
+#: (exam protection, failing closed) and none reads the repository's raw rows.
+#: tests/test_compare_sources_keep.py enumerates the registered handlers of
+#: every entry point against it (Codex verify of RW4d fix round 2, F2).
+SOURCE_OBJECT_READ_PATHS: dict[str, str] = {"reader.source_objects": "SO.source_objects_for_source(vault, ...)"}
+
+
 @method("reader.source_objects", ReaderSourceObjectsInput)
 def reader_source_objects(ctx: SidecarContext, params: ReaderSourceObjectsInput) -> dict[str, Any]:
     vault, repository = _require_reader(ctx)

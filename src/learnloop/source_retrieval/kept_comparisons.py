@@ -146,6 +146,18 @@ def clean_perspectives(values: Sequence[str] | None) -> list[str]:
     return kept[:MAX_PERSPECTIVES]
 
 
+def _shared_withheld(vault: LoadedVault, repository: Repository,
+                     rows: Sequence[Mapping[str, Any]]) -> frozenset[str]:
+    """The ids of ``rows`` whose comparison has any contributing passage held
+    out now (``reader.source_objects.withheld_comparisons``, failing closed):
+    their shared fields (the question, the perspectives) are redacted."""
+
+    pairs = {str(row["id"]): (str((row.get("kept") or {}).get("comparison_id") or row.get("comparison_id") or ""),
+                              str(row["id"])) for row in rows}
+    held = SO.withheld_comparisons(vault, repository, list(pairs.values()))
+    return frozenset(row_id for row_id, pair in pairs.items() if not pair[0] or pair in held)
+
+
 def _key(entry: Mapping[str, Any]) -> tuple[str, str]:
     return (str(entry.get("extraction_id") or ""), str(entry.get("span_id") or ""))
 
@@ -746,9 +758,12 @@ def kept_marks(vault: LoadedVault, repository: Repository, extraction_id: str, *
             if rows else frozenset()
     except Exception:  # noqa: BLE001 - fail closed
         rows, withheld = [], frozenset()
+    shown_rows = [row for row, _kept, keys, _mine in rows if not any(key in withheld for key in keys)]
+    shared = _shared_withheld(vault, repository, shown_rows) if shown_rows else frozenset()
     for row, kept, keys, mine in rows:
         if any(key in withheld for key in keys):
             continue
+        query = SO.SHARED_WITHHELD if row["id"] in shared else row.get("query")
         others = sorted({obj.get("source_title") or "a source" for obj in kept.get("objects") or ()
                          if obj["extraction_id"] != extraction_id})
         for key in mine:
@@ -759,7 +774,7 @@ def kept_marks(vault: LoadedVault, repository: Repository, extraction_id: str, *
             mark["ask_ids"].append(row["id"])
             # Every comparison kept on this passage, newest first, told apart
             # by its question and its date (the mark lists them all).
-            mark["comparisons"].append({"ask_id": row["id"], "kept_at": row["kept_at"], "query": row.get("query"),
+            mark["comparisons"].append({"ask_id": row["id"], "kept_at": row["kept_at"], "query": query,
                                         "other_sources": others})
     return {"extraction_id": extraction_id, "marks": sorted(marks.values(), key=lambda mark: mark["span_id"]),
             "label": "a comparison you kept"}
@@ -804,14 +819,20 @@ def reopen(vault: LoadedVault, repository: Repository, ask_id: str, *, open_sour
                "manifest": {}, "also_discussed_in": [], "unverified_sources": [], "dropped_pins": [],
                "dropped_lines": []}
     table = compare_table(payload, first_source_id=open_source_id)
+    # The question and the perspectives speak for the whole comparison: while
+    # any passage that contributed to it is held out, they are redacted.
+    redacted = row["id"] in _shared_withheld(vault, repository, [row])
     perspectives = list(stored.get("requested_perspectives") or [])
     if perspectives:
         table["requested_perspectives"] = perspectives
         table["missing_perspectives"] = list((stored.get("comparison") or {}).get("missing_perspectives") or [])
+        if redacted:
+            table.update(SO.redact_shared({key: table[key] for key in ("requested_perspectives",
+                                                                       "missing_perspectives")}))
     _event(repository, "comparison_reopened", {"extraction_id": row.get("extraction_id"), "claim_count": len(shown)},
            subject_id=row.get("extraction_id"), clock=clock)
     return {"ask_id": ask_id, **table, "kept": {**(kept_state(kept, kept_at=row["kept_at"]) or {}), "ask_id": ask_id},
-            "query": row.get("query"), "kept_relations": [
+            "query": SO.SHARED_WITHHELD if redacted else row.get("query"), "kept_relations": [
                 {"fine": rel["fine"], "relation_type": rel["relation_type"], "statement": rel.get("statement")}
                 for rel in kept.get("relations") or ()]}
 
@@ -895,9 +916,15 @@ def kept_comparisons_for_card(vault: LoadedVault, repository: Repository, *, lea
         withheld = EM.exam_withheld(vault, repository, sorted({key for *_rest, keys in candidates for key in keys}))
     except Exception:  # noqa: BLE001 - an unreadable predicate shows nothing (fail closed)
         return []
+    # Comparison-wide too: an episode whose comparison had any contributing
+    # passage held out now is left out (as its shared fields are redacted).
+    shared = SO.withheld_comparisons(vault, repository, [
+        (str(kept.get("comparison_id") or ""), str(row["id"])) for row, kept, *_rest in candidates])
     entries = []
     for row, kept, kept_at, los, keys in candidates:
         if not keys or keys & set(withheld):
+            continue
+        if not kept.get("comparison_id") or (str(kept["comparison_id"]), str(row["id"])) in shared:
             continue
         entries.append({
             "kind": "kept_comparison", "ask_id": row["id"], "kept_at": kept_at,
