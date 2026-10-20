@@ -194,9 +194,10 @@ def _forecast(vault: Any, repository: Any, connection: Any, learning_object_id: 
         from learnloop.adaptive_difficulty import predict as PR
         from learnloop.adaptive_difficulty import replay as RP
         from learnloop.adaptive_difficulty.generation import lo_cell_facet
+        from learnloop.adaptive_difficulty.protection import protection
 
         snapshot = RP.snapshot(vault, repository, connection=connection)
-        facet = lo_cell_facet(vault, learning_object_id)
+        facet = lo_cell_facet(vault, learning_object_id, protected=protection(vault, repository))
         if facet is None:
             return None
         lo = vault.learning_objects.get(learning_object_id)

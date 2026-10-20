@@ -161,18 +161,26 @@ class _GridArm:
         self.grids[cell] = updated / updated.sum() if updated.sum() > 0 else prior
 
 
-def _field_arms(connection: Any, vault: Any, sink: dict[str, Record]) -> dict[str, int]:
+def _field_arms(connection: Any, vault: Any, repository: Any, sink: dict[str, Record]) -> dict[str, int]:
     """Field's ``mastery_ekf`` and ``lo_general`` on field's rows (read through AD's history fallback),
     prequentially (predict, observe)."""
 
+    from learnloop.content.sources.exam_material import held_out_items
     from learnloop.field.outcomes import load_attempt_rows
     from learnloop.field.predictors import create_predictor
 
     from learnloop.adaptive_difficulty.successor import history_fallback
 
-    # The comparators read the same history as AD's replay (its history fallback), so every arm
-    # is scored on the same past.
-    rows = sorted(load_attempt_rows(connection, vault, legacy_fallback=history_fallback(vault.config)),
+    # The comparators read the same history as AD's replay (its history fallback and its held-out
+    # rule, A8; Codex verify F17's audit), so every arm is scored on the same past and no attempt
+    # on held-out material updates one. Fail closed as the replay does: with the predicate
+    # unavailable no comparator observes anything.
+    try:
+        held_out, readable = held_out_items(vault, repository), True
+    except Exception:  # noqa: BLE001 - an unreadable predicate protects everything
+        held_out, readable = frozenset(), False
+    rows = sorted((row for row in load_attempt_rows(connection, vault, legacy_fallback=history_fallback(vault.config))
+                   if readable and str(row.features.item_id) not in held_out),
                   key=lambda r: (r.observed_at, r.attempt_id))
     covered: dict[str, int] = {}
     for name in FIELD_ARMS:
@@ -222,7 +230,7 @@ def prequential(vault: Any, repository: Any, connection: Any, *, arms: Sequence[
     for _name, settings, names in runs:
         sub_events = RP.load_events(connection, vault, repository, settings=settings)
         _run(sub_events, settings, base=False, sink=sink, names=names)
-    coverage = _field_arms(connection, vault, sink) if set(FIELD_ARMS) & selected else {}
+    coverage = _field_arms(connection, vault, repository, sink) if set(FIELD_ARMS) & selected else {}
     records = sorted(sink.values(), key=lambda r: (r.created_at, r.attempt_id))
     return {"records": records, "field_coverage": coverage, "events": events, "settings": base_settings}
 

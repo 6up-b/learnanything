@@ -37,12 +37,16 @@ LIKELY = "likely ready"
 NOT_YET = "not yet likely"
 
 
-def _cells(vault: Any, learning_object_id: str) -> list[tuple[str, str, str]]:
-    """``(facet, capability, subject)`` of every cell the LO's items measure."""
+def _cells(vault: Any, learning_object_id: str, protected: Any) -> list[tuple[str, str, str]]:
+    """``(facet, capability, subject)`` of every cell the LO's unprotected items measure. A
+    protected item (held-out material, an exam reservation) never shapes a readiness line or the
+    router card (A8; Codex verify F17's audit); with the predicate unavailable it covers every item."""
 
     cells: set[tuple[str, str, str]] = set()
     for item in vault.practice_items.values():
         if item.learning_object_id != learning_object_id or getattr(item, "status", "active") != "active":
+            continue
+        if protected.covers(item):
             continue
         subject = PR.item_subject(vault, item)
         for facet in PR.facet_weights(vault, item):
@@ -60,7 +64,9 @@ def lo_readiness(vault: Any, repository: Any, learning_object_id: str, *,
     constants = S.constants_from_config(vault.config)
     threshold = float(getattr(vault.config.adaptive_difficulty, "ready_threshold", 0.8))
     rows = []
-    for facet, capability, subject in _cells(vault, learning_object_id):
+    from learnloop.adaptive_difficulty.protection import protection
+
+    for facet, capability, subject in _cells(vault, learning_object_id, protection(vault, repository)):
         target = S.default_target(capability)
         if target is None:
             continue
@@ -99,15 +105,18 @@ def card_fields(vault: Any, repository: Any, learning_object_id: str, *,
 
     if not subject_view_live(vault.config):
         return None
+    from learnloop.adaptive_difficulty.protection import protection
+
     snapshot = snapshot or RP.snapshot(vault, repository)
-    cells = _cells(vault, learning_object_id)
+    protected = protection(vault, repository)
+    cells = _cells(vault, learning_object_id, protected)
     if not cells:
         return None
     constants = S.constants_from_config(vault.config)
     facet, capability, subject = cells[0]
     weights = {f: 0.0 for f, _c, _s in cells}
     for item in vault.practice_items.values():
-        if item.learning_object_id == learning_object_id:
+        if item.learning_object_id == learning_object_id and not protected.covers(item):
             for f, w in PR.facet_weights(vault, item).items():
                 if f in weights:
                     weights[f] += w

@@ -53,26 +53,30 @@ def contract_on(config: Any) -> bool:
     return generation_contract_on(config)
 
 
-def lo_cell_facet(vault: Any, learning_object_id: str) -> str | None:
-    """The LO's highest-weight facet (summed item weights), ties by facet id."""
+def lo_cell_facet(vault: Any, learning_object_id: str, *, protected: Any) -> str | None:
+    """The LO's highest-weight facet (summed item weights), ties by facet id.
+
+    ``protected``: the held-out predicate (:func:`~learnloop.adaptive_difficulty.protection.protection`).
+    A protected item never steers generation (A8; Codex verify F17's audit): it adds no facet and
+    no weight. With the predicate unavailable it covers every item, so only the LO's authored
+    facets remain, unweighted."""
 
     from learnloop.adaptive_difficulty.relatedness import lo_facets
 
     lo = vault.learning_objects.get(learning_object_id)
     if lo is None:
         return None
-    facets = lo_facets(vault, lo)
+    own = [item for item in vault.practice_items.values()
+           if item.learning_object_id == learning_object_id and not protected.covers(item)]
+    facets = lo_facets(vault, lo, protected=protected)
     if not facets:
         # An LO whose every item is retired still has its items' facets: the cell whose pool is
         # empty, and so has no slot, is exactly the one generation must commission (§6.1).
-        facets = sorted({facet for item in vault.practice_items.values() if item.learning_object_id == learning_object_id
-                         for facet in PR.facet_weights(vault, item)})
+        facets = sorted({facet for item in own for facet in PR.facet_weights(vault, item)})
     if not facets:
         return None
     weight = {facet: 0.0 for facet in facets}
-    for item in vault.practice_items.values():
-        if item.learning_object_id != learning_object_id:
-            continue
+    for item in own:
         for facet, value in PR.facet_weights(vault, item).items():
             if facet in weight:
                 weight[facet] += value
@@ -110,8 +114,10 @@ def commission_point(vault: Any, repository: Any, *, learning_object_id: str, in
         if row is None or row.get("learning_object_id") != learning_object_id or not row.get("chosen_point"):
             return None
         return rung_features(row["chosen_point"]), str(row["cell_capability"]), str(row["id"])
+    from learnloop.adaptive_difficulty.protection import protection
+
     capability = str(getattr(incumbent, "capability", "") or "")
-    facet = lo_cell_facet(vault, learning_object_id)
+    facet = lo_cell_facet(vault, learning_object_id, protected=protection(vault, repository))
     if not capability or facet is None or capability == "coordination":
         return None
     lo = vault.learning_objects.get(learning_object_id)
@@ -196,11 +202,12 @@ def _cells(vault: Any, item: Any) -> list[tuple[str, str]]:
             if weight > 0]
 
 
-def _matches_point(item: Any, row: Mapping[str, Any]) -> bool:
-    """Whether the item's realized features are the commission's requested point (recorded, never
-    a condition of ownership: Codex verify F15, round 6)."""
+def _matches_point(features: Any, row: Mapping[str, Any]) -> bool:
+    """Whether the landing's realized features are the commission's requested point (recorded,
+    never a condition of ownership: Codex verify F15, round 6). ``features`` is the one resolved
+    (audited) mapping the receipt records and the re-forecast reads (Codex verify F18), never the
+    item's stamp."""
 
-    features = getattr(item, "task_features", None)
     point = row.get("chosen_point") or {}
     if not isinstance(features, Mapping):
         return False
@@ -247,17 +254,26 @@ def record_landed_commissions(vault: Any, repository: Any, connection: Any, *, n
     item that landed before any commission of its cells is not a commissioned landing. Reads only;
     content and evidence are untouched."""
 
+    from learnloop.adaptive_difficulty.protection import protection
+
     if not successor_active(vault.config) or not store.has_table(connection, store.COMMISSION_RESULTS):
         return []
     commissions = [row for row in store.commissions_in_draw_order(connection) if row.get("chosen_point")]
     if not commissions:
+        return []
+    # A8 (Codex verify F17): a protected item (held-out material, an exam reservation) is never
+    # read here, before ownership, forecasting or a receipt, so it never closes, supersedes or
+    # receipts a commission. With the predicate unavailable nothing is reconciled (fail closed):
+    # the commissions stay open until a reconciliation that can tell.
+    protected = protection(vault, repository)
+    if protected.material is None:
         return []
     receipted = {str(row["practice_item_id"]) for row in store.commission_results(connection)}
     constants = S.constants_from_config(vault.config)
     written: list[str] = []
     snapshot = None
     for item in sorted(vault.practice_items.values(), key=lambda i: str(i.id)):
-        if str(item.id) in receipted:
+        if str(item.id) in receipted or protected.covers(item):
             continue
         row = landing_owner(vault, item, commissions)
         if row is None:
@@ -274,11 +290,14 @@ def record_landed_commissions(vault: Any, repository: Any, connection: Any, *, n
         p_bar = PR.predict(view, spec, band=constants.band).p_bar
         in_band = constants.overlap[0] <= p_bar <= constants.overlap[1]
         created = str(getattr(item, "created_at", "") or "")
+        # One resolved mapping per landing (Codex verify F18): the forecast read it, the receipt
+        # records it, and ``features_match`` compares it.
+        realized = dict(spec.features or {})
         result = store.insert_commission_result(connection, {
             "selection_id": row["id"], "practice_item_id": str(item.id), "content_hash": content_hash,
-            "features": dict(spec.features or {}), "p_bar": round(p_bar, 12),
+            "features": realized, "p_bar": round(p_bar, 12),
             "status": "in_band" if in_band else "realized_out_of_band", "state_hash": snapshot.state_hash(),
-            "features_match": 1 if _matches_point(item, row) else 0,
+            "features_match": 1 if _matches_point(realized, row) else 0,
             "landed_after_expiry": 1 if store.landed_after_expiry(connection, row, created) else 0,
             "created_at": now,
         })

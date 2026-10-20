@@ -117,13 +117,18 @@ def lo_subject(vault: Any, lo: Any) -> str:
     return str(subjects[0]) if subjects else "default"
 
 
-def lo_facets(vault: Any, lo: Any) -> list[str]:
+def lo_facets(vault: Any, lo: Any, *, protected: Any = None) -> list[str]:
+    """The LO's authored facets, else its active items' facets. ``protected`` (the held-out
+    predicate): a protected item adds no facet (A8; Codex verify F17's audit), so a facet only
+    held-out material names is never quoted to a prompt nor steers generation."""
+
     from learnloop.vault.models import learning_object_facet_union
 
     facets = [vault.canonical_facet_id(str(f)) for f in learning_object_facet_union(lo)]
     if not facets:
         facets = [vault.canonical_facet_id(str(f)) for item in vault.practice_items.values()
                   if item.learning_object_id == lo.id and getattr(item, "status", "active") == "active"
+                  and (protected is None or not protected.covers(item))
                   for f in item.evidence_facets]
     return sorted(dict.fromkeys(facets))
 
@@ -150,7 +155,7 @@ def subject_inputs(vault: Any, repository: Any, subject: str, *, protected: Any 
     facets: dict[str, dict[str, Any]] = {}
     lo_rows = []
     for lo in los:
-        owned = lo_facets(vault, lo)
+        owned = lo_facets(vault, lo, protected=protection)
         for facet_id in owned:
             facet = vault.evidence_facets.get(facet_id)
             facets[facet_id] = {"facet_id": facet_id, "title": _excerpt(getattr(facet, "title", None) or facet_id, 200),
