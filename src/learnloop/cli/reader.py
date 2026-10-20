@@ -18,6 +18,8 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 
 reader_app = typer.Typer(no_args_is_help=True, help="The Reader (RW1a: the workflow funnel report).")
+cues_app = typer.Typer(no_args_is_help=True, help="Margin cues (RW3b): discovered links for a source.")
+reader_app.add_typer(cues_app, name="cues")
 
 _RELATIVE = re.compile(r"^(\d+)([dh])$")
 
@@ -55,6 +57,43 @@ def reader_report(
         report = build_reader_report(path, since=_since(since, now), now=now)
         report["reader_inquiry"] = loaded.config.reader_inquiry.model_dump(mode="json")
         typer.echo(json.dumps(report, sort_keys=True, indent=None if json_output else 2))
+    except (ValueError, OSError, sqlite3.Error) as exc:
+        typer.echo(json.dumps({"status": "invalid", "reason": str(exc)}, sort_keys=True))
+        raise typer.Exit(code=1) from exc
+
+
+@cues_app.command("discover")
+def cues_discover(
+    vault: Annotated[Path, typer.Option("--vault", help="Vault root.")],
+    source: Annotated[str, typer.Option("--source", help="The source (or extraction) to discover cue links for.")],
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="List the targets, their keyword shortlists and a spend plan; call and "
+                                             "write nothing.")
+    ] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Find a source's discovered margin-cue links now (what opening it in the Reader
+    does in the background): the open targets, each one's shortlist and one cue
+    judgment each, under cues.max_calls_per_source_open (every request, a retry
+    included) and cues.max_daily_cost_usd (query embeddings included). Run
+    --dry-run first: it reads keyword matches only, names the targets already
+    settled, and gives the spend plan (route, cost basis, estimated tokens and
+    dollars, caps); it calls nothing."""
+
+    from learnloop.content.sources.source_outline import resolve_extraction_id
+    from learnloop.practice_index.paid import planning_repository
+    from learnloop.source_retrieval.passage_cues import discover
+
+    try:
+        if not (vault / "learnloop.toml").is_file():
+            raise ValueError("--vault must contain learnloop.toml")
+        loaded = load_vault(vault)
+        repository = planning_repository(VaultPaths(loaded.root, loaded.config), dry_run=dry_run)
+        extraction_id = resolve_extraction_id(repository, source)
+        if extraction_id is None:
+            raise ValueError(f"no extraction resolves for {source!r}")
+        result = discover(loaded, repository, extraction_id, dry_run=dry_run)
+        typer.echo(json.dumps(result, sort_keys=True, indent=None if json_output else 2, default=str))
     except (ValueError, OSError, sqlite3.Error) as exc:
         typer.echo(json.dumps({"status": "invalid", "reason": str(exc)}, sort_keys=True))
         raise typer.Exit(code=1) from exc

@@ -1346,3 +1346,10 @@ button { color: inherit; }
   outline: 1px solid var(--border-focus);
   outline-offset: 1px;
 }
+/* Reader workbench RW3b: discovered kinds, as static as RW3a's mark. */
+.ll-reader-cue-mark--application::before {
+  content: "●┆";
+}
+.ll-reader-cue-mark--try-first::before {
+  content: "▹┆";
+}

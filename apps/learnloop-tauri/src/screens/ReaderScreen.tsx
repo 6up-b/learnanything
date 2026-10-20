@@ -536,13 +536,16 @@ export function ReaderScreen({
   // in the contract only while one of them is on.
   askWorkbenchSessionRef.current = readerTutor && wbCtl.active?.session.practiceItemId
     ? wbCtl.active.session.sessionId : null;
+  const tryFirstRef = useRef<((spanId: string) => void) | null>(null);
   const cueCtl = useReaderCues({
     working,
     render, offline, guidePlan, reloadGuidePlan, skimming: mode === "skim", restoredSpanId: progress.restoredSpan,
     surface: cueSurface, pdfBlocks: pdfView?.blocks ?? null, pdfLayout, bodyRef,
     layoutKey: `${render?.renderViewId ?? ""}:${surface}:${guidePlan?.extractionId ?? ""}:${blocks.length}:${railCollapsed ? 1 : 0}`,
     spanOrder, readingSpan, visitPayload, jumpToSpan, notePlacement: progress.notePlacement,
-    onCheckMe: onCheckMe ? checkMeFromCue : undefined, onError,
+    onCheckMe: onCheckMe ? checkMeFromCue : undefined,
+    // RW3b: "try the next step first" is RW1b's next-step question at that line.
+    onTryFirst: activeReadingOn ? (spanId: string) => tryFirstRef.current?.(spanId) : undefined, onError,
   });
   // RW6a: "Last time here" and Wrap up (screens/reader/useReaderRecap). Off
   // (no `recap` key from the sidecar) it asks nothing and renders nothing.
@@ -611,10 +614,12 @@ export function ReaderScreen({
       onOpenEarlier={() => cueCtl.openEarlier(cue)}
       onCheckMe={() => cueCtl.checkMe(cue)}
       onNotRelevant={(text) => cueCtl.notRelevant(cue, text)}
-      onFewer={cueCtl.fewer}
+      onFewer={() => cueCtl.fewerOn(cue)}
       onOffBook={cueCtl.offBook}
       onOffEverywhere={cueCtl.offEverywhere}
-      onSeen={() => cueCtl.noteSeen(cue)}
+      onSeen={(planId) => cueCtl.noteSeen(cue, planId)}
+      planId={cueCtl.planId}
+      {...(cueCtl.canTryFirst ? { onTryFirst: () => cueCtl.tryFirst(cue) } : {})}
     />
   );
   const cueMarksFor = (markSurface: "pdf" | "watch") =>
@@ -2299,6 +2304,8 @@ export function ReaderScreen({
     const last = Math.max(...positions);
     return blocks.slice(last + 1, last + 1 + foldBlocks).flatMap((block) => (block.spanId ? [block.spanId] : []));
   };
+  // RW3b: a try-first cue opens the next-step question at its line (the same act as RW1c's button).
+  tryFirstRef.current = (spanId: string) => void activeCtl.start("next_step", [spanId], localFold([spanId]));
   runIntentRef.current = (action, text, how) => {
     const meta = { intention: action.intention, entry: how.entry };
     const effect = action.effect;
@@ -2939,6 +2946,7 @@ export function ReaderScreen({
                 receipts={cueCtl.receipts}
                 onDensity={cueCtl.setDensity}
                 onTurnOnBook={cueCtl.turnOnBook}
+                discovered={cueCtl.discovered}
               />
             ) : null}
           />

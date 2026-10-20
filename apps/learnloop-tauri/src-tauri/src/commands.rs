@@ -1328,6 +1328,11 @@ sidecar_passthrough!(reader_log_activity, "reader.log_activity");
 sidecar_passthrough!(reader_cue_action, "reader.cue_action");
 sidecar_passthrough!(reader_cue_preferences, "reader.cue_preferences");
 sidecar_passthrough!(reader_set_cue_preferences, "reader.set_cue_preferences");
+// reader.* (reader workbench RW3b: discovered cues): desktop only.
+sidecar_passthrough!(reader_cue_discovery, "reader.cue_discovery");
+sidecar_passthrough!(reader_cue_discovery_job, "reader.cue_discovery_job");
+sidecar_passthrough!(reader_cue_impressions, "reader.cue_impressions");
+sidecar_passthrough!(reader_cue_tap, "reader.cue_tap");
 // Reader workbench RW2a (the resumable scratchpad): desktop only.
 sidecar_passthrough!(workbench_open, "workbench.open");
 sidecar_passthrough!(workbench_get, "workbench.get");

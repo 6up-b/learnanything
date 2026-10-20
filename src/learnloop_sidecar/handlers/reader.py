@@ -611,7 +611,18 @@ def reader_guide_plan(ctx: SidecarContext, params: ReaderGuidePlanInput) -> dict
     # Reader workbench RW3a: the plan's own misunderstanding passages as margin
     # cues, within the learner's choices. Switched off, the plan is unchanged.
     if RCU.cues_enabled(vault):
-        plan["cues"] = RCU.guide_cues(vault, repository, extraction_id=resolved, plan=plan)
+        from learnloop.source_retrieval import passage_cues as PC
+
+        if PC.discovery_enabled(vault):
+            # Reader workbench RW3b: the discovered cues merged with the
+            # Guide's (value order, holdout, budget); kept for the taps and
+            # impressions of this reading. Off, the cues are RW3a's.
+            from learnloop_sidecar.handlers.reader_cue_discovery import remember
+
+            plan["cues"] = PC.merged_cues(vault, repository, extraction_id=resolved, plan=plan)
+            remember(ctx, resolved, plan["cues"], vault=vault, repository=repository)
+        else:
+            plan["cues"] = RCU.guide_cues(vault, repository, extraction_id=resolved, plan=plan)
     return versioned(plan)
 
 

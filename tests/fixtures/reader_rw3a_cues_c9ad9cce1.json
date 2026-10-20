@@ -1,0 +1,380 @@
+{
+ "fewer": {
+  "cues": {
+   "budgetPerSection": 1,
+   "density": "fewer",
+   "marks": [
+    {
+     "because": "Because: your answer on 19 May · from the Guide's citations",
+     "cueId": "cue_82e14fe0b768b6b7e6086673",
+     "earlier": {
+      "answer": null,
+      "answeredAt": "2026-05-19T12:00:00Z",
+      "answeredOn": "19 May",
+      "attemptId": null,
+      "practiceItemId": null,
+      "prompt": null,
+      "statement": "SVD is the same as eigendecomposition",
+      "statementPending": false
+     },
+     "kind": "revisit",
+     "label": "Note on this paragraph: Connects to something you worked on: SVD definition. Because: your answer on 19 May · from the Guide's citations",
+     "learningObjectId": "lo_svd_definition",
+     "learningObjectTitle": "SVD definition",
+     "note": "Connects to something you worked on: SVD definition.",
+     "rank": 0,
+     "sectionId": "u1",
+     "sectionRank": 0,
+     "spanId": "s1",
+     "targetId": "err-svd"
+    },
+    {
+     "because": "Because: your answer on 19 May · from the Guide's citations",
+     "cueId": "cue_089fb17e1f984e06dab2de6d",
+     "earlier": {
+      "answer": null,
+      "answeredAt": "2026-05-19T12:00:00Z",
+      "answeredOn": "19 May",
+      "attemptId": null,
+      "practiceItemId": null,
+      "prompt": null,
+      "statement": "SVD is the same as eigendecomposition",
+      "statementPending": false
+     },
+     "kind": "revisit",
+     "label": "Note on this paragraph: Connects to something you worked on: SVD definition. Because: your answer on 19 May · from the Guide's citations",
+     "learningObjectId": "lo_svd_definition",
+     "learningObjectTitle": "SVD definition",
+     "note": "Connects to something you worked on: SVD definition.",
+     "rank": 1,
+     "sectionId": "u2",
+     "sectionRank": 0,
+     "spanId": "s5",
+     "targetId": "err-svd"
+    }
+   ],
+   "onePerViewport": true,
+   "sourceOff": false,
+   "version": "rw3a-guide-cues-v1",
+   "withheld": {
+    "density": 2,
+    "heldOut": 0,
+    "notRelevant": 0,
+    "sourceOff": 0
+   }
+  },
+  "opened": {
+   "action": "opened",
+   "check": null,
+   "cueId": "cue_82e14fe0b768b6b7e6086673",
+   "ledgerId": "cue_v_35d8f814756b7360b9945e620831314a",
+   "verdict": "same",
+   "version": 1
+  },
+  "plan_keys": [
+   "cues",
+   "extractionId",
+   "goalContext",
+   "pendingDiagnosisAttemptIds",
+   "personalized",
+   "sections",
+   "selectionBasis",
+   "sourceId",
+   "version"
+  ],
+  "preferences": {
+   "budgetPerSection": 1,
+   "density": "fewer",
+   "enabled": true,
+   "offSourceCount": 0,
+   "onePerViewport": true,
+   "sourceOff": false,
+   "version": 1
+  }
+ },
+ "more": {
+  "cues": {
+   "budgetPerSection": 4,
+   "density": "more",
+   "marks": [
+    {
+     "because": "Because: your answer on 19 May · from the Guide's citations",
+     "cueId": "cue_82e14fe0b768b6b7e6086673",
+     "earlier": {
+      "answer": null,
+      "answeredAt": "2026-05-19T12:00:00Z",
+      "answeredOn": "19 May",
+      "attemptId": null,
+      "practiceItemId": null,
+      "prompt": null,
+      "statement": "SVD is the same as eigendecomposition",
+      "statementPending": false
+     },
+     "kind": "revisit",
+     "label": "Note on this paragraph: Connects to something you worked on: SVD definition. Because: your answer on 19 May · from the Guide's citations",
+     "learningObjectId": "lo_svd_definition",
+     "learningObjectTitle": "SVD definition",
+     "note": "Connects to something you worked on: SVD definition.",
+     "rank": 0,
+     "sectionId": "u1",
+     "sectionRank": 0,
+     "spanId": "s1",
+     "targetId": "err-svd"
+    },
+    {
+     "because": "Because: your answer on 19 May · from the Guide's citations",
+     "cueId": "cue_089fb17e1f984e06dab2de6d",
+     "earlier": {
+      "answer": null,
+      "answeredAt": "2026-05-19T12:00:00Z",
+      "answeredOn": "19 May",
+      "attemptId": null,
+      "practiceItemId": null,
+      "prompt": null,
+      "statement": "SVD is the same as eigendecomposition",
+      "statementPending": false
+     },
+     "kind": "revisit",
+     "label": "Note on this paragraph: Connects to something you worked on: SVD definition. Because: your answer on 19 May · from the Guide's citations",
+     "learningObjectId": "lo_svd_definition",
+     "learningObjectTitle": "SVD definition",
+     "note": "Connects to something you worked on: SVD definition.",
+     "rank": 1,
+     "sectionId": "u2",
+     "sectionRank": 0,
+     "spanId": "s5",
+     "targetId": "err-svd"
+    },
+    {
+     "because": "Because: your answer on 19 May · from the Guide's citations",
+     "cueId": "cue_e136822b1602699123f6b4a9",
+     "earlier": {
+      "answer": null,
+      "answeredAt": "2026-05-19T12:00:00Z",
+      "answeredOn": "19 May",
+      "attemptId": null,
+      "practiceItemId": null,
+      "prompt": null,
+      "statement": "SVD is the same as eigendecomposition",
+      "statementPending": false
+     },
+     "kind": "revisit",
+     "label": "Note on this paragraph: Connects to something you worked on: SVD definition. Because: your answer on 19 May · from the Guide's citations",
+     "learningObjectId": "lo_svd_definition",
+     "learningObjectTitle": "SVD definition",
+     "note": "Connects to something you worked on: SVD definition.",
+     "rank": 2,
+     "sectionId": "u1",
+     "sectionRank": 1,
+     "spanId": "s2",
+     "targetId": "err-svd"
+    },
+    {
+     "because": "Because: your answer on 19 May · from the Guide's citations",
+     "cueId": "cue_77d7f6da4a26a61127546ec8",
+     "earlier": {
+      "answer": null,
+      "answeredAt": "2026-05-19T12:00:00Z",
+      "answeredOn": "19 May",
+      "attemptId": null,
+      "practiceItemId": null,
+      "prompt": null,
+      "statement": "SVD is the same as eigendecomposition",
+      "statementPending": false
+     },
+     "kind": "revisit",
+     "label": "Note on this paragraph: Connects to something you worked on: SVD definition. Because: your answer on 19 May · from the Guide's citations",
+     "learningObjectId": "lo_svd_definition",
+     "learningObjectTitle": "SVD definition",
+     "note": "Connects to something you worked on: SVD definition.",
+     "rank": 3,
+     "sectionId": "u1",
+     "sectionRank": 2,
+     "spanId": "s3",
+     "targetId": "err-svd"
+    }
+   ],
+   "onePerViewport": true,
+   "sourceOff": false,
+   "version": "rw3a-guide-cues-v1",
+   "withheld": {
+    "density": 0,
+    "heldOut": 0,
+    "notRelevant": 0,
+    "sourceOff": 0
+   }
+  },
+  "opened": {
+   "action": "opened",
+   "check": null,
+   "cueId": "cue_82e14fe0b768b6b7e6086673",
+   "ledgerId": "cue_v_35d8f814756b7360b9945e620831314a",
+   "verdict": "same",
+   "version": 1
+  },
+  "plan_keys": [
+   "cues",
+   "extractionId",
+   "goalContext",
+   "pendingDiagnosisAttemptIds",
+   "personalized",
+   "sections",
+   "selectionBasis",
+   "sourceId",
+   "version"
+  ],
+  "preferences": {
+   "budgetPerSection": 4,
+   "density": "more",
+   "enabled": true,
+   "offSourceCount": 0,
+   "onePerViewport": true,
+   "sourceOff": false,
+   "version": 1
+  }
+ },
+ "normal": {
+  "cues": {
+   "budgetPerSection": 2,
+   "density": "normal",
+   "marks": [
+    {
+     "because": "Because: your answer on 19 May · from the Guide's citations",
+     "cueId": "cue_82e14fe0b768b6b7e6086673",
+     "earlier": {
+      "answer": null,
+      "answeredAt": "2026-05-19T12:00:00Z",
+      "answeredOn": "19 May",
+      "attemptId": null,
+      "practiceItemId": null,
+      "prompt": null,
+      "statement": "SVD is the same as eigendecomposition",
+      "statementPending": false
+     },
+     "kind": "revisit",
+     "label": "Note on this paragraph: Connects to something you worked on: SVD definition. Because: your answer on 19 May · from the Guide's citations",
+     "learningObjectId": "lo_svd_definition",
+     "learningObjectTitle": "SVD definition",
+     "note": "Connects to something you worked on: SVD definition.",
+     "rank": 0,
+     "sectionId": "u1",
+     "sectionRank": 0,
+     "spanId": "s1",
+     "targetId": "err-svd"
+    },
+    {
+     "because": "Because: your answer on 19 May · from the Guide's citations",
+     "cueId": "cue_089fb17e1f984e06dab2de6d",
+     "earlier": {
+      "answer": null,
+      "answeredAt": "2026-05-19T12:00:00Z",
+      "answeredOn": "19 May",
+      "attemptId": null,
+      "practiceItemId": null,
+      "prompt": null,
+      "statement": "SVD is the same as eigendecomposition",
+      "statementPending": false
+     },
+     "kind": "revisit",
+     "label": "Note on this paragraph: Connects to something you worked on: SVD definition. Because: your answer on 19 May · from the Guide's citations",
+     "learningObjectId": "lo_svd_definition",
+     "learningObjectTitle": "SVD definition",
+     "note": "Connects to something you worked on: SVD definition.",
+     "rank": 1,
+     "sectionId": "u2",
+     "sectionRank": 0,
+     "spanId": "s5",
+     "targetId": "err-svd"
+    },
+    {
+     "because": "Because: your answer on 19 May · from the Guide's citations",
+     "cueId": "cue_e136822b1602699123f6b4a9",
+     "earlier": {
+      "answer": null,
+      "answeredAt": "2026-05-19T12:00:00Z",
+      "answeredOn": "19 May",
+      "attemptId": null,
+      "practiceItemId": null,
+      "prompt": null,
+      "statement": "SVD is the same as eigendecomposition",
+      "statementPending": false
+     },
+     "kind": "revisit",
+     "label": "Note on this paragraph: Connects to something you worked on: SVD definition. Because: your answer on 19 May · from the Guide's citations",
+     "learningObjectId": "lo_svd_definition",
+     "learningObjectTitle": "SVD definition",
+     "note": "Connects to something you worked on: SVD definition.",
+     "rank": 2,
+     "sectionId": "u1",
+     "sectionRank": 1,
+     "spanId": "s2",
+     "targetId": "err-svd"
+    }
+   ],
+   "onePerViewport": true,
+   "sourceOff": false,
+   "version": "rw3a-guide-cues-v1",
+   "withheld": {
+    "density": 1,
+    "heldOut": 0,
+    "notRelevant": 0,
+    "sourceOff": 0
+   }
+  },
+  "opened": {
+   "action": "opened",
+   "check": null,
+   "cueId": "cue_82e14fe0b768b6b7e6086673",
+   "ledgerId": "cue_v_35d8f814756b7360b9945e620831314a",
+   "verdict": "same",
+   "version": 1
+  },
+  "plan_keys": [
+   "cues",
+   "extractionId",
+   "goalContext",
+   "pendingDiagnosisAttemptIds",
+   "personalized",
+   "sections",
+   "selectionBasis",
+   "sourceId",
+   "version"
+  ],
+  "preferences": {
+   "budgetPerSection": 2,
+   "density": "normal",
+   "enabled": true,
+   "offSourceCount": 0,
+   "onePerViewport": true,
+   "sourceOff": false,
+   "version": 1
+  }
+ },
+ "off": {
+  "cues": {
+   "budgetPerSection": 0,
+   "density": "off",
+   "marks": [],
+   "onePerViewport": true,
+   "sourceOff": false,
+   "version": "rw3a-guide-cues-v1",
+   "withheld": {
+    "density": 4,
+    "heldOut": 0,
+    "notRelevant": 0,
+    "sourceOff": 0
+   }
+  },
+  "plan_keys": [
+   "cues",
+   "extractionId",
+   "goalContext",
+   "pendingDiagnosisAttemptIds",
+   "personalized",
+   "sections",
+   "selectionBasis",
+   "sourceId",
+   "version"
+  ]
+ }
+}

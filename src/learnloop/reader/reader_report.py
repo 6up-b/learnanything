@@ -88,6 +88,143 @@ def _when(value: str | None) -> datetime | None:
         return None
 
 
+#: An arm with fewer distinct outcomes than this gets counts, never an estimate.
+HOLDOUT_MIN_PER_ARM = 2
+
+
+def _holdout_estimate(units: list[dict[str, Any]]) -> dict[str, Any]:
+    """Shown vs held-out discovered cues (Codex review F11).
+
+    The experimental unit is the **randomized link**: the holdout draws once
+    per link, so a link's repeated impressions (visits) are one unit, exposed
+    at its first in-window impression in its arm, weighted 1/propensity. Its
+    outcome is the next attempt after that exposure on the target's facets
+    (its learning object when the target names none), kept with its attempt
+    id. Links whose outcome is the same attempt are one cluster: the mean is
+    self-normalized IPS over the links, the variance is computed over the
+    clusters (each cluster's summed weight), and an arm needs
+    ``HOLDOUT_MIN_PER_ARM`` distinct outcome attempts before it gets an
+    estimate, so a repeated outcome never makes a sample. When an outcome
+    attempt counts in both arms the arms are not independent, and the interval
+    (which adds the arms' variances) is withheld with a plain reason: the
+    effect is then a point estimate only (Codex verify F19). Density, spacing
+    and restored-line suppressions never reach here (not a holdout)."""
+
+    arms: dict[str, dict[str, Any]] = {"shown": {}, "held_out": {}}
+    links = {"shown": 0, "held_out": 0}
+    pending = {"shown": 0, "held_out": 0}
+    for index, unit in enumerate(units):
+        arm = "shown" if unit["shown"] else "held_out"
+        if not unit.get("propensity"):
+            continue
+        if unit.get("outcome") is None:
+            pending[arm] += 1
+            continue
+        links[arm] += 1
+        key = unit.get("outcome_attempt_id") or f"unit:{index}"
+        cluster = arms[arm].setdefault(key, {"weight": 0.0, "y": float(unit["outcome"])})
+        cluster["weight"] += 1.0 / float(unit["propensity"])
+
+    def arm_summary(clusters: dict[str, dict[str, Any]]) -> dict[str, Any]:
+        if not clusters:
+            return {"n": 0, "mean": None}
+        total = sum(c["weight"] for c in clusters.values())
+        mean = sum(c["y"] * c["weight"] for c in clusters.values()) / total
+        variance = sum((c["weight"] / total) ** 2 * (c["y"] - mean) ** 2 for c in clusters.values())
+        return {"n": len(clusters), "mean": round(mean, 4), "variance": variance}
+
+    shown, held = arm_summary(arms["shown"]), arm_summary(arms["held_out"])
+    shared = [key for key in arms["shown"] if key in arms["held_out"] and not key.startswith("unit:")]
+    out: dict[str, Any] = {
+        "shown": {"n": shown["n"], "links": links["shown"], "pending": pending["shown"], "mean": shown["mean"]},
+        "held_out": {"n": held["n"], "links": links["held_out"], "pending": pending["held_out"], "mean": held["mean"]},
+        "effect": None, "interval_95": None, "weighting": "1/propensity (self-normalized)",
+        "unit": "randomized link at its first exposure; links sharing an outcome attempt are one cluster",
+        "outcome": "the next attempt on the target's facets (else its learning object) after the first exposure",
+        "shared_outcomes": len(shared), "effect_label": None, "interval_withheld": None,
+    }
+    if shown["n"] >= HOLDOUT_MIN_PER_ARM and held["n"] >= HOLDOUT_MIN_PER_ARM:
+        effect = shown["mean"] - held["mean"]
+        out["effect"] = round(effect, 4)
+        if shared:
+            # The arms' variances add only for independent arms; an attempt
+            # counted in both makes them covary, and this analysis has no
+            # covariance term (Codex verify F19). So no interval is given
+            # rather than a wrong one, and the effect is named for what it is.
+            out["effect_label"] = "point estimate only"
+            out["interval_withheld"] = (
+                f"{len(shared)} outcome attempt{'s' if len(shared) != 1 else ''} counted in both arms: "
+                "LearnLoop can't separate the arms yet, so no interval is given and the effect is a point "
+                "estimate only.")
+        else:
+            half = 1.96 * math.sqrt(shown["variance"] + held["variance"])
+            out["effect_label"] = "point estimate with a 95% interval"
+            out["interval_95"] = [round(effect - half, 4), round(effect + half, 4)]
+    return out
+
+
+def _json_set(raw: Any) -> set[str]:
+    try:
+        values = json.loads(raw) if isinstance(raw, str) else (raw or [])
+    except ValueError:
+        return set()
+    return {str(value) for value in values or [] if value}
+
+
+def _holdout_units(connection: Any, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One unit per (link, arm) from the shown and held-out impressions: its
+    first exposure, its propensity, and the next attempt on its target."""
+
+    units: dict[tuple[str, bool], dict[str, Any]] = {}
+    for row in sorted(rows, key=lambda row: (str(row["created_at"]), str(row["id"]))):
+        units.setdefault((str(row["link_id"]), bool(row["shown"])), row)
+    if not units:
+        return []
+    attempts = [dict(row) for row in connection.execute(
+        "SELECT id, learning_object_id, created_at, correctness, evidence_facets_json FROM practice_attempts "
+        "WHERE correctness IS NOT NULL ORDER BY created_at, id")]
+    out: list[dict[str, Any]] = []
+    for (_link_id, shown), row in units.items():
+        facets = _json_set(row.get("target_facets_json"))
+        outcome = next((attempt for attempt in attempts if str(attempt["created_at"]) > str(row["created_at"]) and (
+            facets & _json_set(attempt.get("evidence_facets_json")) if facets
+            else attempt["learning_object_id"] == row["learning_object_id"])), None)
+        out.append({"link_id": row["link_id"], "shown": shown, "propensity": row["propensity"],
+                    "outcome": None if outcome is None else outcome["correctness"],
+                    "outcome_attempt_id": None if outcome is None else str(outcome["id"])})
+    return out
+
+
+def _discovered_cues(connection: Any, in_window: Any) -> dict[str, Any] | None:
+    """RW3b's impressions (``reader_cue_impressions``): reasons, kinds,
+    responses against marks shown, the share of new-application marks, and the
+    holdout's estimate. None when there are none (the report is as before)."""
+
+    if connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='reader_cue_impressions'").fetchone() is None:
+        return None
+    rows = [dict(row) for row in connection.execute(
+        "SELECT i.*, l.target_facets_json FROM reader_cue_impressions i "
+        "LEFT JOIN passage_links l ON l.id = i.link_id ORDER BY i.created_at, i.id")
+        if in_window(row["created_at"])]
+    if not rows:
+        return None
+    shown = [row for row in rows if row["shown"]]
+    discovered = [row for row in rows if row["link_id"]]
+    marks = Counter(row["kind"] for row in shown)
+    return {
+        "impressions": len(rows),
+        "shown": len(shown),
+        "not_shown": dict(Counter(str(row["suppressed_reason"]) for row in rows if not row["shown"])),
+        "shown_by_kind": dict(marks),
+        "new_application_share": _share(marks.get("application", 0), len(shown)),
+        "responses": {response: _share(sum(1 for row in shown if row["response"] == response), len(shown))
+                      for response in ("opened", "check_me", "try_first", "not_relevant", "fewer")},
+        "holdout": _holdout_estimate(_holdout_units(connection, [
+            row for row in discovered if row["shown"] or row["suppressed_reason"] == "holdout"])),
+    }
+
+
 def build_reader_report(
     sqlite_path: Path | str,
     *,
@@ -125,6 +262,8 @@ def build_reader_report(
             str(row["id"]): str(row["resolution"] or "open")
             for row in connection.execute("SELECT id, resolution FROM question_events WHERE context = 'reader'")
         }
+        # Reader workbench RW3b: the impressions table (absent: as before).
+        discovered_cues = _discovered_cues(connection, in_window)
         has_scopes = any(
             row[1] == "scope_kind"
             for row in connection.execute("PRAGMA table_info(reader_authored_questions)")
@@ -388,6 +527,7 @@ def build_reader_report(
             )),
             "books_switched_off": len(actions("cue_source_off")),
             "books_switched_on": len(actions("cue_source_on")),
+            **({"discovered": discovered_cues} if discovered_cues is not None else {}),
         },
         "waiting": _share(waited_with_activity, len(completions)),
         "visits": {

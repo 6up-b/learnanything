@@ -406,6 +406,53 @@ it("a mark counts once per visit when it comes into view, never because it was p
   }
 });
 
+it("discovery off: a sighting the webview buffered before the mark unmounted still counts, as in RW3a (F23)", async () => {
+  // Codex verify F23: with discovery off the mark's observer is RW3a's, so a
+  // visible entry delivered after skim unmounted the mark still records
+  // cue_shown, exactly as before RW3b.
+  const observers: Array<{ callback: IntersectionObserverCallback; nodes: Element[] }> = [];
+  vi.stubGlobal("IntersectionObserver", class {
+    private entry: { callback: IntersectionObserverCallback; nodes: Element[] };
+    constructor(callback: IntersectionObserverCallback) {
+      this.entry = { callback, nodes: [] };
+      observers.push(this.entry);
+    }
+    // The nodes stay recorded after a disconnect: the browser's buffer.
+    observe(node: Element) { this.entry.nodes.push(node); }
+    unobserve() {}
+    disconnect() {}
+  });
+  try {
+    TOPS.b4 = 900;
+    const { unmount } = openReader();
+    await findMark("b1");
+    const node = markFor("b1")!;
+    const buffered = observers.filter((observer) => observer.nodes.includes(node));
+    expect(buffered.length).toBeGreaterThan(0);
+    // Skim unmounts the marks before the buffered entry is delivered.
+    const [modeSelect] = screen.getAllByRole("combobox");
+    fireEvent.keyDown(modeSelect, { key: "Enter" });
+    fireEvent.mouseDown(await screen.findByRole("option", { name: "skim quickly" }));
+    await waitFor(() => expect(markFor("b1")).toBeNull());
+    act(() => {
+      for (const observer of buffered) {
+        observer.callback(
+          [{ isIntersecting: true, intersectionRatio: 1, target: node } as unknown as IntersectionObserverEntry],
+          {} as IntersectionObserver,
+        );
+      }
+    });
+    unmount();
+    flushReaderActivity();
+    const shown = api.readerLogActivity.mock.calls
+      .flatMap((call) => call[0].events as Array<{ event?: string; payload: Record<string, unknown> }>)
+      .filter((event) => event.event === "cue_shown");
+    expect(shown.map((event) => event.payload.cue_id)).toEqual(["cue_b1"]);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
 it("a mark the learner never scrolled to is never counted shown", async () => {
   vi.stubGlobal("IntersectionObserver", class {
     observe() {}

@@ -323,6 +323,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("parameter_registry", TableRole.RAW_LEDGER),
     ("parameter_registry_manifests", TableRole.RECEIPT),
     ("parameter_sensitivity_certificates", TableRole.RECEIPT),
+    # Reader workbench RW3b (migration 215): the cue judge's picks per target
+    # state and passage (paid outputs, never re-run on rebuild; replay never
+    # reads them; append-only by trigger).
+    ("passage_links", TableRole.WORKFLOW),
     ("persona_realism_runs", TableRole.RECEIPT),
     # PF-b generated candidates: pipeline state only; verdicts are ledgered.
     ("pf_candidates", TableRole.WORKFLOW),
@@ -380,6 +384,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("reader_authored_questions", TableRole.WORKFLOW),
     ("reader_background_requests", TableRole.WORKFLOW),
     ("reader_capture_outbox", TableRole.WORKFLOW),
+    # Reader workbench RW3b (migration 215): one row per (visit, cue) the Reader
+    # could show, shown or withheld with its reason, the holdout's seed and
+    # propensity, and the first response (written once); replay never reads it.
+    ("reader_cue_impressions", TableRole.RECEIPT),
     ("reader_section_progress", TableRole.WORKFLOW),
     # What an escalated repair showed (Slice 2 T1 §3.7); append-only.
     ("recurrence_escalations", TableRole.RECEIPT),

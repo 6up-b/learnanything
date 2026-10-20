@@ -32,6 +32,7 @@ JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("ad_forecast_decider", "decider", "adaptive_difficulty"),
     ("ad_feature_audit", "llm", "ad_feature_audit"),
     ("workbench_check", "llm", "workbench_check"),
+    ("passage_cue_judge", "llm", "cues"),
 )
 
 _WHEN = {
@@ -136,6 +137,16 @@ _WHEN = {
         "While workbench.help_enabled is on, each time you press \"Check my work\" in the workbench: the "
         "problem, its reference solution and rubric, your steps, and the question's approach map when it has "
         "one, so LearnLoop's model can say which steps hold. Never sent to Codex. It never grades you."
+    ),
+    "cues": (
+        "While cues.enabled and cues.discovery_enabled are on, in the background when you open a book in the "
+        "Reader: for each of your open questions on what the book teaches (a misunderstanding LearnLoop's "
+        "model named from your answers, an open explanation it is weighing, a gap named from your own words) "
+        "and for each skill you have shown, its statement and passages from that book, so LearnLoop's model "
+        "can say which passages connect to it and quote what they rely on. At most "
+        "cues.max_calls_per_source_open calls per open and cues.max_calls_per_source_per_day per book in any 24 hours; "
+        "never material held out for an exam, never a "
+        "solution. Display only: it never grades you."
     ),
 }
 
