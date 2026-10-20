@@ -3,8 +3,8 @@ title: "library_asks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "eaafb6f458ed503e73778dc39467bac43e2441ec"
-source_commit_timestamp: "2026-10-20T16:55:47-04:00"
+source_commit: "79a6f7e122e31045faf5694b40df9c887ab727a8"
+source_commit_timestamp: "2026-10-20T17:13:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite library_asks"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/209_library_asks.sql"
   - "src/learnloop/db/stores/library_asks.py"
   - "src/learnloop/reader/reader_report.py"
+  - "src/learnloop/reader/source_objects.py"
   - "src/learnloop/source_retrieval/kept_comparisons.py"
   - "src/learnloop/source_retrieval/library_ask.py"
 tags:
