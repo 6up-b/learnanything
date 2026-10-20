@@ -535,3 +535,77 @@ the old tree only because that run's fresh draw happened to request the old poin
 | `--durable-sqlite`: `test_ad23_fix_r6.py`, `test_ad23_fix_r5.py`, `test_ad23_migration.py`, `test_tracked_fixture_databases.py` | 16 passed |
 | references: `db_generate_reference.py`, `db_validate_reference.py` | 0 errors |
 | defaults snapshots, CLI help, vitest, `cargo check` | unchanged or not applicable (no config, command, frontend or `src-tauri` change) |
+
+## Fix round 7: the round-6 verify's F17 and F18 (2026-10-19)
+
+Codex's verify of round 6 (codex-job `20261019-212940-fdjMvO`, verdict REOPENED) confirmed F15 and
+F16, migration 214 and the replayers. It raised F17 (High) and F18 (Medium). The orchestrator accepted
+round 6's origin-independent cell landings (§7.4) as the definition. This round fixes both findings
+under rulings R1 and R2, in commit `915228c37`, with no migration change. The regressions are in
+`tests/test_ad23_fix_r7.py`. No model calls: fakes only.
+
+| Id | Severity | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F15, F16 | Medium | (confirmed fixed by the verify) | fixed | `ca191d538` | their round-6 tests still pass |
+| F17 | High | Held-out items enter commission forecasts and close commissions | fixed (R1) | `915228c37` | `test_a_protected_landing_never_closes_forecasts_or_receipts_a_commission`, `test_with_the_predicate_unavailable_nothing_is_reconciled`, `test_a_protected_item_never_steers_the_commissioned_cell_or_readiness` |
+| F18 | Medium | `features_match` compares stamped features instead of the recorded audited features | fixed (R2) | `915228c37` | `test_features_match_reads_the_audited_features_the_receipt_records` (both directions) |
+
+### What changed
+
+- **F17 (R1), reconciliation.** `record_landed_commissions` computes
+  `protection(vault, repository)` once per reconciliation. It skips every item that
+  `protected.covers(item)` reports, before ownership resolution, forecasting or a receipt.
+  - A protected landing never closes, supersedes or receipts a commission.
+  - If the predicate is unavailable (`material is None`), reconciliation reads nothing, writes nothing
+    and leaves the commissions open until a reconciliation that can tell.
+  - The verify's case (an exam reservation stands for the protection): A stays open, there is no
+    receipt, and `current_spec` is never asked about the protected item. With the predicate
+    unavailable, even an unprotected landing waits; once the predicate is readable again it gets its
+    receipt.
+- **F17 (R1), the audit of the other AD paths that scan items.**
+  - **Generation targeting.** `generation.lo_cell_facet` now takes `protected` and reads only
+    unprotected items for the LO's facets and weights. Its callers pass a fresh predicate: the
+    commission draw in `commission_point`, and the dose arm's forecast covariate. With the predicate
+    unavailable, only the LO's authored facets remain, unweighted.
+  - **The relatedness proposal's prompt.** `relatedness.lo_facets` takes `protected`. Its fallback
+    (an LO with no authored facets) no longer takes facets from protected items, so a facet that
+    only held-out material names is never quoted to the proposal. `subject_inputs` passes its
+    predicate; it already dropped protected stems.
+  - **Readiness and the router card.** `readiness._cells` and `card_fields` read only unprotected
+    items for the LO's cells and facet weights.
+  - **The report's field comparators.** `arms._field_arms` now applies the replay's own held-out rule
+    (`held_out_items`, failing closed: no row observed when it is unreadable), so no attempt on
+    held-out material updates `mastery_ekf` or `lo_general`. Before, they observed every field row.
+  - **Checked and unchanged.**
+    - The AD replay and rebuild already exclude attempts on held-out material and fail closed.
+    - The feature audit, the outside forecasters, the backfill and the serve receipts already ask the
+      predicate.
+    - `data_check` only counts items and attempts for the owner's data report; it feeds no AD input.
+    - `relatedness.facet_maps` (the replay structure's facet map) reads authored LO facets first and
+      has no repository. Its item fallback is unchanged.
+- **F18 (R2).** Reconciliation resolves one mapping per landing: `spec.features`, the audited
+  features where an audit exists, else the stamp. That same mapping is the receipt's
+  `features_json`, the re-forecast's input and the input of `_matches_point`, which now takes it
+  instead of the item. Tests:
+  - stamped on the requested point but audited off it: `features_match = 0`, the receipt records the
+    audited value, and the report's `off_point` is 1;
+  - the inverse: `features_match = 1`, `off_point` 0.
+- **The spec** (§7.4's record) states both rules and the audited paths.
+
+**Fail-before.** `git archive 6a626617e src migrations` into `fixtures-local/ad23-r7-base`, run with
+`-o pythonpath=fixtures-local/ad23-r7-base/src`: **5 of 5 fail**.
+- The protected case: a receipt was written to A.
+- The unavailable predicate: a receipt was written anyway.
+- The targeting test: `lo_cell_facet` had no `protected` (the old tree counted every item).
+- Both F18 directions: the flag was inverted (`1 == 0`, `0 == 1`).
+
+### Gate (this round; owner rule 2026-10-17: targeted only)
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 27 kept, 0 broken |
+| `test_ad23_fix_r7.py` alone | 5 passed |
+| targeted pytest, `uv run pytest -n auto` over 101 files (round 6's 97, `test_ad23_fix_r7.py` and the relatedness, readiness and router-card files) | **7,140 passed, 36 xfailed** (858 s); the 36 are the failed simulation gates' strict xfails, unchanged |
+| `--durable-sqlite`: `test_ad23_fix_r7.py`, `test_ad23_fix_r6.py`, `test_ad23_fix_r5.py` | 15 passed |
+| references: `db_generate_reference.py`, `db_validate_reference.py` | 0 errors (commit labels; no schema change) |
+| migration 214, head fixture, defaults snapshots, CLI help, vitest, `cargo check` | unchanged or not applicable |
