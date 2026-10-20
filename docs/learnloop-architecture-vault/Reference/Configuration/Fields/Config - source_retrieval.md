@@ -3,8 +3,8 @@ title: "Config - source_retrieval"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3c1a83c5877744086145ee768a0454ff38c237f9"
-source_commit_timestamp: "2026-10-19T03:01:56-04:00"
+source_commit: "da3def4dddf309590d332c5a1e8bc33e70435204"
+source_commit_timestamp: "2026-10-19T20:55:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml source_retrieval"
@@ -39,9 +39,9 @@ source_paths:
   - "tests/source_service_fakes.py"
   - "tests/split_live_helpers.py"
   - "tests/test_ad1_codex_review_fixes.py"
+  - "tests/test_ad23_fix_r5.py"
   - "tests/test_ad23_fix_review.py"
   - "tests/test_ad23_owner_decisions.py"
-  - "tests/test_ad23_successor.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/source-retrieval"
@@ -98,9 +98,9 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/source_service_fakes.py`
 - `tests/split_live_helpers.py`
 - `tests/test_ad1_codex_review_fixes.py`
+- `tests/test_ad23_fix_r5.py`
 - `tests/test_ad23_fix_review.py`
 - `tests/test_ad23_owner_decisions.py`
-- `tests/test_ad23_successor.py`
 
 ## Extension and modification guidance
 

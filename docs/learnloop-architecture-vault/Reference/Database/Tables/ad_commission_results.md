@@ -3,8 +3,8 @@ title: "ad_commission_results"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3c1a83c5877744086145ee768a0454ff38c237f9"
-source_commit_timestamp: "2026-10-19T03:01:56-04:00"
+source_commit: "da3def4dddf309590d332c5a1e8bc33e70435204"
+source_commit_timestamp: "2026-10-19T20:55:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ad_commission_results"
@@ -64,6 +64,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `p_bar` | `REAL` | yes | — | — | Stored value |
 | `status` | `TEXT` | yes | — | — | Stored value |
 | `state_hash` | `TEXT` | yes | — | — | Stored value |
+| `landed_after_expiry` | `INTEGER` | yes | `0` | — | Stored value |
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
 
 ## Relationships and access paths
@@ -133,6 +134,9 @@ CREATE TABLE ad_commission_results (
   p_bar REAL NOT NULL,
   status TEXT NOT NULL CHECK (status IN ('in_band', 'realized_out_of_band')),
   state_hash TEXT NOT NULL,
+  -- 1 when the item landed after its commission had expired (Codex verify
+  -- F15): the landing is recorded whatever the commission's expiry.
+  landed_after_expiry INTEGER NOT NULL DEFAULT 0 CHECK (landed_after_expiry IN (0, 1)),
   created_at TEXT NOT NULL,
   UNIQUE (selection_id, practice_item_id)
 );

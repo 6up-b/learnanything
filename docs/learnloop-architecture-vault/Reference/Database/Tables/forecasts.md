@@ -3,8 +3,8 @@ title: "forecasts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3c1a83c5877744086145ee768a0454ff38c237f9"
-source_commit_timestamp: "2026-10-19T03:01:56-04:00"
+source_commit: "da3def4dddf309590d332c5a1e8bc33e70435204"
+source_commit_timestamp: "2026-10-19T20:55:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite forecasts"
@@ -131,6 +131,7 @@ Indexes and uniqueness:
 - `tests/test_ad1_fix_round5.py`
 - `tests/test_ad1_migration.py`
 - `tests/test_ad1_send_guard.py`
+- `tests/test_ad23_fix_r5.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_architecture.py`
 - `tests/test_chatgpt_plan_landing.py`
@@ -145,7 +146,6 @@ Indexes and uniqueness:
 - `tests/test_ux_phase4_landing.py`
 - `tests/test_voi_forecasts.py`
 - `tests/test_voi_merge_composition.py`
-- `tests/test_forecast_ledger.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

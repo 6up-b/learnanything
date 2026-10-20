@@ -367,3 +367,97 @@ fails on `history_fallback`, and the history test on `excluded == reconstructed_
 | references: `db_generate_reference.py`, `db_validate_reference.py` | 0 errors (927 configuration leaves; the two prose counts updated) |
 | CLI help snapshot | unchanged (no command or option changed); `test_cli_help_snapshot.py` passed in the run |
 | vitest, `cargo check` | not applicable: no frontend or `src-tauri` change |
+
+## Fix round 5: the final verify's F12-F15 (2026-10-19)
+
+Codex's verify of the owner-decision round (codex-job `20261019-201825-NEf5k1`, verdict REOPENED)
+confirmed F11 as fixed and raised F12 and F13 (High) and F14 and F15 (Medium). This round fixes all
+four under the orchestrator's binding rulings R1-R4, in commit `da3def4dd`; the owner decisions of
+2026-10-19 stand exactly as recorded above. The regressions are in `tests/test_ad23_fix_r5.py`. No
+model calls: fakes only (the generator is a `StructuredClientFake` behind the real durable job queue;
+the relatedness proposal is `ProposalLLM`).
+
+| Id | Severity | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F11 | Medium | Automatic commission retry overrides explicit cancellation | confirmed fixed by the verify | `1d105282c` | `test_a_cancelled_commission_stays_cancelled_when_models_come_back_on` (still passes) |
+| F12 | High | Report forecasts use learned coupling while it is off | fixed (R1) | `da3def4dd` | `test_the_report_forecasts_with_the_configured_coupling` |
+| F13 | High | Today retains AD deferrals after the kill switch is off | fixed (R2) | `da3def4dd` | `test_with_selection_off_the_projection_offers_a_once_deferred_item`, `test_with_the_kill_switch_off_today_projects_the_predecessors_blocks` (parity) |
+| F14 | Medium | Generation-origin commissions expire before seven days after completion | fixed (R3) | `da3def4dd` | `test_a_generation_jobs_commission_expires_seven_days_after_the_job_finished`, `test_a_commission_drawn_outside_a_job_names_none` |
+| F15 | Medium | Expiry prevents recording already-landed commissions | fixed (R4) | `da3def4dd` | `test_an_item_that_landed_before_expiry_gets_its_receipt_at_a_later_serve`, `test_an_item_that_lands_after_expiry_gets_a_marked_receipt_and_a_later_draw_owns_later_items` |
+
+### What changed
+
+- **F12 (R1).** `arms.prequential` replays its base run with `RP.ReplaySettings.from_config(vault.config)`,
+  the one function serving's snapshot and the AD replayer already read, and returns those settings;
+  `report.build` runs its snapshot (and so the prior sensitivity, which varies the snapshot's
+  settings) with them. The ablation arms (`:noread`, `:noverdict`, `:hyper_fine`, `+outside`,
+  `+rating`, `+timing`) vary one part of the configured settings. No coupling is hardcoded in the
+  report or the arms; no coupling-on what-if was added. The test builds an adopted coupling version
+  (an adversarial proposal), four right answers on one LO and a first answer on the related LO: with
+  `learned_coupling = false` the report's `ad_threshold@subject` forecast for that answer equals the
+  uncoupled replay's (and differs from the coupled one by 0.14 on this case), and every replay the
+  report runs is uncoupled; with the switch on it equals the coupled replay's.
+- **F13 (R2).** `PlanRecord.exclusion_ids()` holds only the planned and skipped items. AD deferrals
+  enter a pool only through the switch-aware context (`engine._context`: `PoolContext.ad_deferred`,
+  empty with `selection` off, less what a boundary released); `simulate_blocks` adds the context's
+  deferrals to the record's exclusions and nothing else. `PlanRecord.ad_deferrals()` is unchanged (the
+  fold from the plan's events, so a rebuild reproduces it; `test_ad2_serving`'s rebuild assertion now
+  checks it directly). The verify's scenario (displaced as ineligible, the reveal aged past the delay,
+  `selection` off): the projection's first candidate pool contains `pi_a` and equals the base's rule
+  (the context's pool less planned and skipped). Parity: on two copies of a vault holding AD draws
+  and an `ad_ineligible` displacement, Today's projected blocks (`project_blocks` and the simulated
+  items) with `selection = false` equal the predecessor's (`mvp-0.27`), and project `pi_a` again.
+- **F14 (R3).** Migration 214 (still this stage's) gains `ad_selections.generating_job_id`
+  (TEXT, no foreign key: job rows may be pruned). The generation path's commission draw records the
+  durable job running on its thread for this database (`db.scopes.current_ingest_job_id`, read from
+  the job runner's existing write guard). `ad_serving._expiry_clock` reads that job through
+  `ingest_queue.job_outcome` (the queue's SQL keeps its one owner): queued, running or waiting for
+  input keeps the commission open; any terminal state (completed, failed, cancelled) starts the 7 days
+  at the job's `finished_at`. A job row that is gone falls back to the draw timestamp (why-comment in
+  the store). A commission drawn outside any job (a synchronous generation run, the CLI's) keeps its
+  clock at the draw. The review-decision rule (a pending proposal keeps it open; a later decision
+  moves the clock) is unchanged. Test: a real reader-first `practice_expansion` job draws the
+  commission (`generating_job_id` = the job); drawn at T, job failed at T+10 min: open at T+7 d+5 min,
+  expired at T+7 d+11 min; running or queued: open at T+60 d; job row deleted: open a minute before
+  T+7 d, expired at it.
+- **F15 (R4).** `generation.record_landed_commissions` reconciles every commission without a receipt,
+  open, expired or superseded (the scan, the simpler exact option: no hook in the content pipeline's
+  apply path). An item belongs to the commission that was its cell's latest when it landed (drawn at or
+  before the item, with no later commission for the cell drawn before it); the one-open rule makes
+  that the commission open, or last open, at the landing, so no item is attributed to two commissions.
+  Items are grouped by LO first, so the wider scan stays cheap. Migration 214's
+  `ad_commission_results` gains `landed_after_expiry` (0/1): 1 when the item landed at or after
+  `ad_serving.commission_expires_at`. The report's commission section counts them
+  (`selection.commissions.landed_after_expiry`). Expiry still only closes a commission to new draws;
+  supersession (at most one open per cell) is unchanged; content and evidence are never touched.
+  Tests: the verify's case (landed on day 1, the next reconciliation on day 9, after expiry) gets exactly
+  one receipt, not marked late; a second reconciliation and a whole `rebuild_all_derived_state` change no
+  row. An item landing on day 8 gets a receipt marked late; after a fresh commission is drawn for the
+  cell on day 10, an item at the old point landing on day 11 is never the old commission's.
+- **The spec** (`spec_adaptive_difficulty_v1.md` §6.1 step 0, the F5 record in §6.1, §7.4 and the
+  table rows of §11.2) records the three behaviours; F5's "What changed" above notes its supersession.
+- **The head fixture.** `fixtures/migration_head_214` rebuilt as before: a backup-API copy of git
+  `29a49b5e6`'s `migration_head_213` with only 214 applied (`UPGRADE_SCRATCH_COPY`),
+  `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
+  `foreign_key_check` empty, no companion files; its README names the two columns.
+  `table_roles` is unchanged (no new table); `db_generate_reference.py` and `db_validate_reference.py`
+  rerun (0 errors).
+
+**Fail-before.** `git archive a87979dfb src migrations` into `fixtures-local/ad23-r5-base`, the new
+file run with `-o pythonpath=fixtures-local/ad23-r5-base/src`: **7 of 7 fail**. F12 on the forecast
+(off by 0.1437 from the uncoupled replay); F13's scenario on the pool (`{'pi_o1', 'pi_o2'}`, no `pi_a`)
+and the parity test on `pi_a` never projected (the two copies agree, both wrong); F14's two tests on the
+missing `generating_job_id`; F15's two tests on reconciliation writing nothing (`0 == 1`). All 7 pass
+after the fix.
+
+### Gate (this round; owner rule 2026-10-17: targeted only)
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 27 kept, 0 broken |
+| `tests/test_ad23_fix_r5.py` alone | 7 passed |
+| targeted pytest, `uv run pytest -n auto` over 96 files: every `test_ad*` and `test_adaptive_difficulty*` file (`test_ad23_sim.py` included), every `test_daily_plan*` and `test_today*` file, every file naming `migration_head_214`, `DEFAULTS_SNAPSHOT`, `defaults_fingerprint` or the parameter registry, `test_table_roles`, `test_rebuild_orchestrator`, `test_shadow_rebuild`, `test_architecture`, the queue and job tests (`test_ingest_queue_store`, `test_ingest_jobs`, `test_ingest_runner`, `test_ingest_ownership`, `test_question_promotion_jobs`, `test_contract_commissioning`), `test_tracked_fixture_databases`, `test_coordinated_migrations`, `test_sqlite_file_copies`, `test_cli_help_snapshot`, `test_desktop_rpc_contract`, `test_salience_firewall`, `test_mobile_allowlist` | **7,112 passed, 36 xfailed** (953 s); the 36 are the failed simulation gates' strict xfails, unchanged |
+| `--durable-sqlite`: `test_ad23_fix_r5.py`, `test_ad23_migration.py`, `test_tracked_fixture_databases.py` | 13 passed |
+| references: `db_generate_reference.py`, `db_validate_reference.py` | 0 errors; the two new columns in the `ad_selections` and `ad_commission_results` notes; configuration catalog unchanged (927 leaves) |
+| defaults snapshots, CLI help | unchanged (no config key, command or option changed) |
+| vitest, `cargo check` | not applicable: no frontend or `src-tauri` change |

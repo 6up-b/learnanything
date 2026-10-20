@@ -3,8 +3,8 @@ title: "ad_selections"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3c1a83c5877744086145ee768a0454ff38c237f9"
-source_commit_timestamp: "2026-10-19T03:01:56-04:00"
+source_commit: "da3def4dddf309590d332c5a1e8bc33e70435204"
+source_commit_timestamp: "2026-10-19T20:55:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ad_selections"
@@ -82,6 +82,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `state_hash` | `TEXT` | yes | — | — | Stored value |
 | `versions_json` | `TEXT` | yes | — | — | JSON-encoded structured payload |
 | `algorithm_version` | `TEXT` | yes | — | — | Stored value |
+| `generating_job_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
 
 ## Relationships and access paths
@@ -175,6 +176,11 @@ CREATE TABLE ad_selections (
   state_hash TEXT NOT NULL,
   versions_json TEXT NOT NULL,
   algorithm_version TEXT NOT NULL,
+  -- A commission the generation path drew inside a durable job: that job
+  -- (`ingest_jobs.id`, no foreign key: jobs may be pruned). Its expiry clock
+  -- starts when the job finishes (Codex verify F14). NULL for a serve draw,
+  -- a serve-time commission (its batch is named by it) and a draw outside a job.
+  generating_job_id TEXT,
   created_at TEXT NOT NULL
 );
 ```
