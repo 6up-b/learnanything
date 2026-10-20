@@ -3,8 +3,8 @@ title: "source_tool_calls"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7764235c350bd5f6e2fcf5ec45a560b9c1ab44c6"
-source_commit_timestamp: "2026-10-20T17:32:28-04:00"
+source_commit: "03f3ac0bcdfb57e27bea27443ec0cc5e1e446a0d"
+source_commit_timestamp: "2026-10-20T17:54:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_tool_calls"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/instructional/tools.py"
   - "src/learnloop/reader/reader_inquiry.py"
+  - "src/learnloop/reader/source_objects.py"
   - "src/learnloop/source_retrieval/reader_tutor.py"
 tags:
   - "learnloop/database/table"

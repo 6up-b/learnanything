@@ -3,8 +3,8 @@ title: "source_extraction_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7764235c350bd5f6e2fcf5ec45a560b9c1ab44c6"
-source_commit_timestamp: "2026-10-20T17:32:28-04:00"
+source_commit: "03f3ac0bcdfb57e27bea27443ec0cc5e1e446a0d"
+source_commit_timestamp: "2026-10-20T17:54:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_extraction_runs"
@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_block_fts.py"
   - "src/learnloop/ops/doctor.py"
+  - "src/learnloop/reader/source_objects.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/content/facet_identity/authority.py"
   - "src/learnloop/content/pipeline/add_source.py"
@@ -109,6 +110,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_block_fts.py`
+- `src/learnloop/reader/source_objects.py`
 
 ### Direct SQL writers
 
