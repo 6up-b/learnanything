@@ -107,38 +107,41 @@ def budget(connection: Any, *, extraction_id: str, section_id: str, now: str, da
     return None
 
 
-def _studied_examples(connection: Any, learning_object_ids: Sequence[str]) -> set[str]:
+def _studied_examples(connection: Any, view: Any, learning_object_ids: Sequence[str]) -> set[str]:
     studied: set[str] = set()
-    if not store.has_table(connection, "ad_reading_opportunities"):
-        return studied
-    marks = ",".join("?" for _ in learning_object_ids)
-    for (key,) in connection.execute(
-            f"SELECT opportunity_key FROM ad_reading_opportunities WHERE kind = 'worked_example' AND "
-            f"learning_object_id IN ({marks})", tuple(learning_object_ids)):
+    for row in view.reading_opportunities(connection, learning_object_ids=learning_object_ids):
+        if row.get("kind") != "worked_example":
+            continue
         # worked_example:<extraction>/<span>:<lo>
-        parts = str(key).split(":")
+        parts = str(row.get("opportunity_key") or "").split(":")
         if len(parts) >= 2:
             studied.add(parts[1])
     return studied
 
 
 def feasible_variants(vault: Any, repository: Any, connection: Any, boundary: Boundary,
-                      learning_object_ids: Sequence[str], *, reading_map: Any = None
+                      learning_object_ids: Sequence[str], *, reading_map: Any = None, view: Any = None
                       ) -> tuple[list[str], dict[str, str], dict[str, dict[str, Any]]]:
-    """``(feasible, infeasible with why, each extra's content)``. ``none`` is always feasible."""
+    """``(feasible, infeasible with why, each extra's content)``. ``none`` is always feasible.
+    Every extra comes through the operation's material view (A8; Codex verify F23): a worked
+    example on held-out material, or a question whose section, anchors or cited spans are held
+    out, is never offered."""
 
+    from learnloop.adaptive_difficulty.material_view import material_view
     from learnloop.adaptive_difficulty.reading import VaultReadingMap
 
-    mapping = reading_map or VaultReadingMap(vault, repository)
+    view = material_view(vault, repository, view)
+    mapping = reading_map or VaultReadingMap(vault, repository, view)
     feasible = [NONE]
     infeasible: dict[str, str] = {}
     content: dict[str, dict[str, Any]] = {}
-    studied = _studied_examples(connection, learning_object_ids)
+    studied = _studied_examples(connection, view, learning_object_ids)
     section_spans = set(mapping.section_spans(boundary.extraction_id, boundary.section_id))
     example = None
     for span in sorted(mapping.worked_example_spans(boundary.extraction_id)):
         key = f"{boundary.extraction_id}/{span}"
-        if key in studied or span in section_spans or mapping.withheld(boundary.extraction_id, span):
+        if key in studied or span in section_spans or mapping.withheld(boundary.extraction_id, span) \
+                or view.material_withheld(boundary.extraction_id, span):
             continue
         if set(mapping.los_for_span(boundary.extraction_id, span)) & set(learning_object_ids):
             example = {"extraction_id": boundary.extraction_id, "span_id": span}
@@ -149,15 +152,11 @@ def feasible_variants(vault: Any, repository: Any, connection: Any, boundary: Bo
     else:
         infeasible[EXTRA_EXAMPLE] = "no_unstudied_example"
     question = None
-    if store.has_table(connection, "reader_authored_questions"):
-        for row in connection.execute(
-                "SELECT id, question_style FROM reader_authored_questions WHERE extraction_id = ? AND section_id = ? "
-                "AND answered_at IS NULL AND status != 'dismissed' ORDER BY created_at, id",
-                (boundary.extraction_id, boundary.section_id)):
-            if str(row[0]) == str(boundary.showing_question_id or "") or str(row[1]) == "reconstruct":
-                continue
-            question = {"question_id": str(row[0]), "style": str(row[1])}
-            break
+    for row in view.open_questions(connection, boundary.extraction_id, boundary.section_id):
+        if str(row["id"]) == str(boundary.showing_question_id or "") or str(row["question_style"]) == "reconstruct":
+            continue
+        question = {"question_id": str(row["id"]), "style": str(row["question_style"])}
+        break
     if question is not None:
         feasible.append(EXTRA_QUESTION)
         content[EXTRA_QUESTION] = question
@@ -166,38 +165,40 @@ def feasible_variants(vault: Any, repository: Any, connection: Any, boundary: Bo
     return feasible, infeasible, content
 
 
-def dose_taken(connection: Any, learning_object_ids: Sequence[str]) -> dict[str, int]:
+def dose_taken(connection: Any, learning_object_ids: Sequence[str], *, view: Any) -> dict[str, int]:
     """The dose of each offered kind already taken in the window at the decision (the moderator of
     the randomized dose-response, §5.12): recorded opportunities on the section's LOs since their
-    last graded attempt. A count of facts, never a magnitude."""
+    last graded attempt. A count of facts, never a magnitude.
+
+    Codex verify F26: the window is the replay's, read through the material view: it closes at the
+    LOs' last visible attempt that closes a window (graded, not a skip or self-report;
+    ``material_view.closes_window``), never at an ungraded, skipped or withheld one, and only
+    receipts whose source is visible count."""
 
     out = {"worked_example": 0, "in_passage_question": 0}
-    if not learning_object_ids or not store.has_table(connection, "ad_reading_opportunities"):
+    if not learning_object_ids:
         return out
-    marks = ",".join("?" for _ in learning_object_ids)
-    (last,) = connection.execute(
-        f"SELECT MAX(created_at) FROM practice_attempts WHERE learning_object_id IN ({marks})",
-        tuple(learning_object_ids)).fetchone()
+    last = view.window_cutoff(connection, learning_object_ids) or ""
     for kind in out:
-        (count,) = connection.execute(
-            f"SELECT COUNT(DISTINCT source_id) FROM ad_reading_opportunities WHERE kind = ? AND learning_object_id IN "
-            f"({marks}) AND subkind NOT LIKE 'self_check:%' AND source_written_at > ?",
-            (kind, *learning_object_ids, str(last or ""))).fetchone()
-        out[kind] = int(count or 0)
+        sources = {str(row.get("source_id")) for row in view.reading_opportunities(
+            connection, learning_object_ids=learning_object_ids)
+            if row.get("kind") == kind and not str(row.get("subkind") or "").startswith("self_check:")
+            and str(row.get("source_written_at") or "") > last}
+        out[kind] = len(sources)
     return out
 
 
-def _forecast(vault: Any, repository: Any, connection: Any, learning_object_id: str) -> float | None:
+def _forecast(vault: Any, repository: Any, connection: Any, learning_object_id: str, *,
+              view: Any) -> float | None:
     """The AD forecast fixed before the draw (a precision covariate, never an input of the draw)."""
 
     try:
         from learnloop.adaptive_difficulty import predict as PR
         from learnloop.adaptive_difficulty import replay as RP
         from learnloop.adaptive_difficulty.generation import lo_cell_facet
-        from learnloop.adaptive_difficulty.protection import protection
 
-        snapshot = RP.snapshot(vault, repository, connection=connection)
-        facet = lo_cell_facet(vault, learning_object_id, protected=protection(vault, repository))
+        snapshot = RP.snapshot(vault, repository, connection=connection, view=view)
+        facet = lo_cell_facet(view, learning_object_id)
         if facet is None:
             return None
         lo = vault.learning_objects.get(learning_object_id)
@@ -211,8 +212,13 @@ def _forecast(vault: Any, repository: Any, connection: Any, learning_object_id: 
 
 
 def decide(vault: Any, repository: Any, boundary: Boundary, *, clock: Clock | None = None,
-           reading_map: Any = None) -> DoseDecision:
-    """At a section boundary: eligibility, the budget, the draw, and its row before anything is shown."""
+           reading_map: Any = None, view: Any = None) -> DoseDecision:
+    """At a section boundary: eligibility, the budget, the draw, and its row before anything is shown.
+
+    One material view for the decision (``view``: the RPC's, else computed here). With the held-out
+    predicate unavailable no draw is made (``protection_unavailable``). A draw made earlier is
+    returned only while its extra is still visible; one whose content is withheld now is returned
+    with no offer (``withheld``; Codex verify F23)."""
 
     if not dose_offers_on(vault.config):
         return DoseDecision(False, "switch_off")
@@ -224,9 +230,13 @@ def decide(vault: Any, repository: Any, boundary: Boundary, *, clock: Clock | No
         return DoseDecision(False, "skim")
     if boundary.restored_section:
         return DoseDecision(False, "restored_section")
+    from learnloop.adaptive_difficulty.material_view import material_view
     from learnloop.adaptive_difficulty.reading import VaultReadingMap
 
-    mapping = reading_map or VaultReadingMap(vault, repository)
+    view = material_view(vault, repository, view)
+    if not view.available:
+        return DoseDecision(False, "protection_unavailable")
+    mapping = reading_map or VaultReadingMap(vault, repository, view)
     los = list(mapping.los_for_section(boundary.extraction_id, boundary.section_id))
     if not los:
         return DoseDecision(False, "no_learning_object")
@@ -239,6 +249,9 @@ def decide(vault: Any, repository: Any, boundary: Boundary, *, clock: Clock | No
         key = f"{boundary.visit_id}:{boundary.extraction_id}:{boundary.section_id}"
         existing = store.dose_draw_by_key(connection, key)
         if existing is not None:
+            if offer_withheld(connection, view, existing.get("chosen_variant"), existing.get("content")):
+                return DoseDecision(True, "withheld", str(existing["id"]), NONE, existing.get("propensities") or {},
+                                    None)
             return DoseDecision(True, "drawn", str(existing["id"]), existing.get("chosen_variant"),
                                 existing.get("propensities") or {}, existing.get("content"))
         why = budget(connection, extraction_id=boundary.extraction_id, section_id=boundary.section_id, now=now,
@@ -246,7 +259,7 @@ def decide(vault: Any, repository: Any, boundary: Boundary, *, clock: Clock | No
         if why is not None:
             return DoseDecision(False, why)
         feasible, infeasible, content = feasible_variants(vault, repository, connection, boundary, los,
-                                                          reading_map=mapping)
+                                                          reading_map=mapping, view=view)
         from learnloop.scheduling.randomization_layer import READING_DOSE, draw_from, reading_dose_propensities
 
         pi = reading_dose_propensities(feasible, {NONE: 1.0}, float(settings.dose_floor))
@@ -260,11 +273,23 @@ def decide(vault: Any, repository: Any, boundary: Boundary, *, clock: Clock | No
             "base_version": BASE_VERSION, "floor": float(settings.dose_floor),
             "propensities": {v: round(p, 12) for v, p in sorted(pi.items())}, "seed": seed, "u": u,
             "chosen_variant": chosen, "content": content.get(chosen),
-            "forecast_p": _forecast(vault, repository, connection, los[0]),
+            "forecast_p": _forecast(vault, repository, connection, los[0], view=view),
             "detail": {"design": READING_DOSE, "version": DOSE_VERSION, "showing_question_id":
-                       boundary.showing_question_id, "dose_taken": dose_taken(connection, los)}, "created_at": now,
+                       boundary.showing_question_id, "dose_taken": dose_taken(connection, los, view=view)},
+            "created_at": now,
         })
     return DoseDecision(True, None, draw_id, chosen, pi, content.get(chosen))
+
+
+def offer_withheld(connection: Any, view: Any, variant: Any, content: Any) -> bool:
+    """Whether a drawn extra's content is withheld now (revalidated before it is shown again)."""
+
+    content = content or {}
+    if variant == EXTRA_QUESTION:
+        return view.question(connection, content.get("question_id")) is None
+    if variant == EXTRA_EXAMPLE:
+        return view.material_withheld(content.get("extraction_id"), content.get("span_id"))
+    return False
 
 
 def record_uptake(vault: Any, repository: Any, draw_id: str, kind: str, *, clock: Clock | None = None) -> str:
@@ -317,6 +342,7 @@ __all__ = [
     "decide",
     "dose_taken",
     "feasible_variants",
+    "offer_withheld",
     "record_uptake",
     "taken_offers",
 ]

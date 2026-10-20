@@ -47,29 +47,41 @@ def reader_dose_offer(ctx: SidecarContext, params: ReaderDoseOfferInput) -> dict
     """The dose arm's draw at a section boundary (§5.12): ``offer`` is the extra to show, or null."""
 
     from learnloop.adaptive_difficulty.dose import Boundary, decide
+    from learnloop.adaptive_difficulty.material_view import material_view
 
     vault, repository = ctx.require_vault()
+    # One material view for the draw and the response (A8; Codex verify F23).
+    view = material_view(vault, repository)
     decision = decide(vault, repository, Boundary(
         visit_id=params.visit_id, extraction_id=params.extraction_id, section_id=params.section_id,
         boundary_checks_available=params.boundary_checks_available, cue_density_off=params.cue_density_off,
         skim=params.skim, restored_section=params.restored_section,
         showing_question_id=params.showing_question_id,
-    ))
+    ), view=view)
     result = decision.as_dict()
     offer = result.get("offer")
     if offer and offer.get("variant") == "extra_question":
         # The exact question the draw chose, so the Reader shows it (Codex review F6), never the
         # section's ordinary check; read at response time, nothing more persisted.
-        offer["question"] = _offered_question(repository, (offer.get("content") or {}).get("question_id"))
+        offer["question"] = _offered_question(repository, view, (offer.get("content") or {}).get("question_id"))
+        if offer["question"] is None:
+            # Withheld between the draw and the response: nothing of it is shown.
+            result["offer"] = None
     return versioned(result)
 
 
-def _offered_question(repository: Any, question_id: Any) -> dict[str, Any] | None:
+def _offered_question(repository: Any, view: Any, question_id: Any) -> dict[str, Any] | None:
     import json
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
 
     if not question_id:
         return None
-    row = repository.get_reader_authored_question(str(question_id))
+    # Revalidated through the material view at response time: a question whose section, anchors
+    # or cited spans are held out now is never returned (Codex verify F23).
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        row = view.question(connection, question_id)
     if row is None:
         return None
     try:
@@ -130,9 +142,12 @@ def adaptive_difficulty_why_item(ctx: SidecarContext, params: AdaptiveDifficulty
     from learnloop.adaptive_difficulty.serving import why_for_presentation
     from learnloop.db.connection import connect
 
-    _vault, repository = ctx.require_vault()
+    from learnloop.adaptive_difficulty.material_view import material_view
+
+    vault, repository = ctx.require_vault()
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        found = why_for_presentation(connection, params.plan_presentation_id)
+        found = why_for_presentation(connection, params.plan_presentation_id,
+                                     view=material_view(vault, repository))
     return versioned({"why": found["why"] if found else None, "mode": found["mode"] if found else None})
 
 

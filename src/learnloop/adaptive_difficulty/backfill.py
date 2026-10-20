@@ -47,7 +47,6 @@ from learnloop.adaptive_difficulty.feature_audit import (
     question_for,
 )
 from learnloop.adaptive_difficulty.outside import Clients, forecast_item
-from learnloop.adaptive_difficulty.protection import Protection, protection
 from learnloop.adaptive_difficulty.reading import sweep
 from learnloop.adaptive_difficulty.switches import (
     LLM_V1,
@@ -57,58 +56,11 @@ from learnloop.adaptive_difficulty.switches import (
 )
 
 
-def _revisions(vault: Any, connection: Any, protected: Protection) -> tuple[list[tuple[Any, str]], int]:
-    """``(item, content_hash)`` for every active item's current revision and every held snapshot.
+def _never_attempted(view: Any, connection: Any) -> list[Any]:
+    """The visible active items never attempted (read through the backfill's material view)."""
 
-    Each revision is checked against held-out material on its own source
-    references (Codex review F1): a snapshot of a deleted item, or one whose
-    provenance differs from the current revision's, is protected when its
-    own canonical exercise or source refs lie in held-out material. Returns
-    the revisions and how many were skipped as protected."""
-
-    from learnloop.vault.models import PracticeItem
-
-    seen: set[str] = set()
-    skipped: set[str] = set()
-    revisions: list[tuple[Any, str]] = []
-    for item in sorted(vault.practice_items.values(), key=lambda value: value.id):
-        if getattr(item, "status", "active") != "active":
-            continue
-        content_hash, _json = item_revision(item)
-        if protected.covers(item):
-            skipped.add(content_hash)
-            continue
-        if content_hash not in seen:
-            seen.add(content_hash)
-            revisions.append((item, content_hash))
-    for content_hash, item_id, item_json in connection.execute(
-        "SELECT content_hash, practice_item_id, item_json FROM practice_item_snapshots ORDER BY created_at, content_hash"
-    ):
-        if content_hash in seen or content_hash in skipped:
-            continue
-        if str(item_id) in protected:
-            skipped.add(content_hash)
-            continue
-        try:
-            item = PracticeItem.model_validate_json(item_json)
-        except ValueError:
-            continue
-        # A snapshot audits as the revision it holds, under its stored hash.
-        if item_revision(item)[0] != content_hash:
-            continue
-        if protected.covers(item):
-            skipped.add(content_hash)
-            continue
-        seen.add(content_hash)
-        revisions.append((item, content_hash))
-    return revisions, len(skipped)
-
-
-def _never_attempted(vault: Any, connection: Any, protected: Protection) -> list[Any]:
-    attempted = {str(row[0]) for row in connection.execute("SELECT DISTINCT practice_item_id FROM practice_attempts")}
-    return [item for item in sorted(vault.practice_items.values(), key=lambda value: value.id)
-            if getattr(item, "status", "active") == "active" and item.id not in attempted
-            and not protected.covers(item)]
+    attempted = view.attempted_item_ids(connection)
+    return [item for item in view.items(active=True) if item.id not in attempted and not view.covers(item)]
 
 
 # -- the dry run's spend plan (Codex review F9) -------------------------------------------------
@@ -243,15 +195,20 @@ def _audit_plan(vault: Any, pending: list[tuple[Any, str, list[str]]]) -> dict[s
 def backfill(vault: Any, repository: Any, *, audit: bool, llm_v1: bool, reading: bool, dry_run: bool,
              limit: int | None = None, clients: Clients | None = None,
              decider_factory: Callable[[], Any] | None = None, clock: Clock | None = None) -> dict[str, Any]:
+    from learnloop.adaptive_difficulty.material_view import material_view
+
     result: dict[str, Any] = {"dry_run": dry_run}
-    protected = protection(vault, repository)
+    # The backfill's one material view (A8): each revision is checked on its own sources (Codex
+    # review F1), and a withheld one is only counted.
+    view = material_view(vault, repository)
+    protected = view.protection
     skipped = 0
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        revisions, skipped = _revisions(vault, connection, protected) if audit else ([], 0)
+        revisions, skipped = view.audit_revisions(connection) if audit else ([], 0)
         pending_audits = [(item, content_hash, [d for d in DIMENSIONS if d not in canonical_audits(connection, content_hash)])
                           for item, content_hash in revisions]
         pending_audits = [entry for entry in pending_audits if entry[2]]
-        candidates = _never_attempted(vault, connection, protected) if llm_v1 else []
+        candidates = _never_attempted(view, connection) if llm_v1 else []
         existing = {str(row[0]) for row in connection.execute(
             "SELECT item_content_hash FROM forecast_receipts WHERE kind = 'item_unassisted_success' AND scope = 'item' "
             "AND forecaster = ? AND status = 'ok'", (LLM_V1,))} if candidates else set()

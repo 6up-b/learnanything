@@ -20,7 +20,6 @@ from collections.abc import Mapping
 from typing import Any
 
 from learnloop.db.stores import ad_serving as store
-from learnloop.db.stores import forecast_receipts as receipt_store
 
 from learnloop.adaptive_difficulty import outcomes as O
 from learnloop.adaptive_difficulty import replay as RP
@@ -43,9 +42,14 @@ def score_rows(connection: Any, vault: Any, repository: Any) -> list[dict[str, A
 
     from learnloop.scheduling.forecast_receipts import valid_for_serve
 
-    events = RP.load_events(connection, vault, repository)
+    from learnloop.adaptive_difficulty.material_view import material_view
+
+    # One material view for the rebuild (A8): a withheld item's presentations, attempts and
+    # forecasts are not scored (its receipts read ``pending``, with no bound presentation).
+    view = material_view(vault, repository)
+    events = RP.load_events(connection, vault, repository, view=view)
     by_presentation = {e.plan_presentation_id: e for e in events.attempts if e.plan_presentation_id}
-    served = {str(pid): str(at) for pid, at in connection.execute("SELECT id, served_at FROM plan_presentations")}
+    served = {pid: str(row["served_at"]) for pid, row in view.presentations(connection).items()}
     first_presentation: dict[str, str] = {}
     if store.has_table(connection, "item_serve_inputs"):
         for content_hash, pid in connection.execute(
@@ -68,7 +72,7 @@ def score_rows(connection: Any, vault: Any, repository: Any) -> list[dict[str, A
         seen_los.add(event.learning_object_id)
         seen_cells.add(cell)
     rows: list[dict[str, Any]] = []
-    for receipt in receipt_store.list_receipts(connection, kind="item_unassisted_success"):
+    for receipt in view.forecast_receipts(connection, kind="item_unassisted_success"):
         presentation = receipt.get("plan_presentation_id")
         if receipt.get("scope") == "item":
             presentation = first_presentation.get(str(receipt.get("item_content_hash") or ""))

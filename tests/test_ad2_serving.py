@@ -687,10 +687,13 @@ def test_why_this_item_names_the_draw_that_chose_it(tmp_path):
 
     paths, env, _clock, _record = _plan(tmp_path, ("pi_h", "pi_e1", "pi_e2"), features={"pi_h": HARD})
     _record, step = advance(env, serve=True)
+    from learnloop.adaptive_difficulty.material_view import material_view
+
+    view = material_view(load_vault(paths.root), Repository(paths.sqlite_path))
     with closing(connect(paths.sqlite_path, read_only=True)) as connection:
-        found = why_for_presentation(connection, step["presentation_id"])
+        found = why_for_presentation(connection, step["presentation_id"], view=view)
         assert found["mode"] == "calibrate" and found["why"] == WHY["calibrate"]
-        assert why_for_presentation(connection, "pp_missing") is None
+        assert why_for_presentation(connection, "pp_missing", view=view) is None
     ctx = SidecarContext()
     ctx.load(paths.root)
     spec = METHOD_REGISTRY["adaptive_difficulty.why_item"]

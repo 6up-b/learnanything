@@ -30,7 +30,6 @@ from typing import Any
 
 from learnloop.clock import parse_utc
 from learnloop.db.stores import ad_receipts as store
-from learnloop.db.stores import forecast_receipts as receipt_store
 
 from learnloop.adaptive_difficulty.feature_audit import DIMENSIONS, canonical_audits, item_revision
 from learnloop.adaptive_difficulty.switches import LLM_V1
@@ -60,13 +59,12 @@ def _before(value: Any, served_at: str) -> bool:
     return stamp is not None and served is not None and stamp <= served
 
 
-def never_attempted(connection: Any, practice_item_id: str, served_at: str) -> bool:
-    """No attempt of any kind on the item before (or at) the serve."""
+def never_attempted(connection: Any, practice_item_id: str, served_at: str, *, view: Any) -> bool:
+    """No attempt of any kind on the item before (or at) the serve (read through the operation's
+    material view: the served item is visible, or nothing reaches here)."""
 
-    for (created_at,) in connection.execute(
-        "SELECT created_at FROM practice_attempts WHERE practice_item_id = ?", (practice_item_id,)
-    ):
-        if _before(created_at, served_at):
+    for row in view.attempts(connection):
+        if str(row.get("practice_item_id")) == str(practice_item_id) and _before(row.get("created_at"), served_at):
             return False
     return True
 
@@ -128,9 +126,11 @@ def _z_panel(connection: Any, item: Any, served_at: str) -> dict[str, Any]:
             "received_at": str(row[2]), "source": "pf_candidates.panel_json"}
 
 
-def _outcome_of_first_presentation(connection: Any, content_hash: str, served_at: str) -> float | None:
+def _outcome_of_first_presentation(connection: Any, content_hash: str, served_at: str, *,
+                                   attempts: Any) -> float | None:
     """§5.3's binary event on a revision's first bound plan presentation, if it
-    completed before ``served_at``; None when there is none or it was pre-exposed."""
+    completed before ``served_at``; None when there is none or it was pre-exposed.
+    ``attempts``: the material view's visible attempts, by presentation id."""
 
     rows = connection.execute(
         "SELECT plan_presentation_id, served_at, pre_exposed FROM item_serve_inputs WHERE content_hash = ? "
@@ -139,36 +139,42 @@ def _outcome_of_first_presentation(connection: Any, content_hash: str, served_at
     for presentation_id, presentation_served, exposed in rows:
         if not _before(presentation_served, served_at):
             return None
-        attempt = connection.execute(
-            "SELECT correctness, hints_used, primed, created_at FROM practice_attempts WHERE plan_presentation_id = ? "
-            "ORDER BY created_at, id LIMIT 1", (presentation_id,),
-        ).fetchone()
+        attempt = attempts.get(str(presentation_id))
         if attempt is None:
             continue
-        if exposed or not _before(attempt[3], served_at) or attempt[0] is None:
+        if exposed or not _before(attempt.get("created_at"), served_at) or attempt.get("correctness") is None:
             return None
-        success = float(attempt[0]) >= _SUCCESS and int(attempt[1] or 0) == 0 and not bool(attempt[2])
+        success = (float(attempt["correctness"]) >= _SUCCESS and int(attempt.get("hints_used") or 0) == 0
+                   and not bool(attempt.get("primed")))
         return 1.0 if success else 0.0
     return None
 
 
-def z_v1_recalibration(connection: Any, served_at: str, *, exclude_hash: str | None = None) -> dict[str, Any]:
+def z_v1_recalibration(connection: Any, served_at: str, *, view: Any, exclude_hash: str | None = None
+                       ) -> dict[str, Any]:
     """The logit intercept fitted on past items only: item-scoped ``llm_v1:item``
     receipts received before the serve whose revision's first presentation was
-    answered before it."""
+    answered before it. Its observations come through the operation's material view (Codex
+    verify F24): a forecast or answer on an item or revision withheld now is never one, whatever
+    the current target's protection."""
 
     from learnloop.field.probability_arms import fit_intercept
 
+    first: dict[str, dict[str, Any]] = {}
+    for row in view.attempts(connection):
+        if row.get("plan_presentation_id"):
+            first.setdefault(str(row["plan_presentation_id"]), row)
     logits: list[float] = []
     outcomes: list[float] = []
-    for receipt in receipt_store.list_receipts(connection, kind="item_unassisted_success"):
+    for receipt in view.forecast_receipts(connection, kind="item_unassisted_success"):
         if receipt["scope"] != "item" or receipt["forecaster"] != LLM_V1 or receipt.get("status") != "ok":
             continue
         if receipt.get("p") is None or receipt.get("item_content_hash") in (None, exclude_hash):
             continue
         if not _before(receipt.get("received_at") or receipt.get("created_at"), served_at):
             continue
-        outcome = _outcome_of_first_presentation(connection, str(receipt["item_content_hash"]), served_at)
+        outcome = _outcome_of_first_presentation(connection, str(receipt["item_content_hash"]), served_at,
+                                                 attempts=first)
         if outcome is None:
             continue
         logits.append(_logit(float(receipt["p"])))
@@ -177,9 +183,10 @@ def z_v1_recalibration(connection: Any, served_at: str, *, exclude_hash: str | N
     return {"version": Z_V1_RECALIBRATION, "intercept": round(intercept, 8), "n": len(logits)}
 
 
-def _z_v1(connection: Any, content_hash: str, served_at: str, recalibration: Mapping[str, Any]) -> dict[str, Any]:
+def _z_v1(connection: Any, content_hash: str, served_at: str, recalibration: Mapping[str, Any], *,
+          view: Any) -> dict[str, Any]:
     receipts = [
-        receipt for receipt in receipt_store.list_receipts(connection, kind="item_unassisted_success")
+        receipt for receipt in view.forecast_receipts(connection, kind="item_unassisted_success")
         if receipt["scope"] == "item" and receipt["forecaster"] == LLM_V1
         and receipt.get("item_content_hash") == content_hash
     ]
@@ -202,12 +209,14 @@ def _z_origin(item: Any) -> dict[str, Any]:
             "source": "canonical_exercise" if canonical else "generated"}
 
 
-def signal_vector(connection: Any, item: Any, content_hash: str, served_at: str) -> tuple[dict[str, Any], str]:
-    recalibration = z_v1_recalibration(connection, served_at, exclude_hash=content_hash)
+def signal_vector(connection: Any, item: Any, content_hash: str, served_at: str, *,
+                  view: Any) -> tuple[dict[str, Any], str]:
+    recalibration = z_v1_recalibration(connection, served_at, view=view, exclude_hash=content_hash)
     signals = {
         "z_llm": _z_llm(item),
         "z_panel": _z_panel(connection, item, served_at),
-        "z_v1": {**_z_v1(connection, content_hash, served_at, recalibration), "recalibration": recalibration},
+        "z_v1": {**_z_v1(connection, content_hash, served_at, recalibration, view=view),
+                 "recalibration": recalibration},
         "z_origin": _z_origin(item),
     }
     return signals, str(recalibration["version"])
@@ -238,11 +247,11 @@ def feature_inputs(connection: Any, item: Any, content_hash: str, served_at: str
 
 
 def build_row(repository: Any, connection: Any, item: Any, *, presentation_kind: str, presentation_id: str,
-              served_at: str, created_at: str) -> dict[str, Any]:
+              served_at: str, created_at: str, view: Any) -> dict[str, Any]:
     content_hash, item_json = item_revision(item)
     store.insert_item_snapshot(connection, content_hash_value=content_hash, practice_item_id=str(item.id),
                                item_json=item_json, created_at=created_at)
-    signals, recalibration = signal_vector(connection, item, content_hash, served_at)
+    signals, recalibration = signal_vector(connection, item, content_hash, served_at, view=view)
     row: dict[str, Any] = {
         "receipt_key": f"{presentation_kind}:{presentation_id}",
         "presentation_kind": presentation_kind,

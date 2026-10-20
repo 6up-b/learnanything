@@ -195,17 +195,6 @@ class Events:
         return [(kind, event) for _key, kind, event in stream]
 
 
-def _item_from_json(raw: str | None) -> Any:
-    if not raw:
-        return None
-    from learnloop.vault.models import PracticeItem
-
-    try:
-        return PracticeItem.model_validate_json(raw)
-    except Exception:  # noqa: BLE001 - an unreadable snapshot has no reading
-        return None
-
-
 def _capability(item: Any) -> str:
     capability = getattr(item, "capability", None)
     if capability in P.CAPABILITIES:
@@ -292,20 +281,18 @@ def _type_mass(vault: Any, attempt_type: str) -> float:
     return 1.0 if entry is None else float(getattr(entry, "evidence_mass", 1.0))
 
 
-def _exposures(connection: Any) -> dict[str, list[float]]:
+def _exposures(connection: Any, view: Any) -> dict[str, list[float]]:
+    """Each LO's exposure times (attempts and reveals) for warmth, read through the material view:
+    an attempt or reveal on a withheld item warms nothing (Codex verify F20)."""
+
     by_lo: dict[str, list[float]] = {}
-    for lo, created_at in connection.execute("SELECT learning_object_id, created_at FROM practice_attempts"):
-        try:
-            by_lo.setdefault(str(lo), []).append(days(created_at))
-        except ValueError:
-            continue
-    if serving_store.has_table(connection, "reveal_events"):
-        for lo, created_at in connection.execute("SELECT learning_object_id, created_at FROM reveal_events"):
-            if lo:
-                try:
-                    by_lo.setdefault(str(lo), []).append(days(created_at))
-                except ValueError:
-                    continue
+    for row in [*view.attempts(connection), *view.reveals(connection)]:
+        lo = row.get("learning_object_id")
+        if lo:
+            try:
+                by_lo.setdefault(str(lo), []).append(days(row["created_at"]))
+            except ValueError:
+                continue
     return by_lo
 
 
@@ -334,37 +321,40 @@ def _current_grade_unassessed(evidence: Sequence[Mapping[str, Any]], wholly_unas
 
 
 def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | None = None,
-                settings: ReplaySettings = ReplaySettings()) -> Events:
-    """Read every replay input (no model call; current content only for ``reconstructed_current``)."""
+                settings: ReplaySettings = ReplaySettings(), view: Any = None) -> Events:
+    """Read every replay input (no model call; current content only for ``reconstructed_current``).
 
-    from learnloop.field.outcomes import load_attempt_rows, measurement_masses, wholly_unassessed
+    Everything is read through the operation's material view (``view``; one is computed when the
+    caller has none): a withheld item's attempts, reveals and reading receipts are invisible, so
+    they train nothing, close no reading window, take no first surface and warm nothing; the
+    facet maps name no facet only withheld items name; recorded reading receipts are
+    revalidated against the current predicate (A8; Codex verify F19, F20). With the predicate
+    unavailable the view is empty and the replay reads no item, attempt or receipt."""
+
+    from learnloop.field.outcomes import measurement_masses, wholly_unassessed
     from learnloop.held_grades import held_for_review_attempts
 
-    structure = R.load_structure(connection, vault, coupled=settings.coupling)
-    facet_to_los, lo_to_facets = R.facet_maps(vault)
+    from learnloop.adaptive_difficulty.material_view import material_view
+
+    view = material_view(vault, repository, view)
+    structure = R.load_structure(connection, vault, view=view, coupled=settings.coupling)
+    facet_to_los, lo_to_facets = view.facet_maps()
     lo_subject = {lo.id: R.lo_subject(vault, lo) for lo in vault.learning_objects.values()}
     limit = days(as_of) if as_of else math.inf
     summary: dict[str, Any] = {"input_status": {}, "excluded": {}, "eligible": 0, "attempts": 0}
-    try:
-        from learnloop.content.sources.exam_material import held_out_items
-
-        held_out = held_out_items(vault, repository)
-        held_out_ok = True
-    except Exception:  # noqa: BLE001 - fail closed: nothing of an unreadable protection updates the state
-        LOG.warning("held-out material unavailable: AD replay reads no attempt", exc_info=True)
-        held_out, held_out_ok = frozenset(), False
-    from learnloop.db.stores.observation_ledger import load_authoritative_observation_ledger
+    if not view.available:
+        summary["protection"] = view.reason
 
     # The revision policy is AD's own (``adaptive_difficulty.history_fallback``, owner decision
     # 2026-10-19: by default a historical attempt is read against today's item text where its
     # exact revision was not saved); field's own default is untouched.
     from learnloop.adaptive_difficulty.successor import history_fallback
 
-    rows = {row.attempt_id: row for row in load_attempt_rows(
-        connection, vault, legacy_fallback=history_fallback(vault.config))}
+    rows = {row.attempt_id: row for row in view.field_rows(
+        connection, legacy_fallback=history_fallback(vault.config))}
     # Graded, quarantine and the current epoch from the authoritative ledger itself (never from
     # field's revision resolution: an attempt with frozen serve inputs needs none).
-    ledger = {str(entry["attempt_id"]): entry for entry in load_authoritative_observation_ledger(connection)}
+    ledger = view.ledger(connection)
     # Whether the grade measures anything, resolved from the ledger alone (Codex review F1): a
     # frozen-input attempt skips field's revision resolution, never its assessment rule.
     masses = measurement_masses(connection, vault, ledger.values())
@@ -377,9 +367,7 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
             row = dict(zip(names, raw))
             if row.get("plan_presentation_id"):
                 serve_inputs[str(row["plan_presentation_id"])] = row
-    presentations = {str(pid): str(served) for pid, served in connection.execute(
-        "SELECT id, served_at FROM plan_presentations")} if serving_store.has_table(connection, "plan_presentations") \
-        else {}
+    presentations = {pid: str(row["served_at"]) for pid, row in view.presentations(connection).items()}
     help_rows: dict[str, list[dict[str, Any]]] = {}
     cursor = connection.execute(
         "SELECT attempt_id, context, hint_equivalent, question_type, attempt_progress, seconds_into_attempt "
@@ -388,23 +376,15 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
         help_rows.setdefault(str(attempt_id), []).append({
             "context": context, "hint_equivalent": hint_eq, "question_type": qtype, "attempt_progress": progress,
             "seconds_into_attempt": seconds})
-    snapshots: dict[str, Any] = {}
-
     def snapshot(content_hash: str | None) -> Any:
-        if not content_hash:
-            return None
-        if content_hash not in snapshots:
-            found = connection.execute("SELECT item_json FROM practice_item_snapshots WHERE content_hash = ?",
-                                       (content_hash,)).fetchone()
-            snapshots[content_hash] = _item_from_json(found[0]) if found else None
-        return snapshots[content_hash]
+        # A saved revision through the view: None when it is withheld (its item, or its own sources).
+        return view.revision(connection, content_hash)
 
     opportunities: list[OpportunityEvent] = []
     if receipt_store.has_table(connection, receipt_store.READING):
-        cursor = connection.execute(f"SELECT * FROM {receipt_store.READING} ORDER BY source_written_at, id")
-        names = [d[0] for d in cursor.description]
-        # The firewall's carve-out is the only path from the receipt to AD's state (A12, §5.11).
-        for record in learning_opportunity_events([dict(zip(names, raw)) for raw in cursor.fetchall()]):
+        # The firewall's carve-out is the only path from the receipt to AD's state (A12, §5.11);
+        # the receipts reach it revalidated through the view (Codex verify F20).
+        for record in learning_opportunity_events(view.reading_opportunities(connection)):
             try:
                 at = days(record["source_written_at"])
             except ValueError:
@@ -416,7 +396,7 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
                 record["opportunity_id"], record["source_written_at"], at, record["kind"], record["subkind"], lo,
                 lo_subject.get(lo, "default"),
                 {vault.canonical_facet_id(f): d for f, d in sorted(record["facet_doses"].items())}))
-    exposures = _exposures(connection)
+    exposures = _exposures(connection, view)
     for opportunity in opportunities:
         exposures.setdefault(opportunity.learning_object_id, []).append(opportunity.at)
     for times in exposures.values():
@@ -424,10 +404,7 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
 
     attempts: list[AttemptEvent] = []
     surfaces: set[str] = set()
-    cursor = connection.execute("SELECT * FROM practice_attempts ORDER BY created_at, id")
-    names = [d[0] for d in cursor.description]
-    for raw in cursor.fetchall():
-        attempt = dict(zip(names, raw))
+    for attempt in view.attempts(connection):
         attempt_id = str(attempt["id"])
         try:
             at = days(attempt["created_at"])
@@ -456,11 +433,16 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
             item = snapshot(content_hash)
             status = "exact" if item is not None else "excluded"
         elif row.revision_status == "reconstructed_current":
-            item = vault.practice_items.get(str(attempt["practice_item_id"]))
+            item = view.item(attempt["practice_item_id"])
             content_hash = None
             status = "reconstructed_current" if item is not None else "excluded"
         else:
             item, content_hash, status = None, row.item_snapshot_hash, "excluded"
+        if content_hash and view.revision_withheld(connection, content_hash):
+            # The answered revision's own sources are held out now (a revision of a deleted item, or
+            # one whose provenance differed): the attempt is invisible, as its item would be.
+            summary["attempts"] -= 1
+            continue
         lo = str(attempt["learning_object_id"])
         subject = str(attempt.get("subject") or lo_subject.get(lo) or "default")
         if item is not None:
@@ -495,8 +477,6 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
         elif (source.get("quarantine_state") == "quarantined" or attempt_type == "unassessable"
               or _type_mass(vault, attempt_type) <= 0 or masses.get(attempt_id, 0.0) <= 0):
             reason = "zero_mass"
-        elif not held_out_ok or str(attempt["practice_item_id"]) in held_out:
-            reason = "held_out"
         elif status == "excluded" or item is None or not weights:
             reason = "inputs_excluded"
         category = None
@@ -860,8 +840,9 @@ def events_fingerprint(events: Events) -> str:
 
 
 def snapshot(vault: Any, repository: Any, *, settings: ReplaySettings | None = None, connection: Any = None,
-             as_of: str | None = None) -> Snapshot:
-    """The current state (cached per database, vault and settings while the replay's events are unchanged)."""
+             as_of: str | None = None, view: Any = None) -> Snapshot:
+    """The current state (cached per database, vault and settings while the replay's events are unchanged).
+    ``view``: the operation's material view (one is computed when the caller has none)."""
 
     settings = settings or ReplaySettings.from_config(vault.config)
     own = connection is None
@@ -871,7 +852,7 @@ def snapshot(vault: Any, repository: Any, *, settings: ReplaySettings | None = N
         connection = connect(repository.sqlite_path, read_only=True)
     try:
         key = (str(repository.sqlite_path), id(vault), settings.key(), as_of)
-        events = load_events(connection, vault, repository, as_of=as_of, settings=settings)
+        events = load_events(connection, vault, repository, as_of=as_of, settings=settings, view=view)
         stamp = events_fingerprint(events)
         with _CACHE_LOCK:
             cached = _CACHE.get(key)

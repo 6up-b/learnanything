@@ -129,36 +129,26 @@ def view_for(snapshot: RP.Snapshot, config: Any, learning_object_id: str) -> tup
     return snapshot.lo_view(learning_object_id), RP.lo_view_name(learning_object_id)
 
 
-def _warmth(connection: Any, learning_object_id: str, now: str) -> float:
+def _warmth(connection: Any, view: Any, learning_object_id: str, now: str) -> float:
+    """``w_t`` at a decision: hours since the LO's last exposure (an attempt, a reveal, a reading
+    opportunity) before ``now``, read through the material view (Codex verify F20: an attempt
+    on a withheld item, or a receipt whose source is withheld now, warms nothing)."""
+
     served = RP.days(now)
     latest = None
-    for (created_at,) in connection.execute(
-            "SELECT created_at FROM practice_attempts WHERE learning_object_id = ?", (learning_object_id,)):
+    stamps = [row.get("created_at") for row in view.attempts(connection)
+              if str(row.get("learning_object_id")) == str(learning_object_id)]
+    stamps += [row.get("created_at") for row in view.reveals(connection)
+               if str(row.get("learning_object_id")) == str(learning_object_id)]
+    stamps += [row.get("source_written_at") for row in view.reading_opportunities(
+        connection, learning_object_ids=[learning_object_id])]
+    for created_at in stamps:
         try:
             value = RP.days(created_at)
-        except ValueError:
+        except (TypeError, ValueError):
             continue
         if value < served and (latest is None or value > latest):
             latest = value
-    if store.has_table(connection, "reveal_events"):
-        for (created_at,) in connection.execute(
-                "SELECT created_at FROM reveal_events WHERE learning_object_id = ?", (learning_object_id,)):
-            try:
-                value = RP.days(created_at)
-            except ValueError:
-                continue
-            if value < served and (latest is None or value > latest):
-                latest = value
-    if store.has_table(connection, "ad_reading_opportunities"):
-        for (created_at,) in connection.execute(
-                "SELECT source_written_at FROM ad_reading_opportunities WHERE learning_object_id = ?",
-                (learning_object_id,)):
-            try:
-                value = RP.days(created_at)
-            except ValueError:
-                continue
-            if value < served and (latest is None or value > latest):
-                latest = value
     if latest is None:
         return 0.0
     return float(math.exp(-((served - latest) * 24.0) / P.WARMTH_HOURS))
@@ -170,11 +160,12 @@ def _loadings(snapshot: RP.Snapshot, config: Any, content_hash: str, now: str) -
     return snapshot.events.structure.loadings(content_hash, RP.days(now))
 
 
-def _spec(vault: Any, connection: Any, snapshot: RP.Snapshot, item: Any, now: str) -> Any:
+def _spec(vault: Any, connection: Any, snapshot: RP.Snapshot, item: Any, now: str, view: Any) -> Any:
     from learnloop.adaptive_difficulty.feature_audit import item_revision
 
     content_hash, _json = item_revision(item)
-    return PR.current_spec(vault, connection, item, at=now, loadings=_loadings(snapshot, vault.config, content_hash, now))
+    return PR.current_spec(vault, connection, item, at=now, view=view,
+                           loadings=_loadings(snapshot, vault.config, content_hash, now))
 
 
 def _versions(vault: Any, snapshot: RP.Snapshot, view_name: str) -> dict[str, Any]:
@@ -183,7 +174,7 @@ def _versions(vault: Any, snapshot: RP.Snapshot, view_name: str) -> dict[str, An
             "algorithm_version": vault.config.algorithms.algorithm_version}
 
 
-def decide_slot(vault: Any, repository: Any, request: SlotRequest) -> SlotDecision:
+def decide_slot(vault: Any, repository: Any, request: SlotRequest, *, view: Any = None) -> SlotDecision:
     """Score the slot's support and draw (§6.1), writing the ``ad_selections`` row first.
 
     Runs in the caller's (the serve's) transaction. The reading-opportunity sweep runs first,
@@ -192,12 +183,16 @@ def decide_slot(vault: Any, repository: Any, request: SlotRequest) -> SlotDecisi
     same instant, in the same transaction) then finds nothing new, so the draw, the selection row
     and the serve receipts read one state."""
 
+    from learnloop.adaptive_difficulty.material_view import material_view
     from learnloop.adaptive_difficulty.reading import sweep
 
+    # The slot's material view (the plan side built it for the support's checks; A8).
+    view = material_view(vault, repository, view)
     connection = repository.connection()
     if request.now:
         try:
-            sweep(vault, repository, as_of=request.now, sweep_kind="serve", sweep_ref=request.decision_key)
+            sweep(vault, repository, as_of=request.now, sweep_kind="serve", sweep_ref=request.decision_key,
+                  view=view)
         except Exception:  # noqa: BLE001 - as at the serve hook: a failed sweep never blocks the draw
             LOG.warning("AD reading sweep before draw %s failed", request.decision_key, exc_info=True)
     constants = S.constants_from_config(vault.config)
@@ -205,9 +200,9 @@ def decide_slot(vault: Any, repository: Any, request: SlotRequest) -> SlotDecisi
     excluded = [{"ref": c.practice_item_id, "failed": list(c.failed)} for c in request.candidates if c.failed]
     slot = next((c for c in request.candidates if c.practice_item_id == request.slot_item_id), None)
     slot_failed = tuple(slot.failed) if slot is not None else ("not_a_candidate",)
-    snapshot = RP.snapshot(vault, repository, connection=connection)
-    view, view_name = view_for(snapshot, vault.config, request.learning_object_id)
-    slot_item = vault.practice_items.get(request.slot_item_id)
+    snapshot = RP.snapshot(vault, repository, connection=connection, view=view)
+    state_view, view_name = view_for(snapshot, vault.config, request.learning_object_id)
+    slot_item = view.item(request.slot_item_id)
     cell = (PR.facet_weights(vault, slot_item) and
             sorted(PR.facet_weights(vault, slot_item).items(), key=lambda kv: (-kv[1], kv[0]))[0][0]) \
         if slot_item is not None else None
@@ -246,13 +241,13 @@ def decide_slot(vault: Any, repository: Any, request: SlotRequest) -> SlotDecisi
         })
         return SlotDecision("displace", None, selection_id, "empty_support", None,
                             slot_failed=tuple(f for f in slot_failed if f != PRE_EXPOSED), view=view_name)
-    warmth = _warmth(connection, request.learning_object_id, request.now)
+    warmth = _warmth(connection, view, request.learning_object_id, request.now)
     specs = []
     for candidate in support:
-        item = vault.practice_items.get(candidate.practice_item_id)
+        item = view.item(candidate.practice_item_id)
         if item is not None:
-            specs.append(_spec(vault, connection, snapshot, item, request.now))
-    scored = PR.score(view, specs, warmth=warmth, constants=constants)
+            specs.append(_spec(vault, connection, snapshot, item, request.now, view))
+    scored = PR.score(state_view, specs, warmth=warmth, constants=constants)
     draw = S.draw(scored, key=f"{request.block_id}:{request.slot_position}", constants=constants)
     support_rows = [{**s.as_dict(), "propensity": round(draw.propensities.get(s.ref, 0.0), 12)} for s in scored]
     pair = None if request.router_propensity is None else request.router_propensity * draw.propensity
@@ -261,8 +256,8 @@ def decide_slot(vault: Any, repository: Any, request: SlotRequest) -> SlotDecisi
         "chosen_item_id": draw.chosen, "propensity": draw.propensity, "pair_propensity": pair,
         "empty_support": False,
     })
-    commission_id = _maybe_commission(vault, repository, snapshot, view, view_name, request, constants,
-                                      cell=cell, capability_name=cell_capability, warmth=warmth)
+    commission_id = _maybe_commission(vault, repository, snapshot, state_view, view_name, request, constants,
+                                      cell=cell, capability_name=cell_capability, warmth=warmth, material=view)
     why_kind = ("calibrate" if draw.mode == S.MODE_CALIBRATE else
                 "band" if draw.chosen in draw.near_tie else "overlap")
     action = "serve" if draw.chosen == request.slot_item_id else "substitute"
@@ -272,7 +267,7 @@ def decide_slot(vault: Any, repository: Any, request: SlotRequest) -> SlotDecisi
 
 def _maybe_commission(vault: Any, repository: Any, snapshot: RP.Snapshot, view: Any, view_name: str,
                       request: SlotRequest, constants: S.SelectionConstants, *, cell: str | None,
-                      capability_name: str | None, warmth: float) -> str | None:
+                      capability_name: str | None, warmth: float, material: Any) -> str | None:
     """§6.1: a commission draw when the cell pool has no item with ``P_band >= calibrate_below``."""
 
     if cell is None or capability_name is None:
@@ -283,9 +278,9 @@ def _maybe_commission(vault: Any, repository: Any, snapshot: RP.Snapshot, view: 
         return None
     specs = []
     for item_id in request.cell_pool:
-        item = vault.practice_items.get(item_id)
+        item = material.item(item_id)
         if item is not None:
-            specs.append(_spec(vault, connection, snapshot, item, request.now))
+            specs.append(_spec(vault, connection, snapshot, item, request.now, material))
     if specs:
         scored = PR.score(view, specs, warmth=warmth, constants=constants, information=False)
         if max(s.p_band for s in scored) >= constants.calibrate_below:
@@ -332,17 +327,17 @@ def commission_draw(vault: Any, repository: Any, snapshot: RP.Snapshot, view: An
     })
 
 
-def why_for_presentation(connection: Any, presentation_id: str) -> dict[str, Any] | None:
+def why_for_presentation(connection: Any, presentation_id: str, *, view: Any) -> dict[str, Any] | None:
     """"Why this item" for a served plan item (§12): the one line of the draw that chose it, or
-    None when no AD draw chose it (below the tag, ``selection`` off, a predecessor serve)."""
+    None when no AD draw chose it (below the tag, ``selection`` off, a predecessor serve) or its
+    item is withheld now (``view``, the material view)."""
 
-    if not store.has_table(connection, store.SELECTIONS) or not store.has_table(connection, "plan_presentations"):
+    if not store.has_table(connection, store.SELECTIONS):
         return None
-    found = connection.execute("SELECT block_id, practice_item_id FROM plan_presentations WHERE id = ?",
-                               (presentation_id,)).fetchone()
+    found = view.presentation(connection, presentation_id)
     if found is None:
         return None
-    block_id, item_id = str(found[0]), str(found[1])
+    block_id, item_id = str(found["block_id"]), str(found["practice_item_id"])
     for row in reversed(store.selections(connection, kind="serve")):
         if str(row.get("block_id")) != block_id or row.get("chosen_item_id") != item_id:
             continue
@@ -356,13 +351,13 @@ def why_for_presentation(connection: Any, presentation_id: str) -> dict[str, Any
 
 # -- serve-time receipts (§8.2) and the loadings in force (§7.5) ------------------------------------
 
-def frozen_loadings(vault: Any, repository: Any, connection: Any, content_hash: str, served_at: str
-                    ) -> tuple[dict[str, Any] | None, str | None]:
+def frozen_loadings(vault: Any, repository: Any, connection: Any, content_hash: str, served_at: str, *,
+                    view: Any) -> tuple[dict[str, Any] | None, str | None]:
     """The item revision's loadings in force at the serve and the coupling version (AD2/AD3)."""
 
     if not successor_active(vault.config) or not coupling_on(vault.config):
         return None, None
-    snapshot = RP.snapshot(vault, repository, connection=connection)
+    snapshot = RP.snapshot(vault, repository, connection=connection, view=view)
     structure = snapshot.events.structure
     loadings = structure.loadings(content_hash, RP.days(served_at))
     ids = [row[0] for row in connection.execute(
@@ -373,7 +368,7 @@ def frozen_loadings(vault: Any, repository: Any, connection: Any, content_hash: 
 
 
 def threshold_receipts(vault: Any, repository: Any, connection: Any, item: Any, *, presentation_kind: str,
-                       presentation_id: str, served_at: str) -> list[Any]:
+                       presentation_id: str, served_at: str, view: Any) -> list[Any]:
     """The in-process ``ad_threshold@*`` forecasts of one presentation (AD2/AD3)."""
 
     from learnloop.scheduling.forecast_receipts import ITEM_UNASSISTED_SUCCESS, ForecastReceipt
@@ -383,17 +378,17 @@ def threshold_receipts(vault: Any, repository: Any, connection: Any, item: Any, 
 
     if not successor_active(vault.config):
         return []
-    snapshot = RP.snapshot(vault, repository, connection=connection)
-    spec = _spec(vault, connection, snapshot, item, served_at)
-    warmth = _warmth(connection, str(item.learning_object_id), served_at)
+    snapshot = RP.snapshot(vault, repository, connection=connection, view=view)
+    spec = _spec(vault, connection, snapshot, item, served_at, view)
+    warmth = _warmth(connection, view, str(item.learning_object_id), served_at)
     constants = S.constants_from_config(vault.config)
     out = []
-    for name, view, weights in (
+    for name, state, weights in (
         ("ad_threshold@subject", snapshot.subject, None),
         ("ad_threshold@subject_uniform", snapshot.subject, PR.mixture_weights(snapshot.subject, uniform=True)),
         ("ad_threshold@lo", snapshot.lo_view(str(item.learning_object_id)), None),
     ):
-        prediction = PR.predict(view, spec if view.subject_view else _no_loadings(spec), warmth=warmth,
+        prediction = PR.predict(state, spec if state.subject_view else _no_loadings(spec), warmth=warmth,
                                 weights=weights, band=constants.band)
         out.append(ForecastReceipt(
             receipt_key=receipt_key(presentation_kind, presentation_id, name), kind=ITEM_UNASSISTED_SUCCESS,
@@ -404,7 +399,7 @@ def threshold_receipts(vault: Any, repository: Any, connection: Any, item: Any, 
             inputs={"practice_item_id": str(item.id), "learning_object_id": item.learning_object_id,
                     "state_hash": snapshot.state_hash(), "warmth": round(warmth, 8),
                     "features": dict(spec.features or {}), "signals": dict(spec.signals),
-                    "loadings": dict(spec.loadings) if view.subject_view else {}},
+                    "loadings": dict(spec.loadings) if state.subject_view else {}},
             parameters=[parameter("priors", P.PRIORS_VERSION, "structural", source="code")],
             versions={"forecaster": THRESHOLD_VERSION, **P.versions()},
             inputs_as_of=served_at, p=prediction.p_bar,

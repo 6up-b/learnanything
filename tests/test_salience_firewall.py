@@ -201,5 +201,8 @@ def test_ad_replayer_reads_the_receipt_only_through_the_carve_out() -> None:
                if "ad_reading_opportunities" in path.read_text(encoding="utf-8")
                or "receipt_store.READING" in path.read_text(encoding="utf-8")]
     # The sweep writes it; the replayer reads it through the carve-out; the dose arm and the
-    # serve's warmth read only ids and times (never a dose into the state).
-    assert set(readers) <= {"reading.py", "replay.py", "dose.py", "serving.py", "data_check.py", "backfill.py"}
+    # serve's warmth read only ids and times (never a dose into the state). Since AD2+AD3 fix
+    # round 8 every read goes through the material view (which revalidates each receipt's source
+    # and hands the replayer rows that still pass only through the carve-out).
+    assert set(readers) <= {"reading.py", "replay.py", "dose.py", "serving.py", "data_check.py", "backfill.py",
+                            "material_view.py"}

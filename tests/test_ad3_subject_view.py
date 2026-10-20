@@ -225,7 +225,11 @@ def test_coupling_is_prediction_only(tmp_path):
     assert results["plain"]["evidence"] == results["adversarial"]["evidence"]
     # Caps: no item loads more than 3 facets, no LO couples more than 3 LOs; χ caps from the grid.
     with closing(connect(results["adversarial"]["paths"].sqlite_path)) as connection:
-        structure = R.load_structure(connection, load_vault(results["adversarial"]["paths"].root))
+        from learnloop.adaptive_difficulty.material_view import material_view
+
+        adversarial = load_vault(results["adversarial"]["paths"].root)
+        structure = R.load_structure(connection, adversarial, view=material_view(
+            adversarial, Repository(results["adversarial"]["paths"].sqlite_path)))
     assert all(len(structure.coupling(lo)) <= P.MAX_COUPLED for lo in vault_los(results["adversarial"]["paths"]))
     assert max(p.coupling for p in P.hyper_grid()) <= 0.75 and max(p.implication for p in P.hyper_grid()) <= 0.5
     # Cell-pool membership reads the item's own facets, never its loadings.

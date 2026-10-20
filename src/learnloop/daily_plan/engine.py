@@ -2893,7 +2893,10 @@ def advance_with_context(
             if served is None:
                 # Displaced as ineligible (spec §6.1 step 0): the plan's rules pick the next step.
                 return advance_with_context(env, serve=serve)
-            return served
+            if served is not _AD_UNAVAILABLE:
+                return served
+            # AD is unavailable for this slot (A8, fail closed; Codex verify F22): the planned item
+            # is served below exactly as the incumbent serves it.
     eligibility = None
     if serve and item.served_at is None:
         held, eligibility = _held_cold_check(env, block, item)
@@ -2920,22 +2923,38 @@ def advance_with_context(
     return record, step, context
 
 
+#: ``_ad_slot_serve``'s answer when AD cannot decide the slot safely (the held-out predicate or
+#: the routine exclusions could not be computed): the incumbent serves the planned item.
+_AD_UNAVAILABLE: Any = object()
+
+
 def _ad_slot_serve(
     env: PlanEnv, record: PlanRecord, block: PlannedBlock, item: PlannedItem, built: _Pool, context: PoolContext,
     *, boundary: bool,
-) -> tuple[PlanRecord, dict[str, Any], PoolContext] | None:
+) -> Any:
     """Adaptive difficulty AD2+AD3 (spec §6.1): the slot's support, AD's draw, its
     ``ad_selections`` row, any ``item_substituted`` event and ``item_served``, in one
     transaction (a propensity is never recomputed after the draw). None when the slot
-    was displaced as ineligible."""
+    was displaced as ineligible; :data:`_AD_UNAVAILABLE` (nothing written) when AD is
+    unavailable for it."""
 
     from learnloop.adaptive_difficulty.serving import decide_slot
     from learnloop.daily_plan import ad_slot
 
+    import logging
+
     with env.repository.atomic():
-        request = ad_slot.build_request(env, record, block, item, built, day=day_records(env),
-                                        router_propensity=ad_slot.router_propensity(record, block))
-        decision = decide_slot(env.vault, env.repository, request)
+        try:
+            view = ad_slot.slot_view(env)
+            request = ad_slot.build_request(env, record, block, item, built, day=day_records(env),
+                                            router_propensity=ad_slot.router_propensity(record, block), view=view)
+        except ad_slot.AdUnavailable:
+            # Nothing was written: the transaction holds only reads so far.
+            logging.getLogger(__name__).warning(
+                "adaptive difficulty unavailable for slot %s/%s: the planned item is served", block.id,
+                item.position, exc_info=True)
+            return _AD_UNAVAILABLE
+        decision = decide_slot(env.vault, env.repository, request, view=view)
         now = env.now_iso()
         with env.repository.connection() as connection:
             if decision.action == "displace":

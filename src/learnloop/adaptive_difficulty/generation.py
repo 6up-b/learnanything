@@ -53,22 +53,21 @@ def contract_on(config: Any) -> bool:
     return generation_contract_on(config)
 
 
-def lo_cell_facet(vault: Any, learning_object_id: str, *, protected: Any) -> str | None:
+def lo_cell_facet(view: Any, learning_object_id: str) -> str | None:
     """The LO's highest-weight facet (summed item weights), ties by facet id.
 
-    ``protected``: the held-out predicate (:func:`~learnloop.adaptive_difficulty.protection.protection`).
-    A protected item never steers generation (A8; Codex verify F17's audit): it adds no facet and
-    no weight. With the predicate unavailable it covers every item, so only the LO's authored
-    facets remain, unweighted."""
+    ``view``: the operation's material view. A withheld item never steers generation (A8; Codex
+    verify F17's audit, F21): it adds no facet and no weight. With the predicate unavailable the
+    view is empty, so only the LO's authored facets remain, unweighted."""
 
     from learnloop.adaptive_difficulty.relatedness import lo_facets
 
+    vault = view.vault
     lo = vault.learning_objects.get(learning_object_id)
     if lo is None:
         return None
-    own = [item for item in vault.practice_items.values()
-           if item.learning_object_id == learning_object_id and not protected.covers(item)]
-    facets = lo_facets(vault, lo, protected=protected)
+    own = view.items(learning_object_id=learning_object_id)
+    facets = lo_facets(view, lo)
     if not facets:
         # An LO whose every item is retired still has its items' facets: the cell whose pool is
         # empty, and so has no slot, is exactly the one generation must commission (§6.1).
@@ -95,7 +94,8 @@ def rung_features(point: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def commission_point(vault: Any, repository: Any, *, learning_object_id: str, incumbent: Any,
-                     now: str, selection_id: str | None = None) -> tuple[dict[str, Any], str, str] | None:
+                     now: str, selection_id: str | None = None,
+                     view: Any = None) -> tuple[dict[str, Any], str, str] | None:
     """Under ``generation_contract``: ``(features, capability, selection id)`` of the commissioned
     point for the LO's cell at the incumbent waypoint's capability (the open commission, else a new
     commission draw). The generation path builds its ``RungTarget`` from it, with ``max`` equal to
@@ -114,10 +114,15 @@ def commission_point(vault: Any, repository: Any, *, learning_object_id: str, in
         if row is None or row.get("learning_object_id") != learning_object_id or not row.get("chosen_point"):
             return None
         return rung_features(row["chosen_point"]), str(row["cell_capability"]), str(row["id"])
-    from learnloop.adaptive_difficulty.protection import protection
+    from learnloop.adaptive_difficulty.material_view import material_view
 
+    # The generation's material view (the caller's, or computed once here: A8). Unavailable, AD
+    # commissions nothing and generation keeps its predecessor's target.
+    view = material_view(vault, repository, view)
+    if not view.available:
+        return None
     capability = str(getattr(incumbent, "capability", "") or "")
-    facet = lo_cell_facet(vault, learning_object_id, protected=protection(vault, repository))
+    facet = lo_cell_facet(view, learning_object_id)
     if not capability or facet is None or capability == "coordination":
         return None
     lo = vault.learning_objects.get(learning_object_id)
@@ -127,15 +132,15 @@ def commission_point(vault: Any, repository: Any, *, learning_object_id: str, in
         for row in store.open_commissions(connection, now=now):
             if row.get("cell_facet") == facet and row.get("cell_capability") == capability and row.get("chosen_point"):
                 return rung_features(row["chosen_point"]), capability, str(row["id"])
-        snapshot = RP.snapshot(vault, repository, connection=connection)
+        snapshot = RP.snapshot(vault, repository, connection=connection, view=view)
         from learnloop.adaptive_difficulty.serving import commission_draw, view_for
 
         from learnloop.db.scopes import current_ingest_job_id
 
-        view, view_name = view_for(snapshot, vault.config, learning_object_id)
+        state_view, view_name = view_for(snapshot, vault.config, learning_object_id)
         # The durable job generating now, if any (a practice-expansion job): its finish, not the
         # draw, starts the commission's expiry (Codex verify F14).
-        selection_id = commission_draw(vault, repository, snapshot, view, view_name,
+        selection_id = commission_draw(vault, repository, snapshot, state_view, view_name,
                                        learning_object_id=learning_object_id, subject=subject, facet=facet,
                                        capability_name=capability, key=f"generation:{learning_object_id}:{now}",
                                        now=now, generating_job_id=current_ingest_job_id(repository.sqlite_path))
@@ -239,7 +244,8 @@ def landing_owner(vault: Any, item: Any, commissions: Sequence[Mapping[str, Any]
     return owner
 
 
-def record_landed_commissions(vault: Any, repository: Any, connection: Any, *, now: str) -> list[str]:
+def record_landed_commissions(vault: Any, repository: Any, connection: Any, *, now: str,
+                              view: Any = None) -> list[str]:
     """§7.4: append an ``ad_commission_results`` receipt for each item that landed in a commissioned
     cell.
 
@@ -254,40 +260,41 @@ def record_landed_commissions(vault: Any, repository: Any, connection: Any, *, n
     item that landed before any commission of its cells is not a commissioned landing. Reads only;
     content and evidence are untouched."""
 
-    from learnloop.adaptive_difficulty.protection import protection
+    from learnloop.adaptive_difficulty.material_view import material_view
 
     if not successor_active(vault.config) or not store.has_table(connection, store.COMMISSION_RESULTS):
         return []
     commissions = [row for row in store.commissions_in_draw_order(connection) if row.get("chosen_point")]
     if not commissions:
         return []
-    # A8 (Codex verify F17): a protected item (held-out material, an exam reservation) is never
-    # read here, before ownership, forecasting or a receipt, so it never closes, supersedes or
-    # receipts a commission. With the predicate unavailable nothing is reconciled (fail closed):
-    # the commissions stay open until a reconciliation that can tell.
-    protected = protection(vault, repository)
-    if protected.material is None:
+    # A8 (Codex verify F17): reconciliation reads items only through the operation's material view,
+    # so a protected item (held-out material, an exam reservation) is never read here, before
+    # ownership, forecasting or a receipt, and never closes, supersedes or receipts a commission.
+    # With the predicate unavailable the view is empty and nothing is reconciled (fail closed): the
+    # commissions stay open until a reconciliation that can tell.
+    view = material_view(vault, repository, view)
+    if not view.available:
         return []
     receipted = {str(row["practice_item_id"]) for row in store.commission_results(connection)}
     constants = S.constants_from_config(vault.config)
     written: list[str] = []
     snapshot = None
-    for item in sorted(vault.practice_items.values(), key=lambda i: str(i.id)):
-        if str(item.id) in receipted or protected.covers(item):
+    for item in view.items():
+        if str(item.id) in receipted or view.covers(item):
             continue
         row = landing_owner(vault, item, commissions)
         if row is None:
             continue
         if snapshot is None:
-            snapshot = RP.snapshot(vault, repository, connection=connection)
+            snapshot = RP.snapshot(vault, repository, connection=connection, view=view)
         from learnloop.adaptive_difficulty.feature_audit import item_revision
         from learnloop.adaptive_difficulty.serving import view_for
 
-        view, _name = view_for(snapshot, vault.config, item.learning_object_id)
+        state_view, _name = view_for(snapshot, vault.config, item.learning_object_id)
         content_hash, _json = item_revision(item)
-        spec = PR.current_spec(vault, connection, item, at=now,
+        spec = PR.current_spec(vault, connection, item, at=now, view=view,
                                loadings=snapshot.events.structure.loadings(content_hash, RP.days(now)))
-        p_bar = PR.predict(view, spec, band=constants.band).p_bar
+        p_bar = PR.predict(state_view, spec, band=constants.band).p_bar
         in_band = constants.overlap[0] <= p_bar <= constants.overlap[1]
         created = str(getattr(item, "created_at", "") or "")
         # One resolved mapping per landing (Codex verify F18): the forecast read it, the receipt

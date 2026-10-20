@@ -316,9 +316,15 @@ def build_practice_expansion_plan(
     )
     subject_filter = set(subjects or [])
     concept_filter = set(focus_concepts or [])
-    item_counts = _active_practice_item_counts(vault, repository, exclude_item_ids=exclude_item_ids)
-    facet_unions = _active_evidence_facet_unions(vault, repository)
-    surface_families = _active_surface_families(vault, repository)
+    # Adaptive difficulty AD2+AD3 (A8; Codex verify F21): under the generation contract the
+    # targets' counts, facets and surface families (and so the deficit) come from AD's material
+    # view, so a withheld item's metadata never reaches the prompt. With the contract off, or the
+    # view unavailable, the predecessor's reads exactly (``items=None``).
+    ad_view = _ad_material_view(vault, repository)
+    ad_items = ad_view.items() if ad_view is not None else None
+    item_counts = _active_practice_item_counts(vault, repository, exclude_item_ids=exclude_item_ids, items=ad_items)
+    facet_unions = _active_evidence_facet_unions(vault, repository, items=ad_items)
+    surface_families = _active_surface_families(vault, repository, items=ad_items)
     # Meas §3.A4: the identifiability findings a contrast pair can close, keyed by
     # the facets they name. One static pass, no provider, and it reuses the SAME
     # `analyze_identifiability` the doctor runs -- a request here and a finding
@@ -403,7 +409,7 @@ def build_practice_expansion_plan(
         # dormant below mvp-0.28): AD's commission draw names the feature point at
         # the waypoint's capability; the target carries no difficulty band.
         rung, target_commission_id = _ad_commissioned_rung(
-            vault, repository, learning_object.id, rung, commission_id=ad_commission_id
+            vault, repository, learning_object.id, rung, commission_id=ad_commission_id, view=ad_view
         )
         ability = mastery_mean if mastery_mean is not None else claimed_level
         targets.append(
@@ -456,23 +462,38 @@ def build_practice_expansion_plan(
     return PracticeExpansionPlan(targets=targets)
 
 
-def _ad_commissioned_rung(
-    vault: LoadedVault, repository: Repository, learning_object_id: str, rung: RungTarget | None,
-    *, commission_id: str | None = None,
-) -> tuple[RungTarget | None, str | None]:
-    """The generation contract's waypoint (adaptive difficulty §7.1): with the contract off,
-    or nothing commissioned, the incumbent's rung exactly. ``commission_id``: the serve-time
-    commission a background job generates for (its point, whatever the incumbent's capability)."""
+def _ad_material_view(vault: LoadedVault, repository: Repository) -> Any:
+    """AD's material view for this plan (computed once), or None when the generation contract is
+    off or the held-out predicate is unavailable: then the predecessor's target path runs."""
 
     import learnloop.adaptive_difficulty.generation as ad_generation
 
-    if rung is None or not ad_generation.contract_on(vault.config):
+    if not ad_generation.contract_on(vault.config):
+        return None
+    from learnloop.adaptive_difficulty.material_view import material_view
+
+    view = material_view(vault, repository)
+    return view if view.available else None
+
+
+def _ad_commissioned_rung(
+    vault: LoadedVault, repository: Repository, learning_object_id: str, rung: RungTarget | None,
+    *, commission_id: str | None = None, view: Any = None,
+) -> tuple[RungTarget | None, str | None]:
+    """The generation contract's waypoint (adaptive difficulty §7.1): with the contract off,
+    nothing commissioned, or no material view (the predicate unavailable), the incumbent's rung
+    exactly. ``commission_id``: the serve-time commission a background job generates for (its
+    point, whatever the incumbent's capability). ``view``: the plan's AD material view."""
+
+    import learnloop.adaptive_difficulty.generation as ad_generation
+
+    if rung is None or view is None or not ad_generation.contract_on(vault.config):
         return rung, None
     from learnloop.clock import utc_now_iso
 
     commissioned = ad_generation.commission_point(
         vault, repository, learning_object_id=learning_object_id, incumbent=rung, now=utc_now_iso(),
-        selection_id=commission_id,
+        selection_id=commission_id, view=view,
     )
     if commissioned is None:
         return rung, None
@@ -1653,11 +1674,13 @@ def _active_practice_item_counts(
     repository: Repository,
     *,
     exclude_item_ids: set[str] | None = None,
+    items: Any = None,
 ) -> dict[str, int]:
+    """``items``: AD's material view's items under the generation contract; None reads the vault."""
     states = repository.practice_item_states()
     excluded = exclude_item_ids or set()
     counts: dict[str, int] = {}
-    for item in vault.practice_items.values():
+    for item in (items if items is not None else vault.practice_items.values()):
         if item.id in excluded:
             continue
         state = states.get(item.id)
@@ -1708,13 +1731,14 @@ def _blueprint_components(learning_object) -> list[dict[str, Any]]:
 
 
 def _active_surface_families(
-    vault: LoadedVault, repository: Repository
+    vault: LoadedVault, repository: Repository, *, items: Any = None
 ) -> dict[str, list[str]]:
-    """Surface families already in use per LO, so a batch cannot re-run them."""
+    """Surface families already in use per LO, so a batch cannot re-run them. ``items``: AD's
+    material view's items under the generation contract; None reads the vault."""
 
     states = repository.practice_item_states()
     families: dict[str, set[str]] = {}
-    for item in vault.practice_items.values():
+    for item in (items if items is not None else vault.practice_items.values()):
         state = states.get(item.id)
         if state is not None and not state.active:
             continue
@@ -1723,7 +1747,8 @@ def _active_surface_families(
     return {lo_id: sorted(values) for lo_id, values in families.items()}
 
 
-def _active_evidence_facet_unions(vault: LoadedVault, repository: Repository) -> dict[str, list[str]]:
+def _active_evidence_facet_unions(vault: LoadedVault, repository: Repository, *,
+                                  items: Any = None) -> dict[str, list[str]]:
     """Canonical facet vocabulary available to each Learning Object.
 
     Blueprints remain authoritative even before the first Practice Item exists;
@@ -1741,7 +1766,8 @@ def _active_evidence_facet_unions(vault: LoadedVault, repository: Repository) ->
         }
         for learning_object in vault.learning_objects.values()
     }
-    for item in vault.practice_items.values():
+    # ``items``: AD's material view's items under the generation contract; None reads the vault.
+    for item in (items if items is not None else vault.practice_items.values()):
         state = states.get(item.id)
         if state is not None and not state.active:
             continue

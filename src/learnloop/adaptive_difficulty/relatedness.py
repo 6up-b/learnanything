@@ -117,20 +117,12 @@ def lo_subject(vault: Any, lo: Any) -> str:
     return str(subjects[0]) if subjects else "default"
 
 
-def lo_facets(vault: Any, lo: Any, *, protected: Any = None) -> list[str]:
-    """The LO's authored facets, else its active items' facets. ``protected`` (the held-out
-    predicate): a protected item adds no facet (A8; Codex verify F17's audit), so a facet only
-    held-out material names is never quoted to a prompt nor steers generation."""
+def lo_facets(view: Any, lo: Any) -> list[str]:
+    """The LO's authored facets, else its visible active items' facets, through the operation's
+    material view (A8; Codex verify F17's audit, F19): a facet only withheld items name is never
+    quoted to a prompt, never steers generation and never enters the replay's structure."""
 
-    from learnloop.vault.models import learning_object_facet_union
-
-    facets = [vault.canonical_facet_id(str(f)) for f in learning_object_facet_union(lo)]
-    if not facets:
-        facets = [vault.canonical_facet_id(str(f)) for item in vault.practice_items.values()
-                  if item.learning_object_id == lo.id and getattr(item, "status", "active") == "active"
-                  and (protected is None or not protected.covers(item))
-                  for f in item.evidence_facets]
-    return sorted(dict.fromkeys(facets))
+    return view.lo_facets(lo)
 
 
 def subjects(vault: Any) -> list[str]:
@@ -143,10 +135,10 @@ def subject_inputs(vault: Any, repository: Any, subject: str, *, protected: Any 
     prerequisites, and the stems of the subject's unprotected items. Never learner data, a
     reference answer, or held-out / exam material (A8)."""
 
-    from learnloop.adaptive_difficulty.protection import guard
     from learnloop.adaptive_difficulty.feature_audit import item_revision
+    from learnloop.adaptive_difficulty.material_view import material_view
 
-    protection = guard(vault, repository, protected)
+    view = material_view(vault, repository, protected)
     los = sorted((lo for lo in vault.learning_objects.values()
                   if getattr(lo, "status", "active") == "active" and lo_subject(vault, lo) == subject),
                  key=lambda lo: lo.id)
@@ -155,7 +147,7 @@ def subject_inputs(vault: Any, repository: Any, subject: str, *, protected: Any 
     facets: dict[str, dict[str, Any]] = {}
     lo_rows = []
     for lo in los:
-        owned = lo_facets(vault, lo, protected=protection)
+        owned = lo_facets(view, lo)
         for facet_id in owned:
             facet = vault.evidence_facets.get(facet_id)
             facets[facet_id] = {"facet_id": facet_id, "title": _excerpt(getattr(facet, "title", None) or facet_id, 200),
@@ -173,10 +165,8 @@ def subject_inputs(vault: Any, repository: Any, subject: str, *, protected: Any 
     )
     items = []
     revisions: dict[str, str] = {}
-    for item in sorted(vault.practice_items.values(), key=lambda i: str(i.id)):
-        if item.learning_object_id not in lo_ids or getattr(item, "status", "active") != "active":
-            continue
-        if protection.covers(item):
+    for item in view.items(active=True):
+        if item.learning_object_id not in lo_ids:
             continue
         content_hash, _json = item_revision(item)
         revisions[str(item.id)] = content_hash
@@ -382,7 +372,10 @@ def propose_subject(vault: Any, repository: Any, subject: str, *, client: Any = 
     outcome = ProposalOutcome(subject, "disabled")
     if not coupling_on(vault.config):
         return outcome
-    whole = subject_inputs(vault, repository, subject, protected=protected)
+    from learnloop.adaptive_difficulty.material_view import material_view
+
+    view = material_view(vault, repository, protected)
+    whole = subject_inputs(vault, repository, subject, protected=view)
     if not whole["payload"]["learning_objects"]:
         outcome.status = "empty"
         return outcome
@@ -405,13 +398,13 @@ def propose_subject(vault: Any, repository: Any, subject: str, *, client: Any = 
         outcome.status, outcome.reason = "unavailable", why
         return outcome
     # Every quoted item is guarded (the whole subject's stems are context in the prompt).
-    items = [vault.practice_items[item_id] for item_id in inputs["item_ids"] if item_id in vault.practice_items]
+    items = [item for item in (view.item(item_id) for item_id in inputs["item_ids"]) if item is not None]
     try:
         with claimed(repository, claim_key(subject, inputs["input_hash"]), fence=fence) as worker:
             if worker is None:
                 outcome.status = "busy"
                 return outcome
-            send = SendGuard(vault, repository, items=items, protected=protected, live_vault=live_vault)
+            send = SendGuard(vault, repository, items=items, protected=view.protection, live_vault=live_vault)
             route = plan_route(vault, ROUTE, llm)  # type: ignore[arg-type]
             price = vault.config.adaptive_difficulty.price_per_million
             if route.billing != "subscription" and price is None:
@@ -561,11 +554,14 @@ def shadow_report(vault: Any, repository: Any, subject: str) -> dict[str, Any]:
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         candidate = candidate_version(connection, subject)
         settings = RP.ReplaySettings.from_config(vault.config)
-        current = RP.run(RP.load_events(connection, vault, repository, settings=settings), settings)
+        from learnloop.adaptive_difficulty.material_view import material_view
+
+        view = material_view(vault, repository)
+        current = RP.run(RP.load_events(connection, vault, repository, settings=settings, view=view), settings)
         if candidate is None:
             return {"subject": subject, "candidate": None, "changed": False}
-        events = RP.load_events(connection, vault, repository, settings=settings)
-        events.structure = load_structure(connection, vault, coupled=settings.coupling,
+        events = RP.load_events(connection, vault, repository, settings=settings, view=view)
+        events.structure = load_structure(connection, vault, view=view, coupled=settings.coupling,
                                           override={subject: {**candidate, "adopted_at": utc_now_iso()}})
         shadow = RP.run(events, settings)
     before = {row["attempt_id"]: row for row in current.trace if row["view"] == RP.VIEW_SUBJECT}
@@ -693,24 +689,15 @@ class VaultStructure(M.Structure):
         return tuple(dict.fromkeys(out))
 
 
-def facet_maps(vault: Any) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
-    lo_to_facets: dict[str, list[str]] = {}
-    facet_to_los: dict[str, list[str]] = {}
-    for lo in vault.learning_objects.values():
-        facets = lo_facets(vault, lo)
-        lo_to_facets[lo.id] = facets
-        for facet in facets:
-            facet_to_los.setdefault(facet, []).append(lo.id)
-    return facet_to_los, lo_to_facets
-
-
-def load_structure(connection: Any, vault: Any, *, coupled: bool = True,
+def load_structure(connection: Any, vault: Any, *, view: Any, coupled: bool = True,
                    override: Mapping[str, Mapping[str, Any]] | None = None) -> VaultStructure:
     """The relatedness in force for the replay: the adopted versions' runs from the start,
     later runs from their write time. With ``coupled`` false (``learned_coupling`` off) none.
-    ``override`` (the shadow report) replaces a subject's adopted version by a candidate."""
+    ``override`` (the shadow report) replaces a subject's adopted version by a candidate.
+    ``view``: the operation's material view, whose facet maps name no facet only withheld items
+    name (Codex verify F19)."""
 
-    facet_to_los, lo_to_facets = facet_maps(vault)
+    facet_to_los, lo_to_facets = view.facet_maps()
     if not coupled or not serving_store.has_table(connection, serving_store.COUPLING_VERSIONS):
         return VaultStructure(facet_los=facet_to_los, lo_facets=lo_to_facets)
     adopted: dict[str, dict[str, Any]] = {}
@@ -769,7 +756,6 @@ __all__ = [
     "VaultStructure",
     "adopt",
     "candidate_version",
-    "facet_maps",
     "load_structure",
     "lo_facets",
     "lo_subject",

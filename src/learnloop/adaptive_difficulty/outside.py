@@ -172,10 +172,11 @@ def source_identity(item: Any, practice_item_id: str | None = None) -> dict[str,
             "whole": sorted(str(extraction) for extraction in whole)}
 
 
-def history_card(vault: Any, connection: Any, item: Any, *, served_at: str, protected: frozenset[str],
+def history_card(vault: Any, connection: Any, item: Any, *, served_at: str, view: Any,
                  incumbent: Mapping[str, Any] | None,
                  identities: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-    """The learner's history on the item's LO and its prerequisites, as of the serve.
+    """The learner's history on the item's LO and its prerequisites, as of the serve, read through
+    the serve's material view (no withheld item's attempt is ever on the card).
 
     ``identities``, when given, receives the :func:`source_identity` of each
     attempt's item the card includes (Codex re-review F11)."""
@@ -184,18 +185,17 @@ def history_card(vault: Any, connection: Any, item: Any, *, served_at: str, prot
     scope = [item.learning_object_id, *[str(prerequisite) for prerequisite in (getattr(lo, "prerequisites", None) or [])]]
     scope = list(dict.fromkeys(scope))
     served = parse_utc(served_at)
-    marks = ",".join("?" for _ in scope)
-    rows = connection.execute(
-        "SELECT id, practice_item_id, learning_object_id, attempt_type, correctness, hints_used, primed, created_at "
-        f"FROM practice_attempts WHERE learning_object_id IN ({marks}) AND attempt_type != 'self_report' "
-        "ORDER BY created_at DESC, id DESC", scope,
-    ).fetchall()
+    found = [attempt for attempt in view.attempts(connection)
+             if str(attempt.get("learning_object_id")) in scope and attempt.get("attempt_type") != "self_report"]
+    found.sort(key=lambda attempt: (str(attempt.get("created_at") or ""), str(attempt["id"])), reverse=True)
+    rows = [(a["id"], a["practice_item_id"], a["learning_object_id"], a.get("attempt_type"), a.get("correctness"),
+             a.get("hints_used"), a.get("primed"), a.get("created_at")) for a in found]
     attempts = []
     for row in rows:
         stamp = parse_utc(str(row[7])) if row[7] else None
-        if stamp is None or served is None or stamp >= served or str(row[1]) in protected:
+        if stamp is None or served is None or stamp >= served:
             continue
-        past = vault.practice_items.get(str(row[1]))
+        past = view.item(row[1])
         if identities is not None:
             identities.append(source_identity(past, str(row[1])))
         attempts.append({
@@ -500,11 +500,6 @@ def _forecast_item(vault: Any, worker: Any, item: Any, client: Any, *, content_h
     outcome.status, outcome.p = status, p
 
 
-def _presentation(connection: Any, presentation_id: str) -> dict[str, Any] | None:
-    row = connection.execute("SELECT * FROM plan_presentations WHERE id = ?", (presentation_id,)).fetchone()
-    return dict(row) if row is not None else None
-
-
 def _incumbent_inputs(connection: Any, presentation_id: str) -> dict[str, Any] | None:
     key = receipt_key("plan_presentation", presentation_id, INCUMBENT)
     row = connection.execute(
@@ -530,7 +525,7 @@ def frozen_state_key(presentation_id: str) -> str:
 
 
 def freeze_presentation_inputs(vault: Any, connection: Any, item: Any, *, presentation_id: str, served_at: str,
-                               protected: Any) -> str | None:
+                               protected: Any, view: Any) -> str | None:
     """In the serve transaction: the exact ``llm_v3`` request inputs of one presentation.
 
     Codex review F2: the background forecasters run after the serve, when an
@@ -553,7 +548,7 @@ def freeze_presentation_inputs(vault: Any, connection: Any, item: Any, *, presen
     content_hash, _json = item_revision(item)
     history: list[dict[str, Any]] = []
     state = {"item": item_view(vault, item),
-             "learner": history_card(vault, connection, item, served_at=served_at, protected=protected,
+             "learner": history_card(vault, connection, item, served_at=served_at, view=view,
                                      incumbent=_incumbent_inputs(connection, presentation_id), identities=history)}
     key = frozen_state_key(presentation_id)
     store.insert_payload(connection, owner_key=key, forecaster=FROZEN_STATE_FORECASTER, kind="request", content={
@@ -599,9 +594,12 @@ def forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, 
     chosen = [name for name in (LLM_V3_LLM, LLM_V3_DECIDER) if name in outside_forecasters(vault.config)]
     if not chosen:
         return []
+    from learnloop.adaptive_difficulty.material_view import material_view
+
+    view = material_view(vault, repository)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        presentation = _presentation(connection, presentation_id)
-        if presentation is None:
+        found, presentation = view.presentation_status(connection, presentation_id)
+        if found == "missing":
             return [ForecastOutcome(name, "not_found") for name in chosen]
         frozen = _frozen_inputs(connection, presentation_id)
         pending = [name for name in chosen
@@ -610,8 +608,11 @@ def forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, 
         return []
     if frozen is None:
         return [ForecastOutcome(name, "no_frozen_inputs") for name in pending]
+    if presentation is None:
+        # Its item is withheld now (A8): nothing of it is read or sent.
+        return [ForecastOutcome(name, "protected") for name in pending]
     item_id = str(presentation["practice_item_id"])
-    item = vault.practice_items.get(item_id)
+    item = view.item(item_id)
     outcomes: list[ForecastOutcome] = []
     try:
         with claimed(repository, presentation_key(presentation_id), fence=fence) as worker:

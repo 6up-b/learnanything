@@ -147,16 +147,29 @@ def prepare_items(vault: Any, repository: Any, item_ids: Iterable[str], *, clien
     (Codex review F5, F6): a revision another job or process is preparing is
     ``busy`` here and left to it."""
 
+    from learnloop.adaptive_difficulty.material_view import material_view
+
     ids = list(dict.fromkeys(str(value) for value in item_ids))[:limit]
-    items = [vault.practice_items.get(item_id) for item_id in ids]
-    return _prepare(vault, repository, [item for item in items if item is not None], clients=clients,
-                    decider_factory=decider_factory, clock=clock, fence=fence, live_vault=live_vault)
+    # Read through a material view (A8): a withheld id is handed on as withheld, never as content,
+    # and the run reports it ``protected``.
+    view = material_view(vault, repository)
+    units = [_Withheld(item_id) if view.withheld(item_id) else view.item(item_id) for item_id in ids]
+    return _prepare(vault, repository, [unit for unit in units if unit is not None], clients=clients,
+                    decider_factory=decider_factory, clock=clock, fence=fence, live_vault=live_vault,
+                    view=view if live_vault is None else None)
+
+
+@dataclass(frozen=True)
+class _Withheld:
+    """An item id the material view withholds: prepared as ``protected``, its content never read."""
+
+    id: str
 
 
 def _prepare(vault: Any, repository: Any, items: list[Any], *, clients: Clients | None,
              decider_factory: Callable[[], Any] | None, clock: Any, fence: Any,
              live_vault: Callable[[], Any] | None,
-             results: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+             results: list[dict[str, Any]] | None = None, view: Any = None) -> list[dict[str, Any]]:
     """Prepare exactly these revisions (each an item as it was found), in order.
 
     Each visited revision's entry is appended to ``results`` as soon as it is
@@ -165,21 +178,36 @@ def _prepare(vault: Any, repository: Any, items: list[Any], *, clients: Clients 
     that sees an exception knows which revisions were visited."""
 
     from learnloop.adaptive_difficulty.feature_audit import audit_revision, item_revision
-    from learnloop.adaptive_difficulty.protection import protection
+    from learnloop.adaptive_difficulty.material_view import material_view
 
     def live() -> bool:
         return fence is None or fence.live()
 
     results = results if results is not None else []
     current = live_vault() if live_vault is not None else vault
-    protected = protection(current if current is not None else vault, repository)
+    # The run's material view of the vault as it is now (A8; fix round 8): computed once per run.
+    view = material_view(current if current is not None else vault, repository, view)
+    protected = view.protection
     for item in items:
         if not live():
             break
         item_id = str(item.id)
+        if isinstance(item, _Withheld) or view.withheld(item_id) or view.covers(item):
+            # Terminal: a withheld item is never audited or forecast (A8). A revision queued while it
+            # was visible keeps its queue key (its hash), so it leaves the queue settled.
+            content_hash = None if isinstance(item, _Withheld) else item_revision(item)[0]
+            entry = {"practice_item_id": item_id, "content_hash": content_hash, "settled": True}
+            if feature_audit_enabled(vault.config):
+                entry["audit"] = {"status": "protected"}
+            if LLM_V1 in outside_forecasters(vault.config):
+                entry["llm_v1"] = {"status": "protected"}
+            results.append(entry)
+            if content_hash is not None:
+                with _GUARD:
+                    _PREPARED.add((str(Path(repository.sqlite_path)), item_id, content_hash))
+            continue
         content_hash = item_revision(item)[0]
-        loaded = current if current is not None else vault
-        if getattr(item, "status", "active") != "active" or item_id not in (loaded.practice_items or {}):
+        if getattr(item, "status", "active") != "active" or view.item(item_id) is None:
             # Terminal: retrying an ineligible or removed item changes nothing.
             results.append({"practice_item_id": item_id, "content_hash": content_hash, "status": "ineligible",
                             "settled": True})

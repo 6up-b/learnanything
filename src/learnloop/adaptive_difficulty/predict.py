@@ -127,17 +127,18 @@ def guess(vault: Any, item: Any) -> float:
         return 0.0
 
 
-def current_spec(vault: Any, connection: Any, item: Any, *, at: str, loadings: Mapping[str, float] | None = None,
-                 outside: bool = False) -> ItemSpec:
+def current_spec(vault: Any, connection: Any, item: Any, *, at: str, view: Any,
+                 loadings: Mapping[str, float] | None = None, outside: bool = False) -> ItemSpec:
     """The item as a decision now reads it: the audit where answered, else the stamped
-    features; the signals the serve-input receipt would freeze; the loadings in force."""
+    features; the signals the serve-input receipt would freeze (their calibration history read
+    through ``view``, the operation's material view); the loadings in force."""
 
     from learnloop.adaptive_difficulty.feature_audit import item_revision
     from learnloop.adaptive_difficulty.serve_inputs import feature_inputs, signal_vector
 
     content_hash, _json = item_revision(item)
     features = feature_inputs(connection, item, content_hash, at)["resolved_features"]
-    vector, _version = signal_vector(connection, item, content_hash, at)
+    vector, _version = signal_vector(connection, item, content_hash, at, view=view)
     signals = {name: float(entry["value"]) for name, entry in vector.items()
                if isinstance(entry, Mapping) and entry.get("available") and entry.get("value") is not None}
     if not outside:

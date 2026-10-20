@@ -205,22 +205,28 @@ def _identifiability(snapshot: RP.Snapshot, records: Sequence[A.Record]) -> dict
 
 
 def _sensitivity(vault: Any, repository: Any, connection: Any, snapshot: RP.Snapshot,
-                 selections: Sequence[Mapping[str, Any]], *, limit: int = 50) -> dict[str, Any]:
+                 selections: Sequence[Mapping[str, Any]], *, view: Any, limit: int = 50) -> dict[str, Any]:
     """Each β prior mean shifted ±1 sd: how many of the latest serve draws' modes or near-tie sets change
-    (re-scored on the current state; a bounded check, §5.8)."""
+    (re-scored on the current state; a bounded check, §5.8).
+
+    Each support member is revalidated now through the report's material view (Codex verify F25): a
+    withheld item is never re-forecast, and the reduced coverage is disclosed (``withheld``)."""
 
     from learnloop.adaptive_difficulty import predict as PR
 
     serves = [row for row in selections if row["kind"] == "serve" and row.get("support")][-limit:]
     if not serves:
-        return {"selections": 0, "changed": {}}
+        return {"selections": 0, "changed": {}, "support_refs": 0, "withheld": 0}
     constants = S.constants_from_config(vault.config)
+    refs = [ref["ref"] for row in serves for ref in row["support"]]
+    withheld = sum(1 for ref in refs if view.item(ref) is None)
 
     def decisions(snap: RP.Snapshot) -> list[tuple[str, tuple[str, ...]]]:
         out = []
         for row in serves:
-            specs = [PR.current_spec(vault, connection, vault.practice_items[ref["ref"]], at=row["created_at"])
-                     for ref in row["support"] if ref["ref"] in vault.practice_items]
+            items = [view.item(ref["ref"]) for ref in row["support"]]
+            specs = [PR.current_spec(vault, connection, item, at=row["created_at"], view=view)
+                     for item in items if item is not None]
             if not specs:
                 out.append(("", ()))
                 continue
@@ -237,16 +243,16 @@ def _sensitivity(vault: Any, repository: Any, connection: Any, snapshot: RP.Snap
             settings = replace(snapshot.settings, prior_means=((name, mean + sign * math.sqrt(var)),))
             shifted = RP.run(events, settings, trace=False)
             changed[f"{name}{'+' if sign > 0 else '-'}1sd"] = sum(1 for a, b in zip(base, decisions(shifted)) if a != b)
-    return {"selections": len(serves), "changed": changed}
+    return {"selections": len(serves), "changed": changed, "support_refs": len(refs), "withheld": withheld}
 
 
-def _selection_stats(connection: Any, snapshot: RP.Snapshot) -> dict[str, Any]:
+def _selection_stats(connection: Any, snapshot: RP.Snapshot, *, view: Any) -> dict[str, Any]:
     selections = store.selections(connection)
     serves = [row for row in selections if row["kind"] == "serve"]
     modes = Counter(row["mode"] for row in serves)
     by_presentation = {}
-    for pid, block_id, item_id in connection.execute("SELECT id, block_id, practice_item_id FROM plan_presentations"):
-        by_presentation[(str(block_id), str(item_id))] = str(pid)
+    for pid, row in view.presentations(connection).items():
+        by_presentation[(str(row["block_id"]), str(row["practice_item_id"]))] = str(pid)
     attempts = {e.plan_presentation_id: e for e in snapshot.events.attempts if e.plan_presentation_id}
     realized = []
     for row in serves:
@@ -342,7 +348,7 @@ def _visits(connection: Any, snapshot: RP.Snapshot) -> list[dict[str, Any]]:
     return visits
 
 
-def _offer_outcomes(connection: Any, snapshot: RP.Snapshot) -> dict[str, list[DR.OfferOutcome]]:
+def _offer_outcomes(connection: Any, snapshot: RP.Snapshot, *, view: Any) -> dict[str, list[DR.OfferOutcome]]:
     """Each dose draw's matured cold outcome (§5.12): the first graded attempt on an item of one of
     the section's LOs at least one day after the decision, with no reveal of that item in between."""
 
@@ -350,9 +356,8 @@ def _offer_outcomes(connection: Any, snapshot: RP.Snapshot) -> dict[str, list[DR
     draws = [row for row in rows if row["row_kind"] == "draw"]
     taken = {row["draw_id"] for row in rows if row["row_kind"] == "taken"}
     reveals = defaultdict(list)
-    if store.has_table(connection, "reveal_events"):
-        for item_id, created_at in connection.execute("SELECT practice_item_id, created_at FROM reveal_events"):
-            reveals[str(item_id)].append(str(created_at))
+    for row in view.reveals(connection):
+        reveals[str(row.get("practice_item_id"))].append(str(row["created_at"]))
     attempts = sorted((e for e in snapshot.events.attempts if e.eligible and e.category is not None),
                       key=lambda e: e.created_at)
     by_variant: dict[str, list[DR.OfferOutcome]] = defaultdict(list)
@@ -423,9 +428,12 @@ def _median_doses(records: Sequence[A.Record]) -> dict[str, float]:
     return out
 
 
-def _answer_minutes(connection: Any) -> float | None:
-    values = [float(v) / 60.0 for (v,) in connection.execute(
-        "SELECT latency_seconds FROM practice_attempts WHERE latency_seconds IS NOT NULL AND latency_seconds > 0")]
+def _answer_minutes(connection: Any, *, view: Any) -> float | None:
+    """The median minutes of the practice cohort (Codex verify F27): visible, graded practice
+    answers with a recorded latency (``MaterialView.practice_minutes``); a withheld item's answer,
+    a skip or a self-report never counts, and an unavailable predicate counts nothing."""
+
+    values = view.practice_minutes(connection)
     return float(np.median(values)) if values else None
 
 
@@ -521,6 +529,7 @@ def build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] =
 
     now = now or utc_now_iso()
     log = A.prequential(vault, repository, connection, arms=arms)
+    view = log["view"]
     records: list[A.Record] = log["records"]
     # The snapshot replays the events the base arm loaded, with its settings: the configured ones
     # serving reads (Codex verify F12), so the report describes the predictor that serves.
@@ -530,7 +539,7 @@ def build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] =
               for name in names}
     rule = {comparator: _field_rule(records, A.SUBJECT, comparator)
             for comparator in ("mastery_ekf", A.LO, A.UNIFORM) if comparator in names}
-    stats = _selection_stats(connection, snapshot)
+    stats = _selection_stats(connection, snapshot, view=view)
     dose_arm = _dose_arm(connection)
     if previous_errors is None:
         errors = readiness_errors(records, [row["created_at"] for row in store.selections(connection)
@@ -540,8 +549,9 @@ def build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] =
                                     delivered=dose_arm["delivered"], lowerings=density_lowerings(connection),
                                     now=now)
     selections = store.selections(connection)
-    dose = DR.analyse(snapshot.subject, visits=_visits(connection, snapshot), answer_minutes=_answer_minutes(connection),
-                      median_doses=_median_doses(records), offers=_offer_outcomes(connection, snapshot),
+    dose = DR.analyse(snapshot.subject, visits=_visits(connection, snapshot),
+                      answer_minutes=_answer_minutes(connection, view=view),
+                      median_doses=_median_doses(records), offers=_offer_outcomes(connection, snapshot, view=view),
                       records=[{"y": r.y, "p": r.p.get(A.SUBJECT), "doses": r.doses} for r in records])
     report = {
         "version": REPORT_VERSION,
@@ -550,13 +560,18 @@ def build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] =
         "versions": {**P.versions(), "replay": RP.REPLAY_VERSION, "select": S.SELECT_VERSION,
                      "dose": DR.DOSE_REPORT_VERSION},
         "inputs": dict(log["events"].summary),
+        # The material view the whole report read (A8): with the held-out predicate unavailable it
+        # read nothing item-derived, and says so.
+        "protection": {"available": view.available, "reason": view.reason,
+                       "withheld_items": len(view.withheld_item_ids)},
         "field_coverage": log["field_coverage"],
         "auto_flags": flags,
         "honest_lines": lines,
         "scores": scores,
         "field_rule_monitor": rule,
         "identifiability": _identifiability(snapshot, records),
-        "prior_sensitivity": _sensitivity(vault, repository, connection, snapshot, selections) if sensitivity else None,
+        "prior_sensitivity": (_sensitivity(vault, repository, connection, snapshot, selections, view=view)
+                              if sensitivity else None),
         "selection": {k: v for k, v in stats.items() if k != "realized_outcomes"},
         "trivial_success": _trivial_success(connection, snapshot),
         "dose_arm": {k: v for k, v in dose_arm.items() if k != "delivered"},

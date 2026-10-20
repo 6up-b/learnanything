@@ -37,17 +37,14 @@ LIKELY = "likely ready"
 NOT_YET = "not yet likely"
 
 
-def _cells(vault: Any, learning_object_id: str, protected: Any) -> list[tuple[str, str, str]]:
-    """``(facet, capability, subject)`` of every cell the LO's unprotected items measure. A
-    protected item (held-out material, an exam reservation) never shapes a readiness line or the
-    router card (A8; Codex verify F17's audit); with the predicate unavailable it covers every item."""
+def _cells(view: Any, learning_object_id: str) -> list[tuple[str, str, str]]:
+    """``(facet, capability, subject)`` of every cell the LO's visible active items measure, read
+    through the material view: a protected item (held-out material, an exam reservation) never
+    shapes a readiness line or the router card (A8); with the predicate unavailable there are none."""
 
+    vault = view.vault
     cells: set[tuple[str, str, str]] = set()
-    for item in vault.practice_items.values():
-        if item.learning_object_id != learning_object_id or getattr(item, "status", "active") != "active":
-            continue
-        if protected.covers(item):
-            continue
+    for item in view.items(learning_object_id=learning_object_id, active=True):
         subject = PR.item_subject(vault, item)
         for facet in PR.facet_weights(vault, item):
             cells.add((facet, PR.capability(item), subject))
@@ -55,18 +52,19 @@ def _cells(vault: Any, learning_object_id: str, protected: Any) -> list[tuple[st
 
 
 def lo_readiness(vault: Any, repository: Any, learning_object_id: str, *,
-                 snapshot: RP.Snapshot | None = None) -> dict[str, Any]:
+                 snapshot: RP.Snapshot | None = None, view: Any = None) -> dict[str, Any]:
     """The LO's readiness lines (labelled predictions), or the not-predicted line."""
 
     if not subject_view_live(vault.config):
         return {"version": READINESS_VERSION, "predicted": False, "line": NOT_PREDICTED, "cells": []}
-    snapshot = snapshot or RP.snapshot(vault, repository)
+    from learnloop.adaptive_difficulty.material_view import material_view
+
+    view = material_view(vault, repository, view)
+    snapshot = snapshot or RP.snapshot(vault, repository, view=view)
     constants = S.constants_from_config(vault.config)
     threshold = float(getattr(vault.config.adaptive_difficulty, "ready_threshold", 0.8))
     rows = []
-    from learnloop.adaptive_difficulty.protection import protection
-
-    for facet, capability, subject in _cells(vault, learning_object_id, protection(vault, repository)):
+    for facet, capability, subject in _cells(view, learning_object_id):
         target = S.default_target(capability)
         if target is None:
             continue
@@ -100,26 +98,25 @@ def aggregate_line(rows: list[Mapping[str, Any]]) -> str:
 
 
 def card_fields(vault: Any, repository: Any, learning_object_id: str, *,
-                snapshot: RP.Snapshot | None = None) -> dict[str, Any] | None:
+                snapshot: RP.Snapshot | None = None, view: Any = None) -> dict[str, Any] | None:
     """The router card's AD fields for one LO (None with ``promoted_predictor`` off)."""
 
     if not subject_view_live(vault.config):
         return None
-    from learnloop.adaptive_difficulty.protection import protection
+    from learnloop.adaptive_difficulty.material_view import material_view
 
-    snapshot = snapshot or RP.snapshot(vault, repository)
-    protected = protection(vault, repository)
-    cells = _cells(vault, learning_object_id, protected)
+    view = material_view(vault, repository, view)
+    snapshot = snapshot or RP.snapshot(vault, repository, view=view)
+    cells = _cells(view, learning_object_id)
     if not cells:
         return None
     constants = S.constants_from_config(vault.config)
     facet, capability, subject = cells[0]
     weights = {f: 0.0 for f, _c, _s in cells}
-    for item in vault.practice_items.values():
-        if item.learning_object_id == learning_object_id and not protected.covers(item):
-            for f, w in PR.facet_weights(vault, item).items():
-                if f in weights:
-                    weights[f] += w
+    for item in view.items(learning_object_id=learning_object_id):
+        for f, w in PR.facet_weights(vault, item).items():
+            if f in weights:
+                weights[f] += w
     facet = sorted(weights.items(), key=lambda kv: (-kv[1], kv[0]))[0][0]
     capability = next(c for f, c, _s in cells if f == facet)
     subject = next(s for f, _c, s in cells if f == facet)

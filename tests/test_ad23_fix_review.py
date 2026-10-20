@@ -283,7 +283,7 @@ def test_a_draw_reads_reading_recorded_since_the_last_serve(tmp_path, monkeypatc
     paths = ad23_vault(tmp_path, items=items, config=ROUTER_OFF)
     vault = load_vault(paths.root)
     facets = sorted({f for i in items for f in (vault.practice_items[i].evidence_facets or [])})
-    monkeypatch.setattr(reading, "VaultReadingMap", lambda _vault, _repository: _ReadingMap(facets))
+    monkeypatch.setattr(reading, "VaultReadingMap", lambda _vault, _repository, _view=None: _ReadingMap(facets))
     env, clock = env_for(paths, items=items)
     build_plan(env, kind="normal", budget=10.0, remembered=10, minutes_source="chip")
     _record, step = advance(env, serve=True)
@@ -531,7 +531,7 @@ def test_the_offer_names_the_sections_other_question_and_its_answer_is_the_extra
     ordinary = _question(repo, "recall", 1, answer=False)
     extra = _question(repo, "why_step", 1, answer=False)
     mapping = _mapping(examples={"ext1": {"we1"}})  # only the question extra is feasible
-    monkeypatch.setattr(reading, "VaultReadingMap", lambda _vault, _repository: mapping)
+    monkeypatch.setattr(reading, "VaultReadingMap", lambda _vault, _repository, _view=None: mapping)
 
     def call(ctx, name: str, params: dict):
         spec = METHOD_REGISTRY[name]

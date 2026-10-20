@@ -36,7 +36,7 @@ from learnloop.scheduling.forecast_receipts import record_receipts
 
 from learnloop.adaptive_difficulty.forecasters import in_process_receipts
 from learnloop.adaptive_difficulty.outside import freeze_presentation_inputs
-from learnloop.adaptive_difficulty.protection import protection
+from learnloop.adaptive_difficulty.material_view import material_view
 from learnloop.adaptive_difficulty.reading import sweep
 from learnloop.adaptive_difficulty.generation import record_landed_commissions
 from learnloop.adaptive_difficulty.serve_inputs import build_row, never_attempted
@@ -75,36 +75,42 @@ def record_plan_serve(vault: Any, repository: Any, *, presentation_id: str, prac
                 # A reopened step: its serve was recorded when it was served.
                 record.skipped = "recorded"
                 return record
+            # The serve's one material view (A8; fix round 8): every read below goes through it.
+            view = material_view(vault, repository)
             record.reading_written = sweep(vault, repository, as_of=served_at, sweep_kind="serve",
-                                           sweep_ref=presentation_id).written
-            item = vault.practice_items.get(practice_item_id)
+                                           sweep_ref=presentation_id, view=view).written
+            if view.withheld(practice_item_id):
+                record.skipped = "protected"
+                return record
+            item = view.item(practice_item_id)
             if item is None:
                 record.skipped = "unknown_item"
                 return record
-            protected = protection(vault, repository)
-            if protected.covers(item):
+            if view.covers(item):
                 record.skipped = "protected"
                 return record
-            fresh_item = never_attempted(connection, practice_item_id, served_at)
+            protected = view.protection
+            fresh_item = never_attempted(connection, practice_item_id, served_at, view=view)
             if fresh_item:
                 row = build_row(repository, connection, item, presentation_kind=PLAN_PRESENTATION,
-                                presentation_id=presentation_id, served_at=served_at, created_at=served_at)
+                                presentation_id=presentation_id, served_at=served_at, created_at=served_at,
+                                view=view)
                 # AD2+AD3 (§7.5, §5.10): the revision's loadings in force and the
                 # coupling version, from the successor's tag on.
                 loadings, coupling_version = frozen_loadings(vault, repository, connection, row["content_hash"],
-                                                             served_at)
+                                                             served_at, view=view)
                 if loadings is not None:
                     row["loadings"], row["coupling_version"] = loadings, coupling_version
                 record.serve_inputs_id = store.insert_serve_inputs(connection, row)
             receipts = in_process_receipts(vault, repository, connection, item, presentation_kind=PLAN_PRESENTATION,
-                                           presentation_id=presentation_id, served_at=served_at)
+                                           presentation_id=presentation_id, served_at=served_at, view=view)
             if fresh_item:
                 # AD2+AD3 (§8.2): ad_threshold@subject, @subject_uniform and @lo.
                 receipts += threshold_receipts(vault, repository, connection, item,
                                                presentation_kind=PLAN_PRESENTATION, presentation_id=presentation_id,
-                                               served_at=served_at)
+                                               served_at=served_at, view=view)
                 # §7.4: landed commissions' re-forecasts.
-                record_landed_commissions(vault, repository, connection, now=served_at)
+                record_landed_commissions(vault, repository, connection, now=served_at, view=view)
             algorithm_version = vault.config.algorithms.algorithm_version
             receipts = [_with_version(receipt, algorithm_version) for receipt in receipts]
             record.receipt_ids = record_receipts(repository, receipts, created_at=served_at)
@@ -112,7 +118,8 @@ def record_plan_serve(vault: Any, repository: Any, *, presentation_id: str, prac
             # them (Codex review F2): the background job sends these, never
             # a later read of the history or the item.
             record.frozen_inputs = freeze_presentation_inputs(
-                vault, connection, item, presentation_id=presentation_id, served_at=served_at, protected=protected)
+                vault, connection, item, presentation_id=presentation_id, served_at=served_at, protected=protected,
+                view=view)
     except Exception:  # noqa: BLE001 - AD's logging never breaks the serve
         LOG.warning("AD1 serve receipts for presentation %s not recorded", presentation_id, exc_info=True)
         record.skipped = "failed"

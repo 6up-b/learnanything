@@ -25,6 +25,15 @@ the block's admission (the slot item gets no exemption):
 
 The same check-0 and check-1 functions re-read an AD deferral at each
 boundary (:func:`deferrals_to_clear`).
+
+**Protection** (A8; Codex verify F22, fix round 8): every item and attempt is
+read through AD's material view (``adaptive_difficulty.material_view``),
+computed once per slot. A withheld item (held-out material, an exam
+reservation) fails check 0 whatever ``goals.held_out_selection`` says: AD's
+protection is unconditional. When the held-out predicate, or the routine
+exclusions, cannot be computed, AD is unavailable for the slot
+(:class:`AdUnavailable`): the plan serves its planned item as the incumbent
+does, and no deferral is released.
 """
 
 from __future__ import annotations
@@ -40,9 +49,30 @@ from learnloop.daily_plan.types import BLOCK_MAX_MINUTES
 _EPS = 1e-9
 
 
-def _attempted(repository: Any) -> set[str]:
-    with repository.connection() as connection:
-        return {str(row[0]) for row in connection.execute("SELECT DISTINCT practice_item_id FROM practice_attempts")}
+class AdUnavailable(RuntimeError):
+    """AD cannot decide this slot safely (the held-out predicate or the routine exclusions could
+    not be computed): the plan serves its planned item as the incumbent does."""
+
+
+def slot_view(env: Any) -> Any:
+    """The slot's material view, computed once (A8). Raises :class:`AdUnavailable` when the
+    held-out predicate cannot be computed (fail closed: no AD candidate, never an exception out
+    of the serve)."""
+
+    from learnloop.adaptive_difficulty.material_view import material_view
+
+    try:
+        view = material_view(env.vault, env.repository)
+    except Exception as exc:  # noqa: BLE001 - an unreadable predicate makes AD unavailable, not the serve
+        raise AdUnavailable(f"held-out predicate failed: {exc}") from exc
+    if not view.available:
+        raise AdUnavailable(view.reason or "held-out predicate unavailable")
+    return view
+
+
+def _attempted(env: Any, view: Any) -> set[str]:
+    with env.repository.connection() as connection:
+        return view.attempted_item_ids(connection)
 
 
 def _exclusions(env: Any) -> Any:
@@ -50,13 +80,20 @@ def _exclusions(env: Any) -> Any:
     from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
     from learnloop.scheduling.serving_exclusions import out_of_timing_serving_exclusions
 
-    return out_of_timing_serving_exclusions(env.vault, env.repository, cold_followup_kinds=COLD_FOLLOWUP_TASK_KINDS,
-                                            reveal_window=COLD_RETRIEVAL_DELAY, clock=env.clock)
+    try:
+        return out_of_timing_serving_exclusions(env.vault, env.repository,
+                                                cold_followup_kinds=COLD_FOLLOWUP_TASK_KINDS,
+                                                reveal_window=COLD_RETRIEVAL_DELAY, clock=env.clock)
+    except AdUnavailable:
+        raise
+    except Exception as exc:  # noqa: BLE001 - the routine exclusions failed: AD is unavailable (F22)
+        raise AdUnavailable(f"serving exclusions failed: {exc}") from exc
 
 
 def eligibility_failures(env: Any, item: Any, *, slot_facets: Iterable[str], capability: str,
-                         exclusions: Any) -> list[str]:
-    """Check 0 for one candidate: why it is not in the cell pool now, or why it may not be served."""
+                         exclusions: Any, view: Any) -> list[str]:
+    """Check 0 for one candidate: why it is not in the cell pool now, or why it may not be served.
+    ``view``: the slot's material view; a withheld item fails ``held_out`` unconditionally."""
 
     from learnloop.adaptive_difficulty import predict as PR
     from learnloop.adaptive_difficulty.selection import within_envelope
@@ -71,7 +108,10 @@ def eligibility_failures(env: Any, item: Any, *, slot_facets: Iterable[str], cap
         failed.append("retired")
     if str(item.id) in exclusions.reserved_exam_item_ids:
         failed.append("exam_reserved")
-    if str(item.id) in exclusions.held_out_item_ids:
+    if str(item.id) in exclusions.held_out_item_ids or (
+            str(item.id) not in exclusions.reserved_exam_item_ids and (view.withheld(item.id) or view.covers(item))):
+        # AD's own, unconditional protection (Codex verify F22): the routine exclusions' held-out
+        # ids follow ``goals.held_out_selection``; the material view never does.
         failed.append("held_out")
     features = dict(item.task_features) if isinstance(getattr(item, "task_features", None), Mapping) else None
     if PR.capability(item) == "coordination" or not within_envelope(features):
@@ -136,33 +176,32 @@ class SlotSupport:
 
 
 def build_request(env: Any, record: Any, block: Any, slot: Any, built: Any, *, day: Sequence[Any],
-                  router_propensity: float | None) -> Any:
-    """The slot's :class:`~learnloop.adaptive_difficulty.serving.SlotRequest`, every check re-read now."""
+                  router_propensity: float | None, view: Any) -> Any:
+    """The slot's :class:`~learnloop.adaptive_difficulty.serving.SlotRequest`, every check re-read now,
+    every item read through ``view`` (the slot's material view, :func:`slot_view`)."""
 
     from learnloop.adaptive_difficulty import predict as PR
     from learnloop.adaptive_difficulty.serving import SlotCandidate, SlotRequest
 
     vault = env.vault
-    slot_item = vault.practice_items.get(slot.practice_item_id)
+    exclusions = _exclusions(env)
+    slot_item = view.item(slot.practice_item_id)
     if slot_item is None:
+        # Not in the vault, or withheld (A8): no AD candidate, so the slot is displaced as ineligible.
         return SlotRequest(record.id, block.id, slot.position, slot.practice_item_id, slot.learning_object_id, (),
                            now=env.now_iso())
     capability = PR.capability(slot_item)
     slot_facets = tuple(PR.facet_weights(vault, slot_item))
-    attempted = _attempted(env.repository)
-    others = sorted(
-        (item for item in vault.practice_items.values()
-         if item.learning_object_id == slot_item.learning_object_id and str(item.id) != str(slot_item.id)
-         and str(item.id) not in attempted and PR.capability(item) == capability),
-        key=lambda item: str(item.id),
-    )
+    attempted = _attempted(env, view)
+    others = [item for item in view.items(learning_object_id=slot_item.learning_object_id)
+              if str(item.id) != str(slot_item.id) and str(item.id) not in attempted
+              and PR.capability(item) == capability]
     items = [slot_item, *others]
-    exclusions = _exclusions(env)
     pool = {item.practice_item_id: item for item in built.pool}
     est = {str(item.id): float(built.estimator.item_minutes(vault, str(item.id))) for item in items}
     est[str(slot_item.id)] = float(slot.est_minutes)
     failures = {str(item.id): eligibility_failures(env, item, slot_facets=slot_facets, capability=capability,
-                                                    exclusions=exclusions) for item in items}
+                                                    exclusions=exclusions, view=view) for item in items}
     for item_id, extra in admission_failures(env, items, pool=pool, est=est).items():
         failures[item_id].extend(extra)
     # Check 2: planned in any of today's plans (the slot item: in no slot but its own).
@@ -207,13 +246,13 @@ def build_request(env: Any, record: Any, block: Any, slot: Any, built: Any, *, d
         if slot_facets else None
     cell_pool = []
     if primary is not None:
-        for item in sorted(vault.practice_items.values(), key=lambda i: str(i.id)):
+        for item in view.items():
             if str(item.id) in attempted or PR.capability(item) != capability:
                 continue
             if PR.facet_weights(vault, item).get(primary, 0.0) <= 0:
                 continue
             reasons = eligibility_failures(env, item, slot_facets=(primary,), capability=capability,
-                                           exclusions=exclusions)
+                                           exclusions=exclusions, view=view)
             if not [r for r in reasons if r not in ("serving_block", "routine_exclusion", "cold_check_reserved",
                                                      "recent_reveal")]:
                 cell_pool.append(str(item.id))
@@ -230,16 +269,21 @@ def deferrals_to_clear(env: Any, deferrals: Mapping[str, Mapping[str, Any]], *, 
 
     if not deferrals:
         return []
-    exclusions = _exclusions(env)
+    try:
+        view = slot_view(env)
+        exclusions = _exclusions(env)
+    except AdUnavailable:
+        # Fail closed: with AD unavailable no deferral is released (nothing is re-admitted).
+        return []
     pool = {item.practice_item_id: item for item in built.pool}
-    items = [env.vault.practice_items.get(item_id) for item_id in sorted(deferrals)]
+    items = [view.item(item_id) for item_id in sorted(deferrals)]
     present = [item for item in items if item is not None]
     est = {str(item.id): float(built.estimator.item_minutes(env.vault, str(item.id))) for item in present}
     admission = admission_failures(env, present, pool=pool, est=est) if present else {}
     cleared = []
     for item in present:
         failed = eligibility_failures(env, item, slot_facets=tuple(PR.facet_weights(env.vault, item)),
-                                      capability=PR.capability(item), exclusions=exclusions)
+                                      capability=PR.capability(item), exclusions=exclusions, view=view)
         failed = [f for f in failed if f != "pre_exposed"] + [f for f in admission.get(str(item.id), [])
                                                                if f != "not_new_lane"]
         if not failed:
@@ -256,4 +300,5 @@ def router_propensity(record: Any, block: Any) -> float:
     return float(value) if value is not None else 1.0
 
 
-__all__ = ["admission_failures", "build_request", "deferrals_to_clear", "eligibility_failures", "router_propensity"]
+__all__ = ["AdUnavailable", "admission_failures", "build_request", "deferrals_to_clear", "eligibility_failures",
+           "router_propensity", "slot_view"]

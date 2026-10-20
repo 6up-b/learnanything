@@ -141,7 +141,7 @@ def test_a_protected_item_never_steers_the_commissioned_cell_or_readiness(tmp_pa
 
     from learnloop.adaptive_difficulty import readiness as RD
     from learnloop.adaptive_difficulty.generation import lo_cell_facet
-    from learnloop.adaptive_difficulty.protection import protection
+    from learnloop.adaptive_difficulty.material_view import material_view
 
     paths = ad23_vault(tmp_path, items=("pi_c1", "pi_c2"), config=ROUTER_OFF)
     set_item(paths, "pi_c1", evidence_facets=["f_open"], evidence_weights={"f_open": 1.0})
@@ -150,11 +150,11 @@ def test_a_protected_item_never_steers_the_commissioned_cell_or_readiness(tmp_pa
     repository = Repository(paths.sqlite_path)
     capability = PR.capability(vault.practice_items["pi_c2"])
     _reserve(monkeypatch, "pi_c2")
-    protected = protection(vault, repository)
-    assert protected.covers(vault.practice_items["pi_c2"]) and not protected.covers(vault.practice_items["pi_c1"])
-    assert lo_cell_facet(vault, LO, protected=protected) == "f_open"
-    assert all(facet != "f_held" for facet, _cap, _subject in RD._cells(vault, LO, protected))  # noqa: SLF001
-    assert ("f_open", capability) in {(f, c) for f, c, _s in RD._cells(vault, LO, protected)}  # noqa: SLF001
+    view = material_view(vault, repository)
+    assert view.withheld("pi_c2") and not view.withheld("pi_c1")
+    assert lo_cell_facet(view, LO) == "f_open"
+    assert all(facet != "f_held" for facet, _cap, _subject in RD._cells(view, LO))  # noqa: SLF001
+    assert ("f_open", capability) in {(f, c) for f, c, _s in RD._cells(view, LO)}  # noqa: SLF001
 
 
 # -- F18: one resolved feature mapping per landing -------------------------------------------------
