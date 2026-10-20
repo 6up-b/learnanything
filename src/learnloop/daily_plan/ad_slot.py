@@ -165,7 +165,7 @@ def _pool_item(item: Any, *, est_minutes: float, existing: PoolItem | None) -> P
 
 
 def admission_failures(env: Any, items: Sequence[Any], *, pool: Mapping[str, PoolItem],
-                       est: Mapping[str, float]) -> dict[str, list[str]]:
+                       est: Mapping[str, float], view: Any) -> dict[str, list[str]]:
     """Check 1: the admission the slot passed, on a fresh snapshot, plus reversibility."""
 
     from learnloop.daily_plan.policy import router_active
@@ -174,7 +174,13 @@ def admission_failures(env: Any, items: Sequence[Any], *, pool: Mapping[str, Poo
     candidates = [_pool_item(item, est_minutes=est.get(str(item.id), 0.0), existing=pool.get(str(item.id)))
                   for item in items]
     failed: dict[str, list[str]] = {str(item.id): [] for item in items}
-    material = StagedFrame(env.vault, env.repository, clock=env.clock).material(candidates)
+    # The item states as AD's material view reads them (fix round 12): an item whose history holds a
+    # withheld answer reads as never scheduled, so that answer moves no due date AD's admission sees.
+    def states() -> Any:
+        with env.repository.connection() as connection:
+            return view.item_states(connection)
+
+    material = StagedFrame(env.vault, env.repository, clock=env.clock, item_states=states).material(candidates)
     staged = router_active(env.vault)
     for item in items:
         item_id = str(item.id)
@@ -227,7 +233,7 @@ def build_request(env: Any, record: Any, block: Any, slot: Any, built: Any, *, d
     est[str(slot_item.id)] = float(slot.est_minutes)
     failures = {str(item.id): eligibility_failures(env, item, slot_facets=slot_facets, capability=capability,
                                                     exclusions=exclusions, view=view) for item in items}
-    for item_id, extra in admission_failures(env, items, pool=pool, est=est).items():
+    for item_id, extra in admission_failures(env, items, pool=pool, est=est, view=view).items():
         failures[item_id].extend(extra)
     # Check 2: planned in any of today's plans (the slot item: in no slot but its own).
     planned: dict[str, int] = {}
@@ -305,7 +311,7 @@ def deferrals_to_clear(env: Any, deferrals: Mapping[str, Mapping[str, Any]], *, 
     present = [item for item in items if item is not None]
     estimator = _estimator(env, view)
     est = {str(item.id): float(estimator.item_minutes(env.vault, str(item.id))) for item in present}
-    admission = admission_failures(env, present, pool=pool, est=est) if present else {}
+    admission = admission_failures(env, present, pool=pool, est=est, view=view) if present else {}
     cleared = []
     for item in present:
         failed = eligibility_failures(env, item, slot_facets=tuple(PR.facet_weights(env.vault, item)),

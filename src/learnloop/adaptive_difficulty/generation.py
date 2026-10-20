@@ -102,9 +102,19 @@ class CommissionedRequestGuard:
         fresh = material_view(load_vault(self.view.vault.root), self.view.repository)
         with closing(connect(fresh.repository.sqlite_path, read_only=True)) as connection:
             leaks = fresh.request_leaks(request_text, connection)
-        for extraction, span in [*self.sources, *sources]:
-            if fresh.material_withheld(extraction, span):
-                leaks.append(f"source {extraction}/{span}" if span is not None else f"source {extraction}")
+            identities = [*({"kind": "span", "extraction_id": extraction, "span_id": span}
+                            for extraction, span in self.sources), *sources]
+            for identity in identities:
+                if isinstance(identity, (tuple, list)):
+                    identity = {"kind": "span", "extraction_id": identity[0], "span_id": identity[1]}
+                if identity.get("kind") == "note":
+                    # A note the context includes: withheld with its source's held-out material (F40).
+                    if fresh.note_withheld(connection, identity.get("note_id")):
+                        leaks.append(f"note {identity.get('note_id')}")
+                    continue
+                extraction, span = identity.get("extraction_id"), identity.get("span_id")
+                if fresh.material_withheld(extraction, span):
+                    leaks.append(f"source {extraction}/{span}" if span is not None else f"source {extraction}")
         if leaks:
             LOG.warning("AD commissioned generation request refused: it quotes withheld material (%s)",
                         "; ".join(leaks))
@@ -214,15 +224,20 @@ def commission_point(vault: Any, repository: Any, *, learning_object_id: str, in
     return rung_features(row["chosen_point"]), capability, selection_id
 
 
-def goal_focus_facets(vault: Any, repository: Any, *, scope: Sequence[str], target_recall: float,
+def goal_focus_facets(vault: Any, repository: Any, *, scope: Mapping[str, Sequence[str]], target_recall: float,
                       view: Any) -> list[str]:
     """Under the generation contract, the goal's facets a generation request focuses on (Codex
-    verify F37, fix round 11): those whose AD forecast of an unassisted success at the retrieval
-    entry point sits below the goal's ``target_recall``. Everything is read through ``view``: the
-    LOs' visible facets and AD's own state on visible evidence, never the incumbent's goal
-    projection (which counts answers AD withholds). The predecessor's path keeps that projection."""
+    verify F37, fix rounds 11-12): of the goal's scope as AD's material view resolves it
+    (``scope``: LO id -> its scope facets, from the visible items), those whose AD forecast of an
+    unassisted success at the retrieval entry point sits below the goal's ``target_recall``.
+
+    The forecast is the live decision view of each LO (``serving.view_for``: the subject view only
+    while ``promoted_predictor`` is on, else the LO's own view; Codex verify F41), on AD's state from
+    visible evidence. Never the incumbent's goal projection. The predecessor keeps that projection."""
 
     from learnloop.db.connection import connect
+
+    from learnloop.adaptive_difficulty.serving import view_for
 
     if not view.available:
         return []
@@ -230,15 +245,16 @@ def goal_focus_facets(vault: Any, repository: Any, *, scope: Sequence[str], targ
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         snapshot = RP.snapshot(vault, repository, connection=connection, view=view)
         point = S.entry_point("retrieval") or {}
-        for lo_id in sorted(set(scope)):
+        for lo_id in sorted(scope):
             lo = vault.learning_objects.get(lo_id)
             if lo is None:
                 continue
             subject = (list(getattr(lo, "subjects", None) or []) or ["default"])[0]
-            for facet in view.lo_facets(lo):
+            state_view, _name = view_for(snapshot, vault.config, lo_id)
+            for facet in sorted({vault.canonical_facet_id(str(f)) for f in scope[lo_id]}):
                 spec = PR.point_spec(point, learning_object_id=lo_id, subject=subject, facet=facet,
                                      capability_name="retrieval")
-                if PR.predict(snapshot.subject, spec).p_bar < float(target_recall):
+                if PR.predict(state_view, spec).p_bar < float(target_recall):
                     out.add(facet)
     return sorted(out)
 

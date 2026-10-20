@@ -436,6 +436,9 @@ def test_report_sensitivity_never_re_forecasts_a_withheld_item(tmp_path, monkeyp
     (draw,) = selections(paths, kind="serve")
     refs = [entry["ref"] for entry in draw["support"]]
     assert len(refs) >= 2
+    # A support member that is neither the draw's choice nor its slot's item: reserving either of
+    # those leaves the whole draw out of the report's cohort (fix round 12, F39).
+    refs = [ref for ref in refs if ref not in (draw.get("chosen_item_id"), draw.get("slot_item_id"))] + refs
     _reserve(monkeypatch, refs[0])
     seen: list[str] = []
     real = PR.current_spec

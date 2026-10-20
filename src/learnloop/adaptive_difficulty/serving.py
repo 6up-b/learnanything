@@ -362,11 +362,15 @@ def frozen_loadings(vault: Any, repository: Any, connection: Any, content_hash: 
     loadings = structure.loadings(content_hash, RP.days(served_at))
     # The judgments behind the loadings in force only (fix round 11): a judgment onto a facet only
     # withheld material names has no loading in force, so it is not named here either.
+    # Nor a judgment of a run its subject's protection has changed since (F38's blunt rule, round 12).
+    from learnloop.adaptive_difficulty import relatedness as R
+
     in_force = {vault.canonical_facet_id(str(facet)) for facet in loadings}
+    stale = R.stale_judgments(connection, vault, view=view) if loadings else set()
     ids = [row[0] for row in connection.execute(
         "SELECT id, right_id FROM judgment_ledger WHERE task = 'ad_relatedness' AND left_kind = "
         "'practice_item_revision' AND left_id = ? ORDER BY created_at, rowid", (content_hash,))
-        if vault.canonical_facet_id(str(row[1])) in in_force] if loadings else []
+        if vault.canonical_facet_id(str(row[1])) in in_force and str(row[0]) not in stale] if loadings else []
     version = ",".join(f"{subject}={value}" for subject, value in sorted(structure.versions.items())) or None
     return {"loadings": {f: round(float(q), 12) for f, q in sorted(loadings.items())}, "judgment_ids": ids}, version
 

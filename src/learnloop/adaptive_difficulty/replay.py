@@ -338,6 +338,7 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
 
     view = material_view(vault, repository, view)
     structure = R.load_structure(connection, vault, view=view, coupled=settings.coupling)
+    stale = R.stale_judgments(connection, vault, view=view) if view.available else set()
     facet_to_los, lo_to_facets = view.facet_maps()
     lo_subject = {lo.id: R.lo_subject(vault, lo) for lo in vault.learning_objects.values()}
     limit = days(as_of) if as_of else math.inf
@@ -506,6 +507,11 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
                 # drops out; the frozen row itself is never rewritten.
                 loadings = (view.visible_loadings(connection, content_hash, frozen_loadings.get("loadings") or {})
                             if isinstance(frozen_loadings, Mapping) else structure.loadings(content_hash, -math.inf))
+                # F38's blunt rule in the replay (fix round 12): frozen loadings that name a judgment
+                # of a run its subject's protection has changed since are not used at all.
+                if isinstance(frozen_loadings, Mapping) and stale & {
+                        str(j) for j in (frozen_loadings.get("judgment_ids") or ())}:
+                    loadings = {}
             else:
                 features = _audited(connection, item, content_hash, str(attempt["created_at"]))
                 signals = _historical_signals(item)

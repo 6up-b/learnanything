@@ -198,10 +198,16 @@ class StagedFrame:
     that appeared mid-plan). Projection reads share it, so the view's
     projected blocks drop the same items without another snapshot."""
 
-    def __init__(self, vault: Any, repository: Any, *, clock: Any = None) -> None:
+    def __init__(self, vault: Any, repository: Any, *, clock: Any = None,
+                 item_states: Any = None) -> None:
+        """``item_states``: a reader of the item states the frame's constraints read in place of
+        the repository's (adaptive difficulty passes its material view's, fix round 12); None
+        reads the repository, as the plan does."""
+
         self.vault = vault
         self.repository = repository
         self.clock = clock
+        self._item_states = item_states
         self._material: FrameMaterial | None = None
         self._pool: dict[str, PoolItem] = {}
 
@@ -339,7 +345,7 @@ class StagedFrame:
         manifest_hash = ce.manifest()["manifest_hash"]
         errors: list[str] = []
         try:
-            states = self.repository.practice_item_states()
+            states = self._item_states() if self._item_states is not None else self.repository.practice_item_states()
             surfaces = self._surfaces()
             reserved_rows = self.repository.reserved_assessment_surfaces()
         except Exception as exc:  # noqa: BLE001 - fail closed: nothing can be established

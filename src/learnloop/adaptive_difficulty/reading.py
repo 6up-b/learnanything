@@ -538,8 +538,12 @@ def sweep(vault: Any, repository: Any, *, as_of: str, sweep_kind: str = "serve",
             return result
         lower = None
         if sweep_kind == "serve":
-            newest = parse_utc(store.latest_source_written_at(connection) or "") if store.latest_source_written_at(
-                connection) else None
+            # The newest VISIBLE receipt's source time (fix round 12, found by the hardened contract):
+            # a receipt from withheld material moves no window, so a later protected receipt never
+            # hides an earlier public event from the serve's sweep.
+            visible = [row.get("source_written_at") for row in material.reading_opportunities(connection)
+                       if row.get("source_written_at")]
+            newest = parse_utc(max(visible)) if visible else None
             lower = _stamp((newest - SWEEP_OVERLAP).isoformat()) if newest is not None else None
         events: list[_Event] = []
         for collect in _COLLECTORS:

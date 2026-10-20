@@ -77,17 +77,25 @@ class AuthoringRequestRefused(ValueError):
 REFUSED_MESSAGE = "the commissioned authoring request was refused by its protection guard"
 
 
-def context_sources(context: AuthoringContext) -> list[tuple[str, str | None]]:
-    """The source-layer identities an authoring context quotes: each source ref's extraction and
-    span ids (the whole extraction when it names no span). Note-backed refs name none."""
+def context_sources(context: AuthoringContext) -> list[dict[str, str | None]]:
+    """The source identities an authoring context quotes (fix rounds 11-12, F34/F40): each source
+    ref's extraction and spans (``{"kind": "span", ...}``; the whole extraction when it names no
+    span) and each note it includes (``{"kind": "note", "note_id": ...}``: a canonical note is a
+    source's text). A commissioned request's guard revalidates every one at every dispatch."""
 
-    out: list[tuple[str, str | None]] = []
+    out: list[dict[str, str | None]] = []
     for ref in context.source_refs or []:
         extraction = ref.get("extraction_id") if isinstance(ref, dict) else getattr(ref, "extraction_id", None)
         spans = (ref.get("span_ids") if isinstance(ref, dict) else getattr(ref, "span_ids", None)) or []
         if not extraction:
             continue
-        out.extend((str(extraction), str(span)) for span in spans) if spans else out.append((str(extraction), None))
+        for span in (spans or [None]):
+            out.append({"kind": "span", "extraction_id": str(extraction),
+                        "span_id": None if span is None else str(span)})
+    for note in context.notes or []:
+        note_id = note.get("id") if isinstance(note, dict) else getattr(note, "id", None)
+        if note_id:
+            out.append({"kind": "note", "note_id": str(note_id)})
     return out
 
 

@@ -245,12 +245,53 @@ class MaterialView:
     def vault_view(self) -> Any:
         """The vault as AD's material view sees it: the same object with only the visible current
         items, for helpers outside AD that read a whole vault (generation's authoring context, its
-        contract and contrast reachability; fix round 9, R2). Empty items when unavailable."""
+        contract and contrast reachability; fix round 9, R2), and only the visible notes (a source's
+        canonical note is withheld with its source's held-out material; Codex verify F40, fix round
+        12). No items and no notes when unavailable."""
 
         import dataclasses
 
         visible = {str(item.id): item for item in self.items()}
-        return dataclasses.replace(self.vault, practice_items=visible)
+        notes = getattr(self.vault, "notes", None)
+        if notes is None:
+            return dataclasses.replace(self.vault, practice_items=visible)
+        from contextlib import closing
+
+        from learnloop.db.connection import connect
+
+        kept: dict[str, Any] = {}
+        if self.available:
+            with closing(connect(self.repository.sqlite_path, read_only=True)) as connection:
+                kept = {note_id: note for note_id, note in notes.items()
+                        if not self.note_withheld(connection, note_id)}
+        return dataclasses.replace(self.vault, practice_items=visible, notes=kept)
+
+    def note_extractions(self, connection: Any, note_id: Any) -> list[str]:
+        """The extraction runs of the source revisions a note is the canonical note of."""
+
+        if not (_has_table(connection, "source_revisions") and _has_table(connection, "source_extraction_runs")):
+            return []
+        return [str(row[0]) for row in connection.execute(
+            "SELECT run.id FROM source_extraction_runs AS run JOIN source_revisions AS revision "
+            "ON revision.id = run.revision_id WHERE revision.note_id = ? ORDER BY run.id", (str(note_id),))]
+
+    def note_withheld(self, connection: Any, note_id: Any) -> bool:
+        """Whether a note may not reach AD (fix round 12, F40): every note while unavailable; a
+        source's canonical note when any of its extractions holds held-out material (the note's
+        body is the source's text, so a held-out span anywhere in it is in the note). A note no
+        source names (a learner's own note) is visible."""
+
+        if not self.available:
+            return True
+        material = self.protection.material
+        if getattr(material, "empty", False):
+            return False
+        extractions = set(self.note_extractions(connection, note_id))
+        if not extractions:
+            return False
+        held = set(getattr(material, "extractions", ()) or ()) | {
+            str(key[0]) for key in (getattr(material, "spans", ()) or ())}
+        return bool(extractions & held)
 
     def visible_commission_results(self, connection: Any) -> list[dict[str, Any]]:
         """``ad_commission_results`` of visible items and revisions (Codex verify F29)."""
@@ -453,6 +494,28 @@ class MaterialView:
                 continue
         return out
 
+    def item_states(self, connection: Any) -> dict[str, Any]:
+        """``practice_item_state`` as AD may read it (fix round 12, F42's audit): visible items only,
+        and only their lifecycle (``active``). The fields the incumbent's scheduler derives from
+        answers (difficulty, stability, retrievability, due date, last attempt) read as a fresh
+        item's, so no answer, a withheld one included, reaches AD through them. Empty while
+        unavailable. The incumbent's own reader is unchanged."""
+
+        from dataclasses import replace
+
+        if not self.available or not _has_table(connection, "practice_item_state"):
+            return {}
+        out: dict[str, Any] = {}
+        for state in self.repository.practice_item_states().values():
+            if self.withheld(state.practice_item_id):
+                continue
+            # AD reads an item's lifecycle (``active``) and nothing the incumbent's scheduler derived
+            # from answers: its candidates are never-attempted items, so a public one reads exactly
+            # this, and an item answered only on withheld material can read nothing else.
+            out[state.practice_item_id] = replace(state, difficulty=None, stability=None, retrievability=None,
+                                                  due_at=None, last_attempt_at=None)
+        return out
+
     def attempt_withheld_by_id(self, connection: Any, attempt_id: Any) -> bool:
         """Whether an attempt (by id) is withheld now; a missing attempt is withheld (fail closed)."""
 
@@ -646,9 +709,10 @@ class MaterialView:
                 if self._presentation_withheld(connection, row)}
 
     def selections(self, connection: Any, *, kind: str | None = None) -> list[dict[str, Any]]:
-        """``ad_selections`` as AD's report may count them (Codex verify F39, fix round 11): a draw
-        that chose a withheld item, chose it into a presentation withheld with its frozen revision,
-        or commissioned a cell whose facet only withheld material names is left out of every
+        """``ad_selections`` as AD's report may count them (Codex verify F39, fix rounds 11-12): a
+        draw whose chosen item or originating slot item is withheld (or in a presentation withheld
+        with its frozen revision), whatever its kind (an empty-support draw included), or that
+        commissioned a cell whose facet only withheld material names is left out of every
         statistic and window boundary. The ledger itself is never changed. Empty while
         unavailable."""
 
@@ -662,8 +726,10 @@ class MaterialView:
         canonical = getattr(self.vault, "canonical_facet_id", lambda value: value)
         out = []
         for row in rows:
-            item = row.get("chosen_item_id")
-            if item and (self.withheld(item) or (str(row.get("block_id")), str(item)) in serves):
+            # The chosen item and the originating slot's item, each with its presentation, for every
+            # kind of draw, an empty-support draw included (Codex verify F39, fix round 12).
+            if any(item and (self.withheld(item) or (str(row.get("block_id")), str(item)) in serves)
+                   for item in (row.get("chosen_item_id"), row.get("slot_item_id"))):
                 continue
             if row.get("cell_facet") and canonical(str(row["cell_facet"])) in facets:
                 continue

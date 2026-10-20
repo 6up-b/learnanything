@@ -339,12 +339,15 @@ def build_practice_expansion_plan(
     concept_filter = set(focus_concepts or [])
     ad_items = ad_view.items() if ad_view is not None else None
     ad_counts: dict[str, int] = {}
+    ad_states = None
     if ad_view is not None:
         with repository.connection() as connection:
             ad_counts = ad_view.graded_counts(connection)
-    item_counts = _active_practice_item_counts(vault, repository, exclude_item_ids=exclude_item_ids, items=ad_items)
-    facet_unions = _active_evidence_facet_unions(vault, repository, items=ad_items)
-    surface_families = _active_surface_families(vault, repository, items=ad_items)
+            ad_states = ad_view.item_states(connection)
+    item_counts = _active_practice_item_counts(vault, repository, exclude_item_ids=exclude_item_ids, items=ad_items,
+                                               states=ad_states)
+    facet_unions = _active_evidence_facet_unions(vault, repository, items=ad_items, states=ad_states)
+    surface_families = _active_surface_families(vault, repository, items=ad_items, states=ad_states)
     # Meas §3.A4: the identifiability findings a contrast pair can close, keyed by
     # the facets they name. One static pass, no provider, and it reuses the SAME
     # `analyze_identifiability` the doctor runs -- a request here and a finding
@@ -999,7 +1002,11 @@ def build_goal_practice_plan(
 
     from learnloop.goals.goal_projection import goal_report, resolve_goal_scope
 
-    scope = resolve_goal_scope(vault, goal, repository)
+    # Adaptive difficulty's generation contract (Codex verify F37, fix round 12): the goal's scope is
+    # resolved on the vault AD's material view sees, before planning, so a facet only a withheld
+    # item measures brings no LO into the plan; the LO-to-facet mapping is kept for the focus.
+    ad_view = _ad_material_view(vault, repository)
+    scope = resolve_goal_scope(ad_view.vault_view() if ad_view is not None else vault, goal, repository)
     if not scope:
         raise PracticeExpansionError(f"Goal {goal.id} has no active learning objects in scope.")
     reserved = repository.reserved_exam_pool_item_ids()
@@ -1018,7 +1025,7 @@ def build_goal_practice_plan(
         # AD's own forecast on visible evidence, never the incumbent's goal projection.
         from learnloop.adaptive_difficulty.generation import goal_focus_facets
 
-        return plan, goal_focus_facets(vault, repository, scope=sorted(scope), target_recall=goal.target_recall,
+        return plan, goal_focus_facets(vault, repository, scope=scope, target_recall=goal.target_recall,
                                        view=plan.material_view)
     report = goal_report(vault, repository, goal)
     at_risk_facets = sorted({facet.facet_id for facet in report.facets if not facet.on_track})
@@ -1744,9 +1751,11 @@ def _active_practice_item_counts(
     *,
     exclude_item_ids: set[str] | None = None,
     items: Any = None,
+    states: Any = None,
 ) -> dict[str, int]:
-    """``items``: AD's material view's items under the generation contract; None reads the vault."""
-    states = repository.practice_item_states()
+    """``items``/``states``: AD's material view's items and item states under the generation
+    contract (fix round 12); None reads the vault and the repository."""
+    states = states if states is not None else repository.practice_item_states()
     excluded = exclude_item_ids or set()
     counts: dict[str, int] = {}
     for item in (items if items is not None else vault.practice_items.values()):
@@ -1800,12 +1809,12 @@ def _blueprint_components(learning_object) -> list[dict[str, Any]]:
 
 
 def _active_surface_families(
-    vault: LoadedVault, repository: Repository, *, items: Any = None
+    vault: LoadedVault, repository: Repository, *, items: Any = None, states: Any = None
 ) -> dict[str, list[str]]:
-    """Surface families already in use per LO, so a batch cannot re-run them. ``items``: AD's
-    material view's items under the generation contract; None reads the vault."""
+    """Surface families already in use per LO, so a batch cannot re-run them. ``items``/``states``:
+    AD's material view's items and item states under the generation contract; None reads the vault."""
 
-    states = repository.practice_item_states()
+    states = states if states is not None else repository.practice_item_states()
     families: dict[str, set[str]] = {}
     for item in (items if items is not None else vault.practice_items.values()):
         state = states.get(item.id)
@@ -1817,7 +1826,7 @@ def _active_surface_families(
 
 
 def _active_evidence_facet_unions(vault: LoadedVault, repository: Repository, *,
-                                  items: Any = None) -> dict[str, list[str]]:
+                                  items: Any = None, states: Any = None) -> dict[str, list[str]]:
     """Canonical facet vocabulary available to each Learning Object.
 
     Blueprints remain authoritative even before the first Practice Item exists;
@@ -1827,7 +1836,7 @@ def _active_evidence_facet_unions(vault: LoadedVault, repository: Repository, *,
     """
     from learnloop.vault.models import learning_object_facet_union
 
-    states = repository.practice_item_states()
+    states = states if states is not None else repository.practice_item_states()
     unions: dict[str, set[str]] = {
         learning_object.id: {
             vault.canonical_facet_id(str(facet))

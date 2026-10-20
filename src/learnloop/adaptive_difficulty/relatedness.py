@@ -117,6 +117,55 @@ def lo_subject(vault: Any, lo: Any) -> str:
     return str(subjects[0]) if subjects else "default"
 
 
+#: The reserved unit a relatedness run records its subject's protection fingerprint under (fix
+#: round 12, F38): never an LO or a revision, so no coupling or loading is read from it.
+PROTECTION_UNIT = "protection:subject"
+
+
+def subject_lo_ids(vault: Any, subject: str) -> set[str]:
+    """The active LOs of a subject (the relatedness prompt's scope)."""
+
+    return {lo.id for lo in vault.learning_objects.values()
+            if getattr(lo, "status", "active") == "active" and lo_subject(vault, lo) == subject}
+
+
+def protection_fingerprint(view: Any, connection: Any, lo_ids: Any) -> str | None:
+    """The protected material in a subject's prompt context, as one digest (fix round 12, F38):
+    each withheld current item or saved revision of the subject's LOs, by item id, revision hash
+    and source identity. A run records it at proposal time; a run whose subject's fingerprint has
+    changed since is not used (the blunt rule: protecting, or releasing, material in a subject
+    resets its learned coupling until the owner re-proposes and re-adopts). None while the
+    held-out predicate is unavailable (then nothing is used)."""
+
+    from learnloop.adaptive_difficulty.feature_audit import item_revision
+    from learnloop.adaptive_difficulty.outside import source_identity
+
+    if not view.available:
+        return None
+    scope = {str(lo_id) for lo_id in lo_ids}
+    withheld, _visible = view._withheld_and_visible_revisions(connection)
+    entries = sorted({json.dumps({"item": str(item.id), "revision": item_revision(item)[0],
+                                  "sources": source_identity(item, str(item.id))}, sort_keys=True)
+                      for item in withheld if str(getattr(item, "learning_object_id", "")) in scope})
+    return hashlib.sha256(json.dumps(entries).encode()).hexdigest()
+
+
+def stale_judgments(connection: Any, vault: Any, *, view: Any) -> set[str]:
+    """The judgments of every run its subject's protection has changed since (F38): what a frozen
+    loading naming any of them may not be used for (the replay, fix round 12)."""
+
+    out: set[str] = set()
+    fingerprints: dict[str, str | None] = {}
+    for run in serving_store.relatedness_runs(connection):
+        subject = str(run["subject_id"])
+        if subject not in fingerprints:
+            fingerprints[subject] = protection_fingerprint(view, connection, subject_lo_ids(vault, subject))
+        recorded = (run["units"] or {}).get(PROTECTION_UNIT) if isinstance(run["units"], Mapping) else None
+        if fingerprints[subject] is None or recorded != fingerprints[subject]:
+            out.update(str(judgment) for judgment in run["judgment_ids"] or ())
+    return out
+
+
 def lo_facets(view: Any, lo: Any) -> list[str]:
     """The LO's authored facets, else its visible active items' facets, through the operation's
     material view (A8; Codex verify F17's audit, F19): a facet only withheld items name is never
@@ -188,6 +237,13 @@ def subject_inputs(vault: Any, repository: Any, subject: str, *, protected: Any 
         unit_hashes[f"lo:{lo}"] = hashlib.sha256(json.dumps(own, sort_keys=True).encode()).hexdigest()
     for item_id, content_hash in revisions.items():
         unit_hashes[f"rev:{content_hash}"] = content_hash
+    # The subject's protection fingerprint (F38): recorded on every run, never quoted to the model.
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        unit_hashes[PROTECTION_UNIT] = str(protection_fingerprint(view, connection, lo_ids))
     return {"payload": payload, "revisions": revisions,
             "input_hash": hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest(),
             "item_ids": [row["item_id"] for row in items], "unit_hashes": unit_hashes}
@@ -212,8 +268,16 @@ def touched_units(inputs: Mapping[str, Any], runs: Sequence[Mapping[str, Any]]) 
     """The units whose fingerprint changed (or that are new) since their latest ok run: all of
     them when the subject has none."""
 
-    latest = _latest_unit_hashes(runs)
-    return sorted(unit for unit, value in inputs["unit_hashes"].items() if latest.get(unit) != value)
+    # Only the runs proposed under the subject's current protection count (F38's blunt rule, fix
+    # round 12): a run whose fingerprint differs is out of use everywhere, so it neither answers for
+    # a unit nor spares it a new proposal. When protection changed since every run, every unit is
+    # proposed again.
+    current = inputs["unit_hashes"].get(PROTECTION_UNIT)
+    fresh = [run for run in runs
+             if isinstance(run.get("units"), Mapping) and run["units"].get(PROTECTION_UNIT) == current]
+    latest = _latest_unit_hashes(fresh)
+    return sorted(unit for unit, value in inputs["unit_hashes"].items()
+                  if unit != PROTECTION_UNIT and latest.get(unit) != value)
 
 
 def focus(inputs: Mapping[str, Any], units: Sequence[str]) -> dict[str, Any]:
@@ -467,6 +531,7 @@ def _record(repository: Any, subject: str, inputs: Mapping[str, Any], proposal: 
     ids: list[str] = []
     focus_los = set(inputs.get("focus_learning_objects", [r["learning_object_id"] for r in inputs["payload"]["learning_objects"]]))
     focus_items = set(inputs.get("focus_items", inputs["item_ids"]))
+    units[PROTECTION_UNIT] = str(inputs["unit_hashes"].get(PROTECTION_UNIT))
     with repository.atomic():
         admit()
         connection = repository.connection()
@@ -723,8 +788,14 @@ def load_structure(connection: Any, vault: Any, *, view: Any, coupled: bool = Tr
         versions[subject] = str(version["coupling_version"])
         base_runs = set(version["run_ids"])
         adopted_at = _stamp(version["adopted_at"])
+        # The subject's protection now (F38's blunt rule): a run proposed under a different one,
+        # or recorded before runs carried one, is not used at all, its couplings and loadings both.
+        current = protection_fingerprint(view, connection, subject_lo_ids(vault, subject))
         for run in serving_store.relatedness_runs(connection, subject_id=subject):
             if run["status"] != "ok":
+                continue
+            recorded = (run["units"] or {}).get(PROTECTION_UNIT) if isinstance(run["units"], Mapping) else None
+            if current is None or recorded != current:
                 continue
             if run["id"] in base_runs:
                 at = float("-inf")
@@ -732,7 +803,7 @@ def load_structure(connection: Any, vault: Any, *, view: Any, coupled: bool = Tr
                 at = _stamp(run["created_at"])
             else:
                 continue  # an older run superseded at adoption
-            per_unit: dict[str, dict[str, float]] = {unit: {} for unit in run["units"]}
+            per_unit: dict[str, dict[str, float]] = {unit: {} for unit in run["units"] if unit != PROTECTION_UNIT}
             for judgment_id in run["judgment_ids"]:
                 row = judgments.get(str(judgment_id))
                 if row is None:
@@ -758,6 +829,7 @@ def load_structure(connection: Any, vault: Any, *, view: Any, coupled: bool = Tr
 __all__ = [
     "OWNER_KIND",
     "PROMPT_VERSION",
+    "PROTECTION_UNIT",
     "Proposal",
     "ProposalOutcome",
     "ReinterpretationNeedsShadow",
@@ -773,6 +845,8 @@ __all__ = [
     "lo_subject",
     "prompt",
     "propose_subject",
+    "protection_fingerprint",
+    "stale_judgments",
     "shadow_report",
     "subject_inputs",
     "subjects",
