@@ -180,18 +180,19 @@ def bound_ask(vault: Any, repository: Any, params: Any, restricted: ReaderRestri
 
 @dataclass(frozen=True)
 class ReaderInputs:
-    """Every model-written input one lookup builds from, sanitized once (fix round 6, R3).
+    """The model-written inputs one lookup builds from, AS READ (fix round 7, R1).
 
     ``gaps`` are the open-gap and misconception statements on the passage's
-    LOs (LearnLoop's reading, model-written); bound, they pass the binding's
-    guard (``reader_modes.guard_statements``) BEFORE the lookup query is
-    built, and this one copy feeds the query (and so its rewrite and the
-    verification's ``context.question``) and the bridge's learner work.
-    ``misconceptions`` are "that didn't help"'s remediation targets, which
-    the sources service puts in the verification's context with their
-    corrections; bound, resolved here and guarded the same way (None:
-    unbound, the service resolves them as before). The learner's own
-    question and their earlier questions are theirs and are never touched."""
+    LOs (LearnLoop's reading); ``learner_work`` is the bridge's context built
+    from the same ``gaps`` (one copy) and the learner's own workbench steps;
+    ``misconceptions`` are, bound under "that didn't help", the remediation
+    targets the sources service would put in the verification's context with
+    their corrections (resolved here so the service never resolves a copy of
+    its own; None otherwise). Nothing is withheld here: bound, the tutor
+    reads every model-written text of each model call as one
+    (``reader_modes.plan_bound_delivery``) and the lookup builds its query
+    from what that plan kept, so no per-source guarded copy is ever
+    concatenated with another (round 6's separate guards were bypassable)."""
 
     gaps: list[dict[str, Any]]
     learner_work: list[dict[str, Any]]
@@ -200,28 +201,18 @@ class ReaderInputs:
 
 def reader_inputs(vault: Any, repository: Any, *, lo_ids: list[str], personalized: bool, intent: str,
                   target_hypotheses: list[dict[str, str]], binding: Any) -> ReaderInputs:
-    """The :class:`ReaderInputs` of one lookup (unbound: as read, unguarded, as before)."""
+    """The :class:`ReaderInputs` of one lookup."""
 
     from learnloop.source_retrieval import reader_tutor as RT
     from learnloop.source_retrieval.library_ask import open_questions
-    from learnloop.tutor.reader_modes import guard_learner_work, guard_statements
 
     gaps = open_questions(vault, repository, lo_ids) if personalized and lo_ids else []
-    gaps = guard_statements(gaps, binding, text=lambda entry: str(entry.get("statement") or ""))
-    # The learner's own steps stay; the problem line (source text) is guarded
-    # (round 5, R2), and the open questions are the guarded ``gaps`` above.
-    work = guard_learner_work(RT.learner_work(vault, repository, lo_ids, gaps=gaps), binding) \
-        if personalized else []
+    work = RT.learner_work(vault, repository, lo_ids, gaps=gaps) if personalized else []
     misconceptions = None
     if binding is not None and intent == "remediate" and vault.config.source_service.enabled:
         from learnloop.instructional.sources import resolve_misconceptions
 
-        # A misconception and its correction both reach the verification's
-        # context; the correction can be the item's answer.
-        misconceptions = guard_statements(
-            resolve_misconceptions(repository, target_hypotheses, item=binding.item), binding,
-            text=lambda record: " ".join(filter(None, [str(getattr(record, "statement", "") or ""),
-                                                        str(getattr(record, "correction_statement", "") or "")])))
+        misconceptions = list(resolve_misconceptions(repository, target_hypotheses, item=binding.item))
     return ReaderInputs(gaps=gaps, learner_work=work, misconceptions=misconceptions)
 
 
@@ -259,17 +250,16 @@ def build_request(ctx: Any, vault: Any, repository: Any, params: Any, restricted
     personalized = (bool(vault.config.library_ask.personalized_default) if params.personalized is None
                     else bool(params.personalized))
     hypotheses = RT.named_gap_hypotheses(repository, inquiry) if intent == "remediate" else []
-    # One sanitized copy of every model-written input (fix round 6, R3): the
-    # query below (its rewrite and the verification's question), the
-    # remediation targets and the bridge's work all read it, so nothing the
-    # binding withholds reaches a model through a second, unguarded copy.
+    # The model-written inputs as read (fix round 7, R1): the lookup builds
+    # its query from them at call time, from what the tutor's one plan for
+    # every model call kept when bound (``reader_modes.plan_bound_delivery``).
     inputs = reader_inputs(vault, repository, lo_ids=lo_ids, personalized=personalized, intent=intent,
                            target_hypotheses=hypotheses, binding=binding)
     if intent == "alternative" and ancestors:
         # "Another way" looks for the question it is under, not its own words.
-        query = RT.reader_query(ancestors[-1]["question_md"], ancestors=ancestors[:-1], gaps=inputs.gaps)
+        question, query_ancestors = ancestors[-1]["question_md"], ancestors[:-1]
     else:
-        query = RT.reader_query(params.question, ancestors=ancestors, gaps=inputs.gaps)
+        question, query_ancestors = params.question, ancestors
     shown = list(dict.fromkeys([*RT.shown_span_keys(inquiry), *RT.offer_shown_span_keys(repository, inquiry)])) \
         if intent in ("alternative", "remediate") else []
     service = bool(vault.config.source_service.enabled)
@@ -278,19 +268,18 @@ def build_request(ctx: Any, vault: Any, repository: Any, params: Any, restricted
         from learnloop.instructional.sources import propose_sources
 
         def find(query_text: str, **kwargs: Any) -> Any:
-            if inputs.misconceptions is not None:
-                # Bound: the guarded targets, never the service's own resolution.
-                kwargs["misconceptions"] = inputs.misconceptions
             return propose_sources(vault, repository, query_text, caller=caller, **kwargs)
     else:
         from learnloop.source_retrieval.find_sources import find_sources_for_caller
 
         def find(query_text: str, **kwargs: Any) -> Any:
             kwargs.pop("target_hypotheses", None)
+            kwargs.pop("misconceptions", None)  # the base explain resolves none
             return find_sources_for_caller(vault, repository, query_text, caller=caller, **kwargs)
 
     lookup = RT.ReaderLookup(
-        vault=vault, repository=repository, find=find, policy=policy, query=query, intent=intent,
+        vault=vault, repository=repository, find=find, policy=policy, question=question,
+        ancestors=query_ancestors, gaps=inputs.gaps, misconceptions=inputs.misconceptions, intent=intent,
         learning_object_ids=lo_ids, exclude_span_keys=shown,
         target_hypotheses=hypotheses,
         shown_source_ids=RT.shown_source_ids(repository, shown) if intent == "alternative" else [],
@@ -302,7 +291,8 @@ def build_request(ctx: Any, vault: Any, repository: Any, params: Any, restricted
     # Only the service's effective retrieval intent falls back to explain,
     # inside the lookup (``ReaderLookup``: G53's base find_sources).
     return ReaderTutorRequest(retrieve=lookup, intent=intent, personalized=personalized,
-                              learner_work=inputs.learner_work, policy=policy,
+                              learner_work=inputs.learner_work, gaps=inputs.gaps,
+                              misconceptions=inputs.misconceptions, policy=policy,
                               shown_span_keys=shown if intent == "alternative" else ())
 
 

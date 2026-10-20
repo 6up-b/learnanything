@@ -50,6 +50,7 @@ from learnloop.ingest.block_roles import lead_role
 from learnloop.source_retrieval.corpus import block_roles, item_exclusions
 from learnloop.source_retrieval.tutor import ITEM_BOUND_LEAD_ROLES
 from learnloop.source_retrieval.verify import verification_route
+from learnloop.tutor import reader_modes
 from learnloop.tutor.tutor_qa import span_answer_overlap, span_leaks_expected
 from learnloop.vault.models import LoadedVault, PracticeItem
 
@@ -57,8 +58,9 @@ from learnloop.vault.models import LoadedVault, PracticeItem
 READER_INTENTS = ("explain", "alternative", "remediate")
 #: How many of the inquiry's earlier questions join the query.
 QUERY_ANCESTORS = 2
-#: How many open-gap statements join a personalized query.
-QUERY_GAPS = 3
+#: How many open-gap statements join a personalized query (the bridge's
+#: open questions are the same first ones: ``reader_modes.QUERY_GAPS``).
+QUERY_GAPS = reader_modes.QUERY_GAPS
 QUERY_CHARS = 2000
 #: Roles a cited block has when "Try the next step first" fits it (a
 #: derivation or a worked example, RW1b's next-step question at that line).
@@ -124,7 +126,17 @@ class ReaderLookup:
     find: Callable[..., Any]
     #: The caller's derived policy (the manifest's, and ``cold_attempt`` retrieves nothing).
     policy: str
-    query: str
+    #: The query's learner-written parts (the question it looks for and the
+    #: inquiry's earlier questions): never withheld.
+    question: str
+    ancestors: Sequence[Mapping[str, Any]] = ()
+    #: The query's and the verification's model-written inputs as read: the
+    #: open-gap statements (personalized) and, bound under "that didn't
+    #: help", the misconceptions with their corrections (None: the service
+    #: resolves them). Bound, the call passes the ones the plan kept
+    #: (``reader_modes.plan_bound_delivery``, fix round 7).
+    gaps: Sequence[Mapping[str, Any]] = ()
+    misconceptions: Sequence[Any] | None = None
     intent: str = "explain"
     learning_object_ids: Sequence[str] = ()
     exclude_span_keys: Sequence[str] = ()
@@ -137,8 +149,15 @@ class ReaderLookup:
     service: bool = True
     notes: list[str] = field(default_factory=list)
 
-    def __call__(self) -> tuple[list[dict[str, Any]] | None, dict[str, Any]]:
+    def query(self, gaps: Sequence[Mapping[str, Any]] | None = None) -> str:
+        """The tutor's own query, from these gap statements (default: as read)."""
+
+        return reader_query(self.question, ancestors=self.ancestors, gaps=self.gaps if gaps is None else gaps)
+
+    def __call__(self, inputs: Mapping[str, Any] | None = None) -> tuple[list[dict[str, Any]] | None, dict[str, Any]]:
         vault, repository = self.vault, self.repository
+        gaps = self.gaps if inputs is None else inputs.get("gaps") or []
+        misconceptions = self.misconceptions if inputs is None else inputs.get("misconceptions")
         intent = self.intent if self.service else "explain"
         manifest: dict[str, Any] = {"basis": "reader_lookup", "policy": self.policy, "intent": intent,
                                     "requested_intent": self.intent, "service": self.service,
@@ -158,10 +177,13 @@ class ReaderLookup:
             return None, {**manifest, "status": f"skipped: verification {ready.skip}", "books_cover": None,
                           "reason": ready.reason}
         hits = self.find(
-            self.query, intent=intent, scope="library", learning_object_ids=list(self.learning_object_ids),
+            self.query(gaps), intent=intent, scope="library", learning_object_ids=list(self.learning_object_ids),
             exclude_span_keys=list(self.exclude_span_keys),
             target_hypotheses=[dict(ref) for ref in self.target_hypotheses] if intent == "remediate" else [],
             personalized=self.personalized, verify=True, limit=config.tutor_spans, rerank_client=ready.client,
+            # Bound "that didn't help": the kept targets, never the
+            # service's own (unguarded) resolution.
+            **({"misconceptions": list(misconceptions)} if misconceptions is not None else {}),
         )
         found = hits.as_dict() if hasattr(hits, "as_dict") else dict(hits)
         found_manifest = dict(found.get("manifest") or {})
@@ -419,8 +441,9 @@ def learner_work(vault: LoadedVault, repository: Repository, learning_object_ids
     and most recent workbench steps (their own words) on these LOs: the same
     class of data the hint writer already sends (spec §5.8).
 
-    ``gaps`` are the open questions the caller already read (and, bound,
-    guarded: fix round 6, R3), so the query and the bridge share one copy;
+    ``gaps`` are the open questions the caller already read, so the query
+    and the bridge are built from one copy (bound, ``reader_modes.
+    plan_bound_delivery`` then withholds from both at once: fix round 7);
     None reads them here."""
 
     from learnloop.source_retrieval.library_ask import open_questions
@@ -429,11 +452,7 @@ def learner_work(vault: LoadedVault, repository: Repository, learning_object_ids
     if not lo_ids:
         return []
     statements = open_questions(vault, repository, lo_ids) if gaps is None else gaps
-    work: list[dict[str, Any]] = [
-        {"kind": "open_question", "statement": entry["statement"], "author": "LearnLoop's reading",
-         "learning_object_id": entry.get("learning_object_id")}
-        for entry in list(statements)[:QUERY_GAPS]
-    ]
+    work: list[dict[str, Any]] = reader_modes.open_question_work(statements)
     items = [item_id for item_id, item in vault.practice_items.items() if item.learning_object_id in lo_ids]
     if items:
         session = _latest_session(repository, items)

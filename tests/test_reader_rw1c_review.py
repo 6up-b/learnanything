@@ -863,22 +863,22 @@ def test_the_learner_work_keeps_the_learners_own_steps():
     question's statement (LearnLoop's reading) or a problem line that would
     give the answer away is left out, under a binding only."""
 
-    from learnloop.tutor.reader_modes import BoundAsk, guard_learner_work
+    from learnloop.tutor.reader_modes import BoundAsk, open_question_work, plan_bound_delivery
 
     leaks = lambda text: "2/13" in text  # noqa: E731 - the injected guard
     binding = BoundAsk(item=SimpleNamespace(id=ITEM, expected_answer=PROBABILITY_KEY), answer_guard=leaks)
+    gaps = [{"statement": "The probability is 2/13."}, {"statement": "Which outcomes are equally likely?"}]
     work = [
-        {"kind": "open_question", "statement": "The probability is 2/13.", "author": "LearnLoop's reading"},
-        {"kind": "open_question", "statement": "Which outcomes are equally likely?", "author": "LearnLoop's reading"},
+        *open_question_work(gaps),
         {"kind": "workbench_steps", "author": "the learner", "problem": "Show it is 2/13.",
          "steps": ["count the pairs", "so 2/13?"]},
     ]
-    kept = guard_learner_work(work, binding)
+    kept = plan_bound_delivery(binding, thread=[], gaps=gaps, learner_work=work).learner_work
     assert [entry.get("statement") for entry in kept if entry["kind"] == "open_question"] == [
         "Which outcomes are equally likely?"]
     steps = next(entry for entry in kept if entry["kind"] == "workbench_steps")
     assert steps["problem"] == "" and steps["steps"] == ["count the pairs", "so 2/13?"]
-    assert guard_learner_work(work, None) == work
+    assert plan_bound_delivery(None, thread=[], gaps=gaps, learner_work=work).learner_work == work
 
 
 def _field_rows(vault, attempts: list[tuple[str, str]]):
@@ -1167,3 +1167,135 @@ def test_that_didnt_help_bound_withholds_a_leaking_misconception(tmp_path, monke
         workbenchSessionId=session)
     assert verifier.prompts[seen:], "the verification ran"
     assert not any(PROBABILITY_KEY in prompt for prompt in verifier.prompts[seen:])
+
+
+# --- Fix round 7 (orchestrator ruling) -----------------------------------------------------------------
+
+PASSAGE_T2 = {"spanId": "t2", "selectionSpanIds": ["t2"], "selectionQuote": "Eigenvalues are the roots"}
+BEGIN = "how should I begin?"
+
+
+def _model_written_union(context: dict) -> str:
+    """Every model-written text one tutor call carries, as the tutor reads them."""
+
+    texts = [turn["answer_md"] for turn in context["thread"]]
+    for entry in (context.get("reader_tutor") or {}).get("learner_work") or []:
+        texts.append(str(entry.get("statement") or "") if entry.get("kind") == "open_question"
+                     else str(entry.get("problem") or ""))
+    return "\n\n".join(text for text in texts if text)
+
+
+def _misconception(repository, vault, statement: str, correction: str | None = None) -> None:
+    repository.insert_misconception(learning_object_id=vault.practice_items[ITEM].learning_object_id,
+                                    statement=statement, correction_statement=correction)
+
+
+@pytest.mark.parametrize("asked", ["bound", "bound_cold", "unbound", "switches_off"])
+def test_an_earlier_answer_and_a_gap_are_withheld_as_one(tmp_path, monkeypatch, asked):
+    """R1 (F8, the verify's first case): an earlier answer ("Swapping two rows
+    multiplies the determinant.", 0.67) and an open gap on the passage's LO
+    ("By minus one, so it flips.", 0.33) pass alone but give the key away in
+    one tutor call. Bound, cold or not, the plan withholds the higher one, so
+    the call's model-written union no longer does, and the manifest records
+    exactly the delivered thread. Unbound and with both switches off,
+    nothing changes."""
+
+    from learnloop.tutor.reader_modes import EARLIER_ANSWER_LEFT_OUT
+    from learnloop.tutor.tutor_qa import span_leaks_expected
+
+    config = {"reader_tutor": {"retrieval_enabled": asked != "switches_off", "offers_enabled": asked != "switches_off"}}
+    tutor = LookupTutor(answer_md=SPLIT_FIRST)
+    paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor, config=config)
+    set_item_answer(paths, ITEM, SPLIT_KEY)
+    ctx = _rebind(paths, ctx)
+    vault, _repository = ctx.require_vault()
+    _misconception(repository, vault, SPLIT_SECOND)
+    root = ask(ctx, BEGIN, personalized=True, **PASSAGE_T2)
+    tutor.answer_md = "Start from one row swap."
+    extra: dict = {}
+    if asked.startswith("bound") or asked == "switches_off":
+        extra["workbenchSessionId"] = _bound_session(repository, ITEM)
+    if asked == "bound_cold":
+        extra["coldActive"] = True
+    follow = ask(ctx, "and then?", parentExchangeId=root["readerAnswerEventId"], personalized=True, **extra,
+                 **PASSAGE_T2)
+    context = tutor.contexts[-1]
+    if asked in ("unbound", "switches_off"):
+        assert context["thread"][0]["answer_md"] == SPLIT_FIRST  # as before
+        if asked == "unbound":
+            assert SPLIT_SECOND in _model_written_union(context)
+        return
+    assert [turn["answer_md"] for turn in context["thread"]] == [EARLIER_ANSWER_LEFT_OUT]
+    assert [turn["question_md"] for turn in context["thread"]] == [BEGIN]
+    union = _model_written_union(context)
+    assert SPLIT_SECOND in union  # the lower one is kept: the plan withholds only what it must
+    assert not span_leaks_expected(union, SPLIT_KEY)
+    assert follow["manifest"]["priorExchanges"] == [
+        {"questionMd": turn["question_md"], "answerMd": turn["answer_md"]} for turn in context["thread"]]
+    assert follow["manifest"]["delivery"]["boundWithheld"] == {"answers": 1}
+
+
+def test_a_gap_and_a_misconceptions_correction_are_withheld_as_one(tmp_path, monkeypatch):
+    """R1 (F8, the verify's second case): "that didn't help", bound. One
+    misconception states the first half of the key (an open gap and a
+    remediation target), another's correction states the second half; the
+    verification reads the gaps in its question and the misconceptions in its
+    context. Its model-written union no longer gives the key away."""
+
+    from tests.reader_tutor_fakes import prompt_context
+
+    from learnloop.tutor.tutor_qa import span_leaks_expected
+
+    tutor = LookupTutor()
+    paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    set_item_answer(paths, ITEM, SPLIT_KEY)
+    ctx = _rebind(paths, ctx)
+    vault, _repository = ctx.require_vault()
+    _misconception(repository, vault, SPLIT_FIRST)
+    _misconception(repository, vault, "Row swaps are rare.", correction=SPLIT_SECOND)
+    session = _bound_session(repository, ITEM)
+    root = ask(ctx, BEGIN, personalized=True, workbenchSessionId=session, **PASSAGE_T2)
+    verifier = ctx.reader_tutor_rerank_client
+    seen = len(verifier.prompts)
+    ask(ctx, "That didn't help.", parentExchangeId=root["readerAnswerEventId"], retrievalIntent="remediate",
+        personalized=True, workbenchSessionId=session, **PASSAGE_T2)
+    contexts = [prompt_context(prompt) for prompt in verifier.prompts[seen:]]
+    assert contexts, "the verification ran"
+    for context in contexts:
+        texts = [context["question"], *(f"{m.get('statement') or ''} {m.get('correction') or ''}"
+                                        for m in context.get("misconceptions") or [])]
+        assert not span_leaks_expected("\n\n".join(texts), SPLIT_KEY)
+
+
+def test_a_three_slot_split_is_withheld_as_one(tmp_path, monkeypatch):
+    """R1: the key in three thirds, each 0.33 alone, two of them 0.67: an
+    earlier answer, an open gap (the bridge's open question) and the problem
+    line of the learner's workbench. One tutor call carries all three; the
+    plan withholds one (a tie: the most recent, the problem line), and the
+    learner's own steps stay."""
+
+    from learnloop.tutor.tutor_qa import span_leaks_expected
+
+    first, second, third = "Swapping two rows", "multiplies the determinant", "by minus one, so it flips"
+    tutor = LookupTutor(answer_md=first)
+    paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    set_item_answer(paths, ITEM, SPLIT_KEY)
+    ctx = _rebind(paths, ctx)
+    vault, _repository = ctx.require_vault()
+    _misconception(repository, vault, second)
+    session = _workbench_steps(repository, ITEM, ["swap rows 1 and 2"])
+    with repository.connection() as connection:
+        connection.execute("UPDATE workbench_sessions SET stem_md = ? WHERE id = ?", (third, session))
+        connection.commit()
+    root = ask(ctx, BEGIN, personalized=True, **PASSAGE_T2)
+    unbound = _model_written_union(tutor.contexts[-1])
+    assert second in unbound and third in unbound  # the control: unbound, both are delivered
+    tutor.answer_md = "Start from one row swap."
+    ask(ctx, "and then?", parentExchangeId=root["readerAnswerEventId"], personalized=True,
+        workbenchSessionId=session, **PASSAGE_T2)
+    context = tutor.contexts[-1]
+    union = _model_written_union(context)
+    assert not span_leaks_expected(union, SPLIT_KEY)
+    assert context["thread"][0]["answer_md"] == first and second in union and third not in union
+    steps = next(e for e in context["reader_tutor"]["learner_work"] if e.get("kind") == "workbench_steps")
+    assert steps["steps"] == ["swap rows 1 and 2"] and steps["problem"] == ""

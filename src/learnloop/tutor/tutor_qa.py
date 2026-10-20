@@ -43,6 +43,7 @@ Design decisions (agreed spec):
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 import logging
@@ -561,6 +562,31 @@ def ask_question(
     # What the source delivery recorded (a trim, a drop, a reference followed
     # or not), persisted on the question's source_context.delivery.
     delivery: dict[str, Any] = {}
+    bound_plan: reader_modes.BoundDelivery | None = None
+    if binding is not None:
+        # Fix round 7 (R1): every model-written text this question delivers
+        # to any model call -- the earlier answers, and with a lookup the
+        # gap statements of its query, the misconceptions and corrections of
+        # its verification and the bridge's open questions and problem line
+        # -- is withheld from ONE plan, which reads each call's union as one.
+        # The thread below, the lookup's query and verification inputs, the
+        # bridge's work and the manifest are all delivered from it; the
+        # stored exchanges are untouched and the learner's own words are
+        # never withheld.
+        bound_plan = reader_modes.plan_bound_delivery(
+            binding, thread=thread,
+            gaps=reader_tutor.gaps if lookup and reader_tutor is not None else (),
+            misconceptions=reader_tutor.misconceptions if lookup and reader_tutor is not None else None,
+            learner_work=reader_tutor.learner_work if lookup and reader_tutor is not None else (),
+        )
+        thread = bound_plan.thread
+        if lookup and reader_tutor is not None:
+            reader_tutor = dataclasses.replace(reader_tutor, learner_work=bound_plan.learner_work,
+                                               gaps=bound_plan.gaps, misconceptions=bound_plan.misconceptions)
+        if bound_plan.withheld.get("answers"):
+            delivery["earlier_answers_left_out"] = bound_plan.withheld["answers"]
+        if bound_plan.withheld:
+            delivery["bound_withheld"] = dict(sorted(bound_plan.withheld.items()))
 
     def build_context() -> TutorQAContext:
         return _build_context(
@@ -605,7 +631,8 @@ def ask_question(
         elif lookup and reader_tutor is not None:
             # RW1c: the tutor forms its own query and looks it up (the
             # adapter's injected retrieval under the server-derived policy).
-            lookup_spans, lookup_manifest = reader_modes.run_retrieval(reader_tutor)
+            lookup_spans, lookup_manifest = reader_modes.run_retrieval(
+                reader_tutor, inputs=bound_plan.lookup_inputs if bound_plan is not None else None)
             reader_retrieval = dict(lookup_manifest)
         ai_context = build_context()
         if extraction_id and span_id:
@@ -909,6 +936,9 @@ def ask_question(
             result["tool_requests"] = []
     if reader_view is not None:
         result["reader_tutor"] = reader_view
+    if bound_plan is not None:
+        # The thread as delivered, for the exchange's manifest (fix round 7, R1).
+        result["bound_thread"] = [dict(turn) for turn in bound_plan.thread]
     suggested = (source_context or {}).get("suggested_learning_objects")
     if suggested:
         # Slice 2 T6: labelled suggestions for a reader span without provenance
@@ -1481,17 +1511,12 @@ def _build_context(
         if delivery_receipt is not None and notable(receipt):
             delivery_receipt.update(receipt)
         guarded: dict[str, int] = {}
-        if reader_binding is not None:
-            # Fix round 5 (R1, R2): bound, the item's guard holds for the
-            # complete delivered context whatever the retrieval switch, and
-            # every earlier answer is re-checked under the CURRENT
-            # restriction (an answer given while reading unbound can be the
-            # item's answer now); the stored exchanges are untouched.
-            if reader_binding.context_guard is not None:
-                reader_spans, guarded = reader_binding.context_guard(reader_spans)
-            thread, left_out = reader_modes.guard_thread(thread, reader_binding)
-            if delivery_receipt is not None and left_out:
-                delivery_receipt["earlier_answers_left_out"] = left_out
+        if reader_binding is not None and reader_binding.context_guard is not None:
+            # Fix round 5 (R1): bound, the item's guard holds for the
+            # complete delivered context whatever the retrieval switch. The
+            # thread arrives already planned (``ask_question``:
+            # ``reader_modes.plan_bound_delivery``, fix round 7).
+            reader_spans, guarded = reader_binding.context_guard(reader_spans)
         if reader_lookup is not None:
             return _reader_lookup_context(
                 repository, reader_spans, reader_lookup, question_md=question_md, thread=thread,

@@ -28,7 +28,7 @@ imports the retrieval package: the adapter injects the retrieval as
 from __future__ import annotations
 
 import unicodedata
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -111,26 +111,28 @@ class BoundAsk:
 _JOIN = "\n\n"
 
 
-def withhold(texts: Sequence[str], binding: BoundAsk | None, *, placeholder: str = "") -> set[int]:
-    """The indexes of the model-written ``texts`` to withhold under the binding.
+def withhold(texts: Sequence[str], binding: BoundAsk | None, *, placeholders: Sequence[str] | None = None,
+             already: Collection[int] = ()) -> set[int]:
+    """The indexes of the model-written ``texts`` one model call carries to withhold under the binding.
 
-    Fix round 6 (R1): a text that gives the item's answer away alone is
-    withheld; then, while the texts kept (with ``placeholder`` where one was
-    withheld) still give it away TOGETHER, the kept text with the highest
-    individual overlap (ties: the most recent, the highest index) is withheld
-    and the whole is checked again. Two answers that each say half the key
-    ("Swapping two rows multiplies the determinant." and "By minus one, so it
-    flips.") are not delivered side by side. Empty texts are ignored."""
+    A text that gives the item's answer away alone is withheld; then, while
+    the texts delivered (each withheld one as its ``placeholders`` entry,
+    empty when dropped) still give it away TOGETHER, the kept text with the
+    highest individual overlap (ties: the most recent, the highest index) is
+    withheld and the whole is checked again (fix round 6, R1). ``already``
+    are withheld from the start (another call's decision on the same text).
+    Empty texts are ignored."""
 
     if binding is None or binding.answer_guard is None:
-        return set()
+        return set(already)
     leaks = binding.answer_guard
     overlap = binding.answer_overlap or (lambda text: 1.0 if leaks(text) else 0.0)
+    stand_in = list(placeholders) if placeholders is not None else [""] * len(texts)
     present = [index for index, text in enumerate(texts) if text]
-    out = {index for index in present if leaks(texts[index])}
+    out = set(already) | {index for index in present if leaks(texts[index])}
 
     def combined() -> str:
-        return _JOIN.join(placeholder if index in out else texts[index] for index in present)
+        return _JOIN.join(stand_in[index] if index in out else texts[index] for index in present)
 
     while leaks(combined()):
         kept = [index for index in present if index not in out]
@@ -140,69 +142,171 @@ def withhold(texts: Sequence[str], binding: BoundAsk | None, *, placeholder: str
     return out
 
 
-def guard_thread(thread: Sequence[Mapping[str, Any]], binding: BoundAsk | None) -> tuple[list[dict[str, Any]], int]:
-    """The thread a bound request's prompt carries, and how many earlier answers it left out.
+#: One slot of a model call: its name and its delivered ``(index, text)``
+#: pairs, in the order the call carries them.
+Slot = tuple[str, Sequence[tuple[int, str]]]
 
-    Every earlier answer is model-written text the tutor would read again:
-    under the CURRENT restriction it passes the same check as the source
-    spans, alone and combined with the other earlier answers it would be
-    delivered with (fix round 5, R2; fix round 6, R1: :func:`withhold`). An
-    answer given while reading unbound ("The required probability is
-    2/13.") is the item's answer once the workbench binds it, so it is
-    replaced by :data:`EARLIER_ANSWER_LEFT_OUT`, or by nothing when that
-    line itself would match this item's guard (a degenerate key). The
-    thread keeps its shape (the learner's questions stay), nothing is
-    refused, and the stored exchange is untouched."""
+
+def withhold_for_call(slots: Sequence[Slot], binding: BoundAsk | None, *,
+                      placeholders: Mapping[str, str] | None = None,
+                      already: Mapping[str, Collection[int]] | None = None) -> dict[str, set[int]]:
+    """The withheld indexes, per slot, of ONE model call (fix round 7, R1).
+
+    The union of every model-written text the call is given (each slot's
+    texts, in delivery order) is read as one by :func:`withhold`, so texts
+    that each pass alone (an earlier answer, a gap statement, a
+    misconception's correction) are never delivered together when together
+    they give the item's answer away. ``placeholders`` is what a withheld
+    text of a slot is delivered as (empty: dropped); ``already`` are the
+    indexes another call withheld."""
+
+    placeholders, already = dict(placeholders or {}), dict(already or {})
+    keys = [(name, index) for name, pairs in slots for index, _text in pairs]
+    texts = [text for _name, pairs in slots for _index, text in pairs]
+    stand_in = [placeholders.get(name, "") for name, _index in keys]
+    seeded = {n for n, (name, index) in enumerate(keys) if index in already.get(name, ())}
+    out: dict[str, set[int]] = {name: set(already.get(name, ())) for name, _pairs in slots}
+    for n in withhold(texts, binding, placeholders=stand_in, already=seeded):
+        name, index = keys[n]
+        out[name].add(index)
+    return out
+
+
+#: How many open questions the lookup query and the bridge's work carry
+#: (the first ones kept; ``source_retrieval.reader_tutor`` reads it).
+QUERY_GAPS = 3
+
+
+def open_question_work(gaps: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """The bridge's open-question lines for these gap statements (the first :data:`QUERY_GAPS`)."""
+
+    return [{"kind": "open_question", "statement": entry["statement"], "author": "LearnLoop's reading",
+             "learning_object_id": entry.get("learning_object_id")} for entry in list(gaps)[:QUERY_GAPS]]
+
+
+def _misconception_text(record: Any) -> str:
+    # A misconception and its correction both reach the verification's
+    # context; the correction can be the item's answer.
+    return " ".join(filter(None, [str(getattr(record, "statement", "") or ""),
+                                  str(getattr(record, "correction_statement", "") or "")]))
+
+
+@dataclass(frozen=True)
+class BoundDelivery:
+    """What a bound request delivers to its model calls, from ONE withheld set (fix round 7, R1).
+
+    ``thread`` is the tutor's thread (a withheld earlier answer replaced by
+    the validated placeholder); ``gaps`` and ``misconceptions`` are the lookup's
+    inputs (its query, so its rewrite and the verification's question, and
+    the verification's context; None: not a lookup, or the service resolves
+    them); ``learner_work`` is the bridge's context; ``withheld`` counts what
+    each slot left out. The manifest records ``thread``."""
+
+    thread: list[dict[str, Any]]
+    gaps: list[Any]
+    misconceptions: list[Any] | None
+    learner_work: list[dict[str, Any]]
+    withheld: dict[str, int]
+
+    @property
+    def lookup_inputs(self) -> dict[str, Any]:
+        return {"gaps": list(self.gaps), "misconceptions": self.misconceptions}
+
+
+def plan_bound_delivery(binding: BoundAsk | None, *, thread: Sequence[Mapping[str, Any]],
+                        gaps: Sequence[Mapping[str, Any]] = (), misconceptions: Sequence[Any] | None = None,
+                        learner_work: Sequence[Mapping[str, Any]] = ()) -> BoundDelivery:
+    """Every model-written text a bound request delivers, withheld once (fix round 7, R1).
+
+    Two model calls read them: the lookup's verification (and its query
+    rewrite, which reads a prefix of the same query) carries the open-gap
+    statements in its question and the misconceptions with their
+    corrections in its context; the tutor carries the earlier answers, the
+    bridge's open questions (the same gap statements) and the problem line
+    of the learner's work. :func:`withhold_for_call` reads each call's union
+    as delivered; a text either call withholds is withheld from every slot
+    and record, and the calls are read again until nothing changes (the
+    lists delivered depend on what is withheld: the first
+    :data:`QUERY_GAPS` gap statements KEPT are the ones used). Never
+    withheld, never read: the learner's own words (their question, their
+    earlier questions, their workbench steps). Unbound, everything is
+    delivered as given."""
 
     turns = [dict(turn) for turn in thread]
+    gaps, work = list(gaps), [dict(entry) for entry in learner_work]
+    records = list(misconceptions) if misconceptions is not None else None
+    others = [entry for entry in work if entry.get("kind") != "open_question"]
+    # The bridge's open questions are built from the gap statements (the
+    # same lines the query carries), so they are one slot with them.
+    bridged = any(entry.get("kind") == "open_question" for entry in work)
     if binding is None or binding.answer_guard is None:
-        return turns, 0
+        return BoundDelivery(turns, gaps, records, work, {})
     # The replacement is validated too (round 6, R1): a key that the fixed
     # line itself states gets the empty answer instead.
     placeholder = "" if binding.answer_guard(EARLIER_ANSWER_LEFT_OUT) else EARLIER_ANSWER_LEFT_OUT
     answers = [str(turn.get("answer_md") or "") for turn in turns]
-    out = withhold(answers, binding, placeholder=placeholder)
-    if placeholder and binding.answer_guard(_JOIN.join(
-            placeholder if index in out else text for index, text in enumerate(answers) if text)):
-        placeholder = ""
-    for index in out:
+    statements = [str(entry.get("statement") or "") for entry in gaps]
+    problems = [str(entry.get("problem") or "") for entry in others]
+    withheld: dict[str, set[int]] = {"answers": set(), "gaps": set(), "misconceptions": set(), "problems": set()}
+
+    def calls(answer_stand_in: str) -> list[tuple[list[Slot], dict[str, str]]]:
+        kept_gaps = [(i, statements[i]) for i in range(len(gaps)) if i not in withheld["gaps"]][:QUERY_GAPS]
+        lookup: list[Slot] = [("gaps", kept_gaps)]
+        if records is not None:
+            lookup.append(("misconceptions", [(i, _misconception_text(record)) for i, record in enumerate(records)
+                                              if i not in withheld["misconceptions"]]))
+        # The withheld answers are delivered as the placeholder; the dropped
+        # statements and lines are not delivered at all.
+        tutor: list[Slot] = [
+            ("answers", list(enumerate(answers))),
+            ("gaps", kept_gaps if bridged else []),
+            ("problems", [(i, text) for i, text in enumerate(problems) if i not in withheld["problems"]]),
+        ]
+        return [(lookup, {}), (tutor, {"answers": answer_stand_in})]
+
+    changed = True
+    while changed:
+        changed = False
+        for slots, stand_ins in calls(placeholder):
+            found = withhold_for_call(slots, binding, placeholders=stand_ins,
+                                      already={"answers": withheld["answers"]})
+            for name, indexes in found.items():
+                if indexes - withheld[name]:
+                    withheld[name] |= indexes
+                    changed = True
+    if placeholder:
+        # The placeholders delivered with what is kept must not match either.
+        (_lookup, _none), (tutor, _stand_ins) = calls(placeholder)
+        delivered = [placeholder if name == "answers" and i in withheld["answers"] else text
+                     for name, pairs in tutor for i, text in pairs if text]
+        if binding.answer_guard(_JOIN.join(delivered)):
+            placeholder = ""
+    for index in withheld["answers"]:
         turns[index]["answer_md"] = placeholder
-    return turns, len(out)
+    kept_gaps = [entry for i, entry in enumerate(gaps) if i not in withheld["gaps"]]
+    kept_others = []
+    for i, entry in enumerate(others):
+        if i in withheld["problems"]:
+            entry = {**entry, "problem": ""}
+        kept_others.append(entry)
+    # The bridge's open questions are the kept gap statements, the learner's
+    # own steps follow as given (only the problem line, source text, guarded).
+    open_questions = open_question_work(kept_gaps) if bridged else []
+    return BoundDelivery(
+        thread=turns, gaps=kept_gaps,
+        misconceptions=None if records is None else [r for i, r in enumerate(records)
+                                                     if i not in withheld["misconceptions"]],
+        learner_work=[*open_questions, *kept_others],
+        withheld={name: len(indexes) for name, indexes in withheld.items() if indexes},
+    )
 
 
-def guard_statements(entries: Sequence[Any], binding: BoundAsk | None, *,
-                     text: Callable[[Any], str]) -> list[Any]:
-    """The model-written ``entries`` a bound request may use (fix round 6, R3):
-    every one whose ``text`` :func:`withhold` withholds is dropped, so an
-    open-gap statement, a misconception and its correction never reach the
-    lookup query, its rewrite, the verification's context or the bridge.
-    The entries kept are returned as given (statements or records)."""
+def guard_thread(thread: Sequence[Mapping[str, Any]], binding: BoundAsk | None) -> tuple[list[dict[str, Any]], int]:
+    """The thread alone (a call that carries no other model-written text, retrieval off):
+    :func:`plan_bound_delivery`'s ``thread`` and how many earlier answers it left out."""
 
-    kept = list(entries)
-    out = withhold([text(entry) for entry in kept], binding)
-    return [entry for index, entry in enumerate(kept) if index not in out]
-
-
-def guard_learner_work(work: Sequence[Mapping[str, Any]], binding: BoundAsk | None) -> list[dict[str, Any]]:
-    """The bridge's learner-work context under a binding (round 5, R2's audit).
-
-    The learner's own steps are theirs and stay. Two lines are not theirs:
-    an open question's statement is LearnLoop's reading (model-written; the
-    adapter already built it from :func:`guard_statements`' output, round 6,
-    R3) and a workbench session's problem is source text; either is left out
-    when the guard says it would give the item's answer away."""
-
-    entries = [dict(entry) for entry in work]
-    if binding is None or binding.answer_guard is None:
-        return entries
-    kept: list[dict[str, Any]] = []
-    for entry in entries:
-        if entry.get("kind") == "open_question" and binding.answer_guard(str(entry.get("statement") or "")):
-            continue
-        if entry.get("problem") and binding.answer_guard(str(entry["problem"])):
-            entry["problem"] = ""
-        kept.append(entry)
-    return kept
+    plan = plan_bound_delivery(binding, thread=thread)
+    return plan.thread, plan.withheld.get("answers", 0)
 
 
 @dataclass
@@ -213,15 +317,22 @@ class ReaderTutorRequest:
     retrieved (verification could not run, a cold administration, a failure),
     so the tutor keeps today's delivery and no abstention is claimed; ``[]``
     with ``manifest["books_cover"] is False`` when verification ran and kept
-    no passage. ``learner_work`` is the bridge's context (empty unless
-    personalized). The item a workbench session binds the question to, its
-    guards and its accounting are NOT here: they are the :class:`BoundAsk`,
-    which holds with retrieval off too (fix round 5, R1)."""
+    no passage. Bound, it is called with the inputs
+    :func:`plan_bound_delivery` kept (``inputs``: the gap statements and the
+    misconceptions its query and verification use). ``learner_work`` is the
+    bridge's context (empty unless personalized); ``gaps`` and
+    ``misconceptions`` are the lookup's model-written inputs as read (fix
+    round 7: the plan withholds from them, then the lookup builds its query
+    from what is kept). The item a workbench session binds the question to,
+    its guards and its accounting are NOT here: they are the
+    :class:`BoundAsk`, which holds with retrieval off too (fix round 5, R1)."""
 
-    retrieve: Callable[[], tuple[list[dict[str, Any]] | None, dict[str, Any]]] | None = None
+    retrieve: Callable[..., tuple[list[dict[str, Any]] | None, dict[str, Any]]] | None = None
     intent: str = "explain"
     personalized: bool = True
     learner_work: list[dict[str, Any]] = field(default_factory=list)
+    gaps: list[dict[str, Any]] = field(default_factory=list)
+    misconceptions: list[Any] | None = None
     #: The caller's derived policy (``reading``, ``assisted_practice`` or
     #: ``cold_attempt``), kept apart from the binding so a cold
     #: administration is never read as ``reading`` (Codex review F2).
@@ -233,13 +344,15 @@ class ReaderTutorRequest:
     shown_span_keys: Sequence[str] = ()
 
 
-def run_retrieval(request: ReaderTutorRequest) -> tuple[list[dict[str, Any]] | None, dict[str, Any]]:
-    """The injected retrieval; any failure keeps today's delivery (retrieval is context)."""
+def run_retrieval(request: ReaderTutorRequest, inputs: Mapping[str, Any] | None = None,
+                  ) -> tuple[list[dict[str, Any]] | None, dict[str, Any]]:
+    """The injected retrieval; any failure keeps today's delivery (retrieval is context).
+    ``inputs`` (bound): the plan's kept gap statements and misconceptions."""
 
     if request.retrieve is None:
         return None, {"status": "not_run", "books_cover": None}
     try:
-        spans, manifest = request.retrieve()
+        spans, manifest = request.retrieve(inputs=dict(inputs)) if inputs is not None else request.retrieve()
     except Exception as exc:  # noqa: BLE001 - never lose the question to retrieval
         return None, {"status": f"failed ({type(exc).__name__})", "books_cover": None}
     return (None if spans is None else [dict(span) for span in spans]), dict(manifest or {})
@@ -403,10 +516,13 @@ __all__ = [
     "delivery_receipt",
     "displayed_text",
     "finalize",
-    "guard_learner_work",
-    "guard_statements",
+    "BoundDelivery",
+    "QUERY_GAPS",
     "guard_thread",
+    "open_question_work",
+    "plan_bound_delivery",
     "run_retrieval",
     "verify_excerpt",
     "withhold",
+    "withhold_for_call",
 ]

@@ -47,7 +47,7 @@ from learnloop.db.repositories import Repository
 from learnloop.substrate import administration_adapters
 from learnloop.curriculum import commitments
 from learnloop.learner import familiarity
-from learnloop.tutor import reader_modes, tutor_qa
+from learnloop.tutor import tutor_qa
 from learnloop.tutor.ai_contracts import ReaderTutorQAContext, TutorAnswer, TutorCitation, TutorQAContext
 from learnloop.substrate.activities import (
     append_exposure,
@@ -693,11 +693,14 @@ def ask(
             manifest["source_retrieval"] = delivered.get("source_retrieval")
         if delivered.get("delivery"):
             manifest["delivery"] = delivered["delivery"]
-    if reader_binding is not None:
-        # The earlier answers as the tutor read them (R2): the same check,
-        # so the manifest never records an answer the prompt left out.
-        manifest["prior_exchanges"], _left_out = reader_modes.guard_thread(
-            manifest["prior_exchanges"], reader_binding)
+    if reader_binding is not None and "bound_thread" in result:
+        # The earlier exchanges exactly as the tutor read them (fix round 7,
+        # R1: the one plan's thread), so the manifest records the delivered
+        # set, never an answer the prompt left out.
+        manifest["prior_exchanges"] = [
+            {"question_md": turn.get("question_md"), "answer_md": turn.get("answer_md")}
+            for turn in result["bound_thread"]
+        ]
     # One source of truth (R1): bound, the exchange's and the response's
     # flag is the question row's stored flag; unbound, the base's (the
     # client's cold flag, which the cold path's practice row carries).
