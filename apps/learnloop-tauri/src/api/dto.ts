@@ -8638,9 +8638,12 @@ export interface KeepComparisonResultDto {
 
 export interface KeptMarkDto {
   spanId: string;
+  /** Every comparison kept on this passage, newest first. */
   askIds: string[];
   keptAt: string;
   otherSources: string[];
+  /** Each kept comparison on this passage, told apart by its question and date (newest first). */
+  comparisons?: Array<{ askId: string; keptAt: string; query: string | null; otherSources: string[] }>;
 }
 
 export interface KeptMarksDto {

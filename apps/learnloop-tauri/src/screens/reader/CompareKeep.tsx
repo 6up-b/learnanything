@@ -128,7 +128,12 @@ export function CompareKeep({ table, target }: { table: CompareTableDto; target:
   const [why, setWhy] = useState(false);
   useEffect(() => { setKept(table.kept ?? null); }, [table.kept, table.comparisonId]);
   if (!ctx || !allowed) return null;
-  if (table.status !== "ok" || !table.comparisonId || table.rows.length < 2) return null;
+  if (table.status !== "ok" || !table.comparisonId) return null;
+  // Two rows are needed to keep a new comparison; a keep that exists (one
+  // source's lines may have left its passage before Keep) keeps its takes and
+  // its remove whatever it retained (Codex review F8).
+  if (table.rows.length < 2 && !table.kept && !kept && phase !== "removed") return null;
+  const comparisonId = table.comparisonId;
   const pairs = relationPairs(table);
 
   const keep = async (withTake: boolean) => {
@@ -139,7 +144,8 @@ export function CompareKeep({ table, target }: { table: CompareTableDto; target:
     setFailure(null);
     try {
       const result = await api.readerLibraryCompareKeep({
-        ...("askId" in target ? { askId: target.askId } : { toolCallId: target.toolCallId, extractionId: target.extractionId }),
+        // The comparison shown: a take on an older kept comparison stays on it (Codex review F2).
+        ...("askId" in target ? { askId: target.askId, comparisonId } : { toolCallId: target.toolCallId, extractionId: target.extractionId }),
         takes,
       });
       setKept(result.kept);
@@ -156,7 +162,7 @@ export function CompareKeep({ table, target }: { table: CompareTableDto; target:
     setPhase("pending");
     setFailure(null);
     try {
-      await api.readerLibraryCompareRemove({ askId: kept.askId });
+      await api.readerLibraryCompareRemove({ askId: kept.askId, comparisonId });
       setKept(null);
       setPhase("removed");
       ctx.onChanged();

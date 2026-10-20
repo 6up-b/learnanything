@@ -1196,6 +1196,19 @@ export function ReaderScreen({
   const libraryCtl = useLibraryAsk({ contract, openSourceId: render?.sourceId ?? null, onError });
   // RW4d: the ⇄ marks of comparisons the learner kept (off: none, nothing read).
   const keptCtl = useKeptComparisons({ contract, extractionId: render?.extractionId ?? null, sourceId: render?.sourceId ?? null, offline });
+  // RW4d on the original PDF (Codex review F10): the ⇄ marks join the page's
+  // overlay gutter beside the cue marks. They are the learner's own marks:
+  // added after the cue placement, so the density setting never counts them.
+  const pdfMarks = (): ReadonlyMap<string, ReactNode> | null => {
+    const cues = cueMarksFor("pdf");
+    if (working || keptCtl.marks.size === 0) return cues;
+    const merged = new Map<string, ReactNode>(cues ?? []);
+    for (const [spanId, mark] of keptCtl.marks) {
+      const cue = merged.get(spanId);
+      merged.set(spanId, <Fragment key={`kept-${spanId}`}>{cue}<KeptMark mark={mark} surface="pdf" below={Boolean(cue)} /></Fragment>);
+    }
+    return merged;
+  };
   const [libraryCompose, setLibraryCompose] = useState<string | null>(null);
   const comparing = Boolean(render) && !offline && !working && (libraryCtl.open || libraryCompose !== null);
   const askLibraryHere = useCallback((query: string, entry: LibraryAskEntry, spanIds: string[]) => {
@@ -2152,6 +2165,8 @@ export function ReaderScreen({
               </div>
               {libraryCtl.enabled ? <Faint style={{ fontSize: 10 }}>↵ search by meaning · ⇧↵ ask your library</Faint> : null}
               {libraryCtl.open ? (
+                // RW4d: keep and reopen work on the library page too (Codex review F3).
+                <CompareKeepContext.Provider value={keptCtl.context}>
                 <Card style={{ padding: 0 }}>
                   <LibraryAnswer
                     ctl={libraryCtl}
@@ -2164,6 +2179,7 @@ export function ReaderScreen({
                     exercises={exerciseProps}
                   />
                 </Card>
+                </CompareKeepContext.Provider>
               ) : null}
               {searchError ? (
                 <div role="alert" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.red }}>
@@ -2600,7 +2616,7 @@ export function ReaderScreen({
               onTagMenu={setTagMenu}
               onError={onError}
               inlineNote={inlineReconnect && reconnect ? { spanId: reconnect.spanId, node: inlineReconnect } : null}
-              marks={cueMarksFor("pdf")}
+              marks={pdfMarks()}
               onPageLayout={setPdfLayout}
               {...(activeCtl.folded.size ? { coveredSpans: activeCtl.folded } : {})}
             />

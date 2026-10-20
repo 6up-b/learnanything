@@ -16,7 +16,8 @@ import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView
 import { readerIntentContractFixture as intent } from "../../fixtures/readerIntentContract";
 import type { CompareTableDto, KeptComparisonDto, LibraryAskDto, SourceLibraryCard, SourceToolRequestDto } from "../../api/dto";
 import { resetReaderActivityForTests } from "./activity";
-import { CompareKeep, KEEP_COPY } from "./CompareKeep";
+import { CompareKeep, KEEP_COPY, KeptComparisonView } from "./CompareKeep";
+import { CompareTable } from "./LibraryAnswer";
 import { CompareKeepContext, type CompareKeepContextValue } from "./compareKeepContext";
 import { defaultTutorOfferStore, OFFER_COPY, TutorOffers } from "./TutorOffers";
 
@@ -45,7 +46,20 @@ vi.mock("./useReaderRequests", () => ({
   useReaderRequests: () => ({ requests: [], proposalCount: 0, synthesizedObjects: new Map(), openProposalIds: new Set(), loadError: null, refresh: () => Promise.resolve() }),
   parseRequestError: () => null, parseRequestResult: () => ({}),
 }));
-vi.mock("../../components/PdfReaderPane", () => ({ PdfReaderPane: () => null }));
+// The original's pane draws its overlay gutter from the marks it is given (Codex review F10).
+vi.mock("../../components/PdfReaderPane", async () => {
+  const { forwardRef } = await import("react");
+  return {
+    PdfReaderPane: forwardRef(function FakePane(props: { marks?: ReadonlyMap<string, ReactNode> | null }, _ref) {
+      return (
+        <div data-testid="pdf-pane">
+          {[...(props.marks?.entries() ?? [])].map(([spanId, node]) => <div key={spanId} data-cue-gutter={spanId}>{node}</div>)}
+        </div>
+      );
+    }),
+  };
+});
+vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), convertFileSrc: (path: string) => path }));
 
 const source = { card: { sourceId: view.sourceId, title: "Matrices", canonicalUri: "book.pdf", readiness: "ready", readerEnabled: true } as SourceLibraryCard, spanId: "span_spectral_worked" };
 const other = { sourceId: "src_other", title: "Other Book", canonicalUri: "other.pdf", readiness: "ready", readerEnabled: true } as SourceLibraryCard;
@@ -148,7 +162,7 @@ it("keeps on the press with the take on a pair, then removes (G43)", async () =>
   fireEvent.click(screen.getByRole("button", { name: KEEP_COPY.keep }));
   await screen.findByText(KEEP_COPY.kept);
   expect(api.readerLibraryCompareKeep).toHaveBeenCalledWith({
-    askId: "la_1", takes: [{ text: "same rule, two framings", keys: ["ext_symmetric:span_spectral_worked", "ext_other:o1"] }],
+    askId: "la_1", comparisonId: "scmp_1", takes: [{ text: "same rule, two framings", keys: ["ext_symmetric:span_spectral_worked", "ext_other:o1"] }],
   });
   expect(screen.getByText(KEEP_COPY.proposals)).toBeTruthy();
   // The take is the learner's own voice, apart from the model's.
@@ -157,7 +171,7 @@ it("keeps on the press with the take on a pair, then removes (G43)", async () =>
   expect(document.activeElement).toBe(focused); // nothing moves focus (G54)
   fireEvent.click(screen.getByRole("button", { name: KEEP_COPY.remove }));
   await screen.findByText(KEEP_COPY.removed);
-  expect(api.readerLibraryCompareRemove).toHaveBeenCalledWith({ askId: "la_1" });
+  expect(api.readerLibraryCompareRemove).toHaveBeenCalledWith({ askId: "la_1", comparisonId: "scmp_1" });
   expect(screen.getByRole("button", { name: KEEP_COPY.keep })).toBeTruthy();
   expect(ctx.onChanged).toHaveBeenCalledTimes(2);
 });
@@ -169,7 +183,7 @@ it("a take on one claim names one passage; a refused keep keeps nothing and says
   fireEvent.change(screen.getByRole("textbox", { name: "your take on these passages" }), { target: { value: "only this one says it" } });
   fireEvent.change(screen.getByRole("combobox", { name: "your take is about" }), { target: { value: "ext_other:o1" } });
   fireEvent.click(screen.getByRole("button", { name: KEEP_COPY.keep }));
-  await waitFor(() => expect(api.readerLibraryCompareKeep).toHaveBeenCalledWith({ askId: "la_1", takes: [{ text: "only this one says it", keys: ["ext_other:o1"] }] }));
+  await waitFor(() => expect(api.readerLibraryCompareKeep).toHaveBeenCalledWith({ askId: "la_1", comparisonId: "scmp_1", takes: [{ text: "only this one says it", keys: ["ext_other:o1"] }] }));
   expect(await screen.findByText(/held out for an exam/)).toBeTruthy();
   expect(screen.queryByText(KEEP_COPY.kept)).toBeNull();
   expect(ctx.onChanged).not.toHaveBeenCalled();
@@ -293,4 +307,98 @@ it("⇄ marks a passage with a kept comparison (the learner's own mark) and reop
   expect(api.readerLibraryCompareReopen).toHaveBeenCalledWith({ askId: "la_0", openSourceId: view.sourceId });
   expect(document.activeElement).toBe(focused);
   expect(screen.getByRole("button", { name: KEEP_COPY.remove })).toBeTruthy();
+});
+
+// -- review fixes (reader-rw4d Codex review F2, F3, F8, F9, F10) ---------------------------------
+
+it("a take added to a reopened comparison names that comparison (F2)", async () => {
+  api.readerLibraryCompareReopen.mockResolvedValue({ ...TABLE, askId: "la_0", comparisonId: "scmp_old", kept: kept({ askId: "la_0" }) });
+  api.readerLibraryCompareKeep.mockResolvedValue({ askId: "la_0", kept: kept({ askId: "la_0", takes: [{ id: "t1", keys: ["ext_other:o1"], learnerText: "later" }] }), addedTakes: 1, alreadyKept: true });
+  const { node } = withKeep(<KeptComparisonView askId="la_0" onClose={vi.fn()} Table={CompareTable} />);
+  render(node);
+  await screen.findByText(KEEP_COPY.kept);
+  fireEvent.change(screen.getByRole("textbox", { name: "your take on these passages" }), { target: { value: "later" } });
+  fireEvent.change(screen.getByRole("combobox", { name: "your take is about" }), { target: { value: "ext_other:o1" } });
+  fireEvent.click(screen.getByRole("button", { name: KEEP_COPY.addTake }));
+  await waitFor(() => expect(api.readerLibraryCompareKeep).toHaveBeenCalledWith({ askId: "la_0", comparisonId: "scmp_old", takes: [{ text: "later", keys: ["ext_other:o1"] }] }));
+});
+
+it("a kept comparison that retained one source keeps its takes and its remove (F8)", async () => {
+  const one: CompareTableDto = { ...TABLE, askId: "la_0", rows: [TABLE.rows[0]],
+    kept: kept({ askId: "la_0", objects: [kept().objects[0]], relations: [], takes: [{ id: "t1", keys: ["ext_symmetric:span_spectral_worked"], learnerText: "my note" }] }) };
+  api.readerLibraryCompareRemove.mockResolvedValue({ askId: "la_0", kept: null, removed: true });
+  const { node } = withKeep(<CompareKeep table={one} target={{ askId: "la_0" }} />);
+  render(node);
+  expect(screen.getByText("my note").closest("[data-voice]")?.getAttribute("data-voice")).toBe("learner");
+  fireEvent.click(screen.getByRole("button", { name: KEEP_COPY.remove }));
+  await screen.findByText(KEEP_COPY.removed);
+  expect(api.readerLibraryCompareRemove).toHaveBeenCalledWith({ askId: "la_0", comparisonId: "scmp_1" });
+  cleanup();
+  // A new one-source comparison still offers no keep.
+  const fresh = withKeep(<CompareKeep table={{ ...one, kept: null }} target={{ askId: "la_0" }} />);
+  const { container } = render(fresh.node);
+  expect(container.innerHTML).toBe("");
+});
+
+it("keep and reopen work on the library page with no book open (F3)", async () => {
+  api.readerSearchSources.mockResolvedValue({ query: "x", deep: false, searchedSources: 1, basis: "keyword", rewritten: null, hits: [] });
+  api.readerLibraryAsk.mockResolvedValue(done({ ...ASK, extractionId: null, anchorSpanIds: [] }));
+  api.readerLibraryCompare.mockResolvedValue(done(TABLE, "compare"));
+  api.readerLibraryCompareReopen.mockResolvedValue({ ...TABLE, askId: "la_0", kept: kept({ askId: "la_0" }), query: "symmetric vs transpose" });
+  render(<ReaderScreen onError={vi.fn()} />);
+  const search = await screen.findByPlaceholderText("search all sources…");
+  fireEvent.change(search, { target: { value: "symmetric matrices" } });
+  fireEvent.keyDown(search, { key: "Enter", shiftKey: true });
+  const pane = await screen.findByRole("region", { name: "ask your library" });
+  // "you compared these on …" reopens a table that can be removed.
+  const line = await within(pane).findByText(/you compared these on 3 Oct/);
+  fireEvent.click(within(line).getByRole("button", { name: KEEP_COPY.reopen }));
+  await within(pane).findByText("“symmetric vs transpose”");
+  expect(within(pane).getByRole("button", { name: KEEP_COPY.remove })).toBeTruthy();
+  // A new comparison here can be kept.
+  const pins = await within(pane).findAllByRole("button", { name: "pin" });
+  fireEvent.click(pins[0]);
+  fireEvent.click(pins[1]);
+  fireEvent.click(within(pane).getByRole("button", { name: /compare pinned \(2\)/ }));
+  await waitFor(() => expect(within(pane).getAllByRole("table", { name: "how your sources treat this" }).length).toBeGreaterThan(1));
+  expect(within(pane).getByRole("button", { name: KEEP_COPY.keep })).toBeTruthy();
+});
+
+it("a passage in two kept comparisons lists both and opens the one picked (F9)", async () => {
+  const span = view.blocks[1].spanId!;
+  api.readerKeptComparisons.mockResolvedValue({ extractionId: view.extractionId, label: "a comparison you kept",
+    marks: [{ spanId: span, askIds: ["la_new", "la_old"], keptAt: "2026-10-05T09:00:00Z", otherSources: ["Other Book"],
+      comparisons: [
+        { askId: "la_new", keptAt: "2026-10-05T09:00:00Z", query: "the newer question", otherSources: ["Other Book"] },
+        { askId: "la_old", keptAt: "2026-10-03T09:00:00Z", query: "the older question", otherSources: ["Third Book"] },
+      ] }] });
+  api.readerLibraryCompareReopen.mockResolvedValue({ ...TABLE, askId: "la_old", kept: kept({ askId: "la_old" }) });
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} onCheckMe={vi.fn()} />);
+  await screen.findByText(view.blocks[1].markdown);
+  const mark = await screen.findByRole("button", { name: /2 comparisons you kept on this passage: choose one/ });
+  await act(async () => { fireEvent.click(mark); });
+  const choices = document.querySelector("[data-kept-choices]") as HTMLElement;
+  expect(within(choices).getByRole("button", { name: /“the newer question” · with Other Book · 5 Oct/ })).toBeTruthy();
+  expect(api.readerLibraryCompareReopen).not.toHaveBeenCalled();
+  fireEvent.click(within(choices).getByRole("button", { name: /“the older question” · with Third Book · 3 Oct/ }));
+  await screen.findByRole("table", { name: "how your sources treat this" });
+  expect(api.readerLibraryCompareReopen).toHaveBeenCalledWith({ askId: "la_old", openSourceId: view.sourceId });
+});
+
+it("⇄ marks the original PDF too, beside the cue marks and outside their count (F10)", async () => {
+  const span = view.blocks[1].spanId!;
+  api.readerPdfView.mockResolvedValue({ version: 1, available: true, fileName: "sha256-x", extractionId: view.extractionId, sourceId: view.sourceId,
+    revisionId: "rev", blocks: view.blocks.map((block, page) => ({ spanId: block.spanId, page, bbox: [72, 100, 540, 160], blockType: "Text", text: block.markdown })),
+    pageSpans: view.blocks.map((block, page) => ({ spanId: block.spanId, page })), protection: { withheld: false, heldOutSpanIds: [], message: null } });
+  api.readerKeptComparisons.mockResolvedValue({ extractionId: view.extractionId, label: "a comparison you kept",
+    marks: [{ spanId: span, askIds: ["la_0"], keptAt: "2026-10-03T09:00:00Z", otherSources: ["Other Book"] }] });
+  api.readerLibraryCompareReopen.mockResolvedValue({ ...TABLE, askId: "la_0", kept: kept({ askId: "la_0" }) });
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} onCheckMe={vi.fn()} />);
+  await screen.findByTestId("pdf-pane");
+  const mark = await screen.findByRole("button", { name: /a comparison you kept with Other Book on 3 Oct: reopen it/ });
+  expect(mark.closest("[data-cue-gutter]")?.getAttribute("data-cue-gutter")).toBe(span);
+  expect(document.querySelectorAll("[data-cue-mark]")).toHaveLength(0); // no cue was placed; ⇄ is not one
+  await act(async () => { fireEvent.click(mark); });
+  await screen.findByRole("table", { name: "how your sources treat this" });
+  expect(api.readerLibraryCompareReopen).toHaveBeenCalledWith({ askId: "la_0", openSourceId: view.sourceId });
 });

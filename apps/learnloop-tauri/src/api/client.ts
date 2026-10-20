@@ -1549,9 +1549,9 @@ export const api = {
   readerLibraryCompare: (input: { askId: string; pinnedSpanKeys: string[]; openSourceId?: string | null; requestedPerspectives?: string[] }) =>
     call<LibraryJobDto<CompareTableDto>>("reader_library_compare", { input }),
   // Reader workbench RW4d: keep a comparison as proposals, remove it, reopen it, a reading's ⇄ marks.
-  readerLibraryCompareKeep: (input: { askId?: string; toolCallId?: string; extractionId?: string | null; takes?: KeepTakeDto[] }) =>
+  readerLibraryCompareKeep: (input: { askId?: string; comparisonId?: string | null; toolCallId?: string; extractionId?: string | null; takes?: KeepTakeDto[] }) =>
     call<KeepComparisonResultDto>("reader_library_compare_keep", { input }),
-  readerLibraryCompareRemove: (input: { askId: string }) =>
+  readerLibraryCompareRemove: (input: { askId: string; comparisonId?: string | null }) =>
     call<{ askId: string; kept: null; removed: boolean }>("reader_library_compare_remove", { input }),
   readerLibraryCompareReopen: (input: { askId: string; openSourceId?: string | null }) =>
     call<CompareTableDto>("reader_library_compare_reopen", { input }),
