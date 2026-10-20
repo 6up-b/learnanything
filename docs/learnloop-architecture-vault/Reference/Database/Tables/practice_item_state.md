@@ -3,8 +3,8 @@ title: "practice_item_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ecd7e66528cc48b5605eebe3cc9a2c2381333d97"
-source_commit_timestamp: "2026-10-20T14:06:04-04:00"
+source_commit: "74e65c7db9827e9083db15973d40c3485d6b77a4"
+source_commit_timestamp: "2026-10-20T16:19:54-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_state"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/content/proposals/patches.py"
   - "src/learnloop/content/synthesis/coverage_rollup.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/probe_remint.py"
-  - "src/learnloop/diagnosis/remediation.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/content/authoring/practice_generation.py"
@@ -106,6 +106,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/authoring/item_authoring.py`
@@ -125,7 +126,6 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/diagnostic_surface_supply.py`
 - `src/learnloop/diagnosis/followups.py`
-- `src/learnloop/diagnosis/probe_dialogue.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
