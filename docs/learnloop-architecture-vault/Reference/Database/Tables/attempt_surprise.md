@@ -3,8 +3,8 @@ title: "attempt_surprise"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "80edc01a5734d60471ca774c9d32659ff39b10b6"
-source_commit_timestamp: "2026-10-20T12:45:06-04:00"
+source_commit: "ecd7e66528cc48b5605eebe3cc9a2c2381333d97"
+source_commit_timestamp: "2026-10-20T14:06:04-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_surprise"
@@ -145,6 +145,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_ad23_contract.py`
 - `tests/test_gate_fit.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_signal_quantiles.py`
@@ -164,7 +165,6 @@ Indexes and uniqueness:
 - `tests/test_followups.py`
 - `tests/test_held_grade_evidence.py`
 - `tests/test_instrument_servability_journeys.py`
-- `tests/test_irt_end_to_end.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

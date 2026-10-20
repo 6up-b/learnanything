@@ -3,8 +3,8 @@ title: "lo_probe_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "80edc01a5734d60471ca774c9d32659ff39b10b6"
-source_commit_timestamp: "2026-10-20T12:45:06-04:00"
+source_commit: "ecd7e66528cc48b5605eebe3cc9a2c2381333d97"
+source_commit_timestamp: "2026-10-20T14:06:04-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite lo_probe_state"
@@ -122,6 +122,7 @@ Indexes and uniqueness:
 - `tests/test_probe_belief_posterior.py`
 - `tests/test_probe_migration.py`
 - `tests/test_state_sync.py`
+- `tests/test_ad23_contract.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_cli_generate_practice.py`

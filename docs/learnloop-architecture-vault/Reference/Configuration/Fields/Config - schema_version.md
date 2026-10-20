@@ -3,8 +3,8 @@ title: "Config - schema_version"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "80edc01a5734d60471ca774c9d32659ff39b10b6"
-source_commit_timestamp: "2026-10-20T12:45:06-04:00"
+source_commit: "ecd7e66528cc48b5605eebe3cc9a2c2381333d97"
+source_commit_timestamp: "2026-10-20T14:06:04-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml schema_version"
@@ -28,10 +28,10 @@ source_paths:
   - "tests/practice_index_fakes.py"
   - "tests/test_activity_contract_extensions.py"
   - "tests/test_ad1_fix_round4.py"
+  - "tests/test_ad23_contract.py"
   - "tests/test_administration_adapters.py"
   - "tests/test_ai_runtime.py"
   - "tests/test_capability_residual.py"
-  - "tests/test_card_lineage.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/schema-version"
@@ -79,10 +79,10 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/practice_index_fakes.py`
 - `tests/test_activity_contract_extensions.py`
 - `tests/test_ad1_fix_round4.py`
+- `tests/test_ad23_contract.py`
 - `tests/test_administration_adapters.py`
 - `tests/test_ai_runtime.py`
 - `tests/test_capability_residual.py`
-- `tests/test_card_lineage.py`
 
 ## Extension and modification guidance
 
