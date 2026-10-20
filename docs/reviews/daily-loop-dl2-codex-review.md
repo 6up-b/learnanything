@@ -876,3 +876,61 @@ Paid or live calls: none ($0.00).
 2. **Round 5's open items stand.** These are requests placed without the frame (L3),
    a deadline goal's title keeping its first depth label, and the practice view of a
    reserved candidate served through its assessment flow.
+
+---
+
+# Fix round 7
+
+The verify of `b08eea05a` (Codex job `20261020-145125-pSv997`) confirmed F18 and F19,
+192 non-check frame comparisons, 1,000 eligibility comparisons and 400 accounting
+worlds, and found two Mediums.
+
+| ID | Sev | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F21 | Medium | A check with no existing items disappears from accounting | **fixed** | `c1de0032d` | `test_f21_a_due_check_on_an_lo_with_no_items_is_recorded_as_no_candidates` (3 policies), control `test_f21_control_a_genuinely_replaced_check_is_still_suppressed` (3 policies) |
+| F22 | Medium | Admission read failures escape the check gate | **fixed** | `c1de0032d` | `test_f22_an_admission_error_is_a_named_refusal_not_an_exception` (the verify's fault injection, through a plan), `test_f22_a_protected_set_error_names_its_input` (each of the three sets), `test_f22_a_frame_error_names_its_input`, control `test_f22_control_no_error_no_refusal` |
+
+Tests in `tests/test_intent_fix_round7.py`, fakes only.
+
+**Fail-before on `b08eea05a`** (log `fixtures-local/tmp/dl2-fix7-failfirst.txt`):
+**8 failed, 4 passed.**
+
+- The empty-LO check was missing from `due_checks()` under all three policies.
+- The admission error propagated (`sqlite3.OperationalError`) out of the gate.
+- The protected-set and frame errors were refused but named no input.
+- The passes are the controls.
+
+**What changed**
+
+- **F21.** `CheckState.replaced` is tracked apart from `candidates` (`build_checks`).
+  - A check that covered items is replaced only when another commitment decides
+    every one of them.
+  - A check covering no item is replaced only when no LO it targets is still its own
+    (`Resolution.for_learning_object`).
+  - `pending` is now due, unanswered and not replaced. So a due check on an LO with no
+    items yet stays in `due_checks()`, and the plan records it in `checks_unplanned`
+    as `no_candidates`, with the line "Nothing to check yet: this topic has no
+    questions." A genuinely replaced check is still neither planned nor recorded.
+  - No plan surface shows `checks_unplanned` today, so the line is carried on the
+    record for whichever surface shows misses.
+- **F22.** Every read the gate makes fails closed under its own name. Each protected
+  set is read on its own (`held_out_material`, `assessment_reservation`,
+  `exam_pool`), and the admission predicate's evaluation and the staged frame's
+  evaluation are each caught. A failure is a `constraints_unavailable` refusal with
+  `detail.input` naming the failing input and `detail.error` its type. A failed frame
+  evaluation is remembered for the view, not retried per candidate.
+
+**Gate** (targeted; `TMPDIR` in the worktree's `fixtures-local/tmp`):
+
+| Check | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | **28 kept, 0 broken** |
+| Fail-before on `b08eea05a`: `tests/test_intent_fix_round7.py` | **8 failed, 4 passed** |
+| `pytest -n 8` on 320 files (round 6's 319 and `test_intent_fix_round7.py`; list `fixtures-local/tmp/dl2-fix7-affected.txt`) | **5,681 passed** (34 min) |
+| `pytest -n 8 --durable-sqlite tests/test_intent_*.py` (15 files) | **285 passed** |
+| Frontend, `cargo check` | unchanged; not run |
+| `db_generate_reference.py`, `db_validate_reference.py` | **0 errors** (head 213; commit `bbb08452c`) |
+| Migrations | none |
+| Tracked working vaults | untouched |
+
+Paid or live calls: none ($0.00).
