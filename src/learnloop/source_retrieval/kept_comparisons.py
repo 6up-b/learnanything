@@ -557,11 +557,22 @@ def kept_marks(vault: LoadedVault, repository: Repository, extraction_id: str) -
     material now is left out (its table could not be reopened)."""
 
     marks: dict[str, dict[str, Any]] = {}
+    rows = []
     for row in _live(repository):
         kept = row["kept"] or {}
         keys = [tuple(key.split(":", 1)) for key in kept.get("keys") or ()]
         mine = [key for key in keys if key[0] == extraction_id]
-        if not mine or held_out_now(vault, repository, keys):
+        if mine:
+            rows.append((row, kept, keys, mine))
+    # One read of the predicate for every candidate comparison (fail closed:
+    # an unreadable predicate shows no mark).
+    try:
+        withheld = EM.exam_withheld(vault, repository, [key for _row, _kept, keys, _mine in rows for key in keys]) \
+            if rows else frozenset()
+    except Exception:  # noqa: BLE001 - fail closed
+        rows, withheld = [], frozenset()
+    for row, kept, keys, mine in rows:
+        if any(key in withheld for key in keys):
             continue
         others = sorted({obj.get("source_title") or "a source" for obj in kept.get("objects") or ()
                          if obj["extraction_id"] != extraction_id})
