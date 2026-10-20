@@ -464,3 +464,47 @@ def test_the_plan_says_when_background_work_can_still_name_a_target(tmp_path):
                           plan=build_guide_plan(vault, repository, extraction_id="ext_text"))
     assert cues["discovery"]["targets_pending"] is True
 
+
+
+# -- F15 (re-review): a cached tap follows the vault loaded now ------------------------------------
+
+#: Shares words with the worked example (t5), as tests/test_reader_try_first.py's.
+_SOLVE = "Solve for the eigenvalue by subtracting and dividing both sides"
+
+
+def test_a_cached_try_first_tap_is_refused_once_try_first_is_switched_off_and_reloaded(tmp_path):
+    from learnloop_sidecar.errors import SidecarError
+
+    paths, repository, _spans = build_cue_vault(tmp_path / "v", statement=_SOLVE)
+    set_config(paths, "cues", holdout_rate=0.0, density="more")
+    ctx = context(paths.root)
+    ctx.cue_discovery_inline = True
+    ctx.cue_judge_client = CueJudgeFake(try_first=True)
+    job = snake(call(ctx, "reader.cue_discovery", {"extraction_id": "ext_text"}))
+    assert job["state"] == "done" and job["result"]["links"] >= 1, job
+    cues = snake(call(ctx, "reader.guide_plan", {"extraction_id": "ext_text"}))["cues"]
+    (mark,) = [mark for mark in cues["marks"] if mark["kind"] == "try_first"]
+    set_config(paths, "cues", try_first_enabled=False)
+    ctx.reload()
+    with pytest.raises(SidecarError):
+        call(ctx, "reader.cue_tap", {"extraction_id": "ext_text", "cue_id": mark["cue_id"], "action": "try_first",
+                                     "visit_id": "v1"})
+    with repository.connection() as connection:
+        assert store.impression_for(connection, "v1", mark["cue_id"]) is None
+        assert connection.execute("SELECT COUNT(*) FROM judgment_ledger WHERE judge = 'learner_card'").fetchone()[0] == 0
+
+
+def test_the_kept_cues_are_dropped_on_a_reload_and_kept_within_one(tmp_path, monkeypatch):
+    from learnloop_sidecar.handlers import reader_cue_discovery as RCD
+
+    paths, repository, _spans = build_cue_vault(tmp_path / "v", misconception=False)
+    guide_cue(paths, repository, ["t2"])
+    set_config(paths, "cues", holdout_rate=0.0, density="more")
+    ctx = context(paths.root)
+    call(ctx, "reader.guide_plan", {"extraction_id": "ext_text"})
+    vault, _repository = ctx.require_vault()
+    kept = RCD._cues_now(ctx, vault, repository, "ext_text")
+    assert RCD._cues_now(ctx, vault, repository, "ext_text") is kept, "kept within one vault load"
+    ctx.reload()
+    reloaded, _repository = ctx.require_vault()
+    assert RCD._cues_now(ctx, reloaded, repository, "ext_text") is not kept, "rebuilt for the vault loaded now"

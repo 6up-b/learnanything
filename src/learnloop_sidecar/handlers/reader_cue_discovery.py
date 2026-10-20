@@ -79,7 +79,7 @@ def _resolve(repository: Any, extraction_id: str) -> str:
 # The plan's cues, kept for the taps and impressions of the same reading
 # ---------------------------------------------------------------------------
 
-def _cache(ctx: SidecarContext) -> dict[str, dict[str, Any]]:
+def _cache(ctx: SidecarContext) -> dict[str, tuple[Any, dict[str, Any]]]:
     cache = getattr(ctx, "reader_cue_cache", None)
     if cache is None:
         cache = {}
@@ -87,23 +87,28 @@ def _cache(ctx: SidecarContext) -> dict[str, dict[str, Any]]:
     return cache
 
 
-def remember(ctx: SidecarContext, extraction_id: str, cues: dict[str, Any]) -> None:
+def remember(ctx: SidecarContext, extraction_id: str, cues: dict[str, Any], *, vault: Any) -> None:
     """The guide plan's merged cues, kept per source so a tap or an impression
-    is resolved by id without rebuilding the plan (RW3a friction note 5)."""
+    is resolved by id without rebuilding the plan (RW3a friction note 5).
 
-    _cache(ctx)[extraction_id] = cues
+    Kept with the loaded vault they were computed on: a reload or a vault
+    switch publishes a new one, and its switches (``cues.try_first_enabled``
+    among them) decide afresh, so cues kept from before it are never used
+    (Codex re-review F15). Within one load they are reused as before."""
+
+    _cache(ctx)[extraction_id] = (vault, cues)
 
 
 def _cues_now(ctx: SidecarContext, vault: Any, repository: Any, extraction_id: str, *,
               fresh: bool = False) -> dict[str, Any]:
-    cached = None if fresh else _cache(ctx).get(extraction_id)
-    if cached is not None:
-        return cached
+    kept = None if fresh else _cache(ctx).get(extraction_id)
+    if kept is not None and kept[0] is vault:
+        return kept[1]
     from learnloop.reader import reader_guidance as RG
 
     plan = RG.build_guide_plan(vault, repository, extraction_id=extraction_id)
     cues = PC.merged_cues(vault, repository, extraction_id=extraction_id, plan=plan)
-    remember(ctx, extraction_id, cues)
+    remember(ctx, extraction_id, cues, vault=vault)
     return cues
 
 
@@ -399,6 +404,9 @@ def reader_cue_tap(ctx: SidecarContext, params: CueTapInput) -> dict[str, Any]:
                                                plan=RG.build_guide_plan(vault, repository, extraction_id=extraction_id))
             if params.action == "try_first" and cue.get("relation") != "try_first":
                 raise SidecarError("validation_error", "Only a try-this-step-first note offers that.")
+            if cue.get("relation") == "try_first" and not PC.try_first_enabled(vault):
+                # The switch as loaded now decides, whatever was kept (F15).
+                raise SidecarError("validation_error", "Try this step first is switched off.")
             right_kind = PC.TARGET_RIGHT_KIND
         else:
             if params.action == "try_first":

@@ -133,6 +133,80 @@ it("F5: on the original PDF no discovered cue is recorded in either arm; a Guide
   expect(api.readerCueImpressions.mock.calls.flatMap((call) => call[0].entries)).toEqual([{ cueId: "cue_s3", shown: true }]);
 });
 
+// -- F14 (re-review) ----------------------------------------------------------------------------
+
+/** Calls back only when the ratio crosses one of its thresholds, as a browser's does. */
+class ThresholdObserver {
+  static all: ThresholdObserver[] = [];
+  callback: IntersectionObserverCallback;
+  thresholds: number[];
+  targets: Element[] = [];
+  last = new Map<Element, number>();
+  constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+    this.callback = callback;
+    const threshold = options?.threshold ?? 0;
+    this.thresholds = Array.isArray(threshold) ? threshold : [threshold];
+    ThresholdObserver.all.push(this);
+  }
+  observe(target: Element) { this.targets.push(target); this.last.set(target, -1); }
+  unobserve(target: Element) { this.targets = this.targets.filter((entry) => entry !== target); }
+  disconnect() { this.targets = []; }
+  /** The passage now shows this many pixels of a viewport this tall. */
+  scroll(target: Element, visible: number, height: number, area: number) {
+    if (!this.targets.includes(target)) return;
+    const ratio = visible / height;
+    const before = this.last.get(target) ?? -1;
+    this.last.set(target, ratio);
+    const crossed = this.thresholds.some((t) => (before < t) !== (ratio < t)) || before < 0;
+    if (!crossed) return;
+    this.callback([{ isIntersecting: visible > 0, intersectionRatio: ratio, target,
+      intersectionRect: { height: visible }, rootBounds: { height: area } }] as unknown as IntersectionObserverEntry[],
+    this as unknown as IntersectionObserver);
+  }
+}
+
+it("F14: a passage taller than the reading area is recorded once it fills half of it", async () => {
+  vi.useFakeTimers();
+  ThresholdObserver.all = [];
+  vi.stubGlobal("IntersectionObserver", ThresholdObserver);
+  vi.stubGlobal("innerHeight", 600);
+  const shown = discovered("tall", 0);
+  const placement: CuePlacement = { shown: [shown], suppressed: [], heldOutPlaced: [], heldOutSuppressed: [] };
+  const ref = body(["tall"]);
+  const passage = ref.current.querySelector("[data-span-id=\"tall\"]") as HTMLElement;
+  passage.getBoundingClientRect = () => ({ height: 4000, width: 500, top: 0, left: 0, bottom: 4000, right: 500,
+    x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+  renderHook(() => useCueImpressions({ extractionId: "A", cues: cues([shown]), placement, surface: "text",
+    bodyRef: ref, visitId: () => "visit_A" }));
+  const observer = ThresholdObserver.all.find((entry) => entry.targets.includes(passage));
+  expect(observer).toBeDefined();
+  // Scrolling in: a sliver, a sixth of the area, then more than half, then the area filled (ratio 0.15).
+  act(() => {
+    for (const visible of [50, 100, 250, 320, 450, 600]) observer!.scroll(passage, visible, 4000, 600);
+  });
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+  expect(api.readerCueImpressions.mock.calls.flatMap((call) => call[0].entries)).toEqual([{ cueId: "dcue_tall", shown: true }]);
+});
+
+it("F14: a sliver of a tall passage is not in view", async () => {
+  vi.useFakeTimers();
+  ThresholdObserver.all = [];
+  vi.stubGlobal("IntersectionObserver", ThresholdObserver);
+  vi.stubGlobal("innerHeight", 600);
+  const shown = discovered("tall", 0);
+  const placement: CuePlacement = { shown: [shown], suppressed: [], heldOutPlaced: [], heldOutSuppressed: [] };
+  const ref = body(["tall"]);
+  const passage = ref.current.querySelector("[data-span-id=\"tall\"]") as HTMLElement;
+  passage.getBoundingClientRect = () => ({ height: 4000, width: 500, top: 0, left: 0, bottom: 4000, right: 500,
+    x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+  renderHook(() => useCueImpressions({ extractionId: "A", cues: cues([shown]), placement, surface: "text",
+    bodyRef: ref, visitId: () => "visit_A" }));
+  const observer = ThresholdObserver.all.find((entry) => entry.targets.includes(passage))!;
+  act(() => { for (const visible of [50, 200, 280]) observer.scroll(passage, visible, 4000, 600); });
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+  expect(api.readerCueImpressions).not.toHaveBeenCalled();
+});
+
 // -- F6 ---------------------------------------------------------------------------------------
 
 it("F6: opening another book sends the first book's queued receipts to it, with its visit", async () => {

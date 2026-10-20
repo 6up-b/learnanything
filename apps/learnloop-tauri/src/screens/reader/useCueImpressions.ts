@@ -4,7 +4,8 @@
 // per visit. The holdout's two arms are measured the same way (Codex review
 // F5): a discovered cue counts when its passage is in the learner's view,
 // drawn (shown) or held out alike, by one criterion (half the passage, or
-// half the reading area for a passage taller than it). A held-out cue counts
+// half the reading area for a passage taller than it, that point being an
+// observer threshold of its own, F14 of the re-review). A held-out cue counts
 // as a control only when the Reader's own rules would have drawn it (placed
 // like a mark, cues.ts); one the spacing or the restored line set aside is
 // sent with that reason, outside both arms (F4). A density cut, a spaced
@@ -18,7 +19,7 @@
 // leaving a source sends its receipts to it (F6), and a receipt counts as
 // sent only once the sidecar answered. Batched, quiet on failure, never a
 // model call.
-import { useCallback, useEffect, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { api } from "../../api/client";
 import type { ReaderCueDto, ReaderCueImpressionInput, ReaderCuesDto } from "../../api/dto";
 import type { CuePlacement } from "./cues";
@@ -31,6 +32,19 @@ export const IMPRESSION_RETRY_MS = 4_000;
 /** At least this share of a passage (or of the reading area) in view counts as seen. */
 const SEEN_THRESHOLD = 0.5;
 const THRESHOLDS = [0, 0.25, 0.5, 0.75, 1];
+/** A pixel of rounding between the observer's ratio and the visible height. */
+const SEEN_SLACK_PX = 1;
+
+/** The observer thresholds for a passage this tall in a reading area this
+ *  tall. A passage taller than the area never reaches half its own height in
+ *  view, so the ratio at which half the area is covered by it is a threshold
+ *  of its own; without it the observer would not call back when the passage
+ *  comes to fill half the area (Codex re-review F14). */
+export function passageThresholds(passageHeight: number, areaHeight: number): number[] {
+  if (!(passageHeight > areaHeight) || !(areaHeight > 0)) return THRESHOLDS;
+  const needed = Math.round(((SEEN_THRESHOLD * areaHeight) / passageHeight) * 10_000) / 10_000;
+  return [...new Set([...THRESHOLDS, needed])].sort((a, b) => a - b);
+}
 
 export interface CueImpressionsInput {
   extractionId: string | null;
@@ -66,7 +80,7 @@ export function passageInView(seen: IntersectionObserverEntry): boolean {
   if (seen.intersectionRatio >= SEEN_THRESHOLD) return true;
   const visible = seen.intersectionRect?.height ?? 0;
   const area = seen.rootBounds?.height ?? 0;
-  return area > 0 && visible >= SEEN_THRESHOLD * area;
+  return area > 0 && visible + SEEN_SLACK_PX >= SEEN_THRESHOLD * area;
 }
 
 const discoveredCue = (cue: ReaderCueDto) => Boolean(cue.linkId);
@@ -157,6 +171,15 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
   const pendingKey = pending.map(({ cue, entry }) => `${cue.cueId}:${cue.spanId}:${entry.shown ? 1 : 0}:${entry.reason ?? ""}`).join("|");
   const pendingRef = useRef(pending);
   pendingRef.current = pending;
+  // The reading area's height: a resize reflows the passages, so their
+  // thresholds are worked out again (F14).
+  const [areaHeight, setAreaHeight] = useState(() => (typeof window === "undefined" ? 0 : window.innerHeight));
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onResize = () => setAreaHeight(window.innerHeight);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
   useEffect(() => {
     if (!discovery || surface === "pdf" || surface === "none" || typeof IntersectionObserver === "undefined") return;
     const body = bodyRef.current;
@@ -170,17 +193,31 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
       bySpan.set(element, [...(bySpan.get(element) ?? []), item]);
     }
     if (bySpan.size === 0) return;
-    const observer = new IntersectionObserver((entries) => {
-      for (const seen of entries) {
-        if (!passageInView(seen)) continue;
-        for (const item of bySpan.get(seen.target) ?? []) queue("passage", item.entry);
-        observer.unobserve(seen.target);
-      }
-    }, { threshold: THRESHOLDS });
-    for (const element of bySpan.keys()) observer.observe(element);
-    return () => observer.disconnect();
+    // One observer per set of thresholds: a passage taller than the reading
+    // area adds the ratio at which it fills half of it (F14).
+    const byThresholds = new Map<string, { thresholds: number[]; elements: Element[] }>();
+    for (const element of bySpan.keys()) {
+      const thresholds = passageThresholds(element.getBoundingClientRect().height, areaHeight);
+      const key = thresholds.join(",");
+      const group = byThresholds.get(key) ?? { thresholds, elements: [] };
+      group.elements.push(element);
+      byThresholds.set(key, group);
+    }
+    const observers: IntersectionObserver[] = [];
+    for (const { thresholds, elements } of byThresholds.values()) {
+      const observer = new IntersectionObserver((entries) => {
+        for (const seen of entries) {
+          if (!passageInView(seen)) continue;
+          for (const item of bySpan.get(seen.target) ?? []) queue("passage", item.entry);
+          observer.unobserve(seen.target);
+        }
+      }, { threshold: thresholds });
+      for (const element of elements) observer.observe(element);
+      observers.push(observer);
+    }
+    return () => { for (const observer of observers) observer.disconnect(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingKey, surface, discovery ? discovery.targetsKey : null]);
+  }, [pendingKey, surface, areaHeight, discovery ? discovery.targetsKey : null]);
 
   return { visitId: currentVisit, noteShown, noteFewer };
 }
