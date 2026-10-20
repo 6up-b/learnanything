@@ -3,8 +3,8 @@ title: "workbench_steps"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "823242a368c4b29a943721f6411bdd62fcb8ad0b"
-source_commit_timestamp: "2026-10-19T10:32:39-04:00"
+source_commit: "6828b96fe2e9b61a0ded5e9d0b22a6d89f477555"
+source_commit_timestamp: "2026-10-19T20:42:06-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite workbench_steps"
@@ -110,6 +110,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_architecture.py`
+- `tests/test_reader_rw1c_review.py`
 - `tests/test_reader_tutor_retrieval.py`
 - `tests/test_reader_workbench_rw2a.py`
 

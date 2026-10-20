@@ -377,3 +377,102 @@ Not run, by the owner rule: the full suite, the whole durability lane and the wh
 landing gate. `desktop_validate.py` stops on `components/pdfSelection/testing/syntheticBook.ts`, which needs an
 activation classification. That file predates this stage: its last change is `b1087be0a`. Nothing triggered the
 other steps: no migration, no DB or connection change, nothing under `src-tauri` and no configuration key change.
+
+## Fix round 5 (orchestrator rulings)
+
+Codex's verify of fix round 4 (`a58a6b860`; job `20261019-201825-K6nwlx`, read-only) confirmed F3 and F4 of round 4,
+**reopened F1 and F2**, and found **F5 (High), F6 (Medium) and F7 (High)**. The common root of F1 and F2: round 4 hung
+the binding, the guards and the accounting off `build_request`, which returns None while retrieval is off. The
+orchestrator ruled on each (R1-R4), and this round applies the rulings. The fixes are in `6828b96fe`. The references
+regenerated on top of it are committed with this record. **None were rejected.**
+
+**Paid calls: none ($0.00).** Every model is a fake. No vault copy was opened, and no manual run was made.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 (round 5, reopened) | High | Some bound Reader answers still escape hint accounting | fixed (R1) | `6828b96fe` | `test_reader_rw1c_review.py::test_a_cold_bound_ask_is_a_hint_whatever_its_type_and_its_cold_row` ×4 (null and unfetchable `coldAttemptId` × `verification` and `other`; old code: stored flag false, response true, next attempt 0), `::test_an_offers_only_bound_question_counts_once` (old code: no item on the row, 0), `::test_the_responses_hint_flag_is_the_stored_flag` ×8 (5 fail on the old code; the 3 cases where the old flag happened to agree pass on both) |
+| F2 (round 5, reopened) | High | Offers-only bound requests still deliver the item's solution to the tutor | fixed (R1) | `6828b96fe` | `::test_offers_only_the_bound_items_guards_hold[none]`, `[client]`, `[server]` (old code: "The required probability is 2/13." reached the tutor and the manifest). The unbound control in the same test shows it |
+| F3 (round 4) | Medium | The desktop drops the binding when only offers are on | confirmed fixed by Codex | — | no change |
+| F4 (round 4) | Medium | "Another way" repeats passages in the sources-service fallback | confirmed fixed by Codex | — | no change |
+| F5 | High | Earlier inquiry answers bypass the bound and cold context guards | fixed (R2) | `6828b96fe` | `::test_an_earlier_answer_is_rechecked_under_the_binding` ×4 (retrieval on/off × cold or not; old code: the 2/13 answer was in the tutor's `thread`); `::test_the_learner_work_keeps_the_learners_own_steps` (the audit's guard, new function) |
+| F6 | Medium | Cold-row deduplication loses the field report's question attribution | fixed (R3) | `6828b96fe` | `::test_a_bound_question_precedes_the_next_attempt_in_the_field[bound_cold-True]` and `[bound-True]` (old code: `preceded_by_question` false). Control `[unbound-False]` passes on both trees |
+| F7 | High | Disabling both switches does not restore base rendering for saved RW1c answers | fixed (R4) | `6828b96fe` | `::test_switching_both_off_restores_the_base_history_projection` (old code: the history still projected `tutor`; compared against `fab576ac1`'s own `ask_history`, read with `git archive`); `TutorAnswer.test.tsx` "renders no RW1c part of a saved answer while the contract supplies no controls" (old code: the excerpt rendered) |
+
+### What each fix does
+
+* **R1 (F1, F2): the binding is independent of retrieval.**
+  * `handlers/reader_tutor.bound_ask` builds a `tutor/reader_modes.BoundAsk` whenever either RW1c switch is on and the
+    request names a workbench session the server resolves to an item (`restriction.item_id`, never the client's word).
+    It is built before and apart from `build_request` and is handed to `reader_dialogue.ask` and
+    `tutor_qa.ask_question` as `reader_binding`. It holds the item, the practice session (the workbench's own
+    resolution, as before), the restriction's cold status (the client's flag or the server's derivation) and the
+    item's guard (`ItemBoundGuard`, with a new `text_leaks` for single texts). Round 4's `_accounting_binding` and the
+    request's `item`, `bound_item`, `practice_session_id`, `carries_cold_hint` and `context_guard` fields are gone:
+    `ReaderTutorRequest` now only scopes the lookup.
+  * Guards: `tutor_qa._build_context` applies the binding's guard to the selection, its neighbours and the blocks they
+    cite on the Reader path, retrieval on or off, cold or not; `_reader_lookup_context` still guards the retrieved
+    passages. The excerpt check reads the bound item. The manifest records the spans the tutor was given (guarded)
+    whenever a binding exists; its `delivery.item_bound_withheld` counts what was withheld.
+  * Accounting: the bound row always carries its item. Its flag is `BoundAsk.hint_equivalent`: a cold Ask is a hint
+    whatever its `question_type`, whether or not the cold attempt row exists or can be fetched; a non-cold bound Ask uses
+    the ordinary classification. The cold practice row only deduplicates (`_record_cold_hint_equivalent`, unchanged:
+    it leaves its flag off when the bound row on the same item carries the hint). `reader_dialogue.ask` reads the
+    response's and the exchange's `hint_equivalent` from the stored row (`result["hint_equivalent"]`) whenever a
+    binding exists; unbound, it stays the base's client cold flag.
+  * Both switches off: `restriction.active` is False, so no binding is built and the path is the base's (the
+    switch-off goldens pass byte for byte).
+  * One visible consequence: a bound, non-cold, substantive question now answers `hintEquivalent: true` (it was the
+    client's cold flag, false). That is what is stored and counted.
+* **R2 (F5): earlier answers are re-checked under the current restriction.** `reader_modes.guard_thread` passes every
+  earlier answer in the thread (the RW1a branch ancestors or, with inquiry off, the flat same-span thread) through the
+  binding's `answer_guard`. An answer that fails is replaced by *[An earlier answer is left out while you work this
+  problem.]*; the learner's questions and the thread's shape stay, nothing is refused, and the stored exchange is not
+  altered. The manifest's `prior_exchanges` is guarded the same way and `delivery.earlier_answers_left_out` counts
+  them. The audit of the learner-work context (`guard_learner_work`): the learner's own workbench steps stay; an open
+  question's statement (LearnLoop's reading, model-written) and a workbench problem line (source text) are left out
+  when the guard says they give the answer away. Cold without a binding has no item to check against, so it is
+  unchanged (the base's cold rules apply).
+* **R3 (F6): attribution separate from counting.** The window's session rule now lives once, in
+  `learnloop/hint_window.py` (a leaf module importing nothing from LearnLoop): `counts_in_session`, its SQL form
+  `session_clause` (`Repository.count_hint_equivalent_question_events` uses it) and `following_attempt`
+  (`field.signals._link_practice_questions` uses it for practice rows, as before, and now for bound Reader rows).
+  A bound Reader row gets `_window_attempt_id`, not `attempt_id`. The derivation then emits one `bound_question`
+  attribution row on that attempt's LO when the question's own targets do not include it: no outcome, no mass, no
+  attempt link, a type that blocks nothing. `preceded_by_question` therefore flips back to true; `hints_used`,
+  coldness and help-before-work are unchanged (asserted in the test), and an unbound Reader question attributes
+  nothing. `SIGNAL_VERSION` is not bumped: only bound Reader rows, which exist only on this branch, are affected.
+* **R4 (F7): switches off restore base rendering.** `reader_dialogue.ask_history` gains `tutor_views` (default False);
+  `reader.ask_history` passes it only while either switch is on, and `build_request` passes it for its own reads (the
+  shown passages). With both off the projection equals the base's for the same stored event. `TutorAnswer` renders
+  RW1c's parts only when the contract supplies its controls (`tutor` prop). The durable event keeps the view.
+
+### Gate (fix round 5)
+
+All steps ran in the worktree with `TMPDIR=fixtures-local/tmp`. Only targeted tests were run (owner rule
+2026-10-17). The pytest runs waited on `/tmp/learnloop-fullsuite.lock` (another stage's run held it) and ran under it.
+
+| step | result |
+|---|---|
+| backend fail-before on `a58a6b860` (`git archive` of `src` and `migrations` into `fixtures-local/rw1c-r5-base`, run with this branch's tests and `-o pythonpath=fixtures-local/rw1c-r5-base/src`) | 25 new cases: **21 failed, 4 passed** (the passes are controls: the unbound field case and the 3 flag cases where the old value agreed). The 4 F5 cases fail at the import of the new placeholder constant; a probe with the constant inlined showed the behavioural failure on all 4 (the thread carried "The required probability is 2/13."). The learner-work case fails at the import of the new function |
+| frontend fail-before (`a58a6b860`'s `apps/learnloop-tauri` extracted to the scratchpad, the new test copied in, `node_modules` linked) | `TutorAnswer.test.tsx`: **1 failed, 6 passed** (the excerpt rendered with no controls) |
+| `uv run lint-imports --no-cache` | 28 kept, 0 broken |
+| targeted pytest, `uv run pytest -n auto` over 54 files (list below) | **7,112 passed, 36 xfailed** (15 min 53 s) |
+| `--durable-sqlite` on the 25 new cases | **25 passed** |
+| vitest, `src/screens/reader/` and the `ReaderScreen.*.test.tsx` files | **399 passed** (53 files) |
+| `npm run typecheck`; `npm run frontend:build` | clean; built |
+| `db_generate_reference.py`, then `db_validate_reference.py` | 0 errors (head 213). Before the regeneration, configuration line citations into the changed files were stale (`tutor_qa.py`, `reader_dialogue.py`, `handlers/reader_tutor.py`) |
+| `git diff --check` | clean |
+
+Pytest files in the 54-file run: round 4's 17 files, the 14 `test_workbench*.py` files, the 6 `test_field_*.py`
+files, `test_desktop_rpc_contract.py`, `test_sidecar_contract.py`, and every test file that names `field.signals`,
+`ask_history`, `hint_window`, `ITEM_WINDOW_QUESTION_CONTEXTS` or `count_hint_equivalent`
+(`test_eval_harness.py`, `test_interaction_signals.py`, `test_learner_text_gaps*.py` (4), `test_library_ask_review.py`,
+`test_mobile_allowlist.py`, `test_placement_signals.py`, `test_reader_branches.py`, `test_reader_inquiry_kill_switch.py`,
+`test_reader_inquiry_status.py`, `test_reader_rw1b_review.py`, `test_sidecar_reader.py`, `test_stuck_prompt.py`,
+`test_stuck_prompt_replay.py`).
+
+Not run, by the owner rule: the full suite, the whole durability lane and the whole vitest run. Pre-existing and
+unchanged by this round: `desktop_validate.py` stops on `components/pdfSelection/testing/syntheticBook.ts` (needs an
+activation classification), and `module_validate.py` reports missing module notes (474/917 source modules covered;
+the new `learnloop/hint_window.py` is one more uncovered leaf). No migration, no DB or connection change, nothing
+under `src-tauri` and no configuration key change.
