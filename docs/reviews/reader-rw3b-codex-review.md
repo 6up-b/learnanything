@@ -280,3 +280,70 @@ suite, whole durability lane or whole vitest run.
 
 **Model calls in this step: none.** No vault copy was made or opened. The
 tracked working vaults and credential files were not touched.
+
+## Fix round 3 (orchestrator)
+
+Codex's scoped verify of `d4fa3a1a9..reader/rw3b` (job
+`20261020-152052-iUbGOj`, verdict REOPENED) confirmed F1, F2 and F15 fixed
+and reopened F14 for a case the round 2 fix missed. The reproduction was
+confirmed: the new regression sends no request on `5cf7f2383` and one after
+the fix.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High | discovery outlives its kill switch | confirmed fixed (verify) | `758fec824` | (verify: CONFIRMED-FIXED) |
+| F2 | High | paid retrieval before judge readiness; envelope | confirmed fixed (verify) | `758fec824` | (verify: CONFIRMED-FIXED) |
+| F14 | Medium | width-only reflow leaves tall passages without impressions | fixed | this round's commit | `rw3bReview.test.tsx` "F14 verify: a passage reflowed from 2,000 to 6,000 px at the same window height is still recorded" (failed on base: 0 requests), "F14 verify control: a 4,000 px passage that keeps its size is recorded once, its observer kept", "F14 verify: repeated reflows never log a passage twice in one visit" |
+| F15 | Medium | cached taps bypass the try-first kill switch | confirmed fixed (verify) | `d38a6c95f` | (verify: CONFIRMED-FIXED) |
+
+### What changed
+
+- **F14** (`apps/learnloop-tauri/src/screens/reader/useCueImpressions.ts`).
+  Round 2 rebuilt the observers only when the window's height changed, but
+  a passage's thresholds also depend on its own height. When the window
+  narrows, a passage can reflow from 2,000 to 6,000 px while the window's
+  height stays the same. Its added threshold (0.15) is then above the
+  largest ratio it can reach (0.10), so it was never recorded. The hook no
+  longer keeps the area height in React state. Inside the observer effect,
+  a `ResizeObserver` watches every measured passage and the reading
+  container (`bodyRef`), and the window's `resize` event is still heard.
+  Every size notification restarts a settle timer
+  (`CUE_REFLOW_SETTLE_MS`, 150 ms). When the timer fires, the hook works out
+  each uncounted passage's thresholds again from its height and
+  `window.innerHeight`. If any passage's threshold set changed, all the
+  observers are rebuilt. If nothing changed, they are kept. A passage
+  already in view is added to a per-run `counted` set: a rebuild never
+  observes it again, and a late callback for it is ignored. The receipt key
+  in `sentRef` (source, visit, cue) still allows one receipt per cue per
+  visit, so a rebuild cannot log twice. Where `ResizeObserver` is missing,
+  the window's resize event still triggers the check. The criterion is
+  unchanged: half the passage, or half the area for a tall one.
+
+No migration, config key, RPC shape, CLI help or snapshot changed. Python
+was not touched.
+
+### Fail-before
+
+`5cf7f2383`'s `apps/learnloop-tauri` was extracted with `git archive` to the
+scratchpad. The worktree's `node_modules` was symlinked in and the new
+`rw3bReview.test.tsx` copied over. The base's `useCueImpressions.ts` was
+used unchanged. Result: **2 failed, 10 passed** out of 12.
+
+- The width-only reflow regression failed: `readerCueImpressions` was called
+  0 times, and 1 was expected.
+- The repeated-reflow check failed because the base never rebuilds its
+  observers on a reflow.
+- The fixed-size control passed with one request, as it does after the fix.
+
+On the fix all 12 pass.
+
+### Gate (fix round 3; targeted per the owner rule of 2026-10-17)
+
+| Check | Result |
+|---|---|
+| `npm run typecheck` | clean |
+| `npx vitest run src/screens/reader/ src/screens/ReaderScreen src/components/PdfReaderPane.marks.test.tsx` | **425 passed** (58 files) |
+| `npm run frontend:build` | built (the usual chunk-size notice) |
+| pytest, lint-imports, durability, cargo, DB references | not run: no Python, schema or `src-tauri` change |
+
+**Model calls in this step: none.** No vault was opened or copied.

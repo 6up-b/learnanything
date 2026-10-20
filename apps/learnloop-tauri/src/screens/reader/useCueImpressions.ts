@@ -5,9 +5,10 @@
 // F5): a discovered cue counts when its passage is in the learner's view,
 // drawn (shown) or held out alike, by one criterion (half the passage, or
 // half the reading area for a passage taller than it, that point being an
-// observer threshold of its own, F14 of the re-review). A held-out cue counts
-// as a control only when the Reader's own rules would have drawn it (placed
-// like a mark, cues.ts); one the spacing or the restored line set aside is
+// observer threshold of its own, F14 of the re-review, worked out again when
+// a passage or the reading area changes size, F14 of the verify). A held-out
+// cue counts as a control only when the Reader's own rules would have drawn it
+// (placed like a mark, cues.ts); one the spacing or the restored line set aside is
 // sent with that reason, outside both arms (F4). A density cut, a spaced
 // mark or a mark on the restored line is sent with its reason when its
 // passage is in view. The original PDF draws no element per passage, so on it
@@ -19,7 +20,7 @@
 // leaving a source sends its receipts to it (F6), and a receipt counts as
 // sent only once the sidecar answered. Batched, quiet on failure, never a
 // model call.
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { api } from "../../api/client";
 import type { ReaderCueDto, ReaderCueImpressionInput, ReaderCuesDto } from "../../api/dto";
 import type { CuePlacement } from "./cues";
@@ -32,6 +33,8 @@ export const IMPRESSION_RETRY_MS = 4_000;
 /** At least this share of a passage (or of the reading area) in view counts as seen. */
 const SEEN_THRESHOLD = 0.5;
 const THRESHOLDS = [0, 0.25, 0.5, 0.75, 1];
+/** Size changes are let settle this long before the thresholds are worked out again. */
+export const CUE_REFLOW_SETTLE_MS = 150;
 /** A pixel of rounding between the observer's ratio and the visible height. */
 const SEEN_SLACK_PX = 1;
 
@@ -171,15 +174,6 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
   const pendingKey = pending.map(({ cue, entry }) => `${cue.cueId}:${cue.spanId}:${entry.shown ? 1 : 0}:${entry.reason ?? ""}`).join("|");
   const pendingRef = useRef(pending);
   pendingRef.current = pending;
-  // The reading area's height: a resize reflows the passages, so their
-  // thresholds are worked out again (F14).
-  const [areaHeight, setAreaHeight] = useState(() => (typeof window === "undefined" ? 0 : window.innerHeight));
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const onResize = () => setAreaHeight(window.innerHeight);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
   useEffect(() => {
     if (!discovery || surface === "pdf" || surface === "none" || typeof IntersectionObserver === "undefined") return;
     const body = bodyRef.current;
@@ -193,31 +187,80 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
       bySpan.set(element, [...(bySpan.get(element) ?? []), item]);
     }
     if (bySpan.size === 0) return;
+    const elements = [...bySpan.keys()];
+    // Passages already in view this run: never observed again, so a rebuild
+    // cannot count them twice (the receipt is once per cue per visit anyway).
+    const counted = new Set<Element>();
+    // The observer's root is the viewport, so the reading area is its height.
+    const thresholdsOf = (element: Element) =>
+      passageThresholds(element.getBoundingClientRect().height, window.innerHeight);
+    let observers: IntersectionObserver[] = [];
+    let keyOf = new Map<Element, string>();
     // One observer per set of thresholds: a passage taller than the reading
     // area adds the ratio at which it fills half of it (F14).
-    const byThresholds = new Map<string, { thresholds: number[]; elements: Element[] }>();
-    for (const element of bySpan.keys()) {
-      const thresholds = passageThresholds(element.getBoundingClientRect().height, areaHeight);
-      const key = thresholds.join(",");
-      const group = byThresholds.get(key) ?? { thresholds, elements: [] };
-      group.elements.push(element);
-      byThresholds.set(key, group);
-    }
-    const observers: IntersectionObserver[] = [];
-    for (const { thresholds, elements } of byThresholds.values()) {
-      const observer = new IntersectionObserver((entries) => {
-        for (const seen of entries) {
-          if (!passageInView(seen)) continue;
-          for (const item of bySpan.get(seen.target) ?? []) queue("passage", item.entry);
-          observer.unobserve(seen.target);
+    const build = () => {
+      for (const observer of observers) observer.disconnect();
+      observers = [];
+      keyOf = new Map();
+      const byThresholds = new Map<string, { thresholds: number[]; elements: Element[] }>();
+      for (const element of elements) {
+        if (counted.has(element)) continue;
+        const thresholds = thresholdsOf(element);
+        const key = thresholds.join(",");
+        keyOf.set(element, key);
+        const group = byThresholds.get(key) ?? { thresholds, elements: [] };
+        group.elements.push(element);
+        byThresholds.set(key, group);
+      }
+      for (const { thresholds, elements: group } of byThresholds.values()) {
+        const observer = new IntersectionObserver((entries) => {
+          for (const seen of entries) {
+            if (counted.has(seen.target) || !passageInView(seen)) continue;
+            counted.add(seen.target);
+            for (const item of bySpan.get(seen.target) ?? []) queue("passage", item.entry);
+            observer.unobserve(seen.target);
+          }
+        }, { threshold: thresholds });
+        for (const element of group) observer.observe(element);
+        observers.push(observer);
+      }
+    };
+    build();
+    // A passage's thresholds depend on its height and the area's, and either
+    // can change without the other: narrowing the window reflows a passage
+    // from 2,000 to 6,000 px at the same area height, and its old thresholds
+    // then lie above any ratio it can reach (Codex verify F14). So passages
+    // and the reading container are watched for size changes (and the window
+    // for the area's), and once they settle the observers are rebuilt if any
+    // uncounted passage's threshold set changed.
+    let settle: ReturnType<typeof setTimeout> | null = null;
+    const recheck = () => {
+      settle = null;
+      for (const [element, key] of keyOf) {
+        if (!counted.has(element) && thresholdsOf(element).join(",") !== key) {
+          build();
+          return;
         }
-      }, { threshold: thresholds });
-      for (const element of elements) observer.observe(element);
-      observers.push(observer);
+      }
+    };
+    const scheduleRecheck = () => {
+      if (settle !== null) clearTimeout(settle);
+      settle = setTimeout(recheck, CUE_REFLOW_SETTLE_MS);
+    };
+    const resizes = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scheduleRecheck);
+    if (resizes) {
+      resizes.observe(body);
+      for (const element of elements) resizes.observe(element);
     }
-    return () => { for (const observer of observers) observer.disconnect(); };
+    window.addEventListener("resize", scheduleRecheck);
+    return () => {
+      if (settle !== null) clearTimeout(settle);
+      window.removeEventListener("resize", scheduleRecheck);
+      resizes?.disconnect();
+      for (const observer of observers) observer.disconnect();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingKey, surface, areaHeight, discovery ? discovery.targetsKey : null]);
+  }, [pendingKey, surface, discovery ? discovery.targetsKey : null]);
 
   return { visitId: currentVisit, noteShown, noteFewer };
 }

@@ -207,6 +207,146 @@ it("F14: a sliver of a tall passage is not in view", async () => {
   expect(api.readerCueImpressions).not.toHaveBeenCalled();
 });
 
+// -- F14 (verify: width-only reflow) ----------------------------------------------------------
+
+/** A ResizeObserver whose notifications the test sends (jsdom has none). */
+class FakeResizeObserver {
+  static all: FakeResizeObserver[] = [];
+  callback: ResizeObserverCallback;
+  targets: Element[] = [];
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+    FakeResizeObserver.all.push(this);
+  }
+  observe(target: Element) { this.targets.push(target); }
+  unobserve(target: Element) { this.targets = this.targets.filter((entry) => entry !== target); }
+  disconnect() { this.targets = []; }
+}
+
+/** Well past the hook's settle time for size changes (it does not depend on the export). */
+const REFLOW_SETTLE_WAIT_MS = 1_000;
+
+/** A passage whose height the test changes, as a reflow would. */
+function sizedPassage(ref: { current: HTMLDivElement }, spanId: string, height: { value: number }) {
+  const passage = ref.current.querySelector(`[data-span-id="${spanId}"]`) as HTMLElement;
+  passage.getBoundingClientRect = () => ({ height: height.value, width: 500, top: 0, left: 0, bottom: height.value,
+    right: 500, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+  return passage;
+}
+
+/** The window narrows: the passages reflow, the window's height stays. Every
+ *  size watcher hears of it (the window's resize event too), then it settles. */
+async function reflow() {
+  act(() => {
+    for (const watcher of FakeResizeObserver.all) {
+      if (watcher.targets.length === 0) continue;
+      watcher.callback(watcher.targets.map((target) => ({ target })) as unknown as ResizeObserverEntry[],
+        watcher as unknown as ResizeObserver);
+    }
+    window.dispatchEvent(new Event("resize"));
+  });
+  await act(async () => { vi.advanceTimersByTime(REFLOW_SETTLE_WAIT_MS); });
+}
+
+/** Scroll a passage of this height through a 600 px viewport, on every observer now watching it. */
+function scrollThrough(passage: Element, height: number) {
+  act(() => {
+    for (const visible of [0, 50, 100, 250, 320, 450, 600]) {
+      for (const observer of ThresholdObserver.all) observer.scroll(passage, Math.min(visible, height), height, 600);
+    }
+  });
+}
+
+function sentEntries() {
+  return api.readerCueImpressions.mock.calls.flatMap((call) => call[0].entries);
+}
+
+it("F14 verify: a passage reflowed from 2,000 to 6,000 px at the same window height is still recorded", async () => {
+  vi.useFakeTimers();
+  ThresholdObserver.all = [];
+  FakeResizeObserver.all = [];
+  vi.stubGlobal("IntersectionObserver", ThresholdObserver);
+  vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+  vi.stubGlobal("innerHeight", 600);
+  const shown = discovered("tall", 0);
+  const placement: CuePlacement = { shown: [shown], suppressed: [], heldOutPlaced: [], heldOutSuppressed: [] };
+  const ref = body(["tall"]);
+  const height = { value: 2000 };
+  const passage = sizedPassage(ref, "tall", height);
+  renderHook(() => useCueImpressions({ extractionId: "A", cues: cues([shown]), placement, surface: "text",
+    bodyRef: ref, visitId: () => "visit_A" }));
+  // Mounted offscreen: the observer's first notification, nothing in view.
+  act(() => { for (const observer of ThresholdObserver.all) observer.scroll(passage, 0, 2000, 600); });
+  height.value = 6000;
+  await reflow();
+  // Now at most 600 / 6000 = 0.10 of it can be in view; it fills half the area at 0.05.
+  scrollThrough(passage, 6000);
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+  expect(api.readerCueImpressions).toHaveBeenCalledTimes(1);
+  expect(sentEntries()).toEqual([{ cueId: "dcue_tall", shown: true }]);
+});
+
+it("F14 verify control: a 4,000 px passage that keeps its size is recorded once, its observer kept", async () => {
+  vi.useFakeTimers();
+  ThresholdObserver.all = [];
+  FakeResizeObserver.all = [];
+  vi.stubGlobal("IntersectionObserver", ThresholdObserver);
+  vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+  vi.stubGlobal("innerHeight", 600);
+  const shown = discovered("tall", 0);
+  const placement: CuePlacement = { shown: [shown], suppressed: [], heldOutPlaced: [], heldOutSuppressed: [] };
+  const ref = body(["tall"]);
+  const passage = sizedPassage(ref, "tall", { value: 4000 });
+  renderHook(() => useCueImpressions({ extractionId: "A", cues: cues([shown]), placement, surface: "text",
+    bodyRef: ref, visitId: () => "visit_A" }));
+  const before = ThresholdObserver.all.length;
+  // A size notification that changes nothing does not rebuild the observer.
+  await reflow();
+  expect(ThresholdObserver.all).toHaveLength(before);
+  scrollThrough(passage, 4000);
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+  expect(api.readerCueImpressions).toHaveBeenCalledTimes(1);
+  expect(sentEntries()).toEqual([{ cueId: "dcue_tall", shown: true }]);
+});
+
+it("F14 verify: repeated reflows never log a passage twice in one visit", async () => {
+  vi.useFakeTimers();
+  ThresholdObserver.all = [];
+  FakeResizeObserver.all = [];
+  vi.stubGlobal("IntersectionObserver", ThresholdObserver);
+  vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+  vi.stubGlobal("innerHeight", 600);
+  const first = discovered("p1", 0);
+  const second = discovered("p2", 1);
+  const placement: CuePlacement = { shown: [first], suppressed: [], heldOutPlaced: [second], heldOutSuppressed: [] };
+  const ref = body(["p1", "p2"]);
+  const firstHeight = { value: 2000 };
+  const secondHeight = { value: 2000 };
+  const p1 = sizedPassage(ref, "p1", firstHeight);
+  const p2 = sizedPassage(ref, "p2", secondHeight);
+  renderHook(() => useCueImpressions({ extractionId: "A", cues: cues([first], [second]), placement, surface: "text",
+    bodyRef: ref, visitId: () => "visit_A" }));
+  // p1 is read; its receipt is sent.
+  scrollThrough(p1, firstHeight.value);
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+  // The window narrows and widens again and again: both passages reflow, the
+  // observers are rebuilt, and p1 is scrolled through again after each one.
+  for (const [h1, h2] of [[6000, 5000], [3000, 2500], [6000, 7000], [2000, 2000]]) {
+    firstHeight.value = h1;
+    secondHeight.value = h2;
+    await reflow();
+    scrollThrough(p1, h1);
+    await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+  }
+  expect(ThresholdObserver.all.length).toBeGreaterThan(1);
+  // p2, read only now, is recorded once too; p1 is not again.
+  scrollThrough(p2, secondHeight.value);
+  await reflow();
+  scrollThrough(p2, secondHeight.value);
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+  expect(sentEntries()).toEqual([{ cueId: "dcue_p1", shown: true }, { cueId: "dcue_p2", shown: false }]);
+});
+
 // -- F6 ---------------------------------------------------------------------------------------
 
 it("F6: opening another book sends the first book's queued receipts to it, with its visit", async () => {
