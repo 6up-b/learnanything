@@ -12,6 +12,7 @@
 //   ones are recorded as impressions; a failed check shows none of them.
 // * Nothing fits: "Nothing in practice fits yet · find an exercise in my
 //   sources ▸" while the fallback is on, which searches only when pressed.
+import { StrictMode } from "react";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { ExerciseCandidatesDto, FindExercisesDto, FindPracticeResultDto, LibraryAskDto } from "../../api/dto";
@@ -114,18 +115,21 @@ it("switched off, nothing fitting renders exactly as before RW4b", () => {
 
 // -- on: the candidate cards -------------------------------------------------------------------------
 
-function renderOn(practice: FindPracticeResultDto, options: { fallback?: boolean } = {}) {
+function renderOn(practice: FindPracticeResultDto, options: { fallback?: boolean; strict?: boolean } = {}) {
   const onUse = vi.fn();
   const onOpenInBook = vi.fn();
-  const result = render(
+  const answer = (
     <LibraryAnswer
       ctl={ctl(practice)}
       onOpenHit={null}
       onPracticePick={vi.fn()}
       onClose={vi.fn()}
       exercises={{ settings: { fallback: options.fallback ?? false }, onUse, onOpenInBook }}
-    />,
+    />
   );
+  // The app's root renders under React.StrictMode (main.tsx), which mounts,
+  // unmounts and remounts every effect once in development.
+  const result = render(options.strict ? <StrictMode>{answer}</StrictMode> : answer);
   return { ...result, onUse, onOpenInBook };
 }
 
@@ -196,6 +200,19 @@ it("with nothing fitting and the fallback on, the learner can find an exercise i
   fireEvent.click(within(card).getByRole("button", { name: /use this one/ }));
   expect(onUse).toHaveBeenCalledWith(expect.objectContaining({ origin: "fallback", importRequest: FOUND.candidates[0].importRequest }));
   expect(api.recordProposalImpressions).not.toHaveBeenCalled(); // the server recorded what it showed
+});
+
+// Codex review F5: under the app's StrictMode the fallback's result still
+// lands (the mounted flag is set again by the effect's setup, not only at the
+// first render).
+it("under StrictMode the fallback's result lands instead of staying pending (F5)", async () => {
+  api.readerFindExercises.mockResolvedValue(done(FOUND, "find_exercises"));
+  renderOn(practiceResult([], []), { fallback: true, strict: true });
+  const line = screen.getByText(/Nothing in practice fits yet ·/);
+  fireEvent.click(within(line).getByRole("button", { name: "find an exercise in my sources ▸" }));
+  const card = await screen.findByTestId("exercise-candidate");
+  expect(card.textContent).toContain(FOUND.candidates[0].statement);
+  expect(screen.queryByText(/looking for exercises/)).toBeNull();
 });
 
 it("a fallback that finds nothing says so; with the fallback off there is no offer", async () => {

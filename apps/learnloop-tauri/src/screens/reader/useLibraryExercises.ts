@@ -69,9 +69,15 @@ export function useLibraryExercises({
   const [fallback, setFallback] = useState<{ proposalId: string | null; phase: ModelActionPhase; value: FindExercisesDto | null; failure: string | null } | null>(null);
   const currentProposal = useRef<string | null>(null);
   currentProposal.current = proposalId;
+  // Set by the effect's setup, not only at the first render: StrictMode (the
+  // app's root) runs setup, cleanup, setup again, and a flag left false would
+  // discard every fallback answer (Codex review F5).
   const mounted = useRef(true);
-  useEffect(() => () => {
-    mounted.current = false;
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
   }, []);
 
   useEffect(() => {
