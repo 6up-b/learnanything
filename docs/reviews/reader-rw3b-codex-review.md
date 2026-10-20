@@ -217,3 +217,66 @@ no full suite, whole durability lane or whole vitest run.
 
 **Model calls in this step: none.** No vault copy was made or opened. The
 tracked working vaults and credential files were not touched.
+
+## Re-review (fix round 2)
+
+Codex re-reviewed `9b279f163..reader/rw3b` (job
+`20261020-151049-JcL075`, verdict REOPENED). It confirmed F1 and F2 fixed and
+raised two new Medium findings. Both reproduced: each new test failed on
+`d4fa3a1a9`, checked by putting the base's file back temporarily, and passes
+on the fix.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High | discovery outlives its kill switch | confirmed fixed (round 1) | `758fec824` | (re-review: CONFIRMED-FIXED) |
+| F2 | High | paid retrieval before judge readiness; envelope | confirmed fixed (round 1) | `758fec824` | (re-review: CONFIRMED-FIXED) |
+| F14 | Medium | tall passages can be read without recording an impression | fixed | `d38a6c95f` | `rw3bReview.test.tsx` "F14: a passage taller than the reading area is recorded once it fills half of it" (failed on base: 0 requests) and "F14: a sliver of a tall passage is not in view" |
+| F15 | Medium | cached taps bypass the try-first kill switch | fixed | `d38a6c95f` | `test_reader_rw3b_review_fixes.py::test_a_cached_try_first_tap_is_refused_once_try_first_is_switched_off_and_reloaded` and `::test_the_kept_cues_are_dropped_on_a_reload_and_kept_within_one` (both failed on base) |
+
+### What changed
+
+- **F14** (`apps/learnloop-tauri/src/screens/reader/useCueImpressions.ts`).
+  `passageThresholds(passageHeight, areaHeight)` adds the ratio
+  `0.5 * area / passage` to the observer thresholds when a passage is taller
+  than the reading area (the viewport, the observer's root). That is the
+  point where the passage fills half the area. Passages are grouped by their
+  threshold set, one observer per set. Short passages keep RW3a's
+  thresholds, so they share one observer as before. A `resize` updates the
+  area height, which rebuilds the observers. `passageInView` allows one pixel
+  of rounding between the ratio and the visible height. The criterion itself
+  is unchanged: half the passage, or half the area for a tall one. The test's
+  fake observer calls back only when a threshold is crossed, as a browser's
+  does.
+- **F15** (`src/learnloop_sidecar/handlers/reader_cue_discovery.py`,
+  `reader.py`). `remember(..., vault=)` keeps the cues together with the
+  `LoadedVault` they were computed on. `_cues_now` reuses them only for that
+  same vault object. A reload or a vault switch publishes a new one, so the
+  cues are rebuilt under the switches loaded now. Within one load a tap
+  still resolves without rebuilding the plan (the existing test
+  `test_a_tap_on_a_drawn_mark_does_not_rebuild_the_plan` still passes).
+  `reader.cue_tap` also refuses a try-first cue while
+  `PC.try_first_enabled(vault)` is false. In that case nothing is recorded:
+  no impression and no `learner_card` verdict. Impressions read through the
+  same bound cache.
+
+No migration, config key, RPC shape, CLI help or snapshot changed.
+
+### Gate (fix round 2; targeted per the owner rule of 2026-10-17)
+
+Run in the worktree with `TMPDIR=fixtures-local/tmp`. There was no full
+suite, whole durability lane or whole vitest run.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | **28 kept, 0 broken** |
+| `uv run pytest -n auto` on 25 files: `test_architecture`, `test_mobile_allowlist`, `test_desktop_rpc_contract`, `test_sqlite_file_copies`, `test_passage_links`, `test_reader_cue_holdout`, `test_reader_cue_value`, `test_reader_cues`, `test_reader_cues_cli_report`, `test_reader_guidance`, `test_reader_quick_check`, `test_reader_reconnect`, `test_reader_rw3a_landing`, `test_reader_rw3b_migration`, `test_reader_rw3b_protection`, `test_reader_rw3b_review_fixes`, `test_reader_rw3b_switch_off`, `test_reader_try_first`, `test_reader_wrap_up`, `test_reading_hardening_landing`, `test_required_method_round3`, `test_reread_safety`, `test_reread_safety_landing`, `test_salience_firewall`, `test_sidecar_reader` (every test file naming `reader_cue_discovery`, `cue_tap`, `cue_impressions` or `guide_plan`) | **584 passed** |
+| durability | not run: no migration and no DB or connection code changed |
+| `npm install`; `npm run typecheck` | clean |
+| `npx vitest run` on the 38 test files naming `useCueImpressions`, `useReaderCues` or `ReaderScreen` (`rw3bReview.test.tsx`, every `ReaderScreen.*.test.tsx`, `reader/cues.test.ts`, `reader/readerHooks.parity.test.tsx`, the RW3a switch-off snapshots among them) | **302 passed** |
+| `npm run frontend:build` | built (the usual chunk-size notice) |
+| `cargo check` | not run: nothing under `src-tauri` changed |
+| DB references | not run: the schema did not change |
+
+**Model calls in this step: none.** No vault copy was made or opened. The
+tracked working vaults and credential files were not touched.
