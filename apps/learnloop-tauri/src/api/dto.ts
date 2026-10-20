@@ -998,6 +998,89 @@ export interface PracticeItemDetail {
   /** Canonical sources S1: a textbook exercise's provenance and its key's
    *  honest label (absent for every other item). */
   canonicalExercise?: CanonicalExerciseDto;
+  /** Daily-loop DL2: present only when this session serve is a due "Check
+   *  once" (a check on your own; Reader §9.3 item 10). */
+  intentCheck?: IntentCheckDto;
+}
+
+// ── Daily-loop DL2: intent (spec_daily_loop_v1.md §5) ─────────────────────────
+
+export type IntentScopeKind = "learning_object" | "practice_item" | "subject" | "source";
+export type IntentChoice =
+  | "master"
+  | "learn"
+  | "keep"
+  | "light_touch"
+  | "check_once"
+  | "reference"
+  | "pause"
+  | "let_go";
+
+/** One choice of the control, previewed by the resolution serving uses. */
+export interface IntentChoicePreviewDto {
+  choice: IntentChoice;
+  label: string;
+  /** What the choice does, in plain words. */
+  does: string;
+  /** "Pause 12 topics · replaces your earlier setting on 2 topics and 1 item". */
+  consequence: string;
+  replacedTopics: number;
+  replacedItems: number;
+  /** Projected review minutes a day (§6.4 estimates at §5.3 targets); null when unknown. */
+  costMinutesPerDay: number | null;
+  /** "about N min/day of reviews", "no reviews", "one check, about N min". */
+  costLabel: string;
+  servedCount: number;
+  excludedCount: number;
+}
+
+export interface IntentCurrentDto {
+  choice: IntentChoice | "uncommitted";
+  label: string;
+  /** Where the setting comes from ("this control", a broader setting, a request); null uncommitted. */
+  source: string | null;
+  deadline: { goalId: string; dueAt: string } | null;
+  canAddDeadline: boolean;
+}
+
+export interface IntentViewDto {
+  version?: number;
+  enabled: boolean;
+  available?: boolean;
+  reason?: string;
+  scope?: { kind: IntentScopeKind; id: string };
+  title?: string;
+  topics?: number;
+  items?: number;
+  current?: IntentCurrentDto;
+  choices?: IntentChoicePreviewDto[];
+  applied?: { choice: IntentChoice; commitmentId: string; created: boolean };
+  deadlineSet?: { goalId: string; dueAt: string; created: boolean; commitmentId: string };
+}
+
+/** The way back after a check (Reader §9.3 item 9); only when the provenance carries it. */
+export interface IntentRestorationDto {
+  label: string;
+  detail: string | null;
+  inquiryRootEventIds: string[];
+  anchorSpanIds: string[];
+  extractionId: string | null;
+  sourceId: string | null;
+}
+
+/** A served (or answered) "Check once". */
+export interface IntentCheckDto {
+  kind: "check_once";
+  commitmentId: string;
+  dueSince?: string;
+  dateSource?: "due_hint" | "test_me_later_days";
+  /** "A check on your own. Help is still here — using it makes this practice with help." */
+  banner?: string;
+  /** The help ladder's header during the check (D42). */
+  helpHeader?: string;
+  /** D46: nothing that locates the exercise is shown until feedback. */
+  locatorsHidden?: boolean;
+  restoration: IntentRestorationDto | null;
 }
 
 // ── Meas §3.A6 opportunistic trace evidence ─────────────────────────────────
@@ -1428,6 +1511,8 @@ export interface PracticeSubmissionAcknowledgementDto {
 export interface FeedbackBundle {
   version: number;
   attemptId: string;
+  /** Daily-loop DL2: present only when this attempt answered a "Check once". */
+  intentCheck?: IntentCheckDto;
   /** Slice 1 §11: present when the attempt queued an asynchronous diagnosis. */
   diagnosisStatus?: DiagnosisStatusValue;
   practiceItemId: string;
