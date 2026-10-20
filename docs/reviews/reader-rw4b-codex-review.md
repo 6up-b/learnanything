@@ -840,3 +840,187 @@ as a guard should.
   **0 errors** (head 213, 919 leaves). Commit labels and line citations were
   refreshed in `34f5237f8`.
 - No live or paid model call was made, and no owner vault was opened.
+
+## Fix round 6 (orchestrator rulings)
+
+The Codex verify `20261020-123459-EZlKv5` (at `707a64ec5`) confirmed R3,
+R4 and R5, import gating, config classification, and G19/G34/G53. It found
+two Highs and one Medium:
+
+- **F2 (High), the planned branch.** A keyed pick of an item already in
+  today's plan recorded no key, so a retry under a later plan made a second
+  presentation.
+- **F7 (High), cached exercise jobs.** `reader.library_job` returned a
+  finished exercise job's candidates, statement included, after their region
+  was held out.
+- **F13 (Medium), partial writes.** A keyed `block_chosen` receipt counted
+  as a complete pick even when its serve or its proposal's delivery had not
+  committed.
+
+The orchestrator's rulings:
+
+| ruling | finding | what it requires |
+|---|---|---|
+| 1 | F2 | The planned branch records the admission key against the EXISTING presentation, in the serve's transaction, as a keyed receipt row that links the key to the presentation. `picked_under` finds it across plan changes. |
+| 2 | F7 | Every job or cache read that returns exercise candidates or statements revalidates at delivery through the shared statement reader. The registry contract test covers completed jobs, `reader.library_job` included. |
+| 3 | F13 | Atomicity first: the keyed receipt, the serve and the proposal delivery commit in ONE transaction where the engine allows it. Otherwise, record the stage and recover idempotently. Say which residual remains. |
+
+### Findings
+
+| id | severity | title | verdict | commit | test (fail before → pass after) |
+|----|----------|-------|---------|--------|---------------------------------|
+| F2 | High (reopened) | A keyed pick of an already-planned item has no durable admission identity | fixed (ruling 1) | `1e7e0df78` | pytest `test_reader_rw4b_fix6.py::test_f2_a_keyed_pick_of_a_planned_item_is_found_under_a_later_plan`, `::test_f2_verify_sequence_planned_pick_locked_picked_write_retry_under_a_later_plan` (Codex's sequence) |
+| F7 | High (reopened) | Cached exercise jobs bypass the withholding gate | fixed (ruling 2) | `1e7e0df78` | pytest `test_library_exercises.py::test_r6_verify_f7_a_finished_exercise_job_read_after_its_region_is_held_out_never_delivers_it`, `::test_r2_contract_no_workbench_or_reader_exercise_rpc_returns_a_held_out_statement` (extended: finished jobs seeded before the hold-out, `reader.library_job` enumerated); `test_reader_rw4b_fix6.py::test_f7_a_finished_help_job_on_a_problem_held_out_since_is_never_delivered` |
+| F13 | Medium | Receipt recovery skips an unfinished serve and delivery | fixed (ruling 3, atomic route) | `1e7e0df78` | pytest `test_reader_rw4b_fix6.py::test_f13_a_failure_after_the_block_and_before_the_serve_…[planned/new_block]`, `::test_f13_a_failure_after_the_serve_and_before_the_delivery_…[planned/new_block]`, `::test_f13_the_admissions_serve_and_its_served_record_share_one_transaction`, `::test_f13_an_unkeyed_pick_keeps_its_own_transactions` |
+
+No ruling was rejected. The round 5 residual (a repeated serve's side
+effects) is closed by the atomic route; see F13.
+
+### Fail-before evidence
+
+Every new or extended test was run against an export of `707a64ec5` in the
+session scratchpad (`git archive`, the worktree's venv,
+`-o pythonpath=<export>/src`; no worktree change, no stash). **11 tests, 11
+failed.** The 4 older tests the same filter selected passed on both trees.
+
+- **F2, engine.** A keyed pick of the planned item, then the same key under
+  the next day's plan: `assert (2, <second>) == (1, <first>)`, so two
+  presentations and the second one returned.
+- **F2, Codex's sequence.** The `picked` write met `database is locked`,
+  then the admission was retried under a later plan: 2 presentations of
+  the item.
+- **F13, block then serve.**
+  - New block: the learner-pick block was left behind without its serve
+    (`assert 1 == 0` learner-pick blocks).
+  - Planned: the serve's presentation was already kept when the failure
+    was raised (`assert 1 == 0` presentations).
+- **F13, serve then delivery.**
+  - Planned: the presentation was kept without its delivery
+    (`assert 1 == 0`).
+  - New block: the retry returned early and recorded neither the keyed
+    pick nor the delivery (`assert 0 == 1` keyed receipts).
+- **F13, the admission's serve.** A lost `served` record left the first
+  serve committed: 2 probe rows written inside the serve, against 1.
+- **F7, library jobs.** The kept `find_exercises` result went out with the
+  sentinel statement (`'An eigenvalue t satisfies' … is contained here`),
+  and so did `reader.library_job` in the contract test.
+- **F7, help job.** A finished help job on a held-out problem was delivered
+  (`DID NOT RAISE`).
+- **API.** `test_f13_an_unkeyed_pick_keeps_its_own_transactions` fails
+  because `engine.PICK_KEYED` and `within` are new.
+
+### What changed
+
+#### Ruling 1: the keyed receipt (F2)
+
+- **The row.** `daily_plan.engine.PICK_KEYED` (`"pick_keyed"`) is an
+  `attention_block_events` row on the block that served the pick. Its
+  detail names the idempotency key, the item, the presentation id and the
+  session.
+  - The table's role is RECEIPT, and record replay ignores unknown kinds.
+  - No migration was needed.
+- **Every branch writes it**, in the serve's transaction:
+  - **Planned:** the existing block and its existing presentation.
+  - **New one-item block:** the new block.
+  - **Open-list pick** (the plan closed): the receipt.
+- **The lookup.** `picked_under` reads the keyed receipt by key and item,
+  under any plan, and returns the ORIGINAL block, presentation and
+  candidate (`presentation_by_id`, falling back to the block's
+  presentation). A retry under a later plan therefore returns the first
+  presentation and creates none.
+- **Kept from round 5.** The key stays in the `block_chosen` detail as a
+  record, but recovery no longer reads it.
+
+#### Ruling 3: one transaction (F13)
+
+- **The pick.** With an idempotency key, `learner_pick` runs its write
+  section in one `repository.atomic()` (`_keyed_pick_scope`):
+  - the block (new-block branch), the serve with its presentation and AD's
+    serve record, and the keyed receipt;
+  - the caller's `within`, which the sidecar uses for the proposal's
+    delivery.
+  Unkeyed picks keep their own transactions as before. `within` without a
+  key raises `ValueError`.
+- **The delivery.** `plan_learner_pick` passes the proposal's delivery
+  (`_proposal_delivery`, with the serving block's router decision) as
+  `within` when the pick is keyed. A keyed receipt therefore exists only
+  for a pick whose block, serve, presentation and delivery all committed,
+  and a failure at either boundary leaves nothing to recover.
+- **The admission's serve.** `_admit` now runs the practice screen's serve
+  (`get_practice_item`, which also records a plan-off proposal's delivery)
+  and its `served` stage in one `repository.atomic()`.
+  - This closes the round 5 residual: a lost `served` record rolls the
+    serve back, so its side effects (the diagnosis-serve count, an
+    elicitation decision, a cold administration) never repeat.
+  - The serve path writes only through the repository (no direct write
+    connection), and no test took a lock wait.
+- **Boundaries that stay separate, and why.**
+  - **The plan's pick vs the problem's `picked` record.**
+    `plan_learner_pick` first runs the queue build's prerequisites (the git
+    sweep with its own short busy timeout, the pinned diagnostic-followup
+    backfill, and a wait on the diagnosis workers). Those cannot run inside
+    a write transaction without blocking on it. Recovery is the keyed
+    receipt, which by construction names a complete pick.
+  - **The selection (usage signal) before the pick.** It is idempotent.
+  - **The final admission write.** The retry does only that write.
+  - **Background work after the response** (approach-map builds, AD
+    forecasts). It runs outside, as before.
+
+#### Ruling 2: kept jobs revalidated at delivery (F7)
+
+- **The hook.** `library_ask._Job` has a `deliver` hook, run by
+  `_job_payload` on every read: the first answer and each
+  `reader.library_job`. It runs on a copy, so the kept result is never
+  rewritten.
+- **Exercise jobs.** Both are started with
+  `library_exercises.deliver_exercise_result`: `reader.exercise_candidates`
+  and `reader.find_exercises`. At delivery it reads each candidate's region
+  again through the shared statement reader.
+  - A candidate that is withheld now, or whose predicate cannot be read, is
+    dropped. That removes its statement and its permission to render the
+    proposal's stored statement.
+  - The drop is counted (`withheld`, `dropped.withheld`), and `status`
+    becomes `none_found` when nothing is left.
+  - With the switch off since, the read refuses `library_exercises_disabled`.
+- **Help jobs.** The other kept job that can carry a problem's text is a
+  workbench help job. `workbench_help._payload` now passes the workbench
+  gate (`_refuse_withheld_exercise`) before delivering. A problem held out
+  since refuses `exercise_withheld`, and an undelivered job is cancelled.
+- **Not changed.** The library ask, notes, compare and tutor jobs return
+  passages and answers, not exercise candidates. `find_practice` is
+  computed fresh on each call, under the exam predicate.
+- **The contract test.** It now seeds a finished `exercise_candidates` job
+  and a finished `find_exercises` job (each showing the sentinel exercise)
+  before the hold-out, and enumerates `reader.library_job` from the
+  registry. After the hold-out it reads both jobs: neither the exercise's
+  key nor its text goes out.
+
+### Notes for the landing
+
+- **New block-event kind `pick_keyed`.** It is written only for keyed picks
+  (RW4b's admission). Replay and reconciliation ignore it. No migration.
+- **`learner_pick` gains `within=`.** It also now reloads an open-list
+  pick's record inside its transaction.
+- **`LibraryJobs.start` gains `deliver=`.** Other job kinds are unchanged.
+- No frontend, config, RPC or Rust change.
+
+### Gate (fix round 6; targeted, per the owner's 2026-10-17 rule)
+
+- **Pytest.** Round 5's 303 files plus the new `test_reader_rw4b_fix6.py`
+  (`fixtures-local/tmp/rw4b-fix6-pytest-files.txt`), `-n 12`: **5,257
+  passed, 2 xfailed**.
+  - Earlier subsets: the 125 daily-plan, router, library, workbench, hint,
+    reader, exam, exercise and architecture files, 1,625 passed; the four
+    admission and pick files with `--durations`, 72 passed, slowest 3.0 s
+    (no lock wait).
+- `uv run lint-imports --no-cache`: **28 kept, 0 broken**.
+  `test_architecture.py`: 18 passed.
+- **Vitest.** Round 4's 50 files (`CI=true`): **50 files, 454 passed**. No
+  frontend change this round, so no build, typecheck or cargo run was
+  needed.
+- Durability: none needed (no migration; the new transactions use the
+  existing `Repository.atomic()` nesting).
+- **References.** `db_generate_reference.py` then `db_validate_reference.py`:
+  **0 errors** (head 213, 919 leaves). Commit labels and line citations were
+  refreshed in `6245dc89f`.
+- No live or paid model call was made, and no owner vault was opened.
