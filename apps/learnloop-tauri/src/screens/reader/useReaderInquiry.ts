@@ -28,9 +28,11 @@ import type {
   ReaderGuideSectionDto,
   ReaderInquiryQuestionDto,
   ReaderRenderViewDto,
+  ReaderRetrievalIntent,
   SourceLibraryCard,
 } from "../../api/dto";
 import type { PassageAlign } from "../../components/PdfReaderPane";
+import { TUTOR_COPY } from "./TutorAnswer";
 import { errorMessage } from "../../errors";
 import {
   activitySince,
@@ -140,6 +142,12 @@ export interface ReaderInquiryInput {
   /** A walk of the return stack landed the learner on this passage (RW3a:
    *  no margin mark greets them there). */
   onRestored?: (spanId: string | null) => void;
+  /** RW1c: the bound workbench session the learner is working in, if any, so
+   *  the tutor's retrieval reads as that item's practice (never wider). */
+  workbenchSessionRef?: MutableRefObject<string | null>;
+  /** RW1c: the composer's personalized chip while the tutor looks things up
+   *  (null: retrieval off, nothing sent and the server's default holds). */
+  personalizedRef?: MutableRefObject<boolean | null>;
   /** The screen's openSource (a restore may reopen the source a detour left). */
   openSourceRef: MutableRefObject<
     ((card: SourceLibraryCard, jumpSpan?: string,
@@ -170,8 +178,11 @@ export interface ReaderInquiry {
   reconnect: ReconnectState | null;
   inquiryChecks: Record<string, InquiryCheckState>;
   passageCheckOffered: boolean;
-  submitAsk: (asked: string, parent: ReaderExchange | null, override?: { answerMode?: ReaderAnswerMode; meta?: Record<string, unknown> }) => Promise<void>;
+  submitAsk: (asked: string, parent: ReaderExchange | null, override?: { answerMode?: ReaderAnswerMode; meta?: Record<string, unknown>; retrievalIntent?: ReaderRetrievalIntent }) => Promise<void>;
   ask: () => void;
+  /** RW1c: "another way" and "that didn't help…" under an answer. */
+  askAnotherWay: (exchange: ReaderExchange) => void;
+  askDidntHelp: (exchange: ReaderExchange, text: string) => void;
   cancelAsk: () => void;
   setInquiryStatus: (root: ReaderExchange, resolution: InquiryResolution, trigger?: "chip" | "key") => Promise<void>;
   markBranchDone: (branch: ReaderExchange) => Promise<void>;
@@ -206,7 +217,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     render, offline, inquiry, muted, library, sourceTitle, selection, setSelection, setSelectionActions,
     activeSpan, railTab, setRailTab, answerMode, setBusy, onError, annotations, refreshAnnotations, setArc,
     visit, readingSpan, guideSectionBySpan, jumpToSpan, onReadingScroll, jumpGuardRef, bodyRef,
-    askComposerRef, openSourceRef, onRestored,
+    askComposerRef, openSourceRef, onRestored, workbenchSessionRef, personalizedRef,
   } = input;
   const { visitPayload, touchVisit, noteBackToReading, noteUsableResult } = visit;
   const [question, setQuestion] = useState("");
@@ -336,6 +347,8 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
           answerMd: exchange.answerMd,
           answerMode: exchange.answerMode,
           createdAt: exchange.createdAt,
+          // RW1c: the answer's modes (absent on exchanges before RW1c).
+          ...(exchange.tutor ? { tutor: exchange.tutor } : {}),
         }));
         setHistory((current) => {
           const live = new Map(current.map((exchange) => [exchange.id, exchange]));
@@ -548,7 +561,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     parent: ReaderExchange | null,
     // RW1b: a routed Ask runs in its routed answer mode, and its funnel event
     // names the intention and the entry (the intent box or its palette).
-    override?: { answerMode?: ReaderAnswerMode; meta?: Record<string, unknown> },
+    override?: { answerMode?: ReaderAnswerMode; meta?: Record<string, unknown>; retrievalIntent?: ReaderRetrievalIntent },
   ) => {
     // A follow-up keeps its saved anchor even when the current selection moves.
     // New roots use the capture selection (the same selection Notes>Capture
@@ -590,6 +603,14 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
         selectionSpanIds,
         selectionQuote,
         ...(inquiry && selectionSourceQuote ? { selectionSourceQuote } : {}),
+        // RW1c: inside a bound workbench session the retrieval reads as its item's practice.
+        ...(workbenchSessionRef?.current ? { workbenchSessionId: workbenchSessionRef.current } : {}),
+        // RW1c (Codex review F8): the visible personalized chip, for every
+        // question and follow-up (another way and that didn't help included).
+        ...(personalizedRef && personalizedRef.current !== null ? { personalized: personalizedRef.current } : {}),
+        // RW1c: "another way" / "that didn't help" (only sent from their buttons).
+        ...(override?.retrievalIntent && override.retrievalIntent !== "explain"
+          ? { retrievalIntent: override.retrievalIntent } : {}),
       });
       if (epoch !== askEpoch.current) return;
       const waited = Date.now() - job.startedAt;
@@ -618,6 +639,15 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
         answerMd: answer.answerMd,
         answerMode: answer.answerMode,
         createdAt: new Date().toISOString(),
+        // RW1c: the answer's modes and, while offers are on, its offers (this visit only).
+        ...(answer.tutor ? { tutor: answer.tutor } : {}),
+        ...(answer.tutorOffers ? {
+          offers: {
+            practiceRequest: answer.practiceRequest ?? null,
+            toolRequests: answer.toolRequests ?? [],
+            buttons: answer.tutorOffers.buttons ?? [],
+          },
+        } : {}),
       };
       if (inquiry) {
         setParentExchange(exchange);
@@ -699,6 +729,22 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
   const ask = useCallback(() => {
     void submitAsk(question.trim(), inquiry ? parentExchange : null);
   }, [submitAsk, question, inquiry, parentExchange]);
+
+  /** RW1c: "another way" under an answer -- a follow-up that retrieves with
+   *  intent alternative, every passage the inquiry showed excluded (server-side). */
+  const askAnotherWay = useCallback((exchange: ReaderExchange) => {
+    void submitAsk(TUTOR_COPY.anotherWayQuestion, exchange, {
+      retrievalIntent: "alternative", meta: { action_kind: "tutor_another_way" },
+    });
+  }, [submitAsk]);
+
+  /** RW1c: "that didn't help…" -- its text (optional) starts a branch that
+   *  retrieves with intent remediate for the inquiry's named gaps. */
+  const askDidntHelp = useCallback((exchange: ReaderExchange, text: string) => {
+    void submitAsk(text || TUTOR_COPY.didntHelpDefault, exchange, {
+      retrievalIntent: "remediate", meta: { action_kind: "tutor_didnt_help" },
+    });
+  }, [submitAsk]);
 
   /** Cancel a pending Ask: its late answer is ignored (it stays in the history
    *  the sidecar keeps), and the learner's words stay in the composer. */
@@ -1114,7 +1160,8 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     question, setQuestion, askComposerVersion, parentExchange, setParentExchange, history, visibleAskHistory,
     normalizedAskFind, collapsedAskIds, setCollapsedAskIds, askFindOpen, setAskFindOpen, askFindQuery,
     setAskFindQuery, askFindInputRef, askPhase, askTabMarked, returnStack, returnStackRef, reconnect,
-    inquiryChecks, passageCheckOffered, submitAsk, ask, cancelAsk, setInquiryStatus, markBranchDone,
+    inquiryChecks, passageCheckOffered, submitAsk, ask, askAnotherWay, askDidntHelp, cancelAsk, setInquiryStatus,
+    markBranchDone,
     commitInquiry, committedFor, openInquiry, startQuickCheck, cancelQuickCheck, dismissInquiryCheck, answerReconnect,
     inquiryCheckAction, escalateInquiryCheck, passageLabel, peekPassage, restoreEntry, onBodyScroll,
     noteSourceOpened, rememberLeftSource, resetInquiryState,

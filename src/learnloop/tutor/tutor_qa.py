@@ -43,6 +43,7 @@ Design decisions (agreed spec):
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 import logging
@@ -56,13 +57,19 @@ from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.content.sources.exam_material import held_out_among, held_out_material, held_out_refusal
 from learnloop.ai.transport import OperationClient, execute_structured_operation
 from learnloop.tutor.ai_contracts import (
+    READER_TUTOR_PROMPT_VERSION,
+    READER_TUTOR_TOOLS_PROMPT_VERSION,
     TUTOR_QA_PROMPT_VERSION,
     TUTOR_QA_TOOLS_PROMPT_VERSION,
+    ReaderTutorAnswer,
+    ReaderTutorAnswerWithTools,
+    ReaderTutorQAContext,
     TutorAnswer,
     TutorAnswerWithTools,
     TutorQAContext,
     tutor_qa_prompt,
 )
+from learnloop.tutor import reader_modes
 from learnloop.config.schema import TutorQAConfig
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
@@ -120,16 +127,29 @@ def request_tutor_answer(
     *,
     tools: bool = False,
 ) -> TutorAnswer:
-    """Run the feature-owned tutor-Q&A operation (``tools``: S4's request field)."""
+    """Run the feature-owned tutor-Q&A operation (``tools``: S4's request field;
+    a :class:`ReaderTutorQAContext`: RW1c's three answer modes)."""
 
     return execute_structured_operation(
         client,
         purpose="tutor_qa",
         prompt=tutor_qa_prompt(context, tools=tools),
-        result_model=TutorAnswerWithTools if tools else TutorAnswer,
+        result_model=_answer_model(context, tools=tools),
         legacy_capability="tutor_qa",
         legacy_context=context,
     )
+
+
+def _answer_model(context: TutorQAContext, *, tools: bool) -> type[TutorAnswer]:
+    if isinstance(context, ReaderTutorQAContext):
+        return ReaderTutorAnswerWithTools if tools else ReaderTutorAnswer
+    return TutorAnswerWithTools if tools else TutorAnswer
+
+
+def _prompt_version(context: TutorQAContext, *, tools: bool) -> str:
+    if isinstance(context, ReaderTutorQAContext):
+        return READER_TUTOR_TOOLS_PROMPT_VERSION if tools else READER_TUTOR_PROMPT_VERSION
+    return TUTOR_QA_TOOLS_PROMPT_VERSION if tools else TUTOR_QA_PROMPT_VERSION
 
 
 def reader_span_key(extraction_id: str, span_id: str) -> str:
@@ -355,6 +375,9 @@ def ask_question(
     tool_request_handler: Callable[..., list[dict[str, Any]]] | None = None,
     learner_draft_md: str | None = None,
     linked_reference_filter: LinkedReferenceFilter | None = None,
+    reader_tutor: reader_modes.ReaderTutorRequest | None = None,
+    reader_caller: Mapping[str, Any] | None = None,
+    reader_binding: reader_modes.BoundAsk | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """``question_context`` carries the §13.4 generating-process fields
@@ -377,7 +400,26 @@ def ask_question(
     turns on the answer's ``tool_requests`` field (prompt and contract) and
     validates the requests after the answer is stored; None keeps S0's tutor
     byte for byte. ``learner_draft_md`` passes the learner's current draft as
-    context ("Explain this with my work")."""
+    context ("Explain this with my work").
+
+    Reader workbench RW1c, injected by the adapter: ``reader_tutor`` (a
+    :class:`reader_modes.ReaderTutorRequest`) makes a Reader question a tutor
+    that looks things up: its retrieval runs before the question row lands
+    (as RW4a's pinned provider does), the retrieved passages join the
+    selection and its neighbours after them, and the answer comes in RW1c's
+    three modes with abstention (``reader_modes.finalize``). None keeps the
+    Reader tutor of before, byte for byte. ``reader_caller`` (RW1c, Codex
+    re-review F2) is the server-derived restriction a Reader question was
+    asked under (a cold administration, a bound item), stored on the
+    question's ``source_context`` as it lands so anything later rebuilt from
+    it (``instructional.policy.caller_for_question_event``) is never wider;
+    None (an unrestricted question) stores nothing. ``reader_binding`` (RW1c
+    fix round 5, R1: a :class:`reader_modes.BoundAsk`, independent of
+    ``reader_tutor``) binds a Reader question to a workbench item: the row is
+    stored on the item, its hint flag is ``BoundAsk.hint_equivalent`` and its
+    reveals are debited, and the item's guard holds for the complete
+    delivered context and the thread, with retrieval on or off; None keeps
+    the unbound Reader of before."""
 
     if context not in QUESTION_CONTEXTS:
         raise TutorQAError(f"Unknown question context {context!r}")
@@ -500,9 +542,59 @@ def ask_question(
     }
     source_context: dict[str, Any] | None = None
     provided_spans: list[dict[str, Any]] | None = None
+    # RW1c: the Reader tutor's own retrieval (None: not a lookup).
+    lookup = context == "reader" and reader_tutor is not None and source_span_provider is None
+    # RW1c (Codex review F1): a Reader question asked inside a workbench
+    # session bound to an item is help on that item. The server-derived
+    # binding (never the client's word) is persisted on the question row, so
+    # the submit's existing fold (``hint_equivalents_for_submission``, the
+    # item's window) and the reveal ledger see it, as they see a
+    # practice-context question. Fix round 5 (R1): the binding is its own
+    # value, so it holds with retrieval off too.
+    binding = reader_binding if context == "reader" and source_span_provider is None else None
+    bound_item: PracticeItem | None = binding.item if binding is not None else None
+    if binding is not None:
+        question_row["practice_item_id"] = bound_item.id
+        question_row["session_id"] = binding.practice_session_id
+        question_row["assessment_contract_version_id"] = _question_contract(vault, repository, bound_item, None)
+    lookup_spans: list[dict[str, Any]] | None = None
+    lookup_manifest: dict[str, Any] = {}
     # What the source delivery recorded (a trim, a drop, a reference followed
     # or not), persisted on the question's source_context.delivery.
     delivery: dict[str, Any] = {}
+    bound_plan: reader_modes.BoundDelivery | None = None
+    if binding is not None:
+        # Fix round 7 (R1): every model-written text this question delivers
+        # to any model call -- the earlier answers, and with a lookup the
+        # gap statements of its query, the misconceptions and corrections of
+        # its verification and the bridge's open questions and problem line
+        # -- is withheld from ONE plan, which reads each call's union as one.
+        # The thread below, the lookup's query and verification inputs, the
+        # bridge's work and the manifest are all delivered from it; the
+        # stored exchanges are untouched and the learner's own words are
+        # never withheld.
+        bound_plan = reader_modes.plan_bound_delivery(
+            binding, thread=thread,
+            gaps=reader_tutor.gaps if lookup and reader_tutor is not None else (),
+            misconceptions=reader_tutor.misconceptions if lookup and reader_tutor is not None else None,
+            learner_work=reader_tutor.learner_work if lookup and reader_tutor is not None else (),
+            query_learner=reader_tutor.query_learner if lookup and reader_tutor is not None else None,
+            query_limit=reader_tutor.query_limit if lookup and reader_tutor is not None else None,
+            practice_question_limit=reader_tutor.practice_question_limit
+            if lookup and reader_tutor is not None else None,
+        )
+        thread = bound_plan.thread
+        if lookup and reader_tutor is not None:
+            reader_tutor = dataclasses.replace(reader_tutor, learner_work=bound_plan.learner_work,
+                                               gaps=bound_plan.gaps, misconceptions=bound_plan.misconceptions)
+        if bound_plan.withheld.get("answers"):
+            delivery["earlier_answers_left_out"] = bound_plan.withheld["answers"]
+        if bound_plan.withheld:
+            delivery["bound_withheld"] = dict(sorted(bound_plan.withheld.items()))
+        if bound_plan.stem_leaks_alone:
+            # Recorded, Low (fix round 10, R2): the item's own question states
+            # its answer; nothing is withheld on its account.
+            delivery["practice_question_states_key"] = True
 
     def build_context() -> TutorQAContext:
         return _build_context(
@@ -526,6 +618,8 @@ def ask_question(
             reader_withheld=reader_held_out,
             delivery_receipt=delivery,
             linked_reference_filter=linked_reference_filter,
+            reader_lookup=(lookup_spans, lookup_manifest, reader_tutor) if lookup else None,
+            reader_binding=binding,
         )
 
     if context == "reader":
@@ -542,6 +636,12 @@ def ask_question(
             )
             if provided_spans is None:
                 provided_spans = []
+        elif lookup and reader_tutor is not None:
+            # RW1c: the tutor forms its own query and looks it up (the
+            # adapter's injected retrieval under the server-derived policy).
+            lookup_spans, lookup_manifest = reader_modes.run_retrieval(
+                reader_tutor, inputs=bound_plan.lookup_inputs if bound_plan is not None else None)
+            reader_retrieval = dict(lookup_manifest)
         ai_context = build_context()
         if extraction_id and span_id:
             from learnloop.reader.reader_progression import learning_objects_for_span
@@ -570,6 +670,8 @@ def ask_question(
                     source_context["suggested_learning_objects"] = suggestions
             if delivery:
                 source_context["delivery"] = dict(delivery)
+            if reader_caller:
+                source_context["reader_caller"] = dict(reader_caller)
         event_id = repository.insert_question_event(
             {**question_row, "source_context": source_context}, clock=clock,
         )
@@ -611,9 +713,9 @@ def ask_question(
             "provider_type": getattr(client, "provider_type", None),
             "model": getattr(client, "model", None),
             "prompt_template": "tutor_qa",
-            "prompt_version": TUTOR_QA_TOOLS_PROMPT_VERSION if tools else TUTOR_QA_PROMPT_VERSION,
+            "prompt_version": _prompt_version(ai_context, tools=tools),
             "input_context_hash": _tutor_context_hash(ai_context),
-            "output_schema": "TutorAnswerWithTools" if tools else "TutorAnswer",
+            "output_schema": _answer_model(ai_context, tools=tools).__name__,
             "started_at": utc_now_iso(clock),
             "status": "running",
         }
@@ -655,6 +757,15 @@ def ask_question(
             question_type=answer.question_type, item=item, note=note,
         ))
     citations = _validated_citations(answer, ai_context.source_spans)
+    reader_view: dict[str, Any] | None = None
+    if lookup and reader_tutor is not None:
+        # RW1c: the three modes, the excerpt quote-verified against its
+        # passage, and abstention (no citation shown as the books').
+        reader_view, citations = reader_modes.finalize(
+            answer, ai_context.source_spans, citations, retrieval=lookup_manifest, request=reader_tutor,
+            withheld=reader_held_out, item=bound_item,
+        )
+        source_context = {**(source_context or {}), "reader_tutor": reader_view}
     if citations:
         source_context = dict(source_context or {})
         # Persist the model-selected citation only after it has passed the
@@ -675,9 +786,26 @@ def ask_question(
     # the practice context let a fully revealed answer be re-recorded as clean
     # unassisted evidence. Reader/library asks stay exempt: no item is bound,
     # so there is nothing to contaminate.
-    hint_equivalent = item is not None and answer.question_type in HINT_EQUIVALENT_TYPES
+    if binding is not None:
+        # RW1c (Codex review F1): the bound workbench item, for the hint and
+        # reveal accounting below; ``practice_item_id`` follows it so the
+        # episode and the dialogue's causal join name the same item.
+        item, practice_item_id = bound_item, bound_item.id
+        # Fix round 5 (R1): the binding's rule, the one value stored here and
+        # returned (``result["hint_equivalent"]``, which the Reader's response
+        # reads): a cold Ask is a hint whatever its type, with or without a
+        # cold attempt row; outside a cold administration, the ordinary
+        # classification. The cold path's practice row only deduplicates
+        # (``reader_dialogue._record_cold_hint_equivalent``), so it counts once.
+        hint_equivalent = binding.hint_equivalent(answer.question_type in HINT_EQUIVALENT_TYPES)
+    else:
+        hint_equivalent = item is not None and answer.question_type in HINT_EQUIVALENT_TYPES
     leak_overlap = (
-        answer_leak_overlap(answer.answer_md, item.expected_answer)
+        # A bound Reader answer shows its bridge too, scored with the
+        # explanation; the excerpt is debited once, with the passages it
+        # opens, as a source review below (Codex re-review F11).
+        answer_leak_overlap(reader_modes.displayed_text(answer.answer_md, reader_view, excerpt=False)
+                            if bound_item is not None else answer.answer_md, item.expected_answer)
         if item is not None
         else 0.0
     )
@@ -720,6 +848,31 @@ def ask_question(
             attempt_id=attempt_id,
             clock=clock,
         )
+        if bound_item is not None and (citations or (reader_view or {}).get("excerpt")):
+            # RW1c (Codex review F1): the cited passages and the excerpt are
+            # shown under the answer; what they expose of the key is a source
+            # review, as T6's cited retrieved spans are (the guard keeps a
+            # passage that reproduces the key out of the context entirely).
+            # The excerpt is counted here only: the tutor_answer overlap above
+            # leaves it out (Codex re-review F11).
+            shown_spans = [*citations, *([reader_view["excerpt"]] if (reader_view or {}).get("excerpt") else [])]
+            span_overlap = max(
+                _cited_span_overlap(shown_spans, ai_context.source_spans, item.expected_answer),
+                span_answer_overlap(str(((reader_view or {}).get("excerpt") or {}).get("quote") or ""),
+                                    item.expected_answer),
+            )
+            record_reveal(
+                repository,
+                practice_item_id=item.id,
+                learning_object_id=item.learning_object_id,
+                remediation_episode_id=episode,
+                source_kind="source_review",
+                amount=span_overlap,
+                basis="tutor_qa:reader:workbench_cited_source_span",
+                question_event_id=event_id,
+                attempt_id=attempt_id,
+                clock=clock,
+            )
         if provided_spans is not None and citations:
             # Slice 2 T6: a cited retrieved span opens in the Ask overlay, so
             # what it exposes of the expected answer is a reveal of its own
@@ -784,11 +937,16 @@ def ask_question(
             result["tool_requests"] = tool_request_handler(
                 vault, repository, event_id=event_id,
                 requests=list(getattr(answer, "tool_requests", None) or []),
-                model=getattr(client, "model", None), prompt_version=TUTOR_QA_TOOLS_PROMPT_VERSION, clock=clock,
+                model=getattr(client, "model", None), prompt_version=_prompt_version(ai_context, tools=True), clock=clock,
             )
         except Exception as exc:  # noqa: BLE001 - offers are optional
             logger.warning("tutor tool requests failed: %s", type(exc).__name__)
             result["tool_requests"] = []
+    if reader_view is not None:
+        result["reader_tutor"] = reader_view
+    if bound_plan is not None:
+        # The thread as delivered, for the exchange's manifest (fix round 7, R1).
+        result["bound_thread"] = [dict(turn) for turn in bound_plan.thread]
     suggested = (source_context or {}).get("suggested_learning_objects")
     if suggested:
         # Slice 2 T6: labelled suggestions for a reader span without provenance
@@ -910,6 +1068,7 @@ def hint_equivalents_for_submission(
     session_id: str | None,
     *,
     until: str | None = None,
+    item_window_only: bool = False,
 ) -> int:
     """Hint-equivalent questions since the item was last attempted.
 
@@ -917,12 +1076,15 @@ def hint_equivalents_for_submission(
     (questions asked before an already-graded attempt were already dampened
     into that attempt's evidence). Practice- and feedback-context questions
     both count: the window explicitly spans the feedback screen shown between
-    attempt N and attempt N+1."""
+    attempt N and attempt N+1. A Reader question a workbench session binds
+    to the item counts whatever its practice session (RW1c fix round 4, F1:
+    ``Repository.count_hint_equivalent_question_events``); ``item_window_only``
+    counts only those."""
 
     attempts = repository.list_recent_attempts_by_practice_item(practice_item_id, limit=1)
     since = attempts[0]["created_at"] if attempts else None
     return repository.count_hint_equivalent_question_events(
-        practice_item_id, session_id, since=since, until=until
+        practice_item_id, session_id, since=since, until=until, item_window_only=item_window_only,
     )
 
 
@@ -931,7 +1093,8 @@ def hint_equivalents_for_attempt(repository: Repository, attempt: dict[str, Any]
 
     Same window as ``hint_equivalents_for_submission``, evaluated post hoc:
     questions on (item, session) after the previous attempt on the item and at
-    or before this attempt."""
+    or before this attempt (a workbench-bound Reader question on the item in
+    any session, RW1c fix round 4, F1)."""
 
     prior = [
         row
@@ -1301,10 +1464,20 @@ def _build_context(
     reader_withheld: Any = None,
     delivery_receipt: dict[str, Any] | None = None,
     linked_reference_filter: LinkedReferenceFilter | None = None,
+    reader_lookup: tuple[Any, Mapping[str, Any], Any] | None = None,
+    reader_binding: reader_modes.BoundAsk | None = None,
 ) -> TutorQAContext:
     """The tutor's context. ``delivery_receipt`` (when given) receives the
     source delivery's receipt when it records something: a trim or drop at
-    ``tutor_qa.context_token_budget``, or a reference followed or not."""
+    ``tutor_qa.context_token_budget``, or a reference followed or not.
+
+    ``reader_lookup`` (RW1c: retrieved spans or None, the retrieval's
+    manifest, the request) adds the retrieved passages after the selection
+    and its neighbours and returns a :class:`ReaderTutorQAContext`.
+    ``reader_binding`` (RW1c fix round 5, R1 and R2) guards the Reader
+    context with the bound item's guard, retrieval on or off: the selection,
+    its neighbours and the blocks they cite, and every earlier answer in the
+    thread (``reader_modes.guard_thread``)."""
 
     settings = vault.config.tutor_qa
     if context == "reader" and provided_source_spans is not None:
@@ -1345,6 +1518,22 @@ def _build_context(
         )
         if delivery_receipt is not None and notable(receipt):
             delivery_receipt.update(receipt)
+        guarded: dict[str, int] = {}
+        if reader_binding is not None and reader_binding.context_guard is not None:
+            # Fix round 5 (R1): bound, the item's guard holds for the
+            # complete delivered context whatever the retrieval switch. The
+            # thread arrives already planned (``ask_question``:
+            # ``reader_modes.plan_bound_delivery``, fix round 7).
+            reader_spans, guarded = reader_binding.context_guard(reader_spans)
+        if reader_lookup is not None:
+            return _reader_lookup_context(
+                repository, reader_spans, reader_lookup, question_md=question_md, thread=thread,
+                answer_mode=answer_mode, withheld=reader_withheld, delivery_receipt=delivery_receipt,
+                budget_tokens=settings.context_token_budget, expanded=settings.expanded_delivery,
+                guard=reader_binding.context_guard if reader_binding is not None else None, guarded=guarded,
+            )
+        if delivery_receipt is not None and guarded:
+            delivery_receipt["item_bound_withheld"] = dict(sorted(guarded.items()))
         return TutorQAContext(
             context="reader",
             question_md=question_md,
@@ -1420,6 +1609,73 @@ def _build_context(
         learning_object_summaries=lo_summaries,
         diagnostic_decision=_diagnostic_decision_for(vault, repository, item, context),
         source_spans=source_spans,
+    )
+
+
+def _reader_lookup_context(
+    repository: Repository,
+    reader_spans: list[dict[str, Any]],
+    reader_lookup: tuple[Any, Mapping[str, Any], Any],
+    *,
+    question_md: str,
+    thread: list[dict[str, Any]],
+    answer_mode: str | None,
+    withheld: Any,
+    delivery_receipt: dict[str, Any] | None,
+    budget_tokens: int,
+    expanded: bool,
+    guard: Any = None,
+    guarded: Mapping[str, int] | None = None,
+) -> ReaderTutorQAContext:
+    """RW1c's Reader context: the selection and its neighbours first, then the
+    retrieved passages (each its complete canonical block unless
+    ``tutor_qa.expanded_delivery`` is off; a held-out one never), all within
+    ``tutor_qa.context_token_budget``; and what the three modes need
+    (``books_cover``, the intent, how the passages differ, the learner's work)."""
+
+    retrieved, manifest, request = reader_lookup
+    spans = [dict(span) for span in retrieved or ()]
+    if spans and expanded:
+        spans, _completed = hydrate(BlockSource(repository.sqlite_path), spans)
+    guarded = dict(guarded or {})
+    if guard is not None:
+        # Item-bound (Codex review F3): the item's scope, role and
+        # answer-overlap guards hold for the COMPLETE delivered context -- the
+        # selection, its neighbours and the blocks they cite (guarded by the
+        # caller, ``_build_context``, retrieval on or off: fix round 5, R1)
+        # and the retrieved passages (after hydration, which may complete a
+        # block) -- not only for what retrieval added.
+        spans, far = guard(spans)
+        for key, value in far.items():
+            guarded[key] = guarded.get(key, 0) + value
+    kept, receipt = reader_modes.deliver(reader_spans, spans, budget_tokens=budget_tokens, withheld=withheld)
+    if guard is not None:
+        # Fix round 8 (R1's audit): the budget may trim a passage after the
+        # guard read it whole, and a trimmed text can state what the whole
+        # did not ("2/130" cut to "2/13"); the guard reads what is delivered.
+        kept, trimmed = guard(kept)
+        for key, value in trimmed.items():
+            guarded[key] = guarded.get(key, 0) + value
+    if delivery_receipt is not None and guarded:
+        delivery_receipt["item_bound_withheld"] = dict(sorted(guarded.items()))
+    if delivery_receipt is not None and spans:
+        delivery_receipt["retrieved"] = receipt["retrieved"]
+        if receipt.get("trimmed") or receipt.get("dropped"):
+            delivery_receipt["lookup_budget"] = {key: receipt[key] for key in
+                                                 ("budget_tokens", "used_tokens", "trimmed", "dropped")}
+    return ReaderTutorQAContext(
+        context="reader",
+        question_md=question_md,
+        candidate_facets=[],
+        thread=thread,
+        source_spans=kept,
+        answer_mode=answer_mode or READER_ANSWER_MODE_DEFAULT,
+        reader_tutor={
+            "books_cover": manifest.get("books_cover"),
+            "intent": getattr(request, "intent", "explain"),
+            "label": manifest.get("label"),
+            "learner_work": list(getattr(request, "learner_work", None) or []),
+        },
     )
 
 

@@ -52,6 +52,8 @@ CLIENT_ACTION_EVENTS: tuple[str, ...] = (
     "proactive_shown",    # another element LearnLoop started (a waiting quick check, ...)
     "back_to_reading",    # the first touch of the source after a usable result
     "cue_shown",          # RW3a: a margin mark in the learner's view (once per visit; spec §11)
+    "tutor_offer_shown",  # RW1c: a button under a tutor answer appeared (its kind; spec §15)
+    "tutor_offer_pressed",  # RW1c: the learner pressed one (its kind, the tool call it runs, what it found)
 )
 # ... and the ones the sidecar writes itself, for acts with a server effect.
 SERVER_ACTION_EVENTS: tuple[str, ...] = (
@@ -105,6 +107,9 @@ ACTIVITY_FIELDS: frozenset[str] = frozenset({
     # RW1b: the intention an action serves, how it was reached (the palette
     # or the intent box) and an active-reading question's style.
     "intention", "entry", "style",
+    # RW1c: an offer's kind, the tutor's request it runs (a source_tool_calls
+    # id) and what the press found (shown, empty, failed, still looking).
+    "offer_kind", "tool_call_id", "offer_result",
 })
 WAIT_ACTIVITY_FIELDS: tuple[str, ...] = ("scrolled", "selected", "typed")
 MAX_FIELD_CHARS = 200

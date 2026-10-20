@@ -9,8 +9,9 @@ import { MarkdownMath } from "../../render/MarkdownMath";
 import type { InquiryResolution } from "../../api/dto";
 import { ModelActionState, type ModelActionPhase } from "./ModelActionState";
 import { ReaderAskBranches, type InquiryCommitment, type ReaderExchange } from "./ReaderAskBranches";
+import { TutorAnswer, type TutorRailProps } from "./TutorAnswer";
 import { ANSWER_MODE_OPTIONS, answerModeLabel, clip, type ReaderSelection } from "./readerShared";
-import { LearnerVoice, MeaningLabel, ModelVoice } from "./voices";
+import { LearnerVoice, MeaningLabel } from "./voices";
 
 export { ANSWER_MODE_OPTIONS, answerModeLabel };
 
@@ -59,7 +60,20 @@ export interface AskRailProps {
    *  LearnLoop's models, or the whole reading is held back (exam protection
    *  decides): the reason, and no Ask is offered. */
   protectionMessage?: string | null;
+  /** RW1c: the tutor looks things up (its pending line says so) and its
+   *  controls under answers; absent while reader_tutor is off. */
+  lookingUp?: boolean;
+  tutor?: TutorRailProps;
+  /** RW1c (Codex review F8): the visible personalized chip while the tutor
+   *  looks things up; absent: no chip (retrieval off). */
+  personalized?: { on: boolean; onToggle: (on: boolean) => void } | null;
 }
+
+export const PERSONALIZED_COPY = {
+  on: "personalized ●",
+  off: "personalized ○",
+  why: "On: the tutor may connect its answer to your open questions and recent work on this passage. Off: nothing about you is sent.",
+} as const;
 
 export function AskRail({
   visible,
@@ -100,6 +114,9 @@ export function AskRail({
   committed,
   renderInquiryTop,
   protectionMessage = null,
+  lookingUp = false,
+  tutor,
+  personalized = null,
 }: AskRailProps) {
   const peek = inquiry && peekPassage ? peekPassage : jumpToSpan;
   return (
@@ -156,6 +173,18 @@ export function AskRail({
                   onChange={changeAnswerMode}
                   width={160}
                 />
+                {personalized ? (
+                  <button
+                    type="button"
+                    data-ask-personalized=""
+                    aria-pressed={personalized.on}
+                    title={PERSONALIZED_COPY.why}
+                    onClick={() => personalized.onToggle(!personalized.on)}
+                    style={{ border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 11, cursor: "pointer", padding: 0 }}
+                  >
+                    {personalized.on ? PERSONALIZED_COPY.on : PERSONALIZED_COPY.off}
+                  </button>
+                ) : null}
               </div>
               <textarea
                 key={`${activeSpan}:${askComposerVersion}`}
@@ -177,7 +206,7 @@ export function AskRail({
               {inquiry ? (
                 <ModelActionState
                   phase={askPhase}
-                  verb="writing an answer"
+                  verb={lookingUp ? "looking in your books, then writing an answer" : "writing an answer"}
                   failure="Couldn't get an answer."
                   kept="Your question is kept."
                   capRoute="tutor"
@@ -265,6 +294,7 @@ export function AskRail({
               onCommit={onCommit}
               committed={committed}
               renderInquiryTop={renderInquiryTop}
+              {...(tutor ? { tutor } : {})}
             />
           ) : visibleAskHistory.map((exchange) => {
             const expanded = normalizedAskFind.length > 0 || !collapsedAskIds.has(exchange.id);
@@ -299,9 +329,7 @@ export function AskRail({
                       <button type="button" onClick={() => jumpToSpan(exchange.spanId)} style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}>show passage</button>
                       {exchange.createdAt ? <Faint style={{ fontSize: 9, marginLeft: "auto" }}>{new Date(exchange.createdAt).toLocaleString()}</Faint> : null}
                     </div>
-                    <ModelVoice first>
-                      <MarkdownMath value={exchange.answerMd} />
-                    </ModelVoice>
+                    <TutorAnswer exchange={exchange} tutor={tutor ? { ...tutor, anotherWay: false } : undefined} />
                   </>
                 ) : null}
               </Card>

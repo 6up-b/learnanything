@@ -27,6 +27,7 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.embedding_vectors import get_vector, put_vector
 from learnloop.ops.embedding_backfill import PRICES_PER_MILLION, estimated_tokens
+from learnloop.text_canon import collapse_whitespace
 from learnloop.vault.models import LoadedVault
 
 
@@ -37,7 +38,10 @@ BATCH_SIZE = 32
 
 
 def normalize_query(text: str) -> str:
-    return " ".join((text or "").split())
+    # The one whitespace normalisation, shared with the bound Reader's guard
+    # and delivery plan (``learnloop.text_canon``, RW1c fix round 11), so the
+    # search, the rewrite and the guard cannot drift apart.
+    return collapse_whitespace(text)
 
 
 def query_id(text: str) -> str:

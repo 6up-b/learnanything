@@ -2094,6 +2094,8 @@ export interface TutorCitationDto {
   extractionId: string;
   spanId: string;
   label: string | null;
+  /** RW1c: a retrieved passage's source, so the Reader can open it there. */
+  sourceId?: string | null;
 }
 
 export interface TutorAnswerDto {
@@ -2283,6 +2285,7 @@ export interface SourceToolRunDto {
     relations?: Array<Record<string, unknown>>;
     missingPerspectives?: string[];
     unverifiedSources?: Array<Record<string, unknown>>;
+    alsoDiscussedIn?: Array<Record<string, unknown>>;
     labels?: Record<string, string>;
     withheldAnswerOverlap?: number;
   };
@@ -6546,6 +6549,19 @@ export interface ReaderPromptContractDto {
   activeReading?: { foldBlocks: number };
   /** RW4a: ask your library (present only while library_ask, the sources service and reader_inquiry are on). */
   libraryAsk?: { expandGraph: boolean; personalizedDefault: boolean; compare: boolean };
+  /** RW1c: the tutor that looks things up (present only while reader_tutor.retrieval_enabled or offers_enabled is on). */
+  readerTutor?: ReaderTutorContractDto;
+}
+/** RW1c (spec §4.6): which parts of the tutor that looks things up are on. */
+export interface ReaderTutorContractDto {
+  retrieval: boolean;
+  offers: boolean;
+  /** "another way" and "that didn't help": retrieval on and RW1a's branches on. */
+  anotherWay: boolean;
+  personalizedDefault: boolean;
+  /** "Try the next step first": offers on and RW1b's active reading on. */
+  tryNextStep: boolean;
+  manifestIncludes: string[];
 }
 export type ReaderAnswerMode = "answer_directly" | "help_me_reason" | "ask_me_first";
 
@@ -6657,6 +6673,56 @@ export interface ReaderAskInput {
    *  edited the capture; selectionQuote is then the learner's wording. */
   selectionSourceQuote?: string | null;
   coldActive?: boolean;
+  /** RW1c: "another way" (alternative) and "that didn't help" (remediate) name the answer they are under. */
+  retrievalIntent?: ReaderRetrievalIntent;
+  /** RW1c: the personalized toggle (omitted: the vault's default). */
+  personalized?: boolean;
+  /** RW1c: the bound workbench session the Ask comes from (its item's practice policy). */
+  workbenchSessionId?: string | null;
+}
+export type ReaderRetrievalIntent = "explain" | "alternative" | "remediate";
+/** RW1c's "From your books": a verbatim excerpt, quote-verified against its passage. */
+export interface ReaderExcerptDto {
+  extractionId: string;
+  spanId: string;
+  quote: string;
+  label: string | null;
+  relation: string | null;
+  sourceId?: string | null;
+}
+/** RW1c: a Reader tutor answer's modes (absent while reader_tutor.retrieval_enabled is off). */
+export interface ReaderTutorViewDto {
+  modes: Array<"excerpt" | "grounded" | "bridge">;
+  excerpt: ReaderExcerptDto | null;
+  bridgeMd: string | null;
+  abstained: boolean;
+  abstentionLine: string | null;
+  droppedExcerpt: string | null;
+  droppedBridge: string | null;
+  intent: ReaderRetrievalIntent;
+  personalized: boolean;
+  withheldCitations?: number;
+  /** "Another way": citations of passages the inquiry already showed, not shown again. */
+  repeatedCitations?: number;
+  retrieval: {
+    status?: string | null;
+    policy?: string | null;
+    intent?: string | null;
+    /** How "another way"'s passages differ ("from a different book", "a worked example instead"). */
+    label?: string | null;
+    passages?: number | null;
+    spanKeys?: string[] | null;
+    booksCover?: boolean | null;
+    reason?: string | null;
+  };
+}
+/** RW1c: a button the Reader decides itself ("Try the next step first" on a cited derivation or worked example). */
+export interface ReaderTutorButtonDto {
+  kind: "try_next_step";
+  extractionId: string;
+  spanId: string;
+  label: string;
+  role: string;
 }
 export interface ReaderAnswerDto {
   eventId: string;
@@ -6679,6 +6745,14 @@ export interface ReaderAnswerDto {
   /** Learner-text gaps: the reading queued for this question (absent when
    *  nothing was queued). */
   learnerGap?: LearnerGapQueuedDto;
+  /** Canonical sources S0: the deterministic "Practice this" request (absent when off). */
+  practiceRequest?: PracticeRequestDto;
+  /** Canonical sources S4: the tutor's own typed requests (absent when it wrote none). */
+  toolRequests?: SourceToolRequestDto[];
+  /** RW1c: the answer's modes (absent while reader_tutor.retrieval_enabled is off). */
+  tutor?: ReaderTutorViewDto;
+  /** RW1c: the Reader's own buttons (absent while reader_tutor.offers_enabled is off). */
+  tutorOffers?: { buttons: ReaderTutorButtonDto[] };
 }
 
 /** A completed Reader Ask restored from the durable interaction-event log. */
@@ -6702,6 +6776,8 @@ export interface ReaderAskHistoryExchangeDto {
   answerMode: ReaderAnswerMode;
   citations: TutorCitationDto[];
   createdAt: string | null;
+  /** RW1c: the answer's modes (absent on exchanges before RW1c). */
+  tutor?: ReaderTutorViewDto;
 }
 export type InquiryResolution = "open" | "resolved" | "dismissed";
 
@@ -6802,7 +6878,9 @@ export interface ReaderActivityEvent {
     | "reconnect_shown"
     | "proactive_shown"
     | "back_to_reading"
-    | "cue_shown";
+    | "cue_shown"
+    | "tutor_offer_shown"
+    | "tutor_offer_pressed";
   payload: Record<string, string | number | boolean | null | Record<string, boolean>>;
 }
 export interface ReaderAskHistoryDto {

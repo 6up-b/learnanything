@@ -56,10 +56,12 @@ def _question_hints(vault, repository, session: dict[str, Any]) -> int:
     if not practice_session:
         recent = repository.most_recent_open_session()
         practice_session = recent["id"] if recent else None
-    if not practice_session:
-        return 0
     try:
-        return int(hint_equivalents_for_submission(repository, item_id, practice_session))
+        # No practice session open yet: the submit opens one, so only the
+        # questions that count in the item's window whatever the session (a
+        # bound Reader question, RW1c fix round 4, F1) will be added.
+        return int(hint_equivalents_for_submission(repository, item_id, practice_session,
+                                                   item_window_only=not practice_session))
     except Exception:  # noqa: BLE001 - a display line never fails a read
         return 0
 

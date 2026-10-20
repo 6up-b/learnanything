@@ -79,6 +79,7 @@ import {
 } from "./reader/activity";
 import { goTo as stackGoTo } from "./reader/returnStack";
 import { AskRail } from "./reader/AskRail";
+import { createTutorOfferStore } from "./reader/TutorOffers";
 import { GuideRail, SectionBoundaryOffer } from "./reader/GuideRail";
 import { useReaderRecap } from "./reader/useReaderRecap";
 import { RecapCard } from "./reader/RecapCard";
@@ -346,6 +347,20 @@ export function ReaderScreen({
   // reader_inquiry on): the intent box, and active reading.
   const intentContract = inquiry && !offline ? contract?.intent ?? null : null;
   const activeReadingOn = inquiry && !offline && Boolean(contract?.activeReading);
+  // RW1c: the tutor that looks things up (absent from the contract while both its switches are off).
+  const readerTutor = contract?.readerTutor ?? null;
+  // RW1c: the bound workbench session an Ask comes from (set once the workbench hook runs below).
+  const askWorkbenchSessionRef = useRef<string | null>(null);
+  // RW1c (Codex review F8): the composer's personalized chip, at the vault's
+  // default until the learner switches it; sent with every Ask while the
+  // tutor looks things up.
+  const [askPersonalized, setAskPersonalized] = useState<boolean | null>(null);
+  const askPersonalizedOn = askPersonalized ?? readerTutor?.personalizedDefault ?? true;
+  const askPersonalizedRef = useRef<boolean | null>(null);
+  askPersonalizedRef.current = readerTutor?.retrieval ? askPersonalizedOn : null;
+  // RW1c (Codex review F6): the offers' lookups belong to their exchanges, so
+  // collapsing an answer runs nothing again.
+  const [tutorOfferStore] = useState(createTutorOfferStore);
 
   const blocks: ReaderRenderBlockDto[] = useMemo(
     () => (render?.blocks ?? []).filter((b) => !FURNITURE_BLOCK_TYPES.has(b.blockType ?? "")),
@@ -439,7 +454,8 @@ export function ReaderScreen({
     question, setQuestion, askComposerVersion, parentExchange, setParentExchange, history, visibleAskHistory,
     normalizedAskFind, collapsedAskIds, setCollapsedAskIds, askFindOpen, setAskFindOpen, askFindQuery,
     setAskFindQuery, askFindInputRef, askPhase, askTabMarked, returnStack, returnStackRef, reconnect,
-    inquiryChecks, passageCheckOffered, submitAsk, ask, cancelAsk, setInquiryStatus, markBranchDone, commitInquiry,
+    inquiryChecks, passageCheckOffered, submitAsk, ask, askAnotherWay, askDidntHelp, cancelAsk, setInquiryStatus,
+    markBranchDone, commitInquiry,
     committedFor, openInquiry, startQuickCheck, cancelQuickCheck, dismissInquiryCheck, answerReconnect, inquiryCheckAction,
     escalateInquiryCheck, peekPassage, restoreEntry, onBodyScroll, noteSourceOpened, rememberLeftSource,
     resetInquiryState,
@@ -450,6 +466,8 @@ export function ReaderScreen({
     guideSectionBySpan: progress.guideSectionBySpan, jumpToSpan, onReadingScroll: progress.onReadingScroll,
     jumpGuardRef: progress.jumpGuardRef, bodyRef, askComposerRef, openSourceRef,
     onRestored: progress.noteRestored,
+    workbenchSessionRef: askWorkbenchSessionRef,
+    personalizedRef: askPersonalizedRef,
   });
 
   // RW3a: margin cues from the Guide's own citations (screens/reader/useReaderCues).
@@ -498,6 +516,12 @@ export function ReaderScreen({
     onError,
   });
   const working = wbCtl.active !== null;
+  // Sent whenever EITHER RW1c switch is on (fix round 4, F3): the server
+  // derives the bound item's restriction from it (a cold administration
+  // refuses tools and offers), with retrieval off too. `readerTutor` is
+  // in the contract only while one of them is on.
+  askWorkbenchSessionRef.current = readerTutor && wbCtl.active?.session.practiceItemId
+    ? wbCtl.active.session.sessionId : null;
   const cueCtl = useReaderCues({
     working,
     render, offline, guidePlan, reloadGuidePlan, skimming: mode === "skim", restoredSpanId: progress.restoredSpan,
@@ -2291,7 +2315,7 @@ export function ReaderScreen({
   };
   // RW4a: "open" a library hit: this book jumps to it (a peek crumb); another
   // book opens in the left pane as a detour (Alt+← comes back here).
-  const openLibraryHit = (hit: LibraryHitDto) => {
+  const openLibraryHit = (hit: Pick<LibraryHitDto, "sourceId" | "spanId" | "extractionId">) => {
     if (render && hit.sourceId === render.sourceId) {
       peekPassage(hit.spanId);
       return;
@@ -2984,6 +3008,36 @@ export function ReaderScreen({
             onCommit={(root, preset) => void commitInquiry(root, preset)}
             committed={committedFor}
             renderInquiryTop={renderInquiryTop}
+            {...(readerTutor ? {
+              // RW1c: the tutor looks things up; another way, that didn't
+              // help and the offers under its answers (absent while off).
+              lookingUp: readerTutor.retrieval,
+              personalized: readerTutor.retrieval ? { on: askPersonalizedOn, onToggle: setAskPersonalized } : null,
+              tutor: {
+                anotherWay: readerTutor.anotherWay && inquiry && !offline,
+                offers: readerTutor.offers && !offline,
+                busy: busy || offline,
+                onAnotherWay: askAnotherWay,
+                onDidntHelp: askDidntHelp,
+                onPracticePick: onCheckMe ? (item, proposalId) => pickLibraryPractice(
+                  { practiceItemId: item.practiceItemId, prompt: item.prompt } as ProposedItemDto, proposalId) : null,
+                onTryNextStep: readerTutor.tryNextStep && activeReadingOn
+                  ? (spanId: string) => void activeCtl.start("next_step", [spanId], localFold([spanId]))
+                  : null,
+                // RW1c (Codex review F9): an excerpt or citation opens where
+                // it is (this book peeks; another opens as a detour).
+                onOpenPassage: offline ? null : (passage) => {
+                  if (render && passage.extractionId === render.extractionId) {
+                    peekPassage(passage.spanId);
+                    return;
+                  }
+                  if (passage.sourceId) {
+                    openLibraryHit({ sourceId: passage.sourceId, spanId: passage.spanId, extractionId: passage.extractionId });
+                  }
+                },
+                offerStore: tutorOfferStore,
+              },
+            } : {})}
           />
           {recapCtl.wrapUpOffered && !recapCtl.wrapUpOpen ? (
             // RW6a: offered once the session has activity (D34), never while

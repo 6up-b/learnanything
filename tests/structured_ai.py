@@ -150,6 +150,11 @@ def _request_context(prompt: str, purpose: str) -> Any:
             if isinstance(context, dict):
                 context_type = _CONTEXT_FOR_PURPOSE.get(purpose)
                 if context_type is not None:
+                    if purpose == "tutor_qa" and "reader_tutor" in context:
+                        # RW1c: the Reader tutor that looks things up.
+                        from learnloop.tutor.ai_contracts import ReaderTutorQAContext
+
+                        return ReaderTutorQAContext(**context)
                     if purpose == "canonical_ingest":
                         context = {
                             **context,

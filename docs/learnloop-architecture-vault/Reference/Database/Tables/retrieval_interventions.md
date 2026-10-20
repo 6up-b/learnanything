@@ -3,8 +3,8 @@ title: "retrieval_interventions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "892078de42f35c2762d5b1d74c606e26ed05c1a3"
-source_commit_timestamp: "2026-10-19T00:38:02-04:00"
+source_commit: "459f4b4ec85a4a5c34aa46d9e9d0493a6bf69883"
+source_commit_timestamp: "2026-10-20T01:51:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite retrieval_interventions"
@@ -122,7 +122,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-No table-specific test contains the table name or a detected repository method call. The schema/role invariants are still pinned by `tests/test_migrations.py` and `tests/test_table_roles.py`.
+- `tests/test_reader_tutor_offers.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
