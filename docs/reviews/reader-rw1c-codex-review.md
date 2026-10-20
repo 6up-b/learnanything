@@ -749,3 +749,63 @@ All steps ran in the worktree with `TMPDIR=fixtures-local/tmp`. Only targeted te
 Not run, by the owner rule: the full suite, the whole durability lane and the whole vitest run. Pre-existing and
 unchanged: `desktop_validate.py` (`syntheticBook.ts`) and `module_validate.py` (missing module notes). No migration, no
 DB or connection change, nothing under `src-tauri` and no configuration key change.
+
+## Fix round 10 (orchestrator rulings)
+
+Codex's verify of fix round 9 (`b1a740eca`; job `20261019-225424-0vt8Hw`, read-only) confirmed round 9's fixpoint (0 of
+52 leaks, 1,200 union cases, 60 unbound, 16 history, 108 counting, no regression) and **reopened F8 (High)**: the
+verification's practice question (`verification_context` → `practice_question(item)`) was added outside the plan.
+(a) A gap "The favorable count is 2" and a model-authored stem "13 equally likely outcomes make up the sample space.
+What is the probability?" each pass alone and score 1.0 together, with nothing withheld. (b) A stem containing "A
+comparison probability is 2/130." placed so the 700-character cut ends "2/13" scores 1.0. The fix is in `570869ab3`.
+The references regenerated on top of it are committed with this record. **Nothing was rejected.**
+
+**Paid calls: none ($0.00).** Every model is a fake. No vault copy was opened, and no manual run was made.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F8 (round 10, reopened) | High | Verification's practice question bypasses the delivery fixpoint | fixed (R1-R3) | `570869ab3` | `test_reader_rw1c_review.py::test_the_practice_question_is_a_planned_member_of_the_verification` ×12 (both reproductions × explain, another way, that didn't help × sources service on/off; old code: the delivered union scored as leaking in all 12); `::test_a_whole_token_cut_never_splits_a_token_or_a_group` ×79 (every limit 1-79); `::test_the_stem_is_never_withheld`; `::test_no_bound_model_call_receives_item_text_from_outside_the_plan` ×6 (scan) |
+| F9 (round 7) | High | Same-second timestamp boundary | non-blocking (orchestrator ruling, round 7); its own follow-up | — | unchanged |
+
+### What the fix does
+
+* **R1: the practice question is planned.** When the verification carries the item's question (an assisted-practice
+  lookup: the adapter sets `ReaderTutorRequest.practice_question_limit = PRACTICE_QUESTION_CHARS`),
+  `plan_bound_delivery` fits the item's presented question ONCE (`fit_presented_prompt`, the required method's
+  instruction kept whole) with `reader_modes.whole_token_cut`: whitespace collapsed, cut only at a space outside braces
+  and outside `$...$` math at or before the limit, so a token, a number or a LaTeX group is never split ("2/130" never
+  becomes "2/13"). The fitted text is `BoundDelivery.practice_question`; `ReaderLookup` passes it as
+  `planned_practice_question` through `propose_sources` / `find_sources_for_caller` to `find_sources`, whose
+  `verification_context` sends it unchanged (it builds and cuts its own only when no planned value is given: every
+  unbound and non-Reader caller, as before).
+* **The audit of item-text insertions on the bound path.** `verification_context` was the only one a bound Reader
+  request reaches. `verify.verify_spans` takes its practice question as an argument from its caller
+  (`source_retrieval.tutor`, the practice/feedback/library tutor's provider), which a Reader request does not use;
+  the tutor's Reader context carries no item text (`tutor_qa._build_context` returns before the practice context's
+  `practice_item_prompt`); tool and practice requests, which would show item prompts, are refused under a binding
+  (round 1, F2); the other `fit_presented_prompt` callers are the desktop's previews.
+* **R2: a fixed member of the union.** The fitted question joins the verification call's slots as `practice_question`,
+  marked fixed in `withhold_for_call` (`withhold(fixed=…)`): it is read with the rest and never a candidate, so when a
+  union with it leaks, the model-written slots are withheld under the existing rule (here the gap statement). A
+  fitted question that states the key alone is the item's own authoring: recorded (`BoundDelivery.stem_leaks_alone`,
+  `delivery.practice_question_states_key`, Low), left out of the union read, and nothing is withheld on its account;
+  it is still delivered.
+
+### Gate (fix round 10)
+
+All steps ran in the worktree with `TMPDIR=fixtures-local/tmp`. Only targeted tests were run (owner rule
+2026-10-17). The pytest runs took `/tmp/learnloop-fullsuite.lock`.
+
+| step | result |
+|---|---|
+| backend fail-before on `b1a740eca` (`git archive` of `src` and `migrations` into `fixtures-local/rw1c-r10-base`, run with this branch's tests and `-o pythonpath=fixtures-local/rw1c-r10-base/src`) | 98 new cases: **98 failed**. The 12 end-to-end cases fail on the delivered union (each verification prompt scored as leaking). The 6 scan cases fail at the import of the new cutter; a probe with that import replaced showed the old code building the question itself in every bound lookup (the refusing builder failed each lookup, so no verification ran). The 79 cut cases fail at the same import; the old cutter (`verify._cut`) splits a token, a group or "2/130" at 70 of the 79 limits. The never-withheld case fails on the new plan argument |
+| `uv run lint-imports --no-cache` | 28 kept, 0 broken |
+| targeted pytest, `uv run pytest -n auto` over the 54-file list | **1,269 passed** (59 s) |
+| `--durable-sqlite` on the 98 new cases | **98 passed** |
+| vitest, `src/screens/reader/` and the `ReaderScreen.*.test.tsx` files (no frontend change) | **399 passed** |
+| `db_generate_reference.py`, then `db_validate_reference.py` | 0 errors (head 213). Before the regeneration, 5 configuration line citations into the changed files were stale |
+| `git diff --check` | clean |
+
+Not run, by the owner rule: the full suite, the whole durability lane and the whole vitest run. Pre-existing and
+unchanged: `desktop_validate.py` (`syntheticBook.ts`) and `module_validate.py` (missing module notes). No migration, no
+DB or connection change, nothing under `src-tauri` and no configuration key change.
