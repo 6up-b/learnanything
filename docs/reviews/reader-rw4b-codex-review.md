@@ -349,3 +349,225 @@ passed**. The log is `fixtures-local/tmp/rw4b-fix3-fail-before.txt`.
 - `src-tauri` is unchanged, so no cargo check was run. The schema is
   unchanged, so the references were not regenerated.
 - No live or paid model call was made.
+
+## Fix round 4 (orchestrator rulings)
+
+The final Codex verify `20261020-010830-SQ8D11` (at `7bec979e7`) confirmed
+F6 and the A/B/A slot-replacement case. It reopened F2 and raised F3, F7, F8,
+F9 and F10. The client-side hand-off kept producing races, so the
+orchestrator moved authority to the server:
+
+| ruling | what it requires |
+|---|---|
+| R1 | One server-side admission, keyed by the workbench session id. |
+| R2 | A submit admits an owed pick first, or refuses (retryable). |
+| R3 | Open and resume select by explicit session id, and validate the item and book. |
+| R4 | One exercise-statement reader that re-checks the held-out predicate and fails closed. |
+| R5 | One client generation counter; queued requests consumed by identity. |
+| R6 | Server updates reach the mounted workbench. |
+| R7 | Fail-before tests for each reproduction. |
+
+### Findings
+
+| id | severity | title | verdict | commit | test (fail before → pass after) |
+|----|----------|-------|---------|--------|---------------------------------|
+| F2 | High (reopened) | A submit without an App practice session discards the owed pick permanently | fixed (R1, R2) | `91798158c` | pytest `test_r2_verify_f2_submit_with_no_practice_session_admits_the_owed_pick_first`, `test_r2_a_submit_whose_admission_fails_submits_nothing_and_stays_retryable` |
+| F7 | High | A stale candidate opens newly held-out material (the tail beyond the preview) | fixed (R4) | `91798158c` | pytest `test_r4_verify_f7_an_exercise_held_out_after_its_card_was_shown_is_never_read_or_opened`, `test_r4_a_problem_opened_before_its_region_was_held_out_is_not_shown_again`, `test_r4_the_statement_reader_fails_closed`, `test_r4_no_handler_or_reader_module_reads_an_exercise_statement_another_way` |
+| F3 | Medium | The admission's exposure correction never reaches the mounted Workbench | fixed (R6) | `91798158c` | vitest `Workbench.test.tsx` › "R6 (verify F3): …keeping the unsaved step" |
+| F8 | Medium | A late import refresh after Leave re-activates and admits | fixed (R5) | `91798158c` | vitest `readerWorkbenchExercise.test.tsx` › "R5 (verify F8): …", "R5: unmounting makes every answer still in flight stale" |
+| F9 | Medium | An older open's completion clears a newer queued exercise | fixed (R5) | `91798158c` | vitest `readerWorkbenchQueue.test.tsx` › "R5 (verify F9): …" |
+| F10 | Medium | `workbench.open` selects by item, so acknowledgement marks A while serving B | fixed (R1, R3) | `91798158c` | pytest `test_r1_verify_f10_admission_names_its_problem_never_another_with_the_same_item`, `test_r3_a_resume_opens_the_problem_it_names_on_its_own_item_and_book`, `test_r1_admission_is_idempotent_one_pick_one_admission` |
+| F6 | Medium | Late resume on another book | confirmed fixed (round 3) | `69d70b733` | its round 3 tests kept, rewritten to the new protocol |
+
+### Fail-before evidence (R7)
+
+Every reproduction was run against an export of `7bec979e7`
+(`git archive` into `fixtures-local/tmp/rw4b-fix4-base`, the worktree's own
+venv and `node_modules`; no worktree or stash). The logs are
+`fixtures-local/tmp/rw4b-fix4-python-fail-before.txt` and
+`fixtures-local/tmp/rw4b-fix4-vitest-fail-before.txt`.
+
+**Pytest: the 9 new tests, 9 failed.**
+
+- **F2, end to end.** The problem was left while importing, the practice
+  session ended, then the problem was resumed and submitted with no
+  `practiceSessionId`. Result: `exercisePick.admitted` was False after the
+  submit.
+- **R2 refusal.** A submit with the admission refused did not raise; it
+  submitted.
+- **F10.** Run with the round 3 delivery (pick, then the acknowledging open
+  by item with `admittedSessionId`): the open returned B's session id, not
+  A's.
+- **F7.** "Use this one" on a candidate held out after display did not
+  raise; it opened.
+- **Opened before held out.** A resume of a problem whose region was held
+  out after it opened did not raise.
+- **R3.** A resume with a mismatched item or book did not raise.
+- **Fails closed.** `read_exercise_statement` was absent.
+- **AST test.** It found 11 other statement reads (`_withheld`,
+  `full_statement`, `_region_for`, `region.text`, `.get("statement")`).
+- **Idempotent admission.** `workbench.admit` was absent.
+
+**Vitest.**
+
+- **F8.** After Leave, the late refresh made `active` A again (`expected {
+  session: … } to be null`).
+- **F3.** The exposure note never appeared on the mounted workbench.
+- **F9, App half.** The harness that mirrors App at `7bec979e7`
+  (unconditional `setReaderExercise(null)`) ended with the newer queued
+  exercise cleared (`expected null to be { key: 'srcex:ext_b:t1' … }`). The
+  same harness passes on the fixed hook, because a stale answer no longer
+  calls the shell.
+- **F9, committed test.** It uses App's new `consumeShown` and failed on
+  `7bec979e7` (`consumeShown is not a function`; the hook also reported
+  "shown" without the request's identity).
+- **Rewritten protocol tests.** The tests rewritten to `workbench.admit`
+  fail on `7bec979e7` as expected (10 failed across the 3 files, all of them
+  admission-protocol or the F3/F8/F9 reproductions).
+
+### What changed
+
+#### R1: one server-side admission (`workbench.admit`)
+
+- **The operation.** `workbench.admit` (`handlers/workbench.py:_admit`) is
+  keyed by the workbench session id and runs under `vault_mutation_lock`
+  (`purpose="workbench_admit"`). It re-reads the problem inside the lock and
+  requires the pick to be owed: bound to the item its import wrote, open,
+  and not admitted. Then it:
+  1. resolves the practice session (the app's, else the most recent open
+     one, else starts one; the submit's own rule);
+  2. makes the plan's learner pick with the proposal and import ids;
+  3. serves the item in that session (`get_practice_item`, which records a
+     plan-off proposal's delivery and refuses held-out items);
+  4. writes, in ONE transaction (`WB.admit_exercise_pick`): the serve pair
+     on THIS problem, the practice session and the re-read exposure in the
+     pick's record, and `admitted_at`.
+- **Idempotent.** An admitted problem returns its admission (the same
+  practice session) and makes no second pick. A failure before step 4
+  leaves the pick owed.
+- **What it does not cover.** A crash between steps 2 and 4 is the one
+  window. A retry then makes a second learner pick, but the problem is still
+  admitted only once. The pick and serve run their own transactions inside
+  the lock, so one SQLite transaction cannot span all four steps.
+- **Removed.** The round 3 client hand-off is gone: the owed map,
+  `admittedSessionId` on `workbench.open`, `onExerciseAdmitted`,
+  `admitsSessionId` on checks, and App's `exerciseAdmitted`.
+- **Client.** The hook asks `workbench.admit` when it sees a due problem on
+  its own book. It renders the answer only if the returned session id is the
+  one it asked for, and it tells the shell about the practice session
+  (`onPracticeSession`). The Tauri passthrough is `workbench_admit`, and the
+  RPC is pinned desktop-only in `test_mobile_allowlist.py`.
+
+#### R2: submit
+
+- `workbench.submit` on a problem whose pick is owed runs `_admit` first, in
+  the same request.
+- If admission fails, it raises a retryable `admission_pending`: nothing is
+  submitted, the problem stays open with its steps, and the pick stays owed.
+- An admitted exercise submits in its admission's practice session while
+  that session is open, with its admission's serve. A named serve never
+  replaces the admission's.
+
+#### R3: open and resume
+
+- A resume selects by `sessionId`. It refuses `validation_error` when the
+  request names another item, or (in the Reader) another book than the one
+  the problem is on.
+- Admission never goes through an open.
+- **Interpretation, for the orchestrator.** A NEW cue "check me" still opens
+  by item, so it reuses an open problem of that item (RW2a's F14 reuse). No
+  admission or acknowledgement rides on it any more. Changing RW2a's reuse
+  rule was out of RW4b's scope.
+
+#### R4: one statement reader
+
+- `library_exercises.read_exercise_statement` widens the spans to their
+  complete exercise region(s) and asks `exam_withheld` about every span at
+  read time. It returns None (fails closed) when the region is withheld,
+  the predicate raises, or there is no text.
+- Every RW4b path goes through it:
+  - the candidate view's withholding;
+  - the fallback listing's statement and label (`exercise_region_spans`
+    gives boundaries only);
+  - the exposure rule's input (`_proposal_candidate` takes the reader's
+    statement, bounded as the arm bounds it, so the judge's ledger still
+    answers);
+  - `pick_exposure`;
+  - `_picked_exercise` (refuses `exercise_withheld` before anything is read
+    or stored);
+  - resume and reuse of a picked exercise (`_refuse_withheld_exercise`);
+  - the import queue (`_enqueue_import`, which covers retry).
+- `full_statement`, `_withheld` and `_region_for` are gone.
+- An AST test walks `learnloop_sidecar/handlers/**` and
+  `learnloop/reader/**`. It requires that `exercise_regions`,
+  `blocks_by_key`, `exam_withheld` and `full_statement` appear only inside
+  the reader, and that no `.get("statement")` appears in RW4b's own
+  modules.
+
+#### R5: client hygiene
+
+- **The generation counter.** `useReaderWorkbench` keeps one counter, bumped
+  on Leave (`close`), a book change and unmount. Every async callback (open,
+  resume, check, exercise, the read-only problem, admit, the workbench's own
+  refresh and submit) captures it. A stale callback is dropped before any
+  state change or shell callback.
+- **Opens.** Among opens the newest wins (`openSeq`).
+- **The workbench's callbacks.** `ReaderWorkingPosture` binds the workbench's
+  `onSession` and `onSubmitted` to `active.generation`, so a callback from a
+  workbench that was left or unmounted is stale.
+- **Refresh poll.** `useWorkbenchSession`'s import-refresh poll ignores an
+  answer after unmount.
+- **`update`.** It requires the problem to be the active one on the open
+  book.
+- **Queued requests.** The shell consumes them by identity:
+  `onExerciseShown(exercise)` and `onCheckMeShown(check)`, with App using
+  `consumeShown`.
+
+#### R6: server updates reach the mounted workbench
+
+- `Workbench` takes `serverSession`, and `useWorkbenchSession.applyServer`
+  merges the server's metadata: exposure, key, serve, binding and record.
+- The window's steps, book choice and write queue are kept.
+- The Reader passes `active.session`, which the admission answer updates.
+
+### Notes for the landing
+
+- **`App.tsx` overlap.**
+  - `exerciseAdmitted` is gone.
+  - `onCheckMeShown`/`onExerciseShown` now take the shown request.
+  - `onPracticeSession` is new.
+  - Expect conflicts with other stages that touch these props.
+- **`workbench.open` input.** `admittedSessionId` was removed from
+  `WorkbenchOpenInput`; extra fields are forbidden, so an old client gets a
+  validation error.
+- **Rust.** `workbench_admit` was added to `commands.rs` and `main.rs`, so
+  cargo check was run.
+- **New refusal codes.** `exercise_withheld` and `admission_pending`.
+
+### Gate (fix round 4; targeted, per the owner's 2026-10-17 rule)
+
+- **Pytest.** The 189 files of `fixtures-local/tmp/rw4b-fix1-pytest-files.txt`
+  (handlers, reader workbench, library exercises, contract, allowlist,
+  serializer and registry pins, CLI snapshot, and so on) with `-n auto`:
+  **3,448 passed, 2 xfailed**.
+  - `test_library_exercises.py` alone: **35 passed**.
+- `uv run lint-imports --no-cache`: **28 kept, 0 broken**.
+- Frontend:
+  - `npm run typecheck` clean.
+  - **Vitest**, 50 files (round 3's 40, the new `readerWorkbenchQueue`, the
+    4 check/cue files, every `screens/workbench` test, and the 3
+    PracticeScreen workbench files; list in
+    `fixtures-local/tmp/rw4b-fix4-vitest-files.txt`): **50 files, 447
+    passed**.
+    - A first run, made while pytest loaded the machine, timed out in
+      ReaderScreen suites. It also wrote a spurious second snapshot entry,
+      which was reverted; the snapshot passes with `CI=true`. The rerun
+      above is the result of record.
+  - `npm run frontend:build`: ok.
+  - `cargo check`: ok.
+- Durability: none needed (no migration, and no connection or pragma code
+  changed).
+- **References.** `db_generate_reference.py` then `db_validate_reference.py`:
+  **0 errors** (head 213). Commit labels and line citations were refreshed
+  in `df68e6488`.
+- No live or paid model call was made.
