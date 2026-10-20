@@ -165,6 +165,9 @@ import type {
   StartSummaryDto,
   DailyPlanDto,
   TodayHeadlineDto,
+  IntentChoice,
+  IntentScopeKind,
+  IntentViewDto,
   SessionStartInput,
   SqliteExecResult,
   SqliteTableSnapshot,
@@ -1217,6 +1220,17 @@ export const api = {
   compareSources: (input: Record<string, unknown> & { query: string; caller: PracticeCallerDto }) =>
     call<Record<string, unknown>>("compare_sources", { input }),
   getTodayHeadline: () => call<TodayHeadlineDto>("get_today_headline", { input: {} }),
+  // Daily-loop DL2: the single intent control (spec §5.2) and deadlines (§5.4).
+  // A choice changes what Today serves (and a deadline adds a goal).
+  getIntent: (scopeKind: IntentScopeKind, scopeId: string) =>
+    call<IntentViewDto>("get_intent", { input: { scopeKind, scopeId } }),
+  setIntent: (scopeKind: IntentScopeKind, scopeId: string, choice: IntentChoice) =>
+    mutating([TAG.queue, TAG.graph, TAG.goals], call<IntentViewDto>("set_intent", { input: { scopeKind, scopeId, choice } })),
+  setIntentDeadline: (scopeKind: IntentScopeKind, scopeId: string, dueAt: string) =>
+    mutating(
+      [TAG.queue, TAG.graph, TAG.goals],
+      call<IntentViewDto>("set_intent_deadline", { input: { scopeKind, scopeId, dueAt } })
+    ),
   beginProbeDialogue: (learningObjectId: string) =>
     mutating(ATTEMPT_TAGS, call<BeginProbeDialogueResult>("begin_probe_dialogue", { learningObjectId })),
   nextProbeDialogueTurn: (dialogueState: string) =>

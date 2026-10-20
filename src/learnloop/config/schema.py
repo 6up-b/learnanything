@@ -2950,6 +2950,63 @@ class PlanConfig(BaseModel):
         return self
 
 
+#: §5.3 (Q8, accepted 2026-10-12; the owner may override at DL2's checkpoint):
+#: the recall target each depth preset is maintained at, and the uncommitted one.
+DEFAULT_RECALL_TARGETS: dict[str, float] = {
+    "keep_in_touch": 0.80,
+    "remember_key_ideas": 0.85,
+    "work_fluently": 0.90,
+    "master_tasks_like_these": 0.92,
+    "uncommitted": 0.90,
+}
+
+
+class IntentConfig(BaseModel):
+    """Daily-loop DL2: intent (``spec_daily_loop_v1.md`` §5, §11).
+
+    The successor ``mvp-0.29`` behind its kill switches (the DL2 Codex
+    re-review F2: intent changes which items are served as measurements, the
+    2026-10-17 rule; ``docs/reviews/daily-loop-dl2-codex-review.md``): intent is
+    read only when serving, and ``due_at``, FSRS state, evidence and every
+    projection are unchanged. Below the tag these keys are inert.
+
+    ``enabled`` off restores serving exactly as before DL2: commitments are read
+    only for requested items (and staged-owned runs). With it on and no
+    commitment, serving is today's too (every item uncommitted, target 0.90,
+    whose ratio is exactly 1). ``recall_targets_enabled`` off keeps the
+    resolution (exclusion, "Check once", push, admission, re-entry) but serves
+    every item at its stored ``due_at``.
+    """
+
+    enabled: bool = True
+    recall_targets_enabled: bool = True
+    recall_targets: dict[str, float] = Field(default_factory=lambda: dict(DEFAULT_RECALL_TARGETS))
+
+    @model_validator(mode="after")
+    def _targets_are_probabilities(self) -> "IntentConfig":
+        missing = sorted(set(DEFAULT_RECALL_TARGETS) - set(self.recall_targets))
+        if missing:
+            raise ValueError(f"intent.recall_targets is missing {', '.join(missing)}")
+        unknown = sorted(set(self.recall_targets) - set(DEFAULT_RECALL_TARGETS))
+        if unknown:
+            raise ValueError(f"intent.recall_targets has unknown keys: {', '.join(unknown)}")
+        for key, value in self.recall_targets.items():
+            if not 0.5 <= float(value) <= 0.99:
+                raise ValueError(f"intent.recall_targets.{key} must be in [0.5, 0.99]")
+        return self
+
+
+class CaptureConfig(BaseModel):
+    """Daily-loop capture settings (``spec_daily_loop_v1.md`` §10).
+
+    DL2 adds only ``test_me_later_days``: when a "Check once" (the control's,
+    or any ``test_me_later`` commitment without a ``due_hint``) comes due. DL3
+    adds the capture box and processor keys to this section.
+    """
+
+    test_me_later_days: int = Field(default=7, ge=0, le=365)
+
+
 class RouterWeights(BaseModel):
     """The model mixture's component weights (D1: one third each). Normalized
     before use; a model that fails or is not set up gives its weight to
@@ -3286,6 +3343,8 @@ class LearnLoopConfig(BaseModel):
     router: RouterConfig = Field(default_factory=RouterConfig)
     pf: PFConfig = Field(default_factory=PFConfig)
     plan: PlanConfig = Field(default_factory=PlanConfig)
+    intent: IntentConfig = Field(default_factory=IntentConfig)
+    capture: CaptureConfig = Field(default_factory=CaptureConfig)
     capabilities: CapabilitiesConfig = Field(default_factory=CapabilitiesConfig)
     locks: LocksConfig = Field(default_factory=LocksConfig)
     error_impacts: dict[str, ErrorImpact] = Field(default_factory=dict)

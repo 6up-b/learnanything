@@ -5064,7 +5064,7 @@ class Repository(
             connection.commit()
         return cursor.rowcount > 0
 
-    def requested_practice_item_ids(self) -> list[str]:
+    def requested_practice_item_ids(self, *, skip_commitment_ids: Sequence[str] = ()) -> list[str]:
         """Practice items with a learner request not yet consumed by a later attempt.
 
         *Requested items* (spec §4a) = practice items referenced by a
@@ -5076,8 +5076,17 @@ class Repository(
         A card the learner adopted through a ``help_me_remember`` commitment (the
         reader's "write my own question") is requested too, from the moment the
         commitment first named it as a ``legacy_practice_item`` target, unless
-        the commitment was retired."""
+        the commitment was retired.
 
+        Daily-loop DL2 (intent): ``skip_commitment_ids`` leaves those
+        commitments out of the ``help_me_remember`` branch (the intent
+        control's own commitments: choosing Master or Keep on an item is not a
+        request, spec §5.3). Empty, the query is exactly the one before DL2."""
+
+        skip = [str(value) for value in skip_commitment_ids]
+        skip_clause = (
+            f"\n                    AND commitment.id NOT IN ({','.join('?' for _ in skip)})" if skip else ""
+        )
         with self.connection() as connection:
             rows = connection.execute(
                 """
@@ -5107,7 +5116,7 @@ class Repository(
                     AND NOT EXISTS (
                       SELECT 1 FROM commitment_events event
                       WHERE event.commitment_id = commitment.id AND event.kind = 'retired'
-                    )
+                    )""" + skip_clause + """
                   GROUP BY commitment.id, target.target_ref
                 ),
                 unconsumed AS (
@@ -5124,7 +5133,8 @@ class Repository(
                 FROM unconsumed
                 GROUP BY item_id
                 ORDER BY MIN(requested_at), item_id
-                """
+                """,
+                skip,
             ).fetchall()
         return [row["item_id"] for row in rows]
 

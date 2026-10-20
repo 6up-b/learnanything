@@ -1413,7 +1413,23 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # change and no successor; they act at every version. Every snapshot moves
     # only because the effective config gains the section; all of them were
     # recomputed from the composed defaults (defaults_fingerprint_for_version).
-    "mvp-0.9": "20f67401e08c3ebbb25d15979389fd44a94c78cc691569c3fafb79dc2f06e742",
+    # Daily-loop DL2 (intent; docs/reviews/daily-loop-dl2.md) adds [intent]
+    # enabled = true, recall_targets_enabled = true and recall_targets (Q8:
+    # keep_in_touch 0.80, remember_key_ideas 0.85, work_fluently 0.90,
+    # master_tasks_like_these 0.92, uncommitted 0.90) and [capture]
+    # test_me_later_days = 7 (modelled defaults, left out of the decision-only
+    # template). Intent is read only when serving (exclusion by disposition,
+    # "Check once", effective dues at the recall targets, push, admission and
+    # re-entry by intent); due_at, FSRS state, evidence and projections are
+    # unchanged and replay never reads it, and with no commitment serving is
+    # unchanged (the 0.90 ratio is exactly 1). It acts only at the successor
+    # mvp-0.29 (the DL2 Codex re-review F2: it changes which items are served
+    # as measurements, the 2026-10-17 rule); the sections are present, inert,
+    # at every earlier version. Every snapshot moves
+    # only because the effective config gains the two sections (checked by
+    # dropping them, which reproduces each prior value); all of them were
+    # recomputed from the composed defaults (defaults_fingerprint_for_version).
+    "mvp-0.9": "07975f37ce404037488be7aa1deb50b6768443643b6bbaef1596484cde6a53f7",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1463,7 +1479,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.10": "3ebaca257b212cc48d012efaa4a49cd25798d73bb7ac853d4371acc0a96c3d6d",
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    "mvp-0.10": "5a7d83654d7b928448e7e94ecf8ed44912f46247208b24813a842c426b702149",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1521,7 +1538,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.11": "9ea60a99e5c54d76d13e42a0457d02a7128fd72d91d3b904ae7542eee58bcf25",
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    "mvp-0.11": "d43325ce43ee8ee2354eff56d1b2dbef9694b5f923211bceb411cbb9e8171a7a",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1573,7 +1591,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.12": "3c60774d42baa94627ca448362ee10ee85e035409e273796dca7395c02dcb91c",
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    "mvp-0.12": "a70088903597a9cc83b5614a7c6fea22d50080481cb16077590eee099989b4ec",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1620,7 +1639,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.13": "31e5bf90c8be2d9a6e9471fa2921cdc9037336d6738c5377582f86878eef44a1",
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    "mvp-0.13": "70dd0a8bbcdd24f3ded3566fc2d095a036768765103a3db3f82088c35c0ff1cb",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1666,7 +1686,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.14": "aaf0ddc6905fd5ab1d3ec849e6e1a2dfd67130e0a0c31a4e86166ca8c0a65034",
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    "mvp-0.14": "9f986f0f69b94085bb216806a327d9473a435e0e578a24281c6958159750fb9f",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1710,7 +1731,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.15": "4304dc67cedd79c0d3295e001f764ff17f4b8f462f1f5232bfb161e3d590c0c2",
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    "mvp-0.15": "b467e2c5083709ab24571148a4a9b9224cb0aeb6bb11ff4478419d8b7dcded15",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1761,7 +1783,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.16": "31f0a768d5cf38d60a92391caf86ebf2f2535eebba1e60a5d0b9b78d56db589a",
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    "mvp-0.16": "39efcd578ef01e5725696d9d6597e9ccd32c6f7c39ffdafd6e1d1e2fe82d153a",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1808,7 +1831,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.17": "1d941ca258112683f84e79254dee48ea87ba5c80a07ac087c5cd0757d5c116b7",
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    "mvp-0.17": "65dc6864c5ab1ab7cd0e286974d8c29265ba41ee0dd1791c00f3663963e2de7c",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -1848,7 +1872,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.18": "21823e16b9c3b6bd38e98dc18c3806f8e0c52e67b21306c8219f1c1618592c6b",
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    "mvp-0.18": "b482d74c14f0f27c2c11578a149525b602f7365d61fb64dbd4441833546c1ecb",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -1888,7 +1913,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.19": "f087ea69164b76175b0fc37b99d944e7ef6ad311e3d6205ea8054041fd0db637",
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    "mvp-0.19": "e39c6e0ec7801a8d4f160ed40f3b4e2e3fb6d776b2443c0c34cd3efc2d5357aa",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -1924,7 +1950,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.20": "a852f2b47682ecddb06b34f74930f87ae09d6c07c566f1fc3999b860e81ca6b0",
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    "mvp-0.20": "eddca2f1d713ebeb0beab75eb0dc21b4e05b26ee9b7162afe6da5d838cfeefdd",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -1969,7 +1996,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.21": "98f17a9a602ad0d8459c583f4b3d7a853c5377576158b6e0a2b04bd0a6defe1b",
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    "mvp-0.21": "46c9eda2d0cd5e25ca119e5fb9f8baeb99c7fde7697e9ef0e88a7e97087c93de",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -2006,7 +2034,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.22": "d9779f5e5a5667374806b976d9603f7d22483b5ba47816a212ad7c1517a5402f",
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    "mvp-0.22": "4773af468f0c0c6ba4f97649ffd098d08749142e0e3f00017eb0869dd21280b1",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -2038,7 +2067,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.23": "077be72e621dba08e9e98d82c7e6afda2a92a63c43f5c0cae6c48417627e92f4",
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    "mvp-0.23": "7359716055b65541b6e1d0075425321a939859c1967a18c4007cd366002a99f4",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -2067,7 +2097,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.24": "68a66b859d6ad1bf463a391298e3eb4fbcfe165cb923be83820cb0df540063eb",
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    "mvp-0.24": "70d00ab1c58c273c2fd53d484cbd2259d8c26c51ea628dca7b01f6bd9d8f540e",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -2094,7 +2125,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.25": "04600cae64e9ea61d60f116331002a7db0dcd9c1d3d28e080efbe79f5db7dfcf",
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    "mvp-0.25": "2a22021d3059384f5974d66f1f0c053b596c3f52faa56cbcfc3dfbdc6de9f766",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -2120,7 +2152,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.26": "bd2f12faa967b2d60b39cb003d18b3995bc6d9754bdacc850b07e9ee10ff791f",
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    "mvp-0.26": "32f061a0da1ee8a6c3d2f24a77b43d2e0178fa5539d262e98c862f44a28efde6",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -2132,8 +2165,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # serves and admits exactly as mvp-0.26). Existing vaults reach it by
     # `learnloop upgrade` (default target) from mvp-0.26, or from mvp-0.9 to
     # mvp-0.25 through the chain (under mvp-0.12's advisory guard). New vaults
-    # start here (the template's LATEST_ALGORITHM_VERSION; owner decision
-    # 2026-10-12).
+    # started here (the template's LATEST_ALGORITHM_VERSION; owner decision
+    # 2026-10-12) until mvp-0.29 merged.
     # Reader workbench RW2a's [workbench] moves it too (see mvp-0.9).
     # Reader workbench RW6a's [recap] moves it too (see mvp-0.9).
     # Reader workbench RW1b's [reader_intent] and its two sections move it too (see mvp-0.9).
@@ -2146,7 +2179,24 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
     # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
-    "mvp-0.27": "408a912f94c4d7caaf506daf6f8f90051ff2f14be0373f3a2d58cb4a73efde88",
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    "mvp-0.27": "d326a251434204290b2b2c0dbadcd5e2322cfb2d11a73e7195d8302a93c19982",
+    # mvp-0.29 (daily-loop DL2, the learner's intent; docs/reviews/
+    # daily-loop-dl2.md and its Codex re-review F2): the predecessor plus
+    # serving by intent (an excluded item is never served, requested or
+    # rebuilt as a follow-up; a "Check once" is a cold check on your own;
+    # effective dues at the recall targets, push, admission, re-entry and
+    # reading by intent). Kill switch [intent] enabled (default true; off
+    # serves exactly as the predecessor). No default changes here: only the
+    # version string moves the fingerprint ([intent] and [capture] are in
+    # every snapshot above, inert below the tag). Its predecessor is
+    # mvp-0.27: DL2 landed on main before adaptive difficulty AD2+AD3, so
+    # mvp-0.28 is never used on main and AD2+AD3 lands as mvp-0.30 after it.
+    # Existing vaults reach it by `learnloop upgrade` (default target) from
+    # the predecessor, or from mvp-0.9 onwards through the chain. New vaults
+    # start here (the template's LATEST_ALGORITHM_VERSION; owner decision
+    # 2026-10-12).
+    "mvp-0.29": "996d1355ebcf2195a930842e8dd8c99cce22f91246f1af863e576254861a6f08",
 }
 
 

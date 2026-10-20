@@ -45,8 +45,9 @@ import { clearPdfDocuments } from "../components/pdfDocumentCache";
 import { selectWithDraftFlush } from "./vaultTransition";
 import { todayQueueInput } from "./autoAdvance";
 import { planStepAction, readerTargetForReading, useDailyPlan } from "./dailyPlan";
+import { readerTargetForRestoration } from "./intentCheck";
 import { PlanReadingBanner } from "../components/PlanReadingBanner";
-import type { PlanReadingDto, PlanStepDto } from "../api/dto";
+import type { IntentRestorationDto, PlanReadingDto, PlanStepDto } from "../api/dto";
 import {
   planPresentationForServe,
   proposalOriginForServe,
@@ -756,6 +757,23 @@ export function App() {
     }
   }
 
+  // Daily-loop DL2 (Reader §9.3 item 9): "Back to where you studied this"
+  // after a check on your own. A link the learner follows, never a jump.
+  async function openStudied(restoration: IntentRestorationDto) {
+    try {
+      const library = await api.getSourceLibrary();
+      const target = readerTargetForRestoration(restoration, library.sources);
+      if (!target) {
+        onError("The source you studied this in is no longer in the library.");
+        return;
+      }
+      setReaderSource(target);
+      setTab("reader");
+    } catch (error) {
+      onError(errorMessage(error, "Could not open the reader."));
+    }
+  }
+
   // Daily-loop DL1 (§6.5): where feedback's Next goes under the plan. An item
   // inside the current block opens directly; a new block's line, a reading
   // step or the done screen are shown by Today's plan view (continue on Enter).
@@ -1375,6 +1393,7 @@ export function App() {
             onPaletteEntities={onPaletteEntities}
             onAsk={setAskTarget}
             onError={onError}
+            onOpenStudied={(restoration) => void openStudied(restoration)}
             // The repair step over feedback owns the keyboard (Codex review F2).
             keysSuspended={repairMisconceptionId !== null}
             // The overlays that cover feedback hide its full answer; its

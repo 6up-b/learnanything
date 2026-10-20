@@ -1015,6 +1015,13 @@ sidecar_passthrough!(compare_sources, "compare_sources");
 
 sidecar_passthrough!(get_today_headline, "get_today_headline");
 
+// Daily-loop DL2: the single intent control and deadlines (spec_daily_loop_v1.md §5).
+sidecar_passthrough!(get_intent, "get_intent");
+
+sidecar_passthrough!(set_intent, "set_intent");
+
+sidecar_passthrough!(set_intent_deadline, "set_intent_deadline");
+
 #[tauri::command]
 pub async fn get_calibration_session(
     calibration_session_id: String,

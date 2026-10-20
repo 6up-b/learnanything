@@ -33,6 +33,7 @@ from learnloop.daily_plan.engine import (
 )
 from learnloop.daily_plan.headline import today_headline
 from learnloop.daily_plan.policy import policy_for
+from learnloop.daily_plan.engine import intent_view
 from learnloop.daily_plan.reentry import ReentryGap, reentry_panel
 from learnloop.daily_plan.view import disabled_view, plan_view
 from learnloop.scheduling.scheduler import build_due_queue
@@ -177,6 +178,7 @@ def _view(env: PlanEnv, record: Any, step: dict[str, Any] | None, context: Any) 
             now=env.now(),
             gap=gap,
             goal=_nearest_active_goal(env.vault),
+            intent=intent_view(env),
         ).as_dict()
         panel["minutes"] = round(record.budget, 4)
         panel["items_cap"] = record.split.get("items_cap")

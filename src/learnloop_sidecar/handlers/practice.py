@@ -356,6 +356,16 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
         from learnloop_sidecar.handlers.queue import eligibility_dto
 
         detail["eligibility"] = eligibility_dto(eligibility)
+    if params.session_id is not None:
+        # Daily-loop DL2: a due "Check once" is served cold (Reader §9.3 item
+        # 10): the banner, help never blocked with its consequence stated, and
+        # a header that locates nothing until feedback. Absent otherwise.
+        from learnloop.clock import SystemClock
+        from learnloop.intent.checks import served_check
+
+        check = served_check(vault, repository, item.id, now=SystemClock().now())
+        if check is not None:
+            detail["intentCheck"] = to_camel(check)
     detail["elicitation"] = (
         None
         if params.session_id is None
@@ -502,7 +512,7 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
                 # display: ended, and the item is ordinary practice (round 7).
                 return versioned({"active": False, "reason": PROBE_ITEM_ANSWER_SHOWN})
             contract = episode_contract(vault, repository, item.learning_object_id) or {}
-            return versioned({"active": True, "presentation_id": active.id, **contract})
+            return versioned(_with_intent_check(vault, repository, item.id, {"active": True, "presentation_id": active.id, **contract}))
         if validation.reason == "item_mismatch":
             return versioned({"active": False, "reason": "different_probe_assignment"})
         return versioned({"active": False, "reason": validation.reason or "stale_presentation"})
@@ -538,7 +548,22 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
             return versioned({"active": False, "reason": PROBE_ITEM_ANSWER_SHOWN})
         return versioned({"active": False, "reason": "no_instrument"})
     contract = episode_contract(vault, repository, item.learning_object_id) or {}
-    return versioned({"active": True, "presentation_id": presentation.id, **contract})
+    return versioned(_with_intent_check(vault, repository, item.id, {"active": True, "presentation_id": presentation.id, **contract}))
+
+
+def _with_intent_check(vault: Any, repository: Any, practice_item_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """DL2 verify F15 (fix round 4, R3): an active diagnostic presentation of a
+    due "Check once" item is the check, served under the diagnostic's duty;
+    the contract (the server's word that this is a probe) carries the check's
+    measured view, which promises no help. Absent otherwise."""
+
+    from learnloop.clock import SystemClock
+    from learnloop.intent.checks import DUTY_DIAGNOSTIC, served_check
+
+    check = served_check(vault, repository, practice_item_id, now=SystemClock().now(), duty=DUTY_DIAGNOSTIC)
+    if check is not None:
+        payload = {**payload, "intent_check": check}
+    return payload
 
 
 @method("stop_probe_diagnosing", PracticeItemInput)

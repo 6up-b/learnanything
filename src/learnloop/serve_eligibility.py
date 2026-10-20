@@ -19,7 +19,10 @@ Now one pure function, :func:`decide`, answers for every path:
   TUI's open, the CLI's attempt);
 * **a probe or placement presentation** (the probe commit, the TUI's probe,
   the causal offer, a precommitted block);
-* **a quick-check offer** (the placement quick check's candidates).
+* **a quick-check offer** (the placement quick check's candidates);
+* **a learner's "Check once"** (daily-loop DL2: a ``test_me_later``
+  commitment's check on your own, selected and served by
+  ``scheduling.intent``; DL2 Codex review F3).
 
 Submit's rule is persisted meaning (it decides whether an attempt counts as
 cold), so it is kept exactly (:func:`submit_exposure` reproduces
@@ -52,9 +55,11 @@ is duck-typed (a ``Repository``), never imported.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import math
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -101,8 +106,12 @@ COLD_CHECK = "cold_check"
 PROBE = "probe"
 #: Offer the item in the placement quick check.
 QUICK_CHECK = "quick_check"
+#: Serve the item as a learner's own "Check once" (daily-loop DL2, a
+#: ``test_me_later`` commitment, not a follow-up task): a check on your own
+#: is a measurement of the item alone, so it asks what a cold check asks.
+CHECK_ONCE = "check_once"
 
-REQUESTS = (SUBMIT, COLD_CHECK, PROBE, QUICK_CHECK)
+REQUESTS = (SUBMIT, COLD_CHECK, PROBE, QUICK_CHECK, CHECK_ONCE)
 
 SERVE = "serve"
 SERVE_AS_ORDINARY = "serve_as_ordinary"
@@ -144,9 +153,133 @@ COLD_CHECK_AUTO_PRIMED = "cold_check_auto_primed"
 PROBE_ITEM_ANSWER_SHOWN = "probe_item_answer_shown"
 #: A quick-check offer of an item submit would prime.
 QUICK_CHECK_ANSWER_SHOWN = "quick_check_answer_shown"
+#: A "Check once" whose item submit would prime and no lapse of time clears
+#: (a non-routine reveal since its last attempt): it can only be practice now
+#: (DL2 Codex review F3). Time-bounded exposure defers the check instead
+#: (``COLD_CHECK_ROUTINE_DISPLAY`` / ``COLD_CHECK_REVEALED_SINCE_SCHEDULED``).
+CHECK_ONCE_ANSWER_SHOWN = "check_once_answer_shown"
 
 #: The refusal submit has always raised for a cold check (tests match on it).
 COLD_CHECK_REFUSAL = "a cold retry must be unassisted and unprimed"
+
+
+# -- the disclosures attributable to one attempt (orchestrator ruling R2) ------------------------
+
+#: The basis a plain self-grade's disclosure rows start with
+#: (``reveal_ledger.SELF_GRADE_DISCLOSURE_BASIS``).
+SELF_GRADE_DISCLOSURE_BASIS = "self_grade_disclosure"
+
+#: The disclosure identity's encoding version (round 5, F1-2): a basis
+#: ``self_grade_disclosure:v2:`` followed by canonical JSON with exactly the
+#: fields ``v``, ``submission``, ``trace`` and ``display``. Rows in any other
+#: shape (the round-3 and round-4 colon-joined ones, a hash-less settle row)
+#: are legacy: they count like every routine display and exempt nothing.
+DISCLOSURE_IDENTITY_VERSION = 2
+DISCLOSURE_PREFIX = f"{SELF_GRADE_DISCLOSURE_BASIS}:v{DISCLOSURE_IDENTITY_VERSION}:"
+
+
+def trace_hash(learner_answer_md: str | None) -> str:
+    """The identity of a learner's whole trace (the answer and the volunteered
+    line, as ``trace_evidence.compose_learner_trace`` composes them)."""
+
+    return hashlib.sha256((learner_answer_md or "").encode("utf-8")).hexdigest()[:32]
+
+
+def disclosure_identity(row: Mapping[str, Any]) -> dict[str, Any] | None:
+    """The structured identity a disclosure row carries, or None for any row
+    that is not a well-formed current-version disclosure (legacy rows too)."""
+
+    basis = row.get("basis")
+    if row.get("source_kind") != "answer_display" or not isinstance(basis, str) or not basis.startswith(DISCLOSURE_PREFIX):
+        return None
+    try:
+        identity = json.loads(basis[len(DISCLOSURE_PREFIX):], object_pairs_hook=_unique_fields)
+    except ValueError:
+        return None
+    if (
+        not isinstance(identity, dict)
+        or set(identity) != {"v", "submission", "trace", "display"}
+        # The integer 2 exactly: not 2.0, not a boolean (round 6).
+        or type(identity["v"]) is not int
+        or identity["v"] != DISCLOSURE_IDENTITY_VERSION
+        or not isinstance(identity["submission"], str)
+        or not isinstance(identity["trace"], str)
+        or not (identity["display"] is None or isinstance(identity["display"], str))
+    ):
+        return None
+    return identity
+
+
+def _unique_fields(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Reject a JSON object that names a field twice (``json.loads`` would keep
+    the last value, round 6): such an identity is malformed."""
+
+    identity: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in identity:
+            raise ValueError(f"duplicate identity field {key!r}")
+        identity[key] = value
+    return identity
+
+
+def is_own_disclosure(row: Mapping[str, Any], submission_id: str | None, learner_answer_md: str | None) -> bool:
+    """Is ``row`` the disclosure of exactly this submission: the same retry key
+    AND the hash of exactly this trace, each compared for equality (round 5,
+    F1-2)? The key alone never exempts (a changed trace under the same key was
+    written with the key in view), nor does the trace alone (the same words in
+    another draft came after it); a legacy row never does."""
+
+    if not submission_id:
+        return False
+    identity = disclosure_identity(row)
+    return (
+        identity is not None
+        and identity["submission"] == submission_id
+        and identity["trace"] == trace_hash(learner_answer_md)
+    )
+
+
+def attributable_disclosure_ids(
+    rows: Iterable[Mapping[str, Any]],
+    *,
+    practice_item_id: str,
+    submission_id: str | None,
+    learner_answer_md: str | None,
+) -> frozenset[str]:
+    """THE disclosures attributable to one submission: the plain self-grade
+    disclosure rows (``answer_display``) on the item itself whose identity is
+    exactly this submission's retry key and trace (:func:`is_own_disclosure`).
+
+    The one exemption every reader grants a submission's own self-grade (the
+    key was shown only after the trace was frozen, so it was not seen before
+    the answer): submit's exposure total and auto-prime (:func:`gather`), and
+    a "Check once" read at that attempt (:func:`check_once_at_attempt`), where
+    it is exempt from the exposure and from the learning object's hold alike.
+    A disclosure of another item, of another draft or trace, a legacy row, or
+    any other display is never attributable (orchestrator ruling R2)."""
+
+    if not submission_id:
+        return frozenset()
+    return frozenset(
+        str(row.get("id") or "")
+        for row in rows
+        if str(row.get("practice_item_id") or "") == practice_item_id
+        and row.get("source_kind") == "answer_display"
+        and is_own_disclosure(row, submission_id, learner_answer_md)
+    )
+
+
+def attempt_submission(repository: Any, attempt_id: str | None, practice_item_id: str | None) -> tuple[str | None, str | None]:
+    """``(retry key, trace)`` of the committed attempt ``attempt_id`` on this
+    item: the identity its own disclosure rows must match exactly; ``(None,
+    None)`` without an id, or for an attempt on another item (no exemption)."""
+
+    if not attempt_id or not practice_item_id:
+        return None, None
+    attempt = repository.fetch_practice_attempt(attempt_id)
+    if attempt is None or str(attempt.get("practice_item_id") or "") != practice_item_id:
+        return None, None
+    return str(attempt.get("submission_id") or "") or None, attempt.get("learner_answer_md")
 
 
 # -- inputs -------------------------------------------------------------------------------------
@@ -228,6 +361,10 @@ class EligibilityInputs:
     the open follow-up tasks of every kind selecting the item, ordered as the
     repository orders them (``not_before, created_at, id``).
 
+    ``exempt_reveal_ids`` are the rows attributable to the submission read
+    (:func:`attributable_disclosure_ids`): exempt from its exposure and from
+    the holds on it.
+
     ``window_until`` (Q33): a historical writer (exam seeding, an exam's
     finish, a kept-state sim) bounds its window at its own instant, so a
     reveal stamped after it, and an attempt after it, do not count. None for
@@ -242,7 +379,7 @@ class EligibilityInputs:
     last_attempt: tuple[str, str] | None = None
     tasks: tuple[FollowupTask, ...] = ()
     window_until: str | None = None
-    #: The submitting draft's own self-grade disclosure rows (exempt, round 5).
+    #: The submission's own self-grade disclosure rows (exempt, round 5; R2).
     exempt_reveal_ids: frozenset[str] = frozenset()
     #: The draft's own declarations (submit only). ``declared_primed`` is the
     #: draft's ``primed`` flag, whoever set it; ``auto_primed`` says submit's
@@ -251,6 +388,10 @@ class EligibilityInputs:
     auto_primed: bool = False
     hints_used: int = 0
     attempt_type: str | None = None
+    #: ``check_once`` only: when the "Check once" was chosen (its commitment's
+    #: creation). Reveals before it were visible to the learner's choice, as
+    #: reveals before a cold task were visible to the decision that set it.
+    check_created_at: str | None = None
 
 
 # -- the decision record --------------------------------------------------------------------------
@@ -454,6 +595,10 @@ def cold_task_holds(inputs: EligibilityInputs, task: FollowupTask) -> list[tuple
     for row in inputs.reveals:
         if not in_scope(row):
             continue
+        if row.id in inputs.exempt_reveal_ids:
+            # The submission's own self-grade disclosure (R2): shown after its
+            # trace was frozen, so it holds nothing back from that trace.
+            continue
         if inputs.window_until is not None and row.created_at > inputs.window_until:
             continue
         if row.routine:
@@ -503,6 +648,8 @@ def decide(inputs: EligibilityInputs, request: str) -> EligibilityDecision:
         return _decide_submit(inputs, exposure, base)
     if request == COLD_CHECK:
         return _decide_cold_check(inputs, exposure, base)
+    if request == CHECK_ONCE:
+        return _decide_check_once(inputs, exposure, base)
     # A probe, placement presentation or quick-check offer is a measurement
     # of the item alone: never administered on an item submit would prime,
     # nor (probes, the round-6 guard kept) while a routine display covers it.
@@ -630,6 +777,43 @@ def _decide_cold_check(inputs: EligibilityInputs, exposure: SubmitExposure, base
     )
 
 
+def _decide_check_once(inputs: EligibilityInputs, exposure: SubmitExposure, base: dict[str, Any]) -> EligibilityDecision:
+    """A learner's "Check once" (daily-loop DL2) asks the cold check's question
+    without a task: the same holds (:func:`cold_task_holds`, counted from the
+    check's choice), the same standing exposure. Nothing is persisted: the
+    check is dated by its commitment and recomputed at every build, so a hold
+    defers it (``defer_until``, no re-time) and standing exposure makes the
+    item practice, honestly labelled (``serve_as_ordinary``); an attempt that
+    is not on your own then dates the check again (``scheduling.intent``)."""
+
+    if exposure.primed_by_ledger and exposure.lapses_at is None:
+        return EligibilityDecision(
+            **base, verdict=SERVE_AS_ORDINARY, reason=CHECK_ONCE_ANSWER_SHOWN,
+            reveal_event_ids=_ids(exposure.counted),
+            message="Practice: you've seen this answer, so this one is practice, not your check on your own.",
+        )
+    pseudo = FollowupTask(
+        id="check_once", kind=CHECK_ONCE, created_at=inputs.check_created_at or "", not_before=None, expires_at=None,
+    )
+    holds = cold_task_holds(inputs, pseudo)
+    rows = [row for row, _released, _reason in holds]
+    releases = [released for _row, released, _reason in holds]
+    reasons = {reason for _row, _released, reason in holds}
+    if exposure.primed_by_ledger and exposure.lapses_at is not None:
+        releases.append(exposure.lapses_at)
+        rows.extend(exposure.counted)
+        reasons.add(COLD_CHECK_ROUTINE_DISPLAY)
+    pending = [released for released in releases if released > inputs.at]
+    if not pending:
+        return EligibilityDecision(**base, verdict=SERVE, reason=ELIGIBLE)
+    return EligibilityDecision(
+        **base, verdict=DEFER_UNTIL,
+        reason=COLD_CHECK_ROUTINE_DISPLAY if COLD_CHECK_ROUTINE_DISPLAY in reasons else COLD_CHECK_REVEALED_SINCE_SCHEDULED,
+        until=max(pending), reveal_event_ids=_ids(sorted(rows, key=lambda row: (row.created_at, row.id))),
+        message="Its answer was shown recently, so your check waits until it is cold again.",
+    )
+
+
 # -- the imperative shell ---------------------------------------------------------------------------
 
 
@@ -640,18 +824,21 @@ def gather(
     learning_object_id: str | None,
     at: str,
     window_until: str | None = None,
-    own_disclosure: Callable[[Mapping[str, Any]], bool] | None = None,
+    submission_id: str | None = None,
+    learner_answer_md: str | None = None,
     declared_primed: bool = False,
     auto_primed: bool = False,
     hints_used: int = 0,
     attempt_type: str | None = None,
     reveal_rows: Sequence[Mapping[str, Any]] | None = None,
+    check_created_at: str | None = None,
 ) -> EligibilityInputs:
     """Read the decision's inputs for one item from ``repository``.
 
-    ``own_disclosure`` marks the submitting draft's own disclosure rows
-    (``reveal_ledger.is_own_disclosure``); ``reveal_rows`` lets a batch caller
-    pass rows it already read (the quick check reads the ledger once)."""
+    ``submission_id`` and ``learner_answer_md`` name the submitting draft:
+    its own disclosure rows are exempt (:func:`attributable_disclosure_ids`);
+    ``reveal_rows`` lets a batch caller pass rows it already read (the quick
+    check reads the ledger once)."""
 
     rows = (
         reveal_rows
@@ -661,13 +848,8 @@ def gather(
         )
     )
     reveals = tuple(RevealRow.from_row(row) for row in rows)
-    exempt = frozenset(
-        str(row.get("id") or "")
-        for row in rows
-        if own_disclosure is not None
-        and str(row.get("practice_item_id") or "") == practice_item_id
-        and row.get("source_kind") == "answer_display"
-        and own_disclosure(row)
+    exempt = attributable_disclosure_ids(
+        rows, practice_item_id=practice_item_id, submission_id=submission_id, learner_answer_md=learner_answer_md,
     )
     attempts = repository.list_recent_attempts_by_practice_item(practice_item_id, limit=1, until=window_until)
     last_attempt = (str(attempts[0]["id"]), str(attempts[0]["created_at"])) if attempts else None
@@ -685,7 +867,64 @@ def gather(
         auto_primed=auto_primed,
         hints_used=int(hints_used or 0),
         attempt_type=attempt_type,
+        check_created_at=check_created_at,
     )
+
+
+def check_once_at_attempt(
+    repository: Any,
+    *,
+    practice_item_id: str,
+    learning_object_id: str | None,
+    attempt_id: str,
+    attempt_at: str,
+    check_created_at: str | None,
+) -> EligibilityDecision:
+    """The ``CHECK_ONCE`` decision as it stood when an attempt was submitted
+    (daily-loop DL2 Codex re-review F3): only an attempt the decision would
+    have served cold can answer a "Check once".
+
+    The window is bounded at the attempt (a reveal stamped after it does not
+    count, Q33's bound), the attempt's own linked rows (its feedback) are left
+    out, and the exposure is read since the item's previous attempt, so a
+    sibling's reveal holding the learning object, or a routine display still
+    covering it, makes the attempt practice even when submit did not prime it
+    (submit reads the item's own exposure only).
+
+    The disclosures attributable to the attempt are exempt from both, as
+    submit exempted them (:func:`attributable_disclosure_ids` over the
+    attempt's own retry key and trace, :func:`attempt_submission`;
+    orchestrator ruling R2): a frozen self-grade's key, displayed unlinked
+    before the commit, neither exposes the attempt nor holds its learning
+    object. Another item's disclosure, another draft's, or any other display
+    still does (DL2 verify F12)."""
+
+    rows = [
+        row
+        for row in repository.reveal_events_for_target(
+            practice_item_id=practice_item_id, learning_object_id=learning_object_id,
+        )
+        if str(row.get("attempt_id") or "") != attempt_id
+    ]
+    submission_id, learner_answer_md = attempt_submission(repository, attempt_id, practice_item_id)
+    earlier = [
+        row
+        for row in repository.list_recent_attempts_by_practice_item(practice_item_id, limit=5, until=attempt_at)
+        if str(row["id"]) != attempt_id
+    ]
+    inputs = EligibilityInputs(
+        practice_item_id=practice_item_id,
+        learning_object_id=learning_object_id,
+        at=attempt_at,
+        reveals=tuple(RevealRow.from_row(row) for row in rows),
+        last_attempt=(str(earlier[0]["id"]), str(earlier[0]["created_at"])) if earlier else None,
+        window_until=attempt_at,
+        exempt_reveal_ids=attributable_disclosure_ids(
+            rows, practice_item_id=practice_item_id, submission_id=submission_id, learner_answer_md=learner_answer_md,
+        ),
+        check_created_at=check_created_at,
+    )
+    return decide(inputs, CHECK_ONCE)
 
 
 def decision_active(vault: Any) -> bool:
@@ -752,6 +991,8 @@ def log_decision(decision: EligibilityDecision, *, path: str) -> None:
 
 __all__ = [
     "AUTO_PRIME_REVEAL_THRESHOLD",
+    "CHECK_ONCE",
+    "CHECK_ONCE_ANSWER_SHOWN",
     "COLD_CHECK",
     "COLD_CHECK_ANSWER_SHOWN",
     "COLD_CHECK_AUTO_PRIMED",
@@ -770,14 +1011,22 @@ __all__ = [
     "SERVE",
     "SERVE_AS_ORDINARY",
     "SUBMIT",
+    "DISCLOSURE_IDENTITY_VERSION",
+    "SELF_GRADE_DISCLOSURE_BASIS",
     "active_task",
+    "attempt_submission",
+    "attributable_disclosure_ids",
+    "check_once_at_attempt",
     "cold_task_holds",
     "decide",
     "decision_active",
+    "disclosure_identity",
     "gather",
+    "is_own_disclosure",
     "log_decision",
     "pending_writes",
     "retime",
     "submit_exposure",
+    "trace_hash",
     "with_pending_writes",
 ]
