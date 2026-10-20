@@ -558,3 +558,74 @@ Not run, by the owner rule: the full suite, the whole durability lane and the wh
 no typecheck or build. Pre-existing and unchanged: `desktop_validate.py` (`syntheticBook.ts`) and `module_validate.py`
 (missing module notes). No migration, no DB or connection change, nothing under `src-tauri` and no configuration key
 change.
+
+## Fix round 7 (orchestrator ruling)
+
+Codex's verify of fix round 6 (`2f9e6f468`; job `20261019-212720-YsSQ0w`, read-only) confirmed F5 and F6, **reopened
+F8 (High)**, and raised **F9 (High)**. The orchestrator ruled F8's final shape (R1) and ruled F9 **non-blocking**
+(see below). The fix is in `f9acffb68`. The references regenerated on top of it are committed with this record.
+
+**Paid calls: none ($0.00).** Every model is a fake. No vault copy was opened, and no manual run was made.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F5, F6 (round 6) | High, Medium | (see fix round 6) | confirmed fixed by Codex | — | no change |
+| F8 (round 7, reopened) | High | Separately guarded inputs reconstruct the answer in one prompt | fixed (R1) | `f9acffb68` | `test_reader_rw1c_review.py::test_an_earlier_answer_and_a_gap_are_withheld_as_one[bound]` and `[bound_cold]` (old code: the earlier answer and the open gap were delivered together, scoring 1.0); `::test_a_gap_and_a_misconceptions_correction_are_withheld_as_one` (old code: the verification's question and misconceptions together gave the key away); `::test_a_three_slot_split_is_withheld_as_one` (old code: answer, open question and problem line delivered together). Controls `[unbound]` and `[switches_off]` pass on both trees |
+| F9 | High | A bound Ask in the same second as an attempt can fall out of hint accounting | **non-blocking (orchestrator ruling)**: an inherited cross-cutting ordering issue, queued as its own follow-up; not touched here | — | see open questions below |
+
+### What the fix does
+
+* **One plan per bound request, read per model call.** `tutor/reader_modes.plan_bound_delivery` collects every
+  model-written or learner-model-derived text the request delivers and withholds from them ONCE:
+  * the lookup's verification call (and its query rewrite, which reads a prefix of the same query) carries the open-gap
+    statements in its question and, under "that didn't help", the misconceptions with their corrections in its
+    context;
+  * the tutor call carries the earlier answers, the bridge's open questions (the same gap statements, one slot with
+    them) and the problem line of the learner's work.
+* `withhold_for_call(slots, binding)` reads one call's union in delivery order with the existing `withhold` (leaking
+  alone first, then the highest individual overlap, ties the most recent; a withheld earlier answer counts as its
+  validated placeholder, a withheld statement or line as nothing). A text either call withholds is withheld from every
+  slot, and the calls are read again until nothing changes (the first three gap statements KEPT are the ones used, so
+  what each call carries depends on what is withheld). The placeholder is then validated against the tutor call's
+  delivered union too (empty when it would match).
+* **Delivered from the same set.** `tutor_qa.ask_question` builds the plan as soon as the binding is known, before the
+  lookup runs: the thread the tutor reads, the lookup's inputs (`ReaderLookup` now builds its query at call time from
+  the kept gap statements, and hands the kept misconceptions to `propose_sources`), the bridge's work and the
+  exchange's manifest (`prior_exchanges` is the delivered thread, `delivery.bound_withheld` counts each slot) all come
+  from it. Round 6's per-source guarded copies (`guard_statements`, `guard_learner_work`, the guarded
+  `reader_inputs`) are gone: the adapter now collects the inputs as read (`ReaderInputs`), resolving "that didn't
+  help"'s misconceptions itself when bound so the service never resolves a copy of its own.
+* **Never withheld:** the learner's own words (their question, their earlier questions, their workbench steps).
+  Unbound and with both switches off nothing is planned, so the delivery is as before (the switch-off goldens pass).
+* **Boundary kept as ruled.** The union is the model-written and learner-model-derived text. The book's own passages
+  (the selection, its neighbours, the retrieved passages) stay under the item's span guard
+  (`ItemBoundGuard`, rounds 1-5) and are not part of the union.
+* The round-5 unit test of the learner-work audit now exercises the plan (`::test_the_learner_work_keeps_the_learners_own_steps`).
+
+### Open questions
+
+* **F9 (ruled non-blocking, its own follow-up).** Question and attempt rows have second-resolution `created_at`. A
+  bound Ask started in the same second an attempt completes gets the same stamp, and the item window counts only
+  questions with `created_at` after the previous attempt, so it counts 0; `hint_window.following_attempt` also links it
+  to the preceding attempt. The fix is a durable ordering that tells events within one second apart, used by the
+  submission count, the post-hoc reconstruction and the field's attribution (not `>` to `>=`, which would count earlier
+  help twice). This is inherited and cross-cutting; RW1c does not change it.
+
+### Gate (fix round 7)
+
+All steps ran in the worktree with `TMPDIR=fixtures-local/tmp`. Only targeted tests were run (owner rule
+2026-10-17). The pytest runs waited on `/tmp/learnloop-fullsuite.lock` and ran under it.
+
+| step | result |
+|---|---|
+| backend fail-before on `2f9e6f468` (`git archive` of `src` and `migrations` into `fixtures-local/rw1c-r7-base`, run with this branch's tests and `-o pythonpath=fixtures-local/rw1c-r7-base/src`) | 6 new cases: **4 failed, 2 passed** (the passes are the unbound and switches-off controls) |
+| `uv run lint-imports --no-cache` | 28 kept, 0 broken |
+| targeted pytest, `uv run pytest -n auto` over the 54-file list (1,108 tests collected) | **1,108 passed** (54 s) |
+| `--durable-sqlite` on the 6 new cases and the updated learner-work case | **7 passed** |
+| vitest, `src/screens/reader/` and the `ReaderScreen.*.test.tsx` files (no frontend change) | **399 passed** (53 files) |
+| `db_generate_reference.py`, then `db_validate_reference.py` | 0 errors (head 213). Before the regeneration, 8 configuration line citations into the changed files were stale |
+| `git diff --check` | clean |
+
+Not run, by the owner rule: the full suite, the whole durability lane and the whole vitest run. Pre-existing and
+unchanged: `desktop_validate.py` (`syntheticBook.ts`) and `module_validate.py` (missing module notes). No migration, no
+DB or connection change, nothing under `src-tauri` and no configuration key change.
