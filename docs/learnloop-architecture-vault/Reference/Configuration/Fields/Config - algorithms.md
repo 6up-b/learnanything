@@ -3,8 +3,8 @@ title: "Config - algorithms"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f0c85f2f7d750a4a8b407d4e0936bfd5f1f64501"
-source_commit_timestamp: "2026-10-19T22:55:20-04:00"
+source_commit: "1001054f2b04137abd5b2d97361920c55feed8f5"
+source_commit_timestamp: "2026-10-20T01:42:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml algorithms"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/outside.py"
   - "tests/helpers.py"
   - "tests/mcp_world.py"
+  - "tests/test_ad23_contract.py"
   - "tests/test_ad23_fix_r6.py"
   - "tests/test_ad23_migration.py"
   - "tests/test_ad23_owner_decisions.py"
@@ -31,7 +32,6 @@ source_paths:
   - "tests/test_answer_calibration_duel.py"
   - "tests/test_assessment_enforcement.py"
   - "tests/test_assumed_known.py"
-  - "tests/test_attempt_completion.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/algorithms"
@@ -63,6 +63,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/helpers.py`
 - `tests/mcp_world.py`
+- `tests/test_ad23_contract.py`
 - `tests/test_ad23_fix_r6.py`
 - `tests/test_ad23_migration.py`
 - `tests/test_ad23_owner_decisions.py`
@@ -72,7 +73,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_answer_calibration_duel.py`
 - `tests/test_assessment_enforcement.py`
 - `tests/test_assumed_known.py`
-- `tests/test_attempt_completion.py`
 
 ## Extension and modification guidance
 

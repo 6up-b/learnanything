@@ -3,8 +3,8 @@ title: "Config - practice_index"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f0c85f2f7d750a4a8b407d4e0936bfd5f1f64501"
-source_commit_timestamp: "2026-10-19T22:55:20-04:00"
+source_commit: "1001054f2b04137abd5b2d97361920c55feed8f5"
+source_commit_timestamp: "2026-10-20T01:42:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml practice_index"
@@ -30,12 +30,12 @@ source_paths:
   - "tests/router_model_fakes.py"
   - "tests/split_live_helpers.py"
   - "tests/structured_ai.py"
+  - "tests/test_ad23_contract.py"
   - "tests/test_ad23_fix_r5.py"
   - "tests/test_ad23_fix_review.py"
   - "tests/test_ad23_owner_decisions.py"
   - "tests/test_ad23_sim.py"
   - "tests/test_ad23_successor.py"
-  - "tests/test_ad2_model.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/practice-index"
@@ -84,12 +84,12 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/router_model_fakes.py`
 - `tests/split_live_helpers.py`
 - `tests/structured_ai.py`
+- `tests/test_ad23_contract.py`
 - `tests/test_ad23_fix_r5.py`
 - `tests/test_ad23_fix_review.py`
 - `tests/test_ad23_owner_decisions.py`
 - `tests/test_ad23_sim.py`
 - `tests/test_ad23_successor.py`
-- `tests/test_ad2_model.py`
 
 ## Extension and modification guidance
 

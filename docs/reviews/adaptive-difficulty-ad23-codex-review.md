@@ -769,3 +769,177 @@ raw reads** in 18 files (0 now).
 | kill switch off | round 5's parity test (`test_with_the_kill_switch_off_today_projects_the_predecessors_blocks`) passes in the gate; with AD off no view is computed on the plan path |
 | references: `db_generate_reference.py`, `db_validate_reference.py` | 0 errors (commit labels; no schema change) |
 | migration 214, defaults snapshots, CLI help, vitest, `cargo check` | unchanged or not applicable |
+
+## Fix round 9: the A8 contract, protected == absent (2026-10-20)
+
+Codex's verify of round 8 (codex-job `20261019-230404-jvyfJE`, verdict REOPENED) confirmed F19,
+F22, F23 and F25. It reopened F20, F21, F24, F26 and F27, and raised F28 (High) and F29-F32 (Medium).
+It also showed that the AST scan alone misses aliases, repository methods, external helpers and the
+full generation path.
+
+The orchestrator's rulings R1-R8 are structural:
+
+- filter at the source, before any derivation;
+- carry the view through generation and revalidate the request before it is sent;
+- route every report cohort through the view;
+- make the metamorphic test "protected == absent" the A8 contract.
+
+Commit `1001054f2` implements them, with no migration change. The tests are
+`tests/test_ad23_contract.py` (3 tests: the contract, the unavailable harness, the no-protection
+parity) and `tests/test_ad23_fix_r9.py` (4 focused regressions). No model calls: fakes only.
+
+| Id | Severity | Title | Origin | Verdict | Commit | Test |
+|---|---|---|---|---|---|---|
+| F19, F22, F23, F25 | High | (confirmed fixed by the verify) | | fixed | `f0c85f2f7` | round-8 tests pass; the contract covers them |
+| F20 | High | Protected historical attempts still warm forecasts and enter prompts | stage (warmth) and AD1 (history card) | fixed (R1) | `1001054f2` | the contract (steps, receipts, the outside prompt inputs, the replay); `test_an_attempt_on_a_held_out_answered_revision_is_filtered_at_the_source` |
+| F21 | High | Commissioned generation still quotes protected stems and metadata | inherited authoring context and contract reachability, made live by the commissioned path | fixed (R2) | `1001054f2` | the contract (the captured request and its sentinels); `test_a_commissioned_request_quoting_withheld_material_is_refused_before_it_is_sent` |
+| F24 | High | Protected answers affect retained field rows before filtering | AD1 (challenger) and stage (report comparators) | fixed (R1) | `1001054f2` | the contract (challenger receipts, the report, `ad eval`) |
+| F26 | Medium | Protected revisions still erase the dose moderator | stage | fixed (R1) | `1001054f2` | the contract (the dose draw's `dose_taken`); the focused R1 test (the window cutoff) |
+| F27 | Medium | Protected revisions still inflate practice burden | stage | fixed (R1) | `1001054f2` | the contract (the report); the focused R1 test (practice minutes) |
+| F28 | High | Raw duration history changes AD selection support | stage (the slot uses the plan's estimator) | fixed (R1) | `1001054f2` | the contract (the slot request's candidate estimates) |
+| F29 | Medium | Protected commission forecasts remain in report figures | stage | fixed (R3) | `1001054f2` | the contract (the report, `ad report`); the unavailable harness (suppression) |
+| F30 | Medium | Round 8 changes frozen reading evidence without protected material | round 8 | fixed (R4) | `1001054f2` | `test_with_no_protection_a_frozen_dose_on_an_absent_facet_stands` |
+| F31 | Medium | Answered-question projection omits the citations needed for protection | round 8 | fixed (R5) | `1001054f2` | the contract (the sweep's writes: an answered question citing a held-out span, and its self-check verdict) |
+| F32 | Medium | Relatedness can send requests when the predicate is unavailable | stage (relatedness), AD1 (SendGuard) | fixed (R6) | `1001054f2` | `test_with_the_predicate_unavailable_relatedness_prepares_nothing`, `test_send_guard_refuses_an_unavailable_predicate_whatever_the_job_quotes`; the unavailable harness |
+
+### What changed
+
+- **R1, filtering at the source** (`material_view.py`).
+  - `attempts()` withholds an attempt when its current item is withheld, or when any revision it
+    answered is: the presentation's frozen revision (`item_serve_inputs`), or field's own revision
+    resolution (`item_snapshot_hash`). It is resolved once per view on the raw table, only to decide
+    what is withheld. Presentations are withheld with their frozen revision.
+  - Every derived quantity is computed from those rows:
+    - `field.outcomes.load_attempt_rows(..., attempt_rows=...)` is a new injectable source, so the
+      familiarity history and reveal windows of a kept row never see a withheld answer.
+      `MaterialView.field_rows` uses it for the challenger, the report's comparators and the replay.
+    - `daily_plan.estimates.load_duration_evidence(..., attempt_rows=...)` is another new injectable
+      source. AD's slot builds its candidate estimates from the view's rows (`ad_slot._estimator`);
+      the slot's own planned estimate stays the plan's.
+    - Warmth, the dose moderator's window, practice minutes and the outside forecasters' history
+      card were already read from `attempts()`, so they follow.
+  - With AD off, nothing passes these parameters: the incumbent reads are unchanged.
+- **R2, generation.**
+  - Under the generation contract with the view available, `build_practice_expansion_plan` reads
+    `MaterialView.vault_view()` (the same vault with only visible items) for contract reachability
+    (`commission_plan`), contrast-pair reachability, the targets' counts, facets and surface
+    families.
+  - The plan carries its view (`PracticeExpansionPlan.material_view`). The three plan-based
+    generators pass `vault_view` and `request_guard` to `generate_authoring_proposal` (new default-off
+    parameters). The authoring context is built from the vault the view sees, re-read at send time.
+  - `CommissionedRequestGuard` scans the serialized request before the agent run is recorded or
+    anything is sent. It refuses (`ProtectedRequest`, logged) a request quoting a withheld item's id
+    or stem, or a facet or surface family only withheld material names, and refuses everything while
+    the predicate is unavailable.
+  - A commissioned target leaves out the incumbent's `mastery_mean`, as it already left out the band:
+    under the contract the difficulty is AD's point.
+  - `open_commissions(landed=...)`: a result on a withheld item does not close its commission
+    (`MaterialView.open_commissions`, used by the slot, the generation path, scheduling and the
+    commission job).
+  - On "no commission written": the commission draw happens while the plan is built, before the
+    request exists. A refused request therefore leaves its draw in place, and it expires as an
+    unlanded commission. Nothing is generated or sent.
+- **R3, the report.** Commission results (`visible_commission_results`), dose rows and offer outcomes
+  (`MaterialView.dose_rows`: a draw whose extra is withheld now, with its uptake, is left out) go
+  through the view. With the predicate unavailable, the selection and dose-arm sections are
+  `{"suppressed": "held_out_predicate_unavailable"}`.
+- **R4 (F30).** A reading dose drops only facets that withheld material alone names
+  (`protected_only_facets`, judged over current items and saved revisions). A frozen dose on a facet
+  merely absent from current content stands, as in round 7.
+- **R5 (F31).** `answered_questions` selects `span_ids_json` as well as the anchors before the check.
+- **R6 (F32).** `propose_subject` returns `unavailable` before assembling, claiming or sending
+  anything. `SendGuard` refuses an unavailable predicate whatever the job quotes.
+- **R7, the contract** (`tests/test_ad23_contract.py`).
+  - **Setup.** One vault is built and copied twice. The "protected" copy gets every kind of protected
+    material listed in A8's record:
+    - a held-out current item with a sentinel stem, facet and surface family;
+    - a held-out item sharing the public LO, facet and family;
+    - a public item whose earlier answered revision is held out (snapshot, presentation, frozen serve
+      inputs, attempt);
+    - correct protected answers with 1,000-minute latencies;
+    - a reveal, a commission result and a reading receipt on protected material;
+    - a Reader question citing a held-out span (one unanswered, one answered with its verdict), and a
+      dose draw that offered it.
+
+    The "absent" copy never has that material. The AD decisions that are not derived from it (the
+    base commission draw, the dose draw) exist in both.
+  - **Run.** Ids are deterministic: each stage mints from its own fixed millisecond, so non-AD writes
+    that exist in one copy only (state sync of the protected items) never shift AD's ids. The system
+    clock is frozen, and the hints' background approach-map build is off. The harness runs on both
+    copies:
+    - serves with the slot draw (its candidates' estimates captured), the serve hook, an answer and a
+      second serve;
+    - `RP.rebuild` and the forecast-score rebuild;
+    - the outside forecasters' item view and history card;
+    - the commission draw and the commissioned generation request (captured by a fake generator);
+    - the relatedness inputs and proposal (captured by a fake);
+    - readiness and the router card;
+    - two dose decisions (fresh, and the earlier draw's boundary);
+    - a backfill reading sweep through a Reader map;
+    - the report;
+    - `ad report --json` and `ad eval --json` through the CLI.
+  - **Assertions.** No sentinel appears in any captured request or prompt input. Every AD write
+    (`ad_selections`, `ad_commission_results`, `ad_dose_offers`, `ad_reading_opportunities`,
+    `forecast_receipts`, `item_serve_inputs`, `ad_relatedness_runs`, the plan's block events and the
+    answers) and every DERIVED table (`ad_state`, `ad_attempt_trace`, `item_forecast_scores`) is
+    identical. So is every returned figure: steps, estimates, prompts, readiness, card, dose, sweep,
+    report and CLI output.
+
+    Only the report's `protection` disclosure block and its `generated_at` are set aside. One
+    carve-out is recorded: AD1's `mastery_ekf` receipt (and its score rows) records the incumbent's
+    live mastery state verbatim. An exam answer is evidence in the incumbent by design; the receipt
+    trains and selects nothing in AD and quotes no material.
+  - **The unavailable harness** (predicate raising) checks that:
+    - the incumbent serves both planned items;
+    - no AD row is written;
+    - relatedness reports `unavailable` and the dose arm `protection_unavailable`;
+    - the sweep writes nothing;
+    - generation carries no contract text or commission;
+    - the report is suppressed with zero records.
+  - **The no-protection parity case** pins F30.
+  - The round-8 AST scan stays as a lint (`test_ad23_material_view.py`).
+
+**Fail-before.**
+- `tests/test_ad23_contract.py` and `tests/test_ad23_fix_r9.py` against `22eb66d72` (`git archive`
+  into `fixtures-local/ad23-r9-base`, `-o pythonpath`): **7 of 7 fail**.
+  - The contract fails first on its sentinel check: stem, facet, family, `pi_secret` and `pi_shared`
+    all appeared in the commissioned request (F21).
+  - With the sentinel check set aside, its comparison differs in the following entry points, each
+    covering one or more of the verify's findings:
+    - the slot's candidate estimates (F28);
+    - the steps, serve receipts and serve inputs (F20/F24 warmth and challenger history);
+    - the outside prompt inputs (F20);
+    - the generation request (F21);
+    - the replay trace and the scores (F20/F24);
+    - the reading sweep's writes (F31: an in-passage receipt for the cited question);
+    - the report's and `ad report`'s commission figures (F29);
+    - the plan's events.
+  - The unavailable harness fails on a relatedness run written with the predicate unavailable (F32).
+  - The parity case fails on an emptied frozen dose (F30).
+  - The focused tests fail as follows:
+    - R1: the held-out revision's answer was visible;
+    - R2: the guard did not exist;
+    - R6 relatedness: `ok`, a request built and sent;
+    - R6 SendGuard: no refusal.
+- All 7 pass after the fix.
+
+### Gate (this round; owner rule 2026-10-17: targeted only)
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 27 kept, 0 broken (the AD estimator is built in `daily_plan/ad_slot.py`; the view never imports the plan) |
+| `test_ad23_contract.py`, `test_ad23_fix_r9.py` | 7 passed |
+| targeted pytest, `uv run pytest -n auto` over 134 files: round 8's 113, the two new files, every `test_field*` file, and every test naming `build_authoring_context`, `generate_authoring_proposal`, `load_attempt_rows` or `load_duration_evidence` | **7,612 passed, 36 xfailed** (1,028 s), 0 failed |
+| `--durable-sqlite`: `test_ad23_contract.py`, `test_ad23_fix_r9.py`, `test_ad23_fix_r8.py`, `test_ad23_migration.py` | 27 passed |
+| references: `db_generate_reference.py`, `db_validate_reference.py` | 0 errors (commit labels; no schema change) |
+| migration 214, defaults snapshots, CLI help, vitest, `cargo check` | unchanged or not applicable |
+
+### For the next verify
+
+Per the orchestrator, the R7 metamorphic test is the A8 contract. A finding should show an entry
+point or an input kind it does not cover. Two boundaries are recorded rather than covered:
+
+- AD1's live incumbent receipt (`mastery_ekf`) and the incumbent numbers the frozen `llm_v3` state
+  quotes from it. These are numbers from the incumbent's own evidence, never material.
+- Incumbent planning, which keeps the plan's own estimates (only AD's candidate estimates are
+  filtered).
