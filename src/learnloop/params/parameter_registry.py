@@ -1040,7 +1040,7 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "cues.max_daily_cost_usd",
     ), "structural", "operational",
         "the share of eligible discovered margin cues withheld at random (seed and propensity logged) / the "
-        "cue judge's calls per source open / its calls per source a local day, over every open, counted from "
+        "cue judge's calls per source open / its calls per source per rolling 24 hours, over every open, counted from "
         "the durable receipts / its metered spend a UTC day; a display experiment and spend bounds, no "
         "measurement authority (cues are display only)."),
     # Adaptive hints H1: the approach-map builds' (and merges') metered spend a

@@ -2112,9 +2112,10 @@ class CuesConfig(BaseModel):
     one listwise judgment per target (``ai.routing.passage_cue_judge``, ledger
     task ``passage_cue``), in the background when a source opens, at most
     ``max_calls_per_source_open`` judge calls per open,
-    ``max_calls_per_source_per_day`` judge calls per source a local day over
-    every open (counted from the durable receipts, the subscription's
-    included; Codex verify F16) and ``max_daily_cost_usd`` metered a UTC day
+    ``max_calls_per_source_per_day`` judge calls per source per rolling 24
+    hours (UTC) over every open (counted from the durable receipts, the
+    subscription's included; Codex verify F16; the name says "day", the
+    window is a rolling 24 hours so no timezone or DST rule moves it) and ``max_daily_cost_usd`` metered a UTC day
     (Codex is ``estimated_only``).
     ``try_first_enabled``: the judge's "try this step first" offers on worked
     examples and derivations (pressing one opens RW1b's next-step question).

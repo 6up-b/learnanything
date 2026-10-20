@@ -53,7 +53,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
-from datetime import UTC
+from datetime import UTC, timedelta
 from decimal import Decimal
 import hashlib
 import json
@@ -899,26 +899,29 @@ def _calls_cap(vault: LoadedVault) -> int:
     return max(0, int(getattr(_cues(vault), "max_calls_per_source_open", 12)))
 
 
-#: Why a target was not judged: the source's judge calls today are used.
+#: Why a target was not judged: the source's judge calls of the last 24 hours are used.
 DAILY_CAP_REASON = "cues.max_calls_per_source_per_day"
+#: The daily cap's window: a rolling 24 hours in UTC, so no timezone or DST
+#: rule can move its start (Codex verify F16, round 6: a local midnight
+#: computed with the current offset moved forward an hour at the fall-back).
+DAILY_CAP_WINDOW = timedelta(hours=24)
 
 
 def _daily_calls_cap(vault: LoadedVault) -> int:
     return max(0, int(getattr(_cues(vault), "max_calls_per_source_per_day", 36)))
 
 
-def _local_day_start(clock: Clock | None = None) -> str:
-    """Local midnight today as a UTC timestamp in the receipts' own format
+def _window_start(clock: Clock | None = None) -> str:
+    """Now (UTC) less 24 hours, in the receipts' own format
     (``datetime.isoformat`` with ``+00:00``), so it compares as text."""
 
-    local_now = (clock or SystemClock()).now().astimezone()
-    start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
-    return start.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+    return ((clock or SystemClock()).now().astimezone(UTC) - DAILY_CAP_WINDOW).isoformat()
 
 
-def discovery_calls_today(repository: Repository, extraction_id: str, *, clock: Clock | None = None) -> int:
-    """The cue judge's requests for this source since local midnight, counted
-    from the durable receipts (Codex verify F16): one root receipt per
+def discovery_calls_last_24h(repository: Repository, extraction_id: str, *, clock: Clock | None = None) -> int:
+    """The cue judge's requests for this source in the last 24 hours (a
+    rolling window in UTC), counted from the durable receipts (Codex verify
+    F16): one root receipt per
     request, written before it is sent, a failed, unfinished or retried one
     included. Every judge request of a source is owned by
     ``<extraction_id>|<target>|<state>``, so the count holds across source
@@ -930,7 +933,7 @@ def discovery_calls_today(repository: Repository, extraction_id: str, *, clock: 
             "SELECT COUNT(*) FROM model_call_receipts WHERE owner_kind = ? AND parent_call_id IS NULL "
             "AND owner_id >= ? AND owner_id < ? AND started_at >= ?",
             # '}' follows '|': the range is exactly the ids starting "<extraction_id>|".
-            (CUE_JUDGE_TASK.route_task, f"{extraction_id}|", f"{extraction_id}}}", _local_day_start(clock)),
+            (CUE_JUDGE_TASK.route_task, f"{extraction_id}|", f"{extraction_id}}}", _window_start(clock)),
         ).fetchone()
     return int(row[0] or 0)
 
@@ -938,15 +941,15 @@ def discovery_calls_today(repository: Repository, extraction_id: str, *, clock: 
 def _daily_admission(vault: LoadedVault, repository: Repository, extraction_id: str, *,
                      clock: Clock | None) -> Callable[[SpendEstimate], None]:
     """``PaidCalls``'s admission of each judge attempt (a retry included):
-    refused before it is sent once the source's calls today reach
-    ``cues.max_calls_per_source_per_day``, whatever route (the subscription
-    too) and whatever open."""
+    refused before it is sent once the source's calls in the last 24 hours
+    reach ``cues.max_calls_per_source_per_day``, whatever route (the
+    subscription too) and whatever open."""
 
     cap = _daily_calls_cap(vault)
 
     def admit(_estimate: SpendEstimate) -> None:
-        if discovery_calls_today(repository, extraction_id, clock=clock) >= cap:
-            raise SpendLimitExceeded(f"{DAILY_CAP_REASON} ({cap}) reached for this source today")
+        if discovery_calls_last_24h(repository, extraction_id, clock=clock) >= cap:
+            raise SpendLimitExceeded(f"{DAILY_CAP_REASON} ({cap} per rolling 24 hours) reached for this source")
 
     return admit
 
@@ -1181,7 +1184,8 @@ def _spend_plan(vault: LoadedVault, repository: Repository, route: Any, pending:
                     "the daily cap, the shortlist falls back to keyword lists",
         },
         "caps": {"max_calls_per_source_open": cap, "max_calls_per_source_per_day": _daily_calls_cap(vault),
-                 "source_calls_today": discovery_calls_today(repository, extraction_id, clock=clock),
+                 "max_calls_per_source_per_day_window": "rolling 24 hours (UTC)",
+                 "source_calls_last_24h": discovery_calls_last_24h(repository, extraction_id, clock=clock),
                  "max_daily_cost_usd": float(envelope.max_usd),
                  "spent_today_usd": spent, "remaining_today_usd": max(0.0, float(envelope.max_usd) - spent),
                  "subscription_exempt_from_dollar_cap": route.billing == "subscription"},
@@ -1200,10 +1204,10 @@ def discover(vault: LoadedVault, repository: Repository, extraction_id: str, *, 
     a second run for new targets draws on what the first left. Without it the
     run has a budget of its own (the CLI's one run). ``calls`` and ``usage``
     count this run's requests; ``open_calls`` the open's so far. Over every
-    open, run and process, the source's judge requests since local midnight
-    stay within ``cues.max_calls_per_source_per_day``, counted from the
+    open, run and process, the source's judge requests in any rolling 24
+    hours stay within ``cues.max_calls_per_source_per_day``, counted from the
     durable receipts before each target and each attempt
-    (:func:`discovery_calls_today`).
+    (:func:`discovery_calls_last_24h`).
 
     The judge's route is checked before any retrieval is paid for, and every
     metered request of the run, the query embeddings included, reserves under
@@ -1268,10 +1272,10 @@ def discover(vault: LoadedVault, repository: Repository, extraction_id: str, *, 
                 out["targets"].append({**target.describe(), "status": "capped",
                                        "reason": "cues.max_calls_per_source_open"})
                 continue
-            # The source's calls today, from the durable receipts (F16 of the
+            # The source's calls in the last 24 hours, from the durable receipts (F16 of the
             # verify): checked before any retrieval is paid for, and again
             # before every judge attempt (``admit``).
-            if discovery_calls_today(repository, extraction_id, clock=clock) >= daily_cap:
+            if discovery_calls_last_24h(repository, extraction_id, clock=clock) >= daily_cap:
                 out["targets"].append({**target.describe(), "status": "capped", "reason": DAILY_CAP_REASON})
                 continue
             if not _metered_room(vault, repository, route, clock=clock):
@@ -1308,7 +1312,7 @@ def discover(vault: LoadedVault, repository: Repository, extraction_id: str, *, 
     calls = int(budget.used.calls) - calls_before
     out["calls"] = calls
     out["open_calls"] = int(budget.used.calls)
-    out["source_calls_today"] = discovery_calls_today(repository, extraction_id, clock=clock)
+    out["source_calls_last_24h"] = discovery_calls_last_24h(repository, extraction_id, clock=clock)
     out["usage"] = {"requests": calls, "retries": int(budget.used.retries) - retries_before,
                     "judged_targets": out["judged"], "billing": route.billing,
                     "cost_basis": "estimated_only" if route.billing == "subscription" else "metered_estimate"}
@@ -1682,7 +1686,7 @@ __all__ = [
     "contrast_list",
     "cue_targets",
     "discover",
-    "discovery_calls_today",
+    "discovery_calls_last_24h",
     "discovered_candidates",
     "discovery_enabled",
     "find_discovered",

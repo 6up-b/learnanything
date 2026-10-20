@@ -542,3 +542,41 @@ it("F17 round 5: a tap names the plan its cue was first seen on this visit, else
   expect(result.current.planFor(seen)).toBe("plan_A");
   expect(result.current.planFor(unseen)).toBe("plan_B");
 });
+
+// -- Fix round 6 (verify) ------------------------------------------------------------------------
+
+it("F21: a disconnected generation's delayed callback is discarded; measured again under B, the passage is sent once as plan_B", async () => {
+  vi.useFakeTimers();
+  ThresholdObserver.all = [];
+  FakeResizeObserver.all = [];
+  vi.stubGlobal("IntersectionObserver", ThresholdObserver);
+  vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+  vi.stubGlobal("innerHeight", 600);
+  const shown = discovered("p1", 0);
+  const placement: CuePlacement = { shown: [shown], suppressed: [], heldOutPlaced: [], heldOutSuppressed: [] };
+  const ref = body(["p1"]);
+  const p1 = sizedPassage(ref, "p1", { value: 400 });
+  const { rerender } = renderHook(({ plan }: { plan: string }) => useCueImpressions({
+    extractionId: "A", cues: cues([shown], [], "tk1", plan), placement, surface: "text", bodyRef: ref,
+    visitId: () => "visit_A" }), { initialProps: { plan: "plan_A" } });
+  const generationA = ThresholdObserver.all.find((observer) => observer.targets.includes(p1))!;
+  expect(generationA).toBeDefined();
+  // The browser samples p1 in view under A, but plan B renders before the callback runs.
+  rerender({ plan: "plan_B" });
+  act(() => {
+    generationA.callback([{ isIntersecting: true, intersectionRatio: 1, target: p1, intersectionRect: { height: 400 },
+      rootBounds: { height: 600 } }] as unknown as IntersectionObserverEntry[],
+    generationA as unknown as IntersectionObserver);
+  });
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+  // The A observation is never sent, under either plan's id.
+  expect(api.readerCueImpressions).not.toHaveBeenCalled();
+  // B's own observer measures p1 again: sent once, as plan_B.
+  act(() => {
+    for (const observer of ThresholdObserver.all) observer.scroll(p1, 0, 400, 600);
+    for (const observer of ThresholdObserver.all) observer.scroll(p1, 400, 400, 600);
+  });
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+  expect(api.readerCueImpressions.mock.calls.map((call) => call[0])).toEqual([
+    { extractionId: "A", visitId: "visit_A", planId: "plan_B", entries: [{ cueId: "dcue_p1", shown: true }] }]);
+});

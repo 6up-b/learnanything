@@ -599,3 +599,71 @@ Run in the worktree with `TMPDIR=fixtures-local/tmp`.
 | references | regenerated: `db_validate_reference.py` errors [], `validate_vault.py` passed |
 
 **Model calls in this step: none.** No vault was opened or copied.
+
+## Fix round 6 (orchestrator)
+
+Codex's verify of round 5 (job `20261020-161743-cY0Gz9`, verdict REOPENED)
+confirmed F17, the receipt-before-send ordering, the migrations, and F18
+and F19. It found two defects. Both reproduced on `99e32cd00` and are fixed
+here under the orchestrator's binding rulings.
+
+| id | severity | title | verdict | test |
+|---|---|---|---|---|
+| F16 | High | a DST fall-back refills the daily allowance | fixed: rolling 24 hours in UTC | `test_reader_rw3b_fix_round6.py::test_the_fall_back_never_refills_the_allowance`, `::test_the_spring_forward_keeps_the_last_24_hours_counted`, `::test_an_ordinary_local_midnight_does_not_refill_the_allowance`, `::test_a_receipt_24_hours_and_a_second_old_drops_out_of_the_window` |
+| F21 | Medium | buffered observer entries pick up the replacement plan | fixed | `rw3bReview.test.tsx` "F21: a disconnected generation's delayed callback is discarded; measured again under B, the passage is sent once as plan_B" |
+
+### What changed
+
+- **F16** (`passage_cues.py`). The daily cap now counts the source's root
+  judge receipts with `started_at >= now_utc - 24h`; receipts carry
+  `started_at`, not `created_at`. This removes all timezone and DST
+  handling. The old local-midnight rule took the current offset, so on New
+  York's fall-back it put midnight at 05:00Z instead of 04:00Z.
+  - `discovery_calls_today` is renamed `discovery_calls_last_24h`.
+  - The run reports `source_calls_last_24h`. The dry run's caps name the
+    window ("rolling 24 hours (UTC)") and `source_calls_last_24h`.
+  - The refusal now reads "… (36 per rolling 24 hours) reached for this
+    source".
+  - The key keeps its name, `cues.max_calls_per_source_per_day`. It is
+    documented as "per rolling 24 hours" in the schema, the registry, the
+    disclosure and the template comment.
+  - The defaults fingerprints are unchanged, since the value did not
+    change.
+- **F21** (`useCueImpressions.ts`). Round 5's shared `queueNow` ref is
+  gone. Each observer generation captures its own render's `queue`, bound to
+  that render's plan, in a closure. Each observer is registered as live and
+  removed on disconnect, both on a plan change and on a reflow rebuild. A
+  callback the browser delivers after its observer was disconnected is
+  discarded: it never queues, under either plan. The replacement observer
+  measures the passage again and sends it once, under its own plan.
+
+### Fail-before (`99e32cd00`)
+
+- **Backend.** `git archive` to the scratchpad, run with
+  `-o pythonpath=<scratch>/src` and `TZ=America/New_York`: **4 of 4 failed
+  on their assertions**.
+  - Fall-back: 4 more calls after 36 already in 24 h.
+  - Spring-forward and ordinary midnight: calls were admitted.
+  - Edge: 4 calls, not 1.
+- **Frontend.** The base app was extracted to the scratchpad with the new
+  test file: **1 failed, 18 passed**. The A observation was sent as
+  `plan_B` before B measured anything.
+
+### Gate
+
+| Check | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | **28 kept, 0 broken** |
+| `uv run pytest -n auto` on 76 files (round 5's 70 and 5, plus `test_reader_rw3b_fix_round6.py`) | **1,509 passed** |
+| `npm run typecheck` | clean |
+| `npx vitest run src/screens/reader/ src/screens/ReaderScreen src/components/PdfReaderPane.marks.test.tsx` | **432 passed** (58 files) |
+| `npm run frontend:build` | built |
+| references | regenerated (source-commit labels); `db_validate_reference.py` errors [], `validate_vault.py` passed |
+| durability, `cargo check` | not run: no migration, DB code or `src-tauri` change |
+
+**Model calls: none.** Every script outside pytest was static: reference
+generation and validation, and the fingerprint computation. The surviving
+throwaway vaults under `.pytest_tmp` were swept for completed receipts. Every
+one with a real provider name came from a pytest fake: it had no real
+endpoint or response id, or pointed at a 127.0.0.1 fake server, and finished
+in at most 0.17 s.

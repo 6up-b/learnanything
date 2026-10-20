@@ -1,6 +1,6 @@
 """Reader workbench RW3b, fix round 5 (docs/reviews/reader-rw3b-codex-review.md).
 
-F16: a source's discovery judge calls a local day stay within
+F16: a source's discovery judge calls in any rolling 24 hours stay within
 ``cues.max_calls_per_source_per_day``, counted from the durable receipts, so
 new open ids, a reload and a restart cannot exceed it; F17: a tap that must
 create the visit's impression takes the plan the cue was first seen on, never
@@ -65,8 +65,8 @@ def test_new_open_ids_a_reload_and_a_restart_never_exceed_the_sources_daily_call
     _discover(restarted, "open_5")
     assert len(judge.prompts) <= 36, f"{len(judge.prompts)} judge calls for one source today (cap 36)"
     assert _root_receipts(repository) == 36
-    assert PC.discovery_calls_today(repository, "ext_text") == 36
-    assert PC.discovery_calls_today(repository, "ext_tex") == 0  # another source's prefix is not counted
+    assert PC.discovery_calls_last_24h(repository, "ext_text") == 36
+    assert PC.discovery_calls_last_24h(repository, "ext_tex") == 0  # another source's prefix is not counted
 
 
 def test_failed_requests_count_against_the_daily_cap_and_the_cli_run_is_held_to_it(tmp_path, monkeypatch):
@@ -91,7 +91,7 @@ def test_failed_requests_count_against_the_daily_cap_and_the_cli_run_is_held_to_
     judge = CueJudgeFake()
     out = PC.discover(loaded(paths), repository, "ext_text", client=judge)
     assert judge.prompts == [] and out["calls"] == 0 and not any(deep)
-    assert out["source_calls_today"] == 3
+    assert out["source_calls_last_24h"] == 3
 
 
 def test_the_daily_cap_refuses_a_retry_that_would_pass_it(tmp_path):
@@ -116,7 +116,7 @@ def test_the_dry_run_names_the_daily_cap(tmp_path):
     paths, repository, _spans = build_cue_vault(tmp_path / "v")
     out = PC.discover(loaded(paths), repository, "ext_text", client=CueJudgeFake(), dry_run=True)
     caps = out["spend_plan"]["caps"]
-    assert caps["max_calls_per_source_per_day"] == 36 and caps["source_calls_today"] == 0
+    assert caps["max_calls_per_source_per_day"] == 36 and caps["source_calls_last_24h"] == 0
 
 
 # -- F17: a tap creates an impression only from the plan the cue was seen on -----------------------

@@ -199,9 +199,6 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
   const pendingKey = pending.map(({ cue, entry }) => `${cue.cueId}:${cue.spanId}:${entry.shown ? 1 : 0}:${entry.reason ?? ""}`).join("|");
   const pendingRef = useRef(pending);
   pendingRef.current = pending;
-  // The observers always queue through this render's queue (its plan, its visit).
-  const queueNow = useRef(queue);
-  queueNow.current = queue;
   useEffect(() => {
     if (!discovery || surface === "pdf" || surface === "none" || typeof IntersectionObserver === "undefined") return;
     const body = bodyRef.current;
@@ -222,13 +219,27 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
     // The observer's root is the viewport, so the reading area is its height.
     const thresholdsOf = (element: Element) =>
       passageThresholds(element.getBoundingClientRect().height, window.innerHeight);
+    // This generation's queue, bound to the plan it was built for (Codex
+    // verify F21): an entry its observers measured is sent with this plan,
+    // never with a later one.
+    const queueForPlan = queue;
     let observers: IntersectionObserver[] = [];
+    // The observers still connected: a callback an observer delivers after it
+    // was disconnected (entries the browser had buffered) is discarded, and
+    // the replacement observer measures the passage again under its own plan.
+    const live = new Set<IntersectionObserver>();
     let keyOf = new Map<Element, string>();
     // One observer per set of thresholds: a passage taller than the reading
     // area adds the ratio at which it fills half of it (F14).
-    const build = () => {
-      for (const observer of observers) observer.disconnect();
+    const disconnectAll = () => {
+      for (const observer of observers) {
+        live.delete(observer);
+        observer.disconnect();
+      }
       observers = [];
+    };
+    const build = () => {
+      disconnectAll();
       keyOf = new Map();
       const byThresholds = new Map<string, { thresholds: number[]; elements: Element[] }>();
       for (const element of elements) {
@@ -242,13 +253,15 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
       }
       for (const { thresholds, elements: group } of byThresholds.values()) {
         const observer = new IntersectionObserver((entries) => {
+          if (!live.has(observer)) return;  // a disconnected generation's late entries
           for (const seen of entries) {
             if (counted.has(seen.target) || !passageInView(seen)) continue;
             counted.add(seen.target);
-            for (const item of bySpan.get(seen.target) ?? []) queueNow.current("passage", item.entry);
+            for (const item of bySpan.get(seen.target) ?? []) queueForPlan("passage", item.entry);
             observer.unobserve(seen.target);
           }
         }, { threshold: thresholds });
+        live.add(observer);
         for (const element of group) observer.observe(element);
         observers.push(observer);
       }
@@ -285,13 +298,14 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
       if (settle !== null) clearTimeout(settle);
       window.removeEventListener("resize", scheduleRecheck);
       resizes?.disconnect();
-      for (const observer of observers) observer.disconnect();
+      disconnectAll();
     };
-    // A new plan (its planId) rebinds the observers to the queue of that
-    // plan even when the placement and the targets are unchanged (a density
-    // or holdout-rate change that moves no mark): a passage first seen under
-    // it is sent with its id (Codex verify F20). Receipts already queued keep
-    // the plan they were seen on.
+    // A new plan (its planId) starts a new generation of observers bound to
+    // that plan's queue even when the placement and the targets are unchanged
+    // (a density or holdout-rate change that moves no mark): a passage first
+    // seen under it is sent with its id (Codex verify F20), and the old
+    // generation's late callbacks are discarded (F21). Receipts already
+    // queued keep the plan they were seen on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingKey, surface, discovery ? discovery.targetsKey : null, servedPlanId]);
 

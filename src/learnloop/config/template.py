@@ -1417,7 +1417,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # the keys and the route; all of them were recomputed from the composed
     # defaults (defaults_fingerprint_for_version). RW3b fix round 5 (Codex
     # verify F16) adds [cues] max_calls_per_source_per_day (36): the cue
-    # judge's calls per source a local day over every open, counted from the
+    # judge's calls per source per rolling 24 hours over every open, counted from the
     # durable receipts; a spend bound, display only, no successor. Every
     # snapshot moved again only for that key, recomputed the same way.
     "mvp-0.9": "f5054dffd53d03f5b236ba5496e088258878c04c8a00b83a660f25752bf3d5dc",

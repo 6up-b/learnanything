@@ -16,8 +16,8 @@ these RPCs add:
   ``cues.max_calls_per_source_open``: re-asks, new targets, failures and
   retries included, so a new ``targets_key`` never refills it (Codex verify
   F16). Over every open, remount, reload and restart, a source's judge calls
-  a local day stay within ``cues.max_calls_per_source_per_day``, counted
-  from the durable receipts (``PC.discovery_calls_today``); a source's
+  in any rolling 24 hours stay within ``cues.max_calls_per_source_per_day``,
+  counted from the durable receipts (``PC.discovery_calls_last_24h``); a source's
   discovery jobs run one at a time, so that count is exact in this process.
 * ``reader.cue_impressions``: the Reader's impressions (a mark in the
   learner's view, or not shown with its reason) and the "fewer marks like
