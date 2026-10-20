@@ -16,6 +16,7 @@ import type { PracticeRequestDto, ReaderTutorButtonDto, SourceToolRequestDto } f
 import { COLOR, FONT_MONO } from "../../components/term";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import type { ReaderExchange } from "./ReaderAskBranches";
+import type { LibraryExercisesProps } from "./ProposalExercises";
 import { TutorOffers, type OfferItem, type TutorOfferStore } from "./TutorOffers";
 import { MeaningLabel, ModelVoice, SourceVoice } from "./voices";
 
@@ -62,6 +63,8 @@ export interface TutorRailProps {
   onOpenPassage?: ((passage: TutorPassageRef) => void) | null;
   /** The screen's exchange-scoped offer state (lookups survive a collapse). */
   offerStore?: TutorOfferStore;
+  /** RW4b: a practice offer's textbook exercises (absent while library_exercises is off). */
+  exercises?: LibraryExercisesProps | null;
 }
 
 const linkStyle = {
@@ -162,6 +165,7 @@ export function TutorAnswer({ exchange, tutor }: { exchange: ReaderExchange; tut
           onPracticePick={tutor.onPracticePick ?? null}
           onTryNextStep={tutor.onTryNextStep ?? null}
           {...(tutor.offerStore ? { store: tutor.offerStore } : {})}
+          {...(tutor.exercises ? { exercises: tutor.exercises } : {})}
         />
       ) : null}
     </div>

@@ -3087,6 +3087,8 @@ export function ReaderScreen({
                   }
                 },
                 offerStore: tutorOfferStore,
+                // RW4b: a practice offer's textbook exercises, as RW4a's pane gets them.
+                exercises: exerciseProps,
               },
             } : {})}
           />

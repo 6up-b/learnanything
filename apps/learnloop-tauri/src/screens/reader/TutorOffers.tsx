@@ -25,6 +25,13 @@
 // (Codex review F6): collapsing an answer and opening it again shows what was
 // fetched and pressed, and runs nothing again. The impression names exactly
 // the proposals rendered (F4).
+//
+// RW4b's hook (docs/reviews/reader-workbench-RW4b.md §5): with `exercises`
+// (library_exercises on), a practice offer's textbook exercises show after its
+// items through the same ProposalExercises block as RW4a's "practice this
+// question", and a lookup whose only proposals are exercises is ready (so
+// "nothing … fits" shows only when the block has nothing either). Without
+// `exercises` the offers are RW1c's, unchanged.
 import { useEffect, useReducer } from "react";
 import { api } from "../../api/client";
 import type {
@@ -38,7 +45,9 @@ import type {
 } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { logReaderAction } from "./activity";
+import { practiceFromToolRun } from "./exerciseCandidates";
 import { CompareTable } from "./LibraryAnswer";
+import { ProposalExercises, type LibraryExercisesProps } from "./ProposalExercises";
 import { clip } from "./readerShared";
 import { MeaningLabel, ModelVoice, SourceVoice } from "./voices";
 
@@ -75,6 +84,8 @@ interface Lookup {
   phase: "loading" | "ready" | "empty" | "failed" | "unchecked";
   items?: OfferItem[];
   proposalId?: string | null;
+  /** RW4b: the landed proposal (its textbook exercises), for ProposalExercises. */
+  practice?: FindPracticeResultDto;
   passages?: SourcePassageDto[];
   run?: SourceToolRunDto;
   table?: CompareTableDto;
@@ -149,6 +160,8 @@ export interface TutorOffersProps {
   onTryNextStep?: ((spanId: string) => void) | null;
   /** Where the exchange's offer state lives (the screen's; else a module default). */
   store?: TutorOfferStore;
+  /** RW4b: the textbook-exercise view (absent while library_exercises is off). */
+  exercises?: LibraryExercisesProps | null;
 }
 
 function offersFor(props: TutorOffersProps): Offer[] {
@@ -197,10 +210,13 @@ function succeeded(status: string | undefined): boolean {
 }
 
 function practiceLookup(items: OfferItem[], proposalId: string | null, status: string | undefined,
-                        run?: SourceToolRunDto): Lookup {
+                        run?: SourceToolRunDto, practice?: FindPracticeResultDto): Lookup {
   const visible = items.slice(0, MAX_SHOWN);
-  if (visible.length) return { phase: "ready", items: visible, proposalId, run };
+  const kept = practice ? { practice } : {};
+  if (visible.length) return { phase: "ready", items: visible, proposalId, run, ...kept };
   if (!succeeded(status)) return { phase: "unchecked", because: uncheckedBecause(status ?? ""), run };
+  // RW4b: exercises only (the view on) is a result; the block says what it shows.
+  if (practice?.sourceExercises?.length) return { phase: "ready", items: [], proposalId, run, practice };
   return { phase: "empty", items: [], proposalId, run };
 }
 
@@ -259,17 +275,19 @@ export function compareTableFromRun(run: SourceToolRunDto): CompareTableDto {
   };
 }
 
-async function runLookup(offer: Offer): Promise<Lookup> {
+/** `withExercises`: RW4b's view is on, so the lookup keeps its proposal. */
+async function runLookup(offer: Offer, withExercises: boolean): Promise<Lookup> {
   if (offer.kind === "practice" && offer.practice) {
     const result: FindPracticeResultDto = await api.findPractice({ ...offer.practice.request, caller: offer.practice.caller });
     const items = result.items.map((item) => ({ practiceItemId: item.practiceItemId, prompt: item.prompt }));
-    return practiceLookup(items, result.proposalId ?? null, result.status);
+    return practiceLookup(items, result.proposalId ?? null, result.status, undefined, withExercises ? result : undefined);
   }
   const run = await api.runSourceTool(offer.toolCallId ?? "");
   const status = run.result.status;
   if (offer.kind === "practice") {
     const items = (run.result.items ?? []).map((item) => ({ practiceItemId: item.practiceItemId, prompt: item.prompt }));
-    return practiceLookup(items, run.result.proposalId ?? null, status, run);
+    return practiceLookup(items, run.result.proposalId ?? null, status, run,
+      withExercises ? practiceFromToolRun(run) : undefined);
   }
   if (offer.kind === "passages") {
     const passages = run.result.passages ?? [];
@@ -312,7 +330,7 @@ export function TutorOffers(props: TutorOffersProps) {
     if (state.started.has(offer.key)) return;
     state.started.add(offer.key);
     settle(offer.key, { phase: "loading" });
-    void runLookup(offer).then((lookup) => settle(offer.key, lookup), () => settle(offer.key, { phase: "failed" }));
+    void runLookup(offer, Boolean(props.exercises)).then((lookup) => settle(offer.key, lookup), () => settle(offer.key, { phase: "failed" }));
   };
 
   useEffect(() => {
@@ -419,7 +437,8 @@ export function TutorOffers(props: TutorOffersProps) {
                 <span aria-hidden="true">◐</span> {offer.kind === "compare" ? OFFER_COPY.comparing : OFFER_COPY.looking}…
               </MeaningLabel>
             ) : (
-              <OfferResult offer={offer} lookup={lookup} onPracticePick={props.onPracticePick ?? null} />
+              <OfferResult offer={offer} lookup={lookup} onPracticePick={props.onPracticePick ?? null}
+                exercises={props.exercises ?? null} extractionId={props.extractionId} />
             )}
           </div>
         );
@@ -428,24 +447,38 @@ export function TutorOffers(props: TutorOffersProps) {
   );
 }
 
-function OfferResult({ offer, lookup, onPracticePick }: {
+function OfferResult({ offer, lookup, onPracticePick, exercises, extractionId }: {
   offer: Offer; lookup: Lookup; onPracticePick: TutorOffersProps["onPracticePick"];
+  exercises: LibraryExercisesProps | null; extractionId: string;
 }) {
   if (offer.kind === "practice") {
+    const withExercises = Boolean(exercises && lookup.practice);
     return (
       <ModelVoice note={`${OFFER_COPY.practice}${offer.reason ? ` · ${clip(offer.reason, 80)}` : ""}`}>
-        <ul aria-label="practice for this question" style={{ margin: 0, paddingLeft: 16 }}>
-          {(lookup.items ?? []).map((item) => (
-            <li key={item.practiceItemId}>
-              {clip(item.prompt, 160)}{" "}
-              {onPracticePick ? (
-                <button type="button" onClick={() => onPracticePick(item, lookup.proposalId ?? null)} style={buttonStyle}>
-                  {OFFER_COPY.practise} ▸
-                </button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
+        {(lookup.items ?? []).length || !withExercises ? (
+          <ul aria-label="practice for this question" style={{ margin: 0, paddingLeft: 16 }}>
+            {(lookup.items ?? []).map((item) => (
+              <li key={item.practiceItemId}>
+                {clip(item.prompt, 160)}{" "}
+                {onPracticePick ? (
+                  <button type="button" onClick={() => onPracticePick(item, lookup.proposalId ?? null)} style={buttonStyle}>
+                    {OFFER_COPY.practise} ▸
+                  </button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {exercises && lookup.practice ? (
+          <ProposalExercises
+            practice={lookup.practice}
+            itemsShown={(lookup.items ?? []).length}
+            exercises={exercises}
+            query={offer.practice?.request.query ?? ""}
+            learningObjectIds={offer.practice?.request.learningObjectIds ?? []}
+            extractionId={extractionId ?? null}
+          />
+        ) : null}
       </ModelVoice>
     );
   }
