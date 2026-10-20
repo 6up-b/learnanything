@@ -915,6 +915,10 @@ class MaterialView:
                 parsed = parse_block_span(str(found[0])) if found[0] else None
                 if parsed is not None and self.material_withheld(parsed[0], parsed[1]):
                     return True
+                # A tutor question on a source's canonical note is withheld with the note (Codex
+                # verify F43, fix round 13), whatever its item.
+                if parsed is None and found[0] and self.note_withheld(connection, found[0]):
+                    return True
                 return bool(found[1]) and self.withheld(found[1])
             if table == "reader_authored_questions":
                 return question_withheld(source)

@@ -120,6 +120,49 @@ def lo_subject(vault: Any, lo: Any) -> str:
 #: The reserved unit a relatedness run records its subject's protection fingerprint under (fix
 #: round 12, F38): never an LO or a revision, so no coupling or loading is read from it.
 PROTECTION_UNIT = "protection:subject"
+#: The reserved unit a run records its whole prompt context under (fix round 13, F38): every item
+#: revision the prompt quoted, with its source identity, whether or not it was a proposed unit.
+CONTEXT_UNIT = "protection:context"
+#: Every reserved unit's prefix: never an LO or a revision.
+RESERVED = "protection:"
+
+
+def reserved(unit: Any) -> bool:
+    return str(unit).startswith(RESERVED)
+
+
+def context_protected(view: Any, connection: Any, context: Any) -> bool:
+    """Whether any revision a run's prompt quoted is protected NOW (fix round 13, F38): its item is
+    withheld, its revision is (judged by its own sources), or its recorded source identity lies in
+    held-out material. The persisted context is judged, not today's items, so replacing, deleting or
+    re-scoping an item cannot hide its old revision's protection. Unreadable: protected."""
+
+    try:
+        entries = json.loads(context) if isinstance(context, str) else list(context or [])
+    except (TypeError, ValueError):
+        return True
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            return True
+        if view.withheld(entry.get("item")) or view.revision_hash_withheld(connection, entry.get("revision")):
+            return True
+        if view.protection.covers_identity(entry.get("sources") or {"practice_item_id": entry.get("item")}):
+            return True
+    return False
+
+
+def run_in_force(view: Any, connection: Any, run: Mapping[str, Any], current: str | None) -> bool:
+    """Whether a saved run may be used now (F38's blunt rule, rounds 12-13): it was proposed under
+    the subject's current protection (``current``: :func:`protection_fingerprint`), it recorded its
+    whole prompt context, and nothing in that context is protected now. A run recorded before runs
+    carried both (legacy) is never in force."""
+
+    units = run.get("units")
+    if current is None or not isinstance(units, Mapping):
+        return False
+    if units.get(PROTECTION_UNIT) != current or CONTEXT_UNIT not in units:
+        return False
+    return not context_protected(view, connection, units[CONTEXT_UNIT])
 
 
 def subject_lo_ids(vault: Any, subject: str) -> set[str]:
@@ -160,8 +203,7 @@ def stale_judgments(connection: Any, vault: Any, *, view: Any) -> set[str]:
         subject = str(run["subject_id"])
         if subject not in fingerprints:
             fingerprints[subject] = protection_fingerprint(view, connection, subject_lo_ids(vault, subject))
-        recorded = (run["units"] or {}).get(PROTECTION_UNIT) if isinstance(run["units"], Mapping) else None
-        if fingerprints[subject] is None or recorded != fingerprints[subject]:
+        if not run_in_force(view, connection, run, fingerprints[subject]):
             out.update(str(judgment) for judgment in run["judgment_ids"] or ())
     return out
 
@@ -244,6 +286,14 @@ def subject_inputs(vault: Any, repository: Any, subject: str, *, protected: Any 
 
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         unit_hashes[PROTECTION_UNIT] = str(protection_fingerprint(view, connection, lo_ids))
+    # The whole prompt context, persisted on the run (fix round 13, F38): every quoted revision and
+    # its source identity, the proposed units and the context alike. Never quoted to the model.
+    from learnloop.adaptive_difficulty.outside import source_identity
+
+    quoted = {str(item.id): item for item in view.items(active=True) if item.learning_object_id in lo_ids}
+    unit_hashes[CONTEXT_UNIT] = json.dumps(sorted(
+        ({"item": item_id, "revision": revisions[item_id], "sources": source_identity(quoted[item_id], item_id)}
+         for item_id in revisions if item_id in quoted), key=lambda entry: entry["item"]), sort_keys=True)
     return {"payload": payload, "revisions": revisions,
             "input_hash": hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest(),
             "item_ids": [row["item_id"] for row in items], "unit_hashes": unit_hashes}
@@ -264,20 +314,23 @@ def _latest_unit_hashes(runs: Sequence[Mapping[str, Any]]) -> dict[str, str]:
     return latest
 
 
-def touched_units(inputs: Mapping[str, Any], runs: Sequence[Mapping[str, Any]]) -> list[str]:
+def touched_units(inputs: Mapping[str, Any], runs: Sequence[Mapping[str, Any]], *,
+                  in_force: Callable[[Mapping[str, Any]], bool] | None = None) -> list[str]:
     """The units whose fingerprint changed (or that are new) since their latest ok run: all of
-    them when the subject has none."""
+    them when the subject has none.
 
-    # Only the runs proposed under the subject's current protection count (F38's blunt rule, fix
-    # round 12): a run whose fingerprint differs is out of use everywhere, so it neither answers for
-    # a unit nor spares it a new proposal. When protection changed since every run, every unit is
-    # proposed again.
+    Only runs in force count (F38's blunt rule, rounds 12-13; ``in_force``: :func:`run_in_force`
+    bound to the operation's view, else the recorded subject fingerprint alone): a run out of use
+    neither answers for a unit nor spares it a new proposal. When protection changed since every
+    run, every unit is proposed again."""
+
     current = inputs["unit_hashes"].get(PROTECTION_UNIT)
     fresh = [run for run in runs
-             if isinstance(run.get("units"), Mapping) and run["units"].get(PROTECTION_UNIT) == current]
+             if isinstance(run.get("units"), Mapping) and run["units"].get(PROTECTION_UNIT) == current
+             and (in_force is None or in_force(run))]
     latest = _latest_unit_hashes(fresh)
     return sorted(unit for unit, value in inputs["unit_hashes"].items()
-                  if unit != PROTECTION_UNIT and latest.get(unit) != value)
+                  if not reserved(unit) and latest.get(unit) != value)
 
 
 def focus(inputs: Mapping[str, Any], units: Sequence[str]) -> dict[str, Any]:
@@ -398,12 +451,23 @@ class ProposalOutcome:
                 "reason": self.reason, "input_hash": self.input_hash, "dropped": self.dropped}
 
 
-def run_key(subject: str, input_hash: str) -> str:
-    return f"{subject}:{input_hash}"
+def protection_identity(inputs: Mapping[str, Any]) -> str:
+    """The run's protection, as one digest: the subject's fingerprint and the whole persisted prompt
+    context (fix round 13, F45). Part of the run's and the claim's identity, never of the prompt."""
+
+    hashes = inputs.get("unit_hashes") or {}
+    return hashlib.sha256(json.dumps([hashes.get(PROTECTION_UNIT), hashes.get(CONTEXT_UNIT)]).encode()).hexdigest()
 
 
-def claim_key(subject: str, input_hash: str) -> str:
-    return f"ad_relatedness:{subject}:{input_hash}"
+def run_key(subject: str, input_hash: str, protection: str | None = None) -> str:
+    """A run's identity: the subject, the prompt's hash and (fix round 13, F45) its protection
+    identity, so a run proposed under other protection never answers for a new request."""
+
+    return f"{subject}:{input_hash}" + (f":{protection}" if protection else "")
+
+
+def claim_key(subject: str, input_hash: str, protection: str | None = None) -> str:
+    return f"ad_relatedness:{subject}:{input_hash}" + (f":{protection}" if protection else "")
 
 
 def _client(vault: Any, injected: Any | None) -> tuple[Any | None, str | None]:
@@ -450,18 +514,25 @@ def propose_subject(vault: Any, repository: Any, subject: str, *, client: Any = 
         return outcome
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         runs = serving_store.relatedness_runs(connection, subject_id=subject)
+        current = whole["unit_hashes"].get(PROTECTION_UNIT)
+        live = {run["id"] for run in runs if run_in_force(view, connection, run, current)}
     # Only what changed is re-proposed (§5.10 "When"); a first run proposes every unit.
-    units = touched_units(whole, runs)
+    units = touched_units(whole, runs, in_force=lambda run: run["id"] in live)
     if not units:
         outcome.status = "current"
         outcome.input_hash = whole["input_hash"]
         return outcome
     inputs = focus(whole, units)
     outcome.input_hash = inputs["input_hash"]
-    key = run_key(subject, inputs["input_hash"])
-    if any(run["run_key"] == key and run["status"] == "ok" for run in runs):
-        outcome.status = "current"
-        return outcome
+    protection = protection_identity(inputs)
+    key = run_key(subject, inputs["input_hash"], protection)
+    # A stale successful run never satisfies the duplicate check (F45): only a run in force does.
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        current = inputs["unit_hashes"].get(PROTECTION_UNIT)
+        if any(run["run_key"] == key and run["status"] == "ok" and run_in_force(view, connection, run, current)
+               for run in runs):
+            outcome.status = "current"
+            return outcome
     llm, why = _client(vault, client)
     if llm is None:
         outcome.status, outcome.reason = "unavailable", why
@@ -469,7 +540,7 @@ def propose_subject(vault: Any, repository: Any, subject: str, *, client: Any = 
     # Every quoted item is guarded (the whole subject's stems are context in the prompt).
     items = [item for item in (view.item(item_id) for item_id in inputs["item_ids"]) if item is not None]
     try:
-        with claimed(repository, claim_key(subject, inputs["input_hash"]), fence=fence) as worker:
+        with claimed(repository, claim_key(subject, inputs["input_hash"], protection), fence=fence) as worker:
             if worker is None:
                 outcome.status = "busy"
                 return outcome
@@ -526,12 +597,13 @@ def _record(repository: Any, subject: str, inputs: Mapping[str, Any], proposal: 
             created_at: str, admit: Callable[[], None]) -> tuple[str | None, int]:
     from learnloop.db.stores.judgments import append_judgment
 
-    key = run_key(subject, inputs["input_hash"])
+    key = run_key(subject, inputs["input_hash"], protection_identity(inputs))
     units: dict[str, str] = {}
     ids: list[str] = []
     focus_los = set(inputs.get("focus_learning_objects", [r["learning_object_id"] for r in inputs["payload"]["learning_objects"]]))
     focus_items = set(inputs.get("focus_items", inputs["item_ids"]))
     units[PROTECTION_UNIT] = str(inputs["unit_hashes"].get(PROTECTION_UNIT))
+    units[CONTEXT_UNIT] = str(inputs["unit_hashes"].get(CONTEXT_UNIT, "[]"))
     with repository.atomic():
         admit()
         connection = repository.connection()
@@ -794,8 +866,7 @@ def load_structure(connection: Any, vault: Any, *, view: Any, coupled: bool = Tr
         for run in serving_store.relatedness_runs(connection, subject_id=subject):
             if run["status"] != "ok":
                 continue
-            recorded = (run["units"] or {}).get(PROTECTION_UNIT) if isinstance(run["units"], Mapping) else None
-            if current is None or recorded != current:
+            if not run_in_force(view, connection, run, current):
                 continue
             if run["id"] in base_runs:
                 at = float("-inf")
@@ -803,7 +874,7 @@ def load_structure(connection: Any, vault: Any, *, view: Any, coupled: bool = Tr
                 at = _stamp(run["created_at"])
             else:
                 continue  # an older run superseded at adoption
-            per_unit: dict[str, dict[str, float]] = {unit: {} for unit in run["units"] if unit != PROTECTION_UNIT}
+            per_unit: dict[str, dict[str, float]] = {unit: {} for unit in run["units"] if not reserved(unit)}
             for judgment_id in run["judgment_ids"]:
                 row = judgments.get(str(judgment_id))
                 if row is None:
@@ -829,6 +900,7 @@ def load_structure(connection: Any, vault: Any, *, view: Any, coupled: bool = Tr
 __all__ = [
     "OWNER_KIND",
     "PROMPT_VERSION",
+    "CONTEXT_UNIT",
     "PROTECTION_UNIT",
     "Proposal",
     "ProposalOutcome",
@@ -845,7 +917,10 @@ __all__ = [
     "lo_subject",
     "prompt",
     "propose_subject",
+    "context_protected",
     "protection_fingerprint",
+    "protection_identity",
+    "run_in_force",
     "stale_judgments",
     "shadow_report",
     "subject_inputs",

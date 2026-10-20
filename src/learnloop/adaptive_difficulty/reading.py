@@ -183,7 +183,18 @@ class VaultReadingMap:
         # Held-out material, or everything while the predicate is unavailable (fail closed).
         return self.view.material_withheld(extraction_id, span_id)
 
+    def note_withheld(self, note_id: str) -> bool:
+        """Whether a note is withheld (a held-out source's canonical note; fix round 13, F43)."""
+
+        from learnloop.db.connection import connect
+
+        with closing(connect(self.repository.sqlite_path, read_only=True)) as connection:
+            return self.view.note_withheld(connection, note_id)
+
     def los_for_note(self, note_id: str) -> list[str]:
+        # Read through the material view (F43): a withheld note maps to no LO.
+        if self.note_withheld(note_id):
+            return []
         note = getattr(self.vault, "notes", {}).get(note_id)
         return [str(lo) for lo in getattr(note, "related_los", None) or []] if note is not None else []
 
@@ -322,6 +333,15 @@ def _named_facets(raw: Any) -> tuple[str, ...]:
     return tuple(str(facet) for facet in value if isinstance(facet, str)) if isinstance(value, list) else ()
 
 
+def _note_withheld(connection: Any, reading_map: Any, view: Any, note_id: str) -> bool:
+    """A note's protection for the sweep: the map's own rule when it has one, else the view's (every
+    note while the view is unavailable)."""
+
+    if hasattr(reading_map, "note_withheld"):
+        return bool(reading_map.note_withheld(note_id))
+    return bool(view is not None and view.note_withheld(connection, note_id))
+
+
 def _tutor_events(connection: Any, reading_map: ReadingMap, lower: str | None, upper: str,
                   view: Any = None) -> list[_Event]:
     from learnloop.ingest.locators import parse_block_span
@@ -354,6 +374,9 @@ def _tutor_events(connection: Any, reading_map: ReadingMap, lower: str | None, u
                 continue
             los = reading_map.los_for_span(parsed[0], parsed[1])
         elif note_id:
+            # A question on a withheld note is rejected before any fallback to its item (F43).
+            if _note_withheld(connection, reading_map, view, str(note_id)):
+                continue
             los = reading_map.los_for_note(str(note_id))
         if not los and item_id:
             lo = reading_map.lo_for_item(str(item_id))
@@ -460,22 +483,45 @@ _COLLECTORS: tuple[Callable[..., list[_Event]], ...] = (
 )
 
 
-def _keys(connection: Any, event: _Event, lo_id: str) -> str | None:
-    """The opportunity's key inside its cap, or None when the cap is full."""
+def _capped(kind: str, subkind: str) -> tuple[str, int] | None:
+    """A capped kind's occupancy bucket and its cap per LO and day (§5.11), or None."""
+
+    if kind == "reading" and subkind == "passage_viewed":
+        return "reading:passage_viewed", PASSAGES_PER_LO_PER_DAY
+    if kind == "reader_tutor_exchange":
+        return "reader_tutor_exchange", TUTOR_EXCHANGES_PER_LO_PER_DAY
+    return None
+
+
+def occupancy(connection: Any, view: Any) -> dict[tuple[str, str, str], int]:
+    """Each capped bucket's occupancy, ``(bucket, LO, day) -> receipts``, counted over the receipts
+    AD's material view sees (Codex verify F44, fix round 13): a receipt from withheld material is,
+    for AD, a receipt never written, so it occupies no slot of a daily cap."""
+
+    counts: dict[tuple[str, str, str], int] = {}
+    for row in view.reading_opportunities(connection):
+        capped = _capped(str(row.get("kind")), str(row.get("subkind")))
+        if capped is not None:
+            key = (capped[0], str(row.get("learning_object_id")), str(row.get("source_written_at") or "")[:10])
+            counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+def _keys(connection: Any, event: _Event, lo_id: str, occupied: dict[tuple[str, str, str], int]) -> str | None:
+    """The opportunity's key inside its cap, or None when the cap is full.
+
+    A capped kind's occupancy is the view's (``occupied``, counted by :func:`occupancy` and kept up
+    to date as the sweep writes), and its key names the source event (fix round 13, F44): keys
+    never collide, so a public event is admitted beside a withheld receipt's existing key."""
 
     day = event.written_at[:10]
-    if event.kind == "reading" and event.subkind == "passage_viewed":
-        for slot in range(1, PASSAGES_PER_LO_PER_DAY + 1):
-            key = f"reading:passage_viewed:{lo_id}:{day}:{slot}"
-            if not store.reading_opportunity_exists(connection, opportunity_key=key):
-                return key
-        return None
-    if event.kind == "reader_tutor_exchange":
-        for slot in range(1, TUTOR_EXCHANGES_PER_LO_PER_DAY + 1):
-            key = f"reader_tutor_exchange:{lo_id}:{day}:{slot}"
-            if not store.reading_opportunity_exists(connection, opportunity_key=key):
-                return key
-        return None
+    capped = _capped(event.kind, event.subkind)
+    if capped is not None:
+        bucket, cap = capped
+        if occupied.get((bucket, lo_id, day), 0) >= cap:
+            return None
+        occupied[(bucket, lo_id, day)] = occupied.get((bucket, lo_id, day), 0) + 1
+        return f"{bucket}:{lo_id}:{day}:{event.source_table}:{event.source_id}"
     if event.kind == "reading":
         return f"reading:section_read:{event.identity}:{lo_id}"
     if event.kind == "worked_example":
@@ -552,12 +598,13 @@ def sweep(vault: Any, repository: Any, *, as_of: str, sweep_kind: str = "serve",
         result.considered = len(events)
         # AD2+AD3 (§5.12): a taken dose offer's extra carries the offer's id on its receipt.
         offers = _taken_offers(connection, material)
+        occupied = occupancy(connection, material)
         for event in events:
             for lo_id in event.learning_object_ids:
                 if store.reading_opportunity_exists(
                         connection, identity=(event.kind, event.subkind, event.source_table, event.source_id, lo_id)):
                     continue
-                key = _keys(connection, event, lo_id)
+                key = _keys(connection, event, lo_id, occupied)
                 if key is None:
                     continue
                 written = store.insert_reading_opportunity(connection, {

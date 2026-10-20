@@ -51,12 +51,21 @@ commissioned repair after protection changed or became unavailable mid-call (F34
 structural AST test of the one guarded dispatch), and uptake callbacks with AD off, the dose arm
 off or the predicate unavailable (F36).
 
+Fix round 13 grows it again: relatedness runs recording their whole prompt context and a protection
+identity in their keys (F38, F45), a tutor exchange on a protected canonical note (F43), a protected
+receipt occupying a daily cap (F44), temporal scenarios (an item replaced after a proposal, then its
+former source held out; a re-proposal across a protection change), a second run mode on identical
+advancing clocks with an expiry boundary, pinned outcomes for readiness, the card, the dose arm and
+item preparation, a read trace with statement caching off and database identity kept, and an audit
+of every Python-side cache and file-backed read in the AD modules (``AD_DEPENDENCIES``).
+
 Fakes only: no network, no model call, no paid call.
 """
 
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 import os
 import re
@@ -64,7 +73,7 @@ from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, Sequence
 
 import pytest
 import yaml
@@ -193,6 +202,11 @@ def _base(tmp_path, *, coupled: bool = True) -> Any:
         set_item(paths, item, surface_family="fam_public")
     # A second public facet, so a relatedness loading has somewhere public to land (F38).
     set_item(paths, LOADED, evidence_facets=["recall", "apply_pub"], evidence_weights={"recall": 0.5, "apply_pub": 0.5})
+    # Source-backed public items for the temporal scenarios (fix round 13): pi_p2 cites sec2_span (its
+    # revision is replaced in the run, then that former source is held out), pi_p3 cites sec4_span
+    # (held out in the run: a protection change in the subject).
+    for item, span in (("pi_p2", "sec2_span"), ("pi_p3", "sec4_span")):
+        set_item(paths, item, canonical_exercise={"source_id": "src_r9", "extraction_id": EXT, "span_ids": [span]})
     _owner_defaults(paths)
     _goal(paths)
     _attempt(paths, "pi_hist", at=T0 - timedelta(days=2), latency=90, correct=False)
@@ -218,6 +232,19 @@ def _base(tmp_path, *, coupled: bool = True) -> Any:
         connection.execute("INSERT INTO plan_presentations(id, block_id, practice_item_id, origin, served_at) "
                            "VALUES ('pp_load_r11', 'blk_load_r11', ?, 'chooser', ?)",
                            (LOADED, _iso(T0 - timedelta(days=1, hours=12, minutes=5))))
+        connection.commit()
+    # A saved historical revision of pi_p1 citing the late span (fix round 13, F45's temporal case:
+    # holding that span out changes the subject's protection while every current prompt stays the same).
+    from learnloop.adaptive_difficulty.feature_audit import item_revision
+    from learnloop.vault.models import CanonicalExercise
+
+    earlier = load_vault(paths.root).practice_items["pi_p1"].model_copy(update={
+        "prompt": "An earlier public revision of the first item.",
+        "canonical_exercise": CanonicalExercise(source_id="src_r9", extraction_id=EXT, span_ids=[LATE_SPAN])})
+    earlier_hash, earlier_json = item_revision(earlier)
+    with closing(connect(paths.sqlite_path)) as connection:
+        connection.execute("INSERT INTO practice_item_snapshots(content_hash, practice_item_id, item_json, created_at) "
+                           "VALUES (?, 'pi_p1', ?, ?)", (earlier_hash, earlier_json, _iso(T0 - timedelta(days=9))))
         connection.commit()
     # Its second public answer, bound to that presentation (the replay reads its frozen loadings).
     _attempt(paths, LOADED, at=T0 - timedelta(days=1, hours=12), latency=90, correct=False,
@@ -253,6 +280,7 @@ SECTIONS = {"sec1": ["public_anchor", "public_span", LATE_SPAN, *HELD], "sec2": 
 GOAL_PROTECTED = "goal_r12"
 PUBLIC_DRAW = "dose_pub_r12"
 SERVE_COMMISSION = "sel_serve_commission_r12"
+EXPIRING_COMMISSION = "sel_expiring_r13"
 
 
 def _base_r12(paths) -> None:
@@ -314,6 +342,15 @@ def _base_r12(paths) -> None:
             "chosen_item_id": None, "chosen_point": rung_features(point), "propensity": 1.0, "empty_support": False,
             "state_hash": "h", "versions": {}, "algorithm_version": "mvp-0.28",
             "created_at": _iso(T0 - timedelta(hours=6))})
+        # Fix round 13's expiry boundary: a public commission drawn outside any job expires seven days
+        # after its draw, here two and a half hours into the run (inside the advancing clock's span).
+        ad_serving.insert_selection(connection, {
+            "id": EXPIRING_COMMISSION, "decision_key": "commission:apply_pub:retrieval:r13", "kind": "commission",
+            "view": "subject", "learning_object_id": LO, "cell_facet": "apply_pub", "cell_capability": "retrieval",
+            "mode": "band", "support": [], "excluded": [], "constants": {}, "seed": "s", "u": 0.5,
+            "chosen_item_id": None, "chosen_point": rung_features(point), "propensity": 1.0, "empty_support": False,
+            "state_hash": "h", "versions": {}, "algorithm_version": "mvp-0.28",
+            "created_at": _iso(RUN - timedelta(days=7) + timedelta(hours=2, minutes=30))})
         connection.commit()
 
 
@@ -355,7 +392,34 @@ def _fingerprint(paths) -> str:
             return str(protection_fingerprint(view, connection, subject_lo_ids(vault, SUBJECT)))
 
 
-def _per_copy(paths, *, protected: bool, before: str | None = None) -> str:
+def _context(paths) -> str:
+    """The copy's relatedness prompt context for the subject now, as a run records it (fix round
+    13): ``[]`` on a commit before runs recorded one (fail-before runs)."""
+
+    try:
+        from learnloop.adaptive_difficulty.relatedness import CONTEXT_UNIT, subject_inputs
+    except ImportError:
+        return "[]"
+    with pytest.MonkeyPatch.context() as patch:
+        _hold_out(patch)
+        return subject_inputs(load_vault(paths.root), Repository(paths.sqlite_path), SUBJECT)["unit_hashes"][CONTEXT_UNIT]
+
+
+def _context_with(paths, context: str, item_ids: Sequence[str]) -> str:
+    """``context`` plus these items' current revisions: what a run proposed while they were still
+    public quoted (the protected copy's stale run, fix round 13)."""
+
+    from learnloop.adaptive_difficulty.feature_audit import item_revision
+    from learnloop.adaptive_difficulty.outside import source_identity
+
+    vault = load_vault(paths.root)
+    entries = json.loads(context) + [{"item": item_id, "revision": item_revision(vault.practice_items[item_id])[0],
+                                      "sources": source_identity(vault.practice_items[item_id], item_id)}
+                                     for item_id in item_ids]
+    return json.dumps(sorted(entries, key=lambda entry: entry["item"]), sort_keys=True)
+
+
+def _per_copy(paths, *, protected: bool, before: tuple[str, str] | None = None) -> tuple[str, str]:
     """Rows both copies have, written in each because their tables are append-only by trigger, with
     the protected copy's protected parts (fix rounds 11-12). Returns the copy's fingerprint.
 
@@ -374,7 +438,7 @@ def _per_copy(paths, *, protected: bool, before: str | None = None) -> str:
     from learnloop.db.stores import ad_serving
     from learnloop.db.stores.judgments import append_judgment
 
-    fingerprint = _fingerprint(paths)
+    fingerprint, context = _fingerprint(paths), _context(paths)
     vault = load_vault(paths.root)
     loaded_hash, loaded_json = item_revision(vault.practice_items[LOADED])
     p1_hash = item_revision(vault.practice_items["pi_p1"])[0]
@@ -393,7 +457,7 @@ def _per_copy(paths, *, protected: bool, before: str | None = None) -> str:
         common = {"task": "ad_relatedness", "judge": "llm", "judge_model": "fake", "prompt_version": "r11",
                   "input_hash": "r11", "created_at": made}
         judgments = [("jdg_pub_r11", "practice_item_revision", p1_hash, "facet", "apply_pub", 0.5)]
-        units = {f"rev:{p1_hash}": p1_hash, "protection:subject": fingerprint}
+        units = {f"rev:{p1_hash}": p1_hash, "protection:subject": fingerprint, "protection:context": context}
         if protected:
             secret_hash = item_revision(vault.practice_items["pi_secret"])[0]
             judgments += [("jdg_facet_r11", "practice_item_revision", p1_hash, "facet", "SENTINEL_FACET_AX9", 0.6),
@@ -421,7 +485,8 @@ def _per_copy(paths, *, protected: bool, before: str | None = None) -> str:
                                 **{**common, "input_hash": "r12", "created_at": later})
             ad_serving.insert_relatedness_run(connection, {
                 "id": "rel_run_r12", "run_key": "rel_run_r12", "subject_id": SUBJECT, "input_hash": "r12",
-                "units": {f"lo:{LO}": "h", f"rev:{p1_hash}": p1_hash, "protection:subject": before},
+                "units": {f"lo:{LO}": "h", f"rev:{p1_hash}": p1_hash, "protection:subject": before[0],
+                          "protection:context": _context_with(paths, before[1], ["pi_secret", "pi_shared"])},
                 "judgment_ids": [judgment[0] for judgment in stale], "status": "ok", "prompt_version": "r11",
                 "judge_model": "fake", "created_at": later})
             # The held-out source's canonical note: the source revision names it (F40).
@@ -436,7 +501,7 @@ def _per_copy(paths, *, protected: bool, before: str | None = None) -> str:
             "canonical_source": {"kind": "pdf", "canonical_uri": "file:///r9.pdf", "title": "The exam source"},
             "created_at": "2026-10-01T09:00:00Z", "updated_at": "2026-10-01T09:00:00Z"},
             "SENTINEL_NOTE_AX9: the held-out exam source's own text.")
-    return fingerprint
+    return fingerprint, context
 
 
 def _paths(root: Path) -> Any:
@@ -628,6 +693,40 @@ def _protect_r11(paths, *, hist_attempt: str) -> None:
     Repository(paths.sqlite_path).insert_entity_source_link(
         entity_type="learning_object", entity_id=LO, locator="h1", relation="primary", source_id="src_r9",
         extraction_id=EXT, link_id="esl_held_r11", created_at=_iso(T0 - timedelta(days=4)))
+    _protect_r13(paths)
+
+
+def _protect_r13(paths) -> None:
+    """Fix round 13's protected material (protected copy only):
+
+    * an answered Reader tutor question on the held-out source's canonical note (F43);
+    * a passage-view receipt from a held-out span that occupies the LO's one daily passage slot on the
+      day a public passage view is waiting for the sweep (F44), with its exposure event;
+    * a reading receipt from held-out material stamped exactly as the public one (an ordering tie)."""
+
+    from learnloop.db.stores import ad_receipts
+
+    day = _iso(T0 - timedelta(hours=6))
+    with closing(connect(paths.sqlite_path)) as connection:
+        connection.execute(
+            "INSERT INTO question_events(id, context, note_id, question_md, answer_md, answer_status, answer_mode, "
+            "created_at, answered_at) VALUES ('qe_note_r13', 'reader', 'note_r12', ?, 'An answer.', 'answered', "
+            "'help_me_reason', ?, ?)", ("SENTINEL_QUESTION_AX9: about the exam source?", day, day))
+        connection.execute(
+            "INSERT INTO source_exposure_events(id, context, extraction_id, span_id, revision_id, source_id, "
+            "entity_type, entity_id, created_at) VALUES ('sxe_held_r13', 'reader', ?, 'h1', 'rev_r9', 'src_r9', "
+            "'reader', 'visit_held', ?)", (EXT, day))
+        for key, source_table, source_id, kind, subkind, written in (
+                (f"reading:passage_viewed:{LO}:{day[:10]}:1", "source_exposure_events", "sxe_held_r13", "reading",
+                 "passage_viewed", day),
+                (f"worked_example:{EXT}/h2:{LO}", "reader_section_progress", f"{EXT}/h2", "worked_example",
+                 "in_completed_section", _iso(T0 - timedelta(days=1)))):
+            ad_receipts.insert_reading_opportunity(connection, {
+                "opportunity_key": key, "kind": kind, "subkind": subkind, "source_table": source_table,
+                "source_id": source_id, "source_written_at": written, "learning_object_id": LO,
+                "facet_doses": {"recall": 1.0}, "dose_offer_id": None, "mapping_version": "ad_reading_map_v1",
+                "sweep": "backfill", "sweep_ref": None, "swept_at": written})
+        connection.commit()
 
 
 class _Frozen:
@@ -741,15 +840,21 @@ def _trace_ad_reads(monkeypatch) -> dict[str, set[str]]:
             frame = frame.f_back
         return None
 
-    def authorizer(action, table, _column, _database, _source):
-        if action == sqlite3.SQLITE_READ and table:
-            who = reader()
-            if who is not None:
-                reads.setdefault(str(table), set()).add(who)
-        return sqlite3.SQLITE_OK
-
     def traced(*args, **kwargs):
+        # No statement cache (fix round 13, F42): the authorizer runs when a statement is prepared,
+        # so a cached statement would hide a later read; every execution prepares afresh.
+        kwargs["cached_statements"] = 0
         connection = real(*args, **kwargs)
+        path = str(args[0] if args else kwargs.get("database", ""))
+
+        def authorizer(action, table, _column, database, _source):
+            if action == sqlite3.SQLITE_READ and table:
+                who = reader()
+                if who is not None:
+                    # The database's identity is kept: the file and the schema name (main, attached).
+                    reads.setdefault(str(table), set()).add(f"{who}@{Path(path.split('?')[0]).name}:{database}")
+            return sqlite3.SQLITE_OK
+
         connection.set_authorizer(authorizer)
         return connection
 
@@ -773,17 +878,30 @@ def _carve_outs(monkeypatch) -> None:
         "p_success": None, "mastery_state": "carve-out: the incumbent's mastery_ekf comparator"})
 
 
-def _deterministic(monkeypatch) -> None:
+#: The harness's wall clock (fix round 13, F42): frozen at ``RUN``, or ADVANCING an hour at each
+#: stage of the run (``RUN`` plus the stage's hours), identically in both copies, so expiry and
+#: ordering boundaries move during the run. It advances by the harness's steps, never by how many
+#: times code reads it: a read count is not an AD behaviour (the incumbent's state sync of the
+#: protected items reads the clock too), so an advance per read would compare the incumbent.
+_CLOCK: dict[str, Any] = {"advancing": False, "base": RUN}
+
+
+def _now() -> datetime:
+    return _CLOCK["base"] if _CLOCK["advancing"] else RUN
+
+
+def _deterministic(monkeypatch, *, advancing: bool = False) -> None:
     """Identical ids and wall-clock reads on both copies: the ULID generator counts from a fixed
-    instant, and the system clock reads ``RUN``."""
+    instant, and the system clock reads ``RUN`` (frozen) or advances identically (``advancing``)."""
 
     import learnloop.clock as clock_module
     import learnloop.ids as ids
 
+    monkeypatch.setitem(_CLOCK, "advancing", advancing)
     monkeypatch.setattr(ids, "_wall_clock_ms", lambda: 1_790_000_000_000)
     monkeypatch.setattr(ids, "secrets", SimpleNamespace(randbits=lambda bits: 0))
     _reset_ids(monkeypatch)
-    monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: RUN)
+    monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: _now())
     # The model-call records' own wall clock (``datetime.now`` in ``ai.execution`` and the model-call
     # store), frozen at the source as the system clock is (fix round 12: no stamp is normalised).
     import learnloop.ai.execution as execution
@@ -792,7 +910,8 @@ def _deterministic(monkeypatch) -> None:
     class _Now(datetime):
         @classmethod
         def now(cls, tz=None):
-            return RUN if tz is None else RUN.astimezone(tz)
+            moment = _now()
+            return moment if tz is None else moment.astimezone(tz)
 
     for module in (execution, model_calls):
         monkeypatch.setattr(module, "datetime", _Now)
@@ -812,6 +931,7 @@ def _reset_ids(monkeypatch, stage: int = 0) -> None:
 
     monkeypatch.setattr(ids, "_last_timestamp_ms", 1_790_000_000_000 + 1_000 * stage)
     monkeypatch.setattr(ids, "_last_randomness", 0)
+    monkeypatch.setitem(_CLOCK, "base", RUN + timedelta(hours=stage))
     counter = iter(range(10**6))
     minted = lambda: uuid.UUID(int=(stage << 64) + next(counter))  # noqa: E731
     for module in (judgments, execution):
@@ -865,8 +985,6 @@ def _disclosed(paths, table: str, row: tuple) -> tuple:
     what it means, whether the run was proposed under the subject's current protection, never by
     value. That field, by name, is the only one rewritten."""
 
-    if table != "ad_relatedness_runs":
-        return row
     try:
         from learnloop.adaptive_difficulty.relatedness import PROTECTION_UNIT
     except ImportError:  # a commit before round 12 (a fail-before run): runs recorded no fingerprint
@@ -874,16 +992,42 @@ def _disclosed(paths, table: str, row: tuple) -> tuple:
 
     columns = [name for name, *_ in _columns(paths.sqlite_path, table)]
     values = dict(zip(columns, row))
+    if table != "ad_relatedness_runs":
+        # A relatedness run's identity (its key, its claim's key, its model calls' owner id) carries
+        # its protection identity (F45, round 13): a digest of protected material, named, not compared.
+        values = {name: _PROTECTION_SUFFIX.sub(r"\1:<protection identity>", value) if isinstance(value, str) else value
+                  for name, value in values.items()}
+        return tuple(values[name] for name in columns)
     units = json.loads(values["units_json"])
     if PROTECTION_UNIT in units:
+        # The run key's suffix is its protection identity: checked to be the recorded one, then named.
+        recorded = hashlib.sha256(json.dumps([units.get(PROTECTION_UNIT),
+                                              units.get("protection:context")]).encode()).hexdigest()
+        if str(values["run_key"]).endswith(f":{recorded}"):
+            values["run_key"] = str(values["run_key"])[: -len(recorded)] + "<its recorded protection identity>"
         units[PROTECTION_UNIT] = f"current={units[PROTECTION_UNIT] == _fingerprint(paths)}"
     values["units_json"] = json.dumps(units, sort_keys=True)
     return tuple(values[name] for name in columns)
 
 
+#: A relatedness claim key's protection-identity suffix (fix round 13, F45).
+_PROTECTION_SUFFIX = re.compile(rf"({re.escape(SUBJECT)}:[0-9a-f]{{64}}):[0-9a-f]{{64}}")
+
+
 def _columns(path, table: str) -> list[tuple]:
     with closing(connect(path, read_only=True)) as connection:
         return [(row[1],) for row in connection.execute(f"PRAGMA table_info({table})")]
+
+
+def _open_commissions(paths) -> list[str]:
+    """The commissions open now, as AD's view sees them (the expiry boundary, fix round 13)."""
+
+    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.clock import utc_now_iso
+
+    view = material_view(load_vault(paths.root), Repository(paths.sqlite_path))
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        return sorted(str(row["id"]) for row in view.open_commissions(connection, now=utc_now_iso()))
 
 
 def _tables(path) -> list[str]:
@@ -971,7 +1115,7 @@ def _run(paths, monkeypatch) -> dict[str, Any]:
 
     _reset_ids(monkeypatch)
     RP.clear_cache()
-    out: dict[str, Any] = {"prompts": []}
+    out: dict[str, Any] = {"prompts": [], "open_commissions": [_open_commissions(paths)]}
     before = {table: set(_rows(paths.sqlite_path, table)) for table in _tables(paths.sqlite_path)}
 
     # Serves: the slot draw (with its candidates' estimates), the serve hook, an answer, a second serve.
@@ -1034,7 +1178,9 @@ def _run(paths, monkeypatch) -> dict[str, Any]:
     _reset_ids(monkeypatch, 7)
     # The public ids (a caller names the same items in both copies; a withheld id's own handling is
     # AD1's tested ``protected`` outcome).
-    out["preparation"] = _strip_ids(prepare_items(vault, repository, [*PUBLIC, "pi_hist", P4],
+    # pi_p3 is left out: never audited, it is never snapshotted (F38's temporal case needs a revision
+    # that only the relatedness run's recorded context remembers, as with the feature audit off).
+    out["preparation"] = _strip_ids(prepare_items(vault, repository, ["pi_p1", "pi_p2", "pi_hist", P4],
                                                   clients=Clients(llm=llm, decider=decider),
                                                   decider_factory=lambda: decider, clock=_Frozen(RUN)))
     out["outside_prompts"] = [*llm.prompts, *(call["body"] for call in decider.calls)]
@@ -1156,11 +1302,53 @@ def _run(paths, monkeypatch) -> dict[str, Any]:
         out[" ".join(command[:2])] = _strip(json.loads(result.stdout)) if result.stdout.strip().startswith("{") \
             else result.stdout
 
+    # Fix round 13's temporal scenarios, the same events in both copies, after every other stage.
+    # F38: pi_p3's source-backed revision (never served, so never snapshotted) is replaced, then its
+    # former source is held out: the old
+    # revision is in no current item and no snapshot, only in the runs' recorded prompt context, and
+    # the subject's fingerprint does not change. The saved runs are read again.
+    # F45: the subject is proposed again, then a saved historical revision's source (pi_p1's, citing
+    # the late span) is held out while the prompt stays the same, and the subject is re-proposed: a
+    # stale run must never answer for the request ("current").
+    from learnloop.adaptive_difficulty import relatedness as R
+    from learnloop.adaptive_difficulty.feature_audit import item_revision
+
+    _reset_ids(monkeypatch, 14)
+    set_item(paths, "pi_p3", canonical_exercise={"source_id": "src_r9", "extraction_id": EXT, "span_ids": ["sec3_span"]})
+    LATE.append("sec4_span")
+    try:
+        vault = load_vault(paths.root)
+        repository = Repository(paths.sqlite_path)
+        view = material_view(vault, repository)
+        p1_hash = item_revision(vault.practice_items["pi_p1"])[0]
+        temporal: dict[str, Any] = {}
+        with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+            structure = R.load_structure(connection, vault, view=view, coupled=True)
+            # The public run's judgment is out of use now (its recorded context was protected since);
+            # the protected copy's own extra judgments have no counterpart to compare.
+            temporal["public_judgment_stale"] = "jdg_pub_r11" in R.stale_judgments(connection, vault, view=view)
+        temporal["coupling"] = bool(structure.coupling(LO))
+        temporal["loadings"] = structure.loadings(p1_hash, float("inf"))
+        proposals = []
+        for step in ("before", "after"):
+            if step == "after":
+                LATE.append(LATE_SPAN)  # the saved historical revision's source; the prompt is unchanged
+            _reset_ids(monkeypatch, 15 if step == "before" else 16)
+            client = ProposalLLM({"items": [], "learning_objects": []})
+            outcome = R.propose_subject(load_vault(paths.root), repository, SUBJECT, client=client)
+            proposals.append([outcome.status, outcome.input_hash, len(client.prompts)])
+            out["prompts"] += client.prompts
+        temporal["proposals"] = proposals
+        out["temporal"] = temporal
+        out["open_commissions"].append(_open_commissions(paths))
+    finally:
+        LATE.clear()
+
     # Every table's new rows (fix round 11, R2: not a hand-kept list, so the next writer is compared
     # too), less the incumbent's own tables (``OUT_OF_SCOPE``, each with its reason).
-    out["writes"] = {table: [_disclosed(paths, table, row)
-                             for row in sorted(set(_rows(paths.sqlite_path, table)) - before.get(table, set()),
-                                               key=repr) if INCUMBENT not in row]
+    out["writes"] = {table: sorted((_disclosed(paths, table, row)
+                                    for row in set(_rows(paths.sqlite_path, table)) - before.get(table, set())
+                                    if INCUMBENT not in row), key=repr)
                      for table in _tables(paths.sqlite_path)
                      if table not in OUT_OF_SCOPE and table not in COMPARED_THROUGH_VIEW}
     out["derived"] = {table: [row for row in _rows(paths.sqlite_path, table) if INCUMBENT not in row]
@@ -1262,8 +1450,9 @@ def _diff(left: Any, right: Any, path: str = "") -> list[str]:
 # -- the contract ----------------------------------------------------------------------------------------
 
 
+@pytest.mark.parametrize("mode", ["frozen", "advancing"])
 @pytest.mark.parametrize("copies", CONFIGS, indirect=True)
-def test_protected_material_is_indistinguishable_from_absent_material(copies, monkeypatch):
+def test_protected_material_is_indistinguishable_from_absent_material(copies, monkeypatch, mode):
     """A8's contract (R7; whole-pipeline since fix round 11, R2): with every kind of protected
     material present and protected (copy A), AD's whole pipeline produces exactly what it produces
     with that material physically absent (copy B), in the owner's default configuration and with
@@ -1279,7 +1468,7 @@ def test_protected_material_is_indistinguishable_from_absent_material(copies, mo
 
     protected, absent = copies
     _hold_out(monkeypatch)
-    _deterministic(monkeypatch)
+    _deterministic(monkeypatch, advancing=mode == "advancing")
     _carve_outs(monkeypatch)
     reads = _trace_ad_reads(monkeypatch)
     seen = _normalized(_run_at_common_root(protected, monkeypatch))
@@ -1296,8 +1485,15 @@ def test_protected_material_is_indistinguishable_from_absent_material(copies, mo
             violations.append(f"{name}: the late-protected repair was not refused: {seen.get(f'{name}_error')!r}")
     # F42: an out-of-scope table is out of scope only while no AD path reads it.
     for table, readers in sorted(reads.items()):
-        if table in OUT_OF_SCOPE and not readers <= set(CARVE_OUT_READS.get(table, ())):
+        modules = {reader.split("@", 1)[0] for reader in readers}
+        if table in OUT_OF_SCOPE and not modules <= set(CARVE_OUT_READS.get(table, ())):
             violations.append(f"AD reads the out-of-scope table {table} ({sorted(readers)})")
+    if os.environ.get("AD23_CONTRACT_OUT"):
+        # The pinned outcomes' current values (to write the expectations); never set in a gate.
+        with open(os.environ["AD23_CONTRACT_OUT"], "a", encoding="utf-8") as handle:
+            handle.write(json.dumps({key: seen.get(key) for key in (
+                "readiness", "card", "dose", "dose_old_boundary", "delivery", "uptake", "preparation", "forecasts",
+                "temporal", "worker", "queued", "sweep", "relatedness")}, sort_keys=True, default=str) + "\n")
     if os.environ.get("AD23_CONTRACT_READS"):
         # The traced AD reads, for the review's audit of the out-of-scope tables; never set in a gate.
         with open(os.environ["AD23_CONTRACT_READS"], "a", encoding="utf-8") as handle:
@@ -1322,6 +1518,32 @@ def test_protected_material_is_indistinguishable_from_absent_material(copies, mo
     assert seen["worker"] == [["completed", SERVE_COMMISSION]] and seen["worker_generation"], seen["worker"]
     assert "no active learning objects in scope" in seen.get("goal_protected_error", ""), seen.get("goal_protected_error")
     assert reads, "the read trace saw AD's reads"
+    # Meaningful outcomes, pinned (fix round 13, F42): an emptied or degenerate stage fails here.
+    cells = {(cell["facet"], cell["capability"]): cell for cell in seen["readiness"]["cells"]}
+    assert set(cells) == {("apply_pub", "retrieval"), ("recall", "retrieval")} and seen["readiness"]["predicted"]
+    assert all(cell["kind"] == "prediction" and 0.05 < cell["p_bar_at_top"] < 0.6 for cell in cells.values())
+    assert seen["card"]["cell"] == ["recall", "retrieval"] and seen["card"]["kind"] == "prediction"
+    assert 0.0 < seen["card"]["p_band_next"] < seen["card"]["p_bar_at_top"] < 0.6
+    assert seen["card"]["p_bar_at_top"] == cells[("recall", "retrieval")]["p_bar_at_top"]
+    assert [(d["eligible"], d["reason"]) for d in [*seen["dose"], seen["dose_old_boundary"]]] == [(True, None)] * 2
+    assert seen["uptake"] == [None, None, None], "the protected offers' late callbacks write nothing"
+    prepared = {entry["practice_item_id"]: entry for entry in seen["preparation"]}
+    assert set(prepared) == {"pi_p1", "pi_p2", "pi_hist", P4}
+    assert all(entry["audit"]["status"] in ("audited", "current") and entry["llm_v1"]["status"] in ("ok", "current")
+               for entry in prepared.values()), seen["preparation"]
+    # The temporal scenarios (F38, F45): after the replacement and the protection change the public
+    # run is out of use (no coupling, no loading), and the re-proposal is made, never "current".
+    assert seen["temporal"]["public_judgment_stale"] is True
+    assert seen["temporal"]["coupling"] is False and seen["temporal"]["loadings"] == {}
+    if "learned_coupling = true" in (protected.root / "learnloop.toml").read_text(encoding="utf-8"):
+        (before_status, before_hash, _asked), (after_status, after_hash, _again) = seen["temporal"]["proposals"]
+        assert before_status == "ok" and after_hash == before_hash, seen["temporal"]["proposals"]
+        assert after_status == "ok", "a stale run answered for the re-proposal (F45)"
+    else:
+        assert [entry[0] for entry in seen["temporal"]["proposals"]] == ["disabled", "disabled"]
+    # The expiry boundary: open when the run starts; expired by its end only on the advancing clock.
+    assert EXPIRING_COMMISSION in seen["open_commissions"][0]
+    assert (EXPIRING_COMMISSION in seen["open_commissions"][-1]) is (mode == "frozen")
     assert seen["steps"][0]["kind"] == "item" and seen["estimates"], "the slot draw ran"
     assert any(P4 in [candidate[0] for candidate in request] for request in seen["estimates"])
     assert seen["generation"], "the commissioned request was built"
@@ -1843,3 +2065,176 @@ def test_a_goal_over_a_facet_only_a_protected_item_measures_has_no_scope(copies,
     goal = next(goal for goal in vault.goals if goal.id == GOAL_PROTECTED)
     with pytest.raises(PracticeExpansionError, match="no active learning objects in scope"):
         build_goal_practice_plan(vault, Repository(protected.sqlite_path), goal)
+
+
+# -- fix round 13 (F42): the Python-side caches and file-backed reads AD depends on --------------------
+
+#: Every module-level cache and file-backed read an AD module holds, each routed through the material
+#: view or unable to carry protected material. ``test_every_ad_cache_and_file_read_is_audited`` scans
+#: the AD modules and fails on any one not listed here.
+AD_DEPENDENCIES = {
+    "replay._CACHE": "the replay's snapshot cache, served only while the fingerprint of the events loaded "
+                     "through the view is unchanged: a protection change changes those events",
+    "replay._CACHE_LOCK": "the lock guarding replay._CACHE: holds no data",
+    "model._INVERSE_CACHE": "a numeric memo over (a, b) floats: no material",
+    "generation.load_vault": "the guard reloads the vault to read protection afresh; its content reaches a "
+                             "request only through the fresh view's vault_view",
+    "material_view.load_document_ir": "the document IR, from SQLite tables (traced); sections reach AD "
+                                      "through view.section_spans, spans through material_withheld",
+}
+
+
+def _ad_dependency_sites() -> set[str]:
+    root = Path(__file__).resolve().parents[1] / "src" / "learnloop"
+    found: set[str] = set()
+    files = [*sorted((root / "adaptive_difficulty").glob("*.py")), root / "daily_plan" / "ad_slot.py"]
+    for path in files:
+        text = path.read_text(encoding="utf-8")
+        module = path.stem
+        for match in re.finditer(r"^(_[A-Z_]*CACHE[A-Z_]*)\s*[:=]", text, re.MULTILINE):
+            found.add(f"{module}.{match.group(1)}")
+        for name in ("lru_cache", "functools.cache", "@cache"):
+            if name in text:
+                found.add(f"{module}.{name}")
+        for call in ("open(", ".read_text(", ".read_bytes(", "load_vault(", "load_document_ir(", "yaml."):
+            for line in text.splitlines():
+                stripped = line.strip()
+                if call in stripped and not stripped.startswith(("#", "from ", "import ")) and '"""' not in stripped:
+                    found.add(f"{module}.{call.strip('(.').strip('.')}")
+    return found
+
+
+def test_every_ad_cache_and_file_read_is_audited():
+    """F42 (round 13): the read trace sees SQLite only. Every Python-side cache and file-backed read in
+    the AD modules is listed in ``AD_DEPENDENCIES`` with how protection reaches it."""
+
+    assert _ad_dependency_sites() <= set(AD_DEPENDENCIES), sorted(_ad_dependency_sites() - set(AD_DEPENDENCIES))
+
+
+def test_the_replay_cache_never_serves_a_snapshot_across_a_protection_change(copies, monkeypatch):
+    """F42 (round 13): the replay's snapshot cache is keyed by database, vault and settings and served
+    only while the events loaded through the view are unchanged; withholding one more item changes
+    them, so the cached snapshot is not served."""
+
+    from learnloop.adaptive_difficulty import replay as RP
+    from learnloop.adaptive_difficulty.material_view import material_view
+
+    protected, _absent = copies
+    _hold_out(monkeypatch)
+    RP.clear_cache()
+    vault, repository = load_vault(protected.root), Repository(protected.sqlite_path)
+    first = RP.snapshot(vault, repository, view=material_view(vault, repository))
+    again = RP.snapshot(vault, repository, view=material_view(vault, repository))
+    narrower = RP.snapshot(vault, repository, view=material_view(vault, repository, {"pi_hist"}))
+    assert again is first, "an unchanged view is served from the cache"
+    assert narrower is not first
+    assert {e.practice_item_id for e in narrower.events.attempts} < {e.practice_item_id for e in first.events.attempts}
+
+
+# -- fix round 13: the per-reader regressions beside the grown differential ----------------------------
+
+
+def test_a_run_whose_quoted_revision_was_replaced_then_protected_is_not_used(copies, monkeypatch):
+    """F38 (round 13): the public run quoted pi_p2's revision citing sec2_span. pi_p2 is then
+    replaced (it cites sec3_span) and sec2_span held out: the old revision is in no current item and
+    no snapshot, only in the run's recorded prompt context, which is judged against the current
+    protection. The run is out of use (failed before: its context was not recorded, so it stood)."""
+
+    from learnloop.adaptive_difficulty import relatedness as R
+    from learnloop.adaptive_difficulty.feature_audit import item_revision
+    from learnloop.adaptive_difficulty.material_view import material_view
+
+    _protected, absent = copies
+    _hold_out(monkeypatch)
+    set_item(absent, "pi_p2", canonical_exercise={"source_id": "src_r9", "extraction_id": EXT, "span_ids": ["sec3_span"]})
+    LATE.append("sec2_span")
+    vault = load_vault(absent.root)
+    view = material_view(vault, Repository(absent.sqlite_path))
+    with closing(connect(absent.sqlite_path, read_only=True)) as connection:
+        assert "jdg_pub_r11" in R.stale_judgments(connection, vault, view=view)
+        structure = R.load_structure(connection, vault, view=view, coupled=True)
+    assert structure.loadings(item_revision(vault.practice_items["pi_p1"])[0], float("inf")) == {}
+
+
+def test_a_stale_run_never_answers_for_a_re_proposal(tmp_path, monkeypatch):
+    """F45: a proposal is made; then a saved historical revision of a subject item is held out while
+    the prompt content stays the same. The re-proposal has the same prompt hash but a new protection
+    identity, so the stale run does not satisfy the duplicate check: it is asked and recorded under a
+    new key (failed before: the run key was the prompt hash alone, so the answer was "current")."""
+
+    from learnloop.adaptive_difficulty import relatedness as R
+    from learnloop.adaptive_difficulty.feature_audit import item_revision
+    from learnloop.db.stores import ad_serving
+    from learnloop.vault.models import CanonicalExercise
+
+    paths = ad23_vault(tmp_path, items=PUBLIC, ad=COUPLED)
+    _hold_out(monkeypatch)
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    first = ProposalLLM({"items": [], "learning_objects": []})
+    assert R.propose_subject(vault, repository, SUBJECT, client=first).status == "ok" and first.prompts
+    old = vault.practice_items["pi_p1"].model_copy(update={
+        "prompt": "An earlier revision.", "canonical_exercise": CanonicalExercise(source_id="src_r9", extraction_id=EXT,
+                                                                                  span_ids=["late_span"])})
+    content_hash, item_json = item_revision(old)
+    with closing(connect(paths.sqlite_path)) as connection:
+        connection.execute("INSERT INTO practice_item_snapshots(content_hash, practice_item_id, item_json, created_at) "
+                           "VALUES (?, 'pi_p1', ?, '2026-10-01T09:00:00Z')", (content_hash, item_json))
+        connection.commit()
+    LATE.append(LATE_SPAN)  # the saved revision's source is held out now; the current items are not
+    again = ProposalLLM({"items": [], "learning_objects": []})
+    outcome = R.propose_subject(load_vault(paths.root), repository, SUBJECT, client=again)
+    # The prompt is identical (it quoted no protected material), so its checkpointed answer may be
+    # reused; what matters is that the request is made and recorded, not answered by the stale run.
+    assert outcome.status == "ok", outcome
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        runs = ad_serving.relatedness_runs(connection, subject_id=SUBJECT)
+    assert len(runs) == 2 and runs[0]["input_hash"] == runs[1]["input_hash"] and runs[0]["run_key"] != runs[1]["run_key"]
+
+
+def test_a_tutor_exchange_on_a_protected_canonical_note_enters_no_prediction(copies, monkeypatch):
+    """F43: an answered Reader question names the held-out source's canonical note. The sweep never
+    records it (the note is checked before any fallback to an item), the production map maps the note
+    to no LO, and a receipt recorded earlier is withheld on revalidation (failed before: the note's LOs
+    were read from the raw vault and receipts checked spans and items only)."""
+
+    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.reading import VaultReadingMap, sweep
+    from learnloop.db.stores import ad_receipts
+
+    protected, _absent = copies
+    _hold_out(monkeypatch)
+    vault, repository = load_vault(protected.root), Repository(protected.sqlite_path)
+    view = material_view(vault, repository)
+    assert VaultReadingMap(vault, repository, view).los_for_note("note_r12") == []
+    sweep(vault, repository, as_of=_iso(RUN), sweep_kind="backfill", view=view)
+    with closing(connect(protected.sqlite_path)) as connection:
+        assert connection.execute("SELECT 1 FROM ad_reading_opportunities WHERE source_id = 'qe_note_r13'").fetchone() is None
+        ad_receipts.insert_reading_opportunity(connection, {
+            "opportunity_key": f"reader_tutor_exchange:{LO}:2026-10-12:qe_note_r13", "kind": "reader_tutor_exchange",
+            "subkind": "help_me_reason", "source_table": "question_events", "source_id": "qe_note_r13",
+            "source_written_at": _iso(T0 - timedelta(hours=6)), "learning_object_id": LO, "facet_doses": {"recall": 1.0},
+            "dose_offer_id": None, "mapping_version": "ad_reading_map_v1", "sweep": "backfill", "sweep_ref": None,
+            "swept_at": _iso(RUN)})
+        connection.commit()
+        assert "qe_note_r13" not in {row["source_id"] for row in view.reading_opportunities(connection)}
+
+
+def test_a_protected_receipt_occupies_no_daily_cap_slot(copies, monkeypatch):
+    """F44: a passage-view receipt from a held-out span holds the LO's one daily passage slot under
+    the old key scheme. The day's public passage view is still admitted: occupancy is counted over
+    the receipts the view sees, and its key names its own source event, so it never collides
+    (failed before: the raw slot was full and the public view was dropped)."""
+
+    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.reading import sweep
+
+    protected, _absent = copies
+    _hold_out(monkeypatch)
+    vault, repository = load_vault(protected.root), Repository(protected.sqlite_path)
+    sweep(vault, repository, as_of=_iso(RUN), sweep_kind="backfill", view=material_view(vault, repository))
+    with closing(connect(protected.sqlite_path, read_only=True)) as connection:
+        keys = [row[0] for row in connection.execute(
+            "SELECT opportunity_key FROM ad_reading_opportunities WHERE kind = 'reading' AND subkind = 'passage_viewed' "
+            "AND source_table = 'source_exposure_events' AND source_id != 'sxe_held_r13'")]
+    assert len(keys) == 1 and keys[0].startswith(f"reading:passage_viewed:{LO}:2026-10-12:source_exposure_events:")

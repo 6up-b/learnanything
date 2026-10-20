@@ -187,14 +187,14 @@ def test_unchanged_input_makes_no_call_and_a_change_reproposes_only_what_it_touc
     asked = json.loads(retitled.prompts[0][retitled.prompts[0].index("{"):])["state"]["propose_for"] \
         if retitled.prompts[0].strip().startswith("{") else None
     runs = ad_serving.relatedness_runs(connect(paths.sqlite_path))
-    assert set(runs[-1]["units"]) - {"protection:subject"} == {"lo:lo_rb"}
+    assert {unit for unit in runs[-1]["units"] if not unit.startswith("protection:")} == {"lo:lo_rb"}
     assert "Retitled topic" in retitled.prompts[0] and '"propose_for"' in retitled.prompts[0]
     # A new item revision re-proposes its loadings only.
     set_item(paths, "pi_rc1", prompt="A rewritten question about rc.")
     revised = ProposalLLM({"items": [], "learning_objects": []})
     assert _propose(paths, revised).status == "ok"
     runs = ad_serving.relatedness_runs(connect(paths.sqlite_path))
-    (unit,) = set(runs[-1]["units"]) - {"protection:subject"}
+    (unit,) = {unit for unit in runs[-1]["units"] if not unit.startswith("protection:")}
     assert unit.startswith("rev:")
     assert asked is None or asked
 
