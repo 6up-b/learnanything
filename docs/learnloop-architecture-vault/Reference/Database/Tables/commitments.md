@@ -3,8 +3,8 @@ title: "commitments"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0fc6e3e96f73e725ecc0505e16fc9c79902a881c"
-source_commit_timestamp: "2026-10-20T01:23:55-04:00"
+source_commit: "3f7be0a9042a6625d8c1f2d027e87accf4635c63"
+source_commit_timestamp: "2026-10-20T02:13:08-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitments"
@@ -141,7 +141,7 @@ Indexes and uniqueness:
 - `tests/test_intent_codex_review.py`
 - `tests/test_intent_exclusion.py`
 - `tests/test_intent_goal_deadline.py`
-- `tests/test_intent_resolution.py`
+- `tests/test_intent_orchestrator_rulings.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

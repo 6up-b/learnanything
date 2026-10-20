@@ -3,8 +3,8 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0fc6e3e96f73e725ecc0505e16fc9c79902a881c"
-source_commit_timestamp: "2026-10-20T01:23:55-04:00"
+source_commit: "3f7be0a9042a6625d8c1f2d027e87accf4635c63"
+source_commit_timestamp: "2026-10-20T02:13:08-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
@@ -268,7 +268,6 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/measurement_corrections.py`
 - `src/learnloop/attempts/post_attempt.py`
 - `src/learnloop/attempts/regrade.py`
-- `src/learnloop/attempts/reveal_ledger.py`
 - `src/learnloop/cli/ai_compare.py`
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/authoring/contract_commissioning.py`
@@ -278,6 +277,7 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/curriculum_locks.py`
 - `src/learnloop/curriculum/graph_edit_proposals.py`
 - `src/learnloop/daily_plan/engine.py`
+- `src/learnloop/daily_plan/reentry.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
