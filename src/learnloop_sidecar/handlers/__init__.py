@@ -29,6 +29,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     ingest,
     inspector,
     item_authoring,
+    kept_comparisons,
     knowledge_map,
     knowledge_model,
     ladder,

@@ -13869,7 +13869,7 @@ class Repository(
     def create_source_object_relation(
         self, *, source_object_id: str, related_object_id: str | None, relation_type: str,
         learner_text: str | None = None, authorship: str = "learner",
-        review_status: str = "proposed", clock: Clock | None = None,
+        review_status: str = "proposed", clock: Clock | None = None, version_ordinal: int = 1,
     ) -> str:
         relation_id = new_ulid()
         with self.connection() as connection:
@@ -13877,14 +13877,21 @@ class Repository(
                 "INSERT INTO source_object_relations("
                 "id, source_object_id, related_object_id, version_ordinal, relation_type, "
                 "learner_text, authorship, review_status, created_at) "
-                "VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)",
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
-                    relation_id, source_object_id, related_object_id, relation_type,
+                    relation_id, source_object_id, related_object_id, int(version_ordinal), relation_type,
                     learner_text, authorship, review_status, utc_now_iso(clock),
                 ),
             )
             connection.commit()
         return relation_id
+
+    def source_object_relation(self, relation_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM source_object_relations WHERE id = ?", (relation_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
 
     def relations_for_object(self, source_object_id: str) -> list[dict[str, Any]]:
         with self.connection() as connection:

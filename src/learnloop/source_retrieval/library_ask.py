@@ -772,7 +772,7 @@ def organize(
 
 
 # ---------------------------------------------------------------------------
-# Compare (display only until RW4d)
+# Compare (RW4d's keep lives in source_retrieval.kept_comparisons)
 # ---------------------------------------------------------------------------
 
 def compare_table(comparison: Mapping[str, Any], *, first_source_id: str | None = None) -> dict[str, Any]:
@@ -836,9 +836,15 @@ def compare(
     compare_sources: Callable[..., Any],
     record_shown: Callable[[Sequence[str], str], Sequence[str]] | None = None,
     open_source_id: str | None = None,
+    requested_perspectives: Sequence[str] = (),
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Compare the pinned passages through the service's ``compare_sources``.
+
+    ``requested_perspectives`` (RW4d, only while ``reader_compare.keep_enabled``
+    is on; empty otherwise, so the call and the table are RW4a's) are passed to
+    the service, stored on the ask row, and shown with the perspectives no
+    source covered ("not found in your library").
 
     ``compare_sources`` is bound to the caller (its policy derived on the
     server, from the ask's own binding). The Reader stores only the
@@ -852,11 +858,20 @@ def compare(
     pins = _keys(pinned_keys)
     if len(pins) < 2:
         raise LibraryAskError("validation_error", "Pin passages from at least two places to compare them.")
-    comparison = compare_sources(row["query"], pinned_span_keys=pins)
+    perspectives = [str(value) for value in requested_perspectives if str(value).strip()]
+    if perspectives:
+        comparison = compare_sources(row["query"], pinned_span_keys=pins, requested_perspectives=perspectives)
+    else:
+        comparison = compare_sources(row["query"], pinned_span_keys=pins)
     payload = comparison.as_dict() if hasattr(comparison, "as_dict") else dict(comparison)
     if payload.get("comparison_id"):
         _update(repository, ask_id, comparison_id=payload["comparison_id"])
+    if perspectives:
+        _update(repository, ask_id, requested_perspectives_json=json.dumps(perspectives))
     table = compare_table(payload, first_source_id=open_source_id)
+    if perspectives:
+        table["requested_perspectives"] = perspectives
+        table["missing_perspectives"] = [str(value) for value in payload.get("missing_perspectives") or ()]
     shown = [entry["key"] for entry in table["rows"] if ":" in str(entry.get("key") or "")]
     exposure_ids = list(record_shown(shown, ask_id)) if record_shown is not None and shown else []
     _event(repository, "compare_opened", {

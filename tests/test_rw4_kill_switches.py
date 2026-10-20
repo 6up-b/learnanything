@@ -45,6 +45,10 @@ def _without_library(contract: dict) -> dict:
     out.pop("libraryAsk", None)
     # RW4b's exercises live inside the library answer: off with it.
     out.pop("libraryExercises", None)
+    # RW4d's keep: the library's keep and perspectives go with the library
+    # answer; the tutor's comparison can still be kept.
+    if "compareKeep" in out:
+        out["compareKeep"] = {**out["compareKeep"], "library": False, "perspectives": False}
     intent = out.get("intent")
     if intent:
         for name in ("palette", "notesPalette"):

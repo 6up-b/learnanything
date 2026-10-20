@@ -115,6 +115,23 @@ def link_relation(
     return {"relation_id": relation_id, "relation_type": relation_type, "review_status": "proposed"}
 
 
+def supersede_relation(repository: Repository, *, relation_id: str, clock: Clock | None = None) -> dict[str, Any]:
+    """Mark a relation ``superseded`` by appending its successor version (the
+    same endpoints, type, wording and authorship; ``version_ordinal + 1``):
+    relations are versioned and append-only, so nothing is updated or deleted
+    (Reader RW4d's *remove*, spec_reader_workbench_v1 §7.8)."""
+
+    prior = repository.source_object_relation(relation_id)
+    if prior is None:
+        raise SourceObjectError(f"unknown relation: {relation_id!r}")
+    successor = repository.create_source_object_relation(
+        source_object_id=prior["source_object_id"], related_object_id=prior["related_object_id"],
+        relation_type=prior["relation_type"], learner_text=prior["learner_text"], authorship=prior["authorship"],
+        review_status="superseded", version_ordinal=int(prior["version_ordinal"]) + 1, clock=clock,
+    )
+    return {"relation_id": successor, "supersedes": relation_id, "review_status": "superseded"}
+
+
 def propose_mapping(
     repository: Repository,
     *,

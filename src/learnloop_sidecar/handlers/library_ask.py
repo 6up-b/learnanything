@@ -36,6 +36,7 @@ from typing import Any, Callable
 
 from pydantic import Field
 
+from learnloop.source_retrieval import kept_comparisons as KC
 from learnloop.source_retrieval import library_ask as LA
 from learnloop.source_retrieval.policy import PolicyRefused
 from learnloop_sidecar.context import SidecarContext
@@ -344,12 +345,17 @@ def reader_library_ask(ctx: SidecarContext, params: LibraryAskInput) -> dict[str
             return record_shown_spans(worker_repo, list(keys), context="library", entity_type="library_ask",
                                       entity_id=ask_id)
 
-        return LA.ask_library(
+        result = LA.ask_library(
             vault, worker_repo, params.query, find=find, caller=record, record_shown=shown,
             entry=params.entry, extraction_id=extraction_id, anchor_span_ids=params.span_ids,
             learning_object_ids=params.learning_object_ids, personalized=params.personalized,
             expand=params.expand,
         )
+        if KC.keep_enabled(vault):
+            # RW4d: "you compared these on …" for passages a kept comparison holds
+            # (absent while reader_compare.keep_enabled is off: RW4a's answer).
+            result["compared_on"] = KC.compared_on(worker_repo, [hit["key"] for hit in result["hits"]])
+        return result
 
     return _start(ctx, "ask", None, work)
 
@@ -379,6 +385,9 @@ class LibraryCompareInput(ParamsModel):
     open_source_id: str | None = None
     #: Optional; when given it must name the ask's own binding (never widens it).
     workbench_session_id: str | None = None
+    #: RW4d: "a geometric view", "an application" (used only while
+    #: reader_compare.keep_enabled is on; otherwise refused when given).
+    requested_perspectives: list[str] = Field(default_factory=list, max_length=8)
 
 
 @method("reader.library_compare", LibraryCompareInput)
@@ -394,6 +403,11 @@ def reader_library_compare(ctx: SidecarContext, params: LibraryCompareInput) -> 
                            "Comparing sources is switched off (reader_compare.enabled or source_service.compare).")
     row = _ask_row(repository, params.ask_id)
     caller = follow_up_caller(vault, repository, row, workbench_session_id=params.workbench_session_id)
+    keep = KC.keep_enabled(vault)
+    perspectives = KC.clean_perspectives(params.requested_perspectives)
+    if perspectives and not keep:
+        raise SidecarError("reader_compare_keep_disabled",
+                           "Requested perspectives are switched off (reader_compare.keep_enabled is false).")
 
     def work(worker_repo: Any) -> dict[str, Any]:
         def bound_compare(query: str, **kwargs: Any) -> Any:
@@ -403,8 +417,13 @@ def reader_library_compare(ctx: SidecarContext, params: LibraryCompareInput) -> 
             return record_shown_spans(worker_repo, list(keys), context="library", entity_type="library_ask",
                                       entity_id=ask_id)
 
-        return LA.compare(vault, worker_repo, params.ask_id, pinned_keys=params.pinned_span_keys,
-                          compare_sources=bound_compare, record_shown=shown, open_source_id=params.open_source_id)
+        table = LA.compare(vault, worker_repo, params.ask_id, pinned_keys=params.pinned_span_keys,
+                           compare_sources=bound_compare, record_shown=shown, open_source_id=params.open_source_id,
+                           requested_perspectives=perspectives)
+        if keep:
+            # RW4d: whether this comparison is kept already (absent while off).
+            table["kept"] = KC.compare_kept_state(worker_repo, params.ask_id, table.get("comparison_id"))
+        return table
 
     return _start(ctx, "compare", params.ask_id, work)
 

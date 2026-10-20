@@ -456,6 +456,11 @@ def reader_prompt_contract(ctx: SidecarContext, _params: ParamsModel) -> dict[st
     from learnloop_sidecar.handlers.library_exercises import prompt_contract_fields as library_exercise_fields
 
     contract.update(library_exercise_fields(vault))
+
+    # RW4d's kept comparisons (absent while reader_compare.keep_enabled is off).
+    from learnloop_sidecar.handlers.kept_comparisons import prompt_contract_fields as kept_comparison_fields
+
+    contract.update(kept_comparison_fields(vault))
     return versioned(contract)
 
 
