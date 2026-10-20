@@ -1971,6 +1971,27 @@ export function ReaderScreen({
     [enabled, boundaryBlock, onError],
   );
 
+  // RW4a: "open" a library hit: this book jumps to it (a peek crumb); another
+  // book opens in the left pane as a detour (Alt+← comes back here). Defined
+  // before every early return: the library page (no book open) uses it too,
+  // through the exercise cards' actions (RW4b, Codex review F1).
+  const openLibraryHit = (hit: Pick<LibraryHitDto, "sourceId" | "extractionId" | "spanId">) => {
+    if (render && hit.sourceId === render.sourceId) {
+      peekPassage(hit.spanId);
+      return;
+    }
+    const card = (library ?? []).find((candidate) => candidate.sourceId === hit.sourceId);
+    if (!card || opening !== null) return;
+    if (render && !offline) {
+      const spanId = readingSpan ?? activeSpan;
+      rememberLeftSource({
+        id: newActivityId(), kind: "origin", sourceId: render.sourceId, sourceTitle,
+        extractionId: render.extractionId, spanId, selection, railTab, exchangeId: null,
+        label: sourceTitle ?? "where I was", openedAt: Date.now(),
+      });
+    }
+    void openSource(card, hit.spanId, { via: "search", jumpReading: hit.extractionId });
+  };
   // RW4b: the candidate cards (spec §7.4). "Open in the book" is the same
   // detour as a library hit's "open"; "use this one" is a learner pick the
   // shell opens in the working posture, in the exercise's own source (opened
@@ -2335,25 +2356,6 @@ export function ReaderScreen({
     const spanId = wbCtl.close(session, { abandoned: abandonedNow });
     // Collapse back into ordinary reading at the problem's passage.
     if (spanId) window.setTimeout(() => jumpToSpan(spanId), 0);
-  };
-  // RW4a: "open" a library hit: this book jumps to it (a peek crumb); another
-  // book opens in the left pane as a detour (Alt+← comes back here).
-  const openLibraryHit = (hit: Pick<LibraryHitDto, "sourceId" | "extractionId" | "spanId">) => {
-    if (render && hit.sourceId === render.sourceId) {
-      peekPassage(hit.spanId);
-      return;
-    }
-    const card = (library ?? []).find((candidate) => candidate.sourceId === hit.sourceId);
-    if (!card || opening !== null) return;
-    if (render && !offline) {
-      const spanId = readingSpan ?? activeSpan;
-      rememberLeftSource({
-        id: newActivityId(), kind: "origin", sourceId: render.sourceId, sourceTitle,
-        extractionId: render.extractionId, spanId, selection, railTab, exchangeId: null,
-        label: sourceTitle ?? "where I was", openedAt: Date.now(),
-      });
-    }
-    void openSource(card, hit.spanId, { via: "search", jumpReading: hit.extractionId });
   };
   // RW4a: "practice this ▸" is a learner pick the plan serves (the same path as
   // a cue's check me), with the book out of view.
