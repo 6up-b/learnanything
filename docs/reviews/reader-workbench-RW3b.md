@@ -231,6 +231,12 @@ the mark's two props, the footer's legend prop); none of RW4b's hunks.
 
 ## 2. Deviations and decisions within the spec
 
+*Fix round 1 (`docs/reviews/reader-rw3b-codex-review.md`) supersedes items 3
+(now the learner's impressions this reader session, F10), 4 (recurrence
+groups and holding-pen candidates are targets, F9), 5 (claims needing an
+independent check are try-first-only targets, F9) and 6 (both arms measured
+by their passage; neither recorded on the PDF, F5).*
+
 1. **Extra columns** (recorded in the migration): `pick_rank`, `ranks_json`,
    `roles_json` on links; `cue_id`, `kind`, `extraction_id`, `span_id`,
    `learning_object_id` on impressions. The spec's columns are all there.
