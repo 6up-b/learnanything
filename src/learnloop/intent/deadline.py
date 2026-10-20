@@ -127,6 +127,9 @@ def set_deadline(
         created = existing is None
         if existing is not None:
             existing["due_at"] = due
+            # DL2 verify F17 (fix round 5): the goal targets the commitment's
+            # current depth (a Keep made Master, then moved, targets Master's).
+            existing["target_recall"] = target
             existing["status"] = "active"
             existing["facet_scope"] = {"concepts": [], "facets": facets}
             existing["updated_at"] = now

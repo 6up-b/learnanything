@@ -37,7 +37,10 @@ no session minutes, so the engine does not repeat it), and stage interleaving
 needs a staged block (none on Today). Requests (the learner's own, L3) and
 mid-plan follow-ups (the follow-up rules; value of information decides them)
 are placed by the container, never by the source, so the frame does not veto
-them.
+them. A due "Check once" (DL2) is placed by the container too, but only after
+the frame's verdict on it (:meth:`StagedFrame.refusals_for`, fix round 5,
+F16): a check is exempt from value and count composition, never from a
+mandatory constraint, so a refused one stays in the pool and is refused here.
 
 **Annotations** on each candidate: the P4 ladder rungs its learning objects
 are eligible for (per-LO signals from the lane classification plus the live
@@ -212,6 +215,16 @@ class StagedFrame:
         self._pool.update(wanted)
         self._material = self._build(list(self._pool.values()))
         return self._material
+
+    def refusals_for(self, pool: Iterable[PoolItem]) -> dict[str, tuple[dict[str, Any], ...]]:
+        """The mandatory refusals of ``pool``'s laned items (the frame's own
+        verdicts, from the same material the boundary reads): the container
+        asks before it forces a due "Check once" (DL2 fix round 5, F16)."""
+
+        items = list(pool)
+        laned = {item.practice_item_id for item in items if item.lane is not None}
+        material = self.material(items)
+        return {item_id: reasons for item_id, reasons in material.refusals.items() if item_id in laned}
 
     # -- building --------------------------------------------------------------
 

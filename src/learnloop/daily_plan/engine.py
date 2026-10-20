@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
@@ -258,6 +259,10 @@ class PlanPolicy:
     #: ``daily_plan.router_chooser.RestraintGate``). None: DL1's follow-up
     #: rules alone (a placeable follow-up always joins the current block).
     restraint: Any = None
+    #: DL2 fix round 5 (verify F16): ``(pool) -> {item_id: refusals}``, the
+    #: source's mandatory constraints, asked before an item is forced (a due
+    #: "Check once"). None: the source has none (DL1's pair).
+    mandatory_refusals: Callable[[Sequence[PoolItem]], Mapping[str, Sequence[Mapping[str, Any]]]] | None = None
 
     def projection(self) -> "PlanPolicy":
         """The pair the view projects with: this source, the projection chooser."""
@@ -267,6 +272,7 @@ class PlanPolicy:
             chooser=self.projection_chooser,
             make_source=self.make_source,
             projection_chooser=self.projection_chooser,
+            mandatory_refusals=self.mandatory_refusals,
         )
 
 
@@ -1195,7 +1201,11 @@ def _prepare_plan(
     checks_unplanned: list[dict[str, Any]] = []
     if built.intent is not None:
         checks, check_minutes, checks_unplanned = _select_checks(
-            built.intent, pool, budget=max(budget - requested_minutes, 0.0), taken=request_ids
+            built.intent,
+            pool,
+            budget=max(budget - requested_minutes, 0.0),
+            taken=request_ids,
+            mandatory_refusals=env.policy.mandatory_refusals,
         )
     forced_ids = request_ids | {item.practice_item_id for item in checks}
     rest = [item for item in pool if item.practice_item_id not in forced_ids]
@@ -1339,8 +1349,12 @@ def _prepare_plan(
 
 
 #: Why a due "Check once" is not in a plan's first block (R2): the only
-#: allowed reason not to serve it is that the plan's minutes cannot hold it.
+#: allowed reason not to serve it for value or cost is that the plan's
+#: minutes cannot hold it.
 CHECK_MINUTES_EXHAUSTED = "plan_minutes_exhausted"
+#: A mandatory constraint is never waived for a check (DL2 verify F16, fix
+#: round 5): every candidate holds a live assessment reservation.
+CHECK_ASSESSMENT_RESERVATION = "assessment_reservation"
 #: A due check none of whose items reached the plan's pool (never expected:
 #: recorded so a gap is visible, not silent).
 CHECK_NOT_IN_POOL = "not_in_pool"
@@ -1352,25 +1366,56 @@ def _check_commitment(intent: Any, practice_item_id: str) -> str | None:
 
 
 def _select_checks(
-    intent: Any, pool: Sequence[PoolItem], *, budget: float, taken: Iterable[str]
+    intent: Any,
+    pool: Sequence[PoolItem],
+    *,
+    budget: float,
+    taken: Iterable[str],
+    mandatory_refusals: Callable[[Sequence[PoolItem]], Mapping[str, Sequence[Mapping[str, Any]]]] | None = None,
 ) -> tuple[list[PoolItem], float, list[dict[str, Any]]]:
     """DL2 fix round 4 (R2): the due "Check once" items, in pool order, while
     their estimates fit ``budget`` (what the requests left); each one that
     does not fit, and each due check with no item in the pool, recorded with
-    its reason. Never valued or capped: the learner asked for the check."""
+    its reason. Never valued or capped: the learner asked for the check.
+
+    Fix round 5 (verify F16): exempt from value and count, never from a
+    mandatory constraint. A candidate on a live assessment reservation is
+    never a check's item (``split_check`` sets it aside, so an LO check took
+    an eligible sibling already); a check left with none is recorded as
+    ``assessment_reservation``. Then the policy's own mandatory constraints
+    (``PlanPolicy.mandatory_refusals``: the staged frame's) are evaluated
+    before an item is forced; a refused check is not forced but stays in the
+    pool, so the frame refuses it again at the boundary and names the refusal
+    on the ``plan_block`` row, and the miss is recorded with the constraint."""
 
     taken = set(taken)
     checks: list[PoolItem] = []
     minutes = 0.0
     unplanned: list[dict[str, Any]] = []
     seen: set[str] = set()
-    for item in pool:
-        if item.check_kind != "check_once" or item.lane is None:
-            continue
+    check_items = [item for item in pool if item.check_kind == "check_once" and item.lane is not None]
+    refused: Mapping[str, Sequence[Mapping[str, Any]]] = {}
+    if mandatory_refusals is not None and check_items:
+        refused = mandatory_refusals(pool)
+    for item in check_items:
         commitment_id = _check_commitment(intent, item.practice_item_id)
         if commitment_id is not None:
             seen.add(commitment_id)
         if item.practice_item_id in taken:
+            continue
+        refusal = refused.get(item.practice_item_id)
+        if refusal:
+            reasons = [dict(reason) for reason in refusal]
+            logging.getLogger(__name__).info("daily plan: due check %s not forced: %s", item.practice_item_id, reasons)
+            unplanned.append(
+                {
+                    "practice_item_id": item.practice_item_id,
+                    "commitment_id": commitment_id,
+                    "est_minutes": round(item.est_minutes, 4),
+                    "reason": str(reasons[0].get("constraint_key") or "mandatory_constraint"),
+                    "refusal": reasons,
+                }
+            )
             continue
         if minutes + item.est_minutes > budget + _EPS:
             unplanned.append(
@@ -1389,6 +1434,19 @@ def _select_checks(
         if check.commitment_id not in seen:
             unplanned.append(
                 {"practice_item_id": None, "commitment_id": check.commitment_id, "reason": CHECK_NOT_IN_POOL}
+            )
+    for commitment_id, check in sorted(intent.checks.items()):
+        # F16: due, unanswered, nothing to serve, not merely waiting out a
+        # hold, and a reservation is what set its candidates aside.
+        if check.due and check.answered_by is None and not check.servable and not check.held and check.reserved:
+            logging.getLogger(__name__).info("daily plan: due check %s not planned: every candidate is reserved", commitment_id)
+            unplanned.append(
+                {
+                    "practice_item_id": None,
+                    "commitment_id": commitment_id,
+                    "reason": CHECK_ASSESSMENT_RESERVATION,
+                    "reserved_item_ids": sorted(check.reserved),
+                }
             )
     return checks, minutes, unplanned
 

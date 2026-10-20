@@ -158,6 +158,9 @@ class CheckState:
     #: Due candidates with standing exposure (practice only).
     exposed: tuple[str, ...] = ()
     created_at: str = ""
+    #: Due candidates holding a live assessment reservation (DL2 verify F16,
+    #: fix round 5): never this check's item, whatever else admits them.
+    reserved: tuple[str, ...] = ()
 
     @property
     def servable(self) -> tuple[str, ...]:
@@ -196,6 +199,8 @@ class IntentServing:
     #: Builds the admission for a view no queue build bound (``scheduler.check_admission``).
     _admission_factory: Any = None
     _checks: dict[str, CheckState] | None = None
+    #: ``reserved_items()``: the items a live assessment reservation holds (F16).
+    _reserved_loader: Any = None
 
     # -- the checks, split among admitted candidates (R1) ----------------------
 
@@ -210,8 +215,11 @@ class IntentServing:
         if self._checks is None:
             if self._admission is None and self._admission_factory is not None:
                 self._admission = self._admission_factory(self)
+            reserved = self._reserved_loader() if self._reserved_loader is not None else frozenset()
             self._checks = {
-                commitment_id: split_check(check, eligibility=self._eligibility, admitted=self._admission)
+                commitment_id: split_check(
+                    check, eligibility=self._eligibility, admitted=self._admission, reserved=reserved
+                )
                 for commitment_id, check in self.raw_checks.items()
             }
         return self._checks
@@ -243,6 +251,9 @@ class IntentServing:
             check = self.check_for(item_id)
             if check is None or not check.due:
                 return "intent_check_waiting"
+            if item_id in check.reserved:
+                # F16: kept for an assessment; never a check's item.
+                return "intent_check_reserved"
             if item_id not in check.servable:
                 # F3: a hold on this candidate, or another can be taken cold.
                 return "intent_check_held"
@@ -476,21 +487,32 @@ def build_checks(
     return checks, resolution
 
 
-def split_check(check: CheckState, *, eligibility: Any = None, admitted: Any = None) -> CheckState:
+def split_check(
+    check: CheckState, *, eligibility: Any = None, admitted: Any = None, reserved: frozenset[str] = frozenset()
+) -> CheckState:
     """A due, unanswered check's candidates split by the eligibility decision
     (``eligibility(item_id, check_created_at)``; None: every one eligible),
     among those the build admits (``admitted(item_id)``; None: every one).
 
     A candidate the build would not serve is left out before the split, so
-    it can neither be the check nor suppress one that can be served (R1)."""
+    it can neither be the check nor suppress one that can be served (R1).
+    A candidate on a live assessment reservation (``reserved``) is set aside
+    the same way, into ``reserved`` (DL2 verify F16, fix round 5): a check is
+    exempt from value and count composition, never from a mandatory
+    constraint, so an LO check takes an eligible sibling by its own rule, and
+    a check left with none says why."""
 
     if not check.due or check.answered_by is not None:
         return check
     eligible: list[str] = []
     held: list[str] = []
     exposed: list[str] = []
+    set_aside: list[str] = []
     for item_id in check.candidates:
         if admitted is not None and not admitted(item_id):
+            continue
+        if item_id in reserved:
+            set_aside.append(item_id)
             continue
         verdict = _SERVE if eligibility is None else eligibility(item_id, check.created_at)
         if verdict == _SERVE:
@@ -499,7 +521,21 @@ def split_check(check: CheckState, *, eligibility: Any = None, admitted: Any = N
             exposed.append(item_id)
         else:
             held.append(item_id)
-    return replace(check, eligible=tuple(eligible), held=tuple(held), exposed=tuple(exposed))
+    return replace(
+        check, eligible=tuple(eligible), held=tuple(held), exposed=tuple(exposed), reserved=tuple(set_aside)
+    )
+
+
+def reserved_assessment_items(repository: Any) -> frozenset[str]:
+    """The practice items whose surface holds a live assessment reservation
+    (``activity_surface_reservations``; the staged frame's own read, which
+    refuses them on Today): F16."""
+
+    return frozenset(
+        str(row["legacy_practice_item_id"])
+        for row in repository.reserved_assessment_surfaces()
+        if row.get("legacy_practice_item_id")
+    )
 
 
 def intent_serving(
@@ -594,6 +630,8 @@ def intent_serving(
         _anchor_loader=anchors,
         _eligibility=eligibility,
         _admission_factory=default_admission,
+        # Looked up at call time, so a test can stand in for the read.
+        _reserved_loader=lambda: reserved_assessment_items(repository),
     )
 
 
@@ -608,5 +646,6 @@ __all__ = [
     "intent_enabled",
     "intent_serving",
     "on_your_own",
+    "reserved_assessment_items",
     "split_check",
 ]
