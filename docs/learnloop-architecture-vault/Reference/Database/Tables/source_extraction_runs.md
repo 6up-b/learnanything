@@ -3,8 +3,8 @@ title: "source_extraction_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "79a6f7e122e31045faf5694b40df9c887ab727a8"
-source_commit_timestamp: "2026-10-20T17:13:18-04:00"
+source_commit: "7764235c350bd5f6e2fcf5ec45a560b9c1ab44c6"
+source_commit_timestamp: "2026-10-20T17:32:28-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_extraction_runs"
@@ -144,6 +144,7 @@ Indexes and uniqueness:
 
 - `tests/test_ingest_runner.py`
 - `tests/test_migrations.py`
+- `tests/test_source_objects.py`
 - `tests/test_ux_phase1_landing.py`
 - `tests/helpers.py`
 - `tests/test_ad1_reading_opportunities.py`
@@ -161,7 +162,6 @@ Indexes and uniqueness:
 - `tests/test_source_block_fts.py`
 - `tests/test_source_deletion.py`
 - `tests/test_source_inventory.py`
-- `tests/test_source_layer.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

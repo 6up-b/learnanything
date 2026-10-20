@@ -3,8 +3,8 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "79a6f7e122e31045faf5694b40df9c887ab727a8"
-source_commit_timestamp: "2026-10-20T17:13:18-04:00"
+source_commit: "7764235c350bd5f6e2fcf5ec45a560b9c1ab44c6"
+source_commit_timestamp: "2026-10-20T17:32:28-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
@@ -154,6 +154,7 @@ Indexes and uniqueness:
 - `src/learnloop/ops/contamination/recipes.py`
 - `src/learnloop/reader/reader_dialogue.py`
 - `src/learnloop/reader/reader_inquiry.py`
+- `src/learnloop/reader/source_objects.py`
 - `src/learnloop/source_retrieval/evaluation.py`
 - `src/learnloop/source_retrieval/library_ask.py`
 - `src/learnloop/source_retrieval/timing.py`
@@ -163,7 +164,6 @@ Indexes and uniqueness:
 - `src/learnloop/tutor/tutor_qa.py`
 - `src/learnloop_sidecar/handlers/capture.py`
 - `src/learnloop_sidecar/handlers/facets.py`
-- `src/learnloop_sidecar/handlers/tutor_qa.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
