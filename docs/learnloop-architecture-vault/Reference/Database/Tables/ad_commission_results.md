@@ -3,8 +3,8 @@ title: "ad_commission_results"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "da3def4dddf309590d332c5a1e8bc33e70435204"
-source_commit_timestamp: "2026-10-19T20:55:31-04:00"
+source_commit: "ca191d5387facc119a9c3dab2168796a1c3e61fd"
+source_commit_timestamp: "2026-10-19T21:26:06-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ad_commission_results"
@@ -65,6 +65,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `status` | `TEXT` | yes | — | — | Stored value |
 | `state_hash` | `TEXT` | yes | — | — | Stored value |
 | `landed_after_expiry` | `INTEGER` | yes | `0` | — | Stored value |
+| `features_match` | `INTEGER` | yes | `1` | — | Stored value |
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
 
 ## Relationships and access paths
@@ -75,7 +76,7 @@ Declared SQLite foreign keys:
 
 Indexes and uniqueness:
 
-- `sqlite_autoindex_ad_commission_results_2` on `selection_id`, `practice_item_id` (unique).
+- `sqlite_autoindex_ad_commission_results_2` on `practice_item_id` (unique).
 - `sqlite_autoindex_ad_commission_results_1` on `id` (unique).
 
 Database triggers:
@@ -137,8 +138,13 @@ CREATE TABLE ad_commission_results (
   -- 1 when the item landed after its commission had expired (Codex verify
   -- F15): the landing is recorded whatever the commission's expiry.
   landed_after_expiry INTEGER NOT NULL DEFAULT 0 CHECK (landed_after_expiry IN (0, 1)),
+  -- Ownership is by cell and landing order, not by feature match (verify F15,
+  -- round 6): `features_json` holds the item's realized features, and this is 1
+  -- when they are the commission's requested point.
+  features_match INTEGER NOT NULL DEFAULT 1 CHECK (features_match IN (0, 1)),
   created_at TEXT NOT NULL,
-  UNIQUE (selection_id, practice_item_id)
+  -- One owner per landed item (verify F16): the first attribution is final.
+  UNIQUE (practice_item_id)
 );
 ```
 

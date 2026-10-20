@@ -461,3 +461,77 @@ after the fix.
 | references: `db_generate_reference.py`, `db_validate_reference.py` | 0 errors; the two new columns in the `ad_selections` and `ad_commission_results` notes; configuration catalog unchanged (927 leaves) |
 | defaults snapshots, CLI help | unchanged (no config key, command or option changed) |
 | vitest, `cargo check` | not applicable: no frontend or `src-tauri` change |
+
+## Fix round 6: the round-5 verify's F15 (reopened) and F16 (2026-10-19)
+
+Codex's verify of round 5 (codex-job `20261019-205930-JA9yfv`, verdict REOPENED) confirmed F12, F13
+and F14 and migration 214 with its table roles (22 DERIVED tables, one replayer each). It reopened F15
+and raised F16. This round fixes both under the orchestrator's rulings R1 and R2, in commit
+`ca191d538`. The regressions are in `tests/test_ad23_fix_r6.py`. No model calls: fakes only.
+
+| Id | Severity | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F12, F13, F14 | High, High, Medium | (confirmed fixed by the verify) | fixed | `da3def4dd` | their round-5 tests still pass |
+| F15 | Medium | Late items disappear when the successor commission requests different features | fixed (R1) | `ca191d538` | `test_a_late_item_off_the_successors_point_is_the_successors_landing` |
+| F16 | Medium | Same-second reconciliation can attribute one item to two commissions | fixed (R2) | `ca191d538` | `test_one_owner_at_equal_timestamps_and_the_first_attribution_is_final`, `test_draws_of_one_second_are_ordered_by_insertion` |
+
+### What changed
+
+- **F15 (R1).** Landing ownership is by cell and order only, never by feature match.
+  - `generation.landing_owner`: an active item belongs to the cells of its facets at its capability. Of
+    those cells' commissions drawn at or before its landing, the last in draw order owns it, whether
+    that commission is open, expired or superseded now.
+  - `record_landed_commissions` walks the items, not the commissions. A commission can therefore own
+    several items, and every active item that lands in a commissioned cell gets one receipt. An item
+    that landed before any commission of its cells is not a commissioned landing.
+  - The receipt records the item's realized (audited) features and their re-forecast.
+    `ad_commission_results.features_match` (new inside migration 214, 0/1) says whether those features
+    are the requested point. The report counts the off-point landings
+    (`selection.commissions.off_point`).
+  - The verify's case: A asks complexity c on day 0 and expires; B asks the other complexity on
+    day 9; an item at A's point lands on day 10. It gets exactly one receipt, owned by B, recording
+    A's point as the realized features with `features_match = 0`. Round 5's late-landing test now
+    also requires the fresh commission to own the item that lands after it.
+- **F16 (R2).** One owner per item, enforced in persistence.
+  - `ad_commission_results` is `UNIQUE(practice_item_id)` (it replaces `UNIQUE(selection_id,
+    practice_item_id)`). `insert_commission_result` stays idempotent for the same pair; a second
+    owner raises on the constraint.
+  - Reconciliation skips items that already have a receipt, so the first attribution is final.
+  - Draws are totally ordered by `(created_at, rowid)` (`ad_serving.commissions_in_draw_order`),
+    because timestamps carry whole seconds. `open_commissions`' supersession now reads the same order
+    (it read `(created_at, id)`, and ULIDs are random within a millisecond), so the open commission
+    and the landing owner always agree.
+  - The verify's same-second case: `pi` lands in the second of A's draw and is receipted to A; B is
+    drawn for the cell and point in that second. Repeated reconciliation and a whole
+    `rebuild_all_derived_state` leave exactly `[(A, pi)]`, and inserting `(B, pi)` fails with
+    `UNIQUE`. With two draws in one second, a landing in it belongs to the one inserted last, which
+    is also the cell's open commission.
+  - `test_ad23_migration`'s foreign-key insert now uses its own item id, so it still tests the
+    foreign key and not the new uniqueness.
+- **Migration 214, the fixture and the references.** `fixtures/migration_head_214` was rebuilt
+  again, the same way: git `29a49b5e6`'s `migration_head_213` with only 214 applied, checkpointed,
+  `journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok, `foreign_key_check` empty, no
+  companion files. Its README records the change. `table_roles` is unchanged. The reference scripts
+  were rerun (0 errors), and `ad_commission_results`' note shows `features_match` and the uniqueness.
+- **The spec** (§7.4's F15 record and the `ad_commission_results` row of §11.2) states the
+  ownership rule, the total order and the one-owner constraint.
+
+**Fail-before.** `git archive 880bdd592 src migrations` into `fixtures-local/ad23-r6-base`, run with
+`-o pythonpath=fixtures-local/ad23-r6-base/src`: **3 of 3 new tests fail**.
+- F15's case: reconciliation wrote nothing (`0 == 1`).
+- The same-second case: a second reconciliation wrote `(B, pi)`.
+- The tie case: nothing written, because the latest draw asked for another point.
+
+All three pass after the fix. The round-5 file passes on both trees: its extended assertion holds on
+the old tree only because that run's fresh draw happened to request the old point.
+
+### Gate (this round; owner rule 2026-10-17: targeted only)
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 27 kept, 0 broken |
+| `test_ad23_fix_r6.py`, `test_ad23_fix_r5.py`, `test_ad23_migration.py` | 14 passed |
+| targeted pytest, `uv run pytest -n auto` over 97 files (round 5's 96 plus `test_ad23_fix_r6.py`) | **7,115 passed, 36 xfailed** (934 s); the 36 are the failed simulation gates' strict xfails, unchanged |
+| `--durable-sqlite`: `test_ad23_fix_r6.py`, `test_ad23_fix_r5.py`, `test_ad23_migration.py`, `test_tracked_fixture_databases.py` | 16 passed |
+| references: `db_generate_reference.py`, `db_validate_reference.py` | 0 errors |
+| defaults snapshots, CLI help, vitest, `cargo check` | unchanged or not applicable (no config, command, frontend or `src-tauri` change) |
