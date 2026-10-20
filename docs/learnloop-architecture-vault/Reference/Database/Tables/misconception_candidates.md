@@ -3,8 +3,8 @@ title: "misconception_candidates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e086fc460dc148f693f76731741d0229ddb8f942"
-source_commit_timestamp: "2026-10-20T14:05:23-04:00"
+source_commit: "758fec8241d0befbc095f69220952611b05e419b"
+source_commit_timestamp: "2026-10-20T15:05:02-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconception_candidates"
@@ -129,6 +129,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/text_gaps/actions.py`
 - `src/learnloop/diagnosis/text_gaps/candidates.py`
 - `src/learnloop/learner/independence_audit.py`
+- `src/learnloop/source_retrieval/passage_cues.py`
 - `src/learnloop/tutor/durable_promotion.py`
 - `src/learnloop_sidecar/handlers/remediation.py`
 
@@ -155,8 +156,8 @@ Indexes and uniqueness:
 - `tests/test_km4_taxonomy.py`
 - `tests/test_learner_text_gaps.py`
 - `tests/test_learner_text_gaps_review.py`
+- `tests/test_reader_rw3b_review_fixes.py`
 - `tests/test_recurrence_groups.py`
-- `tests/test_recurrence_key.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -3,8 +3,8 @@ title: "passage_links"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e086fc460dc148f693f76731741d0229ddb8f942"
-source_commit_timestamp: "2026-10-20T14:05:23-04:00"
+source_commit: "758fec8241d0befbc095f69220952611b05e419b"
+source_commit_timestamp: "2026-10-20T15:05:02-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite passage_links"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/215_reader_discovered_cues.sql"
   - "src/learnloop/db/stores/reader_cue_links.py"
+  - "src/learnloop/reader/reader_report.py"
   - "src/learnloop/source_retrieval/passage_cues.py"
 tags:
   - "learnloop/database/table"
@@ -63,6 +64,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `pick_rank` | `INTEGER` | yes | — | — | Stored value |
 | `ranks_json` | `TEXT` | yes | `'{}'` | — | JSON-encoded structured payload |
 | `roles_json` | `TEXT` | yes | `'[]'` | — | JSON-encoded structured payload |
+| `target_facets_json` | `TEXT` | yes | `'[]'` | — | JSON-encoded structured payload |
 | `ledger_id` | `TEXT` | yes | — | FK → [[Reference/Database/Tables/judgment_ledger\|judgment_ledger.id]] | Stored value |
 | `state_key` | `TEXT` | yes | — | — | Stored value |
 | `model` | `TEXT` | yes | — | — | Stored value |
@@ -96,6 +98,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/reader_cue_links.py`
+- `src/learnloop/reader/reader_report.py`
 
 ### Direct SQL writers
 
@@ -114,6 +117,7 @@ None found by exact static reference scan.
 - `tests/test_reader_cues_cli_report.py`
 - `tests/test_reader_rw3b_migration.py`
 - `tests/test_reader_rw3b_protection.py`
+- `tests/test_reader_rw3b_review_fixes.py`
 - `tests/test_salience_firewall.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
@@ -136,7 +140,7 @@ CREATE TABLE passage_links (
   extraction_id TEXT NOT NULL,
   span_id TEXT NOT NULL,
   target_kind TEXT NOT NULL CHECK (target_kind IN (
-    'recurrence_group', 'hypothesis', 'misconception', 'learner_text_gap', 'demonstrated_facet'
+    'recurrence_group', 'hypothesis', 'misconception', 'learner_text_gap', 'demonstrated_facet', 'unchecked_claim'
   )),
   target_id TEXT NOT NULL,
   relation TEXT NOT NULL CHECK (relation IN (
@@ -146,6 +150,7 @@ CREATE TABLE passage_links (
   pick_rank INTEGER NOT NULL CHECK (pick_rank >= 1),
   ranks_json TEXT NOT NULL DEFAULT '{}',
   roles_json TEXT NOT NULL DEFAULT '[]',
+  target_facets_json TEXT NOT NULL DEFAULT '[]',
   ledger_id TEXT NOT NULL REFERENCES judgment_ledger(id),
   state_key TEXT NOT NULL,
   model TEXT NOT NULL,
