@@ -439,3 +439,174 @@ Paid or live calls: none ($0.00).
    `pick_checks`, so a teach-back chosen as a check's item could still be dropped by
    the teach-back cap for that build. Alternative: apply `pick_checks` after the
    teach-back composition.
+
+---
+
+# Fix round 4 (orchestrator rulings)
+
+The verify of `8e0ca1875` (Codex job `20261020-021715-9JeVsu`) confirmed F11 and F12
+fixed and found **F13** (High), **F14** (Medium) and **F15** (Medium). The
+orchestrator's rulings:
+
+- **R1 (F13).** `on_your_own` is the activity policy's canonical assistance
+  classification, the one the policy uses everywhere, not a `hinted_attempt` special
+  case. Any assisted class (`reconstruction_after_walkthrough` included) leaves the
+  check pending and follows the practice-postponement rule. A table-driven test over
+  every activity class.
+- **R2 (F14), structural.** A due "Check once" survives plan composition. Teach-back
+  composition and `pick_checks` never drop an intent check for value or cost: the
+  learner asked, so it is served within the plan's minutes. The only allowed
+  non-serve is the plan's minutes exhausted, and it is recorded. Contract: a property
+  test over randomized vaults at advancing clocks.
+- **R3 (F15).** A due check whose item also carries a stricter measurement duty (an
+  active diagnostic, a cold follow-up) is served under that duty; its banner promises
+  no help ("measured on your own"); an on-your-own completion satisfies both. The
+  diagnostic and cold-follow-up safeguards are unchanged. A vitest for both overlap
+  cases, and a backend test that the server chooses the banner variant.
+
+## Findings
+
+| ID | Sev | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F13 | High | An assisted reconstruction satisfies "Check once" | **fixed** (R1) | `33a8ca802` | `test_f13_on_your_own_is_the_activity_policys_classification` (every `SUPPORTED_ATTEMPT_TYPES` entry x plain / primed / hinted), `test_f13_every_contamination_class`, `test_f13_an_assisted_reconstruction_leaves_the_check_pending_and_dates_it_again` (+ control `test_f13_an_independent_attempt_still_answers`) |
+| F14 | Medium | Teach-back composition can suppress a due check indefinitely | **fixed** (R2) | `33a8ca802` | `test_f14_an_item_check_on_a_teach_back_survives_composition`, `test_f14_an_lo_check_whose_cold_candidate_is_a_teach_back_is_served`, `test_f14_the_teach_back_count_cap_never_drops_a_check`, `test_f14_a_due_check_is_planned_first_within_the_minutes`, `test_f14_a_check_the_minutes_cannot_hold_is_recorded_not_silent`; contract `test_f14_contract_a_due_check_is_planned_within_n_builds_or_every_miss_says_minutes` (16 seeds) |
+| F15 | Medium | Overlapping diagnostic or cold-follow-up duties block check help | **fixed** (R3) | `33a8ca802` | `test_f15_a_check_with_a_cold_follow_up_is_served_under_that_duty`, `test_f15_a_check_under_an_active_diagnostic_is_served_under_that_duty`, `test_f15_the_serve_chooses_the_variant_server_side_and_one_completion_satisfies_both`, `test_f15_the_probe_contract_carries_the_diagnostic_variant`, `test_f15_a_pure_diagnostic_answer_satisfies_the_check` (+ controls `test_f15_an_ordinary_check_still_offers_help`, `test_f15_a_seen_check_with_a_cold_follow_up_stays_practice`); vitest: the two overlap cases in `PracticeScreen.intentCheck.test.tsx` |
+
+Python tests in `tests/test_intent_fix_round4.py`. Fakes only: the F15 serve test
+drives `start_session`, `get_practice_item` and `submit_attempt` through the sidecar
+handlers with the `manual` grading provider; the probe-contract test stubs
+`ready_grading_provider`.
+
+**Fail-before on `8e0ca1875`** (its `src/`, `migrations/` and
+`apps/learnloop-tauri/` from `git archive` into the scratchpad; pytest with
+`-o pythonpath=` at the extracted `src`; vitest from the extracted app with the
+worktree's `node_modules` linked; log `fixtures-local/tmp/dl2-fix4-failfirst.txt`):
+
+- **pytest: 18 failed, 52 passed** (rerun on resuming the round, same result). F13: `on_your_own` returned True for unprimed,
+  hint-free `guided_walkthrough` and `reconstruction_after_walkthrough` (2 table
+  rows), and the reproduction's check resolved `satisfied` (`settle_answered_checks`
+  returned the commitment). F14: the teach-back check item was missing from the queue
+  on every build (item check; the LO check's cold teach-back, `[] == ['pi_a2']`; under
+  the count cap); the plan recorded neither `checks` nor `checks_unplanned`; the
+  contract failed on 6 of 16 seeds (no build planned the check and no miss carried a
+  reason). F15: `served_check` had no `duty`, so the cold-follow-up serve carried the
+  help banner, and the probe contract carried no `intentCheck`. The passes are the
+  controls (the seen-check control included), the 46 table rows on which the old predicate already agreed with the
+  policy, and the 10 contract seeds the old build happened to serve.
+- **vitest: 1 failed, 8 passed** (rerun on resuming, same result). The diagnostic overlap showed the help banner ("Help
+  is still here ...") instead of the measured one. The cold-follow-up overlap passes on
+  the old app: its fix is server-side (the view the server sends), and the old app
+  already renders whatever banner it is sent and opens no ladder without a help
+  header; the backend tests above fail before for it.
+
+## What changed
+
+### R1 / F13: `on_your_own` is `attempt_counts_as_assisted`
+
+- `scheduling/intent/serving.on_your_own(row)` is now `not
+  causal_activity_policy.attempt_counts_as_assisted(attempt_type, primed, hints_used)`,
+  the classification the canonical projection, the facet timeline and certification
+  read. A guided walkthrough, a reconstruction after one, a hinted attempt, a primed
+  attempt (repair activity) and an instructional diagnostic are practice: they answer
+  nothing and date the check again (`after_practice`, the existing postponement). A
+  pure diagnostic (`diagnostic_probe`, unprimed, no hints) is on your own. The
+  historical exposure decision (`serve_eligibility.check_once_at_attempt`) is
+  unchanged and still asked.
+- `pyproject.toml`: the import-linter cycle contract exempts
+  `scheduling.intent.serving -> diagnosis.causal_activity_policy`, beside the
+  existing `recall_targets` exemption of the same leaf (it imports only dataclasses,
+  typing and the top-level `learnloop.causal_activity_policy`).
+
+### R2 / F14: due checks are planned first, within the plan's minutes
+
+- Queue (`scheduler.build_due_queue`): the items `pick_checks` chose are left out of
+  the teach-back value admission and kept by `_enforce_teach_back_session_cap`
+  (`keep=`) without counting toward the cap. So whatever `pick_checks` selects for an
+  LO check survives composition; selecting among survivors and exempting the
+  selection from the only composition that dropped it are the same set. Queues with no
+  due check are unchanged (`check_item_ids` empty).
+- Plan (`daily_plan/engine._prepare_plan`): `_select_checks` takes every due "Check
+  once" item in the pool, in pool order, while its estimate fits what the requests
+  left of the budget. Its minutes come off the budget before the split, as requests'
+  do. The first block places requests, then checks (`_Prepared.forced`). The item
+  stays a scheduled check in the maintain lane (§5.2, §6.1), not a request
+  (`split.requested` unchanged). The split records `checks` (item, commitment,
+  minutes) and `checks_unplanned`: each check the minutes cannot hold, with
+  `reason: "plan_minutes_exhausted"` and the minutes left; a due check with no item in
+  the pool is recorded as `not_in_pool` (never expected; visible, not silent).
+  Crash recovery (`advance_with_context`), the pending-minutes read of
+  `_classified_pool`, `set_minutes` and `more_new` read the same forced rows
+  (`_forced_rows`), and `_empty_extension` treats a plan with forced checks as
+  non-empty. The first block's `why` says "the delayed check you asked for comes
+  first" when only checks are forced.
+- Plans with no intent view (`built.intent is None`) are unchanged: no `checks`
+  keys, the same budget and the same first block.
+- `tests/test_intent_plan.py::test_several_checks_due_on_one_day_are_bounded_by_the_minutes_not_a_count`
+  at 10 minutes now allows 3 (the estimator puts each check at 2.81 minutes, so three
+  fit in 10 and the other five are recorded as minutes exhausted); the bound stays the
+  minutes, not a count.
+- This resolves fix round 3's open question 2 (slate composition is not admission).
+
+### R3 / F15: a stricter duty gives the measured view
+
+- `intent/checks.served_check(..., duty=None)`: with a due cold follow-up on the item
+  (`cold_retry`, `certification_cold_probe`, read through
+  `active_followup_task_for_item`, `cold_followup_duty`), or with
+  `duty="diagnostic"` passed, the view is `_measured_view`: `duty`, the
+  `MEASURED_BANNER` ("A check on your own: this one is measured on your own, so no help
+  is offered."), locators hidden, and **no** `help_header`, so the card opens no
+  ladder. Only a cold check gets it: one whose answer was seen is practice (F3) whatever
+  else the item carries, since the measured banner would claim a check that attempt
+  cannot answer. The ordinary check's view (the D42 help banner and ladder header) is
+  unchanged.
+- Sidecar `get_probe_contract`: an active diagnostic presentation of a due check's item
+  carries the check's measured view (`intentCheck`, `duty: "diagnostic"`); the
+  contract is the server's word that the item is a probe.
+- Desktop (`PracticeScreen.tsx`, `dto.ts`): while the probe is active, the card shows
+  the contract's check view in place of the practice item's. Nothing else changes: the
+  cold-follow-up refusal ("No hints on this one ...") and the diagnostic refusal
+  ("hints are disabled during a diagnostic check ...") are the existing guards.
+- One completion: the on-your-own answer completes the cold retry (its task leaves
+  `pending`/`served`) and answers the check; a pure diagnostic answer answers it too.
+
+## Gate (fix round 4; targeted, per the owner rule of 2026-10-17)
+
+`TMPDIR` in the worktree's `fixtures-local/tmp`. The full suite, the whole durability
+lane and the whole vitest run are the landing gate's.
+
+| Check | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | **28 kept, 0 broken** |
+| Fail-before on `8e0ca1875`: `tests/test_intent_fix_round4.py` | **18 failed, 52 passed** (the controls and agreeing table rows) |
+| Fail-before on `8e0ca1875`: `PracticeScreen.intentCheck.test.tsx` | **1 failed, 8 passed** |
+| `pytest -n 8` on 279 files (fix round 3's 278 in `fixtures-local/tmp/dl2-fix3-affected.txt` plus `test_intent_fix_round4.py`; list `fixtures-local/tmp/dl2-fix4-affected.txt`) | **5,050 passed, 1 failed** (24 min, load average about 50 from the other worktrees). The failure, `test_voi_v2.py::test_in_the_real_probe_vault_the_gate_no_longer_ends_a_paying_episode`, passes alone at the tip and at `8e0ca1875`, and its file passes whole (39 passed): a load flake. Its vault has no intent commitment, so this round's code is not on its path |
+| `pytest -n 8` on 24 more files naming `build_plan`, the teach-back session cap or value admission, `served_check`, the probe contract, `on_your_own`, `daily_plan` or `attempt_counts_as_assisted` (list `fixtures-local/tmp/dl2-fix4-extra.txt`) | **362 passed** |
+| `pytest -n 8 --durable-sqlite tests/test_intent_*.py` (12 files) | **203 passed** (after the control fix below; before it, 1 failed, 202 passed, failing the same way at `8e0ca1875`) |
+| `npm run typecheck` | OK |
+| vitest, the 10 `PracticeScreen*.test.tsx` files | **117 passed** |
+| vitest, whole run (run once by mistake, a wrong glob) | 34 timing failures under the same load in 15 files that this round does not touch except `PracticeScreen.intentCheck`; those 15 files rerun alone: **253 passed** |
+| `cargo check` | not run: nothing under `src-tauri` changed |
+| `db_generate_reference.py`, `db_validate_reference.py` | **0 errors** (head 213; commit labels and line citations; commit `2e87243ae`) |
+| Migrations | none |
+| Tracked working vaults | untouched; all behaviour under test with fakes |
+
+Paid or live calls: none ($0.00).
+
+## Rejected or left as is (fix round 4)
+
+1. **The practice item's serve does not know about a diagnostic presentation**
+   (default: the probe contract carries the diagnostic variant). The contract is where
+   the server decides whether the item is an active probe, so the variant is chosen
+   there; until the contract arrives the card shows the practice item's view. The probe's own guard
+   (hints disabled) applies from the contract's arrival, as before.
+2. **The queue's `limit` slice** can still cut a check from a session queue built with
+   a limit; the plan's pool is not built with one, and the plan is what serves. The
+   contract test covers the plan path.
+3. **Fix round 3's control `test_f12_an_unrelated_disclosure_still_holds` was
+   timing-dependent** (found by this round's durability run; it fails the same way
+   at `8e0ca1875`). It submitted the sibling B with its own self-grade, and a
+   submitted B is itself an on-your-own answer of the LO's check (its own disclosure
+   is attributable to it), so the control held only when every write fell in one
+   wall-clock second; the slower durable connections spread them. The control now
+   freezes and displays B's key in its own session without submitting B; it passes
+   in both modes, at the tip and at `8e0ca1875`. No production change.
