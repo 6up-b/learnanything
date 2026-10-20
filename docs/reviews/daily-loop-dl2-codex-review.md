@@ -725,3 +725,154 @@ Paid or live calls: none ($0.00).
    still reads as the check (`served_check` keys on `candidates`). That flow is the
    reservation's own measurement, and an answer on your own there answers the check.
    Alternative: a measured view with an assessment duty, as R3 does for diagnostics.
+
+---
+
+# Fix round 6 (orchestrator ruling: one check-feasibility gate)
+
+The verify of `1846cef39` (Codex job `20261020-133353-evoWmI`) confirmed F17, F16's
+reservation handling (reservations taken after planning included) and 2,000
+eligibility comparisons, and found **F18** (High: held-out material becomes a check
+with `goals.held_out_selection = false`), **F19** (Medium: under DL1's pair a check
+bypasses the frame's `hard_exposure_collision`) and **F20** (Medium: a due check with
+no admitted candidate disappears without a recorded miss). The ruling: one
+check-feasibility gate, the same under every policy.
+
+1. A single function (`scheduling.intent.serving.check_feasibility`) that every
+   "Check once" candidate passes before it can be selected or forced, under the
+   staged, mixture and DL1-pair policies. It applies held-out protection always
+   (independent of `goals.held_out_selection`, which keeps governing ordinary serving
+   exactly as before); assessment reservations and exam-pool exclusions; every
+   staged-frame mandatory constraint, `hard_exposure_collision` included, evaluated
+   even under DL1's pair purely as a check gate (nothing else changes under DL1's
+   pair); and the existing admission predicate. Non-check items and non-intent plans
+   stay byte-identical.
+2. Every due check is accounted for. Each candidate's refusal is kept; the check is
+   planned or goes into `checks_unplanned` with its reasons (`refused_candidates` with
+   their keys, or `plan_minutes_exhausted`). No path drops one silently (such as
+   `due_checks()` omitting a check with no servable candidate).
+3. Tests failing on `1846cef39`: the verify's three reproductions, and a property test
+   over all three policies with random reservations, held-out items under either value
+   of the switch, exposure collisions and exam-pool items.
+
+## Findings
+
+| ID | Sev | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F18 | High | Held-out material can still become a Check once | **fixed** | `d32c471d5` | `test_f18_held_out_material_never_becomes_a_check_with_the_switch_off` (3 policies; with the uncommitted held-out item still served, switch off), control `test_f18_control_the_switch_on_still_withholds_ordinary_held_out_items` |
+| F19 | Medium | DL1's pair bypasses mandatory frame constraints for checks | **fixed** | `d32c471d5` | `test_f19_a_check_on_a_seen_probe_surface_is_refused_under_every_policy` (3 policies), controls `test_f19_control_an_unseen_probe_check_is_planned` (3 policies), `test_f19_dl1_pair_plans_are_otherwise_unchanged` |
+| F20 | Medium | Due checks with no admitted candidates disappear without a recorded miss | **fixed** | `d32c471d5` | `test_f20_a_check_whose_only_candidate_the_admission_refuses_is_recorded` (exam-reserved and held-out with the switch on, 3 policies each), `test_f20_a_check_with_a_reserved_and_a_held_candidate_is_recorded` (3 policies); contract `test_contract_no_infeasible_item_is_planned_as_a_check_and_every_due_check_is_accounted_for` (8 seeds x 3 policies) |
+
+Tests in `tests/test_intent_fix_round6.py`. Fakes only.
+
+- The mixture policy runs on `fake_runtime()` with no model set up, and the staged
+  policy with `router.mode = "staged"`; no model is asked.
+- Held-out material and exam-pool reservations stand in through their readers
+  (`exam_material.held_out_items`, `exam_pool.reserved_item_ids`), the pattern of
+  `test_intent_codex_rereview.py`. Assessment reservations and renders are real
+  (`resolve_legacy_item`, `reserve_surface`, `open_administration`).
+- F19's world is a `practice_mode = "probe"` item. That is one of the frame's
+  fresh-evidence modes, which the scheduler's gates admit because they key only on
+  `diagnostic_probe`. So an exposure without an attempt is the frame's alone to see,
+  as in the verify's reproduction. A `diagnostic_probe` inside an in-progress episode
+  never reached a session-less plan's pool, at the base or at the tip, so it could not
+  reproduce the path.
+
+**Fail-before on `1846cef39`** (log `fixtures-local/tmp/dl2-fix6-failfirst.txt`):
+**28 failed, 16 passed.**
+
+- The held-out check was planned under all three policies (F18), and the seen probe
+  under DL1's pair (F19).
+- 15 tests found no record at all (F20: the admission-refused and mixed checks, and the
+  contract's silent drops).
+- 6 contract runs planned a protected item as a check.
+- The rest failed on the record's old shape: round 5's `assessment_reservation` and the
+  frame's `hard_exposure_collision` as the reason, instead of `refused_candidates` with
+  the key inside.
+- The passes are the controls and the contract runs whose draws protected nothing the
+  old build planned and left nothing unrecorded.
+
+## What changed
+
+- **The one gate** (`scheduling/intent/feasibility.CheckGate`, called through
+  `serving.check_feasibility`). For each candidate of a due, unanswered check it
+  refuses, in this order:
+  - `held_out_material`: `exam_material.held_out_items`, always;
+  - `assessment_reservation`;
+  - `exam_pool`;
+  - `build_admission`: the scheduler's one predicate, now with its reason,
+    `_BuildAdmission.check_candidate_refusal`;
+  - the staged frame's mandatory constraints, under the constraint's own key.
+
+  The protected sets are read once per view, and the frame's evaluation runs once over
+  every due check's candidates. A failed read refuses every candidate
+  (`constraints_unavailable`): fail closed. The view builds the gate only when some
+  check is due, so vaults with no due check never reach it.
+- **The frame's evaluation is shared, not copied.** The frame's mandatory evaluation
+  (inputs, candidates, snapshot, fail-closed rules) moved verbatim from
+  `daily_plan/staged_frame.StagedFrame._build` to
+  `scheduling/frame_constraints.evaluate_mandatory`. The import contract keeps
+  scheduling off `learnloop.daily_plan`, so it had to live below both. The frame
+  delegates to it, and keeps its annotations and every name it exported. The gate
+  evaluates a check candidate as the frame would evaluate it in the plan: in the
+  maintain lane, or a diagnostic block for a fresh-evidence surface.
+- **One gate, so round 5's second one is gone.** `PlanPolicy.mandatory_refusals` and
+  `StagedFrame.refusals_for` are removed. A refused candidate never reaches the plan's
+  pool, under any policy.
+- **Selection** (`split_check`): a refused candidate goes into `CheckState.refused`
+  with its refusal. `CheckState.reserved` is now derived from it.
+  - `pick_checks` takes an eligible sibling by its own rule.
+  - `withhold_reason` keeps round 5's `intent_check_reserved` for a reservation and
+    the old `intent_check_held` for the build's admission, and gives
+    `intent_check_refused` otherwise. Reconciliation displaces with these codes, as
+    before.
+- **Accounting** (`daily_plan/engine._select_checks`).
+  - `IntentServing.due_checks()` now returns every due, unanswered, unreplaced check,
+    servable or not; selection reads each check's `servable`.
+  - Every one of those checks is planned or recorded in `checks_unplanned` with a
+    reason: `plan_minutes_exhausted`, `refused_candidates` (every candidate refused),
+    `candidates_held` (its servable candidates wait out a hold, with `held_item_ids`)
+    or `not_in_pool`.
+  - Every record carries `refused_candidates`: each refused candidate with its
+    `constraint_key` and `reason`. Each miss is logged.
+- **The switch.** `goals.held_out_selection` still governs ordinary serving
+  (`routine_serving_exclusions` is untouched); only a check's candidate is always
+  protected.
+- **Round-5 tests moved to this record shape.** `test_intent_fix_round5.py` now
+  expects `refused_candidates` with the key inside.
+  `test_f16_the_frame_refuses_a_reserved_check_before_it_is_forced` became
+  `test_f16_the_frames_constraints_refuse_a_reserved_check_on_their_own`: the frame's
+  evaluation inside the gate refuses the reservation with the explicit read stubbed
+  out, and the refusal is recorded. Because the candidate no longer reaches the pool,
+  it is no longer named on a `plan_block` row.
+
+## Gate (fix round 6; targeted, per the owner rule of 2026-10-17)
+
+`TMPDIR` in the worktree's `fixtures-local/tmp`. The full suite, the whole durability
+lane and the whole vitest run are the landing gate's.
+
+| Check | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | **28 kept, 0 broken** |
+| Fail-before on `1846cef39`: `tests/test_intent_fix_round6.py` | **28 failed, 16 passed** |
+| `pytest -n 8` on 319 files (round 5's 312, `test_intent_fix_round6.py`, and the 6 files naming the staged frame, `policy_for`, the check admission, `due_checks`, `split_check`, held-out readers or reservations, or the router tests not yet in it; list `fixtures-local/tmp/dl2-fix6-affected.txt`) | **5,669 passed** (24 min). The first run had 1 failure: `test_architecture.py::test_function_local_domain_imports_match_the_frozen_edge_inventory`, five new function-local cross-domain imports in the two new modules. They are now module-level imports (no cycle; lint 28 kept), and the whole list was rerun on the final tree |
+| `pytest -n 8 --durable-sqlite tests/test_intent_*.py` (14 files) | **273 passed** |
+| Frontend | unchanged: no npm, vitest or build run needed |
+| `cargo check` | not run: nothing under `src-tauri` changed |
+| `db_generate_reference.py`, `db_validate_reference.py` | **0 errors** (head 213; commit labels and line citations; commit `11f41028f`) |
+| Migrations | none |
+| Tracked working vaults | untouched; all behaviour under test with fakes |
+
+Paid or live calls: none ($0.00).
+
+## Rejected or left as is (fix round 6)
+
+1. **The gate's snapshot is built over the check candidates, the frame's over the
+   pool.** Every exclusion the engine makes reads the candidate's own surface and the
+   ledger, not the other candidates. Dispersion, which is a deferral between quick
+   checks on near-kin surfaces, is the one constraint that could see the slate
+   differently. Alternative: evaluate the checks inside the frame's own material when
+   the policy is staged (two code paths, against the ruling's one gate).
+2. **Round 5's open items stand.** These are requests placed without the frame (L3),
+   a deadline goal's title keeping its first depth label, and the practice view of a
+   reserved candidate served through its assessment flow.
