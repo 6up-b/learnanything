@@ -164,7 +164,10 @@ def test_settings_payload_discloses_each_judgment_route(tmp_path, monkeypatch, c
                            "tier1_decider", "learner_gap_decider", "reader_intent",
                            "library_organizer", "approach_map", "hint_chooser", "hint_writer",
                            "hint_outcome", "ad_forecast_llm", "ad_forecast_decider", "ad_feature_audit",
-                           "workbench_check"}
+                           "workbench_check", "figure_author"}
+    # Reader RW5a: the figure author receives a learner's "not right?" note.
+    assert "not right?" in judges["figure_author"]["disclosure"]
+    assert "never material held out for an exam" in judges["figure_author"]["disclosure"]
     # Review F5: the Tier-1 routes send learner text in the ordinary course.
     assert "misconception" in judges["tier1_decider"]["disclosure"]
     assert "stuck answers" in judges["learner_gap_decider"]["disclosure"]

@@ -153,6 +153,26 @@ def build_reader_report(
                 "SELECT created_at FROM learner_text_gap_jobs WHERE source_kind = 'reader_formative'"
             ) if in_window(row["created_at"])
         ] if has_gap_jobs else []
+        # RW5a: figures (migration 216), counted from their rows: by
+        # verification, unsupported requests by kind (RW5b's order and the
+        # deferred generated-code figures read it), versions, predictions.
+        has_figures = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'interactive_figures'"
+        ).fetchone() is not None
+        figure_rows = [
+            {"verification": row["verification"], "unsupported_kind": row["unsupported_kind"],
+             "revision": row["supersedes_id"] is not None, "region": row["region_json"] is not None}
+            for row in connection.execute(
+                "SELECT verification, unsupported_kind, supersedes_id, region_json, created_at FROM interactive_figures "
+                "ORDER BY created_at, id"
+            ) if in_window(row["created_at"])
+        ] if has_figures else []
+        prediction_rows = [
+            {"matched": bool(row["matched"]), "explained": row["explanation_text"] is not None}
+            for row in connection.execute(
+                "SELECT matched, explanation_text, created_at FROM figure_predictions ORDER BY created_at, id"
+            ) if in_window(row["created_at"])
+        ] if has_figures else []
         # RW4a: library asks (migration 209), counted from their rows; the
         # organizer's lines are counted, never quoted.
         has_asks = connection.execute(
@@ -454,6 +474,19 @@ def build_reader_report(
                                "didnt_help": resolved_after(follow_ons["remediate"])},
             "offers": {"shown": dict(offers_shown), "pressed": dict(offers_pressed),
                        "press_results": dict(press_results)},
+        },
+        # RW5a (spec §8.1): figures built by verification, unsupported requests
+        # by kind, "not right?" versions, region requests, and predictions
+        # (missed, and with a "what changed?" line). Counts only.
+        "figures": {
+            "built": dict(Counter(row["verification"] for row in figure_rows)),
+            "unsupported_by_kind": dict(Counter(str(row["unsupported_kind"] or "unknown") for row in figure_rows
+                                                if row["verification"] == "unsupported")),
+            "revisions": sum(1 for row in figure_rows if row["revision"]),
+            "regions": sum(1 for row in figure_rows if row["region"]),
+            "predictions": len(prediction_rows),
+            "predictions_missed": sum(1 for row in prediction_rows if not row["matched"]),
+            "what_changed": sum(1 for row in prediction_rows if row["explained"]),
         },
         "routes": [
             {"job_kind": job_kind, "model": model, "prompt_version": version, "n": len(rows),

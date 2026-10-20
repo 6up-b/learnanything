@@ -168,3 +168,17 @@ def test_rw6a_lists_a_missed_prediction_as_worth_a_second_look(tmp_path):
     observed = RO.prediction_observations(repository, extraction_id=EXTRACTION, session=session)
     assert [record.source_event_ids for record in observed] == [(found["predictionId"],)]
     assert observed[0].kind == "prediction_missed"
+
+
+def test_the_reader_report_counts_figures_and_unsupported_kinds(tmp_path):
+    from learnloop.reader.reader_report import build_reader_report
+
+    paths, repository, ctx, figure = _figure(tmp_path)
+    build(context(paths.root, author=AuthorFake([("unsupported", "a 3-D surface")])),
+          {"extractionId": EXTRACTION, "spanIds": ["p2"]})
+    call(ctx, "reader.figure_predict", {"figureId": figure["figureId"], "predictionIndex": 0, "answer": "rises"})
+    report = build_reader_report(repository.sqlite_path)["figures"]
+    assert report["built"] == {"illustrative": 1, "unsupported": 1}
+    assert report["unsupported_by_kind"] == {"a 3-D surface": 1}
+    assert report["predictions"] == 1 and report["predictions_missed"] == 1 and report["what_changed"] == 0
+    assert "rises" not in json.dumps(report)
