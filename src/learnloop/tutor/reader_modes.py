@@ -172,8 +172,7 @@ def withhold_for_call(slots: Sequence[Slot], binding: BoundAsk | None, *,
     return out
 
 
-def fit_slots(learner: str, slots: Sequence[str], *, limit: int, binding: BoundAsk | None,
-              join: str = " ") -> tuple[str, list[int]]:
+def fit_slots(learner: str, slots: Sequence[str], *, limit: int, join: str = " ") -> tuple[str, list[int]]:
     """A model-bound string of at most ``limit`` characters: the learner's own
     text, then WHOLE model-written ``slots``; ``(text, indexes of the slots in it)``.
 
@@ -182,10 +181,8 @@ def fit_slots(learner: str, slots: Sequence[str], *, limit: int, binding: BoundA
     leaking one ("The probability is 2/130." cut to "... 2/13"), so the
     learner's text may be truncated as before (it is theirs), and a slot that
     does not fit whole is dropped with every later one (the latest, lowest
-    priority first). Then, as a final check, the binding's guard reads the
-    model-written fragments actually present; a slot :func:`withhold` names is
-    dropped and the string rebuilt. Every builder that limits a bound,
-    model-bound string built from planned slots uses this one helper."""
+    priority first). Fitting only (fix round 9): the guard reads the whole
+    call it is delivered in, inside :func:`plan_bound_delivery`'s loop."""
 
     learner = learner[:limit]
     texts = [str(slot or "") for slot in slots]
@@ -199,9 +196,6 @@ def fit_slots(learner: str, slots: Sequence[str], *, limit: int, binding: BoundA
             break
         fitted.append(index)
         length += added
-    if fitted and binding is not None and binding.answer_guard is not None:
-        out = withhold([texts[index] for index in fitted], binding)
-        fitted = [index for n, index in enumerate(fitted) if n not in out]
     return join.join(part for part in [learner, *(texts[index] for index in fitted)] if part), fitted
 
 
@@ -240,18 +234,19 @@ class BoundDelivery:
     misconceptions: list[Any] | None
     learner_work: list[dict[str, Any]]
     withheld: dict[str, int]
-    #: The binding, for the lookup's own final check when it limits its query
-    #: (:func:`fit_slots`, fix round 8).
-    binding: Any = None
+    #: The lookup's query exactly as the plan checked it (fitted within its
+    #: limit, fix rounds 8 and 9); None when the plan fitted none.
+    query: str | None = None
 
     @property
     def lookup_inputs(self) -> dict[str, Any]:
-        return {"gaps": list(self.gaps), "misconceptions": self.misconceptions, "binding": self.binding}
+        return {"gaps": list(self.gaps), "misconceptions": self.misconceptions, "query": self.query}
 
 
 def plan_bound_delivery(binding: BoundAsk | None, *, thread: Sequence[Mapping[str, Any]],
                         gaps: Sequence[Mapping[str, Any]] = (), misconceptions: Sequence[Any] | None = None,
-                        learner_work: Sequence[Mapping[str, Any]] = ()) -> BoundDelivery:
+                        learner_work: Sequence[Mapping[str, Any]] = (), query_learner: str | None = None,
+                        query_limit: int | None = None) -> BoundDelivery:
     """Every model-written text a bound request delivers, withheld once (fix round 7, R1).
 
     Two model calls read them: the lookup's verification (and its query
@@ -266,7 +261,19 @@ def plan_bound_delivery(binding: BoundAsk | None, *, thread: Sequence[Mapping[st
     :data:`QUERY_GAPS` gap statements KEPT are the ones used). Never
     withheld, never read: the learner's own words (their question, their
     earlier questions, their workbench steps). Unbound, everything is
-    delivered as given."""
+    delivered as given.
+
+    Fix round 9 (R1): this loop is the ONE owner of the final check. The
+    lookup's query is fitted here (``query_learner``, the learner's own
+    query text, then whole gap statements within ``query_limit``:
+    :func:`fit_slots`), so the verification call's union is read exactly as
+    delivered: the gap statements that fit, the misconceptions and their
+    corrections. A statement dropped for length changes that union (round
+    8's check read the fitted gaps alone), and one that fits only after
+    another is withheld changes it again: every call is rebuilt and read
+    again after every new withholding, until nothing changes. It ends:
+    withholding only ever grows, and the last pass reads every call as it
+    is delivered. The plan's ``query`` is what the lookup sends."""
 
     turns = [dict(turn) for turn in thread]
     gaps, work = list(gaps), [dict(entry) for entry in learner_work]
@@ -285,9 +292,17 @@ def plan_bound_delivery(binding: BoundAsk | None, *, thread: Sequence[Mapping[st
     problems = [str(entry.get("problem") or "") for entry in others]
     withheld: dict[str, set[int]] = {"answers": set(), "gaps": set(), "misconceptions": set(), "problems": set()}
 
+    def fitted_query() -> tuple[str | None, list[tuple[int, str]]]:
+        kept = [(i, statements[i]) for i in range(len(gaps)) if i not in withheld["gaps"]][:QUERY_GAPS]
+        if query_learner is None or query_limit is None:
+            return None, kept
+        text, fitted = fit_slots(query_learner, [statement for _i, statement in kept], limit=query_limit)
+        return text, [kept[n] for n in fitted]
+
     def calls(answer_stand_in: str) -> list[tuple[list[Slot], dict[str, str]]]:
         kept_gaps = [(i, statements[i]) for i in range(len(gaps)) if i not in withheld["gaps"]][:QUERY_GAPS]
-        lookup: list[Slot] = [("gaps", kept_gaps)]
+        _query, query_gaps = fitted_query()
+        lookup: list[Slot] = [("gaps", query_gaps)]
         if records is not None:
             lookup.append(("misconceptions", [(i, _misconception_text(record)) for i, record in enumerate(records)
                                               if i not in withheld["misconceptions"]]))
@@ -334,7 +349,7 @@ def plan_bound_delivery(binding: BoundAsk | None, *, thread: Sequence[Mapping[st
                                                      if i not in withheld["misconceptions"]],
         learner_work=[*open_questions, *kept_others],
         withheld={name: len(indexes) for name, indexes in withheld.items() if indexes},
-        binding=binding,
+        query=fitted_query()[0],
     )
 
 
@@ -370,6 +385,11 @@ class ReaderTutorRequest:
     learner_work: list[dict[str, Any]] = field(default_factory=list)
     gaps: list[dict[str, Any]] = field(default_factory=list)
     misconceptions: list[Any] | None = None
+    #: The learner's own query text and the query's limit: bound, the plan
+    #: fits the gap statements to them and checks the whole verification call
+    #: (fix round 9); None: no lookup query to fit.
+    query_learner: str | None = None
+    query_limit: int | None = None
     #: The caller's derived policy (``reading``, ``assisted_practice`` or
     #: ``cold_attempt``), kept apart from the binding so a cold
     #: administration is never read as ``reading`` (Codex review F2).

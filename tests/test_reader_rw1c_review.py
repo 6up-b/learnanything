@@ -1409,3 +1409,117 @@ def test_the_learners_question_is_truncated_as_before(tmp_path, monkeypatch, bou
     assert queries[-1] == (near if bound else old)
     if not bound:
         assert old.endswith("2/13")  # the unbound query is exactly the base RW1c one
+
+
+# --- Fix round 9 (orchestrator ruling) -----------------------------------------------------------------
+
+NUMERATOR_GAP = "The probability numerator is 2"
+SAMPLE_SPACE_GAP = "Which outcomes belong to the sample space?"
+DENOMINATOR = "13 is the denominator."
+
+
+def _real_binding(key: str):
+    """A binding whose guard is the production matcher (no database: text checks only)."""
+
+    from learnloop.source_retrieval.reader_tutor import ItemBoundGuard
+    from learnloop.tutor.reader_modes import BoundAsk
+
+    guard = ItemBoundGuard(repository=None, item=SimpleNamespace(id=ITEM, expected_answer=key))
+    return BoundAsk(item=guard.item, answer_guard=guard.text_leaks, answer_overlap=guard.text_overlap), guard
+
+
+def _verification_union(plan) -> str:
+    """The model-written union the verification call receives: the gap statements in
+    the plan's query, and the misconceptions with their corrections."""
+
+    query = plan.query or ""
+    texts = [str(gap["statement"]) for gap in plan.gaps if str(gap["statement"]) in query]
+    texts += [" ".join(filter(None, [m.statement, getattr(m, "correction_statement", None)]))
+              for m in plan.misconceptions or []]
+    return "\n\n".join(texts)
+
+
+@pytest.mark.parametrize("learner_chars", range(1918, 1970))
+def test_the_verification_union_is_checked_after_fitting(learner_chars):
+    """R1 (F8 reopened, the verify's sweep): the learner's query text at
+    1,918-1,969 characters leaves room for the first gap statement only. The
+    second, dropped for length, used to separate the first from the item's
+    LO misconception in the verification's union; without it the two read
+    "... numerator is 2 / 13 is the denominator." (1.0 against 2/13). The plan
+    fits the query itself and reads that call as delivered."""
+
+    from learnloop.tutor.reader_modes import plan_bound_delivery
+
+    binding, guard = _real_binding(PROBABILITY_KEY)
+    assert guard.text_leaks(f"{NUMERATOR_GAP}\n\n{DENOMINATOR}")
+    assert not guard.text_leaks(f"{NUMERATOR_GAP}\n\n{SAMPLE_SPACE_GAP}\n\n{DENOMINATOR}")
+    plan = plan_bound_delivery(
+        binding, thread=[], gaps=[{"statement": NUMERATOR_GAP}, {"statement": SAMPLE_SPACE_GAP}],
+        misconceptions=[SimpleNamespace(statement=DENOMINATOR, correction_statement=None)],
+        query_learner="y" * learner_chars, query_limit=2000)
+    assert plan.query is not None and len(plan.query) <= 2000
+    assert not guard.text_leaks(_verification_union(plan))
+
+
+def test_the_fixpoint_reads_the_rebuilt_call_again():
+    """R1: a case that needs a second pass. The first gap leaks alone and is
+    withheld; that frees room for the next one, which then fits and, with the
+    misconception, gives the key away; the rebuilt call is read again and one
+    more text is withheld. The query delivered is the one the plan checked."""
+
+    from learnloop.tutor.reader_modes import plan_bound_delivery
+
+    binding, guard = _real_binding(PROBABILITY_KEY)
+    leaking = "The answer is 2/13."
+    learner = "y" * 1960
+    assert len(learner) + 1 + len(leaking) <= 2000 < len(learner) + 1 + len(leaking) + 1 + len(NUMERATOR_GAP)
+    plan = plan_bound_delivery(
+        binding, thread=[], gaps=[{"statement": leaking}, {"statement": NUMERATOR_GAP}],
+        misconceptions=[SimpleNamespace(statement=DENOMINATOR, correction_statement=None)],
+        query_learner=learner, query_limit=2000)
+    assert plan.withheld == {"gaps": 1, "misconceptions": 1}
+    assert plan.query == f"{learner} {NUMERATOR_GAP}" and plan.misconceptions == []
+    assert not guard.text_leaks(_verification_union(plan))
+
+
+def test_a_misconception_beside_a_fitted_gap_never_reaches_the_verification(tmp_path, monkeypatch):
+    """R1 (the verify's reproduction, end to end): "that didn't help", bound,
+    non-cold, the sources service on; the passage's LO has the two gap
+    statements, the item's LO the misconception; the learner's query text is
+    1,950 characters. No verification prompt's model-written union gives the
+    key away."""
+
+    from tests.reader_tutor_fakes import prompt_context
+
+    from learnloop.tutor.tutor_qa import span_leaks_expected
+
+    other_item = "pi_span_1"  # its LO (lo_vectors) is not the passage's (t2: lo_matrices)
+    tutor = LookupTutor()
+    paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    set_item_answer(paths, other_item, PROBABILITY_KEY)
+    ctx = _rebind(paths, ctx)
+    vault, _repository = ctx.require_vault()
+    assert vault.practice_items[other_item].learning_object_id != vault.practice_items[ITEM].learning_object_id
+    # The passage's LO; its open questions are listed newest first, so the
+    # numerator's statement comes first, as in the verify's reproduction.
+    for statement in (SAMPLE_SPACE_GAP, NUMERATOR_GAP):
+        _misconception(repository, vault, statement)
+    repository.insert_misconception(learning_object_id=vault.practice_items[other_item].learning_object_id,
+                                    statement=DENOMINATOR)
+    passage = PASSAGE_T2
+    session = _bound_session(repository, other_item)
+    remediate = "That didn't help."
+    parent = _long_question(1950 - len(remediate) - 1)
+    root = ask(ctx, parent, personalized=True, workbenchSessionId=session, **passage)
+    verifier = ctx.reader_tutor_rerank_client
+    seen = len(verifier.prompts)
+    ask(ctx, remediate, parentExchangeId=root["readerAnswerEventId"], retrievalIntent="remediate",
+        personalized=True, workbenchSessionId=session, **passage)
+    contexts = [prompt_context(prompt) for prompt in verifier.prompts[seen:]]
+    assert contexts, "the verification ran"
+    for context in contexts:
+        # The statement that fits is still sent; the misconception beside it is withheld.
+        assert NUMERATOR_GAP in context["question"] and not context.get("misconceptions")
+        texts = [context["question"], *(f"{m.get('statement') or ''} {m.get('correction') or ''}"
+                                        for m in context.get("misconceptions") or [])]
+        assert not span_leaks_expected("\n\n".join(texts), PROBABILITY_KEY)

@@ -293,6 +293,7 @@ def build_request(ctx: Any, vault: Any, repository: Any, params: Any, restricted
     return ReaderTutorRequest(retrieve=lookup, intent=intent, personalized=personalized,
                               learner_work=inputs.learner_work, gaps=inputs.gaps,
                               misconceptions=inputs.misconceptions, policy=policy,
+                              query_learner=lookup.learner_query, query_limit=RT.BOUND_QUERY_CHARS,
                               shown_span_keys=shown if intent == "alternative" else ())
 
 

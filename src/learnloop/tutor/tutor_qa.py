@@ -578,6 +578,8 @@ def ask_question(
             gaps=reader_tutor.gaps if lookup and reader_tutor is not None else (),
             misconceptions=reader_tutor.misconceptions if lookup and reader_tutor is not None else None,
             learner_work=reader_tutor.learner_work if lookup and reader_tutor is not None else (),
+            query_learner=reader_tutor.query_learner if lookup and reader_tutor is not None else None,
+            query_limit=reader_tutor.query_limit if lookup and reader_tutor is not None else None,
         )
         thread = bound_plan.thread
         if lookup and reader_tutor is not None:
