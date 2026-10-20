@@ -692,3 +692,60 @@ All steps ran in the worktree with `TMPDIR=fixtures-local/tmp`. Only targeted te
 Not run, by the owner rule: the full suite, the whole durability lane and the whole vitest run. Pre-existing and
 unchanged: `desktop_validate.py` (`syntheticBook.ts`) and `module_validate.py` (missing module notes). No migration, no
 DB or connection change, nothing under `src-tauri` and no configuration key change.
+
+## Fix round 9 (orchestrator ruling)
+
+Codex's verify of fix round 8 (`fc3b44b98`; job `20261019-222618-Me8DDE`, read-only) confirmed the truncation fix (12
+combinations), the post-trim passage re-guard, unbound and switch-off parity and the counting, and **reopened F8
+(High) on one path**: `fit_slots`' final check read only the fitted query statements, while the verification call
+also receives the remediation misconceptions and corrections, so dropping a later statement for length changed the
+delivered union ("The probability numerator is 2" next to "13 is the denominator." scores 1.0 against 2/13; 52 prefix
+lengths 1,918-1,969). The fix is in `bdb5ef8e7`. The references regenerated on top of it are committed with this
+record. **Nothing was rejected.**
+
+**Paid calls: none ($0.00).** Every model is a fake. No vault copy was opened, and no manual run was made.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F8 (round 9, reopened) | High | Whole-slot dropping can recreate a leaking verification union | fixed (R1) | `bdb5ef8e7` | `test_reader_rw1c_review.py::test_a_misconception_beside_a_fitted_gap_never_reaches_the_verification` (the verify's reproduction end to end at 1,950 characters; old code: the verification received the numerator statement and the misconception together); `::test_the_verification_union_is_checked_after_fitting` ×52 (learner text 1,918-1,969 characters); `::test_the_fixpoint_reads_the_rebuilt_call_again` (a case needing a second pass) |
+| F9 (round 7) | High | Same-second timestamp boundary | non-blocking (orchestrator ruling, round 7); its own follow-up | — | unchanged |
+
+### What the fix does
+
+* **One owner of the final check.** `reader_modes.plan_bound_delivery`'s fixpoint loop is the only place a bound
+  request's model-written texts are checked. It now fits the lookup query itself: the request carries the learner's
+  own query text (`ReaderLookup.learner_query`: the question and the latest ancestors' questions, never withheld) and
+  the limit (`BOUND_QUERY_CHARS`), and each pass fits the kept gap statements whole after it (`fit_slots`, which
+  now only fits).
+* **Each call as delivered.** On every pass the verification call's union is the statements that FIT plus the
+  misconceptions with their corrections; the tutor call's is the earlier answers (withheld ones as the validated
+  placeholder), the bridge's open questions and the problem line. `withhold_for_call` reads each; any text it
+  withholds is withheld from every slot, and every call is rebuilt (the fitted statements change when one is
+  withheld: a later one may now fit) and read again until a pass withholds nothing. It ends because withholding only
+  grows; the last pass read every call as it is delivered.
+* **The lookup sends the plan's query.** `BoundDelivery.query` is the fitted query the last pass checked;
+  `ReaderLookup.__call__` sends it unchanged (no second fitting, so nothing is dropped after the check). Unbound, the
+  query is `reader_query`'s, as before (the bound branch of `reader_query` from round 8 is gone).
+* In the verify's reproduction the two statements' individual overlaps tie at 0.0, so the more recent text, the
+  misconception, is withheld; the numerator statement stays in the query. In the two-pass case, the first pass
+  withholds a statement that leaks alone, which frees room for the next statement; the second pass reads the rebuilt
+  call (that statement beside the misconception) and withholds the misconception.
+
+### Gate (fix round 9)
+
+All steps ran in the worktree with `TMPDIR=fixtures-local/tmp`. Only targeted tests were run (owner rule
+2026-10-17). The pytest runs took `/tmp/learnloop-fullsuite.lock`.
+
+| step | result |
+|---|---|
+| backend fail-before on `fc3b44b98` (`git archive` of `src` and `migrations` into `fixtures-local/rw1c-r9-base`, run with this branch's tests and `-o pythonpath=fixtures-local/rw1c-r9-base/src`) | 54 new cases: **54 failed**. The end-to-end case fails on the delivered union (the numerator statement and the misconception reached the verification together). The 53 plan-level cases fail on the new `plan_bound_delivery(query_learner=…)`; a probe of round 8's own path (plan, then `fit_slots` with its final check, then the misconception delivered) leaked at 43 of the 52 lengths (the 9 shortest fit both statements, which keeps the two halves apart) |
+| `uv run lint-imports --no-cache` | 28 kept, 0 broken |
+| targeted pytest, `uv run pytest -n auto` over the 54-file list | **1,171 passed** (56 s) |
+| `--durable-sqlite` on the 54 new cases | **54 passed** |
+| vitest, `src/screens/reader/` and the `ReaderScreen.*.test.tsx` files (no frontend change) | **399 passed** |
+| `db_generate_reference.py`, then `db_validate_reference.py` | 0 errors (head 213). Before the regeneration, 4 configuration line citations into the changed files were stale |
+| `git diff --check` | clean |
+
+Not run, by the owner rule: the full suite, the whole durability lane and the whole vitest run. Pre-existing and
+unchanged: `desktop_validate.py` (`syntheticBook.ts`) and `module_validate.py` (missing module notes). No migration, no
+DB or connection change, nothing under `src-tauri` and no configuration key change.
