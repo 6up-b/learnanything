@@ -8,7 +8,8 @@ check. Ruling: checks are exempt from value and count composition only, never
 from a mandatory constraint. A reserved candidate is never a check's item: an
 LO check takes an eligible sibling (its own selection rule: the top-ranked
 servable candidate); a check left with none is recorded in
-``checks_unplanned`` as ``assessment_reservation``. Every other staged-frame
+``checks_unplanned`` as ``assessment_reservation`` (round 6: as
+``refused_candidates``, the key inside). Every other staged-frame
 refusal is evaluated before an item is forced; a refused check stays in the
 pool, so the frame refuses it and names the refusal on the ``plan_block`` row.
 
@@ -99,8 +100,11 @@ def test_f16_a_reserved_item_check_is_never_planned_and_the_miss_is_recorded(tmp
     assert "pi_c2" not in _planned(record)
     assert [row for row in record.split.get("checks") or [] if row["practice_item_id"] == "pi_c2"] == []
     (miss,) = [row for row in record.split["checks_unplanned"] if row["commitment_id"] == commitment]
-    assert miss["reason"] == "assessment_reservation"
-    assert miss["reserved_item_ids"] == ["pi_c2"]
+    # Round 6 (F20): one record shape for every refusal.
+    assert miss["reason"] == "refused_candidates"
+    assert [(row["practice_item_id"], row["constraint_key"]) for row in miss["refused_candidates"]] == [
+        ("pi_c2", "assessment_reservation")
+    ]
 
 
 @pytest.mark.parametrize("reserved,sibling", [("pi_a1", "pi_a2"), ("pi_a2", "pi_a1")])
@@ -116,28 +120,28 @@ def test_f16_an_lo_check_takes_an_eligible_sibling_of_a_reserved_candidate(tmp_p
     assert record.split["checks_unplanned"] == []
 
 
-def test_f16_the_frame_refuses_a_reserved_check_before_it_is_forced(tmp_path, monkeypatch):
-    """The second gate alone (the reservation read of check selection
-    disabled): the staged frame's mandatory constraints are evaluated before
-    the item enters the first block, the refusal is named on the ``plan_block``
-    row, and the miss is recorded with the constraint's key."""
+def test_f16_the_frames_constraints_refuse_a_reserved_check_on_their_own(tmp_path, monkeypatch):
+    """The frame's own evaluation alone (the check gate's explicit
+    reservation read disabled) refuses the reserved check, and the miss is
+    recorded with the constraint's key and reason.
 
-    from learnloop.scheduling.intent import serving
+    Round 6: the frame's mandatory evaluation is part of the one check gate
+    (``scheduling.intent.feasibility``), run before selection, so a refused
+    candidate never reaches the plan's pool (round 5 asked the frame just
+    before forcing and named the refusal on the ``plan_block`` row)."""
+
+    from learnloop.scheduling.intent import feasibility
 
     iv = _staged_vault(tmp_path)
     commitment = iv.choose("practice_item", "pi_c2", "check_once", NOW).commitment_id
     _reserve(iv.vault, iv.repository, "pi_c2")
-    monkeypatch.setattr(serving, "reserved_assessment_items", lambda repository: frozenset(), raising=False)
+    monkeypatch.setattr(feasibility, "reserved_assessment_items", lambda repository: frozenset(), raising=False)
     record = _plan(iv, DUE_DAY)
     assert "pi_c2" not in _planned(record)
     (miss,) = [row for row in record.split["checks_unplanned"] if row["commitment_id"] == commitment]
-    assert miss["reason"] == "assessment_reservation"
-    assert miss["refusal"][0]["reason"] == "reserved_assessment_surface"
-    named = {}
-    for row in _plan_block_rows(iv.repository):
-        for key, items in (row["exclusions_json"].get("named") or {}).items():
-            named.setdefault(key, set()).update(items)
-    assert "pi_c2" in named.get("assessment_reservation", set())
+    assert miss["reason"] == "refused_candidates"
+    (refused,) = miss["refused_candidates"]
+    assert (refused["constraint_key"], refused["reason"]) == ("assessment_reservation", "reserved_assessment_surface")
 
 
 def test_f16_an_unreserved_check_is_still_planned_under_the_staged_policy(tmp_path):
@@ -172,7 +176,9 @@ def test_f16_a_reservation_taken_after_planning_displaces_the_planned_check(tmp_
 # -- F16 contract: the round-4 property test with random reservations ------------------------------
 
 BUILDS = 6
-ALLOWED_MISSES = {"plan_minutes_exhausted", "assessment_reservation"}
+# Round 6: every refusal is recorded as ``refused_candidates`` (its keys
+# inside); a check whose candidates wait out a hold says so.
+ALLOWED_MISSES = {"plan_minutes_exhausted", "refused_candidates", "candidates_held"}
 
 
 def _random_vault(root, rng: random.Random):

@@ -93,7 +93,6 @@ def policy_for(
             chooser=StagedChooser(card_builder=cards),
             make_source=StagedFrameFactory(frame),
             projection_chooser=LaneQuotaChooser(),
-            mandatory_refusals=frame.refusals_for,
         )
     from learnloop.daily_plan.router_chooser import RestraintGate, RouterChooser
     from learnloop.daily_plan.router_runtime import default_runtime
@@ -113,7 +112,6 @@ def policy_for(
         make_source=StagedFrameFactory(frame),
         projection_chooser=LaneQuotaChooser(),
         restraint=restraint,
-        mandatory_refusals=frame.refusals_for,
     )
 
 

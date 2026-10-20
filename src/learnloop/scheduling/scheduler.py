@@ -403,7 +403,7 @@ def build_due_queue(
         episode_eligible_cache=episode_eligible_cache,
     )
     if intent_view is not None:
-        intent_view.bind_admission(admission.admits_check_candidate)
+        intent_view.bind_admission(admission.check_candidate_refusal)
         requested_item_ids = intent_view.filter_requests(requested_item_ids)
         # DL2 (Codex review F1): follow-up insertion is a second door that
         # rebuilds an item by id after the ranked loop, so the intent gate
@@ -3029,11 +3029,18 @@ class _BuildAdmission:
         """Would this build serve ``item_id`` as a due check's candidate (a
         request, intent's own gate aside)? The one predicate the loop asks."""
 
+        return self.check_candidate_refusal(item_id) is None
+
+    def check_candidate_refusal(self, item_id: str) -> str | None:
+        """Why this build would not serve ``item_id`` as a due check's
+        candidate, or None: the reason the one check gate keeps (DL2 fix
+        round 6, F20)."""
+
         item = self.vault.practice_items.get(item_id)
         if item is None:
-            return False
+            return "unknown_item"
         state = self.item_states().get(item_id)
-        return admission_reason(self.vault, item, state, self.exclusions(), self, requested=True) is None
+        return admission_reason(self.vault, item, state, self.exclusions(), self, requested=True)
 
     # -- the gates (``serving_exclusions.BuildGates``) ---------------------------
 
@@ -3330,7 +3337,9 @@ class _BuildAdmission:
         )
 
 
-def check_admission(vault: LoadedVault, repository: Repository, *, now: datetime, intent_view: Any) -> Any:
+def check_admission(
+    vault: LoadedVault, repository: Repository, *, now: datetime, intent_view: Any, reasons: bool = False
+) -> Any:
     """The build's admission for a DL2 intent view built outside the queue
     (the plan's pool, the practice view, settling): the same predicate over
     the same reads, with no session and nothing written, each read on first
@@ -3421,7 +3430,8 @@ def check_admission(vault: LoadedVault, repository: Repository, *, now: datetime
         episode_posterior_cache={},
         episode_eligible_cache={},
     )
-    return admission.admits_check_candidate
+    # ``reasons``: the refusal reason (or None) the one check gate keeps.
+    return admission.check_candidate_refusal if reasons else admission.admits_check_candidate
 
 
 def _goal_frontier(vault: LoadedVault, item: PracticeItem, entry) -> float:

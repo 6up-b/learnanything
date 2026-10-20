@@ -58,6 +58,15 @@ is made on first use: ``build_due_queue`` binds its own admission
 view (the plan, the practice view, settling) gets the same predicate over its
 own reads (``scheduler.check_admission``).
 
+**One check gate** (DL2 fix round 6, orchestrator ruling): the admission is
+one of the gates :func:`check_feasibility` applies
+(:mod:`learnloop.scheduling.intent.feasibility`), with held-out protection
+always on, assessment reservations, exam pools and the staged frame's
+mandatory constraints, the same under every plan policy. Each refused
+candidate keeps its refusal (``CheckState.refused``), and
+:meth:`IntentServing.due_checks` returns every due, unanswered, unreplaced
+check, servable or not, so the plan accounts for each one.
+
 **The successor** (DL2 Codex re-review F2): intent is ``mvp-0.29``, behind
 the kill switch ``intent.enabled``. Below the tag, or switched off,
 :func:`intent_enabled` is False, :func:`intent_serving` returns None and
@@ -158,9 +167,23 @@ class CheckState:
     #: Due candidates with standing exposure (practice only).
     exposed: tuple[str, ...] = ()
     created_at: str = ""
-    #: Due candidates holding a live assessment reservation (DL2 verify F16,
-    #: fix round 5): never this check's item, whatever else admits them.
-    reserved: tuple[str, ...] = ()
+    #: Due candidates the one check gate refused, each with its refusal
+    #: (``scheduling.intent.feasibility``; DL2 fix round 6): never this
+    #: check's item, under any plan policy, and each reason kept (F20).
+    refused: tuple[tuple[str, Mapping[str, Any]], ...] = ()
+
+    @property
+    def reserved(self) -> tuple[str, ...]:
+        """The refused candidates a live assessment reservation holds (F16)."""
+
+        return tuple(item_id for item_id, refusal in self.refused
+                     if refusal.get("constraint_key") == "assessment_reservation")
+
+    @property
+    def pending(self) -> bool:
+        """Due, unanswered and not replaced everywhere: the plan accounts for it."""
+
+        return self.due and self.answered_by is None and bool(self.candidates)
 
     @property
     def servable(self) -> tuple[str, ...]:
@@ -199,8 +222,8 @@ class IntentServing:
     #: Builds the admission for a view no queue build bound (``scheduler.check_admission``).
     _admission_factory: Any = None
     _checks: dict[str, CheckState] | None = None
-    #: ``reserved_items()``: the items a live assessment reservation holds (F16).
-    _reserved_loader: Any = None
+    #: ``(view, admission, candidate_ids) -> gate``: the one check gate (round 6).
+    _gate_factory: Any = None
 
     # -- the checks, split among admitted candidates (R1) ----------------------
 
@@ -215,10 +238,21 @@ class IntentServing:
         if self._checks is None:
             if self._admission is None and self._admission_factory is not None:
                 self._admission = self._admission_factory(self)
-            reserved = self._reserved_loader() if self._reserved_loader is not None else frozenset()
+            gate = None
+            if self._gate_factory is not None:
+                candidate_ids = [
+                    item_id
+                    for check in self.raw_checks.values()
+                    if check.due and check.answered_by is None
+                    for item_id in check.candidates
+                ]
+                if candidate_ids:
+                    gate = self._gate_factory(self, self._admission, candidate_ids)
             self._checks = {
                 commitment_id: split_check(
-                    check, eligibility=self._eligibility, admitted=self._admission, reserved=reserved
+                    check,
+                    eligibility=self._eligibility,
+                    feasibility=check_feasibility_of(gate) if gate is not None else _admission_only(self._admission),
                 )
                 for commitment_id, check in self.raw_checks.items()
             }
@@ -251,9 +285,17 @@ class IntentServing:
             check = self.check_for(item_id)
             if check is None or not check.due:
                 return "intent_check_waiting"
-            if item_id in check.reserved:
-                # F16: kept for an assessment; never a check's item.
-                return "intent_check_reserved"
+            refusal = dict(check.refused).get(item_id)
+            if refusal is not None:
+                # Round 6: the one check gate refused it; never a check's item.
+                # A reservation keeps F16's code; the build's own admission
+                # keeps the hold it always had.
+                key = refusal.get("constraint_key")
+                if key == "assessment_reservation":
+                    return "intent_check_reserved"
+                if key == "build_admission":
+                    return "intent_check_held"
+                return "intent_check_refused"
             if item_id not in check.servable:
                 # F3: a hold on this candidate, or another can be taken cold.
                 return "intent_check_held"
@@ -360,8 +402,12 @@ class IntentServing:
         return kept
 
     def due_checks(self) -> list[CheckState]:
+        """Every due, unanswered, unreplaced check, servable or not (round 6,
+        F20: a check with nothing to serve is accounted for, never dropped);
+        selection reads each one's ``servable``."""
+
         return sorted(
-            (check for check in self.checks.values() if check.servable),
+            (check for check in self.checks.values() if check.pending),
             key=lambda check: (check.date, check.commitment_id),
         )
 
@@ -487,32 +533,57 @@ def build_checks(
     return checks, resolution
 
 
-def split_check(
-    check: CheckState, *, eligibility: Any = None, admitted: Any = None, reserved: frozenset[str] = frozenset()
-) -> CheckState:
+def check_feasibility(item_id: str, gate: Any) -> Mapping[str, Any] | None:
+    """THE "Check once" feasibility gate (DL2 fix round 6): why ``item_id``
+    can never be a check's item now, or None. ``gate`` is the view's
+    :class:`~learnloop.scheduling.intent.feasibility.CheckGate`; one gate,
+    the same under every plan policy."""
+
+    return gate.refusal(item_id)
+
+
+def check_feasibility_of(gate: Any) -> Any:
+    return lambda item_id: check_feasibility(item_id, gate)
+
+
+def _admission_only(admission: Any) -> Any:
+    """No gate (a view with no vault behind it): the admission alone."""
+
+    if admission is None:
+        return None
+
+    def refusal(item_id: str) -> Mapping[str, Any] | None:
+        verdict = admission(item_id)
+        if verdict is False:
+            return {"constraint_key": "build_admission", "reason": "not_admitted"}
+        if isinstance(verdict, str):
+            return {"constraint_key": "build_admission", "reason": verdict}
+        return None
+
+    return refusal
+
+
+def split_check(check: CheckState, *, eligibility: Any = None, feasibility: Any = None) -> CheckState:
     """A due, unanswered check's candidates split by the eligibility decision
     (``eligibility(item_id, check_created_at)``; None: every one eligible),
-    among those the build admits (``admitted(item_id)``; None: every one).
+    among those the one check gate passes.
 
-    A candidate the build would not serve is left out before the split, so
-    it can neither be the check nor suppress one that can be served (R1).
-    A candidate on a live assessment reservation (``reserved``) is set aside
-    the same way, into ``reserved`` (DL2 verify F16, fix round 5): a check is
-    exempt from value and count composition, never from a mandatory
-    constraint, so an LO check takes an eligible sibling by its own rule, and
-    a check left with none says why."""
+    ``feasibility(item_id)`` is the one check gate (:func:`check_feasibility`,
+    DL2 fix round 6): a refused candidate is set aside into ``refused`` with
+    its refusal, before the eligibility split, so it can neither be the check
+    nor suppress one that can be served (R1), an LO check takes an eligible
+    sibling by its own rule, and a check left with none says why (F20)."""
 
     if not check.due or check.answered_by is not None:
         return check
     eligible: list[str] = []
     held: list[str] = []
     exposed: list[str] = []
-    set_aside: list[str] = []
+    refused: list[tuple[str, Mapping[str, Any]]] = []
     for item_id in check.candidates:
-        if admitted is not None and not admitted(item_id):
-            continue
-        if item_id in reserved:
-            set_aside.append(item_id)
+        refusal = feasibility(item_id) if feasibility is not None else None
+        if refusal is not None:
+            refused.append((item_id, dict(refusal)))
             continue
         verdict = _SERVE if eligibility is None else eligibility(item_id, check.created_at)
         if verdict == _SERVE:
@@ -522,19 +593,7 @@ def split_check(
         else:
             held.append(item_id)
     return replace(
-        check, eligible=tuple(eligible), held=tuple(held), exposed=tuple(exposed), reserved=tuple(set_aside)
-    )
-
-
-def reserved_assessment_items(repository: Any) -> frozenset[str]:
-    """The practice items whose surface holds a live assessment reservation
-    (``activity_surface_reservations``; the staged frame's own read, which
-    refuses them on Today): F16."""
-
-    return frozenset(
-        str(row["legacy_practice_item_id"])
-        for row in repository.reserved_assessment_surfaces()
-        if row.get("legacy_practice_item_id")
+        check, eligible=tuple(eligible), held=tuple(held), exposed=tuple(exposed), refused=tuple(refused)
     )
 
 
@@ -604,7 +663,13 @@ def intent_serving(
         # reads (a queue build binds its own instead).
         from learnloop.scheduling.scheduler import check_admission
 
-        return check_admission(vault, repository, now=now, intent_view=view)
+        return check_admission(vault, repository, now=now, intent_view=view, reasons=True)
+
+    def gate_factory(view: IntentServing, admission: Any, candidate_ids: list[str]) -> Any:
+        # Round 6: the one check gate, the same under every plan policy.
+        from learnloop.scheduling.intent.feasibility import CheckGate
+
+        return CheckGate(vault, repository, now=now, admission=admission, candidate_ids=candidate_ids)
 
     checks, resolution = build_checks(
         resolution,
@@ -630,8 +695,7 @@ def intent_serving(
         _anchor_loader=anchors,
         _eligibility=eligibility,
         _admission_factory=default_admission,
-        # Looked up at call time, so a test can stand in for the read.
-        _reserved_loader=lambda: reserved_assessment_items(repository),
+        _gate_factory=gate_factory,
     )
 
 
@@ -646,6 +710,6 @@ __all__ = [
     "intent_enabled",
     "intent_serving",
     "on_your_own",
-    "reserved_assessment_items",
+    "check_feasibility",
     "split_check",
 ]
