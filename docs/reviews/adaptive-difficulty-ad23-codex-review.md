@@ -1453,3 +1453,140 @@ Two existing tests changed with the rules:
 - `test_ad3_relatedness`: a run's units now include the reserved protection unit.
 - `test_ad23_fix_r8`'s sensitivity case: it now reserves a support member that is neither the
   draw's choice nor its slot item, since reserving either drops the draw from the cohort (F39).
+
+## Fix round 13: recorded prompt context, protected note exchanges, view-counted caps, a deeper contract (2026-10-20)
+
+Codex's verify of round 12 (codex-job `20261020-162449-eEf7LH`, verdict REOPENED) confirmed:
+
+- F37, F39, F40's prompt path, F41 and the sweep window;
+- migration 214 and the head fixture;
+- the owner defaults and the replay boundaries.
+
+It found F38 (reopened), F43 and F44 (High), and F45 and F42 (Medium). The orchestrator's rulings
+are implemented in commit `f38ba8384`, with no migration change: no UNIQUE constraint in 214 forced
+one. This section was appended to the file, not written over it.
+
+| Id | Severity | Title | Origin | Verdict | Commit | Test (fails on `696ff2e9f`) |
+|---|---|---|---|---|---|---|
+| F38 | High | The protection fingerprint loses historical prompt context | round 12 | fixed (ruling 1) | `f38ba8384` | `test_a_run_whose_quoted_revision_was_replaced_then_protected_is_not_used`; the differential's temporal case (pinned: the public run out of use) |
+| F45 | Medium | A re-proposal can stay "current" after invalidation | round 12 | fixed (ruling 2) | `f38ba8384` | `test_a_stale_run_never_answers_for_a_re_proposal`; the differential's temporal case (pinned, coupled: the re-proposal is made) |
+| F43 | High | Protected canonical-note tutor exchanges still enter predictions | stage | fixed (ruling 3) | `f38ba8384` | `test_a_tutor_exchange_on_a_protected_canonical_note_enters_no_prediction`; the differential (`qe_note_r13`) |
+| F44 | High | Protected receipts still consume reading caps | stage | fixed (ruling 4) | `f38ba8384` | `test_a_protected_receipt_occupies_no_daily_cap_slot`; the differential (`sxe_held_r13`'s receipt) |
+| F42 | Medium | The hardened contract still misses reads and permits missing stages | round 12 | fixed (ruling 5) | `f38ba8384` | the contract itself (fail-before below), `test_every_ad_cache_and_file_read_is_audited`, `test_the_replay_cache_never_serves_a_snapshot_across_a_protection_change` |
+
+### What changed
+
+- **F38 (ruling 1).**
+  - What a run records: every run records its whole prompt context as a reserved unit
+    (`relatedness.CONTEXT_UNIT`; no schema change). That is every item revision the prompt quoted,
+    with its source identity, including context outside the proposed units.
+  - When a run is used: `run_in_force` holds only if three things are true:
+    - the run's subject fingerprint is the current one (round 12's subject-wide rule stays);
+    - it recorded a context;
+    - nothing in that recorded context is protected now (`context_protected`: the item is
+      withheld, its revision is withheld, or its recorded source identity lies in held-out
+      material).
+
+    Replacing, deleting or re-scoping an item cannot hide its old revision's protection.
+  - Who applies it: `load_structure`, `stale_judgments` (frozen loadings), `touched_units` and the
+    duplicate check.
+  - Legacy runs (no fingerprint, or no recorded context) are never in force.
+- **F45 (ruling 2).** The run key and the claim key carry the run's protection identity
+  (`protection_identity`: the subject fingerprint and the recorded context, never in the prompt).
+  The duplicate check accepts only a run that is in force, so a stale successful run never answers
+  "current".
+- **F43 (ruling 3).**
+  - Collection: the sweep rejects a tutor or library question on a withheld note before any
+    fallback to its item (`_note_withheld`).
+  - The map: `VaultReadingMap.los_for_note` reads through the view (`note_withheld`).
+  - Receipts: revalidating a receipt withholds a question-event receipt whose note is withheld.
+- **F44 (ruling 4).**
+  - Occupancy: the cap occupancy of passage views (1 per LO per day) and of tutor exchanges (3) is
+    counted over the receipts the view sees (`reading.occupancy`), and kept up to date as the sweep
+    writes.
+  - Keys: a capped receipt's key names its source event
+    (`<bucket>:<lo>:<day>:<source_table>:<source_id>`), so keys never collide and a public event is
+    admitted beside a withheld receipt's existing key. Old keys stay as written.
+
+### F42 (ruling 5): the contract, hardened again
+
+- **The read trace** opens its connections with `cached_statements=0`, so every execution prepares
+  afresh and a cached statement cannot hide a read. It records each read with its database identity
+  (file and schema name).
+- **The audit of Python-side caches and file-backed reads.** `AD_DEPENDENCIES` lists every
+  module-level cache and file read in the AD modules, with how protection reaches it:
+  - the replay's snapshot cache, served only while the fingerprint of the view's events is
+    unchanged (a behavioural test shows a narrower view is not served from it);
+  - its lock;
+  - the numeric inverse memo;
+  - the guard's fresh `load_vault`;
+  - the document IR load.
+
+  `test_every_ad_cache_and_file_read_is_audited` scans the AD modules and fails on any unlisted one.
+- **Pinned outcomes.**
+  - Readiness: exactly the cells (`apply_pub`, `recall`) at retrieval, as predictions in range.
+  - The card: its cell, kind and ordering, equal to readiness at the top.
+  - The dose decisions: eligible, no refusal.
+  - The late uptake callbacks: none recorded.
+  - Item preparation: exactly the four prepared items, each audited and `llm_v1` ok.
+  - The temporal outcomes and the expiry boundary.
+- **A second run mode.** The clock advances an hour per stage, identically in both copies, beside
+  the frozen mode. It advances by the harness's steps, not by read counts, which are incumbent
+  behaviour. Expiry boundary: a public commission expires two and a half hours into the run. It is
+  open at the start in both modes, and expired at the end only on the advancing clock.
+- **Temporal scenarios**, the same events in both copies:
+  - pi_p3's source-backed revision (never served or audited, so in no snapshot) is replaced, then
+    its former source held out. The public run must then be out of use: no coupling, no loading.
+  - The subject is proposed; then a saved historical revision's source is held out while the prompt
+    stays the same, and it is re-proposed. With coupling on, both are made, never "current".
+- **Protected classes added** (protected copy only):
+  - a tutor exchange on the held-out source's canonical note;
+  - a passage-view receipt from a held-out span occupying the LO's daily slot on the day a public
+    view waits;
+  - a held-out reading receipt stamped exactly as the public one (an ordering tie).
+
+**Fail-before** (`git archive 696ff2e9f` into `fixtures-local/ad23-r13-base`, `-o pythonpath`):
+
+| Test | On `696ff2e9f` | At the tip |
+|---|---|---|
+| differential, default/frozen | **37 violations**; F38's pinned temporal outcome fails | 0 |
+| differential, default/advancing | **37**; the same | 0 |
+| differential, coupled/frozen | **37**; the same (and F45's, behind it) | 0 |
+| differential, coupled/advancing | **37**; the same | 0 |
+| the four focused round-13 tests | 4 of 4 fail | pass |
+| the whole contract file | 8 of 28 fail | 28 pass |
+
+The 37 violations are F43 and F44: the protected note exchange recorded, and the public passage
+view dropped. They show up in the receipts, the replay state, the scores, the serve forecasts and
+the selections.
+
+### Owner notes
+
+- A relatedness run now also records the prompt context it was proposed with. A run is used only
+  while none of that context is protected and its subject's protection is unchanged. Protecting
+  material (or releasing it) in a subject still resets that subject's learned coupling until it is
+  re-proposed and re-adopted. Runs recorded before this round are not used. `learned_coupling` stays
+  off by default.
+- A Reader or library tutor exchange on a source's canonical note stops counting as reading as soon
+  as that source holds held-out material.
+
+### Environment
+
+No ad-hoc Python touching LearnLoop ran outside pytest this round. The only scripts outside pytest
+were file-editing scripts (standard library only) and the two reference scripts. The reference
+scripts ran under `env -i` with an empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`, and make
+no model call.
+
+### Gate (this round; owner rule 2026-10-17: targeted only)
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 27 kept, 0 broken |
+| the AD test files (contract, r8, r9, material view, fix review, dose arm, relatedness, subject view, reading, reading opportunities, serving) | 148 passed |
+| targeted pytest, `uv run pytest -n 14` over round 12's 163 files, run once after the last code change | **8,550 passed, 36 xfailed, 0 failed** (1,859 s) |
+| `--durable-sqlite`: `test_ad23_contract.py`, `test_ad23_fix_r9.py`, `test_ad23_fix_r8.py`, `test_ad23_migration.py` | 52 passed |
+| references: `db_generate_reference.py`, `db_validate_reference.py` (under `env -i`) | 0 errors (commit labels; no schema change) |
+| migration 214, head fixture, defaults snapshots, CLI help, vitest, `cargo check` | unchanged or not applicable |
+
+One existing test changed with the rules: `test_ad3_relatedness` (a run's units now include both
+reserved protection units).
