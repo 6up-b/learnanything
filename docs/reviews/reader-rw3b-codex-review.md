@@ -887,3 +887,56 @@ plan_B}`.
 | Python, references, `cargo check` | not run: frontend only |
 
 **Model calls: none.** Nothing was run outside vitest and the build.
+
+## Fix round 11 (orchestrator)
+
+Codex's verify of round 10 (job `20261020-170823-HzCbsT`, verdict REOPENED)
+confirmed:
+
+- F27: the Library, another source, remounts and vault switches all get
+  fresh state;
+- that the PDF/text toggles keep the visit;
+- that discovery off is unchanged;
+- that the backend is intact.
+
+One Medium remained, F28. It reproduced on `0fbd58a8d` and is fixed here
+under the orchestrator's ruling.
+
+| id | severity | title | verdict | test |
+|---|---|---|---|---|
+| F28 | Medium | a funnel visit appearing or disappearing mid-source splits or revives the cue visit | fixed | `rw3bReview.test.tsx` "F28: a funnel visit null → F / F → null / null → F → null mid-source keeps one cue visit: one impression, its response, its first-seen plan" |
+
+### What changed
+
+In `useCueImpressions.ts`, there is now one effective cue visit id per
+source-open lifetime.
+
+- At first use, `currentVisit` takes the funnel's visit id if there is one,
+  and otherwise mints a `cues_…` fallback.
+- It keeps that id until the source changes (round 10's reset) or the Reader
+  unmounts, even if a funnel visit appears or disappears in between.
+- Impressions, taps (`visitId()`), "fewer" and first-seen plans therefore
+  stay in one visit.
+- Receipts already queued are unchanged.
+- Discovery off is unchanged: this hook sends nothing then, and RW3a's own
+  logging does not use it.
+
+### Fail-before (`0fbd58a8d`)
+
+`0fbd58a8d`'s `apps/learnloop-tauri` was extracted to the scratchpad, with
+the worktree's `node_modules` symlinked in and the new test file copied
+over. Result: **3 failed, 33 passed**. The visit switched to `F`, or away
+from it, mid-source. With the fix, each case sends exactly one `shown`
+impression and one `fewer`, on the same visit and `plan_A`, and `planFor`
+keeps `plan_A`.
+
+### Gate
+
+| Check | Result |
+|---|---|
+| `npm run typecheck` | clean |
+| `npx vitest run src/screens/reader/ src/screens/ReaderScreen src/components/PdfReaderPane.marks.test.tsx` | **450 passed** (58 files) |
+| `npm run frontend:build` | built |
+| Python, references, `cargo check` | not run: frontend only |
+
+**Model calls: none.** Nothing was run outside vitest and the build.

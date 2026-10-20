@@ -795,3 +795,45 @@ for (const away of [null, "B"] as const) {
     ]);
   });
 }
+
+// -- Fix round 11 (verify) -----------------------------------------------------------------------
+
+for (const funnels of [[null, "F"], ["F", null], [null, "F", null]] as const) {
+  const label = funnels.map((funnel) => funnel ?? "null").join(" → ");
+  it(`F28: a funnel visit ${label} mid-source keeps one cue visit: one impression, its response, its first-seen plan`, async () => {
+    vi.useFakeTimers();
+    const guideMark = cue("a1", 0);
+    const found = discovered("a2", 1);
+    const { result, rerender } = renderHook(({ funnel, plan }: { funnel: string | null; plan: string }) =>
+      useCueImpressions({ extractionId: "A", cues: cues([guideMark, found], [], "tk1", plan), placement: EMPTY,
+        surface: "pdf", bodyRef: body([]), visitId: () => funnel }),
+    { initialProps: { funnel: funnels[0] as string | null, plan: "plan_A" } });
+    act(() => {
+      result.current.noteShown(guideMark, "plan_A");
+      result.current.noteShown(found, "plan_A");
+    });
+    const visit = result.current.visitId();
+    expect(visit).toEqual(funnels[0] ?? expect.stringMatching(/^cues_/));
+    // The funnel's visit appears or goes away while A stays open; the plan changes too.
+    for (const [index, funnel] of funnels.slice(1).entries()) {
+      rerender({ funnel, plan: `plan_${index + 2}` });
+      act(() => {
+        result.current.noteShown(guideMark, `plan_${index + 2}`);
+        result.current.noteShown(found, `plan_${index + 2}`);
+      });
+      expect(result.current.visitId()).toBe(visit);  // what taps send
+      expect(result.current.planFor(found)).toBe("plan_A");
+      expect(result.current.planFor(guideMark)).toBe("plan_A");
+    }
+    act(() => result.current.noteFewer(guideMark));
+    await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+    const sent = api.readerCueImpressions.mock.calls.map((call) => call[0] as {
+      visitId: string; planId: string; entries: Array<{ cueId: string; shown?: boolean; response?: string }> });
+    // One impression for the cue, and "fewer" on that same visit and plan.
+    expect(sent.flatMap((batch) => batch.entries.map((entry) => ({ ...entry, visitId: batch.visitId, planId: batch.planId }))))
+      .toEqual([
+        { cueId: "cue_a1", shown: true, visitId: visit, planId: "plan_A" },
+        { cueId: "cue_a1", response: "fewer", visitId: visit, planId: "plan_A" },
+      ]);
+  });
+}
