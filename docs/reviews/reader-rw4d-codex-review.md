@@ -312,3 +312,56 @@ Earlier refusals of a kept comparison (`exam_material`) now use this one code. T
 - `frontend:build`: built.
 
 **Rule note.** In rounds 2 to 4, small Python scripts that only rewrote source and test text ran without `env -i`. One read-only `sqlite3` query of `fixtures/migration_head_213` (column nullability) also ran without it. None imported LearnLoop or could reach a model or network, and no vault was opened. From round 4's test edits on, every such script ran under `env -i` with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`.
+
+## Fix round 5 (orchestrator rulings)
+
+The verify of round 4 (Codex job `20261020-173613-n7Zkp3`, VERDICT: REOPENED) confirmed the RPC pin, its bypass mutations and the non-protection invariants. It found two Highs (F1, F2) and two Mediums (F3, F4). Fixed in `03f3ac0bc`. References were regenerated in `501ed27c6` (schema unchanged, head 213, 0 errors).
+
+| id | severity | title | verdict | test |
+|---|---|---|---|---|
+| F1 | High | Reusing a comparison loses contributing provenance | fixed | `test_reuse_keeps_every_asks_provenance` (the verify's A/B reuse: a take through B, whose anchor is held out, is refused), `test_a_take_another_ask_added_stays_its_provenance_after_it_moves_on`, `test_a_tutor_take_on_a_learner_keep_is_hidden_once_its_question_is_held_out` |
+| F2 | High | Completed comparison jobs return protected cached content | fixed | `test_a_comparison_job_read_after_withholding_returns_nothing_of_it` (the verify's sequence), `test_a_comparison_jobs_first_delivery_is_withheld_whole`; vitest "a comparison withheld whole says why, and shows nothing of it" |
+| F3 | Medium | Unresolvable passage references fail open | fixed | `test_a_dropped_pin_naming_no_passage_withholds_the_comparison` |
+| F4 | Medium | Remove bypasses the write refusal | **rejected** (orchestrator ruling) | `test_remove_on_a_withheld_comparison_answers_only_a_status` |
+
+- **F1: the union across reuse.**
+  - `comparison_passages` now reads the stored comparison's contributors and its own `caller_ref`: a tutor question, or for the Reader its reading.
+  - It also reads every ask that refers to the comparison: one showing it now, its keep, a removal's snapshot, or a contributor its keep recorded. Each ask brings its anchor, binding and question. It also reads every tutor question whose request ran the comparison (`source_tool_calls.result_ref`), and the ask or question acting now.
+  - Keep and adding a take record the acting ask or tutor question on the keep (`kept_json.contributors`, carried into removal snapshots and re-keeps). A later reuse cannot drop it: B's take stays B's provenance after B compares something else.
+  - Deduplication and the per-row caller guards are unchanged.
+  - One limit: an ask that was only *shown* a comparison, and later compared something else, no longer refers to it. It never wrote anything derived from the comparison.
+- **F2: comparison jobs.** `reader.library_compare`'s job gets a deliver hook, RW4b's pattern (`deliver_comparison`). It runs at the first delivery and at every cached read through `reader.library_job`. A comparison withheld whole is refused with `comparison_withheld`: no table, keep state or take. Otherwise the keep state is read again. The library answer shows the refusal's reason (`failureLine`), as it does for `exam_material`.
+- **F3: every contributor is resolved.** Each named passage must exist as a block of its reading (keys only, `source_block_fts.existing_spans`). Each ask, question, tutor request's question and reading must also exist. A malformed or unresolvable one withholds the comparison.
+  - Consequence: a comparison whose dropped pins name a passage that no longer exists is never shown or kept.
+- **F4 rejected.** Remove stays allowed on a withheld comparison. It is the learner's cleanup action. It appends supersessions and clears the keep, and writes no content derived from protected material. This matches open question 6 (the owner may want *remove* without reopening). Its response is only a status (`{askId, kept: null, removed: true}`), pinned by the test above. That test passes on `e664b701c` too: the response was already only a status.
+- **RW4b's statement-reader pin, restored.** Round 3 broke `test_library_exercises::test_r2_no_handler_reader_module_or_s1_path_reads_an_exercise_statement_another_way`, which was outside my gate then. The cause was `exam_withheld` and `blocks_by_key` in `reader/source_objects.py`. The predicate is now read through `exam_material(...).withheld`, and passages are resolved through the keys-only `existing_spans`. The pin passes, and it is in the gate from now on.
+
+### Fail first on `e664b701c`
+
+- The 6 new fix tests and the updated `test_a_comparison_holding_exam_material_is_refused` ran on its `src` (`git archive`, `-o pythonpath=`): **7 failed**.
+- The provenance-after-moving-on test failed first at its `contributors` check. A throwaway copy without that line, deleted afterwards, showed B's take leaking.
+- The new vitest failed on the base frontend (1 of 16).
+
+### Gate (round 4's, widened)
+
+- `lint-imports`: 28 kept, 0 broken.
+- `pytest -n auto`: **587 passed** over 28 files, round 4's 17 plus:
+  - `test_library_exercises`
+  - `test_reader_compare_table`
+  - `test_compare_sources`
+  - `test_sources_merge_composition`
+  - `test_pinned_span_bridge`
+  - `test_tutor_tool_requests`
+  - `test_tool_results_withhold_answers`
+  - `test_sidecar_serializer_snapshot`
+  - `test_table_roles`
+  - `test_registry_audit`
+  - `test_instructional_layering`
+- `--durable-sqlite` on the two RW4d files: **68 passed**.
+- `typecheck`: clean.
+- vitest `src/screens/reader`: **61 files, 464 tests passed**.
+- `frontend:build`: built.
+
+### Rule note
+
+All Python run outside pytest in this round ran under `env -i` (edit scripts and the reference scripts), except one no-op `python3 -c "print()"` while searching. It imported nothing.
