@@ -3,8 +3,8 @@ title: "attention_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "91798158c8ddffe10e073647f6aa4d6202a10eff"
-source_commit_timestamp: "2026-10-20T02:20:34-04:00"
+source_commit: "ae8339e6a36086fbd02e406b50925dd747ad3d6e"
+source_commit_timestamp: "2026-10-20T12:30:38-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attention_blocks"
@@ -99,6 +99,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/estimates.py`
 - `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/evsi_calibration/live_report.py`

@@ -3,8 +3,8 @@ title: "workbench_steps"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "91798158c8ddffe10e073647f6aa4d6202a10eff"
-source_commit_timestamp: "2026-10-20T02:20:34-04:00"
+source_commit: "ae8339e6a36086fbd02e406b50925dd747ad3d6e"
+source_commit_timestamp: "2026-10-20T12:30:38-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite workbench_steps"
@@ -108,6 +108,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_architecture.py`
+- `tests/test_library_exercises.py`
 - `tests/test_reader_workbench_rw2a.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
