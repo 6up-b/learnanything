@@ -234,6 +234,10 @@ class SendGuard:
         from learnloop.adaptive_difficulty.protection import Protection, protection
 
         current = protection(vault, self._repository)
+        if current.material is None:
+            # The predicate is unavailable: nothing is sent or recorded, whatever the job quotes
+            # (Codex verify F32; before, an empty item list let the request through).
+            return "the held-out predicate is unavailable"
         if self._earlier:
             current = Protection(current.ids | self._earlier, current.material)
         for item_id in sorted(self._item_ids):

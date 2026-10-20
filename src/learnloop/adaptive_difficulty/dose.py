@@ -284,12 +284,7 @@ def decide(vault: Any, repository: Any, boundary: Boundary, *, clock: Clock | No
 def offer_withheld(connection: Any, view: Any, variant: Any, content: Any) -> bool:
     """Whether a drawn extra's content is withheld now (revalidated before it is shown again)."""
 
-    content = content or {}
-    if variant == EXTRA_QUESTION:
-        return view.question(connection, content.get("question_id")) is None
-    if variant == EXTRA_EXAMPLE:
-        return view.material_withheld(content.get("extraction_id"), content.get("span_id"))
-    return False
+    return view.dose_extra_withheld(connection, variant, content)
 
 
 def record_uptake(vault: Any, repository: Any, draw_id: str, kind: str, *, clock: Clock | None = None) -> str:

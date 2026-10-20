@@ -162,17 +162,27 @@ def load_duration_evidence(
     repository: Any,
     *,
     latency_cap_minutes: float,
+    attempt_rows: Any = None,
 ) -> DurationEvidence:
-    """Read own latencies (by item and by mode) and plan feedback dwell."""
+    """Read own latencies (by item and by mode) and plan feedback dwell.
+
+    ``attempt_rows``: the ``practice_attempts`` rows to read latencies from
+    instead of the whole table. Adaptive difficulty passes its material view's
+    rows (A8; Codex verify F28), so a withheld answer's duration never moves an
+    AD candidate's estimate; None reads the table, as the plan does."""
 
     by_item: dict[str, list[float]] = defaultdict(list)
     by_mode: dict[str, list[float]] = defaultdict(list)
     dwell: list[float] = []
     with repository.connection() as connection:
-        for row in connection.execute(
+        rows = connection.execute(
             "SELECT practice_item_id, practice_mode, latency_seconds FROM practice_attempts "
             "WHERE latency_seconds IS NOT NULL AND latency_seconds > 0"
-        ):
+        ) if attempt_rows is None else [
+            row for row in attempt_rows
+            if row.get("latency_seconds") is not None and float(row["latency_seconds"]) > 0
+        ]
+        for row in rows:
             minutes = winsorize_minutes(row["latency_seconds"], latency_cap_minutes)
             by_item[str(row["practice_item_id"])].append(minutes)
             by_mode[str(row["practice_mode"])].append(minutes)

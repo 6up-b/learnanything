@@ -247,7 +247,11 @@ def _sensitivity(vault: Any, repository: Any, connection: Any, snapshot: RP.Snap
 
 
 def _selection_stats(connection: Any, snapshot: RP.Snapshot, *, view: Any) -> dict[str, Any]:
-    selections = store.selections(connection)
+    """The selection and commission cohorts, read through the material view (Codex verify F29): a
+    commission result on a withheld item or revision is not counted, and with the predicate
+    unavailable the section is suppressed (no draw, result or outcome is read)."""
+
+    selections = store.selections(connection) if view.available else []
     serves = [row for row in selections if row["kind"] == "serve"]
     modes = Counter(row["mode"] for row in serves)
     by_presentation = {}
@@ -280,7 +284,7 @@ def _selection_stats(connection: Any, snapshot: RP.Snapshot, *, view: Any) -> di
             per_lo[lo] = sum(1 for e in eligible if e.learning_object_id == lo and e.created_at < row["created_at"])
     structure = snapshot.events.structure
     coupled = {lo: bool(structure.coupling(lo)) for lo in per_lo}
-    results = store.commission_results(connection)
+    results = view.visible_commission_results(connection)
     by_point = defaultdict(lambda: Counter())
     commissions = {row["id"]: row for row in selections if row["kind"] == "commission"}
     for result in results:
@@ -350,9 +354,10 @@ def _visits(connection: Any, snapshot: RP.Snapshot) -> list[dict[str, Any]]:
 
 def _offer_outcomes(connection: Any, snapshot: RP.Snapshot, *, view: Any) -> dict[str, list[DR.OfferOutcome]]:
     """Each dose draw's matured cold outcome (§5.12): the first graded attempt on an item of one of
-    the section's LOs at least one day after the decision, with no reveal of that item in between."""
+    the section's LOs at least one day after the decision, with no reveal of that item in between.
+    The draws are the view's (a withheld extra's draw is left out; Codex verify F29)."""
 
-    rows = store.dose_rows(connection)
+    rows = view.dose_rows(connection)
     draws = [row for row in rows if row["row_kind"] == "draw"]
     taken = {row["draw_id"] for row in rows if row["row_kind"] == "taken"}
     reveals = defaultdict(list)
@@ -387,8 +392,10 @@ def _offer_outcomes(connection: Any, snapshot: RP.Snapshot, *, view: Any) -> dic
     return by_variant
 
 
-def _dose_arm(connection: Any) -> dict[str, Any]:
-    rows = store.dose_rows(connection)
+def _dose_arm(connection: Any, *, view: Any) -> dict[str, Any]:
+    """The dose arm's draws and uptake through the material view (Codex verify F29)."""
+
+    rows = view.dose_rows(connection)
     draws = [row for row in rows if row["row_kind"] == "draw"]
     uptake = Counter((row["row_kind"]) for row in rows if row["row_kind"] != "draw")
     variants = Counter(row.get("chosen_variant") for row in draws)
@@ -540,7 +547,7 @@ def build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] =
     rule = {comparator: _field_rule(records, A.SUBJECT, comparator)
             for comparator in ("mastery_ekf", A.LO, A.UNIFORM) if comparator in names}
     stats = _selection_stats(connection, snapshot, view=view)
-    dose_arm = _dose_arm(connection)
+    dose_arm = _dose_arm(connection, view=view)
     if previous_errors is None:
         errors = readiness_errors(records, [row["created_at"] for row in store.selections(connection)
                                             if row["kind"] == "serve"], every=report_every)
@@ -572,9 +579,11 @@ def build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] =
         "identifiability": _identifiability(snapshot, records),
         "prior_sensitivity": (_sensitivity(vault, repository, connection, snapshot, selections, view=view)
                               if sensitivity else None),
-        "selection": {k: v for k, v in stats.items() if k != "realized_outcomes"},
+        "selection": ({k: v for k, v in stats.items() if k != "realized_outcomes"} if view.available
+                      else {"suppressed": view.reason}),
         "trivial_success": _trivial_success(connection, snapshot),
-        "dose_arm": {k: v for k, v in dose_arm.items() if k != "delivered"},
+        "dose_arm": ({k: v for k, v in dose_arm.items() if k != "delivered"} if view.available
+                     else {"suppressed": view.reason}),
         "dose_and_burden": dose,
         "self_check_calibration": _self_check(records),
         "records": len(records),

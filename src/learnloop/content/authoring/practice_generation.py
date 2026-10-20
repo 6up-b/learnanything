@@ -112,7 +112,13 @@ class PracticeExpansionTarget:
             "existing_surface_families": self.existing_surface_families,
         }
         if self.ad_commission_id is not None:
+            # Under the generation contract the difficulty is AD's commissioned point (§7.1): the
+            # band and the incumbent's ability estimate it inverts are not given to the writer. The
+            # estimate is also the incumbent's live state, which counts answers AD withholds, so
+            # leaving it out keeps the commissioned request what it would be without them (A8,
+            # fix round 9's contract).
             payload.pop("recommended_difficulty_band")
+            payload.pop("mastery_mean")
             payload["ad_commission_id"] = self.ad_commission_id
         if self.commissioned_cells:
             payload["commissioned_cells"] = self.commissioned_cells
@@ -136,6 +142,10 @@ class PracticeExpansionTarget:
 @dataclass(frozen=True)
 class PracticeExpansionPlan:
     targets: list[PracticeExpansionTarget]
+    #: Adaptive difficulty's material view when the plan was built under the generation contract
+    #: (A8): the authoring request is then built from the vault it sees and revalidated before it
+    #: is sent (fix round 9, R2). None on the predecessor's path; never serialized.
+    material_view: Any = field(default=None, repr=False, compare=False)
 
     @property
     def requested_new_items(self) -> int:
@@ -300,6 +310,14 @@ def build_practice_expansion_plan(
         raise PracticeExpansionError("max_new_per_lo must be positive")
     _validate_mode_mix(mode_mix)
     named_lo_ids = list(dict.fromkeys(learning_object_ids or []))
+    # Adaptive difficulty AD2+AD3 (A8; Codex verify F21, fix round 9 R2): under the generation
+    # contract, with the held-out predicate available, the whole plan reads the vault as AD's
+    # material view sees it (withheld items removed): contract and contrast reachability, the
+    # targets' counts (and so the deficit), facets and surface families. With the contract off, or
+    # the view unavailable, the predecessor's reads exactly.
+    ad_view = _ad_material_view(vault, repository)
+    if ad_view is not None:
+        vault = ad_view.vault_view()
     # Stage 5.1: 3.1's reachability report, resolved into rung-correct authoring
     # targets. One static pass over vault content (no attempts, no provider), and
     # it is what makes the contract — rather than the learner's mastery band — the
@@ -316,11 +334,6 @@ def build_practice_expansion_plan(
     )
     subject_filter = set(subjects or [])
     concept_filter = set(focus_concepts or [])
-    # Adaptive difficulty AD2+AD3 (A8; Codex verify F21): under the generation contract the
-    # targets' counts, facets and surface families (and so the deficit) come from AD's material
-    # view, so a withheld item's metadata never reaches the prompt. With the contract off, or the
-    # view unavailable, the predecessor's reads exactly (``items=None``).
-    ad_view = _ad_material_view(vault, repository)
     ad_items = ad_view.items() if ad_view is not None else None
     item_counts = _active_practice_item_counts(vault, repository, exclude_item_ids=exclude_item_ids, items=ad_items)
     facet_unions = _active_evidence_facet_unions(vault, repository, items=ad_items)
@@ -459,7 +472,21 @@ def build_practice_expansion_plan(
     )
     if max_los is not None:
         targets = targets[:max_los]
-    return PracticeExpansionPlan(targets=targets)
+    return PracticeExpansionPlan(targets=targets, material_view=ad_view)
+
+
+def _ad_request_options(plan: Any) -> dict[str, Any]:
+    """The authoring call's AD options (fix round 9, R2): with a plan built through AD's material
+    view, the authoring context is built from the vault that view sees (re-read at send time), and
+    the serialized request is revalidated before it is sent; a request quoting withheld material
+    is refused. The predecessor's call (no view) is unchanged."""
+
+    if getattr(plan, "material_view", None) is None:
+        return {}
+    from learnloop.adaptive_difficulty.generation import CommissionedRequestGuard
+
+    guard = CommissionedRequestGuard()
+    return {"vault_view": guard.vault_view, "request_guard": guard}
 
 
 def _ad_material_view(vault: LoadedVault, repository: Repository) -> Any:
@@ -897,6 +924,7 @@ def generate_post_probe_practice_proposal(
         codex_revision=codex_revision,
         merge_context_source_refs=bool(source_refs),
         row_transform=gates,
+        **_ad_request_options(plan),
     )
     violations: list[str] = []
     warnings: list[str] = []
@@ -1033,6 +1061,7 @@ def generate_goal_practice_proposal(
         focus_facets=at_risk_facets or None,
         codex_revision=codex_revision,
         row_transform=gates,
+        **_ad_request_options(plan),
     )
     return PracticeExpansionResult(
         patch_id=patch_id,
@@ -1310,6 +1339,7 @@ def generate_cross_source_practice_proposal(
         codex_revision=codex_revision,
         prompt_version=PRACTICE_GENERATION_PROMPT_VERSION,
         row_transform=gates,
+        **_ad_request_options(plan),
     )
     return CrossSourcePracticeResult(
         patch_id=patch_id,

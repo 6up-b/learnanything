@@ -3177,15 +3177,20 @@ def _handle_ad_commission(ctx: JobContext, lo_ids: list[str], commission_id: str
         PracticeExpansionError,
         generate_post_probe_practice_proposal,
     )
-    from learnloop.db.stores import ad_serving
     from learnloop.vault.loader import load_vault
 
     vault = load_vault(ctx.vault_root)
     if not contract_on(vault.config):
         return {"generated": 0, "skipped_reason": "generation_contract off"}
+    from learnloop.adaptive_difficulty.material_view import material_view
+
+    # The commission is open as AD's material view sees it (a withheld landing closes nothing);
+    # with the held-out predicate unavailable none is, and nothing is generated (A8).
+    view = material_view(vault, ctx.repo)
     with ctx.repo.atomic():
-        open_ids = {str(row["id"]) for row in ad_serving.open_commissions(ctx.repo.connection(),
-                                                                           now=utc_now_iso(ctx.clock))}
+        open_ids = {str(row["id"]) for row in view.open_commissions(ctx.repo.connection(),
+                                                                     now=utc_now_iso(ctx.clock))} \
+            if view.available else set()
     if commission_id not in open_ids:
         return {"generated": 0, "skipped_reason": "commission no longer open"}
     from learnloop.adaptive_difficulty.spend import models_off

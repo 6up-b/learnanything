@@ -437,12 +437,20 @@ def _retrieval_cold(connection, repository, attempt, policy, since):
     ).admissible
 
 
-def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=False, diagnostics=None):
+def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=False, diagnostics=None,
+          attempt_rows=None):
     """Derive attempt and facet rows; ``retrieval`` adds the memory-arm fields.
 
     The family grouping is the CURRENT authored assignment, deliberately
     retrospective (PF-a applies families after the fact); it never retargets a
     row's LO, outcome or revision status.
+
+    ``attempt_rows``: the ``practice_attempts`` rows to derive from, in
+    ``(created_at, id)`` order, instead of the whole table. Adaptive
+    difficulty passes its material view's rows (A8), so a withheld answer
+    never enters a cross-attempt derivation (the familiarity history, the
+    reveal windows) of a row it keeps; None reads the table, as every other
+    caller does.
     """
     fallback = resolve_legacy_fallback(vault, legacy_fallback)
     repository = _ReadRepository(connection)
@@ -474,7 +482,9 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=Fals
     ungraded = Counter()
     unverified_attempts: set[str] = set()
     plan_served = plan_served_origins(connection)
-    for raw_attempt in connection.execute("SELECT * FROM practice_attempts ORDER BY created_at,id"):
+    raw_attempts = (attempt_rows if attempt_rows is not None
+                    else connection.execute("SELECT * FROM practice_attempts ORDER BY created_at,id"))
+    for raw_attempt in raw_attempts:
         attempt = dict(raw_attempt)
         if as_of is not None and attempt["created_at"] > as_of:
             continue
@@ -707,7 +717,7 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=Fals
 
 
 def load_attempt_rows(
-    connection, vault: LoadedVault, *, legacy_fallback=None, as_of=None, retrieval=False,
+    connection, vault: LoadedVault, *, legacy_fallback=None, as_of=None, retrieval=False, attempt_rows=None,
 ) -> tuple[AttemptRow, ...]:
     """Immutable attempt rows, including zero-mass exclusions for accounting.
 
@@ -715,8 +725,11 @@ def load_attempt_rows(
     of grader knowledge: the latest surviving grading epoch remains authoritative.
     ``retrieval`` also derives the memory-arm fields (FSRS rating, strict
     coldness, grader model); the DERIVED facet cache never needs them.
+    ``attempt_rows``: derive from these ``practice_attempts`` rows only (see
+    :func:`_load`); None reads the whole table.
     """
-    return _load(connection, vault, legacy_fallback=legacy_fallback, as_of=as_of, retrieval=retrieval)[0]
+    return _load(connection, vault, legacy_fallback=legacy_fallback, as_of=as_of, retrieval=retrieval,
+                 attempt_rows=attempt_rows)[0]
 
 
 def load_replay_rows(connection, vault: LoadedVault, *, legacy_fallback=None):

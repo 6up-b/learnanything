@@ -70,6 +70,21 @@ def slot_view(env: Any) -> Any:
     return view
 
 
+def _estimator(env: Any, view: Any) -> Any:
+    """AD's candidate estimates (Codex verify F28): the plan's estimator rule on duration evidence
+    read through the slot's material view, so a withheld answer's latency never moves a
+    candidate's estimate or its block-budget check. The plan's own estimates are untouched."""
+
+    from learnloop.daily_plan.estimates import Estimator, load_duration_evidence
+
+    config = env.plan_config
+    with env.repository.connection() as connection:
+        rows = view.attempts(connection)
+    evidence = load_duration_evidence(env.repository, latency_cap_minutes=float(config.latency_cap_minutes),
+                                      attempt_rows=rows)
+    return Estimator(evidence=evidence, read_words_per_minute=int(config.read_words_per_minute))
+
+
 def _attempted(env: Any, view: Any) -> set[str]:
     with env.repository.connection() as connection:
         return view.attempted_item_ids(connection)
@@ -198,7 +213,8 @@ def build_request(env: Any, record: Any, block: Any, slot: Any, built: Any, *, d
               and PR.capability(item) == capability]
     items = [slot_item, *others]
     pool = {item.practice_item_id: item for item in built.pool}
-    est = {str(item.id): float(built.estimator.item_minutes(vault, str(item.id))) for item in items}
+    estimator = _estimator(env, view)
+    est = {str(item.id): float(estimator.item_minutes(vault, str(item.id))) for item in items}
     est[str(slot_item.id)] = float(slot.est_minutes)
     failures = {str(item.id): eligibility_failures(env, item, slot_facets=slot_facets, capability=capability,
                                                     exclusions=exclusions, view=view) for item in items}
@@ -278,7 +294,8 @@ def deferrals_to_clear(env: Any, deferrals: Mapping[str, Mapping[str, Any]], *, 
     pool = {item.practice_item_id: item for item in built.pool}
     items = [view.item(item_id) for item_id in sorted(deferrals)]
     present = [item for item in items if item is not None]
-    est = {str(item.id): float(built.estimator.item_minutes(env.vault, str(item.id))) for item in present}
+    estimator = _estimator(env, view)
+    est = {str(item.id): float(estimator.item_minutes(env.vault, str(item.id))) for item in present}
     admission = admission_failures(env, present, pool=pool, est=est) if present else {}
     cleared = []
     for item in present:

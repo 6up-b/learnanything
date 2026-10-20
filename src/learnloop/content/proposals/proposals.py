@@ -441,6 +441,8 @@ def generate_authoring_proposal(
     row_transform: Callable[[list[dict[str, Any]]], None] | None = None,
     prompt_version: str | None = None,
     clock: Clock | None = None,
+    vault_view: Callable[[LoadedVault, Any], LoadedVault] | None = None,
+    request_guard: Callable[[str], None] | None = None,
 ) -> str:
     """Run authoring generation through a AIProviderClient and persist the result.
 
@@ -452,12 +454,17 @@ def generate_authoring_proposal(
     and BEFORE persist + ``auto_apply_rows``, so a caller can downgrade a row's
     ``_auto_apply`` flag or patch its payload (e.g. force review, add a tag)
     without the route ever leaking to auto-apply. It mutates the rows in place.
+
+    ``vault_view`` and ``request_guard`` (default off): adaptive difficulty's commissioned path
+    builds the context from the vault its material view sees, and revalidates the serialized
+    request before anything is recorded or sent; a guard that raises refuses the request.
     """
 
     vault = load_vault(root)
     repository = vault_repository(VaultPaths(vault.root, vault.config))
+    context_vault = vault_view(vault, repository) if vault_view is not None else vault
     context = build_authoring_context(
-        vault,
+        context_vault,
         subjects=subjects,
         note_ids=note_ids,
         source_refs=source_refs,
@@ -465,6 +472,8 @@ def generate_authoring_proposal(
         focus_concepts=focus_concepts,
         focus_facets=focus_facets,
     )
+    if request_guard is not None:
+        request_guard(authoring_prompt(context))
     now = utc_now_iso(clock)
     provider_fields = _agent_provider_fields(codex_client, model=model, provider_revision=codex_revision)
     agent_run_id = repository.insert_agent_run(

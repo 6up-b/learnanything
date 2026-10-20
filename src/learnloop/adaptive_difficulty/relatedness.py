@@ -375,6 +375,11 @@ def propose_subject(vault: Any, repository: Any, subject: str, *, client: Any = 
     from learnloop.adaptive_difficulty.material_view import material_view
 
     view = material_view(vault, repository, protected)
+    if not view.available:
+        # Fail closed before any work is prepared (Codex verify F32): with the held-out predicate
+        # unavailable nothing about the subject is assembled, claimed or sent.
+        outcome.status, outcome.reason = "unavailable", view.reason
+        return outcome
     whole = subject_inputs(vault, repository, subject, protected=view)
     if not whole["payload"]["learning_objects"]:
         outcome.status = "empty"

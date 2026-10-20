@@ -134,7 +134,8 @@ def commission_batch_id(selection_id: str) -> str:
     return f"{COMMISSION_BATCH_PREFIX}{selection_id}"
 
 
-def open_commissions(connection: sqlite3.Connection, *, now: str | None = None) -> list[dict[str, Any]]:
+def open_commissions(connection: sqlite3.Connection, *, now: str | None = None,
+                     landed: Any = None) -> list[dict[str, Any]]:
     """Commission draws still open at ``now`` (default: the current UTC time). §6.1 allows at most
     one open per active cell, so an open commission suppresses further draws for its cell.
 
@@ -152,14 +153,20 @@ def open_commissions(connection: sqlite3.Connection, *, now: str | None = None) 
     explicit resume of the old job later finds its commission closed).
 
     Expiry only closes a commission to new draws. A commission whose item landed gets its receipt
-    whatever its expiry (``generation.record_landed_commissions``, Codex verify F15)."""
+    whatever its expiry (``generation.record_landed_commissions``, Codex verify F15).
+
+    ``landed``: the selection ids whose landing AD may see (adaptive difficulty's material view
+    passes those of its visible results, so a landing of a withheld item closes nothing: fix round
+    9, A8 "protected == absent"); None counts every result."""
 
     if not has_table(connection, SELECTIONS):
         return []
     rows = [_decode_selection(row) for row in _select(
         connection, f"SELECT s.* FROM {SELECTIONS} s WHERE s.kind = 'commission' AND "
-                    "s.chosen_point_json IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "
-                    f"{COMMISSION_RESULTS} r WHERE r.selection_id = s.id) ORDER BY s.created_at, s.id")]
+                    "s.chosen_point_json IS NOT NULL ORDER BY s.created_at, s.id")]
+    results = {str(row[0]) for row in connection.execute(f"SELECT selection_id FROM {COMMISSION_RESULTS}")} \
+        if landed is None else {str(value) for value in landed}
+    rows = [row for row in rows if str(row["id"]) not in results]
     if not rows:
         return []
     # The latest commission of each cell in the total draw order ``(created_at, rowid)``, the
