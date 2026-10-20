@@ -809,3 +809,70 @@ All steps ran in the worktree with `TMPDIR=fixtures-local/tmp`. Only targeted te
 Not run, by the owner rule: the full suite, the whole durability lane and the whole vitest run. Pre-existing and
 unchanged: `desktop_validate.py` (`syntheticBook.ts`) and `module_validate.py` (missing module notes). No migration, no
 DB or connection change, nothing under `src-tauri` and no configuration key change.
+
+## Fix round 11 (orchestrator rulings)
+
+Codex's verify of fix round 10 (`1d2c2981d`; job `20261019-231238-ZR55fz`, read-only) confirmed round 10's stem fix
+(both reproductions 0.0, 1,715 union cases, 1,344 cutter checks, parity and counting) and reopened the class:
+**F8 (High)**, a gap that is the key with its spaces doubled, or turned into newlines or tabs, scored 0.0 in the plan
+and the search's whitespace collapse then sent the exact key to the rewrite (18 cases); **F10 (Medium)**,
+`whole_token_cut` read an opening `$$` as two delimiters and cut inside display math. The orchestrator ruled to close
+the class. The fix is in `0687cdfa3`. The references regenerated on top of it are committed with this record.
+**Nothing was rejected.**
+
+**Paid calls: none ($0.00).** Every model is a fake. No vault copy was opened, and no manual run was made.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F8 (round 11, reopened) | High | Query normalization creates a leak after the fixpoint | fixed (R1-R3) | `0687cdfa3` | `test_reader_rw1c_review.py::test_a_whitespace_variant_of_the_key_never_reaches_the_rewrite` ×18 (the verify's cases: spaces, newlines, tabs × explain, another way, that didn't help × service on/off; old code: the rewrite prompt carried the key); the send-boundary contract `::test_every_sent_model_written_fragment_was_checked` ×72; the unbound pin `::test_unbound_queries_are_built_as_before` |
+| F10 | Medium | Whole-token cutting splits display-math groups | fixed (R4) | `0687cdfa3` | `::test_a_cut_never_opens_a_group_it_does_not_close` ×5 (display, inline, `\(…\)`, `\[…\]`, braces, every limit; old code: display, paren and bracket failed), `::test_the_verifys_display_math_case_is_cut_before_the_group` |
+| F9 (round 7) | High | Same-second timestamp boundary | non-blocking (orchestrator ruling, round 7); its own follow-up | — | unchanged |
+
+### What the fix does
+
+* **R1: one canonical form.** `learnloop/text_canon.py` (a leaf module) holds `collapse_whitespace`, which is now
+  the search's and the rewrite's own normalisation (`practice_index.query_vectors.normalize_query` returns it: one
+  function, so they cannot drift), and `canonical`: Unicode NFKC, the invisible format characters (category `Cf`:
+  zero-width spaces and joiners, the byte-order mark, soft hyphens) removed, then `collapse_whitespace`. It is
+  idempotent and every later whitespace collapse leaves it unchanged. The bound guard (`ItemBoundGuard.text_leaks`
+  and `.text_overlap`, the matcher `withhold` and `plan_bound_delivery` use) scores the canonical form.
+* **R2: the text checked is the text sent.** `plan_bound_delivery` canonicalises every model-written slot before it
+  reads it and delivers that form: the earlier answers, the gap statements (so the query, its rewrite and the
+  verification), the bridge's open questions and problem line, the misconceptions' statements and corrections (a
+  copy of each record) and the item's question (canonicalised, then fitted). The learner's own text is untouched
+  here; it is whitespace-collapsed only where the query already did it. Unbound, nothing changes (pinned: the
+  unbound query keeps a zero-width character as written). `BoundDelivery.checked` records each call's final
+  delivered texts (`lookup`: the fitted statements, the misconceptions, the question; `tutor`: the answers as sent,
+  the open questions, the problem line).
+* **R3: the send-boundary contract.** `::test_every_sent_model_written_fragment_was_checked` runs a bound request for
+  each intent × sources service on/off × cold/non-cold × six variants of the planted texts (doubled spaces, tabs,
+  newlines, no-break spaces, zero-width characters, upper case; one is the whole key, others parts of it). It
+  captures the exact prompts the fake tutor, the rewrite (the production `rewrite_prompt`, from the text the search
+  hands it) and the verification receive, and asserts (a) every model-written fragment in them, canonical, is a text
+  the plan's final pass checked (the query equals the plan's; its part after the learner's words is the checked
+  statements; each misconception and the question are checked slots; each answer, open question and problem line in
+  the tutor's context is a checked slot) and (b) the guard passes over the delivered model-written union with the
+  item's question. It also asserts the whole-key variant was read as the key and withheld.
+* **R4: matched groups.** `whole_token_cut` is now a scanner with explicit states: inline `$...$`, display `$$...$$`,
+  `\(...\)`, `\[...\]` (the open group's closing delimiter) and brace depth; an escaped character (`\$`, `\{`) opens
+  nothing. It cuts only at a space where no group is open.
+
+### Gate (fix round 11)
+
+All steps ran in the worktree with `TMPDIR=fixtures-local/tmp`. Only targeted tests were run (owner rule
+2026-10-17). The pytest runs took `/tmp/learnloop-fullsuite.lock`.
+
+| step | result |
+|---|---|
+| backend fail-before on `1d2c2981d` (`git archive` of `src` and `migrations` into `fixtures-local/rw1c-r11-base`, run with this branch's tests and `-o pythonpath=fixtures-local/rw1c-r11-base/src`) | 97 new cases: **94 failed, 3 passed**. The 18 F8 cases fail on the delivered rewrite prompt (the key, after the search's collapse). The F10 sweeps fail for display, paren and bracket and the verify's case; inline and brace pass (round 10 handled them). The 72 contract cases fail at the import of the new `text_canon` module (the contract reads the plan's new `checked` record); the 18 behavioural cases cover the same send path. The unbound pin passes on both trees, as it should |
+| `uv run lint-imports --no-cache` | 28 kept, 0 broken |
+| targeted pytest, `uv run pytest -n auto` over 58 files (the 54-file list plus the four that name `normalize_query` or `query_vectors`: `test_matching.py`, `test_practice_index_find.py`, `test_practice_index_adapters.py`, `test_source_retrieval_search.py`) | **1,421 passed** (81 s) |
+| `--durable-sqlite` on the 97 new cases | **97 passed** |
+| vitest, `src/screens/reader/` and the `ReaderScreen.*.test.tsx` files (no frontend change) | **399 passed** |
+| `db_generate_reference.py`, then `db_validate_reference.py` | 0 errors (head 213). Before the regeneration, 2 configuration line citations into the changed files were stale |
+| `git diff --check` | clean |
+
+Not run, by the owner rule: the full suite, the whole durability lane and the whole vitest run. Pre-existing and
+unchanged: `desktop_validate.py` (`syntheticBook.ts`) and `module_validate.py` (missing module notes; the new
+`learnloop/text_canon.py` is one more leaf without a note). No migration, no DB or connection change, nothing under
+`src-tauri` and no configuration key change.
