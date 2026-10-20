@@ -3,8 +3,8 @@ title: "Config - probe"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1001054f2b04137abd5b2d97361920c55feed8f5"
-source_commit_timestamp: "2026-10-20T01:42:44-04:00"
+source_commit: "80edc01a5734d60471ca774c9d32659ff39b10b6"
+source_commit_timestamp: "2026-10-20T12:45:06-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml probe"
@@ -35,13 +35,13 @@ source_paths:
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
   - "tests/split_live_helpers.py"
+  - "tests/test_ad23_contract.py"
   - "tests/test_ad23_successor.py"
   - "tests/test_ad2_model.py"
   - "tests/test_ai_config.py"
   - "tests/test_approach_maps.py"
   - "tests/test_capability_residual.py"
   - "tests/test_chatgpt_plan_provider.py"
-  - "tests/test_cli_ingest.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/probe"
@@ -77,7 +77,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `probe.self_tag.w_base` | `0.5` | number | modeled default or validator seed | Controls w base in diagnostic episodes, instruments, calibration, and lifecycle, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:186`; `src/learnloop/diagnosis/probes.py:414` |
 | `probe.self_tag.w_max` | `0.7` | number | modeled default or validator seed | Caps w allowed by diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:187`; `src/learnloop/diagnosis/probes.py:414` |
 | `probe.self_tag.target_degree` | `2.0` | number | modeled default or validator seed | Controls target degree in diagnostic episodes, instruments, calibration, and lifecycle, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:188`; `src/learnloop/diagnosis/probes.py:410` |
-| `probe.self_tag.promotion_threshold` | `3` | integer | modeled default or validator seed | Sets the decision cutoff for promotion in diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:189`; `src/learnloop/content/proposals/proposals.py:934` |
+| `probe.self_tag.promotion_threshold` | `3` | integer | modeled default or validator seed | Sets the decision cutoff for promotion in diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:189`; `src/learnloop/content/proposals/proposals.py:975` |
 | `probe.episode.minimum_independent_observations` | `2` | integer | modeled default or validator seed | Sets the minimum independent observations required by diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:221`; `src/learnloop/diagnosis/probe_episodes.py:215`; `src/learnloop/evsi_calibration/policies.py:309` |
 | `probe.episode.placement_minimum_observations` | `1` | integer | modeled default or validator seed | Sets the minimum placement observations required by diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:224`; `src/learnloop/diagnosis/probe_episodes.py:213` |
 | `probe.episode.maximum_observations` | `4` | integer | modeled default or validator seed | Controls maximum observations in diagnostic episodes, instruments, calibration, and lifecycle, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:225`; `src/learnloop/diagnosis/probe_episodes.py:217`; `src/learnloop/diagnosis/voi_forecasting.py:145` |
@@ -147,13 +147,13 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
 - `tests/split_live_helpers.py`
+- `tests/test_ad23_contract.py`
 - `tests/test_ad23_successor.py`
 - `tests/test_ad2_model.py`
 - `tests/test_ai_config.py`
 - `tests/test_approach_maps.py`
 - `tests/test_capability_residual.py`
 - `tests/test_chatgpt_plan_provider.py`
-- `tests/test_cli_ingest.py`
 
 ## Extension and modification guidance
 

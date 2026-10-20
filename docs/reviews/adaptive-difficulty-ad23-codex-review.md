@@ -943,3 +943,161 @@ point or an input kind it does not cover. Two boundaries are recorded rather tha
   quotes from it. These are numbers from the incumbent's own evidence, never material.
 - Incumbent planning, which keeps the plan's own estimates (only AD's candidate estimates are
   filtered).
+
+## Fix round 10: time-varying protection and the remaining raw readers (2026-10-20)
+
+Codex's verify of round 9 (codex-job `20261020-014655-xFFz0U`, verdict REOPENED) confirmed F24 and
+F26-F32. It reopened F20, F21 and F28, and raised F33, F34 and F36 (High) and F35 (Medium). Its
+point was that the round-9 contract compares two copies at one moment, and so misses three kinds
+of case: a reader whose rows it never seeded, an AD decision that reads the incumbent's evidence,
+and protection that changes between two moments of one operation.
+
+The orchestrator's rulings R1-R8 are implemented in commit `80edc01a5`, with no migration change.
+All tests are in `tests/test_ad23_contract.py`, which goes from 3 tests to 14 (R8: the contract
+file carries every scenario). No model calls: fakes only.
+
+| Id | Severity | Title | Origin | Verdict | Commit | Test |
+|---|---|---|---|---|---|---|
+| F24, F26, F27, F29-F32 | | (confirmed fixed by the verify) | | fixed | `1001054f2` | round-9 tests pass |
+| F20 | High | Historical protected reveals still warm forecasts | stage (warmth) | fixed (R1) | `80edc01a5` | the contract (a reveal on the public `pi_hist` belonging to the answer to its held-out revision: steps, receipts, scores) |
+| F21 | High | Protected answers still choose a commission's capability | inherited (`select_rung`'s incumbent inputs), made live by the commissioned path | fixed (R2) | `80edc01a5` | the contract (wrong protected answers that carry the incumbent's evidence count past the legacy rung's threshold: the commission's capability and point); `test_the_commissioned_generation_path_reads_no_incumbent_diagnosis_or_probe_counts` |
+| F28 | High | Protected feedback dwell still changes AD candidate admission | stage (the plan's dwell reader) | fixed (R3) | `80edc01a5` | the contract (ten protected completion-to-next-serve pairs: the slot's candidate estimates and failures); `test_feedback_dwell_skips_a_serve_withheld_with_its_presentation` |
+| F33 | High | Frozen outside forecasts omit answered-revision protection identities | AD1 (frozen inputs) | fixed (R4) | `80edc01a5` | `test_a_frozen_history_is_refused_once_an_answered_revision_behind_it_is_held_out` |
+| F34 | High | Commissioned repair requests bypass protection revalidation | inherited (the repair pass), made reachable by the commissioned path | fixed (R5) | `80edc01a5` | `test_a_commissioned_repair_after_protection_changed_mid_call_is_refused` (held out, unavailable); `test_request_authoring_proposal_is_called_from_the_guarded_dispatch_only` (AST) |
+| F35 | Medium | Protected dose deliveries still trigger report burden flags | stage | fixed (R6) | `80edc01a5` | the contract (three delivered protected offers, each followed in its visit by a cue-density lowering: the report's and `ad report`'s burden flag) |
+| F36 | High | Dose uptake writes survive the kill switch | stage | fixed (R7) | `80edc01a5` | the contract (late callbacks for the protected offers; the unavailable harness); `test_a_late_uptake_callback_writes_nothing_when_ad_cannot_record_it` (AD off, dose arm off, unavailable); `test_the_sidecar_uptake_callback_answers_a_no_op_with_ad_off` |
+| self-audit | | Dose budget, taken offers, report visits and the generation gates read raw rows or the whole vault | stage | fixed | `80edc01a5` | `test_withheld_dose_offers_neither_spend_the_budget_nor_count_as_taken`; `test_the_commissioned_generation_path_reads_no_incumbent_diagnosis_or_probe_counts` |
+
+### What changed
+
+- **R1 (F20), reveals** (`MaterialView.reveals`). A reveal is resolved through the attempt it
+  belongs to: its `attempt_id`, or its tutor question's attempt (`question_events.attempt_id`).
+  That attempt is judged by `attempt_withheld`, the same answered-revision rule as `attempts()`,
+  so a reveal on a public item is withheld with an answer given to a held-out revision of it.
+- **R2 (F21), the commissioned rung.** Under the generation contract with the view available,
+  `build_practice_expansion_plan` reads no incumbent mastery or evidence:
+  - `select_rung`'s inputs are the view's own count of graded answers
+    (`MaterialView.graded_counts`, the replay's window-closing cohort) and the learner's claim. No
+    `mastery_ekf` value is read, so the band entry is the rung's default (claim, else `recall`).
+  - `select_rung(..., episode_hypotheses=False)` skips the probe episode's top hypothesis, which is
+    the incumbent's diagnosis and can count withheld answers.
+  - A commissioned target's request also leaves out `probe_attempts_completed` and
+    `probe_attempts_target`, as it already left out `mastery_mean` and the band.
+  - The predecessor's path (contract off, or the view unavailable) is unchanged.
+- **R3 (F28), feedback dwell.** `load_duration_evidence(..., event_visible=...)` is a new injectable
+  rule, passed by AD's slot only (`MaterialView.plan_event_visible`). An event is invisible when:
+  - it names a withheld item;
+  - it completes a withheld attempt;
+  - it is a serve whose presentation (found by block and item, since plan events name no
+    presentation) froze a withheld revision.
+
+  An invisible event is skipped as if it had never been written: it neither starts, ends nor breaks
+  a pair. With no rule (the plan), every event pairs exactly as before.
+- **R4 (F33), frozen histories.** `history_card` records, for each history entry, the attempt id
+  and the source identity of every revision that attempt answered (`answered_revision_items`), next
+  to the current item's identity. The frozen payload carries `history_attempts`. At dispatch,
+  `SendGuard` re-judges each of those attempts through a fresh material view
+  (`attempt_withheld_by_id`; a missing attempt is withheld). A now-protected entry refuses the job
+  (`protected`, nothing sent). A frozen payload without `history_attempts` (written before this
+  round) is never sent: it expires, as already accepted.
+- **R5 (F34), one guarded dispatch** (`proposals.dispatch_authoring_request`). It is the only
+  caller of `request_authoring_proposal`. It serves the first request and every repair:
+  - A commissioned request (a request guard present) is revalidated on its serialized prompt
+    immediately before it goes out.
+  - `CommissionedRequestGuard` now reloads the vault from its root and builds a fresh material view
+    for every call, so protection is read afresh and an unreadable predicate refuses.
+  - A commissioned request with no guard is refused.
+  - Any guard failure raises `AuthoringRequestRefused`. `_repair_invalid_proposal_items` re-raises
+    it rather than treating it as a best-effort repair failure, so the whole run stops and nothing
+    is persisted.
+  - The refusal's message is generic. What the request quoted stays in the guard's log and the
+    chained cause, never in the agent run's persisted `error_message`.
+  - The diagnostic authoring path calls the dispatch with no guard (never commissioned). The AST
+    test pins both facts and that the three plan-based generators pass AD's request options.
+- **R6 (F35), density lowerings.** `density_lowerings(connection, view=...)` derives its offer cohort
+  from `view.dose_rows()` and skips a lowering on an extraction held out as a whole. While the
+  predicate is unavailable it returns none, so the burden flag cannot fire; the dose sections are
+  already suppressed.
+- **R7 (F36), uptake.** `record_uptake` gates at the write: with AD or `reading_dose_offers` off,
+  the predicate unavailable, or the draw's extra withheld now, it writes nothing and returns None.
+  The sidecar's `reader.dose_offer_event` answers `{"rowId": null, "recorded": false}`. The desktop
+  client's type is widened to match; it ignores the result.
+- **Self-audit** (R8's last paragraph). A sweep of `adaptive_difficulty/` and its callers for raw
+  `attention_block_events`, `reveal_events`, dose rows, `interaction_events` and model dispatch
+  found four more readers, now routed through the view:
+  - the dose friction budget (`budget(..., view=)`): a withheld offer spends nothing;
+  - `taken_offers(..., view=)`: a withheld offer tags no reading receipt;
+  - the report's visits (`_visits(..., view=)`): a visit to an extraction held out as a whole is
+    not one, and none is read while the predicate is unavailable;
+  - the post-generation gates of the three plan-based generators (`_ad_gate_vault`): they compare a
+    commissioned batch against the vault the view sees, so a withheld item's surface family or
+    facet never decides what is kept, and the persona gate builds its personas from that vault.
+
+  `MaterialView.dose_extra_withheld` now fails closed while unavailable. It distinguishes a
+  question that is protected now (withheld) from one merely deleted (the offer stands, as F30's
+  frozen dose does).
+
+### Behaviour changes worth knowing
+
+- Under the generation contract, every target of a plan built through the view (commissioned or
+  not) selects its rung without the incumbent's mastery or probe diagnosis, and its difficulty band
+  inverts around the learner's claim only. With the contract off nothing changes.
+- A protected offer no longer spends the dose budget, so a section or day whose only offer is now
+  protected can be offered again.
+- A frozen outside-forecast request written before this round is never sent (it lacks
+  `history_attempts`).
+- A commissioned authoring run refused at dispatch is recorded as a failed agent run with the
+  generic refusal message. One refused at its repair stops after the first call and persists
+  nothing.
+
+### Boundaries recorded, not changed
+
+- `learnloop ad data-check` (AD1) counts raw graded attempts on a read-only backup copy: aggregate
+  figures for the owner, never an AD decision, state or prompt.
+- `build_practice_expansion_plan` still reads the incumbent's `lo_probe_state` for the predecessor's
+  completed-probe gate, which decides whether an LO with no contract cell gets a target at all.
+  It no longer reaches the request (the counts are left out of a commissioned target) or the rung.
+  Whether a held-out answer can complete a probe is a question for the next verify.
+- AD1's incumbent receipt (`mastery_ekf`) stays the recorded carve-out, for report comparison only.
+  After R2 it reaches no generation targeting.
+
+**Fail-before.** `tests/test_ad23_contract.py` against `190bf5a78` (`git archive` into
+`fixtures-local/ad23-r10-base`, `-o pythonpath`): **13 of 14 fail**. The one that passes is round
+9's F30 parity case, which this round does not touch.
+- The contract fails on its comparison, which differs in these entry points:
+  - the slot's candidate estimates: 6.8 against 2.3 minutes, and an extra `over_block_budget`
+    failure (F28);
+  - the serve receipts' warmth (0.812 against 0.017), the forecasts and the scores (F20);
+  - the commission's capability and point: `retrieval` at complexity 1 against
+    `schema_interpretation` at complexity 2, and a second commission draw (F21);
+  - the report's and `ad report`'s `dose_offers_a_burden` flag: 3 lowerings, fires, against 0
+    (F35);
+  - three late uptake writes against none (F36), and the dose rows written.
+- The unavailable harness fails on the uptake writes (F36).
+- The focused tests fail as follows:
+  - F33: no `history_attempts` was frozen;
+  - F34: the refusal did not exist, and the AST test finds three direct callers;
+  - F36: `taken` was appended with AD off, the dose arm off or the predicate unavailable, and the
+    RPC had no `recorded`;
+  - R3's presentation case: there was no event rule;
+  - the self-audit tests: `budget` took no view, and `_ad_gate_vault` did not exist.
+- All 14 pass after the fix.
+
+### Gate (this round; owner rule 2026-10-17: targeted only)
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 27 kept, 0 broken |
+| `test_ad23_contract.py` | 14 passed (with `test_ad23_fix_review.py` and `test_ad23_material_view.py`: 37 passed) |
+| targeted pytest, `uv run pytest -n 12` over 157 files: round 9's 134, and every test naming `select_rung`, `request_authoring_proposal`, `_repair_invalid_proposal_items`, `record_uptake`, `dose_offer_event`, `density_lowerings`, `SendGuard`, `history_card`, `freeze_presentation_inputs`, `taken_offers`, `build_practice_expansion_plan`, `material_view`, `reveal_events`, `feedback_dwell`, `practice_generation`, `depth_rungs` or `adaptive_difficulty` | **8,423 passed, 36 xfailed** (1,954 s), 0 failed |
+| `--durable-sqlite`: `test_ad23_contract.py`, `test_ad23_fix_r9.py`, `test_ad23_fix_r8.py`, `test_ad23_migration.py` | 38 passed |
+| desktop: `npm run typecheck`; vitest `DoseOffer.test.tsx`, `ReaderScreen.doseOffer.test.tsx` | clean; 6 passed (the uptake result type gains `recorded` and a nullable `rowId`) |
+| references: `db_generate_reference.py`, `db_validate_reference.py` | 0 errors (commit labels; no schema change) |
+| migration 214, defaults snapshots, CLI help, `cargo check` | unchanged or not applicable |
+
+### For the next verify
+
+The contract file now carries the time-varying cases next to the one-moment comparison. Three
+boundaries are recorded rather than covered: `ad data-check`'s raw aggregates, the predecessor's
+completed-probe gate on LO eligibility, and AD1's `mastery_ekf` comparator receipt (report
+comparison only).

@@ -3,8 +3,8 @@ title: "Config - library_ask"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1001054f2b04137abd5b2d97361920c55feed8f5"
-source_commit_timestamp: "2026-10-20T01:42:44-04:00"
+source_commit: "80edc01a5734d60471ca774c9d32659ff39b10b6"
+source_commit_timestamp: "2026-10-20T12:45:06-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml library_ask"
@@ -25,13 +25,13 @@ source_paths:
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
   - "tests/split_live_helpers.py"
+  - "tests/test_ad23_contract.py"
   - "tests/test_ad23_successor.py"
   - "tests/test_ad2_model.py"
   - "tests/test_ai_config.py"
   - "tests/test_approach_maps.py"
   - "tests/test_capability_residual.py"
   - "tests/test_chatgpt_plan_provider.py"
-  - "tests/test_cli_ingest.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/library-ask"
@@ -69,13 +69,13 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
 - `tests/split_live_helpers.py`
+- `tests/test_ad23_contract.py`
 - `tests/test_ad23_successor.py`
 - `tests/test_ad2_model.py`
 - `tests/test_ai_config.py`
 - `tests/test_approach_maps.py`
 - `tests/test_capability_residual.py`
 - `tests/test_chatgpt_plan_provider.py`
-- `tests/test_cli_ingest.py`
 
 ## Extension and modification guidance
 

@@ -3,8 +3,8 @@ title: "daily_plans"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1001054f2b04137abd5b2d97361920c55feed8f5"
-source_commit_timestamp: "2026-10-20T01:42:44-04:00"
+source_commit: "80edc01a5734d60471ca774c9d32659ff39b10b6"
+source_commit_timestamp: "2026-10-20T12:45:06-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite daily_plans"
@@ -117,6 +117,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/source_service_fakes.py`
+- `tests/test_ad23_contract.py`
 - `tests/test_architecture.py`
 - `tests/test_daily_plan_kill_switch.py`
 - `tests/test_daily_plan_reading.py`

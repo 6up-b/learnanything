@@ -3,8 +3,8 @@ title: "Config - source_service"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1001054f2b04137abd5b2d97361920c55feed8f5"
-source_commit_timestamp: "2026-10-20T01:42:44-04:00"
+source_commit: "80edc01a5734d60471ca774c9d32659ff39b10b6"
+source_commit_timestamp: "2026-10-20T12:45:06-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml source_service"
@@ -37,9 +37,9 @@ source_paths:
   - "tests/split_live_helpers.py"
   - "tests/test_action_loss.py"
   - "tests/test_ad1_fix_round5.py"
+  - "tests/test_ad23_contract.py"
   - "tests/test_ad23_successor.py"
   - "tests/test_ad2_model.py"
-  - "tests/test_ai_compare.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/source-service"
@@ -96,9 +96,9 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/split_live_helpers.py`
 - `tests/test_action_loss.py`
 - `tests/test_ad1_fix_round5.py`
+- `tests/test_ad23_contract.py`
 - `tests/test_ad23_successor.py`
 - `tests/test_ad2_model.py`
-- `tests/test_ai_compare.py`
 
 ## Extension and modification guidance
 
