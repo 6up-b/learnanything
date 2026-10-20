@@ -137,3 +137,82 @@ No finding was rejected.
   **0 errors** (919 leaves, head 213; commit labels and line citations
   refreshed in `150b70a47`).
 - No live or paid model call; fakes only.
+
+## Re-review (round 2; codex-job 20261020-004635-fEubOE)
+
+Codex re-checked round 1. F1 is confirmed fixed. It reopened F2 and raised
+one new finding, F6. Both reproduced in a hook test before the fix
+(`readerWorkbenchExercise.test.tsx`: 3 new tests, all 3 failed before and
+pass after).
+
+| id | severity | title | verdict | commit | test or reason |
+|----|----------|-------|---------|--------|----------------|
+| F1 | High | Library page's exercise actions crash (`openLibraryHit` uninitialized) | confirmed fixed (round 1) | `60384ab90` | Codex confirmed; round 1's regression test covers both actions |
+| F2 | High (reopened) | A failed acknowledging open leaves the hand-off guard held, so the owed pick is never retried | fixed | `275decf58` | `an acknowledging open that failed releases the hand-off, so the owed pick is handed over again` |
+| F6 | Medium | A late import answer associates the exercise with the wrong book | fixed | `275decf58` | `a late import answer from another book admits nothing until the exercise's own book is open again`; `a problem whose source is not the open card's admits nothing` |
+
+### Fixes
+
+- **F2.** `App.tsx`'s hand-off (`exerciseAdmitted` → `pickCheckMe`)
+  resolves `true` once the pick is made and served. The acknowledging
+  `workbench.open` runs after that, when the "check me" with
+  `admitsSessionId` opens.
+  - Before the fix, a failed open left the session in the hook's `admitting`
+    guard. No later update or resume handed the pick over again, even though
+    the server still reported `exercisePick.due`.
+  - Now the check's open-failure path drops `admitsSessionId` from the
+    guard. The next sight of the problem (an update or a resume, this visit
+    or after a restart) hands the owed pick over again.
+  - That new pick is served again, and its open carries the new serve's
+    `schedulerCandidateId`/`planPresentationId`. The server persists them on
+    the problem when it acknowledges the pick, which covers the missing
+    serve identifiers Codex noted.
+  - A successful open keeps the guard. The acknowledged session is no
+    longer due, so the guard is moot. This also avoids a pick-and-open loop
+    if an open succeeded without the server acknowledging it.
+  - A retry happens on the next sight, not at once, so a persistent failure
+    does not keep recording learner picks with nobody acting. This matches
+    round 1's rule for a failed hand-off ("tried again, by this visit or the
+    next").
+- **F6.** `noteAdmission` now resolves the book from the problem itself.
+  - It hands the pick over only when the problem's `extractionId` is the
+    open extraction and its `sourceId` is the open card's.
+  - Otherwise it does nothing. That covers a late import-refresh `update` for
+    book A's problem while book B is open, and a moment when the card and the
+    extraction disagree.
+  - The pick stays `due` on the problem (server state, unchanged). When A is
+    open again and the problem is resumed or updated, the pick is handed
+    over with A's card and span.
+
+### Gate (re-review fix step; targeted, per the owner's 2026-10-17 rule)
+
+- `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`: ok
+  (`TMPDIR` = `fixtures-local/tmp`).
+- `uv run lint-imports --no-cache`: **28 kept, 0 broken**.
+- Pytest: none. No Python file changed this round. Only
+  `useReaderWorkbench.ts` and its test changed, and no Python test pins
+  that file.
+- Durability: none needed (no migration and no DB code changed).
+- Frontend (`apps/learnloop-tauri`):
+  - `npm install` ok, and `npm run typecheck` clean.
+  - Targeted vitest over the same 40 files as round 1: **40 files, 355
+    passed** (352 + the 3 new).
+    - `app/App.wrapUpSkim`, `app/notices`, `app/readerWorkbench`,
+      `app/readerCheck`
+    - `screens/attentionBudget`
+    - `reader/IntentBox`, `reader/intentSwitchOff`,
+      `reader/libraryAskSwitchOff`, `reader/libraryAsk`,
+      `reader/libraryAskJobs`, `reader/libraryExercisesReader`,
+      `reader/libraryExercises`, `reader/exerciseCandidates`,
+      `reader/nextStepFold`, `reader/readerWorkbenchExercise`,
+      `reader/recapSwitchOff`, `reader/rw1bReview`
+    - every `screens/ReaderScreen.*.test.tsx` and every
+      `screens/workbench/*.test.tsx`
+    - `components/SourceOffers`
+  - `readerWorkbenchExercise.test.tsx` alone: **12 passed** (9 before plus 3
+    new; the 3 new ones failed before the fix).
+  - `npm run frontend:build`: ok.
+- `src-tauri` unchanged, so no cargo check was run. The schema is
+  unchanged, so the references were not regenerated, and no doc cites the
+  changed lines.
+- No live or paid model call; fakes only.
