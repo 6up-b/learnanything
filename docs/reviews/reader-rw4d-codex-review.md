@@ -127,3 +127,88 @@ References regenerated in 27b3fe711. The only change was cited line numbers in `
 - Not needed in this step:
   - `cargo check`: nothing under `src-tauri` changed; the RPCs are passthroughs.
   - Config, CLI help and serializer snapshots: no key or command changed.
+
+## Fix round 2 (orchestrator)
+
+The whole-stage verify of `3988cf778..27215b877` (Codex job
+`20261020-163406-Kr0sIB`, VERDICT: REOPENED) found two High and two Medium
+findings. The orchestrator's rulings were binding. Each finding has a test that fails on
+`27215b877`, and each is fixed in `eaafb6f45`. References were regenerated in `18f4b0600`
+(commit labels and `kept_comparisons.py`'s cited lines; schema unchanged,
+head 213, 0 errors). No migration, no new config key, no model call. Every
+test uses fakes. The reference scripts ran only under `env -i` with an empty
+`HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR` and the model base URLs at
+`127.0.0.1:9`. No vault copy or fixture vault was opened.
+
+| id | severity | title | verdict | test |
+|---|---|---|---|---|
+| F1 | High | Adding a take duplicates a kept comparison | fixed | `test_a_comparison_another_ask_keeps_is_modified_there_never_kept_twice` (the verify's A/B sequence: 2 objects, one live keep), `test_the_tutor_shown_a_comparison_the_learner_keeps_modifies_that_keep`; vitest "a take on a comparison another question keeps goes to the row that keeps it (verify F1)" |
+| F2 | High | Held-out kept quotes through `reader.source_objects` | fixed | `test_a_kept_comparison_held_out_later_is_not_returned_by_any_reader_rpc`, `test_source_objects_fail_closed`, `test_every_entry_point_reading_source_objects_is_pinned` |
+| F3 | Medium | The card read ignores current held-out status | fixed | `test_the_card_omits_a_comparison_held_out_now_at_every_as_of` |
+| F4 | Medium | Tutor keeps cannot take a take with the library answer off | fixed | `test_a_tutor_keep_takes_a_take_with_the_library_answer_off` (including its cold-attempt refusal) |
+
+### What changed
+
+- **F1.** `kept_comparisons.live_keep_of(repository, comparison_id, prefer=)` returns the row that keeps a comparison now. That is the named ask when it keeps it; otherwise it is the earliest live keep of that comparison from any caller, because the service reuses a stored comparison across callers too.
+  - `keep` calls it inside its `atomic()` transaction, before any proposal is written. A comparison the ask shows that another row keeps is modified on that row. It is never kept a second time. `compare_kept_state` and `keep_tutor` use the same resolution.
+  - `CompareKeep` sends `kept.askId` (with the `comparisonId` shown) whenever it modifies an existing keep, for library and tutor tables alike.
+- **F2.** `reader.source_objects.withheld_source_objects(vault, repository, heads)` reads each object's provenance:
+  - every citation's span, on the reading it was made on (`CitationResolver`), on its book's current reading, and on every reading of its revision;
+  - plus the `selected_span_ids` in its content.
+
+  It asks the one predicate (`exam_material`). It fails closed. If the predicate cannot be read, every object is withheld. An object with no span to place is withheld while its book has any exam or held-out material.
+
+  `source_objects_for_source(vault, repository, source_id=)` now requires the vault and filters through it. `reader.source_objects` passes it. Rows stay in the ledger.
+
+  **The enumeration.** In every entry-point package (`learnloop_sidecar`, `learnloop_mcp`, `learnloop_mobile`, `learnloop/cli`), `reader.source_objects` is the only RPC that reads source objects, their versions or their citations. The pin test fails if another one appears. The other source-object RPCs are covered in the same keep-then-withhold-then-read test:
+  - `reader.proposal_inbox` returns mapping proposals and no object content;
+  - `reader.review_source_object` and `reader.link_relation` return ids only;
+  - RW4d's `reader.kept_comparisons` and `reader.library_compare_reopen` were already filtered or refused.
+
+  Two library modules read the tables but serialize nothing: `find_sources`' intent boost and `corpus.role_proposal_keys`. They return span keys, which then pass the search's own exam exclusion.
+- **F3.** `kept_comparisons_for_card(vault, repository, *, learning_object_ids, as_of)` asks `exam_withheld` once over every candidate episode's passages: its `keys` and each kept object's span.
+  - It omits any episode holding a passage withheld now, at every `as_of`.
+  - It also omits an episode whose passages cannot be named.
+  - If the predicate raises, it returns `[]`.
+- **F4.** The sidecar's `_row_guard(vault, repository, row)` chooses the guard from the row's persisted caller:
+  - a tutor keep (`caller = 'tutor'`) gets `tutor_keep_enabled` plus its request's cold check;
+  - a library keep gets `keep_enabled` plus its ask's binding (`follow_up_caller`).
+
+  `keep` and `keep_tutor` take it as `guard` and call it on the row they will write, inside the transaction and before any write. On a fork it is called on the source row, whose caller the fork copies. The askId path of `reader.library_compare_keep` first requires that either surface's keep is on (the switch-off golden is unchanged), then leaves the rest to the guard.
+
+  `reader.library_compare_reopen` uses the same guard, so adding a take follows reopen's rules exactly. The `⇄` marks (`kept_marks(..., available=)`) leave out a keep whose caller's switch is off, so no mark opens a table that would refuse. Remove still needs only one of the switches.
+
+**Decisions.** The two calls that go beyond the verify's text:
+- **Any caller.** `live_keep_of` resolves across callers. The ruling "never kept twice" holds even when a library ask is shown a comparison the tutor kept, or the reverse.
+- **Reopen and marks.** Reopen and the marks now follow the per-row rule as well as Keep. This changes one behaviour: with the library answer off and the tutor's keep on, a library keep is no longer reopened or marked. Before, it was reopened, but a take on it was refused.
+
+### Gate (targeted; owner rule 2026-10-17)
+
+- `uv run lint-imports --no-cache`: **28 kept**, 0 broken.
+- `uv run pytest -n auto`: **478 passed** over 17 files:
+  - `test_compare_sources_keep`
+  - `test_compare_keep_switch_off`
+  - `test_source_objects`
+  - `test_library_ask`
+  - `test_library_ask_expand`
+  - `test_library_ask_review`
+  - `test_library_asks_migration`
+  - `test_reader_tutor_offers`
+  - `test_reader_tutor_retrieval`
+  - `test_reader_tutor_switch_off`
+  - `test_mobile_allowlist`
+  - `test_desktop_rpc_contract`
+  - `test_architecture`
+  - `test_sidecar_reader_p3_slice2`
+  - `test_rw4_kill_switches`
+  - `test_reread_safety`
+  - `test_find_sources_intents`
+- `uv run pytest -n auto --durable-sqlite tests/test_compare_sources_keep.py tests/test_compare_keep_switch_off.py`: **51 passed**.
+- Frontend (`apps/learnloop-tauri`):
+  - `npm run typecheck`: clean.
+  - `npx vitest run src/screens/reader`: **61 files, 463 tests passed**. `compareKeepSwitchOff`'s snapshots are unchanged.
+  - `npm run frontend:build`: built (the usual chunk-size warning).
+- Fail first, backend: the 7 new pytest tests ran on `27215b877`'s `src` (`git archive`, `-o pythonpath=`) and **all 7 failed**.
+- Fail first, frontend: the new test file ran on `27215b877`'s `apps/learnloop-tauri`, extracted to the scratchpad with the worktree's `node_modules`. **1 failed** (the new F1 test) and 14 passed.
+- References: `db_generate_reference.py` then `db_validate_reference.py`: 0 errors.
+- Not run: `cargo check`, because nothing under `src-tauri` changed.
