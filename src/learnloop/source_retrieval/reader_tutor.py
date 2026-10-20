@@ -316,23 +316,32 @@ class ItemBoundGuard:
         item's answer. The block-only rules (linked to the item, an exercise
         lead) have no block to read here.
 
-        Scored on the CANONICAL form (fix round 11, R1: ``text_canon.canonical``,
-        NFKC, no invisible characters, whitespace collapsed), the form the
-        delivery plan sends: "x  =  2" is read as the "x = 2" a later
-        whitespace collapse would make of it."""
+        It scores EXACTLY the text it is given, which must already be the
+        delivered, canonical form (fix round 12, R2: ``text_canon.canonical``
+        is a fixed point and the delivery plan is the only place it is
+        applied). Transforming it here (round 11) could score other text than
+        is sent; a text that is not canonical is refused, never silently
+        changed."""
 
-        value = canonical(text)
-        return lead_role(value) == "solution" or span_leaks_expected(value, self.item.expected_answer)
+        return lead_role(_delivered(text)) == "solution" or span_leaks_expected(text, self.item.expected_answer)
 
     def text_overlap(self, text: str) -> float:
         """The same matcher's score for one text (fix round 6, R1): how much of
         the item's answer it exposes, a solution lead counting as all of it.
         It ranks which earlier answer to withhold first when only their
         combination gives the answer away (``reader_modes.withhold``). On the
-        canonical form, as :meth:`text_leaks`."""
+        delivered text exactly, as :meth:`text_leaks`."""
 
-        value = canonical(text)
-        return 1.0 if lead_role(value) == "solution" else span_answer_overlap(value, self.item.expected_answer)
+        return 1.0 if lead_role(_delivered(text)) == "solution" else span_answer_overlap(text,
+                                                                                         self.item.expected_answer)
+
+
+def _delivered(text: str) -> str:
+    """``text`` unchanged, after checking it is the canonical, delivered form."""
+
+    if canonical(text) != text:
+        raise ValueError("the bound guard reads only delivered (canonical) text")
+    return text
 
 
 # ---------------------------------------------------------------------------

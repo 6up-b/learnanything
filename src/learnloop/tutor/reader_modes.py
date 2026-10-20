@@ -109,9 +109,10 @@ class BoundAsk:
         return bool(self.cold or substantive)
 
 
-#: How the texts one prompt carries together are read as one: the matcher
-#: sees them as the tutor does, side by side.
-_JOIN = "\n\n"
+#: How the texts one prompt carries together are read as one: side by side,
+#: one space apart. Each is canonical and trimmed, so the union of them is
+#: canonical too and the guard scores it as given (fix round 12, R2).
+_JOIN = " "
 
 
 def withhold(texts: Sequence[str], binding: BoundAsk | None, *, placeholders: Sequence[str] | None = None,
@@ -137,7 +138,8 @@ def withhold(texts: Sequence[str], binding: BoundAsk | None, *, placeholders: Se
     out = set(already) | {index for index in present if index not in held and leaks(texts[index])}
 
     def combined() -> str:
-        return _JOIN.join(stand_in[index] if index in out else texts[index] for index in present)
+        parts = (stand_in[index] if index in out else texts[index] for index in present)
+        return _JOIN.join(part for part in parts if part)
 
     while leaks(combined()):
         kept = [index for index in present if index not in out and index not in held]
@@ -407,6 +409,9 @@ def plan_bound_delivery(binding: BoundAsk | None, *, thread: Sequence[Mapping[st
         item = binding.item
         stem = fit_presented_prompt(canonical(getattr(item, "prompt", "")), getattr(item, "required_method", None),
                                     practice_question_limit, whole_token_cut)
+        # The fitted question is delivered as is, so it is canonical too (a cut
+        # at a space of a canonical text is one; this keeps it so if not).
+        stem = canonical(stem)
     stem_leaks_alone = bool(stem) and binding.answer_guard(stem)
 
     def fitted_query() -> tuple[str | None, list[tuple[int, str]]]:
@@ -450,7 +455,7 @@ def plan_bound_delivery(binding: BoundAsk | None, *, thread: Sequence[Mapping[st
         (_lookup, _none), (tutor, _stand_ins) = calls(placeholder)
         delivered = [placeholder if name == "answers" and i in withheld["answers"] else text
                      for name, pairs in tutor for i, text in pairs if text]
-        if binding.answer_guard(_JOIN.join(delivered)):
+        if binding.answer_guard(_JOIN.join(part for part in delivered if part)):
             placeholder = ""
     (lookup_slots, _none), (tutor_slots, _stand_ins) = calls(placeholder)
     checked = {

@@ -1053,7 +1053,7 @@ def test_a_placeholder_the_key_matches_is_replaced_by_nothing():
     turns, left_out = guard_thread(thread, binding)
     assert left_out == 1 and [turn["answer_md"] for turn in turns] == ["", UNRELATED_ANSWER]
     assert [turn["question_md"] for turn in turns] == ["how?", "and?"]
-    assert not guard.text_leaks("\n\n".join(turn["answer_md"] for turn in turns))
+    assert not guard.text_leaks(" ".join(turn["answer_md"] for turn in turns if turn["answer_md"]))
 
 
 def test_a_mapped_lo_does_not_suppress_the_attribution(tmp_path, monkeypatch):
@@ -1436,7 +1436,7 @@ def _verification_union(plan) -> str:
     texts = [str(gap["statement"]) for gap in plan.gaps if str(gap["statement"]) in query]
     texts += [" ".join(filter(None, [m.statement, getattr(m, "correction_statement", None)]))
               for m in plan.misconceptions or []]
-    return "\n\n".join(texts)
+    return " ".join(texts)
 
 
 @pytest.mark.parametrize("learner_chars", range(1918, 1970))
@@ -1451,8 +1451,8 @@ def test_the_verification_union_is_checked_after_fitting(learner_chars):
     from learnloop.tutor.reader_modes import plan_bound_delivery
 
     binding, guard = _real_binding(PROBABILITY_KEY)
-    assert guard.text_leaks(f"{NUMERATOR_GAP}\n\n{DENOMINATOR}")
-    assert not guard.text_leaks(f"{NUMERATOR_GAP}\n\n{SAMPLE_SPACE_GAP}\n\n{DENOMINATOR}")
+    assert guard.text_leaks(f"{NUMERATOR_GAP} {DENOMINATOR}")
+    assert not guard.text_leaks(f"{NUMERATOR_GAP} {SAMPLE_SPACE_GAP} {DENOMINATOR}")
     plan = plan_bound_delivery(
         binding, thread=[], gaps=[{"statement": NUMERATOR_GAP}, {"statement": SAMPLE_SPACE_GAP}],
         misconceptions=[SimpleNamespace(statement=DENOMINATOR, correction_statement=None)],
@@ -1712,6 +1712,9 @@ def _fuzz(text: str, variant: str) -> str:
         "nbsp": lambda: text.replace(" ", " "),
         "zero_width": lambda: text.replace("=", "=​").replace(", ", ",​ "),
         "casing": lambda: text.upper(),
+        # Fix round 12: a format character between a base letter and its
+        # combining mark (one canonical pass left "a" + ring, the next "å").
+        "cf_combining": lambda: text.replace("a", "a\u200b\u030a").replace("x", "x\u200b\u0301"),
     }[variant]()
 
 
@@ -1771,7 +1774,7 @@ def test_a_whitespace_variant_of_the_key_never_reaches_the_rewrite(tmp_path, mon
         assert not span_leaks_expected(_verification_texts(context), SPACED_KEY)
 
 
-VARIANTS = ["spaces", "tabs", "newlines", "nbsp", "zero_width", "casing"]
+VARIANTS = ["spaces", "tabs", "newlines", "nbsp", "zero_width", "casing", "cf_combining"]
 
 
 @pytest.mark.parametrize("variant", VARIANTS)
@@ -1819,24 +1822,34 @@ def test_every_sent_model_written_fragment_was_checked(tmp_path, monkeypatch, in
         extra["parentExchangeId"] = root["readerAnswerEventId"]
     ask(ctx, final[0], personalized=True, workbenchSessionId=session, **PASSAGE_T2, **extra)
     plan = plans[-1]
-    assert plan.withheld.get("gaps", 0) >= 1  # the whole key, in its variant, was read as the key
+    from learnloop.tutor.tutor_qa import span_leaks_expected
+
+    if span_leaks_expected(canonical(_fuzz(SPACED_KEY, variant)), SPACED_KEY):
+        assert plan.withheld.get("gaps", 0) >= 1  # the whole key, in its variant, was read as the key
     lookup = plan.checked.get("lookup", [])
     tutor_checked = plan.checked.get("tutor", [])
     slots = lambda checked, name: [text for slot, text in checked if slot == name]  # noqa: E731
 
     def passes(texts: list[str]) -> bool:
-        return not guard.text_leaks("\n\n".join(text for text in texts if text))
+        """(b) on the exact delivered bytes: each fragment is a canonical fixed
+        point (fix round 12), and neither the underlying matcher nor the guard,
+        given the union as sent, finds the key. Nothing is re-canonicalised."""
+
+        fragments = [text for text in texts if text]
+        assert all(canonical(text) == text for text in fragments), fragments
+        union = " ".join(fragments)
+        return not span_leaks_expected(union, SPACED_KEY) and not guard.text_leaks(union)
 
     learner = {"explain": final[0], "alternative": BEGIN, "remediate": f"That didn't help. {BEGIN}"}[intent]
     gaps = slots(lookup, "gaps")
     for prompt in [*rewrites[marks[1]:], *verifier.prompts[marks[2]:]]:
         payload = _prompt_payload(prompt)
-        question = canonical(payload["question"])
-        assert question == plan.query  # (a) the query the plan checked, unchanged
-        assert canonical(question[len(learner):]) == " ".join(gaps)
+        question = payload["question"]
+        assert question == plan.query  # (a) exactly the query the plan checked
+        assert question[len(learner):].lstrip(" ") == " ".join(gaps)
         delivered = list(gaps)
         for record in payload.get("misconceptions") or []:
-            text = canonical(" ".join(filter(None, [record.get("statement"), record.get("correction")])))
+            text = " ".join(filter(None, [record.get("statement"), record.get("correction")]))
             assert text in slots(lookup, "misconceptions")
             delivered.append(text)
         if payload.get("practice_question"):
@@ -1919,3 +1932,79 @@ def test_the_verifys_display_math_case_is_cut_before_the_group():
     stem = "word " * 137 + "Start $$ a + b $$ finish"
     cut = whole_token_cut(stem, 700)
     assert _groups_closed(cut) and cut.endswith("Start")
+
+
+# --- Fix round 12 (orchestrator rulings) ---------------------------------------------------------------
+
+#: What makes canonicalisation interesting: format characters between bases and
+#: combining marks, Hangul jamo, compatibility forms, whitespace of every kind.
+CANON_ALPHABET = [
+    "a", "A", "x", "2", "=", " ", "\t", "\n", " ", "　",
+    "​", "‌", "‍", "⁠", "﻿", "­",
+    "́", "̊", "̈", "̧",
+    "ᄀ", "ᅡ", "ᆨ", "가",
+    "ﬁ", "Ａ", "①", "½", "Ω", "Å", "ẛ",
+]
+
+
+def test_canonical_is_a_fixed_point():
+    """R1: ``canonical(canonical(x)) == canonical(x)`` over every string of up to
+    three characters of the alphabet and 20,000 seeded longer ones."""
+
+    import itertools
+    import random
+
+    from learnloop.text_canon import canonical
+
+    assert canonical("A​̊ = 2") == "Å = 2"  # the verify's case, in one call
+    for size in (1, 2, 3):
+        for chars in itertools.product(CANON_ALPHABET, repeat=size):
+            text = "".join(chars)
+            once = canonical(text)
+            assert canonical(once) == once, repr(text)
+    rng = random.Random(20261020)
+    for _ in range(20_000):
+        text = "".join(rng.choice(CANON_ALPHABET) for _ in range(rng.randint(4, 24)))
+        once = canonical(text)
+        assert canonical(once) == once, repr(text)
+
+
+def test_the_guard_reads_only_delivered_text():
+    """R2: the guard scores exactly what it is given and refuses text that is
+    not the canonical, delivered form instead of transforming it."""
+
+    from learnloop.source_retrieval.reader_tutor import ItemBoundGuard
+
+    guard = ItemBoundGuard(repository=None, item=SimpleNamespace(id=ITEM, expected_answer="a = 2"))
+    assert not guard.text_leaks("Å = 2")
+    for text in ("Å = 2", "a  =  2", "a​ = 2"):
+        with pytest.raises(ValueError):
+            guard.text_leaks(text)
+        with pytest.raises(ValueError):
+            guard.text_overlap(text)
+
+
+@pytest.mark.parametrize("cold", [True, False])
+def test_the_verifys_cold_thread_case_delivers_what_was_scored(tmp_path, monkeypatch, cold):
+    """R3 (F8, the verify's reproduction): key "a = 2"; the unbound tutor's
+    earlier answer "A", zero-width space, combining ring, " = 2". Round 11 sent
+    "A" + ring (the matcher's exact score 1.0) while the guard scored "Å = 2"
+    (0.0). The delivered thread answer is now the canonical fixed point the
+    guard scored, and the matcher on those exact bytes finds no key."""
+
+    from learnloop.text_canon import canonical
+    from learnloop.tutor.tutor_qa import span_leaks_expected
+
+    raw = "A​̊ = 2"
+    tutor = LookupTutor(answer_md=raw)
+    paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    set_item_answer(paths, ITEM, "a = 2")
+    ctx = _rebind(paths, ctx)
+    root = ask(ctx, BEGIN)
+    tutor.answer_md = "Start from the definition."
+    ask(ctx, "and then?", parentExchangeId=root["readerAnswerEventId"],
+        workbenchSessionId=_bound_session(repository, ITEM), **({"coldActive": True} if cold else {}))
+    (turn,) = tutor.contexts[-1]["thread"]
+    delivered = turn["answer_md"]
+    assert canonical(delivered) == delivered
+    assert not span_leaks_expected(delivered, "a = 2")
