@@ -6,7 +6,7 @@
 // the learner opens another, and sent again once when the sidecar did not take
 // it; F7 a search that answered for older targets (a joined job) is asked
 // again for the current ones.
-import { act, cleanup, render, renderHook } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook } from "@testing-library/react";
 import { useRef } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { ReaderCueDto, ReaderCuesDto } from "../../api/dto";
@@ -640,3 +640,71 @@ it("F22: a Guide mark's delayed callback from plan A is discarded; measured agai
   expect(api.readerCueImpressions.mock.calls.map((call) => call[0])).toEqual([
     { extractionId: "A", visitId: "visit_A", planId: "plan_B", entries: [{ cueId: "cue_g1", shown: true }] }]);
 });
+
+// -- Fix round 8 (verify) ------------------------------------------------------------------------
+
+it("F24: 'fewer' goes to the plan the cue was first seen on, after its first receipt failed and the plan changed", async () => {
+  vi.useFakeTimers();
+  api.readerCueImpressions.mockRejectedValueOnce(new Error("busy")).mockRejectedValueOnce(new Error("busy"))
+    .mockResolvedValue({ recorded: [] });
+  const guideMark = cue("a1", 0);
+  const { result, rerender } = renderHook(({ plan }: { plan: string }) => useCueImpressions({
+    extractionId: "A", cues: cues([guideMark], [], "tk1", plan), placement: EMPTY, surface: "pdf",
+    bodyRef: body([]), visitId: () => "visit_A",
+  }), { initialProps: { plan: "plan_A" } });
+  act(() => result.current.noteShown(guideMark, "plan_A"));
+  // The receipt and its one retry both fail: nothing is stored.
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_RETRY_MS + 10); });
+  expect(api.readerCueImpressions).toHaveBeenCalledTimes(2);
+  rerender({ plan: "plan_B" });
+  act(() => result.current.noteFewer(guideMark));
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+  expect(api.readerCueImpressions.mock.calls[2][0]).toEqual({ extractionId: "A", visitId: "visit_A", planId: "plan_A",
+    entries: [{ cueId: "cue_a1", response: "fewer" }] });
+});
+
+let exposedImpressions: ReturnType<typeof useCueImpressions> | null = null;
+
+function DiscoveredMarkHarness({ plan, mark, surface }: { plan: string; mark: ReaderCueDto; surface: "pdf" | "text" }) {
+  const served = cues([mark], [], "tk1", plan);
+  const ref = useRef(Object.assign(document.createElement("div"), { innerHTML: `<p data-span-id="${mark.spanId}"></p>` }) as HTMLDivElement);
+  const placement = useRef<CuePlacement>({ shown: [mark], suppressed: [], heldOutPlaced: [], heldOutSuppressed: [] });
+  const impressions = useCueImpressions({ extractionId: "A", cues: served, placement: placement.current, surface,
+    bodyRef: ref, visitId: () => "visit_A" });
+  exposedImpressions = impressions;
+  const noop = () => undefined;
+  return (
+    <MarginMark cue={mark} open={false} onOpenChange={noop} surface={surface} canCheckMe={false} checkPhase="idle"
+      onOpenEarlier={noop} onCheckMe={noop} onNotRelevant={noop} onFewer={noop} onOffBook={noop}
+      onOffEverywhere={noop} onSeen={(seenOn) => impressions.noteShown(mark, seenOn)} planId={plan} />
+  );
+}
+
+for (const surface of ["pdf", "text"] as const) {
+  for (const how of ["observed", "hovered", "focused", "clicked"] as const) {
+    it(`F25: a discovered mark ${how} on the ${surface} under plan A keeps plan A for its taps after plan B`, async () => {
+      vi.useFakeTimers();
+      MarkObserver.all = [];
+      vi.stubGlobal("IntersectionObserver", MarkObserver);
+      const mark = discovered("d1", 0);
+      const view = render(<DiscoveredMarkHarness plan="plan_A" mark={mark} surface={surface} />);
+      const node = view.container.querySelector(`[data-cue-mark="${mark.cueId}"]`) as HTMLButtonElement;
+      if (how === "observed") {
+        const live = MarkObserver.all.filter((observer) => observer.connected && observer.targets.includes(node));
+        act(() => live[0].deliver(node));
+      } else if (how === "hovered") {
+        fireEvent.mouseEnter(node);
+      } else if (how === "focused") {
+        fireEvent.focus(node);
+      } else {
+        fireEvent.click(node);
+      }
+      view.rerender(<DiscoveredMarkHarness plan="plan_B" mark={mark} surface={surface} />);
+      expect(exposedImpressions!.planFor(mark)).toBe("plan_A");
+      // The PDF measurement policy is unchanged: a discovered mark's own sighting is no receipt.
+      await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+      expect(api.readerCueImpressions).not.toHaveBeenCalled();
+    });
+  }
+}

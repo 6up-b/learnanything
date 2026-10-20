@@ -731,3 +731,65 @@ rendered, was sent (as `plan_B`) before B measured anything.
 | Python, references, `cargo check` | not run: frontend only |
 
 **Model calls: none.** Nothing was run outside vitest and the build.
+
+## Fix round 8 (orchestrator)
+
+Codex's verify of round 7 (job `20261020-164749-YFl0Nl`, verdict REOPENED)
+confirmed F22 and every backend invariant. It found three defects. Each
+reproduced on `051d73237` and is fixed here under the orchestrator's
+binding rulings.
+
+| id | severity | title | verdict | test |
+|---|---|---|---|---|
+| F23 | High | the discovery-off observer differs from RW3a | fixed | `ReaderScreen.marginMarks.test.tsx` "discovery off: a sighting the webview buffered before the mark unmounted still counts, as in RW3a (F23)" (passes on `c9ad9cce1`, fails on `051d73237`) |
+| F24 | Medium | "fewer" bypasses the first-seen plan | fixed | `rw3bReview.test.tsx` "F24: 'fewer' goes to the plan the cue was first seen on, after its first receipt failed and the plan changed" |
+| F25 | Medium | discovered marks lose their first-seen plan before taps | fixed | `rw3bReview.test.tsx` "F25: a discovered mark {observed, hovered, focused, clicked} on the {pdf, text} under plan A keeps plan A for its taps after plan B" (8 cases) |
+
+### What changed
+
+- **F23** (`MarginMark.tsx`). The observer effect branches at the top.
+  - With `planId === null` (discovery off) it runs RW3a's observer
+    verbatim, as at `c9ad9cce1`. A visible entry the webview buffered
+    before skim unmounted the mark is still delivered and records
+    `cue_shown`.
+  - The generation-discard rule from F21 and F22 applies only while
+    discovery is on. `onSeen`'s plan argument is optional again, so the
+    discovery-off call is `onSeenRef.current?.()` as before.
+- **F24** (`useCueImpressions.ts`). `noteFewer` passes `planFor(cue)` to
+  `queue` explicitly, never the plan served now by default.
+- **F25** (`useCueImpressions.ts`, `useReaderCues.ts`).
+  - A new `rememberSeen` records the cue's first-seen plan for the visit.
+    It runs for every sighting or touch, Guide or discovered, PDF or text:
+    in view, hover, focus or click.
+  - This is kept apart from whether the sighting makes an automatic
+    impression. A discovered mark's own sighting is still no receipt, so
+    the accepted PDF measurement policy is unchanged.
+  - `noteShown` remembers first, then queues only a Guide mark's receipt.
+  - `useReaderCues.noteSeen` hands every sighting to `noteShown` while
+    discovery is on, ahead of RW3a's once-per-visit `cue_shown` dedupe.
+  - Taps (open, check me, try first) and "fewer" name `planFor(cue)`, the
+    remembered plan.
+  - Discovery off, `noteSeen` is RW3a's count alone.
+
+### Fail-before (`051d73237`)
+
+`051d73237`'s `apps/learnloop-tauri` was extracted to the scratchpad, with
+the worktree's `node_modules` symlinked in and both test files copied over.
+Result: **10 failed, 36 passed** of 46.
+
+- F23: `cue_shown` was `[]`, not `['cue_b1']`.
+- F24: "fewer" was sent as `plan_B`.
+- F25: all 8 cases returned `plan_B`.
+
+The F23 test also passes on `c9ad9cce1` (RW3a): 17 of 17.
+
+### Gate
+
+| Check | Result |
+|---|---|
+| `npm run typecheck` | clean |
+| `npx vitest run src/screens/reader/ src/screens/ReaderScreen src/components/PdfReaderPane.marks.test.tsx` | **443 passed** (58 files; the switch-off snapshots unchanged) |
+| `npm run frontend:build` | built |
+| Python, references, `cargo check` | not run: frontend only |
+
+**Model calls: none.** Nothing was run outside vitest and the build.

@@ -173,19 +173,38 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
     }
   }, [extractionId]);
 
-  // A Guide mark's receipt comes from MarginMark; a discovered cue is measured
-  // by its passage below (text, transcript), never on the PDF (F5).
-  const noteShown = useCallback((cue: ReaderCueDto, planId?: string | null) => {
-    if (discoveredCue(cue)) return;
-    queue("seen", { cueId: cue.cueId, shown: true }, planId);
-  }, [queue]);
-  const noteFewer = useCallback((cue: ReaderCueDto) => queue("fewer", { cueId: cue.cueId, response: "fewer" }), [queue]);
   const servedPlanId = discovery?.planId ?? null;
+  // The plan each cue was first seen or touched under this visit, whether or
+  // not that sighting is an automatic impression (Codex verify F25: a
+  // discovered mark on the PDF, or on the text before its passage is in view,
+  // is never one, yet its taps must name the plan it was seen on).
+  const rememberSeen = useCallback((cue: ReaderCueDto, planId?: string | null) => {
+    const visit = currentVisit();
+    const plan = planId ?? servedPlanId;
+    if (!discovery || !plan || !visit || !extractionId) return;
+    const seenKey = `${extractionId}:${visit}:${cue.cueId}`;
+    if (!firstPlanRef.current.has(seenKey)) firstPlanRef.current.set(seenKey, plan);
+  }, [currentVisit, discovery, extractionId, servedPlanId]);
   const planFor = useCallback((cue: ReaderCueDto): string | null => {
     const visit = currentVisit();
     const first = visit && extractionId ? firstPlanRef.current.get(`${extractionId}:${visit}:${cue.cueId}`) : undefined;
     return first ?? servedPlanId;
   }, [currentVisit, extractionId, servedPlanId]);
+
+  // A Guide mark's receipt comes from MarginMark; a discovered cue is measured
+  // by its passage below (text, transcript), never on the PDF (F5). Either
+  // way the plan it was seen under is remembered first (F25).
+  const noteShown = useCallback((cue: ReaderCueDto, planId?: string | null) => {
+    rememberSeen(cue, planId);
+    if (discoveredCue(cue)) return;
+    queue("seen", { cueId: cue.cueId, shown: true }, planId);
+  }, [queue, rememberSeen]);
+  // "Fewer marks like this" goes to the plan the cue was first seen on, never
+  // simply the plan served now (Codex verify F24).
+  const noteFewer = useCallback((cue: ReaderCueDto) => {
+    rememberSeen(cue);
+    queue("fewer", { cueId: cue.cueId, response: "fewer" }, planFor(cue));
+  }, [queue, rememberSeen, planFor]);
 
   // Every cue measured by its passage: the drawn discovered marks (shown),
   // the held-out cues the Reader would have drawn (the control arm), and the

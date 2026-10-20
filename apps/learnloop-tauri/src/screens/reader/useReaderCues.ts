@@ -299,14 +299,17 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
   cuesRef.current = cues;
   const noteSeen = useCallback((cue: ReaderCueDto, planId?: string | null) => {
     const current = cuesRef.current;
+    // RW3b: every sighting or touch of a mark (in view, hover, focus, click)
+    // remembers the plan it was made under, the first one standing, and a
+    // Guide mark's receipt is queued once under that sighting's plan (F22,
+    // F25). Discovery off, this is RW3a's count alone.
+    if (current?.discovery) impressions.noteShown(cue, planId);
     if (!current || loggedRef.current.has(cue.cueId)) return;
     loggedRef.current.add(cue.cueId);
     logReaderAction("cue_shown", {
       ...visitPayload(), cue_id: cue.cueId, span_id: cue.spanId, cue_kind: cue.kind,
       density: current.density, element: "margin_mark",
     });
-    // RW3b: under the plan the mark's observer was built for (F22).
-    if (current.discovery) impressions.noteShown(cue, planId);
   }, [visitPayload, impressions]);
 
   const shownBySpan = useMemo(() => new Map(placement.shown.map((cue) => [cue.spanId, cue])), [placement]);

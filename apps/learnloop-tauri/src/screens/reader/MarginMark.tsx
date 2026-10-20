@@ -41,7 +41,7 @@ export interface MarginMarkProps {
   /** The mark came into the learner's view (or was hovered, focused or
    *  opened); the controller counts it once per visit. `planId`: the cue plan
    *  the sighting was made under (RW3b; null while discovery is off). */
-  onSeen?: (planId: string | null) => void;
+  onSeen?: (planId?: string | null) => void;
   /** RW3b: the cue plan served now (absent or null while discovery is off).
    *  Its observer is rebuilt for each plan and a sighting is sent under the
    *  plan its observer was built for, never a later one (Codex verify F22). */
@@ -102,22 +102,36 @@ export function MarginMark({
 
   // Shown means seen: the mark's own visibility in the reading area, not its
   // placement (review F6). Without IntersectionObserver only the learner's
-  // hover, focus or click counts. RW3b (Codex verify F22): one observer
-  // generation per cue plan. Its callback is bound, in this closure, to the
-  // plan it was built for and to that render's onSeen; a callback delivered
-  // after its observer was disconnected is discarded, and the next plan's
-  // observer measures the mark again. Discovery off, planId is null and this
-  // is RW3a's observer.
+  // hover, focus or click counts.
   useEffect(() => {
     const node = markRef.current;
     if (!node || typeof IntersectionObserver === "undefined") return;
+    if (planId === null) {
+      // Discovery off: RW3a's observer, verbatim, a delivery the browser had
+      // buffered before the disconnect included (Codex verify F23).
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (!entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= SEEN_THRESHOLD)) return;
+          observer.disconnect();
+          onSeenRef.current?.();
+        },
+        { threshold: SEEN_THRESHOLD },
+      );
+      observer.observe(node);
+      return () => observer.disconnect();
+    }
+    // RW3b, discovery on (Codex verify F22): one observer generation per cue
+    // plan. Its callback is bound, in this closure, to the plan it was built
+    // for and to that render's onSeen; a callback delivered after its
+    // observer was disconnected is discarded, and the next plan's observer
+    // measures the mark again.
     const planForGeneration = planId;
-    const notify = planForGeneration !== null ? onSeen : null;
+    const notify = onSeen;
     const generation = observerGeneration();
     generation.observe([node], SEEN_THRESHOLD, (entries, observer) => {
       if (!entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= SEEN_THRESHOLD)) return;
       generation.disconnect(observer);
-      (notify ?? onSeenRef.current)?.(planForGeneration);
+      notify?.(planForGeneration);
     });
     return () => generation.disconnectAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
