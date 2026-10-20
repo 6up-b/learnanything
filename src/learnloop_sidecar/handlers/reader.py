@@ -615,7 +615,7 @@ def reader_guide_plan(ctx: SidecarContext, params: ReaderGuidePlanInput) -> dict
             from learnloop_sidecar.handlers.reader_cue_discovery import remember
 
             plan["cues"] = PC.merged_cues(vault, repository, extraction_id=resolved, plan=plan)
-            remember(ctx, resolved, plan["cues"], vault=vault)
+            remember(ctx, resolved, plan["cues"], vault=vault, repository=repository)
         else:
             plan["cues"] = RCU.guide_cues(vault, repository, extraction_id=resolved, plan=plan)
     return versioned(plan)

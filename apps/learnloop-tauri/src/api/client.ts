@@ -1557,11 +1557,11 @@ export const api = {
   readerCueAction: (input: { extractionId: string; cueId: string; action: ReaderCueAction; text?: string | null }) =>
     mutatingReader(call<ReaderCueActionDto>("reader_cue_action", { input })),
   // Reader workbench RW3b: discovered cues (desktop only).
-  readerCueDiscovery: (input: { extractionId: string }) =>
+  readerCueDiscovery: (input: { extractionId: string; sourceOpenId: string }) =>
     call<ReaderCueDiscoveryJobDto>("reader_cue_discovery", { input }),
   readerCueDiscoveryJob: (input: { jobId: string }) =>
     call<ReaderCueDiscoveryJobDto>("reader_cue_discovery_job", { input }),
-  readerCueImpressions: (input: { extractionId: string; visitId: string; entries: ReaderCueImpressionInput[] }) =>
+  readerCueImpressions: (input: { extractionId: string; visitId: string; planId: string; entries: ReaderCueImpressionInput[] }) =>
     call<{ recorded: unknown[] }>("reader_cue_impressions", { input }),
   readerCueTap: (input: { extractionId: string; cueId: string; action: ReaderCueTapAction; text?: string | null; visitId?: string | null }) =>
     mutatingReader(call<ReaderCueTapDto>("reader_cue_tap", { input })),

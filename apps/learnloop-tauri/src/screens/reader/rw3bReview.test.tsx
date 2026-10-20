@@ -16,7 +16,7 @@ const api = vi.hoisted(() => ({
 }));
 vi.mock("../../api/client", () => ({ api }));
 
-import { useCueImpressions, IMPRESSION_FLUSH_MS, IMPRESSION_RETRY_MS } from "./useCueImpressions";
+import { useCueImpressions, passageThresholds, IMPRESSION_FLUSH_MS, IMPRESSION_RETRY_MS } from "./useCueImpressions";
 import { useCueDiscovery, DISCOVERY_POLL_MS } from "./useCueDiscovery";
 
 function cue(spanId: string, rank: number, extra: Partial<ReaderCueDto> = {}): ReaderCueDto {
@@ -31,10 +31,10 @@ function cue(spanId: string, rank: number, extra: Partial<ReaderCueDto> = {}): R
 const discovered = (spanId: string, rank: number) =>
   cue(spanId, rank, { cueId: `dcue_${spanId}`, kind: "distinction", foundBy: "model", linkId: `plink_${spanId}`, propensity: 0.9 });
 
-function cues(marks: ReaderCueDto[], heldOut: ReaderCueDto[] = [], targetsKey = "tk1"): ReaderCuesDto {
+function cues(marks: ReaderCueDto[], heldOut: ReaderCueDto[] = [], targetsKey = "tk1", planId = "cplan_1"): ReaderCuesDto {
   return {
     version: "v", density: "normal", budgetPerSection: 2, onePerViewport: true, sourceOff: false, marks, withheld: {},
-    discovery: { version: "d", targetsKey, targets: 1, holdoutRate: 0.1, valueOrder: true, tryFirst: true, heldOut,
+    discovery: { version: "d", planId, targetsKey, targets: 1, holdoutRate: 0.1, valueOrder: true, tryFirst: true, heldOut,
       suppressed: [] },
   } as ReaderCuesDto;
 }
@@ -360,7 +360,7 @@ it("F6: opening another book sends the first book's queued receipts to it, with 
   rerender({ extraction: "B" });  // before the flush
   await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
   expect(api.readerCueImpressions).toHaveBeenCalledTimes(1);
-  expect(api.readerCueImpressions).toHaveBeenCalledWith({ extractionId: "A", visitId: "visit_A",
+  expect(api.readerCueImpressions).toHaveBeenCalledWith({ extractionId: "A", visitId: "visit_A", planId: "cplan_1",
     entries: [{ cueId: "cue_a1", shown: true }] });
 });
 
@@ -374,7 +374,7 @@ it("F6: a batch the sidecar did not take is sent again once", async () => {
   await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
   await act(async () => { vi.advanceTimersByTime(IMPRESSION_RETRY_MS + 10); });
   expect(api.readerCueImpressions).toHaveBeenCalledTimes(2);
-  expect(api.readerCueImpressions.mock.calls[1][0]).toEqual({ extractionId: "A", visitId: "visit_A",
+  expect(api.readerCueImpressions.mock.calls[1][0]).toEqual({ extractionId: "A", visitId: "visit_A", planId: "cplan_1",
     entries: [{ cueId: "cue_a1", shown: true }] });
 });
 
@@ -413,4 +413,79 @@ it("F7: a search answered for the targets asked is not asked again", async () =>
   await act(async () => { await Promise.resolve(); await Promise.resolve(); });
   expect(api.readerCueDiscovery).toHaveBeenCalledTimes(1);
   expect(reload).not.toHaveBeenCalled();
+});
+
+// -- Fix round 4 (whole-stage verify) ---------------------------------------------------------------
+
+it("F14 round 4: a 24,100 px passage is recorded at the exact half-area crossing (no rounded threshold)", async () => {
+  vi.useFakeTimers();
+  ThresholdObserver.all = [];
+  FakeResizeObserver.all = [];
+  vi.stubGlobal("IntersectionObserver", ThresholdObserver);
+  vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+  vi.stubGlobal("innerHeight", 600);
+  const shown = discovered("tall", 0);
+  const placement: CuePlacement = { shown: [shown], suppressed: [], heldOutPlaced: [], heldOutSuppressed: [] };
+  const ref = body(["tall"]);
+  const passage = sizedPassage(ref, "tall", { value: 24_100 });
+  renderHook(() => useCueImpressions({ extractionId: "A", cues: cues([shown]), placement, surface: "text",
+    bodyRef: ref, visitId: () => "visit_A" }));
+  // Half the area is 300 px, a ratio of 300 / 24,100 = 0.012448...; rounded to 0.0124 it fired at 298.9 px.
+  act(() => {
+    for (const visible of [0, 120.5, 298.9, 299.5, 299.95, 300.2, 301.7, 450.25, 600]) {
+      for (const observer of ThresholdObserver.all) observer.scroll(passage, visible, 24_100, 600);
+    }
+  });
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+  expect(sentEntries()).toEqual([{ cueId: "dcue_tall", shown: true }]);
+});
+
+it("F14 round 4: the half-area threshold is the exact ratio, kept within (0, 1]", () => {
+  expect(passageThresholds(24_100, 600)).toContain(300 / 24_100);
+  expect(passageThresholds(4_000, 600)).toContain(0.075);
+  for (const threshold of passageThresholds(1e12, 600)) expect(threshold >= 0 && threshold <= 1).toBe(true);
+  expect(passageThresholds(1e12, 600).filter((threshold) => threshold > 0 && threshold < 0.25)).toHaveLength(1);
+  expect(passageThresholds(500, 600)).toEqual([0, 0.25, 0.5, 0.75, 1]);
+});
+
+it("F17: each queued impression carries the plan it was seen on, and a later plan's batch is sent apart", async () => {
+  vi.useFakeTimers();
+  const first = cue("a1", 0);
+  const second = cue("a2", 1);
+  const { result, rerender } = renderHook(({ plan }: { plan: string }) => useCueImpressions({
+    extractionId: "A", cues: cues([first, second], [], "tk1", plan), placement: EMPTY, surface: "pdf",
+    bodyRef: body([]), visitId: () => "visit_A",
+  }), { initialProps: { plan: "cplan_old" } });
+  act(() => result.current.noteShown(first));
+  // The plan is re-read before the flush (a density change): a new plan id.
+  rerender({ plan: "cplan_new" });
+  act(() => result.current.noteShown(second));
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+  const sent = api.readerCueImpressions.mock.calls.map((call) => call[0]);
+  expect(sent).toHaveLength(2);
+  expect(sent).toContainEqual({ extractionId: "A", visitId: "visit_A", planId: "cplan_old",
+    entries: [{ cueId: "cue_a1", shown: true }] });
+  expect(sent).toContainEqual({ extractionId: "A", visitId: "visit_A", planId: "cplan_new",
+    entries: [{ cueId: "cue_a2", shown: true }] });
+});
+
+it("F16: every discovery ask of one source open names the same open; the next source is a new open", async () => {
+  api.readerCueDiscovery.mockImplementation(({ extractionId }: { extractionId: string }) => Promise.resolve({
+    jobId: "j", extractionId, state: "done", result: { status: "done", targetsKey: null, calls: 0, links: 0 } }));
+  const reload = vi.fn().mockResolvedValue(undefined);
+  const { rerender } = renderHook(({ extraction, key }: { extraction: string; key: string }) => useCueDiscovery({
+    extractionId: extraction, discovery: cues([], [], key).discovery ?? null, offline: false, reloadGuidePlan: reload,
+  }), { initialProps: { extraction: "A", key: "K1" } });
+  await act(async () => { await Promise.resolve(); });
+  // A new target mid-open: asked again, within the same open.
+  rerender({ extraction: "A", key: "K2" });
+  await act(async () => { await Promise.resolve(); });
+  rerender({ extraction: "B", key: "K2" });
+  await act(async () => { await Promise.resolve(); });
+  const asks = api.readerCueDiscovery.mock.calls.map((call) => call[0] as { extractionId: string; sourceOpenId?: string });
+  expect(asks.map((ask) => ask.extractionId)).toEqual(["A", "A", "B"]);
+  expect(asks[0].sourceOpenId).toMatch(/^copen_/);
+  expect(asks[1].sourceOpenId).toBe(asks[0].sourceOpenId);
+  expect(asks[2].sourceOpenId).toMatch(/^copen_/);
+  expect(asks[2].sourceOpenId).not.toBe(asks[0].sourceOpenId);
 });

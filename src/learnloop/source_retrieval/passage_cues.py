@@ -187,6 +187,9 @@ def value_order_enabled(vault: LoadedVault) -> bool:
 
 
 def holdout_rate(vault: LoadedVault) -> float:
+    """``cues.holdout_rate`` normalized once (clamped to [0, 0.99]): the one
+    value both the draw and the stored propensity use (Codex verify F18)."""
+
     rate = float(getattr(_cues(vault), "holdout_rate", 0.1) or 0.0)
     return min(max(rate, 0.0), 0.99)
 
@@ -1129,10 +1132,16 @@ def _spend_plan(vault: LoadedVault, repository: Repository, route: Any, pending:
 
 def discover(vault: LoadedVault, repository: Repository, extraction_id: str, *, client: Any | None = None,
              embedder: Any | None = None, clock: Clock | None = None, dry_run: bool = False,
-             cancelled: Callable[[], bool] = lambda: False) -> dict[str, Any]:
+             cancelled: Callable[[], bool] = lambda: False, budget: SpendBudget | None = None) -> dict[str, Any]:
     """Compute the open source's missing links, at most
     ``cues.max_calls_per_source_open`` judge requests in all (a failure and a
     retry count), highest ``p_open`` first.
+
+    ``budget``: the source open's one call budget, shared by every run of that
+    open (the sidecar keeps one per ``source_open_id``; Codex verify F16), so
+    a second run for new targets draws on what the first left. Without it the
+    run has a budget of its own (the CLI's one run). ``calls`` and ``usage``
+    count this run's requests; ``open_calls`` the open's so far.
 
     The judge's route is checked before any retrieval is paid for, and every
     metered request of the run, the query embeddings included, reserves under
@@ -1179,7 +1188,9 @@ def discover(vault: LoadedVault, repository: Repository, extraction_id: str, *, 
             out["targets"].append({**target.describe(), "status": skip, **({"reason": reason} if reason else {})})
         out["status"] = "unavailable"
         return out
-    budget = discovery_budget(vault, cancelled=cancelled)
+    if budget is None:
+        budget = discovery_budget(vault, cancelled=cancelled)
+    calls_before, retries_before = int(budget.used.calls), int(budget.used.retries)
     envelope = _judge_envelope(vault, repository, clock=clock)
     from learnloop.source_retrieval.queries import QUERY_EMBEDDING_CAPS
 
@@ -1223,8 +1234,10 @@ def discover(vault: LoadedVault, repository: Repository, extraction_id: str, *, 
                 out["status"] = "cancelled"
                 break
     # Every admitted judge request, a failed one and a retry included (Codex review F3).
-    out["calls"] = int(budget.used.calls)
-    out["usage"] = {"requests": int(budget.used.calls), "retries": int(budget.used.retries),
+    calls = int(budget.used.calls) - calls_before
+    out["calls"] = calls
+    out["open_calls"] = int(budget.used.calls)
+    out["usage"] = {"requests": calls, "retries": int(budget.used.retries) - retries_before,
                     "judged_targets": out["judged"], "billing": route.billing,
                     "cost_basis": "estimated_only" if route.billing == "subscription" else "metered_estimate"}
     return out
@@ -1236,14 +1249,17 @@ def discover(vault: LoadedVault, repository: Repository, extraction_id: str, *, 
 
 def holdout_draw(link_id: str, rate: float) -> dict[str, Any]:
     """The seeded draw for one link: reproducible from its seed (G14). The
-    propensity is the probability of the arm drawn."""
+    propensity is the probability of the arm drawn, exactly as the draw used
+    it: ``rate`` is ``holdout_rate``'s normalized value, used unchanged for
+    the draw and the propensity, never rounded (Codex verify F18: a rate of
+    0.123456789 drew with 0.876543211 but logged 0.876543)."""
 
     seed = hashlib.sha256(f"{HOLDOUT_SALT}:{link_id}".encode("utf-8")).hexdigest()[:16]
     if rate <= 0:
         return {"held_out": False, "seed": seed, "propensity": 1.0, "rate": 0.0}
     draw = int(seed, 16) / float(1 << 64)
     held = draw < rate
-    return {"held_out": held, "seed": seed, "propensity": round(rate if held else 1.0 - rate, 6), "rate": rate}
+    return {"held_out": held, "seed": seed, "propensity": rate if held else 1.0 - rate, "rate": rate}
 
 
 def _because(target: CueTarget) -> str:

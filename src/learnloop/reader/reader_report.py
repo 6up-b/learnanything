@@ -104,8 +104,11 @@ def _holdout_estimate(units: list[dict[str, Any]]) -> dict[str, Any]:
     self-normalized IPS over the links, the variance is computed over the
     clusters (each cluster's summed weight), and an arm needs
     ``HOLDOUT_MIN_PER_ARM`` distinct outcome attempts before it gets an
-    estimate, so a repeated outcome never makes a sample. Density, spacing and
-    restored-line suppressions never reach here (not a holdout)."""
+    estimate, so a repeated outcome never makes a sample. When an outcome
+    attempt counts in both arms the arms are not independent, and the interval
+    (which adds the arms' variances) is withheld with a plain reason: the
+    effect is then a point estimate only (Codex verify F19). Density, spacing
+    and restored-line suppressions never reach here (not a holdout)."""
 
     arms: dict[str, dict[str, Any]] = {"shown": {}, "held_out": {}}
     links = {"shown": 0, "held_out": 0}
@@ -138,13 +141,25 @@ def _holdout_estimate(units: list[dict[str, Any]]) -> dict[str, Any]:
         "effect": None, "interval_95": None, "weighting": "1/propensity (self-normalized)",
         "unit": "randomized link at its first exposure; links sharing an outcome attempt are one cluster",
         "outcome": "the next attempt on the target's facets (else its learning object) after the first exposure",
-        "shared_outcomes": len(shared),
+        "shared_outcomes": len(shared), "effect_label": None, "interval_withheld": None,
     }
     if shown["n"] >= HOLDOUT_MIN_PER_ARM and held["n"] >= HOLDOUT_MIN_PER_ARM:
         effect = shown["mean"] - held["mean"]
-        half = 1.96 * math.sqrt(shown["variance"] + held["variance"])
         out["effect"] = round(effect, 4)
-        out["interval_95"] = [round(effect - half, 4), round(effect + half, 4)]
+        if shared:
+            # The arms' variances add only for independent arms; an attempt
+            # counted in both makes them covary, and this analysis has no
+            # covariance term (Codex verify F19). So no interval is given
+            # rather than a wrong one, and the effect is named for what it is.
+            out["effect_label"] = "point estimate only"
+            out["interval_withheld"] = (
+                f"{len(shared)} outcome attempt{'s' if len(shared) != 1 else ''} counted in both arms: "
+                "LearnLoop can't separate the arms yet, so no interval is given and the effect is a point "
+                "estimate only.")
+        else:
+            half = 1.96 * math.sqrt(shown["variance"] + held["variance"])
+            out["effect_label"] = "point estimate with a 95% interval"
+            out["interval_95"] = [round(effect - half, 4), round(effect + half, 4)]
     return out
 
 

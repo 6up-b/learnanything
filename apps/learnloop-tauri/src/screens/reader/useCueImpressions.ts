@@ -16,9 +16,11 @@
 // own "in view" (MarginMark), on every surface. The Reader names only its own
 // reasons (spacing, restored_line); the sidecar records the holdout and the
 // density cut itself, with the seed, propensity, p_open and density it
-// computed. Each queued receipt keeps the source and visit it was seen in, so
-// leaving a source sends its receipts to it (F6), and a receipt counts as
-// sent only once the sidecar answered. Batched, quiet on failure, never a
+// computed. Each queued receipt keeps the source, visit and cue plan it was
+// seen in, so leaving a source sends its receipts to it (F6), the sidecar
+// resolves each against the plan it was seen on, not the plan as it is by
+// the flush (F17 of the verify), and a receipt counts as sent only once the
+// sidecar answered. Batched, quiet on failure, never a
 // model call.
 import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { api } from "../../api/client";
@@ -42,10 +44,15 @@ const SEEN_SLACK_PX = 1;
  *  tall. A passage taller than the area never reaches half its own height in
  *  view, so the ratio at which half the area is covered by it is a threshold
  *  of its own; without it the observer would not call back when the passage
- *  comes to fill half the area (Codex re-review F14). */
+ *  comes to fill half the area (Codex re-review F14). That ratio is used
+ *  exactly as computed (an observer takes any number in [0, 1]), only kept
+ *  within (0, 1]: rounded, it could fall more than the pixel of slack below
+ *  the crossing, and nothing after it would call back (Codex verify F14: a
+ *  24,100 px passage rounded to 0.0124 fired at 298.9 px, then never again). */
 export function passageThresholds(passageHeight: number, areaHeight: number): number[] {
   if (!(passageHeight > areaHeight) || !(areaHeight > 0)) return THRESHOLDS;
-  const needed = Math.round(((SEEN_THRESHOLD * areaHeight) / passageHeight) * 10_000) / 10_000;
+  const needed = Math.min(1, (SEEN_THRESHOLD * areaHeight) / passageHeight);
+  if (!(needed > 0)) return THRESHOLDS;
   return [...new Set([...THRESHOLDS, needed])].sort((a, b) => a - b);
 }
 
@@ -71,6 +78,8 @@ export interface CueImpressions {
 interface Queued {
   extractionId: string;
   visitId: string;
+  /** The cue plan the receipt was seen on: the sidecar resolves it against that plan (F17). */
+  planId: string;
   once: string;
   entry: ReaderCueImpressionInput;
   attempts: number;
@@ -114,12 +123,13 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
     queueRef.current = [];
     const batches = new Map<string, Queued[]>();
     for (const item of items) {
-      const key = `${item.extractionId}\n${item.visitId}`;
+      const key = `${item.extractionId}\n${item.visitId}\n${item.planId}`;
       batches.set(key, [...(batches.get(key) ?? []), item]);
     }
     for (const batch of batches.values()) {
-      const { extractionId: extraction, visitId: visit } = batch[0];
-      void api.readerCueImpressions({ extractionId: extraction, visitId: visit, entries: batch.map((item) => item.entry) })
+      const { extractionId: extraction, visitId: visit, planId } = batch[0];
+      void api.readerCueImpressions({ extractionId: extraction, visitId: visit, planId,
+        entries: batch.map((item) => item.entry) })
         .catch(() => {
           // Not taken: sent again once; then left, and free to be seen again.
           const retry = batch.filter((item) => item.attempts < 1).map((item) => ({ ...item, attempts: item.attempts + 1 }));
@@ -134,11 +144,12 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
 
   const queue = useCallback((key: string, entry: ReaderCueImpressionInput) => {
     const visit = currentVisit();
-    if (!discovery || !visit || !extractionId) return;
+    const planId = discovery?.planId;
+    if (!discovery || !planId || !visit || !extractionId) return;
     const once = `${extractionId}:${visit}:${key}:${entry.cueId}`;
     if (sentRef.current.has(once)) return;
     sentRef.current.add(once);
-    queueRef.current.push({ extractionId, visitId: visit, once, entry, attempts: 0 });
+    queueRef.current.push({ extractionId, visitId: visit, planId, once, entry, attempts: 0 });
     if (timerRef.current === null) timerRef.current = setTimeout(() => flushRef.current(), IMPRESSION_FLUSH_MS);
   }, [currentVisit, discovery, extractionId]);
 

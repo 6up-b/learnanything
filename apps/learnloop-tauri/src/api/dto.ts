@@ -7267,6 +7267,9 @@ export interface ReaderCueDto {
 /** RW3b: the plan's discovery state (present while cues.discovery_enabled). */
 export interface ReaderCueDiscoveryDto {
   version: string;
+  /** This plan's id: impressions seen on it name it, and the sidecar records
+   *  them against this plan as it was served (Codex verify F17). */
+  planId: string;
   /** Changes when a target is new or resolved: the Reader asks for discovery again. */
   targetsKey: string;
   targets: number;

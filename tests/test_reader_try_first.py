@@ -61,7 +61,7 @@ def _try_first_ctx(tmp_path, *, config: dict | None = None):
     ctx = context(paths.root)
     ctx.cue_discovery_inline = True
     ctx.cue_judge_client = CueJudgeFake(try_first=True)
-    job = snake(call(ctx, "reader.cue_discovery", {"extraction_id": "ext_text"}))
+    job = snake(call(ctx, "reader.cue_discovery", {"extraction_id": "ext_text", "source_open_id": "open_1"}))
     assert job["state"] == "done" and job["result"]["links"] >= 1, job
     return ctx, repository, spans
 

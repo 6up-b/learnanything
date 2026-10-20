@@ -72,7 +72,7 @@ def test_discovery_stops_before_its_next_request_once_switched_off_and_reloaded(
     ctx = context(paths.root)
     judge = _BlockingJudge()
     ctx.cue_judge_client = judge
-    job = snake(call(ctx, "reader.cue_discovery", {"extraction_id": "ext_text"}))
+    job = snake(call(ctx, "reader.cue_discovery", {"extraction_id": "ext_text", "source_open_id": "open_1"}))
     assert judge.entered.wait(10), "the first judge request was sent"
     set_config(paths, "cues", discovery_enabled=False)
     ctx.reload()
@@ -89,10 +89,10 @@ def test_a_reload_cancels_the_running_job_and_a_new_ask_starts_one_on_the_new_va
     ctx = context(paths.root)
     judge = _BlockingJudge()
     ctx.cue_judge_client = judge
-    first = snake(call(ctx, "reader.cue_discovery", {"extraction_id": "ext_text"}))
+    first = snake(call(ctx, "reader.cue_discovery", {"extraction_id": "ext_text", "source_open_id": "open_1"}))
     assert judge.entered.wait(10)
     ctx.reload()  # same switches, a new generation: the old job ends at its next check
-    second = snake(call(ctx, "reader.cue_discovery", {"extraction_id": "ext_text"}))
+    second = snake(call(ctx, "reader.cue_discovery", {"extraction_id": "ext_text", "source_open_id": "open_1"}))
     assert second["job_id"] != first["job_id"]
     judge.release.set()
     old = ctx.cue_discovery_jobs.get(first["job_id"])
@@ -236,7 +236,8 @@ def test_a_held_out_cue_the_reader_would_have_spaced_out_is_recorded_as_spacing(
     plan = snake(call(ctx, "reader.guide_plan", {"extraction_id": "ext_text"}))
     held = plan["cues"]["discovery"]["held_out"]
     assert len(held) >= 2
-    call(ctx, "reader.cue_impressions", {"extraction_id": "ext_text", "visit_id": "v1", "entries": [
+    call(ctx, "reader.cue_impressions", {"extraction_id": "ext_text", "visit_id": "v1",
+                                         "plan_id": plan["cues"]["discovery"]["plan_id"], "entries": [
         {"cue_id": held[0]["cue_id"], "shown": False},
         {"cue_id": held[1]["cue_id"], "shown": False, "reason": "spacing"}]})
     with repository.connection() as connection:
@@ -480,7 +481,7 @@ def test_a_cached_try_first_tap_is_refused_once_try_first_is_switched_off_and_re
     ctx = context(paths.root)
     ctx.cue_discovery_inline = True
     ctx.cue_judge_client = CueJudgeFake(try_first=True)
-    job = snake(call(ctx, "reader.cue_discovery", {"extraction_id": "ext_text"}))
+    job = snake(call(ctx, "reader.cue_discovery", {"extraction_id": "ext_text", "source_open_id": "open_1"}))
     assert job["state"] == "done" and job["result"]["links"] >= 1, job
     cues = snake(call(ctx, "reader.guide_plan", {"extraction_id": "ext_text"}))["cues"]
     (mark,) = [mark for mark in cues["marks"] if mark["kind"] == "try_first"]

@@ -198,6 +198,11 @@ renumbering at the landing unless 214 lands with a conflicting object name
   `cues.discovery_enabled`, else calls `RCU.guide_cues` exactly as before.
   Taps and impressions resolve a cue from the plan's merged cues kept per
   source in the context (RW3a friction note 5), rebuilt on a miss.
+  *Superseded for impressions (fix round 4, F17):* each plan carries a
+  `discovery.plan_id`, impressions name it, and they are resolved against
+  that plan as it was served. An unknown or expired plan is refused.
+  *Fix round 4, F16:* discovery requests carry a `source_open_id`, and one
+  call budget is kept per open.
 - Config `[cues]`: `discovery_enabled`, `try_first_enabled`,
   `value_order_enabled` (true), `holdout_rate` (0.1), `max_calls_per_source_open`
   (12), `max_daily_cost_usd` (0.5); route `ai.routing.passage_cue_judge`

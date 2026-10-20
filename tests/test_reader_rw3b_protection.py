@@ -48,7 +48,7 @@ def test_a_held_out_passage_never_reaches_the_judge_a_quote_or_a_cue(tmp_path):
     ctx = context(paths.root)
     ctx.cue_discovery_inline = True
     ctx.cue_judge_client = fake = CueJudgeFake()
-    job = snake(call(ctx, "reader.cue_discovery", {"extraction_id": "ext_text"}))
+    job = snake(call(ctx, "reader.cue_discovery", {"extraction_id": "ext_text", "source_open_id": "open_1"}))
     assert job["state"] == "done"
     assert fake.prompts, "the target was judged over the passages that are not held out"
     assert all(SENTINEL not in prompt for prompt in fake.prompts)
@@ -72,7 +72,7 @@ def test_a_link_made_before_its_passage_was_held_out_is_never_shown_or_tapped(tm
     ctx = context(paths.root)
     ctx.cue_discovery_inline = True
     ctx.cue_judge_client = CueJudgeFake()
-    call(ctx, "reader.cue_discovery", {"extraction_id": "ext_text"})
+    call(ctx, "reader.cue_discovery", {"extraction_id": "ext_text", "source_open_id": "open_1"})
     before = snake(call(ctx, "reader.guide_plan", {"extraction_id": "ext_text"}))["cues"]["marks"]
     on_ch5 = [mark for mark in before if mark["span_id"] in spans["ch5"]]
     assert on_ch5
@@ -98,11 +98,13 @@ def test_discovery_cues_and_taps_write_no_evidence_mastery_fsrs_attempt_or_plan_
     ctx.cue_discovery_inline = True
     ctx.cue_judge_client = CueJudgeFake()
     before = table_counts(repository)
-    call(ctx, "reader.cue_discovery", {"extraction_id": "ext_text"})
-    marks = snake(call(ctx, "reader.guide_plan", {"extraction_id": "ext_text"}))["cues"]["marks"]
+    call(ctx, "reader.cue_discovery", {"extraction_id": "ext_text", "source_open_id": "open_1"})
+    cues = snake(call(ctx, "reader.guide_plan", {"extraction_id": "ext_text"}))["cues"]
+    marks = cues["marks"]
     assert marks
     cue_id = marks[0]["cue_id"]
     call(ctx, "reader.cue_impressions", {"extraction_id": "ext_text", "visit_id": "v1",
+                                         "plan_id": cues["discovery"]["plan_id"],
                                          "entries": [{"cue_id": cue_id, "shown": True}]})
     for action in ("opened", "not_relevant", "not_relevant_undone"):
         call(ctx, "reader.cue_tap", {"extraction_id": "ext_text", "cue_id": cue_id, "action": action,
@@ -124,7 +126,7 @@ def test_not_relevant_text_is_judge_feedback_never_learner_text(tmp_path):
     ctx = context(paths.root)
     ctx.cue_discovery_inline = True
     ctx.cue_judge_client = CueJudgeFake()
-    call(ctx, "reader.cue_discovery", {"extraction_id": "ext_text"})
+    call(ctx, "reader.cue_discovery", {"extraction_id": "ext_text", "source_open_id": "open_1"})
     cue_id = snake(call(ctx, "reader.guide_plan", {"extraction_id": "ext_text"}))["cues"]["marks"][0]["cue_id"]
     call(ctx, "reader.cue_tap", {"extraction_id": "ext_text", "cue_id": cue_id, "action": "not_relevant",
                                  "visit_id": "v1", "text": "this passage is about eigenvalues"})

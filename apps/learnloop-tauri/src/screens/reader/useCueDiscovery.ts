@@ -19,9 +19,15 @@
 // learner-text gap being read), the plan is re-read with growing pauses, so
 // a gap that lands asks for discovery in the same session. Nothing here shows
 // anything by itself, and a failure is quiet: the marks the plan has stay.
+//
+// Codex verify F16: every request names this open of the source, an id
+// minted once per open (a new source, or the Reader mounted again, is a new
+// open). The sidecar keeps one judge call budget per open, so a re-ask or a
+// new target mid-open draws on what the open's earlier jobs left.
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
 import type { ReaderCueDiscoveryDto, ReaderCueDiscoveryJobDto } from "../../api/dto";
+import { newActivityId } from "./activity";
 
 /** Pauses between reads of a running job (the last repeats). */
 export const DISCOVERY_POLL_MS: readonly number[] = [1_500, 3_000, 5_000, 10_000];
@@ -55,6 +61,11 @@ export function useCueDiscovery({ extractionId, discovery, offline, reloadGuideP
   reloadRef.current = reloadGuidePlan;
   const targetsKey = discovery?.targetsKey ?? null;
   const targetsPending = Boolean(discovery?.targetsPending);
+  // This open of the source (F16): minted when the source changes, kept for every ask while it stays open.
+  const openRef = useRef<{ extractionId: string; id: string } | null>(null);
+  if (extractionId && openRef.current?.extractionId !== extractionId) {
+    openRef.current = { extractionId, id: `copen_${newActivityId()}` };
+  }
 
   useEffect(() => {
     if (!extractionId || targetsKey === null || offline) return;
@@ -87,7 +98,9 @@ export function useCueDiscovery({ extractionId, discovery, offline, reloadGuideP
           .catch(() => undefined);
       }, pause);
     };
-    void api.readerCueDiscovery({ extractionId })
+    // Minted at render for this source: the same id for every ask of this open.
+    const sourceOpenId = openRef.current?.id ?? `copen_${newActivityId()}`;
+    void api.readerCueDiscovery({ extractionId, sourceOpenId })
       .then((job) => (job.state === "done" ? finish(job) : read(job.jobId, 0)))
       // Quiet: the plan's marks stay; the next change of targets asks again.
       .catch(() => undefined);

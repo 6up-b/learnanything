@@ -347,3 +347,132 @@ On the fix all 12 pass.
 | pytest, lint-imports, durability, cargo, DB references | not run: no Python, schema or `src-tauri` change |
 
 **Model calls in this step: none.** No vault was opened or copied.
+
+## Fix round 4 (orchestrator)
+
+Codex's whole-stage verify of `c9ad9cce1..60f5fe9db` (job
+`20261020-152744-TxWCs1`, verdict REOPENED) confirmed:
+
+- the 213→215 and 213→214→215 upgrades;
+- the head fixture and the append-only enforcement;
+- the switch-off pins;
+- protection, display-only and the dry run;
+- F1, F2 and F15.
+
+It found one High and four Mediums. Each one reproduced, and each is fixed
+here under the orchestrator's binding rulings, with tests that fail on
+`60f5fe9db`.
+
+| id | severity | title | verdict | test or reason |
+|---|---|---|---|---|
+| F14 | Medium | rounded thresholds still miss tall-passage impressions | fixed | `rw3bReview.test.tsx` "F14 round 4: a 24,100 px passage is recorded at the exact half-area crossing" and "... the half-area threshold is the exact ratio, kept within (0, 1]" |
+| F16 | High | in-session discovery resets the per-open call allowance | fixed | `test_reader_rw3b_fix_round4.py::test_a_target_change_mid_open_never_refills_the_opens_call_budget`, `::test_failures_and_retries_of_one_open_share_its_budget_across_jobs`, `::test_a_source_open_id_names_one_source`; `rw3bReview.test.tsx` "F16: every discovery ask of one source open names the same open" |
+| F17 | Medium | delayed impressions classified against the wrong plan | fixed | `::test_an_impression_queued_before_a_density_change_is_recorded_against_its_own_plan`, `::test_an_unknown_plan_id_is_refused_and_nothing_is_stored`, `::test_an_expired_or_dropped_plan_is_refused_and_nothing_is_stored`; `rw3bReview.test.tsx` "F17: each queued impression carries the plan it was seen on" |
+| F18 | Medium | stored propensity differs from the draw probability | fixed | `::test_the_draw_and_its_propensity_use_one_unrounded_rate`, `::test_a_logged_impression_stores_the_exact_propensity` |
+| F19 | Medium | holdout intervals omit cross-arm covariance | fixed (interval withheld, per ruling) | `::test_shared_outcome_attempts_withhold_the_interval_and_say_why`, `::test_without_shared_outcomes_the_interval_is_kept` |
+
+### What changed
+
+- **F14** (`useCueImpressions.ts`). `passageThresholds` adds the exact
+  ratio `0.5 * area / passage` as a threshold, kept within (0, 1]. It is no
+  longer rounded to four places. Rounded, a 24,100 px passage's threshold
+  became 0.0124: the observer fired at 298.9 px, short of the 300 px
+  criterion even with the pixel of slack, and nothing after that called back.
+- **F16** (`useCueDiscovery.ts`, `reader_cue_discovery.py`,
+  `passage_cues.discover`).
+  - The Reader mints a `copen_…` id when a source is opened. A new source,
+    or the Reader mounted again, is a new open.
+  - Every `reader.cue_discovery` request sends this id as
+    `source_open_id`, which is now required.
+  - `CueDiscoveryJobs` keeps one `_OpenBudget` per id: one
+    `discovery_budget`, built when the open's first request arrives, and a
+    lock. Every job, re-ask, failure and retry of that open draws on it. The
+    open's jobs run one at a time, and before every request the budget asks
+    the cancel check of the job now running.
+  - `discover(..., budget=)` uses the shared budget when it is given one.
+    Its `calls` and `usage` count that run's own requests, and the new
+    `open_calls` counts the open's so far. The CLI's single run keeps a
+    budget of its own.
+  - An open id sent with a different source is refused.
+  - Opens are kept up to `MAX_KEPT_OPENS` (4,096), the oldest dropped first.
+- **F17** (`reader_cue_discovery.py`, `reader.py`,
+  `useCueImpressions.ts`, `dto.ts`, `client.ts`).
+  - `remember` gives each served cue plan a `discovery.plan_id`
+    (`cplan_…`). It keeps a deep copy of the plan's cue index and density
+    under that id, together with the database path and the source.
+  - Each queued receipt in the Reader carries the plan id it was seen on.
+    Batches are grouped by (source, visit, plan).
+  - `reader.cue_impressions` now requires `plan_id`. It resolves arm,
+    density, suppression, seed and propensity from the kept plan only, never
+    from the current one.
+  - A plan id is refused with `cue_plan_unknown`, and nothing is stored,
+    when any of these holds:
+    - it was never served;
+    - it was dropped (`MAX_KEPT_PLANS` = 256);
+    - it expired (`PLAN_TTL_SECS` = 12 h);
+    - it belongs to another vault's database or another source.
+  - Taps are unchanged: they still resolve through the vault-bound cache
+    (F15).
+- **F18** (`passage_cues.py`). `holdout_rate` is the one normalization
+  (clamped to [0, 0.99]). `holdout_draw` uses that value unchanged for the
+  draw and returns `rate` or `1 - rate` unrounded as the propensity, so
+  `0.123456789` stores `0.876543211`.
+- **F19** (`reader_report.py`). When any outcome attempt counts in both
+  arms, `interval_95` is `None` and `effect_label` is "point estimate
+  only". `interval_withheld` then says plainly: "N outcome attempts counted
+  in both arms: LearnLoop can't separate the arms yet, so no interval is
+  given and the effect is a point estimate only." With no shared attempt the
+  interval is kept as before, labelled "point estimate with a 95% interval".
+  No covariance estimator was built.
+
+Existing tests were updated for the two required parameters
+(`source_open_id`, `plan_id`) and for the fixtures' `planId`. No
+migration, config key or CLI help changed. Two RPC shapes changed:
+`reader.cue_discovery` now requires `source_open_id`, and
+`reader.cue_impressions` requires `plan_id`. Both pass through
+`src-tauri` unchanged.
+
+### Fail-before
+
+- **Backend.** `git archive 60f5fe9db` (without `fixtures`, `apps`,
+  `docs` and `tests`) was extracted to the scratchpad. The worktree's new
+  test file was then run with `-o pythonpath=<scratch>/src`, and
+  `learnloop.__file__` was checked to resolve to the scratch copy. Result:
+  **10 of 10 failed**.
+  - F18: `assert 0.876543 == 0.876543211`.
+  - F19: `[-0.98, 0.98] is None`, and the `interval_withheld` key was
+    missing.
+  - F16 and F17: refused for the new parameters (`extra_forbidden`), or
+    `KeyError: 'plan_id'`.
+- **Base behaviour (F16, F17).** A temporary probe, run the same way
+  without the new parameters and deleted afterwards, reproduced the
+  verify's scenarios.
+  - F16: **14 judge calls in one source open** with a cap of 12.
+  - F17: the shown impression was stored as `shown=False`,
+    `suppressed_reason='density'`, `density='off'`, with no propensity.
+- **Frontend.** `60f5fe9db`'s `apps/learnloop-tauri` was extracted to
+  the scratchpad, with the worktree's `node_modules` symlinked in and the
+  new `rw3bReview.test.tsx` copied over. Result: **6 failed, 10 passed**
+  of 16.
+  - The four new tests failed: F14 sent `[]`, and the threshold was
+    `0.0124` rather than `0.012448…`; F17 sent one batch, not two; F16's
+    `sourceOpenId` was undefined.
+  - The two F6 tests failed because their expected calls now carry
+    `planId`.
+
+### Gate (fix round 4; targeted per the owner rule of 2026-10-17)
+
+Run in the worktree with `TMPDIR=fixtures-local/tmp`.
+
+| Check | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | **28 kept, 0 broken** |
+| `uv run pytest -n auto` on 32 files: `test_architecture`, `test_desktop_rpc_contract`, `test_judge_routes`, `test_library_ask`, `test_mobile_allowlist`, `test_passage_links`, `test_reader_cue_holdout`, `test_reader_cues_cli_report`, `test_reader_cues`, `test_reader_cue_value`, `test_reader_guidance`, `test_reader_intent`, `test_reader_quick_check`, `test_reader_reconnect`, `test_reader_report`, `test_reader_rw1b_review`, `test_reader_rw3a_landing`, `test_reader_rw3b_fix_round4`, `test_reader_rw3b_migration`, `test_reader_rw3b_protection`, `test_reader_rw3b_review_fixes`, `test_reader_rw3b_switch_off`, `test_reader_try_first`, `test_reader_tutor_offers`, `test_reader_wrap_up`, `test_reading_hardening_landing`, `test_required_method_round3`, `test_reread_safety_landing`, `test_reread_safety`, `test_salience_firewall`, `test_sidecar_reader`, `test_sqlite_file_copies` (the RW3b files, every test file naming `reader_report`, `cue_impressions`, `reader_cue_discovery`, `holdout_draw`, `merged_cues`, `PC.discover` or `guide_plan`, and the named contract files) | **691 passed** |
+| durability | not run: no migration, DB or connection code changed |
+| `npm run typecheck` | clean |
+| `npx vitest run src/screens/reader/ src/screens/ReaderScreen src/components/PdfReaderPane.marks.test.tsx` | **429 passed** (58 files) |
+| `npm run frontend:build` | built (the usual chunk-size notice) |
+| `cargo check` | not run: nothing under `src-tauri` changed |
+| references | not regenerated: the schema, the config and the module set are unchanged. `module_validate.py` is clean. `desktop_validate.py` stops on an untouched file (`components/pdfSelection/testing/syntheticBook.ts`, unclassified activation), not on this round's files. |
+
+**Model calls in this step: none.** No vault was opened or copied.

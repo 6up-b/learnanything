@@ -170,7 +170,7 @@ function discoveryPlan(marks: ReaderCueDto[], options: { targetsKey?: string; he
     cues: {
       ...(base.cues as NonNullable<ReaderGuidePlanDto["cues"]>),
       discovery: {
-        version: "rw3b-discovered-cues-v1", targetsKey: options.targetsKey ?? "tk1", targets: 1, holdoutRate: 0.1,
+        version: "rw3b-discovered-cues-v1", planId: "cplan_test", targetsKey: options.targetsKey ?? "tk1", targets: 1, holdoutRate: 0.1,
         valueOrder: true, tryFirst: options.tryFirst ?? true, heldOut: options.heldOut ?? [], suppressed: [],
       },
     },
@@ -266,7 +266,8 @@ it("the background search runs once per targetsKey and re-reads the plan when it
   openReader();
   await findMark("b1");
   await waitFor(() => expect(api.readerCueDiscovery).toHaveBeenCalledTimes(1));
-  expect(api.readerCueDiscovery).toHaveBeenCalledWith({ extractionId: view.extractionId });
+  expect(api.readerCueDiscovery).toHaveBeenCalledWith({ extractionId: view.extractionId,
+    sourceOpenId: expect.stringMatching(/^copen_/) });
   const reads = guide.reads;
   guide.plan = discoveryPlan([cue("b1", 0), discovered("b4", 1, "distinction")]);
   await act(async () => {

@@ -10,12 +10,22 @@ these RPCs add:
   it answers at once with a job; ``reader.cue_discovery_job`` reads it, never
   waiting. One job per source at a time. The Reader asks again when the
   plan's ``targets_key`` changes (a new or resolved hypothesis in the
-  session), so only the new target's links are computed.
+  session), so only the new target's links are computed. Every request names
+  the Reader's ``source_open_id`` (minted once per open of a source), and all
+  the jobs of one open draw on ONE call budget,
+  ``cues.max_calls_per_source_open``: re-asks, new targets, failures and
+  retries included, so a new ``targets_key`` never refills it (Codex verify
+  F16).
 * ``reader.cue_impressions``: the Reader's impressions (a mark in the
   learner's view, or not shown with its reason) and the "fewer marks like
   this" response. The server decides what it can: a held-out cue is recorded
   held out, a density cut as density, and the seed, propensity, ``p_open``
-  and density come from its own computation, never the client's.
+  and density come from its own computation, never the client's. Each
+  batch names the cue plan it was seen on (``discovery.plan_id``, issued
+  with every plan the sidecar serves) and is resolved against that plan as
+  it was served, kept here unchanged, never against the plan as it is now
+  (a density change before the flush, Codex verify F17); an unknown or
+  expired plan id is refused and nothing is stored.
 * ``reader.cue_tap``: a tap on any cue while discovery is on (open, check me,
   try this step first, not relevant and its undo): one salience-only event,
   a ``learner_card`` verdict on ``passage_cue`` and the impression's first
@@ -28,10 +38,13 @@ refuses with ``cues_disabled`` and the guide plan is RW3a's, byte for byte.
 """
 from __future__ import annotations
 
+import copy
 import hashlib
 import logging
 import threading
 import time
+from collections import OrderedDict
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -55,6 +68,12 @@ CUE_DISCOVERY_RPCS: tuple[str, ...] = (
     "reader.cue_tap",
 )
 MAX_KEPT_JOBS = 32
+#: Cue plans kept for the impressions queued on them (the newest; F17).
+MAX_KEPT_PLANS = 256
+#: A kept plan older than this is expired: its impressions are refused.
+PLAN_TTL_SECS = 12 * 60 * 60
+#: Source opens whose call budget is kept (far more than one session opens).
+MAX_KEPT_OPENS = 4096
 #: The suppression reasons the Reader itself decides (the restraint rules it draws by).
 CLIENT_REASONS = frozenset({"spacing", "restored_line"})
 MAX_NOT_RELEVANT_CHARS = RCU.MAX_NOT_RELEVANT_CHARS
@@ -87,16 +106,72 @@ def _cache(ctx: SidecarContext) -> dict[str, tuple[Any, dict[str, Any]]]:
     return cache
 
 
-def remember(ctx: SidecarContext, extraction_id: str, cues: dict[str, Any], *, vault: Any) -> None:
+@dataclass(frozen=True)
+class _KeptPlan:
+    """One cue plan as it was served: what its impressions are resolved by."""
+
+    plan_id: str
+    extraction_id: str
+    #: The vault's database the plan was computed on (another vault's plan is unknown here).
+    sqlite_path: str
+    index: dict[str, tuple[str, dict[str, Any]]]
+    density: str
+    kept_at: float
+
+
+def _plans(ctx: SidecarContext) -> "OrderedDict[str, _KeptPlan]":
+    plans = getattr(ctx, "reader_cue_plans", None)
+    if plans is None:
+        plans = OrderedDict()
+        ctx.reader_cue_plans = plans  # type: ignore[attr-defined]
+    return plans
+
+
+def _clock() -> float:
+    return time.monotonic()
+
+
+def remember(ctx: SidecarContext, extraction_id: str, cues: dict[str, Any], *, vault: Any, repository: Any) -> None:
     """The guide plan's merged cues, kept per source so a tap or an impression
     is resolved by id without rebuilding the plan (RW3a friction note 5).
 
     Kept with the loaded vault they were computed on: a reload or a vault
     switch publishes a new one, and its switches (``cues.try_first_enabled``
     among them) decide afresh, so cues kept from before it are never used
-    (Codex re-review F15). Within one load they are reused as before."""
+    (Codex re-review F15). Within one load they are reused as before.
 
+    Each plan is also given an id (``discovery.plan_id``) and kept, unchanged
+    (a deep copy), under it: the Reader's impressions name the plan they were
+    seen on and are resolved against it, whatever the plan is by the time
+    they are sent (Codex verify F17)."""
+
+    from learnloop.ids import new_ulid
+
+    plan_id = f"cplan_{new_ulid()}"
+    discovery = cues.get("discovery")
+    if isinstance(discovery, dict):
+        discovery["plan_id"] = plan_id
+    plans = _plans(ctx)
+    plans[plan_id] = _KeptPlan(plan_id, extraction_id, str(repository.sqlite_path), copy.deepcopy(_index(cues)),
+                               str(cues.get("density") or RCU.cue_density(vault)), _clock())
+    while len(plans) > MAX_KEPT_PLANS:
+        plans.popitem(last=False)
     _cache(ctx)[extraction_id] = (vault, cues)
+
+
+def _kept_plan(ctx: SidecarContext, plan_id: str, *, extraction_id: str, repository: Any) -> _KeptPlan:
+    """The plan an impression was seen on, or a refusal: unknown (never
+    served, dropped as one of the oldest, or another vault's), expired, or
+    another source's."""
+
+    kept = _plans(ctx).get(plan_id)
+    if kept is not None and _clock() - kept.kept_at > PLAN_TTL_SECS:
+        _plans(ctx).pop(plan_id, None)
+        kept = None
+    if kept is None or kept.sqlite_path != str(repository.sqlite_path) or kept.extraction_id != extraction_id:
+        raise SidecarError("cue_plan_unknown",
+                           "Those margin notes are from a reading view that is no longer kept; nothing was recorded.")
+    return kept
 
 
 def _cues_now(ctx: SidecarContext, vault: Any, repository: Any, extraction_id: str, *,
@@ -108,7 +183,7 @@ def _cues_now(ctx: SidecarContext, vault: Any, repository: Any, extraction_id: s
 
     plan = RG.build_guide_plan(vault, repository, extraction_id=extraction_id)
     cues = PC.merged_cues(vault, repository, extraction_id=extraction_id, plan=plan)
-    remember(ctx, extraction_id, cues, vault=vault)
+    remember(ctx, extraction_id, cues, vault=vault, repository=repository)
     return cues
 
 
@@ -143,32 +218,63 @@ class _Job:
     cancelled: bool = False
 
 
+@dataclass
+class _OpenBudget:
+    """The one judge call budget of one source open (Codex verify F16).
+
+    Every job of the open draws on ``budget``: a re-ask, a job for new
+    targets, a failure and a retry alike, so a new ``targets_key`` never
+    refills it. The open's jobs run one at a time (``lock``), and the budget
+    asks the running job's own ``cancelled`` before every request."""
+
+    extraction_id: str
+    lock: threading.Lock = field(default_factory=threading.Lock)
+    budget: Any = None
+    cancelled: Callable[[], bool] = lambda: False
+
+
 class CueDiscoveryJobs:
-    """Discovery jobs in flight and just finished (in memory), one per source."""
+    """Discovery jobs in flight and just finished (in memory), one per source,
+    and the call budget of each source open."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._kept: dict[str, _Job] = {}
+        self._opens: OrderedDict[str, _OpenBudget] = OrderedDict()
+
+    def _open(self, source_open_id: str, extraction_id: str, vault: Any) -> _OpenBudget:
+        with self._lock:
+            kept = self._opens.get(source_open_id)
+            if kept is None:
+                kept = _OpenBudget(extraction_id)
+                kept.budget = PC.discovery_budget(vault, cancelled=lambda: kept.cancelled())
+                self._opens[source_open_id] = kept
+                while len(self._opens) > MAX_KEPT_OPENS:
+                    self._opens.popitem(last=False)
+            elif kept.extraction_id != extraction_id:
+                raise SidecarError("validation_error", "That source open belongs to another source.")
+            return kept
 
     def running(self, extraction_id: str) -> _Job | None:
         with self._lock:
             return next((job for job in self._kept.values()
                          if job.extraction_id == extraction_id and not job.done.is_set() and not job.cancelled), None)
 
-    def start(self, ctx: SidecarContext, extraction_id: str) -> _Job:
+    def start(self, ctx: SidecarContext, extraction_id: str, source_open_id: str) -> _Job:
         from learnloop.ids import new_ulid
 
         provider = ctx.loaded_vault
         vault, generation = provider.snapshot()
+        _vault, repository = ctx.require_vault()
+        if vault is None:
+            vault = _vault
+        opened = self._open(source_open_id, extraction_id, vault)
         running = self.running(extraction_id)
         if running is not None:
             if running.generation == generation and not running.cancelled:
                 return running
             # Started on a vault since reloaded or replaced: it stops at its next check.
             running.cancelled = True
-        _vault, repository = ctx.require_vault()
-        if vault is None:
-            vault = _vault
         job = _Job(f"cjob_{new_ulid()}", extraction_id, time.monotonic(), generation=generation)
         with self._lock:
             self._kept[job.job_id] = job
@@ -195,10 +301,12 @@ class CueDiscoveryJobs:
 
             try:
                 worker_repo = Repository.attach(sqlite_path)
-                with record_model_calls(worker_repo, owner_kind="sidecar_rpc",
-                                        owner_id=f"reader.cue_discovery:{job.job_id}"):
+                # One job of this open at a time, on the open's one budget (F16).
+                with opened.lock, record_model_calls(worker_repo, owner_kind="sidecar_rpc",
+                                                     owner_id=f"reader.cue_discovery:{job.job_id}"):
+                    opened.cancelled = cancelled
                     job.result = PC.discover(vault, worker_repo, extraction_id, client=client, embedder=embedder,
-                                             cancelled=cancelled)
+                                             cancelled=cancelled, budget=opened.budget)
             except BaseException as exc:  # noqa: BLE001 - every failure answers the job, never the loop
                 LOG.warning("cue discovery failed: %s", type(exc).__name__, exc_info=exc)
                 job.error = SidecarError("internal_error", "LearnLoop couldn't look for margin notes just now.",
@@ -242,16 +350,20 @@ def _job_payload(job: _Job) -> dict[str, Any]:
 
 class CueDiscoveryInput(ParamsModel):
     extraction_id: str
+    #: The Reader's id for this open of the source (minted once per open): its
+    #: jobs share one call budget (F16).
+    source_open_id: str = Field(min_length=1, max_length=80)
 
 
 @method("reader.cue_discovery", CueDiscoveryInput)
 def reader_cue_discovery(ctx: SidecarContext, params: CueDiscoveryInput) -> dict[str, Any]:
-    """Look for the open source's missing cue links in the background."""
+    """Look for the open source's missing cue links in the background, within
+    the open's one call budget."""
 
     _vault, repository = _require(ctx)
     extraction_id = _resolve(repository, params.extraction_id)
     _cache(ctx).pop(extraction_id, None)
-    return _job_payload(_jobs(ctx).start(ctx, extraction_id))
+    return _job_payload(_jobs(ctx).start(ctx, extraction_id, params.source_open_id))
 
 
 class CueDiscoveryJobInput(ParamsModel):
@@ -311,21 +423,25 @@ class CueImpressionEntry(ParamsModel):
 class CueImpressionsInput(ParamsModel):
     extraction_id: str
     visit_id: str = Field(min_length=1, max_length=80)
+    #: The cue plan these impressions were seen on (``discovery.plan_id``; F17).
+    plan_id: str = Field(min_length=1, max_length=80)
     entries: list[CueImpressionEntry] = Field(default_factory=list, max_length=200)
 
 
 @method("reader.cue_impressions", CueImpressionsInput)
 def reader_cue_impressions(ctx: SidecarContext, params: CueImpressionsInput) -> dict[str, Any]:
-    """Record impressions (once per visit and cue; the first one stands)."""
+    """Record impressions (once per visit and cue; the first one stands),
+    each resolved against the plan it was seen on: its arm, density,
+    suppression, seed and propensity as that plan was served (F17)."""
 
     from learnloop.clock import utc_now_iso
     from learnloop.db.stores import reader_cue_links as store
 
-    vault, repository = _require(ctx)
+    _vault, repository = _require(ctx)
     extraction_id = _resolve(repository, params.extraction_id)
-    cues = _cues_now(ctx, vault, repository, extraction_id)
-    index = _index(cues)
-    density = str(cues.get("density") or RCU.cue_density(vault))
+    kept = _kept_plan(ctx, params.plan_id, extraction_id=extraction_id, repository=repository)
+    index = kept.index
+    density = kept.density
     now = utc_now_iso()
     recorded: list[dict[str, Any]] = []
     with repository.atomic():
@@ -333,7 +449,7 @@ def reader_cue_impressions(ctx: SidecarContext, params: CueImpressionsInput) -> 
         for entry in params.entries:
             found = index.get(entry.cue_id)
             if found is None:
-                raise SidecarError("validation_error", f"No margin cue {entry.cue_id!r} on this source now.")
+                raise SidecarError("validation_error", f"No margin cue {entry.cue_id!r} on that plan.")
             where, cue = found
             if entry.response is not None:
                 if entry.response != "fewer":

@@ -163,7 +163,7 @@ function discoveryPlan(marks: ReaderCueDto[], options: { targetsKey?: string; he
     cues: {
       ...(base.cues as NonNullable<ReaderGuidePlanDto["cues"]>),
       discovery: {
-        version: "rw3b-discovered-cues-v1", targetsKey: options.targetsKey ?? "tk1", targets: 1, holdoutRate: 0.1,
+        version: "rw3b-discovered-cues-v1", planId: "cplan_test", targetsKey: options.targetsKey ?? "tk1", targets: 1, holdoutRate: 0.1,
         valueOrder: true, tryFirst: options.tryFirst ?? true, heldOut: options.heldOut ?? [], suppressed: [],
         targetsPending: options.targetsPending ?? false,
       },

@@ -110,7 +110,8 @@ def test_impressions_record_shown_holdout_density_and_the_clients_restraint_reas
         entries.append({"cue_id": marks[1]["cue_id"], "shown": False, "reason": "spacing"})
     # The client claims a held-out cue and a density cut were shown: the server records its own reason.
     entries += [{"cue_id": held[0]["cue_id"], "shown": True}, {"cue_id": density[0]["cue_id"], "shown": True}]
-    call(ctx, "reader.cue_impressions", {"extraction_id": "ext_text", "visit_id": "visit_1", "entries": entries})
+    call(ctx, "reader.cue_impressions", {"extraction_id": "ext_text", "visit_id": "visit_1",
+                                         "plan_id": cues["discovery"]["plan_id"], "entries": entries})
     rows = {row["cue_id"]: row for row in _rows(repository)}
     assert rows[marks[0]["cue_id"]]["shown"] is True and rows[marks[0]["cue_id"]]["suppressed_reason"] is None
     assert rows[held[0]["cue_id"]]["suppressed_reason"] == "holdout" and rows[held[0]["cue_id"]]["shown"] is False
@@ -131,27 +132,30 @@ def test_impressions_record_shown_holdout_density_and_the_clients_restraint_reas
 
 def test_one_impression_per_visit_and_cue_and_the_client_cannot_invent_one(tmp_path, monkeypatch):
     ctx, repository, cues, _ids = _ctx_with_cues(tmp_path, monkeypatch, rate=0.0, density="more")
+    plan_id = cues["discovery"]["plan_id"]
     cue_id = cues["marks"][0]["cue_id"]
     for _ in range(2):
-        call(ctx, "reader.cue_impressions", {"extraction_id": "ext_text", "visit_id": "v1",
+        call(ctx, "reader.cue_impressions", {"extraction_id": "ext_text", "visit_id": "v1", "plan_id": plan_id,
                                              "entries": [{"cue_id": cue_id, "shown": True}]})
-    call(ctx, "reader.cue_impressions", {"extraction_id": "ext_text", "visit_id": "v2",
+    call(ctx, "reader.cue_impressions", {"extraction_id": "ext_text", "visit_id": "v2", "plan_id": plan_id,
                                          "entries": [{"cue_id": cue_id, "shown": False, "reason": "restored_line"}]})
     assert [(row["visit_id"], row["shown"], row["suppressed_reason"]) for row in _rows(repository)] == [
         ("v1", True, None), ("v2", False, "restored_line")]
     for bad in ({"cue_id": "dcue_forged", "shown": True}, {"cue_id": cue_id, "shown": False, "reason": "holdout"},
                 {"cue_id": cue_id, "shown": False, "reason": "skim"}):
         with pytest.raises(SidecarError):
-            call(ctx, "reader.cue_impressions", {"extraction_id": "ext_text", "visit_id": "v3", "entries": [bad]})
+            call(ctx, "reader.cue_impressions", {"extraction_id": "ext_text", "visit_id": "v3", "plan_id": plan_id,
+                                                 "entries": [bad]})
     assert len(_rows(repository)) == 2
 
 
 def test_fewer_marks_like_this_is_the_impressions_response_written_once(tmp_path, monkeypatch):
     ctx, repository, cues, _ids = _ctx_with_cues(tmp_path, monkeypatch, rate=0.0, density="more")
+    plan_id = cues["discovery"]["plan_id"]
     cue_id = next(mark["cue_id"] for mark in cues["marks"] if mark["found_by"] == "model")
-    call(ctx, "reader.cue_impressions", {"extraction_id": "ext_text", "visit_id": "v1",
+    call(ctx, "reader.cue_impressions", {"extraction_id": "ext_text", "visit_id": "v1", "plan_id": plan_id,
                                          "entries": [{"cue_id": cue_id, "shown": True}]})
-    call(ctx, "reader.cue_impressions", {"extraction_id": "ext_text", "visit_id": "v1",
+    call(ctx, "reader.cue_impressions", {"extraction_id": "ext_text", "visit_id": "v1", "plan_id": plan_id,
                                          "entries": [{"cue_id": cue_id, "response": "fewer"}]})
     call(ctx, "reader.cue_tap", {"extraction_id": "ext_text", "cue_id": cue_id, "action": "opened",
                                  "visit_id": "v1"})
@@ -163,9 +167,10 @@ def test_the_impressions_rpcs_refuse_while_discovery_is_off(tmp_path):
     paths, _repository, _spans = build_cue_vault(tmp_path / "v")
     set_config(paths, "cues", discovery_enabled=False)
     ctx = context(paths.root)
-    for name, params in (("reader.cue_impressions", {"extraction_id": "ext_text", "visit_id": "v", "entries": []}),
+    for name, params in (("reader.cue_impressions", {"extraction_id": "ext_text", "visit_id": "v", "plan_id": "p",
+                                                  "entries": []}),
                          ("reader.cue_tap", {"extraction_id": "ext_text", "cue_id": "x", "action": "opened"}),
-                         ("reader.cue_discovery", {"extraction_id": "ext_text"}),
+                         ("reader.cue_discovery", {"extraction_id": "ext_text", "source_open_id": "o"}),
                          ("reader.cue_discovery_job", {"job_id": "cjob_x"})):
         with pytest.raises(SidecarError) as caught:
             call(ctx, name, params)
