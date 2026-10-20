@@ -3,8 +3,8 @@ title: "source_object_relations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "781991538bd63b24f6e901d5be416988fdd96092"
-source_commit_timestamp: "2026-10-20T15:31:59-04:00"
+source_commit: "cca6234806cf0157a0cc1051428b702293f2b37e"
+source_commit_timestamp: "2026-10-20T16:24:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_object_relations"
@@ -98,6 +98,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/reader/source_objects.py`
+- `src/learnloop/source_retrieval/kept_comparisons.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
