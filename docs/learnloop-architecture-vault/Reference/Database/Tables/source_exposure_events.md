@@ -3,8 +3,8 @@ title: "source_exposure_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fab576ac1d7bb3203dbbe71c2dc3be2b3dee3c18"
-source_commit_timestamp: "2026-10-19T01:21:56-04:00"
+source_commit: "e0cda60da02a8215e4bc08dbde19ea57c47c283a"
+source_commit_timestamp: "2026-10-20T00:32:50-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_exposure_events"
@@ -103,6 +103,7 @@ Indexes and uniqueness:
 - `src/learnloop/instructional/exposure.py`
 - `src/learnloop/router/outcomes.py`
 - `src/learnloop/substrate/intervention_outcomes.py`
+- `src/learnloop_sidecar/handlers/library_exercises.py`
 
 ### Direct SQL writers
 
