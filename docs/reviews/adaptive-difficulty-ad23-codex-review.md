@@ -1590,3 +1590,118 @@ no model call.
 
 One existing test changed with the rules: `test_ad3_relatedness` (a run's units now include both
 reserved protection units).
+
+## Fix round 14: tutor context, dose origin, the background scheduler, and controls (2026-10-20)
+
+Codex's verify of round 13 (codex-job `20261020-175808-RoJ26Y`, verdict REOPENED) confirmed:
+
+- F38's recorded context, F43 and F44;
+- migration 214 and the head fixture;
+- the owner decisions, switch-off, the replay and write isolation.
+
+It found F46 and F47 (High), and F45 (reopened) and F42 (Medium). The fixes are in commit
+`a209efcf5`, with no migration change. This section was appended.
+
+| Id | Severity | Title | Origin | Verdict | Commit | Test (fails on `a3ae61099`) |
+|---|---|---|---|---|---|---|
+| F46 | High | Tutor exchanges ignore protected secondary prompt context | stage | fixed | `a209efcf5` | `test_a_tutor_exchange_whose_recorded_context_quotes_a_protected_span_enters_no_prediction`; the differential (`qe_context_r14`) |
+| F47 | High | Protected originating sections still spend dose budgets | stage | fixed | `a209efcf5` | `test_a_dose_draw_at_a_protected_origin_is_a_draw_never_made`; the differential (`dose_origin_r14`: the public boundaries' `daily_budget`) |
+| F45 | Medium | Background scheduling still counts context-invalid runs as current | round 13 | fixed | `a209efcf5` | `test_the_background_scheduler_sees_a_run_whose_recorded_context_is_protected`; the differential's temporal case (pinned: `stale_subjects` finds the subject) |
+| F42 | Medium | The contract still permits missing behaviour and misses actual caches | round 13 | fixed | `a209efcf5` | the audit, the pinned dose draws, the one clock, and five negative controls (below) |
+
+### What changed
+
+- **F46.** `MaterialView.question_event_withheld` is the one protection reader of a tutor question.
+  It judges the question's complete recorded source context: the anchor (`note_id`, a span key or a
+  canonical note), its item, and every mapping with an extraction id in `source_context`. That
+  covers the anchor, `source_spans`, `citations`, retrieval and delivery records. The sweep's tutor
+  and library collection uses it before any mapping or fallback to an item, and so does receipt
+  revalidation.
+- **F47.**
+  - `MaterialView.dose_draw_withheld` withholds a draw whose originating section (the boundary it
+    was drawn at) is withheld, as well as one whose extra is.
+  - It filters the cohort (`dose_rows`, so the budget, taken offers, density lowerings and offer
+    outcomes), saved-draw retrieval in `decide`, and uptake.
+  - A new decision at a withheld section is refused before the section is mapped
+    (`withheld_section`). A draw made there earlier is returned with no offer (`withheld`).
+- **F45.** `relatedness_jobs.stale_subjects` reads runs exactly as `propose_subject` does: through
+  the view, with `run_in_force`. A run whose recorded context is protected now leaves its units to
+  be proposed again.
+
+### F42: the contract
+
+- **The audit uses actual module state.** It covers every module-level dict, set, list, deque or
+  `lru_cache` that its module mutates at runtime (found by AST: mutating calls, subscript stores,
+  `global`), in every AD module and in the authoring and reading modules AD calls
+  (`AUDITED_MODULES`). It also covers every file read there (`load_vault`, `load_document_ir`,
+  `read_text`, `read_bytes`, `open`). Each is listed in `AD_DEPENDENCIES` with how protection
+  reaches it:
+  - background's `_PREPARED`, `_QUEUES`, `_INFLIGHT` and `_DEFAULT`;
+  - the replay cache;
+  - the inverse memo;
+  - the generators' and the authoring call's `load_vault`;
+  - the IR loads.
+
+  The test also fails on a listed entry that no longer exists. A mutable module-level table that
+  nothing mutates is a constant and needs no entry.
+- **The pinned dose draws are the operation's own.** The draws the dose decisions made in the run
+  are pinned: the row persisted now, at its boundary key, with its recorded propensities
+  (`{"none": 1.0}`) and its chosen variant (`none`, no offer). The seeded delivery stays a separate
+  check.
+- **One clock.** There is one monotone operation clock (`_OP`). In advancing mode it gains an hour
+  at every stage in the order the stages run, never by stage number, from `RUN` at the start of
+  each copy's run. Every explicit clock, `now`, `as_of` and `served_at` in the run reads it, and the
+  `_Frozen(RUN)` holdouts are gone from the run. The focused tests keep their own fixed clocks.
+- **Negative controls.** Each control makes a test-only mutation, identical in both copies, and the
+  contract then FAILS:
+  - the dose operation removed: the pinned persisted draws are missing;
+  - the background `stale_subjects` reporting nothing: the temporal case fails;
+  - the commission queue removed: the worker stage fails;
+  - the replay cache's protection removed (a constant events fingerprint): the cache test fails;
+  - the view's receipt revalidation removed: the comparison fails.
+- **Temporal case.**
+  - s0: the subject is proposed: `current`, nothing changed.
+  - s1: a saved revision's source is held out, and the subject is re-proposed.
+  - s2: pi_p3 is replaced and proposed, so only its new revision is asked.
+  - s3: pi_p3's former source is held out. The fingerprint is unchanged, but s1's recorded context
+    is now protected. `runs_in_force` must be `[False, False, True]`, the background scheduler must
+    find the subject stale, and the re-proposal is made.
+- **Fixture changes.** The held-out spans move to their own section (`sec5`), so a public section
+  is a public origin. The daily dose budget is two, so one draw decides it.
+
+**Fail-before** (`git archive a3ae61099` into `fixtures-local/ad23-r14-base`, `-o pythonpath`):
+
+| Test | On `a3ae61099` | At the tip |
+|---|---|---|
+| differential, each of default/frozen, default/advancing, coupled/frozen, coupled/advancing | **342 violations**; the pinned dose assertion fails (`daily_budget` at both public boundaries) | 0 |
+| the three focused round-14 tests | 3 of 3 fail | pass |
+| the whole contract file | 8 of 36 fail | 36 pass |
+
+The violations have two root causes:
+- **F46:** the protected-context exchange is recorded in A, which shifts every later id of the serve
+  stage.
+- **F47:** the protected-origin draw spends A's daily budget.
+
+### Owner notes
+
+- A tutor exchange stops counting as reading once ANY span it was given or cited is held out, not
+  only its anchor.
+- A dose offer drawn at a section that is held out now counts as never made. It spends no daily
+  budget, and no new offer is drawn there.
+
+### Environment
+
+No ad-hoc Python touching LearnLoop ran outside pytest. The other scripts were standard-library
+file editors, plus one read-only schema read of the migration head fixture under `env -i`. The
+reference scripts ran under `env -i` with an empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`.
+
+### Gate (this round; owner rule 2026-10-17: targeted only)
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 27 kept, 0 broken |
+| the AD test files (contract, r8, r9, material view, fix review, dose arm, relatedness, subject view, reading, reading opportunities, serving) | 155 passed, 1 failed; the failure was `test_ad23_fix_r8`'s saved-draw case, which a decision at a withheld origin now answered `withheld_section`. Fixed in code: a saved draw at a withheld origin is returned as `withheld` with its id, and only a new decision there is `withheld_section`. The dose and contract tests then passed (20, and 36 in the contract file) |
+| targeted pytest, `uv run pytest -n 14` over 179 files (round 13's 163 and every test naming `relatedness_jobs`, `stale_subjects`, `record_uptake`, `dose_rows` or `question_events`), run once after the last code change | **8,908 passed, 38 xfailed, 0 failed** (1,528 s) |
+| `--durable-sqlite`: `test_ad23_contract.py`, `test_ad23_fix_r9.py`, `test_ad23_fix_r8.py`, `test_ad23_migration.py` | 60 passed |
+| references: `db_generate_reference.py`, `db_validate_reference.py` (under `env -i`) | 0 errors (commit labels; no schema change) |
+| migration 214, head fixture, defaults snapshots, CLI help, vitest, `cargo check` | unchanged or not applicable |
