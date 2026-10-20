@@ -610,3 +610,118 @@ Paid or live calls: none ($0.00).
    wall-clock second; the slower durable connections spread them. The control now
    freezes and displays B's key in its own session without submitting B; it passes
    in both modes, at the tip and at `8e0ca1875`. No production change.
+
+---
+
+# Fix round 5 (orchestrator rulings)
+
+The verify of `1a8128254` (Codex job `20261020-124824-K2sjh2`) confirmed R1 and R3
+(48 assistance combinations, 12 check-view overlap combinations), 800
+predecessor-versus-tip eligibility comparisons and the successor chain, and found
+**F16** (High, a round-4 regression) and **F17** (Medium). The orchestrator's rulings:
+
+- **F16.** Checks are exempt only from value and count composition (the teach-back
+  cap, block value), never from a mandatory constraint (assessment reservations in
+  `activity_surface_reservations`, exam-pool exclusions, held-out, every other
+  staged-frame constraint). The mandatory constraints are evaluated before an item
+  enters `prepared.forced`. A due check whose item is reserved goes to
+  `checks_unplanned` with reason `assessment_reservation` (refusal logged); an
+  eligible sibling in its LO may be selected instead if the check's own selection
+  rule allows it. Tests through the staged policy (the verify's reproduction, the
+  sibling case) and the round-4 16-seed contract with random reservations, where no
+  reserved item is ever planned.
+- **F17.** `set_deadline`'s existing-goal branch updates the linked goal's
+  `target_recall` from the commitment's current depth.
+
+## Findings
+
+| ID | Sev | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F16 | High | Forced checks bypass assessment reservations | **fixed** | `324020372` | `test_f16_a_reserved_item_check_is_never_planned_and_the_miss_is_recorded` (staged policy and DL1's pair), `test_f16_an_lo_check_takes_an_eligible_sibling_of_a_reserved_candidate` (either candidate reserved), `test_f16_the_frame_refuses_a_reserved_check_before_it_is_forced` (the frame's gate alone, its refusal named on the `plan_block` row), `test_f16_a_reservation_taken_after_planning_displaces_the_planned_check` (both policies), control `test_f16_an_unreserved_check_is_still_planned_under_the_staged_policy`; contract `test_f16_contract_no_reserved_item_is_ever_planned_and_every_miss_is_named` (16 seeds, staged policy) |
+| F17 | Medium | Moving a deadline retains an obsolete recall target | **fixed** | `324020372` | `test_f17_moving_a_deadline_after_a_depth_change_updates_the_goal_target` (Keep, deadline, Master, move: 0.92), control `test_f17_moving_a_deadline_at_the_same_depth_keeps_its_target` |
+
+Tests in `tests/test_intent_fix_round5.py`. Fakes only. The staged policy runs with
+`router.mode = "staged"`, so no model is asked. Reservations go through the real
+`resolve_legacy_item` and `reserve_surface`.
+
+**Fail-before on `1a8128254`** (its `src/` and `migrations/` from `git archive` into
+the scratchpad; pytest with `-o pythonpath=` at the extracted `src`; log
+`fixtures-local/tmp/dl2-fix5-failfirst.txt`): **13 failed, 13 passed.**
+
+- F16: the reserved item check was planned under both policies, and nothing was
+  recorded. With `pi_a1` reserved, the LO check forced `pi_a1`. The frame-gate test
+  planned `pi_c2` with no refusal named. A reservation taken after planning displaced
+  nothing (both policies). The contract planned a reserved item on 6 of 16 seeds.
+- F17: the moved goal still targeted 0.85.
+- The passes: the controls, the sibling case whose reserved candidate the old pick
+  had already dropped (`pi_a2` reserved), and the 10 seeds whose draws reserved
+  nothing the old build planned.
+
+## What changed
+
+### F16: a reserved candidate is never a check's item; the frame is asked before forcing
+
+- Check selection (`scheduling/intent/serving`). `split_check` sets aside each
+  candidate on a live assessment reservation into `CheckState.reserved`, before the
+  eligibility split, as it already sets aside candidates the build would not admit.
+  The read is `reserved_assessment_items(repository)`: the legacy items of
+  `reserved_assessment_surfaces()`, the staged frame's own read.
+  - The set-aside candidate can never be the check, in any mode. `pick_checks`'s rule
+    (the top-ranked servable candidate) then takes an eligible sibling.
+  - `withhold_reason` gives the reserved candidate `intent_check_reserved`, so the
+    build leaves it out. Plan reconciliation displaces it with that reason when the
+    reservation is taken after planning.
+- The plan (`daily_plan/engine._select_checks`).
+  - A due, unanswered check with nothing to serve, no hold it is waiting out, and
+    reserved candidates is recorded in `checks_unplanned` with reason
+    `assessment_reservation` and `reserved_item_ids`, and logged.
+  - Before any check is forced, the policy's mandatory constraints are asked:
+    `PlanPolicy.mandatory_refusals`, which is `StagedFrame.refusals_for` under the
+    staged and mixture policies and None under DL1's pair, which has none for any
+    item. It reads the same frame material the boundary reads, cached per env.
+  - A refused check is not forced. It is recorded with the constraint's key as its
+    reason and the full refusal, and it stays in the pool, so the frame refuses it
+    again at the boundary and names it on the `plan_block` row.
+  - The value and count exemptions of round 4 are unchanged.
+  - A plan with no due check never calls the frame early: non-intent plans are
+    unchanged.
+- Exam-pool exclusions and held-out items are routine scheduler exclusions, applied
+  before the intent gate, so they never reach the pool (round 4 already).
+
+### F17: the moved goal targets the current depth
+
+- `intent/deadline.set_deadline`: the existing-goal branch sets `target_recall` from
+  the commitment's current depth preset, as the new-goal branch does.
+
+## Gate (fix round 5; targeted, per the owner rule of 2026-10-17)
+
+`TMPDIR` in the worktree's `fixtures-local/tmp`. The full suite, the whole durability
+lane and the whole vitest run are the landing gate's.
+
+| Check | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | **28 kept, 0 broken** |
+| Fail-before on `1a8128254`: `tests/test_intent_fix_round5.py` | **13 failed, 13 passed** |
+| `pytest -n 8` on 312 files (round 4's 279 and 24 extra, `test_intent_fix_round5.py`, and the 8 files naming the staged frame, `policy_for`, `split_check`, reservations or `PlanPolicy` not yet in it; list `fixtures-local/tmp/dl2-fix5-affected.txt`) | **5,514 passed** (22 min) |
+| `pytest -n 8 --durable-sqlite tests/test_intent_*.py` (13 files) | **229 passed** |
+| Frontend | unchanged: no npm, vitest or build run needed |
+| `cargo check` | not run: nothing under `src-tauri` changed |
+| `db_generate_reference.py`, `db_validate_reference.py` | **0 errors** (head 213; commit labels and line citations; commit `cb8e03ac9`) |
+| Migrations | none |
+| Tracked working vaults | untouched; all behaviour under test with fakes |
+
+Paid or live calls: none ($0.00).
+
+## Rejected or left as is (fix round 5)
+
+1. **Requests (L3) are still placed without the frame's verdict.** The staged frame's
+   design names requests as the container's own placement (R2a); the ruling is about
+   checks. A request on a reserved item is a pre-existing, separate question.
+2. **The goal's title keeps the depth label it was created with** (for example
+   "(Keep)") when the depth changes. Only `target_recall` is used by forecasts and the
+   frontier; the title is display text. Alternative: regenerate the title on every
+   move.
+3. **The practice view of a reserved candidate** served through its assessment flow
+   still reads as the check (`served_check` keys on `candidates`). That flow is the
+   reservation's own measurement, and an answer on your own there answers the check.
+   Alternative: a measured view with an assessment duty, as R3 does for diagnostics.
