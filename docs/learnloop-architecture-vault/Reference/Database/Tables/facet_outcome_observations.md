@@ -3,13 +3,13 @@ title: "facet_outcome_observations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8bb003daebe1bc05c564017fea6dcaa17ae78317"
-source_commit_timestamp: "2026-10-20T15:55:44-04:00"
+source_commit: "924e0756f341f88c29d8ae1ff5083921c59e7c23"
+source_commit_timestamp: "2026-10-20T19:18:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_outcome_observations"
   - "table facet_outcome_observations"
-schema_head: 213
+schema_head: 216
 table_name: "facet_outcome_observations"
 table_role: "derived"
 functionality_status: "active"
@@ -105,6 +105,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/figure_fixtures.py`
 - `tests/test_daily_plan_composition.py`
 - `tests/test_daily_plan_owner_decisions.py`
 - `tests/test_facet_outcome_view.py`

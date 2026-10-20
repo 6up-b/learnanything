@@ -1,5 +1,5 @@
 // The intent box's contract as the sidecar sends it with every RW1b switch on
-// and RW4a's library ask on (reader.prompt_contract's `intent`, generated from
+// and RW4a's library ask and RW5a's figures on (reader.prompt_contract's `intent`, generated from
 // learnloop.reader.reader_intent's catalogue: tests/test_reader_intentions.py
 // pins the same table). Used by the Reader's RW1b and RW4a tests.
 import type { ReaderIntentContractDto } from "../api/dto";
@@ -106,6 +106,16 @@ export const readerIntentContractFixture: ReaderIntentContractDto = {
           "label": "another way to see this",
           "effect": {
             "kind": "another_way"
+          },
+          "model": true
+        },
+        {
+          "id": "make_explorable",
+          "group": "understand",
+          "intention": "understand",
+          "label": "make this explorable",
+          "effect": {
+            "kind": "figure"
           },
           "model": true
         }

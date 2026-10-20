@@ -3,8 +3,8 @@ title: "Config - tutor_qa"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8bb003daebe1bc05c564017fea6dcaa17ae78317"
-source_commit_timestamp: "2026-10-20T15:55:44-04:00"
+source_commit: "924e0756f341f88c29d8ae1ff5083921c59e7c23"
+source_commit_timestamp: "2026-10-20T19:18:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml tutor_qa"
@@ -26,6 +26,7 @@ source_paths:
   - "src/learnloop/learner/facet_diagnostics.py"
   - "src/learnloop/tutor/question_signal.py"
   - "src/learnloop/source_retrieval/tutor.py"
+  - "tests/figure_fixtures.py"
   - "tests/source_retrieval_fakes.py"
   - "tests/source_service_fakes.py"
   - "tests/test_daily_loop_reader_authored_practice.py"
@@ -37,7 +38,6 @@ source_paths:
   - "tests/test_question_signal.py"
   - "tests/test_quick_check.py"
   - "tests/test_reader_dialogue.py"
-  - "tests/test_reader_intent.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/tutor-qa"
@@ -81,6 +81,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/figure_fixtures.py`
 - `tests/source_retrieval_fakes.py`
 - `tests/source_service_fakes.py`
 - `tests/test_daily_loop_reader_authored_practice.py`
@@ -92,7 +93,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_question_signal.py`
 - `tests/test_quick_check.py`
 - `tests/test_reader_dialogue.py`
-- `tests/test_reader_intent.py`
 
 ## Extension and modification guidance
 

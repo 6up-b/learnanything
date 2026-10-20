@@ -3,8 +3,8 @@ title: "Config - cues"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8bb003daebe1bc05c564017fea6dcaa17ae78317"
-source_commit_timestamp: "2026-10-20T15:55:44-04:00"
+source_commit: "924e0756f341f88c29d8ae1ff5083921c59e7c23"
+source_commit_timestamp: "2026-10-20T19:18:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml cues"
@@ -21,6 +21,8 @@ source_paths:
   - "src/learnloop/reader/reader_cues.py"
   - "tests/approach_map_fakes.py"
   - "tests/codex_cli_fakes.py"
+  - "tests/figure_corpus.py"
+  - "tests/figure_fixtures.py"
   - "tests/hint_fakes.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
@@ -29,8 +31,6 @@ source_paths:
   - "tests/split_live_helpers.py"
   - "tests/test_ai_config.py"
   - "tests/test_approach_map_boundaries.py"
-  - "tests/test_approach_maps.py"
-  - "tests/test_capability_residual.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/cues"
@@ -51,10 +51,10 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `cues.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for reader workbench RW3a (display only, no successor): the Guide's own passages on a Learning Object with a recent misunderstanding shown as quiet margin marks with a fixed note and a "because" line, their taps (salience-only events and learner_card verdicts on passage_cue) and the density control. Off: the guide plan carries no cues and the Reader shows no marks and no density control. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2101`; `src/learnloop/reader/reader_cues.py:106` |
-| `cues.density` | `"normal"` | string | modeled default or validator seed | The learner's display limit of margin marks per section: off, fewer, normal or more (0, 1, 2 or 4); "fewer marks like this" steps it down one notch. Remembered in vault config so it holds across devices. A display limit only, never a count that decides learning. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2102`; `src/learnloop/reader/reader_cues.py:111` |
-| `cues.one_per_viewport` | `true` | boolean | modeled default or validator seed | At most one margin mark per screenful at every density (spacing computed when the text is laid out, never while scrolling); off leaves the per-section density budget alone. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2103`; `src/learnloop/reader/reader_cues.py:135` |
-| `cues.off_sources` | `[]` | array | modeled default or validator seed | Source ids the learner switched margin cues off for (from a mark's popover; undoable until they leave the source). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2104`; `src/learnloop/reader/reader_cues.py:130` |
+| `cues.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for reader workbench RW3a (display only, no successor): the Guide's own passages on a Learning Object with a recent misunderstanding shown as quiet margin marks with a fixed note and a "because" line, their taps (salience-only events and learner_card verdicts on passage_cue) and the density control. Off: the guide plan carries no cues and the Reader shows no marks and no density control. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2111`; `src/learnloop/reader/reader_cues.py:106` |
+| `cues.density` | `"normal"` | string | modeled default or validator seed | The learner's display limit of margin marks per section: off, fewer, normal or more (0, 1, 2 or 4); "fewer marks like this" steps it down one notch. Remembered in vault config so it holds across devices. A display limit only, never a count that decides learning. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2112`; `src/learnloop/reader/reader_cues.py:111` |
+| `cues.one_per_viewport` | `true` | boolean | modeled default or validator seed | At most one margin mark per screenful at every density (spacing computed when the text is laid out, never while scrolling); off leaves the per-section density budget alone. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2113`; `src/learnloop/reader/reader_cues.py:135` |
+| `cues.off_sources` | `[]` | array | modeled default or validator seed | Source ids the learner switched margin cues off for (from a mark's popover; undoable until they leave the source). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2114`; `src/learnloop/reader/reader_cues.py:130` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -65,6 +65,8 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/approach_map_fakes.py`
 - `tests/codex_cli_fakes.py`
+- `tests/figure_corpus.py`
+- `tests/figure_fixtures.py`
 - `tests/hint_fakes.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
@@ -73,8 +75,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/split_live_helpers.py`
 - `tests/test_ai_config.py`
 - `tests/test_approach_map_boundaries.py`
-- `tests/test_approach_maps.py`
-- `tests/test_capability_residual.py`
 
 ## Extension and modification guidance
 

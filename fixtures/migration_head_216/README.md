@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-213. Migration 167 adds the learner-field F1 read model
+216 (214 and 215 are held by parallel stages; the runner is set-based). Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -223,7 +223,22 @@ indexes and no-update and no-delete triggers) and `item_forecast_payloads`
 migration 206's `forecast_receipts`, no table of their own. The new tables
 are empty here.
 
-Built as a backup-API copy of the base's `migration_head_212` (git
+Migration 216 comes from reader workbench RW5a (`reader/rw5a`, explorable
+figures, docs/reviews/reader-workbench-RW5a.md): it adds `interactive_figures`
+(WORKFLOW: built figure versions, the declarative spec, its verification and
+the reuse key, with three indexes) and `figure_predictions` (RAW_LEDGER: the
+learner's prediction, its observed readout and the one-time "what changed?",
+unique per figure and prediction, an index, and the no-delete and
+explanation-once triggers). Nothing is altered. Both tables are empty here.
+Built as a backup-API copy of the base's `migration_head_213` (git
+`e14b4e4ff`) with only 216 applied, through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade
+allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
+`foreign_key_check` empty), copied into place with the backup API, with no
+companion files; `migration_head_213` was renamed to this directory.
+
+`migration_head_213` was built as a backup-API copy of the base's `migration_head_212` (git
 `16a0071f2`) with only 213 applied, through
 `learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade
 allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),

@@ -3,13 +3,13 @@ title: "source_service_spend"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8bb003daebe1bc05c564017fea6dcaa17ae78317"
-source_commit_timestamp: "2026-10-20T15:55:44-04:00"
+source_commit: "924e0756f341f88c29d8ae1ff5083921c59e7c23"
+source_commit_timestamp: "2026-10-20T19:18:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_service_spend"
   - "table source_service_spend"
-schema_head: 213
+schema_head: 216
 table_name: "source_service_spend"
 table_role: "workflow"
 functionality_status: "active"
@@ -102,6 +102,7 @@ None found by exact static reference scan.
 
 - `tests/test_approach_maps.py`
 - `tests/test_exam_protection.py`
+- `tests/test_figures_rpc.py`
 - `tests/test_hint_outcome.py`
 - `tests/test_source_service_spend_accounting.py`
 - `tests/test_source_service_spend_envelopes.py`

@@ -76,6 +76,11 @@ def _record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, offers: bool = F
         # tree) adds its own key at its defaults; these pins are about RW1c's
         # switches, so everything else stays byte for byte (RW4b landing).
         assert contract.pop("libraryExercises") == {"fallback": False}
+        # RW5a (explorable figures, on by default) likewise adds its key and
+        # its one intent-box action; RW1c's pins are unchanged otherwise.
+        assert contract.pop("figures") == {"predictions": True, "region": True, "revisions": True}
+        for group in contract["intent"]["palette"]:
+            group["actions"] = [action for action in group["actions"] if action["effect"] != {"kind": "figure"}]
     events = [
         {"kind": event["kind"], "payload": event.get("payload")}
         for kind in ("reader_answer_submitted", "learner_question_asked", "reader_answer_mode_set")

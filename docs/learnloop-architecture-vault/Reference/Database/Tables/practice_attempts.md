@@ -3,13 +3,13 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8bb003daebe1bc05c564017fea6dcaa17ae78317"
-source_commit_timestamp: "2026-10-20T15:55:44-04:00"
+source_commit: "924e0756f341f88c29d8ae1ff5083921c59e7c23"
+source_commit_timestamp: "2026-10-20T19:18:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
   - "table practice_attempts"
-schema_head: 213
+schema_head: 216
 table_name: "practice_attempts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -286,6 +286,7 @@ Indexes and uniqueness:
 
 - `tests/approach_map_fakes.py`
 - `tests/daily_plan_fakes.py`
+- `tests/figure_fixtures.py`
 - `tests/mcp_world.py`
 - `tests/rw2b_fix10_base_sequence.py`
 - `tests/rw2b_fix11_base_sequence.py`
@@ -303,7 +304,6 @@ Indexes and uniqueness:
 - `tests/test_assumed_known.py`
 - `tests/test_blind_grading_contract.py`
 - `tests/test_characterization_probe_regrade.py`
-- `tests/test_coldness_receipt.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

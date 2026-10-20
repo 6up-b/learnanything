@@ -3,13 +3,13 @@ title: "daily_plans"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8bb003daebe1bc05c564017fea6dcaa17ae78317"
-source_commit_timestamp: "2026-10-20T15:55:44-04:00"
+source_commit: "924e0756f341f88c29d8ae1ff5083921c59e7c23"
+source_commit_timestamp: "2026-10-20T19:18:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite daily_plans"
   - "table daily_plans"
-schema_head: 213
+schema_head: 216
 table_name: "daily_plans"
 table_role: "workflow"
 functionality_status: "active"
@@ -116,6 +116,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/figure_fixtures.py`
 - `tests/source_service_fakes.py`
 - `tests/test_architecture.py`
 - `tests/test_daily_plan_kill_switch.py`

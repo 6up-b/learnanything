@@ -17,6 +17,15 @@ from learnloop.db.table_roles import TableRole, role_for_table as table_role
 from tests.helpers import create_basic_vault
 
 TABLES = {"interactive_figures": TableRole.WORKFLOW, "figure_predictions": TableRole.RAW_LEDGER}
+#: What 216 adds (nothing is altered): the earlier migrations' "nothing else
+#: changed" diffs on the way to head read this (tests/test_ad1_migration.py,
+#: test_approach_maps_schema.py, test_help_assists_schema.py, test_library_asks_migration.py).
+RW5A_ADDED_OBJECTS = frozenset({
+    "interactive_figures", "figure_predictions", "idx_interactive_figures_extraction", "idx_interactive_figures_input",
+    "idx_interactive_figures_supersedes", "idx_figure_predictions_extraction", "figure_predictions_no_delete",
+    "figure_predictions_explanation_once", "sqlite_autoindex_interactive_figures_1",
+    "sqlite_autoindex_figure_predictions_1", "sqlite_autoindex_figure_predictions_2",
+})
 
 
 def test_216_is_the_figures_migration():
