@@ -3,8 +3,8 @@ title: "Config - algorithms"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3feedbc7c5d35214d8c7dba3449cebe120b9ec07"
-source_commit_timestamp: "2026-10-20T14:08:39-04:00"
+source_commit: "8bb003daebe1bc05c564017fea6dcaa17ae78317"
+source_commit_timestamp: "2026-10-20T15:55:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml algorithms"
@@ -21,6 +21,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/outside.py"
   - "src/learnloop/adaptive_difficulty/serve.py"
   - "tests/helpers.py"
+  - "tests/intent_fakes.py"
   - "tests/mcp_world.py"
   - "tests/test_administration_adapters.py"
   - "tests/test_ai_config.py"
@@ -31,7 +32,6 @@ source_paths:
   - "tests/test_canonical_projection_rollout.py"
   - "tests/test_causal_activity_policy.py"
   - "tests/test_causal_attribution_p2.py"
-  - "tests/test_causal_factor_deferral.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/algorithms"
@@ -52,7 +52,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `algorithms.algorithm_version` | `"mvp-0.27"` | string | explicit template decision | Pins the replay/defaults namespace so historical evidence is interpreted by the algorithm that produced it. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:18`; `src/learnloop/adaptive_difficulty/outside.py:372`; `src/learnloop/adaptive_difficulty/serve.py:93` |
+| `algorithms.algorithm_version` | `"mvp-0.29"` | string | explicit template decision | Pins the replay/defaults namespace so historical evidence is interpreted by the algorithm that produced it. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:18`; `src/learnloop/adaptive_difficulty/outside.py:372`; `src/learnloop/adaptive_difficulty/serve.py:93` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -62,6 +62,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/helpers.py`
+- `tests/intent_fakes.py`
 - `tests/mcp_world.py`
 - `tests/test_administration_adapters.py`
 - `tests/test_ai_config.py`
@@ -72,7 +73,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_canonical_projection_rollout.py`
 - `tests/test_causal_activity_policy.py`
 - `tests/test_causal_attribution_p2.py`
-- `tests/test_causal_factor_deferral.py`
 
 ## Extension and modification guidance
 

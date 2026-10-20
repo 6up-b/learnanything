@@ -3,8 +3,8 @@ title: "commitment_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3feedbc7c5d35214d8c7dba3449cebe120b9ec07"
-source_commit_timestamp: "2026-10-20T14:08:39-04:00"
+source_commit: "8bb003daebe1bc05c564017fea6dcaa17ae78317"
+source_commit_timestamp: "2026-10-20T15:55:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitment_events"
@@ -21,6 +21,8 @@ source_paths:
   - "migrations/072_commitments.sql"
   - "src/learnloop/curriculum/commitments.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/intent_reads.py"
+  - "src/learnloop/intent/checks.py"
   - "src/learnloop/reader/reader_authoring.py"
   - "src/learnloop/reader/recap.py"
   - "src/learnloop/curriculum/depth_rungs.py"
@@ -90,6 +92,8 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/intent_reads.py`
+- `src/learnloop/intent/checks.py`
 - `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/reader/recap.py`
 
@@ -113,11 +117,13 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_p2_acceptance.py`
+- `tests/intent_fakes.py`
 - `tests/test_commitment_arcs.py`
 - `tests/test_commitments.py`
 - `tests/test_daily_loop_reader_retire.py`
 - `tests/test_depth_transition.py`
 - `tests/test_golden_path_assessment.py`
+- `tests/test_intent_checks.py`
 - `tests/test_journey6.py`
 - `tests/test_question_promotions.py`
 - `tests/test_tutor_promotion_service.py`

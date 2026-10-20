@@ -3,8 +3,8 @@ title: "followup_tasks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3feedbc7c5d35214d8c7dba3449cebe120b9ec07"
-source_commit_timestamp: "2026-10-20T14:08:39-04:00"
+source_commit: "8bb003daebe1bc05c564017fea6dcaa17ae78317"
+source_commit_timestamp: "2026-10-20T15:55:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_tasks"
@@ -24,8 +24,8 @@ source_paths:
   - "src/learnloop/evsi_calibration/forecast_report.py"
   - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/goals/certification_cold_probe.py"
+  - "src/learnloop/scheduling/intent/serving.py"
   - "src/learnloop/scheduling/scheduler.py"
-  - "src/learnloop_sidecar/handlers/knowledge_map.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/staged_frame.py"
@@ -139,6 +139,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop/goals/certification_cold_probe.py`
 - `src/learnloop/instructional/policy.py`
+- `src/learnloop/intent/checks.py`
 - `src/learnloop/learner_protection.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/scheduling/serving_exclusions.py`
@@ -156,6 +157,7 @@ Indexes and uniqueness:
 - `tests/test_causal_cold_outcomes.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_forecast_receipts.py`
+- `tests/test_intent_fix_round4.py`
 - `tests/test_mcp_c1a_landing.py`
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_remediation_cold_retry.py`
@@ -169,9 +171,8 @@ Indexes and uniqueness:
 - `tests/test_followup_diagnostic_selection.py`
 - `tests/test_guided_redo.py`
 - `tests/test_instrument_servability_journeys.py`
-- `tests/test_item_authoring.py`
-- `tests/test_pfc_unassessed_readers.py`
-- `tests/test_practice_index_admission.py`
+- `tests/test_intent_codex_rereview.py`
+- `tests/test_intent_codex_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -3,8 +3,8 @@ title: "practice_item_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3feedbc7c5d35214d8c7dba3449cebe120b9ec07"
-source_commit_timestamp: "2026-10-20T14:08:39-04:00"
+source_commit: "8bb003daebe1bc05c564017fea6dcaa17ae78317"
+source_commit_timestamp: "2026-10-20T15:55:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_state"
@@ -99,6 +99,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/intent/report.py`
 
 ### Direct SQL writers
 
@@ -115,9 +116,9 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/golden_path_compose.py`
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/headline.py`
+- `src/learnloop/daily_plan/intent_cost.py`
 - `src/learnloop/daily_plan/reentry.py`
 - `src/learnloop/daily_plan/router_card.py`
-- `src/learnloop/daily_plan/staged_frame.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_migration.py`
@@ -151,7 +152,7 @@ Indexes and uniqueness:
 - `tests/test_field_cli.py`
 - `tests/test_held_grade_evidence.py`
 - `tests/test_hot_path_eligibility_cutover.py`
-- `tests/test_item_authoring.py`
+- `tests/test_intent_codex_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

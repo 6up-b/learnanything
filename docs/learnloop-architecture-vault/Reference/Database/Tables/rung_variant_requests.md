@@ -3,8 +3,8 @@ title: "rung_variant_requests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3feedbc7c5d35214d8c7dba3449cebe120b9ec07"
-source_commit_timestamp: "2026-10-20T14:08:39-04:00"
+source_commit: "8bb003daebe1bc05c564017fea6dcaa17ae78317"
+source_commit_timestamp: "2026-10-20T15:55:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite rung_variant_requests"
@@ -125,6 +125,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_ingest_jobs.py`
+- `tests/intent_fakes.py`
 - `tests/test_daily_loop_reader_retire.py`
 - `tests/test_ingest_runner.py`
 - `tests/test_question_promotions.py`
