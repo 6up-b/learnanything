@@ -3,8 +3,8 @@ title: "practice_item_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3240203723d79c44a6ee1c40f4303cbd4e061a1f"
-source_commit_timestamp: "2026-10-20T13:30:13-04:00"
+source_commit: "d32c471d591f407360b8823fc8e62c9bdd37c999"
+source_commit_timestamp: "2026-10-20T14:45:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_state"
@@ -119,7 +119,6 @@ Indexes and uniqueness:
 - `src/learnloop/daily_plan/intent_cost.py`
 - `src/learnloop/daily_plan/reentry.py`
 - `src/learnloop/daily_plan/router_card.py`
-- `src/learnloop/daily_plan/staged_frame.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_migration.py`
@@ -127,6 +126,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/diagnostic_surface_supply.py`
 - `src/learnloop/diagnosis/followups.py`
+- `src/learnloop/diagnosis/probe_dialogue.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

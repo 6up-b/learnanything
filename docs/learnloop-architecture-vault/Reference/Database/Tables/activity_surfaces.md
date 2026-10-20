@@ -3,8 +3,8 @@ title: "activity_surfaces"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3240203723d79c44a6ee1c40f4303cbd4e061a1f"
-source_commit_timestamp: "2026-10-20T13:30:13-04:00"
+source_commit: "d32c471d591f407360b8823fc8e62c9bdd37c999"
+source_commit_timestamp: "2026-10-20T14:45:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_surfaces"
@@ -20,14 +20,15 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/065_activity_lineage_substrate.sql"
   - "src/learnloop/adaptive_difficulty/reading.py"
-  - "src/learnloop/daily_plan/staged_frame.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ops/contamination/recipes.py"
   - "src/learnloop/ops/pf_reports.py"
+  - "src/learnloop/scheduling/frame_constraints.py"
   - "src/learnloop/cli/surfaces.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/curriculum/golden_path_assessment.py"
   - "src/learnloop/learner_protection.py"
+  - "src/learnloop/reader/reader_dialogue.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -103,10 +104,10 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/adaptive_difficulty/reading.py`
-- `src/learnloop/daily_plan/staged_frame.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/ops/contamination/recipes.py`
 - `src/learnloop/ops/pf_reports.py`
+- `src/learnloop/scheduling/frame_constraints.py`
 
 ### Direct SQL writers
 
@@ -117,11 +118,11 @@ Indexes and uniqueness:
 - `src/learnloop/cli/surfaces.py`
 - `src/learnloop/content/authoring/item_authoring.py`
 - `src/learnloop/curriculum/golden_path_assessment.py`
-- `src/learnloop/daily_plan/staged_frame.py`
 - `src/learnloop/learner_protection.py`
 - `src/learnloop/reader/reader_dialogue.py`
 - `src/learnloop/scheduling/controller_snapshot.py`
-- `src/learnloop/scheduling/intent/serving.py`
+- `src/learnloop/scheduling/frame_constraints.py`
+- `src/learnloop/scheduling/intent/feasibility.py`
 - `src/learnloop/substrate/activities.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
 - `src/learnloop/substrate/surface_mint.py`

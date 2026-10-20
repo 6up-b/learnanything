@@ -3,8 +3,8 @@ title: "activity_surface_reservations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3240203723d79c44a6ee1c40f4303cbd4e061a1f"
-source_commit_timestamp: "2026-10-20T13:30:13-04:00"
+source_commit: "d32c471d591f407360b8823fc8e62c9bdd37c999"
+source_commit_timestamp: "2026-10-20T14:45:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_surface_reservations"
@@ -21,12 +21,12 @@ source_paths:
   - "migrations/065_activity_lineage_substrate.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ops/contamination/recipes.py"
-  - "src/learnloop/scheduling/intent/serving.py"
+  - "src/learnloop/scheduling/intent/feasibility.py"
   - "src/learnloop/curriculum/golden_path_confirm.py"
-  - "src/learnloop/daily_plan/staged_frame.py"
   - "src/learnloop/goals/goal_contracts.py"
   - "src/learnloop/learner_protection.py"
   - "src/learnloop/reader/reader_dialogue.py"
+  - "src/learnloop/scheduling/controller_snapshot.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -112,12 +112,12 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/curriculum/golden_path_confirm.py`
-- `src/learnloop/daily_plan/staged_frame.py`
 - `src/learnloop/goals/goal_contracts.py`
 - `src/learnloop/learner_protection.py`
 - `src/learnloop/reader/reader_dialogue.py`
 - `src/learnloop/scheduling/controller_snapshot.py`
-- `src/learnloop/scheduling/intent/serving.py`
+- `src/learnloop/scheduling/frame_constraints.py`
+- `src/learnloop/scheduling/intent/feasibility.py`
 - `src/learnloop/substrate/activities.py`
 
 > [!note] Static-reference boundary
