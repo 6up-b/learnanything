@@ -248,3 +248,195 @@ test_tutor_promotion_service test_tutor_promotion_w2 test_tutor_qa test_tutor_to
 test_ux_phase1_connect_ai test_ux_phase1_landing test_ux_phase1_usability_round1 test_ux_phase4_feedback 
 test_vault_epigraphs test_voi_merge_composition test_voi_stopping test_voi_v2 test_workbench_text_gaps 
 ```
+
+## Landing onto main
+
+Landed in the `learnanything-merge2` worktree on branch `merge/rw1c-onto-main`, cut from main at `fab576ac1` (the
+RW2b + H3 landing, migration head 213). The stage tip is `c8d185b33`, unchanged, and was built on `fab576ac1`, so the
+merge had nothing to compose. The orchestrator's last verify (Codex job `20261020-015528-3gpY2e` on `c8d185b33`) is
+clean: no High, no Medium. Main was neither fast-forwarded nor pushed here.
+
+**Commits:**
+- `7b028edf0`: a `--no-ff` merge of `reader/rw1c` onto `fab576ac1`. No conflicts (the stage's base is main's tip).
+- `f18abf518`: the references regenerated on the merged tree (commit labels; 398 files, labels only).
+- This record, with the three owner confirmations below.
+
+The landing was interrupted once (after the regeneration, the frontend checks and parity (a)) and resumed. The two
+full-suite runs started before the interruption were stopped near the end, with no failure in either log
+(`fixtures-local/rw1c-landing-fullsuite.log`, `-fullsuite2.log`); the gate's run is the third, below. Parity (b) was
+cut off mid-upgrade; its copies were set aside (`landing-rw1c/stale/`) and (b) was redone from fresh copies.
+
+### Merge and regeneration
+
+- **No conflicts, no migration, no new route, no new RPC.** `reader.ask` gains optional fields; `src-tauri`,
+  `migrations/`, `pyproject.toml` and `uv.lock` are unchanged. `migration_head_213` is main's.
+- **References.** `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**, `schema_head` 213, 333
+  table notes, **919** configuration leaves (RW1c's two `[reader_tutor]` switches on RW2b's 917; the stage already
+  moved the prose counts).
+- **Defaults snapshots.** With the config template's `.pyc` cleared, all **19** `DEFAULTS_SNAPSHOT_BY_ALGORITHM`
+  entries match (`mvp-0.9` … `mvp-0.27`, recomputed by the stage).
+- **CLI help snapshot** (`tests/test_cli_help_snapshot.py --write`): no change. **RPC pins** (serializer snapshot,
+  desktop RPC contract, mobile allowlist; the new `reader.ask` fields are desktop-only): pass in the full run, no
+  file rewritten.
+- **`validate_vault.py`**: passes (1,130 notes, all reachable).
+- **Known failures, from before this stage, not fixed:** `desktop_validate.py` stops on
+  `components/pdfSelection/testing/syntheticBook.ts` (as at the RW2b landing); `module_validate.py` reports **910**
+  issues, up from 900 at RW2b. RW1c adds five modules without module notes (`text_canon.py`, `hint_window.py`,
+  `source_retrieval/reader_tutor.py`, `tutor/reader_modes.py`, the sidecar's `reader_tutor.py`); the validator's
+  output is truncated, so the ten are not itemised here.
+
+### Gate
+
+Python 3.12.14. `TMPDIR` was merge2's `fixtures-local/tmp`, and every command after the install ran as `uv run
+--no-sync`. Both suite lanes ran under `flock /tmp/learnloop-fullsuite.lock`. The AD2+AD3, DL2 and RW4b worktrees
+and their processes were not touched. Every test uses fakes. **This is the first full run over the stage's code**:
+every stage step and the 12 fix rounds ran targeted tests only (owner rule 2026-10-17).
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `lint-imports --no-cache` | **28 kept**, 0 broken |
+| full suite `pytest -n auto` on `f18abf518` | **14,420 passed, 2 xfailed, 0 failed** (26 min 17 s, on a machine shared with three stages' targeted runs; `fixtures-local/rw1c-landing-fullsuite3.log`). The RW2b landing ran 14,032 + its fix |
+| `pytest -m durability` on `f18abf518` | **113 passed**, 14,309 deselected (3 min 51 s; `fixtures-local/rw1c-landing-durability.log`) |
+| `npm install`, `npm run typecheck` | up to date; clean |
+| `npm test` (the whole vitest run) | **144 files, 1,130 tests passed** on the first run. The `FeedbackScreen` flake did not fire |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | ok (nothing under `src-tauri` changed) |
+| thread, lock and timing tests | all passed on the first run, so none was rerun. The `"8841"` MCP flake did not fire |
+| tracked fixtures, worktree | `git status` clean after both lanes and the frontend run, apart from this record and the three confirmation notes; no `-wal` beside a fixture |
+
+No gate fix was needed.
+
+### Parity (backup-API copies; no model call completed)
+
+**Setup** (as at the RW2b landing):
+- **Copies.** The owner's `fixtures/linear_algebra` and `fixtures/probability` were copied once with
+  `copy_tree_with_databases` from the main checkout into `fixtures-local/landing-rw1c/orig/`; every other copy came
+  from `orig/`, or from its upgraded copy `u27/`, through the same helper. `arxiv_v2` was not opened. Both vaults
+  start at schema 165, label `mvp-0.8`.
+- **Code.** Main's code is `git archive fab576ac1` and the merge's is the merged tree (`src`, `migrations`,
+  `pyproject.toml`), each first on `sys.path`; main's archive was re-checked against `main` before use.
+- **Environment.** Every run went through `env -i` with only `PATH`, `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`,
+  `TMPDIR` and `LANG`; `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR` were empty directories and still are. No key
+  or provider variable was set.
+- **Model routes, set before anything ran** (`neutralize3.py`, under each code). Every `AIRoutingConfig` field
+  except the opt-in `embedding` / `pf_proposers` / `field_question_classifier` went to `127.0.0.1:9`: chat routes
+  (the tutor and Reader routes, `source_rerank`, `hint_writer`, `approach_map`, `hint_outcome`, `workbench_check`,
+  `ad_forecast_llm`, `ad_feature_audit`, …) to `blackhole` (`openai_chat`, key variable unset), decider-only routes
+  (`hint_chooser`, `ad_forecast_decider`, `tier1_decider`, …) to `blackhole_decider`; the active provider to
+  `blackhole`, the fallback cleared; `query_rewrite`, `tutor_query_rewrite`, `tutor_rerank`, `dense` and
+  `[embedding]` off; `[learner_text_gaps] enabled = false`; `[hints.maps] build_on_serve = false` and
+  `[hints] outcome_placement_enabled = false`. A resolver check over every `AITask` (58 on both codes) found nothing
+  outside those two profiles except `embedding` (disabled, keyless).
+
+**(a) Schema and rows, and (b) nothing served changes**
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| **(a)** open (migrate), main's code / the merge's | 165 → 213 (48) / the same | the same |
+| schema, main@213 vs merge@213 | **identical**: 1,414 objects each, none on one side only, no SQL differs | **identical** (1,413) |
+| rows of every table (338), all columns | **identical** (16,539 rows); `schema_migrations` differs only in `applied_at` | **identical** (7,637 rows; the same) |
+| `foreign_key_check` / `integrity_check`, both sides | 0 / ok | 0 / ok |
+| `rebuild --shadow --json` | **0 differences** after normalisation (raw: the marker id and database hashes); facet 0, mastery 2, schedule 8; live database unchanged on both | **0 differences** (facet 0, mastery 1, schedule 1) |
+| `doctor --json` | **0 differences** (raw: the copy paths); 57 issues, 1 error | **0 differences**; 101 issues, 48 errors |
+| **(b)** at `mvp-0.8`: certification, recipe gaps and curves; the Today queue at a frozen clock (no session, a session, greedy); the daily plan | **byte-identical** (39 facets, 84 points; queue 41; the plan is off below `mvp-0.14`) | **byte-identical** (29 facets; queue 67) |
+| upgraded by main's code to `mvp-0.27` (`--to mvp-0.9`, `--to mvp-0.27`, `rebuild-derived-state` twice; all rc 0), then opened by each code | certification and curves **byte-identical** (82 points, 7 corrections; 129,651 bytes); Today queue **byte-identical** (43) | **byte-identical** (cert 17,495 bytes; queue 67) |
+| the daily plan at `mvp-0.27` (the sidecar's handlers in process, frozen clock: read, serve, serve again, read; the plan tables, `plan_presentations`, the `plan_block` decisions) | identical except `router_decisions.card_hash`, `snapshot_hash` and the card hash in `detail_json`, which hash a card carrying the plan's ULID. **A second run of main's code differs from the first in exactly these three** | the same |
+
+**(c) The Reader and practice through the real sidecar** (stdio), on copies of probability at `mvp-0.27` (`u27/`).
+The sequence:
+- `initialize`, `get_config`;
+- `reader.prompt_contract`; `reader.ask_history` on `ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY` (3 saved exchanges); one
+  `reader.ask` on span `s108`; `reader.ask_history` again;
+- `set_grading_provider manual`, `start_session`; one daily-plan serve (`get_daily_plan`, `next_plan_item` with
+  `serve` true: `pi_three_independent_birthd`), then a 12 s wait for AD's background jobs;
+- on `pi_prob_derive_complement`: `get_practice_item`, `get_probe_contract`, `practice.record_hint_reveal` (authored
+  hint 0), `save_practice_draft`, `submit_attempt` with self-grade, the `submissionId` and `difficultyRating:
+  "hard"`, then `acknowledge_practice_submission`;
+- `submit_dont_know` on `pi_incl_derive_intersections`, acknowledged;
+- a hint-free workbench `open`, `get` and `submit` on `pi_story_binomial_translation`;
+- `get_session`, `shutdown`.
+
+The runs: (i) main (`ci`, plus `ci2`, main again as the baseline); (ii) the merge with `[reader_tutor]
+retrieval_enabled = false`, `offers_enabled = false` (`cii`); (iii) the merge at the defaults (`ciii`).
+
+| Check | Result |
+|---|---|
+| every response (24 calls + `shutdown`), (i) vs (ii) | **identical**: 11 raw-identical, the rest identical after normalisation (ULIDs, timestamps, the copy path, `initialize`'s schema-head fields), exactly as main against main again |
+| (i) vs (iii) | the same, **except one key**: `reader.prompt_contract` gains `readerTutor` = `{retrieval: true, offers: true, anotherWay: true, personalizedDefault: true, tryNextStep: true, manifestIncludes: [the verified book passages after the selection; when personalized, the learner's open questions and recent workbench steps on the passage's learning objects]}`. Every other contract key is equal, and `initialize`'s method list is unchanged (no new RPC) |
+| `reader.ask` (route unreachable) | the **same error** in all three runs, raw-identical: `-32001`, `provider_unavailable`, retryable, *"AI provider blackhole is unavailable for reader Ask."*; `reader.ask_history` still returns the 3 saved exchanges, raw-identical |
+| the database delta | (ii) and (iii) differ from (i) only in tables where `ci2` (main again) also differs from `ci`: wall-clock floats in `attempt_debug_payloads`, `scheduler_explanations` and `scheduler_slate_candidates`; the router card hash in `attention_block_events`; AD's background rows (`judgment_ledger` uuids, `item_forecast_payloads` request hashes). (iii) also differed in `judgment_work_claims`: AD's feature-audit claim had `lease_epoch` 2. That is timing, not RW1c (below). No question, interaction, exposure or receipt row differs, and no merge-only table or column was written |
+| the attempts, all runs | **identical** evidence fields: the `open_text` attempt has `hints_used` 1, `primed` 0, correctness 1.0, `difficulty_rating` hard, assisted, not certifying; the `dont_know` is recorded as stuck (`declared_stuck` 1, scored 0), `hints_used` 0; the workbench attempt (`desktop_practice_workbench`) has `hints_used` 0, `primed` 0. The activity classes are the same, there are 0 `reveal_events` rows, and one `help_assists` row (the client-counted authored reveal, level 3, attached to the first attempt) |
+
+**The `lease_epoch` check.** Ten more runs (`ci3`-`ci7` on main, `ciii2`-`ciii6` at the merge's defaults; six with
+a trace of AD's preparation passes) give `lease_epoch` 2 on **3 of 7 main runs** and **1 of 6 merge runs**. It is 2
+exactly when AD's background preparation runs a second pass over the served item, which re-claims the unsettled
+feature audit. The attempts were identical in every run.
+
+**(d) The learner field and the hint report** (`hint_window.py` and `field/signals.py` changed). Main's and the
+merge's code each read the same copy, read-only:
+
+| Copy | field replay rows (attempts, facets, signals with types) | `field data-check --json` | `hints report --json` |
+|---|---|---|---|
+| linear_algebra at `mvp-0.27` | **byte-identical** (70 attempts, 82 facets, 15 signals) | **byte-identical** | **identical** apart from `generated_at` |
+| probability at `mvp-0.27` | **byte-identical** (2, 2, 20) | **byte-identical** | **identical** apart from `generated_at` |
+| (c)'s `ci` after its practice | **byte-identical** (5, 7, 21) | **byte-identical** | **identical** apart from `generated_at` |
+| (c)'s `ciii` after its practice | **byte-identical** (5, 7, 21) | **byte-identical** | **identical** apart from `generated_at` |
+
+Neither vault has a bound Reader question, so the bound-question window rule (`hint_window.py`) has nothing to move,
+and nothing moved.
+
+**`model_call_receipts` across all 34 learner databases** under `landing-rw1c/` (every copy, run and base backup;
+the 34 other `state.sqlite` files are probability's empty `.learnloop/state.sqlite`): **0 rows**, so none
+`completed`.
+
+### New findings
+
+- **Behaviour to know, not a defect, and not RW1c.** AD's feature-audit work claim ends at `lease_epoch` 1 or 2
+  depending on whether a second background preparation pass ran over the same served item (main 3 of 7, merge 1 of
+  6). Nothing served or counted depends on it.
+- No real failure in the full suite or the durability lane; no gate fix.
+
+### For the owner
+
+- **No migration and no `--to` command.** Nothing served changes (parity (a)-(d)).
+- **What you see in the Reader's Ask.** The answer may open with *§ from your books*: a short quote from one of your
+  books, checked against the passage. Then *◇ LearnLoop's explanation*, and, when you have work on the passage's
+  topics, *◇ connecting it to your work*. When your books don't cover the question, it says so and the explanation
+  is labelled as the model's. Under each answer: *another way* (a different passage, never one already shown) and
+  *that didn't help…* (asks *What's still unclear?*). Then the buttons: practise, a passage, a comparison, and *try
+  the next step first*. Nothing is looked up until you press. While it works, the line reads *looking in your books,
+  then writing an answer*.
+- **Cost and speed.** Retrieval makes one `source_rerank` verification call per question, on the active provider
+  unless routed (Codex in your vaults: slower). For speed, route `ai.routing.source_rerank` to a fast profile, e.g.
+  the ChatGPT plan or a priced OpenRouter route. Without a ready route, the tutor is today's and says nothing about
+  the books.
+- **Turning it off:** `[reader_tutor] retrieval_enabled = false` (today's tutor) and `offers_enabled = false` (no
+  buttons). With both off, the Reader is byte-identical to before (parity (c)(ii)).
+- **Open questions (§7; defaults taken):**
+  1. on by default: yes, both switches;
+  2. the Reader Ask inside a bound workbench session keeps the non-Socratic reader prompt;
+  3. *another way* that finds nothing new uses the honest abstention line;
+  4. offers are not shown on restored exchanges;
+  5. no *personalized* chip in the Ask composer (`library_ask.personalized_default`, true);
+  6. abstention hides citations.
+
+### Open items
+
+- **F9 (High, inherited, non-blocking):** the same-second boundary between a question and an attempt. It is queued
+  as its own follow-up, **durable sub-second event ordering across question/attempt/hint ledgers**.
+- **Accepted, Low:** a stem-alone leak through item authoring (item authoring's to fix). **Accepted:** book passages
+  outside a call's union are guarded per span.
+- **RW4b:** the `TutorOffers` exercise hook (§8 item 1) lands with RW4b.
+- `desktop_validate.py` (`syntheticBook.ts`) and `module_validate.py` (910 issues), both from before this stage.
+
+### Owner confirmations recorded with this landing (2026-10-20)
+
+The owner wrote: *"q1: no switch, q44: end it honestly with no replacement, q45: yes it ends the check. for rw6a yes
+to defaults"*. Each is noted next to its question:
+- `docs/reviews/regrade-contract-replay.md`, Q1 (§2.6, §9, open item 1): no kill switch for the mvp-0.26 regrade;
+  rollback means restoring the backup.
+- `docs/reviews/serve-eligibility-decision.md`, Q44 and Q45: a withdrawn cold check ends honestly, with no
+  replacement surface (no follow-up stage); practice after a check is scheduled ends the check (as built).
+- `docs/reviews/reader-workbench-RW6a.md` §6: all six defaults, plus *abandoned problems stay*
+  (`reader-rw6a-codex-review.md` F8).

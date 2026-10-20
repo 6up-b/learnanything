@@ -345,7 +345,9 @@ Both vaults are tracked fixtures, so their `state.sqlite` and `learnloop.toml` w
 ### Open items
 
 1. **Q44 (a replacement surface).** A withdrawn cold check ends its measurement. Re-selecting a fresh held-out surface is a follow-up stage that would change measurement selection. *Default: end it honestly.*
+   **Owner confirmed 2026-10-20:** a withdrawn cold check ends honestly, with no replacement surface (no follow-up stage).
 2. **Q45 (practised since scheduled)** is the rule behind the only behavioural difference these vaults could have shown. linear_algebra's certification probe would have been withdrawn because of a teach-back answer 28 minutes after the check was set. That answer is on the probe's own item, and the coldness receipt would read it as a hard exposure. The owner may want to confirm that an attempt this soon after a check is set should end it. *Default: as built.*
+   **Owner confirmed 2026-10-20:** practice after a check is scheduled ends the check (as built).
 3. **Q36, Q38, Q40 and Q43** are revised by the Codex review. **Q37, Q39, Q41 and Q42** stand. **Q22 to Q35** stand.
 4. **Two commands per vault**, as for mvp-0.26: mvp-0.27 refuses below mvp-0.9. Chaining from mvp-0.8 remains a possible follow-up; it is not needed.
 5. **Pre-existing:** every full rebuild appends dual-write rows and `measurement_events`, and moves the recurrence input fingerprint (above). It is out of this stage.
