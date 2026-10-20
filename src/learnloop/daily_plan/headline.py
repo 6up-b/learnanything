@@ -25,8 +25,8 @@ class is omitted rather than shown as 0. Read-only: nothing here is evidence.
 plan can serve. An item whose resolved intent excludes it (Pause, Reference,
 Let go, an answered "Check once") leaves expected recall; an LO leaves the
 counts when every item of it is excluded (an LO without items, when its own
-intent excludes it). With intent changing nothing (``intent.enabled`` off,
-or no commitment) the population is DL1's exactly.
+intent excludes it). With intent changing nothing (below ``mvp-0.29``,
+``intent.enabled`` off, or no commitment) the population is DL1's exactly.
 """
 
 from __future__ import annotations

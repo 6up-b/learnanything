@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from learnloop.algorithm_versions import INTENT_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import MasteryState, Repository
 from learnloop.intent.control import Scope, apply_choice
@@ -73,8 +74,10 @@ class IntentVault:
         return record_attempt(self.repository, item_id, ITEM_LO[item_id], at)
 
 
-def make_intent_vault(root: Path, *, plan_toml: str | None = None, reviewed_days_ago: int = 10) -> IntentVault:
-    paths = create_daily_plan_vault(root, learning_objects=LEARNING_OBJECTS, plan_toml=plan_toml)
+def make_intent_vault(
+    root: Path, *, plan_toml: str | None = None, reviewed_days_ago: int = 10, version: str = INTENT_ALGORITHM_VERSION
+) -> IntentVault:
+    paths = create_daily_plan_vault(root, learning_objects=LEARNING_OBJECTS, plan_toml=plan_toml, version=version)
     vault = load_vault(paths.root)
     repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
     reviewed = NOW - timedelta(days=reviewed_days_ago)

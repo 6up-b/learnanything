@@ -1283,8 +1283,8 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "daily-plan budget size, duration-estimate winsorizing or reading pace; sizes the "
         "plan and its labels, no measurement authority."),
-    # Daily-loop DL2 (intent; a live change behind intent.enabled and
-    # intent.recall_targets_enabled, no successor tag): the per-intent recall
+    # Daily-loop DL2 (intent; the successor mvp-0.29 behind intent.enabled and
+    # intent.recall_targets_enabled, Codex re-review F2): the per-intent recall
     # targets (Q8, owner defaults accepted 2026-10-12, checkpoint open) scale
     # an effective due at serving time only; due_at is still written at 0.90
     # and nothing reaches evidence. The "Check once" delay is a timing default.

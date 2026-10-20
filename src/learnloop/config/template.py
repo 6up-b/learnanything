@@ -1390,12 +1390,14 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # keep_in_touch 0.80, remember_key_ideas 0.85, work_fluently 0.90,
     # master_tasks_like_these 0.92, uncommitted 0.90) and [capture]
     # test_me_later_days = 7 (modelled defaults, left out of the decision-only
-    # template). A live change behind intent.enabled, not a successor: intent
-    # is read only when serving (exclusion by disposition, "Check once",
-    # effective dues at the recall targets, push, admission and re-entry by
-    # intent); due_at, FSRS state, evidence and projections are unchanged and
-    # replay never reads it, and with no commitment serving is unchanged (the
-    # 0.90 ratio is exactly 1). It acts at every version. Every snapshot moves
+    # template). Intent is read only when serving (exclusion by disposition,
+    # "Check once", effective dues at the recall targets, push, admission and
+    # re-entry by intent); due_at, FSRS state, evidence and projections are
+    # unchanged and replay never reads it, and with no commitment serving is
+    # unchanged (the 0.90 ratio is exactly 1). It acts only at the successor
+    # mvp-0.29 (the DL2 Codex re-review F2: it changes which items are served
+    # as measurements, the 2026-10-17 rule); the sections are present, inert,
+    # at every earlier version. Every snapshot moves
     # only because the effective config gains the two sections (checked by
     # dropping them, which reproduces each prior value); all of them were
     # recomputed from the composed defaults (defaults_fingerprint_for_version).
@@ -2084,8 +2086,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # serves and admits exactly as mvp-0.26). Existing vaults reach it by
     # `learnloop upgrade` (default target) from mvp-0.26, or from mvp-0.9 to
     # mvp-0.25 through the chain (under mvp-0.12's advisory guard). New vaults
-    # start here (the template's LATEST_ALGORITHM_VERSION; owner decision
-    # 2026-10-12).
+    # started here (the template's LATEST_ALGORITHM_VERSION; owner decision
+    # 2026-10-12) until mvp-0.29 merged.
     # Reader workbench RW2a's [workbench] moves it too (see mvp-0.9).
     # Reader workbench RW6a's [recap] moves it too (see mvp-0.9).
     # Reader workbench RW1b's [reader_intent] and its two sections move it too (see mvp-0.9).
@@ -2097,6 +2099,21 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
     "mvp-0.27": "e1ec28c058c2b0bdf163e8602f7216079858145464c7acefaaadb812238a2b48",
+    # mvp-0.29 (daily-loop DL2, the learner's intent; docs/reviews/
+    # daily-loop-dl2.md and its Codex re-review F2): the predecessor plus
+    # serving by intent (an excluded item is never served, requested or
+    # rebuilt as a follow-up; a "Check once" is a cold check on your own;
+    # effective dues at the recall targets, push, admission, re-entry and
+    # reading by intent). Kill switch [intent] enabled (default true; off
+    # serves exactly as the predecessor). No default changes here: only the
+    # version string moves the fingerprint ([intent] and [capture] are in
+    # every snapshot above, inert below the tag). mvp-0.28 is adaptive
+    # difficulty AD2+AD3's; the landing merge chains this tag after it.
+    # Existing vaults reach it by `learnloop upgrade` (default target) from
+    # the predecessor, or from mvp-0.9 onwards through the chain. New vaults
+    # start here (the template's LATEST_ALGORITHM_VERSION; owner decision
+    # 2026-10-12).
+    "mvp-0.29": "75a30abdcd36507f2349259e089ff146345f8cf6ebd21f03ac7d11764ddd501b",
 }
 
 

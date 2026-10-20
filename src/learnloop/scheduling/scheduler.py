@@ -48,6 +48,7 @@ from learnloop.learner.recall_coverage import (
 from learnloop.scheduling.serving_exclusions import (
     out_of_timing_serving_exclusions,
     routine_serving_exclusions,
+    routine_withhold_reason,
 )
 from learnloop.diagnosis import voi_stopping as voi
 from learnloop.scheduling.selection_rewards import (
@@ -258,9 +259,10 @@ def build_due_queue(
     # requested-items reorder floor must see the same set — a fresh sibling has
     # no attempts, stability, or due_at, so without the eligibility floor it
     # zeroes out at the priority filter and the reorder floor never sees it.
-    # Daily-loop DL2 (intent; a live change behind intent.enabled): None when
-    # intent changes nothing (switch off, or no commitment covers an item),
-    # and every branch below is then exactly the predecessor's.
+    # Daily-loop DL2 (intent; the successor mvp-0.29 behind intent.enabled):
+    # None when intent changes nothing (below the tag, switch off, or no
+    # commitment covers an item), and every branch below is then exactly the
+    # predecessor's.
     intent_view = _intent_serving(vault, repository, now)
     if intent_view is None:
         requested_item_ids = repository.requested_practice_item_ids()
@@ -383,67 +385,16 @@ def build_due_queue(
             for lo_id, rows in recent_attempts_by_lo.items()
         }
     for item in vault.practice_items.values():
-        # Learner-retired items are never served, independent of sync ordering.
-        if item.status != "active":
-            withheld("retired", item.id)
-            continue
         state = item_states.get(item.id)
-        if state is not None and not state.active:
-            withheld("inactive_state", item.id)
-            continue
-        if item.id in reserved_item_ids:
-            withheld("reserved_exam", item.id)
-            continue
-        if item.id in held_out_item_ids:
-            withheld("held_out_material", item.id)
-            continue
-        # Pending-variant hold: the learner asked for an easier/harder sibling
-        # of this exact card and it is still being authored. The request's
-        # self-report already re-dued the source (FSRS "again" on easier), but
-        # re-serving the very card the learner stepped away from — before its
-        # variant exists — inverts the intended variant-first ordering.
-        if item.id in rung_variant_hold_ids:
-            withheld("rung_variant_hold", item.id)
-            continue
-        # P4 §14.2 step 3: a staged-owned commitment's items are the staged policy's to
-        # schedule, never the legacy queue's (design §A.2 rule 3 -- the coexistence seam).
-        if item.id in staged_owned_item_ids:
-            withheld("staged_owned", item.id)
-            continue
-        # Ephemeral dialogue-turn instances (§8.1) exist only to carry their one
-        # committed diagnostic attempt; they are never ordinary practice.
-        if item.practice_mode == "diagnostic_microprobe":
-            withheld("diagnostic_microprobe", item.id)
-            continue
-        # Vault-authored diagnostic probes are single-use surfaces: once the
-        # item has carried an attempt, re-serving it would conflate memorization
-        # of the question with understanding. Attempt recording deactivates the
-        # item; this gate also covers vaults whose administration predates that
-        # deactivation (state.active is True but the attempt already happened).
-        if (
-            item.practice_mode == "diagnostic_probe"
-            and state is not None
-            and state.last_attempt_at is not None
-        ):
-            withheld("diagnostic_probe_administered", item.id)
-            continue
-        # Meas §3.A2/§3.A3: an item whose stimulus the practice surface cannot
-        # render is not schedulable. Serving one produces a silent harmful write
-        # rather than a visible failure -- see
-        # ``learnloop.substrate.instrument_serving``.
-        if unservable_reason(item) is not None:
-            withheld("unservable_stimulus", item.id)
+        # The routine gate (``serving_exclusions.routine_withhold_reason``):
+        # retired, inactive, reserved, held-out, variant-held, staged-owned,
+        # single-use and unservable items, and put-away LOs. Shared with the
+        # DL2 "Check once" candidate choice (Codex re-review F11).
+        routine_reason = routine_withhold_reason(vault, item, state, exclusions)
+        if routine_reason is not None:
+            withheld(routine_reason, item.id)
             continue
         learning_object = vault.learning_object_for_item(item)
-        if learning_object is None:
-            withheld("no_learning_object", item.id)
-            continue
-        # Learner-set LO lifecycle: a dormant or resolved Learning Object has been
-        # put away, so none of its items is served; nor is a card the reference
-        # sweep adopted while that sweep's kill switch is off (vault.lifecycle).
-        if not practice_item_servable(vault, item):
-            withheld("lifecycle_put_away", item.id)
-            continue
         # DL2 (§5.3): Pause, Reference, Let go and an answered "Check once"
         # are not served (requests included); a check holds its items back
         # until its date. After the routine exclusions, so a held-out or

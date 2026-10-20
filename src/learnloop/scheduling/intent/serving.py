@@ -1,7 +1,8 @@
 """What serving reads from intent (spec §5.2, §5.3, §6.1): one object per build.
 
-:func:`intent_serving` returns ``None`` when intent changes nothing: the kill
-switch ``intent.enabled`` is off, or no commitment covers any item and the
+:func:`intent_serving` returns ``None`` when intent changes nothing: the
+vault is below the successor ``mvp-0.29``, the kill switch ``intent.enabled``
+is off, or no commitment covers any item and the
 uncommitted target is 0.90 (or recall targets are off). The scheduler and the
 plan then take exactly their pre-DL2 paths, which is how byte-identity with no
 commitments is kept by construction rather than by coincidence.
@@ -25,12 +26,15 @@ Otherwise :class:`IntentServing` answers, per item:
   routine exclusions run before the intent gate.
 
 A check is **answered** by an attempt *on your own* (not primed, no hints,
-not a hinted attempt) on an item it decides at or after its date;
-resolution then reads it as ``satisfied`` (deriving it keeps serving right
-before ``checks.settle_answered_checks`` writes the event). An attempt that
-is not on your own (help taken, or the answer seen first) is practice: it
-answers nothing and dates the check again, ``capture.test_me_later_days``
-after it (DL2 Codex review F3).
+not a hinted attempt) on an item it decides at or after its date, which the
+one eligibility decision would have served cold at that attempt
+(``serve_eligibility.check_once_at_attempt``: a sibling's reveal holding the
+LO, or a routine display covering it, makes it practice although submit did
+not prime it; DL2 Codex re-review F3); resolution then reads it as
+``satisfied`` (deriving it keeps serving right before
+``checks.settle_answered_checks`` writes the event). Any other attempt is
+practice: it answers nothing and dates the check again,
+``capture.test_me_later_days`` after it (DL2 Codex review F3).
 
 **Cold eligibility** (DL2 Codex review F3): a due check is a measurement of
 the item alone, so each candidate asks the one eligibility decision
@@ -39,7 +43,17 @@ check's; when none is, a time-bounded hold (a routine display, a reveal
 since the check was chosen) makes the check wait, and standing exposure
 (the answer shown, which only an attempt absorbs) serves the item as
 practice, labelled so (``CheckState.servable``, ``eligible``). Nothing is
-persisted: the decision is recomputed at every build and every serve.
+persisted: the decision is recomputed at every build and every serve. A
+candidate routine serving never offers (retired, held-out, reserved, put
+away: ``serving_exclusions.routine_withhold_reason``) is left out before
+that choice, so it can never suppress a candidate that can be served (DL2
+Codex re-review F11).
+
+**The successor** (DL2 Codex re-review F2): intent is ``mvp-0.29``, behind
+the kill switch ``intent.enabled``. Below the tag, or switched off,
+:func:`intent_enabled` is False, :func:`intent_serving` returns None and
+every scheduler and plan path runs the predecessor's code; the desktop
+control answers ``enabled: false``.
 """
 
 from __future__ import annotations
@@ -78,8 +92,14 @@ def on_your_own(row: Mapping[str, Any]) -> bool:
 
 
 def intent_enabled(config: Any) -> bool:
+    """Is intent live for this config: at the successor (``mvp-0.29``) or a
+    later tag, with ``intent.enabled`` on (DL2 Codex re-review F2)?"""
+
+    from learnloop.algorithm_versions import INTENT_VERSIONS
+
+    version = getattr(getattr(config, "algorithms", None), "algorithm_version", None)
     intent = getattr(config, "intent", None)
-    return bool(getattr(intent, "enabled", False))
+    return version in INTENT_VERSIONS and bool(getattr(intent, "enabled", False))
 
 
 def check_date(snapshot: CommitmentSnapshot, *, default_days: int) -> tuple[datetime, str]:
@@ -352,6 +372,8 @@ def build_checks(
     default_days: int,
     attempts_since: Any,
     eligibility: Any = None,
+    cold_at: Any = None,
+    routinely_servable: Any = None,
 ) -> tuple[dict[str, CheckState], Resolution]:
     """Every pending "Check once" with its date and the items it decides;
     answered ones are folded to ``satisfied`` in the returned resolution.
@@ -359,7 +381,11 @@ def build_checks(
     ``attempts_since(item_ids, since)`` returns attempt rows (``id``,
     ``created_at``, ``primed``, ``hints_used``, ``attempt_type``), oldest
     first; ``eligibility(item_id, check_created_at)`` the one eligibility
-    decision's verdict for a due candidate (None: every candidate eligible)."""
+    decision's verdict for a due candidate (None: every candidate eligible);
+    ``cold_at(row, check_created_at)`` its verdict at an attempt on your own
+    (only ``serve`` answers the check; None: every such attempt does, F3);
+    ``routinely_servable(item_id)`` whether routine serving can offer a due
+    candidate at all (None: every one can, F11)."""
 
     checks: dict[str, CheckState] = {}
     answered: list[CommitmentSnapshot] = []
@@ -386,7 +412,7 @@ def build_checks(
                 continue
             if at > now:
                 break
-            if on_your_own(row):
+            if on_your_own(row) and (cold_at is None or cold_at(row, snapshot.created_at) == _SERVE):
                 answer = row
                 break
             # Practice, not a check on your own (help taken, or the answer
@@ -400,6 +426,10 @@ def build_checks(
         exposed: list[str] = []
         if due and answered_by is None:
             for item_id in decided:
+                if routinely_servable is not None and not routinely_servable(item_id):
+                    # F11: an item routine serving never offers can neither
+                    # be the check nor suppress a candidate that can.
+                    continue
                 verdict = _SERVE if eligibility is None else eligibility(item_id, snapshot.created_at)
                 if verdict == _SERVE:
                     eligible.append(item_id)
@@ -474,6 +504,39 @@ def intent_serving(
         )
         return serve_eligibility.decide(inputs, serve_eligibility.CHECK_ONCE).verdict
 
+    def cold_at(row: Mapping[str, Any], check_created_at: str) -> str:
+        # F3 (re-review): the decision as it stood when the attempt was
+        # submitted; only a cold one answers the check.
+        from learnloop import serve_eligibility
+
+        item_id = str(row["practice_item_id"])
+        return serve_eligibility.check_once_at_attempt(
+            repository,
+            practice_item_id=item_id,
+            learning_object_id=item_los.get(item_id),
+            attempt_id=str(row["id"]),
+            attempt_at=str(row["created_at"]),
+            check_created_at=check_created_at,
+        ).verdict
+
+    routine: dict[str, Any] = {}
+
+    def routinely_servable(item_id: str) -> bool:
+        # F11: the scheduler's routine gate, read once per build and only
+        # when a check is due.
+        from learnloop.scheduling.serving_exclusions import (
+            routine_serving_exclusions,
+            routine_withhold_reason,
+        )
+
+        if not routine:
+            routine["exclusions"] = routine_serving_exclusions(vault, repository)
+            routine["states"] = repository.practice_item_states()
+        item = vault.practice_items.get(item_id)
+        if item is None:
+            return False
+        return routine_withhold_reason(vault, item, routine["states"].get(item_id), routine["exclusions"]) is None
+
     checks, resolution = build_checks(
         resolution,
         by_lo=by_lo,
@@ -482,6 +545,8 @@ def intent_serving(
         default_days=int(config.capture.test_me_later_days),
         attempts_since=attempts_since,
         eligibility=eligibility,
+        cold_at=cold_at,
+        routinely_servable=routinely_servable,
     )
 
     def anchors() -> dict[str, tuple[str, str]]:

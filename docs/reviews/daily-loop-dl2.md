@@ -16,6 +16,12 @@ triage by intent), §11 (`intent_v1`, `intent.enabled`, `intent.recall_targets_e
 
 ### Ruling to verify first: live change, not a successor
 
+> **Superseded (Codex re-review F2, 2026-10-20):** DL2 is the successor `mvp-0.29`
+> behind `intent.enabled`. The follow-up gate (review F1) withholds a paused item's
+> pending cold retry, which changes which items are served as measurements, so the
+> 2026-10-17 rule (`docs/algorithm-change-playbook.md`) applies. See
+> `docs/reviews/daily-loop-dl2-codex-review.md` ("Re-review").
+
 The orchestrator's note and the standing owner ruling (UX Phase 1 landing; facet-locks
 F6): a serving change that replay never reads ships live behind a kill switch. DL2 is
 that case if (a) nothing persisted changes meaning and (b) replay never reads intent.
@@ -101,6 +107,12 @@ vitest for the control, the cost preview, the cold header and the restoration li
 ---
 
 ## Ruling: a live change behind `intent.enabled`, no `intent_v1` successor
+
+> **Superseded (Codex re-review F2, 2026-10-20):** intent is the successor `mvp-0.29`
+> (`intent_v1`), gated on the version and `intent.enabled`; below the tag every serve
+> path and plan run the predecessor's code. Conditions 1 and 2 below still hold (no
+> projection change, replay never reads intent), which is why the tag needs no
+> migration and its upgrade is a tag change plus the idempotent projection rebuild.
 
 The spec names an `intent_v1` successor (§11). The owner's standing ruling (UX Phase 1
 landing; facet-locks F6) applies instead, because both of its conditions hold:
@@ -345,7 +357,9 @@ Run on a backup-API copy first, then the live vault when satisfied (never the tr
 fixtures).
 
 ```bash
-# Nothing to upgrade: intent acts at every version, and with no commitment nothing changes.
+# Intent is the successor mvp-0.29 (Codex re-review F2): back up, then upgrade (from
+# mvp-0.27 here, mvp-0.28 after AD2+AD3 lands; from mvp-0.9 onwards through the chain).
+uv run learnloop upgrade --vault "$VAULT" --to mvp-0.29
 uv run learnloop plan report --vault "$VAULT" --json   # see "intent": what is committed, fallbacks
 # Kill switches (add to learnloop.toml):
 #   [intent]

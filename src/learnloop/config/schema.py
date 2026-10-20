@@ -2911,10 +2911,11 @@ DEFAULT_RECALL_TARGETS: dict[str, float] = {
 class IntentConfig(BaseModel):
     """Daily-loop DL2: intent (``spec_daily_loop_v1.md`` §5, §11).
 
-    A live change behind its kill switches, not a successor tag (the owner's
-    standing ruling for serving changes replay never reads; DL2's evidence is
-    in ``docs/reviews/daily-loop-dl2.md``): intent is read only when serving,
-    and ``due_at``, FSRS state, evidence and every projection are unchanged.
+    The successor ``mvp-0.29`` behind its kill switches (the DL2 Codex
+    re-review F2: intent changes which items are served as measurements, the
+    2026-10-17 rule; ``docs/reviews/daily-loop-dl2-codex-review.md``): intent is
+    read only when serving, and ``due_at``, FSRS state, evidence and every
+    projection are unchanged. Below the tag these keys are inert.
 
     ``enabled`` off restores serving exactly as before DL2: commitments are read
     only for requested items (and staged-owned runs). With it on and no

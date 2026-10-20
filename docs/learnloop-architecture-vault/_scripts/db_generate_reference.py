@@ -873,7 +873,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "hints": "adaptive hints H0: hint telemetry (each authored hint the practice screen reveals recorded as a help_assists row, with its time and a hash and length of the draft, and attached to the attempt at submit): the kill switch; telemetry only, hints_used stays the client's count (no successor); H1: approach maps (hints.maps: a small subgoal map per item built by one background call on route approach_map when the item is served, validated in code and stored in approach_maps; the kill switch, build on serve and the metered daily cap) and the owner's price for metered hint routes; H2a: the hint service (practice.request_hint: a hint written for the learner's work, its kind and level chosen by the Decider on route hint_chooser and sampled with a logged propensity, written on route hint_writer, never on Codex, and checked in code; the kill switch, the chooser's switch, policy and time box, the help style and the metered daily cap); help, never evidence: a shown hint reaches the attempt only through hints_used, primed and a tutor_answer reveal with their existing meaning, and no scoring, scheduling, serving, grading or replay path reads the rows (no successor)",
     "source_service": "canonical sources as a shared instructional service (mvp-0.18/0.19): the master switch, one kill switch per phase (tutor offers, the exercise arm and its key checks, discriminating search, source-first needs, intent-aware grounding, comparisons, tutor tools, intervention records), the interactive verifier's time box, a comparison's prompt-size bound and the money caps",
     "plan": "daily-loop DL1 (mvp-0.14): the finite daily plan's kill switches, remembered minutes, split caps, new-material admission, duration estimates, reading pace and re-entry caps",
-    "intent": "daily-loop DL2: intent (commitments carry it; a live change behind its kill switches, no successor): the switch, the per-intent recall targets' switch and the target table (Q8) that scales an effective due at serving time only",
+    "intent": "daily-loop DL2: intent (commitments carry it; the successor mvp-0.29 behind its kill switches): the switch, the per-intent recall targets' switch and the target table (Q8) that scales an effective due at serving time only",
     "capture": "daily-loop capture: DL2's \"Check once\" delay when a test_me_later commitment names no due_hint (DL3 adds the capture box and processor keys)",
     "learner_text_gaps": "learner-text gaps: tutor questions, stuck answers and diagnoses read for named prerequisites and misconceptions (kill switches, the authoritative chooser, the shortlist, edges, created prerequisites and their daily cap, holding-pen sightings, per-text spend caps) and mvp-0.16's sooner check",
     "evsi": "EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off)",
@@ -1346,6 +1346,16 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "sim count only reveals up to their own instant when auto-priming. Off, every path serves "
         "and admits exactly as mvp-0.26. Dormant below the successor; replay reads each attempt's "
         "recorded primed flag, never this switch."
+    ),
+    "intent.enabled": (
+        "Kill switch for daily-loop DL2's successor (mvp-0.29; learnloop.scheduling.intent). On, "
+        "serving reads the learner's intent: Pause, Reference, Let go and an answered \"Check once\" "
+        "keep items out of the queue, requests, follow-up insertion and plans already built; a "
+        "\"Check once\" is served cold only when the one eligibility decision allows it and answered "
+        "only by an attempt it would have served cold; effective dues at the recall targets, push, "
+        "admission, re-entry and reading by intent; the desktop intent control. Off (or below the "
+        "successor) every serve path and plan run the predecessor's code and the control answers "
+        "enabled: false. Replay never reads it."
     ),
     "practice_index.enabled": (
         "Kill switch for find_practice (sidecar RPC, CLI and agent tool). It only proposes items; "

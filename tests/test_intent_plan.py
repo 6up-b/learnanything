@@ -14,6 +14,7 @@ from datetime import timedelta
 
 import pytest
 
+from learnloop.algorithm_versions import INTENT_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.daily_plan.engine import PlanEnv, PoolContext, _intents, build_plan
 from learnloop.daily_plan.reentry import ReentryGap
@@ -58,7 +59,7 @@ def test_a_waiting_check_and_a_pause_keep_their_items_out_of_the_plan(tmp_path):
 
 def _many_checks_vault(tmp_path, count: int = 8):
     los = {f"lo_k{index}": [(f"pi_k{index}", 3.5)] for index in range(count)}
-    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los)
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los, version=INTENT_ALGORITHM_VERSION)
     vault = load_vault(paths.root)
     repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
     reviewed = NOW - timedelta(days=3)
@@ -111,7 +112,7 @@ def test_learn_and_master_feed_push_with_items_not_yet_due(tmp_path):
 
 def _new_material_vault(tmp_path):
     los = {"lo_n1": [("pi_n1", 2.0)], "lo_n2": [("pi_n2", 2.0)], "lo_n3": [("pi_n3", 2.0)]}
-    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los)
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los, version=INTENT_ALGORITHM_VERSION)
     vault = load_vault(paths.root)
     repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
     return vault, repository

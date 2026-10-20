@@ -7,8 +7,9 @@ resolution serving uses. ``set_intent`` applies one choice through the
 commitments API. ``set_intent_deadline`` adds or moves a deadline (a learner
 goal linked by the commitment version's ``goal_id``) and reloads the vault.
 
-Desktop only (never on the phone allowlist). With ``intent.enabled`` off
-``get_intent`` answers ``{"enabled": false}`` and the two writes refuse.
+Desktop only (never on the phone allowlist). Below the successor
+``mvp-0.29``, or with ``intent.enabled`` off, ``get_intent`` answers
+``{"enabled": false}`` and the two writes refuse.
 """
 
 from __future__ import annotations
@@ -53,7 +54,11 @@ def _describe(vault: Any, repository: Any, scope: Scope) -> dict[str, Any]:
 
 def _require_enabled(vault: Any) -> None:
     if not intent_enabled(vault.config):
-        raise SidecarError("intent_disabled", "Intent settings are off for this vault (intent.enabled = false).")
+        raise SidecarError(
+            "intent_disabled",
+            "Intent settings are off for this vault (they need algorithm version mvp-0.29 or later "
+            "and intent.enabled = true).",
+        )
 
 
 @method("get_intent", IntentScopeInput)

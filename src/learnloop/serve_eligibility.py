@@ -745,6 +745,50 @@ def gather(
     )
 
 
+def check_once_at_attempt(
+    repository: Any,
+    *,
+    practice_item_id: str,
+    learning_object_id: str | None,
+    attempt_id: str,
+    attempt_at: str,
+    check_created_at: str | None,
+) -> EligibilityDecision:
+    """The ``CHECK_ONCE`` decision as it stood when an attempt was submitted
+    (daily-loop DL2 Codex re-review F3): only an attempt the decision would
+    have served cold can answer a "Check once".
+
+    The window is bounded at the attempt (a reveal stamped after it does not
+    count, Q33's bound), the attempt's own linked rows (its feedback) are left
+    out, and the exposure is read since the item's previous attempt, so a
+    sibling's reveal holding the learning object, or a routine display still
+    covering it, makes the attempt practice even when submit did not prime it
+    (submit reads the item's own exposure only)."""
+
+    rows = [
+        row
+        for row in repository.reveal_events_for_target(
+            practice_item_id=practice_item_id, learning_object_id=learning_object_id,
+        )
+        if str(row.get("attempt_id") or "") != attempt_id
+    ]
+    earlier = [
+        row
+        for row in repository.list_recent_attempts_by_practice_item(practice_item_id, limit=5, until=attempt_at)
+        if str(row["id"]) != attempt_id
+    ]
+    inputs = EligibilityInputs(
+        practice_item_id=practice_item_id,
+        learning_object_id=learning_object_id,
+        at=attempt_at,
+        reveals=tuple(RevealRow.from_row(row) for row in rows),
+        last_attempt=(str(earlier[0]["id"]), str(earlier[0]["created_at"])) if earlier else None,
+        window_until=attempt_at,
+        check_created_at=check_created_at,
+    )
+    return decide(inputs, CHECK_ONCE)
+
+
 def decision_active(vault: Any) -> bool:
     """Is the one eligibility decision live for ``vault`` (a ``LoadedVault``,
     duck-typed)? At the successor (``mvp-0.27``) or later with
@@ -830,6 +874,7 @@ __all__ = [
     "SERVE_AS_ORDINARY",
     "SUBMIT",
     "active_task",
+    "check_once_at_attempt",
     "cold_task_holds",
     "decide",
     "decision_active",

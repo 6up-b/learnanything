@@ -111,6 +111,7 @@ def test_successor_vocabulary():
         PROOF_ROUTE_CHECK_ALGORITHM_VERSION,
         REGRADE_CONTRACT_ALGORITHM_VERSION,
         ELIGIBILITY_DECISION_ALGORITHM_VERSION,
+        INTENT_ALGORITHM_VERSION,
         ROUTE_RULES_ALGORITHM_VERSION,
         SOURCE_FIRST_NEEDS_ALGORITHM_VERSION,
         SOURCE_REFERENCE_GATE_ALGORITHM_VERSION,
@@ -135,15 +136,17 @@ def test_successor_vocabulary():
         SOURCE_REFERENCE_GATE_ALGORITHM_VERSION, SOURCE_FIRST_NEEDS_ALGORITHM_VERSION, ROUTE_RULES_ALGORITHM_VERSION,
         VOI_STOPPING_ALGORITHM_VERSION, DECIDER_TIER1_ALGORITHM_VERSION, ROUTER_STAGED_FRAME_ALGORITHM_VERSION,
         ROUTER_MIXTURE_ALGORITHM_VERSION, METHOD_EXPLICIT_ALGORITHM_VERSION, REGRADE_CONTRACT_ALGORITHM_VERSION,
-        ELIGIBILITY_DECISION_ALGORITHM_VERSION,
+        ELIGIBILITY_DECISION_ALGORITHM_VERSION, INTENT_ALGORITHM_VERSION,
     }
     # Router R2a's staged frame (mvp-0.23), R2b + R2c's model mixture
     # (mvp-0.24), method-explicit items (mvp-0.25) and regrade contracts
     # (mvp-0.26) follow them all.
     assert METHOD_EXPLICIT_ALGORITHM_VERSION == "mvp-0.25"
     assert REGRADE_CONTRACT_ALGORITHM_VERSION == "mvp-0.26"
-    # The one eligibility decision (mvp-0.27) follows them all.
-    assert LATEST_ALGORITHM_VERSION == ELIGIBILITY_DECISION_ALGORITHM_VERSION == "mvp-0.27"
+    # The one eligibility decision (mvp-0.27) and the learner's intent
+    # (mvp-0.29, daily-loop DL2) follow them all.
+    assert ELIGIBILITY_DECISION_ALGORITHM_VERSION == "mvp-0.27"
+    assert LATEST_ALGORITHM_VERSION == INTENT_ALGORITHM_VERSION == "mvp-0.29"
 
 
 def test_defaults_fingerprint_is_recorded_for_the_successor():
