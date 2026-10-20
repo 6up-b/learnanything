@@ -38,16 +38,27 @@ def stale_subjects(vault: Any, repository: Any) -> list[str]:
     """Subjects with an adopted coupling version and a unit (an LO or an item revision) whose
     fingerprint changed, or that is new, since its latest run."""
 
+    from learnloop.adaptive_difficulty.material_view import material_view
+
+    # Exactly as ``propose_subject`` reads the runs (Codex verify F45, fix round 14): only a run in
+    # force answers for a unit, so a run whose recorded context is protected now schedules its units
+    # again. With the held-out predicate unavailable nothing is stale (nothing may be proposed).
+    view = material_view(vault, repository)
+    if not view.available:
+        return []
+    stale = []
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         adopted = {row["subject_id"] for row in store.coupling_versions(connection)}
         runs = store.relatedness_runs(connection)
-    stale = []
-    for subject in R.subjects(vault):
-        if subject not in adopted:
-            continue
-        own = [run for run in runs if run["subject_id"] == subject]
-        if R.touched_units(R.subject_inputs(vault, repository, subject), own):
-            stale.append(subject)
+        for subject in R.subjects(vault):
+            if subject not in adopted:
+                continue
+            inputs = R.subject_inputs(vault, repository, subject, protected=view)
+            current = inputs["unit_hashes"].get(R.PROTECTION_UNIT)
+            own = [run for run in runs if run["subject_id"] == subject]
+            live = {run["id"] for run in own if R.run_in_force(view, connection, run, current)}
+            if R.touched_units(inputs, own, in_force=lambda run, live=live: run["id"] in live):
+                stale.append(subject)
     return stale
 
 

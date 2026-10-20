@@ -241,6 +241,17 @@ def decide(vault: Any, repository: Any, boundary: Boundary, *, clock: Clock | No
     view = material_view(vault, repository, view)
     if not view.available:
         return DoseDecision(False, "protection_unavailable")
+    if view.section_withheld(boundary.extraction_id, boundary.section_id):
+        # The originating section is withheld (Codex verify F47, fix round 14): it is not mapped and no
+        # draw is made at it; a draw made there earlier is returned with no offer.
+        with repository.atomic():
+            connection = repository.connection()
+            existing = store.dose_draw_by_key(connection, f"{boundary.visit_id}:{boundary.extraction_id}:"
+                                                          f"{boundary.section_id}") \
+                if store.has_table(connection, store.DOSE_OFFERS) else None
+        if existing is not None:
+            return DoseDecision(True, "withheld", str(existing["id"]), NONE, existing.get("propensities") or {}, None)
+        return DoseDecision(False, "withheld_section")
     mapping = reading_map or VaultReadingMap(vault, repository, view)
     los = list(mapping.los_for_section(boundary.extraction_id, boundary.section_id))
     if not los:
@@ -254,7 +265,7 @@ def decide(vault: Any, repository: Any, boundary: Boundary, *, clock: Clock | No
         key = f"{boundary.visit_id}:{boundary.extraction_id}:{boundary.section_id}"
         existing = store.dose_draw_by_key(connection, key)
         if existing is not None:
-            if offer_withheld(connection, view, existing.get("chosen_variant"), existing.get("content")):
+            if view.dose_draw_withheld(connection, existing):
                 return DoseDecision(True, "withheld", str(existing["id"]), NONE, existing.get("propensities") or {},
                                     None)
             return DoseDecision(True, "drawn", str(existing["id"]), existing.get("chosen_variant"),
@@ -317,7 +328,7 @@ def record_uptake(vault: Any, repository: Any, draw_id: str, kind: str, *, clock
             raise ValueError(f"no dose draw {draw_id!r}")
         if draw.get("chosen_variant") in (None, NONE):
             raise ValueError("the draw offered nothing")
-        if view.dose_extra_withheld(connection, draw.get("chosen_variant"), draw.get("content")):
+        if view.dose_draw_withheld(connection, draw):  # its origin or its extra (F36, F47)
             return None
         return store.insert_dose_row(connection, {"row_kind": kind, "draw_id": draw_id,
                                                   "created_at": utc_now_iso(clock)})

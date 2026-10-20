@@ -368,6 +368,10 @@ def _tutor_events(connection: Any, reading_map: ReadingMap, lower: str | None, u
         if not _in_window(stamp, None, upper):
             continue
         los: list[str] = []
+        # The one tutor-question protection reader, on the question's complete recorded source
+        # context (Codex verify F46, fix round 14), before any mapping or fallback to its item.
+        if view is not None and view.question_event_withheld(connection, row_id):
+            continue
         parsed = parse_block_span(str(note_id)) if note_id else None
         if parsed is not None:
             if reading_map.withheld(parsed[0], parsed[1]):

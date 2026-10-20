@@ -321,6 +321,18 @@ class MaterialView:
             return self.material_withheld(content.get("extraction_id"), content.get("span_id"))
         return False
 
+    def dose_draw_withheld(self, connection: Any, row: Mapping[str, Any]) -> bool:
+        """Whether a dose draw is withheld now (Codex verify F47, fix round 14): its ORIGINATING
+        section (the boundary it was drawn at) is withheld, or its chosen extra is. Either way it is,
+        for AD, a draw never made: out of the budget, the cohort, retrieval and uptake."""
+
+        if not self.available:
+            return True
+        extraction, section = row.get("extraction_id"), row.get("section_id")
+        if extraction and section and self.section_withheld(str(extraction), str(section)):
+            return True
+        return self.dose_extra_withheld(connection, row.get("chosen_variant"), row.get("content"))
+
     def dose_rows(self, connection: Any) -> list[dict[str, Any]]:
         """``ad_dose_offers`` rows revalidated now (Codex verify F29): a draw whose chosen extra is
         withheld, and that draw's uptake rows, are left out. Empty while unavailable."""
@@ -330,8 +342,7 @@ class MaterialView:
         if not self.available or not _has_table(connection, ad_serving.DOSE_OFFERS):
             return []
         rows = ad_serving.dose_rows(connection)
-        dropped = {str(row["id"]) for row in rows if row["row_kind"] == "draw" and self.dose_extra_withheld(
-            connection, row.get("chosen_variant"), row.get("content"))}
+        dropped = {str(row["id"]) for row in rows if row["row_kind"] == "draw" and self.dose_draw_withheld(connection, row)}
         return [row for row in rows if str(row["id"]) not in dropped and str(row.get("draw_id")) not in dropped]
 
     def open_commissions(self, connection: Any, *, now: str | None = None) -> list[dict[str, Any]]:
@@ -814,6 +825,54 @@ class MaterialView:
         return self.material_withheld(extraction_id) or any(
             self.material_withheld(extraction_id, span) for span in self.section_spans(extraction_id, section_id))
 
+    def question_event_withheld(self, connection: Any, question_id: Any) -> bool:
+        """The one protection reader of a tutor question (``question_events``; Codex verify F46, fix
+        round 14), used when the sweep collects it and when its receipt is revalidated. It is withheld
+        when ANY part of its complete recorded source context is: its anchor (``note_id``, a span key
+        or a canonical note), its item, and every span its ``source_context`` names (the anchor,
+        ``source_spans``, ``citations``, retrieval and delivery records: every recorded mapping with an
+        extraction id). Everything is withheld while unavailable; an unreadable context is withheld."""
+
+        from learnloop.ingest.locators import parse_block_span
+
+        if not self.available:
+            return True
+        if not _has_table(connection, "question_events"):
+            return False
+        columns = {str(row[1]) for row in connection.execute("PRAGMA table_info(question_events)")}
+        context_column = "source_context_json" if "source_context_json" in columns else "NULL"
+        found = connection.execute(
+            f"SELECT note_id, practice_item_id, {context_column} FROM question_events WHERE id = ?",
+            (str(question_id),)).fetchone()
+        if found is None:
+            return False
+        note_id, item_id, raw = found[0], found[1], found[2]
+        if note_id:
+            parsed = parse_block_span(str(note_id))
+            if parsed is not None:
+                if self.material_withheld(parsed[0], parsed[1]):
+                    return True
+            elif self.note_withheld(connection, note_id):
+                return True
+        if item_id and self.withheld(item_id):
+            return True
+        try:
+            context = json.loads(raw) if raw else {}
+        except (TypeError, ValueError):
+            return True
+
+        def named(value: Any) -> bool:
+            if isinstance(value, Mapping):
+                extraction = value.get("extraction_id")
+                if extraction and self.material_withheld(extraction, value.get("span_id")):
+                    return True
+                return any(named(child) for child in value.values())
+            if isinstance(value, (list, tuple)):
+                return any(named(child) for child in value)
+            return False
+
+        return named(context)
+
     def question_withheld(self, row: Mapping[str, Any]) -> bool:
         """A Reader question is withheld when its extraction, or any span it is anchored on or cites,
         is held out (Codex verify F23)."""
@@ -906,20 +965,8 @@ class MaterialView:
                                            (source,)).fetchone()
                 return found is not None and self.material_withheld(found[0], found[1])
             if table == "question_events":
-                from learnloop.ingest.locators import parse_block_span
-
-                found = connection.execute("SELECT note_id, practice_item_id FROM question_events WHERE id = ?",
-                                           (source,)).fetchone()
-                if found is None:
-                    return False
-                parsed = parse_block_span(str(found[0])) if found[0] else None
-                if parsed is not None and self.material_withheld(parsed[0], parsed[1]):
-                    return True
-                # A tutor question on a source's canonical note is withheld with the note (Codex
-                # verify F43, fix round 13), whatever its item.
-                if parsed is None and found[0] and self.note_withheld(connection, found[0]):
-                    return True
-                return bool(found[1]) and self.withheld(found[1])
+                # The one tutor-question reader (F46, round 14; F43's note check is part of it).
+                return self.question_event_withheld(connection, source)
             if table == "reader_authored_questions":
                 return question_withheld(source)
             if table == "judgment_ledger":

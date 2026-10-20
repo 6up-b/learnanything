@@ -59,6 +59,14 @@ advancing clocks with an expiry boundary, pinned outcomes for readiness, the car
 item preparation, a read trace with statement caching off and database identity kept, and an audit
 of every Python-side cache and file-backed read in the AD modules (``AD_DEPENDENCIES``).
 
+Fix round 14: a tutor exchange whose recorded context quotes a protected secondary span (F46), a dose
+draw at a protected origin with a public extra (F47), the background re-proposal scheduler in the
+temporal case (F45), the audit taken from the modules' actual mutable state and file reads (AD and
+the authoring and reading modules it calls), the newly persisted dose draws pinned, ONE monotone
+operation clock with no frozen holdouts, and negative controls showing the contract fails when the
+dose operation, a background entry point, the commission worker, a cache's protection or the view's
+receipt filter is removed.
+
 Fakes only: no network, no model call, no paid call.
 """
 
@@ -275,8 +283,8 @@ def _base(tmp_path, *, coupled: bool = True) -> Any:
 #: revision (so the production Reader mapping, not a stand-in, maps it), the LO's provenance into it,
 #: Reader telemetry the sweep turns into receipts, a public dose offer to deliver, a serve-time
 #: commission for the background worker, and a second goal naming only the protected-only facet.
-SECTIONS = {"sec1": ["public_anchor", "public_span", LATE_SPAN, *HELD], "sec2": ["sec2_span"],
-            "sec3": ["sec3_span"], "sec4": ["sec4_span"]}
+SECTIONS = {"sec1": ["public_anchor", "public_span", LATE_SPAN], "sec2": ["sec2_span"],
+            "sec3": ["sec3_span"], "sec4": ["sec4_span"], "sec5": list(HELD)}
 GOAL_PROTECTED = "goal_r12"
 PUBLIC_DRAW = "dose_pub_r12"
 SERVE_COMMISSION = "sel_serve_commission_r12"
@@ -355,12 +363,13 @@ def _base_r12(paths) -> None:
 
 
 def _owner_defaults(paths) -> None:
-    """The owner's defaults for the outside forecasters and the feature audit (both on)."""
+    """The owner's defaults for the outside forecasters and the feature audit (both on), and a
+    daily dose budget of two extras (the default is three) so one draw decides it (F47, round 14)."""
 
     path = paths.root / "learnloop.toml"
     text = path.read_text(encoding="utf-8")
     assert "outside_forecasters = []" in text and "feature_audit = false" in text
-    text = text.replace("outside_forecasters = []", f"outside_forecasters = {OWNER_FORECASTERS}", 1)
+    text = text.replace("outside_forecasters = []", f"outside_forecasters = {OWNER_FORECASTERS}\ndose_daily_offers = 2", 1)
     path.write_text(text.replace("feature_audit = false", "feature_audit = true", 1), encoding="utf-8")
 
 
@@ -694,6 +703,39 @@ def _protect_r11(paths, *, hist_attempt: str) -> None:
         entity_type="learning_object", entity_id=LO, locator="h1", relation="primary", source_id="src_r9",
         extraction_id=EXT, link_id="esl_held_r11", created_at=_iso(T0 - timedelta(days=4)))
     _protect_r13(paths)
+    _protect_r14(paths)
+
+
+def _protect_r14(paths) -> None:
+    """Fix round 14's protected material (protected copy only):
+
+    * a Reader tutor exchange whose anchor is public but whose recorded context (a source span and a
+      citation) quotes a held-out span (F46: the complete recorded context decides);
+    * a dose draw made today at a held-out section (its origin) whose extra, a worked example in a
+      public section, was delivered (F47: a protected origin removes the draw from the budget)."""
+
+    from learnloop.db.stores import ad_serving
+
+    at = _iso(T0 - timedelta(hours=2))
+    context = {"extraction_id": EXT, "span_id": "public_anchor",
+               "source_spans": [{"extraction_id": EXT, "span_id": "public_anchor", "label": "anchor"},
+                                {"extraction_id": EXT, "span_id": "h5", "label": "secondary"}],
+               "citations": [{"extraction_id": EXT, "span_id": "h5"}]}
+    with closing(connect(paths.sqlite_path)) as connection:
+        connection.execute(
+            "INSERT INTO question_events(id, context, note_id, question_md, answer_md, answer_status, answer_mode, "
+            "source_context_json, created_at, answered_at) VALUES ('qe_context_r14', 'reader', ?, "
+            "'Why does this hold?', 'Because.', 'answered', 'help_me_reason', ?, ?, ?)",
+            (f"span:{EXT}/public_anchor", json.dumps(context), at, at))
+        draw = ad_serving.insert_dose_row(connection, {
+            "id": "dose_origin_r14", "row_kind": "draw", "draw_key": f"visit_origin:{EXT}:sec5", "visit_id": "visit_origin",
+            "extraction_id": EXT, "section_id": "sec5", "learning_object_ids": [LO],
+            "feasible": ["none", "extra_worked_example"], "infeasible": {}, "base_version": "b", "floor": 0.1,
+            "propensities": {"none": 0.9, "extra_worked_example": 0.1}, "seed": "s", "u": 0.95,
+            "chosen_variant": "extra_worked_example", "content": {"extraction_id": EXT, "span_id": "sec3_span"},
+            "forecast_p": None, "detail": {}, "created_at": at})
+        ad_serving.insert_dose_row(connection, {"row_kind": "delivered", "draw_id": draw, "created_at": at})
+        connection.commit()
 
 
 def _protect_r13(paths) -> None:
@@ -878,16 +920,26 @@ def _carve_outs(monkeypatch) -> None:
         "p_success": None, "mastery_state": "carve-out: the incumbent's mastery_ekf comparator"})
 
 
-#: The harness's wall clock (fix round 13, F42): frozen at ``RUN``, or ADVANCING an hour at each
-#: stage of the run (``RUN`` plus the stage's hours), identically in both copies, so expiry and
-#: ordering boundaries move during the run. It advances by the harness's steps, never by how many
-#: times code reads it: a read count is not an AD behaviour (the incumbent's state sync of the
-#: protected items reads the clock too), so an advance per read would compare the incumbent.
+#: The harness's ONE operation clock (fix rounds 13-14, F42): frozen at ``RUN``, or ADVANCING an
+#: hour at every stage of the run, monotone in the order the stages run (never by stage number), from
+#: ``RUN`` at the start of each copy's run, identically in both copies. Every operation the harness
+#: calls reads it: the system clock, the model-call records' clock, and each explicit ``clock=``,
+#: ``now=``, ``as_of=`` and ``served_at=`` (``_OP``). It advances by the harness's steps, never by how
+#: many times code reads it: a read count is not an AD behaviour (the incumbent's state sync of the
+#: protected items reads the clock too).
 _CLOCK: dict[str, Any] = {"advancing": False, "base": RUN}
 
 
 def _now() -> datetime:
     return _CLOCK["base"] if _CLOCK["advancing"] else RUN
+
+
+class _OperationClock:
+    def now(self) -> datetime:
+        return _now()
+
+
+_OP = _OperationClock()
 
 
 def _deterministic(monkeypatch, *, advancing: bool = False) -> None:
@@ -931,7 +983,9 @@ def _reset_ids(monkeypatch, stage: int = 0) -> None:
 
     monkeypatch.setattr(ids, "_last_timestamp_ms", 1_790_000_000_000 + 1_000 * stage)
     monkeypatch.setattr(ids, "_last_randomness", 0)
-    monkeypatch.setitem(_CLOCK, "base", RUN + timedelta(hours=stage))
+    # The operation clock: back to RUN when a copy's run starts (stage 0), an hour on at every later
+    # stage, in the order stages run.
+    monkeypatch.setitem(_CLOCK, "base", RUN if stage == 0 else _CLOCK["base"] + timedelta(hours=1))
     counter = iter(range(10**6))
     minted = lambda: uuid.UUID(int=(stage << 64) + next(counter))  # noqa: E731
     for module in (judgments, execution):
@@ -1129,7 +1183,7 @@ def _run(paths, monkeypatch) -> dict[str, Any]:
 
     monkeypatch.setattr(ad_slot, "build_request", spy)
     vault = load_vault(paths.root)
-    clock = MovableClock(RUN)
+    clock = MovableClock(_now())
     env = make_env(paths.root, [scheduled(item, LO, forgetting_risk=0.6) for item in PUBLIC], clock=clock,
                    session_id=None)
     steps = []
@@ -1157,7 +1211,7 @@ def _run(paths, monkeypatch) -> dict[str, Any]:
     # The outside forecasters' prompt inputs for a public item.
     view = material_view(vault, repository)
     with closing(connect(paths.sqlite_path, read_only=True)) as connection:
-        card = history_card(vault, connection, vault.practice_items["pi_p3"], served_at=_iso(RUN), view=view,
+        card = history_card(vault, connection, vault.practice_items["pi_p3"], served_at=_iso(_now()), view=view,
                             incumbent=None)
     out["outside"] = json.dumps({"item": item_view(vault, vault.practice_items["pi_p3"]), "card": card},
                                 sort_keys=True, default=str)
@@ -1173,7 +1227,7 @@ def _run(paths, monkeypatch) -> dict[str, Any]:
     _reset_ids(monkeypatch, 6)
     llm, decider = ForecastLLM(audit={}), AuditDecider()
     out["forecasts"] = [[outcome.status for outcome in forecast_presentation(
-        vault, repository, presentation_id, clients=Clients(llm=llm, decider=decider), clock=_Frozen(RUN))]
+        vault, repository, presentation_id, clients=Clients(llm=llm, decider=decider), clock=_OP)]
         for presentation_id in presentations]
     _reset_ids(monkeypatch, 7)
     # The public ids (a caller names the same items in both copies; a withheld id's own handling is
@@ -1182,7 +1236,7 @@ def _run(paths, monkeypatch) -> dict[str, Any]:
     # that only the relatedness run's recorded context remembers, as with the feature audit off).
     out["preparation"] = _strip_ids(prepare_items(vault, repository, ["pi_p1", "pi_p2", "pi_hist", P4],
                                                   clients=Clients(llm=llm, decider=decider),
-                                                  decider_factory=lambda: decider, clock=_Frozen(RUN)))
+                                                  decider_factory=lambda: decider, clock=_OP))
     out["outside_prompts"] = [*llm.prompts, *(call["body"] for call in decider.calls)]
     out["prompts"] += out["outside_prompts"]
 
@@ -1261,7 +1315,8 @@ def _run(paths, monkeypatch) -> dict[str, Any]:
     vault = load_vault(paths.root)
     out["relatedness_inputs"] = json.dumps(R.subject_inputs(vault, repository, "linear-algebra")["payload"],
                                            sort_keys=True)
-    out["relatedness"] = R.propose_subject(vault, repository, "linear-algebra", client=llm).status
+    proposed = R.propose_subject(vault, repository, "linear-algebra", client=llm)
+    out["relatedness"], out["relatedness_hash"] = proposed.status, proposed.input_hash
     out["prompts"] += [out["relatedness_inputs"], *llm.prompts]
 
     # Readiness and the router card.
@@ -1274,26 +1329,26 @@ def _run(paths, monkeypatch) -> dict[str, Any]:
     dose_view = material_view(vault, repository)
     # The production Reader mapping (fix round 12, F42): no stand-in.
     fresh = D.decide(vault, repository, D.Boundary(visit_id="visit_new", extraction_id=EXT, section_id="sec1"),
-                     clock=_Frozen(RUN), view=dose_view)
+                     clock=_OP, view=dose_view)
     old = D.decide(vault, repository, D.Boundary(visit_id="visit_old", extraction_id=EXT, section_id="sec1"),
-                   clock=_Frozen(RUN), view=dose_view)
+                   clock=_OP, view=dose_view)
     out["dose"] = [fresh.as_dict()]
     out["dose_old_boundary"] = old.as_dict()
     # A late uptake callback for each earlier offer (protected in one copy, absent in the other).
-    out["uptake"] = [D.record_uptake(vault, repository, f"{DOSE_DRAW_ID}_{k}", "taken", clock=_Frozen(RUN))
+    out["uptake"] = [D.record_uptake(vault, repository, f"{DOSE_DRAW_ID}_{k}", "taken", clock=_OP)
                      if _has_draw(paths, f"{DOSE_DRAW_ID}_{k}") else None for k in range(3)]
     # The public offer's delivery (a dose delivery the run must make in both copies).
-    out["delivery"] = D.record_uptake(vault, repository, PUBLIC_DRAW, "delivered", clock=_Frozen(RUN))
+    out["delivery"] = D.record_uptake(vault, repository, PUBLIC_DRAW, "delivered", clock=_OP)
 
     # The reading sweep (a backfill: every source).
     _reset_ids(monkeypatch, 5)
-    out["sweep"] = sweep(vault, repository, as_of=_iso(RUN), sweep_kind="backfill", view=dose_view).as_dict()
+    out["sweep"] = sweep(vault, repository, as_of=_iso(_now()), sweep_kind="backfill", view=dose_view).as_dict()
 
     # The report and the CLI's figures.
     RP.clear_cache()
     with closing(connect(paths.sqlite_path, read_only=True)) as connection:
         out["report"] = _strip(json.loads(json.dumps(REP.build(vault, repository, connection, sensitivity=True,
-                                                               now=_iso(RUN)), default=str)))
+                                                               now=_iso(_now())), default=str)))
     runner = CliRunner()
     for command in (["ad", "report", "--json", "--vault", str(paths.root)],
                     ["ad", "eval", "--json", "--vault", str(paths.root)]):
@@ -1302,43 +1357,64 @@ def _run(paths, monkeypatch) -> dict[str, Any]:
         out[" ".join(command[:2])] = _strip(json.loads(result.stdout)) if result.stdout.strip().startswith("{") \
             else result.stdout
 
-    # Fix round 13's temporal scenarios, the same events in both copies, after every other stage.
-    # F38: pi_p3's source-backed revision (never served, so never snapshotted) is replaced, then its
-    # former source is held out: the old
-    # revision is in no current item and no snapshot, only in the runs' recorded prompt context, and
-    # the subject's fingerprint does not change. The saved runs are read again.
-    # F45: the subject is proposed again, then a saved historical revision's source (pi_p1's, citing
-    # the late span) is held out while the prompt stays the same, and the subject is re-proposed: a
-    # stale run must never answer for the request ("current").
+    # The temporal scenarios (fix rounds 13-14), the same events in both copies, after every other
+    # stage, each read through the production entry points (propose_subject, the background
+    # scheduler's stale_subjects, load_structure and stale_judgments):
+    #   s0  the subject is proposed (a run in force, its context recording pi_p3's old revision);
+    #   s1  a saved historical revision's source (pi_p1's, citing the late span) is held out while the
+    #       prompt stays the same, and the subject is re-proposed: a stale run never answers (F45);
+    #   s2  pi_p3 (never served or audited, so never snapshotted) is replaced and re-proposed: only its
+    #       new revision is asked;
+    #   s3  pi_p3's former source is held out: the subject fingerprint does not change, but the s1 run's
+    #       recorded context is protected now (F38). The background scheduler must see the subject
+    #       stale, exactly as propose_subject does (F45, round 14), and the re-proposal is made.
     from learnloop.adaptive_difficulty import relatedness as R
+    from learnloop.adaptive_difficulty import relatedness_jobs as RJ
     from learnloop.adaptive_difficulty.feature_audit import item_revision
 
-    _reset_ids(monkeypatch, 14)
-    set_item(paths, "pi_p3", canonical_exercise={"source_id": "src_r9", "extraction_id": EXT, "span_ids": ["sec3_span"]})
-    LATE.append("sec4_span")
-    try:
+    coupled = "learned_coupling = true" in (paths.root / "learnloop.toml").read_text(encoding="utf-8")
+    temporal: dict[str, Any] = {"proposals": []}
+    repository = Repository(paths.sqlite_path)
+
+    def propose(stage: int) -> None:
+        _reset_ids(monkeypatch, stage)
+        client = ProposalLLM({"items": [], "learning_objects": []})
+        outcome = R.propose_subject(load_vault(paths.root), repository, SUBJECT, client=client)
+        temporal["proposals"].append([outcome.status, outcome.input_hash, len(client.prompts)])
+        out["prompts"].extend(client.prompts)
+
+    def in_force() -> list[bool]:
         vault = load_vault(paths.root)
-        repository = Repository(paths.sqlite_path)
+        view = material_view(vault, repository)
+        with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+            current = R.protection_fingerprint(view, connection, R.subject_lo_ids(vault, SUBJECT))
+            return [R.run_in_force(view, connection, run, current)
+                    for run in serving_store.relatedness_runs(connection, subject_id=SUBJECT)
+                    if run["created_at"] >= _iso(RUN)]
+
+    from learnloop.db.stores import ad_serving as serving_store
+
+    try:
+        propose(14)
+        LATE.append(LATE_SPAN)
+        propose(15)
+        set_item(paths, "pi_p3", canonical_exercise={"source_id": "src_r9", "extraction_id": EXT,
+                                                       "span_ids": ["sec3_span"]})
+        propose(16)
+        LATE.append("sec4_span")
+        temporal["runs_in_force"] = in_force()
+        vault = load_vault(paths.root)
         view = material_view(vault, repository)
         p1_hash = item_revision(vault.practice_items["pi_p1"])[0]
-        temporal: dict[str, Any] = {}
         with closing(connect(paths.sqlite_path, read_only=True)) as connection:
             structure = R.load_structure(connection, vault, view=view, coupled=True)
-            # The public run's judgment is out of use now (its recorded context was protected since);
-            # the protected copy's own extra judgments have no counterpart to compare.
+            # The public run's judgment is out of use now; the protected copy's own extra judgments
+            # have no counterpart to compare.
             temporal["public_judgment_stale"] = "jdg_pub_r11" in R.stale_judgments(connection, vault, view=view)
         temporal["coupling"] = bool(structure.coupling(LO))
         temporal["loadings"] = structure.loadings(p1_hash, float("inf"))
-        proposals = []
-        for step in ("before", "after"):
-            if step == "after":
-                LATE.append(LATE_SPAN)  # the saved historical revision's source; the prompt is unchanged
-            _reset_ids(monkeypatch, 15 if step == "before" else 16)
-            client = ProposalLLM({"items": [], "learning_objects": []})
-            outcome = R.propose_subject(load_vault(paths.root), repository, SUBJECT, client=client)
-            proposals.append([outcome.status, outcome.input_hash, len(client.prompts)])
-            out["prompts"] += client.prompts
-        temporal["proposals"] = proposals
+        temporal["stale_subjects"] = RJ.stale_subjects(vault, repository) if coupled else None
+        propose(17)
         out["temporal"] = temporal
         out["open_commissions"].append(_open_commissions(paths))
     finally:
@@ -1453,6 +1529,12 @@ def _diff(left: Any, right: Any, path: str = "") -> list[str]:
 @pytest.mark.parametrize("mode", ["frozen", "advancing"])
 @pytest.mark.parametrize("copies", CONFIGS, indirect=True)
 def test_protected_material_is_indistinguishable_from_absent_material(copies, monkeypatch, mode):
+    """The A8 contract; its body is :func:`_contract` (also run by the negative controls)."""
+
+    _contract(copies, monkeypatch, mode)
+
+
+def _contract(copies, monkeypatch, mode: str) -> None:
     """A8's contract (R7; whole-pipeline since fix round 11, R2): with every kind of protected
     material present and protected (copy A), AD's whole pipeline produces exactly what it produces
     with that material physically absent (copy B), in the owner's default configuration and with
@@ -1462,9 +1544,10 @@ def test_protected_material_is_indistinguishable_from_absent_material(copies, mo
     Compared: every prompt the fakes captured, every new row of every table (the incumbent's own
     tables aside, ``OUT_OF_SCOPE``), the DERIVED replay tables whole, and every returned figure
     (report JSON, ``ad report``/``ad eval``, estimates, steps, forecasts, preparation, dose, sweep).
-    Normalised: wall-clock stamps with sub-second digits (``WALL_CLOCK``) and the report's
-    ``protection`` disclosure and ``generated_at`` (``DISCLOSURE``). Carve-outs (``_carve_outs``,
-    ``INCUMBENT``): the incumbent's ``mastery_ekf`` comparator. Nothing else."""
+    Normalised: the report's ``protection`` disclosure and ``generated_at`` (``DISCLOSURE``), and a
+    relatedness run's protection fingerprint and identity, named by meaning (``_disclosed``); no
+    stamp is normalised (one operation clock, ``_OP``). Carve-outs (``_carve_outs``, ``INCUMBENT``):
+    the incumbent's ``mastery_ekf`` comparator. Nothing else."""
 
     protected, absent = copies
     _hold_out(monkeypatch)
@@ -1526,6 +1609,13 @@ def test_protected_material_is_indistinguishable_from_absent_material(copies, mo
     assert 0.0 < seen["card"]["p_band_next"] < seen["card"]["p_bar_at_top"] < 0.6
     assert seen["card"]["p_bar_at_top"] == cells[("recall", "retrieval")]["p_bar_at_top"]
     assert [(d["eligible"], d["reason"]) for d in [*seen["dose"], seen["dose_old_boundary"]]] == [(True, None)] * 2
+    # The draws the operation under test persisted (fix round 14, F42), each pinned with its outcome:
+    # the row written now, at its boundary, with its recorded propensities and chosen variant.
+    draws = {row[0]: row for row in seen["writes"]["ad_dose_offers"] if row[1] == "draw"}
+    for decision, key in ((seen["dose"][0], f"visit_new:{EXT}:sec1"), (seen["dose_old_boundary"], f"visit_old:{EXT}:sec1")):
+        row = draws.get(decision["draw_id"])
+        assert row is not None and row[3] == key, (decision, sorted(draws))
+        assert json.loads(row[12]) == {"none": 1.0} and row[15] == "none" and decision["offer"] is None, row
     assert seen["uptake"] == [None, None, None], "the protected offers' late callbacks write nothing"
     prepared = {entry["practice_item_id"]: entry for entry in seen["preparation"]}
     assert set(prepared) == {"pi_p1", "pi_p2", "pi_hist", P4}
@@ -1535,12 +1625,17 @@ def test_protected_material_is_indistinguishable_from_absent_material(copies, mo
     # run is out of use (no coupling, no loading), and the re-proposal is made, never "current".
     assert seen["temporal"]["public_judgment_stale"] is True
     assert seen["temporal"]["coupling"] is False and seen["temporal"]["loadings"] == {}
+    statuses = [entry[0] for entry in seen["temporal"]["proposals"]]
     if "learned_coupling = true" in (protected.root / "learnloop.toml").read_text(encoding="utf-8"):
-        (before_status, before_hash, _asked), (after_status, after_hash, _again) = seen["temporal"]["proposals"]
-        assert before_status == "ok" and after_hash == before_hash, seen["temporal"]["proposals"]
-        assert after_status == "ok", "a stale run answered for the re-proposal (F45)"
+        # s0: nothing changed since the relatedness stage's run, so "current" is the right answer;
+        # every later step follows a protection change or a replacement, so each is asked and recorded.
+        # (The same-prompt case of F45 is pinned by test_a_stale_run_never_answers_for_a_re_proposal.)
+        assert statuses == ["current", "ok", "ok", "ok"], ("a stale run answered a re-proposal (F45)", statuses)
+        # s1's run (context: pi_p3's old revision) is out of use after s3; s0's was already; s2's stands.
+        assert seen["temporal"]["runs_in_force"] == [False, False, True], seen["temporal"]["runs_in_force"]
+        assert seen["temporal"]["stale_subjects"] == [SUBJECT], "the background scheduler missed the stale run (F45)"
     else:
-        assert [entry[0] for entry in seen["temporal"]["proposals"]] == ["disabled", "disabled"]
+        assert statuses == ["disabled"] * 4
     # The expiry boundary: open when the run starts; expired by its end only on the advancing clock.
     assert EXPIRING_COMMISSION in seen["open_commissions"][0]
     assert (EXPIRING_COMMISSION in seen["open_commissions"][-1]) is (mode == "frozen")
@@ -2069,46 +2164,111 @@ def test_a_goal_over_a_facet_only_a_protected_item_measures_has_no_scope(copies,
 
 # -- fix round 13 (F42): the Python-side caches and file-backed reads AD depends on --------------------
 
-#: Every module-level cache and file-backed read an AD module holds, each routed through the material
-#: view or unable to carry protected material. ``test_every_ad_cache_and_file_read_is_audited`` scans
-#: the AD modules and fails on any one not listed here.
+#: The modules whose module-level state and file reads the audit covers (fix round 14, F42): every
+#: AD module and the authoring and reading modules AD calls.
+AUDITED_MODULES = ("learnloop.daily_plan.ad_slot", "learnloop.daily_plan.staged_frame",
+                   "learnloop.content.authoring.practice_generation", "learnloop.content.authoring.practice_leakage",
+                   "learnloop.content.authoring.authoring_gates", "learnloop.content.proposals.proposals",
+                   "learnloop.reader.reader_progression", "learnloop.reader.reader_guidance")
+
+#: Every module-level mutable object that is MUTATED at runtime (a cache or state), and every file
+#: read, in the audited modules, with how protection reaches it. ``test_every_ad_cache_and_file_read
+#: _is_audited`` finds them from the modules' actual state and source, not by name; a module-level
+#: dict, set, list or deque that no code in its module mutates is a constant table and needs no entry.
 AD_DEPENDENCIES = {
-    "replay._CACHE": "the replay's snapshot cache, served only while the fingerprint of the events loaded "
-                     "through the view is unchanged: a protection change changes those events",
-    "replay._CACHE_LOCK": "the lock guarding replay._CACHE: holds no data",
-    "model._INVERSE_CACHE": "a numeric memo over (a, b) floats: no material",
-    "generation.load_vault": "the guard reloads the vault to read protection afresh; its content reaches a "
-                             "request only through the fresh view's vault_view",
-    "material_view.load_document_ir": "the document IR, from SQLite tables (traced); sections reach AD "
-                                      "through view.section_spans, spans through material_withheld",
+    "learnloop.adaptive_difficulty.replay._CACHE": "the replay's snapshot cache, served only while the "
+        "fingerprint of the events loaded through the view is unchanged: a protection change changes them",
+    "learnloop.adaptive_difficulty.model._INVERSE_CACHE": "a numeric memo over (a, b) floats: no material",
+    "learnloop.adaptive_difficulty.background._INFLIGHT": "the in-flight job keys (database path, job key): "
+        "no material; every job re-reads protection when it runs",
+    "learnloop.adaptive_difficulty.background._PREPARED": "the revisions already prepared in this process, by "
+        "content hash: prepare_items re-judges every revision through its run's view before any work",
+    "learnloop.adaptive_difficulty.background._QUEUES": "the per-vault preparation queues of item ids: each "
+        "run judges every queued id through its own material view (withheld ids settle as protected)",
+    "learnloop.adaptive_difficulty.background._DEFAULT": "the default BackgroundBuilds registry: threads, no material",
+    "file:learnloop.adaptive_difficulty.generation.load_vault": "the guard reloads the vault to read protection "
+        "afresh; its content reaches a request only through the fresh view's vault_view",
+    "file:learnloop.adaptive_difficulty.material_view.load_document_ir": "the document IR, from SQLite tables "
+        "(traced); sections reach AD through view.section_spans, spans through material_withheld",
+    "file:learnloop.content.authoring.practice_generation.load_vault": "each generator loads the vault once; "
+        "under the contract the plan, the authoring context and the gates read it through the material view "
+        "(vault_view: visible items and notes) and the request guard revalidates every dispatch",
+    "file:learnloop.content.proposals.proposals.load_vault": "the authoring call loads the vault; with AD's "
+        "guard the context is built from vault_view and every dispatch is revalidated",
+    "file:learnloop.content.authoring.practice_leakage.load_document_ir": "span text from SQLite tables (traced); "
+        "under the contract held-out spans never ground a request and the guard revalidates every span",
+    "file:learnloop.reader.reader_progression.load_document_ir": "section/span mapping from SQLite tables "
+        "(traced); VaultReadingMap withholds held-out spans and notes through the view",
+    "file:learnloop.reader.reader_guidance.load_document_ir": "the guide's sections from SQLite tables (traced): "
+        "AD reads them only through view.section_spans and VaultReadingMap, which withhold held-out spans",
 }
 
+_MUTATORS = {"append", "extend", "insert", "add", "update", "setdefault", "pop", "popitem", "clear", "remove",
+             "discard", "appendleft", "extendleft", "__setitem__"}
+_FILE_READS = {"open", "read_text", "read_bytes", "load_vault", "load_document_ir", "safe_load", "load"}
 
-def _ad_dependency_sites() -> set[str]:
-    root = Path(__file__).resolve().parents[1] / "src" / "learnloop"
+
+def _mutated_names(source: str) -> set[str]:
+    """Module-level names the module's code mutates or rebinds (``global``) at runtime."""
+
+    tree = ast.parse(source)
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Global):
+            names.update(node.names)
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in _MUTATORS:
+            if isinstance(node.func.value, ast.Name):
+                names.add(node.func.value.id)
+        elif isinstance(node, (ast.Assign, ast.AugAssign, ast.Delete)):
+            targets = node.targets if isinstance(node, (ast.Assign, ast.Delete)) else [node.target]
+            for target in targets:
+                if isinstance(target, ast.Subscript) and isinstance(target.value, ast.Name):
+                    names.add(target.value.id)
+    return names
+
+
+def _audit_sites() -> set[str]:
+    import collections
+    import functools
+    import importlib
+    import pkgutil
+
+    import learnloop.adaptive_difficulty as package
+
+    modules = [f"learnloop.adaptive_difficulty.{info.name}" for info in pkgutil.iter_modules(package.__path__)]
     found: set[str] = set()
-    files = [*sorted((root / "adaptive_difficulty").glob("*.py")), root / "daily_plan" / "ad_slot.py"]
-    for path in files:
-        text = path.read_text(encoding="utf-8")
-        module = path.stem
-        for match in re.finditer(r"^(_[A-Z_]*CACHE[A-Z_]*)\s*[:=]", text, re.MULTILINE):
-            found.add(f"{module}.{match.group(1)}")
-        for name in ("lru_cache", "functools.cache", "@cache"):
-            if name in text:
-                found.add(f"{module}.{name}")
-        for call in ("open(", ".read_text(", ".read_bytes(", "load_vault(", "load_document_ir(", "yaml."):
-            for line in text.splitlines():
-                stripped = line.strip()
-                if call in stripped and not stripped.startswith(("#", "from ", "import ")) and '"""' not in stripped:
-                    found.add(f"{module}.{call.strip('(.').strip('.')}")
+    for name in [*modules, *AUDITED_MODULES]:
+        module = importlib.import_module(name)
+        source = Path(module.__file__).read_text(encoding="utf-8")
+        mutated = _mutated_names(source)
+        for attribute, value in vars(module).items():
+            if attribute.startswith("__"):
+                continue
+            if isinstance(value, functools._lru_cache_wrapper) and getattr(value, "__module__", "") == name:
+                found.add(f"{name}.{attribute}")
+            elif isinstance(value, (dict, set, list, collections.deque)) and attribute in mutated:
+                found.add(f"{name}.{attribute}")
+            elif attribute == "_DEFAULT" and attribute in mutated:
+                found.add(f"{name}.{attribute}")
+        for node in ast.walk(ast.parse(source)):
+            if isinstance(node, ast.Call):
+                called = node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, "id", None)
+                if called in {"load_vault", "load_document_ir", "read_text", "read_bytes", "open"}:
+                    found.add(f"file:{name}.{called}")
     return found
 
 
 def test_every_ad_cache_and_file_read_is_audited():
-    """F42 (round 13): the read trace sees SQLite only. Every Python-side cache and file-backed read in
-    the AD modules is listed in ``AD_DEPENDENCIES`` with how protection reaches it."""
+    """F42 (rounds 13-14): the read trace sees SQLite only. Every module-level cache or state (a
+    dict, set, list, deque or lru_cache the module mutates) and every file read in the AD modules and
+    the authoring and reading modules AD calls is in ``AD_DEPENDENCIES`` with how protection reaches
+    it. Found from the modules' actual state and source, not by name (failed before: the scan matched
+    ``CACHE`` names and missed background's ``_PREPARED`` and ``_QUEUES`` and the authoring modules'
+    ``load_vault``)."""
 
-    assert _ad_dependency_sites() <= set(AD_DEPENDENCIES), sorted(_ad_dependency_sites() - set(AD_DEPENDENCIES))
+    found = _audit_sites()
+    assert not found - set(AD_DEPENDENCIES), sorted(found - set(AD_DEPENDENCIES))
+    assert not set(AD_DEPENDENCIES) - found, ("listed but no longer present", sorted(set(AD_DEPENDENCIES) - found))
 
 
 def test_the_replay_cache_never_serves_a_snapshot_across_a_protection_change(copies, monkeypatch):
@@ -2238,3 +2398,143 @@ def test_a_protected_receipt_occupies_no_daily_cap_slot(copies, monkeypatch):
             "SELECT opportunity_key FROM ad_reading_opportunities WHERE kind = 'reading' AND subkind = 'passage_viewed' "
             "AND source_table = 'source_exposure_events' AND source_id != 'sxe_held_r13'")]
     assert len(keys) == 1 and keys[0].startswith(f"reading:passage_viewed:{LO}:2026-10-12:source_exposure_events:")
+
+
+# -- fix round 14 (F42): negative controls -------------------------------------------------------------
+#
+# Each control makes a test-only mutation, identical in both copies, that removes something the
+# contract claims to check, and shows the contract then FAILS. A contract that still passed would
+# prove nothing about that stage.
+
+
+def _contract_fails(copies, monkeypatch, mode: str = "frozen") -> str:
+    with pytest.raises(AssertionError) as failure:
+        _contract(copies, monkeypatch, mode)
+    return str(failure.value)
+
+
+def test_negative_control_without_the_dose_operation_the_contract_fails(copies, monkeypatch):
+    """The dose decision is removed (it decides nothing, in both copies alike): equal outputs, but the
+    contract's pinned, newly persisted draws are missing, so it fails."""
+
+    from learnloop.adaptive_difficulty import dose as D
+
+    monkeypatch.setattr(D, "decide", lambda *_args, **_kwargs: D.DoseDecision(True, None))
+    assert _contract_fails(copies, monkeypatch)
+
+
+@pytest.mark.parametrize("copies", ["coupled"], indirect=True)
+def test_negative_control_without_a_background_entry_point_the_contract_fails(copies, monkeypatch):
+    """The background re-proposal scheduler's stale-subject detection is removed (it reports nothing,
+    in both copies alike): the contract's temporal case fails."""
+
+    from learnloop.adaptive_difficulty import relatedness_jobs as RJ
+
+    monkeypatch.setattr(RJ, "stale_subjects", lambda *_args, **_kwargs: [])
+    assert "stale" in _contract_fails(copies, monkeypatch)
+
+
+def test_negative_control_without_the_commission_worker_the_contract_fails(copies, monkeypatch):
+    """The serve-time commission queue is removed (nothing is queued, in both copies alike): the
+    contract's worker stage fails."""
+
+    from learnloop.adaptive_difficulty import generation
+
+    monkeypatch.setattr(generation, "schedule_commission_generation", lambda *_args, **_kwargs: [])
+    assert _contract_fails(copies, monkeypatch)
+
+
+def test_negative_control_without_the_replay_caches_protection_its_test_fails(copies, monkeypatch):
+    """The replay cache's protection (its events fingerprint) is removed: the cache test fails, so the
+    contract notices a cache that serves a snapshot across a protection change."""
+
+    from learnloop.adaptive_difficulty import replay as RP
+
+    monkeypatch.setattr(RP, "events_fingerprint", lambda _events: "constant")
+    with pytest.raises(AssertionError):
+        test_the_replay_cache_never_serves_a_snapshot_across_a_protection_change(copies, monkeypatch)
+
+
+def test_negative_control_without_the_views_receipt_filter_the_contract_fails(copies, monkeypatch):
+    """The material view's receipt revalidation is removed (every receipt visible): protected receipts
+    reach the replay in one copy only, so the contract's comparison fails."""
+
+    from learnloop.adaptive_difficulty.material_view import MaterialView
+
+    monkeypatch.setattr(MaterialView, "_opportunity_withheld", lambda _self, _connection, _row: False)
+    assert _contract_fails(copies, monkeypatch)
+
+
+# -- fix round 14: the per-reader regressions beside the grown differential ----------------------------
+
+
+def test_a_tutor_exchange_whose_recorded_context_quotes_a_protected_span_enters_no_prediction(copies, monkeypatch):
+    """F46: the exchange's anchor is public, but its recorded source spans and citation quote a
+    held-out span. The one tutor-question reader judges the complete recorded context, at collection
+    and at receipt revalidation (failed before: only the anchor and the item were read)."""
+
+    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.reading import sweep
+    from learnloop.db.stores import ad_receipts
+
+    protected, _absent = copies
+    _hold_out(monkeypatch)
+    vault, repository = load_vault(protected.root), Repository(protected.sqlite_path)
+    view = material_view(vault, repository)
+    sweep(vault, repository, as_of=_iso(RUN), sweep_kind="backfill", view=view)
+    with closing(connect(protected.sqlite_path)) as connection:
+        assert view.question_event_withheld(connection, "qe_context_r14")
+        assert connection.execute("SELECT 1 FROM ad_reading_opportunities WHERE source_id = 'qe_context_r14'").fetchone() is None
+        ad_receipts.insert_reading_opportunity(connection, {
+            "opportunity_key": f"reader_tutor_exchange:{LO}:2026-10-12:qe_context_r14", "kind": "reader_tutor_exchange",
+            "subkind": "help_me_reason", "source_table": "question_events", "source_id": "qe_context_r14",
+            "source_written_at": _iso(T0 - timedelta(hours=2)), "learning_object_id": LO, "facet_doses": {"recall": 1.0},
+            "dose_offer_id": None, "mapping_version": "ad_reading_map_v1", "sweep": "backfill", "sweep_ref": None,
+            "swept_at": _iso(RUN)})
+        connection.commit()
+        assert "qe_context_r14" not in {row["source_id"] for row in view.reading_opportunities(connection)}
+
+
+def test_a_dose_draw_at_a_protected_origin_is_a_draw_never_made(copies, monkeypatch):
+    """F47: a draw made at a held-out section with a public extra was delivered today. It is out of
+    the cohort and the budget (a public boundary may still be offered), out of uptake, and no draw is
+    made at that section (failed before: only the extra was checked, so the draw spent the budget)."""
+
+    from learnloop.adaptive_difficulty import dose as D
+    from learnloop.adaptive_difficulty.material_view import material_view
+
+    protected, _absent = copies
+    _hold_out(monkeypatch)
+    vault, repository = load_vault(protected.root), Repository(protected.sqlite_path)
+    view = material_view(vault, repository)
+    with closing(connect(protected.sqlite_path, read_only=True)) as connection:
+        assert "dose_origin_r14" not in {row["id"] for row in view.dose_rows(connection)}
+        assert D.budget(connection, extraction_id=EXT, section_id="sec1", now=_iso(RUN), daily=2, view=view) is None
+    assert D.record_uptake(vault, repository, "dose_origin_r14", "taken", clock=_Frozen(RUN)) is None
+    decision = D.decide(vault, repository, D.Boundary(visit_id="visit_origin2", extraction_id=EXT, section_id="sec5"),
+                        clock=_Frozen(RUN), view=view)
+    assert decision.reason == "withheld_section" and decision.draw_id is None
+
+
+def test_the_background_scheduler_sees_a_run_whose_recorded_context_is_protected(tmp_path, monkeypatch):
+    """F45 (round 14): R1 proposes the whole subject; pi_p3 (never snapshotted) is replaced and R2
+    proposes only its new revision; then pi_p3's former source is held out. The subject fingerprint is
+    unchanged, but R1's recorded context is protected now: the background scheduler finds the
+    subject stale, exactly as propose_subject does (failed before: it counted R1 and found nothing)."""
+
+    from learnloop.adaptive_difficulty import relatedness as R
+    from learnloop.adaptive_difficulty import relatedness_jobs as RJ
+
+    paths = ad23_vault(tmp_path, items=PUBLIC, ad=COUPLED)
+    set_item(paths, "pi_p3", canonical_exercise={"source_id": "src_r9", "extraction_id": EXT, "span_ids": ["sec4_span"]})
+    _hold_out(monkeypatch)
+    repository = Repository(paths.sqlite_path)
+    assert R.propose_subject(load_vault(paths.root), repository, SUBJECT,
+                             client=ProposalLLM({"items": [], "learning_objects": []})).status == "ok"
+    R.adopt(repository, SUBJECT, adopted_by="owner")
+    set_item(paths, "pi_p3", canonical_exercise={"source_id": "src_r9", "extraction_id": EXT, "span_ids": ["sec3_span"]})
+    assert R.propose_subject(load_vault(paths.root), repository, SUBJECT,
+                             client=ProposalLLM({"items": [], "learning_objects": []})).status == "ok"
+    assert RJ.stale_subjects(load_vault(paths.root), repository) == []
+    LATE.append("sec4_span")
+    assert RJ.stale_subjects(load_vault(paths.root), repository) == [SUBJECT]
