@@ -354,7 +354,8 @@ class PaidCalls:
              metadata: Mapping[str, Any], candidates: int = 0, pairs: int = 0,
              validate: Callable[[Any], Any] | None = None,
              context: Mapping[str, Any] | None = None,
-             deadline: float | None = None) -> Any:
+             deadline: float | None = None,
+             images: tuple[tuple[str, bytes], ...] = ()) -> Any:
         """One logical call, retried on provider failure within the retry cap.
 
         ``validate`` may raise ``AIInvalidOutput`` for a semantically unusable
@@ -366,6 +367,11 @@ class PaidCalls:
         each attempt's request carries the remaining time as its timeout (every
         transport enforces ``StructuredRequest.timeout_seconds``), and no attempt
         starts once it has passed (``AITurnTimeout``, never a retry).
+
+        ``images`` (reader RW5a) go with the prompt to a transport that
+        declares ``image_input`` (refused before sending otherwise). The
+        request identity is the prompt's, so a caller with images names their
+        digests in the prompt: a checkpoint never answers another image.
         """
         key = self.checkpoint_key(purpose=purpose, prompt=prompt, result_model=result_model,
                                   output_tokens=output_tokens)
@@ -408,7 +414,7 @@ class PaidCalls:
                                 requested_reasoning_effort(self.route.reasoning_effort), bound:
                             raw = execute_structured_operation(
                                 client, purpose=purpose, prompt=prompt, result_model=result_model,
-                                timeout_seconds=timeout_seconds,
+                                timeout_seconds=timeout_seconds, images=images,
                             )
                     finally:
                         self._reconcile(charge, tokens, events)

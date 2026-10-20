@@ -119,6 +119,10 @@ AITask = Literal[
     # Reader workbench RW2b: "Check my work" (a chat route that never
     # resolves to Codex, as hint_writer).
     "workbench_check",
+    # Reader workbench RW5a: the figure author (the declarative spec) and the
+    # figure verifier (the sandboxed sympy check of a reconstruction).
+    "figure_author",
+    "figure_verifier",
 ]
 
 #: Routes served only by a ``decider`` profile. They never fall back to a chat
@@ -229,6 +233,10 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     "ad_feature_audit": "ad_feature_audit",
     # Reader workbench RW2b: one check of the learner's steps.
     "workbench_check": "workbench_check",
+    # Reader workbench RW5a: one figure spec written (an author attempt or a
+    # "not right?" version) and one sympy source-match check written.
+    "figure_author": "figure_author",
+    "figure_verifier": "figure_verifier",
     # Slice 2 T4 shadow contamination flags (owner-run report only).
     "contamination_leak_judgment": "contamination_judge",
     "contamination_reveal_judgment": "contamination_judge",

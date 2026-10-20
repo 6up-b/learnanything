@@ -299,6 +299,27 @@ def test_the_pinned_rw4b_rpcs_are_all_of_them():
         *LIBRARY_EXERCISE_RPCS, *EXERCISE_ADMISSION_RPCS}
 
 
+# Reader workbench RW5a (spec_reader_workbench_v1 §8): explorable figures
+# (build and "not right?" as jobs, the source's figures, predictions and
+# "what changed?"); it extends reader.prompt_contract (figures). Desktop only.
+READER_RW5A_RPCS = (
+    "reader.figure_request",
+    "reader.figure_revise",
+    "reader.figure_job",
+    "reader.figure_job_cancel",
+    "reader.figures",
+    "reader.figure_predict",
+    "reader.figure_explain",
+    "reader.prompt_contract",
+)
+
+
+def test_the_pinned_rw5a_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.figures import FIGURE_RPCS
+
+    assert set(READER_RW5A_RPCS) - {"reader.prompt_contract"} == set(FIGURE_RPCS)
+
+
 # Adaptive hints H0 (spec_adaptive_hints_v1 §9, G-H13): the practice screen's
 # authored-hint reveal telemetry, and the two submits that attach the
 # session's reveal rows to the attempt. Desktop only.
@@ -553,7 +574,7 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     + READER_PDF_SELECTION_RPCS + READER_PDF_SELECTION_EXTENDED_RPCS + UX_PHASE4_RPCS + UX_PHASE4_EXTENDED_RPCS
     + HINTS_H0_RPCS + HINTS_H0_EXTENDED_RPCS + HINTS_H2A_RPCS + HINTS_H2A_EXTENDED_RPCS
     + HINTS_H2B_RPCS + READER_RW2B_RPCS + READER_RW2B_EXTENDED_RPCS + READER_RW2B_FIX5_EXTENDED_RPCS
-    + INTENT_RPCS + INTENT_EXTENDED_RPCS,
+    + INTENT_RPCS + INTENT_EXTENDED_RPCS + READER_RW5A_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

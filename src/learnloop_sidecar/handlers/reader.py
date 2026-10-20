@@ -456,6 +456,11 @@ def reader_prompt_contract(ctx: SidecarContext, _params: ParamsModel) -> dict[st
     from learnloop_sidecar.handlers.library_exercises import prompt_contract_fields as library_exercise_fields
 
     contract.update(library_exercise_fields(vault))
+
+    # RW5a's explorable figures (absent while figures.enabled is off).
+    from learnloop_sidecar.handlers.figures import prompt_contract_fields as figure_fields
+
+    contract.update(figure_fields(vault))
     return versioned(contract)
 
 

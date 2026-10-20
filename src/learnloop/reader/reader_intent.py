@@ -20,9 +20,9 @@ this" only while ``workbench.enabled``, "another way to see this" only while
 the sources service is on, RW4a's library asks ("what do I need first?",
 "where else is this explained?", "where is this used?") only while
 ``library_ask.enabled`` (with the sources service and RW1a's inquiry). Actions
-of phases that have not landed (RW7a's reading path, RW5a's figures, DL3's
-"practice this in a new setting", RW4b's exercises from my sources) are
-absent, not disabled (U13).
+of phases that have not landed (RW7a's reading path, DL3's "practice this in
+a new setting", RW4b's exercises from my sources) are absent, not disabled
+(U13). RW5a's "make this explorable" exists only while ``figures.enabled``.
 
 **Routing.** :func:`route` asks once and takes the argmax (no hand-set
 threshold). An empty text routes to Ask with no call; an unavailable, timed
@@ -178,6 +178,12 @@ ACTIONS: tuple[IntentAction, ...] = (
                  "Find one or two passages in the learner's other books or other parts of this one that treat "
                  "the same idea differently (a geometric view beside an algebraic one, a worked example).",
                  {"kind": "another_way"}, needs=("active_reading", "sources")),
+    # RW5a: an explorable figure of the selected equation, figure or passage,
+    # built in the background and drawn inline under it.
+    IntentAction("make_explorable", "understand", "make this explorable",
+                 "Build an interactive version of the selected equation, figure or passage: sliders for its "
+                 "parameters, plots, shaded areas and readouts, shown under the passage.",
+                 {"kind": "figure"}, needs=("figures",)),
     # Apply
     IntentAction("work_through", "apply", "work through this",
                  "Open the selected exercise or problem beside the book to work it in steps.",
@@ -250,6 +256,8 @@ class Availability:
     model: bool = True
     #: The learner's own notes: only the anchor-free actions.
     notes: bool = False
+    #: RW5a's explorable figures (``figures.enabled``): "make this explorable".
+    figures: bool = False
 
     @classmethod
     def from_config(cls, config: Any, *, model: bool = True, notes: bool = False) -> "Availability":
@@ -264,6 +272,7 @@ class Availability:
             ),
             model=model,
             notes=notes,
+            figures=bool(getattr(getattr(config, "figures", None), "enabled", False)),
         )
 
     def allows(self, action: IntentAction) -> bool:

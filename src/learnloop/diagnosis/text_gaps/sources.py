@@ -388,14 +388,130 @@ FORMATIVE_PASSAGE_CHARS = 2_000
 FORMATIVE_EXPECTED_CHARS = 2_000
 
 
+#: Reader RW5a: a figure prediction's id (``figure_predictions``). It shares
+#: the ``reader_formative`` source kind with RW1b's answers, told apart by
+#: this prefix (the figure service writes it).
+FIGURE_PREDICTION_PREFIX = "fpr_"
+#: The words of a direction prediction's answers (the figure service's).
+_DIRECTION_WORDS = {"rises": "it rises", "falls": "it falls", "same": "it stays the same"}
+
+
+def is_figure_prediction(source_id: str) -> bool:
+    return str(source_id or "").startswith(FIGURE_PREDICTION_PREFIX)
+
+
+def figure_prediction_row(repository: Repository, prediction_id: str) -> dict[str, Any] | None:
+    """A missed figure prediction with an answer, with its figure, or None."""
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        tables = {row[0] for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('figure_predictions', 'interactive_figures')")}
+        if tables != {"figure_predictions", "interactive_figures"}:
+            return None
+        row = connection.execute(
+            "SELECT p.id, p.figure_id, p.extraction_id, p.prediction_index, p.learner_answer, p.observed_json, "
+            "p.matched, p.explanation_text, p.created_at, f.spec_json, f.span_ids_json, f.region_json "
+            "FROM figure_predictions AS p JOIN interactive_figures AS f ON f.id = p.figure_id WHERE p.id = ?",
+            (prediction_id,)).fetchone()
+    if row is None or int(row[6]) != 0 or not str(row[4] or "").strip():
+        return None
+    keys = ("id", "figure_id", "extraction_id", "prediction_index", "learner_answer", "observed_json", "matched",
+            "explanation_text", "created_at", "spec_json", "span_ids_json", "region_json")
+    return dict(zip(keys, row))
+
+
+def missed_prediction_ids(repository: Repository) -> list[str]:
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        if not connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'figure_predictions'"
+                                  ).fetchone():
+            return []
+        return [str(row[0]) for row in connection.execute(
+            "SELECT id FROM figure_predictions WHERE matched = 0 AND TRIM(learner_answer) != '' ORDER BY created_at, id")]
+
+
+def figure_prediction_spans(row: Mapping[str, Any]) -> list[str]:
+    try:
+        spans = [str(span) for span in json.loads(row.get("span_ids_json") or "[]")]
+    except (TypeError, ValueError):
+        spans = []
+    try:
+        region = json.loads(row.get("region_json") or "null") or {}
+    except (TypeError, ValueError):
+        region = {}
+    if isinstance(region, dict) and region.get("span_id"):
+        spans.append(str(region["span_id"]))
+    return list(dict.fromkeys(spans))
+
+
+def figure_prediction_text(vault: LoadedVault, repository: Repository, prediction_id: str) -> LearnerText | None:
+    """RW5a: a missed figure prediction, read by the gap reader.
+
+    The text is the learner's answer and, when they wrote one, their "what
+    changed?" line; the context is the prediction's question, the passage the
+    figure was built from, and what the figure showed (computed by code, not
+    the book's words). The LOs are the passage's provenance-linked ones."""
+
+    row = figure_prediction_row(repository, prediction_id)
+    if row is None:
+        return None
+    try:
+        spec = json.loads(row.get("spec_json") or "{}")
+        prediction = (spec.get("predictions") or [])[int(row["prediction_index"])]
+        observed = json.loads(row.get("observed_json") or "{}")
+    except (TypeError, ValueError, IndexError, KeyError):
+        return None
+    answer = str(row["learner_answer"])
+    words = _DIRECTION_WORDS.get(answer, answer)
+    explanation = str(row.get("explanation_text") or "").strip()
+    text = words if not explanation else f"{words}. What changed, in my words: {explanation}"
+    extraction_id = str(row["extraction_id"])
+    spans = figure_prediction_spans(row)
+    los: list[str] = []
+    for span_id in spans:
+        for lo_id in learning_objects_for_span(vault, repository, extraction_id=extraction_id, span_id=span_id):
+            if lo_id in vault.learning_objects and lo_id not in los:
+                los.append(lo_id)
+    los.sort()
+    subjects = {s for lo in los for s in vault.learning_objects[lo].subjects[:1]}
+    correct = observed.get("answer")
+    shown = _DIRECTION_WORDS.get(str(correct), str(correct))
+    context: dict[str, Any] = {
+        "surface": "reader_formative",
+        "style": "figure_prediction",
+        "question": str(prediction.get("prompt") or ""),
+        "passage": _span_texts(repository, extraction_id, spans),
+        "expected_answer": (f"{shown} (the figure's readout went from {observed.get('before')} to "
+                            f"{observed.get('after')})")[:FORMATIVE_EXPECTED_CHARS],
+        "expected_answer_from": "LearnLoop's figure (computed, not the book's words)",
+        "self_check": "missed",
+    }
+    titles = [vault.learning_objects[lo].title for lo in los]
+    if titles:
+        context["learning_objects"] = titles
+    return LearnerText(
+        source_kind="reader_formative",
+        source_id=str(row["id"]),
+        text=text,
+        context_judge="gap_reader",
+        created_at=str(row.get("created_at") or ""),
+        subject_id=next(iter(subjects)) if len(subjects) == 1 else None,
+        anchor_learning_object_ids=tuple(los),
+        reading=None,
+        context=context,
+    )
+
+
 def formative_row(repository: Repository, question_id: str) -> dict[str, Any] | None:
     """A missed formative answer (``reader_authored_questions``), or None.
+    A figure prediction id (RW5a) reads :func:`figure_prediction_row`.
 
     Selection-scoped, in a next-step, why-step or assumption style, marked
     partly or no by the learner, with an answer they wrote, and not added to
     practice since (an escalated question's expected answer is an item's key
     now, which no learner text carries)."""
 
+    if is_figure_prediction(question_id):
+        return figure_prediction_row(repository, question_id)
     row = repository.get_reader_authored_question(question_id)
     if row is None or row.get("scope_kind") != "selection" or row.get("question_style") not in FORMATIVE_STYLES:
         return None
@@ -408,8 +524,13 @@ def formative_row(repository: Repository, question_id: str) -> dict[str, Any] | 
 
 def missed_formative_ids(repository: Repository) -> list[str]:
     """Every missed formative answer (:func:`formative_row`'s rule), oldest
-    first: what the backlog sweep may queue."""
+    first, then every missed figure prediction (RW5a): what the backlog sweep
+    may queue."""
 
+    return _missed_answer_ids(repository) + missed_prediction_ids(repository)
+
+
+def _missed_answer_ids(repository: Repository) -> list[str]:
     with repository.connection() as connection:
         if "scope_kind" not in {row[1] for row in connection.execute("PRAGMA table_info(reader_authored_questions)")}:
             return []
@@ -441,6 +562,8 @@ def reader_formative_text(vault: LoadedVault, repository: Repository, question_i
     book's or LearnLoop's model's). The LOs are the passage's provenance-linked
     ones, and the subject theirs when they share one."""
 
+    if is_figure_prediction(question_id):
+        return figure_prediction_text(vault, repository, question_id)
     row = formative_row(repository, question_id)
     if row is None:
         return None
@@ -751,7 +874,11 @@ __all__ = [
     "StuckText",
     "StuckTextSource",
     "diagnosis_text",
+    "FIGURE_PREDICTION_PREFIX",
+    "figure_prediction_row",
+    "figure_prediction_text",
     "formative_row",
+    "is_figure_prediction",
     "hint_feedback_ids",
     "hint_feedback_row",
     "hint_feedback_text",

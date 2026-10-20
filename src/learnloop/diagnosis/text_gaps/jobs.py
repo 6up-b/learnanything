@@ -155,6 +155,18 @@ def enqueue_reader_formative(
     return enqueue(repository, source_kind="reader_formative", source_id=question_id, clock=clock)
 
 
+def enqueue_figure_prediction(
+    vault: LoadedVault, repository: Repository, *, prediction_id: str, clock: Clock | None = None,
+) -> str | None:
+    """Reader RW5a: a missed figure prediction (its answer and "what
+    changed?" text) as a ``reader_formative`` text, on RW1b's rule: only with
+    ``learner_text_gaps.enabled`` and ``reader_formative.enabled`` on, only a
+    missed one with an answer; a matched prediction queues nothing.
+    Idempotent per prediction (a later "what changed?" is read with it)."""
+
+    return enqueue_reader_formative(vault, repository, question_id=prediction_id, clock=clock)
+
+
 def enqueue_hint_feedback(
     vault: LoadedVault, repository: Repository, *, assist_id: str, clock: Clock | None = None,
 ) -> str | None:
@@ -528,6 +540,7 @@ __all__ = [
     "MAX_ATTEMPTS",
     "calls_today",
     "enqueue",
+    "enqueue_figure_prediction",
     "enqueue_after_diagnosis",
     "enqueue_stuck_answer",
     "enqueue_tutor_question",

@@ -132,6 +132,8 @@ def formative_record(connection: Any, question_id: str, *, topics: Iterable[str]
     learner's answer (not an attempt, so no answer contract), the book's
     passage and the cited spans of the expected answer, and the topics."""
 
+    if str(question_id).startswith("fpr_"):
+        return figure_prediction_record(connection, question_id, topics=topics)
     row = connection.execute(
         "SELECT extraction_id, source_id, span_ids_json, anchor_span_ids_json FROM reader_authored_questions "
         "WHERE id = ?", (question_id,),
@@ -146,6 +148,34 @@ def formative_record(connection: Any, question_id: str, *, topics: Iterable[str]
             continue
     source = {"ref_type": "canonical_source", "ref_id": row[1] or row[0], "source_id": row[1],
               "extraction_id": row[0], "span_ids": sorted(spans)}
+    return WriteRecord(Inputs.of(topics=topics, sources=[source]))
+
+
+def figure_prediction_record(connection: Any, prediction_id: str, *, topics: Iterable[str] = ()) -> WriteRecord:
+    """RW5a: what a missed figure prediction shows its reader -- the
+    learner's answer (not an attempt), the passage the figure was built from
+    (its spans, and a region's block), and the topics. The figure's own
+    values are computed by code from that passage."""
+
+    row = connection.execute(
+        "SELECT f.extraction_id, f.span_ids_json, f.region_json FROM figure_predictions AS p "
+        "JOIN interactive_figures AS f ON f.id = p.figure_id WHERE p.id = ?", (prediction_id,),
+    ).fetchone()
+    if row is None:
+        return WriteRecord.incomplete("the figure prediction is gone", inputs=Inputs.of(topics=topics))
+    spans: set[str] = set()
+    try:
+        spans.update(str(span) for span in json.loads(row[1] or "[]"))
+        region = json.loads(row[2] or "null") or {}
+        if isinstance(region, dict) and region.get("span_id"):
+            spans.add(str(region["span_id"]))
+    except (TypeError, ValueError):
+        pass
+    source_id = connection.execute(
+        "SELECT revision.source_id FROM source_extraction_runs AS run LEFT JOIN source_revisions AS revision "
+        "ON revision.id = run.revision_id WHERE run.id = ?", (row[0],)).fetchone()
+    source = {"ref_type": "canonical_source", "ref_id": (source_id[0] if source_id else None) or row[0],
+              "source_id": source_id[0] if source_id else None, "extraction_id": row[0], "span_ids": sorted(spans)}
     return WriteRecord(Inputs.of(topics=topics, sources=[source]))
 
 
@@ -208,6 +238,7 @@ def drafter_record(connection: Any, vault: Any, text: Any, reading: Any, *, subj
 __all__ = [
     "TUTOR_UNRECORDED",
     "drafter_record",
+    "figure_prediction_record",
     "formative_record",
     "hint_feedback_record",
     "question_record",

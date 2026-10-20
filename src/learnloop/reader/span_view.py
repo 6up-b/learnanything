@@ -298,14 +298,22 @@ def build_block_region(
     repo: Repository,
     extraction_id: str,
     span_id: str,
+    *,
+    bbox: list[float] | None = None,
 ) -> dict[str, Any]:
     """On-demand original-region crop for one block (spec §3.4). Falls back to the
-    whole page when no bbox is available, and records nothing (a pure read)."""
+    whole page when no bbox is available, and records nothing (a pure read).
+
+    ``bbox`` (reader workbench RW5a, a region of a figure): crop only that box,
+    in the block's own coordinate space and clipped to the block, with no
+    page fallback (a region that cannot be cropped is ``no_region``)."""
 
     ir = repo.load_document_ir(extraction_id)
     block = ir.block_by_span(span_id) if ir is not None else None
     if block is None:
         return {"extraction_id": extraction_id, "span_id": span_id, "region_render": None, "reason": "block_not_found"}
+    if bbox is not None:
+        return _block_subregion(repo, extraction_id, span_id, block, bbox)
     run = repo.get_extraction_run(extraction_id) or {}
     revision = repo.get_source_revision(run.get("revision_id")) if run.get("revision_id") else None
     source_id = (revision or {}).get("source_id")
@@ -326,3 +334,37 @@ def build_block_region(
         "page_render_size": page_size,
         "reason": reason,
     }
+
+
+def _original_pdf_for(repo: Repository, extraction_id: str) -> Path | None:
+    run = repo.get_extraction_run(extraction_id) or {}
+    revision = repo.get_source_revision(run.get("revision_id")) if run.get("revision_id") else None
+    source_id = (revision or {}).get("source_id")
+    artifact = repo.get_source_artifact(source_id) if source_id else None
+    uri = (revision or {}).get("original_uri") or (artifact or {}).get("canonical_uri")
+    return _original_pdf_path(repo, revision, uri)
+
+
+def _block_subregion(repo: Repository, extraction_id: str, span_id: str, block: Any,
+                     bbox: list[float]) -> dict[str, Any]:
+    """A learner-drawn box inside one block: the box clipped to the block's own
+    box (a box outside it crops nothing)."""
+
+    base = {"extraction_id": extraction_id, "span_id": span_id, "page": block.page, "bbox": None,
+            "region_render": None, "page_render_size": None, "reason": "no_region"}
+    if not block.bbox or len(block.bbox) != 4 or len(bbox) != 4:
+        return base
+    try:
+        x0, y0, x1, y1 = (float(value) for value in bbox)
+    except (TypeError, ValueError):
+        return base
+    bx0, by0, bx1, by1 = (float(value) for value in block.bbox)
+    left, right = max(min(x0, x1), min(bx0, bx1)), min(max(x0, x1), max(bx0, bx1))
+    top, bottom = max(min(y0, y1), min(by0, by1)), min(max(y0, y1), max(by0, by1))
+    if right - left < 2 or bottom - top < 2:
+        return base
+    clipped = [left, top, right, bottom]
+    crop, page_size = _local_pdf_block_crop(_original_pdf_for(repo, extraction_id), block.page, clipped)
+    if crop is None:
+        return {**base, "bbox": clipped}
+    return {**base, "bbox": clipped, "region_render": crop, "page_render_size": page_size, "reason": "crop"}

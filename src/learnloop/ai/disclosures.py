@@ -32,6 +32,7 @@ JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("ad_forecast_decider", "decider", "adaptive_difficulty"),
     ("ad_feature_audit", "llm", "ad_feature_audit"),
     ("workbench_check", "llm", "workbench_check"),
+    ("figure_author", "llm", "figures"),
 )
 
 _WHEN = {
@@ -136,6 +137,13 @@ _WHEN = {
         "While workbench.help_enabled is on, each time you press \"Check my work\" in the workbench: the "
         "problem, its reference solution and rubric, your steps, and the question's approach map when it has "
         "one, so LearnLoop's model can say which steps hold. Never sent to Codex. It never grades you."
+    ),
+    "figures": (
+        "While figures.enabled is on, each time you press \"make this explorable\" in the Reader: the selected "
+        "passage, its caption and the paragraphs around it (and the figure's image or your selected region of "
+        "it, when the route can read images), so LearnLoop's model can write an interactive version; with "
+        "figures.revisions_enabled, a \"not right?\" note you write goes with the earlier version. Nothing else "
+        "about you, and never material held out for an exam."
     ),
 }
 
