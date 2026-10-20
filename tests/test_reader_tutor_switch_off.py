@@ -71,6 +71,11 @@ def _record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, offers: bool = F
     })
     history = call(ctx, "reader.ask_history", {"extractionId": "ext_text"})
     contract = call(ctx, "reader.prompt_contract", {})
+    if not WRITE:
+        # RW4b (landed onto main after this golden was recorded on the base
+        # tree) adds its own key at its defaults; these pins are about RW1c's
+        # switches, so everything else stays byte for byte (RW4b landing).
+        assert contract.pop("libraryExercises") == {"fallback": False}
     events = [
         {"kind": event["kind"], "payload": event.get("payload")}
         for kind in ("reader_answer_submitted", "learner_question_asked", "reader_answer_mode_set")
