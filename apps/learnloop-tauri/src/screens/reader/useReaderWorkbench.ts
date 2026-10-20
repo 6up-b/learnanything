@@ -15,6 +15,14 @@
 // hidden (also on a problem left with the book open), answering the pick's
 // own serve, which the problem keeps across a resume. Resuming a problem worked on the
 // practice screen moves it here explicitly (review F4).
+//
+// RW4b ("use this one" on a textbook exercise, spec §7.4): the shell hands the
+// exercise over as it hands a check over; once its source is the one open, the
+// problem opens at once on the verbatim statement while the import runs (the
+// sources service's for a proposal's exercise, the Reader's own for the
+// fallback's), book hidden unless the exercise was already seen. When that
+// import binds the problem to the item it wrote, the shell is told once
+// (`onExerciseAdmitted`), so the item becomes a learner pick.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
 import type {
@@ -33,6 +41,7 @@ import {
   readSplitWidth,
   writeSplitWidth,
 } from "../workbench/splitWidth";
+import type { ReaderWorkbenchExercise } from "./exerciseCandidates";
 
 /** A margin cue's "check me", picked by the shell (D40): the item and the
  *  serve its answer is to. */
@@ -44,11 +53,34 @@ export interface ReaderWorkbenchCheck {
   stemMd: string;
   schedulerCandidateId: string | null;
   planPresentationId: string | null;
+  /** RW4b: "practice_this" when the pick is an admitted exercise's (its own
+   *  problem resumes with the book as the learner left it); else "check_me". */
+  entry?: "check_me" | "practice_this";
+}
+
+/** RW4b: an exercise's import wrote its item, and the problem is bound to it. */
+export interface ReaderExerciseAdmitted {
+  practiceItemId: string;
+  proposalId: string | null;
+  /** The sources service's import (a proposal's exercise); null for the fallback's. */
+  importId: string | null;
+  sourceId: string;
+  /** The source the exercise is in (where back from its feedback returns). */
+  card: SourceLibraryCard;
+  spanId: string;
+  stemMd: string;
+  workbenchSessionId: string;
 }
 
 export interface ReaderWorkbenchProps {
   /** The app's open practice session, when there is one (the submit uses it). */
   practiceSessionId?: string | null;
+  /** RW4b: "use this one" to open once its source is open (the shell picked it). */
+  exercise?: ReaderWorkbenchExercise | null;
+  /** The exercise's problem opened (the shell forgets it). */
+  onExerciseShown?: () => void;
+  /** The exercise's import bound the problem: the shell records the learner pick. */
+  onExerciseAdmitted?: (admitted: ReaderExerciseAdmitted) => void;
   /** "Check me" to open in the working posture, book hidden (D40). */
   checkMe?: ReaderWorkbenchCheck | null;
   /** The check opened (the shell forgets it). */
@@ -172,11 +204,35 @@ export function useReaderWorkbench(input: {
     });
   }, []);
 
+  // RW4b: problems opened this visit from an exercise whose import was still
+  // running, and those already reported admitted (once each).
+  const exerciseSessions = useRef(new Map<string, { proposalId: string | null; card: SourceLibraryCard }>());
+  const admitted = useRef(new Set<string>());
+  const onAdmittedRef = useRef(props?.onExerciseAdmitted);
+  onAdmittedRef.current = props?.onExerciseAdmitted;
+  const noteAdmission = useCallback((session: WorkbenchSessionDto) => {
+    const opened = exerciseSessions.current.get(session.sessionId);
+    if (!opened || admitted.current.has(session.sessionId)) return;
+    if (session.importStatus !== "bound" || !session.practiceItemId) return;
+    admitted.current.add(session.sessionId);
+    onAdmittedRef.current?.({
+      practiceItemId: session.practiceItemId,
+      proposalId: opened.proposalId,
+      importId: session.sourceExercise?.importId ?? null,
+      sourceId: opened.card.sourceId,
+      card: opened.card,
+      spanId: session.spanIds[0] ?? "",
+      stemMd: session.stemMd,
+      workbenchSessionId: session.sessionId,
+    });
+  }, []);
+
   const begin = useCallback((session: WorkbenchSessionDto, readOnly = false, serve?: { schedulerCandidateId: string | null; planPresentationId: string | null }) => {
     setAbandoned(null);
     setSheetOpen(false);
     setActive({ session, readOnly, autoFocus: !readOnly, ...(serve ?? {}) });
-  }, []);
+    noteAdmission(session);
+  }, [noteAdmission]);
 
   const openSelection = useCallback(async (request: { stemMd: string; spanIds: string[]; importRequest: ReaderImportExerciseInput }) => {
     if (!enabled || !extractionId) return;
@@ -226,7 +282,7 @@ export function useReaderWorkbench(input: {
     openedCheckRef.current = checkMe;
     const wanted = extractionId;
     void api.workbenchOpen({
-      origin: "reader", entry: "check_me", practiceItemId: checkMe.practiceItemId, stemMd: checkMe.stemMd,
+      origin: "reader", entry: checkMe.entry ?? "check_me", practiceItemId: checkMe.practiceItemId, stemMd: checkMe.stemMd,
       extractionId: wanted, spanIds: [checkMe.spanId], clientIdempotencyKey: newKey(),
       // The pick's serve goes on the problem itself, so leaving and resuming
       // it still submits as that serve (review F13); the server also hides
@@ -247,6 +303,35 @@ export function useReaderWorkbench(input: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, checkMe, extractionId, card?.sourceId]);
 
+  // RW4b: "use this one" (the shell picked it): once its source is open, the
+  // problem opens at once on the verbatim statement while its import runs.
+  const exercise = props?.exercise ?? null;
+  const openedExerciseRef = useRef<ReaderWorkbenchExercise | null>(null);
+  useEffect(() => {
+    if (!enabled || !exercise || !extractionId || !card || card.sourceId !== exercise.sourceId) return;
+    if (openedExerciseRef.current === exercise) return;
+    openedExerciseRef.current = exercise;
+    const wanted = extractionId;
+    void api.workbenchOpen({
+      origin: "reader", entry: exercise.entry, stemMd: exercise.stemMd, extractionId: exercise.extractionId,
+      spanIds: exercise.spanIds, clientIdempotencyKey: newKey(),
+      ...(exercise.sourceExercise ? { sourceExercise: exercise.sourceExercise } : { importRequest: exercise.importRequest ?? null }),
+    })
+      .then((result) => {
+        props?.onExerciseShown?.();
+        if (extractionRef.current !== wanted) return;
+        if (result.session.importStatus === "pending" || result.session.importStatus === "failed") {
+          exerciseSessions.current.set(result.session.sessionId, { proposalId: exercise.proposalId, card });
+        }
+        begin(result.session);
+      })
+      .catch((error) => {
+        props?.onExerciseShown?.();
+        onError(errorMessage(error, "Couldn't open this exercise."));
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, exercise, extractionId, card?.sourceId]);
+
   const reopenAbandoned = useCallback(async () => {
     if (!abandoned) return;
     await resume(abandoned.sessionId);
@@ -254,7 +339,8 @@ export function useReaderWorkbench(input: {
 
   const update = useCallback((session: WorkbenchSessionDto) => {
     setActive((current) => (current && current.session.sessionId === session.sessionId ? { ...current, session } : current));
-  }, []);
+    noteAdmission(session);
+  }, [noteAdmission]);
 
   const close = useCallback((session: WorkbenchSessionDto | null, options?: { abandoned?: boolean }) => {
     const target = session ?? active?.session ?? null;

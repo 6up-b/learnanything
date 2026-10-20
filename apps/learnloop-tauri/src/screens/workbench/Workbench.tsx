@@ -24,6 +24,7 @@ import { LiveMarkdownEditor, type LiveMarkdownKeyInfo } from "../../render/LiveM
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { errorMessage, getCommandError } from "../../errors";
 import { LearnerVoice, MeaningLabel, SourceVoice } from "../reader/voices";
+import { keyStatusLine } from "../reader/exerciseCandidates";
 import { WORKBENCH_COPY, liveSteps, problemTitle, savedLabel, stepChain } from "./stepModel";
 import { useWorkbenchSession } from "./useWorkbenchSession";
 import { algoConfig } from "../../app/algoConfig";
@@ -357,6 +358,14 @@ export function Workbench(props: WorkbenchProps) {
         <MeaningLabel style={{ fontSize: 11 }}>
           {WORKBENCH_COPY.setupDidNotFinish} {session.importError ?? ""} {WORKBENCH_COPY.kept}{" "}
           <button type="button" style={linkStyle} onClick={() => void wb.retryImport()}>try again ↵</button>
+        </MeaningLabel>
+      </div>
+    ) : session.importStatus === "bound" && session.sourceExercise ? (
+      // RW4b: a textbook exercise from a proposal says what is verbatim, who
+      // wrote the answer, and the key's honest status (the sources service's).
+      <div data-testid="workbench-key-status">
+        <MeaningLabel style={{ fontSize: 11 }}>
+          {keyStatusLine(session.sourceExercise.keyStatus, session.sourceExercise.keyLabel)}
         </MeaningLabel>
       </div>
     ) : null

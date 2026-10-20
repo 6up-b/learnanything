@@ -2203,6 +2203,8 @@ export interface ProposedExerciseDto {
   key: string;
   extractionId: string;
   spanIds: string[];
+  sourceId?: string | null;
+  revisionId?: string | null;
   sourceTitle: string | null;
   label: string | null;
   page: number | null;
@@ -6546,6 +6548,8 @@ export interface ReaderPromptContractDto {
   activeReading?: { foldBlocks: number };
   /** RW4a: ask your library (present only while library_ask, the sources service and reader_inquiry are on). */
   libraryAsk?: { expandGraph: boolean; personalizedDefault: boolean; compare: boolean };
+  /** RW4b: exercises from my sources (present only while library_exercises.enabled and the library answer are on). */
+  libraryExercises?: { fallback: boolean };
 }
 export type ReaderAnswerMode = "answer_directly" | "help_me_reason" | "ask_me_first";
 
@@ -8073,6 +8077,22 @@ export interface WorkbenchSessionDto {
   sourceId: string | null;
   /** Once bound: the item's whole frozen presentation (review F9). */
   presentation?: ItemPresentationDto | null;
+  /** RW4b: a textbook exercise picked from a proposal ("use this one"): the
+   *  sources service's import and the answer key's honest status. Absent on
+   *  every other problem. */
+  sourceExercise?: WorkbenchSourceExerciseDto;
+}
+
+export interface WorkbenchSourceExerciseDto {
+  proposalId: string | null;
+  importId: string | null;
+  /** The import row's status: authoring, checking, written, rejected, failed. */
+  importStatus: string | null;
+  reason: string | null;
+  /** book_solution, checked, panel_agrees, panel_agrees_unconfirmed, checking,
+   *  model_answer, disputed, changed_since_check. */
+  keyStatus: string | null;
+  keyLabel: string;
 }
 
 /** One unfinished problem: the ✎ mark, the rail, the practice card, RW6a's recap. */
@@ -8119,6 +8139,66 @@ export interface WorkbenchOpenInput {
   sourceVisible?: boolean | null;
   clientIdempotencyKey?: string | null;
   importRequest?: ReaderImportExerciseInput | null;
+  /** RW4b: a textbook exercise picked from a find_practice proposal; the
+   *  sources service's import runs while the problem is open. */
+  sourceExercise?: { proposalId: string; extractionId: string; spanIds: string[] } | null;
+}
+
+// -- Reader workbench RW4b: exercises from my sources (spec §7.4, UX §4.6) --
+
+/** The sources service's exposure rule, as the Reader shows it. */
+export interface ExerciseExposureDto {
+  exposed: boolean;
+  reasons: string[];
+  /** One honest line for the first reason, or null when unexposed. */
+  label: string | null;
+  /** "you read a worked example like this one": a note, not an exclusion. */
+  note: string | null;
+  /** How "use this one" offers it: an exposed exercise is practice beside the
+   *  book, never a check on your own. */
+  offeredAs: "practice" | "check_on_your_own";
+  exposureRuleVersion: string;
+}
+
+export interface ExerciseCandidateViewDto {
+  key: string;
+  extractionId: string;
+  spanIds: string[];
+  sourceId: string | null;
+  revisionId: string | null;
+  exposure: ExerciseExposureDto;
+}
+
+export interface ExerciseCandidatesDto {
+  version: number;
+  proposalId: string;
+  /** Only these may be shown: the others were exam or held-out material. */
+  candidates: ExerciseCandidateViewDto[];
+  withheld: number;
+}
+
+/** A fallback candidate ("find an exercise in my sources"). */
+export interface FoundExerciseDto {
+  key: string;
+  extractionId: string;
+  spanIds: string[];
+  sourceId: string | null;
+  revisionId: string | null;
+  sourceTitle: string | null;
+  page: number | null;
+  label: string;
+  statement: string;
+  exposure: ExerciseExposureDto;
+  /** What "use this one" sends to the Reader's own import (import_exercises). */
+  importRequest: ReaderImportExerciseInput;
+}
+
+export interface FindExercisesDto {
+  version: number;
+  status: "ok" | "none_found";
+  policy: string;
+  candidates: FoundExerciseDto[];
+  dropped: Record<string, number>;
 }
 
 export interface WorkbenchSaveStepInput {
@@ -8403,7 +8483,8 @@ export interface CompareTableDto {
 export interface LibraryJobDto<T> {
   version?: number;
   jobId: string;
-  kind: "ask" | "notes" | "compare" | "tutor";
+  /** RW4b adds "exercise_candidates" and "find_exercises" (the same runner). */
+  kind: "ask" | "notes" | "compare" | "tutor" | "exercise_candidates" | "find_exercises";
   askId: string | null;
   state: "pending" | "done" | "cancelled";
   result: T | null;

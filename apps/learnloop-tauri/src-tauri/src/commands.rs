@@ -1366,6 +1366,9 @@ sidecar_passthrough!(reader_library_compare, "reader.library_compare");
 sidecar_passthrough!(reader_library_ask_tutor, "reader.library_ask_tutor");
 sidecar_passthrough!(reader_library_job, "reader.library_job");
 sidecar_passthrough!(reader_library_job_cancel, "reader.library_job_cancel");
+// Reader workbench RW4b (exercises from my sources: the view, the fallback): desktop only.
+sidecar_passthrough!(reader_exercise_candidates, "reader.exercise_candidates");
+sidecar_passthrough!(reader_find_exercises, "reader.find_exercises");
 sidecar_passthrough!(reader_block_health, "reader.block_health");
 sidecar_passthrough!(reader_block_original_region, "reader.block_original_region");
 sidecar_passthrough!(reader_translate_selection, "reader.translate_selection");

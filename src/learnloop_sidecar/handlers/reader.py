@@ -399,6 +399,10 @@ def reader_prompt_contract(ctx: SidecarContext, _params: ParamsModel) -> dict[st
     from learnloop_sidecar.handlers.library_ask import prompt_contract_fields as library_ask_fields
 
     contract.update(library_ask_fields(vault))
+    # RW4b's exercises from my sources (absent while its switch is off).
+    from learnloop_sidecar.handlers.library_exercises import prompt_contract_fields as library_exercise_fields
+
+    contract.update(library_exercise_fields(vault))
     return versioned(contract)
 
 

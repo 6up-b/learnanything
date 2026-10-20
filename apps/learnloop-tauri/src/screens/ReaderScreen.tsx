@@ -95,6 +95,8 @@ import { LibraryAnswer } from "./reader/LibraryAnswer";
 import type { ReaderIntentActionDto } from "../api/dto";
 import { algoConfig } from "../app/algoConfig";
 import { useReaderWorkbench, type ReaderWorkbenchProps } from "./reader/useReaderWorkbench";
+import { exerciseOpenRequest, type ExerciseCandidate, type ReaderWorkbenchExercise } from "./reader/exerciseCandidates";
+import type { LibraryExercisesProps } from "./reader/LibraryAnswer";
 import { ReaderWorkingPosture } from "./reader/ReaderWorkingPosture";
 import { WORKBENCH_COPY, problemTitle } from "./workbench/stepModel";
 import {
@@ -177,7 +179,15 @@ export interface ReaderOpenSource {
  *  your own, and the passage to come back to after its feedback. */
 export interface ReaderCheckMeRequest extends CueCheckMeRequest {
   card: SourceLibraryCard;
+  /** RW4b: the sources service's import that wrote the item (an exercise's pick). */
+  importId?: string | null;
+  /** RW4b: an admitted exercise resumes its own problem ("practice_this"). */
+  entry?: "check_me" | "practice_this";
 }
+
+/** RW4b "use this one" on a textbook exercise: the problem to open at once
+ *  on its verbatim statement, in the source it comes from. */
+export type ReaderExerciseRequest = ReaderWorkbenchExercise & { card: SourceLibraryCard };
 
 export function ReaderScreen({
   onError,
@@ -186,6 +196,7 @@ export function ReaderScreen({
   onOpenLibrary,
   shelf,
   onCheckMe,
+  onUseExercise,
   workbench,
   onSkimmingChange,
 }: {
@@ -202,6 +213,9 @@ export function ReaderScreen({
   /** RW3a: open the item a margin cue's "check me" found, as a learner pick
    *  with the book out of view; absent, the cue offers no check me. */
   onCheckMe?: (request: ReaderCheckMeRequest) => void;
+  /** RW4b: "use this one" on a textbook exercise, a learner pick the shell
+   *  opens in the working posture; absent, the cards offer only the book. */
+  onUseExercise?: (request: ReaderExerciseRequest) => void;
   /** RW2a: the workbench's shell wiring (the practice session, the submit's
    *  hand-off to feedback, back from feedback to the problem). The workbench
    *  itself shows only while workbench.enabled is on. */
@@ -1957,6 +1971,38 @@ export function ReaderScreen({
     [enabled, boundaryBlock, onError],
   );
 
+  // RW4b: the candidate cards (spec §7.4). "Open in the book" is the same
+  // detour as a library hit's "open"; "use this one" is a learner pick the
+  // shell opens in the working posture, in the exercise's own source (opened
+  // as a detour when another book is open, so Alt+← comes back).
+  const exerciseSettings = libraryCtl.enabled ? contract?.libraryExercises ?? null : null;
+  const exerciseCard = (sourceId: string | null) =>
+    (sourceId ? (library ?? []).find((candidate) => candidate.sourceId === sourceId) : undefined)
+    ?? (openCardRef.current && (!sourceId || openCardRef.current.sourceId === sourceId) ? openCardRef.current : undefined);
+  const [openingExercise, setOpeningExercise] = useState<string | null>(null);
+  const useExercise = (candidate: ExerciseCandidate) => {
+    const card = exerciseCard(candidate.sourceId ?? render?.sourceId ?? null);
+    if (!card || !onUseExercise) return;
+    setOpeningExercise(candidate.key);
+    window.setTimeout(() => setOpeningExercise((current) => (current === candidate.key ? null : current)), 1500);
+    onUseExercise({ ...exerciseOpenRequest(candidate), sourceId: card.sourceId, card });
+    if (!render || render.sourceId !== card.sourceId) {
+      openLibraryHit({ sourceId: card.sourceId, extractionId: candidate.extractionId, spanId: candidate.spanIds[0] ?? "" });
+    }
+  };
+  const openExerciseInBook = (candidate: ExerciseCandidate) => {
+    const sourceId = candidate.sourceId ?? render?.sourceId ?? null;
+    if (sourceId) openLibraryHit({ sourceId, extractionId: candidate.extractionId, spanId: candidate.spanIds[0] ?? "" });
+  };
+  const exerciseProps: LibraryExercisesProps | null = exerciseSettings
+    ? {
+        settings: exerciseSettings,
+        // "Use this one" opens the workbench; without it, only the book is offered.
+        onUse: wbCtl.enabled && onUseExercise ? useExercise : null,
+        onOpenInBook: openExerciseInBook,
+        opening: openingExercise,
+      }
+    : null;
   // ── A book still being prepared: its original, at once (UX Phase 1, §6.3) ──
   // On the library page no book is open: the pick is the same learner pick,
   // coming back to the answer's first passage (Codex review F10). With the
@@ -2065,6 +2111,7 @@ export function ReaderScreen({
                     }}
                     onPracticePick={onCheckMe ? pickLibraryPagePractice : null}
                     onClose={libraryCtl.close}
+                    exercises={exerciseProps}
                   />
                 </Card>
               ) : null}
@@ -2291,7 +2338,7 @@ export function ReaderScreen({
   };
   // RW4a: "open" a library hit: this book jumps to it (a peek crumb); another
   // book opens in the left pane as a detour (Alt+← comes back here).
-  const openLibraryHit = (hit: LibraryHitDto) => {
+  const openLibraryHit = (hit: Pick<LibraryHitDto, "sourceId" | "extractionId" | "spanId">) => {
     if (render && hit.sourceId === render.sourceId) {
       peekPassage(hit.spanId);
       return;
@@ -2684,6 +2731,7 @@ export function ReaderScreen({
             onOpenHit={openLibraryHit}
             onPracticePick={onCheckMe ? pickLibraryPractice : null}
             onClose={closeLibrary}
+            exercises={exerciseProps}
           />
         ) : null}
         {/* Right rail: annotation margin + capture + Ask */}

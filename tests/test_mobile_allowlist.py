@@ -258,6 +258,24 @@ def test_the_pinned_rw4a_rpcs_are_all_of_them():
     assert set(READER_RW4A_RPCS) - {"reader.prompt_contract", "find_practice"} == set(LIBRARY_ASK_RPCS)
 
 
+# Reader workbench RW4b (spec_reader_workbench_v1 §7.4): the view of a
+# proposal's textbook exercises (their exposure) and the fallback search; it
+# extends reader.prompt_contract (libraryExercises) and workbench.open
+# (sourceExercise: the sources service's import in the workbench). Desktop only.
+READER_RW4B_RPCS = (
+    "reader.exercise_candidates",
+    "reader.find_exercises",
+    "reader.prompt_contract",
+    "workbench.open",
+)
+
+
+def test_the_pinned_rw4b_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.library_exercises import LIBRARY_EXERCISE_RPCS
+
+    assert set(READER_RW4B_RPCS) - {"reader.prompt_contract", "workbench.open"} == set(LIBRARY_EXERCISE_RPCS)
+
+
 # Adaptive hints H0 (spec_adaptive_hints_v1 §9, G-H13): the practice screen's
 # authored-hint reveal telemetry, and the two submits that attach the
 # session's reveal rows to the attempt. Desktop only.
@@ -507,7 +525,7 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
     + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS + ROUTER_R1_LOGGING_RPCS
     + LEARNER_TEXT_GAP_RPCS + FACET_IDENTITY_RPCS + CHATGPT_PLAN_RPCS + READER_RW1A_RPCS + READER_RW3A_RPCS
-    + READER_RW2A_RPCS + READER_RW6A_RPCS + READER_RW1B_RPCS + READER_RW4A_RPCS + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS
+    + READER_RW2A_RPCS + READER_RW6A_RPCS + READER_RW1B_RPCS + READER_RW4A_RPCS + READER_RW4B_RPCS + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS
     + ROUTER_R2A_RPCS + GLM_OCR_RPCS + GLM_OCR_EXTENDED_RPCS + REREAD_SAFETY_RPCS + REREAD_SAFETY_EXTENDED_RPCS
     + READER_PDF_SELECTION_RPCS + READER_PDF_SELECTION_EXTENDED_RPCS + UX_PHASE4_RPCS + UX_PHASE4_EXTENDED_RPCS
     + HINTS_H0_RPCS + HINTS_H0_EXTENDED_RPCS + HINTS_H2A_RPCS + HINTS_H2A_EXTENDED_RPCS

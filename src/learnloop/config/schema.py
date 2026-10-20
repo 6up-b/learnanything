@@ -2270,6 +2270,31 @@ class LibraryAskConfig(BaseModel):
     max_daily_cost_usd: float = Field(default=1.0, ge=0.0)
 
 
+class LibraryExercisesConfig(BaseModel):
+    """Reader workbench RW4b: exercises from my sources (spec_reader_workbench_v1 §7.4, §7.7).
+
+    ``enabled``: the Reader's view of the sources service's textbook-exercise
+    candidates wherever it lists practice proposals (RW4a's "practice this
+    question"): the verbatim statement, source and page, "open in the book",
+    "use this one" (the sources service's import, inside the workbench) and
+    the key's honest status, with the sources service's exposure rule
+    (``instructional/exposure.py``) labelling a candidate the learner has
+    already seen, which is then never offered as a check on your own. Off:
+    the Reader's practice proposals render exactly as before RW4b and the
+    RPCs refuse. ``fallback_enabled``: the learner-initiated "find an
+    exercise in my sources" when ``find_practice`` finds nothing
+    (``find_sources`` over the question's learning objects, exercise blocks
+    of the teaching scope only, imported with the Reader's own
+    ``import_exercises``). The spec retires it once the sources service's
+    candidates are live, which they are, so it defaults off (§7.4). Both are
+    kill switches over display and a learner's own pick: nothing in scoring,
+    scheduling, projection or serving reads them, so no algorithm successor.
+    """
+
+    enabled: bool = True
+    fallback_enabled: bool = False
+
+
 class ReaderCompareConfig(BaseModel):
     """Reader workbench RW4a: compare pinned passages (spec_reader_workbench_v1 §7.3).
 
@@ -3255,6 +3280,7 @@ class LearnLoopConfig(BaseModel):
     reader_active_reading: ReaderActiveReadingConfig = Field(default_factory=ReaderActiveReadingConfig)
     reader_formative: ReaderFormativeConfig = Field(default_factory=ReaderFormativeConfig)
     library_ask: LibraryAskConfig = Field(default_factory=LibraryAskConfig)
+    library_exercises: LibraryExercisesConfig = Field(default_factory=LibraryExercisesConfig)
     reader_compare: ReaderCompareConfig = Field(default_factory=ReaderCompareConfig)
     proof_check: ProofCheckConfig = Field(default_factory=ProofCheckConfig)
     voi_stopping: VoiStoppingConfig = Field(default_factory=VoiStoppingConfig)

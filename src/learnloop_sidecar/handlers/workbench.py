@@ -8,6 +8,14 @@ the one submit implementation (``practice.submit_attempt_on``) with the
 workbench's entry surface, so it is graded, diagnosed and admitted by the one
 eligibility decision exactly like every other answer.
 
+Reader RW4b: a textbook exercise the learner picked from a ``find_practice``
+proposal ("use this one", spec §7.4) opens the same way, on its verbatim
+statement, with the sources service's own import (S1, the helper
+``import_source_exercise`` uses) behind it instead of ``reader.import_exercise``;
+it binds only once that import wrote the item, and a refused import binds
+nothing. Its view carries ``source_exercise`` (the import and the key's honest
+status); every other problem's view is unchanged.
+
 Every RPC refuses ``workbench_disabled`` while ``workbench.enabled`` is off,
 before reading or writing anything. Desktop only (spec D20).
 """
@@ -17,6 +25,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any, TypeVar
+
+from pydantic import Field
 
 from learnloop.attempts.stuck import stuck_attempt_type
 from learnloop.reader import workbench as WB
@@ -136,14 +146,58 @@ def _presentation(vault, repository, row: dict[str, Any]) -> dict[str, Any] | No
     return {**presentation, "blocks": blocks}
 
 
+def _source_exercise_view(vault, repository, row: dict[str, Any]) -> dict[str, Any] | None:
+    """A textbook exercise picked from a proposal (Reader RW4b): its import and
+    the answer key's honest status (the sources service's effective status of
+    the item as written, so a later check or an edit shows). None for every
+    other problem, whose view is unchanged."""
+
+    request = WB.import_request(row)
+    if not _is_source_exercise(request):
+        return None
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.source_service import KEY_STATUS_LABELS, effective_key_status, import_row
+
+    import_id = None
+    if row.get("import_batch_id"):
+        jobs = repository.ingest_jobs_for_batch(row["import_batch_id"])
+        if jobs:
+            import_id = (jobs[0].get("payload") or {}).get("import_id")
+    found: dict[str, Any] | None = None
+    key_status = None
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        if import_id:
+            found = import_row(connection, str(import_id))
+        item_id = row.get("practice_item_id")
+        item = vault.practice_items.get(item_id) if item_id else None
+        if item is not None:
+            key_status = effective_key_status(connection, item)
+        elif found is not None:
+            key_status = found.get("key_status")
+    return {
+        "proposal_id": request.get("proposal_id"),
+        "import_id": import_id,
+        "import_status": (found or {}).get("status"),
+        "reason": (found or {}).get("reason"),
+        "key_status": key_status,
+        "key_label": KEY_STATUS_LABELS.get(key_status or "", ""),
+    }
+
+
 def _view(vault, repository, session_id: str, *, parts: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     row = _run(WB.session_row, repository, session_id)
+    extra: dict[str, Any] = {"source_id": _source_id(repository, row.get("extraction_id")), "parts": parts,
+                             "presentation": _presentation(vault, repository, row)}
+    source_exercise = _source_exercise_view(vault, repository, row)
+    if source_exercise is not None:
+        extra["source_exercise"] = source_exercise
     view = _run(
         WB.session_view, repository, session_id,
         question_hints=_question_hints(vault, repository, row),
         server_hints=_carried_server_hints(repository, row),
-        extra={"source_id": _source_id(repository, row.get("extraction_id")), "parts": parts,
-               "presentation": _presentation(vault, repository, row)},
+        extra=extra,
     )
     return to_camel(view)
 
@@ -188,8 +242,31 @@ def _answer(payload: dict[str, Any]) -> dict[str, Any]:
 # -- the exercise import a selected problem waits on (UX S2) ----------------------------------------
 
 
+#: The stored import request of a textbook exercise the learner picked from a
+#: ``find_practice`` proposal (Reader RW4b, spec §7.4): the sources service's
+#: import path (S1), not ``reader.import_exercise``.
+SOURCE_EXERCISE_KIND = "source_exercise"
+
+
+def _is_source_exercise(request: dict[str, Any] | None) -> bool:
+    return bool(request) and request.get("kind") == SOURCE_EXERCISE_KIND
+
+
 def _enqueue_import(ctx: SidecarContext, vault, repository, request: dict[str, Any]) -> str:
-    """Queue the exercise import exactly as ``reader.import_exercise`` does."""
+    """Queue the exercise import exactly as ``reader.import_exercise`` does, or,
+    for a picked textbook exercise proposal, exactly as ``import_source_exercise``
+    does (the same helper: the import row, the pick's usage verdict, the job)."""
+
+    if _is_source_exercise(request):
+        from learnloop_sidecar.handlers.source_service import queue_source_exercise_import
+
+        if not vault.config.library_exercises.enabled:
+            raise SidecarError("library_exercises_disabled", "Exercises from your sources are switched off.")
+        queued = queue_source_exercise_import(
+            ctx, vault, repository, proposal_id=str(request.get("proposal_id") or ""),
+            extraction_id=str(request.get("extraction_id") or ""),
+            span_ids=[str(span) for span in request.get("span_ids") or []])
+        return queued["batch_id"]
 
     from learnloop.reader import reader_dialogue as RD
     from learnloop_sidecar.handlers.reader import ReaderImportExerciseInput, enqueue_exercise_import
@@ -222,6 +299,10 @@ def _job_parts(job: dict[str, Any]) -> list[dict[str, Any]]:
         item_id = item.get("practiceItemId")
         if item_id:
             parts.append({"practiceItemId": item_id, "title": item.get("title") or "", "prompt": item.get("prompt") or ""})
+    if not parts and result.get("status") == "written" and result.get("practiceItemId"):
+        # A textbook exercise's import (S1) writes one item, only once its key
+        # was checked within the time box (or labelled "being checked").
+        parts.append({"practiceItemId": result["practiceItemId"], "title": result.get("label") or "", "prompt": ""})
     return parts
 
 
@@ -240,6 +321,12 @@ def _start_import(ctx: SidecarContext, vault, repository, request: dict[str, Any
 
 
 # -- inputs -------------------------------------------------------------------------------------------
+
+
+class WorkbenchSourceExerciseInput(ParamsModel):
+    proposal_id: str
+    extraction_id: str
+    span_ids: list[str] = Field(min_length=1, max_length=40)
 
 
 class WorkbenchOpenInput(ParamsModel):
@@ -268,6 +355,10 @@ class WorkbenchOpenInput(ParamsModel):
     #: A selected problem that is not an item yet: the reader.import_exercise
     #: request the workbench enqueues and binds when it lands.
     import_request: dict[str, Any] | None = None
+    #: Reader RW4b: a textbook exercise picked from a find_practice proposal
+    #: ("use this one"). The stem is its verbatim statement; the sources
+    #: service's import (S1) runs in the background and binds when it wrote the item.
+    source_exercise: WorkbenchSourceExerciseInput | None = None
 
 
 class WorkbenchSessionInput(ParamsModel):
@@ -338,13 +429,22 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
         return _answer({"session": _view(vault, repository, row["id"]), "resumed": True})
     stem = (params.stem_md or "").strip()
     import_status, batch_id, error = "none", None, None
+    request = dict(params.import_request) if params.import_request else None
     if params.practice_item_id:
         item = vault.practice_items.get(params.practice_item_id)
         if item is None:
             raise SidecarError("not_found", f"Unknown Practice Item {params.practice_item_id}.")
         stem = stem or str(getattr(item, "prompt", "") or "")
     else:
-        if not params.import_request:
+        if params.import_request and params.source_exercise:
+            raise SidecarError("validation_error", "A problem is imported one way: a selection or a proposal's exercise.")
+        if params.source_exercise:
+            if not vault.config.library_exercises.enabled:
+                raise SidecarError("library_exercises_disabled", "Exercises from your sources are switched off.")
+            request = {"kind": SOURCE_EXERCISE_KIND, **params.source_exercise.model_dump()}
+        elif params.import_request:
+            request = dict(params.import_request)
+        else:
             raise SidecarError("validation_error", "A problem that is not an item yet needs its import request.")
         import_status = "pending"
         resumable = WB.resumable_session(
@@ -354,7 +454,7 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
             params.client_idempotency_key
             and _key_exists(repository, params.client_idempotency_key)
         ):
-            batch_id, error = _start_import(ctx, vault, repository, dict(params.import_request))
+            batch_id, error = _start_import(ctx, vault, repository, request)
             import_status = "pending" if batch_id else "failed"
     row, resumed = _run(
         WB.open_session, repository,
@@ -363,7 +463,7 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
         span_ids=params.span_ids, parent_session_id=params.parent_session_id,
         source_visible=params.source_visible, client_idempotency_key=params.client_idempotency_key,
         import_status=import_status, import_batch_id=batch_id,
-        import_request=params.import_request, import_error=error, carried=carried,
+        import_request=request, import_error=error, carried=carried,
         carried_book=params.carried_book, serve=serve,
     )
     _ensure_contract(vault, repository, row["id"])

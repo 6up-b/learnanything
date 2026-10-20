@@ -599,6 +599,8 @@ fn main() {
             reader_library_ask_tutor,
             reader_library_job,
             reader_library_job_cancel,
+            reader_exercise_candidates,
+            reader_find_exercises,
             reader_block_health,
             reader_block_original_region,
             reader_translate_selection,
