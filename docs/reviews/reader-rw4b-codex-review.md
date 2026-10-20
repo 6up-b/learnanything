@@ -1024,3 +1024,67 @@ failed.** The 4 older tests the same filter selected passed on both trees.
   **0 errors** (head 213, 919 leaves). Commit labels and line citations were
   refreshed in `6245dc89f`.
 - No live or paid model call was made, and no owner vault was opened.
+
+## Fix round 7 (orchestrator ruling)
+
+The Codex verify `20261020-132303-baF0w3` (at `b1e1f537e`) confirmed F2's
+cross-plan lookup and F7's delivery gates, and found no other High or
+Medium. One Medium remained.
+
+**F13: a keyed pick swallowed a failed presentation write.** `_present`
+rolls back its savepoint, logs, and returns None. A keyed pick then
+committed all of its other rows:
+
+- `item_served`;
+- a `pick_keyed` receipt with a null presentation;
+- the proposal's delivery.
+
+Retries found the receipt and never repaired the missing presentation.
+
+**Ruling:** for keyed picks, a failed presentation write propagates through
+the outer transaction, so the whole pick rolls back. `pick_keyed` is
+written only with a valid presentation id; anything else refuses.
+Unkeyed behaviour is unchanged.
+
+| id | severity | title | verdict | commit | test (fail before → pass after) |
+|----|----------|-------|---------|--------|---------------------------------|
+| F13 | Medium (reopened) | A keyed pick commits without its presentation | fixed | `0b4160c39` | pytest `test_reader_rw4b_fix6.py::test_r7_a_failed_presentation_write_rolls_the_whole_keyed_pick_back[planned/new_block]`, `::test_r7_an_open_list_keyed_pick_also_rolls_back_and_an_unkeyed_one_still_serves`, `::test_r7_a_keyed_receipt_is_never_written_without_its_presentation` |
+
+**Fail-before** (a `git archive` export of `b1e1f537e` with the worktree's
+venv; no stash): **the 4 new tests failed.**
+
+- In 3 of them, a failure injected inside `insert_plan_presentation` (via
+  the plan sidecar's keyed pick, planned and new-block, and the engine's
+  open-list keyed pick) did not raise (`DID NOT RAISE`). The pick committed
+  without a presentation.
+- The receipt guard did not exist: base wrote the receipt and failed on
+  the test's empty environment.
+- The round 6 tests in the same file passed on both trees.
+
+**What changed** (`daily_plan/engine.py`):
+
+- **Strict presentation writes.** `_present` and `_serve` take
+  `strict=`, which every branch of a keyed `learner_pick` sets: planned,
+  new block and open list. With `strict`:
+  - a refused insert re-raises after its savepoint rollback;
+  - a vault without the `plan_presentations` table refuses;
+  - either way, the keyed pick's one transaction rolls back (block,
+    `item_served`, keyed receipt and delivery).
+- **Guarded receipt.** `_record_pick_key` refuses (`RuntimeError`) a keyed
+  receipt without a presentation id.
+- **Unkeyed serves** still log a refused presentation and serve the item;
+  the open-list test pins this.
+
+**After the fix,** the retry makes exactly one presentation, one keyed
+receipt (naming that presentation) and one delivery.
+
+**Gate:**
+
+- **Pytest:** round 6's targeted files
+  (`fixtures-local/tmp/rw4b-fix6-pytest-files.txt`, `-n 12`): **5,261
+  passed, 2 xfailed** (round 6's 5,257 plus the 4 new tests).
+- `lint-imports`: **28 kept, 0 broken**.
+- **Vitest:** round 4's 50 files (`CI=true`): **454 passed**. No frontend
+  change.
+- **References:** **0 errors** (head 213), refreshed in `380b21e12`.
+- No migration, and no model call.
