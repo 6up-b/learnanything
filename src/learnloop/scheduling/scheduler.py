@@ -46,9 +46,11 @@ from learnloop.learner.recall_coverage import (
     resolve_coverage,
 )
 from learnloop.scheduling.serving_exclusions import (
+    PROBE_RESERVED_GATES,
+    ServingExclusions,
+    admission_reason,
     out_of_timing_serving_exclusions,
     routine_serving_exclusions,
-    routine_withhold_reason,
 )
 from learnloop.diagnosis import voi_stopping as voi
 from learnloop.scheduling.selection_rewards import (
@@ -267,10 +269,11 @@ def build_due_queue(
     if intent_view is None:
         requested_item_ids = repository.requested_practice_item_ids()
     else:
-        requested_item_ids = intent_view.filter_requests(
-            repository.requested_practice_item_ids(skip_commitment_ids=intent_view.intent_control_request_commitments())
+        # Read here; intent's filter (which adds the due checks' candidates,
+        # so reads the build's admission) applies once that is bound, below.
+        requested_item_ids = repository.requested_practice_item_ids(
+            skip_commitment_ids=intent_view.intent_control_request_commitments()
         )
-    requested_id_set = set(requested_item_ids)
     # P4 §14.2 step 3 (design §A.2 rule 3): during the dual-controller cutover the
     # staged policy owns P2 golden-path commitments. Their practice items are EXCLUDED
     # from the legacy queue so no commitment is scheduled by both controllers. Empty
@@ -319,18 +322,6 @@ def build_due_queue(
     pending_followups, cold_deferrals = _defer_revealed_cold_followups(
         vault, repository, pending_followups, clock=clock, persist=persist_explanations
     )
-    if intent_view is not None:
-        # DL2 (Codex review F1): follow-up insertion is a second door that
-        # rebuilds an item by id after the ranked loop, so the intent gate
-        # applies here too: a paused, referenced, let-go or answered-check
-        # item, or one a "Check once" still holds, is never resurrected. The
-        # task stays pending (nothing is written) and serves once intent
-        # allows it again.
-        pending_followups = [
-            pending
-            for pending in pending_followups
-            if intent_view.withhold_reason(str(pending["practice_item_id"])) is None
-        ]
     # KM2b: canonical shared facet state under mvp-0.7 (byte-identical legacy
     # per-LO reads under mvp-0.6). One reader build feeds the whole vault sweep.
     facet_states_by_lo = read_facet_states_by_lo(vault, repository)
@@ -358,10 +349,6 @@ def build_due_queue(
     # Annotation-only rows for diagnostic surfaces the freshness rules kept out
     # of the queue. Logged with the slate ("no silent caps"), never served.
     probe_reserved_exclusions: list[ScheduledItem] = []
-    # Lazily built: (attempted item ids, attempted surface groups) — the
-    # never-before-seen probe gate's exclusion set. Only probe-eligible builds
-    # pay for it.
-    attempted_surface_exclusions: tuple[set[str], set[str]] | None = None
     probe_item_ids: dict[str, str] = {}
     probe_entropy_before: dict[str, float] = {}
     # One partitioned query supplies the familiarity window for every LO that
@@ -384,279 +371,93 @@ def build_due_queue(
             lo_id: [{**row, HELD_ROW_KEY: True} if row.get("id") in held_recent else row for row in rows]
             for lo_id, rows in recent_attempts_by_lo.items()
         }
+    # The build's admission (``serving_exclusions.admission_reason``, the one
+    # per-item predicate; orchestrator ruling R1): the routine gate, the
+    # freshness reserve, placement, the cold-start gate and the probe-episode
+    # gates over this build's reads. A DL2 "Check once" asks the same
+    # predicate of every candidate before it prefers a cold one over
+    # practice, so a candidate this build would not serve never decides a
+    # check (Codex re-review F11).
+    admission = _BuildAdmission(
+        vault,
+        repository,
+        now=now,
+        session=session,
+        intent_view=intent_view,
+        exclusions=_Once.of(exclusions),
+        item_states=_Once.of(item_states),
+        placement_serving=_Once.of(placement_serving),
+        open_episodes=_Once.of(open_episodes),
+        probe_block_reason=_Once.of(probe_block_reason),
+        mastery_states=_Once.of(mastery_states),
+        frontier=_Once.of(frontier),
+        errors_by_lo=_Once.of(errors_by_lo),
+        fsrs_weights=_Once.of(fsrs_weights),
+        recent_attempts_by_lo=_Once.of(recent_attempts_by_lo),
+        voi_context=_Once.of(voi_context),
+        voi_probe_active=voi_probe_active,
+        carry_hypothesis_channels=carry_hypothesis_channels,
+        short_session=short_session,
+        voi_probe_decisions=voi_probe_decisions,
+        episode_posterior_cache=episode_posterior_cache,
+        episode_eligible_cache=episode_eligible_cache,
+    )
+    if intent_view is not None:
+        intent_view.bind_admission(admission.admits_check_candidate)
+        requested_item_ids = intent_view.filter_requests(requested_item_ids)
+        # DL2 (Codex review F1): follow-up insertion is a second door that
+        # rebuilds an item by id after the ranked loop, so the intent gate
+        # applies here too: a paused, referenced, let-go or answered-check
+        # item, or one a "Check once" still holds, is never resurrected. The
+        # task stays pending (nothing is written) and serves once intent
+        # allows it again.
+        pending_followups = [
+            pending
+            for pending in pending_followups
+            if intent_view.withhold_reason(str(pending["practice_item_id"])) is None
+        ]
+    requested_id_set = set(requested_item_ids)
     for item in vault.practice_items.values():
         state = item_states.get(item.id)
-        # The routine gate (``serving_exclusions.routine_withhold_reason``):
-        # retired, inactive, reserved, held-out, variant-held, staged-owned,
-        # single-use and unservable items, and put-away LOs. Shared with the
-        # DL2 "Check once" candidate choice (Codex re-review F11).
-        routine_reason = routine_withhold_reason(vault, item, state, exclusions)
-        if routine_reason is not None:
-            withheld(routine_reason, item.id)
+        requested = item.id in requested_id_set
+        # THE admission predicate, with intent's gate after the routine one
+        # (DL2 §5.3: Pause, Reference, Let go and an answered "Check once" are
+        # not served, requests included; a check holds its items back until
+        # its date; a held-out or reserved item is never a check).
+        reason = admission_reason(
+            vault,
+            item,
+            state,
+            exclusions,
+            admission,
+            requested=requested,
+            intent_gate=intent_view.withhold_reason if intent_view is not None else None,
+        )
+        if reason is not None:
+            if reason in PROBE_RESERVED_GATES:
+                # In an open probe episode but not servable as a probe this
+                # refresh. The surface stays reserved rather than leaking into
+                # ordinary practice; the exclusion is logged with the slate so
+                # it never fails silently.
+                score = admission.probe_score(item, state)
+                score.record(item.id, probe_item_ids, probe_entropy_before)
+                probe_reserved_exclusions.append(admission.reserved_annotation(item, score, readiness_factor))
+            withheld(reason, item.id)
             continue
         learning_object = vault.learning_object_for_item(item)
-        # DL2 (§5.3): Pause, Reference, Let go and an answered "Check once"
-        # are not served (requests included); a check holds its items back
-        # until its date. After the routine exclusions, so a held-out or
-        # reserved item is never a check.
-        if intent_view is not None and (intent_reason := intent_view.withhold_reason(item.id)) is not None:
-            withheld(intent_reason, item.id)
-            continue
         mastery = mastery_states.get(learning_object.id)
         episode = open_episodes.get(learning_object.id)
-        in_probe = (
-            episode is not None
-            and episode.status == "in_progress"
-            and probe_block_reason is None
-        )
-        # Freshness reserve (owner design intent): a diagnostic_probe surface
-        # exists to carry one *diagnostic* administration on a never-before-seen
-        # problem. Serving it as ordinary practice would burn that freshness on
-        # a non-diagnostic administration, so the mode is excluded from the
-        # ordinary pool ENTIRELY — not merely after administration. Diagnostic
-        # surfaces reach the learner only through explicit diagnostic flows:
-        # the probe-episode branch below, and the by-id injection doors that
-        # bypass this candidate gate (delayed follow-up tasks, exam pools, and
-        # repair paths that request a specific item).
-        if item.practice_mode == "diagnostic_probe" and not in_probe:
-            withheld("diagnostic_freshness_reserve", item.id)
-            continue
-        frontier_entry = frontier.by_lo.get(learning_object.id)
-        # Cold-start gate: never-attempted LOs stay out of the routine queue —
-        # EXCEPT when the LO is on an active goal's at-risk frontier or has an
-        # open diagnostic episode. A `pending_items` episode explicitly keeps
-        # the LO schedulable for belief-only ordinary practice (§10). The
-        # frontier's widened semantics put unexamined facets at risk precisely
-        # so the goal's untouched material gets scheduled before the due date;
-        # skipping those items here would leave "practice at-risk facets"
-        # re-serving the goal's only attempted item. A learner-requested card
-        # (promotion, rung variant, a question written while reading) is also
-        # exempt: the learner explicitly adopted it, so a never-practised LO must
-        # not swallow it.
-        # F2 placement (None when off). New material: a never-attempted item
-        # on an LO with no direct evidence (or back to learning after a missed
-        # check, a miss in maintenance or "I don't know this") enters as
-        # learning, where the predecessor opened an initial diagnostic episode
-        # for it. An assumed LO is on its long first interval: nothing of it is
-        # served routinely until its first review falls due, and then only the
-        # check. After a passed check the LO is in maintenance: its practised
-        # items keep their normal reviews, its remaining learning items stay
-        # withheld. Learner-requested cards are the explicit exception.
-        new_material = False
-        assumed_check = False
-        if placement_serving is not None and item.id not in requested_id_set:
-            never_attempted = state is None or state.last_attempt_at is None
-            if learning_object.id in placement_serving.open_learning_object_ids:
-                if placement_serving.check_items.get(learning_object.id) != item.id:
-                    withheld("placement_assumed_withheld", item.id)
-                    continue
-                assumed_check = True
-            elif (
-                learning_object.id in placement_serving.gap_check_learning_object_ids
-                and placement_serving.check_items.get(learning_object.id) == item.id
-            ):
-                # mvp-0.16: a learner-text gap brought this maintenance LO's
-                # next check forward and it is due: serve its check item.
-                assumed_check = True
-            elif learning_object.id in placement_serving.maintained_learning_object_ids:
-                if never_attempted:
-                    withheld("placement_maintained_withheld", item.id)
-                    continue
-            elif (
-                never_attempted
-                and episode is None
-                and frontier_entry is None
-                and (
-                    mastery is None
-                    or mastery.last_evidence_at is None
-                    or learning_object.id in placement_serving.back_to_learning_learning_object_ids
-                )
-            ):
-                new_material = True
-        if (
-            (mastery is None or mastery.last_evidence_at is None)
-            and episode is None
-            and frontier_entry is None
-            and item.id not in requested_id_set
-            and not new_material
-            and not assumed_check
-        ):
-            withheld("cold_start_unattempted", item.id)
-            continue
-
-        goal_frontier_component = _goal_frontier(vault, item, frontier_entry)
-        components: dict[str, float] = {
-            "forgetting_risk": _forgetting_risk(
-                state,
-                now,
-                fsrs_weights,
-                effective_due=intent_view.effective_due_or_none(item.id, state) if intent_view is not None else None,
-            ),
-            "recent_error": _recent_error(errors_by_lo.get(learning_object.id, []), now),
-            "probe_eig": 0.0,
-            # DISPLAY ONLY (never a priority input — _priority reads exactly its
-            # four weighted keys): how much one ordinary graded attempt is
-            # expected to inform the LO mastery latent.
-            "practice_information": _practice_information(item, learning_object, mastery, config),
-        }
-        if goal_frontier_component > 0:
-            # Exposure discount: evidence from re-serving a just-attempted item
-            # (or its surface family) is dependent evidence, worth less toward
-            # the goal — and without this the argmax re-serves the same frontier
-            # item after every failure. Reuses the follow-up/probe familiarity
-            # machinery; no new constants.
-            recent = recent_attempts_by_lo.get(learning_object.id, [])
-            exposure = familiarity_discount_from_attempts(
-                recent,
-                item,
-                covered_facets={str(facet): 1.0 for facet in item.evidence_facets},
-                config=config,
-            ).independent_evidence_discount
-            components["goal_frontier_exposure_discount"] = exposure
-            goal_frontier_component *= exposure
-        components["goal_frontier"] = goal_frontier_component
-        probe_familiarity_discount = 1.0
-        hypothesis_channel: dict[str, Any] | None = None
-
-        probe_surface_repeat = False
-        if in_probe and episode.hypothesis_set_id is not None:
-            # Never-before-seen probe gate: familiarity merely DISCOUNTS
-            # ordinary priority, but a probe administered on an already-seen
-            # surface (same item, or any item in an attempted item's surface
-            # group) measures memorization of the question, not understanding.
-            # `eligible_instruments` enforces the same exclusion; the check here
-            # exists so the exclusion is annotated instead of silent.
-            if attempted_surface_exclusions is None:
-                attempted_surface_exclusions = administered_surface_exclusions(
-                    vault, repository
-                )
-            attempted_ids, attempted_surfaces = attempted_surface_exclusions
-            probe_surface_repeat = (
-                item.id in attempted_ids or surface_group_id(item) in attempted_surfaces
-            )
-            if probe_surface_repeat:
-                components["probe_surface_repeat_excluded"] = 1.0
-        if in_probe and episode.hypothesis_set_id is not None and not probe_surface_repeat:
-            context = _load_episode_context(vault, repository, episode, episode_posterior_cache)
-            eligible_entry = (
-                _load_episode_eligible(vault, repository, episode, context, episode_eligible_cache).get(item.id)
-                if context is not None
-                else None
-            )
-            # §4.2 fix: only items with an executable instrument binding for
-            # this episode's locked set (admitted card, or the logged registry
-            # fallback) are probe candidates. Everything else scores zero
-            # hypothesis EIG and stays ordinary practice.
-            voi_withheld = False
-            if context is not None and eligible_entry is not None and voi_probe_active:
-                voi_decision = voi_probe_decisions.get(episode.id)
-                if voi_decision is None:
-                    voi_decision = voi.probe_episode_decision(
-                        voi_context,
-                        episode,
-                        list(_load_episode_eligible(vault, repository, episode, context, episode_eligible_cache).values()),
-                        context[1],
-                        session_id=session.session_id,
-                    )
-                    voi_probe_decisions[episode.id] = voi_decision
-                voi_value = voi_decision.value_for(item.id)
-                if voi_value is not None:
-                    components["voi_value_minutes"] = voi_value.value_robust_minutes
-                    components["voi_cost_minutes"] = voi_value.cost_minutes
-                if not voi_decision.admits(item.id):
-                    # Not worth its minutes this refresh: the item is not a
-                    # probe candidate (a diagnostic surface stays reserved).
-                    components["voi_stop"] = 1.0
-                    voi_withheld = True
-            if context is not None and eligible_entry is not None and not voi_withheld:
-                hypothesis_set, posterior, entropy_before = context
-                rubric = vault.rubric_for_item(item)
-                prospective_coverage = resolve_coverage(
-                    item,
-                    rubric,
-                    attempt_type="diagnostic_probe",
-                    hints_used=0,
-                    learner_answer_md="prospective_probe",
-                    evidence=vault.config.evidence,
-                )
-                prospective_familiarity = familiarity_discount(
-                    repository,
-                    item,
-                    learning_object_id=learning_object.id,
-                    covered_facets=prospective_coverage.covered_facets,
-                    config=config,
-                )
-                # Card-compiled, grader-composed conditionals — the same ones
-                # posterior replay uses (§7.2). The primary objective is §7.4
-                # predictive EIG (fraction of held-out predictive uncertainty
-                # removed, [0, 1]) when the episode's target set is adequate;
-                # hypothesis EIG normalized by the locked set's maximum
-                # entropy is the fallback. Both are logged; never added (§7.4).
-                eig_nats = eligible_entry.expected_information_gain
-                size = len(posterior)
-                hypothesis_eig_normalized = eig_nats / log(size) if size > 1 else 0.0
-                predictive_primary = eligible_entry.selection_objective == "predictive_eig"
-                if predictive_primary and eligible_entry.predictive_prior_entropy > 0:
-                    candidate_probe_eig_raw = (
-                        eligible_entry.predictive_eig / eligible_entry.predictive_prior_entropy
-                    )
-                else:
-                    candidate_probe_eig_raw = hypothesis_eig_normalized
-                probe_familiarity_discount = prospective_familiarity.independent_evidence_discount
-                candidate_probe_eig = candidate_probe_eig_raw * probe_familiarity_discount
-                if not short_session or _priority(components, config) <= 0:
-                    components["probe_eig"] = candidate_probe_eig
-                    components["probe_eig_raw"] = candidate_probe_eig_raw
-                    # §7.3 telemetry separation: only response-conditioned
-                    # entropy reduction is labeled EIG; coverage value is
-                    # logged separately by the selection reward.
-                    components["actual_hypothesis_eig"] = eig_nats
-                    components["predictive_eig"] = eligible_entry.predictive_eig
-                    components["predictive_information_rate"] = eligible_entry.predictive_information_rate
-                    components["probe_predictive_primary"] = 1.0 if predictive_primary else 0.0
-                    components["probe_eig_familiarity_discount"] = probe_familiarity_discount
-                    probe_item_ids[item.id] = episode.hypothesis_set_id
-                    probe_entropy_before[item.id] = entropy_before
-                    if carry_hypothesis_channels:
-                        hypothesis_channel = voi.hypothesis_channel_body(
-                            str(episode.id),
-                            eligible_entry,
-                            posterior,
-                            objective="predictive_eig" if predictive_primary else "hypothesis_eig",
-                        )
-
-        if item.practice_mode == "diagnostic_probe" and components.get("probe_eig", 0.0) <= 0.0:
-            # In an open probe episode but not servable as a probe this refresh
-            # (already-seen surface group, no eligible instrument binding, or a
-            # short session withholding probe EIG). The surface stays reserved
-            # rather than leaking into ordinary practice; the exclusion is
-            # logged with the slate so it never fails silently.
-            reason = (
-                "diagnostic probe excluded: surface group already administered"
-                if probe_surface_repeat
-                else (
-                    "diagnostic probe withheld: its value does not pay for its minutes this refresh"
-                    if components.get("voi_stop", 0.0) > 0.0
-                    else "diagnostic probe reserved: no eligible probe binding this refresh"
-                )
-            )
-            probe_reserved_exclusions.append(
-                ScheduledItem(
-                    practice_item_id=item.id,
-                    learning_object_id=learning_object.id,
-                    priority=0.0,
-                    components={**components, "diagnostic_reserved_excluded": 1.0},
-                    readiness_factor=readiness_factor,
-                    selected_mode=item.practice_mode,
-                    plain_english=[reason],
-                    reward_debug=None,
-                )
-            )
-            withheld(
-                "voi_value_below_minutes_cost" if components.get("voi_stop", 0.0) > 0.0 else "diagnostic_reserved",
-                item.id,
-            )
-            continue
+        in_probe = admission.in_probe(item)
+        new_material, assumed_check = (False, False) if requested else admission.placement(item, state)[1:]
+        # The ranking components and, in an open probe episode, the probe's
+        # (``_BuildAdmission.probe_score``: read once per build, so the probe
+        # gate above and this ranking see the same values).
+        score = admission.probe_score(item, state)
+        score.record(item.id, probe_item_ids, probe_entropy_before)
+        components = dict(score.components)
+        goal_frontier_component = components["goal_frontier"]
+        probe_familiarity_discount = score.probe_familiarity_discount
+        hypothesis_channel = score.hypothesis_channel
 
         legacy_priority = _priority(components, config)
         intent = _intent_for_item(item, in_probe=in_probe, components=components)
@@ -3093,6 +2894,518 @@ def _intent_serving(vault: LoadedVault, repository: Repository, now: datetime):
     from learnloop.scheduling.intent.serving import intent_serving
 
     return intent_serving(vault, repository, now=now)
+
+
+class _Once:
+    """A build read made at most once, on first use. The queue build passes
+    the values it already read (:meth:`of`); :func:`check_admission` passes
+    readers, so a view that never meets a gate never pays for its reads."""
+
+    __slots__ = ("_read", "_value", "_done")
+
+    def __init__(self, read: Any) -> None:
+        self._read = read
+        self._value: Any = None
+        self._done = False
+
+    @classmethod
+    def of(cls, value: Any) -> "_Once":
+        once = cls(None)
+        once._value, once._done = value, True
+        return once
+
+    def __call__(self) -> Any:
+        if not self._done:
+            self._value, self._done = self._read(), True
+        return self._value
+
+
+@dataclass
+class _ProbeScore:
+    """An item's ranking components before its selection reward, with its
+    probe's when it is a candidate of an in-progress probe episode."""
+
+    components: dict[str, float]
+    hypothesis_channel: dict[str, Any] | None = None
+    probe_familiarity_discount: float = 1.0
+    probe_surface_repeat: bool = False
+    #: Set when the probe was valued (the build records it for presentation).
+    hypothesis_set_id: str | None = None
+    entropy_before: float | None = None
+
+    def record(self, item_id: str, probe_item_ids: dict[str, str], entropy_before: dict[str, float]) -> None:
+        if self.hypothesis_set_id is not None:
+            probe_item_ids[item_id] = self.hypothesis_set_id
+            entropy_before[item_id] = float(self.entropy_before or 0.0)
+
+
+class _BuildAdmission:
+    """One build's gates after the routine one (``serving_exclusions.BuildGates``)
+    and the reads behind them, each item's read once per build.
+
+    ``build_due_queue`` asks them through ``serving_exclusions.admission_reason``
+    for every item, and binds :meth:`admits_check_candidate` (the same
+    predicate, for a request) to its DL2 intent view, so a "Check once"
+    prefers a cold candidate over practice only among candidates this build
+    admits (orchestrator ruling R1). A view built outside the queue (the
+    plan, the practice view, settling) gets one over its own reads with no
+    session (:func:`check_admission`)."""
+
+    def __init__(
+        self,
+        vault: LoadedVault,
+        repository: Repository,
+        *,
+        now: datetime,
+        session: SchedulerSession,
+        intent_view: Any,
+        exclusions: _Once,
+        item_states: _Once,
+        placement_serving: _Once,
+        open_episodes: _Once,
+        probe_block_reason: _Once,
+        mastery_states: _Once,
+        frontier: _Once,
+        errors_by_lo: _Once,
+        fsrs_weights: _Once,
+        recent_attempts_by_lo: _Once,
+        voi_context: _Once,
+        voi_probe_active: bool,
+        carry_hypothesis_channels: bool,
+        short_session: bool,
+        voi_probe_decisions: dict[str, Any],
+        episode_posterior_cache: dict[str, Any],
+        episode_eligible_cache: dict[str, Any],
+    ) -> None:
+        self.vault = vault
+        self.repository = repository
+        self.config = vault.config
+        self.now = now
+        self.session = session
+        self.intent_view = intent_view
+        self.exclusions = exclusions
+        self.item_states = item_states
+        self.placement_serving = placement_serving
+        self.open_episodes = open_episodes
+        self.probe_block_reason = probe_block_reason
+        self.mastery_states = mastery_states
+        self.frontier = frontier
+        self.errors_by_lo = errors_by_lo
+        self.fsrs_weights = fsrs_weights
+        self.recent_attempts_by_lo = recent_attempts_by_lo
+        self.voi_context = voi_context
+        self.voi_probe_active = voi_probe_active
+        self.carry_hypothesis_channels = carry_hypothesis_channels
+        self.short_session = short_session
+        self.voi_probe_decisions = voi_probe_decisions
+        self.episode_posterior_cache = episode_posterior_cache
+        self.episode_eligible_cache = episode_eligible_cache
+        # Lazily built: (attempted item ids, attempted surface groups), the
+        # never-before-seen probe gate's exclusion set. Only probe-eligible
+        # builds pay for it.
+        self._attempted_surfaces: tuple[set[str], set[str]] | None = None
+        self._placement: dict[str, tuple[str | None, bool, bool]] = {}
+        self._scores: dict[str, _ProbeScore] = {}
+
+    # -- the check's question -------------------------------------------------
+
+    def admits_check_candidate(self, item_id: str) -> bool:
+        """Would this build serve ``item_id`` as a due check's candidate (a
+        request, intent's own gate aside)? The one predicate the loop asks."""
+
+        item = self.vault.practice_items.get(item_id)
+        if item is None:
+            return False
+        state = self.item_states().get(item_id)
+        return admission_reason(self.vault, item, state, self.exclusions(), self, requested=True) is None
+
+    # -- the gates (``serving_exclusions.BuildGates``) ---------------------------
+
+    def in_probe(self, item: PracticeItem) -> bool:
+        learning_object = self.vault.learning_object_for_item(item)
+        episode = self.open_episodes().get(learning_object.id)
+        return episode is not None and episode.status == "in_progress" and self.probe_block_reason() is None
+
+    def freshness_gate(self, item: PracticeItem, state: Any) -> str | None:
+        # Freshness reserve (owner design intent): a diagnostic_probe surface
+        # exists to carry one *diagnostic* administration on a never-before-seen
+        # problem. Serving it as ordinary practice would burn that freshness on
+        # a non-diagnostic administration, so the mode is excluded from the
+        # ordinary pool ENTIRELY — not merely after administration. Diagnostic
+        # surfaces reach the learner only through explicit diagnostic flows:
+        # the probe-episode branch, and the by-id injection doors that bypass
+        # this candidate gate (delayed follow-up tasks, exam pools, and repair
+        # paths that request a specific item).
+        return None if self.in_probe(item) else "diagnostic_freshness_reserve"
+
+    def placement(self, item: PracticeItem, state: Any) -> tuple[str | None, bool, bool]:
+        """``(reason, new_material, assumed_check)`` for an unrequested item."""
+
+        cached = self._placement.get(item.id)
+        if cached is not None:
+            return cached
+        placement_serving = self.placement_serving()
+        learning_object = self.vault.learning_object_for_item(item)
+        result: tuple[str | None, bool, bool] = (None, False, False)
+        # F2 placement (None when off). New material: a never-attempted item
+        # on an LO with no direct evidence (or back to learning after a missed
+        # check, a miss in maintenance or "I don't know this") enters as
+        # learning, where the predecessor opened an initial diagnostic episode
+        # for it. An assumed LO is on its long first interval: nothing of it is
+        # served routinely until its first review falls due, and then only the
+        # check. After a passed check the LO is in maintenance: its practised
+        # items keep their normal reviews, its remaining learning items stay
+        # withheld. Learner-requested cards are the explicit exception.
+        if placement_serving is not None:
+            never_attempted = state is None or state.last_attempt_at is None
+            mastery = self.mastery_states().get(learning_object.id)
+            episode = self.open_episodes().get(learning_object.id)
+            frontier_entry = self.frontier().by_lo.get(learning_object.id)
+            if learning_object.id in placement_serving.open_learning_object_ids:
+                if placement_serving.check_items.get(learning_object.id) != item.id:
+                    result = ("placement_assumed_withheld", False, False)
+                else:
+                    result = (None, False, True)
+            elif (
+                learning_object.id in placement_serving.gap_check_learning_object_ids
+                and placement_serving.check_items.get(learning_object.id) == item.id
+            ):
+                # mvp-0.16: a learner-text gap brought this maintenance LO's
+                # next check forward and it is due: serve its check item.
+                result = (None, False, True)
+            elif learning_object.id in placement_serving.maintained_learning_object_ids:
+                if never_attempted:
+                    result = ("placement_maintained_withheld", False, False)
+            elif (
+                never_attempted
+                and episode is None
+                and frontier_entry is None
+                and (
+                    mastery is None
+                    or mastery.last_evidence_at is None
+                    or learning_object.id in placement_serving.back_to_learning_learning_object_ids
+                )
+            ):
+                result = (None, True, False)
+        self._placement[item.id] = result
+        return result
+
+    def placement_gate(self, item: PracticeItem, state: Any) -> str | None:
+        return self.placement(item, state)[0]
+
+    def cold_start_gate(self, item: PracticeItem, state: Any) -> str | None:
+        # Cold-start gate: never-attempted LOs stay out of the routine queue —
+        # EXCEPT when the LO is on an active goal's at-risk frontier or has an
+        # open diagnostic episode. A `pending_items` episode explicitly keeps
+        # the LO schedulable for belief-only ordinary practice (§10). The
+        # frontier's widened semantics put unexamined facets at risk precisely
+        # so the goal's untouched material gets scheduled before the due date;
+        # skipping those items here would leave "practice at-risk facets"
+        # re-serving the goal's only attempted item. A learner-requested card
+        # (promotion, rung variant, a question written while reading) is also
+        # exempt (``admission_reason`` never asks this of a request): the
+        # learner explicitly adopted it, so a never-practised LO must not
+        # swallow it.
+        learning_object = self.vault.learning_object_for_item(item)
+        _reason, new_material, assumed_check = self.placement(item, state)
+        mastery = self.mastery_states().get(learning_object.id)
+        if (
+            (mastery is None or mastery.last_evidence_at is None)
+            and self.open_episodes().get(learning_object.id) is None
+            and self.frontier().by_lo.get(learning_object.id) is None
+            and not new_material
+            and not assumed_check
+        ):
+            return "cold_start_unattempted"
+        return None
+
+    def probe_gate(self, item: PracticeItem, state: Any) -> str | None:
+        score = self.probe_score(item, state)
+        if score.components.get("probe_eig", 0.0) <= 0.0:
+            # Already-seen surface group, no eligible instrument binding, a
+            # value below its minutes, or a short session withholding probe EIG.
+            return "voi_value_below_minutes_cost" if score.components.get("voi_stop", 0.0) > 0.0 else "diagnostic_reserved"
+        return None
+
+    # -- the reads behind them ---------------------------------------------------
+
+    def probe_score(self, item: PracticeItem, state: Any) -> _ProbeScore:
+        """The item's ranking components and, in an in-progress probe episode,
+        its probe's value: computed once per build (the probe gate and the
+        ranking read the same values)."""
+
+        cached = self._scores.get(item.id)
+        if cached is not None:
+            return cached
+        vault, repository, config = self.vault, self.repository, self.config
+        learning_object = vault.learning_object_for_item(item)
+        mastery = self.mastery_states().get(learning_object.id)
+        episode = self.open_episodes().get(learning_object.id)
+        in_probe = self.in_probe(item)
+        frontier_entry = self.frontier().by_lo.get(learning_object.id)
+        intent_view = self.intent_view
+        goal_frontier_component = _goal_frontier(vault, item, frontier_entry)
+        components: dict[str, float] = {
+            "forgetting_risk": _forgetting_risk(
+                state,
+                self.now,
+                self.fsrs_weights(),
+                effective_due=intent_view.effective_due_or_none(item.id, state) if intent_view is not None else None,
+            ),
+            "recent_error": _recent_error(self.errors_by_lo().get(learning_object.id, []), self.now),
+            "probe_eig": 0.0,
+            # DISPLAY ONLY (never a priority input — _priority reads exactly its
+            # four weighted keys): how much one ordinary graded attempt is
+            # expected to inform the LO mastery latent.
+            "practice_information": _practice_information(item, learning_object, mastery, config),
+        }
+        if goal_frontier_component > 0:
+            # Exposure discount: evidence from re-serving a just-attempted item
+            # (or its surface family) is dependent evidence, worth less toward
+            # the goal — and without this the argmax re-serves the same frontier
+            # item after every failure. Reuses the follow-up/probe familiarity
+            # machinery; no new constants.
+            recent = self.recent_attempts_by_lo().get(learning_object.id, [])
+            exposure = familiarity_discount_from_attempts(
+                recent,
+                item,
+                covered_facets={str(facet): 1.0 for facet in item.evidence_facets},
+                config=config,
+            ).independent_evidence_discount
+            components["goal_frontier_exposure_discount"] = exposure
+            goal_frontier_component *= exposure
+        components["goal_frontier"] = goal_frontier_component
+        score = _ProbeScore(components=components)
+
+        if in_probe and episode.hypothesis_set_id is not None:
+            # Never-before-seen probe gate: familiarity merely DISCOUNTS
+            # ordinary priority, but a probe administered on an already-seen
+            # surface (same item, or any item in an attempted item's surface
+            # group) measures memorization of the question, not understanding.
+            # `eligible_instruments` enforces the same exclusion; the check here
+            # exists so the exclusion is annotated instead of silent.
+            if self._attempted_surfaces is None:
+                self._attempted_surfaces = administered_surface_exclusions(vault, repository)
+            attempted_ids, attempted_surfaces = self._attempted_surfaces
+            score.probe_surface_repeat = (
+                item.id in attempted_ids or surface_group_id(item) in attempted_surfaces
+            )
+            if score.probe_surface_repeat:
+                components["probe_surface_repeat_excluded"] = 1.0
+        if in_probe and episode.hypothesis_set_id is not None and not score.probe_surface_repeat:
+            context = _load_episode_context(vault, repository, episode, self.episode_posterior_cache)
+            eligible_entry = (
+                _load_episode_eligible(vault, repository, episode, context, self.episode_eligible_cache).get(item.id)
+                if context is not None
+                else None
+            )
+            # §4.2 fix: only items with an executable instrument binding for
+            # this episode's locked set (admitted card, or the logged registry
+            # fallback) are probe candidates. Everything else scores zero
+            # hypothesis EIG and stays ordinary practice.
+            voi_withheld = False
+            if context is not None and eligible_entry is not None and self.voi_probe_active:
+                voi_decision = self.voi_probe_decisions.get(episode.id)
+                if voi_decision is None:
+                    voi_decision = voi.probe_episode_decision(
+                        self.voi_context(),
+                        episode,
+                        list(
+                            _load_episode_eligible(
+                                vault, repository, episode, context, self.episode_eligible_cache
+                            ).values()
+                        ),
+                        context[1],
+                        session_id=self.session.session_id,
+                    )
+                    self.voi_probe_decisions[episode.id] = voi_decision
+                voi_value = voi_decision.value_for(item.id)
+                if voi_value is not None:
+                    components["voi_value_minutes"] = voi_value.value_robust_minutes
+                    components["voi_cost_minutes"] = voi_value.cost_minutes
+                if not voi_decision.admits(item.id):
+                    # Not worth its minutes this refresh: the item is not a
+                    # probe candidate (a diagnostic surface stays reserved).
+                    components["voi_stop"] = 1.0
+                    voi_withheld = True
+            if context is not None and eligible_entry is not None and not voi_withheld:
+                hypothesis_set, posterior, entropy_before = context
+                rubric = vault.rubric_for_item(item)
+                prospective_coverage = resolve_coverage(
+                    item,
+                    rubric,
+                    attempt_type="diagnostic_probe",
+                    hints_used=0,
+                    learner_answer_md="prospective_probe",
+                    evidence=vault.config.evidence,
+                )
+                prospective_familiarity = familiarity_discount(
+                    repository,
+                    item,
+                    learning_object_id=learning_object.id,
+                    covered_facets=prospective_coverage.covered_facets,
+                    config=config,
+                )
+                # Card-compiled, grader-composed conditionals — the same ones
+                # posterior replay uses (§7.2). The primary objective is §7.4
+                # predictive EIG (fraction of held-out predictive uncertainty
+                # removed, [0, 1]) when the episode's target set is adequate;
+                # hypothesis EIG normalized by the locked set's maximum
+                # entropy is the fallback. Both are logged; never added (§7.4).
+                eig_nats = eligible_entry.expected_information_gain
+                size = len(posterior)
+                hypothesis_eig_normalized = eig_nats / log(size) if size > 1 else 0.0
+                predictive_primary = eligible_entry.selection_objective == "predictive_eig"
+                if predictive_primary and eligible_entry.predictive_prior_entropy > 0:
+                    candidate_probe_eig_raw = (
+                        eligible_entry.predictive_eig / eligible_entry.predictive_prior_entropy
+                    )
+                else:
+                    candidate_probe_eig_raw = hypothesis_eig_normalized
+                score.probe_familiarity_discount = prospective_familiarity.independent_evidence_discount
+                candidate_probe_eig = candidate_probe_eig_raw * score.probe_familiarity_discount
+                if not self.short_session or _priority(components, config) <= 0:
+                    components["probe_eig"] = candidate_probe_eig
+                    components["probe_eig_raw"] = candidate_probe_eig_raw
+                    # §7.3 telemetry separation: only response-conditioned
+                    # entropy reduction is labeled EIG; coverage value is
+                    # logged separately by the selection reward.
+                    components["actual_hypothesis_eig"] = eig_nats
+                    components["predictive_eig"] = eligible_entry.predictive_eig
+                    components["predictive_information_rate"] = eligible_entry.predictive_information_rate
+                    components["probe_predictive_primary"] = 1.0 if predictive_primary else 0.0
+                    components["probe_eig_familiarity_discount"] = score.probe_familiarity_discount
+                    score.hypothesis_set_id = episode.hypothesis_set_id
+                    score.entropy_before = entropy_before
+                    if self.carry_hypothesis_channels:
+                        score.hypothesis_channel = voi.hypothesis_channel_body(
+                            str(episode.id),
+                            eligible_entry,
+                            posterior,
+                            objective="predictive_eig" if predictive_primary else "hypothesis_eig",
+                        )
+        self._scores[item.id] = score
+        return score
+
+    def reserved_annotation(
+        self, item: PracticeItem, score: _ProbeScore, readiness_factor: float | None
+    ) -> ScheduledItem:
+        """The slate's annotation for a reserved diagnostic surface ("no silent caps")."""
+
+        components = score.components
+        reason = (
+            "diagnostic probe excluded: surface group already administered"
+            if score.probe_surface_repeat
+            else (
+                "diagnostic probe withheld: its value does not pay for its minutes this refresh"
+                if components.get("voi_stop", 0.0) > 0.0
+                else "diagnostic probe reserved: no eligible probe binding this refresh"
+            )
+        )
+        return ScheduledItem(
+            practice_item_id=item.id,
+            learning_object_id=self.vault.learning_object_for_item(item).id,
+            priority=0.0,
+            components={**components, "diagnostic_reserved_excluded": 1.0},
+            readiness_factor=readiness_factor,
+            selected_mode=item.practice_mode,
+            plain_english=[reason],
+            reward_debug=None,
+        )
+
+
+def check_admission(vault: LoadedVault, repository: Repository, *, now: datetime, intent_view: Any) -> Any:
+    """The build's admission for a DL2 intent view built outside the queue
+    (the plan's pool, the practice view, settling): the same predicate over
+    the same reads, with no session and nothing written, each read on first
+    use. Returns ``admits_check_candidate``."""
+
+    from learnloop.clock import FrozenClock
+
+    clock = FrozenClock(now)
+    config = vault.config
+    item_states = _Once(repository.practice_item_states)
+    exclusions = _Once(lambda: routine_serving_exclusions(vault, repository))
+
+    def placement() -> Any:
+        excluded = exclusions()
+        return _placement_serving(
+            vault,
+            repository,
+            clock=clock,
+            persist=False,
+            item_states=item_states(),
+            excluded_item_ids=set(
+                excluded.reserved_exam_item_ids
+                | excluded.rung_variant_hold_ids
+                | excluded.staged_owned_item_ids
+                | excluded.held_out_item_ids
+            ),
+        )
+
+    placement_serving = _Once(placement)
+
+    def episodes() -> Any:
+        if placement_serving() is not None:
+            from learnloop.placement.state import servable_open_episodes
+
+            return servable_open_episodes(vault, repository)
+        return repository.open_probe_episodes()
+
+    def frontier() -> Any:
+        return build_goal_frontier(
+            vault,
+            repository,
+            clock=clock,
+            item_states=item_states(),
+            facet_states_by_lo=read_facet_states_by_lo(vault, repository),
+        )
+
+    frontier_once = _Once(frontier)
+
+    def recent() -> Any:
+        rows_by_lo = repository.list_recent_attempts_by_learning_objects(
+            frontier_once().by_lo,
+            limit=config.recall_coverage.familiarity_recent_attempt_window,
+        )
+        from learnloop.held_grades import held_attempt_ids
+        from learnloop.outcome_contract import HELD_ROW_KEY
+
+        held = held_attempt_ids(repository, (row.get("id") for rows in rows_by_lo.values() for row in rows))
+        if not held:
+            return rows_by_lo
+        return {
+            lo_id: [{**row, HELD_ROW_KEY: True} if row.get("id") in held else row for row in rows]
+            for lo_id, rows in rows_by_lo.items()
+        }
+
+    admission = _BuildAdmission(
+        vault,
+        repository,
+        now=now.astimezone(UTC),
+        session=SchedulerSession(),
+        intent_view=intent_view,
+        exclusions=exclusions,
+        item_states=item_states,
+        placement_serving=placement_serving,
+        open_episodes=_Once(episodes),
+        probe_block_reason=_Once(
+            lambda: probe_serving_block_reason(vault, repository, session_id=None, cap_lifted=False)
+        ),
+        mastery_states=_Once(repository.mastery_states),
+        frontier=frontier_once,
+        errors_by_lo=_Once(lambda: _errors_by_learning_object(repository.active_error_events())),
+        fsrs_weights=_Once(lambda: resolve_fsrs_weights(repository)),
+        recent_attempts_by_lo=_Once(recent),
+        voi_context=_Once(lambda: voi.VoiContext(vault, repository)),
+        voi_probe_active=voi.voi_stopping_active(config, voi.SITE_PROBE_EPISODE),
+        carry_hypothesis_channels=False,
+        short_session=False,
+        voi_probe_decisions={},
+        episode_posterior_cache={},
+        episode_eligible_cache={},
+    )
+    return admission.admits_check_candidate
 
 
 def _goal_frontier(vault: LoadedVault, item: PracticeItem, entry) -> float:

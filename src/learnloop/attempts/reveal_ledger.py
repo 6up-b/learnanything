@@ -25,7 +25,6 @@ Two rules hold for every writer here:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 from dataclasses import dataclass
@@ -62,7 +61,7 @@ POST_ATTEMPT_REVEAL_KINDS = serve_eligibility.POST_ATTEMPT_REVEAL_KINDS
 #: plain self-grade shows, one per draft retry key
 #: (:func:`record_self_grade_disclosure_reveal`).
 FEEDBACK_FULL_ANSWER_BASIS = "feedback_full_answer"
-SELF_GRADE_DISCLOSURE_BASIS = "self_grade_disclosure"
+SELF_GRADE_DISCLOSURE_BASIS = serve_eligibility.SELF_GRADE_DISCLOSURE_BASIS
 
 #: The ROUTINE full-answer displays: the plain surface shows the expected
 #: answer on every feedback and every plain self-grade (spec §7.5), not as an
@@ -105,11 +104,17 @@ def routine_display_lapsed_before(at: str | None) -> str | None:
     return routine_covered_from(at) if at else None
 
 
-def trace_hash(learner_answer_md: str | None) -> str:
-    """The identity of a learner's whole trace (the answer and the volunteered
-    line, as ``trace_evidence.compose_learner_trace`` composes them)."""
-
-    return hashlib.sha256((learner_answer_md or "").encode("utf-8")).hexdigest()[:32]
+#: The disclosure identity (its encoding version, the parse, the trace hash
+#: and the comparison) is the eligibility decision's, so the exemption it
+#: grants has one definition for submit and for a "Check once" at its
+#: attempt (``serve_eligibility.attributable_disclosure_ids``; orchestrator
+#: ruling R2). Re-exported here, where the writers and readers have always
+#: found it.
+trace_hash = serve_eligibility.trace_hash
+DISCLOSURE_IDENTITY_VERSION = serve_eligibility.DISCLOSURE_IDENTITY_VERSION
+_DISCLOSURE_PREFIX = serve_eligibility.DISCLOSURE_PREFIX
+disclosure_identity = serve_eligibility.disclosure_identity
+is_own_disclosure = serve_eligibility.is_own_disclosure
 
 
 def frozen_trace_hash(answer_md: str, explanation_md: str | None) -> str:
@@ -118,15 +123,6 @@ def frozen_trace_hash(answer_md: str, explanation_md: str | None) -> str:
     from learnloop.attempts.trace_evidence import compose_learner_trace
 
     return trace_hash(compose_learner_trace(answer_md, explanation_md))
-
-
-#: The disclosure identity's encoding version (round 5, F1-2): a basis
-#: ``self_grade_disclosure:v2:`` followed by canonical JSON with exactly the
-#: fields ``v``, ``submission``, ``trace`` and ``display``. Rows in any other
-#: shape (the round-3 and round-4 colon-joined ones, a hash-less settle row)
-#: are legacy: they count like every routine display and exempt nothing.
-DISCLOSURE_IDENTITY_VERSION = 2
-_DISCLOSURE_PREFIX = f"{SELF_GRADE_DISCLOSURE_BASIS}:v{DISCLOSURE_IDENTITY_VERSION}:"
 
 
 def disclosure_basis(submission_id: str, frozen_hash: str, display_id: str | None = None) -> str:
@@ -142,60 +138,6 @@ def disclosure_basis(submission_id: str, frozen_hash: str, display_id: str | Non
         "display": display_id,
     }
     return _DISCLOSURE_PREFIX + json.dumps(identity, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
-
-
-def disclosure_identity(row: Mapping[str, Any]) -> dict[str, Any] | None:
-    """The structured identity a disclosure row carries, or None for any row
-    that is not a well-formed current-version disclosure (legacy rows too)."""
-
-    basis = row.get("basis")
-    if row.get("source_kind") != "answer_display" or not isinstance(basis, str) or not basis.startswith(_DISCLOSURE_PREFIX):
-        return None
-    try:
-        identity = json.loads(basis[len(_DISCLOSURE_PREFIX):], object_pairs_hook=_unique_fields)
-    except ValueError:
-        return None
-    if (
-        not isinstance(identity, dict)
-        or set(identity) != {"v", "submission", "trace", "display"}
-        # The integer 2 exactly: not 2.0, not a boolean (round 6).
-        or type(identity["v"]) is not int
-        or identity["v"] != DISCLOSURE_IDENTITY_VERSION
-        or not isinstance(identity["submission"], str)
-        or not isinstance(identity["trace"], str)
-        or not (identity["display"] is None or isinstance(identity["display"], str))
-    ):
-        return None
-    return identity
-
-
-def _unique_fields(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-    """Reject a JSON object that names a field twice (``json.loads`` would keep
-    the last value, round 6): such an identity is malformed."""
-
-    identity: dict[str, Any] = {}
-    for key, value in pairs:
-        if key in identity:
-            raise ValueError(f"duplicate identity field {key!r}")
-        identity[key] = value
-    return identity
-
-
-def is_own_disclosure(row: Mapping[str, Any], submission_id: str | None, learner_answer_md: str | None) -> bool:
-    """Is ``row`` the disclosure of exactly this submission: the same retry key
-    AND the hash of exactly this trace, each compared for equality (round 5,
-    F1-2)? The key alone never exempts (a changed trace under the same key was
-    written with the key in view), nor does the trace alone (the same words in
-    another draft came after it); a legacy row never does."""
-
-    if not submission_id:
-        return False
-    identity = disclosure_identity(row)
-    return (
-        identity is not None
-        and identity["submission"] == submission_id
-        and identity["trace"] == trace_hash(learner_answer_md)
-    )
 
 
 def _lapsed_routine_display(row: Mapping[str, Any], cutoff: str | None) -> bool:
@@ -416,14 +358,9 @@ def _production_trace(
 ) -> tuple[str | None, str | None]:
     """(retry key, trace) of the attempt ``production_id`` names on this item,
     the identity its own disclosure rows must match exactly; (None, None)
-    without an id: no exemption."""
+    without an id: no exemption (``serve_eligibility.attempt_submission``)."""
 
-    if not production_id or not practice_item_id:
-        return None, None
-    attempt = repository.fetch_practice_attempt(production_id)
-    if attempt is None or str(attempt.get("practice_item_id") or "") != practice_item_id:
-        return None, None
-    return str(attempt.get("submission_id") or "") or None, attempt.get("learner_answer_md")
+    return serve_eligibility.attempt_submission(repository, production_id, practice_item_id)
 
 
 def repair_display_amounts(

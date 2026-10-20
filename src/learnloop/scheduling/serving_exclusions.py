@@ -45,12 +45,17 @@ serves nothing.
 ``build_due_queue``, the quick check and ``find_practice`` read these sets
 from here, so a selector cannot forget one of them.
 
-:func:`routine_withhold_reason` is the scheduler's whole per-item routine gate
+:func:`routine_withhold_reason` is the scheduler's per-item routine gate
 (lifecycle, item state, these sets, single-use and unservable surfaces, the
-learner-set LO lifecycle), in its order. ``build_due_queue`` runs it before the
-intent gate, and a daily-loop DL2 "Check once" asks it before it chooses a cold
-candidate over a practice one, so an item routine serving can never serve
-never decides a check (DL2 Codex re-review F11).
+learner-set LO lifecycle), in its order. :func:`admission_reason` is the
+scheduler's WHOLE per-item admission: the routine gate, then the build's own
+gates (:class:`BuildGates`: the diagnostic freshness reserve, placement, the
+cold-start gate and the probe-episode gates), in ``build_due_queue``'s order
+and with its reason codes (:data:`ADMISSION_GATES`). ``build_due_queue`` asks
+it for every item, and a daily-loop DL2 "Check once" asks it for every
+candidate before it prefers a cold one over practice, so an item the build
+would not serve never decides a check (DL2 Codex re-review F11, orchestrator
+ruling R1: one admission predicate).
 """
 from __future__ import annotations
 
@@ -58,7 +63,7 @@ from contextlib import closing
 from dataclasses import dataclass
 from datetime import UTC, timedelta
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, Protocol
 
 from learnloop.clock import Clock, SystemClock
 from learnloop.content.sources.exam_material import held_out_items, held_out_selection_active
@@ -156,6 +161,104 @@ def routine_withhold_reason(vault: Any, item: Any, state: Any, exclusions: Servi
     # kill switch is off served (vault.lifecycle).
     if not practice_item_servable(vault, item):
         return "lifecycle_put_away"
+    return None
+
+
+#: The routine gate's reason codes, in the order :func:`routine_withhold_reason` asks.
+ROUTINE_GATES: tuple[str, ...] = (
+    "retired",
+    "inactive_state",
+    "reserved_exam",
+    "held_out_material",
+    "rung_variant_hold",
+    "staged_owned",
+    "diagnostic_microprobe",
+    "diagnostic_probe_administered",
+    "unservable_stimulus",
+    "no_learning_object",
+    "lifecycle_put_away",
+)
+#: The build's own gates (:class:`BuildGates`), in the order
+#: :func:`admission_reason` asks them after the routine gate.
+BUILD_GATES: tuple[str, ...] = (
+    "diagnostic_freshness_reserve",
+    "placement_assumed_withheld",
+    "placement_maintained_withheld",
+    "cold_start_unattempted",
+    "voi_value_below_minutes_cost",
+    "diagnostic_reserved",
+)
+#: Every reason :func:`admission_reason` can give: every per-item gate of
+#: ``build_due_queue`` (a test enumerates the build's ``withheld`` reasons
+#: against it). Intent's own reasons (``intent_*``) are the check's, and
+#: ``zero_priority`` is ranking: a request (every check candidate is one)
+#: carries the requested floor, so it never meets it.
+ADMISSION_GATES: tuple[str, ...] = ROUTINE_GATES + BUILD_GATES
+#: The probe-episode gates: a diagnostic surface of an in-progress episode
+#: that is not a probe this build (the build annotates it on the slate).
+PROBE_RESERVED_GATES: frozenset[str] = frozenset({"voi_value_below_minutes_cost", "diagnostic_reserved"})
+
+
+class BuildGates(Protocol):
+    """The build's per-item gates after the routine one. The scheduler
+    implements them (``scheduler._BuildAdmission``) over one build's reads;
+    each returns a reason from :data:`BUILD_GATES` or None."""
+
+    def freshness_gate(self, item: Any, state: Any) -> str | None:
+        """A diagnostic_probe surface outside an in-progress, unblocked episode."""
+
+    def placement_gate(self, item: Any, state: Any) -> str | None:
+        """Placement's withholding of an unrequested item (assumed, maintained)."""
+
+    def cold_start_gate(self, item: Any, state: Any) -> str | None:
+        """An unrequested item on a never-practised LO with nothing to start it."""
+
+    def probe_gate(self, item: Any, state: Any) -> str | None:
+        """A diagnostic_probe surface of an in-progress episode that is not a
+        probe this build (surface seen, no binding, its value below its
+        minutes, no information)."""
+
+
+def admission_reason(
+    vault: Any,
+    item: Any,
+    state: Any,
+    exclusions: ServingExclusions,
+    gates: BuildGates | None,
+    *,
+    requested: bool,
+    intent_gate: Any = None,
+) -> str | None:
+    """Why the build does not serve ``item`` now, or None: THE per-item
+    admission predicate (orchestrator ruling R1).
+
+    In ``build_due_queue``'s order: the routine gate
+    (:func:`routine_withhold_reason`); ``intent_gate(item_id)`` when given
+    (the build's intent gate, which is the check's own decision, so the check
+    selection passes none); then the build's gates: the diagnostic freshness
+    reserve, placement and the cold-start gate (a request is exempt from
+    both: the learner asked for it), and the probe-episode gates. ``gates``
+    None asks the routine gate only (a selector outside the build)."""
+
+    reason = routine_withhold_reason(vault, item, state, exclusions)
+    if reason is not None:
+        return reason
+    if intent_gate is not None and (reason := intent_gate(item.id)) is not None:
+        return reason
+    if gates is None:
+        return None
+    probe_surface = item.practice_mode == "diagnostic_probe"
+    # Freshness reserve: a diagnostic surface carries one diagnostic
+    # administration; outside an in-progress episode it is never served.
+    if probe_surface and (reason := gates.freshness_gate(item, state)) is not None:
+        return reason
+    if not requested:
+        if (reason := gates.placement_gate(item, state)) is not None:
+            return reason
+        if (reason := gates.cold_start_gate(item, state)) is not None:
+            return reason
+    if probe_surface and (reason := gates.probe_gate(item, state)) is not None:
+        return reason
     return None
 
 

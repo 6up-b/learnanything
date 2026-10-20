@@ -55,9 +55,11 @@ is duck-typed (a ``Repository``), never imported.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import math
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -161,6 +163,125 @@ CHECK_ONCE_ANSWER_SHOWN = "check_once_answer_shown"
 COLD_CHECK_REFUSAL = "a cold retry must be unassisted and unprimed"
 
 
+# -- the disclosures attributable to one attempt (orchestrator ruling R2) ------------------------
+
+#: The basis a plain self-grade's disclosure rows start with
+#: (``reveal_ledger.SELF_GRADE_DISCLOSURE_BASIS``).
+SELF_GRADE_DISCLOSURE_BASIS = "self_grade_disclosure"
+
+#: The disclosure identity's encoding version (round 5, F1-2): a basis
+#: ``self_grade_disclosure:v2:`` followed by canonical JSON with exactly the
+#: fields ``v``, ``submission``, ``trace`` and ``display``. Rows in any other
+#: shape (the round-3 and round-4 colon-joined ones, a hash-less settle row)
+#: are legacy: they count like every routine display and exempt nothing.
+DISCLOSURE_IDENTITY_VERSION = 2
+DISCLOSURE_PREFIX = f"{SELF_GRADE_DISCLOSURE_BASIS}:v{DISCLOSURE_IDENTITY_VERSION}:"
+
+
+def trace_hash(learner_answer_md: str | None) -> str:
+    """The identity of a learner's whole trace (the answer and the volunteered
+    line, as ``trace_evidence.compose_learner_trace`` composes them)."""
+
+    return hashlib.sha256((learner_answer_md or "").encode("utf-8")).hexdigest()[:32]
+
+
+def disclosure_identity(row: Mapping[str, Any]) -> dict[str, Any] | None:
+    """The structured identity a disclosure row carries, or None for any row
+    that is not a well-formed current-version disclosure (legacy rows too)."""
+
+    basis = row.get("basis")
+    if row.get("source_kind") != "answer_display" or not isinstance(basis, str) or not basis.startswith(DISCLOSURE_PREFIX):
+        return None
+    try:
+        identity = json.loads(basis[len(DISCLOSURE_PREFIX):], object_pairs_hook=_unique_fields)
+    except ValueError:
+        return None
+    if (
+        not isinstance(identity, dict)
+        or set(identity) != {"v", "submission", "trace", "display"}
+        # The integer 2 exactly: not 2.0, not a boolean (round 6).
+        or type(identity["v"]) is not int
+        or identity["v"] != DISCLOSURE_IDENTITY_VERSION
+        or not isinstance(identity["submission"], str)
+        or not isinstance(identity["trace"], str)
+        or not (identity["display"] is None or isinstance(identity["display"], str))
+    ):
+        return None
+    return identity
+
+
+def _unique_fields(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Reject a JSON object that names a field twice (``json.loads`` would keep
+    the last value, round 6): such an identity is malformed."""
+
+    identity: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in identity:
+            raise ValueError(f"duplicate identity field {key!r}")
+        identity[key] = value
+    return identity
+
+
+def is_own_disclosure(row: Mapping[str, Any], submission_id: str | None, learner_answer_md: str | None) -> bool:
+    """Is ``row`` the disclosure of exactly this submission: the same retry key
+    AND the hash of exactly this trace, each compared for equality (round 5,
+    F1-2)? The key alone never exempts (a changed trace under the same key was
+    written with the key in view), nor does the trace alone (the same words in
+    another draft came after it); a legacy row never does."""
+
+    if not submission_id:
+        return False
+    identity = disclosure_identity(row)
+    return (
+        identity is not None
+        and identity["submission"] == submission_id
+        and identity["trace"] == trace_hash(learner_answer_md)
+    )
+
+
+def attributable_disclosure_ids(
+    rows: Iterable[Mapping[str, Any]],
+    *,
+    practice_item_id: str,
+    submission_id: str | None,
+    learner_answer_md: str | None,
+) -> frozenset[str]:
+    """THE disclosures attributable to one submission: the plain self-grade
+    disclosure rows (``answer_display``) on the item itself whose identity is
+    exactly this submission's retry key and trace (:func:`is_own_disclosure`).
+
+    The one exemption every reader grants a submission's own self-grade (the
+    key was shown only after the trace was frozen, so it was not seen before
+    the answer): submit's exposure total and auto-prime (:func:`gather`), and
+    a "Check once" read at that attempt (:func:`check_once_at_attempt`), where
+    it is exempt from the exposure and from the learning object's hold alike.
+    A disclosure of another item, of another draft or trace, a legacy row, or
+    any other display is never attributable (orchestrator ruling R2)."""
+
+    if not submission_id:
+        return frozenset()
+    return frozenset(
+        str(row.get("id") or "")
+        for row in rows
+        if str(row.get("practice_item_id") or "") == practice_item_id
+        and row.get("source_kind") == "answer_display"
+        and is_own_disclosure(row, submission_id, learner_answer_md)
+    )
+
+
+def attempt_submission(repository: Any, attempt_id: str | None, practice_item_id: str | None) -> tuple[str | None, str | None]:
+    """``(retry key, trace)`` of the committed attempt ``attempt_id`` on this
+    item: the identity its own disclosure rows must match exactly; ``(None,
+    None)`` without an id, or for an attempt on another item (no exemption)."""
+
+    if not attempt_id or not practice_item_id:
+        return None, None
+    attempt = repository.fetch_practice_attempt(attempt_id)
+    if attempt is None or str(attempt.get("practice_item_id") or "") != practice_item_id:
+        return None, None
+    return str(attempt.get("submission_id") or "") or None, attempt.get("learner_answer_md")
+
+
 # -- inputs -------------------------------------------------------------------------------------
 
 
@@ -240,6 +361,10 @@ class EligibilityInputs:
     the open follow-up tasks of every kind selecting the item, ordered as the
     repository orders them (``not_before, created_at, id``).
 
+    ``exempt_reveal_ids`` are the rows attributable to the submission read
+    (:func:`attributable_disclosure_ids`): exempt from its exposure and from
+    the holds on it.
+
     ``window_until`` (Q33): a historical writer (exam seeding, an exam's
     finish, a kept-state sim) bounds its window at its own instant, so a
     reveal stamped after it, and an attempt after it, do not count. None for
@@ -254,7 +379,7 @@ class EligibilityInputs:
     last_attempt: tuple[str, str] | None = None
     tasks: tuple[FollowupTask, ...] = ()
     window_until: str | None = None
-    #: The submitting draft's own self-grade disclosure rows (exempt, round 5).
+    #: The submission's own self-grade disclosure rows (exempt, round 5; R2).
     exempt_reveal_ids: frozenset[str] = frozenset()
     #: The draft's own declarations (submit only). ``declared_primed`` is the
     #: draft's ``primed`` flag, whoever set it; ``auto_primed`` says submit's
@@ -469,6 +594,10 @@ def cold_task_holds(inputs: EligibilityInputs, task: FollowupTask) -> list[tuple
     holds: list[tuple[RevealRow, str, str]] = []
     for row in inputs.reveals:
         if not in_scope(row):
+            continue
+        if row.id in inputs.exempt_reveal_ids:
+            # The submission's own self-grade disclosure (R2): shown after its
+            # trace was frozen, so it holds nothing back from that trace.
             continue
         if inputs.window_until is not None and row.created_at > inputs.window_until:
             continue
@@ -695,7 +824,8 @@ def gather(
     learning_object_id: str | None,
     at: str,
     window_until: str | None = None,
-    own_disclosure: Callable[[Mapping[str, Any]], bool] | None = None,
+    submission_id: str | None = None,
+    learner_answer_md: str | None = None,
     declared_primed: bool = False,
     auto_primed: bool = False,
     hints_used: int = 0,
@@ -705,9 +835,10 @@ def gather(
 ) -> EligibilityInputs:
     """Read the decision's inputs for one item from ``repository``.
 
-    ``own_disclosure`` marks the submitting draft's own disclosure rows
-    (``reveal_ledger.is_own_disclosure``); ``reveal_rows`` lets a batch caller
-    pass rows it already read (the quick check reads the ledger once)."""
+    ``submission_id`` and ``learner_answer_md`` name the submitting draft:
+    its own disclosure rows are exempt (:func:`attributable_disclosure_ids`);
+    ``reveal_rows`` lets a batch caller pass rows it already read (the quick
+    check reads the ledger once)."""
 
     rows = (
         reveal_rows
@@ -717,13 +848,8 @@ def gather(
         )
     )
     reveals = tuple(RevealRow.from_row(row) for row in rows)
-    exempt = frozenset(
-        str(row.get("id") or "")
-        for row in rows
-        if own_disclosure is not None
-        and str(row.get("practice_item_id") or "") == practice_item_id
-        and row.get("source_kind") == "answer_display"
-        and own_disclosure(row)
+    exempt = attributable_disclosure_ids(
+        rows, practice_item_id=practice_item_id, submission_id=submission_id, learner_answer_md=learner_answer_md,
     )
     attempts = repository.list_recent_attempts_by_practice_item(practice_item_id, limit=1, until=window_until)
     last_attempt = (str(attempts[0]["id"]), str(attempts[0]["created_at"])) if attempts else None
@@ -763,7 +889,15 @@ def check_once_at_attempt(
     out, and the exposure is read since the item's previous attempt, so a
     sibling's reveal holding the learning object, or a routine display still
     covering it, makes the attempt practice even when submit did not prime it
-    (submit reads the item's own exposure only)."""
+    (submit reads the item's own exposure only).
+
+    The disclosures attributable to the attempt are exempt from both, as
+    submit exempted them (:func:`attributable_disclosure_ids` over the
+    attempt's own retry key and trace, :func:`attempt_submission`;
+    orchestrator ruling R2): a frozen self-grade's key, displayed unlinked
+    before the commit, neither exposes the attempt nor holds its learning
+    object. Another item's disclosure, another draft's, or any other display
+    still does (DL2 verify F12)."""
 
     rows = [
         row
@@ -772,6 +906,7 @@ def check_once_at_attempt(
         )
         if str(row.get("attempt_id") or "") != attempt_id
     ]
+    submission_id, learner_answer_md = attempt_submission(repository, attempt_id, practice_item_id)
     earlier = [
         row
         for row in repository.list_recent_attempts_by_practice_item(practice_item_id, limit=5, until=attempt_at)
@@ -784,6 +919,9 @@ def check_once_at_attempt(
         reveals=tuple(RevealRow.from_row(row) for row in rows),
         last_attempt=(str(earlier[0]["id"]), str(earlier[0]["created_at"])) if earlier else None,
         window_until=attempt_at,
+        exempt_reveal_ids=attributable_disclosure_ids(
+            rows, practice_item_id=practice_item_id, submission_id=submission_id, learner_answer_md=learner_answer_md,
+        ),
         check_created_at=check_created_at,
     )
     return decide(inputs, CHECK_ONCE)
@@ -873,15 +1011,22 @@ __all__ = [
     "SERVE",
     "SERVE_AS_ORDINARY",
     "SUBMIT",
+    "DISCLOSURE_IDENTITY_VERSION",
+    "SELF_GRADE_DISCLOSURE_BASIS",
     "active_task",
+    "attempt_submission",
+    "attributable_disclosure_ids",
     "check_once_at_attempt",
     "cold_task_holds",
     "decide",
     "decision_active",
+    "disclosure_identity",
     "gather",
+    "is_own_disclosure",
     "log_decision",
     "pending_writes",
     "retime",
     "submit_exposure",
+    "trace_hash",
     "with_pending_writes",
 ]

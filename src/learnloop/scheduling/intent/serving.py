@@ -43,11 +43,20 @@ check's; when none is, a time-bounded hold (a routine display, a reveal
 since the check was chosen) makes the check wait, and standing exposure
 (the answer shown, which only an attempt absorbs) serves the item as
 practice, labelled so (``CheckState.servable``, ``eligible``). Nothing is
-persisted: the decision is recomputed at every build and every serve. A
-candidate routine serving never offers (retired, held-out, reserved, put
-away: ``serving_exclusions.routine_withhold_reason``) is left out before
-that choice, so it can never suppress a candidate that can be served (DL2
-Codex re-review F11).
+persisted: the decision is recomputed at every build and every serve.
+
+**Admission first** (orchestrator ruling R1): the cold-over-practice choice is
+made only among the candidates the scheduler's one admission predicate
+admits (``serving_exclusions.admission_reason``: the routine gate, the
+diagnostic freshness reserve, placement, the cold-start gate and the
+probe-episode gates, a candidate asked as the request it becomes). A
+candidate the build would not serve (retired, held out, a fresh diagnostic
+surface outside its probe episode, ...) can neither be the check nor
+suppress one that can (DL2 Codex re-review F11, verify reopening). The split
+is made on first use: ``build_due_queue`` binds its own admission
+(:meth:`IntentServing.bind_admission`) before it reads a check; any other
+view (the plan, the practice view, settling) gets the same predicate over its
+own reads (``scheduler.check_admission``).
 
 **The successor** (DL2 Codex re-review F2): intent is ``mvp-0.29``, behind
 the kill switch ``intent.enabled``. Below the tag, or switched off,
@@ -168,11 +177,38 @@ class IntentServing:
     item_learning_objects: Mapping[str, str]
     recall_targets_enabled: bool
     weights: tuple[float, ...]
-    checks: dict[str, CheckState]
+    #: Every pending check, dated and answered, before the split (R1).
+    raw_checks: dict[str, CheckState]
     _anchor_loader: Any = None
     _anchors: dict[str, tuple[str, str]] | None = None
     _intents: dict[str, ItemIntent] = field(default_factory=dict)
     _fallback_items: dict[str, set[str]] = field(default_factory=dict)
+    #: ``eligibility(item_id, check_created_at)``: the one eligibility decision's verdict.
+    _eligibility: Any = None
+    #: ``admitted(item_id)``: the build's admission predicate (R1).
+    _admission: Any = None
+    #: Builds the admission for a view no queue build bound (``scheduler.check_admission``).
+    _admission_factory: Any = None
+    _checks: dict[str, CheckState] | None = None
+
+    # -- the checks, split among admitted candidates (R1) ----------------------
+
+    def bind_admission(self, admitted: Any) -> None:
+        """Split the due checks with this admission (``build_due_queue``'s own)."""
+
+        self._admission = admitted
+        self._checks = None
+
+    @property
+    def checks(self) -> dict[str, CheckState]:
+        if self._checks is None:
+            if self._admission is None and self._admission_factory is not None:
+                self._admission = self._admission_factory(self)
+            self._checks = {
+                commitment_id: split_check(check, eligibility=self._eligibility, admitted=self._admission)
+                for commitment_id, check in self.raw_checks.items()
+            }
+        return self._checks
 
     # -- per item ------------------------------------------------------------
 
@@ -371,21 +407,17 @@ def build_checks(
     now: datetime,
     default_days: int,
     attempts_since: Any,
-    eligibility: Any = None,
     cold_at: Any = None,
-    routinely_servable: Any = None,
 ) -> tuple[dict[str, CheckState], Resolution]:
     """Every pending "Check once" with its date and the items it decides;
     answered ones are folded to ``satisfied`` in the returned resolution.
+    Not yet split (:func:`split_check` does that among admitted candidates).
 
     ``attempts_since(item_ids, since)`` returns attempt rows (``id``,
     ``created_at``, ``primed``, ``hints_used``, ``attempt_type``), oldest
-    first; ``eligibility(item_id, check_created_at)`` the one eligibility
-    decision's verdict for a due candidate (None: every candidate eligible);
-    ``cold_at(row, check_created_at)`` its verdict at an attempt on your own
-    (only ``serve`` answers the check; None: every such attempt does, F3);
-    ``routinely_servable(item_id)`` whether routine serving can offer a due
-    candidate at all (None: every one can, F11)."""
+    first; ``cold_at(row, check_created_at)`` the eligibility verdict at an
+    attempt on your own (only ``serve`` answers the check; None: every such
+    attempt does, F3)."""
 
     checks: dict[str, CheckState] = {}
     answered: list[CommitmentSnapshot] = []
@@ -420,35 +452,15 @@ def build_checks(
             # again from this attempt (F3).
             when, source = at + timedelta(days=int(default_days)), DATE_FROM_PRACTICE
         answered_by = str(answer["id"]) if answer is not None else None
-        due = when <= now
-        eligible: list[str] = []
-        held: list[str] = []
-        exposed: list[str] = []
-        if due and answered_by is None:
-            for item_id in decided:
-                if routinely_servable is not None and not routinely_servable(item_id):
-                    # F11: an item routine serving never offers can neither
-                    # be the check nor suppress a candidate that can.
-                    continue
-                verdict = _SERVE if eligibility is None else eligibility(item_id, snapshot.created_at)
-                if verdict == _SERVE:
-                    eligible.append(item_id)
-                elif verdict == _SERVE_AS_ORDINARY:
-                    exposed.append(item_id)
-                else:
-                    held.append(item_id)
         checks[snapshot.id] = CheckState(
             commitment_id=snapshot.id,
             date=when,
             date_source=source,
             candidates=decided,
-            due=due,
+            due=when <= now,
             answered_by=answered_by,
             item_level=bool(snapshot.item_targets),
             provenance=dict(snapshot.provenance),
-            eligible=tuple(eligible),
-            held=tuple(held),
-            exposed=tuple(exposed),
             created_at=snapshot.created_at,
         )
         if answer is not None:
@@ -456,6 +468,32 @@ def build_checks(
     for snapshot in answered:
         resolution = resolution.with_snapshot(snapshot)
     return checks, resolution
+
+
+def split_check(check: CheckState, *, eligibility: Any = None, admitted: Any = None) -> CheckState:
+    """A due, unanswered check's candidates split by the eligibility decision
+    (``eligibility(item_id, check_created_at)``; None: every one eligible),
+    among those the build admits (``admitted(item_id)``; None: every one).
+
+    A candidate the build would not serve is left out before the split, so
+    it can neither be the check nor suppress one that can be served (R1)."""
+
+    if not check.due or check.answered_by is not None:
+        return check
+    eligible: list[str] = []
+    held: list[str] = []
+    exposed: list[str] = []
+    for item_id in check.candidates:
+        if admitted is not None and not admitted(item_id):
+            continue
+        verdict = _SERVE if eligibility is None else eligibility(item_id, check.created_at)
+        if verdict == _SERVE:
+            eligible.append(item_id)
+        elif verdict == _SERVE_AS_ORDINARY:
+            exposed.append(item_id)
+        else:
+            held.append(item_id)
+    return replace(check, eligible=tuple(eligible), held=tuple(held), exposed=tuple(exposed))
 
 
 def intent_serving(
@@ -519,23 +557,12 @@ def intent_serving(
             check_created_at=check_created_at,
         ).verdict
 
-    routine: dict[str, Any] = {}
+    def default_admission(view: IntentServing) -> Any:
+        # R1: the scheduler's one admission predicate over this view's own
+        # reads (a queue build binds its own instead).
+        from learnloop.scheduling.scheduler import check_admission
 
-    def routinely_servable(item_id: str) -> bool:
-        # F11: the scheduler's routine gate, read once per build and only
-        # when a check is due.
-        from learnloop.scheduling.serving_exclusions import (
-            routine_serving_exclusions,
-            routine_withhold_reason,
-        )
-
-        if not routine:
-            routine["exclusions"] = routine_serving_exclusions(vault, repository)
-            routine["states"] = repository.practice_item_states()
-        item = vault.practice_items.get(item_id)
-        if item is None:
-            return False
-        return routine_withhold_reason(vault, item, routine["states"].get(item_id), routine["exclusions"]) is None
+        return check_admission(vault, repository, now=now, intent_view=view)
 
     checks, resolution = build_checks(
         resolution,
@@ -544,9 +571,7 @@ def intent_serving(
         now=now,
         default_days=int(config.capture.test_me_later_days),
         attempts_since=attempts_since,
-        eligibility=eligibility,
         cold_at=cold_at,
-        routinely_servable=routinely_servable,
     )
 
     def anchors() -> dict[str, tuple[str, str]]:
@@ -559,8 +584,10 @@ def intent_serving(
         item_learning_objects=item_los,
         recall_targets_enabled=recall_on,
         weights=tuple(weights),
-        checks=checks,
+        raw_checks=checks,
         _anchor_loader=anchors,
+        _eligibility=eligibility,
+        _admission_factory=default_admission,
     )
 
 
@@ -575,4 +602,5 @@ __all__ = [
     "intent_enabled",
     "intent_serving",
     "on_your_own",
+    "split_check",
 ]

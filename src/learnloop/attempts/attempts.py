@@ -2589,9 +2589,8 @@ def submit_eligibility_inputs(
     """The eligibility decision's inputs for a submission (the shell around
     ``serve_eligibility``): the ledger, the item's last attempt and its open
     follow-up tasks, with the draft's own disclosure exempt (rounds 4 and 5,
-    F1-2: exactly the trace it froze, ``reveal_ledger.is_own_disclosure``)."""
-
-    from learnloop.attempts.reveal_ledger import is_own_disclosure
+    F1-2: exactly the trace it froze; the one exemption,
+    ``serve_eligibility.attributable_disclosure_ids``, orchestrator ruling R2)."""
 
     return serve_eligibility.gather(
         repository,
@@ -2599,9 +2598,8 @@ def submit_eligibility_inputs(
         learning_object_id=learning_object_id,
         at=at,
         window_until=window_until,
-        own_disclosure=(
-            (lambda row: is_own_disclosure(row, submission_id, learner_answer_md)) if submission_id else None
-        ),
+        submission_id=submission_id,
+        learner_answer_md=learner_answer_md,
         declared_primed=declared_primed,
         auto_primed=auto_primed,
         hints_used=hints_used,

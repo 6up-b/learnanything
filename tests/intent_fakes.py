@@ -75,13 +75,22 @@ class IntentVault:
 
 
 def make_intent_vault(
-    root: Path, *, plan_toml: str | None = None, reviewed_days_ago: int = 10, version: str = INTENT_ALGORITHM_VERSION
+    root: Path,
+    *,
+    plan_toml: str | None = None,
+    reviewed_days_ago: int = 10,
+    version: str = INTENT_ALGORITHM_VERSION,
+    unattempted: tuple[str, ...] = (),
 ) -> IntentVault:
+    """``unattempted``: items left with no attempt and no state (never served)."""
+
     paths = create_daily_plan_vault(root, learning_objects=LEARNING_OBJECTS, plan_toml=plan_toml, version=version)
     vault = load_vault(paths.root)
     repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
     reviewed = NOW - timedelta(days=reviewed_days_ago)
     for item_id, lo_id in sorted(ITEM_LO.items()):
+        if item_id in unattempted:
+            continue
         record_attempt(repository, item_id, lo_id, reviewed)
         seed_due(repository, item_id, due=NOW - timedelta(days=1), last=reviewed)
     for lo_id in LEARNING_OBJECTS:
