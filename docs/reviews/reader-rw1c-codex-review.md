@@ -876,3 +876,61 @@ Not run, by the owner rule: the full suite, the whole durability lane and the wh
 unchanged: `desktop_validate.py` (`syntheticBook.ts`) and `module_validate.py` (missing module notes; the new
 `learnloop/text_canon.py` is one more leaf without a note). No migration, no DB or connection change, nothing under
 `src-tauri` and no configuration key change.
+
+## Fix round 12 (orchestrator rulings)
+
+Codex's verify of fix round 11 (`1ac5b3ac9`; job `20261020-011901-4FpwD0`, read-only) confirmed F10 and the original
+F8 whitespace cases (576 union, 105 normalisation and cache parity, 136 unbound, 16 + 16 base, 54 + 36 counting) and
+**reopened F8 (High)**: `canonical()` was not idempotent. "A", a zero-width space and a combining ring canonicalised
+once to "A" + ring (removing the format character exposed a composition), again to "Å". The plan delivered the
+once-canonical text while the guard re-canonicalised and scored "Å = 2" (0.0); the exact delivered fragment scores
+1.0 against the key "a = 2" in a cold tutor thread. Round 11's contract test re-canonicalised too, so it missed it.
+The fix is in `459f4b4ec`. The references were regenerated on top of it (no citation had moved) and are committed
+with this record. **Nothing was rejected.**
+
+**Paid calls: none ($0.00).** Every model is a fake. No vault copy was opened, and no manual run was made.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F8 (round 12, reopened) | High | Non-idempotent canonicalisation makes the guard score different text from delivery | fixed (R1-R3) | `459f4b4ec` | `test_reader_rw1c_review.py::test_the_verifys_cold_thread_case_delivers_what_was_scored` ×2 (cold, and non-cold; old code: the delivered "A" + ring was not a fixed point and the matcher found the key in it); `::test_canonical_is_a_fixed_point`; `::test_the_guard_reads_only_delivered_text`; the contract `::test_every_sent_model_written_fragment_was_checked` gains the `cf_combining` variant (×12, all failing on the old code) and now scores the exact delivered bytes |
+| F10 | Medium | Whole-token cutting splits display-math groups | confirmed fixed by Codex | — | no change |
+| F9 (round 7) | High | Same-second timestamp boundary | non-blocking (orchestrator ruling, round 7); its own follow-up | — | unchanged |
+
+### What the fix does
+
+* **R1: a true fixed point.** `text_canon.canonical` repeats its pass (NFKC, remove category `Cf`, collapse
+  whitespace) until nothing changes (bounded at 16 passes; it raises rather than return a non-fixed point, which no
+  input has produced). `canonical(canonical(x)) == canonical(x)` is tested over every string of up to three
+  characters of an alphabet of bases, format characters between bases and combining marks, Hangul jamo and
+  syllables, compatibility forms (ligatures, fullwidth, circled digits, fractions, Ohm and Angstrom signs) and every
+  kind of whitespace, and over 20,000 seeded longer strings.
+* **R2: the guard scores exactly what is delivered.** `ItemBoundGuard.text_leaks` and `.text_overlap` no longer
+  transform their input: they check that it is already canonical (`canonical(x) == x`) and refuse it otherwise
+  (`ValueError`), so a mismatch fails loudly instead of being scored as other text. `plan_bound_delivery` is the
+  only place canonicalisation happens: every model-written slot is canonicalised there, the fitted practice question
+  too, and a call's union is its canonical fragments joined by one space (`reader_modes._JOIN`, empty stand-ins
+  skipped), which is itself canonical.
+* **R3: the contract scores the exact bytes.** `::test_every_sent_model_written_fragment_was_checked` now compares the
+  query exactly (no re-canonicalisation), asserts every delivered model-written fragment is a canonical fixed point,
+  and scores the exact delivered union with both the underlying matcher (`span_leaks_expected`) and the guard. Its
+  variants add `cf_combining` (a zero-width space between "a" and a combining ring, and between "x" and an acute).
+  The verify's cold-thread reproduction runs end to end, cold and not.
+
+### Gate (fix round 12)
+
+All steps ran in the worktree with `TMPDIR=fixtures-local/tmp`. Only targeted tests were run (owner rule
+2026-10-17). The pytest runs took `/tmp/learnloop-fullsuite.lock`.
+
+| step | result |
+|---|---|
+| backend fail-before on `1ac5b3ac9` (`git archive` of `src` and `migrations` into `fixtures-local/rw1c-r12-base`, run with this branch's tests and `-o pythonpath=fixtures-local/rw1c-r12-base/src`) | the 16 new cases (the fixed-point test, the guard test, the two cold-thread cases, the 12 `cf_combining` contract cases): **16 failed**. The contract's 72 earlier variants, now scoring exact bytes, pass on both trees |
+| `uv run lint-imports --no-cache` | 28 kept, 0 broken |
+| targeted pytest, `uv run pytest -n auto` over the 58 files of round 11 | **1,437 passed** (71 s) |
+| `--durable-sqlite` on the contract and the new cases | **88 passed** |
+| vitest, `src/screens/reader/` and the `ReaderScreen.*.test.tsx` files (no frontend change) | **399 passed** |
+| `db_generate_reference.py`, then `db_validate_reference.py` | 0 errors (head 213); no line citation had moved |
+| `git diff --check` | clean |
+
+Not run, by the owner rule: the full suite, the whole durability lane and the whole vitest run. Pre-existing and
+unchanged: `desktop_validate.py` (`syntheticBook.ts`) and `module_validate.py` (missing module notes). No migration, no
+DB or connection change, nothing under `src-tauri` and no configuration key change.
