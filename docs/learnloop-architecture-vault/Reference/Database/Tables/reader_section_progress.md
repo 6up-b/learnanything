@@ -3,8 +3,8 @@ title: "reader_section_progress"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "915228c379af9ccecb25f5e3f642d63e97d1b294"
-source_commit_timestamp: "2026-10-19T21:54:42-04:00"
+source_commit: "f0c85f2f7d750a4a8b407d4e0936bfd5f1f64501"
+source_commit_timestamp: "2026-10-19T22:55:20-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_section_progress"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/106_reader_section_progress.sql"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/daily_plan/reading.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/instructional/exposure.py"
-  - "src/learnloop/reader/reader_progression.py"
   - "src/learnloop/content/pipeline/reread.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop_sidecar/handlers/reader.py"
@@ -119,6 +119,7 @@ Indexes and uniqueness:
 
 - `tests/test_ad1_migration.py`
 - `tests/test_ad1_reading_opportunities.py`
+- `tests/test_ad23_fix_r8.py`
 - `tests/test_ad3_reading.py`
 - `tests/test_salience_firewall.py`
 - `tests/test_daily_plan_reading.py`

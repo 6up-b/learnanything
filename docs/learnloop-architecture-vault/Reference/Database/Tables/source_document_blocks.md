@@ -3,8 +3,8 @@ title: "source_document_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "915228c379af9ccecb25f5e3f642d63e97d1b294"
-source_commit_timestamp: "2026-10-19T21:54:42-04:00"
+source_commit: "f0c85f2f7d750a4a8b407d4e0936bfd5f1f64501"
+source_commit_timestamp: "2026-10-19T22:55:20-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_blocks"
@@ -26,7 +26,7 @@ source_paths:
   - "src/learnloop/db/stores/source_block_fts.py"
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/hints/state.py"
-  - "src/learnloop/adaptive_difficulty/reading.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/practice_leakage.py"
   - "src/learnloop/content/pipeline/exam_marking.py"
@@ -121,7 +121,7 @@ Database triggers:
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/adaptive_difficulty/reading.py`
+- `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/content/authoring/exercise_authoring.py`
 - `src/learnloop/content/authoring/practice_leakage.py`
 - `src/learnloop/content/pipeline/exam_marking.py`

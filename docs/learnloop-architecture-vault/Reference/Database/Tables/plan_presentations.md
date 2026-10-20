@@ -3,8 +3,8 @@ title: "plan_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "915228c379af9ccecb25f5e3f642d63e97d1b294"
-source_commit_timestamp: "2026-10-19T21:54:42-04:00"
+source_commit: "f0c85f2f7d750a4a8b407d4e0936bfd5f1f64501"
+source_commit_timestamp: "2026-10-19T22:55:20-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite plan_presentations"
@@ -20,13 +20,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/202_router_staged_frame.sql"
   - "src/learnloop/adaptive_difficulty/forecasters.py"
-  - "src/learnloop/adaptive_difficulty/outside.py"
-  - "src/learnloop/adaptive_difficulty/replay.py"
-  - "src/learnloop/adaptive_difficulty/report.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/scoring.py"
   - "src/learnloop/adaptive_difficulty/serve.py"
-  - "src/learnloop/adaptive_difficulty/serving.py"
   - "src/learnloop/daily_plan/engine.py"
+  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/plan_presentations.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -102,11 +101,7 @@ Database triggers:
 
 ### Direct SQL readers
 
-- `src/learnloop/adaptive_difficulty/outside.py`
-- `src/learnloop/adaptive_difficulty/replay.py`
-- `src/learnloop/adaptive_difficulty/report.py`
-- `src/learnloop/adaptive_difficulty/scoring.py`
-- `src/learnloop/adaptive_difficulty/serving.py`
+- `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/db/stores/plan_presentations.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 
@@ -125,6 +120,7 @@ None found by exact static reference scan.
 
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad23_fix_review.py`
+- `tests/test_ad23_material_view.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_architecture.py`
 - `tests/test_evsi_staged_binding.py`

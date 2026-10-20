@@ -3,8 +3,8 @@ title: "reader_authored_questions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "915228c379af9ccecb25f5e3f642d63e97d1b294"
-source_commit_timestamp: "2026-10-19T21:54:42-04:00"
+source_commit: "f0c85f2f7d750a4a8b407d4e0936bfd5f1f64501"
+source_commit_timestamp: "2026-10-19T22:55:20-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_authored_questions"
@@ -19,7 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/105_reader_authored_questions.sql"
-  - "src/learnloop/adaptive_difficulty/dose.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/db/repositories.py"
@@ -115,8 +115,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/adaptive_difficulty/dose.py`
-- `src/learnloop/adaptive_difficulty/reading.py`
+- `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
@@ -136,7 +135,6 @@ Indexes and uniqueness:
 - `src/learnloop/reader/active_reading.py`
 - `src/learnloop/reader/reader_guidance.py`
 - `src/learnloop/reader/reader_quick_check.py`
-- `src/learnloop_sidecar/handlers/adaptive_difficulty.py`
 - `src/learnloop_sidecar/handlers/reader.py`
 - `src/learnloop_sidecar/handlers/reader_intent.py`
 
@@ -145,6 +143,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_ad23_material_view.py`
 - `tests/test_learner_text_source_widening.py`
 - `tests/test_reader_active_reading.py`
 - `tests/test_reader_passage_check.py`

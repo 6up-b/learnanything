@@ -609,3 +609,163 @@ under rulings R1 and R2, in commit `915228c37`, with no migration change. The re
 | `--durable-sqlite`: `test_ad23_fix_r7.py`, `test_ad23_fix_r6.py`, `test_ad23_fix_r5.py` | 15 passed |
 | references: `db_generate_reference.py`, `db_validate_reference.py` | 0 errors (commit labels; no schema change) |
 | migration 214, head fixture, defaults snapshots, CLI help, vitest, `cargo check` | unchanged or not applicable |
+
+## Fix round 8: one protected material view (verify F19-F27, 2026-10-19)
+
+Codex's verify of round 7 (codex-job `20261019-215812-pCHeIT`, verdict REOPENED) confirmed F17 and
+F18. Its full A8 audit then found seven High leaks (F19-F25) and two Medium findings (F26, F27). Point
+fixes had not converged, so the orchestrator's ruling was structural: one protected material view for
+AD, enforced by an architecture test. The ruling also says to fix inherited readers here, because
+AD2+AD3 is what makes them live. Commit `f0c85f2f7` carries the fix, with no migration change. The
+regressions are in `tests/test_ad23_fix_r8.py` (16 tests) and `tests/test_ad23_material_view.py`
+(4 tests). No model calls: fakes only.
+
+| Id | Severity | Title | Origin | Verdict | Commit | Test |
+|---|---|---|---|---|---|---|
+| F17, F18 | High, Medium | (confirmed fixed by the verify) | stage | fixed | `915228c37` | round-7 tests pass |
+| F19 | High | Replay and reading mappings still admit protected items | the replay's facet map is this stage's (AD3); the Reader map's `lo_for_item`/`facets_for_lo` are inherited from AD1 | fixed | `f0c85f2f7` | `test_a_withheld_items_facet_never_enters_the_facet_maps_or_the_reading_map`, `test_a_claim_moves_no_forecast_through_a_withheld_items_facet` |
+| F20 | High | Excluded held-out attempts still change forecasts and replay state | stage (AD2/AD3: serve warmth, replay exposures and windows, replayed receipts) | fixed | `f0c85f2f7` | `test_an_attempt_on_held_out_material_warms_nothing_and_is_invisible_to_the_replay`, `test_a_reading_receipt_whose_source_is_held_out_now_is_not_replayed` |
+| F21 | High | AD generation prompts still contain protected item metadata | inherited generation helpers, made live by the stage's commissioned path | fixed | `f0c85f2f7` | `test_a_withheld_items_metadata_never_reaches_an_ad_generation_target` |
+| F22 | High | AD selection uses a switchable protection filter and does not fail closed | stage (`ad_slot`); the routine exclusions' switch is inherited | fixed | `f0c85f2f7` | `test_ad_selection_withholds_held_out_material_with_held_out_selection_off`, `test_an_unreadable_predicate_makes_ad_unavailable_and_the_incumbent_serves` |
+| F23 | High | The dose arm can select and return a held-out question | stage (AD3 dose arm) | fixed | `f0c85f2f7` | `test_the_dose_arm_never_offers_or_returns_a_held_out_question` |
+| F24 | High | In-process forecasts and outside-signal calibration retain unfiltered history | inherited from AD1 (challenger, `z_v1` recalibration) | fixed | `f0c85f2f7` | `test_the_challengers_history_never_reads_a_withheld_items_answer`, `test_z_v1_calibration_never_reads_a_withheld_items_forecast` |
+| F25 | High | Report sensitivity re-forecasts currently protected items | stage (AD3 report) | fixed | `f0c85f2f7` | `test_report_sensitivity_never_re_forecasts_a_withheld_item` |
+| F26 | Medium | Ungraded or protected attempts erase the recorded dose moderator | stage (AD3 dose arm) | fixed | `f0c85f2f7` | `test_the_dose_moderator_window_closes_only_at_a_visible_graded_attempt` |
+| F27 | Medium | Held-out attempt durations change the practice burden recommendation | stage (AD3 report) | fixed | `f0c85f2f7` | `test_practice_minutes_come_from_the_visible_practice_cohort` |
+| (ruling) | | The boundary, enforced | | built | `f0c85f2f7` | `test_ad23_material_view.py`; the degradation tests (selection, generation, report, dose) in `test_ad23_fix_r8.py` |
+
+### What changed
+
+- **The view** (`src/learnloop/adaptive_difficulty/material_view.py`). `material_view(vault,
+  repository)` computes the held-out predicate once per operation; a caller passes the view on rather
+  than recomputing it.
+  - It is the only reader AD uses for items, item facets and surface families, attempts (with
+    latency), field rows, the observation ledger, Reader questions, reading-opportunity receipts,
+    plan presentations, reveals, saved revisions and forecast history.
+  - Each reader is filtered by `Protection.covers`: held-out material plus current exam reservations.
+    A withheld item's attempts, presentations, reveals, forecasts and receipts are withheld with it,
+    and so is any facet only withheld items name.
+  - Reading receipts are revalidated by resolving their source again. A source row deleted since
+    leaves its frozen receipt standing (§5.11); an unreadable one is withheld.
+  - The protection never reads `goals.held_out_selection`.
+  - When the predicate is unavailable, the view is empty (`UNAVAILABLE`).
+- **Replay** (`replay.load_events`, `snapshot`, `rebuild`; `relatedness.load_structure`; scoring).
+  - Attempts, reveals, presentations, the ledger, field rows, revisions and receipts come from the
+    view. An attempt on a withheld item (or on a withheld revision) is invisible: no event, no
+    reading window closed, no first surface taken, no warmth.
+  - The facet maps are the view's. `relatedness.facet_maps` is gone; `lo_facets(view, lo)`
+    delegates to the view.
+  - The `held_out` exclusion reason no longer appears: a withheld attempt is absent, not excluded.
+- **Serving** (`serving._warmth`, `decide_slot`, `_maybe_commission`, `threshold_receipts`,
+  `frozen_loadings`, `why_for_presentation`) and **the serve hook** (`serve.record_plan_serve`).
+  - One view per serve and per slot. Warmth reads the view's attempts, reveals and revalidated
+    receipts.
+  - `predict.current_spec`, `serve_inputs.signal_vector`, `z_v1_recalibration` and `_z_v1` take the
+    view, so `z_v1`'s calibration observations are the view's forecasts and attempts (F24).
+- **Selection** (`daily_plan/ad_slot.py`, `daily_plan/engine._ad_slot_serve`).
+  - `slot_view` raises `AdUnavailable` when the predicate is unavailable, and so does a failing
+    routine exclusion. The engine then serves the planned item as the incumbent does: nothing is
+    written, and no exception reaches the caller (F22).
+  - A withheld candidate fails check 0 with `held_out` whatever the routine switch says.
+  - `deferrals_to_clear` releases nothing while AD is unavailable.
+- **Generation**.
+  - `generation.lo_cell_facet(view, ...)` and `commission_point(..., view=)`: unavailable means no
+    commission.
+  - `record_landed_commissions(..., view=)`.
+  - In `practice_generation`, under the generation contract with an available view, the targets'
+    counts (and so the deficit), facet unions and surface families come from `view.items()` (F21).
+    With the contract off, or the view unavailable, the shared helpers read the vault exactly as
+    before (`items=None`), and `_ad_commissioned_rung` returns the predecessor's rung.
+- **The reading sweep** (`reading.VaultReadingMap`, `sweep`).
+  - The map's held-out check, section spans, `lo_for_item` and `facets_for_lo` are the view's (F19).
+  - The Reader-question collectors read the view's questions.
+  - A sweep with the predicate unavailable records nothing, so the next sweep that can tell reads
+    those rows.
+- **The dose arm** (`dose.feasible_variants`, `decide`, `dose_taken`, `offer_withheld`; the
+  `reader.dose_offer` RPC).
+  - Extras come from the view: an example on held-out material, or a question whose extraction,
+    anchors or cited spans are held out, is never feasible.
+  - A cached draw whose extra is withheld now returns no offer (`withheld`), and the RPC
+    revalidates the question at response time (F23).
+  - With the predicate unavailable, nothing is drawn (`protection_unavailable`).
+  - F26: the moderator's window closes at the LOs' last visible attempt that closes a window as the
+    replay reads it (`material_view.closes_window`: graded, not a skip or self-report). Only visible
+    receipts count.
+- **The report.** `arms.prequential` returns its view, which the report reuses.
+  - Field comparators read `view.field_rows`.
+  - Sensitivity revalidates each support member, re-forecasts only visible ones, and discloses
+    `support_refs` and `withheld` (F25).
+  - Practice minutes are the median of the practice cohort (`view.practice_minutes`: visible, graded
+    practice answers with a positive latency; F27).
+  - Offer outcomes read the view's reveals.
+  - A new `protection` block discloses `available`, `reason` and the withheld-item count. With the
+    predicate unavailable, the report has zero observations and says why.
+- **The rest.**
+  - Readiness and router-card cells, the outside forecasters' history card and presentation lookup
+    (`presentation_status` keeps a withheld presentation reported `protected`), backfill
+    (`view.audit_revisions` keeps the `protected_skipped` count) and background preparation (a
+    withheld unit reports `protected` and leaves the queue settled) all read through the view.
+  - The in-process challenger rebuilds on `view.field_rows` (F24).
+- **The boundary test** (`tests/test_ad23_material_view.py`). It is an AST scan over every module of
+  `adaptive_difficulty/`, `daily_plan/ad_slot.py` and the sidecar's AD handlers, plus the commissioned
+  functions of `practice_generation.py`, for the raw readers:
+  - the vault's item map (`.practice_items`, `getattr(..., "practice_items")`);
+  - `load_attempt_rows`, `load_authoritative_observation_ledger`, the held-out predicate functions
+    and `get_reader_authored_question`;
+  - SQL reads (`FROM`/`JOIN`, docstrings excluded) of `practice_attempts`,
+    `reader_authored_questions`, `plan_presentations`, `reveal_events`, `practice_item_snapshots` and
+    `ad_reading_opportunities`.
+
+  The allowlist: the view, the predicate (`protection.py`), `data_check.py` (descriptive inventory),
+  and three background-queue scheduling functions. Those functions compute revision keys of work to
+  prepare; each run reads them back through its own view. They stay outside the view because
+  computing the predicate at scheduling would drop a batch that fails before its first revision
+  (AD1 fix round 5's regression). One test checks that the scan itself catches a planted leak.
+- **Tests touched.**
+  - The round-7 targeting test now uses the view.
+  - The reading tests' fake `VaultReadingMap` factories accept the view.
+  - `why_for_presentation` callers pass a view.
+  - `test_ad3_subject_view` passes a view to `load_structure`.
+  - `test_salience_firewall`'s reader allowlist adds `material_view.py`, which revalidates the
+    receipts and still hands them to the replay only through the carve-out.
+- **The spec.** A8 names the view as the boundary, its fail-closed degradations and its test.
+
+**Fail-before.** `git archive 7afd509fb src migrations` into `fixtures-local/ad23-r8-base`, run with
+`-o pythonpath=fixtures-local/ad23-r8-base/src`: **15 of the 16 behavioural tests fail**, on
+behaviour, with the verify's own figures:
+
+| Finding | Before | Now |
+|---|---|---|
+| F19 facet map | `['secret'] == []` | none |
+| F19 forecast | 0.7807798714 | 0.49 |
+| F20 warmth | 0.84648172 | 0 |
+| F20 replayed receipts | two receipts | one |
+| F21 existing items | `2 == 1` | 1 |
+| F22, switch off | the held-out item drawn | never drawn or served |
+| F22, unreadable predicate | `RuntimeError` | the incumbent serves |
+| F23 | `extra_question` feasible | not offered |
+| F24 challenger | the spy saw the attempt | not read |
+| F24 `z_v1` | `n = 1` | `n = 0` |
+| F25 | the spy saw the item | not re-forecast |
+| F26 | `worked_example` 0 | 1 |
+| F27 | 500.5 minutes | 1 |
+| report with predicate unavailable | no `protection` block | disclosed |
+| dose with predicate unavailable | drew | `protection_unavailable` |
+
+The 16th test, the generation degradation, passes on both trees: the old tree also commissioned
+nothing with the predicate raising. The boundary scan, run over the old tree's sources, reports **61
+raw reads** in 18 files (0 now).
+
+### Gate (this round; owner rule 2026-10-17: targeted only)
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 27 kept, 0 broken |
+| `test_ad23_fix_r8.py`, `test_ad23_material_view.py` | 20 passed |
+| targeted pytest, `uv run pytest -n auto` over 113 files: round 7's 101, the two new files and the generation tests this round touches (`test_ingest_instrument_gates`, `test_facet_diagnostics_v03`, `test_persona_gate`, `test_practice_item_quality_gates`, `test_difficulty_band_guards`, `test_reader_progression`, `test_practice_leakage`, `test_goal_scope_material`, `test_recall_coverage_interventions`, `test_tutor_promotion_w2`, `test_serving_exclusions`) | **7,284 passed, 36 xfailed, 2 failed** (978 s) |
+| the two failures | `test_salience_firewall::test_ad_replayer_reads_the_receipt_only_through_the_carve_out` (its allowlist predates the view; updated); `test_ad3_subject_view::test_coupling_is_prediction_only`, whose plain-vs-adversarial evidence masses differed by a uniform 0.9916 factor once, under the gate's load. It passes in isolation and 6 of 6 repeats, and its evidence tables are written by code outside AD. Recorded as a load-sensitive flake to watch at the landing gate |
+| rerun: `test_ad3_subject_view.py`, `test_salience_firewall.py` | 5,544 passed (three runs) |
+| `--durable-sqlite`: `test_ad23_fix_r8.py`, `test_ad23_material_view.py`, `test_ad23_fix_r7.py`, `test_ad23_migration.py` | 29 passed |
+| kill switch off | round 5's parity test (`test_with_the_kill_switch_off_today_projects_the_predecessors_blocks`) passes in the gate; with AD off no view is computed on the plan path |
+| references: `db_generate_reference.py`, `db_validate_reference.py` | 0 errors (commit labels; no schema change) |
+| migration 214, defaults snapshots, CLI help, vitest, `cargo check` | unchanged or not applicable |

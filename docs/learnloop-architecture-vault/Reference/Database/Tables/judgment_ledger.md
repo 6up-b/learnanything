@@ -3,8 +3,8 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "915228c379af9ccecb25f5e3f642d63e97d1b294"
-source_commit_timestamp: "2026-10-19T21:54:42-04:00"
+source_commit: "f0c85f2f7d750a4a8b407d4e0936bfd5f1f64501"
+source_commit_timestamp: "2026-10-19T22:55:20-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
@@ -22,11 +22,11 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/__init__.py"
   - "src/learnloop/adaptive_difficulty/data_check.py"
   - "src/learnloop/adaptive_difficulty/feature_audit.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/outside.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/adaptive_difficulty/relatedness.py"
   - "src/learnloop/adaptive_difficulty/replay.py"
-  - "src/learnloop/adaptive_difficulty/serve_inputs.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -102,6 +102,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/adaptive_difficulty/data_check.py`
 - `src/learnloop/adaptive_difficulty/feature_audit.py`
+- `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/adaptive_difficulty/reading.py`
 - `src/learnloop/adaptive_difficulty/relatedness.py`
 - `src/learnloop/adaptive_difficulty/serving.py`

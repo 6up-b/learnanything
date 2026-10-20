@@ -3,8 +3,8 @@ title: "Config - error_impacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "915228c379af9ccecb25f5e3f642d63e97d1b294"
-source_commit_timestamp: "2026-10-19T21:54:42-04:00"
+source_commit: "f0c85f2f7d750a4a8b407d4e0936bfd5f1f64501"
+source_commit_timestamp: "2026-10-19T22:55:20-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml error_impacts"
@@ -29,8 +29,8 @@ source_paths:
   - "tests/test_activity_substrate.py"
   - "tests/test_ad1_codex_review_fixes.py"
   - "tests/test_ad1_reading_opportunities.py"
+  - "tests/test_ad23_fix_r8.py"
   - "tests/test_ad23_fix_review.py"
-  - "tests/test_ad23_successor.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/error-impacts"
@@ -87,8 +87,8 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_activity_substrate.py`
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_reading_opportunities.py`
+- `tests/test_ad23_fix_r8.py`
 - `tests/test_ad23_fix_review.py`
-- `tests/test_ad23_successor.py`
 
 ## Extension and modification guidance
 

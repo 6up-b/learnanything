@@ -3,8 +3,8 @@ title: "practice_item_snapshots"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "915228c379af9ccecb25f5e3f642d63e97d1b294"
-source_commit_timestamp: "2026-10-19T21:54:42-04:00"
+source_commit: "f0c85f2f7d750a4a8b407d4e0936bfd5f1f64501"
+source_commit_timestamp: "2026-10-19T22:55:20-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_snapshots"
@@ -22,11 +22,11 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/__init__.py"
   - "src/learnloop/adaptive_difficulty/backfill.py"
   - "src/learnloop/adaptive_difficulty/feature_audit.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protection.py"
   - "src/learnloop/adaptive_difficulty/replay.py"
   - "src/learnloop/adaptive_difficulty/serve_inputs.py"
   - "src/learnloop/attempts/attempts.py"
-  - "src/learnloop/db/repositories.py"
   - "src/learnloop/scheduling/scheduler.py"
 tags:
   - "learnloop/database/table"
@@ -90,8 +90,7 @@ Database triggers:
 
 ### Direct SQL readers
 
-- `src/learnloop/adaptive_difficulty/backfill.py`
-- `src/learnloop/adaptive_difficulty/replay.py`
+- `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/field/item_content.py`
 - `src/learnloop/field/outcomes.py`
@@ -112,6 +111,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_ad1_codex_review_fixes.py`
+- `tests/test_ad23_material_view.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_architecture.py`
 - `tests/test_collection_dataset.py`

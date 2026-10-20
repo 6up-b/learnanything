@@ -3,8 +3,8 @@ title: "forecasts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "915228c379af9ccecb25f5e3f642d63e97d1b294"
-source_commit_timestamp: "2026-10-19T21:54:42-04:00"
+source_commit: "f0c85f2f7d750a4a8b407d4e0936bfd5f1f64501"
+source_commit_timestamp: "2026-10-19T22:55:20-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite forecasts"
@@ -23,10 +23,10 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/background.py"
   - "src/learnloop/adaptive_difficulty/claims.py"
   - "src/learnloop/adaptive_difficulty/forecasters.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/monitoring.py"
   - "src/learnloop/adaptive_difficulty/outside.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
-  - "src/learnloop/adaptive_difficulty/replay.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/evsi_calibration/forecast_report.py"
   - "src/learnloop/evsi_calibration/live_report.py"
@@ -132,6 +132,7 @@ Indexes and uniqueness:
 - `tests/test_ad1_migration.py`
 - `tests/test_ad1_send_guard.py`
 - `tests/test_ad23_fix_r5.py`
+- `tests/test_ad23_fix_r8.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_architecture.py`
 - `tests/test_chatgpt_plan_landing.py`
@@ -145,7 +146,6 @@ Indexes and uniqueness:
 - `tests/test_regrade_contract_successor.py`
 - `tests/test_ux_phase4_landing.py`
 - `tests/test_voi_forecasts.py`
-- `tests/test_voi_merge_composition.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

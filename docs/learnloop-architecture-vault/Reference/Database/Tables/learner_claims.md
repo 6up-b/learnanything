@@ -3,8 +3,8 @@ title: "learner_claims"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "915228c379af9ccecb25f5e3f642d63e97d1b294"
-source_commit_timestamp: "2026-10-19T21:54:42-04:00"
+source_commit: "f0c85f2f7d750a4a8b407d4e0936bfd5f1f64501"
+source_commit_timestamp: "2026-10-19T22:55:20-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_claims"
@@ -126,6 +126,7 @@ Indexes and uniqueness:
 - `tests/test_init.py`
 - `tests/test_question_promotions.py`
 - `tests/test_tutor_promotion_service.py`
+- `tests/test_ad23_fix_r8.py`
 - `tests/test_agent_runs.py`
 - `tests/test_anti_double_count.py`
 - `tests/test_attempt_ai_flow.py`
