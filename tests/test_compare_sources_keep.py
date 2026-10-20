@@ -1610,3 +1610,118 @@ def test_remove_on_a_withheld_comparison_answers_only_a_status(library, monkeypa
         "askId": asked["askId"], "kept": None, "removed": True}
     assert quote not in json.dumps(removed)
     assert _ask(repository, asked["askId"])["kept_at"] is None
+
+
+# -- fix round 6 (orchestrator rulings; Codex verify of fix round 5, F1, F3, F4) ----------------
+
+
+def test_a_take_sent_as_the_acting_ask_after_it_moved_on_keeps_its_provenance(library, monkeypatch):
+    """F1: the UI now sends the ask the learner is in (B). B compared again
+    since, but its table still shows C (kept by A): the sidecar finds A's keep,
+    records B, and B's anchor held out later withholds C."""
+
+    _paths, ctx, repository, spans, _asked = library
+    a_id = _ask_at(ctx, "t5")
+    table = _stored(monkeypatch, ctx, repository, a_id, ["complementary"], keys=READABLE)
+    comparison_id = table["comparisonId"]
+    call(ctx, "reader.library_compare_keep", {"askId": a_id})
+    b_id = _ask_at(ctx, "t3")
+    call(ctx, "reader.library_compare", {"askId": b_id, "pinnedSpanKeys": READABLE})
+    _stored(monkeypatch, ctx, repository, b_id, ["unclear"], keys=READABLE)  # B moves on
+    assert _ask(repository, b_id)["comparison_id"] != comparison_id
+    added = call(ctx, "reader.library_compare_keep", {"askId": b_id, "comparisonId": comparison_id,
+                                                      "takes": [{"text": "sent as B", "keys": [READABLE[0]]}]})
+    assert added["askId"] == a_id and added["alreadyKept"] is True and added["addedTakes"] == 1
+    assert {"ask_id": b_id} in json.loads(_ask(repository, a_id)["kept_json"])["contributors"]
+    _hold_out_chapter(repository, spans)
+    _reads_hidden(ctx, repository, a_id, comparison_id, "sent as B")
+
+
+def _library_question(repository, ask_id: str, event_id: str, span_id: str) -> None:
+    """The ask's library tutor question (``question_event_id``), asked about ext_text:<span_id>."""
+
+    _tutor_question(repository, event_id, extraction_id="ext_text", span_id=span_id)
+    with repository.connection() as connection:
+        connection.execute("UPDATE library_asks SET question_event_id = ? WHERE id = ?", (event_id, ask_id))
+        connection.commit()
+
+
+def test_a_replaced_library_question_stays_the_keeps_provenance(library, monkeypatch):
+    """F3: A's question Q1 (about ext_text:t3) is current when C is kept with a
+    take; asking again replaces it with Q2 (about t5). Holding out t3 still
+    withholds C: Q1 was recorded at the keep."""
+
+    _paths, ctx, repository, spans, _asked = library
+    a_id = _ask_at(ctx, "t5")
+    table = _stored(monkeypatch, ctx, repository, a_id, ["complementary"], keys=READABLE)
+    _library_question(repository, a_id, "qe_q1", "t3")
+    call(ctx, "reader.library_compare_keep", {"askId": a_id, "takes": [{"text": "while Q1", "keys": [READABLE[0]]}]})
+    assert {"question_event_id": "qe_q1"} in json.loads(_ask(repository, a_id)["kept_json"])["contributors"]
+    _library_question(repository, a_id, "qe_q2", "t5")
+    _hold_out_chapter(repository, spans)
+    _reads_hidden(ctx, repository, a_id, table["comparisonId"], "while Q1")
+
+
+def test_a_deleted_recorded_question_withholds_the_comparison(library, monkeypatch):
+    """F3: the recorded question Q1, replaced and then deleted, cannot be
+    resolved: the comparison is withheld whole (fail closed)."""
+
+    _paths, ctx, repository, _spans, _asked = library
+    a_id = _ask_at(ctx, "t5")
+    table = _stored(monkeypatch, ctx, repository, a_id, ["complementary"], keys=READABLE)
+    _library_question(repository, a_id, "qe_q1", "t3")
+    call(ctx, "reader.library_compare_keep", {"askId": a_id, "takes": [{"text": "while Q1", "keys": [READABLE[0]]}]})
+    _library_question(repository, a_id, "qe_q2", "t5")
+    with repository.connection() as connection:
+        connection.execute("DELETE FROM question_events WHERE id = 'qe_q1'")
+        connection.commit()
+    _reads_hidden(ctx, repository, a_id, table["comparisonId"], "while Q1")
+
+
+def _switched_off(tmp_path):
+    paths, repository, spans = build_library_vault(tmp_path / "vault")
+    set_config(paths, "reader_compare", keep_enabled=False)
+    ctx = context(paths.root)
+    asked = call(ctx, "reader.library_ask", {"query": QUESTION, "extractionId": "ext_text", "spanIds": ["t3"],
+                                             "learningObjectIds": ["lo_matrices"]})
+    return ctx, repository, spans, asked["askId"]
+
+
+def _finished_compare(ctx, monkeypatch, repository, ask_id: str) -> tuple[str, dict]:
+    from tests.recap_fixtures import call as call_rpc
+
+    _stored(monkeypatch, ctx, repository, ask_id, ["complementary"], keys=READABLE)
+    started = call_rpc(ctx, "reader.library_compare", {"askId": ask_id, "pinnedSpanKeys": READABLE})
+    job = ctx.library_ask_jobs.get(started["jobId"])
+    assert job is not None and job.done.wait(60)
+    return started["jobId"], call_rpc(ctx, "reader.library_job", {"jobId": started["jobId"]})
+
+
+def test_switched_off_a_compare_with_a_withheld_anchor_is_bases(tmp_path, monkeypatch):
+    """F4: keep off, RW4d installs no withholding at delivery: a finished compare
+    whose ask's anchor is held out since is read back exactly as before (base)."""
+
+    from tests.recap_fixtures import call as call_rpc
+
+    ctx, repository, spans, ask_id = _switched_off(tmp_path)
+    job_id, first = _finished_compare(ctx, monkeypatch, repository, ask_id)
+    assert first["state"] == "done" and first["result"]["status"] == "ok" and "kept" not in first["result"]
+    _hold_out_chapter(repository, spans)
+    assert call_rpc(ctx, "reader.library_job", {"jobId": job_id}) == first
+
+
+def test_switched_off_a_compare_with_an_unresolved_reference_is_bases(tmp_path, monkeypatch):
+    """F4: keep off, a comparison naming a passage that does not exist is read
+    back exactly as before (base): no comparison_withheld."""
+
+    from tests.recap_fixtures import call as call_rpc
+
+    ctx, repository, _spans, ask_id = _switched_off(tmp_path)
+    job_id, first = _finished_compare(ctx, monkeypatch, repository, ask_id)
+    comparison_id = first["result"]["comparisonId"]
+    with repository.connection() as connection:
+        connection.execute("UPDATE source_comparisons SET dropped_pins_json = ? WHERE id = ?",
+                           (json.dumps([{"extraction_id": "ext_text", "span_id": "t999",
+                                         "reason": "no such passage"}]), comparison_id))
+        connection.commit()
+    assert call_rpc(ctx, "reader.library_job", {"jobId": job_id}) == first

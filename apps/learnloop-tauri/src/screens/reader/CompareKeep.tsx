@@ -144,14 +144,14 @@ export function CompareKeep({ table, target }: { table: CompareTableDto; target:
     setFailure(null);
     try {
       const result = await api.readerLibraryCompareKeep({
-        // An existing keep is modified on the row that keeps it (kept.askId),
-        // which may be another question's or the tutor's: the service reuses a
-        // comparison, and it is never kept twice (Codex verify, F1). The
+        // The ACTING identity: the question (or the tutor's request) the learner
+        // is in. When another row keeps this comparison (the service reused
+        // it), the sidecar finds that keep itself and records this ask as its
+        // contributor, so its passages stay in the comparison's provenance
+        // (Codex verify of RW4d fix round 5, F1; never kept twice). The
         // comparison shown goes with it: a take on an older kept comparison
         // stays on it (Codex review F2).
-        ...(kept
-          ? { askId: kept.askId, comparisonId }
-          : "askId" in target ? { askId: target.askId, comparisonId } : { toolCallId: target.toolCallId, extractionId: target.extractionId }),
+        ...("askId" in target ? { askId: target.askId, comparisonId } : { toolCallId: target.toolCallId, extractionId: target.extractionId }),
         takes,
       });
       setKept(result.kept);

@@ -405,8 +405,9 @@ it("⇄ marks the original PDF too, beside the cue marks and outside their count
 
 // -- fix round 2 (orchestrator; Codex verify of fix round 1, F1) --------------------------------
 
-it("a take on a comparison another question keeps goes to the row that keeps it (verify F1)", async () => {
+it("a take on a comparison another question keeps is sent as the question the learner is in (verify F1, round 6)", async () => {
   // The service reused the comparison for a second question (la_b); the table shows la_a's keep.
+  // The request names the ACTING ask (la_b): the sidecar finds la_a's keep and records la_b.
   const reused: CompareTableDto = { ...TABLE, askId: "la_b", kept: kept({ askId: "la_a" }) };
   api.readerLibraryCompareKeep.mockResolvedValue({ askId: "la_a", kept: kept({ askId: "la_a", takes: [{ id: "t1", keys: ["ext_other:o1"], learnerText: "mine" }] }), addedTakes: 1, alreadyKept: true });
   const { node } = withKeep(<CompareKeep table={reused} target={{ askId: "la_b" }} />);
@@ -414,14 +415,16 @@ it("a take on a comparison another question keeps goes to the row that keeps it 
   fireEvent.change(screen.getByRole("textbox", { name: "your take on these passages" }), { target: { value: "mine" } });
   fireEvent.change(screen.getByRole("combobox", { name: "your take is about" }), { target: { value: "ext_other:o1" } });
   fireEvent.click(screen.getByRole("button", { name: KEEP_COPY.addTake }));
-  await waitFor(() => expect(api.readerLibraryCompareKeep).toHaveBeenCalledWith({ askId: "la_a", comparisonId: "scmp_1", takes: [{ text: "mine", keys: ["ext_other:o1"] }] }));
+  await waitFor(() => expect(api.readerLibraryCompareKeep).toHaveBeenCalledWith({ askId: "la_b", comparisonId: "scmp_1", takes: [{ text: "mine", keys: ["ext_other:o1"] }] }));
+  // The keep shown afterwards is the owner's.
+  expect(await screen.findByText("mine", { selector: "[data-voice] *, [data-voice]" })).toBeTruthy();
   cleanup();
-  // A tutor comparison kept already: its take names the keep's row too.
+  // A tutor comparison kept already: its take is sent as the tutor's request.
   api.readerLibraryCompareKeep.mockClear();
   const tutor = withKeep(<CompareKeep table={{ ...TABLE, kept: kept({ askId: "la_t" }) }} target={{ toolCallId: "stc_c", extractionId: "ext_text" }} />);
   render(tutor.node);
   fireEvent.change(screen.getByRole("textbox", { name: "your take on these passages" }), { target: { value: "mine" } });
   fireEvent.change(screen.getByRole("combobox", { name: "your take is about" }), { target: { value: "ext_other:o1" } });
   fireEvent.click(screen.getByRole("button", { name: KEEP_COPY.addTake }));
-  await waitFor(() => expect(api.readerLibraryCompareKeep).toHaveBeenCalledWith({ askId: "la_t", comparisonId: "scmp_1", takes: [{ text: "mine", keys: ["ext_other:o1"] }] }));
+  await waitFor(() => expect(api.readerLibraryCompareKeep).toHaveBeenCalledWith({ toolCallId: "stc_c", extractionId: "ext_text", takes: [{ text: "mine", keys: ["ext_other:o1"] }] }));
 });

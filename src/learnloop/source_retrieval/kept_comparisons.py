@@ -465,15 +465,27 @@ def kept_state(kept: Mapping[str, Any] | None, *, kept_at: str | None) -> dict[s
     }
 
 
-def _contributors(kept: Mapping[str, Any], *, ask_id: str, acting_ask_id: str | None,
+def _contributors(repository: Repository, kept: Mapping[str, Any], *, ask_id: str, acting_ask_id: str | None,
                   question_event_id: str | None) -> list[dict[str, Any]]:
-    """The keep's recorded contributors with the ask or tutor question acting
-    now added: the provenance a later reuse cannot drop (fix round 5, F1)."""
+    """The keep's recorded contributors with those of this moment added: the
+    ask acting now (when another ask owns the keep), the tutor question acting
+    now, and the question each contributing ask holds **now** (the owner's,
+    the acting ask's, every recorded ask's). Recorded, they are provenance a
+    later reuse, a replaced question or a deleted one cannot drop: a recorded
+    question that no longer resolves withholds the comparison (fix rounds 5
+    and 6, F1 and F3)."""
 
     recorded = [dict(entry) for entry in kept.get("contributors") or () if isinstance(entry, Mapping)]
-    wanted = []
+    wanted: list[dict[str, Any]] = []
     if acting_ask_id and acting_ask_id != ask_id:
         wanted.append({"ask_id": acting_ask_id})
+    asks = [ask_id, *([acting_ask_id] if acting_ask_id else []),
+            *(str(entry["ask_id"]) for entry in recorded if entry.get("ask_id"))]
+    for contributor in dict.fromkeys(asks):
+        with repository.connection() as connection:
+            row = ask_store.kept_row(connection, contributor)
+        if row is not None and row.get("question_event_id"):
+            wanted.append({"question_event_id": str(row["question_event_id"])})
     if question_event_id:
         wanted.append({"question_event_id": question_event_id})
     for entry in wanted:
@@ -503,7 +515,8 @@ def _keep(vault: LoadedVault, repository: Repository, ask: Mapping[str, Any], *,
         if added:
             # Whoever added it (another ask, the tutor's question) is recorded
             # on the keep, so every later read checks its passages too.
-            kept["contributors"] = _contributors(kept, ask_id=str(ask["id"]), acting_ask_id=acting_ask_id,
+            kept["contributors"] = _contributors(repository, kept, ask_id=str(ask["id"]),
+                                                 acting_ask_id=acting_ask_id,
                                                  question_event_id=question_event_id)
             _save(repository, ask["id"], kept, kept_at=ask["kept_at"])
         return {"ask_id": ask["id"], "kept": {**(kept_state(kept, kept_at=ask["kept_at"]) or {}), "ask_id": ask["id"]},
@@ -519,7 +532,7 @@ def _keep(vault: LoadedVault, repository: Repository, ask: Mapping[str, Any], *,
     if (ask.get("kept") or {}).get("removed"):
         # Kept again after a remove: the earlier keep's history stays on the row.
         kept["removed"] = list(ask["kept"]["removed"])
-    kept["contributors"] = _contributors(ask.get("kept") or {}, ask_id=str(ask["id"]),
+    kept["contributors"] = _contributors(repository, ask.get("kept") or {}, ask_id=str(ask["id"]),
                                          acting_ask_id=acting_ask_id, question_event_id=question_event_id)
     if takes:
         _add_takes(repository, kept, takes, clock=clock)
@@ -645,6 +658,11 @@ def keep(vault: LoadedVault, repository: Repository, ask_id: str, *, comparison_
                 _refuse_comparison(vault, repository, str(target), ask_id=str(row["id"]), ask_ids=[ask_id])
                 row = _fork_for(repository, row, str(target), clock=clock)
                 guard = None
+        elif target and (existing := live_keep_of(repository, str(target))) is not None:
+            # The comparison shown is kept on another row (the learner's table
+            # under this ask, after this ask compared again): the owner's keep
+            # is modified, this ask recorded as its contributor (fix round 6, F1).
+            row = existing
         else:
             raise _stale()
         if guard is not None:

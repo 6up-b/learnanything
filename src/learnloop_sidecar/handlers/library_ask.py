@@ -451,8 +451,10 @@ def reader_library_compare(ctx: SidecarContext, params: LibraryCompareInput) -> 
                                                   table.get("comparison_id"))
         return table
 
+    # RW4d's whole-comparison withholding at delivery is installed only while
+    # keeping is on: off, the compare job is 3988cf778's (fix round 6, F4).
     return _start(ctx, "compare", params.ask_id, work,
-                  deliver=lambda result: deliver_comparison(ctx, params.ask_id, result))
+                  deliver=(lambda result: deliver_comparison(ctx, params.ask_id, result)) if keep else None)
 
 
 class LibraryAskTutorInput(ParamsModel):
