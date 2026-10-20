@@ -3,8 +3,8 @@ title: "source_exposure_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7b028edf0147d47a194a62108a40b65d57fc03bd"
-source_commit_timestamp: "2026-10-20T11:09:02-04:00"
+source_commit: "3feedbc7c5d35214d8c7dba3449cebe120b9ec07"
+source_commit_timestamp: "2026-10-20T14:08:39-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_exposure_events"
@@ -104,6 +104,7 @@ Indexes and uniqueness:
 - `src/learnloop/router/outcomes.py`
 - `src/learnloop/source_retrieval/reader_tutor.py`
 - `src/learnloop/substrate/intervention_outcomes.py`
+- `src/learnloop_sidecar/handlers/library_exercises.py`
 
 ### Direct SQL writers
 
@@ -130,6 +131,7 @@ Indexes and uniqueness:
 - `tests/test_exam_protection_review.py`
 - `tests/test_library_ask.py`
 - `tests/test_library_ask_review.py`
+- `tests/test_library_exercises.py`
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_migrations.py`
@@ -144,7 +146,6 @@ Indexes and uniqueness:
 - `tests/test_source_outcome_analytics.py`
 - `tests/test_span_view.py`
 - `tests/test_ad1_codex_review_fixes.py`
-- `tests/test_ad1_reading_opportunities.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

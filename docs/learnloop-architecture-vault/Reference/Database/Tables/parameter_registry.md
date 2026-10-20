@@ -3,8 +3,8 @@ title: "parameter_registry"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7b028edf0147d47a194a62108a40b65d57fc03bd"
-source_commit_timestamp: "2026-10-20T11:09:02-04:00"
+source_commit: "3feedbc7c5d35214d8c7dba3449cebe120b9ec07"
+source_commit_timestamp: "2026-10-20T14:08:39-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite parameter_registry"
@@ -123,6 +123,7 @@ Indexes and uniqueness:
 - `tests/test_constraint_engine.py`
 - `tests/test_grading_cli.py`
 - `tests/test_kinship_feature.py`
+- `tests/test_library_exercises.py`
 - `tests/test_open_world_gate.py`
 - `tests/test_p0_cutover_mvp08.py`
 - `tests/test_reader_rw2b_review.py`

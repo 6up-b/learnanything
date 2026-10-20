@@ -3,8 +3,8 @@ title: "attention_block_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7b028edf0147d47a194a62108a40b65d57fc03bd"
-source_commit_timestamp: "2026-10-20T11:09:02-04:00"
+source_commit: "3feedbc7c5d35214d8c7dba3449cebe120b9ec07"
+source_commit_timestamp: "2026-10-20T14:08:39-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attention_block_events"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/096_controller_snapshots.sql"
+  - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/estimates.py"
   - "src/learnloop/db/stores/daily_plans.py"
   - "src/learnloop/evsi_calibration/live_report.py"
@@ -82,6 +83,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/estimates.py`
 - `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/evsi_calibration/live_report.py`
@@ -105,6 +107,8 @@ None found by exact static reference scan.
 - `tests/test_daily_plan_review_regressions.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_migrations.py`
+- `tests/test_reader_rw4b_admission_idempotency.py`
+- `tests/test_reader_rw4b_fix6.py`
 - `tests/test_router_g4_restraint.py`
 - `tests/test_router_r2a_serving.py`
 - `tests/test_ux_phase4_feedback.py`
