@@ -476,3 +476,85 @@ unchanged by this round: `desktop_validate.py` stops on `components/pdfSelection
 activation classification), and `module_validate.py` reports missing module notes (474/917 source modules covered;
 the new `learnloop/hint_window.py` is one more uncovered leaf). No migration, no DB or connection change, nothing
 under `src-tauri` and no configuration key change.
+
+## Fix round 6 (orchestrator rulings)
+
+Codex's verify of fix round 5 (`48ed78307`; job `20261019-205559-Js5GhV`, read-only) confirmed F1, F2 and F7,
+**reopened F5 (High) and F6 (Medium)**, and found **F8 (High)**. The orchestrator ruled on each (R1-R3), and this
+round applies the rulings. The fixes are in `c67059173`. The references regenerated on top of it are committed with
+this record. **None were rejected.**
+
+**Paid calls: none ($0.00).** Every model is a fake. No vault copy was opened, and no manual run was made.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1, F2, F7 (round 5) | High | (see fix round 5) | confirmed fixed by Codex | — | no change |
+| F5 (round 6, reopened) | High | Ancestor filtering still admits a complete answer split across turns; the placeholder itself is not validated | fixed (R1) | `c67059173` | `test_reader_rw1c_review.py::test_an_answer_split_across_earlier_turns_is_not_delivered_whole` ×4 (retrieval on/off × cold or not; old code: both halves delivered, so the thread scored 1.0 against the key), `::test_a_placeholder_the_key_matches_is_replaced_by_nothing` (old code: the replacement line matched the degenerate key "while you work this problem") |
+| F6 (round 6, reopened) | Medium | A mapped LO can suppress the required question attribution | fixed (R2) | `c67059173` | `::test_a_mapped_lo_does_not_suppress_the_attribution` (old code: `preceded_by_question` false when the passage maps to the item's LO and the item's subject is `math`) |
+| F8 | High | Personalized lookup queries bypass the binding's answer guard | fixed (R3) | `c67059173` | `::test_a_leaking_gap_statement_never_reaches_the_lookup` (old code: the query was "How should I start? The required probability is 2/13.", and the verification's prompt carried it); the audit's `::test_that_didnt_help_bound_withholds_a_leaking_misconception` (old code: the item's LO's misconception stating the key reached the verification's context) |
+
+### What each fix does
+
+* **R1 (F5): aggregation and the placeholder.** `reader_modes.withhold` is the one rule for every set of model-written
+  texts a bound prompt carries together:
+  * each text that gives the key away alone is withheld;
+  * then, while the kept texts still give it away combined (joined as the tutor reads them, with the replacement in
+    place of each withheld one), the kept text with the highest individual overlap is withheld, ties going to the
+    most recent, and the whole is checked again.
+  * The matcher is the binding's guard (`ItemBoundGuard.text_leaks`), and the ranking is the same matcher's score
+    (new `ItemBoundGuard.text_overlap`: `span_answer_overlap`, a solution lead counting 1.0), injected as
+    `BoundAsk.answer_overlap`.
+  * `guard_thread` uses it for the thread and for the manifest's `prior_exchanges`. The verify's split ("Swapping two
+    rows multiplies the determinant." 0.67, "By minus one, so it flips." 0.33, together 1.0) now delivers the second
+    half only; the unrelated root answer and all three learner questions are kept.
+  * The placeholder is validated: if *[An earlier answer is left out while you work this problem.]* itself matches
+    the item's guard (or the placeholders combined with the kept answers still do), the empty string replaces the
+    answer instead. Learner-written questions and learner work are never removed.
+* **R2 (F6): the attribution row is always emitted.** `field.signals` emits the zero-mass `bound_question` row for every
+  bound Reader question with a window attempt, whether or not the question's own row already names the LO. That row
+  carried the question's subject (`default`, none was recorded), not the item's (`math`), so it did not attribute. The
+  test compares the derivation with and without the window link: every other signal is identical (types, masses,
+  subjects, links), the attempts differ only in `preceded_by_question`, the new row has no mass, no outcome and no
+  attempt link and does not block fast-tracking, and the hint count is 1.
+* **R3 (F8): one sanitized copy of every model-written lookup input.** `handlers/reader_tutor.reader_inputs` builds a
+  `ReaderInputs` once per lookup, before the query is constructed:
+  * `gaps`: the open-gap and misconception statements on the passage's LOs (`open_questions`), passed through
+    `reader_modes.guard_statements` (the same `withhold` rule; a withheld statement is dropped). This one copy builds
+    the lookup query, so the query rewrite and the verification's `context.question` see it too, and it is the open
+    questions of the bridge's learner work (`source_retrieval.reader_tutor.learner_work(gaps=…)`, which no longer
+    reads them a second time).
+  * `learner_work`: those guarded statements plus the learner's own steps (untouched) and the problem line (guarded,
+    round 5).
+  * `misconceptions` (the audit): "that didn't help" (`remediate`) under a binding sends the resolved misconceptions
+    and their corrections to the verification's context; the adapter now resolves them itself
+    (`instructional.sources.resolve_misconceptions`, the named gaps or the item's LO's active ones), guards
+    statement and correction together, and hands the result to `propose_sources` as `misconceptions`, so the service
+    never resolves an unguarded copy.
+  * The learner's typed question and their earlier questions are kept as they are. The rest of `build_request` was
+    audited: the excluded and shown span keys and the named-gap refs are identifiers, and the item's own practice
+    question in the verification's context is the base's (T6) and unchanged. Unbound, nothing is guarded, as before.
+
+### Gate (fix round 6)
+
+All steps ran in the worktree with `TMPDIR=fixtures-local/tmp`. Only targeted tests were run (owner rule
+2026-10-17). The pytest runs waited on `/tmp/learnloop-fullsuite.lock` and ran under it.
+
+| step | result |
+|---|---|
+| backend fail-before on `48ed78307` (`git archive` of `src` and `migrations` into `fixtures-local/rw1c-r6-base`, run with this branch's tests and `-o pythonpath=fixtures-local/rw1c-r6-base/src`) | 8 new cases: **8 failed, 0 passed**. The placeholder case fails at the new `text_overlap`; a probe of the old `guard_thread` with the degenerate key showed the replacement line still matching the guard |
+| `uv run lint-imports --no-cache` | 28 kept, 0 broken |
+| targeted pytest, `uv run pytest -n auto` over round 5's 54 files | **1,102 passed** (53 s; `--collect-only` on the same list also gives 1,102) |
+| `--durable-sqlite` on the 8 new cases | **8 passed** |
+| vitest, `src/screens/reader/` and the `ReaderScreen.*.test.tsx` files (no frontend change this round) | **399 passed** (53 files) |
+| `db_generate_reference.py`, then `db_validate_reference.py` | 0 errors (head 213). Before the regeneration, 1 configuration line citation into `handlers/reader_tutor.py` was stale |
+| `git diff --check` | clean |
+
+**Correction to the round-5 record.** Fix round 5's gate row reads "7,112 passed, 36 xfailed (15 min 53 s)" for the
+same 54-file list. That list collects 1,102 tests now (1,094 on the round-5 tree, before this round's 8), so the
+round-5 log's count cannot belong to that list and is withdrawn; the run above is the targeted gate over it, on a
+tree that contains every round-5 change.
+
+Not run, by the owner rule: the full suite, the whole durability lane and the whole vitest run. No frontend change, so
+no typecheck or build. Pre-existing and unchanged: `desktop_validate.py` (`syntheticBook.ts`) and `module_validate.py`
+(missing module notes). No migration, no DB or connection change, nothing under `src-tauri` and no configuration key
+change.
