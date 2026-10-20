@@ -216,3 +216,136 @@ pass after).
   unchanged, so the references were not regenerated, and no doc cites the
   changed lines.
 - No live or paid model call; fakes only.
+
+## Fix round 3 (orchestrator rulings)
+
+The final Codex verify (codex-job `20261020-005349-gk5Hn0`, at `e4be125cb`)
+confirmed F1 and reopened F2 and F6. The orchestrator ruled that the state
+shape be made correct rather than patching each race:
+
+- **R1.** Owed hand-offs are kept per workbench session, not in one slot.
+- **R2.** Every async answer is checked against the request it answers before
+  any state changes.
+- **R3.** A submit's return context comes from the submitted session's own
+  source and span.
+- **R4.** Tests for all of the above, each failing on `e4be125cb`.
+
+| id | severity | title | verdict | commit | test (fail before → pass after) |
+|----|----------|-------|---------|--------|---------------------------------|
+| F2 | High (reopened) | A pending pick for exercise A is lost when B's check replaces it in the single `readerCheck` slot | fixed (R1) | `69d70b733` | "R1 (verify F2): a pending pick for A survives B's check replacing it in the shell's slot, and A gets it on return"; "R1: A/B/A interleaving delivers A's owed pick exactly once after returning to A" |
+| F6 | Medium (reopened) | A late resume activates A's problem while book B is displayed; its submit returns to `{card: B, spanId: span_A}` | fixed (R2, R3) | `69d70b733` | "R2 (verify F6): a late resume for A's exercise, answering after book B opened, activates nothing"; "R2: a stale open is dropped; the newer request's problem stays"; "R2: a stale post-attempt answer is dropped; it neither closes the problem now open nor leaves for feedback"; "R3: a submit returns to the submitted problem's own book and passage, not the card shown at submit time" |
+
+All six tests are in `readerWorkbenchExercise.test.tsx`.
+
+### Fail-before evidence
+
+The six tests were written first and run on `e4be125cb`: **6 failed, 12
+passed**. The log is `fixtures-local/tmp/rw4b-fix3-fail-before.txt`.
+
+- **Verify F2, as written** (an App-like harness keeps the single slot, and
+  the pick resolves after setting it): step 4 found **0** acknowledging opens
+  for A (`expected [] to have a length of 1`).
+- **A/B/A, with the served pick resolved to the hook:** **0** acknowledging
+  opens. The old hook ignored a served check that was not delivered through
+  the slot.
+- **Verify F6, as written:** A's problem was active while B was displayed
+  (`expected { session: … } to be null`).
+- **Stale open:** the late answer for `wbs_1` replaced the newer `wbs_3`.
+- **Stale post-attempt:** A's late submit closed `wbs_3` (`active`
+  undefined) and left for feedback.
+- **Return context:** the submit returned with the card shown at submit time
+  (`other`), not the problem's own `book`.
+
+### What changed
+
+- **R1, owed hand-offs per session** (`useReaderWorkbench.ts`, the `owed`
+  map). Each session id maps to one of these phases:
+
+  | phase | meaning |
+  |---|---|
+  | `picking` | The shell is making and serving the pick. Holds the ticket it was asked under. |
+  | `served` | Holds the served check, until the problem is next seen on its own book. |
+  | `opening` | The acknowledging `workbench.open` (`admittedSessionId`) is in flight. |
+  | `delivered` | That open succeeded, so the server acknowledged the pick. |
+
+  - **Replacement.** No other session's pick touches an entry, so
+    replacement is impossible.
+  - **When a served check opens.** It opens at once only when it answers the
+    newest request on its own book. Otherwise it waits, owed, and opens when
+    its own problem is next opened, resumed or refreshed on its own book.
+  - **Failures.** A failed pick or a failed acknowledging open removes the
+    entry. The next sight of the problem hands it over again with a new
+    serve, as round 2 decided. Nothing retries at once.
+  - **Loops.** `delivered` stops a pick-and-open loop if a late answer still
+    reports the pick as due.
+  - **Restart.** After a restart the hook starts empty, and the server's
+    durable `exercisePick.due` still drives the hand-off (the round 1 path).
+- **The shell** (`App.tsx`).
+  - `exerciseAdmitted` now makes and serves the pick, and resolves the served
+    `ReaderWorkbenchCheck` to the Reader. It resolves null when there is no
+    session, the workbench is off, or the pick fails.
+  - It no longer writes the shared `readerCheck` slot. That slot now carries
+    only a cue's check, the current display.
+  - A check that still arrives through the slot naming `admitsSessionId`
+    (the earlier contract, which the round 2 test drives) leaves the slot at
+    once and is kept in the same map. A later check that replaces the slot
+    cannot displace it either.
+- **R2, requests are checked before any state changes.**
+  - These requests take a ticket when they are sent (the request token, plus
+    the open extraction and source): `openSelection`, `openItem`, `resume`,
+    a cue's check, "use this one", the owed delivery, and the read-only
+    problem behind feedback.
+  - An answer is admitted only if three things hold:
+    - its ticket is still the newest;
+    - the same extraction and card are open;
+    - the answered session is on that book (`extractionId` and `sourceId`).
+  - Anything else is dropped before any state changes. The problem stays
+    resumable, and owed if its pick is.
+  - These events bump the token: a book change, Leave/Abandon, and an
+    accepted submit. So an open still in flight cannot reopen over feedback
+    or over another book.
+  - An import refresh (`update`) for a session that is not on the open book
+    changes nothing.
+  - A post-attempt answer (`submitted`) is dropped when the submitted
+    session is no longer the active one, or its extraction is no longer
+    open. It closes nothing and leaves for no feedback. The attempt itself
+    is kept server-side, and the marks refresh.
+- **R3, the submit returns to the problem's own book.**
+  - `ActiveWorkbench.card` is the card captured when the session was
+    activated. R2 has already checked that this card is the session's own
+    source.
+  - `submitted` returns `{card: active.card, spanId: session.spanIds[0]}`. It
+    never uses the card shown at submit time, which can run ahead of the
+    extraction while a book opens. For that reason a submit is matched on
+    the extraction, not the card.
+
+### Notes for the landing
+
+- **Dropped post-attempt answers.** A dropped post-attempt answer does not
+  update the shell's practice-session snapshot (`sessionAfterWorkbenchSubmit`).
+  This only matters when that submit was the one that started the practice
+  session. The next submit or Begin picks the session up as before.
+- **No auto-open on returning to a book.** A served pick that waits for its
+  book is not opened automatically when the learner returns to that book.
+  It opens on the problem's next sight, a resume from its ✎ mark or rail
+  line. This avoids pulling the learner off a different problem.
+- **`App.tsx` overlap.** `exerciseAdmitted` no longer goes through
+  `pickCheckMe`. The merge note from round 1 still applies.
+
+### Gate (fix round 3; targeted, per the owner's 2026-10-17 rule)
+
+- `npm install` ok, and `npm run typecheck` clean.
+- **Targeted vitest:** the same 40 files as rounds 1 and 2, listed in
+  `fixtures-local/tmp/rw4b-fix3-vitest-files.txt`. Result: **40 files, 361
+  passed** (355 + the 6 new).
+  - `readerWorkbenchExercise.test.tsx` alone: **18 passed** (12 + 6).
+  - Four further files that reference the check or cue path
+    (`reader/checkOffer`, `reader/cues`, `reader/readerHooks.parity`,
+    `reader/voices`): **4 files, 45 passed**.
+- `npm run frontend:build`: ok.
+- `uv run lint-imports --no-cache`: **28 kept, 0 broken**.
+- Pytest: none. No Python file changed.
+- Durability: none needed (no migration, and no DB code changed).
+- `src-tauri` is unchanged, so no cargo check was run. The schema is
+  unchanged, so the references were not regenerated.
+- No live or paid model call was made.
