@@ -73,6 +73,13 @@ References regenerated in 27b3fe711. The only change was cited line numbers in `
   A `supersedes_relation_id` column would need migration 216. That is deferred unless P3's
   review inbox comes to need relation heads straight from the table.
 
+## Open items (queued follow-ups)
+
+- **Whole-comparison provenance for `compare_sources` and tutor tool runs (RW4a/S3/RW1c surfaces).**
+  - **What is exposed.** Two responses check only the displayed source passages: the tutor tool-run comparison view (`instructional/tools.py` `_comparison_view`, returned by `run_source_tool`) and the direct `compare_sources` RPC (`comparison.as_dict()`). Neither applies RW4d's whole-comparison rule, which also covers the anchors, recorded contributors and dropped pins. Both surfaces predate RW4d and are exposed the same way on main.
+  - **What RW4d still guarantees.** The kept layer and RW4d's own responses withhold the whole comparison.
+  - Queued by the orchestrator's ruling on fix round 6's F2: out of RW4d's scope.
+
 ## Gate (fix step; owner rule 2026-10-17: targeted only)
 
 - `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`: ok.
@@ -365,3 +372,50 @@ The verify of round 4 (Codex job `20261020-173613-n7Zkp3`, VERDICT: REOPENED) co
 ### Rule note
 
 All Python run outside pytest in this round ran under `env -i` (edit scripts and the reference scripts), except one no-op `python3 -c "print()"` while searching. It imported nothing.
+
+## Fix round 6 (orchestrator rulings)
+
+The verify of round 5 (Codex job `20261020-175921-tZVEbf`, VERDICT: REOPENED) confirmed:
+- the RW4b reader and gate repair;
+- the source-object enumeration;
+- the mappings, take caps and Remove.
+
+It found four Highs. Fixed in `ccac41b91`. References were regenerated in `f40a8beb5`: schema unchanged, head 213, 0 errors.
+
+| id | severity | title | verdict | test |
+|---|---|---|---|---|
+| F1 | High | The UI drops the acting ask's provenance | fixed | vitest "a take on a comparison another question keeps is sent as the question the learner is in" (replaces round 2's pin of the owner request); `test_a_take_sent_as_the_acting_ask_after_it_moved_on_keeps_its_provenance` |
+| F2 | High | Tutor and direct comparison responses bypass whole-comparison withholding | **queued** (orchestrator ruling: not RW4d's scope) | see *Open items* above |
+| F3 | High | Replacing a library tutor question erases durable provenance | fixed | `test_a_replaced_library_question_stays_the_keeps_provenance` (the verify's Q1 → Q2 sequence), `test_a_deleted_recorded_question_withholds_the_comparison` |
+| F4 | High | Round 5 changes switch-off behaviour from base | fixed | `test_switched_off_a_compare_with_a_withheld_anchor_is_bases`, `test_switched_off_a_compare_with_an_unresolved_reference_is_bases` |
+
+- **F1: the actor, apart from the owner.**
+  - `CompareKeep` sends the acting identity: the ask the learner is in, or the tutor's request. It never sends `kept.askId`.
+  - Keep resolves the owner itself (`live_keep_of`). It now does so also when the acting ask has compared again since: the comparison shown is kept elsewhere, where before Keep refused `stale_comparison`.
+  - Keep records the actor in `kept_json.contributors`. The per-row guards are unchanged: the owner row's guard applies.
+- **F3: durable question provenance.** At each keep and take, `_contributors` records the question each contributing ask holds then: the owner's, the actor's and every recorded ask's. It also records the acting tutor question. Removals and re-keeps carry the list.
+  - A question replaced afterwards still counts.
+  - A recorded question deleted afterwards cannot be resolved, so the comparison is withheld (fail closed).
+- **F4: switch-off identity.** The compare job's deliver hook is installed only while `reader_compare.keep_enabled` is on. Off, the compare delivery is `3988cf778`'s.
+  - Two differential cases read back a finished job: one after its anchor is held out, one after a dropped pin names a passage that does not exist. Each must equal the first read.
+  - Both cases fail on `574d4d0df` and **pass on `3988cf778`'s `src`**. They ran from a probe copy of the test file without the RW4d imports, deleted afterwards.
+- **F2: queued, not fixed.** See *Open items* above.
+
+### Fail first on `574d4d0df`
+
+- The 5 new backend tests ran on its `src` (`git archive`, `-o pythonpath=`): **5 failed**.
+  - The F1 test hit `stale_comparison`. The switch-off tests hit `comparison_withheld`. The deleted-question test leaked its take.
+  - The replaced-question test failed first at its `contributors` check. A throwaway copy without that line, deleted afterwards, showed its take leaking.
+- The updated vitest failed on `574d4d0df`'s frontend (1 of 15).
+
+### Gate (round 5's)
+
+- `lint-imports`: 28 kept, 0 broken.
+- `pytest -n auto` over the same 28 files: **592 passed**.
+- `--durable-sqlite` on the two RW4d files: **73 passed**.
+- `typecheck`: clean.
+- vitest `src/screens/reader`: **61 files, 464 tests passed**.
+  - That was the second run, with `--maxWorkers=3 --testTimeout=60000`.
+  - The first run, at load average 68 with other stages running, had timeout failures in unrelated screens.
+- `frontend:build`: built.
+- Every Python run outside pytest ran under `env -i`.
