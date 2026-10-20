@@ -12,6 +12,7 @@ from datetime import UTC, date, timedelta
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping, Sequence
 
+from learnloop import hint_window
 from learnloop.algorithm_versions import CANONICAL_STATE_VERSIONS
 from learnloop.recurrence import key_for_statement, recurrence_key
 from learnloop.outcome_contract import COLLECTION_VERSION, LABEL_VERSION
@@ -61,10 +62,10 @@ OBSERVATION_CHANNEL_BLIND_PROBE = "blind_probe"
 OBSERVATION_CHANNEL_LEARNER_QUESTION = "learner_question_embedded"
 
 #: Question contexts whose hint-equivalent rows count in the item's window
-#: whatever their practice session (``count_hint_equivalent_question_events``).
-#: A Reader question carries an item only when a workbench session binds it
-#: (RW1c), and that help is on the item, not on a practice session (fix round 4, F1).
-ITEM_WINDOW_QUESTION_CONTEXTS: tuple[str, ...] = ("reader",)
+#: whatever their practice session (``count_hint_equivalent_question_events``):
+#: defined once in ``learnloop.hint_window``, which the learner field's
+#: question-to-attempt link reads too (RW1c fix round 5, R3).
+ITEM_WINDOW_QUESTION_CONTEXTS = hint_window.ITEM_WINDOW_QUESTION_CONTEXTS
 
 #: The undo of one delete intent (reader-pdf-selection): a disposition event
 #: naming the delete it withdraws. ``{delete}`` is the delete event's id and
@@ -4512,13 +4513,11 @@ class Repository(
             "WHERE hint_equivalent = 1 AND practice_item_id = ?"
         )
         parameters: list[Any] = [practice_item_id]
-        item_window = ", ".join("?" for _ in ITEM_WINDOW_QUESTION_CONTEXTS)
-        if item_window_only:
-            query += f" AND context IN ({item_window})"
-            parameters.extend(ITEM_WINDOW_QUESTION_CONTEXTS)
-        elif session_id is not None:
-            query += f" AND (session_id = ? OR context IN ({item_window}))"
-            parameters.extend([session_id, *ITEM_WINDOW_QUESTION_CONTEXTS])
+        # The window's session rule, shared with the learner field's link
+        # from a question to the attempt it preceded (fix round 5, R3).
+        clause, clause_parameters = hint_window.session_clause(session_id, item_window_only=item_window_only)
+        query += clause
+        parameters.extend(clause_parameters)
         if since is not None:
             query += " AND created_at > ?"
             parameters.append(since)

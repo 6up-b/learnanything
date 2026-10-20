@@ -8,8 +8,9 @@
 // theirs. Under it: "another way · that didn't help…" and the offers.
 //
 // With no `tutor` on the exchange (reader_tutor.retrieval_enabled off, or an
-// exchange from before RW1c) and no offers, this is exactly the answer of
-// before: one model voice.
+// exchange from before RW1c) and no offers, or with no RW1c controls from the
+// contract (both switches off), this is exactly the answer of before: one
+// model voice.
 import { useState } from "react";
 import type { PracticeRequestDto, ReaderTutorButtonDto, SourceToolRequestDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
@@ -69,7 +70,10 @@ const linkStyle = {
 };
 
 export function TutorAnswer({ exchange, tutor }: { exchange: ReaderExchange; tutor?: TutorRailProps }) {
-  const view = exchange.tutor ?? null;
+  // RW1c's parts render only while the contract supplies its controls (fix
+  // round 5, R4): with both switches off a saved RW1c answer is the one model
+  // voice of before, even if an exchange still carries its view.
+  const view = tutor ? exchange.tutor ?? null : null;
   const [unclearOpen, setUnclearOpen] = useState(false);
   const [unclear, setUnclear] = useState("");
   if (!view && !(tutor?.offers && exchange.offers)) {

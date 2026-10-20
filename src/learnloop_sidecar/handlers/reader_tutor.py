@@ -16,9 +16,12 @@ server, never from the frontend's word:
   (``remediate``'s ``target_hypotheses``), the learner's work for the bridge
   (personalized only) and the Reader's own "Try the next step first" buttons.
 
-Kill switches: ``reader_tutor.retrieval_enabled`` (off: no request is built
-and the tutor is today's, byte for byte) and ``reader_tutor.offers_enabled``
-(off: no ``tutor_offers`` on the wire, so the Reader renders no buttons).
+Kill switches: ``reader_tutor.retrieval_enabled`` (off: no retrieval request
+is built and the tutor's prompt contract is today's) and
+``reader_tutor.offers_enabled`` (off: no ``tutor_offers`` on the wire, so the
+Reader renders no buttons). Either one on, a workbench-bound question carries
+its :func:`bound_ask` (its item, guards and accounting) whatever the retrieval
+switch (fix round 5, R1); both off, the Reader is the base's, byte for byte.
 """
 from __future__ import annotations
 
@@ -131,8 +134,56 @@ def restriction(vault: Any, repository: Any, params: Any) -> ReaderRestriction:
                              client_cold=client_cold, active=True)
 
 
-def build_request(ctx: Any, vault: Any, repository: Any, params: Any, restricted: ReaderRestriction) -> Any:
-    """The ``ReaderTutorRequest`` for one ``reader.ask``, or None while retrieval is off."""
+def bound_ask(vault: Any, repository: Any, params: Any, restricted: ReaderRestriction) -> Any:
+    """The question's :class:`reader_modes.BoundAsk`, or None when no workbench session binds an item.
+
+    Fix round 5, ruling R1: built whenever either RW1c switch is on and the
+    request names a workbench session the server resolves to an item, before
+    and apart from the retrieval request (``build_request``, None with
+    retrieval off). The item, its guards over the complete delivered context
+    and the thread, and its accounting therefore hold with retrieval off,
+    cold or not. Both switches off, ``restricted.active`` is False and the
+    Reader is the base's, byte for byte.
+
+    The practice session is the workbench's own resolution
+    (``handlers.workbench._question_hints``): the session's practice session
+    while it is open, else the most recent open one, else none. It is the
+    record of where the question was asked; the hint counts in the ITEM's
+    window whatever the session (fix round 4, F1:
+    ``Repository.count_hint_equivalent_question_events``)."""
+
+    if not restricted.active or not restricted.item_id or not params.workbench_session_id:
+        return None
+    item = vault.practice_items.get(restricted.item_id)
+    if item is None:
+        return None
+    from learnloop.reader import workbench as WB
+    from learnloop.source_retrieval import reader_tutor as RT
+    from learnloop.tutor.reader_modes import BoundAsk
+
+    session = WB.session_row(repository, params.workbench_session_id)
+    practice_session = session.get("practice_session_id")
+    if practice_session:
+        row = repository.fetch_session(practice_session)
+        if row is None or row.get("ended_at") is not None:
+            practice_session = None
+    if not practice_session:
+        recent = repository.most_recent_open_session()
+        practice_session = recent["id"] if recent else None
+    guard = RT.ItemBoundGuard(repository, item)
+    # ``cold`` is the restriction's (the client's flag or the server's own
+    # derivation): a cold Ask is a hint whatever its type, with or without a
+    # fetchable cold attempt (``BoundAsk.hint_equivalent``).
+    return BoundAsk(item=item, practice_session_id=practice_session, cold=restricted.cold,
+                    context_guard=guard, answer_guard=guard.text_leaks)
+
+
+def build_request(ctx: Any, vault: Any, repository: Any, params: Any, restricted: ReaderRestriction,
+                  binding: Any = None) -> Any:
+    """The ``ReaderTutorRequest`` for one ``reader.ask``, or None while retrieval is off.
+
+    ``binding`` (:func:`bound_ask`) is built apart and handed to the tutor on
+    its own; the request only scopes the lookup and the learner work by it."""
 
     if not retrieval_enabled(vault):
         if params.retrieval_intent != "explain":
@@ -142,15 +193,16 @@ def build_request(ctx: Any, vault: Any, repository: Any, params: Any, restricted
     from learnloop.reader import reader_dialogue as RD
     from learnloop.source_retrieval import reader_tutor as RT
     from learnloop.source_retrieval.library_ask import open_questions
-    from learnloop.tutor.reader_modes import ReaderTutorRequest
+    from learnloop.tutor.reader_modes import ReaderTutorRequest, guard_learner_work
 
     intent = params.retrieval_intent
     if intent != "explain" and not params.parent_exchange_id:
         raise SidecarError("validation_error", "Another way and that didn't help follow an answer: name its exchange.")
     caller, policy = restricted.caller, restricted.policy
-    item = vault.practice_items.get(caller.item_id) if caller.item_id else None
-    bound_item, practice_session_id, cold_hint = _accounting_binding(vault, repository, params, item)
-    history = RD.ask_history(repository, extraction_id=params.extraction_id, branches=True) \
+    item = binding.item if binding is not None else None
+    # The tutor's own RW1c fields are read here (the shown passages), so the
+    # projection includes them whatever the history RPC's gate (R4).
+    history = RD.ask_history(repository, extraction_id=params.extraction_id, branches=True, tutor_views=True) \
         if params.parent_exchange_id else []
     ancestors = _ancestors(history, params.parent_exchange_id)
     inquiry = RT.inquiry_exchanges(history, params.parent_exchange_id)
@@ -161,7 +213,9 @@ def build_request(ctx: Any, vault: Any, repository: Any, params: Any, restricted
     personalized = (bool(vault.config.library_ask.personalized_default) if params.personalized is None
                     else bool(params.personalized))
     gaps = open_questions(vault, repository, lo_ids) if personalized and lo_ids else []
-    work = RT.learner_work(vault, repository, lo_ids) if personalized else []
+    # Bound, the model-written and source lines of the learner's work pass
+    # the item's guard; the learner's own steps stay (fix round 5, R2).
+    work = guard_learner_work(RT.learner_work(vault, repository, lo_ids), binding) if personalized else []
     if intent == "alternative" and ancestors:
         # "Another way" looks for the question it is under, not its own words.
         query = RT.reader_query(ancestors[-1]["question_md"], ancestors=ancestors[:-1], gaps=gaps)
@@ -191,62 +245,13 @@ def build_request(ctx: Any, vault: Any, repository: Any, params: Any, restricted
         personalized=personalized, item=item if policy == "assisted_practice" else None,
         rerank_client=getattr(ctx, "reader_tutor_rerank_client", None), service=service,
     )
-    # The bound item's guards hold for whatever the tutor is given, under
-    # assisted practice and during a cold administration of the item alike
-    # (fix round 4, F2): cold, retrieval adds nothing, but the selection's
-    # neighbours are still delivered, and a solution beside the exercise is
-    # the item's answer. Retrieval, tools and offers stay refused on their own
-    # (the cold policy, ``tools_refused``).
-    guarded = item if bound_item is not None else None
     # The requested intent is the PRESENTATION's (fix round 4, F4): "another
     # way" never repeats a shown passage, with the sources service off too.
     # Only the service's effective retrieval intent falls back to explain,
     # inside the lookup (``ReaderLookup``: G53's base find_sources).
     return ReaderTutorRequest(retrieve=lookup, intent=intent, personalized=personalized,
-                              learner_work=work, item=guarded, policy=policy, bound_item=bound_item,
-                              practice_session_id=practice_session_id, carries_cold_hint=cold_hint,
-                              context_guard=RT.ItemBoundGuard(repository, guarded) if guarded is not None else None,
+                              learner_work=work, policy=policy,
                               shown_span_keys=shown if intent == "alternative" else ())
-
-
-def _accounting_binding(vault: Any, repository: Any, params: Any, item: Any) -> tuple[Any, str | None, bool]:
-    """``(item, practice session, carries the cold hint)``: the item a bound
-    workbench session practises and the practice session it is asked in (the
-    workbench's own resolution, ``handlers.workbench._question_hints``; the
-    record of where it was asked). The Reader question is help on that item
-    whatever the policy (Codex review F1), so its reveals always land.
-    ``(None, None, False)`` when no session binds an item.
-
-    Its hint counts in the ITEM window whatever the practice session, or none
-    (fix round 4, F1: ``Repository.count_hint_equivalent_question_events``),
-    so a submit after the session changed, or one that opens the first
-    session, still counts it, once. When the client's cold path names an
-    attempt on the bound item, the question is a hint under L6 whatever its
-    type and this row carries it: the cold path's practice row, which counts
-    only in its attempt's session, leaves its flag off
-    (``reader_dialogue._record_cold_hint_equivalent``). Exactly one row
-    counts, in every session arrangement (round 3's same-session dedup,
-    without the session condition)."""
-
-    if item is None or not params.workbench_session_id:
-        return None, None, False
-    from learnloop.reader import workbench as WB
-
-    session = WB.session_row(repository, params.workbench_session_id)
-    practice_session = session.get("practice_session_id")
-    if practice_session:
-        row = repository.fetch_session(practice_session)
-        if row is None or row.get("ended_at") is not None:
-            practice_session = None
-    if not practice_session:
-        recent = repository.most_recent_open_session()
-        practice_session = recent["id"] if recent else None
-    cold_hint = False
-    if params.cold_active and params.cold_attempt_id:
-        # The cold path writes its row only for an attempt it can fetch.
-        attempt = repository.fetch_practice_attempt(params.cold_attempt_id)
-        cold_hint = attempt is not None and attempt.get("practice_item_id") == item.id
-    return item, practice_session, cold_hint
 
 
 def tools_refused(restricted: ReaderRestriction) -> bool:
@@ -311,6 +316,7 @@ def record_excerpt_exposure(repository: Any, result: dict[str, Any]) -> list[str
 
 __all__ = [
     "FALLBACK_PRACTICE_VERSION",
+    "bound_ask",
     "build_request",
     "ReaderRestriction",
     "fallback_practice_request",

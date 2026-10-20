@@ -132,7 +132,10 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
     # retrieval switch (Codex re-review F2), and the tutor that looks things
     # up (None while the retrieval switch is off).
     restricted = RTU.restriction(vault, repository, params)
-    lookup = RTU.build_request(ctx, vault, repository, params, restricted)
+    # The workbench binding (its item, guards and accounting) is its own
+    # value, whatever the retrieval switch (fix round 5, R1).
+    binding = RTU.bound_ask(vault, repository, params, restricted)
+    lookup = RTU.build_request(ctx, vault, repository, params, restricted, binding)
     # A question a workbench session binds to an item reads under
     # assisted_practice; its tools would read wider, so it writes none there.
     # During a cold administration -- the client's flag or the server's own
@@ -161,6 +164,7 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
             # None during a cold administration: every tool is refused then (G2).
             tool_request_handler=_reader_tool_handler(vault) if tools_allowed else None,
             **({"reader_tutor": lookup} if lookup is not None else {}),
+            **({"reader_binding": binding} if binding is not None else {}),
             # Stored with the question, so nothing rebuilt from it reads wider.
             **({"reader_caller": restricted.stored()} if restricted.stored() else {}),
         )
@@ -254,8 +258,13 @@ def reader_ask_history(ctx: SidecarContext, params: ReaderAskHistoryInput) -> di
     source_id = _source_id_for_extraction(repository, params.extraction_id)
     if source_id is not None:
         _require_source_reader(repository, source_id)
+    from learnloop_sidecar.handlers import reader_tutor as RTU
+
     return versioned({"exchanges": RD.ask_history(
         repository, extraction_id=params.extraction_id, branches=RD.inquiry_enabled(vault),
+        # RW1c's presentation fields only while the contract enables RW1c
+        # (either switch); both off, the projection is the base's (fix round 5, R4).
+        **({"tutor_views": True} if RTU.retrieval_enabled(vault) or RTU.offers_enabled(vault) else {}),
     )})
 
 

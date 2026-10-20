@@ -81,3 +81,19 @@ it("has no another way while the contract does not offer it", () => {
   expect(screen.queryByRole("button", { name: TUTOR_COPY.anotherWay })).toBeNull();
   expect(screen.queryByRole("button", { name: TUTOR_COPY.didntHelp })).toBeNull();
 });
+
+it("renders no RW1c part of a saved answer while the contract supplies no controls (fix round 5, R4)", () => {
+  // Both switches off: the history may still carry a saved RW1c view; the
+  // answer is the one model voice of before, with neither excerpt nor bridge.
+  const saved = exchange(view({
+    modes: ["excerpt", "grounded", "bridge"],
+    excerpt: { extractionId: "ext_book", spanId: "s7", quote: "The determinant changes sign.", label: "Linear Algebra Notes", relation: "retrieved" },
+    bridgeMd: "Your step \"swap rows\" is where it flips.",
+  }));
+  const { container } = render(<TutorAnswer exchange={saved} />);
+  expect(container.querySelector("[data-excerpt]")).toBeNull();
+  expect(screen.queryByText(/swap rows/)).toBeNull();
+  expect(screen.queryByText(/The determinant changes sign/)).toBeNull();
+  const { container: before } = render(<ModelVoice first><div>Swapping flips the sign.</div></ModelVoice>);
+  expect(container.innerHTML).toBe(before.innerHTML);
+});

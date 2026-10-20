@@ -34,8 +34,9 @@ class LookupTutor:
     def __init__(self, *, answer_md: str = "Swapping rows flips the sign.",
                  excerpt: dict[str, Any] | Callable[[dict[str, Any]], dict[str, Any] | None] | None = None,
                  bridge_md: str | None = None, cite: Callable[[dict[str, Any]], list[tuple[str, str]]] | None = None,
-                 tool_requests: list[dict[str, Any]] | None = None) -> None:
+                 tool_requests: list[dict[str, Any]] | None = None, question_type: str = "mechanism") -> None:
         self.answer_md = answer_md
+        self.question_type = question_type
         self.excerpt = excerpt
         self.bridge_md = bridge_md
         self.cite = cite
@@ -60,7 +61,7 @@ class LookupTutor:
         cited = self.cite(context) if self.cite else [
             (span["extraction_id"], span["span_id"]) for span in context["source_spans"][:2]]
         payload: dict[str, Any] = {
-            "answer_md": self.answer_md, "question_type": "mechanism", "facets": [],
+            "answer_md": self.answer_md, "question_type": self.question_type, "facets": [],
             "citations": [{"extraction_id": e, "span_id": s, "label": "x"} for e, s in cited],
         }
         model = request.result_model

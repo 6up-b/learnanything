@@ -376,6 +376,7 @@ def ask_question(
     linked_reference_filter: LinkedReferenceFilter | None = None,
     reader_tutor: reader_modes.ReaderTutorRequest | None = None,
     reader_caller: Mapping[str, Any] | None = None,
+    reader_binding: reader_modes.BoundAsk | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """``question_context`` carries the §13.4 generating-process fields
@@ -411,7 +412,13 @@ def ask_question(
     asked under (a cold administration, a bound item), stored on the
     question's ``source_context`` as it lands so anything later rebuilt from
     it (``instructional.policy.caller_for_question_event``) is never wider;
-    None (an unrestricted question) stores nothing."""
+    None (an unrestricted question) stores nothing. ``reader_binding`` (RW1c
+    fix round 5, R1: a :class:`reader_modes.BoundAsk`, independent of
+    ``reader_tutor``) binds a Reader question to a workbench item: the row is
+    stored on the item, its hint flag is ``BoundAsk.hint_equivalent`` and its
+    reveals are debited, and the item's guard holds for the complete
+    delivered context and the thread, with retrieval on or off; None keeps
+    the unbound Reader of before."""
 
     if context not in QUESTION_CONTEXTS:
         raise TutorQAError(f"Unknown question context {context!r}")
@@ -539,13 +546,15 @@ def ask_question(
     # RW1c (Codex review F1): a Reader question asked inside a workbench
     # session bound to an item is help on that item. The server-derived
     # binding (never the client's word) is persisted on the question row, so
-    # the submit's existing fold (``hint_equivalents_for_submission``, on the
-    # item and the practice session) and the reveal ledger see it, as they
-    # see a practice-context question.
-    bound_item: PracticeItem | None = getattr(reader_tutor, "bound_item", None) if lookup else None
-    if bound_item is not None:
+    # the submit's existing fold (``hint_equivalents_for_submission``, the
+    # item's window) and the reveal ledger see it, as they see a
+    # practice-context question. Fix round 5 (R1): the binding is its own
+    # value, so it holds with retrieval off too.
+    binding = reader_binding if context == "reader" and source_span_provider is None else None
+    bound_item: PracticeItem | None = binding.item if binding is not None else None
+    if binding is not None:
         question_row["practice_item_id"] = bound_item.id
-        question_row["session_id"] = getattr(reader_tutor, "practice_session_id", None)
+        question_row["session_id"] = binding.practice_session_id
         question_row["assessment_contract_version_id"] = _question_contract(vault, repository, bound_item, None)
     lookup_spans: list[dict[str, Any]] | None = None
     lookup_manifest: dict[str, Any] = {}
@@ -576,6 +585,7 @@ def ask_question(
             delivery_receipt=delivery,
             linked_reference_filter=linked_reference_filter,
             reader_lookup=(lookup_spans, lookup_manifest, reader_tutor) if lookup else None,
+            reader_binding=binding,
         )
 
     if context == "reader":
@@ -718,7 +728,7 @@ def ask_question(
         # passage, and abstention (no citation shown as the books').
         reader_view, citations = reader_modes.finalize(
             answer, ai_context.source_spans, citations, retrieval=lookup_manifest, request=reader_tutor,
-            withheld=reader_held_out, item=reader_tutor.item,
+            withheld=reader_held_out, item=bound_item,
         )
         source_context = {**(source_context or {}), "reader_tutor": reader_view}
     if citations:
@@ -741,17 +751,20 @@ def ask_question(
     # the practice context let a fully revealed answer be re-recorded as clean
     # unassisted evidence. Reader/library asks stay exempt: no item is bound,
     # so there is nothing to contaminate.
-    if bound_item is not None:
+    if binding is not None:
         # RW1c (Codex review F1): the bound workbench item, for the hint and
         # reveal accounting below; ``practice_item_id`` follows it so the
         # episode and the dialogue's causal join name the same item.
         item, practice_item_id = bound_item, bound_item.id
-    hint_equivalent = item is not None and (answer.question_type in HINT_EQUIVALENT_TYPES or (
-        # RW1c (fix round 4, F1): a cold Ask is a hint under L6 whatever its
-        # type. On the bound item this row carries it, in the item's window;
-        # the cold path's session-scoped practice row then leaves its flag off
+        # Fix round 5 (R1): the binding's rule, the one value stored here and
+        # returned (``result["hint_equivalent"]``, which the Reader's response
+        # reads): a cold Ask is a hint whatever its type, with or without a
+        # cold attempt row; outside a cold administration, the ordinary
+        # classification. The cold path's practice row only deduplicates
         # (``reader_dialogue._record_cold_hint_equivalent``), so it counts once.
-        bound_item is not None and bool(getattr(reader_tutor, "carries_cold_hint", False))))
+        hint_equivalent = binding.hint_equivalent(answer.question_type in HINT_EQUIVALENT_TYPES)
+    else:
+        hint_equivalent = item is not None and answer.question_type in HINT_EQUIVALENT_TYPES
     leak_overlap = (
         # A bound Reader answer shows its bridge too, scored with the
         # explanation; the excerpt is debited once, with the passages it
@@ -1414,6 +1427,7 @@ def _build_context(
     delivery_receipt: dict[str, Any] | None = None,
     linked_reference_filter: LinkedReferenceFilter | None = None,
     reader_lookup: tuple[Any, Mapping[str, Any], Any] | None = None,
+    reader_binding: reader_modes.BoundAsk | None = None,
 ) -> TutorQAContext:
     """The tutor's context. ``delivery_receipt`` (when given) receives the
     source delivery's receipt when it records something: a trim or drop at
@@ -1421,7 +1435,11 @@ def _build_context(
 
     ``reader_lookup`` (RW1c: retrieved spans or None, the retrieval's
     manifest, the request) adds the retrieved passages after the selection
-    and its neighbours and returns a :class:`ReaderTutorQAContext`."""
+    and its neighbours and returns a :class:`ReaderTutorQAContext`.
+    ``reader_binding`` (RW1c fix round 5, R1 and R2) guards the Reader
+    context with the bound item's guard, retrieval on or off: the selection,
+    its neighbours and the blocks they cite, and every earlier answer in the
+    thread (``reader_modes.guard_thread``)."""
 
     settings = vault.config.tutor_qa
     if context == "reader" and provided_source_spans is not None:
@@ -1462,12 +1480,27 @@ def _build_context(
         )
         if delivery_receipt is not None and notable(receipt):
             delivery_receipt.update(receipt)
+        guarded: dict[str, int] = {}
+        if reader_binding is not None:
+            # Fix round 5 (R1, R2): bound, the item's guard holds for the
+            # complete delivered context whatever the retrieval switch, and
+            # every earlier answer is re-checked under the CURRENT
+            # restriction (an answer given while reading unbound can be the
+            # item's answer now); the stored exchanges are untouched.
+            if reader_binding.context_guard is not None:
+                reader_spans, guarded = reader_binding.context_guard(reader_spans)
+            thread, left_out = reader_modes.guard_thread(thread, reader_binding)
+            if delivery_receipt is not None and left_out:
+                delivery_receipt["earlier_answers_left_out"] = left_out
         if reader_lookup is not None:
             return _reader_lookup_context(
                 repository, reader_spans, reader_lookup, question_md=question_md, thread=thread,
                 answer_mode=answer_mode, withheld=reader_withheld, delivery_receipt=delivery_receipt,
                 budget_tokens=settings.context_token_budget, expanded=settings.expanded_delivery,
+                guard=reader_binding.context_guard if reader_binding is not None else None, guarded=guarded,
             )
+        if delivery_receipt is not None and guarded:
+            delivery_receipt["item_bound_withheld"] = dict(sorted(guarded.items()))
         return TutorQAContext(
             context="reader",
             question_md=question_md,
@@ -1558,6 +1591,8 @@ def _reader_lookup_context(
     delivery_receipt: dict[str, Any] | None,
     budget_tokens: int,
     expanded: bool,
+    guard: Any = None,
+    guarded: Mapping[str, int] | None = None,
 ) -> ReaderTutorQAContext:
     """RW1c's Reader context: the selection and its neighbours first, then the
     retrieved passages (each its complete canonical block unless
@@ -1569,19 +1604,17 @@ def _reader_lookup_context(
     spans = [dict(span) for span in retrieved or ()]
     if spans and expanded:
         spans, _completed = hydrate(BlockSource(repository.sqlite_path), spans)
-    guard = getattr(request, "context_guard", None)
-    guarded: dict[str, int] = {}
+    guarded = dict(guarded or {})
     if guard is not None:
         # Item-bound (Codex review F3): the item's scope, role and
         # answer-overlap guards hold for the COMPLETE delivered context -- the
-        # selection, its neighbours, the blocks they cite and the retrieved
-        # passages (after hydration, which may complete a block) -- not only
-        # for what retrieval added.
-        reader_spans, near = guard(reader_spans)
+        # selection, its neighbours and the blocks they cite (guarded by the
+        # caller, ``_build_context``, retrieval on or off: fix round 5, R1)
+        # and the retrieved passages (after hydration, which may complete a
+        # block) -- not only for what retrieval added.
         spans, far = guard(spans)
-        for counts in (near, far):
-            for key, value in counts.items():
-                guarded[key] = guarded.get(key, 0) + value
+        for key, value in far.items():
+            guarded[key] = guarded.get(key, 0) + value
     kept, receipt = reader_modes.deliver(reader_spans, spans, budget_tokens=budget_tokens, withheld=withheld)
     if delivery_receipt is not None and guarded:
         delivery_receipt["item_bound_withheld"] = dict(sorted(guarded.items()))

@@ -47,7 +47,7 @@ from learnloop.db.repositories import Repository
 from learnloop.substrate import administration_adapters
 from learnloop.curriculum import commitments
 from learnloop.learner import familiarity
-from learnloop.tutor import tutor_qa
+from learnloop.tutor import reader_modes, tutor_qa
 from learnloop.tutor.ai_contracts import ReaderTutorQAContext, TutorAnswer, TutorCitation, TutorQAContext
 from learnloop.substrate.activities import (
     append_exposure,
@@ -512,9 +512,17 @@ def ask(
     source_span_provider: Any | None = None,
     reader_tutor: Any | None = None,
     reader_caller: Mapping[str, Any] | None = None,
+    reader_binding: Any | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Answer a span-grounded reader question (§7.6).
+
+    ``reader_binding`` (RW1c fix round 5, R1: a ``tutor.reader_modes.BoundAsk``
+    the adapter builds whatever the retrieval switch): the workbench item the
+    question is bound to. The tutor stores the question on it and guards the
+    complete delivered context and the thread with it (``tutor_qa``); the
+    manifest records what the tutor was given, and the exchange's
+    ``hint_equivalent`` is the stored row's flag. None changes nothing.
 
     ``reader_caller`` (RW1c, Codex re-review F2): the restriction the adapter
     derived on the server (cold, a bound item), stored with the question
@@ -672,17 +680,28 @@ def ask(
         source_span_provider=source_span_provider,
         reader_tutor=reader_tutor,
         reader_caller=reader_caller,
+        reader_binding=reader_binding,
         clock=clock,
     )
-    if source_span_provider is not None or "reader_tutor" in result:
+    if source_span_provider is not None or "reader_tutor" in result or reader_binding is not None:
         # The manifest's spans are exactly the ones the tutor was given: the
         # pins as delivered (after the context budget), not the anchor's
-        # neighbours.
+        # neighbours; bound, after the item's guard (fix round 5, R1).
         delivered = (repository.question_event(result["event_id"]) or {}).get("source_context") or {}
         manifest["source_spans"] = list(delivered.get("source_spans") or [])
-        manifest["source_retrieval"] = delivered.get("source_retrieval")
+        if source_span_provider is not None or "reader_tutor" in result:
+            manifest["source_retrieval"] = delivered.get("source_retrieval")
         if delivered.get("delivery"):
             manifest["delivery"] = delivered["delivery"]
+    if reader_binding is not None:
+        # The earlier answers as the tutor read them (R2): the same check,
+        # so the manifest never records an answer the prompt left out.
+        manifest["prior_exchanges"], _left_out = reader_modes.guard_thread(
+            manifest["prior_exchanges"], reader_binding)
+    # One source of truth (R1): bound, the exchange's and the response's
+    # flag is the question row's stored flag; unbound, the base's (the
+    # client's cold flag, which the cold path's practice row carries).
+    hint_equivalent = bool(result["hint_equivalent"]) if reader_binding is not None else bool(cold_active)
 
     # L3 server-side reveal detection: an answer can leak a reserved surface even when
     # the caller forgets to declare it. Derive candidate revealed reserves from the
@@ -759,7 +778,7 @@ def ask(
             # invariant 10: never ability evidence; routing-prior target only.
             "target_key": target_key,
             "outcome_class": "unknown",
-            "hint_equivalent": bool(cold_active),
+            "hint_equivalent": hint_equivalent,
             "source_visible": True,
         },
         clock=clock,
@@ -797,7 +816,7 @@ def ask(
         "manifest": manifest,
         "warmed_surface_ids": warmed,
         "burned_surface_ids": burned,
-        "hint_equivalent": bool(cold_active),
+        "hint_equivalent": hint_equivalent,
         "cold_hint_event_id": cold_hint_event_id,
         "remaining": result["remaining"],
     })
@@ -812,7 +831,7 @@ def ask(
 
 
 def ask_history(
-    repository: Repository, *, extraction_id: str, branches: bool = True,
+    repository: Repository, *, extraction_id: str, branches: bool = True, tutor_views: bool = False,
 ) -> list[dict[str, Any]]:
     """Return every completed Reader Ask for one extraction, newest first.
 
@@ -827,6 +846,12 @@ def ask_history(
     resolution is its inquiry's status. The RPC passes False while
     ``reader_inquiry.enabled`` is off, which returns the flat projection of
     before.
+
+    ``tutor_views`` (RW1c fix round 5, R4): each exchange also carries the
+    answer's RW1c presentation (``tutor``: the excerpt, the bridge, the
+    modes). The RPC passes it only while either RW1c switch is on, so with
+    both off a saved RW1c answer projects exactly as the base projects it;
+    the durable event keeps everything.
     """
 
     prefix = f"span:{extraction_id}/"
@@ -855,8 +880,9 @@ def ask_history(
             "citations": list(payload.get("citations") or []),
             "created_at": event.get("created_at"),
         }
-        if payload.get("tutor"):
-            # RW1c: the answer's modes (absent on every exchange before RW1c).
+        if tutor_views and payload.get("tutor"):
+            # RW1c: the answer's modes (absent on every exchange before RW1c,
+            # and while both RW1c switches are off).
             exchange["tutor"] = dict(payload["tutor"])
         if branches:
             selection = manifest.get("selection") or {}

@@ -253,6 +253,15 @@ class ItemBoundGuard:
             counts[why] = counts.get(why, 0) + 1
         return kept, counts
 
+    def text_leaks(self, text: str) -> bool:
+        """The guard's check for one model-written or source text that is not
+        a block (fix round 5, R2: an earlier answer in the thread, a line of
+        the learner-work context): it leads as a solution or reproduces the
+        item's answer. The block-only rules (linked to the item, an exercise
+        lead) have no block to read here."""
+
+        return lead_role(text) == "solution" or span_leaks_expected(text, self.item.expected_answer)
+
 
 # ---------------------------------------------------------------------------
 # The inquiry: what it has shown, the gaps it named

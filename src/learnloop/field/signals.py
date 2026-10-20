@@ -30,6 +30,7 @@ from typing import Any
 from learnloop.algorithm_versions import LEARNER_TEXT_GAP_VERSIONS
 from learnloop.attempts.stuck import stuck_answers
 from learnloop.field.types import AttemptRow, SignalRow
+from learnloop.hint_window import ITEM_WINDOW_QUESTION_CONTEXTS, following_attempt
 
 #: v2: learner-text gap targets (implementation_handoffs §4) join the
 #: derivation, each available from the gap's own read time (Codex review F6)
@@ -49,6 +50,9 @@ QUESTION_TYPES = frozenset({
 ATTEMPT_PROGRESS_NO_WORK = "no_draft"
 #: A stuck answer the grader read as describing confusion (mvp-0.13).
 STUCK_CONFUSION_SIGNAL = "stuck_confusion"
+#: A workbench-bound Reader question's attribution to the attempt its item
+#: window gives it (RW1c fix round 5, R3): report strata only, never mass.
+BOUND_QUESTION_SIGNAL = "bound_question"
 logger = logging.getLogger(__name__)
 
 
@@ -297,6 +301,18 @@ def derive_interaction_signals(
                 attempt_id=event.get("attempt_id"), help_before_work=before,
                 leak_suspected=leak,
             ))
+        window = by_attempt.get(event.get("_window_attempt_id"))
+        if window is not None and window.lo_id not in los:
+            # RW1c fix round 5 (R3): a bound Reader question precedes the
+            # attempt its item window gives it (``_link_practice_questions``),
+            # whatever the cold practice row's flag. Attribution only: no
+            # outcome, no mass, no attempt link (so coldness and assistance
+            # are unchanged) and a type that blocks nothing.
+            signals.append(SignalRow(
+                signal_id=f"{kind}:{event_id}:window:{window.attempt_id}", lo_id=window.lo_id,
+                observed_at=logged_at, signal_type=BOUND_QUESTION_SIGNAL,
+                subject_id=window.features.subject_id,
+            ))
     for attempt in attempts:
         if attempt.hints_used > 0:
             before = attempt.help_before_work or any(
@@ -465,12 +481,22 @@ def _link_practice_questions(connection: Any, questions: list[dict[str, Any]]) -
     as a hint equivalent of the NEXT attempt on the item when that attempt is
     in the question's session (``tutor_qa.hint_equivalents_for_submission``:
     after the previous attempt on the item, at or before this one). The same
-    window over the two immutable ledgers supplies the link here. Explicit
-    links and other contexts are left as logged.
+    window over the two immutable ledgers supplies the link here
+    (``hint_window.following_attempt``, the count's own session rule).
+    Explicit links and other contexts are left as logged.
+
+    A Reader question a workbench session bound to the item (RW1c; a context
+    in ``hint_window.ITEM_WINDOW_QUESTION_CONTEXTS``) is found the same way,
+    in the item's window whatever its session, but recorded apart, as
+    ``_window_attempt_id`` (fix round 5, R3): it attributes the question to
+    that attempt for the report's question strata only. Its ``attempt_id``
+    stays as logged, so it changes neither the attempt's coldness nor its
+    assistance (the hint is counted by the submit, ``hints_used``).
     """
     pending = [
         q for q in questions
-        if not q.get("attempt_id") and q.get("context") == "practice" and q.get("practice_item_id")
+        if not q.get("attempt_id") and q.get("practice_item_id") and (
+            q.get("context") == "practice" or q.get("context") in ITEM_WINDOW_QUESTION_CONTEXTS)
     ]
     if not pending or connection.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='practice_attempts'"
@@ -487,10 +513,14 @@ def _link_practice_questions(connection: Any, questions: list[dict[str, Any]]) -
     linked = []
     for question in questions:
         if id(question) in pending_ids:
-            asked = instant(question["created_at"])
-            following = next((a for a in by_item.get(question["practice_item_id"], ()) if a[0] >= asked), None)
-            if following is not None and following[2] in (None, question.get("session_id")):
-                question = {**question, "attempt_id": following[1]}
+            following = following_attempt(
+                instant(question["created_at"]), context=question.get("context"),
+                question_session_id=question.get("session_id"),
+                attempts=by_item.get(question["practice_item_id"], ()),
+            )
+            if following is not None:
+                key = "attempt_id" if question.get("context") == "practice" else "_window_attempt_id"
+                question = {**question, key: following}
         linked.append(question)
     return linked
 

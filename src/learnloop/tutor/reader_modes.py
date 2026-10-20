@@ -50,6 +50,100 @@ MAX_EXCERPT_CHARS = 1200
 MAX_BRIDGE_CHARS = 1500
 
 
+#: What a bound request's prompt shows in place of an earlier answer that
+#: would give the item's answer away (fix round 5, R2).
+EARLIER_ANSWER_LEFT_OUT = "[An earlier answer is left out while you work this problem.]"
+
+
+@dataclass(frozen=True)
+class BoundAsk:
+    """A Reader question a workbench session binds to a practice item, derived
+    on the server and validated (``handlers.reader_tutor.bound_ask``).
+
+    Fix round 5, ruling R1: the binding is its own value, built before and
+    apart from the retrieval request, whenever either RW1c switch is on and
+    the request names a bound workbench session. Retrieval being off changes
+    only whether retrieval runs; it never drops the item, its guards or its
+    accounting (rounds 1-4 hung all three off the retrieval request, which
+    is None with retrieval off, so an offers-only bound ask lost them).
+
+    * ``item`` and ``practice_session_id``: the row is stored on them, so the
+      item window counts its hint (``Repository.count_hint_equivalent_question_events``)
+      and the reveal ledger debits what it showed.
+    * ``cold``: the restriction's cold status (the client's flag or the
+      server's own derivation of a cold administration of the item).
+    * ``context_guard``: the item's guard over every span the tutor is given
+      (the selection, its neighbours, the blocks they cite, the retrieved
+      passages): ``guard(spans) -> (kept, counts)``.
+    * ``answer_guard``: the same guard's check for one text
+      (``text -> leaks``): earlier answers in the thread and model-written
+      learner-work lines pass it before the prompt is built (R2).
+
+    The guards are injected by the adapter; this package never imports
+    retrieval."""
+
+    item: Any
+    practice_session_id: str | None = None
+    cold: bool = False
+    context_guard: Callable[[Sequence[Mapping[str, Any]]], tuple[list[dict[str, Any]], dict[str, int]]] | None = None
+    answer_guard: Callable[[str], bool] | None = None
+
+    def hint_equivalent(self, substantive: bool) -> bool:
+        """The bound row's hint flag, the one value stored and returned (R1).
+
+        A cold Ask is a hint under L6 whatever its question type, whether or
+        not the client's cold attempt row exists or can be fetched (that row
+        only deduplicates: ``reader_dialogue._record_cold_hint_equivalent``
+        leaves its flag off when this row carries the hint). A bound Ask
+        outside a cold administration uses the ordinary classification
+        (``substantive``: its type is in ``tutor_qa.HINT_EQUIVALENT_TYPES``)."""
+
+        return bool(self.cold or substantive)
+
+
+def guard_thread(thread: Sequence[Mapping[str, Any]], binding: BoundAsk | None) -> tuple[list[dict[str, Any]], int]:
+    """The thread a bound request's prompt carries, and how many earlier answers it left out (R2).
+
+    Every earlier answer is model-written text the tutor would read again:
+    it passes the same check as the source spans, under the CURRENT
+    restriction. An answer given while reading unbound ("The required
+    probability is 2/13.") is the item's answer once the workbench binds it,
+    so it is replaced by :data:`EARLIER_ANSWER_LEFT_OUT`. The thread keeps
+    its shape (the learner's questions stay), nothing is refused, and the
+    stored exchange is untouched."""
+
+    turns = [dict(turn) for turn in thread]
+    if binding is None or binding.answer_guard is None:
+        return turns, 0
+    left_out = 0
+    for turn in turns:
+        if turn.get("answer_md") and binding.answer_guard(str(turn["answer_md"])):
+            turn["answer_md"] = EARLIER_ANSWER_LEFT_OUT
+            left_out += 1
+    return turns, left_out
+
+
+def guard_learner_work(work: Sequence[Mapping[str, Any]], binding: BoundAsk | None) -> list[dict[str, Any]]:
+    """The bridge's learner-work context under a binding (R2's audit).
+
+    The learner's own steps are theirs and stay. Two lines are not theirs:
+    an open question's statement is LearnLoop's reading (model-written) and a
+    workbench session's problem is source text; either is left out when the
+    guard says it would give the item's answer away."""
+
+    entries = [dict(entry) for entry in work]
+    if binding is None or binding.answer_guard is None:
+        return entries
+    kept: list[dict[str, Any]] = []
+    for entry in entries:
+        if entry.get("kind") == "open_question" and binding.answer_guard(str(entry.get("statement") or "")):
+            continue
+        if entry.get("problem") and binding.answer_guard(str(entry["problem"])):
+            entry["problem"] = ""
+        kept.append(entry)
+    return kept
+
+
 @dataclass
 class ReaderTutorRequest:
     """What the adapter hands ``tutor_qa.ask_question(reader_tutor=...)``.
@@ -59,37 +153,18 @@ class ReaderTutorRequest:
     so the tutor keeps today's delivery and no abstention is claimed; ``[]``
     with ``manifest["books_cover"] is False`` when verification ran and kept
     no passage. ``learner_work`` is the bridge's context (empty unless
-    personalized). ``item`` is the practice item a workbench session binds
-    the question to (its answer never reaches an excerpt)."""
+    personalized). The item a workbench session binds the question to, its
+    guards and its accounting are NOT here: they are the :class:`BoundAsk`,
+    which holds with retrieval off too (fix round 5, R1)."""
 
     retrieve: Callable[[], tuple[list[dict[str, Any]] | None, dict[str, Any]]] | None = None
     intent: str = "explain"
     personalized: bool = True
     learner_work: list[dict[str, Any]] = field(default_factory=list)
-    item: Any = None
     #: The caller's derived policy (``reading``, ``assisted_practice`` or
-    #: ``cold_attempt``), kept apart from ``item`` so a cold administration
-    #: (which binds no exclusion item) is never read as ``reading`` (Codex
-    #: review F2).
+    #: ``cold_attempt``), kept apart from the binding so a cold
+    #: administration is never read as ``reading`` (Codex review F2).
     policy: str = "reading"
-    #: The item a bound workbench session is practising and the practice
-    #: session its submit counts in, whatever the policy: the question is
-    #: persisted on them, so its hint equivalence and every displayed
-    #: component's answer overlap reach the attempt (Codex review F1).
-    bound_item: Any = None
-    practice_session_id: str | None = None
-    #: The client's cold path names an attempt on the bound item
-    #: (``reader_dialogue._record_cold_hint_equivalent``): this question is a
-    #: hint under L6 whatever its type, and the bound row carries it in the
-    #: item's window (any practice session, or none), so the cold path's
-    #: session-scoped practice row leaves its flag off and the hint counts
-    #: once (Codex re-review F1; fix round 4, F1).
-    carries_cold_hint: bool = False
-    #: Item-bound, the guard every delivered span passes (the selection, its
-    #: neighbours, the blocks they cite and the retrieved passages):
-    #: ``guard(spans) -> (kept, counts)``. Injected by the adapter (this
-    #: package never imports retrieval); None outside a bound session.
-    context_guard: Callable[[Sequence[Mapping[str, Any]]], tuple[list[dict[str, Any]], dict[str, int]]] | None = None
     #: "Another way": every passage the inquiry has shown (its exchanges'
     #: selections, citations, excerpts and retrieved passages, and the
     #: passages its pressed offers showed). No new excerpt or citation shown
@@ -256,6 +331,8 @@ def delivery_receipt(receipt: Mapping[str, Any]) -> dict[str, Any] | None:
 __all__ = [
     "ABSTENTION_LINE",
     "ALTERNATIVE_ABSTENTION_LINE",
+    "BoundAsk",
+    "EARLIER_ANSWER_LEFT_OUT",
     "MAX_BRIDGE_CHARS",
     "MAX_EXCERPT_CHARS",
     "MIN_EXCERPT_CHARS",
@@ -265,6 +342,8 @@ __all__ = [
     "delivery_receipt",
     "displayed_text",
     "finalize",
+    "guard_learner_work",
+    "guard_thread",
     "run_retrieval",
     "verify_excerpt",
 ]

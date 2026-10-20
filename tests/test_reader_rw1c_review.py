@@ -693,3 +693,300 @@ def test_the_desktops_offers_only_bound_ask_refuses_tools_when_cold(tmp_path, mo
     for key in fixture["absentFromAnswer"]:
         assert key not in answer, key
     assert table_counts(repository, ["source_tool_calls"]) == before
+
+
+# --- Fix round 5 (orchestrator rulings) ----------------------------------------------------------------
+
+OFFERS_ONLY = {"reader_tutor": {"retrieval_enabled": False, "offers_enabled": True}}
+
+
+def _next_attempt_counts(repository, vault, session_id: str) -> tuple[int, int]:
+    """(the next submission's count, the next attempt's post-hoc count) on the item."""
+
+    from learnloop.tutor.tutor_qa import hint_equivalents_for_attempt, hint_equivalents_for_submission
+
+    at_submit = hint_equivalents_for_submission(repository, ITEM, session_id)
+    return at_submit, hint_equivalents_for_attempt(repository, _later_attempt(repository, vault, "att_next_r5", session_id))
+
+
+@pytest.mark.parametrize("question_type", ["verification", "other"])
+@pytest.mark.parametrize("cold_attempt", ["null", "unfetchable"])
+def test_a_cold_bound_ask_is_a_hint_whatever_its_type_and_its_cold_row(tmp_path, monkeypatch, question_type,
+                                                                       cold_attempt):
+    """R1 (F1, the verify's first case): retrieval on, a cold Ask on the bound
+    item with a null or unfetchable ``coldAttemptId`` and a curiosity type. No
+    cold practice row can be written, so the bound row carries the hint (L6):
+    the next attempt counts it once, and the response says what is stored."""
+
+    tutor = LookupTutor(question_type=question_type)
+    _paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    vault, _repository = ctx.require_vault()
+    session = repository.create_session()
+    answer = ask(ctx, workbenchSessionId=_bound_to(repository, ITEM, session), coldActive=True,
+                 coldAttemptId=None if cold_attempt == "null" else "att_missing_r5")
+    event = repository.question_event(answer["eventId"])
+    assert event["practice_item_id"] == ITEM and event["question_type"] == question_type
+    assert event["hint_equivalent"] is True
+    assert answer["hintEquivalent"] == event["hint_equivalent"]
+    with repository.connection() as connection:
+        cold_rows = connection.execute("SELECT COUNT(*) FROM question_events WHERE context = 'practice' "
+                                       "AND provider = 'reader'").fetchone()[0]
+    assert cold_rows == 0  # no cold practice row was written: nothing to deduplicate
+    assert _next_attempt_counts(repository, vault, session) == (1, 1)
+
+
+def test_an_offers_only_bound_question_counts_once(tmp_path, monkeypatch):
+    """R1 (F1, the verify's second case): retrieval off and offers on, a
+    substantive question in a bound workbench keeps its item, so the next
+    attempt counts it once. The unbound control counts nowhere."""
+
+    tutor = LookupTutor()  # mechanism
+    _paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor, config=OFFERS_ONLY)
+    vault, _repository = ctx.require_vault()
+    session = repository.create_session()
+    plain = ask(ctx)
+    assert repository.question_event(plain["eventId"])["practice_item_id"] is None
+    assert plain["hintEquivalent"] is False
+    answer = ask(ctx, "how do I start?", workbenchSessionId=_bound_to(repository, ITEM, session))
+    event = repository.question_event(answer["eventId"])
+    assert event["practice_item_id"] == ITEM and event["session_id"] == session
+    assert event["hint_equivalent"] is True and answer["hintEquivalent"] is True
+    assert "tutor" not in answer  # retrieval stays off: the base answer contract
+    assert _next_attempt_counts(repository, vault, session) == (1, 1)
+
+
+@pytest.mark.parametrize("retrieval", [True, False])
+@pytest.mark.parametrize("cold", [False, True])
+@pytest.mark.parametrize("question_type", ["mechanism", "other"])
+def test_the_responses_hint_flag_is_the_stored_flag(tmp_path, monkeypatch, retrieval, cold, question_type):
+    """R1: one source of truth. Bound, the flag is cold or the ordinary
+    classification, retrieval on or off, and the response and the exchange
+    read the stored value."""
+
+    tutor = LookupTutor(question_type=question_type)
+    _paths, ctx, repository, _spans = reader_ctx(
+        tmp_path, monkeypatch, tutor,
+        config={"reader_tutor": {"retrieval_enabled": retrieval, "offers_enabled": True}})
+    session = repository.create_session()
+    answer = ask(ctx, workbenchSessionId=_bound_to(repository, ITEM, session), **({"coldActive": True} if cold else {}))
+    stored = repository.question_event(answer["eventId"])["hint_equivalent"]
+    assert stored is (cold or question_type == "mechanism")
+    assert answer["hintEquivalent"] == stored
+    with repository.connection() as connection:
+        (payload,) = connection.execute("SELECT payload_json FROM interaction_events WHERE id = ?",
+                                        (answer["readerAnswerEventId"],)).fetchone()
+    import json
+
+    assert json.loads(payload)["hint_equivalent"] == stored
+
+
+@pytest.mark.parametrize("cold", ["none", "client", "server"])
+def test_offers_only_the_bound_items_guards_hold(tmp_path, monkeypatch, cold):
+    """R1 (F2): retrieval off and offers on, the verify's probability
+    neighbour. Bound, cold or not, the solution stating 2/13 reaches neither
+    the tutor's context nor the manifest the exchange records; the unbound
+    control shows it."""
+
+    import json
+
+    import learnloop.instructional.policy as policy
+
+    _probability_book(monkeypatch)
+    tutor = LookupTutor()
+    paths, ctx, repository, spans = reader_ctx(tmp_path, monkeypatch, tutor, config=OFFERS_ONLY)
+    set_item_answer(paths, ITEM, PROBABILITY_KEY)
+    ctx = _rebind(paths, ctx)
+    session = _bound_session(repository, ITEM)
+    last_exercise = spans["exercises"][-1]
+    selection = {"spanId": last_exercise, "selectionSpanIds": [last_exercise],
+                 "selectionQuote": "Compute the eigenvalues of the diagonal matrix"}
+    ask(ctx, **selection)
+    assert any(PROBABILITY_KEY in s["text"] for s in tutor.contexts[-1]["source_spans"]), \
+        "the control: unbound, the solution neighbour is delivered"
+    extra: dict = {"coldActive": True} if cold == "client" else {}
+    if cold == "server":
+        monkeypatch.setattr(policy, "cold_administration_open", lambda repo, item_id: item_id == ITEM)
+    answer = ask(ctx, "how do I start?", workbenchSessionId=session, **selection, **extra)
+    given = tutor.contexts[-1]["source_spans"]
+    assert not any(PROBABILITY_KEY in s["text"] for s in given)
+    assert ("ext_text", last_exercise) in {(s["extraction_id"], s["span_id"]) for s in given}
+    assert PROBABILITY_KEY not in json.dumps(answer["manifest"])
+    assert "tutor" not in answer  # no excerpt: retrieval is off
+    assert answer["manifest"]["delivery"]["itemBoundWithheld"]
+
+
+ROOT_ANSWER = "Swapping rows flips the sign."
+FOLLOW_UP = "so what is the probability?"
+
+
+@pytest.mark.parametrize("retrieval", [True, False])
+@pytest.mark.parametrize("cold", [False, True])
+def test_an_earlier_answer_is_rechecked_under_the_binding(tmp_path, monkeypatch, retrieval, cold):
+    """R2 (F5): asked unbound, the tutor answered "The required probability
+    is 2/13."; bound to the item, a follow-up under that answer must not give
+    it to the tutor again. The answer is replaced by the fixed line, the
+    thread keeps its shape (both questions, the unrelated root answer), and
+    the stored exchange is untouched."""
+
+    import json
+
+    from learnloop.tutor.reader_modes import EARLIER_ANSWER_LEFT_OUT
+
+    tutor = LookupTutor(answer_md=ROOT_ANSWER)
+    paths, ctx, repository, _spans = reader_ctx(
+        tmp_path, monkeypatch, tutor, config={"reader_tutor": {"retrieval_enabled": retrieval, "offers_enabled": True}})
+    set_item_answer(paths, ITEM, PROBABILITY_KEY)
+    ctx = _rebind(paths, ctx)
+    root = ask(ctx)
+    tutor.answer_md = PROBABILITY_SOLUTION
+    child = ask(ctx, FOLLOW_UP, parentExchangeId=root["readerAnswerEventId"])
+    assert child["answerMd"] == PROBABILITY_SOLUTION  # the control: unbound, the tutor said it
+    tutor.answer_md = "Start from the sample space."
+    session = _bound_session(repository, ITEM)
+    follow = ask(ctx, "how do I start?", parentExchangeId=child["readerAnswerEventId"], workbenchSessionId=session,
+                 **({"coldActive": True} if cold else {}))
+    context = tutor.contexts[-1]
+    assert [turn["question_md"] for turn in context["thread"]] == [ROOT_QUESTION, FOLLOW_UP]
+    assert [turn["answer_md"] for turn in context["thread"]] == [ROOT_ANSWER, EARLIER_ANSWER_LEFT_OUT]
+    assert PROBABILITY_KEY not in json.dumps(context)
+    assert PROBABILITY_KEY not in json.dumps(follow["manifest"])
+    assert follow["manifest"]["delivery"]["earlierAnswersLeftOut"] == 1
+    history = {e["eventId"]: e for e in call(ctx, "reader.ask_history", {"extractionId": "ext_text"})["exchanges"]}
+    assert history[child["readerAnswerEventId"]]["answerMd"] == PROBABILITY_SOLUTION
+    # Unbound again, the same follow-up reads the earlier answer as it was.
+    ask(ctx, "and unbound?", parentExchangeId=child["readerAnswerEventId"])
+    assert tutor.contexts[-1]["thread"][-1]["answer_md"] == PROBABILITY_SOLUTION
+
+
+def test_the_learner_work_keeps_the_learners_own_steps():
+    """R2's audit: the bridge's context keeps the learner's own steps; an open
+    question's statement (LearnLoop's reading) or a problem line that would
+    give the answer away is left out, under a binding only."""
+
+    from learnloop.tutor.reader_modes import BoundAsk, guard_learner_work
+
+    leaks = lambda text: "2/13" in text  # noqa: E731 - the injected guard
+    binding = BoundAsk(item=SimpleNamespace(id=ITEM, expected_answer=PROBABILITY_KEY), answer_guard=leaks)
+    work = [
+        {"kind": "open_question", "statement": "The probability is 2/13.", "author": "LearnLoop's reading"},
+        {"kind": "open_question", "statement": "Which outcomes are equally likely?", "author": "LearnLoop's reading"},
+        {"kind": "workbench_steps", "author": "the learner", "problem": "Show it is 2/13.",
+         "steps": ["count the pairs", "so 2/13?"]},
+    ]
+    kept = guard_learner_work(work, binding)
+    assert [entry.get("statement") for entry in kept if entry["kind"] == "open_question"] == [
+        "Which outcomes are equally likely?"]
+    steps = next(entry for entry in kept if entry["kind"] == "workbench_steps")
+    assert steps["problem"] == "" and steps["steps"] == ["count the pairs", "so 2/13?"]
+    assert guard_learner_work(work, None) == work
+
+
+def _field_rows(vault, attempts: list[tuple[str, str]]):
+    from learnloop.field.types import AttemptRow, ItemFeatures
+
+    lo_id = vault.practice_items[ITEM].learning_object_id
+    return [AttemptRow(attempt_id, ItemFeatures(ITEM, lo_id, at), 1.0, 1.0) for attempt_id, at in attempts]
+
+
+@pytest.mark.parametrize("asked,attributed", [("bound_cold", True), ("bound", True), ("unbound", False)])
+def test_a_bound_question_precedes_the_next_attempt_in_the_field(tmp_path, monkeypatch, asked, attributed):
+    """R3 (F6): a cold bound Ask from a passage without a source-to-LO
+    mapping, naming a fetchable prior attempt (the cold row's flag is off:
+    the bound row carries the hint). The field still sees the question before
+    the next attempt of the item ("questions: with"), through the item window
+    the count uses; hints_used and coldness are unchanged. An unbound Reader
+    question still attributes nothing."""
+
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.field.signals import enrich_attempts, load_interaction_signals
+    from learnloop.tutor.tutor_qa import hint_equivalents_for_attempt
+
+    tutor = LookupTutor()
+    _paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    vault, _repository = ctx.require_vault()
+    session = repository.create_session()
+    _cold_attempt(repository, vault, "att_cold_r5", session)
+    if asked == "unbound":
+        answer = ask(ctx)
+    elif asked == "bound":
+        answer = ask(ctx, workbenchSessionId=_bound_to(repository, ITEM, session))
+    else:
+        answer = ask(ctx, workbenchSessionId=_bound_to(repository, ITEM, session), coldActive=True,
+                     coldAttemptId="att_cold_r5")
+        assert _cold_row(repository, answer)["hint_equivalent"] is False
+    source = repository.question_event(answer["eventId"])["source_context"]
+    assert not source.get("candidate_learning_object_ids"), "the passage has no source-to-LO mapping"
+    later = _later_attempt(repository, vault, "att_next_r5", session)
+    rows = _field_rows(vault, [("att_cold_r5", "2026-01-01T00:00:00Z"), ("att_next_r5", "2999-01-01T00:00:00Z")])
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        signals = load_interaction_signals(connection, vault, rows)
+    enriched = {row.attempt_id: row for row in enrich_attempts(rows, signals)}
+    nxt = enriched["att_next_r5"]
+    assert nxt.preceded_by_question is attributed
+    # Attribution only: the next attempt's coldness and assistance are as they were.
+    assert (nxt.features.cold, nxt.retrieval_cold, nxt.help_before_work) == (
+        rows[1].features.cold, rows[1].retrieval_cold, rows[1].help_before_work)
+    assert enriched["att_cold_r5"].preceded_by_question is False
+    assert hint_equivalents_for_attempt(repository, later) == (0 if asked == "unbound" else 1)
+
+
+def _base_ask_history():
+    """fab576ac1's ``ask_history``, read from the base commit (``git archive``)
+    and compiled against today's module namespace."""
+
+    import __future__
+    import ast
+    import io
+    import subprocess
+    import tarfile
+
+    from learnloop.reader import reader_dialogue as RD
+
+    path = "src/learnloop/reader/reader_dialogue.py"
+    try:
+        archive = subprocess.run(["git", "archive", "fab576ac1", path], cwd=Path(__file__).resolve().parents[1],
+                                 capture_output=True, check=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        pytest.skip("the base commit fab576ac1 is not in this checkout")
+    with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
+        source = tar.extractfile(path).read().decode("utf-8")
+    node = next(n for n in ast.parse(source).body if isinstance(n, ast.FunctionDef) and n.name == "ask_history")
+    namespace = dict(vars(RD))
+    exec(compile(ast.Module(body=[node], type_ignores=[]), f"fab576ac1:{path}", "exec",  # noqa: S102 - the base's own code
+                 flags=__future__.annotations.compiler_flag, dont_inherit=True), namespace)
+    return namespace["ask_history"]
+
+
+def test_switching_both_off_restores_the_base_history_projection(tmp_path, monkeypatch):
+    """R4 (F7): a saved RW1c answer (an excerpt) projects its ``tutor`` while
+    either switch is on; with both off, ``reader.ask_history`` returns exactly
+    what the base's projection returns for the same stored event. The durable
+    event keeps the view."""
+
+    from learnloop.reader import reader_dialogue as RD
+    from tests.library_ask_fixtures import set_config
+
+    base = _base_ask_history()
+    tutor = LookupTutor(excerpt=lambda context: next(
+        ({"extraction_id": s["extraction_id"], "span_id": s["span_id"], "quote": s["text"]}
+         for s in context["source_spans"] if s["span_id"] == "t3"), None))
+    paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    answer = ask(ctx)
+    assert answer["tutor"]["excerpt"]
+    (on,) = call(ctx, "reader.ask_history", {"extractionId": "ext_text"})["exchanges"]
+    assert on["tutor"]["excerpt"]["spanId"] == "t3"
+    set_config(paths, "reader_tutor", retrieval_enabled=False, offers_enabled=False)
+    ctx = _rebind(paths, ctx)
+    off = call(ctx, "reader.ask_history", {"extractionId": "ext_text"})
+    assert "tutor" not in off["exchanges"][0]
+    monkeypatch.setattr(RD, "ask_history", lambda repository, *, extraction_id, branches=True, **_rest: base(
+        repository, extraction_id=extraction_id, branches=branches))
+    assert call(ctx, "reader.ask_history", {"extractionId": "ext_text"}) == off
+    with repository.connection() as connection:
+        (payload,) = connection.execute("SELECT payload_json FROM interaction_events WHERE id = ?",
+                                        (answer["readerAnswerEventId"],)).fetchone()
+    import json
+
+    assert json.loads(payload)["tutor"]["excerpt"]["span_id"] == "t3"
