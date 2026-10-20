@@ -36,6 +36,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from learnloop.ai.execution import content_key
+from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
@@ -352,8 +353,11 @@ class BuildOutcome:
 
 
 def _author_context(request: FigureRequest, context: SourceContext, image_digest: str | None,
-                    previous: Mapping[str, Any] | None, problems: Sequence[str]) -> dict[str, Any]:
+                    previous: Mapping[str, Any] | None, problems: Sequence[str], *, request_id: str) -> dict[str, Any]:
     payload: dict[str, Any] = {
+        # One request's own id: "try again" after a failure asks afresh (a
+        # paid answer is recovered only for the same request).
+        "request_id": request_id,
         "request": "region of a figure" if request.region else (
             "figure" if context.figure_span else "equation or passage"),
         "passage": context.passage,
@@ -370,9 +374,11 @@ def _author_context(request: FigureRequest, context: SourceContext, image_digest
     return payload
 
 
-def _verifier_context(compiled: S.CompiledFigure, name: str, claims: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+def _verifier_context(compiled: S.CompiledFigure, name: str, claims: Sequence[Mapping[str, Any]], *,
+                      request_id: str) -> dict[str, Any]:
     definition = next(item for item in compiled.spec.definitions if item.name == name)
     return {
+        "request_id": request_id,
         "quotes": [claim["quote"] for claim in claims if claim["verified"]],
         "definition": {"name": name, "grammar": definition.expr,
                        "sympy": G.to_sympy(compiled.definitions[name], compiled.definitions)},
@@ -428,13 +434,19 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
     output: Any = None
     unsupported: tuple[str, str] | None = None
     for attempt in range(R.MAX_AUTHOR_ATTEMPTS):
-        prompt = R.author_prompt(_author_context(request, context, digest, previous, problems))
+        prompt = R.author_prompt(_author_context(request, context, digest, previous, problems, request_id=request_id))
         try:
             output = author.ask(prompt, R.FigureAuthorOutputV1, images=images,
                                 metadata={"attempt": attempt + 1, "prompt_version": R.AUTHOR_PROMPT_VERSION})
         except R.FigureUnavailable as exc:
             if attempt == 0:
                 raise FigureRefused(exc.reason, exc.message) from exc
+            break
+        except SpendLimitExceeded as exc:
+            # The daily envelope refused it before sending (another process
+            # spent the rest of the day meanwhile).
+            if attempt == 0:
+                raise FigureRefused("capped", f"Today's figure budget is used ({exc}).") from exc
             break
         except Exception as exc:  # noqa: BLE001 - a failed call ends the attempts, honestly labelled
             problems = [f"the figure model failed: {type(exc).__name__}"]
@@ -521,10 +533,12 @@ def _source_match(vault: Any, repository: Repository, compiled: S.CompiledFigure
     if problem is not None:
         return {"matched": False, "reason": f"verifier_{problem.reason}"}, 0
     try:
-        output = verifier.ask(R.verifier_prompt(_verifier_context(compiled, name, claims)), R.FigureVerifierOutputV1,
+        output = verifier.ask(R.verifier_prompt(_verifier_context(compiled, name, claims, request_id=request_id)), R.FigureVerifierOutputV1,
                               metadata={"prompt_version": R.VERIFIER_PROMPT_VERSION})
     except R.FigureUnavailable as exc:
         return {"matched": False, "reason": f"verifier_{exc.reason}"}, verifier.made
+    except SpendLimitExceeded:
+        return {"matched": False, "reason": "verifier_capped"}, verifier.made
     except Exception as exc:  # noqa: BLE001 - an unreachable verifier labels the figure, never passes it
         return {"matched": False, "reason": f"verifier_failed: {type(exc).__name__}"}, verifier.made
     quotes = {V._squash(claim["quote"]) for claim in claims if claim["verified"]}
