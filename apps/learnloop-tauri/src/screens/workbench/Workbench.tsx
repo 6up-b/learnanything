@@ -24,7 +24,7 @@ import { LiveMarkdownEditor, type LiveMarkdownKeyInfo } from "../../render/LiveM
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { errorMessage, getCommandError } from "../../errors";
 import { LearnerVoice, MeaningLabel, SourceVoice } from "../reader/voices";
-import { keyStatusLine } from "../reader/exerciseCandidates";
+import { EXERCISE_COPY, keyStatusLine } from "../reader/exerciseCandidates";
 import { WORKBENCH_COPY, liveSteps, problemTitle, savedLabel, stepChain } from "./stepModel";
 import { useWorkbenchSession } from "./useWorkbenchSession";
 import { algoConfig } from "../../app/algoConfig";
@@ -370,6 +370,17 @@ export function Workbench(props: WorkbenchProps) {
       </div>
     ) : null
   ) : null;
+  // RW4b: a picked exercise seen since it was offered (the server reads the
+  // exposure rule at the pick and again at admission, Codex review F3) says
+  // why, and that it is practice beside the book, not a check on your own.
+  const pickedExposure = session.exercisePick?.exposure ?? null;
+  const exposureNote = !readOnly && session.status !== "submitted" && pickedExposure?.exposed ? (
+    <div data-testid="workbench-exercise-exposure">
+      <MeaningLabel style={{ fontSize: 11 }}>
+        {[pickedExposure.label, EXERCISE_COPY.practiceNotCheck].filter(Boolean).join(" · ")}
+      </MeaningLabel>
+    </div>
+  ) : null;
 
   // Bound, the problem is the item's whole frozen presentation (a required
   // method's instruction, a shared setup, an error hunt's worked solution),
@@ -647,6 +658,7 @@ export function Workbench(props: WorkbenchProps) {
     >
       {header}
       {setup}
+      {exposureNote}
       {props.hideProblem ? null : problem}
       {bookLine}
       {work}

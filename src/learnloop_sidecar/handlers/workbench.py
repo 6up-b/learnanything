@@ -193,6 +193,18 @@ def _view(vault, repository, session_id: str, *, parts: list[dict[str, Any]] | N
     source_exercise = _source_exercise_view(vault, repository, row)
     if source_exercise is not None:
         extra["source_exercise"] = source_exercise
+    picked = WB.exercise_pick(row)
+    if picked is not None:
+        # RW4b: a textbook exercise the learner picked. ``due``: its import
+        # bound the problem and the learner pick of that item is still owed,
+        # whichever visit or restart sees it first (Codex review F2).
+        extra["exercise_pick"] = {
+            "proposal_id": picked.get("proposal_id"),
+            "exposure": picked.get("exposure"),
+            "exposure_checked": picked.get("exposure_checked"),
+            "admitted": bool(picked.get("admitted_at")),
+            "due": WB.exercise_pick_due(row),
+        }
     view = _run(
         WB.session_view, repository, session_id,
         question_hints=_question_hints(vault, repository, row),
@@ -273,7 +285,9 @@ def _enqueue_import(ctx: SidecarContext, vault, repository, request: dict[str, A
 
     if not RD.reader_enabled(vault):
         raise SidecarError("reader_disabled", "The reader is switched off, so this problem cannot be set up.")
-    params = ReaderImportExerciseInput.model_validate(request)
+    # The picked exercise's record (RW4b) is the workbench's, never the import's.
+    params = ReaderImportExerciseInput.model_validate(
+        {key: value for key, value in request.items() if key != WB.EXERCISE_PICK_KEY})
     return enqueue_exercise_import(ctx, vault, repository, params)
 
 
@@ -329,6 +343,14 @@ class WorkbenchSourceExerciseInput(ParamsModel):
     span_ids: list[str] = Field(min_length=1, max_length=40)
 
 
+class WorkbenchExercisePickInput(ParamsModel):
+    """A fallback exercise the learner picked (Reader RW4b): the ``pick`` its
+    listing returned, sent back as it came."""
+
+    learning_object_ids: list[str] = Field(default_factory=list, max_length=40)
+    shown_event_ids: list[str] = Field(default_factory=list, max_length=80)
+
+
 class WorkbenchOpenInput(ParamsModel):
     origin: str
     entry: str
@@ -359,6 +381,13 @@ class WorkbenchOpenInput(ParamsModel):
     #: ("use this one"). The stem is its verbatim statement; the sources
     #: service's import (S1) runs in the background and binds when it wrote the item.
     source_exercise: WorkbenchSourceExerciseInput | None = None
+    #: Reader RW4b: the fallback's exercise ("use this one" beside its
+    #: ``import_request``), so the server reads its exposure and records the pick.
+    exercise_pick: WorkbenchExercisePickInput | None = None
+    #: Reader RW4b: the learner pick of a picked exercise's item, delivered:
+    #: the problem it admits (resumed by this open, on that item). Recorded on
+    #: it only now, after the pick and its serve succeeded (Codex review F2).
+    admitted_session_id: str | None = None
 
 
 class WorkbenchSessionInput(ParamsModel):
@@ -428,8 +457,11 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
         _ensure_contract(vault, repository, row["id"])
         return _answer({"session": _view(vault, repository, row["id"]), "resumed": True})
     stem = (params.stem_md or "").strip()
+    entry = params.entry
     import_status, batch_id, error = "none", None, None
     request = dict(params.import_request) if params.import_request else None
+    if params.admitted_session_id and not params.practice_item_id:
+        raise SidecarError("validation_error", "An exercise is admitted on the item its import wrote.")
     if params.practice_item_id:
         item = vault.practice_items.get(params.practice_item_id)
         if item is None:
@@ -438,14 +470,19 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
     else:
         if params.import_request and params.source_exercise:
             raise SidecarError("validation_error", "A problem is imported one way: a selection or a proposal's exercise.")
-        if params.source_exercise:
+        if params.exercise_pick is not None and not params.import_request:
+            raise SidecarError("validation_error", "A fallback exercise opens with its import request.")
+        if params.source_exercise or params.exercise_pick is not None:
             if not vault.config.library_exercises.enabled:
                 raise SidecarError("library_exercises_disabled", "Exercises from your sources are switched off.")
+        if params.source_exercise:
             request = {"kind": SOURCE_EXERCISE_KIND, **params.source_exercise.model_dump()}
         elif params.import_request:
             request = dict(params.import_request)
         else:
             raise SidecarError("validation_error", "A problem that is not an item yet needs its import request.")
+        if params.source_exercise or params.exercise_pick is not None:
+            stem, entry, request = _picked_exercise(vault, repository, params, request, stem)
         import_status = "pending"
         resumable = WB.resumable_session(
             repository, extraction_id=params.extraction_id, span_ids=params.span_ids, stem_md=stem,
@@ -458,7 +495,7 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
             import_status = "pending" if batch_id else "failed"
     row, resumed = _run(
         WB.open_session, repository,
-        origin=params.origin, entry=params.entry, stem_md=stem,
+        origin=params.origin, entry=entry, stem_md=stem,
         practice_item_id=params.practice_item_id, extraction_id=params.extraction_id,
         span_ids=params.span_ids, parent_session_id=params.parent_session_id,
         source_visible=params.source_visible, client_idempotency_key=params.client_idempotency_key,
@@ -467,7 +504,68 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
         carried_book=params.carried_book, serve=serve,
     )
     _ensure_contract(vault, repository, row["id"])
+    if params.admitted_session_id and params.practice_item_id:
+        _admit_exercise(vault, repository, params.admitted_session_id, params.practice_item_id)
     return _answer({"session": _view(vault, repository, row["id"]), "resumed": resumed})
+
+
+def _picked_exercise(vault, repository, params: WorkbenchOpenInput, request: dict[str, Any],
+                     stem: str) -> tuple[str, str, dict[str, Any]]:
+    """What a textbook exercise the learner picked opens as (Reader RW4b),
+    decided here rather than by the card that offered it: its complete
+    statement read from its validated spans (Codex review F4; the card's is a
+    preview), how it opens from the exposure rule read now (F3: exposed since
+    it was shown, it opens as practice beside the book), and the pick's
+    record kept on the problem (F2)."""
+
+    from learnloop_sidecar.handlers import library_exercises as LX
+
+    if params.source_exercise is not None:
+        extraction_id, span_ids = params.source_exercise.extraction_id, list(params.source_exercise.span_ids)
+        pick: dict[str, Any] = {"proposal_id": params.source_exercise.proposal_id}
+    else:
+        selection = ReaderImportSelection.model_validate(request)
+        extraction_id = selection.extraction_id
+        span_ids = [str(node.get("span_id") or node.get("spanId") or "")
+                    for node in (selection.raw_selection.get("nodes") or []) if isinstance(node, dict)]
+        span_ids = [span for span in span_ids if span]
+        if not span_ids:
+            raise SidecarError("validation_error", "A fallback exercise opens on its region's blocks.")
+        dumped = params.exercise_pick.model_dump() if params.exercise_pick is not None else {}
+        pick = {"proposal_id": None, **dumped}
+    pick.update(extraction_id=extraction_id, span_ids=span_ids, admitted_at=None)
+    exposure = LX.pick_exposure(vault, repository, pick)
+    pick.update(exposure=exposure, exposure_checked="selection")
+    full = LX.full_statement(repository, extraction_id, span_ids) if exposure is not None else None
+    return (full or stem), LX.pick_entry(exposure, params.entry), {**request, WB.EXERCISE_PICK_KEY: pick}
+
+
+class ReaderImportSelection(ParamsModel):
+    """The two fields of a fallback's ``reader.import_exercise`` request the
+    workbench reads (the request is otherwise passed on unchanged)."""
+
+    model_config = {**ParamsModel.model_config, "extra": "ignore"}
+
+    extraction_id: str
+    raw_selection: dict[str, Any]
+
+
+def _admit_exercise(vault, repository, session_id: str, practice_item_id: str) -> None:
+    """The learner pick of a picked exercise's item was delivered: record it on
+    the problem, with the exposure read again now (Codex review F2, F3). The
+    problem then shows that reading; a problem with nothing owed is untouched."""
+
+    from learnloop_sidecar.handlers import library_exercises as LX
+
+    try:
+        row = _run(WB.session_row, repository, session_id)
+    except SidecarError:
+        return
+    if not row or not WB.exercise_pick_due(row) or row.get("practice_item_id") != practice_item_id:
+        return
+    pick = WB.exercise_pick(row) or {}
+    _run(WB.admit_exercise_pick, repository, session_id, practice_item_id=practice_item_id,
+         exposure=LX.pick_exposure(vault, repository, pick))
 
 
 def _named_serve(params: ParamsModel) -> dict[str, str | None] | None:

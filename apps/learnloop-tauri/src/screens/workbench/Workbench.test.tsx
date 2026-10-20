@@ -727,3 +727,18 @@ it("round 4 F8: a departure held by a refusal gives editing back with the first-
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: /leave for now/ })); });
   await waitFor(() => expect(onLeave).toHaveBeenCalledTimes(1));
 });
+
+// RW4b, Codex review F3: a picked textbook exercise the server found exposed
+// at the pick (or again at admission) says why, and that it is practice beside
+// the book; unexposed, nothing is added.
+it("RW4b: a picked exercise seen since it was offered says why, and that it is practice beside the book", () => {
+  const exposure = { exposed: true, reasons: ["source_exposed"], label: "you've recently seen this page or its solution", note: null,
+    offeredAs: "practice" as const, exposureRuleVersion: "reading_exposure_v1" };
+  const pick = { proposalId: "pp_1", exposure, exposureChecked: "admission" as const, admitted: true, due: false };
+  render(<Workbench {...props({ initial: session({ exercisePick: pick }) })} />);
+  expect(screen.getByTestId("workbench-exercise-exposure").textContent)
+    .toBe("you've recently seen this page or its solution · practice beside the book, not a check on your own");
+  cleanup();
+  render(<Workbench {...props({ initial: session({ exercisePick: { ...pick, exposure: { ...exposure, exposed: false, reasons: [], label: null, offeredAs: "check_on_your_own" as const } } }) })} />);
+  expect(screen.queryByTestId("workbench-exercise-exposure")).toBeNull();
+});

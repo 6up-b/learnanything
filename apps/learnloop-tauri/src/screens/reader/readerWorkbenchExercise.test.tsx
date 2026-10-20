@@ -72,21 +72,81 @@ it("opens at once on the verbatim stem with the sources service's import, once i
   expect(onExerciseShown).toHaveBeenCalledTimes(1);
 });
 
-it("tells the shell once when the import binds the problem (running → admitted)", async () => {
-  api.workbenchOpen.mockResolvedValue({ version: 1, session: session(), resumed: false });
+const OWED = { proposalId: "pp_1", exposure: null, exposureChecked: "selection" as const, admitted: false, due: true };
+function bound(extra: Partial<WorkbenchSessionDto> = {}): WorkbenchSessionDto {
+  return session({ importStatus: "bound", practiceItemId: "pi_ex_1", exercisePick: OWED,
+    sourceExercise: { proposalId: "pp_1", importId: "sei_1", importStatus: "written", reason: null, keyStatus: "model_answer", keyLabel: "Model's answer, not checked" },
+    ...extra });
+}
+const ADMITTED = {
+  practiceItemId: "pi_ex_1", proposalId: "pp_1", importId: "sei_1", sourceId: "src_text", card: book, spanId: "t6",
+  stemMd: EXERCISE.stemMd, workbenchSessionId: "wbs_1",
+};
+
+it("tells the shell when the import has bound the problem and its pick is owed, one hand-off at a time", async () => {
+  api.workbenchOpen.mockResolvedValue({ version: 1, session: session({ exercisePick: { ...OWED, due: false } }), resumed: false });
   const { result, onExerciseAdmitted } = hook(book, EXERCISE);
+  onExerciseAdmitted.mockResolvedValue(true);
   await waitFor(() => expect(result.current.active).not.toBeNull());
-  act(() => result.current.update(session({ importStatus: "pending" })));
+  act(() => result.current.update(session({ importStatus: "pending", exercisePick: { ...OWED, due: false } })));
+  await act(async () => undefined);
   expect(onExerciseAdmitted).not.toHaveBeenCalled(); // still running: nothing to pick yet
-  const bound = session({ importStatus: "bound", practiceItemId: "pi_ex_1",
-    sourceExercise: { proposalId: "pp_1", importId: "sei_1", importStatus: "written", reason: null, keyStatus: "model_answer", keyLabel: "Model's answer, not checked" } });
-  act(() => result.current.update(bound));
-  act(() => result.current.update(bound));
+  act(() => result.current.update(bound()));
+  act(() => result.current.update(bound()));
+  await act(async () => undefined);
   expect(onExerciseAdmitted).toHaveBeenCalledTimes(1);
-  expect(onExerciseAdmitted).toHaveBeenCalledWith({
-    practiceItemId: "pi_ex_1", proposalId: "pp_1", importId: "sei_1", sourceId: "src_text", card: book, spanId: "t6",
-    stemMd: EXERCISE.stemMd, workbenchSessionId: "wbs_1",
-  });
+  expect(onExerciseAdmitted).toHaveBeenCalledWith(ADMITTED);
+  // Acknowledged by the server: nothing is owed any more.
+  act(() => result.current.update(bound({ exercisePick: { ...OWED, due: false, admitted: true } })));
+  await act(async () => undefined);
+  expect(onExerciseAdmitted).toHaveBeenCalledTimes(1);
+});
+
+// Codex review F2: what is owed comes from the problem itself, so a restart
+// (a fresh Reader, nothing remembered) or a second "use this one" on the
+// already-bound problem still hands the pick over.
+it("after a restart, resuming a bound problem whose pick is owed hands it over", async () => {
+  api.workbenchOpen.mockResolvedValue({ version: 1, session: bound(), resumed: true });
+  const { result, onExerciseAdmitted } = hook(book, null);
+  onExerciseAdmitted.mockResolvedValue(true);
+  await act(async () => result.current.resume("wbs_1"));
+  await waitFor(() => expect(onExerciseAdmitted).toHaveBeenCalledWith(ADMITTED));
+});
+
+it("use this one on a problem its import already bound hands the owed pick over", async () => {
+  api.workbenchOpen.mockResolvedValue({ version: 1, session: bound(), resumed: true });
+  const { onExerciseAdmitted } = hook(book, EXERCISE);
+  onExerciseAdmitted.mockResolvedValue(true);
+  await waitFor(() => expect(onExerciseAdmitted).toHaveBeenCalledWith(ADMITTED));
+});
+
+it("a failed hand-off is tried again, by this visit or the next", async () => {
+  api.workbenchOpen.mockResolvedValue({ version: 1, session: bound(), resumed: true });
+  const { result, onExerciseAdmitted, unmount } = hook(book, null);
+  onExerciseAdmitted.mockResolvedValueOnce(false).mockRejectedValueOnce(new Error("pick refused")).mockResolvedValue(true);
+  await act(async () => result.current.resume("wbs_1"));
+  await waitFor(() => expect(onExerciseAdmitted).toHaveBeenCalledTimes(1));
+  act(() => result.current.update(bound())); // still owed (nothing acknowledged): tried again
+  await waitFor(() => expect(onExerciseAdmitted).toHaveBeenCalledTimes(2));
+  unmount();
+  const next = hook(book, null); // the next visit, after a restart
+  next.onExerciseAdmitted.mockResolvedValue(true);
+  await act(async () => next.result.current.resume("wbs_1"));
+  await waitFor(() => expect(next.onExerciseAdmitted).toHaveBeenCalledTimes(1));
+});
+
+it("the pick's hand-off names the problem it admits, so the server acknowledges it then", async () => {
+  api.workbenchOpen.mockResolvedValue({ version: 1, session: bound({ exercisePick: { ...OWED, due: false, admitted: true } }), resumed: true });
+  const offer = readerCheckOffer({ enabled: false, step: null } as never, "pi_ex_1", "pp_1", "sei_1");
+  const check = readerWorkbenchCheck({ practiceItemId: "pi_ex_1", spanId: "t6", card: book, entry: "practice_this", admitsSessionId: "wbs_1" }, offer, "served");
+  expect(check.admitsSessionId).toBe("wbs_1");
+  const onExerciseAdmitted = vi.fn();
+  renderHook(() => useReaderWorkbench({ enabled: true, extractionId: "ext_text", card: book, onError: vi.fn(),
+    props: { checkMe: check, onCheckMeShown: vi.fn(), onExerciseAdmitted } }));
+  await waitFor(() => expect(api.workbenchOpen).toHaveBeenCalledTimes(1));
+  expect(api.workbenchOpen.mock.calls[0][0]).toMatchObject({ entry: "practice_this", practiceItemId: "pi_ex_1", admittedSessionId: "wbs_1" });
+  await act(async () => undefined);
+  expect(onExerciseAdmitted).not.toHaveBeenCalled(); // acknowledged: nothing owed
 });
 
 it("a refused import binds nothing and admits nothing", async () => {
@@ -102,9 +162,10 @@ it("a refused import binds nothing and admits nothing", async () => {
 it("a fallback exercise opens with the Reader's own import request, and an exposed one with the book", async () => {
   api.workbenchOpen.mockResolvedValue({ version: 1, session: session({ sourceExercise: undefined }), resumed: false });
   const request = { extractionId: "ext_text", rawSelection: { nodes: [{ spanId: "t6", start: 0, end: 20 }] } };
-  hook(book, { ...EXERCISE, proposalId: null, sourceExercise: undefined, importRequest: request, entry: "work_through" });
+  const pick = { learningObjectIds: ["lo_matrices"], shownEventIds: ["see_1"] };
+  hook(book, { ...EXERCISE, proposalId: null, sourceExercise: undefined, importRequest: request, entry: "work_through", exercisePick: pick });
   await waitFor(() => expect(api.workbenchOpen).toHaveBeenCalledTimes(1));
-  expect(api.workbenchOpen.mock.calls[0][0]).toMatchObject({ entry: "work_through", importRequest: request });
+  expect(api.workbenchOpen.mock.calls[0][0]).toMatchObject({ entry: "work_through", importRequest: request, exercisePick: pick });
   expect(api.workbenchOpen.mock.calls[0][0].sourceExercise).toBeUndefined();
 });
 

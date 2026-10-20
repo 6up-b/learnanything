@@ -20,9 +20,12 @@
 // exercise over as it hands a check over; once its source is the one open, the
 // problem opens at once on the verbatim statement while the import runs (the
 // sources service's for a proposal's exercise, the Reader's own for the
-// fallback's), book hidden unless the exercise was already seen. When that
-// import binds the problem to the item it wrote, the shell is told once
-// (`onExerciseAdmitted`), so the item becomes a learner pick.
+// fallback's), book hidden unless the exercise was already seen (the server
+// reads that at the pick). When that import has bound the problem to the item
+// it wrote and the learner pick of it is still owed (`exercisePick.due`, kept
+// on the problem, so a restart or a resume still owes it), the shell is told
+// (`onExerciseAdmitted`), so the item becomes a learner pick; the pick's
+// hand-off acknowledges it (`admittedSessionId`) only once it succeeded.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
 import type {
@@ -56,6 +59,8 @@ export interface ReaderWorkbenchCheck {
   /** RW4b: "practice_this" when the pick is an admitted exercise's (its own
    *  problem resumes with the book as the learner left it); else "check_me". */
   entry?: "check_me" | "practice_this";
+  /** RW4b: the exercise problem this pick admits (acknowledged by its open). */
+  admitsSessionId?: string;
 }
 
 /** RW4b: an exercise's import wrote its item, and the problem is bound to it. */
@@ -79,8 +84,10 @@ export interface ReaderWorkbenchProps {
   exercise?: ReaderWorkbenchExercise | null;
   /** The exercise's problem opened (the shell forgets it). */
   onExerciseShown?: () => void;
-  /** The exercise's import bound the problem: the shell records the learner pick. */
-  onExerciseAdmitted?: (admitted: ReaderExerciseAdmitted) => void;
+  /** The exercise's import bound the problem and its learner pick is owed:
+   *  the shell records the pick. Resolves false when it could not (no
+   *  session, a refused pick): nothing was acknowledged, so it is owed still. */
+  onExerciseAdmitted?: (admitted: ReaderExerciseAdmitted) => Promise<boolean> | boolean | void;
   /** "Check me" to open in the working posture, book hidden (D40). */
   checkMe?: ReaderWorkbenchCheck | null;
   /** The check opened (the shell forgets it). */
@@ -204,27 +211,39 @@ export function useReaderWorkbench(input: {
     });
   }, []);
 
-  // RW4b: problems opened this visit from an exercise whose import was still
-  // running, and those already reported admitted (once each).
-  const exerciseSessions = useRef(new Map<string, { proposalId: string | null; card: SourceLibraryCard }>());
-  const admitted = useRef(new Set<string>());
+  // RW4b: a problem whose exercise pick is owed (the server's durable
+  // `exercisePick.due`, Codex review F2) is handed to the shell, one hand-off
+  // in flight at a time. The server acknowledges it only when the pick's
+  // hand-off opens the problem; a hand-off that failed is released, so the
+  // next sight of the problem (this visit or after a restart) tries again.
+  const admitting = useRef(new Set<string>());
   const onAdmittedRef = useRef(props?.onExerciseAdmitted);
   onAdmittedRef.current = props?.onExerciseAdmitted;
+  const cardRef = useRef(card);
+  cardRef.current = card;
   const noteAdmission = useCallback((session: WorkbenchSessionDto) => {
-    const opened = exerciseSessions.current.get(session.sessionId);
-    if (!opened || admitted.current.has(session.sessionId)) return;
-    if (session.importStatus !== "bound" || !session.practiceItemId) return;
-    admitted.current.add(session.sessionId);
-    onAdmittedRef.current?.({
-      practiceItemId: session.practiceItemId,
-      proposalId: opened.proposalId,
-      importId: session.sourceExercise?.importId ?? null,
-      sourceId: opened.card.sourceId,
-      card: opened.card,
-      spanId: session.spanIds[0] ?? "",
-      stemMd: session.stemMd,
-      workbenchSessionId: session.sessionId,
-    });
+    const owed = session.exercisePick;
+    const open = cardRef.current;
+    if (!owed?.due || !session.practiceItemId || !open || admitting.current.has(session.sessionId)) return;
+    const handOff = onAdmittedRef.current;
+    if (!handOff) return;
+    admitting.current.add(session.sessionId);
+    const release = () => admitting.current.delete(session.sessionId);
+    Promise.resolve()
+      .then(() => handOff({
+        practiceItemId: session.practiceItemId as string,
+        proposalId: owed.proposalId,
+        importId: session.sourceExercise?.importId ?? null,
+        sourceId: open.sourceId,
+        card: open,
+        spanId: session.spanIds[0] ?? "",
+        stemMd: session.stemMd,
+        workbenchSessionId: session.sessionId,
+      }))
+      .then((delivered) => {
+        if (delivered === false) release();
+      })
+      .catch(release);
   }, []);
 
   const begin = useCallback((session: WorkbenchSessionDto, readOnly = false, serve?: { schedulerCandidateId: string | null; planPresentationId: string | null }) => {
@@ -288,6 +307,9 @@ export function useReaderWorkbench(input: {
       // it still submits as that serve (review F13); the server also hides
       // the book on a reused problem, keeping what it counted (F14).
       schedulerCandidateId: checkMe.schedulerCandidateId, planPresentationId: checkMe.planPresentationId,
+      // RW4b: the exercise problem this pick admits, acknowledged by the
+      // server now that the pick and its serve succeeded.
+      ...(checkMe.admitsSessionId ? { admittedSessionId: checkMe.admitsSessionId } : {}),
     })
       .then((result) => {
         props?.onCheckMeShown?.();
@@ -315,14 +337,13 @@ export function useReaderWorkbench(input: {
     void api.workbenchOpen({
       origin: "reader", entry: exercise.entry, stemMd: exercise.stemMd, extractionId: exercise.extractionId,
       spanIds: exercise.spanIds, clientIdempotencyKey: newKey(),
-      ...(exercise.sourceExercise ? { sourceExercise: exercise.sourceExercise } : { importRequest: exercise.importRequest ?? null }),
+      ...(exercise.sourceExercise
+        ? { sourceExercise: exercise.sourceExercise }
+        : { importRequest: exercise.importRequest ?? null, ...(exercise.exercisePick ? { exercisePick: exercise.exercisePick } : {}) }),
     })
       .then((result) => {
         props?.onExerciseShown?.();
         if (extractionRef.current !== wanted) return;
-        if (result.session.importStatus === "pending" || result.session.importStatus === "failed") {
-          exerciseSessions.current.set(result.session.sessionId, { proposalId: exercise.proposalId, card });
-        }
         begin(result.session);
       })
       .catch((error) => {

@@ -525,3 +525,230 @@ def test_rw4b_defines_no_second_service_function():
     files = [ROOT / "src" / "learnloop_sidecar" / "handlers" / "library_exercises.py",
              ROOT / "src" / "learnloop_sidecar" / "handlers" / "workbench.py"]
     assert {path.name: _defined_names(path) & owned for path in files} == {path.name: set() for path in files}
+
+
+# -- Codex review round 1: the pick's record, exposure at the pick, the complete stem -------------------
+
+
+def _bind(paths, repository, ctx, imports, session: dict[str, Any]) -> dict[str, Any]:
+    """The S1 job wrote the item; the problem binds to it."""
+
+    batch = next(iter(imports["jobs"]))
+    imports["jobs"][batch].update(_run_job(paths, repository, imports["queued"][0], FakeServiceLLM()))
+    ctx.reload(maintenance=False)
+    bound = call(ctx, "workbench.refresh_import", {"sessionId": session["sessionId"]})["session"]
+    assert bound["importStatus"] == "bound" and bound["practiceItemId"]
+    return bound
+
+
+def _admitting_open(ctx, bound: dict[str, Any], exercise: dict[str, Any]) -> dict[str, Any]:
+    """The shell's hand-off after the learner pick and its serve succeeded."""
+
+    return call(ctx, "workbench.open", {"origin": "reader", "entry": "practice_this",
+                                        "practiceItemId": bound["practiceItemId"], "stemMd": exercise["statement"],
+                                        "extractionId": "ext_text", "spanIds": exercise["span_ids"],
+                                        "admittedSessionId": bound["sessionId"]})["session"]
+
+
+def _admitted_events(repository, session_id: str) -> list[dict[str, Any]]:
+    return [event for event in repository.reader_interaction_events(kind="reader_action_invoked")
+            if event["payload"].get("event") == "workbench_exercise_admitted"
+            and event["payload"].get("workbench_session_id") == session_id]
+
+
+def test_the_learner_pick_is_owed_durably_across_a_restart_and_acknowledged_only_after_delivery(library, imports):
+    """Codex review F2: admission lives on the problem, not in the visit that
+    opened it. A restart (a fresh sidecar, nothing in memory), a resume or a
+    second "use this one" on the bound problem all still owe the pick; a
+    failed delivery leaves it owed; once delivered it is acknowledged once."""
+
+    from learnloop.attempts import salience_firewall as SF
+
+    paths, repository, _spans = library
+    proposal = _proposal(paths, repository)
+    exercise = proposal["source_exercises"][0]
+    ctx = context(paths.root)
+    session = _use_this_one(ctx, proposal, exercise)
+    pick = session["exercisePick"]
+    assert pick["proposalId"] == proposal["proposal_id"] and pick["due"] is False and pick["admitted"] is False
+    assert pick["exposure"]["exposed"] is False and pick["exposureChecked"] == "selection"
+    bound = _bind(paths, repository, ctx, imports, session)
+    assert bound["exercisePick"]["due"] is True
+    # A restart: nothing in memory, the pick is still owed, on every way back.
+    restarted = context(paths.root)
+    assert call(restarted, "workbench.get", {"sessionId": session["sessionId"]})["session"]["exercisePick"]["due"] is True
+    resumed = call(restarted, "workbench.open", {"origin": "reader", "entry": "resume", "sessionId": session["sessionId"],
+                                                 "extractionId": "ext_text"})["session"]
+    assert resumed["exercisePick"]["due"] is True
+    again = _use_this_one(restarted, proposal, exercise)  # "use this one" on the already-bound problem
+    assert again["sessionId"] == session["sessionId"] and again["exercisePick"]["due"] is True
+    # A failed delivery acknowledges nothing: the pick stays owed, to retry.
+    with pytest.raises(SidecarError):
+        call(restarted, "plan_learner_pick", {"practiceItemId": bound["practiceItemId"],
+                                              "proposalId": proposal["proposal_id"],
+                                              "sourceExerciseImportId": "sei_not_this_one"})
+    assert call(restarted, "workbench.get", {"sessionId": session["sessionId"]})["session"]["exercisePick"]["due"] is True
+    # A hand-off that admits nothing (no admitted session named) acknowledges nothing either.
+    call(restarted, "workbench.open", {"origin": "reader", "entry": "practice_this", "practiceItemId": bound["practiceItemId"],
+                                       "stemMd": exercise["statement"], "extractionId": "ext_text",
+                                       "spanIds": exercise["span_ids"]})
+    assert call(restarted, "workbench.get", {"sessionId": session["sessionId"]})["session"]["exercisePick"]["due"] is True
+    # Delivered: the plan's pick, then the hand-off that resumes the problem.
+    call(restarted, "plan_learner_pick", {"practiceItemId": bound["practiceItemId"], "proposalId": proposal["proposal_id"],
+                                          "sourceExerciseImportId": bound["sourceExercise"]["importId"]})
+    admitted = _admitting_open(restarted, bound, exercise)
+    assert admitted["sessionId"] == session["sessionId"]
+    assert admitted["exercisePick"]["admitted"] is True and admitted["exercisePick"]["due"] is False
+    assert admitted["exercisePick"]["exposureChecked"] == "admission"
+    # Once: a repeated hand-off and another restart owe nothing more.
+    _admitting_open(restarted, bound, exercise)
+    assert call(context(paths.root), "workbench.get", {"sessionId": session["sessionId"]})["session"]["exercisePick"]["due"] is False
+    [event] = _admitted_events(repository, session["sessionId"])
+    assert event["payload"]["authority_class"] == SF.SALIENCE_ONLY
+    with pytest.raises(SF.SalienceEvidenceRejected):
+        SF.reject_salience(event)
+
+
+def test_admitting_needs_the_item_and_never_marks_another_problem(library, imports):
+    paths, repository, _spans = library
+    proposal = _proposal(paths, repository)
+    exercise = proposal["source_exercises"][0]
+    ctx = context(paths.root)
+    session = _use_this_one(ctx, proposal, exercise)
+    with pytest.raises(SidecarError) as caught:
+        call(ctx, "workbench.open", {"origin": "reader", "entry": "practice_this", "stemMd": "x",
+                                     "extractionId": "ext_text", "spanIds": ["t1"],
+                                     "importRequest": {"extractionId": "ext_text", "rawSelection": {}},
+                                     "admittedSessionId": session["sessionId"]})
+    assert caught.value.code == "validation_error"
+    # Still running: an admission names a problem that owes nothing yet, and is ignored.
+    call(ctx, "workbench.open", {"origin": "reader", "entry": "work_through", "practiceItemId": "pi_eigen_1",
+                                 "stemMd": "Solve it", "extractionId": "ext_text", "spanIds": ["t6"],
+                                 "admittedSessionId": session["sessionId"]})
+    pending = call(ctx, "workbench.get", {"sessionId": session["sessionId"]})["session"]
+    assert pending["exercisePick"]["admitted"] is False
+    bound = _bind(paths, repository, ctx, imports, session)
+    # Another item's hand-off never admits this problem.
+    call(ctx, "workbench.open", {"origin": "reader", "entry": "work_through", "practiceItemId": "pi_eigen_1",
+                                 "stemMd": "Solve it", "extractionId": "ext_text", "spanIds": ["t6"],
+                                 "admittedSessionId": session["sessionId"]})
+    assert call(ctx, "workbench.get", {"sessionId": bound["sessionId"]})["session"]["exercisePick"]["due"] is True
+    # An unknown problem named as admitted: the hand-off still opens, nothing is marked.
+    call(ctx, "workbench.open", {"origin": "reader", "entry": "practice_this", "practiceItemId": bound["practiceItemId"],
+                                 "stemMd": "Solve it", "extractionId": "ext_text", "spanIds": ["t6"],
+                                 "admittedSessionId": "wbs_unknown"})
+    assert call(ctx, "workbench.get", {"sessionId": bound["sessionId"]})["session"]["exercisePick"]["due"] is True
+    assert _admitted_events(repository, session["sessionId"]) == []
+
+
+def test_exposure_since_the_card_was_shown_is_read_again_at_the_pick(library, imports):
+    """Codex review F3: shown unexposed, then its page seen while the card is
+    open: "use this one" opens it as practice beside the book, whatever entry
+    the card asked for, and the problem says why."""
+
+    paths, repository, _spans = library
+    proposal = _proposal(paths, repository)
+    exercise = proposal["source_exercises"][0]
+    ctx = context(paths.root)
+    shown = next(c for c in _view(ctx, proposal)["candidates"] if c["key"] == exercise["key"])
+    assert shown["exposure"]["offeredAs"] == "check_on_your_own"
+    record_shown_spans(repository, [f"ext_text:{exercise['span_ids'][0]}"], context="library",
+                       entity_type="library_ask", entity_id="later")
+    session = _use_this_one(ctx, proposal, exercise, entry="practice_this")
+    assert session["entry"] == "work_through" and session["sourceVisible"] is True
+    exposure = session["exercisePick"]["exposure"]
+    assert exposure["exposed"] is True and exposure["offeredAs"] == "practice"
+    assert exposure["label"] == "you've recently seen this page or its solution"
+
+
+def test_exposure_since_the_pick_is_read_again_at_admission_and_shown(library, imports):
+    """Codex review F3: an ordinary practice proposal's pick is re-read too
+    (the sources service's own check re-reads only discriminate and retention
+    proposals): exposed before admission, the problem says so."""
+
+    paths, repository, _spans = library
+    proposal = _proposal(paths, repository)
+    exercise = proposal["source_exercises"][0]
+    ctx = context(paths.root)
+    session = _use_this_one(ctx, proposal, exercise)
+    assert session["sourceVisible"] is False and session["exercisePick"]["exposure"]["exposed"] is False
+    bound = _bind(paths, repository, ctx, imports, session)
+    record_shown_spans(repository, [f"ext_text:{exercise['span_ids'][0]}"], context="library",
+                       entity_type="library_ask", entity_id="later")
+    call(ctx, "plan_learner_pick", {"practiceItemId": bound["practiceItemId"], "proposalId": proposal["proposal_id"],
+                                    "sourceExerciseImportId": bound["sourceExercise"]["importId"]})
+    admitted = _admitting_open(ctx, bound, exercise)
+    exposure = admitted["exercisePick"]["exposure"]
+    assert admitted["exercisePick"]["exposureChecked"] == "admission"
+    assert exposure["exposed"] is True and exposure["offeredAs"] == "practice"
+
+
+def test_a_long_exercise_opens_on_its_complete_statement_not_the_cards_preview(library, imports, monkeypatch):
+    """Codex review F4: the card's statement stops at the arm's display bound;
+    the problem opens on the region's whole text, so its last subpart is
+    there before the import finishes."""
+
+    import learnloop.instructional.exercises as exercises
+    from learnloop.instructional.exercises import exercise_regions
+
+    monkeypatch.setattr(exercises, "STATEMENT_CHARS", 12)
+    paths, repository, _spans = library
+    proposal = _proposal(paths, repository)
+    exercise = proposal["source_exercises"][0]
+    assert exercise["statement"].endswith("…") and len(exercise["statement"]) == 12  # the card's preview
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        [region] = [region for region in exercise_regions(connection, exercise["extraction_id"])
+                    if list(region.span_ids) == exercise["span_ids"]]
+    ctx = context(paths.root)
+    session = _use_this_one(ctx, proposal, exercise)
+    assert session["stemMd"] == region.text and len(region.text) > 12
+    assert session["stemMd"].endswith(region.text[-12:])  # its final words, beyond the preview
+    # The same pick again resumes that problem.
+    assert _use_this_one(ctx, proposal, exercise)["sessionId"] == session["sessionId"]
+    assert len(imports["queued"]) == 1
+
+
+def test_a_fallback_pick_is_not_exposed_by_its_own_listing_and_its_request_reaches_the_import_unchanged(
+        library, monkeypatch):
+    import learnloop_sidecar.handlers.ai_providers as providers
+    from learnloop_sidecar.handlers import library_exercises as LX
+
+    paths, repository, _spans = library
+    set_config(paths, "library_exercises", fallback_enabled=True)
+    queued = []
+    monkeypatch.setattr(DurableIngestJobs, "enqueue_reader_exercise_import",
+                        lambda self, **kwargs: queued.append(kwargs) or "batch_reader")
+    monkeypatch.setattr(providers, "ready_canonical_ingest_provider", lambda vault: ("fake", None, object()))
+    ctx = context(paths.root)
+    candidate = call(ctx, "reader.find_exercises", {"query": QUERY, "learningObjectIds": ["lo_matrices"],
+                                                    "extractionId": "ext_text"})["candidates"][0]
+    pick = candidate["pick"]
+    assert pick["learningObjectIds"] == ["lo_matrices"] and len(pick["shownEventIds"]) == len(candidate["spanIds"])
+    session = call(ctx, "workbench.open", {"origin": "reader", "entry": "practice_this",
+                                           "stemMd": candidate["statement"], "extractionId": "ext_text",
+                                           "spanIds": candidate["spanIds"], "importRequest": candidate["importRequest"],
+                                           "exercisePick": pick})["session"]
+    # The list's own showing never counts against the pick (as a proposal's own impression).
+    assert session["exercisePick"]["proposalId"] is None
+    assert session["exercisePick"]["exposure"]["exposed"] is False and session["sourceVisible"] is False
+    [kwargs] = queued
+    assert "reader_exercise" not in kwargs and "reader_exercise" not in kwargs["raw_selection"]
+    assert [node.get("span_id") or node.get("spanId") for node in kwargs["raw_selection"]["nodes"]] == candidate["spanIds"]
+    # Any other showing does, and ids that are not the list's own are ignored.
+    other = record_shown_spans(repository, [f"ext_text:{candidate['spanIds'][0]}"], context="library",
+                               entity_type="library_ask", entity_id="later")
+    forged = {"proposal_id": None, "extraction_id": "ext_text", "span_ids": candidate["spanIds"],
+              "learning_object_ids": ["lo_matrices"], "shown_event_ids": [*pick["shownEventIds"], *other]}
+    verdict = LX.pick_exposure(load_vault(paths.root), repository, forged)
+    assert verdict["exposed"] is True and verdict["reasons"] == ["source_exposed"]
+
+
+def test_the_rw4b_switches_are_classified_in_the_parameter_registry():
+    """Every new config key has a rule (the stage's rule; RW2b fix round 1 F11 for booleans)."""
+
+    from learnloop.params import parameter_registry as registry
+
+    for key in ("library_exercises.enabled", "library_exercises.fallback_enabled"):
+        rule = registry.classify_config_path(key)
+        assert rule is not None, key
+        assert (rule.kind, rule.param_class) == ("structural", "operational"), key

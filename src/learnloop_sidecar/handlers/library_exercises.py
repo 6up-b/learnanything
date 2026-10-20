@@ -113,14 +113,22 @@ def _require(ctx: SidecarContext, *, fallback: bool = False):
 
 
 def exposure_view(vault: Any, repository: Any, candidate: dict[str, Any], *,
-                  proposal_id: str | None) -> dict[str, Any]:
-    """The sources service's exposure rule for one exercise, as the Reader shows it."""
+                  proposal_id: str | None, own_listing_event_ids: frozenset[str] = frozenset()) -> dict[str, Any]:
+    """The sources service's exposure rule for one exercise, as the Reader shows it.
+
+    ``own_listing_event_ids``: the exposure rows the fallback's own listing of
+    this exercise wrote (read back at the pick). They count against it no more
+    than a proposal's own impression does (``picked_proposal_id``): the list
+    read its exposure before showing it, and showing it is what offered it."""
 
     from learnloop.instructional.exposure import EXPOSURE_RULE_VERSION, independent_check_eligibility
 
     verdict = independent_check_eligibility(vault, repository, candidate, intent=EXPOSURE_INTENT,
                                             picked_proposal_id=proposal_id)
     reasons = [str(reason) for reason in verdict.get("reasons") or ()]
+    shown = {str(event) for event in (verdict.get("inputs") or {}).get("exposure_event_ids") or ()}
+    if "source_exposed" in reasons and shown and shown <= own_listing_event_ids:
+        reasons.remove("source_exposed")
     label = next((text for reason, text in EXPOSURE_LABELS if reason in reasons), None)
     if reasons and label is None:
         label = "you've seen this question recently"
@@ -142,6 +150,130 @@ def _withheld(vault: Any, repository: Any, extraction_id: str, span_ids: list[st
     from learnloop.source_retrieval.corpus import exam_withheld
 
     return bool(exam_withheld(vault, repository, [(extraction_id, str(span)) for span in span_ids]))
+
+
+def _proposal_lo_ids(found: dict[str, Any]) -> list[str]:
+    """The request's learning objects: they scope the rule's studied worked examples."""
+
+    return [str(lo) for lo in ((found.get("constraints") or {}).get("learning_object_ids") or ())]
+
+
+def _proposal_candidate(entry: dict[str, Any], span_ids: list[str], lo_ids: list[str]) -> dict[str, Any]:
+    """A proposal's exercise as the exposure rule reads it: the same input at
+    display, at the pick and at admission, so the rule's one judge answers a
+    second reading from its ledger."""
+
+    return {"extraction_id": str(entry.get("extraction_id")), "span_ids": list(span_ids), "key": entry.get("key"),
+            "statement": entry.get("statement"), "learning_object_ids": list(lo_ids)}
+
+
+def _preview(text: str) -> str:
+    """A candidate's statement as a list shows it (the arm's display bound)."""
+
+    from learnloop.instructional.exercises import STATEMENT_CHARS
+
+    return text if len(text) <= STATEMENT_CHARS else text[:STATEMENT_CHARS - 1] + "…"
+
+
+# -- "use this one": what opens, decided on the server at the pick --------------------------------------
+
+
+def full_statement(repository: Any, extraction_id: str, span_ids: list[str]) -> str | None:
+    """The exercise's complete verbatim statement (Codex review F4): its
+    exercise region's text, read from the validated spans, never the list's
+    preview (which stops at ``STATEMENT_CHARS``). The blocks themselves, joined
+    as a region joins them, when the region reads differently now."""
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.source_block_fts import blocks_by_key
+    from learnloop.instructional.exercises import exercise_regions
+
+    wanted = tuple(str(span) for span in span_ids)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        region = next((region for region in exercise_regions(connection, extraction_id)
+                       if region.span_ids == wanted), None)
+        if region is not None:
+            return region.text
+        blocks = blocks_by_key(connection, [(extraction_id, span) for span in wanted])
+    texts = [" ".join(blocks[(extraction_id, span)].text.split()) for span in wanted
+             if (extraction_id, span) in blocks and (blocks[(extraction_id, span)].text or "").strip()]
+    return "\n\n".join(texts) or None
+
+
+#: The verdict when the rule could not be read at the pick: practice beside the
+#: book (fail closed), never a check on your own.
+UNCHECKED_EXPOSURE_LABEL = "LearnLoop couldn't check whether you've seen this one"
+
+
+def _own_listing_events(repository: Any, event_ids: list[str], extraction_id: str, span_ids: list[str]) -> frozenset[str]:
+    """Of the ids a fallback candidate came back with, those that really are its
+    own listing's exposure rows (``library_exercises``, its spans): anything
+    else the client names is ignored."""
+
+    from learnloop.db.connection import connect
+
+    ids = [str(event) for event in event_ids][:80]
+    if not ids or not span_ids:
+        return frozenset()
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        rows = connection.execute(
+            f"SELECT id FROM source_exposure_events WHERE id IN ({','.join('?' for _ in ids)}) "
+            f"AND context = 'library' AND entity_type = 'library_exercises' AND extraction_id = ? "
+            f"AND span_id IN ({','.join('?' for _ in span_ids)})",
+            (*ids, extraction_id, *[str(span) for span in span_ids])).fetchall()
+    return frozenset(str(row[0]) for row in rows)
+
+
+def pick_exposure(vault: Any, repository: Any, pick: dict[str, Any]) -> dict[str, Any] | None:
+    """The exposure rule read again for a picked exercise (Codex review F3): at
+    the pick, which decides how it opens, and at admission, which the problem
+    then shows. The same candidate the list read (the judge answers from its
+    ledger unless something new was studied since). None when the exercise is
+    not one the proposal proposed (its import refuses it anyway); a rule that
+    cannot be read fails closed, as practice beside the book."""
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.practice_index import proposal as stored_proposal
+    from learnloop.db.stores.source_service import exercise_key
+    from learnloop.instructional.exposure import EXPOSURE_RULE_VERSION
+    from learnloop.instructional.practice import proposed_exercise
+
+    extraction_id = str(pick.get("extraction_id") or "")
+    span_ids = [str(span) for span in pick.get("span_ids") or ()]
+    proposal_id = pick.get("proposal_id")
+    try:
+        if proposal_id:
+            try:
+                entry = proposed_exercise(repository, str(proposal_id), extraction_id, span_ids)
+            except ValueError:
+                return None
+            with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+                found = stored_proposal(connection, str(proposal_id)) or {}
+            spans = [str(span) for span in entry.get("span_ids") or span_ids]
+            return exposure_view(vault, repository, _proposal_candidate(entry, spans, _proposal_lo_ids(found)),
+                                 proposal_id=str(proposal_id))
+        statement = full_statement(repository, extraction_id, span_ids)
+        if statement is None:
+            return None
+        candidate = {"key": exercise_key(extraction_id, span_ids), "extraction_id": extraction_id,
+                     "span_ids": span_ids, "statement": _preview(statement),
+                     "learning_object_ids": [str(lo) for lo in pick.get("learning_object_ids") or ()]}
+        own = _own_listing_events(repository, list(pick.get("shown_event_ids") or ()), extraction_id, span_ids)
+        return exposure_view(vault, repository, candidate, proposal_id=None, own_listing_event_ids=own)
+    except Exception:  # noqa: BLE001 - an unreadable rule never opens the book-hidden check
+        return {"exposed": True, "reasons": ["exposure_unchecked"], "label": UNCHECKED_EXPOSURE_LABEL, "note": None,
+                "offered_as": "practice", "exposure_rule_version": EXPOSURE_RULE_VERSION}
+
+
+def pick_entry(exposure: dict[str, Any] | None, requested: str) -> str:
+    """How a picked exercise opens, from the server's verdict: exposed, as
+    practice beside the book (``work_through``); unexposed, as your own
+    attempt with the book hidden (``practice_this``). Without a verdict (an
+    exercise the import will refuse) the request's entry stands."""
+
+    if exposure is None:
+        return requested
+    return "work_through" if exposure.get("exposed") else "practice_this"
 
 
 # -- the view of a proposal's textbook exercises -------------------------------------------------
@@ -184,8 +316,7 @@ def reader_exercise_candidates(ctx: SidecarContext, params: ExerciseCandidatesIn
         found = stored_proposal(connection, params.proposal_id)
     if found is None:
         raise SidecarError("validation_error", "Unknown proposal")
-    # The request's learning objects scope the rule's studied worked examples.
-    lo_ids = [str(lo) for lo in ((found.get("constraints") or {}).get("learning_object_ids") or ())]
+    lo_ids = _proposal_lo_ids(found)
     entries: list[tuple[dict[str, Any], list[str]]] = []
     for key in params.keys:
         try:
@@ -203,8 +334,7 @@ def reader_exercise_candidates(ctx: SidecarContext, params: ExerciseCandidatesIn
             if _withheld(vault, worker_repo, extraction_id, span_ids):
                 withheld += 1
                 continue
-            candidate = {"extraction_id": extraction_id, "span_ids": span_ids, "key": entry.get("key"),
-                         "statement": entry.get("statement"), "learning_object_ids": lo_ids}
+            candidate = _proposal_candidate(entry, span_ids, lo_ids)
             candidates.append({
                 "key": entry.get("key"), "extraction_id": extraction_id, "span_ids": span_ids,
                 "source_id": entry.get("source_id"), "revision_id": entry.get("revision_id"),
@@ -268,7 +398,7 @@ def _fallback_candidates(vault: Any, repository: Any, hits: Any, lo_ids: list[st
     from learnloop.content.authoring.source_exercise_import import selection_for_region
     from learnloop.db.connection import connect
     from learnloop.db.stores.source_service import exercise_key
-    from learnloop.instructional.exercises import STATEMENT_CHARS, exercise_label, imported_span_keys
+    from learnloop.instructional.exercises import exercise_label, imported_span_keys
     from learnloop.instructional.interventions import record_shown_spans
 
     imported = imported_span_keys(vault, repository)
@@ -294,8 +424,7 @@ def _fallback_candidates(vault: Any, repository: Any, hits: Any, lo_ids: list[st
             if _withheld(vault, repository, extraction_id, span_ids):
                 dropped["withheld"] += 1
                 continue
-            statement = region.text if len(region.text) <= STATEMENT_CHARS else \
-                region.text[:STATEMENT_CHARS - 1] + "…"
+            statement = _preview(region.text)
             key = exercise_key(extraction_id, span_ids)
             candidates.append({
                 "key": key, "extraction_id": extraction_id, "span_ids": span_ids,
@@ -319,9 +448,21 @@ def _fallback_candidates(vault: Any, repository: Any, hits: Any, lo_ids: list[st
     # Reading is never blocked, and what it showed is recorded (the sources
     # spec's §5.1 `reading`): the exposure rule then reads these rows.
     shown = [f"{candidate['extraction_id']}:{span}" for candidate in candidates for span in candidate["span_ids"]]
+    recorded: dict[str, str] = {}
     if shown:
-        record_shown_spans(repository, shown, context="library", entity_type="library_exercises",
-                           entity_id=str(hits.manifest.get("query_hash") or ""))
+        ids = record_shown_spans(repository, shown, context="library", entity_type="library_exercises",
+                                 entity_id=str(hits.manifest.get("query_hash") or ""))
+        recorded = dict(zip(dict.fromkeys(shown), ids))
+    for candidate in candidates:
+        # What "use this one" sends back (workbench.open's ``exercise_pick``):
+        # this listing's own exposure rows, which never count against the pick
+        # (the server checks they are), and the learning objects it was read for.
+        candidate["pick"] = {
+            "learning_object_ids": lo_ids,
+            "shown_event_ids": [recorded[key] for key in
+                                (f"{candidate['extraction_id']}:{span}" for span in candidate["span_ids"])
+                                if key in recorded],
+        }
     return {
         "status": "ok" if candidates else "none_found", "policy": hits.policy, "candidates": candidates,
         "dropped": dropped, "manifest": hits.manifest,
@@ -335,5 +476,8 @@ __all__ = [
     "exercises_enabled",
     "exposure_view",
     "fallback_enabled",
+    "full_statement",
+    "pick_entry",
+    "pick_exposure",
     "prompt_contract_fields",
 ]

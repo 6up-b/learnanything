@@ -79,10 +79,13 @@ describe("use this one", () => {
       key: "srcex:ext_text:t6", extractionId: "ext_text", spanIds: ["t6"], sourceId: "src_text", revisionId: "rev_text",
       sourceTitle: "Matrix Theory", page: 9, label: "Exercise 1, p. 9", statement: "1. Solve 3x + 5 = 20.", exposure: fresh,
       importRequest: { extractionId: "ext_text", sourceId: "src_text", revisionId: "rev_text", rawSelection: { nodes: [{ spanId: "t6", start: 0, end: 20 }] } },
+      pick: { learningObjectIds: ["lo_matrices"], shownEventIds: ["see_1"] },
     }] };
     const [candidate] = fromFallback(found);
     const request = exerciseOpenRequest(candidate);
-    expect(request).toMatchObject({ entry: "practice_this", proposalId: null, importRequest: found.candidates[0].importRequest });
+    // The listing's pick goes back with it: the server reads exposure at the pick (Codex review F3).
+    expect(request).toMatchObject({ entry: "practice_this", proposalId: null, importRequest: found.candidates[0].importRequest,
+      exercisePick: { learningObjectIds: ["lo_matrices"], shownEventIds: ["see_1"] } });
     expect(request.sourceExercise).toBeUndefined();
   });
 });

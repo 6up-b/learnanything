@@ -627,7 +627,9 @@ export function App() {
   // included), and the Reader opens it in the working posture with the book
   // hidden, answering the pick's own candidate and presentation. Feedback's
   // back returns to the problem, Next to the passage.
-  async function pickCheckMe(request: ReaderCheckMeRequest, sessionId: string, options: { fromStart?: boolean } = {}) {
+  // Resolves whether the pick was made and served (RW4b: an exercise's owed
+  // pick is acknowledged only then, so a failed one is tried again).
+  async function pickCheckMe(request: ReaderCheckMeRequest, sessionId: string, options: { fromStart?: boolean } = {}): Promise<boolean> {
     try {
       const result = await api.planLearnerPick(
         request.practiceItemId, sessionId, null, request.proposalId ?? null, request.importId ?? null
@@ -641,7 +643,7 @@ export function App() {
           setReaderOpenSeq((seq) => seq + 1);
           setTab("reader");
         }
-        return;
+        return true;
       }
       setPracticeOffer(offer);
       setReaderReturn({ card: request.card, spanId: request.spanId, practiceItemId: request.practiceItemId });
@@ -651,8 +653,10 @@ export function App() {
       setPracticeItemId(request.practiceItemId);
       setTab("today");
       setTodayStage("practice");
+      return true;
     } catch (error) {
       onError(errorMessage(error, "Could not open the check."));
+      return false;
     }
   }
 
@@ -706,15 +710,17 @@ export function App() {
     openReaderExercise(request);
   }
 
-  // The exercise's import wrote its item and bound the problem: the item is
-  // now the learner's pick (the plan's pick path, with the proposal and the
-  // import), and the same problem resumes as that pick's serve.
-  function exerciseAdmitted(admitted: ReaderExerciseAdmitted) {
-    if (!session) return;
-    void pickCheckMe({
+  // The exercise's import wrote its item and bound the problem, and its pick
+  // is owed (kept on the problem, so after a restart too): the item becomes
+  // the learner's pick (the plan's pick path, with the proposal and the
+  // import), and the same problem resumes as that pick's serve, which
+  // acknowledges the pick. No session yet, or a failed pick: still owed.
+  function exerciseAdmitted(admitted: ReaderExerciseAdmitted): Promise<boolean> {
+    if (!session) return Promise.resolve(false);
+    return pickCheckMe({
       practiceItemId: admitted.practiceItemId, proposalId: admitted.proposalId, spanId: admitted.spanId,
       card: admitted.card,
-      importId: admitted.importId, entry: "practice_this",
+      importId: admitted.importId, entry: "practice_this", admitsSessionId: admitted.workbenchSessionId,
     }, session.sessionId);
   }
 

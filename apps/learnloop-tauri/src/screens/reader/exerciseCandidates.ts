@@ -13,6 +13,7 @@ import type {
   SourceToolRunDto,
   ExerciseCandidatesDto,
   ExerciseExposureDto,
+  ExercisePickDto,
   FindExercisesDto,
   FindPracticeResultDto,
   ReaderImportExerciseInput,
@@ -52,9 +53,14 @@ export interface ExerciseCandidate {
   statement: string;
   exposure: ExerciseExposureDto;
   importRequest?: ReaderImportExerciseInput;
+  /** The fallback's: what its listing gives "use this one" to send back. */
+  pick?: ExercisePickDto;
 }
 
-/** What "use this one" asks the workbench to open. */
+/** What "use this one" asks the workbench to open. The stem is the card's
+ *  preview: the server opens the problem on the complete statement, and
+ *  decides how it opens from the exposure rule read at the pick (Codex review
+ *  F3, F4); `entry` is the card's reading, which the server may correct. */
 export interface ReaderWorkbenchExercise {
   key: string;
   sourceId: string | null;
@@ -67,6 +73,7 @@ export interface ReaderWorkbenchExercise {
   proposalId: string | null;
   sourceExercise?: { proposalId: string; extractionId: string; spanIds: string[] };
   importRequest?: ReaderImportExerciseInput;
+  exercisePick?: ExercisePickDto;
 }
 
 /** The keys to ask `reader.exercise_candidates` about, in proposal order. */
@@ -114,6 +121,7 @@ export function fromFallback(found: FindExercisesDto | null): ExerciseCandidate[
     statement: candidate.statement,
     exposure: candidate.exposure,
     importRequest: candidate.importRequest,
+    pick: candidate.pick,
   }));
 }
 
@@ -170,7 +178,7 @@ export function exerciseOpenRequest(candidate: ExerciseCandidate): ReaderWorkben
       sourceExercise: { proposalId: candidate.proposalId, extractionId: candidate.extractionId, spanIds: candidate.spanIds },
     };
   }
-  return { ...base, importRequest: candidate.importRequest };
+  return { ...base, importRequest: candidate.importRequest, ...(candidate.pick ? { exercisePick: candidate.pick } : {}) };
 }
 
 /** A tutor tool request's find_practice run as the proposal it is (for RW1c's

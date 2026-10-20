@@ -128,9 +128,10 @@ switch-off render).
 
 `[library_exercises] enabled = true`, `fallback_enabled = false` (modelled
 defaults, left out of the decision-only template). Both are booleans: the
-parameter registry walks numeric leaves only (booleans are skipped, as
-`library_ask.enabled` is), so there is nothing to classify in
-`params/parameter_registry.py`; the registry audit stays green. The 19 defaults
+parameter registry's numeric walk skips them, and both are classified
+explicitly in `params/parameter_registry.py` (structural / operational kill
+switches, as RW2b's fix round 1 F11 did for its booleans; added in Codex
+review round 1, see `reader-rw4b-codex-review.md`). The 19 defaults
 snapshots in `config/template.py` were recomputed from the composed defaults
 (`defaults_fingerprint_for_version`) with the usual note per version (no
 serving change, no successor). `db_generate_reference.py` gained the section's
@@ -261,10 +262,13 @@ regenerate the configuration catalog.
    "practice this ▸" do**: without one the shell says so and opens the
    exercise after Begin. The learner pick happens when the import is admitted
    (written), through the existing `pickCheckMe` with the import id.
-5. **Admission is reported once per Reader visit**, for a problem the visit
-   saw pending. A problem whose import landed while the learner was away is
-   bound on resume but not re-picked (it still submits through the ordinary
-   attempt path). See open question 3.
+5. **The learner pick is owed durably** (superseded in Codex review round 1,
+   F2): the problem's stored import request keeps the pick's record
+   (`reader_exercise`: proposal, exposure, `admitted_at`), the view says
+   `exercisePick.due` while the import has bound it and the pick was not
+   delivered, whichever visit or restart sees it, and the pick's hand-off
+   (`workbench.open` with `admittedSessionId`) acknowledges it only after the
+   pick and its serve succeeded. No migration (a JSON field in RW2a's column).
 6. **Without the workbench** (`workbench.enabled = false`) a card offers only
    *open in the book*; "use this one" is defined by §5.1's working posture.
 7. **Fallback default off** — the spec's rule (§7.4) since S1's candidates are
@@ -345,10 +349,9 @@ Not touched: `adaptive_difficulty/`, the scheduler, the daily plan,
    spec's `exposure.py`.
 2. **Should the fallback turn itself on when `source_service.exercise_arm` is
    off?** **Default: no**; the owner flips `library_exercises.fallback_enabled`.
-3. **An import admitted while the learner was away** binds on resume without
-   a plan pick (the attempt still goes through the ordinary path).
-   **Default: accept**; a durable "picked" mark would need a column (a
-   migration) or a store change in RW2a's table.
+3. ~~An import admitted while the learner was away binds on resume without
+   a plan pick.~~ Resolved in Codex review round 1 (F2): the pick is owed
+   durably and delivered on the next sight of the problem.
 4. **Exposed exercise opens with the book shown** (one hint if kept open).
    **Default: yes** (practice beside the book is the honest offer); the owner
    may prefer book hidden with only the label.

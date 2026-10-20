@@ -58,7 +58,10 @@ export function sessionAfterWorkbenchSubmit(
  * the shell makes first, exactly as the practice screen's serve did.
  */
 export function readerWorkbenchCheck(
-  request: { practiceItemId: string; spanId: string; card: SourceLibraryCard; entry?: ReaderWorkbenchCheck["entry"] },
+  request: {
+    practiceItemId: string; spanId: string; card: SourceLibraryCard;
+    entry?: ReaderWorkbenchCheck["entry"]; admitsSessionId?: string;
+  },
   offer: PracticeOffer,
   servedPrompt: string,
 ): ReaderWorkbenchCheck {
@@ -72,5 +75,7 @@ export function readerWorkbenchCheck(
     // RW4b: an admitted exercise resumes its own problem, keeping the
     // learner's book choice ("practice_this"); a cue's check hides the book.
     ...(request.entry ? { entry: request.entry } : {}),
+    // ...and the server acknowledges that exercise's pick when it opens.
+    ...(request.admitsSessionId ? { admitsSessionId: request.admitsSessionId } : {}),
   };
 }

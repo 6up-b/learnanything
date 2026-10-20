@@ -896,6 +896,71 @@ def import_request(session: Mapping[str, Any]) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
+# -- Reader RW4b: a textbook exercise the learner picked ("use this one") ------------------------------
+
+#: The record a problem opened from a textbook exercise the learner picked in
+#: the Reader keeps inside its stored import request (Reader RW4b, spec §7.4;
+#: Codex review F2): the proposal it came from (None for the fallback's), the
+#: exercise's region, the exposure the server read when it was chosen and when
+#: it was admitted, and ``admitted_at``, set only once the learner pick of the
+#: item the import wrote was delivered. Durable, so a restart or a resume
+#: elsewhere still owes (and never repeats) that pick; no new column.
+EXERCISE_PICK_KEY = "reader_exercise"
+#: The payload ``event`` RW4b adds on ``reader_action_invoked`` (salience only).
+EXERCISE_WORKBENCH_EVENTS: tuple[str, ...] = ("workbench_exercise_admitted",)
+
+
+def exercise_pick(session: Mapping[str, Any]) -> dict[str, Any] | None:
+    """The picked exercise's record, or None for every other problem."""
+
+    value = (import_request(session) or {}).get(EXERCISE_PICK_KEY)
+    return dict(value) if isinstance(value, dict) else None
+
+
+def exercise_pick_due(session: Mapping[str, Any]) -> bool:
+    """The import bound the problem to the item it wrote and the learner pick
+    of that item was not delivered yet: the shell owes it, once."""
+
+    pick = exercise_pick(session)
+    return bool(
+        pick is not None and not pick.get("admitted_at") and session.get("import_status") == "bound"
+        and session.get("practice_item_id") and session.get("status") == "open"
+    )
+
+
+def admit_exercise_pick(
+    repository: Any,
+    session_id: str,
+    *,
+    practice_item_id: str,
+    exposure: Mapping[str, Any] | None,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """Record that the learner pick of the exercise's item was delivered, with
+    the exposure read again at that moment. Idempotent: a problem admitted
+    already, one bound to another item, or one that is no exercise is left
+    as it is."""
+
+    now = utc_now_iso(clock)
+    with repository.atomic():
+        connection = repository.connection()
+        session = _require(connection, session_id)
+        request = import_request(session) or {}
+        pick = request.get(EXERCISE_PICK_KEY)
+        if (not isinstance(pick, dict) or pick.get("admitted_at") or session.get("import_status") != "bound"
+                or session.get("practice_item_id") != practice_item_id):
+            return session
+        updated = {**pick, "admitted_at": now}
+        if exposure is not None:
+            updated.update(exposure=dict(exposure), exposure_checked="admission")
+        request[EXERCISE_PICK_KEY] = updated
+        store.update_session(connection, session_id, {"import_request_json": json.dumps(request, sort_keys=True)})
+        session = _require(connection, session_id)
+        _log(repository, session, "workbench_exercise_admitted", clock,
+             exposed=bool((exposure or {}).get("exposed")))
+    return session
+
+
 def mark_import(
     repository: Any,
     session_id: str,
@@ -1233,6 +1298,8 @@ __all__ = [
     "ENTRIES",
     "ENTRY_SURFACE_PRACTICE",
     "ENTRY_SURFACE_READER",
+    "EXERCISE_PICK_KEY",
+    "EXERCISE_WORKBENCH_EVENTS",
     "HELP_STYLES",
     "HELP_WORKBENCH_EVENTS",
     "IMPORT_STATUSES",
@@ -1245,6 +1312,7 @@ __all__ = [
     "SubmissionPlan",
     "WorkbenchError",
     "abandon",
+    "admit_exercise_pick",
     "bind",
     "book_counted",
     "book_hints",
@@ -1252,6 +1320,8 @@ __all__ = [
     "compose_answer",
     "default_book_visible",
     "ensure_contract",
+    "exercise_pick",
+    "exercise_pick_due",
     "held_hints",
     "held_on",
     "held_parts_on",

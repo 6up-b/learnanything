@@ -8081,6 +8081,9 @@ export interface WorkbenchSessionDto {
    *  sources service's import and the answer key's honest status. Absent on
    *  every other problem. */
   sourceExercise?: WorkbenchSourceExerciseDto;
+  /** RW4b: present on a problem opened from a textbook exercise the learner
+   *  picked in the Reader (either path). */
+  exercisePick?: WorkbenchExercisePickDto;
 }
 
 export interface WorkbenchSourceExerciseDto {
@@ -8142,9 +8145,35 @@ export interface WorkbenchOpenInput {
   /** RW4b: a textbook exercise picked from a find_practice proposal; the
    *  sources service's import runs while the problem is open. */
   sourceExercise?: { proposalId: string; extractionId: string; spanIds: string[] } | null;
+  /** RW4b: a fallback exercise the learner picked: its listing's `pick`, sent
+   *  back as it came (beside its importRequest). */
+  exercisePick?: ExercisePickDto | null;
+  /** RW4b: the learner pick of a picked exercise's item was delivered: the
+   *  problem it admits (resumed by this open, on that item; Codex review F2). */
+  admittedSessionId?: string | null;
 }
 
 // -- Reader workbench RW4b: exercises from my sources (spec §7.4, UX §4.6) --
+
+/** What a fallback candidate carries for "use this one" (its listing's own
+ *  exposure rows never count against the pick; the server checks them). */
+export interface ExercisePickDto {
+  learningObjectIds: string[];
+  shownEventIds: string[];
+}
+
+/** RW4b: a textbook exercise the learner picked, as the problem keeps it. */
+export interface WorkbenchExercisePickDto {
+  /** The proposal it came from; null for the fallback's. */
+  proposalId: string | null;
+  /** The exposure rule read on the server at the pick, then at admission. */
+  exposure: ExerciseExposureDto | null;
+  exposureChecked: "selection" | "admission" | null;
+  /** The learner pick of the item its import wrote was delivered. */
+  admitted: boolean;
+  /** Bound and the pick still owed: the shell picks it, once (durable). */
+  due: boolean;
+}
 
 /** The sources service's exposure rule, as the Reader shows it. */
 export interface ExerciseExposureDto {
@@ -8191,6 +8220,8 @@ export interface FoundExerciseDto {
   exposure: ExerciseExposureDto;
   /** What "use this one" sends to the Reader's own import (import_exercises). */
   importRequest: ReaderImportExerciseInput;
+  /** What "use this one" sends back with it (workbench.open's exercisePick). */
+  pick: ExercisePickDto;
 }
 
 export interface FindExercisesDto {
