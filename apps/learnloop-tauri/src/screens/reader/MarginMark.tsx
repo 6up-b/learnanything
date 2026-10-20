@@ -17,6 +17,7 @@ import { useEffect, useRef, useState } from "react";
 import type { CueDensity, ReaderCueDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { CUE_COPY, CUE_DENSITIES, DISCOVERED_COPY, markClass } from "./cues";
+import { observerGeneration } from "./observerGeneration";
 import { LearnerVoice, MeaningLabel, ModelVoice } from "./voices";
 
 export type CueCheckPhase = "idle" | "finding" | "none" | "failed";
@@ -38,8 +39,13 @@ export interface MarginMarkProps {
   onOffBook: () => void;
   onOffEverywhere: () => void;
   /** The mark came into the learner's view (or was hovered, focused or
-   *  opened); the controller counts it once per visit. */
-  onSeen?: () => void;
+   *  opened); the controller counts it once per visit. `planId`: the cue plan
+   *  the sighting was made under (RW3b; null while discovery is off). */
+  onSeen?: (planId: string | null) => void;
+  /** RW3b: the cue plan served now (absent or null while discovery is off).
+   *  Its observer is rebuilt for each plan and a sighting is sent under the
+   *  plan its observer was built for, never a later one (Codex verify F22). */
+  planId?: string | null;
   /** RW3b: "try the next step first" on a try-first cue (RW1b's next-step
    *  question at that line); absent: no such action (W11). */
   onTryFirst?: () => void;
@@ -80,6 +86,7 @@ export function MarginMark({
   onOffEverywhere,
   onSeen,
   onTryFirst,
+  planId = null,
 }: MarginMarkProps) {
   const markRef = useRef<HTMLButtonElement | null>(null);
   const firstActionRef = useRef<HTMLButtonElement | null>(null);
@@ -89,25 +96,32 @@ export function MarginMark({
   const [why, setWhy] = useState("");
   const onSeenRef = useRef(onSeen);
   onSeenRef.current = onSeen;
-  const seen = () => onSeenRef.current?.();
+  const planRef = useRef(planId);
+  planRef.current = planId;
+  const seen = () => onSeenRef.current?.(planRef.current);
 
   // Shown means seen: the mark's own visibility in the reading area, not its
   // placement (review F6). Without IntersectionObserver only the learner's
-  // hover, focus or click counts.
+  // hover, focus or click counts. RW3b (Codex verify F22): one observer
+  // generation per cue plan. Its callback is bound, in this closure, to the
+  // plan it was built for and to that render's onSeen; a callback delivered
+  // after its observer was disconnected is discarded, and the next plan's
+  // observer measures the mark again. Discovery off, planId is null and this
+  // is RW3a's observer.
   useEffect(() => {
     const node = markRef.current;
     if (!node || typeof IntersectionObserver === "undefined") return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= SEEN_THRESHOLD)) return;
-        observer.disconnect();
-        onSeenRef.current?.();
-      },
-      { threshold: SEEN_THRESHOLD },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [cue.cueId]);
+    const planForGeneration = planId;
+    const notify = planForGeneration !== null ? onSeen : null;
+    const generation = observerGeneration();
+    generation.observe([node], SEEN_THRESHOLD, (entries, observer) => {
+      if (!entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= SEEN_THRESHOLD)) return;
+      generation.disconnect(observer);
+      (notify ?? onSeenRef.current)?.(planForGeneration);
+    });
+    return () => generation.disconnectAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cue.cueId, planId]);
 
   // The learner opened it: their act, so focus goes into the popover.
   useEffect(() => {

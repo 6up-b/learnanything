@@ -603,7 +603,8 @@ export function ReaderScreen({
       onFewer={() => cueCtl.fewerOn(cue)}
       onOffBook={cueCtl.offBook}
       onOffEverywhere={cueCtl.offEverywhere}
-      onSeen={() => cueCtl.noteSeen(cue)}
+      onSeen={(planId) => cueCtl.noteSeen(cue, planId)}
+      planId={cueCtl.planId}
       {...(cueCtl.canTryFirst ? { onTryFirst: () => cueCtl.tryFirst(cue) } : {})}
     />
   );

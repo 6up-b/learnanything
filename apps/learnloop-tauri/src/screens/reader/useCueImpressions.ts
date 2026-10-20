@@ -27,6 +27,7 @@ import { api } from "../../api/client";
 import type { ReaderCueDto, ReaderCueImpressionInput, ReaderCuesDto } from "../../api/dto";
 import type { CuePlacement } from "./cues";
 import { newActivityId } from "./activity";
+import { observerGeneration } from "./observerGeneration";
 
 /** Impressions are sent this long after the last one queued. */
 export const IMPRESSION_FLUSH_MS = 800;
@@ -73,8 +74,10 @@ export interface CueImpressions {
    *  else the plan served now: a tap names it, so an impression the tap must
    *  create carries that plan's metadata (F17, round 5). */
   planFor: (cue: ReaderCueDto) => string | null;
-  /** A drawn mark came into view (MarginMark's rule; a Guide mark's receipt). */
-  noteShown: (cue: ReaderCueDto) => void;
+  /** A drawn mark came into view (MarginMark's rule; a Guide mark's receipt),
+   *  under `planId`, the plan its observer generation was built for (F22);
+   *  absent: the plan served now. */
+  noteShown: (cue: ReaderCueDto, planId?: string | null) => void;
   /** "fewer marks like this" on this mark. */
   noteFewer: (cue: ReaderCueDto) => void;
 }
@@ -148,9 +151,10 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
   }, []);
   flushRef.current = flush;
 
-  const queue = useCallback((key: string, entry: ReaderCueImpressionInput) => {
+  const queue = useCallback((key: string, entry: ReaderCueImpressionInput, seenOn?: string | null) => {
     const visit = currentVisit();
-    const planId = discovery?.planId;
+    // The plan the sighting was made under (an observer generation's own), else the plan served now.
+    const planId = seenOn ?? discovery?.planId;
     if (!discovery || !planId || !visit || !extractionId) return;
     const once = `${extractionId}:${visit}:${key}:${entry.cueId}`;
     if (sentRef.current.has(once)) return;
@@ -171,9 +175,9 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
 
   // A Guide mark's receipt comes from MarginMark; a discovered cue is measured
   // by its passage below (text, transcript), never on the PDF (F5).
-  const noteShown = useCallback((cue: ReaderCueDto) => {
+  const noteShown = useCallback((cue: ReaderCueDto, planId?: string | null) => {
     if (discoveredCue(cue)) return;
-    queue("seen", { cueId: cue.cueId, shown: true });
+    queue("seen", { cueId: cue.cueId, shown: true }, planId);
   }, [queue]);
   const noteFewer = useCallback((cue: ReaderCueDto) => queue("fewer", { cueId: cue.cueId, response: "fewer" }), [queue]);
   const servedPlanId = discovery?.planId ?? null;
@@ -223,23 +227,15 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
     // verify F21): an entry its observers measured is sent with this plan,
     // never with a later one.
     const queueForPlan = queue;
-    let observers: IntersectionObserver[] = [];
-    // The observers still connected: a callback an observer delivers after it
-    // was disconnected (entries the browser had buffered) is discarded, and
-    // the replacement observer measures the passage again under its own plan.
-    const live = new Set<IntersectionObserver>();
+    // A callback an observer delivers after it was disconnected (entries the
+    // browser had buffered) is discarded, and the replacement observer
+    // measures the passage again under its own plan (observerGeneration).
+    const generation = observerGeneration();
     let keyOf = new Map<Element, string>();
     // One observer per set of thresholds: a passage taller than the reading
     // area adds the ratio at which it fills half of it (F14).
-    const disconnectAll = () => {
-      for (const observer of observers) {
-        live.delete(observer);
-        observer.disconnect();
-      }
-      observers = [];
-    };
     const build = () => {
-      disconnectAll();
+      generation.disconnectAll();
       keyOf = new Map();
       const byThresholds = new Map<string, { thresholds: number[]; elements: Element[] }>();
       for (const element of elements) {
@@ -252,18 +248,14 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
         byThresholds.set(key, group);
       }
       for (const { thresholds, elements: group } of byThresholds.values()) {
-        const observer = new IntersectionObserver((entries) => {
-          if (!live.has(observer)) return;  // a disconnected generation's late entries
+        generation.observe(group, thresholds, (entries, observer) => {
           for (const seen of entries) {
             if (counted.has(seen.target) || !passageInView(seen)) continue;
             counted.add(seen.target);
             for (const item of bySpan.get(seen.target) ?? []) queueForPlan("passage", item.entry);
             observer.unobserve(seen.target);
           }
-        }, { threshold: thresholds });
-        live.add(observer);
-        for (const element of group) observer.observe(element);
-        observers.push(observer);
+        });
       }
     };
     build();
@@ -298,7 +290,7 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
       if (settle !== null) clearTimeout(settle);
       window.removeEventListener("resize", scheduleRecheck);
       resizes?.disconnect();
-      disconnectAll();
+      generation.disconnectAll();
     };
     // A new plan (its planId) starts a new generation of observers bound to
     // that plan's queue even when the placement and the targets are unchanged

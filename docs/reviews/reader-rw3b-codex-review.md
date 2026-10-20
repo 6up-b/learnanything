@@ -667,3 +667,67 @@ throwaway vaults under `.pytest_tmp` were swept for completed receipts. Every
 one with a real provider name came from a pytest fake: it had no real
 endpoint or response id, or pointed at a 127.0.0.1 fake server, and finished
 in at most 0.17 s.
+
+## Fix round 7 (orchestrator)
+
+Codex's verify of round 6 (job `20261020-163751-IU2Qhc`, verdict REOPENED)
+confirmed:
+
+- F16's rolling window and F21;
+- no cap bypass;
+- protection, display-only, the dry run, switch-off and the migrations;
+- the backend plan binding.
+
+One Medium remained, F22. It reproduced on `3f63a582e` and is fixed here
+under the orchestrator's ruling: round 6's rule now applies to Guide marks
+too.
+
+| id | severity | title | verdict | test |
+|---|---|---|---|---|
+| F22 | Medium | Guide-mark observers relabel buffered impressions | fixed | `rw3bReview.test.tsx` "F22: a Guide mark's delayed callback from plan A is discarded; measured again under B, it is sent once as plan_B" |
+
+### What changed
+
+- **One implementation.** The new `apps/learnloop-tauri/src/screens/reader/observerGeneration.ts`
+  holds the generation-bound observer helper. Each generation tracks its
+  live observers, and a callback delivered after its observer was
+  disconnected is discarded. `useCueImpressions` (passages) and
+  `MarginMark` (Guide marks) both use it.
+- **`MarginMark.tsx`.**
+  - A new `planId` prop is added to the effect's dependencies, so each plan
+    gets its own observer generation, and a plan change measures the mark
+    again.
+  - The generation's callback is bound in its closure to the plan it was
+    built for and to that render's `onSeen`, and it passes that plan
+    (`onSeen(planId)`).
+  - A sighting from a hover, focus or click passes the plan served now.
+  - With discovery off, `planId` is null and the observer calls
+    `onSeenRef.current` exactly as RW3a's did.
+- **The chain.**
+  - `ReaderScreen` passes `planId={cueCtl.planId}` and
+    `onSeen={(planId) => cueCtl.noteSeen(cue, planId)}`.
+  - `useReaderCues` exposes `planId` and forwards the plan through
+    `noteSeen(cue, planId)` to `impressions.noteShown(cue, planId)`.
+  - `queue` takes the sighting's plan, falling back to the plan served now.
+    That plan also becomes the first-seen plan that later taps name.
+- **RW3a.** Its `cue_shown` event and its dedupe are unchanged.
+  `ReaderScreen.cuesSwitchOff.test.tsx` and the other switch-off snapshots
+  pass, and no snapshot file changed.
+
+### Fail-before (`3f63a582e`)
+
+`3f63a582e`'s `apps/learnloop-tauri` was extracted to the scratchpad, with
+the worktree's `node_modules` symlinked in and the new test file copied
+over. Result: **1 failed, 19 passed**. The A sighting, delivered after B
+rendered, was sent (as `plan_B`) before B measured anything.
+
+### Gate
+
+| Check | Result |
+|---|---|
+| `npm run typecheck` | clean |
+| `npx vitest run src/screens/reader/ src/screens/ReaderScreen src/components/PdfReaderPane.marks.test.tsx` | **433 passed** (58 files) |
+| `npm run frontend:build` | built |
+| Python, references, `cargo check` | not run: frontend only |
+
+**Model calls: none.** Nothing was run outside vitest and the build.

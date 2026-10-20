@@ -110,8 +110,11 @@ export interface ReaderCues {
   placement: CuePlacement;
   /** The drawn mark on a passage, if any. */
   markOn: (spanId: string) => ReaderCueDto | null;
-  /** A mark came into the learner's view: counted once per visit. */
-  noteSeen: (cue: ReaderCueDto) => void;
+  /** A mark came into the learner's view: counted once per visit
+   *  (`planId`: the plan the mark's observer was built for; RW3b F22). */
+  noteSeen: (cue: ReaderCueDto, planId?: string | null) => void;
+  /** RW3b: the cue plan served now (null while discovery is off). */
+  planId: string | null;
   openCueId: string | null;
   setOpenCueId: (cueId: string | null) => void;
   checkPhase: (cueId: string) => CueCheckPhase;
@@ -294,7 +297,7 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
   // proactive load): MarginMark says when it came into view (review F6).
   const cuesRef = useRef(cues);
   cuesRef.current = cues;
-  const noteSeen = useCallback((cue: ReaderCueDto) => {
+  const noteSeen = useCallback((cue: ReaderCueDto, planId?: string | null) => {
     const current = cuesRef.current;
     if (!current || loggedRef.current.has(cue.cueId)) return;
     loggedRef.current.add(cue.cueId);
@@ -302,7 +305,8 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
       ...visitPayload(), cue_id: cue.cueId, span_id: cue.spanId, cue_kind: cue.kind,
       density: current.density, element: "margin_mark",
     });
-    if (current.discovery) impressions.noteShown(cue);
+    // RW3b: under the plan the mark's observer was built for (F22).
+    if (current.discovery) impressions.noteShown(cue, planId);
   }, [visitPayload, impressions]);
 
   const shownBySpan = useMemo(() => new Map(placement.shown.map((cue) => [cue.spanId, cue])), [placement]);
@@ -529,7 +533,7 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
   );
 
   return {
-    cues, placement, markOn, noteSeen, openCueId, setOpenCueId, checkPhase, canCheckMe: Boolean(onCheckMe), receipts,
+    cues, placement, markOn, noteSeen, planId: discovery?.planId ?? null, openCueId, setOpenCueId, checkPhase, canCheckMe: Boolean(onCheckMe), receipts,
     openEarlier, checkMe, notRelevant, fewer, offBook, offEverywhere, setDensity, turnOnBook,
     canTryFirst, tryFirst, fewerOn, discovered,
   };

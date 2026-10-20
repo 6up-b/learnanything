@@ -6,7 +6,8 @@
 // the learner opens another, and sent again once when the sidecar did not take
 // it; F7 a search that answered for older targets (a joined job) is asked
 // again for the current ones.
-import { act, cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup, render, renderHook } from "@testing-library/react";
+import { useRef } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { ReaderCueDto, ReaderCuesDto } from "../../api/dto";
 import { placeCueMarks, type CuePlacement } from "./cues";
@@ -18,6 +19,7 @@ vi.mock("../../api/client", () => ({ api }));
 
 import { useCueImpressions, passageThresholds, IMPRESSION_FLUSH_MS, IMPRESSION_RETRY_MS } from "./useCueImpressions";
 import { useCueDiscovery, DISCOVERY_POLL_MS } from "./useCueDiscovery";
+import { MarginMark } from "./MarginMark";
 
 function cue(spanId: string, rank: number, extra: Partial<ReaderCueDto> = {}): ReaderCueDto {
   return {
@@ -579,4 +581,62 @@ it("F21: a disconnected generation's delayed callback is discarded; measured aga
   await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
   expect(api.readerCueImpressions.mock.calls.map((call) => call[0])).toEqual([
     { extractionId: "A", visitId: "visit_A", planId: "plan_B", entries: [{ cueId: "dcue_p1", shown: true }] }]);
+});
+
+// -- Fix round 7 (verify) ------------------------------------------------------------------------
+
+/** An observer whose callbacks the test delivers; it remembers being disconnected. */
+class MarkObserver {
+  static all: MarkObserver[] = [];
+  callback: IntersectionObserverCallback;
+  targets: Element[] = [];
+  connected = true;
+  constructor(callback: IntersectionObserverCallback) {
+    this.callback = callback;
+    MarkObserver.all.push(this);
+  }
+  observe(target: Element) { this.targets.push(target); }
+  unobserve() {}
+  disconnect() { this.connected = false; }
+  deliver(target: Element) {
+    this.callback([{ isIntersecting: true, intersectionRatio: 1, target }] as unknown as IntersectionObserverEntry[],
+      this as unknown as IntersectionObserver);
+  }
+}
+
+function GuideMarkHarness({ plan, mark }: { plan: string; mark: ReaderCueDto }) {
+  const served = cues([mark], [], "tk1", plan);
+  const ref = useRef(document.createElement("div") as HTMLDivElement);
+  const impressions = useCueImpressions({ extractionId: "A", cues: served, placement: EMPTY, surface: "pdf",
+    bodyRef: ref, visitId: () => "visit_A" });
+  const noop = () => undefined;
+  return (
+    <MarginMark cue={mark} open={false} onOpenChange={noop} surface="text" canCheckMe={false} checkPhase="idle"
+      onOpenEarlier={noop} onCheckMe={noop} onNotRelevant={noop} onFewer={noop} onOffBook={noop}
+      onOffEverywhere={noop} onSeen={(seenOn) => impressions.noteShown(mark, seenOn)} planId={plan} />
+  );
+}
+
+it("F22: a Guide mark's delayed callback from plan A is discarded; measured again under B, it is sent once as plan_B", async () => {
+  vi.useFakeTimers();
+  MarkObserver.all = [];
+  vi.stubGlobal("IntersectionObserver", MarkObserver);
+  const mark = cue("g1", 0);
+  const view = render(<GuideMarkHarness plan="plan_A" mark={mark} />);
+  const node = view.container.querySelector(`[data-cue-mark="${mark.cueId}"]`)!;
+  const generationA = MarkObserver.all.find((observer) => observer.targets.includes(node))!;
+  expect(generationA).toBeDefined();
+  // The browser samples the mark in view under A; plan B renders before the callback runs.
+  view.rerender(<GuideMarkHarness plan="plan_B" mark={mark} />);
+  act(() => generationA.deliver(node));
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+  // The A sighting is never sent, under either plan's id.
+  expect(api.readerCueImpressions).not.toHaveBeenCalled();
+  // B's own observer measures the mark again: sent once, as plan_B.
+  const generationB = MarkObserver.all.filter((observer) => observer.connected && observer.targets.includes(node));
+  expect(generationB).toHaveLength(1);
+  act(() => generationB[0].deliver(node));
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+  expect(api.readerCueImpressions.mock.calls.map((call) => call[0])).toEqual([
+    { extractionId: "A", visitId: "visit_A", planId: "plan_B", entries: [{ cueId: "cue_g1", shown: true }] }]);
 });
