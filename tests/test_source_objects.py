@@ -56,5 +56,12 @@ def test_mapping_proposal_accept_and_reject_are_non_destructive(tmp_path: Path) 
     SO.reject_mapping(repo, proposal_id=q["proposal_id"])
     # Rejecting one mapping leaves other proposals + the source object intact.
     assert repo.source_object_head(obj["source_object_id"])["version"]["status"] == "proposed"
-    inbox = SO.proposal_inbox(repo, status="accepted")
+    # The object's book has a reading, and no source set protects anything.
+    with repo.connection() as connection:
+        connection.execute(
+            "INSERT INTO source_extraction_runs(id, revision_id, extractor, extractor_version, ir_schema_version, "
+            "extraction_request_hash, status, created_at) VALUES ('ext1', 'rev1', 'marker', '1', '1', 'h', "
+            "'completed', '2026-01-01T00:00:00Z')")
+        connection.commit()
+    inbox = SO.proposal_inbox([], repo, status="accepted")
     assert any(pr["id"] == p["proposal_id"] for pr in inbox["proposals"])

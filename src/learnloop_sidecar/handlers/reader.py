@@ -1190,8 +1190,9 @@ class ReaderProposalInboxInput(ParamsModel):
 
 @method("reader.proposal_inbox", ReaderProposalInboxInput)
 def reader_proposal_inbox(ctx: SidecarContext, params: ReaderProposalInboxInput) -> dict[str, Any]:
-    _vault, repository = _require_reader(ctx)
-    return versioned(SO.proposal_inbox(repository, status=params.status, source_object_id=params.source_object_id))
+    vault, repository = _require_reader(ctx)
+    return versioned(SO.proposal_inbox(vault, repository, status=params.status,
+                                       source_object_id=params.source_object_id))
 
 
 class ReaderDecideProposalInput(ParamsModel):

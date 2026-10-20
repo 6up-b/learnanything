@@ -35,6 +35,7 @@ from learnloop.db.stores.source_service import insert_comparison
 from learnloop.content.synthesis.source_unit_selection import save_unit_selection
 from learnloop.source_retrieval import kept_comparisons as KC
 from learnloop.source_retrieval.compare import Comparison
+from learnloop.source_retrieval.library_ask import LibraryAskError
 from learnloop_sidecar.errors import SidecarError
 from tests.library_ask_fixtures import ask_rows, build_library_vault, call, context, set_config, table_counts
 from tests.source_service_fakes import FakeServiceLLM, learning_state_tables
@@ -366,7 +367,7 @@ def test_material_held_out_after_the_comparison_is_not_kept(compared):
     with pytest.raises(SidecarError) as caught:
         call(ctx, "reader.library_compare_keep", {"askId": asked["askId"], "takes": [
             {"text": "x", "keys": ["ext_text:t3"]}]})
-    assert caught.value.code == "exam_material"
+    assert caught.value.code == "comparison_withheld"
     after = _all_counts(repository)
     assert _changed(before, after) == {}
     row = [r for r in ask_rows(repository) if r["id"] == asked["askId"]][0]
@@ -384,7 +385,7 @@ def test_a_kept_comparison_held_out_later_is_neither_marked_nor_reopened(compare
         assert call(ctx, "reader.kept_comparisons", {"extractionId": extraction})["marks"] == []
     with pytest.raises(SidecarError) as caught:
         call(ctx, "reader.library_compare_reopen", {"askId": asked["askId"]})
-    assert caught.value.code == "exam_material"
+    assert caught.value.code == "comparison_withheld"
     assert "Swapping two rows" not in json.dumps(caught.value.__dict__, default=str)
 
 
@@ -398,7 +399,7 @@ def test_a_comparison_holding_exam_material_is_refused(library, monkeypatch):
     before = table_counts(repository, PROPOSAL_TABLES)
     with pytest.raises(SidecarError) as caught:
         call(ctx, "reader.library_compare_keep", {"askId": asked["askId"]})
-    assert caught.value.code == "exam_material"
+    assert caught.value.code == "comparison_withheld"
     assert table_counts(repository, PROPOSAL_TABLES) == before
 
 
@@ -411,7 +412,7 @@ def test_the_held_out_predicate_fails_closed(compared, monkeypatch):
     monkeypatch.setattr(KC.EM, "exam_withheld", broken)
     with pytest.raises(SidecarError) as caught:
         call(ctx, "reader.library_compare_keep", {"askId": asked["askId"]})
-    assert caught.value.code == "exam_material"
+    assert caught.value.code == "comparison_withheld"
     assert table_counts(repository, PROPOSAL_TABLES) == {table: 0 for table in PROPOSAL_TABLES}
 
 
@@ -469,10 +470,21 @@ def test_the_tutors_comparison_is_kept_only_after_its_press_with_what_it_showed(
     assert call(ctx, "reader.kept_comparisons", {"extractionId": "ext_text"})["marks"]
 
 
+def _tutor_question(repository, event_id: str = "qe_1", *, extraction_id: str = "ext_book",
+                    span_id: str = "s6") -> None:
+    """The tutor question a synthetic tutor request names (its passage is part of
+    the comparison's provenance; RW4d fix round 4)."""
+
+    repository.insert_question_event({"id": event_id, "context": "reader", "question_md": QUESTION,
+                                      "source_context": {"extraction_id": extraction_id, "span_id": span_id,
+                                                         "source_spans": []}})
+
+
 def test_a_tutor_keep_keeps_only_the_sources_its_run_showed(tmp_path, monkeypatch):
     from learnloop.db.stores import source_service as store
 
     paths, repository, _spans = build_library_vault(tmp_path / "vault")
+    _tutor_question(repository)
     ctx = context(paths.root)
     vault, _repo = ctx.require_vault()
     texts = {key: _block_text(repository, key) for key in PINS}
@@ -917,6 +929,7 @@ def test_the_tutor_shown_a_comparison_the_learner_keeps_modifies_that_keep(compa
     _paths, ctx, repository, _spans, asked, table = compared
     vault, _repo = ctx.require_vault()
     KC.keep(vault, repository, asked["askId"])
+    _tutor_question(repository)
     with repository.connection() as connection:
         store.insert_tool_call(connection, id="stc_req", created_at="2026-10-03T09:00:00Z", row_kind="request",
                                caller_kind="tutor", caller_ref="qe_1", context={}, policy="reading",
@@ -1114,13 +1127,13 @@ def test_a_kept_comparison_held_out_later_is_not_returned_by_any_reader_rpc(comp
         assert "t3" not in [c.get("spanId") for head in result.get("sourceObjects", [])  # type: ignore[union-attr]
                             for c in head.get("citations") or ()], name
     assert after["reader.source_objects:src_text"]["sourceObjects"] == []
-    # The book's own claim is not held out: it is still returned.
-    assert len(after["reader.source_objects:src_book"]["sourceObjects"]) == 1
+    # The book's own claim came from the same comparison: withheld whole (round 4).
+    assert after["reader.source_objects:src_book"]["sourceObjects"] == []
     assert after["reader.kept_comparisons:ext_text"]["marks"] == []
     assert after["reader.kept_comparisons:ext_book"]["marks"] == []
     with pytest.raises(SidecarError) as caught:
         call(ctx, "reader.library_compare_reopen", {"askId": asked["askId"]})
-    assert caught.value.code == "exam_material"
+    assert caught.value.code == "comparison_withheld"
     assert _keep_counts(repository) == counts  # nothing deleted
 
 
@@ -1236,109 +1249,191 @@ def test_a_tutor_keep_takes_a_take_with_the_library_answer_off(tmp_path, monkeyp
     assert _all_counts(repository) == before
 
 
-# -- fix round 3 (orchestrator; Codex verify of fix round 2, F1) ---------------------------------
+# -- fix round 4 (orchestrator ruling; Codex verify of fix round 3, F1 and F2) ------------------
+# A comparison any of whose contributing passages is withheld now (its
+# sources, counterparts, unverified sources, dropped pins, the ask's anchor,
+# the tutor question's passages), or whose provenance cannot be resolved, is
+# withheld whole on every read and refused on every write. Fields are never
+# redacted one by one.
+
+#: Two readable passages; the ask's anchor (ext_text:t3) is held out with ch5.
+READABLE = ["ext_book:s6", "ext_text:t5"]
 
 
-def _quoted_question(repository) -> tuple[str, str]:
-    """A question quoting ext_text:t3 (held out with its chapter) word for word."""
-
-    quote = " ".join(_block_text(repository, "ext_text:t3").split()[:9])
-    return quote, f'why is it true that "{quote}"?'
+def _anchor_quote(repository) -> str:
+    return " ".join(_block_text(repository, "ext_text:t3").split()[:9])
 
 
-def _shared_reads(ctx, asked) -> dict[str, object]:
-    out = {f"reader.source_objects:{source}": call(ctx, "reader.source_objects", {"sourceId": source})
-           for source in ("src_text", "src_book")}
+def _comparison_json(repository, comparison_id: str) -> dict:
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        return json.loads(connection.execute("SELECT comparison_json FROM source_comparisons WHERE id = ?",
+                                             (comparison_id,)).fetchone()[0])
+
+
+def _set_comparison_json(repository, comparison_id: str, comparison: dict) -> None:
+    with repository.connection() as connection:
+        connection.execute("UPDATE source_comparisons SET comparison_json = ? WHERE id = ?",
+                           (json.dumps(comparison), comparison_id))
+        connection.commit()
+
+
+def _every_read(ctx, repository, ask_id: str, comparison_id: str) -> dict[str, object]:
+    """Every read path of a kept comparison (a refusal is recorded by its code)."""
+
+    vault, _repo = ctx.require_vault()
+    out: dict[str, object] = {}
+    for source in ("src_text", "src_book"):
+        out[f"reader.source_objects:{source}"] = call(ctx, "reader.source_objects", {"sourceId": source})
     out["reader.proposal_inbox"] = call(ctx, "reader.proposal_inbox", {"status": "proposed"})
     for extraction in ("ext_text", "ext_book"):
         out[f"reader.kept_comparisons:{extraction}"] = call(ctx, "reader.kept_comparisons",
                                                             {"extractionId": extraction})
+    try:
+        out["reader.library_compare_reopen"] = call(ctx, "reader.library_compare_reopen", {"askId": ask_id})
+    except SidecarError as exc:
+        out["reader.library_compare_reopen"] = {"refused": exc.code, "message": str(exc)}
+    out["compare_kept_state"] = KC.compare_kept_state(vault, repository, ask_id, comparison_id)
+    out["compared_on"] = KC.compared_on(vault, repository, READABLE)
+    los = json.loads(_ask(repository, ask_id)["kept_json"])["learning_object_ids"]
+    out["card"] = KC.kept_comparisons_for_card(vault, repository, learning_object_ids=los)
     return out
 
 
-def _contents(result) -> list[dict]:
-    return [json.loads(head["version"]["contentJson"]) for head in result["sourceObjects"]]
-
-
-def test_a_question_quoting_a_held_out_passage_is_redacted_in_every_object(library, monkeypatch):
-    """F1: compare A (ext_text:t3) and B (ext_book:s6) on a question quoting A,
-    keep, withhold A: B's object is still returned, its shared question redacted."""
+@pytest.mark.parametrize("field", ["lines_text", "lines_perspective", "relation_statement", "kept_relations",
+                                   "take"])
+def test_a_withheld_quotation_in_any_derived_field_is_never_returned(library, monkeypatch, field):
+    """Round 4, F1: the anchor's quotation placed in each nested field; once the
+    anchor is held out the whole comparison is withheld on every read path."""
 
     _paths, ctx, repository, spans, asked = library
-    quote, question = _quoted_question(repository)
-    _stored(monkeypatch, ctx, repository, asked["askId"], ["different_notation"], query=question)
-    call(ctx, "reader.library_compare_keep", {"askId": asked["askId"]})
-    before = _shared_reads(ctx, asked)
-    assert quote in json.dumps(before["reader.source_objects:src_book"])  # B's object holds the question
+    quote = _anchor_quote(repository)
+    table = _stored(monkeypatch, ctx, repository, asked["askId"], ["complementary"], keys=READABLE)
+    comparison_id = table["comparisonId"]
+    comparison = _comparison_json(repository, comparison_id)
+    if field == "lines_text":
+        comparison["sources"][0]["contributions"][0]["contribution"] = f"it says {quote}"
+    elif field == "lines_perspective":
+        comparison["sources"][0]["contributions"][0]["perspective"] = f"as {quote}"
+    elif field in ("relation_statement", "kept_relations"):
+        comparison["relations"][0]["statement"] = f"both say {quote}"
+    _set_comparison_json(repository, comparison_id, comparison)
+    takes = [{"text": f"my take: {quote}", "keys": [READABLE[0]]}] if field == "take" else []
+    call(ctx, "reader.library_compare_keep", {"askId": asked["askId"], "takes": takes})
+    before = _every_read(ctx, repository, asked["askId"], comparison_id)
+    reopened = before["reader.library_compare_reopen"]
+    where = {"lines_text": before["reader.source_objects:src_book"],
+             "lines_perspective": before["reader.source_objects:src_book"],
+             "relation_statement": reopened["rows"], "kept_relations": reopened["keptRelations"],
+             "take": reopened["kept"]["takes"]}[field]
+    assert quote in json.dumps(where)  # the quotation is where the field puts it
+    assert before["card"] and before["compare_kept_state"] and before["compared_on"]
+    counts = _keep_counts(repository)
     _hold_out_chapter(repository, spans)
-    after = _shared_reads(ctx, asked)
+    after = _every_read(ctx, repository, asked["askId"], comparison_id)
     for name, result in after.items():
-        assert quote not in json.dumps(result), name
-    (book,) = _contents(after["reader.source_objects:src_book"])
-    assert book["query"] == SO_SHARED_WITHHELD and book["lines"]  # B's own lines stay
-    assert after["reader.source_objects:src_text"]["sourceObjects"] == []
-    vault, _repo = ctx.require_vault()
-    los = json.loads(_ask(repository, asked["askId"])["kept_json"])["learning_object_ids"]
-    assert KC.kept_comparisons_for_card(vault, repository, learning_object_ids=los) == []
+        assert quote not in json.dumps(result, default=str), name
+    assert after["reader.library_compare_reopen"]["refused"] == "comparison_withheld"
+    for source in ("src_text", "src_book"):
+        assert after[f"reader.source_objects:{source}"]["sourceObjects"] == []
+    for extraction in ("ext_text", "ext_book"):
+        assert after[f"reader.kept_comparisons:{extraction}"]["marks"] == []
+    assert after["compare_kept_state"] is None and after["compared_on"] == [] and after["card"] == []
+    assert _keep_counts(repository) == counts  # ledger rows stay
 
 
-def test_a_held_out_passage_the_question_came_from_redacts_the_shared_fields(library, monkeypatch):
-    """F1: the comparison's kept passages (ext_book:s6, ext_text:t5) stay
-    readable, but the passage its question was asked from (ext_text:t3) is
-    held out now: every object, the mark and the reopened table read the
-    placeholder for the question and perspectives; the card omits it."""
+def test_withholding_the_anchor_before_the_first_keep_refuses_it_with_no_writes(library, monkeypatch):
+    """Round 4, F2: the ask's anchor is a contributing passage; Keep checks it
+    inside the transaction before any write."""
 
     _paths, ctx, repository, spans, asked = library
-    quote, question = _quoted_question(repository)
-    keys = ["ext_book:s6", "ext_text:t5"]
-    _stored(monkeypatch, ctx, repository, asked["askId"], ["complementary"], keys=keys, query=question)
-    with repository.connection() as connection:
-        connection.execute("UPDATE source_comparisons SET requested_perspectives_json = ? WHERE query_md = ?",
-                           (json.dumps([f"as {quote}"]), question))
-        connection.commit()
-    call(ctx, "reader.library_compare_keep", {"askId": asked["askId"]})
-    vault, _repo = ctx.require_vault()
-    los = json.loads(_ask(repository, asked["askId"])["kept_json"])["learning_object_ids"]
-    assert KC.kept_comparisons_for_card(vault, repository, learning_object_ids=los)
-    assert quote in json.dumps(call(ctx, "reader.library_compare_reopen", {"askId": asked["askId"]}))
+    quote = _anchor_quote(repository)
+    _stored(monkeypatch, ctx, repository, asked["askId"], ["complementary"], keys=READABLE,
+            query=f'why "{quote}"?')
     _hold_out_chapter(repository, spans)
-    after = _shared_reads(ctx, asked)
-    reopened = call(ctx, "reader.library_compare_reopen", {"askId": asked["askId"]})
-    for name, result in {**after, "reader.library_compare_reopen": reopened}.items():
-        assert quote not in json.dumps(result), name
-    objects = [*_contents(after["reader.source_objects:src_text"]), *_contents(after["reader.source_objects:src_book"])]
-    assert len(objects) == 2 and {obj["query"] for obj in objects} == {SO_SHARED_WITHHELD}
-    (mark,) = [m for m in after["reader.kept_comparisons:ext_text"]["marks"] if m["spanId"] == "t5"]
-    assert {entry["query"] for entry in mark["comparisons"]} == {SO_SHARED_WITHHELD}
-    assert reopened["query"] == SO_SHARED_WITHHELD and reopened["rows"]
-    assert reopened["requestedPerspectives"] == [SO_SHARED_WITHHELD]
-    assert KC.kept_comparisons_for_card(vault, repository, learning_object_ids=los) == []
+    before = _all_counts(repository)
+    with pytest.raises(SidecarError) as caught:
+        call(ctx, "reader.library_compare_keep", {"askId": asked["askId"], "takes": [
+            {"text": f"my take: {quote}", "keys": [READABLE[0]]}]})
+    assert caught.value.code == "comparison_withheld"
+    assert _all_counts(repository) == before
+    assert _ask(repository, asked["askId"])["kept_json"] is None
 
 
-def test_shared_comparison_fields_fail_closed(library, monkeypatch):
-    """F1: when a comparison's passages cannot be read, its shared fields are
-    redacted (and the card shows nothing); the rest of each object stays."""
+def test_a_new_take_on_an_existing_keep_after_withholding_is_refused(library, monkeypatch):
+    """Round 4, F2: adding a take checks every contributing passage too."""
+
+    _paths, ctx, repository, spans, asked = library
+    table = _stored(monkeypatch, ctx, repository, asked["askId"], ["complementary"], keys=READABLE)
+    call(ctx, "reader.library_compare_keep", {"askId": asked["askId"]})
+    _hold_out_chapter(repository, spans)
+    before = _all_counts(repository)
+    with pytest.raises(SidecarError) as caught:
+        call(ctx, "reader.library_compare_keep", {"askId": asked["askId"], "comparisonId": table["comparisonId"],
+                                                  "takes": [{"text": "added later", "keys": [READABLE[0]]}]})
+    assert caught.value.code == "comparison_withheld"
+    assert _all_counts(repository) == before
+    assert json.loads(_ask(repository, asked["askId"])["kept_json"])["takes"] == []
+
+
+def test_a_tutor_keep_checks_its_question_passage_before_any_write(library, monkeypatch):
+    """Round 4, F2 (tutor path): the tutor question's passage is a contributing
+    passage; a tutor request naming no question cannot be checked (refused)."""
+
+    from learnloop.db.stores import source_service as store
+
+    _paths, ctx, repository, spans, asked = library
+    vault, _repo = ctx.require_vault()
+    table = _stored(monkeypatch, ctx, repository, asked["askId"], ["complementary"], keys=READABLE)
+    _tutor_question(repository, "qe_t", extraction_id="ext_text", span_id="t3")
+    with repository.connection() as connection:
+        for request_id, caller_ref in (("stc_q", "qe_t"), ("stc_none", None)):
+            store.insert_tool_call(connection, id=request_id, created_at="2026-10-03T09:00:00Z", row_kind="request",
+                                   caller_kind="tutor", caller_ref=caller_ref, context={}, policy="reading",
+                                   tool="compare_sources", arguments={}, status="requested")
+            store.insert_tool_call(connection, id=request_id + "_run", parent_id=request_id,
+                                   created_at="2026-10-03T09:00:01Z", row_kind="run", caller_kind="tutor",
+                                   caller_ref=caller_ref, context={}, policy="reading", tool="compare_sources",
+                                   arguments={}, status="ran", result_ref=table["comparisonId"], result_keys=READABLE)
+        connection.commit()
+    before = _all_counts(repository)
+    with pytest.raises(LibraryAskError) as caught:
+        KC.keep_tutor(vault, repository, "stc_none")
+    assert caught.value.code == "comparison_withheld"
+    assert _all_counts(repository) == before
+    _hold_out_chapter(repository, spans)
+    before = _all_counts(repository)
+    with pytest.raises(LibraryAskError) as caught:
+        KC.keep_tutor(vault, repository, "stc_q", takes=[{"text": "mine", "keys": [READABLE[0]]}])
+    assert caught.value.code == "comparison_withheld"
+    assert _all_counts(repository) == before
+
+
+def test_an_unreadable_comparison_is_withheld_whole(library, monkeypatch):
+    """Round 4: provenance that cannot be resolved withholds the comparison on
+    every read and refuses every write (fail closed)."""
 
     from learnloop.reader import source_objects as SO
 
     _paths, ctx, repository, _spans, asked = library
-    quote, question = _quoted_question(repository)
-    _stored(monkeypatch, ctx, repository, asked["askId"], ["different_notation"], query=question)
-    call(ctx, "reader.library_compare_keep", {"askId": asked["askId"]})
+    table = _stored(monkeypatch, ctx, repository, asked["askId"], ["complementary"], keys=READABLE)
+    call(ctx, "reader.library_compare_keep", {"askId": asked["askId"], "takes": [
+        {"text": "my own words", "keys": [READABLE[0]]}]})
+    assert _every_read(ctx, repository, asked["askId"], table["comparisonId"])["card"]
 
     def broken(*_args, **_kwargs):
-        raise RuntimeError("comparison unreadable")
+        raise LookupError("comparison unreadable")
 
     monkeypatch.setattr(SO, "comparison_passages", broken)
-    after = _shared_reads(ctx, asked)
-    for name, result in after.items():
-        assert quote not in json.dumps(result), name
-    objects = [*_contents(after["reader.source_objects:src_text"]), *_contents(after["reader.source_objects:src_book"])]
-    assert len(objects) == 2 and {obj["query"] for obj in objects} == {SO_SHARED_WITHHELD}
-    vault, _repo = ctx.require_vault()
-    los = json.loads(_ask(repository, asked["askId"])["kept_json"])["learning_object_ids"]
-    assert KC.kept_comparisons_for_card(vault, repository, learning_object_ids=los) == []
-
-
-#: The placeholder a shared comparison field reads while it is withheld.
-SO_SHARED_WITHHELD = "(withheld: part of this comparison is held out for an exam now)"
+    after = _every_read(ctx, repository, asked["askId"], table["comparisonId"])
+    assert "my own words" not in json.dumps(after, default=str)
+    assert after["reader.library_compare_reopen"]["refused"] == "comparison_withheld"
+    for source in ("src_text", "src_book"):
+        assert after[f"reader.source_objects:{source}"]["sourceObjects"] == []
+    assert after["reader.kept_comparisons:ext_book"]["marks"] == []
+    assert after["compare_kept_state"] is None and after["compared_on"] == [] and after["card"] == []
+    before = _all_counts(repository)
+    with pytest.raises(SidecarError) as caught:
+        call(ctx, "reader.library_compare_keep", {"askId": asked["askId"], "takes": [
+            {"text": "another", "keys": [READABLE[0]]}]})
+    assert caught.value.code == "comparison_withheld"
+    assert _all_counts(repository) == before

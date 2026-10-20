@@ -354,7 +354,7 @@ def reader_library_ask(ctx: SidecarContext, params: LibraryAskInput) -> dict[str
         if KC.keep_enabled(vault):
             # RW4d: "you compared these on …" for passages a kept comparison holds
             # (absent while reader_compare.keep_enabled is off: RW4a's answer).
-            result["compared_on"] = KC.compared_on(worker_repo, [hit["key"] for hit in result["hits"]])
+            result["compared_on"] = KC.compared_on(vault, worker_repo, [hit["key"] for hit in result["hits"]])
         return result
 
     return _start(ctx, "ask", None, work)
@@ -422,7 +422,8 @@ def reader_library_compare(ctx: SidecarContext, params: LibraryCompareInput) -> 
                            requested_perspectives=perspectives)
         if keep:
             # RW4d: whether this comparison is kept already (absent while off).
-            table["kept"] = KC.compare_kept_state(worker_repo, params.ask_id, table.get("comparison_id"))
+            table["kept"] = KC.compare_kept_state(vault, worker_repo, params.ask_id,
+                                                  table.get("comparison_id"))
         return table
 
     return _start(ctx, "compare", params.ask_id, work)

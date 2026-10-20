@@ -45,8 +45,16 @@ one the question no longer shows, and nothing keeps, is refused.
 
 Held-out material (exam protection) is never kept and never shown again: the
 one predicate (``exam_material.exam_withheld``, the call RW4b's statement
-reader makes) is asked about every compared span at the keep and at every
-reopen, failing closed; a hit refuses before anything is written or quoted.
+reader makes) is asked about **every passage that contributed to the
+comparison** (its sources, counterparts, unverified sources and dropped pins,
+the ask's anchor, the tutor question's passages:
+``reader.source_objects.comparison_passages``). Keep, keep_tutor and adding a
+take ask it inside the transaction before any write, and reopen at every
+read; a hit, unresolvable provenance or an unreadable predicate refuses
+(``comparison_withheld``). Every other read (the marks, "you compared these
+on", the table's keep state, the card, ``reader.source_objects`` and the
+proposal inbox) leaves such a comparison out whole: no object, line,
+relation, statement or take derived from it is returned. Ledger rows stay.
 
 Nothing here writes a concept edge, facet merge, prerequisite, learning-object
 change, attempt, evidence, mastery or plan; replay never reads these rows.
@@ -146,11 +154,11 @@ def clean_perspectives(values: Sequence[str] | None) -> list[str]:
     return kept[:MAX_PERSPECTIVES]
 
 
-def _shared_withheld(vault: LoadedVault, repository: Repository,
-                     rows: Sequence[Mapping[str, Any]]) -> frozenset[str]:
-    """The ids of ``rows`` whose comparison has any contributing passage held
-    out now (``reader.source_objects.withheld_comparisons``, failing closed):
-    their shared fields (the question, the perspectives) are redacted."""
+def _withheld_rows(vault: LoadedVault, repository: Repository,
+                   rows: Sequence[Mapping[str, Any]]) -> frozenset[str]:
+    """The ids of ``rows`` whose comparison is withheld whole: any passage that
+    contributed to it is held out now, or its provenance cannot be resolved
+    (``reader.source_objects.withheld_comparisons``, failing closed)."""
 
     pairs = {str(row["id"]): (str((row.get("kept") or {}).get("comparison_id") or row.get("comparison_id") or ""),
                               str(row["id"])) for row in rows}
@@ -188,11 +196,33 @@ def held_out_now(vault: LoadedVault, repository: Repository, keys: Sequence[tupl
         return True
 
 
-def _refuse_held_out(vault: LoadedVault, repository: Repository, keys: Sequence[tuple[str, str]]) -> None:
-    if held_out_now(vault, repository, keys):
-        raise LibraryAskError(
-            "exam_material",
-            "Part of this comparison is held out for an exam now, so it isn't kept or shown. Nothing was saved.")
+def _comparison_withheld() -> LibraryAskError:
+    return LibraryAskError(
+        "comparison_withheld",
+        "Part of this comparison is held out for an exam now (or its sources can't be checked), so it isn't "
+        "kept or shown. Nothing was saved.")
+
+
+def _refuse_comparison(vault: LoadedVault, repository: Repository, comparison_id: str | None, *,
+                       ask_id: str | None = None, question_event_id: str | None = None,
+                       keys: Sequence[tuple[str, str]] = ()) -> None:
+    """Refuse (``comparison_withheld``) unless every passage that contributed
+    to the comparison is readable now: its sources, counterparts, unverified
+    sources and dropped pins, the ask's anchor and binding, the tutor
+    question's passages (``reader.source_objects.comparison_passages``) and
+    ``keys``. Unresolvable provenance or an unreadable predicate refuses too
+    (fail closed). Asked before any write and at every read of a keep."""
+
+    if not comparison_id:
+        raise LibraryAskError("validation_error", "Compare the passages first; there is no comparison to keep.")
+    try:
+        passages = SO.comparison_passages(repository, str(comparison_id), ask_id=ask_id,
+                                          question_event_id=question_event_id)
+    except Exception as exc:  # noqa: BLE001 - unresolvable provenance is withheld (fail closed)
+        raise _comparison_withheld() from exc
+    wanted = sorted(passages | {key for key in keys if key[0] and key[1]})
+    if held_out_now(vault, repository, wanted):
+        raise _comparison_withheld()
 
 
 def _stored(repository: Repository, comparison_id: str | None) -> dict[str, Any]:
@@ -434,12 +464,19 @@ def kept_state(kept: Mapping[str, Any] | None, *, kept_at: str | None) -> dict[s
 
 
 def _keep(vault: LoadedVault, repository: Repository, ask: Mapping[str, Any], *, shown: Sequence[str] | None,
-          takes: Sequence[Mapping[str, Any]], caller: str, clock: Clock | None) -> dict[str, Any]:
-    if ask.get("kept") and ask.get("kept_at"):
+          takes: Sequence[Mapping[str, Any]], caller: str, clock: Clock | None,
+          question_event_id: str | None = None) -> dict[str, Any]:
+    # Every passage that contributed to the comparison (the anchor and the
+    # tutor question's included) is readable now, before anything is written.
+    live = bool(ask.get("kept") and ask.get("kept_at"))
+    _refuse_comparison(vault, repository, (ask.get("kept") or {}).get("comparison_id") if live
+                       else ask.get("comparison_id"), ask_id=str(ask["id"]), question_event_id=question_event_id,
+                       keys=[tuple(key.split(":", 1)) for key in (ask.get("kept") or {}).get("keys") or ()
+                             if ":" in key] if live else ())
+    if live:
         # Kept already (a second press, or a take added after keeping): the
         # proposals stay as they are; only new takes are written.
         kept = dict(ask["kept"])
-        _refuse_held_out(vault, repository, [tuple(key.split(":", 1)) for key in kept.get("keys") or ()])
         added = _add_takes(repository, kept, takes, clock=clock) if takes else []
         if added:
             _save(repository, ask["id"], kept, kept_at=ask["kept_at"])
@@ -447,9 +484,6 @@ def _keep(vault: LoadedVault, repository: Repository, ask: Mapping[str, Any], *,
                 "added_takes": len(added), "already_kept": True}
     stored = _stored(repository, ask.get("comparison_id"))
     sources = _sources(stored, shown)
-    # Held out now (or at any time since the comparison was made): refused
-    # before anything is written, for every source the comparison holds.
-    _refuse_held_out(vault, repository, [_key(entry) for entry in _sources(stored)])
     plan = _plan(vault, repository, stored, sources)
     if len(plan["passages"]) < 1:
         raise LibraryAskError("validation_error", "Nothing in this comparison could be kept: no checked line is left.")
@@ -579,6 +613,8 @@ def keep(vault: LoadedVault, repository: Repository, ask_id: str, *, comparison_
                 # The fork copies this row's caller, so its guard is this row's.
                 if guard is not None:
                     guard(row)
+                # Refused before the fork row is written (the fork's anchor is this row's).
+                _refuse_comparison(vault, repository, str(target), ask_id=str(row["id"]))
                 row = _fork_for(repository, row, str(target), clock=clock)
                 guard = None
         else:
@@ -589,13 +625,15 @@ def keep(vault: LoadedVault, repository: Repository, ask_id: str, *, comparison_
                      clock=clock)
 
 
-def compare_kept_state(repository: Repository, ask_id: str, comparison_id: str | None) -> dict[str, Any] | None:
-    """Whether the comparison just shown is the one this ask keeps (for the table)."""
+def compare_kept_state(vault: LoadedVault, repository: Repository, ask_id: str,
+                       comparison_id: str | None) -> dict[str, Any] | None:
+    """Whether the comparison just shown is the one this ask keeps (for the
+    table). A keep withheld whole (:func:`_withheld_rows`) is not shown."""
 
     # The same resolution Keep makes (live_keep_of): the table shows the keep
     # that a press would modify.
     found = live_keep_of(repository, comparison_id, prefer=ask_id)
-    if found is None:
+    if found is None or found["id"] in _withheld_rows(vault, repository, [found]):
         return None
     return {**(kept_state(found["kept"], kept_at=found["kept_at"]) or {}), "ask_id": found["id"]}
 
@@ -627,6 +665,10 @@ def keep_tutor(vault: LoadedVault, repository: Repository, tool_call_id: str, *,
 
     with repository.atomic():
         found = tutor_comparison(repository, tool_call_id)
+        if not found["request"].get("caller_ref"):
+            # The tutor question it was asked under is part of its provenance:
+            # without it nothing can be checked, so nothing is kept (fail closed).
+            raise _comparison_withheld()
         with repository.connection() as connection:
             existing = ask_store.asks_for_comparison(connection, found["comparison_id"], caller="tutor")
         live = live_keep_of(repository, found["comparison_id"], prefer=existing[0] if existing else None)
@@ -635,9 +677,11 @@ def keep_tutor(vault: LoadedVault, repository: Repository, tool_call_id: str, *,
             if guard is not None:
                 guard(row)
         else:
+            # Nothing is written for a comparison that cannot be kept: any
+            # contributing passage (the tutor question's included) held out.
+            _refuse_comparison(vault, repository, found["comparison_id"],
+                               question_event_id=found["request"].get("caller_ref"))
             stored = _stored(repository, found["comparison_id"])
-            # Nothing is written for a comparison that cannot be kept (held out).
-            _refuse_held_out(vault, repository, [_key(entry) for entry in _sources(stored)])
             ask_id = "la_" + new_ulid()
             with repository.connection() as connection:
                 ask_store.insert_ask(connection, {
@@ -654,7 +698,8 @@ def keep_tutor(vault: LoadedVault, repository: Repository, tool_call_id: str, *,
                                      question_event_id=found["request"].get("caller_ref"))
                 connection.commit()
             row = _row(repository, ask_id)
-        result = _keep(vault, repository, row, shown=found["shown"], takes=takes, caller="tutor", clock=clock)
+        result = _keep(vault, repository, row, shown=found["shown"], takes=takes, caller="tutor", clock=clock,
+                       question_event_id=found["request"].get("caller_ref"))
     return {**result, "tool_call_id": tool_call_id}
 
 
@@ -758,12 +803,13 @@ def kept_marks(vault: LoadedVault, repository: Repository, extraction_id: str, *
             if rows else frozenset()
     except Exception:  # noqa: BLE001 - fail closed
         rows, withheld = [], frozenset()
-    shown_rows = [row for row, _kept, keys, _mine in rows if not any(key in withheld for key in keys)]
-    shared = _shared_withheld(vault, repository, shown_rows) if shown_rows else frozenset()
+    # A comparison withheld whole (any contributing passage held out now, or
+    # provenance unresolved) has no mark.
+    whole = _withheld_rows(vault, repository, [row for row, *_rest in rows]) if rows else frozenset()
     for row, kept, keys, mine in rows:
-        if any(key in withheld for key in keys):
+        if any(key in withheld for key in keys) or row["id"] in whole:
             continue
-        query = SO.SHARED_WITHHELD if row["id"] in shared else row.get("query")
+        query = row.get("query")
         others = sorted({obj.get("source_title") or "a source" for obj in kept.get("objects") or ()
                          if obj["extraction_id"] != extraction_id})
         for key in mine:
@@ -794,8 +840,9 @@ def reopen(vault: LoadedVault, repository: Repository, ask_id: str, *, open_sour
     kept = row.get("kept")
     if not kept or not row.get("kept_at"):
         raise LibraryAskError("not_found", "This comparison isn't kept any more.")
-    keys = [tuple(key.split(":", 1)) for key in kept.get("keys") or ()]
-    _refuse_held_out(vault, repository, keys)
+    keys = [tuple(key.split(":", 1)) for key in kept.get("keys") or () if ":" in key]
+    # Withheld whole while any passage that contributed to it is held out now.
+    _refuse_comparison(vault, repository, kept.get("comparison_id"), ask_id=str(row["id"]), keys=keys)
     stored = _stored(repository, kept.get("comparison_id"))
     shown = set(kept.get("keys") or ())
     # Only what was kept: its claims with their kept lines, its kept relations.
@@ -819,31 +866,29 @@ def reopen(vault: LoadedVault, repository: Repository, ask_id: str, *, open_sour
                "manifest": {}, "also_discussed_in": [], "unverified_sources": [], "dropped_pins": [],
                "dropped_lines": []}
     table = compare_table(payload, first_source_id=open_source_id)
-    # The question and the perspectives speak for the whole comparison: while
-    # any passage that contributed to it is held out, they are redacted.
-    redacted = row["id"] in _shared_withheld(vault, repository, [row])
     perspectives = list(stored.get("requested_perspectives") or [])
     if perspectives:
         table["requested_perspectives"] = perspectives
         table["missing_perspectives"] = list((stored.get("comparison") or {}).get("missing_perspectives") or [])
-        if redacted:
-            table.update(SO.redact_shared({key: table[key] for key in ("requested_perspectives",
-                                                                       "missing_perspectives")}))
     _event(repository, "comparison_reopened", {"extraction_id": row.get("extraction_id"), "claim_count": len(shown)},
            subject_id=row.get("extraction_id"), clock=clock)
     return {"ask_id": ask_id, **table, "kept": {**(kept_state(kept, kept_at=row["kept_at"]) or {}), "ask_id": ask_id},
-            "query": SO.SHARED_WITHHELD if redacted else row.get("query"), "kept_relations": [
+            "query": row.get("query"), "kept_relations": [
                 {"fine": rel["fine"], "relation_type": rel["relation_type"], "statement": rel.get("statement")}
                 for rel in kept.get("relations") or ()]}
 
 
-def compared_on(repository: Repository, keys: Sequence[str]) -> list[dict[str, Any]]:
+def compared_on(vault: LoadedVault, repository: Repository, keys: Sequence[str]) -> list[dict[str, Any]]:
     """For a later library ask: the kept comparisons sharing its passages
-    ("you compared these on 3 Oct"), newest first."""
+    ("you compared these on 3 Oct"), newest first; none withheld whole."""
 
     wanted = set(keys)
     found = []
-    for row in _live(repository):
+    rows = [row for row in _live(repository) if wanted & set((row["kept"] or {}).get("keys") or ())]
+    whole = _withheld_rows(vault, repository, rows) if rows else frozenset()
+    for row in rows:
+        if row["id"] in whole:
+            continue
         shared = sorted(wanted & set((row["kept"] or {}).get("keys") or ()))
         if shared:
             found.append({"ask_id": row["id"], "kept_at": row["kept_at"], "keys": shared})

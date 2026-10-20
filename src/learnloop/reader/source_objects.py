@@ -240,14 +240,6 @@ def withheld_source_objects(vault: Any, repository: Repository,
         return frozenset(ids)
 
 
-#: What a kept comparison copies into each of its objects (and what its keep
-#: and its reopened table carry): the question and the perspectives asked for.
-#: They speak for the whole comparison, so they are checked comparison-wide.
-COMPARISON_SHARED_FIELDS: tuple[str, ...] = ("query", "question", "requested_perspectives", "missing_perspectives")
-#: What a shared field reads while any passage of its comparison is held out.
-SHARED_WITHHELD = "(withheld: part of this comparison is held out for an exam now)"
-
-
 def _span_key(value: Any) -> tuple[str, str] | None:
     if isinstance(value, Mapping):
         pair = (value.get("extraction_id") or value.get("extractionId"), value.get("span_id") or value.get("spanId"))
@@ -260,22 +252,41 @@ def _span_key(value: Any) -> tuple[str, str] | None:
     return (str(pair[0]), str(pair[1])) if pair[0] and pair[1] else None
 
 
-def comparison_passages(repository: Repository, comparison_id: str, *,
-                        ask_id: str | None = None) -> set[tuple[str, str]]:
+def _question_passages(repository: Repository, question_event_id: str) -> list[Any]:
+    """The passages a tutor question was asked from: its passage and the spans it was given."""
+
+    event = repository.question_event(str(question_event_id))
+    if event is None:
+        raise LookupError(f"unknown question event {question_event_id!r}")
+    context = event.get("source_context") or {}
+    found: list[Any] = [(context.get("extraction_id"), context.get("span_id")), *(context.get("source_spans") or ())]
+    delivery = context.get("delivery") or {}
+    if isinstance(delivery, Mapping):
+        found.extend(delivery.get("source_spans") or ())
+    return found
+
+
+def comparison_passages(repository: Repository, comparison_id: str, *, ask_id: str | None = None,
+                        question_event_id: str | None = None) -> set[tuple[str, str]]:
     """Every passage that contributed to a stored comparison: its compared
-    sources, its counterparts, its unverified sources and dropped pins, and the
-    passage its question was asked from (the ask's anchor, or the tutor
-    request's selection). Raises ``LookupError`` when the comparison cannot be
-    read or names no passage (callers fail closed)."""
+    sources, its counterparts, its unverified sources and dropped pins, the
+    passage its question was asked from (the ask's anchor and binding) and,
+    for a tutor's comparison, the tutor question's passage and the spans it
+    was given (``question_event_id``, or the ask row's). Raises
+    ``LookupError`` when the comparison, the ask or the question cannot be
+    read, or nothing is named: callers withhold (fail closed)."""
 
     with repository.connection() as connection:
         stored = comparison_row(connection, str(comparison_id)) if comparison_id else None
         ask = ask_store.ask_row(connection, str(ask_id)) if ask_id else None
     if stored is None:
         raise LookupError(f"unknown comparison {comparison_id!r}")
+    if ask_id and ask is None:
+        raise LookupError(f"unknown library question {ask_id!r}")
     found: list[Any] = [*((stored.get("comparison") or {}).get("sources") or ()),
                         *(stored.get("counterpart_keys") or ()), *(stored.get("unverified_sources") or ()),
                         *(stored.get("dropped_pins") or ())]
+    events = [question_event_id] if question_event_id else []
     if ask is not None:
         extraction = ask.get("extraction_id")
         found.extend((extraction, span) for span in (ask.get("anchor") or {}).get("span_ids") or ())
@@ -284,6 +295,10 @@ def comparison_passages(repository: Repository, comparison_id: str, *,
             reading = caller.get("extraction_id") or extraction
             spans = [caller.get("span_id"), *(caller.get("span_ids") or ()), *(caller.get("selection_span_ids") or ())]
             found.extend((reading, span) for span in spans if span)
+        if ask.get("question_event_id"):
+            events.append(str(ask["question_event_id"]))
+    for event_id in dict.fromkeys(events):
+        found.extend(_question_passages(repository, event_id))
     keys = {key for value in found if (key := _span_key(value)) is not None}
     if not keys:
         raise LookupError(f"comparison {comparison_id!r} names no passage")
@@ -293,19 +308,23 @@ def comparison_passages(repository: Repository, comparison_id: str, *,
 def withheld_comparisons(vault: Any, repository: Repository,
                          comparisons: Sequence[tuple[str, str | None]]) -> frozenset[tuple[str, str | None]]:
     """The ``(comparison id, ask id)`` pairs with **any** contributing passage
-    (:func:`comparison_passages`) that is exam or held out now: their shared
-    fields are redacted wherever they are read. Fail closed: a comparison that
-    cannot be read, or a predicate that cannot be, counts as withheld."""
+    (:func:`comparison_passages`) that is exam or held out now. Such a
+    comparison is withheld whole on every read path: every object, version,
+    citation, relation and take derived from it. Fail closed: a comparison
+    whose provenance cannot be read, or a predicate that cannot be, counts as
+    withheld (Codex verify of RW4d fix round 3; the orchestrator's ruling)."""
 
-    wanted = list(dict.fromkeys((str(cid), None if ask is None else str(ask)) for cid, ask in comparisons if cid))
+    wanted = list(dict.fromkeys((str(cid or ""), None if ask is None else str(ask)) for cid, ask in comparisons))
     if not wanted:
         return frozenset()
     passages: dict[tuple[str, str | None], set[tuple[str, str]]] = {}
     unknown: set[tuple[str, str | None]] = set()
     for pair in wanted:
         try:
+            if not pair[0]:
+                raise LookupError("no comparison named")
             passages[pair] = comparison_passages(repository, pair[0], ask_id=pair[1])
-        except Exception:  # noqa: BLE001 - an unreadable comparison is withheld (fail closed)
+        except Exception:  # noqa: BLE001 - unresolvable provenance is withheld (fail closed)
             unknown.add(pair)
     try:
         held = EM.exam_withheld(vault, repository, sorted({key for keys in passages.values() for key in keys}))
@@ -314,55 +333,57 @@ def withheld_comparisons(vault: Any, repository: Repository,
     return frozenset(unknown | {pair for pair, keys in passages.items() if keys & set(held)})
 
 
-def redact_shared(content: Mapping[str, Any]) -> dict[str, Any]:
-    """``content`` with each shared comparison field (:data:`COMPARISON_SHARED_FIELDS`) replaced."""
-
-    out = dict(content)
-    for name in COMPARISON_SHARED_FIELDS:
-        if name in out and out[name] not in (None, "", []):
-            out[name] = [SHARED_WITHHELD] if isinstance(out[name], list) else SHARED_WITHHELD
-    return out
-
-
 def _comparison_of(head: Mapping[str, Any]) -> tuple[str, str | None] | None:
+    """The comparison an object was kept from, ``("", None)`` when it claims
+    one it does not name (unresolvable), None for any other object."""
+
     try:
         content = json.loads((head.get("version") or {}).get("content_json") or "{}")
     except (TypeError, ValueError):
-        return None
-    if isinstance(content, Mapping) and content.get("comparison_id"):
-        return (str(content["comparison_id"]), str(content["ask_id"]) if content.get("ask_id") else None)
+        return ("", None)
+    if not isinstance(content, Mapping):
+        return ("", None)
+    if content.get("comparison_id") or content.get("kept_from") == "source_comparison":
+        return (str(content.get("comparison_id") or ""), str(content["ask_id"]) if content.get("ask_id") else None)
     return None
+
+
+def hidden_source_objects(vault: Any, repository: Repository,
+                          heads: Sequence[Mapping[str, Any]]) -> frozenset[str]:
+    """The ids among ``heads`` no reader returns: an object whose own material
+    is withheld (:func:`withheld_source_objects`), and every object kept from a
+    comparison that is withheld whole (:func:`withheld_comparisons`)."""
+
+    hidden = set(withheld_source_objects(vault, repository, heads))
+    kept_from = {str(head["object"]["id"]): pair for head in heads
+                 if head and head.get("object") and (pair := _comparison_of(head)) is not None}
+    withheld = withheld_comparisons(vault, repository, list(kept_from.values()))
+    hidden.update(object_id for object_id, pair in kept_from.items() if pair in withheld)
+    return frozenset(hidden)
 
 
 def source_objects_for_source(vault: Any, repository: Repository, *, source_id: str) -> list[dict[str, Any]]:
     """A book's source objects (each head version with its citations), without
-    any whose material is exam or held out now (:func:`withheld_source_objects`):
-    their exact text, content, quotes and citations are never returned. An
-    object kept from a comparison carries the comparison's shared fields (its
-    question): while any passage of that comparison is held out, they read
-    :data:`SHARED_WITHHELD` in every object of it, stored ones included
-    (Codex verify of fix round 2, F1)."""
+    any whose material is exam or held out now, or that was kept from a
+    comparison withheld whole (:func:`hidden_source_objects`): their exact
+    text, content, lines, quotes and citations are never returned. The rows
+    stay in the ledger."""
 
     heads = [head for head in repository.source_objects_for_source(source_id) if head]
-    hidden = withheld_source_objects(vault, repository, heads)
-    visible = [head for head in heads if str(head["object"]["id"]) not in hidden]
-    shared = withheld_comparisons(vault, repository, [pair for head in visible if (pair := _comparison_of(head))])
-    out = []
-    for head in visible:
-        pair = _comparison_of(head)
-        if pair is not None and pair in shared:
-            version = dict(head["version"])
-            version["content_json"] = json.dumps(redact_shared(json.loads(version.get("content_json") or "{}")),
-                                                 sort_keys=True)
-            head = {**head, "version": version}
-        out.append(head)
-    return out
+    hidden = hidden_source_objects(vault, repository, heads)
+    return [head for head in heads if str(head["object"]["id"]) not in hidden]
 
 
 def proposal_inbox(
-    repository: Repository, *, status: str = "proposed", source_object_id: str | None = None
+    vault: Any, repository: Repository, *, status: str = "proposed", source_object_id: str | None = None
 ) -> dict[str, Any]:
     """Non-modal review inbox (§6.4): accumulated proposals reviewed without losing
-    reading position. Nothing here is auto-applied."""
+    reading position. Nothing here is auto-applied. A proposal about a source
+    object no reader returns (:func:`hidden_source_objects`) is left out."""
 
-    return {"proposals": repository.mapping_proposals(status=status, source_object_id=source_object_id)}
+    proposals = repository.mapping_proposals(status=status, source_object_id=source_object_id)
+    ids = sorted({str(p["source_object_id"]) for p in proposals if p.get("source_object_id")})
+    heads = [head for object_id in ids if (head := repository.source_object_head(object_id))]
+    missing = set(ids) - {str(head["object"]["id"]) for head in heads}
+    hidden = hidden_source_objects(vault, repository, heads) | missing
+    return {"proposals": [p for p in proposals if str(p.get("source_object_id") or "") not in hidden]}
