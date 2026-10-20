@@ -53,6 +53,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
+from datetime import UTC
 from decimal import Decimal
 import hashlib
 import json
@@ -62,9 +63,9 @@ from typing import Any, Literal
 from learnloop.ai.errors import AIInvalidOutput
 from learnloop.ai.execution import content_key
 from learnloop.ai.schemas import WireModel
-from learnloop.ai.spend import SpendBudget, SpendCaps, spend_envelopes
+from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded, spend_envelopes
 from learnloop.ai.transport import render_structured_prompt
-from learnloop.clock import Clock, utc_now_iso
+from learnloop.clock import Clock, SystemClock, utc_now_iso
 from learnloop.content.sources.exam_material import held_out_material
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
@@ -898,6 +899,58 @@ def _calls_cap(vault: LoadedVault) -> int:
     return max(0, int(getattr(_cues(vault), "max_calls_per_source_open", 12)))
 
 
+#: Why a target was not judged: the source's judge calls today are used.
+DAILY_CAP_REASON = "cues.max_calls_per_source_per_day"
+
+
+def _daily_calls_cap(vault: LoadedVault) -> int:
+    return max(0, int(getattr(_cues(vault), "max_calls_per_source_per_day", 36)))
+
+
+def _local_day_start(clock: Clock | None = None) -> str:
+    """Local midnight today as a UTC timestamp in the receipts' own format
+    (``datetime.isoformat`` with ``+00:00``), so it compares as text."""
+
+    local_now = (clock or SystemClock()).now().astimezone()
+    start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    return start.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+
+
+def discovery_calls_today(repository: Repository, extraction_id: str, *, clock: Clock | None = None) -> int:
+    """The cue judge's requests for this source since local midnight, counted
+    from the durable receipts (Codex verify F16): one root receipt per
+    request, written before it is sent, a failed, unfinished or retried one
+    included. Every judge request of a source is owned by
+    ``<extraction_id>|<target>|<state>``, so the count holds across source
+    opens, remounts, vault reloads and restarts: no in-memory state decides
+    it."""
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        row = connection.execute(
+            "SELECT COUNT(*) FROM model_call_receipts WHERE owner_kind = ? AND parent_call_id IS NULL "
+            "AND owner_id >= ? AND owner_id < ? AND started_at >= ?",
+            # '}' follows '|': the range is exactly the ids starting "<extraction_id>|".
+            (CUE_JUDGE_TASK.route_task, f"{extraction_id}|", f"{extraction_id}}}", _local_day_start(clock)),
+        ).fetchone()
+    return int(row[0] or 0)
+
+
+def _daily_admission(vault: LoadedVault, repository: Repository, extraction_id: str, *,
+                     clock: Clock | None) -> Callable[[SpendEstimate], None]:
+    """``PaidCalls``'s admission of each judge attempt (a retry included):
+    refused before it is sent once the source's calls today reach
+    ``cues.max_calls_per_source_per_day``, whatever route (the subscription
+    too) and whatever open."""
+
+    cap = _daily_calls_cap(vault)
+
+    def admit(_estimate: SpendEstimate) -> None:
+        if discovery_calls_today(repository, extraction_id, clock=clock) >= cap:
+            raise SpendLimitExceeded(f"{DAILY_CAP_REASON} ({cap}) reached for this source today")
+
+    return admit
+
+
 def discovery_budget(vault: LoadedVault, *, cancelled: Callable[[], bool] | None = None) -> SpendBudget:
     """The judge's caps for one whole discovery (one source open), shared by
     every target (Codex review F3): each admitted judge request counts once,
@@ -939,13 +992,15 @@ def _link_id(extraction_id: str, target: CueTarget, span_id: str) -> str:
 
 def judge_target(vault: LoadedVault, repository: Repository, listed: Shortlist, extraction_id: str, *,
                  client: Any | None = None, clock: Clock | None = None, budget: SpendBudget | None = None,
-                 route: Any | None = None, envelope: SharedDailyEnvelope | None = None) -> dict[str, Any]:
+                 route: Any | None = None, envelope: SharedDailyEnvelope | None = None,
+                 admit: Callable[[SpendEstimate], None] | None = None) -> dict[str, Any]:
     """One listwise judgment of a target's shortlist; picks become links.
 
     ``budget``: the discovery's shared caps (:func:`discovery_budget`; alone,
     a fresh one); ``route`` and ``client`` may be resolved by the caller;
     ``envelope``: the discovery's cue envelope, already active (one
-    reservation per metered request, never two)."""
+    reservation per metered request, never two); ``admit``: each attempt's
+    admission under the source's daily call cap (alone, the source's own)."""
 
     target = listed.target
     if not listed.keys:
@@ -978,6 +1033,7 @@ def judge_target(vault: LoadedVault, repository: Repository, listed: Shortlist, 
             pick_at_most=PICK_AT_MOST, caps=budget.caps,
             price=vault.config.source_retrieval.llm_price_per_million, owner_id=left_id, client=client, route=route,
             validate=validate, clock=clock, budget=budget,
+            admit=admit or _daily_admission(vault, repository, extraction_id, clock=clock),
         )
     status = "capped" if outcome.status == "over_budget" else outcome.status
     if not outcome.judged:
@@ -1089,7 +1145,7 @@ def _metered_room(vault: LoadedVault, repository: Repository, route: Any, *, clo
 
 
 def _spend_plan(vault: LoadedVault, repository: Repository, route: Any, pending: Sequence[tuple[CueTarget, Shortlist]],
-                *, clock: Clock | None) -> dict[str, Any]:
+                *, clock: Clock | None, extraction_id: str) -> dict[str, Any]:
     """The dry run's read-only spend plan (Codex review F13): the resolved
     route and its cost basis, the judge calls a run would send (each target's
     prompt as the dry run's keyword shortlist builds it, so the real one may
@@ -1124,7 +1180,9 @@ def _spend_plan(vault: LoadedVault, repository: Repository, route: Any, pending:
             "note": "the run embeds each pending target's statement when a dense index is usable; refused by "
                     "the daily cap, the shortlist falls back to keyword lists",
         },
-        "caps": {"max_calls_per_source_open": cap, "max_daily_cost_usd": float(envelope.max_usd),
+        "caps": {"max_calls_per_source_open": cap, "max_calls_per_source_per_day": _daily_calls_cap(vault),
+                 "source_calls_today": discovery_calls_today(repository, extraction_id, clock=clock),
+                 "max_daily_cost_usd": float(envelope.max_usd),
                  "spent_today_usd": spent, "remaining_today_usd": max(0.0, float(envelope.max_usd) - spent),
                  "subscription_exempt_from_dollar_cap": route.billing == "subscription"},
     }
@@ -1141,7 +1199,11 @@ def discover(vault: LoadedVault, repository: Repository, extraction_id: str, *, 
     open (the sidecar keeps one per ``source_open_id``; Codex verify F16), so
     a second run for new targets draws on what the first left. Without it the
     run has a budget of its own (the CLI's one run). ``calls`` and ``usage``
-    count this run's requests; ``open_calls`` the open's so far.
+    count this run's requests; ``open_calls`` the open's so far. Over every
+    open, run and process, the source's judge requests since local midnight
+    stay within ``cues.max_calls_per_source_per_day``, counted from the
+    durable receipts before each target and each attempt
+    (:func:`discovery_calls_today`).
 
     The judge's route is checked before any retrieval is paid for, and every
     metered request of the run, the query embeddings included, reserves under
@@ -1179,7 +1241,8 @@ def discover(vault: LoadedVault, repository: Repository, extraction_id: str, *, 
             listed_pending.append((target, listed))
             out["targets"].append({**target.describe(), "manifest": listed.manifest(),
                                    "status": "dry_run" if index < cap else "would_cap"})
-        out["spend_plan"] = _spend_plan(vault, repository, route, listed_pending, clock=clock)
+        out["spend_plan"] = _spend_plan(vault, repository, route, listed_pending, clock=clock,
+                                        extraction_id=extraction_id)
         return out
     route, ready_client, skip, reason = _judge_readiness(vault, client)
     if skip is not None:
@@ -1192,6 +1255,8 @@ def discover(vault: LoadedVault, repository: Repository, extraction_id: str, *, 
         budget = discovery_budget(vault, cancelled=cancelled)
     calls_before, retries_before = int(budget.used.calls), int(budget.used.retries)
     envelope = _judge_envelope(vault, repository, clock=clock)
+    daily_cap = _daily_calls_cap(vault)
+    admit = _daily_admission(vault, repository, extraction_id, clock=clock)
     from learnloop.source_retrieval.queries import QUERY_EMBEDDING_CAPS
 
     with spend_envelopes(envelope):
@@ -1202,6 +1267,12 @@ def discover(vault: LoadedVault, repository: Repository, extraction_id: str, *, 
             if budget.used.calls >= cap:
                 out["targets"].append({**target.describe(), "status": "capped",
                                        "reason": "cues.max_calls_per_source_open"})
+                continue
+            # The source's calls today, from the durable receipts (F16 of the
+            # verify): checked before any retrieval is paid for, and again
+            # before every judge attempt (``admit``).
+            if discovery_calls_today(repository, extraction_id, clock=clock) >= daily_cap:
+                out["targets"].append({**target.describe(), "status": "capped", "reason": DAILY_CAP_REASON})
                 continue
             if not _metered_room(vault, repository, route, clock=clock):
                 out["targets"].append({**target.describe(), "status": "capped", "reason": JUDGE_ENVELOPE})
@@ -1222,7 +1293,7 @@ def discover(vault: LoadedVault, repository: Repository, extraction_id: str, *, 
                 out["targets"].append(entry)
                 break
             judged = judge_target(vault, repository, listed, extraction_id, client=ready_client, clock=clock,
-                                  budget=budget, route=route, envelope=envelope)
+                                  budget=budget, route=route, envelope=envelope, admit=admit)
             if judged["status"] == "judged":
                 out["judged"] += 1
             entry.update({"status": judged["status"], "links": [link["id"] for link in judged["links"]],
@@ -1237,6 +1308,7 @@ def discover(vault: LoadedVault, repository: Repository, extraction_id: str, *, 
     calls = int(budget.used.calls) - calls_before
     out["calls"] = calls
     out["open_calls"] = int(budget.used.calls)
+    out["source_calls_today"] = discovery_calls_today(repository, extraction_id, clock=clock)
     out["usage"] = {"requests": calls, "retries": int(budget.used.retries) - retries_before,
                     "judged_targets": out["judged"], "billing": route.billing,
                     "cost_basis": "estimated_only" if route.billing == "subscription" else "metered_estimate"}
@@ -1610,6 +1682,7 @@ __all__ = [
     "contrast_list",
     "cue_targets",
     "discover",
+    "discovery_calls_today",
     "discovered_candidates",
     "discovery_enabled",
     "find_discovered",

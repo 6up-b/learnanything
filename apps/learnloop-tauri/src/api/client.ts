@@ -1563,7 +1563,7 @@ export const api = {
     call<ReaderCueDiscoveryJobDto>("reader_cue_discovery_job", { input }),
   readerCueImpressions: (input: { extractionId: string; visitId: string; planId: string; entries: ReaderCueImpressionInput[] }) =>
     call<{ recorded: unknown[] }>("reader_cue_impressions", { input }),
-  readerCueTap: (input: { extractionId: string; cueId: string; action: ReaderCueTapAction; text?: string | null; visitId?: string | null }) =>
+  readerCueTap: (input: { extractionId: string; cueId: string; action: ReaderCueTapAction; planId: string; text?: string | null; visitId?: string | null }) =>
     mutatingReader(call<ReaderCueTapDto>("reader_cue_tap", { input })),
   readerCuePreferences: (input: { sourceId?: string | null } = {}) =>
     call<ReaderCuePreferencesDto>("reader_cue_preferences", { input }),

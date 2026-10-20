@@ -224,6 +224,7 @@ it("open on a discovered cue shows the passage's words and the statement in the 
   expect(within(popover).queryByText(/You answered a question/)).toBeNull();
   await waitFor(() => expect(api.readerCueTap).toHaveBeenCalledWith(expect.objectContaining({
     extractionId: view.extractionId, cueId: "dcue_b1", action: "opened", visitId: expect.any(String),
+    planId: "cplan_test",
   })));
   expect(api.readerCueAction).not.toHaveBeenCalled();
 });
@@ -241,7 +242,8 @@ it("try the next step first opens RW1b's next-step question at that line and rec
   await waitFor(() => expect(api.readerActiveQuestion).toHaveBeenCalledWith(expect.objectContaining({
     extractionId: view.extractionId, spanIds: ["b4"], style: "next_step",
   })));
-  await waitFor(() => expect(api.readerCueTap).toHaveBeenCalledWith(expect.objectContaining({ cueId: "dcue_b4", action: "try_first" })));
+  await waitFor(() => expect(api.readerCueTap).toHaveBeenCalledWith(expect.objectContaining({ cueId: "dcue_b4", action: "try_first",
+    planId: "cplan_test" })));
   expect(screen.queryByRole("group", { name: "this margin note" })).toBeNull();
 });
 

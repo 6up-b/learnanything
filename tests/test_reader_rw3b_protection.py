@@ -80,7 +80,8 @@ def test_a_link_made_before_its_passage_was_held_out_is_never_shown_or_tapped(tm
     after = snake(call(ctx, "reader.guide_plan", {"extraction_id": "ext_text"}))["cues"]["marks"]
     assert not {mark["span_id"] for mark in after} & set(spans["ch5"])
     with pytest.raises(SidecarError):
-        call(ctx, "reader.cue_tap", {"extraction_id": "ext_text", "cue_id": on_ch5[0]["cue_id"], "action": "opened"})
+        call(ctx, "reader.cue_tap", {"extraction_id": "ext_text", "cue_id": on_ch5[0]["cue_id"], "action": "opened",
+                                     "plan_id": "p"})
 
 
 def test_a_reading_held_out_whole_is_never_searched(tmp_path):
@@ -108,7 +109,8 @@ def test_discovery_cues_and_taps_write_no_evidence_mastery_fsrs_attempt_or_plan_
                                          "entries": [{"cue_id": cue_id, "shown": True}]})
     for action in ("opened", "not_relevant", "not_relevant_undone"):
         call(ctx, "reader.cue_tap", {"extraction_id": "ext_text", "cue_id": cue_id, "action": action,
-                                     "visit_id": "v1", "text": "about something else" if action == "not_relevant" else None})
+                                     "visit_id": "v1", "plan_id": cues["discovery"]["plan_id"],
+                                     "text": "about something else" if action == "not_relevant" else None})
     after = table_counts(repository)
     changed = {name for name in after if after[name] != before.get(name)}
     allowed = {"judgment_ledger", "passage_links", "reader_cue_impressions", "model_call_receipts",
@@ -127,9 +129,11 @@ def test_not_relevant_text_is_judge_feedback_never_learner_text(tmp_path):
     ctx.cue_discovery_inline = True
     ctx.cue_judge_client = CueJudgeFake()
     call(ctx, "reader.cue_discovery", {"extraction_id": "ext_text", "source_open_id": "open_1"})
-    cue_id = snake(call(ctx, "reader.guide_plan", {"extraction_id": "ext_text"}))["cues"]["marks"][0]["cue_id"]
+    cues = snake(call(ctx, "reader.guide_plan", {"extraction_id": "ext_text"}))["cues"]
+    cue_id = cues["marks"][0]["cue_id"]
     call(ctx, "reader.cue_tap", {"extraction_id": "ext_text", "cue_id": cue_id, "action": "not_relevant",
-                                 "visit_id": "v1", "text": "this passage is about eigenvalues"})
+                                 "visit_id": "v1", "text": "this passage is about eigenvalues",
+                                 "plan_id": cues["discovery"]["plan_id"]})
     with repository.connection() as connection:
         events = [row[0] for row in connection.execute("SELECT payload_json FROM interaction_events")]
         gaps = connection.execute("SELECT COUNT(*) FROM learner_text_gaps").fetchone()[0]

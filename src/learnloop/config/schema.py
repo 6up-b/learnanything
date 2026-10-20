@@ -2111,8 +2111,11 @@ class CuesConfig(BaseModel):
     gap, a demonstrated facet) through T6 retrieval over the open source and
     one listwise judgment per target (``ai.routing.passage_cue_judge``, ledger
     task ``passage_cue``), in the background when a source opens, at most
-    ``max_calls_per_source_open`` judge calls per open and
-    ``max_daily_cost_usd`` metered a UTC day (Codex is ``estimated_only``).
+    ``max_calls_per_source_open`` judge calls per open,
+    ``max_calls_per_source_per_day`` judge calls per source a local day over
+    every open (counted from the durable receipts, the subscription's
+    included; Codex verify F16) and ``max_daily_cost_usd`` metered a UTC day
+    (Codex is ``estimated_only``).
     ``try_first_enabled``: the judge's "try this step first" offers on worked
     examples and derivations (pressing one opens RW1b's next-step question).
     ``value_order_enabled``: cues are ordered by the probability their target
@@ -2133,6 +2136,7 @@ class CuesConfig(BaseModel):
     value_order_enabled: bool = True
     holdout_rate: float = Field(default=0.1, ge=0.0, lt=1.0)
     max_calls_per_source_open: int = Field(default=12, ge=0)
+    max_calls_per_source_per_day: int = Field(default=36, ge=0)
     max_daily_cost_usd: float = Field(default=0.5, ge=0.0)
 
 

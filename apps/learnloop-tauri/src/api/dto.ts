@@ -7326,6 +7326,9 @@ export interface ReaderCueTapDto extends Omit<ReaderCueActionDto, "action"> {
   action: ReaderCueTapAction;
   /** "Try this step first": the line where RW1b's next-step question opens. */
   tryFirst: { spanId: string } | null;
+  /** The visit's impression for the tap: recorded, not on the named plan, or
+   *  refused for an unknown plan (the tap itself stands; F17, round 5). */
+  impression?: string | null;
 }
 
 /** RW3b: the background discovery job (reader.cue_discovery / _job). */

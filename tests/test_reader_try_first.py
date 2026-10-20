@@ -74,7 +74,8 @@ def test_pressing_try_first_is_a_learner_pick_that_opens_the_next_step_at_that_l
     assert mark["note"] == PC.NOTE_TRY_FIRST == "Try the next step before reading it?"
     assert mark["because"].endswith("· found by LearnLoop's model, not by a test")
     answer = snake(call(ctx, "reader.cue_tap", {"extraction_id": "ext_text", "cue_id": mark["cue_id"],
-                                                "action": "try_first", "visit_id": "v1"}))
+                                                "action": "try_first", "visit_id": "v1",
+                                                "plan_id": cues["discovery"]["plan_id"]}))
     assert answer["try_first"] == {"span_id": mark["span_id"]} and answer["verdict"] == "same"
     with repository.connection() as connection:
         event = connection.execute(
@@ -95,7 +96,8 @@ def test_try_first_on_a_cue_that_does_not_offer_it_is_refused(tmp_path):
     cues = snake(call(ctx, "reader.guide_plan", {"extraction_id": "ext_text"}))["cues"]
     other = next(mark for mark in cues["marks"] if mark["kind"] != "try_first")
     with pytest.raises(SidecarError):
-        call(ctx, "reader.cue_tap", {"extraction_id": "ext_text", "cue_id": other["cue_id"], "action": "try_first"})
+        call(ctx, "reader.cue_tap", {"extraction_id": "ext_text", "cue_id": other["cue_id"], "action": "try_first",
+                                     "plan_id": cues["discovery"]["plan_id"]})
 
 
 def test_with_try_first_switched_off_no_try_first_cue_shows(tmp_path):

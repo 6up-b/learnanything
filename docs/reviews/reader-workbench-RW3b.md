@@ -202,7 +202,10 @@ renumbering at the landing unless 214 lands with a conflicting object name
   `discovery.plan_id`, impressions name it, and they are resolved against
   that plan as it was served. An unknown or expired plan is refused.
   *Fix round 4, F16:* discovery requests carry a `source_open_id`, and one
-  call budget is kept per open.
+  call budget is kept per open. *Fix round 5:* a source's judge calls a local
+  day are capped by `cues.max_calls_per_source_per_day` (36), counted from
+  the durable receipts. Taps carry the `plan_id` the cue was first seen on,
+  and a missing impression is created only from that kept plan.
 - Config `[cues]`: `discovery_enabled`, `try_first_enabled`,
   `value_order_enabled` (true), `holdout_rate` (0.1), `max_calls_per_source_open`
   (12), `max_daily_cost_usd` (0.5); route `ai.routing.passage_cue_judge`

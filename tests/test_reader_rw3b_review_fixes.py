@@ -445,7 +445,7 @@ def test_a_tap_on_a_drawn_mark_does_not_rebuild_the_plan(tmp_path, monkeypatch):
 
     monkeypatch.setattr(RG, "build_guide_plan", refuse)
     call(ctx, "reader.cue_tap", {"extraction_id": "ext_text", "cue_id": mark["cue_id"], "action": "opened",
-                                 "visit_id": "v1"})
+                                 "visit_id": "v1", "plan_id": plan["cues"]["discovery"]["plan_id"]})
     with repository.connection() as connection:
         assert store.impression_for(connection, "v1", mark["cue_id"])["response"] == "opened"
 
@@ -489,7 +489,7 @@ def test_a_cached_try_first_tap_is_refused_once_try_first_is_switched_off_and_re
     ctx.reload()
     with pytest.raises(SidecarError):
         call(ctx, "reader.cue_tap", {"extraction_id": "ext_text", "cue_id": mark["cue_id"], "action": "try_first",
-                                     "visit_id": "v1"})
+                                     "visit_id": "v1", "plan_id": cues["discovery"]["plan_id"]})
     with repository.connection() as connection:
         assert store.impression_for(connection, "v1", mark["cue_id"]) is None
         assert connection.execute("SELECT COUNT(*) FROM judgment_ledger WHERE judge = 'learner_card'").fetchone()[0] == 0

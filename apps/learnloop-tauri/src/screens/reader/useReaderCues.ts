@@ -371,8 +371,10 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
     // RW3b: with discovery on, every tap goes through reader.cue_tap with the
     // visit (its impression's response); off, RW3a's own call as before.
     if (cuesRef.current?.discovery) {
+      // The plan the cue was first seen on this visit (F17, round 5).
+      const planId = impressions.planFor(cue) ?? cuesRef.current.discovery.planId;
       return api.readerCueTap({ extractionId: render.extractionId, cueId: cue.cueId, action, text: text || null,
-        visitId: impressions.visitId() });
+        visitId: impressions.visitId(), planId });
     }
     return api.readerCueAction({ extractionId: render.extractionId, cueId: cue.cueId, action, text: text || null });
   }, [render, impressions]);
@@ -507,8 +509,10 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
     if (!onTryFirst || !render || cue.kind !== "try_first") return;
     setOpenCueId(null);
     onTryFirst(cue.spanId);
+    const planId = impressions.planFor(cue) ?? cuesRef.current?.discovery?.planId;
+    if (!planId) return;
     void api.readerCueTap({ extractionId: render.extractionId, cueId: cue.cueId, action: "try_first",
-      visitId: impressions.visitId() }).catch(() => undefined);
+      visitId: impressions.visitId(), planId }).catch(() => undefined);
   }, [onTryFirst, render, impressions]);
   const fewerOn = useCallback((cue: ReaderCueDto) => {
     if (cuesRef.current?.discovery) impressions.noteFewer(cue);

@@ -158,7 +158,7 @@ def test_fewer_marks_like_this_is_the_impressions_response_written_once(tmp_path
     call(ctx, "reader.cue_impressions", {"extraction_id": "ext_text", "visit_id": "v1", "plan_id": plan_id,
                                          "entries": [{"cue_id": cue_id, "response": "fewer"}]})
     call(ctx, "reader.cue_tap", {"extraction_id": "ext_text", "cue_id": cue_id, "action": "opened",
-                                 "visit_id": "v1"})
+                                 "visit_id": "v1", "plan_id": plan_id})
     (row,) = _rows(repository)
     assert row["response"] == "fewer" and row["responded_at"]
 
@@ -169,7 +169,8 @@ def test_the_impressions_rpcs_refuse_while_discovery_is_off(tmp_path):
     ctx = context(paths.root)
     for name, params in (("reader.cue_impressions", {"extraction_id": "ext_text", "visit_id": "v", "plan_id": "p",
                                                   "entries": []}),
-                         ("reader.cue_tap", {"extraction_id": "ext_text", "cue_id": "x", "action": "opened"}),
+                         ("reader.cue_tap", {"extraction_id": "ext_text", "cue_id": "x", "action": "opened",
+                                             "plan_id": "p"}),
                          ("reader.cue_discovery", {"extraction_id": "ext_text", "source_open_id": "o"}),
                          ("reader.cue_discovery_job", {"job_id": "cjob_x"})):
         with pytest.raises(SidecarError) as caught:

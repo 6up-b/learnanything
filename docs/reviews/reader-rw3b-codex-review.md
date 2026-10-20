@@ -476,3 +476,126 @@ Run in the worktree with `TMPDIR=fixtures-local/tmp`.
 | references | not regenerated: the schema, the config and the module set are unchanged. `module_validate.py` is clean. `desktop_validate.py` stops on an untouched file (`components/pdfSelection/testing/syntheticBook.ts`, unclassified activation), not on this round's files. |
 
 **Model calls in this step: none.** No vault was opened or copied.
+
+## Fix round 5 (orchestrator)
+
+Codex's verify of round 4 (job `20261020-154905-XXS9CH`, verdict REOPENED)
+confirmed:
+
+- F14, F18 and F19;
+- the immutable plans and their refusals;
+- the callers of the changed RPCs;
+- protection, switch-off, the head fixture and the migrations.
+
+It reopened F16 (High) and F17 (Medium) and raised F20 (Medium). Each one
+reproduced on `1455cbf29` and is fixed here under the orchestrator's
+binding rulings.
+
+| id | severity | title | verdict | test or reason |
+|---|---|---|---|---|
+| F16 | High | changing only the open id refills the allowance | fixed: a durable per-source daily cap on top of the per-open budget | `test_reader_rw3b_fix_round5.py::test_new_open_ids_a_reload_and_a_restart_never_exceed_the_sources_daily_calls`, `::test_failed_requests_count_against_the_daily_cap_and_the_cli_run_is_held_to_it`, `::test_the_daily_cap_refuses_a_retry_that_would_pass_it`, `::test_the_dry_run_names_the_daily_cap` |
+| F17 | Medium | taps store metadata from the wrong plan | fixed | `::test_a_tap_after_the_plan_changed_keeps_the_seen_plans_density_and_propensity`, `::test_a_tap_naming_an_unknown_plan_is_recorded_but_writes_no_impression`, `::test_a_tap_requires_a_plan_id`; `rw3bReview.test.tsx` "F17 round 5: a tap names the plan its cue was first seen on"; `ReaderScreen.discoveredCues.test.tsx` (taps carry `planId`) |
+| F20 | Medium | passage observers submit an obsolete plan id | fixed | `rw3bReview.test.tsx` "F20: a new plan with the same placement and targets rebinds the observers; a passage first seen under B sends plan_B" |
+
+### What changed
+
+- **F16** (`config/schema.py`, `params/parameter_registry.py`,
+  `ai/disclosures.py`, `passage_cues.py`, `handlers/reader_cue_discovery.py`).
+  - New key `cues.max_calls_per_source_per_day` (default 36, three opens'
+    worth), classified structural/operational with the other cue spend
+    bounds and named in the privacy disclosure.
+  - `PC.discovery_calls_today(repository, extraction_id)` counts the cue
+    judge's root receipts (`model_call_receipts`, owner kind
+    `passage_cue_judge`, owner id `<extraction_id>|…`) started since local
+    midnight. Each receipt is written before its request is sent, so failed,
+    unfinished and retried requests all count. Because the count comes from
+    durable rows, a new open id, a remount, a vault reload or a restart
+    cannot reset it. The same vault database gives the "per vault" scope.
+  - `discover` checks that count before each target, ahead of any deep
+    (paid) retrieval. It also passes an `admit` to `judge_listwise`, which
+    `PaidCalls` calls before every attempt, the retry pre-check included. At
+    the cap, the request is refused with `SpendLimitExceeded`
+    (`cues.max_calls_per_source_per_day`) before anything is sent, on any
+    route, the subscription included. Capped targets carry that reason.
+  - The run reports `source_calls_today`, and the dry run's caps name the
+    new limit and today's count. The CLI's single run is held to the same
+    cap.
+  - The per-open budget is unchanged. The sidecar now runs one discovery job
+    per (vault database, source) at a time, instead of one per open, so the
+    durable count each job reads is exact within the process. Two processes
+    on one vault (the CLI beside the desktop sidecar) could each pass the
+    check before the other's receipt lands; that bound is per process.
+- **F17** (`reader_cue_discovery.py`, `useCueImpressions.ts`,
+  `useReaderCues.ts`, `client.ts`, `dto.ts`).
+  - `reader.cue_tap` now requires a `plan_id`. The Reader sends the plan
+    the cue was first seen on in this visit, from `impressions.planFor(cue)`:
+    the plan of the cue's first queued receipt, else the plan served now.
+  - The tap still resolves the cue for its event and verdict as before (the
+    vault-bound cache, F15).
+  - The impression part uses only the named kept plan. A missing impression
+    is created from that plan's index entry and density. With an unknown or
+    expired plan the tap is recorded, nothing is written to the impression
+    (no row, no response), and the reply carries
+    `impression: "refused: cue_plan_unknown"`.
+  - Current-plan synthesis in taps is gone.
+- **F20** (`useCueImpressions.ts`). The observer effect now also depends on
+  the served `planId`, so a new plan rebuilds the observers even when
+  placement and `targetsKey` are unchanged. The observers also call this
+  render's queue through a ref. Receipts already queued keep the plan they
+  were seen on, and a passage seen again after a rebuild is not sent again
+  (`sentRef`).
+- **Snapshots and references.** All 19 `DEFAULTS_SNAPSHOT_BY_ALGORITHM`
+  fingerprints were recomputed with `defaults_fingerprint_for_version`.
+  They moved only for the new key, as the comment in `config/template.py`
+  records. `db_generate_reference.py` regenerated the reference, which now
+  has 927 effective configuration leaves (the hand-written counts in
+  `Configuration.md` and `Database.md` were raised from 926).
+  `db_validate_reference.py` reports errors []. `validate_vault.py` passed
+  (1,132 notes, all reachable).
+
+Existing tests were updated for the tap's required `plan_id`. No migration,
+CLI help or `src-tauri` change.
+
+### Fail-before (`1455cbf29`)
+
+- **Backend.** `git archive 1455cbf29` (without `fixtures`, `apps`, `docs`
+  and `tests`) was extracted to the scratchpad and run with
+  `-o pythonpath=<scratch>/src`. Result: **7 of 7 failed**.
+  - The failures-count test failed on its assertion: 12 judge calls, not 3.
+  - The retry test failed on its assertion: 2 requests, not 1.
+  - The first F16 test and the dry-run test failed because the base has no
+    `max_calls_per_source_per_day`.
+  - Two tap tests failed because the base refuses `plan_id`
+    (`extra_forbidden`), and the third failed because the base accepts a tap
+    without one.
+- **Base behaviour.** A temporary probe, run the same way and deleted
+  afterwards, measured the base directly.
+  - F16: **51 judge calls in one day for one source** (five open ids, a
+    reload and a fresh context; every one of the 51 targets judged).
+  - F17: the A, B, tap sequence stored B's `normal` / `0.8` instead of A's
+    `more` / `0.876543211`.
+- **Frontend.** `1455cbf29`'s `apps/learnloop-tauri` was extracted to the
+  scratchpad, with the worktree's `node_modules` symlinked in and the new
+  `rw3bReview.test.tsx` and `ReaderScreen.discoveredCues.test.tsx` copied
+  over. Result: **4 failed, 22 passed** of 26.
+  - F20 sent `plan_A` for the passage first seen under B.
+  - `planFor` does not exist on the base.
+  - Both screen-level taps were sent without a `planId`.
+
+### Gate (fix round 5; targeted per the owner rule of 2026-10-17)
+
+Run in the worktree with `TMPDIR=fixtures-local/tmp`.
+
+| Check | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | **28 kept, 0 broken** |
+| `uv run pytest -n auto` on 70 files: round 4's 32, `test_reader_rw3b_fix_round5.py`, `test_registry_audit.py`, `test_config_refactor.py` (the defaults snapshots), and every test file naming `parameter_registry`, `DEFAULTS_SNAPSHOT_BY_ALGORITHM`, `defaults_fingerprint` or the AI disclosures | **1,408 passed** |
+| `uv run pytest -n auto` on `test_cli_help_snapshot.py` and the other files naming `[cues]` or `CuesConfig` (`test_ingest_runner`, `test_reader_recap`, `test_source_ingestion_adapters`, `test_source_ingestion_v2lite`) | **97 passed** |
+| durability | not run: no migration, DB or connection code changed |
+| `npm run typecheck` | clean |
+| `npx vitest run src/screens/reader/ src/screens/ReaderScreen src/components/PdfReaderPane.marks.test.tsx` | **431 passed** (58 files) |
+| `npm run frontend:build` | built |
+| `cargo check` | not run: nothing under `src-tauri` changed |
+| references | regenerated: `db_validate_reference.py` errors [], `validate_vault.py` passed |
+
+**Model calls in this step: none.** No vault was opened or copied.

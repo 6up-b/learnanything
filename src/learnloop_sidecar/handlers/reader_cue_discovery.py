@@ -15,7 +15,10 @@ these RPCs add:
   the jobs of one open draw on ONE call budget,
   ``cues.max_calls_per_source_open``: re-asks, new targets, failures and
   retries included, so a new ``targets_key`` never refills it (Codex verify
-  F16).
+  F16). Over every open, remount, reload and restart, a source's judge calls
+  a local day stay within ``cues.max_calls_per_source_per_day``, counted
+  from the durable receipts (``PC.discovery_calls_today``); a source's
+  discovery jobs run one at a time, so that count is exact in this process.
 * ``reader.cue_impressions``: the Reader's impressions (a mark in the
   learner's view, or not shown with its reason) and the "fewer marks like
   this" response. The server decides what it can: a held-out cue is recorded
@@ -26,6 +29,10 @@ these RPCs add:
   it was served, kept here unchanged, never against the plan as it is now
   (a density change before the flush, Codex verify F17); an unknown or
   expired plan id is refused and nothing is stored.
+* ``reader.cue_tap`` names the plan the cue was first seen on in the visit
+  (round 5, F17): an impression the tap must create takes that plan's kept
+  metadata, never the current plan's; with an unknown or expired plan the
+  tap is recorded and its impression part is refused.
 * ``reader.cue_tap``: a tap on any cue while discovery is on (open, check me,
   try this step first, not relevant and its undo): one salience-only event,
   a ``learner_card`` verdict on ``passage_cue`` and the impression's first
@@ -224,11 +231,11 @@ class _OpenBudget:
 
     Every job of the open draws on ``budget``: a re-ask, a job for new
     targets, a failure and a retry alike, so a new ``targets_key`` never
-    refills it. The open's jobs run one at a time (``lock``), and the budget
-    asks the running job's own ``cancelled`` before every request."""
+    refills it. The open's jobs run one at a time (its source's lock), and
+    the budget asks the running job's own ``cancelled`` before every request.
+    A new open id refills only this budget, never the source's daily cap."""
 
     extraction_id: str
-    lock: threading.Lock = field(default_factory=threading.Lock)
     budget: Any = None
     cancelled: Callable[[], bool] = lambda: False
 
@@ -241,6 +248,13 @@ class CueDiscoveryJobs:
         self._lock = threading.Lock()
         self._kept: dict[str, _Job] = {}
         self._opens: OrderedDict[str, _OpenBudget] = OrderedDict()
+        #: One lock per (vault database, source): its jobs run one at a time,
+        #: so the daily count each reads is the receipts' own (F16).
+        self._sources: dict[tuple[str, str], threading.Lock] = {}
+
+    def _source_lock(self, sqlite_path: Any, extraction_id: str) -> threading.Lock:
+        with self._lock:
+            return self._sources.setdefault((str(sqlite_path), extraction_id), threading.Lock())
 
     def _open(self, source_open_id: str, extraction_id: str, vault: Any) -> _OpenBudget:
         with self._lock:
@@ -281,6 +295,7 @@ class CueDiscoveryJobs:
             while len(self._kept) > MAX_KEPT_JOBS:
                 self._kept.pop(next(iter(self._kept)))
         sqlite_path = repository.sqlite_path
+        source_lock = self._source_lock(sqlite_path, extraction_id)
         client = getattr(ctx, "cue_judge_client", None)
         embedder = getattr(ctx, "cue_embedder", None)
 
@@ -301,8 +316,9 @@ class CueDiscoveryJobs:
 
             try:
                 worker_repo = Repository.attach(sqlite_path)
-                # One job of this open at a time, on the open's one budget (F16).
-                with opened.lock, record_model_calls(worker_repo, owner_kind="sidecar_rpc",
+                # One job of this source at a time, on the open's one budget
+                # and under the source's daily cap (F16).
+                with source_lock, record_model_calls(worker_repo, owner_kind="sidecar_rpc",
                                                      owner_id=f"reader.cue_discovery:{job.job_id}"):
                     opened.cancelled = cancelled
                     job.result = PC.discover(vault, worker_repo, extraction_id, client=client, embedder=embedder,
@@ -489,6 +505,9 @@ class CueTapInput(ParamsModel):
     extraction_id: str
     cue_id: str
     action: str
+    #: The cue plan the cue was first seen on in this visit (F17, round 5):
+    #: an impression this tap creates takes that plan's kept metadata.
+    plan_id: str = Field(min_length=1, max_length=80)
     text: str | None = None
     visit_id: str | None = None
 
@@ -536,22 +555,36 @@ def reader_cue_tap(ctx: SidecarContext, params: CueTapInput) -> dict[str, Any]:
         raise SidecarError("validation_error", str(exc)) from exc
     response_kind = {"opened": "opened", "check_me": "check_me", "try_first": "try_first",
                      "not_relevant": "not_relevant"}.get(params.action)
+    impression = None
     if params.visit_id and response_kind is not None:
-        cues = _cues_now(ctx, vault, repository, extraction_id)
-        found = _index(cues).get(params.cue_id)
-        now = utc_now_iso()
-        with repository.atomic():
-            connection = repository.connection()
-            stored = store.impression_for(connection, params.visit_id, params.cue_id)
-            if stored is None and found is not None and found[0] == "mark":
-                stored, _new = store.insert_impression(connection, _impression_row(
-                    found[1], extraction_id=extraction_id, visit_id=params.visit_id,
-                    density=str(cues.get("density") or "normal"), shown=True, reason=None, now=now))
-            if stored is not None:
-                store.record_response(connection, stored["id"], response=response_kind,
-                                      text_hash=_text_hash(params.text) if params.action == "not_relevant" else None,
-                                      at=now)
-    response: dict[str, Any] = {**result, "check": None, "try_first": None}
+        # The impression part is resolved against the plan the cue was seen
+        # on, never the plan as it is now (F17, round 5): a missing
+        # impression is created from that plan's kept metadata, and with an
+        # unknown or expired plan nothing is written here (the tap above
+        # stands, with no metadata invented).
+        try:
+            kept = _kept_plan(ctx, params.plan_id, extraction_id=extraction_id, repository=repository)
+        except SidecarError:
+            kept = None
+            impression = "refused: cue_plan_unknown"
+        if kept is not None:
+            found = kept.index.get(params.cue_id)
+            now = utc_now_iso()
+            with repository.atomic():
+                connection = repository.connection()
+                stored = store.impression_for(connection, params.visit_id, params.cue_id)
+                if stored is None and found is not None and found[0] == "mark":
+                    stored, _new = store.insert_impression(connection, _impression_row(
+                        found[1], extraction_id=extraction_id, visit_id=params.visit_id,
+                        density=kept.density, shown=True, reason=None, now=now))
+                if stored is not None:
+                    store.record_response(
+                        connection, stored["id"], response=response_kind,
+                        text_hash=_text_hash(params.text) if params.action == "not_relevant" else None, at=now)
+                    impression = "recorded"
+                else:
+                    impression = "not_on_plan"
+    response: dict[str, Any] = {**result, "check": None, "try_first": None, "impression": impression}
     if params.action == "check_me":
         response["check"] = check_me_proposal(vault, repository, extraction_id, cue)
     if params.action == "try_first":

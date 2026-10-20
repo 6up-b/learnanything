@@ -1036,11 +1036,13 @@ _CONFIG_RULES: list[_ConfigRule] = [
     _ConfigRule(_exact(
         "cues.holdout_rate",
         "cues.max_calls_per_source_open",
+        "cues.max_calls_per_source_per_day",
         "cues.max_daily_cost_usd",
     ), "structural", "operational",
         "the share of eligible discovered margin cues withheld at random (seed and propensity logged) / the "
-        "cue judge's calls per source open / its metered spend a UTC day; a display experiment and spend "
-        "bounds, no measurement authority (cues are display only)."),
+        "cue judge's calls per source open / its calls per source a local day, over every open, counted from "
+        "the durable receipts / its metered spend a UTC day; a display experiment and spend bounds, no "
+        "measurement authority (cues are display only)."),
     # Adaptive hints H1: the approach-map builds' (and merges') metered spend a
     # UTC day (maps are stored help, read by no grading, scheduling, serving or
     # replay path; validation verdicts go to judgment_ledger, never evidence).

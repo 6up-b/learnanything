@@ -144,7 +144,8 @@ _WHEN = {
         "model named from your answers, an open explanation it is weighing, a gap named from your own words) "
         "and for each skill you have shown, its statement and passages from that book, so LearnLoop's model "
         "can say which passages connect to it and quote what they rely on. At most "
-        "cues.max_calls_per_source_open calls per open; never material held out for an exam, never a "
+        "cues.max_calls_per_source_open calls per open and cues.max_calls_per_source_per_day a day per book; "
+        "never material held out for an exam, never a "
         "solution. Display only: it never grades you."
     ),
 }

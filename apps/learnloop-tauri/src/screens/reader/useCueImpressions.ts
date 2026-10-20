@@ -69,6 +69,10 @@ export interface CueImpressionsInput {
 export interface CueImpressions {
   /** The visit the receipts belong to (the funnel's, else this source's own). */
   visitId: () => string | null;
+  /** The plan this cue was first seen on in this visit (its first receipt's),
+   *  else the plan served now: a tap names it, so an impression the tap must
+   *  create carries that plan's metadata (F17, round 5). */
+  planFor: (cue: ReaderCueDto) => string | null;
   /** A drawn mark came into view (MarginMark's rule; a Guide mark's receipt). */
   noteShown: (cue: ReaderCueDto) => void;
   /** "fewer marks like this" on this mark. */
@@ -102,6 +106,8 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
   const discovery = cues?.discovery ?? null;
   const localVisitRef = useRef<{ extractionId: string; id: string } | null>(null);
   const sentRef = useRef<Set<string>>(new Set());
+  // The plan each cue's first receipt of a visit was queued on (F17, round 5).
+  const firstPlanRef = useRef<Map<string, string>>(new Map());
   const queueRef = useRef<Queued[]>([]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -149,6 +155,8 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
     const once = `${extractionId}:${visit}:${key}:${entry.cueId}`;
     if (sentRef.current.has(once)) return;
     sentRef.current.add(once);
+    const seenKey = `${extractionId}:${visit}:${entry.cueId}`;
+    if (!firstPlanRef.current.has(seenKey)) firstPlanRef.current.set(seenKey, planId);
     queueRef.current.push({ extractionId, visitId: visit, planId, once, entry, attempts: 0 });
     if (timerRef.current === null) timerRef.current = setTimeout(() => flushRef.current(), IMPRESSION_FLUSH_MS);
   }, [currentVisit, discovery, extractionId]);
@@ -168,6 +176,12 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
     queue("seen", { cueId: cue.cueId, shown: true });
   }, [queue]);
   const noteFewer = useCallback((cue: ReaderCueDto) => queue("fewer", { cueId: cue.cueId, response: "fewer" }), [queue]);
+  const servedPlanId = discovery?.planId ?? null;
+  const planFor = useCallback((cue: ReaderCueDto): string | null => {
+    const visit = currentVisit();
+    const first = visit && extractionId ? firstPlanRef.current.get(`${extractionId}:${visit}:${cue.cueId}`) : undefined;
+    return first ?? servedPlanId;
+  }, [currentVisit, extractionId, servedPlanId]);
 
   // Every cue measured by its passage: the drawn discovered marks (shown),
   // the held-out cues the Reader would have drawn (the control arm), and the
@@ -185,6 +199,9 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
   const pendingKey = pending.map(({ cue, entry }) => `${cue.cueId}:${cue.spanId}:${entry.shown ? 1 : 0}:${entry.reason ?? ""}`).join("|");
   const pendingRef = useRef(pending);
   pendingRef.current = pending;
+  // The observers always queue through this render's queue (its plan, its visit).
+  const queueNow = useRef(queue);
+  queueNow.current = queue;
   useEffect(() => {
     if (!discovery || surface === "pdf" || surface === "none" || typeof IntersectionObserver === "undefined") return;
     const body = bodyRef.current;
@@ -228,7 +245,7 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
           for (const seen of entries) {
             if (counted.has(seen.target) || !passageInView(seen)) continue;
             counted.add(seen.target);
-            for (const item of bySpan.get(seen.target) ?? []) queue("passage", item.entry);
+            for (const item of bySpan.get(seen.target) ?? []) queueNow.current("passage", item.entry);
             observer.unobserve(seen.target);
           }
         }, { threshold: thresholds });
@@ -270,8 +287,13 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
       resizes?.disconnect();
       for (const observer of observers) observer.disconnect();
     };
+    // A new plan (its planId) rebinds the observers to the queue of that
+    // plan even when the placement and the targets are unchanged (a density
+    // or holdout-rate change that moves no mark): a passage first seen under
+    // it is sent with its id (Codex verify F20). Receipts already queued keep
+    // the plan they were seen on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingKey, surface, discovery ? discovery.targetsKey : null]);
+  }, [pendingKey, surface, discovery ? discovery.targetsKey : null, servedPlanId]);
 
-  return { visitId: currentVisit, noteShown, noteFewer };
+  return { visitId: currentVisit, planFor, noteShown, noteFewer };
 }

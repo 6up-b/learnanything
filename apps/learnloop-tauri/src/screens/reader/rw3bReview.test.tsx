@@ -489,3 +489,56 @@ it("F16: every discovery ask of one source open names the same open; the next so
   expect(asks[2].sourceOpenId).toMatch(/^copen_/);
   expect(asks[2].sourceOpenId).not.toBe(asks[0].sourceOpenId);
 });
+
+// -- Fix round 5 (verify) ------------------------------------------------------------------------
+
+it("F20: a new plan with the same placement and targets rebinds the observers; a passage first seen under B sends plan_B", async () => {
+  vi.useFakeTimers();
+  ThresholdObserver.all = [];
+  FakeResizeObserver.all = [];
+  vi.stubGlobal("IntersectionObserver", ThresholdObserver);
+  vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+  vi.stubGlobal("innerHeight", 600);
+  const first = discovered("p1", 0);
+  const second = discovered("p2", 1);
+  // One placement object for both plans: plan B moves no mark and keeps the targets.
+  const placement: CuePlacement = { shown: [first, second], suppressed: [], heldOutPlaced: [], heldOutSuppressed: [] };
+  const ref = body(["p1", "p2"]);
+  const p1 = sizedPassage(ref, "p1", { value: 400 });
+  const p2 = sizedPassage(ref, "p2", { value: 400 });
+  const { rerender } = renderHook(({ plan }: { plan: string }) => useCueImpressions({
+    extractionId: "A", cues: cues([first, second], [], "tk1", plan), placement, surface: "text", bodyRef: ref,
+    visitId: () => "visit_A" }), { initialProps: { plan: "plan_A" } });
+  // p1 is seen under A (queued, not yet sent); p2 is still offscreen.
+  act(() => {
+    for (const observer of ThresholdObserver.all) observer.scroll(p2, 0, 400, 600);
+    for (const observer of ThresholdObserver.all) observer.scroll(p1, 400, 400, 600);
+  });
+  rerender({ plan: "plan_B" });
+  // p2 comes into view only now, under B.
+  act(() => {
+    for (const observer of ThresholdObserver.all) observer.scroll(p2, 0, 400, 600);
+    for (const observer of ThresholdObserver.all) observer.scroll(p2, 400, 400, 600);
+  });
+  await act(async () => { vi.advanceTimersByTime(IMPRESSION_FLUSH_MS + 10); });
+  const sent = api.readerCueImpressions.mock.calls.map((call) => call[0]);
+  expect(sent).toContainEqual({ extractionId: "A", visitId: "visit_A", planId: "plan_B",
+    entries: [{ cueId: "dcue_p2", shown: true }] });
+  // The receipt queued under A keeps A.
+  expect(sent).toContainEqual({ extractionId: "A", visitId: "visit_A", planId: "plan_A",
+    entries: [{ cueId: "dcue_p1", shown: true }] });
+  expect(sent.flatMap((batch) => batch.entries)).toHaveLength(2);
+});
+
+it("F17 round 5: a tap names the plan its cue was first seen on this visit, else the plan served now", () => {
+  const seen = cue("a1", 0);
+  const unseen = cue("a2", 1);
+  const { result, rerender } = renderHook(({ plan }: { plan: string }) => useCueImpressions({
+    extractionId: "A", cues: cues([seen, unseen], [], "tk1", plan), placement: EMPTY, surface: "pdf",
+    bodyRef: body([]), visitId: () => "visit_A",
+  }), { initialProps: { plan: "plan_A" } });
+  act(() => result.current.noteShown(seen));
+  rerender({ plan: "plan_B" });
+  expect(result.current.planFor(seen)).toBe("plan_A");
+  expect(result.current.planFor(unseen)).toBe("plan_B");
+});
