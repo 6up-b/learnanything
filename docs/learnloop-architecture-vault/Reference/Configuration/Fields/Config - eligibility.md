@@ -3,8 +3,8 @@ title: "Config - eligibility"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8e50f38e581044a2484fb84e2bf6debfb4ac272f"
-source_commit_timestamp: "2026-10-20T17:57:23-04:00"
+source_commit: "ee20a4204c73da58ca7320637f41fbac746d5807"
+source_commit_timestamp: "2026-10-20T18:45:49-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml eligibility"
@@ -29,7 +29,7 @@ source_paths:
   - "tests/test_chatgpt_plan_provider.py"
   - "tests/test_cli_ingest.py"
   - "tests/test_codex_isolation_mcp_check.py"
-  - "tests/test_concept_animation_service.py"
+  - "tests/test_compare_sources_keep.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/eligibility"
@@ -50,7 +50,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `eligibility.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for the one eligibility decision's successor (mvp-0.27; learnloop.serve_eligibility). On, every serve path asks the decision submit asks: an item submit would prime is never served as a cold check, a probe or a quick-check offer; a cold check its item can no longer take cold (the answer shown with no lapse, or the item practised since the check was set) is withdrawn with its typed disposition (unmeasurable_no_held_out_surface for a repair cold retry; an expired certification probe) and the item served as ordinary practice; exam seeding, an exam's finish and a kept-state sim count only reveals up to their own instant when auto-priming. Off, every path serves and admits exactly as mvp-0.26. Dormant below the successor; replay reads each attempt's recorded primed flag, never this switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3274` |
+| `eligibility.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for the one eligibility decision's successor (mvp-0.27; learnloop.serve_eligibility). On, every serve path asks the decision submit asks: an item submit would prime is never served as a cold check, a probe or a quick-check offer; a cold check its item can no longer take cold (the answer shown with no lapse, or the item practised since the check was set) is withdrawn with its typed disposition (unmeasurable_no_held_out_surface for a repair cold retry; an expired certification probe) and the item served as ordinary practice; exam seeding, an exam's finish and a kept-state sim count only reveals up to their own instant when auto-priming. Off, every path serves and admits exactly as mvp-0.26. Dormant below the successor; replay reads each attempt's recorded primed flag, never this switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3282` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -70,7 +70,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_chatgpt_plan_provider.py`
 - `tests/test_cli_ingest.py`
 - `tests/test_codex_isolation_mcp_check.py`
-- `tests/test_concept_animation_service.py`
+- `tests/test_compare_sources_keep.py`
 
 ## Extension and modification guidance
 

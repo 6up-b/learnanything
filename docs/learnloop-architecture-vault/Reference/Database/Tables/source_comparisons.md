@@ -3,8 +3,8 @@ title: "source_comparisons"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8e50f38e581044a2484fb84e2bf6debfb4ac272f"
-source_commit_timestamp: "2026-10-20T17:57:23-04:00"
+source_commit: "ee20a4204c73da58ca7320637f41fbac746d5807"
+source_commit_timestamp: "2026-10-20T18:45:49-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_comparisons"
@@ -21,6 +21,8 @@ source_paths:
   - "migrations/189_source_comparisons.sql"
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/source_retrieval/compare.py"
+  - "src/learnloop/source_retrieval/kept_comparisons.py"
+  - "src/learnloop_sidecar/handlers/kept_comparisons.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -106,6 +108,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_compare_sources_keep.py`
 - `tests/test_library_asks_migration.py`
 - `tests/test_reader_tutor_offers.py`
 

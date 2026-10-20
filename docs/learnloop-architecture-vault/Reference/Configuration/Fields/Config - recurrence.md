@@ -3,8 +3,8 @@ title: "Config - recurrence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8e50f38e581044a2484fb84e2bf6debfb4ac272f"
-source_commit_timestamp: "2026-10-20T17:57:23-04:00"
+source_commit: "ee20a4204c73da58ca7320637f41fbac746d5807"
+source_commit_timestamp: "2026-10-20T18:45:49-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml recurrence"
@@ -36,7 +36,7 @@ source_paths:
   - "tests/test_chatgpt_plan_provider.py"
   - "tests/test_cli_ingest.py"
   - "tests/test_codex_isolation_mcp_check.py"
-  - "tests/test_concept_animation_service.py"
+  - "tests/test_compare_sources_keep.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/recurrence"
@@ -84,7 +84,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_chatgpt_plan_provider.py`
 - `tests/test_cli_ingest.py`
 - `tests/test_codex_isolation_mcp_check.py`
-- `tests/test_concept_animation_service.py`
+- `tests/test_compare_sources_keep.py`
 
 ## Extension and modification guidance
 

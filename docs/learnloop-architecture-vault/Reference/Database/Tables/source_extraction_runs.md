@@ -3,8 +3,8 @@ title: "source_extraction_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8e50f38e581044a2484fb84e2bf6debfb4ac272f"
-source_commit_timestamp: "2026-10-20T17:57:23-04:00"
+source_commit: "ee20a4204c73da58ca7320637f41fbac746d5807"
+source_commit_timestamp: "2026-10-20T18:45:49-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_extraction_runs"
@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_block_fts.py"
   - "src/learnloop/ops/doctor.py"
+  - "src/learnloop/reader/source_objects.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/content/facet_identity/authority.py"
   - "src/learnloop/content/pipeline/add_source.py"
@@ -109,6 +110,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_block_fts.py`
+- `src/learnloop/reader/source_objects.py`
 
 ### Direct SQL writers
 
@@ -144,6 +146,7 @@ Indexes and uniqueness:
 
 - `tests/test_ingest_runner.py`
 - `tests/test_migrations.py`
+- `tests/test_source_objects.py`
 - `tests/test_ux_phase1_landing.py`
 - `tests/helpers.py`
 - `tests/test_ad1_reading_opportunities.py`
@@ -161,7 +164,6 @@ Indexes and uniqueness:
 - `tests/test_source_block_fts.py`
 - `tests/test_source_deletion.py`
 - `tests/test_source_inventory.py`
-- `tests/test_source_layer.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

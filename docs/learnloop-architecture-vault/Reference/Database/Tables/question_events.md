@@ -3,8 +3,8 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8e50f38e581044a2484fb84e2bf6debfb4ac272f"
-source_commit_timestamp: "2026-10-20T17:57:23-04:00"
+source_commit: "ee20a4204c73da58ca7320637f41fbac746d5807"
+source_commit_timestamp: "2026-10-20T18:45:49-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
@@ -154,6 +154,7 @@ Indexes and uniqueness:
 - `src/learnloop/ops/contamination/recipes.py`
 - `src/learnloop/reader/reader_dialogue.py`
 - `src/learnloop/reader/reader_inquiry.py`
+- `src/learnloop/reader/source_objects.py`
 - `src/learnloop/source_retrieval/evaluation.py`
 - `src/learnloop/source_retrieval/library_ask.py`
 - `src/learnloop/source_retrieval/timing.py`
@@ -163,7 +164,6 @@ Indexes and uniqueness:
 - `src/learnloop/tutor/tutor_qa.py`
 - `src/learnloop_sidecar/handlers/capture.py`
 - `src/learnloop_sidecar/handlers/facets.py`
-- `src/learnloop_sidecar/handlers/tutor_qa.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -176,6 +176,7 @@ Indexes and uniqueness:
 - `tests/test_capture_desktop.py`
 - `tests/test_capture_route_recovery.py`
 - `tests/test_coldness_receipt.py`
+- `tests/test_compare_sources_keep.py`
 - `tests/test_diagnosis_input_provenance.py`
 - `tests/test_diagnosis_input_provenance_landing.py`
 - `tests/test_exam_protection.py`
@@ -189,7 +190,6 @@ Indexes and uniqueness:
 - `tests/test_question_signal.py`
 - `tests/test_reader_branches.py`
 - `tests/test_reader_dialogue.py`
-- `tests/test_reader_inquiry_status.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

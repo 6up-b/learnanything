@@ -3,8 +3,8 @@ title: "library_asks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8e50f38e581044a2484fb84e2bf6debfb4ac272f"
-source_commit_timestamp: "2026-10-20T17:57:23-04:00"
+source_commit: "ee20a4204c73da58ca7320637f41fbac746d5807"
+source_commit_timestamp: "2026-10-20T18:45:49-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite library_asks"
@@ -21,6 +21,8 @@ source_paths:
   - "migrations/209_library_asks.sql"
   - "src/learnloop/db/stores/library_asks.py"
   - "src/learnloop/reader/reader_report.py"
+  - "src/learnloop/reader/source_objects.py"
+  - "src/learnloop/source_retrieval/kept_comparisons.py"
   - "src/learnloop/source_retrieval/library_ask.py"
 tags:
   - "learnloop/database/table"
@@ -111,6 +113,8 @@ None found by exact static reference scan.
 
 - `tests/library_ask_fixtures.py`
 - `tests/test_architecture.py`
+- `tests/test_compare_keep_switch_off.py`
+- `tests/test_compare_sources_keep.py`
 - `tests/test_library_ask_expand.py`
 - `tests/test_library_asks_migration.py`
 - `tests/test_rw4_kill_switches.py`
