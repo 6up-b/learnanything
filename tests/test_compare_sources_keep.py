@@ -603,3 +603,268 @@ def test_the_report_counts_keeps_takes_and_relations_without_quoting(compared):
                                      "relations_by_label": {"different_notation": 1}}
     assert "a private thought" not in json.dumps(report, default=str)
     assert report["library"]["asks"] == 1
+
+
+# -- review fixes (reader-rw4d Codex review F1, F2, F4-F7, F9) ------------------------------------
+
+
+def _keep_counts(repository) -> dict[str, int]:
+    return table_counts(repository, PROPOSAL_TABLES)
+
+
+def _ask(repository, ask_id: str) -> dict:
+    return [r for r in ask_rows(repository) if r["id"] == ask_id][0]
+
+
+def _stored_relations(monkeypatch, ctx, repository, ask_id: str, relations: list[dict]):
+    """A stored comparison of the two pins with exactly these relations (each
+    may override the quotes or the statement of the default s1-s2 relation)."""
+
+    import learnloop.instructional.sources as service
+
+    table = _stored(monkeypatch, ctx, repository, ask_id, [])
+    stored_id = table["comparisonId"]
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        comparison = json.loads(connection.execute(
+            "SELECT comparison_json FROM source_comparisons WHERE id = ?", (stored_id,)).fetchone()[0])
+    sources = comparison["sources"]
+    quote = {source["ref"]: " ".join(source["passage"].split()[:4]) for source in sources}
+    rels = [{"left_ref": "s1", "right_ref": "s2", "statement": f"{rel['relation']} line",
+             "left_quote": quote["s1"], "right_quote": quote["s2"], "authorship": "ai", **rel} for rel in relations]
+    with repository.connection() as connection:
+        connection.execute("UPDATE source_comparisons SET comparison_json = ? WHERE id = ?",
+                           (json.dumps({**comparison, "relations": rels}), stored_id))
+        connection.commit()
+    monkeypatch.setattr(service, "propose_comparison", lambda *a, **k: Comparison(
+        status="ok", policy="reading", comparison_id=stored_id, sources=sources, relations=rels))
+    return call(ctx, "reader.library_compare", {"askId": ask_id, "pinnedSpanKeys": PINS})
+
+
+def test_a_keep_interrupted_after_its_proposals_writes_nothing_and_a_retry_keeps_once(compared, monkeypatch):
+    """F1: the proposals, the keep record and its event are one transaction."""
+
+    _paths, ctx, repository, _spans, asked, table = compared
+    vault, _repo = ctx.require_vault()
+    real = KC.SO.link_relation
+
+    def crash(*args, **kwargs):
+        raise RuntimeError("the process died here")
+
+    monkeypatch.setattr(KC.SO, "link_relation", crash)
+    before = _all_counts(repository)
+    with pytest.raises(RuntimeError):
+        KC.keep(vault, repository, asked["askId"])
+    assert _all_counts(repository) == before  # no orphaned object, citation, relation or event
+    assert _ask(repository, asked["askId"])["kept_json"] is None
+    monkeypatch.setattr(KC.SO, "link_relation", real)
+    kept = KC.keep(vault, repository, asked["askId"])
+    assert kept["already_kept"] is False
+    assert _keep_counts(repository)["source_objects"] == len(table["rows"])
+
+
+def test_an_interrupted_remove_leaves_the_keep_whole(compared, monkeypatch):
+    """F1: Remove's supersessions and the cleared keep commit together."""
+
+    _paths, ctx, repository, _spans, asked, table = compared
+    vault, _repo = ctx.require_vault()
+    KC.keep(vault, repository, asked["askId"], takes=[{"text": "mine", "keys": [table["rows"][0]["key"]]}])
+    before = _all_counts(repository)
+
+    def crash(*args, **kwargs):
+        raise RuntimeError("the process died here")
+
+    monkeypatch.setattr(KC.SO, "supersede_relation", crash)
+    with pytest.raises(RuntimeError):
+        KC.remove(vault, repository, asked["askId"])
+    assert _all_counts(repository) == before  # no object superseded without its relations
+    assert _ask(repository, asked["askId"])["kept_at"]
+    heads = {row["status"] for row in _rows(repository, "SELECT status FROM source_object_versions")}
+    assert heads == {"proposed"}
+
+
+def test_concurrent_keeps_of_one_comparison_write_one_set(compared, monkeypatch):
+    """F1: a second keep that starts while the first is writing waits for it,
+    then reads the keep (no second set of proposals, no lost keep)."""
+
+    import threading
+    import time
+
+    _paths, ctx, repository, _spans, asked, table = compared
+    vault, _repo = ctx.require_vault()
+    real = KC.SO.author_source_object
+    results: dict[str, object] = {}
+    started = threading.Event()
+
+    def second() -> None:
+        started.set()
+        try:
+            results["second"] = KC.keep(vault, repository, asked["askId"])
+        except Exception as exc:  # noqa: BLE001 - recorded for the assertion
+            results["second"] = exc
+
+    def slow(*args, **kwargs):
+        if "thread" not in results:
+            results["thread"] = threading.Thread(target=second)
+            results["thread"].start()
+            started.wait(5)
+            time.sleep(0.3)  # the second keep is now at its first read
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(KC.SO, "author_source_object", slow)
+    first = KC.keep(vault, repository, asked["askId"])
+    results["thread"].join(30)
+    second_result = results["second"]
+    assert not isinstance(second_result, Exception), second_result
+    assert first["already_kept"] is False and second_result["already_kept"] is True
+    assert _keep_counts(repository)["source_objects"] == len(table["rows"])
+    assert second_result["ask_id"] == first["ask_id"]
+
+
+def test_a_take_on_an_older_kept_comparison_stays_on_it(compared, monkeypatch):
+    """F2: the take names the comparison it was typed under, not the ask's newest."""
+
+    _paths, ctx, repository, _spans, asked, table = compared
+    vault, _repo = ctx.require_vault()
+    first_id = table["comparisonId"]
+    call(ctx, "reader.library_compare_keep", {"askId": asked["askId"], "comparisonId": first_id})
+    newer = _stored(monkeypatch, ctx, repository, asked["askId"], ["disagreement"])
+    assert newer["comparisonId"] != first_id and newer["kept"] is None
+    rows_before = len(ask_rows(repository))
+    take = {"text": "on the first comparison", "keys": [table["rows"][0]["key"]]}
+    added = call(ctx, "reader.library_compare_keep", {"askId": asked["askId"], "comparisonId": first_id,
+                                                      "takes": [take]})
+    assert added["askId"] == asked["askId"] and added["alreadyKept"] is True and added["addedTakes"] == 1
+    assert len(ask_rows(repository)) == rows_before  # nothing forked, the newer comparison not kept
+    kept = json.loads(_ask(repository, asked["askId"])["kept_json"])
+    assert kept["comparison_id"] == first_id and [t["learner_text"] for t in kept["takes"]] == [take["text"]]
+    # Keeping the newer comparison names it, and it gets its own row.
+    newer_kept = call(ctx, "reader.library_compare_keep", {"askId": asked["askId"],
+                                                           "comparisonId": newer["comparisonId"]})
+    assert newer_kept["askId"] != asked["askId"] and newer_kept["alreadyKept"] is False
+    # A comparison the ask no longer shows (and nothing keeps) is refused, writing nothing.
+    before = _all_counts(repository)
+    with pytest.raises(SidecarError) as caught:
+        call(ctx, "reader.library_compare_keep", {"askId": asked["askId"], "comparisonId": "scmp_elsewhere"})
+    assert caught.value.code == "stale_comparison"
+    assert _all_counts(repository) == before
+    # Remove names its comparison too: the older keep's own row.
+    with pytest.raises(SidecarError) as caught:
+        call(ctx, "reader.library_compare_remove", {"askId": asked["askId"], "comparisonId": newer["comparisonId"]})
+    assert caught.value.code == "stale_comparison"
+
+
+def test_replaying_a_take_does_not_duplicate_it_even_at_the_limit(compared):
+    """F4: a take's key is its passages and its words; a replay adds nothing."""
+
+    _paths, ctx, repository, _spans, asked, table = compared
+    key = table["rows"][0]["key"]
+    take = {"text": "the same words", "keys": [key]}
+    first = call(ctx, "reader.library_compare_keep", {"askId": asked["askId"], "takes": [take]})
+    counts = _keep_counts(repository)
+    replay = call(ctx, "reader.library_compare_keep", {"askId": asked["askId"], "takes": [take]})
+    assert replay["addedTakes"] == 0 and _keep_counts(repository) == counts
+    assert [t["id"] for t in replay["kept"]["takes"]] == [t["id"] for t in first["kept"]["takes"]]
+    # Twice in one request is one take, too.
+    call(ctx, "reader.library_compare_keep", {"askId": asked["askId"], "takes": [
+        {"text": "twice", "keys": [key]}, {"text": " twice ", "keys": [key]}]})
+    assert _keep_counts(repository)["source_object_relations"] == counts["source_object_relations"] + 1
+    rest = [{"text": f"take {n}", "keys": [key]} for n in range(KC.MAX_TAKES - 2)]
+    call(ctx, "reader.library_compare_keep", {"askId": asked["askId"], "takes": rest})
+    full = _keep_counts(repository)
+    # At the limit, replaying a take that is kept succeeds and writes nothing.
+    again = call(ctx, "reader.library_compare_keep", {"askId": asked["askId"], "takes": [rest[-1]]})
+    assert again["addedTakes"] == 0 and len(again["kept"]["takes"]) == KC.MAX_TAKES
+    assert _keep_counts(repository) == full
+    with pytest.raises(SidecarError) as caught:
+        call(ctx, "reader.library_compare_keep", {"askId": asked["askId"], "takes": [{"text": "new", "keys": [key]}]})
+    assert caught.value.code == "validation_error"
+
+
+def test_reopen_shows_only_the_relations_kept_among_same_labelled_pairs(library, monkeypatch):
+    """F5: two relations on the same pair with the same label; one fails Keep's recheck."""
+
+    _paths, ctx, repository, _spans, asked = library
+    _stored_relations(monkeypatch, ctx, repository, asked["askId"], [
+        {"relation": "disagreement", "statement": "the surviving statement"},
+        {"relation": "disagreement", "statement": "the rejected statement",
+         "left_quote": "words that are nowhere in the passage"},
+    ])
+    kept = call(ctx, "reader.library_compare_keep", {"askId": asked["askId"]})
+    assert len(kept["kept"]["relations"]) == 1
+    reopened = call(ctx, "reader.library_compare_reopen", {"askId": asked["askId"]})
+    shown = json.dumps(reopened)
+    assert "the surviving statement" in shown
+    assert "the rejected statement" not in shown and "words that are nowhere in the passage" not in shown
+
+
+def test_the_card_reads_keeps_takes_and_removals_as_of(compared):
+    """F6: a historical card does not change with later takes or a remove."""
+
+    from datetime import datetime, UTC
+
+    from learnloop.clock import FrozenClock
+
+    _paths, ctx, repository, _spans, asked, table = compared
+    vault, _repo = ctx.require_vault()
+    on = lambda day: FrozenClock(datetime(2026, 10, day, 9, tzinfo=UTC))  # noqa: E731
+    key = table["rows"][0]["key"]
+    KC.keep(vault, repository, asked["askId"], takes=[{"text": "first", "keys": [key]}], clock=on(3))
+    los = json.loads(_ask(repository, asked["askId"])["kept_json"])["learning_object_ids"]
+
+    def card(day: int | None):
+        as_of = None if day is None else f"2026-10-{day:02d}T12:00:00Z"
+        return KC.kept_comparisons_for_card(repository, learning_object_ids=los, as_of=as_of)
+
+    before = card(4)
+    assert len(before) == 1 and before[0]["takes"] == 1
+    KC.keep(vault, repository, asked["askId"], takes=[{"text": "second", "keys": [key]}], clock=on(5))
+    assert card(4) == before and card(5)[0]["takes"] == 2
+    KC.remove(vault, repository, asked["askId"], clock=on(6))
+    assert card(4) == before and card(5)[0]["takes"] == 2
+    assert card(6) == [] and card(None) == []
+    # Kept again on the 7th: the card of the 4th is still the first keep; the 7th's is the new one.
+    KC.keep(vault, repository, asked["askId"], clock=on(7))
+    assert card(4) == before and card(6) == []
+    latest = card(7)
+    assert len(latest) == 1 and latest[0]["takes"] == 0 and latest[0]["kept_at"] == "2026-10-07T09:00:00Z"
+    assert card(None) == latest
+
+
+def test_relation_successors_record_what_they_supersede(library, monkeypatch):
+    """F7: two indistinguishable relations (both 'refines', same endpoints, no
+    wording) each have their own head after a remove, a re-keep and a remove."""
+
+    _paths, ctx, repository, _spans, asked = library
+    vault, _repo = ctx.require_vault()
+    _stored(monkeypatch, ctx, repository, asked["askId"], ["different_assumptions", "complementary"])
+    kept = KC.keep(vault, repository, asked["askId"])
+    first_ids = [rel["id"] for rel in kept["kept"]["relations"]]
+    rows = {r["id"]: r for r in _rows(repository, "SELECT * FROM source_object_relations")}
+    assert {rows[i]["relation_type"] for i in first_ids} == {"refines"}
+    assert all(KC.relation_head(repository, rid)["id"] == rid for rid in first_ids)  # a proposal is its own head
+    KC.remove(vault, repository, asked["askId"])
+    heads = [KC.relation_head(repository, rid) for rid in first_ids]
+    assert len({head["id"] for head in heads}) == 2 and not set(first_ids) & {head["id"] for head in heads}
+    assert {(head["review_status"], head["version_ordinal"]) for head in heads} == {("superseded", 2)}
+    lineage = KC.relation_lineage(repository)
+    assert {lineage[head["id"]] for head in heads} == set(first_ids)
+    again = KC.keep(vault, repository, asked["askId"])
+    second_ids = [rel["id"] for rel in again["kept"]["relations"]]
+    KC.remove(vault, repository, asked["askId"])
+    assert [KC.relation_head(repository, rid)["id"] for rid in first_ids] == [head["id"] for head in heads]
+    second_heads = {KC.relation_head(repository, rid)["id"] for rid in second_ids}
+    assert len(second_heads) == 2 and not second_heads & {head["id"] for head in heads}
+
+
+def test_a_passages_mark_lists_every_comparison_kept_on_it(compared, monkeypatch):
+    """F9: two kept comparisons share a passage; its mark names both."""
+
+    _paths, ctx, repository, _spans, asked, _table = compared
+    call(ctx, "reader.library_compare_keep", {"askId": asked["askId"]})
+    _stored(monkeypatch, ctx, repository, asked["askId"], ["disagreement"])
+    second = call(ctx, "reader.library_compare_keep", {"askId": asked["askId"]})
+    marks = call(ctx, "reader.kept_comparisons", {"extractionId": "ext_text"})["marks"]
+    (mark,) = [m for m in marks if m["spanId"] == "t3"]
+    assert set(mark["askIds"]) == {asked["askId"], second["askId"]}
+    assert {entry["askId"] for entry in mark["comparisons"]} == {asked["askId"], second["askId"]}
+    assert all(entry["keptAt"] and entry["query"] == QUESTION for entry in mark["comparisons"])

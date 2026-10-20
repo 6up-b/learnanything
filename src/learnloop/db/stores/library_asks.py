@@ -80,6 +80,15 @@ def kept_asks(connection: sqlite3.Connection) -> list[dict[str, Any]]:
     return [found for (ask_id,) in rows if (found := kept_row(connection, ask_id)) is not None]
 
 
+def asks_with_keeps(connection: sqlite3.Connection) -> list[dict[str, Any]]:
+    """RW4d: every ask that has kept a comparison (``kept_json`` set), live or
+    removed since (a removal keeps its snapshot in ``kept_json``'s history)."""
+
+    rows = connection.execute(
+        "SELECT id FROM library_asks WHERE kept_json IS NOT NULL ORDER BY created_at, id").fetchall()
+    return [found for (ask_id,) in rows if (found := kept_row(connection, ask_id)) is not None]
+
+
 def fork_ask(connection: sqlite3.Connection, ask_id: str, *, new_id: str, created_at: str) -> None:
     """RW4d: a copy of an ask (its question, anchor, caller, manifests and
     notes) under a new id, with no comparison, keep or tutor exchange: a
@@ -120,5 +129,5 @@ def notes_for_ledger_ids(connection: sqlite3.Connection, ledger_ids: Sequence[st
     return found
 
 
-__all__ = ["MUTABLE_COLUMNS", "TABLE", "ask_row", "asks_for_comparison", "fork_ask", "insert_ask", "kept_asks", "kept_row",
+__all__ = ["MUTABLE_COLUMNS", "TABLE", "ask_row", "asks_for_comparison", "asks_with_keeps", "fork_ask", "insert_ask", "kept_asks", "kept_row",
            "notes_for_ledger_ids", "update_ask"]

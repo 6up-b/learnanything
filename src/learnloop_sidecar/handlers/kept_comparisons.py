@@ -95,6 +95,9 @@ class KeepInput(ParamsModel):
     tool_call_id: str | None = None
     #: The reading the tutor's answer was in (a tutor keep's mark sits there too).
     extraction_id: str | None = None
+    #: The comparison the learner was shown (the table's, or a reopened keep's):
+    #: a take on an older kept comparison stays on it. Omitted: the ask's latest.
+    comparison_id: str | None = None
     takes: list[TakeInput] = Field(default_factory=list, max_length=KC.MAX_TAKES)
 
 
@@ -125,7 +128,8 @@ def reader_library_compare_keep(ctx: SidecarContext, params: KeepInput) -> dict[
     vault, repository = _require(ctx)
     _cold_guard(vault, repository, str(params.ask_id))
     try:
-        return versioned(KC.keep(vault, repository, str(params.ask_id), takes=takes))
+        return versioned(KC.keep(vault, repository, str(params.ask_id), comparison_id=params.comparison_id,
+                                 takes=takes))
     except LA.LibraryAskError as exc:
         raise _error(exc) from exc
 
@@ -133,6 +137,8 @@ def reader_library_compare_keep(ctx: SidecarContext, params: KeepInput) -> dict[
 class KeptAskInput(ParamsModel):
     ask_id: str
     open_source_id: str | None = None
+    #: Remove: the comparison shown (a row that keeps another is refused).
+    comparison_id: str | None = None
 
 
 @method("reader.library_compare_remove", KeptAskInput)
@@ -143,7 +149,7 @@ def reader_library_compare_remove(ctx: SidecarContext, params: KeptAskInput) -> 
     if not (KC.keep_enabled(vault) or KC.tutor_keep_enabled(vault)):
         _require(ctx)
     try:
-        return versioned(KC.remove(vault, repository, params.ask_id))
+        return versioned(KC.remove(vault, repository, params.ask_id, comparison_id=params.comparison_id))
     except LA.LibraryAskError as exc:
         raise _error(exc) from exc
 

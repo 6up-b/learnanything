@@ -24,6 +24,17 @@ proposals in P3 §7's source-object layer, through ``reader.source_objects``:
   note, in their voice: never read for gaps (UX §4.10) and never evidence;
 * *remove* supersedes every proposal (a ``superseded`` status version for each
   claim, a superseded successor row for each relation); nothing is deleted.
+  Each successor's predecessor is recorded on the ask row's removal history
+  (``relation_successors``), the only writer of relation successors, and
+  :func:`relation_head` reads a relation's current head from it.
+
+Keep, adding a take and remove each run as one transaction
+(``Repository.atomic()``, ``BEGIN IMMEDIATE``): the state read, the proposals,
+the keep record and the event commit together or not at all, and a second
+request waits for the first and then reads its result. A take's key is its
+passages and its words (:func:`take_key`): replaying a take adds nothing.
+Every mutation names the comparison it was shown under (``comparison_id``);
+one the question no longer shows, and nothing keeps, is refused.
 
 Held-out material (exam protection) is never kept and never shown again: the
 one predicate (``exam_material.exam_withheld``, the call RW4b's statement
@@ -38,15 +49,15 @@ and the sources service's ``compare``).
 """
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Mapping, Sequence
-from contextlib import closing
+import hashlib
 import json
 from typing import Any
 
 from learnloop.attempts.salience_firewall import salience_payload
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.content.sources import exam_material as EM
-from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import library_asks as ask_store
 from learnloop.db.stores.source_block_fts import block_content_hashes, blocks_by_key
@@ -165,7 +176,7 @@ def _refuse_held_out(vault: LoadedVault, repository: Repository, keys: Sequence[
 def _stored(repository: Repository, comparison_id: str | None) -> dict[str, Any]:
     if not comparison_id:
         raise LibraryAskError("validation_error", "Compare the passages first; there is no comparison to keep.")
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+    with repository.connection() as connection:
         stored = comparison_row(connection, comparison_id)
     if stored is None:
         raise LibraryAskError("not_found", f"Unknown comparison {comparison_id}.")
@@ -192,7 +203,7 @@ def _plan(vault: LoadedVault, repository: Repository, stored: Mapping[str, Any],
     """What a keep would write, checked against the books as they are now (no writes)."""
 
     keys = [_key(entry) for entry in sources]
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+    with repository.connection() as connection:
         blocks = blocks_by_key(connection, keys)
         roles = block_roles(connection, keys)
         hashes = {key: (block_content_hashes(connection, key[0], [key[1]]) or [None])[0] for key in keys}
@@ -251,39 +262,67 @@ def _quote_of(claim: Mapping[str, Any], relations: Sequence[Mapping[str, Any]]) 
     return ""
 
 
+def _take_parts(take: Mapping[str, Any]) -> tuple[list[str], str]:
+    text = " ".join(str(take.get("text") if "text" in take else take.get("learner_text") or "").split())
+    return [str(key) for key in dict.fromkeys(take.get("keys") or ())], text
+
+
+def take_key(keys: Sequence[str], text: str) -> str:
+    """A take's idempotency key: its passages (in order) and its words, as kept.
+    The same take sent again (a retry after a lost response) is the same take."""
+
+    payload = json.dumps([[str(key) for key in dict.fromkeys(keys)], " ".join(str(text).split())])
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:24]
+
+
+def _kept_take_key(take: Mapping[str, Any]) -> str:
+    return str(take.get("take_key") or take_key(take.get("keys") or (), str(take.get("learner_text") or "")))
+
+
 def _resolve_take(take: Mapping[str, Any], objects: Mapping[str, Mapping[str, Any]]) -> tuple[str, str | None, str]:
-    text = " ".join(str(take.get("text") or "").split())
+    keys, text = _take_parts(take)
     if not text:
         raise LibraryAskError("validation_error", "Your take is empty.")
     if len(text) > MAX_TAKE_CHARS:
         raise LibraryAskError("validation_error", f"Your take is longer than {MAX_TAKE_CHARS} characters.")
-    keys = [str(key) for key in dict.fromkeys(take.get("keys") or ())]
     if not 1 <= len(keys) <= 2 or any(key not in objects for key in keys):
         raise LibraryAskError("validation_error", "Your take names a passage that isn't kept in this comparison.")
     return str(objects[keys[0]]["id"]), (str(objects[keys[1]]["id"]) if len(keys) == 2 else None), text
 
 
-def _check_takes(takes: Sequence[Mapping[str, Any]], keys: Sequence[str], *, already: int = 0) -> None:
-    """Every take is valid against the claims that will be kept (before any write)."""
+def _check_takes(takes: Sequence[Mapping[str, Any]], keys: Sequence[str], *,
+                 kept_takes: Sequence[Mapping[str, Any]] = ()) -> list[Mapping[str, Any]]:
+    """Every take is valid against the claims that will be kept (before any
+    write); returns the ones not kept yet (a replayed take is not new, so a
+    replay at the limit succeeds), refusing when those would pass the limit."""
 
-    if already + len(takes) > MAX_TAKES:
-        raise LibraryAskError("validation_error", f"A comparison keeps at most {MAX_TAKES} takes.")
     placeholders = {key: {"id": key} for key in keys}
     for take in takes:
         _resolve_take(take, placeholders)
+    seen = {_kept_take_key(take) for take in kept_takes}
+    new: list[Mapping[str, Any]] = []
+    for take in takes:
+        key = take_key(*_take_parts(take))
+        if key not in seen:
+            seen.add(key)
+            new.append(take)
+    if len(kept_takes) + len(new) > MAX_TAKES:
+        raise LibraryAskError("validation_error", f"A comparison keeps at most {MAX_TAKES} takes.")
+    return new
 
 
 def _add_takes(repository: Repository, kept: dict[str, Any], takes: Sequence[Mapping[str, Any]], *,
                clock: Clock | None) -> list[dict[str, Any]]:
     objects = {entry["key"]: entry for entry in kept["objects"]}
-    _check_takes(takes, list(objects), already=len(kept.get("takes") or ()))
-    resolved = [(take, *_resolve_take(take, objects)) for take in takes]
+    new = _check_takes(takes, list(objects), kept_takes=kept.get("takes") or ())
+    resolved = [(take, *_resolve_take(take, objects)) for take in new]
     added = []
     for take, left, right, text in resolved:
         link = SO.link_relation(repository, source_object_id=left, related_object_id=right,
                                 relation_type=TAKE_RELATION, learner_text=text, authorship="learner", clock=clock)
+        keys = _take_parts(take)[0]
         added.append({"id": link["relation_id"], "relation_type": TAKE_RELATION, "learner_text": text,
-                      "keys": [str(key) for key in dict.fromkeys(take.get("keys") or ())],
+                      "keys": keys, "take_key": take_key(keys, text),
                       "authorship": "learner", "created_at": utc_now_iso(clock)})
     kept["takes"] = [*(kept.get("takes") or []), *added]
     return added
@@ -392,7 +431,7 @@ def _keep(vault: LoadedVault, repository: Repository, ask: Mapping[str, Any], *,
     plan = _plan(vault, repository, stored, sources)
     if len(plan["passages"]) < 1:
         raise LibraryAskError("validation_error", "Nothing in this comparison could be kept: no checked line is left.")
-    _check_takes(takes, [_key_str(claim["key"]) for claim in plan["passages"].values()])
+    takes = _check_takes(takes, [_key_str(claim["key"]) for claim in plan["passages"].values()])
     kept = _write(vault, repository, ask=ask, stored=stored, plan=plan, caller=caller, clock=clock,
                   learning_object_ids=_question_learning_objects(repository, ask))
     if (ask.get("kept") or {}).get("removed"):
@@ -410,7 +449,7 @@ def _keep(vault: LoadedVault, repository: Repository, ask: Mapping[str, Any], *,
 
 
 def _question_learning_objects(repository: Repository, ask: Mapping[str, Any]) -> list[str]:
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+    with repository.connection() as connection:
         full = ask_store.ask_row(connection, ask["id"]) or {}
     anchor = (full.get("anchor") or {}).get("learning_object_ids") or []
     caller = (full.get("manifest") or {}).get("caller") or {}
@@ -419,40 +458,68 @@ def _question_learning_objects(repository: Repository, ask: Mapping[str, Any]) -
 
 
 def _row(repository: Repository, ask_id: str) -> dict[str, Any]:
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+    # Through the repository's connection: inside ``atomic()`` that is the
+    # transaction's own, so the read sees (and serializes with) its writes.
+    with repository.connection() as connection:
         row = ask_store.kept_row(connection, ask_id)
     if row is None:
         raise LibraryAskError("not_found", f"Unknown library question {ask_id}.")
     return row
 
 
-def keep(vault: LoadedVault, repository: Repository, ask_id: str, *,
-         takes: Sequence[Mapping[str, Any]] = (), clock: Clock | None = None) -> dict[str, Any]:
-    """Keep a library ask's comparison (the learner pressed *keep comparison*)."""
+def _stale() -> LibraryAskError:
+    return LibraryAskError(
+        "stale_comparison",
+        "This isn't the comparison this question shows any more, and it isn't kept. Compare again to keep it.")
 
-    row = _row(repository, ask_id)
-    kept = row.get("kept") or {}
-    if row.get("kept_at") and row.get("comparison_id") and kept.get("comparison_id") != row["comparison_id"]:
-        # This question's first comparison is kept and the learner compared
-        # again (other pins or perspectives): the new comparison is kept on its
-        # own row, so each kept comparison keeps its own ids and history (a
-        # second press finds that row rather than forking again).
-        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-            others = [other for other in ask_store.asks_for_comparison(
-                connection, row["comparison_id"], caller=str(row.get("caller") or "learner")) if other != ask_id]
-        forked = next((found for other in others if (found := _row(repository, other)).get("kept_at")
-                       and (found.get("kept") or {}).get("comparison_id") == row["comparison_id"]), None)
-        if forked is None:
-            new_id = "la_" + new_ulid()
-            with repository.connection() as connection:
-                ask_store.fork_ask(connection, ask_id, new_id=new_id, created_at=utc_now_iso(clock))
-                ask_store.update_ask(connection, new_id, comparison_id=row["comparison_id"],
-                                     requested_perspectives_json=json.dumps(row.get("requested_perspectives") or []))
-                connection.commit()
-            forked = _row(repository, new_id)
-        row = forked
-    return _keep(vault, repository, row, shown=None, takes=takes, caller=str(row.get("caller") or "learner"),
-                 clock=clock)
+
+def _fork_for(repository: Repository, row: Mapping[str, Any], comparison_id: str, *,
+              clock: Clock | None) -> dict[str, Any]:
+    """The row that keeps ``comparison_id`` for this question, forked when none does."""
+
+    with repository.connection() as connection:
+        others = [other for other in ask_store.asks_for_comparison(
+            connection, comparison_id, caller=str(row.get("caller") or "learner")) if other != row["id"]]
+    forked = next((found for other in others if (found := _row(repository, other)).get("kept_at")
+                   and (found.get("kept") or {}).get("comparison_id") == comparison_id), None)
+    if forked is not None:
+        return forked
+    new_id = "la_" + new_ulid()
+    with repository.connection() as connection:
+        ask_store.fork_ask(connection, row["id"], new_id=new_id, created_at=utc_now_iso(clock))
+        ask_store.update_ask(connection, new_id, comparison_id=comparison_id,
+                             requested_perspectives_json=json.dumps(row.get("requested_perspectives") or []))
+        connection.commit()
+    return _row(repository, new_id)
+
+
+def keep(vault: LoadedVault, repository: Repository, ask_id: str, *, comparison_id: str | None = None,
+         takes: Sequence[Mapping[str, Any]] = (), clock: Clock | None = None) -> dict[str, Any]:
+    """Keep a library ask's comparison (the learner pressed *keep comparison*),
+    or add a take to it once kept.
+
+    ``comparison_id`` is the comparison the learner was shown (the table's, or
+    a reopened keep's); without it, the ask's latest. A take on an older kept
+    comparison stays on that keep; the ask's newer comparison is kept on its
+    own row; a comparison the ask neither shows nor keeps is refused."""
+
+    with repository.atomic():
+        row = _row(repository, ask_id)
+        kept = row.get("kept") or {}
+        target = comparison_id or row.get("comparison_id")
+        if row.get("kept_at") and kept.get("comparison_id") == target:
+            pass  # this row keeps it: a second press, or a take added to it
+        elif target and target == row.get("comparison_id"):
+            if row.get("kept_at"):
+                # This question's first comparison is kept and the learner
+                # compared again (other pins or perspectives): the new
+                # comparison is kept on its own row, so each kept comparison
+                # keeps its own ids and history (a second press finds it).
+                row = _fork_for(repository, row, str(target), clock=clock)
+        else:
+            raise _stale()
+        return _keep(vault, repository, row, shown=None, takes=takes, caller=str(row.get("caller") or "learner"),
+                     clock=clock)
 
 
 def compare_kept_state(repository: Repository, ask_id: str, comparison_id: str | None) -> dict[str, Any] | None:
@@ -461,7 +528,7 @@ def compare_kept_state(repository: Repository, ask_id: str, comparison_id: str |
     if not comparison_id:
         return None
     row = _row(repository, ask_id)
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+    with repository.connection() as connection:
         candidates = [ask_id, *ask_store.asks_for_comparison(connection, comparison_id,
                                                              caller=str(row.get("caller") or "learner"))]
     for candidate in dict.fromkeys(candidates):
@@ -475,7 +542,7 @@ def compare_kept_state(repository: Repository, ask_id: str, comparison_id: str |
 def tutor_comparison(repository: Repository, tool_call_id: str) -> dict[str, Any]:
     """The tutor's comparison request and its latest successful run (what was shown)."""
 
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+    with repository.connection() as connection:
         request = tool_call(connection, tool_call_id)
         runs = tool_call_runs(connection, tool_call_id) if request is not None else []
     if request is None or request.get("row_kind") != "request" or request.get("tool") != "compare_sources":
@@ -494,60 +561,109 @@ def keep_tutor(vault: LoadedVault, repository: Repository, tool_call_id: str, *,
     pressed and shown). Only the sources its run showed are kept; the keep is
     recorded on a ``library_asks`` row with ``caller = 'tutor'``."""
 
-    found = tutor_comparison(repository, tool_call_id)
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        existing = ask_store.asks_for_comparison(connection, found["comparison_id"], caller="tutor")
-    if existing:
-        row = _row(repository, existing[0])
-    else:
-        stored = _stored(repository, found["comparison_id"])
-        # Nothing is written for a comparison that cannot be kept (held out).
-        _refuse_held_out(vault, repository, [_key(entry) for entry in _sources(stored)])
-        ask_id = "la_" + new_ulid()
+    with repository.atomic():
+        found = tutor_comparison(repository, tool_call_id)
         with repository.connection() as connection:
-            ask_store.insert_ask(connection, {
-                "id": ask_id, "caller": "tutor", "entry": "reader", "query_md": str(stored.get("query_md") or ""),
-                "query_hash": str(stored.get("query_hash") or ""), "extraction_id": extraction_id,
-                "anchor": {}, "personalized": False,
-                "requested_perspectives": list(stored.get("requested_perspectives") or []),
-                "manifest": {"caller": dict(found["request"].get("context") or {}), "tool_call_id": tool_call_id,
-                             "run_id": found["run"]["id"], "shown_keys": found["shown"]},
-                "organizer": {"status": "not_run"}, "prompt_version": stored.get("prompt_version"),
-                "created_at": utc_now_iso(clock),
-            })
-            ask_store.update_ask(connection, ask_id, comparison_id=found["comparison_id"],
-                                 question_event_id=found["request"].get("caller_ref"))
-            connection.commit()
-        row = _row(repository, ask_id)
-    result = _keep(vault, repository, row, shown=found["shown"], takes=takes, caller="tutor", clock=clock)
+            existing = ask_store.asks_for_comparison(connection, found["comparison_id"], caller="tutor")
+        if existing:
+            row = _row(repository, existing[0])
+        else:
+            stored = _stored(repository, found["comparison_id"])
+            # Nothing is written for a comparison that cannot be kept (held out).
+            _refuse_held_out(vault, repository, [_key(entry) for entry in _sources(stored)])
+            ask_id = "la_" + new_ulid()
+            with repository.connection() as connection:
+                ask_store.insert_ask(connection, {
+                    "id": ask_id, "caller": "tutor", "entry": "reader", "query_md": str(stored.get("query_md") or ""),
+                    "query_hash": str(stored.get("query_hash") or ""), "extraction_id": extraction_id,
+                    "anchor": {}, "personalized": False,
+                    "requested_perspectives": list(stored.get("requested_perspectives") or []),
+                    "manifest": {"caller": dict(found["request"].get("context") or {}), "tool_call_id": tool_call_id,
+                                 "run_id": found["run"]["id"], "shown_keys": found["shown"]},
+                    "organizer": {"status": "not_run"}, "prompt_version": stored.get("prompt_version"),
+                    "created_at": utc_now_iso(clock),
+                })
+                ask_store.update_ask(connection, ask_id, comparison_id=found["comparison_id"],
+                                     question_event_id=found["request"].get("caller_ref"))
+                connection.commit()
+            row = _row(repository, ask_id)
+        result = _keep(vault, repository, row, shown=found["shown"], takes=takes, caller="tutor", clock=clock)
     return {**result, "tool_call_id": tool_call_id}
 
 
-def remove(vault: LoadedVault, repository: Repository, ask_id: str, *, clock: Clock | None = None) -> dict[str, Any]:
-    """*Remove*: the keep's proposals are superseded (append-only), never deleted."""
+#: What a removal's history keeps of the keep it removed (for the card's ``as_of``).
+_SNAPSHOT_FIELDS = ("comparison_id", "caller", "kept_at", "objects", "relations", "takes", "keys",
+                    "learning_object_ids")
 
-    row = _row(repository, ask_id)
-    kept = row.get("kept")
-    if not kept or not row.get("kept_at"):
-        return {"ask_id": ask_id, "kept": None, "removed": False}
-    superseded: list[str] = []
-    for obj in kept.get("objects") or ():
-        SO.review_source_object(repository, source_object_id=obj["id"], status="superseded", clock=clock)
-        superseded.append(obj["id"])
-    successors = []
-    for relation in [*(kept.get("relations") or ()), *(kept.get("takes") or ())]:
-        successors.append(SO.supersede_relation(repository, relation_id=relation["id"], clock=clock)["relation_id"])
-    history = list(kept.get("removed") or [])
-    history.append({"removed_at": utc_now_iso(clock), "objects": superseded, "relation_successors": successors})
-    _save(repository, ask_id, {**kept, "removed": history}, kept_at=None)
-    _event(repository, "comparison_removed", {"extraction_id": row.get("extraction_id"),
-                                              "claim_count": len(superseded), "relations": len(successors)},
-           subject_id=row.get("extraction_id"), clock=clock)
+
+def remove(vault: LoadedVault, repository: Repository, ask_id: str, *, comparison_id: str | None = None,
+           clock: Clock | None = None) -> dict[str, Any]:
+    """*Remove*: the keep's proposals are superseded (append-only), never deleted.
+
+    One transaction: every claim's superseded version, every relation's
+    superseded successor (with the relation it supersedes recorded), the
+    cleared keep (its snapshot kept in the history) and the event. With
+    ``comparison_id`` (the comparison shown), a row that keeps another is refused."""
+
+    with repository.atomic():
+        row = _row(repository, ask_id)
+        kept = row.get("kept")
+        if not kept or not row.get("kept_at"):
+            return {"ask_id": ask_id, "kept": None, "removed": False}
+        if comparison_id and kept.get("comparison_id") != comparison_id:
+            raise _stale()
+        superseded: list[str] = []
+        for obj in kept.get("objects") or ():
+            SO.review_source_object(repository, source_object_id=obj["id"], status="superseded", clock=clock)
+            superseded.append(obj["id"])
+        successors = []
+        for relation in [*(kept.get("relations") or ()), *(kept.get("takes") or ())]:
+            successor = SO.supersede_relation(repository, relation_id=relation["id"], clock=clock)
+            successors.append({"relation_id": successor["relation_id"], "supersedes": successor["supersedes"]})
+        history = list(kept.get("removed") or [])
+        history.append({"removed_at": utc_now_iso(clock), "kept_at": row["kept_at"], "objects": superseded,
+                        "relation_successors": successors,
+                        "kept": {field: kept.get(field) for field in _SNAPSHOT_FIELDS} | {"kept_at": row["kept_at"]}})
+        _save(repository, ask_id, {**kept, "removed": history}, kept_at=None)
+        _event(repository, "comparison_removed", {"extraction_id": row.get("extraction_id"),
+                                                  "claim_count": len(superseded), "relations": len(successors)},
+               subject_id=row.get("extraction_id"), clock=clock)
     return {"ask_id": ask_id, "kept": None, "removed": True}
 
 
+def _with_keeps(repository: Repository) -> list[dict[str, Any]]:
+    """Every ask that has kept a comparison, live or removed since."""
+
+    with repository.connection() as connection:
+        return ask_store.asks_with_keeps(connection)
+
+
+def relation_lineage(repository: Repository) -> dict[str, str]:
+    """Each superseded successor relation id -> the relation id it supersedes
+    (RW4d's removals are the only writer of relation successors)."""
+
+    lineage: dict[str, str] = {}
+    for row in _with_keeps(repository):
+        for entry in (row.get("kept") or {}).get("removed") or ():
+            for successor in entry.get("relation_successors") or ():
+                if isinstance(successor, Mapping) and successor.get("relation_id") and successor.get("supersedes"):
+                    lineage[str(successor["relation_id"])] = str(successor["supersedes"])
+    return lineage
+
+
+def relation_head(repository: Repository, relation_id: str) -> dict[str, Any] | None:
+    """The current head of a relation's lineage (itself while nothing supersedes it)."""
+
+    forward = {prior: successor for successor, prior in relation_lineage(repository).items()}
+    head, seen = relation_id, {relation_id}
+    while head in forward and forward[head] not in seen:
+        head = forward[head]
+        seen.add(head)
+    return repository.source_object_relation(head)
+
+
 def _live(repository: Repository) -> list[dict[str, Any]]:
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+    with repository.connection() as connection:
         return ask_store.kept_asks(connection)
 
 
@@ -577,11 +693,22 @@ def kept_marks(vault: LoadedVault, repository: Repository, extraction_id: str) -
         others = sorted({obj.get("source_title") or "a source" for obj in kept.get("objects") or ()
                          if obj["extraction_id"] != extraction_id})
         for key in mine:
-            marks.setdefault(key[1], {"span_id": key[1], "ask_ids": [], "kept_at": row["kept_at"],
-                                      "other_sources": others})
-            marks[key[1]]["ask_ids"].append(row["id"])
+            mark = marks.setdefault(key[1], {"span_id": key[1], "ask_ids": [], "kept_at": row["kept_at"],
+                                             "other_sources": others, "comparisons": []})
+            if row["id"] in mark["ask_ids"]:
+                continue
+            mark["ask_ids"].append(row["id"])
+            # Every comparison kept on this passage, newest first, told apart
+            # by its question and its date (the mark lists them all).
+            mark["comparisons"].append({"ask_id": row["id"], "kept_at": row["kept_at"], "query": row.get("query"),
+                                        "other_sources": others})
     return {"extraction_id": extraction_id, "marks": sorted(marks.values(), key=lambda mark: mark["span_id"]),
             "label": "a comparison you kept"}
+
+
+def _relation_signature(rel: Mapping[str, Any], fine: Any) -> tuple[Any, ...]:
+    return (rel.get("left_ref"), rel.get("right_ref"), fine, rel.get("statement"), rel.get("left_quote"),
+            rel.get("right_quote"))
 
 
 def reopen(vault: LoadedVault, repository: Repository, ask_id: str, *, open_source_id: str | None = None,
@@ -604,9 +731,16 @@ def reopen(vault: LoadedVault, repository: Repository, ask_id: str, *, open_sour
         lines = [line for line in entry.get("contributions") or ()
                  if line.get("quote") in quotes.get(_key_str(_key(entry)), set())]
         sources.append({**entry, "contributions": lines})
-    pairs = {(rel.get("left_ref"), rel.get("right_ref"), rel.get("fine")) for rel in kept.get("relations") or ()}
-    relations = [rel for rel in _relations(stored, {entry.get("ref") for entry in sources})
-                 if (rel.get("left_ref"), rel.get("right_ref"), rel.get("relation")) in pairs]
+    # Each kept relation exactly (endpoints, label, statement and both quotes),
+    # once each: a same-labelled relation on the same pair that failed Keep's
+    # recheck is not shown again.
+    wanted = Counter(_relation_signature(rel, rel.get("fine")) for rel in kept.get("relations") or ())
+    relations = []
+    for rel in _relations(stored, {entry.get("ref") for entry in sources}):
+        signature = _relation_signature(rel, rel.get("relation"))
+        if wanted[signature] > 0:
+            wanted[signature] -= 1
+            relations.append(rel)
     payload = {"status": "ok", "comparison_id": stored["id"], "sources": sources, "relations": relations,
                "manifest": {}, "also_discussed_in": [], "unverified_sources": [], "dropped_pins": [],
                "dropped_lines": []}
@@ -636,31 +770,55 @@ def compared_on(repository: Repository, keys: Sequence[str]) -> list[dict[str, A
     return found
 
 
+def _episodes(row: Mapping[str, Any]) -> list[tuple[dict[str, Any], str, str | None]]:
+    """Each keep of an ask: (the keep, kept_at, removed_at or None while live)."""
+
+    kept = row.get("kept") or {}
+    episodes = [(dict(entry["kept"]), str(entry.get("kept_at") or entry["kept"].get("kept_at")),
+                 str(entry["removed_at"])) for entry in kept.get("removed") or ()
+                if isinstance(entry.get("kept"), Mapping) and entry.get("removed_at")
+                and (entry.get("kept_at") or entry["kept"].get("kept_at"))]
+    if row.get("kept_at"):
+        episodes.append((dict(kept), str(row["kept_at"]), None))
+    return episodes
+
+
 def kept_comparisons_for_card(repository: Repository, *, learning_object_ids: Sequence[str],
                               as_of: str | None = None) -> list[dict[str, Any]]:
     """Kept comparisons on these LOs (for RW6b's ``reader_activity_for_card``,
     spec §9.4): a pure, deterministic read of ``library_asks.kept_json``,
-    typed, with no prose and no quotes. Nothing in it is evidence (W1)."""
+    typed, with no prose and no quotes. Nothing in it is evidence (W1).
+
+    ``as_of`` reads the card as it was then: the keeps live at that time
+    (kept by then, not removed by then, from the removal history's snapshots)
+    and only the takes written by then. Without it, the keeps live now."""
 
     wanted = set(learning_object_ids)
     cutoff = parse_utc(as_of) if as_of else None
+
+    def by_then(value: Any) -> bool:
+        when = parse_utc(str(value)) if value else None
+        return cutoff is None or (when is not None and when <= cutoff)
+
     entries = []
-    for row in _live(repository):
-        kept = row["kept"] or {}
-        los = [lo for lo in kept.get("learning_object_ids") or () if lo in wanted]
-        kept_at = parse_utc(row["kept_at"])
-        if not los or (cutoff is not None and kept_at is not None and kept_at > cutoff):
-            continue
-        entries.append({
-            "kind": "kept_comparison", "ask_id": row["id"], "kept_at": row["kept_at"], "caller": row["caller"],
-            "learning_object_ids": los,
-            "sources": [{"source_id": obj.get("source_id"), "key": obj["key"], "object_type": obj["object_type"],
-                         "source_object_id": obj["id"]} for obj in kept.get("objects") or ()],
-            "relations": [{"relation_type": rel["relation_type"], "fine": rel["fine"], "relation_id": rel["id"]}
-                          for rel in kept.get("relations") or ()],
-            "takes": len(kept.get("takes") or ()),
-            "status": "proposed",
-        })
+    for row in _with_keeps(repository):
+        for kept, kept_at, removed_at in _episodes(row):
+            live = removed_at is None if cutoff is None else (
+                by_then(kept_at) and (removed_at is None or not by_then(removed_at)))
+            los = [lo for lo in kept.get("learning_object_ids") or () if lo in wanted]
+            if not los or not live:
+                continue
+            entries.append({
+                "kind": "kept_comparison", "ask_id": row["id"], "kept_at": kept_at,
+                "caller": kept.get("caller") or row["caller"],
+                "learning_object_ids": los,
+                "sources": [{"source_id": obj.get("source_id"), "key": obj["key"], "object_type": obj["object_type"],
+                             "source_object_id": obj["id"]} for obj in kept.get("objects") or ()],
+                "relations": [{"relation_type": rel["relation_type"], "fine": rel["fine"], "relation_id": rel["id"]}
+                              for rel in kept.get("relations") or ()],
+                "takes": sum(1 for take in kept.get("takes") or () if by_then(take.get("created_at"))),
+                "status": "proposed",
+            })
     entries.sort(key=lambda entry: (entry["kept_at"], entry["ask_id"]))
     return entries
 
@@ -681,8 +839,11 @@ __all__ = [
     "kept_comparisons_for_card",
     "kept_marks",
     "kept_state",
+    "relation_head",
+    "relation_lineage",
     "remove",
     "reopen",
+    "take_key",
     "tutor_comparison",
     "tutor_keep_enabled",
 ]
