@@ -439,3 +439,250 @@ anchor; re-entry's order through the chooser; reading by the source's intent; de
 goals scoped by facets, recoverable and serialized; the headline's population by
 intent). F2 (an `intent_v1` successor) rejected under the standing live-change ruling,
 an open question there. Where this file's claims above differ, that file is current.
+
+## Landing onto main
+
+Landed in the `learnanything-merge2` worktree on branch `merge/dl2-onto-main`, cut from main at `3988cf778` (the
+RW4b landing, migration head 213; RW1c and RW4b landed after DL2 branched from `fab576ac1`). The stage tip is
+`0dfe9f5bc`, unchanged. The orchestrator's last verify (Codex job `20261020-154253-UY2KgG` on `0dfe9f5bc`) left one
+Medium, F23, ruled non-blocking (open items below). Main was neither fast-forwarded nor pushed here.
+
+### Commits and conflicts
+
+- `8bb003dae`: a `--no-ff` merge of `daily-loop/dl2` onto `3988cf778`. One source conflict:
+  - `config/template.py`: RW1c's, RW4b's and DL2's notes kept on every defaults snapshot (DL2's `[intent]` /
+    `[capture]` note under mvp-0.9's, a one-line pointer on the others), DL2's `mvp-0.29` entry added, and all
+    **20** snapshots (mvp-0.9 … mvp-0.27, mvp-0.29) recomputed from the composed defaults.
+  - 399 generated reference notes took main's side and were regenerated afterwards.
+  - Auto-merged without conflict, then read: `daily_plan/engine.py` (RW4b's keyed `learner_pick` with `within=`,
+    the strict presentation write, `pick_keyed`, `picked_under` and `_pick_new_block` sit beside DL2's
+    `_select_checks`, the `CheckGate` call path and `checks_unplanned`; DL2 never touched `learner_pick`, and RW4b
+    never touched the pool, admission or reconcile), `scheduling/scheduler.py`, `PracticeScreen.tsx`, `dto.ts`,
+    `client.ts`, `config/schema.py`, `params/parameter_registry.py`, the sidecar handler registry, the RPC pins
+    (`test_mobile_allowlist.py`, the desktop contract), `commands.rs` / `main.rs` and the CLI help snapshot.
+  - Comments only, in the merge commit: `algorithm_versions.py`, `intent_upgrade.py` and the template's mvp-0.29
+    note now say DL2 landed first with predecessor mvp-0.27, so mvp-0.28 is never used on main and AD2+AD3 lands as
+    mvp-0.30 (they said the landing would chain mvp-0.29 after mvp-0.28).
+- `406510934`: the references regenerated on the merged tree.
+- `51802ebbb`: the interaction test (below).
+- This record.
+
+**A keyed learner pick of an item with a "Check once".** No test covered it, so
+`tests/test_dl2_rw4b_keyed_pick_check.py` (3 tests) pins it on the merged tree:
+- a keyed pick (`idempotency_key`, `within`) of a **planned due check** serves the check's own planned block (no
+  second learner-pick block), writes one `pick_keyed` receipt, runs `within` once, keeps the served view the check
+  on your own (`cold`), returns the same presentation on retry and writes nothing, and its answer on your own
+  satisfies the check;
+- a keyed pick of a **due check the plan does not hold** (a dated Reader check created after the plan was built)
+  is the learner's one-item block, and its answer satisfies the check too;
+- a keyed pick of an item a **waiting check holds** is still the learner's own pick (L3), and its attempt before the
+  date answers nothing (`one_check_pending`).
+
+All three pass on the merge commit: the two stages compose with no code change.
+
+### The successor chain
+
+Kept exactly as built: `INTENT_ALGORITHM_VERSION = "mvp-0.29"`, appended to `SUCCESSOR_CHAIN` after
+`ELIGIBILITY_DECISION_ALGORITHM_VERSION` (mvp-0.27); `LATEST_ALGORITHM_VERSION` = mvp-0.29; `INTENT_VERSIONS`
+= `successors_from("mvp-0.29")`; `intent_upgrade.PREDECESSOR` = mvp-0.27 with `upgrade_to_mvp027` chained and
+`_CHAINED_PREDECESSORS` = mvp-0.9 … mvp-0.26; the CLI's `upgrade --to mvp-0.29` branch and its "expected" list;
+the projection namespace stays mvp-0.8's (every chain tag inherits it). On the merged tree the 59 files that pin
+the chain, the snapshots, an upgrade or the RPC/CLI contracts (`fixtures-local/tmp/dl2-landing-pins.txt`: every test
+naming `SUCCESSOR_CHAIN`, `LATEST_ALGORITHM_VERSION`, `DEFAULTS_SNAPSHOT_BY_ALGORITHM`, `upgrade_to_mvp0*`,
+`INTENT_ALGORITHM_VERSION` or `mvp-0.29`, plus the contract pins) ran **1,205 passed** before the full suite.
+Upgrades run on copies: `--to mvp-0.29` from mvp-0.27, the owner's chain from mvp-0.8 (`--to mvp-0.9`, `--to
+mvp-0.27`, `--to mvp-0.29`) and the chained form from mvp-0.9 (`--to mvp-0.29` directly) all succeed (parity (b)).
+
+### Regeneration
+
+- **References.** `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**, `schema_head` 213,
+  333 table notes, **929** configuration leaves in **66** sections (DL2's `[intent]` and `[capture]` on RW4b's
+  921 / 64). The two prose counts in `Configuration.md` and `Database.md` were moved by hand; the rest is commit
+  labels, DL2's tests in the table notes and the two new field notes (403 files).
+- **Defaults snapshots.** With the template's `.pyc` cleared, all **20** `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries
+  (mvp-0.9 … mvp-0.27 and mvp-0.29) match `defaults_fingerprint_for_version`. Recomputed in the merge commit.
+- **CLI help snapshot, RPC pins** (serializer snapshot, desktop RPC contract, mobile allowlist, sidecar registry):
+  passed in the pin run above; no file needed rewriting. DL2's RPCs (`get_intent`, `set_intent`,
+  `set_intent_deadline`) and the two extended reads stay desktop-only, as its review pinned them.
+- **`validate_vault.py`**: passes (1,133 notes, 1,131/1,131 reachable).
+- **Known failures from before this stage, not fixed:** `desktop_validate.py` still stops on
+  `components/pdfSelection/testing/syntheticBook.ts`; `module_validate.py` reports **948** issues (914 at the RW4b
+  landing: DL2 adds modules without module notes, such as `learnloop/intent/` and `scheduling/intent/`).
+
+### Gate
+
+Python 3.12.14. `TMPDIR` was merge2's `fixtures-local/tmp`; every command after the install ran as `uv run
+--no-sync`. Both suite lanes ran under `flock /tmp/learnloop-fullsuite.lock` on `51802ebbb` (the gate head; this
+record changes docs only). The AD2+AD3, RW3b and RW4d worktrees and their processes were not touched. Every test
+uses fakes. **This is the first full run over DL2's code**: the stage and its 7 fix rounds ran targeted tests only.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `lint-imports --no-cache` | **28 kept**, 0 broken |
+| full suite `pytest -n auto` | **14,783 passed, 2 xfailed, 0 failed** (24 min 9 s; `fixtures-local/dl2-landing-fullsuite.log`). RW4b's landing ran 14,486 |
+| `pytest -m durability` | **113 passed**, 14,672 deselected (3 min 49 s; `fixtures-local/dl2-landing-durability.log`) |
+| `npm install`, `npm run typecheck` | up to date; clean |
+| `npm test` (the whole vitest run) | **154 files, 1,206 tests passed** on the first run. The `FeedbackScreen` flake did not fire |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | ok. DL2 added three passthroughs to `commands.rs` / `main.rs` (10 lines) |
+| thread, lock and timing tests | all passed on the first run, so none was rerun. The `"8841"` MCP flake and `test_voi_v2` did not fire |
+| tracked fixtures, worktree | `git status` clean after both lanes and the frontend run; no non-empty `-wal` beside a fixture |
+
+No failure, so no landing fix.
+
+### Parity (backup-API copies; no model call completed)
+
+**Setup** (as at the RW4b landing; scripts in `fixtures-local/landing-dl2/scripts/`):
+- **Copies.** `fixtures/linear_algebra` and `fixtures/probability` were copied once, with `copy_tree_with_databases`,
+  from the main checkout into `fixtures-local/landing-dl2/orig/`. Every other copy came from `orig/` or its upgraded
+  copies through the same helper. `arxiv_v2` was not opened. Both vaults start at schema 165, label `mvp-0.8`.
+- **Code.** Main's code is `git archive 3988cf778`; the merge's is `git archive 51802ebbb`.
+- **Environment.** Every run went through `env -i` with only `PATH`, `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`,
+  `TMPDIR` and `LANG` (empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`).
+- **Routes.** `neutralize3.py`, under each code, sent all 55 routes to `127.0.0.1:9` (the reader, tutor, sources,
+  hint, workbench, AD and Decider routes included); `query_rewrite`, `tutor_query_rewrite`, `tutor_rerank`, `dense`,
+  `[embedding]` and `[learner_text_gaps]` off; `build_on_serve` and outcome placement off. `routes.py` resolved all
+  58 `AITask`s on both codes: nothing outside the two loopback profiles except `embedding`, disabled and keyless.
+
+**(a) Below the successor**
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| open (migrate), main's code / the merge's | 165 → 213 (48) / the same | the same |
+| schema, main@213 vs merge@213 | **identical**: 1,414 objects, none on one side only, no SQL differs | **identical** (1,413) |
+| rows of every table (338), all columns | **identical** (16,539 rows); `schema_migrations` differs only in `applied_at` | **identical** (7,637 rows; the same) |
+| `foreign_key_check` / `integrity_check` | 0 / ok, both sides | the same |
+| `rebuild --shadow --json` | **0 differences** after normalisation (facet 0, mastery 2, schedule 8); live database unchanged on both | **0 differences** (0 / 1 / 1) |
+| `doctor --json` | **0 differences** after normalisation (57 issues, 1 error) | **0 differences** (101 issues, 48 errors) |
+| at `mvp-0.8`: certification, recipe gaps, curves; the Today queue at a frozen clock (no session, a session, greedy); the daily plan | **byte-identical** (cert 132,860 bytes; queue 41; the plan is off below mvp-0.14) | **byte-identical** (cert 17,494; queue 67) |
+| upgraded by main's code to `mvp-0.27` (`--to mvp-0.9`, `--to mvp-0.27`, `rebuild-derived-state` twice; all rc 0), opened by each code: certification and curves, Today queue | **byte-identical** (129,651 bytes; queue 43) | **byte-identical** (17,495; queue 67) |
+| the daily plan at `mvp-0.27` (frozen clock: read, serve, serve again, read) | identical except `router_decisions.card_hash`, `snapshot_hash` and the card hash inside `detail_json`; a second run of main's code differs from the first in exactly these three | the same |
+
+**(b) The upgrade to mvp-0.29** (the merge's code)
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| `upgrade --to mvp-0.29` on main's mvp-0.27 copy | rc 0, "mvp-0.27 -> mvp-0.29", label `mvp-0.29` | the same |
+| rows vs the mvp-0.27 source | every table present on both, no SQL differs; **no row removed** from any table. Changed: `facet_capability_evidence` (36) and `facet_recall_state` (76), DERIVED, identical except the `algorithm_version` stamp; `parameter_registry` + 6 rows (`capture.test_me_later_days` and the five `intent.recall_targets.*`), `parameter_registry_manifests` + 1, `derived_state_rebuilds` + 1 | the same (1 and 2 derived rows; the same 6 + 1 + 1) |
+| `rebuild --shadow` right after the upgrade | facet 0, **mastery 21**, schedule 0: all 21 are the `algorithm_version` stamp of `mastery_state` rows (mvp-0.27 → mvp-0.29), no value differs; live database unchanged | facet 0, mastery 18 (stamp only), schedule 0 |
+| the owner's chain from mvp-0.8 (`--to mvp-0.9`, `--to mvp-0.27`, `--to mvp-0.29`, `rebuild-derived-state` twice) | all rc 0; `rebuild --shadow` **0 / 0 / 0** | the same |
+| the chained form (`--to mvp-0.9`, then `--to mvp-0.29` straight from mvp-0.9; `rebuild-derived-state` twice) | rc 0 ("mvp-0.9 -> mvp-0.29"); shadow **0 / 0 / 0** | the same |
+| at the frozen clock, no commitments, mvp-0.29 vs mvp-0.27 (same code): Today queue | **byte-identical** (528,665 bytes) | **byte-identical** (741,269) |
+| certification and curves | identical except the `label` (the version) | the same |
+| the daily plan | identical except `plan.algorithmVersion` (4 responses) and `router_decisions.algorithm_version`, plus the three card-hash fields that differ between any two runs | the same |
+
+**(c) Intent at mvp-0.29 through the real sidecar** (stdio; `SystemClock` read from a file the driver moves;
+`intent_run.py`) on a copy of probability at mvp-0.29. The same RPC sequence ran on the mvp-0.27 copy (`cbase`) and on
+mvp-0.29 with `[intent] enabled = false` (`dioff`).
+
+| Step | Result at mvp-0.29 |
+|---|---|
+| `get_intent` on `pi_prob_derive_complement` (X) | enabled, "No setting", eight choices with consequences and costs ("Check once": "one check on your own in 7 days … about 4 min") |
+| `set_intent` X **Check once**; Y (the queue's head, `pi_three_independent_birthd`) **Let go** | both applied. Tables written: `commitments`, `commitment_versions`, `commitment_target_versions`, `commitment_events`, `depth_policy_versions`, `depth_envelope_versions` (the commitments API) and `queue_state` (WORKFLOW, the queue revision). **No** `practice_item_state`, mastery, facet, evidence or projection table moved |
+| the queue and plan right after | queue 67 → 65: X (waiting) and Y gone; today's plan, built before the choices, displaced Y (`item_displaced`, `intent_stopped`) |
+| `set_intent` Learn on `lo_construct_a_combinatorial_proof_of_an_identity`, `set_intent_deadline` 2026-12-01 | a learner goal `goal_intent_…` in `profile/goals.yaml`, `target_recall` **0.90**, due 2026-12-01T23:59:59Z |
+| `set_intent` Master, then `set_intent_deadline` 2026-12-15 (the move) | the same goal, due **2026-12-15**, `target_recall` **0.92**. The move wrote no table (the link stands; `queue_state` only). Its title still reads "(Learn) by 2026-12-01" (accepted Low) |
+| clock + 8 days: `start_session`, `get_today_queue`, `get_daily_plan` | X is back in the queue; the plan holds it as a **planned check**: `check_once` in the maintain lane ("your one delayed check"), `checks` = [X], `checks_unplanned` = []; Y absent |
+| `get_practice_item` X (session serve) | `intentCheck`: the cold banner, `cold: true`, the help-ladder header, `locatorsHidden: true`, date source `test_me_later_days` |
+| `submit_attempt` X on your own (manual grade 4/4, `hintsUsed` 0), acknowledge, `get_feedback` | feedback carries `intentCheck` (no restoration: no provenance); 5 minutes later the next queue build settles it: `disposition_changed` → **satisfied**, `administration_id` = the attempt |
+| clock + 30 days | Y never in the queue or any plan (Let go is stopped); X, answered, no longer served by intent; `next_plan_item` serves nothing |
+| the check's attempt vs `cbase` and `dioff` (the same submission at the same instant) | **identical** evidence fields: `open_text`, `hints_used` 0, `primed` 0, correctness 1.0, rubric 4, `evidence_origin` human, `desktop_practice`, the same facets and weights, FSRS-eligible activity, 0 reveal rows; the resulting `practice_item_state` (stability 8.2956, difficulty 1.0, due 2026-11-06T01:50:39Z) identical |
+| `cbase` and `dioff` | `get_intent` answers `enabled: false`; every `set_intent` / `set_intent_deadline` refuses ("Intent settings are off … need algorithm version mvp-0.29 or later and intent.enabled = true") and writes nothing; the queue stays 67 at every step; Y is served at +30 days |
+
+**(d) The kill switch.** `[intent] enabled = false` at mvp-0.29, against (b)'s no-commitment mvp-0.29 reads: the
+Today queue and certification **byte-identical** on both vaults; the daily plan identical except the three
+card-hash fields that differ between any two runs. Through the sidecar (`dioff` above) it behaves as `cbase`.
+
+**`model_call_receipts`**: 0 rows in all 33 learner databases under `landing-dl2/` that carry the table (every
+copy, run and base); none `completed`. The other 18 `state.sqlite` files are probability's empty
+`.learnloop/state.sqlite`, which have no such table.
+
+### New findings
+
+1. **No composition failure.** RW4b's keyed pick and DL2's checks compose as built; the new test pins it.
+2. **`upgrade --to mvp-0.29` leaves `mastery_state` stamped with the old version until a derived-state rebuild.**
+   A shadow rebuild right after the upgrade reports one mastery "change" per LO, and every one is the
+   `algorithm_version` stamp; no value differs, and `rebuild-derived-state` clears it (shadow 0 / 0 / 0). The
+   upgrade's body is `upgrade_to_mvp027`'s (`activate_p0_projection`), so this is the predecessor's behaviour;
+   the owner commands below include the rebuild, as the earlier landings' upgrade method did. Low.
+3. **The control's "current" keeps the choice after a check is answered** (`get_intent` still says "Check once";
+   the disposition is `satisfied`). That is the spec's label for the setting; the check view itself is gone.
+   Display only.
+4. **Moving a deadline writes no table** when the depth's link already stands: the goal file is rewritten
+   (due and `target_recall`), and the queue revision bumps.
+
+### For the owner
+
+- **The successor mvp-0.29.** Back up the vault, close the app, the MCP server and the mobile host, then upgrade.
+  Your vaults are at mvp-0.8, so run the chain:
+
+  ```bash
+  uv run learnloop upgrade --vault "$VAULT" --to mvp-0.9
+  uv run learnloop upgrade --vault "$VAULT" --to mvp-0.27
+  uv run learnloop upgrade --vault "$VAULT" --to mvp-0.29
+  uv run learnloop rebuild-derived-state --vault "$VAULT"   # restamps mastery rows (finding 2)
+  uv run learnloop rebuild --shadow --json --vault "$VAULT" # expect 0 / 0 / 0
+  ```
+
+  (`--to mvp-0.29` straight from mvp-0.9 also works: it runs the mvp-0.27 step first.)
+- **mvp-0.28 is skipped on main.** DL2 landed before adaptive difficulty AD2+AD3, which will land as **mvp-0.30**
+  with mvp-0.29 as its predecessor. The tag mvp-0.28 is never used on main.
+- **What you see.**
+  - An intent control (Master, Learn, Keep, Light touch, Check once; Reference, Pause, Let go) in the inspector for a
+    topic and for an item, for the whole subject (from a topic: "set for all of …") and on a book card's details.
+    Hovering or focusing a choice shows what it replaces and its cost ("about N min/day of reviews") before you
+    take it. With Learn or Master chosen you can add or move a deadline (a goal; not remove one yet).
+  - **Check once**: the item leaves your reviews and comes back once, after 7 days (`[capture]
+    test_me_later_days`, or a Reader check's own date), as a check on your own: a cold banner, the book named but no
+    exercise number, page or section until feedback, and help that is never blocked but turns the attempt into
+    practice with help. The plan puts due checks first in its minutes; one it cannot fit is recorded with its
+    reason. When a check came from the Reader with a place to return to, feedback offers "Back to where you
+    studied this" (RW6b's follow-ups will carry it).
+  - Pause, Reference and Let go keep an item out of everything served; Light touch and Keep add no new material;
+    Learn and Master pull material forward before it is due; reviews follow each choice's recall target.
+  - With no setting anywhere, nothing changes (parity (b)).
+- **The kill switches.** `[intent] enabled = false`: serving and the plan as at mvp-0.27, the control answers
+  "off" (parity (d)). `[intent] recall_targets_enabled = false`: exclusion, checks and push stay, every item is
+  reviewed at its stored due. Rolling the version back is restore-only.
+- **The Q8 target table** (`[intent.recall_targets]`, accepted 2026-10-12):
+
+  | Choice | Key | Target |
+  |---|---|---|
+  | Light touch | `keep_in_touch` | 0.80 |
+  | Keep | `remember_key_ideas` | 0.85 |
+  | Learn | `work_fluently` | 0.90 |
+  | Master | `master_tasks_like_these` | 0.92 |
+  | no setting | `uncommitted` | 0.90 |
+
+### Open questions (defaults in force)
+
+1. **Q8, the target table** above: kept as accepted.
+2. **`intent.enabled` on by default** (with no setting it is the predecessor's behaviour): **on**.
+3. **A Reader "test me later" on an item is a "Check once"** (one check after the delay, then nothing until a later
+   choice): **yes**.
+4. **"Let go" is the `stopped` disposition** (history kept, reversible by a later choice), not `retire`: **yes**.
+5. **Removing a deadline**: **not offered** (move only).
+6. **Where the control lives**: the inspector (topic, item), the subject from a topic, the book card's details;
+   **not** on Today's plan items or the knowledge map yet.
+
+The Codex rounds' own open questions (a hold that lapses between serve and submit: read at submission; the probe
+contract carrying the diagnostic variant) keep their defaults, as recorded in `daily-loop-dl2-codex-review.md`.
+
+### Open items
+
+- **F23 (Medium, ruled non-blocking by the orchestrator).** A storage error in the shared serving-exclusion reads
+  aborts the whole plan build before the check gate runs. That is the predecessor's existing fail-closed, visible
+  behaviour, and nothing unchecked is admitted.
+- **Accepted Lows:**
+  - requests (L3) are placed without the frame's verdict (R2a's design);
+  - a deadline goal's title keeps its creation depth label (seen in parity (c): "(Learn) by 2026-12-01" after
+    Master and a move);
+  - a reserved candidate served in its own assessment flow shows as the check;
+  - the check gate's snapshot covers only the check candidates;
+  - the practice-item serve can't see an active diagnostic before the probe contract arrives;
+  - a limited session queue may postpone a check.
+- **Finding 2** (the mastery stamp until a derived-state rebuild after the upgrade; Low).
+- **Friction notes for RW6b and RW7a** stand as written above (follow-ups as dated `test_me_later` commitments with
+  provenance; RW7a's depth choice through `set_intent` on the source scope).
+- **From before this stage:** `desktop_validate.py` (`syntheticBook.ts`) and `module_validate.py` (948 issues).
