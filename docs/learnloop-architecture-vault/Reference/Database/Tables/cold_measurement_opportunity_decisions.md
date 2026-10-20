@@ -3,8 +3,8 @@ title: "cold_measurement_opportunity_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "462f02eaf8f6af6eb47ce6b7a895e21b04be309a"
-source_commit_timestamp: "2026-10-19T23:41:22-04:00"
+source_commit: "bbb0b05d3dd52d68483ae0c00268682853ab430e"
+source_commit_timestamp: "2026-10-20T00:00:27-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite cold_measurement_opportunity_decisions"
@@ -119,6 +119,7 @@ None found by exact static reference scan.
 - `tests/test_diagnostic_probe_freshness.py`
 - `tests/test_followup_diagnostic_selection.py`
 - `tests/test_instrument_servability_journeys.py`
+- `tests/test_intent_codex_review.py`
 - `tests/test_item_authoring.py`
 - `tests/test_practice_index_admission.py`
 - `tests/test_quick_check.py`

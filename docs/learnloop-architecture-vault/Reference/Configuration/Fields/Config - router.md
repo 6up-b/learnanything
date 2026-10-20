@@ -3,8 +3,8 @@ title: "Config - router"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "462f02eaf8f6af6eb47ce6b7a895e21b04be309a"
-source_commit_timestamp: "2026-10-19T23:41:22-04:00"
+source_commit: "bbb0b05d3dd52d68483ae0c00268682853ab430e"
+source_commit_timestamp: "2026-10-20T00:00:27-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml router"
@@ -58,7 +58,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
 | `router.log_decisions` | `true` | boolean | modeled default or validator seed | Writes one router_decisions row per Today offer, staged P2 decision, learner pick and daily-plan block decision; not a serving change, acts at every version. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3023` |
-| `router.probe_tie_admission` | `true` | boolean | modeled default or validator seed | Kill switch for router R1's mvp-0.15 successor: probe near-ties, teach-back items included, join the Today queue's seeded exploration; off serves exactly as mvp-0.14. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3024`; `src/learnloop/scheduling/scheduler.py:1176` |
+| `router.probe_tie_admission` | `true` | boolean | modeled default or validator seed | Kill switch for router R1's mvp-0.15 successor: probe near-ties, teach-back items included, join the Today queue's seeded exploration; off serves exactly as mvp-0.14. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3024`; `src/learnloop/scheduling/scheduler.py:1188` |
 | `router.enabled` | `true` | boolean | modeled default or validator seed | Turns router behavior on or off within action router R1: decision logging on today's serving paths and the mvp-0.15 probe-tie admission kill switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3025`; `src/learnloop/daily_plan/policy.py:43` |
 | `router.mode` | `"mixture"` | string | modeled default or validator seed | Controls mode in action router R1: decision logging on today's serving paths and the mvp-0.15 probe-tie admission kill switch, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3026`; `src/learnloop/daily_plan/policy.py:63` |
 | `router.card_token_budget` | `16000` | integer | modeled default or validator seed | Controls card token budget in action router R1: decision logging on today's serving paths and the mvp-0.15 probe-tie admission kill switch, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3027`; `src/learnloop/daily_plan/router_card.py:163` |
