@@ -336,3 +336,32 @@ Switches in the copy's `learnloop.toml` `[cues]`: `discovery_enabled = false`
   propensities) and the `passage_cue` learner-card verdicts are the cue's
   outcome inputs; the report's `cues.discovered.holdout` is the first
   estimate. `targets_key` is a cheap "did the open questions change" signal.
+
+## 7. Gate (this step; targeted per the owner rule of 2026-10-17)
+
+Run in the worktree with `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock`
+was not taken; no full suite, whole durability lane or whole vitest run.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | **28 kept, 0 broken** |
+| targeted `pytest -n 8` over 105 files (`fixtures-local/rw3b-scripts/affected.txt`: every new and changed test file, every file naming the head fixture, and every file that greps for the touched modules: `reader_cues`, `guide_plan`, `reader_report`, routing, disclosures, the parameter registry, `table_roles`, the defaults snapshots, the CLI help, `search_spans`, `judge_listwise`, plus `test_mobile_allowlist`, `test_architecture`, `test_table_roles`, `test_tracked_fixture_databases`, `test_coordinated_migrations`, `test_registry_audit`, `test_config_refactor`, `test_sidecar_reader`, `test_cli_help_snapshot`) | first run **2,074 passed, 40 failed**: all 40 were the defaults-snapshot pins reading a stale template `.pyc`; with it cleared, the 21 files holding them: **408 passed** |
+| `pytest tests/test_desktop_rpc_contract.py` | **4 passed** |
+| `pytest -m durability` on the migration and fixture files (`test_reader_rw3b_migration`, `test_ad1_migration`, `test_library_asks_migration`, `test_approach_maps_schema`, `test_help_assists_schema`, `test_migrations`, `test_coordinated_migrations`, `test_tracked_fixture_databases`) | **7 passed** |
+| `pytest --durable-sqlite` on the eight RW3b behaviour files | **51 passed** |
+| `npm run typecheck` | clean |
+| `npx vitest run` over `src/screens/ReaderScreen*`, `src/screens/reader/`, `PdfReaderPane.marks.test.tsx`, `readerCheck.test.ts` (57 files) | **416 passed** (the switch-off snapshots unchanged) |
+| `npm run frontend:build` | built (the usual chunk-size notice) |
+| `cargo check` | finished |
+| `db_generate_reference.py`, `db_validate_reference.py`, `validate_vault.py` | head 215, 335 table notes, 926 leaves; errors []; passed (1,132 notes, all reachable) |
+| CLI help snapshot | rewritten (`learnloop reader cues discover`) |
+
+**Model calls in this stage: none** (no paid or live call, no smoke run on a
+vault copy; every judge is `tests/passage_cue_fakes.CueJudgeFake`).
+**Safety:** the tracked working vaults were not opened; no credential file
+was read. One stray helper left in `fixtures-local/tmp` by an earlier stage
+(`copy.py`) was imported by accident when a script ran from that directory;
+its guard found its backup-API copy already present (dated 2026-10-18), so it
+copied nothing. Later scripts ran isolated (`python -I`) from
+`fixtures-local/rw3b-scripts/`.
