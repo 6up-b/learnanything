@@ -17,7 +17,7 @@
 // chords itself, so none clash (Ctrl+K stays free for RW2b's check).
 // Nothing a save, a poll or a result does moves focus or opens a dialog.
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import type { WorkbenchSessionDto, WorkbenchSubmitDto } from "../../api/dto";
+import type { PassageTarget, WorkbenchSessionDto, WorkbenchSubmitDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { ItemPresentation } from "../../components/ItemPresentation";
 import { LiveMarkdownEditor, type LiveMarkdownKeyInfo } from "../../render/LiveMarkdownEditor";
@@ -69,7 +69,9 @@ export interface WorkbenchProps {
   /** The practice card already shows the item's own presentation above. */
   hideProblem?: boolean;
   /** RW2b: peek a passage of the book ("compare with the book"). */
-  onPeekPassage?: (spanId: string) => void;
+  /** ``target``: where the passage is, when the workbench knows (RW2c review
+   *  F1: a worked example may be in another book). */
+  onPeekPassage?: (spanId: string, target?: PassageTarget) => void;
   onError: (message: string) => void;
 }
 
@@ -183,9 +185,10 @@ export function Workbench(props: WorkbenchProps) {
     if (canHelp && waypoint) void help.smallerStep(waypoint);
   }
 
-  function peek(spanId: string) {
+  function peek(spanId: string, target?: PassageTarget) {
     if (fromBook && open && !session.sourceVisible) void wb.setBook(true);
-    props.onPeekPassage?.(spanId);
+    if (target) props.onPeekPassage?.(spanId, target);
+    else props.onPeekPassage?.(spanId);
   }
 
   function requestFocus(key: string) {

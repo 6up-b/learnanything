@@ -330,6 +330,11 @@ def _epoch_held_as_of(
     return True
 
 
+#: The as-of hold for readers outside this module that replay a grade at a
+#: cutoff the same way (Reader RW2c's ``help_outcomes``, its review F6).
+epoch_held_as_of = _epoch_held_as_of
+
+
 def _contract_unrecorded(repository: Repository) -> frozenset[str]:
     from learnloop.held_grades import contract_unrecorded_attempts
 

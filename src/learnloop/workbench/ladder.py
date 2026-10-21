@@ -326,6 +326,9 @@ def bridge_view(row: Mapping[str, Any]) -> dict[str, Any]:
     # RW2c: "another passage" only on a row that logged a draw (absent otherwise).
     return {"assist_id": row["id"], "line": row.get("body_md") or "", "span_id": placement.get("span_id"),
             "extraction_id": placement.get("extraction_id"), "label": placement.get("label"),
+            # RW2c review F1: the book a picked passage is in, only when known
+            # (an RW2b bridge's view is exactly as before).
+            **({"source_id": placement["source_id"]} if placement.get("source_id") else {}),
             **alternatives_view(row)}
 
 

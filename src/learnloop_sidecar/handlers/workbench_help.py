@@ -437,6 +437,13 @@ def _payload(ctx: SidecarContext, job_id: str) -> dict[str, Any]:
         if meta.kind == EXAMPLE and not job.delivered and not bool(_vault.config.workbench.examples_enabled):
             # RW2c: the example's switch went off while it searched (F13's rule).
             job.cancelled = True
+        if meta.kind == COMPARE and not job.delivered:
+            # RW2c review F8: compare methods' switch went off while its lines
+            # were written: nothing is delivered (F13's rule).
+            from learnloop.workbench.compare_methods import compare_enabled
+
+            if not compare_enabled(_vault):
+                job.cancelled = True
         if job.cancelled and not job.delivered:
             return versioned({**base, "state": "cancelled", "result": None})
         if not job.done.is_set():

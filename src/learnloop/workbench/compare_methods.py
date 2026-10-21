@@ -34,6 +34,27 @@ a Reader call, not a hint, so it stays off the hint service's receipts). No
 new route. When the route cannot run, the reference is still shown with the
 reason; when the model's line names a step that does not exist, the line is
 dropped.
+
+**One reference per comparison** (Codex review F9): the row records the
+identity of the reference it showed (``reference_hash``: its kind, text and
+span ids). Reopening returns that row only while the reference is still the
+same; an edited key, or a key status that moved to (or from) the book's
+solution, opens a new comparison with its own reveal of the right kind, and
+lines are never written against a reference other than the row's.
+
+**One generation per comparison** (F7): the lines are claimed on the row
+(``lines_claim``, in a write transaction) before the model is called; a
+second worker finds the claim and calls nothing, and the lines are settled
+only by the claim's holder. A claim older than :data:`CLAIM_SECONDS` (its
+worker gone) can be taken over.
+
+**The verdict is a judgment** (F2): with the lines, in their transaction,
+one ``judgment_ledger`` row (task ``workbench_compare_methods``, the
+comparison's assist row against the attempt; the model, prompt version and
+input hash; the verdict and what validation kept and dropped, never text).
+
+**Switched off** (``workbench.compare_methods_enabled``, F8): nothing is
+generated, and the sidecar delivers no pending result.
 """
 
 from __future__ import annotations
@@ -76,6 +97,12 @@ BOOK_LABEL = "The book's solution"
 KEY_LABEL = "The item's answer key"
 VALID_ROUTE_LINE = "Your route is valid — a different method from the reference."
 SAME_ROUTE_LINE = "Your route follows the reference's method."
+#: The judgment the comparison's verdict is recorded as (F2).
+LEDGER_TASK = "workbench_compare_methods"
+#: How long a lines claim holds before another worker may take it over
+#: (the sidecar's default per-request timeout; F7).
+CLAIM_SECONDS = 960
+IN_PROGRESS_MESSAGE = "Still comparing the methods; the lines will appear here."
 
 _INSTRUCTIONS = (
     "The learner solved this problem correctly in numbered steps. Compare their route with the reference "
@@ -157,6 +184,14 @@ def reference_for(vault: Any, repository: Repository, item: Any) -> dict[str, An
     if book is not None:
         return book
     return {"kind": "item_key", "text": _key_text(item)[:REFERENCE_CHARS], "label": KEY_LABEL}
+
+
+def reference_hash(reference: Mapping[str, Any]) -> str:
+    """The identity of a reference as shown: its kind, text and span ids (F9)."""
+
+    return content_key({"kind": reference.get("kind"), "text": reference.get("text"),
+                        "extraction_id": reference.get("extraction_id"),
+                        "span_ids": list(reference.get("span_ids") or ())})
 
 
 def _exam_item(vault: Any, repository: Repository, item: Any) -> bool:
@@ -249,8 +284,13 @@ def open_comparison(vault: Any, repository: Repository, attempt_id: str, *, cloc
         existing = [row for row in assists_store.compare_rows_for(connection, session_id)
                     if json.loads(row.get("placement_json") or "{}").get("attempt_id") == attempt_id]
     reference = reference_for(vault, repository, item)
-    if existing:
-        row = existing[-1]
+    identity = reference_hash(reference)
+    # F9: the earlier comparison is reused only while its reference is the
+    # one shown now; otherwise a new comparison, with its own reveal.
+    same = [row for row in existing
+            if json.loads(row.get("placement_json") or "{}").get("reference_hash") == identity]
+    if same:
+        row = same[-1]
         placement = json.loads(row.get("placement_json") or "{}")
         return view(row, reference=reference, steps=_steps(repository, session_id),
                     reveal_id=placement.get("reveal_id"))
@@ -262,7 +302,8 @@ def open_comparison(vault: Any, repository: Repository, attempt_id: str, *, cloc
     source_kind = "source_review" if reference["kind"] == "book_solution" else "answer_display"
     reveal_id = "rv_" + new_ulid()
     placement = {"attempt_id": attempt_id, "reference_kind": reference["kind"], "reveal_id": reveal_id,
-                 "reveal_kind": source_kind, "status": "shown",
+                 "reveal_kind": source_kind, "status": "shown", "reference_hash": identity,
+                 **({"replaces_assist_id": str(existing[-1]["id"])} if existing else {}),
                  **({"span_ids": reference["span_ids"], "extraction_id": reference["extraction_id"]}
                     if reference["kind"] == "book_solution" else {})}
     row = {
@@ -339,18 +380,75 @@ def validate(output: CompareMethodsOutputV1, steps: Sequence[Mapping[str, Any]])
             "learner_route_valid": bool(output.learner_route_valid), "dropped": dropped, "label": LINES_LABEL}
 
 
-def compare_lines(vault: Any, repository: Repository, assist_id: str, *, client: Any | None = None,
-                  clock: Clock | None = None) -> dict[str, Any]:
-    """Ask for the lines and keep them on the row. Never raises for a model
-    failure: ``{status: ready | unavailable, ...}``."""
+def _placement_of(connection: Any, assist_id: str) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+    row = assists_store.assist(connection, assist_id)
+    return row, (json.loads(row.get("placement_json") or "{}") if row is not None else {})
 
+
+def _claim_live(claim: Any, now: Any) -> bool:
+    if not isinstance(claim, Mapping) or not claim.get("token"):
+        return False
+    at = parse_utc(str(claim.get("at") or ""))
+    return at is not None and now is not None and (now - at).total_seconds() < CLAIM_SECONDS
+
+
+def _claim(repository: Repository, assist_id: str, *, clock: Clock | None) -> tuple[str, Any]:
+    """Claim the lines (F7): ``("claimed", token)``, ``("ready", lines)``,
+    ``("in_progress", None)`` or ``("not_found", None)``, decided in one
+    write transaction (``BEGIN IMMEDIATE``) so two workers never both claim."""
+
+    now_iso = utc_now_iso(clock)
+    with repository.atomic():
+        connection = repository.connection()
+        row, placement = _placement_of(connection, assist_id)
+        if row is None or row.get("assist_kind") != KIND:
+            return "not_found", None
+        if placement.get("lines") is not None:
+            return "ready", placement["lines"]
+        if _claim_live(placement.get("lines_claim"), parse_utc(now_iso)):
+            return "in_progress", None
+        token = "cl_" + new_ulid()
+        assists_store.settle_compare(connection, assist_id, {"placement_json": json.dumps(
+            {**placement, "lines_claim": {"token": token, "at": now_iso}}, sort_keys=True)})
+    return "claimed", token
+
+
+def _release(repository: Repository, assist_id: str, token: str) -> None:
+    """Give a claim back (the call did not produce lines), only if still ours."""
+
+    with repository.atomic():
+        connection = repository.connection()
+        row, placement = _placement_of(connection, assist_id)
+        claim = placement.get("lines_claim") if row is not None else None
+        if isinstance(claim, Mapping) and claim.get("token") == token and placement.get("lines") is None:
+            placement.pop("lines_claim", None)
+            assists_store.settle_compare(connection, assist_id, {"placement_json": json.dumps(placement,
+                                                                                          sort_keys=True)})
+
+
+def _verdict(lines: Mapping[str, Any]) -> str:
+    if lines.get("same_method"):
+        return "same_method"
+    return "valid_other_route" if lines.get("learner_route_valid") else "route_not_valid"
+
+
+def compare_lines(vault: Any, repository: Repository, assist_id: str, *, client: Any | None = None,
+                  clock: Clock | None = None, cancelled: Any | None = None) -> dict[str, Any]:
+    """Ask for the lines and keep them on the row. Never raises for a model
+    failure: ``{status: ready | unavailable, ...}``. One generation per
+    comparison (F7), against the row's own reference (F9), never while the
+    switch is off (F8), with its verdict in ``judgment_ledger`` (F2)."""
+
+    from learnloop.db.stores.judgments import append_judgment
     from learnloop.workbench.check import CheckRoute, CheckUnavailable, daily_envelope
 
+    if not compare_enabled(vault):
+        return {"status": "unavailable", "assist_id": assist_id, "reason": "disabled",
+                "message": "Comparing methods is switched off (workbench.compare_methods_enabled)."}
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        row = assists_store.assist(connection, assist_id)
+        row, placement = _placement_of(connection, assist_id)
     if row is None or row.get("assist_kind") != KIND:
         return {"status": "unavailable", "reason": "not_found"}
-    placement = json.loads(row.get("placement_json") or "{}")
     if placement.get("lines") is not None:
         return {"status": "ready", "assist_id": assist_id, "lines": placement["lines"]}
     item = vault.practice_items.get(str(row.get("practice_item_id") or ""))
@@ -359,6 +457,23 @@ def compare_lines(vault: Any, repository: Repository, assist_id: str, *, client:
     session_id = str(row["workbench_session_id"])
     steps = _steps(repository, session_id)
     reference = reference_for(vault, repository, item)
+    if reference_hash(reference) != placement.get("reference_hash"):
+        # F9: the reference changed since this comparison was shown; its lines
+        # would describe another reference. Reopening opens a new comparison.
+        return {"status": "unavailable", "assist_id": assist_id, "reason": "reference_changed",
+                "message": "The reference changed since this comparison was opened; open it again."}
+    state, claimed = _claim(repository, assist_id, clock=clock)
+    if state == "ready":
+        return {"status": "ready", "assist_id": assist_id, "lines": claimed}
+    if state == "in_progress":
+        return {"status": "unavailable", "assist_id": assist_id, "reason": "in_progress",
+                "message": IN_PROGRESS_MESSAGE}
+    if state != "claimed":
+        return {"status": "unavailable", "reason": state}
+    token = str(claimed)
+    if cancelled is not None and cancelled():
+        _release(repository, assist_id, token)
+        return {"status": "unavailable", "assist_id": assist_id, "reason": "cancelled"}
     route = CheckRoute(vault, repository, client=client, envelope=daily_envelope(vault, repository, clock=clock),
                        workbench_session_id=session_id)
     prompt = build_prompt(item, reference, steps, request_id=assist_id)
@@ -368,31 +483,63 @@ def compare_lines(vault: Any, repository: Repository, assist_id: str, *, client:
             output = route.ask(prompt, assist_id=assist_id, result_model=CompareMethodsOutputV1,
                                prompt_version=PROMPT_VERSION)
     except CheckUnavailable as exc:
+        _release(repository, assist_id, token)
         return {"status": "unavailable", "assist_id": assist_id, "reason": exc.reason, "message": exc.message}
     except SpendLimitExceeded:
+        _release(repository, assist_id, token)
         return {"status": "unavailable", "assist_id": assist_id, "reason": "capped",
                 "message": "Today's workbench budget is used; the reference is still shown."}
     except Exception as exc:  # noqa: BLE001 - the reference is already on screen
         from learnloop.ai.errors import AIInterrupted
 
+        _release(repository, assist_id, token)
         if isinstance(exc, AIInterrupted):
             raise
         return {"status": "unavailable", "assist_id": assist_id, "reason": "compare_failed",
                 "message": "Couldn't compare the methods just now; the reference is shown."}
     lines = validate(output, steps)
     body = "\n".join(f"- {entry['line']}" for entry in lines["differences"])
+    input_hash = content_key(prompt)
     with repository.atomic():
-        assists_store.settle_compare(repository.connection(), assist_id, {
+        connection = repository.connection()
+        _row_now, current = _placement_of(connection, assist_id)
+        claim = current.get("lines_claim")
+        if current.get("lines") is not None or not (isinstance(claim, Mapping) and claim.get("token") == token):
+            # Settled by the claim's holder only (F7): another worker took over
+            # a stale claim and wrote first, or is still writing.
+            if current.get("lines") is not None:
+                return {"status": "ready", "assist_id": assist_id, "lines": current["lines"]}
+            return {"status": "unavailable", "assist_id": assist_id, "reason": "in_progress",
+                    "message": IN_PROGRESS_MESSAGE}
+        settled = {key: value for key, value in current.items() if key != "lines_claim"}
+        assists_store.settle_compare(connection, assist_id, {
             "body_md": body or None,
-            "placement_json": json.dumps({**placement, "lines": lines}, sort_keys=True),
-            "model": route.model, "prompt_version": PROMPT_VERSION, "input_hash": content_key(prompt),
+            "placement_json": json.dumps({**settled, "lines": lines}, sort_keys=True),
+            "model": route.model, "prompt_version": PROMPT_VERSION, "input_hash": input_hash,
             "latency_ms": int((time.monotonic() - started) * 1000),
         })
+        # F2: the model's verdict and what validation did to it, with the
+        # lines (one transaction), never the lines' text.
+        append_judgment(
+            connection, task=LEDGER_TASK, left_kind="help_assist", left_id=assist_id,
+            right_kind="practice_attempt", right_id=str(current.get("attempt_id") or ""),
+            judge="llm", judge_model=route.model or "unknown", prompt_version=PROMPT_VERSION,
+            input_hash=input_hash, verdict=_verdict(lines),
+            rationale=json.dumps({
+                "learner_route_valid": lines["learner_route_valid"], "same_method": lines["same_method"],
+                "differences": len(lines["differences"]),
+                "kinds": sorted({entry["kind"] for entry in lines["differences"]}),
+                "dropped": lines["dropped"], "returned": len(output.differences),
+                "reference_kind": reference["kind"], "reference_hash": current.get("reference_hash"),
+            }, sort_keys=True),
+            created_at=utc_now_iso(clock))
     return {"status": "ready", "assist_id": assist_id, "lines": lines}
 
 
 __all__ = [
     "BASIS_PREFIX",
+    "CLAIM_SECONDS",
+    "LEDGER_TASK",
     "CompareMethodsOutputV1",
     "CompareRefused",
     "KIND",
@@ -404,6 +551,7 @@ __all__ = [
     "offer",
     "open_comparison",
     "reference_for",
+    "reference_hash",
     "validate",
     "view",
 ]

@@ -63,6 +63,9 @@ def option_record(passage: Mapping[str, Any]) -> dict[str, Any]:
     record = {"option_id": option_id(passage), "span_id": passage.get("span_id"),
               "extraction_id": passage.get("extraction_id"),
               "label": str(passage.get("label") or passage.get("source_title") or "a passage")[:120]}
+    if passage.get("source_id"):
+        # The book the option is in (review F1: another book opens there).
+        record["source_id"] = str(passage["source_id"])
     if passage.get("verdict"):
         record["verdict"] = str(passage["verdict"])
     if passage.get("role"):
@@ -192,7 +195,7 @@ def another_passage(repository: Any, *, workbench_session_id: str, assist_id: st
                   if key in placement}
         picked.update({"status": "picked", "draw_assist_id": placement.get("draw_assist_id") or row["id"],
                        "span_id": option.get("span_id"), "extraction_id": option.get("extraction_id"),
-                       "label": option.get("label")})
+                       "source_id": option.get("source_id"), "label": option.get("label")})
         if option.get("verdict"):
             picked["verdict"] = option["verdict"]
         new = {

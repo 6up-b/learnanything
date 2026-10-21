@@ -16,7 +16,7 @@
 // animates or opens a dialog (W12).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
-import type { WorkbenchExampleViewDto, WorkbenchHelpJobDto, WorkbenchHelpStateDto } from "../../api/dto";
+import type { PassageTarget, WorkbenchExampleViewDto, WorkbenchHelpJobDto, WorkbenchHelpStateDto } from "../../api/dto";
 import { quietLine, quietLink } from "../../components/PlainParts";
 import { MeaningLabel } from "../reader/voices";
 import { errorMessage } from "../../errors";
@@ -47,6 +47,7 @@ function viewOf(result: NonNullable<WorkbenchHelpJobDto["result"]>, hintAssistId
   if (result.status !== "ready" || !result.shown || !result.assistId || !result.line) return null;
   return {
     assistId: result.assistId, line: result.line, spanId: result.spanId ?? null, extractionId: result.extractionId ?? null,
+    ...(result.sourceId ? { sourceId: result.sourceId } : {}),
     label: result.label ?? null, verdict: result.verdict ?? null, trigger: result.trigger ?? null,
     aboutStepId: result.aboutStepId ?? null, hintAssistId,
     ...(result.alternatives ? { alternatives: result.alternatives, drawAssistId: result.assistId } : {}),
@@ -170,6 +171,7 @@ export function useRouteExamples(options: { sessionId: string; examples: boolean
       setOverrides((current) => ({
         ...current,
         [hintAssistId]: { status: "ready", line: view.line, spanId: view.spanId, extractionId: view.extractionId,
+          ...(view.sourceId ? { sourceId: view.sourceId } : {}),
           assistId: view.assistId, alternatives: view.alternatives ?? bridge.alternatives },
       }));
     } catch {
@@ -196,9 +198,15 @@ export function useRouteExamples(options: { sessionId: string; examples: boolean
   };
 }
 
+/** The example's passage, where it is: its reading and book (review F1: an
+ *  example from another book opens that book, never the one open now). */
+function targetOf(view: WorkbenchExampleViewDto): PassageTarget {
+  return { extractionId: view.extractionId ?? null, sourceId: view.sourceId ?? null };
+}
+
 function ExampleLine({ state, onPeek, onAnother }: {
   state: ExampleState;
-  onPeek?: (spanId: string) => void;
+  onPeek?: (spanId: string, target?: PassageTarget) => void;
   onAnother?: () => void;
 }) {
   if (state.status === "pending") {
@@ -211,7 +219,7 @@ function ExampleLine({ state, onPeek, onAnother }: {
   return (
     <span style={{ ...quietLine, fontSize: 11, display: "inline-flex", gap: 6, flexWrap: "wrap", alignItems: "baseline" }}>
       <button type="button" data-testid="workbench-route-example" data-verdict={view.verdict ?? undefined}
-        style={{ ...quietLink, fontSize: 11 }} onClick={() => (view.spanId && onPeek ? onPeek(view.spanId) : undefined)}>
+        style={{ ...quietLink, fontSize: 11 }} onClick={() => (view.spanId && onPeek ? onPeek(view.spanId, targetOf(view)) : undefined)}>
         {view.line}
       </button>
       {view.alternatives && onAnother ? (
@@ -229,7 +237,7 @@ export function PassageExtras({ hintAssistId, bridge, rw2c, onPeek }: {
   hintAssistId: string;
   bridge: BridgeState | undefined;
   rw2c: RouteExamples;
-  onPeek?: (spanId: string) => void;
+  onPeek?: (spanId: string, target?: PassageTarget) => void;
 }) {
   const example = rw2c.underHint[hintAssistId];
   const anotherBridge = rw2c.passageDraw && bridge?.status === "ready" && bridge.alternatives ? bridge : null;
@@ -255,7 +263,7 @@ export function ShowMeExample({ rw2c, focusedStepId, disabled, onPeek }: {
   rw2c: RouteExamples;
   focusedStepId: string | null;
   disabled: boolean;
-  onPeek?: (spanId: string) => void;
+  onPeek?: (spanId: string, target?: PassageTarget) => void;
 }) {
   if (!rw2c.available) return null;
   return (

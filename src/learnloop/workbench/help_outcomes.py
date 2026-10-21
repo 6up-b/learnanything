@@ -10,35 +10,46 @@ table, so no replayer (§11: "RW2c's help outcomes are pure reads").
 **What it reads.**
 
 * The workbench's ``help_assists`` rows (``surface = 'workbench'``, shown):
-  hints (kind, strategy slug, level), bridges and worked examples (the
-  passage's role), comparisons. A ``learner_pick`` row (RW2c's "another
-  passage") is the learner choosing among a draw's options, not another help.
-* **For hints, the hint service's own per-hint records**: the replies
-  ("doesn't connect", ``judgment_ledger`` task ``hint_fit``) and, for the
-  immediate continuation, the workbench's placement of the work, which the
-  service hands to the Reader for this surface (adaptive hints H2b §9: "the
-  step verdicts already place that work"; its outcome placement never runs on
-  a workbench row). The grade-based "unaided next progress" of ``learnloop
-  hints report`` is the practice screen's, and is not re-derived here.
+  hints (kind, strategy slug, level; a hint the learner picked, "a smaller
+  step" or "the book's way", is a hint like any other), bridges and worked
+  examples (the passage's role), comparisons. A passage ``learner_pick`` row
+  (RW2c's "another passage") is the learner choosing among a draw's options,
+  not a help kind of its own; it still counts as further help after another
+  help (review F3).
+* **For hints, the hint service's own per-hint outcome**: the replies
+  ("doesn't connect", ``judgment_ledger`` task ``hint_fit``) and unaided
+  next progress as the service defines it for this surface
+  (:func:`learnloop.hints.report_workbench.workbench_unaided_progress`:
+  measured to the next valid step against the work at delivery, further help
+  of any kind in between, unknown kept unknown; review F4). The same
+  definition gives a passage's continuation.
 * **For retrieval-supported help, the sources spec's S5 records**
   (``retrieval_interventions`` with ``retrieval_intervention_outcomes``:
-  ``R_next``, ``R_cold`` and its censoring) instead of a second derivation;
-  an outcome whose attempt is after ``as_of`` reads as pending, and a vault
-  without those tables reads them as absent.
-* Attempts (``practice_attempts``), the workbench's submitted problems and the
+  ``R_next``, ``R_cold`` and its censoring) instead of a second derivation:
+  a workbench passage an S5 record names by its assist id takes its later
+  outcome from that record, and the record is not counted again on its own
+  (review F10); every other S5 record is its own help. An outcome whose
+  attempt is after ``as_of`` reads as pending, and a vault without those
+  tables reads them as absent.
+* Attempts (``practice_attempts``) **as graded at ``as_of``** (review F6): an
+  attempt whose grading changed after ``as_of`` is read from the grading
+  epoch standing then (``grading_epochs``, and RW6a's as-of hold), never from
+  its current correctness; the workbench's submitted problems and the
   diagnoser's typed causes (``attempt_diagnoses``, completed and live).
 
 **What it returns**, per help kind on each requested facet:
 
-* ``continuation``: whether the next shown check of the same problem, with no
-  other hint shown in between, found a valid step the check before the help
-  did not (``continued`` / ``not_continued``), or why it cannot say
-  (``more_help`` / ``no_later_check``);
+* ``continuation``: the hint service's unaided next progress (above):
+  whether the next shown check of the same problem, with no further help in
+  between, found a valid step new or changed since the help was delivered
+  (``continued`` / ``not_continued``), or why it cannot say (``more_help`` /
+  ``no_later_check`` / ``unknown``, no work recorded at delivery);
 * ``attempt``: the grade of the attempt the help belonged to, when submitted;
 * ``later_independent``: the next attempt on the same facet with no hint and
-  not primed, after the help's attempt (or the help, when unsubmitted):
-  ``pass`` / ``fail`` / ``ungraded`` / ``held``, and how many have no later
-  observation yet (``pending``);
+  not primed, after both the help's attempt and the help itself (help shown
+  after its attempt, a comparison, gets no credit for what came before it;
+  review F5): ``pass`` / ``fail`` / ``ungraded`` / ``held``, and how many
+  have no later observation yet (``pending``);
 * ``doesnt_connect``: the replies by shortcut.
 
 And, per facet, **where the work tends to go off**: the check's error-kind
@@ -222,35 +233,108 @@ def _help_key(row: Mapping[str, Any]) -> tuple[str, str | None, str | None]:
     return kind, None, None
 
 
-def _valid_chains(check: Mapping[str, Any] | None) -> set[str]:
-    """The steps a check found valid, read through the one accessor of stored
-    verdicts (only the verdict is read; its method's reading is not used, so
-    the symbolic switch is irrelevant here and read as off)."""
-
-    if check is None:
-        return set()
-    from learnloop.symbolic_view import verdict_records
-
-    return {str(entry.get("chain_id")) for entry in verdict_records(check, enabled=False)
-            if entry.get("verdict") == "valid"}
+#: Passage kinds whose ``learner_pick`` rows are a choice among a draw's
+#: options ("another passage"), not a help kind of their own (review F3).
+_PASSAGE_KINDS = ("bridge", "example")
 
 
-def _continuation(row: Mapping[str, Any], at: datetime, session_rows: Sequence[Mapping[str, Any]]) -> str:
-    """The next shown check after the help, with no other hint between (module docstring)."""
+def _passage_pick(row: Mapping[str, Any]) -> bool:
+    return row.get("assist_kind") in _PASSAGE_KINDS and row.get("chooser") == "learner_pick"
 
-    parent = _loads(row.get("placement_json"), {}).get("hint_assist_id")
-    checks = [(other["_at"], other) for other in session_rows if other["assist_kind"] == "check"]
-    before = [entry for entry in checks if entry[0] <= at and entry[1]["id"] != row["id"]]
-    after = [entry for entry in checks if entry[0] > at]
-    if not after:
-        return "no_later_check"
-    following_at, following = after[0]
-    if any(other["assist_kind"] == "hint" and other["id"] not in (row["id"], parent)
-           and at < other["_at"] < following_at for other in session_rows):
-        return "more_help"
-    prior = before[-1][1] if before else None
-    gained = _valid_chains(following) - _valid_chains(prior)
-    return "continued" if gained else "not_continued"
+
+def _after(value: Any, cutoff: datetime) -> bool:
+    """Was this stamp written after the cutoff? (An unreadable stamp is not.)"""
+
+    when = _when(value)
+    return when is not None and when > cutoff
+
+
+def _grades_at(connection: sqlite3.Connection, attempts: Mapping[str, Mapping[str, Any]], cutoff: datetime,
+               vault: Any | None) -> dict[str, tuple[Any, bool]]:
+    """``(correctness, held)`` of each attempt as the grading ledger stood at
+    the cutoff (review F6), with the shared grading-history machinery.
+
+    An attempt with no grading row and no blind grade record written (or
+    superseded) after the cutoff has the same current epoch then as now: its
+    stored correctness and today's held predicate
+    (:func:`learnloop.held_grades.held_for_review_attempts`). Otherwise the
+    rows standing at the cutoff are read (a row superseded later still stood
+    then; a row written later had not happened), exactly as RW6a's
+    ``facet_evidence_timeline.snapshot_as_of`` reads them: the current epoch
+    among them (:func:`learnloop.grading_epochs.current_epoch`) gives the
+    score (its points summed, as the score is summed) over the item's rubric
+    maximum (the regrade's own ``score / max(max_points, 1)``); no epoch then,
+    or no rubric to divide by, is ungraded. The hold at the cutoff is the
+    route rule over the blind records written by then and that epoch's
+    assessed criteria (``outcome_contract.grade_is_held``), or replay's
+    unrecorded-contract hold decided from that epoch as RW6a decides it."""
+
+    from types import SimpleNamespace
+
+    from learnloop.held_grades import held_for_review_attempts
+
+    ids = sorted(attempts)
+    if not ids:
+        return {}
+    held_now = held_for_review_attempts(connection, ids)
+    evidence: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    blind: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for start in range(0, len(ids), 500):
+        chunk = ids[start:start + 500]
+        marks = ", ".join("?" for _ in chunk)
+        if _table(connection, "grading_evidence"):
+            for row in _rows(connection, "SELECT id, attempt_id, criterion_id, points_awarded, created_at, "
+                             "superseded_at, grading_revision, assessment_contract_version_id, attribution_json "
+                             f"FROM grading_evidence WHERE attempt_id IN ({marks})", chunk):
+                evidence[str(row["attempt_id"])].append(row)
+        if _table(connection, "blind_grade_records"):
+            for row in _rows(connection, "SELECT id, attempt_id, record_json, created_at FROM blind_grade_records "
+                             f"WHERE attempt_id IN ({marks})", chunk):
+                blind[str(row["attempt_id"])].append(row)
+    out: dict[str, tuple[Any, bool]] = {}
+    for attempt_id in ids:
+        attempt = attempts[attempt_id]
+        rows = evidence.get(attempt_id, [])
+        records = blind.get(attempt_id, [])
+        changed = any(_after(row["created_at"], cutoff) or _after(row["superseded_at"], cutoff) for row in rows) \
+            or any(_after(record["created_at"], cutoff) for record in records)
+        if not changed:
+            out[attempt_id] = (attempt["correctness"], attempt_id in held_now)
+            continue
+        out[attempt_id] = _grade_from_ledger(attempt, rows, records, cutoff, vault, SimpleNamespace)
+    return out
+
+
+def _grade_from_ledger(attempt: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],
+                       records: Sequence[Mapping[str, Any]], cutoff: datetime, vault: Any | None,
+                       namespace: Any) -> tuple[Any, bool]:
+    from learnloop.grading_epochs import current_epoch
+    from learnloop.learner.facet_evidence_timeline import epoch_held_as_of
+    from learnloop.outcome_contract import grade_held_for_review, grade_is_held, unassessed_evidence_row
+
+    standing = [namespace(**{**row, "superseded_at": None if _after(row["superseded_at"], cutoff)
+                             else row["superseded_at"]})
+                for row in rows if not _after(row["created_at"], cutoff)]
+    epoch = current_epoch(standing)
+    if epoch is None:
+        return None, False  # not graded yet at the cutoff
+    item_id = str(attempt["practice_item_id"])
+    item = vault.practice_items.get(item_id) if vault is not None else None
+    rubric = vault.rubric_for_item(item) if item is not None else None
+    score = int(round(sum(float(row.points_awarded or 0.0) for row in epoch.rows)))
+    correctness = (score / max(int(rubric.max_points), 1)) if rubric is not None else None
+    live = [row for row in standing if row.superseded_at is None]
+    criteria = {str(row.criterion_id) for row in live}
+    unassessed = {str(row.criterion_id) for row in live if unassessed_evidence_row(row.attribution_json)}
+    record_held = False
+    written = [record for record in records if not _after(record["created_at"], cutoff)]
+    if written:
+        latest = max(written, key=lambda record: (str(record["created_at"]), str(record["id"])))
+        decoded = _loads(latest["record_json"], {})
+        record_held = isinstance(decoded, Mapping) and grade_held_for_review(decoded.get("grading_support"))
+    held = bool(record_held) and grade_is_held(record_held=True, anything_assessed=bool(criteria - unassessed))
+    held = held or epoch_held_as_of(tuple(standing), vault, item_id)
+    return correctness, held
 
 
 def help_outcomes(
@@ -259,9 +343,13 @@ def help_outcomes(
     as_of: str,
     *,
     item_facets: Mapping[str, Iterable[str]],
+    vault: Any | None = None,
 ) -> HelpOutcomesV1:
     """The read (module docstring). ``repository``: a repository or a database
-    path; ``item_facets``: each item's evidence facets (the vault's)."""
+    path; ``item_facets``: each item's evidence facets (the vault's);
+    ``vault``: for an attempt regraded after ``as_of``, the item's rubric
+    maximum its grade at ``as_of`` is read against (without it such an
+    attempt reads as ungraded at ``as_of``, never as its later grade)."""
 
     wanted = tuple(dict.fromkeys(str(facet) for facet in facet_ids if facet))
     cutoff = _when(as_of)
@@ -293,11 +381,12 @@ def help_outcomes(
             "evidence_facets_json FROM practice_attempts")}
         attempts = {key: value for key, value in attempts.items()
                     if value["_at"] is not None and value["_at"] <= cutoff}
-        held: set[str] = set()
-        if attempts:
-            from learnloop.held_grades import held_for_review_attempts
-
-            held = {str(value) for value in held_for_review_attempts(connection, tuple(sorted(attempts)))}
+        # Each attempt's grade and hold AS OF the cutoff (review F6): a later
+        # regrade or adjudication never changes what this read says of T.
+        graded = _grades_at(connection, attempts, cutoff, vault)
+        for attempt_id, (correctness, _held) in graded.items():
+            attempts[attempt_id] = {**attempts[attempt_id], "correctness": correctness}
+        held = {attempt_id for attempt_id, (_correctness, is_held) in graded.items() if is_held}
 
         def attempt_facets(attempt: Mapping[str, Any]) -> set[str]:
             # The facets recorded with the attempt, and the item's (canonical) now.
@@ -331,7 +420,8 @@ def help_outcomes(
             rows = []
             for row in _rows(connection, "SELECT id, assist_kind, hint_kind, level, strategy, practice_item_id, "
                              "workbench_session_id, attempt_id, shown, shown_at, requested_at, chooser, "
-                             "placement_json, step_verdicts_json, first_questionable_step_id, error_kind_guess "
+                             "placement_json, step_snapshot_json, step_verdicts_json, first_questionable_step_id, "
+                             "error_kind_guess, map_id, route_id, from_node_id, target_node_id "
                              "FROM help_assists WHERE surface = 'workbench' AND shown = 1"):
                 at = _when(row["shown_at"] or row["requested_at"])
                 if at is not None and at <= cutoff:
@@ -340,6 +430,17 @@ def help_outcomes(
             by_session: dict[str, list[dict[str, Any]]] = defaultdict(list)
             for row in rows:
                 by_session[str(row["workbench_session_id"])].append(row)
+            # The hint service's per-help outcome (review F4): one definition,
+            # read here, never derived again (C13). Map structure only (node
+            # ids), for the next hint's placement; nothing of it is returned.
+            from learnloop.hints import report_adaptive
+            from learnloop.hints.report_workbench import workbench_unaided_progress
+
+            maps = report_adaptive.map_paths(connection, (row.get("map_id") for row in rows))
+            # S5 records that name a workbench passage by its assist id (review
+            # F10): that record's later outcome is the passage's.
+            linked, counted = _s5_links(connection, {str(row["id"]) for row in rows
+                                                     if row["assist_kind"] in _PASSAGE_KINDS}, cutoff)
             if _table(connection, "workbench_sessions"):
                 for row in _rows(connection, "SELECT id, attempt_id FROM workbench_sessions "
                                  "WHERE attempt_id IS NOT NULL"):
@@ -362,14 +463,18 @@ def help_outcomes(
                             goes[facet].guess_last[guess] = max(
                                 filter(None, (goes[facet].guess_last.get(guess), _day(row["_at"]))))
                     continue
-                if row["assist_kind"] not in _HELP_KINDS or row.get("chooser") == "learner_pick":
+                # Review F3: only a passage pick ("another passage") is not a
+                # help kind of its own; a hint the learner picked is a hint.
+                if row["assist_kind"] not in _HELP_KINDS or _passage_pick(row):
                     continue
                 key = _help_key(row)
                 session_id = str(row["workbench_session_id"])
                 attempt_id = row.get("attempt_id") or session_attempt.get(session_id)
                 attempt = attempts.get(str(attempt_id)) if attempt_id else None
-                continuation = (_continuation(row, row["_at"], by_session[session_id])
+                continuation = (workbench_unaided_progress(row, by_session[session_id], maps=maps)
                                 if row["assist_kind"] != "compare_methods" else None)
+                s5_linked = str(row["id"]) in linked
+                s5 = linked.get(str(row["id"]))
                 for facet in wanted:
                     if facet not in item_facets_now:
                         continue
@@ -381,12 +486,21 @@ def help_outcomes(
                     if continuation is not None:
                         target.continuation[continuation] += 1
                     target.attempt[attempt_grade(attempt_id)] += 1
-                    anchor = attempt["_at"] if attempt is not None else row["_at"]
-                    target.later_independent[later(facet, anchor, str(attempt_id) if attempt_id else None)] += 1
+                    if s5_linked:
+                        # S5 is the authority on what followed (its R_cold
+                        # with censoring), not a second derivation (F10).
+                        target.later_independent[_s5_cold(s5, attempts)] += 1
+                    else:
+                        # Review F5: never before the help itself was shown
+                        # (help after its attempt, a comparison opened later,
+                        # gets no credit for what came between).
+                        anchor = max(attempt["_at"], row["_at"]) if attempt is not None else row["_at"]
+                        target.later_independent[later(facet, anchor, str(attempt_id) if attempt_id else None)] += 1
                     for shortcut in replies.get(str(row["id"]), []):
                         target.doesnt_connect[shortcut] += 1
         else:
             sources["help_assists"] = "absent"
+            linked, counted = {}, set()
 
         # -- the sources spec's S5 records (retrieval-supported help) -----------------------
         if _table(connection, "retrieval_interventions") and _table(connection, "retrieval_intervention_outcomes"):
@@ -397,7 +511,9 @@ def help_outcomes(
             for row in _rows(connection, "SELECT id, created_at, kind, assets_json, targets_json "
                              "FROM retrieval_interventions ORDER BY created_at, id"):
                 at = _when(row["created_at"])
-                if at is None or at > cutoff:
+                if at is None or at > cutoff or str(row["id"]) in counted:
+                    # A record that names a workbench passage is that passage's
+                    # outcome, counted once, with it (review F10).
                     continue
                 targets = _loads(row["targets_json"], {})
                 facets = {str(value) for value in targets.get("facets") or ()}
@@ -441,6 +557,40 @@ def help_outcomes(
                                                         value.strategy or ""))
     return HelpOutcomesV1(VERSION, cutoff.isoformat(), wanted, ordered,
                           [goes[facet] for facet in wanted if not goes[facet].empty], sources)
+
+
+def _s5_links(connection: sqlite3.Connection, assist_ids: set[str], cutoff: datetime
+              ) -> tuple[dict[str, Mapping[str, Any] | None], set[str]]:
+    """The S5 records that name a workbench passage BY ITS ASSIST ID (the
+    record's ``caller_ref``, or ``assets.help_assist_id``; never a match on
+    time, item or spans), written by ``cutoff``: ``({assist id: its outcome
+    row or None}, {those records' ids})``. Neither the bridge nor the worked
+    example writes such a record today; when the sources spec's S5 records a
+    workbench passage (Reader §18 item 5 copies the draw's propensity and seed
+    into it), this is where its outcome becomes the passage's (review F10)."""
+
+    if not assist_ids or not (_table(connection, "retrieval_interventions")
+                              and _table(connection, "retrieval_intervention_outcomes")):
+        return {}, set()
+    outcomes = {str(row["intervention_id"]): row for row in _rows(
+        connection, "SELECT intervention_id, next_attempt_id, next_correctness, next_assisted, "
+        "cold_attempt_id, cold_outcome_state FROM retrieval_intervention_outcomes")}
+    linked: dict[str, Mapping[str, Any] | None] = {}
+    counted: set[str] = set()
+    for row in _rows(connection, "SELECT id, created_at, caller_ref, assets_json FROM retrieval_interventions "
+                     "ORDER BY created_at, id"):
+        at = _when(row["created_at"])
+        if at is None or at > cutoff:
+            continue
+        assets = _loads(row["assets_json"], {})
+        named = {str(row["caller_ref"] or "")} | (
+            {str(assets.get("help_assist_id"))} if isinstance(assets, Mapping) and assets.get("help_assist_id")
+            else set())
+        for assist_id in sorted(named & assist_ids):
+            if assist_id not in linked:  # the first record that names it
+                linked[assist_id] = outcomes.get(str(row["id"]))
+            counted.add(str(row["id"]))
+    return linked, counted
 
 
 def _s5_next(outcome: Mapping[str, Any] | None, attempts: Mapping[str, Any]) -> str:
@@ -564,7 +714,7 @@ def lines_for_item(vault: Any, repository: Any, item: Any, *, as_of: str) -> tup
     facets = every.get(str(item.id), [])
     if not facets:
         return ()
-    return lines_for(help_outcomes(repository, facets, as_of, item_facets=every))
+    return lines_for(help_outcomes(repository, facets, as_of, item_facets=every, vault=vault))
 
 
 __all__ = [

@@ -210,6 +210,12 @@ def example_for(
         "placement_json": json.dumps(placement, sort_keys=True),
         "chooser": "none", "shown": 0, "counted_by": None,
         "about_step_id": about.chain_id if about is not None else None,
+        # The work it was searched against, identity only (ids and content
+        # hashes, never the text): what its unaided progress is measured from
+        # (``hints.report_workbench.workbench_unaided_progress``; review F4).
+        "step_snapshot_json": json.dumps([{"chain_id": step.chain_id, "step_id": step.step_id,
+                                           "number": step.number, "hash": step.content_hash}
+                                          for step in steps], sort_keys=True),
         "requested_at": utc_now_iso(),
     }
     with repository.atomic():
@@ -254,6 +260,8 @@ def example_for(
         "body_md": line,
         "placement_json": json.dumps({**placement, "status": "found", "span_id": chosen["span_id"],
                                       "extraction_id": chosen["extraction_id"], "label": chosen["label"],
+                                      # The book it is in (review F1: another book opens there).
+                                      "source_id": chosen.get("source_id"),
                                       "verdict": chosen["verdict"], "role": "worked_example",
                                       "step_number": numbers.get(about.chain_id) if about is not None else None},
                                      sort_keys=True),
@@ -262,8 +270,8 @@ def example_for(
         **(drawn.columns() if drawn is not None else {}),
     })
     result = {"status": "ready", "assist_id": assist_id, "line": line, "span_id": chosen["span_id"],
-              "extraction_id": chosen["extraction_id"], "label": chosen["label"], "verdict": chosen["verdict"],
-              "trigger": trigger, "about_step_id": about.chain_id if about is not None else None}
+              "extraction_id": chosen["extraction_id"], "source_id": chosen.get("source_id"),
+              "label": chosen["label"], "verdict": chosen["verdict"], "trigger": trigger, "about_step_id": about.chain_id if about is not None else None}
     if drawn is not None:
         result["alternatives"] = len(drawn.options) - 1
     return result
@@ -290,7 +298,8 @@ def example_view(row: Mapping[str, Any]) -> dict[str, Any]:
 
     placement = json.loads(row.get("placement_json") or "{}")
     view = {"assist_id": row["id"], "line": row.get("body_md") or "", "span_id": placement.get("span_id"),
-            "extraction_id": placement.get("extraction_id"), "label": placement.get("label"),
+            "extraction_id": placement.get("extraction_id"), "source_id": placement.get("source_id"),
+            "label": placement.get("label"),
             "verdict": placement.get("verdict"), "trigger": placement.get("trigger"),
             "about_step_id": row.get("about_step_id"), "hint_assist_id": placement.get("hint_assist_id")}
     view.update(passage_draw.alternatives_view(row))

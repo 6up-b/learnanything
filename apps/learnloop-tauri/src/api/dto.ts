@@ -9227,6 +9227,8 @@ export interface WorkbenchHelpResultDto {
   line?: string;
   spanId?: string | null;
   extractionId?: string | null;
+  /** RW2c review F1: the book the example is in (it may be another book). */
+  sourceId?: string | null;
   label?: string | null;
   /** RW2c: the passages a logged draw kept one click away ("another passage"). */
   alternatives?: number;
@@ -9291,6 +9293,13 @@ export interface WorkbenchHelpStateDto {
   examples?: WorkbenchExampleViewDto[];
 }
 
+/** RW2c review F1: where a passage the workbench names is: its reading and
+ *  book, so a passage in another book opens there, not in the book open now. */
+export interface PassageTarget {
+  extractionId?: string | null;
+  sourceId?: string | null;
+}
+
 /** RW2c: a passage shown by a logged draw keeps the others one click away. */
 export interface WorkbenchPassageDrawDto {
   alternatives?: number;
@@ -9305,6 +9314,9 @@ export interface WorkbenchExampleViewDto extends WorkbenchPassageDrawDto {
   line: string;
   spanId: string | null;
   extractionId: string | null;
+  /** RW2c review F1: the book the passage is in (the Reader opens it there
+   *  when it is not the book open now). */
+  sourceId?: string | null;
   label: string | null;
   verdict: string | null;
   trigger: string | null;

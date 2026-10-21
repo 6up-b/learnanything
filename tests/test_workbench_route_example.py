@@ -217,3 +217,30 @@ def test_under_the_problems_cap_the_example_never_displaces_the_bridge(tmp_path,
     assert bridge["status"] == "ready"
     assert (example["status"], example["reason"]) == ("unavailable", "session_capped")
     assert ctx.workbench_example_find.calls == []
+
+
+def test_review_f1_an_example_in_another_book_carries_that_books_identity(tmp_path):
+    """Codex review F1: an example retrieved from Book B (while the problem is
+    in Book A) carries Book B's source and extraction ids to the Reader, on
+    the result, the restored view, its draw's options and a learner pick, so
+    the Reader opens Book B there."""
+
+    from learnloop.workbench import passage_draw
+
+    other_book = [{**ROUTE, "source_id": "src_b", "extraction_id": "ext_b", "source_title": "Book B"},
+                  {**ROUTE, "span_id": "w5", "source_id": "src_b", "extraction_id": "ext_b",
+                   "source_title": "Book B", "section": "4.1"}]
+    paths, ctx, wb, _chains = _setup(tmp_path, hits=other_book, config="")
+    run_job(ctx, call(ctx, "workbench.check", {"sessionId": wb}))
+    hint = run_job(ctx, call(ctx, "workbench.request_help", {"sessionId": wb, "takenLevel": 3}))
+    example = call(ctx, "workbench.help_job", {"jobId": hint["exampleJobId"]})["result"]
+    assert (example["sourceId"], example["extractionId"]) == ("src_b", "ext_b")
+    [row] = [row for row in help_rows(paths, wb) if row["assist_kind"] == "example"]
+    view = route_example.example_view(row)
+    assert (view["source_id"], view["extraction_id"]) == ("src_b", "ext_b")
+    assert {option["source_id"] for option in passage_draw.options_of(row)} == {"src_b"}
+    picked = call(ctx, "workbench.another_passage", {"sessionId": wb, "assistId": row["id"]})["passage"]
+    assert (picked["sourceId"], picked["extractionId"]) == ("src_b", "ext_b")
+    # The step it was searched against is recorded (ids and hashes, no text).
+    snapshot = __import__("json").loads(row["step_snapshot_json"])
+    assert snapshot and all(set(entry) == {"chain_id", "step_id", "number", "hash"} for entry in snapshot)

@@ -5,7 +5,7 @@
 // stacked below the 1,040 px breakpoint). The workbench itself (steps,
 // checks, the help ladder) is the shared Workbench component the practice
 // screen's "Work in steps" uses too.
-import type { WorkbenchSessionDto } from "../../api/dto";
+import type { PassageTarget, WorkbenchSessionDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { Workbench } from "../workbench/Workbench";
 import { WORKBENCH_COPY } from "../workbench/stepModel";
@@ -34,7 +34,8 @@ export function ReaderWorkingPosture({
   onLeave: (session: WorkbenchSessionDto, generation: number) => void;
   onAbandoned: (session: WorkbenchSessionDto, generation: number) => void;
   /** RW2b: "compare with the book" peeks its passage in the source pane. */
-  onPeekPassage: (spanId: string) => void;
+  /** RW2c review F1: ``target`` names the passage's book when the workbench knows it. */
+  onPeekPassage: (spanId: string, target?: PassageTarget) => void;
   onError: (message: string) => void;
 }) {
   return (

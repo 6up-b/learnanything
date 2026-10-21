@@ -113,7 +113,8 @@ it("on: the restored example sits under its hint and opens its passage in the bo
   expect(line.textContent).toBe(EXAMPLE.line);
   expect(line.getAttribute("data-verdict")).toBe("follows_learner_route");
   fireEvent.click(line);
-  expect(onPeekPassage).toHaveBeenCalledWith("w2");
+  // Review F1: the example names where it is (its reading and book).
+  expect(onPeekPassage).toHaveBeenCalledWith("w2", { extractionId: "ext", sourceId: null });
 });
 
 it("another passage under an example and under a bridge shows the next option, with no search", async () => {

@@ -223,3 +223,207 @@ def test_switched_off_nothing_is_offered_or_written(tmp_path):
     with pytest.raises(Exception):
         call(ctx, "workbench.compare_methods", {"attemptId": "att_wb"})
     assert reveals(paths.sqlite_path) == []
+
+
+# ---------------------------------------------------------------------------
+# Codex review (reader-rw2c-codex-review.md): F2, F7, F8, F9
+# ---------------------------------------------------------------------------
+
+def _ledger(paths, task="workbench_compare_methods"):
+    with closing(connect(paths.sqlite_path)) as connection:
+        connection.row_factory = __import__("sqlite3").Row
+        return [dict(row) for row in connection.execute(
+            "SELECT * FROM judgment_ledger WHERE task = ? ORDER BY created_at, id", (task,))]
+
+
+def test_f2_the_comparison_verdict_is_a_judgment_with_its_lines(tmp_path):
+    paths, ctx, wb = _submitted(tmp_path)
+    opened = call(ctx, "workbench.compare_methods", {"attemptId": "att_wb"})
+    assert call(ctx, "workbench.help_job", {"jobId": opened["linesJobId"]})["result"]["status"] == "ready"
+    assist_id = opened["comparison"]["assistId"]
+    [row] = [row for row in help_rows(paths, wb) if row["assist_kind"] == "compare_methods"]
+    [judgment] = _ledger(paths)
+    assert (judgment["left_kind"], judgment["left_id"], judgment["right_kind"], judgment["right_id"]) == (
+        "help_assist", assist_id, "practice_attempt", "att_wb")
+    assert (judgment["judge"], judgment["judge_model"], judgment["prompt_version"]) == (
+        "llm", row["model"], compare_methods.PROMPT_VERSION)
+    assert judgment["input_hash"] == row["input_hash"] and judgment["verdict"] == "valid_other_route"
+    rationale = json.loads(judgment["rationale"])
+    assert rationale["dropped"] == 1 and rationale["returned"] == 3 and rationale["differences"] == 2
+    assert rationale["learner_route_valid"] is True and rationale["same_method"] is False
+    # The verdict, never the lines' text or the reference.
+    assert "CDF first" not in judgment["rationale"] and EXPECTED not in judgment["rationale"]
+
+
+class _Blocking:
+    """A check-route answer that waits until released (a model still running)."""
+
+    def __init__(self):
+        import threading
+
+        self.started = threading.Event()
+        self.release = threading.Event()
+
+    def __call__(self, context):
+        self.started.set()
+        assert self.release.wait(20), "never released"
+        return _lines(context)
+
+
+def _threaded(tmp_path, *answers):
+    paths, ctx, wb = _submitted(tmp_path)
+    ctx.workbench_check_client = CheckFake(list(answers))
+    ctx.hints_inline = False
+    return paths, ctx, wb
+
+
+def _wait_done(ctx, job_id):
+    import time
+
+    deadline = time.monotonic() + 20
+    while time.monotonic() < deadline:
+        payload = call(ctx, "workbench.help_job", {"jobId": job_id})
+        if payload["state"] != "pending":
+            return payload
+        time.sleep(0.02)
+    raise AssertionError("the job never finished")
+
+
+def test_f7_reopening_a_pending_comparison_starts_no_second_generation(tmp_path):
+    blocking = _Blocking()
+    paths, ctx, wb = _threaded(tmp_path, blocking, _lines)
+    opened = call(ctx, "workbench.compare_methods", {"attemptId": "att_wb"})
+    assert blocking.started.wait(20)
+    again = call(ctx, "workbench.compare_methods", {"attemptId": "att_wb"})
+    assert again["comparison"]["assistId"] == opened["comparison"]["assistId"]
+    # The pending job is handed back; nothing new starts.
+    assert again["linesJobId"] == opened["linesJobId"]
+    # A worker that gets past the sidecar (another process, a lost job) finds
+    # the claim and calls nothing.
+    vault, repository = ctx.require_vault()
+    second = compare_methods.compare_lines(vault, repository, opened["comparison"]["assistId"],
+                                           client=ctx.workbench_check_client)
+    assert second["status"] == "unavailable" and second["reason"] == "in_progress"
+    assert ctx.workbench_check_client.calls == 1
+    blocking.release.set()
+    done = _wait_done(ctx, opened["linesJobId"])
+    assert done["result"]["status"] == "ready"
+    assert ctx.workbench_check_client.calls == 1 and len(_ledger(paths)) == 1
+    [row] = [row for row in help_rows(paths, wb) if row["assist_kind"] == "compare_methods"]
+    assert "lines_claim" not in json.loads(row["placement_json"])
+    # Done: a later open restores the lines with no job.
+    assert call(ctx, "workbench.compare_methods", {"attemptId": "att_wb"})["linesJobId"] is None
+
+
+def test_f7_only_the_claims_holder_settles_and_a_stale_claim_can_be_taken_over(tmp_path):
+    from learnloop.db.stores import help_assists as store
+
+    paths, ctx, wb = _submitted(tmp_path)
+    ctx.hints_inline = False  # open only; the lines are asked by hand below
+    opened = call(ctx, "workbench.compare_methods", {"attemptId": "att_wb"})
+    assist_id = opened["comparison"]["assistId"]
+    _wait_done(ctx, opened["linesJobId"])
+    vault, repository = ctx.require_vault()
+    # Clear what the job wrote, then plant a claim from a worker that died.
+    with repository.atomic():
+        connection = repository.connection()
+        placement = json.loads(store.assist(connection, assist_id)["placement_json"])
+        placement.pop("lines", None)
+        stale = utc_now_iso(FrozenClock(datetime.now(UTC) - timedelta(seconds=compare_methods.CLAIM_SECONDS + 5)))
+        placement["lines_claim"] = {"token": "cl_dead", "at": stale}
+        store.settle_compare(connection, assist_id, {"placement_json": json.dumps(placement, sort_keys=True)})
+    # A live claim (another worker still running) keeps this one from calling.
+    with repository.atomic():
+        connection = repository.connection()
+        live = dict(placement, lines_claim={"token": "cl_live", "at": utc_now_iso()})
+        store.settle_compare(connection, assist_id, {"placement_json": json.dumps(live, sort_keys=True)})
+    blocked = compare_methods.compare_lines(vault, repository, assist_id, client=ctx.workbench_check_client)
+    assert blocked["reason"] == "in_progress"
+    with repository.atomic():
+        store.settle_compare(repository.connection(), assist_id,
+                             {"placement_json": json.dumps(placement, sort_keys=True)})
+    # The dead worker's claim is stale: this worker takes it over and settles.
+    taken = compare_methods.compare_lines(vault, repository, assist_id, client=ctx.workbench_check_client)
+    assert taken["status"] == "ready"
+    [row] = [row for row in help_rows(paths, wb) if row["assist_kind"] == "compare_methods"]
+    settled = json.loads(row["placement_json"])
+    assert settled["lines"] == taken["lines"] and "lines_claim" not in settled
+
+
+def test_f8_switching_compare_methods_off_while_its_lines_are_written_delivers_nothing(tmp_path):
+    blocking = _Blocking()
+    paths, ctx, _wb = _threaded(tmp_path, blocking)
+    opened = call(ctx, "workbench.compare_methods", {"attemptId": "att_wb"})
+    assert blocking.started.wait(20)
+    toml = paths.root / "learnloop.toml"
+    toml.write_text(toml.read_text() + "\n[workbench]\ncompare_methods_enabled = false\n")
+    ctx.reload()
+    assert call(ctx, "workbench.help_job", {"jobId": opened["linesJobId"]})["state"] == "cancelled"
+    blocking.release.set()
+    import time
+
+    deadline = time.monotonic() + 20
+    job = ctx.workbench_help_jobs.get(opened["linesJobId"])
+    while not job.done.is_set() and time.monotonic() < deadline:
+        time.sleep(0.02)
+    # Finished or not, it stays undelivered.
+    payload = call(ctx, "workbench.help_job", {"jobId": opened["linesJobId"]})
+    assert payload["state"] == "cancelled" and payload["result"] is None
+    # And no new generation starts while the switch is off.
+    vault, repository = ctx.require_vault()
+    calls = ctx.workbench_check_client.calls
+    off = compare_methods.compare_lines(vault, repository, opened["comparison"]["assistId"],
+                                        client=ctx.workbench_check_client)
+    assert off["reason"] == "disabled" and ctx.workbench_check_client.calls == calls
+
+
+def test_f9_a_changed_reference_opens_a_new_comparison_with_its_own_reveal(tmp_path, monkeypatch):
+    paths, ctx, wb = _submitted(tmp_path)
+    first = call(ctx, "workbench.compare_methods", {"attemptId": "att_wb"})
+    assert call(ctx, "workbench.help_job", {"jobId": first["linesJobId"]})["result"]["status"] == "ready"
+    [answer_reveal] = reveals(paths.sqlite_path)
+    assert answer_reveal["source_kind"] == "answer_display"
+    # The key check now labels the key the book's solution.
+    solution = {"kind": "book_solution", "text": "Solution 3.4. Integrate 2x from 0 to 1/2.",
+                "label": "The book's solution · Exercise 3.4", "extraction_id": "ext", "span_ids": ["s41"],
+                "page": 42}
+    monkeypatch.setattr(compare_methods, "book_solution", lambda vault, repository, item: dict(solution))
+    # The old comparison's lines are never paired with the new reference.
+    vault, repository = ctx.require_vault()
+    calls = ctx.workbench_check_client.calls
+    stale = compare_methods.compare_lines(vault, repository, first["comparison"]["assistId"],
+                                          client=ctx.workbench_check_client)
+    assert stale["status"] == "ready"  # it already has lines: they stay its own
+    second = call(ctx, "workbench.compare_methods", {"attemptId": "att_wb"})
+    comparison = second["comparison"]
+    assert comparison["assistId"] != first["comparison"]["assistId"]
+    assert comparison["reference"]["kind"] == "book_solution" and comparison["lines"] is None
+    assert second["linesJobId"] is not None
+    # Its own reveal, of the kind that matches what it shows.
+    shown = reveals(paths.sqlite_path)
+    assert [reveal["source_kind"] for reveal in shown] == ["answer_display", "source_review"]
+    assert comparison["revealId"] == shown[-1]["id"] != first["comparison"]["revealId"]
+    lines = call(ctx, "workbench.help_job", {"jobId": second["linesJobId"]})["result"]
+    assert lines["status"] == "ready" and ctx.workbench_check_client.calls == calls + 1
+    assert ctx.workbench_check_client.contexts[-1]["reference"]["kind"] == "book_solution"
+    # Reopened again with the same reference: the same (second) comparison.
+    third = call(ctx, "workbench.compare_methods", {"attemptId": "att_wb"})["comparison"]
+    assert third["assistId"] == comparison["assistId"] and len(reveals(paths.sqlite_path)) == 2
+
+
+def test_f9_lines_are_never_written_against_a_reference_other_than_the_rows(tmp_path, monkeypatch):
+    """A comparison whose lines are not written yet (its model failed) is
+    not completed later against an edited key: nothing is asked."""
+
+    paths, ctx, _wb = _submitted(tmp_path)
+    ctx.workbench_check_client = CheckFake(fail=RuntimeError("model down"))
+    opened = call(ctx, "workbench.compare_methods", {"attemptId": "att_wb"})
+    failed = call(ctx, "workbench.help_job", {"jobId": opened["linesJobId"]})["result"]
+    assert failed["status"] == "unavailable" and failed["reason"] == "compare_failed"
+    monkeypatch.setattr(compare_methods, "reference_for", lambda vault, repository, item: {
+        "kind": "item_key", "text": "an edited key", "label": compare_methods.KEY_LABEL})
+    ctx.workbench_check_client = CheckFake([_lines])
+    vault, repository = ctx.require_vault()
+    result = compare_methods.compare_lines(vault, repository, opened["comparison"]["assistId"],
+                                           client=ctx.workbench_check_client)
+    assert result["reason"] == "reference_changed" and ctx.workbench_check_client.calls == 0

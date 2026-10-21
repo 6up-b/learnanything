@@ -40,11 +40,21 @@ def _row(assist_id: str, session: str, kind: str, minutes: int, **values):
     return row
 
 
-def _verdicts(*valid: str, questionable: str | None = None) -> str:
-    rows = [{"chain_id": chain, "verdict": "valid"} for chain in valid]
+def _verdicts(*valid: str, questionable: str | None = None, hashes: dict[str, str] | None = None) -> str:
+    hashes = hashes or {}
+    rows = [{"chain_id": chain, "verdict": "valid", "hash": hashes.get(chain, f"h_{chain}")} for chain in valid]
     if questionable:
-        rows.append({"chain_id": questionable, "verdict": "questionable"})
+        rows.append({"chain_id": questionable, "verdict": "questionable",
+                     "hash": hashes.get(questionable, f"h_{questionable}")})
     return json.dumps(rows)
+
+
+def _snapshot(*chains: str, hashes: dict[str, str] | None = None) -> str:
+    """A row's ``step_snapshot_json`` as the workbench writes it (ids, hashes)."""
+
+    hashes = hashes or {}
+    return json.dumps([{"chain_id": chain, "number": index, "hash": hashes.get(chain, f"h_{chain}")}
+                       for index, chain in enumerate(chains, start=1)])
 
 
 def _insert(paths, rows) -> None:
@@ -71,17 +81,25 @@ def _world(tmp_path: Path):
         connection.execute("UPDATE workbench_sessions SET attempt_id = 'att_wb', status = 'submitted' WHERE id = ?",
                            (wb,))
         connection.commit()
+    # Step 2 is rewritten after the first hint (its hash changes), so the
+    # second check's valid step 2 is new since that hint's delivery.
+    edited = {two: "h_two_edited"}
     _insert(paths, [
         _row("ha_c1", wb, "check", 0, step_verdicts_json=_verdicts(one, questionable=two),
-             first_questionable_step_id=two, error_kind_guess="invalid_algebra"),
+             step_snapshot_json=_snapshot(one, two), first_questionable_step_id=two,
+             error_kind_guess="invalid_algebra"),
         _row("ha_h1", wb, "hint", 1, hint_kind="worked_parallel", level=3, strategy="cdf_first",
-             attempt_id="att_wb", about_step_id=two),
-        _row("ha_c2", wb, "check", 2, step_verdicts_json=_verdicts(one, two)),
+             attempt_id="att_wb", about_step_id=two, step_snapshot_json=_snapshot(one, two)),
+        _row("ha_c2", wb, "check", 2, step_verdicts_json=_verdicts(one, two, hashes=edited),
+             step_snapshot_json=_snapshot(one, two, hashes=edited)),
         _row("ha_h2", wb, "hint", 3, hint_kind="waypoint", level=3, strategy="P = 1/4 at the edge",
-             attempt_id="att_wb"),
-        _row("ha_h3", wb, "hint", 4, hint_kind="next_step", level=2, attempt_id="att_wb"),
-        _row("ha_c3", wb, "check", 5, step_verdicts_json=_verdicts(one, two)),
-        _row("ha_h4", wb, "hint", 6, hint_kind="localize", level=2, attempt_id="att_wb"),
+             attempt_id="att_wb", step_snapshot_json=_snapshot(one, two, hashes=edited)),
+        _row("ha_h3", wb, "hint", 4, hint_kind="next_step", level=2, attempt_id="att_wb",
+             step_snapshot_json=_snapshot(one, two, hashes=edited)),
+        _row("ha_c3", wb, "check", 5, step_verdicts_json=_verdicts(one, two, hashes=edited),
+             step_snapshot_json=_snapshot(one, two, hashes=edited)),
+        _row("ha_h4", wb, "hint", 6, hint_kind="localize", level=2, attempt_id="att_wb",
+             step_snapshot_json=_snapshot(one, two, hashes=edited)),
     ])
     with closing(connect(paths.sqlite_path)) as connection:
         append_judgment(connection, task="hint_fit", left_kind="help_assist", left_id="ha_h3", judge="learner_card",
@@ -295,3 +313,231 @@ def test_lines_for_ranks_every_requested_facet():
     assert [(line["facet"], line["kind"]) for line in lines if line["line"] == "help_outcome"] == [
         ("f1", "waypoint"), ("f1", "next_step"), ("f2", "worked_parallel"), ("f2", "localize")]
     assert lines_for(outcomes, limit=10) == lines
+
+
+
+# ---------------------------------------------------------------------------
+# Codex review (reader-rw2c-codex-review.md): F3-F6, F10
+# ---------------------------------------------------------------------------
+
+def _problem(tmp_path: Path, rows_for):
+    """A fresh workbench problem with ``rows_for(wb, one, two)`` as its rows."""
+
+    paths, ctx, _session = sidecar(tmp_path)
+    wb, (one, two) = open_problem(ctx)
+    _insert(paths, rows_for(wb, one, two))
+    return paths, wb
+
+
+def _only(result, help_: str, kind: str | None = None):
+    [found] = [entry for entry in result.helps if entry.help == help_ and (kind is None or entry.kind == kind)]
+    return found
+
+
+def test_f4_a_step_already_on_the_page_that_a_later_check_validates_is_not_progress(tmp_path):
+    """F4: the learner's step 1 is valid but never checked; a hint comes
+    before the first check and nothing changes; the later check validates
+    the existing step. That is not progress after the hint."""
+
+    paths, _wb = _problem(tmp_path, lambda wb, one, two: [
+        _row("ha_h", wb, "hint", 1, hint_kind="next_step", level=3, step_snapshot_json=_snapshot(one)),
+        _row("ha_c", wb, "check", 2, step_verdicts_json=_verdicts(one), step_snapshot_json=_snapshot(one)),
+    ])
+    result = help_outcomes(paths.sqlite_path, [FACET], _at(30), item_facets=_facets(paths))
+    assert dict(_only(result, "hint", "next_step").continuation) == {"not_continued": 1}
+
+
+def test_f4_a_step_written_after_the_hint_that_the_check_validates_is_progress(tmp_path):
+    paths, _wb = _problem(tmp_path, lambda wb, one, two: [
+        _row("ha_h", wb, "hint", 1, hint_kind="next_step", level=3, step_snapshot_json=_snapshot(one)),
+        _row("ha_c", wb, "check", 2, step_verdicts_json=_verdicts(one, two), step_snapshot_json=_snapshot(one, two)),
+    ])
+    result = help_outcomes(paths.sqlite_path, [FACET], _at(30), item_facets=_facets(paths))
+    assert dict(_only(result, "hint", "next_step").continuation) == {"continued": 1}
+
+
+def test_f4_no_work_recorded_at_delivery_stays_unknown(tmp_path):
+    paths, _wb = _problem(tmp_path, lambda wb, one, two: [
+        _row("ha_h", wb, "hint", 1, hint_kind="next_step", level=3),
+        _row("ha_c", wb, "check", 2, step_verdicts_json=_verdicts(one, two), step_snapshot_json=_snapshot(one, two)),
+    ])
+    result = help_outcomes(paths.sqlite_path, [FACET], _at(30), item_facets=_facets(paths))
+    assert dict(_only(result, "hint", "next_step").continuation) == {"unknown": 1}
+
+
+def test_f4_an_intervening_example_is_further_help_but_the_hints_own_bridge_is_not(tmp_path):
+    """F4: a worked example asked for ("show me") between a hint and the next
+    check is further help; the bridge shown with the hint is part of it."""
+
+    def rows(wb, one, two):
+        return [
+            _row("ha_h", wb, "hint", 1, hint_kind="next_step", level=3, step_snapshot_json=_snapshot(one)),
+            _row("ha_b", wb, "bridge", 1, placement_json=json.dumps({"hint_assist_id": "ha_h", "status": "found"}),
+                 shown_at="2026-10-20T10:01:30Z"),
+            _row("ha_x", wb, "example", 2, placement_json=json.dumps({"trigger": "show_me", "status": "found",
+                                                                      "role": "worked_example"}),
+                 step_snapshot_json=_snapshot(one)),
+            _row("ha_c", wb, "check", 3, step_verdicts_json=_verdicts(one, two),
+                 step_snapshot_json=_snapshot(one, two)),
+        ]
+
+    paths, _wb = _problem(tmp_path, rows)
+    result = help_outcomes(paths.sqlite_path, [FACET], _at(30), item_facets=_facets(paths))
+    assert dict(_only(result, "hint", "next_step").continuation) == {"more_help": 1}
+    # The example itself was the last help before the check: its continuation.
+    assert dict(_only(result, "example").continuation) == {"continued": 1}
+    # The bridge (delivered with the hint, measured from the hint's work)
+    # met the example before the check: further help.
+    assert dict(_only(result, "bridge").continuation) == {"more_help": 1}
+
+    paths2, _wb2 = _problem(tmp_path / "bridge_only", lambda wb, one, two: rows(wb, one, two)[:2] + rows(wb, one, two)[3:])
+    alone = help_outcomes(paths2.sqlite_path, [FACET], _at(30), item_facets=_facets(paths2))
+    assert dict(_only(alone, "hint", "next_step").continuation) == {"continued": 1}
+
+
+def test_f3_hints_the_learner_picked_stay_in_the_history_passage_picks_do_not_count_twice(tmp_path):
+    """F3: "a smaller step" (a learner-picked hint) is a hint with its
+    outcomes; "another passage" is not a second bridge."""
+
+    paths, _wb = _problem(tmp_path, lambda wb, one, two: [
+        _row("ha_w", wb, "hint", 1, hint_kind="waypoint", level=3, step_snapshot_json=_snapshot(one)),
+        _row("ha_s", wb, "hint", 2, hint_kind="next_step", level=3, chooser="learner_pick", request="smaller_step",
+             step_snapshot_json=_snapshot(one)),
+        _row("ha_c", wb, "check", 3, step_verdicts_json=_verdicts(one, two), step_snapshot_json=_snapshot(one, two)),
+        _row("ha_b", wb, "bridge", 4, placement_json=json.dumps({"hint_assist_id": "ha_s", "status": "found"})),
+        _row("ha_p", wb, "bridge", 5, chooser="learner_pick",
+             placement_json=json.dumps({"hint_assist_id": "ha_s", "status": "picked", "draw_assist_id": "ha_b"})),
+    ])
+    with closing(connect(paths.sqlite_path)) as connection:
+        append_judgment(connection, task="hint_fit", left_kind="help_assist", left_id="ha_s", judge="learner_card",
+                        input_hash="x", verdict="different", rationale=json.dumps({"shortcut": "notation"}),
+                        created_at=_at(2))
+        connection.commit()
+    result = help_outcomes(paths.sqlite_path, [FACET], _at(30), item_facets=_facets(paths))
+    picked = _only(result, "hint", "next_step")
+    assert picked.shown == 1 and dict(picked.continuation) == {"continued": 1}
+    assert dict(picked.doesnt_connect) == {"notation": 1}
+    assert dict(_only(result, "hint", "waypoint").continuation) == {"more_help": 1}
+    assert _only(result, "bridge").shown == 1
+
+
+def test_f5_a_comparison_gets_no_credit_for_an_attempt_before_it_was_opened(tmp_path):
+    """F5: attempt A Monday, an independent success B Tuesday, A's comparison
+    opened Wednesday: nothing independent has happened since the comparison."""
+
+    paths, ctx, _session = sidecar(tmp_path)
+    wb, (one, two) = open_problem(ctx)
+    add_attempt(paths.sqlite_path, "att_a", correctness=1.0, created_at="2026-10-19T10:00:00+00:00")
+    add_attempt(paths.sqlite_path, "att_b", correctness=1.0, created_at="2026-10-20T10:00:00+00:00")
+    with closing(connect(paths.sqlite_path)) as connection:
+        connection.execute("UPDATE practice_attempts SET hints_used = 1 WHERE id = 'att_a'")
+        connection.execute("UPDATE workbench_sessions SET attempt_id = 'att_a', status = 'submitted' WHERE id = ?",
+                           (wb,))
+        connection.commit()
+    _insert(paths, [_row("ha_cmp", wb, "compare_methods", 0,
+                         placement_json=json.dumps({"attempt_id": "att_a"}),
+                         requested_at="2026-10-21T10:00:00Z", shown_at="2026-10-21T10:00:00Z")])
+    result = help_outcomes(paths.sqlite_path, [FACET], "2026-10-21T12:00:00Z", item_facets=_facets(paths))
+    comparison = _only(result, "compare_methods")
+    assert dict(comparison.attempt) == {"correct": 1}
+    assert dict(comparison.later_independent) == {"pending": 1}
+
+
+def _grading(paths, attempt_id: str, *, points: float, at: str, revision: int, superseded_at: str | None = None,
+             contract: str | None = "acv_1") -> None:
+    with closing(connect(paths.sqlite_path)) as connection:
+        connection.execute(
+            "INSERT INTO grading_evidence (id, attempt_id, criterion_id, points_awarded, grader_tier, created_at, "
+            "superseded_at, grading_revision, assessment_contract_version_id) VALUES (?, ?, 'c1', ?, 1, ?, ?, ?, ?)",
+            (f"ge_{attempt_id}_{revision}", attempt_id, points, at, superseded_at, revision, contract))
+        connection.commit()
+
+
+def test_f6_a_later_regrade_never_changes_what_as_of_said(tmp_path):
+    """F6: the independent attempt was graded 1/4 at noon and regraded 4/4 at
+    14:00 (practice_attempts.correctness now 1.0). At 13:00 it was a fail,
+    and it stays one; after the regrade it is a pass."""
+
+    from learnloop.vault.loader import load_vault
+
+    paths, _ctx, _wb = _world(tmp_path)
+    _grading(paths, "att_later", points=1.0, at="2026-10-20T12:00:00Z", revision=0,
+             superseded_at="2026-10-20T14:00:00Z")
+    _grading(paths, "att_later", points=4.0, at="2026-10-20T14:00:00Z", revision=1)
+    vault = load_vault(paths.root)
+    facets = item_facets_of(vault)
+    before = help_outcomes(paths.sqlite_path, [FACET], "2026-10-20T13:00:00Z", item_facets=facets, vault=vault)
+    assert dict(_help(before, "worked_parallel").later_independent) == {"fail": 1}
+    after = help_outcomes(paths.sqlite_path, [FACET], "2026-10-20T15:00:00Z", item_facets=facets, vault=vault)
+    assert dict(_help(after, "worked_parallel").later_independent) == {"pass": 1}
+    # The same instant replays the same answer.
+    assert help_outcomes(paths.sqlite_path, [FACET], "2026-10-20T13:00:00Z", item_facets=facets,
+                         vault=vault).as_dict() == before.as_dict()
+    # Without the vault (no rubric maximum) the past grade is unknown, never
+    # the later one.
+    blind = help_outcomes(paths.sqlite_path, [FACET], "2026-10-20T13:00:00Z", item_facets=facets)
+    assert dict(_help(blind, "worked_parallel").later_independent) == {"ungraded": 1}
+
+
+def test_f6_a_hold_released_after_as_of_still_held_then(tmp_path):
+    """F6: at 13:00 the attempt's grade was held for review (the blind
+    record's route check held it and no criterion was assessed); an
+    adjudication at 14:00 wrote assessed evidence over it, releasing it."""
+
+    from learnloop.outcome_contract import (
+        UNASSESSED_INTERPRETATION,
+        UNVERIFIED_CRITERION_BLOCK,
+        UNVERIFIED_INTERPRETATION_KEY,
+    )
+    from learnloop.vault.loader import load_vault
+
+    paths, _ctx, _wb = _world(tmp_path)
+    _grading(paths, "att_later", points=4.0, at="2026-10-20T12:00:00Z", revision=0,
+             superseded_at="2026-10-20T14:00:00Z")
+    unassessed = {"negative_evidence_blocked": UNVERIFIED_CRITERION_BLOCK,
+                  UNVERIFIED_INTERPRETATION_KEY: UNASSESSED_INTERPRETATION}
+    held_record = {"grading_support": {"proof_route_check": {"held_for_review": True, "status": "checked",
+                                                             "version": "proof-route-check-v3"}}}
+    with closing(connect(paths.sqlite_path)) as connection:
+        connection.execute("UPDATE grading_evidence SET attribution_json = ? WHERE id = 'ge_att_later_0'",
+                           (json.dumps(unassessed),))
+        connection.execute(
+            "INSERT INTO blind_grade_records (id, attempt_id, grading_prompt_version, output_schema_version, "
+            "context_hash, record_json, created_at) VALUES ('bgr_1', 'att_later', 'v', 'v', 'h', ?, ?)",
+            (json.dumps(held_record, separators=(",", ":")), "2026-10-20T12:00:00Z"))
+        connection.commit()
+    _grading(paths, "att_later", points=4.0, at="2026-10-20T14:00:00Z", revision=1)
+    vault = load_vault(paths.root)
+    facets = item_facets_of(vault)
+    before = help_outcomes(paths.sqlite_path, [FACET], "2026-10-20T13:00:00Z", item_facets=facets, vault=vault)
+    assert dict(_help(before, "worked_parallel").later_independent) == {"held": 1}
+    after = help_outcomes(paths.sqlite_path, [FACET], "2026-10-20T15:00:00Z", item_facets=facets, vault=vault)
+    assert dict(_help(after, "worked_parallel").later_independent) == {"pass": 1}
+
+
+def test_f10_an_s5_record_naming_a_passage_is_its_outcome_and_is_not_counted_again(tmp_path):
+    """F10: a worked example S5 recorded (by its assist id), its cold outcome
+    right-censored: the example's later outcome is S5's (pending), not the
+    passage's own derivation (the independent pass an hour later), and the
+    record is not a second, generic retrieval help."""
+
+    from learnloop.db.stores.source_service import insert_intervention
+
+    paths, _ctx, wb = _world(tmp_path)
+    _insert(paths, [_row("ha_ex", wb, "example", 1,
+                         placement_json=json.dumps({"hint_assist_id": "ha_h1", "status": "found",
+                                                    "role": "worked_example"}),
+                         shown_at="2026-10-20T10:01:30Z")])
+    with closing(connect(paths.sqlite_path)) as connection:
+        insert_intervention(connection, id="ri_ex", created_at="2026-10-20T10:01:30Z", kind="source_passage",
+                            caller_kind="workbench", caller_ref="ha_ex",
+                            targets={"facets": [FACET], "learning_object_ids": [LO]})
+        connection.execute(
+            "INSERT INTO retrieval_intervention_outcomes (intervention_id, next_attempt_id, next_correctness, "
+            "next_assisted, cold_attempt_id, cold_outcome_state, outcome_version) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("ri_ex", "att_wb", 1.0, 1, None, "right_censored_pending", "retrieval_outcomes.v4"))
+        connection.commit()
+    result = help_outcomes(paths.sqlite_path, [FACET], "2026-10-20T13:00:00Z", item_facets=_facets(paths))
+    example = _only(result, "example")
+    assert dict(example.later_independent) == {"pending": 1}
+    assert not [entry for entry in result.helps if entry.help == "retrieval"]

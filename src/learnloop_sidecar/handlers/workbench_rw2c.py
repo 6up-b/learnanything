@@ -199,14 +199,36 @@ def open_compare_methods(ctx: SidecarContext, params: CompareInput) -> dict[str,
         row = assist(connection, assist_id)
     client = getattr(ctx, "workbench_check_client", None)
 
-    def work(worker_repo: Any, _cancelled: Callable[[], bool]) -> dict[str, Any]:
-        return compare_methods.compare_lines(vault, worker_repo, assist_id, client=client)
+    def work(worker_repo: Any, cancelled: Callable[[], bool]) -> dict[str, Any]:
+        return compare_methods.compare_lines(vault, worker_repo, assist_id, client=client, cancelled=cancelled)
 
     job_id = None
     if comparison.get("lines") is None and row is not None:
-        job_id = _start_job(ctx, help_rpcs.COMPARE, str(row["workbench_session_id"]),
-                            str(row["practice_item_id"]), work)
+        # Review F7: one generation per comparison. A reopen while its job is
+        # pending (or done with the lines) is handed that job; a new job starts
+        # only when none is kept or the last one ended without lines. The row's
+        # own claim (compare_methods) keeps any second worker from calling.
+        kept = _compare_jobs(ctx)
+        previous = kept.get(assist_id)
+        job = help_rpcs._jobs(ctx).get(previous) if previous else None
+        if job is not None and not job.cancelled and (
+                not job.done.is_set() or (job.error is None and (job.result or {}).get("status") == "ready")):
+            job_id = previous
+        else:
+            job_id = _start_job(ctx, help_rpcs.COMPARE, str(row["workbench_session_id"]),
+                                str(row["practice_item_id"]), work)
+            kept[assist_id] = job_id
     return versioned(to_camel({"comparison": comparison, "lines_job_id": job_id}))
+
+
+def _compare_jobs(ctx: SidecarContext) -> dict[str, str]:
+    """The comparison lines job kept for each comparison (assist id -> job id)."""
+
+    kept = getattr(ctx, "workbench_compare_jobs", None)
+    if kept is None:
+        kept = {}
+        ctx.workbench_compare_jobs = kept  # type: ignore[attr-defined]
+    return kept
 
 
 __all__ = ["WORKBENCH_RW2C_RPCS", "start_example_after_hint"]

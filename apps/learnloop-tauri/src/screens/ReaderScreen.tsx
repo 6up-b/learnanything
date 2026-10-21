@@ -65,7 +65,7 @@ import { YouTubeWatchPanel, type WatchPanelHandle } from "./reader/YouTubeWatchP
 import { useReaderCues, type CueCheckMeRequest, type CueRequestOrigin } from "./reader/useReaderCues";
 import type { PdfPageLayout } from "./reader/cues";
 import { CueFooter, MarginMark } from "./reader/MarginMark";
-import type { ReaderCueDto } from "../api/dto";
+import type { PassageTarget, ReaderCueDto } from "../api/dto";
 
 import { type ReaderExchange } from "./reader/ReaderAskBranches";
 import { DetourStrip } from "./reader/DetourStrip";
@@ -2069,6 +2069,17 @@ export function ReaderScreen({
     }
     void openSource(card, hit.spanId, { via: "search", jumpReading: hit.extractionId });
   };
+  // RW2c review F1: a passage the workbench names (a worked example, a picked
+  // passage) may be in another book. In this book it is a peek, as before;
+  // in another it opens there, as a library hit does (a detour: Alt+← comes
+  // back, and the problem keeps its ✎ resume mark).
+  const peekWorkbenchPassage = (spanId: string, target?: PassageTarget) => {
+    if (target?.sourceId && render && target.sourceId !== render.sourceId) {
+      openLibraryHit({ sourceId: target.sourceId, extractionId: target.extractionId ?? "", spanId });
+      return;
+    }
+    peekPassage(spanId);
+  };
   // RW4b: the candidate cards (spec §7.4). "Open in the book" is the same
   // detour as a library hit's "open"; "use this one" is a learner pick the
   // shell opens in the working posture, in the exercise's own source (opened
@@ -2836,7 +2847,7 @@ export function ReaderScreen({
             practiceSessionId={workbench?.practiceSessionId ?? null}
             onLeave={(session, generation) => leaveWorkbench(session, false, generation)}
             onAbandoned={(session, generation) => leaveWorkbench(session, true, generation)}
-            onPeekPassage={peekPassage}
+            onPeekPassage={peekWorkbenchPassage}
             onError={onError}
           />
         ) : null}

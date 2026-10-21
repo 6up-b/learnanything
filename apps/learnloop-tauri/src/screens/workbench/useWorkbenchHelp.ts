@@ -65,6 +65,8 @@ export interface BridgeState {
   line?: string;
   spanId?: string | null;
   extractionId?: string | null;
+  /** RW2c review F1: the book a picked passage is in (absent on RW2b's bridge). */
+  sourceId?: string | null;
   /** RW2c: the bridge row and how many other passages its logged draw kept
    *  ("another passage"); both absent unless the draw logged options. */
   assistId?: string;
