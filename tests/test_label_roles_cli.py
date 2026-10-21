@@ -246,3 +246,162 @@ def test_held_out_and_exam_material_never_reach_the_labeller(library):
     assert not cited & set(spans["ch5"])
     exam = RL.label_roles(loaded(paths), repository, "ext_exam", client=RoleLabellerFake(provider_type="codex_sdk"))
     assert exam["status"] == "withheld" and exam["calls"] == 0
+
+
+# -- Codex review F2: an interrupted run's paid answers are applied on resume, without a call --------
+
+
+def _labeller_versions(repository) -> list[tuple[str, str]]:
+    with repository.connection() as connection:
+        return [(str(row[0]), str(row[1])) for row in connection.execute(
+            "SELECT c.span_id, v.authorial_role FROM source_object_versions v "
+            "JOIN source_object_citations c ON c.source_object_version_id = v.id "
+            "WHERE json_extract(v.content_json, '$.judge') = 'role_labeller' ORDER BY c.span_id, v.authorial_role")]
+
+
+def _sent(fake) -> list[str]:
+    return [candidate["passage"] for context in fake.contexts for candidate in context["candidates"]]
+
+
+def _interrupted_then_resumed(paths, repository, monkeypatch, crash):
+    """A run stopped by ``crash`` (installed before it, removed after), then a
+    rerun; returns the two fakes, the rerun's report and the full run's plan."""
+
+    plan = RL.label_roles(loaded(paths), repository, "ext_text", dry_run=True)
+    assert len(plan["batches"]) >= 2
+    first = RoleLabellerFake(roles=(("explanation", "medium"), ("contrast", "low")))
+    with monkeypatch.context() as patch:
+        crash(patch)
+        with pytest.raises(RuntimeError, match="process stopped"):
+            RL.label_roles(loaded(paths), repository, "ext_text", client=first)
+    again = RoleLabellerFake(roles=(("explanation", "medium"), ("contrast", "low")))
+    out = RL.label_roles(loaded(paths), repository, "ext_text", client=again)
+    return first, again, out, plan
+
+
+def _stop_proposals_at_batch(number: int):
+    def install(patch):
+        real = RL.RS.propose_roles
+        seen = {"n": 0}
+
+        def propose(*args, **kwargs):
+            seen["n"] += 1
+            if seen["n"] == number:
+                raise RuntimeError("process stopped before the proposals")
+            return real(*args, **kwargs)
+
+        patch.setattr(RL.RS, "propose_roles", propose)
+    return install
+
+
+def test_an_interruption_before_the_first_proposal_is_applied_on_resume_without_a_call(library, monkeypatch):
+    paths, repository, _spans = library
+    first, again, out, plan = _interrupted_then_resumed(paths, repository, monkeypatch, _stop_proposals_at_batch(1))
+    assert len(first.prompts) == 1 and _labeller_versions(repository) != []
+    # The first batch's paid answer was applied from its receipt; only the rest were sent.
+    assert not set(_sent(first)) & set(_sent(again))
+    assert len(again.prompts) == len(plan["batches"]) - 1 and out["calls"] == len(again.prompts)
+    assert out["status"] == "done"
+    assert out["recovery"]["pending"] == out["recovery"]["recovered_passages"] == len(first.contexts[0]["candidates"])
+    assert out["recovery"]["unrecovered"] == 0
+    assert len(_labeller_versions(repository)) == 2 * plan["passages"]["eligible"]
+    # A third run has nothing left to apply and calls nothing.
+    third = RoleLabellerFake()
+    final = RL.label_roles(loaded(paths), repository, "ext_text", client=third)
+    assert third.prompts == [] and final["calls"] == 0 and final["recovery"]["pending"] == 0
+    assert final["status"] == "done"
+
+
+def test_an_interruption_midway_through_a_batch_leaves_nothing_half_written_and_resumes(library, monkeypatch):
+    paths, repository, _spans = library
+
+    def install(patch):
+        real = RL.RS.SO.author_source_object
+        seen = {"n": 0}
+
+        def author(*args, **kwargs):
+            seen["n"] += 1
+            if seen["n"] == 3:  # the second passage's first role, inside the first batch's write
+                raise RuntimeError("process stopped midway through the batch")
+            return real(*args, **kwargs)
+
+        patch.setattr(RL.RS.SO, "author_source_object", author)
+
+    plan = RL.label_roles(loaded(paths), repository, "ext_text", dry_run=True)
+    first = RoleLabellerFake(roles=(("explanation", "medium"), ("contrast", "low")))
+    with monkeypatch.context() as patch:
+        install(patch)
+        with pytest.raises(RuntimeError, match="process stopped"):
+            RL.label_roles(loaded(paths), repository, "ext_text", client=first)
+    # One transaction: the batch's first proposals were rolled back with the rest.
+    assert _labeller_versions(repository) == []
+    again = RoleLabellerFake(roles=(("explanation", "medium"), ("contrast", "low")))
+    out = RL.label_roles(loaded(paths), repository, "ext_text", client=again)
+    assert not set(_sent(first)) & set(_sent(again)) and len(again.prompts) == len(plan["batches"]) - 1
+    assert out["status"] == "done" and out["recovery"]["recovered_passages"] == len(first.contexts[0]["candidates"])
+    assert len(_labeller_versions(repository)) == 2 * plan["passages"]["eligible"]
+
+
+def test_an_interruption_after_the_last_judgment_resumes_with_zero_calls(library, monkeypatch):
+    paths, repository, _spans = library
+    plan = RL.label_roles(loaded(paths), repository, "ext_text", dry_run=True)
+    first, again, out, _plan = _interrupted_then_resumed(
+        paths, repository, monkeypatch, _stop_proposals_at_batch(len(plan["batches"])))
+    assert again.prompts == [] and out["calls"] == 0 and out["status"] == "done"
+    assert out["recovery"]["recovered_passages"] == len(first.contexts[-1]["candidates"])
+    assert len(_labeller_versions(repository)) == 2 * plan["passages"]["eligible"]
+
+
+def test_a_judged_passage_whose_answer_is_gone_is_reported_incomplete_never_done(library, monkeypatch):
+    paths, repository, _spans = library
+    plan = RL.label_roles(loaded(paths), repository, "ext_text", dry_run=True)
+    first = RoleLabellerFake()
+    with monkeypatch.context() as patch:
+        _stop_proposals_at_batch(len(plan["batches"]))(patch)
+        with pytest.raises(RuntimeError, match="process stopped"):
+            RL.label_roles(loaded(paths), repository, "ext_text", client=first)
+    monkeypatch.setattr(RL, "receipt_answers", lambda connection, *, purpose: [])
+    again = RoleLabellerFake()
+    out = RL.label_roles(loaded(paths), repository, "ext_text", client=again)
+    assert again.prompts == [] and out["calls"] == 0
+    assert out["status"] == "incomplete" and "never applied" in out["reason"]
+    assert out["recovery"]["unrecovered"] == len(first.contexts[-1]["candidates"])
+    dry = RL.label_roles(loaded(paths), repository, "ext_text", dry_run=True)
+    assert dry["passages"]["pending_apply"] == len(first.contexts[-1]["candidates"])
+
+
+# -- Codex review F4: a subscription run reports its token-based estimate ---------------------------
+
+
+def _reported_tokens(fake) -> int:
+    return sum(len(prompt) // 4 + 60 for prompt in fake.prompts)
+
+
+def test_a_subscription_run_reports_the_estimate_from_reported_tokens(library):
+    paths, repository, _spans = library
+    fake = RoleLabellerFake(provider_type="codex_sdk")
+    out = RL.label_roles(loaded(paths), repository, "ext_text", client=fake)
+    assert out["status"] == "done" and fake.prompts
+    usage = out["usage"]
+    assert usage["cost_basis"] == "estimated_only" and usage["billing"] == "subscription"
+    assert usage["estimated_tokens"] == _reported_tokens(fake)
+    assert usage["estimated_usd"] == pytest.approx(_reported_tokens(fake) * 1.0 / 1_000_000)
+    assert usage["estimated_usd"] > 0 and usage["marginal_usd"] == 0.0
+
+
+def test_a_metered_run_reports_its_charge_and_the_same_estimate(library):
+    paths, repository, _spans = library
+    fake = RoleLabellerFake()
+    out = RL.label_roles(loaded(paths), repository, "ext_text", client=fake)
+    usage = out["usage"]
+    assert usage["cost_basis"] == "metered_estimate" and usage["estimated_tokens"] == _reported_tokens(fake)
+    assert usage["estimated_usd"] == usage["marginal_usd"] > 0
+
+
+def test_a_subscription_run_with_no_price_keeps_its_estimate_unknown(tmp_path):
+    paths, repository, _spans = build_cue_vault(tmp_path / "vault")
+    assert loaded(paths).config.source_retrieval.llm_price_per_million is None
+    fake = RoleLabellerFake(provider_type="codex_sdk")
+    out = RL.label_roles(loaded(paths), repository, "ext_text", client=fake)
+    assert out["status"] == "done" and fake.prompts
+    assert out["usage"]["estimated_usd"] is None and out["usage"]["estimated_tokens"] == _reported_tokens(fake)

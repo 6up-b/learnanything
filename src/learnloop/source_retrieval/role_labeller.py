@@ -12,7 +12,15 @@ reading hot path (no RPC reaches it).
   and the held-out partition) and ``corpus.model_reader_withheld``
   (solutions, assessment lanes). A source held back whole is not labelled.
   Passages this labeller already judged (its ledger rows for the reading and
-  prompt version) are skipped, so a run resumes where the last one stopped.
+  prompt version) are never sent again, so a run resumes where the last one
+  stopped.
+* **Resume** (Codex review F2): a judged passage is *applied* once a
+  proposal carries its ledger id. A run stopped after a batch's ledger rows
+  committed but before its proposals did leaves them judged and unapplied
+  (``passages.pending_apply``); the next run applies them first, from the
+  paid answer's receipt (each call records the batch's ``ref -> passage``
+  map with it), with no model call. A pending passage whose answer cannot be
+  found is reported, and the run ends ``incomplete``, never ``done``.
 * **Batches**: listwise, in reading order, :data:`BATCH_SIZE` passages each,
   one call per batch through the shared ``judge_listwise`` (route
   ``role_labeller``, ledger task ``instructional_roles``): each passage
@@ -26,7 +34,12 @@ reading hot path (no RPC reaches it).
   and retry caps still hold.
 * **Writes**: the roles become source-object proposals through
   ``reader.source_roles.propose_roles`` (judge ``role_labeller``; the exam
-  predicate asked again before anything is written).
+  predicate asked again before anything is written), one transaction per
+  batch: all of a batch's proposals or none.
+* **Usage**: the requests and retries, the estimated tokens and dollars from
+  each call's reported usage (the input + output estimate when a turn reports
+  none; dollars unknown with no price), and, apart, the marginal dollars the
+  run's budget was charged (0 on a subscription).
 * ``--dry-run``: zero calls and zero writes; the passages, the batch plan with
   each batch's estimated tokens and dollars, the route and its cost basis,
   the cap and the batches it would stop.
@@ -52,7 +65,14 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_block_fts import extraction_blocks, extraction_source_ids
 from learnloop.practice_index.listwise import ListwiseTask, judge_listwise, route_skip, task_output_tokens
-from learnloop.practice_index.paid import PaidCalls, estimated_call_tokens, plan_route, resolve_client, transport_problem
+from learnloop.practice_index.paid import (
+    PaidCalls,
+    estimated_call_tokens,
+    plan_route,
+    receipt_answers,
+    resolve_client,
+    transport_problem,
+)
 from learnloop.reader import source_roles as RS
 from learnloop.source_retrieval.corpus import block_roles, model_reader_withheld
 from learnloop.vault.models import LoadedVault
@@ -142,6 +162,107 @@ def _labelled(repository: Repository, extraction_id: str) -> set[Key]:
     return found
 
 
+def _unapplied(repository: Repository, extraction_id: str) -> dict[Key, dict[str, str]]:
+    """Passages this labeller judged ``roles`` on this reading whose
+    proposals were never written (Codex review F2): ``key -> {input hash:
+    ledger id}``. A passage is applied once any proposal version (a review
+    successor included) carries one of its ledger ids."""
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        rows = connection.execute(
+            "SELECT id, right_id, input_hash FROM judgment_ledger WHERE task = ? AND left_kind = ? "
+            "AND left_id = ? AND prompt_version = ? AND verdict = 'roles'",
+            (LEDGER_TASK, LEFT_KIND, extraction_id, PROMPT_VERSION)).fetchall()
+        if not rows:
+            return {}
+        applied = {str(row[0]) for row in connection.execute(
+            "SELECT DISTINCT json_extract(content_json, '$.ledger_id') FROM source_object_versions "
+            "WHERE json_extract(content_json, '$.kind') = ? AND json_extract(content_json, '$.judge') = ? "
+            "AND json_extract(content_json, '$.extraction_id') = ?",
+            (RS.PROPOSAL_KIND, RS.JUDGE_LABELLER, extraction_id)) if row[0]}
+    judged: dict[Key, dict[str, str]] = {}
+    for ledger_id, right_id, input_hash in rows:
+        extraction, _, span = str(right_id).partition("/")
+        if extraction and span:
+            judged.setdefault((extraction, span), {})[str(input_hash)] = str(ledger_id)
+    return {key: ids for key, ids in judged.items() if not set(ids.values()) & applied}
+
+
+def _apply_pending(vault: LoadedVault, repository: Repository, extraction_id: str,
+                   pending: Mapping[Key, Mapping[str, str]], *, clock: Clock | None) -> dict[str, Any]:
+    """Apply judged, unapplied passages from their paid answers' receipts
+    (newest first), with no model call: a receipt counts when it declared this
+    reading's batch map and prompt version, and its answer parses and judges
+    every passage of that batch (what the run accepted). Applying is
+    idempotent (the same judge never writes twice), so a passage whose answer
+    named no usable role, or whose every role was reviewed meanwhile, is
+    simply found again on a later run: no call, nothing written."""
+
+    report: dict[str, Any] = {"pending": len(pending), "recovered_passages": 0, "unrecovered": 0,
+                              "written": 0, "versions": 0, "skipped": 0}
+    if not pending:
+        return report
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        receipts = receipt_answers(connection, purpose=ROLE_LABELLER_TASK.route_task)
+    recovered: set[Key] = set()
+    for receipt in receipts:
+        declared = receipt["declared"]
+        context = declared.get("context") if isinstance(declared.get("context"), Mapping) else {}
+        if context.get("extraction_id") != extraction_id or declared.get("prompt_version") != PROMPT_VERSION:
+            continue
+        input_hash = str(declared.get("input_hash") or "")
+        refs: dict[str, Key] = {}
+        for ref, value in (context.get("refs") or {}).items():
+            extraction, _, span = str(value).partition("/")
+            refs[str(ref)] = (extraction, span)
+        wanted = {ref: key for ref, key in refs.items()
+                  if key in pending and key not in recovered and input_hash in pending[key]}
+        if not wanted:
+            continue
+        try:
+            answer = RoleLabellerResult.model_validate_json(receipt["output_text"])
+        except ValueError:
+            continue
+        judgments = {judgment.ref: judgment for judgment in answer.judgments}
+        if not set(judgments) >= set(refs):
+            continue
+        recovered.update(wanted.values())
+        written = RS.propose_roles(
+            vault, repository, RS.claims_from_judgments(
+                wanted, judgments, {key: pending[key][input_hash] for key in wanted.values()}),
+            judge=RS.JUDGE_LABELLER, prompt_version=PROMPT_VERSION, model=receipt.get("resolved_model"),
+            clock=clock)
+        for name in ("written", "versions", "skipped"):
+            report[name] += len(written[name])
+    report["recovered_passages"] = len(recovered)
+    report["unrecovered"] = len(set(pending) - recovered)
+    return report
+
+
+def _usage(outcomes: Sequence[Mapping[str, Any]], budget: SpendBudget, route: Any, *, subscription: bool,
+           price: float | None) -> dict[str, Any]:
+    """The run's usage (Codex review F4): tokens and dollars estimated from
+    each call's reported usage (``estimated_only`` on a subscription; dollars
+    unknown with no price), and apart, what the budget was charged."""
+
+    used = budget.used
+    totals = [usage.get("usage") or {} for usage in outcomes]
+    if subscription:
+        # Reported tokens when the turn reported them, else the call's estimate.
+        tokens = sum(int(entry.get("estimated_only_tokens") or 0) for entry in totals)
+        estimated = tokens * price / 1_000_000 if price is not None else None
+    else:
+        reported = sum(int(entry.get("reported_input_tokens") or 0) + int(entry.get("reported_output_tokens") or 0)
+                       for entry in totals)
+        # With no reported usage, the tokens the budget was charged.
+        tokens = reported or int(used.total_tokens or 0)
+        estimated = used.estimated_usd
+    return {"requests": int(used.calls), "retries": int(used.retries), "billing": route.billing,
+            "cost_basis": "estimated_only" if subscription else "metered_estimate",
+            "estimated_tokens": tokens, "estimated_usd": estimated,
+            "marginal_usd": 0.0 if subscription else used.estimated_usd}
+
+
 def eligible_passages(vault: LoadedVault, repository: Repository, extraction_id: str) -> dict[str, Any]:
     """The source's passages a model may read, in reading order, with what
     was left out and why (counts) and which were already labelled."""
@@ -215,6 +336,7 @@ def label_roles(vault: LoadedVault, repository: Repository, extraction_id: str, 
     cap = RS.batch_max_cost_usd(vault)
     source_id, title = _title(repository, extraction_id)
     found = eligible_passages(vault, repository, extraction_id)
+    pending = _unapplied(repository, extraction_id)
     batches = _batches(found["passages"])
     route = plan_route(vault, ROLE_LABELLER_TASK.route_task, client)
     price = vault.config.source_retrieval.llm_price_per_million
@@ -243,7 +365,8 @@ def label_roles(vault: LoadedVault, repository: Repository, extraction_id: str, 
         "status": "dry_run" if dry_run else "done", "extraction_id": extraction_id, "source_id": source_id,
         "dry_run": dry_run, "route": route.as_dict(), "calls": 0,
         "passages": {"blocks": found["blocks"], "eligible": len(found["passages"]),
-                     "already_labelled": found["already_labelled"], "withheld": dict(found["withheld"])},
+                     "already_labelled": found["already_labelled"], "pending_apply": len(pending),
+                     "withheld": dict(found["withheld"])},
         "caps": {CAP_SETTING: cap, "checked": "before each batch call", "batch_size": BATCH_SIZE,
                  "subscription_exempt_from_dollar_cap": subscription},
     }
@@ -261,6 +384,16 @@ def label_roles(vault: LoadedVault, repository: Repository, extraction_id: str, 
             out["route_status"] = skip
         return out
     out.update({"batches": [], "proposals": {"written": 0, "versions": 0, "skipped": 0}})
+    # Judged but never applied (a run stopped between its ledger rows and its
+    # proposals): applied first, from the paid answers, with no call.
+    recovery = _apply_pending(vault, repository, extraction_id, pending, clock=clock)
+    out["recovery"] = recovery
+    for name in ("written", "versions", "skipped"):
+        out["proposals"][name] += recovery[name]
+    if recovery["unrecovered"]:
+        out["status"] = "incomplete"
+        out["reason"] = (f"{recovery['unrecovered']} judged passage(s) were never applied and their paid "
+                         "answer was not found")
     if not batches:
         return out
     if skip is not None:
@@ -281,6 +414,7 @@ def label_roles(vault: LoadedVault, repository: Repository, extraction_id: str, 
     calls = PaidCalls(route=route, budget=budget, price_per_million=price, repository=None,
                       owner_kind=ROLE_LABELLER_TASK.route_task, owner_id="cap")
     title_text = title
+    outcomes: list[Mapping[str, Any]] = []
     for index, batch in enumerate(batches, start=1):
         entry: dict[str, Any] = {"batch": index, "passages": len(batch)}
         out["batches"].append(entry)
@@ -323,7 +457,10 @@ def label_roles(vault: LoadedVault, repository: Repository, extraction_id: str, 
             right_id=lambda key: f"{key[0]}/{key[1]}", id_parts=lambda key: [f"{key[0]}/{key[1]}"],
             pick_at_most=0, caps=budget.caps, price=price, owner_id=f"{extraction_id}|batch{index}",
             client=client, route=route, validate=capture, clock=clock, budget=budget,
+            # Recorded with the paid answer: a resume finds this batch's passages by it.
+            context={"extraction_id": extraction_id, "refs": {ref: f"{key[0]}/{key[1]}" for ref, key in refs.items()}},
         )
+        outcomes.append(outcome.usage)
         out["calls"] += int(budget.used.calls) - calls_before
         entry["status"] = "capped" if outcome.status == "over_budget" else outcome.status
         if outcome.reason:
@@ -340,10 +477,7 @@ def label_roles(vault: LoadedVault, repository: Repository, extraction_id: str, 
                                   "skipped": len(written["skipped"])}
             for name in ("written", "versions", "skipped"):
                 out["proposals"][name] += entry["proposals"][name]
-    used = budget.used
-    out["usage"] = {"requests": int(used.calls), "retries": int(used.retries), "billing": route.billing,
-                    "cost_basis": "estimated_only" if subscription else "metered_estimate",
-                    "estimated_usd": used.estimated_usd}
+    out["usage"] = _usage(outcomes, budget, route, subscription=subscription, price=price)
     return out
 
 
