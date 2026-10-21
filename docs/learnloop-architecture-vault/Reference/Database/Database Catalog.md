@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b35681815a840bde6a724331ee47d84a215209e3"
-source_commit_timestamp: "2026-10-20T23:01:52-04:00"
+source_commit: "87c9b9a4a94630287dd2e9fa6ecb7cd6544f9f1a"
+source_commit_timestamp: "2026-10-21T10:09:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 215
-table_count: 335
+schema_head: 217
+table_count: 339
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_215/state.sqlite"
+  - "fixtures/migration_head_217/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-215"
+  - "learnloop/database/schema-head-217"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 335 user tables at migration head 215. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 339 user tables at migration head 217. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -38,17 +38,17 @@ This is the exhaustive map of the 335 user tables at migration head 215. Use [[T
 
 | Role | Tables |
 |---|---:|
-| [[Table Roles#Raw Ledger|`raw_ledger`]] | 148 |
+| [[Table Roles#Raw Ledger|`raw_ledger`]] | 149 |
 | [[Table Roles#Derived|`derived`]] | 19 |
 | [[Table Roles#Receipt|`receipt`]] | 71 |
-| [[Table Roles#Workflow|`workflow`]] | 87 |
+| [[Table Roles#Workflow|`workflow`]] | 90 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
 ### By functionality status
 
 | Status | Tables |
 |---|---:|
-| `active` | 322 |
+| `active` | 326 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -335,10 +335,14 @@ Source acquisition, normalized source ir, synthesis, and durable ingest work. Th
 Reader rendering, annotations, capture, progress, and source-object interaction. This is a navigational grouping, not permission for cross-domain imports. ^family-reader
 
 - [[Reference/Database/Tables/canonical_mapping_proposals|canonical_mapping_proposals]] — `workflow` · `active` · Gives canonical mapping proposal a stable database identity so reader interactions remain anchored to durable source content as extraction and rendering evolve. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `source_object_id`, `annotation_id`, `target_kind`, making the operational relationship explicit.
+- [[Reference/Database/Tables/figure_predictions|figure_predictions]] — `raw_ledger` · `active` · Records a learner's prediction on an explorable figure (reader workbench RW5a): the answer, the observed readout before and after the prediction's change, whether it matched (decided by code) and the optional "what changed?" line. Formative only: never an attempt or an evidence observation; a missed one is read by learner-text gaps as a `reader_formative` text and listed by "Last time here". Append-only by trigger, its one update setting `explanation_text` once. It supplies replay-stable input rather than a disposable cache. Rows bind `figure_id`, `extraction_id`, `prediction_index`, making the operational relationship explicit.
+- [[Reference/Database/Tables/interactive_figures|interactive_figures]] — `workflow` · `active` · Keeps each explorable figure version the Reader built (reader workbench RW5a): the declarative figure spec the figure author wrote (never code), what was asked for (the selection, a region of a figure and the block whose crop was sent), how it verified (verified, illustrative, failed or unsupported, with the report) and the reuse key (`input_hash`); a "not right?" version supersedes an earlier one, which is kept. Paid output: never re-run on rebuild, and nothing that grades, schedules or projects reads it. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `extraction_id`, `asset_id`, `supersedes_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/reader_authored_questions|reader_authored_questions]] — `workflow` · `active` · Gives reader authored question a stable database identity so reader interactions remain anchored to durable source content as extraction and rendering evolve. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `extraction_id`, `section_id`, `source_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/reader_background_requests|reader_background_requests]] — `workflow` · `active` · Queues a durable, retryable request for reader background so reader interactions remain anchored to durable source content as extraction and rendering evolve. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `source_id`, `revision_id`, `extraction_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/reader_capture_outbox|reader_capture_outbox]] — `workflow` · `active` · Gives reader capture outbox a stable database identity so reader interactions remain anchored to durable source content as extraction and rendering evolve. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `annotation_id`, `commitment_id`, `source_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/reader_cue_impressions|reader_cue_impressions]] — `receipt` · `active` · Gives reader cue impression a stable database identity so reader interactions remain anchored to durable source content as extraction and rendering evolve. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `cue_id`, `link_id`, `extraction_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/reader_path_depths|reader_path_depths]] — `workflow` · `active` · Gives reader path depth a stable database identity so reader interactions remain anchored to durable source content as extraction and rendering evolve. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `source_id`, `depth`, making the operational relationship explicit.
+- [[Reference/Database/Tables/reader_path_sections|reader_path_sections]] — `workflow` · `active` · Gives reader path section a stable database identity so reader interactions remain anchored to durable source content as extraction and rendering evolve. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `extraction_id`, `section_id`, `exercise_span_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/reader_section_progress|reader_section_progress]] — `workflow` · `active` · Gives reader section progress a stable database identity so reader interactions remain anchored to durable source content as extraction and rendering evolve. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `extraction_id`, `section_id`, `generation_batch_id`, making the operational relationship explicit.
 
 ## Tutor And Remediation

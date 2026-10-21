@@ -588,6 +588,30 @@ forbidden_modules = ["learnloop.reader.workbench", "learnloop.db.stores.workbenc
 allow_indirect_imports = false
 
 [[tool.importlinter.contracts]]
+id = "evidence-never-reads-figures"
+name = "Replay, evidence and serving internals never read explorable figures (RW5a: W1, G24, spec 8.5)"
+type = "forbidden"
+# Figures are content and their predictions formative: nothing that writes
+# evidence, mastery, certification, FSRS, scheduling or field signals imports
+# the figure package or its store. Learner-text gaps read a missed prediction
+# as a reader_formative text by SQL in learnloop.diagnosis.text_gaps.sources,
+# never through these modules.
+source_modules = [
+    "learnloop.substrate",
+    "learnloop.learner",
+    "learnloop.attempts",
+    "learnloop.scheduling",
+    "learnloop.goals",
+    "learnloop.diagnosis",
+    "learnloop.placement",
+    "learnloop.field",
+    "learnloop.router",
+    "learnloop.adaptive_difficulty",
+]
+forbidden_modules = ["learnloop.figures", "learnloop.db.stores.figures"]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
 id = "workbench-calls-the-one-hint-service"
 name = "The Reader defines no hint writer, chooser or map builder: it calls learnloop.hints (RW2b, G64)"
 type = "forbidden"

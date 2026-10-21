@@ -1,8 +1,9 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-215 (214 is held by adaptive difficulty AD2+AD3 on its own branch; the
-runner has no contiguity rule, so this fixture has no 214). Migration 167 adds the learner-field F1 read model
+217 (214 is held by adaptive difficulty AD2+AD3 on its own branch; the
+runner has no contiguity rule, so this fixture has 215, 216 and 217 but no
+214). Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -233,13 +234,48 @@ pick rank, retrieval ranks and proposed roles) and `reader_cue_impressions`
 holdout's seed and propensity, `p_open` and its source, and the learner's
 first response, written once by trigger). Both tables are empty here.
 
-Built as a backup-API copy of the base's `migration_head_213` (git
+Migration 217 comes from reader workbench RW7a (`reader/rw7a`, reading paths
+in the Guide, docs/reviews/reader-workbench-RW7a.md): it adds
+`reader_path_sections` (WORKFLOW, append-only by trigger: the path judge's
+label per reading, depth, state key and section with its reason, the
+exercise worth trying and its `judgment_ledger` verdict, unique among judge
+rows; the learner's "read it anyway" / "skip it" as rows of their own) and
+`reader_path_depths` (WORKFLOW, append-only by trigger: the Guide's depth
+choice per source). Both tables are empty here.
+
+Migration 216 comes from reader workbench RW5a (`reader/rw5a`, explorable
+figures, docs/reviews/reader-workbench-RW5a.md): it adds `interactive_figures`
+(WORKFLOW: built figure versions, the declarative spec, its verification,
+every span sent and the reuse key, with four indexes, one unique) and
+`figure_predictions` (RAW_LEDGER: the learner's prediction, its observed
+readout and the one-time "what changed?", unique per figure and prediction,
+an index, and the no-delete and explanation-once triggers). Nothing is
+altered. Both tables are empty here.
+
+Rebuilt at the RW5a landing (`merge/rw5a-onto-main`) as a backup-API copy of
+main's `migration_head_217` (git `c80c54cbb`) with only 216 applied, through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade
+allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
+`foreign_key_check` empty), copied into place with the backup API, with no
+companion files. The directory keeps its name: the highest version present
+is still 217. The stage's own `migration_head_216` (a backup-API copy of
+`migration_head_213` of git `e14b4e4ff` with only 216 applied) was not kept.
+Before that rebuild, main's `migration_head_217` was
+built as a backup-API copy of the base's `migration_head_215` (git
+`a76c8358a`) with only 217 applied, through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade
+allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
+`foreign_key_check` empty), copied into place with the backup API, with no
+companion files; `migration_head_215` was renamed to this directory.
+`migration_head_215` was itself a backup-API copy of the base's `migration_head_213` (git
 `c9ad9cce1`) with only 215 applied, through
 `learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade
 allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
 `journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
 `foreign_key_check` empty), copied into place with the backup API, with no
-companion files; `migration_head_213` was renamed to this directory.
+companion files; `migration_head_213` was renamed to that directory.
 `migration_head_213` was itself a backup-API copy of the base's `migration_head_212` (git
 `16a0071f2`) with only 213 applied, through
 `learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade

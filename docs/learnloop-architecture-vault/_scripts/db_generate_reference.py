@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_215/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_217/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_215" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_217" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 215
+SCHEMA_HEAD = 217
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -106,6 +106,8 @@ ROLE_OUTCOMES: dict[TableRole, str] = {
 
 
 PURPOSE_OVERRIDES: dict[str, str] = {
+    "interactive_figures": "Keeps each explorable figure version the Reader built (reader workbench RW5a): the declarative figure spec the figure author wrote (never code), what was asked for (the selection, a region of a figure and the block whose crop was sent), how it verified (verified, illustrative, failed or unsupported, with the report) and the reuse key (`input_hash`); a \"not right?\" version supersedes an earlier one, which is kept. Paid output: never re-run on rebuild, and nothing that grades, schedules or projects reads it.",
+    "figure_predictions": "Records a learner's prediction on an explorable figure (reader workbench RW5a): the answer, the observed readout before and after the prediction's change, whether it matched (decided by code) and the optional \"what changed?\" line. Formative only: never an attempt or an evidence observation; a missed one is read by learner-text gaps as a `reader_formative` text and listed by \"Last time here\". Append-only by trigger, its one update setting `explanation_text` once.",
     "source_block_fts": "Indexes source block text for FTS5 BM25 keyword search (Slice 2 T6: library search, tutor spans, Quick Add scope); triggers keep it in step with `source_document_blocks` and its one replayer rebuilds it, so it never holds anything the block ledger does not. Hazard: rows are keyed by the blocks' implicit rowid (the block table has a composite key), so a migration that rebuilds `source_document_blocks` must recreate the triggers and rerun the replayer (`learnloop rebuild-derived-state`); deletes also match the block's identity as well as its rowid (migration 177), and `learnloop doctor` reports stale or missing rows.",
     "attempt_completion_work": "Coordinates resumable post-attempt work and freezes its completed route so recovery never needs to regrade an acknowledged answer.",
     "model_call_receipts": "Captures each started model operation and physical request, preserving returned text, failures and available provider usage for later cost and quality analysis.",
@@ -238,7 +240,7 @@ def table_domain(table: str) -> str:
         return "activity-substrate"
     if table.startswith(("source_", "synthesis_", "ingest_", "entity_source", "notation_mapping", "apply_intents")):
         return "sources-and-ingest"
-    if table.startswith(("reader_", "canonical_mapping")):
+    if table.startswith(("reader_", "canonical_mapping", "interactive_figures", "figure_predictions")):
         return "reader"
     if table.startswith(("probe_", "causal_", "diagnostic_", "misconception", "coldness_", "discrimination_", "contrast_pair", "error_hunt", "unresolved_cause", "persona_realism", "hypothesis_recurrence", "recurrence_")):
         return "diagnosis"
@@ -885,9 +887,11 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "reader_active_reading": "reader workbench RW1b: active reading on a selected derivation or worked example (try the next step with the book's next lines folded, why does this step work, what does this assume, reconstruct this later, another way to see this): the kill switch; the questions are the quick-check producer's formative rows and never an attempt",
     "reader_formative": "reader workbench RW1b: a next-step, why-step or assumption answer the learner marks partly or no becomes reader_formative learner text for learner-text gaps (tier 2: never evidence, mastery or FSRS): the kill switch",
     "library_ask": "reader workbench RW4a: ask your library (Shift+Enter in the library search, Ctrl+Shift+F or a selection's where else / where is this used / what do I need first): verbatim passages from the sources service's find_sources under the Reader caller's derived policy, grouped by source and role, each with one organizer line (one listwise call, route library_organizer) that must cite its own passage: the kill switch, the concept-graph expansion's switch, the personalized chip's default and the organizer's daily metered cap; retrieval is context and the lines are display (no successor)",
+    "figures": "reader workbench RW5a: explorable figures: make this explorable on a selected equation, figure block, passage or region of a figure builds a declarative figure spec (route figure_author, never code), verifies it before it shows (structure and invariants on the parameter grid, shaded areas against an independent integration; every figure is an illustration, the source check is RW5c's) and draws it inline under its passage with predictions and what changed?: the kill switch and the predictions, region and not right? switches, and the author route's metered spend a UTC day at the owner's price; content and formative records (no successor)",
     "library_exercises": "reader workbench RW4b: exercises from my sources: the Reader's view of the sources service's textbook-exercise candidates in RW4a's practice this question (verbatim statement, source and page, open in the book, use this one through the service's own import in the workbench, the key's honest status), with the service's exposure rule labelling a seen exercise and never offering it as a check on your own, and the learner-initiated fallback search (find_sources, exercise blocks of the teaching scope, the Reader's own import), retired by default once the candidates are live: the kill switch and the fallback's switch; display and a learner's own pick (no successor)",
     "reader_compare": "reader workbench RW4a: the Reader's compare table over the sources service's compare_sources (one row per source, each line quoting its own source, no consensus; display only until RW4d's keep): the kill switch",
     "roles": "reader workbench RW4e: instructional roles (definition, theorem, explanation, intuition, worked example, exercise, figure, counterexample, contrast, prerequisite, alternative treatment, application), each with a confidence, proposed per passage by the Reader's own judges (ai.routing.library_organizer, ai.routing.passage_cue_judge) at no extra call and by the owner-run batch labeller (learnloop reader label-roles, ai.routing.role_labeller) and stored as source-object proposals: the judges' kill switch, the kill switch of their positive use (find_sources roles and intent lists, RW3b's contrast list, library grouping labelled the model's; roles never exclude) and the batch labeller's per-run metered cap, checked before each batch call (labels on sources, no successor)",
+    "reading_paths": "reader workbench RW7a: reading paths in the Guide: at the depth the learner picks for a book (get the idea, learn to use it, fluency; DL2's Master, Learn, Keep and Light touch on the source preselect it, display-level only), each section core, prerequisite, enrichment, already shown or assumed with a one-line why, read it anyway / skip it, one exercise worth trying per core section and a suggested next line composed without a model; labels from one call per book and depth (ai.routing.reading_path_judge), cached by the depth, the section list and the linked LOs' statuses, already shown and assumed enforced in code: the kill switch and the judge's daily metered cap, checked before the call (display only, no successor)",
     "reader_tutor": "reader workbench RW1c: a tutor that looks things up in the Reader (its own query through the sources service's find_sources with verification under the Reader caller's derived policy, after the selection and its neighbours; three labelled answer modes with a quote-verified From your books excerpt, abstention when the books don't cover it, another way and that didn't help through the service's intents) and the buttons under its answers (the service's practice and tool requests, fetched when the answer lands and shown on press, and Try the next step first): the two kill switches; retrieval is context and the buttons are learner picks (no successor)",
     "proof_check": "the valid-alternative gate for proofs and explanations, in the grader (mvp-0.20): the kill switch of the own-route rules and the server-side unlocated rule (mvp-0.17's separate route check was removed on 2026-10-13)",
     "voi_stopping": "value-of-information stopping (mvp-0.21): the kill switch and per-site sub-switches that lift four count caps (probe observations per session, further follow-ups per LO, further teach-backs, project probes per day) onto value of information, and the multi-family EVSI study's three switches (the robust completion gate while value decides, the 2-3 check lookahead, the value gate's robust quantile)",
@@ -2049,7 +2053,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_215/state.sqlite",
+                "fixtures/migration_head_217/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

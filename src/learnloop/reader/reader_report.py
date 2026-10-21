@@ -44,6 +44,7 @@ from typing import Any, Iterable
 
 from learnloop.clock import parse_utc
 from learnloop.db.connection import connect
+from learnloop.db.stores.figures import shown_verification
 
 REPORT_VERSION = "reader-report-v1"
 OPEN_AFTER = timedelta(days=7)
@@ -225,6 +226,30 @@ def _discovered_cues(connection: Any, in_window: Any) -> dict[str, Any] | None:
     }
 
 
+def _reading_paths(connection: Any, in_window: Any) -> dict[str, Any]:
+    """RW7a (spec §15's reading-path row): judged section labels by kind, the
+    learner's overrides by the label they overrode ("enrichment:read_anyway",
+    "core:skip"), and the Guide's depth choices. Counts only."""
+
+    empty: dict[str, Any] = {"judged_sections": 0, "labels": {}, "overrides": {}, "depth_choices": {}}
+    if connection.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN "
+                          "('reader_path_sections', 'reader_path_depths')").fetchone()[0] != 2:
+        return empty
+    rows = [row for row in connection.execute(
+        "SELECT label, learner_override, created_at FROM reader_path_sections ORDER BY created_at, id")
+        if in_window(row["created_at"])]
+    judged = [row for row in rows if row["learner_override"] is None]
+    chosen = [row for row in rows if row["learner_override"] is not None]
+    depths = [row for row in connection.execute(
+        "SELECT depth, created_at FROM reader_path_depths ORDER BY created_at, id") if in_window(row["created_at"])]
+    return {
+        "judged_sections": len(judged),
+        "labels": dict(sorted(Counter(str(row["label"]) for row in judged).items())),
+        "overrides": dict(sorted(Counter(f"{row['label']}:{row['learner_override']}" for row in chosen).items())),
+        "depth_choices": dict(sorted(Counter(str(row["depth"]) for row in depths).items())),
+    }
+
+
 def _role_counts(versions: list[dict[str, Any]]) -> dict[str, Any]:
     """RW4e's proposals: one per object (its head's status), by role and
     confidence; every version by judge; agreement between judges."""
@@ -254,8 +279,20 @@ def build_reader_report(
     *,
     since: str | None = None,
     now: datetime | None = None,
+    reading_paths_enabled: bool = True,
+    figures_enabled: bool = False,
 ) -> dict[str, Any]:
-    """Compute the report from the ledgers (pure read)."""
+    """Compute the report from the ledgers (pure read).
+
+    ``reading_paths_enabled`` is the vault's ``reading_paths.enabled`` (the
+    CLI passes it): off, the report has no ``reading_paths`` key at all and
+    is the report the base before RW7a gives, whatever the path tables hold
+    (orchestrator fix round, ruling 2).
+
+    ``figures_enabled`` is the vault's ``figures.enabled`` (RW5a): only while
+    it is on does the report read the figure tables and carry its
+    ``figures`` block, so with figures off it is the report of before RW5a
+    (fix round 3; the CLI passes the switch)."""
 
     now = (now or datetime.now(UTC)).astimezone(UTC)
     since_at = _when(since) if since else None
@@ -316,6 +353,28 @@ def build_reader_report(
                 "SELECT created_at FROM learner_text_gap_jobs WHERE source_kind = 'reader_formative'"
             ) if in_window(row["created_at"])
         ] if has_gap_jobs else []
+        # RW5a: figures (migration 216), counted from their rows: by
+        # verification, unsupported requests by kind (RW5b's order and the
+        # deferred generated-code figures read it), versions, predictions.
+        has_figures = figures_enabled and connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'interactive_figures'"
+        ).fetchone() is not None
+        figure_rows = [
+            # A legacy "verified" counts as the illustration it is shown as
+            # (final round, High 2: the figure view's one normalization).
+            {"verification": shown_verification(row["verification"]), "unsupported_kind": row["unsupported_kind"],
+             "revision": row["supersedes_id"] is not None, "region": row["region_json"] is not None}
+            for row in connection.execute(
+                "SELECT verification, unsupported_kind, supersedes_id, region_json, created_at FROM interactive_figures "
+                "ORDER BY created_at, id"
+            ) if in_window(row["created_at"])
+        ] if has_figures else []
+        prediction_rows = [
+            {"matched": bool(row["matched"]), "explained": row["explanation_text"] is not None}
+            for row in connection.execute(
+                "SELECT matched, explanation_text, created_at FROM figure_predictions ORDER BY created_at, id"
+            ) if in_window(row["created_at"])
+        ] if has_figures else []
         # RW4a: library asks (migration 209), counted from their rows; the
         # organizer's lines are counted, never quoted.
         has_asks = connection.execute(
@@ -335,6 +394,7 @@ def build_reader_report(
         # RW4e: instructional-role proposals (source_objects marked
         # kind = instructional_role), counted by role, judge and confidence
         # (labels only: a proposal copies no text).
+        reading_paths = _reading_paths(connection, in_window) if reading_paths_enabled else None
         role_versions = [
             {"object_id": str(row["source_object_id"]), "ordinal": int(row["version_ordinal"]),
              "role": row["authorial_role"], "status": row["status"],
@@ -513,7 +573,7 @@ def build_reader_report(
     offers_pressed = Counter(str(e["payload"].get("offer_kind") or "unknown") for e in actions("tutor_offer_pressed"))
     press_results = Counter(str(e["payload"].get("offer_result") or "unknown") for e in actions("tutor_offer_pressed"))
 
-    return {
+    report: dict[str, Any] = {
         "version": REPORT_VERSION,
         "window": {"since": since_at.isoformat() if since_at else None, "until": now.isoformat()},
         "learner_text": False,
@@ -639,6 +699,10 @@ def build_reader_report(
         # RW4e: role proposals by role, by judge and by confidence; agreement
         # (passages two or more judges proposed the same role for).
         "roles": _role_counts(role_versions),
+        # RW7a: reading-path labels by kind, overrides ("read it anyway" on
+        # enrichment, "skip it" on core) and depth choices. Counts only.
+        # Absent while reading_paths.enabled is off (the base report).
+        **({"reading_paths": reading_paths} if reading_paths_enabled else {}),
         # RW1c: answers by mode, abstentions and excerpts dropped by quote
         # verification (a proxy for unsupported content), "another way" and
         # "that didn't help" rates with whether the inquiry was resolved after,
@@ -658,12 +722,28 @@ def build_reader_report(
             "offers": {"shown": dict(offers_shown), "pressed": dict(offers_pressed),
                        "press_results": dict(press_results)},
         },
+        # RW5a (spec §8.1): figures built by verification, unsupported requests
+        # by kind, "not right?" versions, region requests, and predictions
+        # (missed, and with a "what changed?" line). Counts only.
+        "figures": {
+            "built": dict(Counter(row["verification"] for row in figure_rows)),
+            "unsupported_by_kind": dict(Counter(str(row["unsupported_kind"] or "unknown") for row in figure_rows
+                                                if row["verification"] == "unsupported")),
+            "revisions": sum(1 for row in figure_rows if row["revision"]),
+            "regions": sum(1 for row in figure_rows if row["region"]),
+            "predictions": len(prediction_rows),
+            "predictions_missed": sum(1 for row in prediction_rows if not row["matched"]),
+            "what_changed": sum(1 for row in prediction_rows if row["explained"]),
+        },
         "routes": [
             {"job_kind": job_kind, "model": model, "prompt_version": version, "n": len(rows),
              "latency_ms": _percentiles(r["payload"].get("latency_ms") for r in rows)}
             for (job_kind, model, version), rows in sorted(routes.items(), key=lambda item: str(item[0]))
         ],
     }
+    if not figures_enabled:
+        del report["figures"]
+    return report
 
 
 __all__ = ["REPORT_VERSION", "build_reader_report"]

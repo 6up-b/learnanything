@@ -1,0 +1,46 @@
+{
+ "caps": {
+  "max_calls": 120,
+  "max_candidates": 120,
+  "max_estimated_usd": 0.5,
+  "max_pairs": 120,
+  "max_retries": 20,
+  "max_total_tokens": 2000000
+ },
+ "dry_run": true,
+ "plan": {
+  "by_source": {},
+  "chooser": "context_model",
+  "decider_enabled": true,
+  "embedding_enabled": false,
+  "enabled": true,
+  "live_daily_cap": {
+   "calls_today": 0,
+   "max_calls_per_day": 500
+  },
+  "max_calls_ceiling": 0,
+  "max_metered_usd_ceiling": 0.0,
+  "note": "a ceiling, not an estimate: most texts are 'none' and make two calls (the reading, the Decider)",
+  "per_text_caps": {
+   "max_calls": 30,
+   "max_usd": 0.25
+  },
+  "queued": 0,
+  "routes": {
+   "authoring": "codex_medium",
+   "learner_gap_decider": "openrouter_decider",
+   "learner_gap_judge": "codex_low",
+   "learner_gap_reader": "codex_low",
+   "tutor_qa": "codex_low"
+  }
+ },
+ "texts_this_run": 0,
+ "would_queue": {
+  "diagnosis": 0,
+  "hint_feedback": 0,
+  "reader_formative": 0,
+  "stuck_answer": 0,
+  "tutor_question": 0,
+  "workbench_text": 0
+ }
+}

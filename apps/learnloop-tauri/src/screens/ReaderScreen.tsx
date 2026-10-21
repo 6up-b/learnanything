@@ -37,6 +37,7 @@ import type {
   ReaderCoachLintDto,
   SourceLibraryCard,
   ReaderAnnotationPlacementDto,
+  ReadingPathExerciseDto,
 } from "../api/dto";
 import { COLOR, Card, Dim, Faint, FONT_MONO, KeyBar, Meta, Pill, TermSelect } from "../components/term";
 import { MarkdownMath } from "../render/MarkdownMath";
@@ -81,6 +82,8 @@ import { goTo as stackGoTo } from "./reader/returnStack";
 import { AskRail } from "./reader/AskRail";
 import { createTutorOfferStore } from "./reader/TutorOffers";
 import { GuideRail, SectionBoundaryOffer } from "./reader/GuideRail";
+import { ReadingPathCard } from "./reader/ReadingPathCard";
+import { readingPathRefreshKey } from "./reader/readingPath";
 import { useReaderRecap } from "./reader/useReaderRecap";
 import { RecapCard } from "./reader/RecapCard";
 import { WrapUpPanel } from "./reader/WrapUpPanel";
@@ -90,6 +93,8 @@ import { IntentBox } from "./reader/IntentBox";
 import { useIntentBox, type IntentCancel, type IntentRunHandle, type IntentRunHow } from "./reader/useIntentBox";
 import { useActiveReading } from "./reader/useActiveReading";
 import { ActiveReadingCard, NextStepFoldLine } from "./reader/ActiveReadingCard";
+import { FiguresUnder } from "./reader/figures/FigureInline";
+import { useFigures } from "./reader/figures/useFigures";
 import { useLibraryAsk } from "./reader/useLibraryAsk";
 import { LibraryPane } from "./reader/LibraryPane";
 import { CompareKeepContext } from "./reader/compareKeepContext";
@@ -265,6 +270,8 @@ export function ReaderScreen({
   // fixed text as the exercise surface.
   const [editingCapture, setEditingCapture] = useState(false);
   const [railTab, setRailTab] = useState<ReaderRailTab>("guide");
+  // RW7a: bumped by Orient's "what matters here?" (the path card scrolls into view).
+  const [pathFocus, setPathFocus] = useState(0);
   const [annotations, setAnnotations] = useState<MarginAnnotation[]>([]);
   const [note, setNote] = useState("");
   const [answerMode, setAnswerMode] = useState<ReaderAnswerMode>("answer_directly");
@@ -364,6 +371,8 @@ export function ReaderScreen({
   // reader_inquiry on): the intent box, and active reading.
   const intentContract = inquiry && !offline ? contract?.intent ?? null : null;
   const activeReadingOn = inquiry && !offline && Boolean(contract?.activeReading);
+  // RW5a: explorable figures (the contract names them only while figures.enabled is on).
+  const figuresCtl = useFigures({ extractionId: render && !offline ? render.extractionId : null, contract: contract?.figures ?? null });
   // RW1c: the tutor that looks things up (absent from the contract while both its switches are off).
   const readerTutor = contract?.readerTutor ?? null;
   // RW1c: the bound workbench session an Ask comes from (set once the workbench hook runs below).
@@ -533,6 +542,27 @@ export function ReaderScreen({
     onError,
   });
   const working = wbCtl.active !== null;
+  // RW7a (Codex review F3, re-review F3): what the mounted reading-path card
+  // re-reads on, a landed progress save included.
+  // The Guide being shown again, the plan re-read (a diagnosis landed), a
+  // quick check answered, a workbench problem submitted or set aside, and
+  // each section read through or finished.
+  const [guideShown, setGuideShown] = useState(0);
+  useEffect(() => {
+    if (railTab === "guide" && !railCollapsed) setGuideShown((value) => value + 1);
+  }, [railTab, railCollapsed]);
+  const [guideReads, setGuideReads] = useState(0);
+  useEffect(() => {
+    if (guidePlan) setGuideReads((value) => value + 1);
+  }, [guidePlan]);
+  const pathRefreshKey = readingPathRefreshKey({
+    sections: guidePlan?.sections ?? [],
+    completedSections,
+    sectionSeen,
+    progressSaves: progress.progressSaves,
+    signals: [guideShown, guideReads, answeredSections.length,
+      wbCtl.sessions.map((entry) => `${entry.sessionId}:${entry.status}`).join(",")],
+  });
   // Sent whenever EITHER RW1c switch is on (fix round 4, F3): the server
   // derives the bound item's restriction from it (a cold administration
   // refuses tools and offers), with retrieval off too. `readerTutor` is
@@ -2298,6 +2328,16 @@ export function ReaderScreen({
     const title = problemTitle(stem);
     return title === "this problem" ? clip(stem, 48) : title;
   };
+  // RW7a: the reading path's "Try it" -- the exercise in the workbench through
+  // the usual import of a selected problem, with the book open.
+  const tryPathExercise = (exercise: ReadingPathExerciseDto) => {
+    if (!render) return;
+    void wbCtl.openSelection({
+      stemMd: exercise.statement,
+      spanIds: exercise.spanIds,
+      importRequest: { ...exercise.importRequest, renderViewId: render.renderViewId, clientIdempotencyKey: newKey() },
+    });
+  };
   const workThroughSelection = () => {
     if (!render || !selection) return;
     const nodes = selectionNodes(selection);
@@ -2367,6 +2407,20 @@ export function ReaderScreen({
         logReaderAction("action_invoked", { ...visitPayload(), action_kind: effect.entry, ...meta });
         askLibraryHere(text || (selection ? (selection.editedText ?? selection.quote) : ""), effect.entry, selectionSpanIds);
         return;
+      case "reading_path":
+        // RW7a: Orient's "what matters here?" opens the Guide's reading path.
+        logReaderAction("action_invoked", { ...visitPayload(), action_kind: "what_matters_here", ...meta });
+        setRailCollapsed(false);
+        setRailTab("guide");
+        setPathFocus((value) => value + 1);
+        return;
+      case "figure": {
+        // RW5a: built in the background; it lands under its passage.
+        logReaderAction("action_invoked", { ...visitPayload(), action_kind: "make_explorable", ...meta });
+        const region = selection?.region ? { spanId: selection.region.spanId, bbox: selection.region.bbox } : null;
+        figuresCtl.request({ spanIds: region ? [] : selectionSpanIds, region });
+        return;
+      }
     }
   };
   // "change" cancels the routed action (spec §4.2; RW1b review F4): an Ask
@@ -2626,6 +2680,12 @@ export function ReaderScreen({
               marks={pdfMarks()}
               onPageLayout={setPdfLayout}
               {...(activeCtl.folded.size ? { coveredSpans: activeCtl.folded } : {})}
+              {...(figuresCtl.enabled ? {
+                inlineNotes: [...new Set([...figuresCtl.figures.map((f) => f.anchorSpanId), ...figuresCtl.pending.map((p) => p.anchorSpanId)])]
+                  .filter((spanId): spanId is string => Boolean(spanId))
+                  .map((spanId) => ({ spanId, node: <FiguresUnder ctl={figuresCtl} spanId={spanId} /> })),
+                regionSelection: Boolean(contract?.figures?.region),
+              } : {})}
             />
           ) : null}
           {removed ? (
@@ -2748,6 +2808,7 @@ export function ReaderScreen({
                 </>)}
               </div>
               {inlineReconnect && reconnect && block.spanId === reconnect.spanId ? inlineReconnect : null}
+              {figuresCtl.enabled ? <FiguresUnder ctl={figuresCtl} spanId={block.spanId} /> : null}
               {offerSection ? (
                 <SectionBoundaryOffer
                   section={endSection}
@@ -2925,6 +2986,16 @@ export function ReaderScreen({
             sendQuestionControl={sendQuestionControl}
             disposition={disposition}
             chooseDisposition={chooseDisposition}
+            path={contract?.readingPaths ? (
+              <ReadingPathCard
+                extractionId={render.extractionId}
+                onJump={(spanId) => jumpToSpan(spanId, "start")}
+                onTryExercise={wbCtl.enabled ? tryPathExercise : null}
+                onError={onError}
+                focusToken={pathFocus}
+                refreshKey={pathRefreshKey}
+              />
+            ) : undefined}
             header={recapCtl.wrapUpOpen || (recapCtl.recap && !muted) ? (
               <>
                 {recapCtl.wrapUpOpen ? (

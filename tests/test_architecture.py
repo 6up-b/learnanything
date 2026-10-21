@@ -118,9 +118,16 @@ REGISTERED_SQL_OWNERS = frozenset(
         # Reader workbench RW3b: passage_links and reader_cue_impressions
         # (migration 215), the cue judge's links and the cue receipts.
         "src/learnloop/db/stores/reader_cue_links.py",
+        # Reader workbench RW7a: reader_path_sections and reader_path_depths
+        # (migration 217), the path judge's labels and the learner's choices.
+        "src/learnloop/db/stores/reading_paths.py",
         # Reader workbench RW4a: library_asks (migration 209), one row per
         # library question with its manifests and organizer lines.
         "src/learnloop/db/stores/library_asks.py",
+        # Reader workbench RW5a: interactive_figures (migration 216, built
+        # figure versions) and the append-only figure_predictions (its one
+        # update sets explanation_text once, enforced by trigger).
+        "src/learnloop/db/stores/figures.py",
         # mvp-0.21 value-of-information stopping: the follow-up value
         # decisions' append-only receipts (one row per decision).
         "src/learnloop/db/stores/followup_value.py",

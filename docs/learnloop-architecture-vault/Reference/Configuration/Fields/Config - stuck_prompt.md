@@ -3,8 +3,8 @@ title: "Config - stuck_prompt"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b35681815a840bde6a724331ee47d84a215209e3"
-source_commit_timestamp: "2026-10-20T23:01:52-04:00"
+source_commit: "87c9b9a4a94630287dd2e9fa6ecb7cd6544f9f1a"
+source_commit_timestamp: "2026-10-21T10:09:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml stuck_prompt"
@@ -30,7 +30,7 @@ source_paths:
   - "tests/test_chatgpt_plan_provider.py"
   - "tests/test_cli_ingest.py"
   - "tests/test_codex_isolation_mcp_check.py"
-  - "tests/test_compare_sources_keep.py"
+  - "tests/test_compare_keep_switch_off.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/stuck-prompt"
@@ -51,7 +51,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `stuck_prompt.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for mvp-0.13's "I'm stuck" control (write what you can, or what's confusing you). On, a stuck answer is an ordinary attempt at the standard mass: graded and diagnosed when it has text, scored 0 with no model call and no error tag when empty. Off, an mvp-0.13 vault shows "I don't know" and records dont_know exactly as mvp-0.12. Dormant below mvp-0.13; replay reads practice_attempts.declared_stuck, never this switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1955`; `src/learnloop/attempts/stuck.py:81` |
+| `stuck_prompt.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for mvp-0.13's "I'm stuck" control (write what you can, or what's confusing you). On, a stuck answer is an ordinary attempt at the standard mass: graded and diagnosed when it has text, scored 0 with no model call and no error tag when empty. Off, an mvp-0.13 vault shows "I don't know" and records dont_know exactly as mvp-0.12. Dormant below mvp-0.13; replay reads practice_attempts.declared_stuck, never this switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1971`; `src/learnloop/attempts/stuck.py:81` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -71,7 +71,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_chatgpt_plan_provider.py`
 - `tests/test_cli_ingest.py`
 - `tests/test_codex_isolation_mcp_check.py`
-- `tests/test_compare_sources_keep.py`
+- `tests/test_compare_keep_switch_off.py`
 
 ## Extension and modification guidance
 

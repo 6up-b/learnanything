@@ -132,6 +132,8 @@ def formative_record(connection: Any, question_id: str, *, topics: Iterable[str]
     learner's answer (not an attempt, so no answer contract), the book's
     passage and the cited spans of the expected answer, and the topics."""
 
+    if str(question_id).startswith("fpr_"):  # an RW5a figure prediction, or its later explanation
+        return figure_prediction_record(connection, question_id, topics=topics)
     row = connection.execute(
         "SELECT extraction_id, source_id, span_ids_json, anchor_span_ids_json FROM reader_authored_questions "
         "WHERE id = ?", (question_id,),
@@ -146,6 +148,38 @@ def formative_record(connection: Any, question_id: str, *, topics: Iterable[str]
             continue
     source = {"ref_type": "canonical_source", "ref_id": row[1] or row[0], "source_id": row[1],
               "extraction_id": row[0], "span_ids": sorted(spans)}
+    return WriteRecord(Inputs.of(topics=topics, sources=[source]))
+
+
+def figure_prediction_record(connection: Any, prediction_id: str, *, topics: Iterable[str] = ()) -> WriteRecord:
+    """RW5a: what a missed figure prediction shows its reader -- the
+    learner's answer (not an attempt), every span the figure was built from
+    (the selection, a region's block and the paragraphs the author was sent
+    around it: the figure's prediction and readouts derive from all of them;
+    Codex review F1), and the topics. The figure's own values are computed by
+    code from that passage. A later explanation's source (``...:explained``)
+    has its prediction's record."""
+
+    from learnloop.diagnosis.text_gaps.sources import figure_input_manifest, figure_prediction_id
+
+    prediction_id, _explained = figure_prediction_id(prediction_id)
+    row = connection.execute(
+        "SELECT f.extraction_id, f.span_ids_json, f.region_json, f.input_span_ids_json, f.asset_id "
+        "FROM figure_predictions AS p JOIN interactive_figures AS f ON f.id = p.figure_id WHERE p.id = ?",
+        (prediction_id,),
+    ).fetchone()
+    if row is None:
+        return WriteRecord.incomplete("the figure prediction is gone", inputs=Inputs.of(topics=topics))
+    manifest = figure_input_manifest({"span_ids_json": row[1], "region_json": row[2], "input_span_ids_json": row[3],
+                                      "asset_id": row[4]})
+    if manifest is None:
+        return WriteRecord.incomplete("the figure's input spans are unreadable", inputs=Inputs.of(topics=topics))
+    spans = set(manifest)
+    source_id = connection.execute(
+        "SELECT revision.source_id FROM source_extraction_runs AS run LEFT JOIN source_revisions AS revision "
+        "ON revision.id = run.revision_id WHERE run.id = ?", (row[0],)).fetchone()
+    source = {"ref_type": "canonical_source", "ref_id": (source_id[0] if source_id else None) or row[0],
+              "source_id": source_id[0] if source_id else None, "extraction_id": row[0], "span_ids": sorted(spans)}
     return WriteRecord(Inputs.of(topics=topics, sources=[source]))
 
 
@@ -208,6 +242,7 @@ def drafter_record(connection: Any, vault: Any, text: Any, reading: Any, *, subj
 __all__ = [
     "TUTOR_UNRECORDED",
     "drafter_record",
+    "figure_prediction_record",
     "formative_record",
     "hint_feedback_record",
     "question_record",

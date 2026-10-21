@@ -3,13 +3,13 @@ title: "router_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b35681815a840bde6a724331ee47d84a215209e3"
-source_commit_timestamp: "2026-10-20T23:01:52-04:00"
+source_commit: "87c9b9a4a94630287dd2e9fa6ecb7cd6544f9f1a"
+source_commit_timestamp: "2026-10-21T10:09:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_decisions"
   - "table router_decisions"
-schema_head: 215
+schema_head: 217
 table_name: "router_decisions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -159,6 +159,7 @@ None found by exact static reference scan.
 - `tests/test_dl2_rw4b_keyed_pick_check.py`
 - `tests/test_evsi_router_composition.py`
 - `tests/test_evsi_staged_binding.py`
+- `tests/test_figure_predictions.py`
 - `tests/test_intent_fix_round5.py`
 - `tests/test_learner_pick_proposal.py`
 - `tests/test_mcp_tools.py`
@@ -171,7 +172,6 @@ None found by exact static reference scan.
 - `tests/test_reader_rw3b_protection.py`
 - `tests/test_router_card.py`
 - `tests/test_router_g1_feasibility.py`
-- `tests/test_router_offer_log.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

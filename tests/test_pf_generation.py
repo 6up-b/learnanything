@@ -554,6 +554,9 @@ def _fake_codex_sdk(monkeypatch, captured, final_response):
 
     class FakeCodex:
         def __init__(self, config):
+            from tests.codex_cli_fakes import FakeSdkClient
+
+            self._client = FakeSdkClient()
             captured["app_config"] = config.kwargs
             captured["listing"] = sorted(path.name for path in Path(config.kwargs["cwd"]).iterdir())
 
@@ -582,6 +585,8 @@ def _fake_codex_sdk(monkeypatch, captured, final_response):
 
     module = ModuleType("openai_codex")
     module.Codex = FakeCodex
+    from tests.codex_cli_fakes import FakeApprovalMode
+    module.ApprovalMode = FakeApprovalMode
     module.CodexConfig = SdkAppConfig
     types_module = ModuleType("openai_codex.types")
     types_module.Personality = SimpleNamespace(pragmatic="pragmatic")

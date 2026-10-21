@@ -55,6 +55,12 @@ def _record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     if not WRITE:
         # Recorded on the base tree, which has no keep_enabled key.
         set_config(paths, "reader_compare", keep_enabled=False)
+        # RW7a (landed after this golden was recorded): off, so its contract key
+        # and Orient's "what matters here?" are absent; these pins are RW4d's.
+        set_config(paths, "reading_paths", enabled=False)
+        # RW5a (landed after this golden too): off, so its contract key and
+        # "make this explorable" are absent; these pins are RW4d's.
+        set_config(paths, "figures", enabled=False)
     ctx = context(paths.root)
     real = service.propose_comparison
     llm = FakeServiceLLM()

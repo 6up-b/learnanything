@@ -3,13 +3,13 @@ title: "help_assists"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b35681815a840bde6a724331ee47d84a215209e3"
-source_commit_timestamp: "2026-10-20T23:01:52-04:00"
+source_commit: "87c9b9a4a94630287dd2e9fa6ecb7cd6544f9f1a"
+source_commit_timestamp: "2026-10-21T10:09:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite help_assists"
   - "table help_assists"
-schema_head: 215
+schema_head: 217
 table_name: "help_assists"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -174,6 +174,7 @@ None found by exact static reference scan.
 - `tests/test_approach_map_replay.py`
 - `tests/test_approach_maps.py`
 - `tests/test_architecture.py`
+- `tests/test_figure_predictions.py`
 - `tests/test_help_assists_schema.py`
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_hint_feedback_widening.py`

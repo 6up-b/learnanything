@@ -263,9 +263,13 @@ def install_fake_codex_sdk(monkeypatch, *, final_response: str = '{"grades": []}
     captured: dict[str, Any] = {"turns": []}
     stopped = threading.Event()
 
+    from tests.codex_cli_fakes import FakeApprovalMode, FakeSdkClient
+
     class FakeCodex:
         def __init__(self, config):
             captured["app_config"] = config.kwargs
+            self._client = FakeSdkClient()
+            captured["sdk_client"] = self._client
             stopped.clear()
             if spawn:
                 kwargs = config.kwargs
@@ -324,6 +328,7 @@ def install_fake_codex_sdk(monkeypatch, *, final_response: str = '{"grades": []}
     module = ModuleType("openai_codex")
     module.Codex = FakeCodex
     module.CodexConfig = SdkAppConfig
+    module.ApprovalMode = FakeApprovalMode
     types_module = ModuleType("openai_codex.types")
     types_module.Personality = SimpleNamespace(pragmatic="pragmatic")
     types_module.ReasoningEffort = ReasoningEffort

@@ -8,6 +8,9 @@ import type {
   KeepComparisonResultDto,
   KeepTakeDto,
   KeptMarksDto,
+  ReadingPathChoice,
+  ReadingPathDepth,
+  ReadingPathDto,
   LibraryAskDto,
   LibraryAskEntry,
   LibraryExpansion,
@@ -63,6 +66,9 @@ import type {
   SourceExerciseImportDto,
   ExerciseCandidatesDto,
   FindExercisesDto,
+  FigureBuildResultDto,
+  FigurePredictionResultDto,
+  FiguresDto,
   SourceToolRunDto,
   AnswerCalibrationReportDto,
   CreateVaultInput,
@@ -1575,6 +1581,15 @@ export const api = {
     call<CompareTableDto>("reader_library_compare_reopen", { input }),
   readerKeptComparisons: (input: { extractionId: string }) =>
     call<KeptMarksDto>("reader_kept_comparisons", { input }),
+  // Reader workbench RW7a: the Guide's reading path (answers at once; a
+  // judgment runs in the background and the Guide reads the path again),
+  // the depth for this book, and "read it anyway" / "skip it".
+  readerReadingPath: (input: { extractionId: string; judge?: boolean; retry?: boolean }) =>
+    call<ReadingPathDto>("reader_reading_path", { input }),
+  readerReadingPathSetDepth: (input: { extractionId: string; depth: ReadingPathDepth }) =>
+    call<ReadingPathDto>("reader_reading_path_set_depth", { input }),
+  readerReadingPathOverride: (input: { extractionId: string; depth: ReadingPathDepth; sectionId: string; choice: ReadingPathChoice }) =>
+    call<ReadingPathDto>("reader_reading_path_override", { input }),
   readerLibraryAskTutor: (input: { askId: string; pinnedSpanKeys: string[]; question?: string | null }) =>
     call<LibraryJobDto<LibraryTutorDto>>("reader_library_ask_tutor", { input }),
   readerLibraryJob: <T>(input: { jobId: string }) =>
@@ -1590,6 +1605,23 @@ export const api = {
     call<LibraryJobDto<ExerciseCandidatesDto>>("reader_exercise_candidates", { input }),
   readerFindExercises: (input: { query: string; learningObjectIds: string[]; extractionId?: string | null }) =>
     call<LibraryJobDto<FindExercisesDto>>("reader_find_exercises", { input }),
+  // Reader workbench RW5a: explorable figures. Desktop only. A build ("make
+  // this explorable", "not right?") answers at once with a job (the author,
+  // the verifier and the sandbox run off the request path): read it with
+  // readerFigureJob. Exam and held-out material is refused before any call.
+  readerFigureRequest: (input: { extractionId: string; spanIds: string[]; region?: { spanId: string; bbox: number[] } | null }) =>
+    call<LibraryJobDto<FigureBuildResultDto>>("reader_figure_request", { input }),
+  readerFigureRevise: (input: { figureId: string; note: string }) =>
+    call<LibraryJobDto<FigureBuildResultDto>>("reader_figure_revise", { input }),
+  readerFigureJob: (input: { jobId: string }) =>
+    call<LibraryJobDto<FigureBuildResultDto>>("reader_figure_job", { input }),
+  readerFigureJobCancel: (input: { jobId: string }) =>
+    call<LibraryJobDto<null>>("reader_figure_job_cancel", { input }),
+  readerFigures: (input: { extractionId: string }) => call<FiguresDto>("reader_figures", { input }),
+  readerFigurePredict: (input: { figureId: string; predictionIndex: number; answer: string }) =>
+    call<FigurePredictionResultDto>("reader_figure_predict", { input }),
+  readerFigureExplain: (input: { predictionId: string; text: string }) =>
+    call<FigurePredictionResultDto>("reader_figure_explain", { input }),
   // Reader workbench RW3a: a tap on a margin cue (open, check me, not relevant
   // and its undo) and the learner's cue preferences (density, a book off).
   readerCueAction: (input: { extractionId: string; cueId: string; action: ReaderCueAction; text?: string | null }) =>

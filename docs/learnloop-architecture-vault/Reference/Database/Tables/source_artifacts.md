@@ -3,13 +3,13 @@ title: "source_artifacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b35681815a840bde6a724331ee47d84a215209e3"
-source_commit_timestamp: "2026-10-20T23:01:52-04:00"
+source_commit: "87c9b9a4a94630287dd2e9fa6ecb7cd6544f9f1a"
+source_commit_timestamp: "2026-10-21T10:09:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_artifacts"
   - "table source_artifacts"
-schema_head: 215
+schema_head: 217
 table_name: "source_artifacts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -128,13 +128,14 @@ Indexes and uniqueness:
 - `src/learnloop/remote/sources.py`
 - `src/learnloop/remote/views.py`
 - `src/learnloop/source_retrieval/corpus.py`
-- `src/learnloop_sidecar/handlers/first_run.py`
+- `src/learnloop/source_retrieval/reading_paths.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
+- `tests/figure_fixtures.py`
 - `tests/helpers.py`
 - `tests/reader_fixtures.py`
 - `tests/source_retrieval_fakes.py`
@@ -154,7 +155,6 @@ Indexes and uniqueness:
 - `tests/test_source_retrieval_guards.py`
 - `tests/test_source_retrieval_rereview.py`
 - `tests/test_tutor_delivery_fixes.py`
-- `tests/test_ux_phase1_landing.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

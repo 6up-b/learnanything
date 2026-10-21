@@ -3,13 +3,13 @@ title: "learner_text_gap_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b35681815a840bde6a724331ee47d84a215209e3"
-source_commit_timestamp: "2026-10-20T23:01:52-04:00"
+source_commit: "87c9b9a4a94630287dd2e9fa6ecb7cd6544f9f1a"
+source_commit_timestamp: "2026-10-21T10:09:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gap_jobs"
   - "table learner_text_gap_jobs"
-schema_head: 215
+schema_head: 217
 table_name: "learner_text_gap_jobs"
 table_role: "workflow"
 functionality_status: "active"
@@ -105,6 +105,12 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_figure_predictions.py`
+- `tests/test_figures_codex_review.py`
+- `tests/test_figures_fix_round2.py`
+- `tests/test_figures_fix_round3.py`
+- `tests/test_figures_fix_round4.py`
+- `tests/test_figures_switch_off.py`
 - `tests/test_held_grade_composition.py`
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_hint_feedback_widening.py`

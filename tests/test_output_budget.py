@@ -311,6 +311,9 @@ def test_codex_turns_take_the_routes_effort_for_that_turn_only(tmp_path, monkeyp
 
     class FakeCodex:
         def __init__(self, config):
+            from tests.codex_cli_fakes import FakeSdkClient
+
+            self._client = FakeSdkClient()
             pass
 
         def __enter__(self):
@@ -332,6 +335,8 @@ def test_codex_turns_take_the_routes_effort_for_that_turn_only(tmp_path, monkeyp
 
     sdk = ModuleType("openai_codex")
     sdk.Codex = FakeCodex
+    from tests.codex_cli_fakes import FakeApprovalMode
+    sdk.ApprovalMode = FakeApprovalMode
     sdk.CodexConfig = lambda **kwargs: SimpleNamespace(**kwargs)
     types_module = ModuleType("openai_codex.types")
     types_module.Personality = SimpleNamespace(pragmatic="pragmatic")
@@ -340,6 +345,9 @@ def test_codex_turns_take_the_routes_effort_for_that_turn_only(tmp_path, monkeyp
     monkeypatch.setitem(sys.modules, "openai_codex", sdk)
     monkeypatch.setitem(sys.modules, "openai_codex.types", types_module)
     client = SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex"), reasoning_effort="medium"), tmp_path)
+    from tests.codex_cli_fakes import stub_isolation_probe
+
+    stub_isolation_probe(monkeypatch, client)  # every Codex turn runs the lockdown's launch check
     request = StructuredRequest(purpose="source_rerank", prompt="judge", result_model=Summary, reasoning_effort="low")
     assert client.complete(request).summary == "ok"
     plain = StructuredRequest(purpose="grading", prompt="grade", result_model=Summary)

@@ -19,13 +19,14 @@ next UTC day once the pipeline's calls today reach it.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from contextlib import closing
+from contextlib import closing, nullcontext
 from dataclasses import dataclass
 from datetime import timedelta
 import logging
 from pathlib import Path
 from typing import Any
 
+from learnloop.ai.execution import gate_model_requests
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
@@ -34,8 +35,11 @@ from learnloop.diagnosis.text_gaps.contract import LearnerText
 from learnloop.diagnosis.text_gaps.judges import TextBudget
 from learnloop.diagnosis.text_gaps.pipeline import PipelineClients, ReadingDeferred, failed_row, process_learner_text
 from learnloop.diagnosis.text_gaps.sources import (
+    SourceWithheld,
     StuckTextSource,
     attempt_grade_held,
+    figures_enabled,
+    is_figure_prediction,
     formative_row,
     hint_feedback_ids,
     hint_feedback_row,
@@ -46,6 +50,7 @@ from learnloop.diagnosis.text_gaps.sources import (
     workbench_text_ids,
     workbench_text_row,
 )
+from learnloop.figure_admission import FiguresChanged, FiguresGate, text_key
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault
 
@@ -155,6 +160,51 @@ def enqueue_reader_formative(
     return enqueue(repository, source_kind="reader_formative", source_id=question_id, clock=clock)
 
 
+def enqueue_figure_prediction(
+    vault: LoadedVault, repository: Repository, *, prediction_id: str, clock: Clock | None = None,
+) -> str | None:
+    """Reader RW5a: a missed figure prediction (its answer and "what
+    changed?" text) as a ``reader_formative`` text, on RW1b's rule: only with
+    ``learner_text_gaps.enabled`` and ``reader_formative.enabled`` on, only a
+    missed one with an answer; a matched prediction queues nothing.
+    Idempotent per prediction (its "what changed?": :func:`enqueue_figure_explanation`)."""
+
+    if not figures_enabled(vault):
+        return None  # figures off: nothing figure-derived is queued (fix round 4)
+    return enqueue_reader_formative(vault, repository, question_id=prediction_id, clock=clock)
+
+
+def enqueue_figure_explanation(
+    vault: LoadedVault, repository: Repository, *, prediction_id: str, clock: Clock | None = None,
+) -> str | None:
+    """RW5a: a missed figure prediction's "what changed?", once written.
+
+    While the prediction's own job is still queued, nothing more is queued:
+    its reading reads the text as it is then, explanation included. Once
+    that reading has started or finished (or never had a job), the
+    explanation is its own text, ``<prediction id>`` +
+    :data:`~.sources.FIGURE_EXPLANATION_SUFFIX` (the answer with the
+    explanation): a later reading that may name or clear a different gap,
+    the earlier one kept as it was read (Codex review F5). Same switches as
+    the prediction."""
+
+    from learnloop.diagnosis.text_gaps.sources import FIGURE_EXPLANATION_SUFFIX
+
+    if not pipeline_enabled(vault) or not figures_enabled(vault):
+        return None
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        job = store.job_for_source(connection, "reader_formative", prediction_id)
+        read = store.gap_for_source(connection, "reader_formative", prediction_id)
+    if job is None and read is None:
+        return enqueue_figure_prediction(vault, repository, prediction_id=prediction_id, clock=clock)
+    if job is not None and job.get("state") == "queued" and not _reading_checkpointed(job):
+        return None
+    if job is not None and ((job.get("payload") or {}).get("markers") or {}).get("explanation_read") is True:
+        return None
+    return enqueue_reader_formative(vault, repository, question_id=prediction_id + FIGURE_EXPLANATION_SUFFIX,
+                                    clock=clock)
+
+
 def enqueue_hint_feedback(
     vault: LoadedVault, repository: Repository, *, assist_id: str, clock: Clock | None = None,
 ) -> str | None:
@@ -227,8 +277,9 @@ def sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | 
 
     Stuck answers always, missed active-reading answers while
     ``reader_formative.enabled`` is on (RW1b review F7: one whose job was never
-    written), and replies to hints and discriminating answers while adaptive
-    hints are on (``hint_feedback``, H2b review F4); with ``include_history``
+    written; and a figure prediction's "what changed?" saved after its reading,
+    while nothing queued it: :func:`_unread_figure_explanations`), and replies
+    to hints and discriminating answers while adaptive hints are on (``hint_feedback``, H2b review F4); with ``include_history``
     also answered tutor questions that carry a tutor reading and completed
     live diagnoses. ``kinds`` narrows the sweep (the sidecar's start-up
     reconciliation sweeps ``hint_feedback`` only). ``dry_run`` counts what
@@ -239,8 +290,9 @@ def sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | 
     if not pipeline_enabled(vault):
         return counts
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        known = {(job["source_kind"], job["source_id"]) for job in store.jobs(connection)}
-        known |= {(row["source_kind"], row["source_id"]) for row in store.gaps(connection)}
+        job_rows = {(job["source_kind"], job["source_id"]): job for job in store.jobs(connection)}
+        gap_rows = {(row["source_kind"], row["source_id"]): row for row in store.gaps(connection)}
+    known = set(job_rows) | set(gap_rows)
 
     def queue(source_kind: str, source_id: str) -> bool:
         if (source_kind, source_id) in known:
@@ -254,8 +306,13 @@ def sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | 
                 counts["stuck_answer"] += 1
     if "reader_formative" in kinds and bool(getattr(getattr(vault.config, "reader_formative", None), "enabled",
                                                     False)):
-        for question_id in missed_formative_ids(repository):
+        figures = figures_enabled(vault)
+        for question_id in missed_formative_ids(repository, figures=figures):
             if queue("reader_formative", question_id):
+                counts["reader_formative"] += 1
+        # Figure explanations only while figures are on (fix round 4).
+        for source_id in (_unread_figure_explanations(repository, job_rows, gap_rows) if figures else ()):
+            if queue("reader_formative", source_id):
                 counts["reader_formative"] += 1
     if "hint_feedback" in kinds and hint_feedback_enabled(vault):
         for assist_id in hint_feedback_ids(repository):
@@ -281,6 +338,45 @@ def sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | 
             if queue("diagnosis", diagnosis_id):
                 counts["diagnosis"] += 1
     return counts
+
+
+def _reading_checkpointed(job: Mapping[str, Any]) -> bool:
+    """Whether a job already holds a reading (its markers are checkpointed
+    with it, fix round 4): a retry reuses that reading, so a later
+    explanation is its own text."""
+
+    return isinstance((job.get("payload") or {}).get("markers"), Mapping)
+
+
+def _unread_figure_explanations(repository: Repository, job_rows: Mapping[tuple[str, str], Mapping[str, Any]],
+                                gap_rows: Mapping[tuple[str, str], Mapping[str, Any]]) -> list[str]:
+    """The ``<prediction id>:explained`` sources the backlog owes (fix round
+    2, F5): a "what changed?" saved after its prediction's reading started
+    or finished, while nothing queued it (gap reading was off then).
+
+    Left out: a prediction whose own reading has not run (no job and no
+    gap: the sweep queues the prediction, and its one reading reads the
+    explanation too) or is queued or running now (it may still read it); a
+    reading that already read the explanation (its job's ``markers`` say
+    ``explanation_read``, recorded when it was done, fix round 3: never a
+    search of the text, which an explanation may repeat); and an explained
+    source already queued or read (the caller's ``known``). ``job_rows`` and
+    ``gap_rows`` are read before this sweep queued anything."""
+
+    from learnloop.diagnosis.text_gaps.sources import FIGURE_EXPLANATION_SUFFIX, explained_predictions
+
+    owed: list[str] = []
+    for prediction_id, _explanation in explained_predictions(repository):
+        key = ("reader_formative", prediction_id)
+        job, gap = job_rows.get(key), gap_rows.get(key)
+        if job is None and gap is None:
+            continue
+        if job is not None and job.get("state") in ("queued", "leased") and not _reading_checkpointed(job):
+            continue
+        if job is not None and ((job.get("payload") or {}).get("markers") or {}).get("explanation_read") is True:
+            continue
+        owed.append(prediction_id + FIGURE_EXPLANATION_SUFFIX)
+    return owed
 
 
 def _later(seconds: float, clock: Clock | None) -> str:
@@ -351,23 +447,49 @@ def process_next_gap_job(
             outcome.state = "deferred" if released else "lease_lost"
             outcome.error = "daily_cap"
             return outcome
-    text = learner_text(vault, repository, outcome.source_kind, outcome.source_id, stuck_source=stuck_source)
+    try:
+        text = learner_text(vault, repository, outcome.source_kind, outcome.source_id, stuck_source=stuck_source)
+    except SourceWithheld as exc:
+        # Held-out context (fix round 2, F1): nothing is built or sent, and
+        # the job ends skipped, so no sweep or retry reads it again.
+        return skip(f"held out: {exc}"[:500], None)
     if text is None:
         return skip("nothing to read", None)
 
     def save_progress(payload: Mapping[str, Any]) -> None:
+        payload = dict(payload)
+        if "markers" not in payload and text.markers:
+            # The markers are checkpointed with the reading they describe
+            # (fix round 4): the first checkpoint of this text holds them, and
+            # a retry that reuses that reading keeps them, whatever the text
+            # says now.
+            payload["markers"] = dict(text.markers)
         progress.clear()
         progress.update(payload)
         with repository.atomic():
             store.save_job_payload(repository.connection(), job_id, payload, owner=owner, epoch=epoch,
                                    now=utc_now_iso(clock))
 
+    # A figure prediction's reading runs under the one figure gate (RW5a):
+    # before each of its physical requests (the reader, the Decider, any
+    # action call) the switch is read as configured now, and a change stops
+    # the reading with no further call.
+    figure_gate = (FiguresGate(vault, text_key)
+                   if outcome.source_kind == "reader_formative" and is_figure_prediction(outcome.source_id) else None)
     try:
         budget = budget_factory(vault) if budget_factory is not None else None
-        row = process_learner_text(
-            root, repository, text, clients=clients, budget=budget, clock=clock,
-            progress=dict(progress), save_progress=save_progress,
-        )
+        with gate_model_requests(figure_gate) if figure_gate is not None else nullcontext():
+            row = process_learner_text(
+                root, repository, text, clients=clients, budget=budget, clock=clock,
+                progress=dict(progress), save_progress=save_progress,
+            )
+    except FiguresChanged as exc:
+        # Released with its checkpoint, attempt refunded: the next run reads
+        # it as main would (switched off, it has nothing to read).
+        released = release(not_before=None, error=f"figures changed: {exc}"[:500], refund=True)
+        outcome.state = "retry_later" if released else "lease_lost"
+        outcome.error = "figures_changed"
+        return outcome
     except ReadingDeferred as exc:
         if exc.spend and budget_factory is not None:
             # The command's shared budget ran out, not this text: released
@@ -384,6 +506,10 @@ def process_next_gap_job(
                               outcome=outcome, error=f"{type(exc).__name__}: {exc}"[:500])
     if row is None:
         return skip("learner_text_gaps.enabled is off", text)
+    if text.markers and "markers" not in progress:
+        # A reading that never checkpointed: its markers are this text's
+        # (fix round 3); otherwise the checkpoint's stand (fix round 4).
+        save_progress(dict(progress))
     if not finish("done"):
         outcome.state = "lease_lost"
     outcome.gap_id, outcome.action = str(row["id"]), str(row["action"])
@@ -528,6 +654,8 @@ __all__ = [
     "MAX_ATTEMPTS",
     "calls_today",
     "enqueue",
+    "enqueue_figure_explanation",
+    "enqueue_figure_prediction",
     "enqueue_after_diagnosis",
     "enqueue_stuck_answer",
     "enqueue_tutor_question",

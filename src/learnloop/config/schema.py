@@ -1389,6 +1389,22 @@ class AIRoutingConfig(BaseModel):
     # metered route needs source_retrieval.llm_price_per_million and is held
     # to roles.batch_max_cost_usd per run, checked before each batch.
     role_labeller: str | None = None
+    # Reader workbench RW7a (spec_reader_workbench_v1 §10.1): the reading-path
+    # judge, one structured call per source and depth over the section list
+    # (labels, roles, the linked LOs' statuses, the depth and the goal's
+    # title), cached by its state key. Empty = ai.active_provider (Codex is
+    # estimated_only); a metered route needs
+    # source_retrieval.llm_price_per_million and is held to
+    # reading_paths.max_daily_cost_usd, checked before the call.
+    reading_path_judge: str | None = None
+    # Reader workbench RW5a (spec_reader_workbench_v1 §8.5): explorable
+    # figures. figure_author writes the declarative figure spec (a chat route;
+    # a region or figure block sends its crop as an image when the profile
+    # lists "image" in input_modalities). RW5a has no verifier route: the
+    # source check is RW5c's. Empty = ai.active_provider (Codex allowed,
+    # estimated_only). Metered calls are held to figures.max_daily_cost_usd at
+    # figures.price_per_million (unset: refused before sending).
+    figure_author: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -2368,6 +2384,38 @@ class LibraryExercisesConfig(BaseModel):
     fallback_enabled: bool = False
 
 
+class FiguresConfig(BaseModel):
+    """Reader workbench RW5a: explorable figures (spec_reader_workbench_v1 §8, §8.6).
+
+    ``enabled``: "make this explorable" on a selected equation, figure block
+    or passage builds a declarative figure spec (route ``figure_author``),
+    verifies it before it shows (structure, invariants and shaded areas; RW5a
+    makes no source claim: every figure is an illustration, the source check
+    is RW5c's), and draws it inline under its passage. Off: the Reader is exactly
+    as before RW5a, the RPCs refuse and no route is called.
+    ``predictions_enabled``: one prediction before the first change, the
+    observed before/after readout and "what changed?" (formative; a missed
+    one is a ``reader_formative`` learner text). ``region_enabled``: a
+    Ctrl+drag region of a figure on the original page, of which only the crop
+    is sent. ``revisions_enabled``: "not right?" asks for a new version with
+    the learner's note (the earlier one is kept).
+
+    Caps (money, W4): two author attempts per request; ``max_daily_cost_usd``
+    meters the author route's metered spend a UTC day at
+    ``price_per_million`` (unset: a metered route is refused before sending;
+    Codex is ``estimated_only``). Content and formative only: nothing in
+    scoring, scheduling, projection or serving reads these keys, so no
+    algorithm successor (§8.6).
+    """
+
+    enabled: bool = True
+    predictions_enabled: bool = True
+    region_enabled: bool = True
+    revisions_enabled: bool = True
+    max_daily_cost_usd: float = Field(default=1.0, ge=0)
+    price_per_million: float | None = Field(default=None, gt=0)
+
+
 class ReaderCompareConfig(BaseModel):
     """Reader workbench RW4a: compare pinned passages (spec_reader_workbench_v1 §7.3).
 
@@ -2420,6 +2468,30 @@ class RolesConfig(BaseModel):
     on_demand_enabled: bool = True
     positive_filter_enabled: bool = True
     batch_max_cost_usd: float = Field(default=5.0, ge=0.0)
+
+
+class ReadingPathsConfig(BaseModel):
+    """Reader workbench RW7a: reading paths in the Guide (spec_reader_workbench_v1 §10.1).
+
+    At the depth the learner picks for a source (get the idea, learn to use
+    it, fluency; DL2's intent on the source preselects it, display-level
+    only), the Guide's path card labels each section core, prerequisite,
+    enrichment, already shown or assumed with a one-line why, read it anyway
+    / skip it, one exercise worth trying per core section and a suggested
+    next activity composed without a model. The labels come from one call
+    per source and depth (``ai.routing.reading_path_judge``), cached by the
+    depth, the section list and the linked LOs' statuses; "already shown"
+    stands only when every LO the section teaches is demonstrated and
+    "assumed" only with an open assumption, enforced in code. ``enabled`` is
+    the kill switch (off: today's Guide, no call, every RPC refused).
+    ``max_daily_cost_usd`` caps a metered judge route a UTC day (checked
+    before the call; Codex is ``estimated_only``). Display only: nothing in
+    scoring, scheduling, projection or serving reads a path, so no algorithm
+    successor (RW7b, the plan following the path, is a later stage).
+    """
+
+    enabled: bool = True
+    max_daily_cost_usd: float = Field(default=0.5, ge=0.0)
 
 
 class LearnerTextGapsConfig(BaseModel):
@@ -3453,8 +3525,10 @@ class LearnLoopConfig(BaseModel):
     reader_formative: ReaderFormativeConfig = Field(default_factory=ReaderFormativeConfig)
     library_ask: LibraryAskConfig = Field(default_factory=LibraryAskConfig)
     library_exercises: LibraryExercisesConfig = Field(default_factory=LibraryExercisesConfig)
+    figures: FiguresConfig = Field(default_factory=FiguresConfig)
     reader_compare: ReaderCompareConfig = Field(default_factory=ReaderCompareConfig)
     roles: RolesConfig = Field(default_factory=RolesConfig)
+    reading_paths: ReadingPathsConfig = Field(default_factory=ReadingPathsConfig)
     reader_tutor: ReaderTutorConfig = Field(default_factory=ReaderTutorConfig)
     proof_check: ProofCheckConfig = Field(default_factory=ProofCheckConfig)
     voi_stopping: VoiStoppingConfig = Field(default_factory=VoiStoppingConfig)

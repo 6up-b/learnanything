@@ -6652,10 +6652,14 @@ export interface ReaderPromptContractDto {
   libraryAsk?: { expandGraph: boolean; personalizedDefault: boolean; compare: boolean };
   /** RW4b: exercises from my sources (present only while library_exercises.enabled and the library answer are on). */
   libraryExercises?: { fallback: boolean };
+  /** Reader workbench RW5a: explorable figures (absent while figures.enabled is off). */
+  figures?: { predictions: boolean; region: boolean; revisions: boolean };
   /** RW1c: the tutor that looks things up (present only while reader_tutor.retrieval_enabled or offers_enabled is on). */
   readerTutor?: ReaderTutorContractDto;
   /** RW4d: keep a comparison (present only while reader_compare.keep_enabled and compare are on). */
   compareKeep?: CompareKeepContractDto;
+  /** RW7a: reading paths in the Guide (present only while reading_paths.enabled is on). */
+  readingPaths?: { enabled: boolean; depths: Array<{ id: ReadingPathDepth; label: string }> };
 }
 /** RW4d (spec §7.8): where a comparison can be kept, and the perspectives field. */
 export interface CompareKeepContractDto {
@@ -6690,7 +6694,9 @@ export type ReaderIntentEffect =
   | { kind: "work_through" }
   | { kind: "active_reading"; style: ReaderActiveStyle }
   | { kind: "another_way" }
-  | { kind: "library_ask"; entry: LibraryAskEntry };
+  | { kind: "library_ask"; entry: LibraryAskEntry }
+  | { kind: "reading_path" }
+  | { kind: "figure" };
 export type ReaderIntention = "orient" | "understand" | "apply" | "consolidate" | "transfer";
 export interface ReaderIntentActionDto {
   id: string;
@@ -6994,7 +7000,9 @@ export interface ReaderActivityEvent {
     | "back_to_reading"
     | "cue_shown"
     | "tutor_offer_shown"
-    | "tutor_offer_pressed";
+    | "tutor_offer_pressed"
+    | "figure_opened"
+    | "figure_animated";
   payload: Record<string, string | number | boolean | null | Record<string, boolean>>;
 }
 export interface ReaderAskHistoryDto {
@@ -8843,10 +8851,150 @@ export interface KeptMarksDto {
   label: string;
 }
 
+/** Reader workbench RW7a (spec §10.1; UX §4.11): the depth the path is for. */
+export type ReadingPathDepth = "get_the_idea" | "learn_to_use_it" | "fluency";
+/** A section's label; "already_shown" only when every LO it teaches is demonstrated (code's rule). */
+export type ReadingPathLabel = "core" | "prerequisite" | "enrichment" | "already_shown" | "assumed";
+/** "read it anyway" / "skip it"; "none" clears an earlier choice. */
+export type ReadingPathChoice = "read_anyway" | "skip" | "none";
+
+/** The exercise worth trying after a core section (an exercise block of it), re-read now. */
+export interface ReadingPathExerciseDto {
+  label: string;
+  extractionId: string;
+  spanIds: string[];
+  page: number | null;
+  /** The exercise's own words, verbatim and whole (the workbench's stem;
+   *  Codex review F2: never clipped, a late condition is part of the problem). */
+  statement: string;
+  /** The statement clipped for a preview (600 characters at most); never the stem. */
+  preview: string;
+  /** "Try it": the Reader's own import of a selected problem. */
+  importRequest: ReaderImportExerciseInput;
+}
+
+export interface ReadingPathSectionDto {
+  sectionId: string;
+  title: string;
+  startSpanId: string;
+  label: ReadingPathLabel;
+  /** core · prerequisite · enrichment · already shown ● · assumed */
+  chip: string;
+  /** One line: why. */
+  reason: string;
+  /** Who wrote that line: "model" (shown as the model's reading) or "code"
+   *  (the evidence lines, a changed label's line, and the neutral line that
+   *  replaces a model reason whose judgment saw a section withheld since). */
+  reasonBy: "model" | "code";
+  override: "read_anyway" | "skip" | null;
+  /** What the path treats it as: a "read it anyway" counts as core; a "skip it" is skipped. */
+  effectiveLabel: ReadingPathLabel | "skipped";
+  exercise: ReadingPathExerciseDto | null;
+  words: number;
+  learningObjectIds: string[];
+}
+
+export interface ReadingPathDto {
+  version?: number;
+  extractionId: string;
+  sourceId?: string;
+  /** ask_depth: the Guide asks "How deep do you want to go?" (no call yet);
+   *  ready: the path for the current state; judging: being read (an older
+   *  path, if any, is shown meanwhile); stale: an older path, not being
+   *  read; pending: nothing yet; failed / withheld / no_sections. */
+  status: "ask_depth" | "ready" | "judging" | "stale" | "pending" | "failed" | "withheld" | "no_sections";
+  depth: ReadingPathDepth | null;
+  depthLabel?: string | null;
+  /** guide: the learner chose it here; intent: their Master/Learn/Keep/Light touch setting for this book. */
+  depthOrigin?: "guide" | "intent" | null;
+  intent?: { choice: string; label: string } | null;
+  depths: Array<{ id: ReadingPathDepth; label: string; means: string }>;
+  goal: { id: string; title: string } | null;
+  goalLine?: string;
+  sections: ReadingPathSectionDto[];
+  next: { text: string; sectionId: string; spanId: string | null; exercise: ReadingPathExerciseDto | null; minutes: number } | null;
+  stateKey?: string | null;
+  stale?: boolean;
+  /** The shown judgment was asked about a section withheld since, so none of
+   *  its model reasons is shown (code's lines stand in while it is re-read). */
+  reasonsHeldBack?: boolean;
+  message?: string | null;
+  reason?: string | null;
+}
+
 /** A take on a pair (two keys) or a claim (one key), as the table's rows name them. */
 export interface KeepTakeDto {
   text: string;
   keys: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Reader workbench RW5a: explorable figures (spec §8; UX §4.7, W11)
+// ---------------------------------------------------------------------------
+
+export type FigureVerification = "verified" | "illustrative" | "failed" | "unsupported";
+
+/** A prediction once answered: what the figure showed, decided by code. */
+export interface FigurePredictionResultDto {
+  version?: number;
+  predictionId: string;
+  figureId: string;
+  extractionId: string;
+  predictionIndex: number;
+  learnerAnswer: string;
+  matched: boolean;
+  before: number | null;
+  after: number | null;
+  /** The right answer (sent only after the learner answered). */
+  answer: string | null;
+  explanationText: string | null;
+}
+
+export interface FigurePredictionDto {
+  index: number;
+  prompt: string;
+  kind: "direction" | "area";
+  choices: Array<{ value: string; label: string }>;
+  answered: FigurePredictionResultDto | null;
+}
+
+export interface FigureViewDto {
+  figureId: string;
+  extractionId: string;
+  spanIds: string[];
+  anchorSpanId: string | null;
+  region: { spanId: string; bbox: number[] } | null;
+  origin: "selection" | "library" | "tutor";
+  verification: FigureVerification;
+  kind: "reconstructed" | "illustrative" | null;
+  /** The server's label (the Reader draws its own code-owned badge instead, FIGURE_FRAME). */
+  label: string;
+  reason: string | null;
+  unsupportedKind: string | null;
+  supersedesId: string | null;
+  revisionNote: string | null;
+  versions: number;
+  createdAt: string;
+  /** InteractiveFigureSpecV1 as JSON text (its keys are the spec's own); shown figures only. */
+  specJson: string | null;
+  demonstrates: string | null;
+  assumptions: Array<{ text: string; spanId: string | null; quote: string | null }>;
+  predictions: FigurePredictionDto[];
+  /** The closed keys of the checks LearnLoop ran (§8.3 steps 1-2); the Reader names them in its own words. */
+  propertyChecks?: string[];
+}
+
+export interface FigureBuildResultDto {
+  figure: FigureViewDto | null;
+  reused: boolean;
+  /** The passage became held out while it was being built: nothing is shown. */
+  withheld?: boolean;
+}
+
+export interface FiguresDto {
+  version?: number;
+  extractionId: string;
+  figures: FigureViewDto[];
 }
 
 /** A library request running off the request path (reader.library_job). */
@@ -8854,7 +9002,7 @@ export interface LibraryJobDto<T> {
   version?: number;
   jobId: string;
   /** RW4b adds "exercise_candidates" and "find_exercises" (the same runner). */
-  kind: "ask" | "notes" | "compare" | "tutor" | "exercise_candidates" | "find_exercises";
+  kind: "ask" | "notes" | "compare" | "tutor" | "exercise_candidates" | "find_exercises" | "figure_build";
   askId: string | null;
   state: "pending" | "done" | "cancelled";
   result: T | null;

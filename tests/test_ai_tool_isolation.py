@@ -231,6 +231,7 @@ def test_project_routes_give_a_confinable_agent_the_vault_and_repos_as_hidden(mo
 @requires_bwrap
 def test_the_codex_app_server_launches_inside_the_sandbox(monkeypatch, layout, tmp_path):
     from learnloop.ai.providers.codex import CodexSDKProviderClient
+    from tests.codex_cli_fakes import stub_isolation_probe
     from tests.project_support import install_fake_codex_sdk
 
     monkeypatch.setenv("CODEX_HOME", str(layout["home"]))
@@ -250,15 +251,20 @@ def test_the_codex_app_server_launches_inside_the_sandbox(monkeypatch, layout, t
     captured = install_fake_codex_sdk(monkeypatch, spawn=True, final_response='{"grades": []}')
     profile = LearnLoopConfig().ai.providers["codex_low"].model_copy(update={"sdk_codex_bin": str(agent)})
     client = CodexSDKProviderClient("codex_low", profile, layout["workdir"])
+    stub_isolation_probe(monkeypatch, client)
     isolation = ToolIsolation(workdir=layout["workdir"], hidden=(layout["vault"], layout["repo"]))
     with tool_isolation(isolation):
         client._run_structured("p", {"type": "object"}, purpose="project_closed_book_check")
     out = captured["spawned"]["stdout"]
-    assert "args:app-server --listen stdio://" in out
+    # Every Codex turn is locked down: the overrides precede `app-server`;
+    # the app server runs in the mounted directory (bubblewrap's chdir) and
+    # the thread in an empty directory of its own inside it.
+    assert out.split("args:", 1)[1].splitlines()[0].endswith("app-server --listen stdio://")
     assert f"cwd:{layout['workdir'].resolve()}" in out
+    turn_root = Path(captured["thread_start"]["cwd"])
+    assert turn_root.parent == layout["workdir"].resolve()
     assert {"store-blocked", "repo-blocked", "transcript-blocked"} <= set(out.split())
     assert "REFERENCE ANSWER" not in out and "SOURCE CODE" not in out and "AGENT TRANSCRIPT" not in out
-    assert captured["thread_start"]["cwd"] == str(layout["workdir"])
     # Without the isolation the same launch reads everything: the sandbox is what blocks it.
     client._run_structured("p", {"type": "object"}, purpose="project_closed_book_check")
     assert "REFERENCE ANSWER" in captured["spawned"]["stdout"]
@@ -349,6 +355,7 @@ def _launch_codex_like(monkeypatch, tmp_path, *, home: Path, workdir: Path, hidd
     import shlex
 
     from learnloop.ai.providers.codex import CodexSDKProviderClient
+    from tests.codex_cli_fakes import stub_isolation_probe
     from tests.project_support import install_fake_codex_sdk
 
     monkeypatch.setenv("CODEX_HOME", str(home))
@@ -358,6 +365,9 @@ def _launch_codex_like(monkeypatch, tmp_path, *, home: Path, workdir: Path, hidd
     profile = LearnLoopConfig().ai.providers["codex_low"].model_copy(update=update)
     captured = install_fake_codex_sdk(monkeypatch, spawn=True, final_response='{"grades": []}')
     client = CodexSDKProviderClient("codex_low", profile, workdir)
+    # Every Codex turn runs the lockdown's launch check (security stage
+    # 2026-10-21); this fake app server answers only the launch.
+    stub_isolation_probe(monkeypatch, client)
     error = None
     with tool_isolation(ToolIsolation(workdir=workdir, hidden=tuple(hidden))):
         try:
@@ -848,7 +858,9 @@ def test_an_isolated_turn_runs_its_permission_profile_inside_the_sandbox(monkeyp
     turn_root = Path(captured["thread_start"]["cwd"])
     assert turn_root.parent == layout["workdir"].resolve()
     assert {cwd for cwd, _overrides, _subcommand in probes} == {turn_root}
-    assert [subcommand[:2] for _cwd, _overrides, subcommand in probes] == [("mcp", "list"), ("features", "list")]
+    assert [subcommand[:2] for _cwd, _overrides, subcommand in probes] == [
+        ("mcp", "list"), ("features", "list"), ("debug", "models"),
+    ]
     assert not turn_root.exists()
 
 

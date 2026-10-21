@@ -20,9 +20,9 @@ this" only while ``workbench.enabled``, "another way to see this" only while
 the sources service is on, RW4a's library asks ("what do I need first?",
 "where else is this explained?", "where is this used?") only while
 ``library_ask.enabled`` (with the sources service and RW1a's inquiry). Actions
-of phases that have not landed (RW7a's reading path, RW5a's figures, DL3's
-"practice this in a new setting", RW4b's exercises from my sources) are
-absent, not disabled (U13).
+of phases that have not landed (RW7a's reading path, DL3's "practice this in
+a new setting", RW4b's exercises from my sources) are absent, not disabled
+(U13). RW5a's "make this explorable" exists only while ``figures.enabled``.
 
 **Routing.** :func:`route` asks once and takes the argmax (no hand-set
 threshold). An empty text routes to Ask with no call; an unavailable, timed
@@ -178,6 +178,12 @@ ACTIONS: tuple[IntentAction, ...] = (
                  "Find one or two passages in the learner's other books or other parts of this one that treat "
                  "the same idea differently (a geometric view beside an algebraic one, a worked example).",
                  {"kind": "another_way"}, needs=("active_reading", "sources")),
+    # RW5a: an explorable figure of the selected equation, figure or passage,
+    # built in the background and drawn inline under it.
+    IntentAction("make_explorable", "understand", "make this explorable",
+                 "Build an interactive version of the selected equation, figure or passage: sliders for its "
+                 "parameters, plots, shaded areas and readouts, shown under the passage.",
+                 {"kind": "figure"}, needs=("figures",)),
     # Apply
     IntentAction("work_through", "apply", "work through this",
                  "Open the selected exercise or problem beside the book to work it in steps.",
@@ -211,6 +217,11 @@ ACTIONS: tuple[IntentAction, ...] = (
                  "build on it), shown beside this one.",
                  {"kind": "library_ask", "entry": "where_is_this_used"}, needs=("library",)),
     # Orient
+    # RW7a: "What matters here?" opens the Guide's reading path (no model sees the selection).
+    IntentAction("what_matters_here", "orient", "what matters here?",
+                 "Show the learner's reading path for this book in the Guide: which sections are core, "
+                 "prerequisite or enrichment at the depth they chose, and one exercise worth trying.",
+                 {"kind": "reading_path"}, needs=("reading_paths",), model=False),
     IntentAction("what_do_i_need_first", "orient", "what do I need first?",
                  "List what this passage builds on (its prerequisite topics), whether the learner has shown "
                  "each on their own, and a passage from their books for each.",
@@ -245,11 +256,15 @@ class Availability:
     #: RW4a's library answer (``library_ask.enabled`` with the sources service
     #: and RW1a's inquiry): Orient's and Transfer's library actions.
     library: bool = False
+    #: RW7a's reading paths (``reading_paths.enabled``): Orient's "what matters here?".
+    reading_paths: bool = False
     #: False when the selection is held out of LearnLoop's models (exam
     #: protection): only actions that show nothing to a model remain.
     model: bool = True
     #: The learner's own notes: only the anchor-free actions.
     notes: bool = False
+    #: RW5a's explorable figures (``figures.enabled``): "make this explorable".
+    figures: bool = False
 
     @classmethod
     def from_config(cls, config: Any, *, model: bool = True, notes: bool = False) -> "Availability":
@@ -262,8 +277,10 @@ class Availability:
                 and getattr(getattr(config, "source_service", None), "enabled", False)
                 and getattr(getattr(config, "reader_inquiry", None), "enabled", False)
             ),
+            reading_paths=bool(getattr(getattr(config, "reading_paths", None), "enabled", False)),
             model=model,
             notes=notes,
+            figures=bool(getattr(getattr(config, "figures", None), "enabled", False)),
         )
 
     def allows(self, action: IntentAction) -> bool:

@@ -106,7 +106,7 @@ Had LearnLoop's judgment drawn a goal instead, the hint would have read *a goal 
 - *Feels:* their own library talking to itself, with its differences intact.
 - *Does not:* write an essay, merge the books into a "consensus", or rank by their history without saying so (the *personalized* chip is visible and switchable, B 877).
 
-**Moment 9 — an explorable figure.** Back in §5.4 there is the two-sided exponential figure. Select the density equation → *make this explorable* **[RW5a]**. `◐ building an interactive version — about 30 s · keep reading`. They read on. A collapsed line appears under the equation: *▸ interactive version · AI-built · matches the book's equation (checked)*. They open it. First a prediction: *"If λ doubles, what happens to P(X ≤ 0)?"* They answer *it rises*, because the peak at zero gets taller. The figure moves λ to 2 and shows the readout before and after: *30.0% → 30.0%*. A box asks *what changed? (optional)*. They write one line: *λ squeezes both sides toward 0, but p sets the split*. Then they shade `P(X ≤ 0)` and drag `p` with the arrow keys: the readout follows `p` exactly, which is the dialogue's own illustration (B 591–611: at p = 0.30, 30% left of zero and 70% right).
+**Moment 9 — an explorable figure.** Back in §5.4 there is the two-sided exponential figure. Select the density equation → *make this explorable* **[RW5a]**. `◐ building an interactive version — about 30 s · keep reading`. They read on. A collapsed line appears under the equation: *▸ interactive version · AI-built · matches the book's equation (checked)*. *(In RW5a the line reads "· AI-built illustration · not checked against the book"; the checked line is deferred to RW5c, spec §8.3.)* They open it. First a prediction: *"If λ doubles, what happens to P(X ≤ 0)?"* They answer *it rises*, because the peak at zero gets taller. The figure moves λ to 2 and shows the readout before and after: *30.0% → 30.0%*. A box asks *what changed? (optional)*. They write one line: *λ squeezes both sides toward 0, but p sets the split*. Then they shade `P(X ≤ 0)` and drag `p` with the arrow keys: the readout follows `p` exactly, which is the dialogue's own illustration (B 591–611: at p = 0.30, 30% left of zero and 70% right).
 - *Feels:* playing with the idea. The miss is a discovery.
 - *Does not:* grade the miss, present the figure as the author's, or animate anything when reduced motion is on.
 
@@ -375,9 +375,9 @@ Most of this is backend work in the sources spec. The learner meets it in four p
 ### 4.7 Explorable figures **[RW5a, RW5b]**
 
 - **Entry:** a selected equation, figure block or **region of a figure** (`Ctrl`+drag on the PDF surface, restored) → *make this explorable*. From RW5b, the tutor or a library answer may offer *make this explorable* as a button when a retrieved equation supports one.
-- **Placement:** **inline under the passage**, at the full measure of the text column, not in the 360 px rail (§10 S9). It is collapsed to one line once built (*▸ interactive version · AI-built · matches the book's equation (checked)*) and expands in place. Only one is expanded at a time.
+- **Placement:** **inline under the passage**, at the full measure of the text column, not in the 360 px rail (§10 S9). It is collapsed to one line once built (*▸ interactive version · AI-built · matches the book's equation (checked)*) *(RW5a: the illustration line; the checked line is deferred to RW5c)* and expands in place. Only one is expanded at a time.
 - **Inside:** one prediction before the first change (radio choices or one word), then the controls: labelled sliders with numeric fields, the plot or plots, shaded areas with integral readouts and PMF bars (restored), and a *values as a table* toggle (`t`). After a reveal, *what changed? (optional)* takes a line of text (restored, a formative record). **Animation** (a CDF sweeping as `p` moves) plays only on *play* and becomes step buttons under reduced motion.
-- **Labels follow verification (spec G23):**
+- **Labels follow verification (spec G23):** *(RW5a: the first label is deferred to RW5c, spec §8.3; every RW5a figure carries the second.)*
   - *AI-built · matches the book's equation (checked)*;
   - *AI-built illustration of an interpretation · not checked against the book*;
   - *couldn't build a reliable version of this (reason)*;
@@ -841,7 +841,7 @@ Widths are indicative. `▓` marks a selection, `┆` a margin mark, `◐` pendi
 │ ^↵ ask the tutor about these (answers only from these 3 passages)                     esc back      │
 ```
 
-**W11 — An explorable figure, inline.** **[RW5a]**
+**W11 — An explorable figure, inline.** **[RW5a]** *(Deviation, owner decision 2026-10-21: in RW5a the collapsed line reads "· AI-built illustration · not checked against the book"; the "(checked)" line shown below is deferred to RW5c, spec §8.3.)*
 
 ```
 │         f_X(x) = p·λe^{λx}·[x<0] + (1−p)·λe^{−λx}·[x≥0]                                      │
