@@ -125,3 +125,101 @@ for the changed modules and functions (source-object store and service, `judge_l
 plus the contract tests.
 
 For the landing gate: the full suite, the whole durability lane and the whole vitest run, on the merged tree.
+
+## Re-review
+
+Codex re-review of `008285cd1..reader/rw4e` (job `20261020-214617-gckfJ8`, by inspection and isolated in-memory
+probes; it ran no repository tests). Verdict REOPENED: F1 (High) confirmed fixed, two new findings. This round:
+each one reproduced with a failing test first, then fixed. No migration, no config key, no frontend change, no live
+or paid model call (fakes only).
+
+### Findings
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Concurrent role writes (first round) | confirmed fixed by the re-review | `c5c62a2cc` | nothing further |
+| F5 | Medium | Role filtering can discard the stronger candidate after it suppresses the fallback | fixed | `e7fe1c039` | `tests/test_source_roles.py::test_a_stronger_proposal_the_roles_filter_rejects_never_blocks_the_low_confidence_one` (through `find_sources`, with the weak passage having no keyword match of its own). It failed before the fix: the `source_objects` list was the strong `intuition` passage `t2`, which the `alternative_treatment` filter then dropped, so the weak `t3` never reached the pool |
+| F6 | Low | Mixed metered usage drops estimates for calls without reported tokens | fixed | `c257c0604` | `tests/test_label_roles_cli.py`: `…a_request_with_no_reported_usage_counts_its_estimate_beside_reported_ones[openrouter, codex_sdk]` (batch 1 reports, batch 2 does not) and `…a_retried_request_that_reported_nothing_counts_its_estimate[openrouter, codex_sdk]` (attempt 1 fails with no usage and is retried). Both metered cases failed before the fix (e.g. 1,402 reported tokens counted, the failed attempt's 19,859-token estimate dropped); the subscription cases already passed and pin that the rule is now the same on both billings |
+
+No finding was rejected.
+
+### What changed
+
+**F5.** The `roles=` positive filter's rule (ingest's effective hints, RW4e's proposals, the low-confidence fallback
+when no confident passage is in scope) moved out of `search_spans` into `source_retrieval.search.role_filter`, which
+`search_spans` now calls; the rule itself is unchanged. `find_sources` computes it once for the effective roles
+(`roles=`, or `worked_example` for that intent) and adds it to the eligibility it hands `source_object_lists`. So a
+strong row the search would drop is no longer the "stronger candidate" that suppresses a weak one the search keeps.
+With no `roles=` (and any intent but `worked_example`), nothing changes. With `roles=`, every strong row the filter
+admits is kept exactly as before. The only rows that change are strong rows the search was going to drop anyway, and
+the weak fallback that now appears in their place.
+
+**F6.** `PaidCalls` keeps one more per-attempt tally, `UsageTotals.usage_tokens`: each attempt's reported tokens, or
+its estimate when it reported none, whatever the billing. On a subscription it equals `estimated_only_tokens`. It is
+an additive field in the `usage` report and is not what the budget charges (the budget keeps `max(estimate,
+reported)`). The labeller's `_usage` sums it on both billings, so a metered run with mixed reported and missing
+usage, retries included, counts every request. The dollar figures are unchanged: on a subscription, tokens × price;
+metered, the budget's charge.
+
+### Notes
+
+- No live or paid call was made. No vault copy was used. Every model-backed path ran with fakes. Every script
+  outside pytest (two text-edit scripts and the reference generator and validator) ran under `env -i` with empty
+  `HOME`/`CODEX_HOME`/`LEARNLOOP_CONFIG_DIR`.
+- References: F5 (and, before it, the first round's F3) moved lines that
+  `Reference/Configuration/Fields/Config - source_retrieval.md` cites (`search.py` for `query_rewrite`, `pool`,
+  `pool_keyword_extras`, `rrf_k`; `find_sources.py` for `llm_price_per_million`). `db_generate_reference.py` was
+  rerun, and only that note's cited line numbers were kept. Its commit label and the other 403 notes'
+  commit-label-only churn were reverted; the landing gate regenerates on the merged tree anyway.
+  `db_validate_reference.py`: 0 errors.
+- No CLI help, RPC, serializer or config-defaults change (the serializer snapshot test still passes).
+- `/tmp/learnloop-fullsuite.lock` exists but is an empty file from Oct 13 with no holder and no full suite
+  running (only other stages' targeted runs), so the targeted gate went ahead.
+
+### Gate (this fix step; targeted per the owner's 2026-10-17 rule)
+
+- `uv sync --extra dev --extra mobile` then `uv pip install pypdfium2`: ok.
+- `uv run lint-imports --no-cache`: **28 kept, 0 broken**.
+- `TMPDIR=fixtures-local/tmp uv run pytest -n auto <87 files below>`: **2,065 passed**.
+- The first round's files not among the 87 (readers of `source_object_lists` through `contrast_list` / the cues):
+  `test_passage_links`, `test_reader_cue_holdout`, `test_reader_cue_value`, `test_reader_rw3b_fix_round4`,
+  `test_reader_rw3b_fix_round5`, `test_reader_rw3b_fix_round6`, `test_reader_rw3b_protection`,
+  `test_reader_try_first`, `test_salience_firewall`: **130 passed**.
+- Other consumers of the paid layer's `usage` report, plus the serializer snapshot: `test_sidecar_serializer_snapshot`,
+  `test_approach_map_boundaries`, `test_approach_map_replay`, `test_hint_h2b_fix4`, `test_hint_h2b_rereview`,
+  `test_hint_h2b_review`, `test_hint_kill_switch`, `test_hint_outcome`, `test_workbench_check`: **77 passed**.
+- `uv run pytest -n auto --durable-sqlite tests/test_source_roles.py tests/test_label_roles_cli.py
+  tests/test_find_sources_intents.py`: **68 passed**. No migration or DB/connection code changed, so the
+  durability-marked lane does not apply.
+- `db_generate_reference.py` / `db_validate_reference.py`: head 215, 0 errors.
+- Frontend, cargo: not applicable (nothing under `apps/`).
+
+Test files run (87, all under `tests/`, chosen by `git grep` for `practice_index.paid` / `PaidCalls` /
+`UsageTotals`, `judge_listwise`, `role_filter` / `search_spans` / `find_sources` / `source_object_lists`, the role
+labeller, the hint map builder and writer, `compare_sources`, `rewrite_query`, the dossiers and evaluation, plus the
+contract tests): `test_ad1_codex_rereview_fixes`, `test_ad1_codex_review_fixes`, `test_ad1_fix_round4`,
+`test_ad1_fix_round5`, `test_ad1_fix_round8`, `test_ad1_fix_round9`, `test_ad1_outside_and_cli`,
+`test_ai_tool_isolation`, `test_approach_maps`, `test_architecture`, `test_auto_build_spend_report`,
+`test_chatgpt_plan_provider`, `test_cli_help_snapshot`, `test_compare_keep_switch_off`, `test_compare_sources_keep`,
+`test_compare_sources`, `test_coordinated_migrations`, `test_desktop_rpc_contract`, `test_embedding_backfill`,
+`test_exam_protection_identity`, `test_exam_protection`, `test_exercise_arm`, `test_facet_locks_landing`,
+`test_find_sources_intents`, `test_hint_contracts`, `test_hint_h2a_review`, `test_hint_h2a_review_round4`,
+`test_hint_replies`, `test_hint_service`, `test_label_roles_cli`, `test_library_ask_expand`, `test_library_ask`,
+`test_library_exercises`, `test_mcp_c1a_narrow`, `test_mcp_c1a_review`, `test_mcp_cli`, `test_mcp_tools`,
+`test_mobile_allowlist`, `test_output_budget`, `test_practice_index_adapters`, `test_practice_index_dossiers`,
+`test_practice_index_evaluation`, `test_practice_index_find`, `test_practice_index_paid`,
+`test_prescription_passages`, `test_project_atomicity`, `test_project_blindness`, `test_project_cli`,
+`test_project_experiment_store`, `test_project_probes`, `test_project_report`, `test_reader_compare_table`,
+`test_reader_find_sources_callers`, `test_reader_intentions`, `test_reader_intent`, `test_reader_rw1c_review`,
+`test_reader_rw3b_review_fixes`, `test_reader_tutor_offers`, `test_reader_tutor_retrieval`,
+`test_required_method_round3_review`, `test_reread_safety_landing`, `test_reread_safety`,
+`test_retrieval_interventions_write_points`, `test_roles_concurrency`, `test_roles_judges`, `test_roles_switch_off`,
+`test_rw4d_rw3b_composition`, `test_source_objects`, `test_source_retrieval_codex_unavailable`,
+`test_source_retrieval_followup`, `test_source_retrieval_guards`, `test_source_retrieval_search`,
+`test_source_roles`, `test_source_service_spend_accounting`, `test_source_service_spend_envelopes`,
+`test_sources_merge_composition`, `test_sqlite_file_copies`, `test_t6_followup_composition`,
+`test_t6_followup_review`, `test_table_roles`, `test_tool_dispatch_policy`, `test_tool_registry`,
+`test_tool_results_withhold_answers`, `test_tools_cli`, `test_tracked_fixture_databases`,
+`test_tutor_tool_requests`, `test_workbench_hint_service`.
+
+For the landing gate: the full suite, the whole durability lane and the whole vitest run, on the merged tree.
