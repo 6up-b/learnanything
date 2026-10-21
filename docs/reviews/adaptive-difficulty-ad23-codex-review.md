@@ -2163,3 +2163,105 @@ The planted-read negative control still fails with the guard off: its test passe
 Sizes, `54ae865ca..` the round-3 code commit: production +67 / -17 (5 files), tests +153 (2 files).
 Every Python run outside pytest ran under `env -i` with an empty HOME, CODEX_HOME and
 LEARNLOOP_CONFIG_DIR. No model call was made; owner decisions are unchanged.
+
+## Redesign round 4 (2026-10-21)
+
+The closed-checklist verify (`20261021-112836-xjtGDx`) found two findings: one High, one Medium.
+
+### Finding 1 (High): every reference is located through one key function
+
+- **The key function.** `exam_material.reference_keys` places a reference of any shape through
+  `source_ref_keys`:
+  - a provenance ref: its extraction, its span ids (plain or namespaced), and the span its
+    `block_span_v1` locator names;
+  - a recorded mapping: `extraction_id` (else the parent's), `span_id`, `span_ids`, `locator` /
+    `href`, a nested `anchor` or citation under its parent's extraction, and `*_key(s)` strings in
+    `ext:span` form;
+  - any string that is a `span:ext/span` locator.
+- **The projection removes a reference with ANY withheld key** (`MaterialView._visible_ref`). It no
+  longer trims span lists. Nothing of a removed reference survives, so its quote or locator cannot
+  restore its anchor. The Reader's quote fallback, inside the operation, runs over the projected
+  references and the projected IR only.
+- **The same function now places the other shapes AD judges:**
+  - a tutor event's whole source context (`question_event_withheld`, which used to read only
+    `extraction_id` with `span_id`, and so missed anchors, locators and keys);
+  - a Reader question's anchors and cited spans;
+  - a note reference given as a span locator;
+  - the registry's `span@C` and `spans@C` columns.
+- **Grep.** In what AD reads, the reference shapes are `locator`, `span_ids`, `anchor`, `citations`,
+  `source_spans`, retrieval and delivery records, and `grounded_keys` / `trimmed_keys`. I found no
+  `href` in AD-read data; the field is covered for safety.
+- **Tests:**
+  - `test_ad_projection.py::test_a_locator_only_reference_into_held_out_material_is_withheld` is the
+    verify's case as a projection-equality test: `HELD_LO` cites only `locator="span:ext/H"`, with a
+    quote that public P contains. The absent copy has neither H nor the reference into it (the
+    reference is protected material). Inside the operation both copies map P to `[LO]` only, and
+    both sweeps record the same rows, none for `HELD_LO`.
+  - `test_every_recorded_reference_shape_is_located_through_the_shared_key_function` pins each
+    shape.
+  - On `1c920e102` the first test failed (the reference was kept) and the second failed with an
+    ImportError (no `reference_keys`).
+
+### Finding 2 (Medium): every writing entry point is in the savepoint form
+
+- **`ad_operation(..., savepoint=True)`** opens the repository's savepoint OUTSIDE the operation.
+  When the operation is poisoned, joined or not, it raises `OperationPoisoned` inside that savepoint.
+  Every write therefore rolls back before anything is released, and the caller's fallback runs after.
+  `optional_operation` and `entry` pass the option through.
+- **Every `@entry` declares exactly one write form.** The decorator refuses one with none, or with
+  more than one, when it is defined:
+  - `savepoint=True`, for entry points that write AD decisions or receipts:
+    - `dose.decide`, `dose.record_uptake`;
+    - `reading.sweep`;
+    - `serving.decide_slot`;
+    - `serve.record_plan_serve`;
+    - `generation.commission_point`, `generation.record_landed_commissions`;
+  - `read_only=True`: the guard refuses any write while it runs, which also poisons the operation.
+    This covers the replay, the report, scoring rows, readiness, arms, relatedness inputs and its
+    shadow report, the queueable commissions, stale subjects and the feasible dose variants;
+  - `durable="why"`: see the deviation below.
+- **Operations opened directly** are in the savepoint form too:
+  - the slot (`ad_slot`, which used to open its savepoint manually);
+  - the commission job (`jobs`, which had its savepoint inside the operation; now outside);
+  - the Reader's dose offer, whose response construction (the offered question's read) is inside
+    the savepoint.
+  - "Why this item" opens a `read_only` operation.
+- **Tests:**
+  - `test_ad_guard.py::test_every_ad_entry_point_declares_its_write_form_and_writers_use_the_savepoint_form`
+    is the AST sweep over `src/learnloop` and the sidecar.
+  - `test_a_read_only_entry_point_cannot_write`.
+  - `test_a_denied_dose_response_rolls_the_draw_back[raised|swallowed]` is the verify's sequence
+    through the sidecar handler: a draw of an extra question, then a refused read of that question.
+    The offer is unavailable, no dose row survives and `budget()` has room. On `1c920e102` the draw
+    survived (`1 == 0`).
+
+**Deviation: the entry points that send to a model use the `durable` form, not the savepoint.**
+- These are `outside.forecast_item`, `outside.forecast_presentation`, `background.prepare_items`
+  (and its run's operation), `relatedness.propose_subject`, `feature_audit.audit_revision` and
+  `backfill.backfill`.
+- Their units commit on their own by design:
+  - the durable work claim, which other processes and the lease check must see;
+  - the spend ledger, which must record money spent;
+  - each item's receipt.
+- One transaction around them would hold the database's write lock across network calls and hide
+  their claims. Tried on `forecast_item`, the savepoint form broke three outside-forecaster tests:
+  the claim's lease check read `stale` and the spend refusal never ran.
+- What they committed before the first denial read nothing withheld: any such read is that denial.
+  Every write after it is refused (rounds 2 and 3, including cached statements), and their exit
+  raises `OperationPoisoned`, so their output is discarded.
+
+The planted-read negative control still fails with the guard off: its test passes on both trees.
+
+### Gate (run once, after the last code change; rerun from scratch after a session restart interrupted the first run)
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 27 kept, 0 broken |
+| targeted pytest, `-n 14`: round 3's files plus every file naming `exam_material`, `source_ref_keys`, `reader_dose_offer`, `optional_operation` or `ad_slot` | **10,504 passed, 38 xfailed, 0 failed** (2,038 s) |
+| `--durable-sqlite`: `test_ad_guard.py`, `test_ad_epoch.py`, `test_ad_projection.py`, `test_ad23_migration.py`, `test_ad1_migration.py` | 46 passed |
+| migration 214, head fixture | unchanged this round |
+| references, under `env -i` | regenerated; `db_validate_reference.py` 0 errors; `module_validate.py` and `validate_vault.py` pass |
+
+Sizes, `1c920e102..` the round-4 code commit: production +219 / -77 (21 files), tests +183 (2 files).
+Every Python run outside pytest ran under `env -i` with an empty HOME, CODEX_HOME and
+LEARNLOOP_CONFIG_DIR. No model call was made; owner decisions are unchanged.
