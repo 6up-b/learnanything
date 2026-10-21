@@ -223,3 +223,103 @@ contract tests): `test_ad1_codex_rereview_fixes`, `test_ad1_codex_review_fixes`,
 `test_tutor_tool_requests`, `test_workbench_hint_service`.
 
 For the landing gate: the full suite, the whole durability lane and the whole vitest run, on the merged tree.
+
+## Fix round 3 (orchestrator)
+
+Codex verify job `20261020-220340-vS2cMy` reopened F5 (Medium): the caller's exclusions were applied *after* the
+"does a stronger candidate remain?" decision, so a strong passage the caller could not be given still suppressed
+the low-confidence fallback. `search.role_filter` asked only `scope.allows`, and `find_sources` handed that set on to
+its intent list. Reproduction: A has a high-confidence `alternative_treatment` proposal and B a low-confidence one,
+both in library scope. `find_sources(intent="alternative", roles=["alternative_treatment"],
+exclude_span_keys=[A])`, with B having no retrieval match of its own, gave `extra_lists={}`, zero hits and
+`role_basis.low_confidence=0`. Binding ruling: one shared effective-eligibility function, used by the intent lists,
+the search's role filter and the contrast list, so they can never disagree again. Rows a filter admits stay
+otherwise unchanged.
+
+### Finding
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F5 | Medium | Caller exclusions applied after the stronger-candidate decision | fixed | `a53cce97c` | `tests/test_source_roles.py::test_a_stronger_proposal_the_caller_excluded_never_blocks_the_low_confidence_one_under_roles` (the verify's reproduction, by `exclude_span_keys` and by `exclude_span_ids`), `tests/test_source_roles.py::test_the_roles_filter_falls_back_when_the_caller_excluded_every_stronger_passage` (the `roles=` search path alone: an `explain` call has no `intuition` intent list), `tests/test_roles_judges.py::test_rw3b_contrast_list_a_confident_contrast_the_judge_may_not_be_shown_never_blocks_the_low_one` (a confident counterexample on a solution block linked to the target's LO). All three failed on `c3b5c9484` (archive under `fixtures-local/tmp`, `-o pythonpath=<tmp>/src`). The failures: `{} == {'source_objects': [t3]}`; `[] == [t2]`; `[t12] == [t2]` |
+
+### What changed
+
+- **One rule.** `source_retrieval.corpus.Eligibility` (built by `effective_eligibility`) says what one caller may
+  be given. A key is eligible when all of these hold:
+  - the scope allows it;
+  - it is not among the caller's `excluded` keys;
+  - the caller's per-key `admits` rule accepts it;
+  - it is not exam or held-out material (`exam_withheld`, the one predicate);
+  - the caller's batch `withheld` rule does not name it.
+- **The `roles=` filter.** `search.role_filter(..., eligible=)` asks this object, instead of `scope.allows`,
+  whether any hinted or confident passage remains before it falls back to the low ones. `search_spans` takes
+  `eligible=` and passes it through. Its default is the scope's eligibility with exam material withheld. That
+  default changes only the fallback decision for a caller that passes none, and every such `roles=` caller
+  (exercise import, the exercise arm) withholds exam material downstream anyway. The permitted set is still the
+  hints and confident proposals, or the low ones alone, exactly as before.
+- **`find_sources`.** It builds the eligibility once from:
+  - the span scope;
+  - `exclude_span_ids` + `exclude_span_keys`;
+  - exam material;
+  - under `assisted_practice` with an item, the answer-overlap filter, read from the same block text the pool
+    filter reads (`_answer_overlap`).
+
+  It passes the eligibility to `role_filter` and to `search_spans`. The intent lists use the same eligibility
+  narrowed by the role filter's result. A cursor's judged passages are deliberately not exclusions here: they were
+  candidates, and every page keeps the first page's role filter.
+- **RW3b's `contrast_list`.** It takes the shortlist's `guard` (`protection`, read if absent) and builds its
+  eligibility from:
+  - the open source's `_scope`;
+  - `admits`: the open extraction, `guard.allows` (exam, held-out and teaching exclusions) and the target's LOs or
+    their confusables;
+  - `withheld`: `model_reader_withheld` (solutions, assessment lanes).
+
+  These are the filters the shortlist's pool applies, so a confident contrast the judge would never be shown no
+  longer suppresses the low one. The judge's own earlier links (`own`) are unchanged.
+
+### Notes
+
+- No live or paid call. Fakes only, no vault copy. No migration, config key, CLI help, RPC, serializer or frontend
+  change.
+- Every script outside pytest (two test-edit scripts, one source-edit script, the reference generator and the
+  validator) ran under `env -i PATH=$PATH` with empty `HOME`/`CODEX_HOME`/`LEARNLOOP_CONFIG_DIR` under
+  `fixtures-local/tmp`, and `python3 -I` for the edit scripts. One slip: a `python3 -` with an *empty* heredoc ran
+  once without the wrapper. It executed no code and imported nothing.
+- References: `db_generate_reference.py` was rerun. Only the cited line numbers in `Config - source_retrieval.md`
+  (`search.py` for `query_rewrite`, `pool`, `pool_keyword_extras`, `rrf_k`; `find_sources.py` for
+  `llm_price_per_million`) and in `Config - reader_active_reading.md` (`passage_cues.py` for `enabled`) were kept.
+  The commit labels and the other 402 notes' churn were reverted, as in the last round.
+  `db_validate_reference.py`: 0 errors.
+- `/tmp/learnloop-fullsuite.lock` is still the empty Oct 13 file with no holder, and no pytest was running, so the
+  targeted gate went ahead.
+
+### Gate (targeted, per the owner's 2026-10-17 rule)
+
+- `uv run lint-imports --no-cache`: **28 kept, 0 broken**.
+- `TMPDIR=fixtures-local/tmp uv run pytest -n auto <67 files below>`: **1,775 passed**.
+- `uv run pytest -n auto --durable-sqlite tests/test_source_roles.py tests/test_roles_judges.py
+  tests/test_find_sources_intents.py`: **64 passed**.
+- References: generated, then validated with 0 errors.
+
+Test files (67, all under `tests/`): `test_source_roles`, `test_roles_concurrency`, `test_roles_judges`,
+`test_roles_switch_off`, `test_label_roles_cli`, `test_library_exercises`, `test_source_objects`; every file naming
+`find_sources` / `search_spans` / `contrast_list` / `passage_cues` / `role_filter` / `source_object_lists`, plus the
+search and cue files: `test_approach_maps`, `test_contrast_pairs`, `test_discriminating_search`,
+`test_exam_protection_identity`, `test_exam_protection`, `test_exercise_arm`, `test_facet_locks_landing`,
+`test_find_sources_intents`, `test_library_ask_expand`, `test_library_ask`, `test_mcp_c1a_narrow`,
+`test_mcp_c1a_review`, `test_mcp_cli`, `test_mcp_tools`, `test_output_budget`, `test_passage_links`,
+`test_prescription_passages`, `test_reader_cue_holdout`, `test_reader_cues_cli_report`, `test_reader_cues`,
+`test_reader_cue_value`, `test_reader_find_sources_callers`, `test_reader_rw1c_review`,
+`test_reader_rw3b_fix_round4`, `test_reader_rw3b_fix_round5`, `test_reader_rw3b_fix_round6`,
+`test_reader_rw3b_protection`, `test_reader_rw3b_review_fixes`, `test_reader_try_first`,
+`test_reader_tutor_offers`, `test_reader_tutor_retrieval`, `test_required_method_round3_review`,
+`test_reread_safety_landing`, `test_reread_safety`, `test_retrieval_interventions_write_points`,
+`test_salience_firewall`, `test_source_retrieval_followup`, `test_source_retrieval_guards`,
+`test_source_retrieval_search`, `test_source_search`, `test_sources_merge_composition`, `test_t6_followup_review`,
+`test_tool_dispatch_policy`, `test_tool_registry`, `test_tool_results_withhold_answers`, `test_tools_cli`,
+`test_tutor_tool_requests`; the RW4d files: `test_compare_keep_switch_off`, `test_compare_sources_keep`,
+`test_reader_compare_table`, `test_reader_intent`, `test_reader_tutor_switch_off`, `test_rw4_kill_switches`,
+`test_rw4d_rw3b_composition`; the contract pins: `test_architecture`, `test_cli_help_snapshot`,
+`test_desktop_rpc_contract`, `test_mobile_allowlist`, `test_table_roles`, `test_sidecar_serializer_snapshot`.
+
+For the landing gate: the full suite, the whole durability lane and the whole vitest run, on the merged tree.
