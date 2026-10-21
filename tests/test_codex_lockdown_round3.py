@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import ast
 import json
+from collections import Counter
 import os
 import re
 import shutil
@@ -387,7 +388,9 @@ class _LaunchSweep(ast.NodeVisitor):
         self.stack: list[str] = []
         self.modules: dict[str, str] = {}
         self.names: dict[str, str] = {}
-        self.sites: set[tuple[str, str, str]] = set()
+        #: One entry per reference (frozen round, verify uuB5X5 Low 5): a second
+        #: launch inside an approved scope is a second entry, not the same one.
+        self.sites: list[tuple[str, str, str]] = []
 
     def _owner(self) -> str:
         return ".".join(self.stack) or "<module>"
@@ -412,31 +415,50 @@ class _LaunchSweep(ast.NodeVisitor):
             for alias in node.names:
                 if alias.name == "*" or alias.name in _LAUNCH[module]:
                     self.names[alias.asname or alias.name] = f"{module}.{alias.name}"
-                    self.sites.add((self.relative, self._owner(), f"import {module}.{alias.name}"))
+                    self.sites.append((self.relative, self._owner(), f"import {module}.{alias.name}"))
         self.generic_visit(node)
+
+    def visit_Assign(self, node):
+        # An indirect alias (``run = subprocess.run``; ``launch = run``): the
+        # names bound to a launch reference count as launch references too.
+        target = self._launch_target(node.value)
+        self.generic_visit(node)
+        if target is not None:
+            for name in node.targets:
+                if isinstance(name, ast.Name):
+                    self.names[name.id] = target
+
+    def _launch_target(self, value) -> str | None:
+        if isinstance(value, ast.Name) and value.id in self.names:
+            return self.names[value.id]
+        if isinstance(value, ast.Attribute) and isinstance(value.value, ast.Name) and value.value.id in self.modules:
+            module = self.modules[value.value.id]
+            if value.attr in _LAUNCH[module]:
+                return f"{module}.{value.attr}"
+        return None
 
     def visit_Name(self, node):
         if isinstance(node.ctx, ast.Load) and node.id in self.names:
-            self.sites.add((self.relative, self._owner(), self.names[node.id]))
+            self.sites.append((self.relative, self._owner(), self.names[node.id]))
 
     def visit_Attribute(self, node):
         if isinstance(node.value, ast.Name) and node.value.id in self.modules:
             module = self.modules[node.value.id]
             if node.attr in _LAUNCH[module]:
-                self.sites.add((self.relative, self._owner(), f"{module}.{node.attr}"))
+                self.sites.append((self.relative, self._owner(), f"{module}.{node.attr}"))
         if node.attr in _ANY_RECEIVER:
-            self.sites.add((self.relative, self._owner(), f"*.{node.attr}"))
+            self.sites.append((self.relative, self._owner(), f"*.{node.attr}"))
         self.generic_visit(node)
 
     def visit_Call(self, node):
         if isinstance(node.func, ast.Name) and node.func.id == "getattr" and node.args:
             base = node.args[0]
             if isinstance(base, ast.Name) and base.id in self.modules:
-                self.sites.add((self.relative, self._owner(), f"getattr({self.modules[base.id]})"))
+                self.sites.append((self.relative, self._owner(), f"getattr({self.modules[base.id]})"))
         self.generic_visit(node)
 
 
-def _launch_sites(text: str, relative: str = "snippet.py") -> set[tuple[str, str, str]]:
+def _launch_sites(text: str, relative: str = "snippet.py") -> list[tuple[str, str, str]]:
     sweep = _LaunchSweep(relative)
     sweep.visit(ast.parse(text))
     return sweep.sites
@@ -457,7 +479,7 @@ APPROVED_LAUNCH_SITES = {
     ("src/learnloop/ai/providers/codex.py", "_stop_probe", "subprocess.Popen"),  # annotation
     # The legacy HTTP transport's startup command: refused before it (round 2, H3).
     ("src/learnloop/ai/providers/codex.py", "default_startup", "getattr(subprocess)"),
-    ("src/learnloop/ai/providers/codex.py", "default_startup", "subprocess.Popen"),
+    ("src/learnloop/ai/providers/codex.py", "default_startup", "subprocess.Popen"),  # x2: annotation + call
     ("src/learnloop/cli/ai_compare.py", "tracked_database_reason", "subprocess.run"),
     ("src/learnloop/content/authoring/concept_animation.py", "manim_runtime", "subprocess.run"),
     ("src/learnloop/content/authoring/concept_animation.py", "provision_animation_venv", "subprocess.run"),
@@ -481,10 +503,56 @@ APPROVED_LAUNCH_SITES = {
 }
 
 
+#: How many references each approved site holds (1 unless named here). The list
+#: counts references, not scopes (frozen round, verify uuB5X5 Low 5): a second
+#: launch added inside an approved function changes its count and fails.
+APPROVED_LAUNCH_COUNTS: dict[tuple[str, str, str], int] = {
+    ("src/learnloop/ai/providers/codex.py", "default_startup", "subprocess.Popen"): 2,
+}
+
+
+def _approved() -> Counter:
+    return Counter({site: APPROVED_LAUNCH_COUNTS.get(site, 1) for site in APPROVED_LAUNCH_SITES})
+
+
+def _unapproved(found: Counter, approved: Counter) -> tuple[list[Any], list[Any]]:
+    """(references beyond the approved count, approved references that are gone)."""
+
+    return sorted((found - approved).items()), sorted((approved - found).items())
+
+
+def test_a_second_launch_inside_an_approved_scope_is_not_approved():
+    approved = Counter({("snippet.py", "run_git", "subprocess.run"): 1})
+    one = Counter(_launch_sites("import subprocess\ndef run_git(args):\n    return subprocess.run(args)\n"))
+    assert _unapproved(one, approved) == ([], [])
+    two = Counter(_launch_sites(
+        "import subprocess\n"
+        "def run_git(args):\n"
+        "    command = ['codex', 'app-server']\n"
+        "    subprocess.run(command)\n"
+        "    return subprocess.run(args)\n"
+    ))
+    assert _unapproved(two, approved) == ([(("snippet.py", "run_git", "subprocess.run"), 1)], [])
+
+
+def test_an_indirect_alias_of_a_launch_function_is_a_launch_reference():
+    sites = Counter(_launch_sites(
+        "import subprocess\n"
+        "run = subprocess.run\n"
+        "def f(cmd):\n"
+        "    launch = run\n"
+        "    launch(cmd)\n"
+        "    other = launch\n"
+        "    return other(cmd)\n"
+    ))
+    assert sites == Counter({("snippet.py", "<module>", "subprocess.run"): 1,
+                             ("snippet.py", "f", "subprocess.run"): 4})
+
+
 def test_the_launch_sweep_sees_aliases_variables_and_references():
     """The verify's three missed shapes, plus a reference passed as a value and getattr."""
 
-    sites = _launch_sites(
+    sites = set(_launch_sites(
         "from subprocess import Popen as launch\n"
         "launch(['codex', 'app-server'])\n"
         "import subprocess as sp\n"
@@ -498,7 +566,7 @@ def test_the_launch_sweep_sees_aliases_variables_and_references():
         "    return getattr(sp, 'Popen')\n"
         "async def k(loop):\n"
         "    await loop.subprocess_exec(object, 'codex')\n"
-    )
+    ))
     assert sites == {
         ("snippet.py", "<module>", "import subprocess.Popen"),
         ("snippet.py", "<module>", "subprocess.Popen"),
@@ -515,14 +583,15 @@ def test_every_process_launch_site_is_approved():
     ``integrations`` is on :data:`APPROVED_LAUNCH_SITES`; the Rust shell
     starts exactly one process (the sidecar)."""
 
-    found: set[tuple[str, str, str]] = set()
+    found: Counter = Counter()
     for directory in ("src", "scripts", "integrations"):
         for path in sorted((ROOT / directory).rglob("*.py")):
             if "__pycache__" in path.parts:
                 continue
-            found |= _launch_sites(path.read_text(encoding="utf-8"), str(path.relative_to(ROOT)))
-    assert sorted(found - APPROVED_LAUNCH_SITES) == [], "an unreviewed process-launch site"
-    assert sorted(APPROVED_LAUNCH_SITES - found) == [], "an approved site is gone: remove it from the list"
+            found.update(_launch_sites(path.read_text(encoding="utf-8"), str(path.relative_to(ROOT))))
+    extra, gone = _unapproved(found, _approved())
+    assert extra == [], "an unreviewed process-launch reference (a new one, or another inside an approved scope)"
+    assert gone == [], "an approved reference is gone: lower its count or remove it from the list"
     rust = sorted(
         (str(path.relative_to(ROOT)), line.strip())
         for path in (ROOT / "apps" / "learnloop-tauri" / "src-tauri" / "src").rglob("*.rs")

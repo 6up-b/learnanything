@@ -181,6 +181,13 @@ def lockdown_config_overrides() -> list[str]:
     ``multi_agent_version`` (``features.multi_agent`` does not govern v2), as
     long as ``features.multi_agent_v2`` is off. ``request_user_input`` is on by
     default; ``update_plan`` is off by default and pinned off here.
+
+    ``notify=[]`` (frozen round, verify uuB5X5 High 3): a legacy ``notify``
+    command inherited from any layer runs after every turn with the turn's
+    input messages and answer, unsandboxed and with the app server's whole
+    environment (codex-cli 0.163.0 ``hooks/src/legacy_notify.rs``), whatever
+    ``features.hooks`` says. An empty argv registers no command, and arrays
+    replace lower layers' wholesale.
     """
 
     return [
@@ -188,6 +195,7 @@ def lockdown_config_overrides() -> list[str]:
         "tools.experimental_request_user_input.enabled=false",
         "tools.update_plan.enabled=false",
         "tools.web_search=false",
+        "notify=[]",
     ]
 
 
