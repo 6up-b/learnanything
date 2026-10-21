@@ -3,8 +3,8 @@ title: "reveal_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a209efcf5daa9e7500e00f42d63d7f55a23c0535"
-source_commit_timestamp: "2026-10-20T19:07:36-04:00"
+source_commit: "30a3bd57427043882458e7bb6ae4fe103f25e923"
+source_commit_timestamp: "2026-10-21T00:48:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reveal_events"
@@ -20,13 +20,13 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/154_reveal_ledger.sql"
   - "src/learnloop/adaptive_difficulty/material_view.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/attempts/reveal_ledger.py"
   - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/practice_index.py"
-  - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/diagnosis/quick_check.py"
   - "src/learnloop/diagnosis/remediation.py"
   - "src/learnloop/reveal_coverage.py"
@@ -134,7 +134,6 @@ Database triggers:
 - `tests/ad23_fakes.py`
 - `tests/hint_fakes.py`
 - `tests/test_ad23_contract.py`
-- `tests/test_ad23_material_view.py`
 - `tests/test_ad2_model.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_contamination_report.py`
@@ -151,6 +150,7 @@ Database triggers:
 - `tests/test_recurrence_live.py`
 - `tests/test_reveal_ledger.py`
 - `tests/test_router_coldness_covariates.py`
+- `tests/test_router_outcomes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

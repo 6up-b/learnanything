@@ -3,8 +3,8 @@ title: "practice_item_snapshots"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a209efcf5daa9e7500e00f42d63d7f55a23c0535"
-source_commit_timestamp: "2026-10-20T19:07:36-04:00"
+source_commit: "30a3bd57427043882458e7bb6ae4fe103f25e923"
+source_commit_timestamp: "2026-10-21T00:48:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_snapshots"
@@ -23,10 +23,10 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/backfill.py"
   - "src/learnloop/adaptive_difficulty/feature_audit.py"
   - "src/learnloop/adaptive_difficulty/material_view.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/protection.py"
   - "src/learnloop/adaptive_difficulty/replay.py"
   - "src/learnloop/adaptive_difficulty/serve_inputs.py"
-  - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/scheduling/scheduler.py"
 tags:
   - "learnloop/database/table"
@@ -112,7 +112,6 @@ None found by exact static reference scan.
 
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad23_contract.py`
-- `tests/test_ad23_material_view.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_architecture.py`
 - `tests/test_collection_dataset.py`

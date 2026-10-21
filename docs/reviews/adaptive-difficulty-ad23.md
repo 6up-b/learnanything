@@ -471,6 +471,40 @@ notes, the CLI snapshot, the references), and this file's commit.
   (DERIVED); table roles; the head fixture `migration_head_214` (backup API, rollback mode) and every
   path naming it; the references (head 214, 0 errors).
 
+- **Exam protection (A8), as redesigned on 2026-10-21** (Option B with E1 and E2; record:
+  `adaptive-difficulty-ad23-codex-review.md`, "Redesign"). Rounds 8-14 filtered at each reader,
+  and every verify found a reader or cache the filter had missed. Now:
+  - Every AD entry point runs inside one guarded operation (`operation.py`).
+  - While it is open, an SQLite authorizer on every connection to the vault refuses any read of a
+    protected table that the material view's rules do not make, any read of the incumbent's derived
+    state (except the `mastery_ekf` carve-out), and any write to a table AD does not own.
+  - The rules apply one rule over a registry that classifies every column of every protected table
+    (`protected_tables.py`).
+  - AD and the helpers it calls read a projected vault and document IR, so a held-out block is
+    absent, not filtered.
+  - One vault-wide protection epoch scopes every artefact and cache computed from that projection.
+  - A refusal leaves AD unavailable for that operation, and the incumbent serves.
+  - The generator's internals stay governed by the incumbent's exam protection (E1).
+
+### Owner notes (the AD23 redesign)
+
+- **Any protection change resets learned coupling.** Marking or unmarking held-out material, or
+  reserving or releasing an exam pool, anywhere in the vault, takes every relatedness run out of
+  force. An adopted coupling then has no effect until the subject is proposed and adopted again
+  (E2, owner decision 2026-10-21). `learned_coupling` is off by default, so this matters only after
+  you adopt a version.
+- **Any protection change expires pending background forecasts.** A served item's frozen
+  outside-forecast inputs are sent only while protection is unchanged since the serve. After a
+  change they are reported `protected` and never sent; the next serve freezes new ones.
+- **The same change re-checks items.** At the next trigger, item revisions prepared under the old
+  protection are checked again. One already audited and forecast is found current, with no model
+  call. One that was protected and is now public is audited and forecast. Still at most 20 visible
+  revisions per run; protected ones no longer count towards the 20.
+- **Guard denials.** `learnloop ad report` shows `guard.denials`: how many reads or writes the AD
+  guard has refused. Each refusal left AD unavailable for that operation, and the incumbent served.
+  The details are in `ad_guard_denials.jsonl` beside the vault's database (git-ignored). There is
+  no UI notice (owner decision 2026-10-21). Any count above zero is a bug to report.
+
 ## 3. The gates
 
 ### 3.1 Results (all pre-registered conditions; 200 learners or seeds unless stated)

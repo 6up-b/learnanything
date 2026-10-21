@@ -3,8 +3,8 @@ title: "exam_pool_items"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a209efcf5daa9e7500e00f42d63d7f55a23c0535"
-source_commit_timestamp: "2026-10-20T19:07:36-04:00"
+source_commit: "30a3bd57427043882458e7bb6ae4fe103f25e923"
+source_commit_timestamp: "2026-10-21T00:48:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite exam_pool_items"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/023_exam_pool.sql"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/goals/exam_pool.py"
   - "src/learnloop/adaptive_difficulty/protection.py"
@@ -112,6 +113,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_ad_protected_tables.py`
 - `tests/test_exam_protection_review.py`
 - `tests/test_characterization_assessment_exam.py`
 - `tests/test_exam_pool.py`

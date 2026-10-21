@@ -3,8 +3,8 @@ title: "item_serve_inputs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a209efcf5daa9e7500e00f42d63d7f55a23c0535"
-source_commit_timestamp: "2026-10-20T19:07:36-04:00"
+source_commit: "30a3bd57427043882458e7bb6ae4fe103f25e923"
+source_commit_timestamp: "2026-10-21T00:48:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite item_serve_inputs"
@@ -21,12 +21,12 @@ source_paths:
   - "migrations/213_adaptive_difficulty_receipts.sql"
   - "src/learnloop/adaptive_difficulty/data_check.py"
   - "src/learnloop/adaptive_difficulty/material_view.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/replay.py"
   - "src/learnloop/adaptive_difficulty/scoring.py"
   - "src/learnloop/adaptive_difficulty/serve.py"
   - "src/learnloop/adaptive_difficulty/serve_inputs.py"
   - "src/learnloop/config/schema.py"
-  - "src/learnloop/db/stores/ad_receipts.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -110,9 +110,6 @@ None found by exact static reference scan.
 
 - `src/learnloop/adaptive_difficulty/data_check.py`
 - `src/learnloop/adaptive_difficulty/material_view.py`
-- `src/learnloop/adaptive_difficulty/scoring.py`
-- `src/learnloop/adaptive_difficulty/serve.py`
-- `src/learnloop/adaptive_difficulty/serve_inputs.py`
 
 ### Direct SQL writers
 

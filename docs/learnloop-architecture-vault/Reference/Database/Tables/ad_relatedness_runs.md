@@ -3,8 +3,8 @@ title: "ad_relatedness_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a209efcf5daa9e7500e00f42d63d7f55a23c0535"
-source_commit_timestamp: "2026-10-20T19:07:36-04:00"
+source_commit: "30a3bd57427043882458e7bb6ae4fe103f25e923"
+source_commit_timestamp: "2026-10-21T00:48:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ad_relatedness_runs"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/214_adaptive_difficulty_serving.sql"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/relatedness.py"
   - "src/learnloop/db/stores/ad_serving.py"
 tags:
@@ -109,6 +110,7 @@ None found by exact static reference scan.
 - `tests/test_ad23_fix_r9.py`
 - `tests/test_ad23_migration.py`
 - `tests/test_ad3_relatedness.py`
+- `tests/test_ad_projection.py`
 - `tests/test_architecture.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

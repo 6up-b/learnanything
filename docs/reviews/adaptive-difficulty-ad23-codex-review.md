@@ -1705,3 +1705,199 @@ reference scripts ran under `env -i` with an empty `HOME`, `CODEX_HOME` and `LEA
 | `--durable-sqlite`: `test_ad23_contract.py`, `test_ad23_fix_r9.py`, `test_ad23_fix_r8.py`, `test_ad23_migration.py` | 60 passed |
 | references: `db_generate_reference.py`, `db_validate_reference.py` (under `env -i`) | 0 errors (commit labels; no schema change) |
 | migration 214, head fixture, defaults snapshots, CLI help, vitest, `cargo check` | unchanged or not applicable |
+
+## Redesign (Option B + E1 + E2): guarded AD operations (2026-10-21)
+
+There was no fix round 15. The round-14 verify (`20261020-191113-0filV9`) reopened with F48 and F49
+(High) and F50 and F42 (Medium). Under the owner's rule after round 14 (no more point fixes), an Opus
+architecture review proposed a structural redesign. The owner decided its open questions, and the
+redesign implements its recommendation: Option B with E1 and E2.
+
+### Diagnosis (summary of the review)
+
+Fourteen rounds filtered protected material **at each reader**: a hand-written chain in the material
+view per table, with injection parameters into shared helpers. Each verify then found a reader, a
+helper, a cache or a count the chains had missed:
+
+- F48: the Reader's whole-section mapping resolved provenance against the raw IR;
+- F49: the preparation batch was sliced before it was filtered;
+- F50: a process cache kept protected outcomes as done;
+- F42: the contract could not enumerate what it did not trace.
+
+The defect was structural. Nothing stopped a read; the contract could only compare outputs, and only
+for the paths it exercised. Option B moves the boundary to the data sources:
+
+- an AD operation refuses any read the rules do not make;
+- it hands AD a projection in which held-out material is absent, not filtered;
+- one epoch scopes everything computed from that projection.
+
+### Decisions (binding)
+
+| | Decision |
+|---|---|
+| Owner Q1 (E1) | A8 ends at AD's commission target plus the egress guard. The generator's internals are governed by the incumbent's exam protection; the generation protections already built stay as built, not extended. |
+| Owner Q2 (E2) | One vault-wide protection epoch. Any protection change resets an adopted learned coupling and expires pending background forecasts. |
+| Owner Q3 | A guard denial in production fails closed: AD is unavailable for that operation, with incumbent behaviour. The denial is logged and `learnloop ad report` shows a denial count. No UI notice. |
+| Orchestrator Q4 | The next verify runs against the proposal's §3.5 closed checklist (below). |
+| Orchestrator Q5 | No separate Option-A round: F48-F50 are fixed by construction (steps 4 and 5), with explicit cases in the epoch and projection tests. |
+| Orchestrator Q6 | Step 6 only if the plan-building functions are proven read-only for a commissioned plan. **Skipped: they are not** (below). |
+
+### Steps done
+
+| Step | Commit | What |
+|---|---|---|
+| 1 | `07ac808ab` | `operation.py`: `ad_operation`, the `entry` decorator on every AD entry point, the guard (an SQLite authorizer, observe mode), the connection hook in `db/scopes.py` and `db/connection.py`. `material_view()` with no view is an error outside an operation (`detached_view` for the egress guards and the generation boundary). |
+| 2 | `de6aa6454` | `protected_tables.py`: every table the step-1 trace saw (neutral, protected, predicate, denied), and every column of every protected table (a value or a reference kind). `MaterialView.keep` is the one rule; the readers became `rows` / `filter` / `lookup` / `stored` over it; the rules' SQL carries `/* ad-rules */`. |
+| 3 | `e4435c678` | Deny mode. Every denial the AD test files surfaced was routed (see the commit): AD's raw reads through the view; the egress `suspended()`; the slot's incumbent constraints in the named incumbent scope; the plan's records read before the operation; the estimator's plan events injected; a write's own checks, triggers and `own_write`. |
+| 4 | `96ebaa3e0` | The projected vault and IR (F48), the span-alias memo keyed by the projection, `load_vault` refused inside an operation. |
+| 5 | `3993274d6` | The epoch (F49, F50; E2): keys-only preparation queue with admission inside the operation, `_PREPARED` and the replay cache by epoch, relatedness runs and frozen outside states stamped. The fingerprint machinery and the history re-judgment deleted. |
+| 6 | (skipped) | Planning writes: `build_practice_expansion_plan` calls `curriculum.depth_rungs.select_rung`, which writes `task_feature_schema_versions` (`ensure_builtin_task_feature_schema`) and `capability_aliases` (`ensure_capability_alias_registry`). Under the guard both writes would be refused, so generation planning stays exactly as built (E1). |
+| fixes | `a894722f1`, `30a3bd574` | What the new tests found: SQLite's column-read refusal ("access to T.C is prohibited") was not recognized as a denial; the incumbent activity and grading tables reclassified as denied; administrations and surfaces given their own rule; the report's denial count; a dead method. |
+| 7 | `95345b0a1` | The new test contract (below); `test_ad23_material_view.py` deleted. |
+
+### The contract now
+
+- **The guard** (`operation.py`): while an operation is open, every connection to its database
+  carries the authorizer, including the serve transaction's pinned connection (installed at entry,
+  removed at exit) and connections handed to an entry point. Its rules:
+  - a protected table is read only in the rules' scope (the material view);
+  - a predicate table only while the predicate is computed;
+  - a denied table never, except the `mastery_ekf` carve-out's two tables;
+  - the incumbent's serve-time constraints only in `incumbent_constraints()`, and only by the
+    registry's named incumbent readers;
+  - a write only to an AD-owned table.
+
+  Leaving the rules' scope expires every guarded connection's statement cache, so a statement
+  prepared there is never reused unchecked. With AD off, no operation opens and nothing is installed.
+- **The registry** (`protected_tables.py`): roles by name; every protected column classified. The
+  named exceptions:
+  - a frozen receipt whose source was deleted stands (F30);
+  - a facet map (doses, loadings) drops facets only withheld material names.
+- **The projection** (`MaterialView.projected_vault`, `document_ir`, `span_reanchors`;
+  `projection.py`'s repository facade).
+- **The epoch** (`operation.epoch_of`), stamped or keyed in:
+  - relatedness runs (`protection:epoch`, and in their run and claim keys);
+  - frozen outside states (`protection_epoch`; the send guard refuses any other epoch);
+  - `_PREPARED`, the replay cache, and the span-alias memo (`projection_key`).
+
+**Named, not closed** (for the verify's checklist):
+
+- the incumbent's serve-time constraints on a visible candidate: the routine exclusions and the
+  staged frame's admission read the incumbent's own state in the incumbent scope;
+- the generator's internals (E1);
+- non-SQL sources outside the vault and the IR;
+- multi-client races (Medium by calibration; the egress guard re-reads at send).
+
+### Deleted
+
+- **Relatedness**: `PROTECTION_UNIT`, `CONTEXT_UNIT`, `context_protected`, `protection_fingerprint`,
+  `protection_identity`, `subject_lo_ids` and the per-subject fingerprint loop of `stale_judgments`
+  (replaced by the epoch).
+- **The send guard**: `attempt_ids` and the history identities (`history_card`'s `identities` and
+  `attempt_ids`, `MaterialView.answered_revision_items`, `attempt_withheld_by_id`); replaced by the
+  frozen epoch.
+- **Tests**:
+  - `tests/test_ad23_material_view.py` (the AST scan);
+  - from the contract: the advancing-clock mode, the coupled differential, the fingerprint-era
+    temporal scenarios and their assertions, the read trace (`_trace_ad_reads`), the module-state
+    audit (`AD_DEPENDENCIES`, `_mutated_names`, `_audit_sites`), the five negative controls, and the
+    F33 history re-judgment test (the epoch test replaces it).
+
+  The contract file went from 2,544 to 2,086 lines. It keeps the per-reader regressions of rounds
+  8-14 that still apply and one default-config, frozen-clock differential as a smoke test.
+
+**Sizes, `b1d082afb..HEAD`.**
+
+- Production: +2,224 / -670 lines (net +1,554). The proposal estimated a net shrink of about 200;
+  the net is a growth, for these reasons:
+  - the guard is about 520 lines with its documentation;
+  - the registry is about 420, most of it the explicit column listing;
+  - the material view kept its per-entity predicates as the rule's resolvers, so the per-reader
+    regressions stay the oracle (§3.1 step 2), and gained the rule, the projection and the new
+    readers (+560 / -185);
+  - the relatedness and send-guard deletions removed about 210 lines.
+- Tests: +841 / -723 (net +118).
+
+### New tests, fail-before
+
+On `b1d082afb` (`git archive` into `fixtures-local/ad23-redesign-base`, the new files copied in,
+`-o pythonpath="src ."`):
+
+| Test | On `b1d082afb` | At the tip |
+|---|---|---|
+| F48: `test_ad_projection.py::test_a_public_span_in_a_mixed_section_maps_only_to_visible_provenance` | fails: the public view's receipt went to `lo_f48_held`, whose only citation is the held-out span | passes |
+| F49: `test_ad_epoch.py::test_twenty_protected_revisions_queued_first_never_hold_back_the_public_one` | fails: `[] == ['pi_public']` | passes |
+| F49 (synchronous): `test_ad_epoch.py::test_the_synchronous_preparation_counts_visible_revisions_only` | fails: `[] == ['pi_public']` | passes |
+| F50: `test_ad_epoch.py::test_a_revision_prepared_while_protected_is_prepared_once_it_is_public` | fails: `[] == ['pi_prot_00']` | passes |
+| the planted-read negative control: `test_ad_guard.py::test_negative_control_with_the_guard_disabled_the_planted_read_check_fails` | n/a (no guard) | passes: with the guard in observe mode, the planted-read check fails |
+
+The other new tests use APIs the redesign added, so they do not import on `b1d082afb`. They are
+contract tests of the new mechanism:
+- `test_ad_guard.py`: the zero-denial pipeline, the pinned connection, a non-AD write, maintenance
+  and vault loads, AD off, and the marker lint;
+- `test_ad_protected_tables.py`: the column classification;
+- `test_ad_projection.py`: the IR and vault projections, and every protected table's rows equal
+  across the two copies;
+- `test_ad_epoch.py`: the epoch's changes and the artefact classes.
+
+### Behaviour changes worth knowing
+
+- **Learned coupling.** Any protection change takes every relatedness run out of force until the
+  subject is proposed and adopted again (E2).
+- **Outside forecasts.** A frozen outside-forecast state is sent only at its epoch. A span held out
+  after the serve, even one the card does not quote, expires it (E2). Two send-guard controls that
+  held out an unrelated span now hold out nothing.
+- **Item preparation.** Protected revisions no longer count against a run's 20, and a revision is
+  done for one epoch only.
+- **Activity rows.** An activity administration or surface used only by withheld answers is absent
+  to AD. The incumbent's activity and grading tables are denied to AD outside its rules.
+- **The report.** `learnloop ad report` has a top-level `guard` block (`denials`), and the rendered
+  report has a line when it is above zero.
+
+### Owner notes
+
+- Any protection change, anywhere in the vault (marking or unmarking held-out material, reserving or
+  releasing an exam pool), resets an adopted learned coupling until the subject is re-proposed and
+  re-adopted. It also expires pending background outside forecasts; the next serve freezes new ones.
+- `learnloop ad report` shows the AD guard's denial count. Each denial left AD unavailable for that
+  operation, and the incumbent served. The details are in `ad_guard_denials.jsonl` beside the
+  database. There is no UI notice; any count above zero is a bug to report.
+
+### Environment
+
+**Ambient-environment runs** (no `env -i`): two `uv run python -c` commands were run with the
+ambient environment.
+- In fix round 14: `uv run python -c "print(1)"`.
+- In this redesign: an import-only `uv run python -c "import learnloop.adaptive_difficulty.report,
+  ..."`, and later `uv run python -c "pass"`.
+
+None opened or created a vault, so there are no `model_call_receipts` to check, and none made a
+model call.
+
+Everything else outside pytest ran under `env -i PATH=$PATH HOME=<empty> CODEX_HOME=<empty>
+LEARNLOOP_CONFIG_DIR=<empty>`: standard-library file editors, read-only schema reads of the
+migration head fixture, and the reference scripts. The trace runs used a scratch pytest plugin
+(observe mode) that was never committed.
+
+### For the next verify (the proposal's §3.5 closed checklist)
+
+1. A read in an operation that bypasses the guard: a non-SQL source, or a path the pipeline does
+   not exercise.
+2. A misclassified column in `protected_tables.COLUMNS`.
+3. An artefact or cache that is not epoch-scoped.
+4. A counting or limiting step outside an operation.
+
+File findings on the generator's internals under E1's ruling, and findings on the incumbent's
+exam protection separately. Neither is a stage blocker.
+
+### Gate (owner rule 2026-10-17: targeted only; run once after the last code change, `30a3bd574`)
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 27 kept, 0 broken (no new contract needed: AD imports no daily-plan module; the estimator's plan events are injected from `daily_plan/ad_slot.py`) |
+| targeted pytest, `-n 14`, part 1: every AD test file (the four new ones included) and every test file naming an edited module (`db.scopes`, `connection_hook`, `span_aliases`, `pipeline.jobs` and the commission jobs, the sidecar's AD handlers, `cli.ad`, `daily_plan.engine`, `daily_plan.estimates`, `practice_generation`), the salience firewall, rebuild orchestrator, Decider landing and repository scopes: 130 files | **8,149 passed, 36 xfailed, 0 failed** (1,540 s) |
+| targeted pytest, part 2: the rest of the stage's 186-file targeted set: 101 files | **1,993 passed, 0 failed** (320 s) |
+| `--durable-sqlite`: `test_ad_guard.py`, `test_ad_epoch.py`, `test_ad23_migration.py`, `test_ad1_migration.py` | 24 passed |
+| references: `db_generate_reference.py`, then `db_validate_reference.py` (under `env -i`) | regenerated (commit labels and the cited source lines; no schema change), 0 errors; `module_validate.py` and `validate_vault.py` pass; `desktop_validate.py` fails on an unclassified desktop source (`apps/learnloop-tauri/src/components/pdfSelection/testing/syntheticBook.ts`) that this branch does not touch |
+| migration 214, the head fixture, the defaults snapshots, the CLI help, vitest, `cargo check` | unchanged or not applicable (no schema, config, CLI or desktop change) |
+| owner decisions | unchanged: selection on with the simulation gates as strict-xfail monitors, `calibrate_below` 0.25, `learned_coupling` off, `history_fallback = current_content`, the report windows, the seven-day commission expiry; replay makes zero model calls; no evidence, mastery or certification write (the import-linter contract, and the guard's write rule at runtime) |

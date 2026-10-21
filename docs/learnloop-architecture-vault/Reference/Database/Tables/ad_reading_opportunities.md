@@ -3,8 +3,8 @@ title: "ad_reading_opportunities"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a209efcf5daa9e7500e00f42d63d7f55a23c0535"
-source_commit_timestamp: "2026-10-20T19:07:36-04:00"
+source_commit: "30a3bd57427043882458e7bb6ae4fe103f25e923"
+source_commit_timestamp: "2026-10-21T00:48:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ad_reading_opportunities"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/213_adaptive_difficulty_receipts.sql"
   - "src/learnloop/adaptive_difficulty/data_check.py"
   - "src/learnloop/adaptive_difficulty/material_view.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/adaptive_difficulty/replay.py"
   - "src/learnloop/attempts/salience_firewall.py"
@@ -124,9 +125,10 @@ None found by exact static reference scan.
 - `tests/test_ad23_contract.py`
 - `tests/test_ad23_fix_r8.py`
 - `tests/test_ad23_fix_review.py`
-- `tests/test_ad23_material_view.py`
 - `tests/test_ad3_dose_arm.py`
 - `tests/test_ad3_reading.py`
+- `tests/test_ad_guard.py`
+- `tests/test_ad_projection.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_architecture.py`
 - `tests/test_salience_firewall.py`

@@ -3,8 +3,8 @@ title: "source_artifacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a209efcf5daa9e7500e00f42d63d7f55a23c0535"
-source_commit_timestamp: "2026-10-20T19:07:36-04:00"
+source_commit: "30a3bd57427043882458e7bb6ae4fe103f25e923"
+source_commit_timestamp: "2026-10-21T00:48:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_artifacts"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/032_source_layer.sql"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/content/facet_identity/span_support.py"
   - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/db/repositories.py"
@@ -138,6 +139,7 @@ Indexes and uniqueness:
 - `tests/source_retrieval_fakes.py`
 - `tests/source_service_fakes.py`
 - `tests/test_ad23_contract.py`
+- `tests/test_ad_projection.py`
 - `tests/test_decider_landing.py`
 - `tests/test_glm_ocr.py`
 - `tests/test_ingest_runner.py`
@@ -152,7 +154,6 @@ Indexes and uniqueness:
 - `tests/test_source_inventory.py`
 - `tests/test_source_retrieval_guards.py`
 - `tests/test_source_retrieval_rereview.py`
-- `tests/test_tutor_delivery_fixes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

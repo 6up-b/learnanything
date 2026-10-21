@@ -3,8 +3,8 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a209efcf5daa9e7500e00f42d63d7f55a23c0535"
-source_commit_timestamp: "2026-10-20T19:07:36-04:00"
+source_commit: "30a3bd57427043882458e7bb6ae4fe103f25e923"
+source_commit_timestamp: "2026-10-21T00:48:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
@@ -22,8 +22,8 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/__init__.py"
   - "src/learnloop/adaptive_difficulty/data_check.py"
   - "src/learnloop/adaptive_difficulty/feature_audit.py"
-  - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/outside.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/adaptive_difficulty/relatedness.py"
   - "src/learnloop/adaptive_difficulty/replay.py"
@@ -101,11 +101,6 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/adaptive_difficulty/data_check.py`
-- `src/learnloop/adaptive_difficulty/feature_audit.py`
-- `src/learnloop/adaptive_difficulty/material_view.py`
-- `src/learnloop/adaptive_difficulty/reading.py`
-- `src/learnloop/adaptive_difficulty/relatedness.py`
-- `src/learnloop/adaptive_difficulty/serving.py`
 - `src/learnloop/ai/agreement.py`
 - `src/learnloop/attempts/grading_support.py`
 - `src/learnloop/attempts/stuck.py`
@@ -183,11 +178,11 @@ None found by exact static reference scan.
 - `tests/test_ad1_send_guard.py`
 - `tests/test_ad3_reading.py`
 - `tests/test_ad3_relatedness.py`
+- `tests/test_ad_projection.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_ai_compare.py`
 - `tests/test_approach_maps.py`
 - `tests/test_assumed_known.py`
-- `tests/test_attach_to_family.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
