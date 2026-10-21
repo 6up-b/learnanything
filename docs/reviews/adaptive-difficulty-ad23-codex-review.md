@@ -2092,3 +2092,74 @@ Every Python run outside pytest this round ran under `env -i PATH=$PATH HOME=<em
 CODEX_HOME=<empty> LEARNLOOP_CONFIG_DIR=<empty>`: the file edits, the head fixture's rebuild, and the
 reference scripts. The two epoch-debugging pytest plugins stayed in the scratchpad, uncommitted. No
 model call was made.
+
+## Redesign round 3 (2026-10-21)
+
+The closed-checklist verify (`20261021-104418-6QARfA`) found three findings (one High, two
+Medium), each closed under the orchestrator's binding rulings.
+
+### Finding 1 (High): span aliases come from the projected readings
+
+- Inside an operation, `ProjectedRepository.span_reanchors_between` serves `MaterialView.span_reanchors`.
+  That is the only alias set a `SpanTranslator` built on `op.repository` sees.
+- Its automatic aliases (`exact_hash`, `geometry_section`) are computed again from the two
+  projected readings by the new `span_aliases.computed_aliases`. It is cached by the projected
+  repository's `projection_key`, that is per protection epoch.
+- A persisted or incumbent automatic alias is never accepted, even with both endpoints public: its
+  match may have been decided by held-out neighbours.
+- **Which alias kinds exist.** `source_span_reanchors.match_kind` allows `exact_hash`,
+  `geometry_section` and `manual`. Only the first two are ever written in production
+  (`record_aliases`, from `reanchor_spans`). `manual` is written by no production path, only by
+  `Repository.insert_span_reanchor`, which only a test calls. A `manual` row is kept only when the
+  rules show both its endpoints, and it then overrides the computed alias of its span.
+- `test_ad_projection.py::test_span_aliases_are_recomputed_from_the_projected_ir` is the
+  projection-equality case. A book is read twice. A duplicated public block's held-out neighbours
+  decide its recorded alias `dup_old -> dup_x`. Without them the block is ambiguous.
+  - The protected copy's translator inside an operation resolves exactly as the absent copy's does
+    (stale).
+  - The sweep records the same opportunities in both copies, and none for the LO that cites
+    `dup_old`.
+  - On `54ae865ca` the translator used the persisted alias. A sweep-only variant of the same case
+    also failed there, recording a `passage_viewed` row for `lo_m1`.
+
+### Finding 2 (Medium): poisoning expires cached statements
+
+- At the first denial, `Guard._deny` re-installs the authorizer on every guarded connection: the
+  same expiry `own_write()` and `rules()` use on exit. Every statement prepared before the denial is
+  then authorized again on its next run, and `_write` refuses it because the operation is poisoned.
+- Re-installing happens inside the authorizer's own callback. The guard therefore installs one
+  stable bound method (`Guard._hook`), so re-installing frees no callable that is running.
+- `test_ad_guard.py::test_a_cached_ad_write_is_refused_once_the_operation_is_poisoned`: an
+  `ad_dose_offers` insert, a swallowed denial, then the identical insert with new parameters is
+  refused and writes nothing. On `54ae865ca`: DID NOT RAISE.
+
+### Finding 3 (Medium): the serve operation sits inside its savepoint
+
+- `entry(..., savepoint=True)` opens the repository's savepoint OUTSIDE the operation. A poisoned
+  operation's exit raises inside the savepoint, which rolls back before anything is released, and
+  the `poisoned` fallback runs after the rollback. This holds however the function returned.
+- The serve hook uses it: `@entry(poisoned=_serve_unrecorded, savepoint=True)`. It returns
+  `skipped="failed"` and the incumbent's serve goes on.
+- `test_ad_guard.py::test_a_write_then_a_swallowed_denial_then_an_early_return_keeps_no_ad_rows`
+  runs the verify's sequence through the daily plan's serve. A planted sweep writes a reading
+  receipt and then swallows a refused read, and the hook returns early because the item is
+  protected. The result: no AD rows, and the incumbent's presentation served. On `54ae865ca` the
+  receipt survived (`1 == 0`).
+- The other entry points keep their current shape. A refusal there propagates through their own
+  savepoints since rounds 2 and 3; after it, every write and every cached statement is refused.
+
+The planted-read negative control still fails with the guard off: its test passes on both trees.
+
+### Gate (run once, after the last code change)
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 27 kept, 0 broken |
+| targeted pytest, `-n 14`: round 2's 229 files plus every file naming `span_aliases`, `SpanTranslator` or `span_reanchor` | **10,160 passed, 36 xfailed, 0 failed** (1,389 s) |
+| `--durable-sqlite`: `test_ad_guard.py`, `test_ad_epoch.py`, `test_ad23_migration.py`, `test_ad1_migration.py` | 35 passed |
+| migration 214, head fixture | unchanged this round |
+| references, under `env -i` | regenerated (commit labels, cited lines); `db_validate_reference.py` 0 errors; `module_validate.py` and `validate_vault.py` pass |
+
+Sizes, `54ae865ca..` the round-3 code commit: production +67 / -17 (5 files), tests +153 (2 files).
+Every Python run outside pytest ran under `env -i` with an empty HOME, CODEX_HOME and
+LEARNLOOP_CONFIG_DIR. No model call was made; owner decisions are unchanged.

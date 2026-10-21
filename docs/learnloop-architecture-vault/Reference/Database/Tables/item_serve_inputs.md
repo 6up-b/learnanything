@@ -3,8 +3,8 @@ title: "item_serve_inputs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "108fc925aca83dcc3776405f9810cff86c4be3ef"
-source_commit_timestamp: "2026-10-21T10:39:25-04:00"
+source_commit: "20ac907c9c767c8c6df62b6c8adf7de84d56c01e"
+source_commit_timestamp: "2026-10-21T11:25:06-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite item_serve_inputs"
@@ -134,6 +134,7 @@ None found by exact static reference scan.
 - `tests/test_ad23_migration.py`
 - `tests/test_ad2_model.py`
 - `tests/test_ad2_serving.py`
+- `tests/test_ad_guard.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_architecture.py`
 
