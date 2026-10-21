@@ -63,27 +63,32 @@ export function exercisesWorthTrying(path: ReadingPathDto): ReadingPathSectionDt
 }
 
 /** How long the Guide waits, after what the path depends on changes while
- *  the card stays mounted (a section read or finished, an answer, a plan
- *  re-read, the Guide shown again), before reading the path again (Codex
- *  review F3). Longer than the Reader's seen-count save (SEEN_REPORT_MS) so
- *  the server reads the progress that prompted it; changes inside the window
- *  fold into one read. */
+ *  the card stays mounted (a section read or finished, a progress save
+ *  landed, an answer, a plan re-read, the Guide shown again), before reading
+ *  the path again (Codex review F3); changes inside the window fold into one
+ *  read. A read this prompts may still beat a save the learner's further
+ *  reading postponed: the save landing is in the key too (re-review F3), so
+ *  the path is read again once the server has the progress. */
 export const READING_PATH_REFRESH_MS = 2000;
 
 /** What the mounted path card re-reads on: the sections read through or
  *  finished (the server's own "done" rule: completed, or every passage
- *  seen), and counters for the learner-state signals the Reader has (plan
- *  re-reads after a diagnosis, quick checks answered, workbench problems
- *  submitted or set aside) and for the Guide being shown again. */
+ *  seen), the Reader's acknowledged progress saves (a retry's included:
+ *  Codex re-review F3), and counters for the learner-state signals the
+ *  Reader has (plan re-reads after a diagnosis, quick checks answered,
+ *  workbench problems submitted or set aside) and for the Guide being shown
+ *  again. */
 export function readingPathRefreshKey(input: {
   sections: ReadonlyArray<{ id: string; spanIds: readonly string[] }>;
   completedSections: readonly string[];
   sectionSeen: Readonly<Record<string, number>>;
+  /** useReadingProgress's progressSaves. */
+  progressSaves: number;
   signals: ReadonlyArray<string | number>;
 }): string {
   const done = input.sections
     .filter((section) => input.completedSections.includes(section.id)
       || (section.spanIds.length > 0 && (input.sectionSeen[section.id] ?? 0) >= section.spanIds.length))
     .map((section) => section.id);
-  return `${done.join(",")}|${input.signals.join("|")}`;
+  return [done.join(","), `saved:${input.progressSaves}`, ...input.signals].join("|");
 }

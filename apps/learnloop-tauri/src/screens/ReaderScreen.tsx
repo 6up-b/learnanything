@@ -538,7 +538,8 @@ export function ReaderScreen({
     onError,
   });
   const working = wbCtl.active !== null;
-  // RW7a (Codex review F3): what the mounted reading-path card re-reads on.
+  // RW7a (Codex review F3, re-review F3): what the mounted reading-path card
+  // re-reads on, a landed progress save included.
   // The Guide being shown again, the plan re-read (a diagnosis landed), a
   // quick check answered, a workbench problem submitted or set aside, and
   // each section read through or finished.
@@ -554,6 +555,7 @@ export function ReaderScreen({
     sections: guidePlan?.sections ?? [],
     completedSections,
     sectionSeen,
+    progressSaves: progress.progressSaves,
     signals: [guideShown, guideReads, answeredSections.length,
       wbCtl.sessions.map((entry) => `${entry.sessionId}:${entry.status}`).join(",")],
   });

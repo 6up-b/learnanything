@@ -229,14 +229,16 @@ it("a ready card reads the path again when what it depends on changes, without a
 
 it("the refresh key: a section counts once finished or every passage seen, and every signal is in it", () => {
   const sections = [{ id: "a", spanIds: ["s1", "s2"] }, { id: "b", spanIds: ["s3"] }, { id: "c", spanIds: [] }];
-  const key = (completedSections: string[], sectionSeen: Record<string, number>, signals: Array<string | number> = [1]) =>
-    readingPathRefreshKey({ sections, completedSections, sectionSeen, signals });
-  expect(key([], {})).toBe("|1");
-  expect(key([], { a: 1 })).toBe("|1"); // half read: not done, no re-read
-  expect(key([], { a: 2 })).toBe("a|1");
-  expect(key(["b"], { a: 2 })).toBe("a,b|1");
-  expect(key([], { c: 0 })).toBe("|1"); // no passages: only completion counts
-  expect(key([], {}, [1, 2, "w:open"])).toBe("|1|2|w:open");
-  // The re-read waits for the Reader's progress save to land.
+  const key = (completedSections: string[], sectionSeen: Record<string, number>, signals: Array<string | number> = [1],
+    progressSaves = 0) => readingPathRefreshKey({ sections, completedSections, sectionSeen, progressSaves, signals });
+  expect(key([], {})).toBe("|saved:0|1");
+  expect(key([], { a: 1 })).toBe("|saved:0|1"); // half read: not done, no re-read
+  expect(key([], { a: 2 })).toBe("a|saved:0|1");
+  expect(key(["b"], { a: 2 })).toBe("a,b|saved:0|1");
+  expect(key([], { c: 0 })).toBe("|saved:0|1"); // no passages: only completion counts
+  expect(key([], {}, [1, 2, "w:open"])).toBe("|saved:0|1|2|w:open");
+  // Re-review F3: a landed progress save is a change of its own.
+  expect(key([], { a: 1 }, [1], 3)).toBe("|saved:3|1");
+  // The common case folds into one read after the Reader's progress save.
   expect(READING_PATH_REFRESH_MS).toBeGreaterThan(SEEN_REPORT_MS);
 });
