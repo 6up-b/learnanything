@@ -916,7 +916,7 @@ def _carve_outs(monkeypatch) -> None:
 
     from learnloop.adaptive_difficulty import outside
 
-    monkeypatch.setattr(outside, "_incumbent_inputs", lambda _connection, _presentation_id: {
+    monkeypatch.setattr(outside, "_incumbent_inputs", lambda _connection, _presentation_id, _view=None: {
         "p_success": None, "mastery_state": "carve-out: the incumbent's mastery_ekf comparator"})
 
 

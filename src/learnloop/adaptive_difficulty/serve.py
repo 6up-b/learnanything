@@ -38,7 +38,7 @@ from learnloop.scheduling.forecast_receipts import record_receipts
 
 from learnloop.adaptive_difficulty.forecasters import in_process_receipts
 from learnloop.adaptive_difficulty.outside import freeze_presentation_inputs
-from learnloop.adaptive_difficulty.material_view import material_view
+from learnloop.adaptive_difficulty.material_view import current_view, material_view
 from learnloop.adaptive_difficulty.reading import sweep
 from learnloop.adaptive_difficulty.generation import record_landed_commissions
 from learnloop.adaptive_difficulty.serve_inputs import build_row, never_attempted
@@ -130,12 +130,11 @@ def record_plan_serve(vault: Any, repository: Any, *, presentation_id: str, prac
 
 
 def _recorded(connection: Any, presentation_id: str) -> bool:
-    return connection.execute(
-        "SELECT 1 FROM forecast_receipts WHERE plan_presentation_id = ? AND kind = 'item_unassisted_success' "
-        "AND decision_kind = 'serve' LIMIT 1", (presentation_id,),
-    ).fetchone() is not None or connection.execute(
-        "SELECT 1 FROM item_serve_inputs WHERE plan_presentation_id = ? LIMIT 1", (presentation_id,),
-    ).fetchone() is not None
+    # A record AD may not read counts as written: nothing is recorded over it.
+    view = current_view()
+    return view.lookup(connection, "forecast_receipts", "plan_presentation_id = ? AND kind = 'item_unassisted_success' "
+                       "AND decision_kind = 'serve'", (presentation_id,))[0] != "missing" or view.lookup(
+        connection, "item_serve_inputs", "plan_presentation_id = ?", (presentation_id,))[0] != "missing"
 
 
 def _with_version(receipt: Any, algorithm_version: str) -> Any:

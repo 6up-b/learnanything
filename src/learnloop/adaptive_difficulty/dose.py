@@ -250,11 +250,12 @@ def decide(vault: Any, repository: Any, boundary: Boundary, *, clock: Clock | No
         # draw is made at it; a draw made there earlier is returned with no offer.
         with repository.atomic():
             connection = repository.connection()
-            existing = store.dose_draw_by_key(connection, f"{boundary.visit_id}:{boundary.extraction_id}:"
-                                                          f"{boundary.section_id}") \
-                if store.has_table(connection, store.DOSE_OFFERS) else None
-        if existing is not None:
-            return DoseDecision(True, "withheld", str(existing["id"]), NONE, existing.get("propensities") or {}, None)
+            status, existing = view.stored_status(connection, store.DOSE_OFFERS, store.dose_draw_by_key,
+                                                  f"{boundary.visit_id}:{boundary.extraction_id}:{boundary.section_id}")
+        if status != "missing":
+            # A draw made here earlier: withheld with its section, so it is returned with no offer and
+            # nothing of it but its id.
+            return DoseDecision(True, "withheld", str((existing or {}).get("id")), NONE, {}, None)
         return DoseDecision(False, "withheld_section")
     mapping = reading_map or VaultReadingMap(vault, repository, view)
     los = list(mapping.los_for_section(boundary.extraction_id, boundary.section_id))
@@ -267,11 +268,11 @@ def decide(vault: Any, repository: Any, boundary: Boundary, *, clock: Clock | No
         if not store.has_table(connection, store.DOSE_OFFERS):
             return DoseDecision(False, "schema")
         key = f"{boundary.visit_id}:{boundary.extraction_id}:{boundary.section_id}"
-        existing = store.dose_draw_by_key(connection, key)
+        status, existing = view.stored_status(connection, store.DOSE_OFFERS, store.dose_draw_by_key, key)
+        if status == "withheld":
+            # Its origin or its extra is withheld now (F23, F47): no offer, and nothing of it but its id.
+            return DoseDecision(True, "withheld", str((existing or {}).get("id")), NONE, {}, None)
         if existing is not None:
-            if view.dose_draw_withheld(connection, existing):
-                return DoseDecision(True, "withheld", str(existing["id"]), NONE, existing.get("propensities") or {},
-                                    None)
             return DoseDecision(True, "drawn", str(existing["id"]), existing.get("chosen_variant"),
                                 existing.get("propensities") or {}, existing.get("content"))
         why = budget(connection, extraction_id=boundary.extraction_id, section_id=boundary.section_id, now=now,
@@ -327,14 +328,14 @@ def record_uptake(vault: Any, repository: Any, draw_id: str, kind: str, *, clock
         return None
     with repository.atomic():
         connection = repository.connection()
-        draw = next((row for row in store.dose_rows(connection) if row["id"] == draw_id and row["row_kind"] == "draw"),
-                    None)
-        if draw is None:
+        status, draw = view.stored_status(connection, store.DOSE_OFFERS, lambda conn: [
+            row for row in store.dose_rows(conn) if row["id"] == draw_id and row["row_kind"] == "draw"])
+        if status == "missing":
             raise ValueError(f"no dose draw {draw_id!r}")
+        if status == "withheld":  # its origin or its extra (F36, F47)
+            return None
         if draw.get("chosen_variant") in (None, NONE):
             raise ValueError("the draw offered nothing")
-        if view.dose_draw_withheld(connection, draw):  # its origin or its extra (F36, F47)
-            return None
         return store.insert_dose_row(connection, {"row_kind": kind, "draw_id": draw_id,
                                                   "created_at": utc_now_iso(clock)})
 

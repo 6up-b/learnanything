@@ -335,8 +335,6 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
     unavailable the view is empty and the replay reads no item, attempt or receipt."""
 
     from learnloop.field.outcomes import measurement_masses, wholly_unassessed
-    from learnloop.held_grades import held_for_review_attempts
-
     from learnloop.adaptive_difficulty.material_view import material_view
 
     view = material_view(vault, repository, view)
@@ -362,21 +360,16 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
     # Whether the grade measures anything, resolved from the ledger alone (Codex review F1): a
     # frozen-input attempt skips field's revision resolution, never its assessment rule.
     masses = measurement_masses(connection, vault, ledger.values())
-    held = held_for_review_attempts(connection)
+    held = view.held_for_review(connection)
     serve_inputs: dict[str, dict[str, Any]] = {}
-    if receipt_store.has_table(connection, receipt_store.SERVE_INPUTS):
-        cursor = connection.execute(f"SELECT * FROM {receipt_store.SERVE_INPUTS}")
-        names = [d[0] for d in cursor.description]
-        for raw in cursor.fetchall():
-            row = dict(zip(names, raw))
-            if row.get("plan_presentation_id"):
-                serve_inputs[str(row["plan_presentation_id"])] = row
+    for row in view.rows(connection, receipt_store.SERVE_INPUTS):
+        if row.get("plan_presentation_id"):
+            serve_inputs[str(row["plan_presentation_id"])] = row
     presentations = {pid: str(row["served_at"]) for pid, row in view.presentations(connection).items()}
     help_rows: dict[str, list[dict[str, Any]]] = {}
-    cursor = connection.execute(
-        "SELECT attempt_id, context, hint_equivalent, question_type, attempt_progress, seconds_into_attempt "
-        "FROM question_events WHERE attempt_id IS NOT NULL")
-    for attempt_id, context, hint_eq, qtype, progress, seconds in cursor.fetchall():
+    for attempt_id, context, hint_eq, qtype, progress, seconds in [
+            (row["attempt_id"], row["context"], row["hint_equivalent"], row["question_type"], row["attempt_progress"],
+             row["seconds_into_attempt"]) for row in view.rows(connection, "question_events", "attempt_id IS NOT NULL")]:
         help_rows.setdefault(str(attempt_id), []).append({
             "context": context, "hint_equivalent": hint_eq, "question_type": qtype, "attempt_progress": progress,
             "seconds_into_attempt": seconds})

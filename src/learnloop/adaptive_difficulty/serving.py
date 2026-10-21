@@ -196,7 +196,11 @@ def decide_slot(vault: Any, repository: Any, request: SlotRequest, *, view: Any 
         try:
             sweep(vault, repository, as_of=request.now, sweep_kind="serve", sweep_ref=request.decision_key,
                   view=view)
-        except Exception:  # noqa: BLE001 - as at the serve hook: a failed sweep never blocks the draw
+        except Exception as exc:  # noqa: BLE001 - as at the serve hook: a failed sweep never blocks the draw
+            from learnloop.adaptive_difficulty.operation import is_denial
+
+            if is_denial(exc):
+                raise  # the guard's refusal: AD is unavailable for the slot (owner Q3)
             LOG.warning("AD reading sweep before draw %s failed", request.decision_key, exc_info=True)
     constants = S.constants_from_config(vault.config)
     support = [c for c in request.candidates if not c.failed]
@@ -219,7 +223,13 @@ def decide_slot(vault: Any, repository: Any, request: SlotRequest, *, view: Any 
         "state_hash": snapshot.state_hash(), "versions": _versions(vault, snapshot, view_name),
         "algorithm_version": vault.config.algorithms.algorithm_version, "created_at": request.now,
     }
-    existing = store.selection_by_key(connection, request.decision_key)
+    status, existing = view.stored_status(connection, store.SELECTIONS, store.selection_by_key, request.decision_key)
+    if status == "withheld":
+        # The slot's logged draw is withheld now: it stands (never redrawn) and AD reads nothing of it,
+        # so AD is unavailable for the slot and the plan serves its planned item.
+        from learnloop.adaptive_difficulty.operation import GuardDenied
+
+        raise GuardDenied(f"the logged draw of slot {request.decision_key} is withheld")
     if existing is not None:
         # A reopened slot: the logged draw stands (a propensity is never recomputed after the draw).
         chosen = existing.get("chosen_item_id")
@@ -313,7 +323,10 @@ def commission_draw(vault: Any, repository: Any, snapshot: RP.Snapshot, view: An
                            capability_name=capability_name) for point in points]
     scored = PR.score(view, specs, constants=constants)
     decision_key = f"commission:{facet}:{capability_name}:{key}"
-    if store.selection_by_key(connection, decision_key) is not None:
+    from learnloop.adaptive_difficulty.material_view import current_view
+
+    # (``view`` here is the state view: the material view is the operation's.)
+    if current_view().lookup(connection, store.SELECTIONS, "decision_key = ?", (decision_key,))[0] != "missing":
         return None
     draw = S.draw(scored, key=f"{facet}:{capability_name}:{key}", design=S.COMMISSION_VERSION, constants=constants)
     chosen = next((point for point, spec in zip(points, specs) if spec.item_id == draw.chosen), None)
@@ -370,10 +383,11 @@ def frozen_loadings(vault: Any, repository: Any, connection: Any, content_hash: 
 
     in_force = {vault.canonical_facet_id(str(facet)) for facet in loadings}
     stale = R.stale_judgments(connection, vault, view=view) if loadings else set()
-    ids = [row[0] for row in connection.execute(
-        "SELECT id, right_id FROM judgment_ledger WHERE task = 'ad_relatedness' AND left_kind = "
-        "'practice_item_revision' AND left_id = ? ORDER BY created_at, rowid", (content_hash,))
-        if vault.canonical_facet_id(str(row[1])) in in_force and str(row[0]) not in stale] if loadings else []
+    ids = [row["id"] for row in view.rows(
+        connection, "judgment_ledger", "task = 'ad_relatedness' AND left_kind = 'practice_item_revision' AND "
+        "left_id = ?", (content_hash,), order="created_at, rowid")
+        if vault.canonical_facet_id(str(row["right_id"])) in in_force and str(row["id"]) not in stale] \
+        if loadings else []
     version = ",".join(f"{subject}={value}" for subject, value in sorted(structure.versions.items())) or None
     return {"loadings": {f: round(float(q), 12) for f, q in sorted(loadings.items())}, "judgment_ids": ids}, version
 

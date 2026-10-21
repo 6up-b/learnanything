@@ -51,8 +51,8 @@ def stale_subjects(vault: Any, repository: Any) -> list[str]:
         return []
     stale = []
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        adopted = {row["subject_id"] for row in store.coupling_versions(connection)}
-        runs = store.relatedness_runs(connection)
+        adopted = {row["subject_id"] for row in view.stored(connection, store.COUPLING_VERSIONS, store.coupling_versions)}
+        runs = view.stored(connection, store.RELATEDNESS_RUNS, store.relatedness_runs)
         for subject in R.subjects(vault):
             if subject not in adopted:
                 continue

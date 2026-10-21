@@ -164,6 +164,7 @@ def load_duration_evidence(
     latency_cap_minutes: float,
     attempt_rows: Any = None,
     event_visible: Any = None,
+    event_rows: Any = None,
 ) -> DurationEvidence:
     """Read own latencies (by item and by mode) and plan feedback dwell.
 
@@ -173,7 +174,11 @@ def load_duration_evidence(
     AD candidate's estimate; None reads the table, as the plan does.
     ``event_visible(kind, detail, block_id)``: which plan events the feedback dwell may
     pair (adaptive difficulty passes its material view's rule, Codex verify F28
-    round 10); None pairs every event, as the plan does."""
+    round 10); None pairs every event, as the plan does. ``event_rows``: the plan's
+    ``item_done``/``item_served`` events already read (``plan_id``, ``block_id``,
+    ``kind``, ``detail``, ``created_at``, in the plan's order); adaptive difficulty
+    passes its material view's (the AD23 redesign: its operation never reads the
+    raw events), None reads them here."""
 
     by_item: dict[str, list[float]] = defaultdict(list)
     by_mode: dict[str, list[float]] = defaultdict(list)
@@ -194,7 +199,7 @@ def load_duration_evidence(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'daily_plans'"
         ).fetchone()
         if has_plans is not None:
-            dwell = _feedback_dwell(connection, event_visible=event_visible)
+            dwell = _feedback_dwell(connection, event_visible=event_visible, event_rows=event_rows)
     return DurationEvidence(
         latencies_by_item={key: tuple(values) for key, values in by_item.items()},
         latencies_by_mode={key: tuple(values) for key, values in by_mode.items()},
@@ -202,7 +207,7 @@ def load_duration_evidence(
     )
 
 
-def _feedback_dwell(connection: Any, *, event_visible: Any = None) -> list[float]:
+def _feedback_dwell(connection: Any, *, event_visible: Any = None, event_rows: Any = None) -> list[float]:
     """item_done -> the next item_served in the same plan, capped at five minutes.
 
     Only the plan's numbered blocks count: a pick served after the plan closed
@@ -212,7 +217,7 @@ def _feedback_dwell(connection: Any, *, event_visible: Any = None) -> list[float
 
     import json
 
-    rows = connection.execute(
+    rows = event_rows if event_rows is not None else connection.execute(
         "SELECT b.daily_plan_id AS plan_id, e.block_id AS block_id, e.kind AS kind, e.detail_json AS detail, "
         "e.created_at AS created_at "
         "FROM attention_block_events e JOIN attention_blocks b ON b.id = e.block_id "

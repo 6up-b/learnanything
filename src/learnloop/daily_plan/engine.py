@@ -2947,8 +2947,9 @@ def _ad_slot_serve(
         try:
             # One AD operation for the support and the draw (the AD23 redesign); a refusal inside it
             # rolls its savepoint back, so nothing of AD's is written and the planned item is served.
+            day = day_records(env)  # the plan's own records, read before AD's operation opens
             with ad_slot.slot_operation(env) as view:
-                request = ad_slot.build_request(env, record, block, item, built, day=day_records(env),
+                request = ad_slot.build_request(env, record, block, item, built, day=day,
                                                 router_propensity=ad_slot.router_propensity(record, block), view=view)
                 decision = decide_slot(env.vault, env.repository, request, view=view)
         except ad_slot.AdUnavailable:

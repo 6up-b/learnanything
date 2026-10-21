@@ -212,9 +212,10 @@ def backfill(vault: Any, repository: Any, *, audit: bool, llm_v1: bool, reading:
                           for item, content_hash in revisions]
         pending_audits = [entry for entry in pending_audits if entry[2]]
         candidates = _never_attempted(view, connection) if llm_v1 else []
-        existing = {str(row[0]) for row in connection.execute(
-            "SELECT item_content_hash FROM forecast_receipts WHERE kind = 'item_unassisted_success' AND scope = 'item' "
-            "AND forecaster = ? AND status = 'ok'", (LLM_V1,))} if candidates else set()
+        # A receipt AD may not read is one written: its revision is not forecast again.
+        existing = {str(item_revision(item)[0]) for item in candidates if view.lookup(
+            connection, "forecast_receipts", "kind = 'item_unassisted_success' AND scope = 'item' AND forecaster = ? "
+            "AND status = 'ok' AND item_content_hash = ?", (LLM_V1, item_revision(item)[0]))[0] != "missing"}
         pending_v1 = [item for item in candidates if item_revision(item)[0] not in existing]
     if limit is not None:
         pending_audits, pending_v1 = pending_audits[:limit], pending_v1[:limit]

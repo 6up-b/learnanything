@@ -88,6 +88,7 @@ from learnloop.adaptive_difficulty.forecasters import EVENT, INCUMBENT, receipt_
 from learnloop.adaptive_difficulty.protection import guard
 from learnloop.adaptive_difficulty.sending import ProtectedContent, SendGuard, refusal_status
 from learnloop.adaptive_difficulty.switches import LLM_V1, LLM_V3_DECIDER, LLM_V3_LLM, outside_forecasters
+from learnloop.adaptive_difficulty.material_view import current_view
 
 LOG = logging.getLogger(__name__)
 
@@ -329,9 +330,8 @@ def _receipt(*, key: str, forecaster: str, version: str, scope: str, decision_ki
 
 
 def _existing(connection: Any, key: str) -> bool:
-    return connection.execute(
-        "SELECT 1 FROM forecast_receipts WHERE receipt_key = ? LIMIT 1", (key,),
-    ).fetchone() is not None
+    # A receipt AD may not read counts as written: nothing is forecast again over it.
+    return current_view().lookup(connection, "forecast_receipts", "receipt_key = ?", (key,))[0] != "missing"
 
 
 def _verdict_text(p: float) -> str:
@@ -410,6 +410,7 @@ def item_prompt(vault: Any, item: Any) -> str:
     })
 
 
+@entry
 def forecast_item(vault: Any, repository: Any, item: Any, *, clients: Clients | None = None,
                   clock: Clock | None = None, protected: Any = None, fence: Any = None,
                   live_vault: Callable[[], Any] | None = None) -> ForecastOutcome:
@@ -509,18 +510,16 @@ def _forecast_item(vault: Any, worker: Any, item: Any, client: Any, *, content_h
     outcome.status, outcome.p = status, p
 
 
-def _incumbent_inputs(connection: Any, presentation_id: str) -> dict[str, Any] | None:
+def _incumbent_inputs(connection: Any, presentation_id: str, view: Any = None) -> dict[str, Any] | None:
     key = receipt_key("plan_presentation", presentation_id, INCUMBENT)
-    row = connection.execute(
-        "SELECT p, inputs_json FROM forecast_receipts WHERE receipt_key = ?", (key,),
-    ).fetchone()
+    status, row = (view or current_view()).lookup(connection, "forecast_receipts", "receipt_key = ?", (key,))
     if row is None:
         return None
     try:
-        inputs = json.loads(row[1] or "{}")
+        inputs = json.loads(row.get("inputs_json") or "{}")
     except (TypeError, ValueError):
         inputs = {}
-    return {"p_success": row[0], "mastery_state": inputs.get("mastery_state")}
+    return {"p_success": row.get("p"), "mastery_state": inputs.get("mastery_state")}
 
 
 #: The ``item_forecast_payloads`` owner key of a presentation's frozen
@@ -559,7 +558,7 @@ def freeze_presentation_inputs(vault: Any, connection: Any, item: Any, *, presen
     history_attempts: list[str] = []
     state = {"item": item_view(vault, item),
              "learner": history_card(vault, connection, item, served_at=served_at, view=view,
-                                     incumbent=_incumbent_inputs(connection, presentation_id), identities=history,
+                                     incumbent=_incumbent_inputs(connection, presentation_id, view), identities=history,
                                      attempt_ids=history_attempts)}
     key = frozen_state_key(presentation_id)
     store.insert_payload(connection, owner_key=key, forecaster=FROZEN_STATE_FORECASTER, kind="request", content={
@@ -573,7 +572,7 @@ def freeze_presentation_inputs(vault: Any, connection: Any, item: Any, *, presen
 
 
 def _frozen_inputs(connection: Any, presentation_id: str) -> dict[str, Any] | None:
-    rows = store.payloads(connection, [frozen_state_key(presentation_id)])
+    rows = current_view().stored(connection, store.PAYLOADS, store.payloads, [frozen_state_key(presentation_id)])
     for row in rows:
         content = row.get("content")
         if row.get("kind") == "request" and isinstance(content, dict) and isinstance(content.get("state"), dict):

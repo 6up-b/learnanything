@@ -204,5 +204,6 @@ def test_ad_replayer_reads_the_receipt_only_through_the_carve_out() -> None:
     # serve's warmth read only ids and times (never a dose into the state). Since AD2+AD3 fix
     # round 8 every read goes through the material view (which revalidates each receipt's source
     # and hands the replayer rows that still pass only through the carve-out).
+    # protected_tables.py classifies the table for the AD guard (the AD23 redesign); it reads nothing.
     assert set(readers) <= {"reading.py", "replay.py", "dose.py", "serving.py", "data_check.py", "backfill.py",
-                            "material_view.py"}
+                            "material_view.py", "protected_tables.py"}

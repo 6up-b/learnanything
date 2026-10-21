@@ -22,7 +22,7 @@ row is never mutated.
 
 from __future__ import annotations
 
-from learnloop.adaptive_difficulty.operation import entry
+from learnloop.adaptive_difficulty.operation import entry, own_write
 
 import logging
 from collections.abc import Callable, Mapping, Sequence
@@ -222,7 +222,8 @@ def commission_point(vault: Any, repository: Any, *, learning_object_id: str, in
                                        now=now, generating_job_id=current_ingest_job_id(repository.sqlite_path))
         if selection_id is None:
             return None
-        row = store.selection(connection, selection_id)
+        found = view.stored(connection, store.SELECTIONS, store.selection, selection_id)
+        row = found[0] if found else None
     if row is None or not row.get("chosen_point"):
         return None
     return rung_features(row["chosen_point"]), capability, selection_id
@@ -388,7 +389,11 @@ def record_landed_commissions(vault: Any, repository: Any, connection: Any, *, n
 
     if not successor_active(vault.config) or not store.has_table(connection, store.COMMISSION_RESULTS):
         return []
-    commissions = [row for row in store.commissions_in_draw_order(connection) if row.get("chosen_point")]
+    view = material_view(vault, repository, view)
+    if not view.available:
+        return []
+    commissions = [row for row in view.stored(connection, store.SELECTIONS, store.commissions_in_draw_order)
+                   if row.get("chosen_point")]
     if not commissions:
         return []
     # A8 (Codex verify F17): reconciliation reads items only through the operation's material view,
@@ -396,10 +401,9 @@ def record_landed_commissions(vault: Any, repository: Any, connection: Any, *, n
     # ownership, forecasting or a receipt, and never closes, supersedes or receipts a commission.
     # With the predicate unavailable the view is empty and nothing is reconciled (fail closed): the
     # commissions stay open until a reconciliation that can tell.
-    view = material_view(vault, repository, view)
-    if not view.available:
-        return []
-    receipted = {str(row["practice_item_id"]) for row in store.commission_results(connection)}
+    # An item with a result AD may not read counts as receipted: the first attribution is final.
+    receipted = {str(item.id) for item in view.items() if view.lookup(
+        connection, store.COMMISSION_RESULTS, "practice_item_id = ?", (str(item.id),))[0] != "missing"}
     constants = S.constants_from_config(vault.config)
     written: list[str] = []
     snapshot = None
@@ -424,14 +428,15 @@ def record_landed_commissions(vault: Any, repository: Any, connection: Any, *, n
         # One resolved mapping per landing (Codex verify F18): the forecast read it, the receipt
         # records it, and ``features_match`` compares it.
         realized = dict(spec.features or {})
-        result = store.insert_commission_result(connection, {
-            "selection_id": row["id"], "practice_item_id": str(item.id), "content_hash": content_hash,
-            "features": realized, "p_bar": round(p_bar, 12),
-            "status": "in_band" if in_band else "realized_out_of_band", "state_hash": snapshot.state_hash(),
-            "features_match": 1 if _matches_point(realized, row) else 0,
-            "landed_after_expiry": 1 if store.landed_after_expiry(connection, row, created) else 0,
-            "created_at": now,
-        })
+        with own_write(store.COMMISSION_RESULTS):
+            result = store.insert_commission_result(connection, {
+                "selection_id": row["id"], "practice_item_id": str(item.id), "content_hash": content_hash,
+                "features": realized, "p_bar": round(p_bar, 12),
+                "status": "in_band" if in_band else "realized_out_of_band", "state_hash": snapshot.state_hash(),
+                "features_match": 1 if _matches_point(realized, row) else 0,
+                "landed_after_expiry": 1 if view.landed_after_expiry(connection, row, created) else 0,
+                "created_at": now,
+            })
         if result is not None:
             written.append(result)
             receipted.add(str(item.id))

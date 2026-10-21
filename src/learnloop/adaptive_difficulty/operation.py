@@ -56,6 +56,7 @@ RULES_MARKER = "/* ad-rules */"
 
 _CURRENT: ContextVar["Operation | None"] = ContextVar("ad_operation", default=None)
 _IN_RULES: ContextVar[str | None] = ContextVar("ad_rules", default=None)
+_OWN_WRITE: ContextVar[str | None] = ContextVar("ad_own_write", default=None)
 
 _READ = sqlite3.SQLITE_READ
 _WRITES = {sqlite3.SQLITE_INSERT: "insert", sqlite3.SQLITE_UPDATE: "update", sqlite3.SQLITE_DELETE: "delete"}
@@ -77,15 +78,32 @@ class Guard:
     writes: dict[str, set[str]] = field(default_factory=dict)
     denials: list[dict[str, Any]] = field(default_factory=list)
     connections: list[Any] = field(default_factory=list)
+    #: The schema's trigger names (read at install, before the guard is on).
+    triggers: frozenset[str] = frozenset()
+    #: The table the statement being authorized writes (its WHERE may read it).
+    _writing: str | None = None
 
     def authorize(self, action: int, arg1: Any, arg2: Any, database: Any, source: Any) -> int:
         op = _CURRENT.get()
         if op is None or op.guard is not self:
             return sqlite3.SQLITE_OK
+        if source is not None and str(source) in self.triggers:
+            # A trigger's own statements (the schema's integrity checks on a permitted write, such as
+            # the judgment ledger's supersession identity): the write that fired it was judged.
+            return sqlite3.SQLITE_OK
         if action == _READ:
+            if self._writing is not None or str(arg1) == _OWN_WRITE.get():
+                # A permitted write's own checks, prepared with it: its foreign keys' parents and its
+                # WHERE on its own target (a prune, an update by key). A subquery is a SELECT, which
+                # ends the write's region, so what it reads is judged as any read.
+                return sqlite3.SQLITE_OK
             return self._read(str(arg1), database)
         if action in _WRITES and arg1:
-            return self._write(str(arg1), _WRITES[action])
+            verdict = self._write(str(arg1), _WRITES[action])
+            self._writing = str(arg1) if verdict == sqlite3.SQLITE_OK else None
+            return verdict
+        if action != sqlite3.SQLITE_FUNCTION:
+            self._writing = None
         return sqlite3.SQLITE_OK
 
     def _read(self, table: str, database: Any) -> int:
@@ -95,9 +113,9 @@ class Guard:
         self.reads.setdefault(table, set()).add(reader)
         rules = _IN_RULES.get()
         kind = T.role(table)
-        if kind == T.NEUTRAL or (rules is not None and kind != T.PREDICATE):
+        if kind == T.NEUTRAL or (rules not in (None, T.INCUMBENT) and kind != T.PREDICATE):
             return sqlite3.SQLITE_OK
-        verdict = T.read_verdict(table, rules=rules, stack=_stack_modules())
+        verdict = T.read_verdict(table, rules=rules, reader=reader, stack=_stack_modules())
         if verdict is None:
             return sqlite3.SQLITE_OK
         return self._deny("read", table, verdict, reader)
@@ -124,6 +142,13 @@ class Guard:
     def install(self, connection: Any) -> None:
         raw = getattr(connection, "_connection", connection)
         raw = getattr(raw, "_connection", raw)
+        if not self.triggers:
+            raw.set_authorizer(None)
+            try:
+                self.triggers = frozenset(str(row[0]) for row in raw.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'trigger'"))
+            except sqlite3.DatabaseError:
+                self.triggers = frozenset()
         raw.set_authorizer(self.authorize)
         if all(known is not raw for known in self.connections):
             self.connections.append(raw)
@@ -239,6 +264,65 @@ def rules(name: str) -> Iterator[None]:
                 op.guard.refresh()
 
 
+@contextmanager
+def own_write(table: str) -> Iterator[None]:
+    """A store writer's own idempotency read of the AD table it writes (its existence check before
+    the insert): allowed for that table only, and only around the writer's call."""
+
+    from learnloop.adaptive_difficulty import protected_tables as T
+
+    if table not in T.AD_WRITABLE:
+        raise ValueError(f"{table} is not a table AD writes")
+    token = _OWN_WRITE.set(table)
+    try:
+        yield
+    finally:
+        _OWN_WRITE.reset(token)
+
+
+@contextmanager
+def incumbent_constraints() -> Iterator[None]:
+    """The incumbent's serve-time constraints, asked of a visible candidate inside an operation (the
+    slot's routine exclusions and staged-frame admission): read only by the registry's named
+    incumbent readers (``protected_tables.INCUMBENT_READERS``), never written. Named, not closed:
+    see the registry."""
+
+    with rules("incumbent"):
+        yield
+
+
+@contextmanager
+def suspended() -> Iterator[None]:
+    """Leave the operation for a deliberate egress (the AD23 redesign): the send guard re-reads the
+    predicate afresh at each request by design, and a model call may run the incumbent's own work
+    (a reload's maintenance), which never runs inside an operation. While suspended the guard
+    allows everything (no operation is current) and no new connection is hooked; at the end its
+    authorizer is re-installed on every connection of the operation, which expires their statement
+    caches. Outside an operation it does nothing."""
+
+    op = _CURRENT.get()
+    if op is None:
+        yield
+        return
+    token = _CURRENT.set(None)
+    rules_token = _IN_RULES.set(None)
+    try:
+        with _no_hook():
+            yield
+    finally:
+        _IN_RULES.reset(rules_token)
+        _CURRENT.reset(token)
+        op.guard.refresh()
+
+
+@contextmanager
+def _no_hook() -> Iterator[None]:
+    from learnloop.db.scopes import connection_hook
+
+    with connection_hook(None):
+        yield
+
+
 def _same_database(op: Operation, repository: Any) -> bool:
     try:
         return Path(op.raw_repository.sqlite_path).resolve() == Path(repository.sqlite_path).resolve()
@@ -301,7 +385,7 @@ def ad_operation(vault: Any, repository: Any, *, protected: Any = None, connecti
 
 
 #: The guard's mode for new operations: "deny" in production; the tests may observe.
-_MODE: dict[str, str] = {"mode": "observe"}
+_MODE: dict[str, str] = {"mode": "deny"}
 
 
 def _default_mode() -> str:
@@ -364,9 +448,10 @@ def optional_operation(vault: Any, repository: Any) -> Iterator[Operation | None
 
 
 def is_denial(exc: BaseException) -> bool:
-    """Whether an exception is the guard's refusal (SQLite's "not authorized")."""
+    """Whether an exception is the guard's refusal (SQLite's "not authorized"), or an AD reader's
+    refusal to read a withheld record it would otherwise reuse (:class:`GuardDenied`)."""
 
-    return isinstance(exc, sqlite3.DatabaseError) and "not authorized" in str(exc)
+    return isinstance(exc, GuardDenied) or (isinstance(exc, sqlite3.DatabaseError) and "not authorized" in str(exc))
 
 
 def entry(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -409,5 +494,6 @@ def _is_protection(value: Any) -> bool:
     return isinstance(value, (MaterialView, Protection))
 
 
-__all__ = ["EPOCH_VERSION", "GuardDenied", "Operation", "RULES_MARKER", "ad_operation", "current",
-           "denial_count", "entry", "epoch_of", "is_denial", "optional_operation", "rules"]
+__all__ = ["EPOCH_VERSION", "GuardDenied", "OBSERVERS", "Operation", "RULES_MARKER", "ad_operation", "current",
+           "denial_count", "entry", "epoch_of", "incumbent_constraints", "is_denial", "optional_operation",
+           "own_write", "rules", "suspended"]

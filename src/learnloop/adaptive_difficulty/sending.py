@@ -334,9 +334,13 @@ class _GuardGate:
 
 @contextmanager
 def _sending(guard: SendGuard, envelope: Any) -> Iterator[None]:
+    from learnloop.adaptive_difficulty.operation import suspended
+
     token = _DISPATCH.set({"guard": guard})
     try:
-        with spend_envelopes(envelope), gate_model_requests(_GuardGate(guard, active_request_gate())):
+        # The egress leaves the AD operation (the AD23 redesign): the guard's checks re-read the
+        # predicate afresh by design, and the request runs as the incumbent's work.
+        with suspended(), spend_envelopes(envelope), gate_model_requests(_GuardGate(guard, active_request_gate())):
             yield
     finally:
         _DISPATCH.reset(token)

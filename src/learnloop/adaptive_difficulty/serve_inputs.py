@@ -79,9 +79,8 @@ def pre_exposed(repository: Any, item: Any, served_at: str, *, view: Any, connec
     (``serve_eligibility.submit_exposure``); the incumbent's own reader is unchanged."""
 
     from contextlib import closing
-    from dataclasses import replace
 
-    from learnloop.serve_eligibility import gather, submit_exposure
+    from learnloop.serve_eligibility import EligibilityInputs, RevealRow, submit_exposure
 
     def read(conn: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         reveals = [row for row in view.reveals(conn)
@@ -98,13 +97,16 @@ def pre_exposed(repository: Any, item: Any, served_at: str, *, view: Any, connec
 
         with closing(connect(repository.sqlite_path, read_only=True)) as conn:
             reveals, attempts = read(conn)
-    inputs = gather(repository, practice_item_id=str(item.id), learning_object_id=item.learning_object_id,
-                    at=served_at, window_until=served_at, reveal_rows=reveals)
     last = None
     for row in attempts:  # oldest first: the last one at the latest stamp, as the repository's read
         if last is None or str(row["created_at"]) >= str(last["created_at"]):
             last = row
-    inputs = replace(inputs, last_attempt=(str(last["id"]), str(last["created_at"])) if last is not None else None)
+    # The incumbent's inputs record, built from the view's rows alone (``gather`` would read the
+    # raw attempts and tasks; the exposure rule reads only the reveals and the last attempt).
+    inputs = EligibilityInputs(practice_item_id=str(item.id), learning_object_id=item.learning_object_id,
+                               at=served_at, reveals=tuple(RevealRow.from_row(row) for row in reveals),
+                               last_attempt=(str(last["id"]), str(last["created_at"])) if last is not None else None,
+                               tasks=(), window_until=served_at)
     return bool(submit_exposure(inputs).primed_by_ledger)
 
 
@@ -136,10 +138,11 @@ def _z_panel(connection: Any, item: Any, served_at: str) -> dict[str, Any]:
         return {"value": None, "available": False, "why": "no_panel_rates"}
     import json
 
-    row = connection.execute(
-        "SELECT id, panel_json, published_at FROM pf_candidates WHERE published_item_id = ? AND status = 'published' "
-        "ORDER BY published_at DESC, id DESC LIMIT 1", (str(item.id),),
-    ).fetchone()
+    from learnloop.adaptive_difficulty.material_view import current_view
+
+    found = current_view().rows(connection, "pf_candidates", "published_item_id = ? AND status = 'published'",
+                                (str(item.id),), order="published_at DESC, id DESC")
+    row = (found[0]["id"], found[0]["panel_json"], found[0]["published_at"]) if found else None
     if row is None:
         return {"value": None, "available": False, "why": "no_panel_rates"}
     if not _before(row[2], served_at):
@@ -161,10 +164,11 @@ def _outcome_of_first_presentation(connection: Any, content_hash: str, served_at
     completed before ``served_at``; None when there is none or it was pre-exposed.
     ``attempts``: the material view's visible attempts, by presentation id."""
 
-    rows = connection.execute(
-        "SELECT plan_presentation_id, served_at, pre_exposed FROM item_serve_inputs WHERE content_hash = ? "
-        "AND plan_presentation_id IS NOT NULL ORDER BY served_at, id", (content_hash,),
-    ).fetchall()
+    from learnloop.adaptive_difficulty.material_view import current_view
+
+    rows = [(row["plan_presentation_id"], row["served_at"], row["pre_exposed"]) for row in current_view().rows(
+        connection, "item_serve_inputs", "content_hash = ? AND plan_presentation_id IS NOT NULL", (content_hash,),
+        order="served_at, id")]
     for presentation_id, presentation_served, exposed in rows:
         if not _before(presentation_served, served_at):
             return None

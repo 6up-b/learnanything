@@ -54,14 +54,11 @@ def score_rows(connection: Any, vault: Any, repository: Any) -> list[dict[str, A
     by_presentation = {e.plan_presentation_id: e for e in events.attempts if e.plan_presentation_id}
     served = {pid: str(row["served_at"]) for pid, row in view.presentations(connection).items()}
     first_presentation: dict[str, str] = {}
-    if store.has_table(connection, "item_serve_inputs"):
-        for content_hash, pid in connection.execute(
-                "SELECT content_hash, plan_presentation_id FROM item_serve_inputs WHERE plan_presentation_id IS NOT "
-                "NULL ORDER BY served_at, id"):
-            first_presentation.setdefault(str(content_hash), str(pid))
-    pre_exposed = {str(pid) for (pid,) in connection.execute(
-        "SELECT plan_presentation_id FROM item_serve_inputs WHERE pre_exposed = 1 AND plan_presentation_id IS NOT NULL")}\
-        if store.has_table(connection, "item_serve_inputs") else set()
+    pre_exposed: set[str] = set()
+    for row in view.rows(connection, "item_serve_inputs", "plan_presentation_id IS NOT NULL", order="served_at, id"):
+        first_presentation.setdefault(str(row["content_hash"]), str(row["plan_presentation_id"]))
+        if row.get("pre_exposed") == 1:
+            pre_exposed.add(str(row["plan_presentation_id"]))
     seen_los: set[str] = set()
     seen_cells: set[tuple[str, str]] = set()
     first_lo: dict[str, bool] = {}

@@ -314,9 +314,11 @@ def _trivial_success(connection: Any, snapshot: RP.Snapshot) -> dict[str, Any]:
 
     attempts = {e.plan_presentation_id: e for e in snapshot.events.attempts if e.plan_presentation_id}
     successes = trivial = 0
-    for pid, p in connection.execute(
-            "SELECT plan_presentation_id, p FROM forecast_receipts WHERE kind = 'item_unassisted_success' AND "
-            "forecaster = 'ad_threshold@subject' AND plan_presentation_id IS NOT NULL"):
+    from learnloop.adaptive_difficulty.material_view import current_view
+
+    for pid, p in [(row["plan_presentation_id"], row["p"]) for row in current_view().rows(
+            connection, "forecast_receipts", "kind = 'item_unassisted_success' AND forecaster = 'ad_threshold@subject' "
+            "AND plan_presentation_id IS NOT NULL")]:
         attempt = attempts.get(str(pid))
         if attempt is None or not attempt.eligible or attempt.category != 2:
             continue
@@ -336,9 +338,9 @@ def _visits(connection: Any, snapshot: RP.Snapshot, *, view: Any) -> list[dict[s
         return []
     opened: dict[str, str] = {}
     visits = []
-    for kind, payload, created_at in connection.execute(
-            "SELECT kind, payload_json, created_at FROM interaction_events WHERE kind IN "
-            "('reader_view_opened', 'reader_view_closed') ORDER BY created_at, id"):
+    for kind, payload, created_at in [(row["kind"], row["payload_json"], row["created_at"]) for row in view.rows(
+            connection, "interaction_events", "kind IN ('reader_view_opened', 'reader_view_closed')",
+            order="created_at, id")]:
         try:
             data = json.loads(payload or "{}")
         except ValueError:
@@ -501,10 +503,10 @@ def density_lowerings(connection: Any, *, view: Any) -> list[str]:
     closed: dict[str, str] = {}
     last_seen: dict[str, str] = {}
     lowerings: list[tuple[str, str | None]] = []
-    for kind, payload, created_at in connection.execute(
-            "SELECT kind, payload_json, created_at FROM interaction_events WHERE kind IN "
-            "('reader_view_opened', 'reader_view_closed', 'reader_selection', 'reader_action_invoked', "
-            "'reader_job_queued', 'reader_job_completed') ORDER BY created_at, id"):
+    for kind, payload, created_at in [(row["kind"], row["payload_json"], row["created_at"]) for row in view.rows(
+            connection, "interaction_events", "kind IN ('reader_view_opened', 'reader_view_closed', "
+            "'reader_selection', 'reader_action_invoked', 'reader_job_queued', 'reader_job_completed')",
+            order="created_at, id")]:
         try:
             data = json.loads(payload or "{}")
         except ValueError:

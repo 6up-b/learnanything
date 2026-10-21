@@ -201,7 +201,7 @@ def stale_judgments(connection: Any, vault: Any, *, view: Any) -> set[str]:
 
     out: set[str] = set()
     fingerprints: dict[str, str | None] = {}
-    for run in serving_store.relatedness_runs(connection):
+    for run in view.stored(connection, serving_store.RELATEDNESS_RUNS, serving_store.relatedness_runs):
         subject = str(run["subject_id"])
         if subject not in fingerprints:
             fingerprints[subject] = protection_fingerprint(view, connection, subject_lo_ids(vault, subject))
@@ -517,7 +517,8 @@ def propose_subject(vault: Any, repository: Any, subject: str, *, client: Any = 
         outcome.status = "empty"
         return outcome
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        runs = serving_store.relatedness_runs(connection, subject_id=subject)
+        runs = view.stored(connection, serving_store.RELATEDNESS_RUNS, serving_store.relatedness_runs,
+                           subject_id=subject)
         current = whole["unit_hashes"].get(PROTECTION_UNIT)
         live = {run["id"] for run in runs if run_in_force(view, connection, run, current)}
     # Only what changed is re-proposed (§5.10 "When"); a first run proposes every unit.
@@ -637,12 +638,25 @@ def _record(repository: Any, subject: str, inputs: Mapping[str, Any], proposal: 
                     rationale=json.dumps({"run_key": key, "subject": subject, "item_id": item_id, "why": why},
                                          sort_keys=True),
                     created_at=created_at))
-        run_id = serving_store.insert_relatedness_run(connection, {
-            "run_key": key, "subject_id": subject, "input_hash": str(inputs["input_hash"]), "units": units,
-            "judgment_ids": ids, "status": "ok", "prompt_version": PROMPT_VERSION, "judge_model": model,
-            "created_at": created_at,
-        })
+        from learnloop.adaptive_difficulty.operation import own_write
+
+        with own_write(serving_store.RELATEDNESS_RUNS):
+            run_id = serving_store.insert_relatedness_run(connection, {
+                "run_key": key, "subject_id": subject, "input_hash": str(inputs["input_hash"]), "units": units,
+                "judgment_ids": ids, "status": "ok", "prompt_version": PROMPT_VERSION, "judge_model": model,
+                "created_at": created_at,
+            })
     return run_id, len(ids)
+
+
+def _ledger(connection: Any, table: str, reader: Callable[..., Any], **kwargs: Any) -> list[dict[str, Any]]:
+    """AD's own run ledgers: through the operation's view inside one, else as stored (the owner's
+    ``adopt`` command runs outside any operation and reads no learner data)."""
+
+    from learnloop.adaptive_difficulty.operation import current
+
+    op = current()
+    return op.view.stored(connection, table, reader, **kwargs) if op is not None else reader(connection, **kwargs)
 
 
 class ReinterpretationNeedsShadow(ValueError):
@@ -652,7 +666,8 @@ class ReinterpretationNeedsShadow(ValueError):
 def candidate_version(connection: Any, subject: str) -> dict[str, Any] | None:
     """The coupling version adopting would write now: every unit's latest ok run."""
 
-    runs = [run for run in serving_store.relatedness_runs(connection, subject_id=subject) if run["status"] == "ok"]
+    runs = [run for run in _ledger(connection, serving_store.RELATEDNESS_RUNS, serving_store.relatedness_runs,
+                                   subject_id=subject) if run["status"] == "ok"]
     if not runs:
         return None
     latest: dict[str, str] = {}
@@ -660,7 +675,8 @@ def candidate_version(connection: Any, subject: str) -> dict[str, Any] | None:
         for unit in run["units"]:
             latest[unit] = run["id"]
     run_ids = sorted(set(latest.values()))
-    versions = [row for row in serving_store.coupling_versions(connection) if row["subject_id"] == subject]
+    versions = [row for row in _ledger(connection, serving_store.COUPLING_VERSIONS, serving_store.coupling_versions)
+                if row["subject_id"] == subject]
     number = 1 + max((int(row["version"]) for row in versions), default=0)
     digest = hashlib.sha256(json.dumps({"subject": subject, "runs": run_ids}, sort_keys=True).encode()).hexdigest()
     return {"subject_id": subject, "version": number, "coupling_version": f"{subject}:v{number}:{digest[:16]}",
@@ -848,7 +864,7 @@ def load_structure(connection: Any, vault: Any, *, view: Any, coupled: bool = Tr
     if not coupled or not serving_store.has_table(connection, serving_store.COUPLING_VERSIONS):
         return VaultStructure(facet_los=facet_to_los, lo_facets=lo_to_facets)
     adopted: dict[str, dict[str, Any]] = {}
-    for row in serving_store.coupling_versions(connection):
+    for row in view.stored(connection, serving_store.COUPLING_VERSIONS, serving_store.coupling_versions):
         current = adopted.get(row["subject_id"])
         if current is None or int(row["version"]) > int(current["version"]):
             adopted[row["subject_id"]] = row
@@ -856,8 +872,8 @@ def load_structure(connection: Any, vault: Any, *, view: Any, coupled: bool = Tr
         adopted[subject] = dict(row)
     if not adopted:
         return VaultStructure(facet_los=facet_to_los, lo_facets=lo_to_facets)
-    judgments = {str(row[0]): row for row in connection.execute(
-        "SELECT id, left_kind, left_id, right_kind, right_id, score FROM judgment_ledger WHERE task = ?", (TASK,))}
+    judgments = {str(row["id"]): (row["id"], row["left_kind"], row["left_id"], row["right_kind"], row["right_id"],
+                                  row["score"]) for row in view.rows(connection, "judgment_ledger", "task = ?", (TASK,))}
     couplings: dict[str, list[_UnitProposal]] = {}
     loadings: dict[str, list[_UnitProposal]] = {}
     versions: dict[str, str] = {}
@@ -868,7 +884,8 @@ def load_structure(connection: Any, vault: Any, *, view: Any, coupled: bool = Tr
         # The subject's protection now (F38's blunt rule): a run proposed under a different one,
         # or recorded before runs carried one, is not used at all, its couplings and loadings both.
         current = protection_fingerprint(view, connection, subject_lo_ids(vault, subject))
-        for run in serving_store.relatedness_runs(connection, subject_id=subject):
+        for run in view.stored(connection, serving_store.RELATEDNESS_RUNS, serving_store.relatedness_runs,
+                               subject_id=subject):
             if run["status"] != "ok":
                 continue
             if not run_in_force(view, connection, run, current):

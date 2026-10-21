@@ -88,9 +88,9 @@ def _estimator(env: Any, view: Any) -> Any:
     config = env.plan_config
     with env.repository.connection() as connection:
         rows = view.attempts(connection)
-        event_visible = view.plan_event_visible(connection)
-        evidence = load_duration_evidence(env.repository, latency_cap_minutes=float(config.latency_cap_minutes),
-                                          attempt_rows=rows, event_visible=event_visible)
+        events = view.plan_feedback_events(connection)
+    evidence = load_duration_evidence(env.repository, latency_cap_minutes=float(config.latency_cap_minutes),
+                                      attempt_rows=rows, event_rows=events)
     return Estimator(evidence=evidence, read_words_per_minute=int(config.read_words_per_minute))
 
 
@@ -105,6 +105,7 @@ def _exclusions(env: Any, view: Any) -> Any:
     belonging to an answer given to a held-out revision) excludes nothing. The incumbent's own
     exclusions are unchanged."""
 
+    from learnloop.adaptive_difficulty.operation import incumbent_constraints
     from learnloop.attempts.attempts import COLD_FOLLOWUP_TASK_KINDS
     from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
     from learnloop.scheduling.serving_exclusions import out_of_timing_serving_exclusions
@@ -112,10 +113,12 @@ def _exclusions(env: Any, view: Any) -> Any:
     try:
         with env.repository.connection() as connection:
             withheld = view.withheld_reveal_ids(connection)
-        return out_of_timing_serving_exclusions(env.vault, env.repository,
-                                                cold_followup_kinds=COLD_FOLLOWUP_TASK_KINDS,
-                                                reveal_window=COLD_RETRIEVAL_DELAY, clock=env.clock,
-                                                exclude_reveal_ids=withheld)
+        # The incumbent's own exclusions, asked in its scope (the registry's named incumbent readers).
+        with incumbent_constraints():
+            return out_of_timing_serving_exclusions(env.vault, env.repository,
+                                                    cold_followup_kinds=COLD_FOLLOWUP_TASK_KINDS,
+                                                    reveal_window=COLD_RETRIEVAL_DELAY, clock=env.clock,
+                                                    exclude_reveal_ids=withheld)
     except AdUnavailable:
         raise
     except Exception as exc:  # noqa: BLE001 - the routine exclusions failed: AD is unavailable (F22)
@@ -188,7 +191,14 @@ def admission_failures(env: Any, items: Sequence[Any], *, pool: Mapping[str, Poo
         with env.repository.connection() as connection:
             return view.item_states(connection)
 
-    material = StagedFrame(env.vault, env.repository, clock=env.clock, item_states=states).material(candidates)
+    from learnloop.adaptive_difficulty.operation import incumbent_constraints
+
+    item_states = states()
+    # The incumbent's admission on a fresh snapshot, asked in its scope (the registry's named incumbent
+    # readers): what reaches AD is each visible candidate's refusals.
+    with incumbent_constraints():
+        material = StagedFrame(env.vault, env.repository, clock=env.clock,
+                               item_states=lambda: item_states).material(candidates)
     staged = router_active(env.vault)
     for item in items:
         item_id = str(item.id)

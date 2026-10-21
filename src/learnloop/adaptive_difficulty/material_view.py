@@ -77,6 +77,14 @@ def _json(raw: Any, default: Any) -> Any:
         return default
 
 
+def _as_rows(found: Any) -> list[dict[str, Any]]:
+    if found is None:
+        return []
+    if isinstance(found, Mapping):
+        return [dict(found)]
+    return [dict(row) for row in found]
+
+
 def _columns(table: str) -> Mapping[str, str]:
     """The registry's classification of a protected table's columns (an error for any other)."""
 
@@ -176,11 +184,31 @@ class MaterialView:
         if not _has_table(connection, table):
             return "missing", None
         _columns(table)
-        found = _rows(connection, f"/* ad-rules */ SELECT * FROM {table} WHERE {where}", args)
+        return self._status(connection, table, _rows(connection, f"/* ad-rules */ SELECT * FROM {table} WHERE {where}",
+                                                     args))
+
+    def _status(self, connection: Any, table: str, found: list[dict[str, Any]]) -> tuple[str, dict[str, Any] | None]:
         if not found:
             return "missing", None
         kept = self.filter(connection, table, found)
-        return ("ok", kept[0]) if len(kept) == len(found) else ("withheld", None)
+        if len(kept) == len(found):
+            return "ok", kept[0]
+        # Withheld: its caller writes nothing over it and reads nothing of it but its id.
+        return "withheld", ({"id": found[0]["id"]} if "id" in found[0] else None)
+
+    def stored(self, connection: Any, table: str, reader: Any, *args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        """A store's (decoded) rows of a protected table, read by the rules and filtered by the rule:
+        ``reader(connection, *args, **kwargs)`` returns a row, a list of rows or None."""
+
+        return self.filter(connection, table, _as_rows(reader(connection, *args, **kwargs)))
+
+    def stored_status(self, connection: Any, table: str, reader: Any, *args: Any, **kwargs: Any
+                      ) -> tuple[str, dict[str, Any] | None]:
+        """:meth:`lookup` over a store's reader: ``missing``, ``withheld`` (with the row's id only) or
+        ``ok`` and the (first) row."""
+
+        found = _as_rows(reader(connection, *args, **kwargs))
+        return self._status(connection, table, found)
 
     def keep(self, connection: Any, table: str, row: Mapping[str, Any]) -> bool:
         """The registry's one rule: a row is withheld when any reference column resolves to a withheld
@@ -566,6 +594,14 @@ class MaterialView:
         return [row for row in ad_serving.open_commissions(connection, now=now, landed=landed)
                 if not (row.get("cell_facet") and canonical(str(row["cell_facet"])) in facets)]
 
+    def landed_after_expiry(self, connection: Any, commission: Mapping[str, Any], landed_at: Any) -> bool:
+        """Whether a landing came after its commission expired (the store's expiry clock: the job's
+        finish and the review decisions on items proposed for the LO; owner decision 2026-10-19)."""
+
+        from learnloop.db.stores import ad_serving
+
+        return ad_serving.landed_after_expiry(connection, commission, landed_at)
+
     def revision(self, connection: Any, content_hash: str | None) -> Any:
         """A saved revision (``practice_item_snapshots``) as an item, or None when it is missing or
         withheld (its item withheld now, or its own sources held out)."""
@@ -773,6 +809,41 @@ class MaterialView:
             return []
         return list(load_attempt_rows(connection, self.vault, attempt_rows=self.attempts(connection), **kwargs))
 
+    def held_for_review(self, connection: Any) -> frozenset[str]:
+        """The visible attempts whose grade is held for review now (the incumbent's rule,
+        ``held_grades.held_for_review_attempts``, asked of the visible attempts only)."""
+
+        from learnloop.held_grades import held_for_review_attempts
+
+        ids = [str(row["id"]) for row in self.attempts(connection)]
+        return held_for_review_attempts(connection, ids) if ids else frozenset()
+
+    def worked_example_spans(self, connection: Any, extraction_id: str) -> set[str]:
+        """The extraction's worked-example spans (``source_retrieval.corpus.role_keys``) that are not
+        held out."""
+
+        from learnloop.source_retrieval.corpus import role_keys
+
+        keys = role_keys(connection, [extraction_id], ("worked_example",))
+        return {str(span) for extraction, span in keys
+                if extraction == extraction_id and not self.material_withheld(extraction_id, span)}
+
+    def plan_feedback_events(self, connection: Any) -> list[dict[str, Any]]:
+        """The plan's ``item_done`` and ``item_served`` events AD's candidate estimates may pair (the
+        feedback dwell; Codex verify F28): the registry's plan-event rule (an event naming a withheld
+        item, presentation or attempt is absent), in the plan's order."""
+
+        if not _has_table(connection, "attention_blocks"):
+            return []
+        blocks = {str(row["id"]): str(row["daily_plan_id"]) for row in _rows(
+            connection, "/* ad-rules */ SELECT id, daily_plan_id FROM attention_blocks WHERE daily_plan_id IS NOT NULL "
+            "AND plan_ordinal IS NOT NULL")}
+        events = [{"plan_id": blocks[str(row["block_id"])], "block_id": str(row["block_id"]), "kind": row["kind"],
+                   "detail": row["detail_json"], "created_at": row["created_at"], "id": row["id"]}
+                  for row in self.rows(connection, "attention_block_events", "kind IN ('item_done', 'item_served')")
+                  if str(row["block_id"]) in blocks]
+        return sorted(events, key=lambda event: (event["plan_id"], str(event["created_at"]), str(event["id"])))
+
     def ledger(self, connection: Any) -> dict[str, Mapping[str, Any]]:
         """The authoritative observation ledger by attempt id (visible attempts only)."""
 
@@ -842,7 +913,8 @@ class MaterialView:
         """``("ok", row)``, ``("withheld", None)`` (its item is withheld now: a caller reports
         ``protected`` and reads nothing of it) or ``("missing", None)``."""
 
-        return self.lookup(connection, "plan_presentations", "id = ?", (presentation_id,))
+        status, row = self.lookup(connection, "plan_presentations", "id = ?", (presentation_id,))
+        return status, (row if status == "ok" else None)
 
     def plan_event_visible(self, connection: Any) -> Any:
         """The rule for plan block events AD may read (the feedback dwell of AD's candidate
@@ -965,6 +1037,11 @@ class MaterialView:
         if getattr(material, "empty", False):
             return False
         return bool(material.covers(str(extraction_id), None if span_id is None else str(span_id)))
+
+    def document_ir(self, repository: Any, extraction_id: str) -> Any:
+        """An extraction's document IR as AD may read it (the operation repository's loader)."""
+
+        return repository.load_document_ir(extraction_id)
 
     def section_spans(self, extraction_id: str, section_id: str) -> list[str]:
         if extraction_id not in self._section_spans:
@@ -1145,6 +1222,12 @@ def material_view(vault: Any, repository: Any, protected: Any = None) -> Materia
     return detached_view(vault, repository, protected)
 
 
+def current_view() -> MaterialView:
+    """The view of the operation open in this context (an error outside one)."""
+
+    return material_view(None, None)
+
+
 def detached_view(vault: Any, repository: Any, protected: Any = None) -> MaterialView:
     """A view computed here, outside any operation's guard: for the operation itself, the egress
     guards (which re-read protection afresh by design) and the incumbent's generation boundary (E1).
@@ -1168,4 +1251,5 @@ def closes_window(attempt: Mapping[str, Any], ledger_entry: Mapping[str, Any] | 
     return bool((ledger_entry or {}).get("evidence"))
 
 
-__all__ = ["MaterialView", "NON_WINDOW_TYPES", "UNAVAILABLE", "closes_window", "detached_view", "material_view"]
+__all__ = ["MaterialView", "NON_WINDOW_TYPES", "UNAVAILABLE", "closes_window", "current_view", "detached_view",
+           "material_view"]

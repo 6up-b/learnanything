@@ -109,6 +109,7 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("model_work_checkpoints", NEUTRAL),
     ("outcome_schema_versions", NEUTRAL),
     ("outcome_schemas", NEUTRAL),
+    ("pf_candidates", PROTECTED),
     ("plan_presentations", PROTECTED),
     ("practice_attempts", PROTECTED),
     ("practice_item_snapshots", PROTECTED),
@@ -305,6 +306,11 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
     "judgment_ledger": _table({"left_id": "entity@left_kind", "right_id": "entity@right_kind"},
         values="id created_at supersedes_id task left_kind right_kind judge judge_model prompt_version input_hash "
                "verdict score rationale"),
+    "pf_candidates": _table({"parent_item_id": "item", "published_item_id": "item", "content_hash": "revision"},
+        values="id run_id mint_request_id round tier family_id learning_object_id generation_path declared_relation "
+               "final_relation proposer_model prompt_version payload_json verification verification_check status "
+               "rejection_filter filters_json difficulty difficulty_source panel_json selection_json cost_json "
+               "judged_inputs_json published_at created_at updated_at"),
     "plan_presentations": _table({"id": "self", "practice_item_id": "self"},
         values="block_id router_decision_id controller_decision_id position origin scheduler_candidate_id "
                "probe_presentation_id session_id served_at"),
@@ -391,7 +397,9 @@ ENTITY_KINDS: Mapping[str, str] = MappingProxyType({
     "extraction": "extraction",
     "facet": "facet",
     "note": "note",
+    "plan_presentation": "presentation",
     "practice_item": "item",
+    "practice_item_revision": "revision",
     "question_event": "question_event",
     "reader_authored_question": "reader_question",
     "source_note": "note",

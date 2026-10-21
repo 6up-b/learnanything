@@ -249,8 +249,10 @@ def test_feature_audit_ledgered_with_fallback(tmp_path):
     # The Decider read the stem and reference answer only.
     assert set(decider.calls[0]["state"]) == {"question", "reference_answer", "schema"}
     # The canonical audit is the earliest answer; a later run asks nothing.
-    with sqlite3.connect(paths.sqlite_path) as connection:
-        canonical = canonical_audits(connection, content_hash)
+    from learnloop.adaptive_difficulty.operation import ad_operation
+
+    with ad_operation(vault, repository), sqlite3.connect(paths.sqlite_path) as connection:
+        canonical = canonical_audits(connection, content_hash)  # an AD reader: inside an operation
     assert canonical["complexity"]["judgment_id"] == fallback[0]["id"]
     rerun = audit_revision(vault, repository, item, decider_factory=lambda: decider, llm_client=llm)
     assert rerun.status == "current" and len(decider.calls) == 1 and len(_audit_rows(paths)) == len(ledger)
