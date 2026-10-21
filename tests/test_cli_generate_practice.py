@@ -24,6 +24,12 @@ from tests.helpers import (
     create_basic_vault,
 )
 
+import pytest
+
+# The legacy Codex HTTP adapter is refused by the tool lockdown (hardening round 2,
+# H3); these tests drive an in-process HTTP server through it as a provider double.
+pytestmark = pytest.mark.usefixtures("legacy_codex_http_double")
+
 
 def test_generate_practice_dry_run_targets_completed_probe(tmp_path):
     vault_root = tmp_path / "vault"

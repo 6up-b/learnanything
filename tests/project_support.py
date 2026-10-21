@@ -276,7 +276,10 @@ def install_fake_codex_sdk(monkeypatch, *, final_response: str = '{"grades": []}
                 flags = [part for override in kwargs.get("config_overrides", ()) for part in ("--config", override)]
                 command = list(kwargs["launch_args_override"]
                                or [kwargs["codex_bin"], *flags, "app-server", "--listen", "stdio://"])
-                completed = subprocess.run(command, cwd=kwargs["cwd"], capture_output=True, text=True, timeout=60)
+                # The environment as the real SDK builds it: this process's, updated by ``env``.
+                environ = {**os.environ, **(kwargs.get("env") or {})}
+                completed = subprocess.run(command, cwd=kwargs["cwd"], capture_output=True, text=True, timeout=60,
+                                           env=environ)
                 captured["spawned"] = {"command": command, "stdout": completed.stdout, "stderr": completed.stderr,
                                        "returncode": completed.returncode}
                 if launch_failure_raises and completed.returncode != 0:

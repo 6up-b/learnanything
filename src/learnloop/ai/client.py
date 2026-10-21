@@ -60,6 +60,11 @@ def make_ai_provider_client_from_profile(
 
         return CodexSDKProviderClient(provider_name, profile, vault_root)
     if provider_type in {"http", "http_adapter"}:
+        # The legacy Codex HTTP transport is refused by the tool lockdown
+        # (hardening round 2, H3): typed, naming the lockdown.
+        from learnloop.ai.providers import codex_lockdown
+
+        codex_lockdown.refuse_legacy_http_transport(f"AI provider {provider_name!r} of type {profile.type!r}")
         from learnloop.ai.providers.codex_http import HttpAdapterProviderClient
 
         return HttpAdapterProviderClient(provider_name, profile)

@@ -84,7 +84,23 @@ dev = [
 
 [tool.importlinter]
 root_packages = ["learnloop", "learnloop_sidecar", "learnloop_mobile", "learnloop_mcp"]
-include_external_packages = false
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+id = "codex-sdk-only-in-its-provider"
+name = "Only the Codex provider imports the Codex SDK and its bundled CLI (security stage codex-tool-lockdown)"
+type = "forbidden"
+# Every Codex turn must run the locked-down profile, which only
+# learnloop.ai.providers.codex puts in force (approvals deny_all, the decline
+# handler, the verified launch overrides). A second importer of the SDK could
+# start a thread or an app server without them.
+source_modules = ["learnloop", "learnloop_sidecar", "learnloop_mobile", "learnloop_mcp"]
+forbidden_modules = ["openai_codex", "codex_cli_bin"]
+ignore_imports = [
+    "learnloop.ai.providers.codex -> openai_codex",
+    "learnloop.ai.providers.codex -> codex_cli_bin",
+]
+allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 id = "infrastructure-does-not-import-domains"

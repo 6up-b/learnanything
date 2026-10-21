@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import inspect
 import json
 import logging
@@ -60,16 +61,23 @@ from learnloop.ai.isolation import (
     TOOL_ISOLATION,
     ToolIsolation,
     ToolIsolationUnavailable,
+    agent_home,
     current_tool_isolation,
     sandboxed_command,
     write_launcher,
 )
+from learnloop.ai.providers import codex_lockdown as _lockdown
 from learnloop.ai.providers.codex_lockdown import (
+    ISOLATED_PROFILE,
     LOCKDOWN_DISABLED_FEATURES,
+    CodexHttpTransportRefused,
     CodexLockdownUnavailable,
     CodexToolUseRefused,
     TurnLockdown,
     cached_check,
+    catalog_pin_override,
+    catalog_pin_path,
+    catalog_violations,
     check_fingerprint,
     disabled_features,
     feature_violations,
@@ -77,7 +85,10 @@ from learnloop.ai.providers.codex_lockdown import (
     item_violations,
     lockdown_config_overrides,
     model_metadata_violations,
+    permission_profile_violations,
     remember_check,
+    resolve_codex_home,
+    resolve_executable,
     shell_environment_overrides,
     unclassified_features_on,
 )
@@ -89,10 +100,12 @@ LOG = logging.getLogger("learnloop.ai.providers.codex")
 EVENT_FIELDS_ATTR = "event_fields"
 
 #: The Codex permission profile every isolated turn runs under (Slice 1 §4,
-#: §5.6). Codex's built-in ``read-only`` sandbox grants full-disk READ access,
-#: so it is never used for isolation: this profile reads only the turn's own
-#: directory plus the platform minimum, and writes nowhere.
-ISOLATED_PROFILE = "learnloop_isolated_turn"
+#: §5.6), :data:`~learnloop.ai.providers.codex_lockdown.ISOLATED_PROFILE`: a
+#: name fresh in every process, so no configuration layer can extend or widen
+#: it (hardening round 2, H1). Codex's built-in ``read-only`` sandbox grants
+#: full-disk READ access, so it is never used for isolation: this profile reads
+#: only the turn's own directory plus the platform minimum, and writes nowhere.
+#: The launch check reads the effective profile back before any turn.
 #: Tools and integrations off in every Codex turn (the locked-down profile,
 #: :mod:`learnloop.ai.providers.codex_lockdown`): connectors, MCP, browser and
 #: computer use, plugins, sub-agents, hooks, memories, skills, image tools and
@@ -273,6 +286,7 @@ def isolated_turn_overrides(
     shell: bool,
     mcp_server_ids: tuple[str, ...] | list[str] = (),
     extra_disabled_features: tuple[str, ...] | list[str] = (),
+    model_catalog: Path | str | None = None,
 ) -> list[str]:
     """``codex -c key=value`` overrides that confine one turn (the locked-down profile).
 
@@ -303,6 +317,12 @@ def isolated_turn_overrides(
     the model's catalog entry) is neutralized: no writable root, approvals
     never, and any round trip refuses the turn
     (:class:`~learnloop.ai.providers.codex_lockdown.TurnLockdown`).
+
+    The profile's name is fresh in every process
+    (:data:`~learnloop.ai.providers.codex_lockdown.ISOLATED_PROFILE`), so no
+    layer's ``extends`` or extra root reaches it (hardening round 2, H1).
+    ``model_catalog`` (last, so it beats every lower ``-c``) pins the turn to
+    the bundled catalog file the launch check validated (H4).
     """
 
     root = str(Path(readable_root).resolve())
@@ -323,7 +343,74 @@ def isolated_turn_overrides(
     off += [feature for feature in sorted(set(extra_disabled_features)) if feature not in off]
     overrides += [f"features.{feature}=false" for feature in off]
     overrides += [f"mcp_servers.{server}.enabled=false" for server in sorted(set(mcp_server_ids))]
+    if model_catalog is not None:
+        overrides.append(catalog_pin_override(model_catalog))
     return overrides
+
+
+@dataclass(frozen=True)
+class _Launch:
+    """How a Codex subprocess of one turn starts, resolved as it will resolve it (H2).
+
+    ``command`` is the argv before the subcommand with its executable made
+    absolute from the turn's directory; ``codex_home`` the home Codex loads
+    there; ``env`` what the subprocess's environment is pinned to (an
+    absolute ``CODEX_HOME`` when one is set)."""
+
+    command: tuple[str, ...]
+    codex_home: Path
+    env: dict[str, str]
+
+
+#: Where the validated bundled catalog is written for turns outside the
+#: bubblewrap sandbox: one directory of this process's (H4).
+_CATALOG_PIN_DIR: Path | None = None
+_CATALOG_PIN_LOCK = threading.Lock()
+
+
+def _write_catalog_pin(catalog: str, sandbox: ToolIsolation | None) -> Path:
+    """The validated catalog's exact text as a file the turn's app server can read.
+
+    Outside the sandbox: a private directory of this process, rewritten
+    whenever its content differs. Inside: a fresh directory of the turn's in
+    the sandbox's working directory, the one host directory it mounts (never
+    the turn's readable root), which :func:`_remove_sandbox_catalog_pin`
+    removes after the turn."""
+
+    global _CATALOG_PIN_DIR
+    digest = hashlib.sha256(catalog.encode("utf-8")).hexdigest()
+    with _CATALOG_PIN_LOCK:
+        if sandbox is not None:
+            directory = Path(tempfile.mkdtemp(prefix=_SANDBOX_PIN_PREFIX, dir=Path(sandbox.workdir).resolve()))
+        else:
+            if _CATALOG_PIN_DIR is None or not _CATALOG_PIN_DIR.is_dir():
+                _CATALOG_PIN_DIR = Path(tempfile.mkdtemp(prefix="learnloop-codex-catalog-")).resolve()
+            directory = _CATALOG_PIN_DIR
+        path = directory / f"bundled-{digest[:32]}.json"
+        try:
+            current = path.read_text(encoding="utf-8")
+        except OSError:
+            current = None
+        if current != catalog:
+            staged = directory / f".{path.name}.{os.getpid()}.tmp"
+            staged.write_text(catalog, encoding="utf-8")
+            os.chmod(staged, 0o600)
+            os.replace(staged, path)
+        return path
+
+
+_SANDBOX_PIN_PREFIX = ".learnloop-codex-catalog-"
+
+
+def _remove_sandbox_catalog_pin(overrides: list[str] | None, sandbox: ToolIsolation | None) -> None:
+    """Remove a sandboxed turn's catalog directory, leaving the working directory as it was."""
+
+    pinned = catalog_pin_path(overrides or ()) if sandbox is not None else None
+    if pinned is None:
+        return
+    directory = Path(pinned).parent
+    if directory.parent == Path(sandbox.workdir).resolve() and directory.name.startswith(_SANDBOX_PIN_PREFIX):
+        shutil.rmtree(directory, ignore_errors=True)
 
 class SdkCodexClient(TokenUsageAccounting):
     """Codex Python SDK-backed client.
@@ -375,6 +462,24 @@ class SdkCodexClient(TokenUsageAccounting):
             if found:
                 return [found]
         raise CodexLockdownUnavailable("No Codex CLI found to configure an isolated turn.")
+
+    def _launch(self, root: Path, sandbox: ToolIsolation | None = None) -> _Launch:
+        """The turn's Codex subprocesses as they start in ``root`` (hardening round 2, H2).
+
+        Every probe and the app server start with ``root`` as their working
+        directory and this process's environment, so a relative
+        ``CODEX_HOME`` and a relative or bare executable resolve from there,
+        not from LearnLoop's own directory: both are resolved that way here,
+        pinned absolute for the subprocess, and fingerprinted. Under the
+        bubblewrap sandbox its launch pins ``CODEX_HOME`` itself (the private
+        home, :func:`learnloop.ai.isolation.agent_home` made absolute)."""
+
+        command = list(self._codex_command())
+        command[0] = resolve_executable(command[0], os.environ, Path(root))
+        if sandbox is not None:
+            return _Launch(tuple(command), Path(os.path.abspath(agent_home().expanduser())), {})
+        codex_home, pinned = resolve_codex_home(os.environ, Path(root))
+        return _Launch(tuple(command), codex_home, {"CODEX_HOME": str(codex_home)} if pinned else {})
 
     def _verified_isolated_overrides(
         self,
@@ -432,22 +537,37 @@ class SdkCodexClient(TokenUsageAccounting):
         layers in and above the turn's directory (by identity, never content), the
         sandbox, the model and the ``CODEX_*`` environment
         (:func:`~learnloop.ai.providers.codex_lockdown.check_fingerprint`).
+
+        Hardening round 2 (2026-10-21): the check runs on the executable and
+        ``CODEX_HOME`` the subprocess resolves from ``root``, pinned and
+        fingerprinted (:meth:`_launch`, H2). After ``debug models --bundled``
+        passes, its exact output is written to a file of LearnLoop's and every
+        turn is pinned to it (``model_catalog_json``), and ``debug models``
+        under the final overrides must return exactly that catalog: a layer
+        that replaces it (a ``model_catalog_json`` the pin cannot beat, a
+        remote or cached catalog) refuses (H4). Last, ``debug prompt-input``
+        (the model-visible context of a thread, no model request) must render
+        the effective permission profile as exactly the one the turn passes:
+        read the turn's directory and the platform minimum, nothing written,
+        network restricted (H1).
         """
 
         base = isolated_turn_overrides(root, shell=shell)
-        launch = _sdk_launch_args(self.config.sdk_launch_command)
-        self._refuse_reenabled_features(launch, base)
+        launch_args = _sdk_launch_args(self.config.sdk_launch_command)
+        self._refuse_reenabled_features(launch_args, base)
+        launch = self._launch(root, sandbox)
         key = check_fingerprint(
-            command=self._codex_command(), root=root, shell=shell, model=self.config.model or None,
-            sandbox_workdir=str(sandbox.workdir) if sandbox is not None else None,
+            command=launch.command, root=root, shell=shell, model=self.config.model or None,
+            sandbox_workdir=str(sandbox.workdir) if sandbox is not None else None, codex_home=launch.codex_home,
         )
         cached = cached_check(key)
         if cached is not None:
-            pinned_servers, extra = cached
+            pinned_servers, extra, catalog_text = cached
             return isolated_turn_overrides(
                 root, shell=shell, mcp_server_ids=pinned_servers, extra_disabled_features=extra,
+                model_catalog=_write_catalog_pin(catalog_text, sandbox),
             )
-        context: dict[str, Any] = {"sandbox": sandbox, "deadline": deadline}
+        context: dict[str, Any] = {"sandbox": sandbox, "deadline": deadline, "launch": launch}
         states = self._mcp_server_states(root, base, **context)
         for name in sorted(name for name, on in states.items() if on):
             if not _ADDRESSABLE_MCP_SERVER.fullmatch(name):
@@ -483,7 +603,7 @@ class SdkCodexClient(TokenUsageAccounting):
             overrides = isolated_turn_overrides(
                 root, shell=shell, mcp_server_ids=pinned, extra_disabled_features=extra,
             )
-            self._refuse_reenabled_features(launch, overrides)
+            self._refuse_reenabled_features(launch_args, overrides)
             features = self._feature_states(root, overrides, **context)
         left_on = feature_violations(features, shell=shell)
         if left_on:
@@ -502,7 +622,31 @@ class SdkCodexClient(TokenUsageAccounting):
                 "The Codex model catalog advertises tools the isolated turn's overrides cannot remove or "
                 f"neutralize ({'; '.join(problems)}); refusing the isolated turn."
             )
-        remember_check(key, pinned, extra)
+        # H4: the turn uses exactly the catalog just validated, or none.
+        overrides = isolated_turn_overrides(
+            root, shell=shell, mcp_server_ids=pinned, extra_disabled_features=extra,
+            model_catalog=_write_catalog_pin(stdout, sandbox),
+        )
+        try:
+            problems = catalog_violations(catalog, self._codex_probe(root, overrides, "debug", "models", **context))
+        except BaseException:
+            _remove_sandbox_catalog_pin(overrides, sandbox)
+            raise
+        try:
+            if problems:
+                raise CodexLockdownUnavailable(f"{'; '.join(problems)}; refusing the isolated turn.")
+            # H1: the permission profile the turn would run under, read back.
+            readback = self._codex_probe(root, overrides, "debug", "prompt-input", **context)
+            problems = permission_profile_violations(readback, root=root, codex_home=launch.codex_home)
+            if problems:
+                raise CodexLockdownUnavailable(
+                    f"The effective Codex permission profile {ISOLATED_PROFILE!r} is not the isolated turn's "
+                    f"({'; '.join(problems)}); refusing the isolated turn."
+                )
+        except BaseException:
+            _remove_sandbox_catalog_pin(overrides, sandbox)
+            raise
+        remember_check(key, pinned, extra, stdout)
         return overrides
 
     @staticmethod
@@ -569,6 +713,7 @@ class SdkCodexClient(TokenUsageAccounting):
         *subcommand: str,
         sandbox: ToolIsolation | None = None,
         deadline: _Deadline | None = None,
+        launch: _Launch | None = None,
     ) -> str:
         """The stdout of ``codex -c <override>... <subcommand>`` run as the app server will be.
 
@@ -580,12 +725,14 @@ class SdkCodexClient(TokenUsageAccounting):
         when the request's deadline ends it and ``CodexInterrupted`` when the
         learner interrupts. From stderr only the ``mcp_servers`` table Codex
         rejected is reported: Codex's config errors can quote config lines
-        (headers, env)."""
+        (headers, env). ``launch`` (default: :meth:`_launch` for ``cwd``) is
+        the resolved executable and the pinned environment (H2)."""
 
         what = f"`codex {' '.join(subcommand)}`"
         where = f"in the isolated turn's launch check ({what})"
         self._raise_if_stopped(deadline, where)
-        command = list(self._codex_command())
+        launch = launch if launch is not None else self._launch(Path(cwd), sandbox)
+        command = list(launch.command)
         for override in overrides:
             command += ["-c", override]
         command += list(subcommand)
@@ -604,7 +751,7 @@ class SdkCodexClient(TokenUsageAccounting):
         try:
             process = subprocess.Popen(
                 command, cwd=str(cwd), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                text=True, start_new_session=os.name != "nt",
+                text=True, start_new_session=os.name != "nt", env={**os.environ, **launch.env},
             )
         except (OSError, subprocess.SubprocessError) as exc:
             raise CodexLockdownUnavailable(
@@ -1005,13 +1152,55 @@ class SdkCodexClient(TokenUsageAccounting):
         overrides = self._verified_isolated_overrides(
             root, shell=workspace is not None, sandbox=sandbox, deadline=deadline,
         )
+        try:
+            return self._run_verified_sdk_turn(
+                prompt, output_schema, purpose=purpose, cwd=cwd, root=root, isolated=isolated,
+                workspace=workspace, sandbox=sandbox, deadline=deadline, turn_timeout=turn_timeout,
+                overrides=overrides, launch_args=launch_args, config_kwargs=config_kwargs,
+                sdk=(Codex, SdkAppConfig, Personality, ReasoningEffort, ReasoningSummary, deny_all),
+            )
+        finally:
+            _remove_sandbox_catalog_pin(overrides, sandbox)
+
+    def _run_verified_sdk_turn(
+        self,
+        prompt: str,
+        output_schema: dict[str, Any],
+        *,
+        purpose: str,
+        cwd: str,
+        root: Path,
+        isolated: bool,
+        workspace: Path | None,
+        sandbox: ToolIsolation | None,
+        deadline: _Deadline,
+        turn_timeout: float,
+        overrides: list[str],
+        launch_args: tuple[str, ...] | None,
+        config_kwargs: dict[str, Any],
+        sdk: tuple[Any, ...],
+    ) -> str:
+        """The turn itself, after its launch check passed (split from :meth:`_run_sdk_turn`
+        so the sandboxed turn's catalog pin is removed on every exit)."""
+
+        Codex, SdkAppConfig, Personality, ReasoningEffort, ReasoningSummary, deny_all = sdk
         self._raise_if_stopped(deadline, "in the isolated turn's launch check")
+        # H2: the executable and CODEX_HOME the launch check ran on, absolute.
+        launch = self._launch(root, sandbox)
+        if launch.env:
+            if _sdk_accepts(SdkAppConfig, "env"):
+                config_kwargs["env"] = dict(launch.env)
+            elif not all(Path(os.environ.get(name, "")).is_absolute() for name in launch.env):
+                raise CodexLockdownUnavailable(
+                    "The installed Codex SDK cannot pin the app server's CODEX_HOME, and a relative one would "
+                    "resolve from the turn's directory; refusing the Codex turn."
+                )
         if launch_args:
             # The launch command's configuration options first, then the
             # turn's overrides: the set the launch check ran (F2).
-            command, app_server_args = _isolated_launch_parts(launch_args)
+            _command, app_server_args = _isolated_launch_parts(launch_args)
             flags = tuple(part for override in overrides for part in ("--config", override))
-            launch_args = (*command, *flags, "app-server", *app_server_args)
+            launch_args = (*launch.command, *flags, "app-server", *app_server_args)
         elif _sdk_accepts(SdkAppConfig, "config_overrides"):
             config_kwargs["config_overrides"] = tuple(overrides)
         else:
@@ -1048,6 +1237,8 @@ class SdkCodexClient(TokenUsageAccounting):
                 ReasoningEffort, self.__dict__.get("_request_reasoning_effort") or self.config.reasoning_effort)
             summary = _sdk_reasoning_summary(ReasoningSummary, self.config.reasoning_summary)
             codex_bin = _resolved_sdk_codex_bin(self.config.sdk_codex_bin)
+            if codex_bin is not None and not launch_args:
+                codex_bin = launch.command[0]  # the file the launch check ran, absolute (H2)
             if sandbox is not None and launcher_dir is not None:
                 codex_bin, launch_args = _isolated_launch(sandbox, codex_bin, launch_args, Path(launcher_dir))
             app_config = SdkAppConfig(
@@ -1558,6 +1749,18 @@ def check_codex_runtime(
     startup: CodexStartupRunner | None = None,
 ) -> CodexRuntimeReport:
     configured_revision = config.revision
+    if config.provider.lower() != "sdk":
+        # Hardening round 2 (H3): the legacy HTTP transport is refused before
+        # anything about it runs (no healthcheck request, no startup command).
+        try:
+            _lockdown.refuse_legacy_http_transport(f"codex provider {config.provider!r}")
+        except CodexHttpTransportRefused as exc:
+            return CodexRuntimeReport(
+                status="codex_unavailable",
+                checkout_path=config.checkout_path or "",
+                configured_revision=configured_revision,
+                message=str(exc),
+            )
     if not (config.checkout_path or "").strip():
         return CodexRuntimeReport(
             status="codex_missing",
@@ -1655,6 +1858,8 @@ def check_codex_runtime(
 
 
 def default_startup(checkout_path: Path, config: CodexConfig) -> subprocess.Popen:
+    # Only the legacy HTTP transport starts a server this way (H3): refused.
+    _lockdown.refuse_legacy_http_transport("its startup_command")
     creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     return subprocess.Popen(
         config.startup_command,
@@ -1694,6 +1899,7 @@ def _wait_for_startup_health(
 
 
 def default_http_healthcheck(_checkout_path: Path, config: CodexConfig) -> None:
+    _lockdown.refuse_legacy_http_transport("its healthcheck")
     request = urllib.request.Request(
         _url(config.base_url, config.healthcheck_path),
         headers={"Accept": "application/json"},
@@ -1824,6 +2030,7 @@ def make_codex_client(config: CodexConfig, vault_root: Path) -> Any:
 
     provider = config.provider.lower()
     if provider == "http":
+        _lockdown.refuse_legacy_http_transport('provider = "http"')
         from learnloop.ai.providers.codex_http import HttpCodexClient
 
         return HttpCodexClient(config)

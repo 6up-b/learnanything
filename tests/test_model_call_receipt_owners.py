@@ -15,6 +15,12 @@ from learnloop.db.connection import connect
 from tests.helpers import begin_session, configure_codex_http, create_basic_vault, seed_due_item
 from tests.test_source_set_synthesis import FakeSynthesisClient, _setup
 
+import pytest
+
+# The legacy Codex HTTP adapter is refused by the tool lockdown (hardening round 2,
+# H3); these tests drive an in-process HTTP server through it as a provider double.
+pytestmark = pytest.mark.usefixtures("legacy_codex_http_double")
+
 
 def _receipts(sqlite_path):
     with connect(sqlite_path) as connection:

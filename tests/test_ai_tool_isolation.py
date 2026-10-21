@@ -859,7 +859,7 @@ def test_an_isolated_turn_runs_its_permission_profile_inside_the_sandbox(monkeyp
     assert turn_root.parent == layout["workdir"].resolve()
     assert {cwd for cwd, _overrides, _subcommand in probes} == {turn_root}
     assert [subcommand[:2] for _cwd, _overrides, subcommand in probes] == [
-        ("mcp", "list"), ("features", "list"), ("debug", "models"),
+        ("mcp", "list"), ("features", "list"), ("debug", "models"), ("debug", "models"), ("debug", "prompt-input"),
     ]
     assert not turn_root.exists()
 

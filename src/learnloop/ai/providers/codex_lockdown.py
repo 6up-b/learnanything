@@ -40,15 +40,27 @@ instructions, reasoning defaults) on every route.
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 import os
 import re
+import secrets
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping, NoReturn
 
 from learnloop.ai.errors import AIProviderUnavailable
+
+#: The permission profile every locked-down turn runs under: a name of
+#: LearnLoop's own, fresh in every process (hardening round 2, H1). Codex
+#: merges ``permissions.<name>`` tables recursively across its layers and
+#: honours a lower layer's ``extends``, so a fixed name let any user, profile
+#: or project layer that defined it (``extends = ":read-only"``, an extra read
+#: or write root) widen the turn's sandbox, and no ``-c`` can delete a key. No
+#: layer can name this one, and the launch check reads the effective profile
+#: back before any turn (:func:`permission_profile_violations`).
+ISOLATED_PROFILE = f"learnloop_isolated_turn_{secrets.token_hex(8)}"
 
 #: Tools and integrations that run outside the command sandbox, bring outside
 #: context, or offer the model a tool, all off in every locked-down turn
@@ -317,6 +329,216 @@ def _hashable(value: Any) -> bool:
     return True
 
 
+# -- the model catalog the turn uses (hardening round 2, H4) ---------------------------
+
+#: The app server's catalog is the bundled one only when nothing replaces it:
+#: a ``model_catalog_json`` in any layer, or (without one) the remote catalog
+#: Codex refreshes and caches in ``$CODEX_HOME``, can give the same model slug
+#: other tool metadata (``experimental_supported_tools`` naming a tool the
+#: CLI implements). The launch check validates ``debug models --bundled``,
+#: writes exactly that output to a file of LearnLoop's, and pins every turn to
+#: it with ``model_catalog_json``: codex-cli 0.163.0 then serves a static,
+#: authoritative catalog (``StaticModelsManager``: no refresh, no cache). A
+#: layer that beats the pin shows in ``debug models`` (no ``--bundled``)
+#: under the turn's overrides, which must return the validated catalog.
+CATALOG_PIN_KEY = "model_catalog_json"
+
+
+def catalog_pin_override(path: Path | str) -> str:
+    return f"{CATALOG_PIN_KEY}={json.dumps(str(path), ensure_ascii=False)}"
+
+
+def catalog_pin_path(overrides: Iterable[str]) -> str | None:
+    """The catalog file a turn's overrides pin (the last ``model_catalog_json``), if any."""
+
+    pinned = None
+    for override in overrides:
+        key, _sep, value = override.partition("=")
+        if key.strip() == CATALOG_PIN_KEY:
+            try:
+                pinned = json.loads(value)
+            except ValueError:
+                pinned = value
+    return pinned if isinstance(pinned, str) else None
+
+
+def catalog_violations(validated: Any, effective_stdout: str) -> list[str]:
+    """Why the catalog the turn would use is not the validated bundled one (empty: it is)."""
+
+    try:
+        effective = json.loads(effective_stdout)
+    except ValueError:
+        return ["`codex debug models` under the turn's overrides did not return a model catalog"]
+    if effective == validated:
+        return []
+
+    def tools(catalog: Any) -> dict[Any, Any]:
+        entries = catalog.get("models") if isinstance(catalog, dict) else None
+        return {entry.get("slug"): entry.get("experimental_supported_tools")
+                for entry in entries or () if isinstance(entry, dict)}
+
+    changed = sorted(str(slug) for slug, value in tools(effective).items() if tools(validated).get(slug) != value)
+    detail = f" (experimental tools differ for {', '.join(changed)})" if changed else ""
+    return [
+        "the model catalog the turn would use is not the bundled catalog the launch check validated: a "
+        f"configuration layer replaces it (model_catalog_json, a remote or cached catalog){detail}"
+    ]
+
+
+# -- the effective permission profile (hardening round 2, H1) ---------------------------
+
+_PERMISSION_PROFILE = re.compile(r"<permission_profile\b([^>]*)>(.*?)</permission_profile>", re.S)
+_FILE_SYSTEM = re.compile(r"<file_system\b([^>]*)>(.*?)</file_system>", re.S)
+_ENTRY = re.compile(
+    r'<entry access="(?P<access>[^"]*)">\s*(?:<path>(?P<path>[^<]*)</path>|<special>(?P<special>[^<]*)</special>)'
+    r"\s*</entry>",
+    re.S,
+)
+_NETWORK_RESTRICTED = "Network access is restricted."
+
+
+def _message_texts(prompt_input: Any) -> list[str]:
+    texts: list[str] = []
+    for message in prompt_input if isinstance(prompt_input, list) else ():
+        for content in (message.get("content") if isinstance(message, dict) else None) or ():
+            text = content.get("text") if isinstance(content, dict) else None
+            if isinstance(text, str):
+                texts.append(text)
+    return texts
+
+
+def _attribute(attributes: str, name: str) -> str | None:
+    found = re.search(rf'\b{name}="([^"]*)"', attributes)
+    return found.group(1) if found else None
+
+
+def _is_codex_helper(path: Path, codex_homes: Iterable[Path]) -> bool:
+    """Codex's own read root for its re-exec helpers: ``$CODEX_HOME/tmp/arg0*/codex-arg0*``."""
+
+    for home in codex_homes:
+        try:
+            relative = path.relative_to(home / "tmp")
+        except ValueError:
+            continue
+        parts = relative.parts
+        if len(parts) == 2 and parts[0].startswith("arg0") and parts[1].startswith("codex-arg0"):
+            return True
+    return False
+
+
+def permission_profile_violations(prompt_input_stdout: str, *, root: Path, codex_home: Path) -> list[str]:
+    """What the turn's effective permission profile allows beyond the lockdown's (empty: nothing).
+
+    ``prompt_input_stdout`` is ``codex debug prompt-input`` under the turn's
+    overrides, in the turn's directory: the model-visible context Codex builds
+    for a thread, with no model request. Its environment context renders the
+    effective filesystem policy, and its permissions instructions the network
+    policy. The profile must be exactly: read ``root``, read ``:minimal``,
+    Codex's own helper directory under ``codex_home``, nothing else, and
+    network restricted. Anything else (``:root`` from an inherited
+    ``extends``, an extra read or write root of a lower layer, a policy this
+    parser does not know, no rendering at all) refuses the turn."""
+
+    try:
+        prompt_input = json.loads(prompt_input_stdout)
+    except ValueError:
+        return ["`codex debug prompt-input` did not return the turn's prompt input"]
+    texts = _message_texts(prompt_input)
+    profiles = [match for text in texts for match in _PERMISSION_PROFILE.finditer(text)]
+    if len(profiles) != 1:
+        return [f"`codex debug prompt-input` rendered {len(profiles)} permission profiles, not exactly one"]
+    body = profiles[0].group(2)
+    systems = list(_FILE_SYSTEM.finditer(body))
+    if len(systems) != 1 or _FILE_SYSTEM.sub("", body).strip():
+        return ["the effective permission profile holds something besides one filesystem policy"]
+    problems: list[str] = []
+    kind = _attribute(systems[0].group(1), "type")
+    if kind != "restricted":
+        problems.append(f"the effective filesystem policy is {kind!r}, not 'restricted'")
+    entries_text = systems[0].group(2)
+    if _ENTRY.sub("", entries_text).strip():
+        problems.append("the effective filesystem policy holds an entry this check cannot read")
+    expected_root = str(Path(root).resolve())
+    homes = {Path(codex_home), Path(os.path.realpath(codex_home))}
+    seen: set[tuple[str, str]] = set()
+    for entry in _ENTRY.finditer(entries_text):
+        access = html.unescape(entry.group("access"))
+        if entry.group("special") is not None:
+            target = ("special", html.unescape(entry.group("special")).strip())
+        else:
+            target = ("path", html.unescape(entry.group("path") or "").strip())
+        if access != "read":
+            problems.append(f"{access} access to {target[1]}")
+        elif target in (("special", ":minimal"), ("path", expected_root)):
+            seen.add(target)
+        elif not (target[0] == "path" and _is_codex_helper(Path(target[1]), homes)):
+            problems.append(f"read access to {target[1]}")
+    for missing in sorted({("special", ":minimal"), ("path", expected_root)} - seen):
+        problems.append(f"no read entry for {missing[1]} (the profile is not the one the turn passed)")
+    permissions = [text for text in texts if "<permissions instructions>" in text]
+    if len(permissions) != 1 or _NETWORK_RESTRICTED not in permissions[0] or "Network access is enabled" in permissions[0]:
+        problems.append("the effective profile does not report network access restricted")
+    return problems
+
+
+# -- where the subprocess runs: CODEX_HOME and the executable (hardening round 2, H2) ----
+
+
+def resolve_codex_home(environ: Mapping[str, str], cwd: Path) -> tuple[Path, bool]:
+    """``$CODEX_HOME`` as a Codex process started in ``cwd`` with ``environ`` resolves it.
+
+    codex-cli 0.163.0 (``utils/home-dir``): a non-empty ``CODEX_HOME`` must be
+    an existing directory and is canonicalized, a relative one against the
+    process's working directory (the turn's, not LearnLoop's); unset, it is
+    ``$HOME/.codex``. Returns the path and whether ``CODEX_HOME`` was set (the
+    caller then pins the subprocess to the absolute path). A relative
+    ``CODEX_HOME`` that does not exist from ``cwd``, or a relative ``HOME``,
+    refuses: Codex would fail or load another home than the one checked."""
+
+    raw = (environ.get("CODEX_HOME") or "").strip()
+    if raw:
+        candidate = Path(raw).expanduser()
+        if not candidate.is_absolute():
+            candidate = Path(cwd) / candidate
+        if not candidate.is_dir():
+            raise CodexLockdownUnavailable(
+                f"CODEX_HOME {raw!r} is not a directory seen from the turn's directory {cwd}, where Codex resolves "
+                "it; set an absolute CODEX_HOME. Refusing the isolated turn."
+            )
+        return candidate.resolve(), True
+    home = (environ.get("HOME") or "").strip()
+    if not home or not Path(home).is_absolute():
+        raise CodexLockdownUnavailable(
+            "Neither CODEX_HOME nor an absolute HOME is set, so the Codex home the turn would load cannot be "
+            "checked; refusing the isolated turn."
+        )
+    return Path(home) / ".codex", False
+
+
+def resolve_executable(program: str, environ: Mapping[str, str], cwd: Path) -> str:
+    """The absolute file ``subprocess`` would execute for ``program`` started in ``cwd``.
+
+    A path with a separator is taken relative to ``cwd`` (the child's working
+    directory); a bare name is searched in ``environ``'s ``PATH``, an empty or
+    relative entry against ``cwd``, the first executable file winning, as
+    ``execvpe`` does after the child changed directory. Not found refuses."""
+
+    if not program:
+        raise CodexLockdownUnavailable("The Codex launch command is empty; refusing the isolated turn.")
+    candidates: list[Path]
+    if os.sep in program or (os.altsep and os.altsep in program):
+        candidates = [Path(program).expanduser()]
+    else:
+        candidates = [Path(entry or ".") / program for entry in (environ.get("PATH") or os.defpath).split(os.pathsep)]
+    for candidate in candidates:
+        path = candidate if candidate.is_absolute() else Path(cwd) / candidate
+        if path.is_file() and os.access(path, os.X_OK):
+            return os.path.abspath(path)
+    raise CodexLockdownUnavailable(
+        f"The Codex executable {program!r} is not found from the turn's directory {cwd}; refusing the isolated turn."
+    )
+
+
 # -- turn items -----------------------------------------------------------------------
 
 #: Item types a locked-down turn may produce: the prompt, the answer, reasoning.
@@ -376,6 +598,29 @@ class CodexToolUseRefused(AIProviderUnavailable):
     def __init__(self, message: str, violations: list[str]):
         super().__init__(message)
         self.violations = list(violations)
+
+
+class CodexHttpTransportRefused(CodexLockdownUnavailable):
+    """The legacy Codex HTTP adapter is refused by the tool lockdown, for every operation (H3)."""
+
+
+def refuse_legacy_http_transport(where: str) -> NoReturn:
+    """Refuse the legacy endpoint-per-operation Codex HTTP transport (hardening round 2, H3).
+
+    It posts LearnLoop's context to a server LearnLoop does not start (or
+    starts with an arbitrary ``startup_command``), whose approvals, tools, MCP
+    servers and permission profile nothing here can set, verify or observe:
+    none of the lockdown applies. Every entry (``provider = "http"``, the
+    ``http``/``http_adapter`` profiles, each legacy operation, the runtime
+    check and its startup command) calls this first, through this module's
+    attribute (so the e2e tests' in-process HTTP double can stand in for a
+    provider; no configuration, variable or flag reaches it)."""
+
+    raise CodexHttpTransportRefused(
+        f"The legacy Codex HTTP transport ({where}) is refused by the Codex tool lockdown (security stage "
+        "codex-tool-lockdown): LearnLoop cannot switch off or observe the tools of an app server it does not "
+        'launch. Use the Codex SDK provider (type = "codex_sdk").'
+    )
 
 
 def _field(payload: Any, *names: str) -> Any:
@@ -558,7 +803,7 @@ def install_on_sdk(codex: Any, lockdown: TurnLockdown) -> None:
     if client is None or not hasattr(client, "_approval_handler") or not callable(route):
         raise CodexLockdownUnavailable(
             "The installed Codex SDK has no approval-handler or notification seam LearnLoop can replace, so "
-            "its accept-all approval default cannot be declined; refusing the Codex turn."
+            "its accept-all approval default cannot be declined; refusing the isolated turn."
         )
 
     def tapped(notification: Any) -> Any:
@@ -574,8 +819,9 @@ def install_on_sdk(codex: Any, lockdown: TurnLockdown) -> None:
 
 # -- the launch check's cache ----------------------------------------------------------
 
-#: fingerprint -> (MCP servers pinned off by name, unclassified features switched off)
-_CHECK_CACHE: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {}
+#: fingerprint -> (MCP servers pinned off by name, unclassified features switched
+#: off, the validated bundled catalog's exact text the turns are pinned to)
+_CHECK_CACHE: dict[str, tuple[tuple[str, ...], tuple[str, ...], str]] = {}
 _CHECK_CACHE_LOCK = threading.Lock()
 #: Codex configuration layers a launch can load besides the project ones.
 _SYSTEM_LAYERS = ("/etc/codex/config.toml", "/etc/codex/managed_config.toml", "/etc/codex/requirements.toml")
@@ -603,6 +849,7 @@ def check_fingerprint(
     model: str | None,
     sandbox_workdir: str | None,
     environ: Mapping[str, str] | None = None,
+    codex_home: Path | None = None,
 ) -> str:
     """What the launch check's verdict depends on, as one key.
 
@@ -618,14 +865,23 @@ def check_fingerprint(
     ``.codex/`` and ``.codex/config.toml``, so editing that file, or turning
     in a sibling workspace with another one, runs the check again (Codex
     review F2, 2026-10-21: the cached server list missed a workspace-local
-    MCP server, which then started without its ``enabled=false``)."""
+    MCP server, which then started without its ``enabled=false``).
+
+    ``command`` and ``codex_home`` are what the subprocess uses, resolved from
+    the turn's directory and pinned by the caller (hardening round 2, H2:
+    a relative ``CODEX_HOME`` or a bare ``codex`` was fingerprinted from
+    LearnLoop's own directory, not the one the subprocess resolves it in).
+    The binary is fingerprinted as named and as its real file."""
 
     environ = os.environ if environ is None else environ
     argv = list(command)
     binary = Path(argv[0]) if argv else None
-    codex_home = Path(environ.get("CODEX_HOME") or Path(environ.get("HOME") or "~").expanduser() / ".codex")
+    if codex_home is None:
+        codex_home = Path(environ.get("CODEX_HOME") or Path(environ.get("HOME") or "~").expanduser() / ".codex")
     parts: list[Any] = [
-        tuple(argv), _stat_signature(binary) if binary is not None else None, shell, model or "", sandbox_workdir,
+        tuple(argv), _stat_signature(binary) if binary is not None else None,
+        _stat_signature(Path(os.path.realpath(binary))) if binary is not None else None,
+        str(codex_home), shell, model or "", sandbox_workdir,
         tuple(sorted((key, value) for key, value in environ.items() if key.startswith("CODEX_") or key == "HOME")),
         tuple(_stat_signature(codex_home / name) for name in _HOME_LAYERS),
         tuple(_stat_signature(Path(name)) for name in _SYSTEM_LAYERS),
@@ -642,18 +898,18 @@ def check_fingerprint(
     return hashlib.sha256(json.dumps(parts, default=str).encode("utf-8")).hexdigest()
 
 
-def cached_check(key: str) -> tuple[tuple[str, ...], tuple[str, ...]] | None:
-    """A passed launch check under ``key``: (servers pinned off, extra features off)."""
+def cached_check(key: str) -> tuple[tuple[str, ...], tuple[str, ...], str] | None:
+    """A passed launch check under ``key``: (servers pinned off, extra features off, pinned catalog)."""
 
     with _CHECK_CACHE_LOCK:
         return _CHECK_CACHE.get(key)
 
 
-def remember_check(key: str, pinned_servers: Iterable[str], extra_features: Iterable[str]) -> None:
+def remember_check(key: str, pinned_servers: Iterable[str], extra_features: Iterable[str], catalog: str) -> None:
     """Remember a launch check that passed (a refusal is never cached)."""
 
     with _CHECK_CACHE_LOCK:
-        _CHECK_CACHE[key] = (tuple(pinned_servers), tuple(extra_features))
+        _CHECK_CACHE[key] = (tuple(pinned_servers), tuple(extra_features), catalog)
 
 
 def clear_check_cache() -> None:
@@ -664,8 +920,11 @@ def clear_check_cache() -> None:
 
 
 __all__ = [
+    "CATALOG_PIN_KEY",
+    "CodexHttpTransportRefused",
     "CodexLockdownUnavailable",
     "CodexToolUseRefused",
+    "ISOLATED_PROFILE",
     "LOCKDOWN_DISABLED_FEATURES",
     "PERMITTED_FEATURES",
     "REQUIRED_OFF_FEATURES",
@@ -674,6 +933,9 @@ __all__ = [
     "TEXT_ITEMS",
     "TurnLockdown",
     "WORKSPACE_ITEMS",
+    "catalog_pin_override",
+    "catalog_pin_path",
+    "catalog_violations",
     "check_fingerprint",
     "clear_check_cache",
     "disabled_features",
@@ -683,7 +945,11 @@ __all__ = [
     "item_violations",
     "lockdown_config_overrides",
     "model_metadata_violations",
+    "permission_profile_violations",
     "permitted_features",
+    "refuse_legacy_http_transport",
+    "resolve_codex_home",
+    "resolve_executable",
     "shell_environment_overrides",
     "unclassified_features_on",
 ]

@@ -184,16 +184,14 @@ def main() -> None:
     # The launch check runs real `codex` probes once per process and config
     # (then cached); the fake app server is what this measures, so it is
     # answered in process.
-    from tests.codex_cli_fakes import bundled_catalog, FEATURES
+    from tests.codex_cli_fakes import stub_isolation_probe
 
-    def probe(_cwd, overrides, *subcommand, **_context):
-        if subcommand[:2] == ("debug", "models"):
-            return json.dumps(bundled_catalog(codex.config.model))
-        if subcommand[:2] == ("mcp", "list"):
-            return "[]"
-        return "".join(f"{f}  stable  {'false' if f'features.{f}=false' in overrides else 'true'}\n" for f in FEATURES)
+    class _Patch:  # stub_isolation_probe's monkeypatch, outside pytest
+        @staticmethod
+        def setattr(target, name, value):
+            setattr(target, name, value)
 
-    codex._codex_probe = probe
+    stub_isolation_probe(_Patch(), codex)
     timed(codex)
     results["codex_sdk_fake_app_server"] = _summary([timed(codex) for _ in range(max(10, args.calls // 2))])
 

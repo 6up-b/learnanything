@@ -36,6 +36,7 @@ import pytest
 from learnloop.ai.errors import AIProviderUnavailable, CodexUnavailable
 from learnloop.ai.execution import observe_model_calls
 from learnloop.ai.providers.codex import SdkCodexClient, isolated_turn_overrides
+from learnloop.ai.providers.codex_lockdown import catalog_pin_path
 from learnloop.ai.transport import StructuredRequest, execute_structured_operation
 from learnloop.config import CodexConfig
 from learnloop.diagnosis.offline_review.judge import LinkJudgment
@@ -178,70 +179,24 @@ def _plain(client, purpose: str = "tutor_qa"):
 
 # -- 1. every call site that can start a Codex turn ---------------------------------------
 
-_TURN_STARTERS = {"thread_start", "thread_resume", "thread_fork"}
-
-
-def _python_sources() -> list[Path]:
-    return sorted(path for path in SRC.rglob("*.py") if "__pycache__" not in path.parts)
-
-
-def _enclosing_functions(tree: ast.AST) -> dict[ast.AST, str]:
-    owner: dict[ast.AST, str] = {}
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            for child in ast.walk(node):
-                owner.setdefault(child, node.name) if child is not node else None
-    # The innermost definition wins: walk again, overwriting with deeper ones.
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            for child in ast.walk(node):
-                if child is not node:
-                    owner[child] = node.name
-    return owner
-
-
-def _passes_deny_all(call: ast.Call) -> bool:
-    for keyword in call.keywords:
-        if keyword.arg == "approval_mode":
-            value = keyword.value
-            return (isinstance(value, ast.Name) and value.id == "deny_all") or (
-                isinstance(value, ast.Attribute) and value.attr == "deny_all"
-            )
-    return False
-
-
 def test_every_codex_turn_starter_in_the_source_passes_deny_all_inside_the_locked_down_turn():
-    """A new call site that starts a Codex thread or turn without the profile fails here."""
+    """A new call site that starts a Codex thread or turn without the profile fails here.
 
-    starters: list[tuple[str, int, str, bool]] = []
-    constructions: list[tuple[str, int, str]] = []
-    for path in _python_sources():
-        text = path.read_text(encoding="utf-8")
-        if not any(name in text for name in (*_TURN_STARTERS, "Codex(", ".turn(")):
-            continue
-        tree = ast.parse(text)
-        owners = _enclosing_functions(tree)
-        relative = str(path.relative_to(SRC))
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Call):
-                continue
-            func = node.func
-            if isinstance(func, ast.Attribute) and func.attr in _TURN_STARTERS:
-                starters.append((relative, node.lineno, owners.get(node, "<module>"), _passes_deny_all(node)))
-            elif isinstance(func, ast.Attribute) and func.attr in {"turn", "run"} and isinstance(func.value, ast.Name) \
-                    and func.value.id == "thread":
-                starters.append((relative, node.lineno, owners.get(node, "<module>"), _passes_deny_all(node)))
-            elif isinstance(func, ast.Name) and func.id in {"Codex", "AsyncCodex", "CodexClient"}:
-                constructions.append((relative, node.lineno, owners.get(node, "<module>")))
+    The sweep itself (every module, SDK import aliases, turns on any name, the
+    HTTP and subprocess launch paths) is
+    ``tests/test_codex_lockdown_round2.py::test_every_codex_turn_app_server_and_transport_in_the_source_is_the_locked_down_one``
+    (hardening round 2, L5: this test's earlier sweep had a textual prefilter,
+    missed ``sdk.Codex(...)`` and saw ``.turn()`` only on a variable named
+    ``thread``). What stays here: the order inside the one turn."""
+
     codex_py = "learnloop/ai/providers/codex.py"
-    assert {(path, owner) for path, _line, owner, _ok in starters} == {(codex_py, "_run_sdk_turn")}, starters
-    assert [where for where in starters if not where[3]] == [], "a thread/turn start without approval_mode=deny_all"
-    assert {(path, owner) for path, _line, owner in constructions} == {(codex_py, "_run_sdk_turn")}, constructions
-
-    # Inside it, the decline handler and notification tap go in before the thread starts.
     source = (SRC / codex_py).read_text(encoding="utf-8")
-    body = source[source.index("    def _run_sdk_turn("):source.index("    def _report_turn_usage(")]
+    # Inside it, the decline handler and notification tap go in before the thread starts.
+    body = source[source.index("    def _run_verified_sdk_turn("):source.index("    def _report_turn_usage(")]
     assert body.index("install_on_sdk(codex, lockdown)") < body.index("codex.thread_start(")
+    # The launch check runs before the turn, in the function that calls it.
+    outer = source[source.index("    def _run_sdk_turn("):source.index("    def _run_verified_sdk_turn(")]
+    assert outer.index("self._verified_isolated_overrides(") < outer.index("self._run_verified_sdk_turn(")
     # And the one turn path always asks for the isolated turn.
     run_structured = source[source.index("    def _run_structured("):source.index("    def _run_sdk_turn(")]
     assert "isolated=True, workspace=workspace" in run_structured and "self.vault_root\n" not in run_structured
@@ -302,7 +257,8 @@ def test_every_request_runs_the_locked_down_profile_with_approvals_denied(tmp_pa
     shell = shape == "workspace"
     assert root == (workspace.resolve() if shell else root) and (shell or root.name.startswith("learnloop-isolated-turn-"))
     overrides = list(captured["app_config"]["config_overrides"])
-    assert overrides == isolated_turn_overrides(root, shell=shell, mcp_server_ids=("node_repl",))
+    assert overrides == isolated_turn_overrides(root, shell=shell, mcp_server_ids=("node_repl",),
+                                                model_catalog=catalog_pin_path(overrides))
     lockdown = _lockdown()
     for override in ("agents.enabled=false", "tools.experimental_request_user_input.enabled=false",
                      "tools.update_plan.enabled=false", "features.multi_agent=false", "features.multi_agent_v2=false",
@@ -726,7 +682,7 @@ def test_a_passed_check_is_cached_per_config_fingerprint(tmp_path, monkeypatch):
     client = _check_client(tmp_path, program)
     _turn(client)
     first = _probe_count(log)
-    assert first == 4  # mcp list, mcp list (pinned), features list, debug models
+    assert first == 6  # mcp list, mcp list (pinned), features list, debug models --bundled, debug models, prompt-input
     _turn(client)
     assert _probe_count(log) == first  # cached: same CLI, same config layers
     launches = _launched(log)
@@ -923,7 +879,7 @@ def test_fresh_workspaces_without_a_project_layer_still_share_one_check(tmp_path
         export = tmp_path / "exports" / f"learnloop-diagnosis-snapshot-{index}"
         export.mkdir(parents=True)
         _workspace_turn(client, export)
-    assert _probe_count(log) == 3  # mcp list, features list, debug models: once
+    assert _probe_count(log) == 5  # mcp list, features list, debug models (twice), prompt-input: once
 
 
 def _gate(settled: list[dict[str, Any]]):

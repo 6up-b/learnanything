@@ -18,6 +18,15 @@ parts the check reads (found 2026-10-15, docs/reviews/codex-isolation-app-server
   0.163.0's ``cli/src/main.rs`` folds them in;
 * ``debug models --bundled`` prints the model catalog shipped in the binary
   (``catalog``, default :func:`bundled_catalog`: 0.163.0's tool fields);
+* ``debug models`` (no ``--bundled``) prints the catalog the turn would use:
+  the ``model_catalog_json`` file the last override names, else a lower
+  layer's (``user_catalog``), else the bundled one; ``forced_catalog`` beats
+  the override (a layer the pin cannot win against);
+* ``debug prompt-input`` prints the prompt input Codex 0.163.0 renders, with
+  the effective permission profile: the ``-c`` table of ``default_permissions``
+  merged over a lower layer's table of the same name (``permission_layers``:
+  name -> ``{"extends": ":read-only", "filesystem": {...}}``; ``extends``
+  read-only adds ``:root``), plus ``forced_permissions`` whatever the name;
 * ``app-server`` prints what it would load: the MCP servers left on and the
   features left on.
 
@@ -36,6 +45,18 @@ from enum import Enum
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
+
+
+def catalog_pin_path(overrides) -> str | None:
+    """The catalog file ``overrides`` pin (``codex_lockdown.catalog_pin_path``; kept
+    here so these fakes also import against a tree without it, for fail-first runs)."""
+
+    pinned = None
+    for override in overrides:
+        key, _sep, value = override.partition("=")
+        if key.strip() == "model_catalog_json":
+            pinned = json.loads(value)
+    return pinned
 
 #: The feature rows the fake prints (the real CLI prints every known feature).
 FEATURES = ("apps", "plugins", "remote_plugin", "shell_tool", "unified_exec", "multi_agent", "hooks", "memories")
@@ -145,6 +166,17 @@ if project_layer.is_file():
 
     for name, table in tomllib.loads(project_layer.read_text(encoding="utf-8")).get("mcp_servers", {}).items():
         config[name] = table.get("enabled", True) is not False
+# The user layer: `$CODEX_HOME/config.toml`, a relative CODEX_HOME resolved
+# against the directory the CLI runs in, as codex-cli 0.163.0 resolves it.
+import os as _os
+
+if _os.environ.get("CODEX_HOME"):
+    user_layer = Path(_os.environ["CODEX_HOME"]) / "config.toml"
+    if user_layer.is_file():
+        import tomllib
+
+        for name, table in tomllib.loads(user_layer.read_text(encoding="utf-8")).get("mcp_servers", {}).items():
+            config[name] = table.get("enabled", True) is not False
 for key in values:
     if key.startswith("mcp_servers.") and key.endswith(".enabled"):
         name = key[len("mcp_servers."):-len(".enabled")]
@@ -156,6 +188,18 @@ for key in values:
                 "    invalid transport\n    in `mcp_servers.%s`\n" % name
             )
             sys.exit(1)
+
+def effective_catalog():
+    pinned = None
+    for key, value in ((k.strip(), v) for k, v in (o.split("=", 1) for o in overrides)):
+        if key == "model_catalog_json":
+            pinned = json.loads(value)
+    if spec.get("forced_catalog") is not None:
+        return spec["forced_catalog"]
+    if pinned is not None:
+        return json.loads(Path(pinned).read_text(encoding="utf-8"))
+    return spec.get("user_catalog") or spec["catalog"]
+
 
 command = " ".join(args[:2])
 behaviour = spec.get("behaviour", {}).get(command, "ok")
@@ -193,15 +237,68 @@ elif command == "features list":
     for feature in spec["features"]:
         if feature not in spec.get("missing_features", ()):
             print("%-24s stable   %s" % (feature, "false" if feature in off else "true"))
-elif command == "debug models":
+elif command == "debug models" and "--bundled" in args:
     print(json.dumps(spec["catalog"]))
+elif command == "debug models":
+    print(json.dumps(effective_catalog()))
+elif command == "debug prompt-input":
+    import os
+    home = os.environ.get("CODEX_HOME") or os.path.join(os.environ.get("HOME", "/"), ".codex")
+    print(json.dumps(render_prompt_input(overrides, cwd=str(Path.cwd()), codex_home=home,
+                                         layers=spec.get("permission_layers") or {},
+                                         forced=spec.get("forced_permissions") or {})))
 elif args[:1] == ["app-server"]:
     print(json.dumps({"launched": True, "servers_on": sorted(name for name, on in servers.items() if on),
-                      "features_on": sorted(f for f in spec["features"] if f not in off)}))
+                      "features_on": sorted(f for f in spec["features"] if f not in off),
+                      "experimental_tools": {entry.get("slug"): entry.get("experimental_supported_tools")
+                                             for entry in effective_catalog().get("models", [])},
+                      "codex_home": _os.environ.get("CODEX_HOME")}))
 else:
     sys.stderr.write("unknown command %r\n" % (args,))
     sys.exit(2)
 '''
+
+
+_RENDERER = r'''
+def render_prompt_input(overrides, *, cwd, codex_home, layers=None, forced=None):
+    """`codex debug prompt-input`'s messages, as codex-cli 0.163.0 renders the permission profile."""
+
+    import json as _json
+    import tomllib as _tomllib
+
+    values = {}
+    for override in overrides:
+        key, _sep, value = override.partition("=")
+        values[key.strip()] = value
+    name = _json.loads(values.get("default_permissions", '""'))
+    filesystem = {}
+    lower = dict((layers or {}).get(name) or {})
+    if lower.get("extends") == ":read-only":
+        filesystem[":root"] = "read"
+    filesystem.update(lower.get("filesystem") or {})
+    table = values.get("permissions.%s.filesystem" % name)
+    if table is not None:
+        filesystem.update(_tomllib.loads("t = " + table)["t"])
+    filesystem.update((forced or {}).get("filesystem") or {})
+    network = values.get("permissions.%s.network.enabled" % name, "false") == "true"
+    network = bool((forced or {}).get("network_enabled", network))
+    entries = []
+    for target, access in filesystem.items():
+        tag = "special" if target.startswith(":") else "path"
+        entries.append('<entry access="%s"><%s>%s</%s></entry>' % (access, tag, target, tag))
+    entries.append('<entry access="read"><path>%s/tmp/arg0-linux/codex-arg0Fake01</path></entry>' % codex_home)
+    context = ("<environment_context>\n  <cwd>%s</cwd>\n  <filesystem><workspace_roots><root>%s</root>"
+               "</workspace_roots><permission_profile type=\"managed\"><file_system type=\"restricted\">%s"
+               "</file_system></permission_profile></filesystem>\n</environment_context>" % (cwd, cwd, "".join(entries)))
+    permissions = ("<permissions instructions>\nFilesystem sandboxing defines which files can be read or written. "
+                   "Network access is %s. Approval policy is currently never.\n</permissions instructions>"
+                   % ("enabled" if network else "restricted"))
+    return [
+        {"type": "message", "role": "developer", "content": [{"type": "input_text", "text": permissions}]},
+        {"type": "message", "role": "user", "content": [{"type": "input_text", "text": context}]},
+    ]
+'''
+exec(_RENDERER)
 
 
 def write_fake_codex(directory: Path, **spec: Any) -> tuple[Path, Path]:
@@ -217,7 +314,10 @@ def write_fake_codex(directory: Path, **spec: Any) -> tuple[Path, Path]:
     list`` omits), ``features`` (the rows ``features list`` prints, default
     :data:`FEATURES`), ``catalog`` (what ``debug models --bundled`` prints,
     default :func:`bundled_catalog`), ``rejects_overrides`` (config keys this
-    CLI refuses to load, as a June-era CLI refuses ``agents.enabled``).
+    CLI refuses to load, as a June-era CLI refuses ``agents.enabled``),
+    ``user_catalog`` / ``forced_catalog`` (``debug models`` without
+    ``--bundled``), ``permission_layers`` / ``forced_permissions`` (``debug
+    prompt-input``; see the module docstring).
     """
 
     directory.mkdir(parents=True, exist_ok=True)
@@ -228,9 +328,15 @@ def write_fake_codex(directory: Path, **spec: Any) -> tuple[Path, Path]:
         encoding="utf-8",
     )
     program = directory / "codex"
-    program.write_text(f"#!{sys.executable}\n{_FAKE_CODEX}", encoding="utf-8")
+    program.write_text(f"#!{sys.executable}\n{_RENDERER}\n{_FAKE_CODEX}", encoding="utf-8")
     program.chmod(0o755)
     return program, log
+
+
+def without_catalog_pin(overrides) -> list[str]:
+    """``overrides`` without the bundled-catalog pin (hardening round 2, H4), as the probes before it ran."""
+
+    return [override for override in overrides if not override.startswith("model_catalog_json=")]
 
 
 def fake_codex_calls(log: Path) -> list[dict[str, Any]]:
@@ -247,10 +353,17 @@ def stub_isolation_probe(monkeypatch, client, *, config_servers=()) -> list[tupl
     calls: list[tuple[Path, tuple[str, ...], tuple[str, ...]]] = []
     catalog = bundled_catalog(getattr(getattr(client, "config", None), "model", "") or "")
 
-    def probe(cwd, overrides, *subcommand, **_launch_context):
+    def probe(cwd, overrides, *subcommand, **launch_context):
         calls.append((Path(cwd), tuple(overrides), tuple(subcommand)))
-        if subcommand[:2] == ("debug", "models"):
+        if subcommand == ("debug", "models", "--bundled"):
             return json.dumps(catalog)
+        if subcommand[:2] == ("debug", "models"):
+            pinned = catalog_pin_path(overrides)
+            return Path(pinned).read_text(encoding="utf-8") if pinned else json.dumps(catalog)
+        if subcommand[:2] == ("debug", "prompt-input"):
+            launch = launch_context.get("launch")
+            home = str(launch.codex_home) if launch is not None else "/nonexistent-codex-home"
+            return json.dumps(render_prompt_input(overrides, cwd=str(cwd), codex_home=home))
         if subcommand[:2] == ("mcp", "list"):
             return json.dumps([
                 {"name": name, "enabled": f"mcp_servers.{name}.enabled=false" not in overrides}
@@ -262,4 +375,13 @@ def stub_isolation_probe(monkeypatch, client, *, config_servers=()) -> list[tupl
         )
 
     monkeypatch.setattr(client, "_codex_probe", probe)
+    # The executable and CODEX_HOME are not resolved on disk either: the
+    # fake-CLI and installed-binary tests cover that (hardening round 2, H2).
+    from learnloop.ai.providers import codex as codex_module
+
+    if hasattr(codex_module, "_Launch"):
+        def launch(root, sandbox=None):
+            return codex_module._Launch(tuple(client._codex_command()), Path("/nonexistent-codex-home"), {})
+
+        monkeypatch.setattr(client, "_launch", launch)
     return calls
