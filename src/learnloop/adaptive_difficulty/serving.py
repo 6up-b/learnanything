@@ -222,6 +222,8 @@ def decide_slot(vault: Any, repository: Any, request: SlotRequest, *, view: Any 
         "router_decision_id": request.router_decision_id, "router_propensity": request.router_propensity,
         "state_hash": snapshot.state_hash(), "versions": _versions(vault, snapshot, view_name),
         "algorithm_version": vault.config.algorithms.algorithm_version, "created_at": request.now,
+        # The protection epoch the draw was computed under (round 2, class 3b).
+        "protection_epoch": view.epoch,
     }
     status, existing = view.stored_status(connection, store.SELECTIONS, store.selection_by_key, request.decision_key)
     if status == "withheld":
@@ -331,6 +333,7 @@ def commission_draw(vault: Any, repository: Any, snapshot: RP.Snapshot, view: An
     draw = S.draw(scored, key=f"{facet}:{capability_name}:{key}", design=S.COMMISSION_VERSION, constants=constants)
     chosen = next((point for point, spec in zip(points, specs) if spec.item_id == draw.chosen), None)
     return store.insert_selection(connection, {
+        "protection_epoch": current_view().epoch,
         "decision_key": decision_key, "kind": "commission", "view": view_name,
         "learning_object_id": learning_object_id, "cell_facet": facet, "cell_capability": capability_name,
         "mode": draw.mode, "constants": constants.as_dict(),
@@ -378,15 +381,15 @@ def frozen_loadings(vault: Any, repository: Any, connection: Any, content_hash: 
     loadings = structure.loadings(content_hash, RP.days(served_at))
     # The judgments behind the loadings in force only (fix round 11): a judgment onto a facet only
     # withheld material names has no loading in force, so it is not named here either.
-    # Nor a judgment of a run its subject's protection has changed since (F38's blunt rule, round 12).
+    # Only a judgment of a run in force at this epoch (E2).
     from learnloop.adaptive_difficulty import relatedness as R
 
     in_force = {vault.canonical_facet_id(str(facet)) for facet in loadings}
-    stale = R.stale_judgments(connection, vault, view=view) if loadings else set()
+    live = R.live_judgments(connection, view=view) if loadings else set()
     ids = [row["id"] for row in view.rows(
         connection, "judgment_ledger", "task = 'ad_relatedness' AND left_kind = 'practice_item_revision' AND "
         "left_id = ?", (content_hash,), order="created_at, rowid")
-        if vault.canonical_facet_id(str(row["right_id"])) in in_force and str(row["id"]) not in stale] \
+        if vault.canonical_facet_id(str(row["right_id"])) in in_force and str(row["id"]) in live] \
         if loadings else []
     version = ",".join(f"{subject}={value}" for subject, value in sorted(structure.versions.items())) or None
     return {"loadings": {f: round(float(q), 12) for f, q in sorted(loadings.items())}, "judgment_ids": ids}, version

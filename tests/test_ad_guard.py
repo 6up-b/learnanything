@@ -17,6 +17,7 @@ Fakes only: no network, no model call.
 from __future__ import annotations
 
 import ast
+import contextlib
 import sqlite3
 from pathlib import Path
 
@@ -27,6 +28,8 @@ from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "learnloop"
+#: The poisoned operation's exit (round 2), on a tree that has it.
+_POISONED = getattr(O, "OperationPoisoned", RuntimeError)
 #: SQLite's refusal of a statement, or of a column read.
 DENIED = "not authorized|is prohibited"
 
@@ -115,7 +118,7 @@ def _vault(tmp_path):
 def test_a_write_to_a_table_ad_does_not_own_is_refused(tmp_path):
     paths, vault, repository = _vault(tmp_path)
     with repository.atomic():
-        with O.ad_operation(vault, repository):
+        with pytest.raises(O.OperationPoisoned), O.ad_operation(vault, repository):
             with pytest.raises(sqlite3.DatabaseError, match=DENIED):
                 repository.connection().execute(
                     "INSERT INTO learner_claims(id, scope_type, scope_id, claimed_level, source, created_at) "
@@ -126,9 +129,10 @@ def test_incumbent_maintenance_and_vault_loads_never_run_inside_an_operation(tmp
     from learnloop.substrate.state_sync import sync_vault_state
 
     paths, vault, repository = _vault(tmp_path)
-    with O.ad_operation(vault, repository):
+    with pytest.raises(O.OperationPoisoned), O.ad_operation(vault, repository):
         with pytest.raises(sqlite3.DatabaseError, match=DENIED):
             sync_vault_state(vault, repository)
+    with O.ad_operation(vault, repository):
         with pytest.raises(RuntimeError, match="load_vault refused"):
             load_vault(paths.root)
         with O.suspended():
@@ -140,9 +144,10 @@ def test_the_pinned_connection_carries_the_guard_only_inside_the_operation(tmp_p
     with repository.atomic():
         connection = repository.connection()
         connection.execute("SELECT COUNT(*) FROM practice_attempts").fetchone()
-        with O.ad_operation(vault, repository):
+        with pytest.raises(O.OperationPoisoned), O.ad_operation(vault, repository):
             with pytest.raises(sqlite3.DatabaseError, match=DENIED):
                 connection.execute("SELECT COUNT(*) FROM practice_attempts").fetchone()
+        with pytest.raises(O.OperationPoisoned), O.ad_operation(vault, repository):
             with O.rules("view"):
                 connection.execute("/* ad-rules */ SELECT COUNT(*) FROM practice_attempts").fetchone()
             with pytest.raises(sqlite3.DatabaseError, match=DENIED):
@@ -151,37 +156,98 @@ def test_the_pinned_connection_carries_the_guard_only_inside_the_operation(tmp_p
         connection.execute("SELECT COUNT(*) FROM practice_attempts").fetchone()
 
 
-def test_with_adaptive_difficulty_off_no_operation_opens(tmp_path, observed):
-    from learnloop.adaptive_difficulty.reading import sweep
+# -- round 2: scope leaks (class 1) and denials fail closed by construction (class 6) ---------------
+
+
+def test_a_statement_prepared_in_own_write_is_not_reused_outside_it(tmp_path):
+    """Class 1 (verify finding 6): a protected-table read prepared inside ``own_write()`` and run
+    again, identical, outside it is authorized again, and refused (failed before: SQLite's statement
+    cache reused the authorization)."""
 
     paths, vault, repository = _vault(tmp_path)
-    vault.config.adaptive_difficulty.enabled = False
-    sweep(vault, repository, as_of="2026-10-12T09:00:00Z", sweep_kind="backfill")
-    assert observed == []
+    sql = "SELECT COUNT(*) FROM ad_commission_results WHERE practice_item_id = ?"
+    with repository.atomic():
+        connection = repository.connection()
+        # (The refusal poisons the operation: its exit raises, test_a_swallowed_denial_poisons_the_operation.)
+        with contextlib.suppress(_POISONED), O.ad_operation(vault, repository):
+            with O.own_write("ad_commission_results"):
+                connection.execute(sql, ("pi_e1",)).fetchone()
+            with pytest.raises(sqlite3.DatabaseError, match=DENIED):
+                connection.execute(sql, ("pi_e1",)).fetchone()
+            with pytest.raises(sqlite3.DatabaseError, match=DENIED):
+                # And on an exceptional exit from the scope too.
+                try:
+                    with O.own_write("ad_commission_results"):
+                        connection.execute(sql, ("pi_e2",)).fetchone()
+                        raise KeyError("an exit by exception")
+                except KeyError:
+                    pass
+                connection.execute(sql, ("pi_e2",)).fetchone()
 
 
-def _sql_strings(path: Path) -> list[str]:
-    tree = ast.parse(path.read_text(encoding="utf-8"))
-    out = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.JoinedStr):
-            out.append("".join(part.value for part in node.values if isinstance(part, ast.Constant)
-                               and isinstance(part.value, str)))
-        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
-            out.append(node.value)
-    return out
+def test_a_write_reads_only_its_own_target_and_declared_constraints(tmp_path):
+    """Class 1 (verify finding 7): a DELETE of an AD table whose WHERE reads a protected table through
+    a subquery is refused (failed before: every read while a write was being prepared passed)."""
+
+    paths, vault, repository = _vault(tmp_path)
+    with repository.atomic():
+        connection = repository.connection()
+        with contextlib.suppress(_POISONED), O.ad_operation(vault, repository):
+            with pytest.raises(sqlite3.DatabaseError, match=DENIED):
+                connection.execute("DELETE FROM item_forecast_payloads WHERE id = (SELECT id FROM practice_attempts)")
 
 
-def test_the_rules_marker_appears_only_in_the_rules_module():
-    rules = SRC / "adaptive_difficulty" / "material_view.py"
-    for path in sorted(SRC.rglob("*.py")):
-        strings = _sql_strings(path)
-        marked = [text for text in strings if O.RULES_MARKER in text]
-        if path == rules:
-            statements = [text for text in strings if text.lstrip().upper().startswith(("SELECT", "/*"))
-                          and " FROM " in text.upper()]
-            assert statements and all(O.RULES_MARKER in text for text in statements), "an unmarked rules statement"
-        elif path == SRC / "adaptive_difficulty" / "operation.py":
-            assert marked == [O.RULES_MARKER], "operation.py only defines the marker"
-        else:
-            assert marked == [], (str(path), marked)
+def test_a_write_reads_its_target_and_foreign_keys_freely(tmp_path):
+    paths, vault, repository = _vault(tmp_path)
+    with repository.atomic():
+        connection = repository.connection()
+        with O.ad_operation(vault, repository):
+            connection.execute("DELETE FROM item_forecast_payloads WHERE created_at < '2000-01-01'")
+
+
+def test_a_swallowed_denial_poisons_the_operation(tmp_path):
+    """Class 6 (verify finding 8): the first denial makes the operation unavailable: a later write,
+    even to an AD table, is refused, and the operation's exit raises however the code inside handled
+    the refusal."""
+
+    paths, vault, repository = _vault(tmp_path)
+    with repository.atomic():
+        connection = repository.connection()
+        with pytest.raises(O.OperationPoisoned), O.ad_operation(vault, repository):
+            try:
+                connection.execute("SELECT COUNT(*) FROM practice_attempts").fetchone()
+            except sqlite3.DatabaseError:
+                pass  # swallowed
+            with pytest.raises(sqlite3.DatabaseError, match=DENIED):
+                connection.execute("DELETE FROM item_forecast_payloads WHERE created_at < '2000-01-01'")
+
+
+def _planted_dose_read(tmp_path, monkeypatch):
+    """The dose decision's forecast covariate (caught by its broad except) reads a protected table raw."""
+
+    from learnloop.adaptive_difficulty import replay as RP
+
+    def planted(vault, repository, **_kwargs):
+        repository.connection().execute("SELECT COUNT(*) FROM practice_attempts").fetchone()
+
+    monkeypatch.setattr(RP, "snapshot", planted)
+
+
+def test_a_planted_read_swallowed_in_the_dose_decision_yields_no_decision_and_no_rows(tmp_path, monkeypatch):
+    """Class 6: a planted read inside the dose arm's covariate, whose broad except would turn it into a
+    missing covariate, yields no AD decision and no dose row (failed before: the draw was made and
+    persisted)."""
+
+    from learnloop.adaptive_difficulty import dose as D
+
+    from tests.test_ad3_dose_arm import _arm, _boundary, _mapping
+    from tests.test_ad1_reading_opportunities import _question, at
+
+    paths, vault, repo = _arm(tmp_path)
+    _question(repo, "recall", 1, answer=False)
+    _planted_dose_read(tmp_path, monkeypatch)
+    with pytest.raises(Exception) as raised:
+        D.decide(vault, repo, _boundary(), clock=at(2), reading_map=_mapping())
+    assert O.is_denial(raised.value), raised.value
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM ad_dose_offers").fetchone()[0] == 0

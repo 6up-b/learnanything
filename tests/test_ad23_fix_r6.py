@@ -51,7 +51,8 @@ def _draw(paths, like: dict[str, Any], *, key: str, created_at: str, point: dict
 
     row = {name: like[name] for name in ("kind", "view", "learning_object_id", "cell_facet", "cell_capability",
                                          "mode", "support", "excluded", "constants", "seed", "u", "propensity",
-                                         "empty_support", "state_hash", "versions", "algorithm_version")}
+                                         "empty_support", "state_hash", "versions", "algorithm_version",
+                                         "protection_epoch")}
     row.update({"decision_key": key, "chosen_point": point, "chosen_item_id": None, "created_at": created_at})
     with closing(connect(paths.sqlite_path)) as connection:
         selection_id = ad_serving.insert_selection(connection, row)

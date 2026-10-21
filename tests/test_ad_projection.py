@@ -177,6 +177,10 @@ def test_every_protected_table_reads_as_in_the_absent_copy(tmp_path, monkeypatch
                 if table in EPOCH_SCOPED:
                     task = EPOCH_SCOPED[table]
                     rows = [row for row in rows if task is not None and row.get("task") != task]
+                # The view reads only rows of its own epoch; each copy's epoch is its own (a digest
+                # of what it withholds), so the stamp is named, not compared.
+                rows = [{**row, "protection_epoch": "<the copy's epoch>"} if "protection_epoch" in row else row
+                        for row in rows]
                 out[table] = sorted(json.dumps(row, sort_keys=True, default=str) for row in rows)
         seen[name] = out
     differing = sorted(table for table in T.COLUMNS if seen["protected"][table] != seen["absent"][table])

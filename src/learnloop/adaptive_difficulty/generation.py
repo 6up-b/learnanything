@@ -430,6 +430,7 @@ def record_landed_commissions(vault: Any, repository: Any, connection: Any, *, n
         realized = dict(spec.features or {})
         with own_write(store.COMMISSION_RESULTS):
             result = store.insert_commission_result(connection, {
+                "protection_epoch": view.epoch,
                 "selection_id": row["id"], "practice_item_id": str(item.id), "content_hash": content_hash,
                 "features": realized, "p_bar": round(p_bar, 12),
                 "status": "in_band" if in_band else "realized_out_of_band", "state_hash": snapshot.state_hash(),

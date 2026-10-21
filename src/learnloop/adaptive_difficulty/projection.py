@@ -34,7 +34,7 @@ class ProjectedRepository:
 
         from learnloop.adaptive_difficulty.operation import epoch_of
 
-        return f"ad:{epoch_of(self._ad_view.protection)}"
+        return f"ad:{epoch_of(self._ad_view)}"
 
     def __repr__(self) -> str:
         return f"ProjectedRepository({self._ad_raw_repository!r})"

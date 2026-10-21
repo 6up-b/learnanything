@@ -339,7 +339,7 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
 
     view = material_view(vault, repository, view)
     structure = R.load_structure(connection, vault, view=view, coupled=settings.coupling)
-    stale = R.stale_judgments(connection, vault, view=view) if view.available else set()
+    live = R.live_judgments(connection, view=view) if view.available else set()
     facet_to_los, lo_to_facets = view.facet_maps()
     lo_subject = {lo.id: R.lo_subject(vault, lo) for lo in vault.learning_objects.values()}
     limit = days(as_of) if as_of else math.inf
@@ -498,15 +498,12 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
                 features = receipt_store._loads(frozen.get("resolved_features_json"), None)
                 signals = _frozen_signals(frozen)
                 frozen_loadings = receipt_store._loads(frozen.get("loadings_json"), None)
-                # A frozen loading is revalidated against protection now, as a saved one is in the
-                # structure (Codex verify F38, fix round 11): a facet only withheld material names
-                # drops out; the frozen row itself is never rewritten.
-                loadings = (view.visible_loadings(connection, content_hash, frozen_loadings.get("loadings") or {})
+                # Frozen inputs are read only at the epoch they were frozen under (round 2), so their
+                # loadings stand as frozen; they name only judgments of runs in force (E2).
+                loadings = ({str(f): float(q) for f, q in (frozen_loadings.get("loadings") or {}).items()}
                             if isinstance(frozen_loadings, Mapping) else structure.loadings(content_hash, -math.inf))
-                # F38's blunt rule in the replay (fix round 12): frozen loadings that name a judgment
-                # of a run its subject's protection has changed since are not used at all.
-                if isinstance(frozen_loadings, Mapping) and stale & {
-                        str(j) for j in (frozen_loadings.get("judgment_ids") or ())}:
+                if isinstance(frozen_loadings, Mapping) and not {
+                        str(j) for j in (frozen_loadings.get("judgment_ids") or ())} <= live:
                     loadings = {}
             else:
                 features = _audited(connection, item, content_hash, str(attempt["created_at"]))
@@ -863,7 +860,7 @@ def snapshot(vault: Any, repository: Any, *, settings: ReplaySettings | None = N
         view = material_view(vault, repository, view)
         # The vault as loaded (an operation hands a projection of it) and the protection epoch: a
         # snapshot is never served across a protection change (the AD23 redesign, E2).
-        key = (str(repository.sqlite_path), id(getattr(vault, "_ad_raw_vault", vault)), epoch_of(view.protection),
+        key = (str(repository.sqlite_path), id(getattr(vault, "_ad_raw_vault", vault)), epoch_of(view),
                settings.key(), as_of)
         events = load_events(connection, vault, repository, as_of=as_of, settings=settings, view=view)
         stamp = events_fingerprint(events)

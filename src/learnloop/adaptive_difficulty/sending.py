@@ -102,9 +102,11 @@ class SendGuard:
     def __init__(self, vault: Any, repository: Any, *, items: Iterable[Any] = (), item_ids: Iterable[str] = (),
                  identities: Iterable[Mapping[str, Any]] = (), protected: Any = None,
                  live_vault: Callable[[], Any] | None = None, epoch: str | None = None) -> None:
-        self._vault = vault
+        # The vault and repository as loaded, never an operation's projection of them: the guard
+        # judges protection afresh, on everything (the AD23 redesign, round 2).
+        self._vault = getattr(vault, "_ad_raw_vault", vault)
         self._live_vault = live_vault
-        self._repository = repository
+        self._repository = getattr(repository, "_ad_raw_repository", repository)
         self._items = [item for item in items if item is not None]
         self._item_ids = frozenset(str(value) for value in item_ids) | frozenset(
             str(getattr(item, "id", "")) for item in self._items)
@@ -221,6 +223,7 @@ class SendGuard:
         for _attempt in range(1 + RELOAD_RETRIES):
             try:
                 vault, before = self._snapshot()
+                vault = getattr(vault, "_ad_raw_vault", vault)
             except Exception:  # noqa: BLE001 - an unreadable provider protects everything
                 return "the loaded vault could not be read", None, StaleSnapshot
             if vault is None:
@@ -245,9 +248,9 @@ class SendGuard:
             # (Codex verify F32; before, an empty item list let the request through).
             return "the held-out predicate is unavailable"
         if self._epoch is not None:
-            from learnloop.adaptive_difficulty.operation import epoch_of
+            from learnloop.adaptive_difficulty.material_view import MaterialView
 
-            if epoch_of(current) != self._epoch:
+            if MaterialView(vault, self._repository, current).epoch != self._epoch:
                 # E2: frozen inputs are sent only at the epoch they were read under.
                 return "the protection changed since the inputs were frozen"
         if self._earlier:

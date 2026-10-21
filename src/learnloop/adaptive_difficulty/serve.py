@@ -60,7 +60,13 @@ class ServeRecord:
     skipped: str | None = None
 
 
-@entry
+def _serve_unrecorded(arguments: Any) -> "ServeRecord":
+    # The guard refused something in the serve's AD operation: nothing of AD's is kept (the savepoint
+    # rolled back what the refusal reached), and the serve proceeds (logging never breaks it).
+    return ServeRecord(presentation_id=str(arguments.get("presentation_id")), skipped="failed")
+
+
+@entry(poisoned=_serve_unrecorded)
 def record_plan_serve(vault: Any, repository: Any, *, presentation_id: str, practice_item_id: str,
                       served_at: str) -> ServeRecord | None:
     """Record AD1's serve-time receipts for one plan presentation, in the caller's transaction."""
@@ -104,6 +110,7 @@ def record_plan_serve(vault: Any, repository: Any, *, presentation_id: str, prac
                                                              served_at, view=view)
                 if loadings is not None:
                     row["loadings"], row["coupling_version"] = loadings, coupling_version
+                row["protection_epoch"] = view.epoch
                 record.serve_inputs_id = store.insert_serve_inputs(connection, row)
             receipts = in_process_receipts(vault, repository, connection, item, presentation_kind=PLAN_PRESENTATION,
                                            presentation_id=presentation_id, served_at=served_at, view=view)
@@ -115,7 +122,7 @@ def record_plan_serve(vault: Any, repository: Any, *, presentation_id: str, prac
                 # §7.4: landed commissions' re-forecasts.
                 record_landed_commissions(vault, repository, connection, now=served_at, view=view)
             algorithm_version = vault.config.algorithms.algorithm_version
-            receipts = [_with_version(receipt, algorithm_version) for receipt in receipts]
+            receipts = [_with_version(receipt, algorithm_version, view.epoch) for receipt in receipts]
             record.receipt_ids = record_receipts(repository, receipts, created_at=served_at)
             # The outside forecasters' exact request inputs, as this serve saw
             # them (Codex review F2): the background job sends these, never
@@ -137,10 +144,12 @@ def _recorded(connection: Any, presentation_id: str) -> bool:
         connection, "item_serve_inputs", "plan_presentation_id = ?", (presentation_id,))[0] != "missing"
 
 
-def _with_version(receipt: Any, algorithm_version: str) -> Any:
+def _with_version(receipt: Any, algorithm_version: str, epoch: str | None) -> Any:
     from dataclasses import replace
 
-    return replace(receipt, columns={**dict(receipt.columns), "algorithm_version": algorithm_version})
+    # The protection epoch the forecast was computed under (round 2, class 3b): read back only at it.
+    return replace(receipt, columns={**dict(receipt.columns), "algorithm_version": algorithm_version},
+                   versions={**dict(receipt.versions or {}), "protection_epoch": epoch})
 
 
 __all__ = ["PLAN_PRESENTATION", "ServeRecord", "record_plan_serve"]

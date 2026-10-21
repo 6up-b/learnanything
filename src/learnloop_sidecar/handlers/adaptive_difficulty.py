@@ -49,7 +49,23 @@ def reader_dose_offer(ctx: SidecarContext, params: ReaderDoseOfferInput) -> dict
     from learnloop.adaptive_difficulty.dose import Boundary, decide
     from learnloop.adaptive_difficulty.operation import optional_operation
 
+    from learnloop.adaptive_difficulty.operation import is_denial
+
     vault, repository = ctx.require_vault()
+    try:
+        return versioned(_dose_offer(vault, repository, params))
+    except Exception as exc:
+        if not is_denial(exc):
+            raise
+        # The AD guard refused something in the decision: AD is unavailable for it and nothing of it
+        # is shown (the incumbent: no offer; owner decision 2026-10-21).
+        return versioned({"eligible": False, "reason": "unavailable", "draw_id": None, "offer": None})
+
+
+def _dose_offer(vault: Any, repository: Any, params: ReaderDoseOfferInput) -> dict[str, Any]:
+    from learnloop.adaptive_difficulty.dose import Boundary, decide
+    from learnloop.adaptive_difficulty.operation import optional_operation
+
     # One AD operation for the draw and the response (A8; Codex verify F23; the AD23 redesign).
     with optional_operation(vault, repository) as op:
         view = op.view if op is not None else None
@@ -68,7 +84,7 @@ def reader_dose_offer(ctx: SidecarContext, params: ReaderDoseOfferInput) -> dict
             if offer["question"] is None:
                 # Withheld between the draw and the response: nothing of it is shown.
                 result["offer"] = None
-    return versioned(result)
+    return result
 
 
 def _offered_question(repository: Any, view: Any, question_id: Any) -> dict[str, Any] | None:
@@ -126,10 +142,19 @@ def adaptive_difficulty_readiness(ctx: SidecarContext, params: AdaptiveDifficult
 
     from learnloop.adaptive_difficulty.readiness import lo_readiness
 
+    from learnloop.adaptive_difficulty.operation import is_denial
+
     vault, repository = ctx.require_vault()
     if params.learning_object_id not in vault.learning_objects:
         raise SidecarError("not_found", f"No learning object {params.learning_object_id!r}.")
-    return versioned(lo_readiness(vault, repository, params.learning_object_id))
+    try:
+        return versioned(lo_readiness(vault, repository, params.learning_object_id))
+    except Exception as exc:
+        if not is_denial(exc):
+            raise
+        from learnloop.adaptive_difficulty.readiness import NOT_PREDICTED, READINESS_VERSION
+
+        return versioned({"version": READINESS_VERSION, "predicted": False, "line": NOT_PREDICTED, "cells": []})
 
 
 class AdaptiveDifficultyWhyItemInput(ParamsModel):
@@ -147,9 +172,18 @@ def adaptive_difficulty_why_item(ctx: SidecarContext, params: AdaptiveDifficulty
 
     from learnloop.adaptive_difficulty.operation import optional_operation
 
+    from learnloop.adaptive_difficulty.operation import is_denial
+
     vault, repository = ctx.require_vault()
-    with optional_operation(vault, repository) as op, closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        found = why_for_presentation(connection, params.plan_presentation_id, view=op.view) if op is not None else None
+    try:
+        with optional_operation(vault, repository) as op, \
+                closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            found = why_for_presentation(connection, params.plan_presentation_id, view=op.view) \
+                if op is not None else None
+    except Exception as exc:
+        if not is_denial(exc):
+            raise
+        found = None  # the AD guard refused something: no "why" is shown
     return versioned({"why": found["why"] if found else None, "mode": found["mode"] if found else None})
 
 

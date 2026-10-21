@@ -31,7 +31,7 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores import ad_receipts
 from learnloop.vault.loader import load_vault
 
-from tests.ad23_fakes import LO, ad23_vault, answer, env_for, rows
+from tests.ad23_fakes import LO, SEEDED, ad23_vault, answer, env_for, restamp, rows
 
 KIND = "worked_example"
 
@@ -125,7 +125,7 @@ def test_an_in_passage_answer_graded_as_an_attempt_takes_its_increment_not_gamma
 def _opportunity(connection: Any, *, key: str, kind: str, subkind: str, source_table: str, at: str,
                  lo: str = LO, doses: dict[str, float] | None = None) -> None:
     ad_receipts.insert_reading_opportunity(connection, {
-        "opportunity_key": key, "kind": kind, "subkind": subkind, "source_table": source_table,
+        "protection_epoch": SEEDED, "opportunity_key": key, "kind": kind, "subkind": subkind, "source_table": source_table,
         "source_id": key, "source_written_at": at, "learning_object_id": lo,
         "facet_doses": doses or {"recall": 1.0}, "dose_offer_id": None, "mapping_version": "ad_reading_map_v1",
         "sweep": "backfill", "sweep_ref": None, "swept_at": at})
@@ -144,6 +144,7 @@ def _reading_vault(tmp_path, *, ad: str = ""):
         _opportunity(connection, key="o3", kind="in_passage_question", subkind="self_check:missed",
                      source_table="judgment_ledger", at="2026-10-12T08:20:00Z")
         connection.commit()
+    restamp(paths)  # recorded under the vault's protection as it stands
     for k in range(3):
         _record, step = advance(env, serve=True)
         if step["kind"] != "item":

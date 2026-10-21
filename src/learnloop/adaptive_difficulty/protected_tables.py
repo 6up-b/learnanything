@@ -181,9 +181,8 @@ VALUE = "value"
 #:   selection's chosen and slot items: Codex verify F39);
 #: * ``source@C``: a reading receipt's source row in table ``C``, resolved again now; a source since
 #:   deleted leaves its frozen receipt standing (Codex verify F30's named exception);
-#: * ``facet_map``: not a withholding reference: a recorded facet mapping (a receipt's doses, a
-#:   frozen serve's loadings) drops the facets only withheld material names (the second named
-#:   exception);
+#: * ``epoch``: the protection epoch the row was computed under (an AD artefact's stamp,
+#:   :data:`EPOCH`): a row of another epoch is, for AD, never written;
 #: * ``dose_extra@C``: a dose draw's chosen extra (its question or its example span), by variant ``C``;
 #: * ``plan_detail@C``: a plan block event's detail (its item, its attempt, its serve in block ``C``).
 #:
@@ -205,26 +204,29 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
                "points_json detail_json"),
     "ad_commission_results": _table({
         "selection_id": "selection", "practice_item_id": "item", "content_hash": "revision",
+        "protection_epoch": "epoch",
     },
         values="id features_json p_bar status state_hash landed_after_expiry features_match created_at"),
     "ad_coupling_versions": _table({},
         values="id subject_id version coupling_version run_ids_json adopted_by note adopted_at"),
     "ad_dose_offers": _table({
         "id": "self", "row_kind": "self", "extraction_id": "self", "section_id": "self", "chosen_variant": "self",
-        "content_json": "self", "draw_id": "dose_draw",
+        "content_json": "self", "draw_id": "dose_draw", "protection_epoch": "epoch",
     },
         values="draw_key visit_id learning_object_ids_json feasible_json infeasible_json base_version floor "
                "propensities_json seed u forecast_p detail_json created_at"),
     "ad_reading_opportunities": _table({
-        "source_id": "source@source_table", "facet_doses_json": "facet_map", "dose_offer_id": "dose_draw",
+        "source_id": "source@source_table", "dose_offer_id": "dose_draw", "protection_epoch": "epoch",
     },
-        values="id opportunity_key kind subkind source_table source_written_at learning_object_id mapping_version "
+        values="id opportunity_key kind subkind source_table source_written_at learning_object_id facet_doses_json "
+               "mapping_version "
                "authority_class sweep sweep_ref swept_at"),
     "ad_relatedness_runs": _table({},
         values="id run_key subject_id input_hash units_json judgment_ids_json status prompt_version judge_model "
                "created_at"),
     "ad_selections": _table({
         "chosen_item_id": "served_item@block_id", "slot_item_id": "served_item@block_id", "cell_facet": "facet",
+        "protection_epoch": "epoch",
     },
         values="id decision_key kind view learning_object_id cell_capability daily_plan_id block_id slot_position "
                "mode support_json excluded_json constants_json seed u chosen_point_json propensity "
@@ -265,11 +267,11 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
                "detail_json"),
     "item_serve_inputs": _table({
         "plan_presentation_id": "presentation", "practice_item_id": "item", "content_hash": "revision",
-        "loadings_json": "facet_map",
+        "protection_epoch": "epoch",
     },
         values="id receipt_key presentation_kind probe_presentation_id scheduler_candidate_id learning_object_id "
                "served_at stamped_features_json task_feature_schema audit_json resolved_features_json signals_json "
-               "z_v1_recalibration pre_exposed resolution_version coupling_version created_at"),
+               "z_v1_recalibration pre_exposed resolution_version loadings_json coupling_version created_at"),
     "judgment_ledger": _table({"left_id": "entity@left_kind", "right_id": "entity@right_kind"},
         values="id created_at supersedes_id task left_kind right_kind judge judge_model prompt_version input_hash "
                "verdict score rationale"),
@@ -290,9 +292,11 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
                "reference_status difficulty_rating first_hint_progress"),
     "practice_item_snapshots": _table({"content_hash": "self", "item_json": "self", "practice_item_id": "item"},
         values="created_at"),
-    "proposed_patch_items": _table({"target_entity_id": "entity@target_entity_type"},
-        values="id proposed_patch_id client_item_id item_type operation target_entity_type payload_json "
-               "edited_payload_json decision validation_status validation_errors_json applied_change_batch_id "
+    "proposed_patch_items": _table({
+        "target_entity_id": "entity@target_entity_type", "payload_json": "self", "edited_payload_json": "self",
+        "item_type": "self", "source_ref_ids_json": "self",
+    },
+        values="id proposed_patch_id client_item_id operation target_entity_type decision validation_status validation_errors_json applied_change_batch_id "
                "decided_at decided_by created_at updated_at audit_json source_ref_ids_json dependency_status "
                "dependency_block_reason_json"),
     "question_events": _table({
@@ -336,7 +340,33 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
     }, values="match_kind confidence created_at"),
 })
 
-#: The polymorphic entity kinds (entity@C): a kind not listed names nothing withheld.
+#: Every AD-owned artefact table (AD writes it and reads it back), and how its rows carry the
+#: protection epoch they were computed under (the AD23 redesign round 2, class 3b). The rules read a
+#: row only at the current epoch: a row of another epoch, or one recorded before rows carried one, is
+#: absent to AD (ignored, expired, or recomputed and recorded again: a reading receipt is swept again
+#: under the current projection). ``column:C``: the row's own column; ``json:C:K``: key ``K`` of the
+#: JSON object in column ``C``; ``free: why``: nothing in it was computed from a projection.
+#: ``tests/test_ad_protected_tables.py`` fails on an AD-owned table AD reads that has no rule.
+EPOCH: Mapping[str, str] = MappingProxyType({
+    "ad_attempt_trace": "free: DERIVED, rebuilt by the replayer from epoch-scoped inputs, never read by AD",
+    "ad_commission_results": "column:protection_epoch",
+    "ad_coupling_versions": "free: the owner's adoption of runs, each epoch-scoped (a run of another epoch "
+                            "is out of force, so an adopted coupling resets with the epoch: E2)",
+    "ad_dose_offers": "column:protection_epoch",
+    "ad_reading_opportunities": "column:protection_epoch",
+    "ad_relatedness_runs": "json:units_json:protection:epoch",
+    "ad_selections": "column:protection_epoch",
+    "ad_state": "free: DERIVED, rebuilt by the replayer from epoch-scoped inputs, never read by AD",
+    "forecast_receipts": "json:versions_json:protection_epoch",
+    "item_forecast_payloads": "json:content_json:protection_epoch",
+    "item_forecast_scores": "free: DERIVED from epoch-scoped receipts, never read by AD",
+    "item_serve_inputs": "column:protection_epoch",
+    "judgment_ledger": "free: AD's judgments are of content (the feature audit), or read only through an "
+                       "epoch-scoped relatedness run",
+    "practice_item_snapshots": "free: a revision's own content, never computed from a projection",
+})
+
+#: The polymorphic entity kinds (``entity@C``): a kind not listed names nothing withheld.
 ENTITY_KINDS: Mapping[str, str] = MappingProxyType({
     "attempt": "attempt",
     "extraction": "extraction",
@@ -418,5 +448,5 @@ def write_verdict(table: str) -> str | None:
     return "a write to a table AD does not own"
 
 
-__all__ = ["AD_WRITABLE", "CARVE_OUTS", "COLUMNS", "DENIED", "ENTITY_KINDS", "INCUMBENT", "INCUMBENT_READERS",
+__all__ = ["AD_WRITABLE", "CARVE_OUTS", "COLUMNS", "DENIED", "ENTITY_KINDS", "EPOCH", "INCUMBENT", "INCUMBENT_READERS",
            "NEUTRAL", "PREDICATE", "PROTECTED", "ROLES", "VALUE", "read_verdict", "role", "write_verdict"]

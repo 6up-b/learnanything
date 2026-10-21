@@ -15,9 +15,12 @@ readers here. Each reader is already filtered:
   withheld with it, and so is any facet only withheld items name;
 * **a source span** (a section, a worked example, a Reader question's anchors,
   a tutor exchange's passage) is withheld when held-out material covers it;
-* **a reading-opportunity receipt** is revalidated against the current
-  predicate before replay reads it: its source is resolved again, and its
-  doses keep only facets the view still names.
+* **an AD artefact** (a draw, a receipt, frozen serve inputs, a reading
+  receipt, a relatedness run) is read only at the protection epoch it was
+  computed under (:attr:`MaterialView.epoch`; ``protected_tables.EPOCH``):
+  one of another epoch is ignored, expires, or is computed and recorded
+  again (a reading receipt is swept again under the current projection);
+  a reading receipt's source is also resolved again.
 
 AD's protection is unconditional: it never reads ``goals.held_out_selection``
 or any routine-serving switch, which only govern routine serving.
@@ -53,6 +56,7 @@ LOG = logging.getLogger(__name__)
 
 #: Why a view is empty: the held-out predicate could not be computed.
 UNAVAILABLE = "held_out_predicate_unavailable"
+_UNSET = object()
 _VALUE = _T.VALUE
 #: The attempt types that never close a reading window (as the replay reads them, §5.6, D8).
 NON_WINDOW_TYPES = ("skip", "self_report")
@@ -112,6 +116,30 @@ def project_ir(ir: Any, withheld: Any) -> Any:
             continue
         assets.append(asset.model_copy(update={"neighboring_span_ids": neighbours}))
     return ir.model_copy(update={"blocks": blocks, "units": units, "assets": assets})
+
+
+def _stamp(row: Mapping[str, Any], rule: str) -> Any:
+    """A row's protection epoch, by its table's rule (``column:C`` or ``json:C:K``)."""
+
+    kind, _sep, rest = rule.partition(":")
+    if kind == "column":
+        return row.get(rest)
+    column, _sep, key = rest.partition(":")
+    value = _json(_value(row, column), None)
+    return value.get(key) if isinstance(value, Mapping) else None
+
+
+def current_epoch() -> str | None:
+    """The epoch of the operation open in this context: what every AD artefact written in it is
+    stamped with (an error outside an operation)."""
+
+    return current_view().epoch
+
+
+def stamped(row: Mapping[str, Any]) -> dict[str, Any]:
+    """A row to append to an AD artefact table with a ``protection_epoch`` column, stamped."""
+
+    return {**dict(row), "protection_epoch": current_epoch()}
 
 
 def _as_rows(found: Any) -> list[dict[str, Any]]:
@@ -180,7 +208,51 @@ class MaterialView:
         self._protected_only: dict[bool, set[str]] = {}
         self._memo: dict[Any, Any] | None = None
         self._projected: Any = None
+        self._epoch: Any = _UNSET
 
+
+    # -- the protection epoch ----------------------------------------------------------------------
+
+    @property
+    def epoch(self) -> str | None:
+        """A digest of everything this view's projection withholds (the AD23 redesign, E2; round 2,
+        class 3a): the predicate's material (whole extractions and span keys), the exam reservations,
+        the protected current items (``Protection.ids``), the withheld revisions (current items' and
+        saved snapshots', by content hash), the withheld notes and the facets only withheld material
+        names. Equal epochs mean equal projections, so whatever an operation persists or caches is
+        stamped or keyed with it. None while the predicate is unavailable (nothing is in force)."""
+
+        if self._epoch is _UNSET:
+            self._epoch = self.compute_epoch()
+        return self._epoch
+
+    def compute_epoch(self) -> str | None:
+        import hashlib
+        from contextlib import closing
+
+        from learnloop.adaptive_difficulty.feature_audit import item_revision
+        from learnloop.adaptive_difficulty.operation import EPOCH_VERSION
+        from learnloop.db.connection import connect
+
+        if not self.available:
+            return None
+        material = self.protection.material
+        with closing(connect(self.repository.sqlite_path, read_only=True)) as connection:
+            withheld, _visible = self._withheld_and_visible_revisions(connection)
+            notes = sorted(str(note_id) for note_id in (getattr(self.vault, "notes", None) or {})
+                           if self.note_withheld(connection, note_id))
+            facets = sorted(self.protected_only_facets(connection))
+        body = {
+            "version": EPOCH_VERSION,
+            "extractions": sorted(str(value) for value in (getattr(material, "extractions", ()) or ())),
+            "spans": sorted([str(key[0]), str(key[1])] for key in (getattr(material, "spans", ()) or ())),
+            "reserved": sorted(str(value) for value in (getattr(self.protection, "reserved", ()) or ())),
+            "items": sorted(str(value) for value in self.protection.ids),
+            "revisions": sorted({item_revision(item)[0] for item in withheld}),
+            "notes": notes,
+            "facets": facets,
+        }
+        return hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
     # -- the registry's rule (``protected_tables.COLUMNS``) ------------------------------------------
 
@@ -207,25 +279,29 @@ class MaterialView:
             # One filter call reads one state of the database: what it resolves is reused within it.
             self._memo = {}
         try:
-            return [self._transformed(connection, table, dict(row)) for row in rows
-                    if self.keep(connection, table, row)]
+            return [dict(row) for row in rows if self.keep(connection, table, row)]
         finally:
             if outer is None:
                 self._memo = None
 
-    def lookup(self, connection: Any, table: str, where: str, args: Iterable[Any] = ()
-               ) -> tuple[str, dict[str, Any] | None]:
+    def lookup(self, connection: Any, table: str, where: str, args: Iterable[Any] = (), *,
+               stale_as_missing: bool = False) -> tuple[str, dict[str, Any] | None]:
         """An idempotency read of AD's own ledgers: ``("missing", None)``, ``("withheld", None)`` (a
         row exists that AD may not read: its caller writes nothing and reads nothing of it) or
-        ``("ok", row)``. Everything is ``withheld`` while unavailable."""
+        ``("ok", row)``. Everything is ``withheld`` while unavailable. ``stale_as_missing``: a row of
+        another protection epoch counts as missing (its caller records it again under the current
+        projection: a reading receipt)."""
 
         if not _has_table(connection, table):
             return "missing", None
         _columns(table)
         return self._status(connection, table, _rows(connection, f"/* ad-rules */ SELECT * FROM {table} WHERE {where}",
-                                                     args))
+                                                     args), stale_as_missing=stale_as_missing)
 
-    def _status(self, connection: Any, table: str, found: list[dict[str, Any]]) -> tuple[str, dict[str, Any] | None]:
+    def _status(self, connection: Any, table: str, found: list[dict[str, Any]], *,
+                stale_as_missing: bool = False) -> tuple[str, dict[str, Any] | None]:
+        if stale_as_missing and self.available:
+            found = [row for row in found if self.epoch_current(table, row)]
         if not found:
             return "missing", None
         kept = self.filter(connection, table, found)
@@ -254,9 +330,11 @@ class MaterialView:
 
         if not self.available:
             return False
+        if not self.epoch_current(table, row):
+            return False
         selfs = False
         for column, kind in _columns(table).items():
-            if kind in (_VALUE, "facet_map"):
+            if kind in (_VALUE, "epoch"):
                 continue
             if kind == "self":
                 selfs = True
@@ -268,31 +346,16 @@ class MaterialView:
                 return False
         return not (selfs and self._self_withheld(connection, table, row))
 
-    def _transformed(self, connection: Any, table: str, row: dict[str, Any]) -> dict[str, Any]:
-        """The registry's second named exception (``facet_map``): a recorded facet mapping (a reading
-        receipt's doses, a frozen serve's loadings) keeps only the facets the view still names; a
-        frozen dose or loading on a facet merely absent from current content stands (F30)."""
+    def epoch_current(self, table: str, row: Mapping[str, Any]) -> bool:
+        """Whether a row of an AD-owned artefact table was computed at the current protection epoch
+        (``protected_tables.EPOCH``; round 2, class 3b). A table with no epoch rule (not an AD
+        artefact) or a ``free`` one is always current; a row with no stamp never is."""
 
-        for column, kind in _columns(table).items():
-            if kind != "facet_map" or column not in row:
-                continue
-            dropped = self.protected_only_facets(connection)
-            canonical = getattr(self.vault, "canonical_facet_id", lambda value: value)
-            raw = row.get(column)
-            try:
-                value = json.loads(raw) if isinstance(raw, str) else (raw or {})
-            except (TypeError, ValueError):
-                value = {}
-            if not isinstance(value, Mapping):
-                continue
-            nested = isinstance(value.get("loadings"), Mapping)
-            mapping = value["loadings"] if nested else value
-            kept = {f: d for f, d in mapping.items() if canonical(str(f)) not in dropped}
-            if table == "ad_reading_opportunities":
-                row[column] = json.dumps(kept, sort_keys=True)
-            elif len(kept) != len(mapping):
-                row[column] = json.dumps({**value, "loadings": kept} if nested else kept, sort_keys=True)
-        return row
+        rule = _T.EPOCH.get(table)
+        if rule is None or rule.startswith("free:"):
+            return True
+        epoch = self.epoch
+        return epoch is not None and _stamp(row, rule) == epoch
 
     def _ref_withheld(self, connection: Any, table: str, row: Mapping[str, Any], kind: str, value: Any) -> bool:
         base, _sep, arg = kind.partition("@")
@@ -379,7 +442,42 @@ class MaterialView:
                                     "WHERE surface_id = ?", (str(row.get("id")),))
             return bool(administrations) and all(self._self_withheld(connection, "activity_administrations", found)
                                                  for found in administrations)
+        if table == "proposed_patch_items":
+            return self._proposal_withheld(row)
         raise ValueError(f"no self rule for {table}")
+
+    def _proposal_withheld(self, row: Mapping[str, Any]) -> bool:
+        """A proposal is withheld when the item its effective payload (the edit, else the payload)
+        creates or changes is: its id withheld, or its own sources (canonical exercise, provenance
+        refs) in held-out material, or a withheld item among its source refs (round 2, class 2). An
+        unreadable item payload is withheld (fail closed)."""
+
+        from types import SimpleNamespace
+
+        from learnloop.vault.models import CanonicalExercise, SourceRef
+
+        payload = _json(row.get("edited_payload_json"), None) or _json(row.get("payload_json"), None)
+        refs = _json(row.get("source_ref_ids_json"), [])
+        if str(row.get("item_type") or "") != "practice_item":
+            return False
+        if not isinstance(payload, Mapping):
+            return True
+        if payload.get("id") and self.withheld(payload["id"]):
+            return True
+        try:
+            exercise = payload.get("canonical_exercise")
+            provenance = payload.get("provenance") or {}
+            item = SimpleNamespace(
+                id=str(payload.get("id") or ""),
+                canonical_exercise=CanonicalExercise.model_validate(exercise) if isinstance(exercise, Mapping) else None,
+                provenance=SimpleNamespace(source_refs=[SourceRef.model_validate(ref) for ref in
+                                                        (provenance.get("source_refs") or [])]))
+        except Exception:  # noqa: BLE001 - an unreadable proposed item is withheld
+            return True
+        if self.protection.covers(item):
+            return True
+        # Its source refs name the needs, LOs and source items it was made for: a withheld one withholds it.
+        return any(self.withheld(ref) for ref in (refs if isinstance(refs, list) else []) if isinstance(ref, str))
 
     def _note_ref_withheld(self, connection: Any, note_id: Any) -> bool:
         from learnloop.ingest.locators import parse_block_span
@@ -481,7 +579,7 @@ class MaterialView:
             for facets in self.facet_maps()[1].values():
                 universe.update(facets)
             for item in self.items():
-                universe.update(self.vault.canonical_facet_id(str(f)) for f in item.evidence_facets)
+                universe.update(getattr(self.vault, "canonical_facet_id", lambda value: value)(str(f)) for f in item.evidence_facets)
             self._universe = universe
         return self._universe
 
@@ -514,7 +612,7 @@ class MaterialView:
         key = connection is not None  # with a connection the saved revisions are judged too
         if key not in self._protected_only:
             withheld, visible = self._withheld_and_visible_revisions(connection)
-            canonical = self.vault.canonical_facet_id
+            canonical = getattr(self.vault, "canonical_facet_id", lambda value: value)
             named = {canonical(str(f)) for item in withheld for f in (item.evidence_facets or ())}
             kept = set(self.facet_universe()) | {canonical(str(f)) for item in visible
                                                  for f in (item.evidence_facets or ())}
@@ -645,6 +743,9 @@ class MaterialView:
 
         return self.filter(connection, "ad_dose_offers", ad_serving.dose_rows(connection))
 
+    def _proposal_rule(self, connection: Any) -> Any:
+        return lambda row: self.keep(connection, "proposed_patch_items", row)
+
     def open_commissions(self, connection: Any, *, now: str | None = None) -> list[dict[str, Any]]:
         """Open commissions as the view sees them: a result on a withheld item does not land, and a
         commission of a cell whose facet only withheld material names is not open (the same cohort
@@ -652,11 +753,14 @@ class MaterialView:
 
         from learnloop.db.stores import ad_serving
 
+        # Every count, any(), max() and expiry decision runs over what the view reads (round 2,
+        # classes 2 and 4): the visible commissions of this epoch, their visible landings, and the
+        # visible proposals behind the expiry clock.
         landed = {str(row["selection_id"]) for row in self.visible_commission_results(connection)}
-        facets = self.protected_only_facets(connection)
-        canonical = getattr(self.vault, "canonical_facet_id", lambda value: value)
-        return [row for row in ad_serving.open_commissions(connection, now=now, landed=landed)
-                if not (row.get("cell_facet") and canonical(str(row["cell_facet"])) in facets)]
+        rows = [row for row in self.stored(connection, ad_serving.SELECTIONS, ad_serving.commissions_in_draw_order)
+                if row.get("chosen_point")]
+        return ad_serving.open_commissions(connection, now=now, landed=landed, rows=rows,
+                                           proposal_visible=self._proposal_rule(connection))
 
     def landed_after_expiry(self, connection: Any, commission: Mapping[str, Any], landed_at: Any) -> bool:
         """Whether a landing came after its commission expired (the store's expiry clock: the job's
@@ -664,7 +768,8 @@ class MaterialView:
 
         from learnloop.db.stores import ad_serving
 
-        return ad_serving.landed_after_expiry(connection, commission, landed_at)
+        return ad_serving.landed_after_expiry(connection, commission, landed_at,
+                                              proposal_visible=self._proposal_rule(connection))
 
     def revision(self, connection: Any, content_hash: str | None) -> Any:
         """A saved revision (``practice_item_snapshots``) as an item, or None when it is missing or
@@ -1041,20 +1146,6 @@ class MaterialView:
                 return self.withheld(item_id) or self.covers(item)
         return False
 
-    def visible_loadings(self, connection: Any, content_hash: Any,
-                         loadings: Mapping[str, Any] | None) -> dict[str, float]:
-        """A revision's relatedness loadings as AD may use them (Codex verify F38, fix round 11):
-        none when the revision is withheld (its support), and no loading onto a facet only withheld
-        material names. A facet merely absent from current content keeps its loading (as F30's
-        frozen dose does)."""
-
-        if not self.available or not loadings or self.revision_hash_withheld(connection, content_hash):
-            return {}
-        facets = self.protected_only_facets(connection)
-        canonical = getattr(self.vault, "canonical_facet_id", lambda value: value)
-        return {str(facet): float(score) for facet, score in loadings.items()
-                if canonical(str(facet)) not in facets}
-
     def forecast_receipts(self, connection: Any, *, kind: str) -> list[dict[str, Any]]:
         """Forecast receipts of visible items, revisions, attempts and presentations (Codex verify
         F24: a calibration fit and a forecaster's history never read a withheld item's forecast,
@@ -1267,10 +1358,11 @@ class MaterialView:
 
     def reading_opportunities(self, connection: Any, *, learning_object_ids: Sequence[str] | None = None
                               ) -> list[dict[str, Any]]:
-        """``ad_reading_opportunities`` receipts revalidated now (Codex verify F20): a receipt whose
-        source is withheld is invisible, and its doses drop only facets that withheld material alone
-        names (:meth:`protected_only_facets`). A frozen dose on a facet merely absent from current
-        content stands (Codex verify F30). Oldest source first."""
+        """``ad_reading_opportunities`` receipts of the current epoch, revalidated now (Codex verify
+        F20): a receipt whose source is withheld is invisible. Its doses were mapped under this very
+        projection (round 2: a receipt of another epoch is swept again), so they stand as recorded; a
+        frozen dose on a facet merely absent from current content stands (Codex verify F30). Oldest
+        source first."""
 
         from learnloop.db.stores import ad_receipts
 

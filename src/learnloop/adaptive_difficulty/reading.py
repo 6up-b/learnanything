@@ -252,10 +252,12 @@ def _in_window(stamp: str | None, lower: str | None, upper: str) -> bool:
 
 def _recorded(connection: Any, kind: str, subkind: str, table: str, source_id: str, *, view: Any) -> bool:
     """An earlier sweep recorded this source row: it is not mapped again (a serve's sweep re-reads its
-    overlap window, never re-resolves it). A receipt AD may not read counts as recorded."""
+    overlap window, never re-resolves it). A receipt AD may not read counts as recorded; one of another
+    protection epoch does not: the source is mapped again under the current projection (round 2,
+    class 3b)."""
 
     return view.lookup(connection, store.READING, "kind = ? AND subkind = ? AND source_table = ? AND source_id = ?",
-                       (kind, subkind, table, source_id))[0] != "missing"
+                       (kind, subkind, table, source_id), stale_as_missing=True)[0] != "missing"
 
 
 def _section_events(connection: Any, reading_map: ReadingMap, lower: str | None, upper: str,
@@ -357,7 +359,7 @@ def _tutor_events(connection: Any, reading_map: ReadingMap, lower: str | None, u
         answer_mode = row.get("answer_mode")
         available_at = row.get("answered_at") or row.get("created_at")
         if view.lookup(connection, store.READING, "kind = 'reader_tutor_exchange' AND source_table = "
-                       "'question_events' AND source_id = ?", (str(row_id),))[0] != "missing":
+                       "'question_events' AND source_id = ?", (str(row_id),), stale_as_missing=True)[0] != "missing":
             continue
         stamp = _stamp(available_at)
         if not _in_window(stamp, None, upper):
@@ -595,13 +597,14 @@ def sweep(vault: Any, repository: Any, *, as_of: str, sweep_kind: str = "serve",
             for lo_id in event.learning_object_ids:
                 if material.lookup(connection, store.READING, "kind = ? AND subkind = ? AND source_table = ? AND "
                                    "source_id = ? AND learning_object_id = ?",
-                                   (event.kind, event.subkind, event.source_table, event.source_id, lo_id)
-                                   )[0] != "missing":
+                                   (event.kind, event.subkind, event.source_table, event.source_id, lo_id),
+                                   stale_as_missing=True)[0] != "missing":
                     continue
                 key = _keys(connection, event, lo_id, occupied)
                 if key is None:
                     continue
                 written = store.insert_reading_opportunity(connection, {
+                    "protection_epoch": material.epoch,
                     "opportunity_key": key, "kind": event.kind, "subkind": event.subkind,
                     "source_table": event.source_table, "source_id": event.source_id,
                     "source_written_at": event.written_at, "learning_object_id": lo_id,

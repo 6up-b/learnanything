@@ -135,7 +135,7 @@ def commission_batch_id(selection_id: str) -> str:
 
 
 def open_commissions(connection: sqlite3.Connection, *, now: str | None = None,
-                     landed: Any = None) -> list[dict[str, Any]]:
+                     landed: Any = None, rows: Any = None, proposal_visible: Any = None) -> list[dict[str, Any]]:
     """Commission draws still open at ``now`` (default: the current UTC time). §6.1 allows at most
     one open per active cell, so an open commission suppresses further draws for its cell.
 
@@ -157,54 +157,60 @@ def open_commissions(connection: sqlite3.Connection, *, now: str | None = None,
 
     ``landed``: the selection ids whose landing AD may see (adaptive difficulty's material view
     passes those of its visible results, so a landing of a withheld item closes nothing: fix round
-    9, A8 "protected == absent"); None counts every result."""
+    9, A8 "protected == absent"); None counts every result. ``rows``: the commissions (in draw
+    order, with a chosen point) to judge, and to take supersession from; None reads every one.
+    ``proposal_visible``: which proposals the expiry clock may count (the view's rule; None counts
+    every one)."""
 
     if not has_table(connection, SELECTIONS):
         return []
-    rows = [_decode_selection(row) for row in _select(
-        connection, f"SELECT s.* FROM {SELECTIONS} s WHERE s.kind = 'commission' AND "
-                    "s.chosen_point_json IS NOT NULL ORDER BY s.created_at, s.id")]
+    every = rows is None
+    if every:
+        rows = [_decode_selection(row) for row in _select(
+            connection, f"SELECT s.* FROM {SELECTIONS} s WHERE s.kind = 'commission' AND "
+                        "s.chosen_point_json IS NOT NULL ORDER BY s.created_at, rowid")]
+    commissions = list(rows)
     results = {str(row[0]) for row in connection.execute(f"SELECT selection_id FROM {COMMISSION_RESULTS}")} \
         if landed is None else {str(value) for value in landed}
-    rows = [row for row in rows if str(row["id"]) not in results]
-    if not rows:
+    unlanded = [row for row in commissions if str(row["id"]) not in results]
+    if not unlanded:
         return []
     # The latest commission of each cell in the total draw order ``(created_at, rowid)``, the
-    # order landing ownership reads too (Codex verify F16).
+    # order landing ownership reads too (Codex verify F16), over the commissions judged.
     latest: dict[tuple[Any, Any], str] = {}
-    for selection_id, facet, capability in connection.execute(
-            f"SELECT id, cell_facet, cell_capability FROM {SELECTIONS} "
-            "WHERE kind = 'commission' AND chosen_point_json IS NOT NULL ORDER BY created_at, rowid"):
-        latest[(facet, capability)] = str(selection_id)
+    for row in commissions:
+        latest[(row.get("cell_facet"), row.get("cell_capability"))] = str(row["id"])
     if now is None:
         from learnloop.clock import utc_now_iso
 
         now = utc_now_iso()
     current = _instant(now)
     out = []
-    for row in rows:
+    for row in unlanded:
         if latest.get((row.get("cell_facet"), row.get("cell_capability"))) != str(row["id"]):
             continue  # superseded
-        expires = commission_expires_at(connection, row)
+        expires = commission_expires_at(connection, row, proposal_visible=proposal_visible)
         if expires is not None and current is not None and current >= expires:
             continue  # expired
         out.append(row)
     return out
 
 
-def commission_expires_at(connection: sqlite3.Connection, row: Mapping[str, Any]) -> Any:
+def commission_expires_at(connection: sqlite3.Connection, row: Mapping[str, Any], *,
+                          proposal_visible: Any = None) -> Any:
     """When an unlanded commission expires (an aware ``datetime``), or None while it cannot."""
 
     from datetime import timedelta
 
-    since = _expiry_clock(connection, row)
+    since = _expiry_clock(connection, row, proposal_visible=proposal_visible)
     return None if since is None else since + timedelta(days=COMMISSION_EXPIRY_DAYS)
 
 
-def landed_after_expiry(connection: sqlite3.Connection, row: Mapping[str, Any], landed_at: Any) -> bool:
+def landed_after_expiry(connection: sqlite3.Connection, row: Mapping[str, Any], landed_at: Any, *,
+                        proposal_visible: Any = None) -> bool:
     """Whether an item that landed at ``landed_at`` landed after its commission had expired."""
 
-    expires, landed = commission_expires_at(connection, row), _instant(landed_at)
+    expires, landed = commission_expires_at(connection, row, proposal_visible=proposal_visible), _instant(landed_at)
     return expires is not None and landed is not None and landed >= expires
 
 
@@ -226,18 +232,21 @@ def _instant(value: Any) -> Any:
     return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
 
 
-def _expiry_clock(connection: sqlite3.Connection, row: Mapping[str, Any]) -> Any:
-    """When an unlanded commission's expiry clock started, or None while it cannot expire."""
+def _expiry_clock(connection: sqlite3.Connection, row: Mapping[str, Any], *, proposal_visible: Any = None) -> Any:
+    """When an unlanded commission's expiry clock started, or None while it cannot expire.
+    ``proposal_visible``: which proposals may count (filtered before any decision is taken)."""
 
     created = str(row.get("created_at") or "")
     learning_object_id = row.get("learning_object_id")
     decided = None
     if learning_object_id and has_table(connection, "proposed_patch_items"):
-        proposals = connection.execute(
-            "SELECT decision, validation_status, decided_at FROM proposed_patch_items "
+        found = _select(
+            connection, "SELECT * FROM proposed_patch_items "
             "WHERE item_type = 'practice_item' AND operation = 'create' AND created_at >= ? AND "
             "json_extract(COALESCE(edited_payload_json, payload_json), '$.learning_object_id') = ?",
-            (created, str(learning_object_id))).fetchall()
+            (created, str(learning_object_id)))
+        proposals = [(found_row["decision"], found_row["validation_status"], found_row["decided_at"])
+                     for found_row in found if proposal_visible is None or proposal_visible(found_row)]
         if any(decision == "pending" and validation != "invalid" for decision, validation, _at in proposals):
             return None  # its item is in review
         decided = max((_instant(at) for _d, _v, at in proposals if at and _instant(at) is not None), default=None)

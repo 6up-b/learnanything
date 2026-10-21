@@ -140,18 +140,13 @@ def run_in_force(run: Mapping[str, Any], epoch: str | None) -> bool:
     return epoch is not None and isinstance(units, Mapping) and units.get(EPOCH_UNIT) == epoch
 
 
-def stale_judgments(connection: Any, vault: Any, *, view: Any) -> set[str]:
-    """The judgments of every run out of force at the view's epoch: what a frozen loading naming any
-    of them may not be used for (the replay, the serve's frozen loadings)."""
+def live_judgments(connection: Any, *, view: Any) -> set[str]:
+    """The judgments of the runs in force (the view reads only runs of its epoch): a frozen loading
+    may name these and no other (the replay, the serve's frozen loadings)."""
 
-    from learnloop.adaptive_difficulty.operation import epoch_of
-
-    epoch = epoch_of(view.protection)
-    out: set[str] = set()
-    for run in view.stored(connection, serving_store.RELATEDNESS_RUNS, serving_store.relatedness_runs):
-        if not run_in_force(run, epoch):
-            out.update(str(judgment) for judgment in run["judgment_ids"] or ())
-    return out
+    return {str(judgment) for run in view.stored(connection, serving_store.RELATEDNESS_RUNS,
+                                                 serving_store.relatedness_runs)
+            if run.get("status") == "ok" for judgment in run["judgment_ids"] or ()}
 
 
 def lo_facets(view: Any, lo: Any) -> list[str]:
@@ -229,7 +224,7 @@ def subject_inputs(vault: Any, repository: Any, subject: str, *, protected: Any 
     # The protection epoch (E2): recorded on every run, never quoted to the model.
     from learnloop.adaptive_difficulty.operation import epoch_of
 
-    unit_hashes[EPOCH_UNIT] = str(epoch_of(view.protection))
+    unit_hashes[EPOCH_UNIT] = str(epoch_of(view))
     return {"payload": payload, "revisions": revisions,
             "input_hash": hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest(),
             "item_ids": [row["item_id"] for row in items], "unit_hashes": unit_hashes}
@@ -790,7 +785,7 @@ def load_structure(connection: Any, vault: Any, *, view: Any, coupled: bool = Tr
         return VaultStructure(facet_los=facet_to_los, lo_facets=lo_to_facets)
     from learnloop.adaptive_difficulty.operation import epoch_of
 
-    current = epoch_of(view.protection)
+    current = epoch_of(view)
     judgments = {str(row["id"]): (row["id"], row["left_kind"], row["left_id"], row["right_kind"], row["right_id"],
                                   row["score"]) for row in view.rows(connection, "judgment_ledger", "task = ?", (TASK,))}
     couplings: dict[str, list[_UnitProposal]] = {}
@@ -823,14 +818,9 @@ def load_structure(connection: Any, vault: Any, *, view: Any, coupled: bool = Tr
                 unit = f"lo:{left_id}" if left_kind == "learning_object" else f"rev:{left_id}"
                 per_unit.setdefault(unit, {})[str(right_id)] = float(score or 0.0)
             for unit, values in per_unit.items():
+                # A run in force was proposed under this very projection (its epoch), so what it
+                # loaded is visible now as it was then: no loading is filtered (round 2, class 3).
                 kind, ident = unit.split(":", 1)
-                if kind != "lo":
-                    # A saved loading is revalidated now (Codex verify F38, fix round 11): a withheld
-                    # revision (its support) has no unit at all, and no loading lands on a facet only
-                    # withheld material names. The judgment ledger itself is never changed.
-                    if view.revision_hash_withheld(connection, ident):
-                        continue
-                    values = view.visible_loadings(connection, ident, values)
                 target = couplings if kind == "lo" else loadings
                 target.setdefault(ident, []).append(_UnitProposal(at, values))
     return VaultStructure(facet_los=facet_to_los, lo_facets=lo_to_facets, couplings=couplings, loadings=loadings,
@@ -857,7 +847,7 @@ __all__ = [
     "prompt",
     "propose_subject",
     "run_in_force",
-    "stale_judgments",
+    "live_judgments",
     "shadow_report",
     "subject_inputs",
     "subjects",

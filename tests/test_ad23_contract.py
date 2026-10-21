@@ -49,7 +49,7 @@ from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
 
-from tests.ad23_fakes import COUPLED, LO, ProposalLLM, ad23_vault, set_item
+from tests.ad23_fakes import COUPLED, LO, SEEDED, ProposalLLM, ad23_vault, restamp, set_item
 from tests.daily_plan_fakes import MovableClock, make_env, scheduled
 from tests.helpers import write_yaml
 
@@ -206,7 +206,7 @@ def _base(tmp_path, *, coupled: bool = True) -> Any:
     _attempt(paths, LOADED, at=T0 - timedelta(days=1, hours=12), latency=90, correct=False,
              presentation_id="pp_load_r11")
     with closing(connect(paths.sqlite_path)) as connection:
-        ad_receipts.insert_reading_opportunity(connection, {
+        ad_receipts.insert_reading_opportunity(connection, {"protection_epoch": SEEDED,
             "opportunity_key": f"worked_example:{EXT}/public_span:{LO}", "kind": "worked_example",
             "subkind": "in_completed_section", "source_table": "reader_section_progress",
             "source_id": f"{EXT}/public_span", "source_written_at": _iso(T0 - timedelta(days=1)),
@@ -215,7 +215,7 @@ def _base(tmp_path, *, coupled: bool = True) -> Any:
             "swept_at": _iso(T0 - timedelta(days=1))})
         point = {"complexity": 1, "transfer": "same_context", "scaffolding": "cue", "span": "single_step",
                  "response": "short_constructed"}
-        ad_serving.insert_selection(connection, {
+        ad_serving.insert_selection(connection, {"protection_epoch": SEEDED,
             "id": BASE_COMMISSION, "decision_key": "commission:recall:retrieval:r9", "kind": "commission",
             "view": "subject", "learning_object_id": LO, "cell_facet": "recall", "cell_capability": "retrieval",
             "mode": "band", "support": [], "excluded": [], "constants": {}, "seed": "s", "u": 0.5,
@@ -284,14 +284,14 @@ def _base_r12(paths) -> None:
     point = {"complexity": 1, "transfer": "same_context", "scaffolding": "cue", "span": "single_step",
              "response": "short_constructed"}
     with closing(connect(paths.sqlite_path)) as connection:
-        ad_serving.insert_dose_row(connection, {
+        ad_serving.insert_dose_row(connection, {"protection_epoch": SEEDED,
             "id": PUBLIC_DRAW, "row_kind": "draw", "draw_key": f"visit_pub:{EXT}:sec2", "visit_id": "visit_pub",
             "extraction_id": EXT, "section_id": "sec2", "learning_object_ids": [LO],
             "feasible": ["none", "extra_worked_example"], "infeasible": {}, "base_version": "b", "floor": 0.1,
             "propensities": {"none": 0.9, "extra_worked_example": 0.1}, "seed": "s", "u": 0.95,
             "chosen_variant": "extra_worked_example", "content": {"extraction_id": EXT, "span_id": "sec3_span"},
             "forecast_p": None, "detail": {}, "created_at": _iso(T0 - timedelta(hours=4))})
-        ad_serving.insert_selection(connection, {
+        ad_serving.insert_selection(connection, {"protection_epoch": SEEDED,
             "id": SERVE_COMMISSION, "decision_key": f"commission:serve:{LO}:r12", "kind": "commission",
             "view": "subject", "learning_object_id": LO, "cell_facet": "recall", "cell_capability": "retrieval",
             "mode": "band", "support": [], "excluded": [], "constants": {}, "seed": "s", "u": 0.5,
@@ -300,7 +300,7 @@ def _base_r12(paths) -> None:
             "created_at": _iso(T0 - timedelta(hours=6))})
         # Fix round 13's expiry boundary: a public commission drawn outside any job expires seven days
         # after its draw, here two and a half hours into the run (inside the advancing clock's span).
-        ad_serving.insert_selection(connection, {
+        ad_serving.insert_selection(connection, {"protection_epoch": SEEDED,
             "id": EXPIRING_COMMISSION, "decision_key": "commission:apply_pub:retrieval:r13", "kind": "commission",
             "view": "subject", "learning_object_id": LO, "cell_facet": "apply_pub", "cell_capability": "retrieval",
             "mode": "band", "support": [], "excluded": [], "constants": {}, "seed": "s", "u": 0.5,
@@ -343,7 +343,7 @@ def _epoch(paths, *, held: bool = True) -> str:
         _hold_out(patch)
         if not held:
             patch.setattr(exam_material, "held_out_material", lambda *_a, **_k: exam_material.Material())
-        return str(epoch_of(detached_view(load_vault(paths.root), Repository(paths.sqlite_path)).protection))
+        return str(epoch_of(detached_view(load_vault(paths.root), Repository(paths.sqlite_path))))
 
 
 def _per_copy(paths, *, protected: bool) -> str:
@@ -365,19 +365,36 @@ def _per_copy(paths, *, protected: bool) -> str:
     from learnloop.db.stores import ad_serving
     from learnloop.db.stores.judgments import append_judgment
 
+    if protected:
+        # The held-out source's canonical note first (F40): it is part of what the copy withholds, so
+        # of the epoch the rows below record.
+        with closing(connect(paths.sqlite_path)) as connection:
+            connection.execute("UPDATE source_revisions SET note_id = 'note_r12' WHERE id = 'rev_r9'")
+            connection.commit()
+        from learnloop.vault.yaml_io import write_markdown_with_frontmatter
+
+        write_markdown_with_frontmatter(paths.note_path("linear-algebra", "note_r12"), {
+            "schema_version": 1, "id": "note_r12", "subjects": ["linear-algebra"], "related_los": [LO],
+            "related_concepts": [], "source_type": "canonical_source",
+            "canonical_source": {"kind": "pdf", "canonical_uri": "file:///r9.pdf", "title": "The exam source"},
+            "created_at": "2026-10-01T09:00:00Z", "updated_at": "2026-10-01T09:00:00Z"},
+            "SENTINEL_NOTE_AX9: the held-out exam source's own text.")
     epoch = _epoch(paths)
     vault = load_vault(paths.root)
     loaded_hash, loaded_json = item_revision(vault.practice_items[LOADED])
     p1_hash = item_revision(vault.practice_items["pi_p1"])[0]
-    frozen = {"apply_pub": 0.4, **({"SENTINEL_FACET_AX9": 0.3} if protected else {})}
+    # AD's frozen loadings at the copy's own epoch (round 2: a frozen row is read only at the epoch it was
+    # frozen under, so it can name no facet only withheld material names).
+    frozen = {"apply_pub": 0.4}
     with closing(connect(paths.sqlite_path)) as connection:
         connection.execute("INSERT OR IGNORE INTO practice_item_snapshots(content_hash, practice_item_id, item_json, "
                            "created_at) VALUES (?, ?, ?, ?)", (loaded_hash, LOADED, loaded_json, _iso(T0 - timedelta(days=2))))
         connection.execute(
             "INSERT INTO item_serve_inputs(id, receipt_key, presentation_kind, plan_presentation_id, practice_item_id, "
             "learning_object_id, content_hash, served_at, audit_json, signals_json, pre_exposed, resolution_version, "
-            "loadings_json, coupling_version, created_at) VALUES ('isi_load_r11', 'plan_presentation:pp_load_r11', "
-            "'plan_presentation', 'pp_load_r11', ?, ?, ?, ?, '{}', '{}', 0, 'r11', ?, ?, ?)",
+            "loadings_json, coupling_version, created_at, protection_epoch) VALUES ('isi_load_r11', "
+            "'plan_presentation:pp_load_r11', 'plan_presentation', 'pp_load_r11', ?, ?, ?, ?, '{}', '{}', 0, 'r11', ?, "
+            f"?, ?, '{SEEDED}')",
             (LOADED, LO, loaded_hash, _iso(T0 - timedelta(days=1, hours=12, minutes=5)),
              json.dumps({"loadings": frozen}), f"{SUBJECT}:v1:r11", _iso(T0 - timedelta(days=1, hours=12, minutes=5))))
         made = _iso(T0 - timedelta(days=2, hours=1))
@@ -415,18 +432,7 @@ def _per_copy(paths, *, protected: bool) -> str:
                 "units": {f"lo:{LO}": "h", f"rev:{p1_hash}": p1_hash, "protection:epoch": _epoch(paths, held=False)},
                 "judgment_ids": [judgment[0] for judgment in stale], "status": "ok", "prompt_version": "r11",
                 "judge_model": "fake", "created_at": later})
-            # The held-out source's canonical note: the source revision names it (F40).
-            connection.execute("UPDATE source_revisions SET note_id = 'note_r12' WHERE id = 'rev_r9'")
         connection.commit()
-    if protected:
-        from learnloop.vault.yaml_io import write_markdown_with_frontmatter
-
-        write_markdown_with_frontmatter(paths.note_path("linear-algebra", "note_r12"), {
-            "schema_version": 1, "id": "note_r12", "subjects": ["linear-algebra"], "related_los": [LO],
-            "related_concepts": [], "source_type": "canonical_source",
-            "canonical_source": {"kind": "pdf", "canonical_uri": "file:///r9.pdf", "title": "The exam source"},
-            "created_at": "2026-10-01T09:00:00Z", "updated_at": "2026-10-01T09:00:00Z"},
-            "SENTINEL_NOTE_AX9: the held-out exam source's own text.")
     return epoch
 
 
@@ -471,8 +477,8 @@ def _protect(paths) -> dict[str, Any]:
         connection.execute(
             "INSERT INTO item_serve_inputs(id, receipt_key, presentation_kind, plan_presentation_id, practice_item_id, "
             "learning_object_id, content_hash, served_at, audit_json, signals_json, pre_exposed, resolution_version, "
-            "created_at) VALUES ('isi_hist_r9', 'plan_presentation:pp_hist_r9', 'plan_presentation', 'pp_hist_r9', "
-            "'pi_hist', ?, ?, ?, '{}', '{}', 0, 'r9', ?)",
+            "created_at, protection_epoch) VALUES ('isi_hist_r9', 'plan_presentation:pp_hist_r9', 'plan_presentation', "
+            f"'pp_hist_r9', 'pi_hist', ?, ?, ?, '{{}}', '{{}}', 0, 'r9', ?, '{SEEDED}')",
             (LO, content_hash, _iso(T0 - timedelta(hours=1)), _iso(T0 - timedelta(hours=1))))
         connection.commit()
     # Wrong, so the incumbent's evidence on the LO reaches three with a low ability: the legacy rung
@@ -512,12 +518,12 @@ def _protect(paths) -> dict[str, Any]:
                 (f"ev_served_r9_{k}", 2 * k + 1, json.dumps({"practice_item_id": "pi_shared"}),
                  _iso(done + timedelta(minutes=5))))
         secret = load_vault(paths.root).practice_items["pi_secret"]
-        ad_serving.insert_commission_result(connection, {
+        ad_serving.insert_commission_result(connection, {"protection_epoch": SEEDED,
             "selection_id": BASE_COMMISSION, "practice_item_id": "pi_secret",
             "content_hash": item_revision(secret)[0], "features": {"complexity": 1}, "p_bar": 0.99,
             "status": "realized_out_of_band", "state_hash": "h", "features_match": 1, "landed_after_expiry": 0,
             "created_at": _iso(T0 - timedelta(minutes=35))})
-        ad_receipts.insert_reading_opportunity(connection, {
+        ad_receipts.insert_reading_opportunity(connection, {"protection_epoch": SEEDED,
             "opportunity_key": f"worked_example:{EXT}/h5:{LO}", "kind": "worked_example",
             "subkind": "in_completed_section", "source_table": "reader_section_progress",
             "source_id": f"{EXT}/h5", "source_written_at": _iso(T0 - timedelta(minutes=20)),
@@ -579,8 +585,8 @@ def _protect_r11(paths, *, hist_attempt: str) -> None:
         connection.execute(
             "INSERT INTO item_serve_inputs(id, receipt_key, presentation_kind, plan_presentation_id, practice_item_id, "
             "learning_object_id, content_hash, served_at, audit_json, signals_json, pre_exposed, resolution_version, "
-            "created_at) VALUES ('isi_p4_r11', 'plan_presentation:pp_p4_r11', 'plan_presentation', 'pp_p4_r11', ?, ?, "
-            "?, ?, '{}', '{}', 0, 'r11', ?)",
+            "created_at, protection_epoch) VALUES ('isi_p4_r11', 'plan_presentation:pp_p4_r11', 'plan_presentation', "
+            f"'pp_p4_r11', ?, ?, ?, ?, '{{}}', '{{}}', 0, 'r11', ?, '{SEEDED}')",
             (P4, LO, content_hash, _iso(answered_at - timedelta(minutes=5)), _iso(answered_at - timedelta(minutes=5))))
         connection.commit()
     p4_attempt = _attempt(paths, P4, at=answered_at, latency=300, correct=False, presentation_id="pp_p4_r11")
@@ -598,20 +604,20 @@ def _protect_r11(paths, *, hist_attempt: str) -> None:
         base = {"view": "subject", "learning_object_id": LO, "cell_capability": "retrieval", "support": [],
                 "excluded": [], "constants": {}, "seed": "s", "u": 0.5, "propensity": 1.0, "empty_support": False,
                 "state_hash": "h", "versions": {}, "algorithm_version": "mvp-0.28"}
-        ad_serving.insert_selection(connection, {
+        ad_serving.insert_selection(connection, {"protection_epoch": SEEDED,
             **base, "id": "sel_secret_r11", "decision_key": "serve:r11:secret", "kind": "serve", "cell_facet": "recall",
             "mode": "band", "block_id": block_id, "slot_position": 1, "slot_item_id": "pi_secret",
             "support": [{"ref": "pi_secret", "p_bar": 0.75, "p_band": 0.6, "info": 0.1, "propensity": 1.0}],
             "chosen_item_id": "pi_secret", "chosen_point": None, "created_at": _iso(T0 - timedelta(hours=1))})
         # F39 (fix round 12): an empty-support draw of a slot planned with the held-out item.
-        ad_serving.insert_selection(connection, {
+        ad_serving.insert_selection(connection, {"protection_epoch": SEEDED,
             **base, "id": "sel_empty_r12", "decision_key": "serve:r12:empty", "kind": "serve", "cell_facet": None,
             "cell_capability": None, "mode": "empty_support", "block_id": block_id, "slot_position": 2,
             "slot_item_id": "pi_secret", "chosen_item_id": None, "chosen_point": None, "u": None, "propensity": None,
             "empty_support": True, "created_at": _iso(T0 - timedelta(minutes=55))})
         point = {"complexity": 1, "transfer": "same_context", "scaffolding": "cue", "span": "single_step",
                  "response": "short_constructed"}
-        ad_serving.insert_selection(connection, {
+        ad_serving.insert_selection(connection, {"protection_epoch": SEEDED,
             **base, "id": "sel_facet_r11", "decision_key": "commission:SENTINEL_FACET_AX9:retrieval:r11",
             "kind": "commission", "cell_facet": "SENTINEL_FACET_AX9", "mode": "band", "chosen_item_id": None,
             "chosen_point": point, "created_at": _iso(T0 - timedelta(hours=2))})
@@ -644,14 +650,14 @@ def _protect_r14(paths) -> None:
             "source_context_json, created_at, answered_at) VALUES ('qe_context_r14', 'reader', ?, "
             "'Why does this hold?', 'Because.', 'answered', 'help_me_reason', ?, ?, ?)",
             (f"span:{EXT}/public_anchor", json.dumps(context), at, at))
-        draw = ad_serving.insert_dose_row(connection, {
+        draw = ad_serving.insert_dose_row(connection, {"protection_epoch": SEEDED,
             "id": "dose_origin_r14", "row_kind": "draw", "draw_key": f"visit_origin:{EXT}:sec5", "visit_id": "visit_origin",
             "extraction_id": EXT, "section_id": "sec5", "learning_object_ids": [LO],
             "feasible": ["none", "extra_worked_example"], "infeasible": {}, "base_version": "b", "floor": 0.1,
             "propensities": {"none": 0.9, "extra_worked_example": 0.1}, "seed": "s", "u": 0.95,
             "chosen_variant": "extra_worked_example", "content": {"extraction_id": EXT, "span_id": "sec3_span"},
             "forecast_p": None, "detail": {}, "created_at": at})
-        ad_serving.insert_dose_row(connection, {"row_kind": "delivered", "draw_id": draw, "created_at": at})
+        ad_serving.insert_dose_row(connection, {"protection_epoch": SEEDED, "row_kind": "delivered", "draw_id": draw, "created_at": at})
         connection.commit()
 
 
@@ -680,7 +686,7 @@ def _protect_r13(paths) -> None:
                  "passage_viewed", day),
                 (f"worked_example:{EXT}/h2:{LO}", "reader_section_progress", f"{EXT}/h2", "worked_example",
                  "in_completed_section", _iso(T0 - timedelta(days=1)))):
-            ad_receipts.insert_reading_opportunity(connection, {
+            ad_receipts.insert_reading_opportunity(connection, {"protection_epoch": SEEDED,
                 "opportunity_key": key, "kind": kind, "subkind": subkind, "source_table": source_table,
                 "source_id": source_id, "source_written_at": written, "learning_object_id": LO,
                 "facet_doses": {"recall": 1.0}, "dose_offer_id": None, "mapping_version": "ad_reading_map_v1",
@@ -705,14 +711,14 @@ def _protected_offers(paths, question_id: str) -> None:
     with closing(connect(paths.sqlite_path)) as connection:
         for k in range(3):
             at = _iso(T0 - timedelta(days=3 - k, minutes=-5))
-            draw = ad_serving.insert_dose_row(connection, {
+            draw = ad_serving.insert_dose_row(connection, {"protection_epoch": SEEDED,
                 "id": f"{DOSE_DRAW_ID}_{k}", "row_kind": "draw", "draw_key": f"visit_r9_{k}:{EXT}:sec{k + 2}",
                 "visit_id": f"visit_r9_{k}", "extraction_id": EXT, "section_id": f"sec{k + 2}",
                 "learning_object_ids": [LO], "feasible": ["none", "extra_question"], "infeasible": {}, "base_version": "b",
                 "floor": 0.1, "propensities": {"none": 0.9, "extra_question": 0.1}, "seed": "s", "u": 0.95,
                 "chosen_variant": "extra_question", "content": {"question_id": question_id, "style": "recall"},
                 "forecast_p": None, "detail": {}, "created_at": at})
-            ad_serving.insert_dose_row(connection, {"row_kind": "delivered", "draw_id": draw, "created_at": at})
+            ad_serving.insert_dose_row(connection, {"protection_epoch": SEEDED, "row_kind": "delivered", "draw_id": draw, "created_at": at})
         connection.commit()
 
 
@@ -912,6 +918,8 @@ def _disclosed(paths, table: str, row: tuple) -> tuple:
         if isinstance(content, dict) and "protection_epoch" in content:
             content["protection_epoch"] = f"current={content['protection_epoch'] == epoch}"
             values["content_json"] = json.dumps(content, sort_keys=True)
+            # The payload's content hash covers the epoch, so it is named, as the epoch is.
+            values["content_hash"] = "<the hash of the epoch-stamped content>"
     if table == "ad_relatedness_runs":
         units = json.loads(values["units_json"])
         if "protection:epoch" in units:
@@ -1295,6 +1303,9 @@ def make_copies(tmp_path, *, coupled: bool):
     _protected_offers(protected_paths, seeded["question"])
     _per_copy(absent_paths, protected=False)
     _per_copy(protected_paths, protected=True)
+    # AD's own seeded rows were written under each copy's protection as it stands now (round 2).
+    for paths in (protected_paths, absent_paths):
+        restamp(paths, _epoch(paths))
     return protected_paths, absent_paths
 
 
@@ -1453,13 +1464,14 @@ def test_with_no_protection_a_frozen_dose_on_an_absent_facet_stands(tmp_path):
     paths = ad23_vault(tmp_path, items=("pi_keep", "pi_gone"), config="[router]\nenabled = false\n")
     set_item(paths, "pi_gone", evidence_facets=["f_only_gone"], evidence_weights={"f_only_gone": 1.0})
     with closing(connect(paths.sqlite_path)) as connection:
-        ad_receipts.insert_reading_opportunity(connection, {
+        ad_receipts.insert_reading_opportunity(connection, {"protection_epoch": SEEDED,
             "opportunity_key": f"worked_example:{EXT}/w1:{LO}", "kind": "worked_example",
             "subkind": "in_completed_section", "source_table": "reader_section_progress",
             "source_id": f"{EXT}/w1", "source_written_at": "2026-10-01T09:00:00Z", "learning_object_id": LO,
             "facet_doses": {"f_only_gone": 1.0}, "dose_offer_id": None, "mapping_version": "ad_reading_map_v1",
             "sweep": "backfill", "sweep_ref": None, "swept_at": "2026-10-01T09:00:00Z"})
         connection.commit()
+    restamp(paths)  # recorded under the vault's protection as it stands (nothing is protected)
     paths.practice_item_path("linear-algebra", "pi_gone").unlink()
     RP.clear_cache()
     with closing(connect(paths.sqlite_path, read_only=True)) as connection:
@@ -1589,7 +1601,7 @@ def test_a_late_uptake_callback_writes_nothing_when_ad_cannot_record_it(tmp_path
     paths, vault, repo = _arm(tmp_path)
     _question(repo, "recall", 1, answer=False)
     with closing(connect(paths.sqlite_path)) as connection:
-        draw = ad_serving.insert_dose_row(connection, {
+        draw = ad_serving.insert_dose_row(connection, {"protection_epoch": SEEDED,
             "row_kind": "draw", "draw_key": "visit_r10:ext1:u1", "visit_id": "visit_r10", "extraction_id": "ext1",
             "section_id": "u1", "learning_object_ids": ["lo_svd_definition"], "feasible": ["none", "extra_worked_example"],
             "infeasible": {}, "base_version": "b", "floor": 0.1,
@@ -1622,7 +1634,7 @@ def test_the_sidecar_uptake_callback_answers_a_no_op_with_ad_off(tmp_path):
 
     paths, _vault, _repo = _arm(tmp_path)
     with closing(connect(paths.sqlite_path)) as connection:
-        draws = [ad_serving.insert_dose_row(connection, {
+        draws = [ad_serving.insert_dose_row(connection, {"protection_epoch": SEEDED,
             "row_kind": "draw", "draw_key": f"visit_s{k}:ext1:u1", "visit_id": f"visit_s{k}", "extraction_id": "ext1",
             "section_id": "u1", "learning_object_ids": ["lo_svd_definition"], "feasible": ["none", "extra_worked_example"],
             "infeasible": {}, "base_version": "b", "floor": 0.1,
@@ -1630,6 +1642,7 @@ def test_the_sidecar_uptake_callback_answers_a_no_op_with_ad_off(tmp_path):
             "chosen_variant": "extra_worked_example", "content": {"extraction_id": "ext1", "span_id": "we2"},
             "forecast_p": None, "detail": {}, "created_at": "2026-10-12T09:00:00Z"}) for k in range(2)]
         connection.commit()
+    restamp(paths)
     spec = METHOD_REGISTRY["reader.dose_offer_event"]
     ctx = SidecarContext()
     ctx.load(paths.root)
@@ -1670,9 +1683,9 @@ def test_feedback_dwell_skips_a_serve_withheld_with_its_presentation(tmp_path, m
         connection.execute(
             "INSERT INTO item_serve_inputs(id, receipt_key, presentation_kind, plan_presentation_id, practice_item_id, "
             "learning_object_id, content_hash, served_at, audit_json, signals_json, pre_exposed, resolution_version, "
-            "created_at) VALUES ('isi_hist_old_r10', 'plan_presentation:pp_hist_old_r10', 'plan_presentation', "
-            "'pp_hist_old_r10', 'pi_hist', ?, ?, '2026-10-05T12:01:00Z', '{}', '{}', 0, 'r10', "
-            "'2026-10-05T12:01:00Z')", (LO, content_hash))
+            "created_at, protection_epoch) VALUES ('isi_hist_old_r10', 'plan_presentation:pp_hist_old_r10', "
+            "'plan_presentation', 'pp_hist_old_r10', 'pi_hist', ?, ?, '2026-10-05T12:01:00Z', '{}', '{}', 0, 'r10', "
+            "'2026-10-05T12:01:00Z', ?)", (LO, content_hash, SEEDED))
         events = (("item_done", {"practice_item_id": "pi_p1", "done_at": "2026-10-05T12:00:00Z"}, "12:00"),
                   ("item_served", {"practice_item_id": "pi_hist"}, "12:01"),
                   ("item_done", {"practice_item_id": "pi_hist", "done_at": "2026-10-05T12:03:00Z"}, "12:03"),
@@ -1716,14 +1729,14 @@ def test_withheld_dose_offers_neither_spend_the_budget_nor_count_as_taken(tmp_pa
 
     paths, vault, repo = _arm(tmp_path)
     with closing(connect(paths.sqlite_path)) as connection:
-        draw = ad_serving.insert_dose_row(connection, {
+        draw = ad_serving.insert_dose_row(connection, {"protection_epoch": SEEDED,
             "row_kind": "draw", "draw_key": "visit_a:ext1:u1", "visit_id": "visit_a", "extraction_id": "ext1",
             "section_id": "u1", "learning_object_ids": ["lo_svd_definition"], "feasible": ["none", "extra_worked_example"],
             "infeasible": {}, "base_version": "b", "floor": 0.1,
             "propensities": {"none": 0.9, "extra_worked_example": 0.1}, "seed": "s", "u": 0.95,
             "chosen_variant": "extra_worked_example", "content": {"extraction_id": "ext1", "span_id": "we2"},
             "forecast_p": None, "detail": {}, "created_at": "2026-10-12T09:00:00Z"})
-        ad_serving.insert_dose_row(connection, {"row_kind": "taken", "draw_id": draw,
+        ad_serving.insert_dose_row(connection, {"protection_epoch": SEEDED, "row_kind": "taken", "draw_id": draw,
                                                 "created_at": "2026-10-12T09:01:00Z"})
         for event_id, kind, payload, at in (
                 ("ev_open_r10", "reader_view_opened", {"visit_id": "visit_w", "extraction_id": "ext_whole"},
@@ -1734,6 +1747,7 @@ def test_withheld_dose_offers_neither_spend_the_budget_nor_count_as_taken(tmp_pa
                 "INSERT INTO interaction_events(id, kind, origin, subject_type, subject_id, payload_json, created_at) "
                 "VALUES (?, ?, 'learner', 'reader', 'ext_whole', ?, ?)", (event_id, kind, json.dumps(payload), at))
         connection.commit()
+    restamp(paths)  # the offers were drawn with nothing held out
 
     def view_of(material):
         monkeypatch.setattr(exam_material, "held_out_material", lambda *_args, **_kwargs: material)
@@ -1831,7 +1845,8 @@ def test_a_saved_run_proposed_before_its_subject_was_protected_is_not_used(copie
     p1_hash = item_revision(vault.practice_items["pi_p1"])[0]
     with closing(connect(protected.sqlite_path, read_only=True)) as connection:
         structure = R.load_structure(connection, vault, view=view, coupled=True)
-        assert R.stale_judgments(connection, vault, view=view) == {"jdg_couple_r12", "jdg_stale_r12"}
+        live = R.live_judgments(connection, view=view)
+        assert "jdg_pub_r11" in live and not {"jdg_couple_r12", "jdg_stale_r12"} & live
     assert not structure.coupling(LO)
     assert structure.loadings(p1_hash, float("inf")) == {"apply_pub": 0.5}
 
@@ -1922,7 +1937,7 @@ def test_a_run_whose_quoted_revision_was_replaced_then_protected_is_not_used(cop
     vault = load_vault(absent.root)
     view = material_view(vault, Repository(absent.sqlite_path))
     with closing(connect(absent.sqlite_path, read_only=True)) as connection:
-        assert "jdg_pub_r11" in R.stale_judgments(connection, vault, view=view)
+        assert "jdg_pub_r11" not in R.live_judgments(connection, view=view)
         structure = R.load_structure(connection, vault, view=view, coupled=True)
     assert structure.loadings(item_revision(vault.practice_items["pi_p1"])[0], float("inf")) == {}
 
@@ -1981,7 +1996,7 @@ def test_a_tutor_exchange_on_a_protected_canonical_note_enters_no_prediction(cop
     sweep(vault, repository, as_of=_iso(RUN), sweep_kind="backfill", view=view)
     with closing(connect(protected.sqlite_path)) as connection:
         assert connection.execute("SELECT 1 FROM ad_reading_opportunities WHERE source_id = 'qe_note_r13'").fetchone() is None
-        ad_receipts.insert_reading_opportunity(connection, {
+        ad_receipts.insert_reading_opportunity(connection, {"protection_epoch": SEEDED,
             "opportunity_key": f"reader_tutor_exchange:{LO}:2026-10-12:qe_note_r13", "kind": "reader_tutor_exchange",
             "subkind": "help_me_reason", "source_table": "question_events", "source_id": "qe_note_r13",
             "source_written_at": _iso(T0 - timedelta(hours=6)), "learning_object_id": LO, "facet_doses": {"recall": 1.0},
@@ -2031,7 +2046,7 @@ def test_a_tutor_exchange_whose_recorded_context_quotes_a_protected_span_enters_
     with closing(connect(protected.sqlite_path)) as connection:
         assert view.question_event_withheld(connection, "qe_context_r14")
         assert connection.execute("SELECT 1 FROM ad_reading_opportunities WHERE source_id = 'qe_context_r14'").fetchone() is None
-        ad_receipts.insert_reading_opportunity(connection, {
+        ad_receipts.insert_reading_opportunity(connection, {"protection_epoch": SEEDED,
             "opportunity_key": f"reader_tutor_exchange:{LO}:2026-10-12:qe_context_r14", "kind": "reader_tutor_exchange",
             "subkind": "help_me_reason", "source_table": "question_events", "source_id": "qe_context_r14",
             "source_written_at": _iso(T0 - timedelta(hours=2)), "learning_object_id": LO, "facet_doses": {"recall": 1.0},

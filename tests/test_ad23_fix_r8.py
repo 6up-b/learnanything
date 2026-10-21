@@ -40,7 +40,7 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores import ad_receipts
 from learnloop.vault.loader import load_vault
 
-from tests.ad23_fakes import LO, ad23_vault, answer, env_for, rows, selections, set_item
+from tests.ad23_fakes import LO, SEEDED, ad23_vault, ad_epoch, answer, env_for, restamp, rows, selections, set_item
 from tests.daily_plan_fakes import iso
 
 ROUTER_OFF = "[router]\nenabled = false\n"
@@ -187,24 +187,34 @@ def test_an_attempt_on_held_out_material_warms_nothing_and_is_invisible_to_the_r
 
 
 def test_a_reading_receipt_whose_source_is_held_out_now_is_not_replayed(tmp_path, monkeypatch):
-    """F20: receipts are revalidated against the current predicate before the replay reads them."""
+    """F20: receipts are revalidated against the current predicate before the replay reads them. Since
+    the AD23 redesign's round 2 a receipt is read only at the protection epoch it was recorded under,
+    so holding a span out first takes every earlier receipt out of force (E2: it is swept again);
+    a receipt of the current epoch whose source is withheld is still not replayed."""
 
     paths = ad23_vault(tmp_path, items=("pi_open",), config=ROUTER_OFF)
-    with closing(connect(paths.sqlite_path)) as connection:
-        for span in ("open_span", "held"):
-            ad_receipts.insert_reading_opportunity(connection, {
-                "opportunity_key": f"worked_example:{EXTRACTION}/{span}:{LO}", "kind": "worked_example",
-                "subkind": "in_completed_section", "source_table": "reader_section_progress",
-                "source_id": f"{EXTRACTION}/{span}", "source_written_at": "2026-10-01T09:00:00Z",
-                "learning_object_id": LO, "facet_doses": {"recall": 1.0}, "dose_offer_id": None,
-                "mapping_version": "ad_reading_map_v1", "sweep": "backfill", "sweep_ref": None,
-                "swept_at": "2026-10-01T09:00:00Z"})
-        connection.commit()
+
+    def record(epoch: str | None, suffix: str = "") -> None:
+        with closing(connect(paths.sqlite_path)) as connection:
+            for span in ("open_span", "held"):
+                ad_receipts.insert_reading_opportunity(connection, {
+                    "protection_epoch": epoch,
+                    "opportunity_key": f"worked_example:{EXTRACTION}/{span}:{LO}{suffix}", "kind": "worked_example",
+                    "subkind": "in_completed_section", "source_table": "reader_section_progress",
+                    "source_id": f"{EXTRACTION}/{span}", "source_written_at": "2026-10-01T09:00:00Z",
+                    "learning_object_id": LO, "facet_doses": {"recall": 1.0}, "dose_offer_id": None,
+                    "mapping_version": "ad_reading_map_v1", "sweep": "backfill", "sweep_ref": None,
+                    "swept_at": "2026-10-01T09:00:00Z"})
+            connection.commit()
+
+    record(ad_epoch(paths))
     assert len(_events(paths).opportunities) == 2
     _hold_out(monkeypatch, "held")
+    assert _events(paths).opportunities == [], "another epoch's receipts are out of force"
+    record(ad_epoch(paths))
     (left,) = _events(paths).opportunities
     assert left.kind == "worked_example"
-    assert rows(paths.sqlite_path, "SELECT COUNT(*) AS n FROM ad_reading_opportunities")[0]["n"] == 2  # frozen
+    assert rows(paths.sqlite_path, "SELECT COUNT(*) AS n FROM ad_reading_opportunities")[0]["n"] == 4  # frozen
 
 
 # -- F21: generation target metadata ------------------------------------------------------------------
@@ -397,12 +407,17 @@ def test_z_v1_calibration_never_reads_a_withheld_items_forecast(tmp_path, monkey
     clock.advance(2)
     answer(paths, "pi_x", correct=True, presentation_id=step["presentation_id"], clock=clock)
     content_hash = item_revision(load_vault(paths.root).practice_items["pi_x"])[0]
-    record_receipts(Repository(paths.sqlite_path), [_receipt(
+    from dataclasses import replace
+
+    receipt = _receipt(
         key=f"llm_v1:{content_hash}", forecaster=LLM_V1, version="v1", scope="item", decision_kind="item_prepare",
         binding_kind="first_presentation", inputs={}, inputs_as_of=forecast_at, p=0.8, status="ok",
         received_at=forecast_at, model="fake", request_hash="h",
         columns={"practice_item_id": "pi_x", "learning_object_id": LO, "item_content_hash": content_hash,
-                 "decision_ref": content_hash})], created_at=forecast_at)
+                 "decision_ref": content_hash})
+    # Written by AD at the current protection epoch, as AD stamps every forecast (round 2).
+    receipt = replace(receipt, versions={**dict(receipt.versions), "protection_epoch": ad_epoch(paths)})
+    record_receipts(Repository(paths.sqlite_path), [receipt], created_at=forecast_at)
 
     def later_n(item_id: str, session: str) -> int:
         clock.advance(60 * 24)
@@ -454,8 +469,15 @@ def test_report_sensitivity_never_re_forecasts_a_withheld_item(tmp_path, monkeyp
     RP.clear_cache()
     with closing(connect(paths.sqlite_path, read_only=True)) as connection:
         report = REP.build(load_vault(paths.root), Repository(paths.sqlite_path), connection, sensitivity=True)
-    assert seen and refs[0] not in seen
-    assert report["prior_sensitivity"]["withheld"] == 1
+    # Since the AD23 redesign's round 2 the draw, logged before the reservation (another protection
+    # epoch), is out of the cohort altogether (E2), so nothing of its support is asked for.
+    assert refs[0] not in seen
+    from learnloop.adaptive_difficulty.material_view import detached_view
+
+    view = detached_view(load_vault(paths.root), Repository(paths.sqlite_path))
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        assert draw["id"] not in {row["id"] for row in view.selections(connection)}
+    assert report["prior_sensitivity"] is not None
 
 
 # -- F26: the dose moderator's window -------------------------------------------------------------------
@@ -474,6 +496,7 @@ def test_the_dose_moderator_window_closes_only_at_a_visible_graded_attempt(tmp_p
     paths, vault, repo = _arm(tmp_path)
     with closing(connect(paths.sqlite_path)) as connection:
         ad_receipts.insert_reading_opportunity(connection, {
+            "protection_epoch": SEEDED,
             "opportunity_key": f"worked_example:ext1/we2:{LO_A}", "kind": "worked_example", "subkind": "shown",
             "source_table": "reader_section_progress", "source_id": "ext1/we2",
             "source_written_at": iso_at(at(1)), "learning_object_id": LO_A, "facet_doses": {"fa1": 1.0},
@@ -482,6 +505,7 @@ def test_the_dose_moderator_window_closes_only_at_a_visible_graded_attempt(tmp_p
         connection.commit()
     _attempt(paths, ITEM, at=at(5).now(), session=None)
     _reserve(monkeypatch, ITEM)
+    restamp(paths)  # the studied example's receipt as the current epoch's sweep records it again (E2)
     D.decide(vault, repo, _boundary(), clock=at(10), reading_map=_mapping())
     (draw,) = _draws(paths)
     assert draw["detail"]["dose_taken"]["worked_example"] == 1

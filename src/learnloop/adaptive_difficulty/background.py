@@ -202,7 +202,7 @@ def _prepare(vault: Any, repository: Any, items: list[Any], *, clients: Clients 
     protected = view.protection
     # A revision is done for this protection epoch only (the AD23 redesign, E2; Codex verify F50):
     # once protection changes it is judged, and prepared, again.
-    epoch = epoch_of(protected)
+    epoch = epoch_of(view)
     for item in items:
         if not live():
             break
@@ -354,11 +354,10 @@ def _epoch_now(vault: Any, sqlite_path: Any) -> str | None:
 
     from learnloop.db.repositories import Repository
 
-    from learnloop.adaptive_difficulty.operation import epoch_of
-    from learnloop.adaptive_difficulty.protection import protection
+    from learnloop.adaptive_difficulty.material_view import detached_view
 
     try:
-        return epoch_of(protection(vault, Repository.attach(Path(sqlite_path))))
+        return detached_view(vault, Repository.attach(Path(sqlite_path))).epoch
     except Exception:  # noqa: BLE001 - unknown: nothing is skipped at the queue
         return None
 
@@ -392,7 +391,7 @@ def _admit(queue: _Queue, op: Any, path: str, limit: int, results: list[dict[str
 
     from learnloop.adaptive_difficulty.operation import epoch_of
 
-    epoch = epoch_of(op.view.protection)
+    epoch = epoch_of(op.view)
     with _GUARD:
         keys = list(queue.pending)
     batch: list[tuple[Any, Any]] = []

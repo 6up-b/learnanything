@@ -366,7 +366,8 @@ def _write(repository: Any, vault: Any, receipt: ForecastReceipt, *, created_at:
     from learnloop.db.stores.judgments import append_judgment
 
     receipt = replace(receipt, columns={**dict(receipt.columns),
-                                        "algorithm_version": vault.config.algorithms.algorithm_version})
+                                        "algorithm_version": vault.config.algorithms.algorithm_version},
+                      versions={**dict(receipt.versions or {}), "protection_epoch": current_view().epoch})
     with repository.atomic():
         if admit is not None:
             admit()
@@ -554,7 +555,7 @@ def freeze_presentation_inputs(vault: Any, connection: Any, item: Any, *, presen
         "content_hash": content_hash, "inputs_as_of": served_at,
         # The protection epoch the state was read under (E2): sent only while it is unchanged, so no
         # history attempt or revision needs judging again (it replaces fix round 10's re-judgment).
-        "protection_epoch": epoch_of(view.protection),
+        "protection_epoch": epoch_of(view),
         "protection_identities": {"target": source_identity(item)},
     }, created_at=served_at)
     return key
@@ -608,7 +609,11 @@ def forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, 
     if not pending:
         return []
     if frozen is None:
-        return [ForecastOutcome(name, "no_frozen_inputs") for name in pending]
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            expired = view.lookup(connection, store.PAYLOADS, "owner_key = ? AND kind = 'request'",
+                                  (frozen_state_key(presentation_id),))[0] == "withheld"
+        # Frozen at another protection epoch: expired, never sent (E2; round 2, class 3b).
+        return [ForecastOutcome(name, "protected" if expired else "no_frozen_inputs") for name in pending]
     if presentation is None:
         # Its item is withheld now (A8): nothing of it is read or sent.
         return [ForecastOutcome(name, "protected") for name in pending]

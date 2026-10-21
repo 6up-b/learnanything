@@ -154,7 +154,12 @@ def eligibility_failures(env: Any, item: Any, *, slot_facets: Iterable[str], cap
     try:
         if pre_exposed(env.repository, item, env.now_iso(), view=view):
             failed.append("pre_exposed")
-    except Exception:  # noqa: BLE001 - an unreadable reveal ledger fails closed
+    except Exception as exc:  # noqa: BLE001 - an unreadable reveal ledger fails closed
+        from learnloop.adaptive_difficulty.operation import is_denial
+
+        if is_denial(exc):
+            # The guard's refusal is not a candidate's exclusion: AD is unavailable for the slot.
+            raise AdUnavailable(f"the AD guard refused a read for the slot: {exc}") from exc
         failed.append("pre_exposed")
     if practice_item_serving_block(env.vault, item) is not None:
         failed.append("serving_block")

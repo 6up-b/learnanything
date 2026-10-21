@@ -236,7 +236,7 @@ commission was drawn in (its expiry starts when that job finishes) and
 commission expired (both added inside 214 at the stage's fix round 5, Codex
 verify F14 and F15); at fix round 6 `ad_commission_results` gained
 `features_match` and its uniqueness became `UNIQUE(practice_item_id)` (one
-owner per landed item, verify F15 and F16). It alters no existing table. The new tables are empty here.
+owner per landed item, verify F15 and F16). At the AD23 redesign's round 2 (2026-10-21) every AD artefact table AD reads back gained `protection_epoch` (the protection epoch its row was computed under): `ad_selections`, `ad_commission_results` and `ad_dose_offers` (a last column inside 214), `item_serve_inputs` (an added column), and `ad_reading_opportunities`, rebuilt with the same columns, indexes and triggers plus `protection_epoch`, its two uniqueness constraints gaining the epoch (a receipt of another epoch is swept again under the current projection). Existing rows keep a null epoch. The new tables are empty here.
 
 Built as a backup-API copy of the base's `migration_head_213` (git
 `29a49b5e6`, the committed head extracted from git) with only 214 applied,
@@ -245,7 +245,7 @@ allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
 `journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
 `foreign_key_check` empty), copied into place with the backup API, with no
 companion files; `migration_head_213` was renamed to this directory. Rebuilt
-the same way at fix rounds 5 and 6 (the columns and uniqueness above, inside 214): the
+the same way at fix rounds 5 and 6 and at the redesign's round 2 (the columns and uniqueness above, inside 214; round 2 under the test-helper allowance, `UPGRADE_TEST_HELPER`, the same base blob): the
 base's `migration_head_213` of git `29a49b5e6`, only 214 applied,
 `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`, header bytes 1/1,
 `integrity_check` ok, `foreign_key_check` empty, no companion files.

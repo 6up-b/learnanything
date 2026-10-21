@@ -49,7 +49,7 @@ import json
 import logging
 import sqlite3
 import sys
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -75,6 +75,11 @@ class GuardDenied(RuntimeError):
     """A read or write the AD guard refused inside an operation (A8): AD is unavailable for it."""
 
 
+class OperationPoisoned(GuardDenied):
+    """An operation in which the guard refused something: its output may not be used, whatever
+    the code inside did with the refusal."""
+
+
 @dataclass
 class Guard:
     """The operation's SQLite authorizer (see the module docstring)."""
@@ -89,6 +94,12 @@ class Guard:
     connections: list[Any] = field(default_factory=list)
     #: The schema's trigger names (read at install, before the guard is on).
     triggers: frozenset[str] = frozenset()
+    #: Per AD-writable table, the tables its declared foreign keys read (parents and children).
+    constraints: dict[str, frozenset[str]] = field(default_factory=dict)
+    #: Set by the first denial (deny mode): the operation is unavailable from then on (every later
+    #: AD read of a non-neutral table and every write is refused, and its exit raises), so a
+    #: swallowed refusal can never authorize output (the AD23 redesign round 2, class 6).
+    poisoned: bool = False
     #: The table the statement being authorized writes (its WHERE may read it).
     _writing: str | None = None
 
@@ -101,12 +112,16 @@ class Guard:
             # the judgment ledger's supersession identity): the write that fired it was judged.
             return sqlite3.SQLITE_OK
         if action == _READ:
-            if self._writing is not None or str(arg1) == _OWN_WRITE.get():
-                # A permitted write's own checks, prepared with it: its foreign keys' parents and its
-                # WHERE on its own target (a prune, an update by key). A subquery is a SELECT, which
-                # ends the write's region, so what it reads is judged as any read.
+            table = str(arg1)
+            if self._writing is not None and (
+                    table == self._writing or table in self.constraints.get(self._writing, ())):
+                # A permitted write's own accesses: its WHERE on its own target (a prune, an update
+                # by key) and its declared foreign keys (parents and children). Nothing else: a
+                # subquery's read of another table is judged as any read, whatever the callback order.
                 return sqlite3.SQLITE_OK
-            return self._read(str(arg1), database)
+            if table == _OWN_WRITE.get():
+                return sqlite3.SQLITE_OK
+            return self._read(table, database)
         if action in _WRITES and arg1:
             verdict = self._write(str(arg1), _WRITES[action])
             self._writing = str(arg1) if verdict == sqlite3.SQLITE_OK else None
@@ -122,7 +137,11 @@ class Guard:
         self.reads.setdefault(table, set()).add(reader)
         rules = _IN_RULES.get()
         kind = T.role(table)
-        if kind == T.NEUTRAL or (rules not in (None, T.INCUMBENT) and kind != T.PREDICATE):
+        if kind == T.NEUTRAL:
+            return sqlite3.SQLITE_OK
+        if self.poisoned:
+            return self._deny("read", table, POISONED, reader)
+        if rules not in (None, T.INCUMBENT) and kind != T.PREDICATE:
             return sqlite3.SQLITE_OK
         verdict = T.read_verdict(table, rules=rules, reader=reader, stack=_stack_modules())
         if verdict is None:
@@ -134,6 +153,8 @@ class Guard:
 
         reader = _reader()
         self.writes.setdefault(table, set()).add(reader)
+        if self.poisoned:
+            return self._deny(verb, table, POISONED, reader)
         verdict = T.write_verdict(table)
         if verdict is None:
             return sqlite3.SQLITE_OK
@@ -145,7 +166,10 @@ class Guard:
             self.denials.append(record)
         if self.mode == "observe":
             return sqlite3.SQLITE_OK
-        LOG.warning("AD guard denied %s of %s (%s) by %s", verb, table, why, reader)
+        if not self.poisoned:
+            LOG.warning("AD guard denied %s of %s (%s) by %s: AD is unavailable for the rest of %s", verb, table,
+                        why, reader, self.entry or "this operation")
+        self.poisoned = True
         return sqlite3.SQLITE_DENY
 
     def install(self, connection: Any) -> None:
@@ -154,10 +178,9 @@ class Guard:
         if not self.triggers:
             raw.set_authorizer(None)
             try:
-                self.triggers = frozenset(str(row[0]) for row in raw.execute(
-                    "SELECT name FROM sqlite_master WHERE type = 'trigger'"))
+                self.triggers, self.constraints = _schema_facts(raw, self.database)
             except sqlite3.DatabaseError:
-                self.triggers = frozenset()
+                self.triggers, self.constraints = frozenset(), {}
         raw.set_authorizer(self.authorize)
         if all(known is not raw for known in self.connections):
             self.connections.append(raw)
@@ -181,6 +204,36 @@ class Guard:
             raw.set_authorizer(None)
         except sqlite3.ProgrammingError:  # closed meanwhile
             pass
+
+
+#: Why a statement is refused after the operation's first denial.
+POISONED = "the operation was made unavailable by an earlier denial"
+
+_SCHEMA_FACTS: dict[tuple[str, int], tuple[frozenset[str], dict[str, frozenset[str]]]] = {}
+
+
+def _schema_facts(raw: Any, database: Path) -> tuple[frozenset[str], dict[str, frozenset[str]]]:
+    """The schema's trigger names, and per AD-writable table the tables its declared foreign keys
+    read: its parents, and the children whose keys reference it (cached per schema version)."""
+
+    from learnloop.adaptive_difficulty import protected_tables as T
+
+    version = int(raw.execute("PRAGMA schema_version").fetchone()[0])
+    key = (str(database), version)
+    if key not in _SCHEMA_FACTS:
+        triggers = frozenset(str(row[0]) for row in raw.execute("SELECT name FROM sqlite_master WHERE type = 'trigger'"))
+        tables = [str(row[0]) for row in raw.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")]
+        parents: dict[str, set[str]] = {}
+        for table in tables:
+            for row in raw.execute(f"PRAGMA foreign_key_list('{table}')"):
+                parents.setdefault(table, set()).add(str(row[2]))
+        constraints = {}
+        for table in T.AD_WRITABLE:
+            children = {child for child, refs in parents.items() if table in refs}
+            constraints[table] = frozenset(parents.get(table, set()) | children)
+        _SCHEMA_FACTS[key] = (triggers, constraints)
+    return _SCHEMA_FACTS[key]
 
 
 def _entry_name() -> str:
@@ -240,18 +293,15 @@ def current() -> Operation | None:
     return _CURRENT.get()
 
 
-def epoch_of(protection: Any) -> str | None:
-    """The protection epoch: a digest of the predicate's version, the held-out extractions and span
-    keys, and the reserved exam items. None while the predicate is unavailable."""
+def epoch_of(view: Any) -> str | None:
+    """The protection epoch of a material view (:meth:`MaterialView.epoch`): a digest of everything
+    its projection withholds. None while the predicate is unavailable."""
 
-    material = getattr(protection, "material", None)
-    if material is None:
-        return None
-    extractions = sorted(str(value) for value in (getattr(material, "extractions", ()) or ()))
-    spans = sorted([str(key[0]), str(key[1])] for key in (getattr(material, "spans", ()) or ()))
-    reserved = sorted(str(value) for value in (getattr(protection, "reserved", ()) or ()))
-    body = json.dumps([EPOCH_VERSION, extractions, spans, reserved], separators=(",", ":"))
-    return hashlib.sha256(body.encode()).hexdigest()
+    from learnloop.adaptive_difficulty.material_view import MaterialView
+
+    if not isinstance(view, MaterialView):
+        raise TypeError("the protection epoch is a material view's (it digests what the view withholds)")
+    return view.epoch
 
 
 @contextmanager
@@ -287,6 +337,10 @@ def own_write(table: str) -> Iterator[None]:
         yield
     finally:
         _OWN_WRITE.reset(token)
+        # A statement prepared in the scope is never reused outside it unchecked (round 2, class 1).
+        op = _CURRENT.get()
+        if op is not None:
+            op.guard.refresh()
 
 
 @contextmanager
@@ -369,7 +423,7 @@ def ad_operation(vault: Any, repository: Any, *, protected: Any = None, connecti
     from learnloop.adaptive_difficulty.projection import project_repository, project_vault
 
     op = Operation(vault=project_vault(view), repository=project_repository(raw_repository, view),
-                   view=view, epoch=epoch_of(view.protection), raw_vault=raw_vault, raw_repository=raw_repository,
+                   view=view, epoch=view.epoch, raw_vault=raw_vault, raw_repository=raw_repository,
                    guard=guard)
 
     def hook(connection: Any, path: Path) -> None:
@@ -381,12 +435,17 @@ def ad_operation(vault: Any, repository: Any, *, protected: Any = None, connecti
     pinned = getattr(getattr(raw_repository, "_pin", None), "connection", None)
     guarded = [c for c in (pinned, *connections) if c is not None]
     token = _CURRENT.set(op)
+    failed = False
     try:
         for connection in guarded:
             guard.install(connection)
         # Inside an operation AD reads only its projected vault: a fresh load would bypass it.
         with connection_hook(hook), vault_loads_forbidden("inside an adaptive-difficulty operation"):
-            yield op
+            try:
+                yield op
+            except BaseException:
+                failed = True
+                raise
     finally:
         _CURRENT.reset(token)
         for connection in guarded:
@@ -396,6 +455,9 @@ def ad_operation(vault: Any, repository: Any, *, protected: Any = None, connecti
             for connection in guarded:
                 existing.guard.install(connection)
         _record_denials(op)
+    if guard.poisoned and not failed:
+        # A refusal was swallowed inside: the operation's output may not stand (round 2, class 6).
+        raise OperationPoisoned(f"the AD guard refused a read or write in {guard.entry or 'this operation'}")
 
 
 #: The guard's mode for new operations: "deny" in production; the tests may observe.
@@ -473,12 +535,20 @@ def is_denial(exc: BaseException) -> bool:
         "not authorized" in text or (text.startswith("access to ") and text.endswith(" is prohibited")))
 
 
-def entry(func: Callable[..., Any]) -> Callable[..., Any]:
+def entry(func: Callable[..., Any] | None = None, *,
+          poisoned: Callable[[Mapping[str, Any]], Any] | None = None) -> Any:
     """Run an AD entry point inside an operation: its ``vault`` and ``repository`` arguments are
     replaced by the operation's, its ``view`` (when it takes one and none was given) by the
     operation's view, and a ``connection`` it was handed carries the guard. With adaptive
-    difficulty off (or no vault and repository) the function runs as it is."""
+    difficulty off (or no vault and repository) the function runs as it is.
 
+    An operation the guard refused something in raises :class:`OperationPoisoned` at its exit, and
+    the function's own result is discarded. ``poisoned``: for an entry point whose caller must never
+    see an exception (the serve hook: logging never breaks the serve), what to return instead,
+    built from the call's bound arguments."""
+
+    if func is None:
+        return lambda inner: entry(inner, poisoned=poisoned)
     signature = inspect.signature(func)
 
     @functools.wraps(func)
@@ -494,13 +564,19 @@ def entry(func: Callable[..., Any]) -> Callable[..., Any]:
             given = bound.arguments.get("protected")
         handed = tuple(value for name, value in bound.arguments.items()
                        if name == "connection" and value is not None)
-        with ad_operation(vault, repository, protected=given if _is_protection(given) else None,
-                          connections=handed, name=f"{func.__module__}.{func.__qualname__}") as op:
-            bound.arguments["vault"] = op.vault
-            bound.arguments["repository"] = op.repository
-            if "view" in signature.parameters and bound.arguments.get("view") is None:
-                bound.arguments["view"] = op.view
-            return func(*bound.args, **bound.kwargs)
+        arguments = dict(bound.arguments)
+        try:
+            with ad_operation(vault, repository, protected=given if _is_protection(given) else None,
+                              connections=handed, name=f"{func.__module__}.{func.__qualname__}") as op:
+                bound.arguments["vault"] = op.vault
+                bound.arguments["repository"] = op.repository
+                if "view" in signature.parameters and bound.arguments.get("view") is None:
+                    bound.arguments["view"] = op.view
+                return func(*bound.args, **bound.kwargs)
+        except OperationPoisoned:
+            if poisoned is None:
+                raise
+            return poisoned(arguments)
 
     wrapper.__ad_entry__ = True  # type: ignore[attr-defined]
     return wrapper
@@ -513,6 +589,6 @@ def _is_protection(value: Any) -> bool:
     return isinstance(value, (MaterialView, Protection))
 
 
-__all__ = ["EPOCH_VERSION", "GuardDenied", "OBSERVERS", "Operation", "RULES_MARKER", "ad_operation", "current",
+__all__ = ["EPOCH_VERSION", "GuardDenied", "OBSERVERS", "Operation", "OperationPoisoned", "RULES_MARKER", "ad_operation", "current",
            "denial_count", "entry", "epoch_of", "incumbent_constraints", "is_denial", "optional_operation",
            "own_write", "rules", "suspended"]

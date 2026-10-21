@@ -1,6 +1,8 @@
 """Adaptive difficulty AD2+AD3's migration 214 (spec_adaptive_difficulty_v1 §11.2; docs/reviews/adaptive-difficulty-ad23.md).
 
-The 213 -> 214 upgrade adds exactly §11.2's AD2/AD3 tables and alters none:
+The 213 -> 214 upgrade adds exactly §11.2's AD2/AD3 tables and alters only the two AD1 receipts it
+stamps with the protection epoch (the AD23 redesign, round 2: ``item_serve_inputs`` gains a column,
+``ad_reading_opportunities`` is rebuilt with its identity gaining the epoch; every row kept):
 ``ad_selections`` and ``ad_dose_offers`` (RAW_LEDGER, append-only by trigger),
 ``ad_commission_results``, ``ad_relatedness_runs`` and
 ``ad_coupling_versions`` (RECEIPT, append-only), ``ad_state`` and
@@ -40,6 +42,8 @@ AD23_ADDED_OBJECTS = frozenset(NEW_TABLES | {
     "sqlite_autoindex_ad_coupling_versions_1", "sqlite_autoindex_ad_coupling_versions_2",
     "sqlite_autoindex_ad_state_1", "sqlite_autoindex_ad_attempt_trace_1", "sqlite_autoindex_item_forecast_scores_1",
 })
+#: The AD1 receipts 214 stamps with the protection epoch (the AD23 redesign, round 2).
+EPOCH_STAMPED = {"item_serve_inputs", "ad_reading_opportunities"}
 ROLES = {
     "ad_selections": TableRole.RAW_LEDGER, "ad_dose_offers": TableRole.RAW_LEDGER,
     "ad_commission_results": TableRole.RECEIPT, "ad_relatedness_runs": TableRole.RECEIPT,
@@ -88,7 +92,12 @@ def _upgrade(tmp_path: Path) -> Path:
     assert [migration.version for migration in applied] == [214]
     after = _schema(database)
     assert set(after) - set(before) == AD23_ADDED_OBJECTS
-    assert {name for name in before if before[name] != after.get(name)} == set(), "214 alters no existing object"
+    # The AD23 redesign's round 2: AD1's two receipts AD reads back gain their protection epoch
+    # (item_serve_inputs a column; ad_reading_opportunities rebuilt, its identity gaining the epoch).
+    assert {name for name in before if before[name] != after.get(name)} == EPOCH_STAMPED, \
+        "214 alters only the AD1 receipts it stamps"
+    for table in EPOCH_STAMPED | {"ad_selections", "ad_commission_results", "ad_dose_offers"}:
+        assert "protection_epoch" in after[table], table
     rows_after = _rows(database)
     assert {table: rows for table, rows in rows_after.items() if table in rows_before} == rows_before
     assert all(not rows_after[table] for table in NEW_TABLES)

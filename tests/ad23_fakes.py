@@ -61,6 +61,48 @@ def ad23_vault(tmp_path: Path, *, config: str = "", version: str = SUCCESSOR, it
     return paths
 
 
+def ad_epoch(paths: Any) -> str | None:
+    """The vault's protection epoch now (with the test's held-out material in force): what an AD
+    artefact AD wrote now would be stamped with (the AD23 redesign, round 2). A test seeding AD's own
+    rows directly stamps them with it."""
+
+    from learnloop.adaptive_difficulty.material_view import detached_view
+    from learnloop.db.repositories import Repository
+
+    return detached_view(load_vault(paths.root), Repository(paths.sqlite_path)).epoch
+
+
+#: The protection epoch a test seeds an AD row with before its vault's protection is final: rewritten
+#: to the vault's own epoch by :func:`restamp` once it is.
+SEEDED = "__seeded_epoch__"
+
+
+def restamp(paths: Any, epoch: str | None = None) -> str | None:
+    """Rewrite every seeded stamp (:data:`SEEDED`) in AD's column-stamped tables to ``epoch`` (default:
+    the vault's epoch now). Test-only: the tables' append-only triggers are dropped around the
+    update and recreated as they were."""
+
+    import sqlite3
+    from contextlib import closing
+
+    from learnloop.adaptive_difficulty.protected_tables import EPOCH
+
+    epoch = epoch if epoch is not None else ad_epoch(paths)
+    tables = [table for table, rule in EPOCH.items() if rule.startswith("column:")]
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        for table in tables:
+            triggers = connection.execute(
+                "SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name = ? AND name LIKE '%no_update'",
+                (table,)).fetchall()
+            for name, _sql in triggers:
+                connection.execute(f"DROP TRIGGER {name}")
+            connection.execute(f"UPDATE {table} SET protection_epoch = ? WHERE protection_epoch = ?", (epoch, SEEDED))
+            for _name, sql in triggers:
+                connection.execute(sql)
+        connection.commit()
+    return epoch
+
+
 def env_for(paths: Any, *, clock: MovableClock | None = None, items: Sequence[str] = ITEMS, session: str = "s1",
             lo: str = LO, policy: Any = None) -> tuple[Any, MovableClock]:
     clock = clock or MovableClock()

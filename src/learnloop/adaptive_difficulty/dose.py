@@ -215,7 +215,11 @@ def _forecast(vault: Any, repository: Any, connection: Any, learning_object_id: 
         spec = PR.point_spec(point or {}, learning_object_id=learning_object_id, subject=subject, facet=facet,
                              capability_name="retrieval")
         return round(PR.predict(snapshot.subject, spec).p_bar, 8)
-    except Exception:  # noqa: BLE001 - a missing covariate never blocks the draw
+    except Exception as exc:  # noqa: BLE001 - a missing covariate never blocks the draw
+        from learnloop.adaptive_difficulty.operation import is_denial
+
+        if is_denial(exc):
+            raise  # the guard's refusal: AD is unavailable for the decision (round 2, class 6)
         return None
 
 
@@ -288,6 +292,7 @@ def decide(vault: Any, repository: Any, boundary: Boundary, *, clock: Clock | No
         u = S.uniform(seed)
         chosen = draw_from(pi, u)
         draw_id = store.insert_dose_row(connection, {
+            "protection_epoch": view.epoch,
             "row_kind": "draw", "draw_key": key, "visit_id": boundary.visit_id,
             "extraction_id": boundary.extraction_id, "section_id": boundary.section_id,
             "learning_object_ids": los, "feasible": feasible, "infeasible": infeasible,
@@ -336,7 +341,7 @@ def record_uptake(vault: Any, repository: Any, draw_id: str, kind: str, *, clock
             return None
         if draw.get("chosen_variant") in (None, NONE):
             raise ValueError("the draw offered nothing")
-        return store.insert_dose_row(connection, {"row_kind": kind, "draw_id": draw_id,
+        return store.insert_dose_row(connection, {"row_kind": kind, "draw_id": draw_id, "protection_epoch": view.epoch,
                                                   "created_at": utc_now_iso(clock)})
 
 

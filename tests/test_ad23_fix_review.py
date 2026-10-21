@@ -29,7 +29,7 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores import ad_serving
 from learnloop.vault.loader import load_vault
 
-from tests.ad23_fakes import LO, QUIET, ad23_vault, answer, env_for, rows, selections
+from tests.ad23_fakes import LO, QUIET, SEEDED, ad23_vault, answer, env_for, restamp, rows, selections
 from tests.split_live_helpers import ReadyRuntime, split_vault
 from tests.test_field_split_outcomes import _ZeroEverythingWithoutAttribution
 from tests.test_pfc_unverified_unassessed import ITEM as PFC_ITEM
@@ -622,13 +622,13 @@ def test_readiness_errors_read_each_report_window():
 
 
 def _offer(connection, *, key: str, visit: str, at: str) -> None:
-    draw = ad_serving.insert_dose_row(connection, {
+    draw = ad_serving.insert_dose_row(connection, {"protection_epoch": SEEDED, 
         "row_kind": "draw", "draw_key": key, "visit_id": visit, "extraction_id": "ext1", "section_id": "u1",
         "learning_object_ids": [LO], "feasible": ["none", "extra_question"], "infeasible": {}, "base_version": "b",
         "floor": 0.3, "propensities": {"none": 0.7, "extra_question": 0.3}, "seed": "s", "u": 0.1,
         "chosen_variant": "extra_question", "content": {"question_id": "q"}, "forecast_p": None, "detail": {},
         "created_at": at})
-    ad_serving.insert_dose_row(connection, {"row_kind": "delivered", "draw_id": draw, "created_at": at})
+    ad_serving.insert_dose_row(connection, {"protection_epoch": SEEDED, "row_kind": "delivered", "draw_id": draw, "created_at": at})
 
 
 def _envelope(connection, kind: str, payload: dict, at: str) -> None:
@@ -664,6 +664,7 @@ def test_density_lowerings_join_offers_to_their_visits(tmp_path):
         connection.commit()
         from learnloop.adaptive_difficulty.material_view import detached_view as material_view
 
+        restamp(paths)  # the offers were drawn under the vault's protection as it stands
         view = material_view(load_vault(paths.root), Repository(paths.sqlite_path))
         assert REP.density_lowerings(connection, view=view) == ["2026-10-10T10:06:00Z", "2026-10-11T10:06:00Z",
                                                      "2026-10-12T10:06:00Z"]

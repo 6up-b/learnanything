@@ -51,7 +51,10 @@ CREATE TABLE ad_selections (
   -- starts when the job finishes (Codex verify F14). NULL for a serve draw,
   -- a serve-time commission (its batch is named by it) and a draw outside a job.
   generating_job_id TEXT,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  -- The protection epoch the row was computed under (AD23 redesign round 2):
+  -- AD reads a row back only at that epoch (adaptive_difficulty.protected_tables.EPOCH).
+  protection_epoch TEXT
 );
 CREATE INDEX idx_ad_selections_cell ON ad_selections(kind, cell_facet, cell_capability, created_at);
 CREATE INDEX idx_ad_selections_block ON ad_selections(block_id, slot_position);
@@ -87,6 +90,9 @@ CREATE TABLE ad_commission_results (
   -- when they are the commission's requested point.
   features_match INTEGER NOT NULL DEFAULT 1 CHECK (features_match IN (0, 1)),
   created_at TEXT NOT NULL,
+  -- The protection epoch the row was computed under (AD23 redesign round 2):
+  -- AD reads a row back only at that epoch (adaptive_difficulty.protected_tables.EPOCH).
+  protection_epoch TEXT,
   -- One owner per landed item (verify F16): the first attribution is final.
   UNIQUE (practice_item_id)
 );
@@ -135,6 +141,9 @@ CREATE TABLE ad_dose_offers (
   forecast_p REAL,
   detail_json TEXT,
   created_at TEXT NOT NULL,
+  -- The protection epoch the row was computed under (AD23 redesign round 2):
+  -- AD reads a row back only at that epoch (adaptive_difficulty.protected_tables.EPOCH).
+  protection_epoch TEXT,
   CHECK (
     (row_kind = 'draw' AND draw_id IS NULL AND draw_key IS NOT NULL)
     OR (row_kind != 'draw' AND draw_id IS NOT NULL AND draw_key IS NULL)
@@ -266,3 +275,58 @@ CREATE TABLE item_forecast_scores (
   capability TEXT,
   detail_json TEXT NOT NULL
 );
+
+-- AD23 redesign round 2 (class 3b): AD1's two receipts AD reads back carry the
+-- protection epoch they were computed under. A frozen serve's inputs are read
+-- only at their epoch (otherwise the replay reconstructs the attempt from
+-- current content); a reading receipt of another epoch counts for nothing and
+-- its source is swept again under the current projection, so the receipt's
+-- identity gains the epoch (a rebuild: same columns, indexes and triggers).
+-- Rows recorded before this have no epoch (null, or '' for a reading receipt,
+-- whose identity keeps its uniqueness) and are never in force.
+ALTER TABLE item_serve_inputs ADD COLUMN protection_epoch TEXT;
+
+CREATE TABLE ad_reading_opportunities_v214 (
+  id TEXT PRIMARY KEY,
+  opportunity_key TEXT NOT NULL,
+  kind TEXT NOT NULL
+    CHECK (kind IN ('reading', 'reader_tutor_exchange', 'worked_example', 'in_passage_question')),
+  subkind TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  source_id TEXT NOT NULL,
+  source_written_at TEXT NOT NULL,
+  learning_object_id TEXT NOT NULL,
+  facet_doses_json TEXT NOT NULL,
+  dose_offer_id TEXT,
+  mapping_version TEXT NOT NULL,
+  authority_class TEXT NOT NULL DEFAULT 'salience_only' CHECK (authority_class = 'salience_only'),
+  sweep TEXT NOT NULL CHECK (sweep IN ('serve', 'backfill')),
+  sweep_ref TEXT,
+  swept_at TEXT NOT NULL,
+  -- '' for a receipt recorded before receipts carried an epoch (never in force).
+  protection_epoch TEXT NOT NULL DEFAULT '',
+  UNIQUE (opportunity_key, protection_epoch),
+  UNIQUE (kind, subkind, source_table, source_id, learning_object_id, protection_epoch)
+);
+INSERT INTO ad_reading_opportunities_v214 (
+  id, opportunity_key, kind, subkind, source_table, source_id, source_written_at, learning_object_id,
+  facet_doses_json, dose_offer_id, mapping_version, authority_class, sweep, sweep_ref, swept_at, protection_epoch)
+SELECT id, opportunity_key, kind, subkind, source_table, source_id, source_written_at, learning_object_id,
+  facet_doses_json, dose_offer_id, mapping_version, authority_class, sweep, sweep_ref, swept_at, ''
+FROM ad_reading_opportunities;
+DROP TABLE ad_reading_opportunities;
+ALTER TABLE ad_reading_opportunities_v214 RENAME TO ad_reading_opportunities;
+CREATE INDEX idx_ad_reading_opportunities_lo ON ad_reading_opportunities(learning_object_id, source_written_at);
+CREATE INDEX idx_ad_reading_opportunities_written ON ad_reading_opportunities(source_written_at, id);
+
+CREATE TRIGGER ad_reading_opportunities_no_update
+BEFORE UPDATE ON ad_reading_opportunities
+BEGIN
+  SELECT RAISE(ABORT, 'ad_reading_opportunities is append-only');
+END;
+
+CREATE TRIGGER ad_reading_opportunities_no_delete
+BEFORE DELETE ON ad_reading_opportunities
+BEGIN
+  SELECT RAISE(ABORT, 'ad_reading_opportunities is append-only');
+END;

@@ -554,10 +554,17 @@ def _ad_commissioned_rung(
         return rung, None
     from learnloop.clock import utc_now_iso
 
-    commissioned = ad_generation.commission_point(
-        vault, repository, learning_object_id=learning_object_id, incumbent=rung, now=utc_now_iso(),
-        selection_id=commission_id, view=view,
-    )
+    from learnloop.adaptive_difficulty.operation import is_denial
+
+    try:
+        commissioned = ad_generation.commission_point(
+            vault, repository, learning_object_id=learning_object_id, incumbent=rung, now=utc_now_iso(),
+            selection_id=commission_id, view=view,
+        )
+    except Exception as exc:
+        if not is_denial(exc):
+            raise
+        return rung, None  # the AD guard refused something: the incumbent's rung exactly
     if commissioned is None:
         return rung, None
     features, capability, selection_id = commissioned
