@@ -129,8 +129,9 @@ def test_a_target_revision_held_out_after_the_serve_is_never_sent(tmp_path, monk
 
 
 def test_unprotected_frozen_inputs_are_still_sent_exactly(tmp_path, monkeypatch):
+    # With protection unchanged since the serve (the AD23 redesign, E2: an unrelated span held out
+    # since then now expires the frozen inputs, owner decision 2026-10-21; tests/test_ad_epoch.py).
     paths, step = _served_with_history(tmp_path)
-    _hold_out(monkeypatch, "some_other_span")
     outcomes, llm, decider = _forecast(paths, step)
     assert sorted(outcome.status for outcome in outcomes) == ["ok", "ok"]
     assert SENTINEL in llm.prompts[0] and SENTINEL in decider.calls[0]["body"]

@@ -238,7 +238,8 @@ def test_an_exception_before_the_first_revision_keeps_the_whole_batch(tmp_path, 
     scripted = _Scripted()
     _patch_scripted(monkeypatch, scripted)
     original = protection_module.protection
-    failures = iter([True])
+    # The queue reads the epoch first (the AD23 redesign); the run's own predicate then fails.
+    failures = iter([False, True])
 
     def flaky(*args, **kwargs):
         if next(failures, False):

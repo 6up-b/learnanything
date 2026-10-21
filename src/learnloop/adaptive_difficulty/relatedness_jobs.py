@@ -57,10 +57,9 @@ def stale_subjects(vault: Any, repository: Any) -> list[str]:
             if subject not in adopted:
                 continue
             inputs = R.subject_inputs(vault, repository, subject, protected=view)
-            current = inputs["unit_hashes"].get(R.PROTECTION_UNIT)
             own = [run for run in runs if run["subject_id"] == subject]
-            live = {run["id"] for run in own if R.run_in_force(view, connection, run, current)}
-            if R.touched_units(inputs, own, in_force=lambda run, live=live: run["id"] in live):
+            # Only a run in force at the epoch answers for a unit (E2), exactly as propose_subject.
+            if R.touched_units(inputs, own):
                 stale.append(subject)
     return stale
 

@@ -176,16 +176,10 @@ def source_identity(item: Any, practice_item_id: str | None = None) -> dict[str,
 
 
 def history_card(vault: Any, connection: Any, item: Any, *, served_at: str, view: Any,
-                 incumbent: Mapping[str, Any] | None,
-                 identities: list[dict[str, Any]] | None = None,
-                 attempt_ids: list[str] | None = None) -> dict[str, Any]:
+                 incumbent: Mapping[str, Any] | None) -> dict[str, Any]:
     """The learner's history on the item's LO and its prerequisites, as of the serve, read through
-    the serve's material view (no withheld item's attempt is ever on the card).
-
-    ``identities``, when given, receives the :func:`source_identity` of each
-    attempt's item the card includes (Codex re-review F11), and of every revision
-    that attempt answered (Codex verify F33, fix round 10); ``attempt_ids``, when
-    given, receives each included attempt's id. A dispatch revalidates both."""
+    the serve's material view (no withheld item's attempt is ever on the card). The card is frozen
+    with the view's protection epoch: it is sent only at that epoch (the AD23 redesign, E2)."""
 
     lo = vault.learning_objects.get(item.learning_object_id)
     scope = [item.learning_object_id, *[str(prerequisite) for prerequisite in (getattr(lo, "prerequisites", None) or [])]]
@@ -202,12 +196,6 @@ def history_card(vault: Any, connection: Any, item: Any, *, served_at: str, view
         if stamp is None or served is None or stamp >= served:
             continue
         past = view.item(row[1])
-        if identities is not None:
-            identities.append(source_identity(past, str(row[1])))
-            for answered in view.answered_revision_items(connection, row[0]):
-                identities.append({**source_identity(answered, str(row[1])), "attempt_id": str(row[0])})
-        if attempt_ids is not None:
-            attempt_ids.append(str(row[0]))
         attempts.append({
             "item": _excerpt(past.prompt, HISTORY_STEM_LIMIT) if past is not None else "(an item no longer in the vault)",
             "topic": (vault.learning_objects[str(row[2])].title if str(row[2]) in vault.learning_objects else str(row[2])),
@@ -553,20 +541,21 @@ def freeze_presentation_inputs(vault: Any, connection: Any, item: Any, *, presen
 
     if not ({LLM_V3_LLM, LLM_V3_DECIDER} & set(outside_forecasters(vault.config))):
         return None
+    from learnloop.adaptive_difficulty.operation import epoch_of
+
     content_hash, _json = item_revision(item)
-    history: list[dict[str, Any]] = []
-    history_attempts: list[str] = []
     state = {"item": item_view(vault, item),
              "learner": history_card(vault, connection, item, served_at=served_at, view=view,
-                                     incumbent=_incumbent_inputs(connection, presentation_id, view), identities=history,
-                                     attempt_ids=history_attempts)}
+                                     incumbent=_incumbent_inputs(connection, presentation_id, view))}
     key = frozen_state_key(presentation_id)
     store.insert_payload(connection, owner_key=key, forecaster=FROZEN_STATE_FORECASTER, kind="request", content={
         "state": state, "state_version": STATE_VERSION, "state_hash": content_key(state),
         "practice_item_id": str(item.id), "learning_object_id": item.learning_object_id,
         "content_hash": content_hash, "inputs_as_of": served_at,
-        "protection_identities": {"target": source_identity(item), "history": history,
-                                  "history_attempts": history_attempts},
+        # The protection epoch the state was read under (E2): sent only while it is unchanged, so no
+        # history attempt or revision needs judging again (it replaces fix round 10's re-judgment).
+        "protection_epoch": epoch_of(view.protection),
+        "protection_identities": {"target": source_identity(item)},
     }, created_at=served_at)
     return key
 
@@ -577,13 +566,10 @@ def _frozen_inputs(connection: Any, presentation_id: str) -> dict[str, Any] | No
         content = row.get("content")
         if row.get("kind") == "request" and isinstance(content, dict) and isinstance(content.get("state"), dict):
             identities = content.get("protection_identities")
-            # Without the identities of what the state quotes, the frozen
-            # inputs cannot be revalidated, so they are never sent (F11).
+            # Without its target's identity and the epoch it was frozen at, the state cannot be
+            # revalidated, so it is never sent (F11; E2).
             if not (isinstance(identities, dict) and isinstance(identities.get("target"), dict)
-                    and isinstance(identities.get("history"), list)
-                    and isinstance(identities.get("history_attempts"), list)):
-                # Fix round 10 (F33): without the attempts behind the history, the answered
-                # revisions cannot be revalidated either, so these inputs are never sent.
+                    and isinstance(content.get("protection_epoch"), str)):
                 continue
             if content.get("state_hash") == content_key(content["state"]):
                 return content
@@ -636,15 +622,15 @@ def forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, 
             with closing(connect(repository.sqlite_path, read_only=True)) as connection:
                 pending = [name for name in pending
                            if not _existing(connection, receipt_key("plan_presentation", presentation_id, name))]
-            # The current item, and every revision the frozen state quotes,
-            # revalidated against the predicate as it stands immediately
-            # before EACH request of the pair (each forecaster, each retry)
-            # and before each record, not once for the pair (Codex re-review
-            # F11): a refusal refuses the rest of the job.
+            # The current item, the served revision and the frozen state's epoch, revalidated against
+            # the predicate as it stands immediately before EACH request of the pair (each
+            # forecaster, each retry) and before each record (Codex re-review F11): a protection
+            # change since the serve expires the frozen inputs (E2), and a refusal refuses the rest
+            # of the job.
             identities = frozen["protection_identities"]
             send = SendGuard(vault, repository, items=[item], item_ids=[item_id],
-                             identities=[identities["target"], *identities["history"]],
-                             attempt_ids=identities["history_attempts"], live_vault=live_vault)
+                             identities=[identities["target"]], epoch=frozen["protection_epoch"],
+                             live_vault=live_vault)
             try:
                 send.check("the presentation forecasts")
             except ProtectedContent as exc:

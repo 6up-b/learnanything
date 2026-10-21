@@ -768,24 +768,6 @@ class MaterialView:
             self._answered = {key: tuple(sorted(values)) for key, values in answered.items()}
         return self._answered
 
-    def answered_revision_items(self, connection: Any, attempt_id: Any) -> list[Any]:
-        """The saved revisions an attempt answered, as items (to freeze their source identities for
-        a later revalidation; fix round 10, R4). Content is never returned to a prompt from here."""
-
-        from learnloop.vault.models import PracticeItem
-
-        out = []
-        for content_hash in self._answered_revisions(connection).get(str(attempt_id), ()):
-            found = connection.execute("/* ad-rules */ SELECT item_json FROM practice_item_snapshots WHERE content_hash = ?",
-                                       (content_hash,)).fetchone()
-            if found is None:
-                continue
-            try:
-                out.append(PracticeItem.model_validate_json(found[0]))
-            except ValueError:
-                continue
-        return out
-
     def item_states(self, connection: Any) -> dict[str, Any]:
         """``practice_item_state`` as AD may read it (fix round 12, F42's audit): visible items only,
         and only their lifecycle (``active``). The fields the incumbent's scheduler derives from
