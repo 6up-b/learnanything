@@ -72,7 +72,8 @@ class FigureVerifierOutputV1(WireModel):
 
 
 GRAMMAR_TEXT = (
-    "Expressions: numbers; names (parameters, definitions, the panel's variable, a bound variable); + - * / ^ "
+    "Expressions: numbers; names (parameters, definitions, the panel's variable, a bound variable; letters and "
+    "digits starting with a letter, no underscore); + - * / ^ "
     "(^ is power, right-associative); unary minus; parentheses; exp log sqrt abs sin cos tan atan erf Phi min max "
     "floor (Phi is the standard normal CDF); piecewise((cond, expr), (cond, expr), ..., else_expr) where cond "
     "is comparisons (< <= > >= == !=) joined by and / or; pi, e; integral(expr, var, a, b) and sum(expr, k, a, "

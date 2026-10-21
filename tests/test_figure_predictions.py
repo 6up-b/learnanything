@@ -177,7 +177,7 @@ def test_the_reader_report_counts_figures_and_unsupported_kinds(tmp_path):
     build(context(paths.root, author=AuthorFake([("unsupported", "a 3-D surface")])),
           {"extractionId": EXTRACTION, "spanIds": ["p2"]})
     call(ctx, "reader.figure_predict", {"figureId": figure["figureId"], "predictionIndex": 0, "answer": "rises"})
-    report = build_reader_report(repository.sqlite_path)["figures"]
+    report = build_reader_report(repository.sqlite_path, figures_enabled=True)["figures"]
     assert report["built"] == {"illustrative": 1, "unsupported": 1}
     assert report["unsupported_by_kind"] == {"a 3-D surface": 1}
     assert report["predictions"] == 1 and report["predictions_missed"] == 1 and report["what_changed"] == 0

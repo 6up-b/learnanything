@@ -188,6 +188,11 @@ class LearnerText:
     #: What the Decider and the stuck-text reader see besides the text (the
     #: item's prompt, the LO title, a note title). Never an answer key.
     context: Mapping[str, Any] = field(default_factory=dict)
+    #: Facts about what the text carried when it was built, recorded on its
+    #: job when the reading is done and never sent to a model (Reader RW5a
+    #: fix round 3: whether a figure prediction's reading read its "what
+    #: changed?", ``explanation_read``).
+    markers: Mapping[str, Any] = field(default_factory=dict)
 
     @property
     def anchor(self) -> str | None:

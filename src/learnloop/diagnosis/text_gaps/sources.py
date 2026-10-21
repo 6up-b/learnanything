@@ -580,6 +580,10 @@ def figure_prediction_text(vault: LoadedVault, repository: Repository, predictio
         anchor_learning_object_ids=tuple(los),
         reading=None,
         context=context,
+        # Whether this reading reads the "what changed?" (fix round 3): the
+        # backlog reconciles a later explanation by this marker, recorded on
+        # the job, never by searching the text.
+        markers={"explanation_read": bool(explanation)},
     )
 
 

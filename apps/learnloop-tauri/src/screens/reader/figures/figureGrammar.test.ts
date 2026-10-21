@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import corpus from "./figureGoldenCorpus.json";
+import propertyCorpus from "./figurePropertyCorpus.json";
 import {
   FigureGrammarError,
   MAX_SAFE_INTEGER,
@@ -204,5 +205,45 @@ describe("integer bounds (fix round 2)", () => {
     expect(spec).toBeDefined();
     expect(() => compileSpec(spec?.spec as unknown as FigureSpec)).toThrow(/within/);
     expect(barKs({ var: "k", min: 0, max: 10000 }).length).toBe(MAX_BARS);
+  });
+});
+
+// Fix round 3: the differential property corpus (tests/figure_property_corpus.py),
+// the parity contract from now on. Every case: the same verdict; for an accepted
+// one, the Python evaluator's value within 1e-9 of the case's scale (1e-6 with an
+// integral), the same kind of non-finite value, and never -0.
+describe("property corpus (fix round 3)", () => {
+  it("agrees with the Python evaluator on every generated case", () => {
+    const known = new Set([...propertyCorpus.known, ...propertyCorpus.bound]);
+    const failures: string[] = [];
+    for (const item of propertyCorpus.cases as Array<{ id: string; expr: string; env: Record<string, number>; accepted: boolean; expected?: Encoded; scale?: number; integral?: boolean }>) {
+      let accepted = false;
+      let value = NaN;
+      try {
+        const node = parseExpression(item.expr);
+        checkNames(node, known, new Map());
+        const unbound = [...expandedFree(node, new Map())].filter((name) => !propertyCorpus.known.includes(name));
+        if (unbound.length) throw new FigureGrammarError("unbound");
+        accepted = true;
+        value = evaluate(node, item.env, new Map());
+      } catch (error) {
+        if (!(error instanceof FigureGrammarError)) throw error;
+      }
+      if (accepted !== item.accepted) {
+        failures.push(`${item.id} ${item.expr}: accepted ${accepted}, Python ${item.accepted}`);
+        continue;
+      }
+      if (!accepted) continue;
+      if (Object.is(value, -0)) failures.push(`${item.id} ${item.expr}: -0`);
+      const expected = decode(item.expected as Encoded) as number;
+      const tolerance = (item.integral ? propertyCorpus.tolerance.integral : propertyCorpus.tolerance.relative)
+        * Math.max(1, Math.abs(value), item.scale ?? 1);
+      const same = Number.isNaN(expected) ? Number.isNaN(value)
+        : !Number.isFinite(expected) ? value === expected
+        : Number.isFinite(value) && Math.abs(value - expected) <= tolerance;
+      if (!same) failures.push(`${item.id} ${item.expr}: ${value} vs Python ${String(item.expected)}`);
+    }
+    expect(failures.slice(0, 20)).toEqual([]);
+    expect(propertyCorpus.cases.length).toBeGreaterThan(3000);
   });
 });

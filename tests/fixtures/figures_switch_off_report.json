@@ -1,0 +1,283 @@
+{
+ "active_reading": {
+  "answered": 0,
+  "formative_texts_queued": 0,
+  "questions": {
+   "assumptions": 0,
+   "next_step": 0,
+   "reconstruct": 0,
+   "why_step": 0
+  },
+  "self_check": {
+   "assumptions": {
+    "matches": 0,
+    "no": 0,
+    "partly": 0
+   },
+   "next_step": {
+    "matches": 0,
+    "no": 0,
+    "partly": 0
+   },
+   "why_step": {
+    "matches": 0,
+    "no": 0,
+    "partly": 0
+   }
+  }
+ },
+ "cues": {
+  "books_switched_off": 0,
+  "books_switched_on": 0,
+  "check_me": {
+   "count": 0,
+   "of": 0,
+   "share": null
+  },
+  "density_changes": {},
+  "not_relevant": {
+   "count": 0,
+   "of": 0,
+   "share": null
+  },
+  "not_relevant_undone": 0,
+  "opened": {
+   "count": 0,
+   "of": 0,
+   "share": null
+  },
+  "per_reading_hour": 0.0,
+  "shown": 0
+ },
+ "detours": {
+  "by_kind": {
+   "branch": {
+    "opened": 1,
+    "returned": 1
+   },
+   "peek": {
+    "opened": 1,
+    "returned": 0
+   }
+  },
+  "cost_minutes": {
+   "n": 1,
+   "p50": 3.0,
+   "p95": 3.0
+  },
+  "model_wait_ms": {
+   "n": 1,
+   "p50": 9000,
+   "p95": 9000
+  },
+  "opened": 2,
+  "return_rate": {
+   "count": 1,
+   "of": 2,
+   "share": 0.5
+  },
+  "returned_to_origin": 1
+ },
+ "inquiry": {
+  "branches": 3,
+  "breadth": {
+   "max": 2,
+   "mean": 1.5
+  },
+  "depth": {
+   "max": 2,
+   "mean": 1.333
+  },
+  "dismissed": 1,
+  "now": {
+   "dismissed": 1,
+   "open": 2
+  },
+  "open_after_7_days": 1,
+  "opened": 3,
+  "quick_checks": {
+   "answered": 1,
+   "authored": 1,
+   "self_check": {
+    "matches": 0,
+    "no": 0,
+    "partly": 1
+   }
+  },
+  "reconnect_answers": {
+   "quick_check": 0,
+   "still_unclear": 0,
+   "yes": 1
+  },
+  "reopened": 1,
+  "resolved": 1
+ },
+ "intent": {
+  "actions_by_intention": {},
+  "corrected": {
+   "count": 0,
+   "of": 0,
+   "share": null
+  },
+  "discarded": 0,
+  "fallbacks": {},
+  "routings": 0,
+  "speculative": 0,
+  "used": 0,
+  "used_speculative": 0
+ },
+ "learner_text": false,
+ "library": {
+  "asks": 0,
+  "by_entry": {},
+  "compared": {
+   "count": 0,
+   "of": 0,
+   "share": null
+  },
+  "lines_dropped": 0,
+  "notes": {},
+  "personalized": {
+   "count": 0,
+   "of": 0,
+   "share": null
+  },
+  "tutor_asked": {
+   "count": 0,
+   "of": 0,
+   "share": null
+  }
+ },
+ "proactive_load": {
+  "by_element": {
+   "quick_check_waiting": 1,
+   "reconnect_line": 1
+  },
+  "per_reading_hour": 4.0,
+  "reading_hours": 0.5,
+  "shown": 2
+ },
+ "routes": [
+  {
+   "job_kind": "ask",
+   "latency_ms": {
+    "n": 1,
+    "p50": 4000,
+    "p95": 4000
+   },
+   "model": "stub-reader-1",
+   "n": 1,
+   "prompt_version": "p3-reader-branches-v1"
+  }
+ ],
+ "selection_to_reading": {
+  "actions": {
+   "by_kind": {
+    "ask": 1,
+    "follow_up": 1
+   },
+   "total": 2
+  },
+  "back_to_reading": {
+   "count": 1,
+   "of": 1,
+   "share": 1.0
+  },
+  "model_backed": {
+   "ask": {
+    "cancelled": 0,
+    "completed": 1,
+    "failed": 0,
+    "failure_reasons": {},
+    "latency_ms": {
+     "n": 1,
+     "p50": 4000,
+     "p95": 4000
+    },
+    "model_wait_ms": {
+     "n": 1,
+     "p50": 3800,
+     "p95": 3800
+    },
+    "queued": 1
+   },
+   "follow_up": {
+    "cancelled": 0,
+    "completed": 0,
+    "failed": 1,
+    "failure_reasons": {
+     "provider_unavailable": 1
+    },
+    "latency_ms": {
+     "n": 0,
+     "p50": null,
+     "p95": null
+    },
+    "model_wait_ms": {
+     "n": 0,
+     "p50": null,
+     "p95": null
+    },
+    "queued": 1
+   }
+  },
+  "selections": 2
+ },
+ "tutor": {
+  "abstained": 0,
+  "another_way": {
+   "count": 0,
+   "of": 0,
+   "share": null
+  },
+  "answers": 0,
+  "by_mode": {
+   "bridge": 0,
+   "excerpt": 0,
+   "grounded": 0
+  },
+  "didnt_help": {
+   "count": 0,
+   "of": 0,
+   "share": null
+  },
+  "excerpts_dropped": 0,
+  "offers": {
+   "press_results": {},
+   "pressed": {},
+   "shown": {}
+  },
+  "resolved_after": {
+   "another_way": {
+    "count": 0,
+    "of": 0,
+    "share": null
+   },
+   "didnt_help": {
+    "count": 0,
+    "of": 0,
+    "share": null
+   }
+  },
+  "retrieval": {}
+ },
+ "version": "reader-report-v1",
+ "visits": {
+  "active_minutes": 30.0,
+  "time_to_first_action_seconds": {
+   "n": 1,
+   "p50": 90.0,
+   "p95": 90.0
+  },
+  "visits": 1
+ },
+ "waiting": {
+  "count": 1,
+  "of": 2,
+  "share": 0.5
+ },
+ "window": {
+  "since": null,
+  "until": "2026-05-19T13:00:00+00:00"
+ }
+}

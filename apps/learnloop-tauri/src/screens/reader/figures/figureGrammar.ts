@@ -33,7 +33,11 @@ export const FUNCTIONS: Record<string, [number, number]> = {
 const SPECIAL_FORMS = ["piecewise", "integral", "sum"];
 export const CONSTANTS: Record<string, number> = { pi: Math.PI, e: Math.E };
 const KEYWORDS = ["and", "or"];
-export const RESERVED = new Set<string>([...Object.keys(FUNCTIONS), ...SPECIAL_FORMS, ...Object.keys(CONSTANTS), ...KEYWORDS]);
+// Object.prototype's own names a name may not be, and names are letters and
+// digits starting with a letter (no underscore, so no __proto__): a name means
+// the same in both evaluators (fix round 3; the Python twin's PROTOTYPE_NAMES).
+export const PROTOTYPE_NAMES = new Set<string>(["constructor", "hasOwnProperty", "isPrototypeOf", "propertyIsEnumerable", "toLocaleString", "toString", "valueOf"]);
+export const RESERVED = new Set<string>([...Object.keys(FUNCTIONS), ...SPECIAL_FORMS, ...Object.keys(CONSTANTS), ...KEYWORDS, ...PROTOTYPE_NAMES]);
 const COMPARISONS = ["<=", ">=", "==", "!=", "<", ">"];
 
 export class FigureGrammarError extends Error {}
@@ -50,12 +54,12 @@ export interface FigureNode {
 
 type Token = [kind: "number" | "name" | "op", text: string];
 
-const TOKEN = /[ \t\r\n]*(?:((?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)|([A-Za-z_][A-Za-z0-9_]*)|(<=|>=|==|!=|[-+*/^(),<>]))/y;
+const TOKEN = /[ \t\r\n]*(?:((?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)|([A-Za-z][A-Za-z0-9]*)|(<=|>=|==|!=|[-+*/^(),<>]))/y;
 const BLANK = /^[ \t\r\n]*$/;
-const NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const NAME = /^[A-Za-z][A-Za-z0-9]*$/;
 
 export function isName(text: string): boolean {
-  return NAME.test(text ?? "") && text.length <= MAX_NAME_CHARS;
+  return NAME.test(text ?? "") && text.length <= MAX_NAME_CHARS && !PROTOTYPE_NAMES.has(text);
 }
 
 function tokenize(source: string): Token[] {
@@ -73,6 +77,7 @@ function tokenize(source: string): Token[] {
     if (match[1] !== undefined) tokens.push(["number", match[1]]);
     else if (match[2] !== undefined) {
       if (match[2].length > MAX_NAME_CHARS) throw new FigureGrammarError(`name longer than ${MAX_NAME_CHARS} characters`);
+      if (PROTOTYPE_NAMES.has(match[2])) throw new FigureGrammarError(`${JSON.stringify(match[2])} is a reserved name`);
       tokens.push(["name", match[2]]);
     } else tokens.push(["op", match[3] as string]);
     position = TOKEN.lastIndex;
@@ -542,8 +547,24 @@ function truth(node: FigureNode, env: Env, defs: Definitions): boolean {
   }
 }
 
-/** The value of node with env (variables, parameters) and definitions; an unbound name is NaN. */
+/** A value with negative zero as zero: every result either evaluator gives (fix round 3). */
+export function canonical(value: number): number {
+  return value === 0 ? 0 : value;
+}
+
+/** An environment with no prototype, so no name can reach Object.prototype (fix round 3). */
+export function newEnv(from?: Env): Env {
+  const env = Object.create(null) as Env;
+  if (from) for (const name of Object.keys(from)) env[name] = from[name];
+  return env;
+}
+
+/** The value of node with env (variables, parameters) and definitions; an unbound name is NaN; never -0. */
 export function evaluate(node: FigureNode, env: Env, defs: Definitions = new Map()): number {
+  return canonical(evaluateNode(node, env, defs));
+}
+
+function evaluateNode(node: FigureNode, env: Env, defs: Definitions): number {
   switch (node.kind) {
     case "num":
       return node.value;
@@ -587,7 +608,7 @@ export function evaluate(node: FigureNode, env: Env, defs: Definitions = new Map
       const a = evaluate(lower, env, defs);
       const b = evaluate(upper, env, defs);
       const variable = node.text;
-      const scope: Env = { ...env };
+      const scope: Env = newEnv(env);
       const at = (t: number): number => {
         scope[variable] = t;
         return evaluate(body, scope, defs);

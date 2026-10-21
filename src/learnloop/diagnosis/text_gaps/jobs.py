@@ -339,22 +339,23 @@ def _unread_figure_explanations(repository: Repository, job_rows: Mapping[tuple[
     Left out: a prediction whose own reading has not run (no job and no
     gap: the sweep queues the prediction, and its one reading reads the
     explanation too) or is queued or running now (it may still read it); a
-    reading that already read the explanation (its gap row's text carries
-    it: the explanation was saved while that job waited); and an explained
+    reading that already read the explanation (its job's ``markers`` say
+    ``explanation_read``, recorded when it was done, fix round 3: never a
+    search of the text, which an explanation may repeat); and an explained
     source already queued or read (the caller's ``known``). ``job_rows`` and
     ``gap_rows`` are read before this sweep queued anything."""
 
     from learnloop.diagnosis.text_gaps.sources import FIGURE_EXPLANATION_SUFFIX, explained_predictions
 
     owed: list[str] = []
-    for prediction_id, explanation in explained_predictions(repository):
+    for prediction_id, _explanation in explained_predictions(repository):
         key = ("reader_formative", prediction_id)
         job, gap = job_rows.get(key), gap_rows.get(key)
         if job is None and gap is None:
             continue
         if job is not None and job.get("state") in ("queued", "leased"):
             continue
-        if gap is not None and explanation in str(gap.get("learner_text") or ""):
+        if job is not None and ((job.get("payload") or {}).get("markers") or {}).get("explanation_read") is True:
             continue
         owed.append(prediction_id + FIGURE_EXPLANATION_SUFFIX)
     return owed
@@ -466,6 +467,10 @@ def process_next_gap_job(
                               outcome=outcome, error=f"{type(exc).__name__}: {exc}"[:500])
     if row is None:
         return skip("learner_text_gaps.enabled is off", text)
+    if text.markers:
+        # What this reading read, on its job (fix round 3): the backlog
+        # reconciles a later figure explanation by it.
+        save_progress({**progress, "markers": dict(text.markers)})
     if not finish("done"):
         outcome.state = "lease_lost"
     outcome.gap_id, outcome.action = str(row["id"]), str(row["action"])

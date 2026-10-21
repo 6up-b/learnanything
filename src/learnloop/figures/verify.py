@@ -119,22 +119,57 @@ def _shown_values(data: Mapping[str, Any]) -> list[tuple[str, Any]]:
 
     values: list[tuple[str, Any]] = []
     for index, panel in enumerate(data["panels"]):
-        where = f"panel {index + 1} ({panel['kind']})"
-        if panel["kind"] == "function_plot":
-            for series in panel["series"]:
-                values += [(f"{where} series {series['label']!r}", value) for value in series["y"]]
-            values += [(f"{where} shade {shade['label']!r}", shade["value"]) for shade in panel["shades"]]
-            values += [(f"{where} marker {marker['label']!r}", marker["x"]) for marker in panel["markers"]]
-        elif panel["kind"] == "pmf_bars":
-            for series in panel["series"]:
-                values += [(f"{where} series {series['label']!r}", value) for value in series["p"]]
-            if panel["highlight"] is not None:
-                values.append((f"{where} highlight", panel["highlight"]["value"]))
-        elif panel["kind"] == "linear_map_2d":
-            values += [(f"{where} matrix", value) for row in panel["matrix"] for value in row]
-        else:
-            values.append((f"{where} {panel['label']!r}", panel["value"]))
+        _leaves(panel, f"panel {index + 1} ({panel['kind']})", values)
+        values += _extents(panel, f"panel {index + 1} ({panel['kind']})")
     return values
+
+
+def _leaves(value: Any, where: str, into: list[tuple[str, Any]]) -> None:
+    """Every number (or None, a value that is not finite) the panel data
+    holds, at any depth: the inputs and every derived value the renderer
+    shows (a map's determinant and corners, a shaded area's bounds and value,
+    readouts), so a new field is checked without being listed (fix round 3).
+    A panel with no highlight holds ``highlight: None``, which is not a value."""
+
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key == "highlight" and item is None:
+                continue
+            name = f"{where} {item['label']!r}" if isinstance(item, dict) and "label" in item else f"{where} {key}"
+            _leaves(item, name, into)
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            _leaves(item, where if isinstance(item, dict) and "label" in item else f"{where}[{index}]", into)
+    elif value is None or (isinstance(value, (int, float)) and not isinstance(value, bool)):
+        into.append((where, value))
+
+
+#: The renderer pads a plot's value range by 5% a side and a map's reach by
+#: 10% (FigurePanels.tsx): those must stay finite too.
+RENDER_PADDING = 1.1
+
+
+def _extents(panel: Mapping[str, Any], where: str) -> list[tuple[str, Any]]:
+    """The scales the renderer derives from a panel's values (its value
+    range and its reach, padded), as values that must be finite: None when
+    one is not (fix round 3: [[1e200, 0], [0, 1e200]] has finite entries
+    and a determinant of 1e400)."""
+
+    if panel["kind"] == "function_plot":
+        numbers = [v for series in panel["series"] for v in series["y"] if v is not None]
+    elif panel["kind"] == "pmf_bars":
+        numbers = [v for series in panel["series"] for v in series["p"] if v is not None]
+    elif panel["kind"] == "linear_map_2d":
+        numbers = [v for point in panel["square"] for v in point if v is not None]
+    else:
+        return []
+    if not numbers:
+        return []
+    low, high = min(numbers), max(numbers)
+    spread = (high - low) * RENDER_PADDING
+    reach = max(abs(low), abs(high)) * RENDER_PADDING
+    return [(f"{where} value range", spread if math.isfinite(spread) else None),
+            (f"{where} reach", reach if math.isfinite(reach) else None)]
 
 
 def structural(compiled: S.CompiledFigure, grid: Sequence[Mapping[str, float]]) -> list[str]:

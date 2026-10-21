@@ -494,7 +494,9 @@ def parse_spec(raw: str | Mapping[str, Any]) -> CompiledFigure:
 # ---------------------------------------------------------------------------
 
 def _num(value: float) -> float | None:
-    return value if math.isfinite(value) else None
+    """A shown value: None when not finite, never -0 (fix round 3)."""
+
+    return G.canonical(value) if math.isfinite(value) else None
 
 
 def _value(node: G.Node | None, env: Mapping[str, float], definitions: Mapping[str, G.Node]) -> float:
@@ -502,7 +504,7 @@ def _value(node: G.Node | None, env: Mapping[str, float], definitions: Mapping[s
 
 
 def plot_xs(axis: Axis) -> list[float]:
-    return [axis.min + (axis.max - axis.min) * i / SAMPLES for i in range(SAMPLES + 1)]
+    return [G.canonical(axis.min + (axis.max - axis.min) * i / SAMPLES) for i in range(SAMPLES + 1)]
 
 
 def bar_ks(axis: Axis) -> list[float]:

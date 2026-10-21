@@ -93,8 +93,14 @@ def build_reader_report(
     *,
     since: str | None = None,
     now: datetime | None = None,
+    figures_enabled: bool = False,
 ) -> dict[str, Any]:
-    """Compute the report from the ledgers (pure read)."""
+    """Compute the report from the ledgers (pure read).
+
+    ``figures_enabled`` is the vault's ``figures.enabled`` (RW5a): only while
+    it is on does the report read the figure tables and carry its
+    ``figures`` block, so with figures off it is the report of before RW5a
+    (fix round 3; the CLI passes the switch)."""
 
     now = (now or datetime.now(UTC)).astimezone(UTC)
     since_at = _when(since) if since else None
@@ -156,7 +162,7 @@ def build_reader_report(
         # RW5a: figures (migration 216), counted from their rows: by
         # verification, unsupported requests by kind (RW5b's order and the
         # deferred generated-code figures read it), versions, predictions.
-        has_figures = connection.execute(
+        has_figures = figures_enabled and connection.execute(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'interactive_figures'"
         ).fetchone() is not None
         figure_rows = [
@@ -346,7 +352,7 @@ def build_reader_report(
     offers_pressed = Counter(str(e["payload"].get("offer_kind") or "unknown") for e in actions("tutor_offer_pressed"))
     press_results = Counter(str(e["payload"].get("offer_result") or "unknown") for e in actions("tutor_offer_pressed"))
 
-    return {
+    report: dict[str, Any] = {
         "version": REPORT_VERSION,
         "window": {"since": since_at.isoformat() if since_at else None, "until": now.isoformat()},
         "learner_text": False,
@@ -494,6 +500,9 @@ def build_reader_report(
             for (job_kind, model, version), rows in sorted(routes.items(), key=lambda item: str(item[0]))
         ],
     }
+    if not figures_enabled:
+        del report["figures"]
+    return report
 
 
 __all__ = ["REPORT_VERSION", "build_reader_report"]

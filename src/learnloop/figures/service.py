@@ -650,6 +650,12 @@ def _source_match(vault: Any, repository: Repository, compiled: S.CompiledFigure
     unbound = V.displayed_source_problem(compiled, name, claims)
     if unbound is not None:
         return {"matched": False, "definition": name, "reason": unbound}, 0
+    # The check runs on SymPy's reading of the definition: one that SymPy
+    # cannot read exactly as the renderer evaluates it is not checkable, so
+    # no call is made (fix round 3).
+    untranslatable = G.sympy_problem(compiled.definitions[name], compiled.definitions)
+    if untranslatable is not None:
+        return {"matched": False, "definition": name, "reason": untranslatable}, 0
     verifier = R.FigureRoute(vault, repository, R.VERIFIER_TASK, client=client, envelope=envelope,
                              owner_id=f"figure:{request_id}", max_calls=R.MAX_VERIFIER_CALLS)
     problem = verifier.problem()

@@ -14,10 +14,12 @@ import {
   MAX_SAFE_INTEGER,
   RESERVED,
   adaptiveSimpson,
+  canonical,
   checkNames,
   evaluate,
   exactSum,
   isName,
+  newEnv,
   parseExpression,
   walk,
   type Definitions,
@@ -78,7 +80,7 @@ export class FigureSpecError extends Error {
 }
 
 export function defaults(compiled: CompiledFigure): Env {
-  const env: Env = {};
+  const env: Env = newEnv();
   for (const parameter of compiled.parameters) env[parameter.name] = Number(parameter.default);
   return env;
 }
@@ -251,11 +253,12 @@ function allExpressions(spec: FigureSpec): string[] {
 // Evaluation: the panels' data (the golden corpus's parity unit)
 // ---------------------------------------------------------------------------
 
-const num = (value: number): number | null => (Number.isFinite(value) ? value : null);
+// A shown value: null when not finite, never -0 (fix round 3).
+const num = (value: number): number | null => (Number.isFinite(value) ? canonical(value) : null);
 const value = (node: FigureNode | null | undefined, env: Env, defs: Definitions): number => (node ? evaluate(node, env, defs) : NaN);
 
 export function plotXs(axis: FigureAxis): number[] {
-  return Array.from({ length: SAMPLES + 1 }, (_, i) => axis.min + ((axis.max - axis.min) * i) / SAMPLES);
+  return Array.from({ length: SAMPLES + 1 }, (_, i) => canonical(axis.min + ((axis.max - axis.min) * i) / SAMPLES));
 }
 
 /** The bars' k values: counted from the support's start, at most MAX_BARS of them (compileSpec refuses more). */
@@ -278,7 +281,7 @@ export function shadeValue(compiled: CompiledFigure, panel: CompiledPanel, shade
   const seriesIndex = model.series.map((series) => series.label).indexOf(shade.series);
   const node = (panel.nodes.series as Array<FigureNode | null>)[seriesIndex];
   const variable = model.x.var;
-  const scope: Env = { ...env };
+  const scope: Env = newEnv(env);
   const at = (t: number): number => {
     scope[variable] = t;
     return value(node, scope, compiled.definitions);
@@ -293,7 +296,7 @@ function highlightValue(compiled: CompiledFigure, panel: CompiledPanel, env: Env
   let upper = value(upperNode, env, compiled.definitions);
   const node = (panel.nodes.series as Array<FigureNode | null>)[0];
   const variable = model.k.var;
-  const scope: Env = { ...env };
+  const scope: Env = newEnv(env);
   const at = (k: number): number => {
     scope[variable] = k;
     return value(node, scope, compiled.definitions);
@@ -316,7 +319,7 @@ export function evaluatePanel(compiled: CompiledFigure, panel: CompiledPanel, en
     const xs = plotXs(model.x);
     const series = model.series.map((item, index) => {
       const node = (panel.nodes.series as Array<FigureNode | null>)[index];
-      const scope: Env = { ...env };
+      const scope: Env = newEnv(env);
       return {
         label: item.label,
         y: xs.map((x) => {
@@ -340,7 +343,7 @@ export function evaluatePanel(compiled: CompiledFigure, panel: CompiledPanel, en
     const ks = barKs(model.k);
     const series = model.series.map((item, index) => {
       const node = (panel.nodes.series as Array<FigureNode | null>)[index];
-      const scope: Env = { ...env };
+      const scope: Env = newEnv(env);
       return {
         label: item.label,
         p: ks.map((k) => {

@@ -74,8 +74,14 @@ FUNCTIONS: dict[str, tuple[int, int | None]] = {
 SPECIAL_FORMS = ("piecewise", "integral", "sum")
 CONSTANTS = {"pi": math.pi, "e": math.e}
 KEYWORDS = ("and", "or")
+#: Object.prototype's own names a name may not be, so a name means the same in
+#: both evaluators (a JavaScript object would find these on its prototype; fix
+#: round 3). Names are letters and digits, starting with a letter: no
+#: underscore, so no __proto__ either.
+PROTOTYPE_NAMES = frozenset({"constructor", "hasOwnProperty", "isPrototypeOf", "propertyIsEnumerable",
+                             "toLocaleString", "toString", "valueOf"})
 #: Names nobody may define or bind.
-RESERVED = frozenset({*FUNCTIONS, *SPECIAL_FORMS, *CONSTANTS, *KEYWORDS})
+RESERVED = frozenset({*FUNCTIONS, *SPECIAL_FORMS, *CONSTANTS, *KEYWORDS, *PROTOTYPE_NAMES})
 COMPARISONS = ("<=", ">=", "==", "!=", "<", ">")
 
 #: ASCII only (digits, letters, the four whitespace characters), as in
@@ -83,11 +89,11 @@ COMPARISONS = ("<=", ">=", "==", "!=", "<", ">")
 _TOKEN = re.compile(
     r"[ \t\r\n]*(?:"
     r"(?P<number>(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)"
-    r"|(?P<name>[A-Za-z_][A-Za-z0-9_]*)"
+    r"|(?P<name>[A-Za-z][A-Za-z0-9]*)"
     r"|(?P<op><=|>=|==|!=|[-+*/^(),<>])"
     r")"
 )
-_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
+_NAME = re.compile(r"[A-Za-z][A-Za-z0-9]*\Z")
 _BLANK = re.compile(r"[ \t\r\n]*")
 
 
@@ -112,7 +118,7 @@ class Node:
 
 
 def is_name(text: str) -> bool:
-    return bool(_NAME.match(text or "")) and len(text) <= MAX_NAME_CHARS
+    return bool(_NAME.match(text or "")) and len(text) <= MAX_NAME_CHARS and text not in PROTOTYPE_NAMES
 
 
 def _tokenize(source: str) -> list[tuple[str, str]]:
@@ -132,6 +138,8 @@ def _tokenize(source: str) -> list[tuple[str, str]]:
         text = match.group(kind)
         if kind == "name" and len(text) > MAX_NAME_CHARS:
             raise GrammarError(f"name longer than {MAX_NAME_CHARS} characters")
+        if kind == "name" and text in PROTOTYPE_NAMES:
+            raise GrammarError(f"{text!r} is a reserved name")
         tokens.append((kind, text))
         position = match.end()
     return tokens
@@ -603,11 +611,23 @@ def _truth(node: Node, env: Mapping[str, float], definitions: Mapping[str, Node]
             "==": left == right, "!=": left != right}[node.op]
 
 
+def canonical(value: float) -> float:
+    """``value`` with negative zero as zero: every result either evaluator
+    gives (fix round 3; JavaScript's Math.min(0, -0) is -0, Python's min(0.0,
+    -0.0) is 0.0, and 1/-0 is -Infinity)."""
+
+    return 0.0 if value == 0 else value
+
+
 def evaluate(node: Node, env: Mapping[str, float], definitions: Mapping[str, Node] | None = None) -> float:
     """The value of ``node`` with ``env`` (variables and parameters) and
     ``definitions`` (named expressions, evaluated where they are used). An
-    unbound name is NaN."""
+    unbound name is NaN. Every node's value is :func:`canonical` (no -0)."""
 
+    return canonical(_evaluate_node(node, env, definitions))
+
+
+def _evaluate_node(node: Node, env: Mapping[str, float], definitions: Mapping[str, Node] | None) -> float:
     defs = definitions or {}
     kind = node.kind
     if kind == "num":
@@ -673,6 +693,8 @@ def evaluate(node: Node, env: Mapping[str, float], definitions: Mapping[str, Nod
 _SYMPY_FUNCTIONS = {"exp": "exp", "log": "log", "sqrt": "sqrt", "abs": "Abs", "sin": "sin", "cos": "cos",
                     "tan": "tan", "atan": "atan", "erf": "erf", "floor": "floor", "min": "Min", "max": "Max"}
 _SYMPY_RELATIONS = {"<": "Lt", "<=": "Le", ">": "Gt", ">=": "Ge", "==": "Eq", "!=": "Ne"}
+#: The sum's bound slack (:func:`exact_sum`'s 1e-9) in exact form.
+SUM_SLACK_SYMPY = "Rational(1, 1000000000)"
 
 
 def to_sympy(node: Node, definitions: Mapping[str, Node] | None = None) -> str:
@@ -708,11 +730,64 @@ def to_sympy(node: Node, definitions: Mapping[str, Node] | None = None) -> str:
         return f"{_SYMPY_RELATIONS[node.op]}({to_sympy(node.args[0], defs)}, {to_sympy(node.args[1], defs)})"
     if kind in ("and", "or"):
         return f"{'And' if kind == 'and' else 'Or'}({', '.join(to_sympy(child, defs) for child in node.args)})"
-    if kind in ("integral", "sum"):
+    if kind == "integral":
         body, lower, upper = node.args
-        form = "Integral" if kind == "integral" else "Sum"
-        return f"{form}({to_sympy(body, defs)}, ({node.text}, {to_sympy(lower, defs)}, {to_sympy(upper, defs)}))"
+        return f"Integral({to_sympy(body, defs)}, ({node.text}, {to_sympy(lower, defs)}, {to_sympy(upper, defs)}))"
+    if kind == "sum":
+        # The evaluator's one rule (:func:`exact_sum`): the integers
+        # ceil(a - 1e-9) .. floor(b + 1e-9), and an empty range is 0. SymPy's
+        # own Sum would sum a reversed range negatively (Karr) and keep
+        # fractional bounds, so the rule is written out (fix round 3).
+        body, lower, upper = node.args
+        low = f"ceiling({to_sympy(lower, defs)} - {SUM_SLACK_SYMPY})"
+        high = f"floor({to_sympy(upper, defs)} + {SUM_SLACK_SYMPY})"
+        return (f"Piecewise((Sum({to_sympy(body, defs)}, ({node.text}, {low}, {high})), Ge({high}, {low})), "
+                f"(0, True))")
     raise GrammarError(f"cannot translate a {kind!r} node")
+
+
+#: Constructs whose value the evaluator's floating point decides where exact
+#: arithmetic decides otherwise, densely and at the renderer's own sample
+#: points: an equality test, and floor (an integrality test at every
+#: integer). A definition using one is not source-verifiable (fix round 3).
+UNVERIFIABLE_COMPARISONS = ("==", "!=")
+UNVERIFIABLE_FUNCTIONS = ("floor",)
+#: An integral is the fixed adaptive Simpson rule, an approximation SymPy's
+#: exact Integral does not reproduce (it parts from it by more than the
+#: corpus tolerance at a jump), so a definition with one is not
+#: source-verifiable either (fix round 3).
+UNVERIFIABLE_FORMS = ("integral",)
+
+
+def sympy_problem(node: Node, definitions: Mapping[str, Node] | None = None) -> str | None:
+    """Why :func:`to_sympy` cannot reproduce the evaluator's value of
+    ``node`` (definitions expanded) exactly, or None: what the source match
+    may check (fix round 3). Ordered comparisons, sums (by the shared bound
+    rule) and every other construct but equality, floor and integral
+    translate exactly; a comparison's
+    rounding-decided boundary is a set of measure zero the check never
+    relies on."""
+
+    defs = definitions or {}
+    seen: set[str] = set()
+    pending = [node]
+    while pending:
+        current = pending.pop()
+        if current.kind == "name" and current.text in defs and current.text not in seen:
+            seen.add(current.text)
+            pending.append(defs[current.text])
+            continue
+        if current.kind == "cmp" and current.op in UNVERIFIABLE_COMPARISONS:
+            return (f"the definition tests equality ({current.op}), which floating point decides where the book's "
+                    "exact equation does not")
+        if current.kind == "call" and current.text in UNVERIFIABLE_FUNCTIONS:
+            return (f"the definition uses {current.text}, whose steps floating point places where the book's "
+                    "exact equation does not")
+        if current.kind in UNVERIFIABLE_FORMS:
+            return ("the definition uses an integral, which the figure approximates by a fixed rule where the "
+                    "book's equation is exact")
+        pending.extend(current.args)
+    return None
 
 
 __all__ = [
@@ -724,9 +799,11 @@ __all__ = [
     "MAX_NODES",
     "MAX_SAFE_INTEGER",
     "MAX_SUM_TERMS",
+    "PROTOTYPE_NAMES",
     "Node",
     "RESERVED",
     "adaptive_simpson",
+    "canonical",
     "check_names",
     "evaluate",
     "exact_sum",
@@ -734,6 +811,7 @@ __all__ = [
     "has_bound_form",
     "is_name",
     "parse",
+    "sympy_problem",
     "to_sympy",
     "walk",
 ]
