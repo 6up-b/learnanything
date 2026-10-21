@@ -381,6 +381,9 @@ class TurnLockdown:
     threads: set[str] = field(default_factory=set)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     _stopped: bool = False
+    #: Whether the request in flight has completed an assistant message that
+    #: may be the answer (phase ``final_answer``, or no phase reported).
+    _answered: bool = False
 
     def _violate(self, what: str) -> None:
         stop = None
@@ -425,16 +428,30 @@ class TurnLockdown:
                 with self._lock:
                     self.thread_usage[thread] = total
                     totals = self.thread_totals.setdefault(thread, set())
-                    if tokens > 0:  # a usage update before any request carries no request
+                    finished = tokens > 0 and tokens not in totals  # a request ended (0 or a repeat: none)
+                    if finished:
                         totals.add(tokens)
                     requests = len(totals)
+                    answered, self._answered = self._answered, (self._answered and not finished)
                 if not child and not self.workspace and requests > 1:
                     self._violate("a second model request in the turn (a tool round trip)")
+                elif not child and not self.workspace and finished and not answered:
+                    # The request ended without an answer: the model called a
+                    # tool (code mode's exec leaves no item). Stopped here, before
+                    # the tool's round trip becomes a second request.
+                    self._violate("a model response that ended in a tool call (no final answer)")
         if child:
             self._violate(f"sub-agent thread activity ({method})")
             return
         if method in ("item/started", "item/completed"):
-            kind = item_kind(_field(payload, "item") or {})
+            item = _field(payload, "item") or {}
+            kind = item_kind(item)
+            if method == "item/completed" and kind == "agentmessage":
+                phase = _field(getattr(item, "root", item), "phase")
+                phase = getattr(phase, "value", phase)
+                if phase in (None, "final_answer"):  # an answer, or a model that reports no phases
+                    with self._lock:
+                        self._answered = True
             allowed = WORKSPACE_ITEMS if self.workspace else TEXT_ITEMS
             if kind not in allowed:
                 with self._lock:

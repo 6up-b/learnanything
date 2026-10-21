@@ -404,10 +404,28 @@ def test_the_real_sdk_has_the_seams_the_lockdown_replaces():
     assert lockdown.server_requests == ["item/commandExecution/requestApproval"]
     # Every notification passes the tap first, then the SDK's own routing.
     item = {"type": "mcpToolCall", "id": "i", "server": "s", "tool": "x", "status": "inProgress", "arguments": {}}
-    client._router.route_notification(client._coerce_notification(
-        "item/started", {"threadId": "thr_parent", "turnId": "t", "item": item},
-    ))
+    typed = client._coerce_notification("item/started", {"threadId": "thr_parent", "turnId": "t", "item": item,
+                                                           "startedAtMs": 1})
+    assert type(typed.payload).__name__ == "ItemStartedNotification"
+    client._router.route_notification(typed)
     assert "tool item mcptoolcall" in lockdown.violations
+    # The typed notifications carry what the early stop reads: the message's
+    # phase and the thread's cumulative usage.
+    early = _lockdown().TurnLockdown(parent_thread="thr_parent")
+    _lockdown().install_on_sdk(SimpleNamespace(_client=client), early)
+    breakdown = {"cachedInputTokens": 0, "inputTokens": 100, "outputTokens": 20, "reasoningOutputTokens": 0,
+                 "totalTokens": 120}
+    for method, params in (
+        ("item/completed", {"threadId": "thr_parent", "turnId": "t", "completedAtMs": 2,
+                            "item": {"type": "agentMessage", "id": "m", "text": "Trying exec.", "phase": "commentary"}}),
+        ("thread/tokenUsage/updated", {"threadId": "thr_parent", "turnId": "t",
+                                       "tokenUsage": {"total": breakdown, "last": breakdown}}),
+    ):
+        notification = client._coerce_notification(method, params)
+        assert type(notification.payload).__name__ != "UnknownNotification"
+        client._router.route_notification(notification)
+    assert early.violations == ["a model response that ended in a tool call (no final answer)"]
+    assert early.parent_usage().total_tokens == 120
 
 
 # -- 4. an answer from a turn that used a tool is refused ---------------------------------
@@ -474,12 +492,22 @@ def test_the_first_tool_item_stops_the_turn(tmp_path, monkeypatch):
     assert captured["interrupted"] is True
 
 
+def _usage_update(sdk, total: int, thread: str = "thr_parent") -> None:
+    sdk.notify("thread/tokenUsage/updated", threadId=thread, turnId="turn_parent",
+               tokenUsage={"total": {"inputTokens": total, "outputTokens": 0, "totalTokens": total},
+                           "last": {"inputTokens": total, "outputTokens": 0, "totalTokens": total}})
+
+
+def _message(sdk, phase: str | None) -> None:
+    item = {"type": "agentMessage", "id": "m", "text": ANSWER, **({"phase": phase} if phase else {})}
+    sdk.notify("item/completed", threadId="thr_parent", turnId="turn_parent", item=item)
+
+
 def test_a_second_model_request_reported_mid_turn_stops_it(tmp_path, monkeypatch):
     def two_requests(sdk, turn):
+        _message(sdk, "final_answer")
         for total in (0, 120, 120, 260):  # a zero update and a rate-limit repeat carry no request
-            sdk.notify("thread/tokenUsage/updated", threadId="thr_parent", turnId="turn_parent",
-                       tokenUsage={"total": {"inputTokens": total, "outputTokens": 0, "totalTokens": total},
-                                   "last": {"inputTokens": total, "outputTokens": 0, "totalTokens": total}})
+            _usage_update(sdk, total)
         assert turn.stopped.wait(5)
 
     captured = _fake_sdk(monkeypatch, on_run=two_requests, raise_when_stopped=True)
@@ -526,15 +554,46 @@ def test_a_guardian_review_is_counted_and_refuses_the_answer(tmp_path, monkeypat
     assert json.loads(finish["usage_json"])["codex_turn"]["guardian_reviews"] == 1
 
 
+@pytest.mark.parametrize("phase", ["commentary", None])
+def test_a_response_that_ends_without_an_answer_stops_the_turn_at_once(tmp_path, monkeypatch, phase):
+    """Live check 5 (2026-10-21): a code-mode exec call leaves no item; the
+    response before it ends with a ``commentary`` message only. Stopped there,
+    before the round trip becomes a second request. A model that reports no
+    phases is never stopped on this ground (its message may be the answer)."""
+
+    def commentary_then_tool(sdk, turn):
+        sdk.notify("item/started", threadId="thr_parent", turnId="turn_parent", item={"type": "reasoning"})
+        _message(sdk, phase)
+        _usage_update(sdk, 120)
+        if phase == "commentary":
+            assert turn.stopped.wait(5)
+
+    captured = _fake_sdk(monkeypatch, on_run=commentary_then_tool, raise_when_stopped=True, usage=_usage(120))
+    client = _client(tmp_path, monkeypatch)
+    if phase == "commentary":
+        with pytest.raises(_lockdown().CodexToolUseRefused, match="ended in a tool call"):
+            _plain(client)
+        assert captured["interrupted"] is True
+    else:
+        assert _plain(client) == LinkJudgment(links=[])
+        assert "interrupted" not in captured
+
+
 def test_an_ordinary_turn_reports_exactly_what_it_did_before(tmp_path, monkeypatch):
-    """Behaviour unchanged for a text-only turn: the same receipt fields, no extras."""
+    """Behaviour unchanged for a text-only turn: the same receipt fields, no extras.
+    The notification order is the one live check 1 (2026-10-21) recorded."""
 
     events: list[tuple[str, dict[str, Any]]] = []
 
     def one_request(sdk, _turn):
+        for kind in ("userMessage", "reasoning"):
+            sdk.notify("item/started", threadId="thr_parent", turnId="turn_parent", item={"type": kind})
+            sdk.notify("item/completed", threadId="thr_parent", turnId="turn_parent", item={"type": kind})
         sdk.notify("item/started", threadId="thr_parent", turnId="turn_parent", item={"type": "agentMessage"})
+        _message(sdk, "final_answer")
         sdk.notify("thread/tokenUsage/updated", threadId="thr_parent", turnId="turn_parent",
                    tokenUsage={"total": {"inputTokens": 110, "outputTokens": 10, "totalTokens": 120}})
+        sdk.notify("turn/completed", threadId="thr_parent", turn={"id": "turn_parent"})
 
     _fake_sdk(monkeypatch, on_run=one_request, usage=_usage(120, input_tokens=110))
     with observe_model_calls(lambda action, event: events.append((action, dict(event)))):
