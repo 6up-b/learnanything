@@ -277,11 +277,28 @@ def shown_row(row: Mapping[str, Any]) -> Mapping[str, Any]:
     stored one (from a build before the owner's scope decision of
     2026-10-21) is shown as the illustration RW5a's rules make it."""
 
-    if row.get("verification") != store.VERIFIED_RW5C:
+    if store.shown_verification(row.get("verification")) == row.get("verification"):
         return row
     report = row.get("verification_report") or {}
     return {**row, "verification": V.ILLUSTRATIVE,
             "verification_report": {**report, "reason": RECONSTRUCTION_REASON}}
+
+
+#: The properties code checked before a figure shows, as closed keys (final
+#: round, High 1): the Reader's code-owned frame names each with its own
+#: words, so nothing model-written can reach the frame's badge.
+PROPERTY_CHECKS = ("values_finite", "integrates_to_one", "sums_to_one", "nonnegative", "bounded", "finite",
+                   "monotone_nondecreasing", "shaded_areas")
+
+
+def property_checks(report: Mapping[str, Any]) -> list[str]:
+    """The closed keys of the checks a shown figure passed (§8.3 steps 1-2)."""
+
+    held = {str(entry.get("kind")) for entry in report.get("invariants") or () if entry.get("holds")}
+    passed = {"values_finite"} | held
+    if report.get("shades"):
+        passed.add("shaded_areas")
+    return [key for key in PROPERTY_CHECKS if key in passed]
 
 
 def _label(row: Mapping[str, Any]) -> str:
@@ -324,13 +341,14 @@ def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, v
         "label": _label(row), "reason": (row.get("verification_report") or {}).get("reason") or None,
         "unsupported_kind": row.get("unsupported_kind"), "supersedes_id": row.get("supersedes_id"),
         "revision_note": row.get("revision_note"), "versions": versions, "created_at": row["created_at"],
-        "spec_json": None, "demonstrates": None, "assumptions": [], "predictions": [],
+        "spec_json": None, "demonstrates": None, "assumptions": [], "predictions": [], "property_checks": [],
     }
     if row["verification"] not in store.SHOWN or not row.get("spec_json"):
         return view
     compiled = S.parse_spec(row["spec_json"])
     report = row.get("verification_report") or {}
     view["spec_json"] = row["spec_json"]
+    view["property_checks"] = property_checks(report)
     view["demonstrates"] = compiled.spec.demonstrates
     view["assumptions"] = report.get("assumptions") or [
         {"text": item.text, "span_id": None, "quote": None} for item in compiled.spec.assumptions]

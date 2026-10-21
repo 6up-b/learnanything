@@ -26,6 +26,14 @@ SHOWN = ("verified", "illustrative")
 VERIFIED_RW5C = "verified"
 
 
+def shown_verification(verification: str | None) -> str | None:
+    """A stored verification as RW5a shows and counts it: ``verified`` (never
+    written by RW5a; RW5c's) is an illustration. The one normalization the
+    figure view and the Reader report share (final round, High 2)."""
+
+    return "illustrative" if verification == VERIFIED_RW5C else verification
+
+
 def has_tables(connection: sqlite3.Connection) -> bool:
     names = {row[0] for row in connection.execute(
         "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('interactive_figures', 'figure_predictions')")}
@@ -167,6 +175,7 @@ __all__ = [
     "PREDICTION_COLUMNS",
     "SHOWN",
     "VERIFIED_RW5C",
+    "shown_verification",
     "builds_for_input",
     "figure",
     "figures_for_extraction",

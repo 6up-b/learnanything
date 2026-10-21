@@ -1,7 +1,7 @@
 // Reader workbench RW5a: an explorable figure, inline under its passage (spec §8.1; UX §4.7, Moment 9, W11, S9).
 //
-// Collapsed to one line once built, its verification label always visible
-// (G23); expands in place at the text column's full measure, one at a time.
+// Collapsed to one line once built, its code-owned badge always visible
+// (G23; FIGURE_FRAME below); expands in place at the text column's full measure, one at a time.
 // Open: what it demonstrates and assumes (AI-written, quoted where the book
 // says it), one prediction before the first change (formative; the readout
 // before and after; "what changed? (optional)"), sliders with numeric fields,
@@ -17,6 +17,45 @@ import { logReaderAction } from "../activity";
 import { MeaningLabel, ModelVoice, SourceVoice } from "../voices";
 import { FigurePanel, formatValue } from "./FigurePanels";
 import { compileSpec, evaluateFigure, type CompiledFigure, type FigureParameter } from "./figureSpec";
+
+// The code-owned frame (RW5a final round, High 1). A figure's header badge and
+// its property checks are written here, from closed values only: the
+// verification status and the closed keys of the checks code ran (spec §8.3
+// steps 1-2). Model-authored labels and text (series and readout labels, what
+// it shows, a failure's reason, an unsupported request's kind) render inside
+// the frame and never in its badge slot. RW5a makes no "matches the book"
+// claim; that label is RW5c's.
+export const FIGURE_FRAME = {
+  illustration: "AI-built illustration of an interpretation · not checked against the book",
+  failed: "couldn't build a reliable version of this",
+  unsupported: "can't draw this yet · noted",
+  checksLead: "checked by LearnLoop:",
+} as const;
+
+export const PROPERTY_CHECK_COPY: Readonly<Record<string, string>> = Object.freeze({
+  values_finite: "every value finite on the parameter grid",
+  integrates_to_one: "a declared density integrates to 1",
+  sums_to_one: "a declared PMF sums to 1",
+  nonnegative: "a declared quantity is never negative",
+  bounded: "a declared quantity stays bounded",
+  finite: "a declared quantity stays finite",
+  monotone_nondecreasing: "a declared curve never decreases",
+  shaded_areas: "shaded areas match an independent integration",
+});
+
+/** The badge slot's text: from the status alone (a stored "verified" is shown as the illustration it is). */
+export function frameBadge(verification: FigureViewDto["verification"]): string {
+  if (verification === "failed") return FIGURE_FRAME.failed;
+  if (verification === "unsupported") return FIGURE_FRAME.unsupported;
+  return FIGURE_FRAME.illustration;
+}
+
+/** The property checks' words, for the closed keys only (anything else is dropped). */
+export function frameChecks(keys: readonly string[] | null | undefined): string[] {
+  return (keys ?? []).filter((key) => Object.prototype.hasOwnProperty.call(PROPERTY_CHECK_COPY, key))
+    .map((key) => PROPERTY_CHECK_COPY[key]);
+}
+
 import type { FigurePending, FiguresCtl } from "./useFigures";
 
 export const FIGURE_COPY = {
@@ -399,7 +438,11 @@ export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: Figu
     return (
       <div data-figure={figure.figureId} data-figure-verification={figure.verification}
         style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim, display: "flex", gap: 10, margin: "4px 0 4px 15px", flexWrap: "wrap" }}>
-        <MeaningLabel style={{ fontSize: 11 }}>{figure.label}</MeaningLabel>
+        <span data-figure-badge=""><MeaningLabel style={{ fontSize: 11 }}>{frameBadge(figure.verification)}</MeaningLabel></span>
+        {figure.verification === "unsupported" && figure.unsupportedKind ? (
+          <span data-figure-detail="">needs {figure.unsupportedKind}</span>
+        ) : null}
+        {figure.verification === "failed" && figure.reason ? <span data-figure-detail="">({figure.reason})</span> : null}
         {figure.verification === "failed" ? (
           <button type="button" style={linkStyle} onClick={() => ctl.request({ spanIds: figure.spanIds, region: figure.region })}>
             {FIGURE_COPY.tryAgain}
@@ -408,6 +451,7 @@ export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: Figu
       </div>
     );
   }
+  const checks = frameChecks(figure.propertyChecks);
   const toggle = () => {
     if (!expanded) logReaderAction("figure_opened", { figure_id: figure.figureId, extraction_id: figure.extractionId });
     ctl.setExpanded(expanded ? null : figure.figureId);
@@ -418,8 +462,11 @@ export function FigureInline({ figure, ctl }: { figure: FigureViewDto; ctl: Figu
         <button type="button" aria-expanded={expanded} onClick={toggle}
           style={{ ...linkStyle, fontSize: 11, color: COLOR.text, textDecoration: "none" }}>
           <span aria-hidden="true">{expanded ? "▾" : "▸"}</span> {FIGURE_COPY.collapsed} ·{" "}
-          <span data-figure-label="">{figure.label}</span>
+          <span data-figure-badge="">{frameBadge(figure.verification)}</span>
         </button>
+        {checks.length ? (
+          <span data-figure-checks=""><MeaningLabel style={{ fontSize: 11 }}>{FIGURE_FRAME.checksLead} {checks.join("; ")}</MeaningLabel></span>
+        ) : null}
         {expanded ? <button type="button" style={linkStyle} onClick={() => ctl.setExpanded(null)}>{FIGURE_COPY.close}</button> : null}
       </div>
       {expanded ? (

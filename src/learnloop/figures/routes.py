@@ -3,7 +3,9 @@
 ``figure_author`` (chat; image input when a figure's crop is sent) writes the
 declarative figure spec as JSON text (``spec_json``), validated by code
 (:func:`learnloop.figures.spec.parse_spec`), or says what it cannot draw
-(``unsupported`` with its kind). Never code. RW5a has no verifier route: the
+(``unsupported`` with its kind). Never code. Each call is an isolated turn: only
+its prompt (and the crop), no files, tools, workspace or vault; a provider that
+cannot isolate it is refused before any request. RW5a has no verifier route: the
 source match (§8.3 step 3) is RW5c's, which adds what it needs.
 
 **Caps (money).** Per request: at most :data:`MAX_AUTHOR_ATTEMPTS` author
@@ -29,7 +31,7 @@ from typing import Any
 
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.spend import SpendBudget, SpendCaps, spend_envelopes
-from learnloop.ai.transport import IMAGE_INPUT, render_structured_prompt
+from learnloop.ai.transport import IMAGE_INPUT, ISOLATED_TURN, render_structured_prompt
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.practice_index.paid import PaidCalls, PaidRoute, plan_route, resolve_client
@@ -189,6 +191,14 @@ class FigureRoute:
             self.client, message = resolve_client(self.vault, self.route)
             if self.client is None:
                 raise FigureUnavailable("unavailable", message or "the figure model is not ready")
+        if not self.client.supports(ISOLATED_TURN):
+            # Source text only, never the vault (final round, High 4): the
+            # author runs as an isolated, tool-free turn like every other
+            # source-only Reader route; a provider that cannot enforce it is
+            # refused before any request (fails closed).
+            self.client = None
+            raise FigureUnavailable("not_isolated", "The figure route cannot run an isolated turn (no files, tools, "
+                                    "workspace or vault), so nothing is sent.")
         budget = SpendBudget(SpendCaps(max_estimated_usd=None, max_candidates=0, max_pairs=0, max_retries=0,
                                        max_calls=self.max_calls, max_total_tokens=600_000),
                              subscription=self.subscription)
@@ -214,7 +224,7 @@ class FigureRoute:
         with spend_envelopes(self.envelope):
             return self.calls.call(client, purpose=self.task, prompt=prompt, result_model=result_model,
                                    output_tokens=self.route.output_tokens, metadata=dict(metadata or {}),
-                                   images=images)
+                                   images=images, isolated=True)
 
     @property
     def model(self) -> str | None:

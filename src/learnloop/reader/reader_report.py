@@ -44,6 +44,7 @@ from typing import Any, Iterable
 
 from learnloop.clock import parse_utc
 from learnloop.db.connection import connect
+from learnloop.db.stores.figures import shown_verification
 
 REPORT_VERSION = "reader-report-v1"
 OPEN_AFTER = timedelta(days=7)
@@ -166,7 +167,9 @@ def build_reader_report(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'interactive_figures'"
         ).fetchone() is not None
         figure_rows = [
-            {"verification": row["verification"], "unsupported_kind": row["unsupported_kind"],
+            # A legacy "verified" counts as the illustration it is shown as
+            # (final round, High 2: the figure view's one normalization).
+            {"verification": shown_verification(row["verification"]), "unsupported_kind": row["unsupported_kind"],
              "revision": row["supersedes_id"] is not None, "region": row["region_json"] is not None}
             for row in connection.execute(
                 "SELECT verification, unsupported_kind, supersedes_id, region_json, created_at FROM interactive_figures "

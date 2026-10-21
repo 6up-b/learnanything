@@ -8737,7 +8737,7 @@ export interface FigureViewDto {
   origin: "selection" | "library" | "tutor";
   verification: FigureVerification;
   kind: "reconstructed" | "illustrative" | null;
-  /** The verification label, always shown (G23). */
+  /** The server's label (the Reader draws its own code-owned badge instead, FIGURE_FRAME). */
   label: string;
   reason: string | null;
   unsupportedKind: string | null;
@@ -8750,6 +8750,8 @@ export interface FigureViewDto {
   demonstrates: string | null;
   assumptions: Array<{ text: string; spanId: string | null; quote: string | null }>;
   predictions: FigurePredictionDto[];
+  /** The closed keys of the checks LearnLoop ran (§8.3 steps 1-2); the Reader names them in its own words. */
+  propertyChecks?: string[];
 }
 
 export interface FigureBuildResultDto {

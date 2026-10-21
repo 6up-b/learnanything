@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../../api/client";
 import type { FigureBuildResultDto, FigurePredictionResultDto, FigureViewDto, LibraryJobDto } from "../../../api/dto";
 import { errorMessage, getCommandError } from "../../../errors";
+import { frameBadge } from "./FigureInline";
 
 /** How often a running build is read (a background job: no hurry). */
 export const FIGURE_POLL_MS = 1500;
@@ -133,7 +134,7 @@ export function useFigures({
           const shown = figure !== null && (figure.verification === "verified" || figure.verification === "illustrative");
           if (figure && figure.supersedesId && !shown) {
             // A "not right?" version that did not verify: the earlier one stays.
-            setPending((list) => [...list, { key, anchorSpanId, state: "failed", message: figure.label, code: figure.verification, retry, cancel }]);
+            setPending((list) => [...list, { key, anchorSpanId, state: "failed", message: figure.reason ? `${frameBadge(figure.verification)} (${figure.reason})` : frameBadge(figure.verification), code: figure.verification, retry, cancel }]);
           } else if (figure) {
             land(figure);
             onBuiltRef.current?.(figure);

@@ -9,7 +9,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { FigurePredictionResultDto, FigureViewDto } from "../../../api/dto";
 import corpus from "./figureGoldenCorpus.json";
-import { FIGURE_COPY, FiguresUnder } from "./FigureInline";
+import { FIGURE_COPY, FIGURE_FRAME, FiguresUnder, PROPERTY_CHECK_COPY } from "./FigureInline";
 import { formatValue } from "./FigurePanels";
 import { compileSpec, evaluateFigure, type FigureSpec } from "./figureSpec";
 import { useFigures, type FiguresContract } from "./useFigures";
@@ -59,11 +59,13 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-it("is collapsed to one line with its verification label, and expands in place", async () => {
+it("is collapsed to one line with its code-owned badge, and expands in place", async () => {
   render(<Harness spans={["p3"]} />);
   const line = await screen.findByRole("button", { name: /interactive version/ });
   expect(line.getAttribute("aria-expanded")).toBe("false");
-  expect(line.textContent).toContain("AI-built · matches the book's equation (checked)");
+  // A legacy "verified" row (label and all) is drawn as the illustration RW5a's rules make it.
+  expect(line.textContent).toContain(FIGURE_FRAME.illustration);
+  expect(line.textContent).not.toContain("checked)");
   expect(document.querySelector("[data-figure-body]")).toBeNull();
   fireEvent.click(line);
   expect(line.getAttribute("aria-expanded")).toBe("true");
@@ -205,12 +207,12 @@ it("shows a failed build with try again, and an unsupported one as noted", async
     figureView({ verification: "failed", kind: null, specJson: null, predictions: [],
       label: "couldn't build a reliable version of this (integrates_to_one on 'f': integrates to 0.5, not 1)" }),
     figureView({ figureId: "fig_u", spanIds: ["p5"], anchorSpanId: "p5", verification: "unsupported", kind: null,
-      specJson: null, predictions: [], label: "can't draw this yet — needs a 3-D surface · noted" }),
+      specJson: null, predictions: [], unsupportedKind: "a 3-D surface", label: "can't draw this yet — needs a 3-D surface · noted" }),
   ] });
   api.readerFigureRequest.mockResolvedValue({ jobId: "ljob_2", kind: "figure_build", askId: null, state: "pending", result: null });
   render(<Harness spans={["p3", "p5"]} />);
-  expect(await screen.findByText(/couldn't build a reliable version of this/)).toBeTruthy();
-  expect(screen.getByText("can't draw this yet — needs a 3-D surface · noted")).toBeTruthy();
+  expect(await screen.findByText(FIGURE_FRAME.failed)).toBeTruthy();
+  expect(screen.getByText(FIGURE_FRAME.unsupported)).toBeTruthy();
   expect(screen.queryAllByRole("button", { name: /interactive version/ })).toHaveLength(0);
   fireEvent.click(screen.getByRole("button", { name: FIGURE_COPY.tryAgain }));
   expect(api.readerFigureRequest).toHaveBeenCalledWith({ extractionId: "ext_prob", spanIds: ["p3"], region: null });
@@ -256,4 +258,34 @@ it("is inert while the contract has no figures (no RPC, nothing drawn)", async (
   await act(async () => { await Promise.resolve(); });
   expect(api.readerFigures).not.toHaveBeenCalled();
   expect(container.innerHTML).toBe("");
+});
+
+it("never lets model text into the badge slot: the frame is code-owned (final round, High 1)", async () => {
+  // Every model-authored field says "checked"; so do the server's label and an unknown check key.
+  const claim = "matches the book's equation (checked)";
+  const spec = JSON.parse(JSON.stringify(FLAGSHIP)) as FigureSpec & { panels: Array<Record<string, unknown>> };
+  spec.demonstrates = claim;
+  spec.panels.push({ kind: "readout", label: claim, expr: "1", format: "number" });
+  api.readerFigures.mockResolvedValue({ extractionId: "ext_prob", figures: [
+    figureView({ verification: "illustrative", label: claim, reason: claim, specJson: JSON.stringify(spec),
+      demonstrates: claim, propertyChecks: ["values_finite", "integrates_to_one", claim] }),
+    figureView({ figureId: "fig_f", spanIds: ["p5"], anchorSpanId: "p5", verification: "failed", kind: null,
+      specJson: null, predictions: [], label: claim, reason: claim }),
+    figureView({ figureId: "fig_u", spanIds: ["p6"], anchorSpanId: "p6", verification: "unsupported", kind: null,
+      specJson: null, predictions: [], label: claim, unsupportedKind: claim }),
+  ] });
+  render(<Harness spans={["p3", "p5", "p6"]} />);
+  const line = await screen.findByRole("button", { name: /interactive version/ });
+  fireEvent.click(line);
+  await waitFor(() => expect(document.querySelectorAll("[data-figure-badge]")).toHaveLength(3));
+  const badges = [...document.querySelectorAll("[data-figure-badge]")].map((node) => node.textContent);
+  expect(badges).toEqual([FIGURE_FRAME.illustration, FIGURE_FRAME.failed, FIGURE_FRAME.unsupported]);
+  for (const node of document.querySelectorAll("[data-figure-badge], [data-figure-checks]")) {
+    expect(node.textContent).not.toContain("checked)");
+    expect(node.textContent).not.toContain("matches the book");
+  }
+  expect(document.querySelector("[data-figure-checks]")?.textContent).toBe(
+    `${FIGURE_FRAME.checksLead} ${PROPERTY_CHECK_COPY.values_finite}; ${PROPERTY_CHECK_COPY.integrates_to_one}`);
+  // The model's words still render, inside the frame (the claim surface is ruled Low there).
+  expect(screen.getAllByText(claim).length).toBeGreaterThan(0);
 });

@@ -355,8 +355,13 @@ class PaidCalls:
              validate: Callable[[Any], Any] | None = None,
              context: Mapping[str, Any] | None = None,
              deadline: float | None = None,
-             images: tuple[tuple[str, bytes], ...] = ()) -> Any:
+             images: tuple[tuple[str, bytes], ...] = (),
+             isolated: bool = False) -> Any:
         """One logical call, retried on provider failure within the retry cap.
+
+        ``isolated`` sends it as an isolated turn (only its prompt: no files,
+        tools, workspace or vault; a transport that cannot isolate refuses it
+        before any request, ``execute_structured_operation``).
 
         ``validate`` may raise ``AIInvalidOutput`` for a semantically unusable
         answer; it is then retried like a provider failure. A validated answer
@@ -414,7 +419,7 @@ class PaidCalls:
                                 requested_reasoning_effort(self.route.reasoning_effort), bound:
                             raw = execute_structured_operation(
                                 client, purpose=purpose, prompt=prompt, result_model=result_model,
-                                timeout_seconds=timeout_seconds, images=images,
+                                timeout_seconds=timeout_seconds, images=images, isolated=isolated,
                             )
                     finally:
                         self._reconcile(charge, tokens, events)
