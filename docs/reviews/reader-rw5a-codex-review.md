@@ -567,3 +567,155 @@ the explanation while gap reading was off. The sweep now queues `:explained`.
 - One more `python3 --version` ran outside `env -i` while I edited the TypeScript twin (no code,
   no learnloop import). Every other Python run outside pytest in this round used the `env -i`
   wrapper with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`.
+
+## Fix round 4 (orchestrator)
+
+The orchestrator's verify of `e330926e4` (codex job `20261020-233018-22IDaO`) confirmed several
+things: the corpus is fresh (3,152 cases regenerated and matched, 1,770 SymPy comparisons); F1, F4,
+the loop bounds, F7, migration 216 and the write boundaries are intact; and the prompt-contract and
+report gates are repaired. It found 2 High and 3 Medium. This is the third round with a false
+"checked" from a semantic divergence, so the ruling closes it with a narrower rule instead of
+another patch: "checked" is now certified by display agreement. Each fix has a test that fails on
+`e330926e4`. Python was checked with `git archive e330926e4` (`src`, `migrations`) and
+`-o pythonpath`. The frontend was checked on an old `apps/learnloop-tauri` in a scratch directory
+that uses the worktree's `node_modules`. No model call was made.
+
+### Findings
+
+| id | severity | title | verdict | test |
+|---|---|---|---|---|
+| R4-1 | High | "Checked" still verifies a different value from the renderer | fixed (rule) | `test_a_literal_that_is_not_a_small_exact_decimal_is_never_checked` (`sin(10000000000000001)`), `test_rule_a_on_literals`, `test_display_agreement_catches_a_branch_rounding_decides` (`piecewise((0.1 + 0.2 > 0.3, 1), 2)` and the near-boundary `piecewise((x*10 < 3, 1), 2)`), `test_the_flagship_stays_checked_with_its_display_certified`, `test_every_corpus_exclusion_rule_is_illustrative_at_runtime` (4 rules) |
+| R4-2 | High | Switch-off still changes the backlog CLI and permits figure-derived model work | fixed | `test_figures_off_backlog_dry_run_is_the_base_output` (golden recorded on an export of `e14b4e4ff`), `test_figures_off_queues_and_reads_no_figure_text` |
+| R4-3 | Medium | F5's marker can claim a cached reading read an explanation | fixed | `test_f5_an_explanation_after_a_checkpointed_reading_is_its_own_text` (the verify's checkpoint, explanation, retry sequence) |
+| R4-4 | Medium | Structure accepts non-finite displayed coordinates | fixed | `test_a_plot_domain_whose_samples_overflow_is_refused` (the 1e308 domain), `test_structure_requires_every_numeric_leaf_finite` (NaN, ±inf); vitest "refuses a plot domain whose samples would overflow" |
+| R4-5 | Medium | An in-cap definition chain crashes compilation | fixed | `test_the_verifys_seven_level_chain_compiles_and_evaluates`, `test_a_chain_past_the_depth_cap_is_a_validation_error`, `test_the_depth_cap_is_the_same_in_typescript`; vitest "bounded compilation (fix round 4)" |
+
+The Python tests are in `tests/test_figures_fix_round4.py`, plus two in
+`tests/test_figures_switch_off.py` with the golden at `tests/fixtures/figures_switch_off_backlog.json`.
+The TypeScript tests are in `figureGrammar.test.ts`.
+
+### What changed
+
+**R4-1: "checked" is certified by display agreement.** A figure earns "matches the book's
+equation (checked)" only when all four rules hold. `service._source_match` applies them in order,
+after the binding and translatability checks of rounds 2 and 3:
+
+- **(a) Small, exact literals.** `verify.literal_problem` requires every numeric literal of the
+  expanded checked definition to be a small exact decimal: |x| ≤ 1e6 with at most 9 significant
+  digits, by `Decimal`. `pi` and `e` are allowed. This rule needs no verifier call, so a failing
+  definition is illustrative with none.
+- **(b) Exact translation.** `to_sympy` already writes each literal as its exact decimal
+  `Rational('…')`, not as a double, and that stays the production translation.
+- **(c) Equality.** The sandboxed check must pass, as before: the candidate exactly True and the
+  controls exactly False.
+- **(d) Display agreement.** `verify.display_agreement` runs in code after the check passes, with
+  no model call. It finds every place the checked definition is drawn by reference (a series, a
+  readout or a map cell). At every point of the parameter grid, it takes the production
+  evaluator's own displayed data (`evaluate_figure`): for a plot, every plotted x (or k) sample.
+  - A fixed harness evaluates the unmodified production translation (`to_sympy`) in the PF-b
+    sandbox. It reads the text only there, and evaluates with mpmath at 50 digits on the exact
+    binary values of the samples.
+  - The comparison is made here. Each displayed value must equal the reference to a relative or
+    absolute 1e-9.
+  - Every piecewise condition must choose the same branch at every sample: the harness's truth
+    is compared with the evaluator's `_truth`.
+
+  Any disagreement, a value that is not finite, a SymPy evaluation that fails, a sandbox that
+  cannot run, or a piecewise choice inside a sum's body (chosen per term, which the samples cannot
+  pin down) makes the figure illustrative. The report records `display_agreement`. For the
+  flagship, 1,089 samples agree.
+
+The corpus's exclusion rules decide nothing at runtime. A test builds each one at a plotted sample
+and the runtime finds it illustrative:
+
+- a comparison rounding decides: `x*10 < 3` at x = 0.3;
+- a sum bound rounding decides;
+- a cancellation, `(x + 10^12) - 10^12`;
+- a non-finite subexpression.
+
+**R4-2: switch-off covers figure-derived learner text.** With `figures.enabled` off
+(`sources.figures_enabled`), every figure-derived path stops:
+
+- backlog discovery (`missed_formative_ids(figures=False)`) finds no figure prediction;
+- the `:explained` reconciliation does not run;
+- `enqueue_figure_prediction` and `enqueue_figure_explanation` queue nothing;
+- the processing adapter (`reader_formative_text`) builds no figure text.
+
+A figure job already queued is deferred by `process_next_gap_job` before any text is built and
+before any model call. It is released to the next day with `last_error` "deferred:
+figures.enabled is off", its attempt refunded, so it is neither failed nor skipped. Neither
+`run_pending` nor the sidecar's gap worker stops draining for it.
+
+`learnloop gaps run --backlog --dry-run --json` with figures off equals the golden recorded on an
+export of `e14b4e4ff` (`RW5A_WRITE_GOLDEN=1`), although the vault holds an unread missed,
+explained prediction. With figures on, the same vault owes that prediction.
+
+**R4-3: the marker is checkpointed with the reading.** `process_next_gap_job`'s `save_progress`
+adds the text's markers to the job's first checkpoint, which is the reading or the decision.
+Later checkpoints keep them, so a retry that reuses the reading keeps the checkpoint's marker
+whatever the text says now.
+
+A job that already holds a reading counts as started (`_reading_checkpointed`), in both the live
+`enqueue_figure_explanation` and the backlog sweep. So an explanation written after the checkpoint
+becomes its own `<id>:explained` text.
+
+The verify's sequence now plays out like this: the reading is checkpointed, the attempt fails, the
+explanation is saved, and the retry runs. The base job completes on the cached reading, so it reads
+once, with marker `explanation_read: false`. The explanation is then read as its own text, and the
+sweep owes nothing.
+
+**R4-4: every numeric leaf finite, and the domain bounded.** `verify.structural` now rejects any
+leaf that is None or not `math.isfinite`, which covers NaN and ±inf. A function plot's x range may
+span at most 1e12 (`MAX_DOMAIN_SPAN`, in both `spec.py` and `figureSpec.ts`), so the samples cannot
+overflow. The 1e308 domain is a validation error.
+
+**R4-5: compilation never recurses unboundedly.** The passes over expanded definitions are now
+iterative in both evaluators:
+
+- `walk` and `free_names`;
+- `node_count`, `has_bound_form`, and the new `expansion` and `expanded_depth`;
+- `spec.expanded_free` and `expandedFree`.
+
+`check_names` caps the expanded depth at 700 (`MAX_EXPANDED_DEPTH`, the same in TypeScript),
+checked before any other pass, and refuses it as a grammar error, which becomes a `SpecError` or
+`FigureSpecError`.
+
+The Python evaluator now takes one frame per level, so the recursive evaluator and translator stay
+far inside the recursion limit. `parse_spec` and `compileSpec` turn a residual `RecursionError` or
+`RangeError` into a validation error, as a safety net only.
+
+The verify's 7-level chain is 1,261 nodes and 631 levels deep once expanded. It compiles and
+evaluates in both evaluators. A 9-level chain is refused: "nests deeper than 700".
+
+The grammar changed (the depth cap), so both corpora were regenerated under `env -i`. They are byte
+for byte unchanged.
+
+### Fail-before counts (on `e330926e4`)
+
+- `tests/test_figures_fix_round4.py`: **24 of 24 failed**. That includes the flagship
+  certification test, because the old report has no `display_agreement`.
+- `tests/test_figures_switch_off.py`: the **2 new tests failed**; the 5 existing ones pass.
+- vitest on the old frontend: **2 of the 3 new tests failed** (the depth cap and the domain span).
+  The 7-level chain already ran in JavaScript, and it stays as a guard.
+
+### Gate (this fix round)
+
+- Setup as in rounds 2 and 3. `/tmp/learnloop-fullsuite.lock` was free.
+- `uv run lint-imports --no-cache`: **29 kept, 0 broken**.
+- Targeted pytest, `pytest -n auto` over **147 files** (round 3's 146 plus
+  `test_figures_fix_round4.py`): **2,879 passed, 2 xfailed, 0 failed** (9 min 3 s).
+- `--durable-sqlite` over the figure migration and prediction tests and the four review test files:
+  **113 passed**.
+- `-m durability` over the migration files: **3 passed**.
+- `apps/learnloop-tauri`:
+  - `npm run typecheck`: clean.
+  - `vitest run src/screens/reader`: **62 files, 619 passed**. This includes the figure files, the
+    property corpus and the bounded-compilation tests.
+  - `npm run frontend:build`: built.
+- Both corpora were regenerated under `env -i` and are unchanged. The backlog golden was recorded by
+  pytest on the `e14b4e4ff` export.
+- DB references were regenerated and validated under `env -i`, and committed separately.
+- No migration, config key, RPC or `src-tauri` change, so cargo, the defaults snapshots and the RPC
+  pins were not rerun. The full suite is left to the landing gate (owner rule).
+- Every Python run outside pytest this round, version checks included, used the `env -i` wrapper.
+
