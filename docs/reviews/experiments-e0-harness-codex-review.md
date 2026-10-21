@@ -184,3 +184,95 @@ Owner rule 2026-10-17: no full suite, durability lane or vitest here. No migrati
 - Fail-before on `cfb8de724`: `tests/test_e0_review_round3.py`, **15 failed, 6 passed** (the 6 are the guards named above).
 - Changed files: `src/learnloop/experiments/contextual_embeddings/{adapters,budget,callers,system_arms}.py`; new `tests/test_e0_review_round3.py`. No production module outside the experiment package changed.
 - The main checkout's tracked fixtures were not opened or changed by this step.
+
+## Fix round 4 (orchestrator)
+
+**Verify:** Codex job `20261021-131313-hCUxeG` before the paid run, on `a76c8358a..b6179f60f`. It found 8 High and 6 Medium findings, all reopening the stage. **Fix commit:** `34d2068e1`.
+
+Every finding reproduced. Each has regressions in the new `tests/test_e0_review_round4.py` (32 tests). Fail-before ran on `b6179f60f`'s `src`, `migrations` and `calibration_bundles`, extracted with `git archive` and loaded with `pytest -o pythonpath=<archive>/src` (no `git stash`). It gave **32 failed**. The behavioural failures are listed with each finding below. The rest failed on the API the fix adds (`E0PriceUnverified`, `authorized_ledger`, `CopyContainment`, `request_key`, `start_clock(wall=)`, `logged_questions`, `slice_completion`).
+
+**No live, paid or network call was made ($0.00).** The tests use fake embedding transports, the fake `openai` module, hash vectors and fake role clients, behind a socket guard. The E0 test modules mark prices verified through a test-only fixture (`tests/e0_fakes.verified_prices`). The production pins stay empty.
+
+### The orchestrator's rulings, as built
+
+- **High 2: unverified prices.**
+  - Every metered pin carries `price_verified: PriceVerification(source_url, checked_on)`. It is **empty**, and the orchestrator fills it from the providers' published price pages; nothing was filled from memory. The Qwen pin's earlier `price_verified=True` is gone.
+  - Admission refuses any request priced by an unverified pin (`pins.price_problem`) at every gate: the hosted adapters, `QwenAdapter`, `E0RequestGate`, and `SystemRequestGate` for embeddings. A metered production LLM route on a service copy is priced only through a metered role pin with a verified price for its model; the copy's `llm_price_per_million` no longer admits anything.
+  - The paid CLI also refuses authorization while any metered pin is unverified.
+  - Each reservation is the request's hard maximum: the input upper bound (UTF-8 bytes + 8) plus the output bound it is sent with, at the verified price. The service backfill is now admitted per physical request by `SystemRequestGate` at that maximum. It used to go through `LedgerEnvelope` at the production estimate.
+  - A settlement above its reservation records the overage and marks the ledger `halted`. `E0RunHalted` is raised after the record is written. Every later reservation, in any process or category, Codex included, is refused. `run_paid` stops at the next step (the status is `halted: …`), and `run_live` runs no further copy.
+  - The dry run lists the unverified pins.
+- **High 3: one budget per authorization.**
+  - `budget.authorized_ledger` puts the ledger at `<fixtures-local>/contextual-embeddings/ledger/<plan_id>.ledger`. The root comes from the copies' own `fixtures-local` ancestor, never from `--run-dir` or the working directory.
+  - The same plan reopens it. A plan without a ledger, while another plan's ledger exists, needs `--new-authorization <reason>` (a new CLI option; the help snapshot entry is updated). The reason and the plan id are recorded in the ledger, and a ledger refuses another plan's id.
+- **Medium 10: a Codex request cap.**
+  - `pins.MAX_SUBSCRIPTION_REQUESTS = 600`. It is persisted in the ledger at creation, and every physical subscription request counts against it, retries and repairs included. It is enforced at reservation, with $0 marginal accounting kept.
+  - The run clock is persisted too: a resumed process keeps the elapsed time.
+  - The dry run reports the planned count against the allowance.
+
+### What changed, per finding
+
+| ID | Severity | Fix | Fail-before on `b6179f60f` |
+|---|---|---|---|
+| High 1 | High | `corpus.contained_root`/`contained_database` run before any open (`open_copy`, `open_service`). The configured `storage.sqlite_path` must be relative, must not escape the copy and must not pass through a symlink, and the root must not be a symlink. `prepare_copies` backs up a relocated database into the copy and rewrites the copy's toml. | The absolute path was kept by `prepare` (`assert not True`); `CopyContainment` is missing |
+| High 2 | High | See above. | `KeyError: 'prices'`; the halting/refusal API is missing |
+| High 3 | High | See above. Two `run_live` runs with different run directories share one ledger. | `authorized_ledger` is missing; the ledger lived under each run directory |
+| High 4 | High | `adapters.qwen_identity` checks the client's transport (the production OpenRouter embedding client), model, endpoint, dimensions and billing against the pin before its first request. A mismatch is a contract failure with nothing sent. The identity digest is in `document_space_id` and `query_encoder_id` (so in every vector key), and in every receipt. `SystemRequestGate` refuses another model's embedding. | `DID NOT RAISE` for each of the four changed identities; `KeyError: 'identity'` |
+| High 5 | High | `corpus.permitted_titles`: a withheld or unanchored heading reads as `(withheld heading)` in every section path, the snapshot's `titles` included. `CandidateUnit.heading_keys` records the heading spans a unit's path names. They are in `unit_dependency`, `window_dependency` and `document_vector_key`, so a heading marked later invalidates the unit, its prompts and its vectors. | `'secret' not in 'midterm pro…cret heading'`; the heading key was missing from the dependency |
+| High 6 | High | `bank.event_protection` uses the production authority, `learner_protection.PastWork.question_reason`. It checks the question on record, the item's protection (exam and held-out material, reservations, cold checks, probes, unknown items), the attempt, and the recorded assessment contract (it must be that item's own). `logged_bank` rejects protected or unresolved provenance before admitting text, and an unknown caller context. Without an authority, an event naming an item or attempt is rejected (fail closed). | A held-out item's question was admitted; `logged_questions` is missing |
+| High 7 | High | `delivery.quote_covered`: a quote is used only when it names at least one span, every span it names exists and is permitted, and the normalized quote is a substring of their normalized canonical text in document order. Otherwise `freeze_context` rebuilds from the permitted block, and delivery drops the quote with reason `coverage`. | The protected text was in the frozen passage |
+| High 8 | High | New `boundary.py`. Every `LiveRoleCaller` failure becomes `E0ProviderFailure`, which carries only an allowlisted classification, a status code and a safe request id; it is raised `from None`, so no traceback carries the original. `quiet_provider_logs` sanitizes records from `learnloop.ai`, `learnloop.source_retrieval`, `openai`, `httpx` and `httpcore` at every handler, the last-resort handler included, for the whole paid run and every system-arm search and backfill. The CLI prints `boundary.safe_message` only. The test uses the real OpenRouter client with an error body echoing the fake key. | The API is missing; on old code the CLI printed the key |
+| Medium 9 | Medium | The canary checks the document AND the query method. Both must decode at the pinned dimensions and score in one paired space, and a response that names its model must name the pinned one. Qwen (`R1`) is canaried first, and a failed Qwen canary blocks R1-R3 and the three service arms. `run_live` runs the canaries before `prepare_service_copies`, which then skips the Qwen copy and its backfill. | A broken query method passed the canary; `KeyError: 'R1'` |
+| Medium 10 | Medium | See above. | `TypeError` (no allowance or wall clock); `KeyError: 'subscription_requests'` |
+| Medium 11 | Medium | `LiveRoleCaller` holds a cross-process `flock` claim per complete request identity (the checkpoint key). A second worker waits, then reuses the result. Checkpoints and failure markers are fsynced, the directory included. Every ledger entry carries its `request_key`. On resume, an admitted entry that was neither recorded nor marked failed is first recovered from the experiment's completed receipts (same prompt, output validates). Otherwise it raises `E0RequestBlocked` and is never re-sent. An attempt recorded as failed may retry. | 4 concurrent workers sent 4 requests; `request_key` is missing |
+| Medium 12 | Medium | `budget.E0Stop` is the base of budget stops, `E0ProviderFailure`, `E0RequestBlocked` and `PinMismatch`. Every paid step (writer, contexts, arms, system arms, labels, audits, answers) catches it, records the incomplete work and its kind, and keeps the report. `run_live` writes an aggregate failure `results.json` and `report.md` for any other failure, with the classification only. | The failure report was never written, and the key was in the raised error |
+| Medium 13 | Medium | `run_paid` computes completion per required slice (`development_all`, `logged`) beside the primary one, as `arm@slice` in S1's `arm_completion` and `slice_completion` in the results. | `KeyError: 'slice_completion'`; S1 allowed verdicts |
+| Medium 14 | Medium | `paired_bootstrap` reports `families`: the real clusters of the complete-case pairs, excluding `none`. `exploratory` follows them. S4 takes `independent_families` from its paired evidence (the smaller of the retrieval and answer comparisons) and defers when that evidence is exploratory. | `KeyError: 'families'` |
+
+### The dry run (re-run on the final code)
+
+The dry run ran on the existing copies `fixtures-local/contextual-embeddings/vaults/{linear_algebra,probability}-20261021`. It ran under `env -i PATH HOME=<empty> CODEX_HOME=<empty> LEARNLOOP_CONFIG_DIR=<empty>`, with no key variable and `OPENROUTER_BASE_URL=http://127.0.0.1:9`, and no settings file was read. Results:
+
+- `network_calls: 0` and `copies_changed: 0`. The sha256 of every file under the copies was equal before and after, and the empty home directories stayed empty.
+- It was run twice; the second run, on the committed code, is byte-identical to the refreshed artifacts `docs/reviews/artifacts/experiments-e0/dry-run-plan.{json,md}` (run `e0_b3532a323a4cdc1a`; the pins fingerprint changed).
+
+**Estimate: $7.55 expected, $22.64 worst case** against the $25 cap; every category is within its allocation.
+
+| Category | Expected $ | Worst case $ |
+|---|---|---|
+| embeddings | 0.12 | 0.37 |
+| drafting/context | 0.00 | 0.00 |
+| labels/audits | 4.45 | 13.34 |
+| answers/verification | 2.98 | 8.93 |
+
+**Codex requests: 3,175 planned against the allowance of 600 (does not fit).** The roles account for 1,995: writer 12, context 37, label passes 430 each, tutor 362, judges 362 each. The system arms account for 1,180: R0 472 and R1' 708, an upper-bound estimate. Retries and repairs count on top. At 600, the paid run would stop at the allowance with an incomplete report. **This is an orchestrator decision: raise the allowance, or reduce the plan.**
+
+**Unverified prices (admission refuses each):** `pplx_4b`, `pplx_context_4b`, `qwen3_8b`, `voyage_4_large`, `voyage_context_4`, `adjudicator`, `judge_adjudicator`.
+
+**Logged questions: 29 before, 14 now** (11 linear algebra, 3 probability; all Reader questions). Every practice and feedback question is rejected by the production protection:
+
+- 4 are protected (their item is withheld).
+- 11 are unresolved: the owner copies are at migration head 165, whose question events record no assessment contract, and `question_reason` treats an unrecorded contract as unresolved provenance.
+
+The smaller logged slice is why the estimate fell from $8.72 to $7.55.
+
+### Notes
+
+- **Production follow-up (not changed here):** the shared `learnloop.ai.providers.openai_chat` client logs provider exceptions verbatim and raises `CodexUnavailable(str(error))`. E0 now wraps it at its own boundary; production callers outside E0 still carry that text.
+- `LedgerEnvelope` remains for tests and reused paths. The paid run no longer uses it.
+- **Isolation slip (no effect):** one `python3 -c "print()"` ran outside `env -i`; it imported nothing and used no network or credential. Every other Python or CLI run outside pytest used `env -i` with empty HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR: the two dry runs, `lint-imports`, and one help-snapshot write. That write rendered every entry differently under `env -i`, so it was reverted with `git checkout`. The one changed entry was then written from inside pytest, by a temporary test file that was removed afterwards.
+
+### Gate (this step, on `34d2068e1`)
+
+Owner rule 2026-10-17: no full suite, durability lane or vitest here. No migration, DB/connection code, frontend, `src-tauri` or schema change was made. One CLI option was added, and its help snapshot entry is updated.
+
+- `.venv/bin/lint-imports --no-cache` (under `env -i`): **29 kept, 0 broken**.
+- `pytest -n auto` with `TMPDIR=fixtures-local/tmp` on 26 files (the 25 of round 3 plus `tests/test_e0_review_round4.py`): **325 passed**.
+- Fail-before on `b6179f60f`: `tests/test_e0_review_round4.py`, **32 failed**.
+- Changed:
+  - `src/learnloop/experiments/contextual_embeddings/{adapters,bank,budget,callers,corpus,delivery,live,metrics,paid,pins,plan,records,retrieval,runner,stop_rules,system_arms}.py`;
+  - new `boundary.py`;
+  - `src/learnloop/cli/experiments.py` (the option and the safe failure output);
+  - tests: `tests/e0_fakes.py` (the price fixture, the Qwen fake's identity), the existing E0 test modules (the fixture; four tests updated for the new rules: the canary query on resume, a canonical permitted quote, the verified role price, the Qwen identity), new `tests/test_e0_review_round4.py`, and `tests/cli_help_snapshot.json`.
+- No production module outside the experiment package and its CLI changed.
+- The main checkout's tracked fixtures were not opened or changed.
