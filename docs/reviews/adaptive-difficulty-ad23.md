@@ -504,6 +504,20 @@ notes, the CLI snapshot, the references), and this file's commit.
   guard has refused. Each refusal left AD unavailable for that operation, and the incumbent served.
   The details are in `ad_guard_denials.jsonl` beside the vault's database (git-ignored). There is
   no UI notice (owner decision 2026-10-21). Any count above zero is a bug to report.
+- **Round 2 (2026-10-21): the reset reaches all of AD's history.** Every AD artefact AD reads back
+  now carries the protection epoch it was computed under, and is read only at that epoch. So after
+  a protection change:
+  - forecast receipts stop feeding scoring and calibration;
+  - serve selections leave the report's cohort and windows;
+  - frozen serve inputs give way to current-content reconstruction;
+  - open commissions close;
+  - dose offers stop counting in the budget;
+  - reading receipts are swept again at the next serve.
+
+  Rows written before this change carry no epoch, so in a vault where AD has already run none of
+  them is ever in force: AD's history there starts afresh.
+- **A protection change** now also includes an item moving onto or off held-out material (its
+  provenance or canonical exercise), not only marking material and reserving exam pools.
 
 ## 3. The gates
 

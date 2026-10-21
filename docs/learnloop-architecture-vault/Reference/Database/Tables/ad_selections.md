@@ -3,8 +3,8 @@ title: "ad_selections"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "30a3bd57427043882458e7bb6ae4fe103f25e923"
-source_commit_timestamp: "2026-10-21T00:48:44-04:00"
+source_commit: "108fc925aca83dcc3776405f9810cff86c4be3ef"
+source_commit_timestamp: "2026-10-21T10:39:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ad_selections"
@@ -86,6 +86,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `algorithm_version` | `TEXT` | yes | — | — | Stored value |
 | `generating_job_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
+| `protection_epoch` | `TEXT` | no | — | — | Stored value |
 
 ## Relationships and access paths
 
@@ -184,7 +185,10 @@ CREATE TABLE ad_selections (
   -- starts when the job finishes (Codex verify F14). NULL for a serve draw,
   -- a serve-time commission (its batch is named by it) and a draw outside a job.
   generating_job_id TEXT,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  -- The protection epoch the row was computed under (AD23 redesign round 2):
+  -- AD reads a row back only at that epoch (adaptive_difficulty.protected_tables.EPOCH).
+  protection_epoch TEXT
 );
 ```
 

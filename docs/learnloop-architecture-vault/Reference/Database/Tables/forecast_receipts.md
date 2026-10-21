@@ -3,8 +3,8 @@ title: "forecast_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "30a3bd57427043882458e7bb6ae4fe103f25e923"
-source_commit_timestamp: "2026-10-21T00:48:44-04:00"
+source_commit: "108fc925aca83dcc3776405f9810cff86c4be3ef"
+source_commit_timestamp: "2026-10-21T10:39:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite forecast_receipts"
@@ -144,6 +144,7 @@ None found by exact static reference scan.
 - `tests/test_ad23_fix_review.py`
 - `tests/test_ad2_model.py`
 - `tests/test_ad3_subject_view.py`
+- `tests/test_ad_epoch.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_architecture.py`
 - `tests/test_chatgpt_plan_landing.py`

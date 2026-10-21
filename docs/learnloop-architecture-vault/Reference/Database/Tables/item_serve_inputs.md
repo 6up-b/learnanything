@@ -3,8 +3,8 @@ title: "item_serve_inputs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "30a3bd57427043882458e7bb6ae4fe103f25e923"
-source_commit_timestamp: "2026-10-21T00:48:44-04:00"
+source_commit: "108fc925aca83dcc3776405f9810cff86c4be3ef"
+source_commit_timestamp: "2026-10-21T10:39:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite item_serve_inputs"
@@ -53,7 +53,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/213_adaptive_difficulty_receipts.sql`.
-- **Schema touched by:** `213_adaptive_difficulty_receipts.sql`.
+- **Schema touched by:** `213_adaptive_difficulty_receipts.sql`, `214_adaptive_difficulty_serving.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -83,6 +83,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `loadings_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 | `coupling_version` | `TEXT` | no | — | — | Stored value |
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
+| `protection_epoch` | `TEXT` | no | — | — | Stored value |
 
 ## Relationships and access paths
 
@@ -130,6 +131,7 @@ None found by exact static reference scan.
 - `tests/test_ad1_outside_and_cli.py`
 - `tests/test_ad23_contract.py`
 - `tests/test_ad23_fix_r8.py`
+- `tests/test_ad23_migration.py`
 - `tests/test_ad2_model.py`
 - `tests/test_ad2_serving.py`
 - `tests/test_adaptive_difficulty_ad1.py`
@@ -184,7 +186,7 @@ CREATE TABLE item_serve_inputs (
   -- version (§5.10). Null in AD1.
   loadings_json TEXT,
   coupling_version TEXT,
-  created_at TEXT NOT NULL,
+  created_at TEXT NOT NULL, protection_epoch TEXT,
   CHECK (
     (presentation_kind = 'plan_presentation' AND plan_presentation_id IS NOT NULL)
     OR (presentation_kind = 'probe_presentation' AND probe_presentation_id IS NOT NULL)

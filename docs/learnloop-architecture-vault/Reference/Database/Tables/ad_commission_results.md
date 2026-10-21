@@ -3,8 +3,8 @@ title: "ad_commission_results"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "30a3bd57427043882458e7bb6ae4fe103f25e923"
-source_commit_timestamp: "2026-10-21T00:48:44-04:00"
+source_commit: "108fc925aca83dcc3776405f9810cff86c4be3ef"
+source_commit_timestamp: "2026-10-21T10:39:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ad_commission_results"
@@ -69,6 +69,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `landed_after_expiry` | `INTEGER` | yes | `0` | — | Stored value |
 | `features_match` | `INTEGER` | yes | `1` | — | Stored value |
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
+| `protection_epoch` | `TEXT` | no | — | — | Stored value |
 
 ## Relationships and access paths
 
@@ -112,6 +113,7 @@ None found by exact static reference scan.
 - `tests/test_ad23_contract.py`
 - `tests/test_ad23_migration.py`
 - `tests/test_ad2_serving.py`
+- `tests/test_ad_guard.py`
 - `tests/test_architecture.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
@@ -146,6 +148,9 @@ CREATE TABLE ad_commission_results (
   -- when they are the commission's requested point.
   features_match INTEGER NOT NULL DEFAULT 1 CHECK (features_match IN (0, 1)),
   created_at TEXT NOT NULL,
+  -- The protection epoch the row was computed under (AD23 redesign round 2):
+  -- AD reads a row back only at that epoch (adaptive_difficulty.protected_tables.EPOCH).
+  protection_epoch TEXT,
   -- One owner per landed item (verify F16): the first attribution is final.
   UNIQUE (practice_item_id)
 );

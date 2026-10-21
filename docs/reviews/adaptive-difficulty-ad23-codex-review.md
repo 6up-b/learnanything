@@ -1901,3 +1901,194 @@ exam protection separately. Neither is a stage blocker.
 | references: `db_generate_reference.py`, then `db_validate_reference.py` (under `env -i`) | regenerated (commit labels and the cited source lines; no schema change), 0 errors; `module_validate.py` and `validate_vault.py` pass; `desktop_validate.py` fails on an unclassified desktop source (`apps/learnloop-tauri/src/components/pdfSelection/testing/syntheticBook.ts`) that this branch does not touch |
 | migration 214, the head fixture, the defaults snapshots, the CLI help, vitest, `cargo check` | unchanged or not applicable (no schema, config, CLI or desktop change) |
 | owner decisions | unchanged: selection on with the simulation gates as strict-xfail monitors, `calibrate_below` 0.25, `learned_coupling` off, `history_fallback = current_content`, the report windows, the seven-day commission expiry; replay makes zero model calls; no evidence, mastery or certification write (the import-linter contract, and the guard's write rule at runtime) |
+
+## Redesign round 2: closing the checklist's classes (2026-10-21)
+
+The closed-checklist verify (`20261021-081118-y3cr1s`) found 5 High and 3 Medium findings, all
+inside the checklist. Under the orchestrator's binding rulings, each CLASS is closed by a rule that
+the registry or the guard enforces, not per instance.
+
+### Class 3, epoch completeness and stamping (findings 1-4)
+
+**(a) The epoch digests everything the projection withholds** (`MaterialView.epoch`).
+- What it digests:
+  - the predicate's material (whole extractions and span keys) and the exam reservations;
+  - `Protection.ids`, the protected current items;
+  - the withheld revisions (current items' and saved snapshots', by content hash);
+  - the withheld notes, and the facets only withheld material names.
+- Equal epochs mean equal projections.
+- Finding 1: a history item that moves onto an already-held-out span changes `Protection.ids`, so
+  the epoch changes too.
+- `operation.epoch_of` now takes a view, never a `Protection`.
+- A property test changes each field of `Protection` and of `Material` that decides what is
+  withheld (`Material.covers` reads extractions and spans; `reasons` and `pinned_revisions` only
+  explain) and asserts the epoch changes. A new field fails the test until it is classified there.
+
+**(b) Every AD artefact AD reads back carries its epoch, and the rules read it only at that epoch**
+(`protected_tables.EPOCH`).
+- **Stamped in a column:**
+  - `ad_selections` (serve draws, and commissions with their chosen point, suppression and expiry:
+    finding 2);
+  - `ad_commission_results`;
+  - `ad_dose_offers`;
+  - `item_serve_inputs` (frozen signals and loadings: finding 4);
+  - `ad_reading_opportunities` (frozen doses: finding 3).
+- **Stamped in JSON:**
+  - `forecast_receipts` (`versions.protection_epoch`, every AD forecast);
+  - `item_forecast_payloads` (the frozen outside state);
+  - `ad_relatedness_runs` (`units["protection:epoch"]`).
+- **`free`, each with its reason:**
+  - `ad_coupling_versions`: a pointer to epoch-scoped runs;
+  - `ad_state`, `ad_attempt_trace`, `item_forecast_scores`: DERIVED, never read by AD;
+  - `judgment_ledger`: AD's judgments are of content, or are read through an in-force run;
+  - `practice_item_snapshots`: a revision's own content.
+- **The rule:** `MaterialView.keep` withholds a row whose stamp is not the current epoch. A row with
+  no stamp, written before stamps existed, is never in force.
+- **What a row of another epoch becomes, by consumer:**
+  - an idempotency lookup reports it `withheld`, so nothing is rewritten over it;
+  - a reading receipt counts for nothing, and the sweep maps its source again under the current
+    projection. The receipt's identity gained the epoch, so it can be recorded again;
+  - frozen serve inputs are ignored, and the replay reconstructs the attempt from current content
+    (`history_fallback`);
+  - a commission is not open: it neither suppresses a fresh draw nor supplies a target;
+  - a frozen outside state is reported `protected` and never sent.
+- **Completeness:** `test_ad_protected_tables.py` fails on any AD-owned table (AD-writable and
+  protected) without an epoch rule, or on a stamped table whose stamp column is not classified
+  `epoch`.
+- **Migration 214 amended (not landed):**
+  - a last column `protection_epoch` on `ad_selections`, `ad_commission_results` and
+    `ad_dose_offers`;
+  - `item_serve_inputs.protection_epoch` added;
+  - `ad_reading_opportunities` rebuilt with the same columns, indexes and triggers plus
+    `protection_epoch NOT NULL DEFAULT ''`, its two uniqueness constraints gaining the epoch. A
+    legacy row reads `''`, which keeps its identity unique and is never in force.
+- **The head fixture** was rebuilt from the same 213 base blob with only 214 applied: rollback mode,
+  integrity and foreign-key checks clean, every pre-existing row unchanged. Its README records this.
+
+**The facet-map exceptions are gone.**
+- The registry's `facet_map` kind, `MaterialView._transformed` and `MaterialView.visible_loadings`
+  are deleted, and so are the loading filters in `load_structure` and the replay.
+- A mapping computed under another epoch is recomputed (a reading receipt is swept again), or
+  counts for nothing (frozen loadings and runs). One computed at the current epoch was computed
+  under this very projection, so it stands as recorded.
+- `relatedness.stale_judgments` is replaced by `live_judgments`: the judgments of the runs in force.
+
+**Found by the differential while doing this:** the send guard judged an operation's projected
+vault and repository (a guard built inside an operation was handed `op.vault`). It now unwraps them
+and judges the vault as loaded.
+
+### Classes 2 and 4, proposals (finding 5)
+
+- `proposed_patch_items` has a `self` rule: a proposal is withheld when the item its effective
+  payload (the edit, else the payload) creates or changes has a withheld id, or its canonical
+  exercise or provenance refs lie in held-out material, or its source refs name a withheld item. An
+  unreadable item payload is withheld.
+- `ad_serving.open_commissions`, `commission_expires_at`, `landed_after_expiry` and the expiry clock
+  take the view's commissions (`rows`) and its proposal rule (`proposal_visible`). Supersession, the
+  pending `any()` and the `max(decided_at)` now run over filtered rows only.
+
+### Class 1, scope leaks (findings 6 and 7)
+
+- Leaving `own_write()`, on any exit, re-installs the authorizer on every guarded connection, which
+  expires their prepared statements.
+- While a write is being authorized, a read passes without the rules only when it is of the write's
+  own target or of a table its declared foreign keys reach (parents and children, read from the
+  schema and cached per schema version). Trigger statements pass by their trigger source. The
+  blanket allowance is gone, so a DELETE whose subquery reads a protected table is refused.
+
+### Class 6, denials fail closed by construction (finding 8)
+
+The first denial poisons the operation:
+- every later read of a non-neutral table, and every write, is refused;
+- the operation's exit raises `OperationPoisoned`, so its output is discarded however the code
+  inside handled the refusal;
+- writes made after the denial are refused, and the enclosing savepoints roll back what the
+  exception reached.
+
+The callers are fail-closed boundaries:
+- the slot is AD-unavailable;
+- the serve hook returns `skipped: failed` (`entry(poisoned=...)`; logging never breaks the serve);
+- the Reader's dose offer answers no offer;
+- the readiness RPC answers "not predicted", and "why this item" answers nothing;
+- generation targeting takes the incumbent's rung;
+- the commission job finds no commission open.
+
+`dose.decide`'s forecast covariate and the slot's exposure check re-raise a denial instead of
+turning it into a missing covariate or a candidate's exclusion.
+
+### Tests, and fail-before on `96c23b28a`
+
+`git archive` into `fixtures-local/ad23-r2-base`, the new test files copied in,
+`-o pythonpath="src ."`:
+
+| Finding | Test | On `96c23b28a` |
+|---|---|---|
+| 1 | `test_ad_epoch.py::test_a_history_item_newly_protected_by_its_own_provenance_expires_the_frozen_forecast` | fails: `{'ok'} == {'protected'}` (sent) |
+| 2 | `test_ad_epoch.py::test_a_commission_drawn_under_other_protection_is_not_open` | fails: the old commission stays open |
+| 3 | `test_ad_epoch.py::test_a_reading_receipt_recorded_under_other_protection_is_mapped_again` | fails: `{'fp': 0.5}` replayed |
+| 4 | `test_ad_epoch.py::test_frozen_serve_signals_trained_on_a_newly_protected_answer_are_not_replayed` | fails: the frozen inputs (and their `z_v1`) replayed |
+| 5 | `test_ad_epoch.py::test_a_protected_pending_proposal_never_holds_a_commission_open` | fails: the commission stays open |
+| 6 | `test_ad_guard.py::test_a_statement_prepared_in_own_write_is_not_reused_outside_it` | fails: DID NOT RAISE (the cached statement ran) |
+| 7 | `test_ad_guard.py::test_a_write_reads_only_its_own_target_and_declared_constraints` | fails: DID NOT RAISE (the subquery read passed) |
+| 8 | `test_ad_guard.py::test_a_planted_read_swallowed_in_the_dose_decision_yields_no_decision_and_no_rows` | fails: DID NOT RAISE (a draw was made) |
+| 8 | `test_ad_guard.py::test_a_swallowed_denial_poisons_the_operation` | fails (no poisoning) |
+| 3a | `test_ad_epoch.py::test_any_change_to_the_protection_changes_the_epoch` | fails (the view had no epoch; the old one omitted `ids`) |
+| 3b | `test_ad_protected_tables.py::test_every_ad_owned_table_ad_reads_has_an_epoch_rule` | fails (no rule existed) |
+
+Two other checks:
+- the planted-read negative control still fails with the guard off
+  (`test_negative_control_with_the_guard_disabled_the_planted_read_check_fails` passes);
+- the zero-denial pipeline still holds.
+
+**Test adaptations:**
+- Seeded AD rows are now stamped with the epoch they model being written under: `ad_epoch` and
+  `restamp` in `tests/ad23_fakes.py`. The contract's fixture restamps each copy once its
+  protection is final, and writes the protected copy's canonical note before computing that epoch.
+- The contract's frozen loadings no longer seed a protected-only facet in the protected copy: AD
+  could not freeze one at that epoch.
+- Five round-8 regressions now pin E2's reset where a protection change happened mid-test:
+  - F20 receipts: the old receipts are out of force, and receipts of the new epoch are
+    revalidated;
+  - F26: the studied example re-recorded;
+  - F24 `z_v1`: its receipt is stamped;
+  - F25: the old draw is out of the cohort;
+  - and the contract's relatedness cases assert live judgments.
+- The migration tests now expect 214 to alter exactly the two AD1 receipts it stamps.
+- The projection test names each copy's epoch stamp.
+
+### Consequences for the owner
+
+- **One protection change resets AD's accumulated history** (E2, now applied to every AD artefact).
+  A protection change is marking or unmarking held-out material, reserving or releasing an exam
+  pool, or moving an item onto or off held-out material. After one:
+  - forecast receipts written before it no longer feed scoring or `z_v1` calibration;
+  - serve selections leave the report's cohort and windows;
+  - frozen serve inputs give way to current-content reconstruction;
+  - commissions close;
+  - dose offers stop counting in the budget;
+  - reading receipts are swept again.
+- **Rows written before this round have no epoch**, so in an owner vault none of them is ever in
+  force. This includes AD1's receipts if AD1 has run there. Reading receipts are swept again at the
+  next serve; the forecast and selection history starts afresh.
+
+### Sizes, `96c23b28a..` the round-2 commit
+
+Production and migration: +546 / -204. Tests: +528 / -111.
+
+### Gate (owner rule 2026-10-17: targeted only; run once after the last code change)
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 27 kept, 0 broken |
+| targeted pytest, `-n 14`, 229 files: round 1's two sets (every AD test file and every file naming an edited module, then the rest of the stage's 186-file set), plus every file naming the head fixture, `ad_reading_opportunities` or `item_serve_inputs` | **10,152 passed, 36 xfailed, 0 failed** (1,481 s) |
+| `--durable-sqlite`: `test_ad_guard.py`, `test_ad_epoch.py`, `test_ad23_migration.py`, `test_ad1_migration.py` | 33 passed |
+| migration 214 and the head fixture | amended and rebuilt (above); the migration tests pass, as do the tracked-fixture and table-role tests |
+| references, under `env -i`: `db_generate_reference.py`, then `db_validate_reference.py`; `module_validate.py`, `validate_vault.py` | regenerated (the amended tables, commit labels, cited lines), 0 errors; both validators pass |
+| owner decisions | unchanged: selection on with the sim gates as strict-xfail monitors, `calibrate_below` 0.25, `learned_coupling` off, `history_fallback = current_content`, the report windows, the seven-day commission expiry; the replay makes zero model calls; no evidence, mastery or certification write |
+
+### Environment
+
+Every Python run outside pytest this round ran under `env -i PATH=$PATH HOME=<empty>
+CODEX_HOME=<empty> LEARNLOOP_CONFIG_DIR=<empty>`: the file edits, the head fixture's rebuild, and the
+reference scripts. The two epoch-debugging pytest plugins stayed in the scratchpad, uncommitted. No
+model call was made.

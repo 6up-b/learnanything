@@ -3,8 +3,8 @@ title: "proposed_patch_items"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "30a3bd57427043882458e7bb6ae4fe103f25e923"
-source_commit_timestamp: "2026-10-21T00:48:44-04:00"
+source_commit: "108fc925aca83dcc3776405f9810cff86c4be3ef"
+source_commit_timestamp: "2026-10-21T10:39:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite proposed_patch_items"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/content/authoring/persona_gate.py"
   - "src/learnloop/content/pipeline/add_source.py"
@@ -162,6 +163,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_ad23_owner_decisions.py`
+- `tests/test_ad_epoch.py`
 - `tests/test_patch_applier.py`
 - `tests/test_agent_runs.py`
 - `tests/test_apply_write_ahead.py`
@@ -180,7 +182,6 @@ Indexes and uniqueness:
 - `tests/test_graph_edit_proposals.py`
 - `tests/test_ingest_instrument_gates.py`
 - `tests/test_method_phrasing_report.py`
-- `tests/test_missing_vocabulary_notes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
