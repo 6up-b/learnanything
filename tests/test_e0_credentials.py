@@ -7,6 +7,12 @@ import pytest
 
 from learnloop.experiments.contextual_embeddings import credentials as K
 
+from tests.e0_fakes import verified_prices  # noqa: F401 - the fixture below
+
+#: Every metered pin priced as verified (E0 admission refuses unverified prices; fix round 4).
+pytestmark = pytest.mark.usefixtures("verified_prices")
+
+
 SECRET = "pplx-secret-value-should-never-print-1234"
 
 

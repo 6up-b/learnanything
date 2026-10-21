@@ -119,7 +119,8 @@ def document_vector_key(space_id: str, snapshot: CorpusSnapshot, units: Sequence
 
     return "dv_" + _sha(space_id, sorted({snapshot.infos[unit.extraction_id].fingerprint for unit in units}),
                         [[(member.span_id, member.start, member.end) for member in unit.members] for unit in units],
-                        [unit.unit_id for unit in units], snapshot.policy.fingerprint, list(texts))[:32]
+                        [unit.unit_id for unit in units], [list(key) for unit in units for key in unit.heading_keys],
+                        snapshot.policy.fingerprint, list(texts))[:32]
 
 
 def documents_for(snapshot: CorpusSnapshot, encoding: str, recipe: str, space_id: str,

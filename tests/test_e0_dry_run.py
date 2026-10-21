@@ -13,6 +13,12 @@ from learnloop.experiments.contextual_embeddings import pins
 from learnloop.experiments.contextual_embeddings import runner as R
 from tests.e0_fakes import FAKE_KEYS, build_e0_vault
 
+from tests.e0_fakes import verified_prices  # noqa: F401 - the fixture below
+
+#: Every metered pin priced as verified (E0 admission refuses unverified prices; fix round 4).
+pytestmark = pytest.mark.usefixtures("verified_prices")
+
+
 SECRET = FAKE_KEYS["PERPLEXITY_API_KEY"]
 
 

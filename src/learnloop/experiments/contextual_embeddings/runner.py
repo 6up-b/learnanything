@@ -37,7 +37,7 @@ import threading
 from typing import Any
 
 from learnloop.experiments.contextual_embeddings import credentials, pins
-from learnloop.experiments.contextual_embeddings.bank import logged_bank, plan_seeds, smoke_bank, writer_prompt
+from learnloop.experiments.contextual_embeddings.bank import logged_questions, plan_seeds, smoke_bank, writer_prompt
 from learnloop.experiments.contextual_embeddings.corpus import CopyHandle, CorpusSnapshot, alias, build_snapshot, open_copy
 from learnloop.experiments.contextual_embeddings.plan import (
     ASSUMPTIONS,
@@ -47,6 +47,7 @@ from learnloop.experiments.contextual_embeddings.plan import (
     query_token_sizes,
     run_id,
     summarize,
+    subscription_requests,
     system_arm_estimates,
 )
 
@@ -196,7 +197,7 @@ def plan_identity(handles: Sequence[CopyHandle], snapshots: Sequence[CorpusSnaps
     bank_ids: list[str] = []
     for handle, snapshot in zip(handles, snapshots, strict=True):
         smoke, _stats = smoke_bank(snapshot)
-        logged, _counts = logged_bank(snapshot, handle.repository.question_events(answer_status="answered"))
+        logged, _counts = logged_questions(handle, snapshot)
         seeds, _shortfall = plan_seeds(snapshot, strata=strata[handle.label])
         bank_ids.extend(question.query_id for question in smoke + logged)
         bank_ids.extend(seed.seed_id for seed in seeds)
@@ -256,8 +257,7 @@ def dry_run(copies: Sequence[Path], *, key_envs: Mapping[str, str] | None = None
         all_bank = []
         for handle, snapshot in zip(handles, snapshots, strict=True):
             smoke, smoke_stats = smoke_bank(snapshot)
-            events = handle.repository.question_events(answer_status="answered")
-            logged, logged_stats = logged_bank(snapshot, events)
+            logged, logged_stats = logged_questions(handle, snapshot)
             vault_seeds, shortfall = plan_seeds(snapshot, strata=strata[handle.label])
             seeds[handle.label] = vault_seeds
             development = len(vault_seeds)
@@ -289,6 +289,7 @@ def dry_run(copies: Sequence[Path], *, key_envs: Mapping[str, str] | None = None
         systems = system_arm_estimates(snapshots, allowlists, query_counts)
         roles = llm_estimates(snapshots, seeds, questions)
         totals = summarize(arms, systems, roles)
+        codex = subscription_requests(roles, systems, allowlists)
         prompts = {"writer": _prompt_hash(snapshots, seeds), "versions": {
             role: pin.prompt_version for role, pin in sorted(pins.ROLE_PINS.items())}}
         plan = {
@@ -306,7 +307,8 @@ def dry_run(copies: Sequence[Path], *, key_envs: Mapping[str, str] | None = None
             "by_provider": _by_provider(arms, systems, roles),
             "assumptions": ASSUMPTIONS, "prompts": prompts,
             "limits": {"cap_usd": pins.E0_CAP_USD, "allocation_usd": pins.ALLOCATION_USD,
-                       "max_metered_requests": pins.MAX_PAID_REQUESTS, "subscription_requests": "unbounded (owner)",
+                       "max_metered_requests": pins.MAX_PAID_REQUESTS,
+                       "subscription_request_allowance": pins.MAX_SUBSCRIPTION_REQUESTS,
                        "request_timeout_s": pins.REQUEST_TIMEOUT_S, "max_wall_s_enforced": True,
                        "latency_regression_tolerance": pins.LATENCY_REGRESSION_TOLERANCE,
                        "output_bound": "the ai.output_tokens policy per role profile (reserved as sent)",
@@ -316,10 +318,18 @@ def dry_run(copies: Sequence[Path], *, key_envs: Mapping[str, str] | None = None
                        "d1_evidence_tokens": pins.D1_EVIDENCE_TOKENS, "pool_depth": pins.POOL_DEPTH,
                        "top_k": pins.TOP_K, "bootstrap_resamples": pins.BOOTSTRAP_RESAMPLES},
             "keys": keys,
+            # The Codex request count against its allowance (Medium 10) and every
+            # metered pin whose price is unverified (High 2: admission refuses them).
+            "subscription_requests": codex,
+            "prices": {"unverified": pins.unverified_prices(),
+                       "verified": {name: pin.price_verified.as_dict() for name, pin in
+                                    sorted({**pins.EMBEDDING_PINS, **pins.ROLE_PINS}.items())
+                                    if pins.price_problem(pin) is None and getattr(pin, "billing", "metered") != "subscription"},
+                       "rule": "a metered request is admitted only on a verified price (source_url, checked_on)"},
             "pins": {"embeddings": {name: {"model": pin.model, "provider": pin.provider, "method": pin.method,
                                            "dimensions": pin.dimensions, "output_format": pin.output_format,
                                            "contract_verified": pin.contract_verified,
-                                           "price_verified": pin.price_verified,
+                                           "price_verified": pin.price_verified.as_dict(),
                                            "price_per_million_upper_bound": pin.price_per_million_upper_bound}
                                     for name, pin in sorted(pins.EMBEDDING_PINS.items())},
                      "roles": {name: {"model": pin.model, "transport": pin.transport, "billing": pin.billing,
@@ -400,6 +410,17 @@ def render_markdown(plan: Mapping[str, Any]) -> str:
     for row in plan["llm_roles"]:
         lines.append(f"| {row['role']} | {row['model']} | {row['billing']} | {row['calls']} | "
                      f"{row['input_tokens']:,} | {row['output_tokens']:,} | {row['estimated_usd']:.4f} |")
+    codex = plan.get("subscription_requests") or {}
+    unverified = (plan.get("prices") or {}).get("unverified") or {}
+    pending = [name for names in unverified.values() for name in names]
+    def count(value: Any) -> str:
+        return f"{value:,}" if isinstance(value, int) else "n/a"
+
+    lines += ["", f"**Codex requests:** {count(codex.get('planned'))} planned against the allowance of "
+              f"{count(codex.get('allowance'))} ({'fits' if codex.get('fits') else 'DOES NOT FIT'}; retries and repairs count "
+              "too).",
+              "", "**Unverified prices (admission refuses each; the orchestrator fills `price_verified` from the "
+              "providers' price pages):** " + (", ".join(pending) if pending else "none") + "."]
     lines += ["", "Keys: " + ", ".join(f"{name} {state}" for name, state in sorted(plan["keys"].items())),
               f"Checks: {json.dumps(plan.get('checks', {}), sort_keys=True)}"]
     return "\n".join(lines) + "\n"
@@ -432,13 +453,21 @@ def freeze(run_dir: Path, plan: Mapping[str, Any], snapshots: Sequence[CorpusSna
     return hashes
 
 
-def require_paid_authorization(*, authorized: bool, dry_run_ok: bool) -> None:
-    """A paid run needs the orchestrator's explicit flag and a passing dry run."""
+def require_paid_authorization(*, authorized: bool, dry_run_ok: bool,
+                               unverified_prices: Mapping[str, Sequence[str]] | None = None) -> None:
+    """A paid run needs the orchestrator's explicit flag, a passing dry run
+    and, for every metered pin, a verified price (fix round 4, High 2: the
+    orchestrator fills ``price_verified`` from the providers' price pages
+    before authorizing; admission refuses an unverified price anyway)."""
 
     if not authorized:
         raise PermissionError("a paid E0 run needs --i-am-authorized-to-spend (orchestrator step after review)")
     if not dry_run_ok:
         raise PermissionError("run --dry-run first; its plan must fit the cap")
+    pending = sorted(name for names in (unverified_prices or {}).values() for name in names)
+    if pending:
+        raise PermissionError("unverified prices: " + ", ".join(pending) + "; fill each pin's price_verified "
+                              "{source_url, checked_on} from the provider's published price page first")
 
 
 __all__: Sequence[str] = ("NetworkForbidden", "config_allowlist", "dry_run", "freeze", "network_guard",

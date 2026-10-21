@@ -328,3 +328,28 @@ def embedding_documents(snapshot: CorpusSnapshot, arm: str) -> list[Document]:
                                                  for unit_id in window.unit_ids)) for window in snapshot.windows]
     return [Document(unit.unit_id, (Chunk(unit.unit_id, recipe_text(snapshot, unit, spec.recipe or "plain")),))
             for unit in snapshot.units]
+
+
+def subscription_requests(roles: Sequence[Mapping[str, Any]], systems: Sequence[Mapping[str, Any]],
+                          config_allowlists: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
+    """The planned Codex (subscription) request count against the persisted
+    allowance (fix round 4, Medium 10). Roles: their planned calls. System
+    arms, an upper-bound estimate per query: R0 and R1' ``find_sources`` (two
+    pages, each with its rewrite when on and its verification), the first-page
+    pool (its rewrite) and ``pool_verify`` (the tutor rewrite when on, one
+    verification). Retries and JSON repairs come on top and count too."""
+
+    role_calls = {str(row["role"]): int(row["calls"]) for row in roles if row["billing"] == "subscription"}
+    system_calls: dict[str, int] = {}
+    for row in systems:
+        allowlist = config_allowlists.get(str(row.get("vault")), {})
+        rewrite = 1 if allowlist.get("source_retrieval.query_rewrite") else 0
+        tutor_rewrite = 1 if allowlist.get("source_retrieval.tutor_query_rewrite") else 0
+        queries = int(row.get("queries") or 0)
+        per_query = (2 * (rewrite + 1)) if row["arm"] == "R0" else (2 * (rewrite + 1) + rewrite + tutor_rewrite + 1)
+        system_calls[row["arm"]] = system_calls.get(row["arm"], 0) + queries * per_query
+    planned = sum(role_calls.values()) + sum(system_calls.values())
+    return {"planned": planned, "allowance": pins.MAX_SUBSCRIPTION_REQUESTS,
+            "fits": planned <= pins.MAX_SUBSCRIPTION_REQUESTS, "roles": dict(sorted(role_calls.items())),
+            "system_arms": dict(sorted(system_calls.items())),
+            "basis": "planned first attempts; retries and JSON repairs count against the allowance too"}

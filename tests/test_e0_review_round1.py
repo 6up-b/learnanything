@@ -45,7 +45,14 @@ from tests.e0_fakes import (
     FakeRoleClient,
     build_e0_vault,
     fake_respond,
+    qwen_bag_of_words,
 )
+
+from tests.e0_fakes import verified_prices  # noqa: F401 - the fixture below
+
+#: Every metered pin priced as verified (E0 admission refuses unverified prices; fix round 4).
+pytestmark = pytest.mark.usefixtures("verified_prices")
+
 
 DIMS = {pin.model: pin.dimensions for pin in pins.EMBEDDING_PINS.values()}
 INT8 = frozenset({"pplx-embed-context-v1-4b", "pplx-embed-v1-4b"})
@@ -201,7 +208,7 @@ def test_f4_f11_the_paid_cli_keeps_receipts_in_its_own_repository_and_resumes(tm
     def factories():
         transport = FakeEmbeddingTransport(dims=DIMS, int8_models=INT8)
         transports.append(transport)
-        qwen = BagOfWordsEmbedder(dims=4096)
+        qwen = qwen_bag_of_words(4096)
         return live.LiveFactories(transport=transport, qwen=lambda _config: (lambda: qwen),
                                   role_clients=lambda name: FakeRoleClient(name),
                                   system_clients={"embedder": qwen})

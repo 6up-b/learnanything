@@ -30,7 +30,7 @@ nothing is silently truncated.
 """
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -141,6 +141,27 @@ def _span(extraction_id: str, block: BlockRow, relation: str, **extra: Any) -> d
             "text": block.text, "relation": relation, **extra}
 
 
+def quote_covered(quote: str | None, span_ids: Sequence[str], text_of: Callable[[str], str | None],
+                  permitted: Callable[[str], bool]) -> bool:
+    """Whether a learner's quote is PROVEN to come from permitted canonical
+    text (fix round 4, High 7): it names at least one span, every span it
+    names exists and is permitted, and the whitespace-normalized quote is a
+    substring of those spans' whitespace-normalized canonical text joined in
+    the given (document) order. An empty or unresolvable coverage proves
+    nothing: the quote is dropped and the context rebuilt from permitted
+    canonical blocks."""
+
+    if not quote or not quote.strip() or not span_ids:
+        return False
+    texts: list[str] = []
+    for span_id in span_ids:
+        canonical = text_of(span_id)
+        if canonical is None or not permitted(span_id):
+            return False
+        texts.append(" ".join(canonical.split()))
+    return " ".join(quote.split()) in " ".join(texts)
+
+
 def _selection_spans(text: Any, selection: Selection,
                      policy: _Policy) -> tuple[list[dict[str, Any]], list[int]] | None:
     primary = text.position(selection.span_id)
@@ -148,14 +169,22 @@ def _selection_spans(text: Any, selection: Selection,
         return None
     spans: list[dict[str, Any]] = []
     if selection.quote and selection.quote.strip():
-        # The quote is delivered only when every span it covers is permitted
-        # (the rule ``bank.freeze_context`` freezes; Codex re-review F6): a
-        # quote over withheld spans would carry their text past the filter.
-        refused = [span_id for span_id in (selection.span_id, *selection.selection_span_ids)
-                   if policy.snapshot.policy.verdict(selection.extraction_id, span_id) is not None]
-        if refused:
+        # The quote is delivered only when its canonical coverage is complete,
+        # resolvable and permitted (the rule ``bank.freeze_context`` freezes;
+        # Codex re-review F6, fix round 4 High 7): a quote over withheld or
+        # unnamed spans would carry their text past the filter.
+        covered = list(dict.fromkeys((selection.span_id, *selection.selection_span_ids)))
+        covered.sort(key=lambda span_id: (text.position(span_id) is None, text.position(span_id) or 0))
+
+        def text_of(span_id: str) -> str | None:
+            block = text.block(span_id)
+            return None if block is None else block.text
+
+        if not quote_covered(selection.quote, covered, text_of,
+                             lambda span_id: policy.snapshot.policy.verdict(selection.extraction_id,
+                                                                            span_id) is None):
             policy.dropped.append({"span_id": selection.span_id, "relation": "selected_text",
-                                   "reason": "the quote covers withheld spans"})
+                                   "reason": "the quote's canonical coverage is incomplete or withheld"})
         else:
             spans.append({"extraction_id": selection.extraction_id, "span_id": selection.span_id,
                           "label": "learner selection", "text": selection.quote, "relation": "selected_text"})

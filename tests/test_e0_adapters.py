@@ -13,6 +13,12 @@ from learnloop.experiments.contextual_embeddings.budget import E0BudgetExceeded,
 from learnloop.experiments.contextual_embeddings.retrieval import exact_search
 from tests.e0_fakes import FAKE_KEYS, FakeEmbeddingTransport, FakeQwenClient, hash_vector, int8_vector
 
+from tests.e0_fakes import verified_prices  # noqa: F401 - the fixture below
+
+#: Every metered pin priced as verified (E0 admission refuses unverified prices; fix round 4).
+pytestmark = pytest.mark.usefixtures("verified_prices")
+
+
 PPLX = pins.EMBEDDING_PINS["pplx_context_4b"]
 PPLX_IND = pins.EMBEDDING_PINS["pplx_4b"]
 VOYAGE = pins.EMBEDDING_PINS["voyage_context_4"]

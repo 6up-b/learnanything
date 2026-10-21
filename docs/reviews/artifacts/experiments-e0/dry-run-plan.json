@@ -26,7 +26,7 @@
     80
    ],
    "development_within_target": true,
-   "logged": 29,
+   "logged": 14,
    "smoke": 32
   },
   "vaults": {
@@ -47,15 +47,15 @@
     "known_location_questions": 13,
     "logged": {
      "duplicate": 0,
-     "eligible": 21,
+     "eligible": 11,
      "events": 21,
+     "provenance_protected": 4,
+     "provenance_unresolved": 6,
      "selection_not_current": 0,
      "selection_withheld": 0,
      "too_short": 0
     },
     "logged_by_context": {
-     "logged_feedback": 2,
-     "logged_practice": 8,
      "logged_reader": 11
     },
     "smoke": {
@@ -80,15 +80,15 @@
     "known_location_questions": 13,
     "logged": {
      "duplicate": 0,
-     "eligible": 8,
+     "eligible": 3,
      "events": 8,
+     "provenance_protected": 0,
+     "provenance_unresolved": 5,
      "selection_not_current": 0,
      "selection_withheld": 0,
      "too_short": 0
     },
     "logged_by_context": {
-     "logged_feedback": 2,
-     "logged_practice": 3,
      "logged_reader": 3
     },
     "smoke": {
@@ -314,50 +314,50 @@
   "codex_sdk:gpt-5.6-sol": {
    "billing": "subscription",
    "estimated_usd": 0.0,
-   "requests": 1319,
-   "tokens": 11565972
+   "requests": 1154,
+   "tokens": 10115063
   },
   "codex_sdk:gpt-6-luna": {
    "billing": "subscription",
    "estimated_usd": 0.0,
-   "requests": 961,
-   "tokens": 6247517
+   "requests": 841,
+   "tokens": 5462257
   },
   "openrouter:anthropic/claude-sonnet-5.5": {
    "billing": "metered",
-   "estimated_usd": 8.595651,
-   "requests": 245,
-   "tokens": 3118618
+   "estimated_usd": 7.422061,
+   "requests": 214,
+   "tokens": 2695808
   },
   "openrouter:qwen/qwen3-embedding-8b": {
-   "estimated_usd": 0.013865,
-   "requests": 441,
-   "tokens": 462182
+   "estimated_usd": 0.01369,
+   "requests": 393,
+   "tokens": 456331
   },
   "openrouter:qwen/qwen3-embedding-8b (system arms)": {
-   "estimated_usd": 0.002608,
+   "estimated_usd": 0.002527,
    "requests": 0,
    "tokens": 62975
   },
   "perplexity:pplx-embed-context-v1-4b": {
-   "estimated_usd": 0.029416,
-   "requests": 275,
-   "tokens": 147078
+   "estimated_usd": 0.028986,
+   "requests": 243,
+   "tokens": 144926
   },
   "perplexity:pplx-embed-v1-4b": {
-   "estimated_usd": 0.014708,
-   "requests": 138,
-   "tokens": 73539
+   "estimated_usd": 0.014493,
+   "requests": 122,
+   "tokens": 72463
   },
   "voyage:voyage-4-large": {
-   "estimated_usd": 0.022062,
-   "requests": 137,
-   "tokens": 73539
+   "estimated_usd": 0.021739,
+   "requests": 121,
+   "tokens": 72463
   },
   "voyage:voyage-context-4": {
-   "estimated_usd": 0.044124,
-   "requests": 274,
-   "tokens": 147078
+   "estimated_usd": 0.043478,
+   "requests": 242,
+   "tokens": 144926
   }
  },
  "checks": {
@@ -674,41 +674,41 @@
    "arm": "R1",
    "category": "embeddings",
    "chunks": 697,
-   "document_tokens": 76721,
+   "document_tokens": 76760,
    "documents": 697,
    "encoding": "independent",
-   "estimated_usd": 0.002967,
+   "estimated_usd": 0.002909,
    "kind": "representation",
    "model": "qwen/qwen3-embedding-8b",
    "notes": [],
    "price_per_million_upper_bound": 0.03,
    "provider": "openrouter",
-   "queries": 133,
-   "query_tokens": 11091,
+   "queries": 118,
+   "query_tokens": 10103,
    "recipe": "production_recipe",
-   "requests": 147,
-   "tokens": 98903,
-   "worst_case_usd": 0.008901
+   "requests": 131,
+   "tokens": 96966,
+   "worst_case_usd": 0.008727
   },
   {
    "arm": "R2",
    "category": "embeddings",
    "chunks": 697,
-   "document_tokens": 120258,
+   "document_tokens": 120296,
    "documents": 697,
    "encoding": "independent",
-   "estimated_usd": 0.004273,
+   "estimated_usd": 0.004215,
    "kind": "representation",
    "model": "qwen/qwen3-embedding-8b",
    "notes": [],
    "price_per_million_upper_bound": 0.03,
    "provider": "openrouter",
-   "queries": 133,
-   "query_tokens": 11091,
+   "queries": 118,
+   "query_tokens": 10103,
    "recipe": "deterministic_header",
-   "requests": 147,
-   "tokens": 142440,
-   "worst_case_usd": 0.01282
+   "requests": 131,
+   "tokens": 140502,
+   "worst_case_usd": 0.012645
   },
   {
    "arm": "R3",
@@ -717,18 +717,18 @@
    "document_tokens": 198657,
    "documents": 697,
    "encoding": "independent",
-   "estimated_usd": 0.006625,
+   "estimated_usd": 0.006566,
    "kind": "representation",
    "model": "qwen/qwen3-embedding-8b",
    "notes": [],
    "price_per_million_upper_bound": 0.03,
    "provider": "openrouter",
-   "queries": 133,
-   "query_tokens": 11091,
+   "queries": 118,
+   "query_tokens": 10103,
    "recipe": "llm_context",
-   "requests": 147,
-   "tokens": 220839,
-   "worst_case_usd": 0.019876
+   "requests": 131,
+   "tokens": 218863,
+   "worst_case_usd": 0.019698
   },
   {
    "arm": "R4_grouped",
@@ -737,21 +737,20 @@
    "document_tokens": 59257,
    "documents": 37,
    "encoding": "grouped",
-   "estimated_usd": 0.014708,
+   "estimated_usd": 0.014493,
    "kind": "representation",
    "model": "pplx-embed-context-v1-4b",
    "notes": [
-    "contract_unverified: the canary must pass before paid calls",
-    "price_unverified: admission reserves at the conservative upper bound"
+    "contract_unverified: the canary must pass before paid calls"
    ],
    "price_per_million_upper_bound": 0.2,
    "provider": "perplexity",
-   "queries": 133,
-   "query_tokens": 7101,
+   "queries": 118,
+   "query_tokens": 6563,
    "recipe": "plain",
-   "requests": 137,
-   "tokens": 73539,
-   "worst_case_usd": 0.044123
+   "requests": 121,
+   "tokens": 72463,
+   "worst_case_usd": 0.043478
   },
   {
    "arm": "R4_singleton",
@@ -760,21 +759,20 @@
    "document_tokens": 59257,
    "documents": 697,
    "encoding": "singleton",
-   "estimated_usd": 0.014708,
+   "estimated_usd": 0.014493,
    "kind": "representation",
    "model": "pplx-embed-context-v1-4b",
    "notes": [
-    "contract_unverified: the canary must pass before paid calls",
-    "price_unverified: admission reserves at the conservative upper bound"
+    "contract_unverified: the canary must pass before paid calls"
    ],
    "price_per_million_upper_bound": 0.2,
    "provider": "perplexity",
-   "queries": 133,
-   "query_tokens": 7101,
+   "queries": 118,
+   "query_tokens": 6563,
    "recipe": "plain",
-   "requests": 138,
-   "tokens": 73539,
-   "worst_case_usd": 0.044123
+   "requests": 122,
+   "tokens": 72463,
+   "worst_case_usd": 0.043478
   },
   {
    "arm": "R4_independent",
@@ -783,21 +781,20 @@
    "document_tokens": 59257,
    "documents": 697,
    "encoding": "independent",
-   "estimated_usd": 0.014708,
+   "estimated_usd": 0.014493,
    "kind": "representation",
    "model": "pplx-embed-v1-4b",
    "notes": [
-    "contract_unverified: the canary must pass before paid calls",
-    "price_unverified: admission reserves at the conservative upper bound"
+    "contract_unverified: the canary must pass before paid calls"
    ],
    "price_per_million_upper_bound": 0.2,
    "provider": "perplexity",
-   "queries": 133,
-   "query_tokens": 7101,
+   "queries": 118,
+   "query_tokens": 6563,
    "recipe": "plain",
-   "requests": 138,
-   "tokens": 73539,
-   "worst_case_usd": 0.044123
+   "requests": 122,
+   "tokens": 72463,
+   "worst_case_usd": 0.043478
   },
   {
    "arm": "R5_grouped",
@@ -806,21 +803,20 @@
    "document_tokens": 59257,
    "documents": 37,
    "encoding": "grouped",
-   "estimated_usd": 0.022062,
+   "estimated_usd": 0.021739,
    "kind": "representation",
    "model": "voyage-context-4",
    "notes": [
-    "contract_unverified: the canary must pass before paid calls",
-    "price_unverified: admission reserves at the conservative upper bound"
+    "contract_unverified: the canary must pass before paid calls"
    ],
    "price_per_million_upper_bound": 0.3,
    "provider": "voyage",
-   "queries": 133,
-   "query_tokens": 7101,
+   "queries": 118,
+   "query_tokens": 6563,
    "recipe": "plain",
-   "requests": 137,
-   "tokens": 73539,
-   "worst_case_usd": 0.066185
+   "requests": 121,
+   "tokens": 72463,
+   "worst_case_usd": 0.065217
   },
   {
    "arm": "R5_singleton",
@@ -829,21 +825,20 @@
    "document_tokens": 59257,
    "documents": 697,
    "encoding": "singleton",
-   "estimated_usd": 0.022062,
+   "estimated_usd": 0.021739,
    "kind": "representation",
    "model": "voyage-context-4",
    "notes": [
-    "contract_unverified: the canary must pass before paid calls",
-    "price_unverified: admission reserves at the conservative upper bound"
+    "contract_unverified: the canary must pass before paid calls"
    ],
    "price_per_million_upper_bound": 0.3,
    "provider": "voyage",
-   "queries": 133,
-   "query_tokens": 7101,
+   "queries": 118,
+   "query_tokens": 6563,
    "recipe": "plain",
-   "requests": 137,
-   "tokens": 73539,
-   "worst_case_usd": 0.066185
+   "requests": 121,
+   "tokens": 72463,
+   "worst_case_usd": 0.065217
   },
   {
    "arm": "R5_independent",
@@ -852,21 +847,20 @@
    "document_tokens": 59257,
    "documents": 697,
    "encoding": "independent",
-   "estimated_usd": 0.022062,
+   "estimated_usd": 0.021739,
    "kind": "representation",
    "model": "voyage-4-large",
    "notes": [
-    "contract_unverified: the canary must pass before paid calls",
-    "price_unverified: admission reserves at the conservative upper bound"
+    "contract_unverified: the canary must pass before paid calls"
    ],
    "price_per_million_upper_bound": 0.3,
    "provider": "voyage",
-   "queries": 133,
-   "query_tokens": 7101,
+   "queries": 118,
+   "query_tokens": 6563,
    "recipe": "plain",
-   "requests": 137,
-   "tokens": 73539,
-   "worst_case_usd": 0.066185
+   "requests": 121,
+   "tokens": 72463,
+   "worst_case_usd": 0.065217
   }
  ],
  "harness": "e0-harness-v1",
@@ -893,7 +887,7 @@
   "output_bound": "the ai.output_tokens policy per role profile (reserved as sent)",
   "pool_depth": 20,
   "request_timeout_s": 120.0,
-  "subscription_requests": "unbounded (owner)",
+  "subscription_request_allowance": 600,
   "token_bound": "UTF-8 bytes + 8 for limits and admission; bytes/3 for estimates",
   "top_k": 10,
   "transient_retries": 2,
@@ -906,9 +900,9 @@
    "calls": 12,
    "category": "drafting_context",
    "detail": "exact prompts from the frozen seeds",
-   "estimated_only_reference_usd": 0.230054,
+   "estimated_only_reference_usd": 0.230072,
    "estimated_usd": 0.0,
-   "input_tokens": 57427,
+   "input_tokens": 57436,
    "model": "gpt-6-luna",
    "output_tokens": 11520,
    "role": "writer",
@@ -933,14 +927,14 @@
   {
    "arm": null,
    "billing": "subscription",
-   "calls": 505,
+   "calls": 430,
    "category": "labels_audits",
    "detail": "",
-   "estimated_only_reference_usd": 6.061008,
+   "estimated_only_reference_usd": 5.173872,
    "estimated_usd": 0.0,
-   "input_tokens": 2159884,
+   "input_tokens": 1845616,
    "model": "gpt-6-luna",
-   "output_tokens": 174124,
+   "output_tokens": 148264,
    "role": "label_a",
    "transport": "codex_sdk",
    "worst_case_usd": 0.0
@@ -948,14 +942,14 @@
   {
    "arm": null,
    "billing": "subscription",
-   "calls": 505,
+   "calls": 430,
    "category": "labels_audits",
    "detail": "",
-   "estimated_only_reference_usd": 6.061008,
+   "estimated_only_reference_usd": 5.173872,
    "estimated_usd": 0.0,
-   "input_tokens": 2159884,
+   "input_tokens": 1845616,
    "model": "gpt-5.6-sol",
-   "output_tokens": 174124,
+   "output_tokens": 148264,
    "role": "label_b",
    "transport": "codex_sdk",
    "worst_case_usd": 0.0
@@ -963,29 +957,29 @@
   {
    "arm": null,
    "billing": "metered",
-   "calls": 101,
+   "calls": 86,
    "category": "labels_audits",
    "detail": "every question with a disagreement or an accepted set (assumed all)",
    "estimated_only_reference_usd": null,
-   "estimated_usd": 5.208553,
-   "input_tokens": 1597904,
+   "estimated_usd": 4.446438,
+   "input_tokens": 1365788,
    "model": "anthropic/claude-sonnet-5.5",
-   "output_tokens": 153924,
+   "output_tokens": 131064,
    "role": "adjudicator",
    "transport": "openrouter",
-   "worst_case_usd": 15.625658
+   "worst_case_usd": 13.339313
   },
   {
    "arm": null,
    "billing": "subscription",
-   "calls": 407,
+   "calls": 362,
    "category": "answers_verification",
    "detail": "D0-D3 on known-location questions; D1 for the retrieval finalists",
-   "estimated_only_reference_usd": 13.179864,
+   "estimated_only_reference_usd": 11.632584,
    "estimated_usd": 0.0,
-   "input_tokens": 5368932,
+   "input_tokens": 4730292,
    "model": "gpt-5.6-sol",
-   "output_tokens": 244200,
+   "output_tokens": 217200,
    "role": "tutor",
    "transport": "codex_sdk",
    "worst_case_usd": 0.0
@@ -993,14 +987,14 @@
   {
    "arm": null,
    "billing": "subscription",
-   "calls": 407,
+   "calls": 362,
    "category": "answers_verification",
    "detail": "",
-   "estimated_only_reference_usd": 8.214464,
+   "estimated_only_reference_usd": 7.216182,
    "estimated_usd": 0.0,
-   "input_tokens": 3496732,
+   "input_tokens": 3065091,
    "model": "gpt-6-luna",
-   "output_tokens": 122100,
+   "output_tokens": 108600,
    "role": "judge_a",
    "transport": "codex_sdk",
    "worst_case_usd": 0.0
@@ -1008,14 +1002,14 @@
   {
    "arm": null,
    "billing": "subscription",
-   "calls": 407,
+   "calls": 362,
    "category": "answers_verification",
    "detail": "",
-   "estimated_only_reference_usd": 8.214464,
+   "estimated_only_reference_usd": 7.216182,
    "estimated_usd": 0.0,
-   "input_tokens": 3496732,
+   "input_tokens": 3065091,
    "model": "gpt-5.6-sol",
-   "output_tokens": 122100,
+   "output_tokens": 108600,
    "role": "judge_b",
    "transport": "codex_sdk",
    "worst_case_usd": 0.0
@@ -1023,17 +1017,17 @@
   {
    "arm": null,
    "billing": "metered",
-   "calls": 144,
+   "calls": 128,
    "category": "answers_verification",
    "detail": "",
    "estimated_only_reference_usd": null,
-   "estimated_usd": 3.387098,
-   "input_tokens": 1323590,
+   "estimated_usd": 2.975623,
+   "input_tokens": 1160556,
    "model": "anthropic/claude-sonnet-5.5",
-   "output_tokens": 43200,
+   "output_tokens": 38400,
    "role": "judge_adjudicator",
    "transport": "openrouter",
-   "worst_case_usd": 10.161294
+   "worst_case_usd": 8.92687
   }
  ],
  "pins": {
@@ -1045,7 +1039,10 @@
     "model": "pplx-embed-v1-4b",
     "output_format": "int8",
     "price_per_million_upper_bound": 0.2,
-    "price_verified": false,
+    "price_verified": {
+     "checked_on": "",
+     "source_url": ""
+    },
     "provider": "perplexity"
    },
    "pplx_context_4b": {
@@ -1055,7 +1052,10 @@
     "model": "pplx-embed-context-v1-4b",
     "output_format": "int8",
     "price_per_million_upper_bound": 0.2,
-    "price_verified": false,
+    "price_verified": {
+     "checked_on": "",
+     "source_url": ""
+    },
     "provider": "perplexity"
    },
    "qwen3_8b": {
@@ -1065,7 +1065,10 @@
     "model": "qwen/qwen3-embedding-8b",
     "output_format": "float",
     "price_per_million_upper_bound": 0.03,
-    "price_verified": true,
+    "price_verified": {
+     "checked_on": "",
+     "source_url": ""
+    },
     "provider": "openrouter"
    },
    "voyage_4_large": {
@@ -1075,7 +1078,10 @@
     "model": "voyage-4-large",
     "output_format": "float",
     "price_per_million_upper_bound": 0.3,
-    "price_verified": false,
+    "price_verified": {
+     "checked_on": "",
+     "source_url": ""
+    },
     "provider": "voyage"
    },
    "voyage_context_4": {
@@ -1085,7 +1091,10 @@
     "model": "voyage-context-4",
     "output_format": "float",
     "price_per_million_upper_bound": 0.3,
-    "price_verified": false,
+    "price_verified": {
+     "checked_on": "",
+     "source_url": ""
+    },
     "provider": "voyage"
    }
   },
@@ -1164,7 +1173,24 @@
    }
   }
  },
- "pins_fingerprint": "52f67ec2216a3d7f05a667d067fb6a66407fa9d35dc67c04db23289adf18ffe7",
+ "pins_fingerprint": "5d53ffe604e32a9eca0ea6cd8e651ca1e7ba52604bf454678ce143301a05d859",
+ "prices": {
+  "rule": "a metered request is admitted only on a verified price (source_url, checked_on)",
+  "unverified": {
+   "embeddings": [
+    "pplx_4b",
+    "pplx_context_4b",
+    "qwen3_8b",
+    "voyage_4_large",
+    "voyage_context_4"
+   ],
+   "roles": [
+    "adjudicator",
+    "judge_adjudicator"
+   ]
+  },
+  "verified": {}
+ },
  "prompts": {
   "versions": {
    "adjudicator": "e0-adjudicate-v1",
@@ -1177,7 +1203,7 @@
    "tutor": "e0-tutor-v1",
    "writer": "e0-writer-v1"
   },
-  "writer": "1537dcce16ac55e93af53d1c32e32197f48547831cab5ab19c0bea6fc7fab1c3"
+  "writer": "83cfaf8566b4510b6db517107a6af762499fa2acc5539eaa38d1b6ee5a2a5753"
  },
  "reserve_share": 0.0,
  "retrieval_arms": {
@@ -1194,7 +1220,7 @@
   "R5_independent": "voyage-4-large via the Voyage API",
   "R5_singleton": "voyage-context-4, one chunk per document"
  },
- "run_id": "e0_44f66a3276e286a0",
+ "run_id": "e0_b3532a323a4cdc1a",
  "seed": 20261021,
  "splits": {
   "linear_algebra-20261021": {
@@ -1208,6 +1234,25 @@
   }
  },
  "status": "dry_run",
+ "subscription_requests": {
+  "allowance": 600,
+  "basis": "planned first attempts; retries and JSON repairs count against the allowance too",
+  "fits": false,
+  "planned": 3175,
+  "roles": {
+   "context": 37,
+   "judge_a": 362,
+   "judge_b": 362,
+   "label_a": 430,
+   "label_b": 430,
+   "tutor": 362,
+   "writer": 12
+  },
+  "system_arms": {
+   "R0": 472,
+   "R1_service": 708
+  }
+ },
  "system_arms": [
   {
    "arm": "R0",
@@ -1221,7 +1266,7 @@
    "paid_steps": [
     "rewrite"
    ],
-   "queries": 73,
+   "queries": 63,
    "rewrite": true,
    "rewrite_route": {
     "model": "gpt-5.6-sol",
@@ -1234,13 +1279,13 @@
    "arm": "R1_service",
    "backfill_tokens": 29477,
    "category": "embeddings",
-   "estimated_usd": 0.001279,
+   "estimated_usd": 0.001225,
    "kind": "system",
    "notes": [
     "runs on a separate, redacted service copy with embeddings enabled (its toml only)",
     "verification runs on the copy's source_rerank route: subscription at $0, a metered route needs source_retrieval.llm_price_per_million or is refused"
    ],
-   "queries": 73,
+   "queries": 63,
    "variants": [
     "find_sources (RRF, intent lists, mandatory verification, compare delegation)",
     "first-page dense_plus_bm25",
@@ -1265,7 +1310,7 @@
    "paid_steps": [
     "rewrite"
    ],
-   "queries": 60,
+   "queries": 55,
    "rewrite": true,
    "rewrite_route": {
     "model": "gpt-5.6-sol",
@@ -1278,13 +1323,13 @@
    "arm": "R1_service",
    "backfill_tokens": 33498,
    "category": "embeddings",
-   "estimated_usd": 0.001329,
+   "estimated_usd": 0.001302,
    "kind": "system",
    "notes": [
     "runs on a separate, redacted service copy with embeddings enabled (its toml only)",
     "verification runs on the copy's source_rerank route: subscription at $0, a metered route needs source_retrieval.llm_price_per_million or is refused"
    ],
-   "queries": 60,
+   "queries": 55,
    "variants": [
     "find_sources (RRF, intent lists, mandatory verification, compare delegation)",
     "first-page dense_plus_bm25",
@@ -1304,9 +1349,9 @@
   "categories": {
    "answers_verification": {
     "allocation_usd": 8.0,
-    "estimated_usd": 3.3871,
+    "estimated_usd": 2.9756,
     "fits": true,
-    "worst_case_usd": 10.1613
+    "worst_case_usd": 8.9269
    },
    "drafting_context": {
     "allocation_usd": 5.0,
@@ -1316,22 +1361,22 @@
    },
    "embeddings": {
     "allocation_usd": 2.0,
-    "estimated_usd": 0.1268,
+    "estimated_usd": 0.1249,
     "fits": true,
-    "worst_case_usd": 0.3751
+    "worst_case_usd": 0.3697
    },
    "labels_audits": {
     "allocation_usd": 10.0,
-    "estimated_usd": 5.2086,
+    "estimated_usd": 4.4464,
     "fits": true,
-    "worst_case_usd": 15.6257
+    "worst_case_usd": 13.3393
    }
   },
-  "estimated_usd": 8.7225,
+  "estimated_usd": 7.5469,
   "fits_allocations": true,
   "fits_cap": true,
   "overflowing_categories": [],
-  "subscription_estimated_only_tokens": 17813489,
-  "worst_case_usd": 26.1621
+  "subscription_estimated_only_tokens": 15577320,
+  "worst_case_usd": 22.6359
  }
 }

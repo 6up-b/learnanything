@@ -14,8 +14,10 @@ with ``--i-am-authorized-to-spend``) calls after a fresh dry run that fits:
    receipt and every verdict (Codex review F4, F10), bound explicitly, so
    nothing depends on the working directory; the CLI's own receipt binding is
    pointed at it as well (``bind_receipts``).
-4. The service copies are prepared (redacted, resumable) and the copy's
-   ``paid.run_paid`` runs with one shared E0 ledger.
+4. The route canaries run, then the service copies are prepared (redacted,
+   resumable; no Qwen copy when its canary failed) and the copy's
+   ``paid.run_paid`` runs with the ONE ledger of the plan's authorization
+   (``budget.authorized_ledger``, fix round 4), never one under ``run_dir``.
 
 Everything paid is admitted by the ledger before it is sent. The real
 clients come from ``default_factories`` (tests substitute fakes there).
@@ -29,7 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from learnloop.experiments.contextual_embeddings import pins
-from learnloop.experiments.contextual_embeddings.bank import logged_bank
+from learnloop.experiments.contextual_embeddings.bank import logged_questions
 from learnloop.experiments.contextual_embeddings.budget import E0Ledger
 from learnloop.experiments.contextual_embeddings.callers import Checkpoints, LiveRoleCaller
 from learnloop.experiments.contextual_embeddings.corpus import build_snapshot, open_copy
@@ -37,6 +39,7 @@ from learnloop.experiments.contextual_embeddings.paid import run_paid
 from learnloop.experiments.contextual_embeddings.records import ExperimentRecords
 from learnloop.experiments.contextual_embeddings.report import assert_aggregate, render
 from learnloop.experiments.contextual_embeddings.runner import freeze, plan_identity
+from learnloop.experiments.contextual_embeddings.stop_rules import incomplete_rules
 
 
 class PlanMismatch(ValueError):
@@ -100,49 +103,108 @@ def rebuild_frozen(copies: Sequence[Path], plan: Mapping[str, Any]) -> tuple[lis
     return handles, snapshots, strata
 
 
+def _failure_outcome(plan: Mapping[str, Any], handle: Any, ledger: E0Ledger, exc: BaseException,
+                     preparation: Mapping[str, Any] | None) -> dict[str, Any]:
+    """The aggregate failure report of a copy whose run stopped on an
+    unexpected failure (fix round 4, Medium 12): its classification only
+    (never the exception's text), the ledger, and every planned item as
+    missing."""
+
+    from learnloop.experiments.contextual_embeddings.boundary import classify, safe_message
+
+    return {"status": "incomplete", "run_id": plan["run_id"],
+            "incomplete_reason": f"stopped on a failure ({classify(exc)}): {safe_message(exc)}",
+            "failures": [{"item": "run", "kind": f"failure_{classify(exc)}", "reason": safe_message(exc),
+                          "denominator": None}],
+            "planned": {"missing": {"run_stopped": 1}}, "ledger": ledger.report(),
+            "service_preparation": dict(preparation or {}), "decisions": incomplete_rules()}
+
+
+def _write_outcome(vault_dir: Path, outcome: Mapping[str, Any]) -> None:
+    assert_aggregate(outcome)
+    vault_dir.mkdir(parents=True, exist_ok=True)
+    (vault_dir / "results.json").write_text(json.dumps(outcome, sort_keys=True, indent=1, default=str),
+                                            encoding="utf-8")
+    (vault_dir / "report.md").write_text(render(outcome), encoding="utf-8")
+
+
 def run_live(copies: Sequence[Path], *, plan: Mapping[str, Any], run_dir: Path,
              key_envs: Mapping[str, str], reader_latency_budget_s: float | None = None,
              factories: LiveFactories | None = None,
-             bind_receipts: Callable[[Any], None] | None = None) -> dict[str, Any]:
+             bind_receipts: Callable[[Any], None] | None = None,
+             new_authorization: str | None = None) -> dict[str, Any]:
+    """The paid run (see the module docstring).
+
+    One budget per authorization (fix round 4, High 3): the ledger is the
+    plan's canonical ``<fixtures-local>/contextual-embeddings/ledger/<plan_id>.ledger``,
+    whatever ``run_dir`` says; a new plan while another plan's ledger exists
+    needs ``new_authorization``. Provider log records are sanitized for the
+    whole run (High 8). Each copy's route canaries run BEFORE its service
+    backfill (Medium 9). Any failure still writes that copy's aggregate
+    failure report (Medium 12); a halted ledger (an overage) stops every
+    later copy at once (High 2)."""
+
+    from learnloop.experiments.contextual_embeddings.boundary import quiet_provider_logs
+    from learnloop.experiments.contextual_embeddings.budget import authorized_ledger
+    from learnloop.experiments.contextual_embeddings.paid import PaidState, run_contracts
+    from learnloop.experiments.contextual_embeddings.adapters import Receipts, VectorStore
+
     factories = factories or default_factories()
     run_dir = Path(run_dir) / str(plan["run_id"])
     handles, snapshots, strata = rebuild_frozen(copies, plan)
-    ledger = E0Ledger(run_dir.parent / "ledger")
+    ledger = authorized_ledger(copies, str(plan["run_id"]), new_authorization=new_authorization)
     ledger.start_clock(pins.MAX_WALL_S)
     freeze(run_dir / "frozen", plan, snapshots)
-    results: dict[str, Any] = {"run_id": plan["run_id"], "vaults": {}}
+    results: dict[str, Any] = {"run_id": plan["run_id"], "vaults": {}, "status": "complete"}
     provider_keys = {"perplexity": key_envs.get("perplexity"), "voyage": key_envs.get("voyage"),
                      "openrouter": key_envs.get("openrouter")}
-    for handle, snapshot in zip(handles, snapshots, strict=True):
-        from learnloop.experiments.contextual_embeddings.system_arms import prepare_service_copies
+    with quiet_provider_logs():
+        for handle, snapshot in zip(handles, snapshots, strict=True):
+            from learnloop.experiments.contextual_embeddings.system_arms import prepare_service_copies
 
-        vault_dir = run_dir / handle.label
-        records = ExperimentRecords(vault_dir / "records")
-        if bind_receipts is not None:
-            bind_receipts(records.repository)
-        with records.receipts(f"e0:{plan['run_id']}:{handle.label}"):
-            caller = LiveRoleCaller(handle.root, handle.vault.config, ledger,
-                                    checkpoints=Checkpoints(vault_dir / "llm"),
-                                    client_factory=factories.role_clients, records=records)
-            logged, _counts = logged_bank(snapshot, handle.repository.question_events(answer_status="answered"))
-            system_handles, preparation = prepare_service_copies(
-                handle.root, vault_dir / "service", ledger, snapshot=snapshot, client_factory=factories.backfill,
-                factory_for_config=factories.qwen)
-            outcome = run_paid(snapshot, ledger=ledger, caller=caller, run_dir=vault_dir,
-                               transport=factories.transport,
-                               qwen_client_factory=factories.qwen(handle.vault.config),
-                               logged=logged, strata=strata[handle.label], key_envs=provider_keys,
-                               environ=factories.environ, system_handles=system_handles,
-                               system_preparation=preparation, system_clients=factories.system_clients,
-                               latency_budget_s=reader_latency_budget_s)
-        outcome["service_preparation"] = preparation
-        outcome["records"] = {"judgments": len(records.judgments()), "receipts": records.receipt_count()}
-        outcome["run_id"] = plan["run_id"]
-        outcome["corpus"] = [snapshot.inventory()]
-        assert_aggregate(outcome)
-        results["vaults"][handle.label] = outcome
-        (vault_dir / "results.json").write_text(json.dumps(outcome, sort_keys=True, indent=1, default=str),
-                                                encoding="utf-8")
-        (vault_dir / "report.md").write_text(render(outcome), encoding="utf-8")
+            vault_dir = run_dir / handle.label
+            halted = ledger.halted()
+            if halted:
+                results["vaults"][handle.label] = {"status": "not_run", "reason": "the ledger is halted"}
+                results["status"] = "incomplete"
+                continue
+            preparation: dict[str, Any] | None = None
+            try:
+                records = ExperimentRecords(vault_dir / "records")
+                if bind_receipts is not None:
+                    bind_receipts(records.repository)
+                with records.receipts(f"e0:{plan['run_id']}:{handle.label}"):
+                    caller = LiveRoleCaller(handle.root, handle.vault.config, ledger,
+                                            checkpoints=Checkpoints(vault_dir / "llm"),
+                                            client_factory=factories.role_clients, records=records)
+                    logged, _counts = logged_questions(handle, snapshot)
+                    qwen_factory_for_copy = factories.qwen(handle.vault.config)
+                    canaries = PaidState()
+                    run_contracts(snapshot, canaries, ledger=ledger, transport=factories.transport,
+                                  receipts=Receipts(vault_dir / "receipts.jsonl"),
+                                  store=VectorStore(vault_dir / "vectors"),
+                                  qwen_client_factory=qwen_factory_for_copy, key_envs=provider_keys,
+                                  environ=factories.environ)
+                    qwen_ok = (canaries.contracts.get("R1") or {}).get("status") != "failed"
+                    system_handles, preparation = prepare_service_copies(
+                        handle.root, vault_dir / "service", ledger, snapshot=snapshot,
+                        client_factory=factories.backfill, factory_for_config=factories.qwen,
+                        backfill=qwen_ok)
+                    outcome = run_paid(snapshot, ledger=ledger, caller=caller, run_dir=vault_dir,
+                                       transport=factories.transport, qwen_client_factory=qwen_factory_for_copy,
+                                       logged=logged, strata=strata[handle.label], key_envs=provider_keys,
+                                       environ=factories.environ, system_handles=system_handles,
+                                       system_preparation=preparation, system_clients=factories.system_clients,
+                                       latency_budget_s=reader_latency_budget_s, contracts=canaries.contracts)
+                outcome["service_preparation"] = preparation
+                outcome["records"] = {"judgments": len(records.judgments()), "receipts": records.receipt_count()}
+                outcome["run_id"] = plan["run_id"]
+                outcome["corpus"] = [snapshot.inventory()]
+            except Exception as exc:  # noqa: BLE001 - the aggregate failure report is always written
+                outcome = _failure_outcome(plan, handle, ledger, exc, preparation)
+            if outcome.get("status") != "complete":
+                results["status"] = "incomplete"
+            _write_outcome(vault_dir, outcome)
+            results["vaults"][handle.label] = outcome
     results["ledger"] = ledger.report()
     return results

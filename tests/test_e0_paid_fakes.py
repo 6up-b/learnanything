@@ -12,7 +12,7 @@ import pytest
 
 from learnloop.experiments.contextual_embeddings import corpus as C
 from learnloop.experiments.contextual_embeddings import pins
-from learnloop.experiments.contextual_embeddings.adapters import CANARY_CHUNKS
+from learnloop.experiments.contextual_embeddings.adapters import CANARY_CHUNKS, CANARY_QUERY
 from learnloop.experiments.contextual_embeddings.budget import E0Ledger
 from learnloop.experiments.contextual_embeddings.callers import Checkpoints, FakeRoleCaller, LiveRoleCaller
 from learnloop.experiments.contextual_embeddings.paid import effective_query, run_paid
@@ -22,6 +22,12 @@ from learnloop.experiments.contextual_embeddings.system_arms import enable_embed
     open_service, rank_system
 from tests.e0_fakes import FAKE_KEYS, FakeEmbeddingTransport, FakeQwenClient, FakeRoleClient, build_e0_vault, \
     fake_respond
+
+from tests.e0_fakes import verified_prices  # noqa: F401 - the fixture below
+
+#: Every metered pin priced as verified (E0 admission refuses unverified prices; fix round 4).
+pytestmark = pytest.mark.usefixtures("verified_prices")
+
 
 STRATA = {"reader_deictic": 2, "distant_same_source": 1, "direct_lookup": 1, "no_support": 1, "intent_explain": 1}
 DIMS = {pin.model: pin.dimensions for pin in pins.EMBEDDING_PINS.values()}
@@ -98,8 +104,13 @@ def test_resume_pays_only_for_what_is_missing(tmp_path):
     resent = [request for request in again.requests
               if CANARY_CHUNKS[0] not in str(request["body"]) and request["body"].get("input_type") == "document"]
     assert resent == []
-    assert [request for request in again.requests if request["body"].get("input_type") == "query"] == []
-    assert qwen_again.calls == []  # documents, queries and the online measurements all reused
+    # Only the route canaries' public query goes out again (fix round 4: the
+    # canary checks the query contract too, every run).
+    assert [request for request in again.requests if request["body"].get("input_type") == "query"
+            and CANARY_QUERY not in str(request["body"])] == []
+    # Qwen: only its canary document and canary query; documents, queries and
+    # the online measurements are all reused.
+    assert qwen_again.calls == [(1, "retrieval-document"), (1, "retrieval-query")]
 
 
 def test_the_live_caller_admits_each_physical_request_and_resumes_from_checkpoints(tmp_path):

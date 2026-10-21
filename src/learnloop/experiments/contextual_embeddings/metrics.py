@@ -145,7 +145,7 @@ def paired_bootstrap(rows: Sequence[Mapping[str, Any]], *, a: str, b: str, clust
         clusters.setdefault(str(row.get(cluster) or "none"), []).append(float(row[b]) - float(row[a]))
     keys = sorted(clusters)
     if not keys:
-        return {"n": 0, "clusters": 0, "difference": None, "macro_difference": None, "ci95": None,
+        return {"n": 0, "clusters": 0, "families": 0, "difference": None, "macro_difference": None, "ci95": None,
                 "exploratory": True}
     differences = [value for key in keys for value in clusters[key]]
     point = _mean(differences)
@@ -160,9 +160,12 @@ def paired_bootstrap(rows: Sequence[Mapping[str, Any]], *, a: str, b: str, clust
     estimates.sort()
     low = estimates[int(0.025 * (resamples - 1))]
     high = estimates[int(math.ceil(0.975 * (resamples - 1)))]
-    return {"n": len(differences), "clusters": len(keys), "difference": round(point, 6),
+    # Independent families: the real clusters of the paired evidence ("none"
+    # pools questions without a family and is no independent family).
+    families = sum(1 for key in keys if key != "none")
+    return {"n": len(differences), "clusters": len(keys), "families": families, "difference": round(point, 6),
             "macro_difference": round(macro, 6), "ci95": [round(low, 6), round(high, 6)],
-            "exploratory": len(keys) < pins.MIN_INDEPENDENT_FAMILIES}
+            "exploratory": families < pins.MIN_INDEPENDENT_FAMILIES}
 
 
 def latency_summary(values: Sequence[float]) -> dict[str, float | None]:

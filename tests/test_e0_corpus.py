@@ -13,6 +13,12 @@ from learnloop.experiments.contextual_embeddings.pins import token_estimate
 from tests.e0_fakes import EXAM, LONG_BLOCK, build_e0_vault
 
 
+from tests.e0_fakes import verified_prices  # noqa: F401 - the fixture below
+
+#: Every metered pin priced as verified (E0 admission refuses unverified prices; fix round 4).
+pytestmark = pytest.mark.usefixtures("verified_prices")
+
+
 def _snapshot(paths):
     return C.build_snapshot(C.open_copy(paths.root))
 

@@ -28,10 +28,11 @@ fakes in tests). Prompts are versioned and hashed into the run plan.
 """
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field, replace
 import hashlib
 import json
+from pathlib import Path
 import re
 from typing import Any, Literal
 
@@ -42,7 +43,7 @@ from learnloop.ai.transport import render_structured_prompt
 
 from learnloop.experiments.contextual_embeddings import pins
 from learnloop.experiments.contextual_embeddings.corpus import CandidateUnit, CorpusSnapshot, alias
-from learnloop.experiments.contextual_embeddings.delivery import Selection
+from learnloop.experiments.contextual_embeddings.delivery import Selection, quote_covered
 
 Relevance = Literal["required", "helpful", "background", "unrelated"]
 RELEVANCE_ORDER: tuple[str, ...] = ("unrelated", "background", "helpful", "required")
@@ -183,10 +184,16 @@ def freeze_context(question: BankQuestion, snapshot: CorpusSnapshot) -> BankQues
         policy = snapshot.policy
         if not policy.permitted(selection.extraction_id, selection.span_id):
             raise SelectionWithheld("a question's selection is withheld by the experiment's policy")
-        block = next((block for block in snapshot.blocks.get(selection.extraction_id, [])
-                      if block.span_id == selection.span_id), None)
-        quote_ok = bool(selection.quote and selection.quote.strip()) and all(
-            policy.permitted(selection.extraction_id, span_id) for span_id in selection.selection_span_ids)
+        blocks = snapshot.blocks.get(selection.extraction_id, [])
+        block = next((block for block in blocks if block.span_id == selection.span_id), None)
+        # The quote needs complete, resolvable, permitted canonical coverage
+        # (fix round 4, High 7): its spans, in document order, must contain it.
+        order = {item.span_id: index for index, item in enumerate(blocks)}
+        texts = {item.span_id: item.text for item in blocks}
+        covered = sorted(dict.fromkeys((selection.span_id, *selection.selection_span_ids)),
+                         key=lambda span_id: (span_id not in order, order.get(span_id, 0)))
+        quote_ok = quote_covered(selection.quote, covered, texts.get,
+                                 lambda span_id: policy.permitted(selection.extraction_id, span_id))
         text = selection.quote if quote_ok else (block.text if block is not None else "")
         passage = " ".join(str(text or "").split())[:SELECTION_CONTEXT_CHARS] or None
         if not quote_ok:
@@ -298,17 +305,85 @@ def smoke_bank(snapshot: CorpusSnapshot, *, count: int = pins.SMOKE_CASES) -> tu
 # -- logged questions ------------------------------------------------------------------
 
 
-def logged_bank(snapshot: CorpusSnapshot, events: Sequence[Mapping[str, Any]]) -> tuple[list[BankQuestion], dict[str, int]]:
+#: The contexts a learner question may come from (anything else is unresolved).
+LOGGED_CONTEXTS = frozenset({"reader", "library", "practice", "feedback"})
+
+
+def _unresolved_reasons() -> frozenset[str]:
+    from learnloop import learner_protection as LP
+
+    return frozenset({LP.WITHHELD_UNREADABLE, LP.WITHHELD_UNKNOWN_ITEM, LP.QUESTION_UNRECORDED,
+                      LP.ANSWER_UNRECORDED, "protection_unreadable"})
+
+
+def event_protection(handle: Any) -> tuple[Callable[[Mapping[str, Any]], str | None], Callable[[], None]]:
+    """The production authority on what of a learner's question may reach a
+    model (``learnloop.learner_protection.PastWork.question_reason``): the
+    question on record, its item's protection (exam and held-out material,
+    reservations, cold checks, probes, an unreadable or unknown item), the
+    attempt it was asked during, and its recorded assessment contract (it
+    must name that item's own contract). Unreadable protection rejects every
+    question (fail closed). Returns ``(reason, close)``."""
+
+    from learnloop.db.connection import connect
+    from learnloop.learner_protection import PastWork
+
+    connection = connect(Path(handle.sqlite_path), read_only=True)
+    past = PastWork(connection, handle.vault, handle.repository)
+
+    def reason(event: Mapping[str, Any]) -> str | None:
+        try:
+            row = past.question(event.get("id"))
+            contracts = [row["contract"]] if row and row.get("contract") else []
+            return past.question_reason(event.get("id"), contracts)
+        except Exception:  # noqa: BLE001 - an unreadable provenance is rejected
+            return "protection_unreadable"
+
+    return reason, connection.close
+
+
+def logged_questions(handle: Any, snapshot: CorpusSnapshot) -> tuple[list[BankQuestion], dict[str, int]]:
+    """The copy's answered learner questions through :func:`logged_bank`,
+    each event's provenance resolved by :func:`event_protection`."""
+
+    reason, close = event_protection(handle)
+    try:
+        return logged_bank(snapshot, handle.repository.question_events(answer_status="answered"), protection=reason)
+    finally:
+        close()
+
+
+def logged_bank(snapshot: CorpusSnapshot, events: Sequence[Mapping[str, Any]], *,
+                protection: Callable[[Mapping[str, Any]], str | None] | None = None,
+                ) -> tuple[list[BankQuestion], dict[str, int]]:
     """Every eligible answered learner question, with its actual selection
     (Reader) and no fabricated selection or reference otherwise. A selection
-    the policy now withholds makes the question ineligible (counted)."""
+    the policy now withholds makes the question ineligible (counted).
+
+    Provenance first (fix round 4, High 6): before a question's text is
+    admitted, ``protection(event)`` (:func:`event_protection`) must clear its
+    item, caller, attempt and assessment contract under the CURRENT policy;
+    a protected or unresolved provenance is rejected and counted. Without a
+    protection authority, an event naming an item or an attempt is rejected
+    (fail closed), and so is an unknown caller context."""
 
     found: list[BankQuestion] = []
     counts = {"events": len(events), "eligible": 0, "too_short": 0, "selection_withheld": 0,
-              "selection_not_current": 0, "duplicate": 0}
+              "selection_not_current": 0, "duplicate": 0, "provenance_protected": 0, "provenance_unresolved": 0}
     seen: set[str] = set()
     for event in sorted(events, key=lambda value: str(value.get("id") or "")):
         text = " ".join(str(event.get("question_md") or "").split())
+        if str(event.get("context") or "") not in LOGGED_CONTEXTS:
+            counts["provenance_unresolved"] += 1
+            continue
+        if protection is not None:
+            why = protection(event)
+            if why is not None:
+                counts["provenance_unresolved" if why in _unresolved_reasons() else "provenance_protected"] += 1
+                continue
+        elif event.get("practice_item_id") or event.get("attempt_id"):
+            counts["provenance_unresolved"] += 1
+            continue
         if len(text) < 8:
             counts["too_short"] += 1
             continue
@@ -564,7 +639,7 @@ def write_questions(snapshot: CorpusSnapshot, seeds: Sequence[Seed], caller: Any
     ``unattempted_seeds`` (a budget or deadline stop came first, recorded in
     ``stopped``); the questions written before a stop are kept."""
 
-    from learnloop.experiments.contextual_embeddings.budget import E0BudgetExceeded
+    from learnloop.experiments.contextual_embeddings.budget import E0Stop
 
     questions: list[BankQuestion] = []
     stats: dict[str, Any] = {"planned": len(seeds), "calls": 0, "written": 0, "unanswered_seeds": 0,
@@ -574,7 +649,7 @@ def write_questions(snapshot: CorpusSnapshot, seeds: Sequence[Seed], caller: Any
         prompt, seed_refs, passage_refs = writer_prompt(snapshot, chunk)
         try:
             result = caller.call("writer", prompt=prompt, result_model=WrittenQuestions)
-        except E0BudgetExceeded as exc:
+        except E0Stop as exc:  # a budget stop or a normalized provider failure (Medium 12)
             stats["stopped"] = str(exc)
             stats["unattempted_seeds"] = len(seeds) - start
             break

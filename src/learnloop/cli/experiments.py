@@ -27,8 +27,13 @@ _DEFAULT_ROOT = Path("fixtures-local") / "contextual-embeddings"
 
 
 def _fail(exc: Exception) -> None:
-    typer.echo(json.dumps({"status": "invalid", "reason": str(exc)}, sort_keys=True))
-    raise typer.Exit(code=1) from exc
+    """Print a failure's SAFE message only (never a provider's text, which can
+    echo a credential: fix round 4, High 8) and exit 1, unchained."""
+
+    from learnloop.experiments.contextual_embeddings.boundary import safe_message
+
+    typer.echo(json.dumps({"status": "invalid", "reason": safe_message(exc)}, sort_keys=True))
+    raise typer.Exit(code=1) from None
 
 
 @e0_app.command("prepare")
@@ -68,6 +73,9 @@ def e0_run(
         "--reader-latency-budget-s", min=0.1,
         help="The pinned Reader p95 answer budget for S2/S4 (unset: those rules fail closed).")] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
+    new_authorization: Annotated[str | None, typer.Option(
+        "--new-authorization",
+        help="The orchestrator's reason for a new plan's budget while another plan's ledger exists.")] = None,
 ) -> None:
     """Plan (--dry-run) or run E0 on prepared copies within the $25 cap."""
 
@@ -90,15 +98,18 @@ def e0_run(
             from learnloop.cli.receipts import bind_command_repository
             from learnloop.experiments.contextual_embeddings.live import run_live
 
-            require_paid_authorization(authorized=authorized, dry_run_ok=bool(plan["totals"]["fits_cap"]))
+            require_paid_authorization(authorized=authorized, dry_run_ok=bool(plan["totals"]["fits_cap"]),
+                                       unverified_prices=plan.get("prices", {}).get("unverified"))
             # Receipts go to each copy's experiment repository, never to a vault
             # found from the working directory (Codex review F4).
             result = run_live(copy, plan=plan, run_dir=run_dir, key_envs=key_envs,
                               reader_latency_budget_s=reader_latency_budget_s,
-                              bind_receipts=bind_command_repository)
+                              bind_receipts=bind_command_repository, new_authorization=new_authorization)
             typer.echo(json.dumps(result, sort_keys=True, indent=None if json_output else 2, default=str))
             return
-    except (ValueError, OSError, PermissionError, RuntimeError) as exc:
+    except typer.Exit:
+        raise
+    except Exception as exc:  # noqa: BLE001 - every failure prints its safe message only (High 8)
         _fail(exc)
     if json_output:
         typer.echo(json.dumps(plan, sort_keys=True, default=str))

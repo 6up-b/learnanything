@@ -44,11 +44,13 @@ the original measurement, marked cached (Codex review F9).
 """
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
+import fcntl
 import hashlib
 import json
+import os
 from pathlib import Path
 import threading
 import time
@@ -60,7 +62,15 @@ from learnloop.ai.execution import gate_model_requests
 from learnloop.ai.spend import is_subscription_transport
 
 from learnloop.experiments.contextual_embeddings import pins
-from learnloop.experiments.contextual_embeddings.budget import E0BudgetExceeded, E0Ledger, Request, reconciled_usd
+from learnloop.experiments.contextual_embeddings.budget import (
+    E0BudgetExceeded,
+    E0Ledger,
+    E0PriceUnverified,
+    E0RequestBlocked,
+    E0Stop,
+    Request,
+    reconciled_usd,
+)
 from learnloop.experiments.contextual_embeddings.pins import RolePin, token_upper_bound
 
 #: Structured-output schema allowance added to every input bound.
@@ -69,8 +79,11 @@ SCHEMA_ALLOWANCE_TOKENS = 512
 TRANSPORT_TYPES = {"codex_sdk": frozenset({"codex_sdk"}), "openrouter": frozenset({"openrouter"})}
 
 
-class PinMismatch(RuntimeError):
-    """The client a role resolved to is not its frozen pin; nothing was sent."""
+class PinMismatch(E0Stop, RuntimeError):
+    """The client a role resolved to is not its frozen pin; nothing was sent
+    (an E0 stop: its message is built from pins only, never provider text)."""
+
+    kind = "pin_mismatch"
 
 
 class RoleCaller(Protocol):
@@ -155,10 +168,13 @@ class E0RequestGate:
     Billing comes from the resolved client (never assumed from the pin): a
     client whose billing class differs from the pin's is refused."""
 
-    def __init__(self, ledger: E0Ledger, pin: RolePin, *, arm: str | None = None) -> None:
+    def __init__(self, ledger: E0Ledger, pin: RolePin, *, arm: str | None = None,
+                 request_key: str | None = None) -> None:
         self.ledger = ledger
         self.pin = pin
         self.arm = arm
+        #: The role call's complete identity (its checkpoint key), on every entry.
+        self.request_key = request_key
         self.admitted = 0
         self._lock = threading.Lock()
 
@@ -170,6 +186,10 @@ class E0RequestGate:
         if billing == "metered" and (budget is None or int(budget) <= 0):
             # An unbounded metered request cannot be reserved: refused before sending.
             raise E0BudgetExceeded(f"{self.pin.role}: a metered request without an output bound is refused")
+        problem = pins.price_problem(self.pin)
+        if problem is not None:
+            # No reservation on an unverified price: it cannot be a hard maximum (High 2).
+            raise E0PriceUnverified(problem)
         output = int(budget) if budget is not None else self.pin.output_tokens
         tokens_in = estimate_input_tokens(prompt)
         usd = 0.0 if billing == "subscription" else role_cost(self.pin, tokens_in, output)
@@ -179,7 +199,7 @@ class E0RequestGate:
         reservation = self.ledger.reserve(Request(
             category=self.pin.category, provider=self.pin.provider_profile, route=self.pin.model,
             purpose=f"{self.pin.role}:{purpose}", arm=self.arm, billing=billing, estimated_usd=usd,
-            estimated_tokens=tokens_in + output, attempt=attempt))
+            estimated_tokens=tokens_in + output, attempt=attempt, request_key=self.request_key))
         return _Admission(reservation, self.pin, time.monotonic(), output)
 
     def settle(self, admission: _Admission | None, usage: Mapping[str, Any]) -> None:
@@ -213,9 +233,10 @@ class Checkpoints:
     def __init__(self, directory: Path | None) -> None:
         self.directory = Path(directory) if directory is not None else None
         self._memory: dict[str, Any] = {}
+        self._failed: dict[str, list[str]] = {}
 
-    def get(self, key: str) -> dict[str, Any] | None:
-        if key in self._memory:
+    def get(self, key: str, *, refresh: bool = False) -> dict[str, Any] | None:
+        if key in self._memory and not (refresh and self.directory is not None):
             return self._memory[key]
         if self.directory is not None:
             path = self.directory / f"{key}.json"
@@ -228,12 +249,83 @@ class Checkpoints:
         return None
 
     def put(self, key: str, value: Mapping[str, Any]) -> None:
+        """Durable: the file and its directory are fsynced before returning
+        (fix round 4, Medium 11), so a recorded result survives a crash."""
+
         self._memory[key] = dict(value)
         if self.directory is not None:
             self.directory.mkdir(parents=True, exist_ok=True)
-            temporary = self.directory / f".{key}.{threading.get_ident()}.tmp"
-            temporary.write_text(json.dumps(dict(value), sort_keys=True, default=str), encoding="utf-8")
-            temporary.replace(self.directory / f"{key}.json")
+            temporary = self.directory / f".{key}.{os.getpid()}.{threading.get_ident()}.tmp"
+            with open(temporary, "w", encoding="utf-8") as handle:
+                handle.write(json.dumps(dict(value), sort_keys=True, default=str))
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, self.directory / f"{key}.json")
+            directory = os.open(self.directory, os.O_RDONLY)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+
+    def mark_failed(self, key: str, reservations: Sequence[str]) -> None:
+        """Record, durably, that these admissions of ``key`` ended in a failure
+        (nothing to recover: a later run may send the request again)."""
+
+        known = sorted(set(self.failed_reservations(key)) | {str(item) for item in reservations})
+        self._failed[key] = known
+        if self.directory is not None:
+            self._durable_write(self.directory / f".{key}.failed.json", json.dumps(known))
+
+    def failed_reservations(self, key: str) -> list[str]:
+        if key in self._failed:
+            return list(self._failed[key])
+        if self.directory is not None:
+            path = self.directory / f".{key}.failed.json"
+            if path.exists():
+                return [str(item) for item in json.loads(path.read_text(encoding="utf-8"))]
+        return []
+
+    def _durable_write(self, path: Path, text: str) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_name(f"{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+        with open(temporary, "w", encoding="utf-8") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        directory = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+
+    @contextmanager
+    def claim(self, key: str) -> Iterator[None]:
+        """An exclusive cross-process claim on one request identity, held
+        while it executes (an ``flock`` that the OS releases if the process
+        dies). A second worker waits, then finds the first one's checkpoint."""
+
+        if self.directory is None:
+            with self._local_lock(key):
+                yield
+            return
+        self.directory.mkdir(parents=True, exist_ok=True)
+        with self._local_lock(key), open(self.directory / f".{key}.claim", "a+") as handle:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+    _locks: dict[str, threading.Lock] = {}
+    _locks_guard = threading.Lock()
+
+    @contextmanager
+    def _local_lock(self, key: str) -> Iterator[None]:
+        with Checkpoints._locks_guard:
+            lock = Checkpoints._locks.setdefault(key, threading.Lock())
+        with lock:
+            yield
 
 
 @contextmanager
@@ -309,33 +401,87 @@ class LiveRoleCaller(_Recording):
         from learnloop.ai.execution import generation_limit, requested_reasoning_effort, truncation_retry_allowed
         from learnloop.ai.transport import execute_structured_operation
 
+        from learnloop.experiments.contextual_embeddings.boundary import provider_failure, quiet_provider_logs
+
         pin = self.role_pins[role]
-        client, identity = self._client(pin)
+        try:
+            client, identity = self._client(pin)
+        except E0Stop:
+            raise
+        except Exception as exc:  # an absent key, a pin mismatch: sanitized, nothing sent
+            failure = provider_failure(exc)
+            raise failure from None
         bound = self.output_bound(pin)
         key = checkpoint_key(pin, prompt, result_model, identity=identity, output_bound=bound)
         saved = self.checkpoints.get(key)
         if saved is not None:
-            self.cached += 1
-            self.last = CallRecord(role, key, saved.get("latency_s"), True, identity.get("model"),
-                                   pin.prompt_version, list(saved.get("receipts") or []))
-            return result_model.model_validate(saved["result"])
-        gate = E0RequestGate(self.ledger, pin, arm=arm)
-        receipts: list[str] = []
-        started = time.monotonic()
-        with ExitStack() as stack:
-            stack.enter_context(gate_model_requests(gate))
-            stack.enter_context(generation_limit(bound))
-            stack.enter_context(truncation_retry_allowed())
-            stack.enter_context(requested_reasoning_effort(pin.reasoning_effort))
-            stack.enter_context(_collect_receipts(receipts))
-            result = execute_structured_operation(client, purpose=f"e0_{role}", prompt=prompt,
-                                                  result_model=result_model, isolated=True)
-        latency = round(time.monotonic() - started, 4)
-        self.calls += 1
-        self.checkpoints.put(key, {"result": result.model_dump(mode="json"), "latency_s": latency,
-                                   "receipts": receipts, "identity": identity})
-        self.last = CallRecord(role, key, latency, False, identity.get("model"), pin.prompt_version, receipts)
-        return result
+            return self._from_checkpoint(role, pin, key, identity, saved, result_model)
+        # One claim per complete request identity across threads and processes
+        # (fix round 4, Medium 11): a second worker waits, then reuses the result.
+        with self.checkpoints.claim(key):
+            saved = self.checkpoints.get(key, refresh=True)
+            if saved is not None:
+                return self._from_checkpoint(role, pin, key, identity, saved, result_model)
+            explained = self.checkpoints.failed_reservations(key)
+            if any(entry["reservation"] not in explained for entry in self.ledger.entries_for(key)):
+                # Admitted before, neither recorded nor known to have failed (a
+                # crash between the charge and the checkpoint): recover the settled
+                # response from the receipts, else block; never re-send.
+                recovered = self._recover(prompt, result_model)
+                if recovered is None:
+                    raise E0RequestBlocked(f"role {role}: an earlier attempt of this request was admitted but its "
+                                           "result was never recorded; pending reconciliation, not re-sent")
+                self.checkpoints.put(key, {"result": recovered.model_dump(mode="json"), "latency_s": None,
+                                           "receipts": [], "identity": identity, "recovered": True})
+                self.last = CallRecord(role, key, None, True, identity.get("model"), pin.prompt_version, [])
+                return recovered
+            gate = E0RequestGate(self.ledger, pin, arm=arm, request_key=key)
+            receipts: list[str] = []
+            started = time.monotonic()
+            try:
+                with ExitStack() as stack:
+                    stack.enter_context(quiet_provider_logs())
+                    stack.enter_context(gate_model_requests(gate))
+                    stack.enter_context(generation_limit(bound))
+                    stack.enter_context(truncation_retry_allowed())
+                    stack.enter_context(requested_reasoning_effort(pin.reasoning_effort))
+                    stack.enter_context(_collect_receipts(receipts))
+                    result = execute_structured_operation(client, purpose=f"e0_{role}", prompt=prompt,
+                                                          result_model=result_model, isolated=True)
+            except BaseException as exc:
+                # The attempt's outcome IS recorded (it failed): a later run may retry it.
+                self.checkpoints.mark_failed(key, [entry["reservation"] for entry in self.ledger.entries_for(key)])
+                if isinstance(exc, E0Stop) or not isinstance(exc, Exception):
+                    raise
+                failure = provider_failure(exc)  # provider text never leaves this boundary (High 8)
+                raise failure from None
+            latency = round(time.monotonic() - started, 4)
+            self.calls += 1
+            self.checkpoints.put(key, {"result": result.model_dump(mode="json"), "latency_s": latency,
+                                       "receipts": receipts, "identity": identity})
+            self.last = CallRecord(role, key, latency, False, identity.get("model"), pin.prompt_version, receipts)
+            return result
+
+    def _from_checkpoint(self, role: str, pin: RolePin, key: str, identity: Mapping[str, Any],
+                         saved: Mapping[str, Any], result_model: type[BaseModel]) -> Any:
+        self.cached += 1
+        self.last = CallRecord(role, key, saved.get("latency_s"), True, identity.get("model"),
+                               pin.prompt_version, list(saved.get("receipts") or []))
+        return result_model.model_validate(saved["result"])
+
+    def _recover(self, prompt: str, result_model: type[BaseModel]) -> Any | None:
+        """A settled response of this exact prompt from the experiment's own
+        receipts (a completed receipt whose input is the prompt and whose
+        output validates), or None."""
+
+        if self.records is None or not hasattr(self.records, "completed_outputs"):
+            return None
+        for text in self.records.completed_outputs(prompt):
+            try:
+                return result_model.model_validate_json(text)
+            except Exception:  # noqa: BLE001 - an unparseable output recovers nothing
+                continue
+        return None
 
 
 def with_experiment_profiles(config: Any) -> Any:

@@ -24,6 +24,12 @@ from learnloop.tutor.context_delivery import BlockSource
 from tests.e0_fakes import FakeRoleClient, build_e0_vault
 from tests.embedding_fakes import BagOfWordsEmbedder
 
+from tests.e0_fakes import verified_prices  # noqa: F401 - the fixture below
+
+#: Every metered pin priced as verified (E0 admission refuses unverified prices; fix round 4).
+pytestmark = pytest.mark.usefixtures("verified_prices")
+
+
 PROTECTED_QUOTE = "Solution: apply linearity to 0 = 0 + 0"
 
 
@@ -80,7 +86,10 @@ def test_f6_delivery_refuses_a_protected_quote_even_from_an_unfrozen_selection(t
 def test_f6_a_permitted_quote_is_still_delivered(tmp_path):
     snapshot, _paths = _snapshot(tmp_path)
     permitted = next(unit for unit in snapshot.units if unit.extraction_id == "ext_book")
-    quote = "the learner's own permitted quote"
+    # A quote PROVEN to be permitted canonical text (fix round 4, High 7: an
+    # unproven quote is dropped): a part of the selected block itself.
+    block = next(item for item in snapshot.blocks["ext_book"] if item.span_id == permitted.members[0].span_id)
+    quote = " ".join(block.text.split())[:48]
     question = B.freeze_context(B.BankQuestion(
         "q1", "logged", None, "logged", "explain", "logged_reader", "Why?",
         selection=Selection("ext_book", permitted.members[0].span_id, (), quote)), snapshot)

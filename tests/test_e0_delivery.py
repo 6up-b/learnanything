@@ -12,6 +12,12 @@ from tests.e0_fakes import build_e0_vault
 from tests.test_tutor_delivery_fixes import THEOREM, _span_of, _vault
 
 
+from tests.e0_fakes import verified_prices  # noqa: F401 - the fixture below
+
+#: Every metered pin priced as verified (E0 admission refuses unverified prices; fix round 4).
+pytestmark = pytest.mark.usefixtures("verified_prices")
+
+
 def _shape(spans):
     return [(str(span["span_id"]), span["relation"], span["text"]) for span in spans]
 

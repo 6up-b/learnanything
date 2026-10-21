@@ -1,30 +1,45 @@
 """The one E0 spend admission: $25 across every paid call (spec §6).
 
-A file-backed ledger under the experiment directory, shared by every thread,
-process, vault copy and stage of E0. Each physical request is admitted
-BEFORE it is sent: its conservative estimate (input bound plus full output
-bound at the pin's upper-bound price) is reserved under an exclusive file lock
-only when the reconciled charges, plus every outstanding reservation, plus
-this request still fit the global cap and the request's category sub-cap
-(§6's allocation). Unknown billing stays reserved until reconciled; a request
-that failed without reporting usage keeps its whole reservation. A refusal
-raises :class:`E0BudgetExceeded` before the request; the runner then stops the
+A file-backed ledger shared by every thread, process, vault copy and stage of
+E0. Each physical request is admitted BEFORE it is sent: its hard maximum
+charge (input token upper bound plus the output bound it is sent with, at
+the pin's VERIFIED price) is reserved under an exclusive file lock only when
+the reconciled charges, plus every outstanding reservation, plus this request
+still fit the global cap and the request's category sub-cap (§6's
+allocation). Unknown billing stays reserved until reconciled; a request that
+failed without reporting usage keeps its whole reservation. A refusal raises
+:class:`E0BudgetExceeded` before the request; the runner then stops the
 affected work cleanly and the report says so (never a silent substitution).
 
-Subscription routes (Codex, owner decision 2026-10-12) have no marginal bill:
-they are admitted at $0, never refused for money and never limited by the
-physical-request cap (Codex review F14: the owner exempted them); their token
-usage is tallied ``estimated_only``. The cap counts metered requests only, and
-``start_clock`` bounds a run's wall time: every later admission is refused.
+**One budget per authorization (fix round 4, High 3).** The paid run's
+ledger lives at ONE canonical path tied to the frozen plan's id,
+``fixtures-local/contextual-embeddings/ledger/<plan_id>.ledger``
+(:func:`authorized_ledger`), never under a caller-chosen run directory: a
+second run of the same plan shares it, so another ``--run-dir`` cannot get a
+fresh $25. A ledger for a different plan id, while another authorization's
+ledger exists, needs an explicit ``--new-authorization <reason>``.
+
+**A hard cap (fix round 4, High 2).** A settlement above its reservation
+means the reservation was not a hard maximum: the ledger records the
+overage, marks itself HALTED and refuses every later request in every
+process (:class:`E0RunHalted`); the run stops at once with an incomplete
+report.
+
+**Codex requests stay bounded (fix round 4, Medium 10).** Subscription
+routes (Codex) have no marginal bill and are admitted at $0, but every
+physical subscription request (retries and repairs included) counts against
+the persisted ``subscription_allowance`` (``pins.MAX_SUBSCRIPTION_REQUESTS``)
+and is refused past it. Metered requests count against ``max_requests``.
+``start_clock`` bounds a run's wall time from the FIRST start recorded in the
+ledger, so a resumed process does not restart the clock.
 
 The ledger also plugs into the existing spend machinery: ``LedgerEnvelope``
-is a ``learnloop.ai.spend.SpendEnvelope``, so any production path a stage
-reuses on a copy (an embedding backfill under ``spend_envelopes``) reserves in
-the same ledger.
+is a ``learnloop.ai.spend.SpendEnvelope`` (kept for reused paths and tests;
+the paid run admits through request gates instead).
 """
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -34,6 +49,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import threading
 import time
 import uuid
@@ -45,15 +61,70 @@ from learnloop.experiments.contextual_embeddings import pins
 
 LEDGER_NAME = "e0_spend_ledger.json"
 LOCK_NAME = "e0_spend_ledger.lock"
+#: The canonical ledger directory under a fixtures-local root.
+LEDGER_DIR = ("contextual-embeddings", "ledger")
 _PROCESS_LOCK = threading.Lock()
 
 
-class E0BudgetExceeded(SpendLimitExceeded):
+class E0Stop(Exception):
+    """A step of the paid run cannot continue; nothing more is sent for it.
+    The runner records the incomplete work and keeps the report (fix round 4,
+    Medium 12)."""
+
+    kind = "stopped"
+
+
+class E0BudgetExceeded(SpendLimitExceeded, E0Stop):
     """The next request cannot be admitted under the E0 cap; nothing was sent."""
+
+    kind = "budget"
 
 
 class E0DeadlineExceeded(E0BudgetExceeded):
     """The run's wall-time bound (``pins.MAX_WALL_S``) has passed; nothing was sent."""
+
+    kind = "deadline"
+
+
+class E0PriceUnverified(E0BudgetExceeded):
+    """A metered request priced by an unverified pin; nothing was sent."""
+
+    kind = "price_unverified"
+
+
+class E0RunHalted(E0BudgetExceeded):
+    """A settlement exceeded its reservation: the whole run stops at once."""
+
+    kind = "halted"
+
+
+class E0ProviderFailure(E0Stop):
+    """A provider or contract failure, normalized at the E0 boundary (fix
+    round 4, High 8 and Medium 12). Carries only an allowlisted
+    classification, an HTTP status code and a safe request id: never the
+    provider's message, whose body can echo a credential or request text."""
+
+    kind = "provider"
+
+    def __init__(self, classification: str, *, status_code: int | None = None,
+                 request_id: str | None = None) -> None:
+        self.classification = classification
+        self.status_code = status_code
+        self.request_id = request_id
+        parts = [f"provider failure ({classification})"]
+        if status_code is not None:
+            parts.append(f"status {status_code}")
+        if request_id:
+            parts.append(f"request {request_id}")
+        super().__init__("; ".join(parts))
+
+
+class E0RequestBlocked(E0Stop):
+    """A request whose earlier attempt may have been charged without its
+    result recorded: blocked pending reconciliation, never re-sent
+    automatically (fix round 4, Medium 11)."""
+
+    kind = "blocked"
 
 
 def _now() -> str:
@@ -77,34 +148,57 @@ class Request:
     estimated_usd: float = 0.0
     estimated_tokens: int = 0
     attempt: int = 0
+    #: The complete request identity (a role call's checkpoint key), so a
+    #: resume can tell whether a request was ever admitted (Medium 11).
+    request_key: str | None = None
 
 
 class E0Ledger:
-    """The persistent, lock-protected E0 ledger."""
+    """The persistent, lock-protected E0 ledger.
 
-    def __init__(self, directory: Path | str, *, cap_usd: float = pins.E0_CAP_USD,
+    ``directory``: a ledger directory (tests, reused paths); ``file``: the
+    canonical ``<plan_id>.ledger`` file (:func:`authorized_ledger`)."""
+
+    def __init__(self, directory: Path | str | None = None, *, file: Path | str | None = None,
+                 cap_usd: float = pins.E0_CAP_USD,
                  allocation: Mapping[str, float] | None = None,
-                 max_requests: int = pins.MAX_PAID_REQUESTS) -> None:
-        self.directory = Path(directory)
+                 max_requests: int = pins.MAX_PAID_REQUESTS,
+                 max_subscription_requests: int = pins.MAX_SUBSCRIPTION_REQUESTS) -> None:
+        if (directory is None) == (file is None):
+            raise ValueError("an E0 ledger needs exactly one of a directory or a file")
+        if file is not None:
+            self.path = Path(file)
+            self.directory = self.path.parent
+            self.lock_path = self.path.with_name(self.path.name + ".lock")
+        else:
+            self.directory = Path(directory)  # type: ignore[arg-type]
+            self.path = self.directory / LEDGER_NAME
+            self.lock_path = self.directory / LOCK_NAME
         self.directory.mkdir(parents=True, exist_ok=True)
-        self.path = self.directory / LEDGER_NAME
-        self.lock_path = self.directory / LOCK_NAME
         self.cap = _d(cap_usd)
         self.allocation = {key: _d(value) for key, value in (allocation or pins.ALLOCATION_USD).items()}
         if sum(self.allocation.values(), Decimal(0)) > self.cap:
             raise ValueError("the category allocation exceeds the E0 cap")
         self.max_requests = int(max_requests)
+        self._subscription_allowance = int(max_subscription_requests)
         #: The run's monotonic deadline (``start_clock``); None: no run is timed.
         self.deadline: float | None = None
         self._clock: Any = time.monotonic
 
-    def start_clock(self, max_wall_s: float = pins.MAX_WALL_S, *, clock: Any = None) -> float:
-        """Bound this process's run to ``max_wall_s`` of wall time: every later
-        admission (each retry included) is refused once it has passed (Codex
-        review F14). Returns the monotonic deadline."""
+    def start_clock(self, max_wall_s: float = pins.MAX_WALL_S, *, clock: Any = None,
+                    wall: Callable[[], float] = time.time) -> float:
+        """Bound the run to ``max_wall_s`` of wall time from the FIRST start
+        recorded in this ledger (a resumed process keeps the elapsed time:
+        fix round 4, Medium 10): every later admission (each retry included)
+        is refused once it has passed (Codex review F14). Returns the
+        monotonic deadline."""
 
         self._clock = clock or time.monotonic
-        self.deadline = self._clock() + float(max_wall_s)
+        with self._locked() as state:
+            recorded = state.setdefault("clock", {"started_at_unix": float(wall()), "max_wall_s": float(max_wall_s)})
+            elapsed = max(0.0, float(wall()) - float(recorded["started_at_unix"]))
+            limit = min(float(recorded["max_wall_s"]), float(max_wall_s))
+        self.deadline = self._clock() + max(0.0, limit - elapsed)
         return self.deadline
 
     def time_left(self) -> float | None:
@@ -127,13 +221,17 @@ class E0Ledger:
 
     def _read(self) -> dict[str, Any]:
         if not self.path.exists():
-            return {"version": 1, "cap_usd": str(self.cap),
+            return {"version": 2, "cap_usd": str(self.cap),
                     "allocation": {key: str(value) for key, value in self.allocation.items()},
-                    "entries": {}, "refusals": []}
+                    "subscription_allowance": self._subscription_allowance,
+                    "entries": {}, "refusals": [], "overages": [], "halted": None}
         state = json.loads(self.path.read_text(encoding="utf-8"))
         # A ledger written under another cap is the same envelope only if the cap matches.
         if _d(state.get("cap_usd", self.cap)) != self.cap:
             raise ValueError("this E0 ledger was opened with a different cap; use its own cap")
+        state.setdefault("subscription_allowance", self._subscription_allowance)
+        state.setdefault("overages", [])
+        state.setdefault("halted", None)
         return state
 
     def _write(self, state: Mapping[str, Any]) -> None:
@@ -143,6 +241,25 @@ class E0Ledger:
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(temporary, self.path)
+        directory = os.open(self.directory, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+
+    # -- authorization ------------------------------------------------------------
+    def bind_authorization(self, plan_id: str, reason: str | None) -> dict[str, Any]:
+        """Record (once) which plan this ledger's budget belongs to; refuse
+        another plan's id."""
+
+        with self._locked() as state:
+            current = state.get("authorization")
+            if current is None:
+                current = {"plan_id": plan_id, "reason": reason or "first authorization", "at": _now()}
+                state["authorization"] = current
+            elif current.get("plan_id") != plan_id:
+                raise PermissionError("this E0 ledger belongs to another plan's authorization")
+        return dict(current)
 
     # -- accounting ---------------------------------------------------------------
     @staticmethod
@@ -154,9 +271,7 @@ class E0Ledger:
         return _d(entry.get("reserved_usd") or 0)
 
     def _totals(self, state: Mapping[str, Any]) -> tuple[Decimal, dict[str, Decimal], int]:
-        """Committed money, per category, and the METERED requests (the cap
-        the physical-request bound applies to: subscription requests are
-        tallied but never limited, owner decision 2026-10-12)."""
+        """Committed money, per category, and the METERED requests."""
 
         total = Decimal(0)
         by_category: dict[str, Decimal] = {}
@@ -169,6 +284,10 @@ class E0Ledger:
                 requests += 1
         return total, by_category, requests
 
+    @staticmethod
+    def _subscription_count(state: Mapping[str, Any]) -> int:
+        return sum(1 for entry in state["entries"].values() if entry.get("billing") == "subscription")
+
     def reserve(self, request: Request) -> str:
         """Admit one physical request; returns its reservation id."""
 
@@ -180,11 +299,17 @@ class E0Ledger:
         if usd < 0:
             raise ValueError("estimated_usd must be nonnegative")
         deadline_passed = self.deadline is not None and self._clock() >= self.deadline
+        error: type[E0BudgetExceeded] = E0BudgetExceeded
         with self._locked() as state:
             total, by_category, requests = self._totals(state)
+            allowance = int(state.get("subscription_allowance", self._subscription_allowance))
             reason = None
-            if deadline_passed:
-                reason = "the run's wall-time bound has passed"
+            if state.get("halted"):
+                reason, error = "the run is halted: " + str(state["halted"].get("reason")), E0RunHalted
+            elif deadline_passed:
+                reason, error = "the run's wall-time bound has passed", E0DeadlineExceeded
+            elif request.billing == "subscription" and self._subscription_count(state) + 1 > allowance:
+                reason = f"subscription request allowance {allowance} reached"
             elif request.billing != "subscription" and requests + 1 > self.max_requests:
                 reason = f"request cap {self.max_requests} reached"
             elif total + usd > self.cap:
@@ -196,26 +321,28 @@ class E0Ledger:
                 state["refusals"].append({"at": _now(), "category": request.category, "provider": request.provider,
                                           "route": request.route, "arm": request.arm, "purpose": request.purpose,
                                           "estimated_usd": float(usd), "reason": reason})
-                refused = True
             else:
-                refused = False
                 reservation = uuid.uuid4().hex
                 state["entries"][reservation] = {
                     "category": request.category, "provider": request.provider, "route": request.route,
                     "purpose": request.purpose, "arm": request.arm, "billing": request.billing,
                     "attempt": request.attempt, "reserved_usd": str(usd), "actual_usd": None,
                     "estimated_tokens": int(request.estimated_tokens), "status": "reserved",
-                    "reserved_at": _now(),
+                    "reserved_at": _now(), "request_key": request.request_key,
                 }
-        if refused:
-            raise (E0DeadlineExceeded if deadline_passed else E0BudgetExceeded)(reason)
+        if reason is not None:
+            raise error(reason)
         return reservation
 
     def settle(self, reservation: str, *, actual_usd: float | None, usage: Mapping[str, Any] | None = None,
                status: str = "settled", request_id: str | None = None, latency_s: float | None = None) -> None:
         """Reconcile a finished request. ``actual_usd`` None keeps the whole
-        reservation (unknown billing); a known actual replaces it."""
+        reservation (unknown billing); a known actual replaces it. An actual
+        ABOVE the reservation (a metered request) is an overage: recorded,
+        the ledger halts and :class:`E0RunHalted` is raised (after the entry
+        and the halt are written, so the record survives)."""
 
+        overage = None
         with self._locked() as state:
             entry = state["entries"].get(reservation)
             if entry is None:
@@ -229,6 +356,17 @@ class E0Ledger:
                     raise ValueError("actual_usd must be nonnegative")
                 entry["actual_usd"] = str(_d(actual_usd))
                 entry["status"] = status
+                if _d(actual_usd) > _d(entry["reserved_usd"]):
+                    overage = {"reservation": reservation, "arm": entry.get("arm"),
+                               "category": entry["category"], "route": entry["route"],
+                               "reserved_usd": entry["reserved_usd"], "actual_usd": str(_d(actual_usd)),
+                               "overage_usd": str(_d(actual_usd) - _d(entry["reserved_usd"])), "at": _now()}
+                    entry["status"] = "overage"
+                    state["overages"].append(overage)
+                    if not state.get("halted"):
+                        state["halted"] = {"reason": f"a settlement exceeded its reservation by "
+                                                     f"${overage['overage_usd']} ({entry['route']})",
+                                           "at": overage["at"]}
             else:
                 # Unknown billing: the whole reservation stands until reconciled.
                 entry["status"] = "unknown_billing" if status == "settled" else status
@@ -237,6 +375,8 @@ class E0Ledger:
             entry["request_id"] = request_id
             entry["latency_s"] = latency_s
             entry["settled_at"] = _now()
+        if overage is not None:
+            raise E0RunHalted(f"settlement exceeded its reservation by ${overage['overage_usd']}: the run stops")
 
     @contextmanager
     def admit(self, request: Request) -> Iterator[Charge]:
@@ -254,6 +394,17 @@ class E0Ledger:
         if not charge.settled:
             self.settle(reservation, actual_usd=None, status="settled")
 
+    def halted(self) -> dict[str, Any] | None:
+        with self._locked() as state:
+            return state.get("halted")
+
+    def entries_for(self, request_key: str) -> list[dict[str, Any]]:
+        """Every entry admitted under one complete request identity."""
+
+        with self._locked() as state:
+            return [dict(entry, reservation=key) for key, entry in state["entries"].items()
+                    if entry.get("request_key") == request_key]
+
     # -- reports ------------------------------------------------------------------
     def remaining(self) -> float:
         with self._locked() as state:
@@ -265,6 +416,10 @@ class E0Ledger:
             total, by_category, requests = self._totals(state)
             entries = list(state["entries"].values())
             refusals = list(state["refusals"])
+            overages = list(state.get("overages") or [])
+            halted = state.get("halted")
+            allowance = int(state.get("subscription_allowance", self._subscription_allowance))
+            authorization = state.get("authorization")
         outstanding = sum((_d(entry["reserved_usd"]) for entry in entries if entry.get("actual_usd") is None),
                           Decimal(0))
         by_arm: dict[str, dict[str, Any]] = {}
@@ -294,11 +449,60 @@ class E0Ledger:
             "metered_requests": requests,
             "subscription_requests": len(entries) - requests,
             "max_metered_requests": self.max_requests,
+            "subscription_allowance": allowance,
             "refusals": len(refusals),
             "refusal_reasons": sorted({str(item["reason"]).split(" would")[0] for item in refusals}),
+            "halted": halted,
+            "overages": [{key: item[key] for key in ("arm", "category", "reserved_usd", "actual_usd", "overage_usd")}
+                         for item in overages],
+            "authorization": None if not authorization else {"plan_id": authorization.get("plan_id")},
             "by_arm": by_arm,
             "basis": "reconciled charges plus outstanding reservations (unknown billing stays reserved)",
         }
+
+
+# -- the canonical ledger (fix round 4, High 3) ----------------------------------------
+
+_PLAN_ID = re.compile(r"e0_[0-9a-f]{16}")
+
+
+def canonical_ledger_dir(copies: Sequence[Path]) -> Path:
+    """``<fixtures-local>/contextual-embeddings/ledger`` for the copies: every
+    copy must lie under the SAME fixtures-local root (independent of any run
+    directory or working directory)."""
+
+    roots = set()
+    for copy in copies:
+        resolved = Path(copy).resolve()
+        found = next((parent for parent in (resolved, *resolved.parents) if parent.name == "fixtures-local"), None)
+        if found is None:
+            raise ValueError("a copy must lie under a fixtures-local directory")
+        roots.add(found)
+    if len(roots) != 1:
+        raise ValueError("every copy of one E0 run must lie under the same fixtures-local root")
+    return roots.pop().joinpath(*LEDGER_DIR)
+
+
+def authorized_ledger(copies: Sequence[Path], plan_id: str, *, new_authorization: str | None = None) -> E0Ledger:
+    """The ONE ledger of a frozen plan's authorization.
+
+    The same plan always reopens ``<plan_id>.ledger``. A plan without one,
+    while a ledger of another plan exists, needs ``new_authorization`` (the
+    orchestrator's reason), recorded in the new ledger."""
+
+    if not _PLAN_ID.fullmatch(str(plan_id)):
+        raise ValueError("not an E0 plan id")
+    directory = canonical_ledger_dir(copies)
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"{plan_id}.ledger"
+    if not path.exists():
+        others = sorted(item.name for item in directory.glob("e0_*.ledger") if item != path)
+        if others and not (new_authorization and new_authorization.strip()):
+            raise PermissionError("another plan's E0 authorization ledger exists; a different plan needs "
+                                  "--new-authorization <reason> from the orchestrator")
+    ledger = E0Ledger(file=path)
+    ledger.bind_authorization(plan_id, new_authorization.strip() if new_authorization else None)
+    return ledger
 
 
 def known_tokens(value: Any) -> int | None:
@@ -352,9 +556,12 @@ class Charge:
 
     def settle(self, *, actual_usd: float | None, usage: Mapping[str, Any] | None = None,
                request_id: str | None = None, latency_s: float | None = None, status: str = "settled") -> None:
-        self.ledger.settle(self.reservation, actual_usd=actual_usd, usage=usage, request_id=request_id,
-                           latency_s=latency_s, status=status)
-        self.settled = True
+        try:
+            self.ledger.settle(self.reservation, actual_usd=actual_usd, usage=usage, request_id=request_id,
+                               latency_s=latency_s, status=status)
+        finally:
+            # An overage raises after its entry is written: never settled twice.
+            self.settled = True
 
 
 class LedgerEnvelope(SpendEnvelope):

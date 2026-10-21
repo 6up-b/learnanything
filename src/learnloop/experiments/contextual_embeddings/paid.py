@@ -8,8 +8,10 @@ slice -> delivery D0-D3 and the finalists' D1 answers in a fixed interleaved
 schedule, with online latency -> judges -> S1-S4 -> report.
 
 Every request is admitted by the one E0 ledger before it is sent. A refusal
-(``E0BudgetExceeded``, the wall-time bound included) or an endpoint/contract
-failure stops the affected step: its arm is recorded as blocked with its
+(``E0BudgetExceeded``, the wall-time bound and an unverified price included),
+a normalized provider failure (``E0ProviderFailure``, fix round 4) or an
+endpoint/contract failure stops the affected step; an overage halts the
+whole run (``E0RunHalted``): its arm is recorded as blocked with its
 original denominator and the report is marked incomplete; no other model or
 recipe stands in for it.
 
@@ -80,7 +82,7 @@ from learnloop.experiments.contextual_embeddings.bank import (
     stable_order,
     write_questions,
 )
-from learnloop.experiments.contextual_embeddings.budget import E0BudgetExceeded, E0Ledger
+from learnloop.experiments.contextual_embeddings.budget import E0Ledger, E0Stop
 from learnloop.experiments.contextual_embeddings.callers import Checkpoints
 from learnloop.experiments.contextual_embeddings.corpus import CorpusSnapshot
 from learnloop.experiments.contextual_embeddings.delivery import (
@@ -128,16 +130,26 @@ class PaidState:
 
     def stop(self, step: str, exc: Exception) -> None:
         if self.stopped is None:
-            self.stopped = f"budget: {step} ({exc})"
+            self.stopped = f"{getattr(exc, 'kind', 'stopped')}: {step} ({exc})"
 
 
 def _time_up(state: PaidState, ledger: E0Ledger, step: str) -> bool:
-    """Stop cleanly at the run's wall-time bound (Codex review F14)."""
+    """Stop cleanly at the run's wall-time bound (Codex review F14), and at
+    once when the ledger is halted by an overage (fix round 4, High 2)."""
 
+    halted = ledger.halted()
+    if halted and (state.stopped is None or not state.stopped.startswith("halted")):
+        state.stopped = f"halted: {halted.get('reason')} (before {step})"
     left = ledger.time_left()
     if left is not None and left <= 0 and state.stopped is None:
         state.stopped = f"deadline: the wall-time bound passed before {step}"
     return state.stopped is not None
+
+
+#: The arms a failed Qwen route canary blocks (representation and service).
+QWEN_ROUTE_ARMS = ("R1", "R2", "R3", "R1_service_rrf", "R1_service_pool", "R1_pool_verify")
+#: One canary per embedding route (Qwen first: its service backfill waits on it).
+CANARY_ARMS = ("R1", "R4_grouped", "R4_singleton", "R4_independent", "R5_grouped", "R5_singleton", "R5_independent")
 
 
 def effective_query(question: BankQuestion, snapshot: CorpusSnapshot) -> str:
@@ -174,20 +186,39 @@ def make_adapter(arm: str, snapshot: CorpusSnapshot, *, ledger: E0Ledger, transp
 
 
 def run_contracts(snapshot: CorpusSnapshot, state: PaidState, **adapter_kwargs: Any) -> dict[str, Any]:
-    """One canary per hosted adapter; a failing one blocks its arms."""
+    """One public canary per embedding route, Qwen included, BEFORE any bulk
+    work (the service backfill included: fix round 4, Medium 9): the
+    document AND query contracts, their compatibility and the returned
+    identity. A failing one blocks its arms (a failed Qwen canary blocks
+    every Qwen arm, the service arms too)."""
 
-    for arm in ("R4_grouped", "R4_singleton", "R4_independent", "R5_grouped", "R5_singleton", "R5_independent"):
+    for arm in CANARY_ARMS:
+        blocked = QWEN_ROUTE_ARMS if arm == "R1" else (arm,)
         try:
             adapter = make_adapter(arm, snapshot, **adapter_kwargs)
             state.contracts[arm] = adapter.canary()
-        except E0BudgetExceeded as exc:
-            state.blocked_arms.add(arm)
-            state.fail(arm, "budget", str(exc))
+        except E0Stop as exc:
+            state.blocked_arms.update(blocked)
+            state.contracts[arm] = {"status": "failed", "kind": exc.kind}
+            state.fail(arm, exc.kind, str(exc))
         except AdapterError as exc:
-            state.blocked_arms.add(arm)
+            state.blocked_arms.update(blocked)
             state.contracts[arm] = {"status": "failed", "kind": exc.kind}
             state.fail(arm, f"contract_{exc.kind}", str(exc))
     return state.contracts
+
+
+def contracts_state(contracts: Mapping[str, Any]) -> PaidState:
+    """A state carrying contracts already run (``run_live`` runs them before
+    the service backfill), with their blocked arms."""
+
+    state = PaidState()
+    state.contracts = dict(contracts)
+    for arm, result in contracts.items():
+        if (result or {}).get("status") == "failed":
+            state.blocked_arms.update(QWEN_ROUTE_ARMS if arm == "R1" else (arm,))
+            state.fail(arm, f"contract_{(result or {}).get('kind')}", "the route's canary failed")
+    return state
 
 
 def rank_arm(arm: str, snapshot: CorpusSnapshot, questions: Sequence[BankQuestion], adapter: EmbeddingAdapter, *,
@@ -241,7 +272,7 @@ def label_all(snapshot: CorpusSnapshot, questions: Sequence[BankQuestion],
                         snapshot)
         try:
             labelled[question.query_id] = label_question(question, pool, snapshot, caller)
-        except E0BudgetExceeded as exc:
+        except E0Stop as exc:
             state.stop("labels", exc)
             break
     state.missing("labels_missing", len(questions) - len(labelled))
@@ -254,7 +285,7 @@ def label_all(snapshot: CorpusSnapshot, questions: Sequence[BankQuestion],
             if state.stopped is None:
                 try:
                     adjudicate(question, labels, snapshot, caller)
-                except E0BudgetExceeded as exc:
+                except E0Stop as exc:
                     state.stop("audits", exc)
             if not labels.adjudicated:
                 if plan[query_id] == "seeded_sample":
@@ -369,16 +400,22 @@ def run_paid(snapshot: CorpusSnapshot, *, ledger: E0Ledger, caller: Any, run_dir
              latency_budget_s: float | None = None,
              system_handles: Mapping[str, Any] | None = None,
              system_preparation: Mapping[str, Any] | None = None,
-             system_clients: Mapping[str, Any] | None = None) -> dict[str, Any]:
-    """One vault copy's paid E0 run (see the module docstring)."""
+             system_clients: Mapping[str, Any] | None = None,
+             contracts: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """One vault copy's paid E0 run (see the module docstring). ``contracts``:
+    the route canaries already run (``run_live`` runs them before the service
+    backfill); None runs them here first."""
 
-    state = PaidState()
     receipts = Receipts(None if run_dir is None else run_dir / "receipts.jsonl")
     store = VectorStore(None if run_dir is None else run_dir / "vectors")
     measured = Checkpoints(None if run_dir is None else run_dir / "latency")
     adapter_kwargs = dict(ledger=ledger, transport=transport, receipts=receipts, store=store,
                           qwen_client_factory=qwen_client_factory, key_envs=key_envs, environ=environ)
-    run_contracts(snapshot, state, **adapter_kwargs)
+    if contracts is None:
+        state = PaidState()
+        run_contracts(snapshot, state, **adapter_kwargs)
+    else:
+        state = contracts_state(contracts)
     smoke, _smoke_stats = smoke_bank(snapshot)
     seeds, shortfall = plan_seeds(snapshot, strata=strata)
     for stratum, missing in shortfall.items():
@@ -405,9 +442,9 @@ def run_paid(snapshot: CorpusSnapshot, *, ledger: E0Ledger, caller: Any, run_dir
             headers, context_stats = generate_contexts(snapshot, caller)
             if context_stats["missing"]:
                 state.fail("R3", "context_missing", "units without a generated context", context_stats["missing"])
-        except E0BudgetExceeded as exc:
+        except E0Stop as exc:
             state.blocked_arms.update({"R3", "R3_bm25"})
-            state.fail("R3", "budget", str(exc))
+            state.fail("R3", exc.kind, str(exc))
     rankings: dict[str, dict[str, list[str]]] = {}
     latencies: dict[str, float] = {}
     indexes: dict[str, tuple[EmbeddingAdapter, SpaceVectors]] = {}
@@ -422,9 +459,9 @@ def run_paid(snapshot: CorpusSnapshot, *, ledger: E0Ledger, caller: Any, run_dir
             adapter = make_adapter(arm, snapshot, **adapter_kwargs)
             rankings[arm] = rank_arm(arm, snapshot, [*smoke, *questions], adapter,
                                      headers=headers if arm == "R3" else None, indexes=indexes)
-        except E0BudgetExceeded as exc:
+        except E0Stop as exc:
             state.blocked_arms.add(arm)
-            state.fail(arm, "budget", str(exc), len(questions))
+            state.fail(arm, exc.kind, str(exc), len(questions))
         except (AdapterError, KeyError) as exc:
             state.blocked_arms.add(arm)
             state.fail(arm, "adapter", str(exc), len(questions))
@@ -438,6 +475,8 @@ def run_paid(snapshot: CorpusSnapshot, *, ledger: E0Ledger, caller: Any, run_dir
         coverage = ((system_preparation or {}).get("qwen") or {}).get("coverage") or {}
         texts = {question.query_id: effective_query(question, snapshot) for question in [*smoke, *questions]}
         for arm, (key, _interface) in SYSTEM_ARMS.items():
+            if arm in state.blocked_arms:
+                continue  # its route canary failed: no service work for it
             handle = system_handles.get(key)
             if handle is None:
                 state.blocked_arms.add(arm)
@@ -457,9 +496,9 @@ def run_paid(snapshot: CorpusSnapshot, *, ledger: E0Ledger, caller: Any, run_dir
                 if system[arm]["missing"]:
                     state.fail(arm, "questions_unranked", "verification, pool or dense fallbacks",
                                system[arm]["missing"])
-            except E0BudgetExceeded as exc:
+            except E0Stop as exc:
                 state.blocked_arms.add(arm)
-                state.fail(arm, "budget", str(exc), len(questions))
+                state.fail(arm, exc.kind, str(exc), len(questions))
     labelled: dict[str, QuestionLabels] = {}
     if questions and not _time_up(state, ledger, "labels"):
         labelled = label_all(snapshot, questions, rankings, caller, state)
@@ -500,7 +539,7 @@ def run_paid(snapshot: CorpusSnapshot, *, ledger: E0Ledger, caller: Any, run_dir
                                              rankings[finalist].get(question.query_id, [])[: pins.TOP_K])
                     answers.append(answer_and_judge(question, arm, delivered, caller, retrieval_latency_s=online))
                 done += 1
-            except E0BudgetExceeded as exc:
+            except E0Stop as exc:
                 state.stop("answers", exc)
                 break
             except AdapterError as exc:
@@ -533,6 +572,22 @@ def run_paid(snapshot: CorpusSnapshot, *, ledger: E0Ledger, caller: Any, run_dir
                "finalist_vs_incumbent": latency_check(answers, f"{best_hosted}:D1" if best_hosted else None,
                                                       f"{one_model}:D1" if one_model else None, latency_budget_s)}
     completion_by_arm = completion(primary, arms) | {arm: 0.0 for arm in state.blocked_arms}
+    # Coverage of every REQUIRED slice, not only the one that selects finalists
+    # (fix round 4, Medium 13): an arm that ranked its development questions but
+    # failed every logged one is materially incomplete there, and S1 sees it.
+    slice_rows = {"development_all": [row for row in rows if row["split"] == "development"],
+                  "logged": [row for row in rows if row["split"] == "logged"]}
+    slice_completion: dict[str, dict[str, float]] = {}
+    for name, members in slice_rows.items():
+        if any(row["answerable"] and not row["unresolved"] and row.get("labelled", True) for row in members):
+            shares = completion(members, arms) | {arm: 0.0 for arm in state.blocked_arms}
+            slice_completion[name] = shares
+            completion_by_arm |= {f"{arm}@{name}": share for arm, share in shares.items()}
+    s4_evidence = [result for result in (vs, answer_gain) if result]
+    # S4's independent families are those of its complete-case PAIRED evidence,
+    # and its own exploratory flag holds (fix round 4, Medium 14).
+    s4_families = min((int(result.get("families", 0)) for result in s4_evidence), default=0)
+    s4_exploratory = not s4_evidence or any(result.get("exploratory", True) for result in s4_evidence)
     decisions = decide(
         s1_inputs={"kappa": agree["agreement"]["kappa"], "unresolved_sets": agree["unresolved"],
                    "extraction_failures": 0, "policy_failures": 0, "arm_completion": completion_by_arm,
@@ -542,7 +597,7 @@ def run_paid(snapshot: CorpusSnapshot, *, ledger: E0Ledger, caller: Any, run_dir
         s3_inputs={"context_gain": context_gain, "qwen_vs_hosted": qwen_vs_hosted},
         s4_inputs={"finalist_vs_one_model": vs, "answer_gain": answer_gain,
                    "latency_ok": latency["finalist_vs_incumbent"]["ok"] if best_hosted else None,
-                   "independent_families": len({question.family for question in questions if question.family})},
+                   "independent_families": s4_families, "exploratory": s4_exploratory},
     )
     # An arm that scored too few of its questions (a system arm whose required
     # verification never ran, say) is materially incomplete, not complete.
@@ -571,7 +626,7 @@ def run_paid(snapshot: CorpusSnapshot, *, ledger: E0Ledger, caller: Any, run_dir
         | ({"best_hosted_vs_one_model:logged": vs_logged} if vs_logged else {}),
         "answers": answer_summary,
         "delivery": {**direct, "D1_vs_D0": d1_vs_d0, "does_not_fit": does_not_fit},
-        "finalists": finalists, "system_arms": system,
+        "finalists": finalists, "system_arms": system, "slice_completion": slice_completion,
         "label_quality": agree, "decisions": decisions, "ledger": ledger.report(),
         "latency_s": {arm: round(value, 3) for arm, value in latencies.items()}, "answer_latency_s": answer_latency,
         "latency_checks": latency, "reader_latency_budget_s": latency_budget_s,

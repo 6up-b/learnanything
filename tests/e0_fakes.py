@@ -18,6 +18,7 @@ import random
 from typing import Any
 
 import numpy as np
+import pytest
 
 from learnloop.db.repositories import Repository
 from learnloop.experiments.contextual_embeddings.adapters import HttpResponse
@@ -190,15 +191,65 @@ class FakeEmbeddingTransport:
 
 
 class FakeQwenClient:
-    model_id = "qwen/qwen3-embedding-8b"
+    """The production OpenRouter embedding client's identity (transport,
+    model, endpoint, dimensions; metered), hash vectors, and one model call
+    per batch reporting its input tokens (a request gate admits it)."""
+
+    model_id = model = "qwen/qwen3-embedding-8b"
+    provider_type = "openai_embedding"
+    provider_name = "openrouter_embedding"
+    default_base_url = "https://openrouter.ai/api/v1"
     dims = 4096
 
     def __init__(self) -> None:
+        from types import SimpleNamespace
+
         self.calls: list[tuple[int, str]] = []
+        self.profile = SimpleNamespace(base_url="https://openrouter.ai/api/v1", model=self.model_id)
 
     def embed(self, inputs: list[str], task_prefix: str) -> list[list[float]]:
-        self.calls.append((len(inputs), task_prefix))
-        return [hash_vector(f"{task_prefix}:{text}" if task_prefix == "never" else text, self.dims) for text in inputs]
+        from learnloop.ai.execution import model_call, report_call_usage
+
+        with model_call(self, purpose="embedding", prompt=list(inputs)):
+            self.calls.append((len(inputs), task_prefix))
+            report_call_usage({"input_tokens": sum(len(str(text).encode("utf-8")) for text in inputs),
+                               "output_tokens": 0})
+            return [hash_vector(f"{task_prefix}:{text}" if task_prefix == "never" else text, self.dims)
+                    for text in inputs]
+
+
+
+
+def _test_price():
+    from learnloop.experiments.contextual_embeddings import pins
+
+    if not hasattr(pins, "PriceVerification"):  # a harness from before fix round 4 has no price records
+        return None
+    return pins.PriceVerification("https://example.invalid/test-price-page", "2026-10-21")
+
+
+@pytest.fixture
+def verified_prices():
+    """Mark every metered pin's price verified for one test (the pins are
+    frozen dataclasses shared by reference, so module constants see it too),
+    then restore them. Production pins stay empty: the orchestrator fills
+    them from the providers' published price pages."""
+
+    from learnloop.experiments.contextual_embeddings import pins
+
+    record = _test_price()
+    if record is None:
+        yield None
+        return
+    every = [*pins.EMBEDDING_PINS.values(), *pins.ROLE_PINS.values()]
+    saved = [(pin, pin.price_verified) for pin in every]
+    for pin in every:
+        object.__setattr__(pin, "price_verified", record)
+    try:
+        yield record
+    finally:
+        for pin, value in saved:
+            object.__setattr__(pin, "price_verified", value)
 
 
 FAKE_KEYS = {"PERPLEXITY_API_KEY": "pplx-test-key-not-real-0000", "VOYAGE_API_KEY": "voyage-test-key-not-real-0000",
@@ -304,3 +355,14 @@ class FakeRoleClient:
         role = str(request.purpose).removeprefix("e0_")
         value = self.respond(role, request.prompt, request.result_model)
         return value if hasattr(value, "model_dump") else request.result_model.model_validate(value)
+
+
+def qwen_bag_of_words(dims: int = 4096) -> Any:
+    """``BagOfWordsEmbedder`` with the production Qwen client's endpoint, so
+    the Qwen identity check (fix round 4, High 4) accepts it."""
+
+    from tests.embedding_fakes import BagOfWordsEmbedder
+
+    embedder = BagOfWordsEmbedder(dims=dims)
+    embedder.default_base_url = "https://openrouter.ai/api/v1"
+    return embedder

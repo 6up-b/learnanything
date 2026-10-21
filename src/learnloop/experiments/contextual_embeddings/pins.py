@@ -7,14 +7,19 @@ change inside one.
 **Verification status.** This stage ran offline. Every external fact below
 (endpoint paths, request and response shapes, limits, query methods, prices)
 comes from the spec's §3 list of contracts *to validate* and is flagged
-``contract_verified=False`` / ``price_verified=False``. The paid run's first
-step (``learnloop experiments e0 contracts``, one tiny canary request per
-adapter) validates the shape; an arm whose canary fails or whose shape
-differs is blocked for contract review and reported, never substituted
-(spec §5.4, §6). Prices are conservative **upper bounds** used for
-admission: the ledger reserves at the bound and reconciles to the provider's
-reported cost when one is returned, so an over-estimate can only stop work
-early, never overspend.
+``contract_verified=False``. The paid run's first step (one public canary per
+embedding route, document AND query, Qwen included) validates the shape; an
+arm whose canary fails or whose shape differs is blocked for contract review
+and reported, never substituted (spec §5.4, §6).
+
+**Prices (fix round 4, High 2).** Every metered pin carries
+``price_verified = PriceVerification(source_url, checked_on)``, EMPTY here:
+the orchestrator fills it from the providers' published price pages before
+authorizing a paid run. Admission refuses any request priced by an
+unverified pin. Each reservation is the request's hard maximum charge (the
+input token upper bound plus the output bound sent, at the verified price);
+a settlement above its reservation halts the whole run at once (the ledger
+records the overage and refuses every later request).
 """
 from __future__ import annotations
 
@@ -64,9 +69,38 @@ TRANSIENT_RETRIES = 2
 REQUEST_TIMEOUT_S = 120.0
 #: Total wall time one paid run may take before it stops cleanly.
 MAX_WALL_S = 6 * 3600.0
-#: The metered paid-call cap of one run (every metered attempt counts; subscription
-#: requests are tallied but never limited, owner decision 2026-10-12).
+#: The metered paid-call cap of one authorization (every metered attempt counts).
 MAX_PAID_REQUESTS = 6_000
+#: The Codex (subscription) request allowance of one authorization: every
+#: physical subscription request (retries and JSON repairs included) counts,
+#: persisted in the canonical ledger and enforced before each request
+#: (orchestrator ruling 2026-10-21, fix round 4: Codex requests stay bounded).
+MAX_SUBSCRIPTION_REQUESTS = 600
+
+
+@dataclass(frozen=True)
+class PriceVerification:
+    """Where and when a metered price was checked against the provider's
+    published price page. Empty by default: the ORCHESTRATOR fills it from
+    the providers' price pages before authorizing a paid run (never from
+    memory). An empty or partial record means the price is unverified, and
+    admission refuses every request priced by it (fix round 4, High 2)."""
+
+    source_url: str = ""
+    checked_on: str = ""
+
+    @property
+    def verified(self) -> bool:
+        import re
+
+        return (self.source_url.startswith("https://") and len(self.source_url) > len("https://")
+                and bool(re.fullmatch(r"\d{4}-\d{2}-\d{2}", self.checked_on)))
+
+    def as_dict(self) -> dict[str, str]:
+        return {"source_url": self.source_url, "checked_on": self.checked_on}
+
+
+UNVERIFIED = PriceVerification()
 
 # -- determinism ---------------------------------------------------------------------
 SEED = 20261021
@@ -174,7 +208,8 @@ class EmbeddingPin:
     key_env: str | None
     contract_source: str
     contract_verified: bool = False
-    price_verified: bool = False
+    #: The price's published source and check date (empty: unverified, refused).
+    price_verified: PriceVerification = UNVERIFIED
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -193,7 +228,7 @@ EMBEDDING_PINS: dict[str, EmbeddingPin] = {
         price_source="embedding.price_per_million_tokens default (0.03); published 0.01 (ai.embedding)",
         key_env="OPENROUTER_API_KEY",
         contract_source="the production adapter (learnloop.ai.providers.openai_embedding)",
-        contract_verified=True, price_verified=True,
+        contract_verified=True,
     ),
     "pplx_context_4b": EmbeddingPin(
         name="pplx_context_4b", provider="perplexity", model="pplx-embed-context-v1-4b", method="grouped",
@@ -266,6 +301,8 @@ class RolePin:
     output_price_per_million: float
     price_source: str
     prompt_version: str
+    #: A metered role's price source and check date (empty: unverified, refused).
+    price_verified: PriceVerification = UNVERIFIED
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -381,6 +418,41 @@ def pins_fingerprint() -> str:
             "d1": D1_EVIDENCE_TOKENS, "top_k": TOP_K, "pool": POOL_DEPTH, "seed": SEED,
             "bootstrap": BOOTSTRAP_RESAMPLES, "kappa": KAPPA_MIN, "retries": TRANSIENT_RETRIES,
             "latency_tolerance": LATENCY_REGRESSION_TOLERANCE, "max_wall_s": MAX_WALL_S,
+            "max_paid_requests": MAX_PAID_REQUESTS, "max_subscription_requests": MAX_SUBSCRIPTION_REQUESTS,
         },
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
+
+
+def price_problem(pin: EmbeddingPin | RolePin) -> str | None:
+    """Why a METERED pin's price cannot admit a request (None: it can).
+
+    A subscription role has no marginal bill and needs no price. A metered
+    pin needs its ``price_verified`` record (the published price page's URL
+    and the date it was checked) before any request is admitted: an
+    unverified upper bound cannot hold a hard cap (fix round 4, High 2)."""
+
+    if isinstance(pin, RolePin) and pin.billing == "subscription":
+        return None
+    if not pin.price_verified.verified:
+        name = pin.name if isinstance(pin, EmbeddingPin) else pin.role
+        return (f"the price of {name} ({pin.model}) is not verified: its pin needs price_verified "
+                "{source_url, checked_on} from the provider's published price page")
+    return None
+
+
+def unverified_prices() -> dict[str, list[str]]:
+    """Every metered pin whose price is unverified (the dry run reports them)."""
+
+    return {"embeddings": sorted(name for name, pin in EMBEDDING_PINS.items() if price_problem(pin)),
+            "roles": sorted(name for name, pin in ROLE_PINS.items() if price_problem(pin))}
+
+
+def verified_role_for_model(model: str | None) -> RolePin | None:
+    """A metered role pin with a verified price for ``model`` (a production
+    route on a service copy is priced only through one)."""
+
+    for pin in ROLE_PINS.values():
+        if pin.billing == "metered" and pin.model == model and price_problem(pin) is None:
+            return pin
+    return None

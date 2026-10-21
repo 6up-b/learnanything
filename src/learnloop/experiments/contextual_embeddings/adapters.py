@@ -55,6 +55,7 @@ from learnloop.experiments.contextual_embeddings import credentials, pins
 from learnloop.experiments.contextual_embeddings.budget import (
     E0BudgetExceeded,
     E0Ledger,
+    E0PriceUnverified,
     Request,
     explicit_cost,
     known_tokens,
@@ -67,6 +68,8 @@ Vector = list[float]
 CANARY_CHUNKS = ("Definition. A vector space is a set with addition and scalar multiplication.",
                  "Example. The real numbers form a vector space over themselves.")
 CANARY_TOLERANCE = 0.995
+#: The public canary query (the query contract is checked before any bulk work).
+CANARY_QUERY = "What is a vector space?"
 
 
 class AdapterError(RuntimeError):
@@ -160,12 +163,51 @@ def document_space_id(pin: EmbeddingPin, *, encoding: str, recipe: str, extracti
     })[:24]
 
 
-def query_encoder_id(pin: EmbeddingPin, *, epoch: int = 0) -> str:
-    """The spec's ``query_encoder_id`` (§4.3)."""
+def query_encoder_id(pin: EmbeddingPin, *, epoch: int = 0, serving_provider: str | None = None) -> str:
+    """The spec's ``query_encoder_id`` (§4.3); ``serving_provider``: the
+    validated client identity's digest where one exists (Qwen, fix round 4)."""
 
-    return "qe_" + _hash({"model": pin.model, "alias_epoch": epoch, "query_mode": pin.query_method,
-                          "precision": pin.output_format, "projection": None, "dimensions": pin.dimensions,
-                          "output_transform": pin.decode_transform})[:24]
+    payload = {"model": pin.model, "alias_epoch": epoch, "query_mode": pin.query_method,
+               "precision": pin.output_format, "projection": None, "dimensions": pin.dimensions,
+               "output_transform": pin.decode_transform}
+    if serving_provider is not None:
+        payload["serving_provider"] = serving_provider
+    return "qe_" + _hash(payload)[:24]
+
+
+def qwen_identity(client: Any, pin: EmbeddingPin) -> dict[str, Any]:
+    """The Qwen client's resolved identity, checked against its pin BEFORE
+    its first request (fix round 4, High 4): the transport (the production
+    OpenRouter embedding client), the model, the endpoint, the dimensions and
+    the billing class. Any difference is a contract failure: nothing is sent,
+    and another model's vectors can never be cached or reported as Qwen."""
+
+    from learnloop.ai.spend import is_subscription_transport
+
+    profile = getattr(client, "profile", None)
+    base = getattr(profile, "base_url", None) or getattr(client, "default_base_url", None)
+    identity = {
+        "provider_type": getattr(client, "provider_type", None),
+        "model": getattr(client, "model_id", None) or getattr(client, "model", None),
+        "endpoint": None if not base else str(base).rstrip("/") + "/embeddings",
+        "dimensions": getattr(client, "dims", None),
+        "billing": "subscription" if is_subscription_transport(client=client) else "metered",
+    }
+    problems = []
+    if identity["provider_type"] != "openai_embedding":
+        problems.append("transport")
+    if identity["model"] != pin.model:
+        problems.append("model")
+    if identity["endpoint"] != pin.document_endpoint:
+        problems.append("endpoint")
+    if identity["dimensions"] != pin.dimensions:
+        problems.append("dimensions")
+    if identity["billing"] != "metered":
+        problems.append("billing")
+    if problems:
+        raise AdapterError("the Qwen client does not match its pin (" + ", ".join(problems) + "); nothing was sent",
+                           kind="contract")
+    return identity
 
 
 def decode(values: Any, pin: EmbeddingPin) -> np.ndarray:
@@ -205,7 +247,7 @@ class Receipts:
 
     FIELDS = ("at", "arm", "adapter", "endpoint", "model", "method", "input_hash", "items", "estimated_tokens",
               "usage", "billed_usd", "estimated_usd", "status", "attempt", "latency_s", "request_id",
-              "error_kind", "resumed")
+              "error_kind", "resumed", "identity")
 
     def __init__(self, path: Path | None) -> None:
         self.path = Path(path) if path is not None else None
@@ -392,7 +434,15 @@ class EmbeddingAdapter:
         tokens = sum(token_upper_bound(text) + pins.CHUNK_MARKER_TOKENS for text in texts)
         return tokens, tokens * self.pin.price_per_million_upper_bound / 1_000_000
 
+    def _require_price(self) -> None:
+        """No request is admitted on an unverified price (fix round 4, High 2)."""
+
+        problem = pins.price_problem(self.pin)
+        if problem is not None:
+            raise E0PriceUnverified(problem)
+
     def _send(self, url: str, body: Mapping[str, Any], *, method: str, texts: Sequence[str], items: int) -> Any:
+        self._require_price()
         tokens, usd = self._estimate(texts)
         input_hash = _hash({"url": url, "body": body})
         attempt = 0
@@ -551,26 +601,61 @@ class EmbeddingAdapter:
                                raw=[row])
         return [found[query.text] for query in queries]
 
-    def canary(self) -> dict[str, Any]:
-        """Encode the public canary and compare with the first cached output."""
+    def _canary_document(self) -> Document:
+        chunks = CANARY_CHUNKS if self.encoding == "grouped" else CANARY_CHUNKS[:1]
+        return Document("canary", tuple(Chunk(f"c{index}", text) for index, text in enumerate(chunks)))
 
-        document = Document("canary", tuple(Chunk(f"c{index}", text) for index, text in enumerate(
-            CANARY_CHUNKS if self.encoding == "grouped" else CANARY_CHUNKS[:1])))
-        if self.encoding != "grouped":
-            document = Document("canary", document.chunks[:1])
-        fresh = self._document_rows(self._send(self.pin.document_endpoint, self._document_body([document]),
-                                               method="canary", texts=[chunk.text for chunk in document.chunks],
-                                               items=len(document.chunks)), [document])[0]
+    def _canary_vectors(self) -> tuple[list[Vector], Vector]:
+        """The canary document's vectors and the canary query's vector, each
+        through its own method (document and query contracts)."""
+
+        document = self._canary_document()
+        body = self._send(self.pin.document_endpoint, self._document_body([document]), method="canary",
+                          texts=[chunk.text for chunk in document.chunks], items=len(document.chunks))
+        self._check_returned_model(body)
+        fresh = self._document_rows(body, [document])[0]
         vectors = [decode(row, self.pin).tolist() for row in fresh]
+        query = PreparedQuery("canary_query", CANARY_QUERY)
+        query_body = self._send(self.pin.query_endpoint, self._query_body([query]), method="canary_query",
+                                texts=[query.text], items=1)
+        self._check_returned_model(query_body)
+        query_vector = decode(self._query_rows(query_body, 1)[0], self.pin).tolist()
+        return vectors, query_vector
+
+    def _check_returned_model(self, body: Any) -> None:
+        """A response that names its model must name the pinned one."""
+
+        model = body.get("model") if isinstance(body, Mapping) else None
+        if model is not None and str(model) != self.pin.model:
+            raise AdapterError("the provider answered with another model than the pinned one", kind="contract")
+
+    def canary(self) -> dict[str, Any]:
+        """The route's public contract check, before ANY bulk work (fix round
+        4, Medium 9): the canary document through the document method AND the
+        canary query through the query method; both must decode at the pinned
+        dimensions, the query must score against the documents in the same
+        paired space (finite similarities), the responses must name the
+        pinned model when they name one, and both are compared with the first
+        cached outputs (drift beyond cosine 0.995 opens a new epoch)."""
+
+        vectors, query_vector = self._canary_vectors()
+        assert_compatible(SpaceVectors(self.document_space_id, self.query_encoder_id, ("c",),
+                                       np.asarray([vectors[0]], dtype=np.float32)), self.query_encoder_id)
+        scores = [float(np.dot(np.asarray(query_vector), np.asarray(vector))) for vector in vectors]
+        if not all(math.isfinite(score) for score in scores):
+            raise AdapterError("the canary query does not score against the canary documents", kind="contract")
         space = f"{self.document_space_id}_canary"
         first = self.store.get(space, "canary")
-        if first is None:
+        first_query = self.store.get(space, "canary_query")
+        if first is None or first_query is None:
             self.store.put(space, "canary", vectors)
-            return {"status": "cached_first", "dimensions": len(vectors[0])}
-        similarity = min(float(np.dot(np.asarray(a), np.asarray(b))) for a, b in zip(first, vectors, strict=True))
+            self.store.put(space, "canary_query", [query_vector])
+            return {"status": "cached_first", "dimensions": len(vectors[0]), "query_checked": True}
+        similarity = min(float(np.dot(np.asarray(a), np.asarray(b)))
+                         for a, b in zip([*first, *first_query], [*vectors, query_vector], strict=True))
         if similarity < CANARY_TOLERANCE:
             raise CanaryDrift(f"canary drift: cosine {similarity:.4f} < {CANARY_TOLERANCE}; open a new epoch")
-        return {"status": "stable", "min_cosine": round(similarity, 6)}
+        return {"status": "stable", "min_cosine": round(similarity, 6), "query_checked": True}
 
 
 def _ordered(rows: Any, count: int, what: str) -> list[Any]:
@@ -677,16 +762,31 @@ class QwenAdapter(EmbeddingAdapter):
     def __init__(self, pin: EmbeddingPin, *, client_factory: Callable[[], Any], **kwargs: Any) -> None:
         super().__init__(pin, encoding="independent", **kwargs)
         self._client_factory = client_factory
-        self._client: Any | None = None
+        try:
+            self._client: Any = client_factory()
+        except Exception as exc:  # an absent key, an unknown profile: nothing was sent
+            raise AdapterError(f"the Qwen client could not be built ({type(exc).__name__})", kind="auth") from None
+        # Validated before the first request; part of every cache key and receipt (High 4).
+        self.identity = qwen_identity(self._client, pin)
+        serving = _hash(self.identity)[:16]
+        self.document_space_id = document_space_id(pin, encoding="independent", recipe=self.recipe,
+                                                   extraction_revisions=kwargs.get("extraction_revisions") or (),
+                                                   epoch=self.epoch, serving_provider=serving)
+        self.query_encoder_id = query_encoder_id(pin, epoch=self.epoch, serving_provider=serving)
         #: The raw rows of the last batch (kept beside the decoded vectors).
         self._last_raw: list[list[float]] = []
 
     def _client_now(self) -> Any:
-        if self._client is None:
-            self._client = self._client_factory()
         return self._client
 
+    def _canary_vectors(self) -> tuple[list[Vector], Vector]:
+        document = self._canary_document()
+        vectors = self._embed([chunk.text for chunk in document.chunks], "retrieval-document", "canary")
+        query_vector = self._embed([CANARY_QUERY], "retrieval-query", "canary_query")[0]
+        return vectors, query_vector
+
     def _embed(self, texts: list[str], task: str, method: str) -> list[list[float]]:
+        self._require_price()
         tokens, usd = self._estimate(texts)
         request = Request(category="embeddings", provider=self.pin.provider, route=self.pin.model,
                           purpose=f"embed:{method}", arm=self.arm, billing="metered", estimated_usd=usd,
@@ -706,13 +806,14 @@ class QwenAdapter(EmbeddingAdapter):
                     # reconciles at the conservative estimate (the price bound).
                     charge.settle(actual_usd=usd, usage={"input_tokens": tokens}, latency_s=latency)
                     self.receipts.write(arm=self.arm, adapter=self.pin.name, endpoint=self.pin.document_endpoint,
-                                        model=self.pin.model, method=method, input_hash=_hash(texts),
+                                        model=self.pin.model, method=method, input_hash=_hash(texts), identity=self.identity,
                                         items=len(texts), estimated_tokens=tokens, estimated_usd=usd, status="ok",
                                         attempt=attempt, latency_s=round(latency, 4))
                     break
                 charge.settle(actual_usd=None, status="failed", latency_s=latency)
                 self.receipts.write(arm=self.arm, adapter=self.pin.name, endpoint=self.pin.document_endpoint,
-                                    model=self.pin.model, method=method, input_hash=_hash(texts), items=len(texts),
+                                    model=self.pin.model, method=method, input_hash=_hash(texts), identity=self.identity,
+                                    items=len(texts),
                                     estimated_tokens=tokens, status="failed", attempt=attempt,
                                     latency_s=round(latency, 4), error_kind=type(failure).__name__)
             if attempt >= pins.TRANSIENT_RETRIES or isinstance(failure, (ValueError, E0BudgetExceeded)):

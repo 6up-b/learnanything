@@ -57,8 +57,9 @@ billing (Codex final verify F21). No ``LedgerEnvelope`` is
 active there: the production ``SpendBudget`` reserves every request, LLM
 ones included, in each active envelope, so it would bill an LLM request a
 second time as an embedding (and a subscription request's sentinel could not
-be settled). The backfill, whose every request is an embedding, keeps its
-``LedgerEnvelope``.
+be settled). The backfill is admitted the same way (fix round 4): one
+reservation per physical embedding request at its hard maximum, priced by
+the Qwen pin's verified price.
 
 **Resume (Codex review F11).** ``prepare_service_copies`` keeps a state file
 per service directory: a copy whose preparation completed for the same
@@ -80,7 +81,7 @@ import time
 from typing import Any
 
 from learnloop.ai.execution import gate_model_requests
-from learnloop.ai.spend import is_subscription_transport, spend_envelopes
+from learnloop.ai.spend import is_subscription_transport
 from learnloop.db.copies import copy_tree_with_databases
 
 from learnloop.experiments.contextual_embeddings import pins
@@ -88,7 +89,8 @@ from learnloop.experiments.contextual_embeddings.bank import BankQuestion
 from learnloop.experiments.contextual_embeddings.budget import (
     E0BudgetExceeded,
     E0Ledger,
-    LedgerEnvelope,
+    E0PriceUnverified,
+    E0ProviderFailure,
     Request,
     reconciled_usd,
 )
@@ -234,13 +236,15 @@ class SystemRequestGate:
     """Admits every physical request a production path makes on a service
     copy through the E0 ledger, once, billed by the RESOLVED client.
 
-    An embedding request (the query embedding) is metered in ``embeddings``
-    at the Qwen pin's upper-bound price on the guaranteed input bound
-    (``pins.token_upper_bound``; no output). An LLM request (rewrite,
+    An embedding request (the query embedding, the backfill's batches) is
+    metered in ``embeddings`` at the Qwen pin's VERIFIED price on the
+    guaranteed input bound (``pins.token_upper_bound``; no output), and only
+    from a client whose model is the Qwen pin's. An LLM request (rewrite,
     verification, comparison) goes to ``answers_verification``: a
-    subscription transport at $0; a metered one at
-    ``source_retrieval.llm_price_per_million`` and its output bound (unset
-    price or unbounded output: refused before sending).
+    subscription transport at $0 (counted against the Codex allowance); a
+    metered one only at a metered role pin's VERIFIED price for its model
+    and its output bound (no verified pin, or unbounded output: refused
+    before sending; fix round 4, High 2).
 
     Settling (Codex re-review F21): a metered reservation is reconciled only
     on an explicit cost or a reported input-token count
@@ -251,52 +255,59 @@ class SystemRequestGate:
 
     def __init__(self, ledger: E0Ledger, config: Any, *, arm: str) -> None:
         self.ledger = ledger
-        self.price = config.source_retrieval.llm_price_per_million
-        self.embedding_price = pins.EMBEDDING_PINS["qwen3_8b"].price_per_million_upper_bound
+        self.qwen = pins.EMBEDDING_PINS["qwen3_8b"]
         self.arm = arm
 
     def _admit_embedding(self, client: Any, prompt: Any) -> Any:
+        problem = pins.price_problem(self.qwen)
+        if problem is not None:
+            raise E0PriceUnverified(problem)
+        model = getattr(client, "model_id", None) or getattr(client, "model", None)
+        if model != self.qwen.model:
+            # Another model's vectors are never admitted, cached or reported as Qwen (High 4).
+            raise E0ProviderFailure("pin_mismatch")
         texts = prompt if isinstance(prompt, (list, tuple)) else [prompt]
         tokens = sum(pins.token_upper_bound(str(text)) for text in texts)
+        price = float(self.qwen.price_per_million_upper_bound)
         reservation = self.ledger.reserve(Request(
             category="embeddings", provider=str(getattr(client, "provider_name", "copy_route")),
-            route=str(getattr(client, "model", "") or ""), purpose="system:embedding", arm=self.arm,
-            billing="metered", estimated_usd=tokens * float(self.embedding_price) / 1_000_000,
-            estimated_tokens=tokens))
+            route=str(model), purpose="system:embedding", arm=self.arm,
+            billing="metered", estimated_usd=tokens * price / 1_000_000, estimated_tokens=tokens))
         # An embedding has no output side: input tokens are its whole bill.
-        return _SystemAdmission(reservation, False, time.monotonic(), float(self.embedding_price), 0)
+        return _SystemAdmission(reservation, False, time.monotonic(),
+                                lambda tokens_in, _out: tokens_in * price / 1_000_000, 0)
 
     def admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any:
-        from learnloop.experiments.contextual_embeddings.callers import estimate_input_tokens
+        from learnloop.experiments.contextual_embeddings.callers import estimate_input_tokens, role_cost
 
         if getattr(client, "provider_type", None) == "openai_embedding" or purpose == "embedding":
             return self._admit_embedding(client, prompt)
         subscription = is_subscription_transport(client=client)
         tokens_in = estimate_input_tokens(prompt)
+        pin = None
         if not subscription:
-            if self.price is None:
-                raise E0BudgetExceeded(f"{self.arm}: a metered production route without "
-                                       "source_retrieval.llm_price_per_million is refused")
+            pin = pins.verified_role_for_model(getattr(client, "model", None))
+            if pin is None:
+                raise E0PriceUnverified(f"{self.arm}: a metered production route needs a metered role pin with a "
+                                        "verified price for its model; refused before sending")
             if budget is None:
                 raise E0BudgetExceeded(f"{self.arm}: a metered request without an output bound is refused")
         output = int(budget or 0)
-        usd = 0.0 if subscription else (tokens_in + output) * float(self.price) / 1_000_000
+        usd = 0.0 if pin is None else role_cost(pin, tokens_in, output)
         reservation = self.ledger.reserve(Request(
             category="answers_verification", provider=str(getattr(client, "provider_name", "copy_route")),
             route=str(getattr(client, "model", "") or ""), purpose=f"system:{purpose}", arm=self.arm,
             billing="subscription" if subscription else "metered", estimated_usd=usd,
             estimated_tokens=tokens_in + output))
-        return _SystemAdmission(reservation, subscription, time.monotonic(),
-                                None if self.price is None else float(self.price), output)
+        priced = None if pin is None else (lambda tokens_in, tokens_out: role_cost(pin, tokens_in, tokens_out))
+        return _SystemAdmission(reservation, subscription, time.monotonic(), priced, output)
 
     def settle(self, admission: Any, usage: Mapping[str, Any]) -> None:
         if admission is None:
             return
         actual = None
         if not admission.subscription and admission.price is not None:
-            price = admission.price
-            actual = reconciled_usd(usage, lambda tokens_in, tokens_out: (tokens_in + tokens_out) * price / 1_000_000,
-                                    output_bound=admission.output_bound)
+            actual = reconciled_usd(usage, admission.price, output_bound=admission.output_bound)
         self.ledger.settle(admission.reservation, actual_usd=actual,
                            usage={"input_tokens": usage.get("input_tokens"),
                                   "output_tokens": usage.get("output_tokens"), "cost": usage.get("cost")},
@@ -308,8 +319,8 @@ class _SystemAdmission:
     reservation: str
     subscription: bool
     started: float
-    #: Dollars per million tokens (None: an unpriced subscription request).
-    price: float | None
+    #: ``price(input_tokens, output_tokens)`` in dollars (None: a subscription request).
+    price: Callable[[int, int], float] | None
     #: The output tokens reserved (an embedding: 0).
     output_bound: int
 
@@ -465,7 +476,9 @@ def rank_system(handle: Any, snapshot: CorpusSnapshot, questions: Sequence[BankQ
                               "missing": {}, "withheld": 0, "unmapped": 0, "pages": {}, "page_duplicates": 0,
                               "verification": {}, "pool_modes": {}, "dense_used": 0, "latency_s": [],
                               "compare_source_searches": {}}
-    with gate_model_requests(gate):
+    from learnloop.experiments.contextual_embeddings.boundary import quiet_provider_logs
+
+    with quiet_provider_logs(), gate_model_requests(gate):
         for question in questions:
             text = query_text[question.query_id]
             owner = f"e0:{arm}:{question.query_id}"
@@ -560,14 +573,20 @@ def rank_system(handle: Any, snapshot: CorpusSnapshot, questions: Sequence[BankQ
 
 
 def backfill_service_copy(handle: Any, ledger: E0Ledger, *, client_factory: Any = None) -> list[dict[str, Any]]:
-    """The production source backfill on a REDACTED service copy, under the E0 ledger."""
+    """The production source backfill on a REDACTED service copy, under the E0 ledger.
 
+    Every physical embedding request is admitted by ``SystemRequestGate``
+    (the transport's per-request gate) at its hard maximum: the input token
+    upper bound of the exact texts sent, at the Qwen pin's VERIFIED price,
+    from a client whose model is the pin's (fix round 4, High 2 and 4). The
+    production ``SpendBudget`` keeps its own copy-local caps."""
+
+    from learnloop.experiments.contextual_embeddings.boundary import quiet_provider_logs
     from learnloop.source_retrieval.source_vectors import backfill_source_vectors
 
-    envelope = LedgerEnvelope(ledger, category="embeddings", provider="openrouter",
-                              route=pins.EMBEDDING_PINS["qwen3_8b"].model, arm="R1_service_backfill")
+    gate = SystemRequestGate(ledger, handle.vault.config, arm="R1_service_backfill")
     reports = []
-    with spend_envelopes(envelope):
+    with quiet_provider_logs(), gate_model_requests(gate):
         for extraction_id in _current(handle):
             reports.append(backfill_source_vectors(handle.vault, extraction_id, client_factory=client_factory))
     return reports
@@ -595,7 +614,7 @@ def open_service(root: Path) -> Any:
     """A service copy opened writable through the vault's own repository
     (production search writes its receipts there; never the frozen copy)."""
 
-    from learnloop.experiments.contextual_embeddings.corpus import CopyHandle
+    from learnloop.experiments.contextual_embeddings.corpus import CopyHandle, contained_database, contained_root
     from learnloop.vault.loader import load_vault
     from learnloop.vault.paths import VaultPaths
     from learnloop.vault.repository import vault_repository
@@ -603,8 +622,14 @@ def open_service(root: Path) -> Any:
     root = Path(root)
     if not _inside_local_root(root):
         raise ValueError("a service copy must be under fixtures-local")
+    # The root AND its database are contained in the service copy before the
+    # repository opens (and may migrate) anything (fix round 4, High 1).
+    contained_root(root, local=True)
     vault = load_vault(root)
+    database = contained_database(vault.root, vault.config)
     paths = VaultPaths(vault.root, vault.config)
+    if Path(paths.sqlite_path).resolve() != database.resolve():
+        raise ValueError("the service copy's database path is ambiguous; nothing was opened")
     return CopyHandle(root, vault, vault_repository(paths), Path(paths.sqlite_path))
 
 
@@ -654,10 +679,12 @@ def _prepare_one(frozen_root: Path, root: Path, name: str, snapshot: CorpusSnaps
 def prepare_service_copies(frozen_root: Path, service_root: Path, ledger: E0Ledger, *, snapshot: CorpusSnapshot,
                            client_factory: Callable[[], Any] | None = None,
                            factory_for_config: Callable[[Any], Callable[[], Any]] | None = None,
-                           ) -> tuple[dict[str, Any], dict[str, Any]]:
+                           backfill: bool = True) -> tuple[dict[str, Any], dict[str, Any]]:
     """``{"R0": handle, "R1_service": handle}`` and the preparation report
     (per copy: prepared or reopened, the redaction, the backfill reports and
-    the dense coverage). Resumable; see the module docstring."""
+    the dense coverage). Resumable; see the module docstring. ``backfill``
+    False (the Qwen route canary failed: fix round 4, Medium 9): no Qwen
+    service copy is prepared and nothing is embedded."""
 
     service_root = Path(service_root)
     if not _inside_local_root(service_root):
@@ -668,16 +695,19 @@ def prepare_service_copies(frozen_root: Path, service_root: Path, ledger: E0Ledg
     identity = _identity(frozen_root, snapshot)
     r0, r0_how = _prepare_one(frozen_root, service_root / "r0", "r0", snapshot, identity, state, state_path,
                               enable=False)
+    if not backfill:
+        return {"R0": r0}, {"r0": {"how": r0_how, "redaction": state["r0"].get("redaction")},
+                            "qwen": {"how": "skipped", "reason": "the Qwen route canary failed"}}
     qwen, qwen_how = _prepare_one(frozen_root, service_root / "qwen", "qwen", snapshot, identity, state, state_path,
                                   enable=True)
     if client_factory is None:
         if factory_for_config is None:
             from learnloop.experiments.contextual_embeddings.live import qwen_factory as factory_for_config
         client_factory = factory_for_config(qwen.vault.config)
-    backfill = backfill_service_copy(qwen, ledger, client_factory=guarded_factory(client_factory, snapshot))
+    backfilled = backfill_service_copy(qwen, ledger, client_factory=guarded_factory(client_factory, snapshot))
     coverage = dense_coverage_complete(qwen)
     report = {"r0": {"how": r0_how, "redaction": state["r0"].get("redaction")},
               "qwen": {"how": qwen_how, "redaction": state["qwen"].get("redaction"), "coverage": coverage,
                        "backfill": [{key: item.get(key) for key in ("status", "records", "embedded", "reason")}
-                                    for item in backfill]}}
+                                    for item in backfilled]}}
     return {"R0": r0, "R1_service": qwen}, report

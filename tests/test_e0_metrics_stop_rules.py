@@ -7,6 +7,12 @@ from learnloop.experiments.contextual_embeddings import metrics as M
 from learnloop.experiments.contextual_embeddings import stop_rules as S
 from learnloop.experiments.contextual_embeddings.report import assert_aggregate, render
 
+from tests.e0_fakes import verified_prices  # noqa: F401 - the fixture below
+
+#: Every metered pin priced as verified (E0 admission refuses unverified prices; fix round 4).
+pytestmark = pytest.mark.usefixtures("verified_prices")
+
+
 A = ("e", "s1", 0, 100)
 B = ("e", "s2", 0, 50)
 C = ("e", "s3", 0, 80)

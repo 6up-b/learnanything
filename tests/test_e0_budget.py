@@ -13,6 +13,12 @@ from learnloop.experiments.contextual_embeddings.budget import E0BudgetExceeded,
 from learnloop.experiments.contextual_embeddings.callers import E0RequestGate
 
 
+from tests.e0_fakes import verified_prices  # noqa: F401 - the fixture below
+
+#: Every metered pin priced as verified (E0 admission refuses unverified prices; fix round 4).
+pytestmark = pytest.mark.usefixtures("verified_prices")
+
+
 def _request(usd, category="embeddings", billing="metered", **extra):
     return Request(category=category, provider="voyage", route="voyage-context-4", purpose="t",
                    billing=billing, estimated_usd=usd, **extra)

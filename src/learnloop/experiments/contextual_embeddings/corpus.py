@@ -38,7 +38,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 from contextlib import closing
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 import hashlib
 import json
 from pathlib import Path
@@ -63,7 +63,6 @@ from learnloop.source_retrieval.recipes import section_path
 from learnloop.tutor.context_delivery import ExtractionText
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault
-from learnloop.vault.paths import VaultPaths
 
 from learnloop.experiments.contextual_embeddings import pins
 from learnloop.experiments.contextual_embeddings.pins import token_estimate, token_upper_bound
@@ -95,12 +94,93 @@ def _inside_local_root(path: Path) -> bool:
     return LOCAL_ROOT_NAME in Path(path).resolve().parts
 
 
+class CopyContainment(ValueError):
+    """A copy's root or database is not contained in the designated copy;
+    nothing was opened (fix round 4, High 1)."""
+
+
+def contained_root(root: Path, *, local: bool = False) -> Path:
+    """The copy root, resolved, refused unless it is a real directory (not a
+    symbolic link; with ``local``, under a ``fixtures-local`` directory with
+    no symbolic link on its path below it) with a regular ``learnloop.toml``."""
+
+    root = Path(root).absolute()
+    resolved = root.resolve()
+    if root.is_symlink() or not resolved.is_dir():
+        raise CopyContainment("an E0 copy must be a real directory, not a symbolic link")
+    if local:
+        parts = root.parts
+        if not _inside_local_root(resolved) or LOCAL_ROOT_NAME not in parts:
+            raise CopyContainment("an E0 copy must lie under a fixtures-local directory")
+        current = Path(*parts[:parts.index(LOCAL_ROOT_NAME) + 1])
+        for part in parts[parts.index(LOCAL_ROOT_NAME) + 1:]:
+            current = current / part
+            if current.is_symlink():
+                raise CopyContainment("an E0 copy's path contains a symbolic link")
+    toml = root / "learnloop.toml"
+    if toml.is_symlink() or not toml.is_file():
+        raise CopyContainment("an E0 copy needs its own regular learnloop.toml")
+    return resolved
+
+
+def contained_database(root: Path, config: Any) -> Path:
+    """The copy's database path, BEFORE anything opens it: the configured
+    ``storage.sqlite_path`` must be relative, must not escape the copy, must
+    not pass through a symbolic link and must resolve inside the copy root
+    (an absolute path kept by copying could name the owner's database, which
+    a repository open would migrate)."""
+
+    root = Path(root)
+    raw = str(getattr(getattr(config, "storage", None), "sqlite_path", "") or "")
+    candidate = Path(raw)
+    if not raw or candidate.is_absolute() or ".." in candidate.parts:
+        raise CopyContainment("the copy's database path must be relative and inside the copy")
+    current = root
+    for part in candidate.parts:
+        current = current / part
+        if current.is_symlink():
+            raise CopyContainment("the copy's database path passes through a symbolic link")
+    resolved = (root / candidate).resolve()
+    if root.resolve() not in resolved.parents:
+        raise CopyContainment("the copy's database resolves outside the copy")
+    return root / candidate
+
+
+def _rebase_database(source: Path, target: Path) -> Path | None:
+    """A source whose database lives outside its own tree (an absolute or
+    escaping ``storage.sqlite_path``) is backed up INTO the copy and the
+    copy's toml is rewritten to the relative path, so the copy never points
+    at the source's database. Returns the rebased copy, or None."""
+
+    import tomlkit
+
+    from learnloop.db.copies import backup_database
+
+    toml = target / "learnloop.toml"
+    document = tomlkit.parse(toml.read_text(encoding="utf-8"))
+    storage = document.get("storage") or {}
+    raw = str(storage.get("sqlite_path") or "state.sqlite")
+    candidate = Path(raw)
+    inside = not candidate.is_absolute() and ".." not in candidate.parts
+    if inside:
+        return None
+    original = (source / candidate).resolve() if not candidate.is_absolute() else candidate.resolve()
+    if not original.is_file():
+        raise CopyContainment("the source's relocated database does not exist")
+    name = "state.sqlite" if not (target / "state.sqlite").exists() else "e0-rebased-state.sqlite"
+    backup_database(original, target / name)
+    document.setdefault("storage", tomlkit.table())["sqlite_path"] = name
+    toml.write_text(tomlkit.dumps(document), encoding="utf-8")
+    return target / name
+
+
 def prepare_copies(sources: Sequence[Path], destination_root: Path, *, label: str) -> list[dict[str, Any]]:
     """Back up each source vault into ``destination_root/<name>-<label>``.
 
     ``destination_root`` must lie under a ``fixtures-local`` directory; a
-    source named ``arxiv_v2`` is refused. Returns one record per copy (its
-    path and the databases copied), aggregate only."""
+    source named ``arxiv_v2`` is refused. A relocated database (outside the
+    source's tree) is rebased into the copy (fix round 4, High 1). Returns
+    one record per copy (its path and the databases copied), aggregate only."""
 
     destination_root = Path(destination_root)
     if not _inside_local_root(destination_root):
@@ -114,6 +194,9 @@ def prepare_copies(sources: Sequence[Path], destination_root: Path, *, label: st
             raise ValueError("each source must be a vault root (learnloop.toml)")
         target = destination_root / f"{source.name}-{label}"
         databases = copy_tree_with_databases(source, target)
+        rebased = _rebase_database(source, target)
+        if rebased is not None:
+            databases.append(rebased)
         for database in databases:
             to_rollback_journal(database)
         copies.append({"vault": source.name, "copy": str(target), "databases": len(databases),
@@ -167,8 +250,10 @@ def open_copy(root: Path, *, load_environment: bool = False) -> CopyHandle:
         raise ValueError("arxiv_v2 is outside E0")
     if not (root / "learnloop.toml").is_file():
         raise ValueError(f"{root} is not a vault root")
+    # Root and database contained in the copy before anything opens (High 1).
+    contained_root(root)
     vault = load_vault(root, load_environment=load_environment)
-    sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
+    sqlite_path = contained_database(vault.root, vault.config)
     if not Path(sqlite_path).exists():
         raise ValueError("the copy has no database")
     if is_wal(Path(sqlite_path)):
@@ -343,6 +428,10 @@ class CandidateUnit:
     label: str | None = None
     lead: str | None = None
     tags: tuple[str, ...] = ()
+    #: The section headers whose (permitted) text the unit's ``section`` carries:
+    #: dependencies of the unit and of every prompt and vector built from it
+    #: (fix round 4, High 5).
+    heading_keys: tuple[SpanKey, ...] = ()
 
     @property
     def keys(self) -> tuple[SpanKey, ...]:
@@ -421,10 +510,47 @@ def _unit(extraction: ExtractionInfo, section: tuple[str, ...], segment: int, me
 
 _EQ_IN = re.compile(r"\$\$|\\\[|\\begin\{(?:equation|align)")
 
+#: What a withheld section header reads as in any section path (never its text).
+WITHHELD_HEADING = "(withheld heading)"
+
+
+def permitted_titles(extraction_id: str, blocks: Sequence[BlockRow], titles: Mapping[str, str],
+                     policy: PolicySnapshot) -> dict[str, str]:
+    """``titles`` (``{extractor block id: header text}``) with every header
+    the policy withholds, or that no current block anchors, replaced by
+    ``WITHHELD_HEADING``: a protected heading never reaches a permitted
+    descendant's section path (fix round 4, High 5)."""
+
+    span_of = {str(block.extractor_block_id): block.span_id for block in blocks if block.extractor_block_id}
+    permitted: dict[str, str] = {}
+    for element, text in titles.items():
+        span_id = span_of.get(str(element))
+        permitted[element] = text if span_id is not None and policy.permitted(extraction_id, span_id) \
+            else WITHHELD_HEADING
+    return permitted
+
+
+def _path_elements(block: BlockRow | None) -> list[str]:
+    if block is None:
+        return []
+    try:
+        value = json.loads(block.section_path_json or "[]")
+    except (TypeError, ValueError):
+        return []
+    return [str(part).strip() for part in value] if isinstance(value, list) else []
+
 
 def build_units(extraction: ExtractionInfo, blocks: Sequence[BlockRow], titles: Mapping[str, str],
                 policy: PolicySnapshot) -> list[CandidateUnit]:
-    """The common candidate map of one extraction (deterministic)."""
+    """The common candidate map of one extraction (deterministic).
+
+    Section paths read only PERMITTED heading text (:func:`permitted_titles`;
+    a withheld heading reads as ``WITHHELD_HEADING``), and each unit records
+    the heading spans its path names as dependencies (fix round 4, High 5)."""
+
+    titles = permitted_titles(extraction.extraction_id, blocks, titles, policy)
+    heading_span = {str(block.extractor_block_id): block.span_id for block in blocks
+                    if block.extractor_block_id and block.block_type == "SectionHeader"}
 
     units: list[CandidateUnit] = []
     segment = 0
@@ -514,7 +640,18 @@ def build_units(extraction: ExtractionInfo, blocks: Sequence[BlockRow], titles: 
                      "label": label, "lead": lead}
     flush()
     flush_pending()
-    return units
+    spans = {block.span_id: block for block in blocks}
+
+    def headings(unit: CandidateUnit) -> tuple[SpanKey, ...]:
+        found: list[SpanKey] = []
+        for member in unit.members:
+            block = spans.get(member.span_id)
+            for element in _path_elements(block):
+                if element in heading_span:
+                    found.append((extraction.extraction_id, heading_span[element]))
+        return tuple(dict.fromkeys(found))
+
+    return [replace(unit, heading_keys=headings(unit)) for unit in units]
 
 
 # -- windows --------------------------------------------------------------------------
@@ -741,13 +878,15 @@ class CorpusSnapshot:
         return cache
 
     def unit_dependency(self, unit: CandidateUnit) -> ArtifactDependency:
-        return ArtifactDependency(unit.extraction_id, self.infos[unit.extraction_id].fingerprint, unit.keys,
-                                  self.policy.fingerprint)
+        # The heading spans its section path names are dependencies too (High 5).
+        return ArtifactDependency(unit.extraction_id, self.infos[unit.extraction_id].fingerprint,
+                                  tuple(dict.fromkeys((*unit.keys, *unit.heading_keys))), self.policy.fingerprint)
 
     def window_dependency(self, window: Window) -> ArtifactDependency:
         keys: list[SpanKey] = []
         for unit_id in window.unit_ids:
             keys.extend(self.unit(unit_id).keys)
+            keys.extend(self.unit(unit_id).heading_keys)
         return ArtifactDependency(window.extraction_id, self.infos[window.extraction_id].fingerprint,
                                   tuple(dict.fromkeys(keys)), self.policy.fingerprint)
 
@@ -816,7 +955,9 @@ def build_snapshot(handle: CopyHandle, *, reserve_share: float = 0.0,
     with closing(connect(handle.sqlite_path, read_only=True)) as connection:
         for extraction_id, info in infos.items():
             blocks[extraction_id] = extraction_blocks(connection, extraction_id)
-            titles[extraction_id] = section_header_titles(connection, extraction_id)
+            # Only permitted heading text is kept (High 5).
+            titles[extraction_id] = permitted_titles(extraction_id, blocks[extraction_id],
+                                                     section_header_titles(connection, extraction_id), policy)
             outline[extraction_id] = extraction_units(connection, extraction_id)
     for extraction_id, info in infos.items():
         extraction_units_list = build_units(info, blocks[extraction_id], titles[extraction_id], policy)

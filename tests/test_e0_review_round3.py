@@ -33,6 +33,12 @@ from tests.embedding_fakes import BagOfWordsEmbedder
 from tests.openai_fakes import install_fake_openai
 
 
+from tests.e0_fakes import verified_prices  # noqa: F401 - the fixture below
+
+#: Every metered pin priced as verified (E0 admission refuses unverified prices; fix round 4).
+pytestmark = pytest.mark.usefixtures("verified_prices")
+
+
 @pytest.fixture(autouse=True)
 def no_network(monkeypatch):
     def refuse(*_args, **_kwargs):
@@ -105,7 +111,8 @@ def _system_gate(tmp_path, price=2.0):
                                    {"cost": float("nan")}, {"cost": -1.0}])
 def test_f21_a_metered_system_llm_request_without_input_usage_or_cost_keeps_its_reservation(tmp_path, usage):
     ledger, gate = _system_gate(tmp_path)
-    metered = SimpleNamespace(provider_type="openrouter", provider_name="e0_openrouter_sonnet", model="m")
+    metered = SimpleNamespace(provider_type="openrouter", provider_name="e0_openrouter_sonnet",
+                              model=pins.ROLE_PINS["adjudicator"].model)
     admission = gate.admit(metered, purpose="verify", prompt="a prompt " * 50, budget=200)
     gate.settle(admission, usage)
     [entry] = _entries(ledger)
@@ -115,7 +122,8 @@ def test_f21_a_metered_system_llm_request_without_input_usage_or_cost_keeps_its_
 
 def test_f21_reported_input_tokens_or_an_explicit_cost_still_reconcile(tmp_path):
     ledger, gate = _system_gate(tmp_path)
-    metered = SimpleNamespace(provider_type="openrouter", provider_name="e0_openrouter_sonnet", model="m")
+    metered = SimpleNamespace(provider_type="openrouter", provider_name="e0_openrouter_sonnet",
+                              model=pins.ROLE_PINS["adjudicator"].model)
     # Input reported, output not: the output side is charged at its reserved bound.
     gate.settle(gate.admit(metered, purpose="verify", prompt="x" * 400, budget=200), {"input_tokens": 50})
     # Both reported: exactly those counts.
@@ -125,9 +133,12 @@ def test_f21_reported_input_tokens_or_an_explicit_cost_still_reconcile(tmp_path)
     gate.settle(gate.admit(metered, purpose="verify", prompt="x" * 400, budget=200),
                 {"cost": 0.0, "output_tokens": 0})
     actual = [float(entry["actual_usd"]) for entry in _entries(ledger)]
-    assert actual == pytest.approx([250 * 2.0 / 1e6, 60 * 2.0 / 1e6, 0.0])
+    # Priced by the verified metered role pin for the route's model (fix round 4).
+    pin = pins.ROLE_PINS["adjudicator"]
+    assert actual == pytest.approx([role_cost(pin, 50, 200), role_cost(pin, 50, 10), 0.0])
     # An embedding with its input tokens reported reconciles at the Qwen bound.
-    embedding = SimpleNamespace(provider_type="openai_embedding", provider_name="openrouter_embedding", model="q")
+    embedding = SimpleNamespace(provider_type="openai_embedding", provider_name="openrouter_embedding",
+                                model=pins.EMBEDDING_PINS["qwen3_8b"].model)
     gate.settle(gate.admit(embedding, purpose="embedding", prompt=["a query"], budget=None),
                 {"input_tokens": 7, "output_tokens": 0})
     last = _entries(ledger)[-1]

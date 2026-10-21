@@ -119,11 +119,13 @@ def s3(*, context_gain: Mapping[str, Mapping[str, Any] | None],
 
 
 def s4(*, finalist_vs_one_model: Mapping[str, Any] | None, answer_gain: Mapping[str, Any] | None,
-       latency_ok: bool | None, independent_families: int) -> dict[str, Any]:
+       latency_ok: bool | None, independent_families: int, exploratory: bool = False) -> dict[str, Any]:
     """Local experiment gate: the hosted finalist beats the best one-model arm
     by >= 5 points Complete Evidence@10 with a paired CI excluding 0, improves
     blind D1 answers, and no Reader latency regression. An underpowered pilot
-    defers E1 until independent confirmation."""
+    defers E1 until independent confirmation: ``independent_families`` are
+    those of the complete-case PAIRED evidence, and an ``exploratory`` paired
+    result (its own flag) defers too (fix round 4, Medium 14)."""
 
     reasons = []
     gain = None if not finalist_vs_one_model else finalist_vs_one_model.get("difference")
@@ -141,14 +143,15 @@ def s4(*, finalist_vs_one_model: Mapping[str, Any] | None, answer_gain: Mapping[
         reasons.append("Reader latency regression")
     if reasons:
         decision = "no_e1"
-    elif independent_families < pins.MIN_INDEPENDENT_FAMILIES:
+    elif independent_families < pins.MIN_INDEPENDENT_FAMILIES or exploratory:
         decision = "defer_e1_underpowered"
-        reasons.append(f"{independent_families} independent families < {pins.MIN_INDEPENDENT_FAMILIES}")
+        reasons.append(f"{independent_families} independent families in the paired evidence "
+                       f"(minimum {pins.MIN_INDEPENDENT_FAMILIES})" + ("; exploratory" if exploratory else ""))
     else:
         decision = "consider_e1"
     return {"rule": "S4", "decision": decision, "reasons": reasons,
             "inputs": {"gain": gain, "lower_bound": lower, "answer_gain": answer, "latency_ok": latency_ok,
-                       "independent_families": independent_families}}
+                       "independent_families": independent_families, "exploratory": exploratory}}
 
 
 def decide(*, s1_inputs: Mapping[str, Any], s2_inputs: Mapping[str, Any], s3_inputs: Mapping[str, Any],
