@@ -854,8 +854,10 @@ export function CommandPalette({
     } catch {
       /* ignore */
     }
-    setLine("");
-    setCursor(0);
+    // The simple palette stays in the shell after a command, so its output
+    // stays on screen (seen in the harness: an empty line left the shell).
+    setLine(simple ? "> " : "");
+    setCursor(simple ? 2 : 0);
     setHistIdx(-1);
 
     if (parsed.error) {
@@ -892,6 +894,11 @@ export function CommandPalette({
       onClose();
       event.preventDefault();
       return;
+    }
+    if (simple && event.key === "Escape") {
+      // Closing the palette is all this Escape does: the screen beneath (a
+      // practice question's "esc back") must not also take it (harness walk).
+      event.stopPropagation();
     }
     if (!cliMode) {
       // Plain commands: the arrows move through the list, Enter runs one.

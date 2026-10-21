@@ -119,6 +119,9 @@ describe("simple shell", () => {
     expect(api.runCliCommand).toHaveBeenCalledWith(["proposals"]);
     await typeAndEnter(">doctor");
     expect(api.getRuntimeHealth).toHaveBeenCalled();
+    // It stays in the shell, so the output stays on screen.
+    expect(input().value).toBe("> ");
+    expect(screen.getByText(/errors · 0 warnings/)).toBeTruthy();
   });
 
   it("completes shell commands after '>'", () => {
@@ -138,6 +141,16 @@ describe("simple shell", () => {
     });
     expect(plain[2].run).toHaveBeenCalledTimes(1);
   });
+});
+
+it("closes on Escape without the screen beneath taking it too (simple shell)", () => {
+  const beneath = vi.fn();
+  window.addEventListener("keydown", beneath);
+  const { props } = renderPalette("simple");
+  fireEvent.keyDown(input(), { key: "Escape" });
+  expect(props.onClose).toHaveBeenCalled();
+  expect(beneath).not.toHaveBeenCalled();
+  window.removeEventListener("keydown", beneath);
 });
 
 describe("classic shell (unchanged)", () => {

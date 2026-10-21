@@ -66,6 +66,13 @@ vi.mock("../screens/RegistryReviewScreen", () => ({ RegistryReviewScreen: stub("
 vi.mock("../screens/MaintenanceScreen", () => ({ MaintenanceScreen: stub("maintain-stub") }));
 vi.mock("../screens/LibraryScreen", () => ({ LibraryScreen: stub("files-stub") }));
 vi.mock("../screens/SettingsScreen", () => ({ SettingsOverlay: stub("settings-stub") }));
+vi.mock("../screens/ReviewScreen", () => ({
+  ReviewScreen: ({ onClose }: { onClose: () => void }) => (
+    <button type="button" data-testid="review-stub" onClick={onClose}>
+      close review
+    </button>
+  )
+}));
 vi.mock("../screens/reader/WrapUpOffer", () => ({ WrapUpOffer: () => null }));
 
 import { App } from "./App";
@@ -170,6 +177,21 @@ describe("simple (the default)", () => {
     expect(await screen.findByTestId("files-stub")).toBeTruthy();
   });
 
+  it("opens the mistake history when it is picked, not when Under the hood is reopened on it", async () => {
+    await launch();
+    await press({ key: "0", altKey: true });
+    await screen.findByTestId("maintain-stub");
+    fireEvent.click(screen.getByRole("button", { name: "Mistake history" }));
+    fireEvent.click(await screen.findByTestId("review-stub"));
+    expect(screen.queryByTestId("review-stub")).toBeNull();
+    await press({ key: "1", altKey: true });
+    await screen.findByTestId("start-stub");
+    fireEvent.click(screen.getByRole("button", { name: "⋯" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Under the hood" }));
+    expect(await screen.findByRole("button", { name: "open mistake history" })).toBeTruthy();
+    expect(screen.queryByTestId("review-stub")).toBeNull();
+  });
+
   it("remembers the last place across a restart", async () => {
     await launch();
     await press({ key: "4", altKey: true });
@@ -211,10 +233,10 @@ describe("simple (the default)", () => {
     await act(async () => {
       fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
     });
-    expect(screen.queryByText(/Nothing here to ask about/)).toBeNull();
+    expect(screen.queryByText(/ask from its Ask tab/)).toBeNull();
     await press({ key: "2", altKey: true });
     await screen.findByTestId("library-stub");
-    expect(screen.getByText(/Nothing here to ask about/)).toBeTruthy();
+    expect(screen.getByText(/In the Reader, ask from its Ask tab/)).toBeTruthy();
   });
 
   it("shows errors in the Reader, red", async () => {

@@ -1070,15 +1070,16 @@ export function App() {
 
   // UX Phase 2 (§5.2): open a tool under the hood. The old tabs are their own
   // tools; the rest show on the Under-the-hood tab.
-  function selectUthTool(tool: UthToolId) {
+  function selectUthTool(tool: UthToolId, options: { openOverlay?: boolean } = {}) {
     setUthToolState(tool);
     gotoTab(isTabTool(tool) ? tool : "underhood");
-    // The mistake history is the `learnloop diff` overlay: it opens at once.
-    if (tool === "mistakes") setReviewOpen(true);
+    // The mistake history is the `learnloop diff` overlay: picking it opens
+    // it at once; coming back to Under the hood on it does not (harness walk).
+    if (tool === "mistakes" && options.openOverlay !== false) setReviewOpen(true);
   }
 
   function openUnderTheHood() {
-    selectUthTool(uthToolOfTab(tab, uthToolState));
+    selectUthTool(uthToolOfTab(tab, uthToolState), { openOverlay: false });
   }
 
   async function openAnotherLibrary() {
@@ -1426,7 +1427,14 @@ export function App() {
         run: () => {
           const practicing = tab === "today" && todayStage === "practice";
           // On a question the shell already says why it can't (teach-back, checks).
-          if (!askCurrentContext() && !practicing) notify("Nothing here to ask about: open a question, feedback or a note first.");
+          if (askCurrentContext() || practicing) return;
+          // The Reader asks from its own Ask tab (harness walk: "nothing here"
+          // read as wrong with a book open).
+          notify(
+            tab === "reader" && readerSource
+              ? "In the Reader, ask from its Ask tab, or select a passage and ask about it."
+              : "Nothing here to ask about: open a question, feedback or a note first."
+          );
         }
       },
       { id: "keys", label: "Keyboard & help", keywords: ["keys", "shortcuts", "help"], run: () => setKeysHelpOpen(true) },

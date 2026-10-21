@@ -99,6 +99,10 @@ describe("the shell key map", () => {
     expect(matchShellKey(keydown({ key: "k", ctrlKey: true }), "simple", true)?.action).toEqual({ kind: "palette" });
     expect(matchShellKey(keydown({ key: ",", ctrlKey: true }), "simple", false)?.action).toEqual({ kind: "settings" });
     expect(matchShellKey(keydown({ key: "4", altKey: true }), "simple", false)?.action).toEqual({ kind: "place", place: "progress" });
+    // From inside an answer box too (the harness walk: practice keeps the focus in its box).
+    expect(matchShellKey(keydown({ key: "4", altKey: true }), "simple", true)?.action).toEqual({ kind: "place", place: "progress" });
+    expect(matchShellKey(keydown({ key: "0", altKey: true }), "simple", true)?.action).toEqual({ kind: "tool", tool: "maintain" });
+    expect(matchShellKey(keydown({ key: ":", shiftKey: true }), "simple", true)).toBeNull();
     const handled = keydown({ key: "k", ctrlKey: true });
     handled.preventDefault();
     expect(matchShellKey(handled, "simple", false)).toBeNull();

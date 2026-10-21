@@ -175,7 +175,9 @@ function MoreMenu({
       {open ? (
         <div className="vault-menu more-menu" role="menu">
           <button type="button" role="menuitem" onClick={() => choose(onSettings)}>
-            <span>Settings</span> <kbd>Ctrl+,</kbd>
+            {/* No <span>: the nav's ".top-nav button span" rule (the classic key
+                hints) would shrink and dim it. */}
+            Settings <kbd>Ctrl+,</kbd>
           </button>
           <button type="button" role="menuitem" className={underTheHood ? "active" : ""} onClick={() => choose(onUnderTheHood)}>
             Under the hood

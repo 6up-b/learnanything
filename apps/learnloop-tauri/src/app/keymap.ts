@@ -87,19 +87,23 @@ function simpleBindings(): KeyBinding[] {
     binding("settings.alt-s", "Alt+S", "Settings", { kind: "settings" }, { key: "s", alt: true }, { whileTyping: true }),
     binding("settings.ctrl-comma", "Ctrl+,", "Settings", { kind: "settings" }, { key: ",", mod: true }, { whileTyping: true }),
     binding("palette.colon", ":", "Command palette", { kind: "palette" }, { key: ":" }),
-    binding("place.today", "Alt+1", "Today", { kind: "place", place: "today" }, { key: "1", alt: true }),
-    binding("place.library", "Alt+2", "Library", { kind: "place", place: "library" }, { key: "2", alt: true }),
-    binding("place.reader", "Alt+3", "Reader", { kind: "place", place: "reader" }, { key: "3", alt: true }),
-    binding("place.progress", "Alt+4", "Progress", { kind: "place", place: "progress" }, { key: "4", alt: true }),
+    // The places work from inside an answer box too (seen in the harness: a
+    // practice question keeps the focus in its box, so Alt+4 did nothing).
+    // Alt+digit types no text on Linux or Windows, and on a Mac Option+digit
+    // gives another key, so it never matches. Classic keeps "not while typing".
+    binding("place.today", "Alt+1", "Today", { kind: "place", place: "today" }, { key: "1", alt: true }, { whileTyping: true }),
+    binding("place.library", "Alt+2", "Library", { kind: "place", place: "library" }, { key: "2", alt: true }, { whileTyping: true }),
+    binding("place.reader", "Alt+3", "Reader", { kind: "place", place: "reader" }, { key: "3", alt: true }, { whileTyping: true }),
+    binding("place.progress", "Alt+4", "Progress", { kind: "place", place: "progress" }, { key: "4", alt: true }, { whileTyping: true }),
     // The old Alt+5…0 keep working (§5.4): each opens what its tab became.
-    binding("old.proposals", "Alt+5", "Study-map changes (was Proposals)", { kind: "tool", tool: "proposals" }, { key: "5", alt: true }),
-    binding("old.registry", "Alt+6", "Subjects & topics (was Registry)", { kind: "tool", tool: "registry" }, { key: "6", alt: true }),
-    binding("old.library", "Alt+7", "Library (was [7] Library)", { kind: "place", place: "library" }, { key: "7", alt: true }),
+    binding("old.proposals", "Alt+5", "Study-map changes (was Proposals)", { kind: "tool", tool: "proposals" }, { key: "5", alt: true }, { whileTyping: true }),
+    binding("old.registry", "Alt+6", "Subjects & topics (was Registry)", { kind: "tool", tool: "registry" }, { key: "6", alt: true }, { whileTyping: true }),
+    binding("old.library", "Alt+7", "Library (was [7] Library)", { kind: "place", place: "library" }, { key: "7", alt: true }, { whileTyping: true }),
     ...(SHOW_GOLDEN_PATH
-      ? [binding("old.golden", "Alt+8", "Golden path", { kind: "tool", tool: "golden" } as KeyAction, { key: "8", alt: true })]
+      ? [binding("old.golden", "Alt+8", "Golden path", { kind: "tool", tool: "golden" } as KeyAction, { key: "8", alt: true }, { whileTyping: true })]
       : []),
-    binding("old.reader", "Alt+9", "Reader (was [9] Reader)", { kind: "place", place: "reader" }, { key: "9", alt: true }),
-    binding("old.maintain", "Alt+0", "System health (was Maintain)", { kind: "tool", tool: "maintain" }, { key: "0", alt: true }),
+    binding("old.reader", "Alt+9", "Reader (was [9] Reader)", { kind: "place", place: "reader" }, { key: "9", alt: true }, { whileTyping: true }),
+    binding("old.maintain", "Alt+0", "System health (was Maintain)", { kind: "tool", tool: "maintain" }, { key: "0", alt: true }, { whileTyping: true }),
     ...addBindings()
   ];
 }
