@@ -144,8 +144,11 @@ def run_live(copies: Sequence[Path], *, plan: Mapping[str, Any], run_dir: Path,
     failure report (Medium 12); a halted ledger (an overage) stops every
     later copy at once (High 2)."""
 
-    from learnloop.experiments.contextual_embeddings.boundary import quiet_provider_logs
+    from learnloop.experiments.contextual_embeddings.boundary import quiet_provider_logs, require_codex_lockdown
     from learnloop.experiments.contextual_embeddings.budget import authorized_ledger
+
+    # No Codex turn of a paid run outside the locked-down transport (55063be64).
+    require_codex_lockdown()
     from learnloop.experiments.contextual_embeddings.paid import PaidState, run_contracts
     from learnloop.experiments.contextual_embeddings.adapters import Receipts, VectorStore
 

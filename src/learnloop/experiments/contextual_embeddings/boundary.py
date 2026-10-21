@@ -24,6 +24,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 import logging
+from pathlib import Path
 import re
 import threading
 from typing import Any
@@ -174,3 +175,42 @@ def quiet_provider_logs() -> Iterator[None]:
                 for handler in _ACTIVE["handlers"]:
                     handler.removeFilter(_FILTER)
                 _ACTIVE["handlers"] = []
+
+
+class CodexLockdownMissing(PermissionError):
+    """The Codex tool lockdown is not in force: no E0 paid run starts."""
+
+
+def require_codex_lockdown() -> dict[str, Any]:
+    """Refuse the paid run unless every Codex turn is the locked-down one
+    (security lockdown 55063be64): ``learnloop.ai.providers.codex_lockdown``
+    must import, the Codex provider must use its ``TurnLockdown`` and approval
+    path, and the isolated-turn overrides the provider launches every turn
+    with must carry the lockdown's configuration, its command environment and
+    every feature it switches off. E0's Codex roles (writer, contexts, both
+    label passes, tutor, judges) all run isolated structured turns, so they
+    go through this transport. Returns what was checked."""
+
+    try:
+        from learnloop.ai.providers import codex as provider
+        from learnloop.ai.providers import codex_lockdown as lockdown
+    except ImportError:
+        raise CodexLockdownMissing("the Codex tool lockdown (codex_lockdown) is not importable; "
+                                   "no E0 paid run starts") from None
+    problems = []
+    if getattr(provider, "TurnLockdown", None) is not lockdown.TurnLockdown:
+        problems.append("the Codex provider does not use the lockdown's TurnLockdown")
+    if not callable(getattr(getattr(provider, "SdkCodexClient", None), "_verified_isolated_overrides", None)):
+        problems.append("the Codex provider has no verified (locked-down) isolated-turn launch")
+    try:
+        overrides = provider.isolated_turn_overrides(Path("."), shell=False)
+    except Exception:  # noqa: BLE001 - an unreadable profile is no lockdown
+        overrides = []
+    required = [*lockdown.lockdown_config_overrides(), *lockdown.shell_environment_overrides(),
+                *(f"features.{feature}=false" for feature in lockdown.disabled_features(shell=False))]
+    missing = [item for item in required if item not in overrides]
+    if missing:
+        problems.append(f"{len(missing)} lockdown overrides are missing from the isolated turn")
+    if problems:
+        raise CodexLockdownMissing("the Codex tool lockdown is not active: " + "; ".join(problems))
+    return {"codex_lockdown": "active", "overrides_checked": len(required)}

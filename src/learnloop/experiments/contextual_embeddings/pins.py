@@ -13,9 +13,10 @@ arm whose canary fails or whose shape differs is blocked for contract review
 and reported, never substituted (spec §5.4, §6).
 
 **Prices (fix round 4, High 2).** Every metered pin carries
-``price_verified = PriceVerification(source_url, checked_on)``, EMPTY here:
-the orchestrator fills it from the providers' published price pages before
-authorizing a paid run. Admission refuses any request priced by an
+``price_verified = PriceVerification(source_url, checked_on)``, empty by
+default; the orchestrator verified each price on the providers' published
+price pages on 2026-10-21 and the records below are exactly theirs (Voyage's
+free tier is noted and never assumed). Admission refuses any request priced by an
 unverified pin. Each reservation is the request's hard maximum charge (the
 input token upper bound plus the output bound sent, at the verified price);
 a settlement above its reservation halts the whole run at once (the ledger
@@ -88,6 +89,8 @@ class PriceVerification:
 
     source_url: str = ""
     checked_on: str = ""
+    #: What the price page also says that admission deliberately ignores (a free tier).
+    note: str = ""
 
     @property
     def verified(self) -> bool:
@@ -97,7 +100,10 @@ class PriceVerification:
                 and bool(re.fullmatch(r"\d{4}-\d{2}-\d{2}", self.checked_on)))
 
     def as_dict(self) -> dict[str, str]:
-        return {"source_url": self.source_url, "checked_on": self.checked_on}
+        value = {"source_url": self.source_url, "checked_on": self.checked_on}
+        if self.note:
+            value["note"] = self.note
+        return value
 
 
 UNVERIFIED = PriceVerification()
@@ -215,6 +221,17 @@ class EmbeddingPin:
         return asdict(self)
 
 
+#: When the orchestrator checked the published prices (fix round 4 follow-up).
+PRICES_CHECKED_ON = "2026-10-21"
+#: Voyage's free tier is never assumed: admission charges the full price.
+VOYAGE_FREE_TIER_NOTE = ("the first 200M tokens are free per account; E0 admits and reconciles at the full "
+                         "$0.12 per 1M tokens and never assumes the free tier")
+
+
+def _verified(source_url: str, *, note: str = "") -> PriceVerification:
+    return PriceVerification(source_url, PRICES_CHECKED_ON, note)
+
+
 #: The required embedding families (spec §5.4: R4 and R5 are in E0).
 EMBEDDING_PINS: dict[str, EmbeddingPin] = {
     "qwen3_8b": EmbeddingPin(
@@ -224,8 +241,9 @@ EMBEDDING_PINS: dict[str, EmbeddingPin] = {
         query_method="instruct_prefix (learnloop.ai.providers.openai_embedding.prefixed_text)",
         dimensions=4096, output_format="float", decode_transform="l2_normalize",
         max_tokens_per_document=32_768, max_tokens_per_request=300_000, max_chunks_per_request=64,
-        max_documents_per_request=64, price_per_million_upper_bound=0.03,
-        price_source="embedding.price_per_million_tokens default (0.03); published 0.01 (ai.embedding)",
+        max_documents_per_request=64, price_per_million_upper_bound=0.01,
+        price_source="OpenRouter: $0.01 per 1M input tokens (orchestrator-verified 2026-10-21)",
+        price_verified=_verified("https://openrouter.ai/qwen/qwen3-embedding-8b/pricing"),
         key_env="OPENROUTER_API_KEY",
         contract_source="the production adapter (learnloop.ai.providers.openai_embedding)",
         contract_verified=True,
@@ -237,8 +255,9 @@ EMBEDDING_PINS: dict[str, EmbeddingPin] = {
         query_method="single_chunk_document (to validate: the documented query method of the contextual model)",
         dimensions=2560, output_format="int8", decode_transform="int8_to_fp32_l2_normalize",
         max_tokens_per_document=32_000, max_tokens_per_request=120_000, max_chunks_per_request=16_000,
-        max_documents_per_request=512, price_per_million_upper_bound=0.20,
-        price_source="conservative upper bound, unverified offline (spec §3)",
+        max_documents_per_request=512, price_per_million_upper_bound=0.05,
+        price_source="Perplexity: $0.05 per 1M tokens (orchestrator-verified 2026-10-21)",
+        price_verified=_verified("https://docs.perplexity.ai/docs/pricing"),
         key_env="PERPLEXITY_API_KEY",
         contract_source="spec §3: /v1/contextualizedembeddings, nested document/chunk inputs, 32K/doc, "
                         "120K/request, 16,000 chunks, int8 outputs (reported, unverified)",
@@ -250,8 +269,9 @@ EMBEDDING_PINS: dict[str, EmbeddingPin] = {
         query_method="documented query encoder of pplx-embed-v1-4b (to validate before calls, spec §5.4)",
         dimensions=2560, output_format="int8", decode_transform="int8_to_fp32_l2_normalize",
         max_tokens_per_document=32_000, max_tokens_per_request=120_000, max_chunks_per_request=512,
-        max_documents_per_request=512, price_per_million_upper_bound=0.20,
-        price_source="conservative upper bound, unverified offline (spec §3)",
+        max_documents_per_request=512, price_per_million_upper_bound=0.03,
+        price_source="Perplexity: $0.03 per 1M tokens (orchestrator-verified 2026-10-21)",
+        price_verified=_verified("https://docs.perplexity.ai/docs/pricing"),
         key_env="PERPLEXITY_API_KEY",
         contract_source="spec §5.4 independent sibling (reported, unverified)",
     ),
@@ -262,8 +282,9 @@ EMBEDDING_PINS: dict[str, EmbeddingPin] = {
         query_method="input_type=query, one single-chunk input",
         dimensions=1024, output_format="float", decode_transform="l2_normalize",
         max_tokens_per_document=32_000, max_tokens_per_request=120_000, max_chunks_per_request=16_000,
-        max_documents_per_request=1_000, price_per_million_upper_bound=0.30,
-        price_source="conservative upper bound, unverified offline (docs.voyageai.com/docs/pricing)",
+        max_documents_per_request=1_000, price_per_million_upper_bound=0.12,
+        price_source="Voyage: $0.12 per 1M tokens, admitted at the full price (orchestrator-verified 2026-10-21)",
+        price_verified=_verified("https://docs.voyageai.com/docs/pricing", note=VOYAGE_FREE_TIER_NOTE),
         key_env="VOYAGE_API_KEY",
         contract_source="docs.voyageai.com contextualized chunk embeddings (reported, unverified)",
     ),
@@ -274,8 +295,9 @@ EMBEDDING_PINS: dict[str, EmbeddingPin] = {
         query_method="input_type=query",
         dimensions=1024, output_format="float", decode_transform="l2_normalize",
         max_tokens_per_document=32_000, max_tokens_per_request=120_000, max_chunks_per_request=1_000,
-        max_documents_per_request=1_000, price_per_million_upper_bound=0.30,
-        price_source="conservative upper bound, unverified offline (docs.voyageai.com/docs/pricing)",
+        max_documents_per_request=1_000, price_per_million_upper_bound=0.12,
+        price_source="Voyage: $0.12 per 1M tokens, admitted at the full price (orchestrator-verified 2026-10-21)",
+        price_verified=_verified("https://docs.voyageai.com/docs/pricing", note=VOYAGE_FREE_TIER_NOTE),
         key_env="VOYAGE_API_KEY",
         contract_source="docs.voyageai.com embeddings (reported, unverified)",
     ),
@@ -308,8 +330,12 @@ class RolePin:
         return asdict(self)
 
 
-#: OpenRouter list prices plus a 10% margin (fees, rounding): upper bounds.
-_SONNET = (2.00 * 1.1, 10.00 * 1.1, "Anthropic list $2/$10 per MTok (claude-sonnet-5-5, cached 2026-10-06) +10%")
+#: The verified published Sonnet 5.5 price, exactly (the hard cap comes from the token upper bounds).
+_SONNET = (2.00, 10.00, "OpenRouter: $2 per 1M input, $10 per 1M output (anthropic/claude-sonnet-5.5; matches "
+           "Anthropic's table at https://platform.claude.com/docs/en/about-claude/pricing; orchestrator-verified "
+           "2026-10-21)")
+_SONNET_PRICE = _verified("https://openrouter.ai/anthropic/claude-sonnet-5.5/pricing",
+                          note="matches Anthropic's table at https://platform.claude.com/docs/en/about-claude/pricing")
 _LUNA = (0.0, 0.0, "Codex subscription (owner decision 2026-10-12): no marginal bill, estimated_only")
 _SOL = (0.0, 0.0, "Codex subscription (owner decision 2026-10-12): no marginal bill, estimated_only")
 
@@ -328,7 +354,7 @@ ROLE_PINS: dict[str, RolePin] = {
     # The named strong adjudicator: a different family from the writer and both passes.
     "adjudicator": RolePin("adjudicator", "e0_openrouter_sonnet", "openrouter", "anthropic/claude-sonnet-5.5",
                            None, "metered", "labels_audits", 2_000, _SONNET[0], _SONNET[1], _SONNET[2],
-                           "e0-adjudicate-v1"),
+                           "e0-adjudicate-v1", price_verified=_SONNET_PRICE),
     # The same tutor for every delivery and retrieval arm (the production tutor route).
     "tutor": RolePin("tutor", "codex_low", "codex_sdk", "gpt-5.6-sol", "low", "subscription",
                      "answers_verification", 2_000, _SOL[0], _SOL[1], _SOL[2], "e0-tutor-v1"),
@@ -338,7 +364,8 @@ ROLE_PINS: dict[str, RolePin] = {
                        "answers_verification", 1_000, _SOL[0], _SOL[1], _SOL[2], "e0-judge-v1"),
     "judge_adjudicator": RolePin("judge_adjudicator", "e0_openrouter_sonnet", "openrouter",
                                  "anthropic/claude-sonnet-5.5", None, "metered", "answers_verification",
-                                 1_000, _SONNET[0], _SONNET[1], _SONNET[2], "e0-judge-adjudicate-v1"),
+                                 1_000, _SONNET[0], _SONNET[1], _SONNET[2], "e0-judge-adjudicate-v1",
+                                 price_verified=_SONNET_PRICE),
 }
 
 #: The OpenRouter profile the metered roles use (added to an in-memory config

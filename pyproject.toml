@@ -402,6 +402,8 @@ source_modules = [
     "learnloop.eligibility_decision_upgrade",
     "learnloop.evsi_calibration",
     "learnloop.field",
+    "learnloop.figure_admission",
+    "learnloop.figures",
     "learnloop.goals",
     "learnloop.grading_epochs",
     "learnloop.held_grades",

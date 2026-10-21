@@ -304,7 +304,8 @@ def summarize(arms: Sequence[Mapping[str, Any]], systems: Sequence[Mapping[str, 
     return {"categories": categories, "estimated_usd": total, "worst_case_usd": worst, "cap_usd": pins.E0_CAP_USD,
             "fits_cap": total <= pins.E0_CAP_USD, "fits_allocations": not overflow, "overflowing_categories": overflow,
             "subscription_estimated_only_tokens": subscription_tokens,
-            "basis": "conservative upper-bound prices; admission reserves the same bounds before each request"}
+            "basis": "the verified published prices on guaranteed token upper bounds; admission reserves the same hard "
+                     "maximum before each request"}
 
 
 def run_id(snapshots: Sequence[CorpusSnapshot], bank_ids: Sequence[str]) -> str:

@@ -35,6 +35,7 @@ from tests.e0_fakes import (
     FakeRoleClient,
     build_e0_vault,
     fake_respond,
+    unverified_prices,  # noqa: F401 - requested by name below
     verified_prices,  # noqa: F401 - requested by name below
 )
 from learnloop.tutor.context_delivery import BlockSource
@@ -146,7 +147,7 @@ def test_h1_prepare_rebases_a_relocated_database_into_the_copy(tmp_path):
 # -- High 2: verified prices, hard maximum, overage halts --------------------------------
 
 
-def test_h2_an_unverified_price_refuses_every_metered_request_before_sending(tmp_path):
+def test_h2_an_unverified_price_refuses_every_metered_request_before_sending(tmp_path, unverified_prices):
     transport = FakeEmbeddingTransport(dims=DIMS)
     adapter = _adapter("voyage_4_large", tmp_path, transport=transport)
     with pytest.raises(_new("E0PriceUnverified")):
@@ -201,7 +202,7 @@ def test_h2_an_overcharged_hosted_response_stops_the_paid_run_at_once(tmp_path, 
     assert caller.calls == []  # nothing after the halt: no writer, label or answer call
 
 
-def test_h2_the_dry_run_reports_unverified_prices_and_authorization_refuses_them(tmp_path):
+def test_h2_the_dry_run_reports_unverified_prices_and_authorization_refuses_them(tmp_path, unverified_prices):
     from learnloop.experiments.contextual_embeddings.runner import dry_run, require_paid_authorization
 
     paths, _repository = build_e0_vault(tmp_path)

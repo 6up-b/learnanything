@@ -366,3 +366,22 @@ def qwen_bag_of_words(dims: int = 4096) -> Any:
     embedder = BagOfWordsEmbedder(dims=dims)
     embedder.default_base_url = "https://openrouter.ai/api/v1"
     return embedder
+
+
+@pytest.fixture
+def unverified_prices():
+    """Every metered pin's price UNverified for one test (the empty record a
+    pin starts from), then restored: admission must refuse them all."""
+
+    from learnloop.experiments.contextual_embeddings import pins
+
+    empty = pins.PriceVerification()
+    every = [*pins.EMBEDDING_PINS.values(), *pins.ROLE_PINS.values()]
+    saved = [(pin, pin.price_verified) for pin in every]
+    for pin in every:
+        object.__setattr__(pin, "price_verified", empty)
+    try:
+        yield empty
+    finally:
+        for pin, value in saved:
+            object.__setattr__(pin, "price_verified", value)
