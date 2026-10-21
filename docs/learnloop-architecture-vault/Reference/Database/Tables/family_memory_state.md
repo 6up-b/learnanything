@@ -3,13 +3,13 @@ title: "family_memory_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b35681815a840bde6a724331ee47d84a215209e3"
-source_commit_timestamp: "2026-10-20T23:01:52-04:00"
+source_commit: "20fe6e984c3c5ccb1dde5cf729cb34066bb58461"
+source_commit_timestamp: "2026-10-21T01:19:14-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite family_memory_state"
   - "table family_memory_state"
-schema_head: 215
+schema_head: 217
 table_name: "family_memory_state"
 table_role: "derived"
 functionality_status: "active"

@@ -3,13 +3,13 @@ title: "assumption_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b35681815a840bde6a724331ee47d84a215209e3"
-source_commit_timestamp: "2026-10-20T23:01:52-04:00"
+source_commit: "20fe6e984c3c5ccb1dde5cf729cb34066bb58461"
+source_commit_timestamp: "2026-10-21T01:19:14-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite assumption_decisions"
   - "table assumption_decisions"
-schema_head: 215
+schema_head: 217
 table_name: "assumption_decisions"
 table_role: "receipt"
 functionality_status: "active"
@@ -24,6 +24,7 @@ source_paths:
   - "src/learnloop/placement/decisions.py"
   - "src/learnloop/placement/report.py"
   - "src/learnloop/placement/state.py"
+  - "src/learnloop/source_retrieval/reading_paths.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -112,6 +113,7 @@ None found by exact static reference scan.
 
 - `tests/test_assumed_known.py`
 - `tests/test_mvp011_upgrade.py`
+- `tests/test_reading_paths.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

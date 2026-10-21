@@ -3,13 +3,13 @@ title: "parameter_registry"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b35681815a840bde6a724331ee47d84a215209e3"
-source_commit_timestamp: "2026-10-20T23:01:52-04:00"
+source_commit: "20fe6e984c3c5ccb1dde5cf729cb34066bb58461"
+source_commit_timestamp: "2026-10-21T01:19:14-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite parameter_registry"
   - "table parameter_registry"
-schema_head: 215
+schema_head: 217
 table_name: "parameter_registry"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -127,6 +127,7 @@ Indexes and uniqueness:
 - `tests/test_open_world_gate.py`
 - `tests/test_p0_cutover_mvp08.py`
 - `tests/test_reader_rw2b_review.py`
+- `tests/test_reading_paths.py`
 - `tests/test_registry_audit.py`
 - `tests/test_regrade_contract_upgrade.py`
 - `tests/test_sensitivity_certificates.py`
