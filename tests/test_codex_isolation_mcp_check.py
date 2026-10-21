@@ -129,6 +129,7 @@ def test_plugin_servers_are_disabled_by_feature_and_config_servers_by_name(tmp_p
         ("mcp list", isolated_turn_overrides(root, shell=False)),
         ("mcp list", launched),
         ("features list", launched),
+        ("debug models", launched),
     ]
     assert captured["spawned"]["returncode"] == 0
 
@@ -155,7 +156,7 @@ def test_without_servers_the_first_listing_is_the_check(tmp_path, monkeypatch):
     _isolated_turn(_client(tmp_path, program))
     (launched,) = _launches(log)
     assert launched == isolated_turn_overrides(Path(captured["app_config"]["cwd"]), shell=False)
-    assert _probes(log) == [("mcp list", launched), ("features list", launched)]
+    assert _probes(log) == [("mcp list", launched), ("features list", launched), ("debug models", launched)]
 
 
 def test_the_old_cli_shape_still_disables_config_servers_by_name(tmp_path, monkeypatch):
@@ -250,11 +251,20 @@ def test_a_missing_codex_cli_refuses_the_turn(tmp_path, monkeypatch):
     assert "app_config" not in captured
 
 
-def test_non_isolated_turns_run_no_check(tmp_path, monkeypatch):
+def test_a_turn_that_did_not_ask_for_isolation_is_checked_and_locked_down_too(tmp_path, monkeypatch):
+    """Security stage 2026-10-21: a request without ``isolated`` (the tutor, every
+    listwise and paid role) used to launch with no overrides in the vault; it
+    now runs the same check and the same locked-down launch."""
+
     program, log = write_fake_codex(tmp_path / "bin", **OWNER_SHAPE)
-    install_fake_codex_sdk(monkeypatch, final_response='{"links": []}', spawn=True, launch_failure_raises=True)
+    captured = install_fake_codex_sdk(monkeypatch, final_response='{"links": []}', spawn=True,
+                                      launch_failure_raises=True)
     _client(tmp_path, program).complete(StructuredRequest(purpose="tutor", prompt="p", result_model=LinkJudgment))
-    assert _probes(log) == [] and _launches(log) == [[]]
+    (launched,) = _launches(log)
+    root = Path(captured["app_config"]["cwd"])
+    assert launched == isolated_turn_overrides(root, shell=False, mcp_server_ids=("node_repl", "openaiDeveloperDocs"))
+    assert [probe for probe, _overrides in _probes(log)] == ["mcp list", "mcp list", "features list", "debug models"]
+    assert root.name.startswith("learnloop-isolated-turn-") and root != (tmp_path / "vault").resolve()
 
 
 # -- the check sees the configuration the launch loads (Codex review F1) ----------------
@@ -276,7 +286,8 @@ enabled=true
 [ -n "$pinned" ] && enabled=false
 case "$1 $2" in
   "mcp list") printf '[{"name": "fsserver", "enabled": %s}]\n' "$enabled" ;;
-  "features list") printf 'apps  stable  false\nplugins  stable  false\n' ;;
+  "features list") printf 'apps  stable  false\nplugins  stable  false\nmulti_agent  stable  false\n' ;;
+  "debug models") printf '{"models": [{"slug": "gpt-5.6-sol", "tool_mode": "code_mode_only"}]}\n' ;;
   *) exit 2 ;;
 esac
 """
@@ -319,7 +330,7 @@ def test_the_check_runs_inside_the_sandbox_in_the_turns_own_directory(tmp_path, 
     root = captured["thread_start"]["cwd"]
     assert "mcp_servers.fsserver.enabled=false" in captured["app_config"]["config_overrides"]
     assert log.read_text(encoding="utf-8").splitlines() == [
-        f"mcp list|{root}", f"mcp list|{root}", f"features list|{root}",
+        f"mcp list|{root}", f"mcp list|{root}", f"features list|{root}", f"debug models|{root}",
     ]
 
 
@@ -363,7 +374,7 @@ def test_configuration_flags_after_app_server_are_checked_and_launched_as_one_se
     # The user's flags first, then the turn's: the probes ran the same set.
     (launched,) = _launches(log)
     assert launched[:3] == ["features.apps=true", "mcp_servers.node_repl.enabled=true", "features.plugins=true"]
-    assert [overrides for _probe, overrides in _probes(log)][1:] == [launched, launched]
+    assert [overrides for _probe, overrides in _probes(log)][1:] == [launched, launched, launched]
 
 
 @pytest.mark.parametrize(

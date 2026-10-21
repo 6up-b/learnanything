@@ -164,6 +164,9 @@ def test_isolated_overrides_switch_the_tools_off(tmp_path, layout):
 def _fake_sdk(monkeypatch, captured: dict[str, Any], *, overrides_field: bool = True):
     class FakeCodex:
         def __init__(self, config):
+            from tests.codex_cli_fakes import FakeSdkClient
+
+            self._client = FakeSdkClient()
             captured["app_config"] = config.kwargs
             workspace = Path(config.kwargs["cwd"])
             captured["workspace_listing"] = sorted(path.name for path in workspace.iterdir())
@@ -207,6 +210,8 @@ def _fake_sdk(monkeypatch, captured: dict[str, Any], *, overrides_field: bool = 
 
     openai_codex = ModuleType("openai_codex")
     openai_codex.Codex = FakeCodex
+    from tests.codex_cli_fakes import FakeApprovalMode
+    openai_codex.ApprovalMode = FakeApprovalMode
     openai_codex.CodexConfig = SdkAppConfig
     types = ModuleType("openai_codex.types")
     types.Personality = SimpleNamespace(pragmatic="pragmatic")
@@ -294,13 +299,19 @@ def test_a_launch_override_gets_the_overrides_before_app_server(tmp_path, monkey
     assert "--config" in launch and f'default_permissions="{ISOLATED_PROFILE}"' in launch
 
 
-def test_non_isolated_turns_are_unchanged(tmp_path, monkeypatch):
+def test_a_turn_that_did_not_ask_for_isolation_never_starts_in_the_vault(tmp_path, monkeypatch):
+    # Security stage 2026-10-21: before it, this turn ran in the vault with no
+    # overrides (cwd == vault_root, config_overrides == ()).
     captured: dict[str, Any] = {}
     _fake_sdk(monkeypatch, captured)
     client = _client(tmp_path, monkeypatch)
     client.complete(StructuredRequest(purpose="tutor", prompt="p", result_model=LinkJudgment))
-    assert captured["app_config"]["cwd"] == str(client.vault_root)
-    assert captured["app_config"]["config_overrides"] == ()
+    root = Path(captured["app_config"]["cwd"])
+    assert root != client.vault_root and client.vault_root not in root.parents
+    assert root.name.startswith("learnloop-isolated-turn-")
+    assert captured["app_config"]["config_overrides"] == tuple(
+        isolated_turn_overrides(root, shell=False, mcp_server_ids=("filesystem",))
+    )
 
 
 class _NoIsolation:

@@ -374,6 +374,9 @@ def _turn_effort(monkeypatch, tmp_path, config, role):
     effective = config_for_role(config, role)
     name = provider_for_task(effective, "grading" if role == "grading" else "project").provider_name
     client = CodexSDKProviderClient(name, effective.ai.providers[name], tmp_path)
+    from tests.codex_cli_fakes import stub_isolation_probe
+
+    stub_isolation_probe(monkeypatch, client)  # every Codex turn runs the lockdown's launch check
     client._run_structured("p", {"type": "object"}, purpose="project_probe_grading")
     return captured["turns"][-1]["effort"].value
 
