@@ -26,6 +26,7 @@ from learnloop.db.migrate import (
 )
 from learnloop.db.table_roles import TableRole, role_for_table
 from tests.test_ad1_migration import AD1_ADDED_OBJECTS, AD1_ALTERED_TABLES
+from tests.test_figures_migration import RW5A_ADDED_OBJECTS
 from tests.test_reader_rw3b_migration import RW3B_ADDED_OBJECTS
 from tests.test_reader_rw7a_migration import RW7A_ADDED_OBJECTS
 
@@ -65,7 +66,7 @@ def _upgrade(tmp_path: Path) -> Path:
     # Later migrations (adaptive hints H0's 210, help_assists, and H1's 211,
     # approach_maps) follow 209 on the way to head.
     added = {name for name in set(after) - set(before)
-             if "help_assists" not in name and "approach_maps" not in name and name not in AD1_ADDED_OBJECTS | RW3B_ADDED_OBJECTS | RW7A_ADDED_OBJECTS}
+             if "help_assists" not in name and "approach_maps" not in name and name not in AD1_ADDED_OBJECTS | RW3B_ADDED_OBJECTS | RW5A_ADDED_OBJECTS | RW7A_ADDED_OBJECTS}
     assert added == {"library_asks", "idx_library_asks_created", "idx_library_asks_extraction"}
     # Adaptive hints H2b's 212 rebuilds the two learner-text tables on the way
     # (their source_kind CHECK only; tests/test_hint_feedback_widening.py).

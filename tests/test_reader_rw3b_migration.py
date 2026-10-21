@@ -26,6 +26,7 @@ from learnloop.db.migrate import (
     upgrade_allowance,
 )
 from learnloop.db.table_roles import TableRole, role_for_table
+from tests.test_figures_migration import RW5A_ADDED_OBJECTS
 from tests.test_reader_rw7a_migration import RW7A_ADDED_OBJECTS
 
 HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_217" / "state.sqlite"
@@ -68,10 +69,10 @@ def _upgrade(tmp_path: Path) -> Path:
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    # Reader RW7a's 217 (its own two tables, altering nothing) follows on the way to head.
-    assert [migration.version for migration in applied] == [215, 217]
+    # Reader RW5a's 216 and RW7a's 217 (their own two tables each, altering nothing) follow on the way to head.
+    assert [migration.version for migration in applied] == [215, 216, 217]
     after = _schema(database)
-    assert set(after) - set(before) - RW7A_ADDED_OBJECTS == RW3B_ADDED_OBJECTS
+    assert set(after) - set(before) - RW5A_ADDED_OBJECTS - RW7A_ADDED_OBJECTS == RW3B_ADDED_OBJECTS
     assert {name for name in before if before[name] != after.get(name)} == set(), "215 alters nothing"
     return database
 

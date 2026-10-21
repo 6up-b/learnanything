@@ -43,7 +43,9 @@ const source = { card: { sourceId: view.sourceId, title: "Matrices", canonicalUr
  *  goes, so the pins stay RW4a's. */
 function intentWithoutLibrary(): ReaderIntentContractDto {
   const strip = (groups: ReaderIntentContractDto["palette"]) => groups
-    .map((group) => ({ ...group, actions: group.actions.filter((action) => !["library_ask", "reading_path"].includes(action.effect.kind as string)) }))
+    // RW5a's "make this explorable" (figures.enabled) and RW7a's "what matters here?" (reading_paths.enabled)
+    // are not RW4a's: the base's snapshot has none of them.
+    .map((group) => ({ ...group, actions: group.actions.filter((action) => !["library_ask", "reading_path", "figure"].includes(action.effect.kind as string)) }))
     .filter((group) => group.actions.length > 0);
   return { ...readerIntentContractFixture, palette: strip(readerIntentContractFixture.palette), notesPalette: strip(readerIntentContractFixture.notesPalette) };
 }

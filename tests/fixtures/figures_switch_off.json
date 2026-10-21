@@ -1,0 +1,455 @@
+{
+ "contract": {
+  "activeReading": {
+   "foldBlocks": 3
+  },
+  "answerModes": [
+   "answer_directly",
+   "help_me_reason",
+   "ask_me_first"
+  ],
+  "citations": "reuse tutor_qa validated citations; uncited claims are stripped",
+  "context": "reader",
+  "defaultAnswerMode": "answer_directly",
+  "exposureOnCommit": "familiarity.propagate_tutor_exposure (warms revealed cues)",
+  "inquiryEnabled": true,
+  "intent": {
+   "notesPalette": [
+    {
+     "actions": [
+      {
+       "effect": {
+        "answerMode": "answer_directly",
+        "kind": "ask"
+       },
+       "group": "understand",
+       "id": "ask_answer_directly",
+       "intention": "understand",
+       "label": "ask",
+       "model": true
+      },
+      {
+       "effect": {
+        "answerMode": "help_me_reason",
+        "kind": "ask"
+       },
+       "group": "understand",
+       "id": "ask_help_me_reason",
+       "intention": "understand",
+       "label": "ask · help me reason",
+       "model": true
+      },
+      {
+       "effect": {
+        "answerMode": "ask_me_first",
+        "kind": "ask"
+       },
+       "group": "understand",
+       "id": "ask_ask_me_first",
+       "intention": "understand",
+       "label": "ask · ask me first",
+       "model": true
+      }
+     ],
+     "group": "understand",
+     "intention": "understand",
+     "label": "Understand"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "test_me_later"
+       },
+       "group": "consolidate",
+       "id": "test_me_later",
+       "intention": "consolidate",
+       "label": "revisit once (test me later)",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "help_me_remember"
+       },
+       "group": "consolidate",
+       "id": "help_me_remember",
+       "intention": "consolidate",
+       "label": "help me remember",
+       "model": true
+      }
+     ],
+     "group": "consolidate",
+     "intention": "consolidate",
+     "label": "Consolidate"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "connect_it"
+       },
+       "group": "transfer",
+       "id": "connect_it",
+       "intention": "transfer",
+       "label": "connect it",
+       "model": true
+      }
+     ],
+     "group": "transfer",
+     "intention": "transfer",
+     "label": "Transfer"
+    }
+   ],
+   "palette": [
+    {
+     "actions": [
+      {
+       "effect": {
+        "answerMode": "answer_directly",
+        "kind": "ask"
+       },
+       "group": "understand",
+       "id": "ask_answer_directly",
+       "intention": "understand",
+       "label": "ask",
+       "model": true
+      },
+      {
+       "effect": {
+        "answerMode": "help_me_reason",
+        "kind": "ask"
+       },
+       "group": "understand",
+       "id": "ask_help_me_reason",
+       "intention": "understand",
+       "label": "ask · help me reason",
+       "model": true
+      },
+      {
+       "effect": {
+        "answerMode": "ask_me_first",
+        "kind": "ask"
+       },
+       "group": "understand",
+       "id": "ask_ask_me_first",
+       "intention": "understand",
+       "label": "ask · ask me first",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "alt_explanation"
+       },
+       "group": "understand",
+       "id": "alt_explanation",
+       "intention": "understand",
+       "label": "explain differently",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "worked_example"
+       },
+       "group": "understand",
+       "id": "worked_example",
+       "intention": "understand",
+       "label": "worked example",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "ask"
+       },
+       "group": "understand",
+       "id": "ask",
+       "intention": "understand",
+       "label": "research this",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "active_reading",
+        "style": "why_step"
+       },
+       "group": "understand",
+       "id": "why_step",
+       "intention": "understand",
+       "label": "why does this step work?",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "active_reading",
+        "style": "assumptions"
+       },
+       "group": "understand",
+       "id": "assumptions",
+       "intention": "understand",
+       "label": "what does this assume?",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "another_way"
+       },
+       "group": "understand",
+       "id": "another_way",
+       "intention": "understand",
+       "label": "another way to see this",
+       "model": true
+      }
+     ],
+     "group": "understand",
+     "intention": "understand",
+     "label": "Understand"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "kind": "work_through"
+       },
+       "group": "apply",
+       "id": "work_through",
+       "intention": "apply",
+       "label": "work through this",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "active_reading",
+        "style": "next_step"
+       },
+       "group": "apply",
+       "id": "next_step",
+       "intention": "apply",
+       "label": "let me try the next step",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "import_exercise"
+       },
+       "group": "apply",
+       "id": "import_exercise",
+       "intention": "apply",
+       "label": "add this exercise to practice",
+       "model": true
+      }
+     ],
+     "group": "apply",
+     "intention": "apply",
+     "label": "Apply"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "test_me_later"
+       },
+       "group": "consolidate",
+       "id": "test_me_later",
+       "intention": "consolidate",
+       "label": "revisit once (test me later)",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "help_me_remember"
+       },
+       "group": "consolidate",
+       "id": "help_me_remember",
+       "intention": "consolidate",
+       "label": "help me remember",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "active_reading",
+        "style": "reconstruct"
+       },
+       "group": "consolidate",
+       "id": "reconstruct",
+       "intention": "consolidate",
+       "label": "reconstruct this later",
+       "model": true
+      }
+     ],
+     "group": "consolidate",
+     "intention": "consolidate",
+     "label": "Consolidate"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "connect_it"
+       },
+       "group": "transfer",
+       "id": "connect_it",
+       "intention": "transfer",
+       "label": "connect it",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "why_matters"
+       },
+       "group": "transfer",
+       "id": "why_matters",
+       "intention": "transfer",
+       "label": "why this matters",
+       "model": true
+      },
+      {
+       "effect": {
+        "entry": "where_else_explained",
+        "kind": "library_ask"
+       },
+       "group": "transfer",
+       "id": "where_else_explained",
+       "intention": "transfer",
+       "label": "where else is this explained?",
+       "model": true
+      },
+      {
+       "effect": {
+        "entry": "where_is_this_used",
+        "kind": "library_ask"
+       },
+       "group": "transfer",
+       "id": "where_is_this_used",
+       "intention": "transfer",
+       "label": "where is this used?",
+       "model": true
+      }
+     ],
+     "group": "transfer",
+     "intention": "transfer",
+     "label": "Transfer"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "entry": "what_do_i_need_first",
+        "kind": "library_ask"
+       },
+       "group": "orient",
+       "id": "what_do_i_need_first",
+       "intention": "orient",
+       "label": "what do I need first?",
+       "model": true
+      }
+     ],
+     "group": "orient",
+     "intention": "orient",
+     "label": "Orient"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "kind": "highlight"
+       },
+       "group": "mark",
+       "id": "highlight",
+       "intention": null,
+       "label": "highlight",
+       "model": false
+      },
+      {
+       "effect": {
+        "kind": "highlight",
+        "note": true
+       },
+       "group": "mark",
+       "id": "note",
+       "intention": null,
+       "label": "note",
+       "model": false
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "mark_confusing"
+       },
+       "group": "mark",
+       "id": "mark_confusing",
+       "intention": null,
+       "label": "confusing",
+       "model": false
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "not_worth_remembering"
+       },
+       "group": "mark",
+       "id": "not_worth_remembering",
+       "intention": null,
+       "label": "not worth remembering",
+       "model": false
+      }
+     ],
+     "group": "mark",
+     "intention": null,
+     "label": "Mark"
+    }
+   ],
+   "speculateAfterMs": 600,
+   "speculative": true,
+   "timeoutSeconds": 4.0
+  },
+  "libraryAsk": {
+   "compare": true,
+   "expandGraph": true,
+   "personalizedDefault": true
+  },
+  "libraryExercises": {
+   "fallback": false
+  },
+  "manifestIncludes": [
+   "the exact source span(s) in view (block-level span_view text + citation ids)",
+   "the learner question text",
+   "the goal-contract task invariants + required capabilities (read-only head)",
+   "the selected branch's reader ancestors only (most recent 12)",
+   "the chosen answer mode for this ask"
+  ],
+  "manifestNeverIncludes": [
+   "the learner ability / posterior estimate",
+   "any assessment-reserved surface statement or rubric",
+   "any cold administration's in-flight response"
+  ],
+  "mayReveal": [
+   "state facts",
+   "complete a derivation",
+   "give a worked example",
+   "confirm or deny an interpretation"
+  ],
+  "notSocraticByDefault": true,
+  "readerEnabled": true,
+  "readerTutor": {
+   "anotherWay": true,
+   "manifestIncludes": [
+    "passages LearnLoop found in the learner's books for this question (verified; after the selection)",
+    "when personalized, the learner's open questions and recent workbench steps on the passage's learning objects"
+   ],
+   "offers": true,
+   "personalizedDefault": true,
+   "retrieval": true,
+   "tryNextStep": true
+  },
+  "version": "p3-reader-branches-v1"
+ }
+}

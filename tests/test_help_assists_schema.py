@@ -31,6 +31,7 @@ from learnloop.db.migrate import (
 from learnloop.db.stores import help_assists as store
 from learnloop.db.table_roles import TableRole, role_for_table
 from tests.test_ad1_migration import AD1_ADDED_OBJECTS, AD1_ALTERED_TABLES
+from tests.test_figures_migration import RW5A_ADDED_OBJECTS
 from tests.test_reader_rw3b_migration import RW3B_ADDED_OBJECTS
 from tests.test_reader_rw7a_migration import RW7A_ADDED_OBJECTS
 
@@ -136,7 +137,7 @@ def _upgrade(tmp_path: Path) -> Path:
     # Later migrations (adaptive hints H1's 211, approach_maps) follow 210 on the way to head.
     # ... and adaptive difficulty AD1's 213 (its receipts).
     assert {name for name in set(after) - set(before)
-            if "approach_maps" not in name and name not in AD1_ADDED_OBJECTS | RW3B_ADDED_OBJECTS | RW7A_ADDED_OBJECTS} == {
+            if "approach_maps" not in name and name not in AD1_ADDED_OBJECTS | RW3B_ADDED_OBJECTS | RW5A_ADDED_OBJECTS | RW7A_ADDED_OBJECTS} == {
         "help_assists", "idx_help_assists_session_item", "idx_help_assists_attempt", "idx_help_assists_submission",
         "idx_help_assists_workbench",
         "idx_help_assists_requested", "help_assists_no_delete", "help_assists_identity_fixed",

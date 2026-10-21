@@ -34,6 +34,7 @@ JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("workbench_check", "llm", "workbench_check"),
     ("passage_cue_judge", "llm", "cues"),
     ("reading_path_judge", "llm", "reading_paths"),
+    ("figure_author", "llm", "figures"),
 )
 
 _WHEN = {
@@ -157,6 +158,13 @@ _WHEN = {
         "chose and your active goal's title, so LearnLoop's model can say which sections are core, "
         "prerequisite or enrichment. No passage text, nothing you wrote, never material held out for an "
         "exam. Display only: it changes no plan and never grades you."
+    ),
+    "figures": (
+        "While figures.enabled is on, each time you press \"make this explorable\" in the Reader: the selected "
+        "passage, its caption and the paragraphs around it (and the figure's image or your selected region of "
+        "it, when the route can read images), so LearnLoop's model can write an interactive version; with "
+        "figures.revisions_enabled, a \"not right?\" note you write goes with the earlier version. Nothing else "
+        "about you, and never material held out for an exam."
     ),
 }
 

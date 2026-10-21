@@ -1392,6 +1392,15 @@ sidecar_passthrough!(reader_kept_comparisons, "reader.kept_comparisons");
 sidecar_passthrough!(reader_reading_path, "reader.reading_path");
 sidecar_passthrough!(reader_reading_path_set_depth, "reader.reading_path_set_depth");
 sidecar_passthrough!(reader_reading_path_override, "reader.reading_path_override");
+// Reader workbench RW5a (explorable figures: build, "not right?", the source's
+// figures, predictions and "what changed?"): desktop only.
+sidecar_passthrough!(reader_figure_request, "reader.figure_request");
+sidecar_passthrough!(reader_figure_revise, "reader.figure_revise");
+sidecar_passthrough!(reader_figure_job, "reader.figure_job");
+sidecar_passthrough!(reader_figure_job_cancel, "reader.figure_job_cancel");
+sidecar_passthrough!(reader_figures, "reader.figures");
+sidecar_passthrough!(reader_figure_predict, "reader.figure_predict");
+sidecar_passthrough!(reader_figure_explain, "reader.figure_explain");
 sidecar_passthrough!(reader_block_health, "reader.block_health");
 sidecar_passthrough!(reader_block_original_region, "reader.block_original_region");
 sidecar_passthrough!(reader_translate_selection, "reader.translate_selection");

@@ -82,6 +82,11 @@ def _record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, offers: bool = F
         # RW4d (after this golden too): its own key at its defaults (the tutor's comparison can be kept).
         assert contract.pop("compareKeep") == {"library": True, "tutor": True, "perspectives": True,
                                                "maxPerspectives": 4}
+        # RW5a (explorable figures, on by default) likewise adds its key and
+        # its one intent-box action; RW1c's pins are unchanged otherwise.
+        assert contract.pop("figures") == {"predictions": True, "region": True, "revisions": True}
+        for group in contract["intent"]["palette"]:
+            group["actions"] = [action for action in group["actions"] if action["effect"] != {"kind": "figure"}]
     events = [
         {"kind": event["kind"], "payload": event.get("payload")}
         for kind in ("reader_answer_submitted", "learner_question_asked", "reader_answer_mode_set")

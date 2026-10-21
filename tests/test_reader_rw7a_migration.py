@@ -1,7 +1,7 @@
 """Reader RW7a's migration 217 (spec_reader_workbench_v1 §10.1, §11): ``reader_path_sections`` and ``reader_path_depths``.
 
-The 215 -> 217 upgrade (AD2+AD3 holds 214 and RW5a 216 on their own
-branches; the runner has no contiguity rule) adds the two tables with every
+The 215 -> 217 upgrade (AD2+AD3 holds 214 on its own branch, and RW5a's 216
+lands on the way; the runner has no contiguity rule) adds the two tables with every
 column §10.1 names, their indexes and append-only triggers, and alters
 nothing else. Both are WORKFLOW (paid outputs and the learner's choices,
 never re-run on rebuild, read by no replay). A judge row cites its
@@ -27,6 +27,7 @@ from learnloop.db.migrate import (
     upgrade_allowance,
 )
 from learnloop.db.table_roles import TableRole, role_for_table
+from tests.test_figures_migration import RW5A_ADDED_OBJECTS
 
 HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_217" / "state.sqlite"
 NOW = "2026-10-21T10:00:00Z"
@@ -65,9 +66,10 @@ def _upgrade(tmp_path: Path) -> Path:
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    assert [migration.version for migration in applied] == [217]
+    # Reader RW5a's 216 (its own two tables, altering nothing) lands with 217 on the way to head.
+    assert [migration.version for migration in applied] == [216, 217]
     after = _schema(database)
-    assert set(after) - set(before) == RW7A_ADDED_OBJECTS
+    assert set(after) - set(before) - RW5A_ADDED_OBJECTS == RW7A_ADDED_OBJECTS
     assert {name for name in before if before[name] != after.get(name)} == set(), "217 alters nothing"
     return database
 
@@ -147,7 +149,8 @@ def test_the_head_fixture_is_at_217_in_rollback_mode_with_empty_rw7a_tables(tmp_
 
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 217
-    assert 216 not in applied_versions(HEAD) and 214 not in applied_versions(HEAD)
+    # RW5a's 216 landed after RW7a; AD2+AD3's 214 has not.
+    assert {215, 216, 217} <= set(applied_versions(HEAD)) and 214 not in applied_versions(HEAD)
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
         for table in ("reader_path_sections", "reader_path_depths"):

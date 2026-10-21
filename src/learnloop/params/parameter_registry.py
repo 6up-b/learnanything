@@ -1101,6 +1101,26 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "the reading-path judge's metered spend a UTC day, checked before the call; a spend bound, no "
         "measurement authority (path labels are display only)."),
+    # Reader workbench RW5a: explorable figures. The kill switches (booleans,
+    # so Inventory A's numeric walk never reaches them; classified so every
+    # new key has a rule) and the two routes' metered spend a UTC day and the
+    # owner's price. Figures are content and their predictions formative:
+    # nothing in scoring, scheduling, projection or serving reads them (W1).
+    _ConfigRule(_exact(
+        "figures.enabled",
+        "figures.predictions_enabled",
+        "figures.region_enabled",
+        "figures.revisions_enabled",
+    ), "structural", "operational",
+        "kill switches for explorable figures / their predictions / region selection / \"not right?\" "
+        "versions; on-off availability of content and formative records, no measurement, scheduling or "
+        "serving authority."),
+    _ConfigRule(_exact(
+        "figures.max_daily_cost_usd",
+        "figures.price_per_million",
+    ), "structural", "operational",
+        "the figure author's and verifier's metered spend a UTC day / the owner's price for a metered figure "
+        "route; money bounds, no measurement authority (a figure never grades)."),
     # Adaptive hints H1: the approach-map builds' (and merges') metered spend a
     # UTC day (maps are stored help, read by no grading, scheduling, serving or
     # replay path; validation verdicts go to judgment_ledger, never evidence).

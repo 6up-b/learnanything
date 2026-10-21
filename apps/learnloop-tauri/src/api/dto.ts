@@ -6652,6 +6652,8 @@ export interface ReaderPromptContractDto {
   libraryAsk?: { expandGraph: boolean; personalizedDefault: boolean; compare: boolean };
   /** RW4b: exercises from my sources (present only while library_exercises.enabled and the library answer are on). */
   libraryExercises?: { fallback: boolean };
+  /** Reader workbench RW5a: explorable figures (absent while figures.enabled is off). */
+  figures?: { predictions: boolean; region: boolean; revisions: boolean };
   /** RW1c: the tutor that looks things up (present only while reader_tutor.retrieval_enabled or offers_enabled is on). */
   readerTutor?: ReaderTutorContractDto;
   /** RW4d: keep a comparison (present only while reader_compare.keep_enabled and compare are on). */
@@ -6693,7 +6695,8 @@ export type ReaderIntentEffect =
   | { kind: "active_reading"; style: ReaderActiveStyle }
   | { kind: "another_way" }
   | { kind: "library_ask"; entry: LibraryAskEntry }
-  | { kind: "reading_path" };
+  | { kind: "reading_path" }
+  | { kind: "figure" };
 export type ReaderIntention = "orient" | "understand" | "apply" | "consolidate" | "transfer";
 export interface ReaderIntentActionDto {
   id: string;
@@ -6997,7 +7000,9 @@ export interface ReaderActivityEvent {
     | "back_to_reading"
     | "cue_shown"
     | "tutor_offer_shown"
-    | "tutor_offer_pressed";
+    | "tutor_offer_pressed"
+    | "figure_opened"
+    | "figure_animated";
   payload: Record<string, string | number | boolean | null | Record<string, boolean>>;
 }
 export interface ReaderAskHistoryDto {
@@ -8923,12 +8928,81 @@ export interface KeepTakeDto {
   keys: string[];
 }
 
+// ---------------------------------------------------------------------------
+// Reader workbench RW5a: explorable figures (spec §8; UX §4.7, W11)
+// ---------------------------------------------------------------------------
+
+export type FigureVerification = "verified" | "illustrative" | "failed" | "unsupported";
+
+/** A prediction once answered: what the figure showed, decided by code. */
+export interface FigurePredictionResultDto {
+  version?: number;
+  predictionId: string;
+  figureId: string;
+  extractionId: string;
+  predictionIndex: number;
+  learnerAnswer: string;
+  matched: boolean;
+  before: number | null;
+  after: number | null;
+  /** The right answer (sent only after the learner answered). */
+  answer: string | null;
+  explanationText: string | null;
+}
+
+export interface FigurePredictionDto {
+  index: number;
+  prompt: string;
+  kind: "direction" | "area";
+  choices: Array<{ value: string; label: string }>;
+  answered: FigurePredictionResultDto | null;
+}
+
+export interface FigureViewDto {
+  figureId: string;
+  extractionId: string;
+  spanIds: string[];
+  anchorSpanId: string | null;
+  region: { spanId: string; bbox: number[] } | null;
+  origin: "selection" | "library" | "tutor";
+  verification: FigureVerification;
+  kind: "reconstructed" | "illustrative" | null;
+  /** The server's label (the Reader draws its own code-owned badge instead, FIGURE_FRAME). */
+  label: string;
+  reason: string | null;
+  unsupportedKind: string | null;
+  supersedesId: string | null;
+  revisionNote: string | null;
+  versions: number;
+  createdAt: string;
+  /** InteractiveFigureSpecV1 as JSON text (its keys are the spec's own); shown figures only. */
+  specJson: string | null;
+  demonstrates: string | null;
+  assumptions: Array<{ text: string; spanId: string | null; quote: string | null }>;
+  predictions: FigurePredictionDto[];
+  /** The closed keys of the checks LearnLoop ran (§8.3 steps 1-2); the Reader names them in its own words. */
+  propertyChecks?: string[];
+}
+
+export interface FigureBuildResultDto {
+  figure: FigureViewDto | null;
+  reused: boolean;
+  /** The passage became held out while it was being built: nothing is shown. */
+  withheld?: boolean;
+}
+
+export interface FiguresDto {
+  version?: number;
+  extractionId: string;
+  figures: FigureViewDto[];
+}
+
 /** A library request running off the request path (reader.library_job). */
 export interface LibraryJobDto<T> {
   version?: number;
   jobId: string;
   /** RW4b adds "exercise_candidates" and "find_exercises" (the same runner). */
-  kind: "ask" | "notes" | "compare" | "tutor" | "exercise_candidates" | "find_exercises";
+  kind: "ask" | "notes" | "compare" | "tutor" | "exercise_candidates" | "find_exercises" | "figure_build";
   askId: string | null;
   state: "pending" | "done" | "cancelled";
   result: T | null;

@@ -1397,6 +1397,14 @@ class AIRoutingConfig(BaseModel):
     # source_retrieval.llm_price_per_million and is held to
     # reading_paths.max_daily_cost_usd, checked before the call.
     reading_path_judge: str | None = None
+    # Reader workbench RW5a (spec_reader_workbench_v1 §8.5): explorable
+    # figures. figure_author writes the declarative figure spec (a chat route;
+    # a region or figure block sends its crop as an image when the profile
+    # lists "image" in input_modalities). RW5a has no verifier route: the
+    # source check is RW5c's. Empty = ai.active_provider (Codex allowed,
+    # estimated_only). Metered calls are held to figures.max_daily_cost_usd at
+    # figures.price_per_million (unset: refused before sending).
+    figure_author: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -2374,6 +2382,38 @@ class LibraryExercisesConfig(BaseModel):
 
     enabled: bool = True
     fallback_enabled: bool = False
+
+
+class FiguresConfig(BaseModel):
+    """Reader workbench RW5a: explorable figures (spec_reader_workbench_v1 §8, §8.6).
+
+    ``enabled``: "make this explorable" on a selected equation, figure block
+    or passage builds a declarative figure spec (route ``figure_author``),
+    verifies it before it shows (structure, invariants and shaded areas; RW5a
+    makes no source claim: every figure is an illustration, the source check
+    is RW5c's), and draws it inline under its passage. Off: the Reader is exactly
+    as before RW5a, the RPCs refuse and no route is called.
+    ``predictions_enabled``: one prediction before the first change, the
+    observed before/after readout and "what changed?" (formative; a missed
+    one is a ``reader_formative`` learner text). ``region_enabled``: a
+    Ctrl+drag region of a figure on the original page, of which only the crop
+    is sent. ``revisions_enabled``: "not right?" asks for a new version with
+    the learner's note (the earlier one is kept).
+
+    Caps (money, W4): two author attempts per request; ``max_daily_cost_usd``
+    meters the author route's metered spend a UTC day at
+    ``price_per_million`` (unset: a metered route is refused before sending;
+    Codex is ``estimated_only``). Content and formative only: nothing in
+    scoring, scheduling, projection or serving reads these keys, so no
+    algorithm successor (§8.6).
+    """
+
+    enabled: bool = True
+    predictions_enabled: bool = True
+    region_enabled: bool = True
+    revisions_enabled: bool = True
+    max_daily_cost_usd: float = Field(default=1.0, ge=0)
+    price_per_million: float | None = Field(default=None, gt=0)
 
 
 class ReaderCompareConfig(BaseModel):
@@ -3485,6 +3525,7 @@ class LearnLoopConfig(BaseModel):
     reader_formative: ReaderFormativeConfig = Field(default_factory=ReaderFormativeConfig)
     library_ask: LibraryAskConfig = Field(default_factory=LibraryAskConfig)
     library_exercises: LibraryExercisesConfig = Field(default_factory=LibraryExercisesConfig)
+    figures: FiguresConfig = Field(default_factory=FiguresConfig)
     reader_compare: ReaderCompareConfig = Field(default_factory=ReaderCompareConfig)
     roles: RolesConfig = Field(default_factory=RolesConfig)
     reading_paths: ReadingPathsConfig = Field(default_factory=ReadingPathsConfig)

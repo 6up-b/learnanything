@@ -39,6 +39,13 @@ READ_ONLY_WORKSPACE = "read_only_workspace"
 ISOLATED_TURN = "isolated_turn"
 # Text-to-video generation (an async job API, not a chat completion).
 VIDEO_GENERATION = "video_generation"
+# Images in the request (reader workbench RW5a: a figure's crop for the
+# figure author). Only a transport that declares it receives ``images``; a
+# request with images is refused before it is sent anywhere else.
+IMAGE_INPUT = "image_input"
+#: The image media types a request may carry, and the largest image.
+IMAGE_MEDIA_TYPES = frozenset({"image/png", "image/jpeg", "image/webp"})
+MAX_IMAGE_BYTES = 8_000_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +72,9 @@ class StructuredRequest(Generic[WireResult]):
     #: A route's requested reasoning effort (``ai.route_reasoning_effort``);
     #: None keeps the profile's. Transports without an effort control ignore it.
     reasoning_effort: str | None = None
+    #: ``(media type, bytes)`` images sent with the prompt; only to a transport
+    #: that declares :data:`IMAGE_INPUT`.
+    images: tuple[tuple[str, bytes], ...] = ()
 
     @property
     def model_type(self) -> type[WireResult]:
@@ -156,6 +166,7 @@ def execute_structured_operation(
     legacy_context: object | None = None,
     workspace: Path | None = None,
     isolated: bool = False,
+    images: tuple[tuple[str, bytes], ...] = (),
 ) -> WireResult:
     """Execute one feature-owned structured operation.
 
@@ -182,6 +193,16 @@ def execute_structured_operation(
             f"AI provider {provider!r} does not support a read-only workspace "
             f"for structured operation {purpose!r}"
         )
+    if images:
+        if not transport.supports(IMAGE_INPUT):
+            provider = getattr(transport, "provider_name", type(transport).__name__)
+            raise AIProviderUnavailable(
+                f"AI provider {provider!r} cannot read images for structured operation {purpose!r}"
+            )
+        for media_type, data in images:
+            if media_type not in IMAGE_MEDIA_TYPES or not isinstance(data, bytes) or not data \
+                    or len(data) > MAX_IMAGE_BYTES:
+                raise AIProviderUnavailable(f"an image for {purpose!r} is not a png/jpeg/webp within the size limit")
     isolated = isolated or workspace is not None
     if isolated and not transport.supports(ISOLATED_TURN):
         provider = getattr(transport, "provider_name", type(transport).__name__)
@@ -198,6 +219,7 @@ def execute_structured_operation(
         workspace=Path(workspace) if workspace is not None else None,
         isolated=isolated,
         reasoning_effort=reasoning_effort_request(),
+        images=tuple(images),
     )
     # The operation, not a request: the provider's physical requests inside
     # it (retries and a JSON repair included) are admitted one by one.

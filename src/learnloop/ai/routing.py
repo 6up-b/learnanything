@@ -125,6 +125,8 @@ AITask = Literal[
     "role_labeller",
     # Reader workbench RW7a: the reading-path judge (a chat task, one call per source and depth).
     "reading_path_judge",
+    # Reader workbench RW5a: the figure author (the declarative spec).
+    "figure_author",
 ]
 
 #: Routes served only by a ``decider`` profile. They never fall back to a chat
@@ -244,6 +246,9 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # Reader workbench RW7a: one structured call labelling a source's sections
     # for the learner's depth (the Guide's path; display only).
     "reading_path_judge": "reading_path_judge",
+    # Reader workbench RW5a: one figure spec written (an author attempt or a
+    # "not right?" version).
+    "figure_author": "figure_author",
     # Slice 2 T4 shadow contamination flags (owner-run report only).
     "contamination_leak_judgment": "contamination_judge",
     "contamination_reveal_judgment": "contamination_judge",

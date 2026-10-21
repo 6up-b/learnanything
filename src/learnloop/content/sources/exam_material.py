@@ -1102,6 +1102,24 @@ def held_out_refusal(material: Material, extraction_id: str | None) -> str:
     return HELD_BACK_REFUSAL if UNMARKED_READING in reasons else HELD_OUT_REFUSAL
 
 
+def spans_withheld(vault_or_sets: Any, repository: Any, extraction_id: str, span_ids: Iterable[str | None]
+                   ) -> str | None:
+    """The refusal when any of ``span_ids`` on ``extraction_id`` (or the whole
+    reading) is exam or held-out material now (:func:`exam_material`'s
+    ``covers`` and ``withheld``), else None.
+
+    Reader RW5a's one predicate for a figure's spans: the figure service asks
+    it before every build, listing, delivery, revision, prediction and
+    explanation, and learner-text gaps ask it before a missed prediction's
+    text is built for the gap reader (fix round 2, F1)."""
+
+    material = exam_material(vault_or_sets, repository)
+    spans = [str(span) for span in span_ids if span]
+    if material.covers(str(extraction_id)) or material.withheld([(str(extraction_id), span) for span in spans]):
+        return held_out_refusal(material.material, extraction_id)
+    return None
+
+
 def held_out_material(vault_or_sets: Any, repository: Any) -> Material:
     """The held-out partition (:func:`held_out_partition`, every subject): what
     the Reader's model contexts refuse and a Reader import never turns into
@@ -1447,6 +1465,7 @@ __all__ = [
     "held_out_refusal",
     "held_out_selection_active",
     "held_out_spans",
+    "spans_withheld",
     "is_exam_role",
     "item_exam_status",
     "item_source_keys",

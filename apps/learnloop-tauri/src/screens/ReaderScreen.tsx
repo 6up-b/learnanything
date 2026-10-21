@@ -93,6 +93,8 @@ import { IntentBox } from "./reader/IntentBox";
 import { useIntentBox, type IntentCancel, type IntentRunHandle, type IntentRunHow } from "./reader/useIntentBox";
 import { useActiveReading } from "./reader/useActiveReading";
 import { ActiveReadingCard, NextStepFoldLine } from "./reader/ActiveReadingCard";
+import { FiguresUnder } from "./reader/figures/FigureInline";
+import { useFigures } from "./reader/figures/useFigures";
 import { useLibraryAsk } from "./reader/useLibraryAsk";
 import { LibraryPane } from "./reader/LibraryPane";
 import { CompareKeepContext } from "./reader/compareKeepContext";
@@ -369,6 +371,8 @@ export function ReaderScreen({
   // reader_inquiry on): the intent box, and active reading.
   const intentContract = inquiry && !offline ? contract?.intent ?? null : null;
   const activeReadingOn = inquiry && !offline && Boolean(contract?.activeReading);
+  // RW5a: explorable figures (the contract names them only while figures.enabled is on).
+  const figuresCtl = useFigures({ extractionId: render && !offline ? render.extractionId : null, contract: contract?.figures ?? null });
   // RW1c: the tutor that looks things up (absent from the contract while both its switches are off).
   const readerTutor = contract?.readerTutor ?? null;
   // RW1c: the bound workbench session an Ask comes from (set once the workbench hook runs below).
@@ -2410,6 +2414,13 @@ export function ReaderScreen({
         setRailTab("guide");
         setPathFocus((value) => value + 1);
         return;
+      case "figure": {
+        // RW5a: built in the background; it lands under its passage.
+        logReaderAction("action_invoked", { ...visitPayload(), action_kind: "make_explorable", ...meta });
+        const region = selection?.region ? { spanId: selection.region.spanId, bbox: selection.region.bbox } : null;
+        figuresCtl.request({ spanIds: region ? [] : selectionSpanIds, region });
+        return;
+      }
     }
   };
   // "change" cancels the routed action (spec §4.2; RW1b review F4): an Ask
@@ -2669,6 +2680,12 @@ export function ReaderScreen({
               marks={pdfMarks()}
               onPageLayout={setPdfLayout}
               {...(activeCtl.folded.size ? { coveredSpans: activeCtl.folded } : {})}
+              {...(figuresCtl.enabled ? {
+                inlineNotes: [...new Set([...figuresCtl.figures.map((f) => f.anchorSpanId), ...figuresCtl.pending.map((p) => p.anchorSpanId)])]
+                  .filter((spanId): spanId is string => Boolean(spanId))
+                  .map((spanId) => ({ spanId, node: <FiguresUnder ctl={figuresCtl} spanId={spanId} /> })),
+                regionSelection: Boolean(contract?.figures?.region),
+              } : {})}
             />
           ) : null}
           {removed ? (
@@ -2791,6 +2808,7 @@ export function ReaderScreen({
                 </>)}
               </div>
               {inlineReconnect && reconnect && block.spanId === reconnect.spanId ? inlineReconnect : null}
+              {figuresCtl.enabled ? <FiguresUnder ctl={figuresCtl} spanId={block.spanId} /> : null}
               {offerSection ? (
                 <SectionBoundaryOffer
                   section={endSection}

@@ -55,7 +55,8 @@ def reader_report(
         loaded = load_vault(vault, load_environment=False)
         path = VaultPaths(loaded.root, loaded.config).sqlite_path
         report = build_reader_report(path, since=_since(since, now), now=now,
-                                     reading_paths_enabled=loaded.config.reading_paths.enabled)
+                                     reading_paths_enabled=loaded.config.reading_paths.enabled,
+                                     figures_enabled=bool(loaded.config.figures.enabled))
         report["reader_inquiry"] = loaded.config.reader_inquiry.model_dump(mode="json")
         typer.echo(json.dumps(report, sort_keys=True, indent=None if json_output else 2))
     except (ValueError, OSError, sqlite3.Error) as exc:

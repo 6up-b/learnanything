@@ -95,6 +95,9 @@ export interface PdfSelectionOptions {
   firstShownPage?: () => number | null;
   /** Bring a block into view (a keyboard selection moving past the view). */
   revealBlock?: (block: number) => void;
+  /** Reader RW5a: the figure a single Ctrl+drag box lies inside, if any. The
+   *  box is then a region of that figure (its words, if any, are not taken). */
+  regionAt?: (box: MarqueeBox) => { spanId: string; quote: string; end: number } | null;
 }
 
 function editable(target: EventTarget | null): boolean {
@@ -106,7 +109,7 @@ function isUi(target: EventTarget | null): boolean {
 }
 
 export function usePdfSelection(options: PdfSelectionOptions) {
-  const { model, containerRef, selection, activeSpan, pointAt, onTextSelection, onSelectionCleared, highlightAt, onHighlightClick, firstShownPage, revealBlock } = options;
+  const { model, containerRef, selection, activeSpan, pointAt, onTextSelection, onSelectionCleared, highlightAt, onHighlightClick, firstShownPage, revealBlock, regionAt } = options;
   const pressRef = useRef<{
     point: PagePoint;
     pos: Pos | null;
@@ -128,8 +131,8 @@ export function usePdfSelection(options: PdfSelectionOptions) {
   const settleRef = useRef<number | null>(null);
   // The ranges behind the last selection handed over, by identity.
   const committedRef = useRef<{ payload: SelectionPayload; ranges: SelRange[] } | null>(null);
-  const callbacks = useRef({ onTextSelection, onSelectionCleared, onHighlightClick, highlightAt, pointAt, firstShownPage, revealBlock });
-  callbacks.current = { onTextSelection, onSelectionCleared, onHighlightClick, highlightAt, pointAt, firstShownPage, revealBlock };
+  const callbacks = useRef({ onTextSelection, onSelectionCleared, onHighlightClick, highlightAt, pointAt, firstShownPage, revealBlock, regionAt });
+  callbacks.current = { onTextSelection, onSelectionCleared, onHighlightClick, highlightAt, pointAt, firstShownPage, revealBlock, regionAt };
 
   const held = useMemo<SelRange[]>(() => {
     if (!selection) return [];
@@ -447,11 +450,27 @@ export function usePdfSelection(options: PdfSelectionOptions) {
     const boxes = marqueeBoxesRef.current;
     if (!boxes.length) return;
     clearMarquee();
+    // Reader RW5a: one box inside a figure is a region of that figure.
+    const region = boxes.length === 1 ? callbacks.current.regionAt?.(boxes[0]) ?? null : null;
+    if (region) {
+      const box = boxes[0];
+      cancelSettle();
+      settleRef.current = window.setTimeout(() => {
+        settleRef.current = null;
+        setAnnouncement(`Selected a region of ${region.quote || "the figure"}`);
+        showLive(null);
+        callbacks.current.onTextSelection({
+          spanId: region.spanId, quote: region.quote, nodes: [{ spanId: region.spanId, quote: region.quote, start: 0, end: region.end }],
+          text: region.quote, region: { spanId: region.spanId, page: box.page, bbox: [...box.rect] },
+        });
+      }, SELECTION_SETTLE_MS);
+      return;
+    }
     const ranges = marqueeRanges(model, boxes);
     if (!ranges.length) return;
     showLive(ranges);
     settle(ranges);
-  }, [model, clearMarquee, showLive, settle]);
+  }, [model, clearMarquee, showLive, settle, cancelSettle]);
   const commitMarqueeRef = useRef(commitMarquee);
   commitMarqueeRef.current = commitMarquee;
 

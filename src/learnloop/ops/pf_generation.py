@@ -760,11 +760,16 @@ class _FamilyRun:
         for entry in draws:
             if entry.get("error"):
                 problems.append(f"seed {entry.get('seed')}: {entry['error']}")
-            elif not entry.get("self_check"):
-                problems.append(f"seed {entry['seed']}: check(draw, draw['final_answer']) returned False "
+            elif entry.get("self_check") is not True:
+                # The sandbox reports a check's answer as given (fix round 2,
+                # F4): anything but True, a non-boolean included, fails.
+                said = "returned False" if entry.get("self_check") is False else "returned no True/False"
+                problems.append(f"seed {entry['seed']}: check(draw, draw['final_answer']) {said} "
                                 f"for final_answer {entry['draw'].get('final_answer')!r:.80}")
             elif not entry.get("negative_controls_rejected"):
-                problems.append(f"seed {entry['seed']}: check accepts a wrong answer")
+                problems.append(f"seed {entry['seed']}: check " + (
+                    "returns no True/False for a wrong answer (it must return False)"
+                    if entry.get("negative_controls_inconclusive") else "accepts a wrong answer"))
             elif entry["draw"]["checkpoints"] != declared:
                 problems.append(f"seed {entry['seed']}: checkpoints {entry['draw']['checkpoints']!r:.160} "
                                 f"differ from the declared {declared!r:.160}")
