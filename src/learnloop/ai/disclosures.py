@@ -33,6 +33,7 @@ JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("ad_feature_audit", "llm", "ad_feature_audit"),
     ("workbench_check", "llm", "workbench_check"),
     ("passage_cue_judge", "llm", "cues"),
+    ("reading_path_judge", "llm", "reading_paths"),
 )
 
 _WHEN = {
@@ -147,6 +148,15 @@ _WHEN = {
         "cues.max_calls_per_source_open calls per open and cues.max_calls_per_source_per_day per book in any 24 hours; "
         "never material held out for an exam, never a "
         "solution. Display only: it never grades you."
+    ),
+    "reading_paths": (
+        "While reading_paths.enabled is on, once per book and depth (and again when the depth, the book's "
+        "sections or your status on what they teach changes), when the Guide shows your reading path: the "
+        "book's section titles in order, each section's instructional roles, the titles of the topics each "
+        "teaches with your status on each (shown on your own, assumed known, learning, new), the depth you "
+        "chose and your active goal's title, so LearnLoop's model can say which sections are core, "
+        "prerequisite or enrichment. No passage text, nothing you wrote, never material held out for an "
+        "exam. Display only: it changes no plan and never grades you."
     ),
 }
 

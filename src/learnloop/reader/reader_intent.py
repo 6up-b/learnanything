@@ -211,6 +211,11 @@ ACTIONS: tuple[IntentAction, ...] = (
                  "build on it), shown beside this one.",
                  {"kind": "library_ask", "entry": "where_is_this_used"}, needs=("library",)),
     # Orient
+    # RW7a: "What matters here?" opens the Guide's reading path (no model sees the selection).
+    IntentAction("what_matters_here", "orient", "what matters here?",
+                 "Show the learner's reading path for this book in the Guide: which sections are core, "
+                 "prerequisite or enrichment at the depth they chose, and one exercise worth trying.",
+                 {"kind": "reading_path"}, needs=("reading_paths",), model=False),
     IntentAction("what_do_i_need_first", "orient", "what do I need first?",
                  "List what this passage builds on (its prerequisite topics), whether the learner has shown "
                  "each on their own, and a passage from their books for each.",
@@ -245,6 +250,8 @@ class Availability:
     #: RW4a's library answer (``library_ask.enabled`` with the sources service
     #: and RW1a's inquiry): Orient's and Transfer's library actions.
     library: bool = False
+    #: RW7a's reading paths (``reading_paths.enabled``): Orient's "what matters here?".
+    reading_paths: bool = False
     #: False when the selection is held out of LearnLoop's models (exam
     #: protection): only actions that show nothing to a model remain.
     model: bool = True
@@ -262,6 +269,7 @@ class Availability:
                 and getattr(getattr(config, "source_service", None), "enabled", False)
                 and getattr(getattr(config, "reader_inquiry", None), "enabled", False)
             ),
+            reading_paths=bool(getattr(getattr(config, "reading_paths", None), "enabled", False)),
             model=model,
             notes=notes,
         )

@@ -56,8 +56,9 @@ def test_grouping_changes_no_presets_effect():
     for preset, action in by_preset.items():
         assert action.id == preset
     kinds = {a.effect["kind"] for a in RI.ACTIONS}
+    # RW7a adds Orient's "what matters here?" (opens the Guide's reading path).
     assert kinds == {"ask", "preset", "highlight", "import_exercise", "work_through", "active_reading", "another_way",
-                     "library_ask"}
+                     "library_ask", "reading_path"}
     assert {a.effect["style"] for a in RI.ACTIONS if a.effect["kind"] == "active_reading"} == set(RQC.SELECTION_STYLES)
 
 

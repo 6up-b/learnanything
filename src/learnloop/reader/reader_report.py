@@ -225,6 +225,30 @@ def _discovered_cues(connection: Any, in_window: Any) -> dict[str, Any] | None:
     }
 
 
+def _reading_paths(connection: Any, in_window: Any) -> dict[str, Any]:
+    """RW7a (spec §15's reading-path row): judged section labels by kind, the
+    learner's overrides by the label they overrode ("enrichment:read_anyway",
+    "core:skip"), and the Guide's depth choices. Counts only."""
+
+    empty: dict[str, Any] = {"judged_sections": 0, "labels": {}, "overrides": {}, "depth_choices": {}}
+    if connection.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN "
+                          "('reader_path_sections', 'reader_path_depths')").fetchone()[0] != 2:
+        return empty
+    rows = [row for row in connection.execute(
+        "SELECT label, learner_override, created_at FROM reader_path_sections ORDER BY created_at, id")
+        if in_window(row["created_at"])]
+    judged = [row for row in rows if row["learner_override"] is None]
+    chosen = [row for row in rows if row["learner_override"] is not None]
+    depths = [row for row in connection.execute(
+        "SELECT depth, created_at FROM reader_path_depths ORDER BY created_at, id") if in_window(row["created_at"])]
+    return {
+        "judged_sections": len(judged),
+        "labels": dict(sorted(Counter(str(row["label"]) for row in judged).items())),
+        "overrides": dict(sorted(Counter(f"{row['label']}:{row['learner_override']}" for row in chosen).items())),
+        "depth_choices": dict(sorted(Counter(str(row["depth"]) for row in depths).items())),
+    }
+
+
 def _role_counts(versions: list[dict[str, Any]]) -> dict[str, Any]:
     """RW4e's proposals: one per object (its head's status), by role and
     confidence; every version by judge; agreement between judges."""
@@ -335,6 +359,7 @@ def build_reader_report(
         # RW4e: instructional-role proposals (source_objects marked
         # kind = instructional_role), counted by role, judge and confidence
         # (labels only: a proposal copies no text).
+        reading_paths = _reading_paths(connection, in_window)
         role_versions = [
             {"object_id": str(row["source_object_id"]), "ordinal": int(row["version_ordinal"]),
              "role": row["authorial_role"], "status": row["status"],
@@ -639,6 +664,9 @@ def build_reader_report(
         # RW4e: role proposals by role, by judge and by confidence; agreement
         # (passages two or more judges proposed the same role for).
         "roles": _role_counts(role_versions),
+        # RW7a: reading-path labels by kind, overrides ("read it anyway" on
+        # enrichment, "skip it" on core) and depth choices. Counts only.
+        "reading_paths": reading_paths,
         # RW1c: answers by mode, abstentions and excerpts dropped by quote
         # verification (a proxy for unsupported content), "another way" and
         # "that didn't help" rates with whether the inquiry was resolved after,

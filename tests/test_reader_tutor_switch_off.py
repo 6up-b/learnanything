@@ -54,6 +54,9 @@ def _record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, offers: bool = F
     if not WRITE:
         # Recorded on the base tree, which has no [reader_tutor] section.
         set_config(paths, "reader_tutor", retrieval_enabled=False, offers_enabled=offers)
+        # RW7a (landed after this golden was recorded): off, so its contract key
+        # and Orient's "what matters here?" are absent; these pins are RW1c's.
+        set_config(paths, "reading_paths", enabled=False)
     ctx = context(paths.root)
     tutor = tool_tutor(answer_md="The determinant vanishes there, so t is a root.")
 

@@ -26,8 +26,9 @@ from learnloop.db.migrate import (
     upgrade_allowance,
 )
 from learnloop.db.table_roles import TableRole, role_for_table
+from tests.test_reader_rw7a_migration import RW7A_ADDED_OBJECTS
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_215" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_217" / "state.sqlite"
 NOW = "2026-10-20T10:00:00Z"
 #: What 215 adds: the earlier migrations' "nothing else changed" diffs on the
 #: way to head read these.
@@ -67,9 +68,10 @@ def _upgrade(tmp_path: Path) -> Path:
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    assert [migration.version for migration in applied] == [215]
+    # Reader RW7a's 217 (its own two tables, altering nothing) follows on the way to head.
+    assert [migration.version for migration in applied] == [215, 217]
     after = _schema(database)
-    assert set(after) - set(before) == RW3B_ADDED_OBJECTS
+    assert set(after) - set(before) - RW7A_ADDED_OBJECTS == RW3B_ADDED_OBJECTS
     assert {name for name in before if before[name] != after.get(name)} == set(), "215 alters nothing"
     return database
 
@@ -172,11 +174,12 @@ def test_the_rw3b_tables_are_classified():
     assert role_for_table("reader_cue_impressions") is TableRole.RECEIPT
 
 
-def test_the_head_fixture_is_at_215_in_rollback_mode_with_empty_rw3b_tables(tmp_path):
+def test_the_head_fixture_is_at_head_in_rollback_mode_with_empty_rw3b_tables(tmp_path):
     from learnloop.db.copies import backup_database
 
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 215
+    # RW7a's 217 is the head now (tests/test_reader_rw7a_migration.py).
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 217
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
         for table in ("passage_links", "reader_cue_impressions"):

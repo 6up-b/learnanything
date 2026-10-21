@@ -71,7 +71,9 @@ def test_the_switch_restores_rw1bs_contract_byte_for_byte(make):
     contract_off = call(off, "reader.prompt_contract", {})
     assert "libraryAsk" not in contract_off
     assert contract_off == _without_library(contract_on)
-    assert not [g for g in contract_off["intent"]["palette"] if g["group"] == "orient"]
+    # Orient keeps only RW7a's "what matters here?" (its own switch; no library ask).
+    assert [a["id"] for g in contract_off["intent"]["palette"] if g["group"] == "orient" for a in g["actions"]] == [
+        "what_matters_here"]
     # The notes pane (the learner's own notes) never offered them.
     assert contract_off["intent"]["notesPalette"] == contract_on["intent"]["notesPalette"]
 

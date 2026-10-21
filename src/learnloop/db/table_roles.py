@@ -388,6 +388,12 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # could show, shown or withheld with its reason, the holdout's seed and
     # propensity, and the first response (written once); replay never reads it.
     ("reader_cue_impressions", TableRole.RECEIPT),
+    # Reader workbench RW7a (migration 217): the Guide's depth per source and
+    # the path judge's labels per reading, depth and section (paid outputs,
+    # never re-run on rebuild), with the learner's overrides; display only,
+    # replay never reads them; append-only by trigger.
+    ("reader_path_depths", TableRole.WORKFLOW),
+    ("reader_path_sections", TableRole.WORKFLOW),
     ("reader_section_progress", TableRole.WORKFLOW),
     # What an escalated repair showed (Slice 2 T1 §3.7); append-only.
     ("recurrence_escalations", TableRole.RECEIPT),

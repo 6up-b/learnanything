@@ -123,6 +123,8 @@ AITask = Literal[
     "passage_cue_judge",
     # Reader workbench RW4e: the owner-run batch role labeller (a listwise task).
     "role_labeller",
+    # Reader workbench RW7a: the reading-path judge (a chat task, one call per source and depth).
+    "reading_path_judge",
 ]
 
 #: Routes served only by a ``decider`` profile. They never fall back to a chat
@@ -239,6 +241,9 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # Reader workbench RW4e: one listwise call labelling a batch of a source's
     # passages with their instructional roles (owner-run, never on a request path).
     "role_labeller": "role_labeller",
+    # Reader workbench RW7a: one structured call labelling a source's sections
+    # for the learner's depth (the Guide's path; display only).
+    "reading_path_judge": "reading_path_judge",
     # Slice 2 T4 shadow contamination flags (owner-run report only).
     "contamination_leak_judgment": "contamination_judge",
     "contamination_reveal_judgment": "contamination_judge",

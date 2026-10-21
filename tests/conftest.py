@@ -58,6 +58,9 @@ os.environ["LEARNLOOP_CUE_JUDGE_MODELS"] = "off"
 # Reader workbench RW4e: the batch role labeller (`learnloop reader label-roles`)
 # resolves no real client unless the test injected a fake (label_roles' client).
 os.environ["LEARNLOOP_ROLE_LABELLER_MODELS"] = "off"
+# Reader workbench RW7a: the reading-path judge resolves no real client unless
+# the test injected a fake (ctx.reading_path_judge_client, or judge()'s client).
+os.environ["LEARNLOOP_READING_PATH_MODELS"] = "off"
 
 # Disable sqlite durability for every test connection. Each durable commit
 # pays a journal write plus an fsync, and on Windows on-access antivirus

@@ -461,6 +461,11 @@ def reader_prompt_contract(ctx: SidecarContext, _params: ParamsModel) -> dict[st
     from learnloop_sidecar.handlers.kept_comparisons import prompt_contract_fields as kept_comparison_fields
 
     contract.update(kept_comparison_fields(vault))
+
+    # RW7a's reading paths in the Guide (absent while reading_paths.enabled is off).
+    from learnloop_sidecar.handlers.reading_paths import prompt_contract_fields as reading_path_fields
+
+    contract.update(reading_path_fields(vault))
     return versioned(contract)
 
 

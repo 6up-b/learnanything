@@ -1085,6 +1085,22 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "the owner-run batch role labeller's metered spend per run, checked before each batch call; a spend "
         "bound, no measurement authority (role labels are source-object proposals)."),
+    # Reader workbench RW7a: reading paths in the Guide. The switch is a
+    # boolean (classified so every new key has a rule): the Guide's path card
+    # and its judge (display only; labels, overrides and the depth are read
+    # by no plan, scheduling, projection or serving path); the judge's
+    # metered spend a UTC day.
+    _ConfigRule(_exact(
+        "reading_paths.enabled",
+    ), "structural", "operational",
+        "kill switch for the Guide's reading path (section labels, reasons, overrides, one exercise per core "
+        "section, the suggested next line) and its judge call; display only, no measurement, scheduling or "
+        "serving authority (no algorithm successor)."),
+    _ConfigRule(_exact(
+        "reading_paths.max_daily_cost_usd",
+    ), "structural", "operational",
+        "the reading-path judge's metered spend a UTC day, checked before the call; a spend bound, no "
+        "measurement authority (path labels are display only)."),
     # Adaptive hints H1: the approach-map builds' (and merges') metered spend a
     # UTC day (maps are stored help, read by no grading, scheduling, serving or
     # replay path; validation verdicts go to judgment_ledger, never evidence).
