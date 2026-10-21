@@ -37,6 +37,7 @@ import type {
   ReaderCoachLintDto,
   SourceLibraryCard,
   ReaderAnnotationPlacementDto,
+  ReadingPathExerciseDto,
 } from "../api/dto";
 import { COLOR, Card, Dim, Faint, FONT_MONO, KeyBar, Meta, Pill, TermSelect } from "../components/term";
 import { MarkdownMath } from "../render/MarkdownMath";
@@ -81,6 +82,7 @@ import { goTo as stackGoTo } from "./reader/returnStack";
 import { AskRail } from "./reader/AskRail";
 import { createTutorOfferStore } from "./reader/TutorOffers";
 import { GuideRail, SectionBoundaryOffer } from "./reader/GuideRail";
+import { ReadingPathCard } from "./reader/ReadingPathCard";
 import { useReaderRecap } from "./reader/useReaderRecap";
 import { RecapCard } from "./reader/RecapCard";
 import { WrapUpPanel } from "./reader/WrapUpPanel";
@@ -2298,6 +2300,17 @@ export function ReaderScreen({
     const title = problemTitle(stem);
     return title === "this problem" ? clip(stem, 48) : title;
   };
+  // RW7a: the reading path's "Try it" -- the exercise in the workbench through
+  // the usual import of a selected problem, with the book open.
+  const [pathFocus, setPathFocus] = useState(0);
+  const tryPathExercise = (exercise: ReadingPathExerciseDto) => {
+    if (!render) return;
+    void wbCtl.openSelection({
+      stemMd: exercise.statement,
+      spanIds: exercise.spanIds,
+      importRequest: { ...exercise.importRequest, renderViewId: render.renderViewId, clientIdempotencyKey: newKey() },
+    });
+  };
   const workThroughSelection = () => {
     if (!render || !selection) return;
     const nodes = selectionNodes(selection);
@@ -2366,6 +2379,13 @@ export function ReaderScreen({
         // RW4a: Orient's and Transfer's library asks, in the comparing posture.
         logReaderAction("action_invoked", { ...visitPayload(), action_kind: effect.entry, ...meta });
         askLibraryHere(text || (selection ? (selection.editedText ?? selection.quote) : ""), effect.entry, selectionSpanIds);
+        return;
+      case "reading_path":
+        // RW7a: Orient's "what matters here?" opens the Guide's reading path.
+        logReaderAction("action_invoked", { ...visitPayload(), action_kind: "what_matters_here", ...meta });
+        setRailCollapsed(false);
+        setRailTab("guide");
+        setPathFocus((value) => value + 1);
         return;
     }
   };
@@ -2925,6 +2945,15 @@ export function ReaderScreen({
             sendQuestionControl={sendQuestionControl}
             disposition={disposition}
             chooseDisposition={chooseDisposition}
+            path={contract?.readingPaths ? (
+              <ReadingPathCard
+                extractionId={render.extractionId}
+                onJump={(spanId) => jumpToSpan(spanId, "start")}
+                onTryExercise={wbCtl.enabled ? tryPathExercise : null}
+                onError={onError}
+                focusToken={pathFocus}
+              />
+            ) : undefined}
             header={recapCtl.wrapUpOpen || (recapCtl.recap && !muted) ? (
               <>
                 {recapCtl.wrapUpOpen ? (
