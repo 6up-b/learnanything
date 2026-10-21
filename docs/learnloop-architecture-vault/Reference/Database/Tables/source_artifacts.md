@@ -3,8 +3,8 @@ title: "source_artifacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ee20a4204c73da58ca7320637f41fbac746d5807"
-source_commit_timestamp: "2026-10-20T18:45:49-04:00"
+source_commit: "a12ba5ba978cb900a59510ad401b78bcddf9db96"
+source_commit_timestamp: "2026-10-20T19:34:07-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_artifacts"
@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ops/doctor.py"
+  - "src/learnloop/source_retrieval/role_labeller.py"
   - "src/learnloop_sidecar/handlers/serializers.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/pipeline/acquisition_preview.py"
@@ -99,6 +100,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/source_retrieval/role_labeller.py`
 - `src/learnloop_sidecar/handlers/serializers.py`
 
 ### Direct SQL writers

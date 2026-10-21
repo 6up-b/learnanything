@@ -3,8 +3,8 @@ title: "source_object_citations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ee20a4204c73da58ca7320637f41fbac746d5807"
-source_commit_timestamp: "2026-10-20T18:45:49-04:00"
+source_commit: "a12ba5ba978cb900a59510ad401b78bcddf9db96"
+source_commit_timestamp: "2026-10-20T19:34:07-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_object_citations"
@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop/content/sources/span_aliases.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ops/doctor.py"
+  - "src/learnloop/reader/source_roles.py"
   - "src/learnloop/source_retrieval/corpus.py"
   - "src/learnloop/source_retrieval/find_sources.py"
   - "src/learnloop/content/sources/source_deletion.py"
@@ -93,6 +94,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/sources/span_aliases.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/ops/doctor.py`
+- `src/learnloop/reader/source_roles.py`
 - `src/learnloop/source_retrieval/corpus.py`
 - `src/learnloop/source_retrieval/find_sources.py`
 
@@ -105,6 +107,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/reader/source_objects.py`
+- `src/learnloop/reader/source_roles.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -113,8 +116,13 @@ Indexes and uniqueness:
 
 - `tests/test_compare_keep_switch_off.py`
 - `tests/test_compare_sources_keep.py`
+- `tests/test_label_roles_cli.py`
 - `tests/test_reader_compare_table.py`
+- `tests/test_reader_rw3b_protection.py`
 - `tests/test_reread_safety.py`
+- `tests/test_roles_judges.py`
+- `tests/test_roles_switch_off.py`
+- `tests/test_source_roles.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_source_objects.py`
 

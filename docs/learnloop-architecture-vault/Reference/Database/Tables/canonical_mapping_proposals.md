@@ -3,8 +3,8 @@ title: "canonical_mapping_proposals"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ee20a4204c73da58ca7320637f41fbac746d5807"
-source_commit_timestamp: "2026-10-20T18:45:49-04:00"
+source_commit: "a12ba5ba978cb900a59510ad401b78bcddf9db96"
+source_commit_timestamp: "2026-10-20T19:34:07-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite canonical_mapping_proposals"
@@ -108,6 +108,7 @@ Indexes and uniqueness:
 - `tests/test_reader_requests.py`
 - `tests/test_reader_rw1b_final_verify.py`
 - `tests/test_reader_rw1b_fix_round4.py`
+- `tests/test_source_roles.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
