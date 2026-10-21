@@ -719,3 +719,130 @@ for byte unchanged.
   pins were not rerun. The full suite is left to the landing gate (owner rule).
 - Every Python run outside pytest this round, version checks included, used the `env -i` wrapper.
 
+
+## Fix round 5 (orchestrator)
+
+The orchestrator's verify of `0c3146df2` (codex job `20261021-001132-p9hJpA`) confirmed these:
+
+- all 3,152 property cases in both evaluators;
+- the depth cap and migration 216;
+- F1, F4, F5 and F7;
+- the caps and the write boundaries.
+
+It reported 4 High and 1 Medium, under the orchestrator's binding rulings recorded below. Each fix
+has a test that fails on `0c3146df2`. Python was checked with `git archive 0c3146df2` (`src`,
+`migrations`) and `-o pythonpath`. The frontend was checked on an old `apps/learnloop-tauri` in a
+scratch directory that uses the worktree's `node_modules`. No model call was made.
+
+### The scope ruling: what "checked" certifies
+
+Spec §8.3 item 3. "Matches the book's equation (checked)" certifies two things:
+
+- the figure's **definition** equals the source equation, symbolically and exactly;
+- the displayed, source-labelled content **is** that definition (round 2's binding).
+
+It does **not** promise that every float pixel equals exact real arithmetic; no plot can. The
+verify's findings are dispositioned under that ruling:
+
+- **Finding 1, between-sample interpolation** (`sin(240*pi*x)` over [0, 1] passing all 121
+  samples): **Low, ruled.** It is rendering resolution, and it applies to any plotted function.
+- **Finding 1, the branch case** (`p*10 < 3` at the reachable p = 0.3, off the grid): **closed by
+  construction**, below.
+- **Finding 2** (rule (d)'s tolerance lets `(1000000 + 0.123456789)^2` through): **rejected.** Round
+  4's ruling was "relative OR absolute 1e-9", and a 1e-16 relative error on a value near 1e12
+  satisfies it. Rule (d) stays a sampled sanity check with that tolerance.
+
+### Findings
+
+| id | severity | title | verdict | test |
+|---|---|---|---|---|
+| R5-1a | Low (ruled) | Between-sample interpolation | ruled: rendering resolution, not certified | n/a |
+| R5-1b | High | A reachable parameter value off the grid takes another branch | fixed by construction | `test_a_computed_condition_is_never_checked` (`p*10 < 3`), `test_a_bare_variable_against_a_dyadic_literal_is_checked` (`x < 0.5`, guard), `test_the_branch_rule` (10 cases), `test_the_flagship_conditions_are_exact` |
+| R5-2 | High | Rule (d)'s tolerance | rejected (round 4's ruling) | n/a |
+| R5-3 | High | An ongoing build can call models after switch-off | fixed | `test_figure_route_refuses_when_figures_are_off_now`, `test_switching_off_during_the_first_author_call_stops_the_build` (an unusable first answer, so no retry; a reconstruction, so no verifier call), `test_a_sidecar_reload_turning_figures_off_stops_a_running_build` |
+| R5-4 | High | Cached "checked" figures bypass newer certification | fixed | `test_a_verified_figure_from_an_older_certification_shows_and_reuses_as_an_illustration`, `test_every_new_report_carries_the_certification_version` |
+| R5-5 | Medium | Percent formatting yields non-finite displayed values | fixed | `test_a_percent_readout_that_overflows_when_scaled_fails_structure` (10^307 as a percent); vitest "formatting-derived values (fix round 5)" |
+
+The tests are in `tests/test_figures_fix_round5.py` and `figureGrammar.test.ts`. Round 4's
+branch tests now accept either refusal, rule (d) or the new branch rule. Each such case is
+illustrative before (d) is reached.
+
+### What changed
+
+**R5-1b: exact branches by construction.** `verify.condition_problem` checks the expanded checked
+definition. Every piecewise comparison, whether alone or joined by `and`/`or`, must set a bare
+variable or parameter against a literal exactly representable in binary64. A literal qualifies
+when its decimal is exactly a double, `Fraction(Decimal(text)) == Fraction(value)`: 0, 1, -2,
+0.5 and 0.375 do; 0.3 and `pi` do not. A computed operand (`p*10`, `x + 0`) or a definition's name
+also fails the rule.
+
+The float comparison is then exact, so the figure and the check choose the same branch at every
+reachable value, on or off the grid. `_source_match` applies the rule before the verifier call, so
+a failing figure is illustrative and costs no call. The flagship's `x < 0` stays checked.
+
+**R5-3: the switch and routes are reread before every call.**
+
+- `FigureRoute` takes `live_vault`, the vault as configured now. The sidecar passes
+  `ctx.loaded_vault`; without it, the vault is reloaded from disk.
+- `problem()`, which runs before every `ask`, refuses in these cases:
+  - `"disabled"`: the current vault is gone, or is another vault, or has `figures.enabled` off;
+  - `"rerouted"`: the current config plans a different route.
+- In the build, a stop (`routes.STOPPED`) on any author attempt, the verifier call, or the final
+  pre-store check raises `FigureRefused`. The remaining work is deferred, with no further call
+  and no row stored. The paid answers keep their checkpoints for a later build.
+
+**R5-4: the certification version.** `verify.CERTIFICATION_VERSION` is `3`; each value marks the
+rules it was certified under:
+
+- absent or 1: before round 4;
+- 2: round 4's display agreement;
+- 3: this round's branch rule as well.
+
+Every new report carries it in `verification_report_json`; there is no migration change.
+`service.certified_row` shows a stored "verified" with an older version as an illustration, with
+the reason "checked under an earlier rule …". It applies in `figure_view`, so it covers listing,
+delivery and reuse views.
+
+For reuse, the version is part of the reuse key (`request_hash`). A figure certified under older
+rules is a cache miss and is built and certified again. The test certifies under version 2: the
+figure then lists as an illustration, and a rebuild makes a new author call and stores a version-3
+"verified".
+
+**R5-5: formatting-derived numbers.** Structural verification also checks a percent readout's
+×100 value. 10^307 as a percent fails structure. The renderer's `formatValue` guards the scaled
+number and shows "—" for one that is not finite.
+
+The grammar did not change this round, so the corpora were not regenerated.
+
+### Fail-before counts (on `0c3146df2`)
+
+- `tests/test_figures_fix_round5.py`: **19 of 20 failed**. The one that passes is the `x < 0.5`
+  guard, which round 4 already checked.
+- vitest on the old frontend: the new percent test **failed**; it rendered `Infinity%`.
+
+### Gate (this fix round)
+
+- Setup as in rounds 2 to 4. `/tmp/learnloop-fullsuite.lock` was free.
+- `uv run lint-imports --no-cache`: **29 kept, 0 broken**.
+- Targeted pytest, `pytest -n auto` over **148 files** (round 4's 147 plus
+  `test_figures_fix_round5.py`): **2,899 passed, 2 xfailed, 0 failed** (8 min 2 s).
+- `--durable-sqlite` over the figure migration and prediction tests and the five review test files:
+  **133 passed**.
+- `-m durability` over the migration files: **3 passed**.
+- `apps/learnloop-tauri`:
+  - `npm run typecheck`: clean.
+  - `vitest run src/screens/reader`: **62 files, 620 passed**.
+  - `npm run frontend:build`: built.
+- DB references were regenerated and validated under `env -i`, and committed separately.
+- No migration, config key, RPC or `src-tauri` change, so cargo, the defaults snapshots and the RPC
+  pins were not rerun. The full suite is left to the landing gate (owner rule).
+- Every Python run outside pytest used the `env -i` wrapper.
+
+
+### Residual notes
+
+- After a certification bump, a passage can list two figures for one request: the old row, shown
+  as an illustration, and the newly certified one. The two rows have different reuse keys and
+  nothing links them.
+- Rule (d) remains a sampled sanity check, by ruling. Exactness rests on rules (a)–(c), the binding
+  and the branch rule.
