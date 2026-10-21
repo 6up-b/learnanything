@@ -87,11 +87,15 @@ def protection(vault: Any, repository: Any) -> Protection:
 
     from learnloop.content.sources.exam_material import held_out_item_ids, held_out_material
 
+    from learnloop.adaptive_difficulty.operation import rules
+
     try:
-        material = held_out_material(vault, repository)
+        with rules("predicate"):  # the predicate's own inputs (the AD guard's PREDICATE tables)
+            material = held_out_material(vault, repository)
         items = list(getattr(vault, "practice_items", {}).values())
         held = set(held_out_item_ids(items, material)) if items else set()
-        reserved = frozenset(str(item_id) for item_id in repository.reserved_exam_pool_item_ids())
+        with rules("predicate"):
+            reserved = frozenset(str(item_id) for item_id in repository.reserved_exam_pool_item_ids())
         held.update(reserved)
     except Exception:  # noqa: BLE001 - an unreadable predicate protects everything
         LOG.warning("held-out predicate unavailable: every item treated as protected", exc_info=True)

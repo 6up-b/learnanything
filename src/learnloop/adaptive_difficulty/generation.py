@@ -274,7 +274,6 @@ def serve_commissions(connection: Any, *, view: Any, now: str | None = None) -> 
             and row.get("learning_object_id")]
 
 
-@entry
 def schedule_commission_generation(vault: Any, repository: Any,
                                    enqueue: Callable[[str, str], Any] | None) -> list[str]:
     """§6.1 "The chosen point is commissioned for generation and runs in the background"
@@ -291,20 +290,12 @@ def schedule_commission_generation(vault: Any, repository: Any,
     if enqueue is None or not successor_active(vault.config) or not contract_on(vault.config):
         return []
     try:
-        from learnloop.db.connection import connect
-
-        from learnloop.adaptive_difficulty.material_view import material_view
-
-        view = material_view(vault, repository)
-        if not view.available:
-            return []  # nothing is queued while the held-out predicate is unavailable (A8)
-        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-            if not store.has_table(connection, store.SELECTIONS):
-                return []
-            rows = serve_commissions(connection, view=view)
+        rows = _queueable_commissions(vault, repository)
     except Exception:  # noqa: BLE001 - scheduling never fails a serve
         LOG.warning("AD commissions not read for generation", exc_info=True)
         return []
+    # The queue (and, in the foreground, its worker: the generation boundary, E1) runs outside the
+    # operation that chose what to queue: the generator writes the incumbent's tables.
     queued: list[str] = []
     for row in rows:
         try:
@@ -313,6 +304,20 @@ def schedule_commission_generation(vault: Any, repository: Any,
         except Exception:  # noqa: BLE001 - the next call retries it
             LOG.warning("AD commission %s not queued for generation", row["id"], exc_info=True)
     return queued
+
+
+@entry
+def _queueable_commissions(vault: Any, repository: Any, *, view: Any = None) -> list[dict[str, Any]]:
+    """The open serve-time commissions to queue, read in one AD operation."""
+
+    from learnloop.db.connection import connect
+
+    if not view.available:
+        return []  # nothing is queued while the held-out predicate is unavailable (A8)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        if not store.has_table(connection, store.SELECTIONS):
+            return []
+        return serve_commissions(connection, view=view)
 
 
 def _cells(vault: Any, item: Any) -> list[tuple[str, str]]:

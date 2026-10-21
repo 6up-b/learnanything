@@ -44,6 +44,7 @@ import logging
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
+from learnloop.adaptive_difficulty import protected_tables as _T
 from learnloop.adaptive_difficulty import protection as _predicate
 from learnloop.adaptive_difficulty.protection import Protection
 
@@ -51,19 +52,62 @@ LOG = logging.getLogger(__name__)
 
 #: Why a view is empty: the held-out predicate could not be computed.
 UNAVAILABLE = "held_out_predicate_unavailable"
+_VALUE = _T.VALUE
 #: The attempt types that never close a reading window (as the replay reads them, §5.6, D8).
 NON_WINDOW_TYPES = ("skip", "self_report")
 
 
 def _has_table(connection: Any, table: str) -> bool:
     return connection.execute(
-        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)).fetchone() is not None
+        "/* ad-rules */ SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)).fetchone() is not None
 
 
 def _rows(connection: Any, sql: str, args: Iterable[Any] = ()) -> list[dict[str, Any]]:
     cursor = connection.execute(sql, tuple(args))
     names = [d[0] for d in cursor.description]
     return [dict(zip(names, raw)) for raw in cursor.fetchall()]
+
+
+def _json(raw: Any, default: Any) -> Any:
+    if not isinstance(raw, str):
+        return raw if raw is not None else default
+    try:
+        return json.loads(raw)
+    except (TypeError, ValueError):
+        return default
+
+
+def _columns(table: str) -> Mapping[str, str]:
+    """The registry's classification of a protected table's columns (an error for any other)."""
+
+    try:
+        return _T.COLUMNS[table]
+    except KeyError:
+        raise ValueError(f"{table} is not a protected table of the AD registry") from None
+
+
+def _value(row: Mapping[str, Any], column: str) -> Any:
+    """A column's value in a raw row, or in a store's decoded row (``x_json`` decoded as ``x``)."""
+
+    if column in row:
+        return row[column]
+    if column.endswith("_json"):
+        return row.get(column[: -len("_json")])
+    return None
+
+
+#: Reference kinds that name a row of another protected table: ``(table, key column)``.
+_ENTITY_TABLES: dict[str, tuple[str, str]] = {
+    "attempt": ("practice_attempts", "id"),
+    "presentation": ("plan_presentations", "id"),
+    "reader_question": ("reader_authored_questions", "id"),
+    "question_event": ("question_events", "id"),
+    "dose_draw": ("ad_dose_offers", "id"),
+    "selection": ("ad_selections", "id"),
+    "receipt": ("forecast_receipts", "id"),
+    "administration": ("activity_administrations", "id"),
+    "surface": ("activity_surfaces", "id"),
+}
 
 
 def _spans(raw: Any) -> list[str]:
@@ -89,6 +133,181 @@ class MaterialView:
         self._answered: dict[str, tuple[str, ...]] | None = None
         self._frozen: dict[str, str] | None = None
         self._protected_only: dict[bool, set[str]] = {}
+        self._memo: dict[Any, Any] | None = None
+
+
+    # -- the registry's rule (``protected_tables.COLUMNS``) ------------------------------------------
+
+    def rows(self, connection: Any, table: str, where: str = "", args: Iterable[Any] = (), *,
+             order: str = "") -> list[dict[str, Any]]:
+        """The rows of a protected table AD may read: every column, the rows any of whose references
+        resolves to a withheld entity left out (:meth:`keep`), a reading receipt's doses without the
+        facets only withheld material names. Empty while unavailable or without the table."""
+
+        if not self.available or not _has_table(connection, table):
+            return []
+        _columns(table)
+        sql = f"/* ad-rules */ SELECT * FROM {table}" + (f" WHERE {where}" if where else "") + (
+            f" ORDER BY {order}" if order else "")
+        return self.filter(connection, table, _rows(connection, sql, args))
+
+    def filter(self, connection: Any, table: str, rows: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
+        """:meth:`rows`' rule over rows a store already read (decoded JSON columns included)."""
+
+        if not self.available:
+            return []
+        outer = self._memo
+        if outer is None:
+            # One filter call reads one state of the database: what it resolves is reused within it.
+            self._memo = {}
+        try:
+            return [self._transformed(connection, table, dict(row)) for row in rows
+                    if self.keep(connection, table, row)]
+        finally:
+            if outer is None:
+                self._memo = None
+
+    def lookup(self, connection: Any, table: str, where: str, args: Iterable[Any] = ()
+               ) -> tuple[str, dict[str, Any] | None]:
+        """An idempotency read of AD's own ledgers: ``("missing", None)``, ``("withheld", None)`` (a
+        row exists that AD may not read: its caller writes nothing and reads nothing of it) or
+        ``("ok", row)``. Everything is ``withheld`` while unavailable."""
+
+        if not _has_table(connection, table):
+            return "missing", None
+        _columns(table)
+        found = _rows(connection, f"/* ad-rules */ SELECT * FROM {table} WHERE {where}", args)
+        if not found:
+            return "missing", None
+        kept = self.filter(connection, table, found)
+        return ("ok", kept[0]) if len(kept) == len(found) else ("withheld", None)
+
+    def keep(self, connection: Any, table: str, row: Mapping[str, Any]) -> bool:
+        """The registry's one rule: a row is withheld when any reference column resolves to a withheld
+        entity (the kinds: ``protected_tables.COLUMNS``)."""
+
+        if not self.available:
+            return False
+        selfs = False
+        for column, kind in _columns(table).items():
+            if kind in (_VALUE, "doses"):
+                continue
+            if kind == "self":
+                selfs = True
+                continue
+            value = _value(row, column)
+            if value in (None, "") and not kind.startswith(("source@", "plan_detail@")):
+                continue
+            if self._ref_withheld(connection, table, row, kind, value):
+                return False
+        return not (selfs and self._self_withheld(connection, table, row))
+
+    def _transformed(self, connection: Any, table: str, row: dict[str, Any]) -> dict[str, Any]:
+        if table == "ad_reading_opportunities":
+            # The second named exception: a receipt's doses keep only facets the view still names
+            # (a frozen dose on a facet merely absent from current content stands, F30).
+            dropped = self.protected_only_facets(connection)
+            raw = row.get("facet_doses_json")
+            try:
+                doses = json.loads(raw) if isinstance(raw, str) else (raw or {})
+            except (TypeError, ValueError):
+                doses = {}
+            if isinstance(doses, Mapping):
+                kept = {f: d for f, d in doses.items() if self.vault.canonical_facet_id(str(f)) not in dropped}
+                row["facet_doses_json"] = json.dumps(kept, sort_keys=True)
+        return row
+
+    def _ref_withheld(self, connection: Any, table: str, row: Mapping[str, Any], kind: str, value: Any) -> bool:
+        base, _sep, arg = kind.partition("@")
+        if base == "entity":
+            entity = _T.ENTITY_KINDS.get(str(row.get(arg) or ""))
+            return entity is not None and self._ref_withheld(connection, table, row, entity, value)
+        if base == "item":
+            return self.withheld(value)
+        if base == "served_item":
+            if self.withheld(value):
+                return True
+            memo = self._memo if self._memo is not None else {}
+            if "serves" not in memo:
+                memo["serves"] = self._withheld_serves(connection)
+            return (str(row.get(arg)), str(value)) in memo["serves"]
+        if base == "revision":
+            return self.revision_hash_withheld(connection, value)
+        if base == "facet":
+            canonical = getattr(self.vault, "canonical_facet_id", lambda v: v)
+            return canonical(str(value)) in self.protected_only_facets(connection)
+        if base == "extraction":
+            return self.material_withheld(value)
+        if base == "span":
+            return self.material_withheld(row.get(arg), value)
+        if base == "section":
+            return self.section_withheld(str(row.get(arg)), str(value))
+        if base == "spans":
+            spans = value if isinstance(value, list) else _spans(value)
+            return any(self.material_withheld(row.get(arg), span) for span in spans)
+        if base == "note":
+            return self._note_ref_withheld(connection, value)
+        if base == "source":
+            return self._opportunity_withheld(connection, row)
+        if base == "plan_detail":
+            detail = value if isinstance(value, Mapping) else _json(value, {})
+            memo = self._memo if self._memo is not None else {}
+            if "plan_events" not in memo:
+                memo["plan_events"] = self.plan_event_visible(connection)
+            return not memo["plan_events"](str(row.get("kind")), detail, row.get(arg))
+        if base in _ENTITY_TABLES:
+            return self._entity_withheld(connection, base, value)
+        raise ValueError(f"unknown reference kind {kind!r} in {table}")
+
+    def _entity_withheld(self, connection: Any, kind: str, value: Any) -> bool:
+        """A reference to a row of another protected table: withheld when that row is (by its own
+        table's rule, in dependency order); a row since deleted is merely absent (not withheld)."""
+
+        memo = self._memo if self._memo is not None else {}
+        if (kind, str(value)) not in memo:
+            table, key = _ENTITY_TABLES[kind]
+            found = _rows(connection, f"/* ad-rules */ SELECT * FROM {table} WHERE {key} = ?", (str(value),)) \
+                if _has_table(connection, table) else []
+            memo[(kind, str(value))] = any(not self.keep(connection, table, row) for row in found)
+        return memo[(kind, str(value))]
+
+    def _self_withheld(self, connection: Any, table: str, row: Mapping[str, Any]) -> bool:
+        """A row's own identity, by its table's rule."""
+
+        if table == "practice_attempts":
+            return self.attempt_withheld(connection, row)
+        if table == "plan_presentations":
+            return self._presentation_withheld(connection, row)
+        if table == "reader_authored_questions":
+            return self.question_withheld(row)
+        if table == "question_events":
+            return self.question_event_withheld(connection, row.get("id"))
+        if table == "practice_item_snapshots":
+            return self.revision(connection, str(row.get("content_hash"))) is None
+        if table == "ad_dose_offers":
+            return str(row.get("row_kind")) == "draw" and self.dose_draw_withheld(connection, {
+                **dict(row), "content": row.get("content", _json(row.get("content_json"), {}))})
+        raise ValueError(f"no self rule for {table}")
+
+    def _note_ref_withheld(self, connection: Any, note_id: Any) -> bool:
+        from learnloop.ingest.locators import parse_block_span
+
+        parsed = parse_block_span(str(note_id))
+        if parsed is not None:
+            return self.material_withheld(parsed[0], parsed[1])
+        return self.note_withheld(connection, note_id)
+
+    def administration_item(self, connection: Any, administration_id: Any) -> str | None:
+        """The legacy practice item an activity administration served (its surface's), or None."""
+
+        if not administration_id or not _has_table(connection, "activity_administrations"):
+            return None
+        found = self.rows(connection, "activity_administrations", "id = ?", (str(administration_id),))
+        if not found or not found[0].get("surface_id"):
+            return None
+        surface = self.rows(connection, "activity_surfaces", "id = ?", (str(found[0]["surface_id"]),))
+        return str(surface[0]["legacy_practice_item_id"]) if surface and surface[0].get("legacy_practice_item_id") \
+            else None
 
     # -- items -----------------------------------------------------------------------------------
 
@@ -185,7 +404,7 @@ class MaterialView:
         visible = [item for item_id, item in current.items() if not self.withheld(item_id)]
         if connection is not None and _has_table(connection, "practice_item_snapshots"):
             for content_hash, item_json in connection.execute(
-                    "SELECT content_hash, item_json FROM practice_item_snapshots"):
+                    "/* ad-rules */ SELECT content_hash, item_json FROM practice_item_snapshots"):
                 try:
                     item = PracticeItem.model_validate_json(item_json)
                 except ValueError:
@@ -272,7 +491,7 @@ class MaterialView:
         if not (_has_table(connection, "source_revisions") and _has_table(connection, "source_extraction_runs")):
             return []
         return [str(row[0]) for row in connection.execute(
-            "SELECT run.id FROM source_extraction_runs AS run JOIN source_revisions AS revision "
+            "/* ad-rules */ SELECT run.id FROM source_extraction_runs AS run JOIN source_revisions AS revision "
             "ON revision.id = run.revision_id WHERE revision.note_id = ? ORDER BY run.id", (str(note_id),))]
 
     def note_withheld(self, connection: Any, note_id: Any) -> bool:
@@ -294,14 +513,11 @@ class MaterialView:
         return bool(extractions & held)
 
     def visible_commission_results(self, connection: Any) -> list[dict[str, Any]]:
-        """``ad_commission_results`` of visible items and revisions (Codex verify F29)."""
+        """``ad_commission_results`` of visible items, revisions and selections (Codex verify F29)."""
 
         from learnloop.db.stores import ad_serving
 
-        if not self.available:
-            return []
-        return [row for row in ad_serving.commission_results(connection)
-                if not self.revision_withheld(connection, row.get("content_hash"), row.get("practice_item_id"))]
+        return self.filter(connection, "ad_commission_results", ad_serving.commission_results(connection))
 
     def dose_extra_withheld(self, connection: Any, variant: Any, content: Any) -> bool:
         """Whether a drawn dose extra's content is withheld now (its question, or its example span)."""
@@ -312,11 +528,7 @@ class MaterialView:
         if variant == "extra_question":
             # Withheld when the question is protected now; a question since deleted is merely absent
             # from current content, and the offer record stands (as a frozen dose does, F30).
-            if not _has_table(connection, "reader_authored_questions"):
-                return False
-            found = _rows(connection, "SELECT * FROM reader_authored_questions WHERE id = ?",
-                          (str(content.get("question_id")),))
-            return bool(found) and self.question_withheld(found[0])
+            return self._entity_withheld(connection, "reader_question", content.get("question_id"))
         if variant == "extra_worked_example":
             return self.material_withheld(content.get("extraction_id"), content.get("span_id"))
         return False
@@ -334,16 +546,12 @@ class MaterialView:
         return self.dose_extra_withheld(connection, row.get("chosen_variant"), row.get("content"))
 
     def dose_rows(self, connection: Any) -> list[dict[str, Any]]:
-        """``ad_dose_offers`` rows revalidated now (Codex verify F29): a draw whose chosen extra is
-        withheld, and that draw's uptake rows, are left out. Empty while unavailable."""
+        """``ad_dose_offers`` rows revalidated now (Codex verify F29, F47): a draw withheld by its
+        originating section or its chosen extra, and that draw's uptake rows, are left out."""
 
         from learnloop.db.stores import ad_serving
 
-        if not self.available or not _has_table(connection, ad_serving.DOSE_OFFERS):
-            return []
-        rows = ad_serving.dose_rows(connection)
-        dropped = {str(row["id"]) for row in rows if row["row_kind"] == "draw" and self.dose_draw_withheld(connection, row)}
-        return [row for row in rows if str(row["id"]) not in dropped and str(row.get("draw_id")) not in dropped]
+        return self.filter(connection, "ad_dose_offers", ad_serving.dose_rows(connection))
 
     def open_commissions(self, connection: Any, *, now: str | None = None) -> list[dict[str, Any]]:
         """Open commissions as the view sees them: a result on a withheld item does not land, and a
@@ -368,7 +576,7 @@ class MaterialView:
             return None
         if content_hash not in self._revisions:
             found = connection.execute(
-                "SELECT practice_item_id, item_json FROM practice_item_snapshots WHERE content_hash = ?",
+                "/* ad-rules */ SELECT practice_item_id, item_json FROM practice_item_snapshots WHERE content_hash = ?",
                 (content_hash,)).fetchone()
             item = None
             if found is not None and not self.withheld(found[0]):
@@ -388,7 +596,7 @@ class MaterialView:
             return []
         out = []
         for (content_hash,) in connection.execute(
-                "SELECT content_hash FROM practice_item_snapshots ORDER BY created_at, content_hash"):
+                "/* ad-rules */ SELECT content_hash FROM practice_item_snapshots ORDER BY created_at, content_hash"):
             item = self.revision(connection, str(content_hash))
             if item is not None:
                 out.append((str(content_hash), item))
@@ -417,7 +625,7 @@ class MaterialView:
         if not _has_table(connection, "practice_item_snapshots"):
             return out, len(skipped)
         for content_hash, item_id, item_json in connection.execute(
-                "SELECT content_hash, practice_item_id, item_json FROM practice_item_snapshots "
+                "/* ad-rules */ SELECT content_hash, practice_item_id, item_json FROM practice_item_snapshots "
                 "ORDER BY created_at, content_hash"):
             if content_hash in seen or content_hash in skipped:
                 continue
@@ -445,7 +653,7 @@ class MaterialView:
             return True
         if not content_hash:
             return False
-        found = connection.execute("SELECT 1 FROM practice_item_snapshots WHERE content_hash = ?",
+        found = connection.execute("/* ad-rules */ SELECT 1 FROM practice_item_snapshots WHERE content_hash = ?",
                                    (content_hash,)).fetchone()
         return found is not None and self.revision(connection, content_hash) is None
 
@@ -458,7 +666,7 @@ class MaterialView:
             frozen: dict[str, str] = {}
             if _has_table(connection, "item_serve_inputs"):
                 for presentation_id, content_hash in connection.execute(
-                        "SELECT plan_presentation_id, content_hash FROM item_serve_inputs "
+                        "/* ad-rules */ SELECT plan_presentation_id, content_hash FROM item_serve_inputs "
                         "WHERE plan_presentation_id IS NOT NULL"):
                     frozen.setdefault(str(presentation_id), str(content_hash))
             self._frozen = frozen
@@ -475,7 +683,7 @@ class MaterialView:
             answered: dict[str, set[str]] = {}
             frozen = self._frozen_revisions(connection)
             for attempt_id, presentation_id in connection.execute(
-                    "SELECT id, plan_presentation_id FROM practice_attempts"):
+                    "/* ad-rules */ SELECT id, plan_presentation_id FROM practice_attempts"):
                 if presentation_id and str(presentation_id) in frozen:
                     answered.setdefault(str(attempt_id), set()).add(frozen[str(presentation_id)])
             try:
@@ -495,7 +703,7 @@ class MaterialView:
 
         out = []
         for content_hash in self._answered_revisions(connection).get(str(attempt_id), ()):
-            found = connection.execute("SELECT item_json FROM practice_item_snapshots WHERE content_hash = ?",
+            found = connection.execute("/* ad-rules */ SELECT item_json FROM practice_item_snapshots WHERE content_hash = ?",
                                        (content_hash,)).fetchone()
             if found is None:
                 continue
@@ -530,8 +738,7 @@ class MaterialView:
     def attempt_withheld_by_id(self, connection: Any, attempt_id: Any) -> bool:
         """Whether an attempt (by id) is withheld now; a missing attempt is withheld (fail closed)."""
 
-        found = _rows(connection, "SELECT * FROM practice_attempts WHERE id = ?", (str(attempt_id),))
-        return not self.available or not found or self.attempt_withheld(connection, found[0])
+        return self.lookup(connection, "practice_attempts", "id = ?", (str(attempt_id),))[0] != "ok"
 
     def attempt_withheld(self, connection: Any, row: Mapping[str, Any]) -> bool:
         """Whether an attempt is withheld: its item is withheld now, or a revision it answered is
@@ -550,10 +757,7 @@ class MaterialView:
         replay's windows and first surfaces, field rows and their familiarity history, duration
         estimates, the dose moderator, practice minutes, history cards)."""
 
-        if not self.available:
-            return []
-        return [row for row in _rows(connection, "SELECT * FROM practice_attempts ORDER BY created_at, id")
-                if not self.attempt_withheld(connection, row)]
+        return self.rows(connection, "practice_attempts", order="created_at, id")
 
     def attempted_item_ids(self, connection: Any) -> set[str]:
         return {str(row["practice_item_id"]) for row in self.attempts(connection)}
@@ -628,29 +832,17 @@ class MaterialView:
     def presentations(self, connection: Any) -> dict[str, dict[str, Any]]:
         """Plan presentations of visible items and revisions, by id."""
 
-        if not self.available or not _has_table(connection, "plan_presentations"):
-            return {}
-        return {str(row["id"]): row for row in _rows(connection, "SELECT * FROM plan_presentations")
-                if not self._presentation_withheld(connection, row)}
+        return {str(row["id"]): row for row in self.rows(connection, "plan_presentations")}
 
     def presentation(self, connection: Any, presentation_id: str) -> dict[str, Any] | None:
-        if not self.available or not _has_table(connection, "plan_presentations"):
-            return None
-        found = _rows(connection, "SELECT * FROM plan_presentations WHERE id = ?", (presentation_id,))
-        return found[0] if found and not self._presentation_withheld(connection, found[0]) else None
+        found = self.rows(connection, "plan_presentations", "id = ?", (presentation_id,))
+        return found[0] if found else None
 
     def presentation_status(self, connection: Any, presentation_id: str) -> tuple[str, dict[str, Any] | None]:
         """``("ok", row)``, ``("withheld", None)`` (its item is withheld now: a caller reports
         ``protected`` and reads nothing of it) or ``("missing", None)``."""
 
-        if not _has_table(connection, "plan_presentations"):
-            return "missing", None
-        found = connection.execute("SELECT practice_item_id FROM plan_presentations WHERE id = ?",
-                                   (presentation_id,)).fetchone()
-        if found is None:
-            return "missing", None
-        row = self.presentation(connection, presentation_id)
-        return ("withheld", None) if row is None else ("ok", row)
+        return self.lookup(connection, "plan_presentations", "id = ?", (presentation_id,))
 
     def plan_event_visible(self, connection: Any) -> Any:
         """The rule for plan block events AD may read (the feedback dwell of AD's candidate
@@ -658,7 +850,7 @@ class MaterialView:
         withheld presentation (its block and item), or a completion of a withheld attempt, is
         invisible. Everything is invisible while unavailable."""
 
-        attempts = {str(row["id"]): row for row in _rows(connection, "SELECT * FROM practice_attempts")}
+        attempts = {str(row["id"]): row for row in _rows(connection, "/* ad-rules */ SELECT * FROM practice_attempts")}
         # A serve is withheld with its presentation (its frozen revision): the plan's events name
         # no presentation, so it is found by its block and item.
         withheld_serves = self._withheld_serves(connection) if self.available else set()
@@ -677,29 +869,11 @@ class MaterialView:
         return visible
 
     def reveals(self, connection: Any) -> list[dict[str, Any]]:
-        """``reveal_events`` rows AD may see (an exposure warms its LO, §5.2).
+        """``reveal_events`` rows AD may see (an exposure warms its LO, §5.2): withheld with its item,
+        its attempt, or its tutor question (and so that question's attempt): an attempt withheld for
+        the revision it answered withholds its reveals too (Codex verify F20, fix round 10)."""
 
-        A reveal is withheld with its item, and with the attempt it belongs to (its ``attempt_id``,
-        or its tutor question's attempt): an attempt withheld for the revision it answered withholds
-        its reveals too (Codex verify F20, fix round 10)."""
-
-        if not self.available or not _has_table(connection, "reveal_events"):
-            return []
-        attempts = {str(row["id"]): row for row in _rows(connection, "SELECT * FROM practice_attempts")}
-        question_attempts: dict[str, str] = {}
-        if _has_table(connection, "question_events"):
-            question_attempts = {str(qid): str(aid) for qid, aid in connection.execute(
-                "SELECT id, attempt_id FROM question_events WHERE attempt_id IS NOT NULL")}
-        out = []
-        for row in _rows(connection, "SELECT * FROM reveal_events ORDER BY created_at, id"):
-            if row.get("practice_item_id") and self.withheld(row.get("practice_item_id")):
-                continue
-            attempt_id = row.get("attempt_id") or question_attempts.get(str(row.get("question_event_id") or ""))
-            attempt = attempts.get(str(attempt_id)) if attempt_id else None
-            if attempt is not None and self.attempt_withheld(connection, attempt):
-                continue
-            out.append(row)
-        return out
+        return self.rows(connection, "reveal_events", order="created_at, id")
 
     def withheld_reveal_ids(self, connection: Any) -> set[str]:
         """The ``reveal_events`` ids AD may not read (every one while unavailable): for a reader
@@ -707,7 +881,7 @@ class MaterialView:
 
         if not _has_table(connection, "reveal_events"):
             return set()
-        every = {str(row[0]) for row in connection.execute("SELECT id FROM reveal_events")}
+        every = {str(row[0]) for row in connection.execute("/* ad-rules */ SELECT id FROM reveal_events")}
         return every - {str(row["id"]) for row in self.reveals(connection)}
 
     def _withheld_serves(self, connection: Any) -> set[tuple[str, str]]:
@@ -716,7 +890,7 @@ class MaterialView:
         if not _has_table(connection, "plan_presentations"):
             return set()
         return {(str(row.get("block_id")), str(row.get("practice_item_id")))
-                for row in _rows(connection, "SELECT * FROM plan_presentations")
+                for row in _rows(connection, "/* ad-rules */ SELECT * FROM plan_presentations")
                 if self._presentation_withheld(connection, row)}
 
     def selections(self, connection: Any, *, kind: str | None = None) -> list[dict[str, Any]]:
@@ -732,20 +906,7 @@ class MaterialView:
         if not self.available or not _has_table(connection, ad_serving.SELECTIONS):
             return []
         rows = ad_serving.selections(connection, kind=kind) if kind else ad_serving.selections(connection)
-        serves = self._withheld_serves(connection)
-        facets = self.protected_only_facets(connection)
-        canonical = getattr(self.vault, "canonical_facet_id", lambda value: value)
-        out = []
-        for row in rows:
-            # The chosen item and the originating slot's item, each with its presentation, for every
-            # kind of draw, an empty-support draw included (Codex verify F39, fix round 12).
-            if any(item and (self.withheld(item) or (str(row.get("block_id")), str(item)) in serves)
-                   for item in (row.get("chosen_item_id"), row.get("slot_item_id"))):
-                continue
-            if row.get("cell_facet") and canonical(str(row["cell_facet"])) in facets:
-                continue
-            out.append(row)
-        return out
+        return self.filter(connection, "ad_selections", rows)
 
     def revision_hash_withheld(self, connection: Any, content_hash: Any) -> bool:
         """Whether a revision named only by its hash is withheld: a saved revision is judged by its
@@ -756,7 +917,7 @@ class MaterialView:
             return True
         if not content_hash:
             return False
-        found = connection.execute("SELECT 1 FROM practice_item_snapshots WHERE content_hash = ?",
+        found = connection.execute("/* ad-rules */ SELECT 1 FROM practice_item_snapshots WHERE content_hash = ?",
                                    (str(content_hash),)).fetchone()
         if found is not None:
             return self.revision(connection, str(content_hash)) is None
@@ -782,16 +943,15 @@ class MaterialView:
                 if canonical(str(facet)) not in facets}
 
     def forecast_receipts(self, connection: Any, *, kind: str) -> list[dict[str, Any]]:
-        """Forecast receipts of visible items and revisions (Codex verify F24: a calibration fit and
-        a forecaster's history never read a withheld item's forecast, whatever the current target)."""
+        """Forecast receipts of visible items, revisions, attempts and presentations (Codex verify
+        F24: a calibration fit and a forecaster's history never read a withheld item's forecast,
+        whatever the current target)."""
 
         from learnloop.db.stores import forecast_receipts as receipt_store
 
         if not self.available:
             return []
-        return [receipt for receipt in receipt_store.list_receipts(connection, kind=kind)
-                if not self.revision_withheld(connection, receipt.get("item_content_hash"),
-                                              receipt.get("practice_item_id"))]
+        return self.filter(connection, "forecast_receipts", receipt_store.list_receipts(connection, kind=kind))
 
     # -- the Reader's sources --------------------------------------------------------------------
 
@@ -842,7 +1002,7 @@ class MaterialView:
         columns = {str(row[1]) for row in connection.execute("PRAGMA table_info(question_events)")}
         context_column = "source_context_json" if "source_context_json" in columns else "NULL"
         found = connection.execute(
-            f"SELECT note_id, practice_item_id, {context_column} FROM question_events WHERE id = ?",
+            f"/* ad-rules */ SELECT note_id, practice_item_id, {context_column} FROM question_events WHERE id = ?",
             (str(question_id),)).fetchone()
         if found is None:
             return False
@@ -886,32 +1046,23 @@ class MaterialView:
     def answered_questions(self, connection: Any, styles: Sequence[str]) -> list[dict[str, Any]]:
         """Answered, undismissed Reader questions of these styles that are not withheld."""
 
-        if not self.available or not _has_table(connection, "reader_authored_questions"):
-            return []
         marks = ",".join("?" for _ in styles)
-        # The anchors AND the cited spans are selected before the check (Codex verify F31).
-        return [row for row in _rows(
-            connection, "SELECT id, extraction_id, section_id, question_style, anchor_span_ids_json, span_ids_json, "
-            f"answered_at FROM reader_authored_questions WHERE answered_at IS NOT NULL AND status != 'dismissed' "
-            f"AND question_style IN ({marks})", styles) if not self.question_withheld(row)]
+        # The anchors AND the cited spans are judged (Codex verify F31): the registry's self rule.
+        return self.rows(connection, "reader_authored_questions",
+                         f"answered_at IS NOT NULL AND status != 'dismissed' AND question_style IN ({marks})", styles)
 
     def question(self, connection: Any, question_id: Any) -> dict[str, Any] | None:
         """One Reader question's row (every column), or None when it is missing or withheld."""
 
-        if not self.available or not _has_table(connection, "reader_authored_questions"):
-            return None
-        found = _rows(connection, "SELECT * FROM reader_authored_questions WHERE id = ?", (str(question_id),))
-        return found[0] if found and not self.question_withheld(found[0]) else None
+        found = self.rows(connection, "reader_authored_questions", "id = ?", (str(question_id),))
+        return found[0] if found else None
 
     def open_questions(self, connection: Any, extraction_id: str, section_id: str) -> list[dict[str, Any]]:
         """A section's produced, unanswered, undismissed Reader questions that are not withheld."""
 
-        if not self.available or not _has_table(connection, "reader_authored_questions"):
-            return []
-        return [row for row in _rows(
-            connection, "SELECT * FROM reader_authored_questions WHERE extraction_id = ? AND section_id = ? "
-            "AND answered_at IS NULL AND status != 'dismissed' ORDER BY created_at, id", (extraction_id, section_id))
-            if not self.question_withheld(row)]
+        return self.rows(connection, "reader_authored_questions",
+                         "extraction_id = ? AND section_id = ? AND answered_at IS NULL AND status != 'dismissed'",
+                         (extraction_id, section_id), order="created_at, id")
 
     def reading_opportunities(self, connection: Any, *, learning_object_ids: Sequence[str] | None = None
                               ) -> list[dict[str, Any]]:
@@ -922,66 +1073,57 @@ class MaterialView:
 
         from learnloop.db.stores import ad_receipts
 
-        if not self.available or not _has_table(connection, ad_receipts.READING):
-            return []
         wanted = None if learning_object_ids is None else {str(lo) for lo in learning_object_ids}
-        dropped = self.protected_only_facets(connection)
-        out = []
-        for row in _rows(connection, f"SELECT * FROM {ad_receipts.READING} ORDER BY source_written_at, id"):
-            if wanted is not None and str(row.get("learning_object_id")) not in wanted:
-                continue
-            if self._opportunity_withheld(connection, row):
-                continue
-            try:
-                doses = json.loads(row.get("facet_doses_json") or "{}")
-            except (TypeError, ValueError):
-                doses = {}
-            if isinstance(doses, Mapping):
-                kept = {f: d for f, d in doses.items() if self.vault.canonical_facet_id(str(f)) not in dropped}
-                row = {**row, "facet_doses_json": json.dumps(kept, sort_keys=True)}
-            out.append(row)
-        return out
+        return [row for row in self.rows(connection, ad_receipts.READING, order="source_written_at, id")
+                if wanted is None or str(row.get("learning_object_id")) in wanted]
 
     def _opportunity_withheld(self, connection: Any, row: Mapping[str, Any]) -> bool:
-        """Resolve a receipt's source again against the current predicate. A source row since
-        deleted cannot be resolved and its receipt stands as recorded (receipts are frozen: a
-        deleted source leaves them, §5.11); one that cannot be read is withheld (fail closed)."""
+        """Resolve a receipt's source again against the current predicate: the source row, by its own
+        table's rule. A source row since deleted cannot be resolved and its receipt stands as recorded
+        (receipts are frozen: a deleted source leaves them, §5.11; Codex verify F30); one that cannot
+        be read is withheld (fail closed)."""
 
         table, source, kind = str(row.get("source_table")), str(row.get("source_id") or ""), str(row.get("kind"))
-
-        def question_withheld(question_id: Any) -> bool:
-            found = _rows(connection, "SELECT * FROM reader_authored_questions WHERE id = ?", (str(question_id),)) \
-                if _has_table(connection, "reader_authored_questions") else []
-            return bool(found) and self.question_withheld(found[0])
-
         try:
             if table == "reader_section_progress":
                 extraction, _sep, rest = source.partition("/")
                 if kind == "worked_example":
                     return self.material_withheld(extraction, rest)
                 return self.section_withheld(extraction, rest)
-            if table == "source_exposure_events":
-                found = connection.execute("SELECT extraction_id, span_id FROM source_exposure_events WHERE id = ?",
-                                           (source,)).fetchone()
-                return found is not None and self.material_withheld(found[0], found[1])
-            if table == "question_events":
-                # The one tutor-question reader (F46, round 14; F43's note check is part of it).
-                return self.question_event_withheld(connection, source)
-            if table == "reader_authored_questions":
-                return question_withheld(source)
-            if table == "judgment_ledger":
-                found = connection.execute("SELECT left_id FROM judgment_ledger WHERE id = ?", (source,)).fetchone()
-                return found is not None and question_withheld(found[0])
-            if table == "interaction_events":
-                found = connection.execute(
-                    "SELECT s.legacy_practice_item_id FROM interaction_events e "
-                    "LEFT JOIN activity_administrations a ON a.id = e.administration_id "
-                    "LEFT JOIN activity_surfaces s ON s.id = a.surface_id WHERE e.id = ?", (source,)).fetchone()
-                return found is not None and bool(found[0]) and self.withheld(found[0])
+            if table in _T.COLUMNS and table != "ad_reading_opportunities":
+                if not _has_table(connection, table):
+                    return False
+                found = _rows(connection, f"/* ad-rules */ SELECT * FROM {table} WHERE id = ?", (source,))
+                return any(not self.keep(connection, table, found_row) for found_row in found)
         except Exception:  # noqa: BLE001 - an unreadable source is withheld (fail closed)
             LOG.warning("AD reading source %s/%s unresolved: withheld", table, source, exc_info=True)
             return True
         return True
+
+
+def _in_rules(method: Any) -> Any:
+    """Run a view reader in the rules' read scope (the AD guard lets the rules read protected
+    tables; their SQL carries the rules marker)."""
+
+    import functools
+
+    from learnloop.adaptive_difficulty.operation import rules
+
+    @functools.wraps(method)
+    def reader(*args: Any, **kwargs: Any) -> Any:
+        with rules("view"):
+            return method(*args, **kwargs)
+
+    return reader
+
+
+def _wrap_readers(cls: type) -> None:
+    for name, method in list(vars(cls).items()):
+        if callable(method) and not name.startswith("__") and not isinstance(method, (staticmethod, classmethod, type)):
+            setattr(cls, name, _in_rules(method))
+
+
+_wrap_readers(MaterialView)
 
 
 def material_view(vault: Any, repository: Any, protected: Any = None) -> MaterialView:

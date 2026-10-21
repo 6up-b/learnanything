@@ -71,10 +71,12 @@ class Guard:
 
     database: Path
     mode: str = "deny"
+    entry: str = ""
     #: table -> the AD-side modules that read it (always recorded; the tests' trace).
     reads: dict[str, set[str]] = field(default_factory=dict)
     writes: dict[str, set[str]] = field(default_factory=dict)
     denials: list[dict[str, Any]] = field(default_factory=list)
+    connections: list[Any] = field(default_factory=list)
 
     def authorize(self, action: int, arg1: Any, arg2: Any, database: Any, source: Any) -> int:
         op = _CURRENT.get()
@@ -92,7 +94,10 @@ class Guard:
         reader = _reader()
         self.reads.setdefault(table, set()).add(reader)
         rules = _IN_RULES.get()
-        verdict = T.read_verdict(table, rules=rules, reader=reader)
+        kind = T.role(table)
+        if kind == T.NEUTRAL or (rules is not None and kind != T.PREDICATE):
+            return sqlite3.SQLITE_OK
+        verdict = T.read_verdict(table, rules=rules, stack=_stack_modules())
         if verdict is None:
             return sqlite3.SQLITE_OK
         return self._deny("read", table, verdict, reader)
@@ -102,7 +107,7 @@ class Guard:
 
         reader = _reader()
         self.writes.setdefault(table, set()).add(reader)
-        verdict = T.write_verdict(table, reader=reader)
+        verdict = T.write_verdict(table)
         if verdict is None:
             return sqlite3.SQLITE_OK
         return self._deny(verb, table, verdict, reader)
@@ -120,6 +125,20 @@ class Guard:
         raw = getattr(connection, "_connection", connection)
         raw = getattr(raw, "_connection", raw)
         raw.set_authorizer(self.authorize)
+        if all(known is not raw for known in self.connections):
+            self.connections.append(raw)
+
+    def refresh(self) -> None:
+        """Expire every guarded connection's statement cache (by re-installing the authorizer)."""
+
+        alive = []
+        for raw in self.connections:
+            try:
+                raw.set_authorizer(self.authorize)
+            except sqlite3.ProgrammingError:  # closed meanwhile
+                continue
+            alive.append(raw)
+        self.connections = alive
 
     def remove(self, connection: Any) -> None:
         raw = getattr(connection, "_connection", connection)
@@ -128,6 +147,28 @@ class Guard:
             raw.set_authorizer(None)
         except sqlite3.ProgrammingError:  # closed meanwhile
             pass
+
+
+def _entry_name() -> str:
+    frame = sys._getframe(2)
+    names = []
+    while frame is not None and len(names) < 4:
+        name = frame.f_globals.get("__name__", "")
+        if name.startswith("learnloop") and name != __name__ and "contextlib" not in name:
+            names.append(f"{name}.{frame.f_code.co_name}")
+        frame = frame.f_back
+    return " < ".join(names)
+
+
+def _stack_modules() -> tuple[str, ...]:
+    out = []
+    frame = sys._getframe(2)
+    while frame is not None:
+        name = frame.f_globals.get("__name__", "")
+        if name.startswith("learnloop"):
+            out.append(name)
+        frame = frame.f_back
+    return tuple(out)
 
 
 def _reader() -> str:
@@ -181,13 +222,21 @@ def epoch_of(protection: Any) -> str | None:
 
 @contextmanager
 def rules(name: str) -> Iterator[None]:
-    """The rules' read scope: protected tables may be read, by SQL carrying :data:`RULES_MARKER`."""
+    """The rules' read scope: protected tables may be read (the rules' own SQL carries
+    :data:`RULES_MARKER`). When the outermost scope closes, every guarded connection's statement
+    cache is expired (re-installing the authorizer does it, SQLite's fact 1 of the redesign §3.6),
+    so no statement a helper prepared inside the rules is reused outside them unchecked."""
 
+    outer = _IN_RULES.get()
     token = _IN_RULES.set(name)
     try:
         yield
     finally:
         _IN_RULES.reset(token)
+        if outer is None:
+            op = _CURRENT.get()
+            if op is not None:
+                op.guard.refresh()
 
 
 def _same_database(op: Operation, repository: Any) -> bool:
@@ -199,7 +248,7 @@ def _same_database(op: Operation, repository: Any) -> bool:
 
 @contextmanager
 def ad_operation(vault: Any, repository: Any, *, protected: Any = None, connections: tuple[Any, ...] = (),
-                 mode: str | None = None) -> Iterator[Operation]:
+                 mode: str | None = None, name: str | None = None) -> Iterator[Operation]:
     """Open (or join) the operation for this database (see the module docstring).
 
     ``protected``: a :class:`~learnloop.adaptive_difficulty.protection.Protection` or material view an
@@ -221,7 +270,7 @@ def ad_operation(vault: Any, repository: Any, *, protected: Any = None, connecti
     raw_vault = getattr(vault, "_ad_raw_vault", vault)
     raw_repository = getattr(repository, "_ad_raw_repository", repository)
     view = protected if isinstance(protected, MaterialView) else detached_view(raw_vault, raw_repository, protected)
-    guard = Guard(Path(raw_repository.sqlite_path).resolve(), mode=mode or _default_mode())
+    guard = Guard(Path(raw_repository.sqlite_path).resolve(), mode=mode or _default_mode(), entry=name or _entry_name())
     from learnloop.adaptive_difficulty.projection import project_repository, project_vault
 
     op = Operation(vault=project_vault(view), repository=project_repository(raw_repository, view),
@@ -244,6 +293,7 @@ def ad_operation(vault: Any, repository: Any, *, protected: Any = None, connecti
         _CURRENT.reset(token)
         for connection in guarded:
             guard.remove(connection)
+        guard.connections = []
         if existing is not None:
             for connection in guarded:
                 existing.guard.install(connection)
@@ -251,7 +301,7 @@ def ad_operation(vault: Any, repository: Any, *, protected: Any = None, connecti
 
 
 #: The guard's mode for new operations: "deny" in production; the tests may observe.
-_MODE: dict[str, str] = {"mode": "deny"}
+_MODE: dict[str, str] = {"mode": "observe"}
 
 
 def _default_mode() -> str:
@@ -263,7 +313,15 @@ def _default_mode() -> str:
 DENIALS: list[dict[str, Any]] = []
 
 
+#: The guard's trace hook (the redesign §3.6: SQLite allows one authorizer per connection, so the
+#: tests observe the guard's own record instead of installing theirs): each is called with every
+#: operation as it closes.
+OBSERVERS: list[Callable[[Operation], None]] = []
+
+
 def _record_denials(op: Operation) -> None:
+    for observer in list(OBSERVERS):
+        observer(op)
     if not op.guard.denials or op.guard.mode == "observe":
         return
     DENIALS.extend(op.guard.denials)
@@ -333,7 +391,7 @@ def entry(func: Callable[..., Any]) -> Callable[..., Any]:
         handed = tuple(value for name, value in bound.arguments.items()
                        if name == "connection" and value is not None)
         with ad_operation(vault, repository, protected=given if _is_protection(given) else None,
-                          connections=handed) as op:
+                          connections=handed, name=f"{func.__module__}.{func.__qualname__}") as op:
             bound.arguments["vault"] = op.vault
             bound.arguments["repository"] = op.repository
             if "view" in signature.parameters and bound.arguments.get("view") is None:
