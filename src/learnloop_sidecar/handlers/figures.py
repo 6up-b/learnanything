@@ -5,8 +5,9 @@
   at once on the request path (the switches; exam and held-out material is
   refused before any job or model call, the one predicate); then the build
   runs off the request path as a job (RW4a's runner): reuse by input hash,
-  the author (at most two attempts), verification, the verifier (at most one
-  call) and the sandbox.
+  the author (at most two attempts) and verification (structure, invariants,
+  shaded areas; no source check in RW5a), every request admitted by the
+  build's FiguresGate against the vault loaded now.
 * ``reader.figure_revise``: "not right?" with the learner's note, a new
   version superseding the shown one (the earlier one is kept).
 * ``reader.figure_job`` / ``reader.figure_job_cancel``: read a build at once
@@ -116,15 +117,13 @@ def _start(ctx: SidecarContext, request: FS.FigureRequest) -> dict[str, Any]:
 
     vault, _repository = _require(ctx)
     author = getattr(ctx, "figure_author_client", None)
-    verifier = getattr(ctx, "figure_verifier_client", None)
-    sandbox_run = getattr(ctx, "figure_sandbox_run", None)
 
     def work(worker_repo: Any) -> dict[str, Any]:
         try:
-            # The switch and the routes are reread from the vault loaded NOW
-            # before every call (fix round 5), not the one captured here.
-            outcome = FS.build_figure(vault, worker_repo, request, author_client=author, verifier_client=verifier,
-                                      sandbox_run=sandbox_run, live_vault=ctx.loaded_vault)
+            # Every request is admitted against the vault loaded NOW (the
+            # build's FiguresGate), not the one captured here.
+            outcome = FS.build_figure(vault, worker_repo, request, author_client=author,
+                                      live_vault=ctx.loaded_vault)
         except FS.FigureRefused as exc:
             raise _refused(exc) from exc
         return {"figure": outcome.view, "reused": outcome.reused}

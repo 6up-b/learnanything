@@ -1,9 +1,8 @@
-"""Reader RW5a: verification before a figure shows (spec §8.3; G23, G45).
+"""Reader RW5a: verification before a figure shows (spec §8.3 steps 1-2; G23 vacuous, G45).
 
-Structure and invariants decide whether a figure is shown at all; the source
-match (the verifier's sympy check, run in the PF-b sandbox with negative
-controls) decides whether a reconstruction is labelled as matching the book.
-All model calls are fakes; the sandbox runs for real where bubblewrap exists.
+Structure and invariants decide whether a figure is shown at all. RW5a has no
+source match (§8.3 step 3 is RW5c's): every shown figure is an illustration.
+All model calls are fakes.
 """
 
 from __future__ import annotations
@@ -25,10 +24,8 @@ from tests.figure_fixtures import (
     flagship,
     half_density,
     rows,
-    sandbox_ready,
 )
 
-needs_sandbox = pytest.mark.skipif(not sandbox_ready(), reason="bubblewrap is not available here")
 
 
 def test_numeric_checks_pass_the_flagship_and_reject_the_half_negative_control():
@@ -84,86 +81,29 @@ def test_quotes_must_be_verbatim():
     assert shown[0]["quote"] == "0 < p < 1 and \\lambda > 0" and shown[1]["quote"] is None
 
 
-@needs_sandbox
-def test_source_match_runs_the_verifiers_check_in_the_sandbox_with_negative_controls():
-    from learnloop.figures import grammar as G
-    from tests.figure_fixtures import GOOD_CHECK, SOURCE_EXPRESSION
+def test_g23_holds_vacuously_a_reconstruction_is_an_illustration(tmp_path):
+    """RW5a makes no "matches the book" claim (owner scope decision
+    2026-10-21; the source check is RW5c's): G23 ("only after step 3 passed")
+    holds vacuously. A reconstruction is stored and shown as an illustration,
+    and an injected verifier is never asked."""
 
-    compiled = S.parse_spec(flagship())
-    answer = G.to_sympy(compiled.definitions["f"], compiled.definitions)
-    good = V.run_source_match(answer, V.SourceCheck(SOURCE_EXPRESSION, GOOD_CHECK))
-    assert good["matched"] is True and good["checks"] == [True, False, False]
-    always = V.run_source_match(answer, V.SourceCheck(SOURCE_EXPRESSION, "def check(r, a):\n    return True\n"))
-    assert always["matched"] is False and "negative control" in always["reason"]
-    wrong = V.run_source_match(answer, V.SourceCheck(SOURCE_EXPRESSION.replace("(1 - p)", "p"), GOOD_CHECK))
-    assert wrong["matched"] is False and "does not equal" in wrong["reason"]
+    from learnloop.figures import service as FS
 
-
-def test_the_check_never_runs_in_process(monkeypatch):
-    """No sandbox: the source match cannot run, so a reconstruction is an
-    illustration (the verifier's text is never executed here)."""
-
-    from learnloop.content.authoring import pf_sandbox
-
-    def unavailable(*_args, **_kwargs):
-        raise pf_sandbox.SandboxUnavailable("no bubblewrap")
-
-    monkeypatch.setattr(pf_sandbox, "run_sandboxed_python", unavailable)
-    from tests.figure_fixtures import GOOD_CHECK, SOURCE_EXPRESSION
-
-    result = V.run_source_match("x", V.SourceCheck(SOURCE_EXPRESSION, GOOD_CHECK))
-    assert result == {"matched": False, "reason": "sandbox_unavailable"}
-
-
-@needs_sandbox
-def test_g23_a_verified_reconstruction_is_labelled_as_matching_the_book(tmp_path):
     paths, repository = build_figure_vault(tmp_path / "vault")
     author, verifier = AuthorFake(), VerifierFake()
-    result = build(context(paths.root, author=author, verifier=verifier))
-    figure = result["figure"]
-    assert figure["verification"] == "verified"
-    assert figure["label"] == "AI-built · matches the book's equation (checked)"
-    assert json.loads(figure["specJson"])["kind"] == "reconstructed"
-    assert author.calls == 1 and verifier.calls == 1
-    (row,) = rows(repository, "interactive_figures")
-    report = json.loads(row["verification_report_json"])
-    assert report["source_match"]["matched"] is True and report["claims"][0]["verified"] is True
-    (ledger,) = [r for r in rows(repository, "judgment_ledger") if r["task"] == "figure_verified"]
-    assert ledger["judge"] == "verifier" and ledger["verdict"] == "verified" and ledger["left_id"] == row["id"]
-    # The assumption whose quote is not the book's keeps its text, unquoted.
-    assert [a["quote"] for a in figure["assumptions"]] == ["0 < p < 1 and \\lambda > 0", None]
-
-
-@pytest.mark.parametrize("verifier_kwargs, reason", [
-    ({"program": "def check(r, a):\n    return True\n"}, "negative control"),
-    ({"quote": "a quote the figure never claimed"}, "not the figure's source claim"),
-    ({"fail": RuntimeError("down")}, "verifier_failed"),
-])
-def test_failing_the_source_match_alone_downgrades_to_an_illustration(tmp_path, monkeypatch, verifier_kwargs, reason):
-    if "program" in verifier_kwargs and not sandbox_ready():
-        pytest.skip("bubblewrap is not available here")
-    paths, _repository = build_figure_vault(tmp_path / "vault")
-    figure = build(context(paths.root, author=AuthorFake(), verifier=VerifierFake(**verifier_kwargs)))["figure"]
+    figure = build(context(paths.root, author=author, verifier=verifier))["figure"]
     assert figure["verification"] == "illustrative"
     assert figure["label"] == "AI-built illustration of an interpretation · not checked against the book"
-    assert reason in (figure["reason"] or "")
-    assert figure["specJson"] is not None
-
-
-def test_no_quote_in_the_passage_means_no_source_match_and_no_verifier_call(tmp_path):
-    paths, _repository = build_figure_vault(tmp_path / "vault")
-    verifier = VerifierFake()
-    spec = flagship(source_claims=[{"span_id": "p3", "quote": "an equation the book never wrote"}])
-    figure = build(context(paths.root, author=AuthorFake([spec]), verifier=verifier))["figure"]
-    assert figure["verification"] == "illustrative" and verifier.calls == 0
-    assert "no quote" in figure["reason"]
-
-
-def test_an_illustration_is_never_sent_to_the_verifier(tmp_path):
-    paths, _repository = build_figure_vault(tmp_path / "vault")
-    verifier = VerifierFake()
-    figure = build(context(paths.root, author=AuthorFake([flagship(kind="illustrative")]), verifier=verifier))["figure"]
-    assert figure["verification"] == "illustrative" and verifier.calls == 0
+    assert figure["reason"] == FS.RECONSTRUCTION_REASON
+    assert json.loads(figure["specJson"])["kind"] == "reconstructed"
+    assert author.calls == 1 and verifier.calls == 0
+    (row,) = rows(repository, "interactive_figures")
+    report = json.loads(row["verification_report_json"])
+    assert "source_match" not in report and report["claims"][0]["verified"] is True
+    (ledger,) = [r for r in rows(repository, "judgment_ledger") if r["task"] == "figure_verified"]
+    assert ledger["verdict"] == "illustrative" and ledger["left_id"] == row["id"]
+    # The assumption whose quote is not the book's keeps its text, unquoted.
+    assert [a["quote"] for a in figure["assumptions"]] == ["0 < p < 1 and \\lambda > 0", None]
 
 
 def test_g45_the_half_density_is_never_shown(tmp_path):

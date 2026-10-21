@@ -21,6 +21,9 @@ PREDICTION_COLUMNS = ("id", "figure_id", "extraction_id", "prediction_index", "l
                       "matched", "explanation_text", "created_at")
 #: What a figure may be shown as.
 SHOWN = ("verified", "illustrative")
+#: The one stored value RW5a never writes (migration 216 keeps it for RW5c's
+#: source check); the service shows such a row as an illustration.
+VERIFIED_RW5C = "verified"
 
 
 def has_tables(connection: sqlite3.Connection) -> bool:
@@ -163,6 +166,7 @@ __all__ = [
     "FIGURE_COLUMNS",
     "PREDICTION_COLUMNS",
     "SHOWN",
+    "VERIFIED_RW5C",
     "builds_for_input",
     "figure",
     "figures_for_extraction",

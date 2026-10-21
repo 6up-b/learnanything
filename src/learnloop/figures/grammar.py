@@ -385,7 +385,7 @@ def free_names(node: Node, bound: frozenset[str] = frozenset()) -> set[str]:
 
 
 #: The deepest an expression may be once its definitions are expanded (fix
-#: round 4): every recursive pass (the evaluators, the SymPy translation) is
+#: round 4): every recursive pass (both evaluators) is
 #: bounded by it, far inside Python's recursion limit. figureGrammar.ts has
 #: the same cap.
 MAX_EXPANDED_DEPTH = 700
@@ -732,111 +732,6 @@ def evaluate(node: Node, env: Mapping[str, float], definitions: Mapping[str, Nod
     return 0.0 if value == 0 else value
 
 
-
-# ---------------------------------------------------------------------------
-# The sympy translation (fixed code; read only inside the sandbox)
-# ---------------------------------------------------------------------------
-
-_SYMPY_FUNCTIONS = {"exp": "exp", "log": "log", "sqrt": "sqrt", "abs": "Abs", "sin": "sin", "cos": "cos",
-                    "tan": "tan", "atan": "atan", "erf": "erf", "floor": "floor", "min": "Min", "max": "Max"}
-_SYMPY_RELATIONS = {"<": "Lt", "<=": "Le", ">": "Gt", ">=": "Ge", "==": "Eq", "!=": "Ne"}
-#: The sum's bound slack (:func:`exact_sum`'s 1e-9) in exact form.
-SUM_SLACK_SYMPY = "Rational(1, 1000000000)"
-
-
-def to_sympy(node: Node, definitions: Mapping[str, Node] | None = None) -> str:
-    """The expression in sympy syntax, definitions expanded (``E`` for e,
-    exact rationals for decimals), for the verifier's sandboxed check. The
-    text is parsed only inside the PF-b sandbox, never in-process."""
-
-    defs = definitions or {}
-    kind = node.kind
-    if kind == "num":
-        text = node.text
-        return text if re.fullmatch(r"\d+", text) else f"Rational('{text}')"
-    if kind == "name":
-        if node.text in defs:
-            return f"({to_sympy(defs[node.text], defs)})"
-        return {"pi": "pi", "e": "E"}.get(node.text, node.text)
-    if kind == "neg":
-        return f"(-{to_sympy(node.args[0], defs)})"
-    if kind == "bin":
-        op = "**" if node.op == "^" else node.op
-        return f"({to_sympy(node.args[0], defs)} {op} {to_sympy(node.args[1], defs)})"
-    if kind == "call":
-        args = ", ".join(to_sympy(child, defs) for child in node.args)
-        if node.text == "Phi":
-            return f"((1 + erf(({args})/sqrt(2)))/2)"
-        return f"{_SYMPY_FUNCTIONS[node.text]}({args})"
-    if kind == "piecewise":
-        args = node.args
-        branches = [f"({to_sympy(args[i + 1], defs)}, {to_sympy(args[i], defs)})" for i in range(0, len(args) - 1, 2)]
-        branches.append(f"({to_sympy(args[-1], defs)}, True)")
-        return f"Piecewise({', '.join(branches)})"
-    if kind == "cmp":
-        return f"{_SYMPY_RELATIONS[node.op]}({to_sympy(node.args[0], defs)}, {to_sympy(node.args[1], defs)})"
-    if kind in ("and", "or"):
-        return f"{'And' if kind == 'and' else 'Or'}({', '.join(to_sympy(child, defs) for child in node.args)})"
-    if kind == "integral":
-        body, lower, upper = node.args
-        return f"Integral({to_sympy(body, defs)}, ({node.text}, {to_sympy(lower, defs)}, {to_sympy(upper, defs)}))"
-    if kind == "sum":
-        # The evaluator's one rule (:func:`exact_sum`): the integers
-        # ceil(a - 1e-9) .. floor(b + 1e-9), and an empty range is 0. SymPy's
-        # own Sum would sum a reversed range negatively (Karr) and keep
-        # fractional bounds, so the rule is written out (fix round 3).
-        body, lower, upper = node.args
-        low = f"ceiling({to_sympy(lower, defs)} - {SUM_SLACK_SYMPY})"
-        high = f"floor({to_sympy(upper, defs)} + {SUM_SLACK_SYMPY})"
-        return (f"Piecewise((Sum({to_sympy(body, defs)}, ({node.text}, {low}, {high})), Ge({high}, {low})), "
-                f"(0, True))")
-    raise GrammarError(f"cannot translate a {kind!r} node")
-
-
-#: Constructs whose value the evaluator's floating point decides where exact
-#: arithmetic decides otherwise, densely and at the renderer's own sample
-#: points: an equality test, and floor (an integrality test at every
-#: integer). A definition using one is not source-verifiable (fix round 3).
-UNVERIFIABLE_COMPARISONS = ("==", "!=")
-UNVERIFIABLE_FUNCTIONS = ("floor",)
-#: An integral is the fixed adaptive Simpson rule, an approximation SymPy's
-#: exact Integral does not reproduce (it parts from it by more than the
-#: corpus tolerance at a jump), so a definition with one is not
-#: source-verifiable either (fix round 3).
-UNVERIFIABLE_FORMS = ("integral",)
-
-
-def sympy_problem(node: Node, definitions: Mapping[str, Node] | None = None) -> str | None:
-    """Why :func:`to_sympy` cannot reproduce the evaluator's value of
-    ``node`` (definitions expanded) exactly, or None: what the source match
-    may check (fix round 3). Ordered comparisons, sums (by the shared bound
-    rule) and every other construct but equality, floor and integral
-    translate exactly; a comparison's
-    rounding-decided boundary is a set of measure zero the check never
-    relies on."""
-
-    defs = definitions or {}
-    seen: set[str] = set()
-    pending = [node]
-    while pending:
-        current = pending.pop()
-        if current.kind == "name" and current.text in defs and current.text not in seen:
-            seen.add(current.text)
-            pending.append(defs[current.text])
-            continue
-        if current.kind == "cmp" and current.op in UNVERIFIABLE_COMPARISONS:
-            return (f"the definition tests equality ({current.op}), which floating point decides where the book's "
-                    "exact equation does not")
-        if current.kind == "call" and current.text in UNVERIFIABLE_FUNCTIONS:
-            return (f"the definition uses {current.text}, whose steps floating point places where the book's "
-                    "exact equation does not")
-        if current.kind in UNVERIFIABLE_FORMS:
-            return ("the definition uses an integral, which the figure approximates by a fixed rule where the "
-                    "book's equation is exact")
-        pending.extend(current.args)
-    return None
-
-
 __all__ = [
     "CONSTANTS",
     "FUNCTIONS",
@@ -861,7 +756,5 @@ __all__ = [
     "has_bound_form",
     "is_name",
     "parse",
-    "sympy_problem",
-    "to_sympy",
     "walk",
 ]

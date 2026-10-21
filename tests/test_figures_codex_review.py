@@ -1,5 +1,9 @@
 """Reader RW5a: the Codex review's findings, each reproduced (docs/reviews/reader-rw5a-codex-review.md).
 
+The source-check (spec §8.3 step 3) and admission tests these rounds added were removed
+with that machinery by the owner's scope decision of 2026-10-21; their successors
+are in tests/test_figures_scope_redesign.py. What stays here still holds.
+
 F1 a context neighbour held out after authoring withholds the figure everywhere;
 F2 a region-built figure is anchored under its region's block;
 F3 every ``equals_source`` definition must be checked before "matches the book";
@@ -143,46 +147,6 @@ def _equivalence(checks):
 
     run.calls = calls  # type: ignore[attr-defined]
     return run
-
-
-def _two_equations() -> dict:
-    spec = flagship()
-    spec["definitions"].append({"name": "g", "expr": "lam*exp(-lam*x)"})
-    spec["invariants"].append({"kind": "equals_source", "name": "g"})
-    spec["source_claims"].append({"span_id": "p2", "quote": "(1-p)\\lambda e^{-\\lambda x} for x \\ge 0"})
-    return spec
-
-
-def test_f3_a_second_source_equation_is_never_left_unchecked(tmp_path, monkeypatch):
-    run = _equivalence([True, False, False])  # f matches; g is the one the book contradicts
-    monkeypatch.setattr(pf_sandbox, "run_equivalence_checks", run)
-    paths, _repository = build_figure_vault(tmp_path / "vault")
-    verifier = VerifierFake()
-    figure = build(context(paths.root, author=AuthorFake([_two_equations()]), verifier=verifier))["figure"]
-    assert figure["verification"] == "illustrative"
-    assert figure["label"] == "AI-built illustration of an interpretation · not checked against the book"
-    assert "2 definitions" in figure["reason"]
-    assert verifier.calls == 0 and run.calls == []  # one verifier call cannot cover two equations
-
-
-def test_f3_one_named_equation_still_verifies(tmp_path, monkeypatch):
-    monkeypatch.setattr(pf_sandbox, "run_equivalence_checks", _equivalence([True, False, False]))
-    paths, _repository = build_figure_vault(tmp_path / "vault")
-    figure = build(context(paths.root, author=AuthorFake(), verifier=VerifierFake()))["figure"]
-    assert figure["verification"] == "verified"
-
-
-@pytest.mark.parametrize("checks", [[True, None, None], [True, False, None], [True, None, False],
-                                    [True, "error", False]])
-def test_f4_an_inconclusive_negative_control_is_not_a_rejection(monkeypatch, checks):
-    monkeypatch.setattr(pf_sandbox, "run_equivalence_checks", _equivalence(checks))
-    result = V.run_source_match("x", V.SourceCheck("x", "def check(r, a):\n    return True\n"))
-    assert result["matched"] is False and "inconclusive" in result["reason"]
-
-
-def test_f4_every_control_refused_matches(monkeypatch):
-    monkeypatch.setattr(pf_sandbox, "run_equivalence_checks", _equivalence([True, False, False]))
-    assert V.run_source_match("x", V.SourceCheck("x", "def check(r, a):\n    return r == a\n"))["matched"] is True
 
 
 # ---------------------------------------------------------------------------

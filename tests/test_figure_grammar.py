@@ -192,11 +192,3 @@ def test_integral_budget_and_sum_cap():
     assert math.isnan(G.evaluate(noisy, {})) or math.isfinite(G.evaluate(noisy, {}))
     assert math.isnan(G.evaluate(G.parse("sum(k, k, 0, 20000)"), {}))
     assert G.evaluate(G.parse("sum(k, k, 0, 10000)"), {}) == 50005000.0
-
-
-def test_to_sympy_translation():
-    defs = {"f": G.parse(FC.TWO_SIDED)}
-    text = G.to_sympy(G.parse("f"), defs)
-    assert text.startswith("(Piecewise(") and "Lt(x, 0)" in text and "exp(" in text
-    assert G.to_sympy(G.parse("Phi(x) + 0.5")) == "(((1 + erf((x)/sqrt(2)))/2) + Rational('0.5'))"
-    assert G.to_sympy(G.parse("integral(t^2, t, 0, b)")) == "Integral((t ** 2), (t, 0, b))"

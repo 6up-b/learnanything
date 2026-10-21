@@ -1,5 +1,9 @@
 """Reader RW5a fix round 4 (orchestrator): the verify's findings, each reproduced.
 
+The source-check (spec §8.3 step 3) and admission tests these rounds added were removed
+with that machinery by the owner's scope decision of 2026-10-21; their successors
+are in tests/test_figures_scope_redesign.py. What stays here still holds.
+
 See docs/reviews/reader-rw5a-codex-review.md, "Fix round 4 (orchestrator)".
 
 "Checked" is certified by display agreement: (a) every literal of the
@@ -48,94 +52,9 @@ from tests.test_figures_codex_review import _clients, _equivalence, _gap_jobs, _
 needs_sandbox = pytest.mark.skipif(not sandbox_ready(), reason="bubblewrap is not available here")
 
 
-def _reconstruction(definition: str, *, x=(-1.0, 1.0)) -> dict:
-    return {
-        "spec_version": "ifs-v1", "kind": "reconstructed",
-        "source_claims": [{"span_id": "p3", "quote": EQUATION_TEXT}],
-        "demonstrates": "the book's f",
-        "definitions": [{"name": "f", "expr": definition}],
-        "panels": [{"kind": "function_plot", "x": {"var": "x", "min": x[0], "max": x[1]},
-                    "series": [{"expr": "f", "label": "f(x)"}]}],
-        "invariants": [{"kind": "equals_source", "name": "f"}],
-    }
-
-
-def _certified(tmp_path, monkeypatch, spec):
-    """The build with the verifier and its check both saying "matches" (c):
-    only rules (a), (b) and (d) decide."""
-
-    monkeypatch.setattr(pf_sandbox, "run_equivalence_checks", _equivalence([True, False, False]))
-    paths, repository = build_figure_vault(tmp_path / "vault")
-    verifier = VerifierFake()
-    figure = build(context(paths.root, author=AuthorFake([spec]), verifier=verifier))["figure"]
-    (row,) = rows(repository, "interactive_figures")
-    return figure, verifier, json.loads(row["verification_report_json"])
-
-
 # ---------------------------------------------------------------------------
 # High 1: certified by display agreement
 # ---------------------------------------------------------------------------
-
-def _refused_by_a_rule(match: dict) -> bool:
-    """Refused by display agreement (d), or by fix round 5's branch rule."""
-
-    return (match.get("display_agreement") or {}).get("agreed") is False or "piecewise condition" in match["reason"]
-
-
-def test_a_literal_that_is_not_a_small_exact_decimal_is_never_checked(tmp_path, monkeypatch):
-    """The verify's case: sin(10000000000000001) displays 0.7797 (the double
-    is 1e16) where SymPy's exact reading is -0.1056."""
-
-    figure, verifier, _report = _certified(tmp_path, monkeypatch, _reconstruction("sin(10000000000000001)"))
-    assert figure["verification"] == "illustrative" and "small exact decimal" in figure["reason"]
-    assert verifier.calls == 0  # rule (a) needs no call
-
-
-@pytest.mark.parametrize("text, allowed", [("1000000", True), ("0.123456789", True), ("2.5e-8", True),
-                                           ("1000001", False), ("0.1234567891", False), ("1e7", False),
-                                           ("10000000000000001", False), ("3.141592653589793", False)])
-def test_rule_a_on_literals(text, allowed):
-    assert (V.literal_problem(G.parse(f"{text}*x"), {}) is None) is allowed
-    assert V.literal_problem(G.parse("pi*e*x"), {}) is None
-
-
-@needs_sandbox
-@pytest.mark.parametrize("definition, x", [
-    ("piecewise((0.1 + 0.2 > 0.3, 1), 2)", (-1.0, 1.0)),   # the verify's case: displays 1, SymPy reads 2
-    ("piecewise((x*10 < 3, 1), 2)", (0.0, 1.0)),           # near a boundary: x = 0.3 is a plotted sample
-])
-def test_display_agreement_catches_a_branch_rounding_decides(tmp_path, monkeypatch, definition, x):
-    # Since fix round 5 the branch rule refuses both by construction, before (d).
-    figure, _verifier, report = _certified(tmp_path, monkeypatch, _reconstruction(definition, x=x))
-    assert figure["verification"] == "illustrative"
-    assert _refused_by_a_rule(report["source_match"])
-
-
-@needs_sandbox
-def test_the_flagship_stays_checked_with_its_display_certified(tmp_path):
-    paths, repository = build_figure_vault(tmp_path / "vault")
-    figure = build(context(paths.root, author=AuthorFake(), verifier=VerifierFake()))["figure"]
-    assert figure["verification"] == "verified"
-    (row,) = rows(repository, "interactive_figures")
-    agreement = json.loads(row["verification_report_json"])["source_match"]["display_agreement"]
-    # p and lam at min, default and max (9 points) by 121 plotted samples of x.
-    assert agreement == {"agreed": True, "reason": "", "samples": 9 * (S.SAMPLES + 1)}
-
-
-@needs_sandbox
-@pytest.mark.parametrize("rule, definition, x", [
-    # Each of the property corpus's exclusion rules, at a plotted sample: the
-    # runtime never trusts the corpus's exclusions, display agreement catches it.
-    ("a comparison rounding decides", "piecewise((x*10 < 3, 1), 2)", (0.0, 1.0)),
-    ("a sum bound rounding decides", "sum(1, k, 0, x*10 - 0.000000001)", (0.0, 1.0)),
-    ("a cancellation", "(x + 1000000*1000000) - 1000000*1000000", (-1.0, 1.0)),
-    ("a non-finite subexpression", "piecewise((1/(x - x) > 0, 1), 2)", (-1.0, 1.0)),
-])
-def test_every_corpus_exclusion_rule_is_illustrative_at_runtime(tmp_path, monkeypatch, rule, definition, x):
-    figure, _verifier, report = _certified(tmp_path, monkeypatch, _reconstruction(definition, x=x))
-    assert figure["verification"] == "illustrative", rule
-    assert _refused_by_a_rule(report["source_match"]), rule
-
 
 # ---------------------------------------------------------------------------
 # Medium 3 (F5): the marker is checkpointed with the reading

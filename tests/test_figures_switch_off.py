@@ -212,14 +212,15 @@ def test_figures_off_queues_and_reads_no_figure_text(tmp_path):
     assert gap_jobs.sweep_backlog(vault, repository)["reader_formative"] == 0
     llm, clients = _clients()
     outcome = gap_jobs.process_next_gap_job(paths.root, repository, owner="t", clients=clients)
-    assert (outcome.state, outcome.error) == ("deferred", "figures_disabled")
+    # Main's path for a source with nothing to read (owner decision
+    # 2026-10-21: a figure text queued while figures are off is dropped).
+    assert (outcome.state, outcome.error) == ("skipped", None)
     assert llm.calls == []  # no model call
     with repository.connection() as connection:
-        state, error, not_before = connection.execute(
-            "SELECT state, last_error, not_before FROM learner_text_gap_jobs WHERE source_id = ?",
-            (prediction_id,)).fetchone()
-    assert state == "queued" and error == "deferred: figures.enabled is off" and not_before  # deferred, not failed
-    assert gap_jobs.run_pending(paths.root, repository, owner="t", clients=clients) == []  # it waits
+        state, error = connection.execute(
+            "SELECT state, last_error FROM learner_text_gap_jobs WHERE source_id = ?", (prediction_id,)).fetchone()
+    assert (state, error) == ("skipped", "nothing to read")
+    assert gap_jobs.run_pending(paths.root, repository, owner="t", clients=clients) == []
     assert llm.calls == []
     assert gap_sources_text(vault, repository, prediction_id) is None
 
@@ -228,3 +229,51 @@ def gap_sources_text(vault, repository, source_id):
     from learnloop.diagnosis.text_gaps.sources import learner_text
 
     return learner_text(vault, repository, "reader_formative", source_id)
+
+
+# ---------------------------------------------------------------------------
+# The owner's scope decision (2026-10-21): an already-queued figure job with
+# figures off takes main's path, so the output is main's by construction
+# ---------------------------------------------------------------------------
+
+QUEUED_GOLDEN = Path(__file__).parent / "fixtures" / "figures_switch_off_queued_job.json"
+
+
+def _normalized(payload: dict) -> dict:
+    import re
+
+    text = json.dumps(payload, sort_keys=True)
+    return json.loads(re.sub(r'"job_id": "[^"]+"', '"job_id": "<job>"', text))
+
+
+def _queued_job_runs(root: Path) -> dict:
+    from typer.testing import CliRunner
+
+    from learnloop.cli import app
+
+    out = {}
+    for name, args in (("dry_run", ["--backlog", "--dry-run"]), ("run", [])):
+        result = CliRunner().invoke(app, ["gaps", "run", "--vault", str(root), *args, "--json"])
+        assert result.exit_code == 0, result.output
+        out[name] = _normalized(json.loads(result.output))
+    return out
+
+
+def test_an_already_queued_figure_job_with_figures_off_is_the_base_output(tmp_path):
+    """Recorded on an export of e14b4e4ff (RW5A_WRITE_GOLDEN=1, -o pythonpath=<export>/src): a vault
+    with a queued reader_formative/fpr_ job. Here the vault also holds that prediction's rows and
+    figures are off: `learnloop gaps run --backlog --dry-run --json` and the processing run
+    (`learnloop gaps run --json`) both equal main's."""
+
+    from learnloop.diagnosis.text_gaps.jobs import enqueue
+    from tests.test_reader_report import _seed
+
+    vault, repo, _old = _seed(tmp_path)
+    enqueue(repo, source_kind="reader_formative", source_id="fpr_off")
+    if WRITE:
+        QUEUED_GOLDEN.write_text(json.dumps(_queued_job_runs(vault.root), indent=1, sort_keys=True) + "\n",
+                                 encoding="utf-8")
+        pytest.skip("queued-job golden written")
+    _seed_figure_rows(repo)
+    _switch(vault.root, "figures", False)
+    assert _queued_job_runs(vault.root) == json.loads(QUEUED_GOLDEN.read_text(encoding="utf-8"))

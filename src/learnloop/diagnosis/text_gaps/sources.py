@@ -41,6 +41,7 @@ from learnloop.attempts import stuck as stuck_module
 from learnloop.content.sources.exam_material import spans_withheld
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
+from learnloop.figure_admission import figures_enabled as _figures_switch
 from learnloop.diagnosis.text_gaps.contract import GapReading, LearnerText
 from learnloop.reader.reader_progression import learning_objects_for_span
 from learnloop.substrate.canonical_projection import held_for_review_attempts
@@ -610,9 +611,10 @@ def formative_row(repository: Repository, question_id: str) -> dict[str, Any] | 
 
 def figures_enabled(vault: LoadedVault) -> bool:
     """RW5a's kill switch, ``figures.enabled``: off, no figure prediction or
-    explanation is discovered, reconciled, queued or read (fix round 4)."""
+    explanation is discovered, reconciled, queued or read. The one predicate
+    (:func:`learnloop.figure_admission.figures_enabled`), one default."""
 
-    return bool(getattr(getattr(vault.config, "figures", None), "enabled", True))
+    return _figures_switch(vault)
 
 
 def missed_formative_ids(repository: Repository, *, figures: bool = True) -> list[str]:

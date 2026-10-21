@@ -406,3 +406,101 @@ Run on the tip with `TMPDIR=fixtures-local/tmp`, the full-suite lock free:
   pytest recorded the switch-off golden on an export of `e14b4e4ff` under `env -i` with empty HOME,
   CODEX_HOME and LEARNLOOP_CONFIG_DIR, and the head fixture, references and snapshots the same way).
   The tracked working vaults are untouched.
+
+## 8. Owner scope decision and redesign (2026-10-21)
+
+After five fix rounds, the round-5 verify reopened both recurring classes. An Opus scope review
+(the orchestrator's scratchpad, `rw5a-scope-proposal.md`) diagnosed the two classes:
+
+- **Class A**, the "checked" claim: a figure-wide claim over an open, model-written document,
+  guarded by hand-enumerated deny-lists.
+- **Class B**, admission: the configuration was captured at job start and checked only at named
+  call sites.
+
+The owner decided to ship RW5a without "checked". This section records what that changes in §§1-5
+above. The review's own record is `docs/reviews/reader-rw5a-codex-review.md`, "Owner scope
+decision and redesign".
+
+### 8.1 What is built now (replacing parts of §1.3, §1.4, §1.5 and §1.10)
+
+- **Verification is spec §8.3 steps 1-2 only** (`learnloop.figures.verify`: structure, invariants,
+  shaded areas). Step 3 is removed:
+  - the verifier route and its prompt and output model;
+  - the SymPy translation (`grammar.to_sympy`, `sympy_problem`);
+  - the sandboxed source match;
+  - rounds 2-5's binding, literal, branch and display-agreement rules and the certification
+    version.
+
+  A reconstruction is stored and shown as an illustration, with the reason "the book check comes
+  in a later version". Nothing produces `verified`. A `verified` row stored earlier is shown as an
+  illustration (`service.shown_row`). Migration 216's CHECK still allows `verified`, for RW5c.
+- **One admission gate** (`learnloop.figure_admission.FiguresGate`, installed with
+  `gate_model_requests`). It admits every physical request of a build, and of a figure prediction's
+  learner-text reading. Before each request, retries included, it reads the configuration as it is
+  now and compares it with the start:
+  - **a build:** the vault, `figures.enabled`, the author route, `max_daily_cost_usd` and
+    `price_per_million`;
+  - **a reading:** the vault and the switch.
+
+  Any change refuses that request and every later one. A build then raises `FigureRefused`
+  (`figures_changed`) and stores nothing; it also checks again before the row is stored. A reading
+  is released with its checkpoint, its attempt refunded. The sidecar's build reads
+  `ctx.loaded_vault`; anything else reloads the vault from disk. The refusal (`FiguresChanged`) is
+  a `BaseException`, so the learner-text pipeline's broad `except Exception` handlers cannot turn
+  it into a "failed" reading and carry on. `pipeline.py` is unchanged.
+- **One switch predicate with one default:** `figure_admission.figures_enabled`, off when there is
+  no `figures` section. `service.enabled` and `text_gaps.sources.figures_enabled` both delegate to
+  it.
+- **Switched off, a queued figure text takes main's path.** Round 4's deferral state and its two
+  drain exemptions are deleted, and `post_attempt_worker.py` is back to main's text. A figure
+  text queued while figures are off reads as "nothing to read" and is skipped (dropped), as main
+  does for a disabled source. `learnloop gaps run --backlog --dry-run --json` and
+  `learnloop gaps run --json` on a vault with a queued `fpr_` job therefore equal main's output by
+  construction (a golden recorded on an `e14b4e4ff` export).
+- **Config:** `ai.routing.figure_verifier` is deleted (schema, routing, template note), and the 20
+  defaults snapshots are recomputed. `[figures]` is unchanged.
+- **Kept:** round 2's shared PF sandbox change (the harness reports a check's answer as given:
+  inconclusive is not passing). It is recorded as its own PF item. Also kept: both corpora (golden
+  and property) byte for byte, their Python/TypeScript parity, the grammar narrowing, the bounds
+  and depth caps, F1, F5, F7 and migration 216.
+
+### 8.2 Deviations (added to §2)
+
+11. **Spec §8.3 step 3 and the `verified` outcome: deferred to RW5c.** Spec §8.1's first label,
+    UX §4.7's first label, Moment 9's and W11's "(checked)" line, and §8.5's `figure_verifier`
+    route are marked "deferred to RW5c" in both documents. Every RW5a figure carries the
+    illustration label.
+12. **G23** ("matches the source's equation" only after step 3 passed) **holds vacuously** in RW5a.
+    G21, G22, G24 and G45 pass unchanged.
+13. **A build stops when its switch, route, cap or price changes**, rather than being held to a live
+    envelope (orchestrator decision): "try again" admits it under the new configuration.
+14. **A figure text queued while figures are off is dropped** (owner decision): main's skip path,
+    with no deferral state.
+
+### 8.3 Open questions (with the defaults in force)
+
+6. **RW5c's label scope.** Default: lenient. Code labels the checked series; model labels that do
+   not reuse the source's identifiers are kept, and the claim is scoped to that element. The strict
+   alternative code-labels every numeric element.
+7. **Re-queue figure texts dropped while off** when the switch comes back on (about 15 lines).
+   Default: no; they stay dropped.
+8. **The flagship's "P(X ≤ 0)" readout** is a clipped integral (−40 to 0). It is correct within
+   1e-6 for λ ≥ 0.5, but the label states an unclipped probability. It is not a source label, so
+   the default is to leave it for RW5c's code labels.
+
+### 8.4 RW5c (follow-up stage)
+
+"Matches the book's equation (checked)" comes back as its own stage, designed before it is coded.
+The design is a short spec amendment covering:
+
+- the element-scoped claim: one `equals_source` definition, carried only by a plot or PMF series
+  that is the bare reference to it, with a code-written label;
+- a schema-walk token rule over every `Label` and `Text` field;
+- an allow-list of constructs with an exact translation;
+- an exact literal count from the decimal tuple;
+- the standing float ruling now written into spec §8.3: "checked" never certifies float values at
+  points the check did not sample.
+
+Codex reviews the design adversarially ("find a displayed element or number this rule lets carry
+the claim") before any code. The deleted machinery is in branch history at `865a3b38f`, as a
+starting point.

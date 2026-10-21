@@ -19,13 +19,14 @@ next UTC day once the pipeline's calls today reach it.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from contextlib import closing
+from contextlib import closing, nullcontext
 from dataclasses import dataclass
 from datetime import timedelta
 import logging
 from pathlib import Path
 from typing import Any
 
+from learnloop.ai.execution import gate_model_requests
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
@@ -49,6 +50,7 @@ from learnloop.diagnosis.text_gaps.sources import (
     workbench_text_ids,
     workbench_text_row,
 )
+from learnloop.figure_admission import FiguresChanged, FiguresGate, text_key
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault
 
@@ -445,15 +447,6 @@ def process_next_gap_job(
             outcome.state = "deferred" if released else "lease_lost"
             outcome.error = "daily_cap"
             return outcome
-    if outcome.source_kind == "reader_formative" and is_figure_prediction(outcome.source_id) \
-            and not figures_enabled(vault):
-        # Figures off (fix round 4): a figure text already queued is not read,
-        # and no model is called; it waits (deferred, not failed) for the
-        # switch, attempt refunded.
-        released = release(not_before=_next_day(clock), error="deferred: figures.enabled is off", refund=True)
-        outcome.state = "deferred" if released else "lease_lost"
-        outcome.error = "figures_disabled"
-        return outcome
     try:
         text = learner_text(vault, repository, outcome.source_kind, outcome.source_id, stuck_source=stuck_source)
     except SourceWithheld as exc:
@@ -477,12 +470,26 @@ def process_next_gap_job(
             store.save_job_payload(repository.connection(), job_id, payload, owner=owner, epoch=epoch,
                                    now=utc_now_iso(clock))
 
+    # A figure prediction's reading runs under the one figure gate (RW5a):
+    # before each of its physical requests (the reader, the Decider, any
+    # action call) the switch is read as configured now, and a change stops
+    # the reading with no further call.
+    figure_gate = (FiguresGate(vault, text_key)
+                   if outcome.source_kind == "reader_formative" and is_figure_prediction(outcome.source_id) else None)
     try:
         budget = budget_factory(vault) if budget_factory is not None else None
-        row = process_learner_text(
-            root, repository, text, clients=clients, budget=budget, clock=clock,
-            progress=dict(progress), save_progress=save_progress,
-        )
+        with gate_model_requests(figure_gate) if figure_gate is not None else nullcontext():
+            row = process_learner_text(
+                root, repository, text, clients=clients, budget=budget, clock=clock,
+                progress=dict(progress), save_progress=save_progress,
+            )
+    except FiguresChanged as exc:
+        # Released with its checkpoint, attempt refunded: the next run reads
+        # it as main would (switched off, it has nothing to read).
+        released = release(not_before=None, error=f"figures changed: {exc}"[:500], refund=True)
+        outcome.state = "retry_later" if released else "lease_lost"
+        outcome.error = "figures_changed"
+        return outcome
     except ReadingDeferred as exc:
         if exc.spend and budget_factory is not None:
             # The command's shared budget ran out, not this text: released
@@ -600,7 +607,7 @@ def run_pending(
         outcomes.append(result)
         # One text backing off (``retry_later``) never stops the drain
         # (re-review F3); a spend stop or the daily cap does.
-        if result.state in ("deferred", "lease_lost") and result.error != "figures_disabled":
+        if result.state in ("deferred", "lease_lost"):
             break
     return outcomes
 

@@ -1,5 +1,9 @@
 """Reader RW5a fix round 3 (orchestrator): the verify's findings, each reproduced.
 
+The source-check (spec §8.3 step 3) and admission tests these rounds added were removed
+with that machinery by the owner's scope decision of 2026-10-21; their successors
+are in tests/test_figures_scope_redesign.py. What stays here still holds.
+
 See docs/reviews/reader-rw5a-codex-review.md, "Fix round 3 (orchestrator)".
 
 Parity by construction: names are letters and digits (no ``__proto__``, no
@@ -45,69 +49,9 @@ from tests.test_figures_fix_round2 import _drain, _gaps_switch, _job_rows
 needs_sandbox = pytest.mark.skipif(not sandbox_ready(), reason="bubblewrap is not available here")
 
 #: An honest equality check: exact, symbolic, every Sum and Piecewise done.
-HONEST_CHECK = '''
-import sympy as sp
-
-def check(reference, answer):
-    r = sp.sympify(reference)
-    a = sp.sympify(answer)
-    return bool(sp.simplify((r - a).doit()) == 0)
-'''
-
-
-def _constant(definition: str) -> dict:
-    """A reconstruction whose one definition is ``definition`` (no x), drawn as f(x)."""
-
-    return {
-        "spec_version": "ifs-v1", "kind": "reconstructed",
-        "source_claims": [{"span_id": "p3", "quote": EQUATION_TEXT}],
-        "demonstrates": "the book's f",
-        "definitions": [{"name": "f", "expr": definition}],
-        "panels": [{"kind": "function_plot", "x": {"var": "x", "min": -1, "max": 1},
-                    "series": [{"expr": "f", "label": "f(x)"}]}],
-        "invariants": [{"kind": "equals_source", "name": "f"}],
-    }
-
-
 # ---------------------------------------------------------------------------
 # High 1: SymPy reads a sum as the renderer evaluates it
 # ---------------------------------------------------------------------------
-
-@needs_sandbox
-@pytest.mark.parametrize("definition, shown, book", [
-    ("sum(1, k, 2, 0)", 0.0, "-1"),        # an empty range is 0, never Karr's -1
-    ("sum(1, k, 0.5, 2.5)", 2.0, "3"),     # fractional bounds round by the evaluator's rule
-])
-def test_a_sum_the_renderer_shows_differently_never_matches_the_book(tmp_path, definition, shown, book):
-    compiled = S.parse_spec(_constant(definition))
-    assert S.evaluate_figure(compiled)["panels"][0]["series"][0]["y"][0] == shown
-    paths, _repository = build_figure_vault(tmp_path / "vault")
-    verifier = VerifierFake(program=HONEST_CHECK, expression=book)
-    figure = build(context(paths.root, author=AuthorFake([_constant(definition)]), verifier=verifier))["figure"]
-    assert verifier.calls == 1
-    assert figure["verification"] == "illustrative"
-    assert "does not equal" in figure["reason"]
-
-
-@needs_sandbox
-@pytest.mark.parametrize("definition, book", [("sum(1, k, 2, 0) + 1", "1"), ("sum(1, k, 0.5, 2.5)", "2")])
-def test_a_sum_matches_the_book_when_the_renderer_shows_the_same(tmp_path, definition, book):
-    paths, _repository = build_figure_vault(tmp_path / "vault")
-    verifier = VerifierFake(program=HONEST_CHECK, expression=book)
-    figure = build(context(paths.root, author=AuthorFake([_constant(definition)]), verifier=verifier))["figure"]
-    assert figure["verification"] == "verified"
-
-
-@pytest.mark.parametrize("definition", ["floor(x + 0.5)", "piecewise((x == 0, 1), 2)", "integral(t, t, 0, x)"])
-def test_a_definition_sympy_cannot_read_exactly_is_never_checked(tmp_path, monkeypatch, definition):
-    # The verifier and the sandbox would both say "matches": the definition decides.
-    monkeypatch.setattr(pf_sandbox, "run_equivalence_checks", _equivalence([True, False, False]))
-    paths, _repository = build_figure_vault(tmp_path / "vault")
-    verifier = VerifierFake()
-    figure = build(context(paths.root, author=AuthorFake([_constant(definition)]), verifier=verifier))["figure"]
-    assert figure["verification"] == "illustrative"
-    assert verifier.calls == 0
-
 
 # ---------------------------------------------------------------------------
 # Medium 4 and 5: signed zero and prototype names, by construction

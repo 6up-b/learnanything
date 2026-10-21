@@ -10,8 +10,8 @@ consequence. The book is a primary textbook in the source set; ``ext_exam``
 ``AuthorFake`` answers ``figure_author`` from a queue (a spec dict, JSON
 text, ``("unsupported", kind)``, an exception, or a callable of the prompt's
 context), the flagship spec when the queue is empty. ``VerifierFake``
-answers ``figure_verifier`` with a sympy check (the right one by default).
-Both record every request (prompt, context, images). Plumbing checks only,
+would answer a source check with a passing sympy check: RW5a has no verifier
+route, so tests inject it only to show it is never asked. Both record every request (prompt, context, images). Plumbing checks only,
 never evidence about figure quality.
 """
 
@@ -204,7 +204,7 @@ class VerifierFake(_Recording):
                                                     "check_program": self.program})
 
 
-def context(root: Path, *, author: Any = None, verifier: Any = None, sandbox_run: Callable[..., Any] | None = None):
+def context(root: Path, *, author: Any = None, verifier: Any = None):
     ctx = _context(root)
     ctx.library_ask_inline = True  # the build job runs inline (deterministic)
     # A missed prediction wakes the gap worker (review F6); here it stays
@@ -214,8 +214,6 @@ def context(root: Path, *, author: Any = None, verifier: Any = None, sandbox_run
         ctx.figure_author_client = author
     if verifier is not None:
         ctx.figure_verifier_client = verifier
-    if sandbox_run is not None:
-        ctx.figure_sandbox_run = sandbox_run
     return ctx
 
 

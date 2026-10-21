@@ -1,14 +1,12 @@
 """The figure grammar's differential property corpus (reader workbench RW5a, fix round 3).
 
-The parity contract between the two evaluators, and between the evaluator and
-the SymPy translation, from fix round 3 on: a seeded generator writes a few
+The parity contract between the two evaluators, from fix round 3 on (the
+SymPy comparison went with the source check, RW5c's): a seeded generator writes a few
 thousand random grammar expressions with the Python evaluator's verdict and
 value at an environment, and
 
 * ``tests/test_figure_property.py`` checks the file is what this module
-  builds, that no value is -0, and that SymPy's reading of every translatable
-  accepted expression (``grammar.sympy_problem`` is None) has the evaluator's
-  value;
+  builds and that no value is -0;
 * ``figureGrammar.test.ts`` checks the TypeScript parser gives the same
   verdict and the TypeScript evaluator the same value on every case.
 

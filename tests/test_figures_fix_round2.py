@@ -1,5 +1,9 @@
 """Reader RW5a fix round 2 (orchestrator): the pre-landing verify's findings, each reproduced.
 
+The source-check (spec §8.3 step 3) and admission tests these rounds added were removed
+with that machinery by the owner's scope decision of 2026-10-21; their successors
+are in tests/test_figures_scope_redesign.py. What stays here still holds.
+
 See docs/reviews/reader-rw5a-codex-review.md, "Fix round 2 (orchestrator)".
 
 F1 a missed prediction whose figure's manifest is held out now reaches no gap reader;
@@ -122,69 +126,6 @@ def test_f1_an_open_manifest_still_reads(tmp_path, monkeypatch):
 # F4: the harness never coerces a check's answer
 # ---------------------------------------------------------------------------
 
-def _answering(value: str) -> str:
-    """The flagship's right check, except that a wrong answer (and one it
-    cannot parse) is answered with ``value`` instead of False."""
-
-    return f'''
-import sympy as sp
-
-def check(reference, answer):
-    x, p, lam = sp.symbols("x p lam", real=True)
-    names = {{"x": x, "p": p, "lam": lam}}
-    try:
-        r = sp.sympify(reference, locals=names)
-        a = sp.sympify(answer, locals=names)
-    except Exception:
-        return {value}
-    for xv in (-3, -sp.Rational(1, 2), sp.Rational(1, 4), 2):
-        for pv in (sp.Rational(1, 10), sp.Rational(1, 2)):
-            for lv in (sp.Rational(1, 2), 2):
-                try:
-                    if abs(sp.N((r - a).subs({{x: xv, p: pv, lam: lv}}))) > 1e-12:
-                        return {value}
-                except Exception:
-                    return {value}
-    return True
-'''
-
-
-@needs_sandbox
-@pytest.mark.parametrize("value", ["None", "0", '""'])
-def test_f4_controls_answered_with_no_boolean_never_verify_a_figure(tmp_path, value):
-    """The real harness, the real sandbox and the figure service: a check
-    that accepts the definition and answers its controls with None, 0 or ""
-    decided nothing, so the figure is an illustration."""
-
-    paths, _repository = build_figure_vault(tmp_path / "vault")
-    verifier = VerifierFake(program=_answering(value))
-    figure = build(context(paths.root, author=AuthorFake(), verifier=verifier))["figure"]
-    assert verifier.calls == 1
-    assert figure["verification"] == "illustrative"
-    assert "inconclusive" in figure["reason"]
-
-
-@needs_sandbox
-def test_f4_controls_answered_false_still_verify_through_the_same_harness(tmp_path):
-    paths, _repository = build_figure_vault(tmp_path / "vault")
-    figure = build(context(paths.root, author=AuthorFake(), verifier=VerifierFake(program=_answering("False"))))[
-        "figure"]
-    assert figure["verification"] == "verified"
-
-
-@needs_sandbox
-@pytest.mark.parametrize("value", ["None", "0", '""'])
-def test_f4_the_harness_reports_each_answer_as_given(value):
-    from tests.figure_fixtures import SOURCE_EXPRESSION
-
-    compiled = S.parse_spec(flagship())
-    answer = G.to_sympy(compiled.definitions["f"], compiled.definitions)
-    result = V.run_source_match(answer, V.SourceCheck(SOURCE_EXPRESSION, _answering(value)))
-    assert result["matched"] is False
-    assert result["checks"] == [True, None, None]
-    assert "inconclusive" in result["reason"]
-
-
 _GENERATOR = '''
 def generate(seed):
     return {"parameters": {"n": 2}, "stem": "What is 1 + 1? (" + str(seed) + ")", "solution": "2",
@@ -240,68 +181,6 @@ def test_f4_pf_equivalence_confirms_nothing_when_a_control_is_answered_with_no_b
 # ---------------------------------------------------------------------------
 # F3: the checked definition is what is drawn as the book's equation
 # ---------------------------------------------------------------------------
-
-def _plotting(*series: tuple[str, str], readouts: tuple[tuple[str, str], ...] = ()) -> dict:
-    """A reconstruction of f(x) = x: one parameter, the given series and readouts."""
-
-    return {
-        "spec_version": "ifs-v1", "kind": "reconstructed",
-        "source_claims": [{"span_id": "p3", "quote": EQUATION_TEXT}],
-        "demonstrates": "the book's f",
-        "parameters": [{"name": "p", "label": "p", "min": 0.1, "max": 0.9, "step": 0.1, "default": 0.5}],
-        "definitions": [{"name": "f", "expr": "x"}],
-        "panels": [
-            {"kind": "function_plot", "x": {"var": "x", "min": -1, "max": 1},
-             "series": [{"expr": expr, "label": label} for expr, label in series]},
-            *({"kind": "readout", "label": label, "expr": expr} for expr, label in readouts),
-        ],
-        "invariants": [{"kind": "equals_source", "name": "f"}],
-    }
-
-
-def _verdict(tmp_path, monkeypatch, spec):
-    # The verifier and the sandbox both say "matches": only the binding decides.
-    monkeypatch.setattr(pf_sandbox, "run_equivalence_checks", _equivalence([True, False, False]))
-    paths, _repository = build_figure_vault(tmp_path / "vault")
-    verifier = VerifierFake()
-    figure = build(context(paths.root, author=AuthorFake([spec]), verifier=verifier))["figure"]
-    return figure, verifier
-
-
-def test_f3_a_transformed_series_labelled_as_the_book_equation_is_an_illustration(tmp_path, monkeypatch):
-    figure, verifier = _verdict(tmp_path, monkeypatch, _plotting(("2*f", "f(x)")))
-    assert figure["verification"] == "illustrative"
-    assert figure["label"] == "AI-built illustration of an interpretation · not checked against the book"
-    assert "'f(x)' is labelled as the book's equation" in figure["reason"]
-    assert verifier.calls == 0  # decided by structure: no verifier call is spent on it
-
-
-@pytest.mark.parametrize("series, readouts", [
-    ((("f", "density"), ("2*f", "f_X(x)")), ()),          # the quote's left-hand side names it
-    ((("f", "f(x)"),), (("2*p", "f(p)"),)),                  # a readout under the definition's name
-    ((("2*f", "density"),), ()),                             # nothing drawn is the checked definition
-    ((("x", "f(x)"),), ()),                                  # the same values, not by reference
-])
-def test_f3_every_source_labelled_series_and_readout_must_be_the_checked_definition(
-        tmp_path, monkeypatch, series, readouts):
-    figure, _verifier = _verdict(tmp_path, monkeypatch, _plotting(*series, readouts=readouts))
-    assert figure["verification"] == "illustrative"
-
-
-@pytest.mark.parametrize("series", [
-    (("f", "f(x)"),),
-    (("f", "density"), ("2*f", "twice the density")),
-])
-def test_f3_the_checked_definition_drawn_by_reference_verifies(tmp_path, monkeypatch, series):
-    figure, verifier = _verdict(tmp_path, monkeypatch, _plotting(*series))
-    assert figure["verification"] == "verified" and verifier.calls == 1
-
-
-def test_f3_the_flagship_is_bound():
-    compiled = S.parse_spec(flagship())
-    claims = [{"quote": EQUATION_TEXT, "verified": True}]
-    assert V.displayed_source_problem(compiled, "f", claims) is None
-
 
 # ---------------------------------------------------------------------------
 # Integer bounds: counted loops (the golden corpus holds the shared cases)

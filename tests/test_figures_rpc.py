@@ -151,15 +151,17 @@ def test_a_failed_build_is_not_reused_try_again_rebuilds(tmp_path):
     assert [f["verification"] for f in listed] == ["failed", "illustrative"]
 
 
-def test_caps_two_author_attempts_and_one_verifier_call_per_request(tmp_path):
+def test_caps_two_author_attempts_per_request_and_no_verifier(tmp_path):
     paths, _repository = _vault(tmp_path)
     author = AuthorFake(["not json", "still not json", flagship()])
     verifier = VerifierFake(fail=RuntimeError("down"))
     ctx = context(paths.root, author=author, verifier=verifier)
     assert build(ctx)["figure"]["verification"] == "failed"
-    assert author.calls == 2 and verifier.calls == 0
+    assert author.calls == 2
     figure = build(ctx, {"extractionId": EXTRACTION, "spanIds": ["p2", "p3"]})["figure"]
-    assert author.calls == 3 and verifier.calls == 1
+    # A reconstruction is an illustration; RW5a has no verifier route, so an
+    # injected one is never asked (the source check is RW5c's).
+    assert author.calls == 3 and verifier.calls == 0
     assert figure["verification"] == "illustrative"
 
 
@@ -200,19 +202,6 @@ def test_the_daily_cap_is_metered_inside_the_spend_machinery(tmp_path):
     with pytest.raises(SidecarError) as caught:
         build(ctx, {"extractionId": EXTRACTION, "spanIds": ["p2", "p3"]})
     assert caught.value.code == "capped" and author.calls == 1
-
-
-def test_capped_verifier_downgrades_never_passes(tmp_path):
-    paths, _repository = _vault(tmp_path)
-    # No metered allowance today: the subscription author still writes (its
-    # cost is estimated only), the metered verifier is refused before sending.
-    set_config(paths, "figures", price_per_million=10.0, max_daily_cost_usd=0.0)
-    author = AuthorFake([flagship()])
-    verifier = VerifierFake(provider_type="openrouter")
-    ctx = context(paths.root, author=author, verifier=verifier)
-    figure = build(ctx)["figure"]
-    assert figure["verification"] == "illustrative" and figure["reason"] == "verifier_capped"
-    assert verifier.calls == 0
 
 
 def test_no_route_set_up_refuses_with_the_reason(tmp_path, monkeypatch):

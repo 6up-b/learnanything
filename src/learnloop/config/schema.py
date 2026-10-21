@@ -1376,13 +1376,11 @@ class AIRoutingConfig(BaseModel):
     # Reader workbench RW5a (spec_reader_workbench_v1 §8.5): explorable
     # figures. figure_author writes the declarative figure spec (a chat route;
     # a region or figure block sends its crop as an image when the profile
-    # lists "image" in input_modalities); figure_verifier writes the sympy
-    # check (with a negative control) that the PF-b sandbox runs for a
-    # reconstruction. Empty = ai.active_provider (Codex allowed,
+    # lists "image" in input_modalities). RW5a has no verifier route: the
+    # source check is RW5c's. Empty = ai.active_provider (Codex allowed,
     # estimated_only). Metered calls are held to figures.max_daily_cost_usd at
     # figures.price_per_million (unset: refused before sending).
     figure_author: str | None = None
-    figure_verifier: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -2338,9 +2336,9 @@ class FiguresConfig(BaseModel):
 
     ``enabled``: "make this explorable" on a selected equation, figure block
     or passage builds a declarative figure spec (route ``figure_author``),
-    verifies it before it shows (structure, invariants, and for a
-    reconstruction the source match by ``figure_verifier``'s sandboxed sympy
-    check), and draws it inline under its passage. Off: the Reader is exactly
+    verifies it before it shows (structure, invariants and shaded areas; RW5a
+    makes no source claim: every figure is an illustration, the source check
+    is RW5c's), and draws it inline under its passage. Off: the Reader is exactly
     as before RW5a, the RPCs refuse and no route is called.
     ``predictions_enabled``: one prediction before the first change, the
     observed before/after readout and "what changed?" (formative; a missed
@@ -2349,8 +2347,8 @@ class FiguresConfig(BaseModel):
     is sent. ``revisions_enabled``: "not right?" asks for a new version with
     the learner's note (the earlier one is kept).
 
-    Caps (money, W4): two author attempts and one verifier call per request;
-    ``max_daily_cost_usd`` meters the two routes' metered spend a UTC day at
+    Caps (money, W4): two author attempts per request; ``max_daily_cost_usd``
+    meters the author route's metered spend a UTC day at
     ``price_per_million`` (unset: a metered route is refused before sending;
     Codex is ``estimated_only``). Content and formative only: nothing in
     scoring, scheduling, projection or serving reads these keys, so no

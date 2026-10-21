@@ -8,12 +8,14 @@ grammar (``apps/learnloop-tauri/src/screens/reader/figures/figureGrammar.ts``),
 the two kept identical by one golden corpus.
 
 * :mod:`.grammar`: the hand-written parser and evaluator (no ``eval``), the
-  fixed adaptive Simpson rule, exact sums, and the sympy translation the
-  verifier's sandboxed check reads;
+  fixed adaptive Simpson rule and exact sums;
 * :mod:`.spec`: the spec, its caps, and :func:`~.spec.evaluate_figure` (the
   panels' data, the corpus's parity unit);
-* :mod:`.verify`: structure, invariants, shaded areas, source match;
-* :mod:`.routes`: ``figure_author`` and ``figure_verifier`` under the spend cap;
+* :mod:`.verify`: structure, invariants, shaded areas (§8.3 steps 1-2; the
+  source match, step 3, is RW5c's);
+* :mod:`.routes`: ``figure_author`` under the spend cap;
+* :mod:`learnloop.figure_admission`: the one switch predicate and the gate
+  every figure-derived model request passes;
 * :mod:`.service`: build, reuse, revise, list, predict, explain.
 
 Content and formative only (W1): nothing here writes an attempt, evidence,

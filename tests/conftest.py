@@ -51,10 +51,9 @@ os.environ["LEARNLOOP_AD_MODELS"] = "off"
 # Reader workbench RW2b: no workbench route ("Check my work") resolves a real
 # client unless the test injected a fake (ctx.workbench_check_client).
 os.environ["LEARNLOOP_WORKBENCH_MODELS"] = "off"
-# Reader workbench RW5a: no figure route (figure_author, figure_verifier)
-# resolves a real client unless the test injected a fake
-# (ctx.figure_author_client / ctx.figure_verifier_client, or the service's
-# author_client / verifier_client arguments).
+# Reader workbench RW5a: no figure route (figure_author) resolves a real
+# client unless the test injected a fake (ctx.figure_author_client, or the
+# service's author_client argument).
 os.environ["LEARNLOOP_FIGURE_MODELS"] = "off"
 
 # Disable sqlite durability for every test connection. Each durable commit
