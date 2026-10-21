@@ -3,8 +3,8 @@ title: "interactive_figures"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "4a54bff2446abc14f190bc13a997b80a58ed90a4"
-source_commit_timestamp: "2026-10-20T20:47:05-04:00"
+source_commit: "ee60904dcae6ec66a487d8f6e6b1d10ca3e2db9e"
+source_commit_timestamp: "2026-10-20T22:01:38-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interactive_figures"
@@ -124,6 +124,7 @@ None found by exact static reference scan.
 - `tests/test_figure_revisions.py`
 - `tests/test_figure_verification.py`
 - `tests/test_figures_codex_review.py`
+- `tests/test_figures_fix_round2.py`
 - `tests/test_figures_migration.py`
 - `tests/test_figures_rpc.py`
 
