@@ -26,7 +26,26 @@ def _record(tmp_path: Path, *, enabled: bool | None) -> dict:
     if enabled is not None:
         set_config(paths, "figures", enabled=enabled)
     ctx = context(paths.root)
-    return {"contract": call(ctx, "reader.prompt_contract", {})}
+    contract = call(ctx, "reader.prompt_contract", {})
+    return {"contract": contract if WRITE else _without_later_stages(contract)}
+
+
+#: What main gained after the golden's tree (e14b4e4ff), each stage behind its
+#: own switch and pinned by its own tests (RW5a landing): RW4d's
+#: ``compareKeep`` and RW7a's ``readingPaths`` with Orient's "what matters
+#: here?" in the contract; RW4d's ``comparisons``, RW4e's ``roles`` and RW7a's
+#: ``reading_paths`` in the report. These pins are about RW5a's switch, so
+#: everything else stays byte for byte.
+LATER_CONTRACT_KEYS = ("compareKeep", "readingPaths")
+LATER_REPORT_KEYS = ("comparisons", "roles", "reading_paths")
+
+
+def _without_later_stages(contract: dict) -> dict:
+    for key in LATER_CONTRACT_KEYS:
+        contract.pop(key)
+    for group in contract["intent"]["palette"]:
+        group["actions"] = [action for action in group["actions"] if action["effect"] != {"kind": "reading_path"}]
+    return contract
 
 
 def test_figures_off_is_the_base_reader_contract_byte_for_byte(tmp_path):
@@ -87,7 +106,10 @@ def _report(tmp_path: Path, *, figures: bool | None) -> dict:
     if figures is None:  # the base tree: no figure tables, no switch
         return build_reader_report(repo.sqlite_path, now=NOW + timedelta(minutes=60))
     _seed_figure_rows(repo)
-    return build_reader_report(repo.sqlite_path, now=NOW + timedelta(minutes=60), figures_enabled=figures)
+    report = build_reader_report(repo.sqlite_path, now=NOW + timedelta(minutes=60), figures_enabled=figures)
+    for key in LATER_REPORT_KEYS:  # main's later blocks (RW5a landing; see LATER_CONTRACT_KEYS)
+        report.pop(key)
+    return report
 
 
 def test_figures_off_is_the_base_reader_report(tmp_path):

@@ -56,6 +56,15 @@ from tests.reading_path_fixtures import (
 GOLDEN = json.loads((Path(__file__).parent / "fixtures" / "reading_paths_base_a76c8358a.json").read_text())
 
 
+def _without_rw5a(contract: dict) -> dict:
+    """RW5a (explorable figures, landed after a76c8358a and on by default) adds its own key and its one intent-box
+    action, pinned by tests/test_figures_switch_off.py; these pins are about RW7a's switch (RW5a landing)."""
+    assert contract.pop("figures") == {"predictions": True, "region": True, "revisions": True}
+    for group in contract["intent"]["palette"]:
+        group["actions"] = [action for action in group["actions"] if action["effect"] != {"kind": "figure"}]
+    return contract
+
+
 @pytest.fixture
 def path_vault(tmp_path, monkeypatch):
     clock = FixedClock(monkeypatch)
@@ -145,7 +154,7 @@ def test_on_by_default_classified_and_the_contract_and_palette_gain_only_rw7a_ke
     assert (defaults.reading_paths.enabled, defaults.reading_paths.max_daily_cost_usd) == (True, 0.5)
     assert defaults.ai.routing.reading_path_judge is None
 
-    contract = json.loads(normalized(call(context(paths.root), "reader.prompt_contract", {})))
+    contract = _without_rw5a(json.loads(normalized(call(context(paths.root), "reader.prompt_contract", {}))))
     assert contract.pop("readingPaths") == {"enabled": True, "depths": [
         {"id": "get_the_idea", "label": "get the idea"}, {"id": "learn_to_use_it", "label": "learn to use it"},
         {"id": "fluency", "label": "fluency"}]}
@@ -165,7 +174,7 @@ def test_switched_off_the_guide_contract_and_palette_are_a76c8358a_and_every_rpc
     assert json.loads(normalized(call(ctx, "get_daily_plan", {}))) == GOLDEN["plan"]
     assert json.loads(normalized(call(ctx, "get_today_queue", {}))) == GOLDEN["queue"]
     assert json.loads(normalized(call(ctx, "reader.guide_plan", {"extraction_id": EXT}))) == GOLDEN["guide"]
-    assert json.loads(normalized(call(ctx, "reader.prompt_contract", {}))) == GOLDEN["contract"]
+    assert _without_rw5a(json.loads(normalized(call(ctx, "reader.prompt_contract", {})))) == GOLDEN["contract"]
     before = table_counts(repository)
     for name, params in (("reader.reading_path", {"extractionId": EXT}),
                          ("reader.reading_path_set_depth", {"extractionId": EXT, "depth": "fluency"}),
@@ -1101,6 +1110,8 @@ def _cli_report(paths):
     assert result.exit_code == 0, result.output
     report = json.loads(result.output)
     report["window"]["until"] = "<now>"  # the CLI's own clock
+    # RW5a's figures block (landed after a76c8358a, on by default; tests/test_figures_switch_off.py pins it).
+    report.pop("figures")
     return json.loads(normalized(report))
 
 
