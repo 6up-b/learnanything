@@ -11,6 +11,9 @@
 // exercises show beside the items as RW4b's candidate cards, and "nothing
 // fits" offers "find an exercise in my sources" while the fallback is on;
 // without it the block renders exactly as RW4a's.
+// RW4e: a passage whose role LearnLoop's model proposed carries it in its
+// locator as "counterexample (model's label)" (roleLabel.ts); without one the
+// locator is RW4a's.
 // Nothing here takes focus, animates or opens a modal (G54).
 import { useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { CompareTableDto, LibraryHitDto, LibraryNoteDto, ProposedItemDto } from "../../api/dto";
@@ -19,6 +22,7 @@ import { MarkdownMath } from "../../render/MarkdownMath";
 import { CompareKeep, KEEP_COPY, KeptComparisonView, shortDate } from "./CompareKeep";
 import { ModelActionState } from "./ModelActionState";
 import { ProposalExercises, type LibraryExercisesProps } from "./ProposalExercises";
+import { hitRoleLabel } from "./roleLabel";
 import { LIBRARY_COPY, type LibraryAskController } from "./useLibraryAsk";
 import { EvidenceMarker, MeaningLabel, ModelVoice, SourceVoice } from "./voices";
 
@@ -37,7 +41,7 @@ const linkStyle = {
 const headStyle = { fontFamily: FONT_MONO, fontSize: 10, letterSpacing: "0.12em", color: COLOR.textDim, textTransform: "uppercase" as const };
 
 function locator(hit: LibraryHitDto): string {
-  return [hit.group.toLowerCase(), hit.section, hit.page !== null ? `p.${hit.page}` : null].filter(Boolean).join(" · ");
+  return [hitRoleLabel(hit), hit.section, hit.page !== null ? `p.${hit.page}` : null].filter(Boolean).join(" · ");
 }
 
 function clip(text: string, limit = 420): string {

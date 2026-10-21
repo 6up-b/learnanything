@@ -60,6 +60,8 @@ import json
 import math
 from typing import Any, Literal
 
+from pydantic import model_validator
+
 from learnloop.ai.errors import AIInvalidOutput
 from learnloop.ai.execution import content_key
 from learnloop.ai.schemas import WireModel
@@ -83,10 +85,13 @@ from learnloop.practice_index.paid import (
     transport_problem,
 )
 from learnloop.reader import reader_cues as RCU
+from learnloop.reader import source_roles as RS
+from learnloop.reader.source_roles import RoleProposal, tolerate_malformed_roles
 from learnloop.reader.reader_progression import learning_objects_for_span
 from learnloop.source_retrieval.corpus import (
     Scope,
     block_roles,
+    effective_eligibility,
     extraction_scope,
     model_reader_withheld,
     teaching_exclusions,
@@ -722,20 +727,51 @@ def _lo_neighbourhood(vault: LoadedVault, lo_ids: Sequence[str]) -> set[str]:
 
 
 def contrast_list(vault: LoadedVault, repository: Repository, target: CueTarget,
-                  extraction_id: str) -> list[tuple[str, str]]:
+                  extraction_id: str, *, guard: Protection | None = None) -> list[tuple[str, str]]:
     """Passages with a ``contrast`` or ``counterexample`` role on the target's
     LOs or their confusables: RW4e's proposals (the sources spec's
     ``remediate`` list) and the roles this judge proposed before. Used only to
-    add candidates (G44)."""
+    add candidates (G44). ``guard``: the open source's protection (None:
+    read here), as :func:`shortlist` applies it."""
 
-    proposed = list(source_object_lists(repository, "remediate", [extraction_id]).get("source_objects") or [])
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        own = sorted(store.links_with_roles(connection, [extraction_id], CONTRAST_ROLES)) \
-            if store.tables_present(connection) else []
     los = _lo_neighbourhood(vault, target.learning_object_ids)
     span_los = SpanLearningObjects(vault, repository, extraction_id)
+    if not RS.positive_filter_enabled(vault):
+        # Switch off (fix round 4): a12ba5ba9's list, the legacy rows unfiltered.
+        return _on_target([*(source_object_lists(vault, repository, "remediate", [extraction_id]).get(
+            "source_objects") or []), *_own_contrasts(repository, extraction_id)], extraction_id, span_los, los)
+    guard = guard or protection(vault, repository, extraction_id)
+
+    def on_target(key: tuple[str, str]) -> bool:
+        return key[0] == extraction_id and guard.allows(key) and bool(set(span_los(key[1])) & los)
+
+    # A low-confidence proposal counts only when no confident one this
+    # judge could be shown is on this target (Codex review F3; fix round 3):
+    # the one effective eligibility, with every filter the shortlist's pool
+    # applies (the open source's scope, protection: exam, held-out and
+    # teaching exclusions, and the model-reader filter) and the target's LOs.
+    eligible = effective_eligibility(
+        vault, repository, _scope(repository, extraction_id, guard), admits=on_target,
+        withheld=lambda keys: model_reader_withheld(vault, repository, keys))
+    proposed = list(source_object_lists(vault, repository, "remediate", [extraction_id], eligible=eligible).get(
+        "source_objects") or [])
+    return _on_target([*proposed, *_own_contrasts(repository, extraction_id)], extraction_id, span_los, los)
+
+
+def _own_contrasts(repository: Repository, extraction_id: str) -> list[tuple[str, str]]:
+    """The passages this judge's own links gave a contrast role before."""
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        return sorted(store.links_with_roles(connection, [extraction_id], CONTRAST_ROLES)) \
+            if store.tables_present(connection) else []
+
+
+def _on_target(keys: Sequence[tuple[str, str]], extraction_id: str, span_los: SpanLearningObjects,
+               los: set[str]) -> list[tuple[str, str]]:
+    """``keys`` on the open extraction and the target's LOs, once each, in order."""
+
     out: list[tuple[str, str]] = []
-    for key in [*proposed, *own]:
+    for key in keys:
         key = (str(key[0]), str(key[1]))
         if key[0] != extraction_id or key in out:
             continue
@@ -771,7 +807,7 @@ def shortlist(vault: LoadedVault, repository: Repository, target: CueTarget, ext
         result.notes.append("the open source is withheld from models (exam or held-out material)")
         return result
     extra: dict[str, list[tuple[str, str]]] = {}
-    contrast = contrast_list(vault, repository, target, extraction_id)
+    contrast = contrast_list(vault, repository, target, extraction_id, guard=guard)
     if contrast:
         extra["contrast"] = contrast
     if target.misconception_id:
@@ -817,12 +853,6 @@ def shortlist(vault: LoadedVault, repository: Repository, target: CueTarget, ext
 # The judge (§6.2 item 3)
 # ---------------------------------------------------------------------------
 
-class RoleProposal(WireModel):
-    role: Literal["definition", "theorem", "explanation", "intuition", "worked_example", "exercise", "figure",
-                  "counterexample", "contrast", "prerequisite", "alternative_treatment", "application"]
-    confidence: Literal["high", "medium", "low"]
-
-
 class CueJudgment(WireModel):
     ref: str
     relation: Literal["clarifies_distinction", "new_application", "prerequisite_for", "try_first", "none"]
@@ -832,6 +862,15 @@ class CueJudgment(WireModel):
     quote: str
     #: Instructional roles this passage plays (RW4e; positive use only).
     roles: list[RoleProposal]
+
+    # RW4e: a missing or malformed ``roles`` field never fails the judge's
+    # main output (it reads as no roles); a valid one is RW3b's exactly,
+    # duplicates and order kept (fix round 4). A before-validator changes no
+    # JSON schema, so the request identity (and every ledger id) is RW3b's.
+    @model_validator(mode="before")
+    @classmethod
+    def _tolerate_roles(cls, data: Any) -> Any:
+        return tolerate_malformed_roles(data)
 
 
 class CueJudgeResult(WireModel):
@@ -1081,7 +1120,21 @@ def judge_target(vault: LoadedVault, repository: Repository, listed: Shortlist, 
             }
             link["id"] = store.insert_link(connection, link)
             links.append(link)
-    return {"status": status, "links": links, "dropped": dropped, "model": outcome.model}
+    proposals = None
+    if RS.on_demand_enabled(vault) and captured:
+        # RW4e: every judged passage's roles become source-object proposals
+        # (no extra call; positive use only, G44). The pool was protected
+        # before the judge saw it; the writer asks the exam predicate again.
+        written = RS.propose_roles(
+            vault, repository, RS.claims_from_judgments(
+                refs, captured, {key: str(row["id"]) for key, row in outcome.rows.items()}),
+            judge=RS.JUDGE_CUE, prompt_version=PROMPT_VERSION, model=outcome.model, clock=clock)
+        proposals = {"written": len(written["written"]), "versions": len(written["versions"]),
+                     "skipped": len(written["skipped"])}
+    out = {"status": status, "links": links, "dropped": dropped, "model": outcome.model}
+    if proposals is not None:
+        out["role_proposals"] = proposals
+    return out
 
 
 # ---------------------------------------------------------------------------

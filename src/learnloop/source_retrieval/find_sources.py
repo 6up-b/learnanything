@@ -23,7 +23,7 @@ reconstruct what the call could read (§5.5).
 """
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
 import json
@@ -42,13 +42,15 @@ from learnloop.content.sources.source_outline import resolve_extraction_id
 from learnloop.content.sources.span_aliases import CITATION_MADE_AT_SQL, CitationResolver, CurrentKeys
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
-from learnloop.db.stores.source_block_fts import search_blocks
+from learnloop.db.stores.source_block_fts import blocks_by_key, search_blocks
 from learnloop.ingest.locators import parse_block_span
 from learnloop.practice_index.listwise import ListwiseTask, judge_listwise
 from learnloop.practice_index.paid import estimated_call_tokens
 from learnloop.source_retrieval.corpus import (
+    Eligibility,
     Scope,
     block_roles,
+    effective_eligibility,
     extraction_scope,
     item_exclusions,
     library_scope,
@@ -57,7 +59,7 @@ from learnloop.source_retrieval.corpus import (
 )
 from learnloop.source_retrieval.policy import POLICIES, CallerContext, PolicyRefused, derive_policy
 from learnloop.source_retrieval.queries import query_id
-from learnloop.source_retrieval.search import POOL_HYBRID_RRF, SpanHit, SpanKey, search_spans
+from learnloop.source_retrieval.search import POOL_HYBRID_RRF, SpanHit, SpanKey, role_filter, search_spans
 from learnloop.source_retrieval.verify import (
     PRICE_SETTING,
     judged_passage,
@@ -391,12 +393,30 @@ def correction_lists(vault: LoadedVault, repository: Repository, misconception: 
     return lists, report
 
 
-def source_object_lists(repository: Repository, intent: str, extraction_ids: Sequence[str]) -> dict[str, list[SpanKey]]:
+def source_object_lists(vault: LoadedVault, repository: Repository, intent: str,
+                        extraction_ids: Sequence[str], *,
+                        eligible: Callable[[list[SpanKey]], list[SpanKey]] | None = None,
+                        ) -> dict[str, list[SpanKey]]:
     """Source objects whose type (or RW4e authorial role) matches the intent (§9.2).
 
-    ``low``-confidence role proposals count only when nothing better exists:
-    such rows are appended after every other row of the list.
+    Every source object but Reader RW4e's is read as it always was (any
+    version proposed or reviewed, by type or ``authorial_role``). RW4e's role
+    proposals (``content_json.kind = "instructional_role"``) come only from
+    :func:`learnloop.reader.source_roles.role_proposals` (the head version,
+    the current reading, nothing exam protection hides now), by role or by
+    their mapped type, and not at all while ``roles.positive_filter_enabled``
+    is off. ``low``-confidence rows count only when nothing better exists
+    (Codex review F3): the list is its confident rows the caller may be given
+    (``eligible``: the caller's effective eligibility,
+    ``corpus.Eligibility``, with its role filter (fix round 3); every row
+    when None), and its low ones only when none is left.
+
+    With ``roles.positive_filter_enabled`` off (fix round 4) the list is
+    a12ba5ba9's exactly: every matching legacy row, the low ones appended
+    after the rest, and ``eligible`` is not read.
     """
+
+    from learnloop.reader.source_roles import PROPOSAL_KIND_SQL, positive_filter_enabled, role_proposals
 
     types = {"worked_example": ("worked_example",), "explain": ("definition", "claim", "procedure")}.get(intent, ())
     roles = {"remediate": ("contrast", "counterexample"), "alternative": ("alternative_treatment", "intuition"),
@@ -414,7 +434,9 @@ def source_object_lists(repository: Repository, intent: str, extraction_ids: Seq
             "SELECT v.object_type, v.authorial_role, v.content_json, c.revision_id, c.span_id, "
             f"c.block_content_hash, {CITATION_MADE_AT_SQL} "
             "FROM source_object_versions v JOIN source_object_citations c ON c.source_object_version_id = v.id "
-            "WHERE v.status IN ('proposed', 'reviewed') ORDER BY v.created_at, c.citation_ordinal").fetchall()
+            "WHERE v.status IN ('proposed', 'reviewed') "
+            f"AND v.source_object_id NOT IN ({PROPOSAL_KIND_SQL}) ORDER BY v.created_at, c.citation_ordinal"
+        ).fetchall()
     strong: list[SpanKey] = []
     weak: list[SpanKey] = []
     # Each citation on the reading it was made on, moved to the current one
@@ -430,7 +452,19 @@ def source_object_lists(repository: Repository, intent: str, extraction_ids: Seq
             continue
         confidence = (json.loads(content_json or "{}") or {}).get("confidence") if content_json else None
         (weak if confidence == "low" else strong).append(key)
-    keys = list(dict.fromkeys(strong + weak))
+    if not positive_filter_enabled(vault):
+        # Switch off: the base list (no RW4e proposal is read; the low rows last).
+        keys = list(dict.fromkeys(strong + weak))
+        if keys:
+            lists["source_objects"] = keys
+        return lists
+    for label in role_proposals(vault, repository, extraction_ids=wanted_extractions):
+        if label.object_type in types or label.role in roles:
+            (weak if label.low else strong).append(label.key)
+    allowed = eligible or (lambda keys: keys)
+    keys = allowed(list(dict.fromkeys(strong)))
+    if not keys:
+        keys = allowed([key for key in dict.fromkeys(weak) if key not in set(strong)])
     if keys:
         lists["source_objects"] = keys
     return lists
@@ -450,6 +484,19 @@ def _hit_dict(hit: SpanHit, revision_ids: Mapping[str, str | None], *, verdict: 
 
 
 _span_keys = span_keys
+
+
+def _answer_overlap(repository: Repository, item: PracticeItem) -> Callable[[list[SpanKey]], set[SpanKey]]:
+    """The keys whose passage reproduces ``item``'s key: the answer-overlap
+    filter ``find_sources`` applies to an assisted-practice pool, read for
+    its effective eligibility (fix round 3) from the same block text."""
+
+    def leaks(keys: list[SpanKey]) -> set[SpanKey]:
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            blocks = blocks_by_key(connection, keys)
+        return {key for key, block in blocks.items() if span_leaks_expected(block.text, item.expected_answer)}
+
+    return leaks
 
 
 def verification_question(query: str, intent: str, misconceptions: Sequence[Any]) -> str:
@@ -653,10 +700,37 @@ def find_sources(
         shown_sources = {span_scope.extractions[key[0]].source_id for key in excluded if key[0] in span_scope.extractions}
         personal["shown_sources"] = sorted(shown_sources)
     extra.update(expansion_lists(vault, repository, lo_ids, expand))
-    extra.update(source_object_lists(repository, intent, extraction_ids))
     effective_roles = tuple(roles)
     if intent == "worked_example" and not effective_roles:
         effective_roles = ("worked_example",)
+    # What this caller may be given (fix round 3: the one effective
+    # eligibility): the scope, its exclusions, no exam or held-out material,
+    # and under assisted practice no passage the answer-overlap filter below
+    # withholds. The intent lists and the search's role filter both ask it
+    # whether a stronger candidate remains, so they cannot disagree. A
+    # cursor's judged passages are not excluded here: they were candidates,
+    # and every page keeps the first page's role filter.
+    # With roles.positive_filter_enabled off (fix round 4) none of this
+    # applies: the intent lists and the role filter are a12ba5ba9's.
+    from learnloop.reader.source_roles import positive_filter_enabled
+
+    eligibility: Eligibility | None = None
+    if positive_filter_enabled(vault):
+        eligibility = effective_eligibility(
+            vault, repository, span_scope, excluded=excluded,
+            withheld=_answer_overlap(repository, item) if policy == "assisted_practice" and item is not None
+            else None)
+        # The search's own role rule (Codex re-review F5): a row it would drop
+        # is no stronger candidate.
+        role_permitted = (role_filter(vault, repository, span_scope, effective_roles, eligible=eligibility)[0]
+                          if effective_roles else None)
+
+        def eligible(keys: list[SpanKey]) -> list[SpanKey]:
+            return [key for key in eligibility(keys) if role_permitted is None or key in role_permitted]
+
+        extra.update(source_object_lists(vault, repository, intent, extraction_ids, eligible=eligible))
+    else:
+        extra.update(source_object_lists(vault, repository, intent, extraction_ids))
     query_text = verification_question(query, intent, misconceptions)
     depth = None if cursor is None else cursor.get("list_depths")
     # Paging deepens the lists until they are exhausted (§8.3.4), so the pool
@@ -665,7 +739,7 @@ def find_sources(
     search = search_spans(
         vault, repository, query_text, span_scope, limit=max(int(limit) * 4, 40), deep=True, rewrite=rewrite,
         extra_lists=extra, embedder=embedder, rewrite_client=rewrite_client, owner_id=owner_id or query_hash,
-        deadline=deadline, roles=effective_roles, pool=POOL_HYBRID_RRF,
+        deadline=deadline, roles=effective_roles, pool=POOL_HYBRID_RRF, eligible=eligibility,
         **({} if depth is None else {"list_depth": depth}),
     )
     pool = [hit for hit in search.hits if hit.key not in excluded]

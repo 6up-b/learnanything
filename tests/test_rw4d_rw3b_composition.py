@@ -81,8 +81,11 @@ def _compare_and_keep(ctx, monkeypatch) -> tuple[dict, dict]:
 
 
 def _kept_object_count(ctx) -> int:
-    return sum(len(call(ctx, "reader.source_objects", {"sourceId": source})["sourceObjects"])
-               for source in ("src_text", "src_book"))
+    # RW4e: the cue judge's role proposals on passages still open are not
+    # kept-comparison objects (they are counted apart, never withheld here).
+    return sum(1 for source in ("src_text", "src_book")
+               for head in call(ctx, "reader.source_objects", {"sourceId": source})["sourceObjects"]
+               if "instructional_role" not in json.dumps(head))
 
 
 def test_a_cue_and_a_kept_mark_on_one_passage_are_independent_and_both_withheld(tmp_path, monkeypatch):

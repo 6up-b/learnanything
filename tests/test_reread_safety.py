@@ -378,6 +378,15 @@ def test_a_margin_cue_marks_only_a_passage_whose_cited_words_are_there(studied):
     assert [cue["span_id"] for cue in candidates] == ["b1"]
 
 
+def _vault(studied):
+    """The vault as it stands now (RW4e: ``source_object_lists`` reads the
+    role switch and exam protection from it)."""
+
+    from learnloop.vault.loader import load_vault
+
+    return load_vault(studied["root"])
+
+
 def test_citations_resolve_against_the_reading_they_were_made_on(studied):
     from learnloop.content.sources import span_aliases
     from learnloop.source_retrieval.find_sources import source_object_lists
@@ -393,7 +402,7 @@ def test_citations_resolve_against_the_reading_they_were_made_on(studied):
     # Changed or gone: the reading it was made on, never "extB + the old span id".
     assert resolver.current_key(citations[MOVED]) == ("extA", MOVED)
     assert resolver.current_key(citations[GONE]) == ("extA", GONE)
-    keys = source_object_lists(repo, "explain", ["extB"])["source_objects"]
+    keys = source_object_lists(_vault(studied), repo, "explain", ["extB"])["source_objects"]
     assert keys == [("extB", "b1")]
     assert all(key[1] in _B_TEXT for key in keys)
 
@@ -1073,7 +1082,7 @@ def test_f3_reviewing_a_legacy_citation_after_a_reread_keeps_what_it_cites(studi
     clock.advance()
     (head,) = repo.source_objects_for_source("src1")
     SO.review_source_object(repo, source_object_id=head["object"]["id"], status="reviewed", clock=clock)
-    assert source_object_lists(repo, "explain", ["extB"])["source_objects"] == [("extB", "b1")]
+    assert source_object_lists(_vault(studied), repo, "explain", ["extB"])["source_objects"] == [("extB", "b1")]
     (citations,) = _codes(studied["root"])["source:citation_text_changed"]
     # Both versions' citations of the changed and the gone passage, never "current".
     assert citations.details["by_status"] == {"needs_reanchor": 2, "stale": 2}
@@ -1085,7 +1094,7 @@ def test_f3_reviewing_a_legacy_citation_after_a_reread_keeps_what_it_cites(studi
             "UPDATE source_object_citations SET created_at = ? WHERE source_object_version_id IN "
             "(SELECT id FROM source_object_versions WHERE version_ordinal = 2)", (review_time,))
         connection.commit()
-    assert source_object_lists(repo, "explain", ["extB"])["source_objects"] == [("extB", "b1")]
+    assert source_object_lists(_vault(studied), repo, "explain", ["extB"])["source_objects"] == [("extB", "b1")]
     (citations,) = _codes(studied["root"])["source:citation_text_changed"]
     assert citations.details["by_status"] == {"needs_reanchor": 2, "stale": 2}
 

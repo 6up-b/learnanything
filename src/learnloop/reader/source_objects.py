@@ -83,6 +83,48 @@ def author_source_object(
     return {"source_object_id": source_object_id, "status": status, **written}
 
 
+def append_proposal_version(
+    repository: Repository,
+    *,
+    source_object_id: str,
+    revision_id: str,
+    object_type: str,
+    content: Mapping[str, Any],
+    citations: list[Mapping[str, Any]],
+    authorial_role: str | None = None,
+    exact_text: str = "",
+    model_provenance: Mapping[str, Any] | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """Append a further AI proposal version to a ``proposed`` object (Reader
+    RW4e: a second judge proposing the same instructional role on the same
+    passage, so agreement between judges is visible). Append-only; the object
+    stays ``proposed``. A reviewed, rejected or superseded object takes no
+    further proposal (its review stands)."""
+
+    if object_type not in OBJECT_TYPES:
+        raise SourceObjectError(f"unknown object_type: {object_type!r}")
+    # One write transaction: the status read and the append (a review landing
+    # between them would otherwise be buried under this proposal; Codex
+    # review of RW4e, F1). Inside a caller's ``atomic()`` it is a savepoint.
+    with repository.atomic():
+        head = repository.source_object_head(source_object_id)
+        if head is None or head["version"] is None:
+            raise SourceObjectError(f"unknown source object: {source_object_id!r}")
+        if head["version"]["status"] != "proposed":
+            raise SourceObjectError(f"source object {source_object_id!r} is {head['version']['status']}")
+        return repository.append_source_object_version(
+            source_object_id=source_object_id,
+            version={
+                "revision_id": revision_id, "object_type": object_type, "authorial_role": authorial_role,
+                "exact_text": exact_text, "content": dict(content), "authorship": "ai", "status": "proposed",
+                "model_provenance": dict(model_provenance) if model_provenance is not None else None,
+            },
+            citations=list(citations),
+            clock=clock,
+        )
+
+
 def review_source_object(
     repository: Repository, *, source_object_id: str, status: str, clock: Clock | None = None
 ) -> dict[str, Any]:

@@ -916,8 +916,8 @@
     "sha256": "e37e8b720c83ffb155441afc3156a9b7694735bb1402082555c9492821da0934"
   },
   "reader": {
-    "bytes": 1842,
-    "sha256": "6b949a6d423c3d2baf9c94f0695a0f1c732c0ffdd1115a8d798fd52a8d195c53"
+    "bytes": 1927,
+    "sha256": "69495730f185e3d4c3c70b82b2ad01696bdf7bed51451da076ae28769d0710c2"
   },
   "reader cues": {
     "bytes": 2522,
@@ -926,6 +926,10 @@
   "reader cues discover": {
     "bytes": 2036,
     "sha256": "4afde4f5ae693e64e4827da9ff21fb60c222d29a3292f8f96fe4ec01573542df"
+  },
+  "reader label-roles": {
+    "bytes": 1947,
+    "sha256": "ec391628b3fb5a93258fc7ede6b4a23dee8ec33c897ed18a5e6186f64eaa0430"
   },
   "reader report": {
     "bytes": 1457,

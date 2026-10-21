@@ -8695,6 +8695,18 @@ export interface LibraryHitDto {
   learningObjectIds: string[];
   authorship: "source";
   label: string;
+  /** RW4e (roles.positive_filter_enabled): the passage's best instructional-role
+   *  proposal when its ingest role is ordinary prose; absent otherwise. */
+  proposedRole?: ProposedRoleDto | null;
+}
+
+/** RW4e: an instructional role LearnLoop's model proposed for a passage (a
+ *  source-object proposal, labelled "model's label"; never an exclusion). */
+export interface ProposedRoleDto {
+  role: string;
+  confidence: "high" | "medium" | "low" | null;
+  judges: string[];
+  label: string;
 }
 
 export interface LibraryExpansionDto {

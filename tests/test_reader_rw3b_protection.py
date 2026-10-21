@@ -114,7 +114,10 @@ def test_discovery_cues_and_taps_write_no_evidence_mastery_fsrs_attempt_or_plan_
     after = table_counts(repository)
     changed = {name for name in after if after[name] != before.get(name)}
     allowed = {"judgment_ledger", "passage_links", "reader_cue_impressions", "model_call_receipts",
-               "model_work_checkpoints", "agent_runs", "ai_usage_events"}
+               "model_work_checkpoints", "agent_runs", "ai_usage_events",
+               # RW4e: the judge's per-passage roles as source-object proposals
+               # (roles.on_demand_enabled; proposals, never evidence, G44).
+               "source_objects", "source_object_versions", "source_object_citations"}
     assert changed <= allowed, changed - allowed
     for table in ("practice_attempts", "grading_evidence", "error_events", "facet_mastery_state", "fsrs_state",
                   "learning_object_mastery", "daily_plans", "attention_blocks", "router_decisions"):

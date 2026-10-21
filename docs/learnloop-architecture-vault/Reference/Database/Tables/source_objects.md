@@ -3,8 +3,8 @@ title: "source_objects"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ee20a4204c73da58ca7320637f41fbac746d5807"
-source_commit_timestamp: "2026-10-20T18:45:49-04:00"
+source_commit: "a12ba5ba978cb900a59510ad401b78bcddf9db96"
+source_commit_timestamp: "2026-10-20T19:34:07-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_objects"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/094_source_objects.sql"
+  - "src/learnloop/config/schema.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/reader/reader_report.py"
   - "src/learnloop/reader/reader_requests.py"
+  - "src/learnloop/reader/source_roles.py"
   - "src/learnloop/source_retrieval/find_sources.py"
   - "src/learnloop/source_retrieval/kept_comparisons.py"
-  - "src/learnloop/source_retrieval/library_ask.py"
-  - "src/learnloop/source_retrieval/passage_cues.py"
-  - "src/learnloop_sidecar/handlers/kept_comparisons.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/reader/source_objects.py"
   - "src/learnloop_sidecar/handlers/reader.py"
@@ -88,6 +88,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/reader/source_roles.py`
 
 ### Direct SQL writers
 
@@ -98,6 +99,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/reader/source_objects.py`
+- `src/learnloop/reader/source_roles.py`
 - `src/learnloop_sidecar/handlers/reader.py`
 
 > [!note] Static-reference boundary
@@ -108,10 +110,15 @@ Indexes and uniqueness:
 - `tests/test_compare_keep_switch_off.py`
 - `tests/test_compare_sources_keep.py`
 - `tests/test_find_sources_intents.py`
+- `tests/test_label_roles_cli.py`
 - `tests/test_reader_compare_table.py`
+- `tests/test_reader_rw3b_protection.py`
 - `tests/test_reread_safety.py`
+- `tests/test_roles_switch_off.py`
+- `tests/test_rw4d_rw3b_composition.py`
 - `tests/test_sidecar_reader_p3_slice2.py`
 - `tests/test_source_objects.py`
+- `tests/test_source_roles.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_ingest_jobs.py`
 - `tests/test_reader_requests.py`
