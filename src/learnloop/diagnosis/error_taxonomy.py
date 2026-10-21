@@ -29,6 +29,14 @@ def persist_unknown_error_type_proposals(
     related_concept_id: str | None = None,
     clock: Clock | None = None,
 ) -> str | None:
+    """Propose the error types a grading named that the vault doesn't know.
+
+    A type already waiting as a proposal is not proposed again: this
+    attempt joins the waiting proposal's source refs (UX Phase 2, Codex
+    review of ux-phase2-shell F6: Proposals grew on every practice, one more
+    batch per grading that named the same new type). Returns the new batch's
+    id, else the waiting batch the attempt joined, else ``None``.
+    """
     if agent_run_id is None:
         return None
     known = set(vault.error_types) | BUILTIN_ERROR_TYPES
@@ -59,23 +67,23 @@ def persist_unknown_error_type_proposals(
         }
         for attribution in unknown
     ]
-    return repository.persist_proposal_batch(
+    attempt_ref = {
+        "ref_type": "manual_context",
+        "ref_id": attempt_id,
+        "locator": "grading_error_attribution",
+    }
+    return repository.persist_grading_error_type_proposals(
         {
             "id": new_ulid(),
             "agent_run_id": agent_run_id,
             "purpose": "grading_error_type",
-            "source_refs": [
-                {
-                    "ref_type": "manual_context",
-                    "ref_id": attempt_id,
-                    "locator": "grading_error_attribution",
-                }
-            ],
+            "source_refs": [attempt_ref],
             "summary": "Proposed error taxonomy entries from grading.",
             "created_at": now,
             "updated_at": now,
         },
         rows,
+        attempt_ref=attempt_ref,
     )
 
 

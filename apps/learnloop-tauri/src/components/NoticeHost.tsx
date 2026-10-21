@@ -1,14 +1,16 @@
 // The simple shell's notices at the bottom edge (UX Phase 2,
 // docs/specs/ux_learnloop_v1.md §7.9, §10 2.3). The list itself and its rules
 // are app/notices.ts; this draws it and keeps its clock: a notice's few
-// seconds start when it is first on screen, so a notice held while the
-// Reader has a book open arrives whole at the next destination.
+// seconds run while it is on screen, so a notice held while the Reader has a
+// book open (raised there, or shown before and held since) arrives whole at
+// the next destination.
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import {
   NOTICE_TTL_MS,
   dismissNotice,
   expireNotices,
   markShown,
+  restartHidden,
   visibleNotices,
   type ShellNotice
 } from "../app/notices";
@@ -25,6 +27,18 @@ export function NoticeHost({
 }) {
   const visible = useMemo(() => visibleNotices(notices, holding), [notices, holding]);
   const unstamped = visible.filter((notice) => notice.shownAt === null).map((notice) => notice.id).join(" ");
+  const visibleIds = visible.map((notice) => notice.id).join(" ");
+  const offScreenStamped = notices.some(
+    (notice) => notice.kind !== "error" && notice.shownAt !== null && !visible.includes(notice)
+  );
+
+  // A notice that left the screen unexpired (held while reading, or pushed
+  // off by an error) gets its whole time again when it is back (F7).
+  useEffect(() => {
+    if (!offScreenStamped) return;
+    const ids = visibleIds ? visibleIds.split(" ") : [];
+    onChange((list) => restartHidden(list, ids));
+  }, [offScreenStamped, visibleIds, onChange]);
 
   // Stamp what has just come on screen.
   useEffect(() => {

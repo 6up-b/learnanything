@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
 import { useCachedQuery } from "../api/useCachedQuery";
 import { TAG } from "../api/queryTags";
@@ -12,6 +12,7 @@ import { ASSUMED_LABEL, KnowledgeWellView } from "./KnowledgeWellView";
 import { KnowledgeStrataView } from "./KnowledgeStrataView";
 import { neighborCaption } from "./knowledgeNeighbors";
 import { useElementSize } from "./wire3d";
+import type { ReportError } from "../errors";
 
 // Knowledge map with two complementary read levels:
 //
@@ -27,7 +28,7 @@ import { useElementSize } from "./wire3d";
 
 const FRONTIER_LEVEL = 0.7;
 
-export function KnowledgeMapView({ onInspect, onError }: { onInspect: (id: string) => void; onError: (message: string) => void }) {
+export function KnowledgeMapView({ onInspect, onError }: { onInspect: (id: string) => void; onError: ReportError }) {
   // The map is the most expensive read in the app (pure-Python MDS plus a
   // scheduler pass), so it is cached with generous freshness: returning to
   // the field repaints instantly and revalidates only after five minutes or
@@ -73,8 +74,14 @@ export function KnowledgeMapView({ onInspect, onError }: { onInspect: (id: strin
 
   // Load failures surface as toasts, as before; whatever was cached stays up.
   const loadError = snapshotQuery.error ?? historyQuery.error ?? decayQuery.error;
+  // The shell gets the error itself (its code, whether it is retryable) and a
+  // retry that reads the failed feed again (UX Phase 2, Codex review F3).
+  const failedQuery = snapshotQuery.error ? snapshotQuery : historyQuery.error ? historyQuery : decayQuery;
+  const retryRef = useRef(failedQuery.refetch);
+  retryRef.current = failedQuery.refetch;
   useEffect(() => {
-    if (loadError) onError(loadError.message);
+    // A retry that fails again comes back through the query's error, as a new error.
+    if (loadError) onError(loadError.message, { error: loadError, retry: () => void retryRef.current().catch(() => undefined) });
   }, [loadError, onError]);
 
   // Keeps the selection valid for the current field (and picks the first

@@ -161,3 +161,46 @@ describe("classic shell (unchanged)", () => {
     expect(screen.queryByRole("option")).toBeNull();
   });
 });
+
+// Codex review F4: after a "> command" the palette stayed in the shell on the
+// next opening, so plain commands were gone and typing went to the parser.
+describe("reopening (simple shell)", () => {
+  function paletteProps(open: boolean) {
+    return {
+      open,
+      session: null,
+      entityIds: [],
+      practiceItemIds: [],
+      subjects: [],
+      onClose: vi.fn(),
+      onGoto: vi.fn(),
+      onOpenPractice: vi.fn(),
+      onOpenCalibration: vi.fn(),
+      onOpenAdjudication: vi.fn(),
+      onInspect: vi.fn(),
+      onAsk: vi.fn(() => false),
+      onError: vi.fn(),
+      shell: "simple" as const,
+      plainCommands: commands()
+    };
+  }
+
+  it("keeps the shell while its output is on screen, and opens on plain commands next time", async () => {
+    const { rerender } = render(<CommandPalette {...paletteProps(true)} />);
+    await typeAndEnter("> proposals");
+    expect(api.runCliCommand).toHaveBeenCalledWith(["proposals"]);
+    // Still this invocation: the shell and its output stay.
+    expect(input().value).toBe("> ");
+    expect(screen.queryByRole("option")).toBeNull();
+    rerender(<CommandPalette {...paletteProps(false)} />);
+    expect(screen.queryByRole("textbox")).toBeNull();
+    rerender(<CommandPalette {...paletteProps(true)} />);
+    expect(input().value).toBe("");
+    expect(screen.getAllByRole("option").length).toBeGreaterThan(0);
+    // Plain words typed now are plain again, never the CLI.
+    api.runCliCommand.mockClear();
+    await typeAndEnter("doctor");
+    expect(api.runCliCommand).not.toHaveBeenCalled();
+    expect(screen.getByText(/No command matches/)).toBeTruthy();
+  });
+});

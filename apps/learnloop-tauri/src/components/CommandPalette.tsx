@@ -779,6 +779,19 @@ export function CommandPalette({
     if (open) window.setTimeout(() => inputRef.current?.focus(), 30);
   }, [open]);
 
+  // The simple palette stays in the learnloop shell after a "> command" so
+  // its output stays on screen, but only for that opening: the next one
+  // starts on the plain commands again (Codex review F4: a reopened palette
+  // kept "> ", hid the plain commands and sent typing to the parser).
+  // Classic keeps its line as it was.
+  useEffect(() => {
+    if (!open || !simple) return;
+    setLine("");
+    setCursor(0);
+    setHistIdx(-1);
+    setAcIdx(0);
+  }, [open, simple]);
+
   useEffect(() => {
     if (!open) return;
     let cancelled = false;

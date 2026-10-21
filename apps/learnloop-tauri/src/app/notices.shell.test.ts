@@ -11,6 +11,7 @@ import {
   expireNotices,
   markShown,
   resolveNotices,
+  restartHidden,
   sessionNotice,
   visibleNotices,
   type ShellNotice
@@ -37,10 +38,39 @@ describe("the notice list", () => {
     expect(list[0].shownAt).toBeNull();
   });
 
-  it("keeps at most three at once, dropping the oldest", () => {
+  it("shows at most three at once; the fourth waits its turn instead of being dropped", () => {
     let list = empty;
     for (const text of ["a", "b", "c", "d"]) list = addNotice(list, { kind: "notice", text });
-    expect(list.map((notice) => notice.text)).toEqual(["b", "c", "d"]);
+    expect(list.map((notice) => notice.text)).toEqual(["a", "b", "c", "d"]);
+    expect(visibleNotices(list, false).map((notice) => notice.text)).toEqual(["a", "b", "c"]);
+    list = dismissNotice(list, list[0].id);
+    expect(visibleNotices(list, false).map((notice) => notice.text)).toEqual(["b", "c", "d"]);
+  });
+
+  // Codex review F2: an error with Try again, then three notices, lost the
+  // error and its retry.
+  it("keeps an unresolved error and its retry through any number of notices", () => {
+    const retry = () => undefined;
+    let list = addNotice(empty, { kind: "error", text: "Could not open the reader.", retry });
+    for (const text of ["a", "b", "c", "d", "e"]) list = addNotice(list, { kind: "notice", text });
+    const error = list.find((notice) => notice.kind === "error");
+    expect(error?.retry).toBe(retry);
+    const shown = visibleNotices(list, false);
+    expect(shown).toHaveLength(3);
+    expect(shown[0].text).toBe("Could not open the reader.");
+  });
+
+  it("delivers every notice held while reading, not only the last three", () => {
+    let list = empty;
+    for (const text of ["a", "b", "c", "d"]) list = addNotice(list, { kind: "notice", text });
+    expect(visibleNotices(list, true)).toEqual([]);
+    const delivered: string[] = [];
+    for (let turn = 0; turn < 4 && list.length > 0; turn += 1) {
+      const shown = visibleNotices(list, false);
+      delivered.push(...shown.map((notice) => notice.text).filter((text) => !delivered.includes(text)));
+      list = dismissNotice(list, shown[0].id);
+    }
+    expect(delivered).toEqual(["a", "b", "c", "d"]);
   });
 
   it("dismisses by id", () => {
@@ -87,6 +117,20 @@ describe("held while reading, delivered at the destination", () => {
     let list = addNotice(empty, { kind: "error", text: "Could not save." });
     list = markShown(list, list.map((notice) => notice.id), 0);
     expect(expireNotices(list, 60 * 60_000)).toHaveLength(1);
+  });
+
+  // Codex review F7: a notice shown, then held, came back already expired.
+  it("restarts a notice's time when it leaves the screen unexpired", () => {
+    let list = addNotice(empty, { kind: "notice", text: "a" });
+    list = addNotice(list, { kind: "error", text: "e" });
+    list = markShown(list, list.map((notice) => notice.id), 1000);
+    const errorShownAt = list[1].shownAt;
+    // Held in the Reader: only the error is on screen.
+    list = restartHidden(list, [list[1].id]);
+    expect(list[0].shownAt).toBeNull();
+    expect(list[1].shownAt).toBe(errorShownAt);
+    // Still on screen: unchanged, and the same list.
+    expect(restartHidden(list, list.map((notice) => notice.id))).toBe(list);
   });
 
   it("marks only the ids it is given, once", () => {

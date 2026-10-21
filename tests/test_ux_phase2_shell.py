@@ -45,7 +45,8 @@ def test_the_shell_switch_accepts_only_its_two_shells():
 
 def test_the_shell_switch_is_display_only():
     """Only the app snapshot reads ``config.ui``: no Python path decides
-    anything by the shell (so no successor, and replay never sees it)."""
+    anything by the shell (so no successor, and replay never sees it). The
+    parameter registry names the key only to classify it (F9)."""
 
     root = pathlib.Path(__file__).resolve().parents[1] / "src"
     readers = sorted(
@@ -53,4 +54,19 @@ def test_the_shell_switch_is_display_only():
         for path in root.rglob("*.py")
         if re.search(r"\bui\.shell\b", path.read_text(encoding="utf-8"))
     )
-    assert readers == ["learnloop_sidecar/context.py"]
+    assert readers == ["learnloop/params/parameter_registry.py", "learnloop_sidecar/context.py"]
+    registry = (root / "learnloop/params/parameter_registry.py").read_text(encoding="utf-8")
+    assert re.findall(r"\bui\.shell\b", registry) == ["ui.shell"]
+
+
+def test_the_shell_switch_is_classified_as_a_structural_display_key():
+    """Codex review of ux-phase2-shell F9: every new config key has a rule in
+    the parameter registry. ``ui.shell`` is a string enum, so the numeric-leaf
+    audit never reaches it; it needs its own rule."""
+
+    from learnloop.params.parameter_registry import classify_config_path
+
+    rule = classify_config_path("ui.shell")
+    assert rule is not None
+    assert (rule.kind, rule.param_class) == ("structural", "operational")
+    assert "display" in rule.rationale

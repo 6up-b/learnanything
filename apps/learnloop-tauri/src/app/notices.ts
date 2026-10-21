@@ -9,6 +9,7 @@
 // on Start first." stayed over the Reader and Today after the plan had begun).
 // While the Reader has a book open, no notice shows: it is held, unaged, and
 // delivered at the next destination (Reader doc S11). Errors still show.
+// At most three rows show at once; the list keeps the rest until their turn.
 //
 // This replaces Phase 1's stopgap. `noticeAfterSessionBegins` is that
 // stopgap, kept for `ui.shell = "classic"`, whose single red toast stays
@@ -57,8 +58,11 @@ export type NoticeInput = Omit<ShellNotice, "id" | "shownAt">;
 
 /** How long a notice stays once it is on screen. Errors stay until dismissed. */
 export const NOTICE_TTL_MS = 5000;
-/** At most this many at once; the oldest goes first. */
-const MAX_NOTICES = 3;
+/** At most this many rows on screen at once. The list itself keeps every
+ *  unresolved error and every notice not yet delivered (Codex review F2: a
+ *  cap on the list dropped an error and its Try again, and dropped held
+ *  notices before they were ever shown); the rest wait their turn. */
+export const MAX_VISIBLE_NOTICES = 3;
 
 let nextId = 0;
 
@@ -67,7 +71,7 @@ export function addNotice(list: ShellNotice[], input: NoticeInput): ShellNotice[
   const notice: ShellNotice = { ...input, id: `notice-${nextId}`, shownAt: null };
   // A repeated message shows once, as fresh.
   const rest = list.filter((existing) => !(existing.kind === notice.kind && existing.text === notice.text));
-  return [...rest, notice].slice(-MAX_NOTICES);
+  return [...rest, notice];
 }
 
 export function dismissNotice(list: ShellNotice[], id: string): ShellNotice[] {
@@ -80,9 +84,30 @@ export function resolveNotices(list: ShellNotice[], condition: NoticeCondition):
   return next.length === list.length ? list : next;
 }
 
-/** What is on screen: errors always; notices only when not held. */
+/** What is on screen, at most `MAX_VISIBLE_NOTICES` rows in the list's order:
+ *  errors first (oldest first), then notices (oldest first) in the rows left;
+ *  notices only when not held. Whatever does not fit waits in the list. */
 export function visibleNotices(list: ShellNotice[], holding: boolean): ShellNotice[] {
-  return holding ? list.filter((notice) => notice.kind === "error") : list;
+  const errors = list.filter((notice) => notice.kind === "error").slice(0, MAX_VISIBLE_NOTICES);
+  const room = MAX_VISIBLE_NOTICES - errors.length;
+  const notices = holding || room <= 0 ? [] : list.filter((notice) => notice.kind !== "error").slice(0, room);
+  const chosen = new Set([...errors, ...notices].map((notice) => notice.id));
+  return list.filter((notice) => chosen.has(notice.id));
+}
+
+/** A notice's few seconds run only while it is on screen (Codex review F7:
+ *  a notice shown, then held while reading, came back already expired).
+ *  Any notice that has left the screen without expiring (held in the
+ *  Reader, or pushed off by an error) starts its time again when it
+ *  returns. Errors keep their stamp; they never expire by themselves. */
+export function restartHidden(list: ShellNotice[], visibleIds: string[]): ShellNotice[] {
+  let changed = false;
+  const next = list.map((notice) => {
+    if (notice.kind === "error" || notice.shownAt === null || visibleIds.includes(notice.id)) return notice;
+    changed = true;
+    return { ...notice, shownAt: null };
+  });
+  return changed ? next : list;
 }
 
 /** Stamp the first time each of these was on screen. */

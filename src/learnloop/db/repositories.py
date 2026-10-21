@@ -10755,8 +10755,81 @@ class Repository(
         batch: Mapping[str, Any],
         items: Iterable[Mapping[str, Any]],
     ) -> str:
-        batch_id = str(batch.get("id") or new_ulid())
         item_rows = list(items)
+        with self.connection() as connection:
+            batch_id = self._insert_proposal_batch(connection, batch, item_rows)
+            connection.commit()
+        return batch_id
+
+    def persist_grading_error_type_proposals(
+        self,
+        batch: Mapping[str, Any],
+        items: Iterable[Mapping[str, Any]],
+        *,
+        attempt_ref: Mapping[str, Any],
+    ) -> str | None:
+        """Propose each new error type once, however many gradings name it.
+
+        UX Phase 2 (Codex review of ux-phase2-shell F6; usability round 1
+        "Proposals grows on every practice, with duplicate error-type
+        proposals"). An item whose ``client_item_id`` already waits (a
+        ``pending`` ``error_type`` item) is not written again: the grading's
+        ``attempt_ref`` joins that item's batch's source refs instead, so the
+        waiting proposal keeps every attempt that named the type. The rest are
+        written as one new batch. The check and the write run under one write
+        lock, so two gradings at once cannot both write the same type.
+
+        Returns the new batch's id, else the first waiting batch the attempt
+        joined, else ``None``. Proposal tables are WORKFLOW: nothing replays or
+        grades from them, so this changes no persisted meaning.
+        """
+
+        item_rows = list(items)
+        updated_at = batch.get("updated_at", batch["created_at"])
+        with self.connection() as connection:
+            if not connection.in_transaction:
+                # Take the write lock BEFORE reading so the check-and-insert is
+                # one atomic step even across connections.
+                connection.execute("BEGIN IMMEDIATE")
+            fresh: list[Mapping[str, Any]] = []
+            joined: list[str] = []
+            for item in item_rows:
+                row = connection.execute(
+                    """
+                    SELECT proposed_patch_id FROM proposed_patch_items
+                     WHERE item_type = ? AND client_item_id = ? AND decision = 'pending'
+                     ORDER BY created_at, id
+                     LIMIT 1
+                    """,
+                    (item["item_type"], item["client_item_id"]),
+                ).fetchone()
+                if row is None:
+                    fresh.append(item)
+                elif row["proposed_patch_id"] not in joined:
+                    joined.append(str(row["proposed_patch_id"]))
+            for patch_id in joined:
+                current = connection.execute(
+                    "SELECT source_refs_json FROM proposed_patches WHERE id = ?", (patch_id,)
+                ).fetchone()
+                refs = _loads(current["source_refs_json"], []) if current is not None else []
+                if dict(attempt_ref) not in refs:
+                    connection.execute(
+                        "UPDATE proposed_patches SET source_refs_json = ?, updated_at = ? WHERE id = ?",
+                        (_json([*refs, dict(attempt_ref)]), updated_at, patch_id),
+                    )
+            batch_id = self._insert_proposal_batch(connection, batch, fresh) if fresh else None
+            connection.commit()
+        return batch_id or (joined[0] if joined else None)
+
+    def _insert_proposal_batch(
+        self,
+        connection: sqlite3.Connection,
+        batch: Mapping[str, Any],
+        item_rows: list[Mapping[str, Any]],
+    ) -> str:
+        """Write one proposal batch and its items on ``connection``; the caller commits."""
+
+        batch_id = str(batch.get("id") or new_ulid())
         client_ids = [str(item.get("client_item_id") or "") for item in item_rows]
         client_id_counts: dict[str, int] = {}
         for client_id in client_ids:
@@ -10771,94 +10844,92 @@ class Repository(
                 "proposal contains duplicate client_item_id values: "
                 + ", ".join(duplicate_client_ids)
             )
-        with self.connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO proposed_patches(
+              id, agent_run_id, purpose, source_refs_json, summary,
+              status_cache, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                batch_id,
+                batch["agent_run_id"],
+                batch["purpose"],
+                _json(batch.get("source_refs", [])),
+                batch.get("summary"),
+                batch.get("status_cache", "pending"),
+                batch["created_at"],
+                batch.get("updated_at", batch["created_at"]),
+            ),
+        )
+        # client_item_id -> DB id, so LLM-declared depends_on_client_item_ids
+        # normalize into the dependency table (source-ingestion §10.2).
+        client_to_db_id: dict[str, str] = {}
+        dependency_edges: list[tuple[str, list[str]]] = []
+        for item in item_rows:
+            item_db_id = item.get("id") or new_ulid()
+            client_to_db_id[str(item["client_item_id"])] = item_db_id
+            depends_on = list(item.get("depends_on_client_item_ids") or [])
+            if depends_on:
+                dependency_edges.append((item_db_id, [str(dep) for dep in depends_on]))
             connection.execute(
                 """
-                INSERT INTO proposed_patches(
-                  id, agent_run_id, purpose, source_refs_json, summary,
-                  status_cache, created_at, updated_at
+                INSERT INTO proposed_patch_items(
+                  id, proposed_patch_id, client_item_id, item_type, operation,
+                  target_entity_type, target_entity_id, payload_json,
+                  source_ref_ids_json, audit_json, edited_payload_json,
+                  decision, validation_status, validation_errors_json,
+                  applied_change_batch_id, decided_at, decided_by,
+                  created_at, updated_at, dependency_status,
+                  dependency_block_reason_json
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
+                    item_db_id,
                     batch_id,
-                    batch["agent_run_id"],
-                    batch["purpose"],
-                    _json(batch.get("source_refs", [])),
-                    batch.get("summary"),
-                    batch.get("status_cache", "pending"),
-                    batch["created_at"],
-                    batch.get("updated_at", batch["created_at"]),
+                    item["client_item_id"],
+                    item["item_type"],
+                    item["operation"],
+                    item.get("target_entity_type"),
+                    item.get("target_entity_id"),
+                    _json(item["payload"]),
+                    _json(item.get("source_ref_ids", [])),
+                    _json(item.get("audit")) if item.get("audit") is not None else None,
+                    _json(item.get("edited_payload")) if item.get("edited_payload") is not None else None,
+                    item.get("decision", "pending"),
+                    item.get("validation_status", "valid"),
+                    _json(item.get("validation_errors", [])),
+                    item.get("applied_change_batch_id"),
+                    item.get("decided_at"),
+                    item.get("decided_by"),
+                    item["created_at"],
+                    item.get("updated_at", item["created_at"]),
+                    item.get("dependency_status", "pending"),
+                    _json(item.get("dependency_block_reason"))
+                    if item.get("dependency_block_reason") is not None
+                    else None,
                 ),
             )
-            # client_item_id -> DB id, so LLM-declared depends_on_client_item_ids
-            # normalize into the dependency table (source-ingestion §10.2).
-            client_to_db_id: dict[str, str] = {}
-            dependency_edges: list[tuple[str, list[str]]] = []
-            for item in item_rows:
-                item_db_id = item.get("id") or new_ulid()
-                client_to_db_id[str(item["client_item_id"])] = item_db_id
-                depends_on = list(item.get("depends_on_client_item_ids") or [])
-                if depends_on:
-                    dependency_edges.append((item_db_id, [str(dep) for dep in depends_on]))
+        for item_db_id, depends_on in dependency_edges:
+            for client_dep in depends_on:
+                dep_db_id = client_to_db_id.get(client_dep)
+                if dep_db_id is None or dep_db_id == item_db_id:
+                    # An unknown or self-referential dependency is dropped
+                    # rather than persisted as a dangling edge; the item's
+                    # dependency_status carries any blocking reason.
+                    continue
                 connection.execute(
                     """
-                    INSERT INTO proposed_patch_items(
-                      id, proposed_patch_id, client_item_id, item_type, operation,
-                      target_entity_type, target_entity_id, payload_json,
-                      source_ref_ids_json, audit_json, edited_payload_json,
-                      decision, validation_status, validation_errors_json,
-                      applied_change_batch_id, decided_at, decided_by,
-                      created_at, updated_at, dependency_status,
-                      dependency_block_reason_json
+                    INSERT OR IGNORE INTO proposed_patch_item_dependencies(
+                      proposed_patch_item_id, depends_on_patch_item_id
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?)
                     """,
-                    (
-                        item_db_id,
-                        batch_id,
-                        item["client_item_id"],
-                        item["item_type"],
-                        item["operation"],
-                        item.get("target_entity_type"),
-                        item.get("target_entity_id"),
-                        _json(item["payload"]),
-                        _json(item.get("source_ref_ids", [])),
-                        _json(item.get("audit")) if item.get("audit") is not None else None,
-                        _json(item.get("edited_payload")) if item.get("edited_payload") is not None else None,
-                        item.get("decision", "pending"),
-                        item.get("validation_status", "valid"),
-                        _json(item.get("validation_errors", [])),
-                        item.get("applied_change_batch_id"),
-                        item.get("decided_at"),
-                        item.get("decided_by"),
-                        item["created_at"],
-                        item.get("updated_at", item["created_at"]),
-                        item.get("dependency_status", "pending"),
-                        _json(item.get("dependency_block_reason"))
-                        if item.get("dependency_block_reason") is not None
-                        else None,
-                    ),
+                    (item_db_id, dep_db_id),
                 )
-            for item_db_id, depends_on in dependency_edges:
-                for client_dep in depends_on:
-                    dep_db_id = client_to_db_id.get(client_dep)
-                    if dep_db_id is None or dep_db_id == item_db_id:
-                        # An unknown or self-referential dependency is dropped
-                        # rather than persisted as a dangling edge; the item's
-                        # dependency_status carries any blocking reason.
-                        continue
-                    connection.execute(
-                        """
-                        INSERT OR IGNORE INTO proposed_patch_item_dependencies(
-                          proposed_patch_item_id, depends_on_patch_item_id
-                        )
-                        VALUES (?, ?)
-                        """,
-                        (item_db_id, dep_db_id),
-                    )
-            self._refresh_proposal_status(connection, batch_id, updated_at=batch.get("updated_at", batch["created_at"]))
-            connection.commit()
+        self._refresh_proposal_status(connection, batch_id, updated_at=batch.get("updated_at", batch["created_at"]))
         return batch_id
 
     def proposal_item_dependencies(self, item_id: str) -> list[str]:

@@ -18,6 +18,7 @@ import { ProvenancePanel } from "../components/ProvenancePanel";
 import { LiveMarkdownEditor } from "../render/LiveMarkdownEditor";
 import { SqliteBrowser } from "./SqliteBrowser";
 import { shellMode, type ShellMode } from "../app/shell";
+import type { ReportError } from "../errors";
 
 // A vault selection is either an on-disk file or a (virtual) proposal payload doc.
 type Selection =
@@ -103,6 +104,23 @@ function firstMatchingPath(nodes: VaultTreeNode[], test: (node: VaultTreeNode) =
   return null;
 }
 
+// UX Phase 2, Codex review F1 (spec Q18: "editing the live database from a
+// file browser is a footgun"): in the simple shell the learner's tree does
+// not list the library's databases or their journals; Under the hood → Data
+// opens them, read-only by default. Classic keeps the tree exactly.
+function isDatabaseFile(node: VaultTreeNode): boolean {
+  return node.type === "file" && (node.kind === "sqlite" || /\.(?:sqlite3?|db)(?:-wal|-shm|-journal)?$/i.test(node.name));
+}
+
+export function learnerTree(nodes: VaultTreeNode[], shell: ShellMode): VaultTreeNode[] {
+  if (shell === "classic") return nodes;
+  const prune = (list: VaultTreeNode[]): VaultTreeNode[] =>
+    list
+      .filter((node) => !isDatabaseFile(node))
+      .map((node) => (node.children ? { ...node, children: prune(node.children) } : node));
+  return prune(nodes);
+}
+
 export function initialFilePath(nodes: VaultTreeNode[], shell: ShellMode): string | null {
   if (shell === "classic") return firstFilePath(nodes);
   return (
@@ -158,7 +176,7 @@ export function LibraryScreen({
   onNoteSelected,
   onInspect
 }: {
-  onError: (message: string) => void;
+  onError: ReportError;
   focus?: { patchId: string; itemId: string } | null;
   onFocusConsumed?: () => void;
   /** Vault-relative file to select on open (feedback "View in Library" jump). */
@@ -173,7 +191,12 @@ export function LibraryScreen({
   // Per-set coverage rollups stay lazy (CoverageSection) so a long library
   // does not fan out N heavy coverage calls on mount.
   const treeQuery = useCachedQuery(["get_vault_tree"], () => api.getVaultTree(), { tags: [TAG.library] });
-  const snapshot: VaultTreeSnapshot | null = treeQuery.data ?? null;
+  // The simple shell's tree leaves the databases out (F1, Q18); classic's is the snapshot itself.
+  const snapshot: VaultTreeSnapshot | null = useMemo(() => {
+    const data = treeQuery.data ?? null;
+    if (!data || shellMode() === "classic") return data;
+    return { ...data, tree: learnerTree(data.tree, "simple") };
+  }, [treeQuery.data]);
   const proposalsQuery = useCachedQuery(["get_proposals"], () => api.getProposals(), { tags: [TAG.proposals] });
   const proposals: ProposalsSnapshot | null = proposalsQuery.data ?? null;
   const sourceSetsQuery = useCachedQuery(["list_source_sets"], () => api.listSourceSets(), { tags: [TAG.sources] });
@@ -216,8 +239,13 @@ export function LibraryScreen({
   }, [snapshot]);
 
   const loadError = treeQuery.error ?? proposalsQuery.error ?? sourceSetsQuery.error;
+  // The shell gets the error itself and a retry that reads again (F3).
+  const failedLoad = treeQuery.error ? treeQuery : proposalsQuery.error ? proposalsQuery : sourceSetsQuery;
+  const retryLoadRef = useRef(failedLoad.refetch);
+  retryLoadRef.current = failedLoad.refetch;
   useEffect(() => {
-    if (loadError) onError(loadError.message);
+    // A retry that fails again comes back through the query's error, as a new error.
+    if (loadError) onError(loadError.message, { error: loadError, retry: () => void retryLoadRef.current().catch(() => undefined) });
   }, [loadError, onError]);
 
   const reloadProposals = () => {

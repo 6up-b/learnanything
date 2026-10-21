@@ -7,6 +7,20 @@ const DEFAULT_ERROR_MESSAGE = "Something went wrong. Please try again.";
  *  (neutral, small, gone after a few seconds). See app/notices.ts. */
 export type MessageKind = "error" | "notice";
 
+/** What a screen may hand the shell beside an error's sentence (UX Phase 2,
+ *  Codex review F3): the rejection itself, so the shell can show its code and
+ *  read `retryable`, and how to run the failed action again. The shell offers
+ *  Try again only when both are there and the error is retryable. A retry
+ *  must repeat the same action: a read reads again; a write passes the
+ *  original request's idempotency key again. */
+export interface ErrorReport {
+  error?: unknown;
+  retry?: (() => void) | null;
+}
+
+/** A screen's error callback. Screens that pass only the sentence still fit. */
+export type ReportError = (message: string, report?: ErrorReport) => void;
+
 /**
  * Narrow an unknown rejection to the stable error envelope returned by the
  * Tauri bridge. Calls made outside that bridge (dialogs, events, browser APIs)

@@ -83,7 +83,7 @@ import { restoredPracticeDraft, type PracticeDraftMirror } from "./practiceDraft
 import { ScreenErrorBoundary } from "./ScreenErrorBoundary";
 import { recordRecentVault, removeRecentVault } from "./recentVaults";
 import { feedbackOrigin, simplePracticeFeedback } from "./practiceFeedback";
-import { errorMessage, getCommandError } from "../errors";
+import { errorMessage, getCommandError, type ErrorReport } from "../errors";
 import { wrapUpOfferArmed, type WrapUpLanding } from "./wrapUpOffer";
 import { WrapUpOffer } from "../screens/reader/WrapUpOffer";
 
@@ -153,6 +153,8 @@ export function App() {
   // Bumped when the shell opens a book on purpose (Add, the shelf's Continue),
   // so a Reader already showing another book remounts on the new one.
   const [readerOpenSeq, setReaderOpenSeq] = useState(0);
+  // Each request from the palette to open the Reader's Ask (Codex review F5).
+  const [readerAskRequest, setReaderAskRequest] = useState(0);
   // UX Phase 1 (docs/specs/ux_learnloop_v1.md §6): Add, the shelf, connect once.
   const [libraryView, setLibraryView] = useState<LibraryView>("books");
   const [addOpen, setAddOpen] = useState(false);
@@ -315,11 +317,23 @@ export function App() {
   const simple = shell === "simple";
 
   const pushNotice = useCallback((input: NoticeInput) => setNotices((list) => addNotice(list, input)), []);
-  // An error: classic's red toast, or the simple shell's red error.
+  // An error: classic's red toast, or the simple shell's red error. A screen
+  // may hand over the rejection and a retry (Codex review F3): the error then
+  // shows its code under details, and Try again when the sidecar said it is
+  // retryable. Classic shows the sentence, as before.
   const onError = useCallback(
-    (message: string) => {
-      if (shellRef.current === "classic") setToast(message);
-      else pushNotice({ kind: "error", text: message });
+    (message: string, report?: ErrorReport) => {
+      if (shellRef.current === "classic") {
+        setToast(message);
+        return;
+      }
+      const command = report?.error === undefined ? null : getCommandError(report.error);
+      pushNotice({
+        kind: "error",
+        text: message,
+        code: command?.code ?? null,
+        retry: command?.retryable && report?.retry ? report.retry : null
+      });
     },
     [pushNotice]
   );
@@ -1428,13 +1442,13 @@ export function App() {
           const practicing = tab === "today" && todayStage === "practice";
           // On a question the shell already says why it can't (teach-back, checks).
           if (askCurrentContext() || practicing) return;
-          // The Reader asks from its own Ask tab (harness walk: "nothing here"
-          // read as wrong with a book open).
-          notify(
-            tab === "reader" && readerSource
-              ? "In the Reader, ask from its Ask tab, or select a passage and ask about it."
-              : "Nothing here to ask about: open a question, feedback or a note first."
-          );
+          // With a book open, the Reader's own Ask opens, its box focused
+          // (Codex review F5: a notice held while reading did nothing there).
+          if (tab === "reader" && readerSource) {
+            setReaderAskRequest((count) => count + 1);
+            return;
+          }
+          notify("Nothing here to ask about: open a question, feedback or a note first.");
         }
       },
       { id: "keys", label: "Keyboard & help", keywords: ["keys", "shortcuts", "help"], run: () => setKeysHelpOpen(true) },
@@ -1842,11 +1856,11 @@ export function App() {
               }}
               onError={onError}
             />
-            <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />
+            <ReaderScreen key={readerOpenSeq} onError={onError} askRequest={readerAskRequest} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />
           </div>
         );
       }
-      return <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />;
+      return <ReaderScreen key={readerOpenSeq} onError={onError} askRequest={readerAskRequest} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />;
     }
     if (tab === "maintain") {
       return renderMaintain();

@@ -206,8 +206,13 @@ export function ReaderScreen({
   onUseExercise,
   workbench,
   onSkimmingChange,
+  askRequest,
 }: {
   onError: (message: string) => void;
+  /** UX Phase 2: the palette's "Ask the tutor about this" with a book open.
+   *  Each new value opens the rail on Ask and focuses its box; the value the
+   *  Reader mounts with opens nothing. */
+  askRequest?: number;
   /** The source that was open when the Reader last unmounted (hoisted by the shell). */
   initialSource?: ReaderOpenSource | null;
   onSourceChange?: (next: ReaderOpenSource | null) => void;
@@ -1668,6 +1673,17 @@ export function ReaderScreen({
       /* A per-device preference; reading works without it. */
     }
   }, [railCollapsed]);
+
+  // UX Phase 2 (Codex review F5): the palette's ask opens this Ask, as the
+  // learner asked (D41), with its box focused; it never sends a question.
+  const askRequestSeen = useRef(askRequest);
+  useEffect(() => {
+    if (askRequest === undefined || askRequest === askRequestSeen.current) return;
+    askRequestSeen.current = askRequest;
+    setRailCollapsed(false);
+    setRailTab("ask");
+    window.setTimeout(() => askComposerRef.current?.focus({ preventScroll: true }), 0);
+  }, [askRequest]);
 
   // Palette (§5.2): a preset runs the local-first capture transaction. Commit presets
   // also create a commitment; synthesis is enqueued off the hot path (§5.3, §6).

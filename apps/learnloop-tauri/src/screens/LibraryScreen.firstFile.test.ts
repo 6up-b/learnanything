@@ -7,7 +7,7 @@
 // classic shell keeps the first file.
 import { describe, expect, it } from "vitest";
 import type { VaultTreeNode } from "../api/dto";
-import { initialFilePath } from "./LibraryScreen";
+import { initialFilePath, learnerTree } from "./LibraryScreen";
 
 const file = (path: string, kind = "text"): VaultTreeNode => ({ type: "file", name: path.split("/").pop() ?? path, path, kind });
 const dir = (path: string, children: VaultTreeNode[]): VaultTreeNode => ({ type: "dir", name: path.split("/").pop() ?? path, path, children });
@@ -33,5 +33,27 @@ describe("the first file Notes & files previews", () => {
 
   it("is the first file in the classic shell, as before", () => {
     expect(initialFilePath(tree, "classic")).toBe(".learnloop/vault.lock");
+  });
+});
+
+// Codex review F1 (spec Q18): in the simple shell the learner's file tree
+// does not list the library's database; Under the hood → Data reaches it,
+// read-only by default. Classic keeps the tree as it was.
+describe("the database leaves the learner's file tree", () => {
+  const paths = (nodes: VaultTreeNode[]): string[] =>
+    nodes.flatMap((node) => (node.type === "dir" ? [node.path, ...paths(node.children ?? [])] : [node.path]));
+
+  it("drops database files and their journals in the simple shell", () => {
+    const shown = paths(learnerTree(tree, "simple"));
+    expect(shown).not.toContain("state.sqlite");
+    expect(shown).not.toContain("state.sqlite-wal");
+    expect(shown).not.toContain(".learnloop/state.sqlite");
+    expect(shown).toContain("notes/lu-decomposition.md");
+    expect(shown).toContain("learnloop.toml");
+    expect(shown).toContain(".learnloop/vault.lock");
+  });
+
+  it("keeps the tree exactly in the classic shell", () => {
+    expect(learnerTree(tree, "classic")).toBe(tree);
   });
 });

@@ -111,7 +111,20 @@ function ConsoleResult({ result }: { result: SqliteExecResult }) {
   );
 }
 
-export function SqliteBrowser({ path, onError }: { path: string; onError: (message: string) => void }) {
+export function SqliteBrowser({
+  path,
+  onError,
+  editGate = false
+}: {
+  path: string;
+  onError: (message: string) => void;
+  /** UX Phase 2, Under the hood → Data (docs/specs/ux_learnloop_v1.md §5.2,
+   *  Q18): open read-only, with every change (a cell edit, + row, a row's ✕,
+   *  the SQL console) behind an *Allow edits* switch that starts off on each
+   *  opening. Without it the browser is as it always was. */
+  editGate?: boolean;
+}) {
+  const [editsAllowed, setEditsAllowed] = useState(!editGate);
   const [tables, setTables] = useState<SqliteTableInfo[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [data, setData] = useState<SqliteTableSnapshot | null>(null);
@@ -189,7 +202,7 @@ export function SqliteBrowser({ path, onError }: { path: string; onError: (messa
   }, [mode]);
 
   const updateCell = async (rowid: number, column: string, value: string | null): Promise<boolean> => {
-    if (!selected || busy) return false;
+    if (!selected || busy || !editsAllowed) return false;
     setBusy(true);
     try {
       await api.sqliteUpdateCell(path, selected, rowid, column, value);
@@ -204,7 +217,7 @@ export function SqliteBrowser({ path, onError }: { path: string; onError: (messa
   };
 
   const insertRow = async () => {
-    if (!selected || busy) return;
+    if (!selected || busy || !editsAllowed) return;
     setBusy(true);
     try {
       await api.sqliteInsertRow(path, selected);
@@ -218,7 +231,7 @@ export function SqliteBrowser({ path, onError }: { path: string; onError: (messa
   };
 
   const deleteRow = async (rowid: number) => {
-    if (!selected || busy) return;
+    if (!selected || busy || !editsAllowed) return;
     setBusy(true);
     try {
       await api.sqliteDeleteRow(path, selected, rowid);
@@ -232,7 +245,7 @@ export function SqliteBrowser({ path, onError }: { path: string; onError: (messa
   };
 
   const runSql = async () => {
-    if (!sql.trim() || busy) return;
+    if (!sql.trim() || busy || !editsAllowed) return;
     setBusy(true);
     try {
       const result = await api.sqliteExec(path, sql);
@@ -249,7 +262,8 @@ export function SqliteBrowser({ path, onError }: { path: string; onError: (messa
     }
   };
 
-  const editable = Boolean(data?.editable);
+  const tableEditable = Boolean(data?.editable);
+  const editable = tableEditable && editsAllowed;
   const rangeEnd = data ? Math.min(offset + (data.rows.length || 0), data.rowCount) : 0;
   const pkSet = useMemo(() => new Set(data?.primaryKey ?? []), [data]);
   const selectedValue = activeCell && data ? data.rows[activeCell.row]?.cells[activeCell.column] : undefined;
@@ -303,6 +317,9 @@ export function SqliteBrowser({ path, onError }: { path: string; onError: (messa
 
   const onGridKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (mode !== "nav") return;
+    // A modified key is never a grid key: Ctrl+K is the palette, not "k"
+    // (Codex review F8), and the shell's other chords pass through too.
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
     let handled = true;
     if (event.key === "h" || event.key === "ArrowLeft") moveCell(0, -1);
     else if (event.key === "l" || event.key === "ArrowRight") moveCell(0, 1);
@@ -359,8 +376,21 @@ export function SqliteBrowser({ path, onError }: { path: string; onError: (messa
           <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLOR.amberLink }}>{selected ?? "—"}</span>
           {data ? <Faint style={{ fontSize: 11 }}>{data.rowCount} rows</Faint> : null}
           <Pill color={mode === "edit" ? "green" : "amber"} style={{ fontSize: 10 }}>{mode === "edit" ? "EDIT" : "NAV"}</Pill>
-          {!editable && data ? <Pill color="slate">read-only · no rowid</Pill> : null}
+          {!tableEditable && data ? <Pill color="slate">read-only · no rowid</Pill> : null}
           <span style={{ flex: 1 }} />
+          {editGate ? (
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: editsAllowed ? COLOR.amber : COLOR.textDim, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={editsAllowed}
+                onChange={(event) => {
+                  setEditsAllowed(event.target.checked);
+                  if (!event.target.checked && mode === "edit") setMode("nav");
+                }}
+              />
+              allow edits
+            </label>
+          ) : null}
           {editable ? (
             <ActionButton label="+ row" onClick={insertRow} />
           ) : null}
@@ -430,7 +460,12 @@ export function SqliteBrowser({ path, onError }: { path: string; onError: (messa
           )}
         </div>
 
-        {/* SQL console */}
+        {/* SQL console: a statement can write, so it waits behind Allow edits. */}
+        {!editsAllowed ? (
+          <div style={{ borderTop: `1px solid ${COLOR.borderStrong}`, padding: "10px 14px", flexShrink: 0, background: COLOR.bg, fontSize: 11, color: COLOR.textFaint }}>
+            read-only. the sql console and every change to this database wait behind <b>allow edits</b>.
+          </div>
+        ) : (
         <div style={{ borderTop: `1px solid ${COLOR.borderStrong}`, padding: "10px 14px", flexShrink: 0, background: COLOR.bg }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
             <span style={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: COLOR.textFaint }}>sql console</span>
@@ -464,6 +499,7 @@ export function SqliteBrowser({ path, onError }: { path: string; onError: (messa
           />
           {execResult ? <ConsoleResult result={execResult} /> : null}
         </div>
+        )}
       </div>
 
       {inspectorOpen && activeCell && selectedColumn && selectedRow && selectedValue !== undefined ? (

@@ -84,4 +84,60 @@ describe("NoticeHost", () => {
     });
     expect(screen.queryByText(/Already in your library/)).toBeNull();
   });
+
+  // Codex review F7: shown briefly, then a minute in the Reader, then out:
+  // the notice must not expire the moment it is back.
+  it("gives a notice its full time again after it was shown and then held", () => {
+    const initial = addNotice([], { kind: "notice", text: "grading → codex" });
+    function Live() {
+      const [notices, setNotices] = useState(initial);
+      const [holding, setHolding] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setHolding((value) => !value)}>
+            toggle
+          </button>
+          <NoticeHost notices={notices} holding={holding} onChange={setNotices} />
+        </>
+      );
+    }
+    render(<Live />);
+    expect(screen.getByText("grading → codex")).toBeTruthy();
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "toggle" }));
+    expect(screen.queryByText("grading → codex")).toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "toggle" }));
+    expect(screen.getByText("grading → codex")).toBeTruthy();
+    act(() => {
+      vi.advanceTimersByTime(NOTICE_TTL_MS - 200);
+    });
+    expect(screen.getByText("grading → codex")).toBeTruthy();
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(screen.queryByText("grading → codex")).toBeNull();
+  });
+
+  // Codex review F2: an error with Try again stays, and its retry still
+  // works, after more notices than fit on screen.
+  it("keeps the error's Try again through a burst of notices", () => {
+    const retry = vi.fn();
+    let initial = addNotice([], { kind: "error", text: "Couldn't open the reader.", code: "sidecar_timeout", retry });
+    for (const text of ["one", "two", "three"]) initial = addNotice(initial, { kind: "notice", text });
+    render(<Harness initial={initial} holding={false} />);
+    expect(screen.getByText("Couldn't open the reader.")).toBeTruthy();
+    expect(screen.queryByText("three")).toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(NOTICE_TTL_MS + 50);
+    });
+    // The first two have gone; the third has its turn; the error stays.
+    expect(screen.getByText("three")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
 });

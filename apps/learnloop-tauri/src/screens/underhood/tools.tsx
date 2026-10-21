@@ -33,7 +33,8 @@ export function stateDatabasePath(nodes: VaultTreeNode[]): string | null {
   return walk(nodes) ?? fallback;
 }
 
-/** Data: the SQLite browser on this library's database (was: Library → state.sqlite). */
+/** Data: the SQLite browser on this library's database (was: Library →
+ *  state.sqlite), read-only until *allow edits* is switched on (§5.2, Q18). */
 export function DataTool({ onError }: { onError: (message: string) => void }) {
   const tree = useCachedQuery(["get_vault_tree"], () => api.getVaultTree(), { tags: [TAG.library] });
   if (!tree.data) {
@@ -41,7 +42,7 @@ export function DataTool({ onError }: { onError: (message: string) => void }) {
   }
   const path = stateDatabasePath(tree.data.tree);
   if (!path) return <ToolNote>no database file in this library's tree.</ToolNote>;
-  return <SqliteBrowser path={path} onError={onError} />;
+  return <SqliteBrowser path={path} onError={onError} editGate />;
 }
 
 /** Inspector: `learnloop show <id>` (the inspector overlay, as from the palette). */

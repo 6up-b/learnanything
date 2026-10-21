@@ -8,7 +8,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const stubs = vi.hoisted(() => ({
   config: {} as Record<string, unknown>,
   readerOpensBook: false,
-  readerError: null as string | null
+  readerError: null as string | null,
+  mapError: null as { code: string; message: string; retryable: boolean } | null,
+  mapRetry: null as (() => void) | null
 }));
 
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => undefined) }));
@@ -42,16 +44,22 @@ vi.mock("../screens/ReaderScreen", async () => {
   return {
     ReaderScreen: ({
       onSourceChange,
-      onError
+      onError,
+      askRequest
     }: {
       onSourceChange?: (source: unknown) => void;
       onError: (message: string) => void;
+      askRequest?: number;
     }) => {
       React.useEffect(() => {
         if (stubs.readerOpensBook) onSourceChange?.({ card: { sourceId: "src_axler", title: "Linear Algebra Done Right" }, spanId: null });
         if (stubs.readerError) onError(stubs.readerError);
       }, [onSourceChange, onError]);
-      return <div data-testid="reader-stub">reader</div>;
+      return (
+        <div data-testid="reader-stub" data-ask-request={askRequest ?? 0}>
+          reader
+        </div>
+      );
     }
   };
 });
@@ -59,7 +67,17 @@ vi.mock("../screens/LibraryPlace", () => ({ LibraryPlace: stub("library-stub") }
 vi.mock("../screens/StartScreen", () => ({ StartScreen: stub("start-stub") }));
 vi.mock("../screens/TodayScreen", () => ({ TodayScreen: stub("today-stub") }));
 vi.mock("../screens/GraphScreen", () => ({ GraphScreen: stub("graph-stub") }));
-vi.mock("../screens/KnowledgeMapScreen", () => ({ KnowledgeMapView: stub("knowledge-stub") }));
+vi.mock("../screens/KnowledgeMapScreen", async () => {
+  const React = await import("react");
+  return {
+    KnowledgeMapView: ({ onError }: { onError: (message: string, report?: { error?: unknown; retry?: (() => void) | null }) => void }) => {
+      React.useEffect(() => {
+        if (stubs.mapError) onError(stubs.mapError.message, { error: stubs.mapError, retry: stubs.mapRetry });
+      }, [onError]);
+      return <div data-testid="knowledge-stub">knowledge</div>;
+    }
+  };
+});
 vi.mock("../screens/IngestScreen", () => ({ IngestScreen: stub("ingest-stub") }));
 vi.mock("../screens/ProposalsScreen", () => ({ ProposalsScreen: stub("proposals-stub") }));
 vi.mock("../screens/RegistryReviewScreen", () => ({ RegistryReviewScreen: stub("registry-stub") }));
@@ -83,6 +101,8 @@ beforeEach(() => {
   stubs.config = {};
   stubs.readerOpensBook = false;
   stubs.readerError = null;
+  stubs.mapError = null;
+  stubs.mapRetry = null;
   store = new Map<string, string>();
   vi.stubGlobal("localStorage", {
     getItem: (key: string) => store.get(key) ?? null,
@@ -226,17 +246,43 @@ describe("simple (the default)", () => {
   it("holds a notice while a book is open in the Reader and delivers it at the destination", async () => {
     stubs.readerOpensBook = true;
     await launch();
-    await press({ key: "3", altKey: true });
-    await screen.findByTestId("reader-stub");
+    await press({ key: "2", altKey: true });
+    await screen.findByTestId("library-stub");
+    // A notice raised on the Library (nothing there to ask about) …
     await press({ key: "k", ctrlKey: true });
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "ask the tutor" } });
     await act(async () => {
       fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
     });
-    expect(screen.queryByText(/ask from its Ask tab/)).toBeNull();
+    expect(screen.getByText(/Nothing here to ask about/)).toBeTruthy();
+    // … waits while a book is open in the Reader …
+    await press({ key: "3", altKey: true });
+    await screen.findByTestId("reader-stub");
+    expect(screen.queryByText(/Nothing here to ask about/)).toBeNull();
+    // … and is back, whole, at the next destination.
     await press({ key: "2", altKey: true });
     await screen.findByTestId("library-stub");
-    expect(screen.getByText(/In the Reader, ask from its Ask tab/)).toBeTruthy();
+    expect(screen.getByText(/Nothing here to ask about/)).toBeTruthy();
+  });
+
+  // Codex review F5: in the Reader the command closed the palette and did
+  // nothing visible; it now opens the Reader's own Ask, with no notice.
+  it("opens the Reader's Ask when the tutor is asked for with a book open", async () => {
+    stubs.readerOpensBook = true;
+    await launch();
+    await press({ key: "3", altKey: true });
+    const reader = await screen.findByTestId("reader-stub");
+    expect(reader.getAttribute("data-ask-request")).toBe("0");
+    await press({ key: "k", ctrlKey: true });
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "ask the tutor" } });
+    await act(async () => {
+      fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+    });
+    expect(screen.getByTestId("reader-stub").getAttribute("data-ask-request")).toBe("1");
+    await press({ key: "2", altKey: true });
+    await screen.findByTestId("library-stub");
+    expect(screen.queryByText(/Ask tab/)).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("shows errors in the Reader, red", async () => {
@@ -246,5 +292,39 @@ describe("simple (the default)", () => {
     await press({ key: "3", altKey: true });
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("Could not load this section.");
+  });
+
+  // Codex review F3: a screen's retryable read failure reached the shell as
+  // a bare string, so the error had no code and no Try again.
+  async function openAnalystViews() {
+    await press({ key: "k", ctrlKey: true });
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "analyst views" } });
+    await act(async () => {
+      fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+    });
+    await screen.findByTestId("knowledge-stub");
+  }
+
+  it("offers Try again on a screen's retryable error, with its code under details", async () => {
+    stubs.mapError = { code: "sidecar_timeout", message: "The knowledge map timed out.", retryable: true };
+    stubs.mapRetry = vi.fn();
+    await launch();
+    await openAnalystViews();
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("The knowledge map timed out.");
+    fireEvent.click(within(alert).getByRole("button", { name: "details ▸" }));
+    expect(alert.textContent).toContain("sidecar_timeout");
+    fireEvent.click(within(alert).getByRole("button", { name: "Try again" }));
+    expect(stubs.mapRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers no Try again when the error is not retryable", async () => {
+    stubs.mapError = { code: "invalid_input", message: "The knowledge map is unavailable.", retryable: false };
+    stubs.mapRetry = vi.fn();
+    await launch();
+    await openAnalystViews();
+    const alert = await screen.findByRole("alert");
+    expect(within(alert).queryByRole("button", { name: "Try again" })).toBeNull();
+    expect(within(alert).getByRole("button", { name: "details ▸" })).toBeTruthy();
   });
 });
