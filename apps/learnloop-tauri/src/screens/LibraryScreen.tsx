@@ -17,6 +17,7 @@ import { highlightFor } from "../components/highlight";
 import { ProvenancePanel } from "../components/ProvenancePanel";
 import { LiveMarkdownEditor } from "../render/LiveMarkdownEditor";
 import { SqliteBrowser } from "./SqliteBrowser";
+import { shellMode, type ShellMode } from "../app/shell";
 
 // A vault selection is either an on-disk file or a (virtual) proposal payload doc.
 type Selection =
@@ -80,6 +81,34 @@ function firstFilePath(nodes: VaultTreeNode[]): string | null {
     }
   }
   return null;
+}
+
+// UX Phase 2 (usability round 1, m8: "Notes & files opens previewing
+// vault.lock"): the tree lists directories first, so a vault's first file is
+// a machine file. The simple shell opens on the first note a person wrote,
+// else the first file that isn't a lock or a database; classic keeps the
+// first file.
+function isMachineFile(node: VaultTreeNode): boolean {
+  return node.kind === "sqlite" || /\.lock$|\.sqlite(?:3)?(?:-wal|-shm|-journal)?$|\.db$/i.test(node.name);
+}
+
+function firstMatchingPath(nodes: VaultTreeNode[], test: (node: VaultTreeNode) => boolean): string | null {
+  for (const node of nodes) {
+    if (node.type === "file" && test(node)) return node.path;
+    if (node.children) {
+      const nested = firstMatchingPath(node.children, test);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+export function initialFilePath(nodes: VaultTreeNode[], shell: ShellMode): string | null {
+  if (shell === "classic") return firstFilePath(nodes);
+  return (
+    firstMatchingPath(nodes, (node) => /\.(md|markdown)$/i.test(node.name)) ??
+    firstMatchingPath(nodes, (node) => !isMachineFile(node))
+  );
 }
 
 function dirPaths(nodes: VaultTreeNode[], acc: string[] = []): string[] {
@@ -179,7 +208,11 @@ export function LibraryScreen({
       const deep = dirPaths(snapshot.tree).filter((path) => path.includes("/"));
       setCollapsed(new Set(deep));
     }
-    setSelected((current) => current ?? (firstFilePath(snapshot.tree) ? { kind: "file", path: firstFilePath(snapshot.tree)! } : null));
+    setSelected((current) => {
+      if (current) return current;
+      const first = initialFilePath(snapshot.tree, shellMode());
+      return first ? { kind: "file", path: first } : null;
+    });
   }, [snapshot]);
 
   const loadError = treeQuery.error ?? proposalsQuery.error ?? sourceSetsQuery.error;

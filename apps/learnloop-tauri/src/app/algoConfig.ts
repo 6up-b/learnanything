@@ -21,6 +21,9 @@ export interface AlgoDisplayConfig {
    *  simple practice card, feedback, short-check results, repair step and
    *  session finish, or "classic" for the screens exactly as they were. */
   practiceFeedback: "simple" | "classic";
+  /** UX Phase 2's kill switch (`[ui] shell`, display only): the four-place
+   *  shell, or "classic" for the ten-tab shell exactly as it was. */
+  shell: "simple" | "classic";
   /** Reader workbench RW2a's kill switch (`workbench.enabled`): the sidecar
    *  sends a `workbench` key only while it is on, so false until it says so,
    *  and off leaves every screen exactly as before RW2a. */
@@ -66,6 +69,7 @@ const DEFAULTS: AlgoDisplayConfig = {
   gateScoreThreshold: 0.5,
   stuckPrompt: false,
   practiceFeedback: "simple",
+  shell: "simple",
   workbench: false,
   recap: false,
   wrapUp: false,
@@ -82,7 +86,7 @@ export function setAlgoConfig(config: unknown): void {
     mastery?: { displayStrongThreshold?: unknown; displayDevelopingThreshold?: unknown };
     scheduler?: { followup?: { tauFollowupNats?: unknown; gateScoreThreshold?: unknown } };
     practice?: { stuckPrompt?: unknown };
-    ui?: { practiceFeedback?: unknown };
+    ui?: { practiceFeedback?: unknown; shell?: unknown };
     workbench?: { enabled?: unknown; help?: { enabled?: unknown; bridge?: unknown; symbolic?: unknown } };
     recap?: { enabled?: unknown; wrapUpEnabled?: unknown };
     hints?: { adaptiveEnabled?: unknown; authoredOfferAfterSeconds?: unknown; helpStyle?: unknown };
@@ -96,6 +100,7 @@ export function setAlgoConfig(config: unknown): void {
     stuckPrompt: root.practice?.stuckPrompt === true,
     // The sidecar's default; only its other value turns it off.
     practiceFeedback: root.ui?.practiceFeedback === "classic" ? "classic" : "simple",
+    shell: root.ui?.shell === "classic" ? "classic" : "simple",
     workbench: root.workbench?.enabled === true,
     recap: root.recap?.enabled === true,
     wrapUp: root.recap?.wrapUpEnabled === true,
@@ -111,7 +116,20 @@ export function setAlgoConfig(config: unknown): void {
       ? { bridge: root.workbench.help.bridge === true, symbolic: root.workbench.help.symbolic === true }
       : null
   };
+  cacheShell(current.shell);
   for (const listener of listeners) listener();
+}
+
+/** Where the last shell the sidecar named is kept, so the window opens in it
+ *  before the library has loaded (a per-machine convenience; UX Phase 2). */
+export const SHELL_CACHE_KEY = "learnloop.shell";
+
+function cacheShell(shell: "simple" | "classic"): void {
+  try {
+    localStorage.setItem(SHELL_CACHE_KEY, shell);
+  } catch {
+    /* storage may be blocked; the next snapshot says again */
+  }
 }
 
 const listeners = new Set<() => void>();

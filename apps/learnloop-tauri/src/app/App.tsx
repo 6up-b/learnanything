@@ -9,10 +9,14 @@ import { ConnectAISheet } from "../components/ConnectAI";
 import { pickSourceFiles, useSourceFileDrop } from "../components/useSourceFileDrop";
 import { LibraryPlace, type LibraryView } from "../screens/LibraryPlace";
 import { useGlobalAdd } from "./useGlobalAdd";
-import { CommandPalette } from "../components/CommandPalette";
+import { CommandPalette, type PaletteCommand } from "../components/CommandPalette";
+import { KeyboardHelp } from "../components/KeyboardHelp";
+import { NoticeHost } from "../components/NoticeHost";
+import { UnderTheHoodScreen } from "../screens/UnderTheHoodScreen";
+import { CalibrationTool, DataTool, InspectorTool, MistakesTool, SpendTool } from "../screens/underhood/tools";
 import { InspectorOverlay } from "../components/InspectorOverlay";
 import { SessionFinishHud } from "../components/SessionFinishHud";
-import { EmptyPlaceholder, SHOW_GOLDEN_PATH, TerminalFrame, type NavBadgeCounts, type TopTab, navTabs } from "../components/ui";
+import { EmptyPlaceholder, SHOW_GOLDEN_PATH, TerminalFrame, type NavBadgeCounts, type TopTab } from "../components/ui";
 import { CalibrationScreen } from "../screens/CalibrationScreen";
 import { DiagnosticReviewScreen } from "../screens/DiagnosticReviewScreen";
 import { FeedbackScreen } from "../screens/FeedbackScreen";
@@ -22,7 +26,27 @@ import { PracticeScreen } from "../screens/PracticeScreen";
 import { RepairScreen } from "../screens/RepairScreen";
 import { ReviewScreen } from "../screens/ReviewScreen";
 import { StartScreen } from "../screens/StartScreen";
-import { NEEDS_SESSION, noticeAfterSessionBegins } from "./notices";
+import { NEEDS_SESSION, addNotice, noticeAfterSessionBegins, resolveNotices, sessionNotice, type NoticeInput, type ShellNotice } from "./notices";
+import { matchShellKey, type KeyAction } from "./keymap";
+import {
+  cachedShell,
+  isTabTool,
+  placeOfTab,
+  rememberBook,
+  rememberPlace,
+  rememberTool,
+  rememberedBook,
+  rememberedPlace,
+  rememberedTool,
+  tabForPlace,
+  uthTool,
+  uthToolOfTab,
+  visibleUthTools,
+  type Place,
+  type ShellMode,
+  type UthToolId
+} from "./shell";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { TodayScreen } from "../screens/TodayScreen";
 import { OpenInSource } from "../components/OpenInSource";
 import { QuickAddDialog } from "../components/QuickAddDialog";
@@ -59,7 +83,7 @@ import { restoredPracticeDraft, type PracticeDraftMirror } from "./practiceDraft
 import { ScreenErrorBoundary } from "./ScreenErrorBoundary";
 import { recordRecentVault, removeRecentVault } from "./recentVaults";
 import { feedbackOrigin, simplePracticeFeedback } from "./practiceFeedback";
-import { errorMessage } from "../errors";
+import { errorMessage, getCommandError } from "../errors";
 import { wrapUpOfferArmed, type WrapUpLanding } from "./wrapUpOffer";
 import { WrapUpOffer } from "../screens/reader/WrapUpOffer";
 
@@ -78,6 +102,9 @@ const ExamScreen = lazy(() => import("../screens/ExamScreen").then((module) => (
 const ProposalsScreen = lazy(() => import("../screens/ProposalsScreen").then((module) => ({ default: module.ProposalsScreen })));
 const RegistryReviewScreen = lazy(() => import("../screens/RegistryReviewScreen").then((module) => ({ default: module.RegistryReviewScreen })));
 const GoldenPathScreen = lazy(() => import("../screens/GoldenPathScreen").then((module) => ({ default: module.GoldenPathScreen })));
+// UX Phase 2: Under the hood's Analyst views and Files mount these unchanged.
+const KnowledgeMapView = lazy(() => import("../screens/KnowledgeMapScreen").then((module) => ({ default: module.KnowledgeMapView })));
+const LibraryScreen = lazy(() => import("../screens/LibraryScreen").then((module) => ({ default: module.LibraryScreen })));
 
 type TodayStage = "queue" | "practice" | "feedback" | "blockReview";
 
@@ -112,8 +139,11 @@ export function App() {
     const previous = previousTabRef.current;
     previousTabRef.current = tab;
     if (previous === tab) return;
-    const armed = wrapUpOfferArmed(previous, tab) && !readerSkimmingRef.current;
-    setWrapUpLanding(armed ? { tab: tab as WrapUpLanding, seq: Date.now() } : null);
+    // UX Phase 2: in the simple shell Start is Today (until Phase 3 merges
+    // them), so leaving the Reader for it lands on Today.
+    const landing = shellRef.current === "simple" && tab === "start" ? "today" : tab;
+    const armed = wrapUpOfferArmed(previous, landing) && !readerSkimmingRef.current;
+    setWrapUpLanding(armed ? { tab: landing as WrapUpLanding, seq: Date.now() } : null);
   }, [tab]);
   // Registry review (§5.7) + Open-in-source (§9.2) + Quick add (§1) surfaces.
   const [registrySubjectId, setRegistrySubjectId] = useState<string | null>(null);
@@ -202,6 +232,12 @@ export function App() {
   const [paletteEntityIds, setPaletteEntityIds] = useState<string[]>([]);
   const [palettePracticeItemIds, setPalettePracticeItemIds] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
+  // UX Phase 2 (§7.9): the simple shell's notices; classic keeps `toast`.
+  const [notices, setNotices] = useState<ShellNotice[]>([]);
+  // UX Phase 2 (§5.2): the Under-the-hood tool on screen when it isn't one
+  // of the old tabs (those are their own tab), and Keyboard & help.
+  const [uthToolState, setUthToolState] = useState<UthToolId>(() => rememberedTool());
+  const [keysHelpOpen, setKeysHelpOpen] = useState(false);
   const [finishSummary, setFinishSummary] = useState<SessionEndSummary | null>(null);
   const [askTarget, setAskTarget] = useState<AskTarget | null>(null);
   // Today unmounts when navigating to another tab. Keep this dismissal at the
@@ -271,7 +307,57 @@ export function App() {
     []
   );
 
-  const onError = useCallback((message: string) => setToast(message), []);
+  // UX Phase 2's switch, read from the snapshot (the last one named on this
+  // machine before it loads). Classic is the base shell exactly.
+  const shell: ShellMode = snapshot ? algoConfig().shell : cachedShell();
+  const shellRef = useRef<ShellMode>(shell);
+  shellRef.current = shell;
+  const simple = shell === "simple";
+
+  const pushNotice = useCallback((input: NoticeInput) => setNotices((list) => addNotice(list, input)), []);
+  // An error: classic's red toast, or the simple shell's red error.
+  const onError = useCallback(
+    (message: string) => {
+      if (shellRef.current === "classic") setToast(message);
+      else pushNotice({ kind: "error", text: message });
+    },
+    [pushNotice]
+  );
+  // A notice: classic's toast (as before), or a neutral notice that leaves
+  // by itself and waits while the Reader has a book open.
+  const notify = useCallback(
+    (message: string) => {
+      if (shellRef.current === "classic") setToast(message);
+      else pushNotice({ kind: "notice", text: message });
+    },
+    [pushNotice]
+  );
+  // An error from an action the shell can run again: Try again when the
+  // sidecar says it is retryable (simple shell). Classic shows the message.
+  const reportError = useCallback(
+    (error: unknown, fallback: string, retry?: () => void) => {
+      const message = errorMessage(error, fallback);
+      if (shellRef.current === "classic") {
+        setToast(message);
+        return;
+      }
+      const command = getCommandError(error);
+      pushNotice({ kind: "error", text: message, code: command?.code ?? null, retry: command?.retryable && retry ? retry : null });
+    },
+    [pushNotice]
+  );
+  // "Start a session first": resolved, and gone, once a session begins.
+  const needSession = useCallback(
+    (need: keyof typeof NEEDS_SESSION) => {
+      if (shellRef.current === "classic") setToast(NEEDS_SESSION[need]);
+      else pushNotice(sessionNotice(need));
+    },
+    [pushNotice]
+  );
+  const clearNotices = useCallback(() => {
+    setToast(null);
+    setNotices([]);
+  }, []);
   const onPaletteEntities = useCallback((ids: { inspectIds: string[]; practiceItemIds: string[] }) => {
     setPaletteEntityIds(ids.inspectIds);
     setPalettePracticeItemIds(ids.practiceItemIds);
@@ -296,6 +382,35 @@ export function App() {
     }
   }, []);
 
+  // UX Phase 2: open where the learner was last (simple shell, per machine).
+  const restoreLastPlace = useCallback(async (appSnapshot: AppSnapshot) => {
+    const place = rememberedPlace();
+    if (!place) return;
+    if (place === "underhood") {
+      const tool = rememberedTool();
+      setUthToolState(tool);
+      setTab(isTabTool(tool) ? tool : "underhood");
+      return;
+    }
+    if (place !== "reader") {
+      setTab(tabForPlace(place, Boolean(appSnapshot.activeSession)));
+      return;
+    }
+    setTab("reader");
+    const root = appSnapshot.vault?.root;
+    const sourceId = root ? rememberedBook(root) : null;
+    if (!sourceId) return;
+    try {
+      const card = (await api.getSourceLibrary()).sources.find((entry) => entry.sourceId === sourceId);
+      if (card) {
+        setReaderSource({ card, spanId: null });
+        setReaderOpenSeq((seq) => seq + 1);
+      }
+    } catch {
+      /* The Reader shows the shelf instead. */
+    }
+  }, []);
+
   const loadInitialVault = useCallback(async () => {
     setStartupError(null);
     try {
@@ -312,11 +427,14 @@ export function App() {
           setTodayStage("practice");
         }
       }
-      if (!checkpoint?.currentPracticeItemId) void landOnLibraryIfEmpty(appSnapshot);
+      if (!checkpoint?.currentPracticeItemId) {
+        if (algoConfig().shell === "simple") void restoreLastPlace(appSnapshot);
+        void landOnLibraryIfEmpty(appSnapshot);
+      }
     } catch (error) {
       setStartupError(errorMessage(error, "Could not load the LearnLoop vault."));
     }
-  }, [landOnLibraryIfEmpty, refreshAiConnection]);
+  }, [landOnLibraryIfEmpty, refreshAiConnection, restoreLastPlace]);
 
   useEffect(() => {
     if (startupStartedRef.current) return;
@@ -431,6 +549,22 @@ export function App() {
     localStorage.setItem("learnloop.tab", tab);
   }, [tab]);
 
+  // UX Phase 2 (§10 2.1): remember the last place, the tool and the book.
+  const hasSnapshot = snapshot !== null;
+  useEffect(() => {
+    if (!simple || !hasSnapshot) return;
+    const place = placeOfTab(tab);
+    if (place) rememberPlace(place);
+    if (place === "underhood") {
+      const tool = uthToolOfTab(tab, uthToolState);
+      if (tool !== uthToolState) setUthToolState(tool);
+      rememberTool(tool);
+    }
+  }, [simple, hasSnapshot, tab, uthToolState]);
+  useEffect(() => {
+    if (simple && vaultRoot && readerSource) rememberBook(vaultRoot, readerSource.card.sourceId);
+  }, [simple, vaultRoot, readerSource]);
+
   // Record every activated vault (startup load, chip switches, NewVaultWizard —
   // all update snapshot.vault.root) into the nav chip's recents dropdown. Uses
   // the canonical root the backend returned, not the raw picked string.
@@ -439,32 +573,22 @@ export function App() {
     if (root) recordRecentVault(root);
   }, [snapshot?.vault?.root]);
 
+  // UX Phase 2: the shell's keys come from the one shared key map
+  // (app/keymap.ts); classic's bindings there are the base shell's exactly.
+  const runKeyActionRef = useRef<(action: KeyAction) => void>(() => undefined);
+  runKeyActionRef.current = (action: KeyAction) => {
+    if (action.kind === "palette") setPaletteOpen(true);
+    else if (action.kind === "settings") setSettingsOpen(true);
+    else if (action.kind === "tab") gotoTab(action.tab);
+    else if (action.kind === "place") gotoPlace(action.place);
+    else if (action.kind === "tool") selectUthTool(action.tool);
+  };
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      const textTarget = isTypingTarget(event.target);
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "p") {
-        event.preventDefault();
-        setPaletteOpen(true);
-        return;
-      }
-      if (event.altKey && event.key.toLowerCase() === "s") {
-        event.preventDefault();
-        setSettingsOpen(true);
-        return;
-      }
-      if (!textTarget && event.key === ":") {
-        event.preventDefault();
-        setPaletteOpen(true);
-        return;
-      }
-      if (textTarget) return;
-      if (event.altKey && /^[0-9]$/.test(event.key)) {
-        const next = navTabs.find((candidate) => candidate.key === event.key);
-        if (next) {
-          gotoTab(next.id);
-          event.preventDefault();
-        }
-      }
+      const binding = matchShellKey(event, shellRef.current, isTypingTarget(event.target));
+      if (!binding) return;
+      event.preventDefault();
+      runKeyActionRef.current(binding.action);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -521,19 +645,21 @@ export function App() {
               }
             : current
         );
-        setToast(`grading → ${result.manualGrading ? "manual (self-grade)" : result.activeProvider}`);
+        notify(`grading → ${result.manualGrading ? "manual (self-grade)" : result.activeProvider}`);
       } catch (error) {
-        onError(errorMessage(error, "Could not change the grading provider."));
+        reportError(error, "Could not change the grading provider.", () => void changeGradingProvider(provider));
       }
     },
-    [onError]
+    [notify, reportError]
   );
 
   function beginSession(next: SessionSnapshot, firstStep?: PlanStepDto | null) {
     setTodayNoGoalBannerDismissed(false);
     setSession(next);
-    // A notice that asked for a session is resolved now (usability round 2).
-    setToast(noticeAfterSessionBegins);
+    // A notice that asked for a session is resolved now (usability round 2;
+    // UX Phase 2's notices drop every notice a session resolves).
+    if (shellRef.current === "classic") setToast(noticeAfterSessionBegins);
+    else setNotices((list) => resolveNotices(list, "session"));
     setTab("today");
     // RW3a: a Reader check waiting on a session opens now, as a learner pick.
     if (pendingCheckMe) {
@@ -605,7 +731,7 @@ export function App() {
     setReaderReturn((current) => keepReaderReturn(current, id));
     if (!session) {
       setTab("start");
-      setToast(NEEDS_SESSION.practice);
+      needSession("practice");
       return;
     }
     setPrimedRetry(false);
@@ -708,7 +834,7 @@ export function App() {
     if (!session) {
       setPendingExercise(request);
       setTab("start");
-      setToast(NEEDS_SESSION.exercise);
+      needSession("exercise");
       return;
     }
     openReaderExercise(request);
@@ -718,7 +844,7 @@ export function App() {
     if (!session) {
       setPendingCheckMe(request);
       setTab("start");
-      setToast(NEEDS_SESSION.checkMe);
+      needSession("checkMe");
       return;
     }
     void pickCheckMe(request, session.sessionId);
@@ -753,7 +879,7 @@ export function App() {
       setPlanReading({ reading, estMinutes });
       setTab("reader");
     } catch (error) {
-      onError(errorMessage(error, "Could not open the reader for today's plan."));
+      reportError(error, "Could not open the reader for today's plan.", () => void openPlanReading(reading, estMinutes));
     }
   }
 
@@ -770,7 +896,7 @@ export function App() {
       setReaderSource(target);
       setTab("reader");
     } catch (error) {
-      onError(errorMessage(error, "Could not open the reader."));
+      reportError(error, "Could not open the reader.", () => void openStudied(restoration));
     }
   }
 
@@ -794,7 +920,7 @@ export function App() {
     setPracticeOffer(null);
     if (!session) {
       setTab("start");
-      setToast(NEEDS_SESSION.practice);
+      needSession("practice");
       return;
     }
     setPrimedRetry(true);
@@ -813,7 +939,7 @@ export function App() {
       // and resume it when a session begins (mirrors pendingPrimedItemId).
       setPendingRedo(redo);
       setTab("start");
-      setToast(NEEDS_SESSION.redo);
+      needSession("redo");
       return;
     }
     setPrimedRetry(true);
@@ -841,7 +967,7 @@ export function App() {
   // Learner field F2: "Check what I already know" from the LO inspector.
   async function startQuickCheck(learningObjectIds: string[]) {
     if (!session) {
-      setToast(NEEDS_SESSION.quickCheck);
+      needSession("quickCheck");
       return;
     }
     try {
@@ -937,6 +1063,33 @@ export function App() {
     if (next !== "today") setTodayStage("queue");
   }
 
+  // UX Phase 2 (§5.1): a place is a view over the tabs.
+  function gotoPlace(place: Place) {
+    gotoTab(tabForPlace(place, Boolean(session)));
+  }
+
+  // UX Phase 2 (§5.2): open a tool under the hood. The old tabs are their own
+  // tools; the rest show on the Under-the-hood tab.
+  function selectUthTool(tool: UthToolId) {
+    setUthToolState(tool);
+    gotoTab(isTabTool(tool) ? tool : "underhood");
+    // The mistake history is the `learnloop diff` overlay: it opens at once.
+    if (tool === "mistakes") setReviewOpen(true);
+  }
+
+  function openUnderTheHood() {
+    selectUthTool(uthToolOfTab(tab, uthToolState));
+  }
+
+  async function openAnotherLibrary() {
+    try {
+      const selected = await openDialog({ directory: true, multiple: false, defaultPath: snapshot?.vault?.root ?? undefined });
+      if (typeof selected === "string" && selected !== snapshot?.vault?.root) await changeVault(selected);
+    } catch {
+      /* changeVault has said why */
+    }
+  }
+
   // Launch the F6 Repair flow (§4.10) for a misconception. Shared entry point
   // for Review's working hypotheses and (once wired) Feedback / Today.
   function openRepair(misconceptionId: string) {
@@ -978,11 +1131,11 @@ export function App() {
     if (tab === "today" && todayStage === "practice" && practiceItemId && session) {
       if (teachBackActiveRef.current) {
         // The tutor could leak answers into the graded transcript.
-        setToast("ask-tutor is disabled during a teach-back conversation.");
+        notify("ask-tutor is disabled during a teach-back conversation.");
         return false;
       }
       if (!practiceAskAllowedRef.current) {
-        setToast("ask-tutor is unavailable until diagnostic safeguards are verified, and stays disabled during diagnostic checks.");
+        notify("ask-tutor is unavailable until diagnostic safeguards are verified, and stays disabled during diagnostic checks.");
         return false;
       }
       setAskTarget({
@@ -1002,11 +1155,16 @@ export function App() {
       return true;
     }
     return false;
-  }, [tab, todayStage, practiceItemId, attemptId, session, libraryNoteId]);
+  }, [tab, todayStage, practiceItemId, attemptId, session, libraryNoteId, notify]);
 
   // Handoff from the Proposals screen: open the proposal's payload in the Library editor.
   function gotoLibraryProposal(patchId: string, itemId: string) {
     setLibraryFocus({ patchId, itemId });
+    // UX Phase 2: the payload editor is under the hood → Files.
+    if (simple) {
+      selectUthTool("files");
+      return;
+    }
     setLibraryView("files");
     setTab("library");
   }
@@ -1029,7 +1187,7 @@ export function App() {
         setTab("library");
         return;
       }
-      if (item.status === "existing" && item.message) setToast(item.message);
+      if (item.status === "existing" && item.message) notify(item.message);
       let card: SourceLibraryCard | undefined;
       try {
         card = (await api.getSourceLibrary()).sources.find((entry) => entry.sourceId === item.sourceId);
@@ -1057,7 +1215,7 @@ export function App() {
         }
       );
     },
-    [openBook]
+    [openBook, notify]
   );
   const adder = useAddSource({ onOpened: (item) => void openAddedItem(item) });
   const addSources = adder.add;
@@ -1119,6 +1277,8 @@ export function App() {
     setOpenWhenReady(null);
     setLibraryView("books");
     setTodayStage("queue");
+    setNotices([]);
+    setKeysHelpOpen(false);
     setTab("start");
   }
 
@@ -1174,6 +1334,19 @@ export function App() {
     [onError, landOnLibraryIfEmpty, refreshAiConnection]
   );
 
+  // The Library screen's props: its vault tree is the Library's Notes &
+  // files and, in the simple shell, Under the hood → Files too.
+  const libraryFilesProps = {
+    onError,
+    focus: libraryFocus,
+    onFocusConsumed: () => setLibraryFocus(null),
+    focusFilePath: libraryFilePath,
+    onFileFocusConsumed: () => setLibraryFilePath(null),
+    onAsk: setAskTarget,
+    onNoteSelected: setLibraryNoteId,
+    onInspect: setInspectorId
+  };
+
   // The Library place; with no book open, the Reader shows its shelf too
   // (spec K5, usability round 2: one shelf, not a second list of books).
   function libraryPlace(booksOnly = false) {
@@ -1182,16 +1355,7 @@ export function App() {
         view={booksOnly ? "books" : libraryView}
         onViewChange={setLibraryView}
         booksOnly={booksOnly}
-        filesProps={{
-          onError,
-          focus: libraryFocus,
-          onFocusConsumed: () => setLibraryFocus(null),
-          focusFilePath: libraryFilePath,
-          onFileFocusConsumed: () => setLibraryFilePath(null),
-          onAsk: setAskTarget,
-          onNoteSelected: setLibraryNoteId,
-          onInspect: setInspectorId
-        }}
+        filesProps={libraryFilesProps}
         aiConnection={aiConnection}
         onOpenBook={openBook}
         onConnectAi={() => setConnectOpen(true)}
@@ -1206,6 +1370,76 @@ export function App() {
         onOpenedWhenReady={() => setOpenWhenReady(null)}
       />
     );
+  }
+
+  // UX Phase 2 (§7.8): one plain line in the bar, only when grading — which
+  // the learner uses — is down: not a manual choice, and an AI is connected.
+  const gradingTrouble =
+    simple &&
+    snapshot !== null &&
+    !manualGrading &&
+    aiConnection !== null &&
+    aiConnection.needs !== "connect" &&
+    !(snapshot.health.ai?.ready ?? snapshot.health.codex.ready ?? false);
+
+  // UX Phase 2 (§7.9): while the Reader has a book open, notices wait (errors show).
+  const readerHolding =
+    simple && tab === "reader" && readerSource !== null && !examGoalId && !calibrationSessionId && !(goldenRunId && SHOW_GOLDEN_PATH);
+
+  // UX Phase 2 (§5.1, §10 2.4): the palette's plain commands, first.
+  function paletteCommands(): PaletteCommand[] {
+    const current = uthTool(uthToolOfTab(tab, uthToolState));
+    return [
+      { id: "add", label: "Add a book, paper or video", keys: "Ctrl+O", keywords: ["import", "file", "link", "pdf", "arxiv", "youtube"], run: () => setAddOpen(true) },
+      {
+        id: "continue",
+        label: "Continue reading",
+        hint: readerSource ? readerSource.card.title : "choose a book on the Library shelf",
+        keywords: ["reader", "book", "read"],
+        run: () => {
+          if (readerSource) {
+            gotoPlace("reader");
+          } else {
+            setLibraryView("books");
+            gotoPlace("library");
+          }
+        }
+      },
+      { id: "plan", label: "Start today's plan", hint: session ? "Today" : "Today · ↵ Begin", keywords: ["today", "begin", "session", "practice", "plan"], run: () => gotoPlace("today") },
+      {
+        id: "check",
+        label: "Check what I already know",
+        hint: "on Progress: pick a topic, then Check what I already know",
+        keywords: ["quick check", "placement", "know"],
+        run: () => gotoPlace("progress")
+      },
+      { id: "settings", label: "Open settings", keys: "Ctrl+,", keywords: ["preferences", "ai", "connect"], run: () => setSettingsOpen(true) },
+      { id: "underhood", label: "Under the hood", hint: current.title, keywords: ["tools", "advanced"], run: openUnderTheHood },
+      { id: "place:today", label: "Go to Today", keys: "Alt+1", run: () => gotoPlace("today") },
+      { id: "place:library", label: "Go to Library", keys: "Alt+2", run: () => gotoPlace("library") },
+      { id: "place:reader", label: "Go to Reader", keys: "Alt+3", run: () => gotoPlace("reader") },
+      { id: "place:progress", label: "Go to Progress", keys: "Alt+4", keywords: ["graph", "well"], run: () => gotoPlace("progress") },
+      {
+        id: "ask",
+        label: "Ask the tutor about this",
+        keywords: ["ask", "tutor", "question"],
+        run: () => {
+          const practicing = tab === "today" && todayStage === "practice";
+          // On a question the shell already says why it can't (teach-back, checks).
+          if (!askCurrentContext() && !practicing) notify("Nothing here to ask about: open a question, feedback or a note first.");
+        }
+      },
+      { id: "keys", label: "Keyboard & help", keywords: ["keys", "shortcuts", "help"], run: () => setKeysHelpOpen(true) },
+      { id: "library:open", label: "Open another library…", keywords: ["switch", "vault", "folder"], run: () => void openAnotherLibrary() },
+      { id: "library:new", label: "New library…", keywords: ["create", "vault"], run: () => setNewVaultOpen(true) },
+      ...visibleUthTools().map((tool) => ({
+        id: `tool:${tool.id}`,
+        label: tool.title,
+        hint: `under the hood · was ${tool.was}`,
+        keywords: tool.keywords,
+        run: () => selectUthTool(tool.id)
+      }))
+    ];
   }
 
   // The one dim, self-dismissing wrap-up line (RW6a): only on the first view
@@ -1278,7 +1512,7 @@ export function App() {
       );
     }
     if (tab === "start") {
-      return (
+      const start = (
         <StartScreen
           onBegin={beginSession}
           onError={onError}
@@ -1287,6 +1521,8 @@ export function App() {
           onNewVault={() => setNewVaultOpen(true)}
         />
       );
+      // UX Phase 2: Start is Today's no-session view in the simple shell.
+      return simple ? <>{wrapUpLine("today")}{start}</> : start;
     }
     if (tab === "today") {
       if (todayStage === "practice" && session && practiceItemId) {
@@ -1427,7 +1663,7 @@ export function App() {
           onOpenPlanReading={(reading) => void openPlanReading(reading)}
           onRequireSession={() => {
             setTab("start");
-            setToast(NEEDS_SESSION.plan);
+            needSession("plan");
           }}
           onBeginSession={beginSession}
           onError={onError}
@@ -1439,8 +1675,36 @@ export function App() {
     if (tab === "graph") {
       return <GraphScreen onInspect={setInspectorId} onError={onError} />;
     }
-    if (tab === "ingest") {
+    // UX Phase 2 (§5.2): the demoted tabs, and the tools that had none, under
+    // the hood. Each tool's screen mounts exactly as before.
+    if (simple && placeOfTab(tab) === "underhood") {
+      const tool = uthToolOfTab(tab, uthToolState);
       return (
+        <UnderTheHoodScreen tool={tool} onSelectTool={selectUthTool} counts={{ proposals: navBadges.proposals, maintain: navBadges.maintain }}>
+          {renderUthTool(tool)}
+        </UnderTheHoodScreen>
+      );
+    }
+    if (tab === "ingest") {
+      return renderIngest();
+    }
+    if (tab === "library") {
+      return <>{wrapUpLine("library")}{libraryPlace()}</>;
+    }
+    if (tab === "proposals") {
+      return renderProposals();
+    }
+    if (tab === "registry") {
+      return renderRegistry();
+    }
+    if (tab === "golden") {
+      return renderGolden();
+    }
+    return renderAfterGolden();
+  }
+
+  function renderIngest() {
+    return (
         <IngestScreen
           jobId={ingestJobId}
           onJobIdChange={setIngestJobId}
@@ -1454,11 +1718,10 @@ export function App() {
           onDismissGuide={() => setIngestGuideActive(false)}
         />
       );
-    }
-    if (tab === "library") {
-      return <>{wrapUpLine("library")}{libraryPlace()}</>;
-    }
-    if (tab === "proposals") {
+  }
+
+  function renderProposals() {
+      if (!snapshot) return null;
       return (
         <ProposalsScreen
           authoringReady={snapshot.health.ai.ready}
@@ -1471,8 +1734,9 @@ export function App() {
           onFocusConsumed={() => setProposalFocusPatchId(null)}
         />
       );
-    }
-    if (tab === "registry") {
+  }
+
+  function renderRegistry() {
       return (
         <RegistryReviewScreen
           subjectId={registrySubjectId}
@@ -1485,8 +1749,9 @@ export function App() {
           }
         />
       );
-    }
-    if (tab === "golden") {
+  }
+
+  function renderGolden() {
       // The real front door: discovery → compose → review → confirm. The
       // offline fixture demo stays reachable behind an explicit toggle.
       if (goldenDemo) {
@@ -1507,7 +1772,53 @@ export function App() {
           onError={onError}
         />
       );
+  }
+
+  function renderMaintain() {
+      return (
+        <MaintenanceScreen
+          subjects={subjectOptions}
+          onError={onError}
+          onInspect={setInspectorId}
+          onOpenAdjudication={() => setAdjudicateOpen(true)}
+        />
+      );
+  }
+
+  // UX Phase 2 (§5.2): one tool's screen, unchanged inside.
+  function renderUthTool(tool: UthToolId) {
+    switch (tool) {
+      case "ingest":
+        return renderIngest();
+      case "proposals":
+        return renderProposals();
+      case "registry":
+        return renderRegistry();
+      case "maintain":
+        return renderMaintain();
+      case "golden":
+        return renderGolden();
+      case "graph-editor":
+        return <GraphScreen onInspect={setInspectorId} onError={onError} />;
+      case "analyst":
+        return <KnowledgeMapView onInspect={setInspectorId} onError={onError} />;
+      case "mistakes":
+        return <MistakesTool onOpen={() => setReviewOpen(true)} />;
+      case "calibration":
+        return <CalibrationTool session={session} onOpenCalibration={(id) => openCalibration(id)} onError={onError} />;
+      case "data":
+        return <DataTool onError={onError} />;
+      case "files":
+        return <LibraryScreen {...libraryFilesProps} />;
+      case "inspector":
+        return <InspectorTool recentIds={unique([practiceItemId, attemptId, ...paletteEntityIds])} onInspect={setInspectorId} />;
+      case "spend":
+        return <SpendTool onOpenSettings={() => setSettingsOpen(true)} />;
     }
+  }
+
+  function renderAfterGolden() {
+    if (!snapshot) return null;
     if (tab === "reader") {
       if (planReading) {
         return (
@@ -1530,14 +1841,7 @@ export function App() {
       return <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />;
     }
     if (tab === "maintain") {
-      return (
-        <MaintenanceScreen
-          subjects={subjectOptions}
-          onError={onError}
-          onInspect={setInspectorId}
-          onOpenAdjudication={() => setAdjudicateOpen(true)}
-        />
-      );
+      return renderMaintain();
     }
     return <EmptyPlaceholder title={tab} />;
   }
@@ -1554,13 +1858,25 @@ export function App() {
         settingsOpen={settingsOpen}
         badges={navBadges}
         onAdd={snapshot ? () => setAddOpen(true) : undefined}
+        shell={shell}
+        simpleNav={{
+          active: placeOfTab(tab),
+          onPlace: gotoPlace,
+          onPalette: () => setPaletteOpen(true),
+          onSettings: () => gotoTab("settings"),
+          onUnderTheHood: openUnderTheHood,
+          onKeyboardHelp: () => setKeysHelpOpen(true),
+          onNewLibrary: () => setNewVaultOpen(true),
+          gradingTrouble,
+          onFixGrading: () => gotoTab("settings")
+        }}
       >
-        {toast && !settingsOpen ? (
+        {!simple && toast && !settingsOpen ? (
           <div className="toast" role="status" aria-live="polite" aria-atomic="true" onClick={() => setToast(null)}>
             {toast}
           </div>
         ) : null}
-        <ScreenErrorBoundary resetKey={tab}>
+        <ScreenErrorBoundary resetKey={simple && tab === "underhood" ? `underhood:${uthToolState}` : tab}>
           <Suspense fallback={<div role="status">Loading…</div>}>{renderBody()}</Suspense>
         </ScreenErrorBoundary>
       </TerminalFrame>
@@ -1569,15 +1885,15 @@ export function App() {
           manualGrading={manualGrading}
           onSelectGradingProvider={changeGradingProvider}
           onHealthChanged={applyHealth}
-          onToast={setToast}
+          onToast={notify}
           onError={onError}
           onClose={() => {
             setSettingsOpen(false);
-            setToast(null);
+            clearNotices();
             refreshAiConnection();
           }}
-          notification={toast}
-          onDismissNotification={() => setToast(null)}
+          notification={simple ? (notices[notices.length - 1]?.text ?? null) : toast}
+          onDismissNotification={clearNotices}
         />
       ) : null}
       {reviewOpen ? (
@@ -1604,7 +1920,7 @@ export function App() {
       <AskOverlay
         target={askTarget}
         onClose={() => setAskTarget(null)}
-        onToast={setToast}
+        onToast={notify}
         onOpenPractice={(practiceItemId, origin) => openPractice(practiceItemId, null, origin ?? null)}
       />
       {openSource ? (
@@ -1634,7 +1950,7 @@ export function App() {
             setIngestGuideActive(true);
             setIngestJobId(null);
             setTab("ingest");
-            setToast("Study map building — track it in Ingest");
+            notify(simple ? "Study map building — follow it here, in Imports & builds." : "Study map building — track it in Ingest");
           }}
         />
       ) : null}
@@ -1650,7 +1966,7 @@ export function App() {
             setQuickAddOpen(true);
           }}
           onGotoTab={gotoTab}
-          onToast={setToast}
+          onToast={notify}
           onError={onError}
         />
       ) : null}
@@ -1667,7 +1983,7 @@ export function App() {
               setPendingPrimedItemId(practiceItemId);
               setRepairMisconceptionId(null);
               setTab("start");
-              setToast(NEEDS_SESSION.primed);
+              needSession("primed");
               return;
             }
             setRepairMisconceptionId(null);
@@ -1725,6 +2041,8 @@ export function App() {
         />
       ) : null}
       {fileDragging ? <DropOverlay /> : null}
+      {simple && !settingsOpen ? <NoticeHost notices={notices} holding={readerHolding} onChange={setNotices} /> : null}
+      {keysHelpOpen ? <KeyboardHelp shell={shell} onClose={() => setKeysHelpOpen(false)} /> : null}
       <SessionFinishHud summary={finishSummary} onDismiss={() => setFinishSummary(null)} />
       <CommandPalette
         open={paletteOpen}
@@ -1740,6 +2058,8 @@ export function App() {
         onInspect={setInspectorId}
         onAsk={askCurrentContext}
         onError={onError}
+        shell={shell}
+        {...(simple ? { plainCommands: paletteCommands() } : {})}
       />
     </>
   );

@@ -2,6 +2,11 @@ import type { CommandError } from "./api/dto";
 
 const DEFAULT_ERROR_MESSAGE = "Something went wrong. Please try again.";
 
+/** The two kinds of shell message (UX Phase 2, docs/specs/ux_learnloop_v1.md
+ *  §7.9): an error (red, persists, Try again when retryable) or a notice
+ *  (neutral, small, gone after a few seconds). See app/notices.ts. */
+export type MessageKind = "error" | "notice";
+
 /**
  * Narrow an unknown rejection to the stable error envelope returned by the
  * Tauri bridge. Calls made outside that bridge (dialogs, events, browser APIs)

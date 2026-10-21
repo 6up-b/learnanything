@@ -13,11 +13,46 @@
 // commands (today, attempt, goto, …) close the palette and route the app via
 // the callbacks passed in from <App />. Data commands (review, why, show,
 // doctor) call the real Tauri backend.
+//
+// UX Phase 2 (docs/specs/ux_learnloop_v1.md §5.1, §10 2.4): in the simple
+// shell the palette opens on plain commands (add a book, continue reading,
+// start today's plan, …), filtered as you type, and everything above — the
+// learnloop grammar and the CLI pass-through — needs a leading ">", so plain
+// words never run a CLI command (audit B.0). The classic shell keeps the
+// palette exactly as it was.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { CliCommandResult, SessionSnapshot } from "../api/dto";
 import { Pill, navTabs, type TopTab } from "./ui";
+import type { ShellMode } from "../app/shell";
+
+/** A plain command (simple shell): what it says, and what it does. */
+export interface PaletteCommand {
+  id: string;
+  label: string;
+  /** A dim line of context (the book to continue, "was Proposals", …). */
+  hint?: string;
+  /** Its shortcut, when it has one. */
+  keys?: string;
+  /** Other words it answers to (old names, CLI words). */
+  keywords?: string[];
+  run: () => void;
+}
+
+/** The plain commands that match every word typed, in their own order. */
+export function matchPlainCommands(commands: PaletteCommand[], query: string): PaletteCommand[] {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return commands;
+  return commands.filter((command) => {
+    const haystack = [command.label, command.hint ?? "", ...(command.keywords ?? [])].join(" ").toLowerCase();
+    return words.every((word) => haystack.includes(word));
+  });
+}
+
+/** The ">" that opens the learnloop shell in the simple palette, and the
+ *  space after it. */
+const SHELL_PREFIX = /^\s*>\s*/;
 
 const HISTORY_KEY = "learnloop.commandHistory";
 
@@ -678,7 +713,9 @@ export function CommandPalette({
   onOpenAdjudication,
   onInspect,
   onAsk,
-  onError
+  onError,
+  shell = "classic",
+  plainCommands = []
 }: {
   open: boolean;
   session: SessionSnapshot | null;
@@ -693,6 +730,10 @@ export function CommandPalette({
   onInspect: (id: string) => void;
   onAsk: () => boolean;
   onError: (message: string) => void;
+  /** UX Phase 2's switch: "simple" lists plain commands first and puts the
+   *  learnloop shell behind ">"; "classic" (the default here) is unchanged. */
+  shell?: ShellMode;
+  plainCommands?: PaletteCommand[];
 }) {
   const [line, setLine] = useState("");
   const [cursor, setCursor] = useState(0);
@@ -711,7 +752,22 @@ export function CommandPalette({
     () => ({ entityIds, practiceItemIds, conceptIds, goalIds, subjects }),
     [entityIds, practiceItemIds, conceptIds, goalIds, subjects]
   );
-  const completions = useMemo(() => computeCompletions(line, cursor, cands), [line, cursor, cands]);
+  const simple = shell === "simple";
+  // In the simple shell the learnloop shell is the text after ">"; classic
+  // reads the whole line, as before (offset 0).
+  const shellMatch = simple ? SHELL_PREFIX.exec(line) : null;
+  const cliMode = !simple || shellMatch !== null;
+  const offset = shellMatch ? shellMatch[0].length : 0;
+  const cliLine = offset ? line.slice(offset) : line;
+  const cliCursor = Math.max(0, cursor - offset);
+  const completions = useMemo(
+    () => (cliMode ? computeCompletions(cliLine, cliCursor, cands) : []),
+    [cliMode, cliLine, cliCursor, cands]
+  );
+  const plainMatches = useMemo(
+    () => (cliMode ? [] : matchPlainCommands(plainCommands, line)),
+    [cliMode, plainCommands, line]
+  );
 
   const helpCommands = useMemo(() => Object.entries(GRAMMAR).map(([name, spec]) => ({ name, help: spec.help })), []);
 
@@ -757,13 +813,14 @@ export function CommandPalette({
   function applyCompletion(index: number) {
     const sel = completions[index];
     if (!sel) return;
-    const tok = tokenize(line, cursor);
-    const tokStart = cursor - tok.activePrefix.length;
-    const before = line.slice(0, tokStart);
-    const after = line.slice(cursor);
+    const tok = tokenize(cliLine, cliCursor);
+    const tokStart = cliCursor - tok.activePrefix.length;
+    const prefix = line.slice(0, offset);
+    const before = cliLine.slice(0, tokStart);
+    const after = cliLine.slice(cliCursor);
     const trail = after.startsWith(" ") ? "" : " ";
-    const newLine = `${before}${sel.completion}${trail}${after}`;
-    const newCursor = (before + sel.completion + trail).length;
+    const newLine = `${prefix}${before}${sel.completion}${trail}${after}`;
+    const newCursor = (prefix + before + sel.completion + trail).length;
     setLine(newLine);
     setCursor(newCursor);
     window.setTimeout(() => {
@@ -772,8 +829,22 @@ export function CommandPalette({
     }, 0);
   }
 
+  function runPlain(index: number) {
+    const command = plainMatches[index];
+    // No match: the line stays, and the list says how to reach the shell.
+    if (!command) return;
+    setLine("");
+    setCursor(0);
+    onClose();
+    command.run();
+  }
+
   async function execute() {
-    const raw = line.trim();
+    if (!cliMode) {
+      runPlain(acIdx);
+      return;
+    }
+    const raw = cliLine.trim();
     if (!raw || busy) return;
     const parsed = parse(raw);
     const nextHistory = [raw, ...history.filter((entry) => entry !== raw)].slice(0, 50);
@@ -817,9 +888,26 @@ export function CommandPalette({
   }
 
   function onInputKey(event: React.KeyboardEvent<HTMLInputElement>) {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "p") {
+    if ((event.ctrlKey || event.metaKey) && (event.key.toLowerCase() === "p" || (simple && event.key.toLowerCase() === "k"))) {
       onClose();
       event.preventDefault();
+      return;
+    }
+    if (!cliMode) {
+      // Plain commands: the arrows move through the list, Enter runs one.
+      if (event.key === "Escape") {
+        onClose();
+        event.preventDefault();
+      } else if (event.key === "Enter") {
+        runPlain(acIdx);
+        event.preventDefault();
+      } else if (event.key === "ArrowDown") {
+        setAcIdx((i) => Math.min(Math.max(0, plainMatches.length - 1), i + 1));
+        event.preventDefault();
+      } else if (event.key === "ArrowUp") {
+        setAcIdx((i) => Math.max(0, i - 1));
+        event.preventDefault();
+      }
       return;
     }
     if (event.key === "Escape") {
@@ -837,18 +925,18 @@ export function CommandPalette({
       } else if (history.length > 0) {
         const next = Math.max(-1, histIdx - 1);
         setHistIdx(next);
-        const value = next === -1 ? "" : history[next] ?? "";
+        const value = next === -1 ? (simple ? "> " : "") : `${simple ? "> " : ""}${history[next] ?? ""}`;
         setLine(value);
         setCursor(value.length);
       }
       event.preventDefault();
     } else if (event.key === "ArrowUp") {
-      if (completions.length > 0 && line.trim().length > 0) {
+      if (completions.length > 0 && cliLine.trim().length > 0) {
         setAcIdx((i) => Math.max(0, i - 1));
       } else if (history.length > 0) {
         const next = Math.min(history.length - 1, histIdx + 1);
         setHistIdx(next);
-        const value = history[next] ?? "";
+        const value = `${simple ? "> " : ""}${history[next] ?? ""}`;
         setLine(value);
         setCursor(value.length);
       }
@@ -863,6 +951,125 @@ export function CommandPalette({
     }
   }
 
+  const scrollback = (
+    <div className="cli-scrollback" ref={scrollRef}>
+      {buffer.length === 0 ? (
+        <div className="cli-row cli-row-p">
+          <span className="cli-accent">learnloop</span> — type <b>help</b> for commands, or start with{" "}
+          <b>review</b>, <b>doctor</b>, or <b>show &lt;id&gt;</b>.
+        </div>
+      ) : (
+        buffer.map((row, index) => <OutputRowView key={index} row={row} commands={helpCommands} />)
+      )}
+      {busy ? <div className="cli-row cli-row-log">…running</div> : null}
+    </div>
+  );
+
+  const completionList =
+    completions.length > 0 ? (
+      <div className="cli-completions">
+        {completions.map((entry, index) => (
+          <div
+            key={`${entry.kind}:${entry.completion}`}
+            className={`cli-completion ${index === acIdx ? "selected" : ""}`}
+            onMouseEnter={() => setAcIdx(index)}
+            onMouseDown={(event) => {
+              event.preventDefault();
+              applyCompletion(index);
+            }}
+          >
+            <KindBadge kind={entry.kind} />
+            <span className="cli-completion-text">{entry.completion}</span>
+            <span className="cli-faint cli-completion-hint">{entry.hint}</span>
+          </div>
+        ))}
+      </div>
+    ) : null;
+
+  const input = (
+    <input
+      ref={inputRef}
+      value={line}
+      onChange={(event) => {
+        setLine(event.target.value);
+        setCursor(event.target.selectionStart ?? event.target.value.length);
+      }}
+      onKeyDown={onInputKey}
+      onKeyUp={(event) => setCursor(event.currentTarget.selectionStart ?? 0)}
+      onClick={(event) => setCursor(event.currentTarget.selectionStart ?? 0)}
+      placeholder={simple ? (cliMode ? "a learnloop command — tab to complete" : "Type a command, or > for learnloop commands") : "type a command — tab to complete"}
+      spellCheck={false}
+      disabled={busy}
+    />
+  );
+
+  const matchCount =
+    completions.length > 0 ? (
+      <span className="cli-faint cli-match-count">
+        {completions.length} match{completions.length === 1 ? "" : "es"}
+      </span>
+    ) : null;
+
+  if (simple) {
+    // One layout for both modes, so the input keeps its focus when ">" is typed.
+    const query = line.trim();
+    return (
+      <div className="cli-backdrop" onMouseDown={onClose}>
+        <div className="cli-shell" onMouseDown={(event) => event.stopPropagation()}>
+          <div className="cli-titlebar">
+            <span className="cli-title">{cliMode ? <>learnloop <span className="cli-accent">shell</span></> : "Commands"}</span>
+            <span className="cli-hint">
+              {cliMode ? (
+                <>
+                  <b>tab</b> complete <b>↑↓</b> nav <b>esc</b> close
+                </>
+              ) : (
+                <>
+                  <b>↵</b> run <b>↑↓</b> choose <b>esc</b> close
+                </>
+              )}
+            </span>
+          </div>
+          {cliMode ? scrollback : null}
+          {cliMode ? (
+            completionList
+          ) : plainMatches.length > 0 ? (
+            <div className="palette-list" role="listbox" aria-label="Commands">
+              {plainMatches.map((command, index) => (
+                <div
+                  key={command.id}
+                  role="option"
+                  aria-selected={index === acIdx}
+                  className={`palette-option ${index === acIdx ? "selected" : ""}`}
+                  onMouseEnter={() => setAcIdx(index)}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    runPlain(index);
+                  }}
+                >
+                  <span className="palette-label">{command.label}</span>
+                  {command.hint ? <span className="palette-hint">{command.hint}</span> : null}
+                  {command.keys ? <kbd className="palette-keys">{command.keys}</kbd> : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="palette-miss" role="status">
+              No command matches “{query}”. To run it as a learnloop command, start with &gt;: &gt; {query}
+            </div>
+          )}
+          <div className="cli-prompt-row">
+            <span className="cli-caret">{cliMode ? "❯" : "›"}</span>
+            {cliMode ? <span className="cli-faint">learnloop</span> : null}
+            {input}
+            {matchCount}
+          </div>
+          {cliMode ? null : <div className="palette-foot">Type to find a command · type &gt; for learnloop commands</div>}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="cli-backdrop" onMouseDown={onClose}>
       <div className="cli-shell" onMouseDown={(event) => event.stopPropagation()}>
@@ -875,60 +1082,15 @@ export function CommandPalette({
           </span>
         </div>
 
-        <div className="cli-scrollback" ref={scrollRef}>
-          {buffer.length === 0 ? (
-            <div className="cli-row cli-row-p">
-              <span className="cli-accent">learnloop</span> — type <b>help</b> for commands, or start with{" "}
-              <b>review</b>, <b>doctor</b>, or <b>show &lt;id&gt;</b>.
-            </div>
-          ) : (
-            buffer.map((row, index) => <OutputRowView key={index} row={row} commands={helpCommands} />)
-          )}
-          {busy ? <div className="cli-row cli-row-log">…running</div> : null}
-        </div>
+        {scrollback}
 
-        {completions.length > 0 ? (
-          <div className="cli-completions">
-            {completions.map((entry, index) => (
-              <div
-                key={`${entry.kind}:${entry.completion}`}
-                className={`cli-completion ${index === acIdx ? "selected" : ""}`}
-                onMouseEnter={() => setAcIdx(index)}
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  applyCompletion(index);
-                }}
-              >
-                <KindBadge kind={entry.kind} />
-                <span className="cli-completion-text">{entry.completion}</span>
-                <span className="cli-faint cli-completion-hint">{entry.hint}</span>
-              </div>
-            ))}
-          </div>
-        ) : null}
+        {completionList}
 
         <div className="cli-prompt-row">
           <span className="cli-caret">❯</span>
           <span className="cli-faint">learnloop</span>
-          <input
-            ref={inputRef}
-            value={line}
-            onChange={(event) => {
-              setLine(event.target.value);
-              setCursor(event.target.selectionStart ?? event.target.value.length);
-            }}
-            onKeyDown={onInputKey}
-            onKeyUp={(event) => setCursor(event.currentTarget.selectionStart ?? 0)}
-            onClick={(event) => setCursor(event.currentTarget.selectionStart ?? 0)}
-            placeholder="type a command — tab to complete"
-            spellCheck={false}
-            disabled={busy}
-          />
-          {completions.length > 0 ? (
-            <span className="cli-faint cli-match-count">
-              {completions.length} match{completions.length === 1 ? "" : "es"}
-            </span>
-          ) : null}
+          {input}
+          {matchCount}
         </div>
       </div>
     </div>

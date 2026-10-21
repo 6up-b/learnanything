@@ -124,7 +124,7 @@ describe("simple shell", () => {
   it("completes shell commands after '>'", () => {
     renderPalette("simple");
     fireEvent.change(input(), { target: { value: "> doc", selectionStart: 5 } });
-    expect(screen.getByText("doctor")).toBeTruthy();
+    expect(screen.getByText("doctor", { selector: ".cli-completion-text" })).toBeTruthy();
     fireEvent.keyDown(input(), { key: "Tab" });
     expect(input().value).toBe("> doctor ");
   });
