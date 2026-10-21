@@ -210,6 +210,31 @@ def dense_plus_bm25(
     return order, roles, ranks
 
 
+def role_filter(vault: LoadedVault, repository: Repository, scope: Scope,
+                roles: Sequence[str]) -> tuple[set[SpanKey], dict[str, int]]:
+    """The spans the ``roles`` positive filter permits in ``scope``, and its basis.
+
+    Ingest's effective hints and the Reader's RW4e role proposals; a
+    low-confidence proposal only when nothing better exists (§9.1), "better"
+    being a confident passage this scope can return (Codex review F3). The one
+    rule: :func:`search_spans` filters by it, and ``find_sources`` applies it
+    to an intent list's eligibility before choosing strong over weak rows
+    (Codex re-review F5), so a strong row the filter drops never suppresses a
+    weak one it keeps.
+    """
+
+    extraction_ids = sorted(scope.extractions)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        hinted = role_keys(connection, extraction_ids, roles)
+    proposed, low = role_proposal_keys(vault, repository, extraction_ids, roles)
+    permitted = hinted | proposed
+    basis = {"hints": len(hinted), "proposals": len(proposed - hinted), "low_confidence": 0}
+    if low and not any(scope.allows(*key) for key in permitted):
+        permitted = set(low)
+        basis["low_confidence"] = len(low)
+    return permitted, basis
+
+
 def search_spans(
     vault: LoadedVault,
     repository: Repository,
@@ -281,17 +306,7 @@ def search_spans(
 
     permitted_roles: set[SpanKey] | None = None
     if roles:
-        # Ingest's effective hints and the Reader's RW4e role proposals; a
-        # low-confidence proposal only when nothing better exists (§9.1).
-        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-            hinted = role_keys(connection, extraction_ids, roles)
-        proposed, low = role_proposal_keys(vault, repository, extraction_ids, roles)
-        permitted_roles = hinted | proposed
-        result.role_basis = {"hints": len(hinted), "proposals": len(proposed - hinted), "low_confidence": 0}
-        # "Better" is a confident passage this scope can return (Codex review F3).
-        if low and not any(scope.allows(*key) for key in permitted_roles):
-            permitted_roles = set(low)
-            result.role_basis["low_confidence"] = len(low)
+        permitted_roles, result.role_basis = role_filter(vault, repository, scope, roles)
 
     def keep(key: SpanKey) -> bool:
         return scope.allows(*key) and (permitted_roles is None or key in permitted_roles)
@@ -450,5 +465,6 @@ __all__ = [
     "SpanKey",
     "SpanSearch",
     "dense_plus_bm25",
+    "role_filter",
     "search_spans",
 ]

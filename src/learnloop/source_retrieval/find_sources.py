@@ -57,7 +57,7 @@ from learnloop.source_retrieval.corpus import (
 )
 from learnloop.source_retrieval.policy import POLICIES, CallerContext, PolicyRefused, derive_policy
 from learnloop.source_retrieval.queries import query_id
-from learnloop.source_retrieval.search import POOL_HYBRID_RRF, SpanHit, SpanKey, search_spans
+from learnloop.source_retrieval.search import POOL_HYBRID_RRF, SpanHit, SpanKey, role_filter, search_spans
 from learnloop.source_retrieval.verify import (
     PRICE_SETTING,
     judged_passage,
@@ -674,16 +674,23 @@ def find_sources(
         shown_sources = {span_scope.extractions[key[0]].source_id for key in excluded if key[0] in span_scope.extractions}
         personal["shown_sources"] = sorted(shown_sources)
     extra.update(expansion_lists(vault, repository, lo_ids, expand))
+    effective_roles = tuple(roles)
+    if intent == "worked_example" and not effective_roles:
+        effective_roles = ("worked_example",)
+    # The search's own role rule (Codex re-review F5): a row it would drop
+    # is no stronger candidate.
+    role_permitted = (role_filter(vault, repository, span_scope, effective_roles)[0]
+                      if effective_roles else None)
+
     def eligible(keys: list[SpanKey]) -> list[SpanKey]:
-        # What this caller may be given: the scope, its exclusions, no exam material.
-        keys = [key for key in keys if span_scope.allows(*key) and key not in excluded]
+        # What this caller may be given: the scope, its exclusions, its role
+        # filter, no exam material.
+        keys = [key for key in keys if span_scope.allows(*key) and key not in excluded
+                and (role_permitted is None or key in role_permitted)]
         exam = exam_withheld(vault, repository, keys) if keys else frozenset()
         return [key for key in keys if key not in exam]
 
     extra.update(source_object_lists(vault, repository, intent, extraction_ids, eligible=eligible))
-    effective_roles = tuple(roles)
-    if intent == "worked_example" and not effective_roles:
-        effective_roles = ("worked_example",)
     query_text = verification_question(query, intent, misconceptions)
     depth = None if cursor is None else cursor.get("list_depths")
     # Paging deepens the lists until they are exhausted (§8.3.4), so the pool

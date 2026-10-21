@@ -449,6 +449,48 @@ def test_a_stronger_proposal_the_scope_excludes_never_blocks_the_low_confidence_
     assert hits.manifest["search"]["role_basis"]["low_confidence"] == 1
 
 
+def test_a_stronger_proposal_the_roles_filter_rejects_never_blocks_the_low_confidence_one(library, monkeypatch):
+    """Codex re-review F5: with ``roles=``, the intent list's "stronger
+    candidate" must also pass the role filter. A strong ``intuition`` the
+    ``alternative_treatment`` filter rejects never suppresses the weak
+    ``alternative_treatment`` passage, which (no keyword match of its own)
+    reaches the retrieval pool only through that list."""
+
+    from learnloop.source_retrieval import find_sources as FS
+    from learnloop.source_retrieval.policy import CallerContext
+    from tests.source_service_fakes import FakeServiceLLM
+
+    paths, repository, _spans = library
+    # A = t2 (the query's own words), B = t3 (the row swap: no query word).
+    _propose(paths, repository, [_claim("t2", "intuition", "high"), _claim("t3", "alternative_treatment", "low")])
+    vault = loaded(paths)
+    seen: list[dict] = []
+    pools: list[list] = []
+    real = FS.search_spans
+
+    def spy(*args, extra_lists=None, **kwargs):
+        seen.append({name: list(keys) for name, keys in (extra_lists or {}).items()})
+        search = real(*args, extra_lists=extra_lists, **kwargs)
+        pools.append([hit.key for hit in search.hits])
+        return search
+
+    monkeypatch.setattr(FS, "search_spans", spy)
+    reading = CallerContext(kind="reader")
+    query = "eigenvalues characteristic polynomial"
+    FS.find_sources_for_caller(vault, repository, query, caller=reading, intent="alternative",
+                               rerank_client=FakeServiceLLM())
+    assert ("ext_text", "t3") not in pools[-1]  # B has no retrieval match of its own
+    hits = FS.find_sources_for_caller(vault, repository, query, caller=reading, intent="alternative",
+                                      roles=["alternative_treatment"], rerank_client=FakeServiceLLM())
+    assert seen[-1]["source_objects"] == [("ext_text", "t3")]
+    assert pools[-1] == [("ext_text", "t3")]
+    assert hits.manifest["search"]["role_basis"]["low_confidence"] == 1
+    # The role filter that admits the strong one keeps it alone, as before.
+    FS.find_sources_for_caller(vault, repository, query, caller=reading, intent="alternative",
+                               roles=["intuition"], rerank_client=FakeServiceLLM())
+    assert seen[-1]["source_objects"] == [("ext_text", "t2")]
+
+
 # -- configuration ----------------------------------------------------------------------------------
 
 
