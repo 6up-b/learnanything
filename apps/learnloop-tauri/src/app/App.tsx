@@ -29,7 +29,6 @@ import { StartScreen } from "../screens/StartScreen";
 import { NEEDS_SESSION, addNotice, dismissNotice, noticeAfterSessionBegins, resolveNotices, sessionNotice, type NoticeInput, type ShellNotice } from "./notices";
 import { matchShellKey, type KeyAction } from "./keymap";
 import {
-  cachedShell,
   isTabTool,
   placeOfTab,
   rememberBook,
@@ -83,7 +82,7 @@ import { restoredPracticeDraft, type PracticeDraftMirror } from "./practiceDraft
 import { ScreenErrorBoundary } from "./ScreenErrorBoundary";
 import { recordRecentVault, removeRecentVault } from "./recentVaults";
 import { feedbackOrigin, simplePracticeFeedback } from "./practiceFeedback";
-import { errorMessage, getCommandError, type ErrorReport } from "../errors";
+import { RETRY_RAN, errorMessage, getCommandError, type ErrorReport, type NoticeRetry } from "../errors";
 import { wrapUpOfferArmed, type WrapUpLanding } from "./wrapUpOffer";
 import { WrapUpOffer } from "../screens/reader/WrapUpOffer";
 
@@ -309,9 +308,13 @@ export function App() {
     []
   );
 
-  // UX Phase 2's switch, read from the snapshot (the last one named on this
-  // machine before it loads). Classic is the base shell exactly.
-  const shell: ShellMode = snapshot ? algoConfig().shell : cachedShell();
+  // UX Phase 2's switch, read from the snapshot. Until the current library's
+  // snapshot has named it, the app is the base shell exactly (classic): its
+  // nav, its keys and its toast (fix round 3, whole-stage verify
+  // 20261021-130232-Uk06Al item 3). A per-machine cache of the last shell let
+  // a stale "simple" run simple keys before a classic library had loaded, so
+  // there is none: only the snapshot is authoritative.
+  const shell: ShellMode = snapshot ? algoConfig().shell : "classic";
   const shellRef = useRef<ShellMode>(shell);
   shellRef.current = shell;
   const simple = shell === "simple";
@@ -328,13 +331,14 @@ export function App() {
         return;
       }
       const command = report?.error === undefined ? null : getCommandError(report.error);
-      pushNotice({
-        kind: "error",
-        text: message,
-        code: command?.code ?? null,
-        retry: command?.retryable && report?.retry ? report.retry : null,
-        source: report?.source ?? null
-      });
+      const code = command?.code ?? null;
+      // Try again only for a retryable failure whose report names its source
+      // and a self-contained retry (fix round 3).
+      if (command?.retryable && report?.retry && report.source) {
+        pushNotice({ kind: "error", text: message, code, retry: report.retry, source: report.source });
+      } else {
+        pushNotice({ kind: "error", text: message, code, source: report?.source ?? null });
+      }
     },
     [pushNotice]
   );
@@ -350,14 +354,16 @@ export function App() {
   // An error from an action the shell can run again: Try again when the
   // sidecar says it is retryable (simple shell). Classic shows the message.
   const reportError = useCallback(
-    (error: unknown, fallback: string, retry?: () => void) => {
+    (error: unknown, fallback: string, action?: { source: string; retry: NoticeRetry }) => {
       const message = errorMessage(error, fallback);
       if (shellRef.current === "classic") {
         setToast(message);
         return;
       }
       const command = getCommandError(error);
-      pushNotice({ kind: "error", text: message, code: command?.code ?? null, retry: command?.retryable && retry ? retry : null });
+      const code = command?.code ?? null;
+      if (command?.retryable && action) pushNotice({ kind: "error", text: message, code, retry: action.retry, source: action.source });
+      else pushNotice({ kind: "error", text: message, code, source: action?.source ?? null });
     },
     [pushNotice]
   );
@@ -648,33 +654,44 @@ export function App() {
     setSnapshot((current) => (current ? { ...current, health } : current));
   }, []);
 
+  // The action itself, throwing on failure: its Try again runs exactly this
+  // (fix round 3: a retry is self-contained and reports a request that ran).
+  const applyGradingProvider = useCallback(
+    async (provider: string) => {
+      const result = await api.setGradingProvider(provider);
+      setSnapshot((current) =>
+        current
+          ? {
+              ...current,
+              health: {
+                ...current.health,
+                ai: {
+                  ...current.health.ai,
+                  activeProvider: result.activeProvider,
+                  ready: result.ready,
+                  manualGrading: result.manualGrading,
+                  availableGradingProviders: result.availableProviders
+                }
+              }
+            }
+          : current
+      );
+      notify(`grading → ${result.manualGrading ? "manual (self-grade)" : result.activeProvider}`);
+    },
+    [notify]
+  );
   const changeGradingProvider = useCallback(
     async (provider: string) => {
       try {
-        const result = await api.setGradingProvider(provider);
-        setSnapshot((current) =>
-          current
-            ? {
-                ...current,
-                health: {
-                  ...current.health,
-                  ai: {
-                    ...current.health.ai,
-                    activeProvider: result.activeProvider,
-                    ready: result.ready,
-                    manualGrading: result.manualGrading,
-                    availableGradingProviders: result.availableProviders
-                  }
-                }
-              }
-            : current
-        );
-        notify(`grading → ${result.manualGrading ? "manual (self-grade)" : result.activeProvider}`);
+        await applyGradingProvider(provider);
       } catch (error) {
-        reportError(error, "Could not change the grading provider.", () => void changeGradingProvider(provider));
+        reportError(error, "Could not change the grading provider.", {
+          source: "shell:set-grading-provider",
+          retry: () => applyGradingProvider(provider).then(() => RETRY_RAN)
+        });
       }
     },
-    [notify, reportError]
+    [applyGradingProvider, reportError]
   );
 
   function beginSession(next: SessionSnapshot, firstStep?: PlanStepDto | null) {
@@ -891,36 +908,50 @@ export function App() {
   }
 
   // Daily-loop DL1 (§6.10): a reading step opens the reader at its section.
+  // Each is the action, throwing on failure, and its reporting wrapper; the
+  // Try again runs the action itself (fix round 3).
+  async function openPlanReadingNow(reading: PlanReadingDto, estMinutes: number | null) {
+    const library = await api.getSourceLibrary();
+    const target = readerTargetForReading(reading, library.sources);
+    if (!target) {
+      onError("The source for this reading block is no longer in the library.");
+      return;
+    }
+    setReaderSource(target);
+    setPlanReading({ reading, estMinutes });
+    setTab("reader");
+  }
   async function openPlanReading(reading: PlanReadingDto, estMinutes: number | null = null) {
     try {
-      const library = await api.getSourceLibrary();
-      const target = readerTargetForReading(reading, library.sources);
-      if (!target) {
-        onError("The source for this reading block is no longer in the library.");
-        return;
-      }
-      setReaderSource(target);
-      setPlanReading({ reading, estMinutes });
-      setTab("reader");
+      await openPlanReadingNow(reading, estMinutes);
     } catch (error) {
-      reportError(error, "Could not open the reader for today's plan.", () => void openPlanReading(reading, estMinutes));
+      reportError(error, "Could not open the reader for today's plan.", {
+        source: "shell:open-plan-reading",
+        retry: () => openPlanReadingNow(reading, estMinutes).then(() => RETRY_RAN)
+      });
     }
   }
 
   // Daily-loop DL2 (Reader §9.3 item 9): "Back to where you studied this"
   // after a check on your own. A link the learner follows, never a jump.
+  async function openStudiedNow(restoration: IntentRestorationDto) {
+    const library = await api.getSourceLibrary();
+    const target = readerTargetForRestoration(restoration, library.sources);
+    if (!target) {
+      onError("The source you studied this in is no longer in the library.");
+      return;
+    }
+    setReaderSource(target);
+    setTab("reader");
+  }
   async function openStudied(restoration: IntentRestorationDto) {
     try {
-      const library = await api.getSourceLibrary();
-      const target = readerTargetForRestoration(restoration, library.sources);
-      if (!target) {
-        onError("The source you studied this in is no longer in the library.");
-        return;
-      }
-      setReaderSource(target);
-      setTab("reader");
+      await openStudiedNow(restoration);
     } catch (error) {
-      reportError(error, "Could not open the reader.", () => void openStudied(restoration));
+      reportError(error, "Could not open the reader.", {
+        source: "shell:open-studied",
+        retry: () => openStudiedNow(restoration).then(() => RETRY_RAN)
+      });
     }
   }
 

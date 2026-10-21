@@ -14,16 +14,32 @@ export type MessageKind = "error" | "notice";
  *  must repeat the same action: a read reads again; a write passes the
  *  original request's idempotency key again.
  *
- *  The retry returns the action's promise (fix round 2): the shell runs it,
- *  keeps the error until it settles, and reports a failure itself, so the
- *  report never depends on the screen still being mounted. `source` names
- *  the failed action (a query), so the screen's and the shell's reports of
- *  one failure are one error, not two. */
-export interface ErrorReport {
-  error?: unknown;
-  retry?: (() => unknown) | null;
-  source?: string | null;
+ *  Fix round 3 (whole-stage verify 20261021-130232-Uk06Al) makes this
+ *  structural. An error that carries a retry has a `source`: its identity in
+ *  the queue, the only thing errors are de-duplicated by (never their text,
+ *  which the bridge shares between unrelated failures). The retry is
+ *  self-contained: it runs the failed action itself (for a read, a forced
+ *  fetch of the failed query's key, whatever the screen shows now or whether
+ *  it is mounted; `useCachedQuery`'s `retryReport`). It resolves `RETRY_RAN`
+ *  only when a request ran and succeeded. Anything else (a no-op, a skipped
+ *  or disabled read, a plain `undefined`) counts as a failure and keeps the
+ *  error. The shell runs it and reports a second failure itself. */
+export interface RetryRan {
+  readonly ran: true;
 }
+
+/** The one value a retry resolves with when its request ran and succeeded. */
+export const RETRY_RAN: RetryRan = Object.freeze({ ran: true as const });
+
+export type NoticeRetry = () => Promise<RetryRan>;
+
+export function retryRan(value: unknown): value is RetryRan {
+  return value === RETRY_RAN;
+}
+
+export type ErrorReport =
+  | { error?: unknown; retry?: null; source?: string | null }
+  | { error?: unknown; retry: NoticeRetry; source: string };
 
 /** A screen's error callback. Screens that pass only the sentence still fit. */
 export type ReportError = (message: string, report?: ErrorReport) => void;

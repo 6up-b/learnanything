@@ -6,7 +6,6 @@ import { setAlgoConfig } from "./algoConfig";
 import {
   PLACES,
   UTH_TOOLS,
-  cachedShell,
   placeOfTab,
   rememberBook,
   rememberPlace,
@@ -52,24 +51,14 @@ describe("the switch", () => {
     expect(shellMode()).toBe("classic");
   });
 
-  it("remembers the last shell for the moment before the library loads", () => {
+  // Fix round 3: no per-machine copy of the shell. Before the library has
+  // loaded the app is the base (classic) shell; only the snapshot decides.
+  it("keeps no copy of the shell on this machine", () => {
+    const setItem = vi.fn();
+    vi.stubGlobal("localStorage", { getItem: () => null, setItem, removeItem: vi.fn() });
     setAlgoConfig({ ui: { shell: "classic" } });
-    expect(cachedShell()).toBe("classic");
     setAlgoConfig({ ui: { shell: "simple" } });
-    expect(cachedShell()).toBe("simple");
-  });
-
-  it("falls back to simple when storage throws", () => {
-    vi.stubGlobal("localStorage", {
-      getItem: () => {
-        throw new Error("blocked");
-      },
-      setItem: () => {
-        throw new Error("blocked");
-      }
-    });
-    expect(cachedShell()).toBe("simple");
-    expect(() => setAlgoConfig({ ui: { shell: "classic" } })).not.toThrow();
+    expect(setItem).not.toHaveBeenCalled();
   });
 });
 

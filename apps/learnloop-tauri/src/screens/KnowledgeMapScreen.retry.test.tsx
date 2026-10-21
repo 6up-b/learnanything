@@ -29,7 +29,7 @@ describe("KnowledgeMapView's load failure", () => {
     ];
     expect(message).toBe("The knowledge map timed out.");
     expect(report?.error).toMatchObject({ code: "sidecar_timeout", retryable: true });
-    expect(report?.source).toBe("knowledge-map:get_knowledge_map");
+    expect(report?.source).toBe("query:get_knowledge_map:[]");
     expect(typeof report?.retry).toBe("function");
     const before = api.getKnowledgeMap.mock.calls.length;
     // Fix round 2: the retry hands back the read itself, so the shell sees a

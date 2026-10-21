@@ -70,9 +70,9 @@ vi.mock("../screens/GraphScreen", () => ({ GraphScreen: stub("graph-stub") }));
 vi.mock("../screens/KnowledgeMapScreen", async () => {
   const React = await import("react");
   return {
-    KnowledgeMapView: ({ onError }: { onError: (message: string, report?: { error?: unknown; retry?: (() => void) | null }) => void }) => {
+    KnowledgeMapView: ({ onError }: { onError: (message: string, report?: { error?: unknown; retry?: (() => unknown) | null; source?: string }) => void }) => {
       React.useEffect(() => {
-        if (stubs.mapError) onError(stubs.mapError.message, { error: stubs.mapError, retry: stubs.mapRetry });
+        if (stubs.mapError) onError(stubs.mapError.message, { error: stubs.mapError, retry: stubs.mapRetry, source: "query:stub-map" });
       }, [onError]);
       return <div data-testid="knowledge-stub">knowledge</div>;
     }

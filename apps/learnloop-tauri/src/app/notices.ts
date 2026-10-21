@@ -15,7 +15,7 @@
 // stopgap, kept for `ui.shell = "classic"`, whose single red toast stays
 // exactly as it was.
 import type { Dispatch, SetStateAction } from "react";
-import { errorMessage, getCommandError, type MessageKind } from "../errors";
+import { errorMessage, getCommandError, retryRan, type MessageKind, type NoticeRetry } from "../errors";
 
 export const NEEDS_SESSION = {
   plan: "Begin today's plan on Start first.",
@@ -48,14 +48,16 @@ export interface ShellNotice {
   /** The sidecar's error code, shown under details. */
   code?: string | null;
   /** Present only when the action can be retried (the error was `retryable`
-   *  and the shell knows the action). It may return a promise: the shell
-   *  runs it (`runNoticeRetry`), keeps the error until it settles, and on a
-   *  rejection posts the new failure itself, so a retry's failure is never
-   *  lost when the screen that raised the error has gone (fix round 2). */
-  retry?: (() => unknown) | null;
-  /** Which failed action this error is about (a read's query, say). A new
-   *  error from the same source replaces the old one instead of stacking,
-   *  whether the screen or the shell's retry reports it. */
+   *  and the shell knows the action), and only with a `source`. The shell runs
+   *  it (`runNoticeRetry`) and keeps the error until it settles. It must
+   *  resolve `RETRY_RAN`, which it does only when a request ran and succeeded
+   *  (errors.ts `ErrorReport`). A retry's failure is posted by the shell, so it
+   *  is never lost when the screen that raised the error has gone. */
+  retry?: NoticeRetry | null;
+  /** The error's identity: which failed action it is about (a read's query
+   *  key, say). Errors are de-duplicated by this alone (fix round 3): a new
+   *  error from the same source replaces the old one, and two sources with
+   *  the same sentence are two errors. */
   source?: string | null;
   /** Set while its Try again runs. */
   retrying?: boolean;
@@ -64,7 +66,11 @@ export interface ShellNotice {
   shownAt: number | null;
 }
 
-export type NoticeInput = Omit<ShellNotice, "id" | "shownAt" | "retrying">;
+/** What a caller posts. An error with a retry names its source (the type
+ *  says so; `addNotice` also drops a retry that comes without one, so an
+ *  error never offers an action it cannot be identified by). */
+export type NoticeInput = Omit<ShellNotice, "id" | "shownAt" | "retrying" | "retry" | "source"> &
+  ({ retry?: null; source?: string | null } | { retry: NoticeRetry; source: string });
 
 /** How long a notice stays once it is on screen. Errors stay until dismissed. */
 export const NOTICE_TTL_MS = 5000;
@@ -78,26 +84,39 @@ let nextId = 0;
 
 export function addNotice(list: ShellNotice[], input: NoticeInput): ShellNotice[] {
   nextId += 1;
-  const notice: ShellNotice = { ...input, id: `notice-${nextId}`, shownAt: null };
-  // A repeated message shows once, as fresh; so does a new error from the
-  // same failed action, even when its sentence changed.
-  const rest = list.filter(
-    (existing) =>
-      !(existing.kind === notice.kind && existing.text === notice.text) &&
-      !(notice.source && existing.kind === notice.kind && existing.source === notice.source)
+  const source = input.source ? input.source : null;
+  const notice: ShellNotice = { ...input, source, retry: source ? input.retry ?? null : null, id: `notice-${nextId}`, shownAt: null };
+  // A plain notice shows once however often it is said, as fresh. An error is
+  // replaced only by a new error from the same source, never because another
+  // action failed with the same words (fix round 3: the bridge's generic
+  // sentence is shared, so text de-duplication dropped one failure's retry).
+  const rest = list.filter((existing) =>
+    notice.kind === "error"
+      ? !(source !== null && existing.kind === "error" && existing.source === source)
+      : !(existing.kind === notice.kind && existing.text === notice.text)
   );
   return [...rest, notice];
 }
 
+/** Drop every error of one source (its identity). */
+export function dismissSource(list: ShellNotice[], source: string): ShellNotice[] {
+  const next = list.filter((notice) => !(notice.kind === "error" && notice.source === source));
+  return next.length === list.length ? list : next;
+}
+
 /** Run an error's Try again, owned by the shell (fix round 2, whole-stage
- *  verify 20261021-114726-Jrt7sA item 3: the screen that raised the error
- *  may have unmounted, so it cannot report the retry's failure). The error
- *  stays, marked as retrying, until the retry settles: success drops it; a
- *  failure replaces it with the new failure, under the same source, with its
- *  code and a new Try again when that failure is retryable. */
+ *  verify 20261021-114726-Jrt7sA item 3: the screen that raised the error may
+ *  have unmounted, so it cannot report the retry's failure). The error stays,
+ *  marked as retrying, until the retry settles. It is dropped (every error of
+ *  its source) only when the retry resolves `RETRY_RAN`: a request ran and
+ *  succeeded (fix round 3). Any other resolution is a retry that did nothing,
+ *  and the error stays with its Try again. A failure replaces it with the new
+ *  failure, under the same source, with its code and a new Try again when
+ *  that failure is retryable. */
 export function runNoticeRetry(notice: ShellNotice, onChange: Dispatch<SetStateAction<ShellNotice[]>>): void {
   const retry = notice.retry;
-  if (!retry) return;
+  const source = notice.source;
+  if (!retry || !source) return;
   onChange((list) => list.map((entry) => (entry.id === notice.id ? { ...entry, retrying: true } : entry)));
   let outcome: Promise<unknown>;
   try {
@@ -106,22 +125,27 @@ export function runNoticeRetry(notice: ShellNotice, onChange: Dispatch<SetStateA
     outcome = Promise.reject(error);
   }
   outcome.then(
-    () => onChange((list) => dismissNotice(list, notice.id)),
-    (error: unknown) => onChange((list) => addNotice(dismissNotice(list, notice.id), retryFailure(notice, error)))
+    (result) =>
+      onChange((list) =>
+        retryRan(result)
+          ? dismissSource(list, source)
+          : list.map((entry) => (entry.id === notice.id ? { ...entry, retrying: false } : entry))
+      ),
+    (error: unknown) => onChange((list) => addNotice(list, retryFailure(notice, source, retry, error)))
   );
 }
 
-function retryFailure(notice: ShellNotice, error: unknown): NoticeInput {
+function retryFailure(notice: ShellNotice, source: string, retry: NoticeRetry, error: unknown): NoticeInput {
   const command = getCommandError(error);
-  return {
-    kind: "error",
+  const base = {
+    kind: "error" as const,
     text: errorMessage(error, notice.text),
     code: command?.code ?? notice.code ?? null,
-    retry: command?.retryable ? notice.retry ?? null : null,
-    source: notice.source ?? null,
     resolvedBy: notice.resolvedBy ?? null
   };
+  return command?.retryable ? { ...base, retry, source } : { ...base, retry: null, source };
 }
+
 
 export function dismissNotice(list: ShellNotice[], id: string): ShellNotice[] {
   return list.filter((notice) => notice.id !== id);

@@ -11,7 +11,7 @@
 // lands under the hood in the simple shell.
 import type { TopTab } from "../components/ui";
 import { SHOW_GOLDEN_PATH } from "../components/ui";
-import { SHELL_CACHE_KEY, algoConfig } from "./algoConfig";
+import { algoConfig } from "./algoConfig";
 
 export type ShellMode = "simple" | "classic";
 
@@ -24,16 +24,6 @@ export function shellMode(): ShellMode {
  *  Phase 2 fix read, so "classic" leaves them as they were. */
 export function simpleShell(): boolean {
   return shellMode() !== "classic";
-}
-
-/** The shell to draw before the library has loaded: the last one the sidecar
- *  named on this machine (so a classic user sees no flash of the new nav). */
-export function cachedShell(): ShellMode {
-  try {
-    return localStorage.getItem(SHELL_CACHE_KEY) === "classic" ? "classic" : "simple";
-  } catch {
-    return "simple";
-  }
 }
 
 // ── Places ──────────────────────────────────────────────────────────────

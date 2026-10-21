@@ -4,6 +4,7 @@
 // shows while the Reader has a book open, and the held notices arrive at the
 // next destination.
 import { describe, expect, it } from "vitest";
+import { RETRY_RAN } from "../errors";
 import {
   NOTICE_TTL_MS,
   addNotice,
@@ -50,8 +51,8 @@ describe("the notice list", () => {
   // Codex review F2: an error with Try again, then three notices, lost the
   // error and its retry.
   it("keeps an unresolved error and its retry through any number of notices", () => {
-    const retry = () => undefined;
-    let list = addNotice(empty, { kind: "error", text: "Could not open the reader.", retry });
+    const retry = async () => RETRY_RAN;
+    let list = addNotice(empty, { kind: "error", text: "Could not open the reader.", retry, source: "shell:open-reader" });
     for (const text of ["a", "b", "c", "d", "e"]) list = addNotice(list, { kind: "notice", text });
     const error = list.find((notice) => notice.kind === "error");
     expect(error?.retry).toBe(retry);
@@ -138,5 +139,38 @@ describe("held while reading, delivered at the destination", () => {
     list = markShown(list, [list[0].id], 5);
     list = markShown(list, [list[0].id], 9);
     expect(list.map((notice) => notice.shownAt)).toEqual([5, null]);
+  });
+});
+
+// Fix round 3 (whole-stage verify 20261021-130232-Uk06Al items 1-2): an
+// error's identity is its source; errors are never de-duplicated by text.
+describe("error identity (fix round 3)", () => {
+  const retry = async () => RETRY_RAN;
+
+  it("keeps two errors with the same sentence from two sources, each with its retry", () => {
+    let list = addNotice(empty, { kind: "error", text: "The engine is not responding.", retry, source: "query:map" });
+    list = addNotice(list, { kind: "error", text: "The engine is not responding.", retry, source: "query:tree" });
+    expect(list.map((notice) => notice.source)).toEqual(["query:map", "query:tree"]);
+    expect(list.every((notice) => notice.retry === retry)).toBe(true);
+  });
+
+  it("replaces an error only with a new error of the same source, even when its sentence changed", () => {
+    let list = addNotice(empty, { kind: "error", text: "Timed out.", retry, source: "query:map" });
+    list = addNotice(list, { kind: "error", text: "Still busy.", retry, source: "query:map" });
+    expect(list.map((notice) => notice.text)).toEqual(["Still busy."]);
+  });
+
+  it("never merges errors by their text alone", () => {
+    let list = addNotice(empty, { kind: "error", text: "Could not save." });
+    list = addNotice(list, { kind: "error", text: "Could not save." });
+    expect(list).toHaveLength(2);
+    // Plain notices still show once.
+    list = addNotice(addNotice(list, { kind: "notice", text: "Saved." }), { kind: "notice", text: "Saved." });
+    expect(list.filter((notice) => notice.kind === "notice")).toHaveLength(1);
+  });
+
+  it("offers no retry without a source to identify it by", () => {
+    const list = addNotice(empty, { kind: "error", text: "Timed out.", retry, source: "" } as never);
+    expect(list[0].retry).toBeNull();
   });
 });

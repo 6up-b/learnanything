@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
-import { useCachedQuery } from "../api/useCachedQuery";
+import { useCachedQuery, useReportQueryError } from "../api/useCachedQuery";
 import { TAG } from "../api/queryTags";
 import type { DecayPressureDto, KnowledgeFacetPoint, KnowledgeItemTextNeighbors, KnowledgeMapHistory, KnowledgeMapPoint, KnowledgeMapSnapshot } from "../api/dto";
 import { EntityLink } from "../components/ui";
@@ -72,26 +72,13 @@ export function KnowledgeMapView({ onInspect, onError }: { onInspect: (id: strin
   // scene fills the pane instead of sitting in a fixed 860-wide letterbox.
   const canvas = useElementSize<HTMLDivElement>();
 
-  // Load failures surface as toasts, as before; whatever was cached stays up.
-  const loadError = snapshotQuery.error ?? historyQuery.error ?? decayQuery.error;
-  // The shell gets the error itself (its code, whether it is retryable) and a
-  // retry that reads the failed feed again (UX Phase 2, Codex review F3).
-  // The retry is that query's own refetch, bound when the error is reported,
-  // and it returns the read's promise: the shell runs it and reports a second
-  // failure itself, mounted or not (fix round 2). `source` makes this
-  // screen's report and the shell's one error.
-  const failedLoad = snapshotQuery.error
-    ? { source: "knowledge-map:get_knowledge_map", refetch: snapshotQuery.refetch }
-    : historyQuery.error
-      ? { source: "knowledge-map:get_knowledge_map_history", refetch: historyQuery.refetch }
-      : { source: "knowledge-map:get_decay_pressure", refetch: decayQuery.refetch };
-  const failedLoadRef = useRef(failedLoad);
-  failedLoadRef.current = failedLoad;
-  useEffect(() => {
-    if (!loadError) return;
-    const { source, refetch } = failedLoadRef.current;
-    onError(loadError.message, { error: loadError, source, retry: () => refetch() });
-  }, [loadError, onError]);
+  // Load failures surface as errors; whatever was cached stays up. Each failed
+  // feed is its own error, with its identity (the query) and a self-contained
+  // retry that reads that feed again whatever view is showing or whether this
+  // screen is still mounted (UX Phase 2 F3; fix rounds 2 and 3).
+  useReportQueryError(snapshotQuery, onError);
+  useReportQueryError(historyQuery, onError);
+  useReportQueryError(decayQuery, onError);
 
   // Keeps the selection valid for the current field (and picks the first
   // point when nothing is selected yet, including right after the map loads).

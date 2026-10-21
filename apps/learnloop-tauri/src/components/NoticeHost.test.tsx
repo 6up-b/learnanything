@@ -7,6 +7,7 @@ import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NOTICE_TTL_MS, addNotice, type ShellNotice } from "../app/notices";
 import { NoticeHost } from "./NoticeHost";
+import { RETRY_RAN, type RetryRan } from "../errors";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -24,8 +25,8 @@ function Harness({ initial, holding }: { initial: ShellNotice[]; holding: boolea
 describe("NoticeHost", () => {
   it("draws an error red, with Try again when it can be retried, and the code under details", async () => {
     let settle: () => void = () => undefined;
-    const retry = vi.fn(() => new Promise<void>((resolve) => (settle = resolve)));
-    const initial = addNotice([], { kind: "error", text: "Couldn't open the reader.", code: "sidecar_timeout", retry });
+    const retry = vi.fn(() => new Promise<RetryRan>((resolve) => (settle = () => resolve(RETRY_RAN))));
+    const initial = addNotice([], { kind: "error", text: "Couldn't open the reader.", code: "sidecar_timeout", retry, source: "q:reader" });
     render(<Harness initial={initial} holding={false} />);
     const alert = screen.getByRole("alert");
     expect(alert.className).toContain("shell-notice-error");
@@ -69,11 +70,26 @@ describe("NoticeHost", () => {
     expect(retry).toHaveBeenCalledTimes(2);
   });
 
+  // Fix round 3: a retry that did not run a request (resolved with anything
+  // but RETRY_RAN) keeps the error and its Try again.
+  it("keeps the error when the retry resolves without having run a request", async () => {
+    const retry = vi.fn(async () => undefined as never);
+    const initial = addNotice([], { kind: "error", text: "Couldn't load this.", code: "sidecar_timeout", retry, source: "q:history" });
+    render(<Harness initial={initial} holding={false} />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+      await Promise.resolve();
+    });
+    expect(retry).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("alert").textContent).toContain("Couldn't load this.");
+    expect((screen.getByRole("button", { name: "Try again" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it("offers no new Try again when the retry's failure is not retryable", async () => {
     const retry = vi.fn(async () => {
       throw { code: "invalid_input", message: "That map is gone.", retryable: false };
     });
-    const initial = addNotice([], { kind: "error", text: "Couldn't load this.", code: "sidecar_timeout", retry });
+    const initial = addNotice([], { kind: "error", text: "Couldn't load this.", code: "sidecar_timeout", retry, source: "q:map" });
     render(<Harness initial={initial} holding={false} />);
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Try again" }));
@@ -172,8 +188,8 @@ describe("NoticeHost", () => {
   // Codex review F2: an error with Try again stays, and its retry still
   // works, after more notices than fit on screen.
   it("keeps the error's Try again through a burst of notices", () => {
-    const retry = vi.fn();
-    let initial = addNotice([], { kind: "error", text: "Couldn't open the reader.", code: "sidecar_timeout", retry });
+    const retry = vi.fn(async () => RETRY_RAN);
+    let initial = addNotice([], { kind: "error", text: "Couldn't open the reader.", code: "sidecar_timeout", retry, source: "q:reader" });
     for (const text of ["one", "two", "three"]) initial = addNotice(initial, { kind: "notice", text });
     render(<Harness initial={initial} holding={false} />);
     expect(screen.getByText("Couldn't open the reader.")).toBeTruthy();

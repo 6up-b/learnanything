@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { api } from "../api/client";
-import { useCachedQuery } from "../api/useCachedQuery";
+import { useCachedQuery, useReportQueryError } from "../api/useCachedQuery";
 import { TAG } from "../api/queryTags";
 import type {
   CoverageRollupDto,
@@ -239,23 +239,12 @@ export function LibraryScreen({
     });
   }, [snapshot]);
 
-  const loadError = treeQuery.error ?? proposalsQuery.error ?? sourceSetsQuery.error;
-  // The shell gets the error itself and a retry that reads again (F3): that
-  // query's own refetch, bound when the error is reported, returning the
-  // read's promise so the shell reports a second failure itself, mounted or
-  // not (fix round 2). `source` makes this screen's report and the shell's one.
-  const failedLoad = treeQuery.error
-    ? { source: "library:get_vault_tree", refetch: treeQuery.refetch }
-    : proposalsQuery.error
-      ? { source: "library:get_proposals", refetch: proposalsQuery.refetch }
-      : { source: "library:list_source_sets", refetch: sourceSetsQuery.refetch };
-  const failedLoadRef = useRef(failedLoad);
-  failedLoadRef.current = failedLoad;
-  useEffect(() => {
-    if (!loadError) return;
-    const { source, refetch } = failedLoadRef.current;
-    onError(loadError.message, { error: loadError, source, retry: () => refetch() });
-  }, [loadError, onError]);
+  // Each failed read is its own error, with its identity (the query) and a
+  // self-contained retry of that read, whatever this screen shows or whether
+  // it is still mounted (UX Phase 2 F3; fix rounds 2 and 3).
+  useReportQueryError(treeQuery, onError);
+  useReportQueryError(proposalsQuery, onError);
+  useReportQueryError(sourceSetsQuery, onError);
 
   const reloadProposals = () => {
     proposalsQuery.refetch().catch((error) => onError((error as Error).message));

@@ -1676,14 +1676,33 @@ export function ReaderScreen({
 
   // UX Phase 2 (Codex review F5): the palette's ask opens this Ask, as the
   // learner asked (D41), with its box focused; it never sends a question.
+  // Fix round 3 (whole-stage verify 20261021-130232-Uk06Al item 4): from any
+  // posture. Comparing hides the rail, so the comparison closes first. The
+  // working posture hides it too, and leaving it is the learner's call (Leave
+  // for now saves the steps, and can be refused), so a visible line in the
+  // workbench says how, and Ask opens once the learner has left.
   const askRequestSeen = useRef(askRequest);
-  useEffect(() => {
-    if (askRequest === undefined || askRequest === askRequestSeen.current) return;
-    askRequestSeen.current = askRequest;
+  const [askWaitsForWork, setAskWaitsForWork] = useState(false);
+  const revealAskRef = useRef<() => void>(() => undefined);
+  revealAskRef.current = () => {
+    if (libraryCtl.open || libraryCompose !== null) closeLibrary();
     setRailCollapsed(false);
     setRailTab("ask");
     window.setTimeout(() => askComposerRef.current?.focus({ preventScroll: true }), 0);
+  };
+  useEffect(() => {
+    if (askRequest === undefined || askRequest === askRequestSeen.current) return;
+    askRequestSeen.current = askRequest;
+    if (working) setAskWaitsForWork(true);
+    else revealAskRef.current();
+    // `working` is read as it is when the request arrives, not followed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [askRequest]);
+  useEffect(() => {
+    if (working || !askWaitsForWork) return;
+    setAskWaitsForWork(false);
+    revealAskRef.current();
+  }, [working, askWaitsForWork]);
 
   // Palette (§5.2): a preset runs the local-first capture transaction. Commit presets
   // also create a commitment; synthesis is enqueued off the hot path (§5.3, §6).
@@ -2836,6 +2855,7 @@ export function ReaderScreen({
             onAbandoned={(session, generation) => leaveWorkbench(session, true, generation)}
             onPeekPassage={peekPassage}
             onError={onError}
+            askWaiting={askWaitsForWork ? { onDismiss: () => setAskWaitsForWork(false) } : null}
           />
         ) : null}
         {comparing && render ? (

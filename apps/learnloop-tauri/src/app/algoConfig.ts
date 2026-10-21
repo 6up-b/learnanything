@@ -116,20 +116,7 @@ export function setAlgoConfig(config: unknown): void {
       ? { bridge: root.workbench.help.bridge === true, symbolic: root.workbench.help.symbolic === true }
       : null
   };
-  cacheShell(current.shell);
   for (const listener of listeners) listener();
-}
-
-/** Where the last shell the sidecar named is kept, so the window opens in it
- *  before the library has loaded (a per-machine convenience; UX Phase 2). */
-export const SHELL_CACHE_KEY = "learnloop.shell";
-
-function cacheShell(shell: "simple" | "classic"): void {
-  try {
-    localStorage.setItem(SHELL_CACHE_KEY, shell);
-  } catch {
-    /* storage may be blocked; the next snapshot says again */
-  }
 }
 
 const listeners = new Set<() => void>();
