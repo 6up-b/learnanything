@@ -504,3 +504,279 @@ The design is a short spec amendment covering:
 Codex reviews the design adversarially ("find a displayed element or number this rule lets carry
 the claim") before any code. The deleted machinery is in branch history at `865a3b38f`, as a
 starting point.
+
+## 9. Landing onto main
+
+Landed in the `learnanything-merge2` worktree on branch `merge/rw5a-onto-main`, cut from main at `c80c54cbb` (the
+RW7a landing record: migration head 217 with `migration_head_217`, which held 215 and 217; 20 defaults snapshots; 945
+configuration leaves in 68 sections). The stage tip is `c29c1be2d` (base `e14b4e4ff`), unchanged. The orchestrator's
+verifies: `20261021-090616-ZI8wj6` on `a559e35ea` (the whole stage) and `20261021-095546-vEb5ES` on `c29c1be2d` (the
+final round; one High ruled out of scope, below). Main was neither fast-forwarded nor pushed here.
+
+### Commits and conflicts
+
+- `87c9b9a4a`: the `--no-ff` merge of `reader/rw5a` onto `c80c54cbb`. Main had gained RW3b (215), RW4d, RW4e and RW7a
+  (217) since the stage's base, so 528 paths conflicted. Every conflict was composed so both sides survive:
+  - **Generated references** (`Reference/Configuration/**`, `Reference/Database/**`): main's side, then regenerated.
+  - **Head fixture**: main renamed 213 → 215 → 217 and the stage 213 → 216. `migration_head_217` keeps main's
+    content (rebuilt with 216 in the next commit); the stage's `migration_head_216` and the old 213 paths are gone.
+  - **Fixture paths**: 26 test files and `docs/decider-tier1-migration.md` differed only in `migration_head_216` vs
+    `_217`; HEAD's side. Both reference scripts keep `SCHEMA_HEAD = 217` and `migration_head_217`.
+  - **`config/template.py`**: in each of the 20 snapshot hunks, main's RW3b/RW4d/RW4e/RW7a comments, then RW5a's,
+    then a hash recomputed in the next commit.
+  - **Both kept, side by side**: `ai/routing.py` (tasks and route keys), `ai/disclosures.py` (the registry and the
+    "when" texts; one closing parenthesis restored between `reading_paths` and `figures`), `config/schema.py` (routes),
+    `params/parameter_registry.py`, `reader/reader_report.py` (both switches: `reading_paths_enabled` defaults to
+    True, `figures_enabled` to False, as each stage left it), `cli/reader.py` (passes both), the sidecar's
+    `reader.prompt_contract` (RW4d's, RW7a's and RW5a's fields), `tests/conftest.py` (all four model switches),
+    `test_mobile_allowlist.py` (RW4d's, RW7a's and RW5a's pins), `test_judge_routes.py`, `test_reader_intent.py` and
+    `test_reader_intentions.py` (both actions), `test_reader_tutor_switch_off.py` (pops RW4d's and RW5a's keys).
+  - **Frontend and Tauri**: `ReaderScreen.tsx` (the `reading_path` and `figure` intent cases), `dto.ts` (both effect
+    kinds), the intent fixture's header (both actions were already merged in its body),
+    `libraryAskSwitchOff.test.tsx` (strips both later actions), `commands.rs` / `main.rs` (RW4d's, RW7a's and RW5a's
+    passthroughs).
+  - **Exact version sets** now say 215, 216 and 217 present, 214 absent: `test_ad1_migration` (`[213, 215, 216, 217]`),
+    `test_reader_rw3b_migration` (`[215, 216, 217]`), `test_reader_rw7a_migration` (`[216, 217]` from 215, and the head
+    fixture holds 215-217 with no 214), and the "nothing else changed" diffs of AD1, H0, H1, RW4a, RW3b and RW7a
+    subtract `RW5A_ADDED_OBJECTS`.
+- `c02d65aaf`: the regeneration (below).
+- `229a5f782`: the composed switch-off pins and the interaction test (below). **This is the gate head.**
+- This record (docs only).
+
+**pf_sandbox callers.** On main the PF-b harness is used by `ops/pf_generation.py`, `ops/pf_verify.py`,
+`ops/embedding_compare.py`, `content/authoring/pf_contracts.py` (protocol names), `source_exercise_import.py` (limits)
+and `workbench/symbolic.py` (its own harness). None of them changed on main since `e14b4e4ff`; RW4e's labeller and
+RW7a do not use it. Parity (d) covers the change.
+
+### Regeneration (`c02d65aaf`)
+
+- **Head fixture.** Main's `fixtures/migration_head_217/state.sqlite` blob was placed with the backup API and only 216
+  applied under `UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0), then `journal_mode=DELETE`; then backed up
+  into place. Against main's fixture: **exactly RW5a's 12 objects** added (1,438 → 1,450), none removed or changed,
+  every row of all 342 existing tables identical (apart from `schema_migrations` gaining `(216, interactive_figures)`),
+  both new tables empty, header bytes 1/1, `integrity_check` ok, `foreign_key_check` empty, no `-wal` / `-shm`. The
+  directory keeps its name (217 is still the highest version); its README says it now holds 215, 216 and 217 and no 214.
+- **References.** `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**, schema head 217, **339**
+  table notes, **952** configuration leaves in **69** sections (RW5a's `[figures]` and `ai.routing.figure_author`). The
+  two prose counts (`Configuration.md`, `Database.md`) were updated from 945 / 68 / 337.
+- **Defaults snapshots.** Template `.pyc` cleared, run with `-B`: all **20** entries moved (both sides add keys) and
+  were rewritten from `defaults_fingerprint_for_version`; the re-check gives **0 mismatches**.
+- **CLI help snapshot, RPC pins, mobile allowlist, serializer snapshot, table roles, architecture**: unchanged; a pin
+  run of 92 files (every test naming the prompt contract, the reader report or a switch-off, plus the contract pins)
+  gave 1,740 passed and one failure, RW4d's switch-off golden (next section).
+- **`validate_vault.py`**: passes (1,142 notes, 1,140/1,140 reachable).
+- **Figure corpora**: `python -m tests.figure_corpus` and `python -m tests.figure_property_corpus` under `env -i`
+  regenerate both files **byte-identical** (golden: 84 expressions, 5 figures, 51 rejected inputs, 8 rejected figures,
+  4 fuzz seeds; property: 3,152 cases).
+- **Known failures from before this stage, not fixed:** `desktop_validate.py` still stops on
+  `components/pdfSelection/testing/syntheticBook.ts`; `module_validate.py` reports **987** issues (968 at the RW7a
+  landing; RW5a's new modules have no module notes).
+
+### Composition fixes (`229a5f782`)
+
+Each stage's switch-off golden was recorded before the others landed. The pins now remove what the other stages add,
+and still compare everything else byte for byte:
+- `test_compare_keep_switch_off.py` (RW4d): also sets `figures.enabled = false` (the failure of the pin run).
+- `test_reading_paths.py` (RW7a): `_without_rw5a` pops `figures` and the `figure` action from the contract, and the CLI
+  report drops RW5a's `figures` block.
+- `test_figures_switch_off.py` (RW5a): strips main's later keys (`compareKeep`, `readingPaths` and "what matters
+  here?") from the contract and the `comparisons`, `roles` and `reading_paths` blocks from the report.
+
+**Interaction test** (`screens/reader/figuresWithReadingPath.test.tsx`, new; 2 tests): with `figures` and
+`readingPaths` both in the contract, a figure stays inline under its passage in a section the Guide's path labels core,
+under the code-owned frame; the palette carries both actions, "what matters here?" builds no figure and "make this
+explorable" re-reads no path. **RW4e's role labels** are independent of figures: they are source-object proposals
+shown in the library's grouping and used in retrieval and cue shortlists, never drawn under a passage or read by the
+figure service, so no Reader test combines them.
+
+### Gate
+
+Setup: Python 3.12.14; `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2` (5.14.0); `TMPDIR` was
+merge2's `fixtures-local/tmp`; every later command `uv run --no-sync`. Both suite lanes ran on `229a5f782` under
+`flock /tmp/learnloop-fullsuite.lock`. The AD2+AD3 (`learnanything-ad1`) and E0 (`learnanything-e0`) worktrees and their
+processes were not touched (AD2+AD3's own test run shared the machine). Every test uses fakes.
+
+**This is the first full run over RW5a's code**: the stage, its five fix rounds, the redesign and the final round ran
+targeted tests only.
+
+| Check | Result |
+|---|---|
+| `lint-imports --no-cache` | **29 kept**, 0 broken (RW7a's landing: 28; RW5a adds `evidence-never-reads-figures`) |
+| full suite `pytest -n auto` | **15,424 passed, 1 failed, 1 skipped, 2 xfailed** (19 min 27 s; `fixtures-local/rw5a-landing/fullsuite.log`). The failure is a cross-test leak (finding 1): rerun alone 3 times, **5 passed** each time. RW7a's landing ran 15,114 |
+| `pytest -m durability` | **119 passed**, 15,309 deselected (4 min 53 s); RW7a's landing had 118 |
+| `npm install`, `npm run typecheck` | ok; clean |
+| `npm test` (the whole vitest run) | **169 files, 1,469 tests passed**, no unhandled error (RW7a's landing: 165 / 1,292) |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | ok (RW5a's seven passthroughs) |
+| tracked fixtures, worktree | `git status` clean after both lanes and the frontend runs; no `-wal` / `-shm` beside a fixture |
+
+No real failure, so no landing fix.
+
+### Parity (backup-API copies; no model call completed)
+
+**Setup.** Scripts in `fixtures-local/landing-rw5a/scripts/`, adapted from the RW7a landing's; new: `ab_rw5a.sh`,
+`c_rw5a.sh`, `fig_run.py`, `fcmp.py`, `pf_parity.py`, `dcmp.py`, `head_build.py`, `civ.py`.
+- **Copies.** `fixtures/linear_algebra` and `fixtures/probability` were copied once with `copy_tree_with_databases`
+  from the main checkout into `fixtures-local/landing-rw5a/orig/`; every other copy came from `orig/` or its upgraded
+  copies through the same helper. `arxiv_v2` was not opened. Both start at schema 165, label `mvp-0.8`, 0 receipts.
+- **Code.** Main's is `git archive c80c54cbb`; the merge's `git archive 229a5f782`.
+- **Environment.** `env -i` with only `PATH`, `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`, `TMPDIR` and `LANG`; the
+  three directories empty, and empty afterwards.
+- **Routes.** `neutralize3.py` under each code: every route field to `127.0.0.1:9` (58 on main, 59 on the merge, where
+  `figure_author` is the new one), the active provider to that loopback profile with no fallback, query rewrite /
+  rerank / dense / embeddings / learner-text gaps off, `build_on_serve` and outcome placement off. `routes.py` resolved
+  61 `AITask`s on main and 62 on the merge; nothing outside the loopback profiles except the disabled, keyless
+  `embedding`; `figure_author` → `blackhole` (`openai_chat`, `http://127.0.0.1:9/v1`).
+
+**(a) Migration 216**
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| open (migrate), main / merge | 165 → 217, 50 applied (no 214, no 216) / 165 → 217, **51** applied (216 included, no 214) | the same |
+| schema, main vs merge | merge-only objects are exactly RW5a's **12** (`interactive_figures`, `figure_predictions`, 5 named indexes, 3 autoindexes, the no-delete and explanation-once triggers); none main-only; no shared object's SQL differs (1,439 → 1,451) | the same 12 (1,438 → 1,450) |
+| rows of every existing table (342), all columns | **identical** (16,541 rows); `schema_migrations` gains 216, common rows differ only in `applied_at`; both new tables empty | **identical** (7,639 rows; the same) |
+| `foreign_key_check` / `integrity_check` | 0 / ok, both | the same |
+| `rebuild --shadow --json` | **0 differences** after normalisation (facet 0, mastery 2, schedule 8 on both); live database unchanged on both | **0 differences** (0 / 1 / 1) |
+| `doctor --json` | **0 differences** after normalisation (57 issues, 1 error) | **0 differences** (101 issues, 48 errors) |
+
+**(b) Nothing served changes.** The merge ran at its defaults (figures **on**), frozen clock 2026-10-19 09:00 UTC:
+certification with recipe gaps and curves; the Today queue (no session, session, greedy); the daily plan (read, served
+twice, read again).
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| at `mvp-0.8` | cert (132,860 bytes), Today (504,488), plan (546): **byte-identical** | cert (17,494), Today (709,910), plan (546): **byte-identical** |
+| upgraded by main's code to `mvp-0.27` (`--to mvp-0.9`, `--to mvp-0.27`, `rebuild-derived-state` twice; rc 0), opened by each code | cert (129,651) and Today (528,665) **byte-identical** | cert (17,495) and Today (741,269) **byte-identical** |
+| then to `mvp-0.29` (`--to mvp-0.29`, `rebuild-derived-state` twice; rc 0) | cert and Today **byte-identical** | the same |
+| the daily plan at mvp-0.27 and mvp-0.29 | identical except `router_decisions.card_hash`, `snapshot_hash` and the card hash inside `detail_json`; a second run of main's code on a fresh copy differs from the first in exactly these three and equals the merge's (`plan_repeat.sh`), as at the earlier landings | the same |
+
+**(c) The real sidecar** over stdio, `SystemClock` frozen at 2026-10-19 09:00 UTC (`sidecar_clock.py`), on copies of
+main's mvp-0.29 vaults; driver `fig_run.py`, compared by `fcmp.py` with run ids normalised. Runs: (i) `cm` main's code;
+(ii) `coff` the merge with `[figures] enabled = false`; (iii) `cdef` the merge at defaults; (iv) `civ` (probability only)
+(iii) plus `figures.price_per_million = 1.0` and a dummy key in the loopback profile's variable, so the metered author
+really sends to `127.0.0.1:9`. Calls: `initialize`; `reader.prompt_contract`; `reader.figures`; `reader.figure_request`
+on an equation block (probability `ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY` `s38`; linear_algebra `ext_01KY2YGNVCCVEQCGCE4RH3BWHQ`
+`s52`), polled with `reader.figure_job`; `reader.figures`; the same request again (*try again*), polled;
+`reader.figure_job_cancel` on an unknown job; `reader.figures`; on probability a manual-graded attempt on
+`pi_prob_derive_complement`; `shutdown`. Then `learnloop reader report --json` and
+`learnloop gaps run --backlog --dry-run --json` on the same copy.
+
+| Step | (i) main vs (ii) switch off | (iii) defaults: every difference from (i) |
+|---|---|---|
+| `initialize` | **the seven RW5a RPCs register while off** (method list); `migrationsApplied` 202 vs 203; the vault path | the same |
+| `reader.prompt_contract` | **identical** | gains `figures {predictions, region, revisions: true}`; Understand's palette gains "make this explorable" (10 actions, was 9) |
+| `reader.figures` (3 reads) | (i) `method_not_found`; (ii) refused `figures_disabled` ("Explorable figures are switched off (figures.enabled).") | the source's figures: none |
+| `reader.figure_request` (twice) | the same two refusals | a job (`pending`), then **failed, `unpriced`** ("A metered figure route needs figures.price_per_million."): refused before any request; nothing stored |
+| `reader.figure_job_cancel` (unknown) | the same two refusals | `not_found` |
+| the attempt (probability) | every call **identical**; its rows in 23 tables identical across (i)-(iv) | identical (ids normalised) |
+| `reader report --json` | identical apart from `window.until` (the CLI's clock) | gains `figures` (all zero: built `{}`) |
+| `gaps run --backlog --dry-run --json` | **byte-identical** | **byte-identical** |
+| rows beyond the attempt | none | `interaction_events` 2 (`figure_requested`, salience only); no figure, ledger, spend or receipt row |
+
+So (i) and (ii) are identical call by call apart from the method registry (and so the off refusal code), the vault
+path and the applied-migration count.
+
+**(iv) The route actually tried** (probability): 2 builds × 2 author attempts = **4** requests; **8**
+`model_call_receipts`, every one **`failed`** (4 `figure_author` `AIProviderUnavailable`, 4 transport children
+`APIConnectionError`, all to `http://127.0.0.1:9/v1`); 2 `interactive_figures` rows `verification = failed` (no spec,
+never shown; the view's reason "the figure model failed: AIProviderUnavailable") with 2 `figure_verified` ledger rows
+(`failed`); 4 `source_service_spend` rows under `figures.max_daily_cost_usd`, each **settled at its ~$0.0216 estimate**
+(finding 2); the report counts `built {failed: 2}`. No row is `verified` on any copy.
+
+**(d) The PF stricter-inconclusive change** (`pf_parity.py`, on a backup copy of probability with its `[pf]` sandbox
+limits: 20 s CPU, 2,048 MB, 60 s wall; real bubblewrap). Eleven check programs ran through each code's own
+`run_generator_tests`, `check_generator_answers`, `run_equivalence_checks` and `equivalence_confirmations`, and each
+code's own generation rule:
+
+| Check answers | main → merge |
+|---|---|
+| Python `True`/`False`; `numpy.bool_`; `sympy.true`/`false`; an evaluated `sympy.Eq`; `1 == 1`; a raise on a wrong answer; an always-`True` (degenerate) check | **identical** (every harness field except the new `negative_controls_inconclusive`; gate pass / pass, the degenerate one fail on controls both sides; confirmations unchanged) |
+| `1`/`0` | pass → **fail** (self-check not `True`); confirmations `[True, False]` → `[None, None]` |
+| `True` / `None` on a wrong answer | pass → **fail** (controls inconclusive); `[True, False]` → `[None, None]` |
+| `'yes'` / `''` | pass → **fail**; `[True, False]` → `[None, None]` |
+| an unevaluated `sympy.Eq(x, 1)` | fail (error: `bool()` raises) → fail (self-check not `True`) |
+
+Only non-boolean answers changed: PF generation and PF verification are slightly stricter on main.
+
+**`model_call_receipts`.** 39 learner databases under `landing-rw5a/` carry the table. **No row completed** in any of
+them; the only rows are (iv)'s 8 failed ones.
+
+### New findings
+
+1. **A cross-test thread leak in the full suite (Low, from before this stage).**
+   `test_learner_read_model_pinning.py::test_read_model_opens_one_connection_per_call[build_learner_review_feed]` counted
+   3 connections instead of 1: the two extra were to another test's vault (`test_a_tutor_keep_takes_a_take...`, RW4d's
+   `test_compare_sources_keep.py`) on the same xdist worker, a background thread of that test still running while this
+   one patched `repositories.connect`. Alone, 3 runs × 5 passed. **Follow-up:** RW4d's tutor-keep test should join its
+   background work before returning.
+2. **A transport failure is charged its estimate against the figure cap (Low).** As at the RW7a landing (its finding
+   2): each refused connection settled its full estimate (~$0.0216) in `figures.max_daily_cost_usd`; a failed build
+   and one *try again* used $0.087 of the $1.00 a day. This is the shared `PaidCalls` / `SharedDailyEnvelope`
+   accounting, and the cap still bounds repeated *try again*. On Codex (the default) the route is `estimated_only`.
+3. **The figure RPCs register while off.** Off, every one refuses `figures_disabled` and nothing is called or written;
+   only `initialize`'s method list (and so the refusal code) differs from main. The same holds for RW7a's.
+4. **Composition was all in tests.** No source file needed a landing fix beyond keeping both sides; the switch-off pins
+   of RW4d, RW5a and RW7a needed each other's keys removed.
+
+### For the owner
+
+- **Migration 216 applies on the next open** of a vault by the merged code, through the coordinator. **Close the app,
+  the MCP server and the mobile host, and back up first.** It adds two empty tables (`interactive_figures`, WORKFLOW;
+  `figure_predictions`, append-only RAW_LEDGER). No existing row changes and nothing served moves (parity (a), (b)).
+  Your algorithm version is unchanged; there is no successor.
+- **What you see.** Select an equation or passage in the Reader → *make this explorable* (Understand). It builds in the
+  background (*◐ building an interactive version — keep reading*, with cancel) and lands as a collapsed line under its
+  passage; open it for sliders with numeric fields, function plots with shading, PMF bars, 2-D linear maps, readouts,
+  play-only animation (step buttons under reduced motion) and a values table (`t`). **Every figure is an illustration**:
+  the badge is written by the Reader's code, "AI-built illustration of an interpretation · not checked against the
+  book" (or "couldn't build a reliable version of this" / "can't draw this yet · noted"); nothing says "checked" (RW5c).
+  What is checked are the figure's **property checks** (finite values, the invariants it declares, shaded areas against
+  an independent integration), named in the frame's words. Before your first change it may ask a **prediction** (never
+  graded; code decides whether it matched), then "what changed? (optional)": a missed prediction and its "what changed?"
+  become `reader_formative` learner text only while learner-text gaps and `reader_formative` are on. *Not right?* asks
+  for a new version with your note; the earlier one is kept. A request with the same input reuses the stored figure.
+- **Routes.** `figure_author` follows the active provider (Codex by default, `estimated_only`). Regions (Ctrl+drag a box
+  in a Figure/Picture block on the PDF page) need an **image-capable** `figure_author` profile (OpenRouter or an
+  OpenAI-compatible profile with `image` in `input_modalities`); with a text-only route a region is refused before any
+  call, and a figure block is sent as its caption and neighbours.
+- **Caps and switches.** `[figures] enabled`, `predictions_enabled`, `region_enabled`, `revisions_enabled` (all true);
+  `max_daily_cost_usd = 1.00` and `price_per_million` (unset: a metered route is refused before sending, as parity (c)
+  showed). Per request at most two author attempts, one physical request each. One `FiguresGate` re-reads the switch,
+  route, cap and price before every request and stops the build if any changed. `enabled = false` restores main's
+  Reader: no contract key, no palette action, no report block, every figure RPC refuses, and a figure text queued while
+  off is dropped (main's skip path).
+- **The PF stricter-inconclusive change (its own PF item).** The shared PF-b sandbox now reports a check's answer as
+  given: only a real boolean (Python's, numpy's, sympy's) counts. A generator check answering `1`, `None` or a string,
+  or a check answering a wrong answer with something not `False`, now fails PF generation and confirms nothing in PF
+  verification and the embedding comparison. Boolean checks behave exactly as before (parity (d)).
+
+### Open questions (defaults in force)
+
+1. *Grid size?* At most 4 parameters (81 grid points).
+2. *Image route?* The active provider (often Codex, text only); regions need an image-capable `figure_author`.
+3. *The ◇▸ margin mark?* None; the collapsed line under the passage is the mark.
+4. *One prediction per figure?* The first only.
+5. *"Try again" after a failed build makes a new paid request (inside the caps)?* Yes.
+6. *RW5c's label scope?* Lenient (element-scoped claim on the checked series).
+7. *Re-queue figure texts dropped while off when the switch comes back on?* No; they stay dropped.
+8. *The flagship's "P(X ≤ 0)" readout (a clipped integral)?* Left for RW5c's code labels.
+
+### Open items
+
+- **Codex isolated turns (High, ruled out of scope at the final round).** Codex isolated turns keep utility tools and
+  sub-agents, so `figure_author` (like every other source-only Reader route on main that uses the same isolation
+  layer) is isolated and workspace-free but not strictly tool-free, and the per-turn `FiguresGate` admission does not
+  see internal continuations. Queued follow-up: "Codex isolated turns: prove or enforce no utility-tool/sub-agent file
+  or network access and gate internal continuations, for every isolated route".
+- **Lows ruled across rounds:** float rendering resolution; model label text inside the code-owned frame; the gap
+  pipeline's mid-reading cap/price/route behaviour (queued as "live admission for learner-text-gap readings"); a
+  provider `base_url` change in the middle of one build; a reading whose last request completed before a switch flip.
+- **RW5c** ("matches the book's equation (checked)"): its own stage, designed (§8.4) and Codex-reviewed before code.
+- **Findings 1-2** above (Low).
+- **From before this stage:** `desktop_validate.py` (`syntheticBook.ts`) and `module_validate.py` (987 issues).
+
+**Process note (landing).** Every Python and CLI run outside pytest went through `env -i` with an empty HOME,
+CODEX_HOME and LEARNLOOP_CONFIG_DIR, with two exceptions that read nothing: a `python3 -` with an empty here-document
+(no code executed) while composing the head-fixture README, and `.venv/bin/python --version` after `uv sync`. Neither
+opened a vault, made a network call or touched a credential. No stash was used, no fixture vault was opened except
+through `learnloop.db.copies`, and no git command ran in the main checkout.
