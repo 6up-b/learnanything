@@ -3,8 +3,8 @@ title: "source_service_spend"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ab0649c7eedc5cdf49d9526869d7c71957eeffce"
-source_commit_timestamp: "2026-10-21T09:10:58-04:00"
+source_commit: "87c9b9a4a94630287dd2e9fa6ecb7cd6544f9f1a"
+source_commit_timestamp: "2026-10-21T10:09:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_service_spend"
@@ -102,6 +102,7 @@ None found by exact static reference scan.
 
 - `tests/test_approach_maps.py`
 - `tests/test_exam_protection.py`
+- `tests/test_figures_rpc.py`
 - `tests/test_hint_outcome.py`
 - `tests/test_reader_rw3b_review_fixes.py`
 - `tests/test_source_service_spend_accounting.py`

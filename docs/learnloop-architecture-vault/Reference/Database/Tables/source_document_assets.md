@@ -3,8 +3,8 @@ title: "source_document_assets"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ab0649c7eedc5cdf49d9526869d7c71957eeffce"
-source_commit_timestamp: "2026-10-21T09:10:58-04:00"
+source_commit: "87c9b9a4a94630287dd2e9fa6ecb7cd6544f9f1a"
+source_commit_timestamp: "2026-10-21T10:09:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_assets"
@@ -113,8 +113,8 @@ Indexes and uniqueness:
 - `src/learnloop/content/synthesis/source_unit_selection.py`
 - `src/learnloop/daily_plan/reading.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
+- `src/learnloop/figures/service.py`
 - `src/learnloop/practice_index/dossiers.py`
-- `src/learnloop/reader/annotations.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

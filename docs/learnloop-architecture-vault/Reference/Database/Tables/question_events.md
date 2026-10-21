@@ -3,8 +3,8 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ab0649c7eedc5cdf49d9526869d7c71957eeffce"
-source_commit_timestamp: "2026-10-21T09:10:58-04:00"
+source_commit: "87c9b9a4a94630287dd2e9fa6ecb7cd6544f9f1a"
+source_commit_timestamp: "2026-10-21T10:09:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
@@ -181,6 +181,7 @@ Indexes and uniqueness:
 - `tests/test_diagnosis_input_provenance_landing.py`
 - `tests/test_exam_protection.py`
 - `tests/test_field_signal_production_paths.py`
+- `tests/test_figure_predictions.py`
 - `tests/test_hint_telemetry.py`
 - `tests/test_interaction_signals.py`
 - `tests/test_library_ask.py`
@@ -189,7 +190,6 @@ Indexes and uniqueness:
 - `tests/test_question_promotions.py`
 - `tests/test_question_signal.py`
 - `tests/test_reader_branches.py`
-- `tests/test_reader_dialogue.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

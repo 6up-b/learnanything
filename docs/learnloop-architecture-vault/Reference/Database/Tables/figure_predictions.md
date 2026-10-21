@@ -3,13 +3,13 @@ title: "figure_predictions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ceb81f7f731f136a2e4800fe5aef7a747c3739b2"
-source_commit_timestamp: "2026-10-21T09:51:57-04:00"
+source_commit: "87c9b9a4a94630287dd2e9fa6ecb7cd6544f9f1a"
+source_commit_timestamp: "2026-10-21T10:09:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite figure_predictions"
   - "table figure_predictions"
-schema_head: 216
+schema_head: 217
 table_name: "figure_predictions"
 table_role: "raw_ledger"
 functionality_status: "active"
