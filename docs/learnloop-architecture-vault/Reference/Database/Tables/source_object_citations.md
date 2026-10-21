@@ -3,8 +3,8 @@ title: "source_object_citations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a12ba5ba978cb900a59510ad401b78bcddf9db96"
-source_commit_timestamp: "2026-10-20T19:34:07-04:00"
+source_commit: "b35681815a840bde6a724331ee47d84a215209e3"
+source_commit_timestamp: "2026-10-20T23:01:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_object_citations"
@@ -107,7 +107,6 @@ Indexes and uniqueness:
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/reader/source_objects.py`
-- `src/learnloop/reader/source_roles.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -124,6 +123,7 @@ Indexes and uniqueness:
 - `tests/test_roles_switch_off.py`
 - `tests/test_source_roles.py`
 - `tests/test_ad1_reading_opportunities.py`
+- `tests/test_roles_concurrency.py`
 - `tests/test_source_objects.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

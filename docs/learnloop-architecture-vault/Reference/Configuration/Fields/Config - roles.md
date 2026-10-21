@@ -3,8 +3,8 @@ title: "Config - roles"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a12ba5ba978cb900a59510ad401b78bcddf9db96"
-source_commit_timestamp: "2026-10-20T19:34:07-04:00"
+source_commit: "b35681815a840bde6a724331ee47d84a215209e3"
+source_commit_timestamp: "2026-10-20T23:01:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml roles"
@@ -23,6 +23,7 @@ source_paths:
   - "tests/test_reader_rw3b_protection.py"
   - "tests/test_roles_judges.py"
   - "tests/test_roles_switch_off.py"
+  - "tests/test_roles_switch_off_legacy_parity.py"
   - "tests/test_source_roles.py"
 tags:
   - "learnloop/configuration/fields"
@@ -60,6 +61,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_reader_rw3b_protection.py`
 - `tests/test_roles_judges.py`
 - `tests/test_roles_switch_off.py`
+- `tests/test_roles_switch_off_legacy_parity.py`
 - `tests/test_source_roles.py`
 
 ## Extension and modification guidance
