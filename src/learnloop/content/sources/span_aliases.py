@@ -40,7 +40,7 @@ from __future__ import annotations
 import re
 import threading
 from collections import OrderedDict
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from contextlib import closing
 from dataclasses import dataclass
 from typing import Any
@@ -345,20 +345,25 @@ CITATION_MADE_AT_SQL = (
 
 
 def cited_reading(repository: Any, *, revision_id: str, span_id: str, block_content_hash: str | None = None,
-                  created_at: str | None = None) -> str | None:
+                  created_at: str | None = None,
+                  readings_of: Callable[[str], list[dict[str, Any]]] | None = None,
+                  hash_of: Callable[[str, str], str | None] | None = None) -> str | None:
     """The reading a source-object citation (revision + span) was made on.
 
     By its recorded block content hash when it has one (the reading whose block
     has that span and that hash, newest first); else the latest reading of the
     revision completed when the citation was made. ``None`` when nothing fits
-    (the citation is then unresolved, never another block)."""
+    (the citation is then unresolved, never another block). ``readings_of`` and
+    ``hash_of`` replace the two reads with a caller's memoized ones (the same
+    answers; :class:`CitationResolver` reads each revision and reading once)."""
 
-    readings = completed_readings(repository, str(revision_id))
+    readings = (readings_of or (lambda revision: completed_readings(repository, revision)))(str(revision_id))
     if not readings:
         return None
     if block_content_hash:
+        block_hash = hash_of or (lambda extraction, span: _block_hash(repository, extraction, span))
         for run in reversed(readings):
-            if _block_hash(repository, str(run["id"]), str(span_id)) == block_content_hash:
+            if block_hash(str(run["id"]), str(span_id)) == block_content_hash:
                 return str(run["id"])
         return None
     if created_at:
@@ -374,6 +379,26 @@ class CitationResolver:
     def __init__(self, repository: Any) -> None:
         self.repository = repository
         self.keys = CurrentKeys(repository)
+        # Read once per resolver (one read path's lifetime): a revision's
+        # completed readings, and a reading's block hashes (Reader RW4e: a
+        # source's role proposals resolve thousands of citations).
+        self._readings: dict[str, list[dict[str, Any]]] = {}
+        self._hashes: dict[str, dict[str, str | None]] = {}
+
+    def _readings_of(self, revision_id: str) -> list[dict[str, Any]]:
+        if revision_id not in self._readings:
+            self._readings[revision_id] = completed_readings(self.repository, revision_id)
+        return self._readings[revision_id]
+
+    def _hash_of(self, extraction_id: str, span_id: str) -> str | None:
+        if extraction_id not in self._hashes:
+            with closing(connect(self.repository.sqlite_path, read_only=True)) as connection:
+                self._hashes[extraction_id] = {
+                    str(row[0]): (str(row[1]) if row[1] is not None else None)
+                    for row in connection.execute(
+                        "SELECT span_id, content_hash FROM source_document_blocks WHERE extraction_id = ?",
+                        (extraction_id,))}
+        return self._hashes[extraction_id].get(span_id)
 
     def resolve(self, citation: Mapping[str, Any]) -> SpanResolution | None:
         """``None`` when the reading the citation was made on is unknown."""
@@ -382,6 +407,7 @@ class CitationResolver:
             self.repository, revision_id=str(citation.get("revision_id") or ""),
             span_id=str(citation.get("span_id") or ""),
             block_content_hash=citation.get("block_content_hash"), created_at=citation.get("created_at"),
+            readings_of=self._readings_of, hash_of=self._hash_of,
         )
         if reading is None:
             return None

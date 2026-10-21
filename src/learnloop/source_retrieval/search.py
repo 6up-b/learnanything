@@ -285,7 +285,7 @@ def search_spans(
         # low-confidence proposal only when nothing better exists (§9.1).
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
             hinted = role_keys(connection, extraction_ids, roles)
-            proposed, low = role_proposal_keys(connection, repository, extraction_ids, roles)
+        proposed, low = role_proposal_keys(vault, repository, extraction_ids, roles)
         permitted_roles = hinted | proposed
         result.role_basis = {"hints": len(hinted), "proposals": len(proposed - hinted), "low_confidence": 0}
         if not permitted_roles and low:

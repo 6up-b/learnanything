@@ -1068,6 +1068,23 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for keeping a source comparison as source-object proposals (with the learner's take, "
         "the kept-comparison mark and requested perspectives); proposals and display, no measurement, "
         "scheduling or serving authority."),
+    # Reader workbench RW4e: instructional roles. The switches are booleans
+    # (classified so every new key has a rule): the judges' role proposals
+    # (source-object proposals, never evidence) and their positive use in
+    # retrieval, cue shortlists and library grouping (roles add, never
+    # exclude); the batch labeller's per-run spend bound.
+    _ConfigRule(_exact(
+        "roles.on_demand_enabled",
+        "roles.positive_filter_enabled",
+    ), "structural", "operational",
+        "kill switches for the Reader judges' instructional-role proposals / their positive use in retrieval, "
+        "cue shortlists and library grouping; labels on sources, no measurement, scheduling or serving "
+        "authority (roles never exclude)."),
+    _ConfigRule(_exact(
+        "roles.batch_max_cost_usd",
+    ), "structural", "operational",
+        "the owner-run batch role labeller's metered spend per run, checked before each batch call; a spend "
+        "bound, no measurement authority (role labels are source-object proposals)."),
     # Adaptive hints H1: the approach-map builds' (and merges') metered spend a
     # UTC day (maps are stored help, read by no grading, scheduling, serving or
     # replay path; validation verdicts go to judgment_ledger, never evidence).

@@ -15,7 +15,9 @@ links the expansion can read:
 
 ``OrganizerFake`` answers the library organizer from the prompt's own JSON
 (plumbing checks, never evidence about quality); knobs name the misbehaviours
-the tests need.
+the tests need. It answers RW4a's request (``OrganizerResult``, roles as
+names) and, while ``roles.on_demand_enabled`` is on, RW4e's
+(``OrganizerRolesResult``, roles with a confidence).
 """
 from __future__ import annotations
 
@@ -25,6 +27,11 @@ from typing import Any
 from learnloop.ai.execution import report_call_usage
 from learnloop.ingest.locators import format_block_span
 from learnloop.source_retrieval.library_ask import OrganizerNote, OrganizerResult
+
+try:  # RW4e's request; absent on a base tree a golden is recorded on (a12ba5ba9)
+    from learnloop.source_retrieval.library_ask import OrganizerRolesResult
+except ImportError:  # pragma: no cover - only when recording on the base
+    OrganizerRolesResult = OrganizerResult  # type: ignore[misc,assignment]
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 from tests.pf_fakes import prompt_context
 from tests.recap_fixtures import call as call_rpc
@@ -103,7 +110,11 @@ class OrganizerFake:
     """The library organizer, deterministic. ``wrong_cite``: refs whose line
     cites another passage; ``speak``: the open-question id to name on every
     passage (the code keeps at most one); ``unrelated``: refs judged unrelated;
-    ``reverse``: pick in reverse order."""
+    ``reverse``: pick in reverse order. RW4e: ``roles`` are the ``(role,
+    confidence)`` pairs every passage gets in the roles request (an unknown
+    role among them is dropped by the parser); ``malformed_roles``:
+    ``"missing"`` (no roles field), ``"string"`` (a bare string) or
+    ``"entries"`` (entries without a confidence or with an unknown one)."""
 
     provider_name = "fake_organizer"
     provider_type = "codex_sdk"
@@ -111,7 +122,11 @@ class OrganizerFake:
 
     def __init__(self, *, wrong_cite: tuple[str, ...] = (), speak: str | None = None,
                  unrelated: tuple[str, ...] = (), reverse: bool = False, fail: bool = False,
-                 provider_type: str = "codex_sdk", gate: Any = None) -> None:
+                 provider_type: str = "codex_sdk", gate: Any = None,
+                 roles: tuple[tuple[str, str], ...] = (("definition", "high"), ("not_a_role", "high")),
+                 malformed_roles: str | None = None) -> None:
+        self.roles = roles
+        self.malformed_roles = malformed_roles
         #: ``provider_type``: "codex_sdk" bills the subscription; any other is metered.
         self.provider_type = provider_type
         #: ``gate``: a ``threading.Event`` the call waits on (a model still answering).
@@ -131,7 +146,7 @@ class OrganizerFake:
     def complete(self, request):
         from learnloop.ai.errors import AIProviderUnavailable
 
-        assert request.result_model is OrganizerResult
+        assert request.result_model in (OrganizerResult, OrganizerRolesResult)
         self.prompts.append(request.prompt)
         self.started.set()
         if self.gate is not None:
@@ -143,17 +158,29 @@ class OrganizerFake:
         context = prompt_context(request.prompt)
         self.contexts.append(context)
         refs = [candidate["ref"] for candidate in context["candidates"]]
-        judgments = []
+        judgments: list[Any] = []
+        v2 = request.result_model is not OrganizerResult
         for index, ref in enumerate(refs):
             other = refs[(index + 1) % len(refs)] if len(refs) > 1 else "p999"
-            judgments.append(OrganizerNote(
-                ref=ref, verdict="unrelated" if ref in self.unrelated else "contributes",
-                rationale=f"adds the passage {ref}'s own point",
-                cites=[other] if ref in self.wrong_cite else [ref],
-                roles=["definition", "not_a_role"], speaks_to=self.speak or ""))
+            fields: dict[str, Any] = {
+                "ref": ref, "verdict": "unrelated" if ref in self.unrelated else "contributes",
+                "rationale": f"adds the passage {ref}'s own point",
+                "cites": [other] if ref in self.wrong_cite else [ref], "speaks_to": self.speak or ""}
+            if not v2:
+                judgments.append(OrganizerNote(roles=["definition", "not_a_role"], **fields))
+                continue
+            if self.malformed_roles == "string":
+                fields["roles"] = "definition"
+            elif self.malformed_roles == "entries":
+                fields["roles"] = [{"role": "definition"}, {"role": "contrast", "confidence": "certain"}, 7]
+            elif self.malformed_roles != "missing":
+                fields["roles"] = [{"role": role, "confidence": confidence} for role, confidence in self.roles]
+            judgments.append(fields)
         picks = [ref for ref in refs if ref not in self.unrelated]
         if self.reverse:
             picks = list(reversed(picks))
+        if v2:
+            return OrganizerRolesResult.model_validate({"judgments": judgments, "picks": picks})
         return OrganizerResult(judgments=judgments, picks=picks)
 
 

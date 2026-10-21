@@ -391,12 +391,21 @@ def correction_lists(vault: LoadedVault, repository: Repository, misconception: 
     return lists, report
 
 
-def source_object_lists(repository: Repository, intent: str, extraction_ids: Sequence[str]) -> dict[str, list[SpanKey]]:
+def source_object_lists(vault: LoadedVault, repository: Repository, intent: str,
+                        extraction_ids: Sequence[str]) -> dict[str, list[SpanKey]]:
     """Source objects whose type (or RW4e authorial role) matches the intent (§9.2).
 
-    ``low``-confidence role proposals count only when nothing better exists:
-    such rows are appended after every other row of the list.
+    Every source object but Reader RW4e's is read as it always was (any
+    version proposed or reviewed, by type or ``authorial_role``). RW4e's role
+    proposals (``content_json.kind = "instructional_role"``) come only from
+    :func:`learnloop.reader.source_roles.role_proposals` (the head version,
+    the current reading, nothing exam protection hides now), by role or by
+    their mapped type, and not at all while ``roles.positive_filter_enabled``
+    is off. ``low``-confidence role proposals count only when nothing better
+    exists: such rows are appended after every other row of the list.
     """
+
+    from learnloop.reader.source_roles import PROPOSAL_KIND_SQL, role_proposals
 
     types = {"worked_example": ("worked_example",), "explain": ("definition", "claim", "procedure")}.get(intent, ())
     roles = {"remediate": ("contrast", "counterexample"), "alternative": ("alternative_treatment", "intuition"),
@@ -414,7 +423,9 @@ def source_object_lists(repository: Repository, intent: str, extraction_ids: Seq
             "SELECT v.object_type, v.authorial_role, v.content_json, c.revision_id, c.span_id, "
             f"c.block_content_hash, {CITATION_MADE_AT_SQL} "
             "FROM source_object_versions v JOIN source_object_citations c ON c.source_object_version_id = v.id "
-            "WHERE v.status IN ('proposed', 'reviewed') ORDER BY v.created_at, c.citation_ordinal").fetchall()
+            "WHERE v.status IN ('proposed', 'reviewed') "
+            f"AND v.source_object_id NOT IN ({PROPOSAL_KIND_SQL}) ORDER BY v.created_at, c.citation_ordinal"
+        ).fetchall()
     strong: list[SpanKey] = []
     weak: list[SpanKey] = []
     # Each citation on the reading it was made on, moved to the current one
@@ -430,6 +441,9 @@ def source_object_lists(repository: Repository, intent: str, extraction_ids: Seq
             continue
         confidence = (json.loads(content_json or "{}") or {}).get("confidence") if content_json else None
         (weak if confidence == "low" else strong).append(key)
+    for label in role_proposals(vault, repository, extraction_ids=wanted_extractions):
+        if label.object_type in types or label.role in roles:
+            (weak if label.low else strong).append(label.key)
     keys = list(dict.fromkeys(strong + weak))
     if keys:
         lists["source_objects"] = keys
@@ -653,7 +667,7 @@ def find_sources(
         shown_sources = {span_scope.extractions[key[0]].source_id for key in excluded if key[0] in span_scope.extractions}
         personal["shown_sources"] = sorted(shown_sources)
     extra.update(expansion_lists(vault, repository, lo_ids, expand))
-    extra.update(source_object_lists(repository, intent, extraction_ids))
+    extra.update(source_object_lists(vault, repository, intent, extraction_ids))
     effective_roles = tuple(roles)
     if intent == "worked_example" and not effective_roles:
         effective_roles = ("worked_example",)

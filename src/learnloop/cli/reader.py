@@ -97,3 +97,41 @@ def cues_discover(
     except (ValueError, OSError, sqlite3.Error) as exc:
         typer.echo(json.dumps({"status": "invalid", "reason": str(exc)}, sort_keys=True))
         raise typer.Exit(code=1) from exc
+
+
+@reader_app.command("label-roles")
+def reader_label_roles(
+    vault: Annotated[Path, typer.Option("--vault", help="Vault root.")],
+    source: Annotated[str, typer.Option("--source", help="The source (or extraction) to label.")],
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Give the batch plan, its estimated tokens and dollars and the cap; "
+                                             "call and write nothing.")
+    ] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Label a source's passages with instructional roles now (RW4e).
+
+    Its blocks in reading order, without solutions, held-out or exam material,
+    in listwise batches through ai.routing.role_labeller; each role is written
+    as a source-object proposal (the model's label, used only to find passages,
+    never to exclude). roles.batch_max_cost_usd caps the run, checked before
+    each batch call. A rerun resumes after the passages already labelled. Run
+    --dry-run first: it calls nothing and writes nothing."""
+
+    from learnloop.content.sources.source_outline import resolve_extraction_id
+    from learnloop.practice_index.paid import planning_repository
+    from learnloop.source_retrieval.role_labeller import label_roles
+
+    try:
+        if not (vault / "learnloop.toml").is_file():
+            raise ValueError("--vault must contain learnloop.toml")
+        loaded = load_vault(vault)
+        repository = planning_repository(VaultPaths(loaded.root, loaded.config), dry_run=dry_run)
+        extraction_id = resolve_extraction_id(repository, source)
+        if extraction_id is None:
+            raise ValueError(f"no extraction resolves for {source!r}")
+        result = label_roles(loaded, repository, extraction_id, dry_run=dry_run)
+        typer.echo(json.dumps(result, sort_keys=True, indent=None if json_output else 2, default=str))
+    except (ValueError, OSError, sqlite3.Error) as exc:
+        typer.echo(json.dumps({"status": "invalid", "reason": str(exc)}, sort_keys=True))
+        raise typer.Exit(code=1) from exc

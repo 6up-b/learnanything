@@ -1381,6 +1381,14 @@ class AIRoutingConfig(BaseModel):
     # source_retrieval.llm_price_per_million and is held to
     # cues.max_daily_cost_usd, or the judgment is skipped and labelled.
     passage_cue_judge: str | None = None
+    # Reader workbench RW4e (spec_reader_workbench_v1 §7.9): the owner-run
+    # batch role labeller (`learnloop reader label-roles`), one listwise call
+    # per batch of a source's passages in reading order (instructional roles
+    # with a confidence, written as source-object proposals). Never on a
+    # request path. Empty = ai.active_provider (Codex is estimated_only); a
+    # metered route needs source_retrieval.llm_price_per_million and is held
+    # to roles.batch_max_cost_usd per run, checked before each batch.
+    role_labeller: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -2380,6 +2388,38 @@ class ReaderCompareConfig(BaseModel):
 
     enabled: bool = True
     keep_enabled: bool = True
+
+
+class RolesConfig(BaseModel):
+    """Reader workbench RW4e: instructional roles (spec_reader_workbench_v1 §7.9).
+
+    The Reader's own judges (the library organizer, ``ai.routing.library_organizer``,
+    and the cue judge, ``ai.routing.passage_cue_judge``) propose each passage
+    they judge one or more instructional roles (definition, theorem,
+    explanation, intuition, worked example, exercise, figure, counterexample,
+    contrast, prerequisite, alternative treatment, application), each with a
+    confidence, at no extra call; they are stored as ``source_objects``
+    proposals (authorship ``ai``, status ``proposed``, one citation each).
+    ``on_demand_enabled`` is the kill switch of those writes: off, both judges'
+    requests and outputs are RW4a's and RW3b's exactly and nothing is written.
+    ``positive_filter_enabled`` is the kill switch of every use: the sources
+    service's ``find_sources(roles=...)`` and intent lists matching the
+    proposals as well as ingest's ``role_hint`` (low confidence only when
+    nothing better exists), RW3b preferring contrast and counterexample
+    passages for distinction cues, and library answers grouped by a
+    proposed role labelled "model's label"; off, proposals are ignored and
+    ingest's roles alone apply. ``batch_max_cost_usd`` caps one run of the
+    owner-run batch labeller (``learnloop reader label-roles``, route
+    ``ai.routing.role_labeller``), checked before each batch call (metered
+    routes; Codex is ``estimated_only``). Roles add, never exclude: ingest's
+    ``role_hint`` and item links stay the authority for exclusions. Labels on
+    sources only: nothing in scoring, scheduling, projection or serving reads
+    them, so no algorithm successor.
+    """
+
+    on_demand_enabled: bool = True
+    positive_filter_enabled: bool = True
+    batch_max_cost_usd: float = Field(default=5.0, ge=0.0)
 
 
 class LearnerTextGapsConfig(BaseModel):
@@ -3414,6 +3454,7 @@ class LearnLoopConfig(BaseModel):
     library_ask: LibraryAskConfig = Field(default_factory=LibraryAskConfig)
     library_exercises: LibraryExercisesConfig = Field(default_factory=LibraryExercisesConfig)
     reader_compare: ReaderCompareConfig = Field(default_factory=ReaderCompareConfig)
+    roles: RolesConfig = Field(default_factory=RolesConfig)
     reader_tutor: ReaderTutorConfig = Field(default_factory=ReaderTutorConfig)
     proof_check: ProofCheckConfig = Field(default_factory=ProofCheckConfig)
     voi_stopping: VoiStoppingConfig = Field(default_factory=VoiStoppingConfig)

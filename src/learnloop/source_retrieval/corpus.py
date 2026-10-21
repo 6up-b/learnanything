@@ -344,31 +344,42 @@ def role_keys(connection, extraction_ids: Iterable[str], roles: Iterable[str]) -
     return found
 
 
-def role_proposal_keys(connection, repository: Repository, extraction_ids: Iterable[str],
+def role_proposal_keys(vault: LoadedVault, repository: Repository, extraction_ids: Iterable[str],
                        roles: Iterable[str]) -> tuple[set[tuple[str, str]], set[tuple[str, str]]]:
-    """Spans a Reader RW4e role proposal gives one of ``roles``: ``(confident, low)``.
+    """Spans a role proposal gives one of ``roles``: ``(confident, low)``.
 
-    RW4e writes its proposals as ``source_object_versions.authorial_role``
-    (proposed or reviewed) with the spans they cite; a ``low``-confidence
-    proposal counts only when nothing better exists (the caller decides).
-    A proposal only ever widens the positive filter: the scope, ingest's
-    exclusions and item links still apply (the Reader's G44). Feature-detected:
-    no table, or no proposal, gives nothing."""
+    Reader RW4e's proposals (``content_json.kind = "instructional_role"``,
+    the role in ``authorial_role``) come from
+    :func:`learnloop.reader.source_roles.role_keys`: head versions proposed
+    or reviewed, on the current reading, without any object exam protection
+    hides now, and none while ``roles.positive_filter_enabled`` is off. Any
+    other source object with an ``authorial_role`` is read as it always was
+    (any version proposed or reviewed). A ``low``-confidence proposal counts
+    only when nothing better exists (the caller decides). A proposal only
+    ever widens the positive filter: the scope, ingest's exclusions and item
+    links still apply (the Reader's G44). Feature-detected: no table, or no
+    proposal, gives nothing."""
+
+    from learnloop.reader.source_roles import PROPOSAL_KIND_SQL, role_keys as proposal_role_keys
 
     wanted = {str(role) for role in roles if role}
     extractions = {str(value) for value in extraction_ids if value}
     strong: set[tuple[str, str]] = set()
     weak: set[tuple[str, str]] = set()
-    if not wanted or not extractions or connection.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='source_object_versions'").fetchone() is None:
+    if not wanted or not extractions:
         return strong, weak
-    marks = ",".join("?" for _ in wanted)
-    rows = connection.execute(
-        f"SELECT v.content_json, c.revision_id, c.span_id, c.block_content_hash, {CITATION_MADE_AT_SQL} "
-        "FROM source_object_versions v "
-        "JOIN source_object_citations c ON c.source_object_version_id = v.id "
-        f"WHERE v.status IN ('proposed', 'reviewed') AND v.authorial_role IN ({marks})",
-        tuple(sorted(wanted))).fetchall()
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        if connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='source_object_versions'").fetchone() is None:
+            return strong, weak
+        marks = ",".join("?" for _ in wanted)
+        rows = connection.execute(
+            f"SELECT v.content_json, c.revision_id, c.span_id, c.block_content_hash, {CITATION_MADE_AT_SQL} "
+            "FROM source_object_versions v "
+            "JOIN source_object_citations c ON c.source_object_version_id = v.id "
+            f"WHERE v.status IN ('proposed', 'reviewed') AND v.authorial_role IN ({marks}) "
+            f"AND v.source_object_id NOT IN ({PROPOSAL_KIND_SQL})",
+            tuple(sorted(wanted))).fetchall()
     # Each citation on the reading it was made on, moved to its book's
     # current reading only through an exact alias (re-read safety): never
     # "the latest reading + the old span id".
@@ -383,6 +394,9 @@ def role_proposal_keys(connection, repository: Repository, extraction_ids: Itera
         except (TypeError, ValueError):
             confidence = None
         (weak if confidence == "low" else strong).add(key)
+    proposed, low = proposal_role_keys(vault, repository, extractions, wanted)
+    strong |= proposed
+    weak |= low
     return strong, weak - strong
 
 

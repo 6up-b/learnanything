@@ -60,6 +60,8 @@ import json
 import math
 from typing import Any, Literal
 
+from pydantic import model_validator
+
 from learnloop.ai.errors import AIInvalidOutput
 from learnloop.ai.execution import content_key
 from learnloop.ai.schemas import WireModel
@@ -83,6 +85,8 @@ from learnloop.practice_index.paid import (
     transport_problem,
 )
 from learnloop.reader import reader_cues as RCU
+from learnloop.reader import source_roles as RS
+from learnloop.reader.source_roles import RoleProposal, tolerate_roles
 from learnloop.reader.reader_progression import learning_objects_for_span
 from learnloop.source_retrieval.corpus import (
     Scope,
@@ -728,7 +732,8 @@ def contrast_list(vault: LoadedVault, repository: Repository, target: CueTarget,
     ``remediate`` list) and the roles this judge proposed before. Used only to
     add candidates (G44)."""
 
-    proposed = list(source_object_lists(repository, "remediate", [extraction_id]).get("source_objects") or [])
+    proposed = list(source_object_lists(vault, repository, "remediate", [extraction_id]).get(
+        "source_objects") or [])
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         own = sorted(store.links_with_roles(connection, [extraction_id], CONTRAST_ROLES)) \
             if store.tables_present(connection) else []
@@ -817,12 +822,6 @@ def shortlist(vault: LoadedVault, repository: Repository, target: CueTarget, ext
 # The judge (§6.2 item 3)
 # ---------------------------------------------------------------------------
 
-class RoleProposal(WireModel):
-    role: Literal["definition", "theorem", "explanation", "intuition", "worked_example", "exercise", "figure",
-                  "counterexample", "contrast", "prerequisite", "alternative_treatment", "application"]
-    confidence: Literal["high", "medium", "low"]
-
-
 class CueJudgment(WireModel):
     ref: str
     relation: Literal["clarifies_distinction", "new_application", "prerequisite_for", "try_first", "none"]
@@ -832,6 +831,14 @@ class CueJudgment(WireModel):
     quote: str
     #: Instructional roles this passage plays (RW4e; positive use only).
     roles: list[RoleProposal]
+
+    # RW4e: a missing or malformed ``roles`` field never fails the judge's
+    # main output (it reads as no roles). A before-validator changes no JSON
+    # schema, so the request identity (and every ledger id) is RW3b's.
+    @model_validator(mode="before")
+    @classmethod
+    def _tolerate_roles(cls, data: Any) -> Any:
+        return tolerate_roles(data)
 
 
 class CueJudgeResult(WireModel):
@@ -1081,7 +1088,21 @@ def judge_target(vault: LoadedVault, repository: Repository, listed: Shortlist, 
             }
             link["id"] = store.insert_link(connection, link)
             links.append(link)
-    return {"status": status, "links": links, "dropped": dropped, "model": outcome.model}
+    proposals = None
+    if RS.on_demand_enabled(vault) and captured:
+        # RW4e: every judged passage's roles become source-object proposals
+        # (no extra call; positive use only, G44). The pool was protected
+        # before the judge saw it; the writer asks the exam predicate again.
+        written = RS.propose_roles(
+            vault, repository, RS.claims_from_judgments(
+                refs, captured, {key: str(row["id"]) for key, row in outcome.rows.items()}),
+            judge=RS.JUDGE_CUE, prompt_version=PROMPT_VERSION, model=outcome.model, clock=clock)
+        proposals = {"written": len(written["written"]), "versions": len(written["versions"]),
+                     "skipped": len(written["skipped"])}
+    out = {"status": status, "links": links, "dropped": dropped, "model": outcome.model}
+    if proposals is not None:
+        out["role_proposals"] = proposals
+    return out
 
 
 # ---------------------------------------------------------------------------

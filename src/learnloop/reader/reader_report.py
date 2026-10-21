@@ -225,6 +225,30 @@ def _discovered_cues(connection: Any, in_window: Any) -> dict[str, Any] | None:
     }
 
 
+def _role_counts(versions: list[dict[str, Any]]) -> dict[str, Any]:
+    """RW4e's proposals: one per object (its head's status), by role and
+    confidence; every version by judge; agreement between judges."""
+
+    heads: dict[str, dict[str, Any]] = {}
+    judges: dict[str, set[str]] = {}
+    by_judge: Counter[str] = Counter()
+    for version in versions:
+        heads[version["object_id"]] = version
+        judge = str((version["content"] or {}).get("judge") or "unknown")
+        judges.setdefault(version["object_id"], set()).add(judge)
+        by_judge[judge] += 1
+    live = {object_id: head for object_id, head in heads.items() if head["status"] in ("proposed", "reviewed")}
+    return {
+        "proposals": len(live),
+        "by_role": dict(Counter(str(head["role"]) for head in live.values())),
+        "by_confidence": dict(Counter(str((head["content"] or {}).get("confidence") or "unstated")
+                                      for head in live.values())),
+        "versions_by_judge": dict(by_judge),
+        "agreed": sum(1 for object_id in live if len(judges.get(object_id, ())) >= 2),
+        "reviewed": dict(Counter(str(head["status"]) for head in heads.values())),
+    }
+
+
 def build_reader_report(
     sqlite_path: Path | str,
     *,
@@ -308,6 +332,19 @@ def build_reader_report(
                 "FROM library_asks WHERE caller = 'learner' ORDER BY created_at, id"
             ) if in_window(row["created_at"])
         ] if has_asks else []
+        # RW4e: instructional-role proposals (source_objects marked
+        # kind = instructional_role), counted by role, judge and confidence
+        # (labels only: a proposal copies no text).
+        role_versions = [
+            {"object_id": str(row["source_object_id"]), "ordinal": int(row["version_ordinal"]),
+             "role": row["authorial_role"], "status": row["status"],
+             "content": json.loads(row["content_json"] or "{}")}
+            for row in connection.execute(
+                "SELECT source_object_id, version_ordinal, authorial_role, status, content_json, created_at "
+                "FROM source_object_versions WHERE json_extract(content_json, '$.kind') = 'instructional_role' "
+                "ORDER BY source_object_id, version_ordinal")
+            if in_window(row["created_at"])
+        ]
         # RW4d: kept comparisons, counted from kept_json (ids and labels; the
         # takes are counted, never quoted).
         kept_comparisons = [
@@ -599,6 +636,9 @@ def build_reader_report(
             "relations_by_label": dict(Counter(rel.get("fine") for k in kept_comparisons if k["live"]
                                                for rel in k["kept"].get("relations") or ())),
         },
+        # RW4e: role proposals by role, by judge and by confidence; agreement
+        # (passages two or more judges proposed the same role for).
+        "roles": _role_counts(role_versions),
         # RW1c: answers by mode, abstentions and excerpts dropped by quote
         # verification (a proxy for unsupported content), "another way" and
         # "that didn't help" rates with whether the inquiry was resolved after,
