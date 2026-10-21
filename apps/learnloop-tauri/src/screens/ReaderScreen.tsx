@@ -267,6 +267,8 @@ export function ReaderScreen({
   // fixed text as the exercise surface.
   const [editingCapture, setEditingCapture] = useState(false);
   const [railTab, setRailTab] = useState<ReaderRailTab>("guide");
+  // RW7a: bumped by Orient's "what matters here?" (the path card scrolls into view).
+  const [pathFocus, setPathFocus] = useState(0);
   const [annotations, setAnnotations] = useState<MarginAnnotation[]>([]);
   const [note, setNote] = useState("");
   const [answerMode, setAnswerMode] = useState<ReaderAnswerMode>("answer_directly");
@@ -2302,7 +2304,6 @@ export function ReaderScreen({
   };
   // RW7a: the reading path's "Try it" -- the exercise in the workbench through
   // the usual import of a selected problem, with the book open.
-  const [pathFocus, setPathFocus] = useState(0);
   const tryPathExercise = (exercise: ReadingPathExerciseDto) => {
     if (!render) return;
     void wbCtl.openSelection({
