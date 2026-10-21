@@ -3,8 +3,8 @@ title: "interactive_figures"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "95f0f6fb6f59b9150788289a2f100da6861187ec"
-source_commit_timestamp: "2026-10-21T00:39:47-04:00"
+source_commit: "0e38e7b003d014c6938fe377bf1c136b1157d82d"
+source_commit_timestamp: "2026-10-21T08:44:29-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interactive_figures"
@@ -125,10 +125,9 @@ None found by exact static reference scan.
 - `tests/test_figure_verification.py`
 - `tests/test_figures_codex_review.py`
 - `tests/test_figures_fix_round2.py`
-- `tests/test_figures_fix_round4.py`
-- `tests/test_figures_fix_round5.py`
 - `tests/test_figures_migration.py`
 - `tests/test_figures_rpc.py`
+- `tests/test_figures_scope_redesign.py`
 - `tests/test_figures_switch_off.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
