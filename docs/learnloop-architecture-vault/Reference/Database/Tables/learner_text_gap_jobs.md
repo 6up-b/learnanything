@@ -3,8 +3,8 @@ title: "learner_text_gap_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ee60904dcae6ec66a487d8f6e6b1d10ca3e2db9e"
-source_commit_timestamp: "2026-10-20T22:01:38-04:00"
+source_commit: "140e461d95319c6b85aab3f12f90fa91e5b42710"
+source_commit_timestamp: "2026-10-20T23:26:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gap_jobs"
@@ -108,6 +108,7 @@ None found by exact static reference scan.
 - `tests/test_figure_predictions.py`
 - `tests/test_figures_codex_review.py`
 - `tests/test_figures_fix_round2.py`
+- `tests/test_figures_fix_round3.py`
 - `tests/test_held_grade_composition.py`
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_hint_feedback_widening.py`
