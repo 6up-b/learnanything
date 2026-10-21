@@ -177,7 +177,9 @@ def structural(compiled: S.CompiledFigure, grid: Sequence[Mapping[str, float]]) 
     for point in grid:
         data = S.evaluate_figure(compiled, point)
         for where, value in _shown_values(data):
-            if value is None:
+            # Every numeric leaf must be a finite number: None, NaN and
+            # infinity all fail (fix round 4).
+            if value is None or not math.isfinite(value):
                 problems.append(f"{where} is not finite at {_point(point)}")
                 break
         if problems:
@@ -441,6 +443,271 @@ def run_source_match(answer: str, check: SourceCheck, *, run: Callable[..., Any]
             "import_errors": result.output.get("import_errors") or {}}
 
 
+# ---------------------------------------------------------------------------
+# Step 3, certified (fix round 4): "checked" needs the display to agree
+# ---------------------------------------------------------------------------
+
+#: (a) Every numeric literal of a checked definition is a small exact
+#: decimal: SymPy reads it as that decimal exactly, and the evaluator's double
+#: is within an ulp of it, so a literal can never be where the two part.
+MAX_LITERAL = 1e6
+MAX_LITERAL_DIGITS = 9
+#: (d) The displayed value and the checked equation agree to a relative or
+#: absolute 1e-9 at every sample, evaluated by mpmath at 50 digits.
+AGREEMENT_TOLERANCE = 1e-9
+AGREEMENT_DIGITS = 50
+
+
+def literal_problem(node: G.Node, definitions: Mapping[str, G.Node]) -> str | None:
+    """Rule (a): why a literal of ``node`` (definitions expanded) is not a
+    small exact decimal (|x| <= 1e6, at most 9 significant digits), or None.
+    ``pi`` and ``e`` are names, not literals, and are allowed."""
+
+    from decimal import Decimal, InvalidOperation
+
+    for current, _depth in G.expansion(node, definitions):
+        if current.kind != "num":
+            continue
+        try:
+            value = Decimal(current.text)
+        except InvalidOperation:
+            return f"the literal {current.text!r} is not a decimal number"
+        digits = len(value.normalize().as_tuple().digits)
+        if abs(value) > Decimal(int(MAX_LITERAL)) or digits > MAX_LITERAL_DIGITS:
+            return (f"the literal {current.text!r} is not a small exact decimal (at most {MAX_LITERAL:g} with "
+                    f"{MAX_LITERAL_DIGITS} significant digits), so the figure and the check could part on it")
+    return None
+
+
+def _conditions(node: G.Node, definitions: Mapping[str, G.Node]) -> tuple[list[G.Node], bool]:
+    """Every piecewise condition of ``node`` (definitions expanded), and
+    whether one sits in a sum's body (its branch is chosen per term, which
+    the display samples cannot pin down: not certifiable)."""
+
+    found: list[G.Node] = []
+    in_body = False
+    stack: list[tuple[G.Node, bool, tuple[str, ...]]] = [(node, False, ())]
+    while stack:
+        current, inside, seen = stack.pop()
+        if current.kind == "name" and current.text in definitions and current.text not in seen:
+            stack.append((definitions[current.text], inside, (*seen, current.text)))
+            continue
+        if current.kind == "piecewise":
+            in_body = in_body or inside
+            found += [current.args[index] for index in range(0, len(current.args) - 1, 2)]
+        if current.kind in ("sum", "integral"):
+            body, lower, upper = current.args
+            stack += [(body, True, seen), (lower, inside, seen), (upper, inside, seen)]
+        else:
+            stack += [(child, inside, seen) for child in current.args]
+    return found, in_body
+
+
+def _exact(value: float) -> list[int]:
+    from fractions import Fraction
+
+    fraction = Fraction(value)
+    return [fraction.numerator, fraction.denominator]
+
+
+def _displayed(compiled: S.CompiledFigure, name: str
+               ) -> list[tuple[str | None, list[float], list[float | None], dict[str, float]]]:
+    """``(variable, samples, displayed values, the grid point)`` for every
+    place the checked definition is drawn by reference, at every point of the
+    parameter grid: the production evaluator's own displayed data."""
+
+    places = []
+    for index, panel in enumerate(compiled.panels):
+        if panel.kind in ("function_plot", "pmf_bars"):
+            for series_index, node in enumerate(panel.nodes.get("series") or []):
+                if node is not None and node.kind == "name" and node.text == name:
+                    places.append((index, "series", series_index))
+        elif panel.kind == "readout":
+            node = panel.nodes.get("expr")
+            if node is not None and node.kind == "name" and node.text == name:
+                places.append((index, "readout", 0))
+        else:
+            for row, cells in enumerate(panel.nodes.get("matrix") or []):
+                for column, node in enumerate(cells):
+                    if node is not None and node.kind == "name" and node.text == name:
+                        places.append((index, "cell", row * 2 + column))
+    groups = []
+    for point in parameter_grid(compiled):
+        data = S.evaluate_figure(compiled, point)
+        env = _env(compiled, point)
+        for index, where, position in places:
+            panel, model = data["panels"][index], compiled.panels[index].model
+            if where == "series" and panel["kind"] == "function_plot":
+                groups.append((model.x.var, list(panel["x"]), list(panel["series"][position]["y"]), env))
+            elif where == "series":
+                groups.append((model.k.var, list(panel["k"]), list(panel["series"][position]["p"]), env))
+            elif where == "readout":
+                groups.append((None, [], [panel["value"]], env))
+            else:
+                groups.append((None, [], [panel["matrix"][position // 2][position % 2]], env))
+    return groups
+
+
+_DISPLAY_HARNESS = r'''
+import json, sys
+workdir = sys.argv[1]
+MARKER = "@@PF-SANDBOX-RESULT@@"
+
+
+def emit(value):
+    sys.stdout.write(MARKER + json.dumps(value))
+    sys.stdout.flush()
+
+
+with open(workdir + "/input.json", encoding="utf-8") as handle:
+    payload = json.load(handle)
+try:
+    import mpmath
+    import sympy
+    mpmath.mp.dps = payload["digits"]
+    symbols = {name: sympy.Symbol(name, real=True) for name in payload["symbols"]}
+    expression = sympy.sympify(payload["expression"], locals=symbols)
+    conditions = [sympy.sympify(text, locals=symbols) for text in payload["conditions"]]
+except BaseException as exc:
+    emit({"error": type(exc).__name__ + ": " + str(exc)[:300]})
+    sys.exit(0)
+
+
+def exact(pair):
+    return sympy.Rational(int(pair[0]), int(pair[1]))
+
+
+def real(value):
+    value = mpmath.mpmathify(value)
+    if isinstance(value, mpmath.mpc):
+        if value.imag != 0:
+            return "complex"
+        value = value.real
+    if not mpmath.isfinite(value):
+        return "not finite"
+    return mpmath.nstr(value, 40, strip_zeros=False)
+
+
+def compiled(form, symbol):
+    form = form.doit()
+    if symbol is None or form.has(sympy.Sum):
+        return None, form
+    return sympy.lambdify([symbol], form, modules="mpmath"), form
+
+
+groups = []
+for group in payload["groups"]:
+    fixed = {symbols[name]: exact(pair) for name, pair in group["params"].items()}
+    symbol = symbols[group["var"]] if group["var"] else None
+    entry = {"values": [], "conditions": []}
+    try:
+        value_fn, value_form = compiled(expression.subs(fixed), symbol)
+        condition_forms = [compiled(condition.subs(fixed), symbol) for condition in conditions]
+    except BaseException as exc:
+        groups.append({"error": type(exc).__name__ + ": " + str(exc)[:200]})
+        continue
+    samples = group["samples"] if symbol is not None else [None]
+    for sample in samples:
+        argument = None if sample is None else mpmath.mpf(int(sample[0])) / int(sample[1])
+        try:
+            if value_fn is not None:
+                entry["values"].append(real(value_fn(argument)))
+            else:
+                form = value_form if symbol is None else value_form.subs(symbol, exact(sample)).doit()
+                entry["values"].append(real(sympy.N(form, payload["digits"])))
+        except BaseException as exc:
+            entry["values"].append("error: " + type(exc).__name__)
+        truths = []
+        for function, form in condition_forms:
+            try:
+                if function is not None:
+                    truths.append(bool(function(argument)))
+                else:
+                    truth = form if symbol is None else form.subs(symbol, exact(sample))
+                    truths.append(bool(truth))
+            except BaseException:
+                truths.append(None)
+        entry["conditions"].append(truths)
+    groups.append(entry)
+emit({"groups": groups})
+'''
+
+
+def display_agreement(compiled: S.CompiledFigure, name: str, *, run: Callable[..., Any] | None = None
+                      ) -> dict[str, Any]:
+    """Rule (d), computed in code after the check passed (no model call):
+    at every point of the parameter grid and every plotted sample, the value
+    the figure DISPLAYS equals the checked SymPy expression (the unmodified
+    production translation, :func:`grammar.to_sympy`) evaluated by mpmath at
+    50 digits, to a relative or absolute 1e-9, and every piecewise condition
+    chooses the same branch. Any disagreement, a value that is not finite, a
+    SymPy evaluation that fails, or a sandbox that cannot run: not agreed.
+
+    The SymPy text is read only inside the PF-b sandbox, by the fixed
+    harness above; the comparison is made here."""
+
+    from learnloop.content.authoring.pf_sandbox import SandboxLimits, SandboxUnavailable, run_sandboxed_python
+
+    definitions = compiled.definitions
+    node = definitions[name]
+    conditions, in_body = _conditions(node, definitions)
+    if in_body:
+        return {"agreed": False, "reason": "a piecewise choice sits inside a sum's body, which the display cannot "
+                                           "pin down sample by sample"}
+    groups = _displayed(compiled, name)
+    if not groups:
+        return {"agreed": False, "reason": "the checked definition is not drawn"}
+    symbols = sorted({parameter.name for parameter in compiled.parameters}
+                     | {var for var, _samples, _values, _env in groups if var})
+    payload = {
+        "digits": AGREEMENT_DIGITS,
+        "expression": G.to_sympy(node, definitions),
+        "conditions": [G.to_sympy(condition, definitions) for condition in conditions],
+        "symbols": symbols,
+        "groups": [{"params": {key: _exact(value) for key, value in env.items()}, "var": var,
+                    "samples": [_exact(sample) for sample in samples]} for var, samples, _values, env in groups],
+    }
+    kwargs: dict[str, Any] = {"limits": SandboxLimits(cpu_seconds=40, wall_seconds=90)}
+    if run is not None:
+        kwargs["run"] = run
+    try:
+        result = run_sandboxed_python(_DISPLAY_HARNESS, payload, **kwargs)
+    except SandboxUnavailable:
+        return {"agreed": False, "reason": "the display could not be compared with the check (no sandbox)"}
+    output = result.output if result.ok and isinstance(result.output, dict) else None
+    if output is None or "error" in output or len(output.get("groups") or []) != len(groups):
+        why = (output or {}).get("error") or result.error or "no result"
+        return {"agreed": False, "reason": f"the checked equation could not be evaluated where it is drawn ({why})"}
+    checked = 0
+    for (var, samples, values, env), answer in zip(groups, output["groups"]):
+        if "error" in answer:
+            return {"agreed": False, "reason": f"the checked equation could not be evaluated ({answer['error']})"}
+        points = samples if var else [None]
+        if len(answer["values"]) != len(points) or len(answer["conditions"]) != len(points):
+            return {"agreed": False, "reason": "the comparison was incomplete"}
+        for sample, shown, reference, truths in zip(points, values, answer["values"], answer["conditions"]):
+            at = dict(env)
+            if var:
+                at[var] = sample
+            where = ", ".join(f"{key}={value:g}" for key, value in at.items()) or "the defaults"
+            if shown is None or not math.isfinite(shown):
+                return {"agreed": False, "reason": f"the figure shows no finite value at {where}"}
+            try:
+                exact_value = float(reference)
+            except (TypeError, ValueError):
+                return {"agreed": False, "reason": f"the checked equation is {reference} at {where}"}
+            gap = abs(shown - exact_value)
+            if not (gap <= AGREEMENT_TOLERANCE or gap <= AGREEMENT_TOLERANCE * abs(exact_value)):
+                return {"agreed": False, "reason": f"the figure shows {shown:.12g} where the checked equation is "
+                                                   f"{exact_value:.12g} (at {where})"}
+            for condition, truth in zip(conditions, truths):
+                if truth is None or G._truth(condition, at, definitions) is not truth:
+                    return {"agreed": False, "reason": f"a piecewise branch the figure takes is not the checked "
+                                                       f"equation's (at {where})"}
+            checked += 1
+    return {"agreed": True, "reason": "", "samples": checked}
+
+
 def equals_source_definitions(compiled: S.CompiledFigure) -> list[str]:
     """Every definition an ``equals_source`` invariant names, once each, in
     order. A figure is ``verified`` only when every one of them is checked
@@ -567,10 +834,12 @@ __all__ = [
     "check_claims",
     "check_invariant",
     "decidable_predictions",
+    "display_agreement",
     "displayed_source_problem",
     "equals_source_definition",
     "equals_source_definitions",
     "independent_integral",
+    "literal_problem",
     "negative_controls",
     "parameter_grid",
     "quote_in",

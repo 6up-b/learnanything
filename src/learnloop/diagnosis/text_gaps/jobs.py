@@ -37,6 +37,8 @@ from learnloop.diagnosis.text_gaps.sources import (
     SourceWithheld,
     StuckTextSource,
     attempt_grade_held,
+    figures_enabled,
+    is_figure_prediction,
     formative_row,
     hint_feedback_ids,
     hint_feedback_row,
@@ -165,6 +167,8 @@ def enqueue_figure_prediction(
     missed one with an answer; a matched prediction queues nothing.
     Idempotent per prediction (its "what changed?": :func:`enqueue_figure_explanation`)."""
 
+    if not figures_enabled(vault):
+        return None  # figures off: nothing figure-derived is queued (fix round 4)
     return enqueue_reader_formative(vault, repository, question_id=prediction_id, clock=clock)
 
 
@@ -184,14 +188,16 @@ def enqueue_figure_explanation(
 
     from learnloop.diagnosis.text_gaps.sources import FIGURE_EXPLANATION_SUFFIX
 
-    if not pipeline_enabled(vault):
+    if not pipeline_enabled(vault) or not figures_enabled(vault):
         return None
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         job = store.job_for_source(connection, "reader_formative", prediction_id)
         read = store.gap_for_source(connection, "reader_formative", prediction_id)
     if job is None and read is None:
         return enqueue_figure_prediction(vault, repository, prediction_id=prediction_id, clock=clock)
-    if job is not None and job.get("state") == "queued":
+    if job is not None and job.get("state") == "queued" and not _reading_checkpointed(job):
+        return None
+    if job is not None and ((job.get("payload") or {}).get("markers") or {}).get("explanation_read") is True:
         return None
     return enqueue_reader_formative(vault, repository, question_id=prediction_id + FIGURE_EXPLANATION_SUFFIX,
                                     clock=clock)
@@ -298,10 +304,12 @@ def sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | 
                 counts["stuck_answer"] += 1
     if "reader_formative" in kinds and bool(getattr(getattr(vault.config, "reader_formative", None), "enabled",
                                                     False)):
-        for question_id in missed_formative_ids(repository):
+        figures = figures_enabled(vault)
+        for question_id in missed_formative_ids(repository, figures=figures):
             if queue("reader_formative", question_id):
                 counts["reader_formative"] += 1
-        for source_id in _unread_figure_explanations(repository, job_rows, gap_rows):
+        # Figure explanations only while figures are on (fix round 4).
+        for source_id in (_unread_figure_explanations(repository, job_rows, gap_rows) if figures else ()):
             if queue("reader_formative", source_id):
                 counts["reader_formative"] += 1
     if "hint_feedback" in kinds and hint_feedback_enabled(vault):
@@ -330,6 +338,14 @@ def sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | 
     return counts
 
 
+def _reading_checkpointed(job: Mapping[str, Any]) -> bool:
+    """Whether a job already holds a reading (its markers are checkpointed
+    with it, fix round 4): a retry reuses that reading, so a later
+    explanation is its own text."""
+
+    return isinstance((job.get("payload") or {}).get("markers"), Mapping)
+
+
 def _unread_figure_explanations(repository: Repository, job_rows: Mapping[tuple[str, str], Mapping[str, Any]],
                                 gap_rows: Mapping[tuple[str, str], Mapping[str, Any]]) -> list[str]:
     """The ``<prediction id>:explained`` sources the backlog owes (fix round
@@ -353,7 +369,7 @@ def _unread_figure_explanations(repository: Repository, job_rows: Mapping[tuple[
         job, gap = job_rows.get(key), gap_rows.get(key)
         if job is None and gap is None:
             continue
-        if job is not None and job.get("state") in ("queued", "leased"):
+        if job is not None and job.get("state") in ("queued", "leased") and not _reading_checkpointed(job):
             continue
         if job is not None and ((job.get("payload") or {}).get("markers") or {}).get("explanation_read") is True:
             continue
@@ -429,6 +445,15 @@ def process_next_gap_job(
             outcome.state = "deferred" if released else "lease_lost"
             outcome.error = "daily_cap"
             return outcome
+    if outcome.source_kind == "reader_formative" and is_figure_prediction(outcome.source_id) \
+            and not figures_enabled(vault):
+        # Figures off (fix round 4): a figure text already queued is not read,
+        # and no model is called; it waits (deferred, not failed) for the
+        # switch, attempt refunded.
+        released = release(not_before=_next_day(clock), error="deferred: figures.enabled is off", refund=True)
+        outcome.state = "deferred" if released else "lease_lost"
+        outcome.error = "figures_disabled"
+        return outcome
     try:
         text = learner_text(vault, repository, outcome.source_kind, outcome.source_id, stuck_source=stuck_source)
     except SourceWithheld as exc:
@@ -439,6 +464,13 @@ def process_next_gap_job(
         return skip("nothing to read", None)
 
     def save_progress(payload: Mapping[str, Any]) -> None:
+        payload = dict(payload)
+        if "markers" not in payload and text.markers:
+            # The markers are checkpointed with the reading they describe
+            # (fix round 4): the first checkpoint of this text holds them, and
+            # a retry that reuses that reading keeps them, whatever the text
+            # says now.
+            payload["markers"] = dict(text.markers)
         progress.clear()
         progress.update(payload)
         with repository.atomic():
@@ -467,10 +499,10 @@ def process_next_gap_job(
                               outcome=outcome, error=f"{type(exc).__name__}: {exc}"[:500])
     if row is None:
         return skip("learner_text_gaps.enabled is off", text)
-    if text.markers:
-        # What this reading read, on its job (fix round 3): the backlog
-        # reconciles a later figure explanation by it.
-        save_progress({**progress, "markers": dict(text.markers)})
+    if text.markers and "markers" not in progress:
+        # A reading that never checkpointed: its markers are this text's
+        # (fix round 3); otherwise the checkpoint's stand (fix round 4).
+        save_progress(dict(progress))
     if not finish("done"):
         outcome.state = "lease_lost"
     outcome.gap_id, outcome.action = str(row["id"]), str(row["action"])
@@ -568,7 +600,7 @@ def run_pending(
         outcomes.append(result)
         # One text backing off (``retry_later``) never stops the drain
         # (re-review F3); a spend stop or the daily cap does.
-        if result.state in ("deferred", "lease_lost"):
+        if result.state in ("deferred", "lease_lost") and result.error != "figures_disabled":
             break
     return outcomes
 

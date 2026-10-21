@@ -656,6 +656,11 @@ def _source_match(vault: Any, repository: Repository, compiled: S.CompiledFigure
     untranslatable = G.sympy_problem(compiled.definitions[name], compiled.definitions)
     if untranslatable is not None:
         return {"matched": False, "definition": name, "reason": untranslatable}, 0
+    # Rule (a), fix round 4: only small exact decimal literals, so SymPy's
+    # exact reading and the evaluator's doubles cannot part on a literal.
+    inexact = V.literal_problem(compiled.definitions[name], compiled.definitions)
+    if inexact is not None:
+        return {"matched": False, "definition": name, "reason": inexact}, 0
     verifier = R.FigureRoute(vault, repository, R.VERIFIER_TASK, client=client, envelope=envelope,
                              owner_id=f"figure:{request_id}", max_calls=R.MAX_VERIFIER_CALLS)
     problem = verifier.problem()
@@ -678,6 +683,14 @@ def _source_match(vault: Any, repository: Repository, compiled: S.CompiledFigure
     result = V.run_source_match(answer, V.SourceCheck(output.source_expression, output.check_program,
                                                       quote=output.source_quote), run=sandbox_run)
     result.update({"definition": name, "source_expression": output.source_expression[:2000], "model": verifier.model})
+    if result.get("matched"):
+        # Rule (d), fix round 4: "checked" is certified by what is DISPLAYED.
+        # The figure's own values must equal the checked equation at every
+        # grid point and plotted sample (in code, no model call).
+        agreement = V.display_agreement(compiled, name, run=sandbox_run)
+        result["display_agreement"] = agreement
+        if not agreement["agreed"]:
+            result.update({"matched": False, "reason": agreement["reason"]})
     return result, verifier.made
 
 

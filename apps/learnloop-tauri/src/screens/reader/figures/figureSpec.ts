@@ -33,6 +33,8 @@ export const DIRECTIONS = ["rises", "falls", "same"] as const;
 export const SAME_TOLERANCE = 1e-6;
 // At most this many PMF bars (the Python twin's MAX_BARS).
 export const MAX_BARS = 200;
+// The widest a function plot's x range may be: its samples must not overflow (fix round 4; the Python twin's MAX_DOMAIN_SPAN).
+export const MAX_DOMAIN_SPAN = 1e12;
 
 export interface FigureParameter { name: string; label: string; min: number; max: number; step: number; default: number; animate?: boolean }
 export interface FigureAxis { var: string; min: number; max: number }
@@ -85,26 +87,27 @@ export function defaults(compiled: CompiledFigure): Env {
   return env;
 }
 
-/** The variables and parameters node needs, definitions expanded where used. */
+/** The variables and parameters node needs, definitions expanded where used; iterative (fix round 4). */
 export function expandedFree(node: FigureNode, defs: Definitions, bound: Set<string> = new Set(), seen: string[] = []): Set<string> {
-  if (node.kind === "name") {
-    const name = node.text;
-    if (bound.has(name) || Object.prototype.hasOwnProperty.call(CONSTANTS, name)) return new Set();
-    if (defs.has(name) && !seen.includes(name)) return expandedFree(defs.get(name) as FigureNode, defs, bound, [...seen, name]);
-    return new Set([name]);
-  }
-  if (node.kind === "integral" || node.kind === "sum") {
-    const [body, lower, upper] = node.args;
-    return new Set([
-      ...expandedFree(body, defs, new Set([...bound, node.text]), seen),
-      ...expandedFree(lower, defs, bound, seen),
-      ...expandedFree(upper, defs, bound, seen),
-    ]);
-  }
   const found = new Set<string>();
-  for (const child of node.args) for (const name of expandedFree(child, defs, bound, seen)) found.add(name);
+  const stack: Array<[FigureNode, Set<string>, string[]]> = [[node, bound, seen]];
+  while (stack.length) {
+    const [current, scope, chain] = stack.pop() as [FigureNode, Set<string>, string[]];
+    if (current.kind === "name") {
+      const name = current.text;
+      if (scope.has(name) || Object.prototype.hasOwnProperty.call(CONSTANTS, name)) continue;
+      if (defs.has(name) && !chain.includes(name)) stack.push([defs.get(name) as FigureNode, scope, [...chain, name]]);
+      else found.add(name);
+    } else if (current.kind === "integral" || current.kind === "sum") {
+      const [body, lower, upper] = current.args;
+      stack.push([body, new Set([...scope, current.text]), chain], [lower, scope, chain], [upper, scope, chain]);
+    } else {
+      for (const child of current.args) stack.push([child, scope, chain]);
+    }
+  }
   return found;
 }
+
 
 function boundVariables(node: FigureNode): string[] {
   return [...walk(node)].filter((child) => child.kind === "integral" || child.kind === "sum").map((child) => child.text);
@@ -112,6 +115,17 @@ function boundVariables(node: FigureNode): string[] {
 
 /** Compile a spec: every expression parsed, every name resolved; FigureSpecError otherwise. */
 export function compileSpec(raw: FigureSpec | string): CompiledFigure {
+  try {
+    return compileChecked(raw);
+  } catch (error) {
+    // A safety net only: the iterative passes and the expanded-depth cap keep
+    // compilation inside the stack (fix round 4).
+    if (error instanceof RangeError) throw new FigureSpecError(["an expression nests too deeply to check"]);
+    throw error;
+  }
+}
+
+function compileChecked(raw: FigureSpec | string): CompiledFigure {
   const spec: FigureSpec = typeof raw === "string" ? (JSON.parse(raw) as FigureSpec) : raw;
   const problems: string[] = [];
   const problem = (text: string) => {
@@ -191,6 +205,7 @@ export function compileSpec(raw: FigureSpec | string): CompiledFigure {
     if (panel.kind === "function_plot" || panel.kind === "pmf_bars") {
       const axis = panel.kind === "function_plot" ? panel.x : panel.k;
       if (!(Number.isFinite(axis.min) && Number.isFinite(axis.max) && axis.min < axis.max)) problem(`${where}: its range must be finite with min below max`);
+      else if (panel.kind === "function_plot" && axis.max - axis.min > MAX_DOMAIN_SPAN) problem(`${where}: its range may span at most ${MAX_DOMAIN_SPAN}`);
       if (panel.kind === "pmf_bars" && Number.isFinite(axis.min) && Number.isFinite(axis.max)) {
         // The Python twin's checks, in its order (fix round 2): past the safe
         // integers k + 1 === k, so the bars' loop would never end.

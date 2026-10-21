@@ -356,48 +356,90 @@ def parse(source: str) -> Node:
 # ---------------------------------------------------------------------------
 
 def walk(node: Node):
-    yield node
-    for child in node.args:
-        yield from walk(child)
+    """Every node of ``node`` (no expansion), parent before children, left to
+    right. Iterative (fix round 4): no pass over a tree recurses."""
+
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        yield current
+        stack.extend(reversed(current.args))
 
 
 def free_names(node: Node, bound: frozenset[str] = frozenset()) -> set[str]:
     """Names a node reads that it does not bind itself."""
 
-    if node.kind == "name":
-        return set() if node.text in bound or node.text in CONSTANTS else {node.text}
-    if node.kind in ("integral", "sum"):
-        body, lower, upper = node.args
-        return free_names(body, bound | {node.text}) | free_names(lower, bound) | free_names(upper, bound)
     found: set[str] = set()
-    for child in node.args:
-        found |= free_names(child, bound)
+    stack = [(node, frozenset(bound))]
+    while stack:
+        current, scope = stack.pop()
+        if current.kind == "name":
+            if current.text not in scope and current.text not in CONSTANTS:
+                found.add(current.text)
+        elif current.kind in ("integral", "sum"):
+            body, lower, upper = current.args
+            stack += [(body, scope | {current.text}), (lower, scope), (upper, scope)]
+        else:
+            stack += [(child, scope) for child in current.args]
     return found
 
 
-def node_count(node: Node, definitions: Mapping[str, Node], *, _seen: tuple[str, ...] = ()) -> int:
-    """Nodes after expanding definitions (a bound on one evaluation's work)."""
+#: The deepest an expression may be once its definitions are expanded (fix
+#: round 4): every recursive pass (the evaluators, the SymPy translation) is
+#: bounded by it, far inside Python's recursion limit. figureGrammar.ts has
+#: the same cap.
+MAX_EXPANDED_DEPTH = 700
 
-    if node.kind == "name" and node.text in definitions and node.text not in _seen:
-        return node_count(definitions[node.text], definitions, _seen=(*_seen, node.text))
-    return 1 + sum(node_count(child, definitions, _seen=_seen) for child in node.args)
+
+def expansion(node: Node, definitions: Mapping[str, Node], *, limit: int = MAX_EXPANDED_NODES):
+    """``(node, depth)`` for every node of ``node`` with definitions expanded
+    (a definition's name stands for its body, at the name's depth), parent
+    first; iterative, and it stops after ``limit + 1`` nodes (a caller
+    comparing against the cap needs no more)."""
+
+    stack: list[tuple[Node, int, tuple[str, ...]]] = [(node, 1, ())]
+    count = 0
+    while stack:
+        current, depth, seen = stack.pop()
+        if current.kind == "name" and current.text in definitions and current.text not in seen:
+            stack.append((definitions[current.text], depth, (*seen, current.text)))
+            continue
+        count += 1
+        yield current, depth
+        if count > limit:
+            return
+        stack.extend((child, depth + 1, seen) for child in reversed(current.args))
 
 
-def has_bound_form(node: Node, definitions: Mapping[str, Node], *, _seen: tuple[str, ...] = ()) -> bool:
-    if node.kind in ("integral", "sum"):
-        return True
-    if node.kind == "name" and node.text in definitions and node.text not in _seen:
-        return has_bound_form(definitions[node.text], definitions, _seen=(*_seen, node.text))
-    return any(has_bound_form(child, definitions, _seen=_seen) for child in node.args)
+def node_count(node: Node, definitions: Mapping[str, Node]) -> int:
+    """Nodes after expanding definitions (a bound on one evaluation's work),
+    counted up to ``MAX_EXPANDED_NODES + 1``."""
+
+    return sum(1 for _ in expansion(node, definitions))
+
+
+def expanded_depth(node: Node, definitions: Mapping[str, Node]) -> int:
+    """How deep ``node`` is with definitions expanded (within the node cap)."""
+
+    return max((depth for _node, depth in expansion(node, definitions)), default=0)
+
+
+def has_bound_form(node: Node, definitions: Mapping[str, Node]) -> bool:
+    return any(current.kind in ("integral", "sum") for current, _depth in expansion(node, definitions))
 
 
 def check_names(node: Node, *, known: frozenset[str], definitions: Mapping[str, Node]) -> None:
-    """Every name is known; no integral or sum sits inside another (after
-    expanding definitions); the expanded expression stays inside the cap."""
+    """Every name is known; the expanded expression stays inside the node and
+    depth caps (checked first, by iterative passes, fix round 4); no integral
+    or sum sits inside another (after expanding definitions)."""
 
     for name in sorted(free_names(node)):
         if name not in known and name not in definitions:
             raise GrammarError(f"unknown name {name!r}")
+    if node_count(node, definitions) > MAX_EXPANDED_NODES:
+        raise GrammarError(f"expression expands to more than {MAX_EXPANDED_NODES} nodes")
+    if expanded_depth(node, definitions) > MAX_EXPANDED_DEPTH:
+        raise GrammarError(f"expression nests deeper than {MAX_EXPANDED_DEPTH} once its definitions are expanded")
     for child in walk(node):
         if child.kind in ("integral", "sum"):
             if child.text in definitions:
@@ -407,8 +449,7 @@ def check_names(node: Node, *, known: frozenset[str], definitions: Mapping[str, 
             for bound in child.args[1:]:
                 if has_bound_form(bound, definitions):
                     raise GrammarError("no integral or sum inside an integral's or sum's bounds")
-    if node_count(node, definitions) > MAX_EXPANDED_NODES:
-        raise GrammarError(f"expression expands to more than {MAX_EXPANDED_NODES} nodes")
+
 
 
 # ---------------------------------------------------------------------------
@@ -622,56 +663,59 @@ def canonical(value: float) -> float:
 def evaluate(node: Node, env: Mapping[str, float], definitions: Mapping[str, Node] | None = None) -> float:
     """The value of ``node`` with ``env`` (variables and parameters) and
     ``definitions`` (named expressions, evaluated where they are used). An
-    unbound name is NaN. Every node's value is :func:`canonical` (no -0)."""
+    unbound name is NaN. Every node's value is :func:`canonical` (no -0).
 
-    return canonical(_evaluate_node(node, env, definitions))
+    One Python frame per level of the expanded expression (fix round 4): the
+    compiler caps that depth (:data:`MAX_EXPANDED_DEPTH`), so evaluation never
+    reaches the interpreter's recursion limit."""
 
-
-def _evaluate_node(node: Node, env: Mapping[str, float], definitions: Mapping[str, Node] | None) -> float:
     defs = definitions or {}
     kind = node.kind
     if kind == "num":
-        return node.value
-    if kind == "name":
+        value = node.value
+    elif kind == "name":
         name = node.text
         if name in env:
-            return float(env[name])
-        if name in defs:
-            return evaluate(defs[name], env, defs)
-        if name in CONSTANTS:
-            return CONSTANTS[name]
-        return NAN
-    if kind == "neg":
-        return -evaluate(node.args[0], env, defs)
-    if kind == "bin":
+            value = float(env[name])
+        elif name in defs:
+            value = evaluate(defs[name], env, defs)
+        elif name in CONSTANTS:
+            value = CONSTANTS[name]
+        else:
+            value = NAN
+    elif kind == "neg":
+        value = -evaluate(node.args[0], env, defs)
+    elif kind == "bin":
         a = evaluate(node.args[0], env, defs)
         b = evaluate(node.args[1], env, defs)
         op = node.op
         if op == "+":
-            return a + b
-        if op == "-":
-            return a - b
-        if op == "*":
-            if (a == 0.0 and math.isinf(b)) or (b == 0.0 and math.isinf(a)):
-                return NAN
-            return a * b
-        if op == "/":
-            return _div(a, b)
-        return _pow(a, b)
-    if kind == "call":
+            value = a + b
+        elif op == "-":
+            value = a - b
+        elif op == "*":
+            value = NAN if (a == 0.0 and math.isinf(b)) or (b == 0.0 and math.isinf(a)) else a * b
+        elif op == "/":
+            value = _div(a, b)
+        else:
+            value = _pow(a, b)
+    elif kind == "call":
         values = [evaluate(child, env, defs) for child in node.args]
         if node.text == "min":
-            return _extreme(values, min)
-        if node.text == "max":
-            return _extreme(values, max)
-        return _UNARY[node.text](values[0])
-    if kind == "piecewise":
+            value = _extreme(values, min)
+        elif node.text == "max":
+            value = _extreme(values, max)
+        else:
+            value = _UNARY[node.text](values[0])
+    elif kind == "piecewise":
         args = node.args
+        chosen = args[-1]
         for index in range(0, len(args) - 1, 2):
             if _truth(args[index], env, defs):
-                return evaluate(args[index + 1], env, defs)
-        return evaluate(args[-1], env, defs)
-    if kind in ("integral", "sum"):
+                chosen = args[index + 1]
+                break
+        value = evaluate(chosen, env, defs)
+    elif kind in ("integral", "sum"):
         body, lower, upper = node.args
         a = evaluate(lower, env, defs)
         b = evaluate(upper, env, defs)
@@ -682,8 +726,11 @@ def _evaluate_node(node: Node, env: Mapping[str, float], definitions: Mapping[st
             scope[variable] = t
             return evaluate(body, scope, defs)
 
-        return adaptive_simpson(at, a, b) if kind == "integral" else exact_sum(at, a, b)
-    raise GrammarError(f"cannot evaluate a {kind!r} node")
+        value = adaptive_simpson(at, a, b) if kind == "integral" else exact_sum(at, a, b)
+    else:
+        raise GrammarError(f"cannot evaluate a {kind!r} node")
+    return 0.0 if value == 0 else value
+
 
 
 # ---------------------------------------------------------------------------
@@ -795,6 +842,7 @@ __all__ = [
     "FUNCTIONS",
     "GrammarError",
     "MAX_DEPTH",
+    "MAX_EXPANDED_DEPTH",
     "MAX_EXPR_CHARS",
     "MAX_NODES",
     "MAX_SAFE_INTEGER",
@@ -807,6 +855,8 @@ __all__ = [
     "check_names",
     "evaluate",
     "exact_sum",
+    "expanded_depth",
+    "expansion",
     "free_names",
     "has_bound_form",
     "is_name",

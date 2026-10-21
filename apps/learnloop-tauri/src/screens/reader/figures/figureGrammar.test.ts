@@ -247,3 +247,34 @@ describe("property corpus (fix round 3)", () => {
     expect(propertyCorpus.cases.length).toBeGreaterThan(3000);
   });
 });
+
+describe("bounded compilation (fix round 4)", () => {
+  const chain = (levels: number): FigureSpec => {
+    const zeros = " + 0".repeat(90);
+    const definitions = [{ name: "f0", expr: `x${zeros}` }];
+    for (let index = 1; index < levels; index += 1) definitions.push({ name: `f${index}`, expr: `f${index - 1}${zeros}` });
+    return {
+      spec_version: "ifs-v1", kind: "illustrative", demonstrates: "a chain", definitions,
+      panels: [{ kind: "function_plot", x: { var: "x", min: -1, max: 1 }, series: [{ expr: `f${levels - 1}`, label: "f" }] }],
+    } as unknown as FigureSpec;
+  };
+
+  it("compiles and evaluates the verify's seven-level chain", () => {
+    const data = evaluateFigure(compileSpec(chain(7)));
+    const panel = data.panels[0];
+    if (panel.kind !== "function_plot") throw new Error("a function plot");
+    expect(panel.series[0].y[0]).toBe(-1);
+  });
+
+  it("refuses a chain past the expanded-depth cap, as Python does", () => {
+    expect(() => compileSpec(chain(9))).toThrow(/deeper than 700/);
+  });
+
+  it("refuses a plot domain whose samples would overflow", () => {
+    const spec = {
+      spec_version: "ifs-v1", kind: "illustrative", demonstrates: "a constant",
+      panels: [{ kind: "function_plot", x: { var: "x", min: -1e308, max: 1e308 }, series: [{ expr: "1", label: "one" }] }],
+    } as unknown as FigureSpec;
+    expect(() => compileSpec(spec)).toThrow(/span/);
+  });
+});

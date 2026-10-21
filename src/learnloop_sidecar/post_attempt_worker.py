@@ -183,8 +183,10 @@ class PostAttemptWorker:
             with self._changed:
                 self._changed.notify_all()
             # ``deferred``: the daily cap or a spend stop; the rest waits.
-            # One text backing off (``retry_later``) does not stop the drain.
-            if result.state in ("deferred", "lease_lost"):
+            # One text backing off (``retry_later``) does not stop the drain,
+            # nor does a figure text held while figures are off (RW5a fix
+            # round 4: it waits for the switch, the rest is read).
+            if result.state in ("deferred", "lease_lost") and getattr(result, "error", None) != "figures_disabled":
                 break
         return outcomes
 

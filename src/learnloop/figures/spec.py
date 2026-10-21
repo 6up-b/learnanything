@@ -50,6 +50,9 @@ MAX_TEXT = 400
 MAX_LABEL = 80
 MAX_QUOTE = 600
 MAX_STEPS = 10_000
+#: The widest a function plot's x range may be (fix round 4): its samples are
+#: computed from it, and the renderer pads it.
+MAX_DOMAIN_SPAN = 1e12
 #: The answers a ``direction`` prediction offers (UX W11).
 DIRECTIONS = ("rises", "falls", "same")
 DIRECTION_LABELS = {"rises": "it rises", "falls": "it falls", "same": "it stays the same"}
@@ -254,23 +257,28 @@ class CompiledFigure:
 def expanded_free(node: G.Node, definitions: Mapping[str, G.Node], bound: frozenset[str] = frozenset(),
                   _seen: tuple[str, ...] = ()) -> set[str]:
     """The variables and parameters ``node`` needs, definitions expanded
-    where they are used (a bound variable reaches a definition's body)."""
+    where they are used (a bound variable reaches a definition's body).
+    Iterative (fix round 4)."""
 
-    if node.kind == "name":
-        name = node.text
-        if name in bound or name in G.CONSTANTS:
-            return set()
-        if name in definitions and name not in _seen:
-            return expanded_free(definitions[name], definitions, bound, (*_seen, name))
-        return {name}
-    if node.kind in ("integral", "sum"):
-        body, lower, upper = node.args
-        return (expanded_free(body, definitions, bound | {node.text}, _seen)
-                | expanded_free(lower, definitions, bound, _seen) | expanded_free(upper, definitions, bound, _seen))
     found: set[str] = set()
-    for child in node.args:
-        found |= expanded_free(child, definitions, bound, _seen)
+    stack: list[tuple[G.Node, frozenset[str], tuple[str, ...]]] = [(node, frozenset(bound), tuple(_seen))]
+    while stack:
+        current, scope, seen = stack.pop()
+        if current.kind == "name":
+            name = current.text
+            if name in scope or name in G.CONSTANTS:
+                continue
+            if name in definitions and name not in seen:
+                stack.append((definitions[name], scope, (*seen, name)))
+            else:
+                found.add(name)
+        elif current.kind in ("integral", "sum"):
+            body, lower, upper = current.args
+            stack += [(body, scope | {current.text}, seen), (lower, scope, seen), (upper, scope, seen)]
+        else:
+            stack += [(child, scope, seen) for child in current.args]
     return found
+
 
 
 class _Compiler:
@@ -401,6 +409,9 @@ class _Compiler:
             axis = panel.x if isinstance(panel, FunctionPlot) else panel.k
             if not (math.isfinite(axis.min) and math.isfinite(axis.max) and axis.min < axis.max):
                 self.problem(f"{where}: its range must be finite with min below max")
+            elif isinstance(panel, FunctionPlot) and axis.max - axis.min > MAX_DOMAIN_SPAN:
+                # Its samples (min + span * i / SAMPLES) must not overflow (fix round 4).
+                self.problem(f"{where}: its range may span at most {MAX_DOMAIN_SPAN:g}")
             if isinstance(panel, PmfBars) and math.isfinite(axis.min) and math.isfinite(axis.max):
                 if axis.min != math.floor(axis.min) or axis.max != math.floor(axis.max):
                     self.problem(f"{where}: k's range must be whole numbers")
@@ -486,7 +497,12 @@ def parse_spec(raw: str | Mapping[str, Any]) -> CompiledFigure:
             where = ".".join(str(part) for part in error.get("loc", ()))
             problems.append(f"{where}: {error.get('msg')}")
         raise SpecError(problems) from exc
-    return _Compiler(spec).compile()
+    try:
+        return _Compiler(spec).compile()
+    except RecursionError as exc:
+        # A safety net only: the iterative passes and the expanded-depth cap
+        # keep compilation inside the limit (fix round 4).
+        raise SpecError(["an expression nests too deeply to check"]) from exc
 
 
 # ---------------------------------------------------------------------------

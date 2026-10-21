@@ -310,42 +310,81 @@ export function parseExpression(source: string): FigureNode {
 // Static checks over a figure's names
 // ---------------------------------------------------------------------------
 
+/** Every node (no expansion), parent first, left to right; iterative (fix round 4). */
 export function* walk(node: FigureNode): Generator<FigureNode> {
-  yield node;
-  for (const child of node.args) yield* walk(child);
+  const stack: FigureNode[] = [node];
+  while (stack.length) {
+    const current = stack.pop() as FigureNode;
+    yield current;
+    for (let index = current.args.length - 1; index >= 0; index -= 1) stack.push(current.args[index]);
+  }
 }
 
 export type Definitions = Map<string, FigureNode>;
 
 export function freeNames(node: FigureNode, bound: Set<string> = new Set()): Set<string> {
-  if (node.kind === "name") return bound.has(node.text) || node.text in CONSTANTS ? new Set() : new Set([node.text]);
-  if (node.kind === "integral" || node.kind === "sum") {
-    const [body, lower, upper] = node.args;
-    return new Set([...freeNames(body, new Set([...bound, node.text])), ...freeNames(lower, bound), ...freeNames(upper, bound)]);
-  }
   const found = new Set<string>();
-  for (const child of node.args) for (const name of freeNames(child, bound)) found.add(name);
+  const stack: Array<[FigureNode, Set<string>]> = [[node, bound]];
+  while (stack.length) {
+    const [current, scope] = stack.pop() as [FigureNode, Set<string>];
+    if (current.kind === "name") {
+      if (!scope.has(current.text) && !Object.prototype.hasOwnProperty.call(CONSTANTS, current.text)) found.add(current.text);
+    } else if (current.kind === "integral" || current.kind === "sum") {
+      const [body, lower, upper] = current.args;
+      stack.push([body, new Set([...scope, current.text])], [lower, scope], [upper, scope]);
+    } else {
+      for (const child of current.args) stack.push([child, scope]);
+    }
+  }
   return found;
 }
 
-export function nodeCount(node: FigureNode, definitions: Definitions, seen: string[] = []): number {
-  if (node.kind === "name" && definitions.has(node.text) && !seen.includes(node.text)) {
-    return nodeCount(definitions.get(node.text) as FigureNode, definitions, [...seen, node.text]);
+// The deepest an expression may be once its definitions are expanded (fix
+// round 4; the Python twin's MAX_EXPANDED_DEPTH): every recursive pass is
+// bounded by it.
+export const MAX_EXPANDED_DEPTH = 700;
+
+/** [node, depth] with definitions expanded (a name stands for its body, at its depth), parent first; stops after limit + 1 nodes. */
+export function* expansion(node: FigureNode, definitions: Definitions, limit = MAX_EXPANDED_NODES): Generator<[FigureNode, number]> {
+  const stack: Array<[FigureNode, number, string[]]> = [[node, 1, []]];
+  let count = 0;
+  while (stack.length) {
+    const [current, depth, seen] = stack.pop() as [FigureNode, number, string[]];
+    if (current.kind === "name" && definitions.has(current.text) && !seen.includes(current.text)) {
+      stack.push([definitions.get(current.text) as FigureNode, depth, [...seen, current.text]]);
+      continue;
+    }
+    count += 1;
+    yield [current, depth];
+    if (count > limit) return;
+    for (let index = current.args.length - 1; index >= 0; index -= 1) stack.push([current.args[index], depth + 1, seen]);
   }
-  return 1 + node.args.reduce((total, child) => total + nodeCount(child, definitions, seen), 0);
 }
 
-export function hasBoundForm(node: FigureNode, definitions: Definitions, seen: string[] = []): boolean {
-  if (node.kind === "integral" || node.kind === "sum") return true;
-  if (node.kind === "name" && definitions.has(node.text) && !seen.includes(node.text)) {
-    return hasBoundForm(definitions.get(node.text) as FigureNode, definitions, [...seen, node.text]);
-  }
-  return node.args.some((child) => hasBoundForm(child, definitions, seen));
+export function nodeCount(node: FigureNode, definitions: Definitions): number {
+  let count = 0;
+  for (const _entry of expansion(node, definitions)) count += 1;
+  return count;
+}
+
+export function expandedDepth(node: FigureNode, definitions: Definitions): number {
+  let deepest = 0;
+  for (const [, depth] of expansion(node, definitions)) deepest = Math.max(deepest, depth);
+  return deepest;
+}
+
+export function hasBoundForm(node: FigureNode, definitions: Definitions): boolean {
+  for (const [current] of expansion(node, definitions)) if (current.kind === "integral" || current.kind === "sum") return true;
+  return false;
 }
 
 export function checkNames(node: FigureNode, known: Set<string>, definitions: Definitions): void {
   for (const name of [...freeNames(node)].sort()) {
     if (!known.has(name) && !definitions.has(name)) throw new FigureGrammarError(`unknown name ${JSON.stringify(name)}`);
+  }
+  if (nodeCount(node, definitions) > MAX_EXPANDED_NODES) throw new FigureGrammarError(`expression expands to more than ${MAX_EXPANDED_NODES} nodes`);
+  if (expandedDepth(node, definitions) > MAX_EXPANDED_DEPTH) {
+    throw new FigureGrammarError(`expression nests deeper than ${MAX_EXPANDED_DEPTH} once its definitions are expanded`);
   }
   for (const child of walk(node)) {
     if (child.kind === "integral" || child.kind === "sum") {
@@ -356,8 +395,8 @@ export function checkNames(node: FigureNode, known: Set<string>, definitions: De
       }
     }
   }
-  if (nodeCount(node, definitions) > MAX_EXPANDED_NODES) throw new FigureGrammarError(`expression expands to more than ${MAX_EXPANDED_NODES} nodes`);
 }
+
 
 // ---------------------------------------------------------------------------
 // Evaluation (IEEE doubles)

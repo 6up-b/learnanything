@@ -608,12 +608,19 @@ def formative_row(repository: Repository, question_id: str) -> dict[str, Any] | 
     return row
 
 
-def missed_formative_ids(repository: Repository) -> list[str]:
-    """Every missed formative answer (:func:`formative_row`'s rule), oldest
-    first, then every missed figure prediction (RW5a): what the backlog sweep
-    may queue."""
+def figures_enabled(vault: LoadedVault) -> bool:
+    """RW5a's kill switch, ``figures.enabled``: off, no figure prediction or
+    explanation is discovered, reconciled, queued or read (fix round 4)."""
 
-    return _missed_answer_ids(repository) + missed_prediction_ids(repository)
+    return bool(getattr(getattr(vault.config, "figures", None), "enabled", True))
+
+
+def missed_formative_ids(repository: Repository, *, figures: bool = True) -> list[str]:
+    """Every missed formative answer (:func:`formative_row`'s rule), oldest
+    first, then, with ``figures`` (:func:`figures_enabled`), every missed
+    figure prediction (RW5a): what the backlog sweep may queue."""
+
+    return _missed_answer_ids(repository) + (missed_prediction_ids(repository) if figures else [])
 
 
 def _missed_answer_ids(repository: Repository) -> list[str]:
@@ -649,7 +656,9 @@ def reader_formative_text(vault: LoadedVault, repository: Repository, question_i
     ones, and the subject theirs when they share one."""
 
     if is_figure_prediction(question_id):
-        return figure_prediction_text(vault, repository, question_id)
+        # Figures off: no figure-derived text is built (fix round 4; the job
+        # runner defers such a job before it gets here).
+        return figure_prediction_text(vault, repository, question_id) if figures_enabled(vault) else None
     row = formative_row(repository, question_id)
     if row is None:
         return None
@@ -965,6 +974,7 @@ __all__ = [
     "FIGURE_PREDICTION_PREFIX",
     "explained_predictions",
     "figure_input_manifest",
+    "figures_enabled",
     "figure_prediction_id",
     "figure_prediction_row",
     "figure_prediction_text",

@@ -141,3 +141,90 @@ def _flip(root: Path) -> None:
     config = root / "learnloop.toml"
     config.write_text(config.read_text(encoding="utf-8").replace("[figures]\nenabled = false",
                                                                  "[figures]\nenabled = true"), encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Fix round 4: figure-derived learner text is switched off with figures
+# ---------------------------------------------------------------------------
+
+BACKLOG_GOLDEN = Path(__file__).parent / "fixtures" / "figures_switch_off_backlog.json"
+
+
+def _switch(root: Path, section: str, enabled: bool) -> None:
+    import re
+
+    config = root / "learnloop.toml"
+    text = config.read_text(encoding="utf-8")
+    value = "true" if enabled else "false"
+    found = re.search(rf"(?ms)^\[{section}\]\n(.*?)(?=^\[|\Z)", text)
+    if found is None:
+        text = text.rstrip("\n") + f"\n\n[{section}]\nenabled = {value}\n"
+    elif re.search(r"(?m)^enabled = ", found.group(1)):
+        body = re.sub(r"(?m)^enabled = \w+", f"enabled = {value}", found.group(1), count=1)
+        text = text[:found.start(1)] + body + text[found.end(1):]
+    else:
+        text = text[:found.start(1)] + f"enabled = {value}\n" + text[found.start(1):]
+    config.write_text(text, encoding="utf-8")
+
+
+def _backlog_dry_run(root: Path) -> dict:
+    from typer.testing import CliRunner
+
+    from learnloop.cli import app
+
+    result = CliRunner().invoke(app, ["gaps", "run", "--vault", str(root), "--backlog", "--dry-run", "--json"])
+    assert result.exit_code == 0, result.output
+    return json.loads(result.output)
+
+
+def test_figures_off_backlog_dry_run_is_the_base_output(tmp_path):
+    """Recorded on an export of e14b4e4ff (RW5A_WRITE_GOLDEN=1, -o pythonpath=<export>/src). Here the vault
+    also holds an unread missed prediction with its explanation (no job), which figures off never sees."""
+
+    from tests.test_reader_report import _seed
+
+    vault, repo, _old = _seed(tmp_path)
+    if WRITE:
+        BACKLOG_GOLDEN.write_text(json.dumps(_backlog_dry_run(vault.root), indent=1, sort_keys=True) + "\n",
+                                  encoding="utf-8")
+        pytest.skip("backlog golden written")
+    _seed_figure_rows(repo)
+    _switch(vault.root, "figures", False)
+    assert _backlog_dry_run(vault.root) == json.loads(BACKLOG_GOLDEN.read_text(encoding="utf-8"))
+    # On, the same vault owes the prediction: the golden is not trivially equal.
+    _switch(vault.root, "figures", True)
+    assert _backlog_dry_run(vault.root)["would_queue"]["reader_formative"] == 1
+
+
+def test_figures_off_queues_and_reads_no_figure_text(tmp_path):
+    from learnloop.diagnosis.text_gaps import jobs as gap_jobs
+    from learnloop.vault.loader import load_vault
+    from tests.test_figures_codex_review import _clients, _missed_prediction
+
+    if WRITE:
+        pytest.skip("the golden is written by the switch-off case")
+    paths, repository, _ctx, found = _missed_prediction(tmp_path)  # figures on: its job is queued
+    prediction_id = found["predictionId"]
+    _switch(paths.root, "figures", False)
+    vault = load_vault(paths.root)
+    assert gap_jobs.enqueue_figure_prediction(vault, repository, prediction_id="fpr_other") is None
+    assert gap_jobs.enqueue_figure_explanation(vault, repository, prediction_id=prediction_id) is None
+    assert gap_jobs.sweep_backlog(vault, repository)["reader_formative"] == 0
+    llm, clients = _clients()
+    outcome = gap_jobs.process_next_gap_job(paths.root, repository, owner="t", clients=clients)
+    assert (outcome.state, outcome.error) == ("deferred", "figures_disabled")
+    assert llm.calls == []  # no model call
+    with repository.connection() as connection:
+        state, error, not_before = connection.execute(
+            "SELECT state, last_error, not_before FROM learner_text_gap_jobs WHERE source_id = ?",
+            (prediction_id,)).fetchone()
+    assert state == "queued" and error == "deferred: figures.enabled is off" and not_before  # deferred, not failed
+    assert gap_jobs.run_pending(paths.root, repository, owner="t", clients=clients) == []  # it waits
+    assert llm.calls == []
+    assert gap_sources_text(vault, repository, prediction_id) is None
+
+
+def gap_sources_text(vault, repository, source_id):
+    from learnloop.diagnosis.text_gaps.sources import learner_text
+
+    return learner_text(vault, repository, "reader_formative", source_id)
