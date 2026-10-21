@@ -120,3 +120,67 @@ Owner rule 2026-10-17: no full suite, durability lane or vitest here. No migrati
 - Fail-before on `f01b40941`'s sources: `tests/test_e0_review_round2.py`, **14 failed, 3 passed** (the 3 are the guards named above).
 - Changed files: `src/learnloop/experiments/contextual_embeddings/{bank,budget,delivery,system_arms}.py`; new `tests/test_e0_review_round2.py`. No production module outside the experiment package changed.
 - The main checkout's tracked fixtures were not opened or changed by this step.
+
+## Fix round 3 (orchestrator)
+
+**Final verify:** Codex job `20261021-120108-Ig3dcp` on `f01b40941..cfb8de724`. It confirmed F1-F9 and F19 fixed. It reopened F20 (Medium) and raised F21 (High). **Fix commit:** `24244b98f`.
+
+Both findings reproduced. Each has regressions in the new `tests/test_e0_review_round3.py` (21 tests). Fail-before ran on `cfb8de724`'s `src`, `migrations` and `calibration_bundles`, extracted with `git archive` and loaded with `pytest -o pythonpath=<archive>/src` (no `git stash`). It gave **15 failed, 6 passed**. The 6 that passed are guards that already held: an empty usage, a NaN cost and a negative cost on the system gate, and an omitted, empty or boolean usage on the hosted adapter. On the old code, the scenario tests failed for the reasons the verify gave. The second usage-less embedding request `DID NOT RAISE` the budget refusal. The keyword-only comparison was ranked as `{'q1': [...]}` with `dense_used: 1`.
+
+**No live, paid or network call was made ($0.00).** The tests use only the fake `openai` module, hash-vector embeddings and fake role clients, behind a socket guard. Service copies run with `ai.active_provider = "manual"`.
+
+| ID | Severity | Title | Verdict | Commit | Tests (in `tests/test_e0_review_round3.py`) |
+|---|---|---|---|---|---|
+| F21 | High | A missing embedding usage releases the spend reservation as zero | fixed | `24244b98f` | `test_f21_omitted_embedding_usage_keeps_the_reservation_through_the_real_wrapper`, `test_f21_a_metered_system_llm_request_without_input_usage_or_cost_keeps_its_reservation` (8 cases), `test_f21_reported_input_tokens_or_an_explicit_cost_still_reconcile`, `test_f21_the_role_gate_never_settles_a_metered_request_from_output_tokens_alone`, `test_f21_a_hosted_embedding_without_positive_usage_keeps_its_reservation` (5 cases), `test_f21_the_ledger_envelope_keeps_a_zero_dollar_reconciliation_reserved` |
+| F20 (reopened) | Medium | A keyword fallback counts as a completed dense ranking | fixed | `24244b98f` | `test_f20_a_keyword_only_comparison_is_missing_for_a_qwen_arm` (the verify's scenario), `test_f20_a_comparison_whose_source_searches_ranked_by_meaning_is_dense`, `test_f20_the_comparison_outcome_needs_every_counted_source_search_dense`, `test_f20_the_search_observer_is_scoped_and_removed` |
+
+### What changed
+
+- **F21.** There is now one rule, `budget.reconciled_usd`. A metered reservation moves, down or up, only on an explicit, finite, nonnegative provider cost, or on a reported, positive input-token count. Anything less keeps the whole reservation as `unknown_billing`, counted against the cap. That covers no usage, an output count alone (the production embedding wrapper's constant `output_tokens=0`), zero input tokens, booleans, NaN and negative values. When input is reported and output is not, the output side is charged at the reserved bound. Every settle path in the package was audited:
+  - `system_arms.SystemRequestGate.settle` (the reported case). Embeddings and metered LLM requests both use the rule. Admissions are a small dataclass that carries the reserved output bound (0 for an embedding).
+  - `callers.E0RequestGate.settle` had the same pattern: one integer, even an output-only one, settled the request. It now uses the rule, with the request's own output bound.
+  - `adapters.EmbeddingAdapter._send` (hosted Perplexity and Voyage). `total_tokens or prompt_tokens` let an explicit `prompt_tokens: 0` settle at $0, and a negative cost would have raised inside the ledger. It now takes the larger positive reported count and the rule.
+  - `budget.LedgerEnvelope.settle` (the production backfill's envelope). The backfill hands over a reconciled dollar figure that cannot say whether it came from a cost or from `input_tokens=0` priced at $0. A $0 or non-finite figure now keeps the reservation.
+  - Unchanged, by design:
+    - `QwenAdapter._embed` already settles at its full estimate.
+    - `LedgerEnvelope.unreserve` releases at $0 only a request that was never sent (production calls it only when another envelope refused).
+    - A request that fails without settling keeps its reservation (`failed`).
+    - `FakeRoleCaller` is a test double.
+- **F20.** Dense use is never inferred from a successful query embedding.
+  - On every interface, a search is dense only when its own `SpanSearch.describe()` has a `meaning` list and dense status `ready` (`system_arms._dense_ran`). That covers `find_sources`, on every page, `dense_plus_bm25_first_page` and `pool_verify`.
+  - For a delegated comparison, `compare_sources` does not record how each per-source search ranked. So `rank_system` observes those searches at their one call. `observe_compare_searches` is a pass-through around `learnloop.source_retrieval.compare.search_spans`. It is installed while any observer is active, records into the current context only (a `ContextVar`, so threads never mix), and is removed with the last observer. Arguments and results are untouched, and no production module was edited.
+  - `_comparison_outcome(result, searches)` needs three things: the query embedded, at least one source search, and every counted source search dense. A source with nothing embeddable and no hits (`empty`: the redacted exam) is not counted. A keyword-only, disabled, partial or unobserved search makes the query `dense_not_used` for a Qwen arm: missing, never ranked.
+  - The system-arm report gains `compare_source_searches` (counts of `dense`, `nothing_embeddable`, `keyword_only:<status>`). The verify's scenario gives `{"keyword_only:disabled": 3}` and `missing: {"dense_not_used": 1}`.
+
+### Dry run (re-run on the final code)
+
+The dry run ran on the existing copies `fixtures-local/contextual-embeddings/vaults/{linear_algebra,probability}-20261021`. It ran under `env -i PATH HOME=<empty> CODEX_HOME=<empty> LEARNLOOP_CONFIG_DIR=<empty>`, with no key variable and `OPENROUTER_BASE_URL=http://127.0.0.1:9`, and no settings file was read. Results:
+
+- `network_calls: 0` and `copies_changed: 0`.
+- The sha256 digest of every file under the copies was equal before and after.
+- The empty HOME, CODEX_HOME and config directories stayed empty.
+- The plan JSON and Markdown are **byte-identical** to the committed `docs/reviews/artifacts/experiments-e0/dry-run-plan.{json,md}`, so nothing there changed: **$8.72 expected, $26.16 worst case** against the $25 cap, every category within its allocation.
+
+### Notes
+
+- **Not changed (outside E0):** production's own request gate (`learnloop.ai.spend._reported_usd`) also accepts a lone `output_tokens=0` as a reported usage. E0 never runs under it: the system arms install `SystemRequestGate`, and the roles install `E0RequestGate`. This is recorded here for the production owner and was not changed in this stage.
+- **Isolation slips (no effect):** two invocations ran outside `env -i`:
+  - an empty `python3` heredoc (a no-op);
+  - `.venv/bin/python -I -c` re-serializing the committed `dry-run-plan.json` for a diff. It imported only `json`, not the app, and read no credential.
+
+  Every other Python or CLI run outside pytest used `env -i` with empty HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR: the two dry runs and `lint-imports`.
+- Every pytest and lint run waited for, and held, `/tmp/learnloop-fullsuite.lock`. One early 3-second run of the new file started before the lock was noticed.
+
+### Gate (this step, on `24244b98f`)
+
+Owner rule 2026-10-17: no full suite, durability lane or vitest here. No migration, DB/connection code, frontend, `src-tauri`, schema, config key or CLI option changed.
+
+- `.venv/bin/lint-imports --no-cache` (under `env -i`): **29 kept, 0 broken**.
+- `pytest -n auto` with `TMPDIR=fixtures-local/tmp` on 25 files: **293 passed**. Files:
+  - The 13 E0 files: `tests/test_e0_review_round3.py` (21, new), `tests/test_e0_review_round2.py`, `tests/test_e0_review_round1.py`, and the ten harness files.
+  - The contracts: `tests/test_architecture.py`, `tests/test_cli_help_snapshot.py`, `tests/test_sqlite_file_copies.py`, `tests/test_tracked_fixture_databases.py`.
+  - The modules the harness reuses: `tests/test_tutor_delivery_fixes.py`, `tests/test_source_inventory.py`, `tests/test_reader_observation_records.py`, `tests/test_approach_map_boundaries.py`, `tests/test_workbench_hint_service.py`, `tests/test_source_retrieval_followup.py`.
+  - The CLI tests: `tests/test_cli_entrypoint.py`, `tests/test_cli_commands.py`.
+- Fail-before on `cfb8de724`: `tests/test_e0_review_round3.py`, **15 failed, 6 passed** (the 6 are the guards named above).
+- Changed files: `src/learnloop/experiments/contextual_embeddings/{adapters,budget,callers,system_arms}.py`; new `tests/test_e0_review_round3.py`. No production module outside the experiment package changed.
+- The main checkout's tracked fixtures were not opened or changed by this step.
