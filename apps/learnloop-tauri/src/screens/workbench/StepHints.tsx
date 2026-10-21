@@ -128,6 +128,7 @@ export function HintCard({
   onAnswer,
   onSkip,
   onPeek,
+  extras,
 }: {
   hint: WorkbenchHintViewDto;
   steps: StepOption[];
@@ -139,6 +140,9 @@ export function HintCard({
   onAnswer: (text: string) => void;
   onSkip: () => void;
   onPeek?: (spanId: string) => void;
+  /** Reader RW2c: "another passage" and the worked example in the learner's
+   *  route, under the bridge (absent while RW2c's switches are off). */
+  extras?: ReactNode;
 }) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   // Fix round 13: the app's CURRENT symbolic switch, AND the hint's own.
@@ -191,6 +195,7 @@ export function HintCard({
             {bridge.line}
           </button>
         ) : null}
+        {extras}
       </Voice>
     </div>
   );

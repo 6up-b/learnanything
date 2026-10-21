@@ -73,11 +73,16 @@ def bridge_for_hint(
     provider: Callable[..., Any] | None = None,
     envelope: Any | None = None,
     max_calls: int | None = None,
+    draw_enabled: bool = False,
+    seed: str | None = None,
 ) -> dict[str, Any]:
     """Look for the passage; write the bridge row prepared (``shown = 0``).
     Returns ``{status: ready | none | unavailable, assist_id, line, ...}``.
     ``envelope``: the workbench's daily envelope (the caller's); ``max_calls``:
-    ``workbench.max_calls_per_session`` (module docstring)."""
+    ``workbench.max_calls_per_session`` (module docstring). ``draw_enabled``
+    (RW2c, ``workbench.passage_draw_enabled``): with two or more verified
+    passages, the one shown is drawn and the draw logged on the row
+    (:mod:`learnloop.workbench.passage_draw`); ``seed`` fixes the draw."""
 
     from learnloop.workbench.check import session_calls_on
 
@@ -135,7 +140,18 @@ def bridge_for_hint(
         already = {str(span) for span in json.loads(hint.get("cited_span_ids_json") or "[]")}
     except (TypeError, ValueError):
         already = set()
-    chosen = next((span for span in spans or () if str(span.get("span_id")) not in already), None)
+    eligible = [span for span in spans or () if str(span.get("span_id")) not in already]
+    chosen = eligible[0] if eligible else None
+    drawn = None
+    if draw_enabled and chosen is not None and isinstance(manifest, dict) \
+            and manifest.get("basis") == "retrieved_verified":
+        # RW2c (§5.10): every returned span passed T6's listwise judge, so a
+        # draw between them withholds nothing.
+        from learnloop.workbench import passage_draw
+
+        drawn = passage_draw.draw(eligible, seed=seed or passage_draw.new_seed())
+        if drawn is not None:
+            chosen = next(span for span in eligible if passage_draw.option_id(span) == drawn.drawn["option_id"])
     manifest_json = json.dumps(manifest, sort_keys=True, default=str) if manifest else None
     if chosen is None:
         _settle(repository, assist_id, {"placement_json": json.dumps({**placement, "status": "none"}, sort_keys=True),
@@ -151,9 +167,13 @@ def bridge_for_hint(
                                       "status": "found"}, sort_keys=True),
         "cited_span_ids_json": json.dumps([str(chosen.get("span_id"))]),
         "retrieval_manifest_json": manifest_json,
+        **(drawn.columns() if drawn is not None else {}),
     })
-    return {"status": "ready", "assist_id": assist_id, "line": line, "span_id": chosen.get("span_id"),
-            "extraction_id": chosen.get("extraction_id"), "label": label}
+    result = {"status": "ready", "assist_id": assist_id, "line": line, "span_id": chosen.get("span_id"),
+              "extraction_id": chosen.get("extraction_id"), "label": label}
+    if drawn is not None:
+        result["alternatives"] = len(drawn.options) - 1
+    return result
 
 
 __all__ = ["COMPARE_LINE", "NOTHING_LINE", "bridge_for_hint"]

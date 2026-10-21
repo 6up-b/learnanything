@@ -1359,6 +1359,11 @@ sidecar_passthrough!(workbench_cancel_help, "workbench.cancel_help");
 sidecar_passthrough!(workbench_answer_discriminating, "workbench.answer_discriminating");
 sidecar_passthrough!(workbench_set_help_style, "workbench.set_help_style");
 sidecar_passthrough!(workbench_help_state, "workbench.help_state");
+// Reader workbench RW2c (what helps this learner): desktop only.
+sidecar_passthrough!(workbench_show_example, "workbench.show_example");
+sidecar_passthrough!(workbench_another_passage, "workbench.another_passage");
+sidecar_passthrough!(workbench_compare_offer, "workbench.compare_offer");
+sidecar_passthrough!(workbench_compare_methods, "workbench.compare_methods");
 // Reader workbench RW6a ("Last time here" and Wrap up): desktop only.
 sidecar_passthrough!(reader_recap, "reader.recap");
 sidecar_passthrough!(reader_recap_event, "reader.recap_event");

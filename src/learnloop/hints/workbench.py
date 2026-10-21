@@ -171,6 +171,11 @@ class WorkbenchHintContext:
     feedback_step: str | None = None
     discriminate_enabled: bool = True
     error_kind_enabled: bool = True
+    #: Reader RW2c (§5.10): the help-outcome lines for the item's facets,
+    #: typed records (kinds, levels, counts, outcomes; never text) read from
+    #: the ledgers by the Reader. Given to the writer and the chooser only
+    #: when non-empty, so without them both requests are as before.
+    help_outcomes: tuple[Mapping[str, Any], ...] = ()
     #: Fix round 12: the CURRENT ``workbench.symbolic_checks_enabled``, read
     #: again before every writer invocation and every row serialization (a
     #: hint job may outlive a switch change). None: the verdicts are written
@@ -299,6 +304,12 @@ class WorkbenchHintContext:
         node = self.continue_from_node
         if node:
             block["continue_from_map_node"] = node
+        if self.help_outcomes:
+            block["help_outcomes"] = [dict(line) for line in self.help_outcomes]
+            block["help_outcomes_rule"] = (
+                "help_outcomes are this learner's own history on the item's facets: which help preceded "
+                "recovery and where their work tends to go off. Associations, not what works: let them inform "
+                "the kind and strategy, never the content, and never mention them.")
         return block
 
 
@@ -657,6 +668,9 @@ def decider_extra(context: WorkbenchHintContext) -> dict[str, Any]:
                           "route": (context.verdict(context.continue_from).route_id
                                     if context.verdict(context.continue_from) else None)},
         "help_style_source": "this problem" if context.help_style else "stored preference",
+        # Reader RW2c (§5.5, §5.10): the per-kind history on the facets, only
+        # when there is one (absent, the state is as before).
+        **({"help_outcomes": [dict(line) for line in context.help_outcomes]} if context.help_outcomes else {}),
     }
 
 

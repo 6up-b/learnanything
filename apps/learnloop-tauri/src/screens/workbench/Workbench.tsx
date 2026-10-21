@@ -35,6 +35,7 @@ import { HintCard, type StepOption } from "./StepHints";
 import { WhereThisGoes } from "./WhereThisGoes";
 import { HELP_COPY, verdictFor, withLocalEdits } from "./helpModel";
 import { useWorkbenchHelp } from "./useWorkbenchHelp";
+import { PassageExtras, ShowMeExample, useRouteExamples } from "./RouteExample";
 
 export type WorkbenchLayout = "split" | "stacked" | "full";
 
@@ -125,6 +126,13 @@ export function Workbench(props: WorkbenchProps) {
   // service too (adaptive hints).
   const helpConfig = algoConfig().workbenchHelp;
   const hintsConfig = algoConfig().adaptiveHints;
+  // RW2c: the worked example in the learner's route and "another passage",
+  // each only while its switch is on (off: the workbench is RW2b's).
+  const rw2c = useRouteExamples({
+    sessionId: session.sessionId,
+    examples: helpConfig?.examples === true,
+    passageDraw: helpConfig?.passageDraw === true,
+  });
   const help = useWorkbenchHelp({
     sessionId: session.sessionId,
     enabled: helpConfig !== null,
@@ -136,6 +144,7 @@ export function Workbench(props: WorkbenchProps) {
       return wb.drained();
     },
     onRecord: wb.applyRecord,
+    ...(rw2c.active ? { onExampleJob: rw2c.followExample, onHelpState: rw2c.restore } : {}),
   });
   const [focusedKey, setFocusedKey] = useState<string | null>(null);
   const [confidence, setConfidence] = useState<number | null>(null);
@@ -503,11 +512,13 @@ export function Workbench(props: WorkbenchProps) {
                 {helpOn && check && chain ? <QuestionableNote check={check} chainId={chain} /> : null}
                 {stepHints.map((hint) => (
                   <HintCard key={hint.assistId} hint={hint} steps={stepOptions} pending={Boolean(help.hintPending) || !canHelp}
-                    bridge={help.bridges[hint.assistId]}
+                    bridge={rw2c.bridgeFor(hint.assistId, help.bridges[hint.assistId])}
                     onReply={(reply) => void help.reply(hint, reply)} onBookWay={() => void help.bookWay(hint)}
                     onSmallerStep={() => void help.smallerStep(hint)}
                     onAnswer={(text) => void help.answerDiscriminating(hint, text)}
-                    onSkip={() => help.openHelp(hint.aboutStepId)} onPeek={props.onPeekPassage ? peek : undefined} />
+                    onSkip={() => help.openHelp(hint.aboutStepId)} onPeek={props.onPeekPassage ? peek : undefined}
+                    extras={rw2c.active ? <PassageExtras hintAssistId={hint.assistId} rw2c={rw2c}
+                      bridge={rw2c.bridgeFor(hint.assistId, help.bridges[hint.assistId])} onPeek={props.onPeekPassage ? peek : undefined} /> : undefined} />
                 ))}
                 {pendingHere ? (
                   <div role="status" aria-live="polite">
@@ -558,11 +569,13 @@ export function Workbench(props: WorkbenchProps) {
         <div data-testid="workbench-problem-help" style={{ display: "flex", flexDirection: "column", gap: 4, marginLeft: 36 }}>
           {looseHints.map((hint) => (
             <HintCard key={hint.assistId} hint={hint} steps={stepOptions} pending={Boolean(help.hintPending) || !canHelp}
-              bridge={help.bridges[hint.assistId]}
+              bridge={rw2c.bridgeFor(hint.assistId, help.bridges[hint.assistId])}
               onReply={(reply) => void help.reply(hint, reply)} onBookWay={() => void help.bookWay(hint)}
               onSmallerStep={() => void help.smallerStep(hint)}
               onAnswer={(text) => void help.answerDiscriminating(hint, text)}
-              onSkip={() => help.openHelp(hint.aboutStepId)} onPeek={props.onPeekPassage ? peek : undefined} />
+              onSkip={() => help.openHelp(hint.aboutStepId)} onPeek={props.onPeekPassage ? peek : undefined}
+              extras={rw2c.active ? <PassageExtras hintAssistId={hint.assistId} rw2c={rw2c}
+                bridge={rw2c.bridgeFor(hint.assistId, help.bridges[hint.assistId])} onPeek={props.onPeekPassage ? peek : undefined} /> : undefined} />
           ))}
           {pendingLoose ? (
             <div role="status" aria-live="polite">
@@ -579,6 +592,10 @@ export function Workbench(props: WorkbenchProps) {
               onClose={() => help.closeHelp()} />
           ) : null}
         </div>
+      ) : null}
+      {helpOn && rw2c.available && !readOnly && open && fromBook ? (
+        <ShowMeExample rw2c={rw2c} focusedStepId={focusedChain} disabled={!canHelp}
+          onPeek={props.onPeekPassage ? peek : undefined} />
       ) : null}
       {!readOnly && open ? (
         <button type="button" aria-disabled={leaving} style={{ ...linkStyle, alignSelf: "flex-start", fontSize: 10 }} onClick={() => { if (!leaving) requestFocus(wb.addStep(live[live.length - 1]?.key ?? null, "step")); }}>

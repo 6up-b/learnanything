@@ -27,6 +27,9 @@ import type {
   WorkbenchSummaryDto,
   WorkbenchHelpJobDto,
   WorkbenchHelpStateDto,
+  WorkbenchAnotherPassageDto,
+  WorkbenchCompareMethodsDto,
+  WorkbenchCompareOfferDto,
   WorkbenchRequestHelpInput,
   ReaderRecapDto,
   ReaderRecapEvent,
@@ -1698,6 +1701,18 @@ export const api = {
   workbenchSetHelpStyle: (input: { sessionId: string; helpStyle: HelpStyle | null }) =>
     call<{ version: number; helpStyle: HelpStyle | null; storedHelpStyle: HelpStyle }>("workbench_set_help_style", { input }),
   workbenchHelpState: (input: { sessionId: string }) => call<WorkbenchHelpStateDto>("workbench_help_state", { input }),
+  // Reader workbench RW2c: "Show me a similar example" (a job, read with
+  // workbenchHelpJob), "another passage" (a learner pick, no search), and
+  // "Compare with the book's method" after a correct Submit (its reveal on the
+  // item is written before the reference comes back). Desktop only.
+  workbenchShowExample: (input: { sessionId: string; focusedStepId?: string | null }) =>
+    call<WorkbenchHelpJobDto>("workbench_show_example", { input }),
+  workbenchAnotherPassage: (input: { sessionId: string; assistId: string }) =>
+    call<WorkbenchAnotherPassageDto>("workbench_another_passage", { input }),
+  workbenchCompareOffer: (input: { attemptId: string }) =>
+    call<WorkbenchCompareOfferDto>("workbench_compare_offer", { input }),
+  workbenchCompareMethods: (input: { attemptId: string }) =>
+    call<WorkbenchCompareMethodsDto>("workbench_compare_methods", { input }),
   // Reader workbench RW6a: "Last time here" and Wrap up (pure reads), and the
   // three events (recap_shown, recap_dismissed, wrap_up_opened). Desktop only.
   readerRecap: (input: { extractionId: string; visitId?: string | null }) =>

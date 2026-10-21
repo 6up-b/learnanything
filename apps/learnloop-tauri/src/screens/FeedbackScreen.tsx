@@ -34,6 +34,7 @@ import { ClaimSurface, mintVisitId } from "../components/ClaimSurface";
 import { RepairTraceBlocks } from "../components/RepairTrace";
 import type { AttemptTraceDto } from "../api/dto";
 import { algoConfig, masteryTone } from "../app/algoConfig";
+import { CompareMethods } from "./feedback/CompareMethods";
 import { useNextQueueItem } from "../app/autoAdvance";
 import { nextPlanKeyLabel, useNextPlanStep } from "../app/dailyPlan";
 import type { PlanStepDto } from "../api/dto";
@@ -2337,6 +2338,11 @@ export function FeedbackScreen({
             recordAnswerDisplay={api.recordAnswerDisplay}
             answerCovered={answerCovered}
           />
+          {/* Reader RW2c: "compare methods ▸" after a correct workbench Submit,
+              only while workbench.compare_methods_enabled is on. */}
+          {algoConfig().workbenchHelp?.compareMethods ? (
+            <CompareMethods attemptId={f.attemptId} correctness={f.correctness} held={f.heldForReview === true} />
+          ) : null}
 
           {detailsOpen ? (
             <div style={{ marginTop: 22, maxWidth: 900 }} data-testid="feedback-details">

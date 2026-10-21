@@ -479,32 +479,68 @@ def bind_workbench_rows(connection: sqlite3.Connection, *, workbench_session_id:
 
 #: The columns a bridge search writes once it has run (RW2b fix round 1, F9).
 _BRIDGE_RESULT_COLUMNS = ("body_md", "placement_json", "cited_span_ids_json", "retrieval_manifest_json")
+#: RW2c: a passage draw's log (spec §5.10), written with the search's result.
+_DRAW_COLUMNS = ("options_json", "probabilities_json", "drawn_option_json", "propensity", "seed", "policy_version")
+#: The searched-passage kinds: RW2b's bridge and RW2c's worked example.
+PASSAGE_KINDS = ("bridge", "example")
 
 
-def settle_bridge(connection: sqlite3.Connection, assist_id: str, fields: Mapping[str, Any]) -> bool:
-    """A bridge search's outcome on the row written before it ran (its place
-    among the problem's calls): only its result columns, only while unshown."""
+def settle_bridge(connection: sqlite3.Connection, assist_id: str, fields: Mapping[str, Any], *,
+                  kind: str = "bridge") -> bool:
+    """A bridge (or, RW2c, a worked-example) search's outcome on the row
+    written before it ran (its place among the problem's calls): only its
+    result columns and its draw's log, only while unshown."""
 
-    names = [name for name in fields if name in _BRIDGE_RESULT_COLUMNS]
+    if kind not in PASSAGE_KINDS:
+        raise ValueError(f"kind must be one of {', '.join(PASSAGE_KINDS)}")
+    names = [name for name in fields if name in _BRIDGE_RESULT_COLUMNS + _DRAW_COLUMNS]
     if not names:
         return False
     cursor = connection.execute(
         f"UPDATE help_assists SET {', '.join(f'{name} = ?' for name in names)} "
-        "WHERE id = ? AND assist_kind = 'bridge' AND shown = 0",
+        "WHERE id = ? AND assist_kind = ? AND shown = 0",
+        (*[fields[name] for name in names], assist_id, kind),
+    )
+    return bool(cursor.rowcount)
+
+
+#: The columns RW2c's comparison writes once its lines are back (spec §5.10).
+_COMPARE_RESULT_COLUMNS = ("body_md", "placement_json", "model", "prompt_version", "input_hash", "latency_ms")
+
+
+def settle_compare(connection: sqlite3.Connection, assist_id: str, fields: Mapping[str, Any]) -> bool:
+    """A ``compare_methods`` row's AI-written lines, after the reference was
+    shown (its row and reveal were written first): only its result columns."""
+
+    names = [name for name in fields if name in _COMPARE_RESULT_COLUMNS]
+    if not names:
+        return False
+    cursor = connection.execute(
+        f"UPDATE help_assists SET {', '.join(f'{name} = ?' for name in names)} "
+        "WHERE id = ? AND assist_kind = 'compare_methods'",
         (*[fields[name] for name in names], assist_id),
     )
     return bool(cursor.rowcount)
 
 
-def mark_bridge_shown(connection: sqlite3.Connection, assist_id: str, *, shown_at: str) -> bool:
-    """A bridge (counted by neither) delivered to the workbench: shown once,
-    and only one that found a passage (a search's row is written before it
-    runs, RW2b fix round 1, F9)."""
+def compare_rows_for(connection: sqlite3.Connection, workbench_session_id: str) -> list[dict[str, Any]]:
+    """A problem's ``compare_methods`` rows, oldest first."""
 
+    return [row for row in workbench_rows(connection, workbench_session_id) if row["assist_kind"] == "compare_methods"]
+
+
+def mark_bridge_shown(connection: sqlite3.Connection, assist_id: str, *, shown_at: str,
+                      kind: str = "bridge") -> bool:
+    """A bridge (or, RW2c, a worked example; counted by neither) delivered to
+    the workbench: shown once, and only one that found a passage (a search's
+    row is written before it runs, RW2b fix round 1, F9)."""
+
+    if kind not in PASSAGE_KINDS:
+        raise ValueError(f"kind must be one of {', '.join(PASSAGE_KINDS)}")
     cursor = connection.execute(
-        "UPDATE help_assists SET shown = 1, shown_at = ? WHERE id = ? AND shown = 0 AND assist_kind = 'bridge' "
+        "UPDATE help_assists SET shown = 1, shown_at = ? WHERE id = ? AND shown = 0 AND assist_kind = ? "
         "AND counted_by IS NULL AND cited_span_ids_json IS NOT NULL",
-        (shown_at, assist_id),
+        (shown_at, assist_id, kind),
     )
     return bool(cursor.rowcount)
 
@@ -527,5 +563,7 @@ __all__ = [
     "COLUMNS", "TABLE", "assist", "attach_keyless_fold", "attach_submission", "count_closed", "fold_row_count",
     "insert_assist", "keyless_window_start", "mark_shown", "server_fold", "stamp_submitted",
     "stamp_window_submitted", "submission_assists", "submission_committed",
-    "WorkbenchFold", "bind_workbench_rows", "mark_bridge_shown", "settle_bridge", "workbench_fold", "workbench_rows",
+    "PASSAGE_KINDS", "WorkbenchFold", "bind_workbench_rows", "compare_rows_for", "mark_bridge_shown", "settle_bridge",
+    "settle_compare", "workbench_fold",
+    "workbench_rows",
 ]

@@ -27,6 +27,7 @@ import type {
   LadderRungDto,
   WorkbenchHelpJobDto,
   WorkbenchHelpResultDto,
+  WorkbenchHelpStateDto,
   WorkbenchHintViewDto,
   WorkbenchRecordDto,
   WorkbenchRequestHelpInput,
@@ -64,6 +65,16 @@ export interface BridgeState {
   line?: string;
   spanId?: string | null;
   extractionId?: string | null;
+  /** RW2c: the bridge row and how many other passages its logged draw kept
+   *  ("another passage"); both absent unless the draw logged options. */
+  assistId?: string;
+  alternatives?: number;
+}
+
+/** RW2c: a bridge's draw fields, only when its row logged options (so with
+ *  workbench.passage_draw_enabled off a bridge's state is RW2b's). */
+function drawnFields(value: { assistId?: string | null; alternatives?: number } | null | undefined): Partial<BridgeState> {
+  return value?.alternatives && value.assistId ? { assistId: value.assistId, alternatives: value.alternatives } : {};
 }
 
 export interface WorkbenchHelp {
@@ -110,6 +121,10 @@ export function useWorkbenchHelp(options: {
   /** Save the resting edits before a check or a hint reads the steps. */
   beforeRequest: () => Promise<boolean>;
   onRecord: (record: WorkbenchRecordDto) => void;
+  /** RW2c: a delivered hint started its worked-example job. */
+  onExampleJob?: (hintAssistId: string, jobId: string) => void;
+  /** RW2c: the restored help state (its examples), as read on resume. */
+  onHelpState?: (state: WorkbenchHelpStateDto) => void;
 }): WorkbenchHelp {
   const { sessionId, enabled, hintsEnabled } = options;
   const [check, setCheck] = useState<CheckViewDto | null>(null);
@@ -128,6 +143,10 @@ export function useWorkbenchHelp(options: {
   onRecordRef.current = options.onRecord;
   const beforeRef = useRef(options.beforeRequest);
   beforeRef.current = options.beforeRequest;
+  const exampleJobRef = useRef(options.onExampleJob);
+  exampleJobRef.current = options.onExampleJob;
+  const helpStateRef = useRef(options.onHelpState);
+  helpStateRef.current = options.onHelpState;
   const hintJob = useRef<string | null>(null);
   /** Checks and hints asked for and not yet read to the end (cancelled on leaving). */
   const pendingJobs = useRef<Set<string>>(new Set());
@@ -154,9 +173,10 @@ export function useWorkbenchHelp(options: {
       setStoredHelpStyle(state.storedHelpStyle);
       const restored: Record<string, BridgeState> = {};
       for (const hint of state.hints) {
-        if (hint.bridge) restored[hint.assistId] = { status: "ready", line: hint.bridge.line, spanId: hint.bridge.spanId, extractionId: hint.bridge.extractionId };
+        if (hint.bridge) restored[hint.assistId] = { status: "ready", line: hint.bridge.line, spanId: hint.bridge.spanId, extractionId: hint.bridge.extractionId, ...drawnFields(hint.bridge) };
       }
       setBridges(restored);
+      helpStateRef.current?.(state);
     }).catch(() => undefined);
     return () => {
       cancelled = true;
@@ -191,7 +211,7 @@ export function useWorkbenchHelp(options: {
       setBridges((current) => ({
         ...current,
         [hintAssistId]: result && result.status === "ready" && result.shown
-          ? { status: "ready", line: result.line, spanId: result.spanId ?? null, extractionId: result.extractionId ?? null }
+          ? { status: "ready", line: result.line, spanId: result.spanId ?? null, extractionId: result.extractionId ?? null, ...drawnFields(result) }
           : { status: "none" },
       }));
     } catch {
@@ -307,6 +327,7 @@ export function useWorkbenchHelp(options: {
         if (result.record) onRecordRef.current(result.record);
         if (result.message) setNotice({ stepId: view.aboutStepId, message: result.message });
         if (result.bridgeJobId) void followBridge(result.assistId, result.bridgeJobId);
+        if (result.exampleJobId) exampleJobRef.current?.(result.assistId, result.exampleJobId);
       } else {
         setNotice({ stepId: result.steps?.aboutStepId ?? stepId, message: result.message ?? "Couldn't write a hint. Your steps are saved — try again ↵" });
       }

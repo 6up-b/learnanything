@@ -985,6 +985,22 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switches for the workbench's checks and help ladder / the sandboxed symbolic checks / the "
         "discriminating question / the error-kind guess / the bridge to the book; on-off availability of "
         "help, no measurement, scheduling or serving authority."),
+    # Reader workbench RW2c (what helps this learner, spec §5.10): the kill
+    # switches of the help-outcome lines (a pure read given to the hint writer
+    # and chooser as context), the worked example in the learner's route,
+    # "Compare with the book's method" (a reveal of an existing kind on the
+    # item, with its existing meaning) and the logged draw between passages
+    # that all passed the judge. Context, display and learner picks: none
+    # changes a measurement.
+    _ConfigRule(_exact(
+        "workbench.help_outcomes_enabled",
+        "workbench.examples_enabled",
+        "workbench.compare_methods_enabled",
+        "workbench.passage_draw_enabled",
+    ), "structural", "operational",
+        "kill switches for the help-outcome lines given to the hint writer and chooser / the worked example "
+        "in the learner's route / compare methods after a correct Submit / the logged passage draw; context, "
+        "display and learner picks, no measurement, scheduling or serving authority."),
     # Reader workbench RW1b: the intent box's router (one Decider choice per
     # routing; verdicts go to judgment_ledger, never evidence): the typing
     # pause before a speculative routing, the routing's deadline and the

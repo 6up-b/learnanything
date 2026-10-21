@@ -37,8 +37,10 @@ def test_switched_off_the_rw2a_workbench_is_byte_identical(tmp_path, grader):
     on = _shape(tmp_path / "on", "")
     assert off["workbench_key"] == {"enabled": True, "openSessionDays": 30}
     # RW2b fix round 13: the help block carries the symbolic switch (off by default).
+    # Reader RW2c's three DTO flags are on by default (present only while on).
     assert on["workbench_key"] == {**off["workbench_key"], "help": {"enabled": True, "bridge": True,
-                                                                     "symbolic": False}}
+                                                                     "symbolic": False, "examples": True,
+                                                                     "compareMethods": True, "passageDraw": True}}
     for key in ("view", "left", "submitted", "attempt_keys", "help_rows"):
         assert on[key] == off[key], key
     assert "help" not in off["view"]["record"]

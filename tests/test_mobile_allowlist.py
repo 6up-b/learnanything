@@ -455,6 +455,25 @@ def test_rw2b_fix5_authored_hints_is_an_optional_param_of_the_two_submits():
             assert field.default is None and not field.is_required(), (name, key)
 
 
+# Reader workbench RW2c (spec_reader_workbench_v1 §5.10): "Show me a similar
+# example", "another passage", and compare methods' offer and opening (its
+# lines are read through workbench.help_job); help_job and help_state are
+# RW2b's, extended. Desktop only.
+READER_RW2C_RPCS = (
+    "workbench.show_example",
+    "workbench.another_passage",
+    "workbench.compare_offer",
+    "workbench.compare_methods",
+)
+READER_RW2C_EXTENDED_RPCS = ("workbench.help_job", "workbench.help_state", "workbench.request_help")
+
+
+def test_the_pinned_rw2c_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.workbench_rw2c import WORKBENCH_RW2C_RPCS
+
+    assert set(READER_RW2C_RPCS) == set(WORKBENCH_RW2C_RPCS)
+
+
 def test_the_pinned_rw2b_rpcs_are_all_of_them():
     from learnloop_sidecar.handlers.workbench_help import WORKBENCH_HELP_RPCS
 
@@ -634,7 +653,7 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     + READER_PDF_SELECTION_RPCS + READER_PDF_SELECTION_EXTENDED_RPCS + UX_PHASE4_RPCS + UX_PHASE4_EXTENDED_RPCS
     + HINTS_H0_RPCS + HINTS_H0_EXTENDED_RPCS + HINTS_H2A_RPCS + HINTS_H2A_EXTENDED_RPCS
     + HINTS_H2B_RPCS + READER_RW2B_RPCS + READER_RW2B_EXTENDED_RPCS + READER_RW2B_FIX5_EXTENDED_RPCS
-    + INTENT_RPCS + INTENT_EXTENDED_RPCS + READER_RW5A_RPCS,
+    + INTENT_RPCS + INTENT_EXTENDED_RPCS + READER_RW5A_RPCS + READER_RW2C_RPCS + READER_RW2C_EXTENDED_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry
