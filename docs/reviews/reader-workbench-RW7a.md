@@ -545,3 +545,268 @@ golden JSON and a bare `print()`), and one `git stash list` (read-only) slipped 
 command; none touched a vault, a credential
 or the network, and every other Python run outside pytest used `env -i` with empty HOME,
 CODEX_HOME and LEARNLOOP_CONFIG_DIR.
+
+## 8. Landing onto main
+
+Landed in the `learnanything-merge2` worktree on branch `merge/rw7a-onto-main`, cut from main at `a76c8358a` (the
+RW4e landing record: migration head 215 with `migration_head_215`, 20 defaults snapshots, 942 configuration leaves).
+The stage tip is `669329dd7` (base `a76c8358a`, so main had not moved), unchanged. The orchestrator's verify (Codex
+job `20261021-090616-cajqKL` on `669329dd7`) is **clean**. Main was neither fast-forwarded nor pushed here.
+
+### Commits and conflicts
+
+- `ab0649c7e`: a `--no-ff` merge of `reader/rw7a` onto `a76c8358a`. **No conflict**: the stage branched from main's
+  tip, so `config/template.py` (all 20 snapshots), the parameter registry, `test_mobile_allowlist`, the CLI help, the
+  RPC pins, `ReaderScreen.tsx`, `dto.ts` / `client.ts`, `commands.rs` / `main.rs`, the head-fixture rename and its 33
+  test paths came in as the stage left them. The generated references were the stage's, made on the stage's own
+  commits, and were regenerated in the next commit.
+- `603c1b45a`: the regeneration (below). This is the gate head.
+- This record (docs only).
+
+**Migration numbering.** 217 lands with gaps. Main's head is 215; AD2+AD3 holds 214 and RW5a holds 216, both on
+their own branches. `db/migrate.py` applies every migration not yet applied, so a vault at 215 takes 217 now and 214
+and 216 later. Every test, script and reference generator accepts the gaps:
+- the full suite and the durability lane pass with `migration_head_217`, which has no 214 or 216;
+- `db_generate_reference.py` and `db_validate_reference.py` run with `SCHEMA_HEAD = 217` and report 0 errors;
+- no test or script under `src`, `tests`, `docs` (outside the reviews and generated references), `scripts` or the
+  app still names `migration_head_215`;
+- parity (a) opens real vault copies from 165 straight to 217: 50 migrations, with no 214 and no 216.
+
+### Regeneration
+
+- **References.** `db_generate_reference.py` ran, then `db_validate_reference.py`:
+  - **0 errors**, `schema_head` **217**, **337** table notes;
+  - **945** configuration leaves in **68** sections;
+  - 407 files changed, and the only change is the commit labels (`source_commit` and its timestamp);
+  - the two prose counts (`Configuration.md`, `Database.md`) already said 945 / 68 / 337.
+- **Defaults snapshots.** The template's `.pyc` was cleared and the check run with `-B`. All **20**
+  `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries equal `defaults_fingerprint_for_version` on the merged tree: **0
+  mismatches**, nothing to rewrite.
+- **CLI help snapshot and RPC pins.** A pin run of 15 files passed: **540 passed**, and no snapshot needed rewriting.
+  The files: `test_cli_help_snapshot`, `test_sidecar_serializer_snapshot`, `test_desktop_rpc_contract`,
+  `test_mobile_allowlist`, `test_sidecar_contract`, `test_config_refactor`, `test_registry_audit`, `test_architecture`,
+  `test_table_roles`, `test_tracked_fixture_databases`, `test_sqlite_file_copies`, `test_coordinated_migrations`,
+  `test_migrations`, `test_rebuild_orchestrator`, `test_reading_paths`. RW7a's three RPCs stay desktop-only.
+- **Head fixture 217.** Main's `fixtures/migration_head_215/state.sqlite` blob was placed with the backup API and
+  only 217 applied under `UPGRADE_SCRATCH_COPY` (`wal_checkpoint(TRUNCATE)` (0, 0, 0), then `journal_mode=DELETE`).
+  The result is **identical** to the tracked `fixtures/migration_head_217/state.sqlite`:
+  - in schema: 1,438 objects;
+  - in every row of all 342 tables, apart from `schema_migrations.applied_at`.
+
+  Both have header bytes 1/1, `integrity_check` ok and an empty `foreign_key_check`. There is no `-wal` or `-shm`
+  beside the fixture. The fixture was not rebuilt.
+- **`validate_vault.py`**: passes (1,139 notes, 1,137/1,137 reachable).
+- **Known failures from before this stage, not fixed:**
+  - `desktop_validate.py` still stops on `components/pdfSelection/testing/syntheticBook.ts`;
+  - `module_validate.py` reports **968** issues (962 at the RW4e landing). RW7a adds modules without module notes:
+    `source_retrieval/reading_paths.py`, `db/stores/reading_paths.py` and the sidecar handler.
+
+Every script outside pytest ran under `env -i` (`fixtures-local/landing-rw7a/scripts/iso.sh`). That covers the
+generators, the validators, the snapshot check and the head-fixture check. The environment was only `PATH`, `TMPDIR`
+and `LANG`, an empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`, and the model switches
+`LEARNLOOP_CUE_JUDGE_MODELS=off`, `LEARNLOOP_ROLE_LABELLER_MODELS=off` and `LEARNLOOP_READING_PATH_MODELS=off`.
+
+### Gate
+
+Setup:
+- Python 3.12.14.
+- `TMPDIR` was merge2's `fixtures-local/tmp`.
+- Every command after the install ran as `uv run --no-sync`.
+- Both suite lanes ran under `flock /tmp/learnloop-fullsuite.lock` on `603c1b45a`.
+- The AD2+AD3 (`learnanything-ad1`), RW5a (`learnanything-dl2`) and RW7a stage (`learnanything-rw4b`) worktrees and
+  their processes were not touched.
+- Every test uses fakes.
+
+**This is the first full run over RW7a's code**: the stage, its Codex review and re-review rounds and the
+orchestrator's fix round ran targeted tests only.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `lint-imports --no-cache` | **28 kept**, 0 broken |
+| full suite `pytest -n auto` | **15,114 passed, 1 skipped, 2 xfailed, 0 failed** (25 min 16 s; `fixtures-local/rw7a-landing/fullsuite.log`). The RW4e landing ran 15,054. The skip is RW4e's base-only golden recorder |
+| `pytest -m durability` | **118 passed**, 14,999 deselected (4 min 8 s; `fixtures-local/rw7a-landing/durability.log`). The RW4e landing had 117 |
+| `npm install`, `npm run typecheck` | ok; clean |
+| `npm test` (the whole vitest run) | **165 files, 1,292 tests passed** (RW4e's landing: 161 / 1,274). The first run, made while the full suite was loading the machine, also reported **1 unhandled error** (finding 1). Rerun: `libraryExercisesReader.test.tsx` alone 3 times, then the whole vitest run once more after the suite: all clean, 165 / 1,292 and no error |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | ok (RW7a's three passthroughs in `commands.rs` / `main.rs`) |
+| thread, lock and timing tests | all passed on the first run, including `test_reading_paths.py`'s concurrent-sidecar claim test, so none was rerun |
+| tracked fixtures, worktree | `git status` clean after both lanes and the frontend runs; no `-wal` / `-shm` beside a fixture |
+
+No real failure, so no landing fix.
+
+### Parity (backup-API copies; no model call completed)
+
+**Setup.** The scripts are in `fixtures-local/landing-rw7a/scripts/`, adapted from the RW4e landing's; the new ones
+are `ab_rw7a.sh`, `c_rw7a.sh`, `path_run.py` and `pcmp.py`.
+- **Copies.**
+  - `fixtures/linear_algebra` and `fixtures/probability` were copied once, with `copy_tree_with_databases`, from the
+    main checkout into `fixtures-local/landing-rw7a/orig/`.
+  - Every other copy came from `orig/`, or from its upgraded copies, through the same helper.
+  - `arxiv_v2` was not opened.
+  - Both vaults start at schema 165, label `mvp-0.8`, with 0 `model_call_receipts`.
+- **Code.** Main's code is `git archive a76c8358a`; the merge's is `git archive 603c1b45a`.
+- **Environment.** Every run went through `env -i` with only `PATH`, `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`,
+  `TMPDIR` and `LANG`. `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR` were empty, and were checked empty afterwards.
+- **Routes.** `neutralize3.py` ran under each code:
+  - every route field went to `127.0.0.1:9`: 57 on main and 58 on the merge, where `reading_path_judge` is the new
+    one;
+  - the active provider went to that loopback profile, with no fallback;
+  - `query_rewrite`, `tutor_query_rewrite`, `tutor_rerank`, `dense`, `[embedding]` and `[learner_text_gaps]` were
+    off;
+  - `build_on_serve` and outcome placement were off.
+- **Route check.** `routes.py` resolved all 60 `AITask`s on main's code and all 61 on the merge's. Nothing resolved
+  outside the loopback profiles except `embedding`, which is disabled and keyless. `reading_path_judge` resolved to
+  `blackhole` (`openai_chat` at `http://127.0.0.1:9/v1`), including on the mvp-0.27 and mvp-0.29 copies that main's
+  code neutralized, where the route is unset and follows the loopback active provider.
+
+**(a) Migration 217**
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| open (migrate), main's code / the merge's | 165 → 215 (49 applied) / 165 → **217** (50 applied, no 214, no 216) | the same |
+| schema, main@215 vs merge@217 | merge-only objects are exactly **11**: `reader_path_sections`, `reader_path_depths`, their 3 named indexes (`idx_reader_path_sections_judged`, the partial unique one; `idx_reader_path_sections_reading`; `idx_reader_path_depths_source`), 2 `sqlite_autoindex` indexes and 4 triggers (`*_no_update`, `*_no_delete`). None is main-only, and no shared object's SQL differs (1,428 → 1,439) | the same 11 (1,427 → 1,438) |
+| rows of every existing table (340), all columns | **identical** (16,540 rows). `schema_migrations` gains 217, and the common rows differ only in `applied_at`. Both new tables are empty | **identical** (7,638 rows; the same) |
+| `foreign_key_check` / `integrity_check` | 0 / ok, both sides | the same |
+| `rebuild --shadow --json`, main@215 vs merge@217 | **0 differences** after normalisation (facet 0, mastery 2, schedule 8 on both); the live database is unchanged on both | **0 differences** (0 / 1 / 1) |
+| `doctor --json`, main@215 vs merge@217 | **0 differences** after normalisation (57 issues, 1 error) | **0 differences** (101 issues, 48 errors) |
+
+**(b) Nothing served changes.** The merge ran at its defaults, so RW7a was **on**. The frozen clock was 2026-10-19
+09:00 UTC. The checks: certification with recipe gaps and curves; the Today queue with no session, with a session
+and greedy; and the daily plan, read, served twice and read again.
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| at `mvp-0.8` (the copies' label) | cert **byte-identical** (132,860 bytes), Today **byte-identical** (504,488), plan byte-identical (off below mvp-0.14) | cert (17,494), Today (709,910), plan: all **byte-identical** |
+| upgraded by main's code to `mvp-0.27` (`--to mvp-0.9`, `--to mvp-0.27`, `rebuild-derived-state` twice; all rc 0), opened by each code | cert **byte-identical** (129,651), Today **byte-identical** (528,665) | cert (17,495), Today (741,269): **byte-identical** |
+| then upgraded by main's code to `mvp-0.29` (`--to mvp-0.29`, `rebuild-derived-state` twice; all rc 0), opened by each code | cert and Today **byte-identical** (the same sizes) | the same |
+| the daily plan at mvp-0.27 and at mvp-0.29 | identical except `router_decisions.card_hash`, `snapshot_hash` and the card hash inside `detail_json`. A second run of main's code on a fresh copy differs from the first in exactly these three (`plan_repeat.sh`), as at the RW3b, DL2, RW4d and RW4e landings | the same |
+
+**(c) The real sidecar.** It ran over stdio, with `SystemClock` frozen at 2026-10-19 09:00 UTC through
+`sidecar_clock.py`. The driver is `path_run.py`, compared by `pcmp.py` with run-generated ids normalised. All runs
+used copies of main's mvp-0.29 vaults:
+- (i) `cm`: main's code;
+- (ii) `coff`: the merge with `[reading_paths] enabled = false`;
+- (iii) `cdef`: the merge at its defaults.
+
+Each run made these calls:
+1. `initialize`;
+2. `reader.prompt_contract`;
+3. `reader.guide_plan` on an opened reading (probability `ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY`, 10 sections; linear_algebra
+   `ext_01KY2YGNVCCVEQCGCE4RH3BWHQ`, 39 sections);
+4. `reader.reading_path` (`judge: true`), polled while `judging`;
+5. in (iii) only: `reader.reading_path_set_depth` (`learn_to_use_it`), polled, then `reader.reading_path_override`
+   (`read_anyway` on the guide plan's first section), then `reader.reading_path` with `retry`;
+6. `reader.reading_path` read-only;
+7. the guide plan again;
+8. on probability, a manual-graded attempt on `pi_prob_derive_complement`;
+9. `shutdown`;
+10. then `learnloop reader report --json` on the same copy.
+
+| Step | (i) main vs (ii) switch off | (iii) defaults, every difference from (i) |
+|---|---|---|
+| `initialize` | the method list differs: **the three RW7a RPCs register while off**. Also the vault path and `health.database` (`latestMigration` 215 vs 217, `migrationsApplied` 201 vs 202) | the same |
+| `reader.prompt_contract` | **identical** | gains `readingPaths` (`enabled`, the three depths). Orient's palette gains **"what matters here?"** (`what_matters_here`, effect `reading_path`, `model: false`) first; "what do I need first?" is unchanged, second |
+| `reader.guide_plan` (both reads) | **identical** | **identical** |
+| `reader.reading_path` | (i) `method_not_found`; (ii) refused, `reading_paths_disabled` ("Reading paths are off (reading_paths.enabled = false)."), the registry difference above | `ask_depth` (no depth chosen, no DL2 intent on these sources), goal line "No active goal covers this book: the path follows the depth you chose.", **no call** |
+| `reader.reading_path_set_depth` | — | one `reader_path_depths` row (`learn_to_use_it`, origin `guide`). The answer is `judging`, then **`failed`, reason `unpriced`** ("A metered reading-path route needs source_retrieval.llm_price_per_million."): refused before any call. The retry read is refused the same way |
+| `reader.reading_path_override` | — | refused, `validation_error` "That section has no label yet." (nothing was judged, so nothing can be overridden); nothing written |
+| the attempt (probability) | every call **identical** (ids normalised); the rows it added in 23 tables are identical across (i), (ii), (iii) and (iv) once ids (the attempt id in `response_ref`) are normalised | identical |
+| `learnloop reader report --json` | identical apart from `window.until` (the CLI's wall clock) | gains `reading_paths`: `depth_choices {learn_to_use_it: 1}`, `judged_sections 0`, `labels {}`, `overrides {}` |
+| rows written beyond the attempt and the open-time derived refresh | none on either | `reader_path_depths` 1. No `reader_path_sections`, `reading_path_role` ledger, `judgment_work_claims`, `source_service_spend` or `model_call_receipts` row |
+
+So (i) and (ii) are identical call by call, apart from the method registry (and so the off refusal code of
+`reader.reading_path`), the vault path and the migration head. Attempt evidence is unchanged.
+
+**(iv) The route actually tried** (probability only). This was (iii) plus `source_retrieval.llm_price_per_million =
+1.0` and a dummy key in the loopback profile's variable, so the metered judge sends to `127.0.0.1:9`. The result:
+- **6** requests (the initial judgment, then *try again*; 3 attempts each under the caps);
+- 12 `model_call_receipts`, every one **`failed`**: 6 `reading_path_judge` (`AIProviderUnavailable`) and 6
+  transport children (`APIConnectionError`);
+- the view `failed`, reason `judge_failed`, "Couldn't read a path for this book just now. Try again ↵";
+- the failure is remembered: the read-only read stays failed with no new request;
+- one `judgment_work_claims` row, `released` (epoch 2);
+- 6 `source_service_spend` rows under `reading_paths.max_daily_cost_usd`, each **settled at its $0.022089 estimate**
+  (finding 2);
+- no `reader_path_sections` row and no ledger row; the override is refused the same way.
+
+**`model_call_receipts`.** 38 learner databases under `landing-rw7a/` carry the table. **No row completed** in any of
+them. The only rows are (iv)'s 12 failed ones.
+
+### New findings
+
+1. **A vitest unhandled error under load (Low, from before this stage).** On the first whole vitest run, made while
+   `pytest -n auto` loaded the machine, `libraryExercisesReader.test.tsx` (RW4b's) reported an uncaught `TypeError`.
+   The library page's 300 ms search debounce fired after the test, and the test's `readerSearchSources: vi.fn()`
+   returns `undefined` (`ReaderScreen.tsx:725`). The tests passed. Neither this test file nor the search effect
+   changed in RW7a, and the error did not come back in four reruns. **Follow-up:** the mock should resolve
+   (`vi.fn().mockResolvedValue(...)`).
+2. **A transport failure is charged its estimate against the day's cap (Low).** In (iv), each refused connection
+   settled its full estimate ($0.022089) in `reading_paths.max_daily_cost_usd`. A failed judgment and one *try
+   again* used $0.13 of the $0.50 a day. This is the shared `PaidCalls` / `SharedDailyEnvelope` accounting
+   (`max(estimate, reported)`, conservative when nothing is reported), not RW7a's code, and the cap still bounds
+   repeated *try again*. On Codex (the owner's default) the route is `estimated_only` and not capped.
+3. **No composition work.** The stage branched from main's tip, so the merge was clean, and the gate and parity found
+   nothing to fix.
+
+### For the owner
+
+- **Migration 217 applies on the next open** of a vault by the merged code, through the coordinator. **Close the
+  app, the MCP server and the mobile host, and back up first.** It adds two empty append-only tables
+  (`reader_path_sections`, `reader_path_depths`). No existing row changes, and nothing served moves: certification,
+  the Today queue and the daily plan were byte-identical on your copies (parity (a), (b)). Your algorithm version is
+  unchanged; there is no successor.
+- **What you see.** In the Reader's Guide, a book you open asks "How deep do you want to go?" (get the idea · learn
+  to use it · fluency). If you set a depth intent for the book in your Learn setting (DL2), it is preselected. Once
+  you pick, the Guide shows your path:
+  - each section labelled core, prerequisite, enrichment, already shown ● (only with your own evidence) or assumed
+    (only with an open assumption), with a one-line *why*;
+  - *read it anyway* and *skip it* on each section; skipping marks nothing as known;
+  - one exercise worth trying per core section, with *Try it*;
+  - a "next" line computed without a model.
+
+  Orient gains "what matters here?", which opens the path.
+- **The cost.** The judge makes one `reading_path_judge` call per book, depth and state. The state changes when the
+  sections, your evidence on their LOs, the goal or the prompt change. The judge runs automatically when the Guide
+  opens with a known depth and the cached path is out of date. On Codex (the default) the call is `estimated_only`. A
+  metered route needs `source_retrieval.llm_price_per_million` and is capped at `reading_paths.max_daily_cost_usd`
+  (**$0.50 a day**). The prompt carries section titles, roles and LO titles with your status on each: no passage text
+  and none of your text.
+- **The switch.** `[reading_paths] enabled = false` turns it off: every RW7a RPC refuses, the Guide and the prompt
+  contract are `a76c8358a`'s, Orient has no "what matters here?", and the reader report has no `reading_paths`
+  block. On your copies, the sidecar then answered exactly as main (parity (c)). Settings, the disclosure registry and
+  `eval judges` still list the route (open items).
+
+### Open questions (defaults in force)
+
+1. *"Already shown" on LOs without authored blueprints?* **Never**: `lo_certification` is not demonstrated without
+   blueprints, so such a section stays core.
+2. *"Assumed" with demonstrated LOs mixed in?* **Assumed** when every LO is demonstrated or open-assumed and at least
+   one is assumed.
+3. *Exercises outside the section (end-of-chapter units)?* **None named** for that section; no end-of-chapter mapping.
+4. *The judge's cap?* **`reading_paths.max_daily_cost_usd = 0.50`** (metered routes; Codex is `estimated_only`).
+5. *Overrides per depth?* **Yes**: a skip at "learn to use it" does not skip at "fluency".
+6. *The judge runs automatically when the Guide opens with a known depth* (a DL2-preselected depth included) and the
+   cached path is stale? **Yes**, once per state.
+7. *RW7b's stale-path fallback?* The suggested default for RW7b is to **fall back to book order** when the path is
+   stale, with the receipt naming it. A plan build never triggers a call (§7).
+
+### Open items
+
+- **The card's "next" can stay stale after a transient refresh failure (ruled Low).** If a re-read of the path fails
+  transiently, the mounted card keeps its earlier "next" line until the next landed progress save re-reads it, and
+  then it recovers.
+- **Configured routes listed while off (ruled Low, V3).** Settings (`get_settings`), the disclosure registry and
+  `learnloop eval judges` list `reading_path_judge` while `reading_paths.enabled` is false, because they list
+  configured routes. The switch governs behaviour (no call, every RPC refuses, no contract key, no palette action, no
+  report block), not route metadata.
+- **Findings 1 and 2** above (Low).
+- **From the stage, not built:** no `path_depth_set` / `path_override` interaction events (§2 item 3); exercises from
+  the sources spec's candidates (§2 item 6, open question 3); RW7b's `plan_uses_path`.
+- **From before this stage:** `desktop_validate.py` (`syntheticBook.ts`) and `module_validate.py` (968 issues).
+
+**Process note (landing).** Every Python and CLI run outside pytest went through `env -i` with an empty HOME,
+CODEX_HOME and LEARNLOOP_CONFIG_DIR, with one exception. A `python3 -` with an empty here-document (it executed no
+code) was started outside `env -i` while editing a script. It read nothing, opened no vault, made no network call and
+used no credential. No stash was used, no fixture vault was opened except through `learnloop.db.copies`, and no git
+command ran in the main checkout.
