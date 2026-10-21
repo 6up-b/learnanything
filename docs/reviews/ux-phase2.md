@@ -3,6 +3,7 @@
 **Stage:** `ux-phase2-shell`, branch `ux/phase2-shell` (worktree `learnanything-ux2`), base `c80c54cbb` (main, the RW7a landing, migration head 217).
 **Spec:** `docs/specs/ux_learnloop_v1.md` §5 (places, Under the hood, keys), §7.7, §7.9, §8.5 and §10 Phase 2 (items 2.1–2.5), plus the findings Phase 1's usability rounds deferred to Phase 2 (§10 "Deferred", row 2).
 **Owner direction:** owner-queued 2026-10-13, re-confirmed 2026-10-21 as Track P. Frictionless by default, the glass box on demand; a live change behind a kill switch, no shadow stage.
+**Codex review fix round:** `ux-phase2-shell-codex-review.md` (F1–F9 fixed). It supersedes this record where they differ: Data opens read-only behind *allow edits* and the database leaves the simple shell's file trees (Q3 answered with spec Q18's default), the writer no longer duplicates waiting error-type proposals (Q4 and its open item resolved), screens can hand the shell a structured error and a retry (D5 narrowed), and the notice, palette and Reader-ask behaviour of §2.4–2.5 is as that file describes.
 
 ## 0. The plan (written before the code)
 
@@ -83,7 +84,7 @@ A left list of tools (each with its own count: Study-map changes shows the pendi
 | Imports & builds | Ingest | `IngestScreen` |
 | Study-map changes | Proposals | `ProposalsScreen` (+ the repeat marks, §2.6) |
 | Subjects & topics | Registry | `RegistryReviewScreen` |
-| Concept graph editor | Graph · edit | `GraphScreen` (its *edit* mode) |
+| Concept graph editor | Graph · edit | `GraphScreen` unchanged (it opens in view mode; its own *edit* toggle) |
 | Analyst views | Graph · knowledge field | `KnowledgeMapView` (terrain, well, strata) |
 | Mistake history | Review · learnloop diff | the `ReviewScreen` overlay: opens when the tool is picked, not when Under the hood is reopened on it |
 | Calibration | calibrate | a *start calibration* button (the palette's `calibrate` over all open episodes; needs a session); `> calibrate <goal_id>` still takes a goal |
