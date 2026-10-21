@@ -35,16 +35,22 @@ from tests.pf_fakes import prompt_context
 class RoleLabellerFake:
     """The batch labeller, deterministic: every passage gets ``roles``.
     ``provider_type``: ``codex_sdk`` bills the subscription, any other is
-    metered; ``malformed``: the roles field is missing on every passage."""
+    metered; ``malformed``: the roles field is missing on every passage;
+    ``silent``: the request numbers (from 1) that report no usage; ``fail``:
+    the request numbers that fail (no usage) and so are retried."""
 
     provider_name = "fake_role_labeller"
     model = "fake-role-labeller-model"
 
     def __init__(self, *, provider_type: str = "openrouter", roles=(("explanation", "medium"),),
-                 malformed: bool = False) -> None:
+                 malformed: bool = False, silent: tuple[int, ...] = (), fail: tuple[int, ...] = ()) -> None:
         self.provider_type = provider_type
         self.roles = roles
         self.malformed = malformed
+        self.silent = set(silent)
+        self.fail = set(fail)
+        self.requests = 0
+        self.reported: list[int] = []
         self.prompts: list[str] = []
         self.contexts: list[dict] = []
 
@@ -52,10 +58,17 @@ class RoleLabellerFake:
         return capability in {"structured_completion", "bounded_structured_completion", "isolated_turn"}
 
     def complete(self, request):
+        from learnloop.ai.errors import AIProviderUnavailable
+
         assert request.result_model is RL.RoleLabellerResult
+        self.requests += 1
+        if self.requests in self.fail:
+            raise AIProviderUnavailable("fake failure")
         self.prompts.append(request.prompt)
-        report_call_usage({"input_tokens": len(request.prompt) // 4, "output_tokens": 60,
-                           "resolved_model": self.model})
+        if self.requests not in self.silent:
+            self.reported.append(len(request.prompt) // 4 + 60)
+            report_call_usage({"input_tokens": len(request.prompt) // 4, "output_tokens": 60,
+                               "resolved_model": self.model})
         context = prompt_context(request.prompt)
         self.contexts.append(context)
         judgments = []
@@ -405,3 +418,55 @@ def test_a_subscription_run_with_no_price_keeps_its_estimate_unknown(tmp_path):
     out = RL.label_roles(loaded(paths), repository, "ext_text", client=fake)
     assert out["status"] == "done" and fake.prompts
     assert out["usage"]["estimated_usd"] is None and out["usage"]["estimated_tokens"] == _reported_tokens(fake)
+
+
+# -- Codex re-review F6: reported tokens, else each request's estimate, summed per request ----------
+
+
+def _estimates(monkeypatch) -> list[int]:
+    """Each attempt's token estimate, in order (the paid layer's own)."""
+
+    from learnloop.practice_index import paid
+
+    seen: list[int] = []
+    real = paid.estimated_call_tokens
+
+    def spy(*args, **kwargs):
+        seen.append(real(*args, **kwargs))
+        return seen[-1]
+
+    monkeypatch.setattr(paid, "estimated_call_tokens", spy)
+    return seen
+
+
+@pytest.mark.parametrize("provider_type", ["openrouter", "codex_sdk"])
+def test_a_request_with_no_reported_usage_counts_its_estimate_beside_reported_ones(library, monkeypatch,
+                                                                                    provider_type):
+    paths, repository, _spans = library
+    plan = RL.label_roles(loaded(paths), repository, "ext_text", dry_run=True)
+    assert len(plan["batches"]) >= 2
+    estimates = _estimates(monkeypatch)
+    # Batch 1 reports its usage; batch 2 reports none.
+    fake = RoleLabellerFake(provider_type=provider_type, silent=(2,))
+    out = RL.label_roles(loaded(paths), repository, "ext_text", client=fake)
+    assert out["status"] == "done" and fake.requests == len(estimates) == len(plan["batches"])
+    silent = estimates[1]
+    assert fake.reported and silent > 0
+    usage = out["usage"]
+    assert usage["estimated_tokens"] == sum(fake.reported) + silent
+    if provider_type == "codex_sdk":
+        assert usage["estimated_usd"] == pytest.approx(usage["estimated_tokens"] / 1_000_000)
+    else:
+        assert usage["estimated_usd"] == usage["marginal_usd"] > 0
+
+
+@pytest.mark.parametrize("provider_type", ["openrouter", "codex_sdk"])
+def test_a_retried_request_that_reported_nothing_counts_its_estimate(library, monkeypatch, provider_type):
+    paths, repository, _spans = library
+    estimates = _estimates(monkeypatch)
+    # The first request fails without usage and is retried; the retry reports.
+    fake = RoleLabellerFake(provider_type=provider_type, fail=(1,))
+    out = RL.label_roles(loaded(paths), repository, "ext_text", client=fake)
+    assert out["status"] == "done" and out["usage"]["retries"] == 1
+    assert len(estimates) == fake.requests == len(fake.reported) + 1
+    assert out["usage"]["estimated_tokens"] == sum(fake.reported) + estimates[0]

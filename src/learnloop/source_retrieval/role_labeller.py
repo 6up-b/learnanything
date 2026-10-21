@@ -243,19 +243,18 @@ def _usage(outcomes: Sequence[Mapping[str, Any]], budget: SpendBudget, route: An
            price: float | None) -> dict[str, Any]:
     """The run's usage (Codex review F4): tokens and dollars estimated from
     each call's reported usage (``estimated_only`` on a subscription; dollars
-    unknown with no price), and apart, what the budget was charged."""
+    unknown with no price), and apart, what the budget was charged.
+
+    The tokens are each request's reported tokens, or its estimate when it
+    reported none, summed per request (Codex re-review F6), on either billing.
+    """
 
     used = budget.used
     totals = [usage.get("usage") or {} for usage in outcomes]
+    tokens = sum(int(entry.get("usage_tokens") or 0) for entry in totals)
     if subscription:
-        # Reported tokens when the turn reported them, else the call's estimate.
-        tokens = sum(int(entry.get("estimated_only_tokens") or 0) for entry in totals)
         estimated = tokens * price / 1_000_000 if price is not None else None
     else:
-        reported = sum(int(entry.get("reported_input_tokens") or 0) + int(entry.get("reported_output_tokens") or 0)
-                       for entry in totals)
-        # With no reported usage, the tokens the budget was charged.
-        tokens = reported or int(used.total_tokens or 0)
         estimated = used.estimated_usd
     return {"requests": int(used.calls), "retries": int(used.retries), "billing": route.billing,
             "cost_basis": "estimated_only" if subscription else "metered_estimate",

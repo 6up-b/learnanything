@@ -200,6 +200,11 @@ class UsageTotals:
     reported_cost_usd: float = 0.0
     estimated_only_tokens: int = 0
     estimated_only_usd: float | None = 0.0
+    #: Every attempt's reported tokens, or its estimate when it reported none,
+    #: whatever the billing (``estimated_only_tokens`` on a subscription). A
+    #: metered run's token estimate (Codex re-review F6 on RW4e): the budget
+    #: charges ``max(estimate, reported)``, never this.
+    usage_tokens: int = 0
     #: Answers recovered (from a checkpoint or a receipt) instead of being paid for again.
     recovered: int = 0
     #: Of those, answers whose checkpoint never committed: recovered from the receipt.
@@ -559,8 +564,9 @@ class PaidCalls:
         self.totals.reported_input_tokens += sum(reported_in)
         self.totals.reported_output_tokens += sum(reported_out)
         self.totals.reported_cost_usd += sum(reported_cost)
+        used = reported if reported is not None else tokens_estimate
+        self.totals.usage_tokens += used
         if self.subscription:
-            used = reported if reported is not None else tokens_estimate
             self.totals.estimated_only_tokens += used
             if self.totals.estimated_only_usd is not None and self.price is not None:
                 self.totals.estimated_only_usd += used * self.price / 1_000_000
