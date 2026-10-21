@@ -266,3 +266,159 @@ show). The first ordinary turns after landing confirm it; see owner note 3.
   **Default: not in this stage** (outside the tool surface; a separate privacy decision).
 * **Q5.** Refuse the legacy HTTP Codex adapter outright, since its tool surface is unknowable? **Default: no**;
   no default profile uses it, and it already refuses isolated operations.
+
+## Landing onto main (2026-10-21)
+
+Landed exactly `bc90f31ae`, not the branch tip. A hardening round is still running on the branch, and a
+**second landing** of its commits follows. The orchestrator is landing this commit now because main's
+exposure is much larger. Its verify job `20261021-113946-qZgmYP` on `bc90f31ae` confirmed that ordinary
+text-only turns are **not** refused.
+
+### Commits and conflicts
+
+* Branch `merge/security-lockdown-onto-main`, cut from main `7e7bdff1b` in `learnanything-merge2`.
+* `6ff71bdac`: `git merge --no-ff bc90f31ae`. **No conflicts.**
+  * Since `c80c54cbb`, main had changed only `transport.py`, `openai_chat.py`, `routing.py`,
+    `disclosures.py` and `conftest.py` in the AI layer (RW5a's `images` and `IMAGE_INPUT`, and
+    `LEARNLOOP_FIGURE_MODELS=off`).
+  * The stage did not touch any of those files. `codex.py`, `execution.py` and `paid.py` merged cleanly,
+    and so did RW5a's figure routes.
+* `92b9f19fc`: composition pin. `tests/test_codex_tool_lockdown.py` gets a `figure_author` shape in its
+  route-coverage parametrization, `test_every_request_runs_the_locked_down_profile_with_approvals_denied`.
+  * The shape drives RW5a's real `FigureRoute.ask`, which goes through `PaidCalls.call(..., isolated=True)`
+    on a `SdkCodexClient`.
+  * It asserts the same things as every other shape: `deny_all` on the thread and the turn, the decline
+    handler, a fresh `learnloop-isolated-turn-*` directory (never the vault), and the full override set.
+  * Fail-first: run on `git archive main src`, with `codex_lockdown.py` added so the import resolves,
+    under `env -i`. All 6 shapes fail (`KeyError: 'approval_mode'`), `figure_author` among them.
+* This record is the last commit.
+
+Nothing needed regenerating. There is no migration, config key, schema, CLI, RPC or frontend change. The
+CLI-help, serializer, desktop-RPC, mobile-allowlist and table-role pins are all part of the full suite
+and pass. `git diff main HEAD -- fixtures apps` is empty.
+
+### Gate (on `92b9f19fc`)
+
+Setup: `uv sync --extra dev --extra mobile` plus `uv pip install pypdfium2`, with
+`TMPDIR=fixtures-local/tmp`.
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | **29 kept, 0 broken** |
+| full suite: `flock … pytest -n auto` | **15,552 passed, 2 skipped, 2 xfailed** in 25:50 |
+| durability: `flock … pytest -m durability` | **119 passed** |
+| `npm run typecheck` | ok |
+| `cargo check` | ok |
+| vitest (whole run) | see below |
+
+* The full suite needed a second start. The first run was cut off at 99% by a session restart and left
+  no summary; the figures above are from the rerun.
+* **vitest.** `apps/` is byte-identical to main, where the RW5a landing gated 1,469 passing. This landing
+  made four whole runs, all at load average 40 to 80 while other stages were running:
+  * they failed 16, 4, 1 and 5 tests;
+  * the failures were in different files each time (`PracticeScreen`, `PracticeScreen.adaptiveHandoff`,
+    `pdfSelection/perf`, `FigureInline`, `libraryAsk`, `figuresWithReadingPath`, `Workbench`): vault-switch
+    timing, a 400 ms perf bound, and teardown-after-test errors;
+  * every failing file I saw passed alone, 3 out of 3 times (67 and 68 tests);
+  * the 9 files of the first run were not listed, because its log kept only the totals.
+
+### Checks
+
+**(a) Every Codex call site on the merged tree.**
+
+* `git grep` and the stage's AST sweep (`test_every_codex_turn_starter_in_the_source_passes_deny_all_inside_the_locked_down_turn`,
+  passing) find these call sites:
+  * one `Codex(config=…)` construction, one `codex.thread_start(` and one `thread.turn(`, all in
+    `SdkCodexClient._run_sdk_turn` (`codex.py:1078/1091/1103`), with `approval_mode=deny_all` and
+    `install_on_sdk` placed before `thread_start`;
+  * `_run_sdk_turn`, which is reached only from `_run_structured` (`codex.py:938`);
+  * `_run_structured`, which is reached only from `_complete_validated`'s `run_turn` (`codex.py:793/796`);
+  * `_complete_validated`, which is reached only from `complete()` (`codex.py:730`).
+* So every caller goes through `execute_structured_operation`, then `transport.complete`, then that one
+  path. Those callers include `PaidCalls.call`, `tutor_qa`, the judges, the hints and AD routes,
+  diagnosis, projects and RW5a's `figure_author` (`figures/routes.py:225`, `isolated=True`).
+* The two other `subprocess` starts in `codex.py` make no model call:
+  * `:605` is the launch-check probes (`features list`, `mcp list`, `debug models --bundled`);
+  * `:1659` is the legacy HTTP adapter's `startup_command` (open High 3 below).
+* The figure author's crop never reaches Codex. `SdkCodexClient.supports(IMAGE_INPUT)` is false, so
+  `FigureRoute.reads_images()` sends no image, and `execute_structured_operation` refuses images to any
+  transport that lacks `IMAGE_INPUT` before it sends anything.
+
+**(b) Parity** (`fixtures-local/landing-sec/`, scripts in `scripts/ab_sec.sh` and `scripts/main2.sh`).
+
+* Setup:
+  * backup-API copies (`learnloop.db.copies.copy_tree_with_databases`) of `fixtures/linear_algebra` and
+    `fixtures/probability`, taken from the **main checkout** (mvp-0.8, schema 165);
+  * full `git archive` trees of main (`7e7bdff1b`) and the merge;
+  * every run under `env -i PATH HOME CODEX_HOME LEARNLOOP_CONFIG_DIR`, all three empty;
+  * every route at `blackhole` (openai_chat or decider at `127.0.0.1:9`, key variable unset), with
+    embeddings, rewrite, rerank, dense, gaps and `build_on_serve` off.
+* Results:
+  * **Migration.** Each code applies 51 migrations, to head 217. Schema, rows, FK and integrity checks are
+    identical (1451 and 1450 objects, 344 tables). `schema_migrations` differs only in `applied_at`.
+  * **At the copies' label (mvp-0.8)**: certification, the Today queue and the plan are byte-identical
+    main vs merge, for both vaults.
+  * **`rebuild --shadow` and `doctor`.** Zero differences after normalisation. The raw outputs differ only
+    in the vault path, each copy's own live-DB sha256 (the same before and after) and a fresh marker ULID.
+    The live database is unchanged on both sides.
+  * **Upgraded with main's code** along the owner chain (`--to mvp-0.9`, `--to mvp-0.27`,
+    `rebuild-derived-state`, then `--to mvp-0.29`): certification and Today are byte-identical at
+    mvp-0.27 and mvp-0.29.
+  * **The plan at mvp-0.27 and mvp-0.29** is identical except `router_decisions.card_hash`,
+    `snapshot_hash` and the `router.card_hash` inside `detail_json`. A second run of main's code on a fresh
+    copy differs from the first in exactly these three fields. This is run-to-run, not the merge, as at the
+    earlier landings.
+* A first parity attempt overlapped a second instance of the script started around the session restart,
+  so its copies were contaminated. All derived directories were deleted, and the run above is one clean
+  serial pass.
+
+**(c) Receipts.** All 26 parity databases hold **0** `model_call_receipts` rows of any status.
+
+**(d) No live Codex calls.**
+
+* Every run outside pytest used `env -i` with an empty `CODEX_HOME`, and with every route on the
+  loopback blackhole. The parity `HOME/.codex` and `LEARNLOOP_CONFIG_DIR` are still empty afterwards.
+* The suite's real-binary tests run only local probes under throwaway homes.
+* No credential file, owner config or fixture vault was opened directly. No git stash was used.
+
+### Owner notes
+
+1. **What changed.** Every Codex call now runs locked down:
+   * it starts in a fresh empty temp directory, and the vault is refused as a workspace;
+   * approvals are `deny_all`, and a handler declines every request;
+   * it runs under the read-only, no-network permission profile;
+   * 46 tool features are off, plus sub-agents, `request_user_input`, `update_plan`, web search, MCP and apps;
+   * a cached launch check fails closed;
+   * commands see only an allowlisted environment;
+   * a turn that produces any non-text item, makes a second model request, or ends a response in a tool
+     call is refused like any provider failure;
+   * sub-agent and tool usage is metered.
+
+   This applies to the tutor, reader judges, library organizer, role labeller, reading paths, source
+   rerank, hints, AD forecasts, grading, diagnosis, router, projects and the figure author.
+2. **Watch the first ordinary Codex calls** (a tutor question, a grading). If they fail with "a model
+   response that ended in a tool call", the early-stop rule is misreading a normal turn: revert
+   **`8fe73f883`**.
+3. **The snapshot diagnosis keeps a read-only shell** to read its as-of export (Q2), under `deny_all`, the
+   read-only profile and the environment allowlist.
+4. **A second landing follows** with the hardening round now running on the branch. It addresses the four
+   Highs below.
+5. The first call in each sidecar process runs the quick `codex` probes, then caches. A Codex CLI upgrade
+   can refuse turns until the lockdown reviews it; the error names the feature or field.
+
+### Open items
+
+* **Four configuration-dependent Highs** from verify `20261021-113946-qZgmYP`, being fixed on the branch
+  for the second landing:
+  1. inherited permission-profile grants;
+  2. a relative `CODEX_HOME`, and fingerprinting of the launch command;
+  3. the legacy HTTP Codex transport;
+  4. runtime model catalogs beyond the bundled one.
+* **Q1 to Q5** (above), defaults unchanged:
+  * Q1: no LearnLoop-owned model catalog;
+  * Q2: the diagnosis keeps its shell;
+  * Q3: retries unchanged;
+  * Q4: not ephemeral;
+  * Q5: HTTP adapter kept.
+* vitest load-flakiness under concurrent stages: these frontend tests fail only under heavy load
+  (pre-existing; no frontend change here).
