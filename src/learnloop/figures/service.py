@@ -248,6 +248,19 @@ def crop_image(repository: Repository, request: FigureRequest, context: SourceCo
 # Views
 # ---------------------------------------------------------------------------
 
+def certified_row(row: Mapping[str, Any]) -> Mapping[str, Any]:
+    """The row as it may be shown now (fix round 5): a "verified" row whose
+    report was certified under an older :data:`verify.CERTIFICATION_VERSION`
+    is an illustration until it is certified again, with that reason."""
+
+    report = row.get("verification_report") or {}
+    if row.get("verification") != V.VERIFIED or report.get("certification_version") == V.CERTIFICATION_VERSION:
+        return row
+    reason = (f"checked under an earlier rule (certification {report.get('certification_version') or 1}); not "
+              f"checked again under version {V.CERTIFICATION_VERSION}")
+    return {**row, "verification": V.ILLUSTRATIVE, "verification_report": {**report, "reason": reason}}
+
+
 def _label(row: Mapping[str, Any]) -> str:
     verification = row["verification"]
     if verification in LABELS:
@@ -273,8 +286,10 @@ def _prediction_view(found: Mapping[str, Any] | None) -> dict[str, Any] | None:
 def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, versions: int = 1) -> dict[str, Any]:
     """A figure as the Reader shows it. The spec goes out as JSON text (its
     keys are the spec's own), and only for a shown figure. A prediction's
-    answer is never sent before the learner answers it."""
+    answer is never sent before the learner answers it. A stale certificate
+    shows as an illustration (:func:`certified_row`, fix round 5)."""
 
+    row = certified_row(row)
     region = row.get("region") or {}
     view: dict[str, Any] = {
         "figure_id": row["id"], "extraction_id": row["extraction_id"], "span_ids": list(row.get("span_ids") or ()),
@@ -326,6 +341,9 @@ def request_hash(request: FigureRequest, context: SourceContext, image_digest: s
     return content_key({
         "spec_version": S.SPEC_VERSION, "prompt_version": R.AUTHOR_PROMPT_VERSION,
         "verifier_prompt_version": R.VERIFIER_PROMPT_VERSION, "extraction_id": request.extraction_id,
+        # A new certification version is a new input (fix round 5): a figure
+        # checked under older rules is a cache miss and is checked again.
+        "certification_version": V.CERTIFICATION_VERSION,
         "span_ids": list(request.span_ids), "region": request.region, "origin": request.origin,
         "passage": context.passage, "around": context.around, "image_sha256": image_digest,
         "supersedes_id": request.supersedes_id, "revision_note": request.revision_note,
@@ -422,8 +440,14 @@ def _verifier_context(compiled: S.CompiledFigure, name: str, claims: Sequence[Ma
 
 def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, author_client: Any | None = None,
                  verifier_client: Any | None = None, sandbox_run: Any | None = None, clock: Clock | None = None,
-                 envelope: Any | None = None) -> BuildOutcome:
-    """Build one figure (module docstring). Raises :class:`FigureRefused`."""
+                 envelope: Any | None = None, live_vault: Callable[[], Any] | None = None) -> BuildOutcome:
+    """Build one figure (module docstring). Raises :class:`FigureRefused`.
+
+    ``live_vault`` gives the vault as configured now (the sidecar's loaded
+    vault); every author and verifier call first rereads the switch and the
+    route from it, so a build the switch turned off midway makes no further
+    call and stores nothing (fix round 5). Unset, the config is reread from
+    disk."""
 
     request = check_request(vault, repository, request)
     context = source_context(vault, repository, request)
@@ -437,7 +461,7 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
     # The owner is named once the input is hashed (below): asking whether the
     # route reads images comes first.
     author = R.FigureRoute(vault, repository, R.AUTHOR_TASK, client=author_client, envelope=envelope,
-                           owner_id="figure:pending", max_calls=R.MAX_AUTHOR_ATTEMPTS)
+                           owner_id="figure:pending", max_calls=R.MAX_AUTHOR_ATTEMPTS, live_vault=live_vault)
     image, asset_id, clipped = crop_image(repository, request, context)
     if image is not None and not author.reads_images():
         if request.region:
@@ -481,7 +505,7 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
         return _author_and_store(vault, repository, request, context, author, previous=previous, versions=versions,
                                  image=image, asset_id=asset_id, digest=digest, input_hash=input_hash,
                                  request_id=request_id, envelope=envelope, verifier_client=verifier_client,
-                                 sandbox_run=sandbox_run, clock=clock)
+                                 sandbox_run=sandbox_run, clock=clock, live_vault=live_vault)
 
 
 _BUILDS_GUARD = threading.Lock()
@@ -519,7 +543,7 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
                       author: R.FigureRoute, *, previous: Mapping[str, Any] | None, versions: int,
                       image: tuple[str, bytes] | None, asset_id: str | None, digest: str | None, input_hash: str,
                       request_id: str, envelope: Any, verifier_client: Any | None, sandbox_run: Any | None,
-                      clock: Clock | None) -> BuildOutcome:
+                      clock: Clock | None, live_vault: Callable[[], Any] | None = None) -> BuildOutcome:
     problem = author.problem()
     if problem is not None:
         raise FigureRefused(problem.reason, problem.message)
@@ -535,7 +559,9 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
             output = author.ask(prompt, R.FigureAuthorOutputV1, images=images,
                                 metadata={"attempt": attempt + 1, "prompt_version": R.AUTHOR_PROMPT_VERSION})
         except R.FigureUnavailable as exc:
-            if attempt == 0:
+            # The first call refused, or the switch or the route changed since
+            # (fix round 5): the rest is deferred, nothing is stored.
+            if attempt == 0 or exc.reason in R.STOPPED:
                 raise FigureRefused(exc.reason, exc.message) from exc
             break
         except SpendLimitExceeded as exc:
@@ -593,7 +619,7 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
         if compiled.spec.kind == "reconstructed":
             report.source_match, verifier_calls = _source_match(
                 vault, repository, compiled, report.claims, client=verifier_client, envelope=envelope,
-                request_id=request_id, sandbox_run=sandbox_run)
+                request_id=request_id, sandbox_run=sandbox_run, live_vault=live_vault)
             if report.source_match.get("matched"):
                 report.outcome = V.VERIFIED
             else:
@@ -601,6 +627,12 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
         report_dict = report.as_dict()
         report_dict["assumptions"] = assumptions
         row["verification_report"] = report_dict
+    # Nothing is stored for a build the switch turned off midway (fix round
+    # 5): its paid answers keep their checkpoints, so a later build recovers
+    # them with no new call.
+    if author.problem_now() is not None:
+        stopped = author.problem_now()
+        raise FigureRefused(stopped.reason, stopped.message)
     row["verification"] = report.outcome
     row.setdefault("verification_report", report.as_dict())
     try:
@@ -625,8 +657,8 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
 
 
 def _source_match(vault: Any, repository: Repository, compiled: S.CompiledFigure, claims: Sequence[Mapping[str, Any]],
-                  *, client: Any | None, envelope: Any, request_id: str, sandbox_run: Any | None
-                  ) -> tuple[dict[str, Any], int]:
+                  *, client: Any | None, envelope: Any, request_id: str, sandbox_run: Any | None,
+                  live_vault: Callable[[], Any] | None = None) -> tuple[dict[str, Any], int]:
     """Step 3: one verifier call, then the sandbox. Anything that keeps it
     from running is a reason the figure is an illustration, never a pass."""
 
@@ -661,15 +693,26 @@ def _source_match(vault: Any, repository: Repository, compiled: S.CompiledFigure
     inexact = V.literal_problem(compiled.definitions[name], compiled.definitions)
     if inexact is not None:
         return {"matched": False, "definition": name, "reason": inexact}, 0
+    # Fix round 5: a checked definition's piecewise conditions compare a
+    # bare variable or parameter with a binary64-exact literal, so a float
+    # comparison is exact and both readings choose the same branch at every
+    # reachable value.
+    branching = V.condition_problem(compiled.definitions[name], compiled.definitions)
+    if branching is not None:
+        return {"matched": False, "definition": name, "reason": branching}, 0
     verifier = R.FigureRoute(vault, repository, R.VERIFIER_TASK, client=client, envelope=envelope,
-                             owner_id=f"figure:{request_id}", max_calls=R.MAX_VERIFIER_CALLS)
+                             owner_id=f"figure:{request_id}", max_calls=R.MAX_VERIFIER_CALLS, live_vault=live_vault)
     problem = verifier.problem()
+    if problem is not None and problem.reason in R.STOPPED:
+        raise FigureRefused(problem.reason, problem.message)
     if problem is not None:
         return {"matched": False, "reason": f"verifier_{problem.reason}"}, 0
     try:
         output = verifier.ask(R.verifier_prompt(_verifier_context(compiled, name, claims, request_id=request_id)), R.FigureVerifierOutputV1,
                               metadata={"prompt_version": R.VERIFIER_PROMPT_VERSION})
     except R.FigureUnavailable as exc:
+        if exc.reason in R.STOPPED:
+            raise FigureRefused(exc.reason, exc.message) from exc
         return {"matched": False, "reason": f"verifier_{exc.reason}"}, verifier.made
     except SpendLimitExceeded:
         return {"matched": False, "reason": "verifier_capped"}, verifier.made

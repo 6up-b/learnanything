@@ -76,6 +76,12 @@ def _certified(tmp_path, monkeypatch, spec):
 # High 1: certified by display agreement
 # ---------------------------------------------------------------------------
 
+def _refused_by_a_rule(match: dict) -> bool:
+    """Refused by display agreement (d), or by fix round 5's branch rule."""
+
+    return (match.get("display_agreement") or {}).get("agreed") is False or "piecewise condition" in match["reason"]
+
+
 def test_a_literal_that_is_not_a_small_exact_decimal_is_never_checked(tmp_path, monkeypatch):
     """The verify's case: sin(10000000000000001) displays 0.7797 (the double
     is 1e16) where SymPy's exact reading is -0.1056."""
@@ -99,10 +105,10 @@ def test_rule_a_on_literals(text, allowed):
     ("piecewise((x*10 < 3, 1), 2)", (0.0, 1.0)),           # near a boundary: x = 0.3 is a plotted sample
 ])
 def test_display_agreement_catches_a_branch_rounding_decides(tmp_path, monkeypatch, definition, x):
-    figure, verifier, report = _certified(tmp_path, monkeypatch, _reconstruction(definition, x=x))
-    assert verifier.calls == 1  # (a)-(c) pass; (d) decides
+    # Since fix round 5 the branch rule refuses both by construction, before (d).
+    figure, _verifier, report = _certified(tmp_path, monkeypatch, _reconstruction(definition, x=x))
     assert figure["verification"] == "illustrative"
-    assert report["source_match"]["display_agreement"]["agreed"] is False
+    assert _refused_by_a_rule(report["source_match"])
 
 
 @needs_sandbox
@@ -128,7 +134,7 @@ def test_the_flagship_stays_checked_with_its_display_certified(tmp_path):
 def test_every_corpus_exclusion_rule_is_illustrative_at_runtime(tmp_path, monkeypatch, rule, definition, x):
     figure, _verifier, report = _certified(tmp_path, monkeypatch, _reconstruction(definition, x=x))
     assert figure["verification"] == "illustrative", rule
-    assert report["source_match"]["display_agreement"]["agreed"] is False, rule
+    assert _refused_by_a_rule(report["source_match"]), rule
 
 
 # ---------------------------------------------------------------------------

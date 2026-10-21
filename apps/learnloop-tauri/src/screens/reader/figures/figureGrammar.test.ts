@@ -278,3 +278,11 @@ describe("bounded compilation (fix round 4)", () => {
     expect(() => compileSpec(spec)).toThrow(/span/);
   });
 });
+
+describe("formatting-derived values (fix round 5)", () => {
+  it("never shows a percent whose scaled value is not finite", async () => {
+    const { formatValue } = await import("./FigurePanels");
+    expect(formatValue(1e307, "percent")).toBe("—");
+    expect(formatValue(0.25, "percent")).toBe("25.0%");
+  });
+});

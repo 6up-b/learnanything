@@ -121,8 +121,10 @@ def _start(ctx: SidecarContext, request: FS.FigureRequest) -> dict[str, Any]:
 
     def work(worker_repo: Any) -> dict[str, Any]:
         try:
+            # The switch and the routes are reread from the vault loaded NOW
+            # before every call (fix round 5), not the one captured here.
             outcome = FS.build_figure(vault, worker_repo, request, author_client=author, verifier_client=verifier,
-                                      sandbox_run=sandbox_run)
+                                      sandbox_run=sandbox_run, live_vault=ctx.loaded_vault)
         except FS.FigureRefused as exc:
             raise _refused(exc) from exc
         return {"figure": outcome.view, "reused": outcome.reused}

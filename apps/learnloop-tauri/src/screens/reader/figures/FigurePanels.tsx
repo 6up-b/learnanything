@@ -19,7 +19,11 @@ const SHADE_FILLS = ["var(--wash-amber)", "var(--wash-cyan)", "var(--wash-purple
 
 export function formatValue(value: number | null, format: "number" | "percent" = "number"): string {
   if (value === null || !Number.isFinite(value)) return "—";
-  if (format === "percent") return `${(value * 100).toFixed(1)}%`;
+  if (format === "percent") {
+    // The scaled number is what is shown: guard it too (fix round 5; 1e307 as a percent overflows).
+    const scaled = value * 100;
+    return Number.isFinite(scaled) ? `${scaled.toFixed(1)}%` : "—";
+  }
   if (value !== 0 && (Math.abs(value) >= 1e5 || Math.abs(value) < 1e-3)) return value.toExponential(3);
   return String(Number(value.toPrecision(5)));
 }

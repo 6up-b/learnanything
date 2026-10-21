@@ -50,6 +50,12 @@ from typing import Any
 from learnloop.figures import grammar as G
 from learnloop.figures import spec as S
 
+#: The rules a stored "verified" was certified under (fix round 5). Absent (or
+#: 1): before fix round 4; 2: fix round 4's display agreement; 3: fix round
+#: 5's branch rule as well. Listing, delivery and reuse treat a "verified"
+#: row certified under an older version as an illustration until it is
+#: certified again. Bump it whenever what "checked" requires changes.
+CERTIFICATION_VERSION = 3
 VERIFIED = "verified"
 ILLUSTRATIVE = "illustrative"
 FAILED = "failed"
@@ -95,6 +101,7 @@ class Report:
             "invariant_problems": self.invariant_problems[:12], "shades": self.shades[:24],
             "claims": self.claims, "source_match": self.source_match,
             "dropped_predictions": self.dropped_predictions, "grid_points": self.grid_points, "reason": self.reason,
+            "certification_version": CERTIFICATION_VERSION,
         }
 
 
@@ -155,6 +162,13 @@ def _extents(panel: Mapping[str, Any], where: str) -> list[tuple[str, Any]]:
     one is not (fix round 3: [[1e200, 0], [0, 1e200]] has finite entries
     and a determinant of 1e400)."""
 
+    if panel["kind"] == "readout":
+        # A percent readout is shown times 100 (FigurePanels.formatValue): the
+        # scaled number is displayed, so it must be finite too (fix round 5).
+        if panel.get("format") == "percent" and panel.get("value") is not None:
+            scaled = panel["value"] * 100
+            return [(f"{where} {panel['label']!r} as a percent", scaled if math.isfinite(scaled) else None)]
+        return []
     if panel["kind"] == "function_plot":
         numbers = [v for series in panel["series"] for v in series["y"] if v is not None]
     elif panel["kind"] == "pmf_bars":
@@ -503,6 +517,49 @@ def _conditions(node: G.Node, definitions: Mapping[str, G.Node]) -> tuple[list[G
     return found, in_body
 
 
+def _binary64_exact(node: G.Node) -> bool:
+    """A literal (or a negated one) whose decimal is exactly a double: 0, 1,
+    -2, 0.5, 0.375; never 0.3."""
+
+    from decimal import Decimal
+    from fractions import Fraction
+
+    literal = node.args[0] if node.kind == "neg" and node.args else node
+    if literal.kind != "num" or not math.isfinite(literal.value):
+        return False
+    return Fraction(Decimal(literal.text)) == Fraction(literal.value)
+
+
+def condition_problem(node: G.Node, definitions: Mapping[str, G.Node]) -> str | None:
+    """Why a piecewise condition of the checked definition is not exact by
+    construction, or None (fix round 5). Every comparison must set a bare
+    variable or parameter against a literal exactly representable in
+    binary64, so the evaluator's float comparison is exact and the figure and
+    the check choose the same branch at every reachable value. A computed
+    expression (``p*10 < 3``), a definition, or a literal like 0.3 makes the
+    figure illustrative."""
+
+    conditions, _in_body = _conditions(node, definitions)
+    pending = list(conditions)
+    while pending:
+        current = pending.pop()
+        if current.kind in ("and", "or"):
+            pending.extend(current.args)
+            continue
+        if current.kind != "cmp":
+            return "a piecewise condition is not a comparison"
+        left, right = current.args
+
+        def bare(side: G.Node) -> bool:
+            return side.kind == "name" and side.text not in definitions and side.text not in G.CONSTANTS
+
+        if not ((bare(left) and _binary64_exact(right)) or (bare(right) and _binary64_exact(left))):
+            return ("a piecewise condition compares a computed value or a literal a double cannot hold exactly; "
+                    "a checked figure's conditions compare a variable or parameter with a literal such as 0, 1 "
+                    "or 0.5")
+    return None
+
+
 def _exact(value: float) -> list[int]:
     from fractions import Fraction
 
@@ -827,12 +884,14 @@ __all__ = [
     "FAILED",
     "ILLUSTRATIVE",
     "OUTCOMES",
+    "CERTIFICATION_VERSION",
     "Report",
     "SourceCheck",
     "UNSUPPORTED",
     "VERIFIED",
     "check_claims",
     "check_invariant",
+    "condition_problem",
     "decidable_predictions",
     "display_agreement",
     "displayed_source_problem",
