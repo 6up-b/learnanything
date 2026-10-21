@@ -281,3 +281,34 @@ def test_library_answers_group_a_proposed_role_labelled_as_the_models(library):
                                                            "spanIds": ["t3"], "learningObjectIds": ["lo_matrices"]})
     assert all("proposedRole" not in hit for hit in off["hits"])
     assert {hit["key"]: hit["group"] for hit in off["hits"]}["ext_text:t3"] == "Explanation"
+
+
+def test_rw3b_contrast_list_a_confident_contrast_the_judge_may_not_be_shown_never_blocks_the_low_one(library):
+    """Fix round 3 (the one effective eligibility): a confident
+    counterexample on the target's LO that the shortlist's pool would drop
+    (a solution block: the model-reader filter) is no stronger candidate, so
+    the low-confidence contrast on the target counts; once the confident one
+    is on a passage the judge may read, it alone is the list, as before."""
+
+    from learnloop.ingest.locators import format_block_span
+
+    paths, repository, spans = library
+    solution = spans["solutions"][1]
+    # The solution (and t3) teach the target's LO too (provenance links to it).
+    for span_id in (solution, "t3"):
+        repository.insert_entity_source_link(
+            entity_type="learning_object", entity_id="lo_matrices", locator=format_block_span("ext_text", span_id),
+            relation="primary", source_id="src_text", revision_id="rev_text", extraction_id="ext_text")
+    vault = loaded(paths)
+    (target,) = PC.cue_targets(vault, repository, "ext_text")
+    RS.propose_roles(vault, repository, [_claim(solution, "counterexample"), _claim("t2", "contrast", "low")],
+                     judge=RS.JUDGE_LABELLER, prompt_version="role_labeller.v1")
+    vault = loaded(paths)
+    assert PC.contrast_list(vault, repository, target, "ext_text") == [("ext_text", "t2")]
+    shortlisted = PC.shortlist(vault, repository, target, "ext_text", deep=False)
+    assert shortlisted.lists.get("contrast") == 1 and ("ext_text", "t2") in shortlisted.keys
+    assert ("ext_text", solution) not in shortlisted.keys
+    # A confident contrast the judge may read wins over the low one, as before.
+    RS.propose_roles(vault, repository, [_claim("t3", "counterexample")], judge=RS.JUDGE_LABELLER,
+                     prompt_version="role_labeller.v1")
+    assert PC.contrast_list(loaded(paths), repository, target, "ext_text") == [("ext_text", "t3")]

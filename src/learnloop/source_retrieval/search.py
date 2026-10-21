@@ -51,7 +51,13 @@ from learnloop.db.stores.source_block_fts import (
 )
 from learnloop.practice_index.query_vectors import normalize_query
 from learnloop.practice_index.text import reciprocal_rank_fusion
-from learnloop.source_retrieval.corpus import Scope, role_keys, role_proposal_keys
+from learnloop.source_retrieval.corpus import (
+    Eligibility,
+    Scope,
+    effective_eligibility,
+    role_keys,
+    role_proposal_keys,
+)
 from learnloop.source_retrieval.dense import DenseIndex, load_dense_index
 from learnloop.source_retrieval.queries import (
     MAX_QUERY_CHARS,
@@ -211,16 +217,21 @@ def dense_plus_bm25(
 
 
 def role_filter(vault: LoadedVault, repository: Repository, scope: Scope,
-                roles: Sequence[str]) -> tuple[set[SpanKey], dict[str, int]]:
+                roles: Sequence[str], *, eligible: Eligibility | None = None,
+                ) -> tuple[set[SpanKey], dict[str, int]]:
     """The spans the ``roles`` positive filter permits in ``scope``, and its basis.
 
     Ingest's effective hints and the Reader's RW4e role proposals; a
     low-confidence proposal only when nothing better exists (§9.1), "better"
-    being a confident passage this scope can return (Codex review F3). The one
-    rule: :func:`search_spans` filters by it, and ``find_sources`` applies it
-    to an intent list's eligibility before choosing strong over weak rows
-    (Codex re-review F5), so a strong row the filter drops never suppresses a
-    weak one it keeps.
+    being a confident passage the caller could be given: ``eligible``, the
+    caller's one effective eligibility (the scope, its exclusions, exam and
+    held-out material; fix round 3), else the scope's with exam material
+    withheld. The one rule: :func:`search_spans` filters by it, and
+    ``find_sources`` applies it to an intent list's eligibility before
+    choosing strong over weak rows (Codex re-review F5), so a strong row the
+    filter drops never suppresses a weak one it keeps. Eligibility only
+    decides the fallback: the permitted set is the hints and confident
+    proposals as before, or the low ones alone.
     """
 
     extraction_ids = sorted(scope.extractions)
@@ -229,7 +240,8 @@ def role_filter(vault: LoadedVault, repository: Repository, scope: Scope,
     proposed, low = role_proposal_keys(vault, repository, extraction_ids, roles)
     permitted = hinted | proposed
     basis = {"hints": len(hinted), "proposals": len(proposed - hinted), "low_confidence": 0}
-    if low and not any(scope.allows(*key) for key in permitted):
+    eligible = eligible if eligible is not None else effective_eligibility(vault, repository, scope)
+    if low and not eligible(sorted(permitted)):
         permitted = set(low)
         basis["low_confidence"] = len(low)
     return permitted, basis
@@ -260,6 +272,7 @@ def search_spans(
     pool_extras: int | None = None,
     roles: Sequence[str] = (),
     list_depth: int | Mapping[str, int] = LIST_DEPTH,
+    eligible: Eligibility | None = None,
 ) -> SpanSearch:
     """Hybrid retrieval over ``scope``; never raises for a paid step's failure.
 
@@ -287,6 +300,10 @@ def search_spans(
     walks the whole fused order passes ``pool="hybrid_rrf"``: a
     ``dense_plus_bm25`` pool is cut to its dense top and extras whatever the
     depth asked.
+
+    ``eligible`` (fix round 3): the caller's effective eligibility, which
+    the ``roles`` filter asks whether a confident passage remains (None: the
+    scope's, exam material withheld). It decides only that fallback.
     """
 
     config = vault.config.source_retrieval
@@ -306,7 +323,7 @@ def search_spans(
 
     permitted_roles: set[SpanKey] | None = None
     if roles:
-        permitted_roles, result.role_basis = role_filter(vault, repository, scope, roles)
+        permitted_roles, result.role_basis = role_filter(vault, repository, scope, roles, eligible=eligible)
 
     def keep(key: SpanKey) -> bool:
         return scope.allows(*key) and (permitted_roles is None or key in permitted_roles)

@@ -91,6 +91,7 @@ from learnloop.reader.reader_progression import learning_objects_for_span
 from learnloop.source_retrieval.corpus import (
     Scope,
     block_roles,
+    effective_eligibility,
     extraction_scope,
     model_reader_withheld,
     teaching_exclusions,
@@ -726,21 +727,29 @@ def _lo_neighbourhood(vault: LoadedVault, lo_ids: Sequence[str]) -> set[str]:
 
 
 def contrast_list(vault: LoadedVault, repository: Repository, target: CueTarget,
-                  extraction_id: str) -> list[tuple[str, str]]:
+                  extraction_id: str, *, guard: Protection | None = None) -> list[tuple[str, str]]:
     """Passages with a ``contrast`` or ``counterexample`` role on the target's
     LOs or their confusables: RW4e's proposals (the sources spec's
     ``remediate`` list) and the roles this judge proposed before. Used only to
-    add candidates (G44)."""
+    add candidates (G44). ``guard``: the open source's protection (None:
+    read here), as :func:`shortlist` applies it."""
 
+    guard = guard or protection(vault, repository, extraction_id)
     los = _lo_neighbourhood(vault, target.learning_object_ids)
     span_los = SpanLearningObjects(vault, repository, extraction_id)
 
-    def on_target(keys: list[tuple[str, str]]) -> list[tuple[str, str]]:
-        # A low-confidence proposal counts only when no confident one is on
-        # this target (Codex review F3): eligibility before the fallback.
-        return [key for key in keys if key[0] == extraction_id and set(span_los(key[1])) & los]
+    def on_target(key: tuple[str, str]) -> bool:
+        return key[0] == extraction_id and guard.allows(key) and bool(set(span_los(key[1])) & los)
 
-    proposed = list(source_object_lists(vault, repository, "remediate", [extraction_id], eligible=on_target).get(
+    # A low-confidence proposal counts only when no confident one this
+    # judge could be shown is on this target (Codex review F3; fix round 3):
+    # the one effective eligibility, with every filter the shortlist's pool
+    # applies (the open source's scope, protection: exam, held-out and
+    # teaching exclusions, and the model-reader filter) and the target's LOs.
+    eligible = effective_eligibility(
+        vault, repository, _scope(repository, extraction_id, guard), admits=on_target,
+        withheld=lambda keys: model_reader_withheld(vault, repository, keys))
+    proposed = list(source_object_lists(vault, repository, "remediate", [extraction_id], eligible=eligible).get(
         "source_objects") or [])
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         own = sorted(store.links_with_roles(connection, [extraction_id], CONTRAST_ROLES)) \
@@ -782,7 +791,7 @@ def shortlist(vault: LoadedVault, repository: Repository, target: CueTarget, ext
         result.notes.append("the open source is withheld from models (exam or held-out material)")
         return result
     extra: dict[str, list[tuple[str, str]]] = {}
-    contrast = contrast_list(vault, repository, target, extraction_id)
+    contrast = contrast_list(vault, repository, target, extraction_id, guard=guard)
     if contrast:
         extra["contrast"] = contrast
     if target.misconception_id:

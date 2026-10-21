@@ -42,13 +42,14 @@ from learnloop.content.sources.source_outline import resolve_extraction_id
 from learnloop.content.sources.span_aliases import CITATION_MADE_AT_SQL, CitationResolver, CurrentKeys
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
-from learnloop.db.stores.source_block_fts import search_blocks
+from learnloop.db.stores.source_block_fts import blocks_by_key, search_blocks
 from learnloop.ingest.locators import parse_block_span
 from learnloop.practice_index.listwise import ListwiseTask, judge_listwise
 from learnloop.practice_index.paid import estimated_call_tokens
 from learnloop.source_retrieval.corpus import (
     Scope,
     block_roles,
+    effective_eligibility,
     extraction_scope,
     item_exclusions,
     library_scope,
@@ -405,8 +406,9 @@ def source_object_lists(vault: LoadedVault, repository: Repository, intent: str,
     their mapped type, and not at all while ``roles.positive_filter_enabled``
     is off. ``low``-confidence rows count only when nothing better exists
     (Codex review F3): the list is its confident rows the caller may be given
-    (``eligible``: the effective scope, the caller's exclusions and exam
-    material; every row when None), and its low ones only when none is left.
+    (``eligible``: the caller's effective eligibility,
+    ``corpus.Eligibility``, with its role filter (fix round 3); every row
+    when None), and its low ones only when none is left.
     """
 
     from learnloop.reader.source_roles import PROPOSAL_KIND_SQL, role_proposals
@@ -471,6 +473,19 @@ def _hit_dict(hit: SpanHit, revision_ids: Mapping[str, str | None], *, verdict: 
 
 
 _span_keys = span_keys
+
+
+def _answer_overlap(repository: Repository, item: PracticeItem) -> Callable[[list[SpanKey]], set[SpanKey]]:
+    """The keys whose passage reproduces ``item``'s key: the answer-overlap
+    filter ``find_sources`` applies to an assisted-practice pool, read for
+    its effective eligibility (fix round 3) from the same block text."""
+
+    def leaks(keys: list[SpanKey]) -> set[SpanKey]:
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            blocks = blocks_by_key(connection, keys)
+        return {key for key, block in blocks.items() if span_leaks_expected(block.text, item.expected_answer)}
+
+    return leaks
 
 
 def verification_question(query: str, intent: str, misconceptions: Sequence[Any]) -> str:
@@ -677,18 +692,23 @@ def find_sources(
     effective_roles = tuple(roles)
     if intent == "worked_example" and not effective_roles:
         effective_roles = ("worked_example",)
+    # What this caller may be given (fix round 3: the one effective
+    # eligibility): the scope, its exclusions, no exam or held-out material,
+    # and under assisted practice no passage the answer-overlap filter below
+    # withholds. The intent lists and the search's role filter both ask it
+    # whether a stronger candidate remains, so they cannot disagree. A
+    # cursor's judged passages are not excluded here: they were candidates,
+    # and every page keeps the first page's role filter.
+    eligibility = effective_eligibility(
+        vault, repository, span_scope, excluded=excluded,
+        withheld=_answer_overlap(repository, item) if policy == "assisted_practice" and item is not None else None)
     # The search's own role rule (Codex re-review F5): a row it would drop
     # is no stronger candidate.
-    role_permitted = (role_filter(vault, repository, span_scope, effective_roles)[0]
+    role_permitted = (role_filter(vault, repository, span_scope, effective_roles, eligible=eligibility)[0]
                       if effective_roles else None)
 
     def eligible(keys: list[SpanKey]) -> list[SpanKey]:
-        # What this caller may be given: the scope, its exclusions, its role
-        # filter, no exam material.
-        keys = [key for key in keys if span_scope.allows(*key) and key not in excluded
-                and (role_permitted is None or key in role_permitted)]
-        exam = exam_withheld(vault, repository, keys) if keys else frozenset()
-        return [key for key in keys if key not in exam]
+        return [key for key in eligibility(keys) if role_permitted is None or key in role_permitted]
 
     extra.update(source_object_lists(vault, repository, intent, extraction_ids, eligible=eligible))
     query_text = verification_question(query, intent, misconceptions)
@@ -699,7 +719,7 @@ def find_sources(
     search = search_spans(
         vault, repository, query_text, span_scope, limit=max(int(limit) * 4, 40), deep=True, rewrite=rewrite,
         extra_lists=extra, embedder=embedder, rewrite_client=rewrite_client, owner_id=owner_id or query_hash,
-        deadline=deadline, roles=effective_roles, pool=POOL_HYBRID_RRF,
+        deadline=deadline, roles=effective_roles, pool=POOL_HYBRID_RRF, eligible=eligibility,
         **({} if depth is None else {"list_depth": depth}),
     )
     pool = [hit for hit in search.hits if hit.key not in excluded]

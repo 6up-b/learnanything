@@ -15,7 +15,7 @@ exercise and solution blocks, are dropped as well.
 """
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
 import json
@@ -653,7 +653,68 @@ def teaching_scope(vault: LoadedVault, repository: Repository,
     return Scope("teaching", extractions, frozenset(excluded), tuple(notes))
 
 
+SpanKeys = Callable[[list[tuple[str, str]]], Collection[tuple[str, str]]]
+
+
+class Eligibility:
+    """What one caller may be given: the one effective-eligibility rule.
+
+    A low-confidence role row counts only when no stronger candidate remains
+    (sources §9.1, §9.2), and "remains" means "this caller could be given
+    it". Codex review F3 and re-review F5 each fixed one reader of that
+    question and left another asking a narrower one (fix round 3: a strong
+    passage the caller excluded still suppressed the ``roles`` filter's
+    fallback). So every reader asks this object: ``find_sources``' intent
+    lists, :func:`learnloop.source_retrieval.search.role_filter` (the
+    ``roles=`` filter, inside ``search_spans``) and RW3b's contrast list.
+
+    A key is eligible when ``scope`` allows it, it is not among the caller's
+    ``excluded`` keys, ``admits`` (a caller's own per-key rule: RW3b's target
+    LOs and protection) accepts it, it is not exam or held-out material (the
+    one predicate, ``content.sources.exam_material``), and ``withheld`` (a
+    caller's own batch rule: the model-reader filter, the answer-overlap
+    filter) does not name it. Only the question is shared: the rows each
+    reader returns are its own (a role filter still admits what it admitted).
+    """
+
+    def __init__(self, vault: LoadedVault, repository: Repository, scope: Scope, *,
+                 excluded: Iterable[tuple[str, str]] = (),
+                 admits: Callable[[tuple[str, str]], bool] | None = None,
+                 withheld: SpanKeys | None = None) -> None:
+        self.vault = vault
+        self.repository = repository
+        self.scope = scope
+        self.excluded = frozenset((str(key[0]), str(key[1])) for key in excluded)
+        self.admits = admits
+        self.withheld = withheld
+
+    def __call__(self, keys: Iterable[tuple[str, str]]) -> list[tuple[str, str]]:
+        """The eligible keys among ``keys``, in their order, deduplicated."""
+
+        kept = [key for key in dict.fromkeys((str(key[0]), str(key[1])) for key in keys)
+                if self.scope.allows(*key) and key not in self.excluded
+                and (self.admits is None or self.admits(key))]
+        if kept:
+            exam = exam_withheld(self.vault, self.repository, kept)
+            kept = [key for key in kept if key not in exam]
+        if kept and self.withheld is not None:
+            gone = self.withheld(kept)
+            kept = [key for key in kept if key not in gone]
+        return kept
+
+
+def effective_eligibility(vault: LoadedVault, repository: Repository, scope: Scope, *,
+                          excluded: Iterable[tuple[str, str]] = (),
+                          admits: Callable[[tuple[str, str]], bool] | None = None,
+                          withheld: SpanKeys | None = None) -> Eligibility:
+    """The caller's :class:`Eligibility`: the one rule every "does a stronger
+    candidate remain?" decision reads (fix round 3)."""
+
+    return Eligibility(vault, repository, scope, excluded=excluded, admits=admits, withheld=withheld)
+
+
 __all__ = [
+    "Eligibility",
     "Exclusions",
     "ITEM_BOUND_EXCLUDED_ROLE_HINTS",
     "Scope",
@@ -662,6 +723,7 @@ __all__ = [
     "assessment_spans",
     "block_roles",
     "current_extractions",
+    "effective_eligibility",
     "effective_hint",
     "extraction_scope",
     "item_exclusions",

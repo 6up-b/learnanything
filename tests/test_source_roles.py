@@ -491,6 +491,87 @@ def test_a_stronger_proposal_the_roles_filter_rejects_never_blocks_the_low_confi
     assert seen[-1]["source_objects"] == [("ext_text", "t2")]
 
 
+def _spy_pools(monkeypatch):
+    """Each ``find_sources`` search's extra lists and its retrieval pool."""
+
+    from learnloop.source_retrieval import find_sources as FS
+
+    seen: list[dict] = []
+    pools: list[list] = []
+    real = FS.search_spans
+
+    def spy(*args, extra_lists=None, **kwargs):
+        seen.append({name: list(keys) for name, keys in (extra_lists or {}).items()})
+        search = real(*args, extra_lists=extra_lists, **kwargs)
+        pools.append([hit.key for hit in search.hits])
+        return search
+
+    monkeypatch.setattr(FS, "search_spans", spy)
+    return seen, pools
+
+
+def test_a_stronger_proposal_the_caller_excluded_never_blocks_the_low_confidence_one_under_roles(library,
+                                                                                               monkeypatch):
+    """Fix round 3 (Codex job 20261020-220340-vS2cMy, F5 reopened): the
+    caller's exclusions apply before the "does a stronger candidate remain?"
+    decision, in the intent list and the ``roles=`` filter alike. A strong
+    ``alternative_treatment`` on A the caller excluded never suppresses the
+    weak one on B, which (no keyword match of its own) reaches the pool only
+    through the intent list the filter now keeps it in."""
+
+    from learnloop.source_retrieval import find_sources as FS
+    from learnloop.source_retrieval.policy import CallerContext
+    from tests.source_service_fakes import FakeServiceLLM
+
+    paths, repository, _spans = library
+    # A = t2 (the query's own words), B = t3 (the row swap: no query word).
+    _propose(paths, repository, [_claim("t2", "alternative_treatment", "high"),
+                                 _claim("t3", "alternative_treatment", "low")])
+    vault = loaded(paths)
+    seen, pools = _spy_pools(monkeypatch)
+    reading = CallerContext(kind="reader")
+    query = "eigenvalues characteristic polynomial"
+    # Nothing excluded: A alone, as before.
+    FS.find_sources_for_caller(vault, repository, query, caller=reading, intent="alternative",
+                               roles=["alternative_treatment"], rerank_client=FakeServiceLLM())
+    assert seen[-1]["source_objects"] == [("ext_text", "t2")]
+    assert ("ext_text", "t3") not in pools[-1]
+    for exclusion in ({"exclude_span_keys": [["ext_text", "t2"]]}, {"exclude_span_ids": ["ext_text:t2"]}):
+        hits = FS.find_sources_for_caller(vault, repository, query, caller=reading, intent="alternative",
+                                          roles=["alternative_treatment"], rerank_client=FakeServiceLLM(),
+                                          **exclusion)
+        assert seen[-1] == {"source_objects": [("ext_text", "t3")]}, exclusion
+        assert pools[-1] == [("ext_text", "t3")], exclusion
+        assert hits.manifest["search"]["role_basis"]["low_confidence"] == 1, exclusion
+        assert ("ext_text", "t2") not in {(hit["extraction_id"], hit["span_id"]) for hit in hits.hits}
+
+
+def test_the_roles_filter_falls_back_when_the_caller_excluded_every_stronger_passage(library, monkeypatch):
+    """Fix round 3, the ``roles=`` search path alone (an ``explain`` call has
+    no ``intuition`` intent list): a strong ``intuition`` proposal the caller
+    excluded leaves the filter's low-confidence passage, where before the
+    filter kept only the excluded one and the call returned nothing."""
+
+    from learnloop.source_retrieval.find_sources import find_sources_for_caller
+    from learnloop.source_retrieval.policy import CallerContext
+
+    paths, repository, _spans = library
+    # The strong one on t3 (no query word), the low one on t2 (the query's words).
+    _propose(paths, repository, [_claim("t3", "intuition", "high"), _claim("t2", "intuition", "low")])
+    vault = loaded(paths)
+    seen, _pools = _spy_pools(monkeypatch)
+    reading = CallerContext(kind="reader")
+    query = "eigenvalues characteristic polynomial"
+    kept = find_sources_for_caller(vault, repository, query, caller=reading, roles=["intuition"])
+    assert kept.manifest["search"]["role_basis"]["low_confidence"] == 0
+    assert ("ext_text", "t2") not in {(hit["extraction_id"], hit["span_id"]) for hit in kept.hits}
+    excluded = find_sources_for_caller(vault, repository, query, caller=reading, roles=["intuition"],
+                                       exclude_span_keys=[["ext_text", "t3"]])
+    assert "source_objects" not in seen[-1]
+    assert [(hit["extraction_id"], hit["span_id"]) for hit in excluded.hits] == [("ext_text", "t2")]
+    assert excluded.manifest["search"]["role_basis"]["low_confidence"] == 1
+
+
 # -- configuration ----------------------------------------------------------------------------------
 
 
