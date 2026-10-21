@@ -2,7 +2,8 @@
 
 ``op.repository`` is the operation's repository facade: every attribute is the raw repository's,
 except the document-IR loader and the span aliases, which read through the material view's rules
-(the tables are protected: ``protected_tables``) and drop every held-out block or span. ``op.vault``
+(the tables are protected: ``protected_tables``) and drop every held-out block or span (the automatic
+aliases are computed again from the projected readings: round 3). ``op.vault``
 is the vault as AD may see it (:meth:`~learnloop.adaptive_difficulty.material_view.MaterialView.
 projected_vault`). Helpers outside AD called with them (the Reader's section mapping, the span
 translator) then compute from what remains, unchanged (Codex verify F48)."""

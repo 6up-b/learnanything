@@ -189,3 +189,89 @@ def test_every_protected_table_reads_as_in_the_absent_copy(tmp_path, monkeypatch
     with closing(connect(copies[0].sqlite_path, read_only=True)) as connection:
         raw = connection.execute("SELECT COUNT(*) FROM practice_attempts").fetchone()[0]
     assert raw > len(seen["protected"]["practice_attempts"]) > 0
+
+
+# -- round 3 (verify 20261021-104418-6QARfA, finding 1): span aliases from the projected IR ----------
+
+OLD, NEW = "ext_r3_old", "ext_r3_new"
+HELD_SPANS = ("h_before", "h_after")
+
+
+def _reread(tmp_path, *, absent: bool):
+    """A book read twice. The old reading has [h_before, dup_old, h_after]; the new one has
+    [h_before, dup_x, h_after, dup_y], ``dup_*`` being one duplicated public text. With the held-out
+    neighbours present, ``dup_old`` re-anchors uniquely onto ``dup_x`` (its neighbours match); without
+    them it is ambiguous between ``dup_x`` and ``dup_y``. ``LO`` cites ``dup_old``; the Reader viewed
+    ``dup_x``. The re-read recorded its aliases as the incumbent does (``record_aliases``)."""
+
+    from learnloop.content.sources.span_aliases import record_aliases
+    from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
+
+    from tests.test_source_inventory import _persist
+
+    paths = ad23_vault(tmp_path / ("absent" if absent else "protected"), items=("pi_m1a",))
+    made = _iso(T0 - timedelta(days=7))
+    with closing(connect(paths.sqlite_path)) as connection:
+        connection.execute("INSERT INTO source_artifacts(id, acquisition_kind, canonical_uri, created_at, updated_at) "
+                           "VALUES ('src_r3', 'pdf', 'file:///r3.pdf', ?, ?)", (made, made))
+        connection.execute("INSERT INTO source_revisions(id, source_id, asset_hash, created_at) "
+                           "VALUES ('rev_r3', 'src_r3', 'sha256:r3', ?)", (made,))
+        connection.commit()
+    repository = Repository(paths.sqlite_path)
+    text = {"h_before": "Held text before.", "h_after": "Held text after.", "dup_old": "Repeated public text.",
+            "dup_x": "Repeated public text.", "dup_y": "Repeated public text."}
+    layouts = {OLD: ["h_before", "dup_old", "h_after"], NEW: ["h_before", "dup_x", "h_after", "dup_y"]}
+    for version, (extraction, spans) in enumerate(layouts.items(), start=1):
+        spans = [span for span in spans if not (absent and span in HELD_SPANS)]
+        blocks = [DocumentBlock.build(span_id=span, block_type="Text", text=text[span], ordinal=index,
+                                      section_path=["sec_r3"]) for index, span in enumerate(spans)]
+        units = [DocumentUnit(unit_id="sec_r3", label="sec_r3", ordinal=0, semantic_hash="sha256:sec_r3",
+                              span_ids=list(spans))]
+        _persist(repository, DocumentIR(extractor="marker", extractor_version=str(version), units=units, blocks=blocks,
+                                        assets=[], health=ExtractionHealth()), revision_id="rev_r3",
+                 extraction_id=extraction)
+    record_aliases(repository, OLD, NEW)
+    path = paths.learning_object_path("linear-algebra", LO)
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["provenance"] = {"origin": "human", "source_refs": [{
+        "ref_type": "canonical_source", "ref_id": "src_r3", "source_id": "src_r3", "extraction_id": OLD,
+        "span_ids": ["dup_old"], "locator": f"span:{OLD}/dup_old"}]}
+    write_yaml(path, payload)
+    repository.insert_source_exposure_event(
+        {"context": "reader", "extraction_id": NEW, "span_id": "dup_x", "revision_id": "rev_r3", "source_id": "src_r3",
+         "entity_type": "reader", "entity_id": "visit_r3", "created_at": _iso(T0 - timedelta(hours=5))})
+    return paths
+
+
+def _hold_neighbours(monkeypatch) -> None:
+    from learnloop.content.sources import exam_material
+
+    material = exam_material.Material(spans=frozenset((extraction, span) for extraction in (OLD, NEW)
+                                                      for span in HELD_SPANS))
+    monkeypatch.setattr(exam_material, "held_out_material", lambda *_args, **_kwargs: material)
+
+
+def test_span_aliases_are_recomputed_from_the_projected_ir(tmp_path, monkeypatch):
+    """Round 3, finding 1: the re-read's recorded alias ``dup_old -> dup_x`` was matched by its
+    held-out neighbours. Inside an operation the aliases are those of the projected readings
+    (``dup_old`` is ambiguous there), exactly as in the copy where the neighbours were never
+    extracted: the view of ``dup_x`` records no reading opportunity for ``LO`` in either copy
+    (failed before: the persisted alias, both of whose endpoints are public, was used)."""
+
+    from learnloop.adaptive_difficulty.operation import ad_operation
+    from learnloop.content.sources.span_aliases import SpanTranslator
+
+    _hold_neighbours(monkeypatch)
+    protected_paths, absent_paths = _reread(tmp_path, absent=False), _reread(tmp_path, absent=True)
+    raw = Repository(protected_paths.sqlite_path)
+    assert SpanTranslator(raw, NEW).resolve(OLD, "dup_old").span_id == "dup_x"  # the incumbent's alias
+    resolved = {}
+    for name, paths in (("protected", protected_paths), ("absent", absent_paths)):
+        vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
+        with ad_operation(vault, repository) as op:
+            resolved[name] = SpanTranslator(op.repository, NEW).resolve(OLD, "dup_old").as_dict()
+    assert resolved["protected"] == resolved["absent"]
+    assert resolved["absent"]["span_id"] is None
+    protected, absent = _swept(protected_paths), _swept(absent_paths)
+    assert protected == absent
+    assert all(row[3] != LO for row in protected if row[2] == "source_exposure_events")

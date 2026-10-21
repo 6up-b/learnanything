@@ -222,6 +222,73 @@ def test_a_swallowed_denial_poisons_the_operation(tmp_path):
                 connection.execute("DELETE FROM item_forecast_payloads WHERE created_at < '2000-01-01'")
 
 
+def test_a_cached_ad_write_is_refused_once_the_operation_is_poisoned(tmp_path):
+    """Round 3 (verify finding 2): an AD insert runs; a later read is refused and the refusal
+    swallowed; the identical insert, from SQLite's statement cache with new parameters, is refused
+    too (failed before: the cached statement kept its authorization and wrote)."""
+
+    paths, vault, repository = _vault(tmp_path)
+    sql = "INSERT INTO ad_dose_offers(row_kind, draw_key, created_at) VALUES ('draw', ?, ?)"
+    with repository.atomic():
+        connection = repository.connection()
+        with contextlib.suppress(_POISONED), O.ad_operation(vault, repository):
+            connection.execute(sql, ("k1", "2026-10-21T00:00:00Z"))
+            try:
+                connection.execute("SELECT COUNT(*) FROM practice_attempts").fetchone()
+            except sqlite3.DatabaseError:
+                pass  # swallowed
+            with pytest.raises(sqlite3.DatabaseError, match=DENIED):
+                connection.execute(sql, ("k2", "2026-10-21T00:01:00Z"))
+        keys = [row[0] for row in connection.execute("SELECT draw_key FROM ad_dose_offers")]
+    assert "k2" not in keys
+
+
+def test_a_write_then_a_swallowed_denial_then_an_early_return_keeps_no_ad_rows(tmp_path, monkeypatch):
+    """Round 3 (verify finding 3): inside the serve hook the sweep writes a reading receipt, then a
+    planted read is refused and swallowed, then the hook returns early (the item is protected). The
+    serve's savepoint rolls back the receipt and the incumbent is served (failed before: the hook's
+    own savepoint released the receipt before the poisoned exit was raised)."""
+
+    from types import SimpleNamespace
+
+    from learnloop.adaptive_difficulty import serve as S
+    from learnloop.adaptive_difficulty.material_view import MaterialView
+    from learnloop.daily_plan.engine import advance, build_plan
+    from learnloop.db.stores import ad_receipts
+
+    from tests.ad23_fakes import LO, ad23_vault, env_for
+
+    paths = ad23_vault(tmp_path, items=("pi_e1",))
+
+    def planted(vault, repository, *, view=None, **_kwargs):
+        connection = repository.connection()
+        ad_receipts.insert_reading_opportunity(connection, {
+            "protection_epoch": getattr(view, "epoch", None), "opportunity_key": "planted", "kind": "worked_example",
+            "subkind": "shown", "source_table": "reader_section_progress", "source_id": "ext/planted",
+            "source_written_at": "2026-10-01T09:00:00Z", "learning_object_id": LO, "facet_doses": {"recall": 1.0},
+            "dose_offer_id": None, "mapping_version": "ad_reading_map_v1", "sweep": "serve", "sweep_ref": None,
+            "swept_at": "2026-10-01T09:00:00Z"})
+        try:
+            connection.execute("SELECT COUNT(*) FROM practice_attempts").fetchone()
+        except sqlite3.DatabaseError:
+            pass  # swallowed
+        return SimpleNamespace(written=1)
+
+    real = MaterialView.withheld
+    monkeypatch.setattr(S, "sweep", planted)
+    monkeypatch.setattr(MaterialView, "withheld",
+                        lambda self, item_id, *a, **k: True if item_id == "pi_e1" and O.current() and
+                        O.current().guard.poisoned else real(self, item_id, *a, **k))
+    env, _clock = env_for(paths, items=("pi_e1",))
+    build_plan(env, kind="normal", budget=3.0, remembered=3, minutes_source="chip")
+    _record, step = advance(env, serve=True)
+    assert step["practice_item_id"] == "pi_e1" and step["presentation_id"]
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM ad_reading_opportunities").fetchone()[0] == 0
+        assert connection.execute("SELECT COUNT(*) FROM item_serve_inputs").fetchone()[0] == 0
+        assert connection.execute("SELECT COUNT(*) FROM plan_presentations").fetchone()[0] == 1
+
+
 def _planted_dose_read(tmp_path, monkeypatch):
     """The dose decision's forecast covariate (caught by its broad except) reads a protected table raw."""
 

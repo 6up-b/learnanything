@@ -226,6 +226,14 @@ def _computed(repository: Any, from_extraction_id: str, to_extraction_id: str) -
     return found
 
 
+def computed_aliases(repository: Any, from_extraction_id: str, to_extraction_id: str) -> dict[str, _Alias]:
+    """The aliases computed from the two readings' IR as ``repository`` loads it, never the persisted
+    ones: an adaptive-difficulty operation's aliases, from its projected readings (cached per
+    protection epoch by the repository's ``projection_key``)."""
+
+    return _computed(repository, from_extraction_id, to_extraction_id)
+
+
 def alias_map(repository: Any, from_extraction_id: str, to_extraction_id: str) -> dict[str, _Alias]:
     """``{old span: (new span, match kind, confidence)}`` from one reading to another:
     the persisted aliases, else (none recorded) the same computation in memory."""

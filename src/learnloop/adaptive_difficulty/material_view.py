@@ -1250,13 +1250,36 @@ class MaterialView:
         return ref if len(visible) == len(spans) else ref.model_copy(update={"span_ids": visible})
 
     def span_reanchors(self, repository: Any, from_extraction_id: str, to_extraction_id: str) -> list[dict[str, Any]]:
-        """Recorded span aliases between two readings, without an alias from or onto a held-out span
-        (the operation repository's ``span_reanchors_between``)."""
+        """The span aliases AD may use between two readings (the operation repository's
+        ``span_reanchors_between``, so the only set a ``SpanTranslator`` inside an operation sees; the
+        AD23 redesign round 3).
+
+        * The automatic aliases (``exact_hash``, ``geometry_section``: ``reanchor_spans``) are
+          computed again from the two PROJECTED readings (``span_aliases.computed_aliases`` on the
+          projected repository, cached per protection epoch). A persisted or incumbent automatic
+          alias is never used, even with both endpoints public: its match may have been decided by
+          held-out neighbours (a duplicated public block re-anchored by the held-out blocks around it).
+        * A ``manual`` alias (the schema allows it; no production path writes one today, only
+          ``Repository.insert_span_reanchor``) is an owner's own decision, kept when both its
+          endpoints are visible, and it overrides the computed alias of its span."""
 
         if not self.available or self.material_withheld(from_extraction_id) or self.material_withheld(to_extraction_id):
             return []
-        return self.filter(None, "source_span_reanchors",
-                           repository.span_reanchors_between(from_extraction_id, to_extraction_id))
+        from learnloop.content.sources.span_aliases import computed_aliases
+        from learnloop.ingest.reanchor import MANUAL
+
+        from learnloop.adaptive_difficulty.projection import project_repository
+
+        raw = getattr(repository, "_ad_raw_repository", repository)
+        manual = [row for row in self.filter(None, "source_span_reanchors",
+                                             raw.span_reanchors_between(from_extraction_id, to_extraction_id))
+                  if str(row.get("match_kind")) == MANUAL]
+        overridden = {str(row["from_span_id"]) for row in manual}
+        computed = computed_aliases(project_repository(raw, self), from_extraction_id, to_extraction_id)
+        return manual + [
+            {"from_extraction_id": from_extraction_id, "from_span_id": span, "to_extraction_id": to_extraction_id,
+             "to_span_id": to_span, "match_kind": kind, "confidence": confidence}
+            for span, (to_span, kind, confidence) in sorted(computed.items()) if span not in overridden]
 
     def section_spans(self, extraction_id: str, section_id: str) -> list[str]:
         if extraction_id not in self._section_spans:

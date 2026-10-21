@@ -50,7 +50,7 @@ import logging
 import sqlite3
 import sys
 from collections.abc import Callable, Iterator, Mapping
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -102,6 +102,12 @@ class Guard:
     poisoned: bool = False
     #: The table the statement being authorized writes (its WHERE may read it).
     _writing: str | None = None
+    #: The one bound authorizer every guarded connection carries. Re-installing it (to expire
+    #: prepared statements) from inside its own callback then frees no callable that is running.
+    _hook: Any = field(default=None, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self._hook = self.authorize
 
     def authorize(self, action: int, arg1: Any, arg2: Any, database: Any, source: Any) -> int:
         op = _CURRENT.get()
@@ -169,7 +175,11 @@ class Guard:
         if not self.poisoned:
             LOG.warning("AD guard denied %s of %s (%s) by %s: AD is unavailable for the rest of %s", verb, table,
                         why, reader, self.entry or "this operation")
-        self.poisoned = True
+            self.poisoned = True
+            # Every statement prepared before the first denial (an AD insert in SQLite's statement
+            # cache) is expired now, so its next run is authorized again and refused as poisoned
+            # (the AD23 redesign round 3; the same expiry own_write() and rules() use on exit).
+            self.refresh()
         return sqlite3.SQLITE_DENY
 
     def install(self, connection: Any) -> None:
@@ -181,7 +191,7 @@ class Guard:
                 self.triggers, self.constraints = _schema_facts(raw, self.database)
             except sqlite3.DatabaseError:
                 self.triggers, self.constraints = frozenset(), {}
-        raw.set_authorizer(self.authorize)
+        raw.set_authorizer(self._hook)
         if all(known is not raw for known in self.connections):
             self.connections.append(raw)
 
@@ -191,7 +201,7 @@ class Guard:
         alive = []
         for raw in self.connections:
             try:
-                raw.set_authorizer(self.authorize)
+                raw.set_authorizer(self._hook)
             except sqlite3.ProgrammingError:  # closed meanwhile
                 continue
             alive.append(raw)
@@ -536,7 +546,7 @@ def is_denial(exc: BaseException) -> bool:
 
 
 def entry(func: Callable[..., Any] | None = None, *,
-          poisoned: Callable[[Mapping[str, Any]], Any] | None = None) -> Any:
+          poisoned: Callable[[Mapping[str, Any]], Any] | None = None, savepoint: bool = False) -> Any:
     """Run an AD entry point inside an operation: its ``vault`` and ``repository`` arguments are
     replaced by the operation's, its ``view`` (when it takes one and none was given) by the
     operation's view, and a ``connection`` it was handed carries the guard. With adaptive
@@ -545,10 +555,15 @@ def entry(func: Callable[..., Any] | None = None, *,
     An operation the guard refused something in raises :class:`OperationPoisoned` at its exit, and
     the function's own result is discarded. ``poisoned``: for an entry point whose caller must never
     see an exception (the serve hook: logging never breaks the serve), what to return instead,
-    built from the call's bound arguments."""
+    built from the call's bound arguments.
+
+    ``savepoint``: the operation runs inside a savepoint of the repository's transaction (the serve
+    hook's), so a poisoned operation's writes roll back before anything of it is released, however
+    the function returned, and ``poisoned``'s fallback runs after the rollback (the AD23 redesign
+    round 3: a write, a swallowed denial and an early return would otherwise release the write)."""
 
     if func is None:
-        return lambda inner: entry(inner, poisoned=poisoned)
+        return lambda inner: entry(inner, poisoned=poisoned, savepoint=savepoint)
     signature = inspect.signature(func)
 
     @functools.wraps(func)
@@ -565,9 +580,10 @@ def entry(func: Callable[..., Any] | None = None, *,
         handed = tuple(value for name, value in bound.arguments.items()
                        if name == "connection" and value is not None)
         arguments = dict(bound.arguments)
+        enclosing = getattr(repository, "_ad_raw_repository", repository).atomic() if savepoint else nullcontext()
         try:
-            with ad_operation(vault, repository, protected=given if _is_protection(given) else None,
-                              connections=handed, name=f"{func.__module__}.{func.__qualname__}") as op:
+            with enclosing, ad_operation(vault, repository, protected=given if _is_protection(given) else None,
+                                         connections=handed, name=f"{func.__module__}.{func.__qualname__}") as op:
                 bound.arguments["vault"] = op.vault
                 bound.arguments["repository"] = op.repository
                 if "view" in signature.parameters and bound.arguments.get("view") is None:

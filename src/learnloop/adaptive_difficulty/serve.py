@@ -61,12 +61,14 @@ class ServeRecord:
 
 
 def _serve_unrecorded(arguments: Any) -> "ServeRecord":
-    # The guard refused something in the serve's AD operation: nothing of AD's is kept (the savepoint
-    # rolled back what the refusal reached), and the serve proceeds (logging never breaks it).
+    # The guard refused something in the serve's AD operation: the operation's savepoint has rolled
+    # back every AD write of it (round 3), and the serve proceeds (logging never breaks it).
     return ServeRecord(presentation_id=str(arguments.get("presentation_id")), skipped="failed")
 
 
-@entry(poisoned=_serve_unrecorded)
+# The operation sits inside its own savepoint of the serve's transaction (``savepoint=True``): a
+# poisoned operation rolls it back before anything is released, then the incumbent's serve goes on.
+@entry(poisoned=_serve_unrecorded, savepoint=True)
 def record_plan_serve(vault: Any, repository: Any, *, presentation_id: str, practice_item_id: str,
                       served_at: str) -> ServeRecord | None:
     """Record AD1's serve-time receipts for one plan presentation, in the caller's transaction."""
