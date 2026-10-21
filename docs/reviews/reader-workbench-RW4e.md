@@ -253,7 +253,7 @@ Tests: fakes only. **No live or paid call**: no vault copy was opened and no com
 3. *A second proposal by the same judge with a different confidence?* **Ignored** (first stands). Alternative: append a version so a judge's revised view is kept.
 4. *Grouping by a proposal over a specific ingest role* (an ingest `definition` the model calls a `contrast`)? **Ingest wins**; the note line still shows the organizer's role labelled the model's.
 5. *P3's review list shows RW4e proposals even with the positive filter off.* **Yes** (review is not a positive use). The owner may prefer a filter in that list (by `kind`).
-6. *Crash between a batch's ledger rows and its proposals* leaves those passages "already labelled" without proposals. **Default: accept** (the window is one write); a repair would read the batch's checkpoint as RW4a's `_recovered_answer` does.
+6. *Crash between a batch's ledger rows and its proposals* leaves those passages "already labelled" without proposals. **Default: accept** (the window is one write); a repair would read the batch's checkpoint as RW4a's `_recovered_answer` does. **Superseded by the Codex review (F2, `reader-rw4e-codex-review.md`)**: the window was several independently committed writes; a judged passage no proposal carries the ledger id of is now pending and applied on the next run from its receipt (no call), and a run with one it cannot recover ends `incomplete`.
 7. *`source_rerank` / `source_compare` roles* (the sources spec's §18 request): **not built here**; one call each once that spec adds the field (§5 note 5).
 
 ## 11. Gate (implement step; targeted, per the owner's 2026-10-17 rule)
