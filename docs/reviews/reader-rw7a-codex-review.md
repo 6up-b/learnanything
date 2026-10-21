@@ -100,3 +100,69 @@ model call was made; everything ran on fakes. No vault copy was used.
 **Process note.** One plain text-edit `python3` script (string replacement in
 `tests/reading_path_fixtures.py`, no learnloop import, no network) ran outside
 `env -i`. All later edits used the editor tools or `node` text scripts.
+
+## Re-review (Codex job 20261021-020351-qET0p4)
+
+Codex confirmed F1 fixed and reopened F3; it found no new defects in the fix
+diff.
+
+| id | severity | title | verdict | commit | test or reason |
+|----|----------|-------|---------|--------|----------------|
+| F1 | High | "assumed known" from synthetic learner-gap commitments | confirmed fixed by Codex (fixed in 65d05c98a) | 65d05c98a | `tests/test_reading_paths.py` (unchanged this round, 47 passed) |
+| F3 (reopened) | Medium | a ready path card can keep a stale "next": the timed refresh reads progress whose save the learner's further reading postponed, and nothing reads again after the save lands | fixed | 142fb9bdd | `apps/learnloop-tauri/src/screens/reader/readingPathsRefresh.test.tsx` (2 tests, both failed before the fix) |
+
+**Reproduction.** `readingPathsRefresh.test.tsx` drives `ReadingPathCard` with
+the real `useReadingProgress` hook, with the refresh key built the way
+`ReaderScreen` builds it, against a fake server whose `next` moves only with
+the progress it was sent. It follows Codex's scenario: section A is read
+through at 0 ms, so the refresh is due at 2,000 ms. Partial reading in B at
+1,000 ms moves the save to 2,500 ms. The test checks that the timed refresh
+still sees A unsaved, then that the save lands. On 5044bc86d both tests
+failed on the final assertion (`Next: read Section B` was never shown). The
+second test covers a save that fails once and lands on its timed retry.
+
+**Fix.** `sendSeenCounts` takes an `onSaved` callback, called on every
+acknowledged count. Retries pass the callback through. `useReadingProgress`
+counts the open book's acknowledged saves as `progressSaves`. A save that
+lands after the learner has left the book is not counted.
+`readingPathRefreshKey` now requires `progressSaves` as a typed input, so
+`ReaderScreen` has to pass it. When a save lands, the key changes and the
+mounted card reads the path again after the usual 2,000 ms debounce. The
+reads this adds cost no model call. Reading progress is not in the server's
+`state_key`: `next` is worked out from progress when the path is read, and
+the judgment is cached by depth, sections, LO statuses, goal and prompt. The
+older "section done" trigger stays, so the common case still needs only one
+read. The key's string form gained a `saved:<n>` component, and the key unit
+test in `ReadingPathCard.test.tsx` was updated to match.
+
+### Re-review gate
+
+- `uv sync --extra dev --extra mobile`: ok. `uv pip install pypdfium2`: ok.
+  `TMPDIR` was the worktree's `fixtures-local/tmp`.
+- `uv run lint-imports --no-cache`: **28 kept, 0 broken**.
+- No Python changed this round. As a sanity check,
+  `uv run pytest -n auto tests/test_reading_paths.py`: **47 passed**.
+  Durability, references, snapshots, CLI help and RPC pins: not applicable
+  (no schema, config, CLI, RPC or DB change).
+- Frontend (`apps/learnloop-tauri`): `npm install` ok; `npm run typecheck`
+  ok; `npm run frontend:build` ok.
+- `npx vitest run`: **45 files, 326 passed**. These are every test file that
+  renders `ReaderScreen` or imports `useReadingProgress`, `ReadingPathCard`
+  or `readingPath`, plus the new file:
+  - `App.wrapUpSkim`, `attentionBudget`
+  - `ReaderScreen.{branches, checkOffer, cuesSwitchOff, discoveredCues,
+    discoveredCuesReview, followsLearner, guide, inquiry, inquiryOff, k7,
+    marginMarks, marginMarksReview, parity, pdfSelection, preparing,
+    quickcheck, recap, recapReview, review, workbench}`
+  - `reader/{IntentBox, ReadingPathCard, checkOffer, compareKeep,
+    compareKeepSwitchOff, intentSwitchOff, libraryAsk, libraryAskSwitchOff,
+    libraryExercisesReader, libraryRoles, nextStepFold, readerHooks.parity,
+    readingPathsReader, readingPathsRefresh (new), readingPathsSwitchOff,
+    recapSwitchOff, rw1bReview, tutorBoundAsk, tutorExercises, tutorReader,
+    tutorSwitchOff, voices}`
+  - `workbench/switchOff`
+- `cargo check`: not applicable (no `src-tauri` change).
+
+**Process note.** One empty `python3` heredoc ran outside `env -i`. It was a
+no-op placeholder with no code, no import and no network. Every edit in this
+round used the editor tools or `sed`.
