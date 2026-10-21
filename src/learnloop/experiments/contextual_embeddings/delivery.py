@@ -141,14 +141,24 @@ def _span(extraction_id: str, block: BlockRow, relation: str, **extra: Any) -> d
             "text": block.text, "relation": relation, **extra}
 
 
-def _selection_spans(text: Any, selection: Selection) -> tuple[list[dict[str, Any]], list[int]] | None:
+def _selection_spans(text: Any, selection: Selection,
+                     policy: _Policy) -> tuple[list[dict[str, Any]], list[int]] | None:
     primary = text.position(selection.span_id)
     if primary is None:
         return None
     spans: list[dict[str, Any]] = []
     if selection.quote and selection.quote.strip():
-        spans.append({"extraction_id": selection.extraction_id, "span_id": selection.span_id,
-                      "label": "learner selection", "text": selection.quote, "relation": "selected_text"})
+        # The quote is delivered only when every span it covers is permitted
+        # (the rule ``bank.freeze_context`` freezes; Codex re-review F6): a
+        # quote over withheld spans would carry their text past the filter.
+        refused = [span_id for span_id in (selection.span_id, *selection.selection_span_ids)
+                   if policy.snapshot.policy.verdict(selection.extraction_id, span_id) is not None]
+        if refused:
+            policy.dropped.append({"span_id": selection.span_id, "relation": "selected_text",
+                                   "reason": "the quote covers withheld spans"})
+        else:
+            spans.append({"extraction_id": selection.extraction_id, "span_id": selection.span_id,
+                          "label": "learner selection", "text": selection.quote, "relation": "selected_text"})
     spans.append(_span(selection.extraction_id, text.blocks[primary], "in_view"))
     in_view = [primary]
     for extra_id in list(dict.fromkeys(selection.selection_span_ids))[:MAX_SELECTION_SPANS]:
@@ -166,7 +176,7 @@ def reader_d0(source: BlockSource, snapshot: CorpusSnapshot, selection: Selectio
 
     policy = _Policy(snapshot)
     text = source.extraction(selection.extraction_id)
-    built = _selection_spans(text, selection) if text is not None else None
+    built = _selection_spans(text, selection, policy) if text is not None else None
     if built is None:
         return Delivered("D0", [], {"error": "selection_not_found"})
     spans, _in_view = built
@@ -197,7 +207,7 @@ def reader_d1(source: BlockSource, snapshot: CorpusSnapshot, selection: Selectio
     policy = _Policy(snapshot)
     extraction_id = selection.extraction_id
     text = source.extraction(extraction_id)
-    built = _selection_spans(text, selection) if text is not None else None
+    built = _selection_spans(text, selection, policy) if text is not None else None
     if built is None:
         return Delivered("D1", [], {"error": "selection_not_found"})
     spans, in_view = built

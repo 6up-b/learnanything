@@ -34,12 +34,22 @@ Per question each arm records its pages, cross-page duplicates, the
 verification status, the pool mode and whether dense ranking was used. A
 question whose required verification did not run, or (for a Qwen arm) whose
 search fell back from dense ranking, has NO ranking for that arm: it counts
-against the arm's completion (S1) instead of being scored as if covered.
+against the arm's completion (S1) instead of being scored as if covered. A
+delegated comparison (``intent="compare"``) is a ranking only when it
+completed (``ok``, or an honest ``too_few_sources``) after its verification
+ran and, for a Qwen arm, after its query was embedded (Codex re-review F20).
 
-Every paid step is admitted by the E0 ledger: embedding requests through
-``LedgerEnvelope`` under the production ``spend_envelopes``, any LLM request
-(rewrite, verification, comparison) through ``SystemRequestGate``, billed by
-the resolved client.
+Every paid step is admitted by the E0 ledger exactly once per physical
+request (Codex re-review F19). On the system arms ``SystemRequestGate`` (the
+transport's per-request gate) admits both kinds, billed by the resolved
+client: an embedding in ``embeddings`` at the Qwen pin's upper-bound price,
+an LLM request (rewrite, verification, comparison) in
+``answers_verification``, a subscription one at $0. No ``LedgerEnvelope`` is
+active there: the production ``SpendBudget`` reserves every request, LLM
+ones included, in each active envelope, so it would bill an LLM request a
+second time as an embedding (and a subscription request's sentinel could not
+be settled). The backfill, whose every request is an embedding, keeps its
+``LedgerEnvelope``.
 
 **Resume (Codex review F11).** ``prepare_service_copies`` keeps a state file
 per service directory: a copy whose preparation completed for the same
@@ -203,24 +213,38 @@ def guarded_factory(factory: Callable[[], Any], snapshot: CorpusSnapshot) -> Cal
 
 
 class SystemRequestGate:
-    """Admits every physical LLM request a production path makes on a service
-    copy (rewrite, verification, comparison) through the E0 ledger, billed by
-    the RESOLVED client: a subscription transport at $0; a metered one at
+    """Admits every physical request a production path makes on a service
+    copy through the E0 ledger, once, billed by the RESOLVED client.
+
+    An embedding request (the query embedding) is metered in ``embeddings``
+    at the Qwen pin's upper-bound price on the guaranteed input bound
+    (``pins.token_upper_bound``; no output). An LLM request (rewrite,
+    verification, comparison) goes to ``answers_verification``: a
+    subscription transport at $0; a metered one at
     ``source_retrieval.llm_price_per_million`` and its output bound (unset
     price or unbounded output: refused before sending)."""
 
     def __init__(self, ledger: E0Ledger, config: Any, *, arm: str) -> None:
         self.ledger = ledger
         self.price = config.source_retrieval.llm_price_per_million
+        self.embedding_price = pins.EMBEDDING_PINS["qwen3_8b"].price_per_million_upper_bound
         self.arm = arm
+
+    def _admit_embedding(self, client: Any, prompt: Any) -> Any:
+        texts = prompt if isinstance(prompt, (list, tuple)) else [prompt]
+        tokens = sum(pins.token_upper_bound(str(text)) for text in texts)
+        reservation = self.ledger.reserve(Request(
+            category="embeddings", provider=str(getattr(client, "provider_name", "copy_route")),
+            route=str(getattr(client, "model", "") or ""), purpose="system:embedding", arm=self.arm,
+            billing="metered", estimated_usd=tokens * float(self.embedding_price) / 1_000_000,
+            estimated_tokens=tokens))
+        return (reservation, False, time.monotonic(), self.embedding_price)
 
     def admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any:
         from learnloop.experiments.contextual_embeddings.callers import estimate_input_tokens
 
         if getattr(client, "provider_type", None) == "openai_embedding" or purpose == "embedding":
-            # An embedding request: admitted by the ledger through the production
-            # SpendBudget and the LedgerEnvelope (spend_envelopes), not twice here.
-            return None
+            return self._admit_embedding(client, prompt)
         subscription = is_subscription_transport(client=client)
         tokens_in = estimate_input_tokens(prompt)
         if not subscription:
@@ -236,19 +260,19 @@ class SystemRequestGate:
             route=str(getattr(client, "model", "") or ""), purpose=f"system:{purpose}", arm=self.arm,
             billing="subscription" if subscription else "metered", estimated_usd=usd,
             estimated_tokens=tokens_in + output))
-        return (reservation, subscription, time.monotonic())
+        return (reservation, subscription, time.monotonic(), self.price)
 
     def settle(self, admission: Any, usage: Mapping[str, Any]) -> None:
         if admission is None:
             return
-        reservation, subscription, started = admission
+        reservation, subscription, started, price = admission
         cost = usage.get("cost")
         tokens = [usage.get("input_tokens"), usage.get("output_tokens")]
         actual = None
         if isinstance(cost, (int, float)) and not isinstance(cost, bool) and cost >= 0:
             actual = float(cost)
-        elif not subscription and self.price is not None and any(isinstance(value, int) for value in tokens):
-            actual = sum(int(value or 0) for value in tokens) * float(self.price) / 1_000_000
+        elif not subscription and price is not None and any(isinstance(value, int) for value in tokens):
+            actual = sum(int(value or 0) for value in tokens) * float(price) / 1_000_000
         self.ledger.settle(reservation, actual_usd=actual,
                            usage={"input_tokens": tokens[0], "output_tokens": tokens[1], "cost": cost},
                            latency_s=round(time.monotonic() - started, 4))
@@ -271,6 +295,33 @@ def _bump(counter: dict[str, int], key: str, amount: int = 1) -> None:
     counter[key] = counter.get(key, 0) + amount
 
 
+#: A delegated comparison that completed: compared, or honestly too few verified sources.
+COMPARISON_DONE = frozenset({"ok", "too_few_sources"})
+
+
+def _comparison_outcome(result: Any) -> tuple[str, str | None, bool]:
+    """``(verification label, missing reason or None, dense used)`` for a
+    delegated comparison (Codex re-review F20). Accepted only when it
+    completed (:data:`COMPARISON_DONE`) and its verification ran (or had no
+    candidate to verify); an unavailable, failed, cancelled, over-budget or
+    skipped comparison, or one whose verification stopped, is no ranking.
+    Dense use is its query embedding (``embedded`` or ``cached``)."""
+
+    status = str(result.status)
+    comparison = (result.manifest or {}).get("comparison") or {}
+    manifest = comparison.get("manifest") or {}
+    verification = manifest.get("verification") or {}
+    verified = str(verification.get("status"))
+    embedded = str((manifest.get("query_embedding") or {}).get("status"))
+    label = f"compare:{status.split(':')[0]}"
+    if status not in COMPARISON_DONE:
+        return label, f"compare_{status.split(':')[0].strip() or 'unknown'}", False
+    nothing_to_verify = verified == "not_needed" and not verification.get("sources_with_hits")
+    if verified not in ("verified", "cached") and not nothing_to_verify:
+        return label, f"compare_verification_{verified}", False
+    return label, None, embedded in ("embedded", "cached")
+
+
 def rank_system(handle: Any, snapshot: CorpusSnapshot, questions: Sequence[BankQuestion], *, arm: str,
                 ledger: E0Ledger, query_text: Mapping[str, str],
                 clients: Mapping[str, Any] | None = None) -> tuple[dict[str, list[str]], dict[str, Any]]:
@@ -285,21 +336,20 @@ def rank_system(handle: Any, snapshot: CorpusSnapshot, questions: Sequence[BankQ
 
     clients = dict(clients or {})
     interface = SYSTEM_ARMS[arm][1]
-    envelope = LedgerEnvelope(ledger, category="embeddings", provider="openrouter",
-                              route=pins.EMBEDDING_PINS["qwen3_8b"].model, arm=arm)
+    # One admission per physical request, embeddings included (no envelope: F19).
     gate = SystemRequestGate(ledger, handle.vault.config, arm=arm)
     scope = library_scope(handle.repository)
     ranked: dict[str, list[str]] = {}
     report: dict[str, Any] = {"arm": arm, "interface": interface, "questions": len(questions), "ranked": 0,
                               "missing": {}, "withheld": 0, "unmapped": 0, "pages": {}, "page_duplicates": 0,
                               "verification": {}, "pool_modes": {}, "dense_used": 0, "latency_s": []}
-    with spend_envelopes(envelope), gate_model_requests(gate):
+    with gate_model_requests(gate):
         for question in questions:
             text = query_text[question.query_id]
             owner = f"e0:{arm}:{question.query_id}"
             started = time.monotonic()
             missing: str | None = None
-            lists: list[str] | None = []
+            dense = False
             if interface == "find_sources":
                 intent = question.intent if question.intent in INTENTS else "explain"
                 kwargs = dict(policy="reading", intent=intent, scope="library", limit=pins.TOP_K, owner_id=owner,
@@ -320,24 +370,23 @@ def rank_system(handle: Any, snapshot: CorpusSnapshot, questions: Sequence[BankQ
                 _bump(report["pages"], str(len(pages)))
                 if intent == "compare":
                     # Delegated to compare_sources (its own searches, verification
-                    # and status); its dense use is not on this manifest.
-                    verification = f"compare:{first.status}"
-                    lists = None
+                    # and status, on the manifest's ``comparison``).
+                    verification, missing, dense = _comparison_outcome(first)
                 else:
                     verification = str((first.manifest.get("verification") or {}).get("status"))
                     search = first.manifest.get("search") or {}
-                    lists = list(search.get("lists") or [])
+                    dense = "meaning" in list(search.get("lists") or [])
                     _bump(report["pool_modes"], str((search.get("pool") or {}).get("mode")))
+                    if intent != "explain" and verification not in ("verified", "cached"):
+                        # The production path must verify this intent: unverified is no ranking.
+                        missing = f"verification_{verification}"
                 _bump(report["verification"], verification)
-                if intent not in ("explain", "compare") and verification not in ("verified", "cached"):
-                    # The production path must verify this intent: unverified is no ranking.
-                    missing = f"verification_{verification}"
             elif interface == "dense_plus_bm25_first_page":
                 result = search_spans(handle.vault, handle.repository, text, scope, deep=True, limit=pins.POOL_DEPTH,
                                       pool="dense_plus_bm25", owner_id=owner, embedder=clients.get("embedder"),
                                       rewrite_client=clients.get("rewrite_client"))
                 keys = _keys(result.hits)
-                lists = list(result.lists)
+                dense = "meaning" in list(result.lists)
                 mode = str((result.pool or {}).get("mode"))
                 _bump(report["pool_modes"], mode)
                 if mode != "dense_plus_bm25":
@@ -347,7 +396,7 @@ def rank_system(handle: Any, snapshot: CorpusSnapshot, questions: Sequence[BankQ
                                   learning_object_ids=(), item=None, embedder=clients.get("embedder"),
                                   rewrite_client=clients.get("rewrite_client"), owner_id=owner,
                                   pool="dense_plus_bm25", scope=scope)
-                lists = list(pool.search.lists)
+                dense = "meaning" in list(pool.search.lists)
                 mode = str((pool.search.pool or {}).get("mode"))
                 _bump(report["pool_modes"], mode)
                 outcome = verify_spans(handle.vault, handle.repository, question=text, pool=list(pool.pool),
@@ -358,9 +407,8 @@ def rank_system(handle: Any, snapshot: CorpusSnapshot, questions: Sequence[BankQ
                 keys = picks + [key for key in _keys(pool.pool) if key not in picks]
                 if not outcome.ran:
                     missing = f"verification_{outcome.status}"
-            dense = lists is not None and "meaning" in lists
             report["dense_used"] += int(dense)
-            if missing is None and arm in DENSE_ARMS and lists is not None and not dense:
+            if missing is None and arm in DENSE_ARMS and not dense:
                 missing = "dense_not_used"
             report["latency_s"].append(round(time.monotonic() - started, 4))
             if missing is not None:

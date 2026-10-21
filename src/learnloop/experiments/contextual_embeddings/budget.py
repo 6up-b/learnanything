@@ -320,7 +320,18 @@ class LedgerEnvelope(SpendEnvelope):
 
     ``reserve`` admits through the ledger (raising ``E0BudgetExceeded``);
     ``charge`` and ``settle`` reconcile. ``reservation_ref`` names the ledger
-    entry on the request's receipt."""
+    entry on the request's receipt.
+
+    Only a handle ``reserve`` returned (a ledger id, a string) is a ledger
+    entry. A subscription request's place (``learnloop.ai.spend.NO_RESERVATION``,
+    whose text is ``"0"``) reserved nothing, so it is never settled, charged
+    or released here (Codex re-review F19: settling it raised ``KeyError('0')``).
+
+    Use it only around a path whose every admitted request is an embedding
+    (the backfill): the production ``SpendBudget`` reserves EVERY request in
+    each active envelope, LLM ones included, so an LLM request under it would
+    also be billed as an embedding. The system arms admit both kinds once per
+    physical request with ``system_arms.SystemRequestGate`` instead."""
 
     def __init__(self, ledger: E0Ledger, *, category: str, provider: str, route: str,
                  arm: str | None = None) -> None:
@@ -335,17 +346,19 @@ class LedgerEnvelope(SpendEnvelope):
         return self.ledger.reserve(request)
 
     def reservation_ref(self, handle: object) -> str | None:
-        return f"e0_ledger:{handle}"
+        return f"e0_ledger:{handle}" if isinstance(handle, str) else None
 
     def unreserve(self, handle: object) -> None:
-        self.ledger.settle(str(handle), actual_usd=0.0, status="settled")
+        if isinstance(handle, str):
+            self.ledger.settle(handle, actual_usd=0.0, status="settled")
 
     def charge(self, usd: Decimal, handle: object = None) -> None:
-        if handle is not None and usd > 0:
-            self._extra[str(handle)] = self._extra.get(str(handle), Decimal(0)) + usd
+        if isinstance(handle, str) and usd > 0:
+            self._extra[handle] = self._extra.get(handle, Decimal(0)) + usd
 
     def settle(self, handle: object, actual: Decimal | None = None) -> None:
-        self.ledger.settle(str(handle), actual_usd=None if actual is None else float(actual))
+        if isinstance(handle, str):
+            self.ledger.settle(handle, actual_usd=None if actual is None else float(actual))
 
     def remaining(self) -> float:
         return self.ledger.remaining()

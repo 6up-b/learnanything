@@ -29,7 +29,7 @@ fakes in tests). Prompts are versioned and hashed into the run plan.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 import hashlib
 import json
 import re
@@ -168,7 +168,12 @@ def freeze_context(question: BankQuestion, snapshot: CorpusSnapshot) -> BankQues
     permitted, else the selected block's own text, whitespace-collapsed and
     bounded at ``SELECTION_CONTEXT_CHARS``. A selection the policy withholds
     raises (the bank never carries one: ``logged_bank`` drops it). A library
-    question has no selected passage and never an oracle location."""
+    question has no selected passage and never an oracle location.
+
+    The selection itself is frozen to the same policy (Codex re-review F6):
+    a rejected quote is dropped and the covered spans keep only permitted
+    ones, so delivery (which reads ``question.selection``) hands the tutor and
+    the judges exactly the context the labellers saw, never the quote."""
 
     if question.context_frozen:
         return question
@@ -184,6 +189,11 @@ def freeze_context(question: BankQuestion, snapshot: CorpusSnapshot) -> BankQues
             policy.permitted(selection.extraction_id, span_id) for span_id in selection.selection_span_ids)
         text = selection.quote if quote_ok else (block.text if block is not None else "")
         passage = " ".join(str(text or "").split())[:SELECTION_CONTEXT_CHARS] or None
+        if not quote_ok:
+            question.selection = replace(
+                selection, quote=None,
+                selection_span_ids=tuple(span_id for span_id in selection.selection_span_ids
+                                         if policy.permitted(selection.extraction_id, span_id)))
     question.selected_passage = passage
     question.context_frozen = True
     return question
@@ -817,8 +827,9 @@ def adjudication_problems(result: AdjudicatedLabels, refs: Mapping[str, str], la
     A set with an unknown or repeated ref is rejected WHOLE (dropping the bad
     ref would turn an incomplete conjunction into a weaker accepted set:
     Codex review F7); so is a label for an unknown or repeated candidate, a
-    disputed candidate left unlabelled, a set member labelled background or
-    unrelated (background never completes a set), and an answerability that
+    disputed candidate left unlabelled, a set member whose final label (the
+    adjudicator's, or the passes' agreement it inherits) is not required or
+    helpful (background never completes a set), and an answerability that
     contradicts the sets."""
 
     problems: list[str] = []
@@ -840,8 +851,15 @@ def adjudication_problems(result: AdjudicatedLabels, refs: Mapping[str, str], la
     disputed = {unit_id for unit_id in labels.pool if labels.passes[0].get(unit_id) != labels.passes[1].get(unit_id)}
     if any(unit_id in disputed and ref not in seen for ref, unit_id in refs.items()):
         problems.append("disputed_candidate_unlabelled")
+    # Every set member is checked against its FINAL label: the adjudicator's
+    # own, else the label both passes agreed on (what ``adjudicate`` merges).
+    # A member the adjudicator omitted inherits the passes' agreement, so an
+    # inherited background never completes a set (Codex re-review F7).
+    merged = {ref: seen.get(ref) or (labels.passes[0].get(unit_id) if labels.passes[0].get(unit_id)
+                                     == labels.passes[1].get(unit_id) else None)
+              for ref, unit_id in refs.items()}
     for chosen in result.sufficient_sets:
-        if any(seen.get(ref) in ("background", "unrelated") for ref in chosen if ref in refs):
+        if any(merged.get(ref) not in ("required", "helpful") for ref in chosen if ref in refs):
             problems.append("set_member_not_supporting")
     if result.answerable and not result.sufficient_sets and not result.unresolved:
         problems.append("answerable_without_a_set")
