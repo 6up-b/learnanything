@@ -3,8 +3,8 @@ title: "Config - ui"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "19c6b0a72d1abd945218ccd23ed19f4b7a9b439e"
-source_commit_timestamp: "2026-10-21T10:49:24-04:00"
+source_commit: "579d0512bb4ef99aa0c62a1e8e08e50eb2562e2e"
+source_commit_timestamp: "2026-10-21T11:34:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml ui"
@@ -28,6 +28,7 @@ source_paths:
   - "tests/test_mobile_doctor.py"
   - "tests/test_reader_rw3a_landing.py"
   - "tests/test_ux_phase1_first_run.py"
+  - "tests/test_ux_phase2_error_type_proposals.py"
   - "tests/test_ux_phase2_shell.py"
   - "tests/test_ux_phase4_feedback.py"
 tags:
@@ -69,6 +70,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_mobile_doctor.py`
 - `tests/test_reader_rw3a_landing.py`
 - `tests/test_ux_phase1_first_run.py`
+- `tests/test_ux_phase2_error_type_proposals.py`
 - `tests/test_ux_phase2_shell.py`
 - `tests/test_ux_phase4_feedback.py`
 
