@@ -39,7 +39,7 @@ def brier(p: float, y: float) -> float:
     return (float(p) - float(y)) ** 2
 
 
-@entry
+@entry(read_only=True)
 def score_rows(connection: Any, vault: Any, repository: Any) -> list[dict[str, Any]]:
     """The scores of every item forecast receipt (pure reads; zero model calls)."""
 

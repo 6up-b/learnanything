@@ -275,3 +275,70 @@ def test_span_aliases_are_recomputed_from_the_projected_ir(tmp_path, monkeypatch
     protected, absent = _swept(protected_paths), _swept(absent_paths)
     assert protected == absent
     assert all(row[3] != LO for row in protected if row[2] == "source_exposure_events")
+
+
+# -- round 4 (verify 20261021-112836-xjtGDx, finding 1): locator-only references ---------------------
+
+QUOTE = "Teaching text of p_span"
+
+
+def _locator_only(tmp_path, *, absent: bool):
+    """``HELD_LO``'s only citation names H by its locator alone (``span:ext/H``, no span ids) and
+    carries a quote that public P's text contains. In the absent copy H was never extracted and the
+    reference into it (protected material too) was never made."""
+
+    paths = _mixed_section(tmp_path, absent=absent)
+    path = paths.learning_object_path("linear-algebra", HELD_LO)
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["provenance"] = {"origin": "human", "source_refs": [] if absent else [{
+        "ref_type": "canonical_source", "ref_id": "src_f48", "source_id": "src_f48",
+        "locator": f"span:{EXT}/{H}", "quote": QUOTE}]}
+    write_yaml(path, payload)
+    return paths
+
+
+def test_a_locator_only_reference_into_held_out_material_is_withheld(tmp_path, monkeypatch):
+    """Round 4, finding 1: the projection locates a reference through ``source_ref_keys`` (its
+    extraction, span ids AND the span its locator names) before judging it, and removes one with any
+    withheld key; the quote it keeps can then restore nothing. The view of P records exactly the
+    opportunities of the copy without H and without the reference into it, none for ``HELD_LO``
+    (failed before: the locator was ignored, the reference kept, and the Reader's quote fallback
+    mapped P to ``HELD_LO``)."""
+
+    from learnloop.adaptive_difficulty.operation import ad_operation
+    from learnloop.reader.reader_progression import learning_objects_for_span
+
+    _hold_h(monkeypatch)
+    protected_paths, absent_paths = _locator_only(tmp_path, absent=False), _locator_only(tmp_path, absent=True)
+    mapped = {}
+    for name, paths in (("protected", protected_paths), ("absent", absent_paths)):
+        vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
+        with ad_operation(vault, repository) as op:
+            assert op.vault.learning_objects[HELD_LO].provenance.source_refs == []
+            mapped[name] = learning_objects_for_span(op.vault, op.repository, extraction_id=EXT, span_id=P)
+    assert mapped["protected"] == mapped["absent"] == [LO]
+    protected, absent = _swept(protected_paths), _swept(absent_paths)
+    assert protected == absent
+    assert all(row[3] != HELD_LO for row in protected)
+
+
+def test_every_recorded_reference_shape_is_located_through_the_shared_key_function():
+    """Round 4: the shapes AD reads references in (a provenance ref's extraction, span ids and
+    locator; a recorded mapping's ``extraction_id``/``span_id``/``span_ids``/``locator``/``href``,
+    a nested ``anchor`` under its parent's extraction, and ``ext:span`` keys) all resolve through
+    ``exam_material.reference_keys``, which places a ref through ``source_ref_keys``."""
+
+    from types import SimpleNamespace
+
+    from learnloop.content.sources.exam_material import reference_keys, source_ref_keys
+
+    ref = SimpleNamespace(extraction_id=None, span_ids=[], locator=f"span:{EXT}/{H}")
+    assert source_ref_keys(ref)[0] == {(EXT, H)}
+    assert reference_keys(ref)[0] == {(EXT, H)}
+    context = {"extraction_id": "e1", "anchor": {"span_ids": ["a1"]},
+               "citations": [{"locator": "span:e2/c1"}, {"href": "span:e3/h1"}],
+               "grounded_keys": ["e4:g1"], "source_spans": [{"extraction_id": "e5", "span_id": "s5"}]}
+    keys, whole = reference_keys(context)
+    assert {("e1", "a1"), ("e2", "c1"), ("e3", "h1"), ("e4", "g1"), ("e5", "s5")} <= keys
+    assert whole == set()
+    assert reference_keys({"extraction_id": "e6"}) == (set(), {"e6"})

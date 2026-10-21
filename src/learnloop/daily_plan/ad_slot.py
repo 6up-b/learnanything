@@ -66,7 +66,8 @@ def slot_operation(env: Any) -> Iterator[Any]:
     from learnloop.adaptive_difficulty.operation import ad_operation, is_denial
 
     try:
-        with env.repository.atomic(), ad_operation(env.vault, env.repository) as op:
+        # The savepoint form (round 4): the operation inside its savepoint, rolled back on poison.
+        with ad_operation(env.vault, env.repository, savepoint=True) as op:
             if not op.view.available:
                 raise AdUnavailable(op.view.reason or "held-out predicate unavailable")
             yield op.view

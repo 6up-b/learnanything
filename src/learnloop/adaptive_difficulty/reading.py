@@ -544,7 +544,7 @@ def _offer_for(offers: Mapping[str, str], event: "_Event") -> str | None:
     return None
 
 
-@entry
+@entry(savepoint=True)
 def sweep(vault: Any, repository: Any, *, as_of: str, sweep_kind: str = "serve", sweep_ref: str | None = None,
           reading_map: ReadingMap | None = None, clock: Clock | None = None, view: Any = None) -> SweepResult:
     """Record every listed opportunity written no later than ``as_of``.

@@ -399,7 +399,7 @@ def item_prompt(vault: Any, item: Any) -> str:
     })
 
 
-@entry
+@entry(durable="it sends to a model: its claim, spend and receipts commit per unit")
 def forecast_item(vault: Any, repository: Any, item: Any, *, clients: Clients | None = None,
                   clock: Clock | None = None, protected: Any = None, fence: Any = None,
                   live_vault: Callable[[], Any] | None = None) -> ForecastOutcome:
@@ -577,7 +577,7 @@ def _frozen_inputs(connection: Any, presentation_id: str) -> dict[str, Any] | No
     return None
 
 
-@entry
+@entry(durable="it sends to a model: its claim, spend and receipts commit per unit")
 def forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, clients: Clients | None = None,
                           clock: Clock | None = None, fence: Any = None,
                           live_vault: Callable[[], Any] | None = None) -> list[ForecastOutcome]:

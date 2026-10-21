@@ -289,6 +289,122 @@ def test_a_write_then_a_swallowed_denial_then_an_early_return_keeps_no_ad_rows(t
         assert connection.execute("SELECT COUNT(*) FROM plan_presentations").fetchone()[0] == 1
 
 
+@pytest.mark.parametrize("swallowed", [False, True])
+def test_a_denied_dose_response_rolls_the_draw_back(tmp_path, monkeypatch, swallowed):
+    """Round 4 (verify finding 2): the Reader's dose offer draws an extra question, then the read of
+    that question for the response is refused (raised, or swallowed and answered as none). The offer
+    is unavailable, no draw row survives and no budget is consumed (failed before: the draw had
+    committed before the response was built, and the section's budget read ``section_offered``)."""
+
+    from contextlib import closing as _closing
+    from types import SimpleNamespace
+
+    from learnloop.adaptive_difficulty import dose as D
+    from learnloop.adaptive_difficulty import reading as R
+    from learnloop.adaptive_difficulty import selection as S
+    from learnloop.adaptive_difficulty.material_view import MaterialView, detached_view
+    from learnloop.db.connection import connect
+    from learnloop.scheduling import randomization_layer as RL
+    from learnloop_sidecar.handlers import adaptive_difficulty as H
+
+    from tests.test_ad3_dose_arm import _arm, _mapping
+    from tests.test_ad1_reading_opportunities import _question
+
+    paths, vault, repo = _arm(tmp_path, config="dose_floor = 0.3\n")
+    _question(repo, "recall", 1, answer=False)
+    mapping = _mapping(examples={"ext1": {"we1"}})  # only the question extra is feasible
+    monkeypatch.setattr(R, "VaultReadingMap", lambda *_args, **_kwargs: mapping)
+    pi = RL.reading_dose_propensities(("none", "extra_question"), {"none": 1.0}, 0.3)
+    visit = next(f"v{k}" for k in range(200)
+                 if RL.draw_from(pi, S.uniform(S.seed_for(D.DOSE_VERSION, f"v{k}:u1"))) == "extra_question")
+
+    def planted(self, connection, question_id):
+        try:
+            with _closing(connect(paths.sqlite_path, read_only=True)) as raw:
+                raw.execute("SELECT COUNT(*) FROM practice_attempts").fetchone()
+        except sqlite3.DatabaseError:
+            if not swallowed:
+                raise
+        return None
+
+    monkeypatch.setattr(MaterialView, "question", planted)
+    ctx = SimpleNamespace(require_vault=lambda: (vault, repo))
+    result = H.reader_dose_offer(ctx, H.ReaderDoseOfferInput(extraction_id="ext1", section_id="u1", visit_id=visit))
+    assert result["offer"] is None and result["reason"] == "unavailable", result
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM ad_dose_offers").fetchone()[0] == 0
+    view = detached_view(vault, repo)
+    with _closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        assert D.budget(connection, extraction_id="ext1", section_id="u1", now="2026-10-12T09:02:00Z",
+                        daily=3, view=view) is None
+
+
+def _calls(tree: ast.AST, names: set[str]) -> list[ast.Call]:
+    return [node for node in ast.walk(tree) if isinstance(node, ast.Call)
+            and getattr(node.func, "id", getattr(node.func, "attr", None)) in names]
+
+
+#: Operations opened directly (not through ``@entry``) that are not in the savepoint form, and why.
+DURABLE_OPERATIONS = {
+    "learnloop/adaptive_difficulty/background.py": "the preparation run sends to a model (durable form)",
+}
+
+
+def test_every_ad_entry_point_declares_its_write_form_and_writers_use_the_savepoint_form():
+    """Round 4: every ``@entry`` declares exactly one write form: ``savepoint=True`` (it writes AD
+    decisions or receipts: a poisoned operation rolls them back before its fallback), ``read_only=True``
+    (the guard refuses any write while it runs) or ``durable="why"`` (it sends to a model; its units
+    commit on their own). Every operation opened directly is in the savepoint (or read-only) form, but
+    for the named durable ones; an undeclared ``@entry`` is refused when it is defined."""
+
+    forms: dict[str, str] = {}
+    for path in sorted([*SRC.rglob("*.py"), *(SRC.parent / "learnloop_sidecar").rglob("*.py")]):
+        relative = str(path.relative_to(SRC.parent))
+        if relative == "learnloop/adaptive_difficulty/operation.py":
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for decorator in node.decorator_list:
+                name = getattr(decorator, "id", None) or getattr(getattr(decorator, "func", None), "id", None)
+                if name != "entry":
+                    continue
+                keywords = {kw.arg: kw.value for kw in getattr(decorator, "keywords", [])}
+                declared = [form for form in O.WRITE_FORMS if form in keywords and not (
+                    isinstance(keywords[form], ast.Constant) and keywords[form].value in (False, None))]
+                assert len(declared) == 1, f"{relative}:{node.name} declares {declared or 'no'} write form"
+                forms[f"{relative}:{node.name}"] = declared[0]
+        for call in _calls(tree, {"ad_operation", "optional_operation"}):
+            keywords = {kw.arg: kw.value for kw in call.keywords}
+            in_form = any(isinstance(keywords.get(form), ast.Constant) and keywords[form].value is True
+                          for form in ("savepoint", "read_only"))
+            assert in_form or relative in DURABLE_OPERATIONS, f"{relative}:{call.lineno} opens an operation " \
+                "outside the savepoint (or read-only) form"
+    assert forms["learnloop/adaptive_difficulty/dose.py:decide"] == "savepoint"
+    assert forms["learnloop/adaptive_difficulty/serve.py:record_plan_serve"] == "savepoint"
+    assert {form for name, form in forms.items() if "outside.py" in name} == {"durable"}
+    with pytest.raises(TypeError, match="write form"):
+        O.entry(lambda vault, repository: None)
+
+
+def test_a_read_only_entry_point_cannot_write(tmp_path):
+    """Round 4: a write inside a ``read_only`` entry point is refused (and poisons its operation)."""
+
+    paths, vault, repository = _vault(tmp_path)
+
+    @O.entry(read_only=True)
+    def reader(vault, repository):
+        repository.connection().execute(
+            "INSERT INTO ad_dose_offers(row_kind, draw_key, created_at) VALUES ('draw', 'ro', '2026-10-21T00:00:00Z')")
+
+    with repository.atomic():
+        with pytest.raises(sqlite3.DatabaseError, match=DENIED):
+            reader(vault, repository)
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM ad_dose_offers").fetchone()[0] == 0
+
+
 def _planted_dose_read(tmp_path, monkeypatch):
     """The dose decision's forecast covariate (caught by its broad except) reads a protected table raw."""
 

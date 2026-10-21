@@ -194,7 +194,7 @@ def _audit_plan(vault: Any, pending: list[tuple[Any, str, list[str]]]) -> dict[s
     return plan
 
 
-@entry
+@entry(durable="it sends to a model: its claim, spend and receipts commit per unit")
 def backfill(vault: Any, repository: Any, *, audit: bool, llm_v1: bool, reading: bool, dry_run: bool,
              limit: int | None = None, clients: Clients | None = None,
              decider_factory: Callable[[], Any] | None = None, clock: Clock | None = None) -> dict[str, Any]:

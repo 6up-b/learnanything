@@ -50,7 +50,7 @@ import logging
 import sqlite3
 import sys
 from collections.abc import Callable, Iterator, Mapping
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -161,6 +161,9 @@ class Guard:
         self.writes.setdefault(table, set()).add(reader)
         if self.poisoned:
             return self._deny(verb, table, POISONED, reader)
+        read_only = _READ_ONLY.get()
+        if read_only is not None:
+            return self._deny(verb, table, f"the read-only AD entry point {read_only} writes nothing", reader)
         verdict = T.write_verdict(table)
         if verdict is None:
             return sqlite3.SQLITE_OK
@@ -407,12 +410,46 @@ def _same_database(op: Operation, repository: Any) -> bool:
 
 @contextmanager
 def ad_operation(vault: Any, repository: Any, *, protected: Any = None, connections: tuple[Any, ...] = (),
-                 mode: str | None = None, name: str | None = None) -> Iterator[Operation]:
+                 mode: str | None = None, name: str | None = None, savepoint: bool = False,
+                 read_only: bool = False) -> Iterator[Operation]:
     """Open (or join) the operation for this database (see the module docstring).
 
     ``protected``: a :class:`~learnloop.adaptive_difficulty.protection.Protection` or material view an
     enclosing step already computed (never recomputed). ``connections``: connections the entry point
-    was handed, opened before the operation, which carry the guard for its duration."""
+    was handed, opened before the operation, which carry the guard for its duration.
+
+    ``savepoint``: the savepoint form (the AD23 redesign rounds 3 and 4). The repository's savepoint
+    (its own ``BEGIN IMMEDIATE`` transaction, or a savepoint of the caller's) is opened OUTSIDE the
+    operation, and a poisoned operation raises :class:`OperationPoisoned` inside it, joined or not,
+    so every write of the operation rolls back before anything of it is released, whatever the code
+    inside did with the refusal and however it returned; the caller's fallback runs after.
+    ``read_only``: the block writes nothing (the guard refuses any write in it)."""
+
+    if read_only:
+        with _operation(vault, repository, protected=protected, connections=connections, mode=mode,
+                        name=name) as op:
+            token = _READ_ONLY.set(name or op.guard.entry or "a read-only AD operation")
+            try:
+                yield op
+            finally:
+                _READ_ONLY.reset(token)
+        return
+    if not savepoint:
+        with _operation(vault, repository, protected=protected, connections=connections, mode=mode,
+                        name=name) as op:
+            yield op
+        return
+    raw_repository = getattr(repository, "_ad_raw_repository", repository)
+    with raw_repository.atomic(), _operation(vault, repository, protected=protected, connections=connections,
+                                             mode=mode, name=name) as op:
+        yield op
+        if op.guard.poisoned:
+            raise OperationPoisoned(f"the AD guard refused a read or write in {op.guard.entry or 'this operation'}")
+
+
+@contextmanager
+def _operation(vault: Any, repository: Any, *, protected: Any = None, connections: tuple[Any, ...] = (),
+               mode: str | None = None, name: str | None = None) -> Iterator[Operation]:
 
     from learnloop.db.scopes import connection_hook
 
@@ -521,15 +558,17 @@ def denial_count(sqlite_path: Any) -> int:
 
 
 @contextmanager
-def optional_operation(vault: Any, repository: Any) -> Iterator[Operation | None]:
-    """The operation, or None with adaptive difficulty off (then nothing opens)."""
+def optional_operation(vault: Any, repository: Any, *, savepoint: bool = False,
+                       read_only: bool = False) -> Iterator[Operation | None]:
+    """The operation, or None with adaptive difficulty off (then nothing opens). ``savepoint`` and
+    ``read_only``: as :func:`ad_operation`'s."""
 
     from learnloop.adaptive_difficulty.switches import ad_enabled
 
     if not ad_enabled(getattr(vault, "config", None)):
         yield None
         return
-    with ad_operation(vault, repository) as op:
+    with ad_operation(vault, repository, savepoint=savepoint, read_only=read_only) as op:
         yield op
 
 
@@ -545,8 +584,14 @@ def is_denial(exc: BaseException) -> bool:
         "not authorized" in text or (text.startswith("access to ") and text.endswith(" is prohibited")))
 
 
+#: An entry point's write form (round 4): every ``@entry`` declares exactly one.
+WRITE_FORMS = ("savepoint", "read_only", "durable")
+_READ_ONLY: ContextVar[str | None] = ContextVar("ad_read_only", default=None)
+
+
 def entry(func: Callable[..., Any] | None = None, *,
-          poisoned: Callable[[Mapping[str, Any]], Any] | None = None, savepoint: bool = False) -> Any:
+          poisoned: Callable[[Mapping[str, Any]], Any] | None = None, savepoint: bool = False,
+          read_only: bool = False, durable: str | None = None) -> Any:
     """Run an AD entry point inside an operation: its ``vault`` and ``repository`` arguments are
     replaced by the operation's, its ``view`` (when it takes one and none was given) by the
     operation's view, and a ``connection`` it was handed carries the guard. With adaptive
@@ -557,13 +602,26 @@ def entry(func: Callable[..., Any] | None = None, *,
     see an exception (the serve hook: logging never breaks the serve), what to return instead,
     built from the call's bound arguments.
 
-    ``savepoint``: the operation runs inside a savepoint of the repository's transaction (the serve
-    hook's), so a poisoned operation's writes roll back before anything of it is released, however
-    the function returned, and ``poisoned``'s fallback runs after the rollback (the AD23 redesign
-    round 3: a write, a swallowed denial and an early return would otherwise release the write)."""
+    Every entry point declares exactly one write form (the AD23 redesign round 4; a sweep test
+    checks every ``@entry``):
+
+    * ``savepoint=True``: an entry point that writes AD decisions or receipts. Its operation is in
+      the savepoint form (:func:`ad_operation`): a poisoned operation's writes roll back before
+      anything is released, then ``poisoned``'s fallback runs;
+    * ``read_only=True``: it writes nothing, and the guard refuses (and so poisons on) any write
+      while it runs;
+    * ``durable="why"``: an entry point that sends to a model. Its units commit on their own (the
+      durable work claim other processes must see, the spend ledger that must record money spent,
+      each item's receipt), so one transaction around it would hold the database's write lock
+      across network calls and hide its claims. What it committed before the first denial read
+      nothing withheld (any such read is that denial); every write after it is refused, and its
+      exit raises, so its output is discarded."""
 
     if func is None:
-        return lambda inner: entry(inner, poisoned=poisoned, savepoint=savepoint)
+        return lambda inner: entry(inner, poisoned=poisoned, savepoint=savepoint, read_only=read_only,
+                                   durable=durable)
+    if sum((bool(savepoint), bool(read_only), durable is not None)) != 1:
+        raise TypeError(f"AD entry point {func.__qualname__} must declare exactly one write form {WRITE_FORMS}")
     signature = inspect.signature(func)
 
     @functools.wraps(func)
@@ -580,21 +638,27 @@ def entry(func: Callable[..., Any] | None = None, *,
         handed = tuple(value for name, value in bound.arguments.items()
                        if name == "connection" and value is not None)
         arguments = dict(bound.arguments)
-        enclosing = getattr(repository, "_ad_raw_repository", repository).atomic() if savepoint else nullcontext()
+        name = f"{func.__module__}.{func.__qualname__}"
         try:
-            with enclosing, ad_operation(vault, repository, protected=given if _is_protection(given) else None,
-                                         connections=handed, name=f"{func.__module__}.{func.__qualname__}") as op:
+            with ad_operation(vault, repository, protected=given if _is_protection(given) else None,
+                              connections=handed, name=name, savepoint=savepoint) as op:
                 bound.arguments["vault"] = op.vault
                 bound.arguments["repository"] = op.repository
                 if "view" in signature.parameters and bound.arguments.get("view") is None:
                     bound.arguments["view"] = op.view
-                return func(*bound.args, **bound.kwargs)
+                token = _READ_ONLY.set(name) if read_only else None
+                try:
+                    return func(*bound.args, **bound.kwargs)
+                finally:
+                    if token is not None:
+                        _READ_ONLY.reset(token)
         except OperationPoisoned:
             if poisoned is None:
                 raise
             return poisoned(arguments)
 
     wrapper.__ad_entry__ = True  # type: ignore[attr-defined]
+    wrapper.__ad_write_form__ = "savepoint" if savepoint else "read_only" if read_only else "durable"  # type: ignore[attr-defined]
     return wrapper
 
 

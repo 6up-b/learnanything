@@ -138,7 +138,7 @@ def schedule_presentation_forecasts(vault: Any, sqlite_path: Any, presentation_i
         return None
 
 
-@entry
+@entry(durable="it sends to a model: its claim, spend and receipts commit per unit")
 def prepare_items(vault: Any, repository: Any, item_ids: Iterable[str], *, clients: Clients | None = None,
                   decider_factory: Callable[[], Any] | None = None, clock: Any = None,
                   fence: Any = None, limit: int = PREPARE_LIMIT,
@@ -469,7 +469,8 @@ def _start_run(sqlite_path: Any, queue: _Queue, *, builds: Any, limit: int) -> t
                     repository = Repository.attach(Path(sqlite_path))
                     current = live_vault() if live_vault is not None else None
                     # The run's one AD operation, on the vault loaded now (A8; the AD23 redesign): its
-                    # batch is admitted inside it.
+                    # batch is admitted inside it. Durable form (round 4, ``entry``'s ``durable``): it
+                    # sends to a model, so its claims, spend and receipts commit per unit.
                     with ad_operation(current if current is not None else vault, repository) as op:
                         batch.extend(_admit(queue, op, str(Path(sqlite_path)), limit, results))
                         _prepare(op.vault, op.repository, [unit for _key, unit in batch], clients=clients,

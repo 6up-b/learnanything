@@ -540,7 +540,7 @@ def density_lowerings(connection: Any, *, view: Any) -> list[str]:
     return counted
 
 
-@entry
+@entry(read_only=True)
 def build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] = A.DEFAULT_ARMS,
           previous_errors: Sequence[float | None] | None = None, sensitivity: bool = True,
           now: str | None = None, report_every: int = REPORT_EVERY_SELECTIONS) -> dict[str, Any]:

@@ -176,7 +176,7 @@ def _versions(vault: Any, snapshot: RP.Snapshot, view_name: str) -> dict[str, An
             "algorithm_version": vault.config.algorithms.algorithm_version}
 
 
-@entry
+@entry(savepoint=True)
 def decide_slot(vault: Any, repository: Any, request: SlotRequest, *, view: Any = None) -> SlotDecision:
     """Score the slot's support and draw (§6.1), writing the ``ad_selections`` row first.
 

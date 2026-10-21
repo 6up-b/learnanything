@@ -168,7 +168,7 @@ def rung_features(point: Mapping[str, Any]) -> dict[str, Any]:
     return features
 
 
-@entry
+@entry(savepoint=True)
 def commission_point(vault: Any, repository: Any, *, learning_object_id: str, incumbent: Any,
                      now: str, selection_id: str | None = None,
                      view: Any = None) -> tuple[dict[str, Any], str, str] | None:
@@ -307,7 +307,7 @@ def schedule_commission_generation(vault: Any, repository: Any,
     return queued
 
 
-@entry
+@entry(read_only=True)
 def _queueable_commissions(vault: Any, repository: Any, *, view: Any = None) -> list[dict[str, Any]]:
     """The open serve-time commissions to queue, read in one AD operation."""
 
@@ -368,7 +368,7 @@ def landing_owner(vault: Any, item: Any, commissions: Sequence[Mapping[str, Any]
     return owner
 
 
-@entry
+@entry(savepoint=True)
 def record_landed_commissions(vault: Any, repository: Any, connection: Any, *, now: str,
                               view: Any = None) -> list[str]:
     """§7.4: append an ``ad_commission_results`` receipt for each item that landed in a commissioned

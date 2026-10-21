@@ -66,8 +66,10 @@ def _dose_offer(vault: Any, repository: Any, params: ReaderDoseOfferInput) -> di
     from learnloop.adaptive_difficulty.dose import Boundary, decide
     from learnloop.adaptive_difficulty.operation import optional_operation
 
-    # One AD operation for the draw and the response (A8; Codex verify F23; the AD23 redesign).
-    with optional_operation(vault, repository) as op:
+    # One AD operation for the draw and the response (A8; Codex verify F23; the AD23 redesign), in
+    # the savepoint form (round 4): a refusal anywhere in it, the response's question read included,
+    # rolls the draw back before the no-offer fallback, so an unseen offer consumes no budget.
+    with optional_operation(vault, repository, savepoint=True) as op:
         view = op.view if op is not None else None
         decision = decide(vault, repository, Boundary(
             visit_id=params.visit_id, extraction_id=params.extraction_id, section_id=params.section_id,
@@ -176,7 +178,7 @@ def adaptive_difficulty_why_item(ctx: SidecarContext, params: AdaptiveDifficulty
 
     vault, repository = ctx.require_vault()
     try:
-        with optional_operation(vault, repository) as op, \
+        with optional_operation(vault, repository, read_only=True) as op, \
                 closing(connect(repository.sqlite_path, read_only=True)) as connection:
             found = why_for_presentation(connection, params.plan_presentation_id, view=op.view) \
                 if op is not None else None

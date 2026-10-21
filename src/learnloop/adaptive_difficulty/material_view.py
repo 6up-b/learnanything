@@ -51,6 +51,7 @@ from typing import Any
 from learnloop.adaptive_difficulty import protected_tables as _T
 from learnloop.adaptive_difficulty import protection as _predicate
 from learnloop.adaptive_difficulty.protection import Protection
+from learnloop.content.sources.exam_material import reference_keys
 
 LOG = logging.getLogger(__name__)
 
@@ -379,12 +380,14 @@ class MaterialView:
         if base == "extraction":
             return self.material_withheld(value)
         if base == "span":
-            return self.material_withheld(row.get(arg), value)
+            return self.keys_withheld(*reference_keys({"extraction_id": row.get(arg), "span_id": value})) \
+                or self.material_withheld(row.get(arg), value)
         if base == "section":
             return self.section_withheld(str(row.get(arg)), str(value))
         if base == "spans":
             spans = value if isinstance(value, list) else _spans(value)
-            return any(self.material_withheld(row.get(arg), span) for span in spans)
+            return any(self.material_withheld(row.get(arg), span) for span in spans) or self.keys_withheld(
+                *reference_keys({"extraction_id": row.get(arg), "span_ids": [str(span) for span in spans]}))
         if base == "note":
             return self._note_ref_withheld(connection, value)
         if base == "source":
@@ -480,11 +483,9 @@ class MaterialView:
         return any(self.withheld(ref) for ref in (refs if isinstance(refs, list) else []) if isinstance(ref, str))
 
     def _note_ref_withheld(self, connection: Any, note_id: Any) -> bool:
-        from learnloop.ingest.locators import parse_block_span
-
-        parsed = parse_block_span(str(note_id))
-        if parsed is not None:
-            return self.material_withheld(parsed[0], parsed[1])
+        keys, _whole = reference_keys(str(note_id))
+        if keys:
+            return self.keys_withheld(keys)
         return self.note_withheld(connection, note_id)
 
     def administration_item(self, connection: Any, administration_id: Any) -> str | None:
@@ -1228,26 +1229,37 @@ class MaterialView:
         return projected
 
     def _visible_ref(self, connection: Any, ref: Any) -> Any:
-        """A provenance reference as AD may read it (None: withheld)."""
+        """A provenance reference as AD may read it (None: withheld).
+
+        The reference is located first, through the shared key function (``exam_material.
+        reference_keys``, i.e. ``source_ref_keys``: its extraction, its span ids, plain or namespaced,
+        AND the span its locator names), and removed whole when ANY key is withheld (the AD23
+        redesign round 4). Nothing of a removed reference survives, so its quote or locator can never
+        restore its anchor (the Reader's quote fallback then runs over the projected references and
+        the projected IR only)."""
 
         if not self.available:
             return None
         if getattr(ref, "ref_type", None) == "note" and ref.ref_id and self._note_ref_withheld(connection, ref.ref_id):
             return None
-        extraction = getattr(ref, "extraction_id", None)
-        if not extraction:
-            return ref
-        if self.material_withheld(extraction):
+        if self.keys_withheld(*reference_keys(ref)):
             return None
-        spans = list(getattr(ref, "span_ids", None) or [])
-        visible = [span for span in spans if not self.material_withheld(extraction, span)]
-        if spans and not visible:
+        extraction = getattr(ref, "extraction_id", None)
+        if extraction and self.material_withheld(extraction):
             return None
         section = getattr(ref, "section_id", None)
-        if not spans and section and all(self.material_withheld(extraction, span)
-                                         for span in self.section_spans(str(extraction), str(section)) or ["?"]):
+        if extraction and section and not getattr(ref, "span_ids", None) and all(
+                self.material_withheld(extraction, span)
+                for span in self.section_spans(str(extraction), str(section)) or ["?"]):
             return None
-        return ref if len(visible) == len(spans) else ref.model_copy(update={"span_ids": visible})
+        return ref
+
+    def keys_withheld(self, keys: Iterable[tuple[str, str]], whole: Iterable[str] = ()) -> bool:
+        """Whether any located key (``exam_material.reference_keys``) is withheld: a block key in
+        held-out material, or an extraction named whole that is held out."""
+
+        return any(self.material_withheld(extraction, span) for extraction, span in keys) or any(
+            self.material_withheld(extraction) for extraction in whole)
 
     def span_reanchors(self, repository: Any, from_extraction_id: str, to_extraction_id: str) -> list[dict[str, Any]]:
         """The span aliases AD may use between two readings (the operation repository's
@@ -1335,18 +1347,9 @@ class MaterialView:
             context = json.loads(raw) if raw else {}
         except (TypeError, ValueError):
             return True
-
-        def named(value: Any) -> bool:
-            if isinstance(value, Mapping):
-                extraction = value.get("extraction_id")
-                if extraction and self.material_withheld(extraction, value.get("span_id")):
-                    return True
-                return any(named(child) for child in value.values())
-            if isinstance(value, (list, tuple)):
-                return any(named(child) for child in value)
-            return False
-
-        return named(context)
+        # Every reference shape in it (spans, anchors, locators, hrefs, retrieval keys), located by
+        # the one key function (round 4).
+        return self.keys_withheld(*reference_keys(context))
 
     def question_withheld(self, row: Mapping[str, Any]) -> bool:
         """A Reader question is withheld when its extraction, or any span it is anchored on or cites,
@@ -1356,7 +1359,7 @@ class MaterialView:
         if extraction is None or self.material_withheld(extraction):
             return True
         spans = _spans(row.get("anchor_span_ids_json")) + _spans(row.get("span_ids_json"))
-        return any(self.material_withheld(extraction, span) for span in spans)
+        return self.keys_withheld(*reference_keys({"extraction_id": extraction, "span_ids": spans}))
 
     def answered_questions(self, connection: Any, styles: Sequence[str]) -> list[dict[str, Any]]:
         """Answered, undismissed Reader questions of these styles that are not withheld."""

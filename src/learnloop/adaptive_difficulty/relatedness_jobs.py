@@ -36,7 +36,7 @@ LOG = logging.getLogger(__name__)
 SUBJECTS_PER_TRIGGER = 2
 
 
-@entry
+@entry(read_only=True)
 def stale_subjects(vault: Any, repository: Any) -> list[str]:
     """Subjects with an adopted coupling version and a unit (an LO or an item revision) whose
     fingerprint changed, or that is new, since its latest run."""

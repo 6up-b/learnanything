@@ -1245,6 +1245,75 @@ def source_ref_keys(ref: Any) -> tuple[set[SpanKey], set[str]]:
     return keys, whole
 
 
+#: The locator-bearing fields a recorded reference may carry besides ``locator``.
+_LOCATOR_FIELDS = ("locator", "href", "anchor_locator", "span_locator")
+
+
+def reference_keys(value: Any, *, extraction_id: str | None = None) -> tuple[set[SpanKey], set[str]]:
+    """Every source location a reference of any shape names, placed through
+    :func:`source_ref_keys` (the AD23 redesign round 4: one key function for
+    every shape): ``(block keys, extractions named without a block)``.
+
+    * a provenance ref (an object with ``extraction_id``/``span_ids``/``locator``):
+      :func:`source_ref_keys`;
+    * a recorded mapping (a tutor event's source context, a citation, an
+      anchor): its ``extraction_id`` (else its parent's), ``span_id``,
+      ``span_ids`` and locator fields (``locator``, ``href``) as one ref, then
+      every nested value under that extraction. It names its extraction whole
+      only when nothing in it names a block of that extraction;
+    * a string: a ``block_span_v1`` locator anywhere; an ``ext:span`` or
+      ``ext/span`` key in a ``*_key``/``*_keys`` field (a retrieval's pins).
+    """
+
+    from types import SimpleNamespace
+
+    keys: set[SpanKey] = set()
+    whole: set[str] = set()
+    if isinstance(value, str):
+        parsed = _parse_block_span(value)
+        if parsed is not None:
+            keys.add(parsed)
+        return keys, whole
+    if isinstance(value, (list, tuple, set, frozenset)):
+        for child in value:
+            child_keys, child_whole = reference_keys(child, extraction_id=extraction_id)
+            keys |= child_keys
+            whole |= child_whole
+        return keys, whole
+    if not isinstance(value, Mapping):
+        if any(hasattr(value, name) for name in ("extraction_id", "span_ids", "locator")):
+            return source_ref_keys(value)
+        return keys, whole
+    own = value.get("extraction_id")
+    extraction = str(own) if own else extraction_id
+    spans = [str(span) for span in ([value.get("span_id")] + list(value.get("span_ids") or ())
+                                    if isinstance(value.get("span_ids") or (), (list, tuple)) else [value.get("span_id")])
+             if isinstance(span, str) and span]
+    locators = [str(value[name]) for name in _LOCATOR_FIELDS if isinstance(value.get(name), str)]
+    for locator in locators or [None]:
+        ref_keys, _ref_whole = source_ref_keys(SimpleNamespace(extraction_id=extraction, span_ids=spans,
+                                                               locator=locator))
+        keys |= ref_keys
+    for name, child in value.items():
+        if name in ("extraction_id", "span_id", "span_ids", *_LOCATOR_FIELDS):
+            continue
+        if isinstance(child, (str, list, tuple)) and str(name).endswith(("_key", "_keys", "key", "keys")):
+            for text in [child] if isinstance(child, str) else [c for c in child if isinstance(c, str)]:
+                parsed = _parse_block_span(text)
+                if parsed is None and (":" in text or "/" in text):
+                    cut = min(index for index in (text.find(":"), text.find("/")) if index >= 0)
+                    parsed = (text[:cut] or str(extraction or ""), text[cut + 1:])
+                if parsed is not None:
+                    keys.add(parsed)
+            continue
+        child_keys, child_whole = reference_keys(child, extraction_id=extraction)
+        keys |= child_keys
+        whole |= child_whole
+    if own and not any(key_extraction == str(own) for key_extraction, _span in keys):
+        whole.add(str(own))
+    return keys, whole
+
+
 def item_source_keys(item: Any) -> tuple[set[SpanKey], set[str]]:
     """The item's own source: ``(block keys, whole extractions)`` its canonical
     exercise and its provenance source refs name (:func:`source_ref_keys`)."""
@@ -1458,6 +1527,7 @@ __all__ = [
     "scope_reading_of",
     "selection_marks_exact",
     "source_marks",
+    "reference_keys",
     "source_ref_keys",
     "source_ref_protected",
 ]

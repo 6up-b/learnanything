@@ -193,7 +193,7 @@ def _field_arms(connection: Any, vault: Any, view: Any, sink: dict[str, Record])
     return covered
 
 
-@entry
+@entry(read_only=True)
 def prequential(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] = DEFAULT_ARMS,
                 view: Any = None) -> dict[str, Any]:
     """Every arm's prequential predictions, keyed by attempt (zero model calls).

@@ -3190,7 +3190,8 @@ def _handle_ad_commission(ctx: JobContext, lo_ids: list[str], commission_id: str
     from learnloop.adaptive_difficulty.operation import is_denial
 
     try:
-        with ad_operation(vault, ctx.repo) as op, ctx.repo.atomic():
+        # The savepoint form (round 4): the operation inside its savepoint, rolled back on poison.
+        with ad_operation(vault, ctx.repo, savepoint=True) as op:
             view = op.view
             open_ids = {str(row["id"]) for row in view.open_commissions(ctx.repo.connection(),
                                                                          now=utc_now_iso(ctx.clock))} \

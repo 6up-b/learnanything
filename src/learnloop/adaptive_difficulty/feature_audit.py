@@ -263,7 +263,7 @@ def _remaining(repository: Any, content_hash: str) -> list[str]:
     return [dimension for dimension in DIMENSIONS if dimension not in done]
 
 
-@entry
+@entry(durable="it sends to a model: its claim, spend and receipts commit per unit")
 def audit_revision(vault: Any, repository: Any, item: Any, *, decider_factory: Callable[[], Any] | None = None,
                    llm_client: Any | None = None, clock: Clock | None = None,
                    protected: Any = None, fence: Any = None,

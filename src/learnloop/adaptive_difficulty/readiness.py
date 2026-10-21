@@ -53,7 +53,7 @@ def _cells(view: Any, learning_object_id: str) -> list[tuple[str, str, str]]:
     return sorted(cells)
 
 
-@entry
+@entry(read_only=True)
 def lo_readiness(vault: Any, repository: Any, learning_object_id: str, *,
                  snapshot: RP.Snapshot | None = None, view: Any = None) -> dict[str, Any]:
     """The LO's readiness lines (labelled predictions), or the not-predicted line."""
@@ -100,7 +100,7 @@ def aggregate_line(rows: list[Mapping[str, Any]]) -> str:
     return f"Top level for this goal: not yet shown · {NOT_YET} (a prediction)"
 
 
-@entry
+@entry(read_only=True)
 def card_fields(vault: Any, repository: Any, learning_object_id: str, *,
                 snapshot: RP.Snapshot | None = None, view: Any = None) -> dict[str, Any] | None:
     """The router card's AD fields for one LO (None with ``promoted_predictor`` off)."""
