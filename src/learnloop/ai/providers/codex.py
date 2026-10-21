@@ -78,6 +78,7 @@ from learnloop.ai.providers.codex_lockdown import (
     lockdown_config_overrides,
     model_metadata_violations,
     remember_check,
+    shell_environment_overrides,
     unclassified_features_on,
 )
 from learnloop.ai.usage import TokenUsageAccounting, UsageMeter, receipt_fields_from_codex_turn, usage_from_codex_turn
@@ -294,7 +295,10 @@ def isolated_turn_overrides(
     lockdown has not classified: switched off too.
     :meth:`SdkCodexClient._verified_isolated_overrides` chooses both and
     checks the result. With ``shell=False`` (no workspace to read) the command
-    tools are off too, so nothing in the turn can read a file. What config
+    tools are off too, so nothing in the turn can read a file. A command of a
+    workspace turn sees only the allowlisted variables
+    (:func:`~learnloop.ai.providers.codex_lockdown.shell_environment_overrides`):
+    never the API keys in this process's environment. What config
     cannot remove (``apply_patch`` and code mode's ``exec``/``wait`` come from
     the model's catalog entry) is neutralized: no writable root, approvals
     never, and any round trip refuses the turn
@@ -312,6 +316,9 @@ def isolated_turn_overrides(
         "tools.view_image=false",
     ]
     overrides += lockdown_config_overrides()
+    # Every turn, not only the workspace one: a command never sees the
+    # credentials this process holds (Codex review F1).
+    overrides += shell_environment_overrides()
     off = list(disabled_features(shell=shell))
     off += [feature for feature in sorted(set(extra_disabled_features)) if feature not in off]
     overrides += [f"features.{feature}=false" for feature in off]
@@ -422,7 +429,7 @@ class SdkCodexClient(TokenUsageAccounting):
         starts. A check that passed is cached per process under a fingerprint
         of everything its answer depends on: the CLI argv and binary, the
         Codex configuration files, plugin and skill directories and project
-        layers above the turn's directory (by identity, never content), the
+        layers in and above the turn's directory (by identity, never content), the
         sandbox, the model and the ``CODEX_*`` environment
         (:func:`~learnloop.ai.providers.codex_lockdown.check_fingerprint`).
         """
@@ -1014,6 +1021,26 @@ class SdkCodexClient(TokenUsageAccounting):
             )
         lockdown = TurnLockdown(parent_thread=None, workspace=workspace is not None)
         result: Any = None
+        usage_settled = False
+
+        def settle_failed_turn(*, always: bool = False) -> None:
+            """Meter a turn that ends in an exception, once (Codex review F3).
+
+            The SDK reported its tokens on the way (``thread/tokenUsage/updated``),
+            and a timeout, interrupt or closed connection after several
+            requests spent them all the same: they reach the receipt, the
+            admission's settle and the client's accounting. A turn that
+            failed before any usage arrived reports nothing, as before, unless
+            the lockdown stopped it (``always``: its refusal is recorded)."""
+
+            nonlocal usage_settled
+            if usage_settled or not (always or lockdown.reported_usage()):
+                return
+            usage_settled = True
+            try:
+                self._report_turn_usage(None, lockdown)
+            except Exception:  # noqa: BLE001 - accounting never replaces the turn's own failure
+                LOG.exception("Could not meter the failed Codex turn %r", purpose)
 
         launcher_dir = tempfile.mkdtemp(prefix="learnloop-codex-launch-") if sandbox is not None else None
         try:
@@ -1116,18 +1143,24 @@ class SdkCodexClient(TokenUsageAccounting):
                             self._active_force_close_timer = None
                             self._active_stop_scheduled = False
         except CodexInterrupted:
+            settle_failed_turn()
             raise
         except CodexTurnTimeout:
+            settle_failed_turn()
             raise
         except (CodexLockdownUnavailable, CodexToolUseRefused):
+            settle_failed_turn()
             raise
         except ToolIsolationUnavailable as exc:
             # Fail closed: an isolated request never runs unconfined.
+            settle_failed_turn()
             raise CodexUnavailable(str(exc)) from exc
         except Exception as exc:
+            # Whatever ended the turn (an SDK timeout, a closed connection, an
+            # interrupt), the tokens reported on the way are metered first (F3).
+            settle_failed_turn(always=bool(lockdown.violations))
             if lockdown.violations:
                 # The lockdown stopped the turn: what it spent still counts.
-                self._report_turn_usage(None, lockdown)
                 raise _tool_use_refusal(lockdown.violations, purpose) from exc
             if self._deadline_expired.is_set():
                 raise CodexTurnTimeout(

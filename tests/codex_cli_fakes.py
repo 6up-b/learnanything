@@ -136,7 +136,15 @@ effective += ["features.%s=false" % f for kind, f in toggles if kind == "disable
 values = dict(override.split("=", 1) for override in effective)
 off = {key.split(".", 1)[1] for key, value in values.items() if key.startswith("features.") and value == "false"}
 off -= set(spec.get("ignored_features", ()))
-config = spec.get("config_servers", {})
+config = dict(spec.get("config_servers", {}))
+# A project layer in the directory the CLI runs in (a trusted workspace's own
+# `.codex/config.toml`): its `[mcp_servers.<name>]` tables are config servers too.
+project_layer = Path.cwd() / ".codex" / "config.toml"
+if project_layer.is_file():
+    import tomllib
+
+    for name, table in tomllib.loads(project_layer.read_text(encoding="utf-8")).get("mcp_servers", {}).items():
+        config[name] = table.get("enabled", True) is not False
 for key in values:
     if key.startswith("mcp_servers.") and key.endswith(".enabled"):
         name = key[len("mcp_servers."):-len(".enabled")]

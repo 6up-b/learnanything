@@ -765,3 +765,246 @@ def test_the_features_permitted_on_are_exactly_the_reviewed_non_tool_ones():
                                        shell=False) == ["shell_tool"]
     assert lockdown.feature_violations({"apps": False, "plugins": False, "multi_agent": False, "shell_tool": True},
                                        shell=True) == []
+
+
+# -- 6. Codex review of the stage (2026-10-21, job 20261021-111619-GGirNP) ------------------
+#
+# F1: a workspace command inherited the app server's whole environment (the
+#     API keys LearnLoop loads), so an injected `printenv` could read them;
+# F2: the cached launch check fingerprinted only whether the turn directory
+#     had a `.codex/`, so a workspace-local MCP server added later (or a
+#     sibling workspace's) started without its `enabled=false`;
+# F3: tokens the SDK reported before an ordinary failure (timeout, interrupt,
+#     closed connection) never reached the receipt or the admission's settle.
+
+import os
+import shutil
+import subprocess
+
+from learnloop.ai.errors import CodexInterrupted, CodexTurnTimeout
+from learnloop.ai.execution import gate_model_requests
+
+_CODEX = shutil.which("codex")
+_CANARY = "LLCANARY-f1-synthetic"
+
+
+def _sandboxed_env(codex_home: Path, cwd: Path, overrides: list[str]) -> subprocess.CompletedProcess:
+    """`/usr/bin/env` run by the installed CLI the way a workspace command runs.
+
+    ``codex sandbox`` builds the command's environment with the same
+    ``create_env(shell_environment_policy)`` as the shell tool, under the
+    turn's permission profile; no model, no network. Its own environment is
+    synthetic only: never this process's (which may hold real keys)."""
+
+    environ = {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": str(codex_home.parent / "home"),
+        "CODEX_HOME": str(codex_home), "LANG": "C.UTF-8",
+        "OPENROUTER_API_KEY": _CANARY, "LEARNLOOP_SYNTHETIC_SECRET": _CANARY, "PLAIN_SETTING": _CANARY,
+    }
+    args = [_CODEX]
+    for override in overrides:
+        args += ["-c", override]
+    return subprocess.run([*args, "sandbox", "--", "/usr/bin/env"], cwd=cwd, env=environ, capture_output=True,
+                          text=True, timeout=60)
+
+
+@pytest.mark.skipif(_CODEX is None, reason="the Codex CLI is not installed")
+@pytest.mark.parametrize("user_config", [
+    "",
+    '[shell_environment_policy]\ninherit = "all"\nignore_default_excludes = true\n'
+    'set = { USER_SET_TOKEN = "LLCANARY-f1-synthetic", PLAIN_SET = "LLCANARY-f1-synthetic" }\n'
+    'filters = { "*KEY*" = "include", "PLAIN*" = "include", "*SECRET*" = "include" }\n',
+    '[shell_environment_policy]\ninherit = "all"\ninclude_only = ["*"]\nexperimental_use_profile = true\n'
+    'set = { USER_SET_TOKEN = "LLCANARY-f1-synthetic" }\n',
+], ids=["default-policy", "set-and-filters", "include-all-and-profile"])
+def test_a_workspace_command_cannot_see_inherited_credentials(tmp_path, user_config):
+    """F1 on the installed binary: synthetic secrets in the app server's
+    environment and in a hostile user config never reach a workspace command."""
+
+    home = tmp_path / "codex-home"
+    home.mkdir()
+    (tmp_path / "home").mkdir()
+    (home / "config.toml").write_text(user_config, encoding="utf-8")
+    cwd = tmp_path / "snapshot"
+    cwd.mkdir()
+    (cwd / "INDEX.md").write_text("export\n", encoding="utf-8")
+    locked = _sandboxed_env(home, cwd, isolated_turn_overrides(cwd, shell=True))
+    assert locked.returncode == 0, locked.stderr
+    assert _CANARY not in locked.stdout and _CANARY not in locked.stderr
+    names = {line.split("=", 1)[0] for line in locked.stdout.splitlines() if "=" in line}
+    assert names - set(_lockdown().SHELL_ENVIRONMENT_ALLOWLIST) <= {"PWD", "CODEX_SANDBOX_NETWORK_DISABLED",
+                                                                     "CODEX_SANDBOX", "CODEX_THREAD_ID"}
+    assert "PATH" in names
+    # The control: the same command under the profile without the policy is
+    # what the stage shipped, and it sees the canary.
+    unlocked = [override for override in isolated_turn_overrides(cwd, shell=True)
+                if not override.startswith("shell_environment_policy.")]
+    assert _CANARY in _sandboxed_env(home, cwd, unlocked).stdout
+
+
+@pytest.mark.parametrize("shell", [False, True])
+def test_every_turn_pins_the_command_environment_and_turns_shell_snapshots_off(tmp_path, shell):
+    lockdown = _lockdown()
+    overrides = isolated_turn_overrides(tmp_path, shell=shell)
+    policy = [override for override in overrides if override.startswith("shell_environment_policy.")]
+    assert policy == lockdown.shell_environment_overrides()
+    assert 'shell_environment_policy.inherit="core"' in policy
+    assert "shell_environment_policy.ignore_default_excludes=false" in policy
+    assert "shell_environment_policy.experimental_use_profile=false" in policy
+    (include_only,) = [override for override in policy if override.startswith("shell_environment_policy.include_only=")]
+    allowed = json.loads(include_only.partition("=")[2])
+    assert allowed == list(lockdown.SHELL_ENVIRONMENT_ALLOWLIST)
+    assert not [name for name in allowed if any(word in name for word in ("KEY", "TOKEN", "SECRET", "*"))]
+    assert "features.shell_snapshot=false" in overrides
+    on = {"apps": False, "plugins": False, "multi_agent": False, "shell_tool": True, "shell_snapshot": True}
+    assert lockdown.feature_violations(on, shell=shell) == (["shell_snapshot"] if shell else
+                                                             ["shell_snapshot", "shell_tool"])
+
+
+def _workspace_turn(client: SdkCodexClient, workspace: Path):
+    return client.complete(StructuredRequest(purpose="diagnosis", prompt="p", result_model=LinkJudgment,
+                                             workspace=workspace))
+
+
+def _project_layer(workspace: Path, *servers: str) -> None:
+    layer = workspace / ".codex"
+    layer.mkdir(parents=True, exist_ok=True)
+    (layer / "config.toml").write_text(
+        "".join(f'[mcp_servers.{name}]\ncommand = "/bin/true"\n\n' for name in servers), encoding="utf-8")
+
+
+def test_editing_a_workspace_project_layer_runs_the_check_again(tmp_path, monkeypatch):
+    """F2: the edit adds an MCP server; the next turn must pin it off, not reuse the cached list."""
+
+    home = tmp_path / "codex-home"
+    home.mkdir()
+    monkeypatch.setenv("CODEX_HOME", str(home))
+    program, log = write_fake_codex(tmp_path / "bin")
+    install_fake_codex_sdk(monkeypatch, final_response=ANSWER, spawn=True)
+    client = _check_client(tmp_path, program)
+    workspace = tmp_path / "trusted-workspace"
+    _project_layer(workspace, "docs")
+    _workspace_turn(client, workspace)
+    assert "mcp_servers.docs.enabled=false" in _launched(log)[-1]
+    probes = _probe_count(log)
+    _project_layer(workspace, "docs", "shell_bridge")
+    _workspace_turn(client, workspace)
+    assert _probe_count(log) > probes, "the edited project layer reused the cached check"
+    launched = _launched(log)[-1]
+    assert "mcp_servers.docs.enabled=false" in launched and "mcp_servers.shell_bridge.enabled=false" in launched
+
+
+def test_a_sibling_workspace_with_other_mcp_servers_gets_its_own_check(tmp_path, monkeypatch):
+    home = tmp_path / "codex-home"
+    home.mkdir()
+    monkeypatch.setenv("CODEX_HOME", str(home))
+    program, log = write_fake_codex(tmp_path / "bin")
+    install_fake_codex_sdk(monkeypatch, final_response=ANSWER, spawn=True)
+    client = _check_client(tmp_path, program)
+    first, second = tmp_path / "workspaces" / "one", tmp_path / "workspaces" / "two"
+    _project_layer(first, "docs")
+    _project_layer(second, "fetcher")
+    _workspace_turn(client, first)
+    _workspace_turn(client, second)
+    launched = _launched(log)[-1]
+    assert "mcp_servers.fetcher.enabled=false" in launched and "mcp_servers.docs.enabled=false" not in launched
+
+
+def test_fresh_workspaces_without_a_project_layer_still_share_one_check(tmp_path, monkeypatch):
+    """The cache keeps working for what LearnLoop makes: a new export every turn."""
+
+    home = tmp_path / "codex-home"
+    home.mkdir()
+    monkeypatch.setenv("CODEX_HOME", str(home))
+    program, log = write_fake_codex(tmp_path / "bin")
+    install_fake_codex_sdk(monkeypatch, final_response=ANSWER, spawn=True)
+    client = _check_client(tmp_path, program)
+    for index in range(3):
+        export = tmp_path / "exports" / f"learnloop-diagnosis-snapshot-{index}"
+        export.mkdir(parents=True)
+        _workspace_turn(client, export)
+    assert _probe_count(log) == 3  # mcp list, features list, debug models: once
+
+
+def _gate(settled: list[dict[str, Any]]):
+    class Gate:
+        def admit(self, client, *, purpose, prompt, budget):
+            return purpose
+
+        def settle(self, admission, usage):
+            settled.append({"admission": admission, **usage})
+
+    return Gate()
+
+
+def _finishes(events: list[tuple[str, dict[str, Any]]], purpose: str) -> list[dict[str, Any]]:
+    ids = {event["id"] for action, event in events if action == "start" and event.get("purpose") == purpose}
+    return [event for action, event in events if action == "finish" and event["id"] in ids]
+
+
+def _two_command_rounds(sdk) -> None:
+    """A diagnosis workspace turn: two model requests (cumulative usage), a command between them."""
+
+    sdk.notify("thread/tokenUsage/updated", threadId="thr_parent", turnId="turn_parent",
+               tokenUsage={"total": {"inputTokens": 1000, "outputTokens": 50, "totalTokens": 1050,
+                                     "cachedInputTokens": 200}})
+    sdk.notify("item/completed", threadId="thr_parent", turnId="turn_parent",
+               item={"type": "commandExecution", "command": "cat INDEX.md"})
+    sdk.notify("thread/tokenUsage/updated", threadId="thr_parent", turnId="turn_parent",
+               tokenUsage={"total": {"inputTokens": 2300, "outputTokens": 120, "totalTokens": 2420,
+                                     "cachedInputTokens": 900}})
+
+
+@pytest.mark.parametrize("ending", ["sdk_timeout", "connection_closed", "learner_interrupt", "request_deadline"])
+def test_tokens_reported_before_an_ordinary_failure_reach_the_receipt_and_the_settle(tmp_path, monkeypatch, ending):
+    """F3: a workspace turn spends two requests, then fails without any lockdown violation."""
+
+    events: list[tuple[str, dict[str, Any]]] = []
+    settled: list[dict[str, Any]] = []
+    client = _client(tmp_path, monkeypatch)
+
+    def rounds_then_failure(sdk, turn):
+        _two_command_rounds(sdk)
+        if ending == "sdk_timeout":
+            raise TimeoutError("timed out waiting for the app server")
+        if ending == "connection_closed":
+            raise BrokenPipeError("app-server connection closed")
+        if ending == "learner_interrupt":
+            client.interrupt()
+        assert turn.stopped.wait(5)  # the interrupt or the request's deadline stops the turn
+        raise RuntimeError("turn interrupted")
+
+    _fake_sdk(monkeypatch, on_run=rounds_then_failure)
+    workspace = tmp_path / "snapshot"
+    workspace.mkdir()
+    request = StructuredRequest(purpose="diagnosis", prompt="p", result_model=LinkJudgment, workspace=workspace,
+                                timeout_seconds=0.5 if ending == "request_deadline" else None)
+    expected = {"sdk_timeout": CodexUnavailable, "connection_closed": CodexUnavailable,
+                "learner_interrupt": CodexInterrupted, "request_deadline": CodexTurnTimeout}[ending]
+    with observe_model_calls(lambda action, event: events.append((action, dict(event)))), \
+            gate_model_requests(_gate(settled)), pytest.raises(expected):
+        client.complete(request)
+    (finish,) = _finishes(events, "diagnosis:sdk_turn")
+    assert (finish["input_tokens"], finish["output_tokens"], finish["cached_input_tokens"]) == (2300, 120, 900)
+    assert finish["model_requests"] == 2
+    (settle,) = [entry for entry in settled if entry["admission"] == "diagnosis:sdk_turn"]
+    assert (settle["input_tokens"], settle["output_tokens"]) == (2300, 120)
+    assert (client._usage_input_tokens, client._usage_output_tokens) == (2300, 120)
+
+
+def test_a_failure_before_any_usage_reports_nothing_new(tmp_path, monkeypatch):
+    """Unchanged: a turn that failed before the SDK reported tokens adds none."""
+
+    events: list[tuple[str, dict[str, Any]]] = []
+
+    def closed(_sdk, _turn):
+        raise BrokenPipeError("app-server connection closed")
+
+    _fake_sdk(monkeypatch, on_run=closed)
+    client = _client(tmp_path, monkeypatch)
+    with observe_model_calls(lambda action, event: events.append((action, dict(event)))), \
+            pytest.raises(CodexUnavailable):
+        _plain(client)
+    (finish,) = _finishes(events, "tutor_qa:sdk_turn")
+    assert finish.get("input_tokens") is None and "usage_json" not in finish
+    assert (client._usage_input_tokens, client._usage_output_tokens) == (0, 0)

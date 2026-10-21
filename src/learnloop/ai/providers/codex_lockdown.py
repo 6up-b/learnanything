@@ -7,6 +7,9 @@ pure here and wired in by :mod:`learnloop.ai.providers.codex`:
 * **configuration** (:func:`lockdown_config_overrides`): the ``-c`` keys that
   switch off sub-agents, user-input and plan tools and web search, on top of
   the permission profile and feature switches of the isolated turn;
+* **command environment** (:func:`shell_environment_overrides`): a workspace
+  command sees only :data:`SHELL_ENVIRONMENT_ALLOWLIST`, never the API keys in
+  the environment the app server inherits from this process;
 * **features** (:func:`feature_violations`): what ``codex features list`` may
   still report on. Only the reviewed non-tool features of codex-cli 0.163.0
   (:data:`PERMITTED_FEATURES`); any other feature reported on is switched off
@@ -89,6 +92,9 @@ LOCKDOWN_DISABLED_FEATURES = (
     "remote_plugin",
     "request_permissions_tool",
     "send_message_to_user_async",
+    # Off in workspace turns too (Codex review F1, 2026-10-21): a snapshot
+    # replays the user's login-shell environment into every command.
+    "shell_snapshot",
     "skill_mcp_dependency_install",
     "skill_search",
     "sleep_tool",
@@ -101,7 +107,16 @@ LOCKDOWN_DISABLED_FEATURES = (
 )
 #: The command tools. Off unless the turn has a read-only workspace (the
 #: snapshot diagnosis), whose shell reads it under the permission profile.
-SHELL_FEATURES = ("shell_tool", "unified_exec", "unified_exec_tty", "shell_snapshot")
+SHELL_FEATURES = ("shell_tool", "unified_exec", "unified_exec_tty")
+#: The only variables a workspace command may see (Codex review F1, 2026-10-21).
+#: The SDK starts the app server with this process's whole environment, which
+#: holds the API keys LearnLoop loaded, and codex-cli 0.163.0's default policy
+#: (``inherit = "all"``, default excludes ignored) hands all of it to every
+#: command: a prompt-injected ``printenv`` would read them. Codex's "core" set
+#: for Unix: paths and locale, no credential.
+SHELL_ENVIRONMENT_ALLOWLIST = (
+    "PATH", "HOME", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR", "TEMP", "TMP", "SHELL", "USER", "LOGNAME",
+)
 #: Must be listed by ``features list`` and read off: the CLI is expected to
 #: know these, so a missing row means a renamed key, not an absent feature.
 REQUIRED_OFF_FEATURES = ("apps", "plugins", "multi_agent")
@@ -155,6 +170,31 @@ def lockdown_config_overrides() -> list[str]:
         "tools.experimental_request_user_input.enabled=false",
         "tools.update_plan.enabled=false",
         "tools.web_search=false",
+    ]
+
+
+def shell_environment_overrides() -> list[str]:
+    """``-c`` keys that give a command only :data:`SHELL_ENVIRONMENT_ALLOWLIST` (Codex review F1).
+
+    Codex builds a command's environment (``protocol/src/shell_environment.rs``
+    ``populate_env``, codex-cli 0.163.0) as: the ``inherit`` set, minus the
+    ``*KEY*``/``*SECRET*``/``*TOKEN*`` default excludes unless ignored, minus
+    ``exclude``, plus ``set``, then only names matching ``include_only``. So
+    ``inherit = "core"`` drops what the app server inherited, the default
+    excludes go back on, and ``include_only`` (applied after ``set``) drops any
+    ``set`` entry a user's config adds under another name. A legacy
+    ``include_only`` here also displaces a lower layer's ``filters`` table
+    (``config/src/merge.rs``), so a config ``"*KEY*" = "include"`` filter
+    cannot widen it, and an ``include_only`` of the user's is replaced
+    wholesale (arrays are). ``experimental_use_profile=false`` keeps commands
+    from sourcing the login profile; ``features.shell_snapshot`` is off for
+    the same reason (:data:`LOCKDOWN_DISABLED_FEATURES`)."""
+
+    return [
+        'shell_environment_policy.inherit="core"',
+        "shell_environment_policy.ignore_default_excludes=false",
+        f"shell_environment_policy.include_only={json.dumps(list(SHELL_ENVIRONMENT_ALLOWLIST))}",
+        "shell_environment_policy.experimental_use_profile=false",
     ]
 
 
@@ -472,6 +512,12 @@ class TurnLockdown:
         with self._lock:
             return sum(len(totals) for totals in self.thread_totals.values())
 
+    def reported_usage(self) -> bool:
+        """Whether the SDK reported any thread's usage during the turn."""
+
+        with self._lock:
+            return bool(self.thread_usage)
+
     def child_usage(self) -> list[Any]:
         """The latest cumulative usage of every thread other than the turn's own."""
 
@@ -537,13 +583,16 @@ _HOME_LAYERS = ("config.toml", "managed_config.toml", "requirements.toml", "plug
 
 
 def _stat_signature(path: Path) -> tuple[Any, ...]:
-    """Identity of a file or directory without opening it (it may hold credentials)."""
+    """Identity of a file or directory without opening it (it may hold credentials).
+
+    ``st_ctime_ns`` too: any write or rename moves it, and unlike the mtime it
+    cannot be set back."""
 
     try:
         stat = path.stat()
     except OSError:
         return (str(path), None)
-    return (str(path), stat.st_ino, stat.st_size, stat.st_mtime_ns)
+    return (str(path), stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
 
 
 def check_fingerprint(
@@ -561,9 +610,15 @@ def check_fingerprint(
     sandbox, the environment Codex reads (``CODEX_*``, ``HOME``), and the
     identity (inode, size, mtime; never the content) of every configuration
     layer it can load: ``$CODEX_HOME``'s files and plugin/skill directories,
-    the system ones, and ``.codex/`` in the turn directory's parent and each
-    ancestor (project layers). The turn directory itself is new each turn
-    and so left out; its parent stands for where it is made."""
+    the system ones, and ``.codex/`` in the turn directory and each ancestor
+    (project layers). A fresh turn directory without ``.codex/`` (every
+    scratch turn, the diagnosis export) adds only that it has none, so those
+    turns share one check; one that has a ``.codex/`` (a supplied workspace
+    carrying its own project layer) adds its path and the identity of
+    ``.codex/`` and ``.codex/config.toml``, so editing that file, or turning
+    in a sibling workspace with another one, runs the check again (Codex
+    review F2, 2026-10-21: the cached server list missed a workspace-local
+    MCP server, which then started without its ``enabled=false``)."""
 
     environ = os.environ if environ is None else environ
     argv = list(command)
@@ -576,7 +631,11 @@ def check_fingerprint(
         tuple(_stat_signature(Path(name)) for name in _SYSTEM_LAYERS),
     ]
     resolved = Path(root).resolve()
-    parts.append((resolved / ".codex").exists())  # the turn's own directory: whether, not where
+    own = resolved / ".codex"
+    if os.path.lexists(own):
+        parts.append(("workspace layer", str(resolved), _stat_signature(own), _stat_signature(own / "config.toml")))
+    else:
+        parts.append(("workspace layer", None))
     for directory in resolved.parents:
         parts.append(_stat_signature(directory / ".codex"))
         parts.append(_stat_signature(directory / ".codex" / "config.toml"))
@@ -610,6 +669,7 @@ __all__ = [
     "LOCKDOWN_DISABLED_FEATURES",
     "PERMITTED_FEATURES",
     "REQUIRED_OFF_FEATURES",
+    "SHELL_ENVIRONMENT_ALLOWLIST",
     "SHELL_FEATURES",
     "TEXT_ITEMS",
     "TurnLockdown",
@@ -624,5 +684,6 @@ __all__ = [
     "lockdown_config_overrides",
     "model_metadata_violations",
     "permitted_features",
+    "shell_environment_overrides",
     "unclassified_features_on",
 ]
