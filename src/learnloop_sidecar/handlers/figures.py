@@ -97,10 +97,18 @@ def deliver_figure(ctx: SidecarContext, result: dict[str, Any]) -> dict[str, Any
 
     vault, repository = _require(ctx)
     figure = result.get("figure") or {}
-    spans = [*(figure.get("span_ids") or ()), *([figure["region"]["span_id"]] if figure.get("region") else [])]
-    if figure and FS.withheld_message(vault, repository, str(figure.get("extraction_id") or ""), spans) is not None:
+    # Rechecked on the stored row: every span the author was sent, the
+    # paragraphs around the selection included (Codex review F1).
+    if figure and FS.figure_withheld(vault, repository, str(figure.get("figure_id") or "")):
         return {"figure": None, "reused": False, "withheld": True}
     return result
+
+
+def _wake_gap_worker(ctx: SidecarContext) -> Any:
+    """A queued learner-text job wakes the post-attempt worker's ``gaps``
+    slot, which starts lazily (Codex review F6)."""
+
+    return lambda _job_id: ctx.post_attempt_worker.notify()
 
 
 def _start(ctx: SidecarContext, request: FS.FigureRequest) -> dict[str, Any]:
@@ -238,7 +246,8 @@ def reader_figure_predict(ctx: SidecarContext, params: FigurePredictInput) -> di
 
     vault, repository = _require(ctx)
     try:
-        found = FS.record_prediction(vault, repository, params.figure_id, params.prediction_index, params.answer)
+        found = FS.record_prediction(vault, repository, params.figure_id, params.prediction_index, params.answer,
+                                     on_queued=_wake_gap_worker(ctx))
     except FS.FigureRefused as exc:
         raise _refused(exc) from exc
     _event(repository, "figure_predicted", {"figure_id": params.figure_id, "extraction_id": found.get("extraction_id"),
@@ -258,7 +267,8 @@ def reader_figure_explain(ctx: SidecarContext, params: FigureExplainInput) -> di
 
     vault, repository = _require(ctx)
     try:
-        found = FS.record_explanation(vault, repository, params.prediction_id, params.text)
+        found = FS.record_explanation(vault, repository, params.prediction_id, params.text,
+                                      on_queued=_wake_gap_worker(ctx))
     except FS.FigureRefused as exc:
         raise _refused(exc) from exc
     _event(repository, "figure_explained", {"figure_id": found.get("figure_id"),

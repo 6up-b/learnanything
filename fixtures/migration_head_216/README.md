@@ -225,8 +225,8 @@ are empty here.
 
 Migration 216 comes from reader workbench RW5a (`reader/rw5a`, explorable
 figures, docs/reviews/reader-workbench-RW5a.md): it adds `interactive_figures`
-(WORKFLOW: built figure versions, the declarative spec, its verification and
-the reuse key, with three indexes) and `figure_predictions` (RAW_LEDGER: the
+(WORKFLOW: built figure versions, the declarative spec, its verification,
+every span sent and the reuse key, with four indexes, one unique) and `figure_predictions` (RAW_LEDGER: the
 learner's prediction, its observed readout and the one-time "what changed?",
 unique per figure and prediction, an index, and the no-delete and
 explanation-once triggers). Nothing is altered. Both tables are empty here.
@@ -237,6 +237,15 @@ allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
 `journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
 `foreign_key_check` empty), copied into place with the backup API, with no
 companion files; `migration_head_213` was renamed to this directory.
+Rebuilt the same way after the stage's Codex review
+(docs/reviews/reader-rw5a-codex-review.md) added
+`interactive_figures.input_span_ids_json` (every span the author was sent,
+F1) and the unique partial index `idx_interactive_figures_reuse` (one shown
+or unsupported row per input and spec version, F7) inside 216: the same
+`migration_head_213` of git `e14b4e4ff`, only 216 applied under
+`UPGRADE_SCRATCH_COPY`, `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
+`foreign_key_check` empty, no companion files.
 
 `migration_head_213` was built as a backup-API copy of the base's `migration_head_212` (git
 `16a0071f2`) with only 213 applied, through

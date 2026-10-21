@@ -392,6 +392,10 @@ FORMATIVE_EXPECTED_CHARS = 2_000
 #: the ``reader_formative`` source kind with RW1b's answers, told apart by
 #: this prefix (the figure service writes it).
 FIGURE_PREDICTION_PREFIX = "fpr_"
+#: A missed prediction's "what changed?" written after the prediction's own
+#: reading started: its own text, ``<prediction id>`` + this suffix, read
+#: with the answer; the earlier reading is kept (Codex review F5).
+FIGURE_EXPLANATION_SUFFIX = ":explained"
 #: The words of a direction prediction's answers (the figure service's).
 _DIRECTION_WORDS = {"rises": "it rises", "falls": "it falls", "same": "it stays the same"}
 
@@ -400,9 +404,20 @@ def is_figure_prediction(source_id: str) -> bool:
     return str(source_id or "").startswith(FIGURE_PREDICTION_PREFIX)
 
 
-def figure_prediction_row(repository: Repository, prediction_id: str) -> dict[str, Any] | None:
-    """A missed figure prediction with an answer, with its figure, or None."""
+def figure_prediction_id(source_id: str) -> tuple[str, bool]:
+    """``(prediction id, whether the source is its later explanation)``."""
 
+    source_id = str(source_id or "")
+    if source_id.endswith(FIGURE_EXPLANATION_SUFFIX):
+        return source_id[: -len(FIGURE_EXPLANATION_SUFFIX)], True
+    return source_id, False
+
+
+def figure_prediction_row(repository: Repository, source_id: str) -> dict[str, Any] | None:
+    """A missed figure prediction with an answer, with its figure, or None
+    (for an explanation source, also None until the explanation is written)."""
+
+    prediction_id, explained = figure_prediction_id(source_id)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         tables = {row[0] for row in connection.execute(
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('figure_predictions', 'interactive_figures')")}
@@ -415,9 +430,11 @@ def figure_prediction_row(repository: Repository, prediction_id: str) -> dict[st
             (prediction_id,)).fetchone()
     if row is None or int(row[6]) != 0 or not str(row[4] or "").strip():
         return None
+    if explained and not str(row[7] or "").strip():
+        return None
     keys = ("id", "figure_id", "extraction_id", "prediction_index", "learner_answer", "observed_json", "matched",
             "explanation_text", "created_at", "spec_json", "span_ids_json", "region_json")
-    return dict(zip(keys, row))
+    return {**dict(zip(keys, row)), "source_id": str(source_id)}
 
 
 def missed_prediction_ids(repository: Repository) -> list[str]:
@@ -490,7 +507,7 @@ def figure_prediction_text(vault: LoadedVault, repository: Repository, predictio
         context["learning_objects"] = titles
     return LearnerText(
         source_kind="reader_formative",
-        source_id=str(row["id"]),
+        source_id=str(row["source_id"]),
         text=text,
         context_judge="gap_reader",
         created_at=str(row.get("created_at") or ""),
@@ -874,7 +891,9 @@ __all__ = [
     "StuckText",
     "StuckTextSource",
     "diagnosis_text",
+    "FIGURE_EXPLANATION_SUFFIX",
     "FIGURE_PREDICTION_PREFIX",
+    "figure_prediction_id",
     "figure_prediction_row",
     "figure_prediction_text",
     "formative_row",

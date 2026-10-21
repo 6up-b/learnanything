@@ -20,7 +20,10 @@ Run in the sidecar, on the compiled spec, before anything is stored as shown:
    source, the spec's definition as :func:`grammar.to_sympy` writes it) and on
    two negative controls of ours (that definition times 8/7, and halved)
    plus the sandbox's standard ones. Only a check that accepts the definition
-   and rejects every control is a match.
+   and rejects every control with a plain ``False`` is a match (a control
+   the check raised on, timed out on or gave no answer for rejected nothing),
+   and only one definition may be named in ``equals_source``: the request's
+   one verifier call checks one, and the label is figure-wide.
 
 **Outcomes:** 1 and 2 and 3 pass: ``verified``. 3 alone fails (or cannot
 run: no sandbox, no verifier, the spend cap): ``illustrative``, labelled "not
@@ -378,20 +381,38 @@ def run_source_match(answer: str, check: SourceCheck, *, run: Callable[..., Any]
     if len(checks) != len(pairs):
         return {"matched": False, "reason": "sandbox_failed"}
     accepted = checks[0] is True
-    controls_rejected = all(value is not True for value in checks[1:])
+    # A control is rejected only by a plain False: a check that raised, timed
+    # out or answered nothing (None, or anything not a bool) rejected nothing
+    # (Codex review F4).
+    inconclusive = any(value is not True and value is not False for value in checks[1:])
+    controls_rejected = all(value is False for value in checks[1:])
     matched = accepted and controls_rejected and not degenerate
     reason = "" if matched else (
         "the spec's definition does not equal the source equation" if not accepted
+        else "a negative control was inconclusive (the check raised or gave no answer)" if inconclusive
         else "the check accepts a negative control")
     return {"matched": matched, "reason": reason, "checks": checks, "degenerate": degenerate,
             "import_errors": result.output.get("import_errors") or {}}
 
 
-def equals_source_definition(compiled: S.CompiledFigure) -> str | None:
+def equals_source_definitions(compiled: S.CompiledFigure) -> list[str]:
+    """Every definition an ``equals_source`` invariant names, once each, in
+    order. A figure is ``verified`` only when every one of them is checked
+    (Codex review F3): the label is figure-wide."""
+
+    names: list[str] = []
     for invariant, _node in compiled.invariants:
-        if invariant.kind == "equals_source" and invariant.name in compiled.definitions:
-            return invariant.name
-    return None
+        if invariant.kind == "equals_source" and invariant.name in compiled.definitions and invariant.name not in names:
+            names.append(str(invariant.name))
+    return names
+
+
+def equals_source_definition(compiled: S.CompiledFigure) -> str | None:
+    """The one definition named as the source equation, or None (none, or
+    more than one: then no single check covers the figure)."""
+
+    names = equals_source_definitions(compiled)
+    return names[0] if len(names) == 1 else None
 
 
 def decidable_predictions(compiled: S.CompiledFigure) -> tuple[list[int], list[int]]:
@@ -437,6 +458,7 @@ __all__ = [
     "check_invariant",
     "decidable_predictions",
     "equals_source_definition",
+    "equals_source_definitions",
     "independent_integral",
     "negative_controls",
     "parameter_grid",

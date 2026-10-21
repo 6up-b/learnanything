@@ -162,9 +162,38 @@ def enqueue_figure_prediction(
     changed?" text) as a ``reader_formative`` text, on RW1b's rule: only with
     ``learner_text_gaps.enabled`` and ``reader_formative.enabled`` on, only a
     missed one with an answer; a matched prediction queues nothing.
-    Idempotent per prediction (a later "what changed?" is read with it)."""
+    Idempotent per prediction (its "what changed?": :func:`enqueue_figure_explanation`)."""
 
     return enqueue_reader_formative(vault, repository, question_id=prediction_id, clock=clock)
+
+
+def enqueue_figure_explanation(
+    vault: LoadedVault, repository: Repository, *, prediction_id: str, clock: Clock | None = None,
+) -> str | None:
+    """RW5a: a missed figure prediction's "what changed?", once written.
+
+    While the prediction's own job is still queued, nothing more is queued:
+    its reading reads the text as it is then, explanation included. Once
+    that reading has started or finished (or never had a job), the
+    explanation is its own text, ``<prediction id>`` +
+    :data:`~.sources.FIGURE_EXPLANATION_SUFFIX` (the answer with the
+    explanation): a later reading that may name or clear a different gap,
+    the earlier one kept as it was read (Codex review F5). Same switches as
+    the prediction."""
+
+    from learnloop.diagnosis.text_gaps.sources import FIGURE_EXPLANATION_SUFFIX
+
+    if not pipeline_enabled(vault):
+        return None
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        job = store.job_for_source(connection, "reader_formative", prediction_id)
+        read = store.gap_for_source(connection, "reader_formative", prediction_id)
+    if job is None and read is None:
+        return enqueue_figure_prediction(vault, repository, prediction_id=prediction_id, clock=clock)
+    if job is not None and job.get("state") == "queued":
+        return None
+    return enqueue_reader_formative(vault, repository, question_id=prediction_id + FIGURE_EXPLANATION_SUFFIX,
+                                    clock=clock)
 
 
 def enqueue_hint_feedback(
@@ -540,6 +569,7 @@ __all__ = [
     "MAX_ATTEMPTS",
     "calls_today",
     "enqueue",
+    "enqueue_figure_explanation",
     "enqueue_figure_prediction",
     "enqueue_after_diagnosis",
     "enqueue_stuck_answer",

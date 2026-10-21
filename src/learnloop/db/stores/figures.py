@@ -14,8 +14,8 @@ import sqlite3
 from collections.abc import Mapping
 from typing import Any
 
-FIGURE_COLUMNS = ("id", "extraction_id", "span_ids_json", "region_json", "asset_id", "origin", "supersedes_id",
-                  "revision_note", "spec_json", "spec_version", "kind", "verification", "verification_report_json",
+FIGURE_COLUMNS = ("id", "extraction_id", "span_ids_json", "region_json", "asset_id", "input_span_ids_json", "origin",
+                  "supersedes_id", "revision_note", "spec_json", "spec_version", "kind", "verification", "verification_report_json",
                   "unsupported_kind", "model", "prompt_version", "input_hash", "created_at")
 PREDICTION_COLUMNS = ("id", "figure_id", "extraction_id", "prediction_index", "learner_answer", "observed_json",
                       "matched", "explanation_text", "created_at")
@@ -33,6 +33,7 @@ def insert_figure(connection: sqlite3.Connection, row: Mapping[str, Any]) -> Non
     values = {
         **row,
         "span_ids_json": json.dumps(list(row.get("span_ids") or ())),
+        "input_span_ids_json": json.dumps(list(row.get("input_span_ids") or ())),
         "region_json": json.dumps(row["region"], sort_keys=True) if row.get("region") else None,
         "verification_report_json": json.dumps(row.get("verification_report") or {}, sort_keys=True, default=str),
     }
@@ -48,6 +49,7 @@ def _figure(row: sqlite3.Row | tuple | None) -> dict[str, Any] | None:
         return None
     found = dict(zip(FIGURE_COLUMNS, row))
     found["span_ids"] = json.loads(found.pop("span_ids_json") or "[]")
+    found["input_span_ids"] = json.loads(found.pop("input_span_ids_json") or "[]")
     found["region"] = json.loads(found.pop("region_json")) if found.get("region_json") else None
     found["verification_report"] = json.loads(found.pop("verification_report_json") or "{}")
     return found
@@ -74,6 +76,23 @@ def reusable(connection: sqlite3.Connection, input_hash: str, spec_version: str)
         f"SELECT {', '.join(FIGURE_COLUMNS)} FROM interactive_figures WHERE input_hash = ? AND spec_version = ? "
         "AND verification IN ('verified', 'illustrative', 'unsupported') ORDER BY created_at DESC, id DESC LIMIT 1",
         (input_hash, spec_version)).fetchone())
+
+
+def latest_for_input(connection: sqlite3.Connection, input_hash: str, spec_version: str) -> dict[str, Any] | None:
+    """The newest figure stored for this input under this spec version, whatever its verification."""
+
+    return _figure(connection.execute(
+        f"SELECT {', '.join(FIGURE_COLUMNS)} FROM interactive_figures WHERE input_hash = ? AND spec_version = ? "
+        "ORDER BY created_at DESC, id DESC LIMIT 1", (input_hash, spec_version)).fetchone())
+
+
+def builds_for_input(connection: sqlite3.Connection, input_hash: str, spec_version: str) -> int:
+    """How many figures were stored for this input: a build's retry generation
+    (a stored failure starts the next one; a crash before the row does not)."""
+
+    return int(connection.execute(
+        "SELECT COUNT(*) FROM interactive_figures WHERE input_hash = ? AND spec_version = ?",
+        (input_hash, spec_version)).fetchone()[0])
 
 
 def superseding(connection: sqlite3.Connection, figure_id: str) -> list[dict[str, Any]]:
@@ -144,11 +163,13 @@ __all__ = [
     "FIGURE_COLUMNS",
     "PREDICTION_COLUMNS",
     "SHOWN",
+    "builds_for_input",
     "figure",
     "figures_for_extraction",
     "has_tables",
     "insert_figure",
     "insert_prediction",
+    "latest_for_input",
     "missed_prediction_ids",
     "prediction",
     "prediction_for",

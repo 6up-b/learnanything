@@ -22,7 +22,7 @@ TABLES = {"interactive_figures": TableRole.WORKFLOW, "figure_predictions": Table
 #: test_approach_maps_schema.py, test_help_assists_schema.py, test_library_asks_migration.py).
 RW5A_ADDED_OBJECTS = frozenset({
     "interactive_figures", "figure_predictions", "idx_interactive_figures_extraction", "idx_interactive_figures_input",
-    "idx_interactive_figures_supersedes", "idx_figure_predictions_extraction", "figure_predictions_no_delete",
+    "idx_interactive_figures_supersedes", "idx_interactive_figures_reuse", "idx_figure_predictions_extraction", "figure_predictions_no_delete",
     "figure_predictions_explanation_once", "sqlite_autoindex_interactive_figures_1",
     "sqlite_autoindex_figure_predictions_1", "sqlite_autoindex_figure_predictions_2",
 })
@@ -61,7 +61,13 @@ def test_figure_checks(tmp_path):
             with pytest.raises(sqlite3.IntegrityError):
                 _insert_figure(connection, "fig_bad", **bad)
         _insert_figure(connection, "fig_failed", verification="failed", spec_json=None, kind=None)
-        _insert_figure(connection, "fig_2", supersedes_id="fig_1", revision_note="start at 0.1")
+        _insert_figure(connection, "fig_failed_again", verification="failed", spec_json=None, kind=None)
+        _insert_figure(connection, "fig_2", supersedes_id="fig_1", revision_note="start at 0.1", input_hash="h2")
+        # One shown or unsupported figure per input (the reuse index, review F7).
+        for shown in ({"verification": "illustrative"}, {"verification": "unsupported", "spec_json": None, "kind": None}):
+            with pytest.raises(sqlite3.IntegrityError):
+                _insert_figure(connection, "fig_dup", **shown)
+        _insert_figure(connection, "fig_other_version", spec_version="ifs-v2")
 
 
 def _insert_prediction(connection, prediction_id="fpr_1", **overrides):

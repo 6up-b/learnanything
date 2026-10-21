@@ -207,6 +207,9 @@ class VerifierFake(_Recording):
 def context(root: Path, *, author: Any = None, verifier: Any = None, sandbox_run: Callable[..., Any] | None = None):
     ctx = _context(root)
     ctx.library_ask_inline = True  # the build job runs inline (deterministic)
+    # A missed prediction wakes the gap worker (review F6); here it stays
+    # stopped, so no thread reads a text with the configured routes.
+    ctx.post_attempt_worker.autostart = False
     if author is not None:
         ctx.figure_author_client = author
     if verifier is not None:

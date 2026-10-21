@@ -232,7 +232,10 @@ prediction ids are prefixed `fpr_`; `text_gaps.sources.formative_row` / `reader_
 words and, when written, "What changed, in my words: …"; the context is the prediction's question,
 the figure's own passage and what the figure showed (computed by code, labelled as not the book's
 words). `jobs.enqueue_figure_prediction` queues it on RW1b's rule (`learner_text_gaps.enabled` and
-`reader_formative.enabled`), at the prediction and again (idempotently) at "what changed?". A matched
+`reader_formative.enabled`), at the prediction; a "what changed?" written while that job is still
+queued is read with it, and one written after its reading started is its own later text
+(`<prediction id>:explained`, `jobs.enqueue_figure_explanation`; Codex review F5,
+docs/reviews/reader-rw5a-codex-review.md). A matched
 prediction queues nothing. RW6a's `prediction_observations` now finds missed predictions (its read
 was already written for this table).
 

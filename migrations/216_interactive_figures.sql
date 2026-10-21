@@ -4,9 +4,9 @@
 --
 -- interactive_figures (WORKFLOW): one row per built figure version, a paid
 -- output never re-run on rebuild. The declarative spec (InteractiveFigureSpecV1,
--- never code), what was asked for (the selection, a region of a figure and
--- the block whose crop was sent), how it verified (verified | illustrative |
--- failed | unsupported, with the report), and the reuse key (input_hash). A
+-- never code), what was asked for (the selection, a figure region, the
+-- cropped block, every span sent), how it verified (verified | illustrative
+-- | failed | unsupported, with the report), and the reuse key (input_hash). A
 -- "not right?" version supersedes an earlier one (supersedes_id, with the
 -- learner's revision_note); the earlier one is kept. Replay, rebuild and
 -- every scoring, scheduling, projection or serving path never read it.
@@ -18,6 +18,11 @@ CREATE TABLE interactive_figures (
   region_json TEXT,
   -- The figure block (span id) whose image or crop was sent, if any.
   asset_id TEXT,
+  -- Every span the author was sent (the selection, the paragraphs around it,
+  -- the region's or figure's block): what listing, delivery, revisions,
+  -- predictions and a formative text's provenance recheck for held-out
+  -- material (Codex review F1).
+  input_span_ids_json TEXT NOT NULL DEFAULT '[]',
   origin TEXT NOT NULL CHECK (origin IN ('selection', 'library', 'tutor')),
   supersedes_id TEXT REFERENCES interactive_figures(id),
   revision_note TEXT,
@@ -38,6 +43,11 @@ CREATE TABLE interactive_figures (
 CREATE INDEX idx_interactive_figures_extraction ON interactive_figures(extraction_id, created_at);
 CREATE INDEX idx_interactive_figures_input ON interactive_figures(input_hash, created_at);
 CREATE INDEX idx_interactive_figures_supersedes ON interactive_figures(supersedes_id);
+-- One shown (or unsupported) figure per input: a second one is a duplicate
+-- build that lost the race (reuse returns the first; Codex review F7). A
+-- failed row is retried, so failed rows are not unique.
+CREATE UNIQUE INDEX idx_interactive_figures_reuse ON interactive_figures(input_hash, spec_version)
+  WHERE verification IN ('verified', 'illustrative', 'unsupported');
 
 -- figure_predictions (RAW_LEDGER): the learner's prediction on a figure, the
 -- observed before/after readout and whether it matched (decided by code),

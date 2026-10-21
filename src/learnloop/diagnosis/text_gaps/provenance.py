@@ -132,7 +132,7 @@ def formative_record(connection: Any, question_id: str, *, topics: Iterable[str]
     learner's answer (not an attempt, so no answer contract), the book's
     passage and the cited spans of the expected answer, and the topics."""
 
-    if str(question_id).startswith("fpr_"):
+    if str(question_id).startswith("fpr_"):  # an RW5a figure prediction, or its later explanation
         return figure_prediction_record(connection, question_id, topics=topics)
     row = connection.execute(
         "SELECT extraction_id, source_id, span_ids_json, anchor_span_ids_json FROM reader_authored_questions "
@@ -153,13 +153,20 @@ def formative_record(connection: Any, question_id: str, *, topics: Iterable[str]
 
 def figure_prediction_record(connection: Any, prediction_id: str, *, topics: Iterable[str] = ()) -> WriteRecord:
     """RW5a: what a missed figure prediction shows its reader -- the
-    learner's answer (not an attempt), the passage the figure was built from
-    (its spans, and a region's block), and the topics. The figure's own
-    values are computed by code from that passage."""
+    learner's answer (not an attempt), every span the figure was built from
+    (the selection, a region's block and the paragraphs the author was sent
+    around it: the figure's prediction and readouts derive from all of them;
+    Codex review F1), and the topics. The figure's own values are computed by
+    code from that passage. A later explanation's source (``...:explained``)
+    has its prediction's record."""
 
+    from learnloop.diagnosis.text_gaps.sources import figure_prediction_id
+
+    prediction_id, _explained = figure_prediction_id(prediction_id)
     row = connection.execute(
-        "SELECT f.extraction_id, f.span_ids_json, f.region_json FROM figure_predictions AS p "
-        "JOIN interactive_figures AS f ON f.id = p.figure_id WHERE p.id = ?", (prediction_id,),
+        "SELECT f.extraction_id, f.span_ids_json, f.region_json, f.input_span_ids_json, f.asset_id "
+        "FROM figure_predictions AS p JOIN interactive_figures AS f ON f.id = p.figure_id WHERE p.id = ?",
+        (prediction_id,),
     ).fetchone()
     if row is None:
         return WriteRecord.incomplete("the figure prediction is gone", inputs=Inputs.of(topics=topics))
@@ -169,8 +176,11 @@ def figure_prediction_record(connection: Any, prediction_id: str, *, topics: Ite
         region = json.loads(row[2] or "null") or {}
         if isinstance(region, dict) and region.get("span_id"):
             spans.add(str(region["span_id"]))
+        spans.update(str(span) for span in json.loads(row[3] or "[]"))
     except (TypeError, ValueError):
-        pass
+        return WriteRecord.incomplete("the figure's input spans are unreadable", inputs=Inputs.of(topics=topics))
+    if row[4]:
+        spans.add(str(row[4]))
     source_id = connection.execute(
         "SELECT revision.source_id FROM source_extraction_runs AS run LEFT JOIN source_revisions AS revision "
         "ON revision.id = run.revision_id WHERE run.id = ?", (row[0],)).fetchone()

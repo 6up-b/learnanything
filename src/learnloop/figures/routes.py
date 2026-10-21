@@ -173,6 +173,14 @@ class FigureRoute:
         self.calls: PaidCalls | None = None
         self.made = 0
 
+    def bind_owner(self, owner_id: str) -> None:
+        """Name the request the calls' receipts belong to (known only once the
+        input is hashed, after the route was asked whether it reads images)."""
+
+        self.owner_id = owner_id
+        if self.calls is not None:
+            self.calls.owner_id = owner_id
+
     @property
     def subscription(self) -> bool:
         return self.route.billing == "subscription"

@@ -11,6 +11,16 @@ sandbox), and one row is written with its verification and a
 ``judgment_ledger`` verdict (task ``figure_verified``, judge ``verifier``).
 A figure that fails steps 1-2 is stored ``failed`` (never shown); a
 reconstruction failing step 3 is stored ``illustrative`` with its label.
+One input builds once at a time in this process (an identical request made
+meanwhile waits and takes that figure, with no call), its request identity
+is the input and its retry generation (so a rerun after a crash recovers a
+paid answer, and a stored failure asks afresh), and the schema keeps one
+shown or unsupported row per input (Codex review F7).
+
+**Held-out material, rechecked.** Each row keeps every span the author was
+sent (``input_span_ids``: the selection, the paragraphs around it, the
+cropped block). Listing, delivery, revisions, predictions and explanations
+refuse a figure any of whose spans is held out now (Codex review F1).
 
 **What a prompt carries.** The selected passage, the paragraphs around it
 (held-out ones left out), the figure's crop when a figure block or a region
@@ -20,7 +30,8 @@ right?" version, the earlier spec and the learner's note. No learner data.
 **Predictions** (:func:`record_prediction`): formative only (W1, tier 2).
 Code decides ``matched`` from the observed readout before and after the
 prediction's change; a missed one is queued for learner-text gaps as a
-``reader_formative`` text (with its "what changed?" when written), only
+``reader_formative`` text (with its "what changed?" when written; one
+written after that reading started is its own later text), only
 while ``learner_text_gaps.enabled`` and ``reader_formative.enabled``. Nothing
 writes an attempt, evidence, mastery, certification, scheduling, FSRS or
 adaptive-difficulty state.
@@ -30,8 +41,10 @@ from __future__ import annotations
 
 import base64
 import hashlib
-from collections.abc import Mapping, Sequence
-from contextlib import closing
+import sqlite3
+import threading
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import closing, contextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -138,13 +151,30 @@ def withheld_message(vault: Any, repository: Repository, extraction_id: str, spa
 
 
 def _figure_spans(row: Mapping[str, Any]) -> list[str]:
+    """Every span a figure was built from: the selection, the region's and
+    the crop's block, and the complete manifest of what the author was sent
+    (the paragraphs around it too: a figure may show a neighbour's quoted
+    assumption; Codex review F1)."""
+
     spans = [str(span) for span in row.get("span_ids") or ()]
     region = row.get("region") or {}
     if region.get("span_id"):
         spans.append(str(region["span_id"]))
     if row.get("asset_id"):
         spans.append(str(row["asset_id"]))
+    spans += [str(span) for span in row.get("input_span_ids") or ()]
     return list(dict.fromkeys(spans))
+
+
+def figure_withheld(vault: Any, repository: Repository, figure_id: str) -> bool:
+    """Whether a stored figure may not go out now (its row is gone, or any
+    span it was built from is held out). Fails closed."""
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        row = store.figure(connection, figure_id) if store.has_tables(connection) else None
+    if row is None:
+        return True
+    return withheld_message(vault, repository, row["extraction_id"], _figure_spans(row)) is not None
 
 
 # ---------------------------------------------------------------------------
@@ -247,9 +277,13 @@ def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, v
     keys are the spec's own), and only for a shown figure. A prediction's
     answer is never sent before the learner answers it."""
 
+    region = row.get("region") or {}
     view: dict[str, Any] = {
         "figure_id": row["id"], "extraction_id": row["extraction_id"], "span_ids": list(row.get("span_ids") or ()),
-        "anchor_span_id": (list(row.get("span_ids") or ()) or [None])[-1], "region": row.get("region"),
+        # Under the selection's last block; a region's figure (no selected
+        # text) under the region's block (Codex review F2).
+        "anchor_span_id": (list(row.get("span_ids") or ()) or [region.get("span_id")])[-1],
+        "region": row.get("region"),
         "origin": row["origin"], "verification": row["verification"], "kind": row.get("kind"),
         "label": _label(row), "reason": (row.get("verification_report") or {}).get("reason") or None,
         "unsupported_kind": row.get("unsupported_kind"), "supersedes_id": row.get("supersedes_id"),
@@ -401,10 +435,11 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
             previous = store.figure(connection, request.supersedes_id)
         versions = _chain_length(repository, request.supersedes_id) + 1
-    request_id = new_ulid()
     envelope = envelope if envelope is not None else R.daily_envelope(vault, repository, clock=clock)
+    # The owner is named once the input is hashed (below): asking whether the
+    # route reads images comes first.
     author = R.FigureRoute(vault, repository, R.AUTHOR_TASK, client=author_client, envelope=envelope,
-                           owner_id=f"figure:{request_id}", max_calls=R.MAX_AUTHOR_ATTEMPTS)
+                           owner_id="figure:pending", max_calls=R.MAX_AUTHOR_ATTEMPTS)
     image, asset_id, clipped = crop_image(repository, request, context)
     if image is not None and not author.reads_images():
         if request.region:
@@ -421,9 +456,66 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
     input_hash = request_hash(request, context, digest)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         reused = store.reusable(connection, input_hash, S.SPEC_VERSION)
+        seen = store.latest_for_input(connection, input_hash, S.SPEC_VERSION)
     if reused is not None:
-        return BuildOutcome(figure_view(vault, repository, reused, versions=_chain_length(repository, reused["id"])),
-                            reused=True)
+        return _reused(vault, repository, reused)
+    # One build per input at a time (Codex review F7): an identical request
+    # made while one runs waits for it and takes its figure, with no call.
+    with _building(repository, input_hash):
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            latest = store.latest_for_input(connection, input_hash, S.SPEC_VERSION)
+            generation = store.builds_for_input(connection, input_hash, S.SPEC_VERSION)
+        if latest is not None and (seen is None or latest["id"] != seen["id"]):
+            return _reused(vault, repository, latest)
+        # The request's identity is its input and its retry generation, never
+        # a fresh id: rerun after a crash between a paid answer and its row,
+        # the same prompt recovers that answer (its checkpoint or receipt)
+        # with no second request; a stored failure starts the next
+        # generation, so "try again" asks afresh.
+        request_id = content_key({"input_hash": input_hash, "generation": generation})
+        author.bind_owner(f"figure:{request_id}")
+        return _author_and_store(vault, repository, request, context, author, previous=previous, versions=versions,
+                                 image=image, asset_id=asset_id, digest=digest, input_hash=input_hash,
+                                 request_id=request_id, envelope=envelope, verifier_client=verifier_client,
+                                 sandbox_run=sandbox_run, clock=clock)
+
+
+_BUILDS_GUARD = threading.Lock()
+_BUILDS: dict[str, list[Any]] = {}
+
+
+@contextmanager
+def _building(repository: Repository, input_hash: str) -> Iterator[None]:
+    """Hold this process's one lock for (vault, input) while a build runs.
+
+    The sidecar is the only builder; across processes the reuse index
+    (unique among shown rows) refuses a second row and the stable request
+    identity recovers the first paid answer."""
+
+    key = f"{repository.sqlite_path}\0{input_hash}"
+    with _BUILDS_GUARD:
+        entry = _BUILDS.setdefault(key, [threading.Lock(), 0])
+        entry[1] += 1
+    try:
+        with entry[0]:
+            yield
+    finally:
+        with _BUILDS_GUARD:
+            entry[1] -= 1
+            if entry[1] == 0:
+                _BUILDS.pop(key, None)
+
+
+def _reused(vault: Any, repository: Repository, row: Mapping[str, Any]) -> BuildOutcome:
+    return BuildOutcome(figure_view(vault, repository, row, versions=_chain_length(repository, str(row["id"]))),
+                        reused=True)
+
+
+def _author_and_store(vault: Any, repository: Repository, request: FigureRequest, context: SourceContext,
+                      author: R.FigureRoute, *, previous: Mapping[str, Any] | None, versions: int,
+                      image: tuple[str, bytes] | None, asset_id: str | None, digest: str | None, input_hash: str,
+                      request_id: str, envelope: Any, verifier_client: Any | None, sandbox_run: Any | None,
+                      clock: Clock | None) -> BuildOutcome:
     problem = author.problem()
     if problem is not None:
         raise FigureRefused(problem.reason, problem.message)
@@ -471,7 +563,10 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
     figure_id = FIGURE_PREFIX + new_ulid()
     row: dict[str, Any] = {
         "id": figure_id, "extraction_id": request.extraction_id, "span_ids": request.span_ids,
-        "region": request.region, "asset_id": asset_id, "origin": request.origin,
+        "region": request.region, "asset_id": asset_id,
+        # Everything the author was sent, for every later held-out recheck (F1).
+        "input_span_ids": list(dict.fromkeys([*context.span_texts, *([asset_id] if asset_id else [])])),
+        "origin": request.origin,
         "supersedes_id": request.supersedes_id, "revision_note": request.revision_note,
         "spec_version": S.SPEC_VERSION, "model": author.model, "prompt_version": R.AUTHOR_PROMPT_VERSION,
         "input_hash": input_hash, "created_at": utc_now_iso(clock), "spec_json": None, "kind": None,
@@ -504,12 +599,21 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
         row["verification_report"] = report_dict
     row["verification"] = report.outcome
     row.setdefault("verification_report", report.as_dict())
-    with repository.atomic():
-        connection = repository.connection()
-        store.insert_figure(connection, row)
-        append_judgment(connection, task=LEDGER_TASK, left_kind="interactive_figure", left_id=figure_id,
-                        judge="verifier", input_hash=input_hash, verdict=report.outcome,
-                        rationale=(report.reason or "")[:400], created_at=row["created_at"])
+    try:
+        with repository.atomic():
+            connection = repository.connection()
+            store.insert_figure(connection, row)
+            append_judgment(connection, task=LEDGER_TASK, left_kind="interactive_figure", left_id=figure_id,
+                            judge="verifier", input_hash=input_hash, verdict=report.outcome,
+                            rationale=(report.reason or "")[:400], created_at=row["created_at"])
+    except sqlite3.IntegrityError:
+        # Another process stored this input's figure first (the reuse index):
+        # that one is the figure; this build's paid calls keep their receipts.
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            first = store.reusable(connection, input_hash, S.SPEC_VERSION)
+        if first is None:
+            raise
+        return _reused(vault, repository, first)
     stored = dict(row)
     stored["verification_report"] = row["verification_report"]
     return BuildOutcome(figure_view(vault, repository, stored, versions=versions), reused=False,
@@ -522,9 +626,17 @@ def _source_match(vault: Any, repository: Repository, compiled: S.CompiledFigure
     """Step 3: one verifier call, then the sandbox. Anything that keeps it
     from running is a reason the figure is an illustration, never a pass."""
 
-    name = V.equals_source_definition(compiled)
-    if name is None:
+    names = V.equals_source_definitions(compiled)
+    if not names:
         return {"matched": False, "reason": "no definition is named as the book's equation"}, 0
+    if len(names) > R.MAX_VERIFIER_CALLS:
+        # Each named equation needs its own transcription and check, and a
+        # request has one verifier call: a figure-wide "matches the book"
+        # needs every one checked (Codex review F3), so none is claimed.
+        return {"matched": False, "definitions": names,
+                "reason": f"the figure names {len(names)} definitions as the book's equations and one check "
+                          "covers one"}, 0
+    (name,) = names
     if not any(claim["verified"] for claim in claims):
         return {"matched": False, "reason": "no quote of the book's equation was found in the passage"}, 0
     verifier = R.FigureRoute(vault, repository, R.VERIFIER_TASK, client=client, envelope=envelope,
@@ -629,9 +741,11 @@ def shown_figure(vault: Any, repository: Repository, figure_id: str) -> tuple[di
 # ---------------------------------------------------------------------------
 
 def record_prediction(vault: Any, repository: Repository, figure_id: str, index: int, answer: str, *,
-                      clock: Clock | None = None) -> dict[str, Any]:
+                      clock: Clock | None = None, on_queued: Callable[[str], None] | None = None) -> dict[str, Any]:
     """The learner's prediction, its observed before/after readout and
-    whether it matched (code decides). Idempotent per (figure, prediction)."""
+    whether it matched (code decides). Idempotent per (figure, prediction).
+    ``on_queued`` hears the learner-text job a missed one queued (the
+    sidecar wakes its gap worker with it; Codex review F6)."""
 
     if not predictions_enabled(vault):
         raise FigureRefused("predictions_disabled", "Figure predictions are switched off (figures.predictions_enabled).")
@@ -659,13 +773,16 @@ def record_prediction(vault: Any, repository: Repository, figure_id: str, index:
     with repository.atomic():
         store.insert_prediction(repository.connection(), prediction)
     if not prediction["matched"]:
-        _queue_formative(vault, repository, prediction["id"], clock=clock)
+        _queued(_queue_formative(vault, repository, prediction["id"], clock=clock), on_queued)
     return _prediction_view({**prediction, "matched": prediction["matched"]}) or {}
 
 
 def record_explanation(vault: Any, repository: Repository, prediction_id: str, text: str, *,
-                       clock: Clock | None = None) -> dict[str, Any]:
-    """ "What changed, and why?" (optional, once)."""
+                       clock: Clock | None = None, on_queued: Callable[[str], None] | None = None) -> dict[str, Any]:
+    """ "What changed, and why?" (optional, once). On a missed prediction it
+    is read with the answer: by the prediction's own reading while that is
+    still queued, else as a later text of its own, the earlier reading kept
+    (Codex review F5)."""
 
     if not predictions_enabled(vault):
         raise FigureRefused("predictions_disabled", "Figure predictions are switched off (figures.predictions_enabled).")
@@ -680,7 +797,9 @@ def record_explanation(vault: Any, repository: Repository, prediction_id: str, t
     with repository.atomic():
         set_now = store.set_explanation(repository.connection(), prediction_id, text)
     if set_now and not found["matched"]:
-        _queue_formative(vault, repository, prediction_id, clock=clock)
+        from learnloop.diagnosis.text_gaps.jobs import enqueue_figure_explanation
+
+        _queued(enqueue_figure_explanation(vault, repository, prediction_id=prediction_id, clock=clock), on_queued)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         return _prediction_view(store.prediction(connection, prediction_id)) or {}
 
@@ -689,6 +808,11 @@ def _queue_formative(vault: Any, repository: Repository, prediction_id: str, *, 
     from learnloop.diagnosis.text_gaps.jobs import enqueue_figure_prediction
 
     return enqueue_figure_prediction(vault, repository, prediction_id=prediction_id, clock=clock)
+
+
+def _queued(job_id: str | None, on_queued: Callable[[str], None] | None) -> None:
+    if job_id and on_queued is not None:
+        on_queued(job_id)
 
 
 __all__ = [
@@ -700,6 +824,7 @@ __all__ = [
     "check_request",
     "enabled",
     "figure_view",
+    "figure_withheld",
     "list_figures",
     "predictions_enabled",
     "record_explanation",
