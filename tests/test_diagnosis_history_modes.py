@@ -170,8 +170,10 @@ def test_snapshot_is_unavailable_without_the_capability(seeded):
 
 
 def test_codex_workspace_replaces_the_vault_root(tmp_path, monkeypatch):
-    """The snapshot workspace REPLACES the vault root (§5.6); the read boundary
-    itself is tested against the installed Codex in test_diagnosis_isolation."""
+    """The snapshot workspace REPLACES the vault root (§5.6). Since the tool
+    lockdown's round 3 the Codex transport inlines it: the turn runs tool-free
+    in a scratch directory (never the vault, never the export), and what it was
+    shown is every export file, reported as served."""
 
     from learnloop.diagnosis.offline_review.judge import LinkJudgment
     from tests.test_diagnosis_isolation import _fake_sdk
@@ -179,12 +181,14 @@ def test_codex_workspace_replaces_the_vault_root(tmp_path, monkeypatch):
     vault_root = tmp_path / "vault"
     vault_root.mkdir()
     workspace = tmp_path / "snapshot"
-    workspace.mkdir()
+    (workspace / "attempts").mkdir(parents=True)
+    (workspace / "INDEX.md").write_text("# index\n", encoding="utf-8")
+    (workspace / "attempts" / "a.md").write_text("# Attempt a\n", encoding="utf-8")
     captured: dict[str, Any] = {}
     _fake_sdk(monkeypatch, captured)
 
     def turn_items(*_args, **_kwargs):
-        return SimpleNamespace(final_response='{"links": []}', items=[{"command": ["rg", "transpose", "attempts/"]}])
+        return SimpleNamespace(final_response='{"links": []}', items=[{"type": "agentMessage", "text": "{}"}])
 
     client = SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex"), sdk_codex_bin="/usr/bin/codex-for-test"), vault_root)
     from tests.codex_cli_fakes import stub_isolation_probe
@@ -204,10 +208,10 @@ def test_codex_workspace_replaces_the_vault_root(tmp_path, monkeypatch):
     result = client.complete(StructuredRequest(purpose="diagnosis", prompt="p", result_model=LinkJudgment, workspace=workspace))
     assert result == LinkJudgment(links=[])
     for cwd in (captured["app_config"]["cwd"], captured["thread_start"]["cwd"], captured["turn"]["cwd"]):
-        assert cwd == str(workspace.resolve())
-        assert str(vault_root.resolve()) not in cwd
+        assert Path(cwd).name.startswith("learnloop-isolated-turn-")
+        assert str(vault_root.resolve()) not in cwd and str(workspace.resolve()) not in cwd
     assert "sandbox" not in captured["thread_start"]
-    assert client.workspace_activity() == ["rg transpose attempts/"]
+    assert sorted(client.workspace_activity()) == ["INDEX.md", "attempts/a.md"]
 
 
 # -- all modes ------------------------------------------------------------------------

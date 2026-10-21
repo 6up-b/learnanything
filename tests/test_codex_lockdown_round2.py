@@ -227,30 +227,38 @@ def test_an_unreadable_or_missing_readback_refuses():
 
 
 def test_a_relative_codex_home_is_resolved_from_the_turns_directory_and_pinned(tmp_path, monkeypatch):
-    """H2: ``CODEX_HOME=../codex-home`` loads ``<turn>/../codex-home``. An MCP
+    """H2: ``CODEX_HOME=../../codex-home`` loads ``<turn>/../../codex-home``. An MCP
     server added there must be pinned off on the next turn (the check ran
-    again), and the app server gets the absolute home it was checked against."""
+    again), and the app server gets the absolute home it was checked against.
+    (Round 3: every turn runs in a fresh scratch directory, so the turns are
+    placed by moving the temporary directory they are made in.)"""
+
+    import tempfile
 
     program, log = write_fake_codex(tmp_path / "bin")
     captured = install_fake_codex_sdk(monkeypatch, final_response=ANSWER, spawn=True)
     client = _client(tmp_path, sdk_codex_bin=str(program))
-    workspaces = {}
+    scratch = {}
     for name in ("one", "two"):
         base = tmp_path / "turns" / name
         (base / "codex-home").mkdir(parents=True)
         (base / "codex-home" / "config.toml").write_text("", encoding="utf-8")
-        workspaces[name] = base / "workspace"
-        workspaces[name].mkdir()
-    monkeypatch.setenv("CODEX_HOME", "../codex-home")
+        scratch[name] = base / "scratch"
+        scratch[name].mkdir()
+    monkeypatch.setenv("CODEX_HOME", "../../codex-home")
     monkeypatch.chdir(tmp_path)
 
-    _turn(client, workspaces["one"])
+    def turn_in(name):
+        monkeypatch.setattr(tempfile, "tempdir", str(scratch[name]))
+        _turn(client)
+
+    turn_in("one")
     first = json.loads(captured["spawned"]["stdout"])
     home_one = (tmp_path / "turns" / "one" / "codex-home").resolve()
     assert first["servers_on"] == []
 
     (home_one / "config.toml").write_text('[mcp_servers.shell_bridge]\ncommand = "/bin/true"\n', encoding="utf-8")
-    _turn(client, workspaces["one"])
+    turn_in("one")
     assert "mcp_servers.shell_bridge.enabled=false" in _launched(log)[-1], "the stale check left the new server on"
     assert json.loads(captured["spawned"]["stdout"])["servers_on"] == []
     # Pinned: the app server loads the absolute home the check ran against.
@@ -258,7 +266,7 @@ def test_a_relative_codex_home_is_resolved_from_the_turns_directory_and_pinned(t
     assert json.loads(captured["spawned"]["stdout"])["codex_home"] == str(home_one)
 
     # A turn in another directory loads (and is checked against) its own home.
-    _turn(client, workspaces["two"])
+    turn_in("two")
     home_two = (tmp_path / "turns" / "two" / "codex-home").resolve()
     assert captured["app_config"]["env"] == {"CODEX_HOME": str(home_two)}
     assert "mcp_servers.shell_bridge.enabled=false" not in _launched(log)[-1]
@@ -418,6 +426,12 @@ def test_the_http_runtime_check_never_runs_its_health_request_or_startup_command
 _TOOLED = bundled_catalog("gpt-5.6-sol", experimental_supported_tools=["test_sync_tool"])
 
 
+def _tool_free(catalog):
+    """Round 3: the pinned catalog is the validated bundled one with every tool removed."""
+
+    return json.loads(_lockdown().tool_free_catalog(json.dumps(catalog)))
+
+
 def test_a_configured_catalog_cannot_give_the_turns_model_a_tool(tmp_path, monkeypatch):
     """H4 (the verify's case): a ``model_catalog_json`` of the user's gives the
     same slug ``experimental_supported_tools = ["test_sync_tool"]``. The turn is
@@ -429,7 +443,7 @@ def test_a_configured_catalog_cannot_give_the_turns_model_a_tool(tmp_path, monke
     (launched,) = _launched(log)
     pinned = _lockdown().catalog_pin_path(launched)
     assert pinned is not None, "the turn was not pinned to the validated catalog"
-    assert json.loads(Path(pinned).read_text(encoding="utf-8")) == bundled_catalog()
+    assert json.loads(Path(pinned).read_text(encoding="utf-8")) == _tool_free(bundled_catalog())
     assert json.loads(captured["spawned"]["stdout"])["experimental_tools"]["gpt-5.6-sol"] == []
 
 
@@ -455,7 +469,7 @@ def test_a_cached_check_still_pins_the_validated_catalog(tmp_path, monkeypatch):
     _turn(client)
     assert _probe_count(log) == probes  # cached
     again = _lockdown().catalog_pin_path(_launched(log)[-1])
-    assert json.loads(Path(again).read_text(encoding="utf-8")) == bundled_catalog()
+    assert json.loads(Path(again).read_text(encoding="utf-8")) == _tool_free(bundled_catalog())
 
 
 @needs_codex
@@ -487,7 +501,7 @@ def test_the_installed_codex_serves_the_pinned_catalog_over_a_configured_one(tmp
     assert effective.returncode == 0, effective.stderr
     tools = [entry.get("experimental_supported_tools") for entry in json.loads(effective.stdout)["models"]]
     assert ["test_sync_tool"] not in tools
-    assert json.loads(effective.stdout) == json.loads(bundled.stdout)
+    assert json.loads(effective.stdout) == _tool_free(json.loads(bundled.stdout))
 
 
 # -- L5: the sweep over every place a Codex turn, app server or transport can start -----

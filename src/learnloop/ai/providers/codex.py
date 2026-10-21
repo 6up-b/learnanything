@@ -84,8 +84,14 @@ from learnloop.ai.providers.codex_lockdown import (
     install_on_sdk,
     item_violations,
     lockdown_config_overrides,
+    advertised_tool_violations,
     model_metadata_violations,
     permission_profile_violations,
+    readback_overrides,
+    rendered_skills,
+    skill_disable_overrides,
+    tool_free_catalog,
+    tool_free_violations,
     remember_check,
     resolve_codex_home,
     resolve_executable,
@@ -287,6 +293,7 @@ def isolated_turn_overrides(
     mcp_server_ids: tuple[str, ...] | list[str] = (),
     extra_disabled_features: tuple[str, ...] | list[str] = (),
     model_catalog: Path | str | None = None,
+    skills: tuple[tuple[str, str], ...] | list[tuple[str, str]] = (),
 ) -> list[str]:
     """``codex -c key=value`` overrides that confine one turn (the locked-down profile).
 
@@ -343,6 +350,9 @@ def isolated_turn_overrides(
     off += [feature for feature in sorted(set(extra_disabled_features)) if feature not in off]
     overrides += [f"features.{feature}=false" for feature in off]
     overrides += [f"mcp_servers.{server}.enabled=false" for server in sorted(set(mcp_server_ids))]
+    # Hardening round 3: no skill can be listed or expanded (bundled ones off,
+    # every one the launch check found disabled by name and path).
+    overrides += skill_disable_overrides(skills)
     if model_catalog is not None:
         overrides.append(catalog_pin_override(model_catalog))
     return overrides
@@ -562,10 +572,10 @@ class SdkCodexClient(TokenUsageAccounting):
         )
         cached = cached_check(key)
         if cached is not None:
-            pinned_servers, extra, catalog_text = cached
+            pinned_servers, extra, catalog_text, skills = cached
             return isolated_turn_overrides(
                 root, shell=shell, mcp_server_ids=pinned_servers, extra_disabled_features=extra,
-                model_catalog=_write_catalog_pin(catalog_text, sandbox),
+                model_catalog=_write_catalog_pin(catalog_text, sandbox), skills=skills,
             )
         context: dict[str, Any] = {"sandbox": sandbox, "deadline": deadline, "launch": launch}
         states = self._mcp_server_states(root, base, **context)
@@ -622,21 +632,48 @@ class SdkCodexClient(TokenUsageAccounting):
                 "The Codex model catalog advertises tools the isolated turn's overrides cannot remove or "
                 f"neutralize ({'; '.join(problems)}); refusing the isolated turn."
             )
-        # H4: the turn uses exactly the catalog just validated, or none.
+        # Round 3: the turn uses exactly the validated bundled catalog with
+        # every tool removed (round 2's H4 pin, now LearnLoop's own catalog).
+        model = self.config.model or None
+        tool_free = tool_free_catalog(stdout)
+        tool_free_obj = json.loads(tool_free)
         overrides = isolated_turn_overrides(
             root, shell=shell, mcp_server_ids=pinned, extra_disabled_features=extra,
-            model_catalog=_write_catalog_pin(stdout, sandbox),
+            model_catalog=_write_catalog_pin(tool_free, sandbox),
         )
+        skills: list[tuple[str, str]] = []
         try:
-            problems = catalog_violations(catalog, self._codex_probe(root, overrides, "debug", "models", **context))
-        except BaseException:
-            _remove_sandbox_catalog_pin(overrides, sandbox)
-            raise
-        try:
+            problems = tool_free_violations(tool_free_obj, model)
+            problems += catalog_violations(tool_free_obj, self._codex_probe(root, overrides, "debug", "models",
+                                                                            **context))
             if problems:
                 raise CodexLockdownUnavailable(f"{'; '.join(problems)}; refusing the isolated turn.")
-            # H1: the permission profile the turn would run under, read back.
-            readback = self._codex_probe(root, overrides, "debug", "prompt-input", **context)
+            # Round 3: the context the turn would get, read back: the skills it
+            # lists are disabled, then it must list none and offer no tool.
+            probe = [*overrides, *readback_overrides(model)]
+            readback = self._codex_probe(root, probe, "debug", "prompt-input", **context)
+            listed = rendered_skills(readback)
+            if listed:
+                skills = listed
+                overrides = isolated_turn_overrides(
+                    root, shell=shell, mcp_server_ids=pinned, extra_disabled_features=extra,
+                    model_catalog=catalog_pin_path(overrides), skills=skills,
+                )
+                readback = self._codex_probe(root, [*overrides, *readback_overrides(model)], "debug",
+                                             "prompt-input", **context)
+                listed = rendered_skills(readback)
+            if listed is None or listed:
+                raise CodexLockdownUnavailable(
+                    "The context of the isolated turn still lists skills "
+                    f"({', '.join(name for name, _path in listed or ()) or 'unreadable'}) after disabling every "
+                    "one found; refusing the isolated turn."
+                )
+            problems = advertised_tool_violations(readback, tool_free_obj, model)
+            if problems:
+                raise CodexLockdownUnavailable(
+                    f"The isolated turn is not tool-free ({'; '.join(problems)}); refusing the isolated turn."
+                )
+            # H1 (round 2): the permission profile the turn would run under, read back.
             problems = permission_profile_violations(readback, root=root, codex_home=launch.codex_home)
             if problems:
                 raise CodexLockdownUnavailable(
@@ -646,7 +683,7 @@ class SdkCodexClient(TokenUsageAccounting):
         except BaseException:
             _remove_sandbox_catalog_pin(overrides, sandbox)
             raise
-        remember_check(key, pinned, extra, stdout)
+        remember_check(key, pinned, extra, tool_free, tuple(skills))
         return overrides
 
     @staticmethod
@@ -1022,12 +1059,13 @@ class SdkCodexClient(TokenUsageAccounting):
         2026-10-21: the listwise and paid roles, the tutor and every other
         caller that did not ask for isolation ran agentic turns in the vault
         with the user's whole Codex configuration). No turn starts in
-        ``vault_root``: the app server, thread and turn start in the
-        workspace, or in a fresh empty directory removed afterwards, under
+        ``vault_root``: the app server, thread and turn start in a fresh
+        empty directory removed afterwards, under
         :data:`ISOLATED_PROFILE` (:func:`isolated_turn_overrides`), which can
-        read only that directory and the platform minimum. A workspace turn
-        (the snapshot diagnosis) keeps the shell tool to read its files; every
-        other turn has no tool. The thread is never given a sandbox mode,
+        read only that directory and the platform minimum. No turn has a tool
+        (hardening round 3): a read-only workspace (the snapshot diagnosis) is
+        put into the prompt whole (:meth:`_inline_workspace`), and the catalog
+        the turn is pinned to has every tool removed. The thread is never given a sandbox mode,
         which would replace the profile with Codex's full-disk-read
         ``read-only`` mode; approvals are ``deny_all`` and every approval the
         app server asks for is declined; the turn fails closed when the
@@ -1059,36 +1097,57 @@ class SdkCodexClient(TokenUsageAccounting):
             raise CodexInterrupted("Codex turn interrupted by the learner.")
         sandbox = current_tool_isolation()
         sandbox_root = Path(sandbox.workdir).resolve() if sandbox is not None else None
-        scratch_root: Path | None = None
         if workspace is not None:
-            workspace = Path(workspace).resolve()
-            if not workspace.is_dir():
-                raise CodexUnavailable(f"Read-only workspace {workspace} is not a directory.")
-            if workspace == self.vault_root or workspace in self.vault_root.parents:
-                raise CodexLockdownUnavailable(
-                    f"Read-only workspace {workspace} is the vault or contains it; a Codex turn never reads the vault."
-                )
-            if sandbox_root is not None and workspace != sandbox_root and sandbox_root not in workspace.parents:
-                raise CodexUnavailable(
-                    f"Read-only workspace {workspace} is outside the sandboxed working directory "
-                    f"{sandbox_root}, so the sandboxed turn could not read it."
-                )
-            self._last_workspace_activity = None
-            root = workspace
-        else:
-            # Nothing to read: an empty directory of its own, never the vault.
-            # Sandboxed, it must sit in the one host directory bubblewrap mounts.
-            scratch_root = Path(tempfile.mkdtemp(prefix="learnloop-isolated-turn-", dir=sandbox_root)).resolve()
-            root = scratch_root
+            # Hardening round 3: no route keeps a shell. The read-only
+            # workspace (the snapshot diagnosis's export) is read by LearnLoop
+            # and put into the prompt whole, as the ChatGPT plan provider's
+            # ``workspace_mode = "inline"`` does; the turn itself runs tool-free.
+            prompt = self._inline_workspace(Path(workspace), prompt)
+        # Nothing to read: an empty directory of its own, never the vault.
+        # Sandboxed, it must sit in the one host directory bubblewrap mounts.
+        scratch_root = Path(tempfile.mkdtemp(prefix="learnloop-isolated-turn-", dir=sandbox_root)).resolve()
+        root = scratch_root
         cwd = str(root)
         try:
             return self._run_sdk_turn(
                 prompt, output_schema, purpose=purpose, timeout_seconds=timeout_seconds,
-                cwd=cwd, root=root, isolated=True, workspace=workspace, sandbox=sandbox,
+                cwd=cwd, root=root, isolated=True, workspace=None, sandbox=sandbox,
             )
         finally:
             if scratch_root is not None:
                 shutil.rmtree(scratch_root, ignore_errors=True)
+
+    #: A read-only workspace goes into the prompt (callers admit its size).
+    inlines_workspace = True
+    #: The read-only workspace inlined into a prompt may hold at most this much
+    #: text (the ChatGPT plan provider's ``max_workspace_chars`` default: about
+    #: 100k tokens, well inside the pinned models' context windows). A larger
+    #: export refuses the turn: it is never cut short silently.
+    INLINE_WORKSPACE_MAX_CHARS = 400_000
+
+    def _inline_workspace(self, workspace: Path, prompt: str) -> str:
+        """``prompt`` followed by every file of ``workspace``, each recorded as served (round 3)."""
+
+        from learnloop.ai.chatgpt_plan.workspace import INSTRUCTIONS_INLINE, ServedWorkspace, WorkspaceTooLarge
+
+        workspace = workspace.resolve()
+        if not workspace.is_dir():
+            raise CodexUnavailable(f"Read-only workspace {workspace} is not a directory.")
+        if workspace == self.vault_root or workspace in self.vault_root.parents:
+            raise CodexLockdownUnavailable(
+                f"Read-only workspace {workspace} is the vault or contains it; a Codex turn never reads the vault."
+            )
+        self._last_workspace_activity = None
+        served = ServedWorkspace(workspace, max_entry_chars=self.INLINE_WORKSPACE_MAX_CHARS,
+                                 max_workspace_chars=self.INLINE_WORKSPACE_MAX_CHARS)
+        try:
+            block = served.inline_block()
+        except WorkspaceTooLarge as exc:
+            raise CodexUnavailable(f"The read-only workspace cannot be inlined into the Codex turn: {exc}") from None
+        # What the turn was shown: every file, recorded before it runs (the
+        # diagnosis input provenance maps these paths to the export's entries).
+        self._last_workspace_activity = served.activity()
+        return f"{prompt}\n\n{INSTRUCTIONS_INLINE}\n\n{block}"
 
     def _run_sdk_turn(
         self,

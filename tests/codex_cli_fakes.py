@@ -72,6 +72,10 @@ BUNDLED_TOOL_FIELDS = {
     "experimental_supported_tools": [],
     "node_repl_disabled": False,
     "include_apps_usage_instructions": True,
+    # Not tool fields: served through Responses Lite, with its own instructions
+    # (what `debug prompt-input` renders first in incremental form).
+    "use_responses_lite": True,
+    "base_instructions": "You are Codex (the fake CLI's bundled instructions).",
 }
 
 
@@ -246,7 +250,9 @@ elif command == "debug prompt-input":
     home = os.environ.get("CODEX_HOME") or os.path.join(os.environ.get("HOME", "/"), ".codex")
     print(json.dumps(render_prompt_input(overrides, cwd=str(Path.cwd()), codex_home=home,
                                          layers=spec.get("permission_layers") or {},
-                                         forced=spec.get("forced_permissions") or {})))
+                                         forced=spec.get("forced_permissions") or {},
+                                         skills=[tuple(pair) for pair in spec.get("skills") or ()],
+                                         forced_tools=spec.get("forced_tools") or ())))
 elif args[:1] == ["app-server"]:
     print(json.dumps({"launched": True, "servers_on": sorted(name for name, on in servers.items() if on),
                       "features_on": sorted(f for f in spec["features"] if f not in off),
@@ -260,11 +266,21 @@ else:
 
 
 _RENDERER = r'''
-def render_prompt_input(overrides, *, cwd, codex_home, layers=None, forced=None):
-    """`codex debug prompt-input`'s messages, as codex-cli 0.163.0 renders the permission profile."""
+def render_prompt_input(overrides, *, cwd, codex_home, layers=None, forced=None, skills=(), forced_tools=()):
+    """`codex debug prompt-input`'s items, as codex-cli 0.163.0 renders them.
+
+    The permission profile (the `-c` table of `default_permissions` over a
+    lower layer's, plus `forced`), the network policy, the skills the user
+    has (`skills`: (name, path) pairs, minus those `skills.config` disables by
+    name or path), and, with `features.incremental_tools=true` for a model
+    served through Responses Lite, the tools the pinned catalog's entry gives
+    (code mode exec/wait, shell, apply_patch, experimental tools, plus
+    `forced_tools`) as an `additional_tools` item followed by the model's
+    base instructions."""
 
     import json as _json
     import tomllib as _tomllib
+    from pathlib import Path as _Path
 
     values = {}
     for override in overrides:
@@ -293,10 +309,48 @@ def render_prompt_input(overrides, *, cwd, codex_home, layers=None, forced=None)
     permissions = ("<permissions instructions>\nFilesystem sandboxing defines which files can be read or written. "
                    "Network access is %s. Approval policy is currently never.\n</permissions instructions>"
                    % ("enabled" if network else "restricted"))
-    return [
-        {"type": "message", "role": "developer", "content": [{"type": "input_text", "text": permissions}]},
-        {"type": "message", "role": "user", "content": [{"type": "input_text", "text": context}]},
-    ]
+    items = []
+    catalog_path = values.get("model_catalog_json")
+    entry = {}
+    if catalog_path:
+        catalog = _json.loads(_Path(_json.loads(catalog_path)).read_text(encoding="utf-8"))
+        model = _json.loads(values["model"]) if "model" in values else None
+        chosen = [m for m in catalog.get("models", []) if not model or m.get("slug") == model]
+        entry = chosen[0] if chosen else {}
+    if values.get("features.incremental_tools") == "true" and entry.get("use_responses_lite"):
+        tools = []
+        if entry.get("tool_mode") in ("code_mode", "code_mode_only"):
+            tools += [{"type": "custom", "name": "exec"}, {"type": "function", "name": "wait"}]
+        if entry.get("shell_type") not in (None, "disabled") and values.get("features.shell_tool") != "false":
+            tools.append({"type": "function", "name": "exec_command"})
+        if entry.get("apply_patch_tool_type"):
+            tools.append({"type": "custom", "name": "apply_patch"})
+        tools += [{"type": "function", "name": tool} for tool in entry.get("experimental_supported_tools") or []]
+        tools += [{"type": "function", "name": tool} for tool in forced_tools]
+        if tools:
+            items.append({"type": "additional_tools", "role": "developer",
+                          "tools": [{"type": "namespace", "name": "functions", "description": "", "tools": tools}]})
+        items.append({"type": "message", "role": "developer",
+                      "content": [{"type": "input_text", "text": entry.get("base_instructions", "")}]})
+    items.append({"type": "message", "role": "developer", "content": [{"type": "input_text", "text": permissions}]})
+    disabled = set()
+    rules = values.get("skills.config")
+    if rules:
+        for rule in _tomllib.loads("t = " + rules)["t"]:
+            if rule.get("enabled") is False:
+                disabled.add(rule.get("name") or rule.get("path"))
+    listed = [(skill, path) for skill, path in skills if skill not in disabled and path not in disabled]
+    if listed:
+        root = str(_Path(listed[0][1]).parent.parent)
+        lines = ["<skills_instructions>", "## Skills", "### Skill roots", "- `r0` = `%s`" % root,
+                 "### Available skills"]
+        lines += ["- %s: A synthetic skill. (file: r0/%s)" % (skill, str(_Path(path).relative_to(root)))
+                  for skill, path in listed]
+        lines.append("</skills_instructions>")
+        items.append({"type": "message", "role": "developer",
+                      "content": [{"type": "input_text", "text": "\n".join(lines)}]})
+    items.append({"type": "message", "role": "user", "content": [{"type": "input_text", "text": context}]})
+    return items
 '''
 exec(_RENDERER)
 

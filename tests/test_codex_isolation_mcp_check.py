@@ -55,7 +55,7 @@ from learnloop.ai.transport import StructuredRequest
 from learnloop.config import CodexConfig
 from learnloop.diagnosis.offline_review.judge import LinkJudgment
 
-from learnloop.ai.providers.codex_lockdown import catalog_pin_path
+from learnloop.ai.providers.codex_lockdown import catalog_pin_path, readback_overrides
 
 from tests.codex_cli_fakes import fake_codex_calls, without_catalog_pin, write_fake_codex
 from tests.project_support import install_fake_codex_sdk
@@ -135,7 +135,8 @@ def test_plugin_servers_are_disabled_by_feature_and_config_servers_by_name(tmp_p
         ("features list", unpinned),
         ("debug models", unpinned),  # --bundled: the catalog validated and then pinned
         ("debug models", launched),  # the catalog the turn would use: the pinned one
-        ("debug prompt-input", launched),  # the effective permission profile
+        # the context the turn would get: its tools, skills and permission profile
+        ("debug prompt-input", [*launched, *readback_overrides(client.config.model)]),
     ]
     assert captured["spawned"]["returncode"] == 0
 
@@ -148,13 +149,13 @@ def test_a_read_only_workspace_turn_is_checked_under_its_own_overrides(tmp_path,
     workspace.mkdir()
     _isolated_turn(_client(tmp_path, program), workspace=workspace)
     (launched,) = _launches(log)
-    assert launched == isolated_turn_overrides(workspace.resolve(), shell=True,
+    # Round 3: the workspace is inlined; the turn runs tool-free in a scratch directory.
+    root = Path(captured["app_config"]["cwd"])
+    assert root.name.startswith("learnloop-isolated-turn-") and root != workspace.resolve()
+    assert launched == isolated_turn_overrides(root, shell=False,
                                                mcp_server_ids=("node_repl", "openaiDeveloperDocs"),
                                                model_catalog=catalog_pin_path(launched))
-    assert "features.shell_tool=false" not in launched
-    assert {without_catalog_pin(overrides) == without_catalog_pin(launched)
-            for probe, overrides in _probes(log)[1:]} == {True}
-    assert captured["app_config"]["cwd"] == str(workspace.resolve())
+    assert "features.shell_tool=false" in launched
 
 
 def test_without_servers_the_first_listing_is_the_check(tmp_path, monkeypatch):
@@ -167,7 +168,8 @@ def test_without_servers_the_first_listing_is_the_check(tmp_path, monkeypatch):
                                                model_catalog=catalog_pin_path(launched))
     unpinned = without_catalog_pin(launched)
     assert _probes(log) == [("mcp list", unpinned), ("features list", unpinned), ("debug models", unpinned),
-                            ("debug models", launched), ("debug prompt-input", launched)]
+                            ("debug models", launched),
+                            ("debug prompt-input", [*launched, *readback_overrides("gpt-5.6-sol")])]
 
 
 def test_the_old_cli_shape_still_disables_config_servers_by_name(tmp_path, monkeypatch):
@@ -287,9 +289,13 @@ def test_a_turn_that_did_not_ask_for_isolation_is_checked_and_locked_down_too(tm
 #: off wherever that layer can be read. It logs each probe and its directory.
 _LAYERED_CODEX = r"""#!/bin/sh
 pinned=
+catalog=
 while [ $# -gt 0 ]; do
   case "$1" in
-    -c|--config) [ "$2" = "mcp_servers.fsserver.enabled=false" ] && pinned=1; shift 2 ;;
+    -c|--config)
+      [ "$2" = "mcp_servers.fsserver.enabled=false" ] && pinned=1
+      case "$2" in model_catalog_json=*) catalog=$(printf '%s' "${2#model_catalog_json=}" | tr -d '"') ;; esac
+      shift 2 ;;
     *) break ;;
   esac
 done
@@ -300,8 +306,13 @@ enabled=true
 case "$1 $2" in
   "mcp list") printf '[{"name": "fsserver", "enabled": %s}]\n' "$enabled" ;;
   "features list") printf 'apps  stable  false\nplugins  stable  false\nmulti_agent  stable  false\n' ;;
-  "debug models") printf '{"models": [{"slug": "gpt-5.6-sol", "tool_mode": "code_mode_only"}]}\n' ;;
-  "debug prompt-input") printf '[{"type": "message", "role": "developer", "content": [{"type": "input_text", "text": "<permissions instructions>Network access is restricted.</permissions instructions>"}]}, {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "<permission_profile type=\\"managed\\"><file_system type=\\"restricted\\"><entry access=\\"read\\"><special>:minimal</special></entry><entry access=\\"read\\"><path>%s</path></entry></file_system></permission_profile>"}]}]\n' "$(pwd -P)" ;;
+  "debug models")
+    if [ "$3" = "--bundled" ] || [ -z "$catalog" ]; then
+      printf '{"models": [{"slug": "gpt-5.6-sol", "tool_mode": "code_mode_only", "use_responses_lite": true, "base_instructions": "B"}]}\n'
+    else
+      cat "$catalog"
+    fi ;;
+  "debug prompt-input") printf '[{"type": "message", "role": "developer", "content": [{"type": "input_text", "text": "B"}]}, {"type": "message", "role": "developer", "content": [{"type": "input_text", "text": "<permissions instructions>Network access is restricted.</permissions instructions>"}]}, {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "<permission_profile type=\\"managed\\"><file_system type=\\"restricted\\"><entry access=\\"read\\"><special>:minimal</special></entry><entry access=\\"read\\"><path>%s</path></entry></file_system></permission_profile>"}]}]\n' "$(pwd -P)" ;;
   *) exit 2 ;;
 esac
 """
@@ -395,7 +406,8 @@ def test_configuration_flags_after_app_server_are_checked_and_launched_as_one_se
     (launched,) = _launches(log)
     assert launched[:3] == ["features.apps=true", "mcp_servers.node_repl.enabled=true", "features.plugins=true"]
     unpinned = without_catalog_pin(launched)
-    assert [overrides for _probe, overrides in _probes(log)][1:] == [unpinned, unpinned, unpinned, launched, launched]
+    assert [overrides for _probe, overrides in _probes(log)][1:] == [
+        unpinned, unpinned, unpinned, launched, [*launched, *readback_overrides("gpt-5.6-sol")]]
 
 
 @pytest.mark.parametrize(

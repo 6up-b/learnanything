@@ -199,7 +199,9 @@ def test_every_codex_turn_starter_in_the_source_passes_deny_all_inside_the_locke
     assert outer.index("self._verified_isolated_overrides(") < outer.index("self._run_verified_sdk_turn(")
     # And the one turn path always asks for the isolated turn.
     run_structured = source[source.index("    def _run_structured("):source.index("    def _run_sdk_turn(")]
-    assert "isolated=True, workspace=workspace" in run_structured and "self.vault_root\n" not in run_structured
+    # Round 3: a workspace is inlined and the turn itself never gets one (no shell on any route).
+    assert "isolated=True, workspace=None" in run_structured and "self._inline_workspace(" in run_structured
+    assert "self.vault_root\n" not in run_structured
 
 
 # -- 2. every request shape: deny_all, the decline handler, the profile, never the vault ----
@@ -237,6 +239,7 @@ def test_every_request_runs_the_locked_down_profile_with_approvals_denied(tmp_pa
     client = _client(tmp_path, monkeypatch)
     workspace = tmp_path / "snapshot"
     workspace.mkdir()
+    (workspace / "INDEX.md").write_text("# history\n", encoding="utf-8")
     SHAPES[shape](client, workspace)
 
     # Approvals: deny_all on the thread and on the turn.
@@ -249,13 +252,16 @@ def test_every_request_runs_the_locked_down_profile_with_approvals_denied(tmp_pa
     assert sdk.server_request("item/commandExecution/requestApproval", {}) == {"decision": "decline"}
     assert sdk.server_request("item/fileChange/requestApproval", {}) == {"decision": "decline"}
 
-    # Never the vault: an empty directory of its own, or the snapshot workspace.
+    # Never the vault: always an empty directory of its own (round 3: the
+    # snapshot workspace is inlined into the prompt, never the turn's cwd).
     roots = {captured["app_config"]["cwd"], captured["thread_start"]["cwd"], captured["turns"][0]["cwd"]}
     (root,) = roots
     root = Path(root)
     assert root != client.vault_root and client.vault_root not in root.parents
-    shell = shape == "workspace"
-    assert root == (workspace.resolve() if shell else root) and (shell or root.name.startswith("learnloop-isolated-turn-"))
+    shell = False
+    assert root.name.startswith("learnloop-isolated-turn-")
+    if shape == "workspace":
+        assert '<workspace_file path="INDEX.md">' in captured["turns"][0]["prompt"]
     overrides = list(captured["app_config"]["config_overrides"])
     assert overrides == isolated_turn_overrides(root, shell=shell, mcp_server_ids=("node_repl",),
                                                 model_catalog=catalog_pin_path(overrides))
@@ -411,9 +417,11 @@ def test_an_item_without_a_type_is_never_text(tmp_path, monkeypatch):
         _plain(_client(tmp_path, monkeypatch))
 
 
-@pytest.mark.parametrize("kind, refused", [("commandExecution", False), ("fileChange", True),
+@pytest.mark.parametrize("kind, refused", [("commandExecution", True), ("fileChange", True),
                                            ("collabAgentToolCall", True), ("mcpToolCall", True)])
 def test_a_workspace_turn_may_only_add_commands(tmp_path, monkeypatch, kind, refused):
+    """Round 3: not even commands any more; a workspace turn is inlined and tool-free like every other."""
+
     _fake_sdk(monkeypatch, items=[{"type": kind, "command": "cat INDEX.md"}, *TEXT_ITEMS], usage=_usage(300, 100))
     workspace = tmp_path / "snapshot"
     workspace.mkdir()
@@ -829,41 +837,26 @@ def _project_layer(workspace: Path, *servers: str) -> None:
         "".join(f'[mcp_servers.{name}]\ncommand = "/bin/true"\n\n' for name in servers), encoding="utf-8")
 
 
-def test_editing_a_workspace_project_layer_runs_the_check_again(tmp_path, monkeypatch):
-    """F2: the edit adds an MCP server; the next turn must pin it off, not reuse the cached list."""
+def test_a_workspaces_own_project_layer_never_reaches_the_turn(tmp_path, monkeypatch):
+    """Round 3 supersedes F2 (a workspace-local MCP server and a cached check):
+    the workspace is inlined, the turn runs in a fresh scratch directory, so the
+    workspace's own `.codex/config.toml` is never a layer of the turn at all."""
 
     home = tmp_path / "codex-home"
     home.mkdir()
     monkeypatch.setenv("CODEX_HOME", str(home))
     program, log = write_fake_codex(tmp_path / "bin")
-    install_fake_codex_sdk(monkeypatch, final_response=ANSWER, spawn=True)
+    captured = install_fake_codex_sdk(monkeypatch, final_response=ANSWER, spawn=True)
     client = _check_client(tmp_path, program)
     workspace = tmp_path / "trusted-workspace"
-    _project_layer(workspace, "docs")
-    _workspace_turn(client, workspace)
-    assert "mcp_servers.docs.enabled=false" in _launched(log)[-1]
-    probes = _probe_count(log)
     _project_layer(workspace, "docs", "shell_bridge")
+    (workspace / "INDEX.md").write_text("# history\n", encoding="utf-8")
     _workspace_turn(client, workspace)
-    assert _probe_count(log) > probes, "the edited project layer reused the cached check"
-    launched = _launched(log)[-1]
-    assert "mcp_servers.docs.enabled=false" in launched and "mcp_servers.shell_bridge.enabled=false" in launched
-
-
-def test_a_sibling_workspace_with_other_mcp_servers_gets_its_own_check(tmp_path, monkeypatch):
-    home = tmp_path / "codex-home"
-    home.mkdir()
-    monkeypatch.setenv("CODEX_HOME", str(home))
-    program, log = write_fake_codex(tmp_path / "bin")
-    install_fake_codex_sdk(monkeypatch, final_response=ANSWER, spawn=True)
-    client = _check_client(tmp_path, program)
-    first, second = tmp_path / "workspaces" / "one", tmp_path / "workspaces" / "two"
-    _project_layer(first, "docs")
-    _project_layer(second, "fetcher")
-    _workspace_turn(client, first)
-    _workspace_turn(client, second)
-    launched = _launched(log)[-1]
-    assert "mcp_servers.fetcher.enabled=false" in launched and "mcp_servers.docs.enabled=false" not in launched
+    root = Path(captured["app_config"]["cwd"])
+    assert root.name.startswith("learnloop-isolated-turn-") and root != workspace.resolve()
+    assert json.loads(captured["spawned"]["stdout"])["servers_on"] == []
+    assert not [override for override in _launched(log)[-1] if "docs" in override or "shell_bridge" in override]
+    assert '<workspace_file path="INDEX.md">' in captured["turns"][0]["prompt"]
 
 
 def test_fresh_workspaces_without_a_project_layer_still_share_one_check(tmp_path, monkeypatch):
@@ -899,13 +892,11 @@ def _finishes(events: list[tuple[str, dict[str, Any]]], purpose: str) -> list[di
 
 
 def _two_command_rounds(sdk) -> None:
-    """A diagnosis workspace turn: two model requests (cumulative usage), a command between them."""
+    """One answered model request (round 3: every turn is tool-free, so a second request or a
+    command would be a violation; F3 is about an ordinary failure, without one)."""
 
-    sdk.notify("thread/tokenUsage/updated", threadId="thr_parent", turnId="turn_parent",
-               tokenUsage={"total": {"inputTokens": 1000, "outputTokens": 50, "totalTokens": 1050,
-                                     "cachedInputTokens": 200}})
     sdk.notify("item/completed", threadId="thr_parent", turnId="turn_parent",
-               item={"type": "commandExecution", "command": "cat INDEX.md"})
+               item={"type": "agentMessage", "phase": "final_answer", "text": ANSWER})
     sdk.notify("thread/tokenUsage/updated", threadId="thr_parent", turnId="turn_parent",
                tokenUsage={"total": {"inputTokens": 2300, "outputTokens": 120, "totalTokens": 2420,
                                      "cachedInputTokens": 900}})
@@ -913,7 +904,7 @@ def _two_command_rounds(sdk) -> None:
 
 @pytest.mark.parametrize("ending", ["sdk_timeout", "connection_closed", "learner_interrupt", "request_deadline"])
 def test_tokens_reported_before_an_ordinary_failure_reach_the_receipt_and_the_settle(tmp_path, monkeypatch, ending):
-    """F3: a workspace turn spends two requests, then fails without any lockdown violation."""
+    """F3: a turn spends a request, then fails without any lockdown violation."""
 
     events: list[tuple[str, dict[str, Any]]] = []
     settled: list[dict[str, Any]] = []
@@ -942,7 +933,6 @@ def test_tokens_reported_before_an_ordinary_failure_reach_the_receipt_and_the_se
         client.complete(request)
     (finish,) = _finishes(events, "diagnosis:sdk_turn")
     assert (finish["input_tokens"], finish["output_tokens"], finish["cached_input_tokens"]) == (2300, 120, 900)
-    assert finish["model_requests"] == 2
     (settle,) = [entry for entry in settled if entry["admission"] == "diagnosis:sdk_turn"]
     assert (settle["input_tokens"], settle["output_tokens"]) == (2300, 120)
     assert (client._usage_input_tokens, client._usage_output_tokens) == (2300, 120)

@@ -27,14 +27,20 @@ pure here and wired in by :mod:`learnloop.ai.providers.codex`:
   violation: the turn is stopped and its answer refused, never returned.
   Tokens of every thread are counted.
 
-Why config cannot remove everything (fix 5 of the investigation, not built):
-codex-cli 0.163.0 takes ``apply_patch`` and code mode (``exec``/``wait``) from
-the model's catalog entry, not from any feature. They are neutralized instead:
-a patch cannot write (the profile has no writable root, approvals are
-``never`` and every file-change request is declined) and any patch or code-mode
-round trip is a second model request or a tool item, which refuses the turn.
-Replacing the catalog would replace the model's served metadata (base
-instructions, reasoning defaults) on every route.
+Tool-free by construction (hardening round 3, 2026-10-21; the investigation's
+fix 5, built): codex-cli 0.163.0 takes ``apply_patch`` and code mode
+(``exec``/``wait``) from the model's catalog entry, not from any feature, so
+LearnLoop owns the catalog. Every turn is pinned (``model_catalog_json``) to
+the validated bundled catalog with every tool removed from every entry
+(:data:`TOOL_FREE_METADATA`, :func:`tool_free_catalog`); the model's
+instructions and other metadata are the bundled ones. The launch check reads
+the turn back: ``debug models`` must return exactly that catalog, and ``debug
+prompt-input`` in incremental form (:data:`READBACK_OVERRIDES`) must declare no
+tool, list no skill (:func:`skill_disable_overrides`) and show the permission
+profile. No route keeps a shell: a read-only workspace (the snapshot
+diagnosis) is inlined into the prompt by the transport. With no tool there is
+no tool call and no continuation; the item checks, the request count and the
+early stop stay as a backstop.
 """
 
 from __future__ import annotations
@@ -380,9 +386,193 @@ def catalog_violations(validated: Any, effective_stdout: str) -> list[str]:
     changed = sorted(str(slug) for slug, value in tools(effective).items() if tools(validated).get(slug) != value)
     detail = f" (experimental tools differ for {', '.join(changed)})" if changed else ""
     return [
-        "the model catalog the turn would use is not the bundled catalog the launch check validated: a "
-        f"configuration layer replaces it (model_catalog_json, a remote or cached catalog){detail}"
+        "the model catalog the turn would use is not the catalog the launch check pinned (the validated bundled "
+        "catalog with every tool removed): a configuration layer replaces it (model_catalog_json, a remote or "
+        f"cached catalog){detail}"
     ]
+
+
+# -- tool-free by construction (hardening round 3) --------------------------------------
+
+#: The catalog values that give a model no tool at all in codex-cli 0.163.0
+#: (``protocol/src/openai_models.rs`` ``ModelInfo``; ``core/src/tools``):
+#: ``tool_mode = direct`` (no code mode: ``requested_tool_mode`` takes the
+#: entry's value before any feature), no ``apply_patch``, ``shell_type =
+#: disabled``, no experimental tools, no tool search, sub-agents disabled, no
+#: Node REPL, and no usage instructions for skills, plugins or apps. Every
+#: other tool source is switched off by configuration
+#: (:data:`LOCKDOWN_DISABLED_FEATURES`, :func:`lockdown_config_overrides`). The
+#: catalog LearnLoop pins every turn to is the bundled one with these values
+#: in every entry; its instructions and other metadata are the bundled ones.
+TOOL_FREE_METADATA: dict[str, Any] = {
+    "tool_mode": "direct",
+    "apply_patch_tool_type": None,
+    "shell_type": "disabled",
+    "experimental_supported_tools": [],
+    "supports_search_tool": False,
+    "multi_agent_version": "disabled",
+    "node_repl_disabled": True,
+    "node_repl_auto_review_required": False,
+    "include_skills_usage_instructions": False,
+    "include_plugin_usage_instructions": False,
+    "include_apps_usage_instructions": False,
+}
+
+
+def tool_free_catalog(bundled_text: str) -> str:
+    """The bundled catalog (``debug models --bundled``) with every tool removed from every entry."""
+
+    try:
+        catalog = json.loads(bundled_text)
+    except ValueError:
+        catalog = None
+    entries = catalog.get("models") if isinstance(catalog, dict) else None
+    if not isinstance(entries, list) or not entries or not all(isinstance(entry, dict) for entry in entries):
+        raise CodexLockdownUnavailable(
+            "`codex debug models --bundled` did not return a model catalog to remove the tools from; "
+            "refusing the isolated turn."
+        )
+    for entry in entries:
+        entry.update(TOOL_FREE_METADATA)
+    return json.dumps(catalog, ensure_ascii=False, sort_keys=True)
+
+
+def tool_free_violations(catalog: Any, model: str | None) -> list[str]:
+    """Tool metadata of ``model``'s entry (every entry when empty) that is not :data:`TOOL_FREE_METADATA`."""
+
+    entries = catalog.get("models") if isinstance(catalog, dict) else None
+    if not isinstance(entries, list):
+        return ["the pinned catalog is not a model catalog"]
+    slug = (model or "").strip()
+    chosen = [entry for entry in entries if isinstance(entry, dict) and (not slug or entry.get("slug") == slug)]
+    if not chosen:
+        return [f"model {slug!r} is not in the pinned catalog"]
+    return [f"{entry.get('slug')}: {key}={entry.get(key, '<absent>')!r}"
+            for entry in chosen for key, value in TOOL_FREE_METADATA.items()
+            if key not in entry or entry[key] != value]
+
+
+#: Probe-only overrides of ``debug prompt-input`` (hardening round 3): with
+#: ``incremental_tools`` codex-cli 0.163.0 declares the model-visible tools as
+#: an ``additional_tools`` input item and moves the base instructions into the
+#: input, so the rendered input shows every tool the turn would offer, with
+#: no model request (``core/src/session/turn.rs`` ``build_prompt``). Only for
+#: models served through Responses Lite; for any other the tool list cannot be
+#: read back and the turn is refused. ``skills.max_context_tokens`` lets the
+#: skills catalog render in full, so every skill can be named and disabled.
+READBACK_OVERRIDES = ("features.incremental_tools=true", "skills.max_context_tokens=10000")
+
+
+def readback_overrides(model: str | None) -> list[str]:
+    overrides = list(READBACK_OVERRIDES)
+    if (model or "").strip():
+        overrides.append(f"model={json.dumps(model.strip())}")
+    return overrides
+
+
+def _prompt_items(prompt_input_stdout: str) -> list[Any] | None:
+    try:
+        items = json.loads(prompt_input_stdout)
+    except ValueError:
+        return None
+    return items if isinstance(items, list) else None
+
+
+def advertised_tool_violations(prompt_input_stdout: str, catalog: Any, model: str | None) -> list[str]:
+    """Every tool the turn would offer, read back from ``debug prompt-input`` (empty: none).
+
+    ``prompt_input_stdout`` is rendered with :func:`readback_overrides`. The
+    read-back counts only when it is in incremental form, which shows as the
+    first developer message being exactly the model's ``base_instructions``
+    from ``catalog`` (the pinned one); otherwise the tools were not rendered
+    and cannot be checked, which refuses too."""
+
+    items = _prompt_items(prompt_input_stdout)
+    if items is None:
+        return ["`codex debug prompt-input` did not return the turn's prompt input"]
+    entries = catalog.get("models") if isinstance(catalog, dict) else None
+    slug = (model or "").strip()
+    instructions = {entry.get("base_instructions") for entry in entries or ()
+                    if isinstance(entry, dict) and (not slug or entry.get("slug") == slug)
+                    and entry.get("use_responses_lite") is True and isinstance(entry.get("base_instructions"), str)}
+    problems: list[str] = []
+    first = next((item for item in items if isinstance(item, dict) and item.get("type") == "message"), None)
+    first_text = "".join(content.get("text", "") for content in (first or {}).get("content") or ()
+                         if isinstance(content, dict))
+    if first is None or first.get("role") != "developer" or first_text not in instructions:
+        problems.append(
+            "the turn's tools could not be read back (no incremental rendering: the model is not served through "
+            "Responses Lite, or its instructions are not the pinned catalog's)"
+        )
+    for item in items:
+        kind = item.get("type") if isinstance(item, dict) else None
+        if kind == "additional_tools":
+            names = _tool_names(item.get("tools"))
+            if names or item.get("tools"):
+                listed = ", ".join(names) or repr(item.get("tools"))
+                problems.append(f"the turn would offer tools: {listed}")
+        elif kind != "message":
+            problems.append(f"an input item of type {kind!r} this check does not know")
+    return problems
+
+
+def _tool_names(tools: Any) -> list[str]:
+    names: list[str] = []
+    for tool in tools if isinstance(tools, list) else ():
+        if not isinstance(tool, dict):
+            names.append(repr(tool))
+            continue
+        nested = tool.get("tools")
+        if isinstance(nested, list) and nested:
+            names += [f"{tool.get('name')}.{name}" for name in _tool_names(nested)]
+        else:
+            names.append(str(tool.get("name") or tool.get("type")))
+    return names
+
+
+_SKILLS_BLOCK = re.compile(r"<skills_instructions>(.*?)</skills_instructions>", re.S)
+_SKILL_ROOT = re.compile(r"^- `(r\d+)` = `([^`]+)`\s*$", re.M)
+_SKILL_ENTRY = re.compile(r"^- ([^:\n]+?): .*?\(file: (r\d+)/([^)\n]+)\)\s*$", re.M)
+
+
+def rendered_skills(prompt_input_stdout: str) -> list[tuple[str, str]] | None:
+    """The skills the turn's context lists, as ``(name, absolute SKILL.md path)``; None when unreadable.
+
+    A ``<skills_instructions>`` block whose entries this parser cannot read
+    returns None too (the caller refuses)."""
+
+    items = _prompt_items(prompt_input_stdout)
+    if items is None:
+        return None
+    skills: list[tuple[str, str]] = []
+    for text in _message_texts(items):
+        for block in _SKILLS_BLOCK.finditer(text):
+            body = block.group(1)
+            roots = dict(_SKILL_ROOT.findall(body))
+            entries = _SKILL_ENTRY.findall(body)
+            listed = [line for line in body.splitlines() if line.startswith("- ") and not _SKILL_ROOT.match(line)]
+            if len(entries) != len(listed):
+                return None
+            for name, root, relative in entries:
+                if root not in roots:
+                    return None
+                skills.append((name.strip(), str(Path(roots[root]) / relative)))
+    return skills
+
+
+def skill_disable_overrides(skills: Iterable[tuple[str, str]]) -> list[str]:
+    """``-c`` keys that leave a turn no skill: bundled skills off, and every listed skill disabled
+    by name and by path (a later ``-c`` layer's rule beats every config file's, codex-cli 0.163.0
+    ``skill_config_rules_from_stack``), so no ``$name`` or ``SKILL.md`` link in a prompt can expand one."""
+
+    overrides = ["skills.bundled.enabled=false"]
+    rules: list[str] = []
+    for name, path in sorted(set(skills)):
+        rules.append(f"{{name={json.dumps(name)}, enabled=false}}")
+        rules.append(f"{{path={json.dumps(path)}, enabled=false}}")
+    if rules:
+        overrides.append(f"skills.config=[{', '.join(rules)}]")
+    return overrides
 
 
 # -- the effective permission profile (hardening round 2, H1) ---------------------------
@@ -820,8 +1010,9 @@ def install_on_sdk(codex: Any, lockdown: TurnLockdown) -> None:
 # -- the launch check's cache ----------------------------------------------------------
 
 #: fingerprint -> (MCP servers pinned off by name, unclassified features switched
-#: off, the validated bundled catalog's exact text the turns are pinned to)
-_CHECK_CACHE: dict[str, tuple[tuple[str, ...], tuple[str, ...], str]] = {}
+#: off, the tool-free catalog's exact text the turns are pinned to, the skills
+#: disabled by name and path)
+_CHECK_CACHE: dict[str, tuple[tuple[str, ...], tuple[str, ...], str, tuple[tuple[str, str], ...]]] = {}
 _CHECK_CACHE_LOCK = threading.Lock()
 #: Codex configuration layers a launch can load besides the project ones.
 _SYSTEM_LAYERS = ("/etc/codex/config.toml", "/etc/codex/managed_config.toml", "/etc/codex/requirements.toml")
@@ -885,6 +1076,9 @@ def check_fingerprint(
         tuple(sorted((key, value) for key, value in environ.items() if key.startswith("CODEX_") or key == "HOME")),
         tuple(_stat_signature(codex_home / name) for name in _HOME_LAYERS),
         tuple(_stat_signature(Path(name)) for name in _SYSTEM_LAYERS),
+        # Skill roots (round 3): a skill added to any of them changes its
+        # directory, so the check finds and disables it before the next turn.
+        tuple(_stat_signature(path) for path in _skill_roots(environ)),
     ]
     resolved = Path(root).resolve()
     own = resolved / ".codex"
@@ -892,24 +1086,41 @@ def check_fingerprint(
         parts.append(("workspace layer", str(resolved), _stat_signature(own), _stat_signature(own / "config.toml")))
     else:
         parts.append(("workspace layer", None))
+    # The turn directory's own skill roots count only when present, so fresh
+    # scratch turns still share one check.
+    parts += [("workspace skills", name, _stat_signature(resolved / name))
+              for name in (".codex/skills", ".agents", ".agents/skills") if os.path.lexists(resolved / name)]
     for directory in resolved.parents:
         parts.append(_stat_signature(directory / ".codex"))
         parts.append(_stat_signature(directory / ".codex" / "config.toml"))
+        for name in (".codex/skills", ".agents", ".agents/skills"):
+            parts.append(_stat_signature(directory / name))
     return hashlib.sha256(json.dumps(parts, default=str).encode("utf-8")).hexdigest()
 
 
-def cached_check(key: str) -> tuple[tuple[str, ...], tuple[str, ...], str] | None:
-    """A passed launch check under ``key``: (servers pinned off, extra features off, pinned catalog)."""
+def _skill_roots(environ: Mapping[str, str]) -> list[Path]:
+    """Skill roots outside ``$CODEX_HOME`` that codex-cli 0.163.0 discovers (``ext/skills`` ``host_roots``)."""
+
+    roots = [Path("/etc/codex/skills")]
+    home = (environ.get("HOME") or "").strip()
+    if home:
+        roots += [Path(home) / ".agents", Path(home) / ".agents" / "skills"]
+    return roots
+
+
+def cached_check(key: str) -> tuple[tuple[str, ...], tuple[str, ...], str, tuple[tuple[str, str], ...]] | None:
+    """A passed launch check under ``key``: (servers pinned off, extra features off, pinned catalog, skills off)."""
 
     with _CHECK_CACHE_LOCK:
         return _CHECK_CACHE.get(key)
 
 
-def remember_check(key: str, pinned_servers: Iterable[str], extra_features: Iterable[str], catalog: str) -> None:
+def remember_check(key: str, pinned_servers: Iterable[str], extra_features: Iterable[str], catalog: str,
+                   skills: Iterable[tuple[str, str]] = ()) -> None:
     """Remember a launch check that passed (a refusal is never cached)."""
 
     with _CHECK_CACHE_LOCK:
-        _CHECK_CACHE[key] = (tuple(pinned_servers), tuple(extra_features), catalog)
+        _CHECK_CACHE[key] = (tuple(pinned_servers), tuple(extra_features), catalog, tuple(skills))
 
 
 def clear_check_cache() -> None:
@@ -920,6 +1131,14 @@ def clear_check_cache() -> None:
 
 
 __all__ = [
+    "READBACK_OVERRIDES",
+    "TOOL_FREE_METADATA",
+    "advertised_tool_violations",
+    "readback_overrides",
+    "rendered_skills",
+    "skill_disable_overrides",
+    "tool_free_catalog",
+    "tool_free_violations",
     "CATALOG_PIN_KEY",
     "CodexHttpTransportRefused",
     "CodexLockdownUnavailable",

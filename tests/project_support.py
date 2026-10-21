@@ -239,7 +239,8 @@ def project_fake(monkeypatch):
 
 
 def install_fake_codex_sdk(monkeypatch, *, final_response: str = '{"grades": []}', spawn: bool = False,
-                           launch_failure_raises: bool = False, turn_seconds: float = 0.0) -> dict[str, Any]:
+                           launch_failure_raises: bool = False, turn_seconds: float = 0.0,
+                           respond: Any = None) -> dict[str, Any]:
     """A stand-in ``openai_codex`` SDK that records what a turn is started with.
 
     It captures the ``CodexConfig`` kwargs (``codex_bin``,
@@ -253,6 +254,7 @@ def install_fake_codex_sdk(monkeypatch, *, final_response: str = '{"grades": []}
     SDK's ``Codex process closed stdout. stderr_tail=...``. With
     ``turn_seconds`` a turn takes that long to answer unless it is
     interrupted (or the app server closed) first, which makes it raise.
+    With ``respond`` (``prompt -> text``) a turn answers what it returns.
     """
 
     import sys
@@ -301,13 +303,16 @@ def install_fake_codex_sdk(monkeypatch, *, final_response: str = '{"grades": []}
     class FakeThread:
         def turn(self, prompt: str, **kwargs):
             captured["turns"].append({"prompt": prompt, **kwargs})
-            return FakeTurn()
+            return FakeTurn(prompt)
 
     class FakeTurn:
+        def __init__(self, prompt: str = "") -> None:
+            self.prompt = prompt
+
         def run(self):
             if turn_seconds and stopped.wait(timeout=turn_seconds):
                 raise RuntimeError("turn stopped")
-            return SimpleNamespace(final_response=final_response)
+            return SimpleNamespace(final_response=respond(self.prompt) if respond is not None else final_response)
 
         def interrupt(self):
             stopped.set()

@@ -238,16 +238,21 @@ def test_a_snapshot_turn_runs_under_the_profile_never_the_builtin_sandbox(tmp_pa
     client = _client(tmp_path, monkeypatch)
     workspace = tmp_path / "snapshot"
     workspace.mkdir()
+    (workspace / "INDEX.md").write_text("snapshot index\n", encoding="utf-8")
     assert client.supports(READ_ONLY_WORKSPACE) and client.supports(ISOLATED_TURN)
     client.complete(StructuredRequest(purpose="diagnosis", prompt="p", result_model=LinkJudgment, workspace=workspace, isolated=True))
     overrides = captured["app_config"]["config_overrides"]
-    assert overrides == tuple(isolated_turn_overrides(workspace.resolve(), shell=True, mcp_server_ids=("filesystem",),
+    # Tool lockdown round 3: the export is inlined; the turn runs tool-free in a scratch directory.
+    root = Path(captured["app_config"]["cwd"])
+    assert root.name.startswith("learnloop-isolated-turn-") and root != workspace.resolve()
+    assert overrides == tuple(isolated_turn_overrides(root, shell=False, mcp_server_ids=("filesystem",),
                                                       model_catalog=catalog_pin_path(overrides)))
     assert f'default_permissions="{ISOLATED_PROFILE}"' in overrides
-    assert "mcp_servers.filesystem.enabled=false" in overrides
+    assert "mcp_servers.filesystem.enabled=false" in overrides and "features.shell_tool=false" in overrides
     assert "sandbox" not in captured["thread_start"] and "sandbox_policy" not in captured["turn"]
     for cwd in (captured["app_config"]["cwd"], captured["thread_start"]["cwd"], captured["turn"]["cwd"]):
-        assert cwd == str(workspace.resolve())
+        assert cwd == str(root)
+    assert client.workspace_activity() == ["INDEX.md"]
 
 
 def test_an_isolated_turn_without_a_workspace_starts_in_an_empty_directory(tmp_path, monkeypatch):
