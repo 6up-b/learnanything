@@ -23,7 +23,13 @@ Run in the sidecar, on the compiled spec, before anything is stored as shown:
    and rejects every control with a plain ``False`` is a match (a control
    the check raised on, timed out on or gave no answer for rejected nothing),
    and only one definition may be named in ``equals_source``: the request's
-   one verifier call checks one, and the label is figure-wide.
+   one verifier call checks one, and the label is figure-wide. The check is
+   bound to what is displayed (:func:`displayed_source_problem`, structural,
+   no model): at least one series, readout or map cell is the checked
+   definition itself, and every series or readout whose label names the
+   source equation (the definition's name, or the quote's left-hand side)
+   is exactly that definition, by reference, with no transform; otherwise
+   the figure is an illustration whatever the check says.
 
 **Outcomes:** 1 and 2 and 3 pass: ``verified``. 3 alone fails (or cannot
 run: no sandbox, no verifier, the spend cap): ``illustrative``, labelled "not
@@ -36,6 +42,7 @@ from __future__ import annotations
 
 import itertools
 import math
+import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -378,15 +385,19 @@ def run_source_match(answer: str, check: SourceCheck, *, run: Callable[..., Any]
         return {"matched": False, "reason": "sandbox_failed", "error": result.error}
     checks = list(result.output.get("checks") or [])
     degenerate = bool((result.output.get("degenerate") or {}).get("check"))
+    # The sandbox's standard controls ("", nonsense, a far number): one the
+    # check answered with something not a boolean confirms nothing either.
+    standard_unclear = bool((result.output.get("inconclusive_controls") or {}).get("check"))
     if len(checks) != len(pairs):
         return {"matched": False, "reason": "sandbox_failed"}
+    # The harness never coerces an answer (fix round 2, F4): the candidate
+    # must be exactly True and each of our controls exactly False. A check
+    # that raised, timed out or answered None, 0, "" or anything not a
+    # boolean decided nothing, and the figure stays an illustration.
     accepted = checks[0] is True
-    # A control is rejected only by a plain False: a check that raised, timed
-    # out or answered nothing (None, or anything not a bool) rejected nothing
-    # (Codex review F4).
-    inconclusive = any(value is not True and value is not False for value in checks[1:])
+    inconclusive = standard_unclear or any(value is not True and value is not False for value in checks[1:])
     controls_rejected = all(value is False for value in checks[1:])
-    matched = accepted and controls_rejected and not degenerate
+    matched = accepted and controls_rejected and not degenerate and not standard_unclear
     reason = "" if matched else (
         "the spec's definition does not equal the source equation" if not accepted
         else "a negative control was inconclusive (the check raised or gave no answer)" if inconclusive
@@ -413,6 +424,70 @@ def equals_source_definition(compiled: S.CompiledFigure) -> str | None:
 
     names = equals_source_definitions(compiled)
     return names[0] if len(names) == 1 else None
+
+
+_LABEL_NOISE = re.compile(r"[\s\\{}$]")
+
+
+def _label_key(text: str) -> str:
+    return _LABEL_NOISE.sub("", str(text or ""))
+
+
+def _names_source(label: str, name: str, left_sides: Sequence[str]) -> bool:
+    """Whether a label names the source equation: the checked definition's
+    name as its first word (``f``, ``f(x)``, ``f_X(x)``; not ``frequency``),
+    or a source quote's left-hand side (``f_X(x)`` of "f_X(x) = ...")."""
+
+    key = _label_key(label)
+    if not key:
+        return False
+    if re.match(re.escape(name) + r"(?![A-Za-z0-9])", key):
+        return True
+    return any(key == side or key.startswith(side + "=") for side in left_sides)
+
+
+def _is_reference(node: G.Node | None, name: str) -> bool:
+    return node is not None and node.kind == "name" and node.text == name
+
+
+def displayed_source_problem(compiled: S.CompiledFigure, name: str,
+                             claims: Sequence[Mapping[str, Any]] = ()) -> str | None:
+    """Why the checked definition ``name`` is not what the figure displays
+    as the book's equation, or None (fix round 2, F3; structural, no model).
+
+    "Matches the book's equation (checked)" is a claim about what is drawn,
+    so the check must cover it: at least one series or readout (or a map's
+    cell) is ``name`` itself, and every plotted series and readout whose
+    label names the source equation (:func:`_names_source`) is exactly
+    ``name``, by reference, with no transform (``2*f`` labelled ``f(x)``
+    shows an equation nobody checked)."""
+
+    left_sides = []
+    for claim in claims:
+        quote = str(claim.get("quote") or "")
+        if claim.get("verified", True) and "=" in quote:
+            side = _label_key(quote.split("=", 1)[0])
+            if side:
+                left_sides.append(side)
+    shown = False
+    for panel in compiled.panels:
+        if panel.kind in ("function_plot", "pmf_bars"):
+            entries = list(zip([series.label for series in panel.model.series], panel.nodes.get("series") or []))
+        elif panel.kind == "readout":
+            entries = [(panel.model.label, panel.nodes.get("expr"))]
+        else:
+            cells = [cell for row in panel.nodes.get("matrix") or [] for cell in row]
+            shown = shown or any(_is_reference(cell, name) for cell in cells)
+            continue
+        for label, node in entries:
+            reference = _is_reference(node, name)
+            shown = shown or reference
+            if not reference and _names_source(label, name, left_sides):
+                return (f"{label!r} is labelled as the book's equation but draws something other than the "
+                        f"checked definition {name!r}")
+    if not shown:
+        return f"the figure draws no series or readout that is the checked definition {name!r}"
+    return None
 
 
 def decidable_predictions(compiled: S.CompiledFigure) -> tuple[list[int], list[int]]:
@@ -457,6 +532,7 @@ __all__ = [
     "check_claims",
     "check_invariant",
     "decidable_predictions",
+    "displayed_source_problem",
     "equals_source_definition",
     "equals_source_definitions",
     "independent_integral",

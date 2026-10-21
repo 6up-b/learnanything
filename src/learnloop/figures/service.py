@@ -139,15 +139,13 @@ def revisions_enabled(vault: Any) -> bool:
 
 def withheld_message(vault: Any, repository: Repository, extraction_id: str, span_ids: Sequence[str]) -> str | None:
     """The refusal when any of the spans (or the whole reading) is exam or
-    held-out material (``exam_material(...).withheld``), else None."""
+    held-out material (``exam_material(...).withheld``), else None: the
+    shared :func:`~learnloop.content.sources.exam_material.spans_withheld`,
+    which learner-text gaps ask too (fix round 2, F1)."""
 
-    from learnloop.content.sources.exam_material import exam_material, held_out_refusal
+    from learnloop.content.sources.exam_material import spans_withheld
 
-    material = exam_material(vault, repository)
-    spans = [str(span) for span in span_ids if span]
-    if material.covers(str(extraction_id)) or material.withheld([(str(extraction_id), span) for span in spans]):
-        return held_out_refusal(material.material, extraction_id)
-    return None
+    return spans_withheld(vault, repository, extraction_id, span_ids)
 
 
 def _figure_spans(row: Mapping[str, Any]) -> list[str]:
@@ -463,8 +461,14 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
     # made while one runs waits for it and takes its figure, with no call.
     with _building(repository, input_hash):
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            # Reread inside the lock (fix round 2, F7): a build that committed
+            # between the reads above left `reused` empty but `seen` naming
+            # its row, so only this read can tell its figure is reusable.
+            reused = store.reusable(connection, input_hash, S.SPEC_VERSION)
             latest = store.latest_for_input(connection, input_hash, S.SPEC_VERSION)
             generation = store.builds_for_input(connection, input_hash, S.SPEC_VERSION)
+        if reused is not None:
+            return _reused(vault, repository, reused)
         if latest is not None and (seen is None or latest["id"] != seen["id"]):
             return _reused(vault, repository, latest)
         # The request's identity is its input and its retry generation, never
@@ -639,6 +643,13 @@ def _source_match(vault: Any, repository: Repository, compiled: S.CompiledFigure
     (name,) = names
     if not any(claim["verified"] for claim in claims):
         return {"matched": False, "reason": "no quote of the book's equation was found in the passage"}, 0
+    # The check is of one definition; the label is about what is drawn. A
+    # figure that draws something else under the book's equation's name is
+    # an illustration whatever a check would say, so no call is made (fix
+    # round 2, F3).
+    unbound = V.displayed_source_problem(compiled, name, claims)
+    if unbound is not None:
+        return {"matched": False, "definition": name, "reason": unbound}, 0
     verifier = R.FigureRoute(vault, repository, R.VERIFIER_TASK, client=client, envelope=envelope,
                              owner_id=f"figure:{request_id}", max_calls=R.MAX_VERIFIER_CALLS)
     problem = verifier.problem()

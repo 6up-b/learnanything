@@ -247,6 +247,12 @@ def _expressions() -> list[dict[str, Any]]:
     add("sum_fractional_bounds", "sum(k, k, 0.5, 3.5)", reference=6.0)
     add("sum_empty", "sum(k, k, 3, 1)", reference=0.0)
     add("sum_geometric", "sum(0.5^k, k, 0, 60)", reference=2.0 - 0.5 ** 60)
+    # Fix round 2: a computed bound past the safe integers sums to NaN (a
+    # stepped loop would never end in a double); just inside it, the terms
+    # are counted exactly.
+    add("sum_bound_past_safe_integers", "sum(1, k, n, n + 2)", scope={**env, "n": 1e20}, reference=math.nan)
+    add("sum_bound_near_safe_integers", "sum(1, k, n, n + 2)", scope={**env, "n": 9007199254740000.0},
+        reference=3.0)
     add("integral_polynomial", "integral(t^2, t, 0, 3)", reference=9.0, integral=True)
     add("integral_reversed", "integral(t, t, 1, 0)", reference=-0.5, integral=True)
     add("integral_param_bounds", "integral(exp(-t), t, 0, b)", reference=1 - math.exp(-3.0), integral=True)
@@ -294,6 +300,9 @@ def _rejected() -> list[dict[str, Any]]:
         ("backslash", "\\frac{1}{2}"), ("braces", "{1}"), ("dollar", "$x"), ("too_long", "1" + "+1" * 1000),
         ("too_deep", deep), ("too_many_nodes", many), ("long_name", "a" * 33), ("implicit_product", "2x"),
         ("double_number", "1 2"), ("comma_top", "1, 2"), ("caret_alone", "^2"), ("nan_literal", "nan"),
+        # Fix round 2: a literal sum bound past Number.MAX_SAFE_INTEGER.
+        ("sum_bound_past_safe_integers", "sum(1, k, 1e20, 1e20)"),
+        ("sum_negative_bound_past_safe_integers", "sum(k, k, -9007199254740993, 0)"),
     ]
     rows = [{"id": case_id, "expr": expr, "stage": "parse", "known": [], "definitions": []} for case_id, expr in cases]
     # Words that are names parse; they are refused as unknown names.
@@ -326,12 +335,16 @@ def _rejected_figures() -> list[dict[str, Any]]:
     shade["panels"][0]["shade"][0]["series"] = "no such series"
     axis_in_readout = flagship_spec()
     axis_in_readout["panels"][1]["expr"] = "f"
+    # Fix round 2: a PMF support past the safe integers (k + 1 == k there).
+    unsafe_support = pmf_spec()
+    unsafe_support["panels"][0]["k"] = {"var": "k", "min": 9007199254740992, "max": 9007199254741000}
     return [
         {"id": "unknown_name_in_series", "spec": unknown},
         {"id": "nested_integral_through_definition", "spec": nested},
         {"id": "reserved_parameter_name", "spec": reserved},
         {"id": "shade_names_no_series", "spec": shade},
         {"id": "readout_needs_the_axis", "spec": axis_in_readout},
+        {"id": "pmf_support_past_safe_integers", "spec": unsafe_support},
         {"id": "binomial_nested_sums", "spec": binomial_spec()},
         {"id": "binomial_unknown_names", "spec": binomial_spec_flat()},
     ]

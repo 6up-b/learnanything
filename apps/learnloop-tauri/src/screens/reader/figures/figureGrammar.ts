@@ -14,6 +14,11 @@ export const MAX_DEPTH = 40;
 export const MAX_EXPANDED_NODES = 4000;
 export const MAX_NAME_CHARS = 32;
 export const MAX_SUM_TERMS = 10001;
+// A sum's bounds and a PMF's support are integers a double counts exactly:
+// past Number.MAX_SAFE_INTEGER, k + 1 === k and a stepped loop never ends.
+// A literal bound past it is refused when parsed, a computed one sums to NaN,
+// and every loop counts its terms (fix round 2; the Python twin's rule).
+export const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
 export const SIMPSON_EPS = 1e-10;
 export const SIMPSON_MIN_LEVEL = 3;
 export const SIMPSON_MAX_LEVEL = 24;
@@ -279,6 +284,14 @@ class Parser {
     this.expect(",");
     const upper = this.expression(depth + 1);
     this.expect(")");
+    if (name === "sum") {
+      for (const bound of [lower, upper]) {
+        const literal = bound.kind === "neg" ? bound.args[0] : bound;
+        if (literal.kind === "num" && literal.value > MAX_SAFE_INTEGER) {
+          throw new FigureGrammarError(`a sum's bounds must lie within ±${MAX_SAFE_INTEGER}`);
+        }
+      }
+    }
     return this.node(name, depth, { text: variable, args: [body, lower, upper] });
   }
 }
@@ -502,9 +515,12 @@ export function exactSum(fn: (k: number) => number, a: number, b: number): numbe
   const low = Math.ceil(a - 1e-9);
   const high = Math.floor(b + 1e-9);
   if (high < low) return 0;
-  if (high - low + 1 > MAX_SUM_TERMS) return NaN;
+  if (Math.abs(low) > MAX_SAFE_INTEGER || Math.abs(high) > MAX_SAFE_INTEGER) return NaN;
+  const count = high - low + 1;
+  if (count > MAX_SUM_TERMS) return NaN;
   let total = 0;
-  for (let k = low; k <= high; k += 1) total += fn(k);
+  // Counted, not stepped: at most MAX_SUM_TERMS terms whatever the bounds.
+  for (let index = 0; index < count; index += 1) total += fn(low + index);
   return total;
 }
 

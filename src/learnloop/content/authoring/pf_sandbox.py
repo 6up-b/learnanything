@@ -223,6 +223,22 @@ def describe(exc):
     return type(exc).__name__ + ": " + str(exc)[:300]
 
 
+_BOOLEAN_TYPES = {("numpy", "bool_"), ("numpy", "bool"), ("sympy", "BooleanTrue"), ("sympy", "BooleanFalse")}
+
+
+def verdict(value):
+    # A check's answer is True or False only when it is a boolean (Python's,
+    # or numpy's or sympy's boolean singletons); anything else (None, 0, "",
+    # a number, an unevaluated relation) is inconclusive, never coerced
+    # (fix round 2, F4).
+    if value is True or value is False:
+        return value
+    kind = type(value)
+    if (kind.__module__.split(".")[0], kind.__name__) in _BOOLEAN_TYPES:
+        return bool(value)
+    return None
+
+
 with open(workdir + "/input.json", encoding="utf-8") as handle:
     payload = json.load(handle)
 mode = payload["mode"]
@@ -247,16 +263,18 @@ if mode in ("test", "check"):
                     if not isinstance(draw.get(key), kind):
                         raise TypeError("draw field %s must be %s" % (key, kind.__name__))
                 entry["draw"] = draw
-                entry["self_check"] = bool(bounded(payload.get("per_call_seconds", 5),
-                                                   program.check, draw, draw["final_answer"]))
+                entry["self_check"] = verdict(bounded(payload.get("per_call_seconds", 5),
+                                                      program.check, draw, draw["final_answer"]))
                 controls = []
                 for wrong in payload.get("negative_controls", []):
                     try:
-                        controls.append(bool(bounded(payload.get("per_call_seconds", 5),
-                                                     program.check, draw, wrong)))
+                        controls.append(verdict(bounded(payload.get("per_call_seconds", 5),
+                                                        program.check, draw, wrong)))
                     except BaseException:
+                        # A check that cannot read a wrong answer rejects it.
                         controls.append(False)
-                entry["negative_controls_rejected"] = not any(controls)
+                entry["negative_controls_rejected"] = all(value is False for value in controls)
+                entry["negative_controls_inconclusive"] = any(value is None for value in controls)
                 entry["normal_form"] = normal_form(draw["final_answer"])
             except BaseException as exc:
                 entry["error"] = describe(exc)
@@ -266,8 +284,8 @@ if mode in ("test", "check"):
         checks = []
         for pair in payload["pairs"]:
             try:
-                checks.append(bool(bounded(payload.get("per_call_seconds", 5),
-                                           program.check, pair["draw"], pair["answer"])))
+                checks.append(verdict(bounded(payload.get("per_call_seconds", 5),
+                                              program.check, pair["draw"], pair["answer"])))
             except BaseException as exc:
                 checks.append(None)
         result["checks"] = checks
@@ -285,26 +303,32 @@ elif mode == "equivalence":
             checks.append(None)
             continue
         try:
-            checks.append(bool(bounded(payload.get("per_call_seconds", 5), module.check,
-                                       pair["reference"], pair["answer"])))
+            checks.append(verdict(bounded(payload.get("per_call_seconds", 5), module.check,
+                                          pair["reference"], pair["answer"])))
         except BaseException:
             checks.append(None)
     # Negative controls: a check that accepts a wrong answer for any of its
-    # references is degenerate (e.g. always True) and confirms nothing.
-    degenerate = {}
+    # references is degenerate (e.g. always True) and confirms nothing; one
+    # that answers a wrong answer with something not a boolean is
+    # inconclusive and confirms nothing either. A check that raises on a
+    # wrong answer rejects it.
+    degenerate, inconclusive = {}, {}
     for name, module in loaded.items():
         references = {pair["reference"] for pair in payload["pairs"] if pair["program"] == name}
-        accepted = False
+        accepted, unclear = False, False
         for reference in references:
             for wrong in payload.get("negative_controls", []):
                 try:
-                    accepted = accepted or bool(bounded(payload.get("per_call_seconds", 5),
-                                                        module.check, reference, wrong))
+                    answer = verdict(bounded(payload.get("per_call_seconds", 5), module.check, reference, wrong))
                 except BaseException:
-                    pass
+                    continue
+                accepted = accepted or answer is True
+                unclear = unclear or answer is None
         degenerate[name] = accepted
+        inconclusive[name] = unclear
     result["checks"] = checks
     result["degenerate"] = degenerate
+    result["inconclusive_controls"] = inconclusive
     result["import_errors"] = errors
     result["normal_forms"] = {key: normal_form(value)
                               for key, value in payload.get("normal_forms", {}).items()}
@@ -357,8 +381,9 @@ def run_equivalence_checks(
     if result.ok and isinstance(result.output, dict):
         # Report degenerate checks under the caller's program names.
         inverse = {module: name for name, module in names.items()}
-        result.output["degenerate"] = {inverse.get(module, module): flag for module, flag
-                                       in (result.output.get("degenerate") or {}).items()}
+        for key in ("degenerate", "inconclusive_controls"):
+            result.output[key] = {inverse.get(module, module): flag for module, flag
+                                  in (result.output.get(key) or {}).items()}
     return result
 
 
@@ -368,13 +393,19 @@ def equivalence_confirmations(result: SandboxResult, count: int, *,
 
     A check that accepts a negative control (e.g. always True) confirms
     nothing: every pair is then ``False``. A failed sandbox run confirms
-    nothing either (``None`` per pair). Every caller of
-    :func:`run_equivalence_checks` decides agreement through this function.
+    nothing either (``None`` per pair), nor does a check whose answer to a
+    negative control is not a boolean (``inconclusive_controls``: ``None``
+    per pair, fix round 2 F4). The harness never coerces an answer, so a
+    pair's value is ``True``/``False`` only for a boolean answer and
+    ``None`` otherwise. Every caller of :func:`run_equivalence_checks`
+    decides agreement through this function.
     """
     if not result.ok or not isinstance(result.output, dict):
         return [None] * count, False
     if (result.output.get("degenerate") or {}).get(program):
         return [False] * count, True
+    if (result.output.get("inconclusive_controls") or {}).get(program):
+        return [None] * count, False
     checks = list(result.output.get("checks") or [])
     if len(checks) != count:
         return [None] * count, False

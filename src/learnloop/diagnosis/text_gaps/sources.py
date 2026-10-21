@@ -38,6 +38,7 @@ import json
 from typing import Any, Protocol
 
 from learnloop.attempts import stuck as stuck_module
+from learnloop.content.sources.exam_material import spans_withheld
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.text_gaps.contract import GapReading, LearnerText
@@ -425,7 +426,8 @@ def figure_prediction_row(repository: Repository, source_id: str) -> dict[str, A
             return None
         row = connection.execute(
             "SELECT p.id, p.figure_id, p.extraction_id, p.prediction_index, p.learner_answer, p.observed_json, "
-            "p.matched, p.explanation_text, p.created_at, f.spec_json, f.span_ids_json, f.region_json "
+            "p.matched, p.explanation_text, p.created_at, f.spec_json, f.span_ids_json, f.region_json, "
+            "f.input_span_ids_json, f.asset_id "
             "FROM figure_predictions AS p JOIN interactive_figures AS f ON f.id = p.figure_id WHERE p.id = ?",
             (prediction_id,)).fetchone()
     if row is None or int(row[6]) != 0 or not str(row[4] or "").strip():
@@ -433,8 +435,49 @@ def figure_prediction_row(repository: Repository, source_id: str) -> dict[str, A
     if explained and not str(row[7] or "").strip():
         return None
     keys = ("id", "figure_id", "extraction_id", "prediction_index", "learner_answer", "observed_json", "matched",
-            "explanation_text", "created_at", "spec_json", "span_ids_json", "region_json")
+            "explanation_text", "created_at", "spec_json", "span_ids_json", "region_json", "input_span_ids_json",
+            "asset_id")
     return {**dict(zip(keys, row)), "source_id": str(source_id)}
+
+
+def figure_input_manifest(row: Mapping[str, Any]) -> list[str] | None:
+    """Every span a figure was built from and its author was sent, or None
+    when the stored lists are unreadable (a caller fails closed): the
+    selection, the region's block, the crop's block and ``input_span_ids``
+    (the paragraphs around it). The figure service rechecks the same list
+    (``figures.service._figure_spans``; Codex review F1)."""
+
+    try:
+        spans = [str(span) for span in json.loads(row.get("span_ids_json") or "[]")]
+        region = json.loads(row.get("region_json") or "null") or {}
+        manifest = json.loads(row.get("input_span_ids_json") or "[]")
+        if not isinstance(region, dict) or not isinstance(manifest, list):
+            return None
+        if region.get("span_id"):
+            spans.append(str(region["span_id"]))
+        if row.get("asset_id"):
+            spans.append(str(row["asset_id"]))
+        spans += [str(span) for span in manifest]
+    except (TypeError, ValueError):
+        return None
+    return list(dict.fromkeys(spans))
+
+
+class SourceWithheld(Exception):
+    """A learner text whose context is held-out material now: nothing of it
+    is built or sent, and its job is skipped (not retried) with this reason."""
+
+
+def figure_prediction_withheld(vault: LoadedVault, repository: Repository, row: Mapping[str, Any]) -> str | None:
+    """Why a missed prediction's text may not be read now, or None: any span
+    of its figure's complete input manifest is held out (the figure service's
+    one predicate, ``exam_material.spans_withheld``), or the manifest is
+    unreadable (fails closed). Fix round 2, F1."""
+
+    manifest = figure_input_manifest(row)
+    if manifest is None:
+        return "the figure's input spans are unreadable"
+    return spans_withheld(vault, repository, str(row["extraction_id"]), manifest)
 
 
 def missed_prediction_ids(repository: Repository) -> list[str]:
@@ -444,6 +487,20 @@ def missed_prediction_ids(repository: Repository) -> list[str]:
             return []
         return [str(row[0]) for row in connection.execute(
             "SELECT id FROM figure_predictions WHERE matched = 0 AND TRIM(learner_answer) != '' ORDER BY created_at, id")]
+
+
+def explained_predictions(repository: Repository) -> list[tuple[str, str]]:
+    """``(prediction id, its "what changed?" text)`` for every missed
+    prediction with an answer and an explanation, oldest first: what the
+    backlog sweep reconciles (fix round 2, F5)."""
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        if not connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'figure_predictions'"
+                                  ).fetchone():
+            return []
+        return [(str(row[0]), str(row[1]).strip()) for row in connection.execute(
+            "SELECT id, explanation_text FROM figure_predictions WHERE matched = 0 AND TRIM(learner_answer) != '' "
+            "AND TRIM(COALESCE(explanation_text, '')) != '' ORDER BY created_at, id")]
 
 
 def figure_prediction_spans(row: Mapping[str, Any]) -> list[str]:
@@ -466,11 +523,19 @@ def figure_prediction_text(vault: LoadedVault, repository: Repository, predictio
     The text is the learner's answer and, when they wrote one, their "what
     changed?" line; the context is the prediction's question, the passage the
     figure was built from, and what the figure showed (computed by code, not
-    the book's words). The LOs are the passage's provenance-linked ones."""
+    the book's words). The LOs are the passage's provenance-linked ones.
+
+    Before anything is built, the figure's complete input manifest is
+    checked against held-out material now: a figure any of whose spans is
+    held out raises :class:`SourceWithheld`, so neither the passage, the
+    question nor the readout reaches the gap reader (fix round 2, F1)."""
 
     row = figure_prediction_row(repository, prediction_id)
     if row is None:
         return None
+    withheld = figure_prediction_withheld(vault, repository, row)
+    if withheld is not None:
+        raise SourceWithheld(withheld)
     try:
         spec = json.loads(row.get("spec_json") or "{}")
         prediction = (spec.get("predictions") or [])[int(row["prediction_index"])]
@@ -889,13 +954,17 @@ __all__ = [
     "DEFAULT_STUCK_SOURCE",
     "StuckAnswersAdapter",
     "StuckText",
+    "SourceWithheld",
     "StuckTextSource",
     "diagnosis_text",
     "FIGURE_EXPLANATION_SUFFIX",
     "FIGURE_PREDICTION_PREFIX",
+    "explained_predictions",
+    "figure_input_manifest",
     "figure_prediction_id",
     "figure_prediction_row",
     "figure_prediction_text",
+    "figure_prediction_withheld",
     "formative_row",
     "is_figure_prediction",
     "hint_feedback_ids",

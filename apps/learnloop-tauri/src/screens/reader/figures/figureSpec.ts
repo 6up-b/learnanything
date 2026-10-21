@@ -11,6 +11,7 @@
 import {
   CONSTANTS,
   FigureGrammarError,
+  MAX_SAFE_INTEGER,
   RESERVED,
   adaptiveSimpson,
   checkNames,
@@ -28,6 +29,8 @@ export const SPEC_VERSION = "ifs-v1";
 export const SAMPLES = 120;
 export const DIRECTIONS = ["rises", "falls", "same"] as const;
 export const SAME_TOLERANCE = 1e-6;
+// At most this many PMF bars (the Python twin's MAX_BARS).
+export const MAX_BARS = 200;
 
 export interface FigureParameter { name: string; label: string; min: number; max: number; step: number; default: number; animate?: boolean }
 export interface FigureAxis { var: string; min: number; max: number }
@@ -186,6 +189,13 @@ export function compileSpec(raw: FigureSpec | string): CompiledFigure {
     if (panel.kind === "function_plot" || panel.kind === "pmf_bars") {
       const axis = panel.kind === "function_plot" ? panel.x : panel.k;
       if (!(Number.isFinite(axis.min) && Number.isFinite(axis.max) && axis.min < axis.max)) problem(`${where}: its range must be finite with min below max`);
+      if (panel.kind === "pmf_bars" && Number.isFinite(axis.min) && Number.isFinite(axis.max)) {
+        // The Python twin's checks, in its order (fix round 2): past the safe
+        // integers k + 1 === k, so the bars' loop would never end.
+        if (axis.min !== Math.floor(axis.min) || axis.max !== Math.floor(axis.max)) problem(`${where}: k's range must be whole numbers`);
+        else if (Math.abs(axis.min) > MAX_SAFE_INTEGER || Math.abs(axis.max) > MAX_SAFE_INTEGER) problem(`${where}: k's range must lie within ±${MAX_SAFE_INTEGER}`);
+        else if (axis.max - axis.min + 1 > MAX_BARS) problem(`${where}: at most ${MAX_BARS} bars`);
+      }
       const allowed = new Set([...params, axis.var]);
       const labels = panel.series.map((series) => series.label);
       nodes.series = panel.series.map((series) => expr(`${where} series ${series.label}`, series.expr, allowed));
@@ -248,9 +258,12 @@ export function plotXs(axis: FigureAxis): number[] {
   return Array.from({ length: SAMPLES + 1 }, (_, i) => axis.min + ((axis.max - axis.min) * i) / SAMPLES);
 }
 
+/** The bars' k values: counted from the support's start, at most MAX_BARS of them (compileSpec refuses more). */
 export function barKs(axis: FigureAxis): number[] {
+  const low = Math.trunc(axis.min);
+  const count = Math.max(0, Math.min(Math.trunc(axis.max) - low + 1, MAX_BARS));
   const ks: number[] = [];
-  for (let k = Math.trunc(axis.min); k <= Math.trunc(axis.max); k += 1) ks.push(k);
+  for (let index = 0; index < count; index += 1) ks.push(low + index);
   return ks;
 }
 

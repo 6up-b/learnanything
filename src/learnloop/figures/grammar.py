@@ -25,7 +25,9 @@ walking it; nothing reaches ``eval``, ``exec`` or ``compile``. The grammar:
 **Caps** (:data:`MAX_EXPR_CHARS`, :data:`MAX_NODES`, :data:`MAX_DEPTH`): on
 length, node count and nesting; no integral or sum inside an integral or sum,
 counted after definitions are expanded (:func:`check_names`); at most
-:data:`MAX_SUM_TERMS` terms in a sum; an integral evaluates its body at most
+:data:`MAX_SUM_TERMS` terms in a sum, whose bounds are integers within
+:data:`MAX_SAFE_INTEGER` (a literal past it is refused when parsed, a
+computed one sums to NaN); an integral evaluates its body at most
 :data:`MAX_INTEGRAND_EVALS` times.
 
 **Arithmetic follows IEEE doubles as JavaScript does** (``1/0`` is
@@ -51,6 +53,10 @@ MAX_DEPTH = 40
 MAX_EXPANDED_NODES = 4_000
 MAX_NAME_CHARS = 32
 MAX_SUM_TERMS = 10_001
+#: A sum's bounds and a PMF's support are integers JavaScript counts exactly
+#: (Number.MAX_SAFE_INTEGER, as in figureGrammar.ts): past it k + 1 == k in a
+#: double, so a loop over them would never end (fix round 2).
+MAX_SAFE_INTEGER = 2 ** 53 - 1
 #: The adaptive Simpson rule (identical in figureGrammar.ts): the tolerance
 #: halves per level; a panel stops at MAX_LEVEL, never before MIN_LEVEL.
 SIMPSON_EPS = 1e-10
@@ -323,6 +329,11 @@ class _Parser:
         self._expect(",")
         upper = self.expression(depth + 1)
         self._expect(")")
+        if name == "sum":
+            for bound in (lower, upper):
+                literal = bound.args[0] if bound.kind == "neg" else bound
+                if literal.kind == "num" and literal.value > MAX_SAFE_INTEGER:
+                    raise GrammarError(f"a sum's bounds must lie within ±{MAX_SAFE_INTEGER}")
         return self._node(name, depth, text=variable, args=(body, lower, upper))
 
 
@@ -558,7 +569,8 @@ def _simpson_step(f: Any, a: float, b: float, fa: float, fm: float, fb: float, w
 def exact_sum(function: Any, a: float, b: float) -> float:
     """``function(k)`` summed in order over the integers ``ceil(a) .. floor(b)``
     (a 1e-9 slack on each bound, as in figureGrammar.ts); NaN past
-    :data:`MAX_SUM_TERMS` terms or for a bound that is not finite."""
+    :data:`MAX_SUM_TERMS` terms, for a bound that is not finite, or for one
+    past :data:`MAX_SAFE_INTEGER` (fix round 2). The loop counts its terms."""
 
     if not (_finite(a) and _finite(b)):
         return NAN
@@ -566,11 +578,15 @@ def exact_sum(function: Any, a: float, b: float) -> float:
     high = math.floor(b + 1e-9)
     if high < low:
         return 0.0
-    if high - low + 1 > MAX_SUM_TERMS:
+    if abs(low) > MAX_SAFE_INTEGER or abs(high) > MAX_SAFE_INTEGER:
+        return NAN
+    count = int(high - low + 1)
+    if count > MAX_SUM_TERMS:
         return NAN
     total = 0.0
-    for k in range(int(low), int(high) + 1):
-        total += function(float(k))
+    # Counted, not stepped: at most MAX_SUM_TERMS terms whatever the bounds.
+    for index in range(count):
+        total += function(float(low + index))
     return total
 
 
@@ -706,6 +722,7 @@ __all__ = [
     "MAX_DEPTH",
     "MAX_EXPR_CHARS",
     "MAX_NODES",
+    "MAX_SAFE_INTEGER",
     "MAX_SUM_TERMS",
     "Node",
     "RESERVED",

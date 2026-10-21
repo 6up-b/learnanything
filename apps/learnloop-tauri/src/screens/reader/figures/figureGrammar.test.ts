@@ -10,13 +10,15 @@ import { describe, expect, it } from "vitest";
 import corpus from "./figureGoldenCorpus.json";
 import {
   FigureGrammarError,
+  MAX_SAFE_INTEGER,
   checkNames,
   evaluate,
+  exactSum,
   parseExpression,
   type Definitions,
   type FigureNode,
 } from "./figureGrammar";
-import { compileSpec, evaluateFigure, expandedFree, type FigureSpec } from "./figureSpec";
+import { MAX_BARS, barKs, compileSpec, evaluateFigure, expandedFree, type FigureSpec } from "./figureSpec";
 
 type Encoded = number | string | null;
 const decode = (value: Encoded): number | null =>
@@ -181,4 +183,26 @@ it("G21 lint: nothing in the figure renderer builds or runs code from text", () 
       expect(banned.test(source), `${file} matches ${banned}`).toBe(false);
     }
   }
+});
+
+describe("integer bounds (fix round 2)", () => {
+  it("counts a sum's terms near the safe integers and gives NaN past them", () => {
+    const seen: number[] = [];
+    const term = (k: number) => {
+      seen.push(k);
+      return 1;
+    };
+    const top = MAX_SAFE_INTEGER;
+    expect(exactSum(term, top - 2, top)).toBe(3);
+    expect(seen).toEqual([top - 2, top - 1, top]);
+    expect(Number.isNaN(exactSum(term, 1e20, 1e20 + 2))).toBe(true);
+    expect(() => parseExpression("sum(1, k, -(1e20), 0)")).toThrow(FigureGrammarError);
+  });
+
+  it("refuses a PMF support past the safe integers and caps the bars it counts", () => {
+    const spec = corpus.rejected_figures.find((item) => item.id === "pmf_support_past_safe_integers");
+    expect(spec).toBeDefined();
+    expect(() => compileSpec(spec?.spec as unknown as FigureSpec)).toThrow(/within/);
+    expect(barKs({ var: "k", min: 0, max: 10000 }).length).toBe(MAX_BARS);
+  });
 });

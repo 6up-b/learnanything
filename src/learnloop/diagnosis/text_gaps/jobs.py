@@ -34,6 +34,7 @@ from learnloop.diagnosis.text_gaps.contract import LearnerText
 from learnloop.diagnosis.text_gaps.judges import TextBudget
 from learnloop.diagnosis.text_gaps.pipeline import PipelineClients, ReadingDeferred, failed_row, process_learner_text
 from learnloop.diagnosis.text_gaps.sources import (
+    SourceWithheld,
     StuckTextSource,
     attempt_grade_held,
     formative_row,
@@ -268,8 +269,9 @@ def sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | 
 
     Stuck answers always, missed active-reading answers while
     ``reader_formative.enabled`` is on (RW1b review F7: one whose job was never
-    written), and replies to hints and discriminating answers while adaptive
-    hints are on (``hint_feedback``, H2b review F4); with ``include_history``
+    written; and a figure prediction's "what changed?" saved after its reading,
+    while nothing queued it: :func:`_unread_figure_explanations`), and replies
+    to hints and discriminating answers while adaptive hints are on (``hint_feedback``, H2b review F4); with ``include_history``
     also answered tutor questions that carry a tutor reading and completed
     live diagnoses. ``kinds`` narrows the sweep (the sidecar's start-up
     reconciliation sweeps ``hint_feedback`` only). ``dry_run`` counts what
@@ -280,8 +282,9 @@ def sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | 
     if not pipeline_enabled(vault):
         return counts
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        known = {(job["source_kind"], job["source_id"]) for job in store.jobs(connection)}
-        known |= {(row["source_kind"], row["source_id"]) for row in store.gaps(connection)}
+        job_rows = {(job["source_kind"], job["source_id"]): job for job in store.jobs(connection)}
+        gap_rows = {(row["source_kind"], row["source_id"]): row for row in store.gaps(connection)}
+    known = set(job_rows) | set(gap_rows)
 
     def queue(source_kind: str, source_id: str) -> bool:
         if (source_kind, source_id) in known:
@@ -297,6 +300,9 @@ def sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | 
                                                     False)):
         for question_id in missed_formative_ids(repository):
             if queue("reader_formative", question_id):
+                counts["reader_formative"] += 1
+        for source_id in _unread_figure_explanations(repository, job_rows, gap_rows):
+            if queue("reader_formative", source_id):
                 counts["reader_formative"] += 1
     if "hint_feedback" in kinds and hint_feedback_enabled(vault):
         for assist_id in hint_feedback_ids(repository):
@@ -322,6 +328,36 @@ def sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | 
             if queue("diagnosis", diagnosis_id):
                 counts["diagnosis"] += 1
     return counts
+
+
+def _unread_figure_explanations(repository: Repository, job_rows: Mapping[tuple[str, str], Mapping[str, Any]],
+                                gap_rows: Mapping[tuple[str, str], Mapping[str, Any]]) -> list[str]:
+    """The ``<prediction id>:explained`` sources the backlog owes (fix round
+    2, F5): a "what changed?" saved after its prediction's reading started
+    or finished, while nothing queued it (gap reading was off then).
+
+    Left out: a prediction whose own reading has not run (no job and no
+    gap: the sweep queues the prediction, and its one reading reads the
+    explanation too) or is queued or running now (it may still read it); a
+    reading that already read the explanation (its gap row's text carries
+    it: the explanation was saved while that job waited); and an explained
+    source already queued or read (the caller's ``known``). ``job_rows`` and
+    ``gap_rows`` are read before this sweep queued anything."""
+
+    from learnloop.diagnosis.text_gaps.sources import FIGURE_EXPLANATION_SUFFIX, explained_predictions
+
+    owed: list[str] = []
+    for prediction_id, explanation in explained_predictions(repository):
+        key = ("reader_formative", prediction_id)
+        job, gap = job_rows.get(key), gap_rows.get(key)
+        if job is None and gap is None:
+            continue
+        if job is not None and job.get("state") in ("queued", "leased"):
+            continue
+        if gap is not None and explanation in str(gap.get("learner_text") or ""):
+            continue
+        owed.append(prediction_id + FIGURE_EXPLANATION_SUFFIX)
+    return owed
 
 
 def _later(seconds: float, clock: Clock | None) -> str:
@@ -392,7 +428,12 @@ def process_next_gap_job(
             outcome.state = "deferred" if released else "lease_lost"
             outcome.error = "daily_cap"
             return outcome
-    text = learner_text(vault, repository, outcome.source_kind, outcome.source_id, stuck_source=stuck_source)
+    try:
+        text = learner_text(vault, repository, outcome.source_kind, outcome.source_id, stuck_source=stuck_source)
+    except SourceWithheld as exc:
+        # Held-out context (fix round 2, F1): nothing is built or sent, and
+        # the job ends skipped, so no sweep or retry reads it again.
+        return skip(f"held out: {exc}"[:500], None)
     if text is None:
         return skip("nothing to read", None)
 

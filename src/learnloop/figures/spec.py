@@ -401,9 +401,12 @@ class _Compiler:
             axis = panel.x if isinstance(panel, FunctionPlot) else panel.k
             if not (math.isfinite(axis.min) and math.isfinite(axis.max) and axis.min < axis.max):
                 self.problem(f"{where}: its range must be finite with min below max")
-            if isinstance(panel, PmfBars):
+            if isinstance(panel, PmfBars) and math.isfinite(axis.min) and math.isfinite(axis.max):
                 if axis.min != math.floor(axis.min) or axis.max != math.floor(axis.max):
                     self.problem(f"{where}: k's range must be whole numbers")
+                elif abs(axis.min) > G.MAX_SAFE_INTEGER or abs(axis.max) > G.MAX_SAFE_INTEGER:
+                    # Past it k + 1 == k in a double (fix round 2).
+                    self.problem(f"{where}: k's range must lie within ±{G.MAX_SAFE_INTEGER}")
                 elif axis.max - axis.min + 1 > MAX_BARS:
                     self.problem(f"{where}: at most {MAX_BARS} bars")
             allowed = self.params | {axis.var}
@@ -503,7 +506,11 @@ def plot_xs(axis: Axis) -> list[float]:
 
 
 def bar_ks(axis: Axis) -> list[float]:
-    return [float(k) for k in range(int(axis.min), int(axis.max) + 1)]
+    """The bars' k values: counted from the support's start, at most
+    :data:`MAX_BARS` of them (fix round 2; validation refuses more)."""
+
+    low = int(axis.min)
+    return [float(low + index) for index in range(max(0, min(int(axis.max) - low + 1, MAX_BARS)))]
 
 
 def shade_value(compiled: CompiledFigure, panel: CompiledPanel, shade_index: int,

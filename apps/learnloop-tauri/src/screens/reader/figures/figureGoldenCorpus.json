@@ -950,6 +950,38 @@
     "a": -2.0,
     "b": 3.0,
     "lam": 1.5,
+    "n": 1e+20,
+    "p": 0.3,
+    "x": 0.7
+   },
+   "expected": "nan",
+   "expr": "sum(1, k, n, n + 2)",
+   "id": "sum_bound_past_safe_integers",
+   "integral": false,
+   "reference": "nan"
+  },
+  {
+   "definitions": [],
+   "env": {
+    "a": -2.0,
+    "b": 3.0,
+    "lam": 1.5,
+    "n": 9007199254740000.0,
+    "p": 0.3,
+    "x": 0.7
+   },
+   "expected": 3.0,
+   "expr": "sum(1, k, n, n + 2)",
+   "id": "sum_bound_near_safe_integers",
+   "integral": false,
+   "reference": 3.0
+  },
+  {
+   "definitions": [],
+   "env": {
+    "a": -2.0,
+    "b": 3.0,
+    "lam": 1.5,
     "n": 10.0,
     "p": 0.3,
     "x": 0.7
@@ -8800,6 +8832,20 @@
   },
   {
    "definitions": [],
+   "expr": "sum(1, k, 1e20, 1e20)",
+   "id": "sum_bound_past_safe_integers",
+   "known": [],
+   "stage": "parse"
+  },
+  {
+   "definitions": [],
+   "expr": "sum(k, k, -9007199254740993, 0)",
+   "id": "sum_negative_bound_past_safe_integers",
+   "known": [],
+   "stage": "parse"
+  },
+  {
+   "definitions": [],
    "expr": "integral(integral(t, t, 0, 1), s, 0, 1)",
    "id": "nested_integral",
    "known": [],
@@ -9503,6 +9549,80 @@
      {
       "quote": "f_X(x) = p\\lambda e^{\\lambda x} for x < 0",
       "span_id": "s2"
+     }
+    ],
+    "spec_version": "ifs-v1"
+   }
+  },
+  {
+   "id": "pmf_support_past_safe_integers",
+   "spec": {
+    "definitions": [
+     {
+      "expr": "(1 - q)^(k - 1)*q",
+      "name": "pmf"
+     }
+    ],
+    "demonstrates": "The geometric PMF (1−q)^(k−1)·q sums to one; the highlight is P(K ≤ m).",
+    "invariants": [
+     {
+      "expr": "pmf",
+      "from": 1,
+      "kind": "sums_to_one",
+      "to": 120,
+      "var": "k"
+     }
+    ],
+    "kind": "illustrative",
+    "panels": [
+     {
+      "highlight": {
+       "from": "1",
+       "label": "P(K ≤ m)",
+       "to": "m"
+      },
+      "k": {
+       "max": 9007199254741000,
+       "min": 9007199254740992,
+       "var": "k"
+      },
+      "kind": "pmf_bars",
+      "series": [
+       {
+        "expr": "pmf",
+        "label": "P(K = k)"
+       }
+      ]
+     },
+     {
+      "expr": "sum(pmf, k, 1, m)",
+      "format": "percent",
+      "kind": "readout",
+      "label": "P(K ≤ m)"
+     },
+     {
+      "expr": "sum(pmf, k, 1, 120)",
+      "kind": "readout",
+      "label": "total"
+     }
+    ],
+    "parameters": [
+     {
+      "animate": true,
+      "default": 0.5,
+      "label": "q",
+      "max": 0.9,
+      "min": 0.2,
+      "name": "q",
+      "step": 0.05
+     },
+     {
+      "default": 3,
+      "label": "m",
+      "max": 10,
+      "min": 1,
+      "name": "m",
+      "step": 1
      }
     ],
     "spec_version": "ifs-v1"

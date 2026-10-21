@@ -160,7 +160,7 @@ def figure_prediction_record(connection: Any, prediction_id: str, *, topics: Ite
     code from that passage. A later explanation's source (``...:explained``)
     has its prediction's record."""
 
-    from learnloop.diagnosis.text_gaps.sources import figure_prediction_id
+    from learnloop.diagnosis.text_gaps.sources import figure_input_manifest, figure_prediction_id
 
     prediction_id, _explained = figure_prediction_id(prediction_id)
     row = connection.execute(
@@ -170,17 +170,11 @@ def figure_prediction_record(connection: Any, prediction_id: str, *, topics: Ite
     ).fetchone()
     if row is None:
         return WriteRecord.incomplete("the figure prediction is gone", inputs=Inputs.of(topics=topics))
-    spans: set[str] = set()
-    try:
-        spans.update(str(span) for span in json.loads(row[1] or "[]"))
-        region = json.loads(row[2] or "null") or {}
-        if isinstance(region, dict) and region.get("span_id"):
-            spans.add(str(region["span_id"]))
-        spans.update(str(span) for span in json.loads(row[3] or "[]"))
-    except (TypeError, ValueError):
+    manifest = figure_input_manifest({"span_ids_json": row[1], "region_json": row[2], "input_span_ids_json": row[3],
+                                      "asset_id": row[4]})
+    if manifest is None:
         return WriteRecord.incomplete("the figure's input spans are unreadable", inputs=Inputs.of(topics=topics))
-    if row[4]:
-        spans.add(str(row[4]))
+    spans = set(manifest)
     source_id = connection.execute(
         "SELECT revision.source_id FROM source_extraction_runs AS run LEFT JOIN source_revisions AS revision "
         "ON revision.id = run.revision_id WHERE run.id = ?", (row[0],)).fetchone()
