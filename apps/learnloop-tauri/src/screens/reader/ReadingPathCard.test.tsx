@@ -4,7 +4,8 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { ReadingPathDto, ReadingPathExerciseDto, ReadingPathSectionDto } from "../../api/dto";
 import { GuideRail, type GuideRailProps } from "./GuideRail";
 import { ReadingPathCard } from "./ReadingPathCard";
-import { exercisesWorthTrying, offeredChoice, shouldPoll } from "./readingPath";
+import { READING_PATH_REFRESH_MS, exercisesWorthTrying, offeredChoice, readingPathRefreshKey, shouldPoll } from "./readingPath";
+import { SEEN_REPORT_MS } from "./useReadingProgress";
 
 const { api } = vi.hoisted(() => ({ api: {
   readerReadingPath: vi.fn(), readerReadingPathSetDepth: vi.fn(), readerReadingPathOverride: vi.fn(),
@@ -18,7 +19,7 @@ const DEPTHS = [
   { id: "fluency" as const, label: "fluency", means: "novel problems, changed assumptions, delayed checks" },
 ];
 const EXERCISE: ReadingPathExerciseDto = {
-  label: "Exercise 5.14", extractionId: "ext", spanIds: ["s9"], page: 4, statement: "5.14 Derive the CDF.",
+  label: "Exercise 5.14", extractionId: "ext", spanIds: ["s9"], page: 4, statement: "5.14 Derive the CDF.", preview: "5.14 Derive the CDF.",
   importRequest: { extractionId: "ext", sourceId: "src", revisionId: "rev", rawSelection: { nodes: [{ spanId: "s9", start: 0, end: 20 }] } },
 };
 
@@ -198,4 +199,44 @@ it("the Guide shows the path card in place of the goal card, and today's goal ca
   rerender(<GuideRail {...guideProps({ path: <div>the path card</div> })} />);
   expect(screen.getByText("the path card")).toBeTruthy();
   expect(screen.queryByText("Reading toward your active goal")).toBeNull();
+});
+
+// Codex review F3: a ready path follows the learner while the card stays mounted.
+it("a ready card reads the path again when what it depends on changes, without a remount", async () => {
+  vi.useFakeTimers();
+  const after = path({ next: { text: "Next: read 5.6 Convolutions · about 2 min of reading", sectionId: "u56", spanId: "s40",
+    exercise: null, minutes: 2 } });
+  api.readerReadingPath.mockResolvedValueOnce(path()).mockResolvedValueOnce(after);
+  const props = { extractionId: "ext", onJump: vi.fn(), onTryExercise: vi.fn(), onError: vi.fn() };
+  const { rerender } = render(<ReadingPathCard {...props} refreshKey="|1" />);
+  await act(async () => { await Promise.resolve(); });
+  expect(screen.getByText(/Next: read §5\.4 Mixtures/)).toBeTruthy();
+  // A ready path is not polled: nothing changes, nothing is read.
+  await act(async () => { vi.advanceTimersByTime(10_000); await Promise.resolve(); });
+  expect(api.readerReadingPath).toHaveBeenCalledTimes(1);
+  // The learner finished 5.4 (and a burst of changes folds into one read).
+  rerender(<ReadingPathCard {...props} refreshKey="u54|1" />);
+  await act(async () => { vi.advanceTimersByTime(500); await Promise.resolve(); });
+  rerender(<ReadingPathCard {...props} refreshKey="u54|2" />);
+  await act(async () => { vi.advanceTimersByTime(READING_PATH_REFRESH_MS - 1); await Promise.resolve(); });
+  expect(api.readerReadingPath).toHaveBeenCalledTimes(1);
+  await act(async () => { vi.advanceTimersByTime(1); await Promise.resolve(); });
+  expect(api.readerReadingPath).toHaveBeenCalledTimes(2);
+  expect(api.readerReadingPath).toHaveBeenLastCalledWith({ extractionId: "ext" });
+  expect(screen.getByText("Next: read 5.6 Convolutions · about 2 min of reading")).toBeTruthy();
+  expect(screen.queryByText(/Next: read §5\.4 Mixtures/)).toBeNull();
+});
+
+it("the refresh key: a section counts once finished or every passage seen, and every signal is in it", () => {
+  const sections = [{ id: "a", spanIds: ["s1", "s2"] }, { id: "b", spanIds: ["s3"] }, { id: "c", spanIds: [] }];
+  const key = (completedSections: string[], sectionSeen: Record<string, number>, signals: Array<string | number> = [1]) =>
+    readingPathRefreshKey({ sections, completedSections, sectionSeen, signals });
+  expect(key([], {})).toBe("|1");
+  expect(key([], { a: 1 })).toBe("|1"); // half read: not done, no re-read
+  expect(key([], { a: 2 })).toBe("a|1");
+  expect(key(["b"], { a: 2 })).toBe("a,b|1");
+  expect(key([], { c: 0 })).toBe("|1"); // no passages: only completion counts
+  expect(key([], {}, [1, 2, "w:open"])).toBe("|1|2|w:open");
+  // The re-read waits for the Reader's progress save to land.
+  expect(READING_PATH_REFRESH_MS).toBeGreaterThan(SEEN_REPORT_MS);
 });

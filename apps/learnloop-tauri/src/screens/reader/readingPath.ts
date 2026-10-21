@@ -61,3 +61,29 @@ export function offeredChoice(section: ReadingPathSectionDto): "read_anyway" | "
 export function exercisesWorthTrying(path: ReadingPathDto): ReadingPathSectionDto[] {
   return path.sections.filter((section) => section.exercise !== null && section.effectiveLabel === "core");
 }
+
+/** How long the Guide waits, after what the path depends on changes while
+ *  the card stays mounted (a section read or finished, an answer, a plan
+ *  re-read, the Guide shown again), before reading the path again (Codex
+ *  review F3). Longer than the Reader's seen-count save (SEEN_REPORT_MS) so
+ *  the server reads the progress that prompted it; changes inside the window
+ *  fold into one read. */
+export const READING_PATH_REFRESH_MS = 2000;
+
+/** What the mounted path card re-reads on: the sections read through or
+ *  finished (the server's own "done" rule: completed, or every passage
+ *  seen), and counters for the learner-state signals the Reader has (plan
+ *  re-reads after a diagnosis, quick checks answered, workbench problems
+ *  submitted or set aside) and for the Guide being shown again. */
+export function readingPathRefreshKey(input: {
+  sections: ReadonlyArray<{ id: string; spanIds: readonly string[] }>;
+  completedSections: readonly string[];
+  sectionSeen: Readonly<Record<string, number>>;
+  signals: ReadonlyArray<string | number>;
+}): string {
+  const done = input.sections
+    .filter((section) => input.completedSections.includes(section.id)
+      || (section.spanIds.length > 0 && (input.sectionSeen[section.id] ?? 0) >= section.spanIds.length))
+    .map((section) => section.id);
+  return `${done.join(",")}|${input.signals.join("|")}`;
+}

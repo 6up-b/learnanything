@@ -74,14 +74,17 @@ class FixedClock:
         self.moment = self.moment + timedelta(**delta)
 
 
-def build_path_vault(root: Path, *, version: str = VERSION, config: str = "") -> tuple[VaultPaths, Repository, dict[str, list[str]]]:
+def build_path_vault(root: Path, *, version: str = VERSION, config: str = "",
+                     units: Mapping[str, tuple[str, list[tuple[str, int]]]] | None = None,
+                     ) -> tuple[VaultPaths, Repository, dict[str, list[str]]]:
     paths = create_daily_plan_vault(root, learning_objects=PLAN_LOS, version=version,
                                     plan_toml=config or None)
     repository = Repository(paths.sqlite_path)
     spans = seed_textbook(repository, source_id=SOURCE, revision_id="rev_text", extraction_id=EXT,
-                          title="Matrix Theory", units=UNITS)
+                          title="Matrix Theory", units=dict(units or UNITS))
     for section_id, lo_id in SECTION_LO.items():
-        cite(paths, lo_id, spans[section_id][1])
+        if section_id in spans:  # a smaller book (``units``) cites what it has
+            cite(paths, lo_id, spans[section_id][1])
     return paths, repository, spans
 
 
@@ -127,12 +130,14 @@ class PathJudgeFake(StructuredClientFake):
     model = "fake-path-model"
 
     def __init__(self, labels: Mapping[str, str] | None = None, *, provider_type: str = "codex_sdk",
-                 fail: Exception | None = None, omit: tuple[str, ...] = (), reason: str | None = None) -> None:
+                 fail: Exception | None = None, omit: tuple[str, ...] = (), reason: str | None = None,
+                 output_tokens: int = 120) -> None:
         self.labels = dict(labels or {})
         self.provider_type = provider_type
         self.fail = fail
         self.omit = set(omit)
         self.reason = reason
+        self.output_tokens = output_tokens  # the usage it reports (a day's spend in the budget tests)
         self.contexts: list[dict[str, Any]] = []
         self.prompts: list[str] = []
 
@@ -143,7 +148,7 @@ class PathJudgeFake(StructuredClientFake):
         context = prompt_context(request.prompt)
         self.contexts.append(context)
         self.prompts.append(request.prompt)
-        report_call_usage({"input_tokens": len(request.prompt) // 4, "output_tokens": 120,
+        report_call_usage({"input_tokens": len(request.prompt) // 4, "output_tokens": self.output_tokens,
                            "resolved_model": self.model})
         if self.fail is not None:
             raise self.fail

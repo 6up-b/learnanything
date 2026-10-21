@@ -22,14 +22,17 @@ visible proposals through :func:`source_roles.best_roles`), the linked LOs'
 titles and statuses, the depth and the goal's title. Withheld sections (the
 one exam predicate, held-out included) are never sent and never shown.
 Cached by :func:`state_key` (the depth, the sent section list, every linked
-LO's status, the goal): a fresh path makes no call.
+LO's status, the goal, and the whole prompt: roles and titles too): a fresh
+path makes no call. A durable claim per state (``judgment_work_claims``)
+keeps two sidecars from paying for the same judgment.
 
 **Honest labels in code** (G47): ``already_shown`` stands only when the
 section teaches at least one LO and every one is demonstrated
 (``lo_certification(...).demonstrated``); ``assumed`` only when every LO is
 demonstrated or has an open ``assumption_decisions`` row, at least one
-assumed. Anything else the model says becomes ``core``. The rule runs after
-the model and again at display.
+assumed (a learner-text gap's light commitment is never one). Anything else
+the model says becomes ``core``. The rule runs after the model and again at
+display.
 """
 
 from __future__ import annotations
@@ -40,8 +43,10 @@ import math
 import os
 import re
 import sqlite3
-from collections.abc import Callable, Iterable, Mapping, Sequence
-from contextlib import closing
+import threading
+import time
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from contextlib import closing, contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -65,6 +70,14 @@ from learnloop.content.sources.exercise_statements import (
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import reading_paths as store
+from learnloop.db.stores.judgment_claims import (
+    CLAIMED,
+    claim_work,
+    complete_claim,
+    holds_claim,
+    release_claim,
+    renew_claim,
+)
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.goals import goal_certification as GC
 from learnloop.ids import new_ulid
@@ -190,15 +203,41 @@ class PathInputs:
 
     def state_key(self, depth: str) -> str:
         """The cache key (§10.1): the depth, the section list sent and every
-        linked LO's status (and the goal the path names, and the prompt)."""
+        linked LO's status (and the goal the path names, and the prompt).
+
+        ``judgment_input`` is the canonical prompt itself (Codex review F5):
+        every section's roles (a new or withdrawn RW4e proposal, the
+        ``roles.positive_filter_enabled`` switch), the LO and goal titles and
+        the depth's wording. Whatever changes what the judge is asked
+        changes the key, so a cached path is never "fresh" for a question
+        it was not asked."""
 
         linked = sorted({lo for section in self.sections for lo in section.learning_object_ids})
         payload = {
             "prompt_version": PROMPT_VERSION, "depth": depth, "sections": self.section_list_hash(),
             "statuses": {lo: self.statuses[lo].status for lo in linked if lo in self.statuses},
             "goal": (self.goal or {}).get("id"),
+            "judgment_input": content_key(build_prompt(self, depth)),
         }
         return hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def open_assumption_rows(vault: Any, repository: Repository) -> set[str]:
+    """LOs with an open placement assumption that IS an ``assumption_decisions``
+    row (Codex review F1). Placement also reads a created prerequisite's
+    light commitment (``learner_gap_commitments``) as an open assumption so
+    it gets its one delayed check; that row names a gap the learner's own
+    text revealed, never something assumed known, so it is left out here."""
+
+    state = load_placement_state(vault, repository)
+    candidates = sorted({a.id for a in state.assumptions if a.is_open})
+    if not candidates:
+        return set()
+    with repository.connection() as connection:
+        rows = {str(row[0]) for row in connection.execute(
+            f"SELECT id FROM assumption_decisions WHERE id IN ({','.join('?' for _ in candidates)})",
+            candidates).fetchall()}
+    return {a.learning_object_id for a in state.assumptions if a.is_open and a.id in rows}
 
 
 def lo_statuses(vault: Any, repository: Repository, learning_object_ids: Iterable[str]) -> dict[str, LoStatus]:
@@ -208,7 +247,7 @@ def lo_statuses(vault: Any, repository: Repository, learning_object_ids: Iterabl
     wanted = sorted({str(lo) for lo in learning_object_ids})
     if not wanted:
         return {}
-    open_assumed = set(load_placement_state(vault, repository).open_by_lo)
+    open_assumed = open_assumption_rows(vault, repository)
     mastery = repository.mastery_states()
     out: dict[str, LoStatus] = {}
     for lo_id in wanted:
@@ -486,10 +525,15 @@ def exercise_view(vault: Any, repository: Repository, inputs: PathInputs, lead_s
     if statement is None:
         return None
     page = inputs.pages.get(spans[0])
-    text = statement.text if len(statement.text) <= STATEMENT_CHARS else statement.text[: STATEMENT_CHARS - 1] + "…"
+    # The workbench's stem is the whole exercise (Codex review F2): a clipped
+    # one would lose a condition stated late, and it is what the workbench
+    # shows until the import binds (or for good, when the import fails).
+    # Only the preview is clipped.
+    text = statement.text
+    preview = text if len(text) <= STATEMENT_CHARS else text[: STATEMENT_CHARS - 1] + "…"
     return {
         "label": exercise_label(statement.text, page), "extraction_id": inputs.extraction_id,
-        "span_ids": list(spans), "page": page, "statement": text,
+        "span_ids": list(spans), "page": page, "statement": text, "preview": preview,
         # "Try it": the Reader's own import of a selected problem (RW4b's fallback path).
         "import_request": {"extraction_id": inputs.extraction_id, "source_id": inputs.source_id,
                            "revision_id": inputs.revision_id, "raw_selection": selection_nodes(statement)},
@@ -648,13 +692,132 @@ class JudgeRoute:
         return str(getattr(self.client, "model", None) or self.route.model or "unknown")
 
 
+#: The refusals :meth:`JudgeRoute.problem` gives before any call: they last
+#: only while their condition does (the switch's env, the route, the price,
+#: the day's cap), so a caller re-asks :func:`admission_problem` instead of
+#: keeping them (Codex review F4).
+ADMISSION_REASONS: frozenset[str] = frozenset({"models_off", "unrouted", "unpriced", "capped"})
+
+
+def admission_problem(vault: Any, repository: Repository, *, client: Any | None = None,
+                      clock: Clock | None = None) -> JudgeUnavailable | None:
+    """Whether a judgment would be refused now, before any call (today's
+    envelope, the vault's current config)."""
+
+    route = JudgeRoute(vault, repository, client=client, envelope=daily_envelope(vault, repository, clock=clock))
+    return route.problem()
+
+
 @dataclass
 class JudgeResult:
-    #: ready (judged now) | fresh (a cached path, no call) | unavailable | no_sections
+    #: ready (judged now) | fresh (a cached path, no call) | unavailable |
+    #: no_sections | held (another process is still judging this state)
     status: str
     state_key: str | None = None
     reason: str | None = None
     message: str | None = None
+
+
+# -- the judgment's durable claim (Codex review F6) ---------------------------------------------
+#
+# One judgment per (reading, depth, state key) across every process using the
+# vault: the claim (``judgment_work_claims``, the shared judge's leased-claim
+# pattern) is taken in a write transaction that first re-reads the cache, the
+# call runs outside any transaction while a heartbeat renews the lease, and
+# the rows land only while the lease still holds. A second sidecar that finds
+# the claim held waits for it and then reads the first one's rows: it never
+# pays for the same judgment. A crashed holder's lease lapses and is taken
+# over with a new epoch, which fences the late holder's write out.
+
+CLAIM_TASK = "reading_path_judge"
+CLAIM_LEASE_SECONDS = 300
+CLAIM_HEARTBEAT_SECONDS = 30
+#: How long a judgment waits on another process's claim before it gives up
+#: (``held``; the Guide reads the path again later).
+CLAIM_WAIT_SECONDS = 600
+_CLAIM_POLL_SECONDS = 0.5
+PROCESS_TOKEN = "proc_" + new_ulid()
+#: The wait's pause (a seam for the concurrency test).
+_sleep = time.sleep
+
+
+@dataclass(frozen=True)
+class _Claim:
+    key: str
+    owner: str
+    epoch: int
+
+
+def claim_key(extraction_id: str, depth: str, state_key: str) -> str:
+    return f"{CLAIM_TASK}:{extraction_id}:{depth}:{state_key}"
+
+
+def _lease_now() -> str:
+    """Wall-clock time for leases: process liveness, never the vault's clock."""
+
+    return utc_now_iso()
+
+
+def _acquire(repository: Repository, extraction_id: str, depth: str, key: str,
+             input_hash: str) -> tuple[str, _Claim | None]:
+    """``("fresh", None)`` once the state's rows exist, ``("claimed", claim)``,
+    or ``("held", None)`` when another process kept its claim past the wait.
+    The cache is re-read in the claiming transaction itself, so a judgment
+    that landed while this one waited is read, never paid for again."""
+
+    deadline = time.monotonic() + CLAIM_WAIT_SECONDS
+    ckey = claim_key(extraction_id, depth, key)
+    while True:
+        owner = f"{PROCESS_TOKEN}:{new_ulid()}"
+        with repository.atomic():
+            connection = repository.connection()
+            if store.judged(connection, extraction_id, depth, key):
+                return "fresh", None
+            # ``rerun``: a claim completed without rows for this state (none
+            # can be removed; a defensive re-claim) is judged again.
+            status, epoch = claim_work(
+                connection, claim_key=ckey, task=CLAIM_TASK, producer=OWNER_KIND, prompt_version=PROMPT_VERSION,
+                input_hash=input_hash, owner=owner, now=_lease_now(), lease_seconds=CLAIM_LEASE_SECONDS,
+                rerun=True)
+        if status == CLAIMED and epoch is not None:
+            return "claimed", _Claim(ckey, owner, int(epoch))
+        if time.monotonic() >= deadline:
+            return "held", None
+        _sleep(_CLAIM_POLL_SECONDS)
+
+
+def _release(repository: Repository, claim: _Claim) -> None:
+    try:
+        with repository.atomic():
+            release_claim(repository.connection(), claim_key=claim.key, owner=claim.owner, epoch=claim.epoch,
+                          now=_lease_now())
+    except Exception:  # noqa: BLE001 - an unreleased claim simply lapses
+        pass
+
+
+@contextmanager
+def _heartbeat(repository: Repository, claim: _Claim) -> Iterator[None]:
+    """Renew the claim's lease while the call runs (stops once it is lost)."""
+
+    stop = threading.Event()
+
+    def beat() -> None:
+        while not stop.wait(CLAIM_HEARTBEAT_SECONDS):
+            try:
+                with repository.atomic():
+                    held = renew_claim(repository.connection(), claim_key=claim.key, owner=claim.owner,
+                                       epoch=claim.epoch, now=_lease_now(), lease_seconds=CLAIM_LEASE_SECONDS)
+            except Exception:  # noqa: BLE001 - the next beat retries; the lease may lapse
+                continue
+            if not held:
+                return
+
+    thread = threading.Thread(target=beat, name="reading-path-claim-lease", daemon=True)
+    thread.start()
+    try:
+        yield
+    finally:
+        stop.set()
 
 
 def _ledger_question(extraction_id: str, depth: str) -> str:
@@ -682,9 +845,32 @@ def judge(vault: Any, repository: Repository, extraction_id: str, depth: str, *,
     if problem is not None:
         return JudgeResult("unavailable", state_key=key, reason=problem.reason, message=problem.message)
     prompt = build_prompt(inputs, depth)
+    input_hash = content_key(prompt)
+    acquired, claim = _acquire(repository, extraction_id, depth, key, input_hash)
+    if acquired == "fresh":
+        return JudgeResult("fresh", state_key=key)  # another process judged this state meanwhile
+    if claim is None:
+        return JudgeResult("held", state_key=key)
+    completed = False
+    try:
+        result = _judge_claimed(vault, repository, extraction_id, depth, inputs=inputs, key=key, prompt=prompt,
+                                input_hash=input_hash, route=route, claim=claim, clock=clock)
+        completed = result.status == "ready"  # the claim is done; anything else gives it back
+        return result
+    finally:
+        if not completed:
+            _release(repository, claim)
+
+
+def _judge_claimed(vault: Any, repository: Repository, extraction_id: str, depth: str, *, inputs: PathInputs,
+                   key: str, prompt: str, input_hash: str, route: JudgeRoute, claim: _Claim,
+                   clock: Clock | None) -> JudgeResult:
+    """The call and the rows, under ``claim`` (the caller releases it unless
+    this returns ``ready``, which completes it)."""
+
     owner_id = f"{extraction_id}:{depth}:{key[:16]}"
     try:
-        with call_labels(judge="llm", question_set_version=PROMPT_VERSION):
+        with _heartbeat(repository, claim), call_labels(judge="llm", question_set_version=PROMPT_VERSION):
             output = route.ask(prompt, owner_id=owner_id)
     except JudgeUnavailable as exc:
         return JudgeResult("unavailable", state_key=key, reason=exc.reason, message=exc.message)
@@ -703,14 +889,18 @@ def judge(vault: Any, repository: Repository, extraction_id: str, depth: str, *,
     # downgrade too).
     exercises = pick_exercises(vault, repository, inputs, [v.section_id for v in verdicts])
     now = utc_now_iso(clock)
-    input_hash = content_key(prompt)
     model = route.model
     try:
         with repository.atomic():
             connection = repository.connection()
             if store.judged(connection, extraction_id, depth, key):
                 return JudgeResult("fresh", state_key=key)  # another writer judged this state meanwhile
+            if not holds_claim(connection, claim_key=claim.key, owner=claim.owner, epoch=claim.epoch):
+                # The lease lapsed and another process took the judgment over:
+                # its rows count, this late answer is fenced out.
+                return JudgeResult("held", state_key=key)
             previous = _latest_ledger(connection, extraction_id, depth)
+            first_ledger: str | None = None
             for verdict in verdicts:
                 ledger_id = append_judgment(
                     connection, task=LEDGER_TASK, left_kind=LEDGER_LEFT, left_id=_ledger_question(extraction_id, depth),
@@ -721,6 +911,7 @@ def judge(vault: Any, repository: Repository, extraction_id: str, depth: str, *,
                                           "enforced": verdict.enforced, "reason": verdict.reason,
                                           "state_key": key}, sort_keys=True),
                     created_at=now)
+                first_ledger = first_ledger or ledger_id
                 store.insert_section(connection, {
                     "id": "rps_" + new_ulid(), "extraction_id": extraction_id, "depth": depth,
                     "section_id": verdict.section_id, "label": verdict.label, "reason": verdict.reason,
@@ -728,6 +919,8 @@ def judge(vault: Any, repository: Repository, extraction_id: str, depth: str, *,
                     "ledger_id": ledger_id, "state_key": key, "model": model, "prompt_version": PROMPT_VERSION,
                     "created_at": now,
                 })
+            complete_claim(connection, claim_key=claim.key, owner=claim.owner, epoch=claim.epoch,
+                           judgment_id=str(first_ledger or ""), now=_lease_now())
     except sqlite3.IntegrityError:
         return JudgeResult("fresh", state_key=key)
     return JudgeResult("ready", state_key=key)
@@ -900,7 +1093,9 @@ def path_view(vault: Any, repository: Repository, extraction_id: str, *, inputs:
 
 
 __all__ = [
+    "ADMISSION_REASONS",
     "CHIPS",
+    "CLAIM_TASK",
     "DEPTHS",
     "DEPTH_LABELS",
     "INTENT_DEPTH",
@@ -918,7 +1113,9 @@ __all__ = [
     "ReadingPathError",
     "ReadingPathOutputV1",
     "SectionVerdict",
+    "admission_problem",
     "build_prompt",
+    "claim_key",
     "depth_choice",
     "enabled",
     "exercise_view",
@@ -927,6 +1124,7 @@ __all__ = [
     "judge",
     "lo_statuses",
     "next_activity",
+    "open_assumption_rows",
     "override",
     "path_inputs",
     "path_view",

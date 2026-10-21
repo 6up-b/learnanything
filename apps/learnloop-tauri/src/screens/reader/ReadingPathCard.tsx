@@ -9,6 +9,7 @@ import { errorMessage } from "../../errors";
 import {
   READING_PATH_COPY as COPY,
   READING_PATH_POLL_MS,
+  READING_PATH_REFRESH_MS,
   depthSourceLine,
   exercisesWorthTrying,
   offeredChoice,
@@ -33,9 +34,12 @@ export interface ReadingPathCardProps {
   onError: (message: string) => void;
   /** Bumped by Orient's "what matters here?": the card scrolls into view. */
   focusToken?: number;
+  /** What the path depends on, as the Reader sees it (readingPathRefreshKey):
+   *  when it changes the mounted card reads the path again (Codex review F3). */
+  refreshKey?: string;
 }
 
-export function ReadingPathCard({ extractionId, onJump, onTryExercise, onError, focusToken = 0 }: ReadingPathCardProps) {
+export function ReadingPathCard({ extractionId, onJump, onTryExercise, onError, focusToken = 0, refreshKey = "" }: ReadingPathCardProps) {
   const [path, setPath] = useState<ReadingPathDto | null>(null);
   const [choosing, setChoosing] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
@@ -71,6 +75,18 @@ export function ReadingPathCard({ extractionId, onJump, onTryExercise, onError, 
   useEffect(() => {
     if (focusToken > 0) cardRef.current?.scrollIntoView?.({ block: "nearest" });
   }, [focusToken]);
+
+  // The learner read on, answered or came back to the Guide while the card
+  // stayed mounted: read the path again (the server rejudges only when its
+  // state changed; "next" follows progress at once). Paced, so the Reader's
+  // progress save lands first and a burst of changes is one read.
+  const refreshedFor = useRef(refreshKey);
+  useEffect(() => {
+    if (refreshedFor.current === refreshKey) return undefined;
+    refreshedFor.current = refreshKey;
+    const timer = window.setTimeout(() => void read(), READING_PATH_REFRESH_MS);
+    return () => window.clearTimeout(timer);
+  }, [refreshKey, read]);
 
   const chooseDepth = async (depth: ReadingPathDepth) => {
     setBusy(true);

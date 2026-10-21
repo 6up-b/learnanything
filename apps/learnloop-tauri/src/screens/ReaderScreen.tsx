@@ -83,6 +83,7 @@ import { AskRail } from "./reader/AskRail";
 import { createTutorOfferStore } from "./reader/TutorOffers";
 import { GuideRail, SectionBoundaryOffer } from "./reader/GuideRail";
 import { ReadingPathCard } from "./reader/ReadingPathCard";
+import { readingPathRefreshKey } from "./reader/readingPath";
 import { useReaderRecap } from "./reader/useReaderRecap";
 import { RecapCard } from "./reader/RecapCard";
 import { WrapUpPanel } from "./reader/WrapUpPanel";
@@ -537,6 +538,25 @@ export function ReaderScreen({
     onError,
   });
   const working = wbCtl.active !== null;
+  // RW7a (Codex review F3): what the mounted reading-path card re-reads on.
+  // The Guide being shown again, the plan re-read (a diagnosis landed), a
+  // quick check answered, a workbench problem submitted or set aside, and
+  // each section read through or finished.
+  const [guideShown, setGuideShown] = useState(0);
+  useEffect(() => {
+    if (railTab === "guide" && !railCollapsed) setGuideShown((value) => value + 1);
+  }, [railTab, railCollapsed]);
+  const [guideReads, setGuideReads] = useState(0);
+  useEffect(() => {
+    if (guidePlan) setGuideReads((value) => value + 1);
+  }, [guidePlan]);
+  const pathRefreshKey = readingPathRefreshKey({
+    sections: guidePlan?.sections ?? [],
+    completedSections,
+    sectionSeen,
+    signals: [guideShown, guideReads, answeredSections.length,
+      wbCtl.sessions.map((entry) => `${entry.sessionId}:${entry.status}`).join(",")],
+  });
   // Sent whenever EITHER RW1c switch is on (fix round 4, F3): the server
   // derives the bound item's restriction from it (a cold administration
   // refuses tools and offers), with retrieval off too. `readerTutor` is
@@ -2953,6 +2973,7 @@ export function ReaderScreen({
                 onTryExercise={wbCtl.enabled ? tryPathExercise : null}
                 onError={onError}
                 focusToken={pathFocus}
+                refreshKey={pathRefreshKey}
               />
             ) : undefined}
             header={recapCtl.wrapUpOpen || (recapCtl.recap && !muted) ? (

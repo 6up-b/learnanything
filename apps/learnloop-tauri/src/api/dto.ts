@@ -8859,8 +8859,11 @@ export interface ReadingPathExerciseDto {
   extractionId: string;
   spanIds: string[];
   page: number | null;
-  /** The exercise's own words, verbatim (the workbench's stem). */
+  /** The exercise's own words, verbatim and whole (the workbench's stem;
+   *  Codex review F2: never clipped, a late condition is part of the problem). */
   statement: string;
+  /** The statement clipped for a preview (600 characters at most); never the stem. */
+  preview: string;
   /** "Try it": the Reader's own import of a selected problem. */
   importRequest: ReaderImportExerciseInput;
 }

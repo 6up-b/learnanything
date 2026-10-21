@@ -738,3 +738,247 @@ def test_the_reader_report_counts_labels_overrides_and_depth_choices(path_vault)
     assert report == {"judged_sections": 4, "labels": {"core": 3, "enrichment": 1},
                       "overrides": {"core:skip": 1, "enrichment:read_anyway": 1},
                       "depth_choices": {"learn_to_use_it": 1}}
+
+
+# -- Codex review (job 20261021-014015-qgX3JQ) -------------------------------------------------------
+
+
+def _commit_gap(repository, lo_id, commitment_id="com_gap_1"):
+    """A learner-text gap's light commitment on ``lo_id`` (no assumption_decisions row)."""
+
+    from learnloop.db.stores import learner_gaps as gap_store
+
+    with repository.atomic():
+        connection = repository.connection()
+        gap_store.insert_gap(connection, {
+            "id": "ltg_rw7a", "source_kind": "tutor_question", "source_id": "qe_rw7a", "learner_text": "why?",
+            "chooser": "context_model", "context_judge": "tutor", "kind": "prerequisite",
+            "action": "created_prerequisite", "target_kind": "learning_object", "target_id": lo_id,
+            "created_learning_object_id": lo_id, "algorithm_version": "mvp-0.16",
+            "pipeline_version": "learner-text-gaps-v1", "created_at": "2026-10-01T00:00:00Z"})
+        gap_store.insert_commitment(connection, {
+            "id": commitment_id, "gap_id": "ltg_rw7a", "learning_object_id": lo_id,
+            "first_review_due": "2026-12-01T00:00:00Z", "algorithm_version": "mvp-0.16",
+            "created_at": "2026-10-01T00:00:00Z"})
+
+
+def test_f1_a_learner_gap_commitment_is_never_assumed_known(path_vault):
+    """F1 (High): placement reads a created prerequisite's light commitment as
+    an open assumption; it names a gap, so the path never says "assumed"."""
+
+    from learnloop.placement.state import load_placement_state
+
+    paths, repository, _spans, _clock = path_vault
+    _commit_gap(repository, "lo_spectral")
+    vault = load_vault(paths.root)
+    assert "lo_spectral" in load_placement_state(vault, repository).open_by_lo  # the synthesized row
+    assert _rows(repository, "SELECT COUNT(*) FROM assumption_decisions")[0][0] == 0
+    assert RP.lo_statuses(vault, repository, ["lo_spectral"])["lo_spectral"].assumed is False
+    fake = PathJudgeFake({"sec_spectral": "assumed"})
+    view = _depth(_ctx(paths, fake))
+    spectral = next(s for s in view["sections"] if s["sectionId"] == "sec_spectral")
+    assert (spectral["label"], spectral["reason"]) == ("core", RP.NOT_ASSUMED_REASON)
+    assert fake.contexts[0]["sections"][1]["topics"] == [{"title": "Spectral Theorem", "status": "new"}]
+    # An actual assumption row beside the commitment still counts.
+    _assume(repository, "lo_spectral")
+    assert RP.lo_statuses(load_vault(paths.root), repository, ["lo_spectral"])["lo_spectral"].assumed is True
+
+
+LONG_CONDITION = "Assume moreover that every eigenvalue is strictly positive, and show that A is invertible."
+LONG_UNITS = {
+    "sec_eigen": ("1 Eigenvalues", [
+        ("Eigenvalues are the roots of the characteristic polynomial det(A - tI) of a square matrix.", 1),
+        ("Exercise 1.1 Let A be a real square matrix. " + "Consider the characteristic polynomial carefully. " * 14
+         + LONG_CONDITION, 1),
+    ]),
+    "sec_spectral": ("2 The spectral theorem", [
+        ("A real symmetric matrix has an orthonormal basis of eigenvectors and real eigenvalues.", 2),
+    ]),
+}
+
+
+def test_f2_try_it_carries_the_whole_exercise_and_only_the_preview_is_clipped(tmp_path, monkeypatch):
+    """F2: a statement past the preview length keeps its last condition in
+    the workbench's stem (``statement``); the preview alone is clipped."""
+
+    FixedClock(monkeypatch)
+    paths, _repository, _spans = build_path_vault(tmp_path / "vault", units=LONG_UNITS)
+    view = _depth(_ctx(paths, PathJudgeFake()))
+    exercise = next(s for s in view["sections"] if s["sectionId"] == "sec_eigen")["exercise"]
+    assert len(exercise["statement"]) > RP.STATEMENT_CHARS
+    assert exercise["statement"].endswith(LONG_CONDITION)
+    assert "…" not in exercise["statement"]
+    assert len(exercise["preview"]) == RP.STATEMENT_CHARS and exercise["preview"].endswith("…")
+    nodes = exercise["importRequest"]["rawSelection"]["nodes"]
+    assert nodes[0]["end"] - nodes[0]["start"] == len(exercise["statement"])
+
+
+def _replace_toml(root, old, new):
+    path = Path(root) / "learnloop.toml"
+    text = path.read_text()
+    assert text.count(old) == 1, old
+    path.write_text(text.replace(old, new))
+
+
+def test_f4_a_budget_refusal_is_reconsidered_when_the_day_turns_or_the_cap_changes(path_vault):
+    """F4: an admission refusal (capped, unpriced) is not kept for the
+    sidecar's life: the next read re-checks it, in the same context."""
+
+    paths, repository, _spans, clock = path_vault
+    fake = PathJudgeFake(provider_type="openai", output_tokens=50_000)  # metered, a large answer
+    append_config_toml(paths.root, "[source_retrieval]\nllm_price_per_million = 2.0\n")
+    ctx = _ctx(paths, fake)
+    assert _depth(ctx)["status"] == "ready" and fake.calls == 1  # today's spend
+    spent = RP.daily_envelope(load_vault(paths.root), repository).report()["metered_usd"]
+    assert spent > 0.05
+    # Today's cap now sits at today's spend: a new state is refused before any call.
+    append_config_toml(paths.root, f"[reading_paths]\nmax_daily_cost_usd = {spent}\n")
+    ctx.load(paths.root)
+    _practised(repository, "lo_spectral")
+    view = _path(ctx)
+    assert (view["status"], view["reason"], fake.calls) == ("failed", "capped", 1)
+    assert _path(ctx)["reason"] == "capped" and fake.calls == 1  # still today: still refused, no call
+    clock.advance(days=1)  # a new UTC day: the same context judges again, at the same cap
+    view = _path(ctx)
+    assert view["status"] == "ready" and fake.calls == 2
+
+
+def test_f4_raising_the_cap_or_pricing_the_route_lifts_the_refusal_in_the_same_context(path_vault):
+    paths, _repository, _spans, _clock = path_vault
+    fake = PathJudgeFake(provider_type="openai")
+    ctx = _ctx(paths, fake)
+    assert _depth(ctx)["reason"] == "unpriced" and fake.calls == 0
+    append_config_toml(paths.root, "[source_retrieval]\nllm_price_per_million = 2.0\n"
+                                   "[reading_paths]\nmax_daily_cost_usd = 0.0\n")
+    ctx.load(paths.root)
+    view = _path(ctx)
+    assert (view["reason"], fake.calls) == ("capped", 0) and "budget ($0.00) is used" in view["message"]
+    _replace_toml(paths.root, "max_daily_cost_usd = 0.0", "max_daily_cost_usd = 1.0")
+    ctx.load(paths.root)
+    assert _path(ctx)["status"] == "ready" and fake.calls == 1
+    # A model failure keeps its explicit "try again" (no automatic re-call).
+    from learnloop.ai.errors import AIProviderUnavailable
+
+    fake.fail = AIProviderUnavailable("down")
+    assert _depth(ctx, "fluency")["reason"] == "judge_failed"
+    attempts = fake.calls
+    assert _path(ctx)["reason"] == "judge_failed" and fake.calls == attempts
+    fake.fail = None
+    assert _path(ctx, retry=True)["status"] == "ready" and fake.calls == attempts + 1
+
+
+def _rewrite_yaml(path, edit):
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+
+    data = read_yaml(path)
+    edit(data)
+    write_yaml(path, data)
+
+
+def test_f5_a_role_proposal_the_role_switch_and_title_edits_rejudge_a_cached_path(path_vault):
+    """F5: the cache key covers the whole judgment input (roles, titles, the goal's title)."""
+
+    from learnloop.reader import source_roles as RS
+
+    paths, repository, spans, _clock = path_vault
+    fake = PathJudgeFake()
+    ctx = _ctx(paths, fake)
+    keys = [_depth(ctx)["stateKey"]]
+    assert fake.calls == 1
+    # RW4e proposes a role on a section already judged.
+    RS.propose_roles(load_vault(paths.root), repository, [
+        {"extraction_id": EXT, "span_id": spans["sec_spectral"][1], "role": "intuition", "confidence": "high",
+         "ledger_id": None}], judge=RS.JUDGE_LABELLER, prompt_version="role_labeller.v1", model="seed")
+    keys.append(_path(_ctx(paths, fake))["stateKey"])
+    assert fake.calls == 2 and fake.contexts[-1]["sections"][1]["proposed_roles"] == ["intuition"]
+    # The role switch off: the proposal no longer reaches the judge, so the
+    # path is the one judged without it (the first state's, cached: no call),
+    # never the path derived from the proposal.
+    append_config_toml(paths.root, "[roles]\npositive_filter_enabled = false\n")
+    view = _path(_ctx(paths, fake))
+    assert (view["status"], view["stateKey"], fake.calls) == ("ready", keys[0], 2)
+    # An LO's title.
+    _rewrite_yaml(paths.learning_object_path("linear-algebra", "lo_diag"),
+                  lambda lo: lo.__setitem__("title", "Diagonalizing a matrix"))
+    keys.append(_path(_ctx(paths, fake))["stateKey"])
+    assert fake.calls == 3 and fake.contexts[-1]["sections"][2]["topics"][0]["title"] == "Diagonalizing a matrix"
+    assert fake.contexts[-1]["sections"][1]["proposed_roles"] == []
+    # The goal's title (once a section serves the goal).
+    cite(paths, "lo_svd_definition", spans["sec_history"][1])
+    keys.append(_path(_ctx(paths, fake))["stateKey"])
+    assert fake.calls == 4 and fake.contexts[-1]["goal"] == "Linear algebra for ML"
+
+    def retitle(data):
+        for goal in data["goals"]:
+            goal["title"] = "Linear algebra for machine learning"
+
+    _rewrite_yaml(paths.goals_path, retitle)
+    view = _path(_ctx(paths, fake))
+    keys.append(view["stateKey"])
+    assert fake.calls == 5 and fake.contexts[-1]["goal"] == "Linear algebra for machine learning"
+    assert len(set(keys)) == len(keys)
+    # Unchanged inputs: the cached path, no call.
+    assert _path(_ctx(paths, fake))["status"] == "ready" and fake.calls == 5
+
+
+def test_f6_two_sidecars_opening_one_uncached_path_pay_for_one_judgment(path_vault, monkeypatch):
+    """F6: the judgment's durable claim is taken before the call; a second
+    context (its own repository) waits on it and reads the first one's rows."""
+
+    import threading
+
+    from learnloop.db.repositories import Repository
+
+    paths, repository, _spans, _clock = path_vault
+    RP.set_depth(repository, SOURCE, "learn_to_use_it")
+    entered, release, waiting = threading.Event(), threading.Event(), threading.Event()
+
+    class Slow(PathJudgeFake):
+        def complete(self, request):
+            entered.set()
+            assert release.wait(10)
+            return super().complete(request)
+
+    real_sleep = RP._sleep
+
+    def sleep(seconds):
+        waiting.set()
+        real_sleep(min(seconds, 0.05))
+
+    monkeypatch.setattr(RP, "_sleep", sleep)
+    first, second = Slow(), PathJudgeFake()
+    results: dict[str, RP.JudgeResult] = {}
+
+    def run(name, fake):
+        vault = load_vault(paths.root)
+        results[name] = RP.judge(vault, Repository(paths.sqlite_path), EXT, "learn_to_use_it", client=fake)
+
+    one = threading.Thread(target=run, args=("first", first))
+    one.start()
+    assert entered.wait(10)
+    two = threading.Thread(target=run, args=("second", second))
+    two.start()
+    assert waiting.wait(10)  # the second found the claim held and waits on it
+    assert second.calls == 0
+    release.set()
+    one.join(10)
+    two.join(10)
+    assert (results["first"].status, results["second"].status) == ("ready", "fresh")
+    assert (first.calls, second.calls) == (1, 0)
+    assert _rows(repository, "SELECT COUNT(*) FROM model_call_receipts WHERE owner_kind = ? AND parent_call_id IS NULL",
+                 (RP.OWNER_KIND,))[0][0] == 1
+    assert _rows(repository, "SELECT state FROM judgment_work_claims WHERE task = ?", (RP.CLAIM_TASK,)) == [("done",)]
+
+
+def test_f6_a_failed_judgment_gives_its_claim_back(path_vault):
+    from learnloop.ai.errors import AIProviderUnavailable
+
+    paths, repository, _spans, _clock = path_vault
+    fake = PathJudgeFake(fail=AIProviderUnavailable("down"))
+    ctx = _ctx(paths, fake)
+    assert _depth(ctx)["status"] == "failed"
+    assert _rows(repository, "SELECT state FROM judgment_work_claims WHERE task = ?", (RP.CLAIM_TASK,)) == [
+        ("released",)]
+    fake.fail = None
+    assert _path(ctx, retry=True)["status"] == "ready"
+    assert _rows(repository, "SELECT state FROM judgment_work_claims WHERE task = ?", (RP.CLAIM_TASK,)) == [("done",)]

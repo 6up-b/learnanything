@@ -100,3 +100,24 @@ it("Orient's what matters here? opens the Guide's path without asking a model", 
   expect((Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(scrolled);
   expect(api.readerRouteIntent).not.toHaveBeenCalled();
 });
+
+// Codex review F3: the mounted card follows the learner. After a ready
+// answer, coming back to the Guide reads the path again (no remount), so a
+// "next" the learner has moved past is replaced.
+it("a ready path is read again when the Guide is shown again, without a remount", async () => {
+  const later: ReadingPathDto = { ...PATH, next: { ...PATH.next!, text: "Next: read Orthogonal matrices · about 2 min of reading" } };
+  let moved = false;
+  api.readerReadingPath.mockImplementation(async () => (moved ? later : PATH));
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  await screen.findByText(PATH.next!.text);
+  // Let the open's own reads settle (the plan arriving is a refresh signal too).
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 2600)); });
+  expect(screen.getByText(PATH.next!.text)).toBeTruthy();
+  const before = api.readerReadingPath.mock.calls.length;
+  moved = true; // the learner read on (the server's next line moves)
+  fireEvent.click(screen.getByRole("button", { name: "ask" }));
+  fireEvent.click(screen.getByRole("button", { name: "guide" }));
+  expect(await screen.findByText(later.next!.text, undefined, { timeout: 4000 })).toBeTruthy();
+  expect(api.readerReadingPath.mock.calls.length).toBe(before + 1);
+  expect(screen.queryByText(PATH.next!.text)).toBeNull();
+}, 15_000);

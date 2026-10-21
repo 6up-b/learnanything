@@ -106,7 +106,9 @@ def _start(ctx: SidecarContext, vault: Any, repository: Any, extraction_id: str,
             with record_model_calls(worker, owner_kind="sidecar_rpc",
                                     owner_id=f"reader.reading_path:{extraction_id}:{depth}"):
                 result = RP.judge(vault, worker, extraction_id, depth, client=client)
-            outcome = None if result.status in ("ready", "fresh") else {
+            # ``held``: another process kept its claim past the wait; nothing
+            # failed here, the next read finds its rows (or claims again).
+            outcome = None if result.status in ("ready", "fresh", "held") else {
                 "state": "failed", "reason": result.reason, "message": result.message}
         except BaseException as exc:  # noqa: BLE001 - a failed judgment answers the view, never the loop
             LOG.warning("reading path judgment failed: %s", type(exc).__name__, exc_info=exc)
@@ -122,6 +124,32 @@ def _start(ctx: SidecarContext, vault: Any, repository: Any, extraction_id: str,
         run()
     else:
         threading.Thread(target=run, name=f"reading-path-{extraction_id}-{depth}", daemon=True).start()
+
+
+def _readmit(ctx: SidecarContext, vault: Any, repository: Any, state_key: tuple[str, str, str],
+             current: dict[str, Any]) -> dict[str, Any]:
+    """An admission refusal (capped, unpriced, unrouted, models off) holds
+    only while its condition does (Codex review F4): each read asks again,
+    before any call, against today's envelope and the vault's config now.
+    Lifted, the refusal is dropped (the caller judges); still refused, it is
+    kept with today's wording. A model failure is not this: it waits for
+    "try again"."""
+
+    try:
+        problem = RP.admission_problem(vault, repository, client=getattr(ctx, "reading_path_judge_client", None))
+    except Exception:  # noqa: BLE001 - an unreadable check keeps the refusal shown
+        LOG.warning("reading path admission check failed", exc_info=True)
+        return current
+    judgments = _judgments(ctx)
+    with judgments.lock:
+        if judgments.state.get(state_key) != current:
+            return dict(judgments.state.get(state_key) or {})  # changed meanwhile: that state stands
+        if problem is None:
+            judgments.state.pop(state_key, None)
+            return {}
+        refreshed = {"state": "failed", "reason": problem.reason, "message": problem.message}
+        judgments.state[state_key] = refreshed
+        return dict(refreshed)
 
 
 def _view(ctx: SidecarContext, vault: Any, repository: Any, extraction_id: str, *, judge: bool,
@@ -143,6 +171,8 @@ def _view(ctx: SidecarContext, vault: Any, repository: Any, extraction_id: str, 
         if retry and current.get("state") == "failed":
             judgments.state.pop(state_key, None)
             current = {}
+    if current.get("state") == "failed" and current.get("reason") in RP.ADMISSION_REASONS:
+        current = _readmit(ctx, vault, repository, state_key, current)
     if judge and not current:
         _start(ctx, vault, repository, extraction_id, str(view["depth"]), str(key))
         with judgments.lock:
