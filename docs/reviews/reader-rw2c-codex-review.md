@@ -150,3 +150,153 @@ help_outcomes), `test_reader_wrap_up`, `test_ux_phase4_feedback`, `test_compare_
 **For the landing gate.** The module reference (`_scripts/module_generate.py`) is regenerated at landing, as for the
 stage's own new modules; this step adds `report_workbench.workbench_unaided_progress` and
 `facet_evidence_timeline.epoch_held_as_of`.
+
+## Fix round 2 (orchestrator)
+
+The orchestrator's pre-landing verify of `bf7f9926c` (Codex job `20261021-140135-len1zH`, read-only) confirmed:
+no evidence, mastery, scheduling or certification writes; item-only, transactional comparison reveals, written
+before the reference is delivered; compare lines on `CheckRoute` through `PaidCalls`; and no Codex bypass. It
+reopened the stage with 3 High and 5 Medium findings. All eight are fixed in `e575da4c2`. None was rejected. No
+migration, no schema change, no new config key, no new route, and no model call. Migration head stays 217.
+
+**Fail-before.** Every new test failed on `bf7f9926c` for its own reason:
+
+* Python: run against a `git archive bf7f9926c src migrations` under `fixtures-local/tmp/rw2c-fr2-base`, using
+  `-o pythonpath=<it>/src`. 14 of 14 failed.
+* Vitest: run against the old `apps/learnloop-tauri` extracted to `fixtures-local/tmp/rw2c-fr2-apps`, with the
+  worktree's `node_modules` linked in. 3 failed; the fourth test is a control and passed.
+
+All of them pass on `e575da4c2`.
+
+| # | severity | finding | test(s) (fail on `bf7f9926c`) |
+|---|---|---|---|
+| 1 | High | A cancelled or switched-off example could search after its bridge wait | `test_rw2c_fix_round2.py::test_fr2_1_…[switches_off]`, `[cancelled]`: before the fix, the held bridge was released, then the example searched (find called, a row was written) |
+| 2 | High | "another passage" could deliver a passage held out since the draw | `::test_fr2_2_another_passage_skips_an_option_held_out_since_the_draw`, `::test_fr2_2_…refused_when_every_other_option_is_withheld_now`, `::test_fr2_2_…items_own_passage_or_reproduces_its_answer_is_withheld` |
+| 3 | High | Stored draws broke all-switches-off payload parity | `::test_fr2_3_with_every_switch_off_a_problem_with_rw2c_history_restores_the_base_payload`: `help_state` and `workbench.get` run by `tests/rw2c_state_parity.py` under `7e7bdff1b` and under the tip, on the same database |
+| 4 | Medium | Bridge draws included referenced blocks the judge never saw | `::test_fr2_4_a_referenced_block_appended_after_verification_is_never_a_draw_option`, `::test_fr2_4_the_draw_is_between_the_judged_spans_only` |
+| 5 | Medium | S5 outcomes did not replay at `as_of` | `::test_fr2_5_an_s5_record_read_before_its_censoring_horizon_is_pending_not_expired`, `::test_fr2_5_a_later_regrade_never_changes_s5s_outcome_at_as_of_linked_or_standalone`; the guard `::test_fr2_5_the_s5_historical_read_leaves_current_behaviour_alone` (an ImportError before the fix) |
+| 6 | Medium | Unrelated edits counted as recovery | `::test_fr2_6_an_unrelated_edit_to_an_earlier_valid_step_is_not_progress_after_a_waypoint` (through `help_outcomes`), `::test_fr2_6_progress_is_measured_where_the_hint_was_placed` (the shared function directly, with controls) |
+| 7 | Medium | Cross-book bridge navigation lost the book | `::test_fr2_7_a_drawn_bridge_in_book_b_names_book_b_initially_and_after_a_resumed_pick`; `rw2cFixRound2.test.tsx` "7: … from the bridge job's first result", "7: a resumed problem whose last pick was in Book B opens Book B" |
+| 8 | Medium | Explicit example requests could read unsaved work | `rw2cFixRound2.test.tsx` "8: show me a similar example waits for the steps to save and refuses while a save is failing" (before the fix the search was asked); control "8: with the steps saved …" |
+
+### What changed
+
+1. **The example re-reads the live vault after its wait.** The example worker started after a hint waits for its
+   sibling bridge. After that wait, it checks two things before it reserves its place or searches:
+   * its job's cancel flag;
+   * the sidecar's CURRENT vault (`workbench_rw2c._live_example_vault`): the same database; help, examples and the
+     sources spec's S3 all on; the item still there; and the problem statement not withheld.
+
+   It then runs on that vault, with its daily envelope, `max_calls_per_session` and `passage_draw_enabled`, never
+   the captured ones. `route_example.example_for` takes the cancel flag and reads it again just before the
+   reservation and again before the search. A cancel there settles the row `cancelled`.
+2. **"another passage" revalidates the cached option.** `passage_draw.option_withheld` checks a cached option again
+   against what holds now. It makes no search and no model call, and it refuses an option when:
+   * the session's caller is no longer `assisted_practice` (a cold administration);
+   * the one exam predicate (`exam_withheld`: exam and held-out material) covers it;
+   * `teaching_exclusions` covers it;
+   * `item_exclusions` covers it (the item's own passages and whole extractions);
+   * its role is exercise or solution;
+   * its stored block, when it can be read, leads as an exercise or solution, or reproduces the item's answer.
+
+   The handler computes the withheld set before the pick's transaction. `another_passage` skips a withheld option
+   and moves to the next, never returning to the passage on screen. When none is left, it refuses `no_alternatives`
+   with reason `withheld`, and no pick row is written.
+3. **RW2c serialization follows the current switches.** Each RW2c field is serialized only while its switch is on
+   at read time:
+   * `ladder.bridge_view(row, passage_draw=)` adds `source_id` and the draw fields (`alternatives`, `option_id`,
+     `draw_assist_id`) only while `workbench.passage_draw_enabled` is on;
+   * `route_example.example_view(row, passage_draw=)` adds its draw fields under the same rule;
+   * `workbench_help._rw2c_fields_now` drops the bridge's `RW2C_BRIDGE_FIELDS` and the example's `alternatives` from
+     a cached job result read after the draw is switched off, and drops a hint result's `example_job_id` after
+     examples are switched off.
+
+   The parity test builds a problem with RW2c on: a drawn bridge in Book B, a pick on it, a drawn example under the
+   hint and a "show me" example. It then switches all four RW2c switches off. On that database, the tip and
+   `7e7bdff1b` serialize `help_state` and `workbench.get` identically.
+4. **Bridge draws use judged spans only.** A bridge draws only among `bridge.verified_spans(eligible, manifest)`, the
+   spans the manifest's `span_keys` name (`extraction_id/span_id`). A referenced block that `with_references`
+   appends after verification is never an option. With no `span_keys` there is no draw (fail closed). The test
+   fakes of T6's provider now return `span_keys`, as T6 does.
+5. **S5 has a historical read, and `help_outcomes` uses it.** The new read is
+   `substrate.intervention_outcomes.outcomes_as_of(vault, connection, as_of, *, grades)`. It runs S5's own
+   `outcome_for` over only what was written by `as_of`: the interventions, attempts, reveals, source exposures,
+   coldness receipts and the learner's taps. Each attempt carries its grade and hold as they stood then (from
+   `help_outcomes`' grading-history read), and expiry is judged at `as_of`.
+
+   Current-time behaviour is unchanged:
+   * The replayer and its reference time are unchanged. `exposure_evidence` and `_signals` only gained an optional
+     cutoff.
+   * The guard test checks that at the replayer's own `as_of`, with today's grades, the read reproduces the
+     persisted rows.
+
+   `help_outcomes` reads every S5 outcome through `outcomes_as_of`, for both a linked passage (by its assist id) and
+   a standalone record. Without a vault, S5 cannot judge its targets or exposures. Those outcomes then read
+   `unknown` / `unmeasured`, and `sources` reads `read_without_vault`. The two existing S5 tests had faked the
+   derived table directly; they now seed S5's real inputs and pass the vault.
+6. **Progress counts only where the help was placed.** `hints.report_workbench.workbench_unaided_progress` is the
+   shared definition. Its last step is now `_progress_at_placement`, read from the help's placement, which is a
+   hint's own or a passage's hint. A new or changed valid step counts as progress when any of these holds:
+   * it lands on the help's target node: the hint's target, or for a kind without one the next node
+     (`report_adaptive.hint_target`);
+   * it is the step the help was about, or the first questionable step;
+   * it comes after the step the help continues from (with neither recorded, any step counts).
+
+   A step that was already valid at delivery and was only edited does not count, unless it lands on the target.
+   The hint service's report reads the same function, so the targeted gate also ran its tests: `test_hint_report`,
+   `test_workbench_report` and the H2a/H2b review files. Earlier F4 behaviour is unchanged (its four tests pass).
+7. **A bridge keeps its book.** The bridge stores the chosen span's `source_id` in its placement and returns it on
+   its result. The views send it under the rule in 3. In the app, `drawnFields` in `useWorkbenchHelp.ts` carries
+   `sourceId` into the bridge state, on the first result and on resume. The hint view DTO's `bridge` gained
+   `sourceId`. `StepHints` already peeks with a target whenever a bridge names its book.
+8. **"Show me a similar example" waits for saves.** `useRouteExamples` takes `beforeRequest`; `Workbench` passes the
+   same `flushEdits()` + `drained()` barrier that checks and hints use. While a save is failing, the search is
+   refused with "Your latest steps aren't saved yet, so no example was looked for", and nothing is asked.
+
+### Process notes
+
+* No live or paid model calls: everything ran on fakes. No CLI or app run against a vault, and no owner vault
+  opened.
+* One text-edit heredoc (a one-line replacement in `workbench_rw2c.py`) ran as plain `python3` before the `env -i`
+  wrapper was set up. It imported nothing from the app and made no network call. Every later script and every
+  pytest/npm run used `env -i PATH HOME=<empty> CODEX_HOME=<empty> LEARNLOOP_CONFIG_DIR=<empty>`.
+* One vitest invocation hit a zsh glob miss, which emptied its file list, so it ran the whole vitest suite:
+  173 files, 1,489 passed. That run is recorded here for completeness; the targeted run is in the table below.
+* No `git stash`. `/tmp/learnloop-fullsuite.lock` was free, and targeted runs take no lock.
+
+### Gate (targeted; the full suite runs once, in the landing gate)
+
+Environment: `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2`, `TMPDIR=<worktree>/fixtures-local/tmp`.
+No migration and no DB/connection or schema change, so there is no durability lane and no head fixture or DB
+reference work. Nothing under `src-tauri` changed, so there is no `cargo check`.
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 29 kept, 0 broken |
+| `uv run pytest -n auto` on the 97 files below | **2,032 passed, 1 skipped** (RW4e's base-tree-only golden recorder) |
+| fail-before: `tests/test_rw2c_fix_round2.py` on the `bf7f9926c` archive | 14 failed |
+| `npm run typecheck` | clean |
+| `npx vitest run --maxWorkers=6` on the 41 files below | **423 passed** |
+| fail-before: `rw2cFixRound2.test.tsx` on the old `apps/` | 3 failed, 1 passed (the control) |
+| `npm run frontend:build` | built |
+
+**Pytest files (97):**
+* the 91 of the round above;
+* `test_rw2c_fix_round2` (new; `test_sqlite_file_copies` audits its helper-script copy);
+* S5's: `test_intervention_outcomes_replayer`, `test_retrieval_interventions_write_points`,
+  `test_sources_merge_composition`, `test_valuation_calibration_fields`, `test_rebuild_orchestrator`.
+
+The hint service's report tests (`test_hint_report`, `test_workbench_report`) were already among the 91.
+
+**Vitest files (41):**
+* every `screens/ReaderScreen.*` test;
+* every `screens/workbench/*` test (`rw2cFixRound2.test.tsx` new);
+* every `screens/feedback/*` test;
+* every `screens/FeedbackScreen*` test;
+* `PracticeScreen.workbench`, `reader/readerWorkbench*`, `app/practiceFeedback`.
+
+**For the landing gate.** `_scripts/module_generate.py` regenerates the module reference at landing. This round adds:
+* `intervention_outcomes.outcomes_as_of`;
+* `bridge.verified_spans`;
+* `passage_draw.option_withheld`;
+* `ladder.passage_draw_enabled` and `ladder.RW2C_BRIDGE_FIELDS`.
