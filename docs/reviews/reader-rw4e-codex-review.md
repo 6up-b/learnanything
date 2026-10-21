@@ -394,3 +394,40 @@ No finding was rejected.
 - References: generated, then validated with 0 errors.
 
 For the landing gate: the full suite, the whole durability lane and the whole vitest run, on the merged tree.
+
+## Fix round 5
+
+Codex verify job `20261020-224735-XWC66K` (on `a12ba5ba9..57d02d3f0`) confirmed everything else: 480 legacy
+parity comparisons with the positive filter off, cue and organizer requests matching the base, and duplicates
+handled. One Medium remained.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F10 | Medium | A labeller answer with `verdict: "none"` and non-empty roles is applied live but ignored by recovery | fixed | `e5d1ab4dd` | `tests/test_label_roles_cli.py::test_a_none_verdict_beside_roles_is_recorded_as_roles_and_recovered_after_the_last_batch` (interrupted after the last batch's ledger commit, then resumed: the role is proposed and the run reports `done`); `…::test_an_older_none_row_whose_saved_answer_has_roles_is_recovered` (a ledger written the old way, `none` beside an accepted role). Both failed on `57d02d3f0`: the ledger said `none`, and the first test's resume recovered 0 of 1 passages; the second's recovered none either |
+
+**What changed.**
+- **At capture.** The validator returns the answer with each verdict set from its cleaned roles (`agreed_verdicts`):
+  `roles` when they are non-empty, `none` when they are empty. It runs after the duplicate check and before the
+  ledger commits, so the ledger and the live writer agree.
+- **On recovery.** `_unapplied` also takes a `none` row when its saved answer gave the passage roles
+  (`_answers_with_roles`), which covers older receipts. Recovery and this check share one receipt reader,
+  `_receipt_batches`: the same filters as before, each ref's first judgment, and every passage of the batch
+  judged.
+
+**Gate.**
+- `uv run lint-imports --no-cache`: **28 kept, 0 broken**.
+- `TMPDIR=fixtures-local/tmp uv run pytest -n auto`: **437 passed, 1 skipped** (the base-only golden recorder).
+  The 15 files run:
+  - the labeller: `test_label_roles_cli`;
+  - roles: `test_roles_concurrency`, `test_roles_judges`, `test_roles_switch_off`,
+    `test_roles_switch_off_legacy_parity`, `test_source_roles`;
+  - RW4d: `test_compare_keep_switch_off`, `test_compare_sources_keep`, `test_reader_intent`,
+    `test_reader_tutor_switch_off`, `test_rw4_kill_switches`, `test_rw4d_rw3b_composition`, `test_source_objects`,
+    `test_reader_compare_table`, `test_mobile_allowlist`.
+
+**Notes.**
+- No model call; fakes only.
+- The two Python edit scripts ran under `env -i` with an empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`.
+- No reference cites `role_labeller.py` lines, so no reference was regenerated.
+
+For the landing gate: the full suite, the whole durability lane and the whole vitest run, on the merged tree.
