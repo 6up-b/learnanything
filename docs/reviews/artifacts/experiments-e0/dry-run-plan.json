@@ -1,0 +1,1316 @@
+{
+ "assumptions": {
+  "adjudicated_share_of_labelled_questions": 1.0,
+  "adjudicator_output_tokens_per_candidate": 12,
+  "answer_output_tokens": 600,
+  "development_query_tokens": 60,
+  "judge_disagreement_share": 0.35,
+  "judge_output_tokens": 300,
+  "label_batch": 40,
+  "label_output_tokens_per_candidate": 12,
+  "label_tokens_per_candidate_overhead": 30,
+  "pool_overlap_factor": 0.5,
+  "qwen_query_prefix_tokens": 30,
+  "r3_header_tokens_per_unit": 200,
+  "retrieval_finalists": 3,
+  "writer_batch": 6,
+  "writer_output_tokens_per_question": 160
+ },
+ "bank": {
+  "totals": {
+   "development": 72,
+   "development_target": [
+    60,
+    80
+   ],
+   "development_within_target": true,
+   "logged": 29,
+   "smoke": 32
+  },
+  "vaults": {
+   "linear_algebra-20261021": {
+    "development_seeds": 36,
+    "development_shortfall": {},
+    "development_strata": {
+     "direct_lookup": 3,
+     "distant_same_source": 10,
+     "intent_alternative": 2,
+     "intent_compare": 2,
+     "intent_explain": 2,
+     "intent_remediate": 2,
+     "intent_worked_example": 2,
+     "no_support": 3,
+     "reader_deictic": 10
+    },
+    "known_location_questions": 13,
+    "logged": {
+     "duplicate": 0,
+     "eligible": 21,
+     "events": 21,
+     "selection_not_current": 0,
+     "selection_withheld": 0,
+     "too_short": 0
+    },
+    "logged_by_context": {
+     "logged_feedback": 2,
+     "logged_practice": 8,
+     "logged_reader": 11
+    },
+    "smoke": {
+     "count": 16,
+     "shortfall": {}
+    }
+   },
+   "probability-20261021": {
+    "development_seeds": 36,
+    "development_shortfall": {},
+    "development_strata": {
+     "direct_lookup": 3,
+     "distant_same_source": 10,
+     "intent_alternative": 2,
+     "intent_compare": 2,
+     "intent_explain": 2,
+     "intent_remediate": 2,
+     "intent_worked_example": 2,
+     "no_support": 3,
+     "reader_deictic": 10
+    },
+    "known_location_questions": 13,
+    "logged": {
+     "duplicate": 0,
+     "eligible": 8,
+     "events": 8,
+     "selection_not_current": 0,
+     "selection_withheld": 0,
+     "too_short": 0
+    },
+    "logged_by_context": {
+     "logged_feedback": 2,
+     "logged_practice": 3,
+     "logged_reader": 3
+    },
+    "smoke": {
+     "count": 16,
+     "shortfall": {}
+    }
+   }
+  }
+ },
+ "baseline": {
+  "delivery_fixes": {
+   "implementation_commits": [
+    "43060df29",
+    "0fa0ec1b4"
+   ],
+   "merge_commit": "275fd5f7e",
+   "policy": {
+    "blocks": "complete canonical blocks; one explicit token budget, trims recorded",
+    "d0_kill_switch": "tutor_qa.expanded_delivery = false, tutor_qa.resolve_references = false",
+    "neighbours": "nearest content blocks both sides, i-1, i+1, widening to 3 a side",
+    "references": "numbered references followed within the same extraction (max 4)"
+   },
+   "review": "docs/reviews/tutor-delivery-fixes.md"
+  },
+  "vaults": {
+   "linear_algebra-20261021": {
+    "config_allowlist": {
+     "LEARNLOOP_AI_PROVIDER": "absent",
+     "embedding.backfill_enabled": false,
+     "embedding.backfill_sources_on_extract": true,
+     "embedding.dimensions": 4096,
+     "embedding.enabled": false,
+     "embedding.model": "qwen/qwen3-embedding-8b",
+     "embedding.source_backfill_max_cost_usd": 1.0,
+     "routes": {
+      "embedding": {
+       "model": "qwen/qwen3-embedding-8b",
+       "provider": "openrouter_embedding",
+       "type": "openai_embedding"
+      },
+      "source_query_rewrite": {
+       "model": "gpt-5.6-sol",
+       "provider": "codex",
+       "type": "codex_sdk"
+      },
+      "source_rerank": {
+       "model": "gpt-5.6-sol",
+       "provider": "codex",
+       "type": "codex_sdk"
+      },
+      "tutor_qa": {
+       "model": "gpt-5.6-sol",
+       "provider": "codex_low",
+       "type": "codex_sdk"
+      }
+     },
+     "source_retrieval.complete_passages": true,
+     "source_retrieval.dense": true,
+     "source_retrieval.enabled": true,
+     "source_retrieval.llm_price_per_million": "unset",
+     "source_retrieval.passage_token_budget": 4000,
+     "source_retrieval.pool": "dense_plus_bm25",
+     "source_retrieval.pool_keyword_extras": 4,
+     "source_retrieval.query_embedding_price_per_million": "unset",
+     "source_retrieval.query_rewrite": true,
+     "source_retrieval.rerank_max_cost_usd": 0.3,
+     "source_retrieval.rewrite_max_cost_usd": 0.15,
+     "source_retrieval.tutor_candidate_pool": 12,
+     "source_retrieval.tutor_query_rewrite": false,
+     "source_retrieval.tutor_rerank": true,
+     "source_retrieval.tutor_spans": 4,
+     "source_service.max_daily_cost_usd": 5.0,
+     "tutor_qa.context_token_budget": 24000,
+     "tutor_qa.expanded_delivery": true,
+     "tutor_qa.resolve_references": true
+    },
+    "dense_coverage": {
+     "auto_backfill": "embedding.enabled is false",
+     "effective": false,
+     "model_id": "qwen/qwen3-embedding-8b",
+     "reason": "embedding.enabled off: retrieval ranks by keyword only",
+     "sources": [
+      {
+       "blocks": 217,
+       "covered": 0,
+       "source": "src_a8c02a63c9",
+       "status": "none"
+      },
+      {
+       "blocks": 142,
+       "covered": 0,
+       "source": "src_f810ef5356",
+       "status": "none"
+      },
+      {
+       "blocks": 340,
+       "covered": 0,
+       "source": "src_08167400d9",
+       "status": "none"
+      }
+     ],
+     "switches": {
+      "embedding.enabled": false,
+      "source_retrieval.dense": true,
+      "source_retrieval.enabled": true
+     },
+     "totals": {
+      "blocks": 699,
+      "complete": 0,
+      "covered": 0,
+      "sources": 3
+     }
+    },
+    "extraction_engines": [
+     "marker/1.10.2+map2",
+     "youtube/2"
+    ],
+    "migration_head": 165
+   },
+   "probability-20261021": {
+    "config_allowlist": {
+     "LEARNLOOP_AI_PROVIDER": "absent",
+     "embedding.backfill_enabled": false,
+     "embedding.backfill_sources_on_extract": true,
+     "embedding.dimensions": 4096,
+     "embedding.enabled": false,
+     "embedding.model": "qwen/qwen3-embedding-8b",
+     "embedding.source_backfill_max_cost_usd": 1.0,
+     "routes": {
+      "embedding": {
+       "model": "qwen/qwen3-embedding-8b",
+       "provider": "openrouter_embedding",
+       "type": "openai_embedding"
+      },
+      "source_query_rewrite": {
+       "model": "gpt-5.6-sol",
+       "provider": "codex",
+       "type": "codex_sdk"
+      },
+      "source_rerank": {
+       "model": "gpt-5.6-sol",
+       "provider": "codex",
+       "type": "codex_sdk"
+      },
+      "tutor_qa": {
+       "model": "gpt-5.6-sol",
+       "provider": "codex_low",
+       "type": "codex_sdk"
+      }
+     },
+     "source_retrieval.complete_passages": true,
+     "source_retrieval.dense": true,
+     "source_retrieval.enabled": true,
+     "source_retrieval.llm_price_per_million": "unset",
+     "source_retrieval.passage_token_budget": 4000,
+     "source_retrieval.pool": "dense_plus_bm25",
+     "source_retrieval.pool_keyword_extras": 4,
+     "source_retrieval.query_embedding_price_per_million": "unset",
+     "source_retrieval.query_rewrite": true,
+     "source_retrieval.rerank_max_cost_usd": 0.3,
+     "source_retrieval.rewrite_max_cost_usd": 0.15,
+     "source_retrieval.tutor_candidate_pool": 12,
+     "source_retrieval.tutor_query_rewrite": false,
+     "source_retrieval.tutor_rerank": true,
+     "source_retrieval.tutor_spans": 4,
+     "source_service.max_daily_cost_usd": 5.0,
+     "tutor_qa.context_token_budget": 24000,
+     "tutor_qa.expanded_delivery": true,
+     "tutor_qa.resolve_references": true
+    },
+    "dense_coverage": {
+     "auto_backfill": "embedding.enabled is false",
+     "effective": false,
+     "model_id": "qwen/qwen3-embedding-8b",
+     "reason": "embedding.enabled off: retrieval ranks by keyword only",
+     "sources": [
+      {
+       "blocks": 25,
+       "covered": 0,
+       "source": "src_3624e9684f",
+       "status": "none"
+      },
+      {
+       "blocks": 17,
+       "covered": 0,
+       "source": "src_013254d637",
+       "status": "none"
+      },
+      {
+       "blocks": 399,
+       "covered": 0,
+       "source": "src_57dfce681f",
+       "status": "none"
+      },
+      {
+       "blocks": 15,
+       "covered": 0,
+       "source": "src_2ab1459295",
+       "status": "none"
+      }
+     ],
+     "switches": {
+      "embedding.enabled": false,
+      "source_retrieval.dense": true,
+      "source_retrieval.enabled": true
+     },
+     "totals": {
+      "blocks": 456,
+      "complete": 0,
+      "covered": 0,
+      "sources": 4
+     }
+    },
+    "extraction_engines": [
+     "html/2",
+     "marker/1.10.2+map3"
+    ],
+    "migration_head": 165
+   }
+  }
+ },
+ "by_provider": {
+  "codex_sdk:gpt-5.6-sol": {
+   "billing": "subscription",
+   "estimated_usd": 0.0,
+   "requests": 1218,
+   "tokens": 11111658
+  },
+  "codex_sdk:gpt-6-luna": {
+   "billing": "subscription",
+   "estimated_usd": 0.0,
+   "requests": 860,
+   "tokens": 5793203
+  },
+  "openrouter:anthropic/claude-sonnet-5.5": {
+   "billing": "metered",
+   "estimated_usd": 8.595651,
+   "requests": 245,
+   "tokens": 3118618
+  },
+  "openrouter:qwen/qwen3-embedding-8b": {
+   "estimated_usd": 0.012866,
+   "requests": 42,
+   "tokens": 428909
+  },
+  "openrouter:qwen/qwen3-embedding-8b (system arms)": {
+   "estimated_usd": 0.002877,
+   "requests": 0,
+   "tokens": 71956
+  },
+  "perplexity:pplx-embed-context-v1-4b": {
+   "estimated_usd": 0.026576,
+   "requests": 9,
+   "tokens": 132876
+  },
+  "perplexity:pplx-embed-v1-4b": {
+   "estimated_usd": 0.013288,
+   "requests": 5,
+   "tokens": 66438
+  },
+  "voyage:voyage-4-large": {
+   "estimated_usd": 0.019931,
+   "requests": 4,
+   "tokens": 66438
+  },
+  "voyage:voyage-context-4": {
+   "estimated_usd": 0.039862,
+   "requests": 8,
+   "tokens": 132876
+  }
+ },
+ "checks": {
+  "copies_changed": 0,
+  "copy_tree_digests_equal": true,
+  "database_mode": "read_only",
+  "network_calls": 0,
+  "settings_file_read": false
+ },
+ "corpus": [
+  {
+   "dependencies": {
+    "resolved": 10,
+    "support_vs_windows": {
+     "inside": 4,
+     "outside": 6
+    },
+    "units_with_references": 16,
+    "unresolved": 6,
+    "withheld_targets": 0
+   },
+   "families": {
+    "count": 3,
+    "status": {
+     "development": 3
+    }
+   },
+   "policy": {
+    "fingerprint": "8798817d7f59cadd640cf038ebdd0a96eb2beb2b6aef6466dd355d6ab093c2cf",
+    "whole_extractions_withheld": 0,
+    "withheld": {
+     "assessment_lane": 3
+    }
+   },
+   "sources": [
+    {
+     "block_types": {
+      "Equation": 78,
+      "FigureGroup": 2,
+      "Footnote": 3,
+      "ListGroup": 19,
+      "PageFooter": 27,
+      "PageHeader": 44,
+      "Picture": 1,
+      "PictureGroup": 3,
+      "SectionHeader": 60,
+      "Text": 252
+     },
+     "blocks": 489,
+     "content_blocks": 416,
+     "content_tokens": 15497,
+     "extraction": "ext_a06f9d637f",
+     "extractor": "marker",
+     "extractor_version": "1.10.2+map2",
+     "family": "fam_404545e4fb",
+     "fingerprint": [
+      489,
+      707
+     ],
+     "outline_units": 60,
+     "permitted_tokens": 15305,
+     "reader_enabled": true,
+     "source": "src_08167400d9",
+     "units": 336,
+     "whole_source_fits": {
+      "pplx_context_4b": true,
+      "voyage_context_4": true
+     },
+     "windows": 7,
+     "withheld_blocks": 3
+    },
+    {
+     "block_types": {
+      "Caption": 222
+     },
+     "blocks": 222,
+     "content_blocks": 222,
+     "content_tokens": 4833,
+     "extraction": "ext_c490970d63",
+     "extractor": "youtube",
+     "extractor_version": "2",
+     "family": "fam_62839be6b9",
+     "fingerprint": [
+      222,
+      929
+     ],
+     "outline_units": 1,
+     "permitted_tokens": 4833,
+     "reader_enabled": true,
+     "source": "src_a8c02a63c9",
+     "units": 16,
+     "whole_source_fits": {
+      "pplx_context_4b": true,
+      "voyage_context_4": true
+     },
+     "windows": 2,
+     "withheld_blocks": 0
+    },
+    {
+     "block_types": {
+      "Caption": 145
+     },
+     "blocks": 145,
+     "content_blocks": 145,
+     "content_tokens": 3097,
+     "extraction": "ext_c85f52d418",
+     "extractor": "youtube",
+     "extractor_version": "2",
+     "family": "fam_01ba99c61b",
+     "fingerprint": [
+      145,
+      1074
+     ],
+     "outline_units": 1,
+     "permitted_tokens": 3103,
+     "reader_enabled": true,
+     "source": "src_f810ef5356",
+     "units": 10,
+     "whole_source_fits": {
+      "pplx_context_4b": true,
+      "voyage_context_4": true
+     },
+     "windows": 1,
+     "withheld_blocks": 0
+    }
+   ],
+   "unit_kinds": {
+    "block": 260,
+    "captions": 26,
+    "equation_attached": 76
+   },
+   "unit_tokens": 23241,
+   "units": 362,
+   "vault": "linear_algebra-20261021",
+   "window_tokens": 26137,
+   "windows": 10
+  },
+  {
+   "dependencies": {
+    "resolved": 8,
+    "support_vs_windows": {
+     "inside": 5,
+     "outside": 3
+    },
+    "units_with_references": 9,
+    "unresolved": 4,
+    "withheld_targets": 0
+   },
+   "families": {
+    "count": 2,
+    "status": {
+     "development": 2
+    }
+   },
+   "policy": {
+    "fingerprint": "9fa527bca57c9c91581b9d4cc7656b402806fb5ef72d1d26c3deb3bf6a6aadaa",
+    "whole_extractions_withheld": 0,
+    "withheld": {
+     "assessment_lane": 65,
+     "solution": 61
+    }
+   },
+   "sources": [
+    {
+     "block_types": {
+      "Equation": 3,
+      "ListGroup": 4,
+      "PageFooter": 2,
+      "PageHeader": 1,
+      "SectionHeader": 6,
+      "Text": 12
+     },
+     "blocks": 28,
+     "content_blocks": 25,
+     "content_tokens": 1331,
+     "extraction": "ext_27b81e0f75",
+     "extractor": "marker",
+     "extractor_version": "1.10.2+map3",
+     "family": "fam_b1e5df3878",
+     "fingerprint": [
+      28,
+      564
+     ],
+     "outline_units": 6,
+     "permitted_tokens": 0,
+     "reader_enabled": false,
+     "source": "src_3624e9684f",
+     "units": 0,
+     "whole_source_fits": {
+      "pplx_context_4b": false,
+      "voyage_context_4": false
+     },
+     "windows": 0,
+     "withheld_blocks": 25
+    },
+    {
+     "block_types": {
+      "Equation": 2,
+      "ListGroup": 2,
+      "PageFooter": 1,
+      "SectionHeader": 3,
+      "Text": 10
+     },
+     "blocks": 18,
+     "content_blocks": 17,
+     "content_tokens": 793,
+     "extraction": "ext_c789b51b1f",
+     "extractor": "marker",
+     "extractor_version": "1.10.2+map3",
+     "family": "fam_b1e5df3878",
+     "fingerprint": [
+      18,
+      536
+     ],
+     "outline_units": 3,
+     "permitted_tokens": 0,
+     "reader_enabled": false,
+     "source": "src_013254d637",
+     "units": 0,
+     "whole_source_fits": {
+      "pplx_context_4b": false,
+      "voyage_context_4": false
+     },
+     "windows": 0,
+     "withheld_blocks": 17
+    },
+    {
+     "block_types": {
+      "Text": 15
+     },
+     "blocks": 15,
+     "content_blocks": 15,
+     "content_tokens": 1943,
+     "extraction": "ext_cda40e44a1",
+     "extractor": "html",
+     "extractor_version": "2",
+     "family": "fam_9f4d3c70c6",
+     "fingerprint": [
+      15,
+      579
+     ],
+     "outline_units": 6,
+     "permitted_tokens": 1943,
+     "reader_enabled": true,
+     "source": "src_2ab1459295",
+     "units": 15,
+     "whole_source_fits": {
+      "pplx_context_4b": true,
+      "voyage_context_4": true
+     },
+     "windows": 1,
+     "withheld_blocks": 0
+    },
+    {
+     "block_types": {
+      "Code": 9,
+      "Equation": 69,
+      "Figure": 4,
+      "Footnote": 3,
+      "Form": 1,
+      "ListGroup": 28,
+      "PageFooter": 1,
+      "PageHeader": 64,
+      "Picture": 6,
+      "SectionHeader": 37,
+      "Table": 1,
+      "Text": 295
+     },
+     "blocks": 518,
+     "content_blocks": 440,
+     "content_tokens": 34247,
+     "extraction": "ext_fd2d7b8c54",
+     "extractor": "marker",
+     "extractor_version": "1.10.2+map3",
+     "family": "fam_b1e5df3878",
+     "fingerprint": [
+      518,
+      518
+     ],
+     "outline_units": 10,
+     "permitted_tokens": 28497,
+     "reader_enabled": true,
+     "source": "src_57dfce681f",
+     "units": 320,
+     "whole_source_fits": {
+      "pplx_context_4b": true,
+      "voyage_context_4": true
+     },
+     "windows": 26,
+     "withheld_blocks": 69
+    }
+   ],
+   "unit_kinds": {
+    "block": 274,
+    "equation": 2,
+    "equation_attached": 53,
+    "split": 6
+   },
+   "unit_tokens": 30440,
+   "units": 335,
+   "vault": "probability-20261021",
+   "window_tokens": 33120,
+   "windows": 27
+  }
+ ],
+ "delivery_arms": {
+  "D0": "today's context: the neighbour defect and the 240/600 cuts (kill switch off)",
+  "D1": "fixed delivery: complete blocks, nearest neighbours, references, 8,192 tokens",
+  "D2": "the whole permitted section containing the selection",
+  "D3": "the whole permitted source (does_not_fit -> named fallback D3_section)"
+ },
+ "embedding_arms": [
+  {
+   "arm": "R1",
+   "category": "embeddings",
+   "chunks": 697,
+   "document_tokens": 76721,
+   "documents": 697,
+   "encoding": "independent",
+   "estimated_usd": 0.002634,
+   "kind": "representation",
+   "model": "qwen/qwen3-embedding-8b",
+   "notes": [],
+   "price_per_million_upper_bound": 0.03,
+   "provider": "openrouter",
+   "queries": 133,
+   "query_tokens": 11091,
+   "recipe": "production_recipe",
+   "requests": 14,
+   "tokens": 87812,
+   "worst_case_usd": 0.007903
+  },
+  {
+   "arm": "R2",
+   "category": "embeddings",
+   "chunks": 697,
+   "document_tokens": 120258,
+   "documents": 697,
+   "encoding": "independent",
+   "estimated_usd": 0.00394,
+   "kind": "representation",
+   "model": "qwen/qwen3-embedding-8b",
+   "notes": [],
+   "price_per_million_upper_bound": 0.03,
+   "provider": "openrouter",
+   "queries": 133,
+   "query_tokens": 11091,
+   "recipe": "deterministic_header",
+   "requests": 14,
+   "tokens": 131349,
+   "worst_case_usd": 0.011821
+  },
+  {
+   "arm": "R3",
+   "category": "embeddings",
+   "chunks": 697,
+   "document_tokens": 198657,
+   "documents": 697,
+   "encoding": "independent",
+   "estimated_usd": 0.006292,
+   "kind": "representation",
+   "model": "qwen/qwen3-embedding-8b",
+   "notes": [],
+   "price_per_million_upper_bound": 0.03,
+   "provider": "openrouter",
+   "queries": 133,
+   "query_tokens": 11091,
+   "recipe": "llm_context",
+   "requests": 14,
+   "tokens": 209748,
+   "worst_case_usd": 0.018877
+  },
+  {
+   "arm": "R4_grouped",
+   "category": "embeddings",
+   "chunks": 697,
+   "document_tokens": 59257,
+   "documents": 37,
+   "encoding": "grouped",
+   "estimated_usd": 0.013288,
+   "kind": "representation",
+   "model": "pplx-embed-context-v1-4b",
+   "notes": [
+    "contract_unverified: the canary must pass before paid calls",
+    "price_unverified: admission reserves at the conservative upper bound"
+   ],
+   "price_per_million_upper_bound": 0.2,
+   "provider": "perplexity",
+   "queries": 133,
+   "query_tokens": 7101,
+   "recipe": "plain",
+   "requests": 4,
+   "tokens": 66438,
+   "worst_case_usd": 0.039863
+  },
+  {
+   "arm": "R4_singleton",
+   "category": "embeddings",
+   "chunks": 697,
+   "document_tokens": 59257,
+   "documents": 697,
+   "encoding": "singleton",
+   "estimated_usd": 0.013288,
+   "kind": "representation",
+   "model": "pplx-embed-context-v1-4b",
+   "notes": [
+    "contract_unverified: the canary must pass before paid calls",
+    "price_unverified: admission reserves at the conservative upper bound"
+   ],
+   "price_per_million_upper_bound": 0.2,
+   "provider": "perplexity",
+   "queries": 133,
+   "query_tokens": 7101,
+   "recipe": "plain",
+   "requests": 5,
+   "tokens": 66438,
+   "worst_case_usd": 0.039863
+  },
+  {
+   "arm": "R4_independent",
+   "category": "embeddings",
+   "chunks": 697,
+   "document_tokens": 59257,
+   "documents": 697,
+   "encoding": "independent",
+   "estimated_usd": 0.013288,
+   "kind": "representation",
+   "model": "pplx-embed-v1-4b",
+   "notes": [
+    "contract_unverified: the canary must pass before paid calls",
+    "price_unverified: admission reserves at the conservative upper bound"
+   ],
+   "price_per_million_upper_bound": 0.2,
+   "provider": "perplexity",
+   "queries": 133,
+   "query_tokens": 7101,
+   "recipe": "plain",
+   "requests": 5,
+   "tokens": 66438,
+   "worst_case_usd": 0.039863
+  },
+  {
+   "arm": "R5_grouped",
+   "category": "embeddings",
+   "chunks": 697,
+   "document_tokens": 59257,
+   "documents": 37,
+   "encoding": "grouped",
+   "estimated_usd": 0.019931,
+   "kind": "representation",
+   "model": "voyage-context-4",
+   "notes": [
+    "contract_unverified: the canary must pass before paid calls",
+    "price_unverified: admission reserves at the conservative upper bound"
+   ],
+   "price_per_million_upper_bound": 0.3,
+   "provider": "voyage",
+   "queries": 133,
+   "query_tokens": 7101,
+   "recipe": "plain",
+   "requests": 4,
+   "tokens": 66438,
+   "worst_case_usd": 0.059794
+  },
+  {
+   "arm": "R5_singleton",
+   "category": "embeddings",
+   "chunks": 697,
+   "document_tokens": 59257,
+   "documents": 697,
+   "encoding": "singleton",
+   "estimated_usd": 0.019931,
+   "kind": "representation",
+   "model": "voyage-context-4",
+   "notes": [
+    "contract_unverified: the canary must pass before paid calls",
+    "price_unverified: admission reserves at the conservative upper bound"
+   ],
+   "price_per_million_upper_bound": 0.3,
+   "provider": "voyage",
+   "queries": 133,
+   "query_tokens": 7101,
+   "recipe": "plain",
+   "requests": 4,
+   "tokens": 66438,
+   "worst_case_usd": 0.059794
+  },
+  {
+   "arm": "R5_independent",
+   "category": "embeddings",
+   "chunks": 697,
+   "document_tokens": 59257,
+   "documents": 697,
+   "encoding": "independent",
+   "estimated_usd": 0.019931,
+   "kind": "representation",
+   "model": "voyage-4-large",
+   "notes": [
+    "contract_unverified: the canary must pass before paid calls",
+    "price_unverified: admission reserves at the conservative upper bound"
+   ],
+   "price_per_million_upper_bound": 0.3,
+   "provider": "voyage",
+   "queries": 133,
+   "query_tokens": 7101,
+   "recipe": "plain",
+   "requests": 4,
+   "tokens": 66438,
+   "worst_case_usd": 0.059794
+  }
+ ],
+ "harness": "e0-harness-v1",
+ "keys": {
+  "OPENROUTER_API_KEY": "absent",
+  "PERPLEXITY_API_KEY": "absent",
+  "VOYAGE_API_KEY": "absent"
+ },
+ "limits": {
+  "allocation_usd": {
+   "answers_verification": 8.0,
+   "drafting_context": 5.0,
+   "embeddings": 2.0,
+   "labels_audits": 10.0
+  },
+  "auth_or_contract_retries": 0,
+  "bootstrap_resamples": 10000,
+  "cap_usd": 25.0,
+  "d1_evidence_tokens": 8192,
+  "max_paid_requests": 6000,
+  "max_wall_s": 21600.0,
+  "pool_depth": 20,
+  "request_timeout_s": 120.0,
+  "top_k": 10,
+  "transient_retries": 2,
+  "window_tokens": 4096
+ },
+ "llm_roles": [
+  {
+   "arm": null,
+   "billing": "subscription",
+   "calls": 12,
+   "category": "drafting_context",
+   "detail": "exact prompts from the frozen seeds",
+   "estimated_only_reference_usd": 0.230054,
+   "estimated_usd": 0.0,
+   "input_tokens": 57427,
+   "model": "gpt-6-luna",
+   "output_tokens": 11520,
+   "role": "writer",
+   "transport": "codex_sdk",
+   "worst_case_usd": 0.0
+  },
+  {
+   "arm": "R3",
+   "billing": "subscription",
+   "calls": 37,
+   "category": "drafting_context",
+   "detail": "exact prompts, one per window",
+   "estimated_only_reference_usd": 1.56666,
+   "estimated_usd": 0.0,
+   "input_tokens": 86330,
+   "model": "gpt-6-luna",
+   "output_tokens": 139400,
+   "role": "context",
+   "transport": "codex_sdk",
+   "worst_case_usd": 0.0
+  },
+  {
+   "arm": null,
+   "billing": "subscription",
+   "calls": 404,
+   "category": "labels_audits",
+   "detail": "",
+   "estimated_only_reference_usd": 4.99078,
+   "estimated_usd": 0.0,
+   "input_tokens": 1725770,
+   "model": "gpt-6-luna",
+   "output_tokens": 153924,
+   "role": "label_a",
+   "transport": "codex_sdk",
+   "worst_case_usd": 0.0
+  },
+  {
+   "arm": null,
+   "billing": "subscription",
+   "calls": 404,
+   "category": "labels_audits",
+   "detail": "",
+   "estimated_only_reference_usd": 4.99078,
+   "estimated_usd": 0.0,
+   "input_tokens": 1725770,
+   "model": "gpt-5.6-sol",
+   "output_tokens": 153924,
+   "role": "label_b",
+   "transport": "codex_sdk",
+   "worst_case_usd": 0.0
+  },
+  {
+   "arm": null,
+   "billing": "metered",
+   "calls": 101,
+   "category": "labels_audits",
+   "detail": "every question with a disagreement or an accepted set (assumed all)",
+   "estimated_only_reference_usd": null,
+   "estimated_usd": 5.208553,
+   "input_tokens": 1597904,
+   "model": "anthropic/claude-sonnet-5.5",
+   "output_tokens": 153924,
+   "role": "adjudicator",
+   "transport": "openrouter",
+   "worst_case_usd": 15.625658
+  },
+  {
+   "arm": null,
+   "billing": "subscription",
+   "calls": 407,
+   "category": "answers_verification",
+   "detail": "D0-D3 on known-location questions; D1 for the retrieval finalists",
+   "estimated_only_reference_usd": 13.179864,
+   "estimated_usd": 0.0,
+   "input_tokens": 5368932,
+   "model": "gpt-5.6-sol",
+   "output_tokens": 244200,
+   "role": "tutor",
+   "transport": "codex_sdk",
+   "worst_case_usd": 0.0
+  },
+  {
+   "arm": null,
+   "billing": "subscription",
+   "calls": 407,
+   "category": "answers_verification",
+   "detail": "",
+   "estimated_only_reference_usd": 8.214464,
+   "estimated_usd": 0.0,
+   "input_tokens": 3496732,
+   "model": "gpt-6-luna",
+   "output_tokens": 122100,
+   "role": "judge_a",
+   "transport": "codex_sdk",
+   "worst_case_usd": 0.0
+  },
+  {
+   "arm": null,
+   "billing": "subscription",
+   "calls": 407,
+   "category": "answers_verification",
+   "detail": "",
+   "estimated_only_reference_usd": 8.214464,
+   "estimated_usd": 0.0,
+   "input_tokens": 3496732,
+   "model": "gpt-5.6-sol",
+   "output_tokens": 122100,
+   "role": "judge_b",
+   "transport": "codex_sdk",
+   "worst_case_usd": 0.0
+  },
+  {
+   "arm": null,
+   "billing": "metered",
+   "calls": 144,
+   "category": "answers_verification",
+   "detail": "",
+   "estimated_only_reference_usd": null,
+   "estimated_usd": 3.387098,
+   "input_tokens": 1323590,
+   "model": "anthropic/claude-sonnet-5.5",
+   "output_tokens": 43200,
+   "role": "judge_adjudicator",
+   "transport": "openrouter",
+   "worst_case_usd": 10.161294
+  }
+ ],
+ "pins": {
+  "embeddings": {
+   "pplx_4b": {
+    "contract_verified": false,
+    "dimensions": 2560,
+    "method": "independent",
+    "model": "pplx-embed-v1-4b",
+    "output_format": "int8",
+    "price_per_million_upper_bound": 0.2,
+    "price_verified": false,
+    "provider": "perplexity"
+   },
+   "pplx_context_4b": {
+    "contract_verified": false,
+    "dimensions": 2560,
+    "method": "grouped",
+    "model": "pplx-embed-context-v1-4b",
+    "output_format": "int8",
+    "price_per_million_upper_bound": 0.2,
+    "price_verified": false,
+    "provider": "perplexity"
+   },
+   "qwen3_8b": {
+    "contract_verified": true,
+    "dimensions": 4096,
+    "method": "independent",
+    "model": "qwen/qwen3-embedding-8b",
+    "output_format": "float",
+    "price_per_million_upper_bound": 0.03,
+    "price_verified": true,
+    "provider": "openrouter"
+   },
+   "voyage_4_large": {
+    "contract_verified": false,
+    "dimensions": 1024,
+    "method": "independent",
+    "model": "voyage-4-large",
+    "output_format": "float",
+    "price_per_million_upper_bound": 0.3,
+    "price_verified": false,
+    "provider": "voyage"
+   },
+   "voyage_context_4": {
+    "contract_verified": false,
+    "dimensions": 1024,
+    "method": "grouped",
+    "model": "voyage-context-4",
+    "output_format": "float",
+    "price_per_million_upper_bound": 0.3,
+    "price_verified": false,
+    "provider": "voyage"
+   }
+  },
+  "roles": {
+   "adjudicator": {
+    "billing": "metered",
+    "category": "labels_audits",
+    "model": "anthropic/claude-sonnet-5.5",
+    "prompt_version": "e0-adjudicate-v1",
+    "provider_profile": "e0_openrouter_sonnet",
+    "transport": "openrouter"
+   },
+   "context": {
+    "billing": "subscription",
+    "category": "drafting_context",
+    "model": "gpt-6-luna",
+    "prompt_version": "e0-context-v1",
+    "provider_profile": "codex_luna",
+    "transport": "codex_sdk"
+   },
+   "judge_a": {
+    "billing": "subscription",
+    "category": "answers_verification",
+    "model": "gpt-6-luna",
+    "prompt_version": "e0-judge-v1",
+    "provider_profile": "codex_luna",
+    "transport": "codex_sdk"
+   },
+   "judge_adjudicator": {
+    "billing": "metered",
+    "category": "answers_verification",
+    "model": "anthropic/claude-sonnet-5.5",
+    "prompt_version": "e0-judge-adjudicate-v1",
+    "provider_profile": "e0_openrouter_sonnet",
+    "transport": "openrouter"
+   },
+   "judge_b": {
+    "billing": "subscription",
+    "category": "answers_verification",
+    "model": "gpt-5.6-sol",
+    "prompt_version": "e0-judge-v1",
+    "provider_profile": "codex_low",
+    "transport": "codex_sdk"
+   },
+   "label_a": {
+    "billing": "subscription",
+    "category": "labels_audits",
+    "model": "gpt-6-luna",
+    "prompt_version": "e0-label-v1",
+    "provider_profile": "codex_luna",
+    "transport": "codex_sdk"
+   },
+   "label_b": {
+    "billing": "subscription",
+    "category": "labels_audits",
+    "model": "gpt-5.6-sol",
+    "prompt_version": "e0-label-v1",
+    "provider_profile": "codex_low",
+    "transport": "codex_sdk"
+   },
+   "tutor": {
+    "billing": "subscription",
+    "category": "answers_verification",
+    "model": "gpt-5.6-sol",
+    "prompt_version": "e0-tutor-v1",
+    "provider_profile": "codex_low",
+    "transport": "codex_sdk"
+   },
+   "writer": {
+    "billing": "subscription",
+    "category": "drafting_context",
+    "model": "gpt-6-luna",
+    "prompt_version": "e0-writer-v1",
+    "provider_profile": "codex_luna",
+    "transport": "codex_sdk"
+   }
+  }
+ },
+ "pins_fingerprint": "bbcce15ed6cddda61b1da7773d51405dd18b8c682e4c0914c08f0fa4b23d9f85",
+ "prompts": {
+  "versions": {
+   "adjudicator": "e0-adjudicate-v1",
+   "context": "e0-context-v1",
+   "judge_a": "e0-judge-v1",
+   "judge_adjudicator": "e0-judge-adjudicate-v1",
+   "judge_b": "e0-judge-v1",
+   "label_a": "e0-label-v1",
+   "label_b": "e0-label-v1",
+   "tutor": "e0-tutor-v1",
+   "writer": "e0-writer-v1"
+  },
+  "writer": "1537dcce16ac55e93af53d1c32e32197f48547831cab5ab19c0bea6fc7fab1c3"
+ },
+ "retrieval_arms": {
+  "R0": "today's effective path on the copy (keyword-only when dense is off)",
+  "R1": "Qwen, production recipe text on common units, exact cosine",
+  "R1_service": "find_sources RRF/intent path vs first-page dense-plus-BM25",
+  "R2": "Qwen + deterministic title, section path, environment label, bounded preceding text",
+  "R3": "Qwen + 50-100-token LLM chunk context from permitted text",
+  "R3_bm25": "contextual BM25 over R3's headers (separately reported add-on)",
+  "R4_grouped": "pplx-embed-context-v1-4b grouped windows",
+  "R4_independent": "pplx-embed-v1-4b sibling",
+  "R4_singleton": "pplx-embed-context-v1-4b, one chunk per document",
+  "R5_grouped": "voyage-context-4 grouped windows",
+  "R5_independent": "voyage-4-large via the Voyage API",
+  "R5_singleton": "voyage-context-4, one chunk per document"
+ },
+ "run_id": "e0_65d691edcd7bf7d7",
+ "seed": 20261021,
+ "status": "dry_run",
+ "system_arms": [
+  {
+   "arm": "R0",
+   "category": "embeddings",
+   "dense_effective": false,
+   "estimated_usd": 0.0,
+   "kind": "system",
+   "notes": [
+    "rewrite calls follow the copy's route; a metered rewrite route without source_retrieval.llm_price_per_million is refused before sending"
+   ],
+   "paid_steps": [
+    "rewrite"
+   ],
+   "queries": 73,
+   "rewrite": true,
+   "rewrite_route": {
+    "model": "gpt-5.6-sol",
+    "provider": "codex",
+    "type": "codex_sdk"
+   },
+   "vault": "linear_algebra-20261021"
+  },
+  {
+   "arm": "R1_service",
+   "backfill_tokens": 29690,
+   "category": "embeddings",
+   "estimated_usd": 0.001285,
+   "kind": "system",
+   "notes": [
+    "runs on a separate service copy with embeddings enabled (the copy's toml only)",
+    "find_sources' LLM verification is not run in E0 (open question in the review)"
+   ],
+   "queries": 73,
+   "variants": [
+    "search_spans hybrid_rrf (the pool find_sources forces for pagination)",
+    "first-page dense_plus_bm25"
+   ],
+   "vault": "linear_algebra-20261021",
+   "verification_route": {
+    "model": "gpt-5.6-sol",
+    "provider": "codex",
+    "type": "codex_sdk"
+   }
+  },
+  {
+   "arm": "R0",
+   "category": "embeddings",
+   "dense_effective": false,
+   "estimated_usd": 0.0,
+   "kind": "system",
+   "notes": [
+    "rewrite calls follow the copy's route; a metered rewrite route without source_retrieval.llm_price_per_million is refused before sending"
+   ],
+   "paid_steps": [
+    "rewrite"
+   ],
+   "queries": 60,
+   "rewrite": true,
+   "rewrite_route": {
+    "model": "gpt-5.6-sol",
+    "provider": "codex",
+    "type": "codex_sdk"
+   },
+   "vault": "probability-20261021"
+  },
+  {
+   "arm": "R1_service",
+   "backfill_tokens": 42266,
+   "category": "embeddings",
+   "estimated_usd": 0.001592,
+   "kind": "system",
+   "notes": [
+    "runs on a separate service copy with embeddings enabled (the copy's toml only)",
+    "find_sources' LLM verification is not run in E0 (open question in the review)"
+   ],
+   "queries": 60,
+   "variants": [
+    "search_spans hybrid_rrf (the pool find_sources forces for pagination)",
+    "first-page dense_plus_bm25"
+   ],
+   "vault": "probability-20261021",
+   "verification_route": {
+    "model": "gpt-5.6-sol",
+    "provider": "codex",
+    "type": "codex_sdk"
+   }
+  }
+ ],
+ "totals": {
+  "basis": "conservative upper-bound prices; admission reserves the same bounds before each request",
+  "cap_usd": 25.0,
+  "categories": {
+   "answers_verification": {
+    "allocation_usd": 8.0,
+    "estimated_usd": 3.3871,
+    "fits": true,
+    "worst_case_usd": 10.1613
+   },
+   "drafting_context": {
+    "allocation_usd": 5.0,
+    "estimated_usd": 0.0,
+    "fits": true,
+    "worst_case_usd": 0.0
+   },
+   "embeddings": {
+    "allocation_usd": 2.0,
+    "estimated_usd": 0.1154,
+    "fits": true,
+    "worst_case_usd": 0.3404
+   },
+   "labels_audits": {
+    "allocation_usd": 10.0,
+    "estimated_usd": 5.2086,
+    "fits": true,
+    "worst_case_usd": 15.6257
+   }
+  },
+  "estimated_usd": 8.7111,
+  "fits_allocations": true,
+  "fits_cap": true,
+  "overflowing_categories": [],
+  "subscription_estimated_only_tokens": 16904861,
+  "worst_case_usd": 26.1274
+ }
+}

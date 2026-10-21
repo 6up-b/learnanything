@@ -373,6 +373,93 @@ forbidden_modules = [
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
+id = "experiments-stay-outside-production"
+name = "Research experiments stay outside production: only the CLI reaches learnloop.experiments (E0 harness)"
+type = "forbidden"
+# Every production package and module except the CLI (whose experiments
+# commands import the package lazily). tests/test_e0_isolation.py also scans
+# every source file (the namespace package learnloop.content included, and
+# any package added later) for an import of learnloop.experiments.
+source_modules = [
+    "learnloop.adaptive_difficulty",
+    "learnloop.ai",
+    "learnloop.algorithm_versions",
+    "learnloop.app_launch",
+    "learnloop.attempts",
+    "learnloop.attempt_types",
+    "learnloop.bootstrap",
+    "learnloop.capture",
+    "learnloop.causal_activity_policy",
+    "learnloop.clock",
+    "learnloop.config",
+    "learnloop.curriculum",
+    "learnloop.daily_plan",
+    "learnloop.daily_plan_upgrade",
+    "learnloop.db",
+    "learnloop.decider_judgments",
+    "learnloop.decider_upgrade",
+    "learnloop.diagnosis",
+    "learnloop.eligibility_decision_upgrade",
+    "learnloop.evsi_calibration",
+    "learnloop.field",
+    "learnloop.goals",
+    "learnloop.grading_epochs",
+    "learnloop.held_grades",
+    "learnloop.hints",
+    "learnloop.hint_window",
+    "learnloop.ids",
+    "learnloop.ingest",
+    "learnloop.instructional",
+    "learnloop.intent",
+    "learnloop.intent_upgrade",
+    "learnloop.learner",
+    "learnloop.learner_context",
+    "learnloop.learner_protection",
+    "learnloop.learner_text_gap_upgrade",
+    "learnloop.matching",
+    "learnloop.method_explicit_upgrade",
+    "learnloop.migration_coordinator",
+    "learnloop.numeric",
+    "learnloop.ops",
+    "learnloop.outcome_contract",
+    "learnloop.params",
+    "learnloop.placement",
+    "learnloop.practice_index",
+    "learnloop.probe_tie_upgrade",
+    "learnloop.projects",
+    "learnloop.proof_check_upgrade",
+    "learnloop.reader",
+    "learnloop.recurrence",
+    "learnloop.regrade_contract_upgrade",
+    "learnloop.remote",
+    "learnloop.reveal_coverage",
+    "learnloop.router",
+    "learnloop.router_mixture_upgrade",
+    "learnloop.router_staged_upgrade",
+    "learnloop.route_rules_upgrade",
+    "learnloop.scheduling",
+    "learnloop.serve_eligibility",
+    "learnloop.sim",
+    "learnloop.source_retrieval",
+    "learnloop.sources_upgrade",
+    "learnloop.stuck_prompt_upgrade",
+    "learnloop.substrate",
+    "learnloop.symbolic_view",
+    "learnloop.text_canon",
+    "learnloop.tui",
+    "learnloop.tutor",
+    "learnloop.vault",
+    "learnloop.vault_lock",
+    "learnloop.voi_stopping_upgrade",
+    "learnloop.workbench",
+    "learnloop_sidecar",
+    "learnloop_mobile",
+    "learnloop_mcp",
+]
+forbidden_modules = ["learnloop.experiments"]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
 id = "entry-points-are-independent"
 name = "CLI, TUI, and sidecar do not depend on one another"
 type = "forbidden"
