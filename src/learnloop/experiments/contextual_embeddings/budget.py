@@ -24,13 +24,14 @@ the same ledger.
 """
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 import fcntl
 import json
+import math
 import os
 from pathlib import Path
 import threading
@@ -300,6 +301,47 @@ class E0Ledger:
         }
 
 
+def known_tokens(value: Any) -> int | None:
+    """A reported token count (a nonnegative int, never a bool), else None."""
+
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return None
+    return value
+
+
+def explicit_cost(value: Any) -> float | None:
+    """A provider's explicit, finite, nonnegative cost, else None."""
+
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    cost = float(value)
+    return cost if math.isfinite(cost) and cost >= 0 else None
+
+
+def reconciled_usd(usage: Mapping[str, Any], price: Callable[[int, int], float], *,
+                   output_bound: int = 0) -> float | None:
+    """What a finished METERED request may be reconciled to; None keeps the
+    whole reservation (``unknown_billing``), counted against the cap.
+
+    Codex re-review F21: one known zero is not a bill. A reservation moves
+    (down or up) only on an explicit provider cost, or on a reported, positive
+    input-token count; a request that sent text and reports no input tokens
+    (or zero) is unknown billing whatever else it reports. The production
+    embedding wrapper always reports ``output_tokens=0``, so an output count
+    alone never settles anything. With input tokens reported but output
+    tokens not, the output side is charged at the reserved ``output_bound``.
+    ``price(input_tokens, output_tokens)`` prices the counts in dollars."""
+
+    cost = explicit_cost(usage.get("cost"))
+    if cost is not None:
+        return cost
+    tokens_in = known_tokens(usage.get("input_tokens"))
+    if not tokens_in:
+        return None
+    tokens_out = known_tokens(usage.get("output_tokens"))
+    return float(price(tokens_in, int(output_bound) if tokens_out is None else tokens_out))
+
+
 class Charge:
     """One admitted request; settle it once with what the provider reported."""
 
@@ -357,8 +399,18 @@ class LedgerEnvelope(SpendEnvelope):
             self._extra[handle] = self._extra.get(handle, Decimal(0)) + usd
 
     def settle(self, handle: object, actual: Decimal | None = None) -> None:
-        if isinstance(handle, str):
-            self.ledger.settle(handle, actual_usd=None if actual is None else float(actual))
+        """Reconcile with the production path's own reconciled figure. That
+        figure cannot say whether it came from an explicit cost or from a
+        reported zero (the production backfill prices ``input_tokens=0`` at
+        $0), so a $0 figure for a paid request keeps the whole reservation as
+        unknown billing (Codex re-review F21: one known zero is not a bill)."""
+
+        if not isinstance(handle, str):
+            return
+        usd = None if actual is None else float(actual)
+        if usd is not None and (not math.isfinite(usd) or usd <= 0):
+            usd = None
+        self.ledger.settle(handle, actual_usd=usd)
 
     def remaining(self) -> float:
         return self.ledger.remaining()

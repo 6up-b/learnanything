@@ -37,14 +37,23 @@ search fell back from dense ranking, has NO ranking for that arm: it counts
 against the arm's completion (S1) instead of being scored as if covered. A
 delegated comparison (``intent="compare"``) is a ranking only when it
 completed (``ok``, or an honest ``too_few_sources``) after its verification
-ran and, for a Qwen arm, after its query was embedded (Codex re-review F20).
+ran and, for a Qwen arm, after its query was embedded AND every per-source
+production search it ran actually ranked by meaning over a complete index
+(Codex re-review and final verify F20). Dense use is never inferred from a
+successful query embedding: on every interface it is the search's own
+``meaning`` list plus dense status ``ready``, so a keyword fallback
+(``source_retrieval.dense = false``, missing or partial coverage) is no
+ranking for a Qwen arm.
 
 Every paid step is admitted by the E0 ledger exactly once per physical
 request (Codex re-review F19). On the system arms ``SystemRequestGate`` (the
 transport's per-request gate) admits both kinds, billed by the resolved
 client: an embedding in ``embeddings`` at the Qwen pin's upper-bound price,
 an LLM request (rewrite, verification, comparison) in
-``answers_verification``, a subscription one at $0. No ``LedgerEnvelope`` is
+``answers_verification``, a subscription one at $0. A metered reservation is
+reconciled only on an explicit cost or a reported input-token count; anything
+less (a usage-less embedding response included) keeps it whole as unknown
+billing (Codex final verify F21). No ``LedgerEnvelope`` is
 active there: the production ``SpendBudget`` reserves every request, LLM
 ones included, in each active envelope, so it would bill an LLM request a
 second time as an embedding (and a subscription request's sentinel could not
@@ -59,11 +68,14 @@ one is moved aside and prepared again; the backfill itself is idempotent
 """
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
-from contextlib import closing
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import closing, contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass
 import json
 import os
 from pathlib import Path
+import threading
 import time
 from typing import Any
 
@@ -73,7 +85,13 @@ from learnloop.db.copies import copy_tree_with_databases
 
 from learnloop.experiments.contextual_embeddings import pins
 from learnloop.experiments.contextual_embeddings.bank import BankQuestion
-from learnloop.experiments.contextual_embeddings.budget import E0BudgetExceeded, E0Ledger, LedgerEnvelope, Request
+from learnloop.experiments.contextual_embeddings.budget import (
+    E0BudgetExceeded,
+    E0Ledger,
+    LedgerEnvelope,
+    Request,
+    reconciled_usd,
+)
 from learnloop.experiments.contextual_embeddings.corpus import CorpusSnapshot, PolicySnapshot, _inside_local_root
 from learnloop.experiments.contextual_embeddings.retrieval import units_from_blocks
 
@@ -222,7 +240,14 @@ class SystemRequestGate:
     verification, comparison) goes to ``answers_verification``: a
     subscription transport at $0; a metered one at
     ``source_retrieval.llm_price_per_million`` and its output bound (unset
-    price or unbounded output: refused before sending)."""
+    price or unbounded output: refused before sending).
+
+    Settling (Codex re-review F21): a metered reservation is reconciled only
+    on an explicit cost or a reported input-token count
+    (``budget.reconciled_usd``). An embedding response without usage (the
+    production wrapper then reports only its constant ``output_tokens=0``)
+    keeps the whole reservation as ``unknown_billing``, counted against the
+    cap, so a second request is admitted only if it still fits."""
 
     def __init__(self, ledger: E0Ledger, config: Any, *, arm: str) -> None:
         self.ledger = ledger
@@ -238,7 +263,8 @@ class SystemRequestGate:
             route=str(getattr(client, "model", "") or ""), purpose="system:embedding", arm=self.arm,
             billing="metered", estimated_usd=tokens * float(self.embedding_price) / 1_000_000,
             estimated_tokens=tokens))
-        return (reservation, False, time.monotonic(), self.embedding_price)
+        # An embedding has no output side: input tokens are its whole bill.
+        return _SystemAdmission(reservation, False, time.monotonic(), float(self.embedding_price), 0)
 
     def admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any:
         from learnloop.experiments.contextual_embeddings.callers import estimate_input_tokens
@@ -260,22 +286,32 @@ class SystemRequestGate:
             route=str(getattr(client, "model", "") or ""), purpose=f"system:{purpose}", arm=self.arm,
             billing="subscription" if subscription else "metered", estimated_usd=usd,
             estimated_tokens=tokens_in + output))
-        return (reservation, subscription, time.monotonic(), self.price)
+        return _SystemAdmission(reservation, subscription, time.monotonic(),
+                                None if self.price is None else float(self.price), output)
 
     def settle(self, admission: Any, usage: Mapping[str, Any]) -> None:
         if admission is None:
             return
-        reservation, subscription, started, price = admission
-        cost = usage.get("cost")
-        tokens = [usage.get("input_tokens"), usage.get("output_tokens")]
         actual = None
-        if isinstance(cost, (int, float)) and not isinstance(cost, bool) and cost >= 0:
-            actual = float(cost)
-        elif not subscription and price is not None and any(isinstance(value, int) for value in tokens):
-            actual = sum(int(value or 0) for value in tokens) * float(price) / 1_000_000
-        self.ledger.settle(reservation, actual_usd=actual,
-                           usage={"input_tokens": tokens[0], "output_tokens": tokens[1], "cost": cost},
-                           latency_s=round(time.monotonic() - started, 4))
+        if not admission.subscription and admission.price is not None:
+            price = admission.price
+            actual = reconciled_usd(usage, lambda tokens_in, tokens_out: (tokens_in + tokens_out) * price / 1_000_000,
+                                    output_bound=admission.output_bound)
+        self.ledger.settle(admission.reservation, actual_usd=actual,
+                           usage={"input_tokens": usage.get("input_tokens"),
+                                  "output_tokens": usage.get("output_tokens"), "cost": usage.get("cost")},
+                           latency_s=round(time.monotonic() - admission.started, 4))
+
+
+@dataclass(frozen=True)
+class _SystemAdmission:
+    reservation: str
+    subscription: bool
+    started: float
+    #: Dollars per million tokens (None: an unpriced subscription request).
+    price: float | None
+    #: The output tokens reserved (an embedding: 0).
+    output_bound: int
 
 
 # -- ranking ------------------------------------------------------------------------------
@@ -299,13 +335,95 @@ def _bump(counter: dict[str, int], key: str, amount: int = 1) -> None:
 COMPARISON_DONE = frozenset({"ok", "too_few_sources"})
 
 
-def _comparison_outcome(result: Any) -> tuple[str, str | None, bool]:
+def _dense_ran(search: Mapping[str, Any]) -> bool:
+    """Whether one production search actually ranked by meaning over a
+    complete dense index: a ``meaning`` list AND dense status ``ready``
+    (``SpanSearch.describe()``'s ``lists`` and ``dense``). A successful query
+    embedding is not enough: ``source_retrieval.dense = false``, missing or
+    partial coverage, or a query vector of another width each leave the
+    search keyword-only (Codex final verify F20)."""
+
+    lists = list(search.get("lists") or [])
+    dense = search.get("dense") or {}
+    return "meaning" in lists and str(dense.get("status")) == "ready"
+
+
+def _search_record(search: Any) -> dict[str, Any]:
+    """What a per-source comparison search did (no text): lists, dense status
+    and coverage, query vectors, hits."""
+
+    dense = dict(getattr(search, "dense", None) or {})
+    return {"lists": sorted(getattr(search, "lists", None) or []),
+            "dense": {key: dense.get(key) for key in ("status", "expected", "covered", "sources",
+                                                      "sources_covered")},
+            "query_embedding": str((getattr(search, "query_embedding", None) or {}).get("status")),
+            "hits": len(getattr(search, "hits", None) or [])}
+
+
+_COMPARE_SEARCHES: ContextVar[list[dict[str, Any]] | None] = ContextVar("e0_compare_searches", default=None)
+_OBSERVER_LOCK = threading.Lock()
+_OBSERVER: dict[str, Any] = {"users": 0, "original": None, "wrapper": None}
+
+
+@contextmanager
+def observe_compare_searches() -> Iterator[list[dict[str, Any]]]:
+    """Record every per-source ``search_spans`` a production comparison
+    (``learnloop.source_retrieval.compare``) runs in this context.
+
+    ``compare_sources`` keeps only each source's hits, not how its search
+    ranked them, so the delegated comparison's dense execution is observed
+    at its one search call: a pass-through wrapper (installed while any
+    observer is active, removed with the last) that appends each search's
+    :func:`_search_record` to the CURRENT context's list only (a ContextVar,
+    so concurrent threads never see each other's searches). The search's own
+    arguments and result are untouched."""
+
+    from learnloop.source_retrieval import compare as compare_module
+
+    with _OBSERVER_LOCK:
+        if _OBSERVER["users"] == 0:
+            original = compare_module.search_spans
+
+            def observed(*args: Any, **kwargs: Any) -> Any:
+                result = original(*args, **kwargs)
+                records = _COMPARE_SEARCHES.get()
+                if records is not None:
+                    records.append(_search_record(result))
+                return result
+
+            _OBSERVER.update(original=original, wrapper=observed)
+            compare_module.search_spans = observed
+        _OBSERVER["users"] += 1
+    records: list[dict[str, Any]] = []
+    token = _COMPARE_SEARCHES.set(records)
+    try:
+        yield records
+    finally:
+        _COMPARE_SEARCHES.reset(token)
+        with _OBSERVER_LOCK:
+            _OBSERVER["users"] -= 1
+            if _OBSERVER["users"] == 0:
+                if compare_module.search_spans is _OBSERVER["wrapper"]:
+                    compare_module.search_spans = _OBSERVER["original"]
+                _OBSERVER.update(original=None, wrapper=None)
+
+
+def _comparison_outcome(result: Any, searches: Sequence[Mapping[str, Any]] | None = None,
+                        ) -> tuple[str, str | None, bool]:
     """``(verification label, missing reason or None, dense used)`` for a
     delegated comparison (Codex re-review F20). Accepted only when it
     completed (:data:`COMPARISON_DONE`) and its verification ran (or had no
     candidate to verify); an unavailable, failed, cancelled, over-budget or
     skipped comparison, or one whose verification stopped, is no ranking.
-    Dense use is its query embedding (``embedded`` or ``cached``)."""
+
+    Dense use (Codex final verify F20) is what the comparison's per-source
+    production searches actually did (``searches``, from
+    :func:`observe_compare_searches`): its query was embedded (``embedded``
+    or ``cached``), at least one source search ran, and EVERY source search
+    ranked by meaning over a complete index (:func:`_dense_ran`). A source
+    with nothing embeddable and no hits (``empty``: a wholly withheld,
+    redacted source) neither helps nor fails it. A keyword fallback in any
+    source is no dense ranking; unobserved searches (None) are none either."""
 
     status = str(result.status)
     comparison = (result.manifest or {}).get("comparison") or {}
@@ -319,7 +437,10 @@ def _comparison_outcome(result: Any) -> tuple[str, str | None, bool]:
     nothing_to_verify = verified == "not_needed" and not verification.get("sources_with_hits")
     if verified not in ("verified", "cached") and not nothing_to_verify:
         return label, f"compare_verification_{verified}", False
-    return label, None, embedded in ("embedded", "cached")
+    counted = [search for search in (searches or [])
+               if not ((search.get("dense") or {}).get("status") == "empty" and not search.get("hits"))]
+    dense = embedded in ("embedded", "cached") and bool(counted) and all(_dense_ran(search) for search in counted)
+    return label, None, dense
 
 
 def rank_system(handle: Any, snapshot: CorpusSnapshot, questions: Sequence[BankQuestion], *, arm: str,
@@ -342,7 +463,8 @@ def rank_system(handle: Any, snapshot: CorpusSnapshot, questions: Sequence[BankQ
     ranked: dict[str, list[str]] = {}
     report: dict[str, Any] = {"arm": arm, "interface": interface, "questions": len(questions), "ranked": 0,
                               "missing": {}, "withheld": 0, "unmapped": 0, "pages": {}, "page_duplicates": 0,
-                              "verification": {}, "pool_modes": {}, "dense_used": 0, "latency_s": []}
+                              "verification": {}, "pool_modes": {}, "dense_used": 0, "latency_s": [],
+                              "compare_source_searches": {}}
     with gate_model_requests(gate):
         for question in questions:
             text = query_text[question.query_id]
@@ -356,7 +478,9 @@ def rank_system(handle: Any, snapshot: CorpusSnapshot, questions: Sequence[BankQ
                               embedder=clients.get("embedder"), rewrite_client=clients.get("rewrite_client"),
                               rerank_client=clients.get("rerank_client"),
                               compare_client=clients.get("compare_client"))
-                first = find_sources(handle.vault, handle.repository, text, **kwargs)
+                # A delegated comparison's per-source searches are observed (F20).
+                with observe_compare_searches() as compare_searches:
+                    first = find_sources(handle.vault, handle.repository, text, **kwargs)
                 pages = [first]
                 if first.cursor and intent != "compare" and len(first.hits) < pins.POOL_DEPTH:
                     pages.append(find_sources(handle.vault, handle.repository, text, cursor=first.cursor, **kwargs))
@@ -371,11 +495,18 @@ def rank_system(handle: Any, snapshot: CorpusSnapshot, questions: Sequence[BankQ
                 if intent == "compare":
                     # Delegated to compare_sources (its own searches, verification
                     # and status, on the manifest's ``comparison``).
-                    verification, missing, dense = _comparison_outcome(first)
+                    verification, missing, dense = _comparison_outcome(first, compare_searches)
+                    for search in compare_searches:
+                        status = (search.get("dense") or {}).get("status")
+                        _bump(report["compare_source_searches"],
+                              "dense" if _dense_ran(search) else
+                              "nothing_embeddable" if status == "empty" and not search.get("hits") else
+                              f"keyword_only:{status}")
                 else:
                     verification = str((first.manifest.get("verification") or {}).get("status"))
                     search = first.manifest.get("search") or {}
-                    dense = "meaning" in list(search.get("lists") or [])
+                    # Every page ranked by meaning over a complete index (F20).
+                    dense = all(_dense_ran(page.manifest.get("search") or {}) for page in pages)
                     _bump(report["pool_modes"], str((search.get("pool") or {}).get("mode")))
                     if intent != "explain" and verification not in ("verified", "cached"):
                         # The production path must verify this intent: unverified is no ranking.
@@ -386,7 +517,7 @@ def rank_system(handle: Any, snapshot: CorpusSnapshot, questions: Sequence[BankQ
                                       pool="dense_plus_bm25", owner_id=owner, embedder=clients.get("embedder"),
                                       rewrite_client=clients.get("rewrite_client"))
                 keys = _keys(result.hits)
-                dense = "meaning" in list(result.lists)
+                dense = _dense_ran(result.describe())
                 mode = str((result.pool or {}).get("mode"))
                 _bump(report["pool_modes"], mode)
                 if mode != "dense_plus_bm25":
@@ -396,7 +527,7 @@ def rank_system(handle: Any, snapshot: CorpusSnapshot, questions: Sequence[BankQ
                                   learning_object_ids=(), item=None, embedder=clients.get("embedder"),
                                   rewrite_client=clients.get("rewrite_client"), owner_id=owner,
                                   pool="dense_plus_bm25", scope=scope)
-                dense = "meaning" in list(pool.search.lists)
+                dense = _dense_ran(pool.search.describe())
                 mode = str((pool.search.pool or {}).get("mode"))
                 _bump(report["pool_modes"], mode)
                 outcome = verify_spans(handle.vault, handle.repository, question=text, pool=list(pool.pool),

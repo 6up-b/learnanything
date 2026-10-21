@@ -52,7 +52,14 @@ import urllib.request
 import numpy as np
 
 from learnloop.experiments.contextual_embeddings import credentials, pins
-from learnloop.experiments.contextual_embeddings.budget import E0BudgetExceeded, E0Ledger, Request
+from learnloop.experiments.contextual_embeddings.budget import (
+    E0BudgetExceeded,
+    E0Ledger,
+    Request,
+    explicit_cost,
+    known_tokens,
+    reconciled_usd,
+)
 from learnloop.experiments.contextual_embeddings.pins import EmbeddingPin, token_upper_bound
 
 Vector = list[float]
@@ -404,12 +411,16 @@ class EmbeddingAdapter:
                 latency = time.monotonic() - started
                 if response is not None and 200 <= response.status < 300 and isinstance(response.body, Mapping):
                     usage = dict(response.body.get("usage") or {})
-                    reported_tokens = usage.get("total_tokens") or usage.get("prompt_tokens")
+                    # The larger reported positive count (an embedding has no
+                    # output); none, or only zeros, is unknown billing (F21).
+                    counts = [count for key in ("total_tokens", "prompt_tokens")
+                              if (count := known_tokens(usage.get(key)))]
+                    reported_tokens = max(counts) if counts else None
                     cost = usage.get("cost")
-                    billed = float(cost) if isinstance(cost, (int, float)) and not isinstance(cost, bool) else None
-                    actual = billed if billed is not None else (
-                        int(reported_tokens) * self.pin.price_per_million_upper_bound / 1_000_000
-                        if isinstance(reported_tokens, int) else None)
+                    billed = explicit_cost(cost)
+                    price = self.pin.price_per_million_upper_bound
+                    actual = reconciled_usd({"input_tokens": reported_tokens, "cost": billed},
+                                            lambda tokens_in, _out: tokens_in * price / 1_000_000)
                     charge.settle(actual_usd=actual, usage={"input_tokens": reported_tokens, "cost": cost},
                                   request_id=response.request_id, latency_s=latency)
                     self.receipts.write(arm=self.arm, adapter=self.pin.name, endpoint=url, model=self.pin.model,

@@ -60,7 +60,7 @@ from learnloop.ai.execution import gate_model_requests
 from learnloop.ai.spend import is_subscription_transport
 
 from learnloop.experiments.contextual_embeddings import pins
-from learnloop.experiments.contextual_embeddings.budget import E0BudgetExceeded, E0Ledger, Request
+from learnloop.experiments.contextual_embeddings.budget import E0BudgetExceeded, E0Ledger, Request, reconciled_usd
 from learnloop.experiments.contextual_embeddings.pins import RolePin, token_upper_bound
 
 #: Structured-output schema allowance added to every input bound.
@@ -145,6 +145,8 @@ class _Admission:
     reservation: str
     pin: RolePin
     started: float
+    #: The output tokens reserved (charged when the request reports none).
+    output_bound: int = 0
 
 
 class E0RequestGate:
@@ -178,7 +180,7 @@ class E0RequestGate:
             category=self.pin.category, provider=self.pin.provider_profile, route=self.pin.model,
             purpose=f"{self.pin.role}:{purpose}", arm=self.arm, billing=billing, estimated_usd=usd,
             estimated_tokens=tokens_in + output, attempt=attempt))
-        return _Admission(reservation, self.pin, time.monotonic())
+        return _Admission(reservation, self.pin, time.monotonic(), output)
 
     def settle(self, admission: _Admission | None, usage: Mapping[str, Any]) -> None:
         if admission is None:
@@ -186,13 +188,11 @@ class E0RequestGate:
         cost = usage.get("cost")
         input_tokens = usage.get("input_tokens")
         output_tokens = usage.get("output_tokens")
-        actual: float | None
-        if isinstance(cost, (int, float)) and not isinstance(cost, bool) and cost >= 0:
-            actual = float(cost)
-        elif isinstance(input_tokens, int) or isinstance(output_tokens, int):
-            actual = role_cost(admission.pin, int(input_tokens or 0), int(output_tokens or 0))
-        else:
-            actual = None  # unknown billing: the reservation stands
+        # An explicit cost or reported input tokens only; anything less is
+        # unknown billing and the reservation stands (Codex re-review F21).
+        pin = admission.pin
+        actual = reconciled_usd(usage, lambda tokens_in, tokens_out: role_cost(pin, tokens_in, tokens_out),
+                                output_bound=admission.output_bound)
         self.ledger.settle(admission.reservation, actual_usd=actual,
                            usage={"input_tokens": input_tokens, "output_tokens": output_tokens, "cost": cost},
                            latency_s=round(time.monotonic() - admission.started, 4))
