@@ -405,3 +405,165 @@ own text, and a second sweep queues nothing.
 - R2-F4 keeps one deliberate rule: a check that raises on a sandbox standard control
   (`""`, nonsense, a far number) rejects it, as before. The figure's own two controls must be
   exactly `False`.
+
+## Fix round 3 (orchestrator)
+
+The orchestrator's verify of `1dde8ddf0` (codex job `20261020-220610-kYPQCn`) confirmed several things:
+F1's manifest guard, F4's boolean handling, the integer-loop bounds, F7's reread, and that the PF
+callers had no regression. It reopened the stage with 2 High and 4 Medium findings. Three of those
+were Python/TypeScript/SymPy parity divergences. Per the binding ruling, that class is closed
+structurally, by narrowing the grammar and adding a differential property test, not case by case.
+Each fix has a test that fails on `1dde8ddf0`. Python was checked with `git archive 1dde8ddf0`
+(`src`, `migrations`) and `-o pythonpath`. The frontend was checked on an old
+`apps/learnloop-tauri` in a scratch directory that uses the worktree's `node_modules`. No model call
+was made.
+
+### Findings
+
+| id | severity | title | verdict | test |
+|---|---|---|---|---|
+| R3-1 | High | SymPy verifies a different sum than the renderer evaluates | fixed (class) | `test_a_sum_the_renderer_shows_differently_never_matches_the_book` (empty and fractional ranges, real sandbox), `test_a_sum_matches_the_book_when_the_renderer_shows_the_same`, `test_a_definition_sympy_cannot_read_exactly_is_never_checked`; property test |
+| R3-2 | High | Switch-off output differs from base (the report's `figures` block) | fixed | `test_figures_off_is_the_base_reader_report` (golden recorded on an export of `e14b4e4ff`), `test_figures_on_adds_only_the_figures_block_to_the_report`, `test_the_report_cli_follows_the_switch` |
+| R3-3 | Medium | F5 still drops a late explanation that repeats the reading's text | fixed | `test_f5_an_explanation_repeating_the_answer_is_still_read` (the verify's "it rises" case), `test_f5_the_reading_records_whether_it_read_the_explanation` |
+| R3-4 | Medium | Python and TypeScript disagree on signed zero | fixed (class) | `test_no_value_is_negative_zero`; property corpus (signed-zero family) |
+| R3-5 | Medium | Accepted identifiers vanish in TypeScript (`__proto__`) | fixed (class) | `test_prototype_and_underscore_names_are_refused_when_parsed`, `test_a_parameter_named_like_the_prototype_is_refused`; property corpus (reserved family) |
+| R3-6 | Medium | Structural verification omits displayed matrix results | fixed | `test_a_map_whose_shown_values_overflow_fails_structure` (determinant, corner, padded reach), guard `test_a_finite_map_and_the_flagship_still_pass_structure` |
+
+The new tests are in these files:
+
+- `tests/test_figures_fix_round3.py`;
+- `tests/test_figure_property.py` with `tests/figure_property_corpus.py`, which writes
+  `figurePropertyCorpus.json`;
+- the "property corpus (fix round 3)" block in `figureGrammar.test.ts`;
+- three report tests appended to `tests/test_figures_switch_off.py`, with the golden at
+  `tests/fixtures/figures_switch_off_report.json`.
+
+### What changed
+
+**Parity by construction (R3-1, R3-4, R3-5).** The grammar was narrowed so the three readings
+cannot disagree.
+
+- **Names.** In both tokenizers and both `is_name`/`isName`, a name is
+  `^[A-Za-z][A-Za-z0-9]*$`: there is no underscore, so no `__proto__`. Object.prototype's other
+  own names are refused when parsed (`PROTOTYPE_NAMES`: `constructor`, `hasOwnProperty`,
+  `isPrototypeOf`, `propertyIsEnumerable`, `toLocaleString`, `toString`, `valueOf`) and are
+  reserved, so no parameter, definition or variable can use them. The TypeScript environments are
+  `Object.create(null)` (`newEnv`) all the same. The author prompt's grammar line states the rule.
+- **Signed zero.** Every node's value is canonical in both evaluators: `evaluate` wraps the node
+  evaluator with `canonical` (-0 becomes +0), and so does every shown value (`_num`/`num`) and the
+  plot's x samples. `1/min(0, -0)` is +Infinity in both.
+- **Sums.** A sum's bounds follow one rule: `ceil(a - 1e-9) .. floor(b + 1e-9)`, and an empty range
+  is 0. Both evaluators already applied it. `to_sympy` now writes it out:
+  `Piecewise((Sum(body, (k, ceiling(a - 1/10^9), floor(b + 1/10^9))), Ge(high, low)), (0, True))`.
+  SymPy's own `Sum` summed a reversed range negatively (Karr) and kept fractional bounds.
+- **What is not source-verifiable.** Where SymPy cannot reproduce the evaluator's value exactly,
+  `grammar.sympy_problem` names the reason, and `service._source_match` keeps the figure
+  illustrative without a verifier call. Three constructs qualify:
+  - an equality test (`==`, `!=`);
+  - `floor`, whose steps floating point places differently at the renderer's own samples;
+  - `integral`, which is the fixed Simpson rule. The property generator found that at a jump it
+    parts from SymPy's exact `Integral` by about 5e-4 relative.
+
+  Ordered comparisons and sums translate exactly, apart from boundaries that rounding decides,
+  which are a set of measure zero.
+
+**The differential property test, the parity contract from now on (R3-1, R3-4, R3-5).**
+`tests/figure_property_corpus.py` generates 3,000 random grammar expressions with a seeded
+generator and adds 152 cases from fixed families: signed zeros (also under a -0 environment), empty
+and fractional sum ranges, reserved-looking identifiers, piecewise comparisons, and large and small
+magnitudes. Each case is stored with the Python evaluator's verdict, value and scale (the largest
+magnitude of any subexpression) in `figurePropertyCorpus.json`: 3,152 cases, 3,131 accepted.
+
+- **`tests/test_figure_property.py`** checks four things:
+  - the file is the generator's output;
+  - no value is -0;
+  - SymPy's reading has the evaluator's value on every translatable accepted case with a finite
+    value (2,208 cases);
+  - the sum-rule and unverifiable-construct units.
+
+  Literals are read as the doubles the evaluator uses, as integers or 60-digit floats holding the
+  exact binary value. `to_sympy` keeps the book's exact decimals for the real check. 1,770 cases
+  are compared within 1e-9 of the case's scale. 438 are set aside by measured rules, never by id:
+  - a comparison or sum bound that rounding decides;
+  - a cancellation (a sum or difference 1e-6 smaller than its operands);
+  - an infinite or NaN subexpression of a finite value (IEEE's 1/0, which SymPy has as zoo).
+- **vitest** holds the TypeScript parser and evaluator to every case: the same verdict, the same
+  value within the case's scale, the same non-finite kind, and never -0.
+
+**R3-2 (report switch-off).** `build_reader_report` takes `figures_enabled` (default `False`). Only
+when it is true does the report read the figure tables and carry its `figures` block. The CLI
+passes `vault.config.figures.enabled`. The golden is `build_reader_report` on
+`tests/test_reader_report._seed`, recorded on an export of `e14b4e4ff` (`RW5A_WRITE_GOLDEN=1`,
+`-o pythonpath=<export>/src`). The test seeds one figure and one missed, explained prediction
+before comparing. Switched off, the report equals that golden. Switched on, removing `figures`
+gives the golden back.
+
+**R3-6 (displayed derived values).** `verify._shown_values` now walks every number in the panel
+data at any depth: inputs, a map's determinant and transformed corners, a shaded area's bounds and
+value, readouts, and any future field. It also checks the scales the renderer derives: a plot's
+value range and a map's reach, each padded by 10%. Every one must be finite on the parameter grid.
+`[[1e200, 0], [0, 1e200]]` now fails structure, with its determinant of 1e400 not finite.
+
+**R3-3 (F5 by marker).** `LearnerText` gains `markers`, which is never sent to a model. A figure
+prediction's text sets `explanation_read`. When the reading is done, `process_next_gap_job`
+records the text's markers on its job (`payload_json.markers`). `sweep_backlog` treats an
+explanation as consumed only when the prediction's job carries `explanation_read: true`; nothing
+searches the text. The verify's case: the reading read "it rises", then "it rises" was saved as
+the explanation while gap reading was off. The sweep now queues `:explained`.
+
+### Fail-before counts (on `1dde8ddf0`)
+
+- `tests/test_figures_fix_round3.py`: **24 of 27 failed**. The 3 that pass are guards or cases
+  Python already got right:
+  - the finite map and the flagship;
+  - `piecewise((1/min(0, -0) < 0, 1), 2)` and `1/floor(-0)` on Python's side. Their divergence
+    was in TypeScript, and the vitest property test catches it.
+- `tests/test_figure_property.py`: **8 of 11 failed**:
+  - the corpus is not the old evaluator's output, because the old evaluator yields -0;
+  - all three sum-rule units;
+  - all three unverifiable-construct units;
+  - the SymPy check. On the old grammar it claims integrals are translatable, and SymPy's exact
+    integrals of the generated bodies do not finish in pytest within 15 minutes. The same helpers,
+    run outside pytest under `env -i` with integrals skipped, find **96 mismatching cases, 92 of
+    them generated**. Examples: `sum(1, k, 2.5, -2.5)` is 0 vs SymPy's -4, and
+    `sum(1, k, 0.5, 2.5)` is 2 vs 3.
+- `tests/test_figures_switch_off.py`: the **3 new report tests failed**; the 2 existing ones pass.
+- vitest on the old frontend: the property test **failed on 167 cases, 111 of them generated**.
+  Examples: `1/min(0, -0)` is -Infinity vs Python's inf, `piecewise((1/min(0, -0) < 0, 1), 2)` is
+  1 vs 2, and `__proto__` cases were accepted although the corpus refuses them.
+
+### Gate (this fix round)
+
+- Setup as in round 2: `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2`, and
+  `TMPDIR=<worktree>/fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was free.
+- `uv run lint-imports --no-cache`: **29 kept, 0 broken**.
+- Targeted pytest, `pytest -n auto` over **146 files**: round 2's 144 plus
+  `test_figure_property.py` and `test_figures_fix_round3.py`, with every file that names the reader
+  report already among them. Result: **2,853 passed, 2 xfailed, 0 failed** (14 min 28 s).
+- `--durable-sqlite` over `test_figures_migration.py`, `test_figure_predictions.py`,
+  `test_figures_codex_review.py`, `test_figures_fix_round2.py` and `test_figures_fix_round3.py`:
+  **89 passed**.
+- `-m durability` over the migration files: **3 passed**.
+- `apps/learnloop-tauri`:
+  - `npm run typecheck`: clean.
+  - `vitest run src/screens/reader`: **62 files, 616 passed**. This includes the figure files and
+    the property test over all 3,152 cases.
+  - `npm run frontend:build`: built.
+- The golden corpus is unchanged. The property corpus was generated with
+  `python -m tests.figure_property_corpus --write` under `env -i`. The report golden was recorded
+  by pytest on the `e14b4e4ff` export.
+- DB references were regenerated and validated under `env -i`, and committed separately.
+- No migration, config key, RPC or `src-tauri` change, so cargo, the defaults snapshots and the RPC
+  pins were not rerun. The full suite is left to the landing gate (owner rule).
+
+
+### Residual notes
+
+- The contract is now the property corpus. A new construct, or a change in either evaluator, must
+  regenerate it under `env -i` (`python -m tests.figure_property_corpus --write`) and pass both
+  suites.
+- `floor`, `==`/`!=` and `integral` remain drawable, but a definition using one is never "matches
+  the book's equation (checked)".
+- One more `python3 --version` ran outside `env -i` while I edited the TypeScript twin (no code,
+  no learnloop import). Every other Python run outside pytest in this round used the `env -i`
+  wrapper with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`.
