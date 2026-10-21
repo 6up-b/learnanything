@@ -72,7 +72,7 @@ def persist_unknown_error_type_proposals(
         "ref_id": attempt_id,
         "locator": "grading_error_attribution",
     }
-    return repository.persist_grading_error_type_proposals(
+    return repository.persist_proposal_batch(
         {
             "id": new_ulid(),
             "agent_run_id": agent_run_id,
@@ -83,7 +83,7 @@ def persist_unknown_error_type_proposals(
             "updated_at": now,
         },
         rows,
-        attempt_ref=attempt_ref,
+        join_pending=attempt_ref,
     )
 
 
