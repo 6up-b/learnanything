@@ -846,3 +846,241 @@ The grammar did not change this round, so the corpora were not regenerated.
   nothing links them.
 - Rule (d) remains a sampled sanity check, by ruling. Exactness rests on rules (a)–(c), the binding
   and the branch rule.
+
+## Owner scope decision and redesign (2026-10-21)
+
+**There is no fix round 6.** The round-5 verify of `865a3b38f` (codex job `20261021-004306-ZDD6ly`)
+reopened both recurring classes with five Highs:
+
+1. A highlight labelled `f(k)` bypassed the binding.
+2. `Decimal` context rounding admitted forbidden literals.
+3. A figure reading could call the Decider after switch-off.
+4. A lowered cap left the old envelope active.
+5. An already-queued `fpr_` job changed the CLI output.
+
+An Opus scope review (`rw5a-scope-proposal.md` in the orchestrator's scratchpad) diagnosed the two
+classes:
+
+- **A:** a figure-wide claim over an open, model-written document, guarded by deny-lists.
+- **B:** configuration captured at start and checked at named call sites.
+
+It recommended deleting step 3 and putting every figure-derived request behind one gate. This
+change implements that recommendation, under these decisions:
+
+- **Owner, 2026-10-21:**
+  1. RW5a ships without "checked": every figure is an illustration, property checks still gate
+     showing, and source verification (§8.3 step 3) is removed. "Matches the book's equation
+     (checked)" becomes RW5c, with code-owned labels, design reviewed first.
+  2. A figure text queued while figures are off is **dropped**, exactly as main does for a disabled
+     source (main's skip path, no deferral state).
+- **Orchestrator:**
+  - keep round 2's shared PF sandbox change;
+  - delete `ai.routing.figure_verifier`;
+  - write the float and scope ruling into spec §8.3 and mark the deviations "deferred to RW5c";
+  - stopping a build on a cap, price, route or switch change is accepted (no live envelope).
+
+### Class A: step 3 deleted
+
+These are deleted, and nothing in RW5a can produce `verified`:
+
+- `verify.py`'s step 3, about 450 lines: the source match, the display-agreement harness, and the
+  literal, branch and binding rules and their helpers;
+- `grammar.to_sympy` and `sympy_problem`;
+- `service._source_match` and `_verifier_context`, the verifier and sandbox arguments,
+  `certified_row` and the certification version;
+- the verifier route: its task, prompt, instructions, output model and call cap;
+- the sidecar's `figure_verifier_client` and `figure_sandbox_run`;
+- the config key `ai.routing.figure_verifier`.
+
+A reconstruction is stored `illustrative` with the reason "the book check comes in a later
+version". A stored `verified` row (from before the decision) renders as an illustration
+(`service.shown_row`). Migration 216 is unchanged: its CHECK keeps `verified` for RW5c, named in the
+store as `VERIFIED_RW5C`.
+
+**The spec's gates:**
+
+- **G21** (no generated code) and **G22** (evaluator parity on both corpora) pass. The corpora are
+  unchanged byte for byte. The property test keeps its file and no-`-0` checks; the SymPy
+  comparison went with step 3.
+- **G24** (predictions formative) passes.
+- **G45** (the flagship) passes in full: shaded readouts against the independent integration, the
+  ½ density refused, PMF sums, animation, the region crop, and the explanation stored.
+- **G23** holds **vacuously**: nothing says "matches the source's equation".
+
+The spec (§8.1, §8.3 with the standing float/scope note, §8.5, G23, the rollout row) and the UX
+document (§4.7, Moment 9, W11) mark the deviations "deferred to RW5c".
+
+### Class B: one gate, main's path when off
+
+**The gate.** `learnloop/figure_admission.py` is new, outside `learnloop.figures` so the
+learner-text worker may use it under the `evidence-never-reads-figures` contract.
+
+- It holds the one switch predicate, `figures_enabled`, with one default: off without a `figures`
+  section. `service.enabled` and `text_gaps.sources.figures_enabled` delegate to it.
+- `FiguresGate` is a `RequestGate`. It records a key when the unit of work starts:
+  - **a build:** the vault, the switch, `plan_route` of the author, `max_daily_cost_usd` and
+    `price_per_million`;
+  - **a figure prediction's reading:** the vault and the switch.
+- Before each physical request (`model_call` consults the installed gate, so transport retries,
+  JSON repair, the reader, the Decider and any action are all covered), it reads the configuration
+  as it is NOW: the sidecar's `ctx.loaded_vault`, or the vault reloaded from disk. Any change
+  refuses that request and every later one. It composes with the gate already installed.
+- The refusal, `FiguresChanged`, is a `BaseException`. The learner-text pipeline turns any
+  `Exception` from a judge into a "failed" reading and carries on, so an `Exception` would let a
+  result be written after switch-off. `pipeline.py` is unchanged.
+
+**Where it is installed.**
+
+- Around `build_figure`'s authoring. A refusal raises `FigureRefused("figures_changed")`, and the
+  build checks once more before the row is stored. Nothing is stored; the paid answers keep their
+  checkpoints.
+- Around `process_learner_text` for a `reader_formative` `fpr_` source. A refusal releases the job
+  with its checkpoint, attempt refunded. Its next run takes main's path.
+
+The round-5 live plumbing in `routes.py` is deleted:
+
+- `current`, `problem_now`, `live_vault` and `_reloader`;
+- the `disabled`/`rerouted` branches and `STOPPED`;
+- the envelope parameter of `build_figure`.
+
+`FigureRoute.problem()` keeps its start-of-request checks: models off, unrouted, unpriced, capped
+and the call cap.
+
+**Main's path by construction.** Round 4's deferral (`deferred`/`figures_disabled`) is deleted,
+along with its exemptions in `run_pending` and `post_attempt_worker.py`; the latter is back to
+main's text. Switched off, `reader_formative_text` returns nothing for a figure id, so a queued
+figure job is skipped as "nothing to read", which is main's state and error.
+
+### Tests (new, and each fails on `865a3b38f`)
+
+`tests/test_figures_scope_redesign.py` (15 tests):
+
+- **Class A, behaviour:** `test_no_figure_is_labelled_checked` (three specs: the flagship with a
+  passing `VerifierFake`, round 5's High-1 highlight case, and its High-2 31-digit literal; each is
+  illustrative and no verifier is asked), `test_a_stored_verified_row_is_rendered_as_an_illustration`.
+- **Class A, static:** `test_no_code_path_can_store_or_render_verified_or_checked`.
+  - Over the figure package, the admission module, the sidecar handler and the frontend figure
+    files, no code string says "matches the book" or "equation (checked)".
+  - `"verified"` appears as a value only in the store's two constants.
+  - No verifier route or config field exists.
+- **Class B, the build sweep** (round 5's High 4):
+  `test_a_build_makes_no_request_after_its_configuration_changes`. A reconstruction whose first
+  answer forces a retry makes 2 physical requests, through an author that enters `model_call` as a
+  real provider does. After the N-th admitted request (N = 1, 2), the test flips the switch, the cap
+  or the price: 6 cases. Request N+1 is never admitted, and nothing is stored (for N = 2 the
+  pre-store check refuses). Supporting tests: `test_the_build_control_makes_every_request`, and
+  `test_a_sidecar_reload_stops_a_running_build` (a `ctx.reload()` while the first request waits:
+  it is refused at admission).
+- **Class B, the reading sweep** (round 5's High 3):
+  `test_a_figure_reading_makes_no_request_after_figures_are_switched_off`. A missed prediction's
+  reading in the figure vault makes 2 requests, the reader and the Decider (`ChoiceDecider` enters
+  `model_call`; this vault's reading has no further action call). After the N-th, the switch goes
+  off:
+  - before the last request: no request N+1, no gap row, the job `retry_later` with
+    `figures_changed`, and the next run `skipped` like main;
+  - after the last request: the reading stands, since there was no further request to refuse.
+- **Class B, main's output** (round 5's High 5):
+  `test_figures_switch_off.py::test_an_already_queued_figure_job_with_figures_off_is_the_base_output`.
+  A vault with a queued `reader_formative/fpr_off` job, recorded on an export of `e14b4e4ff`
+  (`RW5A_WRITE_GOLDEN=1`, golden `tests/fixtures/figures_switch_off_queued_job.json`). With figures
+  off, and the prediction's rows present, `learnloop gaps run --backlog --dry-run --json` and
+  `learnloop gaps run --json` both equal main's output, with job ids normalized.
+- **Changed:** `test_figures_off_queues_and_reads_no_figure_text` now expects main's
+  `skipped`/"nothing to read" instead of the deferral. The other switch-off goldens (the prompt
+  contract, the report, the backlog dry run) are unchanged and green.
+- **Removed with step 3 (about 750 test lines):**
+  - the source-match, certification, literal, branch, binding and display-agreement tests in
+    `test_figure_verification.py` and in the four round files;
+  - `test_figures_codex_review.py`'s F3 and F4-figure tests;
+  - the SymPy comparison in `test_figure_property.py`;
+  - the `to_sympy` test;
+  - the capped-verifier RPC test.
+
+  `test_g23_holds_vacuously_a_reconstruction_is_an_illustration` replaces the G23 test.
+
+**Fail-before on `865a3b38f`:** of the 23 tests in `test_figures_scope_redesign.py` and
+`test_figures_switch_off.py`, **15 failed**:
+
+- all six build-sweep cases;
+- the reading sweep;
+- the sidecar reload;
+- the three "no figure is checked" cases;
+- the stored-`verified` view;
+- the static check;
+- the queued-job golden (the old code deferred the job);
+- the changed processing test.
+
+**8 passed**: the build and reading controls, and the six switch-off tests that were already green
+(the prompt contract off and on, the report off and on and its CLI, and the backlog dry run).
+
+### The PF item (kept, recorded on its own)
+
+Round 2's change to the shared PF-b harness is a fix to shared PF behaviour that was made in a
+figures stage, so it is recorded as its own item for the landing notes:
+
+- `pf_sandbox.verdict`: a check's answer is True or False only when it is a boolean, None
+  otherwise, in all modes, with `inconclusive_controls`;
+- `pf_generation` and `equivalence_confirmations` count inconclusive as not passing.
+
+Figures no longer consume it. Its tests (`test_f4_pf_generator_tests_…` and
+`test_f4_pf_equivalence_…` in `test_figures_fix_round2.py`) and the PF suites stay in the gate.
+
+### Line counts (against `865a3b38f`)
+
+These counts are for the redesign commit `0e38e7b00` (`git show --numstat`):
+
+| Area | Added | Deleted |
+|---|---|---|
+| Source (`src/`) | 341 | 971 |
+| Tests (`tests/`, including the new golden JSON) | 548 | 756 |
+| Docs (spec, UX, the stage review, the generator's description) | 113 | 23 |
+
+By source file:
+
+| File | Added | Deleted |
+|---|---|---|
+| `figures/verify.py` | 19 | 512 |
+| `figures/service.py` | 70 | 152 |
+| `figures/grammar.py` | 1 | 108 |
+| `figures/routes.py` | 26 | 98 |
+| `figure_admission.py` (new) | 128 | 0 |
+
+The rest is the config removal, the recomputed snapshot hashes, `jobs.py`, `sources.py` and the
+sidecar. The net change is about −630 source lines and −210 test lines. The new tests (the sweeps
+and the golden) offset most of the deleted step-3 tests. The reference regeneration (`6f547d705`)
+is generated output.
+
+
+### Gate
+
+- Setup as in rounds 2 to 5; `/tmp/learnloop-fullsuite.lock` was free.
+- `uv run lint-imports --no-cache`: **29 kept, 0 broken**. `learnloop.figure_admission` sits
+  outside the figure package, which the evidence contract forbids.
+- Targeted pytest, `pytest -n auto` over **167 files**: round 5's 148, plus
+  `test_figures_scope_redesign.py`, `test_config_refactor.py` (the defaults snapshots) and every
+  test file that names the AI routing tables, the routing config, the templates or the parameter
+  registry. Result: **3,176 passed, 2 xfailed, 0 failed** (7 min 57 s).
+- `--durable-sqlite` over the figure migration and prediction tests, the five review test files,
+  the redesign file and the switch-off file: **92 passed**.
+- `-m durability` over the migration files: **3 passed**.
+- `apps/learnloop-tauri`:
+  - `npm run typecheck`: clean.
+  - `vitest run src/screens/reader`: **62 files, 620 passed**. The figure files are included,
+    with both corpora unchanged; no frontend source changed.
+  - `npm run frontend:build`: built.
+- **Config.** The 20 defaults snapshots were recomputed under `env -i`
+  (`defaults_fingerprint_for_version`), and 0 differ afterwards.
+- **References.** They were regenerated and validated under `env -i`: 936 configuration leaves,
+  head 216, 335 table notes, `errors: []`, with the two prose counts updated by hand.
+- **Goldens.** The queued-job golden was recorded by pytest on the `e14b4e4ff` export.
+- **Not rerun:** cargo, the RPC pins and the CLI help (no `src-tauri`, RPC or CLI change). The full
+  suite is left to the landing gate (owner rule).
+- **The `env -i` rule.** Every Python run outside pytest used `env -i` with empty `HOME`,
+  `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`:
+  - the import check;
+  - the fingerprints;
+  - the test-pruning helper (`python -I`, no learnloop import);
+  - the gap request count;
+  - the references.
+- **Recommended next step:** a scoped Codex verify told that the claim surface is now empty.
+
