@@ -982,3 +982,149 @@ def test_f6_a_failed_judgment_gives_its_claim_back(path_vault):
     fake.fail = None
     assert _path(ctx, retry=True)["status"] == "ready"
     assert _rows(repository, "SELECT state FROM judgment_work_claims WHERE task = ?", (RP.CLAIM_TASK,)) == [("done",)]
+
+
+# -- orchestrator fix round (whole-stage verify 20261021-081146-cZ35am) ------------------------------
+
+
+class _GatedJudge(PathJudgeFake):
+    """A judge that holds its answer until ``gate`` is set (a judgment in flight)."""
+
+    def __init__(self, *args, **kwargs):
+        import threading
+
+        super().__init__(*args, **kwargs)
+        self.entered, self.gate = threading.Event(), threading.Event()
+
+    def complete(self, request):
+        self.entered.set()
+        assert self.gate.wait(10)
+        return super().complete(request)
+
+
+def _join_judgments():
+    import threading
+
+    for thread in threading.enumerate():
+        if thread.name.startswith("reading-path-"):
+            thread.join(10)
+            assert not thread.is_alive()
+
+
+def _no_model_line(view, quote):
+    flat = json.dumps(view)
+    assert quote not in flat and "Diagonalization" not in flat
+    assert view["sections"] and all(section["reasonBy"] == "code" for section in view["sections"])
+    assert all(section["reason"] in RP.CODE_REASONS or section["label"] in ("already_shown", "assumed")
+               for section in view["sections"])
+
+
+def test_fix_a_cached_reason_quoting_a_section_held_out_since_is_never_shown(path_vault):
+    """Ruling 1 (verify High 1): A's stored reason quotes B; B is then held
+    out. The stale path shown meanwhile carries no model-written line from
+    that judgment (A's code line instead), while it is re-judged and after a
+    failed re-judge; the learner's override row copies none either. A
+    successful re-judgment (without B) shows the model's lines again."""
+
+    from learnloop.ai.errors import AIProviderUnavailable
+    from learnloop.content.synthesis.source_unit_selection import save_unit_selection
+
+    paths, repository, spans, _clock = path_vault
+    quote = 'Prepares you for "3 Diagonalization"'
+    first = _depth(_ctx(paths, PathJudgeFake(reason=quote)))
+    eigen = next(s for s in first["sections"] if s["sectionId"] == "sec_eigen")
+    assert first["status"] == "ready" and eigen["reason"] == quote
+
+    save_unit_selection(repository, EXT, list(spans), exam_use_modes={"sec_diag": "held_out_evaluation"})
+    # Read only (no judgment started): the older path, no line of its model's.
+    view = _path(_ctx(paths, PathJudgeFake()), judge=False)
+    assert view["status"] == "stale" and "sec_diag" not in _labels(view)
+    _no_model_line(view, quote)
+    assert view["reasonsHeldBack"] is True
+    assert first["reasonsHeldBack"] is False and eigen["reasonBy"] == "model"
+
+    # During the re-judge (a background judgment held open), then after it fails.
+    gated = _GatedJudge(fail=AIProviderUnavailable("down"))
+    ctx = context(paths.root, reading_path_judge_client=gated)
+    try:
+        view = _path(ctx)
+        assert gated.entered.wait(10)
+        assert view["status"] == "judging"
+        _no_model_line(view, quote)
+        view = _path(ctx)  # the Guide's poll while it runs
+        assert view["status"] == "judging"
+        _no_model_line(view, quote)
+    finally:
+        gated.gate.set()
+        _join_judgments()
+    view = _path(ctx)
+    assert view["status"] == "failed" and view["reasonsHeldBack"] is True
+    _no_model_line(view, quote)
+
+    # "Skip it" on the stale path: the learner's row copies code's line, not the held-back one.
+    _override(ctx, "sec_eigen", "skip")
+    copied = _rows(repository, "SELECT reason FROM reader_path_sections WHERE learner_override IS NOT NULL")
+    assert copied and all(quote not in reason for (reason,) in copied)
+    _no_model_line(_path(ctx, judge=False), quote)
+
+    # A successful re-judgment (B not sent) is the model's again.
+    fresh = _path(_ctx(paths, PathJudgeFake(reason="Starts the chapter's thread")), retry=True)
+    assert fresh["status"] == "ready" and fresh["reasonsHeldBack"] is False
+    eigen = next(s for s in fresh["sections"] if s["sectionId"] == "sec_spectral")
+    assert (eigen["reason"], eigen["reasonBy"]) == ("Starts the chapter's thread", "model")
+
+
+def test_fix_a_judgment_whose_sections_are_all_still_sendable_keeps_its_model_lines(path_vault):
+    """The held-back rule is about sections withheld since, nothing else: an
+    LO status change makes the path stale (re-judged) but its sections were
+    all sendable, so the model's lines stay while it is re-read."""
+
+    paths, repository, _spans, _clock = path_vault
+    _depth(_ctx(paths, PathJudgeFake(reason="Builds the eigenvalue thread")))
+    _practised(repository, "lo_spectral")
+    view = _path(_ctx(paths, PathJudgeFake()), judge=False)
+    assert view["status"] == "stale" and view["reasonsHeldBack"] is False
+    spectral = next(s for s in view["sections"] if s["sectionId"] == "sec_spectral")
+    assert (spectral["reason"], spectral["reasonBy"]) == ("Builds the eigenvalue thread", "model")
+
+
+REPORT_GOLDEN = json.loads(
+    (Path(__file__).parent / "fixtures" / "reading_paths_report_base_a76c8358a.json").read_text())
+
+
+def _cli_report(paths):
+    from typer.testing import CliRunner
+
+    from learnloop.cli import app
+
+    result = CliRunner().invoke(app, ["reader", "report", "--vault", str(paths.root), "--json"])
+    assert result.exit_code == 0, result.output
+    report = json.loads(result.output)
+    report["window"]["until"] = "<now>"  # the CLI's own clock
+    return json.loads(normalized(report))
+
+
+@pytest.mark.parametrize("populated", [False, True], ids=["empty_tables", "populated_tables"])
+def test_fix_switched_off_the_reader_report_is_a76c8358a(path_vault, populated):
+    """Ruling 2 (verify High 2): with reading_paths.enabled off, ``learnloop
+    reader report --json`` is the report a76c8358a's CLI gives on the same
+    database (``tests/fixtures/reading_paths_report_base_a76c8358a.json``,
+    recorded with a76c8358a's code), with the path tables empty and with
+    judgments, overrides and depth choices stored before the switch-off."""
+
+    from learnloop.reader.reader_report import build_reader_report
+
+    paths, repository, _spans, _clock = path_vault
+    if populated:
+        ctx = _ctx(paths, PathJudgeFake({"sec_history": "enrichment"}))
+        _depth(ctx)
+        _override(ctx, "sec_history", "read_anyway")
+        _override(ctx, "sec_eigen", "skip")
+        _depth(ctx, "fluency")
+        assert _rows(repository, "SELECT COUNT(*) FROM reader_path_sections")[0][0] == 10
+    assert "reading_paths" in _cli_report(paths)  # on: the stage's block
+    append_config_toml(paths.root, "[reading_paths]\nenabled = false\n")
+    off = _cli_report(paths)
+    assert "reading_paths" not in off
+    assert off == REPORT_GOLDEN["populated_tables" if populated else "empty_tables"]
+    assert "reading_paths" not in build_reader_report(paths.sqlite_path, reading_paths_enabled=False)

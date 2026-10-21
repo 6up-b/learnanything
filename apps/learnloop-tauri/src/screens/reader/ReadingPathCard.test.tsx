@@ -26,7 +26,7 @@ const EXERCISE: ReadingPathExerciseDto = {
 function section(over: Partial<ReadingPathSectionDto> = {}): ReadingPathSectionDto {
   return {
     sectionId: "u54", title: "5.4 Mixtures", startSpanId: "s1", label: "core", chip: "core",
-    reason: "you'll need it for 5.14", override: null, effectiveLabel: "core", exercise: EXERCISE, words: 900,
+    reason: "you'll need it for 5.14", reasonBy: "model", override: null, effectiveLabel: "core", exercise: EXERCISE, words: 900,
     learningObjectIds: ["lo_mix"], ...over,
   };
 }
@@ -40,7 +40,7 @@ function path(over: Partial<ReadingPathDto> = {}): ReadingPathDto {
       section({ sectionId: "u55", title: "5.5 Sums vs mixtures", startSpanId: "s20", label: "enrichment", chip: "enrichment",
         reason: "skip unless you want sums vs mixtures", effectiveLabel: "enrichment", exercise: null }),
       section({ sectionId: "u53", title: "5.3 Conditioning", startSpanId: "s30", label: "already_shown", chip: "already shown ●",
-        reason: "You've shown this on your own: Conditional probability.", effectiveLabel: "already_shown", exercise: null }),
+        reason: "You've shown this on your own: Conditional probability.", reasonBy: "code", effectiveLabel: "already_shown", exercise: null }),
     ],
     next: { text: "Next: read §5.4 Mixtures, then try Exercise 5.14 · about 5 min of reading", sectionId: "u54", spanId: "s1",
       exercise: EXERCISE, minutes: 5 },
@@ -90,6 +90,18 @@ it("shows each section's chip, its why on demand, and labels only the model's re
   // "already shown" is code's evidence line, never the model's reading.
   expect(screen.getByText(/You've shown this on your own/)).toBeTruthy();
   expect(screen.queryByText("model's reading")).toBeNull();
+});
+
+it("a code-written line on a core section is never labelled the model's reading (a held-back reason's stand-in)", async () => {
+  // Orchestrator fix round, ruling 1: the server replaced the model's line
+  // (its judgment saw a section withheld since) with code's neutral line.
+  api.readerReadingPath.mockResolvedValue(path({ status: "judging", stale: true, reasonsHeldBack: true, sections: [
+    section({ reason: "Central to what you want from this book at this depth.", reasonBy: "code" })] }));
+  await mount();
+  fireEvent.click(screen.getAllByRole("button", { name: /why/ })[0]);
+  expect(screen.getByText(/Central to what you want from this book/)).toBeTruthy();
+  expect(screen.queryByText("model's reading")).toBeNull();
+  expect(screen.queryByText(/◇/)).toBeNull();
 });
 
 it("skip it on a core section and read it anyway on enrichment send the learner's choice and show it kept", async () => {

@@ -45,9 +45,12 @@ export function depthSourceLine(path: ReadingPathDto): string | null {
   return `from your ${path.intent.label} setting for this book`;
 }
 
-/** The model wrote this section's reason (code writes the evidence lines). */
+/** The model wrote this section's reason. The server says who wrote it: code
+ *  writes the evidence lines, a changed label's line, the defaults, and the
+ *  line that stands in for a model reason held back because its judgment saw
+ *  a section withheld since (orchestrator fix round, ruling 1). */
 export function reasonIsModels(section: ReadingPathSectionDto): boolean {
-  return section.label === "core" || section.label === "prerequisite" || section.label === "enrichment";
+  return section.reasonBy === "model";
 }
 
 /** The override this section offers: "skip it" on what the path asks you to

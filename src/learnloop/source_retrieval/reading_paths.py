@@ -140,6 +140,8 @@ DEFAULT_REASONS: dict[str, str] = {
 }
 NOT_SHOWN_REASON = "Not everything here is shown on your own yet, so it stays core."
 NOT_ASSUMED_REASON = "Not assumed known yet, so it stays core."
+#: The lines code writes (every other stored reason is the model's).
+CODE_REASONS: frozenset[str] = frozenset({*DEFAULT_REASONS.values(), NOT_SHOWN_REASON, NOT_ASSUMED_REASON})
 
 
 class ReadingPathError(ValueError):
@@ -962,7 +964,10 @@ def override(vault: Any, repository: Repository, extraction_id: str, depth: str,
     row = next((row for row in rows if row["section_id"] == section_id), None)
     if row is None:
         raise ReadingPathError("validation_error", "That section has no label yet.")
-    label, _changed = honest_label(str(row["label"]), section.learning_object_ids, inputs.statuses)
+    label, changed = honest_label(str(row["label"]), section.learning_object_ids, inputs.statuses)
+    # The learner's row copies the line shown, never a held-back model line.
+    reason = (shown_reason(label, str(row["label"]), None, section, inputs.lo_titles)
+              if changed or reasons_held_back(rows, inputs) else str(row["reason"]))
     now = utc_now_iso(clock)
     with repository.atomic():
         connection = repository.connection()
@@ -974,7 +979,7 @@ def override(vault: Any, repository: Repository, extraction_id: str, depth: str,
             created_at=now)
         written = {
             "id": "rps_" + new_ulid(), "extraction_id": extraction_id, "depth": depth, "section_id": section_id,
-            "label": label, "reason": str(row["reason"]), "exercise_span_id": row.get("exercise_span_id"),
+            "label": label, "reason": reason, "exercise_span_id": row.get("exercise_span_id"),
             "learner_override": choice, "ledger_id": ledger_id, "state_key": key, "model": "learner",
             "prompt_version": OVERRIDE_VERSION, "created_at": now,
         }
@@ -1027,6 +1032,38 @@ def goal_line(goal: Mapping[str, Any] | None) -> str:
     return "No active goal covers this book: the path follows the depth you chose."
 
 
+def judged_sections(rows: Iterable[Mapping[str, Any]]) -> frozenset[str]:
+    """The sections one judgment was asked about: its judge rows. The judge
+    writes one row per section it sent (``validate`` answers every sent
+    section, in one transaction, and the table is append-only), so a state
+    key's rows are exactly the prompt's section list; no extra column is
+    needed (orchestrator fix round, ruling 1)."""
+
+    return frozenset(str(row["section_id"]) for row in rows)
+
+
+def reasons_held_back(rows: Iterable[Mapping[str, Any]], inputs: PathInputs) -> bool:
+    """True when the judgment behind ``rows`` was asked about a section that
+    may not be sent now (withheld since: held out, or exam material). Any
+    model-written reason of that judgment may quote it (A's line "Prepares
+    you for 3 Diagonalization" after 3 is held out), so none is shown:
+    code's own line takes its place (orchestrator fix round, ruling 1). Fail
+    closed: a judged section missing from today's sendable list counts,
+    whatever the reason it is missing."""
+
+    sendable = {section.section_id for section in inputs.sections}
+    return bool(judged_sections(rows) - sendable)
+
+
+def _reason_by(label: str, reason: str, *, code_wrote: bool) -> str:
+    """Who wrote the line shown: ``code`` (the evidence lines, a changed
+    label's line, a default, a held-back reason's replacement) or ``model``."""
+
+    if code_wrote or label in ("already_shown", "assumed") or reason in CODE_REASONS:
+        return "code"
+    return "model"
+
+
 def _depths() -> list[dict[str, str]]:
     return [{"id": depth, "label": DEPTH_LABELS[depth], "means": DEPTH_MEANS[depth]} for depth in DEPTHS]
 
@@ -1064,6 +1101,9 @@ def path_view(vault: Any, repository: Repository, extraction_id: str, *, inputs:
         chosen = store.overrides(connection, extraction_id, depth)
     progress = {str(row["section_id"]): row for row in repository.reader_section_progress_for(extraction_id)}
     by_section = {str(row["section_id"]): row for row in rows}
+    # A judgment asked about a section withheld since: none of its model
+    # lines is shown (while it is re-judged, and after a failed re-judge).
+    held_back = reasons_held_back(rows, inputs)
     sections = []
     for section in inputs.sections:  # withheld sections are not in inputs: never shown
         row = by_section.get(section.section_id)
@@ -1071,7 +1111,8 @@ def path_view(vault: Any, repository: Repository, extraction_id: str, *, inputs:
             continue
         stored = str(row["label"])
         label, changed = honest_label(stored, section.learning_object_ids, inputs.statuses)
-        reason = (shown_reason(label, stored, None, section, inputs.lo_titles) if changed
+        code_wrote = changed or held_back
+        reason = (shown_reason(label, stored, None, section, inputs.lo_titles) if code_wrote
                   else str(row["reason"]))
         override_row = chosen.get(section.section_id)
         choice_now = None if override_row is None or override_row["learner_override"] == "none" else str(
@@ -1080,7 +1121,8 @@ def path_view(vault: Any, repository: Repository, extraction_id: str, *, inputs:
         exercise = exercise_view(vault, repository, inputs, row.get("exercise_span_id")) if effective == "core" else None
         sections.append({
             "section_id": section.section_id, "title": section.label, "start_span_id": section.span_ids[0],
-            "label": label, "chip": CHIPS[label], "reason": reason, "override": choice_now,
+            "label": label, "chip": CHIPS[label], "reason": reason,
+            "reason_by": _reason_by(label, reason, code_wrote=code_wrote), "override": choice_now,
             "effective_label": effective, "exercise": exercise, "words": section.words,
             "learning_object_ids": list(section.learning_object_ids),
         })
@@ -1088,6 +1130,7 @@ def path_view(vault: Any, repository: Repository, extraction_id: str, *, inputs:
         "failed" if (judging or {}).get("state") == "failed" else "stale" if rows else "pending")
     message = (judging or {}).get("message") if status in ("failed", "stale", "pending") else None
     return {**base, "status": status, "state_key": key, "stale": bool(rows) and not fresh, "sections": sections,
+            "reasons_held_back": held_back,
             "next": next_activity(sections, depth, progress), "message": message,
             "reason": (judging or {}).get("reason") if status == "failed" else None}
 
@@ -1096,6 +1139,7 @@ __all__ = [
     "ADMISSION_REASONS",
     "CHIPS",
     "CLAIM_TASK",
+    "CODE_REASONS",
     "DEPTHS",
     "DEPTH_LABELS",
     "INTENT_DEPTH",
@@ -1122,6 +1166,7 @@ __all__ = [
     "goal_for_source",
     "honest_label",
     "judge",
+    "judged_sections",
     "lo_statuses",
     "next_activity",
     "open_assumption_rows",
@@ -1130,6 +1175,7 @@ __all__ = [
     "path_view",
     "pick_exercises",
     "reading_of",
+    "reasons_held_back",
     "set_depth",
     "validate",
 ]

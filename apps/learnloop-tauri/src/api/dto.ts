@@ -8877,6 +8877,10 @@ export interface ReadingPathSectionDto {
   chip: string;
   /** One line: why. */
   reason: string;
+  /** Who wrote that line: "model" (shown as the model's reading) or "code"
+   *  (the evidence lines, a changed label's line, and the neutral line that
+   *  replaces a model reason whose judgment saw a section withheld since). */
+  reasonBy: "model" | "code";
   override: "read_anyway" | "skip" | null;
   /** What the path treats it as: a "read it anyway" counts as core; a "skip it" is skipped. */
   effectiveLabel: ReadingPathLabel | "skipped";
@@ -8906,6 +8910,9 @@ export interface ReadingPathDto {
   next: { text: string; sectionId: string; spanId: string | null; exercise: ReadingPathExerciseDto | null; minutes: number } | null;
   stateKey?: string | null;
   stale?: boolean;
+  /** The shown judgment was asked about a section withheld since, so none of
+   *  its model reasons is shown (code's lines stand in while it is re-read). */
+  reasonsHeldBack?: boolean;
   message?: string | null;
   reason?: string | null;
 }

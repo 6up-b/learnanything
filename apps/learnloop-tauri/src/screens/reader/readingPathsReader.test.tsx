@@ -47,7 +47,7 @@ const PATH: ReadingPathDto = {
   intent: null, depths: [], goal: { id: "goal_mix", title: "Derive mixture distributions" },
   goalLine: "toward your goal: Derive mixture distributions",
   sections: [{ sectionId: "u1", title: "Symmetric matrices", startSpanId: view.blocks[1].spanId!, label: "core", chip: "core",
-    reason: "needed for the spectral theorem", override: null, effectiveLabel: "core", exercise: null, words: 200, learningObjectIds: [] }],
+    reason: "needed for the spectral theorem", reasonBy: "model", override: null, effectiveLabel: "core", exercise: null, words: 200, learningObjectIds: [] }],
   next: { text: "Next: read Symmetric matrices · about 1 min of reading", sectionId: "u1", spanId: null, exercise: null, minutes: 1 },
 };
 

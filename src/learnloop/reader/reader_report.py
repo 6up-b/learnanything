@@ -278,8 +278,14 @@ def build_reader_report(
     *,
     since: str | None = None,
     now: datetime | None = None,
+    reading_paths_enabled: bool = True,
 ) -> dict[str, Any]:
-    """Compute the report from the ledgers (pure read)."""
+    """Compute the report from the ledgers (pure read).
+
+    ``reading_paths_enabled`` is the vault's ``reading_paths.enabled`` (the
+    CLI passes it): off, the report has no ``reading_paths`` key at all and
+    is the report the base before RW7a gives, whatever the path tables hold
+    (orchestrator fix round, ruling 2)."""
 
     now = (now or datetime.now(UTC)).astimezone(UTC)
     since_at = _when(since) if since else None
@@ -359,7 +365,7 @@ def build_reader_report(
         # RW4e: instructional-role proposals (source_objects marked
         # kind = instructional_role), counted by role, judge and confidence
         # (labels only: a proposal copies no text).
-        reading_paths = _reading_paths(connection, in_window)
+        reading_paths = _reading_paths(connection, in_window) if reading_paths_enabled else None
         role_versions = [
             {"object_id": str(row["source_object_id"]), "ordinal": int(row["version_ordinal"]),
              "role": row["authorial_role"], "status": row["status"],
@@ -666,7 +672,8 @@ def build_reader_report(
         "roles": _role_counts(role_versions),
         # RW7a: reading-path labels by kind, overrides ("read it anyway" on
         # enrichment, "skip it" on core) and depth choices. Counts only.
-        "reading_paths": reading_paths,
+        # Absent while reading_paths.enabled is off (the base report).
+        **({"reading_paths": reading_paths} if reading_paths_enabled else {}),
         # RW1c: answers by mode, abstentions and excerpts dropped by quote
         # verification (a proxy for unsupported content), "another way" and
         # "that didn't help" rates with whether the inquiry was resolved after,
