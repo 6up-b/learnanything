@@ -74,3 +74,49 @@ Owner rule 2026-10-17: no full suite, durability lane or vitest here. No migrati
 - Fail-before on `e7e59e579`: the 30 round-1 tests, **30 failed**.
 - Changed test files: `tests/e0_fakes.py` (`FakeRoleClient`, `manual_ai`, the sufficiency schema), `tests/test_architecture.py` (the SQL owner registration), `tests/test_e0_bank.py`, `tests/test_e0_budget.py`, `tests/test_e0_corpus.py` (the token-helper rename), `tests/test_e0_isolation.py`, `tests/test_e0_paid_fakes.py`.
 - The main checkout's tracked fixtures were not opened or changed by this step.
+
+## Re-review (fix round 2)
+
+**Re-review:** Codex `gpt-6-astra`, high effort, read-only (job `20261021-113712-Q0d0Er`), on `e7e59e579..f01b40941` (fixer commit `330379be7`). F1-F5, F8 and F9 were confirmed fixed. F6 and F7 were reopened, and two new findings were raised (F19 High, F20 Medium). **Fix commit:** `e5c6c7342`.
+
+Every finding reproduced. Each has a regression in `tests/test_e0_review_round2.py` (17 tests). To check fail-before, the four changed sources were replaced with their `f01b40941` versions for one run, then restored byte for byte from a scratch backup (`cmp`-checked; no `git stash`). That run gave **14 failed, 3 passed**. The 3 that passed are guards that must still hold after the fix: a permitted quote is still delivered, an inherited supporting label still completes a set, and an explicit background member was already caught. No finding was rejected.
+
+**No live, paid or network call was made ($0.00).** The tests use fakes only (`FakeRoleClient`, `BagOfWordsEmbedder`, hash vectors) behind a socket guard. Production retrieval runs on service copies with `ai.active_provider = "manual"`, so only the injected fake clients can answer. No credential or settings file was read, and no tracked fixture vault was opened.
+
+| ID | Severity | Title | Verdict | Commit | Test (in `tests/test_e0_review_round2.py`) |
+|---|---|---|---|---|---|
+| F6 (reopened) | High | A rejected quote still reaches tutor and judge prompts through delivery | fixed | `e5c6c7342` | `test_f6_a_rejected_quote_never_reaches_delivery_tutor_or_judges[D0,D1]`, `test_f6_delivery_refuses_a_protected_quote_even_from_an_unfrozen_selection`, `test_f6_a_permitted_quote_is_still_delivered` |
+| F7 (reopened) | High | An omitted set member that inherits `background` is accepted as sufficient | fixed | `e5c6c7342` | `test_f7_a_set_member_is_checked_against_the_merged_final_labels[False,True]` (False: the member omitted and inherited; True: labelled background explicitly), `test_f7_an_inherited_supporting_label_still_completes_a_set` |
+| F19 | High | Production verification mishandles the embedding spend envelope | fixed | `e5c6c7342` | `test_f19_successful_production_verification_charges_once_per_physical_request[subscription,metered]`, `test_f19_a_qwen_arm_charges_embeddings_and_verification_once_each`, `test_f19_the_ledger_envelope_ignores_a_subscription_sentinel` |
+| F20 | Medium | Failed delegated comparisons count as completed rankings | fixed | `e5c6c7342` | `test_f20_a_failed_delegated_comparison_is_missing_not_ranked` (5 cases: unavailable, failed, over budget, verification timed out, verification unavailable), `test_f20_a_completed_comparison_is_ranked_and_a_dense_arm_needs_its_query_embedding` |
+
+### What changed
+
+- **F6.** `bank.freeze_context` now also freezes the selection to the policy. When the quote covers a withheld span, the frozen `question.selection` drops the quote and keeps only the permitted covered spans. Delivery reads `question.selection`, so the tutor and the judges get the same context the labellers saw: the selected block, never the quote. As a second check, `delivery._selection_spans` delivers a `selected_text` quote only when every span it covers is permitted; otherwise it records the drop in the receipt's `policy_dropped`. This covers a selection that was never frozen.
+- **F7.** `bank.adjudication_problems` checks every set member against its final label. That is the adjudicator's own label, or else the label both passes agreed on, which is what `adjudicate` merges. A member that is not `required` or `helpful` (an inherited `background` included) gives `set_member_not_supporting`, and the question stays unresolved with no accepted set.
+- **F19.** The cause: the production `SpendBudget.request` reserves every request in each active envelope, LLM requests included. On the system arms, `LedgerEnvelope` therefore billed each metered LLM request a second time, as an embedding, next to the `SystemRequestGate` reservation. A subscription request's `NO_RESERVATION` (text `"0"`) was settled as a ledger id and raised `KeyError('0')`. The fix:
+  - `rank_system` no longer activates a `LedgerEnvelope`. `SystemRequestGate`, the transport's per-request gate, admits both kinds once per physical request. An embedding goes to `embeddings` at the Qwen pin's upper-bound price on `pins.token_upper_bound` of its inputs, with no output, and is settled from the usage it reports. An LLM request goes to `answers_verification`, billed by the resolved client as before: subscription at $0; metered at `source_retrieval.llm_price_per_million` within its output bound.
+  - `LedgerEnvelope` now settles, charges or releases only handles it returned (ledger ids). A subscription sentinel is ignored. The backfill, whose every request is an embedding, keeps its envelope.
+  - The tests run successful production verification under both billing classes and assert one settled ledger entry per physical request. A Qwen `R1_pool_verify` run shows exactly one `embeddings` entry per embedding request plus one `answers_verification` entry per verification request.
+- **F20.** New `system_arms._comparison_outcome`. A delegated `compare` is a ranking only when its status is `ok`, or the honest `too_few_sources`, and its verification ran (`verified`/`cached`, or `not_needed` with no candidate sources). On a Qwen arm it also needs its query embedding (`embedded`/`cached`). Anything else is recorded as missing: `compare_unavailable`, `compare_failed`, `compare_over_budget`, `compare_cancelled`, a route skip, or `compare_verification_<status>`. It counts against completion (S1) and never enters scoring. Dense use is now decided per interface, so a comparison no longer bypasses the dense check.
+
+### Notes
+
+- **Isolation slip (no effect):** one empty `python3` heredoc, a no-op that imported nothing, ran outside `env -i` while a test file was being edited. It read no credential and used no network. Every other Python or CLI run outside pytest (`lint-imports`) used `env -i PATH=$PATH HOME=<empty> CODEX_HOME=<empty> LEARNLOOP_CONFIG_DIR=<empty>`.
+- **Not re-run:** the dry run, and its committed aggregate. The changes touch neither the plan nor its estimates, the run identity (query ids are unchanged) nor the CLI.
+
+### Gate (this step, on `e5c6c7342`)
+
+Owner rule 2026-10-17: no full suite, durability lane or vitest here. No migration, DB/connection code, frontend, `src-tauri`, schema, config key or CLI option changed, so no durability, vitest, cargo, DB-reference, config-snapshot or CLI-help step applies.
+
+- `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2`.
+- `.venv/bin/lint-imports --no-cache` (under `env -i`): **29 kept, 0 broken**.
+- `uv run pytest -n auto <17 files>` with `TMPDIR=fixtures-local/tmp`: **231 passed**. Files:
+  - The E0 files, **140** in total:
+    - `tests/test_e0_review_round2.py` (17, new);
+    - `tests/test_e0_review_round1.py` (30), `tests/test_e0_adapters.py` (18), `tests/test_e0_bank.py` (8), `tests/test_e0_budget.py` (10), `tests/test_e0_corpus.py` (18), `tests/test_e0_credentials.py` (4), `tests/test_e0_delivery.py` (6), `tests/test_e0_dry_run.py` (7), `tests/test_e0_isolation.py` (4), `tests/test_e0_metrics_stop_rules.py` (12), `tests/test_e0_paid_fakes.py` (6).
+  - The contracts: `tests/test_architecture.py` (18), `tests/test_sqlite_file_copies.py` (1), `tests/test_tracked_fixture_databases.py` (2).
+  - The production modules the fixed paths drive (verification, delivery): `tests/test_source_retrieval_followup.py` (14), `tests/test_tutor_delivery_fixes.py` (56).
+- Fail-before on `f01b40941`'s sources: `tests/test_e0_review_round2.py`, **14 failed, 3 passed** (the 3 are the guards named above).
+- Changed files: `src/learnloop/experiments/contextual_embeddings/{bank,budget,delivery,system_arms}.py`; new `tests/test_e0_review_round2.py`. No production module outside the experiment package changed.
+- The main checkout's tracked fixtures were not opened or changed by this step.
