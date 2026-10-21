@@ -470,3 +470,96 @@ def test_a_retried_request_that_reported_nothing_counts_its_estimate(library, mo
     assert out["status"] == "done" and out["usage"]["retries"] == 1
     assert len(estimates) == fake.requests == len(fake.reported) + 1
     assert out["usage"]["estimated_tokens"] == sum(fake.reported) + estimates[0]
+
+
+# -- Fix round 4 (Codex verify 20261020-222324-zO2vAN, finding 3): a ref judged twice --------------
+
+
+class _TwiceJudgedFake(RoleLabellerFake):
+    """The labeller whose answers to the request numbers in ``twice`` judge
+    ``p1`` a second time, after its first judgment: ``none`` with no roles
+    (the verify's p1 sequence)."""
+
+    def __init__(self, *, twice: tuple[int, ...] = (), **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.twice = set(twice)
+
+    def complete(self, request):
+        answer = super().complete(request).model_dump()
+        if self.requests in self.twice:
+            answer["judgments"].append({"ref": "p1", "verdict": "none", "rationale": "judged again", "roles": []})
+        return RL.RoleLabellerResult.model_validate(answer)
+
+
+def _ledger_rows(repository) -> int:
+    with repository.connection() as connection:
+        return connection.execute(
+            "SELECT COUNT(*) FROM judgment_ledger WHERE task = ?", (RL.LEDGER_TASK,)).fetchone()[0]
+
+
+def test_an_answer_judging_a_passage_twice_is_the_batchs_failed_attempt_retried_within_the_caps(library):
+    paths, repository, _spans = library
+    plan = RL.label_roles(loaded(paths), repository, "ext_text", dry_run=True)
+    # The first request's answer names p1 twice; its retry is clean.
+    fake = _TwiceJudgedFake(twice=(1,))
+    out = RL.label_roles(loaded(paths), repository, "ext_text", client=fake)
+    assert out["status"] == "done"
+    assert fake.requests == len(plan["batches"]) + 1 and out["usage"]["retries"] == 1
+    assert _ledger_rows(repository) == plan["passages"]["eligible"]  # one row per passage, from the clean answer
+    assert len(_labeller_versions(repository)) == plan["passages"]["eligible"]
+    assert {role for _span, role in _labeller_versions(repository)} == {"explanation"}
+
+
+def test_an_answer_that_always_judges_a_passage_twice_commits_nothing_and_never_reports_done(library):
+    paths, repository, _spans = library
+    fake = _TwiceJudgedFake(twice=tuple(range(1, 20)))
+    out = RL.label_roles(loaded(paths), repository, "ext_text", client=fake)
+    assert out["status"] == "failed"
+    assert out["batches"][0]["status"] == "failed" and out["batches"][0]["reason"] == "AIInvalidOutput"
+    assert len(out["batches"]) == 1  # the run stops at the failed batch
+    assert _ledger_rows(repository) == 0 and _labeller_versions(repository) == []
+    # The retries stayed within the caps: no more requests than the run's budget allows.
+    assert out["usage"]["requests"] == fake.requests
+
+
+def test_recovery_takes_a_refs_first_judgment_as_the_live_path_did(library, monkeypatch):
+    """The verify's p1 sequence: an answer accepted before this round judged
+    p1 with a role, then again with none; the run stopped after the ledger
+    commit, before the proposals. Resuming applies p1's FIRST judgment (the
+    one live capture and the ledger kept), never the empty second one."""
+
+    paths, repository, _spans = library
+    first = RoleLabellerFake(roles=(("explanation", "medium"),))
+    with monkeypatch.context() as patch:
+        _stop_proposals_at_batch(1)(patch)
+        with pytest.raises(RuntimeError, match="process stopped"):
+            RL.label_roles(loaded(paths), repository, "ext_text", client=first)
+    assert _labeller_versions(repository) == []
+    p1 = first.contexts[0]["candidates"][0]
+    real = RL.receipt_answers
+
+    def receipts_judging_p1_twice(connection, *, purpose):
+        found = []
+        for receipt in real(connection, purpose=purpose):
+            answer = json.loads(receipt["output_text"])
+            answer["judgments"].append({"ref": "p1", "verdict": "none", "rationale": "again", "roles": []})
+            found.append({**receipt, "output_text": json.dumps(answer)})
+        return found
+
+    monkeypatch.setattr(RL, "receipt_answers", receipts_judging_p1_twice)
+    again = RoleLabellerFake(roles=(("explanation", "medium"),))
+    out = RL.label_roles(loaded(paths), repository, "ext_text", client=again)
+    assert out["status"] == "done" and out["recovery"]["unrecovered"] == 0
+    assert out["recovery"]["recovered_passages"] == len(first.contexts[0]["candidates"])
+    first_batch = {candidate["ref"]: candidate for candidate in first.contexts[0]["candidates"]}
+    assert first_batch["p1"] == p1
+    texts = dict(zip(_spans_of(repository), _texts(repository, "ext_text", _spans_of(repository))))
+    p1_span = next(span for span, text in texts.items() if " ".join(text.split()) == p1["passage"])
+    assert (p1_span, "explanation") in _labeller_versions(repository)
+    assert len(_labeller_versions(repository)) == len(first.contexts[0]["candidates"]) + len(_sent(again))
+
+
+def _spans_of(repository) -> list[str]:
+    with repository.connection() as connection:
+        return [str(row[0]) for row in connection.execute(
+            "SELECT span_id FROM source_document_blocks WHERE extraction_id = 'ext_text' ORDER BY ordinal")]

@@ -114,12 +114,9 @@ def test_a_missing_or_malformed_roles_field_never_fails_the_cue_judges_links(lib
     assert result["judged"] == 1
     links = [len(target.get("links") or ()) for target in result["targets"]]
     assert links == [len(target.get("links") or ()) for target in expected["targets"]] and sum(links) >= 1
-    rows = _proposals(repository)
-    if shape == "entries":
-        # Only the well-formed entry is kept.
-        assert {(row["authorial_role"], row["content"]["confidence"]) for row in rows} == {("definition", "low")}
-    else:
-        assert rows == []
+    # A field the base schema would reject reads as no roles, whole (fix
+    # round 4: tolerance replaces a malformed field, it never salvages one).
+    assert _proposals(repository) == []
 
 
 def test_with_on_demand_off_the_cue_judge_writes_nothing_and_asks_the_same(library, tmp_path):

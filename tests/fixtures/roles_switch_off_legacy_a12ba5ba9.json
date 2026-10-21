@@ -1,0 +1,869 @@
+{
+ "cue": {
+  "discovered": {
+   "calls": 1,
+   "dry_run": false,
+   "extraction_id": "ext_text",
+   "judged": 1,
+   "open_calls": 1,
+   "source_calls_last_24h": 1,
+   "status": "done",
+   "targets": [
+    {
+     "dropped": [],
+     "id": "mis_swap",
+     "kind": "misconception",
+     "learning_object_ids": [
+      "lo_matrices"
+     ],
+     "links": [
+      "<LINK0>",
+      "<LINK1>"
+     ],
+     "manifest": {
+      "candidates": 4,
+      "lists": {
+       "keyword": 5
+      },
+      "notes": [],
+      "target": {
+       "id": "mis_swap",
+       "kind": "misconception",
+       "learning_object_ids": [
+        "lo_matrices"
+       ],
+       "p_open": 1.0,
+       "p_open_source": "misconception_lifecycle",
+       "state_key": "<STATE0>",
+       "status": "active"
+      },
+      "withheld": {
+       "solution": 1
+      }
+     },
+     "p_open": 1.0,
+     "p_open_source": "misconception_lifecycle",
+     "state_key": "<STATE0>",
+     "status": "judged"
+    }
+   ],
+   "usage": {
+    "billing": "subscription",
+    "cost_basis": "estimated_only",
+    "judged_targets": 1,
+    "requests": 1,
+    "retries": 0
+   }
+  },
+  "judge_prompts": [
+   "65ff9e5cf7b479a38d3a63dfc3ab24a8c1ba6deb688368b00f5a7cdbb58e0616"
+  ],
+  "ledger": [
+   {
+    "id": "pcj_1b59839e0aa8f0a4be15af42e9048d02d1a899df",
+    "input_hash": "770b3ce6003882c3d1b6da31d9199c4759e367c117ef4a0b272deee394aef73d",
+    "left_id": "ext_text|misconception:mis_swap|<STATE0>",
+    "left_kind": "cue_target",
+    "prompt_version": "passage_cue_judge.v2",
+    "right_id": "ext_text/t9",
+    "right_kind": "reader_span",
+    "score": 1.0,
+    "task": "passage_cue",
+    "verdict": "clarifies_distinction"
+   },
+   {
+    "id": "pcj_c8d5bce01e19da0f445b0c00899334d0af860f56",
+    "input_hash": "770b3ce6003882c3d1b6da31d9199c4759e367c117ef4a0b272deee394aef73d",
+    "left_id": "ext_text|misconception:mis_swap|<STATE0>",
+    "left_kind": "cue_target",
+    "prompt_version": "passage_cue_judge.v2",
+    "right_id": "ext_text/t10",
+    "right_kind": "reader_span",
+    "score": 0.0,
+    "task": "passage_cue",
+    "verdict": "none"
+   },
+   {
+    "id": "pcj_d3220d861d7350e2c77056cb8de5797268c4dc14",
+    "input_hash": "770b3ce6003882c3d1b6da31d9199c4759e367c117ef4a0b272deee394aef73d",
+    "left_id": "ext_text|misconception:mis_swap|<STATE0>",
+    "left_kind": "cue_target",
+    "prompt_version": "passage_cue_judge.v2",
+    "right_id": "ext_text/t2",
+    "right_kind": "reader_span",
+    "score": 0.0,
+    "task": "passage_cue",
+    "verdict": "none"
+   },
+   {
+    "id": "pcj_fa53a95e59c70cce221667ba6d16c36a923c9e0b",
+    "input_hash": "770b3ce6003882c3d1b6da31d9199c4759e367c117ef4a0b272deee394aef73d",
+    "left_id": "ext_text|misconception:mis_swap|<STATE0>",
+    "left_kind": "cue_target",
+    "prompt_version": "passage_cue_judge.v2",
+    "right_id": "ext_text/t3",
+    "right_kind": "reader_span",
+    "score": 1.0,
+    "task": "passage_cue",
+    "verdict": "clarifies_distinction"
+   }
+  ],
+  "links": [
+   {
+    "extraction_id": "ext_text",
+    "id": "<LINK0>",
+    "ledger_id": "pcj_fa53a95e59c70cce221667ba6d16c36a923c9e0b",
+    "model": "fake-cue-judge-model",
+    "pick_rank": 1,
+    "prompt_version": "passage_cue_judge.v2",
+    "quote": "Swapping two rows of a matrix multiplies its",
+    "ranks": {
+     "keyword": 1
+    },
+    "relation": "clarifies_distinction",
+    "roles": [
+     {
+      "confidence": "low",
+      "role": "contrast"
+     },
+     {
+      "confidence": "high",
+      "role": "contrast"
+     }
+    ],
+    "span_id": "t3",
+    "state_key": "<STATE0>",
+    "target_facets": [],
+    "target_id": "mis_swap",
+    "target_kind": "misconception"
+   },
+   {
+    "extraction_id": "ext_text",
+    "id": "<LINK1>",
+    "ledger_id": "pcj_1b59839e0aa8f0a4be15af42e9048d02d1a899df",
+    "model": "fake-cue-judge-model",
+    "pick_rank": 2,
+    "prompt_version": "passage_cue_judge.v2",
+    "quote": "3. Explain why the determinant changes sign when",
+    "ranks": {
+     "keyword": 2
+    },
+    "relation": "clarifies_distinction",
+    "roles": [
+     {
+      "confidence": "low",
+      "role": "contrast"
+     },
+     {
+      "confidence": "high",
+      "role": "contrast"
+     }
+    ],
+    "span_id": "t9",
+    "state_key": "<STATE0>",
+    "target_facets": [],
+    "target_id": "mis_swap",
+    "target_kind": "misconception"
+   }
+  ],
+  "parsed": {
+   "judgments": [
+    {
+     "quote": "rows",
+     "rationale": "it draws it",
+     "ref": "p1",
+     "relation": "clarifies_distinction",
+     "roles": [
+      {
+       "confidence": "low",
+       "role": "contrast"
+      },
+      {
+       "confidence": "high",
+       "role": "contrast"
+      }
+     ]
+    }
+   ],
+   "picks": [
+    "p1"
+   ]
+  }
+ },
+ "legacy": {
+  "alternative": {
+   "hits": [
+    [
+     "ext_text",
+     "t2",
+     "different_treatment"
+    ],
+    [
+     "ext_book",
+     "s2",
+     "different_treatment"
+    ],
+    [
+     "ext_text",
+     "t8",
+     "different_treatment"
+    ]
+   ],
+   "search": {
+    "lists": {
+     "source_objects": [
+      [
+       "ext_text",
+       "t2"
+      ],
+      [
+       "ext_text",
+       "t3"
+      ]
+     ]
+    },
+    "pool": [
+     [
+      "ext_text",
+      "t2"
+     ],
+     [
+      "ext_book",
+      "s2"
+     ],
+     [
+      "ext_text",
+      "t3"
+     ],
+     [
+      "ext_text",
+      "t8"
+     ],
+     [
+      "ext_book",
+      "s1"
+     ],
+     [
+      "ext_text",
+      "t1"
+     ],
+     [
+      "ext_text",
+      "t7"
+     ],
+     [
+      "ext_book",
+      "s4"
+     ],
+     [
+      "ext_text",
+      "t10"
+     ],
+     [
+      "ext_text",
+      "t12"
+     ],
+     [
+      "ext_text",
+      "t13"
+     ],
+     [
+      "ext_book",
+      "s3"
+     ],
+     [
+      "ext_text",
+      "t14"
+     ],
+     [
+      "ext_exam",
+      "s2"
+     ],
+     [
+      "ext_text",
+      "t5"
+     ]
+    ],
+    "role_basis": {}
+   },
+   "status": "ok"
+  },
+  "alternative_excluded": {
+   "hits": [
+    [
+     "ext_book",
+     "s2",
+     "different_treatment"
+    ],
+    [
+     "ext_text",
+     "t8",
+     "different_treatment"
+    ]
+   ],
+   "search": {
+    "lists": {
+     "source_objects": [
+      [
+       "ext_text",
+       "t2"
+      ],
+      [
+       "ext_text",
+       "t3"
+      ]
+     ]
+    },
+    "pool": [
+     [
+      "ext_text",
+      "t2"
+     ],
+     [
+      "ext_book",
+      "s2"
+     ],
+     [
+      "ext_text",
+      "t3"
+     ],
+     [
+      "ext_text",
+      "t8"
+     ],
+     [
+      "ext_book",
+      "s1"
+     ],
+     [
+      "ext_text",
+      "t1"
+     ],
+     [
+      "ext_text",
+      "t7"
+     ],
+     [
+      "ext_book",
+      "s4"
+     ],
+     [
+      "ext_text",
+      "t10"
+     ],
+     [
+      "ext_text",
+      "t12"
+     ],
+     [
+      "ext_text",
+      "t13"
+     ],
+     [
+      "ext_book",
+      "s3"
+     ],
+     [
+      "ext_text",
+      "t14"
+     ],
+     [
+      "ext_exam",
+      "s2"
+     ],
+     [
+      "ext_text",
+      "t5"
+     ]
+    ],
+    "role_basis": {}
+   },
+   "status": "ok"
+  },
+  "alternative_roles_excluded": {
+   "hits": [],
+   "search": {
+    "lists": {
+     "source_objects": [
+      [
+       "ext_text",
+       "t2"
+      ],
+      [
+       "ext_text",
+       "t3"
+      ]
+     ]
+    },
+    "pool": [
+     [
+      "ext_text",
+      "t2"
+     ]
+    ],
+    "role_basis": {
+     "hints": 0,
+     "low_confidence": 0,
+     "proposals": 1
+    }
+   },
+   "status": "ok"
+  },
+  "contrast_list": [
+   [
+    "ext_text",
+    "t12"
+   ],
+   [
+    "ext_text",
+    "t2"
+   ]
+  ],
+  "explain": {
+   "hits": [
+    [
+     "ext_text",
+     "t2",
+     null
+    ],
+    [
+     "ext_text",
+     "t12",
+     null
+    ],
+    [
+     "ext_book",
+     "s2",
+     null
+    ],
+    [
+     "ext_text",
+     "t3",
+     null
+    ],
+    [
+     "ext_text",
+     "t8",
+     null
+    ],
+    [
+     "ext_book",
+     "s1",
+     null
+    ],
+    [
+     "ext_text",
+     "t1",
+     null
+    ],
+    [
+     "ext_text",
+     "t7",
+     null
+    ]
+   ],
+   "search": {
+    "lists": {
+     "provenance": [],
+     "source_objects": [
+      [
+       "ext_text",
+       "t2"
+      ],
+      [
+       "ext_text",
+       "t12"
+      ],
+      [
+       "ext_text",
+       "t3"
+      ]
+     ]
+    },
+    "pool": [
+     [
+      "ext_text",
+      "t2"
+     ],
+     [
+      "ext_text",
+      "t12"
+     ],
+     [
+      "ext_book",
+      "s2"
+     ],
+     [
+      "ext_text",
+      "t3"
+     ],
+     [
+      "ext_text",
+      "t8"
+     ],
+     [
+      "ext_book",
+      "s1"
+     ],
+     [
+      "ext_text",
+      "t1"
+     ],
+     [
+      "ext_text",
+      "t7"
+     ],
+     [
+      "ext_book",
+      "s4"
+     ],
+     [
+      "ext_text",
+      "t10"
+     ],
+     [
+      "ext_text",
+      "t13"
+     ],
+     [
+      "ext_book",
+      "s3"
+     ],
+     [
+      "ext_text",
+      "t14"
+     ],
+     [
+      "ext_exam",
+      "s2"
+     ],
+     [
+      "ext_text",
+      "t5"
+     ]
+    ],
+    "role_basis": {}
+   },
+   "status": "ok"
+  },
+  "explain_excluded": {
+   "hits": [
+    [
+     "ext_text",
+     "t12",
+     null
+    ],
+    [
+     "ext_book",
+     "s2",
+     null
+    ],
+    [
+     "ext_text",
+     "t3",
+     null
+    ],
+    [
+     "ext_text",
+     "t8",
+     null
+    ],
+    [
+     "ext_book",
+     "s1",
+     null
+    ],
+    [
+     "ext_text",
+     "t1",
+     null
+    ],
+    [
+     "ext_text",
+     "t7",
+     null
+    ],
+    [
+     "ext_book",
+     "s4",
+     null
+    ]
+   ],
+   "search": {
+    "lists": {
+     "provenance": [],
+     "source_objects": [
+      [
+       "ext_text",
+       "t2"
+      ],
+      [
+       "ext_text",
+       "t12"
+      ],
+      [
+       "ext_text",
+       "t3"
+      ]
+     ]
+    },
+    "pool": [
+     [
+      "ext_text",
+      "t2"
+     ],
+     [
+      "ext_text",
+      "t12"
+     ],
+     [
+      "ext_book",
+      "s2"
+     ],
+     [
+      "ext_text",
+      "t3"
+     ],
+     [
+      "ext_text",
+      "t8"
+     ],
+     [
+      "ext_book",
+      "s1"
+     ],
+     [
+      "ext_text",
+      "t1"
+     ],
+     [
+      "ext_text",
+      "t7"
+     ],
+     [
+      "ext_book",
+      "s4"
+     ],
+     [
+      "ext_text",
+      "t10"
+     ],
+     [
+      "ext_text",
+      "t13"
+     ],
+     [
+      "ext_book",
+      "s3"
+     ],
+     [
+      "ext_text",
+      "t14"
+     ],
+     [
+      "ext_exam",
+      "s2"
+     ],
+     [
+      "ext_text",
+      "t5"
+     ]
+    ],
+    "role_basis": {}
+   },
+   "status": "ok"
+  },
+  "explain_roles": {
+   "hits": [
+    [
+     "ext_text",
+     "t2",
+     null
+    ]
+   ],
+   "search": {
+    "lists": {
+     "provenance": [],
+     "source_objects": [
+      [
+       "ext_text",
+       "t2"
+      ],
+      [
+       "ext_text",
+       "t12"
+      ],
+      [
+       "ext_text",
+       "t3"
+      ]
+     ]
+    },
+    "pool": [
+     [
+      "ext_text",
+      "t2"
+     ]
+    ],
+    "role_basis": {
+     "hints": 0,
+     "low_confidence": 0,
+     "proposals": 1
+    }
+   },
+   "status": "ok"
+  },
+  "explain_roles_excluded": {
+   "hits": [],
+   "search": {
+    "lists": {
+     "provenance": [],
+     "source_objects": [
+      [
+       "ext_text",
+       "t2"
+      ],
+      [
+       "ext_text",
+       "t12"
+      ],
+      [
+       "ext_text",
+       "t3"
+      ]
+     ]
+    },
+    "pool": [
+     [
+      "ext_text",
+      "t2"
+     ]
+    ],
+    "role_basis": {
+     "hints": 0,
+     "low_confidence": 0,
+     "proposals": 1
+    }
+   },
+   "status": "ok"
+  },
+  "remediate": {
+   "hits": [
+    [
+     "ext_text",
+     "t2",
+     "addresses_confusion"
+    ],
+    [
+     "ext_book",
+     "s2",
+     "addresses_confusion"
+    ],
+    [
+     "ext_text",
+     "t8",
+     "addresses_confusion"
+    ],
+    [
+     "ext_text",
+     "t14",
+     "contrasts"
+    ],
+    [
+     "ext_book",
+     "s1",
+     "contrasts"
+    ],
+    [
+     "ext_text",
+     "t1",
+     "contrasts"
+    ],
+    [
+     "ext_book",
+     "s4",
+     "contrasts"
+    ],
+    [
+     "ext_text",
+     "t10",
+     "contrasts"
+    ]
+   ],
+   "search": {
+    "lists": {
+     "source_objects": [
+      [
+       "ext_text",
+       "t12"
+      ],
+      [
+       "ext_text",
+       "t2"
+      ]
+     ]
+    },
+    "pool": [
+     [
+      "ext_text",
+      "t2"
+     ],
+     [
+      "ext_text",
+      "t12"
+     ],
+     [
+      "ext_book",
+      "s2"
+     ],
+     [
+      "ext_text",
+      "t8"
+     ],
+     [
+      "ext_book",
+      "s1"
+     ],
+     [
+      "ext_text",
+      "t1"
+     ],
+     [
+      "ext_text",
+      "t7"
+     ],
+     [
+      "ext_book",
+      "s4"
+     ],
+     [
+      "ext_text",
+      "t10"
+     ],
+     [
+      "ext_text",
+      "t13"
+     ],
+     [
+      "ext_book",
+      "s3"
+     ],
+     [
+      "ext_text",
+      "t14"
+     ],
+     [
+      "ext_exam",
+      "s2"
+     ],
+     [
+      "ext_text",
+      "t5"
+     ]
+    ],
+    "role_basis": {}
+   },
+   "status": "ok"
+  }
+ }
+}

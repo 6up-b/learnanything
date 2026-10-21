@@ -223,7 +223,9 @@ def _apply_pending(vault: LoadedVault, repository: Repository, extraction_id: st
             answer = RoleLabellerResult.model_validate_json(receipt["output_text"])
         except ValueError:
             continue
-        judgments = {judgment.ref: judgment for judgment in answer.judgments}
+        # The first judgment of a ref, as the live path (and the ledger) took
+        # it when it accepted an answer naming a ref twice (fix round 4).
+        judgments = first_judgments(answer.judgments)
         if not set(judgments) >= set(refs):
             continue
         recovered.update(wanted.values())
@@ -237,6 +239,15 @@ def _apply_pending(vault: LoadedVault, repository: Repository, extraction_id: st
     report["recovered_passages"] = len(recovered)
     report["unrecovered"] = len(set(pending) - recovered)
     return report
+
+
+def first_judgments(judgments: Sequence[Any]) -> dict[str, Any]:
+    """Each ref's first judgment (the rule the ledger's insertion keeps)."""
+
+    out: dict[str, Any] = {}
+    for judgment in judgments:
+        out.setdefault(judgment.ref, judgment)
+    return out
 
 
 def _usage(outcomes: Sequence[Mapping[str, Any]], budget: SpendBudget, route: Any, *, subscription: bool,
@@ -446,6 +457,11 @@ def label_roles(vault: LoadedVault, repository: Repository, extraction_id: str, 
         def capture(value: Any, refs: Mapping[str, Key] = refs, captured: dict[str, Any] = captured) -> Any:
             if not {judgment.ref for judgment in value.judgments} >= set(refs):
                 raise AIInvalidOutput("The role labeller did not judge every passage")
+            # Fix round 4: an answer naming a passage twice is this batch's
+            # failed attempt (retried within the caps), before any judgment
+            # is committed, so no reader has to choose between the two.
+            if len({judgment.ref for judgment in value.judgments}) != len(value.judgments):
+                raise AIInvalidOutput("The role labeller judged a passage twice")
             for judgment in value.judgments:
                 captured.setdefault(judgment.ref, judgment)
             return value

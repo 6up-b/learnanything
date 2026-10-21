@@ -48,7 +48,7 @@ from dataclasses import dataclass
 import json
 from typing import Any, Literal
 
-from pydantic import model_validator
+from pydantic import TypeAdapter, ValidationError, model_validator
 
 from learnloop.ai.schemas import WireModel
 from learnloop.clock import Clock
@@ -136,6 +136,32 @@ def tolerate_roles(data: Any) -> Any:
     if isinstance(data, Mapping):
         data = dict(data)
         data["roles"] = clean_roles(data.get("roles"))
+    return data
+
+
+#: The base tree's (a12ba5ba9) ``roles`` field of the cue judge: what it accepted.
+_BASE_ROLES = TypeAdapter(list[RoleProposal])
+_MISSING = object()
+
+
+def tolerate_malformed_roles(data: Any) -> Any:
+    """The cue judge's ``mode="before"`` validator (fix round 4): a ``roles``
+    array RW3b's schema (``list[RoleProposal]``) accepts passes unchanged,
+    duplicates and order kept, so a valid answer is returned and stored as
+    the base returned and stored it; only a missing or malformed field (one
+    the base would have rejected, failing the whole answer) reads as ``[]``.
+    Deduplication belongs to the proposals alone (:func:`claims_from_judgments`,
+    written only while ``on_demand_enabled`` is on)."""
+
+    if isinstance(data, Mapping):
+        value = data.get("roles", _MISSING)
+        try:
+            if value is _MISSING:
+                raise ValueError("missing")
+            _BASE_ROLES.validate_python(value)
+        except (ValidationError, ValueError):
+            data = dict(data)
+            data["roles"] = []
     return data
 
 
@@ -479,5 +505,6 @@ __all__ = [
     "propose_roles",
     "role_keys",
     "role_proposals",
+    "tolerate_malformed_roles",
     "tolerate_roles",
 ]

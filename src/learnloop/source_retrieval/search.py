@@ -232,7 +232,13 @@ def role_filter(vault: LoadedVault, repository: Repository, scope: Scope,
     filter drops never suppresses a weak one it keeps. Eligibility only
     decides the fallback: the permitted set is the hints and confident
     proposals as before, or the low ones alone.
+
+    With ``roles.positive_filter_enabled`` off (fix round 4) the rule is
+    a12ba5ba9's exactly: the low ones only when no hint or confident row
+    exists at all, and ``eligible`` is not read.
     """
+
+    from learnloop.reader.source_roles import positive_filter_enabled
 
     extraction_ids = sorted(scope.extractions)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
@@ -240,6 +246,11 @@ def role_filter(vault: LoadedVault, repository: Repository, scope: Scope,
     proposed, low = role_proposal_keys(vault, repository, extraction_ids, roles)
     permitted = hinted | proposed
     basis = {"hints": len(hinted), "proposals": len(proposed - hinted), "low_confidence": 0}
+    if not positive_filter_enabled(vault):
+        if not permitted and low:
+            permitted = set(low)
+            basis["low_confidence"] = len(low)
+        return permitted, basis
     eligible = eligible if eligible is not None else effective_eligibility(vault, repository, scope)
     if low and not eligible(sorted(permitted)):
         permitted = set(low)

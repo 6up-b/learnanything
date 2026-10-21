@@ -47,6 +47,7 @@ from learnloop.ingest.locators import parse_block_span
 from learnloop.practice_index.listwise import ListwiseTask, judge_listwise
 from learnloop.practice_index.paid import estimated_call_tokens
 from learnloop.source_retrieval.corpus import (
+    Eligibility,
     Scope,
     block_roles,
     effective_eligibility,
@@ -409,9 +410,13 @@ def source_object_lists(vault: LoadedVault, repository: Repository, intent: str,
     (``eligible``: the caller's effective eligibility,
     ``corpus.Eligibility``, with its role filter (fix round 3); every row
     when None), and its low ones only when none is left.
+
+    With ``roles.positive_filter_enabled`` off (fix round 4) the list is
+    a12ba5ba9's exactly: every matching legacy row, the low ones appended
+    after the rest, and ``eligible`` is not read.
     """
 
-    from learnloop.reader.source_roles import PROPOSAL_KIND_SQL, role_proposals
+    from learnloop.reader.source_roles import PROPOSAL_KIND_SQL, positive_filter_enabled, role_proposals
 
     types = {"worked_example": ("worked_example",), "explain": ("definition", "claim", "procedure")}.get(intent, ())
     roles = {"remediate": ("contrast", "counterexample"), "alternative": ("alternative_treatment", "intuition"),
@@ -447,6 +452,12 @@ def source_object_lists(vault: LoadedVault, repository: Repository, intent: str,
             continue
         confidence = (json.loads(content_json or "{}") or {}).get("confidence") if content_json else None
         (weak if confidence == "low" else strong).append(key)
+    if not positive_filter_enabled(vault):
+        # Switch off: the base list (no RW4e proposal is read; the low rows last).
+        keys = list(dict.fromkeys(strong + weak))
+        if keys:
+            lists["source_objects"] = keys
+        return lists
     for label in role_proposals(vault, repository, extraction_ids=wanted_extractions):
         if label.object_type in types or label.role in roles:
             (weak if label.low else strong).append(label.key)
@@ -699,18 +710,27 @@ def find_sources(
     # whether a stronger candidate remains, so they cannot disagree. A
     # cursor's judged passages are not excluded here: they were candidates,
     # and every page keeps the first page's role filter.
-    eligibility = effective_eligibility(
-        vault, repository, span_scope, excluded=excluded,
-        withheld=_answer_overlap(repository, item) if policy == "assisted_practice" and item is not None else None)
-    # The search's own role rule (Codex re-review F5): a row it would drop
-    # is no stronger candidate.
-    role_permitted = (role_filter(vault, repository, span_scope, effective_roles, eligible=eligibility)[0]
-                      if effective_roles else None)
+    # With roles.positive_filter_enabled off (fix round 4) none of this
+    # applies: the intent lists and the role filter are a12ba5ba9's.
+    from learnloop.reader.source_roles import positive_filter_enabled
 
-    def eligible(keys: list[SpanKey]) -> list[SpanKey]:
-        return [key for key in eligibility(keys) if role_permitted is None or key in role_permitted]
+    eligibility: Eligibility | None = None
+    if positive_filter_enabled(vault):
+        eligibility = effective_eligibility(
+            vault, repository, span_scope, excluded=excluded,
+            withheld=_answer_overlap(repository, item) if policy == "assisted_practice" and item is not None
+            else None)
+        # The search's own role rule (Codex re-review F5): a row it would drop
+        # is no stronger candidate.
+        role_permitted = (role_filter(vault, repository, span_scope, effective_roles, eligible=eligibility)[0]
+                          if effective_roles else None)
 
-    extra.update(source_object_lists(vault, repository, intent, extraction_ids, eligible=eligible))
+        def eligible(keys: list[SpanKey]) -> list[SpanKey]:
+            return [key for key in eligibility(keys) if role_permitted is None or key in role_permitted]
+
+        extra.update(source_object_lists(vault, repository, intent, extraction_ids, eligible=eligible))
+    else:
+        extra.update(source_object_lists(vault, repository, intent, extraction_ids))
     query_text = verification_question(query, intent, misconceptions)
     depth = None if cursor is None else cursor.get("list_depths")
     # Paging deepens the lists until they are exhausted (§8.3.4), so the pool
