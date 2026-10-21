@@ -317,3 +317,240 @@ test_t6_followup_review test_table_roles test_tool_dispatch_policy test_tool_reg
 test_tool_results_withhold_answers test_tools_cli test_tracked_fixture_databases test_tutor_tool_requests 
 test_ux_phase1_landing test_valuation_calibration_fields test_workbench_check 
 ```
+
+## 12. Landing onto main
+
+Landed in the `learnanything-merge2` worktree on branch `merge/rw4e-onto-main`, cut from main at `a12ba5ba9` (the
+RW4d landing record; migration head 215 with `migration_head_215`, 20 defaults snapshots, 938 configuration leaves).
+The stage tip is `111617408` (base `a12ba5ba9`, so main had not moved), unchanged. Main was neither fast-forwarded
+nor pushed here.
+
+**The orchestrator's verifies.** Codex job `20261020-224735-XWC66K` on `57d02d3f0` found everything clean except
+F10; `20261020-225727-W36G4L` on `111617408` checked the F10 fix and reopened one Medium, which the orchestrator
+**ruled non-blocking (Low)**:
+
+> Recovery of an OLDER-format labeller ledger row (verdict "none" beside roles, written before round 5's
+> normalisation) whose receipt never finished (a suppressed receipt-finish persistence error) reports done instead of
+> incomplete.
+
+**Why it isn't blocking.** The labeller has never shipped, so no such row exists in any real vault: only this
+branch's own pre-round-5 code wrote them. New runs normalise the verdict at capture. It is recorded under the open
+items below.
+
+### Commits and conflicts
+
+- `b35681815`: a `--no-ff` merge of `reader/rw4e` onto `a12ba5ba9`. **No conflict**: the stage branched from main's
+  tip, so `config/template.py` (all 20 snapshots), the parameter registry, `test_mobile_allowlist`, the CLI help,
+  the RPC pins, `find_sources` / `search` / `passage_cues`, `reader/source_objects.py` and `LibraryAnswer.tsx` all
+  came in as the stage left them. The generated references were the stage's (made on `a12ba5ba9`) and were
+  regenerated in the next commit.
+- `f5af84d7f`: the regeneration (below); the gate head.
+- This record (docs only).
+
+### Regeneration
+
+- **References.** `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**, `schema_head` **215**,
+  **335** table notes, **942** configuration leaves in **67** sections (RW4e's `[roles]` three and
+  `ai.routing.role_labeller` on RW4d's 938). 404 files changed: the commit labels on every note, plus RW4e's
+  fix-round tests (`test_roles_concurrency.py`, `test_roles_switch_off_legacy_parity.py`), which the stage's
+  references (made before those rounds) did not cite, in the `roles` field notes and in the `parameter_registry`,
+  `source_objects`, `source_object_versions` and `source_object_citations` table notes. The two prose counts
+  (`Configuration.md`, `Database.md`) already said 942 / 67 / 335.
+- **Defaults snapshots.** With the template's `.pyc` cleared (and run with `-B`), all **20**
+  `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries equal `defaults_fingerprint_for_version` on the merged tree: **0
+  mismatches**, nothing to rewrite.
+- **CLI help snapshot and RPC pins.** `tests/cli_help_snapshot.json` already carries `reader label-roles`. A pin run of
+  16 files (`test_cli_help_snapshot`, `test_sidecar_serializer_snapshot`, `test_desktop_rpc_contract`,
+  `test_mobile_allowlist`, `test_sidecar_contract`, `test_config_refactor`, `test_registry_audit`,
+  `test_library_exercises`, `test_architecture`, `test_table_roles`, `test_tracked_fixture_databases`,
+  `test_sqlite_file_copies`, `test_roles_switch_off`, `test_roles_switch_off_legacy_parity`, `test_source_roles`,
+  `test_rw4d_rw3b_composition`): **491 passed, 1 skipped** (the legacy golden's base-only recorder,
+  `RW4E_WRITE_LEGACY_GOLDEN=1`). No snapshot needed rewriting; RW4e adds no RPC.
+- **Head fixture.** No migration: `migration_head_215` stays main's.
+- **`validate_vault.py`**: passes (1,136 notes, 1,134/1,134 reachable).
+- **Known failures from before this stage, not fixed:** `desktop_validate.py` still stops on
+  `components/pdfSelection/testing/syntheticBook.ts`; `module_validate.py` reports **962** issues (958 at the RW4d
+  landing; RW4e adds modules without module notes, such as `reader/source_roles.py` and
+  `source_retrieval/role_labeller.py`).
+
+Every script outside pytest (the generators, validators, the snapshot check) ran under `env -i` with only `PATH`,
+`TMPDIR`, `LANG`, an empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`, and `LEARNLOOP_CUE_JUDGE_MODELS=off`,
+`LEARNLOOP_ROLE_LABELLER_MODELS=off` (`fixtures-local/landing-rw4e/scripts/iso.sh`).
+
+### Gate
+
+Python 3.12.14. `TMPDIR` was merge2's `fixtures-local/tmp`; every command after the install ran as `uv run
+--no-sync`. Both suite lanes ran under `flock /tmp/learnloop-fullsuite.lock` on `f5af84d7f`. The AD2+AD3
+(`learnanything-ad1`), RW5a (`learnanything-dl2`) and RW4e stage (`learnanything-rw4b`) worktrees and their processes
+were not touched (the machine's load average was about 24 when the suite started). Every test uses fakes. **This is
+the first full run over RW4e's code**: the stage and its five fix rounds ran targeted tests only.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `lint-imports --no-cache` | **28 kept**, 0 broken |
+| full suite `pytest -n auto` | **15,054 passed, 1 skipped, 2 xfailed, 0 failed** (23 min 51 s; `fixtures-local/rw4e-landing/fullsuite.log`). RW4d's landing ran 14,973; the skip is the base-only golden recorder |
+| `pytest -m durability` | **117 passed**, 14,940 deselected (4 min 24 s; `fixtures-local/rw4e-landing/durability.log`); RW4d's landing 114, RW4e's `test_roles_concurrency.py` adds 3 |
+| `npm install`, `npm run typecheck` | ok; clean |
+| `npm test` (the whole vitest run, default workers) | **161 files, 1,274 tests passed** (RW4d's landing: 160 / 1,272; `libraryRoles.test.tsx` adds 1 / 2) |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | ok (nothing under `src-tauri` changed) |
+| thread, lock and timing tests | all passed on the first run (`test_roles_concurrency.py` included), so none was rerun |
+| tracked fixtures, worktree | `git status` clean after both lanes and the frontend run; no `-wal` / `-shm` beside a fixture |
+
+No failure, so no landing fix.
+
+### Parity (backup-API copies; no model call completed)
+
+**Setup** (scripts in `fixtures-local/landing-rw4e/scripts/`, adapted from the RW4d landing's):
+- **Copies.** `fixtures/linear_algebra` and `fixtures/probability` were copied once, with `copy_tree_with_databases`,
+  from the main checkout into `fixtures-local/landing-rw4e/orig/`; every other copy came from `orig/` or its upgraded
+  copies through the same helper. `arxiv_v2` was not opened. Both vaults start at schema 165, label `mvp-0.8`;
+  linear_algebra holds 4 source objects, probability 5, **none of them RW4e's** (no `instructional_role` object).
+- **Code.** Main's code is `git archive a12ba5ba9`; the merge's is `git archive f5af84d7f`.
+- **Environment.** Every run went through `env -i` with only `PATH`, `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`,
+  `TMPDIR` and `LANG` (empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`).
+- **Routes.** `neutralize3.py`, under each code, sent every route field to `127.0.0.1:9` (56 on main, 57 on the
+  merge: `role_labeller` is the new one; `library_organizer`, `passage_cue_judge`, the reader, tutor, sources,
+  `source_compare`, cue, hint, workbench, AD, figure and Decider routes included), the active provider to that
+  loopback profile with no fallback; `query_rewrite`, `tutor_query_rewrite`, `tutor_rerank`, `dense`, `[embedding]`
+  and `[learner_text_gaps]` off; `build_on_serve` and outcome placement off. `routes.py` resolved all 59 `AITask`s on
+  main's code and all 60 on the merge's: nothing outside the loopback profiles except `embedding`, disabled and
+  keyless; `role_labeller` and `library_organizer` resolve to the loopback.
+
+**(a) No schema change**
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| open (migrate), main's code / the merge's | 165 → 215 (49 applied) / the same | the same |
+| schema, main vs merge | **identical** (1,428 objects; none on one side only; no SQL differs) | **identical** (1,427) |
+| rows of every table (340), all columns | **identical** (16,540 rows); `schema_migrations` differs only in `applied_at` | **identical** (7,638 rows; the same) |
+| `foreign_key_check` / `integrity_check` | 0 / ok, both sides | the same |
+| `rebuild --shadow --json`, main vs merge | **0 differences** after normalisation (facet 0, mastery 2, schedule 8 on both); live database unchanged on both | **0 differences** (0 / 1 / 1) |
+| `doctor --json`, main vs merge | **0 differences** after normalisation (57 issues, 1 error) | **0 differences** (101 issues, 48 errors) |
+
+**(b) Nothing served changes** (frozen clock 2026-10-19 09:00 UTC; certification with recipe gaps and curves, the
+Today queue with no session / a session / greedy, the daily plan read, served twice and read again)
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| at `mvp-0.8` (the copies' label) | cert **byte-identical** (132,860 bytes), Today **byte-identical** (504,488), plan byte-identical (off below mvp-0.14) | cert (17,494), Today (709,910), plan: all **byte-identical** |
+| upgraded by main's code to `mvp-0.27` (`--to mvp-0.9`, `--to mvp-0.27`, `rebuild-derived-state` twice; all rc 0), opened by each code | cert **byte-identical** (129,651), Today **byte-identical** (528,665) | cert (17,495), Today (741,269): **byte-identical** |
+| then by main's code to `mvp-0.29` (`--to mvp-0.29`, `rebuild-derived-state` twice; all rc 0), opened by each code | cert and Today **byte-identical** (the same sizes) | the same |
+| the daily plan at mvp-0.27 and at mvp-0.29 | identical except `router_decisions.card_hash`, `snapshot_hash` and the card hash inside `detail_json`; a second run of main's code on a fresh copy differs from the first in exactly these three (`plan_repeat.sh`), as at the RW3b, DL2 and RW4d landings | the same |
+
+**(c) The real sidecar** (stdio, `SystemClock` frozen at 2026-10-19 09:00 UTC through `sidecar_clock.py`;
+`roles_run.py`, compared by `ccmp.py` with run-generated ids normalised) on copies of main's mvp-0.29 vaults: (i)
+`cm`, main's code; (ii) `coff`, the merge with `[roles] on_demand_enabled = false` and `positive_filter_enabled =
+false`; (iii) `cdef`, the merge at its defaults. Each, 31 calls: `initialize`; `reader.prompt_contract`;
+`reader.source_objects` for the book that has objects (probability `src_01KYMSH13FAGNWVPPHCQ2FY3B4`, 5 objects;
+linear_algebra `src_01KY2YG27G1SDWA4FN939ZBB34`, 4) and `reader.proposal_inbox`; `reader.guide_plan` on that book's
+reading (its cues); `find_sources` (the desktop `find_sources` RPC, caller `reader`) for the intents `explain`,
+`remediate`, `alternative` and `worked_example` without `roles=`, and `explain` with `roles=` `[definition]`,
+`[contrast, counterexample]`, `[worked_example]`, `[explanation, intuition]` and `[theorem]`; `reader.library_ask`
+on one of the objects' passages (a job, polled) and its `reader.library_ask_notes` (the organizer; a job, polled);
+the reads, the guide plan and the nine `find_sources` again; `shutdown`.
+
+| Step | (i) main vs (ii) both switches off | (iii) defaults, every difference from (i) |
+|---|---|---|
+| `initialize` | identical apart from the vault path; the method list is the same (RW4e adds no RPC) | the same |
+| `reader.prompt_contract` | **identical** | identical |
+| `reader.source_objects` (both reads) | **identical** (5 / 4 objects) | identical |
+| `reader.proposal_inbox` (both reads) | **identical** (1 / 4 proposals) | identical |
+| `reader.guide_plan` (both reads) | **identical** (8 cues on each book) | identical |
+| `find_sources` (18 calls per vault) | **identical** apart from `manifest.search.timingsMs.total` (wall-clock milliseconds; main against main again on a fresh copy differs in it too, `cm2.sh`). Probability returns 8 / 0 / 0 / 0 hits for the four intents and 3 / 0 / 8 / 0 / 3 for the five role filters; linear_algebra 7 / 0 / 0 / 0 and 0 for each filter | identical to (i) the same way: **no RW4e proposal exists on these copies**, and no existing source object is `low` confidence where a stronger one is eligible, so the positive filter and the shared eligibility change no hit |
+| `reader.library_ask` (the job's result) | **identical** (`status: ok`) | identical |
+| `reader.library_ask_notes` (the organizer job) | **identical**: `skipped: metered organizer route without source_retrieval.llm_price_per_million` (refused before any call), `promptVersion: library_organizer.v1` | the same refusal, with **`promptVersion: library_organizer.v2`** (the only response difference in (iii)) |
+| rows written (over the same copy opened by the merge's code, ids and timestamps aside) | the same tables and rows on all three: one `library_asks` row, two `interaction_events`, 14 `source_exposure_events`, and the open-time derived refresh (probability: 1 `facet_capability_evidence`, 2 `facet_recall_state`; linear_algebra: 36, 76 and 30 `practice_item_state`) | the ask row's `organizer_json.prompt_version` is `library_organizer.v2` (v1 in (i) and (ii)); no source object, version, citation or `judgment_ledger` row on any run |
+
+So (i) and (ii) are identical call by call apart from the vault path and wall-clock timings, and (iii) differs only in
+the organizer's prompt version.
+
+**(d) The dry-run CLI** (`learnloop reader label-roles --source <id> --dry-run`, with `--json` and without, the
+merge's code, on fresh copies of the mvp-0.29 vaults; every file of each vault hashed before and after)
+
+| Check | linear_algebra (`src_01KY2YG27G1SDWA4FN939ZBB34`) | probability (`src_01KYMSH13FAGNWVPPHCQ2FY3B4`) |
+|---|---|---|
+| rc, calls | 0, `calls: 0`, `status: dry_run` (both formats) | the same |
+| files before vs after | **byte-identical** (145 files, the database included) | **byte-identical** (120 files) |
+| receipts, `instructional_roles` ledger rows after | 0, 0 | 0, 0 |
+| passages | 489 blocks, **353 eligible**, 0 already labelled, 0 pending apply; withheld: 133 furniture or empty, 3 assessment lane (reading `ext_01KY2ZX9193YPC73DT6HXFFNDC`) | 518 blocks, **341 eligible**, 0 / 0; withheld: 115 furniture or empty, 44 solutions, 18 assessment lane |
+| the plan on the loopback route (metered, no price) | 30 batches of up to 12, 645,699 estimated tokens, `estimated_usd: null`, every batch `would_cap`, `route_status: skipped: metered role labeller route without source_retrieval.llm_price_per_million`; caps `{batch_size 12, checked: before each batch call, roles.batch_max_cost_usd 5.0}` | 29 batches, 660,124 tokens, the same |
+| the plan with `source_retrieval.llm_price_per_million = 10.0` on a further copy (probability only; still the loopback) | — | files byte-identical (120), 0 calls; estimated $6.60 for the book; **batches 1–21 `planned` ($4.83), 22–29 `would_cap`** (batch 22 would pass $5.00), which shows the cap is checked before each batch |
+
+**`model_call_receipts`**: 38 learner databases under `landing-rw4e/` carry the table; **no row** in any of them
+(none completed, none attempted: the organizer and the labeller refused before calling).
+
+### New findings
+
+1. **No composition work.** The stage branched from main's tip, so the merge was clean; the gate and parity found
+   nothing to fix.
+2. **`library_asks.prompt_version` stays `library_organizer.v1`** on an ask whose notes ran under v2: the column is
+   RW4a's constant, written when the ask is made, while `organizer_json.prompt_version` and the notes response say
+   v2. Nothing found reads the column for caching (the cache is the ledger, keyed by prompt version). Low; not
+   changed.
+3. **On an unpriced metered route the dry run marks every batch `would_cap`**, with the reason in `route_status`.
+   Correct (the real run would send nothing), but a reader of the batch list alone could take it for the dollar cap.
+   The owner's vaults use Codex (`estimated_only`), so the real dry run will show `planned`. Low.
+
+### For the owner
+
+- **No migration.** Your database changes only when a judge proposes roles or you run the labeller, and only the
+  three source-object tables; your algorithm version is unchanged and nothing served moves (parity (a), (b)).
+- **What you see in the Reader.** On a library answer (*where else is this explained?*), a passage the model reads
+  as, say, a counterexample is grouped under *Contrast* and labelled **"counterexample (model's label)"**. Ingest's
+  own roles (definition, theorem, worked example, exercise) keep their groups. Nothing else in the UI changes. The
+  labels are proposals: they never hide a passage, never admit exam or held-out material, and never grade you;
+  P3's review list (`reader.source_objects`) shows them for review.
+- **Behind the scenes.** The cue judge and the library organizer now also return roles per passage (no extra
+  call); the tutor's and the Reader's source lookups (`find_sources`, intent lists, RW3b's contrast list) can use
+  them.
+- **The batch labeller** (owner-run, on a backup copy, **dry run first**; §6):
+  `uv run learnloop reader label-roles --vault fixtures-local/rw4e-prob --source <source id> --dry-run --json` shows
+  the passages, the batches with estimated tokens and dollars, the route and its cost basis and any `would_cap`
+  batch, with 0 calls and 0 writes (parity (d)); then run it without `--dry-run`. On Codex it is `estimated_only`;
+  a metered route needs `source_retrieval.llm_price_per_million` and stops before the batch that would pass
+  `roles.batch_max_cost_usd` (5.00).
+- **The switches** (`[roles]`, both default on): `on_demand_enabled = false` makes the judges propose nothing and
+  their requests RW4a's / RW3b's; `positive_filter_enabled = false` makes every retrieval path ignore the proposals
+  (P3's review list still shows them). With both off, the Reader and `find_sources` answered exactly as
+  `a12ba5ba9` on your copies (parity (c)).
+- **Notes recorded at landing:**
+  - Both role switches default **on**.
+  - The first library ask after landing is **judged again** under `library_organizer.v2`, not served from an RW4a
+    ledger row (parity (c): the notes' prompt version is v2 at defaults).
+  - Codex labeller runs are **`estimated_only`** and exempt from the dollar cap (the call and retry caps hold).
+  - The **same judge's later confidence is ignored** (its first proposal stands; a second judge adds a version).
+  - **Ingest's specific role wins** the grouping.
+  - **P3's review list shows RW4e proposals** under either switch.
+  - With `positive_filter_enabled` on, the low-confidence rule (a `low` row counts only when no stronger eligible one
+    remains) also applies to **older (non-RW4e) source objects**. With it off, retrieval is exactly `a12ba5ba9`'s
+    code path, pinned by `tests/fixtures/roles_switch_off_legacy_a12ba5ba9.json`.
+  - **`CitationResolver` memoizes per resolver** (resolvers live for one read path, so nothing stale outlives a
+    write).
+
+### Open questions (defaults in force)
+
+1. *Both role switches on by default?* **Yes** (frictionless defaults).
+2. *First ask after landing re-judged under v2 rather than served from an RW4a row?* **Yes** (a new prompt version;
+   no cross-version cache).
+3. *Should the dollar cap bind Codex labeller runs?* **No** (`estimated_only`, as every Codex role).
+4. *A later proposal by the same judge with another confidence?* **Ignored** (first stands).
+5. *A proposal against a specific ingest role?* **Ingest wins** the grouping; the organizer's line still shows the
+   model's label.
+6. *P3's review list shows RW4e proposals with the positive filter off?* **Yes** (review is not a positive use).
+7. *The low-confidence rule for older source objects while the positive filter is on?* **Applies** (one rule for
+   every source object); off, `a12ba5ba9`'s path.
+8. *`CitationResolver` memoized per resolver?* **Yes.**
+
+### Open items
+
+- **Older-format labeller ledger rows (ruled Low, from verify `20261020-225727-W36G4L`).** Recovery of a labeller
+  ledger row written before fix round 5's normalisation (verdict `none` beside roles) whose receipt never finished
+  (a suppressed receipt-finish persistence error) reports `done` instead of `incomplete`. No such row exists in any
+  real vault (the labeller never shipped; only this branch's pre-round-5 code wrote them), and new runs normalise the
+  verdict at capture. **Follow-up:** when an unapplied legacy `none` row cannot be resolved, report `incomplete`.
+- **Findings 2 and 3** above (Low).
+- **From the stage, not built:** `source_rerank` / `source_compare` roles (the sources spec's §18 request; §5 note 5);
+  the per-reading cache of visible labels if `role_proposals` shows in the latency report (§5 note 4).
+- **From before this stage:** `desktop_validate.py` (`syntheticBook.ts`) and `module_validate.py` (962 issues).
