@@ -288,7 +288,8 @@ def search_spans(
         proposed, low = role_proposal_keys(vault, repository, extraction_ids, roles)
         permitted_roles = hinted | proposed
         result.role_basis = {"hints": len(hinted), "proposals": len(proposed - hinted), "low_confidence": 0}
-        if not permitted_roles and low:
+        # "Better" is a confident passage this scope can return (Codex review F3).
+        if low and not any(scope.allows(*key) for key in permitted_roles):
             permitted_roles = set(low)
             result.role_basis["low_confidence"] = len(low)
 

@@ -23,7 +23,7 @@ reconstruct what the call could read (§5.5).
 """
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
 import json
@@ -392,7 +392,9 @@ def correction_lists(vault: LoadedVault, repository: Repository, misconception: 
 
 
 def source_object_lists(vault: LoadedVault, repository: Repository, intent: str,
-                        extraction_ids: Sequence[str]) -> dict[str, list[SpanKey]]:
+                        extraction_ids: Sequence[str], *,
+                        eligible: Callable[[list[SpanKey]], list[SpanKey]] | None = None,
+                        ) -> dict[str, list[SpanKey]]:
     """Source objects whose type (or RW4e authorial role) matches the intent (§9.2).
 
     Every source object but Reader RW4e's is read as it always was (any
@@ -401,8 +403,10 @@ def source_object_lists(vault: LoadedVault, repository: Repository, intent: str,
     :func:`learnloop.reader.source_roles.role_proposals` (the head version,
     the current reading, nothing exam protection hides now), by role or by
     their mapped type, and not at all while ``roles.positive_filter_enabled``
-    is off. ``low``-confidence role proposals count only when nothing better
-    exists: such rows are appended after every other row of the list.
+    is off. ``low``-confidence rows count only when nothing better exists
+    (Codex review F3): the list is its confident rows the caller may be given
+    (``eligible``: the effective scope, the caller's exclusions and exam
+    material; every row when None), and its low ones only when none is left.
     """
 
     from learnloop.reader.source_roles import PROPOSAL_KIND_SQL, role_proposals
@@ -444,7 +448,10 @@ def source_object_lists(vault: LoadedVault, repository: Repository, intent: str,
     for label in role_proposals(vault, repository, extraction_ids=wanted_extractions):
         if label.object_type in types or label.role in roles:
             (weak if label.low else strong).append(label.key)
-    keys = list(dict.fromkeys(strong + weak))
+    allowed = eligible or (lambda keys: keys)
+    keys = allowed(list(dict.fromkeys(strong)))
+    if not keys:
+        keys = allowed([key for key in dict.fromkeys(weak) if key not in set(strong)])
     if keys:
         lists["source_objects"] = keys
     return lists
@@ -667,7 +674,13 @@ def find_sources(
         shown_sources = {span_scope.extractions[key[0]].source_id for key in excluded if key[0] in span_scope.extractions}
         personal["shown_sources"] = sorted(shown_sources)
     extra.update(expansion_lists(vault, repository, lo_ids, expand))
-    extra.update(source_object_lists(vault, repository, intent, extraction_ids))
+    def eligible(keys: list[SpanKey]) -> list[SpanKey]:
+        # What this caller may be given: the scope, its exclusions, no exam material.
+        keys = [key for key in keys if span_scope.allows(*key) and key not in excluded]
+        exam = exam_withheld(vault, repository, keys) if keys else frozenset()
+        return [key for key in keys if key not in exam]
+
+    extra.update(source_object_lists(vault, repository, intent, extraction_ids, eligible=eligible))
     effective_roles = tuple(roles)
     if intent == "worked_example" and not effective_roles:
         effective_roles = ("worked_example",)

@@ -364,12 +364,89 @@ def test_intent_lists_read_proposals_by_role_and_by_their_mapped_type(library):
     assert source_object_lists(vault, repository, "explain", ["ext_text"]) == {"source_objects": [("ext_text", "t2")]}
     assert source_object_lists(vault, repository, "worked_example", ["ext_text"]) == {
         "source_objects": [("ext_text", "t5")]}
+    # Codex review F3: the low one only when nothing better exists, not last.
     assert source_object_lists(vault, repository, "alternative", ["ext_text", "ext_book"]) == {
-        "source_objects": [("ext_book", "s6"), ("ext_text", "t2")]}  # the low one last
+        "source_objects": [("ext_book", "s6")]}
+    assert source_object_lists(vault, repository, "alternative", ["ext_text"]) == {
+        "source_objects": [("ext_text", "t2")]}
     set_config(paths, "roles", positive_filter_enabled=False)
     off = loaded(paths)
     assert all(source_object_lists(off, repository, intent, ["ext_text", "ext_book"]) == {}
                for intent in ("remediate", "explain", "worked_example", "alternative"))
+
+
+def _spy_lists(monkeypatch):
+    """The extra lists each ``find_sources`` passes its search (the retrieval
+    boost an intent list gives)."""
+
+    from learnloop.source_retrieval import find_sources as FS
+
+    seen: list[dict] = []
+    real = FS.search_spans
+
+    def spy(*args, extra_lists=None, **kwargs):
+        seen.append({name: list(keys) for name, keys in (extra_lists or {}).items()})
+        return real(*args, extra_lists=extra_lists, **kwargs)
+
+    monkeypatch.setattr(FS, "search_spans", spy)
+    return seen
+
+
+def test_an_intent_list_takes_a_low_confidence_proposal_only_when_no_stronger_one_is_in_scope(library, monkeypatch):
+    """Codex review F3 (sources §9.2), through ``find_sources``: a weak
+    ``alternative_treatment`` beside a strong ``intuition`` gets no boost; it
+    counts once the caller's scope leaves no stronger candidate."""
+
+    from learnloop.source_retrieval.find_sources import find_sources_for_caller
+    from learnloop.source_retrieval.policy import CallerContext
+    from tests.source_service_fakes import FakeServiceLLM
+
+    paths, repository, _spans = library
+    _propose(paths, repository, [_claim("t3", "intuition", "high"), _claim("t2", "alternative_treatment", "low")])
+    vault = loaded(paths)
+    seen = _spy_lists(monkeypatch)
+    reading = CallerContext(kind="reader")
+    find_sources_for_caller(vault, repository, "eigenvalues characteristic polynomial", caller=reading,
+                            intent="alternative", rerank_client=FakeServiceLLM())
+    assert seen[-1]["source_objects"] == [("ext_text", "t3")]
+    # The stronger proposal excluded by the caller (already shown): the weak one counts.
+    find_sources_for_caller(vault, repository, "eigenvalues characteristic polynomial", caller=reading,
+                            intent="alternative", exclude_span_keys=[["ext_text", "t3"]],
+                            rerank_client=FakeServiceLLM())
+    assert seen[-1]["source_objects"] == [("ext_text", "t2")]
+    # The same exclusion by span id (the Reader's shown passages).
+    find_sources_for_caller(vault, repository, "eigenvalues characteristic polynomial", caller=reading,
+                            intent="alternative", exclude_span_ids=["ext_text:t3"],
+                            rerank_client=FakeServiceLLM())
+    assert seen[-1]["source_objects"] == [("ext_text", "t2")]
+
+
+def test_a_stronger_proposal_the_scope_excludes_never_blocks_the_low_confidence_one(library, monkeypatch):
+    """Codex review F3: the stronger candidate must be eligible in the
+    effective scope (here a solution, which a practice caller's teaching scope
+    excludes), for an intent list and for the ``roles`` filter alike."""
+
+    from learnloop.source_retrieval.find_sources import find_sources_for_caller, scope_for
+    from learnloop.source_retrieval.policy import CallerContext
+    from tests.source_service_fakes import FakeServiceLLM
+
+    paths, repository, spans = library
+    solution = spans["solutions"][1]
+    _propose(paths, repository, [_claim(solution, "intuition", "high"), _claim("t2", "intuition", "low")])
+    vault = loaded(paths)
+    item = vault.practice_items["pi_eigen_1"]
+    scope = scope_for(vault, repository, policy="assisted_practice", scope="teaching",
+                      learning_object_ids=[item.learning_object_id], item=item)
+    assert not scope.allows("ext_text", solution) and scope.allows("ext_text", "t2")
+    practice = CallerContext(kind="tutor", context="practice", item_id="pi_eigen_1")
+    seen = _spy_lists(monkeypatch)
+    find_sources_for_caller(vault, repository, "eigenvalues characteristic polynomial", caller=practice,
+                            scope="teaching", intent="alternative", rerank_client=FakeServiceLLM())
+    assert seen[-1]["source_objects"] == [("ext_text", "t2")]
+    hits = find_sources_for_caller(vault, repository, "eigenvalues characteristic polynomial", caller=practice,
+                                   scope="teaching", roles=["intuition"])
+    assert {hit["span_id"] for hit in hits.hits} == {"t2"}
+    assert hits.manifest["search"]["role_basis"]["low_confidence"] == 1
 
 
 # -- configuration ----------------------------------------------------------------------------------

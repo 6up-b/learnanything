@@ -238,6 +238,18 @@ def test_rw3b_prefers_contrast_and_counterexample_passages_for_distinction_cues(
     assert "contrast" not in PC.shortlist(off, repository, target, "ext_text", deep=False).lists
 
 
+def test_rw3b_contrast_list_takes_a_low_confidence_proposal_only_when_none_better_is_on_target(library):
+    """Codex review F3: a confident counterexample outside the target's LOs
+    (and its confusables) never blocks a low-confidence contrast on them."""
+
+    paths, repository, _spans = library
+    vault = loaded(paths)
+    (target,) = PC.cue_targets(vault, repository, "ext_text")
+    RS.propose_roles(vault, repository, [_claim("t7", "counterexample"), _claim("t2", "contrast", "low")],
+                     judge=RS.JUDGE_LABELLER, prompt_version="role_labeller.v1")
+    assert PC.contrast_list(loaded(paths), repository, target, "ext_text") == [("ext_text", "t2")]
+
+
 def test_library_answers_group_a_proposed_role_labelled_as_the_models(library):
     paths, repository, _spans = library
     vault = loaded(paths)

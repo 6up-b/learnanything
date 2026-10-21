@@ -732,13 +732,19 @@ def contrast_list(vault: LoadedVault, repository: Repository, target: CueTarget,
     ``remediate`` list) and the roles this judge proposed before. Used only to
     add candidates (G44)."""
 
-    proposed = list(source_object_lists(vault, repository, "remediate", [extraction_id]).get(
+    los = _lo_neighbourhood(vault, target.learning_object_ids)
+    span_los = SpanLearningObjects(vault, repository, extraction_id)
+
+    def on_target(keys: list[tuple[str, str]]) -> list[tuple[str, str]]:
+        # A low-confidence proposal counts only when no confident one is on
+        # this target (Codex review F3): eligibility before the fallback.
+        return [key for key in keys if key[0] == extraction_id and set(span_los(key[1])) & los]
+
+    proposed = list(source_object_lists(vault, repository, "remediate", [extraction_id], eligible=on_target).get(
         "source_objects") or [])
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         own = sorted(store.links_with_roles(connection, [extraction_id], CONTRAST_ROLES)) \
             if store.tables_present(connection) else []
-    los = _lo_neighbourhood(vault, target.learning_object_ids)
-    span_los = SpanLearningObjects(vault, repository, extraction_id)
     out: list[tuple[str, str]] = []
     for key in [*proposed, *own]:
         key = (str(key[0]), str(key[1]))
