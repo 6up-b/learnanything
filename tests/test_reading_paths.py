@@ -497,6 +497,10 @@ def test_each_core_section_names_its_exercise_block_and_try_it_carries_the_reade
             "Exercise 1.1 Compute the eigenvalues of the diagonal matrix [[2,0],[0,3]].")}]}}
     # Only core sections name one (sec_diag is enrichment), and only where one exists.
     assert by["sec_diag"]["exercise"] is None and by["sec_spectral"]["exercise"] is None
+    # A "read it anyway" makes it core: its exercise is named now.
+    view = _override(_ctx(paths), "sec_diag", "read_anyway")
+    diag = next(s for s in view["sections"] if s["sectionId"] == "sec_diag")
+    assert diag["effectiveLabel"] == "core" and diag["exercise"]["label"] == "Exercise 3.1"
 
 
 def test_an_exam_or_held_out_exercise_is_never_named(path_vault, monkeypatch):
@@ -676,6 +680,13 @@ def test_each_dl2_choice_maps_onto_a_depth_or_asks(path_vault, choice, depth):
     view = _path(_ctx(paths))
     assert view["depth"] == depth
     assert RP.INTENT_DEPTH.get(choice) == depth
+
+
+def test_the_newer_setting_is_compared_as_instants_not_strings():
+    assert RP._instant("2026-10-12T09:00:00Z") == RP._instant("2026-10-12T09:00:00+00:00")
+    assert RP._instant("2026-10-12T09:00:00.500000+00:00") > RP._instant("2026-10-12T09:00:00Z")
+    assert RP._instant("2026-10-12T05:30:00-04:00") > RP._instant("2026-10-12T09:00:00Z")
+    assert RP._instant("not a time") < RP._instant("2026-10-12T09:00:00Z")
 
 
 def test_an_unknown_depth_or_choice_is_refused(path_vault):

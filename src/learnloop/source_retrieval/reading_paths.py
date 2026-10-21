@@ -43,6 +43,7 @@ import sqlite3
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import Field
@@ -527,6 +528,16 @@ def _intent_choice(vault: Any, repository: Repository, source_id: str, extractio
             "depth": INTENT_DEPTH.get(choice)}
 
 
+def _instant(value: str) -> datetime:
+    """An ISO timestamp as an aware instant (``Z`` and offsets alike); unreadable is the epoch."""
+
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return datetime.min.replace(tzinfo=UTC)
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+
+
 def depth_choice(vault: Any, repository: Repository, source_id: str, extraction_id: str) -> dict[str, Any]:
     """The depth the path is for: the newer of the Guide's choice and DL2's
     (mapped); ``depth`` None asks the learner. DL2's stored intent is only read."""
@@ -537,7 +548,8 @@ def depth_choice(vault: Any, repository: Repository, source_id: str, extraction_
     depth, origin = None, None
     if guide is not None:
         depth, origin = str(guide["depth"]), "guide"
-    if intent is not None and intent["depth"] is not None and (guide is None or intent["at"] > str(guide["created_at"])):
+    if intent is not None and intent["depth"] is not None and (
+            guide is None or _instant(intent["at"]) > _instant(str(guide["created_at"]))):
         depth, origin = str(intent["depth"]), "intent"
     return {"depth": depth, "origin": origin,
             "intent": {"choice": intent["choice"], "label": intent["label"]} if intent is not None else None}
@@ -686,7 +698,10 @@ def judge(vault: Any, repository: Repository, extraction_id: str, depth: str, *,
         return JudgeResult("unavailable", state_key=key, reason="judge_failed",
                            message="Couldn't read a path for this book just now. Try again ↵")
     verdicts = validate(output, inputs)
-    exercises = pick_exercises(vault, repository, inputs, [v.section_id for v in verdicts if v.label == "core"])
+    # Every section's candidate is kept; the Guide names it only while the
+    # section is core (a "read it anyway" makes it core, a later honest-label
+    # downgrade too).
+    exercises = pick_exercises(vault, repository, inputs, [v.section_id for v in verdicts])
     now = utc_now_iso(clock)
     input_hash = content_key(prompt)
     model = route.model
