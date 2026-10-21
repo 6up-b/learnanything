@@ -323,3 +323,74 @@ search and cue files: `test_approach_maps`, `test_contrast_pairs`, `test_discrim
 `test_desktop_rpc_contract`, `test_mobile_allowlist`, `test_table_roles`, `test_sidecar_serializer_snapshot`.
 
 For the landing gate: the full suite, the whole durability lane and the whole vitest run, on the merged tree.
+
+## Fix round 4 (orchestrator)
+
+The whole-stage verify, Codex job `20261020-222324-zO2vAN` on `a12ba5ba9..9b1a7271b`, reopened the stage with two
+Highs and one Medium. It confirmed that item-bound exclusions hold, that exam protection holds through
+`hidden_source_objects`, that agreement and review writes are atomic, that the dry run and the cap come in the right
+order, and that no learning-state writes are made. The orchestrator's rulings bind this round.
+
+### Findings
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F7 | High | With the switch off, legacy retrieval changes, including requests without `roles=` | fixed | `b4f707c78` | `tests/test_roles_switch_off_legacy_parity.py::test_legacy_source_objects_with_the_positive_filter_off_are_a12ba5ba9s`, golden `tests/fixtures/roles_switch_off_legacy_a12ba5ba9.json` recorded on an `a12ba5ba9` export. Legacy strong and weak `claim` objects (`intuition` on t2 and t3; a strong `counterexample` on solution t12 and a weak `contrast` on t2, both on the target's LO). `explain` and `alternative`, with and without `roles=`, with and without `exclude_span_keys`, plus `remediate` and RW3b's contrast list. On `9b1a7271b`, 9 of the 9 recorded answers differed from the golden (e.g. `explain`'s list `[t2, t12]` where the base gives `[t2, t12, t3]`) |
+| F8 | High | Cue tolerance changes well-formed answers that the base accepted | fixed | `b4f707c78` | `…legacy_parity.py::test_a_valid_cue_answer_with_a_duplicate_role_is_parsed_and_stored_as_a12ba5ba9_did[switches_off, switches_on]`: `roles=[contrast low, contrast high]`, parsed (`model_validate_json`) and through `discover` (links, ledger, prompts, result) against the base golden, under both switch states. With the switches on, the proposals alone are deduplicated (one `contrast` per passage, its first entry). On `9b1a7271b` both failed on `parsed` and `links`. `tests/test_roles_judges.py::…malformed_roles_field…[entries]` now expects no proposal: a field the base would reject reads as `[]` as a whole, with no partial salvage. It failed on `9b1a7271b` |
+| F9 | Medium | Labeller recovery can lose an accepted result and report `done` | fixed | `b4f707c78` | `tests/test_label_roles_cli.py`: `…answer_judging_a_passage_twice_is_the_batchs_failed_attempt_retried_within_the_caps` (request 1 names p1 twice; its retry is clean; one ledger row per passage), `…answer_that_always_judges_a_passage_twice_commits_nothing_and_never_reports_done` (status `failed`, no ledger row, no proposal), `…recovery_takes_a_refs_first_judgment_as_the_live_path_did` (the verify's p1 sequence: receipts naming p1 again as `none`/`[]` after its `explanation`; resume writes p1's `explanation`). All three failed on `9b1a7271b`: `done` where the fix gives `failed`, and p1 lost (6 proposals where 7 were expected) |
+
+No finding was rejected.
+
+### What changed
+
+- **F7.** While `roles.positive_filter_enabled` is off, each of the following takes `a12ba5ba9`'s path:
+  - `find_sources.source_object_lists`: every matching legacy row, with the low ones appended after the rest;
+    `eligible` is not read.
+  - `search.role_filter`, and so `search_spans`: the low ones only when no hint or confident row exists at all;
+    `eligible` is not read.
+  - `find_sources`: builds no effective eligibility and runs no role-filter precomputation.
+  - RW3b's `contrast_list`: the legacy `remediate` rows and its own links, filtered by the target's LOs only. That
+    filter is factored into `_on_target`/`_own_contrasts`, shared with the switch-on path.
+
+  RW4e proposals stay unread while the switch is off, as before. Fix round 3's eligibility and fallback apply only
+  while the switch is on.
+- **F8.** The cue judge's before-validator is now `source_roles.tolerate_malformed_roles`. Any `roles` value that
+  `list[RoleProposal]` (RW3b's field) accepts passes through unchanged, duplicates and order kept. Only a missing
+  or malformed field becomes `[]`: one the base would have rejected, failing the whole answer. Stored links read
+  `judgment.roles` as the base did. Deduplication stays in `claims_from_judgments` (`clean_roles`), which runs only
+  under `on_demand_enabled`. The organizer's RW4e roles request and the batch labeller have no base counterpart, so
+  they keep `tolerate_roles`.
+- **F9.**
+  - **Live path.** The labeller's `capture` (its `validate`) raises `AIInvalidOutput` for an answer that names a
+    ref twice. The paid layer then treats it as the batch's failed attempt, retried within the run's caps, before
+    any judgment is committed.
+  - **Recovery.** It reads each receipt's judgments with `first_judgments`: a ref's first judgment, the one live
+    capture and the ledger kept. This matters for a receipt accepted before this round.
+
+### Notes
+
+- No live or paid call, no vault copy; fakes only. No migration, config key, CLI help, RPC, serializer or frontend
+  change.
+- Every Python run outside pytest went through `env -i PATH=$PATH` with empty `HOME`/`CODEX_HOME`/
+  `LEARNLOOP_CONFIG_DIR` under `fixtures-local/tmp` (`python3 -I` for the six edit scripts). That covers the edit
+  scripts, the reference generator and the validator.
+- The golden was recorded with `RW4E_WRITE_LEGACY_GOLDEN=1` and
+  `-o pythonpath=fixtures-local/tmp/base-a12-r4/src` (a fresh `git archive a12ba5ba9 src migrations pyproject.toml`).
+  The recorder asserts that it ran on that export.
+- Fail-before: `git archive 9b1a7271b` under `fixtures-local/tmp`, run with `-o pythonpath=<tmp>/src`. 7 of the 7
+  new or changed tests failed there, and all pass on `b4f707c78`.
+- References: `db_generate_reference.py` was rerun. Only the cited line numbers in `Config - source_retrieval.md`
+  (`search.py` and `find_sources.py`) were kept. The commit labels and the test- and module-list churn in five other
+  notes were reverted, as in the last rounds; the landing gate regenerates. `db_validate_reference.py`: 0 errors.
+
+### Gate (targeted, per the owner's 2026-10-17 rule)
+
+- `uv run lint-imports --no-cache`: **28 kept, 0 broken**.
+- `TMPDIR=fixtures-local/tmp uv run pytest -n auto <round 3's 67 files + tests/test_roles_switch_off_legacy_parity.py>`:
+  **1,781 passed, 1 skipped**. The skipped test is the golden recorder, which runs only on the base.
+- `uv run pytest -n auto --durable-sqlite tests/test_source_roles.py tests/test_roles_judges.py
+  tests/test_find_sources_intents.py tests/test_label_roles_cli.py tests/test_roles_switch_off.py
+  tests/test_roles_switch_off_legacy_parity.py`: **93 passed, 1 skipped**.
+- References: generated, then validated with 0 errors.
+
+For the landing gate: the full suite, the whole durability lane and the whole vitest run, on the merged tree.
