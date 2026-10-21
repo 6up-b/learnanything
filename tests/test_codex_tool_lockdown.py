@@ -262,11 +262,28 @@ def _paid_call(client):
                       output_tokens=512, metadata={})
 
 
+def _figure_author_call(client):
+    """Reader RW5a's figure author, through its own route object (PaidCalls,
+    isolated=True), exactly as the figures service asks it (landing composition)."""
+
+    from learnloop.config import LearnLoopConfig
+    from learnloop.figures import routes as figure_routes
+
+    vault = SimpleNamespace(config=LearnLoopConfig())
+    route = figure_routes.FigureRoute(vault, None, figure_routes.AUTHOR_TASK, client=client, envelope=None,
+                                      owner_id="t", max_calls=figure_routes.MAX_AUTHOR_ATTEMPTS)
+    assert route.route.task == "figure_author" and route.subscription
+    return route.ask(figure_routes.author_prompt({"passage": "p"}), LinkJudgment)
+
+
 SHAPES = {
     # The callers that never asked for isolation (finding 2).
     "tutor_qa": lambda client, tmp: execute_structured_operation(
         client, purpose="tutor_qa", prompt="p", result_model=LinkJudgment),
     "paid_calls": lambda client, tmp: _paid_call(client),
+    # Reader RW5a's figure author (on main after the stage's base): isolated=True
+    # through PaidCalls; the lockdown applies to it like to every other caller.
+    "figure_author": lambda client, tmp: _figure_author_call(client),
     "plain_request": lambda client, tmp: _plain(client, "passage_cue_judge"),
     # The ones that did.
     "isolated": lambda client, tmp: client.complete(StructuredRequest(
