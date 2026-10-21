@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn(async () => null) }));
 
 import { TerminalFrame } from "./ui";
+import { ShellChromeRoot } from "../app/ShellChromeRoot";
 
 beforeEach(() => {
   const store = new Map<string, string>([["learnloop.recentVaults", JSON.stringify(["/home/u/LearnLoop", "/home/u/old-notes"])]]);
@@ -69,7 +70,9 @@ function renderSimple(overrides: Partial<Parameters<typeof TerminalFrame>[0]["si
   };
   const onSelectVault = vi.fn();
   const onAdd = vi.fn();
+  // The App draws the simple shell inside its key-isolated chrome root (fix round 4).
   const utils = render(
+    <ShellChromeRoot>
     <TerminalFrame
       shell="simple"
       active="graph"
@@ -83,6 +86,7 @@ function renderSimple(overrides: Partial<Parameters<typeof TerminalFrame>[0]["si
     >
       <div>body</div>
     </TerminalFrame>
+    </ShellChromeRoot>
   );
   return { ...utils, handlers, onSelectVault, onAdd };
 }

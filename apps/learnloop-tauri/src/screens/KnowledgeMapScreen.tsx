@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
 import { useCachedQuery, useReportQueryError } from "../api/useCachedQuery";
+import { simpleShell } from "../app/shell";
 import { TAG } from "../api/queryTags";
 import type { DecayPressureDto, KnowledgeFacetPoint, KnowledgeItemTextNeighbors, KnowledgeMapHistory, KnowledgeMapPoint, KnowledgeMapSnapshot } from "../api/dto";
 import { EntityLink } from "../components/ui";
@@ -72,13 +73,21 @@ export function KnowledgeMapView({ onInspect, onError }: { onInspect: (id: strin
   // scene fills the pane instead of sitting in a fixed 860-wide letterbox.
   const canvas = useElementSize<HTMLDivElement>();
 
-  // Load failures surface as errors; whatever was cached stays up. Each failed
-  // feed is its own error, with its identity (the query) and a self-contained
-  // retry that reads that feed again whatever view is showing or whether this
-  // screen is still mounted (UX Phase 2 F3; fix rounds 2 and 3).
-  useReportQueryError(snapshotQuery, onError);
-  useReportQueryError(historyQuery, onError);
-  useReportQueryError(decayQuery, onError);
+  // Simple shell: each failed feed is its own error, with its identity (the
+  // query) and a self-contained retry that reads that feed again whatever view
+  // is showing or whether this screen is still mounted (UX Phase 2 F3; fix
+  // rounds 2 and 3). Classic: base's one aggregated report, verbatim (fix
+  // round 4: classic is base by construction).
+  const simple = simpleShell();
+  useReportQueryError(snapshotQuery, onError, simple);
+  useReportQueryError(historyQuery, onError, simple);
+  useReportQueryError(decayQuery, onError, simple);
+  // Load failures surface as toasts, as before; whatever was cached stays up.
+  const loadError = snapshotQuery.error ?? historyQuery.error ?? decayQuery.error;
+  useEffect(() => {
+    if (simple) return;
+    if (loadError) onError(loadError.message);
+  }, [loadError, onError, simple]);
 
   // Keeps the selection valid for the current field (and picks the first
   // point when nothing is selected yet, including right after the map loads).

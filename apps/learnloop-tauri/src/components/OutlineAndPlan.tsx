@@ -250,7 +250,9 @@ export function OutlinePlanFlow({
       if (e.key !== "Escape") return;
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
-      if (step === "plan" && !escCloses) setStep("outline");
+      if (escCloses) onClose();
+      // Classic: base's stepping, verbatim.
+      else if (step === "plan") setStep("outline");
       else onClose();
     }
     window.addEventListener("keydown", onKeyDown);

@@ -700,7 +700,7 @@ function OutputRowView({ row, commands }: { row: OutputRow; commands: Array<{ na
 }
 
 // ── Main palette ────────────────────────────────────────────────────────
-export function CommandPalette({
+function SimpleCommandPalette({
   open,
   session,
   entityIds,
@@ -1034,7 +1034,7 @@ export function CommandPalette({
     // One layout for both modes, so the input keeps its focus when ">" is typed.
     const query = line.trim();
     return (
-      <div className="cli-backdrop" onMouseDown={onClose}>
+      <div className="cli-backdrop" onMouseDown={onClose} data-shell-chrome="">
         <div className="cli-shell" onMouseDown={(event) => event.stopPropagation()}>
           <div className="cli-titlebar">
             <span className="cli-title">{cliMode ? <>learnloop <span className="cli-accent">shell</span></> : "Commands"}</span>
@@ -1091,7 +1091,7 @@ export function CommandPalette({
   }
 
   return (
-    <div className="cli-backdrop" onMouseDown={onClose}>
+    <div className="cli-backdrop" onMouseDown={onClose} data-shell-chrome="">
       <div className="cli-shell" onMouseDown={(event) => event.stopPropagation()}>
         <div className="cli-titlebar">
           <span className="cli-title">
@@ -1111,6 +1111,287 @@ export function CommandPalette({
           <span className="cli-faint">learnloop</span>
           {input}
           {matchCount}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** UX Phase 2: the palette. Classic is base's palette verbatim
+ *  (`ClassicCommandPalette`, the c80c54cbb component unchanged but for its
+ *  name; fix round 4, classic is base by construction, pinned by
+ *  app/classicIsBase.test.ts); the simple shell's is `SimpleCommandPalette`. */
+export function CommandPalette(props: Parameters<typeof SimpleCommandPalette>[0]) {
+  if (props.shell === "simple") return <SimpleCommandPalette {...props} />;
+  const { shell: _shell, plainCommands: _plainCommands, ...base } = props;
+  return <ClassicCommandPalette {...base} />;
+}
+
+// ── Classic: base's palette, verbatim ───────────────────────────────────
+function ClassicCommandPalette({
+  open,
+  session,
+  entityIds,
+  practiceItemIds,
+  subjects,
+  onClose,
+  onGoto,
+  onOpenPractice,
+  onOpenCalibration,
+  onOpenAdjudication,
+  onInspect,
+  onAsk,
+  onError
+}: {
+  open: boolean;
+  session: SessionSnapshot | null;
+  entityIds: string[];
+  practiceItemIds: string[];
+  subjects: string[];
+  onClose: () => void;
+  onGoto: (tab: TopTab) => void;
+  onOpenPractice: (id: string) => void;
+  onOpenCalibration: (calibrationSessionId: string) => void;
+  onOpenAdjudication: () => void;
+  onInspect: (id: string) => void;
+  onAsk: () => boolean;
+  onError: (message: string) => void;
+}) {
+  const [line, setLine] = useState("");
+  const [cursor, setCursor] = useState(0);
+  const [buffer, setBuffer] = useState<OutputRow[]>([]);
+  const [history, setHistory] = useState<string[]>(() => readHistory());
+  const [histIdx, setHistIdx] = useState(-1);
+  const [acIdx, setAcIdx] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [conceptIds, setConceptIds] = useState<string[]>([]);
+  const [goalIds, setGoalIds] = useState<string[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const subjectsKey = useMemo(() => subjects.join("\0"), [subjects]);
+  const cands = useMemo<Candidates>(
+    () => ({ entityIds, practiceItemIds, conceptIds, goalIds, subjects }),
+    [entityIds, practiceItemIds, conceptIds, goalIds, subjects]
+  );
+  const completions = useMemo(() => computeCompletions(line, cursor, cands), [line, cursor, cands]);
+
+  const helpCommands = useMemo(() => Object.entries(GRAMMAR).map(([name, spec]) => ({ name, help: spec.help })), []);
+
+  useEffect(() => {
+    setAcIdx(0);
+  }, [line]);
+
+  useEffect(() => {
+    if (open) window.setTimeout(() => inputRef.current?.focus(), 30);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    api
+      .getConceptGraph()
+      .then((graph) => {
+        if (!cancelled) setConceptIds(graph.concepts.map((concept) => concept.id));
+      })
+      .catch(() => {
+        if (!cancelled) setConceptIds([]);
+      });
+    api
+      .goalsList()
+      .then((snapshot) => {
+        // populate-goal only operates on active goals, so only offer those.
+        if (!cancelled) setGoalIds(snapshot.goals.filter((goal) => goal.status === "active").map((goal) => goal.id));
+      })
+      .catch(() => {
+        if (!cancelled) setGoalIds([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, subjectsKey]);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [buffer, open]);
+
+  if (!open) return null;
+
+  function applyCompletion(index: number) {
+    const sel = completions[index];
+    if (!sel) return;
+    const tok = tokenize(line, cursor);
+    const tokStart = cursor - tok.activePrefix.length;
+    const before = line.slice(0, tokStart);
+    const after = line.slice(cursor);
+    const trail = after.startsWith(" ") ? "" : " ";
+    const newLine = `${before}${sel.completion}${trail}${after}`;
+    const newCursor = (before + sel.completion + trail).length;
+    setLine(newLine);
+    setCursor(newCursor);
+    window.setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.setSelectionRange(newCursor, newCursor);
+    }, 0);
+  }
+
+  async function execute() {
+    const raw = line.trim();
+    if (!raw || busy) return;
+    const parsed = parse(raw);
+    const nextHistory = [raw, ...history.filter((entry) => entry !== raw)].slice(0, 50);
+    setHistory(nextHistory);
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(nextHistory));
+    } catch {
+      /* ignore */
+    }
+    setLine("");
+    setCursor(0);
+    setHistIdx(-1);
+
+    if (parsed.error) {
+      setBuffer((b) => [...b, { type: "cmd", text: raw }, { type: "err", text: parsed.error as string }]);
+      return;
+    }
+    setBuffer((b) => [...b, { type: "cmd", text: raw }]);
+    setBusy(true);
+    try {
+      const ctx: CmdCtx = {
+        session,
+        onGoto,
+        onOpenPractice,
+        onOpenCalibration,
+        onOpenAdjudication,
+        onInspect,
+        onAsk,
+        clearBuffer: () => setBuffer([]),
+        close: onClose
+      };
+      const out = await runCommand(parsed.name as string, parsed.positional, parsed.flags, ctx, parsed.argv);
+      if (out.length) setBuffer((b) => [...b, ...out]);
+    } catch (error) {
+      const message = (error as Error).message ?? String(error);
+      onError(message);
+      setBuffer((b) => [...b, { type: "err", text: message }]);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function onInputKey(event: React.KeyboardEvent<HTMLInputElement>) {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "p") {
+      onClose();
+      event.preventDefault();
+      return;
+    }
+    if (event.key === "Escape") {
+      onClose();
+      event.preventDefault();
+    } else if (event.key === "Enter") {
+      void execute();
+      event.preventDefault();
+    } else if (event.key === "Tab") {
+      applyCompletion(acIdx);
+      event.preventDefault();
+    } else if (event.key === "ArrowDown") {
+      if (completions.length > 0) {
+        setAcIdx((i) => Math.min(completions.length - 1, i + 1));
+      } else if (history.length > 0) {
+        const next = Math.max(-1, histIdx - 1);
+        setHistIdx(next);
+        const value = next === -1 ? "" : history[next] ?? "";
+        setLine(value);
+        setCursor(value.length);
+      }
+      event.preventDefault();
+    } else if (event.key === "ArrowUp") {
+      if (completions.length > 0 && line.trim().length > 0) {
+        setAcIdx((i) => Math.max(0, i - 1));
+      } else if (history.length > 0) {
+        const next = Math.min(history.length - 1, histIdx + 1);
+        setHistIdx(next);
+        const value = history[next] ?? "";
+        setLine(value);
+        setCursor(value.length);
+      }
+      event.preventDefault();
+    } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "l") {
+      setBuffer([]);
+      event.preventDefault();
+    } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c" && line) {
+      setLine("");
+      setCursor(0);
+      event.preventDefault();
+    }
+  }
+
+  return (
+    <div className="cli-backdrop" onMouseDown={onClose}>
+      <div className="cli-shell" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="cli-titlebar">
+          <span className="cli-title">
+            learnloop <span className="cli-accent">shell</span>
+          </span>
+          <span className="cli-hint">
+            <b>^p</b> toggle <b>tab</b> complete <b>↑↓</b> nav <b>esc</b> close
+          </span>
+        </div>
+
+        <div className="cli-scrollback" ref={scrollRef}>
+          {buffer.length === 0 ? (
+            <div className="cli-row cli-row-p">
+              <span className="cli-accent">learnloop</span> — type <b>help</b> for commands, or start with{" "}
+              <b>review</b>, <b>doctor</b>, or <b>show &lt;id&gt;</b>.
+            </div>
+          ) : (
+            buffer.map((row, index) => <OutputRowView key={index} row={row} commands={helpCommands} />)
+          )}
+          {busy ? <div className="cli-row cli-row-log">…running</div> : null}
+        </div>
+
+        {completions.length > 0 ? (
+          <div className="cli-completions">
+            {completions.map((entry, index) => (
+              <div
+                key={`${entry.kind}:${entry.completion}`}
+                className={`cli-completion ${index === acIdx ? "selected" : ""}`}
+                onMouseEnter={() => setAcIdx(index)}
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  applyCompletion(index);
+                }}
+              >
+                <KindBadge kind={entry.kind} />
+                <span className="cli-completion-text">{entry.completion}</span>
+                <span className="cli-faint cli-completion-hint">{entry.hint}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="cli-prompt-row">
+          <span className="cli-caret">❯</span>
+          <span className="cli-faint">learnloop</span>
+          <input
+            ref={inputRef}
+            value={line}
+            onChange={(event) => {
+              setLine(event.target.value);
+              setCursor(event.target.selectionStart ?? event.target.value.length);
+            }}
+            onKeyDown={onInputKey}
+            onKeyUp={(event) => setCursor(event.currentTarget.selectionStart ?? 0)}
+            onClick={(event) => setCursor(event.currentTarget.selectionStart ?? 0)}
+            placeholder="type a command — tab to complete"
+            spellCheck={false}
+            disabled={busy}
+          />
+          {completions.length > 0 ? (
+            <span className="cli-faint cli-match-count">
+              {completions.length} match{completions.length === 1 ? "" : "es"}
+            </span>
+          ) : null}
         </div>
       </div>
     </div>

@@ -14,3 +14,10 @@ declare module "node:path" {
 declare const __dirname: string;
 /** The PDF selection contract test rewrites its fixture on request. */
 declare const process: { env: Record<string, string | undefined> };
+/** UX Phase 2 fix round 4: classicIsBase.test.ts compares with base through git. */
+declare module "node:child_process" {
+  export function execSync(
+    command: string,
+    options: { cwd: string; encoding: "utf8"; stdio: Array<"ignore" | "pipe"> }
+  ): string;
+}

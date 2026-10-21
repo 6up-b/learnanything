@@ -17,7 +17,7 @@ import { highlightFor } from "../components/highlight";
 import { ProvenancePanel } from "../components/ProvenancePanel";
 import { LiveMarkdownEditor } from "../render/LiveMarkdownEditor";
 import { SqliteBrowser } from "./SqliteBrowser";
-import { shellMode, type ShellMode } from "../app/shell";
+import { shellMode, simpleShell, type ShellMode } from "../app/shell";
 import { screenLeavesKey } from "../app/keymap";
 import type { ReportError } from "../errors";
 
@@ -239,12 +239,19 @@ export function LibraryScreen({
     });
   }, [snapshot]);
 
-  // Each failed read is its own error, with its identity (the query) and a
-  // self-contained retry of that read, whatever this screen shows or whether
-  // it is still mounted (UX Phase 2 F3; fix rounds 2 and 3).
-  useReportQueryError(treeQuery, onError);
-  useReportQueryError(proposalsQuery, onError);
-  useReportQueryError(sourceSetsQuery, onError);
+  // Simple shell: each failed read is its own error, with its identity (the
+  // query) and a self-contained retry of that read, whatever this screen shows
+  // or whether it is still mounted (UX Phase 2 F3; fix rounds 2 and 3).
+  // Classic: base's one aggregated report, verbatim (fix round 4).
+  const simple = simpleShell();
+  useReportQueryError(treeQuery, onError, simple);
+  useReportQueryError(proposalsQuery, onError, simple);
+  useReportQueryError(sourceSetsQuery, onError, simple);
+  const loadError = treeQuery.error ?? proposalsQuery.error ?? sourceSetsQuery.error;
+  useEffect(() => {
+    if (simple) return;
+    if (loadError) onError(loadError.message);
+  }, [loadError, onError, simple]);
 
   const reloadProposals = () => {
     proposalsQuery.refetch().catch((error) => onError((error as Error).message));

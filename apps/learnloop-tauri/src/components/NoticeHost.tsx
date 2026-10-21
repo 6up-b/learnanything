@@ -62,7 +62,7 @@ export function NoticeHost({
 
   if (visible.length === 0) return null;
   return (
-    <div className="shell-notices">
+    <div className="shell-notices" data-shell-chrome="">
       {visible.map((notice) => (
         <NoticeRow
           key={notice.id}

@@ -28,6 +28,7 @@ import { ReviewScreen } from "../screens/ReviewScreen";
 import { StartScreen } from "../screens/StartScreen";
 import { NEEDS_SESSION, addNotice, dismissNotice, noticeAfterSessionBegins, resolveNotices, sessionNotice, type NoticeInput, type ShellNotice } from "./notices";
 import { matchShellKey, type KeyAction } from "./keymap";
+import { ShellChromeRoot } from "./ShellChromeRoot";
 import {
   isTabTool,
   placeOfTab,
@@ -149,6 +150,10 @@ export function App() {
   // The Reader unmounts on every tab switch; the open source is kept here so
   // returning to the tab resumes it (its reads come from the query cache).
   const [readerSource, setReaderSource] = useState<ReaderOpenSource | null>(null);
+  // The book open now, for the startup restore (it must not replace a book
+  // the learner opened while the library list was loading).
+  const readerSourceRef = useRef<ReaderOpenSource | null>(null);
+  readerSourceRef.current = readerSource;
   // Bumped when the shell opens a book on purpose (Add, the shelf's Continue),
   // so a Reader already showing another book remounts on the new one.
   const [readerOpenSeq, setReaderOpenSeq] = useState(0);
@@ -415,31 +420,35 @@ export function App() {
   // UX Phase 2: open where the learner was last (simple shell, per machine).
   const restoreLastPlace = useCallback(async (appSnapshot: AppSnapshot) => {
     const place = rememberedPlace();
-    if (!place) return;
     if (place === "underhood") {
       const tool = rememberedTool();
       setUthToolState(tool);
       setTab(isTabTool(tool) ? tool : "underhood");
-      return;
-    }
-    if (place !== "reader") {
+    } else if (place === "reader") {
+      setTab("reader");
+    } else if (place) {
       setTab(tabForPlace(place, Boolean(appSnapshot.activeSession)));
-      return;
     }
-    setTab("reader");
+    // The book open in the Reader comes back whatever the landing place (fix
+    // round 4, whole-stage verify 20261021-134216-8mdDfN item 3): restarting
+    // on Progress, Alt+3 and "Continue reading" open the last book, not the
+    // shelf. Only a Reader that has not been given a book yet takes it.
     const root = appSnapshot.vault?.root;
     const sourceId = root ? rememberedBook(root) : null;
     if (!sourceId) return;
     try {
       const card = (await api.getSourceLibrary()).sources.find((entry) => entry.sourceId === sourceId);
       if (card) {
-        setReaderSource({ card, spanId: null });
-        setReaderOpenSeq((seq) => seq + 1);
+        if (!readerSourceRef.current) {
+          setReaderSource({ card, spanId: null });
+          setReaderOpenSeq((seq) => seq + 1);
+        }
       }
     } catch {
       /* The Reader shows the shelf instead. */
     }
   }, []);
+
 
   const loadInitialVault = useCallback(async () => {
     setStartupError(null);
@@ -1897,11 +1906,11 @@ export function App() {
               }}
               onError={onError}
             />
-            <ReaderScreen key={readerOpenSeq} onError={onError} askRequest={readerAskRequest} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />
+            <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />
           </div>
         );
       }
-      return <ReaderScreen key={readerOpenSeq} onError={onError} askRequest={readerAskRequest} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />;
+      return <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />;
     }
     if (tab === "maintain") {
       return renderMaintain();
@@ -1909,7 +1918,7 @@ export function App() {
     return <EmptyPlaceholder title={tab} />;
   }
 
-  return (
+  const shellTree = (
     <>
       <TerminalFrame
         active={tab}
@@ -2126,6 +2135,8 @@ export function App() {
       />
     </>
   );
+  // Simple shell: its chrome is a key-isolated region (fix round 4).
+  return simple ? <ShellChromeRoot>{shellTree}</ShellChromeRoot> : shellTree;
 }
 
 function unique(values: Array<string | null>): string[] {

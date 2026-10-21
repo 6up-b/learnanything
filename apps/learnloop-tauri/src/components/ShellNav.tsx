@@ -46,7 +46,7 @@ export function SimpleNav({
   onAdd?: () => void;
 }) {
   return (
-    <nav className="top-nav simple-nav" aria-label="Places">
+    <nav className="top-nav simple-nav" aria-label="Places" data-shell-chrome="">
       {PLACES.map((place) => {
         const current = place.id === active;
         return (
@@ -149,15 +149,14 @@ function MoreMenu({
       className="more-menu-wrap"
       ref={wrapRef}
       onKeyDown={(event) => {
+        // Every key pressed here stays in the shell's chrome: the nav is a
+        // `data-shell-chrome` part (app/ShellChromeRoot.tsx), so Enter and
+        // Space activate the row and Esc closes the menu, and no screen sees
+        // them. Fix round 4 generalized this menu's own Enter/Space stop to
+        // all of the chrome.
         if (event.key === "Escape" && open) {
-          // The screen beneath must not take this Escape as its own "back".
-          event.stopPropagation();
           setOpen(false);
           buttonRef.current?.focus();
-        } else if (event.key === "Enter" || event.key === " ") {
-          // Screens bind Enter on the window (Start's begin, Feedback's next):
-          // the key that activates a menu row stays here.
-          event.stopPropagation();
         }
       }}
     >

@@ -24,7 +24,7 @@ export function UnderTheHoodScreen({
   const current = uthTool(tool);
   return (
     <div className="uth">
-      <nav className="uth-list" aria-label="Under the hood">
+      <nav className="uth-list" aria-label="Under the hood" data-shell-chrome="">
         <div className="uth-list-title">Under the hood</div>
         {visibleUthTools().map((entry) => {
           const count = counts[entry.id] ?? 0;

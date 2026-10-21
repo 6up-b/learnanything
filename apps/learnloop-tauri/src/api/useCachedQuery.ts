@@ -146,14 +146,17 @@ export function useCachedQuery<T>(
  */
 export function useReportQueryError(
   query: Pick<CachedQuery<unknown>, "error" | "retryReport">,
-  onError: (message: string, report?: ErrorReport) => void
+  onError: (message: string, report?: ErrorReport) => void,
+  /** False in the classic shell, where the screen keeps base's one aggregated
+   *  report instead (fix round 4). */
+  enabled = true
 ): void {
   const queryRef = useRef(query);
   queryRef.current = query;
   const error = query.error;
   useEffect(() => {
-    if (!error) return;
+    if (!enabled || !error) return;
     const report = queryRef.current.retryReport();
     onError(error.message, report ? { error, ...report } : { error });
-  }, [error, onError]);
+  }, [error, onError, enabled]);
 }
