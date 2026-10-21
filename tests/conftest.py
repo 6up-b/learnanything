@@ -207,6 +207,22 @@ def pytest_runtest_teardown(item, nextitem):
 
 
 @pytest.fixture
+def legacy_codex_http_double(monkeypatch):
+    """Let a test use the legacy Codex HTTP adapter as an in-process provider double.
+
+    The tool lockdown refuses that transport at every entry (hardening round
+    2, H3: ``codex_lockdown.refuse_legacy_http_transport``). End-to-end CLI,
+    sidecar and TUI tests drive a fake in-process HTTP server through it as a
+    stand-in model; they request this fixture by name or with
+    ``pytestmark = pytest.mark.usefixtures("legacy_codex_http_double")``. No
+    configuration, environment variable or flag can do this outside tests."""
+
+    from learnloop.ai.providers import codex_lockdown
+
+    monkeypatch.setattr(codex_lockdown, "refuse_legacy_http_transport", lambda where: None)
+
+
+@pytest.fixture
 def migration_upgrade_allowed():
     """The test suite's named allowance to upgrade an existing database
     (``db.migrate.UPGRADE_TEST_HELPER``; F8 of the coordinated-migration

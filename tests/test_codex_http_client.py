@@ -13,6 +13,12 @@ from learnloop.diagnosis.ai_contracts import MisconceptionMatch, MisconceptionMa
 from learnloop.diagnosis.misconceptions import request_misconception_match
 from learnloop.config import CodexConfig
 
+import pytest
+
+# The legacy Codex HTTP adapter is refused by the tool lockdown (hardening round 2,
+# H3); these tests drive an in-process HTTP server through it as a provider double.
+pytestmark = pytest.mark.usefixtures("legacy_codex_http_double")
+
 
 def test_http_codex_client_health_and_grading_round_trip(tmp_path, caplog):
     checkout = tmp_path / "codex"

@@ -859,7 +859,7 @@ def test_an_isolated_turn_runs_its_permission_profile_inside_the_sandbox(monkeyp
     assert turn_root.parent == layout["workdir"].resolve()
     assert {cwd for cwd, _overrides, _subcommand in probes} == {turn_root}
     assert [subcommand[:2] for _cwd, _overrides, subcommand in probes] == [
-        ("mcp", "list"), ("features", "list"), ("debug", "models"),
+        ("mcp", "list"), ("features", "list"), ("debug", "models"), ("debug", "models"), ("debug", "prompt-input"),
     ]
     assert not turn_root.exists()
 
@@ -887,17 +887,24 @@ def test_an_isolated_turn_passes_its_profile_through_the_sandbox_launcher(monkey
     assert Path(app_config["cwd"]).parent == layout["workdir"].resolve()
 
 
-def test_a_workspace_outside_the_sandbox_is_refused_before_launch(monkeypatch, layout, tmp_path):
-    from learnloop.ai.errors import CodexUnavailable
+def test_a_workspace_outside_the_sandbox_is_inlined_and_never_mounted(monkeypatch, layout, tmp_path):
+    """Tool lockdown round 3: a read-only workspace is read by LearnLoop into the
+    prompt; the sandboxed turn runs tool-free in its scratch directory inside the
+    sandbox, and the workspace is never mounted or used as a working directory."""
+
     from learnloop.ai.providers.codex import CodexSDKProviderClient
     from tests.codex_cli_fakes import stub_isolation_probe
     from tests.project_support import install_fake_codex_sdk
 
-    captured = install_fake_codex_sdk(monkeypatch)
+    captured = install_fake_codex_sdk(monkeypatch, final_response="{}")
     client = CodexSDKProviderClient("codex_low", LearnLoopConfig().ai.providers["codex_low"], layout["workdir"])
     stub_isolation_probe(monkeypatch, client)
     outside = tmp_path / "snapshot"
     outside.mkdir()
-    with tool_isolation(ToolIsolation(workdir=layout["workdir"])), pytest.raises(CodexUnavailable, match="outside the sandbox"):
+    (outside / "INDEX.md").write_text("export index\n", encoding="utf-8")
+    with tool_isolation(ToolIsolation(workdir=layout["workdir"])):
         client._run_structured("p", {"type": "object"}, purpose="diagnosis", workspace=outside)
-    assert "app_config" not in captured  # nothing was launched
+    root = Path(captured["app_config"]["cwd"])
+    assert root.parent == layout["workdir"].resolve() and root.name.startswith("learnloop-isolated-turn-")
+    assert '<workspace_file path="INDEX.md">\nexport index' in captured["turns"][0]["prompt"]
+    assert str(outside) not in " ".join(captured["app_config"].get("launch_args_override") or ())

@@ -19,6 +19,10 @@ from learnloop.vault.loader import load_vault
 from tests.helpers import NOW, create_basic_vault
 from tests.structured_ai import StructuredClientFake
 
+# The legacy Codex HTTP adapter is refused by the tool lockdown (hardening round 2,
+# H3); these tests drive an in-process HTTP server through it as a provider double.
+pytestmark = pytest.mark.usefixtures("legacy_codex_http_double")
+
 ITEM = "pi_svd_define_001"
 LO = "lo_svd_definition"
 
