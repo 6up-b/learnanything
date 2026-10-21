@@ -241,3 +241,111 @@ None. The installed CLI ran only `debug prompt-input`, `debug models` (with and 
   on was then confirmed on the installed 0.163.0 by the non-model probes above.
 * No vault opened or copied (the base export holds only `src`, `pyproject.toml`, `migrations`); no credential file
   read; no git stash.
+
+## Hardening round 3
+
+Verify: Codex job `20261021-130509-fPY40I` of `bc90f31ae..3c16fa0d1` (REOPENED). It confirmed the round-2 fixes
+(unique profile, child-side path resolution, HTTP refusal, catalog pin), that the HTTP fixture is test-only, and
+that ordinary text turns pass the early-stop logic. It found three Highs and one Low. Binding orchestrator ruling:
+**every LearnLoop Codex turn is tool-free by construction**. Fix commit: `cc4a9919a`. Tests:
+`tests/test_codex_lockdown_round3.py` (14 tests).
+
+| id | severity | finding | fix | tests |
+|---|---|---|---|---|
+| R3-H1 | High | Inherited execution-policy `allow` rules (`$CODEX_HOME/rules`, project `.codex/rules`) make an allowed command skip the sandbox; the snapshot diagnosis kept a shell | **No route keeps a shell.** The Codex transport inlines a read-only workspace: `SdkCodexClient._inline_workspace` reads every export file with the ChatGPT plan provider's `ServedWorkspace.inline_block` (each recorded as served, so `workspace_activity()` names exactly what the turn was shown and the diagnosis provenance maps it), appends `INSTRUCTIONS_INLINE` and the blocks to the prompt, and runs the turn tool-free in a fresh scratch directory. An export over `INLINE_WORKSPACE_MAX_CHARS` (400,000, the plan provider's default) refuses before launch, never cut short. The diagnoser admits the inlined size (`inlines_workspace`). With no command tool, no rule has anything to apply to; read back as an empty tool list (R3-H3) | installed 0.163.0: `test_the_installed_codex_offers_the_turn_no_tool_at_all[text, snapshot-diagnosis]` (a real `prefix_rule(pattern=["python3"], decision="allow")` in `$CODEX_HOME/rules`; control: the bundled catalog offers `functions.exec`/`functions.wait`); `test_a_snapshot_diagnosis_on_codex_is_inlined_and_gives_the_same_structured_output`, `test_an_export_over_the_inline_budget_refuses_before_launch` |
+| R3-H2 | High | Native skill discovery (user, `~/.agents/skills`, system, project roots, following symlinks) and `$name` / SKILL.md-link expansion can bring host or vault files into a turn | every turn gets `skills.bundled.enabled=false`; the launch check reads the rendered skills catalog back from `debug prompt-input` (with `skills.max_context_tokens=10000` so it renders in full), disables every listed skill **by name and by path** with a `-c skills.config=[...]` (the highest layer; codex-cli 0.163.0 `skill_config_rules_from_stack` applies it last, and mention selection only takes enabled entries), reads back again, and refuses unless no skill is listed or if the listing cannot be parsed (`rendered_skills`, `skill_disable_overrides`). The skills found are cached with the check; the fingerprint now covers `/etc/codex/skills`, `~/.agents{,/skills}` and every ancestor's `.codex/skills` / `.agents{,/skills}` | installed: `test_the_installed_codex_lists_and_expands_no_skill` (a skill directory in `~/.agents/skills` symlinked to a file outside with a canary body; the prompt carries `$canary-skill` and a link to its SKILL.md; control: listed without the overrides); fake: `test_a_skill_that_stays_listed_refuses_the_turn`, `test_the_skills_parser_reads_the_rendered_catalog` |
+| R3-H3 | High | A hidden code-mode continuation after a final answer is not admitted before its request | **Q1 answered yes: LearnLoop owns the catalog.** The pin (round 2) now writes the validated `debug models --bundled` output with every tool removed from every entry (`TOOL_FREE_METADATA`: `tool_mode=direct` (code mode off), `apply_patch_tool_type=null`, `shell_type=disabled`, `experimental_supported_tools=[]`, `supports_search_tool=false`, `multi_agent_version=disabled`, `node_repl_disabled=true`, no skills/plugins/apps usage instructions). The launch check verifies `debug models` returns exactly it and that `debug prompt-input` with `features.incremental_tools=true` (probe only; it makes codex-cli 0.163.0 declare the model-visible tools as an `additional_tools` input item, `core/src/session/turn.rs build_prompt`) declares **no tool**, gated on the incremental form being in effect (the first developer message is exactly the model's pinned `base_instructions`); a model not served through Responses Lite cannot be read back and is refused. No tool, so no tool call, so no continuation. The early stop, item checks and request count stay as the backstop | `test_the_pinned_catalog_removes_every_tool_from_every_entry`, `test_every_turn_is_pinned_to_the_tool_free_catalog`, `test_a_turn_that_would_offer_any_tool_is_refused_before_launch[catalog-with-tools, a-tool-from-elsewhere, no-read-back]`, and the installed test of R3-H1 |
+| R3-L4 | Low | The AST sweep misses aliased (`from subprocess import Popen as launch`, `import subprocess as sp`) and variable-argument launches | every **reference** (not only calls) to a process-launching function of `subprocess`, `os` (`system`, `popen`, `exec*`, `spawn*`, `posix_spawn*`, `fork*`), `asyncio` and `pty`, through any import alias, `getattr(<module>, ...)` or `*.subprocess_exec/shell`, in `src`, `scripts` and `integrations`, must be on `APPROVED_LAUNCH_SITES` (31 reviewed sites, file + enclosing scope + target); whatever the arguments, the site is listed. The Rust shell must start exactly one process (`sidecar.rs`) | `test_every_process_launch_site_is_approved`, `test_the_launch_sweep_sees_aliases_variables_and_references` (the verify's three shapes, a default-argument reference, `getattr`, `loop.subprocess_exec`) |
+
+Stage open questions answered by the ruling: **Q1** (a LearnLoop-owned catalog) yes, by necessity: the bundled
+catalog minus its tools; **Q2** (the snapshot diagnosis's shell) inline. Residual risks 1, 2 and 7 of the stage
+record (code mode and `apply_patch` advertised, detection not prevention, the diagnosis shell) are closed by them.
+
+### What could not be done by configuration (recorded, not silently skipped)
+
+* **Excluding inherited `.rules` files.** codex-cli 0.163.0 loads `<layer>/rules/*.rules` for every layer
+  (`core/src/exec_policy.rs load_exec_policy`); only `codex exec --ignore-rules` sets
+  `ignore_user_and_project_exec_policy_rules`, and the app server has no equivalent key or flag. There is also
+  no non-model read-back of the effective exec policy (`codex execpolicy check` takes explicit rule files). The
+  fix is therefore structural: no turn has a tool that runs a command, which the read-back proves. A future CLI
+  that adds a command tool fails the tool read-back and refuses every turn.
+* **Proving the tool list without a model request.** The tool read-back uses a probe-only
+  `features.incremental_tools=true`; the turn itself does not enable it (an under-development feature). It
+  relies on incremental declaration listing the same `model_visible_specs` the turn would send (source-traced:
+  `build_prompt` chooses between declaring them in `tools` and as an item, from one list).
+
+### Behaviour changes
+
+* **Diagnosis (expected, ruled):** the snapshot diagnosis no longer explores the export with a shell; it reads it
+  inline (the prompt grows by the export, about 100k tokens at most). The output contract, validation, provenance
+  shape and prompt version are unchanged; `opened` in the receipt now lists every export file (all were shown)
+  instead of the shell commands. An export over 400,000 characters fails the diagnosis (status `failed`,
+  `AIProviderUnavailable`) instead of being explored; open question below.
+* **Every Codex turn:** the model's instructions and metadata come from the binary's bundled catalog minus its
+  tools (round 2 already moved them off the remote catalog). The base instructions still describe tools the turn
+  no longer has; a model that tries to call one has no tool to call.
+* **Launch check:** `debug prompt-input` now runs once more when skills exist (about 0.4 s, cached).
+* **Models not served through Responses Lite** (in 0.163.0's bundled catalog: `gpt-5.5`) are refused, since
+  their tools cannot be read back.
+
+### Fail-first (on `3c16fa0d1`)
+
+`git archive 3c16fa0d1 src pyproject.toml migrations` into `fixtures-local/tmp/base-r3`, the fixed `tests/` copied
+in, run with `--rootdir . -o pythonpath=src`: **13 failed, 1 passed** of the 14 new tests. The pass is the launch
+sweep's detector self-test (it tests the test's own parser). Failures: the installed binary offering the turn tools
+for the text turn and the snapshot diagnosis (2, "the turn would be offered tools"); the installed binary listing
+the linked skill in the turn's context (1); a widened catalog, a tool from elsewhere and a model without read-back
+not refused (`DID NOT RAISE`, 3); no skill overrides in the launch (1); the snapshot diagnosis inlining nothing
+(1); the approved-launch list (1); the new API (`tool_free_catalog`, `tool_free_violations`, `rendered_skills`,
+`INLINE_WORKSPACE_MAX_CHARS`: `AttributeError`, 4).
+
+### Changed existing tests
+
+The workspace-turn tests now expect a scratch cwd, `shell=False` and the inlined blocks (`test_codex_tool_lockdown`,
+`test_codex_isolation_mcp_check`, `test_diagnosis_isolation`, `test_diagnosis_history_modes`,
+`test_ai_tool_isolation`: a workspace outside the sandbox is now inlined, not refused); a command item refuses
+every turn; F3's usage test uses one answered request; round 2's F2 project-layer tests became
+`test_a_workspaces_own_project_layer_never_reaches_the_turn`; probe lists end with `debug prompt-input` under the
+read-back overrides; round 2's catalog tests expect the tool-free catalog; the relative-`CODEX_HOME` test places
+scratch turns through `tempfile.tempdir`. Fakes: the renderer declares the pinned entry's tools in incremental form
+and lists `skills` minus `skills.config` disables; `install_fake_codex_sdk` takes `respond`; the bubblewrap
+`/bin/sh` fake serves the pinned catalog and an incremental read-back.
+
+### Gate (this round)
+
+* Under `flock /tmp/learnloop-fullsuite.lock`; `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2`: ok.
+* `uv run lint-imports --no-cache`: **29 kept, 0 broken**.
+* `uv run pytest -n auto <100 files>`: **2722 passed, 1 skipped, 2 xfailed** in 118 s: round 2's 75 files plus
+  `test_codex_lockdown_round3 test_diagnose_review test_diagnose_review_spend test_diagnosis_adjudication test_diagnosis_async_router test_diagnosis_card test_diagnosis_context test_diagnosis_contract test_diagnosis_embeddings test_diagnosis_input_provenance_landing test_diagnosis_pipeline test_diagnosis_replay test_diagnosis_reports test_diagnostic_augmentation test_diagnostic_gate test_diagnostic_generation test_diagnostic_pack test_diagnostic_probe_freshness test_diagnostic_probe_single_use test_diagnostic_review_policy test_facet_diagnostics_v03 test_followup_diagnostic_selection test_placement_diagnosis_decides test_residual_diagnostics test_sidecar_diagnostic `(all under `tests/`; every diagnosis test file).
+* The installed-binary tests (round 2 and 3, bubblewrap included) ran against `/usr/bin/codex` 0.163.0 and passed.
+* Not run (owner rule): the full suite, the durability lane, vitest.
+
+### Residuals for the owner's first live use (no live call this round)
+
+1. **The served turn has no tool.** Run one tutor question with `LEARNLOOP_SIDECAR_LOG_LEVEL=DEBUG`: the turn
+   should answer in text, and a prompt that asks it to run code should get a text refusal, not a
+   `CodexToolUseRefused` (which would mean a tool was offered). The read-back proves the tool list only through
+   the incremental declaration path.
+2. **Skill expansion.** `debug prompt-input` does not run the turn-start skill injection; that no enabled skill
+   exists is what is verified. A live turn whose prompt names a disabled skill (`$imagegen`) should not bring its
+   SKILL.md into the context.
+3. **A snapshot diagnosis inline:** the first live one should complete with `opened` listing every export file;
+   watch the prompt size on the largest vault.
+4. **Model quality:** the bundled instructions still mention tools the model no longer has; check the first
+   gradings and tutor answers read as before.
+
+### Open questions (with defaults)
+
+* **R3-Q1.** An export over 400,000 characters fails the snapshot diagnosis. Fall back to the `exact` mode for it,
+  or send a deterministic excerpt (the newest attempts first)? **Default: fail, as the ChatGPT plan's inline mode
+  does** (never cut short silently).
+* **R3-Q2.** Strip the tool paragraphs from the bundled base instructions too? **Default: no** (instructions stay the
+  bundled ones, as ruled).
+* **R3-Q3.** Allow `gpt-5.5` (not Responses Lite) by trusting the tool-free catalog without a read-back?
+  **Default: no** (fail closed).
+
+### Live calls and cost
+
+None. Non-model CLI commands only (`debug prompt-input`, `debug models`, `features list`, `mcp list`), by hand
+under `env -i` with throwaway homes and in tests with throwaway `HOME`/`CODEX_HOME`. Codex 0.163.0 source was read
+from a sparse, shallow clone of `rust-v0.163.0` in the session scratchpad.
