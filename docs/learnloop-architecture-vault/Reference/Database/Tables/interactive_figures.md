@@ -3,8 +3,8 @@ title: "interactive_figures"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "80b5a8c697e2365e4c842ea73638f97876f5e042"
-source_commit_timestamp: "2026-10-20T19:51:13-04:00"
+source_commit: "4a54bff2446abc14f190bc13a997b80a58ed90a4"
+source_commit_timestamp: "2026-10-20T20:47:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interactive_figures"
@@ -41,7 +41,7 @@ tags:
 Keeps each explorable figure version the Reader built (reader workbench RW5a): the declarative figure spec the figure author wrote (never code), what was asked for (the selection, a region of a figure and the block whose crop was sent), how it verified (verified, illustrative, failed or unsupported, with the report) and the reuse key (`input_hash`); a "not right?" version supersedes an earlier one, which is kept. Paid output: never re-run on rebuild, and nothing that grades, schedules or projects reads it. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `extraction_id`, `asset_id`, `supersedes_id`, making the operational relationship explicit. ^table-purpose
 
 > [!quote] Migration design note
-> Reader workbench RW5a: explorable figures (spec_reader_workbench_v1 §8.5, §11; docs/reviews/reader-workbench-RW5a.md). Numbered 216: AD2+AD3 hold 214 and RW3b 215 (the runner is set-based, so a gap is fine).  interactive_figures (WORKFLOW): one row per built figure version, a paid output never re-run on rebuild. The declarative spec (InteractiveFigureSpecV1, never code), what was asked for (the selection, a region of a figure and the block whose crop was sent), how it verified (verified | illustrative | failed | unsupported, with the report), and the reuse key (input_hash). A "not right?" version supersedes an earlier one (supersedes_id, with the learner's revision_note); the earlier one is kept. Replay, rebuild and every scoring, scheduling, projection or serving path never read it.
+> Reader workbench RW5a: explorable figures (spec_reader_workbench_v1 §8.5, §11; docs/reviews/reader-workbench-RW5a.md). Numbered 216: AD2+AD3 hold 214 and RW3b 215 (the runner is set-based, so a gap is fine).  interactive_figures (WORKFLOW): one row per built figure version, a paid output never re-run on rebuild. The declarative spec (InteractiveFigureSpecV1, never code), what was asked for (the selection, a figure region, the cropped block, every span sent), how it verified (verified | illustrative | failed | unsupported, with the report), and the reuse key (input_hash). A "not right?" version supersedes an earlier one (supersedes_id, with the learner's revision_note); the earlier one is kept. Replay, rebuild and every scoring, scheduling, projection or serving path never read it.
 
 It belongs to the **reader** navigation family. The family context lives in [[Database Catalog#Reader]]. Its persistence behavior follows [[Table Roles#Workflow]].
 
@@ -64,6 +64,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `span_ids_json` | `TEXT` | yes | `'[]'` | — | JSON-encoded structured payload |
 | `region_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 | `asset_id` | `TEXT` | no | — | — | Application-validated soft reference |
+| `input_span_ids_json` | `TEXT` | yes | `'[]'` | — | JSON-encoded structured payload |
 | `origin` | `TEXT` | yes | — | — | Stored value |
 | `supersedes_id` | `TEXT` | no | — | FK → [[Reference/Database/Tables/interactive_figures\|interactive_figures.id]] | Stored value |
 | `revision_note` | `TEXT` | no | — | — | Stored value |
@@ -86,6 +87,7 @@ Declared SQLite foreign keys:
 
 Indexes and uniqueness:
 
+- `idx_interactive_figures_reuse` on `input_hash`, `spec_version` (unique).
 - `idx_interactive_figures_supersedes` on `supersedes_id`.
 - `idx_interactive_figures_input` on `input_hash`, `created_at`.
 - `idx_interactive_figures_extraction` on `extraction_id`, `created_at`.
@@ -121,6 +123,7 @@ None found by exact static reference scan.
 - `tests/test_figure_region.py`
 - `tests/test_figure_revisions.py`
 - `tests/test_figure_verification.py`
+- `tests/test_figures_codex_review.py`
 - `tests/test_figures_migration.py`
 - `tests/test_figures_rpc.py`
 
@@ -147,6 +150,11 @@ CREATE TABLE interactive_figures (
   region_json TEXT,
   -- The figure block (span id) whose image or crop was sent, if any.
   asset_id TEXT,
+  -- Every span the author was sent (the selection, the paragraphs around it,
+  -- the region's or figure's block): what listing, delivery, revisions,
+  -- predictions and a formative text's provenance recheck for held-out
+  -- material (Codex review F1).
+  input_span_ids_json TEXT NOT NULL DEFAULT '[]',
   origin TEXT NOT NULL CHECK (origin IN ('selection', 'library', 'tutor')),
   supersedes_id TEXT REFERENCES interactive_figures(id),
   revision_note TEXT,
