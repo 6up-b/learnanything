@@ -349,3 +349,60 @@ and lists `skills` minus `skills.config` disables; `install_fake_codex_sdk` take
 None. Non-model CLI commands only (`debug prompt-input`, `debug models`, `features list`, `mcp list`), by hand
 under `env -i` with throwaway homes and in tests with throwaway `HOME`/`CODEX_HOME`. Codex 0.163.0 source was read
 from a sparse, shallow clone of `rust-v0.163.0` in the session scratchpad.
+
+## Frozen (orchestrator)
+
+Verify: Codex job `20261021-140119-uuB5X5` of `3c16fa0d1..096729921` (REOPENED: four Highs, one Low). Owner decision
+(2026-10-21): every serving route moves off the Codex harness to the tool-free `chatgpt_plan` provider (stage T1,
+next). Rounds 2 and 3 land as **frozen interim hardening**; there is no round 4. This last round fixes the two
+findings LearnLoop can close itself, and records the other three as superseded.
+
+### Fixed in this round
+
+| id | severity | finding | fix | tests |
+|---|---|---|---|---|
+| uuB5X5-H3 | High | A legacy `notify` command inherited from any layer runs after every turn with the turn's input messages and final answer, unsandboxed, with the app server's whole environment (codex-cli 0.163.0 `hooks/src/legacy_notify.rs`; registered independently of `features.hooks`) | `notify=[]` in every launch (`lockdown_config_overrides`): an empty argv registers no command, and the array replaces every lower layer's | `tests/test_codex_lockdown_frozen.py`: `test_an_inherited_notifier_cannot_run_after_a_locked_down_turn` runs a real turn of the installed 0.163.0 (`codex exec` under the turn's overrides) against an in-process stand-in for the Responses API on 127.0.0.1 (no model, no network, no credentials), with a user `config.toml` `notify` script: it never runs; the control (the same turn without `notify=[]`) runs it with the learner's text. `test_every_launch_clears_the_legacy_notifier` |
+| uuB5X5-L5 | Low | The launch allowlist held `(file, scope, target)` in a set, so a second launch inside an approved function, or one through an indirect alias, went unseen | the sweep records every reference (a list, counted), and `APPROVED_LAUNCH_SITES` with `APPROVED_LAUNCH_COUNTS` is compared as a multiset: a reference beyond an approved count fails, as does an approved one that is gone. An assignment from a launch reference (`run = subprocess.run`, `launch = run`) makes the name a launch reference | `test_a_second_launch_inside_an_approved_scope_is_not_approved`, `test_an_indirect_alias_of_a_launch_function_is_a_launch_reference`, `test_every_process_launch_site_is_approved` |
+
+Fail-first on `096729921` (its `src`, `pyproject.toml` and `migrations` exported, the fixed `tests/` copied in): both
+notify tests fail (`'notify=[]' in [...]` false; "an inherited notifier ran with the turn's text"). The Low is a
+test-side fix: its regression cases exercise the sweep itself.
+
+### Superseded by T1, not fixed
+
+These live inside the Codex app server's own turn loop and skill loader. No configuration key of codex-cli 0.163.0
+closes them, and no non-model read-back can prove them closed. T1 removes Codex from serving, which removes them;
+until it lands they remain open on any Codex route.
+
+* **uuB5X5-H1 (High): explicit-only skills escape the disable list.** The skills catalog `debug prompt-input`
+  renders omits skills with `policy.allow_implicit_invocation: false`, but `$name` and SKILL.md-path selection still
+  take them, and their injection reads the file with no sandbox. Round 3 disables only what it can see rendered.
+  There is no switch that turns host skill discovery off, and no read-back of the complete enabled inventory.
+* **uuB5X5-H2 (High): the skill cache misses changes below its root directories.** The launch-check fingerprint
+  covers the skill roots' own directories; a skill added deeper (inside an existing collection or a linked one)
+  leaves them unchanged, so the cached disable list omits it until the process restarts. Re-enumerating before
+  every launch would still inherit H1's blind spot.
+* **uuB5X5-H4 (High): continuations without tools.** Codex continues its sampling loop on
+  `response.completed.end_turn=false` whether or not a tool was called (`core/src/session/turn.rs`). LearnLoop sees
+  a further request only when its usage arrives, so a continuation is detected and refused, never prevented or
+  admitted before it is sent. The app-server protocol offers no per-request admission callback or request limit.
+
+Why the transport change closes all three: `chatgpt_plan` sends its Responses requests from LearnLoop's own
+process, with no app server, no skill loader and no notifier; its read-only workspace is served by LearnLoop
+(`learnloop.ai.chatgpt_plan.workspace`). Whether every request it sends is admitted before it is sent (H4's
+property) is for T1 to verify on that provider; it is not claimed here.
+
+### Gate (this round)
+
+Fix commit: `3a763ba86`.
+
+* Under `flock /tmp/learnloop-fullsuite.lock`; `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2`: ok.
+* `uv run lint-imports --no-cache`: **29 kept, 0 broken**.
+* `uv run pytest -n auto <101 files>`: **2726 passed, 1 skipped, 2 xfailed** in 82 s (round 3's 100 files plus
+  `test_codex_lockdown_frozen`). The installed-binary tests, the new notify turn included, ran against 0.163.0.
+* Not run (owner rule): the full suite, the durability lane, vitest.
+
+### Live calls and cost
+
+None. The notify regression's turn talks only to an in-process stand-in on the loopback; the other CLI commands
+are the non-model ones. No vault, credential file or stash touched.
