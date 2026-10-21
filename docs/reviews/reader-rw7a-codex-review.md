@@ -166,3 +166,172 @@ test in `ReadingPathCard.test.tsx` was updated to match.
 **Process note.** One empty `python3` heredoc ran outside `env -i`. It was a
 no-op placeholder with no code, no import and no network. Every edit in this
 round used the editor tools or `sed`.
+
+## Fix round (orchestrator)
+
+The whole-stage verify, Codex job `20261021-081146-cZ35am` (read-only;
+`a76c8358a..bb2a75f85`), confirmed these points:
+
+- serving isolation;
+- the override and depth writes;
+- no skip-to-known;
+- no DL2 writes;
+- honest labels (312 input combinations);
+- migration 217 and the head fixture.
+
+It reopened the stage with three Highs. The orchestrator's rulings and what
+was done:
+
+| id | severity | title | ruling | commit | test |
+|---|---|---|---|---|---|
+| V1 | High | A cached reason can disclose material withheld since | fix | 7e0641fee | `test_fix_a_cached_reason_quoting_a_section_held_out_since_is_never_shown`; guard `test_fix_a_judgment_whose_sections_are_all_still_sendable_keeps_its_model_lines`; vitest `ReadingPathCard.test.tsx` "a code-written line on a core section is never labelled the model's reading" |
+| V2 | High | Switched off, the reader report still has `reading_paths` | fix | 7e0641fee | `test_fix_switched_off_the_reader_report_is_a76c8358a[empty_tables]`, `[populated_tables]` |
+| V3 | High (ruled Low) | Switched off, the disclosure registry, `get_settings` and `eval judges` still list `reading_path_judge` | no change | none | none (see below) |
+
+**V1 (ruling 1).** The input set comes from what is already stored, so
+there is no new column and migration 217 is unchanged. `validate` answers
+every section the judge was sent and writes one judge row per section, all
+in one transaction. The table is append-only. A state key's judge rows are
+therefore exactly the prompt's section list (`judged_sections`).
+
+`reasons_held_back(rows, inputs)` is true when one of those sections is
+missing from today's sendable list. A withheld section (held out, or exam
+material) is missing for that reason. The check is fail closed: a section
+missing for any other reason also counts. When it is true, `path_view`
+shows code's line in place of every stored reason from that judgment: the
+evidence lines for already shown and assumed, otherwise the default line for
+the label ("Central to what you want from this book at this depth."). It
+does this in the stale view, while the path is re-judged, and after a
+failed re-judge.
+
+Each section gains `reason_by` (`model` | `code`) and the view gains
+`reasons_held_back`. The Reader's `reasonIsModels` now reads `reasonBy`, so
+code's line is never shown as "model's reading". Before this, a core line
+that code rewrote also carried that label.
+
+The re-judge is already triggered: withholding a section changes the
+section list, and with it the state key, so the view is no longer `ready`.
+`reader.reading_path` then starts one judgment, the existing behaviour, and
+the test asserts it runs.
+
+An override on a stale path no longer copies a held-back line into the
+learner's row. The base override also copied the reason of a label code had
+changed; it now copies code's line in that case too.
+
+Reproduction: the verify's sequence.
+
+1. Every section's reason is `Prepares you for "3 Diagonalization"`.
+2. `sec_diag` ("3 Diagonalization") is then held out.
+3. The read-only stale view is checked.
+4. A background judgment is held open by a gated fake and the view is
+   checked (`judging`).
+5. The judgment fails and the view is checked again (`failed`).
+6. A "skip it" row is written, and a successful re-judge restores the
+   model's lines.
+
+On `bb2a75f85` the test fails at step 3: the view's JSON contains the
+quote (`'Prepares you for "3 Diagonalization"' is contained here`). The
+guard test fails there on the missing `reasonBy` key. The vitest case fails
+on `bb2a75f85`'s `readingPath.ts`, and the other 11 tests in that file pass.
+
+**V2 (ruling 2).** `build_reader_report` takes `reading_paths_enabled`
+(default true). When it is false, the report has no `reading_paths` key
+and does not query the path tables. `learnloop reader report` passes
+`reading_paths.enabled`.
+
+The pin is `tests/fixtures/reading_paths_report_base_a76c8358a.json`. It
+holds the output of `a76c8358a`'s own CLI (`git archive a76c8358a src` under
+`fixtures-local/tmp`, first on `sys.path`, run under `env -i` with an empty
+HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR) on the test's two databases:
+
+- path tables empty;
+- 10 path rows: judgments at two depths, a read-anyway, a skip and two
+  depth choices.
+
+`[reading_paths]` was dropped from those scratch copies' toml, since the
+base has no such table. Only `window.until` (the CLI's clock) and ULIDs are
+normalized. On `bb2a75f85` both cases fail on `'reading_paths' not in ...`.
+
+**V3 (ruling 3, Low, no change).** The disclosure registry, `get_settings`
+and `learnloop eval judges` list configured routes. `reading_paths.enabled`
+governs behaviour (no call, every RPC refuses, no contract key, no palette
+action, no report block), not route metadata, so `reading_path_judge` stays
+listed while it is off. Recorded as the orchestrator's ruling.
+
+### Files changed
+
+- `src/learnloop/source_retrieval/reading_paths.py`: `CODE_REASONS`,
+  `judged_sections`, `reasons_held_back`, `_reason_by`; `path_view`'s
+  `reason_by` and `reasons_held_back`; the line `override` copies.
+- `src/learnloop/reader/reader_report.py`: `reading_paths_enabled`.
+  `src/learnloop/cli/reader.py`: passes the switch.
+- `apps/learnloop-tauri/src/api/dto.ts`: `reasonBy` and `reasonsHeldBack`.
+  `screens/reader/readingPath.ts`: `reasonIsModels` reads `reasonBy`.
+- Tests:
+  - `tests/test_reading_paths.py` (+4: 51);
+  - `tests/fixtures/reading_paths_report_base_a76c8358a.json` (new);
+  - `ReadingPathCard.test.tsx` (+1, fixtures gain `reasonBy`);
+  - `readingPathsReader.test.tsx` (fixture gains `reasonBy`).
+- References regenerated (ef8012498): commit labels, the CLI as a
+  `reading_paths.enabled` consumer, and moved line citations.
+
+There is no migration change, no new config key, no new RPC and no CLI
+option change. No model call was made: fakes only.
+
+### Gate (orchestrator fix round)
+
+- `uv sync --extra dev --extra mobile`: ok. `uv pip install pypdfium2`:
+  pypdfium2 5.14.0. `TMPDIR` was the worktree's `fixtures-local/tmp`.
+- `uv run lint-imports --no-cache`: **28 kept, 0 broken**.
+- `pytest -n auto` over 65 files: **1,269 passed, 1 skipped**. The files are
+  RW7a's own, every file that calls the reader report, every file that
+  names `migration_head_217`, the pins (table roles, mobile allowlist,
+  desktop RPC contract, architecture, CLI help snapshot, sidecar serializer
+  snapshot, tracked fixture databases, coordinated migrations, SQLite
+  copies, judge routes) and RW4b's, RW4d's and RW4e's pin files:
+  ```
+  test_ad1_migration.py test_approach_maps_schema.py test_architecture.py test_cli_help_snapshot.py
+  test_compare_keep_switch_off.py test_compare_sources_keep.py test_coordinated_migrations.py
+  test_desktop_rpc_contract.py test_diagnosis_replay.py test_exam_protection_review.py
+  test_help_assists_schema.py test_hint_telemetry.py test_judge_routes.py test_label_roles_cli.py
+  test_library_ask.py test_library_asks_migration.py test_library_exercises.py
+  test_method_explicit_upgrade.py test_migrations.py test_mobile_allowlist.py test_mvp010_upgrade.py
+  test_mvp011_upgrade.py test_mvp013_upgrade.py test_mvp014_upgrade.py test_mvp015_upgrade.py
+  test_mvp016_upgrade.py test_mvp017_upgrade.py test_mvp018_upgrade.py test_mvp020_upgrade.py
+  test_mvp021_upgrade.py test_mvp022_upgrade.py test_mvp023_upgrade.py test_mvp024_upgrade.py
+  test_pfc_unverified_unassessed.py test_plan_determinism.py test_reader_cues_cli_report.py
+  test_reader_cues.py test_reader_intentions.py test_reader_intent.py test_reader_report.py
+  test_reader_rw1b_review.py test_reader_rw3b_migration.py test_reader_rw3b_review_fixes.py
+  test_reader_rw7a_migration.py test_reader_tutor_offers.py test_reader_tutor_switch_off.py
+  test_reading_paths.py test_reading_step_switch.py test_rebuild_orchestrator.py
+  test_recurrence_commands.py test_regrade_contract_upgrade.py test_roles_concurrency.py
+  test_roles_judges.py test_roles_switch_off_legacy_parity.py test_roles_switch_off.py
+  test_route_rules_in_grader.py test_rw4d_rw3b_composition.py test_rw4_kill_switches.py
+  test_shadow_rebuild.py test_sidecar_serializer_snapshot.py test_source_objects.py
+  test_source_roles.py test_sqlite_file_copies.py test_table_roles.py
+  test_tracked_fixture_databases.py
+  ```
+- `--durable-sqlite` over `test_reading_paths.py` and
+  `test_reader_rw7a_migration.py`: **55 passed**.
+- Frontend (`apps/learnloop-tauri`): `npm run typecheck` ok;
+  `npm run frontend:build` ok.
+- `npx vitest run` on every test file that renders `ReaderScreen` or
+  imports `ReadingPathCard`, `readingPath` or `useReadingProgress`:
+  **45 files, 327 passed**.
+- `cargo check`: not applicable (no `src-tauri` change).
+- `db_generate_reference.py` and `db_validate_reference.py` under `env -i`:
+  945 leaves in 68 sections, 337 table notes, head 217, **0 errors**.
+
+**Fail-before.** `git archive bb2a75f85` was extracted under
+`fixtures-local/tmp`, the new test file and golden were copied in, and the
+tests ran with `-o pythonpath=<tmp>/src`. All 4 new Python tests failed
+there, as described above. For the vitest case, `bb2a75f85`'s
+`readingPath.ts` was written over the working copy, the test run, and the
+file restored.
+
+**Process note.** Every Python run outside pytest used `env -i` with an
+empty HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR: the base-report recording
+and the two reference scripts. Those directories were checked empty after
+the runs, apart from uv's `.cache` in HOME. File edits used `node` text
+scripts. No vault outside `fixtures-local/tmp` was opened, and no stash was
+used.
