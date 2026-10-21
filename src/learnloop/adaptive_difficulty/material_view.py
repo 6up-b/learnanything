@@ -965,15 +965,79 @@ class MaterialView:
         ids = [str(row["id"]) for row in self.attempts(connection)]
         return held_for_review_attempts(connection, ids) if ids else frozenset()
 
+    def assessment_contract(self, connection: Any, contract_version_id: Any) -> dict[str, Any] | None:
+        """One assessment contract (``assessment_contract_versions``, whose ``contract_json`` holds
+        the item's question, answer and rubric: a content column, ``column_classes``), or None when
+        it is missing or withheld (the AD23 redesign round 5). It is withheld when its item is, or
+        when an answer graded against it is (an attempt resolves the historical revision it
+        answered: ``attempt_withheld``), or a tutor question citing it is. No AD reader needs it
+        today; this is the one way one may."""
+
+        if not self.available or not _has_table(connection, "assessment_contract_versions"):
+            return None
+        found = _rows(connection, "/* ad-rules */ SELECT * FROM assessment_contract_versions WHERE id = ?",
+                      (str(contract_version_id),))
+        if not found:
+            return None
+        row = found[0]
+        if self.withheld(row.get("practice_item_id")):
+            return None
+        for table in ("grading_evidence", "question_events"):
+            if not _has_table(connection, table):
+                continue
+            for (attempt,) in connection.execute(
+                    f"/* ad-rules */ SELECT DISTINCT attempt_id FROM {table} WHERE assessment_contract_version_id = ? "
+                    "AND attempt_id IS NOT NULL", (str(contract_version_id),)).fetchall():
+                if self._entity_withheld(connection, "attempt", attempt):
+                    return None
+        if _has_table(connection, "question_events"):
+            for (event,) in connection.execute(
+                    "/* ad-rules */ SELECT id FROM question_events WHERE assessment_contract_version_id = ?",
+                    (str(contract_version_id),)).fetchall():
+                if self.question_event_withheld(connection, event):
+                    return None
+        return {**row, "contract": _json(row.get("contract_json"), {})}
+
     def worked_example_spans(self, connection: Any, extraction_id: str) -> set[str]:
-        """The extraction's worked-example spans (``source_retrieval.corpus.role_keys``) that are not
-        held out."""
+        """The extraction's worked-example spans, by the incumbent's effective role
+        (``source_retrieval.corpus.effective_hint``, as ``role_keys`` applies it) computed over the
+        PROJECTION (the AD23 redesign round 5): only visible blocks are classified, and a block's
+        heading is resolved against visible headers only. A path element naming a withheld header
+        (by its block id or its text) resolves to no heading, as a dangling element does when that
+        header was never extracted, so withheld heading text never gives a public block its role."""
 
-        from learnloop.source_retrieval.corpus import role_keys
+        from learnloop.db.stores.source_block_fts import HintRow
+        from learnloop.source_retrieval.corpus import effective_hint
 
-        keys = role_keys(connection, [extraction_id], ("worked_example",))
-        return {str(span) for extraction, span in keys
-                if extraction == extraction_id and not self.material_withheld(extraction_id, span)}
+        if not self.available or self.material_withheld(extraction_id):
+            return set()
+        rows = connection.execute(
+            "/* ad-rules */ SELECT span_id, block_type, role_hint, text, section_path_json, extractor_block_id "
+            "FROM source_document_blocks WHERE extraction_id = ? ORDER BY ordinal, span_id",
+            (extraction_id,)).fetchall()
+        visible = [row for row in rows if not self.material_withheld(extraction_id, str(row[0]))]
+        headers = [row for row in rows if str(row[1]) == "SectionHeader" and row[5] is not None
+                   and " ".join(str(row[3] or "").split())]
+        titles: dict[str, str] = {}
+        for row in headers:
+            if self.material_withheld(extraction_id, str(row[0])):
+                titles.setdefault(str(row[5]), "")
+        visible_texts = {" ".join(str(row[3] or "").split()) for row in headers
+                         if not self.material_withheld(extraction_id, str(row[0]))}
+        for row in headers:
+            text = " ".join(str(row[3] or "").split())
+            if self.material_withheld(extraction_id, str(row[0])) and text not in visible_texts:
+                titles.setdefault(text, "")
+        for row in headers:
+            if not self.material_withheld(extraction_id, str(row[0])):
+                titles[str(row[5])] = " ".join(str(row[3] or "").split())
+        found: set[str] = set()
+        for row in visible:
+            hint = HintRow(str(extraction_id), str(row[0]), str(row[1]), None if row[2] is None else str(row[2]),
+                           str(row[3] or ""), row[4])
+            if hint.role_hint == "worked_example" and effective_hint(hint, titles) == "worked_example":
+                found.add(hint.span_id)
+        return found
 
     def plan_feedback_events(self, connection: Any) -> list[dict[str, Any]]:
         """The plan's ``item_done`` and ``item_served`` events AD's candidate estimates may pair (the

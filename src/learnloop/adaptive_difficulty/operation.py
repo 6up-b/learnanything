@@ -127,7 +127,7 @@ class Guard:
                 return sqlite3.SQLITE_OK
             if table == _OWN_WRITE.get():
                 return sqlite3.SQLITE_OK
-            return self._read(table, database)
+            return self._read(table, database, None if arg2 is None else str(arg2))
         if action in _WRITES and arg1:
             verdict = self._write(str(arg1), _WRITES[action])
             self._writing = str(arg1) if verdict == sqlite3.SQLITE_OK else None
@@ -136,20 +136,29 @@ class Guard:
             self._writing = None
         return sqlite3.SQLITE_OK
 
-    def _read(self, table: str, database: Any) -> int:
+    def _read(self, table: str, database: Any, column: str | None = None) -> int:
+        from learnloop.adaptive_difficulty import column_classes as C
         from learnloop.adaptive_difficulty import protected_tables as T
 
         reader = _reader()
         self.reads.setdefault(table, set()).add(reader)
         rules = _IN_RULES.get()
         kind = T.role(table)
-        if kind == T.NEUTRAL:
+        # Column-aware (round 5): outside the rules' scopes (the material view's rules, the
+        # predicate's, the incumbent's constraints) only a table's metadata columns are read raw; a
+        # content column (text, JSON or blob that can carry material) is the rules' to resolve.
+        raw_content = rules is None and C.column_class(table, column) == C.CONTENT
+        if kind == T.NEUTRAL and not raw_content:
             return sqlite3.SQLITE_OK
         if self.poisoned:
             return self._deny("read", table, POISONED, reader)
+        if kind == T.NEUTRAL:
+            return self._deny("read", table, f"{CONTENT_READ} ({table}.{column})", reader)
         if rules not in (None, T.INCUMBENT) and kind != T.PREDICATE:
             return sqlite3.SQLITE_OK
         verdict = T.read_verdict(table, rules=rules, reader=reader, stack=_stack_modules())
+        if verdict is None and raw_content:
+            verdict = f"{CONTENT_READ} ({table}.{column})"
         if verdict is None:
             return sqlite3.SQLITE_OK
         return self._deny("read", table, verdict, reader)
@@ -219,6 +228,8 @@ class Guard:
             pass
 
 
+#: Why a raw read of a content column is refused (``column_classes``; round 5).
+CONTENT_READ = "a content column read outside the rules"
 #: Why a statement is refused after the operation's first denial.
 POISONED = "the operation was made unavailable by an earlier denial"
 

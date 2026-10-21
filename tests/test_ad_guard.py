@@ -18,12 +18,14 @@ from __future__ import annotations
 
 import ast
 import contextlib
+from contextlib import closing
 import sqlite3
 from pathlib import Path
 
 import pytest
 
 from learnloop.adaptive_difficulty import operation as O
+from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
 
@@ -403,6 +405,95 @@ def test_a_read_only_entry_point_cannot_write(tmp_path):
             reader(vault, repository)
     with sqlite3.connect(paths.sqlite_path) as connection:
         assert connection.execute("SELECT COUNT(*) FROM ad_dose_offers").fetchone()[0] == 0
+
+
+@pytest.mark.parametrize(("table", "content", "metadata"), [
+    ("model_call_receipts", "input_text", "cost"),
+    ("model_call_receipts", "output_text", "status"),
+    ("assessment_contract_versions", "contract_json", "practice_item_id"),
+])
+def test_a_raw_read_of_a_content_column_of_a_neutral_table_is_refused(tmp_path, table, content, metadata):
+    """Round 5 (verify findings 2 and 3): inside an operation a neutral table's metadata columns stay
+    readable raw, its content columns do not (a model call's prompt and output, an assessment
+    contract's question and answer); a ``SELECT *`` reads them too and is refused (failed before:
+    the whole table was neutral)."""
+
+    paths, vault, repository = _vault(tmp_path)
+    with repository.atomic():
+        connection = repository.connection()
+        with contextlib.suppress(_POISONED), O.ad_operation(vault, repository):
+            connection.execute(f"SELECT {metadata}, COUNT(*) FROM {table} GROUP BY {metadata}").fetchall()
+            with pytest.raises(sqlite3.DatabaseError, match=DENIED):
+                connection.execute(f"SELECT {content} FROM {table}").fetchall()
+        with contextlib.suppress(_POISONED), O.ad_operation(vault, repository):
+            with pytest.raises(sqlite3.DatabaseError, match=DENIED):
+                connection.execute(f"SELECT * FROM {table}").fetchall()
+        with contextlib.suppress(_POISONED), O.ad_operation(vault, repository):
+            with pytest.raises(sqlite3.DatabaseError, match=DENIED):
+                connection.execute(f"SELECT {metadata} FROM {table} WHERE {content} LIKE '%x%'").fetchall()
+
+
+def test_the_rules_read_a_content_column_inside_an_operation(tmp_path):
+    """Round 5: the rules (``rules()``) read content columns: they resolve protection first."""
+
+    paths, vault, repository = _vault(tmp_path)
+    with repository.atomic():
+        connection = repository.connection()
+        with O.ad_operation(vault, repository):
+            with O.rules("test"):
+                connection.execute("/* ad-rules */ SELECT contract_json FROM assessment_contract_versions").fetchall()
+
+
+def test_an_exam_reserved_items_contract_is_read_only_through_the_rules(tmp_path, monkeypatch):
+    """Round 5, verify finding 2's scenario: an exam-reserved item already has a persisted
+    assessment contract (its question and answer). Inside an operation a raw read of it is refused,
+    and the rules' reader withholds it; for a public item the rules return it (failed before: the raw
+    read returned the question and answer)."""
+
+    from learnloop.adaptive_difficulty.material_view import MaterialView
+
+    from tests.test_ad23_fix_r8 import _reserve
+
+    paths, vault, repository = _vault(tmp_path)
+    contract = '{"prompt": "Question pi_e1.", "expected_answer": "Answer pi_e1."}'
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        connection.execute("INSERT INTO assessment_contract_versions(id, practice_item_id, contract_hash, contract_json, "
+                           "schema_version, created_at) VALUES ('acv1', 'pi_e1', 'h1', ?, 1, '2026-10-21T00:00:00Z')",
+                           (contract,))
+
+    def read(view: MaterialView) -> object:
+        with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+            return view.assessment_contract(connection, "acv1")
+
+    with O.ad_operation(vault, repository) as op:
+        assert read(op.view)["contract"]["expected_answer"] == "Answer pi_e1."
+    _reserve(monkeypatch, "pi_e1")
+    with contextlib.suppress(_POISONED), O.ad_operation(vault, repository) as op:
+        assert read(op.view) is None
+        with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+            with pytest.raises(sqlite3.DatabaseError, match=DENIED):
+                connection.execute("SELECT contract_json FROM assessment_contract_versions").fetchall()
+
+
+def test_an_incumbent_model_calls_text_is_unreadable_raw_while_its_accounting_is(tmp_path):
+    """Round 5, verify finding 3's scenario: an incumbent grading call recorded material that is
+    held out later. Inside an operation its accounting (cost, tokens, status) is read raw; its prompt
+    and output are refused (failed before: both were read)."""
+
+    paths, vault, repository = _vault(tmp_path)
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        connection.execute(
+            "INSERT INTO model_call_receipts(id, owner_kind, owner_id, purpose, status, started_at, input_text, "
+            "output_text, cost, input_tokens) VALUES ('mc1', 'attempt', 'a1', 'grading', 'completed', '2026-10-21T00:00:00Z', "
+            "'Grade this answer to the held-out question.', 'Correct.', 0.01, 120)")
+    with repository.atomic():
+        connection = repository.connection()
+        with contextlib.suppress(_POISONED), O.ad_operation(vault, repository):
+            assert connection.execute("SELECT SUM(cost), SUM(input_tokens), status FROM model_call_receipts "
+                                      "WHERE purpose = 'grading'").fetchone()[0] == pytest.approx(0.01)
+            for column in ("input_text", "output_text"):
+                with pytest.raises(sqlite3.DatabaseError, match=DENIED):
+                    connection.execute(f"SELECT {column} FROM model_call_receipts WHERE id = 'mc1'").fetchone()
 
 
 def _planted_dose_read(tmp_path, monkeypatch):

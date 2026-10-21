@@ -4,7 +4,9 @@ Every table an AD operation can reach is classified here, by name, never by patt
 ``db.table_roles`` does for rebuild policy):
 
 * ``NEUTRAL``: carries no protected material and no state derived from it (schema, job and model
-  accounting, plan scaffolding, source metadata, the learner's own claims). Read freely.
+  accounting, plan scaffolding, source metadata, the learner's own claims). Its METADATA columns are
+  read freely; its content columns (a model call's prompt and output, an assessment contract's
+  question and answer) only by the rules (``column_classes``, the AD23 redesign round 5).
 * ``PROTECTED``: rows can name a protected entity (an item, a revision, a span, an extraction, a
   note, an attempt...). Read only by the rules (the material view's readers), which withhold a row
   any of whose references resolves to a withheld entity.

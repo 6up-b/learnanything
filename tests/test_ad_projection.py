@@ -342,3 +342,70 @@ def test_every_recorded_reference_shape_is_located_through_the_shared_key_functi
     assert {("e1", "a1"), ("e2", "c1"), ("e3", "h1"), ("e4", "g1"), ("e5", "s5")} <= keys
     assert whole == set()
     assert reference_keys({"extraction_id": "e6"}) == (set(), {"e6"})
+
+
+# -- round 5 (verify 20261021-130727-0eZbnv, finding 1): roles over the projection --------------------
+
+HEADER_ID = "/page/1/SectionHeader/0"
+
+
+def _worked_examples_heading(tmp_path, *, absent: bool):
+    """One extraction: a section header H "Worked Examples" and a public block P under it (its
+    section path names H's block id) whose stored role hint, inherited from that heading, is
+    ``worked_example``; P's own text has no lead cue. ``LO`` cites P; the Reader viewed P. In the
+    absent copy H was never extracted."""
+
+    from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
+
+    from tests.test_source_inventory import _persist
+
+    paths = ad23_vault(tmp_path / ("absent" if absent else "protected"), items=("pi_m1a",))
+    made = _iso(T0 - timedelta(days=7))
+    with closing(connect(paths.sqlite_path)) as connection:
+        connection.execute("INSERT INTO source_artifacts(id, acquisition_kind, canonical_uri, created_at, updated_at) "
+                           "VALUES ('src_f48', 'pdf', 'file:///f48.pdf', ?, ?)", (made, made))
+        connection.execute("INSERT INTO source_revisions(id, source_id, asset_hash, created_at) "
+                           "VALUES ('rev_f48', 'src_f48', 'sha256:f48', ?)", (made,))
+        connection.commit()
+    header = DocumentBlock.build(span_id=H, block_type="SectionHeader", text="Worked Examples", ordinal=0, page=1,
+                                 extractor_block_id=HEADER_ID, section_path=[])
+    public = DocumentBlock.build(span_id=P, block_type="Text", text="Consider the matrix A and compute its determinant.",
+                                 ordinal=1, page=1, section_path=[HEADER_ID], role_hint="worked_example")
+    blocks = [public] if absent else [header, public]
+    units = [DocumentUnit(unit_id="sec_mixed", label="sec_mixed", ordinal=0, semantic_hash="sha256:sec_mixed",
+                          page_start=1, page_end=1, span_ids=[block.span_id for block in blocks])]
+    repository = Repository(paths.sqlite_path)
+    _persist(repository, DocumentIR(extractor="marker", extractor_version="1", units=units, blocks=blocks, assets=[],
+                                    health=ExtractionHealth()), revision_id="rev_f48", extraction_id=EXT)
+    _cite(paths, LO, P)
+    repository.insert_source_exposure_event(
+        {"context": "reader", "extraction_id": EXT, "span_id": P, "revision_id": "rev_f48", "source_id": "src_f48",
+         "entity_type": "reader", "entity_id": "visit_r5", "created_at": _iso(T0 - timedelta(hours=5))})
+    return paths
+
+
+def test_a_withheld_heading_never_gives_a_public_block_its_role(tmp_path, monkeypatch):
+    """Round 5, finding 1: the worked-example role is computed over the projection: P's inherited
+    hint stands only if a VISIBLE heading (or P's own lead) supports it. With H held out the view of
+    P is the same plain passage view as in the copy without H, and P is no worked example there
+    (failed before: the role helper read H's text, and the exposure became ``worked_example/shown``)."""
+
+    from learnloop.adaptive_difficulty.operation import ad_operation
+
+    protected_paths, absent_paths = (_worked_examples_heading(tmp_path, absent=False),
+                                     _worked_examples_heading(tmp_path, absent=True))
+    vault, repository = load_vault(protected_paths.root), Repository(protected_paths.sqlite_path)
+    with ad_operation(vault, repository) as op, closing(connect(protected_paths.sqlite_path,
+                                                                read_only=True)) as connection:
+        assert op.view.worked_example_spans(connection, EXT) == {P}  # H public: P is a worked example
+    _hold_h(monkeypatch)
+    spans = {}
+    for name, paths in (("protected", protected_paths), ("absent", absent_paths)):
+        vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
+        with ad_operation(vault, repository) as op, closing(connect(paths.sqlite_path, read_only=True)) as connection:
+            spans[name] = op.view.worked_example_spans(connection, EXT)
+    assert spans["protected"] == spans["absent"] == set()
+    protected, absent = _swept(protected_paths), _swept(absent_paths)
+    assert protected == absent
+    assert ("reading", "passage_viewed", "source_exposure_events", LO) in absent
+    assert all(row[0] != "worked_example" for row in protected)

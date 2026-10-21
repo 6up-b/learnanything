@@ -85,3 +85,30 @@ def test_the_registry_names_real_tables_and_roles(tmp_path):
     assert {T.ROLES[t] for t in ("source_unit_selections", "source_held_out_signal_marks", "exam_pool_items")} == {
         T.PREDICATE}
     assert all(T.ROLES[t] == T.PROTECTED for t in T.AD_WRITABLE if t.startswith("ad_"))
+
+
+def test_every_column_of_every_readable_table_is_metadata_or_content(tmp_path):
+    """Round 5 (class 2): every column of every table an operation can read (``ROLES``: an
+    unclassified table is unreadable inside one) is ``metadata`` or ``content``, exactly once, and
+    the registry names no column the head schema lacks; a migration adding a column to such a table
+    fails here until it is classified. The verify's two neutral tables carry their content columns
+    as content (failed before: there was no column registry)."""
+
+    from learnloop.adaptive_difficulty import column_classes as C
+
+    schema = _schema(tmp_path)
+    paths = ad23_vault(tmp_path / "virtual", items=("pi_e1",))
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        for table in ("json_each", "sqlite_master", "sqlite_temp_master"):
+            schema[table] = [str(row[1]) for row in connection.execute(f"PRAGMA table_info({table})")]
+    assert sorted(C._CLASSES) == sorted(T.ROLES)
+    for table, (metadata, content) in C._CLASSES.items():
+        meta, text = metadata.split(), content.split()
+        assert not set(meta) & set(text) and len(set(meta)) == len(meta) and len(set(text)) == len(text), table
+        assert sorted(meta + text) == sorted(schema[table]), (
+            table, sorted(set(schema[table]) - set(meta + text)), sorted(set(meta + text) - set(schema[table])))
+    assert C.column_class("model_call_receipts", "input_text") == C.CONTENT
+    assert C.column_class("model_call_receipts", "output_text") == C.CONTENT
+    assert C.column_class("model_call_receipts", "cost") == C.METADATA
+    assert C.column_class("assessment_contract_versions", "contract_json") == C.CONTENT
+    assert C.column_class("assessment_contract_versions", "practice_item_id") == C.METADATA
