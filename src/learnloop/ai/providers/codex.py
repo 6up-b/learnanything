@@ -64,6 +64,22 @@ from learnloop.ai.isolation import (
     sandboxed_command,
     write_launcher,
 )
+from learnloop.ai.providers.codex_lockdown import (
+    LOCKDOWN_DISABLED_FEATURES,
+    CodexLockdownUnavailable,
+    CodexToolUseRefused,
+    TurnLockdown,
+    cached_check,
+    check_fingerprint,
+    disabled_features,
+    feature_violations,
+    install_on_sdk,
+    item_violations,
+    lockdown_config_overrides,
+    model_metadata_violations,
+    remember_check,
+    unclassified_features_on,
+)
 from learnloop.ai.usage import TokenUsageAccounting, UsageMeter, receipt_fields_from_codex_turn, usage_from_codex_turn
 from learnloop.config import AIProviderConfig, CodexConfig
 
@@ -76,38 +92,15 @@ EVENT_FIELDS_ATTR = "event_fields"
 #: so it is never used for isolation: this profile reads only the turn's own
 #: directory plus the platform minimum, and writes nowhere.
 ISOLATED_PROFILE = "learnloop_isolated_turn"
-#: Tools and integrations that run outside the command sandbox (connectors,
-#: MCP, browser/computer use, plugins, sub-agents) or bring in outside context
-#: (memories, hooks, skills, web search): all off in an isolated turn. Unknown
-#: feature keys are ignored by Codex, so older/newer CLIs accept the list.
-#: ``plugins`` is also what removes the MCP servers a plugin brings, and
-#: ``apps`` the ChatGPT connectors server (``codex_apps``); see
+#: Tools and integrations off in every Codex turn (the locked-down profile,
+#: :mod:`learnloop.ai.providers.codex_lockdown`): connectors, MCP, browser and
+#: computer use, plugins, sub-agents, hooks, memories, skills, image tools and
+#: the rest of codex-cli 0.163.0's tool-bearing features. Unknown feature keys
+#: are ignored by Codex, so older/newer CLIs accept the list. ``plugins`` is
+#: also what removes the MCP servers a plugin brings, and ``apps`` the ChatGPT
+#: connectors server (``codex_apps``); see
 #: :meth:`SdkCodexClient._verified_isolated_overrides`.
-_ISOLATION_DISABLED_FEATURES = (
-    "apps",
-    "browser_use",
-    "browser_use_external",
-    "computer_use",
-    "in_app_browser",
-    "image_generation",
-    "plugins",
-    "remote_plugin",
-    "multi_agent",
-    "hooks",
-    "memories",
-    "view_image",
-    "tool_suggest",
-    "skill_search",
-    "skill_mcp_dependency_install",
-    "goals",
-)
-#: Features an isolated turn's launch check requires ``codex features list``
-#: to report off under the turn's overrides. ``apps`` starts the connectors
-#: server, which ``codex mcp list`` never shows (Codex adds it after listing);
-#: ``plugins`` loads the plugins' MCP servers, skills and connectors. An
-#: override Codex ignored (a renamed key) would leave them on, so this is
-#: checked, not assumed.
-_ISOLATION_VERIFIED_FEATURES = ("apps", "plugins")
+_ISOLATION_DISABLED_FEATURES = LOCKDOWN_DISABLED_FEATURES
 #: A server name a ``-c mcp_servers.<name>.enabled=false`` path can address:
 #: the characters ``codex mcp add`` accepts (0.163.0 adds ``:``, ``@``, ``/``
 #: and ``.``) except ``.``, because Codex splits an override's key on ``.``
@@ -202,7 +195,7 @@ def _isolated_launch_parts(launch: tuple[str, ...] | list[str]) -> tuple[list[st
     """
 
     if "app-server" not in launch:
-        raise CodexUnavailable(
+        raise CodexLockdownUnavailable(
             "sdk_launch_command does not name `app-server`; an isolated turn cannot pass its sandbox overrides."
         )
     position = list(launch).index("app-server")
@@ -224,7 +217,7 @@ def _isolated_launch_parts(launch: tuple[str, ...] | list[str]) -> tuple[list[st
             written = [argument]
             if value is None:
                 if index >= len(rest):
-                    raise CodexUnavailable(
+                    raise CodexLockdownUnavailable(
                         f"sdk_launch_command ends with {argument!r}, which takes a value; refusing the isolated turn."
                     )
                 value = rest[index]
@@ -237,7 +230,7 @@ def _isolated_launch_parts(launch: tuple[str, ...] | list[str]) -> tuple[list[st
         elif value is None and name in _APP_SERVER_SWITCHES:
             app_server_args.append(argument)
         else:
-            raise CodexUnavailable(
+            raise CodexLockdownUnavailable(
                 f"sdk_launch_command passes {argument!r} after `app-server`, and the isolated turn's launch check "
                 "cannot tell what it changes; refusing the isolated turn."
             )
@@ -278,24 +271,34 @@ def isolated_turn_overrides(
     *,
     shell: bool,
     mcp_server_ids: tuple[str, ...] | list[str] = (),
+    extra_disabled_features: tuple[str, ...] | list[str] = (),
 ) -> list[str]:
-    """``codex -c key=value`` overrides that confine one turn.
+    """``codex -c key=value`` overrides that confine one turn (the locked-down profile).
 
     The turn runs under :data:`ISOLATED_PROFILE`: read access to
-    ``readable_root`` and the platform minimum only, no writes, no network;
-    approvals never prompt; web search, connectors, plugins (and the MCP
-    servers they bring), memories, hooks and project docs are off. Each of
-    ``mcp_server_ids`` is disabled by name: only servers a config file defines
-    with a transport may be named, because for any other name the override
-    creates a table without one and Codex refuses to start (codex-cli
-    0.163.0). :meth:`SdkCodexClient._verified_isolated_overrides` chooses
-    them and checks the result. With ``shell=False`` (no workspace to read)
-    the command tools are off too, so nothing in the turn can read a file.
-    codex-cli 0.163.0 still offers such a turn utility tools: code mode's
-    ``exec``/``wait`` (over the same tools), ``request_user_input`` and, from
-    the model's own metadata, sub-agents (``features.multi_agent`` no longer
-    governs them). A sub-agent inherits the turn's permission profile,
-    working directory and features, so it stays inside the same boundary.
+    ``readable_root`` and the platform minimum only, no writes, no network.
+    Every tool-bearing feature is off
+    (:data:`~learnloop.ai.providers.codex_lockdown.LOCKDOWN_DISABLED_FEATURES`),
+    as are web search, connectors, plugins (and the MCP servers they bring),
+    memories, hooks, project docs, sub-agents (``agents.enabled=false``: in
+    codex-cli 0.163.0 ``features.multi_agent`` alone no longer governs the
+    model's v2 agents), ``request_user_input`` and ``update_plan``
+    (:func:`~learnloop.ai.providers.codex_lockdown.lockdown_config_overrides`).
+    ``approval_policy="never"`` is written here too, but it is the SDK's
+    ``approval_mode=deny_all`` on the thread that puts it in force (a typed
+    thread override beats every ``-c`` layer). Each of ``mcp_server_ids`` is
+    disabled by name: only servers a config file defines with a transport may
+    be named, because for any other name the override creates a table without
+    one and Codex refuses to start (codex-cli 0.163.0).
+    ``extra_disabled_features`` are features a newer CLI reports on that the
+    lockdown has not classified: switched off too.
+    :meth:`SdkCodexClient._verified_isolated_overrides` chooses both and
+    checks the result. With ``shell=False`` (no workspace to read) the command
+    tools are off too, so nothing in the turn can read a file. What config
+    cannot remove (``apply_patch`` and code mode's ``exec``/``wait`` come from
+    the model's catalog entry) is neutralized: no writable root, approvals
+    never, and any round trip refuses the turn
+    (:class:`~learnloop.ai.providers.codex_lockdown.TurnLockdown`).
     """
 
     root = str(Path(readable_root).resolve())
@@ -308,9 +311,10 @@ def isolated_turn_overrides(
         "project_doc_max_bytes=0",
         "tools.view_image=false",
     ]
-    overrides += [f"features.{feature}=false" for feature in _ISOLATION_DISABLED_FEATURES]
-    if not shell:
-        overrides += ["features.shell_tool=false", "features.unified_exec=false"]
+    overrides += lockdown_config_overrides()
+    off = list(disabled_features(shell=shell))
+    off += [feature for feature in sorted(set(extra_disabled_features)) if feature not in off]
+    overrides += [f"features.{feature}=false" for feature in off]
     overrides += [f"mcp_servers.{server}.enabled=false" for server in sorted(set(mcp_server_ids))]
     return overrides
 
@@ -363,7 +367,7 @@ class SdkCodexClient(TokenUsageAccounting):
             found = shutil.which("codex.cmd" if os.name == "nt" else "codex")
             if found:
                 return [found]
-        raise CodexUnavailable("No Codex CLI found to configure an isolated turn.")
+        raise CodexLockdownUnavailable("No Codex CLI found to configure an isolated turn.")
 
     def _verified_isolated_overrides(
         self,
@@ -386,8 +390,17 @@ class SdkCodexClient(TokenUsageAccounting):
         launch set is checked: listed again (every server off or absent; Codex
         rejecting a name override means the server is not a config one and
         nothing here can turn it off) and ``codex features list`` must report
-        :data:`_ISOLATION_VERIFIED_FEATURES` off (the connectors server never
-        shows in ``mcp list``). A dotted name cannot be addressed (Codex splits
+        every feature the lockdown switches off as off, and no feature on but
+        the reviewed non-tool ones
+        (:func:`~learnloop.ai.providers.codex_lockdown.feature_violations`; the
+        connectors server never shows in ``mcp list``, so ``apps`` is checked
+        here). A feature on that the lockdown has not classified (a newer CLI's)
+        is switched off too and must then read off. Last, ``codex debug models
+        --bundled`` (the catalog shipped in the binary: no network, no model
+        call) must advertise for the turn's model only tools the overrides
+        remove or neutralize
+        (:func:`~learnloop.ai.providers.codex_lockdown.model_metadata_violations`).
+        A dotted name cannot be addressed (Codex splits
         a ``-c`` key on ``.``): enabled, it refuses the turn; already off in the
         configuration the launch loads, it is left so.
 
@@ -403,28 +416,35 @@ class SdkCodexClient(TokenUsageAccounting):
         turn (F2). They stay inside ``deadline`` and stop on :meth:`interrupt`
         (F3).
 
-        Fail closed: a server still on, a check that fails or times out, or an
-        override Codex rejects refuses the turn before the app server starts.
-        Not cached: the answer depends on config files, plugins and the
-        working directory's project config, any of which can change between
-        turns without a new binary, and an isolated turn's directory is new
-        each time.
+        Fail closed (``CodexLockdownUnavailable``): a server or feature still
+        on, a model tool nothing neutralizes, a check that fails or times out,
+        or an override Codex rejects refuses the turn before the app server
+        starts. A check that passed is cached per process under a fingerprint
+        of everything its answer depends on: the CLI argv and binary, the
+        Codex configuration files, plugin and skill directories and project
+        layers above the turn's directory (by identity, never content), the
+        sandbox, the model and the ``CODEX_*`` environment
+        (:func:`~learnloop.ai.providers.codex_lockdown.check_fingerprint`).
         """
 
         base = isolated_turn_overrides(root, shell=shell)
         launch = _sdk_launch_args(self.config.sdk_launch_command)
-        if launch:
-            reenabled = _reenabled_isolation_features(_isolated_launch_parts(launch)[0], base)
-            if reenabled:
-                raise CodexUnavailable(
-                    f"sdk_launch_command turns {', '.join(reenabled)} back on with --enable, which Codex applies "
-                    "after the isolated turn's overrides; refusing the isolated turn."
-                )
+        self._refuse_reenabled_features(launch, base)
+        key = check_fingerprint(
+            command=self._codex_command(), root=root, shell=shell, model=self.config.model or None,
+            sandbox_workdir=str(sandbox.workdir) if sandbox is not None else None,
+        )
+        cached = cached_check(key)
+        if cached is not None:
+            pinned_servers, extra = cached
+            return isolated_turn_overrides(
+                root, shell=shell, mcp_server_ids=pinned_servers, extra_disabled_features=extra,
+            )
         context: dict[str, Any] = {"sandbox": sandbox, "deadline": deadline}
         states = self._mcp_server_states(root, base, **context)
         for name in sorted(name for name, on in states.items() if on):
             if not _ADDRESSABLE_MCP_SERVER.fullmatch(name):
-                raise CodexUnavailable(
+                raise CodexLockdownUnavailable(
                     f"Codex MCP server {name!r} stays enabled under the isolated turn's overrides, and a config "
                     "override cannot address that name; refusing the isolated turn."
                 )
@@ -436,7 +456,7 @@ class SdkCodexClient(TokenUsageAccounting):
             except _RejectedMcpTable as exc:
                 if exc.server not in pinned:
                     raise
-                raise CodexUnavailable(
+                raise CodexLockdownUnavailable(
                     f"Codex cannot disable MCP server '{exc.server}' for an isolated turn: no config file defines "
                     f"it with a transport, so Codex rejects `mcp_servers.{exc.server}.enabled=false`, and none of "
                     "the isolation features removes it; refusing the isolated turn."
@@ -444,18 +464,52 @@ class SdkCodexClient(TokenUsageAccounting):
             still = sorted(name for name, on in states.items() if on)
             if still:
                 names = ", ".join(f"'{name}'" for name in still)
-                raise CodexUnavailable(
+                raise CodexLockdownUnavailable(
                     f"Codex MCP server {names} stays enabled under the isolated turn's overrides; "
                     "refusing the isolated turn."
                 )
         features = self._feature_states(root, overrides, **context)
-        left_on = [feature for feature in _ISOLATION_VERIFIED_FEATURES if features.get(feature) is not False]
-        if left_on:
-            raise CodexUnavailable(
-                f"Codex does not report feature {', '.join(left_on)} off under the isolated turn's overrides "
-                "(connectors or plugin tools could load); refusing the isolated turn."
+        extra = unclassified_features_on(features, shell=shell)
+        if extra:
+            # A newer CLI's feature the lockdown has not reviewed: off too, then
+            # it must read off like the rest.
+            overrides = isolated_turn_overrides(
+                root, shell=shell, mcp_server_ids=pinned, extra_disabled_features=extra,
             )
+            self._refuse_reenabled_features(launch, overrides)
+            features = self._feature_states(root, overrides, **context)
+        left_on = feature_violations(features, shell=shell)
+        if left_on:
+            raise CodexLockdownUnavailable(
+                f"Codex does not report feature {', '.join(left_on)} off under the isolated turn's overrides "
+                "(a tool, connector, plugin or sub-agent could load); refusing the isolated turn."
+            )
+        stdout = self._codex_probe(root, overrides, "debug", "models", "--bundled", **context)
+        try:
+            catalog = json.loads(stdout)
+        except ValueError:
+            catalog = None
+        problems = model_metadata_violations(catalog, self.config.model or None)
+        if problems:
+            raise CodexLockdownUnavailable(
+                "The Codex model catalog advertises tools the isolated turn's overrides cannot remove or "
+                f"neutralize ({'; '.join(problems)}); refusing the isolated turn."
+            )
+        remember_check(key, pinned, extra)
         return overrides
+
+    @staticmethod
+    def _refuse_reenabled_features(launch: tuple[str, ...] | None, overrides: list[str]) -> None:
+        """Refuse a launch command whose ``--enable`` turns a feature ``overrides`` switch off back on (F2)."""
+
+        if not launch:
+            return
+        reenabled = _reenabled_isolation_features(_isolated_launch_parts(launch)[0], overrides)
+        if reenabled:
+            raise CodexLockdownUnavailable(
+                f"sdk_launch_command turns {', '.join(reenabled)} back on with --enable, which Codex applies "
+                "after the isolated turn's overrides; refusing the isolated turn."
+            )
 
     def _mcp_server_states(self, cwd: Path, overrides: list[str], **context: Any) -> dict[str, bool]:
         """Each server ``codex mcp list --json`` lists under ``overrides``: on?
@@ -469,7 +523,7 @@ class SdkCodexClient(TokenUsageAccounting):
         except ValueError:
             servers = None
         if not isinstance(servers, list):
-            raise CodexUnavailable(
+            raise CodexLockdownUnavailable(
                 "`codex mcp list --json` did not return a server list under the isolated turn's overrides; "
                 "refusing the isolated turn."
             )
@@ -477,7 +531,7 @@ class SdkCodexClient(TokenUsageAccounting):
         for server in servers:
             name = server.get("name") if isinstance(server, dict) else None
             if not isinstance(name, str) or not name:
-                raise CodexUnavailable(
+                raise CodexLockdownUnavailable(
                     "`codex mcp list --json` listed a server without a name; refusing the isolated turn."
                 )
             states[name] = server.get("enabled") is not False
@@ -532,7 +586,7 @@ class SdkCodexClient(TokenUsageAccounting):
             try:
                 command = sandboxed_command(sandbox, command, chdir=Path(cwd))
             except ToolIsolationUnavailable as exc:
-                raise CodexUnavailable(
+                raise CodexLockdownUnavailable(
                     f"Cannot run {what} inside the tool sandbox to check the isolated turn's overrides ({exc}); "
                     "refusing the isolated turn."
                 ) from exc
@@ -546,7 +600,7 @@ class SdkCodexClient(TokenUsageAccounting):
                 text=True, start_new_session=os.name != "nt",
             )
         except (OSError, subprocess.SubprocessError) as exc:
-            raise CodexUnavailable(
+            raise CodexLockdownUnavailable(
                 f"Cannot run {what} to check the isolated turn's overrides ({exc}); refusing the isolated turn."
             ) from exc
         with self._turn_lock:
@@ -564,7 +618,7 @@ class SdkCodexClient(TokenUsageAccounting):
                     pass
                 if request_bound:
                     raise deadline.expired(where) from exc
-                raise CodexUnavailable(
+                raise CodexLockdownUnavailable(
                     f"{what} under the isolated turn's overrides did not finish in "
                     f"{_CODEX_PROBE_TIMEOUT_SECONDS:g} seconds; refusing the isolated turn."
                 ) from exc
@@ -583,7 +637,7 @@ class SdkCodexClient(TokenUsageAccounting):
                     f"turn's overrides (exit {process.returncode}); refusing the isolated turn.",
                     rejected.group(1),
                 )
-            raise CodexUnavailable(
+            raise CodexLockdownUnavailable(
                 f"{what} under the isolated turn's overrides exited {process.returncode}; refusing the isolated turn."
             )
         return stdout or ""
@@ -807,23 +861,31 @@ class SdkCodexClient(TokenUsageAccounting):
         workspace: Path | None = None,
         isolated: bool = False,
     ) -> str:
-        """Run one SDK turn.
+        """Run one SDK turn, always locked down.
 
-        An isolated turn (``isolated``, implied by ``workspace``) never starts
-        in ``vault_root``: the app server, thread and turn start in the
+        This is the only place LearnLoop starts a Codex SDK turn, and every
+        turn it starts is isolated whatever ``isolated`` says (security stage
+        2026-10-21: the listwise and paid roles, the tutor and every other
+        caller that did not ask for isolation ran agentic turns in the vault
+        with the user's whole Codex configuration). No turn starts in
+        ``vault_root``: the app server, thread and turn start in the
         workspace, or in a fresh empty directory removed afterwards, under
         :data:`ISOLATED_PROFILE` (:func:`isolated_turn_overrides`), which can
         read only that directory and the platform minimum. A workspace turn
-        keeps the shell tool to read its files; any other isolated turn has no
-        tools. The thread is never given a sandbox mode, which would replace
-        the profile with Codex's full-disk-read ``read-only`` mode, and the turn
-        fails closed when the installed SDK cannot pass the overrides.
+        (the snapshot diagnosis) keeps the shell tool to read its files; every
+        other turn has no tool. The thread is never given a sandbox mode,
+        which would replace the profile with Codex's full-disk-read
+        ``read-only`` mode; approvals are ``deny_all`` and every approval the
+        app server asks for is declined; the turn fails closed when the
+        installed SDK or CLI cannot be told (:meth:`_run_sdk_turn`).
+        ``isolated`` is kept for callers and fakes; it no longer widens or
+        narrows anything.
 
         Under :func:`learnloop.ai.isolation.tool_isolation` (project routes)
         the app server also runs in that bubblewrap sandbox, which mounts only
-        its working directory from the host. A turn there starts in that
-        directory; an isolated turn's empty directory is made inside it, and a
-        workspace outside it is refused (the sandbox could not show it).
+        its working directory from the host. The turn's empty directory is
+        made inside it, and a workspace outside it is refused (the sandbox
+        could not show it).
         """
         if single_request_active():
             # A Python SDK turn delegates model requests to the app-server.
@@ -843,12 +905,15 @@ class SdkCodexClient(TokenUsageAccounting):
             raise CodexInterrupted("Codex turn interrupted by the learner.")
         sandbox = current_tool_isolation()
         sandbox_root = Path(sandbox.workdir).resolve() if sandbox is not None else None
-        isolated = isolated or workspace is not None
         scratch_root: Path | None = None
         if workspace is not None:
             workspace = Path(workspace).resolve()
             if not workspace.is_dir():
                 raise CodexUnavailable(f"Read-only workspace {workspace} is not a directory.")
+            if workspace == self.vault_root or workspace in self.vault_root.parents:
+                raise CodexLockdownUnavailable(
+                    f"Read-only workspace {workspace} is the vault or contains it; a Codex turn never reads the vault."
+                )
             if sandbox_root is not None and workspace != sandbox_root and sandbox_root not in workspace.parents:
                 raise CodexUnavailable(
                     f"Read-only workspace {workspace} is outside the sandboxed working directory "
@@ -856,20 +921,16 @@ class SdkCodexClient(TokenUsageAccounting):
                 )
             self._last_workspace_activity = None
             root = workspace
-        elif isolated:
+        else:
             # Nothing to read: an empty directory of its own, never the vault.
             # Sandboxed, it must sit in the one host directory bubblewrap mounts.
             scratch_root = Path(tempfile.mkdtemp(prefix="learnloop-isolated-turn-", dir=sandbox_root)).resolve()
             root = scratch_root
-        elif sandbox is not None:
-            root = Path(sandbox.workdir)
-        else:
-            root = self.vault_root
         cwd = str(root)
         try:
             return self._run_sdk_turn(
                 prompt, output_schema, purpose=purpose, timeout_seconds=timeout_seconds,
-                cwd=cwd, root=root, isolated=isolated, workspace=workspace, sandbox=sandbox,
+                cwd=cwd, root=root, isolated=True, workspace=workspace, sandbox=sandbox,
             )
         finally:
             if scratch_root is not None:
@@ -910,33 +971,49 @@ class SdkCodexClient(TokenUsageAccounting):
             raise CodexUnavailable(
                 f"Codex Python SDK is not importable from {self.sdk_python_path}."
             ) from exc
+        # Approvals: without ``approval_mode`` the SDK starts every thread
+        # ``on_request`` with the Guardian auto-reviewer, and a typed thread
+        # override beats the ``-c approval_policy="never"`` below, so an
+        # escalated command could be approved and run unsandboxed. Fail closed
+        # when the SDK cannot be told ``deny_all``.
+        try:
+            from openai_codex import ApprovalMode
+
+            deny_all = ApprovalMode.deny_all
+        except (ImportError, AttributeError) as exc:
+            raise CodexLockdownUnavailable(
+                "The installed Codex SDK has no ApprovalMode.deny_all, so approvals cannot be turned off; "
+                "refusing the Codex turn."
+            ) from exc
 
         # Slice 1's permission profile first: its ``--config`` overrides go
         # into the Codex command (or the SDK's config_overrides, which the SDK
         # appends to the program it launches). The project bubblewrap sandbox
-        # (below) then wraps that whole command, so a sandboxed isolated turn
-        # runs under both: bubblewrap bounds the app-server process, and the
-        # profile bounds the turn's tools within it.
+        # (below) then wraps that whole command, so a sandboxed turn runs under
+        # both: bubblewrap bounds the app-server process, and the profile
+        # bounds the turn's tools within it. Every turn is isolated
+        # (:meth:`_run_structured`).
         launch_args = _sdk_launch_args(self.config.sdk_launch_command)
         config_kwargs: dict[str, Any] = {}
-        if isolated:
-            overrides = self._verified_isolated_overrides(
-                root, shell=workspace is not None, sandbox=sandbox, deadline=deadline,
+        overrides = self._verified_isolated_overrides(
+            root, shell=workspace is not None, sandbox=sandbox, deadline=deadline,
+        )
+        self._raise_if_stopped(deadline, "in the isolated turn's launch check")
+        if launch_args:
+            # The launch command's configuration options first, then the
+            # turn's overrides: the set the launch check ran (F2).
+            command, app_server_args = _isolated_launch_parts(launch_args)
+            flags = tuple(part for override in overrides for part in ("--config", override))
+            launch_args = (*command, *flags, "app-server", *app_server_args)
+        elif _sdk_accepts(SdkAppConfig, "config_overrides"):
+            config_kwargs["config_overrides"] = tuple(overrides)
+        else:
+            raise CodexLockdownUnavailable(
+                "The installed Codex SDK cannot pass config overrides; "
+                "an isolated turn (read boundary, tools off) is unavailable."
             )
-            self._raise_if_stopped(deadline, "in the isolated turn's launch check")
-            if launch_args:
-                # The launch command's configuration options first, then the
-                # turn's overrides: the set the launch check ran (F2).
-                command, app_server_args = _isolated_launch_parts(launch_args)
-                flags = tuple(part for override in overrides for part in ("--config", override))
-                launch_args = (*command, *flags, "app-server", *app_server_args)
-            elif _sdk_accepts(SdkAppConfig, "config_overrides"):
-                config_kwargs["config_overrides"] = tuple(overrides)
-            else:
-                raise CodexUnavailable(
-                    "The installed Codex SDK cannot pass config overrides; "
-                    "an isolated turn (read boundary, tools off) is unavailable."
-                )
+        lockdown = TurnLockdown(parent_thread=None, workspace=workspace is not None)
+        result: Any = None
 
         launcher_dir = tempfile.mkdtemp(prefix="learnloop-codex-launch-") if sandbox is not None else None
         try:
@@ -972,16 +1049,33 @@ class SdkCodexClient(TokenUsageAccounting):
                 output_schema=output_schema,
             )
             with Codex(config=app_config) as codex:
+                # The decline-everything approval handler and the notification
+                # tap go in before anything can ask: an SDK that has no seam
+                # for them refuses the turn (codex_lockdown.install_on_sdk).
+                install_on_sdk(codex, lockdown)
+                if not _sdk_accepts(codex.thread_start, "approval_mode"):
+                    raise CodexLockdownUnavailable(
+                        "The installed Codex SDK's thread_start takes no approval_mode, so approvals cannot be "
+                        "turned off; refusing the Codex turn."
+                    )
                 # Never a ``sandbox`` here: a sandbox mode on thread start
                 # replaces the isolated permission profile with Codex's
                 # full-disk-read built-in mode.
                 thread = codex.thread_start(
+                    approval_mode=deny_all,
                     cwd=cwd,
                     model=self.config.model or None,
                     service_name=f"learnloop:{purpose}",
                 )
+                lockdown.parent_thread = getattr(thread, "id", None)
+                if not _sdk_accepts(thread.turn, "approval_mode"):
+                    raise CodexLockdownUnavailable(
+                        "The installed Codex SDK's turn takes no approval_mode, so approvals cannot be turned off; "
+                        "refusing the Codex turn."
+                    )
                 turn = thread.turn(
                     prompt,
+                    approval_mode=deny_all,
                     cwd=cwd,
                     model=self.config.model or None,
                     effort=effort,
@@ -1002,8 +1096,11 @@ class SdkCodexClient(TokenUsageAccounting):
                     deadline_timer.daemon = True
                     self._active_deadline_timer = deadline_timer
                     deadline_timer.start()
+                # Tool-round cap 0: the first tool item, sub-agent, approval
+                # request or second model request stops the turn.
+                lockdown.on_violation = lambda: self._schedule_turn_stop(turn, codex)
                 try:
-                    if self._interrupt_requested.is_set():
+                    if self._interrupt_requested.is_set() or lockdown.violations:
                         self._schedule_turn_stop(turn, codex)
                     result = turn.run()
                 finally:
@@ -1022,10 +1119,16 @@ class SdkCodexClient(TokenUsageAccounting):
             raise
         except CodexTurnTimeout:
             raise
+        except (CodexLockdownUnavailable, CodexToolUseRefused):
+            raise
         except ToolIsolationUnavailable as exc:
             # Fail closed: an isolated request never runs unconfined.
             raise CodexUnavailable(str(exc)) from exc
         except Exception as exc:
+            if lockdown.violations:
+                # The lockdown stopped the turn: what it spent still counts.
+                self._report_turn_usage(None, lockdown)
+                raise _tool_use_refusal(lockdown.violations, purpose) from exc
             if self._deadline_expired.is_set():
                 raise CodexTurnTimeout(
                     f"Codex SDK turn exceeded its {turn_timeout:g}-second deadline."
@@ -1050,10 +1153,19 @@ class SdkCodexClient(TokenUsageAccounting):
         # deadline/interrupt/empty-response checks below. A turn the learner
         # interrupted or that timed out still burned tokens, and a cost meter
         # that only counts clean completions understates every ratio built on it.
-        report_call_usage(receipt_fields_from_codex_turn(result))
-        self.record_token_usage(*usage_from_codex_turn(result))
+        self._report_turn_usage(result, lockdown)
         if workspace is not None:
             self._last_workspace_activity = _workspace_activity(result)
+
+        # Fix 4: an answer from a turn that did anything but think and write is
+        # a failed call, never a result.
+        violations = list(lockdown.violations)
+        violations += [f"turn item {kind}" for kind in item_violations(getattr(result, "items", None),
+                                                                       workspace=workspace is not None)]
+        if workspace is None and _turn_made_several_requests(result):
+            violations.append("a second model request in the turn (a tool round trip)")
+        if violations:
+            raise _tool_use_refusal(violations, purpose)
 
         if self._deadline_expired.is_set():
             raise CodexTurnTimeout(
@@ -1076,6 +1188,89 @@ class SdkCodexClient(TokenUsageAccounting):
         if final_response is None:
             raise CodexUnavailable("Codex SDK turn completed without a final response.")
         return final_response.strip()
+
+    def _report_turn_usage(self, result: Any, lockdown: TurnLockdown) -> None:
+        """Meter one turn: its own thread plus every other thread the SDK reported.
+
+        A sub-agent's thread (or any thread but the turn's own) is a model
+        loop of its own that ``result.usage`` does not include: its tokens are
+        added to the receipt and to the admission's settle (``input_tokens`` /
+        ``output_tokens``). When the turn did anything beyond one request of
+        one thread, ``usage_json.codex_turn`` records what the SDK reported
+        (threads, model requests, tool items, server requests, Guardian
+        reviews). ``result`` is None when the lockdown stopped the turn: its
+        own thread's usage then comes from the notifications."""
+
+        fields = receipt_fields_from_codex_turn(result) if result is not None else {}
+        input_tokens, output_tokens = usage_from_codex_turn(result) if result is not None else (0, 0)
+        if not fields and lockdown.parent_usage() is not None:
+            fields = _receipt_fields_from_breakdown(lockdown.parent_usage())
+            input_tokens, output_tokens = fields.get("input_tokens") or 0, fields.get("output_tokens") or 0
+        for child in lockdown.child_usage():
+            extra = _receipt_fields_from_breakdown(child)
+            for name, value in extra.items():
+                if value:
+                    fields[name] = (fields.get(name) or 0) + value
+            input_tokens += extra.get("input_tokens") or 0
+            output_tokens += extra.get("output_tokens") or 0
+        summary = lockdown.summary()
+        if (summary["threads"] > 1 or summary["model_requests"] > 1 or summary["tool_items"]
+                or summary["server_requests"] or summary["guardian_reviews"]):
+            fields["model_requests"] = summary["model_requests"]
+            fields["usage_json"] = json.dumps({"codex_turn": summary}, sort_keys=True)
+        report_call_usage(fields)
+        self.record_token_usage(input_tokens, output_tokens)
+
+
+def _receipt_fields_from_breakdown(breakdown: Any) -> dict[str, Any]:
+    """Receipt token fields of one ``TokenUsageBreakdown`` (model or camelCase dict)."""
+
+    def tokens(*names: str) -> int | None:
+        for name in names:
+            value = breakdown.get(name) if isinstance(breakdown, dict) else getattr(breakdown, name, None)
+            if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+                return value
+        return None
+
+    return {
+        "input_tokens": tokens("input_tokens", "inputTokens"),
+        "output_tokens": tokens("output_tokens", "outputTokens"),
+        "cached_input_tokens": tokens("cached_input_tokens", "cachedInputTokens"),
+        "reasoning_tokens": tokens("reasoning_output_tokens", "reasoningOutputTokens"),
+    }
+
+
+def _turn_made_several_requests(result: Any) -> bool:
+    """Whether a finished turn's own usage shows more than one model request.
+
+    A fresh thread's ``usage.total`` is the sum over its requests and
+    ``usage.last`` the final one, so they differ exactly when the turn made a
+    second request: a tool round trip (code mode's ``exec`` included, which
+    leaves no item)."""
+
+    def read(payload: Any, *names: str) -> Any:
+        for name in names:
+            value = payload.get(name) if isinstance(payload, dict) else getattr(payload, name, None)
+            if value is not None:
+                return value
+        return None
+
+    usage = read(result, "usage")
+    total = read(usage, "total") if usage is not None else None
+    last = read(usage, "last") if usage is not None else None
+    if total is None or last is None:
+        return False
+    return read(total, "total_tokens", "totalTokens") != read(last, "total_tokens", "totalTokens")
+
+
+def _tool_use_refusal(violations: list[str], purpose: str) -> CodexToolUseRefused:
+    unique = list(dict.fromkeys(violations))
+    return CodexToolUseRefused(
+        f"Codex turn {purpose!r} used a tool or made an extra request ({'; '.join(unique)}); "
+        "a locked-down turn may only answer in text, so its answer is refused.",
+        unique,
+    )
+
 
 def _sdk_accepts(config_type: Any, field_name: str) -> bool:
     """Whether the SDK's app-server config type takes ``field_name``."""

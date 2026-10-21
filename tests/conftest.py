@@ -189,6 +189,12 @@ def pytest_sessionfinish(session, exitstatus):
 def pytest_runtest_setup(item):
     durable = _session_durable or item.get_closest_marker("durability") is not None
     _set_sqlite_test_mode(durable=durable)
+    # The Codex launch check is cached per process and config fingerprint;
+    # a test's fakes (a stubbed probe, a fake CLI) must never see another
+    # test's cached verdict.
+    from learnloop.ai.providers.codex_lockdown import clear_check_cache
+
+    clear_check_cache()
 
 
 @pytest.hookimpl(trylast=True)
