@@ -668,7 +668,7 @@ on an equation block (probability `ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY` `s38`; linear
 | `reader.figures` (3 reads) | (i) `method_not_found`; (ii) refused `figures_disabled` ("Explorable figures are switched off (figures.enabled).") | the source's figures: none |
 | `reader.figure_request` (twice) | the same two refusals | a job (`pending`), then **failed, `unpriced`** ("A metered figure route needs figures.price_per_million."): refused before any request; nothing stored |
 | `reader.figure_job_cancel` (unknown) | the same two refusals | `not_found` |
-| the attempt (probability) | every call **identical**; its rows in 23 tables identical across (i)-(iv) | identical (ids normalised) |
+| the attempt (probability) | every call **identical**; its rows in 23 tables identical across (i)-(iv) once the attempt id in `response_ref` is normalised | identical (ids normalised) |
 | `reader report --json` | identical apart from `window.until` (the CLI's clock) | gains `figures` (all zero: built `{}`) |
 | `gaps run --backlog --dry-run --json` | **byte-identical** | **byte-identical** |
 | rows beyond the attempt | none | `interaction_events` 2 (`figure_requested`, salience only); no figure, ledger, spend or receipt row |
