@@ -29,12 +29,13 @@ planned item, generation takes the predecessor's target path, the report
 discloses zero observations and why), never to unfiltered data and never to an
 exception.
 
-``tests/test_ad23_material_view.py`` pins the boundary: no module under
-``adaptive_difficulty/`` (nor ``daily_plan/ad_slot.py``, the commissioned path
-of ``content/authoring/practice_generation.py`` or the sidecar's AD handlers)
-reads the raw item, attempt, question, reading-receipt, presentation or reveal
-tables, or the vault's item map, except this module, the predicate itself
-(``protection.py``) and ``data_check``'s descriptive inventory.
+**The rules** (the AD23 redesign, Option B). This module is the rules of the AD guard
+(:mod:`~learnloop.adaptive_difficulty.operation`): inside an AD operation every SQLite read of a
+protected table is refused unless these readers make it, and their SQL carries the rules marker.
+Every reader applies the registry's one rule (:meth:`MaterialView.keep` over
+``protected_tables.COLUMNS``): a row is withheld when any reference resolves to a withheld entity.
+The operation's projected vault and document IR (:meth:`MaterialView.projected_vault`,
+:meth:`MaterialView.document_ir`) are built here too.
 """
 
 from __future__ import annotations
@@ -255,7 +256,7 @@ class MaterialView:
             return False
         selfs = False
         for column, kind in _columns(table).items():
-            if kind in (_VALUE, "doses"):
+            if kind in (_VALUE, "facet_map"):
                 continue
             if kind == "self":
                 selfs = True
@@ -268,18 +269,29 @@ class MaterialView:
         return not (selfs and self._self_withheld(connection, table, row))
 
     def _transformed(self, connection: Any, table: str, row: dict[str, Any]) -> dict[str, Any]:
-        if table == "ad_reading_opportunities":
-            # The second named exception: a receipt's doses keep only facets the view still names
-            # (a frozen dose on a facet merely absent from current content stands, F30).
+        """The registry's second named exception (``facet_map``): a recorded facet mapping (a reading
+        receipt's doses, a frozen serve's loadings) keeps only the facets the view still names; a
+        frozen dose or loading on a facet merely absent from current content stands (F30)."""
+
+        for column, kind in _columns(table).items():
+            if kind != "facet_map" or column not in row:
+                continue
             dropped = self.protected_only_facets(connection)
-            raw = row.get("facet_doses_json")
+            canonical = getattr(self.vault, "canonical_facet_id", lambda value: value)
+            raw = row.get(column)
             try:
-                doses = json.loads(raw) if isinstance(raw, str) else (raw or {})
+                value = json.loads(raw) if isinstance(raw, str) else (raw or {})
             except (TypeError, ValueError):
-                doses = {}
-            if isinstance(doses, Mapping):
-                kept = {f: d for f, d in doses.items() if self.vault.canonical_facet_id(str(f)) not in dropped}
-                row["facet_doses_json"] = json.dumps(kept, sort_keys=True)
+                value = {}
+            if not isinstance(value, Mapping):
+                continue
+            nested = isinstance(value.get("loadings"), Mapping)
+            mapping = value["loadings"] if nested else value
+            kept = {f: d for f, d in mapping.items() if canonical(str(f)) not in dropped}
+            if table == "ad_reading_opportunities":
+                row[column] = json.dumps(kept, sort_keys=True)
+            elif len(kept) != len(mapping):
+                row[column] = json.dumps({**value, "loadings": kept} if nested else kept, sort_keys=True)
         return row
 
     def _ref_withheld(self, connection: Any, table: str, row: Mapping[str, Any], kind: str, value: Any) -> bool:
@@ -352,6 +364,21 @@ class MaterialView:
         if table == "ad_dose_offers":
             return str(row.get("row_kind")) == "draw" and self.dose_draw_withheld(connection, {
                 **dict(row), "content": row.get("content", _json(row.get("content_json"), {}))})
+        if table == "activity_administrations":
+            # Withheld when it administered only withheld answers (its observations' attempts): with
+            # that material absent it would never have been administered.
+            if not _has_table(connection, "activity_observations"):
+                return False
+            attempts = [attempt for (attempt,) in connection.execute(
+                "/* ad-rules */ SELECT attempt_id FROM activity_observations WHERE administration_id = ? "
+                "AND attempt_id IS NOT NULL", (str(row.get("id")),))]
+            return bool(attempts) and all(self._entity_withheld(connection, "attempt", attempt) for attempt in attempts)
+        if table == "activity_surfaces":
+            # Withheld when every administration of it is (a surface only withheld answers used).
+            administrations = _rows(connection, "/* ad-rules */ SELECT * FROM activity_administrations "
+                                    "WHERE surface_id = ?", (str(row.get("id")),))
+            return bool(administrations) and all(self._self_withheld(connection, "activity_administrations", found)
+                                                 for found in administrations)
         raise ValueError(f"no self rule for {table}")
 
     def _note_ref_withheld(self, connection: Any, note_id: Any) -> bool:

@@ -16,16 +16,25 @@ While an operation is open, every SQLite connection to its database (each one op
 context, the repository's pinned connection and any connection the entry point was handed) carries
 the AD **guard**, an authorizer:
 
-* a read of a *protected* table is allowed only while the rules execute (``rules()``; their SQL
-  carries the fixed marker :data:`RULES_MARKER`, so a statement prepared for the rules is never
-  reused by other code from SQLite's statement cache);
-* a read of a *predicate* table (the predicate's own inputs) or a *denied* table (the incumbent's
-  derived state) is refused, except by its named carve-out;
-* a write is allowed only to an AD-owned table.
+* a read of a *protected* table is allowed only while the rules execute (``rules()``: the
+  material view's readers, whose SQL carries the fixed marker :data:`RULES_MARKER`; when the rules'
+  scope closes every guarded connection's statement cache is expired, so nothing prepared inside it
+  is reused outside it unchecked);
+* a read of a *predicate* table (the predicate's own inputs) is allowed only while the predicate is
+  computed; a read of a *denied* table (the incumbent's derived state) is refused, except by the
+  named ``mastery_ekf`` carve-out;
+* the incumbent's serve-time constraints asked of a visible candidate run in
+  :func:`incumbent_constraints`, readable only by the registry's named incumbent readers;
+* a write is allowed only to an AD-owned table (with the write's own checks: its foreign keys, its
+  WHERE on its own target, the schema's triggers, and a store writer's idempotency read in
+  :func:`own_write`);
+* the egress (a model request and its send guard's fresh re-reads) leaves the operation
+  (:func:`suspended`), and a vault load inside one is refused.
 
-A refused statement raises (``sqlite3.DatabaseError: not authorized``). AD's fail-closed paths turn
-that into "AD unavailable for this operation": the incumbent serves. Each denial is logged and
-counted (``learnloop ad report``'s ``guard`` block).
+A refused statement raises (``sqlite3.DatabaseError``: "not authorized", or "access to T.C is
+prohibited"). AD's fail-closed paths turn that into "AD unavailable for this operation": the
+incumbent serves (owner decision 2026-10-21). Each denial is logged beside the database
+(``ad_guard_denials.jsonl``) and counted (``learnloop ad report``'s ``guard`` block); no UI notice.
 
 With adaptive difficulty off, no operation opens and nothing here runs.
 """
@@ -453,10 +462,15 @@ def optional_operation(vault: Any, repository: Any) -> Iterator[Operation | None
 
 
 def is_denial(exc: BaseException) -> bool:
-    """Whether an exception is the guard's refusal (SQLite's "not authorized"), or an AD reader's
-    refusal to read a withheld record it would otherwise reuse (:class:`GuardDenied`)."""
+    """Whether an exception is the guard's refusal (SQLite's "not authorized" for a statement,
+    "access to <table>.<column> is prohibited" for a column read), or an AD reader's refusal to read
+    a withheld record it would otherwise reuse (:class:`GuardDenied`)."""
 
-    return isinstance(exc, GuardDenied) or (isinstance(exc, sqlite3.DatabaseError) and "not authorized" in str(exc))
+    if isinstance(exc, GuardDenied):
+        return True
+    text = str(exc)
+    return isinstance(exc, sqlite3.DatabaseError) and (
+        "not authorized" in text or (text.startswith("access to ") and text.endswith(" is prohibited")))
 
 
 def entry(func: Callable[..., Any]) -> Callable[..., Any]:

@@ -32,14 +32,14 @@ INCUMBENT = "incumbent"
 
 _ROLES: tuple[tuple[str, str], ...] = (
     ("activity_administrations", PROTECTED),
-    ("activity_card_versions", PROTECTED),
-    ("activity_cards", PROTECTED),
-    ("activity_exposure_events", PROTECTED),
+    ("activity_card_versions", DENIED),
+    ("activity_cards", DENIED),
+    ("activity_exposure_events", DENIED),
     ("activity_families", NEUTRAL),
     ("activity_family_membership_events", PROTECTED),
     ("activity_family_versions", NEUTRAL),
-    ("activity_observations", PROTECTED),
-    ("activity_surface_lifecycle_events", PROTECTED),
+    ("activity_observations", DENIED),
+    ("activity_surface_lifecycle_events", DENIED),
     ("activity_surface_reservations", PREDICATE),
     ("activity_surfaces", PROTECTED),
     ("ad_attempt_trace", PROTECTED),
@@ -57,7 +57,7 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("attention_blocks", NEUTRAL),
     ("blind_grade_records", DENIED),
     ("capability_aliases", NEUTRAL),
-    ("causal_activity_classification_events", PROTECTED),
+    ("causal_activity_classification_events", DENIED),
     ("causal_hypotheses", DENIED),
     ("commitment_events", DENIED),
     ("commitment_target_versions", DENIED),
@@ -66,7 +66,7 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("composed_selector_telemetry_horizons", DENIED),
     ("controller_ownership", DENIED),
     ("daily_plans", NEUTRAL),
-    ("decision_features", PROTECTED),
+    ("decision_features", DENIED),
     ("derived_state_rebuilds", NEUTRAL),
     ("diagnosis_context_receipts", DENIED),
     ("diagnosis_feedback", DENIED),
@@ -79,12 +79,12 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("facet_recall_state", DENIED),
     ("facet_registry_saves", NEUTRAL),
     ("fitted_parameters", DENIED),
-    ("followup_tasks", PROTECTED),
+    ("followup_tasks", DENIED),
     ("forecast_receipts", PROTECTED),
-    ("grade_adjudications", PROTECTED),
-    ("grade_interpretations", PROTECTED),
+    ("grade_adjudications", DENIED),
+    ("grade_interpretations", DENIED),
     ("grader_calibration_models", NEUTRAL),
-    ("grading_evidence", PROTECTED),
+    ("grading_evidence", DENIED),
     ("hypothesis_recurrence_groups", DENIED),
     ("hypothesis_recurrence_review", DENIED),
     ("hypothesis_recurrence_state", DENIED),
@@ -118,17 +118,17 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("probe_generation_needs", DENIED),
     ("probe_item_family_links", DENIED),
     ("probe_observations", DENIED),
-    ("probe_presentations", PROTECTED),
+    ("probe_presentations", DENIED),
     ("proposed_patch_items", PROTECTED),
     ("proposed_patches", NEUTRAL),
     ("question_events", PROTECTED),
     ("queue_state", NEUTRAL),
-    ("raw_grade_events", PROTECTED),
+    ("raw_grade_events", DENIED),
     ("reader_authored_questions", PROTECTED),
     ("reader_section_progress", PROTECTED),
     ("reveal_events", PROTECTED),
-    ("rung_variant_requests", PROTECTED),
-    ("scheduler_slate_candidates", PROTECTED),
+    ("rung_variant_requests", DENIED),
+    ("scheduler_slate_candidates", DENIED),
     ("schema_migrations", NEUTRAL),
     ("source_artifacts", NEUTRAL),
     ("source_document_assets", PROTECTED),
@@ -143,7 +143,7 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("source_unit_selections", PREDICATE),
     ("sqlite_master", NEUTRAL),
     ("sqlite_temp_master", NEUTRAL),
-    ("submission_intents", PROTECTED),
+    ("submission_intents", DENIED),
     ("task_feature_schema_versions", NEUTRAL),
     ("trace_exercised_facets", DENIED),
     ("unresolved_cause_factors", DENIED),
@@ -181,8 +181,9 @@ VALUE = "value"
 #:   selection's chosen and slot items: Codex verify F39);
 #: * ``source@C``: a reading receipt's source row in table ``C``, resolved again now; a source since
 #:   deleted leaves its frozen receipt standing (Codex verify F30's named exception);
-#: * ``doses``: not a withholding reference: a receipt's doses drop the facets only withheld
-#:   material names (the second named exception);
+#: * ``facet_map``: not a withholding reference: a recorded facet mapping (a receipt's doses, a
+#:   frozen serve's loadings) drops the facets only withheld material names (the second named
+#:   exception);
 #: * ``dose_extra@C``: a dose draw's chosen extra (its question or its example span), by variant ``C``;
 #: * ``plan_detail@C``: a plan block event's detail (its item, its attempt, its serve in block ``C``).
 #:
@@ -190,28 +191,15 @@ VALUE = "value"
 #: is a ``value``: it is recorded, never read back as a learner input, and the row stands or falls
 #: by its references above.
 COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
-    "activity_administrations": _table({"surface_id": "surface"},
-        values="id card_version_id family_id purpose administration_snapshot_hash snapshot_json "
+    "activity_administrations": _table({"id": "self", "surface_id": "surface"},
+        values="card_version_id family_id purpose administration_snapshot_hash snapshot_json "
                "target_contract_version_id target_support_hash grader_model_version_id selection_policy_version_id "
                "decision_params_hash assistance_json feedback_condition eligibility_json reservation_id "
                "legacy_backfilled created_at reading_phase admin_context_json"),
-    "activity_card_versions": _table({},
-        values="id card_id version card_contract_hash contract_json schema_version predecessor_card_version_id "
-               "lineage_kind legacy_contract_version_id created_at"),
-    "activity_cards": _table({},
-        values="id family_id created_at"),
-    "activity_exposure_events": _table({"surface_id": "surface", "administration_id": "administration"},
-        values="id surface_hash fingerprint kind purpose consumes_unseen detail_json created_at"),
     "activity_family_membership_events": _table({"practice_item_id": "item"},
         values="seq id family_id card_id variant_relation action proposal_id judgment_id created_at"),
-    "activity_observations": _table({
-        "administration_id": "administration", "surface_id": "surface", "attempt_id": "attempt",
-    },
-        values="id response_ref active_interpretation_id evidence_eligibility eligibility_reason created_at"),
-    "activity_surface_lifecycle_events": _table({"surface_id": "surface", "administration_id": "administration"},
-        values="id reservation_id kind reason detail_json created_at"),
-    "activity_surfaces": _table({"legacy_practice_item_id": "item"},
-        values="id card_version_id surface_hash fingerprint surface_json legacy_surface_unverifiable created_at"),
+    "activity_surfaces": _table({"id": "self", "legacy_practice_item_id": "item"},
+        values="card_version_id surface_hash fingerprint surface_json legacy_surface_unverifiable created_at"),
     "ad_attempt_trace": _table({"attempt_id": "attempt"},
         values="view input_status category prior_mean prior_var post_mean post_var p_categories_json information "
                "points_json detail_json"),
@@ -228,7 +216,7 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
         values="draw_key visit_id learning_object_ids_json feasible_json infeasible_json base_version floor "
                "propensities_json seed u forecast_p detail_json created_at"),
     "ad_reading_opportunities": _table({
-        "source_id": "source@source_table", "facet_doses_json": "doses", "dose_offer_id": "dose_draw",
+        "source_id": "source@source_table", "facet_doses_json": "facet_map", "dose_offer_id": "dose_draw",
     },
         values="id opportunity_key kind subkind source_table source_written_at learning_object_id mapping_version "
                "authority_class sweep sweep_ref swept_at"),
@@ -246,20 +234,10 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
         values="view part payload_json state_hash as_of versions_json"),
     "attention_block_events": _table({"detail_json": "plan_detail@block_id"},
         values="id block_id event_ordinal kind created_at"),
-    "causal_activity_classification_events": _table({"attempt_id": "attempt"},
-        values="id seq contamination_class near_clone near_clone_basis closes_pre_intervention_segment "
-               "eligible_for_fsrs eligible_for_certification source policy_version detail_json created_at"),
-    "decision_features": _table({},
-        values="id decision_id decision_type ability_vector_json item_demand_vector_json context_json "
-               "algorithm_version created_at"),
-    "entity_source_links": _table({"entity_id": "entity@entity_type", "extraction_id": "extraction"},
-        values="id entity_type source_id revision_id locator locator_scheme relation asset_hash span_hash patch_id "
+    "entity_source_links": _table({"entity_id": "entity@entity_type", "extraction_id": "extraction",
+                                   "locator": "span@extraction_id"},
+        values="id entity_type source_id revision_id locator_scheme relation asset_hash span_hash patch_id "
                "status stale_at superseded_by_link_id created_at"),
-    "followup_tasks": _table({
-        "source_attempt_id": "attempt", "selected_item_id": "item", "consumed_attempt_id": "attempt",
-    },
-        values="id kind case_kind case_ref remediation_episode_id not_before expires_at status context_json "
-               "learning_object_id created_at updated_at measurement_opportunity_id"),
     "forecast_receipts": _table({
         "source_attempt_id": "attempt", "practice_item_id": "item", "item_content_hash": "revision",
         "plan_presentation_id": "presentation", "facet_id": "facet",
@@ -268,19 +246,6 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
                "learning_object_id hypothesis_ref binding_kind probe_presentation_id followup_task_id "
                "scheduler_candidate_id censor_reason event p forecast_json inputs_json inputs_hash inputs_as_of "
                "parameters_json versions_json status algorithm_version created_at received_at"),
-    "grade_adjudications": _table({"administration_id": "administration"},
-        values="id observation_id reviewed_raw_event_ids_json adjudicator_source resolved_class "
-               "resolved_distribution_json rationale provenance_json bounded_trust_weight "
-               "resulting_interpretation_id superseded_adjudication_id created_at"),
-    "grade_interpretations": _table({"administration_id": "administration"},
-        values="id raw_grade_event_id observation_id calibration_model_id calibration_model_hash "
-               "projection_algorithm_version channel_posterior_snapshot_id response_posterior_json "
-               "criterion_posteriors_json reference_prior_ids_json certainty_discount credible_interval_json "
-               "review_flag influence_flag quarantine_state fallback_reason created_at shared_certainty_lcb"),
-    "grading_evidence": _table({"attempt_id": "attempt"},
-        values="id criterion_id points_awarded evidence notes agent_run_id local_grader_id grader_tier created_at "
-               "superseded_at superseded_by_evidence_id learner_confidence assessment_contract_version_id "
-               "grading_revision observation_id recipe_id attribution_json correlation_group"),
     "interaction_events": _table({
         "administration_id": "administration", "surface_id": "surface", "attempt_id": "attempt",
         "subject_id": "entity@subject_type",
@@ -300,10 +265,11 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
                "detail_json"),
     "item_serve_inputs": _table({
         "plan_presentation_id": "presentation", "practice_item_id": "item", "content_hash": "revision",
+        "loadings_json": "facet_map",
     },
         values="id receipt_key presentation_kind probe_presentation_id scheduler_candidate_id learning_object_id "
                "served_at stamped_features_json task_feature_schema audit_json resolved_features_json signals_json "
-               "z_v1_recalibration pre_exposed resolution_version loadings_json coupling_version created_at"),
+               "z_v1_recalibration pre_exposed resolution_version coupling_version created_at"),
     "judgment_ledger": _table({"left_id": "entity@left_kind", "right_id": "entity@right_kind"},
         values="id created_at supersedes_id task left_kind right_kind judge judge_model prompt_version input_hash "
                "verdict score rationale"),
@@ -324,13 +290,6 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
                "reference_status difficulty_rating first_hint_progress"),
     "practice_item_snapshots": _table({"content_hash": "self", "item_json": "self", "practice_item_id": "item"},
         values="created_at"),
-    "probe_presentations": _table({"practice_item_id": "item"},
-        values="id probe_episode_id scheduler_candidate_id state_segment_id probe_family_template_id "
-               "probe_family_template_version instrument_card_id instrument_card_version "
-               "instrument_card_snapshot_json target_hypothesis_pairs_json target_facets_json "
-               "posterior_at_selection_json entropy_at_selection expected_information_gain selection_policy_version "
-               "status end_reason served_at submitted_at expires_at ended_at created_at updated_at "
-               "selection_components_json"),
     "proposed_patch_items": _table({"target_entity_id": "entity@target_entity_type"},
         values="id proposed_patch_id client_item_id item_type operation target_entity_type payload_json "
                "edited_payload_json decision validation_status validation_errors_json applied_change_batch_id "
@@ -345,12 +304,6 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
                "scaffold_level warning_state learner_mode question_opportunity hints_used_before "
                "direct_explanation_request attempt_progress signal_channel resolution leak_overlap "
                "remediation_episode_id assessment_contract_version_id answered_at answer_mode"),
-    "raw_grade_events": _table({"administration_id": "administration", "attempt_id": "attempt"},
-        values="id observation_id response_ref role grader_provider grader_model_revision grading_prompt_version "
-               "grader_output_schema_version grader_identity_hash agent_run_id raw_output_json "
-               "criterion_evidence_json observed_class model_confidence confidence_bucket "
-               "criterion_observed_classes_json response_classifier_version criterion_classifier_version "
-               "context_features_json exact_word_count declared_length_bucket predecessor_event_id created_at"),
     "reader_authored_questions": _table({
         "id": "self", "extraction_id": "self", "anchor_span_ids_json": "self", "span_ids_json": "self",
         "practice_item_id": "item",
@@ -364,16 +317,6 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
         "practice_item_id": "item", "attempt_id": "attempt", "question_event_id": "question_event",
     },
         values="id learning_object_id remediation_episode_id source_kind amount basis created_at"),
-    "rung_variant_requests": _table({
-        "source_practice_item_id": "item", "created_practice_item_id": "item", "attempt_id": "attempt",
-    },
-        values="id learning_object_id direction source_waypoint_slug target_waypoint_slug target_rung_json status "
-               "learner_claim_id batch_id patch_id failure_reason created_at updated_at variant_kind"),
-    "scheduler_slate_candidates": _table({"practice_item_id": "item", "chosen_attempt_id": "attempt"},
-        values="id slate_id learning_object_id rank returned_rank was_returned selected_mode priority "
-               "selection_reward predicted_correctness legacy_priority expected_information_gain readiness_factor "
-               "components_json reward_debug_json target_scope_json plain_english_json algorithm_version created_at "
-               "chosen_at selection_propensity exploration_flag selection_temperature propensity_kind"),
     "source_document_assets": _table({
         "extraction_id": "extraction", "neighboring_span_ids_json": "spans@extraction_id",
     },
@@ -391,9 +334,6 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
         "from_extraction_id": "extraction", "from_span_id": "span@from_extraction_id",
         "to_extraction_id": "extraction", "to_span_id": "span@to_extraction_id",
     }, values="match_kind confidence created_at"),
-    "submission_intents": _table({"practice_item_id": "item"},
-        values="submission_id session_id scheduler_candidate_id entry_surface viewing_status collection_version "
-               "created_at"),
 })
 
 #: The polymorphic entity kinds (entity@C): a kind not listed names nothing withheld.
@@ -442,9 +382,6 @@ AD_WRITABLE = frozenset({
 CARVE_OUTS: Mapping[str, frozenset[str]] = MappingProxyType({
     "learning_object_mastery": frozenset({"learnloop.adaptive_difficulty.forecasters"}),
     "item_parameter_state": frozenset({"learnloop.adaptive_difficulty.forecasters"}),
-    "practice_item_state": frozenset({"learnloop.adaptive_difficulty.forecasters"}),
-    "probe_episodes": frozenset({"learnloop.adaptive_difficulty.forecasters"}),
-    "probe_observations": frozenset({"learnloop.adaptive_difficulty.forecasters"}),
 })
 
 _WHY = {PROTECTED: "a protected table read outside the rules",

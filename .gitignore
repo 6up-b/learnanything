@@ -242,6 +242,8 @@ apps/*debug*.jsonl
 
 # Dev fixture vault runtime sidecar state
 fixtures/**/state.sqlite-*
+# The AD guard's denial log, beside a vault's database (adaptive_difficulty.operation).
+**/ad_guard_denials.jsonl
 
 # Personal dev vaults (per-developer copies of fixture vaults; never tracked).
 # Kept outside fixtures/ so the fixture-discovery tests (test_receipt_exactness,

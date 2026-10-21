@@ -27,7 +27,7 @@ No outcome of the report changes any switch, config or served item.
 
 from __future__ import annotations
 
-from learnloop.adaptive_difficulty.operation import entry
+from learnloop.adaptive_difficulty.operation import denial_count, entry
 
 import math
 from collections import Counter, defaultdict
@@ -586,6 +586,9 @@ def build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] =
         # read nothing item-derived, and says so.
         "protection": {"available": view.available, "reason": view.reason,
                        "withheld_items": len(view.withheld_item_ids)},
+        # The AD guard's refusals so far (owner decision 2026-10-21: logged, counted here, no UI
+        # notice; each left AD unavailable for its operation, and the incumbent served).
+        "guard": {"denials": denial_count(repository.sqlite_path)},
         "field_coverage": log["field_coverage"],
         "auto_flags": flags,
         "honest_lines": lines,
@@ -614,6 +617,10 @@ def render_markdown(report: Mapping[str, Any]) -> str:
              "## Auto-flags"]
     for flag in report["auto_flags"]:
         lines.append(f"- {flag['flag']}: {'FIRES -> recommends ' + flag['recommends'] if flag['fires'] else 'quiet'}")
+    guard = (report.get("guard") or {}).get("denials")
+    if guard:
+        lines += ["", f"AD's guard refused {guard} read(s) or write(s) so far: each left AD unavailable for that "
+                      "operation, and the incumbent served (ad_guard_denials.jsonl beside the database)."]
     lines += ["", "## Is it helping?"]
     lines += [f"- {line}" for line in report["honest_lines"]]
     lines += ["", "## Scores (first attempts at never-seen topics first)"]
