@@ -69,8 +69,17 @@ def test_the_import_linter_contract_names_every_production_package():
     assert {"learnloop_sidecar", "learnloop_mobile", "learnloop_mcp"} <= set(contract["source_modules"])
 
 
-def test_the_experiments_write_no_sql():
+def test_the_experiments_write_sql_only_to_redact_a_service_copy():
+    # The one raw SQL write is the redaction of a SERVICE copy's protected
+    # block text (Codex review F1; refused outside fixtures-local). Verdicts go
+    # through the production append_judgment into the experiment's own
+    # repository; nothing writes a frozen copy.
+    allowed = {("system_arms.py", "UPDATE ")}
     for path in EXPERIMENTS.rglob("*.py"):
         text = path.read_text(encoding="utf-8")
         for statement in ("INSERT INTO", "UPDATE ", "DELETE FROM", "REPLACE INTO", "CREATE TABLE"):
+            if (path.name, statement) in allowed:
+                assert text.count(statement) == 1
+                assert "UPDATE source_document_blocks SET text = ''" in text
+                continue
             assert statement not in text, f"{path.name}: {statement}"

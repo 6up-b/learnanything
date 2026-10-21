@@ -66,6 +66,13 @@ def render(results: Mapping[str, Any]) -> str:
     if status != "complete":
         lines += [f"**Incomplete:** {results.get('incomplete_reason', 'no results yet')}. Every table below keeps its "
                   "original denominator; missing work is listed in the failure ledger.", ""]
+    planned = results.get("planned") or {}
+    lines += ["## Planned work and what was done", "",
+              f"- Development seeds {_fmt(planned.get('development_seeds'))}, written "
+              f"{_fmt(planned.get('development_written'))}; questions {_fmt(planned.get('questions'))}, labelled "
+              f"{_fmt(planned.get('labelled'))}; answers planned {_fmt(planned.get('answers'))}, made "
+              f"{_fmt(planned.get('answers_made'))}.",
+              f"- Missing: {_fmt(planned.get('missing') or 'none')}.", ""]
     baseline = results.get("baseline") or {}
     lines += ["## Baseline handoff", "",
               f"- Delivery fixes: `{pins.DELIVERY_FIXES['merge_commit']}` ({pins.DELIVERY_FIXES['review']}).",
@@ -91,11 +98,22 @@ def render(results: Mapping[str, Any]) -> str:
               f"model-only: {_fmt(labels.get('model_only'))}; owner-reviewed: {_fmt(labels.get('owner_reviewed', 0))}; "
               f"unresolved: {_fmt(labels.get('unresolved'))}.", ""]
     lines += ["## Delivery (D0-D3, same tutor)", "", "| Comparison | Answer pass, paired difference |", "|---|---|"]
-    for name, result in sorted((results.get("delivery") or {}).items()):
+    delivery = dict(results.get("delivery") or {})
+    does_not_fit = delivery.pop("does_not_fit", None)
+    for name, result in sorted(delivery.items()):
         lines.append(f"| {name} | {_interval(result)} |")
-    if not results.get("delivery"):
+    if not delivery:
         lines.append("| not run | |")
-    lines += ["", "## Retrieval (Complete Evidence@10 on common units)", "",
+    lines += ["", f"- does_not_fit (answered by the named bounded fallback, reported apart, never paired as "
+                  f"whole context): {_fmt(does_not_fit)}."]
+    checks = results.get("latency_checks") or {}
+    for name, check in sorted(checks.items()):
+        lines.append(f"- Latency {name}: p50/p95 {_fmt(check.get('p50'))}/{_fmt(check.get('p95'))} s vs incumbent "
+                     f"{_fmt(check.get('incumbent_p50'))}/{_fmt(check.get('incumbent_p95'))} s (paired "
+                     f"{_fmt(check.get('paired'))}); deadline {_fmt(check.get('deadline_s'))} s; regression "
+                     f"{_fmt(check.get('regression'))}; ok {_fmt(check.get('ok'))}.")
+    lines += ["", "## Retrieval (Complete Evidence@10 on common units; primary development slice, where the "
+                  "finalists are chosen)", "",
               "| Arm | CE@10 | Support R@10 | Answer R@10 | nDCG@10 | MRR | Unknown share | Scored / total |",
               "|---|---|---|---|---|---|---|---|"]
     for arm, row in sorted((results.get("retrieval") or {}).items()):
@@ -104,9 +122,29 @@ def render(results: Mapping[str, Any]) -> str:
                      f"{row.get('scored', 0)} / {row.get('total', 0)} |")
     if not results.get("retrieval"):
         lines.append("| not run | | | | | | | |")
+    slices = results.get("retrieval_slices") or {}
+    names = [name for name in ("primary_development", "development_all", "logged", "direct_lookup", "no_support")
+             if name in slices]
+    if names:
+        lines += ["", "| Arm | " + " | ".join(f"{name} CE@10 (scored/total)" for name in names) + " |",
+                  "|---|" + "---|" * len(names)]
+        for arm in sorted({arm for name in names for arm in slices[name]}):
+            cells = []
+            for name in names:
+                row = slices[name].get(arm) or {}
+                cells.append(f"{_fmt(row.get('ce10'))} ({row.get('scored', 0)}/{row.get('total', 0)})")
+            lines.append(f"| {arm} | " + " | ".join(cells) + " |")
     lines += ["", "| Paired comparison | Difference [95% CI] |", "|---|---|"]
     for name, result in sorted((results.get("paired") or {}).items()):
         lines.append(f"| {name} | {_interval(result)} |")
+    systems = results.get("system_arms") or {}
+    if systems:
+        lines += ["", "| System arm | Interface | Ranked / questions | Missing | Pages | Verification | Dense used |",
+                  "|---|---|---|---|---|---|---|"]
+        for arm, row in sorted(systems.items()):
+            lines.append(f"| {arm} | {row.get('interface')} | {row.get('ranked')} / {row.get('questions')} | "
+                         f"{_fmt(row.get('missing') or 'none')} | {_fmt(row.get('pages'))} | "
+                         f"{_fmt(row.get('verification'))} | {row.get('dense_used')} |")
     lines += ["", "## Blind answers (finalists, D1)", "", "| Arm | Pass all criteria | Correct | Assumptions | "
               "Citations entailed | Abstention |", "|---|---|---|---|---|---|"]
     for arm, row in sorted((results.get("answers") or {}).items()):

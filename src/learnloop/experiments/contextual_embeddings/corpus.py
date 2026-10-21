@@ -66,7 +66,7 @@ from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
 
 from learnloop.experiments.contextual_embeddings import pins
-from learnloop.experiments.contextual_embeddings.pins import conservative_tokens
+from learnloop.experiments.contextual_embeddings.pins import token_estimate, token_upper_bound
 
 #: Copies and artifacts live only under a directory of this name (gitignored).
 LOCAL_ROOT_NAME = "fixtures-local"
@@ -379,14 +379,14 @@ def split_offsets(text: str, max_tokens: int) -> list[tuple[int, int]]:
     length = len(text)
     while start < length:
         end = length
-        if conservative_tokens(text[start:end]) <= max_tokens:
+        if token_estimate(text[start:end]) <= max_tokens:
             pieces.append((start, end))
             break
         # The longest prefix within the bound (binary search on characters).
         low, high = start + 1, length
         while low < high:
             middle = (low + high + 1) // 2
-            if conservative_tokens(text[start:middle]) <= max_tokens:
+            if token_estimate(text[start:middle]) <= max_tokens:
                 low = middle
             else:
                 high = middle - 1
@@ -416,7 +416,7 @@ def _unit(extraction: ExtractionInfo, section: tuple[str, ...], segment: int, me
     if label:
         tags.append("numbered")
     return CandidateUnit(unit_id, extraction.source_id, extraction.extraction_id, section, segment,
-                         tuple(members), text, conservative_tokens(text), kind, label, lead, tuple(tags))
+                         tuple(members), text, token_estimate(text), kind, label, lead, tuple(tags))
 
 
 _EQ_IN = re.compile(r"\$\$|\\\[|\\begin\{(?:equation|align)")
@@ -462,10 +462,10 @@ def build_units(extraction: ExtractionInfo, blocks: Sequence[BlockRow], titles: 
             flush()
         if pending_equation is not None and pending_equation[1] != section:
             flush_pending()
-        tokens = conservative_tokens(block.text)
+        tokens = token_estimate(block.text)
         if _kind(block) in _CAPTION_TYPES:
             if open_unit is not None and open_unit["kind"] == "captions":
-                current = conservative_tokens("\n".join(open_unit["texts"]))
+                current = token_estimate("\n".join(open_unit["texts"]))
                 if current < min_caption and current + tokens <= max_caption:
                     open_unit["members"].append(Member(block.span_id, 0, len(block.text)))
                     open_unit["texts"].append(block.text)
@@ -477,7 +477,7 @@ def build_units(extraction: ExtractionInfo, blocks: Sequence[BlockRow], titles: 
             continue
         if _bare_equation(block):
             if (open_unit is not None and open_unit["kind"] in ("block", "equation_attached")
-                    and conservative_tokens("\n".join(open_unit["texts"])) + tokens <= pins.UNIT_MAX_TOKENS):
+                    and token_estimate("\n".join(open_unit["texts"])) + tokens <= pins.UNIT_MAX_TOKENS):
                 open_unit["members"].append(Member(block.span_id, 0, len(block.text)))
                 open_unit["texts"].append(block.text)
                 open_unit["kind"] = "equation_attached"
@@ -503,7 +503,7 @@ def build_units(extraction: ExtractionInfo, blocks: Sequence[BlockRow], titles: 
         kind = "block"
         if pending_equation is not None:
             equation = pending_equation[0]
-            if conservative_tokens(equation.text) + tokens <= pins.UNIT_MAX_TOKENS and label is None:
+            if token_estimate(equation.text) + tokens <= pins.UNIT_MAX_TOKENS and label is None:
                 members.insert(0, Member(equation.span_id, 0, len(equation.text)))
                 texts.insert(0, equation.text)
                 kind = "equation_attached"
@@ -583,15 +583,19 @@ def build_windows(units: Sequence[CandidateUnit], *, window_tokens: int = pins.W
 
 def whole_segment_windows(units: Sequence[CandidateUnit], *, limit_tokens: int) -> list[Window]:
     """One window per permitted segment that fits ``limit_tokens`` whole (the
-    secondary whole-source arm); a segment that does not fit gets none."""
+    secondary whole-source arm); a segment that does not fit gets none. The
+    fit is judged by the guaranteed upper bound (``token_upper_bound``), never
+    the estimate, so a whole window can never pass the provider's limit
+    (Codex review F15)."""
 
     found: list[Window] = []
     by_segment: dict[tuple[str, int], list[CandidateUnit]] = {}
     for unit in units:
         by_segment.setdefault((unit.extraction_id, unit.segment), []).append(unit)
     for (extraction_id, segment), members in by_segment.items():
+        bound = sum(token_upper_bound(unit.text) + pins.CHUNK_MARKER_TOKENS for unit in members)
         tokens = sum(_chunk_tokens(unit) for unit in members)
-        if tokens <= limit_tokens:
+        if bound <= limit_tokens:
             ids = tuple(unit.unit_id for unit in members)
             found.append(Window("ws_" + _sha(extraction_id, segment, ids)[:16], extraction_id, segment, ids,
                                 tokens, whole_segment=True))
@@ -763,7 +767,7 @@ class CorpusSnapshot:
                 **info.public(), "family": self.family_of_source.get(info.source_id),
                 "blocks": len(blocks), "content_blocks": len(content), "withheld_blocks": withheld,
                 "block_types": dict(sorted(types.items())),
-                "content_tokens": sum(conservative_tokens(block.text) for block in content),
+                "content_tokens": sum(token_estimate(block.text) for block in content),
                 "permitted_tokens": sum(unit.tokens for unit in units),
                 "units": len(units),
                 "windows": sum(1 for window in self.windows if window.extraction_id == extraction_id),

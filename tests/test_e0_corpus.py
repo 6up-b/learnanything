@@ -9,7 +9,7 @@ from learnloop.content.synthesis.source_unit_selection import save_unit_selectio
 from learnloop.db.connection import connect
 from learnloop.experiments.contextual_embeddings import corpus as C
 from learnloop.experiments.contextual_embeddings import pins
-from learnloop.experiments.contextual_embeddings.pins import conservative_tokens
+from learnloop.experiments.contextual_embeddings.pins import token_estimate
 from tests.e0_fakes import EXAM, LONG_BLOCK, build_e0_vault
 
 
@@ -61,7 +61,7 @@ def test_split_offsets_cover_text_exactly_and_respect_the_bound():
     pieces = C.split_offsets(text, 200)
     assert pieces[0][0] == 0 and pieces[-1][1] == len(text)
     assert all(a[1] == b[0] for a, b in zip(pieces, pieces[1:]))
-    assert all(conservative_tokens(text[start:end]) <= 200 for start, end in pieces)
+    assert all(token_estimate(text[start:end]) <= 200 for start, end in pieces)
     assert C.split_offsets(text, 200) == pieces
 
 

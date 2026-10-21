@@ -187,6 +187,23 @@ def split_strata(snapshots: Sequence[CorpusSnapshot], strata: Mapping[str, int] 
     return result
 
 
+def plan_identity(handles: Sequence[CopyHandle], snapshots: Sequence[CorpusSnapshot],
+                  strata: Mapping[str, Mapping[str, int]]) -> dict[str, Any]:
+    """What a frozen plan is: the run id (pins, policy, units, the bank's
+    smoke, logged and seed ids) and the family splits. The paid run rebuilds
+    this and refuses any difference (Codex review F5)."""
+
+    bank_ids: list[str] = []
+    for handle, snapshot in zip(handles, snapshots, strict=True):
+        smoke, _stats = smoke_bank(snapshot)
+        logged, _counts = logged_bank(snapshot, handle.repository.question_events(answer_status="answered"))
+        seeds, _shortfall = plan_seeds(snapshot, strata=strata[handle.label])
+        bank_ids.extend(question.query_id for question in smoke + logged)
+        bank_ids.extend(seed.seed_id for seed in seeds)
+    return {"run_id": run_id(snapshots, bank_ids),
+            "splits": {snapshot.vault_label: dict(sorted(snapshot.family_status.items())) for snapshot in snapshots}}
+
+
 def migration_head(handle: CopyHandle) -> int | None:
     from contextlib import closing
 
@@ -276,6 +293,9 @@ def dry_run(copies: Sequence[Path], *, key_envs: Mapping[str, str] | None = None
             role: pin.prompt_version for role, pin in sorted(pins.ROLE_PINS.items())}}
         plan = {
             "status": "dry_run", "run_id": run_id(snapshots, bank_ids), "harness": pins.HARNESS_VERSION,
+            # The frozen split the paid run must execute exactly (Codex review F5).
+            "reserve_share": float(reserve_share),
+            "splits": {snapshot.vault_label: dict(sorted(snapshot.family_status.items())) for snapshot in snapshots},
             "pins_fingerprint": pins.pins_fingerprint(), "seed": pins.SEED,
             "baseline": baseline,
             "corpus": [snapshot.inventory() for snapshot in snapshots],
@@ -286,7 +306,11 @@ def dry_run(copies: Sequence[Path], *, key_envs: Mapping[str, str] | None = None
             "by_provider": _by_provider(arms, systems, roles),
             "assumptions": ASSUMPTIONS, "prompts": prompts,
             "limits": {"cap_usd": pins.E0_CAP_USD, "allocation_usd": pins.ALLOCATION_USD,
-                       "max_paid_requests": pins.MAX_PAID_REQUESTS, "request_timeout_s": pins.REQUEST_TIMEOUT_S,
+                       "max_metered_requests": pins.MAX_PAID_REQUESTS, "subscription_requests": "unbounded (owner)",
+                       "request_timeout_s": pins.REQUEST_TIMEOUT_S, "max_wall_s_enforced": True,
+                       "latency_regression_tolerance": pins.LATENCY_REGRESSION_TOLERANCE,
+                       "output_bound": "the ai.output_tokens policy per role profile (reserved as sent)",
+                       "token_bound": "UTF-8 bytes + 8 for limits and admission; bytes/3 for estimates",
                        "max_wall_s": pins.MAX_WALL_S, "transient_retries": pins.TRANSIENT_RETRIES,
                        "auth_or_contract_retries": 0, "window_tokens": pins.WINDOW_TOKENS,
                        "d1_evidence_tokens": pins.D1_EVIDENCE_TOKENS, "pool_depth": pins.POOL_DEPTH,

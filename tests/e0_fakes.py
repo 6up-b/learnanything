@@ -22,6 +22,7 @@ import numpy as np
 from learnloop.db.repositories import Repository
 from learnloop.experiments.contextual_embeddings.adapters import HttpResponse
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
+from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.writer import upsert_source_set
 from tests.helpers import append_config_toml, create_basic_vault
@@ -95,11 +96,21 @@ def _seed(repository: Repository, *, source_id: str, extraction_id: str, title: 
 
 
 def build_e0_vault(tmp_path: Path, name: str = "e0vault", *, exam: bool = True,
-                   config: str | None = None) -> tuple[VaultPaths, Repository]:
+                   config: str | None = None, manual_ai: bool = False) -> tuple[VaultPaths, Repository]:
     root = tmp_path / "fixtures-local" / "contextual-embeddings" / "vaults" / name
     root.parent.mkdir(parents=True, exist_ok=True)
     paths = create_basic_vault(root)
     append_config_toml(paths.root, config or "[source_retrieval]\nquery_rewrite = false\n")
+    if manual_ai:
+        # No production route resolves a client (a verification or comparison the
+        # system arms ask for finds none), so no test can reach a real model.
+        import tomlkit
+
+        toml = paths.root / "learnloop.toml"
+        document = tomlkit.parse(toml.read_text(encoding="utf-8"))
+        document["ai"]["active_provider"] = "manual"
+        toml.write_text(tomlkit.dumps(document), encoding="utf-8")
+        paths = VaultPaths(paths.root, load_vault(paths.root, load_environment=False).config)
     repository = Repository(paths.sqlite_path)
     _seed(repository, source_id="src_book", extraction_id="ext_book", title="Linear Algebra Book", sections=BOOK)
     _seed(repository, source_id="src_talk", extraction_id="ext_talk", title="Lecture on bases",
@@ -232,6 +243,8 @@ def fake_respond(role: str, prompt: str, _model: Any) -> dict[str, Any]:
             labels.append({"ref": candidate["ref"], "relevance": relevance})
             if relevance == "required":
                 required.append(candidate["ref"])
+        if getattr(_model, "__name__", "") == "SufficiencyPass":
+            return {"sufficient_sets": [[ref] for ref in required[:2]], "answerable": bool(required)}
         return {"labels": labels, "sufficient_sets": [[ref] for ref in required[:2]], "answerable": bool(required)}
     if role == "adjudicator":
         labels = [{"ref": candidate["ref"], "relevance": candidate["pass_1"] or "unrelated"}
@@ -247,3 +260,47 @@ def fake_respond(role: str, prompt: str, _model: Any) -> dict[str, Any]:
         citations = ok if role != "judge_b" or len(context["passages"]) > 2 else "fail"
         return {"correct": ok, "assumptions": "pass", "citations": citations, "abstention": "n/a"}
     raise AssertionError(f"unexpected role {role}")
+
+
+#: The resolved identity each pinned profile's client reports.
+PROFILE_IDENTITY = {
+    "codex_luna": ("codex_sdk", "gpt-6-luna", None),
+    "codex_low": ("codex_sdk", "gpt-5.6-sol", None),
+    "e0_openrouter_sonnet": ("openrouter", "anthropic/claude-sonnet-5.5", "https://openrouter.ai/api/v1"),
+}
+
+
+class FakeRoleClient:
+    """A structured transport for one pinned profile: ``complete`` makes one
+    physical request (admitted by the context's gate), reports usage and
+    answers with ``fake_respond`` for the role named in the purpose."""
+
+    def __init__(self, profile_name: str, *, provider_type: str | None = None, model: str | None = None,
+                 base_url: str | None = None, respond: Callable[..., Any] = None,
+                 usage: Mapping[str, Any] | None = None) -> None:
+        from types import SimpleNamespace
+
+        default = PROFILE_IDENTITY.get(profile_name, ("codex_sdk", "unknown", None))
+        self.provider_name = profile_name
+        self.provider_type = provider_type or default[0]
+        self.model = model or default[1]
+        self.profile = SimpleNamespace(base_url=base_url if base_url is not None else default[2], model=self.model,
+                                       reasoning_effort=None, max_tokens=None)
+        self.respond = respond or fake_respond
+        self.usage = dict(usage or {"input_tokens": 500, "output_tokens": 200})
+        self.requests: list[dict[str, Any]] = []
+
+    def supports(self, capability: str) -> bool:
+        from learnloop.ai.transport import ISOLATED_TURN, STRUCTURED_COMPLETION
+
+        return capability in (STRUCTURED_COMPLETION, ISOLATED_TURN)
+
+    def complete(self, request: Any) -> Any:
+        from learnloop.ai.execution import model_call, report_call_usage
+
+        with model_call(self, purpose=request.purpose, prompt=request.prompt, budget=request.output_budget_tokens):
+            report_call_usage(dict(self.usage))
+        self.requests.append({"purpose": request.purpose, "output_budget_tokens": request.output_budget_tokens})
+        role = str(request.purpose).removeprefix("e0_")
+        value = self.respond(role, request.prompt, request.result_model)
+        return value if hasattr(value, "model_dump") else request.result_model.model_validate(value)

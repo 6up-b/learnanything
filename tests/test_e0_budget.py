@@ -59,14 +59,36 @@ def test_the_global_cap_binds_across_categories(tmp_path):
         ledger.reserve(_request(0.2, category="embeddings"))
 
 
-def test_subscription_requests_are_admitted_at_zero_and_count_requests(tmp_path):
+def test_subscription_requests_are_admitted_at_zero_and_never_hit_the_request_cap(tmp_path):
+    # Codex review F14: the owner exempted subscription transports from any
+    # physical-request bound (2026-10-12); they are tallied, never limited.
     ledger = E0Ledger(tmp_path, max_requests=3)
-    for _ in range(3):
+    for _ in range(10):
         reservation = ledger.reserve(_request(5.0, category="labels_audits", billing="subscription"))
         ledger.settle(reservation, actual_usd=None, usage={"input_tokens": 100, "output_tokens": 10})
-    assert ledger.report()["committed_usd"] == 0.0
+    report = ledger.report()
+    assert report["committed_usd"] == 0.0
+    assert report["subscription_requests"] == 10 and report["metered_requests"] == 0
+    for _ in range(3):
+        ledger.settle(ledger.reserve(_request(0.01)), actual_usd=0.01)
     with pytest.raises(E0BudgetExceeded, match="request cap"):
-        ledger.reserve(_request(0.0, billing="subscription"))
+        ledger.reserve(_request(0.01))
+    ledger.reserve(_request(0.0, billing="subscription"))  # still admitted
+
+
+def test_the_wall_time_bound_refuses_every_later_admission_including_retries(tmp_path):
+    from learnloop.experiments.contextual_embeddings.budget import E0DeadlineExceeded
+
+    now = [100.0]
+    ledger = E0Ledger(tmp_path)
+    ledger.start_clock(60.0, clock=lambda: now[0])
+    ledger.settle(ledger.reserve(_request(0.01)), actual_usd=0.01)
+    now[0] = 161.0
+    with pytest.raises(E0DeadlineExceeded, match="wall-time"):
+        ledger.reserve(_request(0.01))
+    with pytest.raises(E0DeadlineExceeded):
+        ledger.reserve(_request(0.0, billing="subscription", attempt=1))
+    assert ledger.time_left() < 0
 
 
 def test_concurrent_threads_never_overshoot(tmp_path):
@@ -127,10 +149,12 @@ def test_the_ledger_is_a_spend_envelope_for_reused_production_paths(tmp_path):
 def test_the_request_gate_admits_every_physical_request(tmp_path):
     ledger = E0Ledger(tmp_path)
     gate = E0RequestGate(ledger, pins.ROLE_PINS["adjudicator"], arm="labels")
-    admission = gate.admit(None, purpose="label", prompt="x" * 3000, budget=None)
+    admission = gate.admit(None, purpose="label", prompt="x" * 3000, budget=16_384)
     gate.settle(admission, {"input_tokens": 1200, "output_tokens": 300})
-    second = gate.admit(None, purpose="label", prompt="y", budget=None)
+    second = gate.admit(None, purpose="label", prompt="y", budget=16_384)
     gate.settle(second, {})  # no usage: the reservation stands
+    with pytest.raises(E0BudgetExceeded, match="output bound"):
+        gate.admit(None, purpose="label", prompt="z", budget=None)  # an unbounded metered request
     report = ledger.report()
     assert report["requests"] == 2
     pin = pins.ROLE_PINS["adjudicator"]

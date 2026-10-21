@@ -23,7 +23,9 @@ The contract every adapter keeps:
 * Receipts: one JSON line per attempt (endpoint, model, input hash, counts,
   usage, billed or estimated amount, latency, status, the provider's request
   id); never headers, keys or provider error bodies.
-* Resume: a document whose vector key is already stored is not re-sent; the
+* Resume: a document or query whose vector key is already stored is not re-sent
+  (raw provider rows are kept beside the decoded vectors; the store survives a
+  torn append); the
   first successful canary output is cached and later canaries are compared
   within a tolerance (``CanaryDrift`` opens a new epoch).
 
@@ -35,10 +37,13 @@ from __future__ import annotations
 import base64
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+import fcntl
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
+import threading
 import time
 from typing import Any, Protocol
 import urllib.error
@@ -48,7 +53,7 @@ import numpy as np
 
 from learnloop.experiments.contextual_embeddings import credentials, pins
 from learnloop.experiments.contextual_embeddings.budget import E0BudgetExceeded, E0Ledger, Request
-from learnloop.experiments.contextual_embeddings.pins import EmbeddingPin, conservative_tokens
+from learnloop.experiments.contextual_embeddings.pins import EmbeddingPin, token_upper_bound
 
 Vector = list[float]
 #: A fixed, public canary (no private text): re-encoded on resume to detect drift.
@@ -209,44 +214,118 @@ class Receipts:
                 handle.write(json.dumps(clean, sort_keys=True, default=str) + "\n")
 
 
+def query_vector_key(encoder_id: str, query_text: str) -> str:
+    """The spec's ``query_vector_key``: the encoder and the complete effective query."""
+
+    return "qv_" + _hash([encoder_id, query_text])[:32]
+
+
+class StoreCorrupt(AdapterError):
+    def __init__(self, message: str) -> None:
+        super().__init__(message, kind="validation")
+
+
 class VectorStore:
     """Research vectors keyed by vector key, one JSON-lines file per space
     (outside production ``embedding_vectors``). Idempotent: a key is written
-    once; ``get`` returns the first successful output."""
+    once; ``get`` returns the first successful output.
+
+    **Durable (Codex review F18).** Each line is one complete record: the
+    key, the decoded scoring vectors, the provider's RAW output rows (so the
+    decoding can be reproduced from what was paid for) and a checksum. An
+    append runs under an exclusive ``fcntl`` lock on the space's lock file
+    (other processes and threads wait), re-reads what other writers added
+    first (a key already written is never written twice), writes the record
+    and its newline in one write, then flushes and fsyncs. A crash mid-append
+    leaves at most a torn LAST line (no newline): a load ignores it and the
+    next locked append truncates it away. A damaged complete record is
+    corruption and is refused, never skipped."""
 
     def __init__(self, directory: Path | None) -> None:
         self.directory = Path(directory) if directory is not None else None
-        self._memory: dict[str, dict[str, list[list[float]]]] = {}
+        self._memory: dict[str, dict[str, dict[str, Any]]] = {}
+        #: Bytes of torn tail found per space (reported; truncated on the next append).
+        self.recovered: dict[str, int] = {}
+        self._thread_lock = threading.Lock()
 
     def _path(self, space: str) -> Path | None:
         return None if self.directory is None else self.directory / f"{space}.jsonl"
 
-    def _load(self, space: str) -> dict[str, list[list[float]]]:
+    @staticmethod
+    def _checksum(key: str, vectors: Any, raw: Any) -> str:
+        return _hash({"key": key, "vectors": vectors, "raw": raw})[:16]
+
+    def _parse(self, space: str, data: bytes) -> tuple[dict[str, dict[str, Any]], int]:
+        """The records and the byte offset after the last complete line."""
+
+        rows: dict[str, dict[str, Any]] = {}
+        position = 0
+        while position < len(data):
+            end = data.find(b"\n", position)
+            if end < 0:
+                break  # a torn tail: the crash interrupted the last append
+            line = data[position:end]
+            if line.strip():
+                try:
+                    record = json.loads(line.decode("utf-8"))
+                except (ValueError, UnicodeDecodeError):
+                    record = None
+                if not (isinstance(record, dict) and isinstance(record.get("key"), str) and record.get("sum")
+                        == self._checksum(record["key"], record.get("vectors"), record.get("raw"))):
+                    raise StoreCorrupt(f"vector store {space}: a damaged complete record")
+                rows.setdefault(record["key"], record)
+            position = end + 1
+        return rows, position
+
+    def _load(self, space: str) -> dict[str, dict[str, Any]]:
         if space not in self._memory:
-            rows: dict[str, list[list[float]]] = {}
             path = self._path(space)
+            rows: dict[str, dict[str, Any]] = {}
             if path is not None and path.exists():
-                for line in path.read_text(encoding="utf-8").splitlines():
-                    if line.strip():
-                        entry = json.loads(line)
-                        rows.setdefault(entry["key"], entry["vectors"])
+                data = path.read_bytes()
+                rows, good = self._parse(space, data)
+                if good < len(data):
+                    self.recovered[space] = len(data) - good
             self._memory[space] = rows
         return self._memory[space]
 
     def get(self, space: str, key: str) -> list[list[float]] | None:
-        return self._load(space).get(key)
+        record = self._load(space).get(key)
+        return None if record is None else record["vectors"]
 
-    def put(self, space: str, key: str, vectors: Sequence[Sequence[float]]) -> None:
-        rows = self._load(space)
-        if key in rows:
-            return
+    def get_raw(self, space: str, key: str) -> Any:
+        record = self._load(space).get(key)
+        return None if record is None else record.get("raw")
+
+    def put(self, space: str, key: str, vectors: Sequence[Sequence[float]], *, raw: Any = None) -> None:
         values = [[float(value) for value in vector] for vector in vectors]
-        rows[key] = values
+        record = {"key": key, "vectors": values, "raw": raw, "sum": self._checksum(key, values, raw)}
         path = self._path(space)
-        if path is not None:
+        with self._thread_lock:
+            if path is None:
+                self._load(space).setdefault(key, record)
+                return
             path.parent.mkdir(parents=True, exist_ok=True)
-            with open(path, "a", encoding="utf-8") as handle:
-                handle.write(json.dumps({"key": key, "vectors": values}) + "\n")
+            with open(path.with_suffix(".lock"), "a+") as lock:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+                try:
+                    # Other writers may have appended since this process loaded the file.
+                    data = path.read_bytes() if path.exists() else b""
+                    rows, good = self._parse(space, data)
+                    self._memory[space] = rows
+                    if key in rows:
+                        return
+                    with open(path, "r+b" if path.exists() else "wb") as handle:
+                        if good < len(data):
+                            handle.truncate(good)  # drop a torn tail before appending
+                            self.recovered[space] = len(data) - good
+                        handle.seek(good)
+                        handle.write((json.dumps(record, sort_keys=True) + "\n").encode("utf-8"))
+                        handle.flush()
+                        os.fsync(handle.fileno())
+                    rows[key] = record
+                finally:
+                    fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
 
     def count(self, space: str) -> int:
         return len(self._load(space))
@@ -303,7 +382,7 @@ class EmbeddingAdapter:
 
     # -- the shared request path --------------------------------------------------
     def _estimate(self, texts: Sequence[str]) -> tuple[int, float]:
-        tokens = sum(conservative_tokens(text) + pins.CHUNK_MARKER_TOKENS for text in texts)
+        tokens = sum(token_upper_bound(text) + pins.CHUNK_MARKER_TOKENS for text in texts)
         return tokens, tokens * self.pin.price_per_million_upper_bound / 1_000_000
 
     def _send(self, url: str, body: Mapping[str, Any], *, method: str, texts: Sequence[str], items: int) -> Any:
@@ -370,7 +449,7 @@ class EmbeddingAdapter:
             raise AdapterError("a document has no chunks", kind="limit")
         if any(not chunk.text.strip() for chunk in document.chunks):
             raise AdapterError("a chunk is empty", kind="limit")
-        tokens = sum(conservative_tokens(chunk.text) + pins.CHUNK_MARKER_TOKENS for chunk in document.chunks)
+        tokens = sum(token_upper_bound(chunk.text) + pins.CHUNK_MARKER_TOKENS for chunk in document.chunks)
         if tokens > self.pin.max_tokens_per_document:
             # Never silently truncated: the caller splits deterministically instead.
             raise AdapterError(f"a document of ~{tokens} tokens passes the {self.pin.max_tokens_per_document} limit",
@@ -382,7 +461,7 @@ class EmbeddingAdapter:
         tokens = chunks = 0
         for document in documents:
             self._check_document(document)
-            size = sum(conservative_tokens(chunk.text) + pins.CHUNK_MARKER_TOKENS for chunk in document.chunks)
+            size = sum(token_upper_bound(chunk.text) + pins.CHUNK_MARKER_TOKENS for chunk in document.chunks)
             if current and (tokens + size > self.pin.max_tokens_per_request
                             or chunks + len(document.chunks) > self.pin.max_chunks_per_request
                             or len(current) + 1 > self.pin.max_documents_per_request):
@@ -420,24 +499,46 @@ class EmbeddingAdapter:
                 vectors = [decode(row, self.pin).tolist() for row in document_rows]
                 results[document.document_id] = vectors
                 if document.key:
-                    self.store.put(self.document_space_id, document.key, vectors)
+                    # The raw rows too: decoding is reproducible from what was paid for.
+                    self.store.put(self.document_space_id, document.key, vectors, raw=list(document_rows))
         return [results[document.document_id] for document in documents]
 
-    def encode_queries(self, queries: Sequence[PreparedQuery]) -> list[Vector]:
+    @property
+    def query_space(self) -> str:
+        return f"{self.query_encoder_id}_queries"
+
+    def encode_queries(self, queries: Sequence[PreparedQuery], *, fresh: bool = False) -> list[Vector]:
+        """Query vectors, each cached under its ``query_vector_key`` (the
+        encoder and the complete query text): a resumed run re-sends none it
+        already paid for (Codex review F18). ``fresh`` sends every query anew
+        (the online latency measurement), never reading the cache."""
+
         for query in queries:
             if not query.text.strip():
                 raise AdapterError("a query is empty", kind="limit")
-            if conservative_tokens(query.text) > self.pin.max_tokens_per_document:
+            if token_upper_bound(query.text) > self.pin.max_tokens_per_document:
                 raise AdapterError("a query passes the input limit", kind="limit")
-        found: list[Vector] = []
+        found: dict[str, Vector] = {}
+        missing: list[PreparedQuery] = []
+        for query in queries:
+            key = query_vector_key(self.query_encoder_id, query.text)
+            saved = None if fresh else self.store.get(self.query_space, key)
+            if saved is not None:
+                found[query.text] = saved[0]
+            elif query.text not in {item.text for item in missing}:
+                missing.append(query)
         size = max(1, min(self.pin.max_documents_per_request, 128))
-        for start in range(0, len(queries), size):
-            chunk = list(queries[start:start + size])
+        for start in range(0, len(missing), size):
+            chunk = list(missing[start:start + size])
             body = self._send(self.pin.query_endpoint, self._query_body(chunk), method="query",
                               texts=[query.text for query in chunk], items=len(chunk))
             rows = self._query_rows(body, len(chunk))
-            found.extend(decode(row, self.pin).tolist() for row in rows)
-        return found
+            for query, row in zip(chunk, rows, strict=True):
+                vector = decode(row, self.pin).tolist()
+                found[query.text] = vector
+                self.store.put(self.query_space, query_vector_key(self.query_encoder_id, query.text), [vector],
+                               raw=[row])
+        return [found[query.text] for query in queries]
 
     def canary(self) -> dict[str, Any]:
         """Encode the public canary and compare with the first cached output."""
@@ -566,6 +667,8 @@ class QwenAdapter(EmbeddingAdapter):
         super().__init__(pin, encoding="independent", **kwargs)
         self._client_factory = client_factory
         self._client: Any | None = None
+        #: The raw rows of the last batch (kept beside the decoded vectors).
+        self._last_raw: list[list[float]] = []
 
     def _client_now(self) -> Any:
         if self._client is None:
@@ -607,7 +710,8 @@ class QwenAdapter(EmbeddingAdapter):
             self.sleep(min(30.0, 2.0 ** attempt))
         if len(vectors) != len(texts):
             raise AdapterError("qwen returned a different number of vectors", kind="contract")
-        return [decode([float(value) for value in vector], self.pin).tolist() for vector in vectors]
+        self._last_raw = [[float(value) for value in vector] for vector in vectors]
+        return [decode(raw, self.pin).tolist() for raw in self._last_raw]
 
     def encode_documents(self, documents: Sequence[Document]) -> list[list[Vector]]:
         if any(len(document.chunks) != 1 for document in documents):
@@ -624,18 +728,33 @@ class QwenAdapter(EmbeddingAdapter):
         for start in range(0, len(missing), self.pin.max_documents_per_request):
             batch = missing[start:start + self.pin.max_documents_per_request]
             vectors = self._embed([document.chunks[0].text for document in batch], "retrieval-document", "document")
-            for document, vector in zip(batch, vectors, strict=True):
+            for document, vector, raw in zip(batch, vectors, self._last_raw, strict=True):
                 results[document.document_id] = [vector]
                 if document.key:
-                    self.store.put(self.document_space_id, document.key, [vector])
+                    self.store.put(self.document_space_id, document.key, [vector], raw=[raw])
         return [results[document.document_id] for document in documents]
 
-    def encode_queries(self, queries: Sequence[PreparedQuery]) -> list[Vector]:
-        found: list[Vector] = []
-        for start in range(0, len(queries), self.pin.max_documents_per_request):
-            chunk = queries[start:start + self.pin.max_documents_per_request]
-            found.extend(self._embed([query.text for query in chunk], "retrieval-query", "query"))
-        return found
+    def encode_queries(self, queries: Sequence[PreparedQuery], *, fresh: bool = False) -> list[Vector]:
+        """Cached per ``query_vector_key`` like every adapter (Codex review F18);
+        ``fresh`` sends every query anew."""
+
+        found: dict[str, Vector] = {}
+        missing: list[PreparedQuery] = []
+        for query in queries:
+            key = query_vector_key(self.query_encoder_id, query.text)
+            saved = None if fresh else self.store.get(self.query_space, key)
+            if saved is not None:
+                found[query.text] = saved[0]
+            elif query.text not in {item.text for item in missing}:
+                missing.append(query)
+        for start in range(0, len(missing), self.pin.max_documents_per_request):
+            chunk = missing[start:start + self.pin.max_documents_per_request]
+            vectors = self._embed([query.text for query in chunk], "retrieval-query", "query")
+            for query, vector, raw in zip(chunk, vectors, self._last_raw, strict=True):
+                found[query.text] = vector
+                self.store.put(self.query_space, query_vector_key(self.query_encoder_id, query.text), [vector],
+                               raw=[raw])
+        return [found[query.text] for query in queries]
 
 
 ADAPTERS: dict[str, type[EmbeddingAdapter]] = {

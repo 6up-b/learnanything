@@ -90,6 +90,7 @@ def test_two_blinded_passes_audit_plan_and_adjudication(tmp_path):
     caller = FakeRoleCaller(fake_respond)
     question = B.BankQuestion("q1", "development", None, "writer", "explain", "intent_explain",
                               "Why does a linear map send the additive identity to the unique additive identity?")
+    B.freeze_context(question, snapshot)
     pool = [unit.unit_id for unit in snapshot.units][:8]
     labels = B.label_question(question, pool, snapshot, caller)
     assert set(labels.passes[0]) == set(pool) == set(labels.passes[1])

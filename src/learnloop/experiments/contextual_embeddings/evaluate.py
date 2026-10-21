@@ -26,7 +26,10 @@ def question_rows(snapshot: CorpusSnapshot, questions: Sequence[BankQuestion],
     for question in questions:
         label = labels.get(question.query_id)
         row: dict[str, Any] = {"query_id": question.query_id, "family": question.family or "none",
-                               "stratum": question.stratum, "split": question.split,
+                               "stratum": question.stratum, "split": question.split, "intent": question.intent,
+                               "origin": question.origin,
+                               # Smoke cases carry deterministic sets; every other slice needs labels.
+                               "labelled": label is not None or question.split == "smoke",
                                "unresolved": bool(label and label.unresolved),
                                "answerable": question.answerable if label is None or label.answerable is None
                                else bool(label.answerable)}
@@ -34,7 +37,9 @@ def question_rows(snapshot: CorpusSnapshot, questions: Sequence[BankQuestion],
         final = label.final if label is not None else {}
         for arm, by_question in rankings.items():
             ranked = list(by_question.get(question.query_id, []))
-            if question.query_id not in by_question or row["unresolved"]:
+            if question.query_id not in by_question or row["unresolved"] or not row["labelled"]:
+                # Unranked, unresolved or never labelled (a stop came first): not
+                # scored; the planned denominator keeps it (Codex review F17).
                 row[f"{arm}:ce10"] = None
                 continue
             pieces = [ref for unit_id in ranked[:k] for ref in unit_refs(snapshot.unit(unit_id))]
@@ -70,7 +75,7 @@ def paired(rows: Sequence[Mapping[str, Any]], a: str, b: str, metric: str = "ce1
 def completion(rows: Sequence[Mapping[str, Any]], arms: Sequence[str]) -> dict[str, float]:
     """The share of answerable, resolved questions each arm scored (S1)."""
 
-    eligible = [row for row in rows if row["answerable"] and not row["unresolved"]]
+    eligible = [row for row in rows if row["answerable"] and not row["unresolved"] and row.get("labelled", True)]
     if not eligible:
         return {arm: 0.0 for arm in arms}
     return {arm: sum(1 for row in eligible if row.get(f"{arm}:ce10") is not None) / len(eligible) for arm in arms}

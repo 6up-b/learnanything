@@ -51,6 +51,11 @@ REGISTERED_SQL_OWNERS = frozenset(
         # Exam protection by extraction identity (Codex review F3): exam-qualified
         # copies appended to the held-out signal ledger, never an update.
         "src/learnloop/db/stores/held_out_signals.py",
+        # Research experiment E0 (Codex review F1): the redaction of a SERVICE
+        # copy's protected block text before any production path reads it; the
+        # function refuses any database outside fixtures-local, and the frozen
+        # corpus copies are only ever opened read-only.
+        "src/learnloop/experiments/contextual_embeddings/system_arms.py",
         # Facet identity: applied merge/absorb actions and their facet_merges rows.
         "src/learnloop/db/stores/facet_identity.py",
         "src/learnloop/projects/experiment_store.py",

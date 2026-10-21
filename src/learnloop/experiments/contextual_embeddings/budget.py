@@ -12,8 +12,10 @@ raises :class:`E0BudgetExceeded` before the request; the runner then stops the
 affected work cleanly and the report says so (never a silent substitution).
 
 Subscription routes (Codex, owner decision 2026-10-12) have no marginal bill:
-they are admitted at $0, never refused for money, still count against the
-request cap, and their token usage is tallied ``estimated_only``.
+they are admitted at $0, never refused for money and never limited by the
+physical-request cap (Codex review F14: the owner exempted them); their token
+usage is tallied ``estimated_only``. The cap counts metered requests only, and
+``start_clock`` bounds a run's wall time: every later admission is refused.
 
 The ledger also plugs into the existing spend machinery: ``LedgerEnvelope``
 is a ``learnloop.ai.spend.SpendEnvelope``, so any production path a stage
@@ -32,6 +34,7 @@ import json
 import os
 from pathlib import Path
 import threading
+import time
 import uuid
 from typing import Any
 
@@ -46,6 +49,10 @@ _PROCESS_LOCK = threading.Lock()
 
 class E0BudgetExceeded(SpendLimitExceeded):
     """The next request cannot be admitted under the E0 cap; nothing was sent."""
+
+
+class E0DeadlineExceeded(E0BudgetExceeded):
+    """The run's wall-time bound (``pins.MAX_WALL_S``) has passed; nothing was sent."""
 
 
 def _now() -> str:
@@ -86,6 +93,23 @@ class E0Ledger:
         if sum(self.allocation.values(), Decimal(0)) > self.cap:
             raise ValueError("the category allocation exceeds the E0 cap")
         self.max_requests = int(max_requests)
+        #: The run's monotonic deadline (``start_clock``); None: no run is timed.
+        self.deadline: float | None = None
+        self._clock: Any = time.monotonic
+
+    def start_clock(self, max_wall_s: float = pins.MAX_WALL_S, *, clock: Any = None) -> float:
+        """Bound this process's run to ``max_wall_s`` of wall time: every later
+        admission (each retry included) is refused once it has passed (Codex
+        review F14). Returns the monotonic deadline."""
+
+        self._clock = clock or time.monotonic
+        self.deadline = self._clock() + float(max_wall_s)
+        return self.deadline
+
+    def time_left(self) -> float | None:
+        if self.deadline is None:
+            return None
+        return self.deadline - self._clock()
 
     # -- storage ------------------------------------------------------------------
     @contextmanager
@@ -129,6 +153,10 @@ class E0Ledger:
         return _d(entry.get("reserved_usd") or 0)
 
     def _totals(self, state: Mapping[str, Any]) -> tuple[Decimal, dict[str, Decimal], int]:
+        """Committed money, per category, and the METERED requests (the cap
+        the physical-request bound applies to: subscription requests are
+        tallied but never limited, owner decision 2026-10-12)."""
+
         total = Decimal(0)
         by_category: dict[str, Decimal] = {}
         requests = 0
@@ -136,7 +164,8 @@ class E0Ledger:
             committed = self._committed(entry)
             total += committed
             by_category[entry["category"]] = by_category.get(entry["category"], Decimal(0)) + committed
-            requests += 1
+            if entry.get("billing") != "subscription":
+                requests += 1
         return total, by_category, requests
 
     def reserve(self, request: Request) -> str:
@@ -149,10 +178,13 @@ class E0Ledger:
         usd = Decimal(0) if request.billing == "subscription" else _d(request.estimated_usd)
         if usd < 0:
             raise ValueError("estimated_usd must be nonnegative")
+        deadline_passed = self.deadline is not None and self._clock() >= self.deadline
         with self._locked() as state:
             total, by_category, requests = self._totals(state)
             reason = None
-            if requests + 1 > self.max_requests:
+            if deadline_passed:
+                reason = "the run's wall-time bound has passed"
+            elif request.billing != "subscription" and requests + 1 > self.max_requests:
                 reason = f"request cap {self.max_requests} reached"
             elif total + usd > self.cap:
                 reason = f"${float(total + usd):.4f} would pass the ${float(self.cap):.2f} E0 cap"
@@ -175,7 +207,7 @@ class E0Ledger:
                     "reserved_at": _now(),
                 }
         if refused:
-            raise E0BudgetExceeded(reason)
+            raise (E0DeadlineExceeded if deadline_passed else E0BudgetExceeded)(reason)
         return reservation
 
     def settle(self, reservation: str, *, actual_usd: float | None, usage: Mapping[str, Any] | None = None,
@@ -257,7 +289,10 @@ class E0Ledger:
             "remaining_usd": float(max(Decimal(0), self.cap - total)),
             "by_category": {key: {"committed_usd": float(by_category.get(key, Decimal(0))),
                                   "allocation_usd": float(value)} for key, value in self.allocation.items()},
-            "requests": requests,
+            "requests": len(entries),
+            "metered_requests": requests,
+            "subscription_requests": len(entries) - requests,
+            "max_metered_requests": self.max_requests,
             "refusals": len(refusals),
             "refusal_reasons": sorted({str(item["reason"]).split(" would")[0] for item in refusals}),
             "by_arm": by_arm,

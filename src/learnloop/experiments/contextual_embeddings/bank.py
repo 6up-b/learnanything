@@ -95,12 +95,37 @@ class BankQuestion:
     proposed_units: tuple[str, ...] = ()
     label_provenance: str = "unlabelled"
     vault: str = ""
+    #: The policy-checked selected passage, frozen once (``freeze_context``).
+    selected_passage: str | None = None
+    context_frozen: bool = False
 
     @property
     def effective_query(self) -> str:
-        """The complete query every arm encodes (no rewrite in the screen)."""
+        """The learner's question text alone (whitespace-normalized)."""
 
         return " ".join(self.question.split())
+
+    @property
+    def retrieval_query(self) -> str:
+        """The complete query every arm encodes (no rewrite in the screen): the
+        question and, for a known selection, the frozen selected passage."""
+
+        if not self.context_frozen:
+            raise RuntimeError("freeze_context before reading a question's context")
+        if self.selected_passage:
+            return f"{self.effective_query}\n\nSelected passage: {self.selected_passage}"
+        return self.effective_query
+
+    def context(self) -> dict[str, Any]:
+        """The ONE question context every role reads (Codex review F6): the
+        question, the frozen selected passage (a deictic question's referent)
+        and the permitted history. Retrieval, labels, adjudication, the tutor
+        and the judges all receive exactly this."""
+
+        if not self.context_frozen:
+            raise RuntimeError("freeze_context before reading a question's context")
+        return {"question": self.effective_query, "selected_passage": self.selected_passage,
+                "history": list(self.history)}
 
     @property
     def known_location(self) -> bool:
@@ -126,6 +151,42 @@ def unit_refs(unit: CandidateUnit) -> tuple[SpanRef, ...]:
 
 def _query_id(*parts: Any) -> str:
     return "q_" + _sha(*parts)[:16]
+
+
+#: The selected passage's length bound in every question context (characters).
+SELECTION_CONTEXT_CHARS = 1200
+
+
+class SelectionWithheld(RuntimeError):
+    """A question's selection is material the policy withholds."""
+
+
+def freeze_context(question: BankQuestion, snapshot: CorpusSnapshot) -> BankQuestion:
+    """Freeze the question's one policy-checked context (idempotent).
+
+    For a known selection: the learner's quote when every span it covers is
+    permitted, else the selected block's own text, whitespace-collapsed and
+    bounded at ``SELECTION_CONTEXT_CHARS``. A selection the policy withholds
+    raises (the bank never carries one: ``logged_bank`` drops it). A library
+    question has no selected passage and never an oracle location."""
+
+    if question.context_frozen:
+        return question
+    passage = None
+    selection = question.selection
+    if selection is not None:
+        policy = snapshot.policy
+        if not policy.permitted(selection.extraction_id, selection.span_id):
+            raise SelectionWithheld("a question's selection is withheld by the experiment's policy")
+        block = next((block for block in snapshot.blocks.get(selection.extraction_id, [])
+                      if block.span_id == selection.span_id), None)
+        quote_ok = bool(selection.quote and selection.quote.strip()) and all(
+            policy.permitted(selection.extraction_id, span_id) for span_id in selection.selection_span_ids)
+        text = selection.quote if quote_ok else (block.text if block is not None else "")
+        passage = " ".join(str(text or "").split())[:SELECTION_CONTEXT_CHARS] or None
+    question.selected_passage = passage
+    question.context_frozen = True
+    return question
 
 
 # -- the smoke bank (deterministic, no model) ----------------------------------------
@@ -486,14 +547,27 @@ def writer_prompt(snapshot: CorpusSnapshot, seeds: Sequence[Seed]) -> tuple[str,
 
 def write_questions(snapshot: CorpusSnapshot, seeds: Sequence[Seed], caller: Any, *,
                     batch: int = 6) -> tuple[list[BankQuestion], dict[str, int]]:
-    """Development questions from the writer (one call per batch of seeds)."""
+    """Development questions from the writer (one call per batch of seeds).
+
+    ``stats`` keeps the planned denominator: ``planned`` seeds, ``written``,
+    ``unanswered_seeds`` (a batch's answer omitted them) and
+    ``unattempted_seeds`` (a budget or deadline stop came first, recorded in
+    ``stopped``); the questions written before a stop are kept."""
+
+    from learnloop.experiments.contextual_embeddings.budget import E0BudgetExceeded
 
     questions: list[BankQuestion] = []
-    stats = {"calls": 0, "written": 0, "unanswered_seeds": 0, "invalid_refs": 0}
+    stats: dict[str, Any] = {"planned": len(seeds), "calls": 0, "written": 0, "unanswered_seeds": 0,
+                             "unattempted_seeds": 0, "invalid_refs": 0, "stopped": None}
     for start in range(0, len(seeds), batch):
         chunk = list(seeds[start:start + batch])
         prompt, seed_refs, passage_refs = writer_prompt(snapshot, chunk)
-        result = caller.call("writer", prompt=prompt, result_model=WrittenQuestions)
+        try:
+            result = caller.call("writer", prompt=prompt, result_model=WrittenQuestions)
+        except E0BudgetExceeded as exc:
+            stats["stopped"] = str(exc)
+            stats["unattempted_seeds"] = len(seeds) - start
+            break
         stats["calls"] += 1
         answered = set()
         for item in result.questions:
@@ -557,6 +631,27 @@ class AdjudicatedLabels(WireModel):
     unresolved: bool
 
 
+RELEVANCE_ONLY_INSTRUCTIONS = (
+    "Judge each candidate passage for the question. relevance: required (states the answer or a condition the "
+    "answer needs), helpful (useful support that is not required), background (on topic, not needed), "
+    "unrelated. This is one batch of a larger pool: judge relevance only; sufficient evidence sets are decided "
+    "afterwards over every supporting passage together, so leave sufficient_sets empty here. Judge only from "
+    "the passages shown."
+)
+SUFFICIENCY_INSTRUCTIONS = (
+    "These are every passage a first reading judged required or helpful for the question, from the whole "
+    "pool. List every SUFFICIENT evidence set: a minimal list of refs that together contain the answer and "
+    "every condition it needs (AND within a set; passages from different parts of the pool may be needed "
+    "together); give alternative sets for other valid proofs (OR across sets). If no set suffices, answerable "
+    "is false. Judge only from the passages shown."
+)
+
+
+class SufficiencyPass(WireModel):
+    sufficient_sets: list[list[str]]
+    answerable: bool
+
+
 def label_context(snapshot: CorpusSnapshot, unit: CandidateUnit) -> dict[str, Any]:
     """What a labeller reads of a candidate: its complete text, section and
     the preceding numbered label (no arm, no rank, no score)."""
@@ -585,10 +680,19 @@ def pool_for(question: BankQuestion, rankings: Mapping[str, Sequence[str]], snap
     return pool
 
 
-def label_prompt(question: BankQuestion, candidates: Mapping[str, Mapping[str, Any]], pass_index: int) -> str:
+def label_prompt(question: BankQuestion, candidates: Mapping[str, Mapping[str, Any]], pass_index: int, *,
+                 relevance_only: bool = False) -> str:
     return render_structured_prompt("E0 evidence labels", LABEL_VERSION, {
-        "instructions": LABEL_INSTRUCTIONS,
-        "context": {"question": question.effective_query, "pass": pass_index + 1,
+        "instructions": RELEVANCE_ONLY_INSTRUCTIONS if relevance_only else LABEL_INSTRUCTIONS,
+        "context": {**question.context(), "pass": pass_index + 1,
+                    "candidates": [{"ref": ref, **payload} for ref, payload in candidates.items()]},
+    })
+
+
+def sufficiency_prompt(question: BankQuestion, candidates: Mapping[str, Mapping[str, Any]], pass_index: int) -> str:
+    return render_structured_prompt("E0 evidence sufficiency", LABEL_VERSION, {
+        "instructions": SUFFICIENCY_INSTRUCTIONS,
+        "context": {**question.context(), "pass": pass_index + 1,
                     "candidates": [{"ref": ref, **payload} for ref, payload in candidates.items()]},
     })
 
@@ -606,38 +710,91 @@ class QuestionLabels:
     adjudicated: bool = False
     unresolved: bool = False
     audit_reason: str | None = None
+    #: Malformed sets a label pass proposed (unknown or duplicate refs), per pass.
+    pass_malformed: list[int] = field(default_factory=lambda: [0, 0])
+    #: Why an adjudicator verdict was rejected (empty: accepted).
+    problems: list[str] = field(default_factory=list)
+
+
+def _sets_from(chosen_sets: Sequence[Sequence[str]], refs: Mapping[str, str]) -> tuple[list[frozenset[str]], int]:
+    """Well-formed sets (every ref known, none repeated) and the malformed count."""
+
+    sets: list[frozenset[str]] = []
+    malformed = 0
+    for chosen in chosen_sets:
+        if not chosen or len(set(chosen)) != len(chosen) or any(ref not in refs for ref in chosen):
+            malformed += 1
+            continue
+        sets.append(frozenset(refs[ref] for ref in chosen))
+    return sets, malformed
+
+
+def _judge(caller: Any, **kwargs: Any) -> None:
+    record = getattr(caller, "record_judgment", None)
+    if record is not None:
+        record(**kwargs)
 
 
 def label_question(question: BankQuestion, pool: Sequence[str], snapshot: CorpusSnapshot, caller: Any, *,
                    batch: int = 40) -> QuestionLabels:
-    """Two blinded passes in different orders (refs are reassigned per pass)."""
+    """Two blinded passes in different orders (refs are reassigned per pass).
+
+    A pool that fits one batch is labelled and its sets proposed in one call.
+    A larger pool is labelled for relevance batch by batch, then ONE joint
+    sufficiency review per pass sees every candidate that pass judged
+    required or helpful, from every batch, so a conjunction split across
+    batches can still be proposed (Codex review F13)."""
 
     passes: list[dict[str, str]] = []
     pass_sets: list[list[frozenset[str]]] = []
     answerable: list[bool] = []
+    malformed: list[int] = []
+    unit_refs_of = {unit_id: [list(ref) for ref in unit_refs(snapshot.unit(unit_id))] for unit_id in pool}
     for pass_index, role in enumerate(("label_a", "label_b")):
         order = stable_order(list(pool), "label-order", question.query_id, pass_index)
         labels: dict[str, str] = {}
         sets: list[frozenset[str]] = []
+        bad = 0
         any_answerable = False
+        joint = len(order) > batch
         for start in range(0, len(order), batch):
             chunk = order[start:start + batch]
             refs = {f"c{index}": unit_id for index, unit_id in enumerate(chunk, start=1)}
             prompt = label_prompt(question, {ref: label_context(snapshot, snapshot.unit(unit_id))
-                                             for ref, unit_id in refs.items()}, pass_index)
+                                             for ref, unit_id in refs.items()}, pass_index, relevance_only=joint)
             result = caller.call(role, prompt=prompt, result_model=LabelPass)
             for item in result.labels:
                 if item.ref in refs and refs[item.ref] not in labels:
                     labels[refs[item.ref]] = item.relevance
-            for chosen in result.sufficient_sets:
-                members = frozenset(refs[ref] for ref in chosen if ref in refs)
-                if members and len(members) == len(set(chosen)):
-                    sets.append(members)
-            any_answerable = any_answerable or result.answerable
+                    _judge(caller, task="e0_label", left_id=question.query_id, right_kind="e0_unit",
+                           right_id=refs[item.ref], verdict=item.relevance,
+                           details={"pass": pass_index + 1, "spans": unit_refs_of[refs[item.ref]]})
+            if not joint:
+                found, count = _sets_from(result.sufficient_sets, refs)
+                sets.extend(found)
+                bad += count
+                any_answerable = bool(result.answerable)
+        if joint:
+            support = [unit_id for unit_id in order if labels.get(unit_id) in ("required", "helpful")]
+            if support:
+                refs = {f"c{index}": unit_id for index, unit_id in enumerate(support, start=1)}
+                result = caller.call(role, prompt=sufficiency_prompt(
+                    question, {ref: label_context(snapshot, snapshot.unit(unit_id)) for ref, unit_id in refs.items()},
+                    pass_index), result_model=SufficiencyPass)
+                found, bad = _sets_from(result.sufficient_sets, refs)
+                sets.extend(found)
+                any_answerable = bool(result.answerable)
+        ordered_sets = sorted(set(sets), key=lambda value: sorted(value))
+        _judge(caller, task="e0_label_sets", left_id=question.query_id,
+               verdict=json.dumps([sorted(chosen) for chosen in ordered_sets]),
+               details={"pass": pass_index + 1, "answerable": any_answerable, "malformed_sets": bad,
+                        "joint_review": joint,
+                        "spans": {unit_id: unit_refs_of[unit_id] for chosen in ordered_sets for unit_id in chosen}})
         passes.append(labels)
-        pass_sets.append(sorted(set(sets), key=lambda value: sorted(value)))
+        pass_sets.append(ordered_sets)
         answerable.append(any_answerable)
-    return QuestionLabels(question.query_id, list(pool), passes, pass_sets, answerable)
+        malformed.append(bad)
+    return QuestionLabels(question.query_id, list(pool), passes, pass_sets, answerable, pass_malformed=malformed)
 
 
 def needs_audit(labels: QuestionLabels) -> str | None:
@@ -647,20 +804,62 @@ def needs_audit(labels: QuestionLabels) -> str | None:
         return "disagreement"
     if set(labels.pass_sets[0]) != set(labels.pass_sets[1]) or labels.pass_answerable[0] != labels.pass_answerable[1]:
         return "set_disagreement"
+    if any(labels.pass_malformed):
+        return "malformed_pass_sets"
     if labels.pass_sets[0]:
         return "accepted_set_used_by_primary_endpoint"
     return None
 
 
+def adjudication_problems(result: AdjudicatedLabels, refs: Mapping[str, str], labels: QuestionLabels) -> list[str]:
+    """Why an adjudicator verdict cannot be accepted (empty: well formed).
+
+    A set with an unknown or repeated ref is rejected WHOLE (dropping the bad
+    ref would turn an incomplete conjunction into a weaker accepted set:
+    Codex review F7); so is a label for an unknown or repeated candidate, a
+    disputed candidate left unlabelled, a set member labelled background or
+    unrelated (background never completes a set), and an answerability that
+    contradicts the sets."""
+
+    problems: list[str] = []
+    for chosen in result.sufficient_sets:
+        if not chosen:
+            problems.append("empty_set")
+        elif any(ref not in refs for ref in chosen):
+            problems.append("unknown_ref_in_set")
+        elif len(set(chosen)) != len(chosen):
+            problems.append("duplicate_ref_in_set")
+    seen: dict[str, str] = {}
+    for item in result.labels:
+        if item.ref not in refs:
+            problems.append("unknown_ref_labelled")
+        elif item.ref in seen:
+            problems.append("duplicate_label")
+        else:
+            seen[item.ref] = item.relevance
+    disputed = {unit_id for unit_id in labels.pool if labels.passes[0].get(unit_id) != labels.passes[1].get(unit_id)}
+    if any(unit_id in disputed and ref not in seen for ref, unit_id in refs.items()):
+        problems.append("disputed_candidate_unlabelled")
+    for chosen in result.sufficient_sets:
+        if any(seen.get(ref) in ("background", "unrelated") for ref in chosen if ref in refs):
+            problems.append("set_member_not_supporting")
+    if result.answerable and not result.sufficient_sets and not result.unresolved:
+        problems.append("answerable_without_a_set")
+    if not result.answerable and result.sufficient_sets:
+        problems.append("unanswerable_with_a_set")
+    return sorted(set(problems))
+
+
 def adjudicate(question: BankQuestion, labels: QuestionLabels, snapshot: CorpusSnapshot, caller: Any) -> QuestionLabels:
     """The named adjudicator decides labels and sets, seeing both passes
-    blinded to model; an unresolved verdict blocks the question (S1)."""
+    blinded to model; an unresolved or malformed verdict leaves sufficiency
+    unresolved and blocks the question (S1)."""
 
     refs = {f"c{index}": unit_id for index, unit_id in enumerate(
         stable_order(labels.pool, "adjudicate", question.query_id), start=1)}
     back = {unit_id: ref for ref, unit_id in refs.items()}
     payload = {
-        "question": question.effective_query,
+        **question.context(),
         "candidates": [{"ref": ref, **label_context(snapshot, snapshot.unit(unit_id)),
                         "pass_1": labels.passes[0].get(unit_id), "pass_2": labels.passes[1].get(unit_id)}
                        for ref, unit_id in refs.items()],
@@ -672,16 +871,31 @@ def adjudicate(question: BankQuestion, labels: QuestionLabels, snapshot: CorpusS
                         "set unresolved true only if the passages cannot settle sufficiency.",
         "context": payload})
     result = caller.call("adjudicator", prompt=prompt, result_model=AdjudicatedLabels)
-    final = {refs[item.ref]: item.relevance for item in result.labels if item.ref in refs}
+    problems = adjudication_problems(result, refs, labels)
+    final: dict[str, str | None] = {}
+    for item in result.labels:
+        if item.ref in refs:
+            final.setdefault(refs[item.ref], item.relevance)
     for unit_id in labels.pool:
         final.setdefault(unit_id, labels.passes[0].get(unit_id) if labels.passes[0].get(unit_id)
                          == labels.passes[1].get(unit_id) else None)
     labels.final = {key: value for key, value in final.items() if value is not None}
-    labels.final_sets = [frozenset(refs[ref] for ref in chosen if ref in refs) for chosen in result.sufficient_sets]
-    labels.final_sets = [chosen for chosen in labels.final_sets if chosen]
-    labels.answerable = result.answerable
     labels.adjudicated = True
-    labels.unresolved = bool(result.unresolved)
+    labels.problems = problems
+    if problems or result.unresolved:
+        labels.final_sets = []
+        labels.answerable = None
+        labels.unresolved = True
+    else:
+        labels.final_sets = [frozenset(refs[ref] for ref in chosen) for chosen in result.sufficient_sets]
+        labels.answerable = bool(result.answerable)
+        labels.unresolved = False
+    _judge(caller, task="e0_label_adjudication", left_id=question.query_id,
+           verdict="unresolved" if labels.unresolved else ("answerable" if labels.answerable else "unanswerable"),
+           details={"problems": problems, "sets": [sorted(chosen) for chosen in labels.final_sets],
+                    "labels": dict(sorted(labels.final.items())),
+                    "spans": {unit_id: [list(ref) for ref in unit_refs(snapshot.unit(unit_id))]
+                              for chosen in labels.final_sets for unit_id in chosen}})
     return labels
 
 

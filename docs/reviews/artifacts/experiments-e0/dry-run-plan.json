@@ -4,11 +4,13 @@
   "adjudicator_output_tokens_per_candidate": 12,
   "answer_output_tokens": 600,
   "development_query_tokens": 60,
+  "joint_review_support_share": 0.25,
   "judge_disagreement_share": 0.35,
   "judge_output_tokens": 300,
   "label_batch": 40,
   "label_output_tokens_per_candidate": 12,
   "label_tokens_per_candidate_overhead": 30,
+  "online_latency_queries_per_question": 3,
   "pool_overlap_factor": 0.5,
   "qwen_query_prefix_tokens": 30,
   "r3_header_tokens_per_unit": 200,
@@ -312,14 +314,14 @@
   "codex_sdk:gpt-5.6-sol": {
    "billing": "subscription",
    "estimated_usd": 0.0,
-   "requests": 1218,
-   "tokens": 11111658
+   "requests": 1319,
+   "tokens": 11565972
   },
   "codex_sdk:gpt-6-luna": {
    "billing": "subscription",
    "estimated_usd": 0.0,
-   "requests": 860,
-   "tokens": 5793203
+   "requests": 961,
+   "tokens": 6247517
   },
   "openrouter:anthropic/claude-sonnet-5.5": {
    "billing": "metered",
@@ -328,34 +330,34 @@
    "tokens": 3118618
   },
   "openrouter:qwen/qwen3-embedding-8b": {
-   "estimated_usd": 0.012866,
-   "requests": 42,
-   "tokens": 428909
+   "estimated_usd": 0.013865,
+   "requests": 441,
+   "tokens": 462182
   },
   "openrouter:qwen/qwen3-embedding-8b (system arms)": {
-   "estimated_usd": 0.002877,
+   "estimated_usd": 0.002608,
    "requests": 0,
-   "tokens": 71956
+   "tokens": 62975
   },
   "perplexity:pplx-embed-context-v1-4b": {
-   "estimated_usd": 0.026576,
-   "requests": 9,
-   "tokens": 132876
+   "estimated_usd": 0.029416,
+   "requests": 275,
+   "tokens": 147078
   },
   "perplexity:pplx-embed-v1-4b": {
-   "estimated_usd": 0.013288,
-   "requests": 5,
-   "tokens": 66438
+   "estimated_usd": 0.014708,
+   "requests": 138,
+   "tokens": 73539
   },
   "voyage:voyage-4-large": {
-   "estimated_usd": 0.019931,
-   "requests": 4,
-   "tokens": 66438
+   "estimated_usd": 0.022062,
+   "requests": 137,
+   "tokens": 73539
   },
   "voyage:voyage-context-4": {
-   "estimated_usd": 0.039862,
-   "requests": 8,
-   "tokens": 132876
+   "estimated_usd": 0.044124,
+   "requests": 274,
+   "tokens": 147078
   }
  },
  "checks": {
@@ -675,7 +677,7 @@
    "document_tokens": 76721,
    "documents": 697,
    "encoding": "independent",
-   "estimated_usd": 0.002634,
+   "estimated_usd": 0.002967,
    "kind": "representation",
    "model": "qwen/qwen3-embedding-8b",
    "notes": [],
@@ -684,9 +686,9 @@
    "queries": 133,
    "query_tokens": 11091,
    "recipe": "production_recipe",
-   "requests": 14,
-   "tokens": 87812,
-   "worst_case_usd": 0.007903
+   "requests": 147,
+   "tokens": 98903,
+   "worst_case_usd": 0.008901
   },
   {
    "arm": "R2",
@@ -695,7 +697,7 @@
    "document_tokens": 120258,
    "documents": 697,
    "encoding": "independent",
-   "estimated_usd": 0.00394,
+   "estimated_usd": 0.004273,
    "kind": "representation",
    "model": "qwen/qwen3-embedding-8b",
    "notes": [],
@@ -704,9 +706,9 @@
    "queries": 133,
    "query_tokens": 11091,
    "recipe": "deterministic_header",
-   "requests": 14,
-   "tokens": 131349,
-   "worst_case_usd": 0.011821
+   "requests": 147,
+   "tokens": 142440,
+   "worst_case_usd": 0.01282
   },
   {
    "arm": "R3",
@@ -715,7 +717,7 @@
    "document_tokens": 198657,
    "documents": 697,
    "encoding": "independent",
-   "estimated_usd": 0.006292,
+   "estimated_usd": 0.006625,
    "kind": "representation",
    "model": "qwen/qwen3-embedding-8b",
    "notes": [],
@@ -724,9 +726,9 @@
    "queries": 133,
    "query_tokens": 11091,
    "recipe": "llm_context",
-   "requests": 14,
-   "tokens": 209748,
-   "worst_case_usd": 0.018877
+   "requests": 147,
+   "tokens": 220839,
+   "worst_case_usd": 0.019876
   },
   {
    "arm": "R4_grouped",
@@ -735,7 +737,7 @@
    "document_tokens": 59257,
    "documents": 37,
    "encoding": "grouped",
-   "estimated_usd": 0.013288,
+   "estimated_usd": 0.014708,
    "kind": "representation",
    "model": "pplx-embed-context-v1-4b",
    "notes": [
@@ -747,9 +749,9 @@
    "queries": 133,
    "query_tokens": 7101,
    "recipe": "plain",
-   "requests": 4,
-   "tokens": 66438,
-   "worst_case_usd": 0.039863
+   "requests": 137,
+   "tokens": 73539,
+   "worst_case_usd": 0.044123
   },
   {
    "arm": "R4_singleton",
@@ -758,7 +760,7 @@
    "document_tokens": 59257,
    "documents": 697,
    "encoding": "singleton",
-   "estimated_usd": 0.013288,
+   "estimated_usd": 0.014708,
    "kind": "representation",
    "model": "pplx-embed-context-v1-4b",
    "notes": [
@@ -770,9 +772,9 @@
    "queries": 133,
    "query_tokens": 7101,
    "recipe": "plain",
-   "requests": 5,
-   "tokens": 66438,
-   "worst_case_usd": 0.039863
+   "requests": 138,
+   "tokens": 73539,
+   "worst_case_usd": 0.044123
   },
   {
    "arm": "R4_independent",
@@ -781,7 +783,7 @@
    "document_tokens": 59257,
    "documents": 697,
    "encoding": "independent",
-   "estimated_usd": 0.013288,
+   "estimated_usd": 0.014708,
    "kind": "representation",
    "model": "pplx-embed-v1-4b",
    "notes": [
@@ -793,9 +795,9 @@
    "queries": 133,
    "query_tokens": 7101,
    "recipe": "plain",
-   "requests": 5,
-   "tokens": 66438,
-   "worst_case_usd": 0.039863
+   "requests": 138,
+   "tokens": 73539,
+   "worst_case_usd": 0.044123
   },
   {
    "arm": "R5_grouped",
@@ -804,7 +806,7 @@
    "document_tokens": 59257,
    "documents": 37,
    "encoding": "grouped",
-   "estimated_usd": 0.019931,
+   "estimated_usd": 0.022062,
    "kind": "representation",
    "model": "voyage-context-4",
    "notes": [
@@ -816,9 +818,9 @@
    "queries": 133,
    "query_tokens": 7101,
    "recipe": "plain",
-   "requests": 4,
-   "tokens": 66438,
-   "worst_case_usd": 0.059794
+   "requests": 137,
+   "tokens": 73539,
+   "worst_case_usd": 0.066185
   },
   {
    "arm": "R5_singleton",
@@ -827,7 +829,7 @@
    "document_tokens": 59257,
    "documents": 697,
    "encoding": "singleton",
-   "estimated_usd": 0.019931,
+   "estimated_usd": 0.022062,
    "kind": "representation",
    "model": "voyage-context-4",
    "notes": [
@@ -839,9 +841,9 @@
    "queries": 133,
    "query_tokens": 7101,
    "recipe": "plain",
-   "requests": 4,
-   "tokens": 66438,
-   "worst_case_usd": 0.059794
+   "requests": 137,
+   "tokens": 73539,
+   "worst_case_usd": 0.066185
   },
   {
    "arm": "R5_independent",
@@ -850,7 +852,7 @@
    "document_tokens": 59257,
    "documents": 697,
    "encoding": "independent",
-   "estimated_usd": 0.019931,
+   "estimated_usd": 0.022062,
    "kind": "representation",
    "model": "voyage-4-large",
    "notes": [
@@ -862,9 +864,9 @@
    "queries": 133,
    "query_tokens": 7101,
    "recipe": "plain",
-   "requests": 4,
-   "tokens": 66438,
-   "worst_case_usd": 0.059794
+   "requests": 137,
+   "tokens": 73539,
+   "worst_case_usd": 0.066185
   }
  ],
  "harness": "e0-harness-v1",
@@ -884,10 +886,15 @@
   "bootstrap_resamples": 10000,
   "cap_usd": 25.0,
   "d1_evidence_tokens": 8192,
-  "max_paid_requests": 6000,
+  "latency_regression_tolerance": 0.1,
+  "max_metered_requests": 6000,
   "max_wall_s": 21600.0,
+  "max_wall_s_enforced": true,
+  "output_bound": "the ai.output_tokens policy per role profile (reserved as sent)",
   "pool_depth": 20,
   "request_timeout_s": 120.0,
+  "subscription_requests": "unbounded (owner)",
+  "token_bound": "UTF-8 bytes + 8 for limits and admission; bytes/3 for estimates",
   "top_k": 10,
   "transient_retries": 2,
   "window_tokens": 4096
@@ -926,14 +933,14 @@
   {
    "arm": null,
    "billing": "subscription",
-   "calls": 404,
+   "calls": 505,
    "category": "labels_audits",
    "detail": "",
-   "estimated_only_reference_usd": 4.99078,
+   "estimated_only_reference_usd": 6.061008,
    "estimated_usd": 0.0,
-   "input_tokens": 1725770,
+   "input_tokens": 2159884,
    "model": "gpt-6-luna",
-   "output_tokens": 153924,
+   "output_tokens": 174124,
    "role": "label_a",
    "transport": "codex_sdk",
    "worst_case_usd": 0.0
@@ -941,14 +948,14 @@
   {
    "arm": null,
    "billing": "subscription",
-   "calls": 404,
+   "calls": 505,
    "category": "labels_audits",
    "detail": "",
-   "estimated_only_reference_usd": 4.99078,
+   "estimated_only_reference_usd": 6.061008,
    "estimated_usd": 0.0,
-   "input_tokens": 1725770,
+   "input_tokens": 2159884,
    "model": "gpt-5.6-sol",
-   "output_tokens": 153924,
+   "output_tokens": 174124,
    "role": "label_b",
    "transport": "codex_sdk",
    "worst_case_usd": 0.0
@@ -1157,7 +1164,7 @@
    }
   }
  },
- "pins_fingerprint": "bbcce15ed6cddda61b1da7773d51405dd18b8c682e4c0914c08f0fa4b23d9f85",
+ "pins_fingerprint": "52f67ec2216a3d7f05a667d067fb6a66407fa9d35dc67c04db23289adf18ffe7",
  "prompts": {
   "versions": {
    "adjudicator": "e0-adjudicate-v1",
@@ -1172,6 +1179,7 @@
   },
   "writer": "1537dcce16ac55e93af53d1c32e32197f48547831cab5ab19c0bea6fc7fab1c3"
  },
+ "reserve_share": 0.0,
  "retrieval_arms": {
   "R0": "today's effective path on the copy (keyword-only when dense is off)",
   "R1": "Qwen, production recipe text on common units, exact cosine",
@@ -1186,8 +1194,19 @@
   "R5_independent": "voyage-4-large via the Voyage API",
   "R5_singleton": "voyage-context-4, one chunk per document"
  },
- "run_id": "e0_65d691edcd7bf7d7",
+ "run_id": "e0_44f66a3276e286a0",
  "seed": 20261021,
+ "splits": {
+  "linear_algebra-20261021": {
+   "fam_01ba99c61b": "development",
+   "fam_404545e4fb": "development",
+   "fam_62839be6b9": "development"
+  },
+  "probability-20261021": {
+   "fam_9f4d3c70c6": "development",
+   "fam_b1e5df3878": "development"
+  }
+ },
  "status": "dry_run",
  "system_arms": [
   {
@@ -1213,18 +1232,19 @@
   },
   {
    "arm": "R1_service",
-   "backfill_tokens": 29690,
+   "backfill_tokens": 29477,
    "category": "embeddings",
-   "estimated_usd": 0.001285,
+   "estimated_usd": 0.001279,
    "kind": "system",
    "notes": [
-    "runs on a separate service copy with embeddings enabled (the copy's toml only)",
-    "find_sources' LLM verification is not run in E0 (open question in the review)"
+    "runs on a separate, redacted service copy with embeddings enabled (its toml only)",
+    "verification runs on the copy's source_rerank route: subscription at $0, a metered route needs source_retrieval.llm_price_per_million or is refused"
    ],
    "queries": 73,
    "variants": [
-    "search_spans hybrid_rrf (the pool find_sources forces for pagination)",
-    "first-page dense_plus_bm25"
+    "find_sources (RRF, intent lists, mandatory verification, compare delegation)",
+    "first-page dense_plus_bm25",
+    "pool_verify (tutor_pool + verify_spans)"
    ],
    "vault": "linear_algebra-20261021",
    "verification_route": {
@@ -1256,18 +1276,19 @@
   },
   {
    "arm": "R1_service",
-   "backfill_tokens": 42266,
+   "backfill_tokens": 33498,
    "category": "embeddings",
-   "estimated_usd": 0.001592,
+   "estimated_usd": 0.001329,
    "kind": "system",
    "notes": [
-    "runs on a separate service copy with embeddings enabled (the copy's toml only)",
-    "find_sources' LLM verification is not run in E0 (open question in the review)"
+    "runs on a separate, redacted service copy with embeddings enabled (its toml only)",
+    "verification runs on the copy's source_rerank route: subscription at $0, a metered route needs source_retrieval.llm_price_per_million or is refused"
    ],
    "queries": 60,
    "variants": [
-    "search_spans hybrid_rrf (the pool find_sources forces for pagination)",
-    "first-page dense_plus_bm25"
+    "find_sources (RRF, intent lists, mandatory verification, compare delegation)",
+    "first-page dense_plus_bm25",
+    "pool_verify (tutor_pool + verify_spans)"
    ],
    "vault": "probability-20261021",
    "verification_route": {
@@ -1295,9 +1316,9 @@
    },
    "embeddings": {
     "allocation_usd": 2.0,
-    "estimated_usd": 0.1154,
+    "estimated_usd": 0.1268,
     "fits": true,
-    "worst_case_usd": 0.3404
+    "worst_case_usd": 0.3751
    },
    "labels_audits": {
     "allocation_usd": 10.0,
@@ -1306,11 +1327,11 @@
     "worst_case_usd": 15.6257
    }
   },
-  "estimated_usd": 8.7111,
+  "estimated_usd": 8.7225,
   "fits_allocations": true,
   "fits_cap": true,
   "overflowing_categories": [],
-  "subscription_estimated_only_tokens": 16904861,
-  "worst_case_usd": 26.1274
+  "subscription_estimated_only_tokens": 17813489,
+  "worst_case_usd": 26.1621
  }
 }

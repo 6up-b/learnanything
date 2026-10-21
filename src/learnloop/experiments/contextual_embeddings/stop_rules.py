@@ -15,12 +15,18 @@ from learnloop.experiments.contextual_embeddings import pins
 
 
 def s1(*, kappa: float | None, unresolved_sets: int, extraction_failures: int, policy_failures: int,
-       arm_completion: Mapping[str, float]) -> dict[str, Any]:
+       arm_completion: Mapping[str, float], incomplete_work: Mapping[str, int] | None = None) -> dict[str, Any]:
     """Labels and coverage: stop verdicts for kappa < 0.60, unresolved
-    evidence sets, extraction/policy failures or materially incomplete arms."""
+    evidence sets, extraction/policy failures, materially incomplete arms, or
+    planned work left undone (``incomplete_work``: seeds the writer never
+    answered, questions never labelled, mandatory audits or planned answers
+    never made: Codex review F17)."""
 
     incomplete = sorted(arm for arm, share in arm_completion.items() if share < pins.ARM_COMPLETION_MIN)
+    missing_work = {key: int(value) for key, value in sorted((incomplete_work or {}).items()) if value}
     reasons = []
+    if missing_work:
+        reasons.append("planned work missing: " + ", ".join(f"{key} {value}" for key, value in missing_work.items()))
     if kappa is None or kappa < pins.KAPPA_MIN:
         reasons.append(f"kappa {kappa if kappa is not None else 'n/a'} < {pins.KAPPA_MIN}")
     if unresolved_sets:
@@ -34,7 +40,7 @@ def s1(*, kappa: float | None, unresolved_sets: int, extraction_failures: int, p
     return {"rule": "S1", "decision": "stop_verdicts" if reasons else "labels_ok", "reasons": reasons,
             "inputs": {"kappa": kappa, "unresolved_sets": unresolved_sets,
                        "extraction_failures": extraction_failures, "policy_failures": policy_failures,
-                       "arm_completion": dict(sorted(arm_completion.items())),
+                       "arm_completion": dict(sorted(arm_completion.items())), "incomplete_work": missing_work,
                        "kappa_min": pins.KAPPA_MIN, "completion_min": pins.ARM_COMPLETION_MIN}}
 
 
@@ -49,7 +55,9 @@ def s2(direct: Mapping[str, Mapping[str, Any] | None], *, latency_fits: Mapping[
 
     superior: the lower bound above 0; non-inferior: the lower bound above
     -0.02 (the 2-point margin); else inconclusive (an interval merely
-    including zero decides nothing). Latency must fit the Reader budget."""
+    including zero decides nothing). Latency must fit the Reader budget with
+    no paired regression against the incumbent D1 (``latency_fits`` per arm:
+    True, False, or None when unmeasured or no budget is pinned)."""
 
     arms: dict[str, Any] = {}
     preferred = []

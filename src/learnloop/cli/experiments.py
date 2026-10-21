@@ -87,11 +87,15 @@ def e0_run(
             markdown.parent.mkdir(parents=True, exist_ok=True)
             markdown.write_text(render_markdown(plan), encoding="utf-8")
         if not dry_run:
+            from learnloop.cli.receipts import bind_command_repository
             from learnloop.experiments.contextual_embeddings.live import run_live
 
             require_paid_authorization(authorized=authorized, dry_run_ok=bool(plan["totals"]["fits_cap"]))
+            # Receipts go to each copy's experiment repository, never to a vault
+            # found from the working directory (Codex review F4).
             result = run_live(copy, plan=plan, run_dir=run_dir, key_envs=key_envs,
-                              reader_latency_budget_s=reader_latency_budget_s)
+                              reader_latency_budget_s=reader_latency_budget_s,
+                              bind_receipts=bind_command_repository)
             typer.echo(json.dumps(result, sort_keys=True, indent=None if json_output else 2, default=str))
             return
     except (ValueError, OSError, PermissionError, RuntimeError) as exc:

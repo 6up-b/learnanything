@@ -45,6 +45,7 @@ from learnloop.experiments.contextual_embeddings.adapters import (
     Document,
     SpaceVectors,
     assert_compatible,
+    query_vector_key,
 )
 from learnloop.experiments.contextual_embeddings.corpus import CandidateUnit, CorpusSnapshot, Window, alias
 
@@ -143,12 +144,6 @@ def documents_for(snapshot: CorpusSnapshot, encoding: str, recipe: str, space_id
         chunk_unit[chunk.chunk_id] = unit.unit_id
         documents.append(Document(unit.unit_id, (chunk,), document_vector_key(space_id, snapshot, [unit], [text])))
     return documents, chunk_unit
-
-
-def query_vector_key(encoder_id: str, query_text: str) -> str:
-    """The spec's ``query_vector_key``: the encoder and the complete effective query."""
-
-    return "qv_" + _sha(encoder_id, query_text)[:32]
 
 
 # -- exact search ---------------------------------------------------------------------

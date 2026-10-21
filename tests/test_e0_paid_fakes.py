@@ -10,19 +10,18 @@ import socket
 
 import pytest
 
-from learnloop.ai.execution import model_call, report_call_usage
-from learnloop.ai.transport import ISOLATED_TURN, STRUCTURED_COMPLETION
 from learnloop.experiments.contextual_embeddings import corpus as C
 from learnloop.experiments.contextual_embeddings import pins
 from learnloop.experiments.contextual_embeddings.adapters import CANARY_CHUNKS
 from learnloop.experiments.contextual_embeddings.budget import E0Ledger
 from learnloop.experiments.contextual_embeddings.callers import Checkpoints, FakeRoleCaller, LiveRoleCaller
-from learnloop.experiments.contextual_embeddings.paid import run_paid
+from learnloop.experiments.contextual_embeddings.paid import effective_query, run_paid
 from learnloop.experiments.contextual_embeddings.report import assert_aggregate, render
 from learnloop.experiments.contextual_embeddings.retrieval import GeneratedContexts
 from learnloop.experiments.contextual_embeddings.system_arms import enable_embeddings_on_copy, make_service_copy, \
     open_service, rank_system
-from tests.e0_fakes import FAKE_KEYS, FakeEmbeddingTransport, FakeQwenClient, build_e0_vault, fake_respond
+from tests.e0_fakes import FAKE_KEYS, FakeEmbeddingTransport, FakeQwenClient, FakeRoleClient, build_e0_vault, \
+    fake_respond
 
 STRATA = {"reader_deictic": 2, "distant_same_source": 1, "direct_lookup": 1, "no_support": 1, "intent_explain": 1}
 DIMS = {pin.model: pin.dimensions for pin in pins.EMBEDDING_PINS.values()}
@@ -37,22 +36,22 @@ def no_network(monkeypatch):
     monkeypatch.setattr(socket, "create_connection", refuse)
 
 
-def _run(tmp_path, ledger, *, run_dir=None, transport=None):
+def _run(tmp_path, ledger, *, run_dir=None, transport=None, caller=None, **kwargs):
     paths, _repository = build_e0_vault(tmp_path)
     snapshot = C.build_snapshot(C.open_copy(paths.root))
     transport = transport or FakeEmbeddingTransport(
         dims=DIMS, int8_models=frozenset({"pplx-embed-context-v1-4b", "pplx-embed-v1-4b"}))
     qwen = FakeQwenClient()
-    caller = FakeRoleCaller(fake_respond, ledger)
+    caller = caller or FakeRoleCaller(fake_respond, ledger)
     result = run_paid(snapshot, ledger=ledger, caller=caller, run_dir=run_dir, transport=transport,
-                      qwen_client_factory=lambda: qwen, strata=STRATA, environ=FAKE_KEYS)
+                      qwen_client_factory=lambda: qwen, strata=STRATA, environ=FAKE_KEYS, **kwargs)
     return result, transport, qwen, caller, paths
 
 
 def test_a_fake_paid_run_completes_every_arm_and_computes_the_stop_rules(tmp_path):
     ledger = E0Ledger(tmp_path / "ledger")
     result, transport, qwen, caller, _paths = _run(tmp_path, ledger, run_dir=tmp_path / "fixtures-local" / "run")
-    assert result["status"] == "complete", result["failures"]
+    assert result["status"] == "complete", (result["failures"], result["incomplete_reason"])
     assert set(result["retrieval"]) == {"R1", "R2", "R3", "R3_bm25", "R4_grouped", "R4_singleton", "R4_independent",
                                         "R5_grouped", "R5_singleton", "R5_independent"}
     assert all(contract["status"] == "cached_first" for contract in result["contracts"].values())
@@ -61,6 +60,7 @@ def test_a_fake_paid_run_completes_every_arm_and_computes_the_stop_rules(tmp_pat
     assert result["finalists"]["one_model"] in ("R1", "R2", "R3")
     assert result["ledger"]["committed_usd"] <= pins.E0_CAP_USD
     assert {role for role, _prompt in caller.calls} >= {"writer", "context", "label_a", "label_b", "tutor"}
+    assert result["planned"]["missing"] == {}
     assert_aggregate(result)
     report = render(result)
     assert "S1:" in report and "not production authorization" in report
@@ -88,9 +88,8 @@ def test_resume_pays_only_for_what_is_missing(tmp_path):
     documents = [request for request in transport.requests
                  if CANARY_CHUNKS[0] not in str(request["body"]) and request["body"].get("input_type") == "document"]
     assert documents
-    paths, _repository = build_e0_vault(tmp_path, "e0vault_resume")
-    del paths
-    # Same corpus, same run directory: no document is re-sent (canaries and queries only).
+    # Same corpus, same run directory: no document and no stored query is re-sent;
+    # only the canaries and the online latency's fresh queries go out again.
     snapshot = C.build_snapshot(C.open_copy(tmp_path / "fixtures-local" / "contextual-embeddings" / "vaults" / "e0vault"))
     again = FakeEmbeddingTransport(dims=DIMS, int8_models=frozenset({"pplx-embed-context-v1-4b", "pplx-embed-v1-4b"}))
     qwen_again = FakeQwenClient()
@@ -99,49 +98,34 @@ def test_resume_pays_only_for_what_is_missing(tmp_path):
     resent = [request for request in again.requests
               if CANARY_CHUNKS[0] not in str(request["body"]) and request["body"].get("input_type") == "document"]
     assert resent == []
-    assert all(task == "retrieval-query" for _count, task in qwen_again.calls)
-
-
-class _FakeStructuredClient:
-    """A structured transport whose ``complete`` makes one physical request."""
-
-    provider_name = "e0_openrouter_sonnet"
-    provider_type = "openrouter"
-    model = "anthropic/claude-sonnet-5.5"
-
-    def __init__(self) -> None:
-        self.completed = 0
-
-    def supports(self, capability: str) -> bool:
-        return capability in (STRUCTURED_COMPLETION, ISOLATED_TURN)
-
-    def complete(self, request):
-        with model_call(self, purpose=request.purpose, prompt=request.prompt):
-            report_call_usage({"input_tokens": 500, "output_tokens": 200})
-        self.completed += 1
-        return request.result_model.model_validate({"contexts": [{"ref": "p1", "context": "a context"}]})
+    assert [request for request in again.requests if request["body"].get("input_type") == "query"] == []
+    assert qwen_again.calls == []  # documents, queries and the online measurements all reused
 
 
 def test_the_live_caller_admits_each_physical_request_and_resumes_from_checkpoints(tmp_path):
     paths, _repository = build_e0_vault(tmp_path)
     handle = C.open_copy(paths.root)
     ledger = E0Ledger(tmp_path / "ledger")
-    client = _FakeStructuredClient()
+    client = FakeRoleClient("e0_openrouter_sonnet",
+                            respond=lambda *_args: {"contexts": [{"ref": "p1", "context": "a context"}]})
     roles = {"context": pins.ROLE_PINS["adjudicator"]}  # a metered route, to see money admitted
     caller = LiveRoleCaller(handle.root, handle.vault.config, ledger, checkpoints=Checkpoints(tmp_path / "ckpt"),
                             role_pins=roles, client_factory=lambda _profile: client)
     first = caller.call("context", prompt="prompt text", result_model=GeneratedContexts)
     report = ledger.report()
     assert report["requests"] == 1 and report["committed_usd"] > 0
+    measured = caller.last.latency_s
     resumed = LiveRoleCaller(handle.root, handle.vault.config, ledger, checkpoints=Checkpoints(tmp_path / "ckpt"),
                              role_pins=roles, client_factory=lambda _profile: client)
     assert resumed.call("context", prompt="prompt text", result_model=GeneratedContexts) == first
-    assert client.completed == 1 and resumed.cached == 1 and ledger.report()["requests"] == 1
+    assert len(client.requests) == 1 and resumed.cached == 1 and ledger.report()["requests"] == 1
+    # The resumed call reports the ORIGINAL measurement, marked cached (Codex review F9).
+    assert resumed.last.cached and resumed.last.latency_s == measured
     assert "e0_openrouter_sonnet" in caller.config.ai.providers
     assert "e0_openrouter_sonnet" not in handle.vault.config.ai.providers  # in memory only
 
 
-def test_r0_runs_on_a_service_copy_and_the_frozen_copy_is_untouched(tmp_path):
+def test_r0_runs_find_sources_on_a_service_copy_and_the_frozen_copy_is_untouched(tmp_path):
     from learnloop.experiments.contextual_embeddings.bank import smoke_bank
     from learnloop.experiments.contextual_embeddings.runner import tree_digest
 
@@ -152,13 +136,16 @@ def test_r0_runs_on_a_service_copy_and_the_frozen_copy_is_untouched(tmp_path):
     handle = open_service(service_root)
     questions, _ = smoke_bank(snapshot)
     ledger = E0Ledger(tmp_path / "ledger")
-    ranked, dropped = rank_system(handle, snapshot, questions, arm="R0", ledger=ledger,
-                                  query_text={question.query_id: question.effective_query for question in questions})
+    ranked, report = rank_system(handle, snapshot, questions, arm="R0", ledger=ledger,
+                                 query_text={question.query_id: effective_query(question, snapshot)
+                                             for question in questions})
     assert set(ranked) == {question.query_id for question in questions}
     assert any(ranked.values())
+    assert report["interface"] == "find_sources" and report["ranked"] == len(questions)
+    assert set(report["pages"]) <= {"1", "2"} and "not_requested" in report["verification"]
     assert all(snapshot.policy.permitted(*key) for units in ranked.values() for unit_id in units
                for key in snapshot.unit(unit_id).keys)
-    assert set(dropped) == {"withheld", "unmapped"}
+    assert {"withheld", "unmapped", "page_duplicates", "pool_modes", "dense_used"} <= set(report)
     assert tree_digest(paths.root) == before
     with pytest.raises(ValueError, match="fixtures-local"):
         enable_embeddings_on_copy(tmp_path / "not-local")
@@ -173,14 +160,10 @@ def test_r0_runs_on_a_service_copy_and_the_frozen_copy_is_untouched(tmp_path):
 
 
 def test_a_pinned_reader_budget_is_checked_against_measured_answer_latency(tmp_path):
-    paths, _repository = build_e0_vault(tmp_path)
-    snapshot = C.build_snapshot(C.open_copy(paths.root))
     ledger = E0Ledger(tmp_path / "ledger")
-    transport = FakeEmbeddingTransport(dims=DIMS, int8_models=frozenset({"pplx-embed-context-v1-4b", "pplx-embed-v1-4b"}))
-    qwen = FakeQwenClient()
-    result = run_paid(snapshot, ledger=ledger, caller=FakeRoleCaller(fake_respond, ledger), run_dir=None,
-                      transport=transport, qwen_client_factory=lambda: qwen, strata=STRATA, environ=FAKE_KEYS,
-                      latency_budget_s=60.0)
+    # A steady simulated tutor latency, so millisecond delivery noise cannot read as a regression.
+    caller = FakeRoleCaller(fake_respond, ledger, latency=lambda _role, _prompt: 1.0)
+    result, _transport, _qwen, _caller, _paths = _run(tmp_path, ledger, latency_budget_s=60.0, caller=caller)
     assert result["reader_latency_budget_s"] == 60.0
     assert all(entry["p95"] is not None for entry in result["answer_latency_s"].values())
     assert result["decisions"]["S2"]["arms"]["D2"]["latency_fits"] is True

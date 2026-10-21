@@ -64,7 +64,8 @@ TRANSIENT_RETRIES = 2
 REQUEST_TIMEOUT_S = 120.0
 #: Total wall time one paid run may take before it stops cleanly.
 MAX_WALL_S = 6 * 3600.0
-#: The paid-call cap of one run (every attempt counts).
+#: The metered paid-call cap of one run (every metered attempt counts; subscription
+#: requests are tallied but never limited, owner decision 2026-10-12).
 MAX_PAID_REQUESTS = 6_000
 
 # -- determinism ---------------------------------------------------------------------
@@ -96,6 +97,10 @@ S2_NONINFERIORITY_MARGIN = 0.02
 S3_CONTEXT_GAIN_MIN = 0.03
 S3_QWEN_WITHIN = 0.02
 S4_GAIN_MIN = 0.05
+#: "No Reader latency regression" (S2, S4): an arm's paired p50 and p95 may exceed the
+#: incumbent's by at most this share (measurement noise), and its p95 must meet the
+#: frozen Reader deadline. Pinned before any result (Codex review F9).
+LATENCY_REGRESSION_TOLERANCE = 0.10
 
 # -- bank (spec §5.1) ----------------------------------------------------------------
 SMOKE_CASES = 16
@@ -115,15 +120,31 @@ DEV_STRATA = {
 }
 
 
-def conservative_tokens(text: str | None) -> int:
-    """The frozen token bound for provider limits, windows and cost estimates:
-    UTF-8 bytes / 3, rounded up. Every common subword tokenizer emits at most
-    about one token per 3 bytes of English or LaTeX, so a window packed under
-    this bound never passes a provider's token limit and an estimate is never
-    low. (Delivery budgets keep the production chars/4 estimate: D1 is the
-    production behaviour.)"""
+#: Special tokens a tokenizer may add around one input (BOS/EOS, separators).
+TOKEN_BOUND_SPECIAL = 8
+
+
+def token_estimate(text: str | None) -> int:
+    """A token ESTIMATE (UTF-8 bytes / 3, rounded up): typical for English and
+    LaTeX under common subword tokenizers, but not a bound (dense notation,
+    punctuation or poorly compressible text tokenize above it; Codex review
+    F15). Used only where an estimate is labelled as one: the dry-run plan,
+    the unit cap and the window packing target. Delivery budgets keep the
+    production chars/4 estimate (D1 is the production behaviour)."""
 
     return math.ceil(len((text or "").encode("utf-8")) / 3)
+
+
+def token_upper_bound(text: str | None) -> int:
+    """A guaranteed token UPPER BOUND: UTF-8 bytes plus the special-token
+    allowance. A byte-level BPE (GPT, Qwen) or a byte-fallback SentencePiece
+    tokenizer emits at least one byte per token, so no input tokenizes above
+    its byte count. Used for every provider limit (per document, per request,
+    per query), for whole-segment fits and for paid admission reservations, so
+    a request admitted under it can neither pass a provider limit nor cost
+    more input than was reserved (Codex review F15)."""
+
+    return len((text or "").encode("utf-8")) + TOKEN_BOUND_SPECIAL
 
 
 @dataclass(frozen=True)
@@ -238,6 +259,8 @@ class RolePin:
     #: "subscription" (Codex: no marginal bill, tallied estimated_only) or "metered".
     billing: str
     category: str
+    #: The EXPECTED output (estimates only). Every request is sent and reserved at
+    #: the normal output-budget policy instead (Codex review F2), never this.
     output_tokens: int
     input_price_per_million: float
     output_price_per_million: float
@@ -357,6 +380,7 @@ def pins_fingerprint() -> str:
             "marker": CHUNK_MARKER_TOKENS, "unit_max": UNIT_MAX_TOKENS, "caption": CAPTION_TARGET_TOKENS,
             "d1": D1_EVIDENCE_TOKENS, "top_k": TOP_K, "pool": POOL_DEPTH, "seed": SEED,
             "bootstrap": BOOTSTRAP_RESAMPLES, "kappa": KAPPA_MIN, "retries": TRANSIENT_RETRIES,
+            "latency_tolerance": LATENCY_REGRESSION_TOLERANCE, "max_wall_s": MAX_WALL_S,
         },
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()

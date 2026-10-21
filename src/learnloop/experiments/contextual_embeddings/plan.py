@@ -29,7 +29,7 @@ from learnloop.experiments.contextual_embeddings.adapters import Chunk, Document
 from learnloop.experiments.contextual_embeddings.bank import BankQuestion, Seed, writer_prompt
 from learnloop.experiments.contextual_embeddings.callers import SCHEMA_ALLOWANCE_TOKENS, role_cost
 from learnloop.experiments.contextual_embeddings.corpus import CorpusSnapshot
-from learnloop.experiments.contextual_embeddings.pins import conservative_tokens
+from learnloop.experiments.contextual_embeddings.pins import token_estimate
 from learnloop.experiments.contextual_embeddings.retrieval import context_prompt, recipe_text
 
 #: Stated assumptions of the estimate (each one is in the plan).
@@ -49,6 +49,11 @@ ASSUMPTIONS = {
     "writer_batch": 6,
     "writer_output_tokens_per_question": 160,
     "qwen_query_prefix_tokens": 30,
+    #: A pool over one label batch gets a joint sufficiency review per pass
+    #: (Codex review F13) over this share of it (the required/helpful ones).
+    "joint_review_support_share": 0.25,
+    #: One fresh online query per question and finalist (Codex review F9).
+    "online_latency_queries_per_question": 3,
 }
 
 EMBEDDING_ARMS = ("R1", "R2", "R3", "R4_grouped", "R4_singleton", "R4_independent", "R5_grouped",
@@ -60,7 +65,7 @@ def _sha(*parts: Any) -> str:
 
 
 def _chunk_tokens(text: str) -> int:
-    return conservative_tokens(text) + pins.CHUNK_MARKER_TOKENS
+    return token_estimate(text) + pins.CHUNK_MARKER_TOKENS
 
 
 def _batches(documents: Sequence[Sequence[int]], pin: pins.EmbeddingPin) -> int:
@@ -106,8 +111,11 @@ def embedding_arm_estimate(arm: str, snapshots: Sequence[CorpusSnapshot], query_
     query_requests = math.ceil(len(query_tokens) / max(1, min(pin.max_documents_per_request, 128))) if query_tokens else 0
     canary = 0 if pin.provider == "openrouter" else 1
     canary_tokens = 80 * canary
-    requests = _batches(documents, pin) + query_requests + canary
-    tokens = document_tokens + q_tokens + canary_tokens
+    # Upper estimate: any arm may be a finalist, measured online with one fresh
+    # query request per question (Codex review F9).
+    online_requests = len(query_tokens)
+    requests = _batches(documents, pin) + query_requests + canary + online_requests
+    tokens = document_tokens + 2 * q_tokens + canary_tokens
     usd = tokens * pin.price_per_million_upper_bound / 1_000_000
     blocked = []
     if not pin.contract_verified:
@@ -159,12 +167,12 @@ def llm_estimates(snapshots: Sequence[CorpusSnapshot], seeds: Mapping[str, Seque
         for start in range(0, len(vault_seeds), batch):
             prompt, _refs, _units = writer_prompt(snapshot, vault_seeds[start:start + batch])
             writer_calls += 1
-            writer_in += conservative_tokens(prompt) + SCHEMA_ALLOWANCE_TOKENS
+            writer_in += token_estimate(prompt) + SCHEMA_ALLOWANCE_TOKENS
             writer_out += ASSUMPTIONS["writer_output_tokens_per_question"] * len(vault_seeds[start:start + batch])
         for window in snapshot.windows:
             prompt, refs = context_prompt(snapshot, window)
             context_calls += 1
-            context_in += conservative_tokens(prompt) + SCHEMA_ALLOWANCE_TOKENS
+            context_in += token_estimate(prompt) + SCHEMA_ALLOWANCE_TOKENS
             context_out += ASSUMPTIONS["r3_header_tokens_per_unit"] * len(refs)
         counts = questions.get(snapshot.vault_label, {})
         scored = int(counts.get("development", 0)) + int(counts.get("logged", 0))
@@ -177,6 +185,11 @@ def llm_estimates(snapshots: Sequence[CorpusSnapshot], seeds: Mapping[str, Seque
         label_calls += scored * passes * calls_per_pass
         label_in += int(scored * passes * (pool * per_candidate + calls_per_pass * (400 + SCHEMA_ALLOWANCE_TOKENS)))
         label_out += int(scored * passes * pool * ASSUMPTIONS["label_output_tokens_per_candidate"])
+        if calls_per_pass > 1:
+            support = math.ceil(pool * ASSUMPTIONS["joint_review_support_share"])
+            label_calls += scored * passes
+            label_in += int(scored * passes * (support * per_candidate + 400 + SCHEMA_ALLOWANCE_TOKENS))
+            label_out += int(scored * passes * 200)
         audited = math.ceil(scored * ASSUMPTIONS["adjudicated_share_of_labelled_questions"])
         adj_calls += audited
         adj_in += int(audited * (pool * (per_candidate + 10) + 600 + SCHEMA_ALLOWANCE_TOKENS))
@@ -252,18 +265,22 @@ def system_arm_estimates(snapshots: Sequence[CorpusSnapshot], config_allowlists:
                      "category": "embeddings",
                      "notes": ["rewrite calls follow the copy's route; a metered rewrite route without "
                                "source_retrieval.llm_price_per_million is refused before sending"] if rewrite_on else []})
-        block_tokens = sum(_chunk_tokens(" ".join(block.text.split())) for blocks in snapshot.blocks.values()
-                           for block in blocks if block.text.strip())
+        # The service copy is redacted first: only permitted blocks are embedded (Codex review F1).
+        block_tokens = sum(_chunk_tokens(" ".join(block.text.split()))
+                           for extraction_id, blocks in snapshot.blocks.items()
+                           for block in blocks if block.text.strip()
+                           and snapshot.policy.permitted(extraction_id, block.span_id))
         backfill_usd = block_tokens * qwen.price_per_million_upper_bound / 1_000_000
         query_usd = queries * 2 * 90 * qwen.price_per_million_upper_bound / 1_000_000
         rows.append({"arm": "R1_service", "vault": snapshot.vault_label, "kind": "system", "queries": queries,
-                     "variants": ["search_spans hybrid_rrf (the pool find_sources forces for pagination)",
-                                  "first-page dense_plus_bm25"],
+                     "variants": ["find_sources (RRF, intent lists, mandatory verification, compare delegation)",
+                                  "first-page dense_plus_bm25", "pool_verify (tutor_pool + verify_spans)"],
                      "backfill_tokens": block_tokens, "estimated_usd": round(backfill_usd + query_usd, 6),
                      "verification_route": allowlist.get("routes", {}).get("source_rerank"),
                      "category": "embeddings",
-                     "notes": ["runs on a separate service copy with embeddings enabled (the copy's toml only)",
-                               "find_sources' LLM verification is not run in E0 (open question in the review)"]})
+                     "notes": ["runs on a separate, redacted service copy with embeddings enabled (its toml only)",
+                               "verification runs on the copy's source_rerank route: subscription at $0, a "
+                               "metered route needs source_retrieval.llm_price_per_million or is refused"]})
     return rows
 
 
@@ -297,7 +314,7 @@ def run_id(snapshots: Sequence[CorpusSnapshot], bank_ids: Sequence[str]) -> str:
 
 
 def query_token_sizes(bank: Sequence[BankQuestion], development_target: int) -> list[int]:
-    sizes = [conservative_tokens(question.effective_query) for question in bank]
+    sizes = [token_estimate(question.effective_query) for question in bank]
     sizes.extend([ASSUMPTIONS["development_query_tokens"]] * development_target)
     return sizes
 

@@ -1,34 +1,34 @@
-# E0 dry run `e0_65d691edcd7bf7d7`
+# E0 dry run `e0_44f66a3276e286a0`
 
-Harness e0-harness-v1; pins `bbcce15ed6cd`; seed 20261021.
+Harness e0-harness-v1; pins `52f67ec2216a`; seed 20261021.
 
-**Estimate:** $8.71 expected, $26.13 worst case (every request retried twice) against the $25 cap: fits; allocations fit.
+**Estimate:** $8.72 expected, $26.16 worst case (every request retried twice) against the $25 cap: fits; allocations fit.
 
 | Category | Expected $ | Worst case $ | Allocation $ | Fits |
 |---|---|---|---|---|
-| embeddings | 0.1154 | 0.3404 | 2.00 | yes |
+| embeddings | 0.1268 | 0.3751 | 2.00 | yes |
 | drafting_context | 0.0000 | 0.0000 | 5.00 | yes |
 | labels_audits | 5.2086 | 15.6257 | 10.00 | yes |
 | answers_verification | 3.3871 | 10.1613 | 8.00 | yes |
 
 | Embedding arm | Model | Documents | Chunks | Requests | Tokens | Expected $ |
 |---|---|---|---|---|---|---|
-| R1 | qwen/qwen3-embedding-8b | 697 | 697 | 14 | 87,812 | 0.0026 |
-| R2 | qwen/qwen3-embedding-8b | 697 | 697 | 14 | 131,349 | 0.0039 |
-| R3 | qwen/qwen3-embedding-8b | 697 | 697 | 14 | 209,748 | 0.0063 |
-| R4_grouped | pplx-embed-context-v1-4b | 37 | 697 | 4 | 66,438 | 0.0133 |
-| R4_singleton | pplx-embed-context-v1-4b | 697 | 697 | 5 | 66,438 | 0.0133 |
-| R4_independent | pplx-embed-v1-4b | 697 | 697 | 5 | 66,438 | 0.0133 |
-| R5_grouped | voyage-context-4 | 37 | 697 | 4 | 66,438 | 0.0199 |
-| R5_singleton | voyage-context-4 | 697 | 697 | 4 | 66,438 | 0.0199 |
-| R5_independent | voyage-4-large | 697 | 697 | 4 | 66,438 | 0.0199 |
+| R1 | qwen/qwen3-embedding-8b | 697 | 697 | 147 | 98,903 | 0.0030 |
+| R2 | qwen/qwen3-embedding-8b | 697 | 697 | 147 | 142,440 | 0.0043 |
+| R3 | qwen/qwen3-embedding-8b | 697 | 697 | 147 | 220,839 | 0.0066 |
+| R4_grouped | pplx-embed-context-v1-4b | 37 | 697 | 137 | 73,539 | 0.0147 |
+| R4_singleton | pplx-embed-context-v1-4b | 697 | 697 | 138 | 73,539 | 0.0147 |
+| R4_independent | pplx-embed-v1-4b | 697 | 697 | 138 | 73,539 | 0.0147 |
+| R5_grouped | voyage-context-4 | 37 | 697 | 137 | 73,539 | 0.0221 |
+| R5_singleton | voyage-context-4 | 697 | 697 | 137 | 73,539 | 0.0221 |
+| R5_independent | voyage-4-large | 697 | 697 | 137 | 73,539 | 0.0221 |
 
 | LLM role | Model | Billing | Calls | Input tokens | Output tokens | Expected $ |
 |---|---|---|---|---|---|---|
 | writer | gpt-6-luna | subscription | 12 | 57,427 | 11,520 | 0.0000 |
 | context | gpt-6-luna | subscription | 37 | 86,330 | 139,400 | 0.0000 |
-| label_a | gpt-6-luna | subscription | 404 | 1,725,770 | 153,924 | 0.0000 |
-| label_b | gpt-5.6-sol | subscription | 404 | 1,725,770 | 153,924 | 0.0000 |
+| label_a | gpt-6-luna | subscription | 505 | 2,159,884 | 174,124 | 0.0000 |
+| label_b | gpt-5.6-sol | subscription | 505 | 2,159,884 | 174,124 | 0.0000 |
 | adjudicator | anthropic/claude-sonnet-5.5 | metered | 101 | 1,597,904 | 153,924 | 5.2086 |
 | tutor | gpt-5.6-sol | subscription | 407 | 5,368,932 | 244,200 | 0.0000 |
 | judge_a | gpt-6-luna | subscription | 407 | 3,496,732 | 122,100 | 0.0000 |
