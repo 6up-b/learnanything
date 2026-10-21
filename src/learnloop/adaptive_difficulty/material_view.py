@@ -985,8 +985,28 @@ class MaterialView:
 
 
 def material_view(vault: Any, repository: Any, protected: Any = None) -> MaterialView:
-    """The view for one operation. ``protected``: a :class:`Protection` the operation already
-    computed (never recomputed), or an id set added to a fresh one; None computes it once here."""
+    """The open operation's view (the AD23 redesign): ``protected`` None returns the view of the
+    operation open in this context (:mod:`~learnloop.adaptive_difficulty.operation`); outside an
+    operation that is an error, so no AD reader computes a fresh, unguarded view by accident. A
+    :class:`MaterialView` is returned as it is; a :class:`Protection` or an id set builds a view on it
+    (an id set adds its ids to a fresh predicate)."""
+
+    if isinstance(protected, MaterialView):
+        return protected
+    if protected is None:
+        from learnloop.adaptive_difficulty.operation import current
+
+        op = current()
+        if op is None:
+            raise RuntimeError("an AD material view was asked for outside an AD operation")
+        return op.view
+    return detached_view(vault, repository, protected)
+
+
+def detached_view(vault: Any, repository: Any, protected: Any = None) -> MaterialView:
+    """A view computed here, outside any operation's guard: for the operation itself, the egress
+    guards (which re-read protection afresh by design) and the incumbent's generation boundary (E1).
+    ``protected`` as :func:`material_view`'s; None computes the predicate once."""
 
     # The predicate is read through its module, so it is the one place AD computes it.
     if isinstance(protected, MaterialView):
@@ -1006,4 +1026,4 @@ def closes_window(attempt: Mapping[str, Any], ledger_entry: Mapping[str, Any] | 
     return bool((ledger_entry or {}).get("evidence"))
 
 
-__all__ = ["MaterialView", "NON_WINDOW_TYPES", "UNAVAILABLE", "closes_window", "material_view"]
+__all__ = ["MaterialView", "NON_WINDOW_TYPES", "UNAVAILABLE", "closes_window", "detached_view", "material_view"]

@@ -98,7 +98,9 @@ def connect(sqlite_path: Path, *, read_only: bool = False) -> sqlite3.Connection
     require_supported_sqlite()
     sqlite_path = Path(sqlite_path)
     if read_only:
-        return _open_read_only(sqlite_path)
+        from learnloop.db.scopes import apply_connection_hook
+
+        return apply_connection_hook(_open_read_only(sqlite_path), sqlite_path)
     sqlite_path.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(sqlite_path)
     _configure(connection)

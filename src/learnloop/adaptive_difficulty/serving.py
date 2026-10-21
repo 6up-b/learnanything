@@ -30,6 +30,8 @@ else the slot LO's own view, exactly.
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.operation import entry
+
 import logging
 import math
 from collections.abc import Mapping, Sequence
@@ -174,6 +176,7 @@ def _versions(vault: Any, snapshot: RP.Snapshot, view_name: str) -> dict[str, An
             "algorithm_version": vault.config.algorithms.algorithm_version}
 
 
+@entry
 def decide_slot(vault: Any, repository: Any, request: SlotRequest, *, view: Any = None) -> SlotDecision:
     """Score the slot's support and draw (§6.1), writing the ``ad_selections`` row first.
 

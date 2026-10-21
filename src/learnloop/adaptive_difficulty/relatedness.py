@@ -43,6 +43,8 @@ certification, and nothing is written to the relations registry (KM §8.1).
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.operation import entry
+
 import hashlib
 import json
 import logging
@@ -221,6 +223,7 @@ def subjects(vault: Any) -> list[str]:
                    if getattr(lo, "status", "active") == "active"})
 
 
+@entry
 def subject_inputs(vault: Any, repository: Any, subject: str, *, protected: Any = None) -> dict[str, Any]:
     """Exactly what the proposal reads for one subject: LO and facet text, the concept graph and
     prerequisites, and the stems of the subject's unprotected items. Never learner data, a
@@ -487,6 +490,7 @@ def coupling_on(config: Any) -> bool:
     return switch_on(config, "learned_coupling")
 
 
+@entry
 def propose_subject(vault: Any, repository: Any, subject: str, *, client: Any = None, clock: Clock | None = None,
                     fence: Any = None, live_vault: Callable[[], Any] | None = None,
                     protected: Any = None) -> ProposalOutcome:
@@ -686,6 +690,7 @@ def adopt(repository: Any, subject: str, *, adopted_by: str, note: str | None = 
     return row
 
 
+@entry
 def shadow_report(vault: Any, repository: Any, subject: str) -> dict[str, Any]:
     """What adopting the candidate version would change, computed in memory (the playbook's shadow
     rebuild for a reinterpretation): the subject view's state hash and every attempt whose

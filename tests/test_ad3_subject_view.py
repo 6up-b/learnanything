@@ -225,7 +225,7 @@ def test_coupling_is_prediction_only(tmp_path):
     assert results["plain"]["evidence"] == results["adversarial"]["evidence"]
     # Caps: no item loads more than 3 facets, no LO couples more than 3 LOs; χ caps from the grid.
     with closing(connect(results["adversarial"]["paths"].sqlite_path)) as connection:
-        from learnloop.adaptive_difficulty.material_view import material_view
+        from learnloop.adaptive_difficulty.material_view import detached_view as material_view
 
         adversarial = load_vault(results["adversarial"]["paths"].root)
         structure = R.load_structure(connection, adversarial, view=material_view(

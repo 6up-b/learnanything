@@ -47,26 +47,27 @@ def reader_dose_offer(ctx: SidecarContext, params: ReaderDoseOfferInput) -> dict
     """The dose arm's draw at a section boundary (§5.12): ``offer`` is the extra to show, or null."""
 
     from learnloop.adaptive_difficulty.dose import Boundary, decide
-    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.operation import optional_operation
 
     vault, repository = ctx.require_vault()
-    # One material view for the draw and the response (A8; Codex verify F23).
-    view = material_view(vault, repository)
-    decision = decide(vault, repository, Boundary(
-        visit_id=params.visit_id, extraction_id=params.extraction_id, section_id=params.section_id,
-        boundary_checks_available=params.boundary_checks_available, cue_density_off=params.cue_density_off,
-        skim=params.skim, restored_section=params.restored_section,
-        showing_question_id=params.showing_question_id,
-    ), view=view)
-    result = decision.as_dict()
-    offer = result.get("offer")
-    if offer and offer.get("variant") == "extra_question":
-        # The exact question the draw chose, so the Reader shows it (Codex review F6), never the
-        # section's ordinary check; read at response time, nothing more persisted.
-        offer["question"] = _offered_question(repository, view, (offer.get("content") or {}).get("question_id"))
-        if offer["question"] is None:
-            # Withheld between the draw and the response: nothing of it is shown.
-            result["offer"] = None
+    # One AD operation for the draw and the response (A8; Codex verify F23; the AD23 redesign).
+    with optional_operation(vault, repository) as op:
+        view = op.view if op is not None else None
+        decision = decide(vault, repository, Boundary(
+            visit_id=params.visit_id, extraction_id=params.extraction_id, section_id=params.section_id,
+            boundary_checks_available=params.boundary_checks_available, cue_density_off=params.cue_density_off,
+            skim=params.skim, restored_section=params.restored_section,
+            showing_question_id=params.showing_question_id,
+        ), view=view)
+        result = decision.as_dict()
+        offer = result.get("offer")
+        if offer and offer.get("variant") == "extra_question" and view is not None:
+            # The exact question the draw chose, so the Reader shows it (Codex review F6), never the
+            # section's ordinary check; read at response time, nothing more persisted.
+            offer["question"] = _offered_question(repository, view, (offer.get("content") or {}).get("question_id"))
+            if offer["question"] is None:
+                # Withheld between the draw and the response: nothing of it is shown.
+                result["offer"] = None
     return versioned(result)
 
 
@@ -144,12 +145,11 @@ def adaptive_difficulty_why_item(ctx: SidecarContext, params: AdaptiveDifficulty
     from learnloop.adaptive_difficulty.serving import why_for_presentation
     from learnloop.db.connection import connect
 
-    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.operation import optional_operation
 
     vault, repository = ctx.require_vault()
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        found = why_for_presentation(connection, params.plan_presentation_id,
-                                     view=material_view(vault, repository))
+    with optional_operation(vault, repository) as op, closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        found = why_for_presentation(connection, params.plan_presentation_id, view=op.view) if op is not None else None
     return versioned({"why": found["why"] if found else None, "mode": found["mode"] if found else None})
 
 

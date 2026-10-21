@@ -3182,12 +3182,13 @@ def _handle_ad_commission(ctx: JobContext, lo_ids: list[str], commission_id: str
     vault = load_vault(ctx.vault_root)
     if not contract_on(vault.config):
         return {"generated": 0, "skipped_reason": "generation_contract off"}
-    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.operation import ad_operation
 
     # The commission is open as AD's material view sees it (a withheld landing closes nothing);
-    # with the held-out predicate unavailable none is, and nothing is generated (A8).
-    view = material_view(vault, ctx.repo)
-    with ctx.repo.atomic():
+    # with the held-out predicate unavailable none is, and nothing is generated (A8). Read inside
+    # one AD operation (the AD23 redesign); the generation itself runs outside it (E1).
+    with ad_operation(vault, ctx.repo) as op, ctx.repo.atomic():
+        view = op.view
         open_ids = {str(row["id"]) for row in view.open_commissions(ctx.repo.connection(),
                                                                      now=utc_now_iso(ctx.clock))} \
             if view.available else set()

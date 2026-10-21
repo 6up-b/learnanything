@@ -2945,16 +2945,17 @@ def _ad_slot_serve(
 
     with env.repository.atomic():
         try:
-            view = ad_slot.slot_view(env)
-            request = ad_slot.build_request(env, record, block, item, built, day=day_records(env),
-                                            router_propensity=ad_slot.router_propensity(record, block), view=view)
+            # One AD operation for the support and the draw (the AD23 redesign); a refusal inside it
+            # rolls its savepoint back, so nothing of AD's is written and the planned item is served.
+            with ad_slot.slot_operation(env) as view:
+                request = ad_slot.build_request(env, record, block, item, built, day=day_records(env),
+                                                router_propensity=ad_slot.router_propensity(record, block), view=view)
+                decision = decide_slot(env.vault, env.repository, request, view=view)
         except ad_slot.AdUnavailable:
-            # Nothing was written: the transaction holds only reads so far.
             logging.getLogger(__name__).warning(
                 "adaptive difficulty unavailable for slot %s/%s: the planned item is served", block.id,
                 item.position, exc_info=True)
             return _AD_UNAVAILABLE
-        decision = decide_slot(env.vault, env.repository, request, view=view)
         now = env.now_iso()
         with env.repository.connection() as connection:
             if decision.action == "displace":

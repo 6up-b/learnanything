@@ -27,6 +27,8 @@ No outcome of the report changes any switch, config or served item.
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.operation import entry
+
 import math
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
@@ -536,6 +538,7 @@ def density_lowerings(connection: Any, *, view: Any) -> list[str]:
     return counted
 
 
+@entry
 def build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] = A.DEFAULT_ARMS,
           previous_errors: Sequence[float | None] | None = None, sensitivity: bool = True,
           now: str | None = None, report_every: int = REPORT_EVERY_SELECTIONS) -> dict[str, Any]:

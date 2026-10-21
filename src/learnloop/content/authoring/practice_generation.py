@@ -531,9 +531,11 @@ def _ad_material_view(vault: LoadedVault, repository: Repository) -> Any:
 
     if not ad_generation.contract_on(vault.config):
         return None
-    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.material_view import detached_view
 
-    view = material_view(vault, repository)
+    # The incumbent's generation boundary (E1, the AD23 redesign): generation runs outside an AD
+    # operation (it writes the incumbent's tables) and keeps the protections built for it.
+    view = detached_view(vault, repository)
     return view if view.available else None
 
 

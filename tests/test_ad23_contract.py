@@ -391,7 +391,7 @@ def _fingerprint(paths) -> str:
         from learnloop.adaptive_difficulty.relatedness import protection_fingerprint, subject_lo_ids
     except ImportError:
         return "legacy"
-    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.material_view import detached_view as material_view
 
     with pytest.MonkeyPatch.context() as patch:
         _hold_out(patch)
@@ -1076,7 +1076,7 @@ def _columns(path, table: str) -> list[tuple]:
 def _open_commissions(paths) -> list[str]:
     """The commissions open now, as AD's view sees them (the expiry boundary, fix round 13)."""
 
-    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.material_view import detached_view as material_view
     from learnloop.clock import utc_now_iso
 
     view = material_view(load_vault(paths.root), Repository(paths.sqlite_path))
@@ -1159,7 +1159,7 @@ def _run(paths, monkeypatch) -> dict[str, Any]:
     from learnloop.adaptive_difficulty import replay as RP
     from learnloop.adaptive_difficulty import report as REP
     from learnloop.adaptive_difficulty import scoring
-    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.material_view import detached_view as material_view
     from learnloop.adaptive_difficulty.outside import history_card, item_view
     from learnloop.adaptive_difficulty.reading import sweep
     from learnloop.cli.app import app
@@ -1726,7 +1726,7 @@ def test_a_frozen_history_is_refused_once_an_answered_revision_behind_it_is_held
     out; dispatching the frozen request is refused for both forecasters and nothing reaches the
     model (failed before: only the current revision's identity was frozen, so it was sent)."""
 
-    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.material_view import detached_view as material_view
     from learnloop.adaptive_difficulty.outside import Clients, forecast_presentation, freeze_presentation_inputs
     from learnloop.adaptive_difficulty.switches import LLM_V3_DECIDER, LLM_V3_LLM
 
@@ -1936,7 +1936,7 @@ def test_feedback_dwell_skips_a_serve_withheld_with_its_presentation(tmp_path, m
     a copy without them; the incumbent's default reader still pairs every event (1 and 1 minute).
     Failed before: AD's estimator had no event rule (the plan's raw dwell)."""
 
-    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.material_view import detached_view as material_view
     from learnloop.daily_plan.estimates import load_duration_evidence
 
     paths = _base(tmp_path)
@@ -1988,7 +1988,7 @@ def test_withheld_dose_offers_neither_spend_the_budget_nor_count_as_taken(tmp_pa
 
     from learnloop.adaptive_difficulty import dose as D
     from learnloop.adaptive_difficulty import report as REP
-    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.material_view import detached_view as material_view
     from learnloop.content.sources import exam_material
     from learnloop.db.stores import ad_serving
 
@@ -2079,7 +2079,7 @@ def test_goal_focus_follows_the_live_decision_view_with_promoted_predictor_off(t
     from learnloop.adaptive_difficulty import predict as PR
     from learnloop.adaptive_difficulty import replay as RP
     from learnloop.adaptive_difficulty.generation import goal_focus_facets
-    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.material_view import detached_view as material_view
 
     paths = ad23_vault(tmp_path, items=PUBLIC, config="promoted_predictor = false\n")
     vault = load_vault(paths.root)
@@ -2102,7 +2102,7 @@ def test_a_saved_run_proposed_before_its_subject_was_protected_is_not_used(copie
 
     from learnloop.adaptive_difficulty import relatedness as R
     from learnloop.adaptive_difficulty.feature_audit import item_revision
-    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.material_view import detached_view as material_view
 
     protected, _absent = copies
     _hold_out(monkeypatch)
@@ -2137,7 +2137,7 @@ def test_an_empty_support_draw_of_a_protected_slot_leaves_the_report_cohort(copi
     protected, the report's cohort leaves it out (failed before: only the choice and the cell were
     revalidated)."""
 
-    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.material_view import detached_view as material_view
 
     protected, _absent = copies
     _hold_out(monkeypatch)
@@ -2179,6 +2179,10 @@ AD_DEPENDENCIES = {
     "learnloop.adaptive_difficulty.replay._CACHE": "the replay's snapshot cache, served only while the "
         "fingerprint of the events loaded through the view is unchanged: a protection change changes them",
     "learnloop.adaptive_difficulty.model._INVERSE_CACHE": "a numeric memo over (a, b) floats: no material",
+    "learnloop.adaptive_difficulty.operation.DENIALS": "the guard's denials of this process (verb, table, reader): "
+        "names only, no material",
+    "file:learnloop.adaptive_difficulty.operation.open": "the guard's denial log (names only)",
+    "file:learnloop.adaptive_difficulty.operation.read_text": "the guard's denial log, counted by the report",
     "learnloop.adaptive_difficulty.background._INFLIGHT": "the in-flight job keys (database path, job key): "
         "no material; every job re-reads protection when it runs",
     "learnloop.adaptive_difficulty.background._PREPARED": "the revisions already prepared in this process, by "
@@ -2277,7 +2281,7 @@ def test_the_replay_cache_never_serves_a_snapshot_across_a_protection_change(cop
     them, so the cached snapshot is not served."""
 
     from learnloop.adaptive_difficulty import replay as RP
-    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.material_view import detached_view as material_view
 
     protected, _absent = copies
     _hold_out(monkeypatch)
@@ -2302,7 +2306,7 @@ def test_a_run_whose_quoted_revision_was_replaced_then_protected_is_not_used(cop
 
     from learnloop.adaptive_difficulty import relatedness as R
     from learnloop.adaptive_difficulty.feature_audit import item_revision
-    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.material_view import detached_view as material_view
 
     _protected, absent = copies
     _hold_out(monkeypatch)
@@ -2358,7 +2362,7 @@ def test_a_tutor_exchange_on_a_protected_canonical_note_enters_no_prediction(cop
     to no LO, and a receipt recorded earlier is withheld on revalidation (failed before: the note's LOs
     were read from the raw vault and receipts checked spans and items only)."""
 
-    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.material_view import detached_view as material_view
     from learnloop.adaptive_difficulty.reading import VaultReadingMap, sweep
     from learnloop.db.stores import ad_receipts
 
@@ -2386,7 +2390,7 @@ def test_a_protected_receipt_occupies_no_daily_cap_slot(copies, monkeypatch):
     the receipts the view sees, and its key names its own source event, so it never collides
     (failed before: the raw slot was full and the public view was dropped)."""
 
-    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.material_view import detached_view as material_view
     from learnloop.adaptive_difficulty.reading import sweep
 
     protected, _absent = copies
@@ -2473,7 +2477,7 @@ def test_a_tutor_exchange_whose_recorded_context_quotes_a_protected_span_enters_
     held-out span. The one tutor-question reader judges the complete recorded context, at collection
     and at receipt revalidation (failed before: only the anchor and the item were read)."""
 
-    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.material_view import detached_view as material_view
     from learnloop.adaptive_difficulty.reading import sweep
     from learnloop.db.stores import ad_receipts
 
@@ -2501,7 +2505,7 @@ def test_a_dose_draw_at_a_protected_origin_is_a_draw_never_made(copies, monkeypa
     made at that section (failed before: only the extra was checked, so the draw spent the budget)."""
 
     from learnloop.adaptive_difficulty import dose as D
-    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.material_view import detached_view as material_view
 
     protected, _absent = copies
     _hold_out(monkeypatch)

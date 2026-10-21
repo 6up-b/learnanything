@@ -41,6 +41,8 @@ class Protection:
 
     ids: frozenset[str]
     material: Any | None
+    #: The items a goal's held-out exam reserves (part of :attr:`ids`; the operation's epoch).
+    reserved: frozenset[str] = frozenset()
 
     def __contains__(self, practice_item_id: object) -> bool:
         return self.material is None or str(practice_item_id) in self.ids
@@ -89,11 +91,12 @@ def protection(vault: Any, repository: Any) -> Protection:
         material = held_out_material(vault, repository)
         items = list(getattr(vault, "practice_items", {}).values())
         held = set(held_out_item_ids(items, material)) if items else set()
-        held.update(str(item_id) for item_id in repository.reserved_exam_pool_item_ids())
+        reserved = frozenset(str(item_id) for item_id in repository.reserved_exam_pool_item_ids())
+        held.update(reserved)
     except Exception:  # noqa: BLE001 - an unreadable predicate protects everything
         LOG.warning("held-out predicate unavailable: every item treated as protected", exc_info=True)
         return Protection(frozenset(getattr(vault, "practice_items", {}) or {}), None)
-    return Protection(frozenset(held), material)
+    return Protection(frozenset(held), material, reserved)
 
 
 def guard(vault: Any, repository: Any, protected: Any = None) -> Protection:
@@ -103,7 +106,7 @@ def guard(vault: Any, repository: Any, protected: Any = None) -> Protection:
         return protected
     fresh = protection(vault, repository)
     if protected:
-        return Protection(fresh.ids | frozenset(str(value) for value in protected), fresh.material)
+        return Protection(fresh.ids | frozenset(str(value) for value in protected), fresh.material, fresh.reserved)
     return fresh
 
 

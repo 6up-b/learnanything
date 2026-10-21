@@ -687,7 +687,7 @@ def test_why_this_item_names_the_draw_that_chose_it(tmp_path):
 
     paths, env, _clock, _record = _plan(tmp_path, ("pi_h", "pi_e1", "pi_e2"), features={"pi_h": HARD})
     _record, step = advance(env, serve=True)
-    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.material_view import detached_view as material_view
 
     view = material_view(load_vault(paths.root), Repository(paths.sqlite_path))
     with closing(connect(paths.sqlite_path, read_only=True)) as connection:

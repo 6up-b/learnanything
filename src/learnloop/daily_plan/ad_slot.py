@@ -38,7 +38,8 @@ does, and no deferral is released.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -54,20 +55,27 @@ class AdUnavailable(RuntimeError):
     not be computed): the plan serves its planned item as the incumbent does."""
 
 
-def slot_view(env: Any) -> Any:
-    """The slot's material view, computed once (A8). Raises :class:`AdUnavailable` when the
-    held-out predicate cannot be computed (fail closed: no AD candidate, never an exception out
-    of the serve)."""
+@contextmanager
+def slot_operation(env: Any) -> Iterator[Any]:
+    """The slot's AD operation (A8; the AD23 redesign): its material view, computed once, and the
+    guard on every connection for the block. Raises :class:`AdUnavailable` when the held-out
+    predicate cannot be computed, or the guard refused a read or write (fail closed: no AD
+    candidate, never an exception out of the serve); the block runs in its own savepoint, so a
+    refusal leaves nothing written."""
 
-    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.operation import ad_operation, is_denial
 
     try:
-        view = material_view(env.vault, env.repository)
-    except Exception as exc:  # noqa: BLE001 - an unreadable predicate makes AD unavailable, not the serve
-        raise AdUnavailable(f"held-out predicate failed: {exc}") from exc
-    if not view.available:
-        raise AdUnavailable(view.reason or "held-out predicate unavailable")
-    return view
+        with env.repository.atomic(), ad_operation(env.vault, env.repository) as op:
+            if not op.view.available:
+                raise AdUnavailable(op.view.reason or "held-out predicate unavailable")
+            yield op.view
+    except AdUnavailable:
+        raise
+    except Exception as exc:  # noqa: BLE001 - the guard's refusal: AD unavailable (owner Q3)
+        if is_denial(exc):
+            raise AdUnavailable(f"the AD guard refused a read or write for the slot: {exc}") from exc
+        raise
 
 
 def _estimator(env: Any, view: Any) -> Any:
@@ -301,11 +309,17 @@ def deferrals_to_clear(env: Any, deferrals: Mapping[str, Mapping[str, Any]], *, 
     if not deferrals:
         return []
     try:
-        view = slot_view(env)
-        exclusions = _exclusions(env, view)
+        with slot_operation(env) as view:
+            return _deferrals_to_clear(env, deferrals, built=built, view=view)
     except AdUnavailable:
         # Fail closed: with AD unavailable no deferral is released (nothing is re-admitted).
         return []
+
+
+def _deferrals_to_clear(env: Any, deferrals: Mapping[str, Mapping[str, Any]], *, built: Any, view: Any) -> list[str]:
+    from learnloop.adaptive_difficulty import predict as PR
+
+    exclusions = _exclusions(env, view)
     pool = {item.practice_item_id: item for item in built.pool}
     items = [view.item(item_id) for item_id in sorted(deferrals)]
     present = [item for item in items if item is not None]
@@ -333,4 +347,4 @@ def router_propensity(record: Any, block: Any) -> float:
 
 
 __all__ = ["AdUnavailable", "admission_failures", "build_request", "deferrals_to_clear", "eligibility_failures",
-           "router_propensity", "slot_view"]
+           "router_propensity", "slot_operation"]

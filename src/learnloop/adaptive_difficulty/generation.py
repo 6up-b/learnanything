@@ -22,6 +22,8 @@ row is never mutated.
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.operation import entry
+
 import logging
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import closing
@@ -75,9 +77,10 @@ class CommissionedRequestGuard:
         self.sources.extend((str(extraction), None if span is None else str(span)) for extraction, span in sources)
 
     def vault_view(self, vault: Any, repository: Any) -> Any:
-        from learnloop.adaptive_difficulty.material_view import material_view
+        from learnloop.adaptive_difficulty.material_view import detached_view
 
-        self.view = material_view(vault, repository)
+        # The egress guard computes its own view (the generation boundary, E1).
+        self.view = detached_view(vault, repository)
         return self.view.vault_view()
 
     def __call__(self, request_text: str, sources: Sequence[tuple[Any, Any]] = ()) -> None:
@@ -95,11 +98,11 @@ class CommissionedRequestGuard:
         from learnloop.db.connection import connect
         from learnloop.vault.loader import load_vault
 
-        from learnloop.adaptive_difficulty.material_view import material_view
+        from learnloop.adaptive_difficulty.material_view import detached_view
 
         if self.view is None:
             raise ProtectedRequest("the commissioned request was built without AD's material view")
-        fresh = material_view(load_vault(self.view.vault.root), self.view.repository)
+        fresh = detached_view(load_vault(self.view.vault.root), self.view.repository)
         with closing(connect(fresh.repository.sqlite_path, read_only=True)) as connection:
             leaks = fresh.request_leaks(request_text, connection)
             identities = [*({"kind": "span", "extraction_id": extraction, "span_id": span}
@@ -165,6 +168,7 @@ def rung_features(point: Mapping[str, Any]) -> dict[str, Any]:
     return features
 
 
+@entry
 def commission_point(vault: Any, repository: Any, *, learning_object_id: str, incumbent: Any,
                      now: str, selection_id: str | None = None,
                      view: Any = None) -> tuple[dict[str, Any], str, str] | None:
@@ -270,6 +274,7 @@ def serve_commissions(connection: Any, *, view: Any, now: str | None = None) -> 
             and row.get("learning_object_id")]
 
 
+@entry
 def schedule_commission_generation(vault: Any, repository: Any,
                                    enqueue: Callable[[str, str], Any] | None) -> list[str]:
     """§6.1 "The chosen point is commissioned for generation and runs in the background"
@@ -357,6 +362,7 @@ def landing_owner(vault: Any, item: Any, commissions: Sequence[Mapping[str, Any]
     return owner
 
 
+@entry
 def record_landed_commissions(vault: Any, repository: Any, connection: Any, *, now: str,
                               view: Any = None) -> list[str]:
     """§7.4: append an ``ad_commission_results`` receipt for each item that landed in a commissioned

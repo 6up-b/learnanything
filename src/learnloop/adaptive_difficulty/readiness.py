@@ -22,6 +22,8 @@ second depth.
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.operation import entry
+
 from collections.abc import Mapping
 from typing import Any
 
@@ -51,6 +53,7 @@ def _cells(view: Any, learning_object_id: str) -> list[tuple[str, str, str]]:
     return sorted(cells)
 
 
+@entry
 def lo_readiness(vault: Any, repository: Any, learning_object_id: str, *,
                  snapshot: RP.Snapshot | None = None, view: Any = None) -> dict[str, Any]:
     """The LO's readiness lines (labelled predictions), or the not-predicted line."""
@@ -97,6 +100,7 @@ def aggregate_line(rows: list[Mapping[str, Any]]) -> str:
     return f"Top level for this goal: not yet shown · {NOT_YET} (a prediction)"
 
 
+@entry
 def card_fields(vault: Any, repository: Any, learning_object_id: str, *,
                 snapshot: RP.Snapshot | None = None, view: Any = None) -> dict[str, Any] | None:
     """The router card's AD fields for one LO (None with ``promoted_predictor`` off)."""

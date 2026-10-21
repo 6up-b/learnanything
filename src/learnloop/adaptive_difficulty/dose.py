@@ -34,6 +34,8 @@ evidence or scheduling, and no salience magnitude is read (A12).
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.operation import entry
+
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -124,6 +126,7 @@ def _studied_examples(connection: Any, view: Any, learning_object_ids: Sequence[
     return studied
 
 
+@entry
 def feasible_variants(vault: Any, repository: Any, connection: Any, boundary: Boundary,
                       learning_object_ids: Sequence[str], *, reading_map: Any = None, view: Any = None
                       ) -> tuple[list[str], dict[str, str], dict[str, dict[str, Any]]]:
@@ -216,6 +219,7 @@ def _forecast(vault: Any, repository: Any, connection: Any, learning_object_id: 
         return None
 
 
+@entry
 def decide(vault: Any, repository: Any, boundary: Boundary, *, clock: Clock | None = None,
            reading_map: Any = None, view: Any = None) -> DoseDecision:
     """At a section boundary: eligibility, the budget, the draw, and its row before anything is shown.
@@ -303,6 +307,7 @@ def offer_withheld(connection: Any, view: Any, variant: Any, content: Any) -> bo
     return view.dose_extra_withheld(connection, variant, content)
 
 
+@entry
 def record_uptake(vault: Any, repository: Any, draw_id: str, kind: str, *, clock: Clock | None = None,
                   view: Any = None) -> str | None:
     """Append ``delivered``, ``not_delivered``, ``taken`` or ``dismissed`` (never changing the draw).

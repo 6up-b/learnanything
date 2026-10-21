@@ -662,7 +662,7 @@ def test_density_lowerings_join_offers_to_their_visits(tmp_path):
         _envelope(connection, "reader_action_invoked", {"event": "cue_density_changed", "from": "more",
                                                         "to": "normal", "extraction_id": "ext1"}, "2026-10-09T09:00:00Z")
         connection.commit()
-        from learnloop.adaptive_difficulty.material_view import material_view
+        from learnloop.adaptive_difficulty.material_view import detached_view as material_view
 
         view = material_view(load_vault(paths.root), Repository(paths.sqlite_path))
         assert REP.density_lowerings(connection, view=view) == ["2026-10-10T10:06:00Z", "2026-10-11T10:06:00Z",

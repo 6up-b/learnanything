@@ -30,6 +30,8 @@ backfill runs refuses its revisions' later requests (``protected``).
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.operation import entry
+
 import json
 from collections.abc import Callable, Mapping
 from contextlib import closing
@@ -192,6 +194,7 @@ def _audit_plan(vault: Any, pending: list[tuple[Any, str, list[str]]]) -> dict[s
     return plan
 
 
+@entry
 def backfill(vault: Any, repository: Any, *, audit: bool, llm_v1: bool, reading: bool, dry_run: bool,
              limit: int | None = None, clients: Clients | None = None,
              decider_factory: Callable[[], Any] | None = None, clock: Clock | None = None) -> dict[str, Any]:

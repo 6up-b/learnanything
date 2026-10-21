@@ -124,10 +124,13 @@ def test_a_withheld_items_facet_never_enters_the_facet_maps_or_the_reading_map(t
     paths = _secret_vault(tmp_path)
     _hold_out(monkeypatch, "held")
     assert _events(paths).lo_facets.get("lo_x") == []
-    mapping = VaultReadingMap(load_vault(paths.root), Repository(paths.sqlite_path))
-    assert mapping.facets_for_lo("lo_x") == []
-    assert mapping.lo_for_item("pi_secret") is None and mapping.lo_for_item("pi_open") == LO
-    assert _doses(mapping, "lo_x", ()) == {}
+    from learnloop.adaptive_difficulty.operation import ad_operation
+
+    with ad_operation(load_vault(paths.root), Repository(paths.sqlite_path)) as op:
+        mapping = VaultReadingMap(op.vault, op.repository)
+        assert mapping.facets_for_lo("lo_x") == []
+        assert mapping.lo_for_item("pi_secret") is None and mapping.lo_for_item("pi_open") == LO
+        assert _doses(mapping, "lo_x", ()) == {}
 
 
 def test_a_claim_moves_no_forecast_through_a_withheld_items_facet(tmp_path, monkeypatch):

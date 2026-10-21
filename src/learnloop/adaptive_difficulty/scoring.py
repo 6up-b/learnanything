@@ -15,6 +15,8 @@ primary score, D17) and the first surface in a never-seen cell.
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.operation import entry
+
 import math
 from collections.abc import Mapping
 from typing import Any
@@ -37,6 +39,7 @@ def brier(p: float, y: float) -> float:
     return (float(p) - float(y)) ** 2
 
 
+@entry
 def score_rows(connection: Any, vault: Any, repository: Any) -> list[dict[str, Any]]:
     """The scores of every item forecast receipt (pure reads; zero model calls)."""
 

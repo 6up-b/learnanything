@@ -54,6 +54,8 @@ history card.
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.operation import entry
+
 import json
 import logging
 from collections.abc import Callable, Mapping
@@ -589,6 +591,7 @@ def _frozen_inputs(connection: Any, presentation_id: str) -> dict[str, Any] | No
     return None
 
 
+@entry
 def forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, clients: Clients | None = None,
                           clock: Clock | None = None, fence: Any = None,
                           live_vault: Callable[[], Any] | None = None) -> list[ForecastOutcome]:

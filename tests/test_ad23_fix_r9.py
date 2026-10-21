@@ -31,7 +31,7 @@ def test_an_attempt_on_a_held_out_answered_revision_is_filtered_at_the_source(tm
     out, so the practice minutes and the LO's window cutoff never read it (failed before: the
     answer's 1,000 minutes and its time were read)."""
 
-    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.material_view import detached_view as material_view
 
     from tests.test_ad23_contract import _base
 

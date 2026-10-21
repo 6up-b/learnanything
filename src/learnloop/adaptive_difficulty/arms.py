@@ -24,6 +24,8 @@ everything reads the ledgers and receipts (A1).
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.operation import entry
+
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
@@ -191,6 +193,7 @@ def _field_arms(connection: Any, vault: Any, view: Any, sink: dict[str, Record])
     return covered
 
 
+@entry
 def prequential(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] = DEFAULT_ARMS,
                 view: Any = None) -> dict[str, Any]:
     """Every arm's prequential predictions, keyed by attempt (zero model calls).

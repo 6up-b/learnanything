@@ -52,6 +52,8 @@ The AD replayer reads them only through the firewall's carve-out
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.operation import entry
+
 import json
 import logging
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -555,6 +557,7 @@ def _offer_for(offers: Mapping[str, str], event: "_Event") -> str | None:
     return None
 
 
+@entry
 def sweep(vault: Any, repository: Any, *, as_of: str, sweep_kind: str = "serve", sweep_ref: str | None = None,
           reading_map: ReadingMap | None = None, clock: Clock | None = None, view: Any = None) -> SweepResult:
     """Record every listed opportunity written no later than ``as_of``.

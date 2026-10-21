@@ -114,7 +114,33 @@ def current_ingest_job_id(path) -> str | None:
     return None
 
 
+#: A hook every connection opened on this thread's context passes through while it is set
+#: (``connection_hook``). Adaptive difficulty's operation installs its SQLite authorizer this way
+#: (``adaptive_difficulty.operation``); unset, connections are exactly as before.
+_connection_hook: ContextVar[Any] = ContextVar('connection_hook', default=None)
+
+
+@contextmanager
+def connection_hook(hook):
+    """Pass every connection opened in this context (``connect()``, read-only or writable) to
+    ``hook(connection, path)`` before it is returned."""
+
+    token = _connection_hook.set(hook)
+    try:
+        yield
+    finally:
+        _connection_hook.reset(token)
+
+
+def apply_connection_hook(connection, path):
+    hook = _connection_hook.get()
+    if hook is not None:
+        hook(connection, Path(path))
+    return connection
+
+
 def guarded_connection(connection, path):
+    apply_connection_hook(connection, path)
     guard = _job_guard.get()
     if guard is not None and Path(path).resolve() == guard.path:
         return _GuardedConnection(connection, guard)

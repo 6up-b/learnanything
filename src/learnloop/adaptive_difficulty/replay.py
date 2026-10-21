@@ -42,6 +42,8 @@ Never evidence (A2, A12): this module writes only AD's DERIVED tables.
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.operation import entry
+
 import bisect
 import hashlib
 import json
@@ -320,6 +322,7 @@ def _current_grade_unassessed(evidence: Sequence[Mapping[str, Any]], wholly_unas
     return epoch is not None and wholly_unassessed(epoch.rows)
 
 
+@entry
 def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | None = None,
                 settings: ReplaySettings = ReplaySettings(), view: Any = None) -> Events:
     """Read every replay input (no model call; current content only for ``reconstructed_current``).
@@ -848,6 +851,7 @@ def events_fingerprint(events: Events) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
 
+@entry
 def snapshot(vault: Any, repository: Any, *, settings: ReplaySettings | None = None, connection: Any = None,
              as_of: str | None = None, view: Any = None) -> Snapshot:
     """The current state (cached per database, vault and settings while the replay's events are unchanged).

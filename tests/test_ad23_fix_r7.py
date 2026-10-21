@@ -141,7 +141,7 @@ def test_a_protected_item_never_steers_the_commissioned_cell_or_readiness(tmp_pa
 
     from learnloop.adaptive_difficulty import readiness as RD
     from learnloop.adaptive_difficulty.generation import lo_cell_facet
-    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.material_view import detached_view as material_view
 
     paths = ad23_vault(tmp_path, items=("pi_c1", "pi_c2"), config=ROUTER_OFF)
     set_item(paths, "pi_c1", evidence_facets=["f_open"], evidence_weights={"f_open": 1.0})

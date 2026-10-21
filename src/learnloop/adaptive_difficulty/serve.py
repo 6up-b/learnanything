@@ -27,6 +27,8 @@ serve, in the background (:mod:`learnloop.adaptive_difficulty.background`).
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.operation import entry
+
 import logging
 from dataclasses import dataclass, field
 from typing import Any
@@ -58,6 +60,7 @@ class ServeRecord:
     skipped: str | None = None
 
 
+@entry
 def record_plan_serve(vault: Any, repository: Any, *, presentation_id: str, practice_item_id: str,
                       served_at: str) -> ServeRecord | None:
     """Record AD1's serve-time receipts for one plan presentation, in the caller's transaction."""

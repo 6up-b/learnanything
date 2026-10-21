@@ -16,6 +16,8 @@ version through the playbook. Nothing runs below the tag, with
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.operation import entry
+
 import logging
 from collections.abc import Callable
 from contextlib import closing
@@ -34,6 +36,7 @@ LOG = logging.getLogger(__name__)
 SUBJECTS_PER_TRIGGER = 2
 
 
+@entry
 def stale_subjects(vault: Any, repository: Any) -> list[str]:
     """Subjects with an adopted coupling version and a unit (an LO or an item revision) whose
     fingerprint changed, or that is new, since its latest run."""

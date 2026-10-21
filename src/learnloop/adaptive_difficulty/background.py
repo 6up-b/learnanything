@@ -27,6 +27,8 @@ vault-copy run) starts nothing.
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.operation import entry
+
 import logging
 import threading
 from collections.abc import Callable, Iterable
@@ -136,6 +138,7 @@ def schedule_presentation_forecasts(vault: Any, sqlite_path: Any, presentation_i
         return None
 
 
+@entry
 def prepare_items(vault: Any, repository: Any, item_ids: Iterable[str], *, clients: Clients | None = None,
                   decider_factory: Callable[[], Any] | None = None, clock: Any = None,
                   fence: Any = None, limit: int = PREPARE_LIMIT,
@@ -373,10 +376,15 @@ def _start_run(sqlite_path: Any, queue: _Queue, *, builds: Any, limit: int) -> t
                 if fence.live():
                     from learnloop.db.repositories import Repository
 
+                    from learnloop.adaptive_difficulty.operation import ad_operation
+
                     repository = Repository.attach(Path(sqlite_path))
-                    _prepare(vault, repository, [item for _key, item in batch], clients=clients,
-                             decider_factory=None, clock=clock, fence=fence, live_vault=live_vault,
-                             results=results)
+                    current = live_vault() if live_vault is not None else None
+                    # The run's one AD operation, on the vault loaded now (A8; the AD23 redesign).
+                    with ad_operation(current if current is not None else vault, repository) as op:
+                        _prepare(op.vault, op.repository, [item for _key, item in batch], clients=clients,
+                                 decider_factory=None, clock=clock, fence=fence, live_vault=live_vault,
+                                 results=results, view=op.view)
             except Exception:  # noqa: BLE001 - a background job never reaches the serve
                 LOG.warning("adaptive difficulty preparation run failed", exc_info=True)
             finally:
