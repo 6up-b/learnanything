@@ -139,6 +139,7 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("source_held_out_signal_marks", PREDICATE),
     ("source_revisions", NEUTRAL),
     ("source_service_spend", NEUTRAL),
+    ("source_span_reanchors", PROTECTED),
     ("source_unit_selections", PREDICATE),
     ("sqlite_master", NEUTRAL),
     ("sqlite_temp_master", NEUTRAL),
@@ -386,6 +387,10 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
         "extraction_id": "extraction", "span_id": "span@extraction_id", "entity_id": "entity@entity_type",
     },
         values="id context revision_id source_id entity_type page locator section_path_json created_at"),
+    "source_span_reanchors": _table({
+        "from_extraction_id": "extraction", "from_span_id": "span@from_extraction_id",
+        "to_extraction_id": "extraction", "to_span_id": "span@to_extraction_id",
+    }, values="match_kind confidence created_at"),
     "submission_intents": _table({"practice_item_id": "item"},
         values="submission_id session_id scheduler_candidate_id entry_surface viewing_status collection_version "
                "created_at"),

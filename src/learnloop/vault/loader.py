@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -74,6 +76,22 @@ def _load_markdown_model(
         return None, ""
 
 
+#: Why vault loads are refused in this context (an adaptive-difficulty operation: it reads only its
+#: projected vault; the AD23 redesign), or None.
+_LOADS_FORBIDDEN: ContextVar[str | None] = ContextVar("vault_loads_forbidden", default=None)
+
+
+@contextmanager
+def vault_loads_forbidden(reason: str | None) -> Iterator[None]:
+    """Refuse :func:`load_vault` in this context (``reason``), or allow it again (None)."""
+
+    token = _LOADS_FORBIDDEN.set(reason)
+    try:
+        yield
+    finally:
+        _LOADS_FORBIDDEN.reset(token)
+
+
 def load_vault(
     root: Path | None = None,
     *,
@@ -87,6 +105,8 @@ def load_vault(
     ``load_environment=False`` to avoid dotenv and global settings.
     """
 
+    if _LOADS_FORBIDDEN.get() is not None:
+        raise RuntimeError(f"load_vault refused: {_LOADS_FORBIDDEN.get()}")
     vault_root = root.resolve() if root else find_vault_root(Path.cwd())
     config = (
         load_config(vault_root / "learnloop.toml")

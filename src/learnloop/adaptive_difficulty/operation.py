@@ -306,8 +306,10 @@ def suspended() -> Iterator[None]:
         return
     token = _CURRENT.set(None)
     rules_token = _IN_RULES.set(None)
+    from learnloop.vault.loader import vault_loads_forbidden
+
     try:
-        with _no_hook():
+        with _no_hook(), vault_loads_forbidden(None):
             yield
     finally:
         _IN_RULES.reset(rules_token)
@@ -365,13 +367,16 @@ def ad_operation(vault: Any, repository: Any, *, protected: Any = None, connecti
         if path.resolve() == guard.database:
             guard.install(connection)
 
+    from learnloop.vault.loader import vault_loads_forbidden
+
     pinned = getattr(getattr(raw_repository, "_pin", None), "connection", None)
     guarded = [c for c in (pinned, *connections) if c is not None]
     token = _CURRENT.set(op)
     try:
         for connection in guarded:
             guard.install(connection)
-        with connection_hook(hook):
+        # Inside an operation AD reads only its projected vault: a fresh load would bypass it.
+        with connection_hook(hook), vault_loads_forbidden("inside an adaptive-difficulty operation"):
             yield op
     finally:
         _CURRENT.reset(token)

@@ -77,6 +77,42 @@ def _json(raw: Any, default: Any) -> Any:
         return default
 
 
+def _replaced(vault: Any, **fields: Any) -> Any:
+    """A copy of ``vault`` with ``fields`` replaced (a ``LoadedVault``, or a test's stand-in)."""
+
+    import copy
+    import dataclasses
+
+    if dataclasses.is_dataclass(vault):
+        return dataclasses.replace(vault, **fields)
+    out = copy.copy(vault)
+    for name, value in fields.items():
+        if hasattr(vault, name):
+            setattr(out, name, value)
+    return out
+
+
+def project_ir(ir: Any, withheld: Any) -> Any:
+    """``ir`` without the blocks whose span ``withheld(span)`` is true, and without their spans in
+    any unit or asset (an asset only withheld blocks show is dropped)."""
+
+    blocks = [block for block in ir.blocks if not withheld(block.span_id)]
+    if len(blocks) == len(ir.blocks):
+        return ir
+    gone = {block.span_id for block in ir.blocks} - {block.span_id for block in blocks}
+    shown = {asset for block in blocks for asset in block.asset_ids}
+    hidden = {asset for block in ir.blocks if block.span_id in gone for asset in block.asset_ids} - shown
+    units = [unit.model_copy(update={"span_ids": [span for span in unit.span_ids if span not in gone]})
+             for unit in ir.units]
+    assets = []
+    for asset in ir.assets:
+        neighbours = [span for span in asset.neighboring_span_ids if span not in gone]
+        if asset.id in hidden or (asset.neighboring_span_ids and not neighbours):
+            continue
+        assets.append(asset.model_copy(update={"neighboring_span_ids": neighbours}))
+    return ir.model_copy(update={"blocks": blocks, "units": units, "assets": assets})
+
+
 def _as_rows(found: Any) -> list[dict[str, Any]]:
     if found is None:
         return []
@@ -142,6 +178,7 @@ class MaterialView:
         self._frozen: dict[str, str] | None = None
         self._protected_only: dict[bool, set[str]] = {}
         self._memo: dict[Any, Any] | None = None
+        self._projected: Any = None
 
 
     # -- the registry's rule (``protected_tables.COLUMNS``) ------------------------------------------
@@ -501,7 +538,7 @@ class MaterialView:
         visible = {str(item.id): item for item in self.items()}
         notes = getattr(self.vault, "notes", None)
         if notes is None:
-            return dataclasses.replace(self.vault, practice_items=visible)
+            return _replaced(self.vault, practice_items=visible)
         from contextlib import closing
 
         from learnloop.db.connection import connect
@@ -511,7 +548,7 @@ class MaterialView:
             with closing(connect(self.repository.sqlite_path, read_only=True)) as connection:
                 kept = {note_id: note for note_id, note in notes.items()
                         if not self.note_withheld(connection, note_id)}
-        return dataclasses.replace(self.vault, practice_items=visible, notes=kept)
+        return _replaced(self.vault, practice_items=visible, notes=kept)
 
     def note_extractions(self, connection: Any, note_id: Any) -> list[str]:
         """The extraction runs of the source revisions a note is the canonical note of."""
@@ -1039,9 +1076,92 @@ class MaterialView:
         return bool(material.covers(str(extraction_id), None if span_id is None else str(span_id)))
 
     def document_ir(self, repository: Any, extraction_id: str) -> Any:
-        """An extraction's document IR as AD may read it (the operation repository's loader)."""
+        """An extraction's document IR as AD may read it (the operation repository's loader; the
+        AD23 redesign, step 4): every held-out block removed, and with it its span from every unit
+        and asset, so whatever reads the IR (the Reader's section mapping, span aliases, a section's
+        spans) computes from what remains, as if the material had never been extracted (Codex
+        verify F48). An extraction held out whole, or the predicate unavailable, reads as none."""
 
-        return repository.load_document_ir(extraction_id)
+        if not self.available or self.material_withheld(extraction_id):
+            return None
+        ir = repository.load_document_ir(extraction_id)
+        if ir is None or getattr(self.protection.material, "empty", False):
+            return ir
+        return project_ir(ir, lambda span: self.material_withheld(extraction_id, span))
+
+    def projected_vault(self) -> Any:
+        """The vault an AD operation hands its readers (``op.vault``; the AD23 redesign, step 4):
+        only the visible current items and notes (:meth:`vault_view`), no facet only withheld
+        material names, and no LO or facet provenance reference into withheld material (a span
+        list keeps its visible spans; a reference left with none, or to a withheld extraction or
+        note, is dropped). Built once per view."""
+
+        if self._projected is None:
+            self._projected = self._project_vault()
+        return self._projected
+
+    def _project_vault(self) -> Any:
+        import dataclasses
+        from contextlib import closing
+
+        from learnloop.db.connection import connect
+
+        base = self.vault_view()
+        with closing(connect(self.repository.sqlite_path, read_only=True)) as connection:
+            canonical = getattr(base, "canonical_facet_id", None)
+            dropped = self.protected_only_facets(connection) if self.available and canonical is not None else set()
+
+            def refs(provenance: Any) -> Any:
+                source_refs = list(getattr(provenance, "source_refs", None) or [])
+                kept = [ref for ref in (self._visible_ref(connection, ref) for ref in source_refs) if ref is not None]
+                if len(kept) == len(source_refs) and all(a is b for a, b in zip(kept, source_refs)):
+                    return provenance
+                return provenance.model_copy(update={"source_refs": kept})
+
+            los = {lo_id: (lo if getattr(lo, "provenance", None) is None
+                           else lo.model_copy(update={"provenance": refs(lo.provenance)}))
+                   for lo_id, lo in (getattr(base, "learning_objects", {}) or {}).items()}
+            facets = {}
+            for facet_id, facet in (getattr(base, "evidence_facets", {}) or {}).items():
+                if canonical is not None and canonical(str(facet_id)) in dropped:
+                    continue
+                provenance = getattr(facet, "provenance", None)
+                facets[facet_id] = facet if provenance is None else facet.model_copy(
+                    update={"provenance": refs(provenance)})
+        projected = _replaced(base, learning_objects=los, evidence_facets=facets)
+        object.__setattr__(projected, "_ad_raw_vault", self.vault)
+        return projected
+
+    def _visible_ref(self, connection: Any, ref: Any) -> Any:
+        """A provenance reference as AD may read it (None: withheld)."""
+
+        if not self.available:
+            return None
+        if getattr(ref, "ref_type", None) == "note" and ref.ref_id and self._note_ref_withheld(connection, ref.ref_id):
+            return None
+        extraction = getattr(ref, "extraction_id", None)
+        if not extraction:
+            return ref
+        if self.material_withheld(extraction):
+            return None
+        spans = list(getattr(ref, "span_ids", None) or [])
+        visible = [span for span in spans if not self.material_withheld(extraction, span)]
+        if spans and not visible:
+            return None
+        section = getattr(ref, "section_id", None)
+        if not spans and section and all(self.material_withheld(extraction, span)
+                                         for span in self.section_spans(str(extraction), str(section)) or ["?"]):
+            return None
+        return ref if len(visible) == len(spans) else ref.model_copy(update={"span_ids": visible})
+
+    def span_reanchors(self, repository: Any, from_extraction_id: str, to_extraction_id: str) -> list[dict[str, Any]]:
+        """Recorded span aliases between two readings, without an alias from or onto a held-out span
+        (the operation repository's ``span_reanchors_between``)."""
+
+        if not self.available or self.material_withheld(from_extraction_id) or self.material_withheld(to_extraction_id):
+            return []
+        return self.filter(None, "source_span_reanchors",
+                           repository.span_reanchors_between(from_extraction_id, to_extraction_id))
 
     def section_spans(self, extraction_id: str, section_id: str) -> list[str]:
         if extraction_id not in self._section_spans:

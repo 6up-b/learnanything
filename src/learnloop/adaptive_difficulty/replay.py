@@ -801,7 +801,7 @@ def run(events: Events, settings: ReplaySettings = ReplaySettings(), *, trace: b
 # from whichever connection. What the cache saves is the filter over the events (on the stage's test
 # vaults, reading them took longer than the filter did, so the saving was always the smaller part).
 
-_CACHE: dict[tuple[str, int, str, str | None], tuple[str, Snapshot]] = {}
+_CACHE: dict[tuple[str, int, str | None, str, str | None], tuple[str, Snapshot]] = {}
 _CACHE_LOCK = threading.Lock()
 
 
@@ -857,7 +857,14 @@ def snapshot(vault: Any, repository: Any, *, settings: ReplaySettings | None = N
 
         connection = connect(repository.sqlite_path, read_only=True)
     try:
-        key = (str(repository.sqlite_path), id(vault), settings.key(), as_of)
+        from learnloop.adaptive_difficulty.material_view import material_view
+        from learnloop.adaptive_difficulty.operation import epoch_of
+
+        view = material_view(vault, repository, view)
+        # The vault as loaded (an operation hands a projection of it) and the protection epoch: a
+        # snapshot is never served across a protection change (the AD23 redesign, E2).
+        key = (str(repository.sqlite_path), id(getattr(vault, "_ad_raw_vault", vault)), epoch_of(view.protection),
+               settings.key(), as_of)
         events = load_events(connection, vault, repository, as_of=as_of, settings=settings, view=view)
         stamp = events_fingerprint(events)
         with _CACHE_LOCK:
