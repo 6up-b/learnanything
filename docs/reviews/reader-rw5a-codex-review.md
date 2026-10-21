@@ -1084,3 +1084,104 @@ is generated output.
   - the references.
 - **Recommended next step:** a scoped Codex verify told that the claim surface is now empty.
 
+
+## Final round (orchestrator)
+
+The verify of `a559e35ea` (codex job `20261021-090616-ZI8wj6`) confirmed these:
+
+- both corpora (3,152 cases);
+- the flagship, the bounds, finite values and the depth limits;
+- PF booleans and the manifest, and migration 216;
+- the disabled report matching base;
+- F5, F7 and the skip paths;
+- the removed verifier route.
+
+It reported 5 High and 1 Medium. Under the orchestrator's binding rulings, three are fixed, each
+with a test that fails on `a559e35ea`, and three are ruled with no change.
+
+### Fixed
+
+**High 4 (+ High 5): the figure author is an isolated, tool-free turn.**
+- **Before:** `FigureRoute.ask` sent a plain request, and on Codex that started the SDK turn in the
+  vault root with its tools.
+- **Now:** it sends `isolated=True` with no workspace, through a new `isolated` argument on
+  `PaidCalls.call` that is passed to `execute_structured_operation`; the default is off, so other
+  callers are unchanged. That is exactly how the other source-only Reader routes use the isolation
+  layer (RW1a's passage check, for one). Codex's adapter then runs the turn under its isolated
+  profile, with shell off because there is no workspace, so no learner records or vault files are
+  reachable.
+- **Fails closed:** a resolved client that does not declare `ISOLATED_TURN` is refused
+  (`not_isolated`) before any request.
+- **High 5 ruling:** with tools off, one SDK turn is one model request, so the per-turn admission
+  of the `FiguresGate` covers it.
+- **Tests** (`tests/test_figures_final_round.py`):
+  - `test_the_author_is_an_isolated_turn_with_no_workspace`: for a Codex fake and an
+    OpenAI-compatible fake, the transport receives `isolated=True, workspace=None`;
+  - `test_a_provider_that_cannot_isolate_is_refused_before_any_request`: no call, nothing stored.
+
+**High 2: the reader report normalizes legacy statuses.** `db.stores.figures.shown_verification`
+is now the one normalization: `verified` becomes `illustrative`. `service.shown_row` and
+`build_reader_report`'s figure counts both use it. Tests:
+`test_the_report_counts_a_legacy_verified_as_an_illustration`, and
+`test_the_report_cli_never_shows_verified` for both CLI formats (`--json` and the indented
+default).
+
+**High 1 (the code-owned frame).**
+- **The badge.** Every figure's header badge is written by the Reader's code from the
+  verification status alone (`FigureInline.FIGURE_FRAME`, `frameBadge`). The badge reads "AI-built
+  illustration of an interpretation · not checked against the book", or "couldn't build a reliable
+  version of this", or "can't draw this yet · noted".
+- **The property checks.** They are named in the frame's own words (`PROPERTY_CHECK_COPY`), from
+  the closed keys the server now sends (`figure_view.property_checks`, `service.PROPERTY_CHECKS`).
+  An unknown key is dropped.
+- **Model text.** The server's `label` is no longer drawn. Model-authored text renders inside the
+  frame and never in the badge slot. That text includes a failure's reason, an unsupported kind,
+  series and readout labels and "what it shows". The pending line uses the frame too. There is no
+  phrase deny-list.
+- **Tests:**
+  - vitest `never lets model text into the badge slot: the frame is code-owned`: every model
+    field, the server label and an unknown check key say "matches the book's equation (checked)".
+    The three badge slots are exactly the code constants, the checks line holds only code words,
+    and the model's text still renders inside the frame.
+  - pytest `test_the_view_sends_closed_property_check_keys_only`.
+
+### Ruled, no change
+
+- **High 1, the rest (Low):** model-authored label text is model text inside the code-owned
+  illustration frame. Filtering phrases out of it would be a deny-list.
+- **High 3 (out of scope):** the learner-text-gaps per-text cap, price and route behaviour during a
+  reading is the gap pipeline's existing behaviour for every source kind on main. RW5a's gate owns
+  the figure switch for figure texts, and the figure author's route, cap and price. It is queued as
+  a general follow-up: "live admission for learner-text-gap readings".
+- **Medium 6 (Low):** a provider `base_url` change in the middle of one build. Single user.
+
+### Fail-before on `a559e35ea`
+
+- `tests/test_figures_final_round.py`: **7 of 7 failed**.
+- `FigureInline.test.tsx` on the old frontend: **3 failed**:
+  - the new badge-slot test;
+  - the two updated badge tests, which now expect the code-owned frame.
+
+### Gate
+
+- `uv run lint-imports --no-cache`: **29 kept, 0 broken**. The report imports the store's
+  normalization, not the figure package.
+- Targeted pytest, `pytest -n auto` over **119 files**, which cover:
+  - every figure test file;
+  - every test naming the reader report;
+  - the Codex, isolation and routing tests;
+  - every test naming `PaidCalls`, for its new argument;
+  - every `text_gaps` test;
+  - the architecture and mobile-allowlist pins.
+
+  Result: **2,630 passed, 2 xfailed, 0 failed** (2 min 40 s), run after another worktree's
+  full-suite lock was released.
+- `apps/learnloop-tauri`:
+  - `npm run typecheck`: clean.
+  - `vitest run src/screens/reader`: **62 files, 621 passed**, including the figure panel and
+    inline files.
+  - `npm run frontend:build`: built.
+- DB references were regenerated and validated under `env -i`: 0 errors.
+- No migration or config change, and the corpora are unchanged. The full suite is left to the
+  landing gate.
+
