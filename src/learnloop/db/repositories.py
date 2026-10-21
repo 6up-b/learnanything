@@ -13795,7 +13795,8 @@ class Repository(
         version_id = new_ulid()
         connection = self.connection()
         try:
-            connection.execute("BEGIN")
+            # IMMEDIATE: the next ordinal is read under the write lock.
+            connection.execute("BEGIN IMMEDIATE")
             ordinal_row = connection.execute(
                 "SELECT COALESCE(MAX(version_ordinal), 0) AS m FROM source_object_versions "
                 "WHERE source_object_id = ?",
@@ -13985,8 +13986,19 @@ class Repository(
     def set_source_object_status(
         self, *, source_object_id: str, status: str, clock: Clock | None = None
     ) -> dict[str, Any]:
-        """Append a status-only successor version carrying the head content forward."""
+        """Append a status-only successor version carrying the head content forward.
 
+        The head is read and its successor appended in one ``BEGIN IMMEDIATE``
+        transaction, so a concurrent proposal version lands wholly before or
+        after the review, never between its read and its write (RW4e Codex
+        review F1)."""
+
+        with self.atomic():
+            return self._set_source_object_status(source_object_id=source_object_id, status=status, clock=clock)
+
+    def _set_source_object_status(
+        self, *, source_object_id: str, status: str, clock: Clock | None = None
+    ) -> dict[str, Any]:
         head = self.source_object_head(source_object_id)
         if head is None or head["version"] is None:
             raise ValueError(f"unknown source object: {source_object_id!r}")

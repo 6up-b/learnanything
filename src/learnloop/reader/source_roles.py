@@ -189,7 +189,9 @@ def _existing(repository: Repository, revision_ids: Iterable[str]) -> dict[tuple
     if not revisions:
         return found
     marks = ",".join("?" for _ in revisions)
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+    # The repository's connection: inside propose_roles' write transaction
+    # this reads exactly what the transaction writes after.
+    with repository.connection() as connection:
         rows = connection.execute(
             "SELECT v.source_object_id, v.version_ordinal, v.authorial_role, v.content_json, v.status, "
             "c.revision_id, c.span_id, c.block_content_hash "
@@ -219,7 +221,8 @@ def propose_roles(vault: Any, repository: Repository, claims: Sequence[Mapping[s
     """Write each ``{extraction_id, span_id, role, confidence, ledger_id}`` as
     a proposal (one object per passage and role; a second judge's agreement a
     version). Returns the object ids written, the versions appended and what
-    was skipped, with why. Never raises for a passage it cannot propose."""
+    was skipped, with why. Never raises for a passage it cannot propose.
+    The writes are one transaction: all of a call's proposals or none."""
 
     if judge not in JUDGES:
         raise ValueError(f"unknown role judge {judge!r}")
@@ -247,44 +250,50 @@ def propose_roles(vault: Any, repository: Repository, claims: Sequence[Mapping[s
         sources = extraction_source_ids(connection, sorted({key[0] for key in keys}))
     runs = {extraction_id: repository.get_extraction_run(extraction_id) for extraction_id in {k[0] for k in keys}}
     revisions = {extraction_id: str((run or {}).get("revision_id") or "") for extraction_id, run in runs.items()}
-    existing = _existing(repository, revisions.values())
-    for (key, role), (confidence, ledger_id) in wanted.items():
-        revision_id, source_id = revisions.get(key[0]) or "", sources.get(key[0])
-        if key in withheld:
-            out["skipped"].append({"key": list(key), "role": role, "reason": "exam_material"})
-            continue
-        if key not in present or not revision_id or not source_id:
-            out["skipped"].append({"key": list(key), "role": role, "reason": "no such passage"})
-            continue
-        content = {"kind": PROPOSAL_KIND, "role": role, "confidence": confidence, "judge": judge,
-                   "ledger_id": ledger_id or None, "prompt_version": prompt_version, "model": model,
-                   "extraction_id": key[0]}
-        provenance = {"judge": judge, "ledger_id": ledger_id or None, "prompt_version": prompt_version,
-                      "model": model}
-        citation = {"revision_id": revision_id, "span_id": key[1], "block_content_hash": hashes.get(key)}
-        ident = (revision_id, key[1], hashes.get(key), role)
-        found = existing.get(ident)
-        if found is not None:
-            if judge in found["judges"]:
-                out["skipped"].append({"key": list(key), "role": role, "reason": "already proposed by this judge"})
+    # One BEGIN IMMEDIATE transaction for the identity lookup, each status
+    # check and every object and version written (Codex review of RW4e,
+    # F1): a concurrent judge or a learner's review lands wholly before or
+    # after, so two judges make one object (their agreement) and a review
+    # is never buried under a later proposal.
+    with repository.atomic():
+        existing = _existing(repository, revisions.values())
+        for (key, role), (confidence, ledger_id) in wanted.items():
+            revision_id, source_id = revisions.get(key[0]) or "", sources.get(key[0])
+            if key in withheld:
+                out["skipped"].append({"key": list(key), "role": role, "reason": "exam_material"})
                 continue
-            if found.get("status") != "proposed":
-                out["skipped"].append({"key": list(key), "role": role,
-                                       "reason": f"reviewed as {found.get('status')}"})
+            if key not in present or not revision_id or not source_id:
+                out["skipped"].append({"key": list(key), "role": role, "reason": "no such passage"})
                 continue
-            written = SO.append_proposal_version(
-                repository, source_object_id=found["object_id"], revision_id=revision_id,
-                object_type=object_type_for(role), authorial_role=role, content=content, citations=[citation],
+            content = {"kind": PROPOSAL_KIND, "role": role, "confidence": confidence, "judge": judge,
+                       "ledger_id": ledger_id or None, "prompt_version": prompt_version, "model": model,
+                       "extraction_id": key[0]}
+            provenance = {"judge": judge, "ledger_id": ledger_id or None, "prompt_version": prompt_version,
+                          "model": model}
+            citation = {"revision_id": revision_id, "span_id": key[1], "block_content_hash": hashes.get(key)}
+            ident = (revision_id, key[1], hashes.get(key), role)
+            found = existing.get(ident)
+            if found is not None:
+                if judge in found["judges"]:
+                    out["skipped"].append({"key": list(key), "role": role, "reason": "already proposed by this judge"})
+                    continue
+                if found.get("status") != "proposed":
+                    out["skipped"].append({"key": list(key), "role": role,
+                                           "reason": f"reviewed as {found.get('status')}"})
+                    continue
+                written = SO.append_proposal_version(
+                    repository, source_object_id=found["object_id"], revision_id=revision_id,
+                    object_type=object_type_for(role), authorial_role=role, content=content, citations=[citation],
+                    model_provenance=provenance, clock=clock)
+                found["judges"].add(judge)
+                out["versions"].append({"source_object_id": found["object_id"], **written})
+                continue
+            authored = SO.author_source_object(
+                repository, source_id=str(source_id), revision_id=revision_id, object_type=object_type_for(role),
+                authorial_role=role, content=content, citations=[citation], authorship="ai", status="proposed",
                 model_provenance=provenance, clock=clock)
-            found["judges"].add(judge)
-            out["versions"].append({"source_object_id": found["object_id"], **written})
-            continue
-        authored = SO.author_source_object(
-            repository, source_id=str(source_id), revision_id=revision_id, object_type=object_type_for(role),
-            authorial_role=role, content=content, citations=[citation], authorship="ai", status="proposed",
-            model_provenance=provenance, clock=clock)
-        existing[ident] = {"object_id": authored["source_object_id"], "judges": {judge}, "status": "proposed"}
-        out["written"].append(authored["source_object_id"])
+            existing[ident] = {"object_id": authored["source_object_id"], "judges": {judge}, "status": "proposed"}
+            out["written"].append(authored["source_object_id"])
     return out
 
 
