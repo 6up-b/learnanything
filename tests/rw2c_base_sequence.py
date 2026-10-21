@@ -48,7 +48,8 @@ class BridgeFake:
     def __call__(self, vault, repository, *, context, question_md, learning_object_ids, item):
         spans = [{"span_id": f"s{index}", "extraction_id": "ext", "label": f"Book · §5.{index}",
                   "text": "a step like yours"} for index in range(1, 4)]
-        return spans, {"basis": "retrieved_verified"}
+        # T6's manifest names the spans its judge passed (RW2c fix round 2, 4).
+        return spans, {"basis": "retrieved_verified", "span_keys": [f"ext/s{index}" for index in range(1, 4)]}
 
 
 def main(root: Path) -> dict:

@@ -290,11 +290,18 @@ def workbench_unaided_progress(row: Mapping[str, Any], session_rows: Iterable[Ma
       same map settles whether this hint's target was reached first
       (:func:`learnloop.hints.report_adaptive.progress_by_next_placement`):
       ``continued`` / ``not_continued``.
-    * Otherwise ``continued`` when that check found a valid step that is new
-      or changed since delivery (a ``(chain_id, hash)`` pair the snapshot
-      does not hold), else ``not_continued``: a step already on the page at
-      delivery that a later check first validates is not progress after the
-      help.
+    * Otherwise ``continued`` when that check found **progress where the help
+      was placed** (fix round 2, 6), else ``not_continued``. Progress is a
+      valid step new or changed since delivery (a ``(chain_id, hash)`` pair
+      the snapshot does not hold: a step already on the page at delivery that
+      a later check first validates is not progress) that is on the help's
+      target node (the hint's target, or for a kind without one the next node
+      from its placement, :func:`learnloop.hints.report_adaptive.hint_target`),
+      is the step the help was about or the first questionable step, or comes
+      after the step it continues from (its next step; with neither recorded,
+      any step). A step that was already valid at delivery (the delivered
+      verdicts) and was only edited is never progress unless it lands on the
+      target: an unrelated edit to an earlier valid step is not recovery.
 
     ``session_rows``: the problem's workbench rows (any order); each needs
     ``id``, ``assist_kind``, ``shown``, ``shown_at`` / ``requested_at``,
@@ -339,9 +346,63 @@ def workbench_unaided_progress(row: Mapping[str, Any], session_rows: Iterable[Ma
     delivered = _snapshot_pairs((snapshot_row or {}).get("step_snapshot_json"))
     if delivered is None:
         return "unknown"
-    valid_now = {(str(entry.get("chain_id")), str(entry.get("hash") or ""))
-                 for entry in verdict_records(following, enabled=False) if entry.get("verdict") == "valid"}
-    return "continued" if valid_now - delivered else "not_continued"
+    # Where the help was placed: its own (a hint, a "show me" example) or,
+    # for a passage under a hint, that hint's.
+    placed = row if row.get("assist_kind") == "hint" or not head else (by_id.get(head) or row)
+    return "continued" if _progress_at_placement(placed, snapshot_row or {}, delivered, following, maps or {}) \
+        else "not_continued"
+
+
+def _positions(value: Any) -> dict[str, int]:
+    records = _loads(value, None)
+    out: dict[str, int] = {}
+    for entry in records if isinstance(records, list) else []:
+        if isinstance(entry, Mapping) and entry.get("chain_id") and entry.get("number") is not None:
+            try:
+                out[str(entry["chain_id"])] = int(entry["number"])
+            except (TypeError, ValueError):
+                continue
+    return out
+
+
+def _progress_at_placement(placed: Mapping[str, Any], snapshot_row: Mapping[str, Any],
+                           delivered: set[tuple[str, str]], following: Mapping[str, Any],
+                           maps: Mapping[str, Mapping[str, list[str]]]) -> bool:
+    """Whether the next check found progress where the help was placed
+    (:func:`workbench_unaided_progress`, fix round 2, 6)."""
+
+    from learnloop.hints import report_adaptive
+
+    target = report_adaptive.hint_target(placed, maps.get(str(placed.get("map_id") or "")) or {}) \
+        if placed.get("map_id") or placed.get("target_node_id") else None
+    about = {str(value) for value in (placed.get("about_step_id"), placed.get("first_questionable_step_id"))
+             if value}
+    continue_from = str(placed.get("continue_from_step_id") or "") or None
+    valid_then = {str(entry.get("chain_id")) for entry in verdict_records(snapshot_row, enabled=False)
+                  if entry.get("verdict") == "valid"}
+    # Positions in the following check's work (an inserted step has one
+    # there), else at delivery.
+    positions = {**_positions(snapshot_row.get("step_snapshot_json")),
+                 **_positions(following.get("step_snapshot_json"))}
+    anchor = positions.get(continue_from) if continue_from else None
+    if anchor is None and about:
+        known = [positions[chain] for chain in about if chain in positions]
+        anchor = min(known) - 1 if known else None
+    if anchor is None and not continue_from:
+        anchor = 0  # placed at the givens: every step is after it
+    for entry in verdict_records(following, enabled=False):
+        chain = str(entry.get("chain_id"))
+        if entry.get("verdict") != "valid" or (chain, str(entry.get("hash") or "")) in delivered:
+            continue
+        if target and str(entry.get("map_node_id") or "") == target:
+            return True
+        if chain in valid_then:
+            continue  # valid before the help, only edited since: not recovery
+        if chain in about:
+            return True
+        if anchor is not None and chain in positions and positions[chain] > anchor:
+            return True
+    return False
 
 
 __all__ = ["PROGRESS_OUTCOMES", "REPORT_VERSION", "WORKBENCH_HELP_KINDS", "build_workbench_report",

@@ -73,10 +73,16 @@ export interface BridgeState {
   alternatives?: number;
 }
 
-/** RW2c: a bridge's draw fields, only when its row logged options (so with
- *  workbench.passage_draw_enabled off a bridge's state is RW2b's). */
-function drawnFields(value: { assistId?: string | null; alternatives?: number } | null | undefined): Partial<BridgeState> {
-  return value?.alternatives && value.assistId ? { assistId: value.assistId, alternatives: value.alternatives } : {};
+/** RW2c: a bridge's draw fields, only when its row logged options, and the
+ *  book its passage is in when the server names one (fix round 2, 7: a drawn
+ *  or picked passage in another book opens there, initially and on resume).
+ *  The server sends neither while workbench.passage_draw_enabled is off, so
+ *  a bridge's state is then RW2b's. */
+function drawnFields(value: { assistId?: string | null; alternatives?: number; sourceId?: string | null } | null | undefined): Partial<BridgeState> {
+  return {
+    ...(value?.alternatives && value.assistId ? { assistId: value.assistId, alternatives: value.alternatives } : {}),
+    ...(value?.sourceId ? { sourceId: value.sourceId } : {}),
+  };
 }
 
 export interface WorkbenchHelp {

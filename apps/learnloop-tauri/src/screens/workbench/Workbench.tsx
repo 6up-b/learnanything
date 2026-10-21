@@ -134,6 +134,11 @@ export function Workbench(props: WorkbenchProps) {
     sessionId: session.sessionId,
     examples: helpConfig?.examples === true,
     passageDraw: helpConfig?.passageDraw === true,
+    // Fix round 2 (8): the same save-before-help barrier as checks and hints.
+    beforeRequest: async () => {
+      wb.flushEdits();
+      return wb.drained();
+    },
   });
   const help = useWorkbenchHelp({
     sessionId: session.sessionId,

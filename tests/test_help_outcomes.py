@@ -122,6 +122,12 @@ def _facets(paths):
     return item_facets_of(load_vault(paths.root))
 
 
+def _vault(paths):
+    from learnloop.vault.loader import load_vault
+
+    return load_vault(paths.root)
+
+
 def _help(result, kind: str):
     [found] = [entry for entry in result.helps if entry.help == "hint" and entry.kind == kind]
     return found
@@ -131,8 +137,9 @@ def test_help_outcomes_is_deterministic_and_reads_only_existing_rows(tmp_path):
     paths, _ctx, _wb = _world(tmp_path)
     facets = _facets(paths)
     before = hashlib.sha256(Path(paths.sqlite_path).read_bytes()).hexdigest()
-    first = help_outcomes(paths.sqlite_path, [FACET], "2026-10-20T13:00:00Z", item_facets=facets)
-    second = help_outcomes(paths.sqlite_path, [FACET], "2026-10-20T13:00:00Z", item_facets=facets)
+    vault = _vault(paths)
+    first = help_outcomes(paths.sqlite_path, [FACET], "2026-10-20T13:00:00Z", item_facets=facets, vault=vault)
+    second = help_outcomes(paths.sqlite_path, [FACET], "2026-10-20T13:00:00Z", item_facets=facets, vault=vault)
     assert first.as_dict() == second.as_dict()
     assert json.dumps(first.as_dict(), sort_keys=True) == json.dumps(second.as_dict(), sort_keys=True)
     # A pure read: the database file is byte-for-byte unchanged.
@@ -197,32 +204,43 @@ def test_a_facet_without_history_gives_no_lines(tmp_path):
     assert lines_for(result) == ()
 
 
-def _s5(paths, *, cold_attempt: str | None, state: str) -> None:
+def _s5(paths) -> None:
+    """An S5 tutor passage on the facet the day before (Oct 19, 11:30), its
+    same-day next attempt (independent, correct) and, a day later, the
+    world's independent attempt ``att_later`` (12:00, with a duration): S5's
+    own join gives ``R_next`` continued and ``R_cold`` a success."""
+
     from learnloop.db.stores.source_service import insert_intervention
 
+    add_attempt(paths.sqlite_path, "att_s5_next", correctness=1.0, created_at="2026-10-19T11:45:00+00:00")
     with closing(connect(paths.sqlite_path)) as connection:
-        insert_intervention(connection, id="ri_1", created_at="2026-10-20T09:00:00Z", kind="source_passage",
+        # Each records its facets, as attempts do (S5 joins on them).
+        connection.execute("UPDATE practice_attempts SET latency_seconds = 60, evidence_facets_json = ? "
+                           "WHERE id IN ('att_s5_next', 'att_later')", (json.dumps([FACET]),))
+        insert_intervention(connection, id="ri_1", created_at="2026-10-19T11:30:00Z", kind="source_passage",
                             caller_kind="tutor", targets={"facets": [FACET], "learning_object_ids": [LO]})
-        connection.execute(
-            "INSERT INTO retrieval_intervention_outcomes (intervention_id, next_attempt_id, next_correctness, "
-            "next_assisted, cold_attempt_id, cold_outcome_state, outcome_version) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            ("ri_1", "att_wb", 1.0, 0, cold_attempt, state, "retrieval_outcomes.v4"))
         connection.commit()
 
 
 def test_s5_outcomes_are_read_not_rederived_and_pending_until_as_of(tmp_path):
     paths, _ctx, _wb = _world(tmp_path)
-    _s5(paths, cold_attempt="att_later", state="cold_success")
+    _s5(paths)
     facets = _facets(paths)
-    late = help_outcomes(paths.sqlite_path, [FACET], "2026-10-20T13:00:00Z", item_facets=facets)
+    vault = _vault(paths)
+    late = help_outcomes(paths.sqlite_path, [FACET], "2026-10-20T13:00:00Z", item_facets=facets, vault=vault)
     [retrieval] = [entry for entry in late.helps if entry.help == "retrieval"]
     assert retrieval.kind == "source_passage" and retrieval.source == "retrieval_intervention_outcomes"
     assert dict(retrieval.continuation) == {"continued": 1}
     assert dict(retrieval.later_independent) == {"pass": 1}
     # Before the cold attempt existed, S5's success is not yet known at as_of.
-    middle = help_outcomes(paths.sqlite_path, [FACET], "2026-10-20T11:30:00Z", item_facets=facets)
+    middle = help_outcomes(paths.sqlite_path, [FACET], "2026-10-20T11:30:00Z", item_facets=facets, vault=vault)
     [retrieval] = [entry for entry in middle.helps if entry.help == "retrieval"]
     assert dict(retrieval.later_independent) == {"pending": 1}
+    # Without the vault S5 cannot judge its targets: unknown, never a guess.
+    blind = help_outcomes(paths.sqlite_path, [FACET], "2026-10-20T13:00:00Z", item_facets=facets)
+    [retrieval] = [entry for entry in blind.helps if entry.help == "retrieval"]
+    assert (dict(retrieval.continuation), dict(retrieval.later_independent)) == ({"unknown": 1}, {"unmeasured": 1})
+    assert blind.sources["retrieval_intervention_outcomes"] == "read_without_vault"
 
 
 def test_s5_absent_reads_as_absent(tmp_path):
@@ -532,12 +550,10 @@ def test_f10_an_s5_record_naming_a_passage_is_its_outcome_and_is_not_counted_aga
         insert_intervention(connection, id="ri_ex", created_at="2026-10-20T10:01:30Z", kind="source_passage",
                             caller_kind="workbench", caller_ref="ha_ex",
                             targets={"facets": [FACET], "learning_object_ids": [LO]})
-        connection.execute(
-            "INSERT INTO retrieval_intervention_outcomes (intervention_id, next_attempt_id, next_correctness, "
-            "next_assisted, cold_attempt_id, cold_outcome_state, outcome_version) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            ("ri_ex", "att_wb", 1.0, 1, None, "right_censored_pending", "retrieval_outcomes.v4"))
         connection.commit()
-    result = help_outcomes(paths.sqlite_path, [FACET], "2026-10-20T13:00:00Z", item_facets=_facets(paths))
+    # S5's own join: no independent attempt a cold delay after it yet.
+    result = help_outcomes(paths.sqlite_path, [FACET], "2026-10-20T13:00:00Z", item_facets=_facets(paths),
+                           vault=_vault(paths))
     example = _only(result, "example")
     assert dict(example.later_independent) == {"pending": 1}
     assert not [entry for entry in result.helps if entry.help == "retrieval"]

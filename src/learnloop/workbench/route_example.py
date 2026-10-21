@@ -53,6 +53,7 @@ from learnloop.db.stores import help_assists as assists_store
 from learnloop.ids import new_ulid
 from learnloop.vault.hashes import practice_item_hash
 from learnloop.workbench import passage_draw
+from learnloop.workbench import passage_draw as passage_draw_module
 
 KIND = "example"
 TRIGGERS = ("after_hint", "show_me")
@@ -170,9 +171,12 @@ def example_for(
     max_calls: int | None = None,
     draw_enabled: bool = False,
     seed: str | None = None,
+    cancelled: Callable[[], bool] | None = None,
 ) -> dict[str, Any]:
     """Look for the example; write the row prepared (``shown = 0``). Returns
-    ``{status: ready | none | absent | unavailable, assist_id, line, ...}``."""
+    ``{status: ready | none | absent | unavailable, assist_id, line, ...}``.
+    ``cancelled``: the job's cancel flag, read again before the row takes its
+    place among the problem's calls and before the search (fix round 2, 1)."""
 
     from learnloop.workbench.check import session_calls_on
 
@@ -218,6 +222,8 @@ def example_for(
                                           for step in steps], sort_keys=True),
         "requested_at": utc_now_iso(),
     }
+    if cancelled is not None and cancelled():
+        return {"status": "unavailable", "reason": "cancelled"}
     with repository.atomic():
         connection = repository.connection()
         if max_calls is not None and session_calls_on(connection, workbench_session_id) >= int(max_calls):
@@ -225,6 +231,10 @@ def example_for(
         # The search's place among the problem's calls, taken before it runs.
         assists_store.insert_assist(connection, row)
     caller = caller_for_session(repository, workbench_session_id, item)
+    if cancelled is not None and cancelled():
+        _settle(repository, assist_id, {"placement_json": json.dumps({**placement, "status": "cancelled"},
+                                                                     sort_keys=True)})
+        return {"status": "unavailable", "reason": "cancelled"}
     try:
         with spend_envelopes(envelope):
             hits = (find or _default_find)(vault, repository, query[:QUERY_CHARS], caller=caller,
@@ -292,9 +302,11 @@ def _metered(vault: Any) -> bool:
         return True
 
 
-def example_view(row: Mapping[str, Any]) -> dict[str, Any]:
+def example_view(row: Mapping[str, Any], *, passage_draw: bool = False) -> dict[str, Any]:
     """What the workbench shows of a shown example (no passage text: the
-    passage opens in the book)."""
+    passage opens in the book). ``passage_draw``: the CURRENT
+    ``workbench.passage_draw_enabled``; its draw fields only while on (fix
+    round 2, 3)."""
 
     placement = json.loads(row.get("placement_json") or "{}")
     view = {"assist_id": row["id"], "line": row.get("body_md") or "", "span_id": placement.get("span_id"),
@@ -302,7 +314,8 @@ def example_view(row: Mapping[str, Any]) -> dict[str, Any]:
             "label": placement.get("label"),
             "verdict": placement.get("verdict"), "trigger": placement.get("trigger"),
             "about_step_id": row.get("about_step_id"), "hint_assist_id": placement.get("hint_assist_id")}
-    view.update(passage_draw.alternatives_view(row))
+    if passage_draw:
+        view.update(passage_draw_module.alternatives_view(row))
     return view
 
 

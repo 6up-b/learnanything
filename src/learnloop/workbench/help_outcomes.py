@@ -23,9 +23,12 @@ table, so no replayer (§11: "RW2c's help outcomes are pure reads").
   measured to the next valid step against the work at delivery, further help
   of any kind in between, unknown kept unknown; review F4). The same
   definition gives a passage's continuation.
-* **For retrieval-supported help, the sources spec's S5 records**
-  (``retrieval_interventions`` with ``retrieval_intervention_outcomes``:
-  ``R_next``, ``R_cold`` and its censoring) instead of a second derivation:
+* **For retrieval-supported help, the sources spec's S5 outcomes**
+  (``R_next``, ``R_cold`` and its censoring) instead of a second derivation,
+  read AS THEY STOOD at ``as_of`` through S5's own historical read
+  (:func:`learnloop.substrate.intervention_outcomes.outcomes_as_of`: inputs
+  written by then, the grades as they stood then, expiry judged at
+  ``as_of``; fix round 2, 5), never today's persisted rows:
   a workbench passage an S5 record names by its assist id takes its later
   outcome from that record, and the record is not counted again on its own
   (review F10); every other S5 record is its own help. An outcome whose
@@ -387,6 +390,10 @@ def help_outcomes(
         for attempt_id, (correctness, _held) in graded.items():
             attempts[attempt_id] = {**attempts[attempt_id], "correctness": correctness}
         held = {attempt_id for attempt_id, (_correctness, is_held) in graded.items() if is_held}
+        # Fix round 2 (5): S5's outcomes AS THEY STOOD at the cutoff, from
+        # S5's own historical read (inputs written by then, the grades above,
+        # expiry judged at the cutoff), never today's persisted rows.
+        s5_outcomes = _s5_outcomes_at(connection, vault, cutoff, graded)
 
         def attempt_facets(attempt: Mapping[str, Any]) -> set[str]:
             # The facets recorded with the attempt, and the item's (canonical) now.
@@ -440,7 +447,8 @@ def help_outcomes(
             # S5 records that name a workbench passage by its assist id (review
             # F10): that record's later outcome is the passage's.
             linked, counted = _s5_links(connection, {str(row["id"]) for row in rows
-                                                     if row["assist_kind"] in _PASSAGE_KINDS}, cutoff)
+                                                     if row["assist_kind"] in _PASSAGE_KINDS}, cutoff,
+                                        s5_outcomes if s5_outcomes is not None else {})
             if _table(connection, "workbench_sessions"):
                 for row in _rows(connection, "SELECT id, attempt_id FROM workbench_sessions "
                                  "WHERE attempt_id IS NOT NULL"):
@@ -503,11 +511,11 @@ def help_outcomes(
             linked, counted = {}, set()
 
         # -- the sources spec's S5 records (retrieval-supported help) -----------------------
-        if _table(connection, "retrieval_interventions") and _table(connection, "retrieval_intervention_outcomes"):
-            sources["retrieval_intervention_outcomes"] = "read"
-            outcomes = {str(row["intervention_id"]): row for row in _rows(
-                connection, "SELECT intervention_id, next_attempt_id, next_correctness, next_assisted, "
-                "cold_attempt_id, cold_outcome_state FROM retrieval_intervention_outcomes")}
+        if s5_outcomes is not None:
+            # Without the vault S5 cannot judge its targets or exposures:
+            # its outcomes are unknown, never guessed (fix round 2, 5).
+            sources["retrieval_intervention_outcomes"] = "read" if vault is not None else "read_without_vault"
+            outcomes = s5_outcomes
             for row in _rows(connection, "SELECT id, created_at, kind, assets_json, targets_json "
                              "FROM retrieval_interventions ORDER BY created_at, id"):
                 at = _when(row["created_at"])
@@ -559,8 +567,42 @@ def help_outcomes(
                           [goes[facet] for facet in wanted if not goes[facet].empty], sources)
 
 
-def _s5_links(connection: sqlite3.Connection, assist_ids: set[str], cutoff: datetime
-              ) -> tuple[dict[str, Mapping[str, Any] | None], set[str]]:
+def _s5_outcomes_at(connection: sqlite3.Connection, vault: Any | None, cutoff: datetime,
+                    graded: Mapping[str, tuple[Any, bool]]) -> Mapping[str, Any] | None:
+    """S5's outcomes at ``cutoff`` by intervention id (fix round 2, 5), from
+    the sources spec's own historical read
+    (:func:`learnloop.substrate.intervention_outcomes.outcomes_as_of`) over the
+    grades as they stood then; None when S5's tables are absent. Without a
+    vault every record reads :data:`UNJUDGED` (unknown, never a guess)."""
+
+    if not (_table(connection, "retrieval_interventions") and _table(connection, "retrieval_intervention_outcomes")):
+        return None
+    if vault is None:
+        return _Unjudged()
+    from learnloop.substrate.intervention_outcomes import outcomes_as_of
+
+    return outcomes_as_of(vault, connection, cutoff, grades=graded)
+
+
+#: An S5 outcome that could not be judged (no vault given).
+UNJUDGED: Mapping[str, Any] = {"unjudged": True}
+
+
+class _Unjudged(Mapping[str, Any]):
+    """Every intervention's outcome is :data:`UNJUDGED` (no vault given)."""
+
+    def __getitem__(self, key: str) -> Any:
+        return UNJUDGED
+
+    def __iter__(self) -> Any:
+        return iter(())
+
+    def __len__(self) -> int:
+        return 0
+
+
+def _s5_links(connection: sqlite3.Connection, assist_ids: set[str], cutoff: datetime,
+              outcomes: Mapping[str, Any]) -> tuple[dict[str, Mapping[str, Any] | None], set[str]]:
     """The S5 records that name a workbench passage BY ITS ASSIST ID (the
     record's ``caller_ref``, or ``assets.help_assist_id``; never a match on
     time, item or spans), written by ``cutoff``: ``({assist id: its outcome
@@ -572,9 +614,6 @@ def _s5_links(connection: sqlite3.Connection, assist_ids: set[str], cutoff: date
     if not assist_ids or not (_table(connection, "retrieval_interventions")
                               and _table(connection, "retrieval_intervention_outcomes")):
         return {}, set()
-    outcomes = {str(row["intervention_id"]): row for row in _rows(
-        connection, "SELECT intervention_id, next_attempt_id, next_correctness, next_assisted, "
-        "cold_attempt_id, cold_outcome_state FROM retrieval_intervention_outcomes")}
     linked: dict[str, Mapping[str, Any] | None] = {}
     counted: set[str] = set()
     for row in _rows(connection, "SELECT id, created_at, caller_ref, assets_json FROM retrieval_interventions "
@@ -594,6 +633,8 @@ def _s5_links(connection: sqlite3.Connection, assist_ids: set[str], cutoff: date
 
 
 def _s5_next(outcome: Mapping[str, Any] | None, attempts: Mapping[str, Any]) -> str:
+    if outcome is UNJUDGED:
+        return "unknown"
     if outcome is None or not outcome.get("next_attempt_id") or str(outcome["next_attempt_id"]) not in attempts:
         return "no_later_attempt"
     if outcome.get("next_correctness") is None:
@@ -604,6 +645,8 @@ def _s5_next(outcome: Mapping[str, Any] | None, attempts: Mapping[str, Any]) -> 
 
 
 def _s5_cold(outcome: Mapping[str, Any] | None, attempts: Mapping[str, Any]) -> str:
+    if outcome is UNJUDGED:
+        return "unmeasured"
     if outcome is None:
         return "pending"
     state = str(outcome.get("cold_outcome_state") or "")

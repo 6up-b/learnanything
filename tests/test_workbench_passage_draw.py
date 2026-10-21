@@ -32,7 +32,9 @@ class BridgeFake:
 
     def __call__(self, vault, repository, *, context, question_md, learning_object_ids, item):
         self.calls.append(context)
-        return self.spans, {"basis": self.basis}
+        # T6's manifest names the spans its judge passed (fix round 2, 4).
+        return self.spans, {"basis": self.basis,
+                            "span_keys": [f"{span['extraction_id']}/{span['span_id']}" for span in self.spans]}
 
 
 def test_the_draw_is_uniform_logged_and_reproduces_from_its_seed():

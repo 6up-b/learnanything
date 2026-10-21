@@ -28,6 +28,7 @@ export const EXAMPLE_COPY = {
   showMe: "show me a similar example",
   another: "another passage ▸",
   noOther: "There is no other passage to show here.",
+  notSaved: "Your latest steps aren't saved yet, so no example was looked for. They're safe in this window.",
 } as const;
 
 export interface ExampleState {
@@ -74,8 +75,18 @@ export interface RouteExamples {
   anotherExample: (key: { hintAssistId: string } | { index: number }, view: WorkbenchExampleViewDto) => Promise<void>;
 }
 
-export function useRouteExamples(options: { sessionId: string; examples: boolean; passageDraw: boolean }): RouteExamples {
+export function useRouteExamples(options: {
+  sessionId: string;
+  examples: boolean;
+  passageDraw: boolean;
+  /** Fix round 2 (8): the workbench's save-before-help barrier (flushEdits,
+   *  then drained). "Show me a similar example" searches against the saved
+   *  steps, so it runs only once every typed change is saved. */
+  beforeRequest?: () => Promise<boolean>;
+}): RouteExamples {
   const { sessionId, examples, passageDraw } = options;
+  const beforeRef = useRef(options.beforeRequest);
+  beforeRef.current = options.beforeRequest;
   const [available, setAvailable] = useState(false);
   const [underHint, setUnderHint] = useState<Record<string, ExampleState>>({});
   const [standalone, setStandalone] = useState<ExampleState[]>([]);
@@ -144,6 +155,12 @@ export function useRouteExamples(options: { sessionId: string; examples: boolean
     setNotice(null);
     setShowMePending(true);
     try {
+      // Never a search against older work than the learner sees (as checks
+      // and hints): a save still failing refuses, and nothing is asked.
+      if (beforeRef.current && !(await beforeRef.current())) {
+        if (alive.current) setNotice(EXAMPLE_COPY.notSaved);
+        return;
+      }
       const job = await poll(await api.workbenchShowExample({ sessionId, focusedStepId }));
       if (!alive.current) return;
       const result = job.result;

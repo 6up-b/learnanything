@@ -170,11 +170,63 @@ class NoAlternative(Exception):
     """The row has no other passage to show."""
 
 
+def option_withheld(vault: Any, repository: Any, item: Any, option: Mapping[str, Any], *,
+                    workbench_session_id: str) -> str | None:
+    """Why a cached draw option may NOT be shown now, or None (fix round 2,
+    2). An option passed the item-bound scope when it was drawn; "another
+    passage" shows it later, so it is checked again against what holds NOW,
+    with no search and no model call:
+
+    * the workbench session's caller is still ``assisted_practice`` for the
+      item (a cold administration opened since retrieves nothing);
+    * not exam or held-out material (the one predicate, ``exam_withheld``),
+      nor in a source without teaching authority (``teaching_exclusions``);
+    * not one of the item's own passages (``item_exclusions``: its links and
+      provenance, whole extractions included);
+    * by its role, and when its block can be read, its own lead and text: not
+      an exercise or a solution, and not reproducing the item's answer."""
+
+    from learnloop.ingest.block_roles import lead_role
+    from learnloop.source_retrieval.corpus import exam_withheld, item_exclusions, teaching_exclusions
+    from learnloop.source_retrieval.policy import derive_policy
+    from learnloop.tutor.context_delivery import BlockSource
+    from learnloop.tutor.tutor_qa import span_leaks_expected
+    from learnloop.workbench.route_example import caller_for_session
+
+    extraction_id, span_id = str(option.get("extraction_id") or ""), str(option.get("span_id") or "")
+    if not extraction_id or not span_id:
+        return "unknown_passage"
+    if item is None:
+        return "not_bound"
+    if derive_policy(caller_for_session(repository, workbench_session_id, item))[0] != "assisted_practice":
+        return "cold_administration"
+    key = (extraction_id, span_id)
+    if exam_withheld(vault, repository, [key]):
+        return "exam_material"
+    teaching = teaching_exclusions(vault, repository)
+    if extraction_id in teaching.extractions or key in teaching.spans:
+        return "no_teaching_authority"
+    own = item_exclusions(repository, item)
+    if extraction_id in own.extractions or key in own.spans:
+        return "item_linked"
+    if str(option.get("role") or "") in ("exercise", "solution"):
+        return "exercise_or_solution"
+    block = BlockSource(repository.sqlite_path).block(extraction_id, span_id)
+    if block is not None:
+        if lead_role(block.text) in ("exercise", "solution"):
+            return "exercise_or_solution"
+        if span_leaks_expected(block.text, item.expected_answer):
+            return "reproduces_the_answer"
+    return None
+
+
 def another_passage(repository: Any, *, workbench_session_id: str, assist_id: str,
-                    line_for: Any, shown_at: str) -> dict[str, Any]:
+                    line_for: Any, shown_at: str, withheld: Any | None = None) -> dict[str, Any]:
     """Show the next option of a shown bridge or example (no search, no call):
     a new row, ``chooser = 'learner_pick'``, no propensity, counted by nothing.
-    ``line_for(option, placement)`` writes its line. Returns the new row."""
+    ``line_for(option, placement)`` writes its line. Returns the new row.
+    ``withheld(option) -> reason | None`` (fix round 2, 2): an option that may
+    not be shown NOW is skipped for the next; none left refuses."""
 
     from learnloop.db.stores import help_assists as store
     from learnloop.ids import new_ulid
@@ -191,6 +243,15 @@ def another_passage(repository: Any, *, workbench_session_id: str, assist_id: st
         option = next_option(options, current)
         if option is None:
             raise NoAlternative("no_alternatives")
+        if withheld is not None:
+            # Every other option in turn, never back to the one on screen.
+            seen = {current}
+            while option is not None and withheld(option):
+                seen.add(str(option["option_id"]))
+                following = next_option(options, str(option["option_id"]))
+                option = following if following is not None and str(following["option_id"]) not in seen else None
+            if option is None:
+                raise NoAlternative("withheld")
         picked = {key: placement[key] for key in ("hint_assist_id", "trigger", "verdict", "role", "step_number")
                   if key in placement}
         picked.update({"status": "picked", "draw_assist_id": placement.get("draw_assist_id") or row["id"],
@@ -215,4 +276,4 @@ def another_passage(repository: Any, *, workbench_session_id: str, assist_id: st
 
 __all__ = ["Draw", "EXAMPLE_VERDICTS", "MAX_OPTIONS", "NoAlternative", "POLICY_VERSION", "alternatives_view",
            "another_passage", "best_class", "draw", "new_seed", "next_option", "option_id", "option_record",
-           "options_of"]
+           "option_withheld", "options_of"]

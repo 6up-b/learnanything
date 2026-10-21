@@ -492,7 +492,27 @@ def _payload(ctx: SidecarContext, job_id: str) -> dict[str, Any]:
             from learnloop.symbolic_view import hint_result_view, switch
 
             result = hint_result_view(result, enabled=switch(_vault))
+        result = _rw2c_fields_now(_vault, meta.kind, result)
     return versioned({**base, "state": "done", "result": to_camel(result)})
+
+
+def _rw2c_fields_now(vault: Any, kind: str, result: dict[str, Any]) -> dict[str, Any]:
+    """RW2c fix round 2 (3): a cached job result carries RW2c's fields only
+    while their switches are on NOW (a reload may have turned them off since
+    the job finished): a hint's example job, a bridge's draw and book, an
+    example's draw. Off, the payload is the base code's."""
+
+    from learnloop.workbench import route_example
+
+    if kind == HINT and not route_example.examples_enabled(vault):
+        result.pop("example_job_id", None)
+    if not help_module.passage_draw_enabled(vault):
+        if kind == BRIDGE:
+            for name in help_module.RW2C_BRIDGE_FIELDS:
+                result.pop(name, None)
+        elif kind == EXAMPLE:
+            result.pop("alternatives", None)
+    return result
 
 
 def _record(ctx: SidecarContext, session_id: str) -> dict[str, Any]:

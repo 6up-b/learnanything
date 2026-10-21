@@ -145,13 +145,16 @@ def bridge_for_hint(
     drawn = None
     if draw_enabled and chosen is not None and isinstance(manifest, dict) \
             and manifest.get("basis") == "retrieved_verified":
-        # RW2c (§5.10): every returned span passed T6's listwise judge, so a
-        # draw between them withholds nothing.
+        # RW2c (§5.10): a draw only between spans T6's listwise judge passed.
+        # Fix round 2 (4): those are the manifest's ``span_keys`` (the
+        # verification's picks), never a numbered block a pick cites, which
+        # ``with_references`` appends AFTER verification (judged by nobody).
         from learnloop.workbench import passage_draw
 
-        drawn = passage_draw.draw(eligible, seed=seed or passage_draw.new_seed())
+        judged = verified_spans(eligible, manifest)
+        drawn = passage_draw.draw(judged, seed=seed or passage_draw.new_seed())
         if drawn is not None:
-            chosen = next(span for span in eligible if passage_draw.option_id(span) == drawn.drawn["option_id"])
+            chosen = next(span for span in judged if passage_draw.option_id(span) == drawn.drawn["option_id"])
     manifest_json = json.dumps(manifest, sort_keys=True, default=str) if manifest else None
     if chosen is None:
         _settle(repository, assist_id, {"placement_json": json.dumps({**placement, "status": "none"}, sort_keys=True),
@@ -164,6 +167,9 @@ def bridge_for_hint(
         "body_md": line,
         "placement_json": json.dumps({"hint_assist_id": hint_assist_id, "span_id": chosen.get("span_id"),
                                       "extraction_id": chosen.get("extraction_id"), "label": label,
+                                      # Fix round 2 (7): the book the passage is in
+                                      # (a drawn passage may be in another book).
+                                      **({"source_id": str(chosen["source_id"])} if chosen.get("source_id") else {}),
                                       "status": "found"}, sort_keys=True),
         "cited_span_ids_json": json.dumps([str(chosen.get("span_id"))]),
         "retrieval_manifest_json": manifest_json,
@@ -171,9 +177,25 @@ def bridge_for_hint(
     })
     result = {"status": "ready", "assist_id": assist_id, "line": line, "span_id": chosen.get("span_id"),
               "extraction_id": chosen.get("extraction_id"), "label": label}
+    if chosen.get("source_id"):
+        # Shown only while ``workbench.passage_draw_enabled`` is on (the
+        # sidecar's payload drops RW2c's bridge fields otherwise; fix round 2, 3).
+        result["source_id"] = str(chosen["source_id"])
     if drawn is not None:
         result["alternatives"] = len(drawn.options) - 1
     return result
 
 
-__all__ = ["COMPARE_LINE", "NOTHING_LINE", "bridge_for_hint"]
+def verified_spans(spans: list[dict[str, Any]], manifest: dict[str, Any]) -> list[dict[str, Any]]:
+    """The spans among ``spans`` that the listwise judge passed: those the
+    manifest's ``span_keys`` name (``extraction_id/span_id``), in their order.
+    No ``span_keys``: none (fail closed; fix round 2, 4)."""
+
+    from learnloop.source_retrieval.recipes import block_record_id
+
+    keys = {str(key) for key in manifest.get("span_keys") or ()}
+    return [span for span in spans
+            if block_record_id(str(span.get("extraction_id") or ""), str(span.get("span_id") or "")) in keys]
+
+
+__all__ = ["COMPARE_LINE", "NOTHING_LINE", "bridge_for_hint", "verified_spans"]

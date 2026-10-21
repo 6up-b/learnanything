@@ -226,6 +226,7 @@ def hint_views(vault: Any, repository: Repository, session_id: str) -> list[dict
     from learnloop.workbench import route_example
 
     with_examples = route_example.examples_enabled(vault)
+    draw_on = passage_draw_enabled(vault)
     examples = {json.loads(row.get("placement_json") or "{}").get("hint_assist_id"): row
                 for row in rows if row["assist_kind"] == "example" and row.get("shown")} if with_examples else {}
     snapshot_numbers: dict[str, int] = {}
@@ -261,11 +262,11 @@ def hint_views(vault: Any, repository: Repository, session_id: str) -> list[dict
                                       "message": SETTLED_LINE if json.loads(answer.get("placement_json") or "{}")
                                       .get("settled") else UNSETTLED_LINE}
             if answer is not None else None,
-            "bridge": bridge_view(bridge) if bridge is not None else None,
+            "bridge": bridge_view(bridge, passage_draw=draw_on) if bridge is not None else None,
             "claims": row_claims(row, symbolic_enabled=hint_workbench.symbolic_enabled(vault)),
             "symbolic_enabled": hint_workbench.symbolic_enabled(vault),
-            **({"example": route_example.example_view(examples[row["id"]]) if row["id"] in examples else None}
-               if with_examples else {}),
+            **({"example": route_example.example_view(examples[row["id"]], passage_draw=draw_on)
+                if row["id"] in examples else None} if with_examples else {}),
         })
     return views
 
@@ -283,7 +284,8 @@ def standalone_examples(vault: Any, repository: Repository, session_id: str) -> 
         if json.loads(row.get("placement_json") or "{}").get("hint_assist_id"):
             continue
         latest[str(row.get("about_step_id") or "")] = row
-    return [route_example.example_view(row) for row in sorted(latest.values(), key=lambda row: (
+    draw_on = passage_draw_enabled(vault)
+    return [route_example.example_view(row, passage_draw=draw_on) for row in sorted(latest.values(), key=lambda row: (
         str(row.get("shown_at") or row.get("requested_at") or ""), str(row["id"])))]
 
 
@@ -319,17 +321,36 @@ def _step_line(about: int | None, continue_from: int | None) -> str:
     return " · ".join(parts)
 
 
-def bridge_view(row: Mapping[str, Any]) -> dict[str, Any]:
+def passage_draw_enabled(vault: Any) -> bool:
+    """``workbench.passage_draw_enabled`` NOW: RW2c's bridge fields (the
+    draw, "another passage", the book a drawn or picked passage is in) are
+    serialized only while it is on (fix round 2, 3)."""
+
+    return bool(getattr(vault.config.workbench, "passage_draw_enabled", False))
+
+
+#: RW2c's fields on a bridge (a view or a job's result): dropped while
+#: ``workbench.passage_draw_enabled`` is off, so the payload is RW2b's.
+RW2C_BRIDGE_FIELDS = ("source_id", "alternatives", "option_id", "draw_assist_id")
+
+
+def bridge_view(row: Mapping[str, Any], *, passage_draw: bool = False) -> dict[str, Any]:
+    """A shown bridge as the workbench restores it. ``passage_draw``: the
+    CURRENT ``workbench.passage_draw_enabled``; off (the default), the view is
+    exactly RW2b's whatever the row logged (fix round 2, 3)."""
+
     from learnloop.workbench.passage_draw import alternatives_view
 
     placement = json.loads(row.get("placement_json") or "{}")
-    # RW2c: "another passage" only on a row that logged a draw (absent otherwise).
-    return {"assist_id": row["id"], "line": row.get("body_md") or "", "span_id": placement.get("span_id"),
-            "extraction_id": placement.get("extraction_id"), "label": placement.get("label"),
-            # RW2c review F1: the book a picked passage is in, only when known
-            # (an RW2b bridge's view is exactly as before).
-            **({"source_id": placement["source_id"]} if placement.get("source_id") else {}),
-            **alternatives_view(row)}
+    view = {"assist_id": row["id"], "line": row.get("body_md") or "", "span_id": placement.get("span_id"),
+            "extraction_id": placement.get("extraction_id"), "label": placement.get("label")}
+    if passage_draw:
+        # RW2c: the book a drawn or picked passage is in, only when known
+        # (review F1, fix round 2, 7), and "another passage" only on a row
+        # that logged a draw.
+        view.update({"source_id": placement["source_id"]} if placement.get("source_id") else {})
+        view.update(alternatives_view(row))
+    return view
 
 
 def unavailable_message(reason: str | None, *, authored_left: bool) -> str:
@@ -378,7 +399,9 @@ __all__ = [
     "UNSETTLED_LINE",
     "WRITER_DOWN_REASONS",
     "TAILORED_UNAVAILABLE",
+    "RW2C_BRIDGE_FIELDS",
     "bridge_view",
+    "passage_draw_enabled",
     "row_claims",
     "served_claims",
     "fallback_level",

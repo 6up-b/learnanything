@@ -9259,7 +9259,10 @@ export interface WorkbenchHintViewDto {
   stepLine: string;
   replies: string[];
   discriminatingAnswer: { answerMd: string; message: string } | null;
-  bridge: ({ assistId: string; line: string; spanId: string | null; extractionId: string | null; label: string | null } & WorkbenchPassageDrawDto) | null;
+  bridge: ({ assistId: string; line: string; spanId: string | null; extractionId: string | null; label: string | null;
+    /** RW2c fix round 2 (7): the book a drawn or picked passage is in (only
+     *  while workbench.passage_draw_enabled is on). */
+    sourceId?: string | null } & WorkbenchPassageDrawDto) | null;
   /** RW2c: the worked example under this hint (key absent while
    *  workbench.examples_enabled is off). */
   example?: WorkbenchExampleViewDto | null;
