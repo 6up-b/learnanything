@@ -276,3 +276,69 @@ Owner rule 2026-10-17: no full suite, durability lane or vitest here. No migrati
   - tests: `tests/e0_fakes.py` (the price fixture, the Qwen fake's identity), the existing E0 test modules (the fixture; four tests updated for the new rules: the canary query on resume, a canonical permitted quote, the verified role price, the Qwen identity), new `tests/test_e0_review_round4.py`, and `tests/cli_help_snapshot.json`.
 - No production module outside the experiment package and its CLI changed.
 - The main checkout's tracked fixtures were not opened or changed.
+
+## Fix round 4 follow-up (orchestrator)
+
+**Commits:** the merge `7bea424f8` and the follow-up `4ecbeebeb`. **No paid, live or network call was made ($0.00), and no Codex turn ran.**
+
+### Verified prices
+
+The orchestrator verified these on 2026-10-21, and the pins carry them exactly in `pins.PriceVerification(source_url, checked_on, note)`:
+
+| Pin | Model | Price per 1M tokens | Source |
+|---|---|---|---|
+| `pplx_4b` | `pplx-embed-v1-4b` | $0.03 | https://docs.perplexity.ai/docs/pricing |
+| `pplx_context_4b` | `pplx-embed-context-v1-4b` | $0.05 | https://docs.perplexity.ai/docs/pricing |
+| `voyage_4_large` | `voyage-4-large` | $0.12 | https://docs.voyageai.com/docs/pricing |
+| `voyage_context_4` | `voyage-context-4` | $0.12 | https://docs.voyageai.com/docs/pricing |
+| `qwen3_8b` | `qwen/qwen3-embedding-8b` (OpenRouter) | $0.01 input | https://openrouter.ai/qwen/qwen3-embedding-8b/pricing |
+| `adjudicator`, `judge_adjudicator` | `anthropic/claude-sonnet-5.5` (OpenRouter) | $2 input, $10 output | https://openrouter.ai/anthropic/claude-sonnet-5.5/pricing |
+
+- **Voyage free tier:** both Voyage pins note that the first 200M tokens are free per account. Admission and reconciliation use the full $0.12 and never assume the free tier; a test checks the reservation.
+- **Sonnet:** the record notes that the price matches Anthropic's table at https://platform.claude.com/docs/en/about-claude/pricing. The earlier +10% margin is gone, because the hard cap comes from the guaranteed token upper bounds.
+- **No unverified price remains.**
+
+### The Codex tool lockdown
+
+- **Merge:** `git merge --no-ff main` (main `55063be64`) gave no conflicts.
+- **Isolation contract:** main added the packages `learnloop.figure_admission` and `learnloop.figures`. `tests/test_e0_isolation.py` requires every production package in the import-linter contract `experiments-stay-outside-production`, so both are now in its `source_modules`.
+- **The E0 Codex roles go through the locked-down transport.** The roles are writer, contexts, both label passes, tutor and judges. `LiveRoleCaller` resolves the production Codex client (`SdkCodexClient`) and calls `execute_structured_operation(..., isolated=True)`. On main, every turn of that client runs `_run_sdk_turn` with the lockdown's verified overrides, `TurnLockdown` and `ApprovalMode.deny_all`. A test stops the turn at the entry of `_run_sdk_turn` for `label_a` and `label_b`: both reach it, isolated, with no workspace, and nothing starts.
+- **The paid run is gated on the lockdown.** `boundary.require_codex_lockdown()` runs first in `run_live` and in the paid CLI path. The run is refused (`CodexLockdownMissing`) before any ledger, copy or request when any of these fails:
+  - `learnloop.ai.providers.codex_lockdown` must import;
+  - the Codex provider must use its `TurnLockdown` and have the verified isolated launch;
+  - `isolated_turn_overrides` must carry every lockdown configuration override, the command-environment allowlist and every disabled feature.
+
+  Tests cover a missing module and a provider whose overrides drop `agents.enabled=false`; the CLI exits 1 with "lockdown is not active" and never calls the run.
+- **Fail-before:** not meaningful here. With the pre-merge sources, the merged `conftest` itself imports `codex_lockdown`, so all 6 follow-up tests error at setup (`ModuleNotFoundError`). That is also the guarantee that matters: the unmerged branch has no lockdown and can no longer start a test, let alone a paid run.
+
+### Unchanged by decision
+
+- **The Codex allowance stays 600** against 3,175 planned, pending the Codex transport review.
+- **The 11 logged practice and feedback questions with no recorded assessment contract stay rejected (fail closed).** The owner copies' migration head 165 records none, and the production protection treats that as unresolved provenance. The 4 whose item is protected stay rejected too, which leaves 14 logged questions, all from the Reader.
+
+### The dry run (verified prices)
+
+The dry run ran on the existing copies under `env -i PATH HOME=<empty> CODEX_HOME=<empty> LEARNLOOP_CONFIG_DIR=<empty>`, with no key variable. Results:
+
+- `network_calls: 0` and `copies_changed: 0`. The sha256 of every file under the copies was equal before and after, and the empty home directories stayed empty.
+- Artifacts refreshed: `docs/reviews/artifacts/experiments-e0/dry-run-plan.{json,md}`, run `e0_2235492bf452889e`. The plan's cost basis now reads "the verified published prices on guaranteed token upper bounds".
+
+**$6.79 expected, $20.36 worst case** against the $25 cap; the expected spend in every category is within its allocation.
+
+| Category | Expected $ | Worst case $ | Allocation $ |
+|---|---|---|---|
+| embeddings | 0.04 | 0.12 | 2.00 |
+| drafting/context | 0.00 | 0.00 | 5.00 |
+| labels/audits | 4.04 | 12.13 | 10.00 |
+| answers/verification | 2.71 | 8.12 | 8.00 |
+
+- **Worst case:** labels/audits ($12.13) and answers/verification ($8.12) pass their allocations if every request were retried twice. Admission stops at the allocation, so such a run ends incomplete rather than overspending.
+- **Metered calls:** adjudicator 86 calls ($4.04), answer adjudicator 128 calls ($2.71).
+- **Embedding arms:** $0.001 to $0.009 each.
+- **Codex:** 3,175 requests planned against the 600 allowance (does not fit). **Unverified prices:** none.
+
+### Gate (this step, on `4ecbeebeb`)
+
+- `.venv/bin/lint-imports --no-cache` (under `env -i`): **30 kept, 0 broken**. That is 29 plus main's new `evidence-never-reads-figures`.
+- `pytest -n auto` with `TMPDIR=fixtures-local/tmp` on 29 files: **499 passed, 1 skipped**. The files are the 26 of round 4, plus `tests/test_e0_review_round4_followup.py` (6, new) and the security lockdown tests `tests/test_codex_tool_lockdown.py` and `tests/test_codex_isolation_mcp_check.py` (168 passed). The skip is `test_codex_tool_lockdown.py:405`, which needs the `openai_codex` SDK; it is not installed in this environment.
+- The main checkout's tracked fixtures were not opened or changed.
