@@ -11,6 +11,7 @@
 // the same chords, the same predicates (loose about extra modifiers where the
 // base was), the same "not while typing" rules.
 import { SHOW_GOLDEN_PATH, navTabs, type TopTab } from "../components/ui";
+import { algoConfig } from "./algoConfig";
 import type { Place, ShellMode, UthToolId } from "./shell";
 
 export type KeyAction =
@@ -139,6 +140,28 @@ export const SCOPED_OVERRIDES: ReadonlyArray<{ file: string; keys: string; where
     note: "Check my work. The workbench's own handler stops the event, so the palette stays shut there; Ctrl+P and : still open it."
   }
 ];
+
+/** For a screen's window-level key listener: whether to leave this event to
+ *  the shell (fix round 2, whole-stage verify 20261021-114726-Jrt7sA item 4).
+ *  In the simple shell a screen's plain keys never take a modified key
+ *  (every shell chord holds Ctrl, Cmd or Alt) or an event a handler before
+ *  it already took (the shell's listener marks each chord it runs with
+ *  preventDefault). Without this, Alt+2 went to the Library AND Today read
+ *  the "2" as "practise the second item". Classic answers false, so every
+ *  base screen key stays exactly as it was.
+ *
+ *  Why the screens check rather than the shell calling
+ *  stopImmediatePropagation: window listeners run in the order they were
+ *  added, and nothing fixes that order. A screen listener added before the
+ *  shell's would still see the chord first, and its preventDefault would then
+ *  make the shell skip the chord altogether. The check here works in any
+ *  order; `keymap.test.ts` scans for window listeners that take a shell
+ *  chord's key and ignore modifiers. Stopping the event would also hide it
+ *  from listeners that only watch the modifier state. */
+export function screenLeavesKey(event: KeyboardEvent): boolean {
+  if (algoConfig().shell === "classic") return false;
+  return event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey;
+}
 
 export function matchesChord(chord: Chord, event: KeyboardEvent): boolean {
   if (event.key.toLowerCase() !== chord.key.toLowerCase()) return false;

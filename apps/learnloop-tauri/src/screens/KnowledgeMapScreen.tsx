@@ -76,12 +76,21 @@ export function KnowledgeMapView({ onInspect, onError }: { onInspect: (id: strin
   const loadError = snapshotQuery.error ?? historyQuery.error ?? decayQuery.error;
   // The shell gets the error itself (its code, whether it is retryable) and a
   // retry that reads the failed feed again (UX Phase 2, Codex review F3).
-  const failedQuery = snapshotQuery.error ? snapshotQuery : historyQuery.error ? historyQuery : decayQuery;
-  const retryRef = useRef(failedQuery.refetch);
-  retryRef.current = failedQuery.refetch;
+  // The retry is that query's own refetch, bound when the error is reported,
+  // and it returns the read's promise: the shell runs it and reports a second
+  // failure itself, mounted or not (fix round 2). `source` makes this
+  // screen's report and the shell's one error.
+  const failedLoad = snapshotQuery.error
+    ? { source: "knowledge-map:get_knowledge_map", refetch: snapshotQuery.refetch }
+    : historyQuery.error
+      ? { source: "knowledge-map:get_knowledge_map_history", refetch: historyQuery.refetch }
+      : { source: "knowledge-map:get_decay_pressure", refetch: decayQuery.refetch };
+  const failedLoadRef = useRef(failedLoad);
+  failedLoadRef.current = failedLoad;
   useEffect(() => {
-    // A retry that fails again comes back through the query's error, as a new error.
-    if (loadError) onError(loadError.message, { error: loadError, retry: () => void retryRef.current().catch(() => undefined) });
+    if (!loadError) return;
+    const { source, refetch } = failedLoadRef.current;
+    onError(loadError.message, { error: loadError, source, retry: () => refetch() });
   }, [loadError, onError]);
 
   // Keeps the selection valid for the current field (and picks the first

@@ -10,6 +10,7 @@ import {
 import { api } from "../api/client";
 import type { SqliteExecResult, SqliteTableInfo, SqliteTableSnapshot } from "../api/dto";
 import { COLOR, Faint, FONT_MONO, Pill } from "../components/term";
+import { simpleShell } from "../app/shell";
 
 const PAGE = 200;
 
@@ -317,9 +318,11 @@ export function SqliteBrowser({
 
   const onGridKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (mode !== "nav") return;
-    // A modified key is never a grid key: Ctrl+K is the palette, not "k"
-    // (Codex review F8), and the shell's other chords pass through too.
-    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    // In the simple shell a modified key is never a grid key: Ctrl+K is the
+    // palette, not "k" (Codex review F8), and the shell's other chords pass
+    // through too. Classic keeps the base browser's keys exactly, where
+    // Ctrl+K and Ctrl+ArrowUp still move the selection (fix round 2).
+    if (simpleShell() && (event.ctrlKey || event.metaKey || event.altKey)) return;
     let handled = true;
     if (event.key === "h" || event.key === "ArrowLeft") moveCell(0, -1);
     else if (event.key === "l" || event.key === "ArrowRight") moveCell(0, 1);

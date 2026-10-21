@@ -11,6 +11,7 @@ import {
   expireNotices,
   markShown,
   restartHidden,
+  runNoticeRetry,
   visibleNotices,
   type ShellNotice
 } from "../app/notices";
@@ -63,13 +64,18 @@ export function NoticeHost({
   return (
     <div className="shell-notices">
       {visible.map((notice) => (
-        <NoticeRow key={notice.id} notice={notice} onDismiss={() => onChange((list) => dismissNotice(list, notice.id))} />
+        <NoticeRow
+          key={notice.id}
+          notice={notice}
+          onDismiss={() => onChange((list) => dismissNotice(list, notice.id))}
+          onRetry={() => runNoticeRetry(notice, onChange)}
+        />
       ))}
     </div>
   );
 }
 
-function NoticeRow({ notice, onDismiss }: { notice: ShellNotice; onDismiss: () => void }) {
+function NoticeRow({ notice, onDismiss, onRetry }: { notice: ShellNotice; onDismiss: () => void; onRetry: () => void }) {
   const [details, setDetails] = useState(false);
   const error = notice.kind === "error";
   return (
@@ -80,16 +86,10 @@ function NoticeRow({ notice, onDismiss }: { notice: ShellNotice; onDismiss: () =
     >
       <span className="shell-notice-text">{notice.text}</span>
       {error && notice.retry ? (
-        <button
-          type="button"
-          className="shell-notice-action"
-          onClick={() => {
-            const retry = notice.retry;
-            onDismiss();
-            retry?.();
-          }}
-        >
-          Try again
+        // The shell runs the retry and keeps this error until it settles
+        // (fix round 2): it is gone on success, replaced on a new failure.
+        <button type="button" className="shell-notice-action" disabled={notice.retrying === true} onClick={onRetry}>
+          {notice.retrying ? "Trying again…" : "Try again"}
         </button>
       ) : null}
       {error && notice.code ? (

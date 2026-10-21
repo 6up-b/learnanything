@@ -13,6 +13,7 @@ import { EntityLink } from "../components/ui";
 import { RewordConfirmList } from "../components/RewordConfirms";
 import { notifyQueueChanged } from "../queueEvents";
 import { simpleShell } from "../app/shell";
+import { screenLeavesKey } from "../app/keymap";
 import {
   COLOR,
   Dim,
@@ -777,6 +778,8 @@ export function ProposalsScreen({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      // Simple shell: Ctrl+K is the palette, not "up" (fix round 2).
+      if (screenLeavesKey(event)) return;
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea") return;
       const index = focusedItemId ? visibleItems.findIndex((item) => item.id === focusedItemId) : -1;

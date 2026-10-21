@@ -22,8 +22,9 @@ function Harness({ initial, holding }: { initial: ShellNotice[]; holding: boolea
 }
 
 describe("NoticeHost", () => {
-  it("draws an error red, with Try again when it can be retried, and the code under details", () => {
-    const retry = vi.fn();
+  it("draws an error red, with Try again when it can be retried, and the code under details", async () => {
+    let settle: () => void = () => undefined;
+    const retry = vi.fn(() => new Promise<void>((resolve) => (settle = resolve)));
     const initial = addNotice([], { kind: "error", text: "Couldn't open the reader.", code: "sidecar_timeout", retry });
     render(<Harness initial={initial} holding={false} />);
     const alert = screen.getByRole("alert");
@@ -33,8 +34,53 @@ describe("NoticeHost", () => {
     expect(alert.textContent).toContain("sidecar_timeout");
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(retry).toHaveBeenCalledTimes(1);
-    // Trying again clears the error; a new failure would add a new one.
+    // Fix round 2: the error stays while the retry runs (no second click) …
+    const trying = screen.getByRole("button", { name: "Trying again…" }) as HTMLButtonElement;
+    expect(trying.disabled).toBe(true);
+    // … and goes once it has succeeded.
+    await act(async () => {
+      settle();
+      await Promise.resolve();
+    });
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  // Fix round 2: the shell owns the retry, so its failure is shown whoever
+  // raised the error, with the new failure's code and a new Try again.
+  it("shows a retry's failure itself, under the same source, with a new Try again", async () => {
+    const retry = vi.fn(async () => {
+      throw { code: "sidecar_busy", message: "Still busy.", retryable: true };
+    });
+    const initial = addNotice([], { kind: "error", text: "Couldn't load this.", code: "sidecar_timeout", retry, source: "q:map" });
+    render(<Harness initial={initial} holding={false} />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+      await Promise.resolve();
+    });
+    const alerts = screen.getAllByRole("alert");
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0].textContent).toContain("Still busy.");
+    fireEvent.click(screen.getByRole("button", { name: "details ▸" }));
+    expect(screen.getByRole("alert").textContent).toContain("sidecar_busy");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+      await Promise.resolve();
+    });
+    expect(retry).toHaveBeenCalledTimes(2);
+  });
+
+  it("offers no new Try again when the retry's failure is not retryable", async () => {
+    const retry = vi.fn(async () => {
+      throw { code: "invalid_input", message: "That map is gone.", retryable: false };
+    });
+    const initial = addNotice([], { kind: "error", text: "Couldn't load this.", code: "sidecar_timeout", retry });
+    render(<Harness initial={initial} holding={false} />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+      await Promise.resolve();
+    });
+    expect(screen.getByRole("alert").textContent).toContain("That map is gone.");
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
   });
 
   it("offers no Try again without a retry, and an error stays until dismissed", () => {

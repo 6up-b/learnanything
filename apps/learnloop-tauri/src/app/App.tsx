@@ -26,7 +26,7 @@ import { PracticeScreen } from "../screens/PracticeScreen";
 import { RepairScreen } from "../screens/RepairScreen";
 import { ReviewScreen } from "../screens/ReviewScreen";
 import { StartScreen } from "../screens/StartScreen";
-import { NEEDS_SESSION, addNotice, noticeAfterSessionBegins, resolveNotices, sessionNotice, type NoticeInput, type ShellNotice } from "./notices";
+import { NEEDS_SESSION, addNotice, dismissNotice, noticeAfterSessionBegins, resolveNotices, sessionNotice, type NoticeInput, type ShellNotice } from "./notices";
 import { matchShellKey, type KeyAction } from "./keymap";
 import {
   cachedShell,
@@ -332,7 +332,8 @@ export function App() {
         kind: "error",
         text: message,
         code: command?.code ?? null,
-        retry: command?.retryable && report?.retry ? report.retry : null
+        retry: command?.retryable && report?.retry ? report.retry : null,
+        source: report?.source ?? null
       });
     },
     [pushNotice]
@@ -368,10 +369,19 @@ export function App() {
     },
     [pushNotice]
   );
-  const clearNotices = useCallback(() => {
-    setToast(null);
-    setNotices([]);
-  }, []);
+  // Settings shows one message, the newest. Closing Settings or clicking that
+  // message dismisses only it (fix round 2, whole-stage verify
+  // 20261021-114726-Jrt7sA item 2): the queue keeps every unresolved error
+  // and every notice not yet delivered. Classic clears its one toast, as before.
+  const settingsNotice: ShellNotice | null = simple ? notices[notices.length - 1] ?? null : null;
+  const settingsNoticeId = settingsNotice?.id ?? null;
+  const dismissSettingsNotice = useCallback(() => {
+    if (shellRef.current === "classic") {
+      setToast(null);
+      return;
+    }
+    if (settingsNoticeId) setNotices((list) => dismissNotice(list, settingsNoticeId));
+  }, [settingsNoticeId]);
   const onPaletteEntities = useCallback((ids: { inspectIds: string[]; practiceItemIds: string[] }) => {
     setPaletteEntityIds(ids.inspectIds);
     setPalettePracticeItemIds(ids.practiceItemIds);
@@ -1911,11 +1921,11 @@ export function App() {
           onError={onError}
           onClose={() => {
             setSettingsOpen(false);
-            clearNotices();
+            dismissSettingsNotice();
             refreshAiConnection();
           }}
-          notification={simple ? (notices[notices.length - 1]?.text ?? null) : toast}
-          onDismissNotification={clearNotices}
+          notification={simple ? (settingsNotice?.text ?? null) : toast}
+          onDismissNotification={dismissSettingsNotice}
         />
       ) : null}
       {reviewOpen ? (

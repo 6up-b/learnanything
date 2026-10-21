@@ -29,6 +29,7 @@ import { notifyQueueChanged } from "../queueEvents";
 import { WriteCardDialog } from "../components/WriteCardDialog";
 import { InboxStrip } from "../components/InboxStrip";
 import { masteryTone } from "../app/algoConfig";
+import { screenLeavesKey } from "../app/keymap";
 import { todayQueueInput } from "../app/autoAdvance";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { ItemPresentation } from "../components/ItemPresentation";
@@ -591,6 +592,10 @@ export function TodayScreen({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      // Simple shell: Alt+2 is the Library, not "practise item 2"; Ctrl+K and
+      // Ctrl+P are the palette, not "up" and "back to the plan" (fix round 2).
+      // Classic keeps the base keys exactly.
+      if (screenLeavesKey(event)) return;
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea") return;
       // The plan view owns the keys while it is shown; `p` returns to it from the list.

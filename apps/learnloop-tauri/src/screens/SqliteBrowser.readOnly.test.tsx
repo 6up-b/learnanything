@@ -36,6 +36,7 @@ const api = vi.hoisted(() => ({
 }));
 vi.mock("../api/client", () => ({ api }));
 
+import { setAlgoConfig } from "../app/algoConfig";
 import { matchShellKey } from "../app/keymap";
 import { SqliteBrowser } from "./SqliteBrowser";
 import { DataTool } from "./underhood/tools";
@@ -132,5 +133,50 @@ describe("Under the hood → Data", () => {
     await screen.findByText("first");
     expect((screen.getByRole("checkbox", { name: /allow edits/i }) as HTMLInputElement).checked).toBe(false);
     expect(screen.queryByTitle("delete row")).toBeNull();
+  });
+});
+
+// Fix round 2 (whole-stage verify 20261021-114726-Jrt7sA, item 1): F8's
+// modifier guard applies only in the simple shell. Classic's browser takes
+// Ctrl/Cmd/Alt + its keys exactly as the base did (c80c54cbb): Ctrl+K and
+// Ctrl+ArrowUp move the selection up.
+describe("classic keeps the grid's modified keys (fix round 2)", () => {
+  beforeEach(() => {
+    setAlgoConfig({ ui: { shell: "classic" } });
+  });
+  afterEach(() => {
+    setAlgoConfig({});
+  });
+
+  const selectedText = () => document.querySelector("[aria-selected='true']")?.textContent;
+
+  it.each([
+    ["Ctrl+K", { key: "k", ctrlKey: true }],
+    ["Ctrl+ArrowUp", { key: "ArrowUp", ctrlKey: true }],
+    ["Cmd+K", { key: "k", metaKey: true }],
+    ["Alt+ArrowUp", { key: "ArrowUp", altKey: true }]
+  ])("moves the selection up on %s, as the base did", async (_name, init) => {
+    await mount(false);
+    const grid = screen.getByRole("grid");
+    grid.focus();
+    const top = selectedText();
+    fireEvent.keyDown(grid, { key: "j" });
+    const second = selectedText();
+    expect(second).not.toBe(top);
+    fireEvent.keyDown(grid, init);
+    expect(selectedText()).toBe(top);
+  });
+
+  it("moves down on Ctrl+J and Ctrl+ArrowDown too", async () => {
+    await mount(false);
+    const grid = screen.getByRole("grid");
+    grid.focus();
+    const top = selectedText();
+    fireEvent.keyDown(grid, { key: "j", ctrlKey: true });
+    expect(selectedText()).not.toBe(top);
+    fireEvent.keyDown(grid, { key: "k" });
+    expect(selectedText()).toBe(top);
+    fireEvent.keyDown(grid, { key: "ArrowDown", ctrlKey: true });
+    expect(selectedText()).not.toBe(top);
   });
 });

@@ -14,7 +14,8 @@
 // This replaces Phase 1's stopgap. `noticeAfterSessionBegins` is that
 // stopgap, kept for `ui.shell = "classic"`, whose single red toast stays
 // exactly as it was.
-import type { MessageKind } from "../errors";
+import type { Dispatch, SetStateAction } from "react";
+import { errorMessage, getCommandError, type MessageKind } from "../errors";
 
 export const NEEDS_SESSION = {
   plan: "Begin today's plan on Start first.",
@@ -47,14 +48,23 @@ export interface ShellNotice {
   /** The sidecar's error code, shown under details. */
   code?: string | null;
   /** Present only when the action can be retried (the error was `retryable`
-   *  and the shell knows the action). */
-  retry?: (() => void) | null;
+   *  and the shell knows the action). It may return a promise: the shell
+   *  runs it (`runNoticeRetry`), keeps the error until it settles, and on a
+   *  rejection posts the new failure itself, so a retry's failure is never
+   *  lost when the screen that raised the error has gone (fix round 2). */
+  retry?: (() => unknown) | null;
+  /** Which failed action this error is about (a read's query, say). A new
+   *  error from the same source replaces the old one instead of stacking,
+   *  whether the screen or the shell's retry reports it. */
+  source?: string | null;
+  /** Set while its Try again runs. */
+  retrying?: boolean;
   resolvedBy?: NoticeCondition | null;
   /** When it was first on screen (null while held or not yet drawn). */
   shownAt: number | null;
 }
 
-export type NoticeInput = Omit<ShellNotice, "id" | "shownAt">;
+export type NoticeInput = Omit<ShellNotice, "id" | "shownAt" | "retrying">;
 
 /** How long a notice stays once it is on screen. Errors stay until dismissed. */
 export const NOTICE_TTL_MS = 5000;
@@ -69,9 +79,48 @@ let nextId = 0;
 export function addNotice(list: ShellNotice[], input: NoticeInput): ShellNotice[] {
   nextId += 1;
   const notice: ShellNotice = { ...input, id: `notice-${nextId}`, shownAt: null };
-  // A repeated message shows once, as fresh.
-  const rest = list.filter((existing) => !(existing.kind === notice.kind && existing.text === notice.text));
+  // A repeated message shows once, as fresh; so does a new error from the
+  // same failed action, even when its sentence changed.
+  const rest = list.filter(
+    (existing) =>
+      !(existing.kind === notice.kind && existing.text === notice.text) &&
+      !(notice.source && existing.kind === notice.kind && existing.source === notice.source)
+  );
   return [...rest, notice];
+}
+
+/** Run an error's Try again, owned by the shell (fix round 2, whole-stage
+ *  verify 20261021-114726-Jrt7sA item 3: the screen that raised the error
+ *  may have unmounted, so it cannot report the retry's failure). The error
+ *  stays, marked as retrying, until the retry settles: success drops it; a
+ *  failure replaces it with the new failure, under the same source, with its
+ *  code and a new Try again when that failure is retryable. */
+export function runNoticeRetry(notice: ShellNotice, onChange: Dispatch<SetStateAction<ShellNotice[]>>): void {
+  const retry = notice.retry;
+  if (!retry) return;
+  onChange((list) => list.map((entry) => (entry.id === notice.id ? { ...entry, retrying: true } : entry)));
+  let outcome: Promise<unknown>;
+  try {
+    outcome = Promise.resolve(retry());
+  } catch (error) {
+    outcome = Promise.reject(error);
+  }
+  outcome.then(
+    () => onChange((list) => dismissNotice(list, notice.id)),
+    (error: unknown) => onChange((list) => addNotice(dismissNotice(list, notice.id), retryFailure(notice, error)))
+  );
+}
+
+function retryFailure(notice: ShellNotice, error: unknown): NoticeInput {
+  const command = getCommandError(error);
+  return {
+    kind: "error",
+    text: errorMessage(error, notice.text),
+    code: command?.code ?? notice.code ?? null,
+    retry: command?.retryable ? notice.retry ?? null : null,
+    source: notice.source ?? null,
+    resolvedBy: notice.resolvedBy ?? null
+  };
 }
 
 export function dismissNotice(list: ShellNotice[], id: string): ShellNotice[] {

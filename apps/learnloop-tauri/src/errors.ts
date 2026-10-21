@@ -12,10 +12,17 @@ export type MessageKind = "error" | "notice";
  *  read `retryable`, and how to run the failed action again. The shell offers
  *  Try again only when both are there and the error is retryable. A retry
  *  must repeat the same action: a read reads again; a write passes the
- *  original request's idempotency key again. */
+ *  original request's idempotency key again.
+ *
+ *  The retry returns the action's promise (fix round 2): the shell runs it,
+ *  keeps the error until it settles, and reports a failure itself, so the
+ *  report never depends on the screen still being mounted. `source` names
+ *  the failed action (a query), so the screen's and the shell's reports of
+ *  one failure are one error, not two. */
 export interface ErrorReport {
   error?: unknown;
-  retry?: (() => void) | null;
+  retry?: (() => unknown) | null;
+  source?: string | null;
 }
 
 /** A screen's error callback. Screens that pass only the sentence still fit. */

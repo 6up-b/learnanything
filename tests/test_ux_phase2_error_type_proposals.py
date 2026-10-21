@@ -191,3 +191,53 @@ def test_a_grading_that_waits_on_another_writer_sees_its_proposal(tmp_path):
     pending = _pending_error_type_items(repository)
     assert [item["client_item_id"] for item in pending] == ["error_type:local_slip"]
     assert _attempt_refs(pending[0]["batch"]) == ["attempt_1", "attempt_2"]
+
+
+# ── Fix round 2 (orchestrator; whole-stage verify 20261021-114726-Jrt7sA, 5) ──
+# The payload editor can change a waiting proposal's ``id`` while its
+# ``client_item_id`` stays ``error_type:<old id>``. The dedupe must match a
+# waiting create by what it would now create (the edited payload's id when
+# edited, otherwise the original), not by the stale client id.
+
+
+def _rename_waiting(paths, repository: Repository, old: str, new: str) -> dict:
+    from learnloop.content.proposals.proposals import edit_proposal_item
+
+    (item,) = [item for item in _pending_error_type_items(repository) if item["payload"]["id"] == old]
+    edit_proposal_item(paths.root, item["batch"]["id"], item["id"], {**item["payload"], "id": new, "title": "Notation Slip"})
+    (edited,) = [entry for entry in _pending_error_type_items(repository) if entry["id"] == item["id"]]
+    # The edit keeps the client id; only the edited payload names the new type.
+    assert edited["client_item_id"] == f"error_type:{old}"
+    assert edited["edited_payload"]["id"] == new
+    return edited
+
+
+def test_a_grading_naming_the_edited_id_joins_the_renamed_proposal(tmp_path):
+    paths, vault, repository, clock = _setup(tmp_path)
+    _grade(vault, repository, clock, "attempt_1", "local_slip")
+    renamed = _rename_waiting(paths, repository, "local_slip", "notation_slip")
+
+    joined = _grade(vault, repository, clock, "attempt_2", "notation_slip")
+
+    assert joined == renamed["batch"]["id"]
+    pending = _pending_error_type_items(repository)
+    assert [item["id"] for item in pending] == [renamed["id"]]
+    assert _attempt_refs(pending[0]["batch"]) == ["attempt_1", "attempt_2"]
+    assert len(repository.proposal_batches()) == 1
+
+
+def test_a_grading_naming_the_old_id_of_a_renamed_proposal_proposes_it_afresh(tmp_path):
+    paths, vault, repository, clock = _setup(tmp_path)
+    _grade(vault, repository, clock, "attempt_1", "local_slip")
+    renamed = _rename_waiting(paths, repository, "local_slip", "notation_slip")
+
+    fresh = _grade(vault, repository, clock, "attempt_2", "local_slip")
+
+    assert fresh is not None and fresh != renamed["batch"]["id"]
+    pending = _pending_error_type_items(repository)
+    effective = sorted((item.get("edited_payload") or item["payload"])["id"] for item in pending)
+    assert effective == ["local_slip", "notation_slip"]
+    by_batch = {item["batch"]["id"]: item for item in pending}
+    # The renamed proposal keeps only the attempt that named it; the new one has the new attempt.
+    assert _attempt_refs(by_batch[renamed["batch"]["id"]]["batch"]) == ["attempt_1"]
+    assert _attempt_refs(by_batch[fresh]["batch"]) == ["attempt_2"]

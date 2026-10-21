@@ -23,13 +23,19 @@ describe("KnowledgeMapView's load failure", () => {
     const onError = vi.fn();
     render(<KnowledgeMapView onInspect={vi.fn()} onError={onError} />);
     await waitFor(() => expect(onError).toHaveBeenCalled());
-    const [message, report] = onError.mock.calls[0] as [string, { error?: unknown; retry?: (() => void) | null } | undefined];
+    const [message, report] = onError.mock.calls[0] as [
+      string,
+      { error?: unknown; retry?: (() => unknown) | null; source?: string | null } | undefined
+    ];
     expect(message).toBe("The knowledge map timed out.");
     expect(report?.error).toMatchObject({ code: "sidecar_timeout", retryable: true });
+    expect(report?.source).toBe("knowledge-map:get_knowledge_map");
     expect(typeof report?.retry).toBe("function");
     const before = api.getKnowledgeMap.mock.calls.length;
+    // Fix round 2: the retry hands back the read itself, so the shell sees a
+    // second failure and reports it, mounted or not.
     await act(async () => {
-      report?.retry?.();
+      await expect(Promise.resolve(report?.retry?.())).rejects.toMatchObject({ code: "sidecar_timeout" });
     });
     expect(api.getKnowledgeMap.mock.calls.length).toBe(before + 1);
   });

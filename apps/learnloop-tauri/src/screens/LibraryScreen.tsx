@@ -18,6 +18,7 @@ import { ProvenancePanel } from "../components/ProvenancePanel";
 import { LiveMarkdownEditor } from "../render/LiveMarkdownEditor";
 import { SqliteBrowser } from "./SqliteBrowser";
 import { shellMode, type ShellMode } from "../app/shell";
+import { screenLeavesKey } from "../app/keymap";
 import type { ReportError } from "../errors";
 
 // A vault selection is either an on-disk file or a (virtual) proposal payload doc.
@@ -239,13 +240,21 @@ export function LibraryScreen({
   }, [snapshot]);
 
   const loadError = treeQuery.error ?? proposalsQuery.error ?? sourceSetsQuery.error;
-  // The shell gets the error itself and a retry that reads again (F3).
-  const failedLoad = treeQuery.error ? treeQuery : proposalsQuery.error ? proposalsQuery : sourceSetsQuery;
-  const retryLoadRef = useRef(failedLoad.refetch);
-  retryLoadRef.current = failedLoad.refetch;
+  // The shell gets the error itself and a retry that reads again (F3): that
+  // query's own refetch, bound when the error is reported, returning the
+  // read's promise so the shell reports a second failure itself, mounted or
+  // not (fix round 2). `source` makes this screen's report and the shell's one.
+  const failedLoad = treeQuery.error
+    ? { source: "library:get_vault_tree", refetch: treeQuery.refetch }
+    : proposalsQuery.error
+      ? { source: "library:get_proposals", refetch: proposalsQuery.refetch }
+      : { source: "library:list_source_sets", refetch: sourceSetsQuery.refetch };
+  const failedLoadRef = useRef(failedLoad);
+  failedLoadRef.current = failedLoad;
   useEffect(() => {
-    // A retry that fails again comes back through the query's error, as a new error.
-    if (loadError) onError(loadError.message, { error: loadError, retry: () => void retryLoadRef.current().catch(() => undefined) });
+    if (!loadError) return;
+    const { source, refetch } = failedLoadRef.current;
+    onError(loadError.message, { error: loadError, source, retry: () => refetch() });
   }, [loadError, onError]);
 
   const reloadProposals = () => {
@@ -466,6 +475,9 @@ export function LibraryScreen({
         return;
       }
       if (inField) return;
+      // Simple shell: Ctrl+K is the palette, not "up" (fix round 2). Ctrl+S
+      // above is the Library's own chord and keeps working.
+      if (screenLeavesKey(event)) return;
       // SqliteBrowser owns its grid navigation while focus is inside it. Without
       // this boundary, j/k and the arrow keys would also move the Library tree.
       if (inSqliteBrowser) return;
