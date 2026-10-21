@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_215/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_217/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_215" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_217" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 215
+SCHEMA_HEAD = 217
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -888,6 +888,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "library_exercises": "reader workbench RW4b: exercises from my sources: the Reader's view of the sources service's textbook-exercise candidates in RW4a's practice this question (verbatim statement, source and page, open in the book, use this one through the service's own import in the workbench, the key's honest status), with the service's exposure rule labelling a seen exercise and never offering it as a check on your own, and the learner-initiated fallback search (find_sources, exercise blocks of the teaching scope, the Reader's own import), retired by default once the candidates are live: the kill switch and the fallback's switch; display and a learner's own pick (no successor)",
     "reader_compare": "reader workbench RW4a: the Reader's compare table over the sources service's compare_sources (one row per source, each line quoting its own source, no consensus; display only until RW4d's keep): the kill switch",
     "roles": "reader workbench RW4e: instructional roles (definition, theorem, explanation, intuition, worked example, exercise, figure, counterexample, contrast, prerequisite, alternative treatment, application), each with a confidence, proposed per passage by the Reader's own judges (ai.routing.library_organizer, ai.routing.passage_cue_judge) at no extra call and by the owner-run batch labeller (learnloop reader label-roles, ai.routing.role_labeller) and stored as source-object proposals: the judges' kill switch, the kill switch of their positive use (find_sources roles and intent lists, RW3b's contrast list, library grouping labelled the model's; roles never exclude) and the batch labeller's per-run metered cap, checked before each batch call (labels on sources, no successor)",
+    "reading_paths": "reader workbench RW7a: reading paths in the Guide: at the depth the learner picks for a book (get the idea, learn to use it, fluency; DL2's Master, Learn, Keep and Light touch on the source preselect it, display-level only), each section core, prerequisite, enrichment, already shown or assumed with a one-line why, read it anyway / skip it, one exercise worth trying per core section and a suggested next line composed without a model; labels from one call per book and depth (ai.routing.reading_path_judge), cached by the depth, the section list and the linked LOs' statuses, already shown and assumed enforced in code: the kill switch and the judge's daily metered cap, checked before the call (display only, no successor)",
     "reader_tutor": "reader workbench RW1c: a tutor that looks things up in the Reader (its own query through the sources service's find_sources with verification under the Reader caller's derived policy, after the selection and its neighbours; three labelled answer modes with a quote-verified From your books excerpt, abstention when the books don't cover it, another way and that didn't help through the service's intents) and the buttons under its answers (the service's practice and tool requests, fetched when the answer lands and shown on press, and Try the next step first): the two kill switches; retrieval is context and the buttons are learner picks (no successor)",
     "proof_check": "the valid-alternative gate for proofs and explanations, in the grader (mvp-0.20): the kill switch of the own-route rules and the server-side unlocated rule (mvp-0.17's separate route check was removed on 2026-10-13)",
     "voi_stopping": "value-of-information stopping (mvp-0.21): the kill switch and per-site sub-switches that lift four count caps (probe observations per session, further follow-ups per LO, further teach-backs, project probes per day) onto value of information, and the multi-family EVSI study's three switches (the robust completion gate while value decides, the 2-3 check lookahead, the value gate's robust quantile)",
@@ -2049,7 +2050,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_215/state.sqlite",
+                "fixtures/migration_head_217/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

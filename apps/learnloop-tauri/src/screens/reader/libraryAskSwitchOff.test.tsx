@@ -38,10 +38,12 @@ vi.mock("../../components/PdfReaderPane", () => ({ PdfReaderPane: () => null }))
 
 const source = { card: { sourceId: view.sourceId, title: "Matrices", canonicalUri: "book.pdf", readiness: "ready", readerEnabled: true } as SourceLibraryCard, spanId: "span_spectral_worked" };
 
-/** The intent palette as the sidecar sends it with RW4a off: no library rows. */
+/** The intent palette as the sidecar sends it with RW4a off: no library rows.
+ *  RW7a (landed after these snapshots) is off too: its "what matters here?"
+ *  goes, so the pins stay RW4a's. */
 function intentWithoutLibrary(): ReaderIntentContractDto {
   const strip = (groups: ReaderIntentContractDto["palette"]) => groups
-    .map((group) => ({ ...group, actions: group.actions.filter((action) => (action.effect.kind as string) !== "library_ask") }))
+    .map((group) => ({ ...group, actions: group.actions.filter((action) => !["library_ask", "reading_path"].includes(action.effect.kind as string)) }))
     .filter((group) => group.actions.length > 0);
   return { ...readerIntentContractFixture, palette: strip(readerIntentContractFixture.palette), notesPalette: strip(readerIntentContractFixture.notesPalette) };
 }

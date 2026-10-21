@@ -1388,6 +1388,10 @@ sidecar_passthrough!(reader_library_compare_keep, "reader.library_compare_keep")
 sidecar_passthrough!(reader_library_compare_remove, "reader.library_compare_remove");
 sidecar_passthrough!(reader_library_compare_reopen, "reader.library_compare_reopen");
 sidecar_passthrough!(reader_kept_comparisons, "reader.kept_comparisons");
+// Reader workbench RW7a (reading paths in the Guide: the view, the depth, overrides): desktop only.
+sidecar_passthrough!(reader_reading_path, "reader.reading_path");
+sidecar_passthrough!(reader_reading_path_set_depth, "reader.reading_path_set_depth");
+sidecar_passthrough!(reader_reading_path_override, "reader.reading_path_override");
 sidecar_passthrough!(reader_block_health, "reader.block_health");
 sidecar_passthrough!(reader_block_original_region, "reader.block_original_region");
 sidecar_passthrough!(reader_translate_selection, "reader.translate_selection");

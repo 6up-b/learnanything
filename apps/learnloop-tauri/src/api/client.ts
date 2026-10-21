@@ -8,6 +8,9 @@ import type {
   KeepComparisonResultDto,
   KeepTakeDto,
   KeptMarksDto,
+  ReadingPathChoice,
+  ReadingPathDepth,
+  ReadingPathDto,
   LibraryAskDto,
   LibraryAskEntry,
   LibraryExpansion,
@@ -1575,6 +1578,15 @@ export const api = {
     call<CompareTableDto>("reader_library_compare_reopen", { input }),
   readerKeptComparisons: (input: { extractionId: string }) =>
     call<KeptMarksDto>("reader_kept_comparisons", { input }),
+  // Reader workbench RW7a: the Guide's reading path (answers at once; a
+  // judgment runs in the background and the Guide reads the path again),
+  // the depth for this book, and "read it anyway" / "skip it".
+  readerReadingPath: (input: { extractionId: string; judge?: boolean; retry?: boolean }) =>
+    call<ReadingPathDto>("reader_reading_path", { input }),
+  readerReadingPathSetDepth: (input: { extractionId: string; depth: ReadingPathDepth }) =>
+    call<ReadingPathDto>("reader_reading_path_set_depth", { input }),
+  readerReadingPathOverride: (input: { extractionId: string; depth: ReadingPathDepth; sectionId: string; choice: ReadingPathChoice }) =>
+    call<ReadingPathDto>("reader_reading_path_override", { input }),
   readerLibraryAskTutor: (input: { askId: string; pinnedSpanKeys: string[]; question?: string | null }) =>
     call<LibraryJobDto<LibraryTutorDto>>("reader_library_ask_tutor", { input }),
   readerLibraryJob: <T>(input: { jobId: string }) =>

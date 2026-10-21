@@ -164,7 +164,9 @@ def test_settings_payload_discloses_each_judgment_route(tmp_path, monkeypatch, c
                            "tier1_decider", "learner_gap_decider", "reader_intent",
                            "library_organizer", "approach_map", "hint_chooser", "hint_writer",
                            "hint_outcome", "ad_forecast_llm", "ad_forecast_decider", "ad_feature_audit",
-                           "workbench_check", "passage_cue_judge"}
+                           "workbench_check", "passage_cue_judge", "reading_path_judge"}
+    # Reader RW7a: the path judge sends statuses and titles, never passage text or the learner's words.
+    assert "No passage text, nothing you wrote" in judges["reading_path_judge"]["disclosure"]
     # Review F5: the Tier-1 routes send learner text in the ordinary course.
     assert "misconception" in judges["tier1_decider"]["disclosure"]
     assert "stuck answers" in judges["learner_gap_decider"]["disclosure"]

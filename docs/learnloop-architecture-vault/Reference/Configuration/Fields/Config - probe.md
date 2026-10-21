@@ -3,8 +3,8 @@ title: "Config - probe"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b35681815a840bde6a724331ee47d84a215209e3"
-source_commit_timestamp: "2026-10-20T23:01:52-04:00"
+source_commit: "7e0641feeccc226dfa134679f9d170a63b3d6690"
+source_commit_timestamp: "2026-10-21T08:36:45-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml probe"
@@ -41,7 +41,7 @@ source_paths:
   - "tests/test_chatgpt_plan_provider.py"
   - "tests/test_cli_ingest.py"
   - "tests/test_codex_isolation_mcp_check.py"
-  - "tests/test_compare_sources_keep.py"
+  - "tests/test_compare_keep_switch_off.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/probe"
@@ -153,7 +153,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_chatgpt_plan_provider.py`
 - `tests/test_cli_ingest.py`
 - `tests/test_codex_isolation_mcp_check.py`
-- `tests/test_compare_sources_keep.py`
+- `tests/test_compare_keep_switch_off.py`
 
 ## Extension and modification guidance
 

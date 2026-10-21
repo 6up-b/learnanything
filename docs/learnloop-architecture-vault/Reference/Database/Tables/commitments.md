@@ -3,13 +3,13 @@ title: "commitments"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b35681815a840bde6a724331ee47d84a215209e3"
-source_commit_timestamp: "2026-10-20T23:01:52-04:00"
+source_commit: "7e0641feeccc226dfa134679f9d170a63b3d6690"
+source_commit_timestamp: "2026-10-21T08:36:45-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitments"
   - "table commitments"
-schema_head: 215
+schema_head: 217
 table_name: "commitments"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -53,7 +53,7 @@ It belongs to the **curriculum** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/072_commitments.sql`.
-- **Schema touched by:** `072_commitments.sql`, `074_activity_contract_extensions.sql`, `079_progression_and_lapse.sql`, `080_mint_fencing_and_commitment_idempotency.sql`, `082_golden_path_runs.sql`, `088_source_render_views.sql`, `095_commitment_arcs.sql`, `099_controller_ownership.sql`.
+- **Schema touched by:** `072_commitments.sql`, `074_activity_contract_extensions.sql`, `079_progression_and_lapse.sql`, `080_mint_fencing_and_commitment_idempotency.sql`, `082_golden_path_runs.sql`, `088_source_render_views.sql`, `095_commitment_arcs.sql`, `099_controller_ownership.sql`, `217_reader_reading_paths.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

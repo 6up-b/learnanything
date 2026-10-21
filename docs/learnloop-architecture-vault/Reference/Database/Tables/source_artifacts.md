@@ -3,13 +3,13 @@ title: "source_artifacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b35681815a840bde6a724331ee47d84a215209e3"
-source_commit_timestamp: "2026-10-20T23:01:52-04:00"
+source_commit: "7e0641feeccc226dfa134679f9d170a63b3d6690"
+source_commit_timestamp: "2026-10-21T08:36:45-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_artifacts"
   - "table source_artifacts"
-schema_head: 215
+schema_head: 217
 table_name: "source_artifacts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -128,7 +128,7 @@ Indexes and uniqueness:
 - `src/learnloop/remote/sources.py`
 - `src/learnloop/remote/views.py`
 - `src/learnloop/source_retrieval/corpus.py`
-- `src/learnloop_sidecar/handlers/first_run.py`
+- `src/learnloop/source_retrieval/reading_paths.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

@@ -3,13 +3,13 @@ title: "commitment_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b35681815a840bde6a724331ee47d84a215209e3"
-source_commit_timestamp: "2026-10-20T23:01:52-04:00"
+source_commit: "7e0641feeccc226dfa134679f9d170a63b3d6690"
+source_commit_timestamp: "2026-10-21T08:36:45-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitment_versions"
   - "table commitment_versions"
-schema_head: 215
+schema_head: 217
 table_name: "commitment_versions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -134,6 +134,7 @@ Indexes and uniqueness:
 - `tests/test_golden_path_confirm.py`
 - `tests/test_intent_checks.py`
 - `tests/test_reader_reconstruct.py`
+- `tests/test_reading_paths.py`
 - `tests/intent_fakes.py`
 - `tests/test_commitments.py`
 - `tests/test_daily_loop_reader_retire.py`

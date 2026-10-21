@@ -86,6 +86,8 @@ export interface GuideRailProps {
   footer?: ReactNode;
   /** RW6a: "Last time here" and Wrap up at the head of the Guide (absent when off). */
   header?: ReactNode;
+  /** RW7a: the reading path card, in place of the goal card (absent when off: today's Guide). */
+  path?: ReactNode;
 }
 
 export function GuideRail({
@@ -133,6 +135,7 @@ export function GuideRail({
   chooseDisposition,
   footer = null,
   header = null,
+  path = null,
 }: GuideRailProps) {
   const peek = peekPassage ?? jumpToSpan;
   // Without a read count (an older caller) the bar follows the reading marker.
@@ -141,7 +144,7 @@ export function GuideRail({
     <div style={{ display: visible ? "block" : "none" }}>
       {header}
       <SectionHeader style={{ marginTop: 0 }}>Reading guide</SectionHeader>
-      {guidePlan?.goalContext ? (
+      {path ?? (guidePlan?.goalContext ? (
         <Card style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 10, background: COLOR.washCyan }}>
           <Faint style={{ fontSize: 10, letterSpacing: "0.12em" }}>YOUR PATH</Faint>
           <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>{guidePlan.goalContext.title}</span>
@@ -149,7 +152,7 @@ export function GuideRail({
             Reading toward your active goal
           </Faint>
         </Card>
-      ) : null}
+      ) : null)}
       {currentGuideSection ? (
         <Card style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

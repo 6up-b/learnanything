@@ -1389,6 +1389,14 @@ class AIRoutingConfig(BaseModel):
     # metered route needs source_retrieval.llm_price_per_million and is held
     # to roles.batch_max_cost_usd per run, checked before each batch.
     role_labeller: str | None = None
+    # Reader workbench RW7a (spec_reader_workbench_v1 §10.1): the reading-path
+    # judge, one structured call per source and depth over the section list
+    # (labels, roles, the linked LOs' statuses, the depth and the goal's
+    # title), cached by its state key. Empty = ai.active_provider (Codex is
+    # estimated_only); a metered route needs
+    # source_retrieval.llm_price_per_million and is held to
+    # reading_paths.max_daily_cost_usd, checked before the call.
+    reading_path_judge: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -2420,6 +2428,30 @@ class RolesConfig(BaseModel):
     on_demand_enabled: bool = True
     positive_filter_enabled: bool = True
     batch_max_cost_usd: float = Field(default=5.0, ge=0.0)
+
+
+class ReadingPathsConfig(BaseModel):
+    """Reader workbench RW7a: reading paths in the Guide (spec_reader_workbench_v1 §10.1).
+
+    At the depth the learner picks for a source (get the idea, learn to use
+    it, fluency; DL2's intent on the source preselects it, display-level
+    only), the Guide's path card labels each section core, prerequisite,
+    enrichment, already shown or assumed with a one-line why, read it anyway
+    / skip it, one exercise worth trying per core section and a suggested
+    next activity composed without a model. The labels come from one call
+    per source and depth (``ai.routing.reading_path_judge``), cached by the
+    depth, the section list and the linked LOs' statuses; "already shown"
+    stands only when every LO the section teaches is demonstrated and
+    "assumed" only with an open assumption, enforced in code. ``enabled`` is
+    the kill switch (off: today's Guide, no call, every RPC refused).
+    ``max_daily_cost_usd`` caps a metered judge route a UTC day (checked
+    before the call; Codex is ``estimated_only``). Display only: nothing in
+    scoring, scheduling, projection or serving reads a path, so no algorithm
+    successor (RW7b, the plan following the path, is a later stage).
+    """
+
+    enabled: bool = True
+    max_daily_cost_usd: float = Field(default=0.5, ge=0.0)
 
 
 class LearnerTextGapsConfig(BaseModel):
@@ -3455,6 +3487,7 @@ class LearnLoopConfig(BaseModel):
     library_exercises: LibraryExercisesConfig = Field(default_factory=LibraryExercisesConfig)
     reader_compare: ReaderCompareConfig = Field(default_factory=ReaderCompareConfig)
     roles: RolesConfig = Field(default_factory=RolesConfig)
+    reading_paths: ReadingPathsConfig = Field(default_factory=ReadingPathsConfig)
     reader_tutor: ReaderTutorConfig = Field(default_factory=ReaderTutorConfig)
     proof_check: ProofCheckConfig = Field(default_factory=ProofCheckConfig)
     voi_stopping: VoiStoppingConfig = Field(default_factory=VoiStoppingConfig)

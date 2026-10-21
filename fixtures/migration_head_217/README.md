@@ -1,8 +1,9 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-215 (214 is held by adaptive difficulty AD2+AD3 on its own branch; the
-runner has no contiguity rule, so this fixture has no 214). Migration 167 adds the learner-field F1 read model
+217 (214 is held by adaptive difficulty AD2+AD3 and 216 by reader workbench
+RW5a on their own branches; the runner has no contiguity rule, so this
+fixture has no 214 and no 216). Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -233,13 +234,29 @@ pick rank, retrieval ranks and proposed roles) and `reader_cue_impressions`
 holdout's seed and propensity, `p_open` and its source, and the learner's
 first response, written once by trigger). Both tables are empty here.
 
-Built as a backup-API copy of the base's `migration_head_213` (git
+Migration 217 comes from reader workbench RW7a (`reader/rw7a`, reading paths
+in the Guide, docs/reviews/reader-workbench-RW7a.md): it adds
+`reader_path_sections` (WORKFLOW, append-only by trigger: the path judge's
+label per reading, depth, state key and section with its reason, the
+exercise worth trying and its `judgment_ledger` verdict, unique among judge
+rows; the learner's "read it anyway" / "skip it" as rows of their own) and
+`reader_path_depths` (WORKFLOW, append-only by trigger: the Guide's depth
+choice per source). Both tables are empty here.
+
+Built as a backup-API copy of the base's `migration_head_215` (git
+`a76c8358a`) with only 217 applied, through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade
+allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
+`foreign_key_check` empty), copied into place with the backup API, with no
+companion files; `migration_head_215` was renamed to this directory.
+`migration_head_215` was itself a backup-API copy of the base's `migration_head_213` (git
 `c9ad9cce1`) with only 215 applied, through
 `learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade
 allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
 `journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
 `foreign_key_check` empty), copied into place with the backup API, with no
-companion files; `migration_head_213` was renamed to this directory.
+companion files; `migration_head_213` was renamed to that directory.
 `migration_head_213` was itself a backup-API copy of the base's `migration_head_212` (git
 `16a0071f2`) with only 213 applied, through
 `learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade

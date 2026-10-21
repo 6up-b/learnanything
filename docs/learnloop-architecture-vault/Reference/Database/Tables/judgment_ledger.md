@@ -3,13 +3,13 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b35681815a840bde6a724331ee47d84a215209e3"
-source_commit_timestamp: "2026-10-20T23:01:52-04:00"
+source_commit: "7e0641feeccc226dfa134679f9d170a63b3d6690"
+source_commit_timestamp: "2026-10-21T08:36:45-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
   - "table judgment_ledger"
-schema_head: 215
+schema_head: 217
 table_name: "judgment_ledger"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -50,7 +50,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/166_embedding_substrate_and_judgments.sql`.
-- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`, `168_activity_family_membership.sql`, `169_practice_index.sql`, `174_pf_generation.sql`, `175_decider_judgments_and_receipt_labels.sql`, `176_recurrence_groups.sql`, `182_learner_text_gaps.sql`, `183_facet_identity_actions.sql`, `197_facet_registry_saves.sql`, `202_router_staged_frame.sql`, `209_library_asks.sql`, `213_adaptive_difficulty_receipts.sql`, `215_reader_discovered_cues.sql`.
+- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`, `168_activity_family_membership.sql`, `169_practice_index.sql`, `174_pf_generation.sql`, `175_decider_judgments_and_receipt_labels.sql`, `176_recurrence_groups.sql`, `182_learner_text_gaps.sql`, `183_facet_identity_actions.sql`, `197_facet_registry_saves.sql`, `202_router_staged_frame.sql`, `209_library_asks.sql`, `213_adaptive_difficulty_receipts.sql`, `215_reader_discovered_cues.sql`, `217_reader_reading_paths.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -153,6 +153,7 @@ None found by exact static reference scan.
 - `src/learnloop/reader/reader_intent.py`
 - `src/learnloop/reader/reader_quick_check.py`
 - `src/learnloop/source_retrieval/passage_cues.py`
+- `src/learnloop/source_retrieval/reading_paths.py`
 - `src/learnloop/source_retrieval/role_labeller.py`
 - `src/learnloop/substrate/families.py`
 - `src/learnloop/substrate/intervention_outcomes.py`

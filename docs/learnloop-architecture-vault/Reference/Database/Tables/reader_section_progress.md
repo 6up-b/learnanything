@@ -3,13 +3,13 @@ title: "reader_section_progress"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b35681815a840bde6a724331ee47d84a215209e3"
-source_commit_timestamp: "2026-10-20T23:01:52-04:00"
+source_commit: "7e0641feeccc226dfa134679f9d170a63b3d6690"
+source_commit_timestamp: "2026-10-21T08:36:45-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_section_progress"
   - "table reader_section_progress"
-schema_head: 215
+schema_head: 217
 table_name: "reader_section_progress"
 table_role: "workflow"
 functionality_status: "active"
@@ -28,6 +28,7 @@ source_paths:
   - "src/learnloop/reader/recap.py"
   - "src/learnloop/content/pipeline/reread.py"
   - "src/learnloop/content/sources/source_deletion.py"
+  - "src/learnloop/source_retrieval/reading_paths.py"
   - "src/learnloop_sidecar/handlers/reader.py"
 tags:
   - "learnloop/database/table"
@@ -110,6 +111,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/daily_plan/reading.py`
+- `src/learnloop/source_retrieval/reading_paths.py`
 - `src/learnloop_sidecar/handlers/reader.py`
 
 > [!note] Static-reference boundary
@@ -120,6 +122,7 @@ Indexes and uniqueness:
 - `tests/test_ad1_migration.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_daily_plan_reading.py`
+- `tests/test_reading_paths.py`
 - `tests/test_reread_safety.py`
 - `tests/test_ux_phase1_round2_rereview.py`
 - `tests/test_ux_phase1_round2_review.py`
