@@ -539,9 +539,9 @@ For **RW6b** (digest, follow-ups):
   so a follow-up must not treat a skipped section as read.
 - `reader_section_progress` is what the next line reads for "done".
 
-Process notes (this stage): two early edit/read commands ran `python3`
-outside `env -i` (a one-line edit of `db/table_roles.py` and a read of the
-golden JSON), and one `git stash list` (read-only) slipped into a compound
-command before the rule was applied; neither touched a vault, a credential
-or the network, and every later run used `env -i` with empty HOME,
+Process notes (this stage): three short commands ran `python3`
+outside `env -i` (a one-line edit of `db/table_roles.py`, a read of the
+golden JSON and a bare `print()`), and one `git stash list` (read-only) slipped into a compound
+command; none touched a vault, a credential
+or the network, and every other Python run outside pytest used `env -i` with empty HOME,
 CODEX_HOME and LEARNLOOP_CONFIG_DIR.
