@@ -1276,11 +1276,15 @@ def _sentinel_hits(texts: list[str]) -> list[str]:
 #: (``learned_coupling`` off) and with learned coupling on.
 @pytest.fixture(params=["coupled"])
 def copies(request, tmp_path, monkeypatch):
+    return make_copies(tmp_path, coupled=request.param == "coupled")
+
+
+def make_copies(tmp_path, *, coupled: bool):
     """One base vault copied twice: protected material is written into one copy only, so it is
     physically absent from the other (never written, so nothing derived from it exists there
     either, the incumbent's own state included)."""
 
-    base = _base(tmp_path, coupled=request.param == "coupled")
+    base = _base(tmp_path, coupled=coupled)
     protected, absent = tmp_path / "protected", tmp_path / "absent"
     copy_tree_with_databases(base.root, protected)
     copy_tree_with_databases(base.root, absent)
