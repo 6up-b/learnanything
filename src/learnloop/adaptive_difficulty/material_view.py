@@ -817,11 +817,6 @@ class MaterialView:
                                                   due_at=None, last_attempt_at=None)
         return out
 
-    def attempt_withheld_by_id(self, connection: Any, attempt_id: Any) -> bool:
-        """Whether an attempt (by id) is withheld now; a missing attempt is withheld (fail closed)."""
-
-        return self.lookup(connection, "practice_attempts", "id = ?", (str(attempt_id),))[0] != "ok"
-
     def attempt_withheld(self, connection: Any, row: Mapping[str, Any]) -> bool:
         """Whether an attempt is withheld: its item is withheld now, or a revision it answered is
         (Codex verify F20: a public item's historical revision cut from held-out material)."""
