@@ -2265,3 +2265,105 @@ The planted-read negative control still fails with the guard off: its test passe
 Sizes, `1c920e102..` the round-4 code commit: production +219 / -77 (21 files), tests +183 (2 files).
 Every Python run outside pytest ran under `env -i` with an empty HOME, CODEX_HOME and
 LEARNLOOP_CONFIG_DIR. No model call was made; owner decisions are unchanged.
+
+## Redesign round 5 (2026-10-21)
+
+The closed-checklist verify (`20261021-130727-0eZbnv`) found 3 findings, all class 2: content that
+was readable because its table was classified "neutral". The class is closed by construction.
+
+### A column-complete registry, enforced by the authorizer
+
+- **The registry.** The new `adaptive_difficulty/column_classes.py` classifies every column of
+  every table an operation can read, i.e. every table in `protected_tables.ROLES`: 116 tables,
+  1,487 columns. A table outside `ROLES` is unreadable inside an operation.
+  - `metadata`: ids, timestamps, counts, statuses, kinds, costs, versions, hashes, tokens, and JSON
+    lists of ids or numbers.
+  - `content`: any text, JSON or blob that can carry source text, an item, a prompt, an answer, a
+    rubric or a model's input or output.
+  - The draft came from name and type rules. It was reviewed table by table and is conservative:
+    when in doubt, `content`.
+- **The authorizer is column-aware** (`Guard._read`).
+  - Outside the rules' scopes, a read of a content column is refused, whatever the table's role.
+    The rules' scopes are the material view's rules (`/* ad-rules */`), the predicate's, and the
+    incumbent's named constraint readers, which hand AD only a pass or a refusal.
+  - A neutral table's metadata columns stay readable raw.
+  - A read that names no column (`COUNT(*)`) and `rowid` count as metadata. An unclassified column
+    counts as content (fail closed).
+- **What the verify named is now content:**
+  - `model_call_receipts.input_text` and `output_text`, while its accounting (`cost`, the token
+    counts, `status`) stays metadata;
+  - `assessment_contract_versions.contract_json`, while its `practice_item_id`, hash and version
+    stay metadata.
+- **The completeness test** (`test_ad_protected_tables.py::test_every_column_of_every_readable_table_is_metadata_or_content`)
+  fails on any column of a classified table that is unclassified, classified twice, or gone from
+  the head schema. A migration therefore classifies the columns it adds.
+- **The one reclassification the AD suite surfaced:**
+  - `grader_calibration_models.provenance_json` and `evidence_manifest_json` are read by the
+    incumbent's effective-observation references, which the replay uses.
+  - They name a calibration model's policy, bundle and evidence counts
+    (`attempts.grader_calibration`), never an answer or an item, so they are metadata. The registry
+    says so in a comment.
+- **AD readers that need a content column:** none in the AD pipeline reads a content column of a
+  neutral table. The full AD suite and the zero-denial pipeline pass with no other change.
+  - For assessment contracts the rules now have the one reader, `MaterialView.assessment_contract`.
+  - It withholds a contract whose item is withheld, or one an answer was graded against whose
+    historical revision is withheld (`grading_evidence` and `question_events` attempts, through
+    `attempt_withheld`), or one a withheld tutor question cites.
+- **Tests:**
+  - `test_ad_guard.py::test_a_raw_read_of_a_content_column_of_a_neutral_table_is_refused` (three
+    cases): the metadata columns are readable; the content column, `SELECT *`, and a WHERE on the
+    content column are refused.
+  - `test_an_exam_reserved_items_contract_is_read_only_through_the_rules` (the verify's scenario 2).
+  - `test_an_incumbent_model_calls_text_is_unreadable_raw_while_its_accounting_is` (scenario 3).
+  - `test_the_rules_read_a_content_column_inside_an_operation`.
+
+### Finding 1 (High): roles over the projection
+
+- `MaterialView.worked_example_spans` no longer calls `role_keys` on the raw extraction. It applies
+  the incumbent's `effective_hint` to the projection:
+  - only visible blocks are classified;
+  - a block's heading is resolved against visible headers only;
+  - a section-path element that names a withheld header, by its block id or by its text when no
+    visible header shares that text, resolves to no heading. That is what a dangling element does
+    when the header was never extracted.
+- So withheld heading text never gives a public block its role. Both the reading sweep's
+  `worked_example` receipts and the dose arm's extra-example offers go through this method.
+- `test_ad_projection.py::test_a_withheld_heading_never_gives_a_public_block_its_role` is the
+  verify's case. Header H "Worked Examples" is withheld. Public P sits under it with an inherited
+  `worked_example` hint and no lead cue.
+  - Positive control: with H public, P is a worked example.
+  - With H held out, the view's worked examples are empty, as in the copy without H, and the sweep
+    records the same `reading/passage_viewed` row in both copies.
+
+### Fail-before on `f66400f28`
+
+Every new test fails there:
+- the three content-column cases, and scenario 3: DID NOT RAISE;
+- the contract scenario: there was no rules reader, and the raw read passed;
+- the heading case: `{'p_span'} == set()`;
+- the completeness test: no registry.
+
+The planted-read negative control still fails with the guard off.
+
+### Gate (run once after the last change)
+
+- The first run had 2 failures. Two source scans list the modules that name `ad_reading_opportunities`
+  and `keep_local`, and the new registry names every column; both scans now admit it (it reads
+  nothing).
+- The whole gate was then run again:
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 27 kept, 0 broken |
+| targeted pytest, `-n 14`: round 4's files plus every file naming `role_keys`, `worked_example_spans`, `model_call_receipts`, `assessment_contract`, `protected_tables` or `column_classes` | **11,678 passed, 38 xfailed, 0 failed** (1,708 s) |
+| `--durable-sqlite`: `test_ad_guard.py`, `test_ad_epoch.py`, `test_ad_projection.py`, `test_ad23_migration.py`, `test_ad1_migration.py` | 53 passed |
+| migration 214, head fixture | unchanged this round |
+| references, under `env -i` | regenerated; `db_validate_reference.py` 0 errors; `module_validate.py` and `validate_vault.py` pass |
+
+Sizes of the round-5 code commit:
+- production: +609 / -10 (4 files), of which `column_classes.py` is 522 lines of registry;
+- tests: +191 / -3 (5 files).
+
+Every Python run outside pytest ran under `env -i` with an empty HOME, CODEX_HOME and
+LEARNLOOP_CONFIG_DIR, the registry's generator included. No model call was made; owner decisions
+are unchanged.

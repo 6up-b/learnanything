@@ -3,8 +3,8 @@ title: "ad_reading_opportunities"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc54039ec677f81905caccc24c1c70b7a2a13bdf"
-source_commit_timestamp: "2026-10-21T13:03:22-04:00"
+source_commit: "0cd6200c6072e4f89b090fd7cd31429435c92653"
+source_commit_timestamp: "2026-10-21T14:36:27-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ad_reading_opportunities"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/213_adaptive_difficulty_receipts.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/data_check.py"
   - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
@@ -26,7 +27,6 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/replay.py"
   - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/config/schema.py"
-  - "src/learnloop/db/stores/ad_receipts.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"

@@ -3,8 +3,8 @@ title: "entity_source_links"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc54039ec677f81905caccc24c1c70b7a2a13bdf"
-source_commit_timestamp: "2026-10-21T13:03:22-04:00"
+source_commit: "0cd6200c6072e4f89b090fd7cd31429435c92653"
+source_commit_timestamp: "2026-10-21T14:36:27-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite entity_source_links"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/044_provenance_manifests_apply_intents.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/content/authoring/practice_generation.py"
   - "src/learnloop/content/authoring/practice_leakage.py"
@@ -26,7 +27,6 @@ source_paths:
   - "src/learnloop/content/facet_identity/authority.py"
   - "src/learnloop/content/pipeline/reread.py"
   - "src/learnloop/content/proposals/apply_protocol.py"
-  - "src/learnloop/content/proposals/patches.py"
   - "src/learnloop/content/pipeline/revision_refresh.py"
   - "src/learnloop/content/sources/provenance.py"
 tags:

@@ -3,8 +3,8 @@ title: "assessment_contract_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc54039ec677f81905caccc24c1c70b7a2a13bdf"
-source_commit_timestamp: "2026-10-21T13:03:22-04:00"
+source_commit: "0cd6200c6072e4f89b090fd7cd31429435c92653"
+source_commit_timestamp: "2026-10-21T14:36:27-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite assessment_contract_versions"
@@ -19,13 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/034_assessment_contract_snapshots.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/answered_contracts.py"
   - "src/learnloop/db/stores/observation_ledger.py"
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/db/stores/write_provenance.py"
-  - "src/learnloop/diagnosis/voi_forecasting.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/measurement_corrections.py"
   - "src/learnloop/learner/assessment_contracts.py"
@@ -94,6 +95,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/answered_contracts.py`
 - `src/learnloop/db/stores/observation_ledger.py`
@@ -128,6 +130,8 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/mcp_world.py`
+- `tests/test_ad_guard.py`
+- `tests/test_ad_protected_tables.py`
 - `tests/test_collection_dataset.py`
 - `tests/test_diagnosis_input_provenance_landing.py`
 - `tests/test_mcp_c1a_narrow.py`
