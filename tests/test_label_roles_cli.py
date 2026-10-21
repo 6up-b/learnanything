@@ -563,3 +563,73 @@ def _spans_of(repository) -> list[str]:
     with repository.connection() as connection:
         return [str(row[0]) for row in connection.execute(
             "SELECT span_id FROM source_document_blocks WHERE extraction_id = 'ext_text' ORDER BY ordinal")]
+
+
+# -- Fix round 5 (Codex verify 20261020-224735-XWC66K): a "none" verdict with roles ------------------
+
+
+class _NoneWithRolesFake(RoleLabellerFake):
+    """The labeller that states ``verdict: "none"`` beside a non-empty roles list on every passage."""
+
+    def complete(self, request):
+        answer = super().complete(request).model_dump()
+        for judgment in answer["judgments"]:
+            judgment["verdict"] = "none"
+        return RL.RoleLabellerResult.model_validate(answer)
+
+
+def _ledger_verdicts(repository) -> set[str]:
+    with repository.connection() as connection:
+        return {str(row[0]) for row in connection.execute(
+            "SELECT DISTINCT verdict FROM judgment_ledger WHERE task = ?", (RL.LEDGER_TASK,))}
+
+
+def test_a_none_verdict_beside_roles_is_recorded_as_roles_and_recovered_after_the_last_batch(library,
+                                                                                         monkeypatch):
+    """Interrupted after the last batch's ledger commit, before its
+    proposals: resuming proposes the role and reports done. The ledger
+    records ``roles`` (the verdict agrees with the cleaned roles), so live
+    writing and recovery read the same field."""
+
+    paths, repository, _spans = library
+    plan = RL.label_roles(loaded(paths), repository, "ext_text", dry_run=True)
+    first = _NoneWithRolesFake(roles=(("explanation", "high"),))
+    with monkeypatch.context() as patch:
+        _stop_proposals_at_batch(len(plan["batches"]))(patch)
+        with pytest.raises(RuntimeError, match="process stopped"):
+            RL.label_roles(loaded(paths), repository, "ext_text", client=first)
+    assert _ledger_verdicts(repository) == {"roles"}
+    last = len(first.contexts[-1]["candidates"])
+    assert RL.label_roles(loaded(paths), repository, "ext_text", dry_run=True)["passages"]["pending_apply"] == last
+    again = _NoneWithRolesFake(roles=(("explanation", "high"),))
+    out = RL.label_roles(loaded(paths), repository, "ext_text", client=again)
+    assert again.prompts == [] and out["calls"] == 0
+    assert out["status"] == "done" and out["recovery"]["recovered_passages"] == last
+    assert out["recovery"]["unrecovered"] == 0
+    assert len(_labeller_versions(repository)) == plan["passages"]["eligible"]
+    assert {role for _span, role in _labeller_versions(repository)} == {"explanation"}
+
+
+def test_an_older_none_row_whose_saved_answer_has_roles_is_recovered(library, monkeypatch):
+    """A ledger written before this round says ``none`` beside an accepted
+    role (the live writer applied it; a stop before the proposals lost it):
+    recovery reads the saved answer and proposes the role."""
+
+    paths, repository, _spans = library
+    plan = RL.label_roles(loaded(paths), repository, "ext_text", dry_run=True)
+    first = _NoneWithRolesFake(roles=(("explanation", "high"),))
+    with monkeypatch.context() as patch:
+        _stop_proposals_at_batch(len(plan["batches"]))(patch)
+        # The ledger as the old live path wrote it (raising=False: absent on 57d02d3f0).
+        patch.setattr(RL, "agreed_verdicts", lambda value: value, raising=False)
+        with pytest.raises(RuntimeError, match="process stopped"):
+            RL.label_roles(loaded(paths), repository, "ext_text", client=first)
+    assert _ledger_verdicts(repository) == {"none"}
+    again = _NoneWithRolesFake(roles=(("explanation", "high"),))
+    out = RL.label_roles(loaded(paths), repository, "ext_text", client=again)
+    assert again.prompts == [] and out["status"] == "done"
+    assert out["recovery"]["recovered_passages"] == len(first.contexts[-1]["candidates"])
+    assert len(_labeller_versions(repository)) == plan["passages"]["eligible"]
+    # Applied once: nothing is pending on the next run, and nothing is sent.
+    final = RL.label_roles(loaded(paths), repository, "ext_text", client=RoleLabellerFake())
+    assert final["recovery"]["pending"] == 0 and final["calls"] == 0

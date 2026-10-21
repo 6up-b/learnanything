@@ -49,7 +49,7 @@ scheduling, serving state, a concept edge or a learning-object change.
 """
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import closing
 import os
 from typing import Any, Literal
@@ -166,26 +166,91 @@ def _unapplied(repository: Repository, extraction_id: str) -> dict[Key, dict[str
     """Passages this labeller judged ``roles`` on this reading whose
     proposals were never written (Codex review F2): ``key -> {input hash:
     ledger id}``. A passage is applied once any proposal version (a review
-    successor included) carries one of its ledger ids."""
+    successor included) carries one of its ledger ids.
+
+    Fix round 5: a ``none`` row counts too when its saved answer gave the
+    passage roles. The live path now records ``roles`` whenever the cleaned
+    roles are non-empty (:func:`agreed_verdicts`), but a ledger written before
+    that may say ``none`` beside an accepted role the live writer applied."""
 
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         rows = connection.execute(
-            "SELECT id, right_id, input_hash FROM judgment_ledger WHERE task = ? AND left_kind = ? "
-            "AND left_id = ? AND prompt_version = ? AND verdict = 'roles'",
+            "SELECT id, right_id, input_hash, verdict FROM judgment_ledger WHERE task = ? AND left_kind = ? "
+            "AND left_id = ? AND prompt_version = ? AND verdict IN ('roles', 'none')",
             (LEDGER_TASK, LEFT_KIND, extraction_id, PROMPT_VERSION)).fetchall()
         if not rows:
             return {}
+        none_rows = [row for row in rows if row[3] == "none"]
+        if none_rows:
+            with_roles = _answers_with_roles(connection, extraction_id)
+            rows = [row for row in rows if row[3] == "roles" or (str(row[1]), str(row[2])) in with_roles]
+            if not rows:
+                return {}
         applied = {str(row[0]) for row in connection.execute(
             "SELECT DISTINCT json_extract(content_json, '$.ledger_id') FROM source_object_versions "
             "WHERE json_extract(content_json, '$.kind') = ? AND json_extract(content_json, '$.judge') = ? "
             "AND json_extract(content_json, '$.extraction_id') = ?",
             (RS.PROPOSAL_KIND, RS.JUDGE_LABELLER, extraction_id)) if row[0]}
     judged: dict[Key, dict[str, str]] = {}
-    for ledger_id, right_id, input_hash in rows:
+    for ledger_id, right_id, input_hash, _verdict in rows:
         extraction, _, span = str(right_id).partition("/")
         if extraction and span:
             judged.setdefault((extraction, span), {})[str(input_hash)] = str(ledger_id)
     return {key: ids for key, ids in judged.items() if not set(ids.values()) & applied}
+
+
+def _receipt_batches(connection, extraction_id: str) -> Iterator[tuple[str, dict[str, Key], dict[str, Any], Any]]:
+    """This reading's accepted batch answers from their receipts (newest
+    first): ``(input hash, ref -> passage, ref -> first judgment, receipt)``,
+    each answer parsing and judging every passage of its batch."""
+
+    for receipt in receipt_answers(connection, purpose=ROLE_LABELLER_TASK.route_task):
+        declared = receipt["declared"]
+        context = declared.get("context") if isinstance(declared.get("context"), Mapping) else {}
+        if context.get("extraction_id") != extraction_id or declared.get("prompt_version") != PROMPT_VERSION:
+            continue
+        refs: dict[str, Key] = {}
+        for ref, value in (context.get("refs") or {}).items():
+            extraction, _, span = str(value).partition("/")
+            refs[str(ref)] = (extraction, span)
+        try:
+            answer = RoleLabellerResult.model_validate_json(receipt["output_text"])
+        except ValueError:
+            continue
+        # The first judgment of a ref, as the live path (and the ledger) took
+        # it when it accepted an answer naming a ref twice (fix round 4).
+        judgments = first_judgments(answer.judgments)
+        if not set(judgments) >= set(refs):
+            continue
+        yield str(declared.get("input_hash") or ""), refs, judgments, receipt
+
+
+def _answers_with_roles(connection, extraction_id: str) -> set[tuple[str, str]]:
+    """``(extraction/span, input hash)`` of every passage a saved answer gave
+    a non-empty (cleaned) roles list, whatever verdict it stated."""
+
+    found: set[tuple[str, str]] = set()
+    for input_hash, refs, judgments, _receipt in _receipt_batches(connection, extraction_id):
+        for ref, key in refs.items():
+            if RS.clean_roles(getattr(judgments[ref], "roles", None)):
+                found.add((f"{key[0]}/{key[1]}", input_hash))
+    return found
+
+
+def agreed_verdicts(value: Any) -> Any:
+    """``value`` with each judgment's verdict agreeing with its cleaned roles
+    (fix round 5): ``roles`` when they are non-empty, else ``none``. What the
+    ledger records is then what the live writer and recovery both apply."""
+
+    judgments = []
+    changed = False
+    for judgment in value.judgments:
+        verdict = "roles" if RS.clean_roles(judgment.roles) else "none"
+        if verdict != judgment.verdict:
+            judgment = judgment.model_copy(update={"verdict": verdict})
+            changed = True
+        judgments.append(judgment)
+    return value.model_copy(update={"judgments": judgments}) if changed else value
 
 
 def _apply_pending(vault: LoadedVault, repository: Repository, extraction_id: str,
@@ -203,30 +268,12 @@ def _apply_pending(vault: LoadedVault, repository: Repository, extraction_id: st
     if not pending:
         return report
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        receipts = receipt_answers(connection, purpose=ROLE_LABELLER_TASK.route_task)
+        batches = list(_receipt_batches(connection, extraction_id))
     recovered: set[Key] = set()
-    for receipt in receipts:
-        declared = receipt["declared"]
-        context = declared.get("context") if isinstance(declared.get("context"), Mapping) else {}
-        if context.get("extraction_id") != extraction_id or declared.get("prompt_version") != PROMPT_VERSION:
-            continue
-        input_hash = str(declared.get("input_hash") or "")
-        refs: dict[str, Key] = {}
-        for ref, value in (context.get("refs") or {}).items():
-            extraction, _, span = str(value).partition("/")
-            refs[str(ref)] = (extraction, span)
+    for input_hash, refs, judgments, receipt in batches:
         wanted = {ref: key for ref, key in refs.items()
                   if key in pending and key not in recovered and input_hash in pending[key]}
         if not wanted:
-            continue
-        try:
-            answer = RoleLabellerResult.model_validate_json(receipt["output_text"])
-        except ValueError:
-            continue
-        # The first judgment of a ref, as the live path (and the ledger) took
-        # it when it accepted an answer naming a ref twice (fix round 4).
-        judgments = first_judgments(answer.judgments)
-        if not set(judgments) >= set(refs):
             continue
         recovered.update(wanted.values())
         written = RS.propose_roles(
@@ -462,6 +509,8 @@ def label_roles(vault: LoadedVault, repository: Repository, extraction_id: str, 
             # is committed, so no reader has to choose between the two.
             if len({judgment.ref for judgment in value.judgments}) != len(value.judgments):
                 raise AIInvalidOutput("The role labeller judged a passage twice")
+            # Fix round 5: the verdict the ledger records agrees with the roles.
+            value = agreed_verdicts(value)
             for judgment in value.judgments:
                 captured.setdefault(judgment.ref, judgment)
             return value
