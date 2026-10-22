@@ -422,3 +422,161 @@ Setup: `uv sync --extra dev --extra mobile` plus `uv pip install pypdfium2`, wit
   * Q5: HTTP adapter kept.
 * vitest load-flakiness under concurrent stages: these frontend tests fail only under heavy load
   (pre-existing; no frontend change here).
+
+## Second landing onto main (2026-10-21/22): hardening rounds 2-3, frozen
+
+Landed the branch tip `b70fb727a`: hardening rounds 2 and 3 and the frozen round, on top of `bc90f31ae`, which was
+already on main. The full record of each round is in `security-codex-tool-lockdown-codex-review.md`, under
+"Hardening round 2", "Hardening round 3" and "Frozen (orchestrator)". There is no round 4: stage T1 moves every
+serving route to `chatgpt_plan`.
+
+### Commits and conflicts
+
+* Branch `merge/security-hardening-onto-main`, cut from main `55063be64` in `learnanything-merge2`.
+* `aab397567`: `git merge --no-ff b70fb727a`. **No conflicts.**
+  * The branch's six commits change only the Codex provider (`codex.py`, `codex_lockdown.py`, `codex_http.py`),
+    `ai/client.py`, `diagnosis/split/diagnoser.py`, `pyproject.toml` (the new import contract),
+    `scripts/benchmark_chatgpt_plan_latency.py` and tests.
+  * `execution.py`, `paid.py` and RW5a's figure routes are not touched on either side since the first landing.
+  * `tests/test_codex_tool_lockdown.py` auto-merged. Main's `figure_author` shape (`92b9f19fc`) now runs
+    under the branch's stricter shared assertions: a scratch `learnloop-isolated-turn-*` cwd, `shell=False`, and the
+    exact override set including `model_catalog_json=<the tool-free pin>`. It passes, so no new composition commit
+    was needed.
+* This record is the last commit.
+
+Nothing needed regenerating. There is no migration, config key, schema, CLI, RPC or frontend change. The CLI-help,
+serializer, desktop-RPC, mobile-allowlist and table-role pins are part of the full suite and pass.
+`git diff main HEAD -- fixtures apps migrations` is empty.
+
+### Gate (on `aab397567`)
+
+Setup: `uv sync --extra dev --extra mobile` plus `uv pip install pypdfium2`, with `TMPDIR=fixtures-local/tmp`.
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | **30 kept, 0 broken** (main's 29 plus `codex-sdk-only-in-its-provider`) |
+| full suite: `flock … pytest -n auto` | **15,606 passed, 2 skipped, 2 xfailed** in 30:45 |
+| durability: `flock … pytest -m durability` | **119 passed** |
+| `npm run typecheck` | ok |
+| `cargo check` | ok |
+| vitest (whole run) | **169 files, 1,469 tests passed** |
+
+* The full suite needed a second start. A session restart cut off the first run at 99%; up to that point it had no
+  failures. The figures above are from the rerun.
+* No test was flaky, and nothing needed fixing.
+
+### Checks
+
+**(a) Every Codex call site on the merged tree.**
+
+* `git grep` over `src`, `scripts` and `integrations` for `openai_codex`, `codex_cli_bin`, `Codex(`,
+  `thread_start(`, `.turn(` and `.run_turn(` finds these:
+  * the one `Codex(config=…)`, the one `codex.thread_start(` and the one `thread.turn(`, all in
+    `SdkCodexClient._run_verified_sdk_turn`, with `approval_mode=deny_all` on both and `install_on_sdk` first.
+    `_run_verified_sdk_turn` is reached only from `_run_sdk_turn`, after its launch check (unique profile
+    read-back, pinned `CODEX_HOME` and executable, tool-free catalog read-back, skills read-back, `notify=[]`);
+  * `_run_sdk_turn` is reached only from `_run_structured`. A workspace is inlined there (`_inline_workspace`)
+    before the turn, so no turn has a shell. `_run_structured` is reached from `_complete_validated`, which is
+    reached from `complete()`;
+  * `SdkCodexClient.complete` is reached only through `execute_structured_operation`. Its callers include
+    `PaidCalls.call`, `tutor_qa`, the judges, hints, the AD routes, diagnosis, projects and RW5a's `figure_author`
+    (`figures/routes.py`, `isolated=True`);
+  * the other SDK and CLI-binary imports (`codex.py` `_codex_command`, `_bundled_codex_path`,
+    `_resolved_sdk_codex_bin`, `default_sdk_healthcheck`) resolve paths or check imports, and make no turn;
+  * `scripts/benchmark_chatgpt_plan_latency.py` holds only an in-process fake SDK.
+* The process-launch references in `codex.py` are `_codex_probe` (the non-model launch-check probes),
+  `_read_checkout_revision` (`git rev-parse`), two annotations, and the refused `default_startup`.
+* These sweeps pass on the merged tree, run by name:
+  * `test_every_codex_turn_app_server_and_transport_in_the_source_is_the_locked_down_one` (round 2's AST sweep,
+    with aliases resolved);
+  * `test_every_process_launch_site_is_approved` (round 3 and the frozen round's counted allowlist over `src`,
+    `scripts` and `integrations`). Main's own launch sites (`concept_animation`, `pf_sandbox`, `glm_text_layer`,
+    `marker_worker`, `pf_verify`, `projects/git`, mobile doctor, sidecar CLI) are all on it;
+  * `test_only_the_codex_provider_may_import_the_sdk_by_import_contract`;
+  * `test_every_codex_turn_starter_in_the_source_passes_deny_all_inside_the_locked_down_turn`;
+  * all six shapes of `test_every_request_runs_the_locked_down_profile_with_approvals_denied`, `figure_author`
+    among them.
+
+**(b) Parity** (`fixtures-local/landing-sec/r23b/`, using the first landing's scripts with paths adjusted).
+
+* Setup:
+  * fresh backup-API copies (`learnloop.db.copies.copy_tree_with_databases`) of `fixtures/linear_algebra` and
+    `fixtures/probability`, taken from the **main checkout** (mvp-0.8);
+  * `git archive` trees of main `55063be64` and the merge `aab397567`;
+  * every run under `env -i PATH HOME CODEX_HOME LEARNLOOP_CONFIG_DIR`, all three empty;
+  * every route at `blackhole` (openai_chat or decider at `127.0.0.1:9`, key variable unset), with embeddings,
+    rewrite, rerank, dense, gaps and `build_on_serve` off.
+* Results:
+  * **Migration.** Each code applies 51 migrations, to head 217. Schema, rows, FK and integrity checks are
+    identical (1451 and 1450 objects, 344 tables). `schema_migrations` differs only in `applied_at`.
+  * **At mvp-0.8**: certification, the Today queue and the plan are byte-identical main vs merge, for both vaults.
+  * **`rebuild --shadow` and `doctor`.** Zero differences after normalisation. The raw outputs differ only in the
+    vault path, each copy's own live-DB sha256 and a fresh marker ULID. The live database is unchanged on both
+    sides.
+  * **Upgraded with main's code** (`--to mvp-0.9`, `--to mvp-0.27`, `rebuild-derived-state`, then `--to mvp-0.29`):
+    certification and Today are byte-identical at mvp-0.27 and mvp-0.29.
+  * **The plan at mvp-0.27 and mvp-0.29** differs only in `router_decisions.card_hash`, `snapshot_hash` and the
+    `router.card_hash` inside `detail_json`. A second run of main's code on a fresh copy differs from the first in
+    exactly these three fields, so the difference is run-to-run, not the merge (as at every earlier landing).
+* An earlier attempt in `landing-sec/r23/` was cut off by the session restart partway through the upgrade chain. It
+  was left in place unused, and the run above is one clean serial pass.
+
+**(c) Receipts.** All 26 parity databases hold **0** `model_call_receipts` rows of any status.
+
+**(d) No live Codex calls.**
+
+* Every run outside pytest used `env -i` with an empty `CODEX_HOME`, and with every route on the loopback
+  blackhole. The parity `HOME/.codex` and `LEARNLOOP_CONFIG_DIR` are still empty afterwards. The owner's Codex
+  quota is exhausted until 2026-10-27 in any case.
+* The suite's installed-binary tests run only non-model probes under throwaway homes. The frozen round's notify
+  test runs `codex exec` against an in-process loopback stand-in for the Responses API.
+* No credential file, owner config or fixture vault was opened directly. No git stash was used.
+
+### Owner notes
+
+1. **What changed** since the first landing. Every Codex turn now also:
+   * runs under a permission profile with a fresh, unique name per process, read back with
+     `codex debug prompt-input` before any turn (read the turn's directory and `:minimal`, write nothing, no
+     network);
+   * resolves `CODEX_HOME` and the `codex` executable the way the child process does, and pins both;
+   * disables every skill and reads the skill list back as empty;
+   * clears any inherited legacy `notify` command (`notify=[]`).
+
+   Also:
+   * the legacy HTTP Codex transport (`http`, `http_adapter`, `startup_command`) is refused at every entry;
+   * a counted allowlist covers every process-launch site in the code;
+   * an import contract, `codex-sdk-only-in-its-provider`, keeps the SDK inside the Codex provider.
+2. **Every Codex turn uses the bundled catalog minus its tools.** The catalog is the binary's own
+   `debug models --bundled` output with every tool removed. It is pinned with `model_catalog_json`, and the launch
+   check reads the turn's tool list back as empty, so there is no tool call and no command for an inherited
+   `.rules` file to apply to.
+   * Models whose tools cannot be read back (`gpt-5.5`, which is not served through Responses Lite) are refused.
+   * The base instructions are still the bundled ones, and they mention tools the turn no longer has.
+3. **The snapshot diagnosis reads its export inline**, in the prompt, instead of with a read-only shell. Its
+   `opened` lists every export file. An export over 400,000 characters fails the diagnosis (R3-Q1) and is never cut
+   short.
+4. **Check these on the first live use.** No live call was possible: the quota is exhausted until 2026-10-27.
+   1. Run one tutor question with `LEARNLOOP_SIDECAR_LOG_LEVEL=DEBUG`. It should answer in text. A prompt that
+      asks it to run code should get a text refusal, not a `CodexToolUseRefused`.
+   2. A prompt naming a disabled skill (`$imagegen`) should not bring that skill's SKILL.md into the context.
+   3. The first snapshot diagnosis should complete with `opened` listing every export file. Watch the prompt size
+      on the largest vault.
+   4. The first gradings and tutor answers should read as before (the bundled instructions still mention tools).
+5. **T1 replaces Codex for serving.** Every serving route moves to the tool-free `chatgpt_plan` provider. This
+   landing is frozen interim hardening for as long as any route stays on Codex.
+
+### Open items
+
+* **Three Highs, superseded by T1 and not fixed.** They stay open on any Codex route until T1 lands:
+  * uuB5X5-H1: explicit-only skills (`allow_implicit_invocation: false`) are missing from the rendered list that
+    gets disabled, and `$name` or a SKILL.md path still selects them;
+  * uuB5X5-H2: the nested skill cache. A skill added below an existing skill root does not change the
+    fingerprint, so the cached disable list misses it until the process restarts;
+  * uuB5X5-H4: `end_turn=false` continuations. They are detected and refused when their usage arrives, never
+    prevented before they are sent.
+* **R3-Q1 to Q3**, defaults unchanged:
+  * R3-Q1: an export over 400,000 characters fails the snapshot diagnosis;
+  * R3-Q2: the bundled base instructions keep their tool paragraphs;
+  * R3-Q3: `gpt-5.5` stays refused, so the lockdown fails closed.
+* Follow-up from round 2: move the 19 test files that drive the legacy HTTP adapter through
+  `legacy_codex_http_double` to a structured fake, then delete the adapter. T2 retires the Codex code.
