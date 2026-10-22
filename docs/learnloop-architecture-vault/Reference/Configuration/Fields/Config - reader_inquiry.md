@@ -3,8 +3,8 @@ title: "Config - reader_inquiry"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "87c9b9a4a94630287dd2e9fa6ecb7cd6544f9f1a"
-source_commit_timestamp: "2026-10-21T10:09:53-04:00"
+source_commit: "55faad94d8888466c57a8bc083e6b766d4230234"
+source_commit_timestamp: "2026-10-22T17:07:32-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml reader_inquiry"
@@ -31,7 +31,7 @@ source_paths:
   - "tests/test_chatgpt_plan_provider.py"
   - "tests/test_cli_ingest.py"
   - "tests/test_codex_isolation_mcp_check.py"
-  - "tests/test_compare_keep_switch_off.py"
+  - "tests/test_codex_lockdown_round2.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/reader-inquiry"
@@ -75,7 +75,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_chatgpt_plan_provider.py`
 - `tests/test_cli_ingest.py`
 - `tests/test_codex_isolation_mcp_check.py`
-- `tests/test_compare_keep_switch_off.py`
+- `tests/test_codex_lockdown_round2.py`
 
 ## Extension and modification guidance
 

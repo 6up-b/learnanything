@@ -3,8 +3,8 @@ title: "retrieval_intervention_outcomes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "87c9b9a4a94630287dd2e9fa6ecb7cd6544f9f1a"
-source_commit_timestamp: "2026-10-21T10:09:53-04:00"
+source_commit: "55faad94d8888466c57a8bc083e6b766d4230234"
+source_commit_timestamp: "2026-10-22T17:07:32-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite retrieval_intervention_outcomes"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/substrate/intervention_outcomes.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
+  - "src/learnloop/workbench/help_outcomes.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/derived"
@@ -108,8 +109,10 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_help_outcomes.py`
 - `tests/test_intervention_outcomes_replayer.py`
 - `tests/test_rebuild_orchestrator.py`
+- `tests/test_rw2c_fix_round2.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -3,8 +3,8 @@ title: "reveal_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "87c9b9a4a94630287dd2e9fa6ecb7cd6544f9f1a"
-source_commit_timestamp: "2026-10-21T10:09:53-04:00"
+source_commit: "55faad94d8888466c57a8bc083e6b766d4230234"
+source_commit_timestamp: "2026-10-22T17:07:32-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reveal_events"
@@ -123,6 +123,7 @@ Database triggers:
 - `src/learnloop/reveal_coverage.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/serve_eligibility.py`
+- `src/learnloop/workbench/compare_methods.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

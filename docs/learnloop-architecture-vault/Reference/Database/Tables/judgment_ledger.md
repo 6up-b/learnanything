@@ -3,8 +3,8 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "87c9b9a4a94630287dd2e9fa6ecb7cd6544f9f1a"
-source_commit_timestamp: "2026-10-21T10:09:53-04:00"
+source_commit: "55faad94d8888466c57a8bc083e6b766d4230234"
+source_commit_timestamp: "2026-10-22T17:07:32-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
@@ -157,6 +157,7 @@ None found by exact static reference scan.
 - `src/learnloop/source_retrieval/role_labeller.py`
 - `src/learnloop/substrate/families.py`
 - `src/learnloop/substrate/intervention_outcomes.py`
+- `src/learnloop/workbench/help_outcomes.py`
 
 ### Direct SQL writers
 
@@ -190,7 +191,7 @@ None found by exact static reference scan.
 - `tests/test_approach_maps.py`
 - `tests/test_assumed_known.py`
 - `tests/test_attach_to_family.py`
-- `tests/test_contamination_report.py`
+- `tests/test_compare_methods.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

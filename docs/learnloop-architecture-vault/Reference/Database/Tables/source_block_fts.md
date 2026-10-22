@@ -3,8 +3,8 @@ title: "source_block_fts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "87c9b9a4a94630287dd2e9fa6ecb7cd6544f9f1a"
-source_commit_timestamp: "2026-10-21T10:09:53-04:00"
+source_commit: "55faad94d8888466c57a8bc083e6b766d4230234"
+source_commit_timestamp: "2026-10-22T17:07:32-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_block_fts"
@@ -96,6 +96,7 @@ None found by exact static reference scan.
 
 - `tests/recap_fixtures.py`
 - `tests/test_architecture.py`
+- `tests/test_compare_methods.py`
 - `tests/test_compare_sources_keep.py`
 - `tests/test_embedding_recipe_hash_pins.py`
 - `tests/test_exam_protection_landing.py`

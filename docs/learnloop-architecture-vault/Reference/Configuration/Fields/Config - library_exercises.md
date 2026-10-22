@@ -3,8 +3,8 @@ title: "Config - library_exercises"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "87c9b9a4a94630287dd2e9fa6ecb7cd6544f9f1a"
-source_commit_timestamp: "2026-10-21T10:09:53-04:00"
+source_commit: "55faad94d8888466c57a8bc083e6b766d4230234"
+source_commit_timestamp: "2026-10-22T17:07:32-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml library_exercises"
@@ -31,7 +31,7 @@ source_paths:
   - "tests/test_chatgpt_plan_provider.py"
   - "tests/test_cli_ingest.py"
   - "tests/test_codex_isolation_mcp_check.py"
-  - "tests/test_compare_keep_switch_off.py"
+  - "tests/test_codex_lockdown_round2.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/library-exercises"
@@ -52,8 +52,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `library_exercises.enabled` | `true` | boolean | modeled default or validator seed | Turns library exercises behavior on or off within reader workbench RW4b: exercises from my sources: the Reader's view of the sources service's textbook-exercise candidates in RW4a's practice this question (verbatim statement, source and page, open in the book, use this one through the service's own import in the workbench, the key's honest status), with the service's exposure rule labelling a seen exercise and never offering it as a check on your own, and the learner-initiated fallback search (find_sources, exercise blocks of the teaching scope, the Reader's own import), retired by default once the candidates are live: the kill switch and the fallback's switch; display and a learner's own pick (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2383`; `src/learnloop_sidecar/handlers/library_exercises.py:93`; `src/learnloop_sidecar/handlers/workbench.py:307` |
-| `library_exercises.fallback_enabled` | `false` | boolean | modeled default or validator seed | Turns fallback behavior on or off within reader workbench RW4b: exercises from my sources: the Reader's view of the sources service's textbook-exercise candidates in RW4a's practice this question (verbatim statement, source and page, open in the book, use this one through the service's own import in the workbench, the key's honest status), with the service's exposure rule labelling a seen exercise and never offering it as a check on your own, and the learner-initiated fallback search (find_sources, exercise blocks of the teaching scope, the Reader's own import), retired by default once the candidates are live: the kill switch and the fallback's switch; display and a learner's own pick (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2384`; `src/learnloop_sidecar/handlers/library_exercises.py:97` |
+| `library_exercises.enabled` | `true` | boolean | modeled default or validator seed | Turns library exercises behavior on or off within reader workbench RW4b: exercises from my sources: the Reader's view of the sources service's textbook-exercise candidates in RW4a's practice this question (verbatim statement, source and page, open in the book, use this one through the service's own import in the workbench, the key's honest status), with the service's exposure rule labelling a seen exercise and never offering it as a check on your own, and the learner-initiated fallback search (find_sources, exercise blocks of the teaching scope, the Reader's own import), retired by default once the candidates are live: the kill switch and the fallback's switch; display and a learner's own pick (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2397`; `src/learnloop_sidecar/handlers/library_exercises.py:93`; `src/learnloop_sidecar/handlers/workbench.py:307` |
+| `library_exercises.fallback_enabled` | `false` | boolean | modeled default or validator seed | Turns fallback behavior on or off within reader workbench RW4b: exercises from my sources: the Reader's view of the sources service's textbook-exercise candidates in RW4a's practice this question (verbatim statement, source and page, open in the book, use this one through the service's own import in the workbench, the key's honest status), with the service's exposure rule labelling a seen exercise and never offering it as a check on your own, and the learner-initiated fallback search (find_sources, exercise blocks of the teaching scope, the Reader's own import), retired by default once the candidates are live: the kill switch and the fallback's switch; display and a learner's own pick (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2398`; `src/learnloop_sidecar/handlers/library_exercises.py:97` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -73,7 +73,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_chatgpt_plan_provider.py`
 - `tests/test_cli_ingest.py`
 - `tests/test_codex_isolation_mcp_check.py`
-- `tests/test_compare_keep_switch_off.py`
+- `tests/test_codex_lockdown_round2.py`
 
 ## Extension and modification guidance
 
