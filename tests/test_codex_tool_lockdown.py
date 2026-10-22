@@ -233,6 +233,29 @@ def _figure_author_call(client):
     return route.ask(figure_routes.author_prompt({"passage": "p"}), LinkJudgment)
 
 
+def _compare_methods_call(client):
+    """Reader RW2c's "Compare methods" lines, through the workbench check's own
+    route object (``CheckRoute.ask``: PaidCalls, receipts, the check's caps) with
+    the comparison's prompt and prompt version, exactly as
+    ``compare_methods.compare_lines`` asks it (landing composition). The
+    session count reads the vault, so it is held at zero here."""
+
+    from unittest import mock
+
+    from learnloop.config import LearnLoopConfig
+    from learnloop.workbench import check, compare_methods
+
+    vault = SimpleNamespace(config=LearnLoopConfig())
+    route = check.CheckRoute(vault, None, client=client, envelope=None, workbench_session_id="t")
+    assert route.route.task == "workbench_check" and route.subscription
+    prompt = compare_methods.build_prompt(
+        SimpleNamespace(prompt="p"), {"kind": "answer_display", "text": "r"},
+        [{"number": 1, "kind": "step", "body_md": "s"}], request_id="a")
+    with mock.patch.object(check, "session_calls", return_value=0):
+        return route.ask(prompt, assist_id="a", result_model=LinkJudgment,
+                         prompt_version=compare_methods.PROMPT_VERSION)
+
+
 SHAPES = {
     # The callers that never asked for isolation (finding 2).
     "tutor_qa": lambda client, tmp: execute_structured_operation(
@@ -241,6 +264,9 @@ SHAPES = {
     # Reader RW5a's figure author (on main after the stage's base): isolated=True
     # through PaidCalls; the lockdown applies to it like to every other caller.
     "figure_author": lambda client, tmp: _figure_author_call(client),
+    # Reader RW2c's comparison lines (on the stage's branch, built before the
+    # lockdown): CheckRoute.ask through PaidCalls; locked down like every caller.
+    "compare_methods": lambda client, tmp: _compare_methods_call(client),
     "plain_request": lambda client, tmp: _plain(client, "passage_cue_judge"),
     # The ones that did.
     "isolated": lambda client, tmp: client.complete(StructuredRequest(
