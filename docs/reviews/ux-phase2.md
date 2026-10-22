@@ -7,6 +7,7 @@
 **Fix round 2 (orchestrator):** §11. The whole-stage verify `20261021-114726-Jrt7sA` reopened five items, all fixed there. F6 is accepted at the writer as a workflow-persistence change, a recorded deviation from "display and navigation only".
 **Fix round 3 (orchestrator):** §12. The verify `20261021-130232-Uk06Al` reopened four items; the notice and retry class is closed structurally (identity by source, self-contained retries that report a request that ran), and startup is the base shell until the snapshot names the shell.
 **Fix round 4 (orchestrator):** §13. The verify `20261021-134216-8mdDfN` reopened two recurring classes and the remembered book; the shell chrome is now one key-isolated region, and classic is base by construction, pinned by a manifest scan against base.
+**Fix round 5 (orchestrator):** §14. The last round for these classes: one global-listener target rule in every window keydown listener, the focus moves to the frame body after a pointer activation, and the chrome keeps only the keys its control consumes.
 
 ## 0. The plan (written before the code)
 
@@ -361,3 +362,46 @@ Window and document listeners registered for the capture phase run before the ev
 **If a round 5 were needed for either class.** The orchestrator asked for a stop and a report instead. Both classes now have a structural pin that fails on a recurrence. A chrome control outside a part, or a key reaching a screen from one, fails the sweep and the membership test. A new capture-phase listener fails `shellChrome.test.ts`. An unlisted changed file, a missing gate, or a classic branch that is no longer base's fails `classicIsBase.test.ts`.
 
 **Rule notes.** The one Python run outside pytest (the reference validation) ran under `env -i` with fresh empty folders. No `git stash`, no model call, no network, no vault opened, no process killed.
+
+## 14. Fix round 5 (orchestrator)
+
+**Input.** The orchestrator's adversarial verify of `7f4a3974a` (an Opus reviewer standing in for Codex, which is out of quota until 2026-10-27). It confirmed classic identity (the palette byte-identical; every App and screen classic branch base's), the places and keys, Under the hood, the Data gates, notices, retries, `askRequest` and F6. It found:
+- **High 1.** The wrap-up line on Start: Enter on it began a session, because Start's window listener begins on any Enter outside a field, and the line is not chrome. New in this stage: base never shows the line on Start.
+- **Medium 2.** After a mouse click on a chrome control, the focus stayed there, and the round-4 isolation swallowed every screen key.
+- Lows.
+
+The orchestrator named the root cause: screens' global key listeners act on keys aimed at an interactive control they do not own. The ruling: close it with one rule, not more chrome marking.
+
+| # | Severity | Fix | Test (failed on `7f4a3974a`) |
+|---|---|---|---|
+| 1 | High | **The global-listener target rule** (simple shell only; classic stays base). `screenLeavesKey(event, options)` (app/keymap.ts) leaves a key aimed at an interactive element (button, `a[href]`, input, select, textarea, contenteditable, or a button, link, menuitem, option, tab, checkbox or switch role) that the listener does not own. **Ownership** (`controlOwner`): a control belongs to the chrome, to a scoped part, or to the screen (everything else). A scoped part carries `data-key-scope`, through `keyScope()` in app/keyScope.ts, which renders nothing in classic: the wrap-up line on Start and Today (`wrap-up`), the window titlebar (`window`) and the command overlays (`overlay`). A screen listener owns "screen" by default, and WrapUpPanel's owns `wrap-up` and `screen`. `ownChords` keeps a listener's own Ctrl/Cmd/Alt chords (find, save, Ctrl+Enter submit, the Reader's Alt keys, the PDF marquee's Ctrl). `modal` marks a modal overlay, popover or dialog, which owns the keyboard while open: its Esc closes it even when the focus is still on the control that opened it, so the call returns false there. **Every** window keydown listener outside the shell's own files now calls it first: all 52 listeners in 41 files, 48 of them new this round (Today, Feedback, Proposals and the Library had it from round 2). They include Start's Enter-to-begin, Today's digits and j/k, the plan view, Proposals, Feedback, Library, Practice, Calibration, Diagnostic review, Exam, Golden path, Graph, Ingest, the Reader and its hooks, the PDF pane, WrapUpPanel, and the modal overlays with `modal`) | `app/App.fixRound5.test.tsx`, with the **real** WrapUpOffer and WrapUpPanel on Start: leaving the Reader for Today shows the line. Enter on it opens the wrap-up (`readerWrapUp`) and starts no session. Enter on the panel's *resolve* runs `readerSetInquiryStatus` and starts no session. Start's own Enter from the page still begins. `app/keymap.test.ts`: the conflict scan now **requires `screenLeavesKey` in every window and document keydown listener** (on `7f4a3974a` it reports 48), and `screenLeavesKey`'s target rule is tested (own, unowned, chrome, wrap-up, titlebar, scoped, modal, `ownChords`, and classic answering false) |
+| 2 | Medium | **Focus after pointer activation.** After a pointer click on a place, an Under-the-hood tool or a ⋯ row, the focus moves to the frame body. The simple shell's `main.frame-body` gets tabIndex -1 (components/frameFocus.ts). A keyboard activation (`detail` 0) keeps the focus where it is. **Narrowed isolation:** ShellChromeRoot stops only the keys the focused control consumes. A plain chrome control consumes Enter and Space on a button, link or menu item. An open menu, the palette and Keyboard & help (parts marked `data-shell-chrome="dialog"`) consume every plain key: Esc, the arrows and typing. Other keys go on, and the screens' target rule leaves them | `app/App.fixRound5.test.tsx`: click Today (focus, then a `detail` 1 click), press Enter, and the plan begins (`startSession`). A keyboard activation keeps the focus. Click Today with a session, then press `2`, and item 2 opens. Click *Study-map changes* under the hood (the **real** ProposalsScreen), press `a`, and the focused proposal is accepted. After a ⋯ row the screen keeps its keys. The round-4 sweep (`app/App.fixRound4.test.tsx`) now pins that a consumed key (Enter or Space on a control; any plain key in a menu or dialog) reaches no window or document listener. Its forbidden checks (no session, no item, no plan pick) still hold for every key |
+| 3 | Low | Control, Meta, Alt and Shift keyups pass through the chrome, so a held modifier's release reaches the PDF marquee and the Reader's bare-Alt watcher. Closing a book (the Reader's onSourceChange(null)) calls `rememberBook(root, null)`. A library switch does not count as closing | The modifiers' keyups reach the window and Enter's stays with the button. Restarting on the Reader with a remembered book, then closing it, empties the stored book, and the next start opens the shelf |
+
+**Recorded as open items, not fixed (per the ruling).**
+- Identical sourceless errors stack: errors are de-duplicated only by source, so the same sentence posted twice without a source shows twice.
+- Settings drops an error's Try again: its single message line shows the sentence only.
+
+**Classic is still base by construction.** `app/classicIsBase.test.ts` gains the round-5 files as `TARGET_RULE_FILES`. Through git, each file's whole diff against `c80c54cbb` must be only:
+- the `screenLeavesKey` guard lines,
+- `keyScope` spreads added to otherwise unchanged lines,
+- and their imports.
+
+`screenLeavesKey` and `keyScope` are both inert in classic. `components/frameFocus.ts` and the simple frame body's tabIndex are simple-only, listed with evidence. The manifest still equals the stage's diff exactly.
+
+**Deviation from the ruling's wording, with the reason.** "It may act only on its own container's controls" is implemented as ownership rather than per-component container refs. A screen owns every control that is neither chrome nor in a scoped part. This keeps each component's own buttons and fields its own (which the Reader, IntentBox and margin-mark tests rely on, even when rendered standalone), with no DOM change in classic. The parts that are not the screen's are named where they are drawn (`keyScope`).
+
+**Fail-before.** `git archive 7f4a3974a apps/learnloop-tauri` in the session scratchpad, with the new and changed tests copied in. **8 failed** across `App.fixRound5.test.tsx` (6) and `keymap.test.ts` (2) (`fixtures-local/failfirst-round5-vitest.txt`). The round-4 sweep, with its narrowed spy, passes there as a pin. So does the "⋯ row, then the screen keeps its keys" case.
+
+**Gate** (the round-4 gate; `TMPDIR=<worktree>/fixtures-local/tmp`; pytest under `flock /tmp/learnloop-fullsuite.lock`).
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` · `uv pip install pypdfium2` · `uv run lint-imports --no-cache` | ok · 28 kept, 0 broken |
+| `uv run pytest -n auto`, the round-2 89 files | **1946 passed** (5 min 32 s; no Python changed) |
+| `uv run pytest --durable-sqlite`, the 3 F6 files | **20 passed** |
+| `npm run typecheck` · `npm run frontend:build` | clean · built |
+| `npx vitest run --maxWorkers=6`: round 4's 99 files, the new test file, and every test that imports a module changed this round or a module that imports one (two levels; 127 files) | **127 files, 1016 passed**, no unhandled errors, no snapshot written |
+| `db_validate_reference.py` (under `env -i`, with fresh empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR` folders, still empty afterwards) | **0 errors** (no Python changed) |
+
+**Rule notes.** One `python3 --version` ran outside `env -i` in this round: a stray check appended to a shell command, with its output discarded. It imported nothing, read no file, vault or credential, and touched no network. The rule covers version checks too, so it is recorded here. The one Python run outside pytest that the gate needed (the reference validation) ran under `env -i`. No `git stash`, no model call, no network, no vault opened, no process killed.
