@@ -600,8 +600,19 @@ export function App() {
       rememberTool(tool);
     }
   }, [simple, hasSnapshot, tab, uthToolState]);
+  // The book open in the Reader, per library. Closing it (back to the shelf)
+  // forgets it, so the next start does not reopen a book the learner put
+  // down (fix round 5); a library switch does not count as closing.
+  const rememberedBookRef = useRef<string | null>(null);
   useEffect(() => {
-    if (simple && vaultRoot && readerSource) rememberBook(vaultRoot, readerSource.card.sourceId);
+    if (!simple || !vaultRoot) return;
+    if (readerSource) {
+      rememberBook(vaultRoot, readerSource.card.sourceId);
+      rememberedBookRef.current = vaultRoot;
+    } else if (rememberedBookRef.current === vaultRoot) {
+      rememberBook(vaultRoot, null);
+      rememberedBookRef.current = null;
+    }
   }, [simple, vaultRoot, readerSource]);
 
   // Record every activated vault (startup load, chip switches, NewVaultWizard —

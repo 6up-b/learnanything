@@ -82,6 +82,18 @@ export const STAGE_CHANGES: Record<string, Behaviour[]> = {
       reason: "classic is the default and falls through to base's frame"
     },
     {
+      behaviour: "the simple frame body takes the focus after a pointer activation (tabIndex -1)",
+      kind: "simple-only",
+      evidence: [/<main className="frame-body" tabIndex=\{-1\} style=\{\{ outline: "none" \}\}>/],
+      reason: "only the simple branch of TerminalFrame renders it; classic's main is base's"
+    },
+    {
+      behaviour: "the titlebar is a key scope of its own",
+      kind: "simple-only",
+      evidence: [/<div className="titlebar" data-tauri-drag-region \{\.\.\.keyScope\("window"\)\}>/],
+      reason: "keyScope renders nothing in classic (app/keyScope.ts)"
+    },
+    {
       behaviour: 'TopTab gains "underhood"',
       kind: "shared",
       evidence: [/\| "errors" \| "settings" \| "underhood";/],
@@ -157,10 +169,70 @@ export const STAGE_CHANGES: Record<string, Behaviour[]> = {
   "screens/UnderTheHoodScreen.tsx": [
     { behaviour: "Under the hood (new)", kind: "simple-only", in: APP, evidence: [/if \(simple && placeOfTab\(tab\) === "underhood"\) \{/] }
   ],
+  "components/frameFocus.ts": [
+    {
+      behaviour: "the focus goes to the frame body after a pointer activation (new)",
+      kind: "simple-only",
+      in: "components/ShellNav.tsx",
+      evidence: [/focusFrameBodyAfterPointer\(event\);/],
+      reason: "called only by the simple nav, its ⋯ rows and Under the hood's list"
+    }
+  ],
   "screens/underhood/tools.tsx": [
     { behaviour: "Under the hood's tools (new)", kind: "simple-only", in: APP, evidence: [/if \(simple && placeOfTab\(tab\) === "underhood"\) \{/] }
   ]
 };
+
+/** Fix round 5: files whose whole change against base is the target rule
+ *  (`screenLeavesKey` at the top of each window keydown listener, false in
+ *  classic) and, for some, a `keyScope` part (nothing in classic) and their
+ *  imports. Checked line by line against base below, so nothing else can hide
+ *  in them. */
+export const TARGET_RULE_FILES = [
+  "components/AddSource.tsx",
+  "components/AskOverlay.tsx",
+  "components/CommandOverlayFrame.tsx",
+  "components/ConnectAI.tsx",
+  "components/DialogueProbe.tsx",
+  "components/FacetInspector.tsx",
+  "components/InspectorOverlay.tsx",
+  "components/NewVaultWizard.tsx",
+  "components/OpenInSource.tsx",
+  "components/PdfReaderPane.tsx",
+  "components/pdfSelection/usePdfSelection.ts",
+  "components/QuickAddDialog.tsx",
+  "components/SessionFinishHud.tsx",
+  "components/SourceLibrarySidebar.tsx",
+  "components/StudyMapBriefWizard.tsx",
+  "components/WriteCardDialog.tsx",
+  "screens/CalibrationScreen.tsx",
+  "screens/DiagnosticReviewScreen.tsx",
+  "screens/ExamScreen.tsx",
+  "screens/GoldenPathScreen.tsx",
+  "screens/GraphScreen.tsx",
+  "screens/IngestScreen.tsx",
+  "screens/PracticeScreen.tsx",
+  "screens/reader/bareAlt.ts",
+  "screens/reader/LibraryPane.tsx",
+  "screens/reader/useIntentBox.ts",
+  "screens/reader/useReaderCues.ts",
+  "screens/reader/useReaderInquiry.ts",
+  "screens/reader/useReaderRecap.ts",
+  "screens/reader/useReadingProgress.ts",
+  "screens/reader/WrapUpOffer.tsx",
+  "screens/reader/WrapUpPanel.tsx",
+  "screens/reader/YouTubeWatchPanel.tsx",
+  "screens/RepairScreen.tsx",
+  "screens/ReviewScreen.tsx",
+  "screens/StartScreen.tsx",
+  "screens/today/DailyPlanView.tsx"
+];
+
+const ALLOWED_ADDED = [
+  /^import \{ (?:screenLeavesKey|keyScope) \} from "(?:\.\.\/)+app\/(?:keymap|keyScope)";$/,
+  /^\s*if \(screenLeavesKey\(\w+(?:, \{[^}]*\})?\)\) return;$/
+];
+const KEY_SCOPE_SPREAD = / \{\.\.\.keyScope\("[a-z-]+"\)\}/;
 
 function read(path: string): string {
   return readFileSync(join(SRC, path), "utf8");
@@ -201,7 +273,7 @@ describe("classic is base by construction", () => {
       .split("\n")
       .filter((line) => line && !/\.test\.tsx?$/.test(line) && !line.includes("__snapshots__"))
       .map((line) => line.slice(LOCAL_PREFIX.length));
-    expect([...new Set(changed)].sort()).toEqual(Object.keys(STAGE_CHANGES).sort());
+    expect([...new Set(changed)].sort()).toEqual([...Object.keys(STAGE_CHANGES), ...TARGET_RULE_FILES].sort());
   });
 
   it("runs base's code in each classic branch, unchanged", () => {
@@ -212,6 +284,23 @@ describe("classic is base by construction", () => {
           expect(read(file).includes(snippet), `${file} still has: ${snippet}`).toBe(true);
           expect(baseFile(file).includes(snippet), `base ${file} has: ${snippet}`).toBe(true);
         }
+      }
+    }
+  });
+
+  it("changes nothing but the target rule and key scopes in the round-5 guard files", () => {
+    if (!baseReachable) return;
+    for (const file of TARGET_RULE_FILES) {
+      const diff = git(`diff -U0 ${BASE} -- ${LOCAL_PREFIX}${file}`) ?? "";
+      const removed = diff.split("\n").filter((line) => line.startsWith("-") && !line.startsWith("---")).map((line) => line.slice(1));
+      const added = diff.split("\n").filter((line) => line.startsWith("+") && !line.startsWith("+++")).map((line) => line.slice(1));
+      expect(added.length, `${file} changed`).toBeGreaterThan(0);
+      for (const line of added) {
+        const allowed = ALLOWED_ADDED.some((pattern) => pattern.test(line)) || (KEY_SCOPE_SPREAD.test(line) && removed.includes(line.replace(KEY_SCOPE_SPREAD, "")));
+        expect(allowed, `${file}: an added line that is not the target rule or a key scope: ${line}`).toBe(true);
+      }
+      for (const line of removed) {
+        expect(added.some((candidate) => candidate.replace(KEY_SCOPE_SPREAD, "") === line), `${file}: a removed line: ${line}`).toBe(true);
       }
     }
   });

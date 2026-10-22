@@ -13,7 +13,7 @@ export function KeyboardHelp({ shell, onClose }: { shell: ShellMode; onClose: ()
   const rows = shellBindings(shell);
   const classic = shellBindings("classic");
   return (
-    <div className="keys-help-backdrop" onClick={onClose} data-shell-chrome="">
+    <div className="keys-help-backdrop" onClick={onClose} data-shell-chrome="dialog">
       <section
         ref={ref}
         className="keys-help"

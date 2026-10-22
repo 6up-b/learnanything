@@ -17,6 +17,7 @@ import type {
 import { COLOR, Faint, FONT_MONO, Pill, SectionHeader, TermCheckbox, TermSelect } from "./term";
 import { AddToCollectionPanel } from "./AddToCollection";
 import { simpleShell } from "../app/shell";
+import { screenLeavesKey } from "../app/keymap";
 
 // The canonical source-role vocabulary (role_authority.KNOWN_ROLES / §4.2), in
 // the spec's ordering. Authority is finalized on source-set MEMBERSHIP, not here —
@@ -247,6 +248,7 @@ export function OutlinePlanFlow({
   const escCloses = simpleShell();
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      if (screenLeavesKey(e, { modal: true })) return;
       if (e.key !== "Escape") return;
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;

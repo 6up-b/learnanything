@@ -8,6 +8,7 @@
 // child, with the same props it always had: nothing inside them changes.
 import type { ReactNode } from "react";
 import { uthTool, visibleUthTools, type UthToolId } from "../app/shell";
+import { focusFrameBodyAfterPointer } from "../components/frameFocus";
 
 export function UnderTheHoodScreen({
   tool,
@@ -36,7 +37,10 @@ export function UnderTheHoodScreen({
               aria-current={entry.id === tool ? "page" : undefined}
               aria-label={count > 0 ? `${entry.title}, ${count} waiting` : entry.title}
               title={`was ${entry.was}`}
-              onClick={() => onSelectTool(entry.id)}
+              onClick={(event) => {
+                onSelectTool(entry.id);
+                focusFrameBodyAfterPointer(event);
+              }}
             >
               <span className="uth-tool-title">{entry.title}</span>
               {count > 0 ? (

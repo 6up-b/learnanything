@@ -106,6 +106,7 @@ import { exerciseOpenRequest, type ExerciseCandidate, type ReaderWorkbenchExerci
 import type { LibraryExercisesProps } from "./reader/LibraryAnswer";
 import { ReaderWorkingPosture } from "./reader/ReaderWorkingPosture";
 import { WORKBENCH_COPY, problemTitle } from "./workbench/stepModel";
+import { screenLeavesKey } from "../app/keymap";
 import {
   askGroundingSpans,
   clip,
@@ -1133,6 +1134,7 @@ export function ReaderScreen({
   useEffect(() => {
     if (!removed) return;
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.key.toLowerCase() !== "z") return;
       const target = event.target;
       if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;
@@ -1260,6 +1262,7 @@ export function ReaderScreen({
   useEffect(() => {
     if (!libraryCtl.enabled || !render || offline || working) return;
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if (!(event.ctrlKey || event.metaKey) || !event.shiftKey || event.key.toLowerCase() !== "f") return;
       event.preventDefault();
       libraryCtl.close();
@@ -1452,6 +1455,7 @@ export function ReaderScreen({
       setDomBoxes([]);
     };
     const onKeyDown = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if (event.key === "Control" || event.key === "Meta") setDomArmed(true);
       if (event.key === "Escape" && (domBoxesRef.current.length || domDragRef.current)) clearDomBoxes();
     };
@@ -1606,6 +1610,7 @@ export function ReaderScreen({
   useEffect(() => {
     if (!tagMenu) return;
     const handler = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if (event.key === "Escape") setTagMenu(null);
     };
     window.addEventListener("keydown", handler, true);
@@ -1651,6 +1656,7 @@ export function ReaderScreen({
   useEffect(() => {
     if (!inquiry || !render) return;
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if (event.altKey || event.ctrlKey || event.metaKey) return;
       const target = event.target;
       if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;

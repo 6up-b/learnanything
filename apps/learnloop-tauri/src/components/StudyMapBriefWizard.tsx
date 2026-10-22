@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import type { StartingLevel, StudyMapBriefDto } from "../api/dto";
 import { COLOR, Faint, FONT_MONO } from "./term";
+import { screenLeavesKey } from "../app/keymap";
 
 export const STARTING_LEVELS: { id: StartingLevel; label: string }[] = [
   { id: "new_to_this", label: "new to this" },
@@ -99,6 +100,7 @@ export function StudyMapBriefWizard({
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (screenLeavesKey(e, { modal: true })) return;
       if (e.key === "Escape") {
         onClose();
         return;

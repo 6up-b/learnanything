@@ -191,14 +191,19 @@ function screenApis() {
   return { startSession, planLearnerPick, openQueueItem };
 }
 
-/** A window and a document listener that must never see a key pressed on
- *  the control under test (`watch`), marked or not. */
+/** A window and a document listener that must never see a key the control
+ *  under test (`watch`) consumes, marked or not. */
 function screenListenersSpy() {
   const seen: string[] = [];
   let watched: HTMLElement | null = null;
   const record = (event: Event) => {
     const target = event.target as HTMLElement | null;
-    if (target && watched && (target === watched || watched.contains(target))) seen.push(`${event.type} ${(event as KeyboardEvent).key} on ${target.textContent?.trim().slice(0, 24)}`);
+    // Fix round 5: the chrome keeps the keys a control consumes (Enter and
+    // Space on a button; every plain key in a menu or dialog). Others go on,
+    // and the screens' target rule leaves them (the forbidden checks).
+    const key = (event as KeyboardEvent).key;
+    const consumed = key === "Enter" || key === " " || Boolean(target?.closest?.('[data-shell-chrome="dialog"], [role="menu"]'));
+    if (consumed && target && watched && (target === watched || watched.contains(target))) seen.push(`${event.type} ${(event as KeyboardEvent).key} on ${target.textContent?.trim().slice(0, 24)}`);
   };
   for (const type of ["keydown", "keyup", "keypress"]) {
     window.addEventListener(type, record);

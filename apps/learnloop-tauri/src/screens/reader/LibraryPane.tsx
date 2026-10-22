@@ -9,6 +9,7 @@ import { COLOR, FONT_MONO } from "../../components/term";
 import { MIN_WORKBENCH_WIDTH, SPLIT_STEP, clampSplitWidth } from "../workbench/splitWidth";
 import { LibraryAnswer, type LibraryExercisesProps } from "./LibraryAnswer";
 import { LIBRARY_COPY, type LibraryAskController } from "./useLibraryAsk";
+import { screenLeavesKey } from "../../app/keymap";
 
 const WIDTH_KEY = "ll.library.splitWidth";
 
@@ -59,6 +60,7 @@ export function LibraryPane({
   }, [composing]);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event)) return;
       if (event.key !== "Escape" || event.defaultPrevented) return;
       event.preventDefault();
       if (ctl.state?.peek) ctl.closePeek();

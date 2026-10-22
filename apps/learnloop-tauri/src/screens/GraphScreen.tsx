@@ -29,6 +29,7 @@ import { EdgePopover, RelationPicker } from "../components/graphedit/EditPopover
 import { PendingStrip } from "../components/graphedit/PendingStrip";
 import { GeometryPreview } from "../components/graphedit/GeometryPreview";
 import { SyllabusColumn, type ReorderPrompt } from "../components/graphedit/SyllabusColumn";
+import { screenLeavesKey } from "../app/keymap";
 
 const NODE_W = 200;
 const NODE_H = 36;
@@ -367,6 +368,7 @@ export function GraphScreen({ onInspect, onError }: { onInspect: (id: string) =>
   useEffect(() => {
     if (view !== "map") return;
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event)) return;
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea") return;
       if (event.key !== "Tab" || order.length === 0) return;
@@ -383,6 +385,7 @@ export function GraphScreen({ onInspect, onError }: { onInspect: (id: string) =>
   useEffect(() => {
     if (!editMode) return;
     const onEsc = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event)) return;
       if (event.key !== "Escape") return;
       if (armedSource || relationPicker || edgePopover) {
         event.preventDefault();

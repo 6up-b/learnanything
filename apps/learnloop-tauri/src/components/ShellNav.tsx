@@ -12,6 +12,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { listRecentVaults, samePath, vaultName, vaultNameWithParent } from "../app/recentVaults";
 import { PLACES, type Place } from "../app/shell";
+import { focusFrameBodyAfterPointer } from "./frameFocus";
 
 export interface SimpleNavProps {
   /** The place on screen; "underhood" lights ⋯. */
@@ -56,7 +57,10 @@ export function SimpleNav({
             className={current ? "active" : ""}
             aria-current={current ? "page" : undefined}
             title={`${place.label} (Alt+${place.key})`}
-            onClick={() => onPlace(place.id)}
+            onClick={(event) => {
+              onPlace(place.id);
+              focusFrameBodyAfterPointer(event);
+            }}
           >
             {place.label}
           </button>
@@ -133,9 +137,10 @@ function MoreMenu({
     return () => document.removeEventListener("mousedown", onDocMouseDown, true);
   }, [open]);
 
-  const choose = (action: () => void) => {
+  const choose = (action: () => void, event: { detail: number }) => {
     setOpen(false);
     action();
+    focusFrameBodyAfterPointer(event);
   };
 
   const openAnother = async () => {
@@ -173,12 +178,12 @@ function MoreMenu({
       </button>
       {open ? (
         <div className="vault-menu more-menu" role="menu">
-          <button type="button" role="menuitem" onClick={() => choose(onSettings)}>
+          <button type="button" role="menuitem" onClick={(event) => choose(onSettings, event)}>
             {/* No <span>: the nav's ".top-nav button span" rule (the classic key
                 hints) would shrink and dim it. */}
             Settings <kbd>Ctrl+,</kbd>
           </button>
-          <button type="button" role="menuitem" className={underTheHood ? "active" : ""} onClick={() => choose(onUnderTheHood)}>
+          <button type="button" role="menuitem" className={underTheHood ? "active" : ""} onClick={(event) => choose(onUnderTheHood, event)}>
             Under the hood
           </button>
           <div className="more-menu-label" role="presentation">
@@ -194,9 +199,9 @@ function MoreMenu({
                 title={path}
                 className={current ? "active more-menu-library" : "more-menu-library"}
                 aria-current={current ? "true" : undefined}
-                onClick={() => choose(() => {
+                onClick={(event) => choose(() => {
                   if (!current) onSelectVault(path);
-                })}
+                }, event)}
               >
                 {labelFor(path)}
               </button>
@@ -206,11 +211,11 @@ function MoreMenu({
             Open another library…
           </button>
           {onNewLibrary ? (
-            <button type="button" role="menuitem" className="more-menu-library" onClick={() => choose(onNewLibrary)}>
+            <button type="button" role="menuitem" className="more-menu-library" onClick={(event) => choose(onNewLibrary, event)}>
               New library…
             </button>
           ) : null}
-          <button type="button" role="menuitem" className="more-menu-sep" onClick={() => choose(onKeyboardHelp)}>
+          <button type="button" role="menuitem" className="more-menu-sep" onClick={(event) => choose(onKeyboardHelp, event)}>
             Keyboard & help
           </button>
         </div>

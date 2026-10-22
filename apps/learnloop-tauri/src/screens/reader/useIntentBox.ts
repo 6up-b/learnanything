@@ -22,6 +22,7 @@ import { api } from "../../api/client";
 import type { ReaderIntentActionDto, ReaderIntentContractDto, ReaderIntentRoutingDto } from "../../api/dto";
 import { paletteActions, visiblePalette } from "./intentPalette";
 import { phaseForError, type ModelActionPhase } from "./ModelActionState";
+import { screenLeavesKey } from "../../app/keymap";
 
 /** How long after mouse-up the box appears, so a drag never flickers it. */
 export const SHOW_AFTER_MS = 150;
@@ -334,6 +335,7 @@ export function useIntentBox(args: UseIntentBoxArgs) {
   useEffect(() => {
     if (!enabled || !(open || armed)) return;
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       const input = inputRef.current;
       const inBox = input !== null && event.target === input;
       // The palette's own buttons: arrows move between them, Enter and Space

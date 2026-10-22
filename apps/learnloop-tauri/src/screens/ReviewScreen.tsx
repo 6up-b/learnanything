@@ -17,6 +17,7 @@ import { ClaimSurface, mintVisitId } from "../components/ClaimSurface";
 import { CommandOverlayFrame } from "../components/CommandOverlayFrame";
 import { FacetEvidenceDrawer } from "../components/KnowledgeModel";
 import { COLOR, Dim, Faint, FONT_MONO, Pill } from "../components/term";
+import { screenLeavesKey } from "../app/keymap";
 
 const shortFacet = (facetId: string): string => facetId.replace(/^facet_/, "");
 
@@ -460,6 +461,7 @@ export function ReviewScreen({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { modal: true })) return;
       if (event.key !== "Escape") return;
       event.preventDefault();
       if (inspectorOpen) {

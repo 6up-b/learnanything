@@ -41,12 +41,32 @@ export function inShellChrome(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest(`[${SHELL_CHROME_ATTRIBUTE}]`) !== null;
 }
 
+/** Fix round 5: the chrome keeps only the keys the focused control itself
+ *  consumes. A plain control (a place, + Add, ^K, ⋯, a notice's buttons, an
+ *  Under-the-hood tool) consumes Enter and Space, its activation. An open
+ *  menu, the palette and Keyboard & help (parts marked "dialog") consume
+ *  every plain key: Esc, the arrows and typing. Every other key goes on, and
+ *  the screens' own target rule (`screenLeavesKey`) leaves a key aimed at a
+ *  control that is not theirs. */
+function consumedHere(event: ReactKeyboardEvent<HTMLElement>): boolean {
+  const target = event.target as Element;
+  if (target.closest(`[${SHELL_CHROME_ATTRIBUTE}="dialog"], [role="menu"]`)) return true;
+  return (event.key === "Enter" || event.key === " ") && target.closest('button, a[href], [role="button"], [role="menuitem"]') !== null;
+}
+
+const MODIFIER_KEYS: ReadonlySet<string> = new Set(["Control", "Meta", "Alt", "Shift"]);
+
 function isolate(event: ReactKeyboardEvent<HTMLElement>): void {
   if (!inShellChrome(event.target)) return;
   if (event.ctrlKey || event.metaKey || event.altKey) return;
+  // A modifier's own release goes on, so listeners that track a held
+  // modifier (the PDF marquee's Ctrl, the Reader's bare Alt) see it end.
+  if (MODIFIER_KEYS.has(event.key)) return;
   if (event.type === "keydown" && matchShellKey(event.nativeEvent, "simple", false)) return;
+  if (!consumedHere(event)) return;
   event.stopPropagation();
 }
+
 
 export function ShellChromeRoot({ children }: { children: ReactNode }) {
   return (

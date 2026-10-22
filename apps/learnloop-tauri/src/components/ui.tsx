@@ -3,6 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { listRecentVaults, samePath, vaultName, vaultNameWithParent } from "../app/recentVaults";
 import { SimpleNav, type SimpleNavProps } from "./ShellNav";
+import { keyScope } from "../app/keyScope";
 
 // Visibility gate, not a removal. The Golden Path run flow is structurally
 // broken end to end — the measuring stage has no workspace, triage fabricates a
@@ -57,7 +58,7 @@ export function Titlebar() {
   }, [appWindow]);
 
   return (
-    <div className="titlebar" data-tauri-drag-region>
+    <div className="titlebar" data-tauri-drag-region {...keyScope("window")}>
       <span className="titlebar-brand" data-tauri-drag-region>LearnLoop</span>
       <div className="window-controls">
         <button className="win-btn" type="button" aria-label="Minimize" onClick={() => appWindow?.minimize()}>
@@ -276,7 +277,11 @@ export function TerminalFrame({
         <div className="terminal-frame">
           <Titlebar />
           <SimpleNav {...simpleNav} vaultRoot={vaultRoot} onSelectVault={onSelectVault} onAdd={onAdd} />
-          <main className="frame-body">{children}</main>
+          {/* tabIndex -1: where a pointer activation of a place, a tool or a ⋯
+              row leaves the focus (fix round 5, components/frameFocus.ts). */}
+          <main className="frame-body" tabIndex={-1} style={{ outline: "none" }}>
+            {children}
+          </main>
         </div>
       </div>
     );

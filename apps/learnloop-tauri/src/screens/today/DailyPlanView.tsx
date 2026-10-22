@@ -9,6 +9,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import type { DailyPlanDto, PlanBlockDto, PlanLane, TodayHeadlineDto } from "../../api/dto";
 import { COLOR, FONT_MONO, KeyBar } from "../../components/term";
 import { aboutMinutes, minutesPerDay, waitingLine, waitingMinutes, wholeMinutes } from "../../app/dailyPlan";
+import { screenLeavesKey } from "../../app/keymap";
 
 const LANE_COLOR: Record<PlanLane, string> = {
   repair: COLOR.red,
@@ -199,6 +200,7 @@ export function DailyPlanView({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event)) return;
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea" || event.defaultPrevented || busy) return;
       if (event.key === "Enter") {

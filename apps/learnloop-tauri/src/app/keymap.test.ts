@@ -178,10 +178,11 @@ it("lists every screen binding of a shell chord as a scoped override", () => {
 // Ctrl+,) must either call `screenLeavesKey(event)` or check the modifiers
 // where it takes that key.
 
-function handlerBody(source: string, name: string): string | null {
+/** The handler named `name` defined last before `before` (the addEventListener call). */
+function handlerBody(source: string, name: string, before = source.length): string | null {
   const pattern = new RegExp(`(?:const|function)\\s+${name}\\b[^{]*?\\{`, "g");
   let last: RegExpExecArray | null = null;
-  for (let match = pattern.exec(source); match; match = pattern.exec(source)) last = match;
+  for (let match = pattern.exec(source); match && match.index < before; match = pattern.exec(source)) last = match;
   if (!last) return null;
   let index = last.index + last[0].length;
   let depth = 1;
@@ -232,7 +233,7 @@ function windowListenersIgnoringModifiers(files: Array<{ file: string; source: s
         found.push(`${file}: an inline keydown listener (name it so this scan can read it)`);
         continue;
       }
-      const body = handlerBody(source, name);
+      const body = handlerBody(source, name, match.index);
       if (body === null) {
         found.push(`${file}: ${name} (handler not found)`);
         continue;
@@ -290,6 +291,78 @@ describe("screenLeavesKey", () => {
       expect(screenLeavesKey(event({ key: "2", altKey: true }))).toBe(false);
       expect(screenLeavesKey(event({ key: "k", ctrlKey: true }, true))).toBe(false);
     } finally {
+      setAlgoConfig({});
+    }
+  });
+});
+
+// ── Fix round 5: the global-listener target rule, on every listener ─────
+// Every window or document keydown listener outside the shell's own files
+// calls `screenLeavesKey` first, so in the simple shell none acts on a key
+// aimed at an interactive element it does not own (Enter on the wrap-up
+// line began a session on Start), and none takes a shell chord.
+it("requires screenLeavesKey in every window and document keydown listener", () => {
+  const missing: string[] = [];
+  let listeners = 0;
+  for (const file of sourceFiles(SRC)) {
+    if (SHELL_FILES.has(file)) continue;
+    const source = readFileSync(join(SRC, file), "utf8");
+    for (const match of source.matchAll(/(?:window|document)\.addEventListener\(\s*"keydown"\s*,\s*([^,)]+)/g)) {
+      listeners += 1;
+      const name = match[1].trim();
+      const body = /^\w+$/.test(name) ? handlerBody(source, name, match.index) : null;
+      if (body === null) missing.push(`${file}: ${name} (name the handler so this scan can read it)`);
+      else if (!/screenLeavesKey\(/.test(body)) missing.push(`${file}: ${name}`);
+    }
+  }
+  expect(listeners).toBeGreaterThan(40);
+  expect(missing).toEqual([]);
+});
+
+describe("screenLeavesKey's target rule (fix round 5)", () => {
+  function keyOn(element: Element, init: KeyboardEventInit = { key: "Enter" }): KeyboardEvent {
+    const event = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init });
+    Object.defineProperty(event, "target", { value: element });
+    return event;
+  }
+
+  function frame(html: string): HTMLElement {
+    const root = document.createElement("div");
+    root.innerHTML = `<nav data-shell-chrome=""><button id="place">Today</button></nav><main class="frame-body"><div id="screen"><button id="own">begin</button><span id="text">text</span></div><div data-key-scope="wrap-up"><button id="wrap">wrap-up</button></div></main><div data-key-scope="window"><button id="outside">x</button></div>${html}`;
+    document.body.appendChild(root);
+    return root;
+  }
+
+  it("leaves keys aimed at controls the screen does not own, and keeps its own", () => {
+    setAlgoConfig({});
+    const root = frame("");
+    try {
+      const get = (id: string) => root.querySelector(`#${id}`)!;
+      expect(screenLeavesKey(keyOn(get("own")))).toBe(false);
+      expect(screenLeavesKey(keyOn(get("text")))).toBe(false);
+      expect(screenLeavesKey(keyOn(get("wrap")))).toBe(true);
+      expect(screenLeavesKey(keyOn(get("place")))).toBe(true);
+      expect(screenLeavesKey(keyOn(get("outside")))).toBe(true);
+      // A scoped part owns its own controls, and may own the screen's too.
+      expect(screenLeavesKey(keyOn(get("wrap")), { scopes: ["wrap-up", "screen"] })).toBe(false);
+      expect(screenLeavesKey(keyOn(get("own")), { scopes: ["wrap-up", "screen"] })).toBe(false);
+      // A modal overlay owns the keyboard while it is open.
+      expect(screenLeavesKey(keyOn(get("place")), { modal: true })).toBe(false);
+      // A listener with its own chords keeps them.
+      expect(screenLeavesKey(keyOn(get("own"), { key: "f", ctrlKey: true }), { ownChords: true })).toBe(false);
+    } finally {
+      root.remove();
+    }
+  });
+
+  it("is base in classic: nothing is left", () => {
+    setAlgoConfig({ ui: { shell: "classic" } });
+    const root = frame("");
+    try {
+      expect(screenLeavesKey(keyOn(root.querySelector("#wrap")!))).toBe(false);
+      expect(screenLeavesKey(keyOn(root.querySelector("#place")!))).toBe(false);
+    } finally {
+      root.remove();
       setAlgoConfig({});
     }
   });

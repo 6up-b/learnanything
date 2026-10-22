@@ -3,6 +3,7 @@ import type { SessionEndSummary } from "../api/dto";
 import { simplePracticeFeedback } from "../app/practiceFeedback";
 import { PrimaryAction, quietLine } from "./PlainParts";
 import { COLOR } from "./term";
+import { screenLeavesKey } from "../app/keymap";
 
 // Full-screen "session complete" overlay rendered as ASCII/unicode art, in
 // LearnLoop's terminal/CLI language. The whole HUD — concentric rings, a
@@ -94,6 +95,7 @@ function SessionFinishCard({ summary, onDismiss }: { summary: SessionEndSummary;
   // beneath stays usable (it is a card, not a modal).
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { modal: true })) return;
       if (event.key !== "Enter" && event.key !== "Escape") return;
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea") return;
@@ -185,6 +187,7 @@ function ClassicSessionFinishHud({
   useEffect(() => {
     if (!active) return;
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { modal: true })) return;
       event.preventDefault();
       event.stopPropagation();
       requestClose();

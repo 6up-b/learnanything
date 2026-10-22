@@ -8,6 +8,7 @@ import { api } from "../api/client";
 import type { CommandError } from "../api/dto";
 import { COLOR, Faint, FONT_MONO, Pill, TermSelect } from "./term";
 import { CapturePhoto } from "./CapturePhoto";
+import { screenLeavesKey } from "../app/keymap";
 
 const PRACTICE_MODES = [
   { value: "short_answer", label: "short answer" },
@@ -71,6 +72,7 @@ export function WriteCardDialog({
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (screenLeavesKey(e, { modal: true })) return;
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", handler, true);

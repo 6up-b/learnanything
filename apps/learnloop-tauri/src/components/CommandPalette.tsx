@@ -1034,7 +1034,7 @@ function SimpleCommandPalette({
     // One layout for both modes, so the input keeps its focus when ">" is typed.
     const query = line.trim();
     return (
-      <div className="cli-backdrop" onMouseDown={onClose} data-shell-chrome="">
+      <div className="cli-backdrop" onMouseDown={onClose} data-shell-chrome="dialog">
         <div className="cli-shell" onMouseDown={(event) => event.stopPropagation()}>
           <div className="cli-titlebar">
             <span className="cli-title">{cliMode ? <>learnloop <span className="cli-accent">shell</span></> : "Commands"}</span>
@@ -1091,7 +1091,7 @@ function SimpleCommandPalette({
   }
 
   return (
-    <div className="cli-backdrop" onMouseDown={onClose} data-shell-chrome="">
+    <div className="cli-backdrop" onMouseDown={onClose} data-shell-chrome="dialog">
       <div className="cli-shell" onMouseDown={(event) => event.stopPropagation()}>
         <div className="cli-titlebar">
           <span className="cli-title">

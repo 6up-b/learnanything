@@ -1,5 +1,6 @@
 import { useEffect, useRef, type CSSProperties, type KeyboardEventHandler, type ReactNode } from "react";
 import { COLOR, Faint, FONT_MONO } from "./term";
+import { keyScope } from "../app/keyScope";
 
 export const learnloopShowOverlayWidth = "min(1120px, 100%)";
 
@@ -51,7 +52,7 @@ export function CommandOverlayFrame({
   }, [focusOnMount]);
 
   return (
-    <div style={{ ...commandOverlayBackdropStyle, zIndex }} onClick={onClose}>
+    <div style={{ ...commandOverlayBackdropStyle, zIndex }} onClick={onClose} {...keyScope("overlay")}>
       <section
         ref={modalRef}
         role="dialog"

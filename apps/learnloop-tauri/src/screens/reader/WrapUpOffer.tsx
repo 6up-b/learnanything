@@ -12,6 +12,7 @@ import type { ReaderWrapUpActionDto, ReaderWrapUpDto, ReaderWrapUpInquiryLineDto
 import { algoConfig } from "../../app/algoConfig";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { errorMessage } from "../../errors";
+import { keyScope } from "../../app/keyScope";
 import { RECAP_COPY } from "./recapCopy";
 import { WrapUpPanel } from "./WrapUpPanel";
 
@@ -82,13 +83,13 @@ export function WrapUpOffer({ armed, onError }: WrapUpOfferProps) {
   if (!on || !offer || closed) return null;
   if (panel) {
     return (
-      <div style={{ padding: "8px 16px 0" }}>
+      <div style={{ padding: "8px 16px 0" }} {...keyScope("wrap-up")}>
         <WrapUpPanel wrapUp={panel} where="destination" onAction={act} onClose={close} />
       </div>
     );
   }
   return (
-    <div style={{ padding: "6px 16px 0" }}>
+    <div style={{ padding: "6px 16px 0" }} {...keyScope("wrap-up")}>
       <button
         type="button"
         onClick={() => void open()}

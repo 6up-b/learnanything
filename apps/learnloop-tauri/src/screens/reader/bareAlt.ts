@@ -7,6 +7,7 @@
 // else (a key, a pointer press, the window losing focus) happened while Alt
 // was held.
 import { useEffect, useRef } from "react";
+import { screenLeavesKey } from "../../app/keymap";
 
 function editable(target: EventTarget | null): boolean {
   return (
@@ -22,6 +23,7 @@ export function useBareAltClear(onClear: () => void): void {
     // null: Alt is up. Otherwise whether the press may still clear.
     let pending: boolean | null = null;
     const onKeyDown = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if (event.key === "Alt") {
         if (event.repeat) return;
         pending = !editable(event.target);

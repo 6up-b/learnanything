@@ -157,11 +157,79 @@ export const SCOPED_OVERRIDES: ReadonlyArray<{ file: string; keys: string; where
  *  make the shell skip the chord altogether. The check here works in any
  *  order; `keymap.test.ts` scans for window listeners that take a shell
  *  chord's key and ignore modifiers. Stopping the event would also hide it
- *  from listeners that only watch the modifier state. */
-export function screenLeavesKey(event: KeyboardEvent): boolean {
-  if (algoConfig().shell === "classic") return false;
-  return event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey;
+ *  from listeners that only watch the modifier state.
+ *
+ *  Fix round 5 (the orchestrator's global-listener target rule): a screen's
+ *  window-level shortcut also leaves a key aimed at an interactive element
+ *  it does not own (a button, a link, a field, an editable, a control role).
+ *  The control consumes that key itself: Enter on the wrap-up line opens the
+ *  wrap-up, and it must not also begin a session on Start. A screen's
+ *  listener owns the screen's own controls: every control outside
+ *  the shell's chrome and outside any part that carries a `data-key-scope` of
+ *  its own (app/keyScope.ts; the wrap-up line on Start and Today is one,
+ *  `controlOwner`). A modal overlay owns the keyboard while it is open
+ *  (`modal`). `keymap.test.ts` requires this call in every window keydown
+ *  listener. */
+
+export function screenLeavesKey(event: KeyboardEvent, options: ScreenKeyOptions = {}): boolean {
+  if (algoConfig().shell === "classic" || options.modal) return false;
+  if (event.defaultPrevented) return true;
+  if (!options.ownChords && (event.ctrlKey || event.metaKey || event.altKey)) return true;
+  return onForeignControl(event.target, options.scopes ?? ["screen"]);
 }
+
+/** What a window-level listener owns (fix round 5). */
+export interface ScreenKeyOptions {
+  /** Whose controls are this listener's own: "screen" (the default) is the
+   *  page apart from the shell's chrome and any part that carries a
+   *  `data-key-scope` of its own (app/keyScope.ts: the wrap-up line on Start
+   *  and Today, the window titlebar, command overlays); a scope name is that
+   *  part. A key aimed at any other interactive element is not the
+   *  listener's. */
+  scopes?: string[];
+  /** The listener binds its own Ctrl/Cmd/Alt chords (Ctrl+F find, Ctrl+S
+   *  save, Ctrl+Enter submit, the Reader's Alt keys) and checks the
+   *  modifiers itself, so the modifier rule does not apply to it. */
+  ownChords?: boolean;
+  /** A modal overlay, popover or dialog: while it is open it owns the
+   *  keyboard, whatever has the focus (its Esc closes it even with the focus
+   *  left on the control that opened it). Its listener keeps base's rules. */
+  modal?: boolean;
+}
+
+/** The elements that consume keys themselves (fix round 5's target rule). */
+export const INTERACTIVE_SELECTOR = [
+  "button",
+  "a[href]",
+  "input",
+  "select",
+  "textarea",
+  '[contenteditable]:not([contenteditable="false"])',
+  '[role="button"]',
+  '[role="link"]',
+  '[role="menuitem"]',
+  '[role="option"]',
+  '[role="tab"]',
+  '[role="checkbox"]',
+  '[role="switch"]'
+].join(", ");
+
+/** Who owns an interactive element: the shell's chrome, a scoped part, or
+ *  the screen (everything else). */
+export function controlOwner(control: Element): string {
+  if (control.closest("[data-shell-chrome]")) return "chrome";
+  const scoped = control.closest("[data-key-scope]");
+  return scoped?.getAttribute("data-key-scope") ?? "screen";
+}
+
+function onForeignControl(target: EventTarget | null, scopes: string[]): boolean {
+  if (!(target instanceof Element)) return false;
+  const control = target.closest(INTERACTIVE_SELECTOR);
+  if (!control) return false;
+  return !scopes.includes(controlOwner(control));
+}
+
+
 
 export function matchesChord(chord: Chord, event: KeyboardEvent): boolean {
   if (event.key.toLowerCase() !== chord.key.toLowerCase()) return false;
