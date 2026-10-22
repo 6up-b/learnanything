@@ -500,7 +500,8 @@ def authorized_ledger(copies: Sequence[Path], plan_id: str, *, new_authorization
         if others and not (new_authorization and new_authorization.strip()):
             raise PermissionError("another plan's E0 authorization ledger exists; a different plan needs "
                                   "--new-authorization <reason> from the orchestrator")
-    ledger = E0Ledger(file=path)
+    # The paid run makes no Codex call: its ledger's Codex allowance is zero (re-plan 2026-10-22).
+    ledger = E0Ledger(file=path, max_subscription_requests=pins.PAID_RUN_SUBSCRIPTION_ALLOWANCE)
     ledger.bind_authorization(plan_id, new_authorization.strip() if new_authorization else None)
     return ledger
 

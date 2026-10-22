@@ -162,6 +162,41 @@ def enable_embeddings_on_copy(root: Path) -> None:
     toml.write_text(tomlkit.dumps(document), encoding="utf-8")
 
 
+def route_source_llm_on_copy(root: Path) -> dict[str, str]:
+    """Route a SERVICE copy's production source routes
+    (``pins.SYSTEM_ARM_ROUTES``: source_rerank, source_query_rewrite,
+    source_compare) to the experiment's OpenRouter profile for Claude Haiku
+    5.5 (re-plan 2026-10-22: E0 makes no Codex call), in the copy's
+    ``learnloop.toml`` only (never a tracked vault: the path must be under
+    fixtures-local). The production price settings those metered routes need
+    are set to the pin's output price for the copy's own caps; the E0 ledger
+    admits each request at the pin's VERIFIED price, so while that price is
+    pending every such request is refused (fail closed)."""
+
+    import tomlkit
+
+    root = Path(root)
+    if not _inside_local_root(root):
+        raise ValueError("production routes are re-routed only on copies under fixtures-local")
+    name = "e0_openrouter_haiku"
+    pin = pins.ROLE_PINS["system_verifier"]
+    toml = root / "learnloop.toml"
+    document = tomlkit.parse(toml.read_text(encoding="utf-8"))
+    ai = document.setdefault("ai", tomlkit.table())
+    providers = ai.setdefault("providers", tomlkit.table())
+    profile = tomlkit.table()
+    for key, value in pins.EXPERIMENT_PROFILES[name].items():
+        profile[key] = value
+    providers[name] = profile
+    routing = ai.setdefault("routing", tomlkit.table())
+    for route in pins.SYSTEM_ARM_ROUTES:
+        routing[route] = name
+    document.setdefault("source_retrieval", tomlkit.table())["llm_price_per_million"] = pin.output_price_per_million
+    document.setdefault("source_service", tomlkit.table())["llm_price_per_million"] = pin.output_price_per_million
+    toml.write_text(tomlkit.dumps(document), encoding="utf-8")
+    return {route: name for route in pins.SYSTEM_ARM_ROUTES}
+
+
 # -- policy before encoding -------------------------------------------------------------
 
 
@@ -669,6 +704,8 @@ def _prepare_one(frozen_root: Path, root: Path, name: str, snapshot: CorpusSnaps
     make_service_copy(frozen_root, root)
     if enable:
         enable_embeddings_on_copy(root)
+    # No Codex: the production source routes go to OpenRouter's Haiku (re-plan 2026-10-22).
+    route_source_llm_on_copy(root)
     handle = open_service(root)
     redaction = redact_service_copy(handle, snapshot.policy)
     state[name] = {"status": "ready", "identity": dict(identity), "redaction": redaction}

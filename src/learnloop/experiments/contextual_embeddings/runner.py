@@ -373,9 +373,11 @@ def _by_provider(arms: Sequence[Mapping[str, Any]], systems: Sequence[Mapping[st
         entry["requests"] += int(row["requests"])
         entry["estimated_usd"] = round(entry["estimated_usd"] + float(row["estimated_usd"]), 6)
     for row in systems:
-        entry = found.setdefault("openrouter:qwen/qwen3-embedding-8b (system arms)",
+        entry = found.setdefault(row.get("provider_key") or "openrouter:qwen/qwen3-embedding-8b (system arms)",
                                  {"tokens": 0, "requests": 0, "estimated_usd": 0.0})
-        entry["tokens"] += int(row.get("backfill_tokens") or 0)
+        entry["tokens"] += int(row.get("backfill_tokens") or 0) + int(row.get("input_tokens") or 0) + int(
+            row.get("output_tokens") or 0)
+        entry["requests"] += int(row.get("requests") or 0)
         entry["estimated_usd"] = round(entry["estimated_usd"] + float(row["estimated_usd"]), 6)
     for row in roles:
         entry = found.setdefault(f"{row['transport']}:{row['model']}",
@@ -416,9 +418,17 @@ def render_markdown(plan: Mapping[str, Any]) -> str:
     def count(value: Any) -> str:
         return f"{value:,}" if isinstance(value, int) else "n/a"
 
-    lines += ["", f"**Codex requests:** {count(codex.get('planned'))} planned against the allowance of "
-              f"{count(codex.get('allowance'))} ({'fits' if codex.get('fits') else 'DOES NOT FIT'}; retries and repairs count "
-              "too).",
+    system_llm = [row for row in plan.get("system_arms") or [] if row.get("kind") == "system_llm"]
+    if system_llm:
+        lines += ["", "| System-arm LLM requests | Vault | Model | Requests | Input tokens | Output tokens | Expected $ | Price |",
+                  "|---|---|---|---|---|---|---|---|"]
+        for row in system_llm:
+            lines.append(f"| {row['arm']} | {alias('vault', str(row['vault']))} | {row['model']} | {row['requests']:,} | "
+                         f"{row['input_tokens']:,} | {row['output_tokens']:,} | {row['estimated_usd']:.4f} | "
+                         f"{row['price_status']} |")
+    lines += ["", f"**Codex requests:** {count(codex.get('planned'))} planned; the paid ledger's Codex allowance is "
+              f"{count(codex.get('allowance'))} (E0 makes no Codex call: "
+              f"{'fits' if codex.get('fits') else 'DOES NOT FIT'}).",
               "", "**Unverified prices (admission refuses each; the orchestrator fills `price_verified` from the "
               "providers' price pages):** " + (", ".join(pending) if pending else "none") + "."]
     lines += ["", "Keys: " + ", ".join(f"{name} {state}" for name, state in sorted(plan["keys"].items())),

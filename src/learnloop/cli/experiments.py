@@ -62,6 +62,8 @@ def e0_run(
     perplexity_key_env: Annotated[str, typer.Option("--perplexity-key-env")] = "PERPLEXITY_API_KEY",
     voyage_key_env: Annotated[str, typer.Option("--voyage-key-env")] = "VOYAGE_API_KEY",
     openrouter_key_env: Annotated[str, typer.Option("--openrouter-key-env")] = "OPENROUTER_API_KEY",
+    anthropic_key_env: Annotated[str, typer.Option(
+        "--anthropic-key-env", help="The Messages API key variable (loaded only through --env-file).")] = "ANTHROPIC_API_KEY",
     reserve_share: Annotated[float, typer.Option(
         "--reserve-share", min=0.0, max=1.0, help="Source families reserved before question writing.")] = 0.0,
     out: Annotated[Path | None, typer.Option("--out", help="Write the plan (JSON) here.")] = None,
@@ -81,7 +83,8 @@ def e0_run(
 
     from learnloop.experiments.contextual_embeddings.runner import dry_run as plan_dry_run, render_markdown
 
-    key_envs = {"perplexity": perplexity_key_env, "voyage": voyage_key_env, "openrouter": openrouter_key_env}
+    key_envs = {"perplexity": perplexity_key_env, "voyage": voyage_key_env, "openrouter": openrouter_key_env,
+                "anthropic": anthropic_key_env}
     try:
         from learnloop.experiments.contextual_embeddings.runner import require_paid_authorization
 

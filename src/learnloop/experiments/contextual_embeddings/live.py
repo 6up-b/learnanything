@@ -33,7 +33,7 @@ from typing import Any
 from learnloop.experiments.contextual_embeddings import pins
 from learnloop.experiments.contextual_embeddings.bank import logged_questions
 from learnloop.experiments.contextual_embeddings.budget import E0Ledger
-from learnloop.experiments.contextual_embeddings.callers import Checkpoints, LiveRoleCaller
+from learnloop.experiments.contextual_embeddings.callers import Checkpoints, LiveRoleCaller, canary_models
 from learnloop.experiments.contextual_embeddings.corpus import build_snapshot, open_copy
 from learnloop.experiments.contextual_embeddings.paid import run_paid
 from learnloop.experiments.contextual_embeddings.records import ExperimentRecords
@@ -72,6 +72,8 @@ class LiveFactories:
     #: The backfill client factory for the Qwen service copy (None: ``qwen``).
     backfill: Callable[[], Any] | None = None
     environ: Mapping[str, str] | None = None
+    #: The HTTP transport of the Messages API roles (None: ``adapters.UrllibTransport``).
+    anthropic_transport: Any = None
 
 
 def default_factories() -> LiveFactories:
@@ -144,11 +146,17 @@ def run_live(copies: Sequence[Path], *, plan: Mapping[str, Any], run_dir: Path,
     failure report (Medium 12); a halted ledger (an overage) stops every
     later copy at once (High 2)."""
 
-    from learnloop.experiments.contextual_embeddings.boundary import quiet_provider_logs, require_codex_lockdown
+    from learnloop.experiments.contextual_embeddings.boundary import (
+        quiet_provider_logs,
+        require_codex_lockdown,
+        require_no_codex_roles,
+    )
     from learnloop.experiments.contextual_embeddings.budget import authorized_ledger
 
     # No Codex turn of a paid run outside the locked-down transport (55063be64).
     require_codex_lockdown()
+    # And none of its roles is a Codex route at all (re-plan 2026-10-22).
+    require_no_codex_roles()
     from learnloop.experiments.contextual_embeddings.paid import PaidState, run_contracts
     from learnloop.experiments.contextual_embeddings.adapters import Receipts, VectorStore
 
@@ -160,7 +168,7 @@ def run_live(copies: Sequence[Path], *, plan: Mapping[str, Any], run_dir: Path,
     freeze(run_dir / "frozen", plan, snapshots)
     results: dict[str, Any] = {"run_id": plan["run_id"], "vaults": {}, "status": "complete"}
     provider_keys = {"perplexity": key_envs.get("perplexity"), "voyage": key_envs.get("voyage"),
-                     "openrouter": key_envs.get("openrouter")}
+                     "openrouter": key_envs.get("openrouter"), "anthropic": key_envs.get("anthropic")}
     with quiet_provider_logs():
         for handle, snapshot in zip(handles, snapshots, strict=True):
             from learnloop.experiments.contextual_embeddings.system_arms import prepare_service_copies
@@ -179,7 +187,11 @@ def run_live(copies: Sequence[Path], *, plan: Mapping[str, Any], run_dir: Path,
                 with records.receipts(f"e0:{plan['run_id']}:{handle.label}"):
                     caller = LiveRoleCaller(handle.root, handle.vault.config, ledger,
                                             checkpoints=Checkpoints(vault_dir / "llm"),
-                                            client_factory=factories.role_clients, records=records)
+                                            client_factory=factories.role_clients, records=records,
+                                            key_envs=provider_keys, environ=factories.environ,
+                                            anthropic_transport=factories.anthropic_transport)
+                    # Each pinned model id is checked before any bulk work (re-plan 2026-10-22).
+                    model_canaries = canary_models(caller)
                     logged, _counts = logged_questions(handle, snapshot)
                     qwen_factory_for_copy = factories.qwen(handle.vault.config)
                     canaries = PaidState()
@@ -200,6 +212,7 @@ def run_live(copies: Sequence[Path], *, plan: Mapping[str, Any], run_dir: Path,
                                        system_preparation=preparation, system_clients=factories.system_clients,
                                        latency_budget_s=reader_latency_budget_s, contracts=canaries.contracts)
                 outcome["service_preparation"] = preparation
+                outcome["model_canaries"] = model_canaries
                 outcome["records"] = {"judgments": len(records.judgments()), "receipts": records.receipt_count()}
                 outcome["run_id"] = plan["run_id"]
                 outcome["corpus"] = [snapshot.inventory()]

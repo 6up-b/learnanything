@@ -33,7 +33,7 @@ from learnloop.experiments.contextual_embeddings.budget import E0ProviderFailure
 
 #: Loggers whose records may carry provider text.
 PROVIDER_LOGGERS = ("learnloop.ai", "learnloop.source_retrieval", "openai", "httpx", "httpcore")
-CLASSIFICATIONS = ("auth", "rate_limited", "timeout", "unavailable", "invalid_output", "truncated", "interrupted",
+CLASSIFICATIONS = ("auth", "rate_limited", "timeout", "unavailable", "invalid_output", "truncated", "interrupted", "refusal",
                    "contract", "pin_mismatch", "network", "unknown")
 _SAFE_ID = re.compile(r"[A-Za-z0-9_.:-]{1,80}")
 _SAFE_TEXT = re.compile(r"[A-Za-z0-9 _.,:;()'\"/$%=<>+{}\[\]!?#&*|~-]{0,600}")
@@ -214,3 +214,19 @@ def require_codex_lockdown() -> dict[str, Any]:
     if problems:
         raise CodexLockdownMissing("the Codex tool lockdown is not active: " + "; ".join(problems))
     return {"codex_lockdown": "active", "overrides_checked": len(required)}
+
+
+class CodexRoleRemaining(PermissionError):
+    """An E0 role still bills a subscription (Codex) route: no paid run starts."""
+
+
+def require_no_codex_roles(role_pins: Any = None) -> None:
+    """Re-plan 2026-10-22: E0 makes NO Codex call. Every role pin must be a
+    metered, non-Codex route (the paid ledger's Codex allowance is zero too)."""
+
+    from learnloop.experiments.contextual_embeddings import pins
+
+    remaining = sorted(name for name, pin in (role_pins or pins.ROLE_PINS).items()
+                       if pin.billing == "subscription" or pin.transport == "codex_sdk")
+    if remaining:
+        raise CodexRoleRemaining("E0 roles still on Codex: " + ", ".join(remaining))

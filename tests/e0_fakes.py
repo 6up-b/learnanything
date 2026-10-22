@@ -318,6 +318,11 @@ PROFILE_IDENTITY = {
     "codex_luna": ("codex_sdk", "gpt-6-luna", None),
     "codex_low": ("codex_sdk", "gpt-5.6-sol", None),
     "e0_openrouter_sonnet": ("openrouter", "anthropic/claude-sonnet-5.5", "https://openrouter.ai/api/v1"),
+    "e0_openrouter_haiku": ("openrouter", "anthropic/claude-haiku-5.5", "https://openrouter.ai/api/v1"),
+    # The Messages API roles (re-plan 2026-10-22).
+    "e0_anthropic_haiku": ("anthropic_messages", "claude-haiku-5-5", "https://api.anthropic.com/v1"),
+    "e0_anthropic_sonnet": ("anthropic_messages", "claude-sonnet-5-5", "https://api.anthropic.com/v1"),
+    "e0_anthropic_opus": ("anthropic_messages", "claude-opus-5-5", "https://api.anthropic.com/v1"),
 }
 
 

@@ -31,7 +31,7 @@ import math
 from typing import Any
 
 #: The harness version: part of every run id and artifact key.
-HARNESS_VERSION = "e0-harness-v1"
+HARNESS_VERSION = "e0-harness-v2"
 
 # -- the D1 baseline (spec §1, §11 row 1) --------------------------------------------
 #: The tutor delivery fixes stage, consumed as D1 (merged onto main).
@@ -77,6 +77,10 @@ MAX_PAID_REQUESTS = 6_000
 #: persisted in the canonical ledger and enforced before each request
 #: (orchestrator ruling 2026-10-21, fix round 4: Codex requests stay bounded).
 MAX_SUBSCRIPTION_REQUESTS = 600
+#: The re-plan (2026-10-22) makes NO Codex call at all: the paid run's ledger
+#: is created with a Codex allowance of zero, so any subscription request is
+#: refused before it is sent (fail closed).
+PAID_RUN_SUBSCRIPTION_ALLOWANCE = 0
 
 
 @dataclass(frozen=True)
@@ -313,11 +317,10 @@ class RolePin:
     transport: str
     model: str
     reasoning_effort: str | None
-    #: "subscription" (Codex: no marginal bill, tallied estimated_only) or "metered".
+    #: "metered" for every E0 role (re-plan 2026-10-22: no Codex call at all).
     billing: str
     category: str
-    #: The EXPECTED output (estimates only). Every request is sent and reserved at
-    #: the normal output-budget policy instead (Codex review F2), never this.
+    #: The EXPECTED visible output (estimates only; thinking is estimated apart).
     output_tokens: int
     input_price_per_million: float
     output_price_per_million: float
@@ -325,61 +328,117 @@ class RolePin:
     prompt_version: str
     #: A metered role's price source and check date (empty: unverified, refused).
     price_verified: PriceVerification = UNVERIFIED
+    #: The hard ``max_tokens`` sent with every request (thinking included):
+    #: the reservation's output side. None: the profile's output-budget policy.
+    max_output_tokens: int | None = None
+    #: A long-prompt tier: past ``long_context_threshold`` input tokens the
+    #: request is billed at the long prices; a request whose input UPPER BOUND
+    #: passes it is admitted at them.
+    long_context_threshold: int | None = None
+    long_input_price_per_million: float | None = None
+    long_output_price_per_million: float | None = None
+
+    def prices_for(self, input_tokens: float) -> tuple[float, float]:
+        """``(input, output)`` dollars per million tokens for a request of
+        ``input_tokens`` (the long tier past its threshold)."""
+
+        if (self.long_context_threshold is not None and input_tokens > self.long_context_threshold
+                and self.long_input_price_per_million is not None and self.long_output_price_per_million is not None):
+            return self.long_input_price_per_million, self.long_output_price_per_million
+        return self.input_price_per_million, self.output_price_per_million
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
-#: The verified published Sonnet 5.5 price, exactly (the hard cap comes from the token upper bounds).
-_SONNET = (2.00, 10.00, "OpenRouter: $2 per 1M input, $10 per 1M output (anthropic/claude-sonnet-5.5; matches "
-           "Anthropic's table at https://platform.claude.com/docs/en/about-claude/pricing; orchestrator-verified "
-           "2026-10-21)")
-_SONNET_PRICE = _verified("https://openrouter.ai/anthropic/claude-sonnet-5.5/pricing",
-                          note="matches Anthropic's table at https://platform.claude.com/docs/en/about-claude/pricing")
-_LUNA = (0.0, 0.0, "Codex subscription (owner decision 2026-10-12): no marginal bill, estimated_only")
-_SOL = (0.0, 0.0, "Codex subscription (owner decision 2026-10-12): no marginal bill, estimated_only")
+# -- the Anthropic Messages API (re-plan 2026-10-22, orchestrator ruling) -------------------
+#: E0's LLM roles post directly to the Messages API (one HTTPS POST per admitted
+#: request, no ``tools`` key): tool-free by construction, never ``claude -p``.
+ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages"
+#: The API version header (2026-10-21: sampling parameters are rejected, none is sent).
+ANTHROPIC_VERSION = "2026-10-21"
+ANTHROPIC_KEY_ENV = "ANTHROPIC_API_KEY"
+#: A non-streaming request with a large ``max_tokens`` can take minutes.
+ANTHROPIC_TIMEOUT_S = 600.0
+#: The exact API model ids, pinned. They come from the Claude API reference's
+#: model table (cached 2026-10-06), not from a live call: the paid run's canary
+#: (one tiny request per model, before any bulk work) checks each id is served
+#: and answered as itself, or the run stops.
+ANTHROPIC_MODELS = {"haiku": "claude-haiku-5-5", "sonnet": "claude-sonnet-5-5", "opus": "claude-opus-5-5"}
+#: Every Anthropic role pin's endpoint (``callers.check_pin``).
+ANTHROPIC_PROFILES = {
+    f"e0_anthropic_{family}": {"model": model, "base_url": "https://api.anthropic.com/v1"}
+    for family, model in ANTHROPIC_MODELS.items()
+}
+#: The orchestrator verified these on 2026-10-22 from Anthropic's pricing page.
+ANTHROPIC_PRICE = PriceVerification("https://platform.claude.com/docs/en/about-claude/pricing", "2026-10-22")
+_HAIKU = dict(input_price=0.10, output_price=0.50, long=(100_000, 0.50, 2.50),
+              source="Anthropic: $0.10 input / $0.50 output per 1M tokens up to 100k prompt tokens, $0.50 / $2.50 "
+                     "above (orchestrator-verified 2026-10-22)")
+_SONNET = dict(input_price=2.00, output_price=10.00, long=None,
+               source="Anthropic: $2 input / $10 output per 1M tokens (orchestrator-verified 2026-10-22)")
+_OPUS = dict(input_price=4.00, output_price=20.00, long=None,
+             source="Anthropic: $4 input / $20 output per 1M tokens (orchestrator-verified 2026-10-22)")
+_FAMILY_PRICES = {"haiku": _HAIKU, "sonnet": _SONNET, "opus": _OPUS}
+
+
+def _anthropic(role: str, family: str, category: str, expected_output: int, max_output: int,
+               prompt_version: str) -> RolePin:
+    price = _FAMILY_PRICES[family]
+    long = price["long"]
+    return RolePin(role, f"e0_anthropic_{family}", "anthropic_api", ANTHROPIC_MODELS[family], None, "metered",
+                   category, expected_output, price["input_price"], price["output_price"], price["source"],
+                   prompt_version, price_verified=ANTHROPIC_PRICE, max_output_tokens=max_output,
+                   long_context_threshold=long[0] if long else None,
+                   long_input_price_per_million=long[1] if long else None,
+                   long_output_price_per_million=long[2] if long else None)
+
 
 ROLE_PINS: dict[str, RolePin] = {
-    # Strong writer (spec §5.1, D10): GPT-6 Luna through Codex.
-    "writer": RolePin("writer", "codex_luna", "codex_sdk", "gpt-6-luna", "low", "subscription",
-                      "drafting_context", 4_000, _LUNA[0], _LUNA[1], _LUNA[2], "e0-writer-v1"),
+    # Strong writer (spec §5.1: Sonnet 5.5 or GPT-6 Luna): Claude Sonnet 5.5.
+    "writer": _anthropic("writer", "sonnet", "drafting_context", 4_000, 16_384, "e0-writer-v1"),
     # R3's 50-100-token chunk context, generated once without benchmark queries.
-    "context": RolePin("context", "codex_luna", "codex_sdk", "gpt-6-luna", "low", "subscription",
-                       "drafting_context", 4_000, _LUNA[0], _LUNA[1], _LUNA[2], "e0-context-v1"),
-    # Two independent label passes, different models, blinded and reordered.
-    "label_a": RolePin("label_a", "codex_luna", "codex_sdk", "gpt-6-luna", "low", "subscription",
-                       "labels_audits", 2_000, _LUNA[0], _LUNA[1], _LUNA[2], "e0-label-v1"),
-    "label_b": RolePin("label_b", "codex_low", "codex_sdk", "gpt-5.6-sol", "low", "subscription",
-                       "labels_audits", 2_000, _SOL[0], _SOL[1], _SOL[2], "e0-label-v1"),
-    # The named strong adjudicator: a different family from the writer and both passes.
-    "adjudicator": RolePin("adjudicator", "e0_openrouter_sonnet", "openrouter", "anthropic/claude-sonnet-5.5",
-                           None, "metered", "labels_audits", 2_000, _SONNET[0], _SONNET[1], _SONNET[2],
-                           "e0-adjudicate-v1", price_verified=_SONNET_PRICE),
-    # The same tutor for every delivery and retrieval arm (the production tutor route).
-    "tutor": RolePin("tutor", "codex_low", "codex_sdk", "gpt-5.6-sol", "low", "subscription",
-                     "answers_verification", 2_000, _SOL[0], _SOL[1], _SOL[2], "e0-tutor-v1"),
-    "judge_a": RolePin("judge_a", "codex_luna", "codex_sdk", "gpt-6-luna", "low", "subscription",
-                       "answers_verification", 1_000, _LUNA[0], _LUNA[1], _LUNA[2], "e0-judge-v1"),
-    "judge_b": RolePin("judge_b", "codex_low", "codex_sdk", "gpt-5.6-sol", "low", "subscription",
-                       "answers_verification", 1_000, _SOL[0], _SOL[1], _SOL[2], "e0-judge-v1"),
-    "judge_adjudicator": RolePin("judge_adjudicator", "e0_openrouter_sonnet", "openrouter",
-                                 "anthropic/claude-sonnet-5.5", None, "metered", "answers_verification",
-                                 1_000, _SONNET[0], _SONNET[1], _SONNET[2], "e0-judge-adjudicate-v1",
-                                 price_verified=_SONNET_PRICE),
+    "context": _anthropic("context", "haiku", "drafting_context", 4_000, 16_384, "e0-context-v1"),
+    # Two independent label passes, two DIFFERENT models, blinded and reordered.
+    "label_a": _anthropic("label_a", "haiku", "labels_audits", 2_000, 8_192, "e0-label-v1"),
+    "label_b": _anthropic("label_b", "sonnet", "labels_audits", 2_000, 8_192, "e0-label-v1"),
+    # The strong adjudicator: a model different from both labellers.
+    "adjudicator": _anthropic("adjudicator", "opus", "labels_audits", 2_000, 16_384, "e0-adjudicate-v1"),
+    # The same tutor for every delivery and retrieval arm.
+    "tutor": _anthropic("tutor", "haiku", "answers_verification", 2_000, 8_192, "e0-tutor-v1"),
+    "judge_a": _anthropic("judge_a", "haiku", "answers_verification", 1_000, 8_192, "e0-judge-v1"),
+    "judge_b": _anthropic("judge_b", "haiku", "answers_verification", 1_000, 8_192, "e0-judge-v1"),
+    # The answer adjudicator: different from the judges.
+    "judge_adjudicator": _anthropic("judge_adjudicator", "opus", "answers_verification", 1_000, 16_384,
+                                    "e0-judge-adjudicate-v1"),
+    # The service copies' production source routes (source_rerank,
+    # source_query_rewrite, source_compare) go to OpenRouter's Claude Haiku 5.5
+    # (re-plan 2026-10-22). Its slug and price are PENDING orchestrator
+    # verification: until filled, admission refuses every such request.
+    "system_verifier": RolePin("system_verifier", "e0_openrouter_haiku", "openrouter", "anthropic/claude-haiku-5.5",
+                               None, "metered", "answers_verification", 600, 0.10, 0.50,
+                               "OpenRouter anthropic/claude-haiku-5.5: assumed equal to Anthropic's own price; "
+                               "PENDING orchestrator verification (slug and price not checked offline)",
+                               "production-source-routes",
+                               price_verified=PriceVerification(note="pending orchestrator verification"),
+                               long_context_threshold=100_000, long_input_price_per_million=0.50,
+                               long_output_price_per_million=2.50),
 }
 
-#: The OpenRouter profile the metered roles use (added to an in-memory config
-#: of the copy only; no vault file or default changes).
+#: The OpenRouter profile the service copies' production source routes use
+#: (written into each service copy's toml only; no vault file or default changes).
 EXPERIMENT_PROFILES = {
-    "e0_openrouter_sonnet": {
-        "type": "openrouter", "model": "anthropic/claude-sonnet-5.5",
+    "e0_openrouter_haiku": {
+        "type": "openrouter", "model": "anthropic/claude-haiku-5.5",
         "base_url": "https://openrouter.ai/api/v1", "api_key_env": "OPENROUTER_API_KEY",
     },
 }
+#: The production routes the system arms call (re-routed on the service copies).
+SYSTEM_ARM_ROUTES = ("source_rerank", "source_query_rewrite", "source_compare")
 
 #: Key environment names (spec D13; configurable with CLI flags).
 DEFAULT_KEY_ENVS = {"perplexity": "PERPLEXITY_API_KEY", "voyage": "VOYAGE_API_KEY",
-                    "openrouter": "OPENROUTER_API_KEY"}
+                    "openrouter": "OPENROUTER_API_KEY", "anthropic": ANTHROPIC_KEY_ENV}
 
 
 @dataclass(frozen=True)
@@ -446,6 +505,7 @@ def pins_fingerprint() -> str:
             "bootstrap": BOOTSTRAP_RESAMPLES, "kappa": KAPPA_MIN, "retries": TRANSIENT_RETRIES,
             "latency_tolerance": LATENCY_REGRESSION_TOLERANCE, "max_wall_s": MAX_WALL_S,
             "max_paid_requests": MAX_PAID_REQUESTS, "max_subscription_requests": MAX_SUBSCRIPTION_REQUESTS,
+            "paid_run_subscription_allowance": PAID_RUN_SUBSCRIPTION_ALLOWANCE,
         },
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()

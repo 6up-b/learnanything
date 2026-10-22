@@ -164,7 +164,7 @@ def test_h2_an_unverified_price_refuses_every_metered_request_before_sending(tmp
     gate = E0RequestGate(E0Ledger(tmp_path / "role-ledger"), pins.ROLE_PINS["adjudicator"])
     with pytest.raises(_new("E0PriceUnverified")):
         gate.admit(None, purpose="adjudicate", prompt="p", budget=100)
-    assert pins.unverified_prices()["roles"] == ["adjudicator", "judge_adjudicator"]
+    assert pins.unverified_prices()["roles"] == sorted(pins.ROLE_PINS)  # every role is metered (re-plan)
     assert "qwen3_8b" in pins.unverified_prices()["embeddings"]
 
 
@@ -207,7 +207,7 @@ def test_h2_the_dry_run_reports_unverified_prices_and_authorization_refuses_them
 
     paths, _repository = build_e0_vault(tmp_path)
     plan = dry_run([paths.root], environ={})
-    assert plan["prices"]["unverified"]["roles"] == ["adjudicator", "judge_adjudicator"]
+    assert plan["prices"]["unverified"]["roles"] == sorted(pins.ROLE_PINS)
     assert set(plan["prices"]["unverified"]["embeddings"]) == set(pins.EMBEDDING_PINS)
     with pytest.raises(PermissionError, match="unverified prices"):
         require_paid_authorization(authorized=True, dry_run_ok=True, unverified_prices=plan["prices"]["unverified"])
@@ -517,8 +517,9 @@ def test_m10_the_dry_run_reports_the_planned_codex_requests(tmp_path):
     paths, _repository = build_e0_vault(tmp_path)
     plan = dry_run([paths.root], environ={})
     codex = plan["subscription_requests"]
-    assert codex["allowance"] == pins.MAX_SUBSCRIPTION_REQUESTS == 600
-    assert codex["planned"] == sum(codex["roles"].values()) + sum(codex["system_arms"].values()) > 0
+    # Re-plan 2026-10-22: no Codex request is planned, against a paid-run allowance of zero.
+    assert codex["allowance"] == pins.PAID_RUN_SUBSCRIPTION_ALLOWANCE == 0
+    assert codex["planned"] == sum(codex["roles"].values()) + sum(codex["system_arms"].values()) == 0
 
 
 # -- Medium 11: execution state by complete request identity ------------------------------
@@ -541,7 +542,7 @@ def _writer_key(caller, prompt):
 def test_m11_a_charged_but_unrecorded_request_is_blocked_never_resent(tmp_path):
     paths, _repository = build_e0_vault(tmp_path)
     handle = C.open_copy(paths.root)
-    client = FakeRoleClient("codex_luna", respond=fake_respond)
+    client = FakeRoleClient("e0_anthropic_sonnet", respond=fake_respond)
     ledger = E0Ledger(tmp_path / "ledger")
     caller = _live_caller(tmp_path, handle, client, ledger=ledger)
     prompt = "prompt_version: e0-writer-v1\n{\"context\": {\"seeds\": []}}"
@@ -560,7 +561,7 @@ def test_m11_a_settled_response_is_recovered_from_the_receipts(tmp_path):
     paths, _repository = build_e0_vault(tmp_path)
     handle = C.open_copy(paths.root)
     records = ExperimentRecords(tmp_path / "fixtures-local" / "records")
-    client = FakeRoleClient("codex_luna", respond=fake_respond)
+    client = FakeRoleClient("e0_anthropic_sonnet", respond=fake_respond)
     ledger = E0Ledger(tmp_path / "ledger")
     caller = _live_caller(tmp_path, handle, client, ledger=ledger, records=records)
     prompt = "a writer prompt recovered after a crash"
@@ -583,7 +584,7 @@ def test_m11_concurrent_workers_send_one_request_and_a_known_failure_may_retry(t
 
     paths, _repository = build_e0_vault(tmp_path)
     handle = C.open_copy(paths.root)
-    client = FakeRoleClient("codex_luna", respond=fake_respond)
+    client = FakeRoleClient("e0_anthropic_sonnet", respond=fake_respond)
     ledger = E0Ledger(tmp_path / "ledger")
     prompt = "prompt_version: e0-writer-v1\n{\"context\": {\"seeds\": []}}"
     callers = [_live_caller(tmp_path, handle, client, ledger=ledger) for _ in range(4)]
@@ -599,11 +600,11 @@ def test_m11_concurrent_workers_send_one_request_and_a_known_failure_may_retry(t
     assert len(client.requests) == 1  # one claim per complete request identity
     assert synced  # the checkpoint is durable
     # A request whose earlier attempt is recorded as failed may be sent again.
-    failing = FakeRoleClient("codex_luna", respond=lambda *_args: (_ for _ in ()).throw(RuntimeError("down")))
+    failing = FakeRoleClient("e0_anthropic_sonnet", respond=lambda *_args: (_ for _ in ()).throw(RuntimeError("down")))
     other = _live_caller(tmp_path / "second", handle, failing)
     with pytest.raises(_new("E0ProviderFailure")):
         other.call("writer", prompt=prompt, result_model=B.WrittenQuestions)
-    recovered = FakeRoleClient("codex_luna", respond=fake_respond)
+    recovered = FakeRoleClient("e0_anthropic_sonnet", respond=fake_respond)
     retry = _live_caller(tmp_path / "second", handle, recovered, ledger=other.ledger)
     retry.call("writer", prompt=prompt, result_model=B.WrittenQuestions)
     assert len(recovered.requests) == 1

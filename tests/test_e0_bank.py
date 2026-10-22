@@ -67,7 +67,8 @@ def test_the_writer_pipeline_with_a_fake_and_its_admission(tmp_path):
     assert not next(question for question in questions if question.stratum == "no_support").answerable
     assert all(question.selection is not None for question in questions if question.stratum == "reader_deictic")
     assert ledger.report()["requests"] == stats["calls"]
-    assert ledger.report()["committed_usd"] == 0.0  # the writer route is the Codex subscription
+    # The writer is metered since the re-plan (2026-10-22: Claude Sonnet 5.5 on the Messages API).
+    assert ledger.report()["committed_usd"] > 0 and ledger.report()["subscription_requests"] == 0
     prompt = caller.calls[0][1]
     assert "Solution: apply linearity" not in prompt and "Exam question" not in prompt
 

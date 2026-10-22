@@ -1,15 +1,15 @@
-# E0 dry run `e0_2235492bf452889e`
+# E0 dry run `e0_5d51209082898626`
 
-Harness e0-harness-v1; pins `b1fb4425ca74`; seed 20261021.
+Harness e0-harness-v2; pins `e7d585d258c2`; seed 20261021.
 
-**Estimate:** $6.79 expected, $20.36 worst case (every request retried twice) against the $25 cap: fits; allocations fit.
+**Estimate:** $37.84 expected, $113.53 worst case (every request retried twice) against the $25 cap: DOES NOT FIT; allocations overflow: answers_verification, labels_audits.
 
 | Category | Expected $ | Worst case $ | Allocation $ | Fits |
 |---|---|---|---|---|
 | embeddings | 0.0409 | 0.1211 | 2.00 | yes |
-| drafting_context | 0.0000 | 0.0000 | 5.00 | yes |
-| labels_audits | 4.0422 | 12.1266 | 10.00 | yes |
-| answers_verification | 2.7051 | 8.1153 | 8.00 | yes |
+| drafting_context | 0.5069 | 1.5207 | 5.00 | yes |
+| labels_audits | 23.6220 | 70.8660 | 10.00 | no |
+| answers_verification | 13.6745 | 41.0234 | 8.00 | no |
 
 | Embedding arm | Model | Documents | Chunks | Requests | Tokens | Expected $ |
 |---|---|---|---|---|---|---|
@@ -25,19 +25,26 @@ Harness e0-harness-v1; pins `b1fb4425ca74`; seed 20261021.
 
 | LLM role | Model | Billing | Calls | Input tokens | Output tokens | Expected $ |
 |---|---|---|---|---|---|---|
-| writer | gpt-6-luna | subscription | 12 | 57,436 | 11,520 | 0.0000 |
-| context | gpt-6-luna | subscription | 37 | 86,330 | 139,400 | 0.0000 |
-| label_a | gpt-6-luna | subscription | 430 | 1,845,616 | 148,264 | 0.0000 |
-| label_b | gpt-5.6-sol | subscription | 430 | 1,845,616 | 148,264 | 0.0000 |
-| adjudicator | anthropic/claude-sonnet-5.5 | metered | 86 | 1,365,788 | 131,064 | 4.0422 |
-| tutor | gpt-5.6-sol | subscription | 362 | 4,730,292 | 217,200 | 0.0000 |
-| judge_a | gpt-6-luna | subscription | 362 | 3,065,091 | 108,600 | 0.0000 |
-| judge_b | gpt-5.6-sol | subscription | 362 | 3,065,091 | 108,600 | 0.0000 |
-| judge_adjudicator | anthropic/claude-sonnet-5.5 | metered | 128 | 1,160,556 | 38,400 | 2.7051 |
+| writer | claude-sonnet-5-5 | metered | 12 | 57,436 | 29,520 | 0.4101 |
+| context | claude-haiku-5-5 | metered | 37 | 86,330 | 176,400 | 0.0968 |
+| label_a | claude-haiku-5-5 | metered | 430 | 1,845,616 | 578,264 | 0.4737 |
+| label_b | claude-sonnet-5-5 | metered | 430 | 1,845,616 | 793,264 | 11.6239 |
+| adjudicator | claude-opus-5-5 | metered | 86 | 1,365,788 | 303,064 | 11.5244 |
+| tutor | claude-haiku-5-5 | metered | 362 | 4,730,292 | 579,200 | 0.7626 |
+| judge_a | claude-haiku-5-5 | metered | 362 | 3,065,091 | 470,600 | 0.5418 |
+| judge_b | claude-haiku-5-5 | metered | 362 | 3,065,091 | 470,600 | 0.5418 |
+| judge_adjudicator | claude-opus-5-5 | metered | 128 | 1,160,556 | 294,400 | 10.5302 |
 
-**Codex requests:** 3,175 planned against the allowance of 600 (DOES NOT FIT; retries and repairs count too).
+| System-arm LLM requests | Vault | Model | Requests | Input tokens | Output tokens | Expected $ | Price |
+|---|---|---|---|---|---|---|---|
+| R0_llm | vault_885a8c06e4 | anthropic/claude-haiku-5.5 | 252 | 756,000 | 403,200 | 0.2772 | pending orchestrator verification |
+| R1_service_llm | vault_885a8c06e4 | anthropic/claude-haiku-5.5 | 378 | 1,134,000 | 604,800 | 0.4158 | pending orchestrator verification |
+| R0_llm | vault_83d3a40c75 | anthropic/claude-haiku-5.5 | 220 | 660,000 | 352,000 | 0.2420 | pending orchestrator verification |
+| R1_service_llm | vault_83d3a40c75 | anthropic/claude-haiku-5.5 | 330 | 990,000 | 528,000 | 0.3630 | pending orchestrator verification |
 
-**Unverified prices (admission refuses each; the orchestrator fills `price_verified` from the providers' price pages):** none.
+**Codex requests:** 0 planned; the paid ledger's Codex allowance is 0 (E0 makes no Codex call: fits).
 
-Keys: OPENROUTER_API_KEY absent, PERPLEXITY_API_KEY absent, VOYAGE_API_KEY absent
+**Unverified prices (admission refuses each; the orchestrator fills `price_verified` from the providers' price pages):** system_verifier.
+
+Keys: ANTHROPIC_API_KEY absent, OPENROUTER_API_KEY absent, PERPLEXITY_API_KEY absent, VOYAGE_API_KEY absent
 Checks: {"copies_changed": 0, "copy_tree_digests_equal": true, "database_mode": "read_only", "network_calls": 0, "settings_file_read": false}

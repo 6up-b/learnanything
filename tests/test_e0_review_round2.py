@@ -173,7 +173,7 @@ class MeteredVerifier(FakeRoleClient):
 def _verifier(billing):
     if billing == "subscription":
         return FakeRoleClient("codex_low", respond=_verify_respond)
-    return MeteredVerifier("e0_openrouter_sonnet", respond=_verify_respond)
+    return MeteredVerifier("e0_openrouter_haiku", respond=_verify_respond)
 
 
 def _service(tmp_path, paths, name, *, price=None, qwen=False):

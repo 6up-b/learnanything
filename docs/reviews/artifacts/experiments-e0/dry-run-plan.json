@@ -15,6 +15,14 @@
   "qwen_query_prefix_tokens": 30,
   "r3_header_tokens_per_unit": 200,
   "retrieval_finalists": 3,
+  "system_llm_input_tokens_per_request": 3000,
+  "system_llm_output_tokens_per_request": 600,
+  "thinking_output_tokens_per_call": {
+   "anthropic/claude-haiku-5.5": 1000,
+   "claude-haiku-5-5": 1000,
+   "claude-opus-5-5": 2000,
+   "claude-sonnet-5-5": 1500
+  },
   "writer_batch": 6,
   "writer_output_tokens_per_question": 160
  },
@@ -311,23 +319,28 @@
   }
  },
  "by_provider": {
-  "codex_sdk:gpt-5.6-sol": {
-   "billing": "subscription",
-   "estimated_usd": 0.0,
-   "requests": 1154,
-   "tokens": 10115063
-  },
-  "codex_sdk:gpt-6-luna": {
-   "billing": "subscription",
-   "estimated_usd": 0.0,
-   "requests": 841,
-   "tokens": 5462257
-  },
-  "openrouter:anthropic/claude-sonnet-5.5": {
+  "anthropic_api:claude-haiku-5-5": {
    "billing": "metered",
-   "estimated_usd": 6.747328,
+   "estimated_usd": 2.416774,
+   "requests": 1553,
+   "tokens": 15067484
+  },
+  "anthropic_api:claude-opus-5-5": {
+   "billing": "metered",
+   "estimated_usd": 22.054656,
    "requests": 214,
-   "tokens": 2695808
+   "tokens": 3123808
+  },
+  "anthropic_api:claude-sonnet-5-5": {
+   "billing": "metered",
+   "estimated_usd": 12.033944,
+   "requests": 442,
+   "tokens": 2725836
+  },
+  "openrouter:anthropic/claude-haiku-5.5 (system arms)": {
+   "estimated_usd": 1.298,
+   "requests": 1180,
+   "tokens": 5428000
   },
   "openrouter:qwen/qwen3-embedding-8b": {
    "estimated_usd": 0.004564,
@@ -863,8 +876,9 @@
    "worst_case_usd": 0.026087
   }
  ],
- "harness": "e0-harness-v1",
+ "harness": "e0-harness-v2",
  "keys": {
+  "ANTHROPIC_API_KEY": "absent",
   "OPENROUTER_API_KEY": "absent",
   "PERPLEXITY_API_KEY": "absent",
   "VOYAGE_API_KEY": "absent"
@@ -896,63 +910,67 @@
  "llm_roles": [
   {
    "arm": null,
-   "billing": "subscription",
+   "billing": "metered",
    "calls": 12,
    "category": "drafting_context",
    "detail": "exact prompts from the frozen seeds",
-   "estimated_only_reference_usd": 0.230072,
-   "estimated_usd": 0.0,
+   "estimated_usd": 0.410072,
    "input_tokens": 57436,
-   "model": "gpt-6-luna",
-   "output_tokens": 11520,
+   "model": "claude-sonnet-5-5",
+   "output_tokens": 29520,
+   "reserved_at_max_usd": 2.080952,
    "role": "writer",
-   "transport": "codex_sdk",
-   "worst_case_usd": 0.0
+   "thinking_tokens_estimated": 18000,
+   "transport": "anthropic_api",
+   "worst_case_usd": 1.230216
   },
   {
    "arm": "R3",
-   "billing": "subscription",
+   "billing": "metered",
    "calls": 37,
    "category": "drafting_context",
    "detail": "exact prompts, one per window",
-   "estimated_only_reference_usd": 1.56666,
-   "estimated_usd": 0.0,
+   "estimated_usd": 0.096833,
    "input_tokens": 86330,
-   "model": "gpt-6-luna",
-   "output_tokens": 139400,
+   "model": "claude-haiku-5-5",
+   "output_tokens": 176400,
+   "reserved_at_max_usd": 0.311737,
    "role": "context",
-   "transport": "codex_sdk",
-   "worst_case_usd": 0.0
+   "thinking_tokens_estimated": 37000,
+   "transport": "anthropic_api",
+   "worst_case_usd": 0.290499
   },
   {
    "arm": null,
-   "billing": "subscription",
+   "billing": "metered",
    "calls": 430,
    "category": "labels_audits",
    "detail": "",
-   "estimated_only_reference_usd": 5.173872,
-   "estimated_usd": 0.0,
+   "estimated_usd": 0.473694,
    "input_tokens": 1845616,
-   "model": "gpt-6-luna",
-   "output_tokens": 148264,
+   "model": "claude-haiku-5-5",
+   "output_tokens": 578264,
+   "reserved_at_max_usd": 1.945842,
    "role": "label_a",
-   "transport": "codex_sdk",
-   "worst_case_usd": 0.0
+   "thinking_tokens_estimated": 430000,
+   "transport": "anthropic_api",
+   "worst_case_usd": 1.421081
   },
   {
    "arm": null,
-   "billing": "subscription",
+   "billing": "metered",
    "calls": 430,
    "category": "labels_audits",
    "detail": "",
-   "estimated_only_reference_usd": 5.173872,
-   "estimated_usd": 0.0,
+   "estimated_usd": 11.623872,
    "input_tokens": 1845616,
-   "model": "gpt-5.6-sol",
-   "output_tokens": 148264,
+   "model": "claude-sonnet-5-5",
+   "output_tokens": 793264,
+   "reserved_at_max_usd": 38.916832,
    "role": "label_b",
-   "transport": "codex_sdk",
-   "worst_case_usd": 0.0
+   "thinking_tokens_estimated": 645000,
+   "transport": "anthropic_api",
+   "worst_case_usd": 34.871616
   },
   {
    "arm": null,
@@ -960,59 +978,63 @@
    "calls": 86,
    "category": "labels_audits",
    "detail": "every question with a disagreement or an accepted set (assumed all)",
-   "estimated_only_reference_usd": null,
-   "estimated_usd": 4.042216,
+   "estimated_usd": 11.524432,
    "input_tokens": 1365788,
-   "model": "anthropic/claude-sonnet-5.5",
-   "output_tokens": 131064,
+   "model": "claude-opus-5-5",
+   "output_tokens": 303064,
+   "reserved_at_max_usd": 33.643632,
    "role": "adjudicator",
-   "transport": "openrouter",
-   "worst_case_usd": 12.126648
+   "thinking_tokens_estimated": 172000,
+   "transport": "anthropic_api",
+   "worst_case_usd": 34.573296
   },
   {
    "arm": null,
-   "billing": "subscription",
+   "billing": "metered",
    "calls": 362,
    "category": "answers_verification",
    "detail": "D0-D3 on known-location questions; D1 for the retrieval finalists",
-   "estimated_only_reference_usd": 11.632584,
-   "estimated_usd": 0.0,
+   "estimated_usd": 0.762629,
    "input_tokens": 4730292,
-   "model": "gpt-5.6-sol",
-   "output_tokens": 217200,
+   "model": "claude-haiku-5-5",
+   "output_tokens": 579200,
+   "reserved_at_max_usd": 1.955781,
    "role": "tutor",
-   "transport": "codex_sdk",
-   "worst_case_usd": 0.0
+   "thinking_tokens_estimated": 362000,
+   "transport": "anthropic_api",
+   "worst_case_usd": 2.287888
   },
   {
    "arm": null,
-   "billing": "subscription",
+   "billing": "metered",
    "calls": 362,
    "category": "answers_verification",
    "detail": "",
-   "estimated_only_reference_usd": 7.216182,
-   "estimated_usd": 0.0,
+   "estimated_usd": 0.541809,
    "input_tokens": 3065091,
-   "model": "gpt-6-luna",
-   "output_tokens": 108600,
+   "model": "claude-haiku-5-5",
+   "output_tokens": 470600,
+   "reserved_at_max_usd": 1.789261,
    "role": "judge_a",
-   "transport": "codex_sdk",
-   "worst_case_usd": 0.0
+   "thinking_tokens_estimated": 362000,
+   "transport": "anthropic_api",
+   "worst_case_usd": 1.625427
   },
   {
    "arm": null,
-   "billing": "subscription",
+   "billing": "metered",
    "calls": 362,
    "category": "answers_verification",
    "detail": "",
-   "estimated_only_reference_usd": 7.216182,
-   "estimated_usd": 0.0,
+   "estimated_usd": 0.541809,
    "input_tokens": 3065091,
-   "model": "gpt-5.6-sol",
-   "output_tokens": 108600,
+   "model": "claude-haiku-5-5",
+   "output_tokens": 470600,
+   "reserved_at_max_usd": 1.789261,
    "role": "judge_b",
-   "transport": "codex_sdk",
-   "worst_case_usd": 0.0
+   "thinking_tokens_estimated": 362000,
+   "transport": "anthropic_api",
+   "worst_case_usd": 1.625427
   },
   {
    "arm": null,
@@ -1020,14 +1042,15 @@
    "calls": 128,
    "category": "answers_verification",
    "detail": "",
-   "estimated_only_reference_usd": null,
-   "estimated_usd": 2.705112,
+   "estimated_usd": 10.530224,
    "input_tokens": 1160556,
-   "model": "anthropic/claude-sonnet-5.5",
-   "output_tokens": 38400,
+   "model": "claude-opus-5-5",
+   "output_tokens": 294400,
+   "reserved_at_max_usd": 46.585264,
    "role": "judge_adjudicator",
-   "transport": "openrouter",
-   "worst_case_usd": 8.115336
+   "thinking_tokens_estimated": 256000,
+   "transport": "anthropic_api",
+   "worst_case_usd": 31.590672
   }
  ],
  "pins": {
@@ -1104,94 +1127,122 @@
    "adjudicator": {
     "billing": "metered",
     "category": "labels_audits",
-    "model": "anthropic/claude-sonnet-5.5",
+    "model": "claude-opus-5-5",
     "prompt_version": "e0-adjudicate-v1",
-    "provider_profile": "e0_openrouter_sonnet",
-    "transport": "openrouter"
+    "provider_profile": "e0_anthropic_opus",
+    "transport": "anthropic_api"
    },
    "context": {
-    "billing": "subscription",
+    "billing": "metered",
     "category": "drafting_context",
-    "model": "gpt-6-luna",
+    "model": "claude-haiku-5-5",
     "prompt_version": "e0-context-v1",
-    "provider_profile": "codex_luna",
-    "transport": "codex_sdk"
+    "provider_profile": "e0_anthropic_haiku",
+    "transport": "anthropic_api"
    },
    "judge_a": {
-    "billing": "subscription",
+    "billing": "metered",
     "category": "answers_verification",
-    "model": "gpt-6-luna",
+    "model": "claude-haiku-5-5",
     "prompt_version": "e0-judge-v1",
-    "provider_profile": "codex_luna",
-    "transport": "codex_sdk"
+    "provider_profile": "e0_anthropic_haiku",
+    "transport": "anthropic_api"
    },
    "judge_adjudicator": {
     "billing": "metered",
     "category": "answers_verification",
-    "model": "anthropic/claude-sonnet-5.5",
+    "model": "claude-opus-5-5",
     "prompt_version": "e0-judge-adjudicate-v1",
-    "provider_profile": "e0_openrouter_sonnet",
-    "transport": "openrouter"
+    "provider_profile": "e0_anthropic_opus",
+    "transport": "anthropic_api"
    },
    "judge_b": {
-    "billing": "subscription",
+    "billing": "metered",
     "category": "answers_verification",
-    "model": "gpt-5.6-sol",
+    "model": "claude-haiku-5-5",
     "prompt_version": "e0-judge-v1",
-    "provider_profile": "codex_low",
-    "transport": "codex_sdk"
+    "provider_profile": "e0_anthropic_haiku",
+    "transport": "anthropic_api"
    },
    "label_a": {
-    "billing": "subscription",
+    "billing": "metered",
     "category": "labels_audits",
-    "model": "gpt-6-luna",
+    "model": "claude-haiku-5-5",
     "prompt_version": "e0-label-v1",
-    "provider_profile": "codex_luna",
-    "transport": "codex_sdk"
+    "provider_profile": "e0_anthropic_haiku",
+    "transport": "anthropic_api"
    },
    "label_b": {
-    "billing": "subscription",
+    "billing": "metered",
     "category": "labels_audits",
-    "model": "gpt-5.6-sol",
+    "model": "claude-sonnet-5-5",
     "prompt_version": "e0-label-v1",
-    "provider_profile": "codex_low",
-    "transport": "codex_sdk"
+    "provider_profile": "e0_anthropic_sonnet",
+    "transport": "anthropic_api"
+   },
+   "system_verifier": {
+    "billing": "metered",
+    "category": "answers_verification",
+    "model": "anthropic/claude-haiku-5.5",
+    "prompt_version": "production-source-routes",
+    "provider_profile": "e0_openrouter_haiku",
+    "transport": "openrouter"
    },
    "tutor": {
-    "billing": "subscription",
+    "billing": "metered",
     "category": "answers_verification",
-    "model": "gpt-5.6-sol",
+    "model": "claude-haiku-5-5",
     "prompt_version": "e0-tutor-v1",
-    "provider_profile": "codex_low",
-    "transport": "codex_sdk"
+    "provider_profile": "e0_anthropic_haiku",
+    "transport": "anthropic_api"
    },
    "writer": {
-    "billing": "subscription",
+    "billing": "metered",
     "category": "drafting_context",
-    "model": "gpt-6-luna",
+    "model": "claude-sonnet-5-5",
     "prompt_version": "e0-writer-v1",
-    "provider_profile": "codex_luna",
-    "transport": "codex_sdk"
+    "provider_profile": "e0_anthropic_sonnet",
+    "transport": "anthropic_api"
    }
   }
  },
- "pins_fingerprint": "b1fb4425ca745e9801633f70652c64292c9294a933d289ed2505ba16ba5c1530",
+ "pins_fingerprint": "e7d585d258c2956861584e8929f647becba6bc9d8ab98c7779868958bcd25437",
  "prices": {
   "rule": "a metered request is admitted only on a verified price (source_url, checked_on)",
   "unverified": {
    "embeddings": [],
-   "roles": []
+   "roles": [
+    "system_verifier"
+   ]
   },
   "verified": {
    "adjudicator": {
-    "checked_on": "2026-10-21",
-    "note": "matches Anthropic's table at https://platform.claude.com/docs/en/about-claude/pricing",
-    "source_url": "https://openrouter.ai/anthropic/claude-sonnet-5.5/pricing"
+    "checked_on": "2026-10-22",
+    "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
+   },
+   "context": {
+    "checked_on": "2026-10-22",
+    "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
+   },
+   "judge_a": {
+    "checked_on": "2026-10-22",
+    "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
    },
    "judge_adjudicator": {
-    "checked_on": "2026-10-21",
-    "note": "matches Anthropic's table at https://platform.claude.com/docs/en/about-claude/pricing",
-    "source_url": "https://openrouter.ai/anthropic/claude-sonnet-5.5/pricing"
+    "checked_on": "2026-10-22",
+    "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
+   },
+   "judge_b": {
+    "checked_on": "2026-10-22",
+    "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
+   },
+   "label_a": {
+    "checked_on": "2026-10-22",
+    "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
+   },
+   "label_b": {
+    "checked_on": "2026-10-22",
+    "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
    },
    "pplx_4b": {
     "checked_on": "2026-10-21",
@@ -1205,6 +1256,10 @@
     "checked_on": "2026-10-21",
     "source_url": "https://openrouter.ai/qwen/qwen3-embedding-8b/pricing"
    },
+   "tutor": {
+    "checked_on": "2026-10-22",
+    "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
+   },
    "voyage_4_large": {
     "checked_on": "2026-10-21",
     "note": "the first 200M tokens are free per account; E0 admits and reconciles at the full $0.12 per 1M tokens and never assumes the free tier",
@@ -1214,6 +1269,10 @@
     "checked_on": "2026-10-21",
     "note": "the first 200M tokens are free per account; E0 admits and reconciles at the full $0.12 per 1M tokens and never assumes the free tier",
     "source_url": "https://docs.voyageai.com/docs/pricing"
+   },
+   "writer": {
+    "checked_on": "2026-10-22",
+    "source_url": "https://platform.claude.com/docs/en/about-claude/pricing"
    }
   }
  },
@@ -1226,6 +1285,7 @@
    "judge_b": "e0-judge-v1",
    "label_a": "e0-label-v1",
    "label_b": "e0-label-v1",
+   "system_verifier": "production-source-routes",
    "tutor": "e0-tutor-v1",
    "writer": "e0-writer-v1"
   },
@@ -1246,7 +1306,7 @@
   "R5_independent": "voyage-4-large via the Voyage API",
   "R5_singleton": "voyage-context-4, one chunk per document"
  },
- "run_id": "e0_2235492bf452889e",
+ "run_id": "e0_5d51209082898626",
  "seed": 20261021,
  "splits": {
   "linear_algebra-20261021": {
@@ -1261,23 +1321,12 @@
  },
  "status": "dry_run",
  "subscription_requests": {
-  "allowance": 600,
-  "basis": "planned first attempts; retries and JSON repairs count against the allowance too",
-  "fits": false,
-  "planned": 3175,
-  "roles": {
-   "context": 37,
-   "judge_a": 362,
-   "judge_b": 362,
-   "label_a": 430,
-   "label_b": 430,
-   "tutor": 362,
-   "writer": 12
-  },
-  "system_arms": {
-   "R0": 472,
-   "R1_service": 708
-  }
+  "allowance": 0,
+  "basis": "E0 makes no Codex call: every role is metered (Anthropic Messages API) and the service copies' source routes go to OpenRouter",
+  "fits": true,
+  "planned": 0,
+  "roles": {},
+  "system_arms": {}
  },
  "system_arms": [
   {
@@ -1309,7 +1358,7 @@
    "kind": "system",
    "notes": [
     "runs on a separate, redacted service copy with embeddings enabled (its toml only)",
-    "verification runs on the copy's source_rerank route: subscription at $0, a metered route needs source_retrieval.llm_price_per_million or is refused"
+    "verification runs on the copy's source_rerank route, re-routed to OpenRouter's Claude Haiku 5.5 (re-plan 2026-10-22)"
    ],
    "queries": 63,
    "variants": [
@@ -1323,6 +1372,38 @@
     "provider": "codex",
     "type": "codex_sdk"
    }
+  },
+  {
+   "arm": "R0_llm",
+   "billing": "metered",
+   "category": "answers_verification",
+   "estimated_usd": 0.2772,
+   "input_tokens": 756000,
+   "kind": "system_llm",
+   "model": "anthropic/claude-haiku-5.5",
+   "output_tokens": 403200,
+   "price_status": "pending orchestrator verification",
+   "provider_key": "openrouter:anthropic/claude-haiku-5.5 (system arms)",
+   "requests": 252,
+   "transport": "openrouter",
+   "vault": "linear_algebra-20261021",
+   "worst_case_usd": 0.8316
+  },
+  {
+   "arm": "R1_service_llm",
+   "billing": "metered",
+   "category": "answers_verification",
+   "estimated_usd": 0.4158,
+   "input_tokens": 1134000,
+   "kind": "system_llm",
+   "model": "anthropic/claude-haiku-5.5",
+   "output_tokens": 604800,
+   "price_status": "pending orchestrator verification",
+   "provider_key": "openrouter:anthropic/claude-haiku-5.5 (system arms)",
+   "requests": 378,
+   "transport": "openrouter",
+   "vault": "linear_algebra-20261021",
+   "worst_case_usd": 1.2474
   },
   {
    "arm": "R0",
@@ -1353,7 +1434,7 @@
    "kind": "system",
    "notes": [
     "runs on a separate, redacted service copy with embeddings enabled (its toml only)",
-    "verification runs on the copy's source_rerank route: subscription at $0, a metered route needs source_retrieval.llm_price_per_million or is refused"
+    "verification runs on the copy's source_rerank route, re-routed to OpenRouter's Claude Haiku 5.5 (re-plan 2026-10-22)"
    ],
    "queries": 55,
    "variants": [
@@ -1367,6 +1448,38 @@
     "provider": "codex",
     "type": "codex_sdk"
    }
+  },
+  {
+   "arm": "R0_llm",
+   "billing": "metered",
+   "category": "answers_verification",
+   "estimated_usd": 0.242,
+   "input_tokens": 660000,
+   "kind": "system_llm",
+   "model": "anthropic/claude-haiku-5.5",
+   "output_tokens": 352000,
+   "price_status": "pending orchestrator verification",
+   "provider_key": "openrouter:anthropic/claude-haiku-5.5 (system arms)",
+   "requests": 220,
+   "transport": "openrouter",
+   "vault": "probability-20261021",
+   "worst_case_usd": 0.726
+  },
+  {
+   "arm": "R1_service_llm",
+   "billing": "metered",
+   "category": "answers_verification",
+   "estimated_usd": 0.363,
+   "input_tokens": 990000,
+   "kind": "system_llm",
+   "model": "anthropic/claude-haiku-5.5",
+   "output_tokens": 528000,
+   "price_status": "pending orchestrator verification",
+   "provider_key": "openrouter:anthropic/claude-haiku-5.5 (system arms)",
+   "requests": 330,
+   "transport": "openrouter",
+   "vault": "probability-20261021",
+   "worst_case_usd": 1.089
   }
  ],
  "totals": {
@@ -1375,15 +1488,15 @@
   "categories": {
    "answers_verification": {
     "allocation_usd": 8.0,
-    "estimated_usd": 2.7051,
-    "fits": true,
-    "worst_case_usd": 8.1153
+    "estimated_usd": 13.6745,
+    "fits": false,
+    "worst_case_usd": 41.0234
    },
    "drafting_context": {
     "allocation_usd": 5.0,
-    "estimated_usd": 0.0,
+    "estimated_usd": 0.5069,
     "fits": true,
-    "worst_case_usd": 0.0
+    "worst_case_usd": 1.5207
    },
    "embeddings": {
     "allocation_usd": 2.0,
@@ -1393,16 +1506,19 @@
    },
    "labels_audits": {
     "allocation_usd": 10.0,
-    "estimated_usd": 4.0422,
-    "fits": true,
-    "worst_case_usd": 12.1266
+    "estimated_usd": 23.622,
+    "fits": false,
+    "worst_case_usd": 70.866
    }
   },
-  "estimated_usd": 6.7882,
-  "fits_allocations": true,
-  "fits_cap": true,
-  "overflowing_categories": [],
-  "subscription_estimated_only_tokens": 15577320,
-  "worst_case_usd": 20.363
+  "estimated_usd": 37.8443,
+  "fits_allocations": false,
+  "fits_cap": false,
+  "overflowing_categories": [
+   "answers_verification",
+   "labels_audits"
+  ],
+  "subscription_estimated_only_tokens": 0,
+  "worst_case_usd": 113.5312
  }
 }

@@ -46,13 +46,14 @@ def test_every_metered_pin_carries_exactly_the_orchestrator_verified_price():
         assert pin.price_per_million_upper_bound == price, name
         assert (pin.price_verified.source_url, pin.price_verified.checked_on) == (url, "2026-10-21"), name
         assert pins.price_problem(pin) is None, name
+    # Re-plan 2026-10-22: the adjudicators are Claude Opus 5.5 on the Messages API at Anthropic's
+    # verified price; only the system arms' OpenRouter Haiku route is pending verification.
     for role in ("adjudicator", "judge_adjudicator"):
         pin = pins.ROLE_PINS[role]
-        assert (pin.input_price_per_million, pin.output_price_per_million) == (2.0, 10.0)
-        assert pin.price_verified.source_url == "https://openrouter.ai/anthropic/claude-sonnet-5.5/pricing"
-        assert pin.price_verified.checked_on == "2026-10-21"
-        assert "platform.claude.com/docs/en/about-claude/pricing" in pin.price_verified.note
-    assert pins.unverified_prices() == {"embeddings": [], "roles": []}
+        assert (pin.input_price_per_million, pin.output_price_per_million) == (4.0, 20.0)
+        assert pin.price_verified.source_url == "https://platform.claude.com/docs/en/about-claude/pricing"
+        assert pin.price_verified.checked_on == "2026-10-22"
+    assert pins.unverified_prices() == {"embeddings": [], "roles": ["system_verifier"]}
     for name in ("voyage_4_large", "voyage_context_4"):
         note = pins.EMBEDDING_PINS[name].price_verified.note
         assert "200M tokens are free" in note and "never assumes the free tier" in note
@@ -135,31 +136,40 @@ def test_the_paid_cli_refuses_when_the_lockdown_is_not_in_force(tmp_path, monkey
     assert called == []
 
 
-def test_the_label_passes_run_through_the_locked_down_codex_turn(tmp_path, monkeypatch):
-    """E0's Codex roles resolve the production Codex client and reach its
-    locked-down turn (``SdkCodexClient._run_sdk_turn``, isolated: every turn
-    there runs the lockdown's verified overrides and ``TurnLockdown``); the
-    turn is stopped at its entry, so nothing starts."""
+def test_the_label_passes_never_reach_a_codex_turn(tmp_path, monkeypatch):
+    """Re-plan 2026-10-22: the label passes (and every role) run on the
+    Messages API transport; no Codex client is built and no Codex turn
+    starts (the lockdown stays required for the paid run regardless)."""
+
+    import json
 
     from learnloop.ai.providers import codex as provider
-    from learnloop.experiments.contextual_embeddings.budget import E0ProviderFailure
+    from learnloop.experiments.contextual_embeddings.adapters import HttpResponse
     from learnloop.experiments.contextual_embeddings.callers import Checkpoints, LiveRoleCaller
+
+    started = []
+    monkeypatch.setattr(provider.SdkCodexClient, "_run_sdk_turn",
+                        lambda self, *args, **kwargs: started.append(1))
+    posts = []
+
+    class Server:
+        def post(self, url, *, headers, body, timeout):
+            posts.append(body["model"])
+            answer = {"judgments": [], "sufficient_sets": [], "answerable": False}
+            return HttpResponse(200, {"type": "message", "model": body["model"], "stop_reason": "end_turn",
+                                      "content": [{"type": "text", "text": json.dumps(answer)}],
+                                      "usage": {"input_tokens": 10, "output_tokens": 5}}, "req_1")
 
     paths, _repository = build_e0_vault(tmp_path)
     handle = C.open_copy(paths.root)
-    reached = []
-
-    def stop_at_the_turn(self, prompt, output_schema, **kwargs):
-        reached.append({"isolated": kwargs.get("isolated"), "workspace": kwargs.get("workspace")})
-        raise provider.CodexLockdownUnavailable("stopped at the locked-down turn's entry (test)")
-
-    monkeypatch.setattr(provider.SdkCodexClient, "_run_sdk_turn", stop_at_the_turn)
-    monkeypatch.setattr(provider.SdkCodexClient, "_ensure_codex_ready", lambda self: None, raising=False)
     caller = LiveRoleCaller(handle.root, handle.vault.config, E0Ledger(tmp_path / "ledger"),
-                            checkpoints=Checkpoints(None))
+                            checkpoints=Checkpoints(None), environ={"ANTHROPIC_API_KEY": "sk-ant-test-not-real"},
+                            anthropic_transport=Server())
     for role in ("label_a", "label_b"):
-        with pytest.raises(E0ProviderFailure):
+        try:
             caller.call(role, prompt="prompt_version: e0-label-v1\n{}", result_model=B.LabelPass)
-    assert reached and all(item["isolated"] is True and item["workspace"] is None for item in reached)
-    client, _identity = caller._client(pins.ROLE_PINS["label_a"])
-    assert isinstance(client, provider.SdkCodexClient)
+        except Exception:  # noqa: BLE001 - the fake answer may not validate; the route is what is checked
+            pass
+        client, _identity = caller._client(pins.ROLE_PINS[role])
+        assert not isinstance(client, provider.SdkCodexClient)
+    assert posts == ["claude-haiku-5-5", "claude-sonnet-5-5"] and started == []

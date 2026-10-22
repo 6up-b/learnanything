@@ -117,7 +117,7 @@ def test_the_live_caller_admits_each_physical_request_and_resumes_from_checkpoin
     paths, _repository = build_e0_vault(tmp_path)
     handle = C.open_copy(paths.root)
     ledger = E0Ledger(tmp_path / "ledger")
-    client = FakeRoleClient("e0_openrouter_sonnet",
+    client = FakeRoleClient("e0_anthropic_opus",
                             respond=lambda *_args: {"contexts": [{"ref": "p1", "context": "a context"}]})
     roles = {"context": pins.ROLE_PINS["adjudicator"]}  # a metered route, to see money admitted
     caller = LiveRoleCaller(handle.root, handle.vault.config, ledger, checkpoints=Checkpoints(tmp_path / "ckpt"),
@@ -132,8 +132,8 @@ def test_the_live_caller_admits_each_physical_request_and_resumes_from_checkpoin
     assert len(client.requests) == 1 and resumed.cached == 1 and ledger.report()["requests"] == 1
     # The resumed call reports the ORIGINAL measurement, marked cached (Codex review F9).
     assert resumed.last.cached and resumed.last.latency_s == measured
-    assert "e0_openrouter_sonnet" in caller.config.ai.providers
-    assert "e0_openrouter_sonnet" not in handle.vault.config.ai.providers  # in memory only
+    assert "e0_openrouter_haiku" in caller.config.ai.providers
+    assert "e0_openrouter_haiku" not in handle.vault.config.ai.providers  # in memory only
 
 
 def test_r0_runs_find_sources_on_a_service_copy_and_the_frozen_copy_is_untouched(tmp_path):

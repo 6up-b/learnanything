@@ -54,6 +54,15 @@ ASSUMPTIONS = {
     "joint_review_support_share": 0.25,
     #: One fresh online query per question and finalist (Codex review F9).
     "online_latency_queries_per_question": 3,
+    #: Adaptive thinking is on (and cannot be switched off) on the Claude 5.5
+    #: models: its tokens are output tokens. An ESTIMATE per call; every
+    #: request is reserved at its full max_tokens anyway (re-plan 2026-10-22).
+    "thinking_output_tokens_per_call": {"claude-haiku-5-5": 1000, "claude-sonnet-5-5": 1500,
+                                        "claude-opus-5-5": 2000, "anthropic/claude-haiku-5.5": 1000},
+    #: One production source-route request on a service copy (verification,
+    #: rewrite, comparison) through OpenRouter's Haiku: tokens in and out.
+    "system_llm_input_tokens_per_request": 3000,
+    "system_llm_output_tokens_per_request": 600,
 }
 
 EMBEDDING_ARMS = ("R1", "R2", "R3", "R4_grouped", "R4_singleton", "R4_independent", "R5_grouped",
@@ -136,14 +145,23 @@ def embedding_arm_estimate(arm: str, snapshots: Sequence[CorpusSnapshot], query_
 
 def _role(role: str, calls: int, input_tokens: int, output_tokens: int, *, arm: str | None = None,
           detail: str = "") -> dict[str, Any]:
+    """One role's estimate. Priced PER CALL (a long-prompt tier applies to a
+    call's own input, never to the role's total), with the model's estimated
+    thinking tokens added to its output (re-plan 2026-10-22)."""
+
     pin = pins.ROLE_PINS[role]
-    usd = role_cost(pin, input_tokens, output_tokens)
-    list_price = (input_tokens * 2.0 + output_tokens * 10.0) / 1_000_000 if pin.billing == "subscription" else None
+    thinking = int(ASSUMPTIONS["thinking_output_tokens_per_call"].get(pin.model, 0)) * calls
+    output_tokens = int(output_tokens) + thinking
+    per_in = input_tokens / calls if calls else 0.0
+    per_out = output_tokens / calls if calls else 0.0
+    usd = calls * role_cost(pin, per_in, per_out) if calls else 0.0
+    # The hard maximum every call is admitted at: its input plus the full max_tokens sent.
+    max_charge = calls * role_cost(pin, per_in, pin.max_output_tokens or per_out) if calls else 0.0
     return {"role": role, "model": pin.model, "transport": pin.transport, "billing": pin.billing,
-            "category": pin.category, "arm": arm, "calls": calls, "input_tokens": input_tokens,
-            "output_tokens": output_tokens, "estimated_usd": round(usd, 6),
+            "category": pin.category, "arm": arm, "calls": calls, "input_tokens": int(input_tokens),
+            "output_tokens": output_tokens, "thinking_tokens_estimated": thinking, "estimated_usd": round(usd, 6),
             "worst_case_usd": round(usd * (1 + pins.TRANSIENT_RETRIES), 6),
-            "estimated_only_reference_usd": None if list_price is None else round(list_price, 6),
+            "reserved_at_max_usd": round(max_charge, 6),
             "detail": detail}
 
 
@@ -279,8 +297,37 @@ def system_arm_estimates(snapshots: Sequence[CorpusSnapshot], config_allowlists:
                      "verification_route": allowlist.get("routes", {}).get("source_rerank"),
                      "category": "embeddings",
                      "notes": ["runs on a separate, redacted service copy with embeddings enabled (its toml only)",
-                               "verification runs on the copy's source_rerank route: subscription at $0, a "
-                               "metered route needs source_retrieval.llm_price_per_million or is refused"]})
+                               "verification runs on the copy's source_rerank route, re-routed to OpenRouter's "
+                               "Claude Haiku 5.5 (re-plan 2026-10-22)"]})
+        rows.extend(system_llm_rows(snapshot.vault_label, allowlist, queries))
+    return rows
+
+
+def system_llm_rows(vault: str, allowlist: Mapping[str, Any], queries: int) -> list[dict[str, Any]]:
+    """The system arms' production source-route requests (verification,
+    rewrite, comparison) on the service copies, re-routed from Codex to
+    OpenRouter's Claude Haiku 5.5 (re-plan 2026-10-22): an UPPER-BOUND count
+    per query (R0 and R1' ``find_sources``: two pages, each with its rewrite
+    when on and its verification; the first-page pool: its rewrite;
+    ``pool_verify``: the tutor rewrite when on, one verification), priced by
+    the ``system_verifier`` pin (pending orchestrator verification)."""
+
+    pin = pins.ROLE_PINS["system_verifier"]
+    rewrite = 1 if allowlist.get("source_retrieval.query_rewrite") else 0
+    tutor_rewrite = 1 if allowlist.get("source_retrieval.tutor_query_rewrite") else 0
+    tokens_in = int(ASSUMPTIONS["system_llm_input_tokens_per_request"])
+    tokens_out = (int(ASSUMPTIONS["system_llm_output_tokens_per_request"])
+                  + int(ASSUMPTIONS["thinking_output_tokens_per_call"].get(pin.model, 0)))
+    rows = []
+    for arm, per_query in (("R0", 2 * (rewrite + 1)), ("R1_service", 2 * (rewrite + 1) + rewrite + tutor_rewrite + 1)):
+        requests = queries * per_query
+        usd = requests * role_cost(pin, tokens_in, tokens_out)
+        rows.append({"arm": f"{arm}_llm", "vault": vault, "kind": "system_llm", "model": pin.model,
+                     "transport": pin.transport, "billing": pin.billing, "requests": requests,
+                     "input_tokens": requests * tokens_in, "output_tokens": requests * tokens_out,
+                     "estimated_usd": round(usd, 6), "worst_case_usd": round(usd * (1 + pins.TRANSIENT_RETRIES), 6),
+                     "category": pin.category, "provider_key": f"{pin.transport}:{pin.model} (system arms)",
+                     "price_status": "pending orchestrator verification" if pins.price_problem(pin) else "verified"})
     return rows
 
 
@@ -333,24 +380,18 @@ def embedding_documents(snapshot: CorpusSnapshot, arm: str) -> list[Document]:
 
 def subscription_requests(roles: Sequence[Mapping[str, Any]], systems: Sequence[Mapping[str, Any]],
                           config_allowlists: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
-    """The planned Codex (subscription) request count against the persisted
-    allowance (fix round 4, Medium 10). Roles: their planned calls. System
-    arms, an upper-bound estimate per query: R0 and R1' ``find_sources`` (two
-    pages, each with its rewrite when on and its verification), the first-page
-    pool (its rewrite) and ``pool_verify`` (the tutor rewrite when on, one
-    verification). Retries and JSON repairs come on top and count too."""
+    """The planned Codex (subscription) requests (re-plan 2026-10-22: there
+    are none). Every role is a metered Messages API route and the service
+    copies' production source routes go to OpenRouter, so the count is the
+    roles still billed by subscription plus any system row that is: zero,
+    against the paid ledger's Codex allowance of zero."""
 
     role_calls = {str(row["role"]): int(row["calls"]) for row in roles if row["billing"] == "subscription"}
-    system_calls: dict[str, int] = {}
-    for row in systems:
-        allowlist = config_allowlists.get(str(row.get("vault")), {})
-        rewrite = 1 if allowlist.get("source_retrieval.query_rewrite") else 0
-        tutor_rewrite = 1 if allowlist.get("source_retrieval.tutor_query_rewrite") else 0
-        queries = int(row.get("queries") or 0)
-        per_query = (2 * (rewrite + 1)) if row["arm"] == "R0" else (2 * (rewrite + 1) + rewrite + tutor_rewrite + 1)
-        system_calls[row["arm"]] = system_calls.get(row["arm"], 0) + queries * per_query
+    system_calls = {str(row["arm"]): int(row.get("requests") or 0) for row in systems
+                    if row.get("billing") == "subscription"}
     planned = sum(role_calls.values()) + sum(system_calls.values())
-    return {"planned": planned, "allowance": pins.MAX_SUBSCRIPTION_REQUESTS,
-            "fits": planned <= pins.MAX_SUBSCRIPTION_REQUESTS, "roles": dict(sorted(role_calls.items())),
+    return {"planned": planned, "allowance": pins.PAID_RUN_SUBSCRIPTION_ALLOWANCE,
+            "fits": planned <= pins.PAID_RUN_SUBSCRIPTION_ALLOWANCE, "roles": dict(sorted(role_calls.items())),
             "system_arms": dict(sorted(system_calls.items())),
-            "basis": "planned first attempts; retries and JSON repairs count against the allowance too"}
+            "basis": "E0 makes no Codex call: every role is metered (Anthropic Messages API) and the service "
+                     "copies' source routes go to OpenRouter"}

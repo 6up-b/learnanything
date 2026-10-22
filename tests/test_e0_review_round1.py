@@ -129,24 +129,29 @@ def test_f1_the_guard_refuses_a_batch_carrying_protected_text(tmp_path):
 
 
 def test_f2_a_metered_request_is_sent_and_reserved_at_the_output_budget_policy(tmp_path, monkeypatch):
-    from learnloop.ai.output_budget import output_budget
-    from learnloop.ai.providers.openrouter import OpenRouterProviderClient
-    from tests.openai_fakes import install_fake_openai
+    # Since the re-plan (2026-10-22) the adjudicator is Claude Opus 5.5 on the
+    # Messages API: its pin's hard max_tokens is what is sent and reserved.
+    from learnloop.experiments.contextual_embeddings.adapters import HttpResponse
 
-    fake = install_fake_openai(monkeypatch, json.dumps({"labels": [], "sufficient_sets": [], "answerable": False,
-                                                        "unresolved": True}))
-    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test-not-real")
+    sent = []
+
+    class Server:
+        def post(self, url, *, headers, body, timeout):
+            sent.append(body)
+            answer = {"labels": [], "sufficient_sets": [], "answerable": False, "unresolved": True}
+            return HttpResponse(200, {"type": "message", "model": body["model"], "stop_reason": "end_turn",
+                                      "content": [{"type": "text", "text": json.dumps(answer)}],
+                                      "usage": {"input_tokens": 10, "output_tokens": 5}}, "req_1")
+
     paths, _repository = build_e0_vault(tmp_path)
     handle = C.open_copy(paths.root)
-    config = with_experiment_profiles(handle.vault.config)
     ledger = E0Ledger(tmp_path / "ledger")
     caller = LiveRoleCaller(handle.root, handle.vault.config, ledger, checkpoints=Checkpoints(None),
-                            client_factory=lambda name: OpenRouterProviderClient(name, config.ai.providers[name]))
+                            environ={"ANTHROPIC_API_KEY": "sk-ant-test-not-real"}, anthropic_transport=Server())
     caller.call("adjudicator", prompt="adjudicate this", result_model=B.AdjudicatedLabels)
-    bound = output_budget(config, None, provider="e0_openrouter_sonnet")
-    assert bound == 16_384  # the normal policy, never the pin's lower expectation
-    sent = fake.instances[0].requests[0]
-    assert sent["max_tokens"] == bound
+    bound = pins.ROLE_PINS["adjudicator"].max_output_tokens
+    assert bound == 16_384  # the hard bound, never the pin's lower expectation
+    assert sent[0]["max_tokens"] == bound
     entry = next(iter(json.loads((tmp_path / "ledger" / "e0_spend_ledger.json").read_text())["entries"].values()))
     assert entry["estimated_tokens"] >= bound  # reserved at the bound actually sent
 
@@ -158,12 +163,12 @@ def test_f3_a_resolved_client_that_differs_from_its_pin_is_refused_before_any_re
     paths, _repository = build_e0_vault(tmp_path)
     handle = C.open_copy(paths.root)
     ledger = E0Ledger(tmp_path / "ledger")
-    cases = [FakeRoleClient("codex_luna", provider_type="openrouter",  # codex_luna overridden with a metered route
-                            base_url="https://openrouter.ai/api/v1"),
-             FakeRoleClient("codex_luna", model="gpt-4.1-mini"),  # another model
-             FakeRoleClient("e0_openrouter_sonnet", base_url="https://example.invalid/v1")]  # another endpoint
+    # The roles are Messages API pins since the re-plan (2026-10-22).
+    cases = [FakeRoleClient("e0_anthropic_sonnet", provider_type="codex_sdk"),  # another transport (Codex)
+             FakeRoleClient("e0_anthropic_sonnet", model="claude-haiku-5-5"),  # another model
+             FakeRoleClient("e0_anthropic_opus", base_url="https://example.invalid/v1")]  # another endpoint
     for client in cases:
-        role = "writer" if client.provider_name == "codex_luna" else "adjudicator"
+        role = "writer" if client.provider_name == "e0_anthropic_sonnet" else "adjudicator"
         caller = LiveRoleCaller(handle.root, handle.vault.config, ledger, checkpoints=Checkpoints(None),
                                 client_factory=lambda _name, client=client: client)
         with pytest.raises(PinMismatch):
@@ -172,8 +177,8 @@ def test_f3_a_resolved_client_that_differs_from_its_pin_is_refused_before_any_re
     assert ledger.report()["requests"] == 0
     changed = handle.vault.config.ai.model_copy(update={"providers": {
         **handle.vault.config.ai.providers,
-        "e0_openrouter_sonnet": with_experiment_profiles(handle.vault.config).ai.providers[
-            "e0_openrouter_sonnet"].model_copy(update={"model": "other/model"})}})
+        "e0_openrouter_haiku": with_experiment_profiles(handle.vault.config).ai.providers[
+            "e0_openrouter_haiku"].model_copy(update={"model": "other/model"})}})
     with pytest.raises(PinMismatch, match="differently"):
         with_experiment_profiles(handle.vault.config.model_copy(update={"ai": changed}))
 

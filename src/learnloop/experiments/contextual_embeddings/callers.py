@@ -76,7 +76,8 @@ from learnloop.experiments.contextual_embeddings.pins import RolePin, token_uppe
 #: Structured-output schema allowance added to every input bound.
 SCHEMA_ALLOWANCE_TOKENS = 512
 #: A pin's transport name -> the provider types its client may report.
-TRANSPORT_TYPES = {"codex_sdk": frozenset({"codex_sdk"}), "openrouter": frozenset({"openrouter"})}
+TRANSPORT_TYPES = {"codex_sdk": frozenset({"codex_sdk"}), "openrouter": frozenset({"openrouter"}),
+                   "anthropic_api": frozenset({"anthropic_messages"})}
 
 
 class PinMismatch(E0Stop, RuntimeError):
@@ -109,7 +110,9 @@ def role_cost(pin: RolePin, input_tokens: int, output_tokens: int) -> float:
 
     if pin.billing == "subscription":
         return 0.0
-    return (input_tokens * pin.input_price_per_million + output_tokens * pin.output_price_per_million) / 1_000_000
+    # The long-prompt tier applies past its threshold (Claude Haiku 5.5 above 100k).
+    input_price, output_price = pin.prices_for(input_tokens)
+    return (input_tokens * input_price + output_tokens * output_price) / 1_000_000
 
 
 def estimate_input_tokens(prompt: Any) -> int:
@@ -145,7 +148,8 @@ def check_pin(pin: RolePin, client: Any) -> dict[str, Any]:
     if identity["billing"] != pin.billing:
         problems.append(f"billing {identity['billing']!r} is not the pinned {pin.billing!r}")
     if pin.billing == "metered":
-        expected = (pins.EXPERIMENT_PROFILES.get(pin.provider_profile) or {}).get("base_url")
+        expected = (pins.EXPERIMENT_PROFILES.get(pin.provider_profile)
+                    or pins.ANTHROPIC_PROFILES.get(pin.provider_profile) or {}).get("base_url")
         if expected is None or str(identity["endpoint"] or "").rstrip("/") != expected.rstrip("/"):
             problems.append("the metered endpoint is not the experiment's pinned endpoint")
     if problems:
@@ -364,8 +368,13 @@ class LiveRoleCaller(_Recording):
 
     def __init__(self, vault_root: Path, config: Any, ledger: E0Ledger, *,
                  checkpoints: Checkpoints, role_pins: Mapping[str, RolePin] | None = None,
-                 client_factory: Callable[[str], Any] | None = None, records: Any = None) -> None:
+                 client_factory: Callable[[str], Any] | None = None, records: Any = None,
+                 key_envs: Mapping[str, str | None] | None = None, environ: Mapping[str, str] | None = None,
+                 anthropic_transport: Any = None) -> None:
         self.vault_root = Path(vault_root)
+        self.key_envs = dict(key_envs or {})
+        self.environ = environ
+        self.anthropic_transport = anthropic_transport
         self.config = with_experiment_profiles(config)
         self.ledger = ledger
         self.checkpoints = checkpoints
@@ -382,6 +391,12 @@ class LiveRoleCaller(_Recording):
         if key not in self._clients:
             if self._client_factory is not None:
                 client = self._client_factory(pin.provider_profile)
+            elif pin.transport == "anthropic_api":
+                # The experiment-only Messages API transport (re-plan 2026-10-22).
+                from learnloop.experiments.contextual_embeddings.anthropic_api import AnthropicMessagesClient
+
+                client = AnthropicMessagesClient(pin, key_env=self.key_envs.get("anthropic") or pins.ANTHROPIC_KEY_ENV,
+                                                 environ=self.environ, transport=self.anthropic_transport)
             else:
                 from learnloop.ai.routing import client_for_provider
 
@@ -391,9 +406,13 @@ class LiveRoleCaller(_Recording):
         return self._clients[key]
 
     def output_bound(self, pin: RolePin) -> int:
-        """The normal output-budget policy for the role's profile (never lowered)."""
+        """The pin's hard ``max_tokens`` (Anthropic roles), else the normal
+        output-budget policy for the role's profile (never lowered)."""
 
         from learnloop.ai.output_budget import output_budget
+
+        if pin.max_output_tokens:
+            return int(pin.max_output_tokens)
 
         return int(output_budget(self.config, None, provider=pin.provider_profile))
 
@@ -427,7 +446,8 @@ class LiveRoleCaller(_Recording):
                 # Admitted before, neither recorded nor known to have failed (a
                 # crash between the charge and the checkpoint): recover the settled
                 # response from the receipts, else block; never re-send.
-                recovered = self._recover(prompt, result_model)
+                wire = client.wire_prompt(prompt, result_model) if hasattr(client, "wire_prompt") else prompt
+                recovered = self._recover(wire, result_model)
                 if recovered is None:
                     raise E0RequestBlocked(f"role {role}: an earlier attempt of this request was admitted but its "
                                            "result was never recorded; pending reconciliation, not re-sent")
@@ -446,8 +466,13 @@ class LiveRoleCaller(_Recording):
                     stack.enter_context(truncation_retry_allowed())
                     stack.enter_context(requested_reasoning_effort(pin.reasoning_effort))
                     stack.enter_context(_collect_receipts(receipts))
-                    result = execute_structured_operation(client, purpose=f"e0_{role}", prompt=prompt,
-                                                          result_model=result_model, isolated=True)
+                    if hasattr(client, "structured"):
+                        # The Messages API transport: one admitted POST per request, no tools.
+                        result = client.structured(purpose=f"e0_{role}", prompt=prompt, result_model=result_model,
+                                                   max_tokens=bound)
+                    else:
+                        result = execute_structured_operation(client, purpose=f"e0_{role}", prompt=prompt,
+                                                              result_model=result_model, isolated=True)
             except BaseException as exc:
                 # The attempt's outcome IS recorded (it failed): a later run may retry it.
                 self.checkpoints.mark_failed(key, [entry["reservation"] for entry in self.ledger.entries_for(key)])
@@ -469,7 +494,7 @@ class LiveRoleCaller(_Recording):
                                pin.prompt_version, list(saved.get("receipts") or []))
         return result_model.model_validate(saved["result"])
 
-    def _recover(self, prompt: str, result_model: type[BaseModel]) -> Any | None:
+    def _recover(self, prompt: Any, result_model: type[BaseModel]) -> Any | None:
         """A settled response of this exact prompt from the experiment's own
         receipts (a completed receipt whose input is the prompt and whose
         output validates), or None."""
@@ -477,10 +502,14 @@ class LiveRoleCaller(_Recording):
         if self.records is None or not hasattr(self.records, "completed_outputs"):
             return None
         for text in self.records.completed_outputs(prompt):
-            try:
-                return result_model.model_validate_json(text)
-            except Exception:  # noqa: BLE001 - an unparseable output recovers nothing
-                continue
+            candidates = [text]
+            if "{" in text and "}" in text:
+                candidates.append(text[text.find("{"):text.rfind("}") + 1])
+            for candidate in candidates:
+                try:
+                    return result_model.model_validate_json(candidate)
+                except Exception:  # noqa: BLE001 - an unparseable output recovers nothing
+                    continue
         return None
 
 
@@ -531,3 +560,24 @@ class FakeRoleCaller(_Recording):
         self.last = CallRecord(role, checkpoint_key(pin, prompt, result_model), latency, False, pin.model,
                                pin.prompt_version)
         return value if isinstance(value, BaseModel) else result_model.model_validate(value)
+
+
+def canary_models(caller: LiveRoleCaller) -> dict[str, Any]:
+    """Each pinned Anthropic model id checked before any bulk work (re-plan
+    2026-10-22): one tiny admitted request per distinct model, answered as a
+    Messages API ``message`` by exactly that model. A client without a
+    canary (a test fake) is skipped. A failure raises (an ``E0Stop``)."""
+
+    from learnloop.experiments.contextual_embeddings.boundary import quiet_provider_logs
+
+    checked: dict[str, Any] = {}
+    for pin in caller.role_pins.values():
+        if pin.transport != "anthropic_api" or pin.model in checked:
+            continue
+        client, _identity = caller._client(pin)
+        if not hasattr(client, "canary"):
+            checked[pin.model] = {"status": "skipped", "reason": "no canary on this client"}
+            continue
+        with quiet_provider_logs(), gate_model_requests(E0RequestGate(caller.ledger, pin, arm="canary")):
+            checked[pin.model] = client.canary()
+    return checked

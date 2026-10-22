@@ -65,15 +65,17 @@ def test_the_plan_has_every_arm_question_count_estimate_and_key_state(tmp_path):
     assert {row["arm"] for row in plan["embedding_arms"]} == {
         "R1", "R2", "R3", "R4_grouped", "R4_singleton", "R4_independent", "R5_grouped", "R5_singleton",
         "R5_independent"}
-    assert {row["arm"] for row in plan["system_arms"]} == {"R0", "R1_service"}
+    # The system arms and, since the re-plan (2026-10-22), their OpenRouter Haiku source-route requests.
+    assert {row["arm"] for row in plan["system_arms"]} == {"R0", "R1_service", "R0_llm", "R1_service_llm"}
     assert set(plan["delivery_arms"]) == {"D0", "D1", "D2", "D3"}
-    assert {row["role"] for row in plan["llm_roles"]} == set(pins.ROLE_PINS)
+    # Every role but the system arms' source-route pin, which the system rows price.
+    assert {row["role"] for row in plan["llm_roles"]} == set(pins.ROLE_PINS) - {"system_verifier"}
     totals = plan["totals"]
     assert totals["cap_usd"] == 25.0 and set(totals["categories"]) == set(pins.ALLOCATION_USD)
     assert totals["estimated_usd"] == pytest.approx(sum(c["estimated_usd"] for c in totals["categories"].values()),
                                                     abs=1e-3)
     assert plan["keys"] == {"PERPLEXITY_API_KEY": "present", "VOYAGE_API_KEY": "absent",
-                            "OPENROUTER_API_KEY": "absent"}
+                            "OPENROUTER_API_KEY": "absent", "ANTHROPIC_API_KEY": "absent"}
     assert plan["bank"]["totals"]["development"] > 0
     assert plan["baseline"]["delivery_fixes"]["merge_commit"] == "275fd5f7e"
     allowlist = plan["baseline"]["vaults"][paths.root.name]["config_allowlist"]

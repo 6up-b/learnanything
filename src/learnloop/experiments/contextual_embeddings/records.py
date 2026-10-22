@@ -88,7 +88,7 @@ class ExperimentRecords:
             columns = [item[0] for item in connection.execute("SELECT * FROM judgment_ledger LIMIT 0").description]
         return [dict(zip(columns, row, strict=True)) for row in rows]
 
-    def completed_outputs(self, prompt: str) -> list[str]:
+    def completed_outputs(self, prompt: Any) -> list[str]:
         """The output texts of this repository's COMPLETED receipts whose
         input is exactly ``prompt`` (by text or prompt hash), newest first:
         what a resume can recover a settled response from (fix round 4,
@@ -100,7 +100,7 @@ class ExperimentRecords:
             rows = connection.execute(
                 "SELECT output_text FROM model_call_receipts WHERE owner_kind = ? AND status = 'completed' "
                 "AND output_text IS NOT NULL AND (input_text = ? OR prompt_hash = ?) ORDER BY started_at DESC",
-                (OWNER_KIND, prompt, content_key(prompt))).fetchall()
+                (OWNER_KIND, prompt if isinstance(prompt, str) else None, content_key(prompt))).fetchall()
         return [str(row[0]) for row in rows]
 
     def receipt_count(self) -> int:
