@@ -47,6 +47,7 @@ import hashlib
 import inspect
 import json
 import logging
+import re
 import sqlite3
 import sys
 from collections.abc import Callable, Iterator, Mapping
@@ -105,9 +106,29 @@ class Guard:
     #: The one bound authorizer every guarded connection carries. Re-installing it (to expire
     #: prepared statements) from inside its own callback then frees no callable that is running.
     _hook: Any = field(default=None, init=False, repr=False)
+    #: SQLite's statement trace, on every guarded connection: it marks each statement's start.
+    _trace_hook: Any = field(default=None, init=False, repr=False)
+    #: The statement being authorized has an UPDATE action (round 6: a later SELECT in it is an
+    #: ``UPDATE ... FROM`` or an ``UPDATE ... SET (subquery)``).
+    _update_seen: bool = False
 
     def __post_init__(self) -> None:
         self._hook = self.authorize
+        self._trace_hook = self._statement_started
+
+    def _statement_started(self, sql: Any) -> None:
+        """SQLite's trace: a statement began running, after its preparation (round 6). The next
+        statement is then prepared with no write context, so the reads its own write's SET
+        expressions or subqueries make are judged as reads. A statement with a ``RETURNING`` clause
+        (which the authorizer cannot tell from a WHERE) poisons the operation: its rows are never
+        output, and in the savepoint form its write rolls back."""
+
+        op = _CURRENT.get()
+        if op is None or op.guard is not self:
+            return
+        self._writing, self._update_seen = None, False
+        if _RETURNING_RE.search(_bare_sql(str(sql or ""))):
+            self._deny("returning", "(statement)", RETURNING, _reader())
 
     def authorize(self, action: int, arg1: Any, arg2: Any, database: Any, source: Any) -> int:
         op = _CURRENT.get()
@@ -131,7 +152,13 @@ class Guard:
         if action in _WRITES and arg1:
             verdict = self._write(str(arg1), _WRITES[action])
             self._writing = str(arg1) if verdict == sqlite3.SQLITE_OK else None
+            if verdict == sqlite3.SQLITE_OK and action == sqlite3.SQLITE_UPDATE:
+                self._update_seen = True
             return verdict
+        if action == sqlite3.SQLITE_SELECT and self._update_seen:
+            # SQLite authorizes an UPDATE's FROM clause and its SET subqueries as a SELECT after the
+            # UPDATE action (its WHERE subqueries are plain reads): refused (round 6).
+            return self._deny("update", str(self._writing or "?"), UPDATE_SELECT, _reader())
         if action != sqlite3.SQLITE_FUNCTION:
             self._writing = None
         return sqlite3.SQLITE_OK
@@ -147,7 +174,9 @@ class Guard:
         # Column-aware (round 5): outside the rules' scopes (the material view's rules, the
         # predicate's, the incumbent's constraints) only a table's metadata columns are read raw; a
         # content column (text, JSON or blob that can carry material) is the rules' to resolve.
-        raw_content = rules is None and C.column_class(table, column) == C.CONTENT
+        # In the incumbent's scope only its named readers read content (round 6).
+        raw_content = (rules is None or (rules == T.INCUMBENT and reader not in T.INCUMBENT_READERS)) \
+            and C.column_class(table, column) == C.CONTENT
         if kind == T.NEUTRAL and not raw_content:
             return sqlite3.SQLITE_OK
         if self.poisoned:
@@ -182,6 +211,7 @@ class Guard:
         record = {"verb": verb, "table": table, "why": why, "reader": reader}
         if record not in self.denials:
             self.denials.append(record)
+        self._writing, self._update_seen = None, False
         if self.mode == "observe":
             return sqlite3.SQLITE_OK
         if not self.poisoned:
@@ -204,6 +234,7 @@ class Guard:
             except sqlite3.DatabaseError:
                 self.triggers, self.constraints = frozenset(), {}
         raw.set_authorizer(self._hook)
+        raw.set_trace_callback(self._trace_hook)
         if all(known is not raw for known in self.connections):
             self.connections.append(raw)
 
@@ -224,8 +255,22 @@ class Guard:
         raw = getattr(raw, "_connection", raw)
         try:
             raw.set_authorizer(None)
+            raw.set_trace_callback(None)
         except sqlite3.ProgrammingError:  # closed meanwhile
             pass
+
+
+#: Why a write statement shape is refused (round 6).
+UPDATE_SELECT = "an UPDATE with a FROM clause or a SET subquery"
+RETURNING = "a write with a RETURNING clause"
+_RETURNING_RE = re.compile(r"\bRETURNING\b", re.IGNORECASE)
+_SQL_NOISE_RE = re.compile(r"'(?:[^']|'')*'|\"(?:[^\"]|\"\")*\"|`[^`]*`|\[[^\]]*\]|--[^\n]*|/\*.*?\*/", re.DOTALL)
+
+
+def _bare_sql(sql: str) -> str:
+    """A statement without its literals, quoted identifiers and comments."""
+
+    return _SQL_NOISE_RE.sub(" ", sql)
 
 
 #: Why a raw read of a content column is refused (``column_classes``; round 5).

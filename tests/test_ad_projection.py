@@ -349,17 +349,20 @@ def test_every_recorded_reference_shape_is_located_through_the_shared_key_functi
 HEADER_ID = "/page/1/SectionHeader/0"
 
 
-def _worked_examples_heading(tmp_path, *, absent: bool):
+def _worked_examples_heading(tmp_path, *, absent: bool, heading: str = "Worked Examples", by_text: bool = False):
     """One extraction: a section header H "Worked Examples" and a public block P under it (its
     section path names H's block id) whose stored role hint, inherited from that heading, is
     ``worked_example``; P's own text has no lead cue. ``LO`` cites P; the Reader viewed P. In the
-    absent copy H was never extracted."""
+    absent copy H was never extracted. ``by_text``: P's section path names H by its text, spaced as
+    the extractor spaced it (GLM-OCR's multi-line and double-spaced headings), and in the absent copy
+    nothing names it."""
 
     from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
 
     from tests.test_source_inventory import _persist
 
-    paths = ad23_vault(tmp_path / ("absent" if absent else "protected"), items=("pi_m1a",))
+    paths = ad23_vault(tmp_path / ("absent" if absent else "protected") / str(abs(hash((heading, by_text)))),
+                       items=("pi_m1a",))
     made = _iso(T0 - timedelta(days=7))
     with closing(connect(paths.sqlite_path)) as connection:
         connection.execute("INSERT INTO source_artifacts(id, acquisition_kind, canonical_uri, created_at, updated_at) "
@@ -367,10 +370,11 @@ def _worked_examples_heading(tmp_path, *, absent: bool):
         connection.execute("INSERT INTO source_revisions(id, source_id, asset_hash, created_at) "
                            "VALUES ('rev_f48', 'src_f48', 'sha256:f48', ?)", (made,))
         connection.commit()
-    header = DocumentBlock.build(span_id=H, block_type="SectionHeader", text="Worked Examples", ordinal=0, page=1,
+    header = DocumentBlock.build(span_id=H, block_type="SectionHeader", text=heading, ordinal=0, page=1,
                                  extractor_block_id=HEADER_ID, section_path=[])
+    path = ([] if absent else [heading]) if by_text else [HEADER_ID]
     public = DocumentBlock.build(span_id=P, block_type="Text", text="Consider the matrix A and compute its determinant.",
-                                 ordinal=1, page=1, section_path=[HEADER_ID], role_hint="worked_example")
+                                 ordinal=1, page=1, section_path=path, role_hint="worked_example")
     blocks = [public] if absent else [header, public]
     units = [DocumentUnit(unit_id="sec_mixed", label="sec_mixed", ordinal=0, semantic_hash="sha256:sec_mixed",
                           page_start=1, page_end=1, span_ids=[block.span_id for block in blocks])]
@@ -382,6 +386,34 @@ def _worked_examples_heading(tmp_path, *, absent: bool):
         {"context": "reader", "extraction_id": EXT, "span_id": P, "revision_id": "rev_f48", "source_id": "src_f48",
          "entity_type": "reader", "entity_id": "visit_r5", "created_at": _iso(T0 - timedelta(hours=5))})
     return paths
+
+
+@pytest.mark.parametrize("heading", ["Worked Examples", "Worked\nExamples", "Worked  Examples"])
+def test_a_withheld_heading_named_by_text_never_gives_a_public_block_its_role(tmp_path, monkeypatch, heading):
+    """Round 6 (the Opus verify's High): P's section path names the withheld header by its text,
+    spaced as GLM-OCR spaces it. The heading is resolved by position (the nearest preceding visible
+    header), never by text, so in every spacing the view of P equals the copy without H (failed
+    before for the multi-line and double-spaced headings: the normalized-text blanking missed the
+    raw path element and H's text gave P its role)."""
+
+    from learnloop.adaptive_difficulty.operation import ad_operation
+
+    protected_paths = _worked_examples_heading(tmp_path, absent=False, heading=heading, by_text=True)
+    absent_paths = _worked_examples_heading(tmp_path, absent=True, heading=heading, by_text=True)
+    vault, repository = load_vault(protected_paths.root), Repository(protected_paths.sqlite_path)
+    with ad_operation(vault, repository) as op, closing(connect(protected_paths.sqlite_path,
+                                                                read_only=True)) as connection:
+        assert op.view.worked_example_spans(connection, EXT) == {P}  # H public: P is a worked example
+    _hold_h(monkeypatch)
+    spans = {}
+    for name, paths in (("protected", protected_paths), ("absent", absent_paths)):
+        vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
+        with ad_operation(vault, repository) as op, closing(connect(paths.sqlite_path, read_only=True)) as connection:
+            spans[name] = op.view.worked_example_spans(connection, EXT)
+    assert spans["protected"] == spans["absent"] == set()
+    protected, absent = _swept(protected_paths), _swept(absent_paths)
+    assert protected == absent
+    assert all(row[0] != "worked_example" for row in protected)
 
 
 def test_a_withheld_heading_never_gives_a_public_block_its_role(tmp_path, monkeypatch):

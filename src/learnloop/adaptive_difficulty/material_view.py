@@ -63,6 +63,11 @@ _VALUE = _T.VALUE
 NON_WINDOW_TYPES = ("skip", "self_report")
 
 
+#: The one section-path element ``worked_example_spans`` hands ``effective_hint``: the block's
+#: positional heading (round 6).
+_POSITIONAL_HEADING = "ad:positional-heading"
+
+
 def _has_table(connection: Any, table: str) -> bool:
     return connection.execute(
         "/* ad-rules */ SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)).fetchone() is not None
@@ -1001,10 +1006,12 @@ class MaterialView:
     def worked_example_spans(self, connection: Any, extraction_id: str) -> set[str]:
         """The extraction's worked-example spans, by the incumbent's effective role
         (``source_retrieval.corpus.effective_hint``, as ``role_keys`` applies it) computed over the
-        PROJECTION (the AD23 redesign round 5): only visible blocks are classified, and a block's
-        heading is resolved against visible headers only. A path element naming a withheld header
-        (by its block id or its text) resolves to no heading, as a dangling element does when that
-        header was never extracted, so withheld heading text never gives a public block its role."""
+        PROJECTION (the AD23 redesign rounds 5 and 6): only visible blocks are classified, and a
+        block's heading is resolved by POSITION, as the nearest preceding visible ``SectionHeader``
+        of its reading (by ordinal). A withheld header is never anyone's heading, exactly as when it
+        was never extracted. Nothing in this path compares text: the stored section path (whose
+        elements may be header ids or header text, spaced however the extractor spaced it) is not
+        read; ``effective_hint`` is handed a path rebuilt from the visible header by position."""
 
         from learnloop.db.stores.source_block_fts import HintRow
         from learnloop.source_retrieval.corpus import effective_hint
@@ -1012,31 +1019,21 @@ class MaterialView:
         if not self.available or self.material_withheld(extraction_id):
             return set()
         rows = connection.execute(
-            "/* ad-rules */ SELECT span_id, block_type, role_hint, text, section_path_json, extractor_block_id "
-            "FROM source_document_blocks WHERE extraction_id = ? ORDER BY ordinal, span_id",
-            (extraction_id,)).fetchall()
-        visible = [row for row in rows if not self.material_withheld(extraction_id, str(row[0]))]
-        headers = [row for row in rows if str(row[1]) == "SectionHeader" and row[5] is not None
-                   and " ".join(str(row[3] or "").split())]
-        titles: dict[str, str] = {}
-        for row in headers:
-            if self.material_withheld(extraction_id, str(row[0])):
-                titles.setdefault(str(row[5]), "")
-        visible_texts = {" ".join(str(row[3] or "").split()) for row in headers
-                         if not self.material_withheld(extraction_id, str(row[0]))}
-        for row in headers:
-            text = " ".join(str(row[3] or "").split())
-            if self.material_withheld(extraction_id, str(row[0])) and text not in visible_texts:
-                titles.setdefault(text, "")
-        for row in headers:
-            if not self.material_withheld(extraction_id, str(row[0])):
-                titles[str(row[5])] = " ".join(str(row[3] or "").split())
+            "/* ad-rules */ SELECT span_id, block_type, role_hint, text FROM source_document_blocks "
+            "WHERE extraction_id = ? ORDER BY ordinal, span_id", (extraction_id,)).fetchall()
         found: set[str] = set()
-        for row in visible:
-            hint = HintRow(str(extraction_id), str(row[0]), str(row[1]), None if row[2] is None else str(row[2]),
-                           str(row[3] or ""), row[4])
-            if hint.role_hint == "worked_example" and effective_hint(hint, titles) == "worked_example":
+        heading: str | None = None
+        for span_id, block_type, role_hint, text in rows:
+            if self.material_withheld(extraction_id, str(span_id)):
+                continue  # neither classified nor anyone's heading
+            path = [] if heading is None else [_POSITIONAL_HEADING]
+            hint = HintRow(str(extraction_id), str(span_id), str(block_type), None if role_hint is None else str(role_hint),
+                           str(text or ""), json.dumps(path))
+            if hint.role_hint == "worked_example" and effective_hint(
+                    hint, {} if heading is None else {_POSITIONAL_HEADING: heading}) == "worked_example":
                 found.add(hint.span_id)
+            if str(block_type) == "SectionHeader":
+                heading = " ".join(str(text or "").split())
         return found
 
     def plan_feedback_events(self, connection: Any) -> list[dict[str, Any]]:

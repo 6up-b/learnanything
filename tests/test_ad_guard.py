@@ -496,6 +496,85 @@ def test_an_incumbent_model_calls_text_is_unreadable_raw_while_its_accounting_is
                     connection.execute(f"SELECT {column} FROM model_call_receipts WHERE id = 'mc1'").fetchone()
 
 
+def test_in_the_incumbent_scope_only_its_named_readers_read_content(tmp_path):
+    """Round 6 (Low): inside ``incumbent_constraints()`` a module that is not one of the named
+    incumbent readers reads a content column raw: refused; a metadata column stays readable (failed
+    before: the incumbent scope skipped the column check for every reader)."""
+
+    paths, vault, repository = _vault(tmp_path)
+    with repository.atomic():
+        connection = repository.connection()
+        with contextlib.suppress(_POISONED), O.ad_operation(vault, repository):
+            with O.incumbent_constraints():
+                connection.execute("SELECT status FROM model_call_receipts").fetchall()
+                with pytest.raises(sqlite3.DatabaseError, match=DENIED):
+                    connection.execute("SELECT output_text FROM model_call_receipts").fetchall()
+
+
+_DRAW = ("INSERT INTO ad_dose_offers(row_kind, draw_key, created_at) VALUES ('draw', 'k_r6', '2026-10-21T00:00:00Z')")
+
+
+@pytest.mark.parametrize("sql", [
+    "UPDATE ad_dose_offers SET detail_json = (SELECT status FROM daily_plans LIMIT 1) WHERE draw_key = 'k_r6'",
+    "UPDATE ad_dose_offers SET detail_json = daily_plans.status FROM daily_plans WHERE draw_key = 'k_r6'",
+    # On a neutral AD-writable target, where no other read refuses it.
+    "UPDATE judgment_work_claims SET state = daily_plans.status FROM daily_plans WHERE claim_key = 'none'",
+    "UPDATE judgment_work_claims SET state = (SELECT status FROM daily_plans LIMIT 1) WHERE claim_key = 'none'",
+])
+def test_an_update_with_a_subquery_set_or_a_from_clause_is_refused(tmp_path, sql):
+    """Round 6 (Low), on the installed SQLite: an ``UPDATE ... SET (subquery)`` and an ``UPDATE ...
+    FROM`` of an AD table are refused inside an operation, even when every read in them is allowed
+    on its own (failed before: both ran)."""
+
+    paths, vault, repository = _vault(tmp_path)
+    with repository.atomic():
+        connection = repository.connection()
+        with contextlib.suppress(_POISONED), O.ad_operation(vault, repository):
+            connection.execute(_DRAW)
+            with pytest.raises(sqlite3.DatabaseError, match=DENIED):
+                connection.execute(sql)
+
+
+_SCORE = "INSERT INTO item_forecast_scores(forecaster, status, detail_json) VALUES ('f_r6', 'scored', '{}')"
+
+
+@pytest.mark.parametrize("sql", [
+    "INSERT INTO item_forecast_scores(forecaster, status, detail_json) VALUES ('f_ret', 'scored', '{}') RETURNING forecaster",
+    "UPDATE item_forecast_scores SET status = 'pending' WHERE forecaster = 'f_r6' RETURNING forecaster",
+    "DELETE FROM item_forecast_scores WHERE forecaster = 'f_none' RETURNING forecaster",
+])
+def test_a_write_with_returning_poisons_the_operation_and_rolls_back(tmp_path, sql):
+    """Round 6 (Low), on the installed SQLite: the authorizer cannot tell a RETURNING clause from a
+    WHERE, so SQLite's statement trace refuses it: the operation is poisoned, its exit raises, and in
+    the savepoint form nothing it wrote remains (failed before: the write and its rows stood)."""
+
+    paths, vault, repository = _vault(tmp_path)
+    with pytest.raises(O.OperationPoisoned):
+        with O.ad_operation(vault, repository, savepoint=True):
+            connection = repository.connection()
+            connection.execute(_SCORE)
+            connection.execute(sql).fetchall()
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM item_forecast_scores").fetchone()[0] == 0
+
+
+def test_a_write_context_never_outlives_its_statement(tmp_path):
+    """Round 6 (Low), on the installed SQLite: a write to an AD table leaves no write context for the
+    next statement: an UPDATE whose SET reads the previous write's target before its own UPDATE action
+    is judged as a read (failed before: the earlier write's context let the raw read through)."""
+
+    paths, vault, repository = _vault(tmp_path)
+    with repository.atomic():
+        connection = repository.connection()
+        with contextlib.suppress(_POISONED), O.ad_operation(vault, repository):
+            connection.execute(_SCORE)
+            connection.execute("UPDATE item_forecast_scores SET status = 'pending' WHERE forecaster = 'f_r6'")
+            with pytest.raises(sqlite3.DatabaseError, match=DENIED):
+                # Its SET reads item_forecast_scores.detail_json (a protected AD table's content)
+                # before its UPDATE action: a raw read, outside the rules.
+                connection.execute("UPDATE item_forecast_scores SET forecaster = detail_json WHERE forecaster = 'f_r6'")
+
+
 def _planted_dose_read(tmp_path, monkeypatch):
     """The dose decision's forecast covariate (caught by its broad except) reads a protected table raw."""
 
