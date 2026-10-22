@@ -444,3 +444,92 @@ The 11 logged practice and feedback questions with no recorded assessment contra
   - the 2 Codex lockdown test files.
 - Tests updated for the new roles: the writer is metered, the fake profiles are the Anthropic ones, and the metered system verifier is the OpenRouter Haiku profile. The CLI help snapshot entry is updated for the new `--anthropic-key-env` option.
 - The main checkout's tracked fixtures were not opened or changed.
+
+## Cap raised to $40, models kept (owner, 2026-10-22)
+
+**Commit:** `ab9da7b65`. **No paid, live or network call was made ($0.00).**
+
+The owner raised the E0 cap to $40 and kept the re-planned models: Claude Haiku 5.5 for label A, Claude Sonnet 5.5 for label B and the writer, Claude Opus 5.5 for both adjudicators. The proposed Haiku 4.5 option above is withdrawn.
+
+### Cap and allocations
+
+- **Cap:** `pins.E0_CAP_USD = 40.0`, enforced as before. Every request is admitted before it is sent, at its hard maximum, against the cap and its category; unknown billing stays reserved; a settlement above its reservation halts the whole run.
+- **Allocations:** in proportion to the dry run's expected spend, with headroom.
+
+| Category | Owner's proposal $ | Pinned $ | Expected $ | Worst case $ (every request retried twice) |
+|---|---|---|---|---|
+| embeddings | 1.00 | **0.50** | 0.04 | 0.12 |
+| drafting/context | 1.50 | 1.50 | 0.51 | 1.52 |
+| labels/audits | 24.00 | 24.00 | 23.62 | 70.87 |
+| answers/verification | 13.50 | **14.00** | 13.67 | 41.02 |
+| **total** | 40.00 | **40.00** | **37.84** | 113.53 |
+
+- **Adjustment:** answers/verification expects $13.67, more than the proposed $13.50. I moved $0.50 from embeddings (expected $0.04, worst case $0.12) to answers, within the $40.
+- **Headroom is thin:** labels has $0.38 left and answers $0.33.
+- **Worst case:** it assumes every request is retried twice, which no category's allocation covers. Admission stops a category at its allocation and the run at $40, so a run that met it would end incomplete rather than overspend. The Opus calls' hard reservations ($0.33+ each) are reserved and released one at a time.
+
+### The OpenRouter Haiku pin (verified)
+
+- **Price:** `system_verifier` is `anthropic/claude-haiku-5.5` at $0.10/M input and $0.50/M output, source https://openrouter.ai/anthropic/claude-haiku-5.5/pricing, `checked_on` 2026-10-22.
+- **Long prompts:** the page shows no prompt-length tier. E0 still admits at Anthropic's >100k rate ($0.50/$2.50) whenever the input bound passes 100k (tested).
+- **No unverified pin remains.**
+
+### Keys
+
+The paid run now loads no copy settings or dotenv (`open_copy(..., load_environment=False)` in `live.rebuild_frozen`). Keys come only from the shell or `--env-file`. This supersedes the "Commands for the paid run" section of `docs/reviews/experiments-e0-contextual-embeddings.md`.
+
+### Dry run (env -i, no keys)
+
+The dry run ran on the existing copies:
+
+- `network_calls: 0` and copies unchanged by sha256 checksum.
+- Artifacts refreshed: run `e0_dec5776aa73cdd5a`.
+- **$37.84 expected against $40, which fits; every allocation fits.**
+- Codex requests: 0 planned (allowance 0). Unverified prices: none. All four system-arm LLM rows are priced `verified`.
+
+### Paid-run preflight
+
+The paid CLI's checks were run on that plan under `env -i`, with no network:
+
+- `require_paid_authorization`: authorized, the plan fits, no unverified price. **Passes.**
+- `require_no_codex_roles`: **passes.**
+- `require_codex_lockdown`: **active**, 58 lockdown overrides checked.
+
+The only thing missing is the keys, which are absent in the dry run (`ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`, `PERPLEXITY_API_KEY`, `VOYAGE_API_KEY`). Without them, the model canaries fail with `auth` before any bulk work, and each copy writes its failure report. A test checks the same preflight on a fresh vault.
+
+### The paid-run command (for the orchestrator to execute; not run here)
+
+Run it from the worktree, or the merged tree, with the app's normal environment. The keys must be in the env file named here; nothing else is loaded.
+
+```bash
+cd /home/saturn/Documents/thinking/learnanything-e0
+uv run learnloop experiments e0 run \
+  --copy fixtures-local/contextual-embeddings/vaults/linear_algebra-20261021 \
+  --copy fixtures-local/contextual-embeddings/vaults/probability-20261021 \
+  --env-file <PATH/TO/KEYS.env> \
+  --anthropic-key-env ANTHROPIC_API_KEY \
+  --openrouter-key-env OPENROUTER_API_KEY \
+  --perplexity-key-env PERPLEXITY_API_KEY \
+  --voyage-key-env VOYAGE_API_KEY \
+  --run-dir fixtures-local/contextual-embeddings/runs \
+  --reader-latency-budget-s <SECONDS> \
+  --new-authorization 'owner raised cap to $40 on 2026-10-22' \
+  --i-am-authorized-to-spend \
+  --json
+```
+
+- **Quoting:** keep the single quotes. In bash or fish, double quotes would expand `$4` in `$40`.
+- **Caps:** no CLI flag changes them. They are pinned in `pins.py` and enforced by the ledger: cap $40.00; allocations as in the table above; 6,000 metered requests; Codex allowance 0; wall time 6 h; 2 transient retries; no auth or contract retries.
+- **Ledger:** the run's canonical ledger is `fixtures-local/contextual-embeddings/ledger/e0_dec5776aa73cdd5a.ledger`. The plan id is recomputed from the copies and pins at run time and must equal the dry run's.
+- **Reader latency budget:** `--reader-latency-budget-s` is optional. Without it, S2 and S4 fail closed.
+- **Order of work:** the run first does the Codex lockdown and no-Codex checks, then the model canaries (Haiku, Sonnet, Opus), then the embedding canaries (Qwen first, before its backfill), then the bulk work.
+- **Report:** results land in `fixtures-local/contextual-embeddings/runs/e0_dec5776aa73cdd5a/<copy>/results.json` and `report.md`. The aggregate is rendered with `learnloop experiments e0 report --results <that results.json> --out docs/reviews/experiments-e0-report-<copy>.md`.
+
+### Gate (this step, on `ab9da7b65`)
+
+- `.venv/bin/lint-imports --no-cache` (under `env -i`): **30 kept, 0 broken**.
+- `pytest -n auto` with `TMPDIR=fixtures-local/tmp`, on the same 30 files plus the new preflight test: **512 passed, 1 skipped**. The skip needs the `openai_codex` SDK.
+- Test changes:
+  - the ledger-mechanics tests in `tests/test_e0_budget.py` are now checked against a fixed $25 envelope with a $2 embeddings category, independent of the pins;
+  - the cap assertions now expect $40;
+  - the round-5 OpenRouter assertions now expect a verified price.
