@@ -2201,7 +2201,21 @@ class WorkbenchConfig(BaseModel):
     #: "Compare with the book" under a hint in the Reader (§5.2 bridging): a
     #: background passage lookup through T6's practice context.
     bridge_enabled: bool = True
-    #: The workbench's own calls (checks, bridges) per problem: a money cap
+    #: RW2c (spec §5.10): what helps this learner. The help-outcome lines (a
+    #: pure read of the ledgers) given to the hint writer and the chooser;
+    #: off, both get the request they got before RW2c.
+    help_outcomes_enabled: bool = True
+    #: The worked example that takes the learner's route (the sources spec's
+    #: ``worked_example`` intent): after a level-3+ hint and on "Show me a
+    #: similar example". Absent when the sources spec's S3 is not available.
+    examples_enabled: bool = True
+    #: "Compare with the book's method" after a correct Submit (the reference
+    #: read by id, recorded as a reveal on the item before it is shown).
+    compare_methods_enabled: bool = True
+    #: The logged draw between two or more passages that all passed the judge
+    #: (bridge, worked example); off, the first passage is shown as before.
+    passage_draw_enabled: bool = True
+    #: The workbench's own calls (checks, bridges, examples, comparisons) per problem: a money cap
     #: counted in calls (§5.8). Hint calls are the hint service's (C8).
     max_calls_per_session: int = Field(default=24, ge=1)
     #: The workbench's own metered spend a UTC day (§5.8).

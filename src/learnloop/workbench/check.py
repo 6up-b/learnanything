@@ -215,15 +215,18 @@ def daily_envelope(vault: Any, repository: Repository, *, clock: Clock | None = 
 
 def session_calls_on(connection: Any, workbench_session_id: str) -> int:
     """The workbench's own calls for this problem so far, read on
-    ``connection``: its checks' receipts and its bridge searches (one row per
-    search, written before it runs, found or not: fix round 1, F9)."""
+    ``connection``: its checks' (and RW2c's comparisons') receipts and its
+    bridge and worked-example searches (one row per search, written before it
+    runs, found or not: fix round 1, F9). RW2c's "another passage" rows are
+    learner picks among a search's results, no call, and count nothing."""
 
     row = connection.execute(
         "SELECT COUNT(*) FROM model_call_receipts WHERE owner_kind = ? AND owner_id LIKE ? "
         "AND parent_call_id IS NULL", (OWNER_KIND, f"{workbench_session_id}:%")).fetchone()
     bridges = connection.execute(
         "SELECT COUNT(*) FROM help_assists WHERE surface = 'workbench' AND workbench_session_id = ? "
-        "AND assist_kind = 'bridge'", (workbench_session_id,)).fetchone()
+        "AND assist_kind IN ('bridge', 'example') AND chooser != 'learner_pick'",
+        (workbench_session_id,)).fetchone()
     return int(row[0] or 0) + int(bridges[0] or 0)
 
 
@@ -271,7 +274,12 @@ class CheckRoute:
                 f"Today's check budget (${float(section.max_daily_cost_usd):.2f}) is used. Hints still work.")
         return None
 
-    def ask(self, prompt: str, *, assist_id: str) -> WorkbenchCheckOutputV1:
+    def ask(self, prompt: str, *, assist_id: str, result_model: type[WireModel] | None = None,
+            prompt_version: str = PROMPT_VERSION) -> Any:
+        """One call on the route. ``result_model`` / ``prompt_version``: RW2c's
+        comparison uses the same route, caps and receipts with its own output
+        (default: the check's)."""
+
         problem = self.problem()
         if problem is not None:
             raise problem
@@ -288,8 +296,9 @@ class CheckRoute:
                                owner_id=f"{self.workbench_session_id}:{assist_id}")
         with spend_envelopes(self.envelope):
             return self.calls.call(self.client, purpose=ROUTE_TASK, prompt=prompt,
-                                   result_model=WorkbenchCheckOutputV1, output_tokens=self.route.output_tokens,
-                                   metadata={"assist_id": assist_id, "prompt_version": PROMPT_VERSION})
+                                   result_model=result_model or WorkbenchCheckOutputV1,
+                                   output_tokens=self.route.output_tokens,
+                                   metadata={"assist_id": assist_id, "prompt_version": prompt_version})
 
     @property
     def model(self) -> str | None:

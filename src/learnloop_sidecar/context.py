@@ -644,7 +644,15 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
                               **({"help": {"enabled": True, "bridge": bool(config.workbench.bridge_enabled),
                                            # RW2b fix round 13: the symbolic switch, so a
                                            # mounted workbench gates marks already shown.
-                                           "symbolic": bool(config.workbench.symbolic_checks_enabled)}}
+                                           "symbolic": bool(config.workbench.symbolic_checks_enabled),
+                                           # Reader RW2c's switches, each present only
+                                           # while on (off: the snapshot is as before).
+                                           **({"examples": True} if config.workbench.examples_enabled
+                                              else {}),
+                                           **({"compare_methods": True}
+                                              if config.workbench.compare_methods_enabled else {}),
+                                           **({"passage_draw": True} if config.workbench.passage_draw_enabled
+                                              else {})}}
                                  if config.workbench.help_enabled else {})}}
                if config.workbench.enabled else {}),
             # Reader workbench RW6a's two kill switches: present only while one

@@ -115,29 +115,35 @@ def _table(connection: Any, name: str) -> bool:
         is not None
 
 
-def exposure_evidence(connection: Any) -> dict[str, Any]:
-    """The persisted exposure and coldness records the cold search reads."""
+def exposure_evidence(connection: Any, *, cutoff: datetime | None = None) -> dict[str, Any]:
+    """The persisted exposure and coldness records the cold search reads;
+    with ``cutoff`` (the historical read, :func:`outcomes_as_of`) only those
+    written by then."""
+
+    def standing(rows: Any) -> list[dict[str, Any]]:
+        values = [dict(row) for row in rows]
+        return values if cutoff is None else [value for value in values if _parse(value["created_at"]) <= cutoff]
 
     evidence: dict[str, Any] = {"reveals": [], "source_exposures": [], "coldness_failures": {}}
     if _table(connection, "reveal_events"):
-        evidence["reveals"] = [dict(row) for row in connection.execute(
-            "SELECT id, practice_item_id, learning_object_id, created_at FROM reveal_events ORDER BY created_at, id")]
+        evidence["reveals"] = standing(connection.execute(
+            "SELECT id, practice_item_id, learning_object_id, created_at FROM reveal_events ORDER BY created_at, id"))
     if _table(connection, "source_exposure_events"):
-        evidence["source_exposures"] = [dict(row) for row in connection.execute(
+        evidence["source_exposures"] = standing(connection.execute(
             "SELECT id, extraction_id, span_id, entity_type, entity_id, created_at FROM source_exposure_events "
-            "ORDER BY created_at, id")]
+            "ORDER BY created_at, id"))
     if _table(connection, "coldness_receipts"):
-        for row in connection.execute(
-                "SELECT cold_attempt_id, dimensions_json FROM coldness_receipts WHERE stage='final' "
-                "AND cold_attempt_id IS NOT NULL ORDER BY id"):
+        for row in standing(connection.execute(
+                "SELECT cold_attempt_id, dimensions_json, created_at FROM coldness_receipts WHERE stage='final' "
+                "AND cold_attempt_id IS NOT NULL ORDER BY id")):
             try:
-                dimensions = json.loads(row[1] or "{}")
+                dimensions = json.loads(row["dimensions_json"] or "{}")
             except (TypeError, ValueError):
                 dimensions = {}
             failed = [name for name in COLDNESS_DIMENSIONS
                       if (dimensions.get(name) or {}).get("status") == "fail"]
             if failed:
-                evidence["coldness_failures"][str(row[0])] = failed
+                evidence["coldness_failures"][str(row["cold_attempt_id"])] = failed
     return evidence
 
 
@@ -206,14 +212,16 @@ def _bucket(attempt: Mapping[str, Any], predicted: Mapping[str, float] | None) -
     return "correct" if float(correctness) >= 0.999 else "partial" if float(correctness) > 0 else "incorrect"
 
 
-def _signals(connection: Any, proposal_id: str | None) -> list[dict[str, Any]]:
+def _signals(connection: Any, proposal_id: str | None, *, cutoff: datetime | None = None) -> list[dict[str, Any]]:
     if not proposal_id:
         return []
     rows = connection.execute(
-        "SELECT verdict, right_id, rationale FROM judgment_ledger WHERE task=? AND left_id=? ORDER BY created_at, id",
-        (USAGE_TASK, proposal_id)).fetchall()
+        "SELECT verdict, right_id, rationale, created_at FROM judgment_ledger WHERE task=? AND left_id=? "
+        "ORDER BY created_at, id", (USAGE_TASK, proposal_id)).fetchall()
     signals = []
     for row in rows:
+        if cutoff is not None and _parse(row["created_at"]) > cutoff:
+            continue  # the historical read: a tap made after the cutoff had not happened
         text = None
         try:
             text = json.loads(row["rationale"]).get("learner_text")
@@ -363,6 +371,44 @@ def _overlaps(other: Mapping[str, Any], items: set[str], facets: set[str], vault
     return bool(other_items & items or other_facets & facets)
 
 
+def outcomes_as_of(vault: LoadedVault, connection: Any, as_of: datetime, *,
+                   grades: Mapping[str, tuple[Any, bool]]) -> dict[str, dict[str, Any]]:
+    """Every intervention's outcome AS IT STOOD at ``as_of`` (S5's own
+    historical read; Reader RW2c fix round 2, 5), keyed by intervention id.
+
+    The persisted rows are the replayer's reading at its own reference time
+    (the newest attempt or intervention), so a later regrade, a later
+    attempt or simply time passing (expiry) changes them; a read of the past
+    must not. This computes :func:`outcome_for` over the inputs written by
+    ``as_of`` only (interventions, attempts, reveals, source exposures,
+    coldness receipts, the learner's taps), with each attempt's grade and
+    hold as they stood then (``grades``: ``{attempt id: (correctness,
+    held)}``, the caller's grading-history read; an attempt it does not name
+    has no grade then), and judges expiry at ``as_of``. Zero model calls,
+    nothing written; the replayer (:func:`rebuild_intervention_outcomes`) is
+    unchanged."""
+
+    cutoff = as_of if as_of.tzinfo else as_of.replace(tzinfo=timezone.utc)
+    records = [record for record in interventions(connection) if _parse(record["created_at"]) <= cutoff]
+    if not records:
+        return {}
+    attempts = []
+    for attempt in _attempts(connection):
+        if _parse(attempt["created_at"]) > cutoff:
+            continue
+        correctness, held = grades.get(str(attempt["id"]), (None, False))
+        if correctness != attempt.get("correctness"):
+            attempt["rubric_score"] = None  # the score of a later grading, not this one's
+        attempt["correctness"] = correctness
+        attempt[HELD_ROW_KEY] = bool(held)
+        attempts.append(attempt)
+    evidence = exposure_evidence(connection, cutoff=cutoff)
+    return {str(record["id"]): outcome_for(record, attempts, vault, as_of=cutoff,
+                                           signals=_signals(connection, record.get("proposal_id"), cutoff=cutoff),
+                                           evidence=evidence, interventions_seen=records)
+            for record in records}
+
+
 def rebuild_intervention_outcomes(vault: LoadedVault, repository: Repository) -> dict[str, Any]:
     """The single DERIVED replayer: pure recomputation inside the caller's transaction."""
 
@@ -381,4 +427,4 @@ def rebuild_intervention_outcomes(vault: LoadedVault, repository: Repository) ->
 
 
 __all__ = ["COLD_STATES", "MEASURED_COLD_STATES", "OUTCOME_VERSION", "SUCCESS_CORRECTNESS", "exposure_evidence",
-           "is_assisted", "outcome_for", "rebuild_intervention_outcomes"]
+           "is_assisted", "outcome_for", "outcomes_as_of", "rebuild_intervention_outcomes"]

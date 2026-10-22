@@ -202,7 +202,10 @@ def test_f11_every_key_rw2b_added_is_classified():
 
     # The set is complete: every [workbench] field except RW2a's two.
     added = {f"workbench.{name}" for name in WorkbenchConfig.model_fields} - {
-        "workbench.enabled", "workbench.open_session_days"}
+        "workbench.enabled", "workbench.open_session_days"} - {
+        # Reader RW2c's four switches (classified in tests/test_rw2c_switch_off.py).
+        "workbench.help_outcomes_enabled", "workbench.examples_enabled", "workbench.compare_methods_enabled",
+        "workbench.passage_draw_enabled"}
     assert added == {key for key in RW2B_KEYS if key.startswith("workbench.")}
     unclassified = [key for key in RW2B_KEYS if registry.classify_config_path(key) is None]
     assert unclassified == []
@@ -373,7 +376,10 @@ def test_f9_the_search_takes_its_place_before_it_runs_so_a_second_one_is_refused
     import learnloop_sidecar.handlers.workbench_help as handler
     from learnloop.workbench.bridge import bridge_for_hint
 
-    _paths, ctx, _session = sidecar(tmp_path)
+    # Reader RW2c: the bridge is stubbed and run by hand here, so RW2c's
+    # sibling example (which waits for the bridge job) is switched off; its own
+    # ordering is pinned in tests/test_workbench_route_example.py.
+    _paths, ctx, _session = sidecar(tmp_path, "[workbench]\nexamples_enabled = false\n")
     wb, _chains = open_problem(ctx, origin="reader", entry="work_through")
     vault, repository = ctx.require_vault()
     monkeypatch.setattr(handler, "_start_bridge", lambda *args, **kwargs: None)

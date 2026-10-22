@@ -27,6 +27,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from contextlib import closing
 import json
+import logging
 from typing import Any
 
 from learnloop.db.connection import connect
@@ -35,6 +36,8 @@ from learnloop.db.stores import help_assists as assists_store
 from learnloop.db.stores import workbench as store
 from learnloop.hints import workbench as hint_workbench
 from learnloop.reader import workbench as WB
+
+LOG = logging.getLogger(__name__)
 
 #: The UX's wording for an unavailable service (UX §4.0 "capped", §5.6).
 TAILORED_UNAVAILABLE = "Tailored hints are unavailable right now ({reason}). The item's own hints are still here ▸"
@@ -131,6 +134,7 @@ def hint_context(
     standing = hint_workbench.standing_steps(live, verdicts)
     continue_from = hint_workbench.checkpoint_for(live, standing, about)
     return hint_workbench.WorkbenchHintContext(
+        help_outcomes=help_outcome_lines(vault, repository, session),
         workbench_session_id=str(session["id"]), steps=tuple(live), _raw_verdicts=tuple(verdicts),
         check_assist_id=str(check["id"]) if check is not None else None, first_questionable=first,
         error_kind_guess=str(guess) if guess and section.error_kind_enabled else None,
@@ -141,6 +145,28 @@ def hint_context(
         # Fix round 12: the switch read again at every writer call and row
         # serialization (the caller's live reader; else this vault's).
         symbolic_now=symbolic_now if symbolic_now is not None else (lambda: hint_workbench.symbolic_enabled(vault)))
+
+
+def help_outcome_lines(vault: Any, repository: Repository, session: Mapping[str, Any]
+                       ) -> tuple[dict[str, Any], ...]:
+    """RW2c (§5.10): the typed help-outcome lines for the problem's item's
+    facets, read now, while ``workbench.help_outcomes_enabled`` is on; ``()``
+    otherwise or without history (so the writer's and the chooser's inputs
+    are exactly as before). Context only: a failed read never blocks a hint."""
+
+    if not bool(getattr(vault.config.workbench, "help_outcomes_enabled", False)):
+        return ()
+    item = vault.practice_items.get(str(session.get("practice_item_id") or ""))
+    if item is None:
+        return ()
+    from learnloop.clock import utc_now_iso
+    from learnloop.workbench.help_outcomes import lines_for_item
+
+    try:
+        return lines_for_item(vault, repository, item, as_of=utc_now_iso())
+    except Exception:  # noqa: BLE001 - context, never a reason to refuse help
+        LOG.warning("help outcomes unavailable for %s", item.id, exc_info=True)
+        return ()
 
 
 def fallback_level(repository: Repository, session_id: str, about_step: str | None) -> int:
@@ -194,6 +220,15 @@ def hint_views(vault: Any, repository: Repository, session_id: str) -> list[dict
                for row in rows if row["assist_kind"] == "discriminate_answer"}
     bridges = {json.loads(row.get("placement_json") or "{}").get("hint_assist_id"): row
                for row in rows if row["assist_kind"] == "bridge" and row.get("shown")}
+    # RW2c: the worked example under its hint (the latest shown, a pick
+    # included), only while workbench.examples_enabled is on (else the views
+    # are exactly as before: no key).
+    from learnloop.workbench import route_example
+
+    with_examples = route_example.examples_enabled(vault)
+    draw_on = passage_draw_enabled(vault)
+    examples = {json.loads(row.get("placement_json") or "{}").get("hint_assist_id"): row
+                for row in rows if row["assist_kind"] == "example" and row.get("shown")} if with_examples else {}
     snapshot_numbers: dict[str, int] = {}
     views = []
     for row in rows:
@@ -227,11 +262,31 @@ def hint_views(vault: Any, repository: Repository, session_id: str) -> list[dict
                                       "message": SETTLED_LINE if json.loads(answer.get("placement_json") or "{}")
                                       .get("settled") else UNSETTLED_LINE}
             if answer is not None else None,
-            "bridge": bridge_view(bridge) if bridge is not None else None,
+            "bridge": bridge_view(bridge, passage_draw=draw_on) if bridge is not None else None,
             "claims": row_claims(row, symbolic_enabled=hint_workbench.symbolic_enabled(vault)),
             "symbolic_enabled": hint_workbench.symbolic_enabled(vault),
+            **({"example": route_example.example_view(examples[row["id"]], passage_draw=draw_on)
+                if row["id"] in examples else None} if with_examples else {}),
         })
     return views
+
+
+def standalone_examples(vault: Any, repository: Repository, session_id: str) -> list[dict[str, Any]]:
+    """RW2c: the shown "Show me a similar example" results (not under a hint),
+    the latest per step, oldest first."""
+
+    from learnloop.workbench import route_example
+
+    latest: dict[str, Mapping[str, Any]] = {}
+    for row in _rows(repository, session_id):
+        if row["assist_kind"] != "example" or not row.get("shown"):
+            continue
+        if json.loads(row.get("placement_json") or "{}").get("hint_assist_id"):
+            continue
+        latest[str(row.get("about_step_id") or "")] = row
+    draw_on = passage_draw_enabled(vault)
+    return [route_example.example_view(row, passage_draw=draw_on) for row in sorted(latest.values(), key=lambda row: (
+        str(row.get("shown_at") or row.get("requested_at") or ""), str(row["id"])))]
 
 
 def row_claims(row: Mapping[str, Any], *, symbolic_enabled: bool = False) -> list[dict[str, Any]]:
@@ -266,10 +321,36 @@ def _step_line(about: int | None, continue_from: int | None) -> str:
     return " · ".join(parts)
 
 
-def bridge_view(row: Mapping[str, Any]) -> dict[str, Any]:
+def passage_draw_enabled(vault: Any) -> bool:
+    """``workbench.passage_draw_enabled`` NOW: RW2c's bridge fields (the
+    draw, "another passage", the book a drawn or picked passage is in) are
+    serialized only while it is on (fix round 2, 3)."""
+
+    return bool(getattr(vault.config.workbench, "passage_draw_enabled", False))
+
+
+#: RW2c's fields on a bridge (a view or a job's result): dropped while
+#: ``workbench.passage_draw_enabled`` is off, so the payload is RW2b's.
+RW2C_BRIDGE_FIELDS = ("source_id", "alternatives", "option_id", "draw_assist_id")
+
+
+def bridge_view(row: Mapping[str, Any], *, passage_draw: bool = False) -> dict[str, Any]:
+    """A shown bridge as the workbench restores it. ``passage_draw``: the
+    CURRENT ``workbench.passage_draw_enabled``; off (the default), the view is
+    exactly RW2b's whatever the row logged (fix round 2, 3)."""
+
+    from learnloop.workbench.passage_draw import alternatives_view
+
     placement = json.loads(row.get("placement_json") or "{}")
-    return {"assist_id": row["id"], "line": row.get("body_md") or "", "span_id": placement.get("span_id"),
+    view = {"assist_id": row["id"], "line": row.get("body_md") or "", "span_id": placement.get("span_id"),
             "extraction_id": placement.get("extraction_id"), "label": placement.get("label")}
+    if passage_draw:
+        # RW2c: the book a drawn or picked passage is in, only when known
+        # (review F1, fix round 2, 7), and "another passage" only on a row
+        # that logged a draw.
+        view.update({"source_id": placement["source_id"]} if placement.get("source_id") else {})
+        view.update(alternatives_view(row))
+    return view
 
 
 def unavailable_message(reason: str | None, *, authored_left: bool) -> str:
@@ -318,7 +399,9 @@ __all__ = [
     "UNSETTLED_LINE",
     "WRITER_DOWN_REASONS",
     "TAILORED_UNAVAILABLE",
+    "RW2C_BRIDGE_FIELDS",
     "bridge_view",
+    "passage_draw_enabled",
     "row_claims",
     "served_claims",
     "fallback_level",

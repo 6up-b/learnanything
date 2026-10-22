@@ -1141,6 +1141,8 @@ def _params_for(spec, ids: dict[str, Any]) -> dict[str, Any]:
         "attempt_id": ids["attempt"], "job_id": "job_unknown", "origin": "reader", "entry": "resume",
         "client_idempotency_key": "contract-k", "op": "add", "body_md": "x = 5", "visible": True,
         "proposal_id": ids["proposal"], "query": QUERY, "question_assist_id": "qa_unknown", "answer_md": "x = 5",
+        # Reader RW2c's "another passage".
+        "assist_id": "ha_unknown",
     }
     params: dict[str, Any] = {}
     for field, info in spec.params_model.model_fields.items():

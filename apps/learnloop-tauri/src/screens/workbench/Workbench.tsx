@@ -17,7 +17,7 @@
 // chords itself, so none clash (Ctrl+K stays free for RW2b's check).
 // Nothing a save, a poll or a result does moves focus or opens a dialog.
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import type { WorkbenchSessionDto, WorkbenchSubmitDto } from "../../api/dto";
+import type { PassageTarget, WorkbenchSessionDto, WorkbenchSubmitDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { ItemPresentation } from "../../components/ItemPresentation";
 import { LiveMarkdownEditor, type LiveMarkdownKeyInfo } from "../../render/LiveMarkdownEditor";
@@ -35,6 +35,7 @@ import { HintCard, type StepOption } from "./StepHints";
 import { WhereThisGoes } from "./WhereThisGoes";
 import { HELP_COPY, verdictFor, withLocalEdits } from "./helpModel";
 import { useWorkbenchHelp } from "./useWorkbenchHelp";
+import { PassageExtras, ShowMeExample, useRouteExamples } from "./RouteExample";
 
 export type WorkbenchLayout = "split" | "stacked" | "full";
 
@@ -68,7 +69,9 @@ export interface WorkbenchProps {
   /** The practice card already shows the item's own presentation above. */
   hideProblem?: boolean;
   /** RW2b: peek a passage of the book ("compare with the book"). */
-  onPeekPassage?: (spanId: string) => void;
+  /** ``target``: where the passage is, when the workbench knows (RW2c review
+   *  F1: a worked example may be in another book). */
+  onPeekPassage?: (spanId: string, target?: PassageTarget) => void;
   onError: (message: string) => void;
 }
 
@@ -125,6 +128,18 @@ export function Workbench(props: WorkbenchProps) {
   // service too (adaptive hints).
   const helpConfig = algoConfig().workbenchHelp;
   const hintsConfig = algoConfig().adaptiveHints;
+  // RW2c: the worked example in the learner's route and "another passage",
+  // each only while its switch is on (off: the workbench is RW2b's).
+  const rw2c = useRouteExamples({
+    sessionId: session.sessionId,
+    examples: helpConfig?.examples === true,
+    passageDraw: helpConfig?.passageDraw === true,
+    // Fix round 2 (8): the same save-before-help barrier as checks and hints.
+    beforeRequest: async () => {
+      wb.flushEdits();
+      return wb.drained();
+    },
+  });
   const help = useWorkbenchHelp({
     sessionId: session.sessionId,
     enabled: helpConfig !== null,
@@ -136,6 +151,7 @@ export function Workbench(props: WorkbenchProps) {
       return wb.drained();
     },
     onRecord: wb.applyRecord,
+    ...(rw2c.active ? { onExampleJob: rw2c.followExample, onHelpState: rw2c.restore } : {}),
   });
   const [focusedKey, setFocusedKey] = useState<string | null>(null);
   const [confidence, setConfidence] = useState<number | null>(null);
@@ -174,9 +190,10 @@ export function Workbench(props: WorkbenchProps) {
     if (canHelp && waypoint) void help.smallerStep(waypoint);
   }
 
-  function peek(spanId: string) {
+  function peek(spanId: string, target?: PassageTarget) {
     if (fromBook && open && !session.sourceVisible) void wb.setBook(true);
-    props.onPeekPassage?.(spanId);
+    if (target) props.onPeekPassage?.(spanId, target);
+    else props.onPeekPassage?.(spanId);
   }
 
   function requestFocus(key: string) {
@@ -503,11 +520,13 @@ export function Workbench(props: WorkbenchProps) {
                 {helpOn && check && chain ? <QuestionableNote check={check} chainId={chain} /> : null}
                 {stepHints.map((hint) => (
                   <HintCard key={hint.assistId} hint={hint} steps={stepOptions} pending={Boolean(help.hintPending) || !canHelp}
-                    bridge={help.bridges[hint.assistId]}
+                    bridge={rw2c.bridgeFor(hint.assistId, help.bridges[hint.assistId])}
                     onReply={(reply) => void help.reply(hint, reply)} onBookWay={() => void help.bookWay(hint)}
                     onSmallerStep={() => void help.smallerStep(hint)}
                     onAnswer={(text) => void help.answerDiscriminating(hint, text)}
-                    onSkip={() => help.openHelp(hint.aboutStepId)} onPeek={props.onPeekPassage ? peek : undefined} />
+                    onSkip={() => help.openHelp(hint.aboutStepId)} onPeek={props.onPeekPassage ? peek : undefined}
+                    extras={rw2c.active ? <PassageExtras hintAssistId={hint.assistId} rw2c={rw2c}
+                      bridge={rw2c.bridgeFor(hint.assistId, help.bridges[hint.assistId])} onPeek={props.onPeekPassage ? peek : undefined} /> : undefined} />
                 ))}
                 {pendingHere ? (
                   <div role="status" aria-live="polite">
@@ -558,11 +577,13 @@ export function Workbench(props: WorkbenchProps) {
         <div data-testid="workbench-problem-help" style={{ display: "flex", flexDirection: "column", gap: 4, marginLeft: 36 }}>
           {looseHints.map((hint) => (
             <HintCard key={hint.assistId} hint={hint} steps={stepOptions} pending={Boolean(help.hintPending) || !canHelp}
-              bridge={help.bridges[hint.assistId]}
+              bridge={rw2c.bridgeFor(hint.assistId, help.bridges[hint.assistId])}
               onReply={(reply) => void help.reply(hint, reply)} onBookWay={() => void help.bookWay(hint)}
               onSmallerStep={() => void help.smallerStep(hint)}
               onAnswer={(text) => void help.answerDiscriminating(hint, text)}
-              onSkip={() => help.openHelp(hint.aboutStepId)} onPeek={props.onPeekPassage ? peek : undefined} />
+              onSkip={() => help.openHelp(hint.aboutStepId)} onPeek={props.onPeekPassage ? peek : undefined}
+              extras={rw2c.active ? <PassageExtras hintAssistId={hint.assistId} rw2c={rw2c}
+                bridge={rw2c.bridgeFor(hint.assistId, help.bridges[hint.assistId])} onPeek={props.onPeekPassage ? peek : undefined} /> : undefined} />
           ))}
           {pendingLoose ? (
             <div role="status" aria-live="polite">
@@ -579,6 +600,10 @@ export function Workbench(props: WorkbenchProps) {
               onClose={() => help.closeHelp()} />
           ) : null}
         </div>
+      ) : null}
+      {helpOn && rw2c.available && !readOnly && open && fromBook ? (
+        <ShowMeExample rw2c={rw2c} focusedStepId={focusedChain} disabled={!canHelp}
+          onPeek={props.onPeekPassage ? peek : undefined} />
       ) : null}
       {!readOnly && open ? (
         <button type="button" aria-disabled={leaving} style={{ ...linkStyle, alignSelf: "flex-start", fontSize: 10 }} onClick={() => { if (!leaving) requestFocus(wb.addStep(live[live.length - 1]?.key ?? null, "step")); }}>

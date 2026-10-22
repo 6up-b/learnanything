@@ -33,7 +33,7 @@ import sqlite3
 from typing import Any
 
 from learnloop.db.connection import connect
-from learnloop.symbolic_view import symbolic_outcomes, verdict_records
+from learnloop.symbolic_view import has_verdict_record, symbolic_outcomes, verdict_records
 
 REPORT_VERSION = "workbench-help-report-v1"
 
@@ -242,4 +242,219 @@ def build_workbench_report(sqlite_path: Path | str, *, item_facets: Mapping[str,
     }
 
 
-__all__ = ["REPORT_VERSION", "build_workbench_report"]
+# ---------------------------------------------------------------------------
+# Per-help outcomes on the workbench (spec_adaptive_hints_v1 §6.1; Reader §5.10, C13)
+# ---------------------------------------------------------------------------
+
+#: The help rows that count as further help between a help and the next check.
+WORKBENCH_HELP_KINDS = ("hint", "bridge", "example", "compare_methods")
+#: What :func:`workbench_unaided_progress` answers.
+PROGRESS_OUTCOMES = ("continued", "not_continued", "more_help", "no_later_check", "unknown")
+
+
+def _snapshot_pairs(value: Any) -> set[tuple[str, str]] | None:
+    """A row's ``step_snapshot_json`` as ``(chain_id, content hash)`` pairs,
+    or None when the row recorded none (the work at delivery is unknown)."""
+
+    records = _loads(value, None)
+    if not isinstance(records, list):
+        return None
+    return {(str(entry.get("chain_id")), str(entry.get("hash") or ""))
+            for entry in records if isinstance(entry, Mapping) and entry.get("chain_id")}
+
+
+def _parent(row: Mapping[str, Any]) -> str | None:
+    placement = _loads(row.get("placement_json"), {})
+    parent = placement.get("hint_assist_id") if isinstance(placement, Mapping) else None
+    return str(parent) if parent else None
+
+
+def workbench_unaided_progress(row: Mapping[str, Any], session_rows: Iterable[Mapping[str, Any]], *,
+                               maps: Mapping[str, Mapping[str, list[str]]] | None = None) -> str:
+    """Unaided next progress for one shown workbench help row (§6.1: "in the
+    workbench, progress ... measured to the next valid step"): the ONE
+    definition the Reader's ``help_outcomes`` reads (Reader §5.10, C13).
+
+    * The **work at delivery** is the row's own step snapshot (a hint records
+      the steps, with their content hashes, it was written against; a worked
+      example records the steps it was searched with), or, for a passage
+      shown under a hint, that hint's. With none on record the answer is
+      ``unknown``: progress is never measured against work nobody recorded.
+    * **The next check** is the problem's next shown check after the help.
+      None yet: ``no_later_check``.
+    * **Further help before it** is any other shown help row (a hint, a
+      bridge, a worked example, a learner's "another passage", a comparison)
+      between the help and that check, except what was delivered with the
+      help itself (the hint, and the bridge and example its delivery
+      started). Then ``more_help``, unless the next hint's placement on the
+      same map settles whether this hint's target was reached first
+      (:func:`learnloop.hints.report_adaptive.progress_by_next_placement`):
+      ``continued`` / ``not_continued``.
+    * Otherwise ``continued`` when that check found **progress where the help
+      was placed** (fix round 2, 6), else ``not_continued``. Progress is a
+      valid step new or changed since delivery (a ``(chain_id, hash)`` pair
+      the snapshot does not hold: a step already on the page at delivery that
+      a later check first validates is not progress) that is on the help's
+      target node (the hint's target, or for a kind without one the next node
+      from its placement, :func:`learnloop.hints.report_adaptive.hint_target`),
+      is the step the help was about or the first questionable step, or comes
+      after the step it continues from (its next step; with neither recorded,
+      any step). A step that was already valid at delivery (the delivered
+      verdicts) and was only edited is never progress unless it lands on the
+      target: an unrelated edit to an earlier valid step is not recovery.
+      The delivered verdicts are the row's own, a passage's hint's, or the
+      last shown check before it (:func:`_valid_at_delivery`, fix round 3,
+      M1); with none on record the answer is ``unknown``.
+
+    ``session_rows``: the problem's workbench rows (any order); each needs
+    ``id``, ``assist_kind``, ``shown``, ``shown_at`` / ``requested_at``,
+    ``placement_json``, ``chooser``, ``step_snapshot_json`` and
+    ``step_verdicts_json`` (and the map columns for the placement rule)."""
+
+    from learnloop.hints import report_adaptive
+
+    def at(value: Mapping[str, Any]) -> datetime | None:
+        return _when(value.get("shown_at") or value.get("requested_at"))
+
+    rows = [other for other in session_rows if other.get("shown")]
+    by_id = {str(other["id"]): other for other in rows}
+    shown = at(row)
+    if shown is None:
+        return "unknown"
+    parent = _parent(row)
+    head = str(row["id"]) if row.get("assist_kind") == "hint" else parent
+    # What was delivered with the help: its hint and the passages that hint's
+    # delivery started (a learner's "another passage" is a new request).
+    package = {str(row["id"])} | ({head} if head else set())
+    package |= {str(other["id"]) for other in rows
+                if head and _parent(other) == head and other.get("chooser") != "learner_pick"}
+    checks = sorted(((when, str(other["id"]), other) for other in rows
+                     if other.get("assist_kind") == "check" and (when := at(other)) is not None and when > shown),
+                    key=lambda entry: (entry[0], entry[1]))
+    if not checks:
+        return "no_later_check"
+    following_at, _following_id, following = checks[0]
+    between = sorted(((when, str(other["id"]), other) for other in rows
+                      if other.get("assist_kind") in WORKBENCH_HELP_KINDS and str(other["id"]) not in package
+                      and (when := at(other)) is not None and shown < when < following_at),
+                     key=lambda entry: (entry[0], entry[1]))
+    if between:
+        nearest = between[0][2]
+        if row.get("assist_kind") == "hint" and nearest.get("assist_kind") == "hint":
+            settled = report_adaptive.progress_by_next_placement(row, nearest, maps or {})
+            if settled is not None:
+                return "continued" if settled == "reached" else "not_continued"
+        return "more_help"
+    snapshot_row = row if row.get("step_snapshot_json") else by_id.get(head or "")
+    delivered = _snapshot_pairs((snapshot_row or {}).get("step_snapshot_json"))
+    if delivered is None:
+        return "unknown"
+    # Where the help was placed: its own (a hint, a "show me" example) or,
+    # for a passage under a hint, that hint's.
+    placed = row if row.get("assist_kind") == "hint" or not head else (by_id.get(head) or row)
+    # Fix round 3 (M1): which steps were already valid at delivery. Without
+    # that record nothing can tell an unrelated edit from progress: unknown.
+    valid_then = _valid_at_delivery(row, by_id.get(head or "") if head != str(row["id"]) else None, rows, at)
+    if valid_then is None:
+        return "unknown"
+    return "continued" if _progress_at_placement(placed, snapshot_row or {}, delivered, following, maps or {},
+                                                 valid_then=valid_then) else "not_continued"
+
+
+def _last_check_verdicts(rows: Iterable[Mapping[str, Any]], before: datetime | None, at: Any
+                         ) -> list[dict[str, Any]] | None:
+    """The verdicts of the problem's last shown check at or before ``before``."""
+
+    if before is None:
+        return None
+    checks = sorted(((when, str(other["id"]), other) for other in rows
+                     if other.get("assist_kind") == "check" and (when := at(other)) is not None and when <= before),
+                    key=lambda entry: (entry[0], entry[1]))
+    return verdict_records(checks[-1][2], enabled=False) if checks else None
+
+
+def _valid_at_delivery(row: Mapping[str, Any], head_row: Mapping[str, Any] | None,
+                       rows: Iterable[Mapping[str, Any]], at: Any) -> set[str] | None:
+    """The chains valid when the help was delivered (fix round 3, M1), or
+    None when nothing records it:
+
+    * the row's own ``step_verdicts_json`` (a hint's request context; a
+      worked example stores the verdicts it was searched against);
+    * a hint without one: the problem's last shown check at or before it, or
+      none (no check had been shown: no step was known valid);
+    * a passage under a hint without its own: that hint's, by the same rule;
+    * a "show me" example without its own: the last shown check at or before
+      it; none on record: None (``unknown``, never ``continued``)."""
+
+    rows = list(rows)
+
+    def valid(records: Iterable[Mapping[str, Any]]) -> set[str]:
+        return {str(entry.get("chain_id")) for entry in records if entry.get("verdict") == "valid"}
+
+    def of_hint(hint: Mapping[str, Any]) -> set[str]:
+        if has_verdict_record(hint):
+            return valid(verdict_records(hint, enabled=False))
+        return valid(_last_check_verdicts(rows, at(hint), at) or [])
+
+    if row.get("assist_kind") == "hint":
+        return of_hint(row)
+    if has_verdict_record(row):
+        return valid(verdict_records(row, enabled=False))
+    if head_row is not None:
+        return of_hint(head_row)
+    found = _last_check_verdicts(rows, at(row), at)
+    return valid(found) if found is not None else None
+
+
+def _positions(value: Any) -> dict[str, int]:
+    records = _loads(value, None)
+    out: dict[str, int] = {}
+    for entry in records if isinstance(records, list) else []:
+        if isinstance(entry, Mapping) and entry.get("chain_id") and entry.get("number") is not None:
+            try:
+                out[str(entry["chain_id"])] = int(entry["number"])
+            except (TypeError, ValueError):
+                continue
+    return out
+
+
+def _progress_at_placement(placed: Mapping[str, Any], snapshot_row: Mapping[str, Any],
+                           delivered: set[tuple[str, str]], following: Mapping[str, Any],
+                           maps: Mapping[str, Mapping[str, list[str]]], *, valid_then: set[str]) -> bool:
+    """Whether the next check found progress where the help was placed
+    (:func:`workbench_unaided_progress`, fix round 2, 6)."""
+
+    from learnloop.hints import report_adaptive
+
+    target = report_adaptive.hint_target(placed, maps.get(str(placed.get("map_id") or "")) or {}) \
+        if placed.get("map_id") or placed.get("target_node_id") else None
+    about = {str(value) for value in (placed.get("about_step_id"), placed.get("first_questionable_step_id"))
+             if value}
+    continue_from = str(placed.get("continue_from_step_id") or "") or None
+    # Positions in the following check's work (an inserted step has one
+    # there), else at delivery.
+    positions = {**_positions(snapshot_row.get("step_snapshot_json")),
+                 **_positions(following.get("step_snapshot_json"))}
+    anchor = positions.get(continue_from) if continue_from else None
+    if anchor is None and about:
+        known = [positions[chain] for chain in about if chain in positions]
+        anchor = min(known) - 1 if known else None
+    if anchor is None and not continue_from:
+        anchor = 0  # placed at the givens: every step is after it
+    for entry in verdict_records(following, enabled=False):
+        chain = str(entry.get("chain_id"))
+        if entry.get("verdict") != "valid" or (chain, str(entry.get("hash") or "")) in delivered:
+            continue
+        if target and str(entry.get("map_node_id") or "") == target:
+            return True
+        if chain in valid_then:
+            continue  # valid before the help, only edited since: not recovery
+        if chain in about:
+            return True
+        if anchor is not None and chain in positions and positions[chain] > anchor:
+            return True
+    return False
+
+
+__all__ = ["PROGRESS_OUTCOMES", "REPORT_VERSION", "WORKBENCH_HELP_KINDS", "build_workbench_report",
+           "workbench_unaided_progress"]

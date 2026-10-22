@@ -47,7 +47,18 @@ export interface AlgoDisplayConfig {
    *  sidecar sends `workbench.help` only while it is on, so null until it
    *  says so, and null leaves the workbench exactly as RW2a drew it. The
    *  ladder's hints need the hint service too (`adaptiveHints`). */
-  workbenchHelp: { bridge: boolean; symbolic: boolean } | null;
+  workbenchHelp: WorkbenchHelpConfig | null;
+}
+
+export interface WorkbenchHelpConfig {
+  bridge: boolean;
+  symbolic: boolean;
+  /** Reader RW2c's switches (`workbench.examples_enabled`,
+   *  `.compare_methods_enabled`, `.passage_draw_enabled`): each key is present
+   *  only while the sidecar sends it on, so off the config is RW2b's. */
+  examples?: true;
+  compareMethods?: true;
+  passageDraw?: true;
 }
 
 export type HelpStyleValue = "let_me_struggle" | "balanced" | "guide_me";
@@ -83,7 +94,7 @@ export function setAlgoConfig(config: unknown): void {
     scheduler?: { followup?: { tauFollowupNats?: unknown; gateScoreThreshold?: unknown } };
     practice?: { stuckPrompt?: unknown };
     ui?: { practiceFeedback?: unknown };
-    workbench?: { enabled?: unknown; help?: { enabled?: unknown; bridge?: unknown; symbolic?: unknown } };
+    workbench?: { enabled?: unknown; help?: { enabled?: unknown; bridge?: unknown; symbolic?: unknown; examples?: unknown; compareMethods?: unknown; passageDraw?: unknown } };
     recap?: { enabled?: unknown; wrapUpEnabled?: unknown };
     hints?: { adaptiveEnabled?: unknown; authoredOfferAfterSeconds?: unknown; helpStyle?: unknown };
     adaptiveDifficulty?: { ratingTap?: unknown; firstHintProgress?: unknown };
@@ -108,7 +119,12 @@ export function setAlgoConfig(config: unknown): void {
     ratingTap: root.adaptiveDifficulty?.ratingTap === true,
     firstHintProgress: root.adaptiveDifficulty?.firstHintProgress === true,
     workbenchHelp: root.workbench?.enabled === true && root.workbench.help?.enabled === true
-      ? { bridge: root.workbench.help.bridge === true, symbolic: root.workbench.help.symbolic === true }
+      ? {
+          bridge: root.workbench.help.bridge === true, symbolic: root.workbench.help.symbolic === true,
+          ...(root.workbench.help.examples === true ? { examples: true as const } : {}),
+          ...(root.workbench.help.compareMethods === true ? { compareMethods: true as const } : {}),
+          ...(root.workbench.help.passageDraw === true ? { passageDraw: true as const } : {})
+        }
       : null
   };
   for (const listener of listeners) listener();
