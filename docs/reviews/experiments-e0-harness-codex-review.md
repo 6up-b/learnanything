@@ -342,3 +342,105 @@ The dry run ran on the existing copies under `env -i PATH HOME=<empty> CODEX_HOM
 - `.venv/bin/lint-imports --no-cache` (under `env -i`): **30 kept, 0 broken**. That is 29 plus main's new `evidence-never-reads-figures`.
 - `pytest -n auto` with `TMPDIR=fixtures-local/tmp` on 29 files: **499 passed, 1 skipped**. The files are the 26 of round 4, plus `tests/test_e0_review_round4_followup.py` (6, new) and the security lockdown tests `tests/test_codex_tool_lockdown.py` and `tests/test_codex_isolation_mcp_check.py` (168 passed). The skip is `test_codex_tool_lockdown.py:405`, which needs the `openai_codex` SDK; it is not installed in this environment.
 - The main checkout's tracked fixtures were not opened or changed.
+
+## Re-plan: E0 off Codex (orchestrator, 2026-10-22)
+
+Owner, 2026-10-22: "you can try running it through claude -p or the anthropic api key i provided". Codex is out of quota until Oct 27 and is being replaced for serving.
+
+**Ruling:** E0 uses the Anthropic Messages API directly, never `claude -p`.
+
+**Commit:** `494290c5f`. **No paid, live or network call was made ($0.00).**
+
+### The transport (`src/learnloop/experiments/contextual_embeddings/anthropic_api.py`, experiment-only)
+
+- **Requests.**
+  - One HTTPS POST to `https://api.anthropic.com/v1/messages` per admitted request, with `anthropic-version: 2026-10-21`.
+  - Body keys are within {`model`, `max_tokens`, `system`, `messages`, `temperature`, `stop_sequences`}. E0 sends only the first four. `temperature` is never sent, because version 2026-10-21 rejects sampling parameters.
+  - `tools` and any other key (`tool_choice`, `mcp_servers`, `output_config`...) are refused before anything is sent (`check_body`).
+  - `messages` is one user turn of plain text.
+- **Admission and settlement.**
+  - Every POST runs in `model_call` under the role's `E0RequestGate`, so the ledger admits it before it is sent.
+  - The admission is the request's hard maximum: the input upper bound of exactly what is sent (`[system, user text]`) plus the `max_tokens` sent, at the verified price. Claude Haiku 5.5's >100k-token rate applies whenever the input upper bound passes 100k.
+  - A transient failure (429, 5xx, 529, network) is retried as another admitted POST, at most twice.
+  - Settlement uses the response's `usage` only. A response without usage keeps the whole reservation (round 3's rule).
+- **Errors and the key.**
+  - A refusal, a truncation or an answer outside the schema each raise an allowlisted `E0ProviderFailure`.
+  - The key `ANTHROPIC_API_KEY` (configurable with `--anthropic-key-env`) is read from the environment that `--env-file` loads. It goes in the `x-api-key` header only, never into a log, receipt, ledger entry or exception.
+- **Isolation.** Production never imports the module: the import-linter contract `experiments-stay-outside-production` covers all of `learnloop.experiments`, and a test scans the source tree.
+
+### Roles
+
+| Role | Model (exact API id) | max_tokens |
+|---|---|---|
+| writer (spec §5.1: a strong writer) | `claude-sonnet-5-5` | 16,384 |
+| label pass A | `claude-haiku-5-5` | 8,192 |
+| label pass B | `claude-sonnet-5-5` | 8,192 |
+| adjudicator, answer adjudicator | `claude-opus-5-5` (differs from both labellers and both judges) | 16,384 |
+| R3 contexts | `claude-haiku-5-5` | 16,384 |
+| tutor, judges A and B | `claude-haiku-5-5` | 8,192 |
+
+- **Model ids:** taken from the Claude API reference's model table, cached 2026-10-06; they could not be checked live offline. They are pinned in `pins.ANTHROPIC_MODELS`. Before any bulk work, `run_live` canaries each distinct model with one tiny admitted request; it must be answered as a `message` by exactly that model, with usage. A wrong model stops that copy's run with a failure report.
+- **Prices:** all from https://platform.claude.com/docs/en/about-claude/pricing, `checked_on` 2026-10-22.
+  - Haiku 5.5: $0.10/$0.50 per 1M tokens, $0.50/$2.50 above 100k.
+  - Sonnet 5.5: $2/$10.
+  - Opus 5.5: $4/$20.
+- **Thinking:** adaptive thinking is always on and cannot be configured within the body grammar. Its tokens are output tokens. The plan estimates them per call (Haiku 1,000, Sonnet 1,500, Opus 2,000), and every request is reserved at its full `max_tokens` anyway.
+
+### The system arms and Codex
+
+- **System arms.** On the service copies only, `source_rerank`, `source_query_rewrite` and `source_compare` go to the OpenRouter profile `e0_openrouter_haiku` (`anthropic/claude-haiku-5.5`), with the copies' price settings filled for production's own caps.
+  - **The slug and its price are PENDING orchestrator verification.** I could not check offline whether OpenRouter lists Claude Haiku 5.5. The pin `system_verifier` assumes Anthropic's own price and is unverified, so the ledger refuses every such request and the paid CLI refuses to start until it is filled.
+  - The R0 copy is re-routed too: Codex is out, so R0 is now "today's path with OpenRouter Haiku on the source routes".
+- **No Codex.** E0 makes no Codex call:
+  - every role pin is metered (`require_no_codex_roles`, run first in `run_live`);
+  - the paid run's canonical ledger is created with a Codex allowance of 0, so any subscription request is refused;
+  - the plan counts 0 Codex requests (tested);
+  - the lockdown gate of the follow-up stays as an extra guard.
+
+### The dry run
+
+The dry run ran on the existing copies under `env -i` (empty HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR, no key). Results:
+
+- `network_calls: 0`, copies unchanged by sha256, empty home directories stayed empty.
+- Artifacts refreshed: run `e0_5d51209082898626`, harness `e0-harness-v2`.
+
+**$37.84 expected, $113.53 worst case against the $25 cap: it does not fit.**
+
+| Category | Expected $ | Allocation $ |
+|---|---|---|
+| embeddings | 0.04 | 2.00 |
+| drafting/context | 0.51 | 5.00 |
+| labels/audits | 23.62 | 10.00 |
+| answers/verification | 13.67 | 8.00 |
+
+The drivers are three roles:
+
+- label B on Sonnet: $11.62;
+- the adjudicator on Opus: $11.52;
+- the answer adjudicator on Opus: $10.53.
+
+The rest: the writer $0.41, the system arms' OpenRouter Haiku requests 1,180 for $1.30, every Haiku role under $0.80 each.
+
+**The smallest change that fits (proposed, not applied).** It was computed with the same dry-run arithmetic under `env -i`, with 0 network calls and the copies unchanged:
+
+- label pass B → `claude-haiku-4-5`, a different model from label A ($1/$5 per the reference table; to be verified);
+- the label adjudicator → `claude-sonnet-5-5`, which differs from both labellers;
+- the answer adjudicator → `claude-sonnet-5-5`, which differs from the Haiku judges.
+
+That gives **$16.71 expected**: labels $8.39 of $10 and answers $7.77 of $8, with no allocation change. It keeps two different labellers and a different adjudicator, but uses an older Haiku for pass B.
+
+The alternative keeps the ruling's models and cuts the bank to about 36 scored questions, well below the 60-80 development target. That is not recommended.
+
+### Recorded decision
+
+The 11 logged practice and feedback questions with no recorded assessment contract stay rejected (fail closed), as ruled in the follow-up.
+
+### Gate (this step, on `494290c5f`)
+
+- `.venv/bin/lint-imports --no-cache` (under `env -i`): **30 kept, 0 broken**.
+- `pytest -n auto` with `TMPDIR=fixtures-local/tmp` on 30 files: **511 passed, 1 skipped**. The skip needs the `openai_codex` SDK. The files:
+  - the 16 E0 files, including the new `tests/test_e0_review_round5.py` (13 tests): body grammar, admission equals the wire with a fake server, missing usage, Haiku's long rate, the key and allowlisted errors, the roles, no Codex role, zero Codex requests and a zero allowance, the re-routed service copies refused while pending, model canaries, a role call through the transport, and no production import;
+  - the 12 contract and reuse files;
+  - the 2 Codex lockdown test files.
+- Tests updated for the new roles: the writer is metered, the fake profiles are the Anthropic ones, and the metered system verifier is the OpenRouter Haiku profile. The CLI help snapshot entry is updated for the new `--anthropic-key-env` option.
+- The main checkout's tracked fixtures were not opened or changed.
