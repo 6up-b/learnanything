@@ -8,6 +8,7 @@
 **Fix round 3 (orchestrator):** §12. The verify `20261021-130232-Uk06Al` reopened four items; the notice and retry class is closed structurally (identity by source, self-contained retries that report a request that ran), and startup is the base shell until the snapshot names the shell.
 **Fix round 4 (orchestrator):** §13. The verify `20261021-134216-8mdDfN` reopened two recurring classes and the remembered book; the shell chrome is now one key-isolated region, and classic is base by construction, pinned by a manifest scan against base.
 **Fix round 5 (orchestrator):** §14. The last round for these classes: one global-listener target rule in every window keydown listener, the focus moves to the frame body after a pointer activation, and the chrome keeps only the keys its control consumes.
+**Fix round 6 (orchestrator):** §15. Round 5's focusable frame body is gone (a clicked chrome control blurs instead), and the key scopes and target rule follow the shell on screen.
 
 ## 0. The plan (written before the code)
 
@@ -405,3 +406,32 @@ The orchestrator named the root cause: screens' global key listeners act on keys
 | `db_validate_reference.py` (under `env -i`, with fresh empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR` folders, still empty afterwards) | **0 errors** (no Python changed) |
 
 **Rule notes.** One `python3 --version` ran outside `env -i` in this round: a stray check appended to a shell command, with its output discarded. It imported nothing, read no file, vault or credential, and touched no network. The rule covers version checks too, so it is recorded here. The one Python run outside pytest that the gate needed (the reference validation) ran under `env -i`. No `git stash`, no model call, no network, no vault opened, no process killed.
+
+## 15. Fix round 6 (orchestrator)
+
+**Input.** The orchestrator's Opus verify of `fcb9e4beb` confirmed classic identity and round 5's target rule, and found one High, round 5's own regression: `main.frame-body` with tabIndex -1 took the focus on every mouse click on non-focusable content. The Reader's intent box (`useIntentBox.ts`) then ignored keys, because their target, `main`, is neither the body nor inside its host. Native keyboard scrolling in `.ll-scroll` broke too. There was also a Low 3: the classic loading and startup-error frames carried `data-key-scope`.
+
+| # | Severity | Fix | Test (failed on `fcb9e4beb`) |
+|---|---|---|---|
+| 1 | High | `main.frame-body` has no tabIndex again. `components/frameFocus.ts` `releaseFocusAfterPointer` **blurs the clicked chrome control** after a pointer activation of a place, an Under-the-hood tool or a ⋯ row, so the focus returns to the body, as in base. A keyboard activation (`detail` 0) keeps it | `screens/reader/intentBoxInShell.test.tsx` uses the real Reader inside the real simple frame and chrome root. The frame body has no tabindex. A pointer click on a place leaves the focus on the body, and a keyboard activation keeps it on the control. After that click, the intent box takes the first printable key (`w` focuses the box and is typed) (3 failed before). `app/classicIsBase.test.ts` pins that every `main.frame-body` in `ui.tsx` has no tabIndex (failed before). Round 5's three pointer tests in `App.fixRound5.test.tsx` now expect the body (failed before against the old focus target) |
+| 2 | Low 3 | Key scopes and the target rule follow the **shell on screen**. The App mirrors the shell it draws (`setRenderedShell`, cleared on unmount and on each new config), and `keyScope` and `screenLeavesKey` read `activeShell()`. So while the library loads, and in the startup-error frame, the App is classic through and through. A screen rendered on its own, with no App, still follows the config | `app/App.fixRound3.test.tsx`: with a deferred `loadVault`, there is no `data-key-scope` anywhere in the loading frame, and the titlebar gets `window` once the snapshot names the simple shell. The startup-error frame has no `data-key-scope` either (2 failed before) |
+
+**Open items (recorded, not fixed, per the ruling).**
+- Low 1: a keyboard activation keeps the focus on the chrome control. The screens then leave keys aimed at it until the focus moves on (Tab, a click on the page).
+- Low 2: chrome controls outside the released groups (+ Add, ^K, the ⋯ button itself, a notice's buttons) keep the focus after a pointer click while they stay mounted. The screens then leave the next key until the focus moves on.
+- From round 5: identical sourceless errors stack; Settings drops an error's Try again.
+
+**Fail-before.** `git archive fcb9e4beb apps/learnloop-tauri` in the session scratchpad, with the new and changed tests copied in: **10 failed** across 4 files (`fixtures-local/failfirst-round6-vitest.txt`).
+
+**Gate** (the round-5 gate; `TMPDIR=<worktree>/fixtures-local/tmp`; pytest under `flock /tmp/learnloop-fullsuite.lock`).
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` · `uv pip install pypdfium2` · `uv run lint-imports --no-cache` | ok · 28 kept, 0 broken |
+| `uv run pytest -n auto`, the round-2 89 files | **1946 passed** (9 min 57 s; no Python changed) |
+| `uv run pytest --durable-sqlite`, the 3 F6 files | **20 passed** |
+| `npm run typecheck` · `npm run frontend:build` | clean · built |
+| `npx vitest run --maxWorkers=6`: round 5's 127 files, the new test file, and the importers of `algoConfig`, `keyScope` and `frameFocus` (128 files) | **128 files, 1022 passed**, no unhandled errors, no snapshot written |
+| `db_validate_reference.py` (under `env -i`, with fresh empty folders, still empty afterwards) | **0 errors** |
+
+**Rule notes.** No Python ran outside pytest except the reference validation, under `env -i`. No `git stash`, no model call, no network, no vault opened, no process killed.
