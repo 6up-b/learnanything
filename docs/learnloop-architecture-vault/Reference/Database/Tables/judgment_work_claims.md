@@ -3,8 +3,8 @@ title: "judgment_work_claims"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0cd6200c6072e4f89b090fd7cd31429435c92653"
-source_commit_timestamp: "2026-10-21T14:36:27-04:00"
+source_commit: "cd43cb64ccebc923410bc094d8518f0b0e6b8591"
+source_commit_timestamp: "2026-10-22T17:09:49-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_work_claims"
@@ -108,6 +108,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_ad1_fix_round5.py`
+- `tests/test_ad_guard.py`
 - `tests/test_approach_maps.py`
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_hint_outcome.py`

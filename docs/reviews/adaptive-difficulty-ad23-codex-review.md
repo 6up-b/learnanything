@@ -2367,3 +2367,109 @@ Sizes of the round-5 code commit:
 Every Python run outside pytest ran under `env -i` with an empty HOME, CODEX_HOME and
 LEARNLOOP_CONFIG_DIR, the registry's generator included. No model call was made; owner decisions
 are unchanged.
+
+## Redesign round 6 (2026-10-22)
+
+The closed-checklist verify was an Opus adversarial review, since Codex is out of quota until
+Oct 27. It found one High and two Lows, and confirmed the following:
+- the column guard and its classifications;
+- triggers;
+- epoch scoping;
+- batch limiting;
+- the durable entry points;
+- the invariants.
+
+### High: heading resolution by position, never by text
+
+- **The flaw.** Round 5 blanked withheld header titles keyed by normalized text. The incumbent's
+  `_heading` looks a raw path element up after `strip()` only. A GLM-OCR multi-line or
+  double-spaced heading ("Worked\nExamples", "Worked  Examples") therefore missed the blanking, and
+  the withheld text set the role.
+- **The fix is structural.** `MaterialView.worked_example_spans` resolves each visible block's
+  heading by POSITION: the nearest preceding visible `SectionHeader` of its reading, by ordinal.
+  - A withheld block is neither classified nor anyone's heading.
+  - The stored section path is not read at all, so no text equality remains in the role path.
+  - The incumbent's `effective_hint` is handed a one-element path naming that positional heading,
+    or an empty path when there is none.
+- **A consequence for every book, protected material or not.** AD's worked-example map now follows
+  position where the incumbent follows the stored path. For Marker output the two coincide: the
+  nearest preceding header is the path's last element. The incumbent's own `role_keys` is
+  unchanged.
+- **Test.** `test_ad_projection.py::test_a_withheld_heading_named_by_text_never_gives_a_public_block_its_role`
+  covers "Worked Examples", "Worked\nExamples" and "Worked  Examples", with P's section path naming
+  H by its text.
+  - Positive control: with H public, P is a worked example.
+  - With H held out: P is not one, as in the copy without H, and the two sweeps are equal.
+  - Round 5's block-id case still passes.
+  - On `603df25f6` the multi-line and double-spaced cases fail (H's text gave P its role). The
+    single-spaced case passed there, which is the reason round 5 missed this.
+
+### Low: the incumbent scope's column rule
+
+- `Guard._read` evaluates the column class in the incumbent scope as well. Content columns are
+  allowed there only to a reader in `INCUMBENT_READERS`.
+- Test: `test_ad_guard.py::test_in_the_incumbent_scope_only_its_named_readers_read_content`. A
+  module that is not listed, reading `model_call_receipts.output_text` inside
+  `incumbent_constraints()`, is refused; its `status` column stays readable. It fails on
+  `603df25f6`.
+
+### Low: latent write-statement gaps
+
+Every rule below was checked against callback logs on the installed SQLite 3.53.1.
+
+- **The write context ends with its statement.**
+  - The guard installs SQLite's statement trace on every guarded connection, beside its
+    authorizer. The trace fires when each statement starts running, after its preparation.
+  - At that moment the guard clears the write context (`_writing`, and whether an UPDATE was seen).
+    Every denial clears it too.
+  - The next statement is therefore prepared with no context, so its own SET expressions and
+    subqueries are judged as reads.
+  - An UPDATE's SET reads come before its UPDATE action, as the probe showed:
+    `READ p.b, READ p.id, READ t.id, UPDATE t.a, SELECT`. Before this fix, an earlier write's
+    context could let them through.
+- **`UPDATE ... SET (subquery)` and `UPDATE ... FROM` are refused.**
+  - SQLite authorizes both as a SELECT action after the UPDATE action. The guard refuses a SELECT
+    once the statement has an UPDATE action.
+  - An UPDATE's WHERE subquery is plain reads, without a SELECT action, and is judged as before.
+  - `INSERT ... SELECT` is unchanged.
+- **`RETURNING` poisons the operation.**
+  - The authorizer cannot tell a RETURNING read from a WHERE read: for `UPDATE ... RETURNING a`
+    SQLite gives `UPDATE t.a, READ t.a`.
+  - Refusing at execution with `interrupt()` was tried and rejected: SQLite then rolls back the
+    whole enclosing transaction, the incumbent's serve included.
+  - So the statement trace detects the clause instead, after literals, quoted identifiers and
+    comments are stripped, and poisons the operation. Its exit raises, its output is discarded, and
+    in the savepoint form its writes roll back.
+- **Tests, in `test_ad_guard.py`:**
+  - `test_an_update_with_a_subquery_set_or_a_from_clause_is_refused` (4 cases);
+  - `test_a_write_with_returning_poisons_the_operation_and_rolls_back` (INSERT, UPDATE and DELETE);
+  - `test_a_write_context_never_outlives_its_statement`.
+- **On `603df25f6`:** all fail except one UPDATE case. `UPDATE ad_dose_offers ... FROM` was
+  already refused there by accident: its target's own read came after the SELECT reset and was
+  judged as a raw read of a protected table. The same shape on the neutral `judgment_work_claims`
+  fails before.
+- **No production SQL changed.**
+  - No statement in `src` uses RETURNING, and no AD writer uses an UPDATE FROM or an UPDATE SET
+    subquery.
+  - The one SET subquery in `src` is the incumbent's session close-out (`UPDATE sessions`, in
+    `repositories.py`). It writes a table no operation may write in any case.
+  - The full AD suite passes unchanged.
+
+The planted-read negative control still fails with the guard off.
+
+### Gate (run once after the last change)
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 27 kept, 0 broken |
+| targeted pytest, `-n 14`: round 5's 229-plus files | **11,690 passed, 38 xfailed, 0 failed** (1,832 s) |
+| `--durable-sqlite`: `test_ad_guard.py`, `test_ad_epoch.py`, `test_ad_projection.py`, `test_ad23_migration.py`, `test_ad1_migration.py` | 65 passed |
+| migration 214, head fixture | unchanged this round |
+| references, under `env -i` | regenerated; `db_validate_reference.py` 0 errors; `module_validate.py` and `validate_vault.py` pass |
+
+Sizes of the round-6 code commit: production +70 / -28 (2 files), tests +116 / -5 (2 files).
+
+The session restarted mid-round. The worktree held the round's complete edits, which were kept and
+then tested from scratch. Every Python run outside pytest, including the authorizer probes, ran
+under `env -i` with an empty HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR. No model call was made;
+owner decisions are unchanged.
