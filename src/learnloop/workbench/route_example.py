@@ -172,11 +172,16 @@ def example_for(
     draw_enabled: bool = False,
     seed: str | None = None,
     cancelled: Callable[[], bool] | None = None,
+    verdicts: Sequence[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Look for the example; write the row prepared (``shown = 0``). Returns
     ``{status: ready | none | absent | unavailable, assist_id, line, ...}``.
     ``cancelled``: the job's cancel flag, read again before the row takes its
-    place among the problem's calls and before the search (fix round 2, 1)."""
+    place among the problem's calls and before the search (fix round 2, 1).
+    ``verdicts``: on "show me", the step verdicts the search was asked
+    against (the workbench's context); after a hint, the hint's own are
+    copied. Kept on the row so its unaided progress can tell an edit of a
+    step already valid then from progress (fix round 3, M1)."""
 
     from learnloop.workbench.check import session_calls_on
 
@@ -220,6 +225,7 @@ def example_for(
         "step_snapshot_json": json.dumps([{"chain_id": step.chain_id, "step_id": step.step_id,
                                            "number": step.number, "hash": step.content_hash}
                                           for step in steps], sort_keys=True),
+        "step_verdicts_json": _verdicts_json(hint, verdicts),
         "requested_at": utc_now_iso(),
     }
     if cancelled is not None and cancelled():
@@ -285,6 +291,18 @@ def example_for(
     if drawn is not None:
         result["alternatives"] = len(drawn.options) - 1
     return result
+
+
+def _verdicts_json(hint: Mapping[str, Any] | None, verdicts: Sequence[Mapping[str, Any]] | None) -> str | None:
+    """The verdicts an example row keeps (fix round 3, M1): after a hint, a
+    copy of the hint's record as stored (read through the one accessor); on
+    "show me", the workbench context's; None when neither is on record."""
+
+    from learnloop.symbolic_view import has_verdict_record, verdict_records
+
+    if hint is not None:
+        return json.dumps(verdict_records(hint, enabled=True), sort_keys=True) if has_verdict_record(hint) else None
+    return json.dumps(list(verdicts), sort_keys=True) if verdicts is not None else None
 
 
 def example_line(passage: Mapping[str, Any], step_number: int | None) -> str:

@@ -392,9 +392,11 @@ def test_f4_an_intervening_example_is_further_help_but_the_hints_own_bridge_is_n
             _row("ha_h", wb, "hint", 1, hint_kind="next_step", level=3, step_snapshot_json=_snapshot(one)),
             _row("ha_b", wb, "bridge", 1, placement_json=json.dumps({"hint_assist_id": "ha_h", "status": "found"}),
                  shown_at="2026-10-20T10:01:30Z"),
+            # A "show me" example stores the verdicts it was searched against
+            # (fix round 3, M1; none on record would read unknown).
             _row("ha_x", wb, "example", 2, placement_json=json.dumps({"trigger": "show_me", "status": "found",
                                                                       "role": "worked_example"}),
-                 step_snapshot_json=_snapshot(one)),
+                 step_snapshot_json=_snapshot(one), step_verdicts_json=_verdicts(one)),
             _row("ha_c", wb, "check", 3, step_verdicts_json=_verdicts(one, two),
                  step_snapshot_json=_snapshot(one, two)),
         ]

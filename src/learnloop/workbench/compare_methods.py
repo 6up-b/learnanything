@@ -229,6 +229,12 @@ def offer(vault: Any, repository: Repository, attempt_id: str) -> dict[str, Any]
     attempt = _attempt(repository, attempt_id)
     if attempt is None or attempt["session"] is None:
         return {"available": False, "reason": "not_a_workbench_submit"}
+    from learnloop.reader import workbench as WB
+
+    if not WB.statement_cleared(vault, repository, attempt["session"]):
+        # Fix round 3 (L6): a picked exercise held out since: the workbench's
+        # one statement gate, before anything of the reference is read.
+        return {"available": False, "reason": "exercise_withheld"}
     if attempt["held"] or attempt["correctness"] is None or float(attempt["correctness"]) < CORRECT:
         return {"available": False, "reason": "not_correct"}
     item = vault.practice_items.get(str(attempt["practice_item_id"]))
@@ -433,11 +439,14 @@ def _verdict(lines: Mapping[str, Any]) -> str:
 
 
 def compare_lines(vault: Any, repository: Repository, assist_id: str, *, client: Any | None = None,
-                  clock: Clock | None = None, cancelled: Any | None = None) -> dict[str, Any]:
+                  clock: Clock | None = None, cancelled: Any | None = None,
+                  still_enabled: Any | None = None) -> dict[str, Any]:
     """Ask for the lines and keep them on the row. Never raises for a model
     failure: ``{status: ready | unavailable, ...}``. One generation per
     comparison (F7), against the row's own reference (F9), never while the
-    switch is off (F8), with its verdict in ``judgment_ledger`` (F2)."""
+    switch is off (F8), with its verdict in ``judgment_ledger`` (F2).
+    ``still_enabled()``: the CURRENT switches, read again just before the
+    call (fix round 3, L4: a switch-off after the start makes no call)."""
 
     from learnloop.db.stores.judgments import append_judgment
     from learnloop.workbench.check import CheckRoute, CheckUnavailable, daily_envelope
@@ -474,6 +483,10 @@ def compare_lines(vault: Any, repository: Repository, assist_id: str, *, client:
     if cancelled is not None and cancelled():
         _release(repository, assist_id, token)
         return {"status": "unavailable", "assist_id": assist_id, "reason": "cancelled"}
+    if still_enabled is not None and not still_enabled():
+        _release(repository, assist_id, token)
+        return {"status": "unavailable", "assist_id": assist_id, "reason": "disabled",
+                "message": "Comparing methods is switched off (workbench.compare_methods_enabled)."}
     route = CheckRoute(vault, repository, client=client, envelope=daily_envelope(vault, repository, clock=clock),
                        workbench_session_id=session_id)
     prompt = build_prompt(item, reference, steps, request_id=assist_id)

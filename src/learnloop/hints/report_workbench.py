@@ -33,7 +33,7 @@ import sqlite3
 from typing import Any
 
 from learnloop.db.connection import connect
-from learnloop.symbolic_view import symbolic_outcomes, verdict_records
+from learnloop.symbolic_view import has_verdict_record, symbolic_outcomes, verdict_records
 
 REPORT_VERSION = "workbench-help-report-v1"
 
@@ -302,6 +302,9 @@ def workbench_unaided_progress(row: Mapping[str, Any], session_rows: Iterable[Ma
       any step). A step that was already valid at delivery (the delivered
       verdicts) and was only edited is never progress unless it lands on the
       target: an unrelated edit to an earlier valid step is not recovery.
+      The delivered verdicts are the row's own, a passage's hint's, or the
+      last shown check before it (:func:`_valid_at_delivery`, fix round 3,
+      M1); with none on record the answer is ``unknown``.
 
     ``session_rows``: the problem's workbench rows (any order); each needs
     ``id``, ``assist_kind``, ``shown``, ``shown_at`` / ``requested_at``,
@@ -349,8 +352,58 @@ def workbench_unaided_progress(row: Mapping[str, Any], session_rows: Iterable[Ma
     # Where the help was placed: its own (a hint, a "show me" example) or,
     # for a passage under a hint, that hint's.
     placed = row if row.get("assist_kind") == "hint" or not head else (by_id.get(head) or row)
-    return "continued" if _progress_at_placement(placed, snapshot_row or {}, delivered, following, maps or {}) \
-        else "not_continued"
+    # Fix round 3 (M1): which steps were already valid at delivery. Without
+    # that record nothing can tell an unrelated edit from progress: unknown.
+    valid_then = _valid_at_delivery(row, by_id.get(head or "") if head != str(row["id"]) else None, rows, at)
+    if valid_then is None:
+        return "unknown"
+    return "continued" if _progress_at_placement(placed, snapshot_row or {}, delivered, following, maps or {},
+                                                 valid_then=valid_then) else "not_continued"
+
+
+def _last_check_verdicts(rows: Iterable[Mapping[str, Any]], before: datetime | None, at: Any
+                         ) -> list[dict[str, Any]] | None:
+    """The verdicts of the problem's last shown check at or before ``before``."""
+
+    if before is None:
+        return None
+    checks = sorted(((when, str(other["id"]), other) for other in rows
+                     if other.get("assist_kind") == "check" and (when := at(other)) is not None and when <= before),
+                    key=lambda entry: (entry[0], entry[1]))
+    return verdict_records(checks[-1][2], enabled=False) if checks else None
+
+
+def _valid_at_delivery(row: Mapping[str, Any], head_row: Mapping[str, Any] | None,
+                       rows: Iterable[Mapping[str, Any]], at: Any) -> set[str] | None:
+    """The chains valid when the help was delivered (fix round 3, M1), or
+    None when nothing records it:
+
+    * the row's own ``step_verdicts_json`` (a hint's request context; a
+      worked example stores the verdicts it was searched against);
+    * a hint without one: the problem's last shown check at or before it, or
+      none (no check had been shown: no step was known valid);
+    * a passage under a hint without its own: that hint's, by the same rule;
+    * a "show me" example without its own: the last shown check at or before
+      it; none on record: None (``unknown``, never ``continued``)."""
+
+    rows = list(rows)
+
+    def valid(records: Iterable[Mapping[str, Any]]) -> set[str]:
+        return {str(entry.get("chain_id")) for entry in records if entry.get("verdict") == "valid"}
+
+    def of_hint(hint: Mapping[str, Any]) -> set[str]:
+        if has_verdict_record(hint):
+            return valid(verdict_records(hint, enabled=False))
+        return valid(_last_check_verdicts(rows, at(hint), at) or [])
+
+    if row.get("assist_kind") == "hint":
+        return of_hint(row)
+    if has_verdict_record(row):
+        return valid(verdict_records(row, enabled=False))
+    if head_row is not None:
+        return of_hint(head_row)
+    found = _last_check_verdicts(rows, at(row), at)
+    return valid(found) if found is not None else None
 
 
 def _positions(value: Any) -> dict[str, int]:
@@ -367,7 +420,7 @@ def _positions(value: Any) -> dict[str, int]:
 
 def _progress_at_placement(placed: Mapping[str, Any], snapshot_row: Mapping[str, Any],
                            delivered: set[tuple[str, str]], following: Mapping[str, Any],
-                           maps: Mapping[str, Mapping[str, list[str]]]) -> bool:
+                           maps: Mapping[str, Mapping[str, list[str]]], *, valid_then: set[str]) -> bool:
     """Whether the next check found progress where the help was placed
     (:func:`workbench_unaided_progress`, fix round 2, 6)."""
 
@@ -378,8 +431,6 @@ def _progress_at_placement(placed: Mapping[str, Any], snapshot_row: Mapping[str,
     about = {str(value) for value in (placed.get("about_step_id"), placed.get("first_questionable_step_id"))
              if value}
     continue_from = str(placed.get("continue_from_step_id") or "") or None
-    valid_then = {str(entry.get("chain_id")) for entry in verdict_records(snapshot_row, enabled=False)
-                  if entry.get("verdict") == "valid"}
     # Positions in the following check's work (an inserted step has one
     # there), else at delivery.
     positions = {**_positions(snapshot_row.get("step_snapshot_json")),

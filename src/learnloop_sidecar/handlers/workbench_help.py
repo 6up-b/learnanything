@@ -466,8 +466,15 @@ def _payload(ctx: SidecarContext, job_id: str) -> dict[str, Any]:
                         # while the switch is off).
                         from learnloop_sidecar.handlers.workbench_rw2c import start_example_after_hint
 
-                        result["example_job_id"] = start_example_after_hint(
-                            ctx, meta, result, after_job_id=result["bridge_job_id"])
+                        try:
+                            result["example_job_id"] = start_example_after_hint(
+                                ctx, meta, result, after_job_id=result["bridge_job_id"])
+                        except Exception as exc:  # noqa: BLE001 - fix round 3 (L8): the hint is delivered
+                            # An example that cannot start never fails the read
+                            # of a delivered hint: logged, recorded as none.
+                            log_event("workbench_example_start_failed", practice_item_id=meta.practice_item_id,
+                                      error=type(exc).__name__)
+                            result["example_job_id"] = None
                         job.result = {**(job.result or {}), "example_job_id": result["example_job_id"]}
             elif outcome == hint_service.REVEAL_NOT_RECORDED:
                 result = hint_service.undelivered_result(str(result["assist_id"]), outcome).as_dict()

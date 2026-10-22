@@ -61,7 +61,8 @@ def _start_job(ctx: SidecarContext, kind: str, session_id: str, item_id: str,
 
 
 def _example_work(ctx: SidecarContext, vault: Any, *, session_id: str, item: Any, trigger: str,
-                  about_step_id: str | None, hint_assist_id: str | None, after: Any | None = None):
+                  about_step_id: str | None, hint_assist_id: str | None, after: Any | None = None,
+                  verdicts: list[dict[str, Any]] | None = None):
     find = getattr(ctx, "workbench_example_find", None)
 
     def work(worker_repo: Any, cancelled: Callable[[], bool]) -> dict[str, Any]:
@@ -86,7 +87,7 @@ def _example_work(ctx: SidecarContext, vault: Any, *, session_id: str, item: Any
             envelope=check_module.daily_envelope(live, worker_repo),
             max_calls=int(live.config.workbench.max_calls_per_session),
             draw_enabled=bool(live.config.workbench.passage_draw_enabled),
-            seed=getattr(ctx, "passage_draw_seed", None), cancelled=cancelled)
+            seed=getattr(ctx, "passage_draw_seed", None), cancelled=cancelled, verdicts=verdicts)
 
     return work
 
@@ -158,7 +159,7 @@ def show_example(ctx: SidecarContext, params: ShowExampleInput) -> dict[str, Any
     context = help_module.hint_context(vault, repository, session, focused_step=params.focused_step_id)
     job_id = _start_job(ctx, help_rpcs.EXAMPLE, params.session_id, item.id, _example_work(
         ctx, vault, session_id=params.session_id, item=item, trigger="show_me", about_step_id=context.about,
-        hint_assist_id=None))
+        hint_assist_id=None, verdicts=context.verdicts_record()))
     return help_rpcs._payload(ctx, job_id)
 
 
@@ -228,6 +229,7 @@ def compare_offer(ctx: SidecarContext, params: CompareInput) -> dict[str, Any]:
     from learnloop.workbench import compare_methods
 
     vault, repository = help_rpcs._guard(ctx)
+    _refuse_withheld_attempt(vault, repository, params.attempt_id)
     return versioned(to_camel(compare_methods.offer(vault, repository, params.attempt_id)))
 
 
@@ -239,6 +241,7 @@ def open_compare_methods(ctx: SidecarContext, params: CompareInput) -> dict[str,
     from learnloop.workbench import compare_methods
 
     vault, repository = help_rpcs._guard(ctx)
+    _refuse_withheld_attempt(vault, repository, params.attempt_id)
     try:
         comparison = compare_methods.open_comparison(vault, repository, params.attempt_id)
     except compare_methods.CompareRefused as exc:
@@ -255,7 +258,15 @@ def open_compare_methods(ctx: SidecarContext, params: CompareInput) -> dict[str,
     client = getattr(ctx, "workbench_check_client", None)
 
     def work(worker_repo: Any, cancelled: Callable[[], bool]) -> dict[str, Any]:
-        return compare_methods.compare_lines(vault, worker_repo, assist_id, client=client, cancelled=cancelled)
+        # Fix round 3 (L4): the CURRENT vault and switches, at the start and
+        # again just before the call (as the example worker, fix round 2, 1).
+        live = _live_compare_vault(ctx, worker_repo)
+        if live is None:
+            return {"status": "unavailable", "assist_id": assist_id, "reason": "disabled",
+                    "message": "Comparing methods is switched off (workbench.compare_methods_enabled)."}
+        return compare_methods.compare_lines(
+            live, worker_repo, assist_id, client=client, cancelled=cancelled,
+            still_enabled=lambda: _live_compare_vault(ctx, worker_repo) is not None)
 
     job_id = None
     if comparison.get("lines") is None and row is not None:
@@ -274,6 +285,38 @@ def open_compare_methods(ctx: SidecarContext, params: CompareInput) -> dict[str,
                                 str(row["practice_item_id"]), work)
             kept[assist_id] = job_id
     return versioned(to_camel({"comparison": comparison, "lines_job_id": job_id}))
+
+
+def _live_compare_vault(ctx: SidecarContext, worker_repo: Any) -> Any | None:
+    """The sidecar's CURRENT vault while compare methods may still call:
+    the same database, help and compare methods on; else None (L4)."""
+
+    from learnloop.workbench.compare_methods import compare_enabled
+
+    try:
+        live, repository = ctx.require_vault()
+    except SidecarError:
+        return None
+    if str(repository.sqlite_path) != str(worker_repo.sqlite_path):
+        return None
+    return live if help_module.help_enabled(live) and compare_enabled(live) else None
+
+
+def _refuse_withheld_attempt(vault: Any, repository: Any, attempt_id: str) -> None:
+    """Fix round 3 (L6): the compare RPCs pass the workbench's statement gate
+    (``_refuse_withheld_exercise``) on the attempt's problem, as every
+    statement-bearing workbench RPC does."""
+
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores import workbench as wb_store
+    from learnloop_sidecar.handlers.workbench import _refuse_withheld_exercise
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        session = wb_store.session_for_attempt(connection, attempt_id)
+    if session is not None:
+        _refuse_withheld_exercise(vault, repository, session)
 
 
 def _compare_jobs(ctx: SidecarContext) -> dict[str, str]:
