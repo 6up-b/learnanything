@@ -209,10 +209,13 @@ def test_two_different_labellers_a_different_adjudicator_and_no_codex_role():
     assert role["context"].prices_for(100_001) == (0.50, 2.50)
     assert (role["writer"].input_price_per_million, role["writer"].output_price_per_million) == (2.0, 10.0)
     assert (role["adjudicator"].input_price_per_million, role["adjudicator"].output_price_per_million) == (4.0, 20.0)
-    # The OpenRouter Haiku route of the system arms is pending verification: refused until filled.
-    assert role["system_verifier"].model == "anthropic/claude-haiku-5.5"
-    assert pins.price_problem(role["system_verifier"]) is not None
-    assert "pending orchestrator verification" in role["system_verifier"].price_verified.note
+    # The OpenRouter Haiku route of the system arms, verified by the orchestrator on 2026-10-22.
+    verifier = role["system_verifier"]
+    assert verifier.model == "anthropic/claude-haiku-5.5" and pins.price_problem(verifier) is None
+    assert (verifier.price_verified.source_url, verifier.price_verified.checked_on) == (
+        "https://openrouter.ai/anthropic/claude-haiku-5.5/pricing", "2026-10-22")
+    assert (verifier.input_price_per_million, verifier.output_price_per_million) == (0.10, 0.50)
+    assert verifier.prices_for(100_001) == (0.50, 2.50)  # still admitted at Anthropic's >100k rate
 
 
 def test_the_paid_run_refuses_any_codex_role(monkeypatch):
@@ -235,8 +238,8 @@ def test_the_plan_has_zero_codex_requests_and_the_paid_ledger_refuses_any(tmp_pa
     assert all(row["billing"] == "metered" for row in plan["llm_roles"])
     system_llm = [row for row in plan["system_arms"] if row.get("kind") == "system_llm"]
     assert system_llm and all(row["billing"] == "metered" and row["model"] == "anthropic/claude-haiku-5.5"
-                              and row["price_status"] == "pending orchestrator verification" for row in system_llm)
-    assert plan["prices"]["unverified"] == {"embeddings": [], "roles": ["system_verifier"]}
+                              and row["price_status"] == "verified" for row in system_llm)
+    assert plan["prices"]["unverified"] == {"embeddings": [], "roles": []}
     ledger = authorized_ledger([paths.root], plan["run_id"])
     with pytest.raises(E0BudgetExceeded, match="subscription request allowance 0"):
         ledger.reserve(Request(category="labels_audits", provider="codex", route="gpt", purpose="x",
@@ -268,14 +271,18 @@ def test_the_service_copies_route_their_source_routes_to_openrouter_haiku(tmp_pa
 
     for route in pins.SYSTEM_ARM_ROUTES:
         assert plan_route(handle.vault, route).provider == "e0_openrouter_haiku"
-    # While its price is pending, the ledger gate refuses every such request (fail closed).
-    from learnloop.experiments.contextual_embeddings.budget import E0PriceUnverified
-
-    gate = SystemRequestGate(E0Ledger(tmp_path / "ledger"), handle.vault.config, arm="R0")
+    # Its verified price admits each request at its hard maximum, the >100k rate past 100k.
+    ledger = E0Ledger(tmp_path / "ledger")
+    gate = SystemRequestGate(ledger, handle.vault.config, arm="R0")
     metered = SimpleNamespace(provider_type="openrouter", provider_name="e0_openrouter_haiku",
                               model="anthropic/claude-haiku-5.5")
-    with pytest.raises(E0PriceUnverified):
-        gate.admit(metered, purpose="verify", prompt="p", budget=100)
+    verifier = pins.ROLE_PINS["system_verifier"]
+    for prompt in ("p", "x" * 120_000):
+        gate.settle(gate.admit(metered, purpose="verify", prompt=prompt, budget=100), {})
+    short, long = _entries(ledger)
+    assert float(short["reserved_usd"]) == pytest.approx(role_cost(verifier, estimate_input_tokens("p"), 100))
+    tokens = estimate_input_tokens("x" * 120_000)
+    assert float(long["reserved_usd"]) == pytest.approx((tokens * 0.50 + 100 * 2.50) / 1e6)
 
 
 # -- the model canary ---------------------------------------------------------------------
@@ -330,3 +337,26 @@ def test_production_never_imports_the_messages_api_transport():
                  if "experiments" not in path.parts and path.name != "experiments.py"
                  and "anthropic_api" in path.read_text(encoding="utf-8")]
     assert offenders == []
+
+
+def test_the_paid_preflight_passes_with_every_pin_verified_zero_codex_and_the_lockdown(tmp_path):
+    """Owner decision 2026-10-22 ($40 cap, models kept): the paid CLI's checks
+    pass on a fresh plan, apart from the keys (absent in a dry run)."""
+
+    from learnloop.experiments.contextual_embeddings.boundary import require_codex_lockdown, require_no_codex_roles
+    from learnloop.experiments.contextual_embeddings.runner import dry_run, require_paid_authorization
+
+    assert pins.E0_CAP_USD == 40.0
+    assert pins.ALLOCATION_USD == {"embeddings": 0.50, "drafting_context": 1.50, "labels_audits": 24.00,
+                                   "answers_verification": 14.00}
+    assert sum(pins.ALLOCATION_USD.values()) == pytest.approx(40.0)
+    paths, _repository = build_e0_vault(tmp_path)
+    plan = dry_run([paths.root], environ={})
+    assert plan["totals"]["cap_usd"] == 40.0 and plan["totals"]["fits_cap"] and plan["totals"]["fits_allocations"]
+    assert plan["prices"]["unverified"] == {"embeddings": [], "roles": []}
+    assert plan["subscription_requests"]["planned"] == 0
+    require_paid_authorization(authorized=True, dry_run_ok=bool(plan["totals"]["fits_cap"]),
+                               unverified_prices=plan["prices"]["unverified"])
+    require_no_codex_roles()
+    assert require_codex_lockdown()["codex_lockdown"] == "active"
+    assert set(plan["keys"].values()) == {"absent"}

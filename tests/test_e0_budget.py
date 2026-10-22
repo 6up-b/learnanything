@@ -19,6 +19,16 @@ from tests.e0_fakes import verified_prices  # noqa: F401 - the fixture below
 pytestmark = pytest.mark.usefixtures("verified_prices")
 
 
+#: The mechanics below are checked against a fixed $25 envelope with a $2.00
+#: embeddings category (the pre-2026-10-22 allocation), independent of the pins.
+MECHANICS = {"cap_usd": 25.0, "allocation": {"embeddings": 2.0, "drafting_context": 5.0, "labels_audits": 10.0,
+                                             "answers_verification": 8.0}}
+
+
+def _ledger(directory):
+    return E0Ledger(directory, **MECHANICS)
+
+
 def _request(usd, category="embeddings", billing="metered", **extra):
     return Request(category=category, provider="voyage", route="voyage-context-4", purpose="t",
                    billing=billing, estimated_usd=usd, **extra)
@@ -26,7 +36,7 @@ def _request(usd, category="embeddings", billing="metered", **extra):
 
 def test_the_cap_and_allocations_are_the_specs(tmp_path):
     ledger = E0Ledger(tmp_path)
-    assert ledger.report()["cap_usd"] == 25.0
+    assert ledger.report()["cap_usd"] == 40.0  # owner raised the cap, 2026-10-22
     assert {key: value["allocation_usd"] for key, value in ledger.report()["by_category"].items()} == \
         pins.ALLOCATION_USD
     with pytest.raises(ValueError):
@@ -34,7 +44,7 @@ def test_the_cap_and_allocations_are_the_specs(tmp_path):
 
 
 def test_admission_counts_outstanding_reservations_and_unknown_billing_stays_reserved(tmp_path):
-    ledger = E0Ledger(tmp_path)
+    ledger = _ledger(tmp_path)
     first = ledger.reserve(_request(1.5))
     with pytest.raises(E0BudgetExceeded):
         ledger.reserve(_request(0.6))  # 1.5 outstanding + 0.6 > the $2 embeddings allocation
@@ -98,7 +108,7 @@ def test_the_wall_time_bound_refuses_every_later_admission_including_retries(tmp
 
 
 def test_concurrent_threads_never_overshoot(tmp_path):
-    ledger = E0Ledger(tmp_path)
+    ledger = _ledger(tmp_path)
 
     def attempt(_index):
         try:
@@ -115,7 +125,7 @@ def test_concurrent_threads_never_overshoot(tmp_path):
 
 
 def _process_worker(directory, count, queue):
-    ledger = E0Ledger(directory)
+    ledger = _ledger(directory)
     admitted = 0
     for _ in range(count):
         try:
@@ -136,11 +146,11 @@ def test_concurrent_processes_share_one_envelope(tmp_path):
         worker.join(60)
     admitted = sum(queue.get(timeout=10) for _ in workers)
     assert admitted == 40  # $2.00 / $0.05, whatever the interleaving
-    assert E0Ledger(tmp_path).report()["committed_usd"] == pytest.approx(2.0)
+    assert _ledger(tmp_path).report()["committed_usd"] == pytest.approx(2.0)
 
 
 def test_the_ledger_is_a_spend_envelope_for_reused_production_paths(tmp_path):
-    ledger = E0Ledger(tmp_path)
+    ledger = _ledger(tmp_path)
     envelope = LedgerEnvelope(ledger, category="embeddings", provider="openrouter", route="qwen")
     budget = SpendBudget(SpendCaps(max_estimated_usd=None))
     with spend_envelopes(envelope):

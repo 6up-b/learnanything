@@ -221,9 +221,9 @@ def test_h3_one_canonical_ledger_per_plan_whatever_the_run_directory(tmp_path):
     copy.mkdir(parents=True)
     first = _new("authorized_ledger")([copy], "e0_0123456789abcdef")
     assert first.path == tmp_path / "fixtures-local" / "contextual-embeddings" / "ledger" / "e0_0123456789abcdef.ledger"
-    first.reserve(Request(category="embeddings", provider="p", route="r", purpose="x", estimated_usd=1.5))
+    first.reserve(Request(category="labels_audits", provider="p", route="r", purpose="x", estimated_usd=1.5))
     again = _new("authorized_ledger")([copy], "e0_0123456789abcdef")
-    assert again.path == first.path and again.report()["committed_usd"] == 1.5  # shared, never a fresh $25
+    assert again.path == first.path and again.report()["committed_usd"] == 1.5  # shared, never a fresh cap
     with pytest.raises(PermissionError, match="new-authorization"):
         _new("authorized_ledger")([copy], "e0_fedcba9876543210")
     other = _new("authorized_ledger")([copy], "e0_fedcba9876543210", new_authorization="owner approved a re-plan")

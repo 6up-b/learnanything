@@ -90,7 +90,8 @@ def rebuild_frozen(copies: Sequence[Path], plan: Mapping[str, Any]) -> tuple[lis
         raise PlanMismatch("the plan predates the frozen split; run --dry-run again")
     if plan.get("pins_fingerprint") != pins.pins_fingerprint():
         raise PlanMismatch("the pins changed since the plan was made; run --dry-run again")
-    handles = [open_copy(Path(copy), load_environment=True) for copy in copies]
+    # Keys come only from the shell or --env-file (re-plan 2026-10-22): no settings file is loaded.
+    handles = [open_copy(Path(copy), load_environment=False) for copy in copies]
     snapshots = [build_snapshot(handle, reserve_share=float(plan["reserve_share"])) for handle in handles]
     vaults = (plan.get("bank") or {}).get("vaults") or {}
     strata = {handle.label: dict((vaults.get(handle.label) or {}).get("development_strata") or {})

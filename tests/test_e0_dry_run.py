@@ -71,7 +71,7 @@ def test_the_plan_has_every_arm_question_count_estimate_and_key_state(tmp_path):
     # Every role but the system arms' source-route pin, which the system rows price.
     assert {row["role"] for row in plan["llm_roles"]} == set(pins.ROLE_PINS) - {"system_verifier"}
     totals = plan["totals"]
-    assert totals["cap_usd"] == 25.0 and set(totals["categories"]) == set(pins.ALLOCATION_USD)
+    assert totals["cap_usd"] == 40.0 and set(totals["categories"]) == set(pins.ALLOCATION_USD)
     assert totals["estimated_usd"] == pytest.approx(sum(c["estimated_usd"] for c in totals["categories"].values()),
                                                     abs=1e-3)
     assert plan["keys"] == {"PERPLEXITY_API_KEY": "present", "VOYAGE_API_KEY": "absent",

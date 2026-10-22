@@ -57,13 +57,18 @@ GENERATOR_RESERVES = {"system": 2_000, "history": 2_000, "output": 2_000}
 
 # -- money (spec §6) -----------------------------------------------------------------
 #: The hard E0 ceiling across ALL paid calls, providers, copies and stages.
-E0_CAP_USD = 25.0
-#: §6's proposed allocation; enforced as category sub-caps inside the cap.
+#: Owner decision 2026-10-22: the cap rises from $25 to $40 with the re-planned
+#: models kept (a NEW authorization: its own canonical ledger).
+E0_CAP_USD = 40.0
+#: Category sub-caps inside the cap, in proportion to the dry run's expected
+#: spend with headroom (owner, 2026-10-22). The owner proposed embeddings 1.00 and
+#: answers 13.50; answers expect $13.67, so $0.50 moved from embeddings (expected
+#: $0.04, worst case $0.12) to answers, within the $40.
 ALLOCATION_USD = {
-    "embeddings": 2.0,
-    "drafting_context": 5.0,
-    "labels_audits": 10.0,
-    "answers_verification": 8.0,
+    "embeddings": 0.50,
+    "drafting_context": 1.50,
+    "labels_audits": 24.00,
+    "answers_verification": 14.00,
 }
 #: Retries per request: transient failures only; auth and contract errors none.
 TRANSIENT_RETRIES = 2
@@ -417,10 +422,13 @@ ROLE_PINS: dict[str, RolePin] = {
     # verification: until filled, admission refuses every such request.
     "system_verifier": RolePin("system_verifier", "e0_openrouter_haiku", "openrouter", "anthropic/claude-haiku-5.5",
                                None, "metered", "answers_verification", 600, 0.10, 0.50,
-                               "OpenRouter anthropic/claude-haiku-5.5: assumed equal to Anthropic's own price; "
-                               "PENDING orchestrator verification (slug and price not checked offline)",
+                               "OpenRouter anthropic/claude-haiku-5.5: $0.10 input / $0.50 output per 1M tokens "
+                               "(orchestrator-verified 2026-10-22); admitted at Anthropic's >100k rate past 100k",
                                "production-source-routes",
-                               price_verified=PriceVerification(note="pending orchestrator verification"),
+                               price_verified=PriceVerification(
+                                   "https://openrouter.ai/anthropic/claude-haiku-5.5/pricing", "2026-10-22",
+                                   note="the page shows no prompt-length tier; E0 still admits at Anthropic's "
+                                        ">100k rate ($0.50/$2.50) whenever the input bound passes 100k"),
                                long_context_threshold=100_000, long_input_price_per_million=0.50,
                                long_output_price_per_million=2.50),
 }

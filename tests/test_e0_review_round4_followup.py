@@ -53,7 +53,7 @@ def test_every_metered_pin_carries_exactly_the_orchestrator_verified_price():
         assert (pin.input_price_per_million, pin.output_price_per_million) == (4.0, 20.0)
         assert pin.price_verified.source_url == "https://platform.claude.com/docs/en/about-claude/pricing"
         assert pin.price_verified.checked_on == "2026-10-22"
-    assert pins.unverified_prices() == {"embeddings": [], "roles": ["system_verifier"]}
+    assert pins.unverified_prices() == {"embeddings": [], "roles": []}  # the OpenRouter Haiku pin too (2026-10-22)
     for name in ("voyage_4_large", "voyage_context_4"):
         note = pins.EMBEDDING_PINS[name].price_verified.note
         assert "200M tokens are free" in note and "never assumes the free tier" in note

@@ -885,14 +885,14 @@
  },
  "limits": {
   "allocation_usd": {
-   "answers_verification": 8.0,
-   "drafting_context": 5.0,
-   "embeddings": 2.0,
-   "labels_audits": 10.0
+   "answers_verification": 14.0,
+   "drafting_context": 1.5,
+   "embeddings": 0.5,
+   "labels_audits": 24.0
   },
   "auth_or_contract_retries": 0,
   "bootstrap_resamples": 10000,
-  "cap_usd": 25.0,
+  "cap_usd": 40.0,
   "d1_evidence_tokens": 8192,
   "latency_regression_tolerance": 0.1,
   "max_metered_requests": 6000,
@@ -1206,14 +1206,12 @@
    }
   }
  },
- "pins_fingerprint": "e7d585d258c2956861584e8929f647becba6bc9d8ab98c7779868958bcd25437",
+ "pins_fingerprint": "0ca2618ddc40e10671eac7fa7631b416f28ab6292bd0470e879a29c984aa2357",
  "prices": {
   "rule": "a metered request is admitted only on a verified price (source_url, checked_on)",
   "unverified": {
    "embeddings": [],
-   "roles": [
-    "system_verifier"
-   ]
+   "roles": []
   },
   "verified": {
    "adjudicator": {
@@ -1255,6 +1253,11 @@
    "qwen3_8b": {
     "checked_on": "2026-10-21",
     "source_url": "https://openrouter.ai/qwen/qwen3-embedding-8b/pricing"
+   },
+   "system_verifier": {
+    "checked_on": "2026-10-22",
+    "note": "the page shows no prompt-length tier; E0 still admits at Anthropic's >100k rate ($0.50/$2.50) whenever the input bound passes 100k",
+    "source_url": "https://openrouter.ai/anthropic/claude-haiku-5.5/pricing"
    },
    "tutor": {
     "checked_on": "2026-10-22",
@@ -1306,7 +1309,7 @@
   "R5_independent": "voyage-4-large via the Voyage API",
   "R5_singleton": "voyage-context-4, one chunk per document"
  },
- "run_id": "e0_5d51209082898626",
+ "run_id": "e0_dec5776aa73cdd5a",
  "seed": 20261021,
  "splits": {
   "linear_algebra-20261021": {
@@ -1382,7 +1385,7 @@
    "kind": "system_llm",
    "model": "anthropic/claude-haiku-5.5",
    "output_tokens": 403200,
-   "price_status": "pending orchestrator verification",
+   "price_status": "verified",
    "provider_key": "openrouter:anthropic/claude-haiku-5.5 (system arms)",
    "requests": 252,
    "transport": "openrouter",
@@ -1398,7 +1401,7 @@
    "kind": "system_llm",
    "model": "anthropic/claude-haiku-5.5",
    "output_tokens": 604800,
-   "price_status": "pending orchestrator verification",
+   "price_status": "verified",
    "provider_key": "openrouter:anthropic/claude-haiku-5.5 (system arms)",
    "requests": 378,
    "transport": "openrouter",
@@ -1458,7 +1461,7 @@
    "kind": "system_llm",
    "model": "anthropic/claude-haiku-5.5",
    "output_tokens": 352000,
-   "price_status": "pending orchestrator verification",
+   "price_status": "verified",
    "provider_key": "openrouter:anthropic/claude-haiku-5.5 (system arms)",
    "requests": 220,
    "transport": "openrouter",
@@ -1474,7 +1477,7 @@
    "kind": "system_llm",
    "model": "anthropic/claude-haiku-5.5",
    "output_tokens": 528000,
-   "price_status": "pending orchestrator verification",
+   "price_status": "verified",
    "provider_key": "openrouter:anthropic/claude-haiku-5.5 (system arms)",
    "requests": 330,
    "transport": "openrouter",
@@ -1484,40 +1487,37 @@
  ],
  "totals": {
   "basis": "the verified published prices on guaranteed token upper bounds; admission reserves the same hard maximum before each request",
-  "cap_usd": 25.0,
+  "cap_usd": 40.0,
   "categories": {
    "answers_verification": {
-    "allocation_usd": 8.0,
+    "allocation_usd": 14.0,
     "estimated_usd": 13.6745,
-    "fits": false,
+    "fits": true,
     "worst_case_usd": 41.0234
    },
    "drafting_context": {
-    "allocation_usd": 5.0,
+    "allocation_usd": 1.5,
     "estimated_usd": 0.5069,
     "fits": true,
     "worst_case_usd": 1.5207
    },
    "embeddings": {
-    "allocation_usd": 2.0,
+    "allocation_usd": 0.5,
     "estimated_usd": 0.0409,
     "fits": true,
     "worst_case_usd": 0.1211
    },
    "labels_audits": {
-    "allocation_usd": 10.0,
+    "allocation_usd": 24.0,
     "estimated_usd": 23.622,
-    "fits": false,
+    "fits": true,
     "worst_case_usd": 70.866
    }
   },
   "estimated_usd": 37.8443,
-  "fits_allocations": false,
-  "fits_cap": false,
-  "overflowing_categories": [
-   "answers_verification",
-   "labels_audits"
-  ],
+  "fits_allocations": true,
+  "fits_cap": true,
+  "overflowing_categories": [],
   "subscription_estimated_only_tokens": 0,
   "worst_case_usd": 113.5312
  }
