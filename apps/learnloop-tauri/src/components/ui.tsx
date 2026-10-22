@@ -277,11 +277,7 @@ export function TerminalFrame({
         <div className="terminal-frame">
           <Titlebar />
           <SimpleNav {...simpleNav} vaultRoot={vaultRoot} onSelectVault={onSelectVault} onAdd={onAdd} />
-          {/* tabIndex -1: where a pointer activation of a place, a tool or a ⋯
-              row leaves the focus (fix round 5, components/frameFocus.ts). */}
-          <main className="frame-body" tabIndex={-1} style={{ outline: "none" }}>
-            {children}
-          </main>
+          <main className="frame-body">{children}</main>
         </div>
       </div>
     );

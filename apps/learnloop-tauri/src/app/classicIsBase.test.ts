@@ -82,12 +82,6 @@ export const STAGE_CHANGES: Record<string, Behaviour[]> = {
       reason: "classic is the default and falls through to base's frame"
     },
     {
-      behaviour: "the simple frame body takes the focus after a pointer activation (tabIndex -1)",
-      kind: "simple-only",
-      evidence: [/<main className="frame-body" tabIndex=\{-1\} style=\{\{ outline: "none" \}\}>/],
-      reason: "only the simple branch of TerminalFrame renders it; classic's main is base's"
-    },
-    {
       behaviour: "the titlebar is a key scope of its own",
       kind: "simple-only",
       evidence: [/<div className="titlebar" data-tauri-drag-region \{\.\.\.keyScope\("window"\)\}>/],
@@ -171,10 +165,11 @@ export const STAGE_CHANGES: Record<string, Behaviour[]> = {
   ],
   "components/frameFocus.ts": [
     {
-      behaviour: "the focus goes to the frame body after a pointer activation (new)",
+      behaviour: "a clicked chrome control lets go of the focus, back to the body (new)",
       kind: "simple-only",
       in: "components/ShellNav.tsx",
-      evidence: [/focusFrameBodyAfterPointer\(event\);/],
+      evidence: [/releaseFocusAfterPointer\(event\);/],
+      // Round 6: the simple frame body is not focusable (pinned in reader/intentBoxInShell.test.tsx).
       reason: "called only by the simple nav, its ⋯ rows and Under the hood's list"
     }
   ],
@@ -317,4 +312,14 @@ describe("classic is base by construction", () => {
     const classic = component(read("components/CommandPalette.tsx"), "function ClassicCommandPalette({");
     expect(classic).toBe(base);
   });
+});
+
+// Fix round 6: round 5's focusable frame body took the focus on every click
+// on plain content (the Reader's intent box then ignored the next key). The
+// frame body stays unfocusable in both shells, as in base.
+it("keeps main.frame-body unfocusable (no tabIndex) in both shells", () => {
+  const ui = read("components/ui.tsx");
+  const mains = ui.match(/<main className="frame-body"[^>]*>/g) ?? [];
+  expect(mains.length).toBeGreaterThanOrEqual(2);
+  for (const tag of mains) expect(tag, tag).not.toMatch(/tabIndex/);
 });

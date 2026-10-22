@@ -55,7 +55,7 @@ import { GoldenPathSetup } from "../components/goldenpath/GoldenPathSetup";
 import type { ReaderCheckMeRequest, ReaderExerciseRequest, ReaderOpenSource } from "../screens/ReaderScreen";
 import { keepReaderReturn, readerCheckOffer, returnsToReader, type ReaderReturn } from "./readerCheck";
 import { consumeShown, readerTargetBack, readerWorkbenchCheck, sessionAfterWorkbenchSubmit, workbenchReturn } from "./readerWorkbench";
-import { algoConfig } from "./algoConfig";
+import { algoConfig, setRenderedShell } from "./algoConfig";
 import type { ReaderWorkbenchCheck, ReaderWorkbenchProps } from "../screens/reader/useReaderWorkbench";
 import { ExemplarConfirmDialog } from "../components/ExemplarConfirmDialog";
 import { WhyDiagnosisOverlay } from "../components/WhyDiagnosisOverlay";
@@ -320,6 +320,11 @@ export function App() {
   // a stale "simple" run simple keys before a classic library had loaded, so
   // there is none: only the snapshot is authoritative.
   const shell: ShellMode = snapshot ? algoConfig().shell : "classic";
+  // Mirrored for what follows the shell on screen (key scopes, the screens'
+  // target rule), so the loading and startup-error frames are classic too
+  // (fix round 6). Idempotent; cleared when the App unmounts.
+  setRenderedShell(shell);
+  useEffect(() => () => setRenderedShell(null), []);
   const shellRef = useRef<ShellMode>(shell);
   shellRef.current = shell;
   const simple = shell === "simple";

@@ -18,6 +18,7 @@ import { clear } from "../api/queryCache";
 const stubs = vi.hoisted(() => ({
   config: {} as Record<string, unknown>,
   loadGate: null as Promise<void> | null,
+  loadFails: false,
   api: {} as Record<string, (...args: unknown[]) => unknown>
 }));
 
@@ -29,6 +30,7 @@ vi.mock("../api/client", () => {
   const base: Record<string, unknown> = {
     loadVault: vi.fn(async () => {
       if (stubs.loadGate) await stubs.loadGate;
+      if (stubs.loadFails) throw { code: "vault_unavailable", message: "The library could not be opened.", retryable: false };
       return {
         vault: { root: "/vault", subjects: [], subjectTitles: [], counts: { learningObjects: 1, practiceItems: 1 }, algorithmVersion: "mvp-0.29" },
         health: { ai: { ready: false, settingsReady: false, manualGrading: false, activeProvider: null }, codex: { ready: false } },
@@ -92,6 +94,7 @@ function storage(map: Map<string, string>) {
 beforeEach(() => {
   stubs.config = {};
   stubs.loadGate = null;
+  stubs.loadFails = false;
   stubs.api = {};
   store = new Map<string, string>();
   vi.stubGlobal("localStorage", storage(store));
@@ -326,4 +329,33 @@ it("opens the palette in the simple shell after loading", async () => {
   await launch();
   await runPalette("analyst views");
   await waitFor(() => expect(screen.queryByRole("listbox", { name: "Commands" })).toBeNull());
+});
+
+// ── Fix round 6 (Low 3): the classic frames carry no key scopes ─────────
+// Before the snapshot names a shell the App draws the base (classic) shell,
+// but the config module's default shell is simple, so round 5's key scopes
+// (keyScope) and target rule followed the default, and the loading frame's
+// titlebar carried data-key-scope. They now follow the shell on screen.
+describe("the loading and startup-error frames are classic through and through (fix round 6)", () => {
+  it("draws no data-key-scope while the library loads", async () => {
+    let release: () => void = () => undefined;
+    stubs.loadGate = new Promise<void>((resolve) => (release = resolve));
+    render(<App />);
+    await flush();
+    expect(document.querySelector(".titlebar")).not.toBeNull();
+    expect(document.querySelectorAll("[data-key-scope]")).toHaveLength(0);
+    await act(async () => release());
+    await flush();
+    // Once the snapshot names the simple shell, the titlebar is its own part.
+    await screen.findByRole("navigation", { name: "Places" });
+    expect(document.querySelector(".titlebar")?.getAttribute("data-key-scope")).toBe("window");
+  });
+
+  it("draws no data-key-scope in the startup-error frame", async () => {
+    stubs.loadFails = true;
+    render(<App />);
+    await screen.findByText(/could not be opened|Could not load/i);
+    expect(document.querySelector(".titlebar")).not.toBeNull();
+    expect(document.querySelectorAll("[data-key-scope]")).toHaveLength(0);
+  });
 });

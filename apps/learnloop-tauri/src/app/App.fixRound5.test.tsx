@@ -363,7 +363,7 @@ describe("focus after a pointer activation (item 2)", () => {
     render(<App />);
     await screen.findByText(/begin session · \d+ min/);
     await pointerActivate(navButton("Today"));
-    expect(document.activeElement?.matches("main.frame-body")).toBe(true);
+    expect(document.activeElement).toBe(document.body);
     await pressFocused("Enter");
     await waitFor(() => expect(startSession).toHaveBeenCalledTimes(1));
   });
@@ -384,7 +384,7 @@ describe("focus after a pointer activation (item 2)", () => {
     await screen.findByRole("navigation", { name: "Places" });
     await pointerActivate(navButton("Today"));
     await screen.findAllByText("Item 2");
-    expect(document.activeElement?.matches("main.frame-body")).toBe(true);
+    expect(document.activeElement).toBe(document.body);
     await pressFocused("2");
     expect(await screen.findByTestId("practice-stub")).toBeTruthy();
   });
@@ -457,7 +457,7 @@ describe("focus after a pointer activation (item 2)", () => {
     const list = screen.getByRole("navigation", { name: "Under the hood" });
     await pointerActivate(within(list).getByRole("button", { name: /Study-map changes/ }));
     await screen.findAllByText("local_slip");
-    expect(document.activeElement?.matches("main.frame-body")).toBe(true);
+    expect(document.activeElement).toBe(document.body);
     await pressFocused("a");
     await waitFor(() => expect(acceptProposalItems).toHaveBeenCalledWith("b1", ["i1"]));
   });

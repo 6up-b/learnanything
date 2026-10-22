@@ -12,7 +12,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { listRecentVaults, samePath, vaultName, vaultNameWithParent } from "../app/recentVaults";
 import { PLACES, type Place } from "../app/shell";
-import { focusFrameBodyAfterPointer } from "./frameFocus";
+import { releaseFocusAfterPointer } from "./frameFocus";
 
 export interface SimpleNavProps {
   /** The place on screen; "underhood" lights ⋯. */
@@ -59,7 +59,7 @@ export function SimpleNav({
             title={`${place.label} (Alt+${place.key})`}
             onClick={(event) => {
               onPlace(place.id);
-              focusFrameBodyAfterPointer(event);
+              releaseFocusAfterPointer(event);
             }}
           >
             {place.label}
@@ -137,10 +137,10 @@ function MoreMenu({
     return () => document.removeEventListener("mousedown", onDocMouseDown, true);
   }, [open]);
 
-  const choose = (action: () => void, event: { detail: number }) => {
+  const choose = (action: () => void, event: { detail: number; currentTarget: EventTarget | null }) => {
     setOpen(false);
     action();
-    focusFrameBodyAfterPointer(event);
+    releaseFocusAfterPointer(event);
   };
 
   const openAnother = async () => {

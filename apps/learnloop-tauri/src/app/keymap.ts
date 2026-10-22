@@ -11,7 +11,7 @@
 // the same chords, the same predicates (loose about extra modifiers where the
 // base was), the same "not while typing" rules.
 import { SHOW_GOLDEN_PATH, navTabs, type TopTab } from "../components/ui";
-import { algoConfig } from "./algoConfig";
+import { activeShell } from "./algoConfig";
 import type { Place, ShellMode, UthToolId } from "./shell";
 
 export type KeyAction =
@@ -172,7 +172,7 @@ export const SCOPED_OVERRIDES: ReadonlyArray<{ file: string; keys: string; where
  *  listener. */
 
 export function screenLeavesKey(event: KeyboardEvent, options: ScreenKeyOptions = {}): boolean {
-  if (algoConfig().shell === "classic" || options.modal) return false;
+  if (activeShell() === "classic" || options.modal) return false;
   if (event.defaultPrevented) return true;
   if (!options.ownChords && (event.ctrlKey || event.metaKey || event.altKey)) return true;
   return onForeignControl(event.target, options.scopes ?? ["screen"]);

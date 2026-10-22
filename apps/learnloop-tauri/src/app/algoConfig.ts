@@ -80,6 +80,8 @@ const DEFAULTS: AlgoDisplayConfig = {
 };
 
 let current: AlgoDisplayConfig = { ...DEFAULTS };
+// The shell the App draws (fix round 6; see `activeShell` below).
+let renderedShell: "simple" | "classic" | null = null;
 
 export function setAlgoConfig(config: unknown): void {
   const root = (config ?? {}) as {
@@ -116,6 +118,8 @@ export function setAlgoConfig(config: unknown): void {
       ? { bridge: root.workbench.help.bridge === true, symbolic: root.workbench.help.symbolic === true }
       : null
   };
+  // A new snapshot names the shell again; the App mirrors what it draws next.
+  renderedShell = null;
   for (const listener of listeners) listener();
 }
 
@@ -170,4 +174,21 @@ function asNumber(value: unknown, fallback: number): number {
  *  gates every symbolic mark with it (AND each view's own symbolicEnabled). */
 export function useSymbolicChecksLive(): boolean {
   return useSyncExternalStore(subscribeAlgoConfig, () => current.workbenchHelp?.symbolic === true);
+}
+
+// ── The shell on screen (UX Phase 2 fix round 6) ──────────────────────────
+// Before the library's snapshot has named a shell the App draws the base
+// (classic) shell, but this module's default is the sidecar's (simple). The
+// App mirrors the shell it actually draws here, so what follows the drawn
+// shell (key scopes, the screens' target rule) is classic in the loading and
+// startup-error frames. Unset (no App mounted: a screen rendered on its own),
+// it is the config's shell.
+
+export function setRenderedShell(shell: "simple" | "classic" | null): void {
+  renderedShell = shell;
+}
+
+/** The shell on screen: what the App draws, else the config's. */
+export function activeShell(): "simple" | "classic" {
+  return renderedShell ?? current.shell;
 }

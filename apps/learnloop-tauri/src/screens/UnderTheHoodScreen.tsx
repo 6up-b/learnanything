@@ -8,7 +8,7 @@
 // child, with the same props it always had: nothing inside them changes.
 import type { ReactNode } from "react";
 import { uthTool, visibleUthTools, type UthToolId } from "../app/shell";
-import { focusFrameBodyAfterPointer } from "../components/frameFocus";
+import { releaseFocusAfterPointer } from "../components/frameFocus";
 
 export function UnderTheHoodScreen({
   tool,
@@ -39,7 +39,7 @@ export function UnderTheHoodScreen({
               title={`was ${entry.was}`}
               onClick={(event) => {
                 onSelectTool(entry.id);
-                focusFrameBodyAfterPointer(event);
+                releaseFocusAfterPointer(event);
               }}
             >
               <span className="uth-tool-title">{entry.title}</span>
