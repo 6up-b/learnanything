@@ -243,8 +243,9 @@ All of them pass on `e575da4c2`.
    * it comes after the step the help continues from (with neither recorded, any step counts).
 
    A step that was already valid at delivery and was only edited does not count, unless it lands on the target.
-   The hint service's report reads the same function, so the targeted gate also ran its tests: `test_hint_report`,
-   `test_workbench_report` and the H2a/H2b review files. Earlier F4 behaviour is unchanged (its four tests pass).
+   *(Corrected in fix round 3, L1: only `help_outcomes` calls this function. The hint service's report does not:
+   `hints/report.py` still reports its workbench rows as `workbench_state_unknown`.)* The targeted gate also ran
+   the hint report's tests: `test_hint_report`, `test_workbench_report` and the H2a/H2b review files. Earlier F4 behaviour is unchanged (its four tests pass).
 7. **A bridge keeps its book.** The bridge stores the chosen span's `source_id` in its placement and returns it on
    its result. The views send it under the rule in 3. In the app, `drawnFields` in `useWorkbenchHelp.ts` carries
    `sourceId` into the bridge state, on the first result and on resume. The hint view DTO's `bridge` gained
@@ -300,3 +301,98 @@ The hint service's report tests (`test_hint_report`, `test_workbench_report`) we
 * `bridge.verified_spans`;
 * `passage_draw.option_withheld`;
 * `ladder.passage_draw_enabled` and `ladder.RW2C_BRIDGE_FIELDS`.
+
+## Fix round 3 (orchestrator)
+
+An adversarial Opus reviewer verified `a1027ed04` (Codex is out of quota until Oct 27). It confirmed:
+
+* evidence is untouched;
+* reveal timing and the cold lane are correct;
+* leak control holds;
+* the draw is logged;
+* help outcomes are pure as-of reads;
+* the switch-off payload matches the base;
+* there is no new Codex path, and the caps hold.
+
+It raised one Medium (M1) and eight Low (L1–L8). M1, L4, L6 and L8 are fixed in `5825048f7`. L1 corrects this record.
+L2, L3, L5 and L7 are recorded as open items, with no change. No migration, no new route, no model call.
+
+**Fail-before.** `tests/test_rw2c_fix_round3.py` was run against a `git archive a1027ed04 src migrations`, using
+`-o pythonpath`. All 7 tests failed, each for its own reason. All pass on `5825048f7`.
+
+| id | finding | fix | test(s) |
+|---|---|---|---|
+| M1 (Medium) | Example rows had no `step_verdicts_json`, so an unrelated edit counted as `continued` | `report_workbench._valid_at_delivery` (below); example rows now store their verdicts | `test_m1_rewording_an_already_valid_step_is_progress_for_neither_the_hint_nor_its_example` (the reviewer's probe), `test_m1_a_show_me_example_with_no_verdicts_on_record_is_unknown_never_continued`, `test_m1_a_show_me_example_reads_its_own_verdicts_or_the_last_check_before_it`, `test_m1_example_rows_store_the_verdicts_they_were_searched_against` |
+| L4 | The compare worker used the vault captured at open | It runs on the CURRENT vault and checks the switch again just before the call | `test_l4_switching_compare_methods_off_after_the_open_makes_no_call` |
+| L8 | A failing `start_example_after_hint` failed the read of a delivered hint | The call is wrapped: logged (`workbench_example_start_failed`), recorded as `example_job_id: None` | `test_l8_an_example_that_cannot_start_never_fails_the_delivered_hints_read` |
+| L6 | The compare RPCs were not pinned to the withheld-exercise gate | `workbench.compare_offer` / `workbench.compare_methods` call `_refuse_withheld_exercise`, and `compare_methods.offer` refuses `exercise_withheld` | `test_l6_the_compare_rpcs_refuse_a_problem_whose_exercise_is_withheld_now` |
+| L1 | This record overstated the function's readers | Corrected above, and below | (record only) |
+
+### What changed
+
+* **M1: progress needs the verdicts that stood at delivery.**
+  * `workbench_unaided_progress` now reads which steps were valid at delivery through `_valid_at_delivery`, in this
+    order:
+    1. the row's own verdicts;
+    2. for a hint without verdicts, the last shown check at or before it, or none (no check had been shown);
+    3. for a passage under a hint, that hint's verdicts, by the same rule;
+    4. for a "show me" example without verdicts, the last shown check at or before it.
+  * When nothing is on record, the result is `unknown`, never `continued`.
+  * New example rows store their verdicts: after a hint, a copy of the hint's record; on "show me", the workbench
+    context's verdicts.
+  * The presence check goes through the one accessor: the new `symbolic_view.has_verdict_record`, kept under the
+    architecture pin.
+  * One existing test changed. Round 1's F4 example ("an intervening example is further help") was a "show me"
+    example with no verdicts and no earlier check, so it now gives its row the verdicts new rows carry.
+* **L4: the compare worker uses the live vault.** `workbench_rw2c._live_compare_vault` gives the current vault while
+  help and compare methods are on and the database is the same. The worker runs on it. `compare_lines` gains
+  `still_enabled()`, checked again after the claim and before `route.ask`; when it fails, the claim is released and
+  the result reads `disabled`.
+* **L8: an example that fails to start no longer breaks the hint.** In `_payload`, an exception from
+  `start_example_after_hint` is logged and recorded as no example. The delivered hint's read returns as usual.
+* **L6: the compare RPCs pass the withheld-exercise gate.** `_refuse_withheld_attempt` runs the workbench's gate on
+  the attempt's problem before either compare RPC reads or writes anything. The domain `offer` also checks
+  `WB.statement_cleared`, so `open_comparison` refuses before any reveal or row. The test checks four things:
+  * both RPCs refuse with `exercise_withheld`;
+  * the domain `offer` and `open_comparison` refuse too;
+  * no reveal is written;
+  * no comparison row is written.
+
+  An explicit pin was preferred to arguing that `_exam_item` covers this case. `_exam_item` judges the item; the gate
+  judges the problem's picked region.
+* **L1: record correction.** Only `help_outcomes` calls `workbench_unaided_progress`. The hint service's report
+  (`hints/report.py`) still reports its workbench rows as `workbench_state_unknown`.
+  * **Deviation against C13:** the workbench continuation has no "time to the next valid step" (adaptive hints §6.1
+    lists it).
+  * The hint service's report can adopt the shared function, together with that time, at its next change.
+
+### Open items (recorded, no change)
+
+* **L2.** `workbench.max_calls_per_session` is not cumulative for examples, the same as for RW2b's bridge. Each
+  search is bounded by the source service's own daily cap.
+* **L3.** A switch-off leaves residue in stored rows: a bridge's `placement.source_id`, the draw columns, and the
+  examples that `session_calls_on` counts. All of it is serialized only while the switches are on (round 2, item 3).
+* **L5.** `help_outcomes` runs synchronously on the hint-request path, at n = 1 scale. A facet-filtered query or a
+  cached read is a follow-up if latency shows.
+* **L7.** Cross-book bridge navigation (`source_id` on bridge views) works only while `passage_draw_enabled` is on.
+  With the draw off, a bridge is RW2b's, which opens the passage in the book already open.
+
+### Process notes
+
+* No live or paid model calls; fakes only.
+* All scripts and tests ran under `env -i` with empty HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR. No stash. No owner
+  vault opened.
+* A session restart interrupted the round. The resumed run inspected the uncommitted work, kept all of it, and
+  finished.
+* `/tmp/learnloop-fullsuite.lock` was held by another process when the gate ran. The targeted run went ahead
+  without waiting for it (targeted runs take no lock), and it passed.
+
+### Gate (targeted)
+
+No frontend file changed in this round, so vitest, typecheck and build were not re-run. Their round-2 results stand.
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 29 kept, 0 broken |
+| `uv run pytest -n auto` on 98 files (round 2's 97 + `test_rw2c_fix_round3`) | **2,039 passed, 1 skipped** |
+| fail-before: `tests/test_rw2c_fix_round3.py` on the `a1027ed04` archive | 7 failed |
