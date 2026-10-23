@@ -289,3 +289,95 @@ the passage-check and selection jobs, and `reader_quick_check`. The contract pin
 
 - `0142c7ef9`: the fixes for RR-F1 to RR-F3 and their tests.
 - This record's commit: the regenerated references and this section.
+
+## Fix round (orchestrator, 2026-10-23)
+
+The final re-review confirmed the High (no silent metered fallback) and RR-F1/RR-F3 fixed, and left
+two Lows. Both are fixed, each with a test that failed on `b0bd99bdb` and passes on the fix. No
+migration, no config key added, no live or paid call, no sign-in, no vault copy.
+
+| id | severity | title | verdict | commit | test (failed before) |
+|---|---|---|---|---|---|
+| L1 | Low | The RPC gates of the priced features resolved `canonical_ingest` outside `priced_by(...)`: they offered "Use OpenRouter instead", the learner granted it, the gate passed, and the job then refused for a missing price | fixed | `bcab944c3` | `test_fix_l1_the_rpc_gates_of_priced_features_offer_and_honour_no_grant_their_job_would_refuse[exercise_import, inquiry_quick_check, selection_question]` (each failed: the gate's response carried the offer); `test_fix_l1_an_exercise_imports_own_authoring_route_is_held_to_its_price` (failed: the import offered `authoring`) |
+| L2 | Low | Under `quiet()` (either kind) `_plan_unavailable` still appended `offer_sentence()` and the `fallback_available`/`fallback_profile` fields, so the connection sheet's message pointed at a banner that never appeared (the re-review's "residual") | fixed | `bcab944c3` | `test_fix_l2_a_quiet_status_read_never_points_at_an_offer_it_did_not_make` (failed: the sentence was in the quiet message) |
+
+### What changed
+
+- **L1.** Each gate resolves under its feature's price setting, as its job does
+  (`jobs._paid_quick_check_client`, `jobs._exercise_import_client`):
+  - `reader.enqueue_exercise_import` (behind `reader.import_exercise` and the workbench's "work
+    through this") under `source_service.llm_price_per_million` (`SEI.PRICE_SETTING`);
+  - `reader.reconnect_answer` with `quick_check` and `reader_intent`'s `reader.active_question`
+    under `reader_inquiry.metered_price_per_million` (`RQC.PASSAGE_CHECK_PRICE_SETTING`);
+  - `_import_source_exercise`'s own `ready_client_for_task(..., "authoring")` (a harvest or a need
+    passes no authoring client) under `source_service.llm_price_per_million`.
+  While the setting is unset, the gate makes no offer, takes no grant of `canonical_ingest` (or
+  `authoring`), and its unavailable message names the setting. Once it is set, the offer is made
+  and a grant opens the gate (an ordinary metered request under the feature's caps). The gates wrap
+  the existing `ready_canonical_ingest_provider(vault)` call in `plan_fallback.priced_by(...)`
+  rather than adding a parameter, so the tests that stub that resolver with `lambda vault: ...`
+  keep working. The section quick check (`reader.author_section_question`) is not admitted at a
+  price and is unchanged.
+- **L2.** New `plan_fallback.offers_suppressed()` (true inside `quiet()` or
+  `quiet(honour_grants=True)`). `_plan_unavailable` returns the plan's own unavailable resolution
+  when offers are suppressed, after the blocker and grant checks: no offer sentence, no fallback
+  fields. A granted route still serves under `honour_grants` (RR-F1 unchanged). Outside quiet the
+  sentence and fields are still there. The health line (`context.py`, plain `quiet()`) reads neither,
+  so its payload is unchanged.
+
+### Gate (fix round, 2026-10-23; targeted only, owner rule 2026-10-17)
+
+Every pytest command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p
+MemorySwapMax=1G -- ...`, with pytest at `-n 6` at most, one run at a time, and
+`TMPDIR=fixtures-local/tmp`. There was no full suite, no durability lane and no vitest run.
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 30 kept, 0 broken |
+| The five new tests on `b0bd99bdb` sources | 5 failed |
+| `test_plan_first_transport.py` after the fix | 55 passed |
+| Batch A (43 files, listed below) | 975 passed |
+| Batch B (11 files, listed below) | 293 passed |
+| `db_validate_reference.py` | first run: 2 errors (`source_exercise_import.py` lines cited for `source_service.unverified_imports` and `family_attachment` moved by 5). Ran `db_generate_reference.py` (only source lines and commit stamps moved), then validated again: `"errors": []` |
+| vitest, typecheck, frontend build, cargo | not run: nothing under `apps/` changed |
+| Durability tests | none due (no migration, no DB or connection code) |
+
+Test files run:
+
+- Batch A: `test_plan_first_transport`, `test_chatgpt_plan_workspace`, `test_method_phrasing_report`,
+  `test_chatgpt_plan_provider`, `test_chatgpt_plan_sidecar`, `test_attach_to_family`,
+  `test_decider_landing`, `test_discriminating_search`, `test_exam_protection`,
+  `test_facet_locks_landing`, `test_keep_local_retired`, `test_library_exercises`,
+  `test_method_explicit_landing`, `test_mobile_allowlist`, `test_reader_active_reading`,
+  `test_reader_activity`, `test_reader_formative_texts`, `test_reader_observation_records`,
+  `test_reader_reconnect`, `test_reader_reconstruct`, `test_reader_report`, `test_reader_rw1b_review`,
+  `test_reading_hardening_landing`, `test_reference_check_binding`, `test_reference_gate_imports`,
+  `test_sidecar_reader`, `test_source_exercise_import`, `test_source_exercise_rpcs`,
+  `test_source_first_needs`, `test_source_service_spend_envelopes`, `test_ux_phase1_connect_ai`,
+  `test_ux_phase1_landing`, `test_ux_phase1_auto_build`, `test_reader_guidance`,
+  `test_reader_quick_check`, `test_reader_passage_check`, `test_reader_intentions`,
+  `test_desktop_rpc_contract`, `test_sidecar_contract`, `test_sidecar_serializer_snapshot`,
+  `test_architecture`, `test_tracked_fixture_databases`, `test_sqlite_file_copies`.
+- Batch B (the rest of the re-review's batches, because L2 changes every quiet resolution):
+  `test_daily_loop_start_minutes`, `test_exam_protection_identity`, `test_ux_phase1_usability_round2`,
+  `test_coordinated_migrations`, `test_exam_protection_review`, `test_import_split_parity`,
+  `test_ingest_runner`, `test_required_method_round3`, `test_rw1a_composition`,
+  `test_structured_transport_parity`, `test_ad1_reading_opportunities`.
+
+Batch A was chosen by `git grep` over `tests/` for `plan_fallback`, the changed RPCs
+(`reader.import_exercise`, `reconnect_answer`, `reader.active_question`),
+`ready_canonical_ingest_provider`, `import_source_exercise`, harvest and `get_ai_connection`, plus
+the contract pins.
+
+**Process notes.**
+- No live or paid call, no sign-in and no vault copy. No tracked fixture vault was opened, and
+  `git stash` was not used.
+- The edit scripts (`python3 -I`, importing only `pathlib`) and the reference scripts ran with an
+  empty HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR under `env -i` (reference scripts with
+  `UV_CACHE_DIR`). `lint-imports` ran under `env -i` with the real HOME for uv's cache; it only
+  analyses imports.
+
+**Commits** (on top of `b0bd99bdb`):
+
+- `bcab944c3`: the fixes for L1 and L2 and their tests.
+- This record's commit: the regenerated references and this section.
