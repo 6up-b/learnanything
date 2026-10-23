@@ -3,8 +3,8 @@ title: "Config - ui"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "50126c457357ee8fd2d876b30e573f9204f21575"
-source_commit_timestamp: "2026-10-23T11:30:49-04:00"
+source_commit: "5e7822bbd91a4aa92ab55de75978d433456c186e"
+source_commit_timestamp: "2026-10-23T15:27:59-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml ui"
@@ -18,6 +18,7 @@ source_paths:
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
+  - "src/learnloop/ai/plan_fallback.py"
   - "src/learnloop_sidecar/context.py"
   - "tests/test_ux_phase4_feedback.py"
 tags:
@@ -40,7 +41,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `ui.practice_feedback` | `"simple"` | string | modeled default or validator seed | Controls practice feedback in how the desktop presents learner surfaces (docs/specs/ux_learnloop_v1.md §10, display only): UX Phase 4's kill switch of the plain practice card, feedback, short-check results, repair step and session finish ("classic" restores the screens exactly), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3436`; `src/learnloop_sidecar/context.py:635` |
+| `ui.practice_feedback` | `"simple"` | string | modeled default or validator seed | Controls practice feedback in how the desktop presents learner surfaces (docs/specs/ux_learnloop_v1.md §10, display only): UX Phase 4's kill switch of the plain practice card, feedback, short-check results, repair step and session finish ("classic" restores the screens exactly), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3438`; `src/learnloop/ai/plan_fallback.py:97`; `src/learnloop_sidecar/context.py:640` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

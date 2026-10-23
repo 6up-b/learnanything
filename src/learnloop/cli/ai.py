@@ -439,7 +439,7 @@ def ai_latency(
 @ai_app.command("compare")
 def ai_compare(
     vault: Annotated[Path, typer.Option("--vault", help="A backup-API copy of a vault (receipts land here); with --copy-from, the new copy's directory.")],
-    profiles: Annotated[list[str], typer.Option("--profiles", help="Subscription profiles to compare, comma-separated or repeated (e.g. codex,chatgpt).")],
+    profiles: Annotated[list[str], typer.Option("--profiles", help="Subscription profiles to compare, comma-separated or repeated (e.g. chatgpt,chatgpt_luna; a Codex profile needs ai.agent_harness_opt_in).")],
     copy_from: Annotated[Path | None, typer.Option("--copy-from", help="Copy this vault to --vault first (backup API; also with --dry-run); the original is only read.")] = None,
     attempts: Annotated[int, typer.Option("--attempts", min=0, max=20, help="Attempts to blind-grade per profile (latest non-pass and pass first).")] = 3,
     attempt_id: Annotated[list[str] | None, typer.Option("--attempt", help="An attempt to grade (repeatable; replaces the automatic choice).")] = None,

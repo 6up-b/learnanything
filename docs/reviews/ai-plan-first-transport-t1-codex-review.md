@@ -1,0 +1,184 @@
+# Plan-first transport T1: review fixes
+
+Branch `ai/plan-first-transport` (worktree `learnanything-plan`). The review came from the stage
+script's Opus fallback, because Codex is out of quota until 2026-10-27. It reported nine findings:
+one High, three Medium, five Low. All nine were reproduced on the pre-fix tip `9753f38ce` and fixed.
+None was rejected. No migration, no live or paid call, no sign-in, and no run on any vault copy.
+
+## Review
+
+### Reproduction on the pre-fix source
+
+The pre-fix tree (`git archive 9753f38ce src`) was run from the scratchpad under `env -i` with an
+empty HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR. The OpenRouter key was fake, the plan route was set
+to `127.0.0.1:9`, and `tests.openai_fakes` was installed (zero requests recorded). Results:
+
+| Finding | Pre-fix behaviour observed |
+|---|---|
+| F1 | `fallback_provider = "openrouter"` with the plan signed out: `grading`, `tutor_qa`, `diagnosis` and `hint_writer` all resolved to `openrouter`, `ready=True`, `fallback_available=None`. They did the same inside `quiet()`. `writer_names` returned `['chatgpt', 'openrouter']` |
+| F2 | `hint_writer` was offered OpenRouter while `hints.price_per_million` was `None`, the setting that refuses the call before sending |
+| F3 | The build route was `chatgpt_medium`, `ready=False`, with no hint. After `grant(["canonical_ingest"])` it was still `ready=False` |
+| F4 | `LEARNLOOP_AI_FALLBACK=openrouter` with no CLI context: `grading` went to `openrouter` |
+| F5 | `routing.canonical_ingest = "codex"` and `routing.authoring = "codex"` were rewritten to `chatgpt` (low effort), not `chatgpt_medium` |
+| F6 | With the opt-in and `fallback_provider = "codex"`, `writer_names` returned `['chatgpt', 'codex']` |
+| F7 | The client had no explicit-inline notion, so an oversized export with an explicit inline was served in tools mode (this was the old Q6) |
+| F8 | Only `SidecarError` carried the offer (`server.py`); a job's offer was relayed on every read |
+| F9 | `available_grading_providers` always added `codex`; the `ai latency` and `ai compare` help used Codex examples |
+
+### Findings
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High | A configured metered `fallback_provider` served unavailable plan routes without asking | fixed | `eb3be2bfb`, `4c89b615f`, `fac2e7343` | `test_plan_first_transport.py::test_f1_a_configured_metered_fallback_provider_is_never_used_silently_for_a_plan_route`; `test_chatgpt_plan_provider.py::test_usage_limit_mid_stream_pauses_the_plan_and_routes_fall_back` (now asks, and a grant serves); `test_method_phrasing_report.py::test_t1_a_plan_writer_never_falls_back_silently_to_a_metered_writer` |
+| F2 | Medium | Offers were made for features that refuse an unpriced metered route, or that need the plan's workspace | fixed | `eb3be2bfb`, `4c89b615f` | `test_f2_openrouter_is_offered_only_when_the_feature_could_use_it`; `test_every_task_under_code_defaults_resolves_tool_free_and_never_codex` (blocked tasks make no offer and say why) |
+| F3 | Medium | The add-source build never asked, and a grant could not unblock or price it | fixed | `eb3be2bfb`, `4c89b615f` | `test_f3_the_question_build_asks_and_a_grant_serves_it_priced_as_metered` |
+| F4 | Medium | Grants were process-wide: the env variable applied to every host, grants survived a vault switch, and one click granted every offered task | fixed | `eb3be2bfb`, `4c89b615f` | `test_f4_grants_are_per_vault_per_offer_and_the_env_grant_is_the_cli_commands_only`; `test_the_sidecar_attaches_the_typed_hint_and_ai_use_fallback_records_the_choice` (`not_offered`); `PlanFallbackOffer.test.tsx` ("answers only the feature that asked last") |
+| F5 | Low | `doctor --fix` moved a legacy `routing.<task> = "codex"` down a tier | fixed | `eb3be2bfb`, `4c89b615f` | `test_f5_doctor_fix_keeps_the_tier_of_a_legacy_codex_route_value` |
+| F6 | Low | Codex could still be the fallback, through the build route and the method-phrasing writer | fixed | `eb3be2bfb`, `4c89b615f` | `test_f6_codex_is_never_a_fallback_through_the_direct_readers_opt_in_or_not` |
+| F7 | Low | An explicit `workspace_mode = "inline"` was overridden, and a tools turn's resent input was unbounded | fixed | `eb3be2bfb`, `4c89b615f`, `fac2e7343` | `test_f7_an_explicit_inline_never_sends_tools_and_a_tools_turn_caps_its_resent_input`; `test_chatgpt_plan_workspace.py::test_inline_mode_serves_a_workspace_over_its_budget_in_tools_mode` |
+| F8 | Low | Errors other than `SidecarError` lost the offer, the banner came back on every read, and there was no revoke | fixed | `eb3be2bfb`, `4c89b615f` | `test_f8_an_error_that_is_not_a_sidecar_error_keeps_the_offer`; `test_a_background_jobs_offer_reaches_the_read_that_finds_it_done` (relayed once); `PlanFallbackOffer.test.tsx` ("Stop using OpenRouter") |
+| F9 | Low | Hard-coded Codex examples pointed at refused paths | fixed | `eb3be2bfb`, `fac2e7343`, `5e7822bbd`, this record's commit | `test_f9_refused_codex_profiles_are_not_offered_as_grading_providers`; `test_sidecar_contract.py` grading-provider tests; CLI help snapshot re-recorded (`ai latency` and `ai compare` only) |
+
+### What changed
+
+- **F1, F6: one rule for `ai.fallback_provider`** (`routing.configured_fallback`). It is never the
+  primary itself and never an agent-harness profile, opt-in or not. When the primary is a plan
+  profile, only `manual` or another plan profile is used as configured. A metered profile is reached
+  only through the plan's offer and a grant. `fallback_provider_for`, `authoring_route_for` and both
+  method-phrasing readers (`writer_names`, `_ready_writer`) use this rule. `learnloop doctor`
+  reports a metered setting as `ai:plan_metered_fallback`. A non-plan primary keeps the owner's
+  fallback as written.
+- **F2: `plan_fallback.offer_blocker`.** Some tasks are refused before sending until their price
+  setting is set. They are listed in `METERED_PRICE_SETTINGS`: hints, approach maps, outcome
+  placement, the workbench check, figures, the AD LLM routes, the `source_retrieval`/`source_service`
+  listwise and judge routes, and `practice_rerank`. `practice_rerank` was added in this step; its
+  setting is `practice_index.rerank_price_per_million`. These tasks are offered OpenRouter only once
+  the setting is set. A snapshot diagnosis needs a workspace that only the plan serves, so it is not
+  offered either. In both cases the unavailable message says why, and a later availability failure
+  on that route makes no offer.
+- **F3: `authoring_route_for` resolves through `ready_client_for_task("canonical_ingest")`.** The
+  build now raises the offer, and a grant routes the build to OpenRouter. The route names the
+  profile that actually serves, so `decide_cost` and the consent key treat a granted build as
+  metered (`subscription=False`). The build's own clients already resolve through the same path.
+- **F4: grant scope.**
+  - `LEARNLOOP_AI_FALLBACK` is read only by the CLI's entry callback (`command_grant`, a
+    ContextVar). `learnloop mcp serve` is a long-lived host and takes no grant. The sidecar and the
+    mobile host never call `command_grant`. A thread started in a fresh `Context()` does not
+    inherit the grant.
+  - Session grants are keyed by vault root. A vault switch in `SidecarContext.load` clears them.
+  - `ai_use_fallback` grants only tasks that this vault was offered; the sidecar records each hint
+    as it is sent. Anything else returns `not_offered` with `offered_tasks`.
+  - The desktop banner answers only the feature that asked last; it no longer merges offers from
+    different features.
+  - In this step the RPC was also changed to report "OpenRouter isn't set up" before it checks
+    which tasks were offered.
+- **F5: `routing.<task> = "codex"`** now maps through `LEGACY_CODEX_TASK_ROUTES[task]` and then
+  `CODEX_TO_PLAN_PROFILE`. Ingest, authoring and animation map to `chatgpt_medium`. A task outside
+  that table maps to `chatgpt`.
+- **F7: explicit inline.** `inline_explicit` is set only when the owner wrote `workspace_mode`
+  (pydantic `model_fields_set`). The code default and the template, where the line is commented
+  out, do not set it. An explicit inline refuses an oversized export, and no `tools` key is sent.
+  The unwritten default still overflows to tools mode. A tools turn's resent input is capped at
+  `TURN_INPUT_FACTOR` (4) × `max_workspace_chars`. Once a round crosses the cap, the next round
+  tells the model to answer now, and a further call is invalid output. This adds no config key.
+- **F8: offers on every error path.**
+  - An error that is not a `SidecarError` keeps the offer in its `internal` error's details, and
+    the offer is recorded for granting.
+  - A job's offer is relayed once (`relay_job_offer`), and so is a failed reading path's offer
+    (`offers.pop`).
+  - The banner's chosen state has a "Stop using OpenRouter" button (`ai_use_fallback` with
+    `stop: true`), which revokes this vault's grants.
+- **F9: Codex examples removed.**
+  - Codex profiles and the legacy `codex` name are listed as grading options only with the opt-in.
+  - The `ai latency` and `ai compare` help no longer uses Codex as the example; it notes the opt-in.
+  - The stage record's owner commands say that `ai compare --profiles codex,chatgpt` needs
+    `ai.agent_harness_opt_in` on the copy.
+  - In the stage record, Q2, Q3 and Q6 are updated to match.
+
+### Claims in the stage record, corrected
+
+- "Only a grant routes to OpenRouter": this now holds for a configured `fallback_provider` as well
+  (F1). The env grant holds only for one CLI command (F4).
+- "A grant never serves background work": a configured fallback no longer reaches quiet startup
+  maintenance (F1). The env grant no longer reaches long-lived hosts or fresh-context threads (F4).
+- "Codex is never a fallback, opt-in or not": this now holds for the direct readers too (F6).
+- "`doctor --fix` rewrites to the same tier": this now holds for the legacy `"codex"` value (F5).
+
+### Open questions (defaults in force)
+
+| # | Question | Default |
+|---|---|---|
+| R1 | Some features hold metered calls to a price that is not tied to a single task, so `offer_blocker` does not cover them. Examples: learner-text gaps (`learner_text_gaps.metered_price_per_million`, which falls back to known model prices) and the reader passage check (`reader_inquiry.metered_price_per_million` on the shared `canonical_ingest` route). An offer there may still be refused | offered; the feature's own refusal message names the setting |
+| R2 | Ingest consent recorded under "codex" does not carry over to "chatgpt" (noted in the review's conformance table), so builds ask for consent once more | ask again (consent is per provider family) |
+| R3 | After "OK" on the chosen banner, there is no revoke control until the next offer appears. Grants end with the session or a vault switch | kept |
+
+## Gate (fix step, 2026-10-23; targeted only, owner rule 2026-10-17)
+
+Every pytest/vitest/npm command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p
+MemorySwapMax=1G -- ...`, with pytest at `-n 6` at most, vitest at `--maxWorkers=4`, one run at a
+time, and `TMPDIR=fixtures-local/tmp`. No full suite, no whole durability lane and no whole vitest
+run. `/tmp/learnloop-fullsuite.lock` was present throughout; targeted runs need no lock, and nothing
+of the other run was touched.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 30 kept, 0 broken |
+| Batch 1 (22 files, listed below) | 654 passed (first run: 6 failed, all pinning the pre-fix behaviour; moved in `fac2e7343`) |
+| Batch 2 (20 files) | 481 passed, 1 failed (`test_cli_help_snapshot`: `ai latency` help, F9). After re-recording: `test_cli_help_snapshot` + `test_plan_first_transport` 48 passed |
+| Batch 3 (19 files) | 231 passed, 1 skipped |
+| After the `ai compare` help edit: `test_cli_help_snapshot.py`, `test_ai_compare.py` | 32 passed |
+| `tests/test_plan_first_transport.py` alone (final) | 47 passed (38 before, plus 9 new) |
+| `npm install`; `npm run typecheck` | ok; exit 0 |
+| `npx vitest run --maxWorkers=4 src/components/PlanFallbackOffer.test.tsx` | 1 file, 6 passed |
+| `npm run frontend:build` | built |
+| `cargo check` | not run: nothing under `src-tauri` changed in this step |
+| `db_generate_reference.py`, then `db_validate_reference.py` | regenerated (1006 configuration leaves in 69 sections, schema head 217; only source lines, commit stamps and cited consumers moved: the `ChatGPTPlanProviderConfig` docstring and `plan_fallback.py` naming the price settings); `"errors": []` |
+| Durability tests | none due (no migration, no DB or connection code) |
+
+Test files run:
+
+- Batch 1: `test_plan_first_transport`, `test_chatgpt_plan_provider`, `test_chatgpt_plan_workspace`,
+  `test_chatgpt_plan_sidecar`, `test_chatgpt_plan_cli`, `test_chatgpt_plan_landing`,
+  `test_chatgpt_plan_signin`, `test_config_refactor`, `test_embedding_route_isolation`,
+  `test_family_proposals`, `test_ingest_runner`, `test_judge_routes`, `test_method_phrasing_report`,
+  `test_openai_embedding_client`, `test_provider_resolution_parity`, `test_settings_store`,
+  `test_sidecar_contract`, `test_sidecar_transport`, `test_doctor`, `test_codex_isolation_mcp_check`,
+  `test_exam_protection_identity`, `test_ai_config`.
+- Batch 2: `test_decider_landing`, `test_exam_protection_landing`, `test_question_promotion_jobs`,
+  `test_ux_phase1_connect_ai`, `test_ux_phase1_landing`, `test_ux_phase1_review_fixes`,
+  `test_mobile_allowlist`, `test_architecture`, `test_cli_help_snapshot`, `test_desktop_rpc_contract`,
+  `test_sidecar_serializer_snapshot`, `test_reading_paths`, `test_library_ask`,
+  `test_library_ask_review`, `test_reader_rw3b_review_fixes`, `test_reader_rw3b_fix_round4`,
+  `test_reader_rw3b_fix_round5`, `test_sqlite_file_copies`, `test_tracked_fixture_databases`,
+  `test_coordinated_migrations`.
+- Batch 3: `test_hint_service`, `test_hint_h2a_review`, `test_hint_h2a_review_round2`,
+  `test_hint_h2a_review_round3`, `test_hint_kill_switch`, `test_hint_outcome`,
+  `test_hint_h2b_review`, `test_hint_h2b_rereview`, `test_hint_h2b_fix3`, `test_hint_h2b_fix4`,
+  `test_workbench_hint_service`, `test_workbench_assistance`, `test_approach_map_replay`,
+  `test_reader_cue_holdout`, `test_reader_try_first`, `test_rw4d_rw3b_composition`,
+  `test_reader_rw3b_protection`, `test_ai_compare`, `test_compare_keep_switch_off`.
+
+The batches were chosen by `git grep` for the changed modules and functions: `plan_fallback`,
+`authoring_route_for`, `writer_names`, `available_grading_providers`, `plan_transport`,
+`ai_use_fallback`, `fallback_provider`, the four job handlers and `server`. They also cover the
+contract pins.
+
+**Process notes.**
+- No live or paid call, no sign-in and no vault copy. No tracked fixture vault was opened, and
+  `git stash` was not used.
+- The reproduction, the CLI help snapshot write and the reference scripts all ran under `env -i`,
+  with an empty HOME/CODEX_HOME/LEARNLOOP_CONFIG_DIR.
+- Exception: one early edit script in this step ran with plain `python3`, without `env -i`. It
+  edited `tests/test_plan_first_transport.py` and `handlers/chatgpt_plan.py` and imported only
+  `pathlib`: no LearnLoop module, no network, no credential read.
+
+**Commits** (on top of the stage record `9753f38ce`):
+
+- `eb3be2bfb` T1 review fixes (WIP, from the session before the restart): code for F1 to F9.
+- `4c89b615f` Tests for F1 to F9; `practice_rerank` joins the offer blockers; the order of the
+  `ai_use_fallback` checks.
+- `fac2e7343` Existing tests follow F1, F7 and F9.
+- `5e7822bbd` CLI help snapshot (`ai latency`).
+- This record's commit: `ai compare` help text (F9) and its snapshot, the regenerated references,
+  and the stage record's Q2/Q3/Q6 and owner-command note.

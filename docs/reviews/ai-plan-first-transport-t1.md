@@ -312,6 +312,10 @@ uv run learnloop ai latency --vault <copy> --provider chatgpt --runs 3   # synth
 uv run learnloop doctor --vault <vault> --fix --dry-run   # then without --dry-run
 ```
 
+`learnloop ai compare --profiles codex,chatgpt` (the proposal's optional step 1 comparison) needs
+`ai.agent_harness_opt_in = true` on the copy it runs against: without it the Codex profile is
+refused (review F9). The `chatgpt`/`openrouter` comparison needs no opt-in.
+
 If the account lacks `gpt-5.6-sol` (or `gpt-6-luna`), set `[ai.providers.chatgpt] model` (the
 low/medium tiers follow it) and `[ai.providers.chatgpt_luna] model`; `learnloop doctor` names them.
 Codex quota is exhausted until 2026-10-27 and Q5 assumes the plan shares that pool, so the plan
@@ -378,11 +382,11 @@ opened; `git status` is clean apart from the commits below.
 | # | Question | Default |
 |---|---|---|
 | Q1 | Slugs: does the account list `gpt-5.6-sol` and `gpt-6-luna`? | the defaults; doctor names any unlisted slug |
-| Q2 | Grant scope: the feature's tasks for the desktop session (vs. one request) | session, per feature |
-| Q3 | A `fallback_provider` the owner wrote (non-Codex) still serves an unavailable plan route silently; should it ask instead? | kept (explicit owner configuration) |
+| Q2 | Grant scope: the feature's tasks for the desktop session (vs. one request) | session, per feature, per vault, only tasks that vault was offered (review F4) |
+| Q3 | A `fallback_provider` the owner wrote (non-Codex) still serves an unavailable plan route silently; should it ask instead? | **closed by review F1:** it asks. For a plan route a metered `fallback_provider` is never used; doctor reports it (`ai:plan_metered_fallback`) |
 | Q4 | Strict `json_schema` on the plan (never verified live) | `json_schema`; flip to `json_object` per profile if `ai latency` says so |
 | Q5 | Shared usage pool with the Codex CLI | assumed shared |
-| Q6 | Tools mode for an oversized export even when `workspace_mode = "inline"` is explicit | yes (it was refused before) |
+| Q6 | Tools mode for an oversized export even when `workspace_mode = "inline"` is explicit | **closed by review F7:** no. An explicit inline refuses; only the unwritten default overflows to tools, and a tools turn's resent input is capped at 4 x `max_workspace_chars` |
 | Q7 | Post-attempt diagnosis and exam grading run after their RPC answered: should their unavailable plan route raise the banner on its own (a pushed event) rather than at the next feature RPC? | no push in T1; they report through their own deferred state |
 
 ## T2 retirement list ("retire the Codex serving path")

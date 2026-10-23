@@ -3,8 +3,8 @@ title: "Config - reading_paths"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "50126c457357ee8fd2d876b30e573f9204f21575"
-source_commit_timestamp: "2026-10-23T11:30:49-04:00"
+source_commit: "5e7822bbd91a4aa92ab55de75978d433456c186e"
+source_commit_timestamp: "2026-10-23T15:27:59-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml reading_paths"
@@ -18,6 +18,7 @@ source_paths:
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
+  - "src/learnloop/ai/plan_fallback.py"
   - "src/learnloop/cli/reader.py"
   - "src/learnloop/source_retrieval/reading_paths.py"
   - "tests/codex_cli_fakes.py"
@@ -52,8 +53,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `reading_paths.enabled` | `true` | boolean | modeled default or validator seed | Turns reading paths behavior on or off within reader workbench RW7a: reading paths in the Guide: at the depth the learner picks for a book (get the idea, learn to use it, fluency; DL2's Master, Learn, Keep and Light touch on the source preselect it, display-level only), each section core, prerequisite, enrichment, already shown or assumed with a one-line why, read it anyway / skip it, one exercise worth trying per core section and a suggested next line composed without a model; labels from one call per book and depth (ai.routing.reading_path_judge), cached by the depth, the section list and the linked LOs' statuses, already shown and assumed enforced in code: the kill switch and the judge's daily metered cap, checked before the call (display only, no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2554`; `src/learnloop/cli/reader.py:58`; `src/learnloop/source_retrieval/reading_paths.py:157` |
-| `reading_paths.max_daily_cost_usd` | `0.5` | number | modeled default or validator seed | Caps daily cost usd allowed by reader workbench RW7a: reading paths in the Guide: at the depth the learner picks for a book (get the idea, learn to use it, fluency; DL2's Master, Learn, Keep and Light touch on the source preselect it, display-level only), each section core, prerequisite, enrichment, already shown or assumed with a one-line why, read it anyway / skip it, one exercise worth trying per core section and a suggested next line composed without a model; labels from one call per book and depth (ai.routing.reading_path_judge), cached by the depth, the section list and the linked LOs' statuses, already shown and assumed enforced in code: the kill switch and the judge's daily metered cap, checked before the call (display only, no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2555`; `src/learnloop/source_retrieval/reading_paths.py:629` |
+| `reading_paths.enabled` | `true` | boolean | modeled default or validator seed | Turns reading paths behavior on or off within reader workbench RW7a: reading paths in the Guide: at the depth the learner picks for a book (get the idea, learn to use it, fluency; DL2's Master, Learn, Keep and Light touch on the source preselect it, display-level only), each section core, prerequisite, enrichment, already shown or assumed with a one-line why, read it anyway / skip it, one exercise worth trying per core section and a suggested next line composed without a model; labels from one call per book and depth (ai.routing.reading_path_judge), cached by the depth, the section list and the linked LOs' statuses, already shown and assumed enforced in code: the kill switch and the judge's daily metered cap, checked before the call (display only, no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2556`; `src/learnloop/ai/plan_fallback.py:97`; `src/learnloop/cli/reader.py:58` |
+| `reading_paths.max_daily_cost_usd` | `0.5` | number | modeled default or validator seed | Caps daily cost usd allowed by reader workbench RW7a: reading paths in the Guide: at the depth the learner picks for a book (get the idea, learn to use it, fluency; DL2's Master, Learn, Keep and Light touch on the source preselect it, display-level only), each section core, prerequisite, enrichment, already shown or assumed with a one-line why, read it anyway / skip it, one exercise worth trying per core section and a suggested next line composed without a model; labels from one call per book and depth (ai.routing.reading_path_judge), cached by the depth, the section list and the linked LOs' statuses, already shown and assumed enforced in code: the kill switch and the judge's daily metered cap, checked before the call (display only, no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2557`; `src/learnloop/ai/plan_fallback.py:97`; `src/learnloop/source_retrieval/reading_paths.py:629` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
