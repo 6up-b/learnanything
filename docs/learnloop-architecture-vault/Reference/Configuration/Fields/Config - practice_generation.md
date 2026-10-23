@@ -3,8 +3,8 @@ title: "Config - practice_generation"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea590e192e7d05cf407e35bee338909582716483"
-source_commit_timestamp: "2026-10-22T23:06:34-04:00"
+source_commit: "0ecc600eaf8899a2a2ca18e2a38eff4c870c8f1d"
+source_commit_timestamp: "2026-10-23T16:27:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml practice_generation"
@@ -18,8 +18,8 @@ source_paths:
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
+  - "src/learnloop/ai/plan_fallback.py"
   - "src/learnloop/content/authoring/practice_generation.py"
-  - "src/learnloop/tutor/promotions.py"
   - "tests/test_difficulty_band_guards.py"
 tags:
   - "learnloop/configuration/fields"
@@ -41,10 +41,10 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `practice_generation.practice_success_band` | `[0.7, 0.85]` | array | modeled default or validator seed | Controls practice success band in target-success bands for generated practice and probes, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:401`; `src/learnloop/content/authoring/practice_generation.py:406`; `src/learnloop/tutor/promotions.py:939` |
-| `practice_generation.probe_success_band` | `[0.45, 0.55]` | array | modeled default or validator seed | Controls probe success band in target-success bands for generated practice and probes, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:402`; `src/learnloop/content/authoring/practice_generation.py:518` |
-| `practice_generation.difficulty_floor` | `0.15` | number | modeled default or validator seed | Controls difficulty floor in target-success bands for generated practice and probes, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:412`; `src/learnloop/content/authoring/practice_generation.py:409`; `src/learnloop/tutor/promotions.py:942` |
-| `practice_generation.min_band_width` | `0.1` | number | modeled default or validator seed | Sets the minimum band width required by target-success bands for generated practice and probes. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:413`; `src/learnloop/content/authoring/practice_generation.py:410`; `src/learnloop/tutor/promotions.py:943` |
+| `practice_generation.practice_success_band` | `[0.7, 0.85]` | array | modeled default or validator seed | Controls practice success band in target-success bands for generated practice and probes, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:401`; `src/learnloop/ai/plan_fallback.py:121`; `src/learnloop/content/authoring/practice_generation.py:406` |
+| `practice_generation.probe_success_band` | `[0.45, 0.55]` | array | modeled default or validator seed | Controls probe success band in target-success bands for generated practice and probes, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:402`; `src/learnloop/ai/plan_fallback.py:121`; `src/learnloop/content/authoring/practice_generation.py:518` |
+| `practice_generation.difficulty_floor` | `0.15` | number | modeled default or validator seed | Controls difficulty floor in target-success bands for generated practice and probes, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:412`; `src/learnloop/ai/plan_fallback.py:121`; `src/learnloop/content/authoring/practice_generation.py:409` |
+| `practice_generation.min_band_width` | `0.1` | number | modeled default or validator seed | Sets the minimum band width required by target-success bands for generated practice and probes. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:413`; `src/learnloop/ai/plan_fallback.py:121`; `src/learnloop/content/authoring/practice_generation.py:410` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

@@ -1535,7 +1535,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # scheduling, projections and replayed meaning do not, so no successor;
     # it acts at every version. All snapshots were recomputed from the
     # composed defaults (defaults_fingerprint_for_version).
-    "mvp-0.9": "5298ae9c06e8dcac17b3c68f1365a4888e20a4c633b2e7912848cd4e41ff287e",
+    "mvp-0.9": "5e1483786ae50c381c502d0967b811be0cb5c59837094af5208d03b4211a4c45",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1594,7 +1594,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
-    "mvp-0.10": "ac080d403573377335562c4e0bfc29adbcb930f26493f8f0327ea8f0b0c768aa",
+    "mvp-0.10": "4fa340b2bad0bf82cba06419e6d3ff5cf0043cf5a69fd2de842b2eff32ae1182",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1661,7 +1661,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
-    "mvp-0.11": "c5f9644f9bbcc365d3594f13a547bab3057434d3930572b46d1e6556683cb5f7",
+    "mvp-0.11": "77f110d1d2a10dc717d5218aabc309d3054a96f500593ca76366c4c70cd10bd5",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1722,7 +1722,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
-    "mvp-0.12": "0081842a03a4571349bc894752c9a0ea45fc1e7d74891f5df96bcdc7cbe71360",
+    "mvp-0.12": "68f9ba60179750eaf8e87ecbca4705ee8892ae644a332e2d13bbcfcaa13203a8",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1778,7 +1778,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
-    "mvp-0.13": "13269c076e3cbee07303e9cb5e65412fb69859b34b80e69ec8d2e1e9cbee315e",
+    "mvp-0.13": "d720627c33fbc0c65f42d2f3660fb2ab16b1aaf5f02f00ac45214e7b1a1b3fc2",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1833,7 +1833,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
-    "mvp-0.14": "455b87e9882fe7440afdd0e354237e6ba03127d3a9b8b641e6cb6c2973b371e3",
+    "mvp-0.14": "3736b03656059c10f5e5cad22806901efaa60f0ffdfc6d87947d2158c9b3e839",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1886,7 +1886,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
-    "mvp-0.15": "e520ea0c4233f44c4b4fa30eb2137f193a00931c9aec88c0e6d97e5d7242388f",
+    "mvp-0.15": "2b345c9901835216e0b766aa0308e55fd7cd02967c542b667422137fb842e419",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1946,7 +1946,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
-    "mvp-0.16": "6d3c8358c14dbe46de07ce346c18d04a4b159a762f897023dc7936470a51b9e2",
+    "mvp-0.16": "4eba08b5e1c9b803dbf6dc62cb1ca9edac28d6cfb8b7e2acb83ac85953225900",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -2002,7 +2002,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
-    "mvp-0.17": "87cc6cdc3e56f70c004f5bdf2ac17dcb857701161a3955df0d38766eab349830",
+    "mvp-0.17": "23c866ae48313f49c0051b9e5630fa55e600514d046bcff20bc22da51b9395a8",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -2051,7 +2051,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
-    "mvp-0.18": "9139d7e916bf338bb16db107a98e1b2a6474463fc7db3805e53a5d31b5fd79d4",
+    "mvp-0.18": "350a9142b23a2353b57b5746fe568d9ec41e152bc2caf485a51c79cc75063832",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -2100,7 +2100,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
-    "mvp-0.19": "476721abf01f22243fa24c9d3e709fce665ce48e94f0cb5dd343dcb3b3f71559",
+    "mvp-0.19": "34205ffc98fa21d8ebe5628fa986576e9f62a9cd705da3d84e92f7545239e221",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -2145,7 +2145,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
-    "mvp-0.20": "22752c601ff92bafd59297cb2029125beef2e3c9aefd704d221316e87c22463e",
+    "mvp-0.20": "92dcf46b0ec997acaede67ef7daa3dc34df81c8ca6ab75d171fbc8fa36244fc4",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -2199,7 +2199,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
-    "mvp-0.21": "65b9b9f22453d69de5976f9e7aabb66c7cb9d35311f51cc70ef86b6a748a9c68",
+    "mvp-0.21": "b81e847dfabb016fd1caf4b835ce3cb67d363d0437864cd9a84857c44b8c31c7",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -2245,7 +2245,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
-    "mvp-0.22": "e31adb56167876f7d0548e473dea1cf26ca5118b0b46e7b4d09387148ea8f751",
+    "mvp-0.22": "9b5ecace275498f15d3fd969136c0207f656b5ebdac3be526b3620035ec5007f",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -2286,7 +2286,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
-    "mvp-0.23": "f909f0633ebcb269a9fe03bb2e5ea242b99b38f3f694bf5145f6cea66dc4fa15",
+    "mvp-0.23": "da0f1cfc4b50f81c6f711157a349fd29379d7e7e475f46120aa8ecc0691d057c",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -2324,7 +2324,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
-    "mvp-0.24": "bbceb99adcc24cb773d1c370316822971c033ab5ce6a3043826ebe07cac071a1",
+    "mvp-0.24": "d28c3dfb623009eac7fcfb8fde298a074aeeb64152b2e5be79eb3fafb4eedfd5",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -2360,7 +2360,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
-    "mvp-0.25": "ec644c4339c7c89c666784211fa108ff8ada3e73d28ac24ef1f7252963f2b76a",
+    "mvp-0.25": "c64c845b73204cb44bbdade5071338d1c5cd7b2bb09681621dbb660d9bc05a93",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -2395,7 +2395,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
-    "mvp-0.26": "d84a12889ab74c004c1bcd3a1b0f80235fd25809c649c727658b5a80153af662",
+    "mvp-0.26": "b60b086704b93ea38481aa649434ea88ff902318d1dd60df9e56617af0067aa0",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -2430,7 +2430,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
-    "mvp-0.27": "bc7b69af97b89ec732066b4558dd74b629f6d10df9d140cf1e7614b6778e4b24",
+    "mvp-0.27": "aae5c3f80c02521172a8c426dbde71e99ee312957585002e645a312096e88fc7",
     # mvp-0.29 (daily-loop DL2, the learner's intent; docs/reviews/
     # daily-loop-dl2.md and its Codex re-review F2): the predecessor plus
     # serving by intent (an excluded item is never served, requested or
@@ -2454,7 +2454,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
-    "mvp-0.29": "cefd9f0541c69d5fd90fa9bafd3c3635c6787964939e9e3136c50384fdd917b1",
+    "mvp-0.29": "73e27b137da557b8d0a1761793d675b34bf48366f33dc872374431c292b45f3d",
 }
 
 
