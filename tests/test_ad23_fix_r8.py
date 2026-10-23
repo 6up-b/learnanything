@@ -190,7 +190,9 @@ def test_a_reading_receipt_whose_source_is_held_out_now_is_not_replayed(tmp_path
     """F20: receipts are revalidated against the current predicate before the replay reads them. Since
     the AD23 redesign's round 2 a receipt is read only at the protection epoch it was recorded under,
     so holding a span out first takes every earlier receipt out of force (E2: it is swept again);
-    a receipt of the current epoch whose source is withheld is still not replayed."""
+    a receipt of the current epoch whose source is withheld is still not replayed. Since round 8
+    (Option B) the held span's whole reading is absent for reading signals, so its other receipt
+    (on a public span) is not replayed either."""
 
     paths = ad23_vault(tmp_path, items=("pi_open",), config=ROUTER_OFF)
 
@@ -212,8 +214,7 @@ def test_a_reading_receipt_whose_source_is_held_out_now_is_not_replayed(tmp_path
     _hold_out(monkeypatch, "held")
     assert _events(paths).opportunities == [], "another epoch's receipts are out of force"
     record(ad_epoch(paths))
-    (left,) = _events(paths).opportunities
-    assert left.kind == "worked_example"
+    assert _events(paths).opportunities == [], "the reading the held span is in is absent (Option B)"
     assert rows(paths.sqlite_path, "SELECT COUNT(*) AS n FROM ad_reading_opportunities")[0]["n"] == 4  # frozen
 
 

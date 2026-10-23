@@ -334,7 +334,8 @@ def test_a_reading_receipt_recorded_under_other_protection_is_mapped_again(tmp_p
     from tests.ad23_fakes import set_item
     from tests.test_ad_projection import EXT, LO as PLO, P, _iso, _mixed_section, T0
 
-    paths = _mixed_section(tmp_path, absent=True)
+    # A clean reading (the withheld material lies in another extraction): read as stored (round 8).
+    paths = _mixed_section(tmp_path)
     set_item(paths, "pi_m1a", evidence_facets=["fp"], evidence_weights={"fp": 1.0})
     set_item(paths, "pi_f48", learning_object_id=PLO, evidence_facets=["fh"], evidence_weights={"fh": 1.0},
              canonical_exercise={"source_id": "src_f48", "extraction_id": "ext_other", "span_ids": ["h_other"]})
