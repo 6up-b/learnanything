@@ -114,6 +114,13 @@ def _vault(tmp_path: Path, *, opt_in: bool = False, extra: dict[str, Any] | None
     return root
 
 
+def _grant(vault: Path, tasks: list[str]) -> None:
+    """The learner answers an offer: the sidecar records the offer, then the grant."""
+
+    plan_fallback.remember_offer(vault, {"fallback_tasks": tasks})
+    assert plan_fallback.grant(vault, tasks) == sorted(tasks)
+
+
 def _set_state(state: str, server) -> None:
     session = PlanSession()
     if state in {"signed_in", "paused"}:
@@ -177,8 +184,12 @@ def test_every_task_under_code_defaults_resolves_tool_free_and_never_codex(tmp_p
             if state != "signed_in" and resolved.provider_name in CHATGPT_PLAN_PROVIDER_NAMES:
                 # Unavailable, reported through the degrade path; asked, never sent.
                 assert not resolved.ready, task
-                expected = "openrouter" if openrouter else None
+                # Offered only when OpenRouter could do the work as configured (review F2).
+                blocked = plan_fallback.offer_blocker(config, task) is not None
+                expected = "openrouter" if openrouter and not blocked else None
                 assert resolved.runtime.fallback_available == expected, task
+                if openrouter and blocked:
+                    assert "nothing is offered" in resolved.runtime.message or "isn't offered" in resolved.runtime.message
         if state == "signed_in":
             assert plan_served >= 40  # every chat generation route is served by the plan
         else:
@@ -616,8 +627,8 @@ def test_unavailable_offers_openrouter_only_when_configured_and_sends_nothing_un
     with plan_fallback.collecting() as offers, plan_fallback.quiet():
         ready_client_for_task(vault, config, "tutor_qa")
     assert offers.hint() is None
-    # The learner's choice (this task, this session): OpenRouter serves it.
-    plan_fallback.grant(["tutor_qa"])
+    # The learner's choice (this task, this vault, this session): OpenRouter serves it.
+    _grant(vault, ["tutor_qa"])
     chosen = ready_client_for_task(vault, config, "tutor_qa")
     assert chosen.ready and chosen.provider_name == "openrouter" and chosen.fallback_from == "chatgpt_low"
     assert chosen.client.supports(TOOL_FREE)
@@ -632,23 +643,24 @@ def test_unavailable_offers_openrouter_only_when_configured_and_sends_nothing_un
     # A grant is for the feature the learner used, never for background work:
     # startup maintenance (a quiet probe) finds a granted task's plan route
     # unavailable and leaves the deferred-regrade backlog for the plan.
-    plan_fallback.grant(["grading"])
+    _grant(vault, ["grading"])
     with plan_fallback.quiet():
         background = ready_client_for_task(vault, config, "grading")
     assert not background.ready and background.provider_name == "chatgpt_low"
     monkeypatch.setenv("LEARNLOOP_AI_FALLBACK", "openrouter")
-    with plan_fallback.quiet():
+    with plan_fallback.command_grant(), plan_fallback.quiet():
         assert not ready_client_for_task(vault, config, "grading").ready
     monkeypatch.delenv("LEARNLOOP_AI_FALLBACK")
     plan_fallback.revoke_all()
-    # The CLI's one-command choice.
+    # The CLI's one-command choice (read by the CLI's entry point only).
     monkeypatch.setenv("LEARNLOOP_AI_FALLBACK", "openrouter")
-    assert ready_client_for_task(vault, config, "grading").provider_name == "openrouter"
+    with plan_fallback.command_grant():
+        assert ready_client_for_task(vault, config, "grading").provider_name == "openrouter"
     monkeypatch.delenv("LEARNLOOP_AI_FALLBACK")
     # A signed-in plan is always used first, granted or not.
     with fake_chatgpt() as server:
         sign_in(PlanSession(), server)
-        plan_fallback.grant(["tutor_qa"])
+        _grant(vault, ["tutor_qa"])
         assert ready_client_for_task(vault, config, "tutor_qa").provider_name == "chatgpt_low"
     assert all(instance.requests == [] for instance in fake_openai.instances)  # built, never called
 
@@ -709,7 +721,11 @@ def test_the_sidecar_attaches_the_typed_hint_and_ai_use_fallback_records_the_cho
         "openrouter", ["tutor_qa"], "openrouter")
     # The desktop's "Use OpenRouter instead".
     unknown = rpc("ai_use_fallback", {"provider": "openrouter", "tasks": ["not_a_task"]})
-    assert unknown["error"]["data"]["code"] == "unknown_task"
+    assert unknown["error"]["data"]["code"] == "not_offered"
+    # Only what this vault was offered can be granted (review F4).
+    unoffered = rpc("ai_use_fallback", {"provider": "openrouter", "tasks": ["tutor_qa", "grading"]})
+    assert unoffered["error"]["data"]["code"] == "not_offered"
+    assert unoffered["error"]["data"]["details"]["offered_tasks"] == ["tutor_qa"]
     chosen = rpc("ai_use_fallback", {"provider": "openrouter", "tasks": ["tutor_qa"]})
     assert chosen["result"]["grantedTasks"] == ["tutor_qa"] and chosen["result"]["scope"] == "session"
     assert rpc("test.t1_feature")["result"] == {"provider": "openrouter"}
@@ -734,7 +750,8 @@ def test_a_background_jobs_offer_reaches_the_read_that_finds_it_done(tmp_path, m
     from learnloop_sidecar.handlers import hints as hint_rpcs, library_ask as library_rpcs
 
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-never-sent")
-    vault = _vault(tmp_path)
+    # The hint writer refuses a metered route until its price is set, so it is offered only then (F2).
+    vault = _vault(tmp_path, extra={"hints.price_per_million": 1.0})
     ctx = SidecarContext()
     ctx.load(vault)
 
@@ -758,6 +775,11 @@ def test_a_background_jobs_offer_reaches_the_read_that_finds_it_done(tmp_path, m
         with pytest.raises(SidecarError):
             hint_rpcs._job_payload(ctx, hint_job)
     assert offers.hint()["fallback_tasks"] == ["hint_writer"]
+    # Relayed once (review F8): a later read of the same failed job brings no banner back.
+    with plan_fallback.collecting() as offers:
+        with pytest.raises(SidecarError):
+            library_rpcs._job_payload(library_job)
+    assert offers.hint() is None
     # Without a key no job offers anything.
     monkeypatch.delenv("OPENROUTER_API_KEY")
     quiet_job = library_rpcs.LibraryJobs().start(ctx, "ask", None, unavailable("tutor_qa"))
@@ -882,3 +904,245 @@ def test_the_stage_changes_transport_selection_only():
                                             result_model=Answer).note == "done"
         content = server.requests[-1]["body"]["input"][0]["content"]
         assert content.startswith(prompt)
+
+
+# -- (9) Codex review fixes (docs/reviews/ai-plan-first-transport-t1-codex-review.md) -------------
+
+
+def test_f1_a_configured_metered_fallback_provider_is_never_used_silently_for_a_plan_route(tmp_path, monkeypatch):
+    """Review F1: `fallback_provider = "openrouter"` once served every unavailable plan route, unasked."""
+
+    from learnloop.ai.routing import configured_fallback
+    from learnloop.content.pipeline.add_source import authoring_route_for
+    from learnloop.content.proposals.method_phrasing import writer_names
+    from learnloop.ops.doctor import run_doctor
+    from learnloop.ops.plan_transport import METERED_FALLBACK_CODE
+    from learnloop.vault.loader import load_vault
+    from tests.openai_fakes import install_fake_openai
+
+    fake_openai = install_fake_openai(monkeypatch, '{"ok": true, "note": "openrouter"}')
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-never-sent")
+    vault = _vault(tmp_path, extra={"ai.fallback_provider": "openrouter"})
+    config = load_config(vault / "learnloop.toml")
+    for task in ("grading", "tutor_qa", "diagnosis", "hint_writer", "canonical_ingest"):
+        with plan_fallback.collecting() as offers:
+            resolved = ready_client_for_task(vault, config, task)  # type: ignore[arg-type]
+        assert not resolved.ready and resolved.provider_name in CHATGPT_PLAN_PROVIDER_NAMES, task
+        assert resolved.fallback_from is None, task
+        if plan_fallback.offer_blocker(config, task) is None:
+            # Asked instead, through the plan's offer.
+            assert resolved.runtime.fallback_available == "openrouter", task
+            assert offers.hint()["fallback_tasks"] == [task]
+        # Startup maintenance (quiet) never takes the configured fallback either.
+        with plan_fallback.quiet():
+            assert not ready_client_for_task(vault, config, task).ready, task  # type: ignore[arg-type]
+    assert configured_fallback(config, "chatgpt_low") is None
+    # A non-plan primary keeps the owner's fallback as written.
+    assert configured_fallback(config, "deepseek_flash") == "openrouter"
+    # The direct readers follow the same rule: the question build and the method-phrasing writer.
+    route = authoring_route_for(vault, config)
+    assert not route.ready and route.provider in CHATGPT_PLAN_PROVIDER_NAMES
+    assert "openrouter" not in writer_names(load_vault(vault))
+    # Doctor names the setting.
+    issues = [issue for issue in run_doctor(vault).issues if issue.code == METERED_FALLBACK_CODE]
+    assert len(issues) == 1 and issues[0].details["value"] == "openrouter"
+    assert "never sends work to a metered provider without asking" in issues[0].message
+    assert fake_openai.instances == []  # no OpenRouter client was even built
+
+
+def test_f2_openrouter_is_offered_only_when_the_feature_could_use_it(tmp_path, monkeypatch):
+    """Review F2: a feature that refuses an unpriced metered route makes no offer; it says what to set."""
+
+    from learnloop.config.schema import LearnLoopConfig as Config
+
+    defaults = Config()
+    for task, setting in plan_fallback.METERED_PRICE_SETTINGS.items():
+        assert task in TASKS, task
+        assert plan_fallback._setting(defaults, setting) is None, setting  # unset by default: refused
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-never-sent")
+    vault = _vault(tmp_path)
+    config = load_config(vault / "learnloop.toml")
+    with plan_fallback.collecting() as offers:
+        hint = ready_client_for_task(vault, config, "hint_writer")
+    assert not hint.ready and hint.runtime.fallback_available is None and offers.hint() is None
+    assert "hints.price_per_million" in hint.runtime.message
+    priced = _vault(tmp_path, extra={"hints.price_per_million": 1.0})
+    with plan_fallback.collecting() as offers:
+        hint = ready_client_for_task(priced, load_config(priced / "learnloop.toml"), "hint_writer")
+    assert hint.runtime.fallback_available == "openrouter" and offers.hint()["fallback_tasks"] == ["hint_writer"]
+    # A snapshot diagnosis reads a workspace only the plan serves: not offered.
+    snapshot = _vault(tmp_path, extra={"diagnosis.history_mode": "snapshot"})
+    with plan_fallback.collecting() as offers:
+        diagnosis = ready_client_for_task(snapshot, load_config(snapshot / "learnloop.toml"), "diagnosis")
+    assert diagnosis.runtime.fallback_available is None and offers.hint() is None
+    assert "snapshot" in diagnosis.runtime.message
+    # A ready plan route that later fails for availability offers nothing for a blocked task either.
+    with fake_chatgpt() as server:
+        sign_in(PlanSession(), server)
+        with plan_fallback.collecting() as offers:
+            assert ready_client_for_task(vault, config, "hint_writer").ready
+            plan_fallback.note_plan_failure()
+        assert offers.hint() is None
+
+
+def test_f3_the_question_build_asks_and_a_grant_serves_it_priced_as_metered(tmp_path, monkeypatch):
+    """Review F3: the add-source build's route goes through the offer, and a grant routes and prices it."""
+
+    from learnloop.content.pipeline.add_source import authoring_route_for, is_subscription_route
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-never-sent")
+    vault = _vault(tmp_path)
+    config = load_config(vault / "learnloop.toml")
+    with plan_fallback.collecting() as offers:
+        route = authoring_route_for(vault, config)
+    assert not route.ready and route.provider in CHATGPT_PLAN_PROVIDER_NAMES and route.subscription
+    assert offers.hint()["fallback_tasks"] == ["canonical_ingest"]
+    assert "Use OpenRouter instead" in (route.message or "")
+    _grant(vault, ["canonical_ingest"])
+    granted = authoring_route_for(vault, config)
+    assert granted.ready and granted.provider == "openrouter"
+    # Priced and consented as the profile that serves it: metered, never "subscription".
+    assert granted.subscription is False and not is_subscription_route(config, granted.provider)
+    assert granted.consent_key != route.consent_key
+
+
+def test_f4_grants_are_per_vault_per_offer_and_the_env_grant_is_the_cli_commands_only(tmp_path, monkeypatch):
+    """Review F4: the env variable grants nothing outside the CLI's command context; grants are per vault."""
+
+    import contextvars
+
+    from learnloop_sidecar.context import SidecarContext
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-never-sent")
+    vault = _vault(tmp_path)
+    config = load_config(vault / "learnloop.toml")
+    # (a) Exported in the shell that started a long-lived host: grants nothing there.
+    monkeypatch.setenv("LEARNLOOP_AI_FALLBACK", "openrouter")
+    assert not ready_client_for_task(vault, config, "grading").ready
+    with plan_fallback.command_grant(host=True) as chosen:
+        assert chosen is False and not ready_client_for_task(vault, config, "grading").ready
+    with plan_fallback.command_grant() as chosen:
+        assert chosen is True and ready_client_for_task(vault, config, "grading").ready
+        # A background thread started in a fresh context does not inherit the command's grant.
+        seen: list[bool] = []
+        thread = threading.Thread(target=lambda: contextvars.Context().run(
+            lambda: seen.append(ready_client_for_task(vault, config, "grading").ready)))
+        thread.start()
+        thread.join(10)
+        assert seen == [False]
+    monkeypatch.delenv("LEARNLOOP_AI_FALLBACK")
+    # (c) Only offered tasks can be granted.
+    assert plan_fallback.grant(vault, ["grading"]) == []
+    _grant(vault, ["grading"])
+    assert plan_fallback.granted_tasks(vault) == ["grading"]
+    # (b) Per vault, and a vault switch clears them.
+    other = _vault(tmp_path / "other")
+    assert not plan_fallback.is_granted("grading", other)
+    ctx = SidecarContext()
+    ctx.load(vault)
+    _grant(vault, ["grading"])
+    ctx.load(other)
+    assert plan_fallback.granted_tasks(vault) == [] and plan_fallback.offered_tasks(vault) == []
+
+
+def test_f5_doctor_fix_keeps_the_tier_of_a_legacy_codex_route_value(tmp_path):
+    """Review F5: `routing.<task> = "codex"` meant that task's Codex tier (medium for ingest)."""
+
+    from learnloop.ops.plan_transport import codex_pins
+
+    extra = {f"ai.routing.{task}": "codex" for task in LEGACY_CODEX_TASK_ROUTES}
+    vault = _vault(tmp_path, extra={**extra, "ai.routing.diagnosis": "codex"})
+    pins = {pin.setting: pin.replacement for pin in codex_pins(vault, load_config(vault / "learnloop.toml"))}
+    for task, tier in LEGACY_CODEX_TASK_ROUTES.items():
+        assert pins[f"ai.routing.{task}"] == CODEX_TO_PLAN_PROFILE[tier], task
+    assert pins["ai.routing.canonical_ingest"] == "chatgpt_medium"
+    assert pins["ai.routing.diagnosis"] == CODEX_TO_PLAN_PROFILE["codex"]
+
+
+def test_f6_codex_is_never_a_fallback_through_the_direct_readers_opt_in_or_not(tmp_path, monkeypatch):
+    """Review F6: the question build's route and the method-phrasing writer apply the same rule."""
+
+    from types import SimpleNamespace
+
+    from learnloop.ai.routing import configured_fallback
+    from learnloop.content.pipeline.add_source import authoring_route_for
+    from learnloop.content.proposals.method_phrasing import writer_names
+    from learnloop.vault.loader import load_vault
+
+    monkeypatch.setattr("learnloop.ai.runtime.check_codex_runtime", lambda *a, **k: SimpleNamespace(
+        status="ready", actual_revision=None, message="ok"))
+    vault = _vault(tmp_path, opt_in=True, extra={"ai.fallback_provider": "codex"})
+    config = load_config(vault / "learnloop.toml")
+    assert configured_fallback(config, "chatgpt") is None
+    route = authoring_route_for(vault, config)
+    assert route.provider not in CODEX_NAMES and not route.ready
+    assert not any(name in CODEX_NAMES for name in writer_names(load_vault(vault)))
+
+
+def test_f7_an_explicit_inline_never_sends_tools_and_a_tools_turn_caps_its_resent_input(tmp_path):
+    """Review F7: inline as written refuses an oversized export; a tools turn stops at its input cap."""
+
+    from learnloop.ai.errors import AIInvalidOutput, AIProviderUnavailable
+    from learnloop.ai.providers.chatgpt_plan import TURN_INPUT_FACTOR
+
+    # Only a value the owner wrote counts as explicit (the code default and other keys do not).
+    vault = _vault(tmp_path, extra={"ai.providers.chatgpt.model": "gpt-test-fast"})
+    assert "workspace_mode" not in load_config(vault / "learnloop.toml").ai.providers["chatgpt"].model_fields_set
+    written = _vault(tmp_path, extra={"ai.providers.chatgpt.workspace_mode": "inline"})
+    assert "workspace_mode" in load_config(written / "learnloop.toml").ai.providers["chatgpt"].model_fields_set
+    with fake_chatgpt() as server:
+        sign_in(PlanSession(), server)
+        workspace = _workspace(tmp_path, big=20_000)
+        client = _plan_client(server, workspace_mode="inline", max_workspace_chars=10_000)
+        with pytest.raises(AIProviderUnavailable, match="max_workspace_chars|too large|exceeds"):
+            execute_structured_operation(client, purpose="t1", prompt="Say ok", result_model=Answer,
+                                         workspace=workspace)
+        assert server.requests == []
+        # Tools mode: every round resends the history; past TURN_INPUT_FACTOR x max_workspace_chars
+        # the model is asked to answer, long before max_tool_rounds.
+        read_big = ("read_entry", {"path": "attempts/big.md", "start_line": None, "max_lines": None})
+        server.replies.extend(Reply(events=tool_call_events([read_big], response_id=f"r{n}")) for n in range(20))
+        client = _plan_client(server, workspace_mode="tools", max_workspace_chars=10_000, max_tool_rounds=16)
+        with pytest.raises(AIInvalidOutput, match="request to answer"):
+            execute_structured_operation(client, purpose="t1", prompt="Say ok", result_model=Answer,
+                                         workspace=workspace)
+        sent = [len(request["body"]["instructions"]) + len(json.dumps(request["body"]["input"], ensure_ascii=False))
+                for request in server.requests]
+        assert len(sent) < 16
+        # Below the cap until the round that crosses it, then one "answer now" round.
+        assert sum(sent[:-2]) < TURN_INPUT_FACTOR * 10_000 <= sum(sent[:-1])
+
+
+def test_f8_an_error_that_is_not_a_sidecar_error_keeps_the_offer(tmp_path, monkeypatch):
+    from learnloop_sidecar import handlers  # noqa: F401 - populates the registry
+    from learnloop_sidecar.context import SidecarContext
+    from learnloop_sidecar.dto import EmptyParams
+    from learnloop_sidecar.registry import METHOD_REGISTRY, MethodSpec
+    from learnloop_sidecar.server import _handle
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-never-sent")
+    vault = _vault(tmp_path)
+
+    def feature(ctx, _params):
+        loaded, _repository = ctx.require_vault()
+        ready_client_for_task(loaded.root, loaded.config, "tutor_qa")
+        raise RuntimeError("a handler that lets an unavailable route escape")
+
+    monkeypatch.setitem(METHOD_REGISTRY, "test.t1_crash", MethodSpec("test.t1_crash", EmptyParams, feature))
+    ctx = SidecarContext()
+    ctx.load(vault)
+    response = _handle(ctx, {"jsonrpc": "2.0", "id": 1, "method": "test.t1_crash", "params": {}})
+    details = response["error"]["data"]["details"]
+    assert details["outcome"] == "unknown" and details["fallback_tasks"] == ["tutor_qa"]
+    assert plan_fallback.offered_tasks(vault) == ["tutor_qa"]  # so the banner's click can be granted
+
+
+def test_f9_refused_codex_profiles_are_not_offered_as_grading_providers(tmp_path):
+    from learnloop.vault.loader import load_vault
+    from learnloop_sidecar.context import available_grading_providers
+
+    plain = available_grading_providers(load_vault(_vault(tmp_path)))
+    assert not any(name in CODEX_NAMES for name in plain) and plain[-1] == "manual"
+    assert "chatgpt" in plain
+    opted = available_grading_providers(load_vault(_vault(tmp_path / "opted", opt_in=True)))
+    assert "codex" in opted and "codex_low" in opted

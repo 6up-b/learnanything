@@ -198,6 +198,10 @@ def ai_use_fallback(ctx: SidecarContext, params: UseFallbackParams) -> dict[str,
         plan_fallback.revoke(vault.root)
         return versioned({"provider": params.provider, "profile": plan_fallback.offer_profile(vault.config),
                           "granted_tasks": [], "scope": "session"})
+    profile = plan_fallback.offer_profile(vault.config)
+    if profile is None:
+        raise SidecarError("fallback_unavailable",
+                           "OpenRouter isn't set up on this computer. Add an OpenRouter key in Settings first.")
     offered = set(plan_fallback.offered_tasks(vault.root))
     not_offered = sorted({task for task in params.tasks if task not in offered})
     if not_offered or not params.tasks:
@@ -207,10 +211,6 @@ def ai_use_fallback(ctx: SidecarContext, params: UseFallbackParams) -> dict[str,
             f"not offered on this vault: {', '.join(not_offered) or 'none given'}.",
             details={"offered_tasks": sorted(offered)},
         )
-    profile = plan_fallback.offer_profile(vault.config)
-    if profile is None:
-        raise SidecarError("fallback_unavailable",
-                           "OpenRouter isn't set up on this computer. Add an OpenRouter key in Settings first.")
     plan_fallback.grant(vault.root, params.tasks)
     return versioned({"provider": params.provider, "profile": profile,
                       "granted_tasks": plan_fallback.granted_tasks(vault.root), "scope": "session"})
