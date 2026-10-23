@@ -157,7 +157,11 @@ def test_a_decider_profile_may_serve_the_facet_identity_judge_route_only():
 
     config = LearnLoopConfig()
     assert route_profile_mismatch(config, DEFAULT_DECIDER_PROVIDER, "facet_identity_judge") is None
-    assert route_profile_mismatch(config, "codex_luna", "facet_identity_judge") is None
+    assert route_profile_mismatch(config, "chatgpt_luna", "facet_identity_judge") is None
+    # Plan-first transport T1: the Codex tier serves it only with the owner opt-in.
+    assert "agent harness" in route_profile_mismatch(config, "codex_luna", "facet_identity_judge")
+    opted_in = LearnLoopConfig.model_validate({"ai": {"agent_harness_opt_in": True}})
+    assert route_profile_mismatch(opted_in, "codex_luna", "facet_identity_judge") is None
     assert route_profile_mismatch(config, "openrouter_haiku", "facet_identity_judge") is None
     # Nothing else widens: a decider still serves no generation route, and an
     # embedding profile still serves no judge.

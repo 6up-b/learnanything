@@ -819,6 +819,8 @@ sidecar_passthrough!(chatgpt_plan_signin_cancel, "chatgpt_plan_signin_cancel");
 sidecar_passthrough!(chatgpt_plan_signout, "chatgpt_plan_signout");
 sidecar_passthrough!(chatgpt_plan_acknowledge_welcome, "chatgpt_plan_acknowledge_welcome");
 sidecar_passthrough!(chatgpt_plan_resume, "chatgpt_plan_resume");
+// Plan-first transport T1: "Use OpenRouter instead" while the plan is unavailable.
+sidecar_passthrough!(ai_use_fallback, "ai_use_fallback");
 sidecar_passthrough!(detect_provider_capabilities, "detect_provider_capabilities");
 sidecar_passthrough!(update_provider_modalities, "update_provider_modalities");
 

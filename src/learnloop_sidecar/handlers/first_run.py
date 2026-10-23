@@ -46,6 +46,21 @@ def authoring_route_for(vault) -> core.AuthoringRoute:
     return core.authoring_route_for(vault.root, vault.config)
 
 
+def _status_route(vault) -> core.AuthoringRoute:
+    """The build's route for a status read: no "Use OpenRouter instead" offer (re-review F1).
+
+    ``get_ai_connection`` runs on every vault load and ``connect_ai`` checks
+    readiness; neither is the learner using a feature, so neither asks. A
+    session grant of the build still shows as the route that serves it. The
+    build itself (``add_source``'s job) resolves without this and asks.
+    """
+
+    from learnloop.ai import plan_fallback
+
+    with plan_fallback.quiet(honour_grants=True):
+        return authoring_route_for(vault)
+
+
 def chatgpt_plan_ready() -> bool:
     from learnloop.ai.chatgpt_plan.session import PlanSession
 
@@ -104,7 +119,7 @@ def _connection_payload(ctx: SidecarContext) -> dict[str, Any]:
     from learnloop.decider_judgments import connection_note
 
     vault, _repository = ctx.require_vault()
-    route = authoring_route_for(vault)
+    route = _status_route(vault)
     record = vault.config.ai.consent.get(route.consent_key)
     label = core.consent_label(route.consent_key)
     # The Decider's small judgments go to Perplexity, not to the AI connected
@@ -146,13 +161,30 @@ class ConnectAiInput(ParamsModel):
     model: str | None = None
 
 
-def _route_every_use_case(updates: dict[tuple[str, ...], Any], target: str) -> None:
+def _route_every_use_case(updates: dict[tuple[str, ...], Any], target: str,
+                          tiers: dict[str, str] | None = None) -> None:
     from learnloop.ops.settings_store import USE_CASE_ROUTES
 
     updates[("ai", "active_provider")] = target
     for use_case in _CONNECT_USE_CASES:
         for task in USE_CASE_ROUTES[use_case]:
-            updates[("ai", "routing", task)] = target
+            updates[("ai", "routing", task)] = (tiers or {}).get(task, target)
+
+
+def _written_plan_model(vault) -> str:
+    """The slug written under ``[ai.providers.chatgpt] model`` in the vault's file ("" when unset)."""
+
+    import tomllib
+
+    try:
+        with (vault.root / "learnloop.toml").open("rb") as handle:
+            raw = tomllib.load(handle)
+    except (OSError, tomllib.TOMLDecodeError):
+        return ""
+    profile = ((raw.get("ai") or {}).get("providers") or {}).get("chatgpt")
+    if not isinstance(profile, dict) or str(profile.get("type") or "chatgpt_plan") != "chatgpt_plan":
+        return ""
+    return str(profile.get("model") or "").strip()
 
 
 @method("connect_ai", ConnectAiInput)
@@ -168,24 +200,35 @@ def connect_ai(ctx: SidecarContext, params: ConnectAiInput) -> dict[str, Any]:
     if params.provider == "chatgpt":
         if not chatgpt_plan_ready():
             raise SidecarError("chatgpt_not_signed_in", "Sign in with ChatGPT first, then connect.")
-        existing = config.ai.providers.get("chatgpt")
-        model = (params.model or "").strip() or (
-            existing.model if existing is not None and existing.type == "chatgpt_plan" and existing.model else ""
-        )
+        from learnloop.config.schema import DEFAULT_CHATGPT_PLAN_MODEL, DEFAULT_SERVING_TASK_ROUTES
+
+        # An explicit choice is kept as given. Otherwise (plan-first
+        # transport T1: the plan is the code default) the slug the vault's
+        # file names, else the code default, provided the account lists it;
+        # else the first model the account lists. The list is one GET of the
+        # model catalog, no model request; when it cannot be fetched a slug
+        # already chosen is kept (`learnloop doctor` reports an unlisted one).
+        model = (params.model or "").strip()
         if not model:
+            wanted = _written_plan_model(vault) or DEFAULT_CHATGPT_PLAN_MODEL
             try:
                 models = chatgpt_plan_models()
             except Exception as exc:  # noqa: BLE001 - surfaced as one plain line
-                raise SidecarError(
-                    "chatgpt_models_unavailable", "Couldn't reach ChatGPT to finish connecting. Try again.",
-                    retryable=True, details={"error": str(exc)},
-                ) from exc
+                if not _written_plan_model(vault):
+                    raise SidecarError(
+                        "chatgpt_models_unavailable", "Couldn't reach ChatGPT to finish connecting. Try again.",
+                        retryable=True, details={"error": str(exc)},
+                    ) from exc
+                models = [wanted]
             if not models:
                 raise SidecarError("chatgpt_no_models", "Your ChatGPT account lists no models LearnLoop can use.")
-            model = models[0]
+            model = wanted if wanted in models else models[0]
         updates[("ai", "providers", "chatgpt", "type")] = "chatgpt_plan"
         updates[("ai", "providers", "chatgpt", "model")] = model
-        _route_every_use_case(updates, "chatgpt")
+        # Every use case on the plan, at the effort tier its default route
+        # names (chatgpt_low / chatgpt_medium copy [ai.providers.chatgpt],
+        # so the slug chosen here serves them all).
+        _route_every_use_case(updates, "chatgpt", DEFAULT_SERVING_TASK_ROUTES)
         key = "chatgpt"
     elif params.provider == "openrouter":
         if not os.environ.get("OPENROUTER_API_KEY"):
@@ -199,7 +242,7 @@ def connect_ai(ctx: SidecarContext, params: ConnectAiInput) -> dict[str, Any]:
         _route_every_use_case(updates, "openrouter")
         key = "openrouter"
     else:
-        route = authoring_route_for(vault)
+        route = _status_route(vault)
         if not route.ready:
             raise SidecarError(
                 "ai_not_connected", "Connect an AI first: Continue with ChatGPT, or add an OpenRouter key.",

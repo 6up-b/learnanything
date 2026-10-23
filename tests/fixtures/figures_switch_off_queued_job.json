@@ -30,11 +30,11 @@
    },
    "queued": 1,
    "routes": {
-    "authoring": "codex_medium",
+    "authoring": "chatgpt_medium",
     "learner_gap_decider": "openrouter_decider",
-    "learner_gap_judge": "codex_low",
-    "learner_gap_reader": "codex_low",
-    "tutor_qa": "codex_low"
+    "learner_gap_judge": "chatgpt_low",
+    "learner_gap_reader": "chatgpt_low",
+    "tutor_qa": "chatgpt_low"
    }
   },
   "texts_this_run": 1,

@@ -10,7 +10,8 @@ const { api, openUrl } = vi.hoisted(() => ({
     chatgptPlanSigninCancel: vi.fn(),
     chatgptPlanSignout: vi.fn(),
     chatgptPlanAcknowledgeWelcome: vi.fn(),
-    chatgptPlanResume: vi.fn()
+    chatgptPlanResume: vi.fn(),
+    aiUseFallback: vi.fn()
   },
   openUrl: vi.fn()
 }));
@@ -177,4 +178,20 @@ it("does not announce an attempt that had already ended before Settings opened",
   expect(api.chatgptPlanStatus).not.toHaveBeenCalled();
   expect(onToast).not.toHaveBeenCalled();
   expect(onError).not.toHaveBeenCalled();
+});
+
+it("keeps Stop using OpenRouter in Settings while the session has a grant (re-review F3)", async () => {
+  show(ready);
+  expect(screen.queryByRole("button", { name: "Stop using OpenRouter" })).toBeNull();
+  cleanup();
+  api.aiUseFallback.mockResolvedValue({ version: 1, provider: "openrouter", profile: "openrouter", grantedTasks: [], scope: "session" });
+  api.chatgptPlanStatus.mockResolvedValue({ ...ready, openrouterGrantedTasks: [] });
+  show({ ...ready, state: "signed_out", openrouterGrantedTasks: ["tutor_qa"] });
+  expect(screen.getByText(/OpenRouter is standing in for ChatGPT/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Stop using OpenRouter" }));
+  await waitFor(() =>
+    expect(api.aiUseFallback).toHaveBeenCalledWith({ provider: "openrouter", tasks: [], stop: true })
+  );
+  await waitFor(() => expect(screen.queryByRole("button", { name: "Stop using OpenRouter" })).toBeNull());
+  expect(api.chatgptPlanStatus).toHaveBeenCalled();
 });

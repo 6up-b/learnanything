@@ -900,6 +900,14 @@ _CONFIG_RULES: list[_ConfigRule] = [
     _ConfigRule(_exact("schema_version"), "structural", "version",
                 "schema version int; enum, not a decision knob."),
     # --- structural: operational / infra (no measurement authority, §9.3) ---
+    # Plan-first transport T1 (owner, 2026-10-21): which transport may serve,
+    # never what is measured. agent_harness_opt_in admits the frozen Codex
+    # harness (default false: refused for every task, never a fallback);
+    # plan_fallback_profile names the OpenRouter profile LearnLoop may OFFER
+    # while the ChatGPT plan is unavailable (used only on the learner's choice).
+    _ConfigRule(_exact("ai.agent_harness_opt_in", "ai.plan_fallback_profile"), "structural", "operational",
+                "transport admission (Codex agent-harness opt-in; the asked-for OpenRouter offer while the "
+                "ChatGPT plan is unavailable); selects who answers, never what is measured."),
     _ConfigRule(_prefix("ai.", "codex.", "ingest.", "animation."), "structural", "operational",
                 "AI/codex/ingest/animation infra knob (timeout/port/token ceiling); no "
                 "measurement authority."),

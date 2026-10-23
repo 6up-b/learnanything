@@ -359,7 +359,7 @@ def _captured_route_configs(monkeypatch, config, roles):
 
 def test_project_grading_runs_at_high_effort_by_default(monkeypatch, tmp_path):
     config = LearnLoopConfig()
-    assert config.ai.routing.grading == "codex_low"
+    assert config.ai.routing.grading == "chatgpt_low"
     seen, routes = _captured_route_configs(monkeypatch, config, ("authoring", "grading"))
     assert seen["grading"] == "high"
     assert seen["project"] == "low"  # authoring keeps its route's own effort

@@ -190,8 +190,10 @@ def source(tmp_path, server):
     document = tomlkit.parse((paths.root / "learnloop.toml").read_text(encoding="utf-8"))
     for name, model in (("chatgpt", FAST), ("chatgpt_pro", PRO)):
         table = tomlkit.table()
+        # Tools mode, explicitly: these tests script the workspace rounds
+        # (inline is the default since plan-first transport T1).
         for key, value in {"type": "chatgpt_plan", "model": model, "base_url": server.base_url,
-                           "timeout_seconds": 30}.items():
+                           "timeout_seconds": 30, "workspace_mode": "tools"}.items():
             table[key] = value
         document["ai"]["providers"][name] = table
     (paths.root / "learnloop.toml").write_text(tomlkit.dumps(document), encoding="utf-8")

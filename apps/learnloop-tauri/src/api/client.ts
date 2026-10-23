@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { invalidate, invalidateAll, setQueryData, type QueryTag } from "./queryCache";
 import { READER_PREFIX, TAG } from "./queryTags";
+import { noteFallbackOffer } from "../app/planFallback";
 import type {
   DifficultyRating,
   FirstHintProgress,
@@ -60,6 +61,7 @@ import type {
   AddSourceInput,
   AddSourceResultDto,
   AiConnectionDto,
+  AiUseFallbackDto,
   SourceActionKind,
   SourceActionResultDto,
   AppSnapshot,
@@ -368,11 +370,18 @@ async function call<T>(command: string, args: Record<string, unknown> = {}): Pro
     rpcCounts.set(command, count);
     console.debug(`[rpc ${count}] ${command}`);
   }
+  let result: T;
   try {
-    return await invoke<T>(command, args);
+    result = await invoke<T>(command, args);
   } catch (error) {
-    throw normalizeError(error);
+    const normalized = normalizeError(error);
+    // Plan-first transport T1: an unavailable ChatGPT-plan route may offer
+    // OpenRouter; the shell banner asks (nothing is sent until chosen).
+    noteFallbackOffer(normalized);
+    throw normalized;
   }
+  noteFallbackOffer(result);
+  return result;
 }
 
 function normalizeError(error: unknown): CommandError {
@@ -1039,6 +1048,10 @@ export const api = {
   setOpenrouterApiKey: (apiKey: string) =>
     mutating([TAG.settings], call<OpenrouterKeyResult>("set_openrouter_api_key", { apiKey })),
   chatgptPlanStatus: () => call<ChatGPTPlanDto>("chatgpt_plan_status", { input: {} }),
+  // Plan-first transport T1: the learner's "Use OpenRouter instead" for the
+  // tasks a feature's hint named, for this session (stop: every task off).
+  aiUseFallback: (input: { provider: "openrouter"; tasks: string[]; stop?: boolean }) =>
+    mutating([TAG.settings], call<AiUseFallbackDto>("ai_use_fallback", { input })),
   chatgptPlanSigninStart: (input: { consent?: boolean; newAccount?: boolean } = {}) =>
     mutating([TAG.settings], call<ChatGPTPlanDto>("chatgpt_plan_signin_start", { input })),
   chatgptPlanSigninCancel: () =>

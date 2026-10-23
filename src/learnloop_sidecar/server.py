@@ -10,10 +10,12 @@ from typing import Any, TextIO
 from pydantic import ValidationError
 
 import learnloop_sidecar.handlers  # noqa: F401
+from learnloop.ai import plan_fallback
 from learnloop.ai.execution import record_model_calls
 from learnloop.attempts.completion_lock import AttemptCompletionBusy
 from learnloop.ids import new_ulid
 from learnloop_sidecar.context import SidecarContext
+from learnloop_sidecar.dto import to_camel
 from learnloop_sidecar.errors import SidecarError, json_rpc_error, sidecar_error
 from learnloop_sidecar.handlers.practice import submission_key
 from learnloop_sidecar.logging import log_event
@@ -70,11 +72,21 @@ def _handle(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
         }
     started = time.perf_counter()
     log_event("rpc.request", method=method_name, id=request_id)
+    offer: dict[str, Any] | None = None
     try:
         raw_params = request.get("params")
         params = spec.params_model.model_validate({} if raw_params is None else raw_params)
-        with _observed_model_calls(ctx, method_name, params):
-            result = spec.handler(ctx, params)
+        with plan_fallback.collecting() as offers, _observed_model_calls(ctx, method_name, params):
+            try:
+                result = spec.handler(ctx, params)
+            except SidecarError as exc:
+                _attach_fallback_offer(exc, _offered(ctx, offers.hint()))
+                raise
+            except BaseException:
+                # Review F8: an error that is not a SidecarError keeps the offer too.
+                offer = _offered(ctx, offers.hint())
+                raise
+        result = _with_fallback_offer(result, _offered(ctx, offers.hint()))
     except ValidationError as exc:
         log_event("rpc.error", method=method_name, id=request_id, code="validation_error",
                   duration_ms=_elapsed_ms(started))
@@ -95,16 +107,48 @@ def _handle(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
     except (sqlite3.OperationalError, AttemptCompletionBusy) as exc:
         busy = _busy_error(exc)
         if busy is None:
-            return _internal_error(request_id, method_name, started)
+            return _internal_error(request_id, method_name, started, offer=offer)
         log_event("rpc.error", method=method_name, id=request_id, code=busy.code,
                   message=busy.message, duration_ms=_elapsed_ms(started))
         return {"jsonrpc": "2.0", "id": request_id, "error": sidecar_error(busy)}
     except Exception:
-        return _internal_error(request_id, method_name, started)
+        return _internal_error(request_id, method_name, started, offer=offer)
     log_event("rpc.response", method=method_name, id=request_id, duration_ms=_elapsed_ms(started))
     if request_id is None:
         return None
     return {"jsonrpc": "2.0", "id": request_id, "result": result if result is not None else {"ok": True}}
+
+
+def _offered(ctx: SidecarContext, hint: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Record what this vault was offered (a grant may name only those tasks), and pass it on."""
+
+    if hint is not None:
+        plan_fallback.remember_offer(getattr(ctx, "vault_root", None), hint)
+    return hint
+
+
+def _attach_fallback_offer(exc: SidecarError, hint: dict[str, Any] | None) -> None:
+    """Plan-first transport T1: an unavailable ChatGPT-plan route offers OpenRouter.
+
+    The typed hint (``fallback_available``, ``fallback_tasks``,
+    ``fallback_profile``) rides on the error's details; the desktop shows
+    "Use OpenRouter instead", which calls ``ai_use_fallback``. An offer only.
+    """
+
+    if hint is not None and "fallback_available" not in exc.details:
+        exc.details = {**exc.details, **hint}
+
+
+def _with_fallback_offer(result: Any, hint: dict[str, Any] | None) -> Any:
+    """The same hint on a result that degraded instead of failing (a dict result only).
+
+    Results are camelCase (``versioned``): ``fallbackAvailable``,
+    ``fallbackTasks``, ``fallbackProfile``; error details keep snake_case.
+    """
+
+    if hint is None or not isinstance(result, dict) or "fallbackAvailable" in result:
+        return result
+    return {**result, **to_camel(hint)}
 
 
 def _observed_model_calls(ctx: SidecarContext, method_name: str, params: Any):
@@ -143,7 +187,8 @@ def _busy_error(exc: Exception) -> SidecarError | None:
     return None
 
 
-def _internal_error(request_id: Any, method_name: str, started: float) -> dict[str, Any]:
+def _internal_error(request_id: Any, method_name: str, started: float, *,
+                    offer: dict[str, Any] | None = None) -> dict[str, Any]:
     LOG.exception("handler failed")
     log_event("rpc.error", level=logging.ERROR, method=method_name, id=request_id,
               code="internal", duration_ms=_elapsed_ms(started))
@@ -155,7 +200,7 @@ def _internal_error(request_id: Any, method_name: str, started: float) -> dict[s
             _INTERNAL_ERROR_MESSAGE,
             stable_code="internal",
             retryable=False,
-            details={"method": method_name, "outcome": "unknown"},
+            details={"method": method_name, "outcome": "unknown", **(offer or {})},
         ),
     }
 

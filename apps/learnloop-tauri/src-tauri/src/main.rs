@@ -400,6 +400,7 @@ fn main() {
             chatgpt_plan_signout,
             chatgpt_plan_acknowledge_welcome,
             chatgpt_plan_resume,
+            ai_use_fallback,
             detect_provider_capabilities,
             update_provider_modalities,
             set_transcription_api_key,

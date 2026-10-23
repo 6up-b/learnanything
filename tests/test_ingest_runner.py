@@ -21,7 +21,7 @@ from learnloop.content.pipeline.runner import (
     derive_batch_status,
 )
 from learnloop.content.pipeline.jobs import DurableIngestJobs
-from tests.helpers import create_basic_vault
+from tests.helpers import create_basic_vault, use_codex_harness
 
 
 def _clock(seconds: int = 0) -> FrozenClock:
@@ -1010,9 +1010,9 @@ def test_default_inventory_client_routes_via_canonical_ingest(tmp_path, monkeypa
     create_basic_vault(vault_root)
     toml_path = vault_root / "learnloop.toml"
     text = toml_path.read_text(encoding="utf-8")
-    assert 'canonical_ingest = "codex_medium"' in text
+    assert 'canonical_ingest = "chatgpt_medium"' in text
     toml_path.write_text(
-        text.replace('canonical_ingest = "codex_medium"', 'canonical_ingest = "openrouter"'),
+        text.replace('canonical_ingest = "chatgpt_medium"', 'canonical_ingest = "openrouter"'),
         encoding="utf-8",
     )
     monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
@@ -1026,7 +1026,7 @@ def test_default_inventory_client_routes_via_canonical_ingest(tmp_path, monkeypa
 
 
 def test_default_inventory_client_defaults_to_codex_and_errors_when_unavailable(tmp_path, monkeypatch):
-    """Default routing still resolves codex, which is unavailable in tests — the
+    """Default routing resolves the ChatGPT plan (T1), signed out in tests: the
     runner raises a typed error instead of silently switching providers."""
 
     import types
@@ -1059,6 +1059,7 @@ def test_default_synthesis_client_gives_codex_sdk_an_eight_minute_timeout(
 
     vault_root = tmp_path / "vault"
     create_basic_vault(vault_root)
+    use_codex_harness(vault_root)  # the frozen Codex path, explicitly opted in (T1)
     monkeypatch.setattr(
         "learnloop.ai.runtime.check_ai_runtime",
         lambda *args, **kwargs: SimpleNamespace(ready=True),

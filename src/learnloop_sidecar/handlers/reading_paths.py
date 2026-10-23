@@ -76,6 +76,9 @@ class _Judgments:
     def __init__(self) -> None:
         self.lock = threading.Lock()
         self.state: dict[tuple[str, str, str], dict[str, Any]] = {}
+        #: Plan-first transport T1: the OpenRouter offer a failed judgment's
+        #: request made (a ``plan_fallback`` hint), relayed by each read of it.
+        self.offers: dict[tuple[str, str, str], dict[str, Any]] = {}
 
 
 def _judgments(ctx: SidecarContext) -> _Judgments:
@@ -97,28 +100,37 @@ def _start(ctx: SidecarContext, vault: Any, repository: Any, extraction_id: str,
     sqlite_path = repository.sqlite_path
 
     def run() -> None:
+        from learnloop.ai import plan_fallback
         from learnloop.ai.execution import record_model_calls
         from learnloop.db.repositories import Repository
 
         outcome: dict[str, Any] | None
-        try:
-            worker = Repository.attach(sqlite_path)
-            with record_model_calls(worker, owner_kind="sidecar_rpc",
-                                    owner_id=f"reader.reading_path:{extraction_id}:{depth}"):
-                result = RP.judge(vault, worker, extraction_id, depth, client=client)
-            # ``held``: another process kept its claim past the wait; nothing
-            # failed here, the next read finds its rows (or claims again).
-            outcome = None if result.status in ("ready", "fresh", "held") else {
-                "state": "failed", "reason": result.reason, "message": result.message}
-        except BaseException as exc:  # noqa: BLE001 - a failed judgment answers the view, never the loop
-            LOG.warning("reading path judgment failed: %s", type(exc).__name__, exc_info=exc)
-            outcome = {"state": "failed", "reason": "judge_failed",
-                       "message": "Couldn't read a path for this book just now. Try again ↵"}
+        # Plan-first transport T1: the judgment's thread has no RPC collector;
+        # it keeps its own offers and each read of the failed state relays them.
+        with plan_fallback.collecting() as offers:
+            try:
+                worker = Repository.attach(sqlite_path)
+                with record_model_calls(worker, owner_kind="sidecar_rpc",
+                                        owner_id=f"reader.reading_path:{extraction_id}:{depth}"):
+                    result = RP.judge(vault, worker, extraction_id, depth, client=client)
+                # ``held``: another process kept its claim past the wait; nothing
+                # failed here, the next read finds its rows (or claims again).
+                outcome = None if result.status in ("ready", "fresh", "held") else {
+                    "state": "failed", "reason": result.reason, "message": result.message}
+            except BaseException as exc:  # noqa: BLE001 - a failed judgment answers the view, never the loop
+                LOG.warning("reading path judgment failed: %s", type(exc).__name__, exc_info=exc)
+                outcome = {"state": "failed", "reason": "judge_failed",
+                           "message": "Couldn't read a path for this book just now. Try again ↵"}
+        offer = offers.hint() if outcome is not None else None
         with judgments.lock:
             if outcome is None:
                 judgments.state.pop(key, None)
             else:
                 judgments.state[key] = outcome
+            if offer is None:
+                judgments.offers.pop(key, None)
+            else:
+                judgments.offers[key] = offer
 
     if getattr(ctx, "reading_path_inline", False):
         run()
@@ -177,6 +189,13 @@ def _view(ctx: SidecarContext, vault: Any, repository: Any, extraction_id: str, 
         _start(ctx, vault, repository, extraction_id, str(view["depth"]), str(key))
         with judgments.lock:
             current = dict(judgments.state.get(state_key) or {})
+    if current.get("state") == "failed":
+        from learnloop.ai import plan_fallback
+
+        # Relayed once (review F8): the next read of this failed state shows no banner again.
+        with judgments.lock:
+            offer = judgments.offers.pop(state_key, None)
+        plan_fallback.relay_hint(offer)
     return RP.path_view(vault, repository, extraction_id, inputs=RP.path_inputs(vault, repository, extraction_id),
                         judging=current or None)
 

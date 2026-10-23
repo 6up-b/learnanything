@@ -109,6 +109,8 @@ PASSAGE_CHECK_PROMPT_TOKENS = 8_000
 # The passage check's route: its client (the inventory resolver), its output
 # budget and its reasoning effort under the shared policy.
 PASSAGE_CHECK_ROUTE = "canonical_ingest"
+#: The price a metered passage check is held to (unset: refused before sending).
+PASSAGE_CHECK_PRICE_SETTING = "reader_inquiry.metered_price_per_million"
 PASSAGE_CHECK_PURPOSE = "reading_quick_check"
 # The learner's own verdict after comparing answers (W10: every learner-card
 # verdict appends to judgment_ledger).

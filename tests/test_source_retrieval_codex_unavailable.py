@@ -73,16 +73,17 @@ def _source_relevance_rows(repository) -> int:
             "SELECT COUNT(*) FROM judgment_ledger WHERE task = 'source_relevance'").fetchone()[0]
 
 
-def test_the_unset_t6_routes_follow_the_active_codex_profile(tmp_path):
+def test_the_unset_t6_routes_follow_the_active_plan_profile(tmp_path):
     from learnloop.practice_index.paid import plan_route
 
     paths, _repository = setup(tmp_path, embed=False)
     vault = loaded(paths)
-    assert vault.config.ai.active_provider == "codex"
+    # Plan-first transport T1: the active profile is the tool-free ChatGPT plan.
+    assert vault.config.ai.active_provider == "chatgpt"
     for task in T6_LLM_ROUTES:
         assert getattr(vault.config.ai.routing, task) is None
         route = plan_route(vault, task)
-        assert route.provider == "codex" and route.billing == "subscription"
+        assert route.provider == "chatgpt" and route.billing == "subscription"
 
 
 def test_an_exhausted_codex_leaves_the_tutor_on_its_linked_spans(tmp_path, codex):

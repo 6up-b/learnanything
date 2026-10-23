@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Protocol
 
-from learnloop.ai.providers.codex import check_codex_runtime, codex_config_from_ai_profile
+from learnloop.ai.agent_harness import harness_refusal
 from learnloop.config import AIProviderConfig, LearnLoopConfig
 
 AIRuntimeState = Literal[
@@ -35,6 +35,25 @@ def legacy_codex_status(status: str) -> str:
     return _CODEX_COMPAT_STATUS.get(status, status)
 
 
+def check_codex_runtime(vault_root: Path, codex_config):  # noqa: ANN001 - the frozen provider's own type
+    """The Codex health check, loaded only for an opted-in Codex profile.
+
+    Plan-first transport T1: this module never imports the Codex provider at
+    load time (a refused profile returns before this runs); the name stays
+    here so the frozen opt-in path and its tests keep one patch point.
+    """
+
+    from learnloop.ai.providers.codex import check_codex_runtime as _check
+
+    return _check(vault_root, codex_config)
+
+
+def codex_config_from_ai_profile(profile: AIProviderConfig):  # noqa: ANN201 - the frozen provider's own type
+    from learnloop.ai.providers.codex import codex_config_from_ai_profile as _convert
+
+    return _convert(profile)
+
+
 class OpenAIChatHealthcheck(Protocol):
     def __call__(self, profile: AIProviderConfig) -> None:
         ...
@@ -48,6 +67,12 @@ class AIRuntimeReport:
     model: str | None = None
     provider_revision: str | None = None
     message: str | None = None
+    #: Plan-first transport T1: ``"openrouter"`` when this is an unavailable
+    #: ChatGPT-plan route and a configured OpenRouter profile could serve it
+    #: if the learner chooses so (``learnloop.ai.plan_fallback``). An offer
+    #: only: nothing is sent to OpenRouter without that choice.
+    fallback_available: str | None = None
+    fallback_profile: str | None = None
 
     @property
     def ready(self) -> bool:
@@ -66,6 +91,9 @@ class AIRuntimeReport:
             "model": self.model,
             "provider_revision": self.provider_revision,
             "message": self.message,
+            # Present only with an offer, so existing payloads stay as they were.
+            **({"fallback_available": self.fallback_available, "fallback_profile": self.fallback_profile}
+               if self.fallback_available else {}),
         }
 
 
@@ -85,6 +113,17 @@ def check_ai_runtime(
             message=f"AI provider {selected!r} is not configured.",
         )
     provider_type = profile.type.lower()
+    refusal = harness_refusal(selected, profile, opt_in=config.ai.agent_harness_opt_in)
+    if refusal is not None:
+        # Plan-first transport T1: no Codex health check (it can start the
+        # app-server) runs for a refused profile.
+        return AIRuntimeReport(
+            status="provider_unavailable",
+            active_provider=selected,
+            provider_type=provider_type,
+            model=profile.model,
+            message=refusal,
+        )
     if provider_type in {"codex_sdk", "http", "http_adapter"}:
         report = check_codex_runtime(vault_root, codex_config_from_ai_profile(profile))
         status_map: dict[str, AIRuntimeState] = {
