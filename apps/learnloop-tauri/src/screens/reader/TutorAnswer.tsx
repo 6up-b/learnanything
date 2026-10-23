@@ -58,6 +58,8 @@ export interface TutorRailProps {
   onDidntHelp?: (exchange: ReaderExchange, text: string) => void;
   onPracticePick?: ((item: OfferItem, proposalId: string | null) => void) | null;
   onTryNextStep?: ((spanId: string) => void) | null;
+  /** RW5b: "make this explorable" on a cited block the tutor judged explorable (absent: not offered). */
+  onMakeExplorable?: ((spanId: string, offerRef: string) => void) | null;
   /** Open a passage the answer quotes or cites: this source peeks at it,
    *  another book opens as a detour (Alt+← comes back). Absent: not offered. */
   onOpenPassage?: ((passage: TutorPassageRef) => void) | null;
@@ -164,6 +166,7 @@ export function TutorAnswer({ exchange, tutor }: { exchange: ReaderExchange; tut
           buttons={exchange.offers.buttons ?? []}
           onPracticePick={tutor.onPracticePick ?? null}
           onTryNextStep={tutor.onTryNextStep ?? null}
+          onMakeExplorable={tutor.onMakeExplorable ?? null}
           {...(tutor.offerStore ? { store: tutor.offerStore } : {})}
           {...(tutor.exercises ? { exercises: tutor.exercises } : {})}
         />

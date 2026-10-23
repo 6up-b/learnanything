@@ -38,6 +38,7 @@ export function LibraryPane({
   onPracticePick,
   onClose,
   exercises = null,
+  onMakeExplorable = null,
 }: {
   ctl: LibraryAskController;
   /** The ask box's text while composing (null: an answer is shown). */
@@ -49,6 +50,8 @@ export function LibraryPane({
   onClose: () => void;
   /** RW4b's candidate view (absent while library_exercises is off). */
   exercises?: LibraryExercisesProps | null;
+  /** RW5b: an offered figure's press (absent while figures.offers_enabled is off). */
+  onMakeExplorable?: ((hit: LibraryHitDto, offerRef: string) => void) | null;
 }) {
   const [width, setWidth] = useState(() => clampSplitWidth(readWidth() ?? Math.floor(window.innerWidth / 2), window.innerWidth));
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -122,7 +125,8 @@ export function LibraryPane({
             <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textDim }}>↵ ask · {LIBRARY_COPY.close}</span>
           </form>
         ) : null}
-        <LibraryAnswer ctl={ctl} onOpenHit={onOpenHit} onPracticePick={onPracticePick} onClose={onClose} exercises={exercises} />
+        <LibraryAnswer ctl={ctl} onOpenHit={onOpenHit} onPracticePick={onPracticePick} onClose={onClose} exercises={exercises}
+          onMakeExplorable={onMakeExplorable} />
       </div>
     </>
   );

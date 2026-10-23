@@ -47,7 +47,7 @@ from learnloop.content.sources.exam_material import held_out_material
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.ingest.block_roles import lead_role
-from learnloop.source_retrieval.corpus import block_roles, item_exclusions
+from learnloop.source_retrieval.corpus import block_roles, item_exclusions, offerable_blocks
 from learnloop.source_retrieval.find_sources import QUESTION_CHARS
 from learnloop.source_retrieval.queries import MAX_QUERY_CHARS
 from learnloop.source_retrieval.tutor import ITEM_BOUND_LEAD_ROLES
@@ -554,28 +554,6 @@ def next_step_buttons(repository: Repository, *, extraction_id: str,
             buttons.append({"kind": "try_next_step", "extraction_id": key[0], "span_id": key[1],
                             "label": "try the next step first", "role": roles[key]})
     return buttons
-
-
-def offerable_blocks(repository: Repository, keys: Sequence[tuple[str, str]]) -> dict[tuple[str, str], str]:
-    """RW5b: which of these blocks "make this explorable" may be offered on
-    (``equation`` | ``figure``, code's rule: :func:`learnloop.figure_admission.offerable`)."""
-
-    from learnloop.db.stores.source_block_fts import blocks_by_key
-    from learnloop.figure_admission import offerable
-
-    wanted = list(dict.fromkeys((str(key[0]), str(key[1])) for key in keys))
-    if not wanted:
-        return {}
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        blocks = blocks_by_key(connection, wanted)
-        roles = block_roles(connection, [key for key in wanted if key in blocks]) if blocks else {}
-    found: dict[tuple[str, str], str] = {}
-    for key in wanted:
-        block = blocks.get(key)
-        if block is None or not offerable(block.block_type, roles.get(key)):
-            continue
-        found[key] = "equation" if block.block_type == "Equation" or roles.get(key) == "equation" else "figure"
-    return found
 
 
 def explorable_buttons(repository: Repository, *, extraction_id: str,

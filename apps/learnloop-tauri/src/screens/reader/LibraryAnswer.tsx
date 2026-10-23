@@ -14,6 +14,10 @@
 // RW4e: a passage whose role LearnLoop's model proposed carries it in its
 // locator as "counterexample (model's label)" (roleLabel.ts); without one the
 // locator is RW4a's.
+// RW5b: a passage the organizer's own judgment called explorable (an equation
+// or a figure; note.explorable, present only while figures.offers_enabled is
+// on) carries "make this explorable"; pressing it builds the figure under that
+// passage in its book (the button itself calls nothing).
 // Nothing here takes focus, animates or opens a modal (G54).
 import { useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { CompareTableDto, LibraryHitDto, LibraryNoteDto, ProposedItemDto } from "../../api/dto";
@@ -38,6 +42,11 @@ const linkStyle = {
   textUnderlineOffset: 2,
 } as const;
 
+export const LIBRARY_EXPLORABLE_COPY = {
+  make: "make this explorable",
+  building: "building it under the passage",
+} as const;
+
 const headStyle = { fontFamily: FONT_MONO, fontSize: 10, letterSpacing: "0.12em", color: COLOR.textDim, textTransform: "uppercase" as const };
 
 function locator(hit: LibraryHitDto): string {
@@ -57,6 +66,7 @@ function HitBlock({
   onPeek,
   onPin,
   onOpen,
+  onExplorable = null,
 }: {
   hit: LibraryHitDto;
   note: LibraryNoteDto | undefined;
@@ -65,7 +75,9 @@ function HitBlock({
   onPeek: () => void;
   onPin: () => void;
   onOpen: (() => void) | null;
+  onExplorable?: (() => void) | null;
 }) {
+  const [built, setBuilt] = useState(false);
   const modelRole = note?.roles?.length && hit.role !== note.roles[0] ? note.roles[0].replace(/_/g, " ") : null;
   return (
     <div
@@ -93,6 +105,15 @@ function HitBlock({
         <button type="button" onClick={onPeek} style={linkStyle} aria-label={`peek at ${hit.sourceTitle ?? "this passage"}`}>peek</button>
         <button type="button" onClick={onPin} style={linkStyle} aria-pressed={pinned}>{pinned ? "pinned ✓" : "pin"}</button>
         {onOpen ? <button type="button" onClick={onOpen} style={linkStyle}>open</button> : null}
+        {note?.explorable === true && onExplorable ? (
+          built ? (
+            <MeaningLabel style={{ fontSize: 10 }}>{LIBRARY_EXPLORABLE_COPY.building}</MeaningLabel>
+          ) : (
+            <button type="button" data-library-explorable={hit.key} onClick={() => { setBuilt(true); onExplorable(); }} style={linkStyle}>
+              {LIBRARY_EXPLORABLE_COPY.make}
+            </button>
+          )
+        ) : null}
       </div>
     </div>
   );
@@ -194,10 +215,13 @@ export function LibraryAnswer({
   onPracticePick,
   onClose,
   exercises = null,
+  onMakeExplorable = null,
 }: {
   ctl: LibraryAskController;
   /** Open a hit in the left pane (a crumb: Alt+← comes back). */
   onOpenHit: ((hit: LibraryHitDto) => void) | null;
+  /** RW5b: build an offered figure of a hit (`offerRef`: this library question). Absent: no offer shown. */
+  onMakeExplorable?: ((hit: LibraryHitDto, offerRef: string) => void) | null;
   /** A learner pick of a practice proposal (the plan serves it). */
   onPracticePick: ((item: ProposedItemDto, proposalId: string | null) => void) | null;
   onClose: () => void;
@@ -251,6 +275,7 @@ export function LibraryAnswer({
         onPeek={() => void ctl.peek(key)}
         onPin={() => ctl.togglePin(key)}
         onOpen={onOpenHit ? () => onOpenHit(hit) : null}
+        onExplorable={onMakeExplorable && ask?.askId ? () => onMakeExplorable(hit, ask.askId) : null}
       />
     );
   };

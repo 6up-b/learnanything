@@ -373,6 +373,24 @@ export function ReaderScreen({
   const activeReadingOn = inquiry && !offline && Boolean(contract?.activeReading);
   // RW5a: explorable figures (the contract names them only while figures.enabled is on).
   const figuresCtl = useFigures({ extractionId: render && !offline ? render.extractionId : null, contract: contract?.figures ?? null });
+  // RW5b: "make this explorable" pressed on an offer (the library organizer's
+  // or the tutor's own judgment; the contract names offers only while
+  // figures.offers_enabled is on). The build runs where its passage is: in
+  // this book at once, in another once that book is open (a detour).
+  const figureOffersOn = Boolean(contract?.figures?.offers) && !offline;
+  const [offeredFigure, setOfferedFigure] = useState<{ fromExtractionId: string | null; extractionId: string; spanId: string; origin: "library" | "tutor"; offerRef: string } | null>(null);
+  useEffect(() => {
+    if (!offeredFigure) return;
+    const open = render?.extractionId ?? null;
+    if (open !== offeredFigure.extractionId) {
+      // Another book opened instead (or the detour failed): the press lapses.
+      if (open !== offeredFigure.fromExtractionId) setOfferedFigure(null);
+      return;
+    }
+    if (!figuresCtl.enabled) return;
+    figuresCtl.request({ spanIds: [offeredFigure.spanId], origin: offeredFigure.origin, offerRef: offeredFigure.offerRef });
+    setOfferedFigure(null);
+  }, [offeredFigure, figuresCtl, render]);
   // RW1c: the tutor that looks things up (absent from the contract while both its switches are off).
   const readerTutor = contract?.readerTutor ?? null;
   // RW1c: the bound workbench session an Ask comes from (set once the workbench hook runs below).
@@ -2069,6 +2087,12 @@ export function ReaderScreen({
     }
     void openSource(card, hit.spanId, { via: "search", jumpReading: hit.extractionId });
   };
+  // RW5b: an offered figure's press (see offeredFigure above).
+  const makeExplorable = (target: Pick<LibraryHitDto, "sourceId" | "extractionId" | "spanId">, origin: "library" | "tutor", offerRef: string) => {
+    if (!figureOffersOn) return;
+    setOfferedFigure({ fromExtractionId: render?.extractionId ?? null, extractionId: target.extractionId, spanId: target.spanId, origin, offerRef });
+    if (!render || target.extractionId !== render.extractionId) openLibraryHit(target);
+  };
   // RW2c review F1: a passage the workbench names (a worked example, a picked
   // passage) may be in another book. In this book it is a peek, as before;
   // in another it opens there, as a library hit does (a detour: Alt+← comes
@@ -2223,6 +2247,7 @@ export function ReaderScreen({
                     onPracticePick={onCheckMe ? pickLibraryPagePractice : null}
                     onClose={libraryCtl.close}
                     exercises={exerciseProps}
+                    onMakeExplorable={figureOffersOn ? (hit, offerRef) => makeExplorable(hit, "library", offerRef) : null}
                   />
                 </Card>
                 </CompareKeepContext.Provider>
@@ -2861,6 +2886,7 @@ export function ReaderScreen({
             onPracticePick={onCheckMe ? pickLibraryPractice : null}
             onClose={closeLibrary}
             exercises={exerciseProps}
+            onMakeExplorable={figureOffersOn ? (hit, offerRef) => makeExplorable(hit, "library", offerRef) : null}
           />
         ) : null}
         {/* Right rail: annotation margin + capture + Ask */}
@@ -3187,6 +3213,10 @@ export function ReaderScreen({
                   { practiceItemId: item.practiceItemId, prompt: item.prompt } as ProposedItemDto, proposalId) : null,
                 onTryNextStep: readerTutor.tryNextStep && activeReadingOn
                   ? (spanId: string) => void activeCtl.start("next_step", [spanId], localFold([spanId]))
+                  : null,
+                // RW5b: a cited equation or figure of this book the tutor judged explorable.
+                onMakeExplorable: figureOffersOn && render
+                  ? (spanId: string, offerRef: string) => makeExplorable({ sourceId: render.sourceId, extractionId: render.extractionId, spanId }, "tutor", offerRef)
                   : null,
                 // RW1c (Codex review F9): an excerpt or citation opens where
                 // it is (this book peeks; another opens as a detour).

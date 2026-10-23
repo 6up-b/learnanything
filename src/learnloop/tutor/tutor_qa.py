@@ -1687,7 +1687,15 @@ def _reader_lookup_context(
             delivery_receipt["lookup_budget"] = {key: receipt[key] for key in
                                                  ("budget_tokens", "used_tokens", "trimmed", "dropped")}
     # RW5b: with figure offers on, the same context asks for the explorable
-    # judgment (its own prompt version and answer model; no new field).
+    # judgment (its own prompt version and answer model; no new field), and
+    # only when an equation or figure block is among the delivered passages:
+    # with nothing to judge, the request is RW1c's, byte for byte.
+    if explorable:
+        from learnloop.source_retrieval.corpus import offerable_blocks
+
+        explorable = bool(offerable_blocks(repository, [
+            (str(span.get("extraction_id")), str(span.get("span_id"))) for span in kept
+            if span.get("extraction_id") and span.get("span_id")]))
     context_type = ReaderTutorExplorableQAContext if explorable else ReaderTutorQAContext
     return context_type(
         context="reader",

@@ -19,6 +19,9 @@ export const FIGURE_POLL_MS = 1500;
 export interface FigureRequestInput {
   spanIds: string[];
   region?: { spanId: string; bbox: number[] } | null;
+  /** RW5b: an offered figure (the organizer's or the tutor's judgment named in `offerRef`). */
+  origin?: "selection" | "library" | "tutor";
+  offerRef?: string | null;
 }
 
 /** A build in flight or one that could not run, shown as a line under its passage. */
@@ -39,6 +42,8 @@ export interface FiguresContract {
   predictions: boolean;
   region: boolean;
   revisions: boolean;
+  /** RW5b: "make this explorable" offers (present only while figures.offers_enabled is on). */
+  offers?: boolean;
 }
 
 export interface FiguresCtl {
@@ -158,6 +163,13 @@ export function useFigures({
       const anchor = spanIds[spanIds.length - 1] ?? input.region?.spanId ?? "";
       const region = input.region && contract?.region ? input.region : null;
       const key = `req:${anchor}:${spanIds.join(",")}:${region ? region.bbox.join(",") : ""}`;
+      const origin = input.origin ?? "selection";
+      if (origin !== "selection") {
+        // RW5b: an offer builds only while offers are on (the server checks the offer too).
+        if (!contract?.offers) return;
+        run(key, anchor, () => api.readerFigureRequest({ extractionId, spanIds, origin, offerRef: input.offerRef ?? null }));
+        return;
+      }
       run(key, anchor, () => api.readerFigureRequest({ extractionId, spanIds, region }));
     },
     [enabled, extractionId, contract, run],

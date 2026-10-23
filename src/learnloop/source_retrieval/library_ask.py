@@ -832,7 +832,8 @@ def organize(
     if stored.get("status") in ("judged", "cached") and not stored.get("unchecked_lines"):
         return {"ask_id": ask_id, **shown_organizer(vault, stored), "reused": True}
     keys = _shown_keys(row)
-    passages = _passages(vault, repository, keys, with_kinds=explorable_task(organizer_task(vault)))
+    task = organizer_task(vault)
+    passages = _passages(vault, repository, keys, with_kinds=explorable_task(task))
     keys = [key for key in keys if key in passages]
     if not keys:
         organizer = {"status": "empty_pool", "notes": [], "order": []}
@@ -849,7 +850,10 @@ def organize(
                     los.append(lo_id)
         los.extend(lo for lo in (row["anchor"] or {}).get("learning_object_ids") or () if lo not in los)
     questions = open_questions(vault, repository, los) if personalized else []
-    task = organizer_task(vault)
+    if explorable_task(task) and not any(offerable_kind(passages[key]) for key in keys):
+        # RW5b: nothing to judge (no equation or figure among the passages):
+        # the request is RW4a's/RW4e's, byte for byte.
+        task = base_task(task)
     explorable = explorable_task(task)
     candidates = [{"ref": ref, "passage": passages[key]["text"][:ORGANIZER_PASSAGE_CHARS]} for ref, key in refs.items()]
     if explorable:
