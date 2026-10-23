@@ -3,8 +3,8 @@ title: "source_exposure_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "26923e913a375e196f5d1fcef869d143401bf453"
-source_commit_timestamp: "2026-10-22T17:12:57-04:00"
+source_commit: "5022f7eba249238fdedc71631bb13cc6716b4815"
+source_commit_timestamp: "2026-10-23T15:50:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_exposure_events"
@@ -20,13 +20,13 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/049_source_exposure_events.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/content/sources/source_outcome_analytics.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/diagnosis/remediation.py"
   - "src/learnloop/instructional/interventions.py"
@@ -125,10 +125,10 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/ad_ingest_fakes.py`
 - `tests/test_ad23_contract.py`
 - `tests/test_ad3_reading.py`
-- `tests/test_ad_never_extracted.py`
-- `tests/test_ad_projection.py`
+- `tests/test_ad_protected_readings.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_exam_protection.py`
 - `tests/test_exam_protection_review.py`

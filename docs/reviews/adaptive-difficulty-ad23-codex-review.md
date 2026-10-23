@@ -2660,3 +2660,132 @@ Three session restarts interrupted the round. Each time the worktree held the re
 regenerated references, and nothing else: no temporary outputs. Progress was committed before this
 gate. Every Python run outside pytest ran under `env -i` with an empty HOME, CODEX_HOME and
 LEARNLOOP_CONFIG_DIR. No model call was made; owner decisions are unchanged.
+
+## Redesign round 8 (Option B) (2026-10-23)
+
+Closed-checklist verify 18 reopened with four findings:
+- F1: Marker's table-of-contents page-range units, and the Markdown `##` fallback;
+- F2: positional span ids ordering the dose arm;
+- F3: raw against projected section membership;
+- F4: unclassified tables.
+
+Under the owner's escalation rule, an Opus architecture review (`ad23-architecture-proposal-2.md`)
+concluded that read-time projection of derived book structure is enumerative in principle. It cannot
+be closed:
+- each extractor derives structure its own way;
+- the stored IR does not keep what those derivations read;
+- for Reader-section events and the protection marks, the "never extracted" target does not exist.
+
+The owner approved its Option B on 2026-10-23.
+
+### Owner decisions (2026-10-23)
+
+- **Option B is approved.**
+- **The owner's textbooks may contain held-out units: assume yes.** B still lands.
+- **Follow-up D is queued, non-blocking.** It restores reading credit in protected books from their
+  visible parts: first by exact cited span (B-lite), then by AD's own heading-based sections.
+- **A separate small item:** the "Worked Examples" heading role goes into the shared role
+  classifier for everyone. Under round 7 only AD had it; it is now gone from AD, since clean books
+  are read as stored.
+- **Contingency (owner rule):** if the next verify reopens within B's own class, there is no
+  round 9. Reading signals are then suspended in any vault that holds such a reading, until D lands.
+
+### The rule
+
+`MaterialView.reading_withheld(e)` is true when the withheld material touches extraction `e`
+(`Material.touched`: wholly or in one block), or when the predicate is unavailable (fail closed). It
+is applied at the two existing points:
+- **The IR chokepoint.** `document_ir` returns nothing for such a reading, and the stored IR
+  otherwise, unchanged. The Reader's helpers, span aliases, `section_spans`, the reading order and
+  the role reader all read through it.
+- **The registry's reading references.** For the new `protected_tables.READING` set of tables, the
+  `extraction`, `span`, `spans` and `section` kinds resolve against the reading:
+  - `source_document_blocks`, `source_document_units` and `source_document_assets`;
+  - `source_exposure_events`, `reader_section_progress`, `reader_authored_questions` and
+    `question_events`;
+  - `source_span_reanchors`, `ad_reading_opportunities`, `ad_dose_offers` and `interaction_events`.
+
+  Tables with their own rules apply it inside those rules: Reader questions, tutor questions (their
+  whole recorded context), dose draws (origin and extra), and a reading receipt's source.
+
+  A new kind, `reading_payload`, makes a Reader event's payload or locator (a visit, a cue-density
+  change) a reading event of every reading it names.
+
+  `ITEM_PROVENANCE` names the one extraction-referencing table that keeps the block rule:
+  `entity_source_links`, an entity's own citations. A completeness test fails on any
+  reading-referencing table classified as neither.
+
+**What the rule means for readings:**
+- A reading with any withheld block is ABSENT for every reading signal: units, sections, the
+  worked-example map, reading doses, receipts and section events.
+- Practice items from its visible spans are judged exactly as before (`withheld`, `covers`).
+- Clean books are read exactly as stored. That matches the Reader and AD1 on main.
+  `worked_example_spans` is the incumbent's `role_keys` again.
+
+**Deleted:**
+- `project_ir`, `_canonical_text` and the time-cue rule;
+- round 7's ingest additions (`block_roles.positional_structure`, `glm_ocr.canonical_label_text`),
+  reverted. The branch touches no ingest file.
+
+**Also:**
+- **The dose arm** is ineligible (`protected_reading`) at such a reading's boundaries *before* the
+  draw, so the propensities of every draw stay exact.
+- **F2:** candidates are taken in reading order (the stored ordinal), never by span id.
+- **F3:** `section_spans` reads only through the chokepoint.
+- **`ad report`** says "Readings with protected material: N; their reading events not used: M".
+- **F4:** an unclassified (kind None) table is refused in every scope, the rules' included.
+- **`derived_by_position` stays live.** The chokepoint (`rules("derive")`) is the one place a
+  derived column is read, so the kind is now the guard's proof that no other reader of stored
+  structure exists. Its treatments read `chokepoint: ...` or `unread: ...`.
+- **Migration 214, the epoch and the guard's other rules are unchanged.** A reading's mixed status
+  is a function of the withheld set, which the epoch already digests. So marking one block of a
+  clean reading changes the epoch and puts its receipts out of force, and a release restores them.
+
+### The closing test: `tests/test_ad_protected_readings.py`
+
+It replaces `test_ad_never_extracted.py`.
+- **The oracle is an exact row deletion** (`tests.ad_ingest_fakes.delete_reading`): the reading's
+  blocks, units, assets and reading events deleted, its items kept.
+- **The builders are production's:**
+  - Marker with `metadata.table_of_contents` over several pages (its page-range units);
+  - GLM-OCR;
+  - Markdown from source text.
+
+  They keep production `s{n}` span ids, never renamed.
+- **The withheld sets come from real marks:** held-out unit marks (`save_unit_selection`, resolved
+  by `exam_material` against the stored units) and held-out assessment signals
+  (`insert_unit_inventory`).
+- **The mixed and clean readings are different books.** A mark makes a book protected, and the
+  predicate then withholds the book's other, unmarked readings whole (rule 4).
+
+The properties:
+
+| Property | Cases | Result |
+|---|---|---|
+| 1. Absence: every AD output (worked examples, IR, LO-for-span, section spans and LOs, dose feasibility and decision, aliases, sweep receipts, the report's reading count) equals the deleted copy's | 25 seeds × 3 styles, marked by unit, signal or both | pass |
+| 2. Inertness: the withheld unit's heading text, position and block count vary, the visible elements stay the same; outputs equal | 8 seeds × 3 styles | pass |
+| 3. Clean parity: `worked_example_spans` equals `role_keys`; the IR, section spans and LO-for-span and -section equal the Reader's own on the raw repository | 3 styles | pass |
+| 4. An item on a visible span of a mixed reading is not withheld, exactly as when the reading is clean; one on a withheld span is | 3 styles | pass |
+| 5. Marking flips the epoch, takes the receipts out of force and makes the dose arm ineligible; release restores the epoch exactly, and the receipts with it | 3 styles | pass |
+
+Verify 18's probes, re-run under B:
+- **F1, Marker TOC units:** moot by absence. The reading reads as none, no unit or label reaches
+  AD, and the receipts and aliases equal the deleted copy's.
+- **F3, raw section membership:** passes. `section_spans` is empty for the mixed reading, and the
+  boundary is ineligible before the draw.
+- **The Markdown fallback:** moot by absence for the mixed reading; the clean reading is read as
+  stored.
+- **F2, span-id order:** passes. On a clean reading of ten or more blocks the dose arm offers the
+  first worked example by ordinal (`s9`), not by span-id string.
+
+The other AD tests now use the same oracle:
+- the contract's absent copy is the row deletion of its one mixed reading, and it gains a clean
+  second reading so the reading stages stay non-vacuous;
+- the projection tests use the same builder and oracle;
+- the registry tests cover `READING` completeness and the new treatments;
+- the F20 and receipt re-mapping regressions follow the reading rule.
+
+**Fail-before on `8c404d2b2`:** every new test fails there, 114 of 114 (the protected-readings
+file, the F4 guard test and the `READING` completeness test). For most this is meaningful (wrong
+outputs). For property 4 it is only because `reading_withheld` did not exist; the item judgment
+itself was already correct.

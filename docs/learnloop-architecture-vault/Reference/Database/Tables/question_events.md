@@ -3,8 +3,8 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "26923e913a375e196f5d1fcef869d143401bf453"
-source_commit_timestamp: "2026-10-22T17:12:57-04:00"
+source_commit: "5022f7eba249238fdedc71631bb13cc6716b4815"
+source_commit_timestamp: "2026-10-23T15:50:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
@@ -172,11 +172,13 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/ad_ingest_fakes.py`
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_fix_round4.py`
 - `tests/test_ad1_migration.py`
 - `tests/test_ad23_contract.py`
 - `tests/test_ad3_relatedness.py`
+- `tests/test_ad_protected_tables.py`
 - `tests/test_capture_desktop.py`
 - `tests/test_capture_route_recovery.py`
 - `tests/test_coldness_receipt.py`
@@ -190,8 +192,6 @@ Indexes and uniqueness:
 - `tests/test_migrations.py`
 - `tests/test_probability_prep.py`
 - `tests/test_question_promotions.py`
-- `tests/test_question_signal.py`
-- `tests/test_reader_branches.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
