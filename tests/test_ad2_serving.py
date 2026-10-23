@@ -120,7 +120,7 @@ def test_generation_prompt_has_no_band_language_under_successor(tmp_path):
     (commission,) = selections(paths, kind="commission")
     assert commission["id"] == target.ad_commission_id and commission["chosen_point"]
     # Below the tag, or with the switch off, today's prompt exactly.
-    for name, version, ad in (("below", "mvp-0.27", ""), ("off", "mvp-0.28", "generation_contract = false\n")):
+    for name, version, ad in (("below", "mvp-0.27", ""), ("off", "mvp-0.30", "generation_contract = false\n")):
         other = ad23_vault(tmp_path / name, items=("pi_g1",), version=version, ad=ad)
         plan_b, text_b = _generation_prompt(other)
         assert plan_b.targets[0].ad_commission_id is None
@@ -158,8 +158,8 @@ def test_selection_switch_off_restores_lane_order(tmp_path):
     (``mvp-0.27``) exactly, and no draw is written; with it on, AD substitutes the hard slot."""
 
     before = _served_sequence(tmp_path, "pred", version="mvp-0.27", ad="")
-    off = _served_sequence(tmp_path, "off", version="mvp-0.28", ad="selection = false\n")
-    on = _served_sequence(tmp_path, "on", version="mvp-0.28", ad="")
+    off = _served_sequence(tmp_path, "off", version="mvp-0.30", ad="selection = false\n")
+    on = _served_sequence(tmp_path, "on", version="mvp-0.30", ad="")
     assert off[:2] == before[:2] and not off[2] and not before[2]
     assert on[2] and on[0][0]["practice_item_id"] != before[0][0]["practice_item_id"]
 

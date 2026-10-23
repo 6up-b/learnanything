@@ -109,7 +109,7 @@ def _check(database: Path) -> None:
         connection.execute(
             "INSERT INTO ad_selections(id, decision_key, kind, view, mode, support_json, excluded_json, "
             "constants_json, seed, empty_support, state_hash, versions_json, algorithm_version, created_at) VALUES "
-            "('s1', 'serve:b:1', 'serve', 'subject', 'band', '[]', '[]', '{}', 'seed', 0, 'h', '{}', 'mvp-0.28', 't')")
+            "('s1', 'serve:b:1', 'serve', 'subject', 'band', '[]', '[]', '{}', 'seed', 0, 'h', '{}', 'mvp-0.30', 't')")
         with pytest.raises(sqlite3.IntegrityError):  # the vocabulary of modes
             connection.execute(
                 "INSERT INTO ad_selections(id, decision_key, kind, view, mode, support_json, excluded_json, "

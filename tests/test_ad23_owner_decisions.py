@@ -294,7 +294,7 @@ def test_the_owner_defaults_of_2026_10_19():
     from learnloop.config.schema import LearnLoopConfig
     from learnloop.params.parameter_registry import REGISTRY
 
-    config = LearnLoopConfig.model_validate({"algorithms": {"algorithm_version": "mvp-0.28"}})
+    config = LearnLoopConfig.model_validate({"algorithms": {"algorithm_version": "mvp-0.30"}})
     section = config.adaptive_difficulty
     assert section.calibrate_below == 0.25 and S.SelectionConstants().calibrate_below == 0.25
     assert S.constants_from_config(config).calibrate_below == 0.25

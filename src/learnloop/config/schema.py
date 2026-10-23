@@ -3456,8 +3456,8 @@ class AdaptiveDifficultyConfig(BaseModel):
       METERED LLM route of these roles; unset, a metered LLM call is refused
       before it is sent. The Decider is priced at its profile's listed price.
 
-    AD2+AD3 (``mvp-0.28``, one successor; §11.1; dormant below the tag), each
-    switch false restoring its part of ``mvp-0.27`` exactly:
+    AD2+AD3 (``mvp-0.30``, one successor; §11.1; dormant below the tag), each
+    switch false restoring its part of ``mvp-0.29`` exactly:
 
     * ``selection``: a planned new-material slot is served by AD's draw over its
       support (practice in the band, calibration within acceptable difficulty,

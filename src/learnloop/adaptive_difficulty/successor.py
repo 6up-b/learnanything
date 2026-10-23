@@ -1,6 +1,6 @@
 """The AD2+AD3 successor's gate and its six switches (spec_adaptive_difficulty_v1 §11.1).
 
-One successor (``mvp-0.28``), six switches under ``[adaptive_difficulty]``,
+One successor (``mvp-0.30``), six switches under ``[adaptive_difficulty]``,
 each restoring its part of the predecessor exactly, and composing:
 
 * ``selection``: the serve and commission draws, substitution, deferrals;
@@ -16,7 +16,7 @@ each restoring its part of the predecessor exactly, and composing:
 * ``reading_self_check``: the verdict term (D22).
 
 Below the tag every switch reads off whatever the config says, so an
-``mvp-0.27`` vault is served exactly as before. The master switch
+``mvp-0.29`` vault is served exactly as before. The master switch
 ``adaptive_difficulty.enabled`` turns everything off.
 
 Outside the successor: ``reading_dose_offers`` (D21), which acts at every

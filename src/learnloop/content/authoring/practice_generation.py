@@ -441,7 +441,7 @@ def build_practice_expansion_plan(
                 **({"episode_hypotheses": False} if ad_view is not None else {}),
             )
         # Adaptive difficulty AD2+AD3 (spec §6.1, §7.1; switch generation_contract,
-        # dormant below mvp-0.28): AD's commission draw names the feature point at
+        # dormant below mvp-0.30): AD's commission draw names the feature point at
         # the waypoint's capability; the target carries no difficulty band.
         rung, target_commission_id = _ad_commissioned_rung(
             vault, repository, learning_object.id, rung, commission_id=ad_commission_id, view=ad_view

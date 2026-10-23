@@ -1,9 +1,9 @@
-"""Adaptive difficulty AD2+AD3: the ``mvp-0.28`` successor (spec §11.1; docs/algorithm-change-playbook.md).
+"""Adaptive difficulty AD2+AD3: the ``mvp-0.30`` successor (spec §11.1; docs/algorithm-change-playbook.md).
 
 One successor, six switches, each restoring its part of ``mvp-0.27`` exactly and
 composing as §11.1 states; the dose arm outside it. With every switch false, or
 below the tag, what is served is the predecessor's (pinned on fixture copies).
-Fails before AD2+AD3: there was no ``mvp-0.28``. Fakes only; no model is called.
+Fails before AD2+AD3: there was no ``mvp-0.30``. Fakes only; no model is called.
 """
 
 from __future__ import annotations
@@ -39,10 +39,11 @@ ALL_OFF = "\n".join(f"{name} = false" for name in SC.SWITCHES) + "\n"
 def test_the_successor_is_the_next_link_with_its_defaults_snapshot():
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
 
-    assert ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION == "mvp-0.28" == SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION
-    assert SUCCESSOR_CHAIN[-2] == "mvp-0.27"
-    assert ADAPTIVE_DIFFICULTY_VERSIONS == frozenset({"mvp-0.28"})
-    assert DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.28"] == defaults_fingerprint_for_version("mvp-0.28")
+    assert ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION == "mvp-0.30" == SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION
+    # DL2 landed first: mvp-0.29 is the predecessor and mvp-0.28 is never used (the compose round).
+    assert SUCCESSOR_CHAIN[-2] == "mvp-0.29" and "mvp-0.28" not in SUCCESSOR_CHAIN
+    assert ADAPTIVE_DIFFICULTY_VERSIONS == frozenset({"mvp-0.30"})
+    assert DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.30"] == defaults_fingerprint_for_version("mvp-0.30")
 
 
 def test_below_the_tag_every_switch_reads_off_whatever_the_config_says(tmp_path):
@@ -53,7 +54,7 @@ def test_below_the_tag_every_switch_reads_off_whatever_the_config_says(tmp_path)
     assert not any(SC.switch_on(vault.config, name) for name in SC.SWITCHES)
     # The dose arm is outside the successor: it acts at every version.
     assert SC.dose_offers_on(vault.config)
-    set_algorithm_version(paths, "mvp-0.28")
+    set_algorithm_version(paths, "mvp-0.30")
     vault = load_vault(paths.root)
     assert all(SC.switch_on(vault.config, name) for name in SC.SWITCHES)
     vault.config.adaptive_difficulty.enabled = False
@@ -68,7 +69,7 @@ def test_the_switches_compose():
     from learnloop.config import LearnLoopConfig
 
     config = LearnLoopConfig()
-    config.algorithms.algorithm_version = "mvp-0.28"
+    config.algorithms.algorithm_version = "mvp-0.30"
     config.adaptive_difficulty.reading_opportunities = False
     assert not SC.verdicts_on(config) and not ReplaySettings.from_config(config).verdicts
     config.adaptive_difficulty.reading_opportunities = True
@@ -92,34 +93,41 @@ def test_promoted_predictor_off_makes_coupling_and_reading_moot_for_draws(tmp_pa
 
 
 def test_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest(tmp_path):
-    from learnloop.ad_successor_upgrade import upgrade_to_mvp028
+    from learnloop.ad_successor_upgrade import upgrade_to_mvp030
     from learnloop.cli.app import app
     from learnloop.db.repositories import Repository
     from learnloop.db.stores import ad_serving
 
     clock = FrozenClock(T0)
-    direct = create_placement_vault(tmp_path / "direct", version="mvp-0.27")
-    result = upgrade_to_mvp028(direct.root, clock=clock)
-    assert result.upgraded and (result.from_version, result.to_version) == ("mvp-0.27", "mvp-0.28")
-    assert load_vault(direct.root).config.algorithms.algorithm_version == "mvp-0.28"
+    direct = create_placement_vault(tmp_path / "direct", version="mvp-0.29")
+    result = upgrade_to_mvp030(direct.root, clock=clock)
+    assert result.upgraded and (result.from_version, result.to_version) == ("mvp-0.29", "mvp-0.30")
+    assert load_vault(direct.root).config.algorithms.algorithm_version == "mvp-0.30"
     with Repository(direct.sqlite_path).connection() as connection:
         assert ad_serving.read_state(connection), "AD's DERIVED state is prepared before the rename"
-    again = upgrade_to_mvp028(direct.root, clock=clock)
-    assert not again.upgraded and again.problems == ["vault is already mvp-0.28"]
+    again = upgrade_to_mvp030(direct.root, clock=clock)
+    assert not again.upgraded and again.problems == ["vault is already mvp-0.30"]
 
     chained = create_placement_vault(tmp_path / "chained", version="mvp-0.25")
-    assert upgrade_to_mvp028(chained.root, clock=clock).upgraded
-    assert load_vault(chained.root).config.algorithms.algorithm_version == "mvp-0.28"
+    assert upgrade_to_mvp030(chained.root, clock=clock).upgraded
+    assert load_vault(chained.root).config.algorithms.algorithm_version == "mvp-0.30"
 
     old = create_placement_vault(tmp_path / "old", version="mvp-0.8")
-    refused = upgrade_to_mvp028(old.root, clock=clock)
-    assert not refused.upgraded and "only 'mvp-0.27'" in refused.problems[0]
+    refused = upgrade_to_mvp030(old.root, clock=clock)
+    assert not refused.upgraded and "only 'mvp-0.29'" in refused.problems[0]
     assert load_vault(old.root).config.algorithms.algorithm_version == "mvp-0.8"
 
-    cli = create_placement_vault(tmp_path / "cli", version="mvp-0.27")
-    invoked = CliRunner().invoke(app, ["upgrade", "--vault", str(cli.root), "--to", "mvp-0.28"])
+    cli = create_placement_vault(tmp_path / "cli", version="mvp-0.29")
+    invoked = CliRunner().invoke(app, ["upgrade", "--vault", str(cli.root), "--to", "mvp-0.30"])
     assert invoked.exit_code == 0, invoked.output
-    assert "mvp-0.27 -> mvp-0.28" in invoked.output
+    assert "mvp-0.29 -> mvp-0.30" in invoked.output
+
+    # The owner's chain: --to mvp-0.9, --to mvp-0.27, --to mvp-0.29, then --to mvp-0.30.
+    owner = create_placement_vault(tmp_path / "owner", version="mvp-0.8")
+    for step in ("mvp-0.9", "mvp-0.27", "mvp-0.29", "mvp-0.30"):
+        ran = CliRunner().invoke(app, ["upgrade", "--vault", str(owner.root), "--to", step])
+        assert ran.exit_code == 0, (step, ran.output)
+    assert load_vault(owner.root).config.algorithms.algorithm_version == "mvp-0.30"
 
 
 def test_new_vaults_start_at_the_successor_with_every_switch_on(tmp_path):
@@ -130,7 +138,7 @@ def test_new_vaults_start_at_the_successor_with_every_switch_on(tmp_path):
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(T0))
     fresh = load_vault(tmp_path / "fresh")
-    assert fresh.config.algorithms.algorithm_version == "mvp-0.28"
+    assert fresh.config.algorithms.algorithm_version == "mvp-0.30"
     assert all(SC.switch_on(fresh.config, name) for name in SC.SWITCHES if name != "learned_coupling")
     assert not SC.switch_on(fresh.config, "learned_coupling") and SC.dose_offers_on(fresh.config)
 
@@ -199,7 +207,7 @@ QUIET_ROUTES = ("[adaptive_difficulty]\noutside_forecasters = []\nfeature_audit 
 
 @pytest.mark.parametrize("fixture", WORKING_FIXTURES)
 def test_every_switch_false_serves_the_predecessor_on_fixture_copies(tmp_path, monkeypatch, fixture):
-    """At ``mvp-0.28`` with the six switches false, Today, the plan and every served step are
+    """At ``mvp-0.30`` with the six switches false, Today, the plan and every served step are
     ``mvp-0.27``'s exactly, and no AD2+AD3 row is written (the pin of orchestrator note 4)."""
 
     if not (FIXTURES / fixture / "state.sqlite").exists():
@@ -207,7 +215,7 @@ def test_every_switch_false_serves_the_predecessor_on_fixture_copies(tmp_path, m
     monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: T0)
     monkeypatch.setenv("LEARNLOOP_AD_MODELS", "off")
     before, _root_b = _copy(tmp_path, fixture, "pred", version="mvp-0.27", toml=QUIET_ROUTES)
-    after, root_a = _copy(tmp_path, fixture, "succ", version="mvp-0.28", toml=QUIET_ROUTES + ALL_OFF)
+    after, root_a = _copy(tmp_path, fixture, "succ", version="mvp-0.30", toml=QUIET_ROUTES + ALL_OFF)
     reads = []
     for ctx in (before, after):
         sequence = [_volatile_free(_call(ctx, "get_today_queue", {})), _volatile_free(_call(ctx, "get_daily_plan", {}))]
@@ -233,7 +241,7 @@ def test_below_the_tag_a_rebuild_writes_no_ad_state(tmp_path):
     with repository.connection() as connection:
         for table in ("ad_state", "ad_attempt_trace", "item_forecast_scores"):
             assert connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0, table
-    set_algorithm_version(paths, "mvp-0.28")
+    set_algorithm_version(paths, "mvp-0.30")
     rebuild_all_derived_state(load_vault(paths.root), repository)
     with repository.connection() as connection:
         assert connection.execute("SELECT COUNT(*) FROM ad_state").fetchone()[0] > 0

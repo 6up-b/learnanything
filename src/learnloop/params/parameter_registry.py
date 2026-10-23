@@ -1187,7 +1187,7 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "the outside forecasters' and feature audit's metered spend a UTC day / the owner's price (USD per "
         "million tokens) for a metered LLM route of these roles; a money bound and its rate, no measurement "
         "authority (AD1 logs forecasts and audits, it decides nothing served)."),
-    # Adaptive difficulty AD2+AD3 (mvp-0.28): the selection rule's band and
+    # Adaptive difficulty AD2+AD3 (mvp-0.30): the selection rule's band and
     # overlap intervals, overlap share, near-tie margin and calibrate trigger
     # (D1, D6; pre-registered, docs/reviews/adaptive-difficulty-ad23.md §1.2)
     # decide which existing item a planned new-material slot serves, with

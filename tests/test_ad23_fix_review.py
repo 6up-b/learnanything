@@ -47,7 +47,7 @@ def _frozen_pfc_attempt(tmp_path, client) -> tuple[Any, Any, Any, str]:
 
     from learnloop.adaptive_difficulty.serve import record_plan_serve
 
-    paths, _vault, repository = split_vault(tmp_path, version="mvp-0.28", config=QUIET, seed=False)
+    paths, _vault, repository = split_vault(tmp_path, version="mvp-0.30", config=QUIET, seed=False)
     vault = load_vault(paths.root)
     served = "2026-11-01T11:00:00Z"
     with repository.connection() as connection:

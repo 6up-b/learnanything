@@ -224,7 +224,7 @@ def _base(tmp_path, *, coupled: bool = True) -> Any:
             "view": "subject", "learning_object_id": LO, "cell_facet": "recall", "cell_capability": "retrieval",
             "mode": "band", "support": [], "excluded": [], "constants": {}, "seed": "s", "u": 0.5,
             "chosen_item_id": None, "chosen_point": rung_features(point), "propensity": 1.0,
-            "empty_support": False, "state_hash": "h", "versions": {}, "algorithm_version": "mvp-0.28",
+            "empty_support": False, "state_hash": "h", "versions": {}, "algorithm_version": "mvp-0.30",
             "created_at": _iso(T0 - timedelta(days=3))})
         connection.commit()
     _base_r12(paths)
@@ -315,7 +315,7 @@ def _base_r12(paths) -> None:
             "view": "subject", "learning_object_id": LO, "cell_facet": "recall", "cell_capability": "retrieval",
             "mode": "band", "support": [], "excluded": [], "constants": {}, "seed": "s", "u": 0.5,
             "chosen_item_id": None, "chosen_point": rung_features(point), "propensity": 1.0, "empty_support": False,
-            "state_hash": "h", "versions": {}, "algorithm_version": "mvp-0.28",
+            "state_hash": "h", "versions": {}, "algorithm_version": "mvp-0.30",
             "created_at": _iso(T0 - timedelta(hours=6))})
         # Fix round 13's expiry boundary: a public commission drawn outside any job expires seven days
         # after its draw, here two and a half hours into the run (inside the advancing clock's span).
@@ -324,7 +324,7 @@ def _base_r12(paths) -> None:
             "view": "subject", "learning_object_id": LO, "cell_facet": "apply_pub", "cell_capability": "retrieval",
             "mode": "band", "support": [], "excluded": [], "constants": {}, "seed": "s", "u": 0.5,
             "chosen_item_id": None, "chosen_point": rung_features(point), "propensity": 1.0, "empty_support": False,
-            "state_hash": "h", "versions": {}, "algorithm_version": "mvp-0.28",
+            "state_hash": "h", "versions": {}, "algorithm_version": "mvp-0.30",
             "created_at": _iso(RUN - timedelta(days=7) + timedelta(hours=2, minutes=30))})
         connection.commit()
 
@@ -520,7 +520,7 @@ def _protect(paths) -> dict[str, Any]:
             "INSERT INTO daily_plans(id, local_date, kind, minutes_budget, remembered_minutes, minutes_source, "
             "split_json, admission_json, estimator_version, source, chooser, status, algorithm_version, config_hash, "
             "created_at, updated_at) VALUES ('plan_old_r9', '2026-10-05', 'normal', 60, 60, 'chip', '{}', '{}', 'x', "
-            "'x', 'x', 'complete', 'mvp-0.28', 'h', '2026-10-05T09:00:00Z', '2026-10-05T09:00:00Z')")
+            "'x', 'x', 'complete', 'mvp-0.30', 'h', '2026-10-05T09:00:00Z', '2026-10-05T09:00:00Z')")
         connection.execute(
             "INSERT INTO attention_blocks(id, action, budget_minutes, content_hash, created_at, daily_plan_id, "
             "plan_ordinal) VALUES ('blk_old_r9', 'practice', 60, 'h', '2026-10-05T09:00:00Z', 'plan_old_r9', 1)")
@@ -622,7 +622,7 @@ def _protect_r11(paths, *, hist_attempt: str) -> None:
                            "'tutor_answer', 1.0, 'overlap', 'qe_hist_r11', ?)", (LO, _iso(T0 - timedelta(minutes=47))))
         base = {"view": "subject", "learning_object_id": LO, "cell_capability": "retrieval", "support": [],
                 "excluded": [], "constants": {}, "seed": "s", "u": 0.5, "propensity": 1.0, "empty_support": False,
-                "state_hash": "h", "versions": {}, "algorithm_version": "mvp-0.28"}
+                "state_hash": "h", "versions": {}, "algorithm_version": "mvp-0.30"}
         ad_serving.insert_selection(connection, {"protection_epoch": SEEDED,
             **base, "id": "sel_secret_r11", "decision_key": "serve:r11:secret", "kind": "serve", "cell_facet": "recall",
             "mode": "band", "block_id": block_id, "slot_position": 1, "slot_item_id": "pi_secret",

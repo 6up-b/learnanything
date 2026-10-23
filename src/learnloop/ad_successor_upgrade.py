@@ -1,8 +1,9 @@
-"""``learnloop upgrade --to mvp-0.28``: adaptive difficulty AD2+AD3 (one successor).
+"""``learnloop upgrade --to mvp-0.30``: adaptive difficulty AD2+AD3 (one successor).
 
 Spec ``docs/specs/spec_adaptive_difficulty_v1.md`` §14 AD2/AD3 and §11.1;
 ``docs/reviews/adaptive-difficulty-ad23.md``. The next link of the linear chain:
-everything ``mvp-0.27`` means PLUS this:
+everything ``mvp-0.29`` (daily-loop DL2, intent) means PLUS this. DL2 landed on
+main first, so ``mvp-0.28`` is never used (orchestrator decision 2026-10-20):
 
 * a planned new-material slot is served by AD's draw over its support
   (practice in the 70-80% band, calibration within acceptable difficulty,
@@ -18,11 +19,11 @@ everything ``mvp-0.27`` means PLUS this:
 
 The upgrade:
 
-* accepts the immediate predecessor (``mvp-0.27``), or ``mvp-0.9`` to
-  ``mvp-0.26`` by running :func:`learnloop.eligibility_decision_upgrade.upgrade_to_mvp027`
-  first (with its own activation; refusals pass through). If the chained steps
-  succeed and this step then fails, the vault is left at the valid ``mvp-0.27``.
-  Anything older is refused;
+* accepts the immediate predecessor (``mvp-0.29``), or ``mvp-0.9`` to
+  ``mvp-0.27`` by running :func:`learnloop.intent_upgrade.upgrade_to_mvp029`
+  first (with its own activation and chain; refusals pass through). If the
+  chained steps succeed and this step then fails, the vault is left at the valid
+  ``mvp-0.29``. Anything older is refused;
 * changes what is SERVED and the derived AD state, never the
   authority-propagation projection, evidence, mastery, FSRS or certification
   (A2, A11, A12): a tag change plus an idempotent rebuild of the same
@@ -31,7 +32,7 @@ The upgrade:
 
 The relatedness proposal's first coupling version is adopted by the owner's
 backfill (``learnloop ad relatedness``, dry-run first), never here. Each
-switch false restores its part of ``mvp-0.27`` exactly; rolling the version
+switch false restores its part of ``mvp-0.29`` exactly; rolling the version
 back is restore-only.
 """
 
@@ -42,11 +43,11 @@ from pathlib import Path
 
 from learnloop.algorithm_versions import (
     ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION,
-    ELIGIBILITY_DECISION_ALGORITHM_VERSION,
+    INTENT_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
 )
 from learnloop.clock import Clock
-from learnloop.eligibility_decision_upgrade import upgrade_to_mvp027
+from learnloop.intent_upgrade import upgrade_to_mvp029
 from learnloop.ops.vault_upgrade import UpgradeResult, rewrite_algorithm_version
 from learnloop.params import parameter_registry as registry_service
 from learnloop.substrate.p0_projection import activate_p0_projection
@@ -54,20 +55,22 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.repository import open_vault_repository
 
-#: Versions the upgrade accepts through the existing chain: mvp-0.9 to mvp-0.26.
-_CHAINED_PREDECESSORS = SUCCESSOR_CHAIN[:SUCCESSOR_CHAIN.index(ELIGIBILITY_DECISION_ALGORITHM_VERSION)]
+#: The immediate predecessor (daily-loop DL2's intent tag).
+PREDECESSOR = INTENT_ALGORITHM_VERSION
+#: Versions the upgrade accepts through the existing chain: mvp-0.9 to mvp-0.27.
+_CHAINED_PREDECESSORS = SUCCESSOR_CHAIN[:SUCCESSOR_CHAIN.index(PREDECESSOR)]
 
 #: An earlier link's refusal already names its own step; it passes through unprefixed.
 _STEP_REFUSAL = re.compile(r"^mvp-0\.\d+ step refused: ")
 
 
-def upgrade_to_mvp028(root: Path, *, clock: Clock | None = None) -> UpgradeResult:
-    """mvp-0.27 (or mvp-0.9 to mvp-0.26, through the chain) -> mvp-0.28: adaptive difficulty AD2+AD3."""
+def upgrade_to_mvp030(root: Path, *, clock: Clock | None = None) -> UpgradeResult:
+    """mvp-0.29 (or mvp-0.9 to mvp-0.27, through the chain) -> mvp-0.30: adaptive difficulty AD2+AD3."""
 
     vault = load_vault(root)
     original = vault.config.algorithms.algorithm_version
     target = ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION
-    predecessor = ELIGIBILITY_DECISION_ALGORITHM_VERSION
+    predecessor = PREDECESSOR
     if original == target:
         return UpgradeResult(upgraded=False, from_version=original, to_version=target,
                              problems=[f"vault is already {target}"])
@@ -81,7 +84,7 @@ def upgrade_to_mvp028(root: Path, *, clock: Clock | None = None) -> UpgradeResul
         )
     chained_notes: list[str] = []
     if original != predecessor:
-        chained = upgrade_to_mvp027(root, clock=clock)
+        chained = upgrade_to_mvp029(root, clock=clock)
         chained_notes = list(chained.notes or [])
         if not chained.upgraded:
             return UpgradeResult(
@@ -111,6 +114,6 @@ def upgrade_to_mvp028(root: Path, *, clock: Clock | None = None) -> UpgradeResul
 
 
 #: The successor's descriptive name for the same upgrade.
-upgrade_to_adaptive_difficulty = upgrade_to_mvp028
+upgrade_to_adaptive_difficulty = upgrade_to_mvp030
 
-__all__ = ["upgrade_to_adaptive_difficulty", "upgrade_to_mvp028"]
+__all__ = ["PREDECESSOR", "upgrade_to_adaptive_difficulty", "upgrade_to_mvp030"]

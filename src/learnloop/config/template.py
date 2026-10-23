@@ -1524,7 +1524,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # the effective config gains the key; all of them were recomputed from
     # the composed defaults (defaults_fingerprint_for_version).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.9": "5298ae9c06e8dcac17b3c68f1365a4888e20a4c633b2e7912848cd4e41ff287e",
+    "mvp-0.9": "8cdee15b73abee36fe7bab2de0f7dfb36b8a9334a116c287b2d06f99505e43d6",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1583,7 +1583,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.10": "ac080d403573377335562c4e0bfc29adbcb930f26493f8f0327ea8f0b0c768aa",
+    "mvp-0.10": "bb765e3e2539f03f36ef6ff021a1be0eee80fd80703c62f61ea74ae90518e642",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1650,7 +1650,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.11": "c5f9644f9bbcc365d3594f13a547bab3057434d3930572b46d1e6556683cb5f7",
+    "mvp-0.11": "27dcbd6f5b31fe022bd1e0b3f418eda712e92d60af19f2b889ff60cdfce61902",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1711,7 +1711,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.12": "0081842a03a4571349bc894752c9a0ea45fc1e7d74891f5df96bcdc7cbe71360",
+    "mvp-0.12": "84a694f05aa40abfb19cc954a396a18bd30641c7b9628466aa01c24468740ad2",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1767,7 +1767,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.13": "13269c076e3cbee07303e9cb5e65412fb69859b34b80e69ec8d2e1e9cbee315e",
+    "mvp-0.13": "99bfa2d835e2bf25825bdb3cebd3d70bb562238570d843244368a832c0cd3502",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1822,7 +1822,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.14": "455b87e9882fe7440afdd0e354237e6ba03127d3a9b8b641e6cb6c2973b371e3",
+    "mvp-0.14": "adf9feb866ff1363e565c1fd3e6a419e44e640cc6dbbdc4bb10f5cf6edf55138",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1875,7 +1875,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.15": "e520ea0c4233f44c4b4fa30eb2137f193a00931c9aec88c0e6d97e5d7242388f",
+    "mvp-0.15": "d41f56be3dc087a05c67b717637d8731938e33de575d902aa157982edd72eacb",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1935,7 +1935,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.16": "6d3c8358c14dbe46de07ce346c18d04a4b159a762f897023dc7936470a51b9e2",
+    "mvp-0.16": "e00a28b81d392f2c07512671579f8b799c727a76f0762464ce475c2bd64c47f3",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1991,7 +1991,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.17": "87cc6cdc3e56f70c004f5bdf2ac17dcb857701161a3955df0d38766eab349830",
+    "mvp-0.17": "57086431acc5b8d370904b9b99789aaed8a97105a6799a2531b6f0c88891f307",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -2040,7 +2040,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.18": "9139d7e916bf338bb16db107a98e1b2a6474463fc7db3805e53a5d31b5fd79d4",
+    "mvp-0.18": "1a5ee82ccb3ecc78db7096f8fcb7a17738da21f50778c7a5e37ea4ace0119f39",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -2089,7 +2089,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.19": "476721abf01f22243fa24c9d3e709fce665ce48e94f0cb5dd343dcb3b3f71559",
+    "mvp-0.19": "a0fa7a11aa54a18a5d8f9ee4e01e3e5861bb51b84f73c986388bef32c7782b73",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -2134,7 +2134,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.20": "22752c601ff92bafd59297cb2029125beef2e3c9aefd704d221316e87c22463e",
+    "mvp-0.20": "bafbe574bc01808ae2f007452f5286eb83a89c4b26f00c941586413190d779fc",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -2188,7 +2188,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.21": "65b9b9f22453d69de5976f9e7aabb66c7cb9d35311f51cc70ef86b6a748a9c68",
+    "mvp-0.21": "b5cce7700d63d06bb39d75d7dcf0a210dd01c5e6a8bbc559645603139b44c31b",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -2234,7 +2234,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.22": "e31adb56167876f7d0548e473dea1cf26ca5118b0b46e7b4d09387148ea8f751",
+    "mvp-0.22": "7f93de748b8290793e81ee9798e05001769641b81ed8cdf2c037f86300030010",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -2275,7 +2275,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.23": "f909f0633ebcb269a9fe03bb2e5ea242b99b38f3f694bf5145f6cea66dc4fa15",
+    "mvp-0.23": "9c3c5f5291f9e7ed0ef9bc65132fdfe75430c27846bcec4cb3d4ae83c890e69d",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -2313,7 +2313,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.24": "bbceb99adcc24cb773d1c370316822971c033ab5ce6a3043826ebe07cac071a1",
+    "mvp-0.24": "75f0dbaa5bc9911ec44a583ede2e9fd0b63d1c7721e31e48405fce57217112fc",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -2349,7 +2349,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.25": "ec644c4339c7c89c666784211fa108ff8ada3e73d28ac24ef1f7252963f2b76a",
+    "mvp-0.25": "ed10c3d80411f6666f7f03d1b4f968ada33d3b0085bd0d753497873b76d2f9cc",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -2384,7 +2384,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.26": "d84a12889ab74c004c1bcd3a1b0f80235fd25809c649c727658b5a80153af662",
+    "mvp-0.26": "94afdf8fcf70bc16ba2ec4a3f318d0c871bdc83d45cc8f81a49df194fbefa822",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -2419,7 +2419,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.27": "bc7b69af97b89ec732066b4558dd74b629f6d10df9d140cf1e7614b6778e4b24",
+    "mvp-0.27": "623e77e7eb5f89eda30d810c5555b67cce7e0a9acaf67655d89b02cf50680073",
     # mvp-0.29 (daily-loop DL2, the learner's intent; docs/reviews/
     # daily-loop-dl2.md and its Codex re-review F2): the predecessor plus
     # serving by intent (an excluded item is never served, requested or
@@ -2443,7 +2443,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.29": "cefd9f0541c69d5fd90fa9bafd3c3635c6787964939e9e3136c50384fdd917b1",
+    "mvp-0.29": "9663280715ea418b6321b0a490f0b4532d6a022ebf23c20ce152ebe4409f487c",
     # mvp-0.30 (adaptive difficulty AD2+AD3, owner 2026-10-18;
     # docs/reviews/adaptive-difficulty-ad23.md): mvp-0.29 plus AD's draw at a
     # planned new-material slot (practice in the 70-80% band, calibration within
@@ -2463,7 +2463,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # mvp-0.29, or from mvp-0.9 onwards through the chain (mvp-0.28 is never
     # used: AD2+AD3 lands after DL2, orchestrator decision 2026-10-20). New vaults start
     # here (the template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
-    "mvp-0.30": "9f5772668bc80b3b8e2bfcbc40afffa4daf2dbfbbb303f0a7b5782304fda7165",
+    "mvp-0.30": "2d7c85beadb15f4cbb7f26570d3d3ca08d0690e5f5f5fbc843669d55c5764236",
 
 }
 

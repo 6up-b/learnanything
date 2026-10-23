@@ -84,7 +84,7 @@ def test_relatedness_proposal_reads_no_learner_or_held_out_data(tmp_path):
     from tests.source_service_fakes import build_textbook_vault
 
     paths, repository, spans = build_textbook_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.28")
+    set_algorithm_version(paths, "mvp-0.30")
     save_unit_selection(repository, "ext_text", list(spans), exam_use_modes={"exercises": "held_out_evaluation"})
     vault = load_vault(paths.root)
     base = vault.practice_items["pi_eigen_1"]

@@ -1,6 +1,6 @@
 """Builders for adaptive difficulty AD2+AD3's tests (no network, no model call).
 
-``ad23_vault`` is AD1's daily-plan vault at the successor's tag (``mvp-0.28``)
+``ad23_vault`` is AD1's daily-plan vault at the successor's tag (``mvp-0.30``)
 with the outside forecasters and the feature audit off (no background job),
 items carrying task features, and extra LOs when asked. ``answer`` records a
 graded attempt through the real pipeline (a manual self-grade), bound to its
@@ -27,7 +27,7 @@ from tests.ad_fakes import ITEMS, LO, TASK_FEATURES, ad_plan_vault, plan_env, ro
 from tests.daily_plan_fakes import MovableClock, iso, make_env, scheduled, seed_due
 from tests.helpers import append_config_toml, create_daily_plan_vault
 
-SUCCESSOR = "mvp-0.28"
+SUCCESSOR = "mvp-0.30"
 QUIET = """
 [adaptive_difficulty]
 outside_forecasters = []

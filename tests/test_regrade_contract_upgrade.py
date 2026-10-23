@@ -228,11 +228,11 @@ def test_upgrade_command_reaches_the_successor(tmp_path):
     assert result.exit_code == 0, result.output
     assert f"{PREDECESSOR} -> {TARGET}" in result.output
     # The default target is the latest successor (adaptive difficulty
-    # AD2+AD3, mvp-0.28), through this step.
+    # AD2+AD3, mvp-0.30), through this step.
     default = create_placement_vault(tmp_path / "default", version=PREDECESSOR)
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(default.root)])
     assert result.exit_code == 0, result.output
-    assert f"{PREDECESSOR} -> mvp-0.29" in result.output
+    assert f"{PREDECESSOR} -> mvp-0.30" in result.output
     explicit = create_placement_vault(tmp_path / "explicit", version="mvp-0.24")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(explicit.root), "--to", TARGET])
     assert result.exit_code == 0, result.output
