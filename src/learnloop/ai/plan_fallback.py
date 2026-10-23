@@ -91,6 +91,30 @@ METERED_PRICE_SETTINGS: dict[str, str] = {
 }
 
 
+#: Set inside :func:`priced_by`: the price settings of the feature resolving a route.
+_FEATURE_PRICES: ContextVar[tuple[str, ...]] = ContextVar("learnloop_plan_fallback_feature_prices", default=())
+
+
+@contextmanager
+def priced_by(*settings: str) -> Iterator[None]:
+    """Resolve routes in this block for a feature held to its own price (re-review F2).
+
+    Some features share another feature's task but refuse an unpriced
+    metered route by a setting of their own: the Reader's paid passage
+    checks (``reader_inquiry.metered_price_per_million``) and exercise
+    imports (``source_service.llm_price_per_million``) ride
+    ``canonical_ingest``. While such a setting is unset, the route makes no
+    offer and honours no grant of that task (a grant from the question
+    build is the build's); the unavailable message names the setting.
+    """
+
+    token = _FEATURE_PRICES.set((*_FEATURE_PRICES.get(), *settings))
+    try:
+        yield
+    finally:
+        _FEATURE_PRICES.reset(token)
+
+
 def _setting(config: LearnLoopConfig, dotted: str) -> Any:
     value: Any = config
     for part in dotted.split("."):
@@ -105,10 +129,14 @@ def offer_blocker(config: LearnLoopConfig, task: str) -> str | None:
     would refuse anyway); the unavailable message says what to set instead.
     """
 
-    setting = METERED_PRICE_SETTINGS.get(task)
-    if setting is not None and _setting(config, setting) is None:
-        return (f"OpenRouter could do this once {setting} is set (the price it is held to); "
-                "until then nothing is offered or sent.")
+    # The task's own price, then the price of the feature resolving it
+    # (:func:`priced_by`, re-review F2): a passage check rides
+    # ``canonical_ingest`` but is held to ``reader_inquiry.metered_price_per_million``.
+    settings = [METERED_PRICE_SETTINGS.get(task), *_FEATURE_PRICES.get()]
+    for setting in dict.fromkeys(entry for entry in settings if entry):
+        if _setting(config, setting) is None:
+            return (f"OpenRouter could do this once {setting} is set (the price it is held to); "
+                    "until then nothing is offered or sent.")
     if task == "diagnosis" and config.diagnosis.history_mode == "snapshot":
         return ("OpenRouter can't do a snapshot diagnosis (diagnosis.history_mode = \"snapshot\" reads a "
                 "workspace only the ChatGPT plan serves), so it isn't offered.")
@@ -156,11 +184,13 @@ class OfferCollector:
 _COLLECTOR: ContextVar[OfferCollector | None] = ContextVar("learnloop_plan_fallback_offers", default=None)
 #: Set inside :func:`quiet`: a readiness probe, not a feature the learner used.
 _QUIET: ContextVar[bool] = ContextVar("learnloop_plan_fallback_quiet", default=False)
+#: Set inside ``quiet(honour_grants=True)``: a status read that makes no offer.
+_NO_OFFERS: ContextVar[bool] = ContextVar("learnloop_plan_fallback_no_offers", default=False)
 
 
 @contextmanager
-def quiet() -> Iterator[None]:
-    """Make no offer, and honour no grant, for routes resolved in this block.
+def quiet(*, honour_grants: bool = False) -> Iterator[None]:
+    """Make no offer, and (by default) honour no grant, for routes resolved in this block.
 
     For readiness probes (the snapshot's health line, startup maintenance):
     they report the plan's state themselves, and the learner is asked about
@@ -168,17 +198,22 @@ def quiet() -> Iterator[None]:
     the feature the learner used, never for background work: a deferred
     regrade backlog found at startup waits for the plan even while
     "grading" is granted for the session.
+
+    ``honour_grants``: a status read that shows what a feature would use
+    (the AI connection sheet, read on every vault load: re-review F1) makes
+    no offer but reports a granted route as the one that serves; it sends
+    nothing itself.
     """
 
-    token = _QUIET.set(True)
+    token = (_NO_OFFERS if honour_grants else _QUIET).set(True)
     try:
         yield
     finally:
-        _QUIET.reset(token)
+        (_NO_OFFERS if honour_grants else _QUIET).reset(token)
 
 
 def _collector() -> OfferCollector | None:
-    return None if _QUIET.get() else _COLLECTOR.get()
+    return None if _QUIET.get() or _NO_OFFERS.get() else _COLLECTOR.get()
 
 
 @contextmanager
@@ -385,6 +420,7 @@ __all__ = [
     "offer_profile",
     "offer_sentence",
     "offered_tasks",
+    "priced_by",
     "quiet",
     "relay_hint",
     "relay_job_offer",

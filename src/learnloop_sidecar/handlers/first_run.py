@@ -46,6 +46,21 @@ def authoring_route_for(vault) -> core.AuthoringRoute:
     return core.authoring_route_for(vault.root, vault.config)
 
 
+def _status_route(vault) -> core.AuthoringRoute:
+    """The build's route for a status read: no "Use OpenRouter instead" offer (re-review F1).
+
+    ``get_ai_connection`` runs on every vault load and ``connect_ai`` checks
+    readiness; neither is the learner using a feature, so neither asks. A
+    session grant of the build still shows as the route that serves it. The
+    build itself (``add_source``'s job) resolves without this and asks.
+    """
+
+    from learnloop.ai import plan_fallback
+
+    with plan_fallback.quiet(honour_grants=True):
+        return authoring_route_for(vault)
+
+
 def chatgpt_plan_ready() -> bool:
     from learnloop.ai.chatgpt_plan.session import PlanSession
 
@@ -104,7 +119,7 @@ def _connection_payload(ctx: SidecarContext) -> dict[str, Any]:
     from learnloop.decider_judgments import connection_note
 
     vault, _repository = ctx.require_vault()
-    route = authoring_route_for(vault)
+    route = _status_route(vault)
     record = vault.config.ai.consent.get(route.consent_key)
     label = core.consent_label(route.consent_key)
     # The Decider's small judgments go to Perplexity, not to the AI connected
@@ -227,7 +242,7 @@ def connect_ai(ctx: SidecarContext, params: ConnectAiInput) -> dict[str, Any]:
         _route_every_use_case(updates, "openrouter")
         key = "openrouter"
     else:
-        route = authoring_route_for(vault)
+        route = _status_route(vault)
         if not route.ready:
             raise SidecarError(
                 "ai_not_connected", "Connect an AI first: Continue with ChatGPT, or add an OpenRouter key.",

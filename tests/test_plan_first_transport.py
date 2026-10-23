@@ -1146,3 +1146,95 @@ def test_f9_refused_codex_profiles_are_not_offered_as_grading_providers(tmp_path
     assert "chatgpt" in plain
     opted = available_grading_providers(load_vault(_vault(tmp_path / "opted", opt_in=True)))
     assert "codex" in opted and "codex_low" in opted
+
+
+# ---------------------------------------------------------------------------
+# Re-review (2026-10-23)
+# ---------------------------------------------------------------------------
+
+
+def test_rr_f1_the_connection_status_never_offers_and_shows_a_granted_build(tmp_path, monkeypatch):
+    """Re-review F1: `get_ai_connection` runs on every vault load; it is a status read, not a feature use."""
+
+    from learnloop_sidecar import handlers  # noqa: F401 - populates the registry
+    from learnloop_sidecar.context import SidecarContext
+    from learnloop_sidecar.server import _handle
+    from learnloop.content.pipeline.add_source import authoring_route_for
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-never-sent")
+    vault = _vault(tmp_path)
+    ctx = SidecarContext()
+    ctx.load(vault, maintenance=False)
+
+    def rpc(method_name, params=None):
+        return _handle(ctx, {"jsonrpc": "2.0", "id": 1, "method": method_name, "params": params or {}})
+
+    status = rpc("get_ai_connection")["result"]
+    assert status["canAuthor"] is False and "fallbackAvailable" not in status
+    # Nothing was offered, so nothing can be granted from it.
+    assert plan_fallback.offered_tasks(vault) == []
+    refused = rpc("connect_ai", {"provider": "current"})["error"]["data"]
+    assert refused["code"] == "ai_not_connected" and "fallback_available" not in refused.get("details", {})
+    assert plan_fallback.offered_tasks(vault) == []
+    # The build itself still asks.
+    with plan_fallback.collecting() as offers:
+        assert not authoring_route_for(vault, ctx.vault.config).ready
+    assert offers.hint()["fallback_tasks"] == ["canonical_ingest"]
+    # Once the learner chose OpenRouter for the build, the status says what the build will use.
+    _grant(vault, ["canonical_ingest"])
+    granted = rpc("get_ai_connection")["result"]
+    assert granted["canAuthor"] is True and granted["provider"] == "openrouter"
+    assert "fallbackAvailable" not in granted
+
+
+def test_rr_f2_a_feature_that_needs_its_own_price_is_not_served_by_another_features_grant(tmp_path, monkeypatch):
+    """Re-review F2: passage checks and exercise imports ride `canonical_ingest` but refuse an unpriced metered route."""
+
+    from types import SimpleNamespace
+
+    from learnloop.content.pipeline import jobs
+    from learnloop.content.pipeline.runner import RunnerServices
+    from tests.openai_fakes import install_fake_openai
+
+    fake_openai = install_fake_openai(monkeypatch, '{"ok": true, "note": "openrouter"}')
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-never-sent")
+    vault = _vault(tmp_path)
+    config = load_config(vault / "learnloop.toml")
+    ctx = SimpleNamespace(vault_root=vault, services=RunnerServices(), bind_interruptible=lambda _client: None)
+    for resolve, setting in ((jobs._paid_quick_check_client, "reader_inquiry.metered_price_per_million"),
+                             (jobs._exercise_import_client, "source_service.llm_price_per_million")):
+        # No offer the feature would refuse, and the setting is named.
+        with plan_fallback.collecting() as offers, pytest.raises(jobs.IngestRunnerError, match=setting):
+            resolve(ctx)
+        assert offers.hint() is None, setting
+    # The question build's grant serves the build, never these features while their price is unset.
+    _grant(vault, ["canonical_ingest"])
+    assert ready_client_for_task(vault, config, "canonical_ingest").provider_name == "openrouter"
+    for resolve, setting in ((jobs._paid_quick_check_client, "reader_inquiry.metered_price_per_million"),
+                             (jobs._exercise_import_client, "source_service.llm_price_per_million")):
+        with pytest.raises(jobs.IngestRunnerError, match=setting):
+            resolve(ctx)
+    # Priced: the grant serves them too (an ordinary metered request under their caps).
+    priced = _vault(tmp_path, extra={"reader_inquiry.metered_price_per_million": 1.0,
+                                     "source_service.llm_price_per_million": 1.0})
+    priced_ctx = SimpleNamespace(vault_root=priced, services=RunnerServices(), bind_interruptible=lambda _c: None)
+    for resolve in (jobs._paid_quick_check_client, jobs._exercise_import_client):
+        assert resolve(priced_ctx).provider_name == "openrouter"
+    assert all(instance.requests == [] for instance in fake_openai.instances)  # built, never called
+
+
+def test_rr_f3_the_plan_status_lists_the_sessions_grants_for_a_lasting_stop(tmp_path, monkeypatch):
+    """Re-review F3: Settings shows "Stop using OpenRouter" while any grant exists, not only after granting."""
+
+    from learnloop_sidecar.context import SidecarContext
+    from learnloop_sidecar.dto import EmptyParams
+    from learnloop_sidecar.handlers import chatgpt_plan as rpc
+
+    vault = _vault(tmp_path)
+    ctx = SidecarContext()
+    ctx.load(vault, maintenance=False)
+    assert rpc.chatgpt_plan_status(ctx, EmptyParams())["openrouterGrantedTasks"] == []
+    _grant(vault, ["tutor_qa", "grading"])
+    assert rpc.chatgpt_plan_status(ctx, EmptyParams())["openrouterGrantedTasks"] == ["grading", "tutor_qa"]
+    plan_fallback.revoke(vault)
+    assert rpc.chatgpt_plan_status(ctx, EmptyParams())["openrouterGrantedTasks"] == []

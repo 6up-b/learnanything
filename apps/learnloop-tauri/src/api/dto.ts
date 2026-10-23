@@ -222,6 +222,8 @@ export interface ChatGPTPlanDto {
   attempt: ChatGPTPlanAttemptDto | null;
   profiles: ChatGPTPlanProfileDto[];
   usingPlan: boolean;
+  /** Tasks the learner's "Use OpenRouter instead" covers on this vault this session (re-review F3). */
+  openrouterGrantedTasks?: string[];
   authorizeUrl?: string;
   cancelled?: boolean;
   signout?: { signedOut: boolean; revoked: boolean | null; message: string };

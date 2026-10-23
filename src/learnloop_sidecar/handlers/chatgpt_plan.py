@@ -119,8 +119,15 @@ def chatgpt_plan_payload(ctx: SidecarContext) -> dict[str, Any]:
         if in_use:
             pause = min(entry["usage_limit_pause_minutes"] for entry in in_use)
     status = session.status().as_dict(pause_minutes=pause)
+    # The session's "Use OpenRouter instead" grants on the open vault, so
+    # Settings can offer "Stop using OpenRouter" for as long as any exists
+    # (re-review F3), not only on the banner right after granting.
+    from learnloop.ai import plan_fallback
+
+    granted = plan_fallback.granted_tasks(ctx.vault_root) if ctx.vault_root is not None else []
     return {**status, "attempt": ATTEMPTS.snapshot(), "profiles": profiles,
-            "using_plan": any(entry["in_use"] and entry["enabled"] for entry in profiles)}
+            "using_plan": any(entry["in_use"] and entry["enabled"] for entry in profiles),
+            "openrouter_granted_tasks": granted}
 
 
 @method("chatgpt_plan_status", EmptyParams)

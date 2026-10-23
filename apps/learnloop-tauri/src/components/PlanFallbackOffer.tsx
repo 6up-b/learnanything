@@ -97,7 +97,8 @@ export function PlanFallbackOffer({ onContinueWithChatGPT }: { onContinueWithCha
     >
       {chosen ? (
         <>
-          <div style={{ color: COLOR.text }}>OpenRouter will do this for the rest of this session. Try it again.</div>
+          <div style={{ color: COLOR.text }}>OpenRouter will do this for the rest of this session. Try it again. You can stop it any time
+            in Settings, ChatGPT plan.</div>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
             <button
               type="button"
