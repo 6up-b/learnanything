@@ -107,11 +107,18 @@ class E0ProviderFailure(E0Stop):
     kind = "provider"
 
     def __init__(self, classification: str, *, status_code: int | None = None,
-                 request_id: str | None = None) -> None:
+                 request_id: str | None = None, reason: str | None = None,
+                 details: dict[str, Any] | None = None) -> None:
         self.classification = classification
         self.status_code = status_code
         self.request_id = request_id
-        parts = [f"provider failure ({classification})"]
+        #: A SAFE reason built by the harness (schema field paths, error types,
+        #: counts, a stop_reason), never provider or model text (paid-run round 2).
+        self.reason = reason
+        #: Safe numbers and identifiers: ``stop_reason``, ``output_tokens``,
+        #: ``input_tokens``, ``max_tokens``, ``repaired``.
+        self.details = dict(details or {})
+        parts = [f"provider failure ({classification}" + (f": {reason}" if reason else "") + ")"]
         if status_code is not None:
             parts.append(f"status {status_code}")
         if request_id:

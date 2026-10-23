@@ -233,6 +233,9 @@ class ProtectedTextGuard:
         self._client = client
         self._probes = [probe for probe in probes if probe]
         self.refused = 0
+        #: The production client's own contract errors, by their fixed message
+        #: (allowlisted; paid-run round 2): the backfill reports only the class.
+        self.invalid: dict[str, int] = {}
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._client, name)
@@ -243,7 +246,42 @@ class ProtectedTextGuard:
             if any(probe in text for probe in self._probes):
                 self.refused += 1
                 raise ProtectedTextRefused("an embedding request carried protected text; nothing was sent")
-        return self._client.embed(inputs, task_prefix)
+        try:
+            vectors = self._client.embed(inputs, task_prefix)
+        except ValueError as exc:
+            message = str(exc)
+            reason = message if message in EMBEDDING_CONTRACT_ERRORS else "other ValueError"
+            self.invalid[reason] = self.invalid.get(reason, 0) + 1
+            raise
+        dims = getattr(self._client, "dims", None)
+        if len(vectors) != len(inputs) or any(len(vector) != dims for vector in vectors):
+            # The backfill refuses this answer next (and names only the class).
+            reason = "Embedding provider returned the wrong vector count or width"
+            self.invalid[reason] = self.invalid.get(reason, 0) + 1
+        return vectors
+
+
+#: The production embedding client's fixed contract-error messages
+#: (``learnloop.ai.providers.openai_embedding``; safe: no request text) and the
+#: backfill's own wrong-count check.
+EMBEDDING_CONTRACT_ERRORS = frozenset({
+    "Embedding input is empty or exceeds the conservative input limit",
+    "Embedding response is malformed",
+    "Embedding response indices do not match the input batch",
+    "Embedding response dimensions do not match the configured dimensions",
+    "Dimension truncation requires a known MRL embedding model",
+    "Embedding response contains non-finite values",
+    "Embedding response has an invalid vector norm",
+    "Embedding provider returned the wrong vector count or width",
+})
+#: A backfill pass that ends ``provider_failed`` is followed by at most this
+#: many more passes in the same run (missing vectors only; each request admitted).
+BACKFILL_EXTRA_PASSES = 1
+#: What the run's report keeps of each backfill pass (all safe: counts, the
+#: production report's fixed reason, the exception class names, the
+#: allowlisted contract-error messages).
+BACKFILL_REPORT_KEYS = ("status", "records", "embedded", "remaining", "reason", "error_type", "provider_error",
+                        "invalid_reasons", "pass")
 
 
 def protected_probes(snapshot: CorpusSnapshot) -> list[str]:
@@ -620,10 +658,36 @@ def backfill_service_copy(handle: Any, ledger: E0Ledger, *, client_factory: Any 
     from learnloop.source_retrieval.source_vectors import backfill_source_vectors
 
     gate = SystemRequestGate(ledger, handle.vault.config, arm="R1_service_backfill")
+    guards: list[Any] = []
+
+    def factory() -> Any:
+        client = client_factory() if client_factory is not None else None
+        if client is not None:
+            guards.append(client)
+        return client
+
     reports = []
     with quiet_provider_logs(), gate_model_requests(gate):
         for extraction_id in _current(handle):
-            reports.append(backfill_source_vectors(handle.vault, extraction_id, client_factory=client_factory))
+            passes = 0
+            while True:
+                guards.clear()
+                report = backfill_source_vectors(handle.vault, extraction_id,
+                                                 client_factory=factory if client_factory is not None else None)
+                # Paid-run round 2: the safe reason of a refused or invalid batch
+                # (the production report names only the exception class).
+                invalid: dict[str, int] = {}
+                for guard in guards:
+                    for reason, count in (getattr(guard, "invalid", None) or {}).items():
+                        invalid[reason] = invalid.get(reason, 0) + count
+                if invalid:
+                    report = {**report, "invalid_reasons": invalid}
+                reports.append({**report, "pass": passes + 1})
+                if report.get("status") != "provider_failed" or passes >= BACKFILL_EXTRA_PASSES:
+                    break
+                # Another pass re-plans only the missing vectors: the failed batch
+                # (its vectors were never saved) is sent once more.
+                passes += 1
     return reports
 
 
@@ -747,6 +811,5 @@ def prepare_service_copies(frozen_root: Path, service_root: Path, ledger: E0Ledg
     coverage = dense_coverage_complete(qwen)
     report = {"r0": {"how": r0_how, "redaction": state["r0"].get("redaction")},
               "qwen": {"how": qwen_how, "redaction": state["qwen"].get("redaction"), "coverage": coverage,
-                       "backfill": [{key: item.get(key) for key in ("status", "records", "embedded", "reason")}
-                                    for item in backfilled]}}
+                       "backfill": [{key: item.get(key) for key in BACKFILL_REPORT_KEYS} for item in backfilled]}}
     return {"R0": r0, "R1_service": qwen}, report

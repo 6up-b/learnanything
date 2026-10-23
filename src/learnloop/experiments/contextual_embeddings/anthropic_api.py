@@ -100,6 +100,10 @@ def _classify(status: int | None) -> str:
 
 
 TRANSIENT = frozenset({"rate_limited", "timeout", "unavailable", "network"})
+#: The Messages API's documented ``stop_reason`` values and content block types
+#: (what a safe failure detail may name; anything else is ``other``).
+STOP_REASONS = frozenset({"end_turn", "max_tokens", "stop_sequence", "tool_use", "pause_turn", "refusal"})
+BLOCK_TYPES = frozenset({"text", "thinking", "redacted_thinking", "tool_use"})
 
 
 def json_instructions(result_model: type[BaseModel]) -> str:
@@ -120,8 +124,103 @@ def extract_json(text: str) -> str:
         stripped = stripped[stripped.find("{"):] if "{" in stripped else stripped
     start, end = stripped.find("{"), stripped.rfind("}")
     if start < 0 or end < start:
-        raise E0ProviderFailure("invalid_output")
+        raise E0ProviderFailure("invalid_output", reason="no JSON object")
     return stripped[start:end + 1]
+
+
+#: At most this many JSON objects are tried in one answer.
+MAX_CANDIDATES = 16
+
+
+def schema_fields(result_model: type[BaseModel]) -> frozenset[str]:
+    """Every field name of the result schema, nested models included: the
+    names a safe validation reason may print (anything else is ``?``)."""
+
+    names: set[str] = set()
+    pending: list[Any] = [result_model]
+    seen: set[Any] = set()
+    while pending:
+        model = pending.pop()
+        if model in seen:
+            continue
+        seen.add(model)
+        for name, field in getattr(model, "model_fields", {}).items():
+            names.add(name)
+            stack = [field.annotation]
+            while stack:
+                annotation = stack.pop()
+                if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+                    pending.append(annotation)
+                stack.extend(getattr(annotation, "__args__", ()) or ())
+    return frozenset(names)
+
+
+def validation_reason(error: Any, fields: frozenset[str]) -> str:
+    """A pydantic ``ValidationError`` as ``loc:type`` codes (no input, no message)."""
+
+    codes = []
+    for item in error.errors()[:6]:
+        loc = ".".join(str(part) if isinstance(part, int) else (part if part in fields else "?")
+                       for part in item.get("loc", ()))
+        kind = item.get("type") if isinstance(item.get("type"), str) and re.fullmatch(r"[a-z_.]{1,40}",
+                                                                                        item["type"]) else "other"
+        codes.append(f"{loc or 'root'}:{kind}")
+    extra = error.error_count() - len(codes)
+    return "validation " + ", ".join(codes) + (f" (+{extra} more)" if extra > 0 else "")
+
+
+def parse_answer(text: str, result_model: type[BaseModel]) -> BaseModel:
+    """The ONE result object in a text answer (paid-run round 2).
+
+    Every top-level JSON object in the text is decoded in turn (prose, a
+    code fence or a second object around it no longer breaks the parse).
+    Exactly one object that validates is the answer; several that validate
+    are accepted only when they are equal. Otherwise ``invalid_output`` with
+    a SAFE reason: ``no JSON object``, the decoder's fixed message and
+    position, ``N different objects validate``, or the first candidate's
+    ``loc:type`` validation codes (schema field names only)."""
+
+    fields = schema_fields(result_model)
+    decoder = json.JSONDecoder()
+    position, objects, decode_error = 0, [], None
+    while len(objects) < MAX_CANDIDATES:
+        start = text.find("{", position)
+        if start < 0:
+            break
+        try:
+            value, end = decoder.raw_decode(text, start)
+        except json.JSONDecodeError as exc:
+            decode_error = decode_error or f"json {exc.msg} at char {exc.pos} of {len(text)}"
+            position = start + 1
+            continue
+        if isinstance(value, dict):
+            objects.append(value)
+        position = end
+    valid, first_error = [], None
+    for value in objects:
+        try:
+            valid.append(result_model.model_validate(value))
+        except Exception as exc:  # noqa: BLE001 - only its codes are kept
+            if first_error is None and hasattr(exc, "errors"):
+                first_error = validation_reason(exc, fields)
+    if valid:
+        dumps = {json.dumps(item.model_dump(mode="json"), sort_keys=True) for item in valid}
+        if len(dumps) == 1:
+            return valid[0]
+        raise E0ProviderFailure("invalid_output", reason=f"{len(dumps)} different JSON objects validate")
+    if first_error is not None:
+        raise E0ProviderFailure("invalid_output", reason=first_error)
+    raise E0ProviderFailure("invalid_output", reason=decode_error or "no JSON object")
+
+
+def repair_prompt(text: str, reason: str) -> str:
+    """The one repair request (paid-run round 2): the model's own answer back
+    with the SAFE reason it failed, asking for exactly one valid object. As
+    the production providers' JSON repair does, it carries no other text."""
+
+    return ("Your previous answer could not be used: " + reason + ". Rewrite it as exactly one JSON object that "
+            "validates against the JSON Schema in the system prompt. Keep every judgment it made; if it holds "
+            "more than one answer, keep only your final one. No prose, no code fence.\n\nPrevious answer:\n" + text)
 
 
 class AnthropicMessagesClient:
@@ -213,29 +312,65 @@ class AnthropicMessagesClient:
         transient failure), parsed and validated against ``result_model``."""
 
         system, user = self.wire_prompt(prompt, result_model)
-        body = self.body(system, user, max_tokens)
+        payload = self._post_with_retries(self.body(system, user, max_tokens), purpose=purpose,
+                                          prompt_identity=[system, user])
+        text = self._answer_text(payload, max_tokens)
+        try:
+            return parse_answer(text, result_model)
+        except E0ProviderFailure as failure:
+            if failure.classification != "invalid_output":
+                raise
+            first = failure
+        # ONE admitted repair (paid-run round 2): the production providers'
+        # JSON repair, under the same request gate, at the same max_tokens.
+        repair = repair_prompt(text, first.reason or "it did not validate")
+        payload = self._post_with_retries(self.body(system, repair, max_tokens), purpose=f"{purpose}_repair",
+                                          prompt_identity=[system, repair])
+        repaired_text = self._answer_text(payload, max_tokens, repaired=True)
+        try:
+            return parse_answer(repaired_text, result_model)
+        except E0ProviderFailure as failure:
+            raise E0ProviderFailure("invalid_output", reason=f"{first.reason}; after one repair: {failure.reason}",
+                                    details={**self._details(payload, max_tokens), "repaired": True}) from None
+
+    def _post_with_retries(self, body: Mapping[str, Any], *, purpose: str, prompt_identity: Any) -> Mapping[str, Any]:
         attempt = 0
         while True:
             try:
-                payload = self.send(body, purpose=purpose, prompt_identity=[system, user])
-                break
+                return self.send(body, purpose=purpose, prompt_identity=prompt_identity)
             except E0ProviderFailure as failure:
                 if failure.classification not in TRANSIENT or attempt >= pins.TRANSIENT_RETRIES:
                     raise
                 attempt += 1
                 self.sleep(min(30.0, 2.0 ** attempt))
+
+    @staticmethod
+    def _details(payload: Mapping[str, Any], max_tokens: int) -> dict[str, Any]:
+        """Safe numbers of a response: its stop_reason (allowlisted), token
+        counts, the max_tokens sent and the content block types."""
+
+        usage = payload.get("usage") if isinstance(payload.get("usage"), Mapping) else {}
+        stop = payload.get("stop_reason")
+        blocks = [block.get("type") for block in payload.get("content") or [] if isinstance(block, Mapping)]
+        return {"stop_reason": stop if stop in STOP_REASONS else ("other" if stop is not None else None),
+                "output_tokens": usage.get("output_tokens") if isinstance(usage.get("output_tokens"), int) else None,
+                "input_tokens": usage.get("input_tokens") if isinstance(usage.get("input_tokens"), int) else None,
+                "max_tokens": int(max_tokens),
+                "blocks": sorted({block if block in BLOCK_TYPES else "other" for block in blocks})}
+
+    def _answer_text(self, payload: Mapping[str, Any], max_tokens: int, *, repaired: bool = False) -> str:
+        """The text blocks of a finished answer; a refusal or a ``max_tokens``
+        stop is raised with its safe details (thinking counts against
+        ``max_tokens`` on these models: the documented adaptive default)."""
+
+        details = {**self._details(payload, max_tokens), "repaired": repaired}
         if payload.get("stop_reason") == "refusal":
-            raise E0ProviderFailure("refusal")
+            raise E0ProviderFailure("refusal", reason="stop_reason refusal", details=details)
         if payload.get("stop_reason") == "max_tokens":
-            raise E0ProviderFailure("truncated")
-        text = "".join(str(block.get("text") or "") for block in payload.get("content") or []
+            raise E0ProviderFailure("truncated", reason=f"stop_reason max_tokens at {int(max_tokens)} output tokens "
+                                                        "(thinking included)", details=details)
+        return "".join(str(block.get("text") or "") for block in payload.get("content") or []
                        if isinstance(block, Mapping) and block.get("type") == "text")
-        try:
-            return result_model.model_validate_json(extract_json(text))
-        except E0ProviderFailure:
-            raise
-        except Exception:  # noqa: BLE001 - an answer outside the schema is invalid output, never its text
-            raise E0ProviderFailure("invalid_output") from None
 
     def canary(self) -> dict[str, Any]:
         """The model id's check before any bulk work: one tiny admitted

@@ -82,7 +82,7 @@ from learnloop.experiments.contextual_embeddings.bank import (
     stable_order,
     write_questions,
 )
-from learnloop.experiments.contextual_embeddings.budget import E0Ledger, E0Stop
+from learnloop.experiments.contextual_embeddings.budget import E0Ledger, E0ProviderFailure, E0Stop
 from learnloop.experiments.contextual_embeddings.callers import Checkpoints
 from learnloop.experiments.contextual_embeddings.corpus import CorpusSnapshot
 from learnloop.experiments.contextual_embeddings.delivery import (
@@ -103,6 +103,10 @@ from learnloop.experiments.contextual_embeddings.stop_rules import decide
 from learnloop.tutor.context_delivery import BlockSource
 
 QWEN_ARMS = ("R1", "R2", "R3")
+#: A role answer that is unusable for ONE item (after its one repair): that
+#: item fails, counted; the step goes on (paid-run round 2). Every other
+#: failure (auth, budget, a transient failure past its retries) stops the step.
+QUESTION_FAILURES = frozenset({"invalid_output", "refusal", "truncated"})
 HOSTED_FAMILIES = {"R4": ("R4_grouped", "R4_singleton", "R4_independent"),
                    "R5": ("R5_grouped", "R5_singleton", "R5_independent")}
 #: Strata outside the primary representation endpoint (spec §5.2).
@@ -276,6 +280,16 @@ def label_all(snapshot: CorpusSnapshot, questions: Sequence[BankQuestion],
                         snapshot)
         try:
             labelled[question.query_id] = label_question(question, pool, snapshot, caller)
+        except E0ProviderFailure as exc:
+            if exc.classification not in QUESTION_FAILURES:
+                state.stop("labels", exc)
+                break
+            # One question's unusable answer (after its one repair) leaves THAT
+            # question unlabelled, counted, instead of stopping every label and
+            # answer after it (paid-run round 2).
+            state.fail(question.query_id, f"labels_{exc.classification}", str(exc))
+            state.missing("labels_failed", 1)
+            continue
         except E0Stop as exc:
             state.stop("labels", exc)
             break
@@ -289,6 +303,11 @@ def label_all(snapshot: CorpusSnapshot, questions: Sequence[BankQuestion],
             if state.stopped is None:
                 try:
                     adjudicate(question, labels, snapshot, caller)
+                except E0ProviderFailure as exc:
+                    if exc.classification not in QUESTION_FAILURES:
+                        state.stop("audits", exc)
+                    else:
+                        state.fail(query_id, f"audit_{exc.classification}", str(exc))
                 except E0Stop as exc:
                     state.stop("audits", exc)
             if not labels.adjudicated:
@@ -446,6 +465,9 @@ def run_paid(snapshot: CorpusSnapshot, *, ledger: E0Ledger, caller: Any, run_dir
             headers, context_stats = generate_contexts(snapshot, caller)
             if context_stats["missing"]:
                 state.fail("R3", "context_missing", "units without a generated context", context_stats["missing"])
+            if context_stats.get("failed_requests"):
+                state.fail("R3", "context_requests_failed", "context requests that failed after splitting",
+                           context_stats.get("failures"))
         except E0Stop as exc:
             state.blocked_arms.update({"R3", "R3_bm25"})
             state.fail("R3", exc.kind, str(exc))
@@ -543,6 +565,12 @@ def run_paid(snapshot: CorpusSnapshot, *, ledger: E0Ledger, caller: Any, run_dir
                                              rankings[finalist].get(question.query_id, [])[: pins.TOP_K])
                     answers.append(answer_and_judge(question, arm, delivered, caller, retrieval_latency_s=online))
                 done += 1
+            except E0ProviderFailure as exc:
+                if exc.classification not in QUESTION_FAILURES:
+                    state.stop("answers", exc)
+                    break
+                # That pair fails, counted (answers_missing); the schedule goes on.
+                state.fail(arm, f"answer_{exc.classification}", str(exc), 1)
             except E0Stop as exc:
                 state.stop("answers", exc)
                 break

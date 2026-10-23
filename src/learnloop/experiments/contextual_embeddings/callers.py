@@ -66,6 +66,7 @@ from learnloop.experiments.contextual_embeddings.budget import (
     E0BudgetExceeded,
     E0Ledger,
     E0PriceUnverified,
+    E0ProviderFailure,
     E0RequestBlocked,
     E0Stop,
     Request,
@@ -237,7 +238,7 @@ class Checkpoints:
     def __init__(self, directory: Path | None) -> None:
         self.directory = Path(directory) if directory is not None else None
         self._memory: dict[str, Any] = {}
-        self._failed: dict[str, list[str]] = {}
+        self._failed: dict[str, Any] = {}
 
     def get(self, key: str, *, refresh: bool = False) -> dict[str, Any] | None:
         if key in self._memory and not (refresh and self.directory is not None):
@@ -271,23 +272,37 @@ class Checkpoints:
             finally:
                 os.close(directory)
 
-    def mark_failed(self, key: str, reservations: Sequence[str]) -> None:
+    def mark_failed(self, key: str, reservations: Sequence[str], *, failure: Mapping[str, Any] | None = None) -> None:
         """Record, durably, that these admissions of ``key`` ended in a failure
-        (nothing to recover: a later run may send the request again)."""
+        (nothing to recover: a later run may send the request again), with
+        the failure's SAFE record (paid-run round 2): its classification,
+        reason, status and details (stop_reason, token counts, max_tokens),
+        never provider or model text."""
 
         known = sorted(set(self.failed_reservations(key)) | {str(item) for item in reservations})
-        self._failed[key] = known
+        record = {"reservations": known, "failure": dict(failure) if failure else self.failure(key)}
+        self._failed[key] = record
         if self.directory is not None:
-            self._durable_write(self.directory / f".{key}.failed.json", json.dumps(known))
+            self._durable_write(self.directory / f".{key}.failed.json", json.dumps(record, sort_keys=True))
 
-    def failed_reservations(self, key: str) -> list[str]:
-        if key in self._failed:
-            return list(self._failed[key])
-        if self.directory is not None:
+    def _failed_record(self, key: str) -> dict[str, Any]:
+        if key not in self._failed and self.directory is not None:
             path = self.directory / f".{key}.failed.json"
             if path.exists():
-                return [str(item) for item in json.loads(path.read_text(encoding="utf-8"))]
-        return []
+                self._failed[key] = json.loads(path.read_text(encoding="utf-8"))
+        value = self._failed.get(key)
+        if isinstance(value, list):  # the first paid run's format: reservations only
+            return {"reservations": [str(item) for item in value], "failure": None}
+        return dict(value or {"reservations": [], "failure": None})
+
+    def failed_reservations(self, key: str) -> list[str]:
+        return [str(item) for item in self._failed_record(key).get("reservations") or []]
+
+    def failure(self, key: str) -> dict[str, Any] | None:
+        """The safe record of this key's last failure (None: none recorded)."""
+
+        value = self._failed_record(key).get("failure")
+        return dict(value) if value else None
 
     def _durable_write(self, path: Path, text: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -442,6 +457,22 @@ class LiveRoleCaller(_Recording):
             if saved is not None:
                 return self._from_checkpoint(role, pin, key, identity, saved, result_model)
             explained = self.checkpoints.failed_reservations(key)
+            known = self.checkpoints.failure(key)
+            entries = self.ledger.entries_for(key)
+            # A failure recorded before failures carried their reason (the first
+            # paid run): an admission whose reported output reached the bound
+            # stopped at max_tokens by definition.
+            hit_bound = any(int((entry.get("usage") or {}).get("output_tokens") or 0) >= bound for entry in entries)
+            truncated = (known.get("classification") == "truncated"
+                         and (known.get("details") or {}).get("max_tokens") == bound) if known else hit_bound
+            if truncated and entries and all(entry["reservation"] in explained for entry in entries):
+                known = known or {"details": {"max_tokens": bound, "stop_reason": "max_tokens",
+                                              "inferred_from": "ledger output_tokens"}}
+                # The same request already stopped at this max_tokens: re-sending
+                # it would pay to truncate again (paid-run round 2). The caller
+                # splits the work instead (R3: fewer refs per request).
+                raise E0ProviderFailure("truncated", reason="known truncated at this max_tokens; not re-sent",
+                                        details=known.get("details"))
             if any(entry["reservation"] not in explained for entry in self.ledger.entries_for(key)):
                 # Admitted before, neither recorded nor known to have failed (a
                 # crash between the charge and the checkpoint): recover the settled
@@ -475,7 +506,8 @@ class LiveRoleCaller(_Recording):
                                                               result_model=result_model, isolated=True)
             except BaseException as exc:
                 # The attempt's outcome IS recorded (it failed): a later run may retry it.
-                self.checkpoints.mark_failed(key, [entry["reservation"] for entry in self.ledger.entries_for(key)])
+                self.checkpoints.mark_failed(key, [entry["reservation"] for entry in self.ledger.entries_for(key)],
+                                             failure=failure_record(role, exc))
                 if isinstance(exc, E0Stop) or not isinstance(exc, Exception):
                     raise
                 failure = provider_failure(exc)  # provider text never leaves this boundary (High 8)
@@ -511,6 +543,19 @@ class LiveRoleCaller(_Recording):
                 except Exception:  # noqa: BLE001 - an unparseable output recovers nothing
                     continue
         return None
+
+
+def failure_record(role: str, exc: BaseException) -> dict[str, Any]:
+    """The SAFE record of a failed role call (paid-run round 2): the role, the
+    allowlisted classification, the harness-built reason, the HTTP status
+    and the response's safe details; an exception that is not an E0 provider
+    failure is named by its type only."""
+
+    if isinstance(exc, E0ProviderFailure):
+        return {"role": role, "classification": exc.classification, "reason": exc.reason,
+                "status_code": exc.status_code, "request_id": exc.request_id, "details": dict(exc.details)}
+    return {"role": role, "classification": getattr(exc, "kind", None) or "unknown", "reason": None,
+            "status_code": None, "request_id": None, "details": {}, "type": type(exc).__name__}
 
 
 def with_experiment_profiles(config: Any) -> Any:

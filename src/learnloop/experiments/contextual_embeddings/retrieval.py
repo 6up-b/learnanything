@@ -225,14 +225,58 @@ class GeneratedContexts(WireModel):
     contexts: list[GeneratedContext]
 
 
-def context_prompt(snapshot: CorpusSnapshot, window: Window) -> tuple[str, dict[str, str]]:
-    """One prompt per window: its permitted units as the excerpt, one ref per unit."""
+#: Added when a request asks for a subset of a window's refs (paid-run round 2).
+CONTEXT_SUBSET_INSTRUCTIONS = ("This request covers only some passages: return one context for each ref listed "
+                               "in only_refs, and none for the others (they are shown as context).")
+
+
+def context_prompt(snapshot: CorpusSnapshot, window: Window,
+                   targets: Sequence[str] | None = None) -> tuple[str, dict[str, str]]:
+    """One prompt per window: its permitted units as the excerpt, one ref per
+    unit. ``targets`` (a subset of the refs) asks for those contexts only,
+    with the whole excerpt still shown; None is the window's original prompt,
+    byte for byte (its checkpoint is reused)."""
 
     refs = {f"p{index}": unit_id for index, unit_id in enumerate(window.unit_ids, start=1)}
     excerpt = [{"ref": ref, "passage": snapshot.unit(unit_id).text} for ref, unit_id in refs.items()]
-    prompt = render_structured_prompt("E0 chunk context", CONTEXT_PROMPT_VERSION,
-                                      {"instructions": CONTEXT_INSTRUCTIONS, "context": {"excerpt": excerpt}})
-    return prompt, refs
+    if targets is None:
+        payload = {"instructions": CONTEXT_INSTRUCTIONS, "context": {"excerpt": excerpt}}
+    else:
+        payload = {"instructions": CONTEXT_INSTRUCTIONS + " " + CONTEXT_SUBSET_INSTRUCTIONS,
+                   "context": {"excerpt": excerpt, "only_refs": list(targets)}}
+    prompt = render_structured_prompt("E0 chunk context", CONTEXT_PROMPT_VERSION, payload)
+    return prompt, refs if targets is None else {ref: refs[ref] for ref in targets}
+
+
+#: A window's request whose answer stopped at max_tokens (thinking counts
+#: against it) is split into halves of its refs, down to one ref.
+SPLIT_ON = frozenset({"truncated"})
+#: A request that still fails for these leaves its units without an R3 context
+#: (counted), instead of stopping R3 for every window.
+SKIP_ON = frozenset({"truncated", "invalid_output", "refusal"})
+
+
+def _window_contexts(snapshot: CorpusSnapshot, window: Window, caller: Any, targets: Sequence[str] | None,
+                     stats: dict[str, Any]) -> list[tuple[str, str]]:
+    from learnloop.experiments.contextual_embeddings.budget import E0ProviderFailure
+
+    prompt, refs = context_prompt(snapshot, window, targets)
+    try:
+        result = caller.call("context", prompt=prompt, result_model=GeneratedContexts, arm="R3")
+    except E0ProviderFailure as exc:
+        wanted = list(refs)
+        if exc.classification in SPLIT_ON and len(wanted) > 1:
+            stats["split_requests"] += 1
+            half = len(wanted) // 2
+            return [*_window_contexts(snapshot, window, caller, wanted[:half], stats),
+                    *_window_contexts(snapshot, window, caller, wanted[half:], stats)]
+        if exc.classification in SKIP_ON:
+            stats["failed_requests"] += 1
+            reasons = stats.setdefault("failures", {})
+            reasons[exc.classification] = reasons.get(exc.classification, 0) + 1
+            return []
+        raise
+    return [(refs[item.ref], item.context) for item in result.contexts if item.ref in refs]
 
 
 def generate_contexts(snapshot: CorpusSnapshot, caller: Any) -> tuple[dict[str, str], dict[str, int]]:
@@ -241,22 +285,20 @@ def generate_contexts(snapshot: CorpusSnapshot, caller: Any) -> tuple[dict[str, 
     without an R3 vector rather than silently given another recipe."""
 
     headers: dict[str, str] = {}
-    stats = {"windows": 0, "missing": 0, "short": 0, "long": 0}
+    stats: dict[str, Any] = {"windows": 0, "missing": 0, "short": 0, "long": 0, "split_requests": 0,
+                             "failed_requests": 0}
     for window in snapshot.windows:
-        prompt, refs = context_prompt(snapshot, window)
-        result = caller.call("context", prompt=prompt, result_model=GeneratedContexts, arm="R3")
         stats["windows"] += 1
-        for item in result.contexts:
-            unit_id = refs.get(item.ref)
-            if unit_id is None or unit_id in headers:
+        for unit_id, context in _window_contexts(snapshot, window, caller, None, stats):
+            if unit_id in headers:
                 continue
-            words = len(item.context.split())
+            words = len(context.split())
             if words < 30:
                 stats["short"] += 1
             elif words > 160:
                 stats["long"] += 1
-            headers[unit_id] = " ".join(item.context.split())
-        stats["missing"] += sum(1 for unit_id in refs.values() if unit_id not in headers)
+            headers[unit_id] = " ".join(context.split())
+        stats["missing"] += sum(1 for unit_id in window.unit_ids if unit_id not in headers)
     return headers, stats
 
 
