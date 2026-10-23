@@ -3,13 +3,13 @@ title: "sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite sessions"
   - "table sessions"
-schema_head: 214
+schema_head: 217
 table_name: "sessions"
 table_role: "workflow"
 functionality_status: "active"
@@ -126,15 +126,14 @@ Indexes and uniqueness:
 - `src/learnloop_sidecar/handlers/daily_plan.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
 - `src/learnloop_sidecar/handlers/practice.py`
+- `src/learnloop_sidecar/handlers/reader_tutor.py`
 - `src/learnloop_sidecar/handlers/sessions.py`
-- `src/learnloop_sidecar/handlers/workbench.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
-- `tests/ad23_fakes.py`
 - `tests/ad_fakes.py`
 - `tests/recap_fixtures.py`
 - `tests/test_ai_tool_isolation.py`
@@ -152,6 +151,7 @@ Indexes and uniqueness:
 - `tests/test_glm_ocr.py`
 - `tests/test_hint_telemetry.py`
 - `tests/test_init.py`
+- `tests/test_library_exercises.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_mobile_doctor.py`
 

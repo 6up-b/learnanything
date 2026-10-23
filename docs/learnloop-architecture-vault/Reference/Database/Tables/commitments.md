@@ -3,13 +3,13 @@ title: "commitments"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitments"
   - "table commitments"
-schema_head: 214
+schema_head: 217
 table_name: "commitments"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,18 +19,17 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/072_commitments.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/cli/app.py"
+  - "src/learnloop/config/schema.py"
   - "src/learnloop/curriculum/commitment_arcs.py"
   - "src/learnloop/curriculum/commitments.py"
   - "src/learnloop/curriculum/depth_edge_authoring.py"
   - "src/learnloop/curriculum/depth_rungs.py"
   - "src/learnloop/curriculum/depth_transition.py"
-  - "src/learnloop/content/authoring/rung_variants.py"
   - "src/learnloop/curriculum/golden_path_confirm.py"
+  - "src/learnloop/content/authoring/rung_variants.py"
   - "src/learnloop/daily_plan/engine.py"
-  - "src/learnloop/reader/active_reading.py"
+  - "src/learnloop/intent/control.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -54,7 +53,7 @@ It belongs to the **curriculum** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/072_commitments.sql`.
-- **Schema touched by:** `072_commitments.sql`, `074_activity_contract_extensions.sql`, `079_progression_and_lapse.sql`, `080_mint_fencing_and_commitment_idempotency.sql`, `082_golden_path_runs.sql`, `088_source_render_views.sql`, `095_commitment_arcs.sql`, `099_controller_ownership.sql`.
+- **Schema touched by:** `072_commitments.sql`, `074_activity_contract_extensions.sql`, `079_progression_and_lapse.sql`, `080_mint_fencing_and_commitment_idempotency.sql`, `082_golden_path_runs.sql`, `088_source_render_views.sql`, `095_commitment_arcs.sql`, `099_controller_ownership.sql`, `217_reader_reading_paths.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -94,6 +93,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/intent_reads.py`
 - `src/learnloop/reader/active_reading.py`
 - `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/scheduling/controller_store.py`
@@ -108,6 +108,7 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/commitments.py`
 - `src/learnloop/curriculum/golden_path_confirm.py`
 - `src/learnloop/daily_plan/engine.py`
+- `src/learnloop/intent/control.py`
 - `src/learnloop/reader/active_reading.py`
 - `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/reader/reader_capture.py`
@@ -132,15 +133,15 @@ Indexes and uniqueness:
 - `tests/test_daily_loop_reference_adoption.py`
 - `tests/test_depth_transition.py`
 - `tests/test_dispersion.py`
+- `tests/test_dl2_rw4b_keyed_pick_check.py`
 - `tests/test_dual_authority_administration.py`
 - `tests/test_golden_path_assessment.py`
 - `tests/test_golden_path_confirm.py`
-- `tests/test_journey6.py`
-- `tests/test_learner_text_gaps.py`
-- `tests/test_learner_text_gaps_review.py`
-- `tests/test_reader_adoption_ownership.py`
-- `tests/test_reader_authoring.py`
-- `tests/test_reader_capture.py`
+- `tests/test_intent_checks.py`
+- `tests/test_intent_codex_rereview.py`
+- `tests/test_intent_codex_review.py`
+- `tests/test_intent_exclusion.py`
+- `tests/test_intent_fix_round4.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

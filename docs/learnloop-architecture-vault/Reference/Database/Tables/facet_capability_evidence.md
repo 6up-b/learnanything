@@ -3,13 +3,13 @@ title: "facet_capability_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_capability_evidence"
   - "table facet_capability_evidence"
-schema_head: 214
+schema_head: 217
 table_name: "facet_capability_evidence"
 table_role: "derived"
 functionality_status: "active"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/037_canonical_facet_state.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/scoreboard.py"
   - "src/learnloop/goals/certification_cold_probe.py"
   - "src/learnloop/goals/goal_certification.py"
   - "src/learnloop/hints/state.py"
+  - "src/learnloop/learner/mastery.py"
+  - "src/learnloop/substrate/canonical_projection.py"
   - "src/learnloop/attempts/trace_evidence.py"
   - "src/learnloop/content/synthesis/coverage_rollup.py"
   - "src/learnloop/daily_plan/headline.py"
@@ -129,10 +129,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
-- `tests/test_ad23_contract.py`
-- `tests/test_ad2_model.py`
-- `tests/test_ad3_reading.py`
-- `tests/test_ad3_subject_view.py`
+- `tests/figure_fixtures.py`
 - `tests/test_anti_double_count.py`
 - `tests/test_assumed_known.py`
 - `tests/test_coverage_rollup.py`
@@ -148,7 +145,10 @@ Indexes and uniqueness:
 - `tests/test_reader_recap_review_r3.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_scoreboard.py`
+- `tests/test_workbench_text_gaps.py`
 - `tests/test_characterization_certification_ledger.py`
+- `tests/test_conjunctive_instruments.py`
+- `tests/test_contract_frontier_coverage.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

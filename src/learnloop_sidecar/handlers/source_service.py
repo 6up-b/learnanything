@@ -79,36 +79,49 @@ def import_source_exercise_rpc(ctx: SidecarContext, params: ImportSourceExercise
     ``get_source_exercise_import`` and, once written, serves the item through
     ``plan_learner_pick`` with this import's id, which records its delivery."""
 
+    vault, repository = ctx.require_vault()
+    queued = queue_source_exercise_import(ctx, vault, repository, proposal_id=params.proposal_id,
+                                          extraction_id=params.extraction_id, span_ids=list(params.span_ids))
+    return versioned({"status": "queued", **queued})
+
+
+def queue_source_exercise_import(ctx: SidecarContext, vault: Any, repository: Any, *, proposal_id: str,
+                                 extraction_id: str, span_ids: list[str]) -> dict[str, str]:
+    """The learner's pick of a textbook exercise proposal, queued (S1, §7.2):
+    the import row, the selection's usage verdict and the job. Shared by
+    ``import_source_exercise`` and the workbench's "use this one" (Reader
+    RW4b), which opens the problem at once and binds it when the job wrote
+    the item. Returns ``import_id`` and ``batch_id``; raises ``SidecarError``."""
+
     from learnloop.db.stores.source_service import insert_import
     from learnloop.ids import new_ulid
     from learnloop.clock import utc_now_iso
     from learnloop.instructional.practice import interactive_import_request, proposed_exercise, record_exercise_pick
     from learnloop_sidecar.handlers.practice_index import plan_minutes_estimator
 
-    vault, repository = ctx.require_vault()
     service = vault.config.source_service
     if not (service.enabled and service.exercise_arm):
         raise SidecarError("source_service_disabled", "Textbook exercise imports are switched off.")
     try:
-        entry = proposed_exercise(repository, params.proposal_id, params.extraction_id, params.span_ids)
+        entry = proposed_exercise(repository, proposal_id, extraction_id, span_ids)
     except ValueError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
     import_id = "sei_" + new_ulid()
     with repository.connection() as connection:
         insert_import(connection, id=import_id, created_at=utc_now_iso(), caller="learner",
-                      extraction_id=params.extraction_id, span_ids=list(params.span_ids), status="authoring",
-                      proposal_id=params.proposal_id, source_id=entry.get("source_id"),
+                      extraction_id=extraction_id, span_ids=list(span_ids), status="authoring",
+                      proposal_id=proposal_id, source_id=entry.get("source_id"),
                       revision_id=entry.get("revision_id"), label=entry.get("label"))
-    record_exercise_pick(repository, proposal_id=params.proposal_id, entry=entry)
+    record_exercise_pick(repository, proposal_id=proposal_id, entry=entry)
     # What the exercise was proposed for travels with the job, so the authored
     # draft is validated against it and its correction returned (re-review F7).
-    request = interactive_import_request(vault, repository, params.proposal_id, entry,
+    request = interactive_import_request(vault, repository, proposal_id, entry,
                                          estimator=plan_minutes_estimator(vault, repository))
     batch_id = ctx.ingest_jobs.enqueue_source_exercise_import(
-        import_id=import_id, extraction_id=params.extraction_id, span_ids=list(params.span_ids),
-        proposal_id=params.proposal_id, label=entry.get("label"), request=request,
+        import_id=import_id, extraction_id=extraction_id, span_ids=list(span_ids),
+        proposal_id=proposal_id, label=entry.get("label"), request=request,
     )
-    return versioned({"status": "queued", "import_id": import_id, "batch_id": batch_id})
+    return {"import_id": import_id, "batch_id": batch_id}
 
 
 @method("get_source_exercise_import", GetSourceExerciseImportInput)
@@ -291,4 +304,4 @@ def record_source_offer_shown_rpc(ctx: SidecarContext, params: RecordSourceOffer
                       "exposure_event_ids": shown["exposure_event_ids"]})
 
 
-__all__ = ["SOURCE_SERVICE_RPCS", "server_caller"]
+__all__ = ["SOURCE_SERVICE_RPCS", "queue_source_exercise_import", "server_caller"]

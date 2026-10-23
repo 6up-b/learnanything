@@ -3,13 +3,13 @@ title: "instructional_impressions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite instructional_impressions"
   - "table instructional_impressions"
-schema_head: 214
+schema_head: 217
 table_name: "instructional_impressions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -108,6 +108,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_proposal_impressions.py`
+- `tests/test_reader_tutor_offers.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

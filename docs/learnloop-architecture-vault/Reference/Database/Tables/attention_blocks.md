@@ -3,13 +3,13 @@ title: "attention_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attention_blocks"
   - "table attention_blocks"
-schema_head: 214
+schema_head: 217
 table_name: "attention_blocks"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,14 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/096_controller_snapshots.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/material_view.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/estimates.py"
   - "src/learnloop/daily_plan/records.py"
   - "src/learnloop/daily_plan_upgrade.py"
   - "src/learnloop/db/stores/daily_plans.py"
+  - "src/learnloop/evsi_calibration/live_report.py"
+  - "src/learnloop/scheduling/controller_store.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -100,7 +99,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
-- `src/learnloop/adaptive_difficulty/material_view.py`
+- `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/estimates.py`
 - `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/evsi_calibration/live_report.py`
@@ -119,10 +118,9 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/figure_fixtures.py`
 - `tests/source_service_fakes.py`
 - `tests/test_ad1_codex_review_fixes.py`
-- `tests/test_ad23_contract.py`
-- `tests/test_ad23_fix_review.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_daily_plan_kill_switch.py`
 - `tests/test_daily_plan_owner_decisions.py`
@@ -131,6 +129,7 @@ None found by exact static reference scan.
 - `tests/test_mcp_tools.py`
 - `tests/test_migrations.py`
 - `tests/test_mvp014_upgrade.py`
+- `tests/test_reader_rw3b_protection.py`
 - `tests/test_router_presentations.py`
 - `tests/test_router_r1_composition.py`
 - `tests/test_router_r2a_serving.py`

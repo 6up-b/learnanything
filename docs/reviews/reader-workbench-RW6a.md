@@ -239,6 +239,8 @@ Keyboard: `w` (outside text fields), Esc closes Wrap up; every line's action is 
 5. Should *keep open* write anything (for example a status event with `trigger = "keep"`)? **Default: no**; it is the status the inquiry already has.
 6. Should the inquiry quick check's own `partly` / `no` self-check (RW1a's reconnect *quick check*) count as worth a second look? It has no `ReaderObservationV1` kind in §9.1. **Default: no**, until the spec names one.
 
+**Owner confirmed 2026-10-20:** all six defaults above, and *abandoned problems stay* on the card (`docs/reviews/reader-rw6a-codex-review.md` F8).
+
 ## 7. Owner-run commands
 
 None needed (no model call, no migration). To look at it on a copy: make a backup-API copy into `fixtures-local/` (`learnloop.db.copies.copy_tree_with_databases`), `uv run learnloop doctor --fix-state --vault <copy>`, then `LEARNLOOP_VAULT=<abs path to the copy> npm run dev` from `apps/learnloop-tauri`; read a book, close it, wait 30 minutes or more, open it again for the card; ask a question and go back to Today for the wrap-up line. `[recap] enabled = false` / `wrap_up_enabled = false` in the copy's `learnloop.toml` switch each off.

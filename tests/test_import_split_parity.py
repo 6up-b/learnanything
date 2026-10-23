@@ -10,6 +10,7 @@ from learnloop.content.authoring.source_exercise_import import selection_for_reg
 from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_service import effective_key_status, imports_for_item
+from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import read_yaml
 from tests.source_service_fakes import FakeServiceLLM, build_textbook_vault, loaded
@@ -31,7 +32,7 @@ def test_author_then_write_writes_what_import_exercises_writes(tmp_path, monkeyp
     other_root = tmp_path / "b"
     copy_tree_with_databases(paths.root, other_root)
     other = Repository(VaultPaths(other_root, paths.config).sqlite_path)
-    selection = selection_for_region(repository, "ext_text", [spans["exercises"][1]])
+    selection = selection_for_region(repository, "ext_text", [spans["exercises"][1]], vault=load_vault(paths.root))
 
     _deterministic_ids(monkeypatch)
     whole = EX.import_exercises(paths.root, repository, FakeServiceLLM(), extraction_id="ext_text",
@@ -51,7 +52,7 @@ def test_author_then_write_writes_what_import_exercises_writes(tmp_path, monkeyp
 
 def test_selection_for_region_spans_whole_blocks(tmp_path):
     paths, repository, spans = build_textbook_vault(tmp_path / "vault")
-    selection = selection_for_region(repository, "ext_text", spans["exercises"][1:3])
+    selection = selection_for_region(repository, "ext_text", spans["exercises"][1:3], vault=load_vault(paths.root))
     assert [node["span_id"] for node in selection["nodes"]] == spans["exercises"][1:3]
     assert all(node["start"] == 0 and node["end"] > 0 for node in selection["nodes"])
     from learnloop.reader.annotations import translate_selection
@@ -65,7 +66,7 @@ def test_the_reader_job_records_an_import_row_and_leaves_the_item_unchanged(tmp_
     from learnloop.content.pipeline.runner import JobContext, RunnerServices
 
     paths, repository, spans = build_textbook_vault(tmp_path / "vault")
-    selection = selection_for_region(repository, "ext_text", [spans["exercises"][1]])
+    selection = selection_for_region(repository, "ext_text", [spans["exercises"][1]], vault=load_vault(paths.root))
     ctx = JobContext(repo=repository, vault_root=paths.root,
                      job={"id": "job_1", "attempt_count": 1,
                           "payload": {"extraction_id": "ext_text", "raw_selection": selection,

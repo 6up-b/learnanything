@@ -20,6 +20,13 @@ exactly one class, in this order:
 **Expected recall today** is the mean FSRS retrievability now over items with
 memory state: a model estimate, not a test (L1). Before Phase 6 the "assumed"
 class is omitted rather than shown as 0. Read-only: nothing here is evidence.
+
+**Intent** (daily-loop DL2, Codex review F10): the population is what the
+plan can serve. An item whose resolved intent excludes it (Pause, Reference,
+Let go, an answered "Check once") leaves expected recall; an LO leaves the
+counts when every item of it is excluded (an LO without items, when its own
+intent excludes it). With intent changing nothing (below ``mvp-0.29``,
+``intent.enabled`` off, or no commitment) the population is DL1's exactly.
 """
 
 from __future__ import annotations
@@ -126,14 +133,18 @@ def _has_direct_evidence(
     return mastery is not None and mastery.last_evidence_at is not None
 
 
-def expected_recall_today(vault: Any, repository: Any, *, now: datetime) -> tuple[float | None, int]:
-    """Mean FSRS retrievability now over items with memory state, and their count."""
+def expected_recall_today(
+    vault: Any, repository: Any, *, now: datetime, excluded_item_ids: Iterable[str] = (),
+) -> tuple[float | None, int]:
+    """Mean FSRS retrievability now over items with memory state, and their
+    count; ``excluded_item_ids`` (DL2: intent) are left out."""
 
     weights = resolve_fsrs_weights(repository)
+    excluded = frozenset(excluded_item_ids)
     values: list[float] = []
     for item_id, state in repository.practice_item_states().items():
         item = vault.practice_items.get(item_id)
-        if item is None or item.status != "active" or not state.active:
+        if item is None or item.status != "active" or not state.active or item_id in excluded:
             continue
         learning_object = vault.learning_object_for_item(item)
         if learning_object is None or learning_object.status != "active":
@@ -146,13 +157,44 @@ def expected_recall_today(vault: Any, repository: Any, *, now: datetime) -> tupl
     return sum(values) / len(values), len(values)
 
 
+def intent_exclusions(vault: Any, repository: Any, *, now: datetime) -> tuple[frozenset[str], frozenset[str]]:
+    """``(excluded LO ids, excluded item ids)`` by resolved intent (F10);
+    both empty when intent changes nothing."""
+
+    from learnloop.scheduling.intent.serving import intent_serving
+
+    intent = intent_serving(vault, repository, now=now)
+    if intent is None:
+        return frozenset(), frozenset()
+    items_by_lo: dict[str, list[str]] = defaultdict(list)
+    excluded_items: set[str] = set()
+    for item in vault.practice_items.values():
+        lo_id = getattr(item, "learning_object_id", None)
+        if lo_id is not None:
+            items_by_lo[str(lo_id)].append(item.id)
+        if intent.intent(item.id).excluded:
+            excluded_items.add(item.id)
+    excluded_los: set[str] = set()
+    for lo_id in vault.learning_objects:
+        items = items_by_lo.get(lo_id)
+        if items:
+            if all(item_id in excluded_items for item_id in items):
+                excluded_los.add(lo_id)
+        elif intent.resolution.for_learning_object(lo_id).excluded:
+            excluded_los.add(lo_id)
+    return frozenset(excluded_los), frozenset(excluded_items)
+
+
 def today_headline(vault: Any, repository: Any, *, now: datetime) -> dict[str, Any]:
+    excluded_los, excluded_items = intent_exclusions(vault, repository, now=now)
     classes = classify_learning_objects(vault, repository, now=now)
+    if excluded_los:
+        classes = {lo_id: value for lo_id, value in classes.items() if lo_id not in excluded_los}
     counts = {name: 0 for name in HEADLINE_CLASSES}
     for value in classes.values():
         counts[value] += 1
     show_assumed = placement_active(vault)
-    recall, recall_items = expected_recall_today(vault, repository, now=now)
+    recall, recall_items = expected_recall_today(vault, repository, now=now, excluded_item_ids=excluded_items)
     parts = [f"{counts['demonstrated']} demonstrated"]
     if show_assumed:
         parts.append(f"{counts['assumed']} assumed")
@@ -177,5 +219,6 @@ __all__ = [
     "HEADLINE_CLASSES",
     "classify_learning_objects",
     "expected_recall_today",
+    "intent_exclusions",
     "today_headline",
 ]

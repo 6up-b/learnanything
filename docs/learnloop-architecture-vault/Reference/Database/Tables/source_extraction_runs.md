@@ -3,13 +3,13 @@ title: "source_extraction_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_extraction_runs"
   - "table source_extraction_runs"
-schema_head: 214
+schema_head: 217
 table_name: "source_extraction_runs"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,13 +19,12 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/032_source_layer.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/material_view.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_block_fts.py"
+  - "src/learnloop/diagnosis/text_gaps/provenance.py"
   - "src/learnloop/ops/doctor.py"
+  - "src/learnloop/reader/source_objects.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/content/facet_identity/authority.py"
   - "src/learnloop/content/pipeline/add_source.py"
@@ -109,10 +108,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_block_fts.py`
+- `src/learnloop/diagnosis/text_gaps/provenance.py`
+- `src/learnloop/reader/source_objects.py`
 
 ### Direct SQL writers
 
@@ -139,7 +139,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/instructional/exercises.py`
 - `src/learnloop/instructional/interventions.py`
-- `src/learnloop/ops/doctor.py`
+- `src/learnloop/intent/control.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -148,10 +148,10 @@ Indexes and uniqueness:
 
 - `tests/test_ingest_runner.py`
 - `tests/test_migrations.py`
+- `tests/test_source_objects.py`
 - `tests/test_ux_phase1_landing.py`
 - `tests/helpers.py`
 - `tests/test_ad1_reading_opportunities.py`
-- `tests/test_ad_protected_readings.py`
 - `tests/test_daily_plan_reading.py`
 - `tests/test_exam_protection_identity.py`
 - `tests/test_facet_reword_confirm.py`

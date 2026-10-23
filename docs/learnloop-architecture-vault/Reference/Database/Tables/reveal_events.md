@@ -3,13 +3,13 @@ title: "reveal_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reveal_events"
   - "table reveal_events"
-schema_head: 214
+schema_head: 217
 table_name: "reveal_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,14 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/154_reveal_ledger.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/material_view.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/attempts/reveal_ledger.py"
   - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/practice_index.py"
+  - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/diagnosis/quick_check.py"
   - "src/learnloop/diagnosis/remediation.py"
   - "src/learnloop/reveal_coverage.py"
@@ -99,7 +98,6 @@ Database triggers:
 
 ### Direct SQL readers
 
-- `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/practice_index.py`
 - `src/learnloop/db/stores/source_service.py`
@@ -125,17 +123,14 @@ Database triggers:
 - `src/learnloop/reveal_coverage.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/serve_eligibility.py`
+- `src/learnloop/workbench/compare_methods.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
-- `tests/ad23_fakes.py`
 - `tests/hint_fakes.py`
-- `tests/test_ad23_contract.py`
-- `tests/test_ad2_model.py`
-- `tests/test_ad_protected_readings.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_contamination_report.py`
 - `tests/test_diagnosis_card.py`
@@ -147,7 +142,11 @@ Database triggers:
 - `tests/test_hint_evidence.py`
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_hint_telemetry.py`
+- `tests/test_intent_orchestrator_rulings.py`
 - `tests/test_mcp_tools.py`
+- `tests/test_reader_rw1c_review.py`
+- `tests/test_reader_tutor_offers.py`
+- `tests/test_reader_tutor_retrieval.py`
 - `tests/test_recurrence_live.py`
 - `tests/test_reveal_ledger.py`
 - `tests/test_router_coldness_covariates.py`

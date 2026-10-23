@@ -3,13 +3,13 @@ title: "exam_pool_items"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite exam_pool_items"
   - "table exam_pool_items"
-schema_head: 214
+schema_head: 217
 table_name: "exam_pool_items"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,8 +19,6 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/023_exam_pool.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/goals/exam_pool.py"
   - "src/learnloop/adaptive_difficulty/protection.py"
@@ -107,6 +105,7 @@ Indexes and uniqueness:
 - `src/learnloop/goals/exam_session.py`
 - `src/learnloop/learner_protection.py`
 - `src/learnloop/scheduling/controller_ownership.py`
+- `src/learnloop/workbench/compare_methods.py`
 - `src/learnloop_sidecar/handlers/goals.py`
 
 > [!note] Static-reference boundary
@@ -114,7 +113,6 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
-- `tests/test_ad_protected_tables.py`
 - `tests/test_exam_protection_review.py`
 - `tests/test_characterization_assessment_exam.py`
 - `tests/test_exam_pool.py`

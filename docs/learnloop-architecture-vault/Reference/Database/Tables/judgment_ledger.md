@@ -3,13 +3,13 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
   - "table judgment_ledger"
-schema_head: 214
+schema_head: 217
 table_name: "judgment_ledger"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,13 +20,13 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/166_embedding_substrate_and_judgments.sql"
   - "src/learnloop/adaptive_difficulty/__init__.py"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/data_check.py"
   - "src/learnloop/adaptive_difficulty/feature_audit.py"
   - "src/learnloop/adaptive_difficulty/outside.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
-  - "src/learnloop/adaptive_difficulty/relatedness.py"
+  - "src/learnloop/adaptive_difficulty/serve_inputs.py"
+  - "src/learnloop/ai/agreement.py"
+  - "src/learnloop/algorithm_versions.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -50,7 +50,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/166_embedding_substrate_and_judgments.sql`.
-- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`, `168_activity_family_membership.sql`, `169_practice_index.sql`, `174_pf_generation.sql`, `175_decider_judgments_and_receipt_labels.sql`, `176_recurrence_groups.sql`, `182_learner_text_gaps.sql`, `183_facet_identity_actions.sql`, `197_facet_registry_saves.sql`, `202_router_staged_frame.sql`, `209_library_asks.sql`, `213_adaptive_difficulty_receipts.sql`, `214_adaptive_difficulty_serving.sql`.
+- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`, `168_activity_family_membership.sql`, `169_practice_index.sql`, `174_pf_generation.sql`, `175_decider_judgments_and_receipt_labels.sql`, `176_recurrence_groups.sql`, `182_learner_text_gaps.sql`, `183_facet_identity_actions.sql`, `197_facet_registry_saves.sql`, `202_router_staged_frame.sql`, `209_library_asks.sql`, `213_adaptive_difficulty_receipts.sql`, `215_reader_discovered_cues.sql`, `217_reader_reading_paths.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -101,6 +101,8 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/adaptive_difficulty/data_check.py`
+- `src/learnloop/adaptive_difficulty/feature_audit.py`
+- `src/learnloop/adaptive_difficulty/reading.py`
 - `src/learnloop/ai/agreement.py`
 - `src/learnloop/attempts/grading_support.py`
 - `src/learnloop/attempts/stuck.py`
@@ -116,6 +118,7 @@ None found by exact static reference scan.
 - `src/learnloop/db/stores/families.py`
 - `src/learnloop/db/stores/pf.py`
 - `src/learnloop/db/stores/practice_index.py`
+- `src/learnloop/db/stores/reader_cue_links.py`
 - `src/learnloop/db/stores/recurrence.py`
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/decider_judgments.py`
@@ -135,6 +138,8 @@ None found by exact static reference scan.
 - `src/learnloop/hints/map_report.py`
 - `src/learnloop/hints/outcome.py`
 - `src/learnloop/hints/report_adaptive.py`
+- `src/learnloop/hints/report_workbench.py`
+- `src/learnloop/hints/workbench.py`
 - `src/learnloop/matching/judge.py`
 - `src/learnloop/ops/contamination/judge.py`
 - `src/learnloop/ops/contamination/report.py`
@@ -147,8 +152,12 @@ None found by exact static reference scan.
 - `src/learnloop/reader/reader_cues.py`
 - `src/learnloop/reader/reader_intent.py`
 - `src/learnloop/reader/reader_quick_check.py`
+- `src/learnloop/source_retrieval/passage_cues.py`
+- `src/learnloop/source_retrieval/reading_paths.py`
+- `src/learnloop/source_retrieval/role_labeller.py`
 - `src/learnloop/substrate/families.py`
 - `src/learnloop/substrate/intervention_outcomes.py`
+- `src/learnloop/workbench/help_outcomes.py`
 
 ### Direct SQL writers
 
@@ -166,6 +175,7 @@ None found by exact static reference scan.
 - `tests/ad_fakes.py`
 - `tests/approach_map_fakes.py`
 - `tests/hint_fakes.py`
+- `tests/passage_cue_fakes.py`
 - `tests/recurrence_fakes.py`
 - `tests/test_activity_families.py`
 - `tests/test_ad1_codex_review_fixes.py`
@@ -176,13 +186,12 @@ None found by exact static reference scan.
 - `tests/test_ad1_outside_and_cli.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_ad1_send_guard.py`
-- `tests/test_ad3_reading.py`
-- `tests/test_ad3_relatedness.py`
-- `tests/test_ad_guard.py`
-- `tests/test_ad_projection.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_ai_compare.py`
 - `tests/test_approach_maps.py`
+- `tests/test_assumed_known.py`
+- `tests/test_attach_to_family.py`
+- `tests/test_compare_methods.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

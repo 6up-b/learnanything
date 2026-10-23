@@ -998,6 +998,101 @@ export interface PracticeItemDetail {
   /** Canonical sources S1: a textbook exercise's provenance and its key's
    *  honest label (absent for every other item). */
   canonicalExercise?: CanonicalExerciseDto;
+  /** Daily-loop DL2: present only when this session serve is a due "Check
+   *  once" (a check on your own; Reader §9.3 item 10). */
+  intentCheck?: IntentCheckDto;
+}
+
+// ── Daily-loop DL2: intent (spec_daily_loop_v1.md §5) ─────────────────────────
+
+export type IntentScopeKind = "learning_object" | "practice_item" | "subject" | "source";
+export type IntentChoice =
+  | "master"
+  | "learn"
+  | "keep"
+  | "light_touch"
+  | "check_once"
+  | "reference"
+  | "pause"
+  | "let_go";
+
+/** One choice of the control, previewed by the resolution serving uses. */
+export interface IntentChoicePreviewDto {
+  choice: IntentChoice;
+  label: string;
+  /** What the choice does, in plain words. */
+  does: string;
+  /** "Pause 12 topics · replaces your earlier setting on 2 topics and 1 item". */
+  consequence: string;
+  replacedTopics: number;
+  replacedItems: number;
+  /** Projected review minutes a day (§6.4 estimates at §5.3 targets); null when unknown. */
+  costMinutesPerDay: number | null;
+  /** "about N min/day of reviews", "no reviews", "one check, about N min". */
+  costLabel: string;
+  servedCount: number;
+  excludedCount: number;
+}
+
+export interface IntentCurrentDto {
+  choice: IntentChoice | "uncommitted";
+  label: string;
+  /** Where the setting comes from ("this control", a broader setting, a request); null uncommitted. */
+  source: string | null;
+  deadline: { goalId: string; dueAt: string } | null;
+  canAddDeadline: boolean;
+}
+
+export interface IntentViewDto {
+  version?: number;
+  enabled: boolean;
+  available?: boolean;
+  reason?: string;
+  scope?: { kind: IntentScopeKind; id: string };
+  title?: string;
+  topics?: number;
+  items?: number;
+  current?: IntentCurrentDto;
+  choices?: IntentChoicePreviewDto[];
+  applied?: { choice: IntentChoice; commitmentId: string; created: boolean };
+  deadlineSet?: { goalId: string; dueAt: string; created: boolean; commitmentId: string };
+}
+
+/** The way back after a check (Reader §9.3 item 9); only when the provenance carries it. */
+export interface IntentRestorationDto {
+  label: string;
+  detail: string | null;
+  inquiryRootEventIds: string[];
+  anchorSpanIds: string[];
+  extractionId: string | null;
+  sourceId: string | null;
+}
+
+/** A served (or answered) "Check once". */
+export interface IntentCheckDto {
+  kind: "check_once";
+  commitmentId: string;
+  dueSince?: string;
+  /** "after_practice": dated again after an attempt that was not on your own. */
+  dateSource?: "due_hint" | "test_me_later_days" | "after_practice";
+  /**
+   * Served cold now (the one eligibility decision). False: the item's answer
+   * was seen, so this is practice, labelled so, and the check comes back later.
+   */
+  cold?: boolean;
+  /** The cold banner, or the practice label when not cold. */
+  banner?: string;
+  /** The help ladder's header during a cold check (D42); absent when not cold. */
+  helpHeader?: string;
+  /** D46: nothing that locates the exercise is shown until feedback. */
+  locatorsHidden?: boolean;
+  /**
+   * DL2 fix round 4 (F15): the item is also measured under a stricter duty
+   * (a cold follow-up, an active diagnostic). The server then sends the
+   * measured banner and no help header: the duty's own safeguards apply.
+   */
+  duty?: "cold_followup" | "diagnostic";
+  restoration: IntentRestorationDto | null;
 }
 
 // ── Meas §3.A6 opportunistic trace evidence ─────────────────────────────────
@@ -1170,6 +1265,11 @@ export interface SubmitAttemptInput {
   explanationMd?: string | null;
   attemptType: AttemptType;
   hintsUsed: number;
+  /** RW2b fix round 5: the answer box's authored reveals alone (the server
+   *  adds a counted book and the workbench's help itself, each once). */
+  authoredHints?: number | null;
+  /** RW2b fix round 12: the count holds a book the answer box carried (its own component). */
+  bookCounted?: boolean | null;
   latencySeconds?: number | null;
   selfGrade?: SelfGradeInputDto | null;
   /** Retry launched from the feedback screen's source-review panel. */
@@ -1255,6 +1355,8 @@ export interface ProbeContractDto {
   capabilitySummary?: string;
   feedbackNote?: string;
   actions?: { stopAndTeach: boolean; leaveAndResume: boolean };
+  /** DL2 fix round 4 (F15): a due "Check once" served as this probe, in its measured view. */
+  intentCheck?: IntentCheckDto;
 }
 
 export interface StopProbeResultDto {
@@ -1423,6 +1525,8 @@ export interface PracticeSubmissionAcknowledgementDto {
 export interface FeedbackBundle {
   version: number;
   attemptId: string;
+  /** Daily-loop DL2: present only when this attempt answered a "Check once". */
+  intentCheck?: IntentCheckDto;
   /** Slice 1 §11: present when the attempt queued an asynchronous diagnosis. */
   diagnosisStatus?: DiagnosisStatusValue;
   practiceItemId: string;
@@ -2089,6 +2193,8 @@ export interface TutorCitationDto {
   extractionId: string;
   spanId: string;
   label: string | null;
+  /** RW1c: a retrieved passage's source, so the Reader can open it there. */
+  sourceId?: string | null;
 }
 
 export interface TutorAnswerDto {
@@ -2198,6 +2304,8 @@ export interface ProposedExerciseDto {
   key: string;
   extractionId: string;
   spanIds: string[];
+  sourceId?: string | null;
+  revisionId?: string | null;
   sourceTitle: string | null;
   label: string | null;
   page: number | null;
@@ -2278,6 +2386,7 @@ export interface SourceToolRunDto {
     relations?: Array<Record<string, unknown>>;
     missingPerspectives?: string[];
     unverifiedSources?: Array<Record<string, unknown>>;
+    alsoDiscussedIn?: Array<Record<string, unknown>>;
     labels?: Record<string, string>;
     withheldAnswerOverlap?: number;
   };
@@ -6541,6 +6650,36 @@ export interface ReaderPromptContractDto {
   activeReading?: { foldBlocks: number };
   /** RW4a: ask your library (present only while library_ask, the sources service and reader_inquiry are on). */
   libraryAsk?: { expandGraph: boolean; personalizedDefault: boolean; compare: boolean };
+  /** RW4b: exercises from my sources (present only while library_exercises.enabled and the library answer are on). */
+  libraryExercises?: { fallback: boolean };
+  /** Reader workbench RW5a: explorable figures (absent while figures.enabled is off). */
+  figures?: { predictions: boolean; region: boolean; revisions: boolean };
+  /** RW1c: the tutor that looks things up (present only while reader_tutor.retrieval_enabled or offers_enabled is on). */
+  readerTutor?: ReaderTutorContractDto;
+  /** RW4d: keep a comparison (present only while reader_compare.keep_enabled and compare are on). */
+  compareKeep?: CompareKeepContractDto;
+  /** RW7a: reading paths in the Guide (present only while reading_paths.enabled is on). */
+  readingPaths?: { enabled: boolean; depths: Array<{ id: ReadingPathDepth; label: string }> };
+}
+/** RW4d (spec §7.8): where a comparison can be kept, and the perspectives field. */
+export interface CompareKeepContractDto {
+  /** A library ask's comparison (the library answer is on). */
+  library: boolean;
+  /** The tutor's comparison (RW1c's "how do your books treat this?"). */
+  tutor: boolean;
+  perspectives: boolean;
+  maxPerspectives: number;
+}
+/** RW1c (spec §4.6): which parts of the tutor that looks things up are on. */
+export interface ReaderTutorContractDto {
+  retrieval: boolean;
+  offers: boolean;
+  /** "another way" and "that didn't help": retrieval on and RW1a's branches on. */
+  anotherWay: boolean;
+  personalizedDefault: boolean;
+  /** "Try the next step first": offers on and RW1b's active reading on. */
+  tryNextStep: boolean;
+  manifestIncludes: string[];
 }
 export type ReaderAnswerMode = "answer_directly" | "help_me_reason" | "ask_me_first";
 
@@ -6555,7 +6694,9 @@ export type ReaderIntentEffect =
   | { kind: "work_through" }
   | { kind: "active_reading"; style: ReaderActiveStyle }
   | { kind: "another_way" }
-  | { kind: "library_ask"; entry: LibraryAskEntry };
+  | { kind: "library_ask"; entry: LibraryAskEntry }
+  | { kind: "reading_path" }
+  | { kind: "figure" };
 export type ReaderIntention = "orient" | "understand" | "apply" | "consolidate" | "transfer";
 export interface ReaderIntentActionDto {
   id: string;
@@ -6652,6 +6793,56 @@ export interface ReaderAskInput {
    *  edited the capture; selectionQuote is then the learner's wording. */
   selectionSourceQuote?: string | null;
   coldActive?: boolean;
+  /** RW1c: "another way" (alternative) and "that didn't help" (remediate) name the answer they are under. */
+  retrievalIntent?: ReaderRetrievalIntent;
+  /** RW1c: the personalized toggle (omitted: the vault's default). */
+  personalized?: boolean;
+  /** RW1c: the bound workbench session the Ask comes from (its item's practice policy). */
+  workbenchSessionId?: string | null;
+}
+export type ReaderRetrievalIntent = "explain" | "alternative" | "remediate";
+/** RW1c's "From your books": a verbatim excerpt, quote-verified against its passage. */
+export interface ReaderExcerptDto {
+  extractionId: string;
+  spanId: string;
+  quote: string;
+  label: string | null;
+  relation: string | null;
+  sourceId?: string | null;
+}
+/** RW1c: a Reader tutor answer's modes (absent while reader_tutor.retrieval_enabled is off). */
+export interface ReaderTutorViewDto {
+  modes: Array<"excerpt" | "grounded" | "bridge">;
+  excerpt: ReaderExcerptDto | null;
+  bridgeMd: string | null;
+  abstained: boolean;
+  abstentionLine: string | null;
+  droppedExcerpt: string | null;
+  droppedBridge: string | null;
+  intent: ReaderRetrievalIntent;
+  personalized: boolean;
+  withheldCitations?: number;
+  /** "Another way": citations of passages the inquiry already showed, not shown again. */
+  repeatedCitations?: number;
+  retrieval: {
+    status?: string | null;
+    policy?: string | null;
+    intent?: string | null;
+    /** How "another way"'s passages differ ("from a different book", "a worked example instead"). */
+    label?: string | null;
+    passages?: number | null;
+    spanKeys?: string[] | null;
+    booksCover?: boolean | null;
+    reason?: string | null;
+  };
+}
+/** RW1c: a button the Reader decides itself ("Try the next step first" on a cited derivation or worked example). */
+export interface ReaderTutorButtonDto {
+  kind: "try_next_step";
+  extractionId: string;
+  spanId: string;
+  label: string;
+  role: string;
 }
 export interface ReaderAnswerDto {
   eventId: string;
@@ -6674,6 +6865,14 @@ export interface ReaderAnswerDto {
   /** Learner-text gaps: the reading queued for this question (absent when
    *  nothing was queued). */
   learnerGap?: LearnerGapQueuedDto;
+  /** Canonical sources S0: the deterministic "Practice this" request (absent when off). */
+  practiceRequest?: PracticeRequestDto;
+  /** Canonical sources S4: the tutor's own typed requests (absent when it wrote none). */
+  toolRequests?: SourceToolRequestDto[];
+  /** RW1c: the answer's modes (absent while reader_tutor.retrieval_enabled is off). */
+  tutor?: ReaderTutorViewDto;
+  /** RW1c: the Reader's own buttons (absent while reader_tutor.offers_enabled is off). */
+  tutorOffers?: { buttons: ReaderTutorButtonDto[] };
 }
 
 /** A completed Reader Ask restored from the durable interaction-event log. */
@@ -6697,6 +6896,8 @@ export interface ReaderAskHistoryExchangeDto {
   answerMode: ReaderAnswerMode;
   citations: TutorCitationDto[];
   createdAt: string | null;
+  /** RW1c: the answer's modes (absent on exchanges before RW1c). */
+  tutor?: ReaderTutorViewDto;
 }
 export type InquiryResolution = "open" | "resolved" | "dismissed";
 
@@ -6797,7 +6998,11 @@ export interface ReaderActivityEvent {
     | "reconnect_shown"
     | "proactive_shown"
     | "back_to_reading"
-    | "cue_shown";
+    | "cue_shown"
+    | "tutor_offer_shown"
+    | "tutor_offer_pressed"
+    | "figure_opened"
+    | "figure_animated";
   payload: Record<string, string | number | boolean | null | Record<string, boolean>>;
 }
 export interface ReaderAskHistoryDto {
@@ -7129,12 +7334,24 @@ export interface ReaderCueEarlierDto {
   statement: string | null;
   /** The answer's diagnosis is still being written. */
   statementPending: boolean;
+  /** RW3b, discovered cues: the learner's own words a named gap was read
+   *  from (a question to the tutor, a workbench step), clipped; learner text. */
+  learnerText?: string | null;
+  /** Where those words were written (`tutor_question`, `workbench_text`, …). */
+  learnerTextKind?: string | null;
 }
 
-/** One margin cue (RW3a): one of the Guide's own passages, with fixed copy. */
+/** A margin mark's kind: RW3a's Guide cue (`◌┆`), and RW3b's discovered
+ *  kinds: a distinction (`◌┆`), a prerequisite (`◌┆`), a new application of
+ *  something shown (`●┆`), try this step first (`▹┆`). */
+export type ReaderCueKind = "revisit" | "distinction" | "prerequisite" | "application" | "try_first";
+
+/** One margin cue (RW3a): one of the Guide's own passages, with fixed copy.
+ *  RW3b adds discovered cues (`foundBy: "model"`) and, while discovery is on,
+ *  the value each cue was ordered by. */
 export interface ReaderCueDto {
   cueId: string;
-  kind: "revisit";
+  kind: ReaderCueKind;
   spanId: string;
   sectionId: string;
   learningObjectId: string;
@@ -7151,6 +7368,43 @@ export interface ReaderCueDto {
   /** The screen reader's full sentence. */
   label: string;
   earlier: ReaderCueEarlierDto;
+  /** RW3b (present while discovery is on): who found it ("guide": the
+   *  Guide's citations; "model": LearnLoop's model, never a test). */
+  foundBy?: "guide" | "model";
+  /** RW3b, discovered cues: the link, the judge's relation and rank, the
+   *  verified words of the passage it rests on, the target's kind. */
+  linkId?: string | null;
+  relation?: string;
+  pickRank?: number;
+  quote?: string;
+  targetKind?: string;
+  /** RW3b: the probability its target is still open (the order) and where it came from. */
+  pOpen?: number | null;
+  pOpenSource?: string;
+  /** RW3b, discovered cues: the holdout's seed and the propensity of the arm drawn. */
+  seed?: string;
+  propensity?: number;
+}
+
+/** RW3b: the plan's discovery state (present while cues.discovery_enabled). */
+export interface ReaderCueDiscoveryDto {
+  version: string;
+  /** This plan's id: impressions seen on it name it, and the sidecar records
+   *  them against this plan as it was served (Codex verify F17). */
+  planId: string;
+  /** Changes when a target is new or resolved: the Reader asks for discovery again. */
+  targetsKey: string;
+  targets: number;
+  holdoutRate: number;
+  valueOrder: boolean;
+  tryFirst: boolean;
+  /** Background work (a learner-text gap being read) can still name a new
+   *  target: the Reader re-reads the plan while it is true. */
+  targetsPending?: boolean;
+  /** Discovered cues withheld by the holdout (never drawn; their impression is logged in view). */
+  heldOut: ReaderCueDto[];
+  /** Cues cut by the density budget. */
+  suppressed: Array<ReaderCueDto & { reason: "density" }>;
 }
 
 export interface ReaderCuesDto {
@@ -7162,6 +7416,8 @@ export interface ReaderCuesDto {
   sourceOff: boolean;
   marks: ReaderCueDto[];
   withheld: Record<string, number>;
+  /** RW3b: absent while discovery is off (the cues are RW3a's, byte for byte). */
+  discovery?: ReaderCueDiscoveryDto;
 }
 
 export type ReaderCueAction = "opened" | "check_me" | "not_relevant" | "not_relevant_undone";
@@ -7183,6 +7439,34 @@ export interface ReaderCueActionDto {
   ledgerId: string | null;
   /** "Check me": one item proposed for an ordinary attempt on your own. */
   check: ReaderCueCheckDto | null;
+}
+
+/** RW3b: a tap on any cue while discovery is on (reader.cue_tap). */
+export type ReaderCueTapAction = ReaderCueAction | "try_first";
+
+export interface ReaderCueTapDto extends Omit<ReaderCueActionDto, "action"> {
+  action: ReaderCueTapAction;
+  /** "Try this step first": the line where RW1b's next-step question opens. */
+  tryFirst: { spanId: string } | null;
+  /** The visit's impression for the tap: recorded, not on the named plan, or
+   *  refused for an unknown plan (the tap itself stands; F17, round 5). */
+  impression?: string | null;
+}
+
+/** RW3b: the background discovery job (reader.cue_discovery / _job). */
+export interface ReaderCueDiscoveryJobDto {
+  jobId: string;
+  extractionId: string;
+  state: "pending" | "done";
+  result: { status: string; targetsKey: string | null; calls: number; links: number } | null;
+}
+
+/** RW3b: one impression the Reader reports (reader.cue_impressions). */
+export interface ReaderCueImpressionInput {
+  cueId: string;
+  shown?: boolean;
+  reason?: "spacing" | "restored_line" | null;
+  response?: "fewer" | null;
 }
 
 export interface ReaderCuePreferencesDto {
@@ -8021,6 +8305,8 @@ export interface WorkbenchRecordDto {
   line: string;
   footer: string;
   stuckNote: string | null;
+  /** RW2b: the problem's own shown checks and hints (only when it has any). */
+  help?: { checks: number; byLevel: number[]; worked: number; primed: boolean };
 }
 
 export interface WorkbenchPartDto {
@@ -8066,6 +8352,25 @@ export interface WorkbenchSessionDto {
   sourceId: string | null;
   /** Once bound: the item's whole frozen presentation (review F9). */
   presentation?: ItemPresentationDto | null;
+  /** RW4b: a textbook exercise picked from a proposal ("use this one"): the
+   *  sources service's import and the answer key's honest status. Absent on
+   *  every other problem. */
+  sourceExercise?: WorkbenchSourceExerciseDto;
+  /** RW4b: present on a problem opened from a textbook exercise the learner
+   *  picked in the Reader (either path). */
+  exercisePick?: WorkbenchExercisePickDto;
+}
+
+export interface WorkbenchSourceExerciseDto {
+  proposalId: string | null;
+  importId: string | null;
+  /** The import row's status: authoring, checking, written, rejected, failed. */
+  importStatus: string | null;
+  reason: string | null;
+  /** book_solution, checked, panel_agrees, panel_agrees_unconfirmed, checking,
+   *  model_answer, disputed, changed_since_check. */
+  keyStatus: string | null;
+  keyLabel: string;
 }
 
 /** One unfinished problem: the ✎ mark, the rail, the practice card, RW6a's recap. */
@@ -8112,6 +8417,100 @@ export interface WorkbenchOpenInput {
   sourceVisible?: boolean | null;
   clientIdempotencyKey?: string | null;
   importRequest?: ReaderImportExerciseInput | null;
+  /** RW4b: a textbook exercise picked from a find_practice proposal; the
+   *  sources service's import runs while the problem is open. */
+  sourceExercise?: { proposalId: string; extractionId: string; spanIds: string[] } | null;
+  /** RW4b: a fallback exercise the learner picked: its listing's `pick`, sent
+   *  back as it came (beside its importRequest). */
+  exercisePick?: ExercisePickDto | null;
+}
+
+/** RW4b fix round 4 (R1): `workbench.admit`, the server's one admission of a
+ *  picked exercise's owed learner pick, for the problem named by its id. */
+export interface WorkbenchAdmitDto {
+  version?: number;
+  session: WorkbenchSessionDto;
+  /** The practice session the pick was made in (started when none was open). */
+  practiceSession: SessionSnapshot | null;
+}
+
+// -- Reader workbench RW4b: exercises from my sources (spec §7.4, UX §4.6) --
+
+/** What a fallback candidate carries for "use this one" (its listing's own
+ *  exposure rows never count against the pick; the server checks them). */
+export interface ExercisePickDto {
+  learningObjectIds: string[];
+  shownEventIds: string[];
+}
+
+/** RW4b: a textbook exercise the learner picked, as the problem keeps it. */
+export interface WorkbenchExercisePickDto {
+  /** The proposal it came from; null for the fallback's. */
+  proposalId: string | null;
+  /** The exposure rule read on the server at the pick, then at admission. */
+  exposure: ExerciseExposureDto | null;
+  exposureChecked: "selection" | "admission" | null;
+  /** The learner pick of the item its import wrote was delivered. */
+  admitted: boolean;
+  /** Bound and the pick still owed: the shell picks it, once (durable). */
+  due: boolean;
+}
+
+/** The sources service's exposure rule, as the Reader shows it. */
+export interface ExerciseExposureDto {
+  exposed: boolean;
+  reasons: string[];
+  /** One honest line for the first reason, or null when unexposed. */
+  label: string | null;
+  /** "you read a worked example like this one": a note, not an exclusion. */
+  note: string | null;
+  /** How "use this one" offers it: an exposed exercise is practice beside the
+   *  book, never a check on your own. */
+  offeredAs: "practice" | "check_on_your_own";
+  exposureRuleVersion: string;
+}
+
+export interface ExerciseCandidateViewDto {
+  key: string;
+  extractionId: string;
+  spanIds: string[];
+  sourceId: string | null;
+  revisionId: string | null;
+  exposure: ExerciseExposureDto;
+}
+
+export interface ExerciseCandidatesDto {
+  version: number;
+  proposalId: string;
+  /** Only these may be shown: the others were exam or held-out material. */
+  candidates: ExerciseCandidateViewDto[];
+  withheld: number;
+}
+
+/** A fallback candidate ("find an exercise in my sources"). */
+export interface FoundExerciseDto {
+  key: string;
+  extractionId: string;
+  spanIds: string[];
+  sourceId: string | null;
+  revisionId: string | null;
+  sourceTitle: string | null;
+  page: number | null;
+  label: string;
+  statement: string;
+  exposure: ExerciseExposureDto;
+  /** What "use this one" sends to the Reader's own import (import_exercises). */
+  importRequest: ReaderImportExerciseInput;
+  /** What "use this one" sends back with it (workbench.open's exercisePick). */
+  pick: ExercisePickDto;
+}
+
+export interface FindExercisesDto {
+  version: number;
+  status: "ok" | "none_found";
+  policy: string;
+  candidates: FoundExerciseDto[];
+  dropped: Record<string, number>;
 }
 
 export interface WorkbenchSaveStepInput {
@@ -8304,6 +8703,18 @@ export interface LibraryHitDto {
   learningObjectIds: string[];
   authorship: "source";
   label: string;
+  /** RW4e (roles.positive_filter_enabled): the passage's best instructional-role
+   *  proposal when its ingest role is ordinary prose; absent otherwise. */
+  proposedRole?: ProposedRoleDto | null;
+}
+
+/** RW4e: an instructional role LearnLoop's model proposed for a passage (a
+ *  source-object proposal, labelled "model's label"; never an exclusion). */
+export interface ProposedRoleDto {
+  role: string;
+  confidence: "high" | "medium" | "low" | null;
+  judges: string[];
+  label: string;
 }
 
 export interface LibraryExpansionDto {
@@ -8333,6 +8744,8 @@ export interface LibraryAskDto {
   expandGraph: boolean;
   sourceCount: number;
   passageCount: number;
+  /** RW4d: kept comparisons sharing these passages ("you compared these on 3 Oct"); absent while off. */
+  comparedOn?: Array<{ askId: string; keptAt: string; keys: string[] }>;
 }
 
 export interface LibraryNoteDto {
@@ -8390,13 +8803,206 @@ export interface CompareTableDto {
   /** How the counterparts' verification went (capped, unreachable, timed out, …). */
   verification?: { status: string | null; stopped: string | null; verifiedSources?: number | null };
   exposureEventIds?: string[];
+  /** RW4d: the perspectives asked for, and those no source covered (only when some were asked). */
+  requestedPerspectives?: string[];
+  missingPerspectives?: string[];
+  /** RW4d: whether this comparison is kept (absent while reader_compare.keep_enabled is off). */
+  kept?: KeptComparisonDto | null;
+  /** RW4d (a reopened kept comparison): its kept relations with their fine labels. */
+  keptRelations?: Array<{ fine: string; relationType: string; statement: string | null }>;
+  query?: string | null;
+}
+
+/** RW4d (spec §7.8): a kept comparison, as proposals (ids, types, fine labels, the learner's takes). */
+export interface KeptComparisonDto {
+  askId: string;
+  keptAt: string;
+  objects: Array<{ id: string; key: string; objectType: "claim" | "definition"; sourceTitle: string | null }>;
+  relations: Array<{ id: string; relationType: string; fine: string }>;
+  takes: Array<{ id: string; keys: string[]; learnerText: string }>;
+  notKept: number;
+  status: "proposed";
+  label: string;
+}
+
+export interface KeepComparisonResultDto {
+  version?: number;
+  askId: string;
+  kept: KeptComparisonDto;
+  addedTakes: number;
+  alreadyKept: boolean;
+  toolCallId?: string;
+}
+
+export interface KeptMarkDto {
+  spanId: string;
+  /** Every comparison kept on this passage, newest first. */
+  askIds: string[];
+  keptAt: string;
+  otherSources: string[];
+  /** Each kept comparison on this passage, told apart by its question and date (newest first). */
+  comparisons?: Array<{ askId: string; keptAt: string; query: string | null; otherSources: string[] }>;
+}
+
+export interface KeptMarksDto {
+  version?: number;
+  extractionId: string;
+  marks: KeptMarkDto[];
+  label: string;
+}
+
+/** Reader workbench RW7a (spec §10.1; UX §4.11): the depth the path is for. */
+export type ReadingPathDepth = "get_the_idea" | "learn_to_use_it" | "fluency";
+/** A section's label; "already_shown" only when every LO it teaches is demonstrated (code's rule). */
+export type ReadingPathLabel = "core" | "prerequisite" | "enrichment" | "already_shown" | "assumed";
+/** "read it anyway" / "skip it"; "none" clears an earlier choice. */
+export type ReadingPathChoice = "read_anyway" | "skip" | "none";
+
+/** The exercise worth trying after a core section (an exercise block of it), re-read now. */
+export interface ReadingPathExerciseDto {
+  label: string;
+  extractionId: string;
+  spanIds: string[];
+  page: number | null;
+  /** The exercise's own words, verbatim and whole (the workbench's stem;
+   *  Codex review F2: never clipped, a late condition is part of the problem). */
+  statement: string;
+  /** The statement clipped for a preview (600 characters at most); never the stem. */
+  preview: string;
+  /** "Try it": the Reader's own import of a selected problem. */
+  importRequest: ReaderImportExerciseInput;
+}
+
+export interface ReadingPathSectionDto {
+  sectionId: string;
+  title: string;
+  startSpanId: string;
+  label: ReadingPathLabel;
+  /** core · prerequisite · enrichment · already shown ● · assumed */
+  chip: string;
+  /** One line: why. */
+  reason: string;
+  /** Who wrote that line: "model" (shown as the model's reading) or "code"
+   *  (the evidence lines, a changed label's line, and the neutral line that
+   *  replaces a model reason whose judgment saw a section withheld since). */
+  reasonBy: "model" | "code";
+  override: "read_anyway" | "skip" | null;
+  /** What the path treats it as: a "read it anyway" counts as core; a "skip it" is skipped. */
+  effectiveLabel: ReadingPathLabel | "skipped";
+  exercise: ReadingPathExerciseDto | null;
+  words: number;
+  learningObjectIds: string[];
+}
+
+export interface ReadingPathDto {
+  version?: number;
+  extractionId: string;
+  sourceId?: string;
+  /** ask_depth: the Guide asks "How deep do you want to go?" (no call yet);
+   *  ready: the path for the current state; judging: being read (an older
+   *  path, if any, is shown meanwhile); stale: an older path, not being
+   *  read; pending: nothing yet; failed / withheld / no_sections. */
+  status: "ask_depth" | "ready" | "judging" | "stale" | "pending" | "failed" | "withheld" | "no_sections";
+  depth: ReadingPathDepth | null;
+  depthLabel?: string | null;
+  /** guide: the learner chose it here; intent: their Master/Learn/Keep/Light touch setting for this book. */
+  depthOrigin?: "guide" | "intent" | null;
+  intent?: { choice: string; label: string } | null;
+  depths: Array<{ id: ReadingPathDepth; label: string; means: string }>;
+  goal: { id: string; title: string } | null;
+  goalLine?: string;
+  sections: ReadingPathSectionDto[];
+  next: { text: string; sectionId: string; spanId: string | null; exercise: ReadingPathExerciseDto | null; minutes: number } | null;
+  stateKey?: string | null;
+  stale?: boolean;
+  /** The shown judgment was asked about a section withheld since, so none of
+   *  its model reasons is shown (code's lines stand in while it is re-read). */
+  reasonsHeldBack?: boolean;
+  message?: string | null;
+  reason?: string | null;
+}
+
+/** A take on a pair (two keys) or a claim (one key), as the table's rows name them. */
+export interface KeepTakeDto {
+  text: string;
+  keys: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Reader workbench RW5a: explorable figures (spec §8; UX §4.7, W11)
+// ---------------------------------------------------------------------------
+
+export type FigureVerification = "verified" | "illustrative" | "failed" | "unsupported";
+
+/** A prediction once answered: what the figure showed, decided by code. */
+export interface FigurePredictionResultDto {
+  version?: number;
+  predictionId: string;
+  figureId: string;
+  extractionId: string;
+  predictionIndex: number;
+  learnerAnswer: string;
+  matched: boolean;
+  before: number | null;
+  after: number | null;
+  /** The right answer (sent only after the learner answered). */
+  answer: string | null;
+  explanationText: string | null;
+}
+
+export interface FigurePredictionDto {
+  index: number;
+  prompt: string;
+  kind: "direction" | "area";
+  choices: Array<{ value: string; label: string }>;
+  answered: FigurePredictionResultDto | null;
+}
+
+export interface FigureViewDto {
+  figureId: string;
+  extractionId: string;
+  spanIds: string[];
+  anchorSpanId: string | null;
+  region: { spanId: string; bbox: number[] } | null;
+  origin: "selection" | "library" | "tutor";
+  verification: FigureVerification;
+  kind: "reconstructed" | "illustrative" | null;
+  /** The server's label (the Reader draws its own code-owned badge instead, FIGURE_FRAME). */
+  label: string;
+  reason: string | null;
+  unsupportedKind: string | null;
+  supersedesId: string | null;
+  revisionNote: string | null;
+  versions: number;
+  createdAt: string;
+  /** InteractiveFigureSpecV1 as JSON text (its keys are the spec's own); shown figures only. */
+  specJson: string | null;
+  demonstrates: string | null;
+  assumptions: Array<{ text: string; spanId: string | null; quote: string | null }>;
+  predictions: FigurePredictionDto[];
+  /** The closed keys of the checks LearnLoop ran (§8.3 steps 1-2); the Reader names them in its own words. */
+  propertyChecks?: string[];
+}
+
+export interface FigureBuildResultDto {
+  figure: FigureViewDto | null;
+  reused: boolean;
+  /** The passage became held out while it was being built: nothing is shown. */
+  withheld?: boolean;
+}
+
+export interface FiguresDto {
+  version?: number;
+  extractionId: string;
+  figures: FigureViewDto[];
 }
 
 /** A library request running off the request path (reader.library_job). */
 export interface LibraryJobDto<T> {
   version?: number;
   jobId: string;
-  kind: "ask" | "notes" | "compare" | "tutor";
+  /** RW4b adds "exercise_candidates" and "find_exercises" (the same runner). */
+  kind: "ask" | "notes" | "compare" | "tutor" | "exercise_candidates" | "find_exercises" | "figure_build";
   askId: string | null;
   state: "pending" | "done" | "cancelled";
   result: T | null;
@@ -8562,4 +9168,271 @@ export interface AdaptiveWhyItemDto {
   version: number;
   why: string | null;
   mode: "band" | "overlap" | "calibrate" | null;
+}
+
+// ── Reader workbench RW2b + adaptive hints H3: checks and the help ladder ──
+// (spec_reader_workbench_v1 §5.2-5.6; the sidecar's workbench.check,
+// workbench.suggest_help, workbench.request_help, workbench.help_job,
+// workbench.cancel_help, workbench.answer_discriminating,
+// workbench.set_help_style and workbench.help_state). Desktop only.
+
+export type CheckVerdict = "valid" | "questionable" | "unchecked";
+export type CheckMethod = "checked" | "checked_numerically" | "model";
+
+export interface CheckStepVerdictDto {
+  chainId: string;
+  number: number | null;
+  verdict: CheckVerdict;
+  method: CheckMethod;
+  /** ✓ ≠ ≈ ? · (UX §3.4): never a colour, never a score. */
+  mark: string;
+  /** "checked", "checked numerically" or "model's reading, not checked". */
+  label: string;
+  reason: string;
+  dependsOn: string[];
+  assumption: string;
+  first: boolean;
+  editedSinceCheck: boolean;
+  deletedSinceCheck: boolean;
+  /** The step's text the verdict was about (bounded at 2,000 characters): a
+   *  local edit away from it dims the marker at once (review F6). */
+  checkedText?: string;
+  /** Fix round 5: a fingerprint of the FULL checked text (`fnv1a64:<hex>`,
+   *  helpModel's textFingerprint); any edit to the text changes it. */
+  checkedFingerprint?: string | null;
+}
+
+export interface CheckViewDto {
+  assistId: string;
+  checkedAt: string | null;
+  verdicts: CheckStepVerdictDto[];
+  firstQuestionableStepId: string | null;
+  errorKind: { kind: string; label: string; reason: string } | null;
+  assumptions: string[];
+  /** Fix round 10: workbench.symbolic_checks_enabled now; off, nothing shows as checked. */
+  symbolicEnabled?: boolean;
+  symbolicAvailable: boolean;
+  stale: boolean;
+  changedSteps: number[];
+}
+
+export interface WorkbenchStepLabelsDto {
+  aboutStepId: string | null;
+  aboutStep: number | null;
+  continueFromStepId: string | null;
+  continueFromStep: number | null;
+  firstQuestionableStep: number | null;
+}
+
+export interface LadderRungDto {
+  level: 1 | 2 | 3 | 4 | 5;
+  label: string;
+  consequence: string;
+  workedHelp: boolean;
+  discriminating: boolean;
+}
+
+export interface HelpSuggestionDto {
+  level: number;
+  kind: string;
+  chooser: "decider" | "fallback";
+  horizonIndex: number | null;
+  propensity: number | null;
+  suggestionId: string | null;
+  reason: string | null;
+  why: string;
+  split: string | null;
+  rungs: LadderRungDto[];
+  kindLabel: string | null;
+  horizonLabel: string | null;
+}
+
+export interface WorkbenchHelpResultDto {
+  status: string;
+  assistId?: string | null;
+  reason?: string | null;
+  message?: string | null;
+  shown?: boolean | null;
+  /** A check's view, on the read that delivered it (or an unchanged re-check). */
+  check?: CheckViewDto | null;
+  /** The ladder's suggestion (suggest jobs). */
+  suggestion?: HelpSuggestionDto;
+  steps?: WorkbenchStepLabelsDto;
+  /** A hint (hint jobs): the H2a result fields. */
+  hintMd?: string | null;
+  kind?: string | null;
+  level?: number | null;
+  labels?: HintLabelsDto;
+  discriminating?: HintDiscriminatingDto | null;
+  replies?: string[];
+  stepLine?: string;
+  claims?: HintClaimDto[];
+  /** Fix round 11: workbench.symbolic_checks_enabled at read time. */
+  symbolicEnabled?: boolean;
+  bridgeJobId?: string | null;
+  /** RW2c: the worked example looked for after a level-3+ hint (absent while
+   *  workbench.examples_enabled is off; null when it does not apply). */
+  exampleJobId?: string | null;
+  /** A bridge (bridge jobs), or RW2c's worked example (example jobs). */
+  line?: string;
+  spanId?: string | null;
+  extractionId?: string | null;
+  /** RW2c review F1: the book the example is in (it may be another book). */
+  sourceId?: string | null;
+  label?: string | null;
+  /** RW2c: the passages a logged draw kept one click away ("another passage"). */
+  alternatives?: number;
+  /** RW2c's example: follows_learner_route | worked_example. */
+  verdict?: string | null;
+  trigger?: string | null;
+  aboutStepId?: string | null;
+  /** The record line and footer after a delivered check or hint (G62). */
+  record?: WorkbenchRecordDto;
+}
+
+export interface WorkbenchHelpJobDto {
+  version: number;
+  jobId: string | null;
+  kind?: "check" | "suggest" | "hint" | "bridge" | "example" | "compare";
+  state: "pending" | "done" | "cancelled";
+  result: WorkbenchHelpResultDto | null;
+}
+
+export interface WorkbenchHintViewDto {
+  assistId: string;
+  kind: string;
+  level: number;
+  hintMd: string;
+  labels: HintLabelsDto;
+  aboutStepId: string | null;
+  continueFromStepId: string | null;
+  stepLine: string;
+  replies: string[];
+  discriminatingAnswer: { answerMd: string; message: string } | null;
+  bridge: ({ assistId: string; line: string; spanId: string | null; extractionId: string | null; label: string | null;
+    /** RW2c fix round 2 (7): the book a drawn or picked passage is in (only
+     *  while workbench.passage_draw_enabled is on). */
+    sourceId?: string | null } & WorkbenchPassageDrawDto) | null;
+  /** RW2c: the worked example under this hint (key absent while
+   *  workbench.examples_enabled is off). */
+  example?: WorkbenchExampleViewDto | null;
+  /** The hint's own checkable claims as verified (Reader §5.3, review F14). */
+  claims?: HintClaimDto[];
+  /** Fix round 10: workbench.symbolic_checks_enabled now; off, no claim shows ✓. */
+  symbolicEnabled?: boolean;
+}
+
+export interface HintClaimDto {
+  step: number;
+  statement: string;
+  /** checked | checked_numerically | model (failed claims are never shown). */
+  status: string;
+  label: string;
+  kind: string;
+  reason: string;
+}
+
+export interface WorkbenchHelpStateDto {
+  version: number;
+  check: CheckViewDto | null;
+  hints: WorkbenchHintViewDto[];
+  helpStyle: HelpStyle | null;
+  storedHelpStyle: HelpStyle;
+  hintsEnabled: boolean;
+  /** RW2c: "Show me a similar example" can run here (both keys absent while
+   *  workbench.examples_enabled is off). */
+  examplesAvailable?: boolean;
+  /** RW2c: the shown "Show me a similar example" results, not under a hint. */
+  examples?: WorkbenchExampleViewDto[];
+}
+
+/** RW2c review F1: where a passage the workbench names is: its reading and
+ *  book, so a passage in another book opens there, not in the book open now. */
+export interface PassageTarget {
+  extractionId?: string | null;
+  sourceId?: string | null;
+}
+
+/** RW2c: a passage shown by a logged draw keeps the others one click away. */
+export interface WorkbenchPassageDrawDto {
+  alternatives?: number;
+  optionId?: string;
+  drawAssistId?: string;
+}
+
+/** RW2c: a worked example that takes the learner's route (no passage text:
+ *  it opens in the book). */
+export interface WorkbenchExampleViewDto extends WorkbenchPassageDrawDto {
+  assistId: string;
+  line: string;
+  spanId: string | null;
+  extractionId: string | null;
+  /** RW2c review F1: the book the passage is in (the Reader opens it there
+   *  when it is not the book open now). */
+  sourceId?: string | null;
+  label: string | null;
+  verdict: string | null;
+  trigger: string | null;
+  aboutStepId: string | null;
+  hintAssistId: string | null;
+}
+
+export interface WorkbenchAnotherPassageDto {
+  version: number;
+  kind: "bridge" | "example";
+  passage: WorkbenchExampleViewDto;
+}
+
+export interface WorkbenchCompareOfferDto {
+  version: number;
+  available: boolean;
+  reason: string | null;
+  referenceKind?: "item_key" | "book_solution";
+  label?: string;
+}
+
+export interface WorkbenchCompareLinesDto {
+  differences: { kind: string; learnerStep: number | null; line: string }[];
+  routeLine: string | null;
+  sameMethod: boolean;
+  learnerRouteValid: boolean;
+  dropped: number;
+  label: string;
+}
+
+export interface WorkbenchComparisonDto {
+  assistId: string;
+  revealId: string | null;
+  learner: { label: string; steps: { number: number; kind: string; bodyMd: string }[] };
+  reference: { kind: "item_key" | "book_solution"; label: string; text: string; extractionId?: string; spanIds?: string[]; page?: number | null };
+  lines: WorkbenchCompareLinesDto | null;
+}
+
+export interface WorkbenchCompareMethodsDto {
+  version: number;
+  comparison: WorkbenchComparisonDto;
+  linesJobId: string | null;
+}
+
+/** RW2c: the compare job's result (read with workbenchHelpJob). */
+export interface WorkbenchCompareJobResultDto {
+  status: string;
+  assistId?: string;
+  lines?: WorkbenchCompareLinesDto;
+  reason?: string;
+  message?: string;
+}
+
+export interface WorkbenchRequestHelpInput {
+  sessionId: string;
+  request?: HintRequestKind;
+  takenLevel?: number;
+  offeredLevel?: number | null;
+  suggestionId?: string | null;
+  focusedStepId?: string | null;
+  answeredAssistId?: string;
+  feedbackShortcut?: HintShortcut;
+  feedbackText?: string;
+  feedbackStepId?: string | null;
+  secondsOnItem?: number;
 }

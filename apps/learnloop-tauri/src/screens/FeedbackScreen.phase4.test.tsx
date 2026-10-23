@@ -1235,3 +1235,24 @@ it("F1-1 (round 6): the latest query releases the hold, after a fresh row", asyn
   expect(screen.getByText(KEY)).toBeTruthy();
   expect(displayIds().length).toBe(before + 1);
 });
+
+// Reader workbench RW2c (spec §5.10, G40): "compare methods ▸" after a correct
+// Submit, only while workbench.compare_methods_enabled is on (the config's
+// `compareMethods`); off, the feedback screen asks the server nothing.
+it("RW2c off: a right answer with workbench help on but no compareMethods key asks for no comparison", async () => {
+  setAlgoConfig({ ui: { practiceFeedback: "simple" }, workbench: { enabled: true, help: { enabled: true, bridge: true, symbolic: true } } });
+  api.getFeedback.mockResolvedValue({ ...BUNDLE, rubricScore: 4, correctness: 1 });
+  render(<FeedbackScreen {...props()} />);
+  expect(await screen.findByText("Right")).toBeTruthy();
+  expect(api.workbenchCompareOffer).not.toHaveBeenCalled();
+  expect(screen.queryByTestId("feedback-compare-methods")).toBeNull();
+});
+
+it("RW2c on: a right answer asks whether compare methods is offered, and shows it when it is", async () => {
+  setAlgoConfig({ ui: { practiceFeedback: "simple" }, workbench: { enabled: true, help: { enabled: true, bridge: true, symbolic: true, compareMethods: true } } });
+  api.getFeedback.mockResolvedValue({ ...BUNDLE, rubricScore: 4, correctness: 1 });
+  api.workbenchCompareOffer.mockResolvedValue({ version: 1, available: true, reason: null, referenceKind: "item_key" });
+  render(<FeedbackScreen {...props()} />);
+  expect(await screen.findByText("compare methods ▸")).toBeTruthy();
+  expect(api.workbenchCompareOffer).toHaveBeenCalledWith({ attemptId: BUNDLE.attemptId });
+});

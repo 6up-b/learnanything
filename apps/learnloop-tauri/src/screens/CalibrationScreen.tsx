@@ -11,6 +11,7 @@ import { ASSUMED_LABEL } from "../components/PlacementControls";
 import { DialogueProbePanel } from "../components/DialogueProbe";
 import { BlockBar, COLOR, FONT_MONO, Faint, KeyBar } from "../components/term";
 import { Card, Pill, SectionHeader } from "../components/ui";
+import { screenLeavesKey } from "../app/keymap";
 
 // Calibration session progress (probe redesign §5.9): a learner-initiated
 // wrapper that batches diagnostic episode blocks in one sitting. This screen
@@ -102,6 +103,7 @@ export function CalibrationScreen({
   useEffect(() => {
     if (dialogueLo != null) return; // the dialogue panel owns the keyboard
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea") return;
       if (event.key === "Escape") {

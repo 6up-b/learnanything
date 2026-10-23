@@ -4,6 +4,7 @@
 
 import { useEffect, useRef } from "react";
 import { isTypingTarget } from "./keyboard";
+import { ADD_FILES_CHORD, matchesChord } from "./keymap";
 
 const ARXIV_ID = /^(arxiv:)?\d{4}\.\d{4,5}(v\d+)?$/i;
 const LOCAL_FILE = /^(~|\/|[A-Za-z]:\\).+\.(pdf|md|markdown|txt|html?|vtt|srt|mp3|wav|m4a|flac|ogg|oga|opus|aac)$/i;
@@ -30,7 +31,8 @@ export function useGlobalAdd({
   useEffect(() => {
     if (!enabled) return;
     const onKey = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "o") {
+      // The chord is the shared key map's (UX Phase 2, app/keymap.ts).
+      if (matchesChord(ADD_FILES_CHORD, event) && !event.altKey && !event.shiftKey) {
         event.preventDefault();
         handlers.current.onPickFiles();
       }

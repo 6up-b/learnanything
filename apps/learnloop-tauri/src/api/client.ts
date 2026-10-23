@@ -5,6 +5,12 @@ import type {
   DifficultyRating,
   FirstHintProgress,
   CompareTableDto,
+  KeepComparisonResultDto,
+  KeepTakeDto,
+  KeptMarksDto,
+  ReadingPathChoice,
+  ReadingPathDepth,
+  ReadingPathDto,
   LibraryAskDto,
   LibraryAskEntry,
   LibraryExpansion,
@@ -12,12 +18,19 @@ import type {
   LibraryNotesDto,
   LibraryTutorDto,
   WorkbenchOpenInput,
+  WorkbenchAdmitDto,
   WorkbenchSaveStepDto,
   WorkbenchSaveStepInput,
   WorkbenchSessionDto,
   WorkbenchSubmitDto,
   WorkbenchSubmitInput,
   WorkbenchSummaryDto,
+  WorkbenchHelpJobDto,
+  WorkbenchHelpStateDto,
+  WorkbenchAnotherPassageDto,
+  WorkbenchCompareMethodsDto,
+  WorkbenchCompareOfferDto,
+  WorkbenchRequestHelpInput,
   ReaderRecapDto,
   ReaderRecapEvent,
   ReaderWrapUpDto,
@@ -26,6 +39,10 @@ import type {
   CueDensity,
   ReaderCueAction,
   ReaderCueActionDto,
+  ReaderCueDiscoveryJobDto,
+  ReaderCueImpressionInput,
+  ReaderCueTapAction,
+  ReaderCueTapDto,
   ReaderCuePreferencesDto,
   ReaderInquiryQuestionActionInput,
   ReaderInquiryQuestionDto,
@@ -50,6 +67,11 @@ import type {
   PracticeCallerDto,
   PracticeRequestDto,
   SourceExerciseImportDto,
+  ExerciseCandidatesDto,
+  FindExercisesDto,
+  FigureBuildResultDto,
+  FigurePredictionResultDto,
+  FiguresDto,
   SourceToolRunDto,
   AnswerCalibrationReportDto,
   CreateVaultInput,
@@ -159,6 +181,9 @@ import type {
   StartSummaryDto,
   DailyPlanDto,
   TodayHeadlineDto,
+  IntentChoice,
+  IntentScopeKind,
+  IntentViewDto,
   SessionStartInput,
   SqliteExecResult,
   SqliteTableSnapshot,
@@ -588,6 +613,10 @@ export const api = {
     sessionId: string;
     practiceItemId: string;
     hintsUsed: number;
+    /** RW2b fix round 5: the authored reveals alone (see SubmitAttemptInput). */
+    authoredHints?: number | null;
+    /** RW2b fix round 12: the count holds a book (see SubmitAttemptInput). */
+    bookCounted?: boolean | null;
     latencySeconds?: number | null;
     probePresentationId?: string | null;
     answerConfidence?: number | null;
@@ -1207,6 +1236,17 @@ export const api = {
   compareSources: (input: Record<string, unknown> & { query: string; caller: PracticeCallerDto }) =>
     call<Record<string, unknown>>("compare_sources", { input }),
   getTodayHeadline: () => call<TodayHeadlineDto>("get_today_headline", { input: {} }),
+  // Daily-loop DL2: the single intent control (spec §5.2) and deadlines (§5.4).
+  // A choice changes what Today serves (and a deadline adds a goal).
+  getIntent: (scopeKind: IntentScopeKind, scopeId: string) =>
+    call<IntentViewDto>("get_intent", { input: { scopeKind, scopeId } }),
+  setIntent: (scopeKind: IntentScopeKind, scopeId: string, choice: IntentChoice) =>
+    mutating([TAG.queue, TAG.graph, TAG.goals], call<IntentViewDto>("set_intent", { input: { scopeKind, scopeId, choice } })),
+  setIntentDeadline: (scopeKind: IntentScopeKind, scopeId: string, dueAt: string) =>
+    mutating(
+      [TAG.queue, TAG.graph, TAG.goals],
+      call<IntentViewDto>("set_intent_deadline", { input: { scopeKind, scopeId, dueAt } })
+    ),
   beginProbeDialogue: (learningObjectId: string) =>
     mutating(ATTEMPT_TAGS, call<BeginProbeDialogueResult>("begin_probe_dialogue", { learningObjectId })),
   nextProbeDialogueTurn: (dialogueState: string) =>
@@ -1533,14 +1573,58 @@ export const api = {
   // readerLibraryJobCancel (a cancelled job never answers).
   readerLibraryAskNotes: (input: { askId: string }) =>
     call<LibraryJobDto<LibraryNotesDto>>("reader_library_ask_notes", { input }),
-  readerLibraryCompare: (input: { askId: string; pinnedSpanKeys: string[]; openSourceId?: string | null }) =>
+  readerLibraryCompare: (input: { askId: string; pinnedSpanKeys: string[]; openSourceId?: string | null; requestedPerspectives?: string[] }) =>
     call<LibraryJobDto<CompareTableDto>>("reader_library_compare", { input }),
+  // Reader workbench RW4d: keep a comparison as proposals, remove it, reopen it, a reading's ⇄ marks.
+  readerLibraryCompareKeep: (input: { askId?: string; comparisonId?: string | null; toolCallId?: string; extractionId?: string | null; takes?: KeepTakeDto[] }) =>
+    call<KeepComparisonResultDto>("reader_library_compare_keep", { input }),
+  readerLibraryCompareRemove: (input: { askId: string; comparisonId?: string | null }) =>
+    call<{ askId: string; kept: null; removed: boolean }>("reader_library_compare_remove", { input }),
+  readerLibraryCompareReopen: (input: { askId: string; openSourceId?: string | null }) =>
+    call<CompareTableDto>("reader_library_compare_reopen", { input }),
+  readerKeptComparisons: (input: { extractionId: string }) =>
+    call<KeptMarksDto>("reader_kept_comparisons", { input }),
+  // Reader workbench RW7a: the Guide's reading path (answers at once; a
+  // judgment runs in the background and the Guide reads the path again),
+  // the depth for this book, and "read it anyway" / "skip it".
+  readerReadingPath: (input: { extractionId: string; judge?: boolean; retry?: boolean }) =>
+    call<ReadingPathDto>("reader_reading_path", { input }),
+  readerReadingPathSetDepth: (input: { extractionId: string; depth: ReadingPathDepth }) =>
+    call<ReadingPathDto>("reader_reading_path_set_depth", { input }),
+  readerReadingPathOverride: (input: { extractionId: string; depth: ReadingPathDepth; sectionId: string; choice: ReadingPathChoice }) =>
+    call<ReadingPathDto>("reader_reading_path_override", { input }),
   readerLibraryAskTutor: (input: { askId: string; pinnedSpanKeys: string[]; question?: string | null }) =>
     call<LibraryJobDto<LibraryTutorDto>>("reader_library_ask_tutor", { input }),
   readerLibraryJob: <T>(input: { jobId: string }) =>
     call<LibraryJobDto<T>>("reader_library_job", { input }),
   readerLibraryJobCancel: (input: { jobId: string }) =>
     call<LibraryJobDto<null>>("reader_library_job_cancel", { input }),
+  // Reader workbench RW4b: the view of a proposal's textbook exercises (the
+  // sources service's exposure rule; held-out material left out) and the
+  // learner-initiated fallback search. Desktop only; neither serves anything.
+  // Each answers at once with a library job (the exposure rule's judge and the
+  // fallback's retrieval may call a model): read it with readerLibraryJob.
+  readerExerciseCandidates: (input: { proposalId: string; keys: Array<{ extractionId: string; spanIds: string[] }> }) =>
+    call<LibraryJobDto<ExerciseCandidatesDto>>("reader_exercise_candidates", { input }),
+  readerFindExercises: (input: { query: string; learningObjectIds: string[]; extractionId?: string | null }) =>
+    call<LibraryJobDto<FindExercisesDto>>("reader_find_exercises", { input }),
+  // Reader workbench RW5a: explorable figures. Desktop only. A build ("make
+  // this explorable", "not right?") answers at once with a job (the author,
+  // the verifier and the sandbox run off the request path): read it with
+  // readerFigureJob. Exam and held-out material is refused before any call.
+  readerFigureRequest: (input: { extractionId: string; spanIds: string[]; region?: { spanId: string; bbox: number[] } | null }) =>
+    call<LibraryJobDto<FigureBuildResultDto>>("reader_figure_request", { input }),
+  readerFigureRevise: (input: { figureId: string; note: string }) =>
+    call<LibraryJobDto<FigureBuildResultDto>>("reader_figure_revise", { input }),
+  readerFigureJob: (input: { jobId: string }) =>
+    call<LibraryJobDto<FigureBuildResultDto>>("reader_figure_job", { input }),
+  readerFigureJobCancel: (input: { jobId: string }) =>
+    call<LibraryJobDto<null>>("reader_figure_job_cancel", { input }),
+  readerFigures: (input: { extractionId: string }) => call<FiguresDto>("reader_figures", { input }),
+  readerFigurePredict: (input: { figureId: string; predictionIndex: number; answer: string }) =>
+    call<FigurePredictionResultDto>("reader_figure_predict", { input }),
+  readerFigureExplain: (input: { predictionId: string; text: string }) =>
+    call<FigurePredictionResultDto>("reader_figure_explain", { input }),
   // Adaptive difficulty AD2+AD3: the Reader's dose offer and its uptake rows
   // (an offer's row is written before it is shown), an LO's readiness lines,
   // and "why this item" for a served plan item. Desktop only.
@@ -1564,6 +1648,15 @@ export const api = {
   // and its undo) and the learner's cue preferences (density, a book off).
   readerCueAction: (input: { extractionId: string; cueId: string; action: ReaderCueAction; text?: string | null }) =>
     mutatingReader(call<ReaderCueActionDto>("reader_cue_action", { input })),
+  // Reader workbench RW3b: discovered cues (desktop only).
+  readerCueDiscovery: (input: { extractionId: string; sourceOpenId: string }) =>
+    call<ReaderCueDiscoveryJobDto>("reader_cue_discovery", { input }),
+  readerCueDiscoveryJob: (input: { jobId: string }) =>
+    call<ReaderCueDiscoveryJobDto>("reader_cue_discovery_job", { input }),
+  readerCueImpressions: (input: { extractionId: string; visitId: string; planId: string; entries: ReaderCueImpressionInput[] }) =>
+    call<{ recorded: unknown[] }>("reader_cue_impressions", { input }),
+  readerCueTap: (input: { extractionId: string; cueId: string; action: ReaderCueTapAction; planId: string; text?: string | null; visitId?: string | null }) =>
+    mutatingReader(call<ReaderCueTapDto>("reader_cue_tap", { input })),
   readerCuePreferences: (input: { sourceId?: string | null } = {}) =>
     call<ReaderCuePreferencesDto>("reader_cue_preferences", { input }),
   readerSetCuePreferences: (input: {
@@ -1601,6 +1694,10 @@ export const api = {
     call<{ version: number; session: WorkbenchSessionDto }>("workbench_bind", { input }),
   workbenchRetryImport: (input: { sessionId: string }) =>
     mutatingReader(call<{ version: number; session: WorkbenchSessionDto }>("workbench_retry_import", { input }), [TAG.queue, TAG.proposals]),
+  // RW4b fix round 4 (R1): a picked exercise's owed learner pick, made,
+  // served and recorded on the named problem by the server, idempotently.
+  workbenchAdmit: (input: { sessionId: string; practiceSessionId?: string | null }) =>
+    mutating([TAG.queue, TAG.proposals], call<WorkbenchAdmitDto>("workbench_admit", { input })),
   workbenchSubmit: (input: WorkbenchSubmitInput) =>
     mutating(ATTEMPT_TAGS, call<WorkbenchSubmitDto>("workbench_submit", { input })),
   workbenchSessionForAttempt: (input: { attemptId: string }) =>
@@ -1609,6 +1706,32 @@ export const api = {
     call<{ version: number; sessions: WorkbenchSummaryDto[] }>("workbench_for_item", { input }),
   workbenchForSource: (input: { extractionId: string }) =>
     call<{ version: number; sessions: WorkbenchSummaryDto[]; openSessionDays: number }>("workbench_for_source", { input }),
+  // Reader workbench RW2b + adaptive hints H3: "Check my work" and the help
+  // ladder (jobs: the read that returns a ready check or hint shows it).
+  workbenchCheck: (input: { sessionId: string }) => call<WorkbenchHelpJobDto>("workbench_check", { input }),
+  workbenchSuggestHelp: (input: { sessionId: string; focusedStepId?: string | null }) =>
+    call<WorkbenchHelpJobDto>("workbench_suggest_help", { input }),
+  workbenchRequestHelp: (input: WorkbenchRequestHelpInput) =>
+    call<WorkbenchHelpJobDto>("workbench_request_help", { input }),
+  workbenchHelpJob: (jobId: string) => call<WorkbenchHelpJobDto>("workbench_help_job", { input: { jobId } }),
+  workbenchCancelHelp: (jobId: string) => call<HintCancelDto>("workbench_cancel_help", { input: { jobId } }),
+  workbenchAnswerDiscriminating: (input: { sessionId: string; questionAssistId: string; answerMd: string }) =>
+    call<HintDiscriminateAnswerDto>("workbench_answer_discriminating", { input }),
+  workbenchSetHelpStyle: (input: { sessionId: string; helpStyle: HelpStyle | null }) =>
+    call<{ version: number; helpStyle: HelpStyle | null; storedHelpStyle: HelpStyle }>("workbench_set_help_style", { input }),
+  workbenchHelpState: (input: { sessionId: string }) => call<WorkbenchHelpStateDto>("workbench_help_state", { input }),
+  // Reader workbench RW2c: "Show me a similar example" (a job, read with
+  // workbenchHelpJob), "another passage" (a learner pick, no search), and
+  // "Compare with the book's method" after a correct Submit (its reveal on the
+  // item is written before the reference comes back). Desktop only.
+  workbenchShowExample: (input: { sessionId: string; focusedStepId?: string | null }) =>
+    call<WorkbenchHelpJobDto>("workbench_show_example", { input }),
+  workbenchAnotherPassage: (input: { sessionId: string; assistId: string }) =>
+    call<WorkbenchAnotherPassageDto>("workbench_another_passage", { input }),
+  workbenchCompareOffer: (input: { attemptId: string }) =>
+    call<WorkbenchCompareOfferDto>("workbench_compare_offer", { input }),
+  workbenchCompareMethods: (input: { attemptId: string }) =>
+    call<WorkbenchCompareMethodsDto>("workbench_compare_methods", { input }),
   // Reader workbench RW6a: "Last time here" and Wrap up (pure reads), and the
   // three events (recap_shown, recap_dismissed, wrap_up_opened). Desktop only.
   readerRecap: (input: { extractionId: string; visitId?: string | null }) =>

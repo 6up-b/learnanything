@@ -3,13 +3,13 @@ title: "attempt_diagnoses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_diagnoses"
   - "table attempt_diagnoses"
-schema_head: 214
+schema_head: 217
 table_name: "attempt_diagnoses"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/170_blind_grading_diagnosis_split.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/stores/diagnoses.py"
   - "src/learnloop/db/stores/recurrence.py"
   - "src/learnloop/db/stores/write_provenance.py"
   - "src/learnloop/diagnosis/recurrence/report.py"
   - "src/learnloop/diagnosis/split/diagnoser.py"
+  - "src/learnloop/diagnosis/text_gaps/jobs.py"
+  - "src/learnloop/diagnosis/text_gaps/sources.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -111,7 +111,9 @@ None found by exact static reference scan.
 - `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/diagnosis/text_gaps/jobs.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
+- `src/learnloop/hints/report_workbench.py`
 - `src/learnloop/placement/state.py`
+- `src/learnloop/workbench/help_outcomes.py`
 
 ### Direct SQL writers
 
@@ -130,8 +132,11 @@ None found by exact static reference scan.
 - `tests/test_diagnosis_input_provenance.py`
 - `tests/test_forecast_receipts.py`
 - `tests/test_forecast_receipts_landing.py`
+- `tests/test_help_outcomes.py`
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_learner_text_gaps_flow.py`
+- `tests/test_workbench_step_graph.py`
+- `tests/test_workbench_text_gaps.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

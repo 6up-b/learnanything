@@ -3,13 +3,13 @@ title: "misconception_candidates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconception_candidates"
   - "table misconception_candidates"
-schema_head: 214
+schema_head: 217
 table_name: "misconception_candidates"
 table_role: "workflow"
 functionality_status: "active"
@@ -129,6 +129,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/text_gaps/actions.py`
 - `src/learnloop/diagnosis/text_gaps/candidates.py`
 - `src/learnloop/learner/independence_audit.py`
+- `src/learnloop/source_retrieval/passage_cues.py`
 - `src/learnloop/tutor/durable_promotion.py`
 - `src/learnloop_sidecar/handlers/remediation.py`
 
@@ -145,6 +146,7 @@ Indexes and uniqueness:
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_recurrence_live.py`
+- `tests/test_workbench_text_gaps.py`
 - `tests/test_causal_attribution_exhibit.py`
 - `tests/test_causal_attribution_p0.py`
 - `tests/test_causal_factor_deferral.py`
@@ -154,8 +156,8 @@ Indexes and uniqueness:
 - `tests/test_km4_taxonomy.py`
 - `tests/test_learner_text_gaps.py`
 - `tests/test_learner_text_gaps_review.py`
+- `tests/test_reader_rw3b_review_fixes.py`
 - `tests/test_recurrence_groups.py`
-- `tests/test_recurrence_key.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

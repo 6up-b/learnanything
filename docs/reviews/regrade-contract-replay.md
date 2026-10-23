@@ -88,6 +88,7 @@ Without the vault, which names the version, it writes as before. Every caller pa
 ### 2.6 No kill switch, no migration
 
 - **No kill switch.** The behavior a switch would restore is the defect: a regrade that cannot be saved, or one that replays against the wrong maximum. Replay never reads a switch anyway; it reads what each epoch recorded. Rolling the version back is restore-only, like mvp-0.18. This is open question Q1.
+  **Owner confirmed 2026-10-20:** no kill switch for the mvp-0.26 regrade; rollback = restore the backup.
 - **No migration.** Every column the fix needs already exists: `assessment_contract_version_id`, `grading_revision`, `superseded_*`, and `manual_review_reason`. A unique index on `(attempt_id, grading_revision, criterion_id)` was considered and left out: the sequence is assigned in a serialized transaction, and an index added by migration could fail on historical data.
 
 ## 3. The successor note (playbook items)
@@ -202,7 +203,7 @@ The same lanes passed on `ba8709f00` before the one-line upgrade fix in `7940dbd
 
 ## 9. Open questions (defaults applied)
 
-- **Q1. A kill switch?** None was added. The earlier writer is the defect, and replay reads what each epoch recorded. *Default: no switch; rolling back is restore-only.*
+- **Q1. A kill switch?** None was added. The earlier writer is the defect, and replay reads what each epoch recorded. *Default: no switch; rolling back is restore-only.* **Owner confirmed 2026-10-20:** no switch; rollback = restore the backup.
 - **Q2. An unrecorded epoch whose total maximum a blind record kept.** It is held, like one without: its fraction is known but its criteria's maxima are not. The alternative is to schedule it by the recorded fraction with no criterion evidence (PF-c's nothing-assessed path). *Default: held.* No owner vault has such an attempt.
 - **Q3. The correctness of a held unrecorded epoch with no recorded maximum.** It is the value the attempt row carries, kept and never used as evidence. NULL would be "unknown", but about 30 readers read the column as a float. *Default: kept.*
 - **Q4. Pre-contract first grades** keep the compatibility reading of the item while their score fits, and are held once it no longer does. *Default: as built.* Holding them all would be a `substrate.compat` decision.
@@ -344,6 +345,7 @@ Both vaults are tracked fixtures, so their `state.sqlite` and `learnloop.toml` w
 ### Open items
 
 1. **Q1, no kill switch (owner confirmation needed).** Rolling mvp-0.26 back is restore-only: restore the step-1 backup. Setting `algorithm_version` back by hand would leave rows written at the tag (cited regrades, revisions, every tier superseded) under a predecessor's replay. The stage's default is no switch, because the old writer is the defect.
+   **Owner confirmed 2026-10-20** ("q1: no switch, q44: end it honestly with no replacement, q45: yes it ends the check. for rw6a yes to defaults"): no kill switch; rollback = restore the step-1 backup.
 2. **Releasing a correct held grade without a model call** (new). An upholding adjudication through the CLI does not release `grade_contract_unrecorded`: Ruling A writes an evidence revision only when the direction flips. To keep 4/4, the owner must regrade (one call). Alternatives for a follow-up:
    - let an upholding owner adjudication of a held unrecorded grade write the revision;
    - list such holds in `grading reviews`, which today does not show them.

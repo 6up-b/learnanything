@@ -3,13 +3,13 @@ title: "schema_migrations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite schema_migrations"
   - "table schema_migrations"
-schema_head: 214
+schema_head: 217
 table_name: "schema_migrations"
 table_role: "receipt"
 functionality_status: "active"
@@ -19,8 +19,6 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/migrate.py"
   - "src/learnloop/substrate/data_quality.py"
   - "src/learnloop/substrate/dataset.py"
@@ -92,11 +90,11 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_ad1_migration.py`
-- `tests/test_ad23_migration.py`
 - `tests/test_collection_dataset.py`
 - `tests/test_diagnosis_input_provenance_landing.py`
 - `tests/test_doctor.py`
 - `tests/test_exam_protection_identity.py`
+- `tests/test_figures_migration.py`
 - `tests/test_init.py`
 - `tests/test_mcp_runtime.py`
 - `tests/test_migrate_fresh.py`

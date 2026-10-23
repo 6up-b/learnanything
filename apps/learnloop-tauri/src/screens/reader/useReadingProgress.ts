@@ -33,6 +33,7 @@ import type {
 import type { PassageAlign, PdfReaderPaneHandle } from "../../components/PdfReaderPane";
 import { checkOffer, type CheckSurface } from "./checkOffer";
 import { useGuideDiagnosisRefresh } from "./guidePlan";
+import { screenLeavesKey } from "../../app/keymap";
 import {
   pagePositionAt,
   resumeSpanFromHistory,
@@ -84,8 +85,12 @@ function seenSaveFor(saves: Map<string, SeenSave>, extractionId: string): SeenSa
 /** Send a book's counts that are neither acknowledged nor on their way. A
  * failed save is tried again a few times (a busy database, a restarting
  * sidecar) with whatever the book's newest counts are by then; after that it
- * waits for the next change, or for the learner leaving the book or the Reader. */
-function sendSeenCounts(saves: Map<string, SeenSave>, extractionId: string): void {
+ * waits for the next change, or for the learner leaving the book or the Reader.
+ * `onSaved` hears each count the backend acknowledged, a retry's included
+ * (RW7a Codex re-review F3: what reads the progress back waits for it). */
+function sendSeenCounts(
+  saves: Map<string, SeenSave>, extractionId: string, onSaved?: (extractionId: string) => void,
+): void {
   const save = saves.get(extractionId);
   if (!save) return;
   for (const [sectionId, { spansSeen, spanCount }] of Object.entries(save.wanted)) {
@@ -95,13 +100,14 @@ function sendSeenCounts(saves: Map<string, SeenSave>, extractionId: string): voi
       .then(() => {
         save.acknowledged[sectionId] = Math.max(save.acknowledged[sectionId] ?? 0, spansSeen);
         save.attempts = 0;
+        onSaved?.(extractionId);
       })
       .catch(() => {
         if (save.timer !== null || save.attempts >= SEEN_RETRY_LIMIT) return;
         save.attempts += 1;
         save.timer = window.setTimeout(() => {
           save.timer = null;
-          sendSeenCounts(saves, extractionId);
+          sendSeenCounts(saves, extractionId, onSaved);
         }, SEEN_REPORT_MS * 2 ** save.attempts);
       })
       .finally(() => {
@@ -210,6 +216,10 @@ export interface ReadingProgress {
   /** A walk of the return stack landed the learner on this passage. */
   noteRestored: (spanId: string | null) => void;
   sectionSeen: Record<string, number>;
+  /** How many of the open book's progress saves the backend acknowledged
+   *  (retries included): what reads progress back re-reads on it (RW7a
+   *  Codex re-review F3). */
+  progressSaves: number;
   readingMoved: boolean;
   focusQuickCheck: string | null;
   hiddenPdfOffers: string[];
@@ -370,6 +380,13 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
   const seenSavesRef = useRef(new Map<string, SeenSave>());
   // The book being read now, which leaving it saves first.
   const activeSeenRef = useRef<string | null>(null);
+  // RW7a (Codex re-review F3): counts the open book's acknowledged progress
+  // saves, so what reads progress back (the Guide's reading path) re-reads
+  // after the save has landed, not on a timer raced against its debounce.
+  const [progressSaves, setProgressSaves] = useState(0);
+  const noteProgressSaved = useCallback((extractionId: string) => {
+    if (extractionId === activeSeenRef.current) setProgressSaves((value) => value + 1);
+  }, []);
   const lastReadRef = useRef<{ id: string; index: number; progress: number } | null>(null);
   const pageModeRef = useRef(false);
   const pageSpansRef = useRef<Array<{ spanId: string; page: number }>>([]);
@@ -726,9 +743,9 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
       if (spansSeen > (save.wanted[sectionId]?.spansSeen ?? 0)) save.wanted[sectionId] = { spansSeen, spanCount };
     }
     activeSeenRef.current = extractionId;
-    const timer = window.setTimeout(() => sendSeenCounts(saves, extractionId), SEEN_REPORT_MS);
+    const timer = window.setTimeout(() => sendSeenCounts(saves, extractionId, noteProgressSaved), SEEN_REPORT_MS);
     return () => window.clearTimeout(timer);
-  }, [render, offline, guidePlan, sectionSeen]);
+  }, [render, offline, guidePlan, sectionSeen, noteProgressSaved]);
   useEffect(() => {
     const saves = seenSavesRef.current;
     // Closing the Reader saves every book it still holds counts for.
@@ -1039,6 +1056,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
   useEffect(() => {
     if (!render) return;
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea") return;
       // An Alt chord is never a scroll key: Alt+↓ / Alt+↑ move between margin
@@ -1097,7 +1115,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
   }, []);
 
   return {
-    readingSpan, setReadingSpan, readingOffset, restoredSpan, noteRestored, sectionSeen, readingMoved, focusQuickCheck,
+    readingSpan, setReadingSpan, readingOffset, restoredSpan, noteRestored, sectionSeen, progressSaves, readingMoved, focusQuickCheck,
     hiddenPdfOffers, setHiddenPdfOffers, answeredSections, setAnsweredSections, revealedSections,
     dismissedSections, setDismissedSections, completedSections, sectionPromptsEnabled, setSectionPromptsEnabled,
     boundaryChecksAvailable, authoringSections, timedOutSections, guideSectionBySpan, guideSectionByEnd,

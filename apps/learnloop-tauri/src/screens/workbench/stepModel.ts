@@ -16,6 +16,9 @@ export interface LocalStep {
   key: string;
   /** The newest saved version's row id; null until its add lands. */
   serverId: string | null;
+  /** RW2b: the step's stable id on the server (its first row), once saved:
+   *  what checks and hints name. */
+  chainId?: string | null;
   kind: WorkbenchStepKind;
   body: string;
   /** Deleted on this visit: shown as "deleted · undo" until the learner leaves. */
@@ -26,7 +29,7 @@ export interface LocalStep {
 export function fromServer(steps: readonly WorkbenchStepDto[]): LocalStep[] {
   return [...steps]
     .sort((a, b) => a.ordinal - b.ordinal)
-    .map((step) => ({ key: step.chainId, serverId: step.stepId, kind: step.kind, body: step.bodyMd, deleted: step.deleted, versions: step.versions }));
+    .map((step) => ({ key: step.chainId, serverId: step.stepId, chainId: step.chainId, kind: step.kind, body: step.bodyMd, deleted: step.deleted, versions: step.versions }));
 }
 
 /** A new step right after `afterKey` (Enter at a step's end), or at the end. */
@@ -51,6 +54,11 @@ export function restoreLocal(steps: readonly LocalStep[], key: string): LocalSte
 
 export function liveSteps(steps: readonly LocalStep[]): LocalStep[] {
   return steps.filter((step) => !step.deleted);
+}
+
+/** RW2b: the step's id on the server (checks and hints name it), or null. */
+export function stepChain(step: LocalStep): string | null {
+  return step.chainId ?? (step.serverId !== null && step.key === step.serverId ? step.key : null);
 }
 
 /** "Exercise 5.14" when the stem names its exercise, else "this problem". */

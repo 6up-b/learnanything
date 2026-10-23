@@ -8,6 +8,7 @@ import type { AddSourceItemDto, AddSourceResultDto } from "../api/dto";
 import { plainError } from "../copy/ingestErrors";
 import { COLOR, FONT_MONO } from "./term";
 import { pickSourceFiles } from "./useSourceFileDrop";
+import { screenLeavesKey } from "../app/keymap";
 
 export type AddOptions = {
   pages?: string;
@@ -243,6 +244,7 @@ export function AddPopover({
 }) {
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
+      if (screenLeavesKey(event, { modal: true })) return;
       if (event.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);

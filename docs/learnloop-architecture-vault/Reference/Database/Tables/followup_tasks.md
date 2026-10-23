@@ -3,13 +3,13 @@ title: "followup_tasks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_tasks"
   - "table followup_tasks"
-schema_head: 214
+schema_head: 217
 table_name: "followup_tasks"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/058_remediation_episodes.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/evsi_calibration/forecast_report.py"
   - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/goals/certification_cold_probe.py"
+  - "src/learnloop/scheduling/intent/serving.py"
+  - "src/learnloop/scheduling/scheduler.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/staged_frame.py"
@@ -139,6 +139,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop/goals/certification_cold_probe.py`
 - `src/learnloop/instructional/policy.py`
+- `src/learnloop/intent/checks.py`
 - `src/learnloop/learner_protection.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/scheduling/serving_exclusions.py`
@@ -156,6 +157,7 @@ Indexes and uniqueness:
 - `tests/test_causal_cold_outcomes.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_forecast_receipts.py`
+- `tests/test_intent_fix_round4.py`
 - `tests/test_mcp_c1a_landing.py`
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_remediation_cold_retry.py`
@@ -164,14 +166,13 @@ Indexes and uniqueness:
 - `tests/test_assumed_known.py`
 - `tests/test_causal_orchestrator.py`
 - `tests/test_certification_cold_probe.py`
+- `tests/test_compare_methods.py`
 - `tests/test_daily_loop_lo_lifecycle_serving.py`
 - `tests/test_diagnostic_probe_freshness.py`
 - `tests/test_followup_diagnostic_selection.py`
 - `tests/test_guided_redo.py`
 - `tests/test_instrument_servability_journeys.py`
-- `tests/test_item_authoring.py`
-- `tests/test_pfc_unassessed_readers.py`
-- `tests/test_practice_index_admission.py`
+- `tests/test_intent_codex_rereview.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

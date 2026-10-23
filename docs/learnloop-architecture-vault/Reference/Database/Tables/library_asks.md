@@ -3,13 +3,13 @@ title: "library_asks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite library_asks"
   - "table library_asks"
-schema_head: 214
+schema_head: 217
 table_name: "library_asks"
 table_role: "workflow"
 functionality_status: "active"
@@ -21,6 +21,8 @@ source_paths:
   - "migrations/209_library_asks.sql"
   - "src/learnloop/db/stores/library_asks.py"
   - "src/learnloop/reader/reader_report.py"
+  - "src/learnloop/reader/source_objects.py"
+  - "src/learnloop/source_retrieval/kept_comparisons.py"
   - "src/learnloop/source_retrieval/library_ask.py"
 tags:
   - "learnloop/database/table"
@@ -111,6 +113,8 @@ None found by exact static reference scan.
 
 - `tests/library_ask_fixtures.py`
 - `tests/test_architecture.py`
+- `tests/test_compare_keep_switch_off.py`
+- `tests/test_compare_sources_keep.py`
 - `tests/test_library_ask_expand.py`
 - `tests/test_library_asks_migration.py`
 - `tests/test_rw4_kill_switches.py`

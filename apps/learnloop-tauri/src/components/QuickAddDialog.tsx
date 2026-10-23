@@ -13,6 +13,7 @@ import { COLOR, Faint, FONT_MONO, Pill, TermCheckbox, TermSelect } from "./term"
 import { PageRangeSelector, pageSelectionError } from "./PageRangeSelector";
 import { pickSourceFile, useSourceFileDrop } from "./useSourceFileDrop";
 import { AsciiLoadingBar } from "./AsciiLoadingBar";
+import { screenLeavesKey } from "../app/keymap";
 
 const ROLES = ["primary_textbook", "lecture", "paper", "reference", "alternate_explanation"];
 const RECOMMENDED_INVENTORY_OUTPUT_TOKENS = 12_000;
@@ -97,6 +98,7 @@ export function QuickAddDialog({
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (screenLeavesKey(e, { modal: true })) return;
       if (e.key === "Escape" && !briefOpen) onClose();
     };
     window.addEventListener("keydown", handler, true);

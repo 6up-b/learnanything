@@ -33,9 +33,10 @@ from tests.test_reader_intent import FakeDecider, _prefer
 ROOT = Path(__file__).resolve().parents[1]
 NOTES_RAIL = ROOT / "apps" / "learnloop-tauri" / "src" / "screens" / "reader" / "NotesRail.tsx"
 EVERYTHING = RI.Availability(active_reading=True, workbench=True, sources=True)
-#: Actions §4.2 names for phases that have not landed (RW4b, RW4d, RW5a, RW7a, DL3). RW4a's
-#: "what do I need first?", "where else is this explained?" and "where is this used?" landed.
-NOT_LANDED = {"compare_sources", "make_explorable", "practice_this_question", "find_exercise", "what_matters",
+#: Actions §4.2 names for phases that have not landed (RW4b, RW4d, RW7a, DL3). RW4a's
+#: "what do I need first?", "where else is this explained?" and "where is this used?" landed;
+#: RW5a's "make this explorable" landed behind figures.enabled (tests/test_figures_rpc.py).
+NOT_LANDED = {"compare_sources", "practice_this_question", "find_exercise", "what_matters",
               "practice_new_setting"}
 RW4A_ACTIONS = {"what_do_i_need_first", "where_else_explained", "where_is_this_used"}
 
@@ -56,8 +57,10 @@ def test_grouping_changes_no_presets_effect():
     for preset, action in by_preset.items():
         assert action.id == preset
     kinds = {a.effect["kind"] for a in RI.ACTIONS}
+    # RW7a adds Orient's "what matters here?" (opens the Guide's reading path); RW5a adds Understand's
+    # "make this explorable" (a figure built in the background).
     assert kinds == {"ask", "preset", "highlight", "import_exercise", "work_through", "active_reading", "another_way",
-                     "library_ask"}
+                     "library_ask", "reading_path", "figure"}
     assert {a.effect["style"] for a in RI.ACTIONS if a.effect["kind"] == "active_reading"} == set(RQC.SELECTION_STYLES)
 
 

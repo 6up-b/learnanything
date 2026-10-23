@@ -37,7 +37,11 @@ no session minutes, so the engine does not repeat it), and stage interleaving
 needs a staged block (none on Today). Requests (the learner's own, L3) and
 mid-plan follow-ups (the follow-up rules; value of information decides them)
 are placed by the container, never by the source, so the frame does not veto
-them.
+them. A due "Check once" (DL2) is placed by the container too, but only once
+its candidate passed the one check gate (``scheduling.intent.feasibility``,
+fix round 6), which runs this frame's own mandatory evaluation
+(``scheduling.frame_constraints``) under every policy: a check is exempt from
+value and count composition, never from a mandatory constraint.
 
 **Annotations** on each candidate: the P4 ladder rungs its learning objects
 are eligible for (per-LO signals from the lane classification plus the live
@@ -87,26 +91,21 @@ SOURCE_NAME = "staged_frame_v1"
 CHOOSER_NAME = "staged_v1"
 MODE = "staged"
 
-#: Practice modes whose serve is a fresh-evidence administration (an unseen
-#: surface is required): the scheduler's own single-use probe modes.
-FRESH_EVIDENCE_MODES = frozenset({"diagnostic_probe", "diagnostic_microprobe", "probe"})
-#: Plan checks that are fresh-evidence administrations.
-FRESH_EVIDENCE_CHECKS = frozenset({"project_probe"})
-
-ROLE_FRESH_EVIDENCE = "fresh_evidence"
-ROLE_PRACTICE = "practice"
+# The roles and the fresh-evidence modes are the shared evaluation's
+# (``scheduling.frame_constraints``, DL2 fix round 6: the "Check once" gate
+# runs the same evaluation under every policy).
+from learnloop.scheduling.frame_constraints import (  # noqa: E402, F401 - re-exported
+    CONSTRAINTS_UNAVAILABLE_KEY,
+    FRESH_EVIDENCE_CHECKS,
+    FRESH_EVIDENCE_MODES,
+    ROLE_FRESH_EVIDENCE,
+    ROLE_PRACTICE,
+    item_role,
+)
 
 #: The rung the ladder falls through to; every LO is eligible for it, so it
 #: is left out of a candidate's annotation.
 _FALL_THROUGH_RULES = frozenset({"no_positive_value_stop", "goal_satisfied"})
-
-
-def item_role(item: PoolItem, practice_mode: str | None) -> str:
-    """An item's role in the plan: a fresh-evidence check, or ordinary practice."""
-
-    if item.check_kind in FRESH_EVIDENCE_CHECKS or (practice_mode or "") in FRESH_EVIDENCE_MODES:
-        return ROLE_FRESH_EVIDENCE
-    return ROLE_PRACTICE
 
 
 def reason_code(lane: str, items: Sequence[PoolItem], *, reading: bool = False) -> str:
@@ -144,30 +143,6 @@ def reason_code(lane: str, items: Sequence[PoolItem], *, reading: bool = False) 
 
 
 # -- the frame's material (one snapshot per env) ---------------------------------
-
-
-#: The named refusal of an item whose hard constraints could not be
-#: established because their inputs could not be read (fail closed: an item is
-#: never served unchecked; R2a review F2).
-CONSTRAINTS_UNAVAILABLE_KEY = "constraints_unavailable"
-
-
-def _unavailable(part: str, exc: BaseException) -> dict[str, Any]:
-    return {
-        "constraint_key": CONSTRAINTS_UNAVAILABLE_KEY, "constraint_version": 1,
-        "reason": f"{part}_unreadable", "detail": {"error": type(exc).__name__}, "kind": "exclude",
-    }
-
-
-def _freshness_unknown(exc: BaseException) -> dict[str, Any]:
-    """P4's own fail-closed refusal of a fresh-evidence item whose surface's
-    freshness cannot be established (here: the exposure ledger could not be read)."""
-
-    return {
-        "constraint_key": "hard_exposure_collision", "constraint_version": 1, "reason": "freshness_unknown",
-        "detail": {"note": "the exposure ledger could not be read", "error": type(exc).__name__},
-        "kind": "exclude",
-    }
 
 
 @dataclass
@@ -221,21 +196,6 @@ class StagedFrame:
 
     # -- building --------------------------------------------------------------
 
-    def _surfaces(self) -> dict[str, list[dict[str, Any]]]:
-        by_item: dict[str, list[dict[str, Any]]] = {}
-        with self.repository.connection() as connection:
-            present = connection.execute(
-                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'activity_surfaces'"
-            ).fetchone()
-            if present is None:
-                return by_item
-            for row in connection.execute(
-                "SELECT id, surface_hash, fingerprint, legacy_practice_item_id FROM activity_surfaces "
-                "WHERE legacy_practice_item_id IS NOT NULL ORDER BY created_at, id"
-            ):
-                by_item.setdefault(str(row["legacy_practice_item_id"]), []).append(dict(row))
-        return by_item
-
     def _cold_items(self) -> frozenset[str]:
         """Items an open cold follow-up holds (``instructional.policy.cold_administration_open``'s rule)."""
 
@@ -248,163 +208,39 @@ class StagedFrame:
                     held.add(str(task["selected_item_id"]))
         return frozenset(held)
 
-    def _candidate(self, item: PoolItem, role: str, states: Mapping[str, Any], surfaces: Mapping[str, Any],
-                   reserved_surface_ids: frozenset[str]) -> Any:
-        from learnloop.scheduling import controller_snapshot as cs
-        from learnloop.substrate.instrument_serving import unservable_reason
-
-        practice_item = self.vault.practice_items[item.practice_item_id]
-        state = states.get(item.practice_item_id)
-        rows = surfaces.get(item.practice_item_id, [])
-        reserved = next((row for row in rows if row["id"] in reserved_surface_ids), None)
-        surface_id = (reserved or (rows[0] if rows else {})).get("id")
-        surface_hash = fingerprint = None
-        if role == ROLE_FRESH_EVIDENCE:
-            # The surface the serve would render, from the item's own contract
-            # (resolve_legacy_item's identity), so an item never resolved before
-            # is checked against the ledger too. Unknown -> the engine fails
-            # closed (freshness_unknown).
-            try:
-                from learnloop.learner.assessment_contracts import compile_assessment_contract
-                from learnloop.substrate.activities import fingerprint_of, surface_hash as hash_surface
-
-                contract = compile_assessment_contract(self.vault, practice_item)
-                surface_hash, fingerprint = hash_surface(contract), fingerprint_of(contract)
-            except Exception:  # noqa: BLE001 - unknown freshness, refused by the engine
-                surface_hash = fingerprint = None
-        facets = list(getattr(practice_item, "evidence_facets", []) or [])
-        return cs.Candidate(
-            candidate_ref=item.practice_item_id,
-            learning_object_id=item.learning_object_id,
-            active=True if state is None else bool(getattr(state, "active", True)),
-            quarantined=False,
-            purpose="diagnostic" if role == ROLE_FRESH_EVIDENCE else "practice",
-            facet_id=facets[0] if facets else None,
-            surface_id=surface_id,
-            surface_hash=surface_hash,
-            fingerprint=fingerprint,
-            expected_minutes=round(float(item.est_minutes), 4),
-            practice_mode=getattr(practice_item, "practice_mode", None),
-            due_at=getattr(state, "due_at", None) if state is not None else None,
-            unservable_reason=unservable_reason(practice_item),
-        )
-
     def _block(self, item: PoolItem, role: str) -> Any:
         from learnloop.scheduling import controller_actions as A
-        from learnloop.scheduling import staged_policy as sp
+        from learnloop.scheduling.frame_constraints import attention_block
 
         if role == ROLE_FRESH_EVIDENCE:
             action, subtype = A.MEASURE_DIAGNOSTIC, None
         else:
             action, subtype = LANE_ACTIONS.get(item.lane or "maintain", ("maintain", None))
-        return sp.AttentionBlock(
-            action=action, subtype=subtype, commitment_id=None, budget_minutes=float(BLOCK_MAX_MINUTES),
-            compatible_purposes=sp._ACTION_PURPOSES.get(action, ()),
-            neighborhood={"source": SOURCE_NAME, "lane": item.lane},
-        )
-
-    def _fallback_snapshot(self, candidates: Mapping[str, Any], reserved_surface_ids: frozenset[str]) -> Any:
-        """A snapshot without the exposure ledger, for when the controller
-        snapshot cannot be built. It carries what the practice-role
-        constraints read (the reservations; each candidate's own active and
-        renderable flags), so an ordinary item's verdict is the one the full
-        snapshot gives: hard exposure and dispersion apply only to
-        fresh-evidence blocks, which are refused instead (their freshness
-        cannot be established)."""
-
-        from learnloop.scheduling import controller_snapshot as cs
-
-        return cs.ControllerSnapshot(
-            snapshot_hash="", session_id=None, available_minutes=None, energy=None, remaining_minutes=None,
-            conservative_duration_minutes=None,
-            candidates=tuple(sorted(candidates.values(), key=lambda c: c.candidate_ref)),
-            exposure_by_hash={}, exposure_by_fingerprint={}, reserved_assessment_surface_ids=reserved_surface_ids,
-            commitments=(), affect_by_commitment={}, param_manifest_hash="", projection_versions={},
-        )
+        return attention_block(action, subtype, budget_minutes=float(BLOCK_MAX_MINUTES), source=SOURCE_NAME,
+                               lane=item.lane)
 
     def _build(self, pool: Sequence[PoolItem]) -> FrameMaterial:
-        """Mandatory feasibility first, then the annotations (R2a review F2).
+        """Mandatory feasibility first (``frame_constraints.evaluate_mandatory``,
+        the evaluation the "Check once" gate shares: R2a review F2's fail-closed
+        rules), then the annotations (open cold checks, the ladder), each read
+        on its own. A failed annotation is named in ``error`` and never erases
+        a refusal."""
 
-        * The hard constraints' inputs (item states, surfaces, reservations).
-          Unreadable: no item's constraints can be established, so every item
-          is refused (``constraints_unavailable``), never served unchecked.
-        * The controller snapshot (the exposure ledger). Unreadable: a
-          fresh-evidence item is refused (``freshness_unknown``, P4's rule);
-          ordinary items are evaluated against a snapshot of the reservations
-          alone, which gives them their full verdict.
-        * Each item's evaluation. A failure refuses that item alone.
-        * The annotations (open cold checks, the ladder), each read on its own.
-          A failure is named in ``error`` and never erases a refusal."""
+        from learnloop.scheduling.frame_constraints import evaluate_mandatory
 
-        from learnloop.scheduling import constraint_engine as ce
-        from learnloop.scheduling import controller_snapshot as cs
-
-        vault = self.vault
-        known = [item for item in pool if item.practice_item_id in vault.practice_items]
         evaluated = frozenset(item.practice_item_id for item in pool)
-        manifest_hash = ce.manifest()["manifest_hash"]
-        errors: list[str] = []
-        try:
-            states = self._item_states() if self._item_states is not None else self.repository.practice_item_states()
-            surfaces = self._surfaces()
-            reserved_rows = self.repository.reserved_assessment_surfaces()
-        except Exception as exc:  # noqa: BLE001 - fail closed: nothing can be established
-            _LOG.warning("router R2a: the staged frame's constraint inputs could not be read; "
-                         "every item is refused", exc_info=True)
-            refusal = (_unavailable("constraint_inputs", exc),)
+        evaluation = evaluate_mandatory(self.vault, self.repository, pool, clock=self.clock, block_for=self._block,
+                                        item_states=self._item_states)
+        if evaluation.inputs_error is not None:
             return FrameMaterial(
-                manifest_hash=manifest_hash,
-                refusals={item.practice_item_id: refusal for item in known},
+                manifest_hash=evaluation.manifest_hash,
+                refusals=evaluation.refusals,
                 cold_items=None,
                 evaluated=evaluated,
-                error=f"constraint_inputs:{type(exc).__name__}",
+                error=evaluation.inputs_error,
             )
-        reserved_surface_ids = frozenset(str(row["id"]) for row in reserved_rows)
-        reserved_items = frozenset(
-            str(row["legacy_practice_item_id"]) for row in reserved_rows if row.get("legacy_practice_item_id")
-        )
-        roles = {
-            item.practice_item_id: item_role(item, getattr(vault.practice_items[item.practice_item_id], "practice_mode", None))
-            for item in known
-        }
-        refusals: dict[str, tuple[dict[str, Any], ...]] = {}
-        candidates: dict[str, Any] = {}
-        for item in known:
-            try:
-                candidates[item.practice_item_id] = self._candidate(
-                    item, roles[item.practice_item_id], states, surfaces, reserved_surface_ids,
-                )
-            except Exception as exc:  # noqa: BLE001 - fail closed for this item alone
-                _LOG.warning("router R2a: item %s could not be evaluated; refused", item.practice_item_id, exc_info=True)
-                refusals[item.practice_item_id] = (_unavailable("candidate", exc),)
-                errors.append(f"candidate:{type(exc).__name__}")
-        ledger_error: BaseException | None = None
-        snapshot_hash: str | None = None
-        try:
-            snapshot = cs.build_snapshot(vault, self.repository, None, candidates=list(candidates.values()), clock=self.clock)
-            snapshot_hash = snapshot.snapshot_hash
-        except Exception as exc:  # noqa: BLE001 - fail closed where the ledger is needed
-            _LOG.warning("router R2a: the controller snapshot could not be built; quick checks are refused",
-                         exc_info=True)
-            ledger_error = exc
-            errors.append(f"snapshot:{type(exc).__name__}")
-            snapshot = self._fallback_snapshot(candidates, reserved_surface_ids)
-        for item in sorted(known, key=lambda entry: entry.practice_item_id):
-            item_id = item.practice_item_id
-            if item_id in refusals:
-                continue
-            if ledger_error is not None and roles[item_id] == ROLE_FRESH_EVIDENCE:
-                refusals[item_id] = (_freshness_unknown(ledger_error),)
-                continue
-            try:
-                feasibility = ce.evaluate(candidates[item_id], snapshot, self._block(item, roles[item_id]))
-            except Exception as exc:  # noqa: BLE001 - fail closed for this item alone
-                _LOG.warning("router R2a: item %s could not be evaluated; refused", item_id, exc_info=True)
-                refusals[item_id] = (_unavailable("evaluation", exc),)
-                errors.append(f"evaluation:{type(exc).__name__}")
-                continue
-            if not feasibility.eligible:
-                refusals[item_id] = tuple(reason.as_dict() for reason in feasibility.exclusions)
+        errors = list(evaluation.errors)
+        known = [item for item in pool if item.practice_item_id in self.vault.practice_items]
         # Annotations: each read on its own; the refusals above stand.
         cold_items: frozenset[str] | None
         try:
@@ -414,17 +250,17 @@ class StagedFrame:
             cold_items = None
             errors.append(f"cold_checks:{type(exc).__name__}")
         try:
-            ladder_by_lo = self._ladder(snapshot, known, reserved_items)
+            ladder_by_lo = self._ladder(evaluation.snapshot, known, evaluation.reserved_items)
         except Exception as exc:  # noqa: BLE001 - annotation only
             _LOG.warning("router R2a: the ladder annotation could not be built", exc_info=True)
             ladder_by_lo = {}
             errors.append(f"ladder:{type(exc).__name__}")
         return FrameMaterial(
-            snapshot_hash=snapshot_hash,
-            manifest_hash=manifest_hash,
-            refusals=refusals,
-            roles=roles,
-            reserved_items=reserved_items,
+            snapshot_hash=evaluation.snapshot_hash,
+            manifest_hash=evaluation.manifest_hash,
+            refusals=evaluation.refusals,
+            roles=evaluation.roles,
+            reserved_items=evaluation.reserved_items,
             cold_items=cold_items,
             ladder_by_lo=ladder_by_lo,
             evaluated=evaluated,

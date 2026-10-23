@@ -15,7 +15,7 @@ exercise and solution blocks, are dropped as well.
 """
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
 import json
@@ -344,31 +344,42 @@ def role_keys(connection, extraction_ids: Iterable[str], roles: Iterable[str]) -
     return found
 
 
-def role_proposal_keys(connection, repository: Repository, extraction_ids: Iterable[str],
+def role_proposal_keys(vault: LoadedVault, repository: Repository, extraction_ids: Iterable[str],
                        roles: Iterable[str]) -> tuple[set[tuple[str, str]], set[tuple[str, str]]]:
-    """Spans a Reader RW4e role proposal gives one of ``roles``: ``(confident, low)``.
+    """Spans a role proposal gives one of ``roles``: ``(confident, low)``.
 
-    RW4e writes its proposals as ``source_object_versions.authorial_role``
-    (proposed or reviewed) with the spans they cite; a ``low``-confidence
-    proposal counts only when nothing better exists (the caller decides).
-    A proposal only ever widens the positive filter: the scope, ingest's
-    exclusions and item links still apply (the Reader's G44). Feature-detected:
-    no table, or no proposal, gives nothing."""
+    Reader RW4e's proposals (``content_json.kind = "instructional_role"``,
+    the role in ``authorial_role``) come from
+    :func:`learnloop.reader.source_roles.role_keys`: head versions proposed
+    or reviewed, on the current reading, without any object exam protection
+    hides now, and none while ``roles.positive_filter_enabled`` is off. Any
+    other source object with an ``authorial_role`` is read as it always was
+    (any version proposed or reviewed). A ``low``-confidence proposal counts
+    only when nothing better exists (the caller decides). A proposal only
+    ever widens the positive filter: the scope, ingest's exclusions and item
+    links still apply (the Reader's G44). Feature-detected: no table, or no
+    proposal, gives nothing."""
+
+    from learnloop.reader.source_roles import PROPOSAL_KIND_SQL, role_keys as proposal_role_keys
 
     wanted = {str(role) for role in roles if role}
     extractions = {str(value) for value in extraction_ids if value}
     strong: set[tuple[str, str]] = set()
     weak: set[tuple[str, str]] = set()
-    if not wanted or not extractions or connection.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='source_object_versions'").fetchone() is None:
+    if not wanted or not extractions:
         return strong, weak
-    marks = ",".join("?" for _ in wanted)
-    rows = connection.execute(
-        f"SELECT v.content_json, c.revision_id, c.span_id, c.block_content_hash, {CITATION_MADE_AT_SQL} "
-        "FROM source_object_versions v "
-        "JOIN source_object_citations c ON c.source_object_version_id = v.id "
-        f"WHERE v.status IN ('proposed', 'reviewed') AND v.authorial_role IN ({marks})",
-        tuple(sorted(wanted))).fetchall()
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        if connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='source_object_versions'").fetchone() is None:
+            return strong, weak
+        marks = ",".join("?" for _ in wanted)
+        rows = connection.execute(
+            f"SELECT v.content_json, c.revision_id, c.span_id, c.block_content_hash, {CITATION_MADE_AT_SQL} "
+            "FROM source_object_versions v "
+            "JOIN source_object_citations c ON c.source_object_version_id = v.id "
+            f"WHERE v.status IN ('proposed', 'reviewed') AND v.authorial_role IN ({marks}) "
+            f"AND v.source_object_id NOT IN ({PROPOSAL_KIND_SQL})",
+            tuple(sorted(wanted))).fetchall()
     # Each citation on the reading it was made on, moved to its book's
     # current reading only through an exact alias (re-read safety): never
     # "the latest reading + the old span id".
@@ -383,6 +394,9 @@ def role_proposal_keys(connection, repository: Repository, extraction_ids: Itera
         except (TypeError, ValueError):
             confidence = None
         (weak if confidence == "low" else strong).add(key)
+    proposed, low = proposal_role_keys(vault, repository, extractions, wanted)
+    strong |= proposed
+    weak |= low
     return strong, weak - strong
 
 
@@ -639,7 +653,68 @@ def teaching_scope(vault: LoadedVault, repository: Repository,
     return Scope("teaching", extractions, frozenset(excluded), tuple(notes))
 
 
+SpanKeys = Callable[[list[tuple[str, str]]], Collection[tuple[str, str]]]
+
+
+class Eligibility:
+    """What one caller may be given: the one effective-eligibility rule.
+
+    A low-confidence role row counts only when no stronger candidate remains
+    (sources §9.1, §9.2), and "remains" means "this caller could be given
+    it". Codex review F3 and re-review F5 each fixed one reader of that
+    question and left another asking a narrower one (fix round 3: a strong
+    passage the caller excluded still suppressed the ``roles`` filter's
+    fallback). So every reader asks this object: ``find_sources``' intent
+    lists, :func:`learnloop.source_retrieval.search.role_filter` (the
+    ``roles=`` filter, inside ``search_spans``) and RW3b's contrast list.
+
+    A key is eligible when ``scope`` allows it, it is not among the caller's
+    ``excluded`` keys, ``admits`` (a caller's own per-key rule: RW3b's target
+    LOs and protection) accepts it, it is not exam or held-out material (the
+    one predicate, ``content.sources.exam_material``), and ``withheld`` (a
+    caller's own batch rule: the model-reader filter, the answer-overlap
+    filter) does not name it. Only the question is shared: the rows each
+    reader returns are its own (a role filter still admits what it admitted).
+    """
+
+    def __init__(self, vault: LoadedVault, repository: Repository, scope: Scope, *,
+                 excluded: Iterable[tuple[str, str]] = (),
+                 admits: Callable[[tuple[str, str]], bool] | None = None,
+                 withheld: SpanKeys | None = None) -> None:
+        self.vault = vault
+        self.repository = repository
+        self.scope = scope
+        self.excluded = frozenset((str(key[0]), str(key[1])) for key in excluded)
+        self.admits = admits
+        self.withheld = withheld
+
+    def __call__(self, keys: Iterable[tuple[str, str]]) -> list[tuple[str, str]]:
+        """The eligible keys among ``keys``, in their order, deduplicated."""
+
+        kept = [key for key in dict.fromkeys((str(key[0]), str(key[1])) for key in keys)
+                if self.scope.allows(*key) and key not in self.excluded
+                and (self.admits is None or self.admits(key))]
+        if kept:
+            exam = exam_withheld(self.vault, self.repository, kept)
+            kept = [key for key in kept if key not in exam]
+        if kept and self.withheld is not None:
+            gone = self.withheld(kept)
+            kept = [key for key in kept if key not in gone]
+        return kept
+
+
+def effective_eligibility(vault: LoadedVault, repository: Repository, scope: Scope, *,
+                          excluded: Iterable[tuple[str, str]] = (),
+                          admits: Callable[[tuple[str, str]], bool] | None = None,
+                          withheld: SpanKeys | None = None) -> Eligibility:
+    """The caller's :class:`Eligibility`: the one rule every "does a stronger
+    candidate remain?" decision reads (fix round 3)."""
+
+    return Eligibility(vault, repository, scope, excluded=excluded, admits=admits, withheld=withheld)
+
+
 __all__ = [
+    "Eligibility",
     "Exclusions",
     "ITEM_BOUND_EXCLUDED_ROLE_HINTS",
     "Scope",
@@ -648,6 +723,7 @@ __all__ = [
     "assessment_spans",
     "block_roles",
     "current_extractions",
+    "effective_eligibility",
     "effective_hint",
     "extraction_scope",
     "item_exclusions",

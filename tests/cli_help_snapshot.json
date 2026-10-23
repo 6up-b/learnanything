@@ -928,8 +928,20 @@
     "sha256": "e37e8b720c83ffb155441afc3156a9b7694735bb1402082555c9492821da0934"
   },
   "reader": {
-    "bytes": 1757,
-    "sha256": "7d394662dde4e183e5fdacabdd3eb9e4c3ef8959f89fe7956746fa6746209b78"
+    "bytes": 1927,
+    "sha256": "69495730f185e3d4c3c70b82b2ad01696bdf7bed51451da076ae28769d0710c2"
+  },
+  "reader cues": {
+    "bytes": 2522,
+    "sha256": "0a23d90ab7473eb4e43372a362bd5cd423127b13fe37ba8ad3d3a9a262ddbf12"
+  },
+  "reader cues discover": {
+    "bytes": 2036,
+    "sha256": "4afde4f5ae693e64e4827da9ff21fb60c222d29a3292f8f96fe4ec01573542df"
+  },
+  "reader label-roles": {
+    "bytes": 1947,
+    "sha256": "ec391628b3fb5a93258fc7ede6b4a23dee8ec33c897ed18a5e6186f64eaa0430"
   },
   "reader report": {
     "bytes": 1457,
@@ -1208,8 +1220,8 @@
     "sha256": "a07b81bb87d512abc37e080c985c0d5087e51241f04a64d1462f20116e169976"
   },
   "upgrade": {
-    "bytes": 8926,
-    "sha256": "b50fd1ae33c239d53d0fa1be708d58b22517da2f20996d47c96b2ff4618ff2f7"
+    "bytes": 8602,
+    "sha256": "0e5f20112e089c96175bf0e7e34d6faea9724171b138baaa4ed9aef2e52ff588"
   },
   "usage": {
     "bytes": 1546,

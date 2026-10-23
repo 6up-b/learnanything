@@ -1,0 +1,6 @@
+{
+  "about": "RW1c fix round 4 (F3): the reader.ask the desktop sends from a bound workbench session with only reader_tutor.offers_enabled on. src/screens/reader/tutorBoundAsk.test.tsx checks the desktop sends exactly these keys; tests/test_reader_rw1c_review.py::test_the_desktops_offers_only_bound_ask_refuses_tools_when_cold replays them through the handler while the item is cold.",
+  "readerTutor": { "retrieval": false, "offers": true, "anotherWay": false, "personalizedDefault": true, "tryNextStep": false, "manifestIncludes": [] },
+  "requestKeys": ["answerMode", "extractionId", "parentExchangeId", "question", "selectionQuote", "selectionSpanIds", "spanId", "workbenchSessionId"],
+  "absentFromAnswer": ["practiceRequest", "toolRequests", "tutorOffers"]
+}

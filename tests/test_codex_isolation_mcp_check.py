@@ -55,7 +55,9 @@ from learnloop.ai.transport import StructuredRequest
 from learnloop.config import CodexConfig
 from learnloop.diagnosis.offline_review.judge import LinkJudgment
 
-from tests.codex_cli_fakes import fake_codex_calls, write_fake_codex
+from learnloop.ai.providers.codex_lockdown import catalog_pin_path, readback_overrides
+
+from tests.codex_cli_fakes import fake_codex_calls, without_catalog_pin, write_fake_codex
 from tests.project_support import install_fake_codex_sdk
 
 CODEX = shutil.which("codex")
@@ -119,16 +121,22 @@ def test_plugin_servers_are_disabled_by_feature_and_config_servers_by_name(tmp_p
     (launched,) = _launches(log)
     assert launched == list(captured["app_config"]["config_overrides"])
     root = Path(captured["app_config"]["cwd"])
-    assert launched == isolated_turn_overrides(root, shell=False, mcp_server_ids=("node_repl", "openaiDeveloperDocs"))
+    assert launched == isolated_turn_overrides(root, shell=False, mcp_server_ids=("node_repl", "openaiDeveloperDocs"),
+                                               model_catalog=catalog_pin_path(launched))
     assert {"features.plugins=false", "features.apps=false", "mcp_servers.node_repl.enabled=false",
             "mcp_servers.openaiDeveloperDocs.enabled=false"} <= set(launched)
     assert not any("codex_app" in override or "cua_repl" in override for override in launched)
     # Listed under the feature overrides, then the exact launch set checked.
     probes = _probes(log)
+    unpinned = without_catalog_pin(launched)
     assert probes == [
         ("mcp list", isolated_turn_overrides(root, shell=False)),
-        ("mcp list", launched),
-        ("features list", launched),
+        ("mcp list", unpinned),
+        ("features list", unpinned),
+        ("debug models", unpinned),  # --bundled: the catalog validated and then pinned
+        ("debug models", launched),  # the catalog the turn would use: the pinned one
+        # the context the turn would get: its tools, skills and permission profile
+        ("debug prompt-input", [*launched, *readback_overrides(client.config.model)]),
     ]
     assert captured["spawned"]["returncode"] == 0
 
@@ -141,11 +149,13 @@ def test_a_read_only_workspace_turn_is_checked_under_its_own_overrides(tmp_path,
     workspace.mkdir()
     _isolated_turn(_client(tmp_path, program), workspace=workspace)
     (launched,) = _launches(log)
-    assert launched == isolated_turn_overrides(workspace.resolve(), shell=True,
-                                               mcp_server_ids=("node_repl", "openaiDeveloperDocs"))
-    assert "features.shell_tool=false" not in launched
-    assert {overrides == launched for probe, overrides in _probes(log)[1:]} == {True}
-    assert captured["app_config"]["cwd"] == str(workspace.resolve())
+    # Round 3: the workspace is inlined; the turn runs tool-free in a scratch directory.
+    root = Path(captured["app_config"]["cwd"])
+    assert root.name.startswith("learnloop-isolated-turn-") and root != workspace.resolve()
+    assert launched == isolated_turn_overrides(root, shell=False,
+                                               mcp_server_ids=("node_repl", "openaiDeveloperDocs"),
+                                               model_catalog=catalog_pin_path(launched))
+    assert "features.shell_tool=false" in launched
 
 
 def test_without_servers_the_first_listing_is_the_check(tmp_path, monkeypatch):
@@ -154,8 +164,12 @@ def test_without_servers_the_first_listing_is_the_check(tmp_path, monkeypatch):
                                       launch_failure_raises=True)
     _isolated_turn(_client(tmp_path, program))
     (launched,) = _launches(log)
-    assert launched == isolated_turn_overrides(Path(captured["app_config"]["cwd"]), shell=False)
-    assert _probes(log) == [("mcp list", launched), ("features list", launched)]
+    assert launched == isolated_turn_overrides(Path(captured["app_config"]["cwd"]), shell=False,
+                                               model_catalog=catalog_pin_path(launched))
+    unpinned = without_catalog_pin(launched)
+    assert _probes(log) == [("mcp list", unpinned), ("features list", unpinned), ("debug models", unpinned),
+                            ("debug models", launched),
+                            ("debug prompt-input", [*launched, *readback_overrides("gpt-5.6-sol")])]
 
 
 def test_the_old_cli_shape_still_disables_config_servers_by_name(tmp_path, monkeypatch):
@@ -250,11 +264,22 @@ def test_a_missing_codex_cli_refuses_the_turn(tmp_path, monkeypatch):
     assert "app_config" not in captured
 
 
-def test_non_isolated_turns_run_no_check(tmp_path, monkeypatch):
+def test_a_turn_that_did_not_ask_for_isolation_is_checked_and_locked_down_too(tmp_path, monkeypatch):
+    """Security stage 2026-10-21: a request without ``isolated`` (the tutor, every
+    listwise and paid role) used to launch with no overrides in the vault; it
+    now runs the same check and the same locked-down launch."""
+
     program, log = write_fake_codex(tmp_path / "bin", **OWNER_SHAPE)
-    install_fake_codex_sdk(monkeypatch, final_response='{"links": []}', spawn=True, launch_failure_raises=True)
+    captured = install_fake_codex_sdk(monkeypatch, final_response='{"links": []}', spawn=True,
+                                      launch_failure_raises=True)
     _client(tmp_path, program).complete(StructuredRequest(purpose="tutor", prompt="p", result_model=LinkJudgment))
-    assert _probes(log) == [] and _launches(log) == [[]]
+    (launched,) = _launches(log)
+    root = Path(captured["app_config"]["cwd"])
+    assert launched == isolated_turn_overrides(root, shell=False, mcp_server_ids=("node_repl", "openaiDeveloperDocs"),
+                                               model_catalog=catalog_pin_path(launched))
+    assert [probe for probe, _overrides in _probes(log)] == ["mcp list", "mcp list", "features list", "debug models",
+                                                             "debug models", "debug prompt-input"]
+    assert root.name.startswith("learnloop-isolated-turn-") and root != (tmp_path / "vault").resolve()
 
 
 # -- the check sees the configuration the launch loads (Codex review F1) ----------------
@@ -264,9 +289,13 @@ def test_non_isolated_turns_run_no_check(tmp_path, monkeypatch):
 #: off wherever that layer can be read. It logs each probe and its directory.
 _LAYERED_CODEX = r"""#!/bin/sh
 pinned=
+catalog=
 while [ $# -gt 0 ]; do
   case "$1" in
-    -c|--config) [ "$2" = "mcp_servers.fsserver.enabled=false" ] && pinned=1; shift 2 ;;
+    -c|--config)
+      [ "$2" = "mcp_servers.fsserver.enabled=false" ] && pinned=1
+      case "$2" in model_catalog_json=*) catalog=$(printf '%s' "${2#model_catalog_json=}" | tr -d '"') ;; esac
+      shift 2 ;;
     *) break ;;
   esac
 done
@@ -276,7 +305,14 @@ enabled=true
 [ -n "$pinned" ] && enabled=false
 case "$1 $2" in
   "mcp list") printf '[{"name": "fsserver", "enabled": %s}]\n' "$enabled" ;;
-  "features list") printf 'apps  stable  false\nplugins  stable  false\n' ;;
+  "features list") printf 'apps  stable  false\nplugins  stable  false\nmulti_agent  stable  false\n' ;;
+  "debug models")
+    if [ "$3" = "--bundled" ] || [ -z "$catalog" ]; then
+      printf '{"models": [{"slug": "gpt-5.6-sol", "tool_mode": "code_mode_only", "use_responses_lite": true, "base_instructions": "B"}]}\n'
+    else
+      cat "$catalog"
+    fi ;;
+  "debug prompt-input") printf '[{"type": "message", "role": "developer", "content": [{"type": "input_text", "text": "B"}]}, {"type": "message", "role": "developer", "content": [{"type": "input_text", "text": "<permissions instructions>Network access is restricted.</permissions instructions>"}]}, {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "<permission_profile type=\\"managed\\"><file_system type=\\"restricted\\"><entry access=\\"read\\"><special>:minimal</special></entry><entry access=\\"read\\"><path>%s</path></entry></file_system></permission_profile>"}]}]\n' "$(pwd -P)" ;;
   *) exit 2 ;;
 esac
 """
@@ -319,8 +355,14 @@ def test_the_check_runs_inside_the_sandbox_in_the_turns_own_directory(tmp_path, 
     root = captured["thread_start"]["cwd"]
     assert "mcp_servers.fsserver.enabled=false" in captured["app_config"]["config_overrides"]
     assert log.read_text(encoding="utf-8").splitlines() == [
-        f"mcp list|{root}", f"mcp list|{root}", f"features list|{root}",
+        f"mcp list|{root}", f"mcp list|{root}", f"features list|{root}", f"debug models|{root}",
+        f"debug models|{root}", f"debug prompt-input|{root}",
     ]
+    # The pinned catalog sat in the one host directory the sandbox mounts, in
+    # a directory of the turn's that is gone after it (H4).
+    pin = catalog_pin_path(captured["app_config"]["config_overrides"])
+    assert pin is not None and Path(pin).parent.parent == workdir.resolve()
+    assert Path(pin).parent.name.startswith(".learnloop-codex-catalog-") and not Path(pin).parent.exists()
 
 
 def test_a_check_the_sandbox_refuses_refuses_the_turn(tmp_path, monkeypatch):
@@ -363,7 +405,9 @@ def test_configuration_flags_after_app_server_are_checked_and_launched_as_one_se
     # The user's flags first, then the turn's: the probes ran the same set.
     (launched,) = _launches(log)
     assert launched[:3] == ["features.apps=true", "mcp_servers.node_repl.enabled=true", "features.plugins=true"]
-    assert [overrides for _probe, overrides in _probes(log)][1:] == [launched, launched]
+    unpinned = without_catalog_pin(launched)
+    assert [overrides for _probe, overrides in _probes(log)][1:] == [
+        unpinned, unpinned, unpinned, launched, [*launched, *readback_overrides("gpt-5.6-sol")]]
 
 
 @pytest.mark.parametrize(
@@ -546,7 +590,8 @@ def test_the_installed_codex_passes_the_launch_check(tmp_path, monkeypatch, shel
     cwd.mkdir()
     client = SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex"), sdk_codex_bin=CODEX), tmp_path)
     overrides = client._verified_isolated_overrides(cwd, shell=shell)
-    assert overrides == isolated_turn_overrides(cwd, shell=shell, mcp_server_ids=("fsserver",))
+    assert overrides == isolated_turn_overrides(cwd, shell=shell, mcp_server_ids=("fsserver",),
+                                                model_catalog=catalog_pin_path(overrides))
     listed = _listed(env, overrides, cwd)
     assert listed.returncode == 0, listed.stderr
     assert [(server["name"], server["enabled"]) for server in json.loads(listed.stdout)] == [("fsserver", False)]
@@ -622,4 +667,5 @@ def test_the_installed_codex_pins_a_server_only_an_unseen_ancestor_project_disab
     assert "mcp_servers.fsserver.enabled=false" in overrides
     root = Path(captured["thread_start"]["cwd"])
     root.mkdir()  # the turn's empty directory, removed after the turn
-    assert _listed_in_sandbox(isolation, overrides, root) == [("fsserver", False)]
+    # (The turn's catalog pin went with the turn: listed without it.)
+    assert _listed_in_sandbox(isolation, without_catalog_pin(overrides), root) == [("fsserver", False)]

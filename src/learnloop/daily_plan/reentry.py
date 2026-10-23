@@ -101,8 +101,15 @@ def reentry_panel(
     goal: Any | None = None,
     top_n: int = 3,
     clock: Any | None = None,
+    intent: Any = None,
 ) -> ReentryPanel:
-    """Solid and slipped LOs since the last real activity (§7)."""
+    """Solid and slipped LOs since the last real activity (§7).
+
+    DL2: with ``intent`` (``learnloop.scheduling.intent.serving.IntentServing``) the
+    population is the LOs in active intents, each compared with its own
+    recall target; Light touch and excluded LOs are left out. Without it (no
+    commitment, or intent off) every LO is uncommitted at 0.90, as DL1.
+    """
 
     weights = resolve_fsrs_weights(repository)
     last_at = parse_utc(gap.last_activity_at) or now
@@ -128,9 +135,17 @@ def reentry_panel(
         current = sum(values) / len(values)
         previous_values = then_by_lo.get(lo_id) or values
         previous = sum(previous_values) / len(previous_values)
-        if current >= target:
+        lo_target = target
+        if intent is not None:
+            resolved = intent.resolution.for_learning_object(lo_id)
+            if not resolved.uncommitted:
+                if resolved.excluded or resolved.choice in ("light_touch", "check_once"):
+                    continue
+                if intent.recall_targets_enabled:
+                    lo_target = resolved.recall_target
+        if current >= lo_target:
             solid += 1
-        elif previous >= target:
+        elif previous >= lo_target:
             slipped.append((previous - current, lo_id))
     slipped.sort(key=lambda pair: (-pair[0], pair[1]))
     slipped_ids = [lo_id for _drop, lo_id in slipped]

@@ -27,6 +27,7 @@ another source, peeking or saving meanwhile is answered at once.
 """
 from __future__ import annotations
 
+import copy
 import logging
 import threading
 import time
@@ -35,6 +36,7 @@ from typing import Any, Callable
 
 from pydantic import Field
 
+from learnloop.source_retrieval import kept_comparisons as KC
 from learnloop.source_retrieval import library_ask as LA
 from learnloop.source_retrieval.policy import PolicyRefused
 from learnloop_sidecar.context import SidecarContext
@@ -156,6 +158,9 @@ def _ask_row(repository: Any, ask_id: str) -> dict[str, Any]:
 
 #: One job's work: given the worker's own repository, the result payload (or a SidecarError).
 Work = Callable[[Any], dict[str, Any]]
+#: A job's delivery check (Reader RW4b fix round 6, F7): given the finished
+#: result, what may go out NOW. Run on every read of the job, never cached.
+Deliver = Callable[[dict[str, Any]], dict[str, Any]]
 
 
 @dataclass
@@ -169,6 +174,9 @@ class _Job:
     result: dict[str, Any] | None = None
     error: SidecarError | None = None
     cancelled: bool = False
+    #: Revalidates the kept result at each delivery (exercise jobs: the
+    #: statement reader's withholding gate); None for a job that needs none.
+    deliver: Deliver | None = None
 
 
 def _as_sidecar_error(exc: BaseException) -> SidecarError:
@@ -188,10 +196,11 @@ class LibraryJobs:
         self._lock = threading.Lock()
         self._kept: dict[str, _Job] = {}
 
-    def start(self, ctx: SidecarContext, kind: str, ask_id: str | None, work: Work) -> _Job:
+    def start(self, ctx: SidecarContext, kind: str, ask_id: str | None, work: Work, *,
+              deliver: Deliver | None = None) -> _Job:
         from learnloop.ids import new_ulid
 
-        job = _Job(f"ljob_{new_ulid()}", kind, ask_id, time.monotonic())
+        job = _Job(f"ljob_{new_ulid()}", kind, ask_id, time.monotonic(), deliver=deliver)
         with self._lock:
             self._kept[job.job_id] = job
             while len(self._kept) > MAX_KEPT_JOBS:
@@ -245,11 +254,42 @@ def _job_payload(job: _Job) -> dict[str, Any]:
         return versioned({**base, "state": "pending", "result": None})
     if job.error is not None:
         raise job.error
-    return versioned({**base, "state": "done", "result": job.result})
+    result = job.result
+    if job.deliver is not None and result is not None:
+        # Fix round 6 (F7): what a finished job kept is checked again as it
+        # goes out (an exercise held out since the job finished is dropped);
+        # the kept result itself is never changed.
+        result = job.deliver(copy.deepcopy(result))
+    return versioned({**base, "state": "done", "result": result})
 
 
-def _start(ctx: SidecarContext, kind: str, ask_id: str | None, work: Work) -> dict[str, Any]:
-    return _job_payload(_jobs(ctx).start(ctx, kind, ask_id, work))
+def _start(ctx: SidecarContext, kind: str, ask_id: str | None, work: Work, *,
+           deliver: Deliver | None = None) -> dict[str, Any]:
+    return _job_payload(_jobs(ctx).start(ctx, kind, ask_id, work, deliver=deliver))
+
+
+def deliver_comparison(ctx: SidecarContext, ask_id: str, result: dict[str, Any]) -> dict[str, Any]:
+    """A comparison job's result as it may go out NOW (RW4d fix round 5, F2),
+    at every delivery (the first one, and each cached read through
+    ``reader.library_job``): a comparison any of whose contributing passages
+    is withheld now, or whose provenance cannot be resolved, is refused whole
+    (``comparison_withheld``: no table, no keep state, no take). Otherwise its
+    keep state is read again (a keep removed or withheld since the job ended
+    is not shown)."""
+
+    from learnloop.reader import source_objects as SO
+
+    comparison_id = result.get("comparison_id")
+    if not comparison_id:
+        return result  # nothing was compared (too few sources): no comparison to withhold
+    vault, repository = ctx.require_vault()
+    if SO.withheld_comparisons(vault, repository, [(str(comparison_id), ask_id)]):
+        raise SidecarError("comparison_withheld",
+                           "Part of this comparison is held out for an exam now (or its sources can't be checked), "
+                           "so it isn't shown.")
+    if "kept" in result:
+        result["kept"] = KC.compare_kept_state(vault, repository, ask_id, str(comparison_id))
+    return result
 
 
 class LibraryJobInput(ParamsModel):
@@ -330,12 +370,17 @@ def reader_library_ask(ctx: SidecarContext, params: LibraryAskInput) -> dict[str
             return record_shown_spans(worker_repo, list(keys), context="library", entity_type="library_ask",
                                       entity_id=ask_id)
 
-        return LA.ask_library(
+        result = LA.ask_library(
             vault, worker_repo, params.query, find=find, caller=record, record_shown=shown,
             entry=params.entry, extraction_id=extraction_id, anchor_span_ids=params.span_ids,
             learning_object_ids=params.learning_object_ids, personalized=params.personalized,
             expand=params.expand,
         )
+        if KC.keep_enabled(vault):
+            # RW4d: "you compared these on …" for passages a kept comparison holds
+            # (absent while reader_compare.keep_enabled is off: RW4a's answer).
+            result["compared_on"] = KC.compared_on(vault, worker_repo, [hit["key"] for hit in result["hits"]])
+        return result
 
     return _start(ctx, "ask", None, work)
 
@@ -365,6 +410,9 @@ class LibraryCompareInput(ParamsModel):
     open_source_id: str | None = None
     #: Optional; when given it must name the ask's own binding (never widens it).
     workbench_session_id: str | None = None
+    #: RW4d: "a geometric view", "an application" (used only while
+    #: reader_compare.keep_enabled is on; otherwise refused when given).
+    requested_perspectives: list[str] = Field(default_factory=list, max_length=8)
 
 
 @method("reader.library_compare", LibraryCompareInput)
@@ -380,6 +428,11 @@ def reader_library_compare(ctx: SidecarContext, params: LibraryCompareInput) -> 
                            "Comparing sources is switched off (reader_compare.enabled or source_service.compare).")
     row = _ask_row(repository, params.ask_id)
     caller = follow_up_caller(vault, repository, row, workbench_session_id=params.workbench_session_id)
+    keep = KC.keep_enabled(vault)
+    perspectives = KC.clean_perspectives(params.requested_perspectives)
+    if perspectives and not keep:
+        raise SidecarError("reader_compare_keep_disabled",
+                           "Requested perspectives are switched off (reader_compare.keep_enabled is false).")
 
     def work(worker_repo: Any) -> dict[str, Any]:
         def bound_compare(query: str, **kwargs: Any) -> Any:
@@ -389,10 +442,19 @@ def reader_library_compare(ctx: SidecarContext, params: LibraryCompareInput) -> 
             return record_shown_spans(worker_repo, list(keys), context="library", entity_type="library_ask",
                                       entity_id=ask_id)
 
-        return LA.compare(vault, worker_repo, params.ask_id, pinned_keys=params.pinned_span_keys,
-                          compare_sources=bound_compare, record_shown=shown, open_source_id=params.open_source_id)
+        table = LA.compare(vault, worker_repo, params.ask_id, pinned_keys=params.pinned_span_keys,
+                           compare_sources=bound_compare, record_shown=shown, open_source_id=params.open_source_id,
+                           requested_perspectives=perspectives)
+        if keep:
+            # RW4d: whether this comparison is kept already (absent while off).
+            table["kept"] = KC.compare_kept_state(vault, worker_repo, params.ask_id,
+                                                  table.get("comparison_id"))
+        return table
 
-    return _start(ctx, "compare", params.ask_id, work)
+    # RW4d's whole-comparison withholding at delivery is installed only while
+    # keeping is on: off, the compare job is 3988cf778's (fix round 6, F4).
+    return _start(ctx, "compare", params.ask_id, work,
+                  deliver=(lambda result: deliver_comparison(ctx, params.ask_id, result)) if keep else None)
 
 
 class LibraryAskTutorInput(ParamsModel):

@@ -42,13 +42,15 @@ export function readerCheckOffer(
   result: Pick<DailyPlanDto, "enabled" | "step">,
   practiceItemId: string,
   proposalId: string | null,
+  /** RW4b: the sources service's import that wrote the item (a textbook exercise). */
+  importId: string | null = null,
 ): PracticeOffer {
   const step = result.step;
   const item = step && step.kind === "item" ? step : null;
   return {
     itemId: practiceItemId,
     candidateId: item?.schedulerCandidateId ?? null,
-    proposalOrigin: result.enabled || !proposalId ? null : { proposalId, importId: null },
+    proposalOrigin: result.enabled || !proposalId ? null : { proposalId, importId },
     presentationId: result.enabled ? item?.presentationId ?? null : null,
   };
 }

@@ -37,6 +37,7 @@ import { operatorWords, type PdfFontInfo } from "./pdfSelection/geometry";
 import { blockAt, rangeRects, SelectionModel, type Box, type GlyphItem, type GlyphWord, type SelectionPayload, type TextStyles } from "./pdfSelection/model";
 import { PdfSelectionLayer } from "./pdfSelection/PdfSelectionLayer";
 import { usePdfSelection, type HeldSelection, type PagePoint } from "./pdfSelection/usePdfSelection";
+import { screenLeavesKey } from "../app/keymap";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -114,6 +115,11 @@ interface PdfReaderPaneProps {
   /** RW1a: one quiet line under a passage (the reconnect line after a return
    *  the learner started), drawn just below the block on its page. */
   inlineNote?: { spanId: string; node: ReactNode } | null;
+  /** Reader RW5a: explorable figures under their passages (the collapsed line;
+   *  expanded, the figure), drawn below each block on its page like the inline note. */
+  inlineNotes?: ReadonlyArray<{ spanId: string; node: ReactNode }> | null;
+  /** Reader RW5a: a single Ctrl+drag box inside a figure selects a region of it. */
+  regionSelection?: boolean;
   /** RW3a: margin marks by passage, drawn in an overlay gutter at the left of
    *  the passage's box (only passages with a box have a place to draw). */
   marks?: ReadonlyMap<string, ReactNode> | null;
@@ -150,6 +156,9 @@ function samePageHighlights(a: readonly HighlightOnPage[], b: readonly Highlight
   return a.every((entry, i) => entry.id === b[i].id && entry.state === b[i].state && entry.kind === b[i].kind && entry.starts === b[i].starts && sameBoxes(entry.rects, b[i].rects));
 }
 
+/** The block types a region of a figure can be drawn on (Reader RW5a). */
+const FIGURE_BLOCK_TYPES = new Set(["Figure", "FigureGroup", "Picture", "PictureGroup"]);
+
 export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>(function PdfReaderPane(
   {
     fileUrl,
@@ -165,6 +174,8 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
     onHighlightRemove,
     onError,
     inlineNote = null,
+    inlineNotes = null,
+    regionSelection = false,
     marks = null,
     onPageLayout,
     coveredSpans,
@@ -342,6 +353,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
   // Standard chrome keys while the pane is mounted: ctrl+f find, ctrl+±/0 zoom.
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       const modifier = event.ctrlKey || event.metaKey;
       if (modifier && event.key.toLowerCase() === "f") {
         event.preventDefault();
@@ -631,6 +643,22 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
     [model, passageBox, keepTarget],
   );
 
+  // Reader RW5a: a single Ctrl+drag box inside a figure is a region of it
+  // (only while the Reader asks for regions; otherwise today's word marquee).
+  const regionAt = useCallback(
+    (box: { page: number; rect: number[] }) => {
+      if (!regionSelection) return null;
+      const cx = (box.rect[0] + box.rect[2]) / 2;
+      const cy = (box.rect[1] + box.rect[3]) / 2;
+      const figure = blocks.find((block) => block.page === box.page && FIGURE_BLOCK_TYPES.has(block.blockType ?? "")
+        && block.bbox.length === 4 && cx >= block.bbox[0] && cx <= block.bbox[2] && cy >= block.bbox[1] && cy <= block.bbox[3]);
+      // The whole block's words, if it has any (its code points), as a block-snapped selection would.
+      const text = figure?.text ?? "";
+      return figure ? { spanId: figure.spanId, quote: text.trim() || "the figure", end: text.trim() ? [...text].length : 0 } : null;
+    },
+    [blocks, regionSelection],
+  );
+
   const sel = usePdfSelection({
     model,
     containerRef,
@@ -643,6 +671,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
     onHighlightClick,
     firstShownPage,
     revealBlock,
+    ...(regionSelection ? { regionAt } : {}),
   });
 
   // The painted selection's boxes on each near page (unchanged pages keep
@@ -907,6 +936,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
                 activeSpan={framedSpan}
                 findQuery={findOpen ? findQuery.trim() : ""}
                 inlineNote={inlineNote}
+                {...(inlineNotes && inlineNotes.length ? { inlineNotes } : {})}
                 marks={marks}
                 selectionRects={selectionRects.get(page) ?? NO_BOXES}
                 caret={caret && caret.page === page ? caret.box : null}
@@ -1038,6 +1068,7 @@ interface PdfPageProps {
   activeSpan: string | null;
   findQuery: string;
   inlineNote: { spanId: string; node: ReactNode } | null;
+  inlineNotes?: ReadonlyArray<{ spanId: string; node: ReactNode }>;
   marks: ReadonlyMap<string, ReactNode> | null;
   selectionRects: readonly Box[];
   caret: Box | null;
@@ -1069,6 +1100,7 @@ const PdfPage = memo(function PdfPage({
   activeSpan,
   findQuery,
   inlineNote,
+  inlineNotes,
   marks,
   selectionRects,
   caret,
@@ -1337,6 +1369,29 @@ const PdfPage = memo(function PdfPage({
                 {inlineNote.node}
               </div>
             ))
+        : null}
+      {drawn && inlineNotes
+        ? inlineNotes.flatMap((note) => blocks
+            .filter((b) => b.spanId === note.spanId && b.bbox.length === 4)
+            .slice(0, 1)
+            .map((b) => (
+              <div
+                key={`figure-${b.spanId}`}
+                data-inline-figures={b.spanId}
+                data-pdf-ui=""
+                style={{
+                  position: "absolute",
+                  left: b.bbox[0] * scale,
+                  top: b.bbox[3] * scale + 2,
+                  width: Math.max(320, (b.bbox[2] - b.bbox[0]) * scale),
+                  zIndex: 4,
+                  background: COLOR.bg,
+                  cursor: "default",
+                }}
+              >
+                {note.node}
+              </div>
+            )))
         : null}
       {drawn && marks && marks.size > 0
         ? blocks

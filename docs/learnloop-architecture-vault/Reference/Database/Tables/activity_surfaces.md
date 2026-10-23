@@ -3,13 +3,13 @@ title: "activity_surfaces"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_surfaces"
   - "table activity_surfaces"
-schema_head: 214
+schema_head: 217
 table_name: "activity_surfaces"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,17 +19,16 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/065_activity_lineage_substrate.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/material_view.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
-  - "src/learnloop/daily_plan/staged_frame.py"
+  - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ops/contamination/recipes.py"
   - "src/learnloop/ops/pf_reports.py"
+  - "src/learnloop/scheduling/frame_constraints.py"
   - "src/learnloop/cli/surfaces.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/curriculum/golden_path_assessment.py"
   - "src/learnloop/learner_protection.py"
+  - "src/learnloop/reader/reader_dialogue.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -104,10 +103,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/daily_plan/staged_frame.py`
+- `src/learnloop/adaptive_difficulty/reading.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/ops/contamination/recipes.py`
 - `src/learnloop/ops/pf_reports.py`
+- `src/learnloop/scheduling/frame_constraints.py`
 
 ### Direct SQL writers
 
@@ -118,10 +118,11 @@ Indexes and uniqueness:
 - `src/learnloop/cli/surfaces.py`
 - `src/learnloop/content/authoring/item_authoring.py`
 - `src/learnloop/curriculum/golden_path_assessment.py`
-- `src/learnloop/daily_plan/staged_frame.py`
 - `src/learnloop/learner_protection.py`
 - `src/learnloop/reader/reader_dialogue.py`
 - `src/learnloop/scheduling/controller_snapshot.py`
+- `src/learnloop/scheduling/frame_constraints.py`
+- `src/learnloop/scheduling/intent/feasibility.py`
 - `src/learnloop/substrate/activities.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
 - `src/learnloop/substrate/surface_mint.py`

@@ -12,6 +12,8 @@ import type {
 import { EntityLink } from "../components/ui";
 import { RewordConfirmList } from "../components/RewordConfirms";
 import { notifyQueueChanged } from "../queueEvents";
+import { simpleShell } from "../app/shell";
+import { screenLeavesKey } from "../app/keymap";
 import {
   COLOR,
   Dim,
@@ -260,18 +262,68 @@ function BatchHeader({
 }
 
 // ── Compact item row ───────────────────────────────────────────────────
+// ── Repeats (UX Phase 2) ──────────────────────────────────────────────
+// Usability round 1, M-h: "Proposals grows on every practice, with duplicate
+// error-type proposals." The rows are real: every grading that names an error
+// type the vault doesn't have yet writes a new batch proposing it
+// (`persist_unknown_error_type_proposals` checks the vault's accepted types,
+// not the proposals still waiting), so the same entity waits several times.
+// That is a data issue whose fix changes what grading writes, so it is not
+// this display-only stage's (docs/reviews/ux-phase2.md). The list says so
+// instead: the first waiting proposal of an entity shows how many times it
+// was proposed, and each later one is marked as a repeat. Simple shell only.
+
+export interface ProposalRepeat {
+  /** The first waiting proposal of the entity, in display order. */
+  firstItemId: string;
+  /** How many proposals of it are waiting. */
+  count: number;
+}
+
+/** Waiting create proposals that name the same entity more than once, by
+ *  item id. Decided ones are left aside. */
+export function repeatedPendingProposals(batches: ProposalBatchDto[]): Map<string, ProposalRepeat> {
+  const groups = new Map<string, string[]>();
+  for (const batch of batches) {
+    for (const item of batch.items) {
+      if (item.decision !== "pending" || item.operation !== "create") continue;
+      const key = `${item.itemType}:${item.proposedEntityId}`;
+      groups.set(key, [...(groups.get(key) ?? []), item.id]);
+    }
+  }
+  const repeats = new Map<string, ProposalRepeat>();
+  for (const ids of groups.values()) {
+    if (ids.length < 2) continue;
+    for (const id of ids) repeats.set(id, { firstItemId: ids[0], count: ids.length });
+  }
+  return repeats;
+}
+
+function RepeatPill({ itemId, repeat }: { itemId: string; repeat: ProposalRepeat | undefined }) {
+  if (!repeat) return null;
+  return repeat.firstItemId === itemId ? (
+    <Pill color="amber">proposed {repeat.count}×</Pill>
+  ) : (
+    <Pill color="slate">repeat</Pill>
+  );
+}
+
 function ProposalItemRow({
   item,
   focused,
-  onSelect
+  onSelect,
+  repeat
 }: {
   item: ProposalItemDto;
   focused: boolean;
   onSelect: () => void;
+  /** Simple shell only: this waiting proposal names an entity proposed more than once. */
+  repeat?: ProposalRepeat | null;
 }) {
   return (
     <div
       onClick={onSelect}
+      {...(repeat === undefined ? {} : { "data-proposal-item-id": item.id })}
       style={{
         padding: "12px 24px 12px 38px",
         background: focused ? COLOR.bgElev : "transparent",
@@ -312,6 +364,7 @@ function ProposalItemRow({
         <RoutePill route={item.reviewRoute} />
       </div>
       <div style={{ display: "flex", gap: 6, flexShrink: 0, minWidth: 92, justifyContent: "flex-end" }}>
+        {repeat ? <RepeatPill itemId={item.id} repeat={repeat} /> : null}
         {item.rewordConfirm === "pending" ? <Pill color="amber">waits for your confirm</Pill> : null}
         <DecisionPill decision={item.decision} />
       </div>
@@ -650,6 +703,12 @@ export function ProposalsScreen({
     return snapshot.batches.flatMap((batch) => (collapsed.has(batch.id) ? [] : batch.items));
   }, [snapshot, collapsed]);
 
+  // UX Phase 2 (simple shell): the repeats the list marks; classic shows none.
+  const repeats = useMemo(
+    () => (snapshot && simpleShell() ? repeatedPendingProposals(snapshot.batches) : null),
+    [snapshot]
+  );
+
   const focusedItem = useMemo(
     () => (snapshot ? snapshot.batches.flatMap((batch) => batch.items).find((item) => item.id === focusedItemId) : undefined),
     [snapshot, focusedItemId]
@@ -719,6 +778,8 @@ export function ProposalsScreen({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      // Simple shell: Ctrl+K is the palette, not "up" (fix round 2).
+      if (screenLeavesKey(event)) return;
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea") return;
       const index = focusedItemId ? visibleItems.findIndex((item) => item.id === focusedItemId) : -1;
@@ -812,6 +873,7 @@ export function ProposalsScreen({
                           item={item}
                           focused={focusedItemId === item.id}
                           onSelect={() => setFocusedItemId(item.id)}
+                          {...(repeats ? { repeat: repeats.get(item.id) ?? null } : {})}
                         />
                       ))
                     : null}

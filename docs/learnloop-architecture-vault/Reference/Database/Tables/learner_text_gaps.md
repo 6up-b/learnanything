@@ -3,13 +3,13 @@ title: "learner_text_gaps"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gaps"
   - "table learner_text_gaps"
-schema_head: 214
+schema_head: 217
 table_name: "learner_text_gaps"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -137,6 +137,10 @@ None found by exact static reference scan.
 
 - `tests/mcp_world.py`
 - `tests/test_decider_landing.py`
+- `tests/test_figure_predictions.py`
+- `tests/test_figures_codex_review.py`
+- `tests/test_figures_fix_round2.py`
+- `tests/test_figures_scope_redesign.py`
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_hint_feedback_widening.py`
 - `tests/test_hint_h2b_review.py`
@@ -151,9 +155,6 @@ None found by exact static reference scan.
 - `tests/test_mcp_tools.py`
 - `tests/test_mvp016_upgrade.py`
 - `tests/test_probability_cli.py`
-- `tests/test_reader_active_reading.py`
-- `tests/test_reader_formative_texts.py`
-- `tests/test_tier1_decider.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

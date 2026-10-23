@@ -1364,8 +1364,167 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # acts at every version. Every snapshot moves only because the effective
     # config gains the keys; all of them were recomputed from the composed
     # defaults (defaults_fingerprint_for_version).
-    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.28; dormant below it).
-    "mvp-0.9": "7ea3a8588aedd2625b86a8928635a20a7dfd1dde58a606319cf88d48bad2876d",
+    # Reader workbench RW2b + adaptive hints H3 (checks and the help ladder;
+    # docs/reviews/reader-workbench-RW2b.md) adds [workbench] help_enabled,
+    # symbolic_checks_enabled (false since fix round 9), discriminate_enabled,
+    # error_kind_enabled and bridge_enabled (true), max_calls_per_session = 24,
+    # max_daily_cost_usd = 1.00 and price_per_million (unset; modelled
+    # defaults, left out of the decision-only template) and the chat route
+    # ai.routing.workbench_check (unset: the active provider; Codex allowed,
+    # estimated_only). A
+    # shown check or hint reaches the attempt only through hints_used (one
+    # each, levels 1-3) and primed (levels 4-5) and a tutor_answer reveal on
+    # key overlap, with their existing meaning, so no scoring, scheduling,
+    # projection or serving change and no successor; it acts at every
+    # version. Every snapshot moves only because the effective config gains
+    # the keys; all of them were recomputed from the composed defaults
+    # (defaults_fingerprint_for_version).
+    # RW2b fix round 9 (the orchestrator's decision) turns
+    # workbench.symbolic_checks_enabled off by default (a modelled default,
+    # left out of the template): no step or hint claim is labelled checked
+    # until the renderer-equivalent checker lands. Display-only labels; no
+    # scoring, scheduling, projection or serving change and no successor.
+    # Every snapshot moves with the default and was recomputed.
+    # Reader workbench RW1c (a tutor that looks things up; docs/reviews/
+    # reader-workbench-RW1c.md) adds [reader_tutor] retrieval_enabled and
+    # offers_enabled (true; modelled defaults, left out of the decision-only
+    # template): the Reader tutor's retrieval, three answer modes,
+    # abstention, another way and that didn't help, and the offer buttons
+    # under its answers. Retrieval is context and display and the buttons are
+    # learner picks (T6's ruling); a Reader question asked inside a workbench
+    # session bound to an item is stored on that item and practice session,
+    # so it reaches the attempt only through the existing question
+    # hint-equivalents and tutor_answer / source_review reveals (their
+    # existing meaning; Codex review F1), so no scoring,
+    # scheduling, projection or serving change and no successor; it adds no
+    # route (the tutor's own; the sources service's for its functions) and
+    # acts at every version. Every snapshot moves only because the effective
+    # config gains the keys; all of them were recomputed from the composed
+    # defaults (defaults_fingerprint_for_version).
+    # Reader workbench RW4b (exercises from my sources;
+    # docs/reviews/reader-workbench-RW4b.md) adds [library_exercises] enabled
+    # = true and fallback_enabled = false (modelled defaults, left out of the
+    # decision-only template): the Reader's view of the sources service's
+    # textbook-exercise candidates with its exposure labels, "use this one"
+    # through the service's own import in the workbench, and the retired
+    # fallback search. Display and a learner's own pick through the existing
+    # import and pick paths: nothing in scoring, scheduling, projection or
+    # serving reads the keys, so no scoring, scheduling, projection or serving
+    # change and no successor; they act at every version. Every snapshot moves
+    # only because the effective config gains the section; all of them were
+    # recomputed from the composed defaults (defaults_fingerprint_for_version).
+    # Daily-loop DL2 (intent; docs/reviews/daily-loop-dl2.md) adds [intent]
+    # enabled = true, recall_targets_enabled = true and recall_targets (Q8:
+    # keep_in_touch 0.80, remember_key_ideas 0.85, work_fluently 0.90,
+    # master_tasks_like_these 0.92, uncommitted 0.90) and [capture]
+    # test_me_later_days = 7 (modelled defaults, left out of the decision-only
+    # template). Intent is read only when serving (exclusion by disposition,
+    # "Check once", effective dues at the recall targets, push, admission and
+    # re-entry by intent); due_at, FSRS state, evidence and projections are
+    # unchanged and replay never reads it, and with no commitment serving is
+    # unchanged (the 0.90 ratio is exactly 1). It acts only at the successor
+    # mvp-0.29 (the DL2 Codex re-review F2: it changes which items are served
+    # as measurements, the 2026-10-17 rule); the sections are present, inert,
+    # at every earlier version. Every snapshot moves
+    # only because the effective config gains the two sections (checked by
+    # dropping them, which reproduces each prior value); all of them were
+    # recomputed from the composed defaults (defaults_fingerprint_for_version).
+    # Reader workbench RW3b (discovered cues; docs/reviews/reader-workbench-
+    # RW3b.md) adds [cues] discovery_enabled, try_first_enabled,
+    # value_order_enabled (true), holdout_rate (0.1),
+    # max_calls_per_source_open (12) and max_daily_cost_usd (0.5), and the
+    # listwise route ai.routing.passage_cue_judge (empty = the active
+    # provider; modelled defaults, left out of the decision-only template):
+    # passages found per open target by T6 retrieval and one judgment each,
+    # in the background, ordered by the probability the target is still
+    # open, with a logged holdout. Display only (taps are salience-only
+    # events, learner_card verdicts and impression receipts; "check me" and
+    # "try this step first" are learner picks), so no scoring, scheduling,
+    # projection or serving change and no successor; it acts at every
+    # version. Every snapshot moves only because the effective config gains
+    # the keys and the route; all of them were recomputed from the composed
+    # defaults (defaults_fingerprint_for_version). RW3b fix round 5 (Codex
+    # verify F16) adds [cues] max_calls_per_source_per_day (36): the cue
+    # judge's calls per source per rolling 24 hours over every open, counted from the
+    # durable receipts; a spend bound, display only, no successor. Every
+    # snapshot moved again only for that key, recomputed the same way.
+    # Reader workbench RW4d (syntopic reading, kept;
+    # docs/reviews/reader-workbench-RW4d.md) adds [reader_compare]
+    # keep_enabled = true (a modelled default, left out of the decision-only
+    # template): "Keep this comparison" as source-object proposals, the
+    # learner's own take, the kept-comparison margin mark, requested
+    # perspectives and Keep on the tutor's comparison. Proposals and display:
+    # nothing in scoring, scheduling, projection or serving reads the key, so
+    # no scoring, scheduling, projection or serving change and no successor;
+    # it acts at every version. Every snapshot moves only because the
+    # effective config gains the key; all of them were recomputed from the
+    # composed defaults (defaults_fingerprint_for_version).
+    # Reader workbench RW4e (instructional roles;
+    # docs/reviews/reader-workbench-RW4e.md) adds [roles]
+    # on_demand_enabled = true, positive_filter_enabled = true and
+    # batch_max_cost_usd = 5.0, and the listwise route
+    # ai.routing.role_labeller (empty = the active provider; modelled
+    # defaults, left out of the decision-only template): the Reader's judges'
+    # per-passage instructional roles as source-object proposals, the
+    # owner-run batch labeller's per-run cap, and their positive use in
+    # retrieval, cue shortlists and library grouping (roles add, never
+    # exclude). Labels on sources: nothing in scoring, scheduling,
+    # projection or serving reads them, so no scoring, scheduling,
+    # projection or serving change and no successor; it acts at every
+    # version. Every snapshot moves only because the effective config gains
+    # the keys and the route; all of them were recomputed from the composed
+    # defaults (defaults_fingerprint_for_version).
+    # Reader workbench RW7a (reading paths in the Guide;
+    # docs/reviews/reader-workbench-RW7a.md) adds [reading_paths]
+    # enabled = true and max_daily_cost_usd = 0.5, and the chat route
+    # ai.routing.reading_path_judge (empty = the active provider; modelled
+    # defaults, left out of the decision-only template): the Guide's path
+    # card (section labels with a why, overrides, one exercise per core
+    # section, the suggested next line) and its judge's daily cap. Display
+    # only: nothing in scoring, scheduling, projection or serving reads a
+    # path, so no scoring, scheduling, projection or serving change and no
+    # successor; it acts at every version. Every snapshot moves only because
+    # the effective config gains the keys and the route; all of them were
+    # recomputed from the composed defaults (defaults_fingerprint_for_version).
+    # Reader workbench RW5a (explorable figures; docs/reviews/reader-workbench-RW5a.md)
+    # adds [figures] enabled, predictions_enabled, region_enabled and
+    # revisions_enabled (true), max_daily_cost_usd = 1.00 and
+    # price_per_million (unset; modelled defaults, left out of the
+    # decision-only template) and the chat route ai.routing.figure_author
+    # (unset: the active provider; Codex allowed, estimated_only; RW5a has
+    # no verifier route, the source check is RW5c's). Figures are content and their predictions
+    # formative: nothing in scoring, scheduling, projection or serving
+    # reads the keys, so no scoring, scheduling, projection or serving
+    # change and no successor; they act at every version. Every snapshot
+    # moves only because the effective config gains the section and the
+    # route; all of them were recomputed from the composed defaults
+    # (defaults_fingerprint_for_version).
+    # Reader workbench RW2c (what helps this learner;
+    # docs/reviews/reader-workbench-RW2c.md) adds [workbench]
+    # help_outcomes_enabled, examples_enabled, compare_methods_enabled and
+    # passage_draw_enabled (true; modelled defaults, left out of the
+    # decision-only template): help-outcome lines (a pure read) for the hint
+    # writer and chooser, the worked example in the learner's route, "Compare
+    # with the book's method" after a correct Submit and the logged draw
+    # between passages that all passed the judge. Context, display and
+    # learner picks; a comparison reaches evidence only through an existing
+    # reveal kind on the item, so no scoring, scheduling, projection or
+    # serving change and no successor; they act at every version and add no
+    # route. Every snapshot moves only because the effective config gains the
+    # keys; all of them were recomputed from the composed defaults
+    # (defaults_fingerprint_for_version).
+    # UX Phase 2 (the shell; docs/specs/ux_learnloop_v1.md §5, §10 2.1-2.5,
+    # Q17; docs/reviews/ux-phase2.md) adds [ui] shell = "simple" (modelled
+    # default, left out of the decision-only template), the kill switch of
+    # the four-place shell, Under the hood, the notice system and the
+    # palette's ">" prefix ("classic" keeps the ten-tab shell exactly).
+    # Display only: the desktop reads it, and no grading, scheduling,
+    # evidence, projection or replay path does, so no successor (the owner's
+    # live-behind-kill-switches ruling). Every snapshot moves only because
+    # the effective config gains the key; all of them were recomputed from
+    # the composed defaults (defaults_fingerprint_for_version).
+    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
+    "mvp-0.9": "5298ae9c06e8dcac17b3c68f1365a4888e20a4c633b2e7912848cd4e41ff287e",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1412,8 +1571,19 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
-    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.28; dormant below it).
-    "mvp-0.10": "f93848182634ba81f5081ebaf3ffa3e10bacfb72a4d4ba4977a17d757956f63e",
+    # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    # Reader workbench RW3b's [cues] discovery keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4d's [reader_compare] keep_enabled moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4e's [roles] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW7a's [reading_paths] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
+    # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
+    "mvp-0.10": "ac080d403573377335562c4e0bfc29adbcb930f26493f8f0327ea8f0b0c768aa",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1468,8 +1638,19 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
-    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.28; dormant below it).
-    "mvp-0.11": "6a94a9830ce2a2ef2ebd12b39b5c5650a0937d3494780974673b3fef5f002460",
+    # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    # Reader workbench RW3b's [cues] discovery keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4d's [reader_compare] keep_enabled moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4e's [roles] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW7a's [reading_paths] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
+    # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
+    "mvp-0.11": "c5f9644f9bbcc365d3594f13a547bab3057434d3930572b46d1e6556683cb5f7",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1518,8 +1699,19 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
-    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.28; dormant below it).
-    "mvp-0.12": "19a02cfc5dbc04e12ebfdbf70b1c29eafb93ddb962758cfb49222b4829fa6042",
+    # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    # Reader workbench RW3b's [cues] discovery keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4d's [reader_compare] keep_enabled moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4e's [roles] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW7a's [reading_paths] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
+    # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
+    "mvp-0.12": "0081842a03a4571349bc894752c9a0ea45fc1e7d74891f5df96bcdc7cbe71360",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1563,8 +1755,19 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
-    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.28; dormant below it).
-    "mvp-0.13": "d0bec95714e924e117c0e245fc4dbfe7582f558835444decea2fe53fe2b5731f",
+    # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    # Reader workbench RW3b's [cues] discovery keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4d's [reader_compare] keep_enabled moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4e's [roles] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW7a's [reading_paths] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
+    # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
+    "mvp-0.13": "13269c076e3cbee07303e9cb5e65412fb69859b34b80e69ec8d2e1e9cbee315e",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1607,8 +1810,19 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
-    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.28; dormant below it).
-    "mvp-0.14": "87166ec0a5f39f5a82c62e256f72ade364b18293382e08c4232b5e9c97badf15",
+    # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    # Reader workbench RW3b's [cues] discovery keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4d's [reader_compare] keep_enabled moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4e's [roles] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW7a's [reading_paths] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
+    # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
+    "mvp-0.14": "455b87e9882fe7440afdd0e354237e6ba03127d3a9b8b641e6cb6c2973b371e3",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1649,8 +1863,19 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
-    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.28; dormant below it).
-    "mvp-0.15": "e45c3cb00833a013487bc09a6d07fe5c678479e27a38d6c02868b8f585640b69",
+    # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    # Reader workbench RW3b's [cues] discovery keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4d's [reader_compare] keep_enabled moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4e's [roles] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW7a's [reading_paths] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
+    # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
+    "mvp-0.15": "e520ea0c4233f44c4b4fa30eb2137f193a00931c9aec88c0e6d97e5d7242388f",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1698,8 +1923,19 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
-    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.28; dormant below it).
-    "mvp-0.16": "070f67fe51ce94d50780e4c4d460382a30b39e34a38e2599e2e4e4726cb3ed26",
+    # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    # Reader workbench RW3b's [cues] discovery keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4d's [reader_compare] keep_enabled moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4e's [roles] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW7a's [reading_paths] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
+    # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
+    "mvp-0.16": "6d3c8358c14dbe46de07ce346c18d04a4b159a762f897023dc7936470a51b9e2",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1743,8 +1979,19 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
-    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.28; dormant below it).
-    "mvp-0.17": "a680b97c8b8fb79319503d76fcc19d9d60686fced2fe70d122359aee97004d92",
+    # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    # Reader workbench RW3b's [cues] discovery keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4d's [reader_compare] keep_enabled moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4e's [roles] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW7a's [reading_paths] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
+    # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
+    "mvp-0.17": "87cc6cdc3e56f70c004f5bdf2ac17dcb857701161a3955df0d38766eab349830",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -1781,8 +2028,19 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
-    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.28; dormant below it).
-    "mvp-0.18": "536e0db22061790f3fe62a193b1eb9bde4b12076d4b75117bdbecfc5a20c9d58",
+    # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    # Reader workbench RW3b's [cues] discovery keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4d's [reader_compare] keep_enabled moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4e's [roles] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW7a's [reading_paths] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
+    # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
+    "mvp-0.18": "9139d7e916bf338bb16db107a98e1b2a6474463fc7db3805e53a5d31b5fd79d4",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -1819,8 +2077,19 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
-    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.28; dormant below it).
-    "mvp-0.19": "9a6c41d4e9cdc01ab34e7ef0591dca1527259e30f3093bf7df8ce81b30d2263e",
+    # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    # Reader workbench RW3b's [cues] discovery keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4d's [reader_compare] keep_enabled moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4e's [roles] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW7a's [reading_paths] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
+    # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
+    "mvp-0.19": "476721abf01f22243fa24c9d3e709fce665ce48e94f0cb5dd343dcb3b3f71559",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -1853,8 +2122,19 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
-    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.28; dormant below it).
-    "mvp-0.20": "5055aca153b73fff4ae36d5d8c4fe94e50a25a488563c4ad8a7484de1348a464",
+    # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    # Reader workbench RW3b's [cues] discovery keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4d's [reader_compare] keep_enabled moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4e's [roles] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW7a's [reading_paths] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
+    # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
+    "mvp-0.20": "22752c601ff92bafd59297cb2029125beef2e3c9aefd704d221316e87c22463e",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -1896,8 +2176,19 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
-    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.28; dormant below it).
-    "mvp-0.21": "02eaec8b647bd2e8334a2e218f22a3839c021bd313d742a412ffaa737c5cc277",
+    # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    # Reader workbench RW3b's [cues] discovery keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4d's [reader_compare] keep_enabled moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4e's [roles] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW7a's [reading_paths] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
+    # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
+    "mvp-0.21": "65b9b9f22453d69de5976f9e7aabb66c7cb9d35311f51cc70ef86b6a748a9c68",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -1931,8 +2222,19 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
-    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.28; dormant below it).
-    "mvp-0.22": "c4829097993cad8b58a7e66936fdd9ee2567782f18342af605b1cf0d9f9ddc1b",
+    # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    # Reader workbench RW3b's [cues] discovery keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4d's [reader_compare] keep_enabled moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4e's [roles] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW7a's [reading_paths] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
+    # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
+    "mvp-0.22": "e31adb56167876f7d0548e473dea1cf26ca5118b0b46e7b4d09387148ea8f751",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -1961,8 +2263,19 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
-    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.28; dormant below it).
-    "mvp-0.23": "0c279649054492bc05c01b8da2be78a7fe6ec58ff2425714bbafd43985c9f0bf",
+    # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    # Reader workbench RW3b's [cues] discovery keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4d's [reader_compare] keep_enabled moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4e's [roles] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW7a's [reading_paths] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
+    # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
+    "mvp-0.23": "f909f0633ebcb269a9fe03bb2e5ea242b99b38f3f694bf5145f6cea66dc4fa15",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -1988,8 +2301,19 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
-    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.28; dormant below it).
-    "mvp-0.24": "93c9ae7fa9198b937e618a2394b3259c41888e83ee998bfe9d5567ef87358264",
+    # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    # Reader workbench RW3b's [cues] discovery keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4d's [reader_compare] keep_enabled moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4e's [roles] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW7a's [reading_paths] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
+    # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
+    "mvp-0.24": "bbceb99adcc24cb773d1c370316822971c033ab5ce6a3043826ebe07cac071a1",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -2013,8 +2337,19 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
-    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.28; dormant below it).
-    "mvp-0.25": "27effbadbd5d0bfa88087f6519d8ecdeac5da265e7167f3276c6b59237393f7a",
+    # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    # Reader workbench RW3b's [cues] discovery keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4d's [reader_compare] keep_enabled moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4e's [roles] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW7a's [reading_paths] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
+    # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
+    "mvp-0.25": "ec644c4339c7c89c666784211fa108ff8ada3e73d28ac24ef1f7252963f2b76a",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -2037,8 +2372,19 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
-    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.28; dormant below it).
-    "mvp-0.26": "3e9344cc3213a289d1667959ddae1ead32d24f3e82a3109371bf6cc1b40e6223",
+    # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    # Reader workbench RW3b's [cues] discovery keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4d's [reader_compare] keep_enabled moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4e's [roles] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW7a's [reading_paths] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
+    # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
+    "mvp-0.26": "d84a12889ab74c004c1bcd3a1b0f80235fd25809c649c727658b5a80153af662",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -2050,8 +2396,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # serves and admits exactly as mvp-0.26). Existing vaults reach it by
     # `learnloop upgrade` (default target) from mvp-0.26, or from mvp-0.9 to
     # mvp-0.25 through the chain (under mvp-0.12's advisory guard). New vaults
-    # start here (the template's LATEST_ALGORITHM_VERSION; owner decision
-    # 2026-10-12).
+    # started here (the template's LATEST_ALGORITHM_VERSION; owner decision
+    # 2026-10-12) until mvp-0.29 merged.
     # Reader workbench RW2a's [workbench] moves it too (see mvp-0.9).
     # Reader workbench RW6a's [recap] moves it too (see mvp-0.9).
     # Reader workbench RW1b's [reader_intent] and its two sections move it too (see mvp-0.9).
@@ -2061,10 +2407,45 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
-    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.28; dormant below it).
-    "mvp-0.27": "4212526522ff11646c4803efc75d95f8d7e6c0fb2f2dc35b434fc7e62747b651",
-    # mvp-0.28 (adaptive difficulty AD2+AD3, owner 2026-10-18;
-    # docs/reviews/adaptive-difficulty-ad23.md): mvp-0.27 plus AD's draw at a
+    # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4b's [library_exercises] moves it too (see mvp-0.9; no serving change).
+    # Daily-loop DL2's [intent] and [capture] move it too (see mvp-0.9; inert below mvp-0.29).
+    # Reader workbench RW3b's [cues] discovery keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4d's [reader_compare] keep_enabled moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4e's [roles] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW7a's [reading_paths] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
+    # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
+    "mvp-0.27": "bc7b69af97b89ec732066b4558dd74b629f6d10df9d140cf1e7614b6778e4b24",
+    # mvp-0.29 (daily-loop DL2, the learner's intent; docs/reviews/
+    # daily-loop-dl2.md and its Codex re-review F2): the predecessor plus
+    # serving by intent (an excluded item is never served, requested or
+    # rebuilt as a follow-up; a "Check once" is a cold check on your own;
+    # effective dues at the recall targets, push, admission, re-entry and
+    # reading by intent). Kill switch [intent] enabled (default true; off
+    # serves exactly as the predecessor). No default changes here: only the
+    # version string moves the fingerprint ([intent] and [capture] are in
+    # every snapshot above, inert below the tag). Its predecessor is
+    # mvp-0.27: DL2 landed on main before adaptive difficulty AD2+AD3, so
+    # mvp-0.28 is never used on main and AD2+AD3 lands as mvp-0.30 after it.
+    # Existing vaults reach it by `learnloop upgrade` (default target) from
+    # the predecessor, or from mvp-0.9 onwards through the chain. New vaults
+    # start here (the template's LATEST_ALGORITHM_VERSION; owner decision
+    # 2026-10-12).
+    # Reader workbench RW3b's [cues] discovery keys and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4d's [reader_compare] keep_enabled moves it too (see mvp-0.9; no serving change).
+    # Reader workbench RW4e's [roles] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW7a's [reading_paths] and route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
+    # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
+    # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
+    "mvp-0.29": "cefd9f0541c69d5fd90fa9bafd3c3635c6787964939e9e3136c50384fdd917b1",
+    # mvp-0.30 (adaptive difficulty AD2+AD3, owner 2026-10-18;
+    # docs/reviews/adaptive-difficulty-ad23.md): mvp-0.29 plus AD's draw at a
     # planned new-material slot (practice in the 70-80% band, calibration within
     # acceptable difficulty, exact logged propensities; an empty support defers
     # the slot's item), the generation contract (an item AT a commissioned
@@ -2073,15 +2454,16 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # the readiness numbers. Six kill switches under [adaptive_difficulty]
     # (selection, generation_contract, promoted_predictor, learned_coupling,
     # reading_opportunities, reading_self_check), each restoring its part of
-    # mvp-0.27 exactly; the Reader's dose offers (reading_dose_offers) ship beside
+    # mvp-0.29 exactly; the Reader's dose offers (reading_dose_offers) ship beside
     # it with no tag. Modelled defaults, left out of the decision-only template.
     # Owner decisions 2026-10-19: learned_coupling off until the owner adopts a
     # coupling version, calibrate_below 0.25 (amendment A17), and AD's own
     # history_fallback = "current_content" (field.legacy_fallback unchanged).
     # Existing vaults reach it by `learnloop upgrade` (default target) from
-    # mvp-0.27, or from mvp-0.9 to mvp-0.26 through the chain. New vaults start
+    # mvp-0.29, or from mvp-0.9 onwards through the chain (mvp-0.28 is never
+    # used: AD2+AD3 lands after DL2, orchestrator decision 2026-10-20). New vaults start
     # here (the template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
-    "mvp-0.28": "9f5772668bc80b3b8e2bfcbc40afffa4daf2dbfbbb303f0a7b5782304fda7165",
+    "mvp-0.30": "9f5772668bc80b3b8e2bfcbc40afffa4daf2dbfbbb303f0a7b5782304fda7165",
 
 }
 

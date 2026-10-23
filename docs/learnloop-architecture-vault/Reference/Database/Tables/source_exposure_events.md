@@ -3,13 +3,13 @@ title: "source_exposure_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_exposure_events"
   - "table source_exposure_events"
-schema_head: 214
+schema_head: 217
 table_name: "source_exposure_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,17 +19,15 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/049_source_exposure_events.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/material_view.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/attempts/coldness_receipt.py"
-  - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/content/sources/source_outcome_analytics.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/source_service.py"
+  - "src/learnloop/instructional/exposure.py"
+  - "src/learnloop/instructional/interventions.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/diagnosis/remediation.py"
-  - "src/learnloop/instructional/interventions.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -99,11 +97,14 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/adaptive_difficulty/reading.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/instructional/exposure.py`
 - `src/learnloop/router/outcomes.py`
+- `src/learnloop/source_retrieval/reader_tutor.py`
 - `src/learnloop/substrate/intervention_outcomes.py`
+- `src/learnloop_sidecar/handlers/library_exercises.py`
 
 ### Direct SQL writers
 
@@ -125,26 +126,26 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
-- `tests/ad_ingest_fakes.py`
-- `tests/test_ad23_contract.py`
-- `tests/test_ad3_reading.py`
-- `tests/test_ad_protected_readings.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_exam_protection.py`
 - `tests/test_exam_protection_review.py`
 - `tests/test_library_ask.py`
 - `tests/test_library_ask_review.py`
+- `tests/test_library_exercises.py`
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_migrations.py`
 - `tests/test_reader_restoration.py`
+- `tests/test_reader_tutor_offers.py`
+- `tests/test_reader_tutor_retrieval.py`
 - `tests/test_reader_workbench_rw2a.py`
 - `tests/test_retrieval_interventions_write_points.py`
 - `tests/test_router_coldness_covariates.py`
 - `tests/test_rw4_kill_switches.py`
-- `tests/test_salience_firewall.py`
 - `tests/test_sidecar_span_view.py`
 - `tests/test_source_outcome_analytics.py`
+- `tests/test_span_view.py`
+- `tests/test_ad1_codex_review_fixes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

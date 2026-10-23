@@ -3,13 +3,13 @@ title: "activity_observations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_observations"
   - "table activity_observations"
-schema_head: 214
+schema_head: 217
 table_name: "activity_observations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,13 +19,11 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/065_activity_lineage_substrate.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/material_view.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/observation_ledger.py"
   - "src/learnloop/field/outcomes.py"
   - "src/learnloop/substrate/compat/activity_backfill.py"
+  - "src/learnloop/substrate/compat/card_outcome_replay.py"
   - "src/learnloop/attempts/calibration_streams.py"
   - "src/learnloop/attempts/grade_resolution.py"
   - "src/learnloop/cli/grading.py"
@@ -105,7 +103,6 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/observation_ledger.py`
 - `src/learnloop/field/outcomes.py`

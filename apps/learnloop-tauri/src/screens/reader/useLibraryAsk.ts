@@ -92,9 +92,14 @@ function pause(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** A refusal that says why (held-out material), else the stage's own line. */
+/** Refusals that say why: held-out material, or (RW4d fix round 5) a
+ *  comparison withheld whole because a passage it drew on is held out now. */
+const SAYS_WHY = new Set(["exam_material", "comparison_withheld"]);
+
+/** A refusal that says why, else the stage's own line. */
 function failureLine(error: unknown, fallback: string): string {
-  return getCommandError(error)?.code === "exam_material" ? errorMessage(error) : fallback;
+  const code = getCommandError(error)?.code;
+  return code && SAYS_WHY.has(code) ? errorMessage(error) : fallback;
 }
 
 export interface LibraryAskState {
@@ -140,6 +145,8 @@ export function useLibraryAsk({
 }) {
   const settings = contract?.libraryAsk ?? null;
   const enabled = Boolean(settings);
+  // RW4d: keep this comparison and its perspectives field (absent while off).
+  const keep = settings && contract?.compareKeep?.library ? contract.compareKeep : null;
   const [state, setState] = useState<LibraryAskState | null>(null);
   const keyRef = useRef(0);
   const stateRef = useRef<LibraryAskState | null>(null);
@@ -277,22 +284,25 @@ export function useLibraryAsk({
     return state.pinned.length >= 2 && sources.size >= 2;
   })();
 
-  const compare = useCallback(async () => {
+  /** Compare the pins; RW4d's requested perspectives go along only when given (and only while keep is on). */
+  const compare = useCallback(async (perspectives: string[] = []) => {
     const current = stateRef.current;
     if (!current?.ask.value || !settings?.compare) return;
     const key = current.key;
     update(key, () => ({ compare: { phase: "pending", value: null, failure: null } }));
     const askId = current.ask.value.askId;
     const pinnedSpanKeys = current.pinned;
+    const requested = keep?.perspectives ? perspectives.slice(0, keep.maxPerspectives) : [];
     try {
-      const table = await runJob("compare", () => api.readerLibraryCompare({ askId, pinnedSpanKeys, openSourceId }));
+      const table = await runJob("compare", () => api.readerLibraryCompare(
+        requested.length ? { askId, pinnedSpanKeys, openSourceId, requestedPerspectives: requested } : { askId, pinnedSpanKeys, openSourceId }));
       if (table === null) return;
       const phase = comparePhase(table.status);
       update(key, () => ({ compare: { phase, value: table, failure: phase === "failed" ? "Couldn't compare these passages." : null } }));
     } catch (error) {
       update(key, () => ({ compare: { phase: phaseForError(error), value: null, failure: failureLine(error, "Couldn't compare these passages.") } }));
     }
-  }, [settings, openSourceId, runJob, update]);
+  }, [settings, keep, openSourceId, runJob, update]);
 
   const askTutor = useCallback(async (question: string) => {
     const current = stateRef.current;
@@ -382,7 +392,7 @@ export function useLibraryAsk({
   }, [enabled, cancelStage]);
 
   return {
-    enabled, settings, state, open: state !== null, ask, retry, setPersonalized, retryNotes, togglePin, canCompare,
+    enabled, settings, keep, state, open: state !== null, ask, retry, setPersonalized, retryNotes, togglePin, canCompare,
     compare, askTutor, practice, peek, closePeek, close, cancelNotes, cancelCompare, cancelTutor,
   };
 }

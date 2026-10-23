@@ -47,6 +47,7 @@ import { ItemPresentation } from "../components/ItemPresentation";
 import { TriageDecisionAid } from "../components/goldenpath/TriageDecisionAid";
 import { goldenPathFixtures } from "../fixtures/goldenpath";
 import { errorMessage, getCommandError } from "../errors";
+import { screenLeavesKey } from "../app/keymap";
 
 // Canonical display order for the run-state checkpoint ladder (§4 launch states).
 const RUN_STAGES: Array<{ key: string; label: string }> = [
@@ -268,6 +269,7 @@ export function GoldenPathScreen({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (screenLeavesKey(e)) return;
       const tag = (e.target as HTMLElement | null)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea") return;
       if (e.key === "Escape") onExit();

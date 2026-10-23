@@ -3,13 +3,13 @@ title: "attempt_surprise"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_surprise"
   - "table attempt_surprise"
-schema_head: 214
+schema_head: 217
 table_name: "attempt_surprise"
 table_role: "derived"
 functionality_status: "active"
@@ -20,12 +20,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/intent_reads.py"
   - "src/learnloop/diagnosis/followups.py"
   - "src/learnloop/diagnosis/signal_quantiles.py"
   - "src/learnloop/diagnosis/voi_stopping.py"
   - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/ops/debug_time.py"
-  - "src/learnloop/ops/doctor.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/proposals/proposals.py"
@@ -110,6 +110,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/intent_reads.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop_sidecar/handlers/sessions.py`
 
@@ -145,8 +146,8 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
-- `tests/test_ad23_contract.py`
 - `tests/test_gate_fit.py`
+- `tests/test_intent_recall_targets.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_signal_quantiles.py`
 - `tests/test_voi_forecasts.py`

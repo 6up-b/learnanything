@@ -3,13 +3,13 @@ title: "source_span_reanchors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_span_reanchors"
   - "table source_span_reanchors"
-schema_head: 214
+schema_head: 217
 table_name: "source_span_reanchors"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,9 +19,6 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/032_source_layer.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/material_view.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/content/sources/span_aliases.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ingest/reanchor.py"
@@ -99,7 +96,6 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/content/sources/span_aliases.py`
 - `src/learnloop_sidecar/handlers/reader.py`
@@ -109,7 +105,6 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
-- `tests/ad_ingest_fakes.py`
 - `tests/test_migrations.py`
 - `tests/test_reread_safety.py`
 - `tests/test_ad1_reading_opportunities.py`

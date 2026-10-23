@@ -3,13 +3,13 @@ title: "source_artifacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_artifacts"
   - "table source_artifacts"
-schema_head: 214
+schema_head: 217
 table_name: "source_artifacts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,12 +19,11 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/032_source_layer.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/content/facet_identity/span_support.py"
   - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ops/doctor.py"
+  - "src/learnloop/source_retrieval/role_labeller.py"
   - "src/learnloop_sidecar/handlers/serializers.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/pipeline/acquisition_preview.py"
@@ -101,6 +100,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/source_retrieval/role_labeller.py`
 - `src/learnloop_sidecar/handlers/serializers.py`
 
 ### Direct SQL writers
@@ -119,6 +119,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/content/sources/source_library.py`
 - `src/learnloop/content/sources/source_outline.py`
+- `src/learnloop/intent/control.py`
 - `src/learnloop/ops/doctor.py`
 - `src/learnloop/reader/reader_guidance.py`
 - `src/learnloop/reader/reader_progression.py`
@@ -127,21 +128,18 @@ Indexes and uniqueness:
 - `src/learnloop/remote/sources.py`
 - `src/learnloop/remote/views.py`
 - `src/learnloop/source_retrieval/corpus.py`
-- `src/learnloop_sidecar/handlers/first_run.py`
-- `src/learnloop_sidecar/handlers/ingest.py`
+- `src/learnloop/source_retrieval/reading_paths.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
-- `tests/ad_ingest_fakes.py`
+- `tests/figure_fixtures.py`
 - `tests/helpers.py`
 - `tests/reader_fixtures.py`
 - `tests/source_retrieval_fakes.py`
 - `tests/source_service_fakes.py`
-- `tests/test_ad23_contract.py`
-- `tests/test_ad_projection.py`
 - `tests/test_decider_landing.py`
 - `tests/test_glm_ocr.py`
 - `tests/test_ingest_runner.py`
@@ -155,6 +153,8 @@ Indexes and uniqueness:
 - `tests/test_source_deletion.py`
 - `tests/test_source_inventory.py`
 - `tests/test_source_retrieval_guards.py`
+- `tests/test_source_retrieval_rereview.py`
+- `tests/test_tutor_delivery_fixes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

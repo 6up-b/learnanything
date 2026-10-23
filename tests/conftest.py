@@ -48,6 +48,23 @@ os.environ["LEARNLOOP_HINT_MODELS"] = "off"
 # test reaches a real model: with this set, no AD job resolves a client unless
 # the test injected a fake (ctx.ad_clients, or the job's own client arguments).
 os.environ["LEARNLOOP_AD_MODELS"] = "off"
+# Reader workbench RW2b: no workbench route ("Check my work") resolves a real
+# client unless the test injected a fake (ctx.workbench_check_client).
+os.environ["LEARNLOOP_WORKBENCH_MODELS"] = "off"
+# Reader workbench RW3b: the cue judge (background discovery when a source
+# opens) resolves no real client unless the test injected a fake
+# (ctx.cue_judge_client, or discover()'s client argument).
+os.environ["LEARNLOOP_CUE_JUDGE_MODELS"] = "off"
+# Reader workbench RW4e: the batch role labeller (`learnloop reader label-roles`)
+# resolves no real client unless the test injected a fake (label_roles' client).
+os.environ["LEARNLOOP_ROLE_LABELLER_MODELS"] = "off"
+# Reader workbench RW7a: the reading-path judge resolves no real client unless
+# the test injected a fake (ctx.reading_path_judge_client, or judge()'s client).
+os.environ["LEARNLOOP_READING_PATH_MODELS"] = "off"
+# Reader workbench RW5a: no figure route (figure_author) resolves a real
+# client unless the test injected a fake (ctx.figure_author_client, or the
+# service's author_client argument).
+os.environ["LEARNLOOP_FIGURE_MODELS"] = "off"
 
 # Disable sqlite durability for every test connection. Each durable commit
 # pays a journal write plus an fsync, and on Windows on-access antivirus
@@ -176,11 +193,33 @@ def pytest_sessionfinish(session, exitstatus):
 def pytest_runtest_setup(item):
     durable = _session_durable or item.get_closest_marker("durability") is not None
     _set_sqlite_test_mode(durable=durable)
+    # The Codex launch check is cached per process and config fingerprint;
+    # a test's fakes (a stubbed probe, a fake CLI) must never see another
+    # test's cached verdict.
+    from learnloop.ai.providers.codex_lockdown import clear_check_cache
+
+    clear_check_cache()
 
 
 @pytest.hookimpl(trylast=True)
 def pytest_runtest_teardown(item, nextitem):
     _set_sqlite_test_mode(durable=_session_durable)
+
+
+@pytest.fixture
+def legacy_codex_http_double(monkeypatch):
+    """Let a test use the legacy Codex HTTP adapter as an in-process provider double.
+
+    The tool lockdown refuses that transport at every entry (hardening round
+    2, H3: ``codex_lockdown.refuse_legacy_http_transport``). End-to-end CLI,
+    sidecar and TUI tests drive a fake in-process HTTP server through it as a
+    stand-in model; they request this fixture by name or with
+    ``pytestmark = pytest.mark.usefixtures("legacy_codex_http_double")``. No
+    configuration, environment variable or flag can do this outside tests."""
+
+    from learnloop.ai.providers import codex_lockdown
+
+    monkeypatch.setattr(codex_lockdown, "refuse_legacy_http_transport", lambda where: None)
 
 
 @pytest.fixture

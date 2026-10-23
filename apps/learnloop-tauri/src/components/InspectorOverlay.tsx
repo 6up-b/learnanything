@@ -34,11 +34,13 @@ import { BlockBar, COLOR, Dim, DisclosureHeader, Divider, Faint, FONT_MONO, Help
 import { CapabilityGridView } from "./KnowledgeModel";
 import { RungVariantActions } from "./CardControls";
 import { PlacementSection } from "./PlacementControls";
+import { IntentControl, SubjectIntent } from "./IntentControl";
 import { ConceptAnimationSection } from "./ConceptAnimationSection";
 import { RecipeTreeEditor } from "./recipeedit/RecipeTreeEditor";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { ItemPresentation } from "./ItemPresentation";
 import { CommandOverlayFrame, commandOverlayActionStyle, learnloopShowOverlayWidth } from "./CommandOverlayFrame";
+import { screenLeavesKey } from "../app/keymap";
 import {
   CausalEpisodeInspector,
   formatCausalTarget,
@@ -122,6 +124,7 @@ export function InspectorOverlay({
   useEffect(() => {
     if (!entityId) return;
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { modal: true })) return;
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       const isInput = tag === "input" || tag === "textarea";
       if (event.key === "Escape") {
@@ -384,6 +387,14 @@ function PracticeItemBody({
         </span>
       </InspectorRow>
       <InspectorRow label="subjects">{detail.subjects.length ? detail.subjects.join(" · ") : <Faint>none</Faint>}</InspectorRow>
+      {/* Daily-loop DL2: the single intent control on one item (spec §5.2). */}
+      <IntentControl
+        scopeKind="practice_item"
+        scopeId={detail.id}
+        heading="What you want for this item"
+        onChanged={onRefresh}
+        onError={onError}
+      />
       {detail.difficulty != null ? (
         <InspectorRow label="difficulty">
           <BlockBar value={detail.difficulty} width={10} />
@@ -591,6 +602,19 @@ function LearningObjectBody({
           onError={(message) => onError?.(message)}
         />
       ) : null}
+      {/* Daily-loop DL2: the single intent control (spec §5.2), and the same
+          control for the topic's whole subject on demand. */}
+      <IntentControl
+        scopeKind="learning_object"
+        scopeId={detail.id}
+        onChanged={() => onRefresh?.()}
+        onError={(message) => onError?.(message)}
+      />
+      <SubjectIntent
+        subjects={detail.subjects ?? []}
+        onChanged={() => onRefresh?.()}
+        onError={(message) => onError?.(message)}
+      />
       <InspectorRow label="concept">
         <IdLink id={detail.concept} onGo={onGo} />
       </InspectorRow>

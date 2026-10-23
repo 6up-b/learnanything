@@ -50,6 +50,22 @@ AUDITED_COPIERS: dict[str, tuple[int, str]] = {
     "tests/test_probe_migration.py": (1, _MIGRATION_SQL),
     "tests/test_question_promotions.py": (1, _MIGRATION_SQL),
     "tests/test_rebuild_orchestrator.py": (1, _TRACKED_FIXTURE),
+    "tests/test_reader_rw2b_fix10.py": (
+        1,
+        "copies a Python helper script (rw2b_fix10_base_sequence.py) into an archived code tree, not a database",
+    ),
+    "tests/test_reader_rw2b_fix11.py": (
+        1,
+        "copies a Python helper script (rw2b_fix11_base_sequence.py) into an archived code tree, not a database",
+    ),
+    "tests/test_rw2c_switch_off.py": (
+        1,
+        "copies a Python helper script (rw2c_base_sequence.py) into an archived code tree, not a database",
+    ),
+    "tests/test_rw2c_fix_round2.py": (
+        1,
+        "copies a Python helper script (rw2c_state_parity.py) into an archived code tree, not a database",
+    ),
     "tests/test_receipt_derivation.py": (2, _TRACKED_FIXTURE),
     "tests/test_receipt_exactness.py": (1, _TRACKED_FIXTURE),
     "tests/test_shadow_rebuild.py": (1, _TRACKED_FIXTURE),

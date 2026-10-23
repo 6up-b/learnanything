@@ -37,7 +37,11 @@ SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_formative
 #: Adaptive hints H2b (migration 212) adds ``hint_feedback``: the practice
 #: screen's "doesn't connect" text and discriminating answers, read from
 #: ``help_assists`` (:func:`~.sources.hint_feedback_text`).
-READABLE_SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_formative", "hint_feedback")
+#: Reader workbench RW2b reads ``workbench_text`` (its adapter,
+#: :func:`~.sources.workbench_text`): stuck steps, replies and discriminating
+#: answers written while working in steps.
+READABLE_SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_formative", "hint_feedback",
+                         "workbench_text")
 #: The kinds whose named gaps stay content and display (spec W1 tier 2, RW1b
 #: §4.5 "no successor"): a gap read from them names a prerequisite or a belief
 #: (and may create one), but never brings a check forward and is never a weak
@@ -184,6 +188,11 @@ class LearnerText:
     #: What the Decider and the stuck-text reader see besides the text (the
     #: item's prompt, the LO title, a note title). Never an answer key.
     context: Mapping[str, Any] = field(default_factory=dict)
+    #: Facts about what the text carried when it was built, recorded on its
+    #: job when the reading is done and never sent to a model (Reader RW5a
+    #: fix round 3: whether a figure prediction's reading read its "what
+    #: changed?", ``explanation_read``).
+    markers: Mapping[str, Any] = field(default_factory=dict)
 
     @property
     def anchor(self) -> str | None:

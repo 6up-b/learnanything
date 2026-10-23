@@ -3,13 +3,13 @@ title: "queue_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite queue_state"
   - "table queue_state"
-schema_head: 214
+schema_head: 217
 table_name: "queue_state"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,8 +19,6 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/117_question_promotion_jobs_and_queue_revision.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/content/pipeline/jobs.py"
@@ -97,6 +95,9 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probe_remint.py`
 - `src/learnloop/diagnosis/text_gaps/actions.py`
 - `src/learnloop/diagnosis/text_gaps/pipeline.py`
+- `src/learnloop/intent/checks.py`
+- `src/learnloop/intent/control.py`
+- `src/learnloop/intent/deadline.py`
 - `src/learnloop/ops/pf_publish.py`
 - `src/learnloop/placement/decisions.py`
 - `src/learnloop/tutor/promotions.py`

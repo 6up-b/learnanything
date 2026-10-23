@@ -171,6 +171,14 @@ class SubmitAttemptInput(ParamsModel):
     #: cross-language contract that only a comment held together.
     explanation_md: str | None = None
     hints_used: int = 0
+    #: RW2b fix round 5 (items 4-5): the answer box's authored reveals on
+    #: their own, apart from the book and the workbench's help the server
+    #: counts itself (``combine_held``). Absent (an older client): round 4's rule.
+    authored_hints: int | None = Field(default=None, ge=0)
+    #: RW2b fix round 12 (item 2): the client counted a book in its count
+    #: (``bookLeft``: a problem since abandoned), its own component, ORed into
+    #: the book (``combine_held``). Absent: no client-held book is assumed.
+    book_counted: bool | None = None
     latency_seconds: int | None = None
     self_grade: SelfGradeInputDto | None = None
     primed: bool = False
@@ -203,6 +211,14 @@ class DontKnowInput(ParamsModel):
     session_id: str
     practice_item_id: str
     hints_used: int = 0
+    #: RW2b fix round 5 (items 4-5): the answer box's authored reveals on
+    #: their own, apart from the book and the workbench's help the server
+    #: counts itself (``combine_held``). Absent (an older client): round 4's rule.
+    authored_hints: int | None = Field(default=None, ge=0)
+    #: RW2b fix round 12 (item 2): the client counted a book in its count
+    #: (``bookLeft``: a problem since abandoned), its own component, ORed into
+    #: the book (``combine_held``). Absent: no client-held book is assumed.
+    book_counted: bool | None = None
     latency_seconds: int | None = None
     self_grade: SelfGradeInputDto | None = None
     probe_presentation_id: str | None = None
@@ -340,6 +356,16 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
         from learnloop_sidecar.handlers.queue import eligibility_dto
 
         detail["eligibility"] = eligibility_dto(eligibility)
+    if params.session_id is not None:
+        # Daily-loop DL2: a due "Check once" is served cold (Reader §9.3 item
+        # 10): the banner, help never blocked with its consequence stated, and
+        # a header that locates nothing until feedback. Absent otherwise.
+        from learnloop.clock import SystemClock
+        from learnloop.intent.checks import served_check
+
+        check = served_check(vault, repository, item.id, now=SystemClock().now())
+        if check is not None:
+            detail["intentCheck"] = to_camel(check)
     detail["elicitation"] = (
         None
         if params.session_id is None
@@ -486,7 +512,7 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
                 # display: ended, and the item is ordinary practice (round 7).
                 return versioned({"active": False, "reason": PROBE_ITEM_ANSWER_SHOWN})
             contract = episode_contract(vault, repository, item.learning_object_id) or {}
-            return versioned({"active": True, "presentation_id": active.id, **contract})
+            return versioned(_with_intent_check(vault, repository, item.id, {"active": True, "presentation_id": active.id, **contract}))
         if validation.reason == "item_mismatch":
             return versioned({"active": False, "reason": "different_probe_assignment"})
         return versioned({"active": False, "reason": validation.reason or "stale_presentation"})
@@ -522,7 +548,22 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
             return versioned({"active": False, "reason": PROBE_ITEM_ANSWER_SHOWN})
         return versioned({"active": False, "reason": "no_instrument"})
     contract = episode_contract(vault, repository, item.learning_object_id) or {}
-    return versioned({"active": True, "presentation_id": presentation.id, **contract})
+    return versioned(_with_intent_check(vault, repository, item.id, {"active": True, "presentation_id": presentation.id, **contract}))
+
+
+def _with_intent_check(vault: Any, repository: Any, practice_item_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """DL2 verify F15 (fix round 4, R3): an active diagnostic presentation of a
+    due "Check once" item is the check, served under the diagnostic's duty;
+    the contract (the server's word that this is a probe) carries the check's
+    measured view, which promises no help. Absent otherwise."""
+
+    from learnloop.clock import SystemClock
+    from learnloop.intent.checks import DUTY_DIAGNOSTIC, served_check
+
+    check = served_check(vault, repository, practice_item_id, now=SystemClock().now(), duty=DUTY_DIAGNOSTIC)
+    if check is not None:
+        payload = {**payload, "intent_check": check}
+    return payload
 
 
 @method("stop_probe_diagnosing", PracticeItemInput)
@@ -696,6 +737,7 @@ def _server_hint_fold(
     repository, practice_item_id: str, session_id: str, submission_id: str | None, *,
     base_hints: int, base_primed: bool = False, max_useful_hints: int = 0, clamp_without_fold: bool = True,
     stuck_types: tuple[str, ...] | None = None, stuck_probe: bool = False, window_fold: bool = False,
+    held: dict[str, Any] | None = None,
 ) -> ServerHintFold:
     """Adaptive hints H2a (spec §5, G-H2, G-H3): the hints the hint service
     showed in this submission (its ``help_assists`` rows, shown, counted by
@@ -724,7 +766,7 @@ def _server_hint_fold(
         practice_item_id=practice_item_id, session_id=session_id, submission_id=fold_key, since=since,
         folded_hints=count, folded_primed=primed, base_hints=int(base_hints), base_primed=bool(base_primed),
         max_useful_hints=int(max_useful_hints or 0), clamp_without_fold=clamp_without_fold,
-        stuck_types=stuck_types, stuck_probe=stuck_probe, window_fold=window_fold,
+        stuck_types=stuck_types, stuck_probe=stuck_probe, window_fold=window_fold, **(held or {}),
     )
 
 
@@ -931,13 +973,18 @@ def _plan_presentation(repository, params: Any) -> str | None:
     )
 
 
-def _held_assistance(repository, item, hints_used: int, attempt_type: str) -> tuple[int, str]:
+def _held_assistance(repository, item, hints_used: int, attempt_type: str, *,
+                     held: tuple[Any, ...] | None = None, authored_hints: int | None = None,
+                     book_counted: bool | None = None) -> tuple[int, str]:
     """Fold in the assistance the item's open workbench problems hold (Reader
     workbench RW2a, review F2): the book one counted and the answer-box hints
     it carried. The server holds them, so the record never depends on a
     client having restored them before Submit, and it is never clamped to the
-    hints the item shows today. The larger of the two counts, never their sum
-    (a client that restored them already sends them), and an independent
+    hints the item shows today. The carried part (book, carried hints) and
+    the client's count overlap (a client that restored them already sends
+    them): the larger of the two. The problem's own shown checks and level
+    1-3 hints add to it (RW2b fix round 4, item 4:
+    :func:`learnloop.attempts.hint_fold.combine_held`). An independent
     attempt type becomes the assisted one the answer box picks.
 
     On an item that allows only ``independent_attempt`` that type stays, with
@@ -946,16 +993,91 @@ def _held_assistance(repository, item, hints_used: int, attempt_type: str) -> tu
     ``stuck_attempt_type`` fall back to the item's default type). The one
     activity policy (``resolve_attempt_activity_policy``) reads ``hints_used``
     > 0 as assisted and never certifying whatever the type, so the attempt is
-    never unassisted evidence (RW2a round 4, F2)."""
+    never unassisted evidence (RW2a round 4, F2). ``held``: the parts
+    :func:`_held_read` already took (RW2b fix round 1, F1)."""
 
-    from learnloop.reader.workbench import held_hints
+    from learnloop.attempts.hint_fold import combine_held
 
-    held = held_hints(repository, item.id)
-    if held <= 0:
+    if held is None:
+        held = _held_read(repository, item)[0]
+    largest = max((book + carried + len(ids) for book, carried, ids in held), default=0)
+    if largest <= 0:
         return hints_used, attempt_type
     if attempt_type == "independent_attempt":
-        attempt_type = stuck_attempt_type(item.attempt_types_allowed, hints_used=held)
-    return max(int(hints_used), held), attempt_type
+        attempt_type = stuck_attempt_type(item.attempt_types_allowed, hints_used=largest)
+    return combine_held(int(hints_used), held, authored_hints=authored_hints,
+                        client_book=bool(book_counted)), attempt_type
+
+
+def _held_read(repository, item) -> tuple[tuple[tuple[int, int], ...], bool]:
+    """Reader workbench RW2b (§5.4): the help the item's open problems hold,
+    ``(parts, primed)``: per problem ``(book, carried, assist_ids)`` (fix
+    rounds 4 and 5, items 4-5), and whether any showed worked help (a level 4-5 hint, which primes
+    every submit of the item). ``((), False)`` with no workbench help, so
+    every submit is exactly as before RW2b."""
+
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    try:
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            parts, primed, worked = _held_parts_with_window(connection, item.id)
+    except Exception as exc:  # noqa: BLE001 -- a vault without the tables holds nothing
+        log_event("workbench_held_read_failed", practice_item_id=item.id, error=type(exc).__name__)
+        return (), False, ()
+    return tuple(parts), bool(primed), tuple(worked)
+
+
+def _held_parts_with_window(connection, practice_item_id: str):
+    """The open problems' RW2a parts (book, carried) and, as one more part,
+    the item's WINDOW of workbench server assists (RW2b fix round 13: H2b's R1
+    rule, whatever their problem's status, ``help_assists.workbench_window_ids``),
+    which the attempt counts once and attaches in its own transaction."""
+
+    from learnloop.db.stores.help_assists import workbench_window
+    from learnloop.reader.workbench import held_parts_on
+
+    parts, _problem_primed = held_parts_on(connection, practice_item_id)
+    window, worked = workbench_window(connection, practice_item_id=practice_item_id)
+    rw2a = tuple((int(book), int(carried), ()) for book, carried, _ids in parts)
+    # Fix round 14, item 1: primed is derived from the WINDOW (any level 4-5
+    # row in it, whatever its problem's status), never from the problem's
+    # state; those rows are attached but never counted.
+    return rw2a + (((0, 0, tuple(window)),) if window else ()), bool(worked), tuple(worked)
+
+
+def _held_reader(practice_item_id: str):
+    """RW2b fix round 1, F1: the same read on the attempt's own write
+    connection, for its transactional refold (the attempt path never reads
+    the workbench; the sidecar hands it this callable). A check or hint shown
+    while the submit was grading is then counted; none is shown after the
+    attempt commits under its key (``help_assists.mark_shown``)."""
+
+    def read(connection) -> tuple[tuple[Any, ...], bool]:
+        try:
+            return _held_parts_with_window(connection, practice_item_id)
+        except sqlite3.OperationalError:
+            # A vault without the workbench tables holds nothing.
+            return (), False, ()
+
+    return read
+
+
+def _held_fields(item, held: tuple[tuple[Any, ...], bool], *, client_hints: int, extra_hints: int,
+                 attempt_types: bool, authored_hints: int | None = None,
+                 client_book: bool | None = None) -> dict[str, Any]:
+    from learnloop.attempts.hint_fold import held_components
+
+    parts = tuple(held[0])
+    union, book, carried = held_components(parts)
+    return {"held_reader": _held_reader(item.id), "held_client_hints": int(client_hints),
+            "held_union": union, "held_book": book, "held_carried": carried, "held_known": True,
+            "held_client_book": bool(client_book),
+            "held_extra_hints": int(extra_hints),
+            "held_hints": max((book + carried + len(ids) for book, carried, ids in parts), default=0),
+            "held_parts": parts, "held_primed": bool(held[1]), "held_authored_hints": authored_hints,
+            "held_worked": tuple(held[2]) if len(held) > 2 else (),
+            "held_types": tuple(item.attempt_types_allowed or ()) if attempt_types else None}
 
 
 def _bind_offer(repository, params, submission_id, *, entry_surface: str | None = None):
@@ -1080,6 +1202,9 @@ def submit_attempt_on(
                 session_id=params.session_id,
                 practice_item_id=params.practice_item_id,
                 hints_used=params.hints_used,
+                # Fix round 12, item 4: every optional count field goes along.
+                authored_hints=params.authored_hints,
+                book_counted=params.book_counted,
                 latency_seconds=params.latency_seconds,
                 probe_presentation_id=params.probe_presentation_id,
                 answer_confidence=params.answer_confidence,
@@ -1096,7 +1221,10 @@ def submit_attempt_on(
     _require_open_session(repository, params.session_id)
     item = _require_active_item(vault, params.practice_item_id)
     before = _latent_snapshot(vault, repository, params.practice_item_id)
-    client_hints, attempt_type = _held_assistance(repository, item, params.hints_used, params.attempt_type)
+    held = _held_read(repository, item)
+    client_hints, attempt_type = _held_assistance(repository, item, params.hints_used, params.attempt_type,
+                                                  held=held[0], authored_hints=params.authored_hints,
+                                                  book_counted=params.book_counted)
     # Substantive tutor questions asked mid-attempt count as hints: fold them
     # into hints_used so the existing hint dampening / FSRS rating caps apply.
     question_hints = hint_equivalents_for_submission(
@@ -1121,8 +1249,12 @@ def submit_attempt_on(
     # (review round 2, V1).
     hint_fold = _server_hint_fold(
         repository, params.practice_item_id, params.session_id, submission_id,
-        base_hints=client_hints + question_hints, base_primed=bool(params.primed) or disclosure_primed,
+        base_hints=client_hints + question_hints,
+        base_primed=bool(params.primed) or disclosure_primed,
         max_useful_hints=item.hint_policy.max_useful_hints, window_fold=hint_window_fold,
+        held=_held_fields(item, held, client_hints=params.hints_used, extra_hints=question_hints,
+                          attempt_types=True, authored_hints=params.authored_hints,
+                          client_book=params.book_counted),
     )
     hints_used = hint_fold.hints_used()
     primed = hint_fold.primed()
@@ -1290,7 +1422,9 @@ def submit_dont_know_on(
     item = _require_active_item(vault, params.practice_item_id)
     before = _latent_snapshot(vault, repository, params.practice_item_id)
     # The item's open workbench problems' assistance counts here too (RW2a F2).
-    hints_used, _type = _held_assistance(repository, item, params.hints_used, "independent_attempt")
+    held = _held_read(repository, item)
+    hints_used, _type = _held_assistance(repository, item, params.hints_used, "independent_attempt", held=held[0],
+                                         authored_hints=params.authored_hints, book_counted=params.book_counted)
     # Adaptive hints H2a (spec §5): a shown hint is never lost, here too. The
     # tutor-question fold's absence here predates H2a and is left as it was
     # (spec §14 Q5); the clamp applies to the total the server's rows join.
@@ -1299,9 +1433,12 @@ def submit_dont_know_on(
     stuck = stuck_prompt_active(vault)
     hint_fold = _server_hint_fold(
         repository, params.practice_item_id, params.session_id, submission_id,
-        base_hints=hints_used, max_useful_hints=item.hint_policy.max_useful_hints, clamp_without_fold=False,
+        base_hints=hints_used,
+        max_useful_hints=item.hint_policy.max_useful_hints, clamp_without_fold=False,
         stuck_types=tuple(item.attempt_types_allowed or ()) if stuck else None,
         stuck_probe=params.probe_presentation_id is not None, window_fold=hint_window_fold,
+        held=_held_fields(item, held, client_hints=params.hints_used, extra_hints=0, attempt_types=False,
+                          authored_hints=params.authored_hints, client_book=params.book_counted),
     )
     hints_used = hint_fold.hints_used()
     server_primed = hint_fold.primed()

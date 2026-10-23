@@ -35,6 +35,7 @@ from learnloop.ai.multimodal import (
 from learnloop.ai.strict_schema import strict_output_schema
 from learnloop.ai.transport import (
     BOUNDED_STRUCTURED_COMPLETION,
+    IMAGE_INPUT,
     ISOLATED_TURN,
     MEDIA_MARKDOWN,
     MEDIA_TRANSCRIPTION,
@@ -120,10 +121,21 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
             (request.timeout_seconds, request.output_budget_tokens, request.reasoning_effort))
         purpose_token = _purpose_label.set(request.purpose)
         try:
+            user: Any = request.prompt
+            if request.images:
+                # Reader RW5a: a figure's crop as image parts beside the prompt
+                # (only for a profile that lists "image" in input_modalities).
+                import base64
+
+                user = [{"type": "text", "text": request.prompt}] + [
+                    {"type": "image_url",
+                     "image_url": {"url": f"data:{media_type};base64,{base64.b64encode(data).decode('ascii')}"}}
+                    for media_type, data in request.images
+                ]
             return self._run_json_messages(
                 [
                     {"role": "system", "content": self._system_prompt(request.result_model)},
-                    {"role": "user", "content": request.prompt},
+                    {"role": "user", "content": user},
                 ],
                 request.result_model,
             )
@@ -146,6 +158,8 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
             # A chat completion runs no tools: the request is all it sees.
             return True
         modalities = set(self.profile.input_modalities or [])
+        if capability == IMAGE_INPUT:
+            return "image" in modalities
         if capability in {MEDIA_TRANSCRIPTION, "audio"}:
             return "audio" in modalities
         if capability in {MEDIA_MARKDOWN, "pdf"}:

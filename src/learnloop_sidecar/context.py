@@ -645,10 +645,30 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
             "practice": {"stuck_prompt": stuck_prompt_active(vault)},
             # UX Phase 4's kill switch (display only): "simple" practice and
             # feedback surfaces, or "classic" for the screens as they were.
-            "ui": {"practice_feedback": config.ui.practice_feedback},
+            # UX Phase 2's kill switch (display only): the four-place shell,
+            # or "classic" for the ten-tab shell as it was.
+            "ui": {"practice_feedback": config.ui.practice_feedback, "shell": config.ui.shell},
             # Reader workbench RW2a's kill switch: present only while on, so
             # with it off the snapshot is exactly what it was before RW2a.
-            **({"workbench": {"enabled": True, "open_session_days": config.workbench.open_session_days}}
+            # Reader workbench RW2b's kill switch rides inside it: "Check my
+            # work" and the help ladder, ``help`` present only while
+            # workbench.help_enabled is on (absent, RW2a's workbench renders
+            # exactly as before); ``bridge``: "compare with the book". The
+            # ladder's hints need the hint service (the ``hints`` key below).
+            **({"workbench": {"enabled": True, "open_session_days": config.workbench.open_session_days,
+                              **({"help": {"enabled": True, "bridge": bool(config.workbench.bridge_enabled),
+                                           # RW2b fix round 13: the symbolic switch, so a
+                                           # mounted workbench gates marks already shown.
+                                           "symbolic": bool(config.workbench.symbolic_checks_enabled),
+                                           # Reader RW2c's switches, each present only
+                                           # while on (off: the snapshot is as before).
+                                           **({"examples": True} if config.workbench.examples_enabled
+                                              else {}),
+                                           **({"compare_methods": True}
+                                              if config.workbench.compare_methods_enabled else {}),
+                                           **({"passage_draw": True} if config.workbench.passage_draw_enabled
+                                              else {})}}
+                                 if config.workbench.help_enabled else {})}}
                if config.workbench.enabled else {}),
             # Reader workbench RW6a's two kill switches: present only while one
             # of them is on, so with both off the snapshot is what it was. They

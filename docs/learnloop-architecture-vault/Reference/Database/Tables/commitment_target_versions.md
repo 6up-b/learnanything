@@ -3,13 +3,13 @@ title: "commitment_target_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitment_target_versions"
   - "table commitment_target_versions"
-schema_head: 214
+schema_head: 217
 table_name: "commitment_target_versions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,10 +19,9 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/072_commitments.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/curriculum/commitments.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/intent_reads.py"
   - "src/learnloop/reader/reader_authoring.py"
   - "src/learnloop/content/authoring/rung_variants.py"
   - "src/learnloop/daily_plan/engine.py"
@@ -91,6 +90,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/intent_reads.py`
 - `src/learnloop/reader/reader_authoring.py`
 
 ### Direct SQL writers
@@ -110,6 +110,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/intent_fakes.py`
 - `tests/test_commitments.py`
 - `tests/test_daily_loop_reader_retire.py`
 - `tests/test_question_promotions.py`

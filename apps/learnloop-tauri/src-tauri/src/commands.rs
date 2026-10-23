@@ -1015,6 +1015,13 @@ sidecar_passthrough!(compare_sources, "compare_sources");
 
 sidecar_passthrough!(get_today_headline, "get_today_headline");
 
+// Daily-loop DL2: the single intent control and deadlines (spec_daily_loop_v1.md §5).
+sidecar_passthrough!(get_intent, "get_intent");
+
+sidecar_passthrough!(set_intent, "set_intent");
+
+sidecar_passthrough!(set_intent_deadline, "set_intent_deadline");
+
 #[tauri::command]
 pub async fn get_calibration_session(
     calibration_session_id: String,
@@ -1321,6 +1328,11 @@ sidecar_passthrough!(reader_log_activity, "reader.log_activity");
 sidecar_passthrough!(reader_cue_action, "reader.cue_action");
 sidecar_passthrough!(reader_cue_preferences, "reader.cue_preferences");
 sidecar_passthrough!(reader_set_cue_preferences, "reader.set_cue_preferences");
+// reader.* (reader workbench RW3b: discovered cues): desktop only.
+sidecar_passthrough!(reader_cue_discovery, "reader.cue_discovery");
+sidecar_passthrough!(reader_cue_discovery_job, "reader.cue_discovery_job");
+sidecar_passthrough!(reader_cue_impressions, "reader.cue_impressions");
+sidecar_passthrough!(reader_cue_tap, "reader.cue_tap");
 // Reader workbench RW2a (the resumable scratchpad): desktop only.
 sidecar_passthrough!(workbench_open, "workbench.open");
 sidecar_passthrough!(workbench_get, "workbench.get");
@@ -1332,10 +1344,26 @@ sidecar_passthrough!(workbench_reopen, "workbench.reopen");
 sidecar_passthrough!(workbench_refresh_import, "workbench.refresh_import");
 sidecar_passthrough!(workbench_bind, "workbench.bind");
 sidecar_passthrough!(workbench_retry_import, "workbench.retry_import");
+// Reader RW4b fix round 4 (R1): a picked exercise's admission, one server operation.
+sidecar_passthrough!(workbench_admit, "workbench.admit");
 sidecar_passthrough!(workbench_submit, "workbench.submit");
 sidecar_passthrough!(workbench_session_for_attempt, "workbench.session_for_attempt");
 sidecar_passthrough!(workbench_for_item, "workbench.for_item");
 sidecar_passthrough!(workbench_for_source, "workbench.for_source");
+// Reader workbench RW2b + adaptive hints H3 (checks and the help ladder): desktop only.
+sidecar_passthrough!(workbench_check, "workbench.check");
+sidecar_passthrough!(workbench_suggest_help, "workbench.suggest_help");
+sidecar_passthrough!(workbench_request_help, "workbench.request_help");
+sidecar_passthrough!(workbench_help_job, "workbench.help_job");
+sidecar_passthrough!(workbench_cancel_help, "workbench.cancel_help");
+sidecar_passthrough!(workbench_answer_discriminating, "workbench.answer_discriminating");
+sidecar_passthrough!(workbench_set_help_style, "workbench.set_help_style");
+sidecar_passthrough!(workbench_help_state, "workbench.help_state");
+// Reader workbench RW2c (what helps this learner): desktop only.
+sidecar_passthrough!(workbench_show_example, "workbench.show_example");
+sidecar_passthrough!(workbench_another_passage, "workbench.another_passage");
+sidecar_passthrough!(workbench_compare_offer, "workbench.compare_offer");
+sidecar_passthrough!(workbench_compare_methods, "workbench.compare_methods");
 // Reader workbench RW6a ("Last time here" and Wrap up): desktop only.
 sidecar_passthrough!(reader_recap, "reader.recap");
 sidecar_passthrough!(reader_recap_event, "reader.recap_event");
@@ -1357,6 +1385,27 @@ sidecar_passthrough!(reader_library_compare, "reader.library_compare");
 sidecar_passthrough!(reader_library_ask_tutor, "reader.library_ask_tutor");
 sidecar_passthrough!(reader_library_job, "reader.library_job");
 sidecar_passthrough!(reader_library_job_cancel, "reader.library_job_cancel");
+// Reader workbench RW4b (exercises from my sources: the view, the fallback): desktop only.
+sidecar_passthrough!(reader_exercise_candidates, "reader.exercise_candidates");
+sidecar_passthrough!(reader_find_exercises, "reader.find_exercises");
+// Reader workbench RW4d (keep a comparison, remove it, reopen it, its marks): desktop only.
+sidecar_passthrough!(reader_library_compare_keep, "reader.library_compare_keep");
+sidecar_passthrough!(reader_library_compare_remove, "reader.library_compare_remove");
+sidecar_passthrough!(reader_library_compare_reopen, "reader.library_compare_reopen");
+sidecar_passthrough!(reader_kept_comparisons, "reader.kept_comparisons");
+// Reader workbench RW7a (reading paths in the Guide: the view, the depth, overrides): desktop only.
+sidecar_passthrough!(reader_reading_path, "reader.reading_path");
+sidecar_passthrough!(reader_reading_path_set_depth, "reader.reading_path_set_depth");
+sidecar_passthrough!(reader_reading_path_override, "reader.reading_path_override");
+// Reader workbench RW5a (explorable figures: build, "not right?", the source's
+// figures, predictions and "what changed?"): desktop only.
+sidecar_passthrough!(reader_figure_request, "reader.figure_request");
+sidecar_passthrough!(reader_figure_revise, "reader.figure_revise");
+sidecar_passthrough!(reader_figure_job, "reader.figure_job");
+sidecar_passthrough!(reader_figure_job_cancel, "reader.figure_job_cancel");
+sidecar_passthrough!(reader_figures, "reader.figures");
+sidecar_passthrough!(reader_figure_predict, "reader.figure_predict");
+sidecar_passthrough!(reader_figure_explain, "reader.figure_explain");
 // Adaptive difficulty AD2+AD3 (the Reader's randomized dose offer and its uptake rows,
 // an LO's readiness lines, "why this item"): desktop only.
 sidecar_passthrough!(reader_dose_offer, "reader.dose_offer");

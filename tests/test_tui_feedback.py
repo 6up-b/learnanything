@@ -16,6 +16,10 @@ from learnloop.vault.loader import load_vault
 
 from tests.helpers import begin_session, configure_codex_http, create_basic_vault, seed_due_item
 
+# The legacy Codex HTTP adapter is refused by the tool lockdown (hardening round 2,
+# H3); these tests drive an in-process HTTP server through it as a provider double.
+pytestmark = pytest.mark.usefixtures("legacy_codex_http_double")
+
 
 def _direct_attempt(tmp_path):
     """Run the same attempt through the service directly for parity comparison."""

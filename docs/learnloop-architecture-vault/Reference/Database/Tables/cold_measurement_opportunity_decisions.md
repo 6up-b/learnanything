@@ -3,13 +3,13 @@ title: "cold_measurement_opportunity_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite cold_measurement_opportunity_decisions"
   - "table cold_measurement_opportunity_decisions"
-schema_head: 214
+schema_head: 217
 table_name: "cold_measurement_opportunity_decisions"
 table_role: "receipt"
 functionality_status: "active"
@@ -115,10 +115,14 @@ None found by exact static reference scan.
 - `tests/test_causal_cold_outcomes.py`
 - `tests/test_certification_cold_probe.py`
 - `tests/test_coldness_receipt.py`
+- `tests/test_compare_methods.py`
 - `tests/test_daily_loop_lo_lifecycle_serving.py`
 - `tests/test_diagnostic_probe_freshness.py`
 - `tests/test_followup_diagnostic_selection.py`
 - `tests/test_instrument_servability_journeys.py`
+- `tests/test_intent_codex_rereview.py`
+- `tests/test_intent_codex_review.py`
+- `tests/test_intent_fix_round4.py`
 - `tests/test_item_authoring.py`
 - `tests/test_practice_index_admission.py`
 - `tests/test_quick_check.py`
@@ -126,8 +130,6 @@ None found by exact static reference scan.
 - `tests/test_scheduler.py`
 - `tests/test_serve_eligibility.py`
 - `tests/test_serve_eligibility_review.py`
-- `tests/test_ux_phase4_feedback.py`
-- `tests/test_ux_phase4_landing.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

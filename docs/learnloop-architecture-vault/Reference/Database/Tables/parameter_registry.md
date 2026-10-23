@@ -3,13 +3,13 @@ title: "parameter_registry"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite parameter_registry"
   - "table parameter_registry"
-schema_head: 214
+schema_head: 217
 table_name: "parameter_registry"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/069_parameter_registry.sql"
-  - "src/learnloop/ad_successor_upgrade.py"
   - "src/learnloop/cli/registry.py"
   - "src/learnloop/content/sources/block_health.py"
   - "src/learnloop/daily_plan_upgrade.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/decider_upgrade.py"
   - "src/learnloop/diagnosis/recurrence/upgrade.py"
+  - "src/learnloop/eligibility_decision_upgrade.py"
   - "src/learnloop/cli/grading.py"
   - "src/learnloop/params/parameter_registry.py"
   - "src/learnloop/params/sensitivity_certificates.py"
@@ -119,18 +119,22 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_ad1_codex_review_fixes.py`
-- `tests/test_ad23_owner_decisions.py`
-- `tests/test_ad23_successor.py`
 - `tests/test_architecture.py`
 - `tests/test_constraint_engine.py`
 - `tests/test_grading_cli.py`
 - `tests/test_kinship_feature.py`
+- `tests/test_library_exercises.py`
 - `tests/test_open_world_gate.py`
 - `tests/test_p0_cutover_mvp08.py`
+- `tests/test_reader_rw2b_review.py`
+- `tests/test_reading_paths.py`
 - `tests/test_registry_audit.py`
 - `tests/test_regrade_contract_upgrade.py`
+- `tests/test_rw2c_switch_off.py`
 - `tests/test_sensitivity_certificates.py`
+- `tests/test_source_roles.py`
 - `tests/test_table_roles.py`
+- `tests/test_ux_phase2_shell.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

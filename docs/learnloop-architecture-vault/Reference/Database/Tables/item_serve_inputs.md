@@ -3,13 +3,13 @@ title: "item_serve_inputs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite item_serve_inputs"
   - "table item_serve_inputs"
-schema_head: 214
+schema_head: 217
 table_name: "item_serve_inputs"
 table_role: "receipt"
 functionality_status: "active"
@@ -19,14 +19,11 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/213_adaptive_difficulty_receipts.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/data_check.py"
-  - "src/learnloop/adaptive_difficulty/material_view.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
-  - "src/learnloop/adaptive_difficulty/replay.py"
-  - "src/learnloop/adaptive_difficulty/scoring.py"
   - "src/learnloop/adaptive_difficulty/serve.py"
   - "src/learnloop/adaptive_difficulty/serve_inputs.py"
+  - "src/learnloop/config/schema.py"
+  - "src/learnloop/db/stores/ad_receipts.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -53,7 +50,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/213_adaptive_difficulty_receipts.sql`.
-- **Schema touched by:** `213_adaptive_difficulty_receipts.sql`, `214_adaptive_difficulty_serving.sql`.
+- **Schema touched by:** `213_adaptive_difficulty_receipts.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -83,7 +80,6 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `loadings_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 | `coupling_version` | `TEXT` | no | — | — | Stored value |
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
-| `protection_epoch` | `TEXT` | no | — | — | Stored value |
 
 ## Relationships and access paths
 
@@ -110,7 +106,8 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/adaptive_difficulty/data_check.py`
-- `src/learnloop/adaptive_difficulty/material_view.py`
+- `src/learnloop/adaptive_difficulty/serve.py`
+- `src/learnloop/adaptive_difficulty/serve_inputs.py`
 
 ### Direct SQL writers
 
@@ -129,12 +126,6 @@ None found by exact static reference scan.
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_migration.py`
 - `tests/test_ad1_outside_and_cli.py`
-- `tests/test_ad23_contract.py`
-- `tests/test_ad23_fix_r8.py`
-- `tests/test_ad23_migration.py`
-- `tests/test_ad2_model.py`
-- `tests/test_ad2_serving.py`
-- `tests/test_ad_guard.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_architecture.py`
 
@@ -187,7 +178,7 @@ CREATE TABLE item_serve_inputs (
   -- version (§5.10). Null in AD1.
   loadings_json TEXT,
   coupling_version TEXT,
-  created_at TEXT NOT NULL, protection_epoch TEXT,
+  created_at TEXT NOT NULL,
   CHECK (
     (presentation_kind = 'plan_presentation' AND plan_presentation_id IS NOT NULL)
     OR (presentation_kind = 'probe_presentation' AND probe_presentation_id IS NOT NULL)

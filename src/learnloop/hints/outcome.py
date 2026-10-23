@@ -30,6 +30,11 @@ allowed (background work). A metered call joins the maps' envelope
 ``hints.maps.max_daily_cost_usd`` at ``hints.price_per_million`` (unset: refused
 before sending).
 
+**Not the workbench** (H2b §9's hand-off to RW2b): a workbench hint row
+(``surface = 'workbench'``) is never placed, never makes an attempt due and
+never enters the reconciliation pass; the step verdicts already place that
+work (Reader §5.2). An answer-box hint carried into steps still is.
+
 **Switches.** ``hints.outcome_placement_enabled`` (the kill switch, default
 on per D11), ``hints.adaptive_enabled`` with the telemetry its rows need,
 ``hints.maps.enabled`` (no map, nothing to place on). Without an injected
@@ -210,7 +215,8 @@ def _due(vault: LoadedVault, repository: Repository, attempt_id: str) -> tuple[_
         hints = [dict(row) for row in connection.execute(
             "SELECT id, hint_kind, level, route_id, from_node_id, target_node_id, map_id, practice_item_hash "
             "FROM help_assists "
-            "WHERE attempt_id = ? AND assist_kind = 'hint' AND shown = 1 ORDER BY requested_at, id",
+            "WHERE attempt_id = ? AND assist_kind = 'hint' AND shown = 1 AND surface != 'workbench' "
+            "ORDER BY requested_at, id",
             (attempt_id,)).fetchall()]
         if not hints:
             return None, "not_due"
@@ -446,7 +452,8 @@ def _hinted(sqlite_path: Any, attempt_id: str) -> bool:
 
     with closing(connect(Path(sqlite_path), read_only=True)) as connection:
         if connection.execute(
-                "SELECT 1 FROM help_assists WHERE attempt_id = ? AND assist_kind = 'hint' AND shown = 1 LIMIT 1",
+                "SELECT 1 FROM help_assists WHERE attempt_id = ? AND assist_kind = 'hint' AND shown = 1 "
+                "AND surface != 'workbench' LIMIT 1",
                 (attempt_id,)).fetchone() is None:
             return False
         return connection.execute(
@@ -552,7 +559,7 @@ def _unplaced_page(sqlite_path: Any, *, since: str, limit: int,
             "AND a.correctness IS NOT NULL "
             "AND a.correctness < 1.0 - 1e-9 AND TRIM(COALESCE(a.learner_answer_md, '')) != '' "
             "AND EXISTS (SELECT 1 FROM help_assists h WHERE h.attempt_id = a.id AND h.assist_kind = 'hint' "
-            "AND h.shown = 1) "
+            "AND h.shown = 1 AND h.surface != 'workbench') "
             "AND NOT EXISTS (SELECT 1 FROM judgment_ledger j WHERE j.task = ? AND j.right_kind = 'practice_attempt' "
             f"AND j.right_id = a.id) {cursor_sql}ORDER BY a.created_at, a.id LIMIT ?",
             (since, LEDGER_TASK, *cursor_values, int(limit))).fetchall()

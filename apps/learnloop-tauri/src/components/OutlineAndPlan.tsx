@@ -16,6 +16,8 @@ import type {
 } from "../api/dto";
 import { COLOR, Faint, FONT_MONO, Pill, SectionHeader, TermCheckbox, TermSelect } from "./term";
 import { AddToCollectionPanel } from "./AddToCollection";
+import { simpleShell } from "../app/shell";
+import { screenLeavesKey } from "../app/keymap";
 
 // The canonical source-role vocabulary (role_authority.KNOWN_ROLES / §4.2), in
 // the spec's ordering. Authority is finalized on source-set MEMBERSHIP, not here —
@@ -240,17 +242,24 @@ export function OutlinePlanFlow({
 
   // Esc steps back through the flow: plan → outline, outline → close. Ignored
   // while a text field is focused so it never eats an in-progress edit.
+  // UX Phase 2 (usability round 1, M-e: "the build-plan modal's Escape steps
+  // back instead of closing"): in the simple shell Esc closes the modal from
+  // either step; "← back" still steps back. Classic keeps the stepping.
+  const escCloses = simpleShell();
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      if (screenLeavesKey(e, { modal: true })) return;
       if (e.key !== "Escape") return;
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
-      if (step === "plan") setStep("outline");
+      if (escCloses) onClose();
+      // Classic: base's stepping, verbatim.
+      else if (step === "plan") setStep("outline");
       else onClose();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [step, onClose]);
+  }, [step, onClose, escCloses]);
 
   function toggleUnit(unitId: string) {
     setSelected((current) => {
@@ -380,7 +389,7 @@ export function OutlinePlanFlow({
           })}
         </span>
         <span style={{ flex: 1 }} />
-        <Faint style={{ fontSize: 11, fontFamily: FONT_MONO }}>esc back</Faint>
+        <Faint style={{ fontSize: 11, fontFamily: FONT_MONO }}>{escCloses ? "esc close" : "esc back"}</Faint>
       </div>
 
       {error && <div style={{ color: COLOR.red, fontSize: 12, padding: "8px 24px" }}>{error}</div>}

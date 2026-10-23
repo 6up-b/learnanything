@@ -52,6 +52,10 @@ CLIENT_ACTION_EVENTS: tuple[str, ...] = (
     "proactive_shown",    # another element LearnLoop started (a waiting quick check, ...)
     "back_to_reading",    # the first touch of the source after a usable result
     "cue_shown",          # RW3a: a margin mark in the learner's view (once per visit; spec §11)
+    "tutor_offer_shown",  # RW1c: a button under a tutor answer appeared (its kind; spec §15)
+    "tutor_offer_pressed",  # RW1c: the learner pressed one (its kind, the tool call it runs, what it found)
+    "figure_opened",      # RW5a: an explorable figure expanded (its id; spec §11 events)
+    "figure_animated",    # RW5a: "play" (or a step under reduced motion) on a figure's parameter
 )
 # ... and the ones the sidecar writes itself, for acts with a server effect.
 SERVER_ACTION_EVENTS: tuple[str, ...] = (
@@ -79,6 +83,17 @@ RW4A_SERVER_EVENTS: tuple[str, ...] = (
     "compare_opened",
     "library_tutor_asked",
 )
+# RW5a's server-owned events (the sidecar's ``figures`` handlers): a figure
+# asked for, the region of a figure it was asked for, a "not right?" version
+# asked for, a prediction answered and its "what changed?" line written (ids,
+# kinds and whether it matched only, never the learner's words).
+RW5A_SERVER_EVENTS: tuple[str, ...] = (
+    "figure_requested",
+    "figure_region_selected",
+    "figure_revision_requested",
+    "figure_predicted",
+    "figure_explained",
+)
 INQUIRY_EVENTS = CLIENT_ACTION_EVENTS + SERVER_ACTION_EVENTS
 
 # Existing kinds the Reader UI records without an ``event`` field.
@@ -105,6 +120,11 @@ ACTIVITY_FIELDS: frozenset[str] = frozenset({
     # RW1b: the intention an action serves, how it was reached (the palette
     # or the intent box) and an active-reading question's style.
     "intention", "entry", "style",
+    # RW1c: an offer's kind, the tutor's request it runs (a source_tool_calls
+    # id) and what the press found (shown, empty, failed, still looking).
+    "offer_kind", "tool_call_id", "offer_result",
+    # RW5a: which figure, and the parameter a play or step swept.
+    "figure_id", "parameter",
 })
 WAIT_ACTIVITY_FIELDS: tuple[str, ...] = ("scrolled", "selected", "typed")
 MAX_FIELD_CHARS = 200
@@ -345,6 +365,7 @@ __all__ = [
     "CLIENT_ACTION_EVENTS",
     "RW1B_SERVER_EVENTS",
     "RW4A_SERVER_EVENTS",
+    "RW5A_SERVER_EVENTS",
     "CLIENT_ACTIVITY_KINDS",
     "INQUIRY_EVENTS",
     "InquiryError",

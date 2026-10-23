@@ -111,6 +111,21 @@ def test_the_pinned_daily_plan_rpcs_are_all_of_them():
     assert set(DAILY_PLAN_RPCS) == set(registered)
 
 
+# Daily-loop DL2 (intent; a live change behind intent.enabled): the single
+# control and deadlines are desktop-only. DL2 also extends the practice serve
+# (a due "Check once" carries its cold banner and help header), the feedback
+# read (the answered check and its way back) and the Today queue (intent's
+# exclusion, recall targets and the dated check branch), pinned here too.
+INTENT_RPCS = ("get_intent", "set_intent", "set_intent_deadline")
+INTENT_EXTENDED_RPCS = ("get_practice_item", "get_feedback")
+
+
+def test_the_pinned_intent_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.intent import INTENT_RPCS as registered
+
+    assert set(INTENT_RPCS) == set(registered)
+
+
 # The ChatGPT-plan provider's desktop sign-in ("Continue with ChatGPT"), its
 # status and plan-usage actions. Machine credentials: desktop only, never phone.
 CHATGPT_PLAN_RPCS = (
@@ -174,6 +189,24 @@ READER_RW3A_RPCS = (
     "reader.set_cue_preferences",
     "reader.guide_plan",
 )
+
+
+# Reader workbench RW3b (discovered cues) adds four RPCs -- the background
+# discovery and its job read, the impressions and a tap on any cue while
+# discovery is on -- and extends reader.guide_plan (discovered cues merged).
+# Desktop only (spec D20).
+READER_RW3B_RPCS = (
+    "reader.cue_discovery",
+    "reader.cue_discovery_job",
+    "reader.cue_impressions",
+    "reader.cue_tap",
+)
+
+
+def test_reader_rw3b_rpcs_are_the_modules_own():
+    from learnloop_sidecar.handlers.reader_cue_discovery import CUE_DISCOVERY_RPCS
+
+    assert set(READER_RW3B_RPCS) == set(CUE_DISCOVERY_RPCS)
 
 
 # Reader workbench RW2a (the resumable scratchpad) adds fourteen RPCs -- a
@@ -258,6 +291,95 @@ def test_the_pinned_rw4a_rpcs_are_all_of_them():
     assert set(READER_RW4A_RPCS) - {"reader.prompt_contract", "find_practice"} == set(LIBRARY_ASK_RPCS)
 
 
+# Reader workbench RW4b (spec_reader_workbench_v1 §7.4): the view of a
+# proposal's textbook exercises (their exposure) and the fallback search, and
+# (fix round 4, R1) the one server operation that admits a picked exercise's
+# learner pick; it extends reader.prompt_contract (libraryExercises),
+# workbench.open (sourceExercise: the sources service's import in the
+# workbench) and workbench.submit (an owed pick is admitted first, R2).
+# Desktop only.
+READER_RW4B_RPCS = (
+    "reader.exercise_candidates",
+    "reader.find_exercises",
+    "workbench.admit",
+    "reader.prompt_contract",
+    "workbench.open",
+    "workbench.submit",
+)
+READER_RW4B_EXTENDED_RPCS = ("reader.prompt_contract", "workbench.open", "workbench.submit")
+
+
+def test_the_pinned_rw4b_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.library_exercises import LIBRARY_EXERCISE_RPCS
+    from learnloop_sidecar.handlers.workbench import EXERCISE_ADMISSION_RPCS
+
+    assert set(READER_RW4B_RPCS) - set(READER_RW4B_EXTENDED_RPCS) == {
+        *LIBRARY_EXERCISE_RPCS, *EXERCISE_ADMISSION_RPCS}
+
+
+# Reader workbench RW4d (spec_reader_workbench_v1 §7.8): keep a comparison as
+# source-object proposals (from a library ask or the tutor's comparison),
+# remove it, reopen it from its ⇄ mark, and the marks of a reading; it
+# extends reader.prompt_contract (compareKeep), reader.library_compare
+# (requested perspectives, whether it is kept) and reader.library_ask ("you
+# compared these on …"). Desktop only.
+READER_RW4D_RPCS = (
+    "reader.library_compare_keep",
+    "reader.library_compare_remove",
+    "reader.library_compare_reopen",
+    "reader.kept_comparisons",
+    "reader.prompt_contract",
+    "reader.library_compare",
+    "reader.library_ask",
+)
+READER_RW4D_EXTENDED_RPCS = ("reader.prompt_contract", "reader.library_compare", "reader.library_ask")
+
+
+def test_the_pinned_rw4d_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.kept_comparisons import KEPT_COMPARISON_RPCS
+
+    assert set(READER_RW4D_RPCS) - set(READER_RW4D_EXTENDED_RPCS) == set(KEPT_COMPARISON_RPCS)
+
+
+# Reader workbench RW7a (spec_reader_workbench_v1 §10.1): the Guide's reading
+# path (the view, which starts its judge in the background), the depth
+# choice per source and the learner's overrides; it extends
+# reader.prompt_contract (readingPaths, and Orient's "what matters here?" in
+# the intent palette). Desktop only.
+READER_RW7A_RPCS = (
+    "reader.reading_path",
+    "reader.reading_path_set_depth",
+    "reader.reading_path_override",
+    "reader.prompt_contract",
+)
+READER_RW7A_EXTENDED_RPCS = ("reader.prompt_contract",)
+
+
+def test_the_pinned_rw7a_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.reading_paths import READING_PATH_RPCS
+
+    assert set(READER_RW7A_RPCS) - set(READER_RW7A_EXTENDED_RPCS) == set(READING_PATH_RPCS)
+# Reader workbench RW5a (spec_reader_workbench_v1 §8): explorable figures
+# (build and "not right?" as jobs, the source's figures, predictions and
+# "what changed?"); it extends reader.prompt_contract (figures). Desktop only.
+READER_RW5A_RPCS = (
+    "reader.figure_request",
+    "reader.figure_revise",
+    "reader.figure_job",
+    "reader.figure_job_cancel",
+    "reader.figures",
+    "reader.figure_predict",
+    "reader.figure_explain",
+    "reader.prompt_contract",
+)
+
+
+def test_the_pinned_rw5a_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.figures import FIGURE_RPCS
+
+    assert set(READER_RW5A_RPCS) - {"reader.prompt_contract"} == set(FIGURE_RPCS)
+
+
 # Adaptive hints H0 (spec_adaptive_hints_v1 §9, G-H13): the practice screen's
 # authored-hint reveal telemetry, and the two submits that attach the
 # session's reveal rows to the attempt. Desktop only.
@@ -299,6 +421,63 @@ def test_the_pinned_hints_h2b_rpcs_are_all_of_them():
     from learnloop_sidecar.handlers.hints import HINT_PANEL_RPCS
 
     assert set(HINTS_H2B_RPCS) == set(HINT_PANEL_RPCS)
+
+
+# Reader workbench RW2b + adaptive hints H3 (spec_reader_workbench_v1 §5.2-5.6,
+# D20): "Check my work", the help ladder (suggest, take, reply, read, cancel),
+# the discriminating answer, the header's help style and the restored help;
+# and the RW2a RPCs they extend (the submit's fold, Leave's learner text, the
+# bind's background map). Desktop only.
+READER_RW2B_RPCS = (
+    "workbench.check",
+    "workbench.suggest_help",
+    "workbench.request_help",
+    "workbench.help_job",
+    "workbench.cancel_help",
+    "workbench.answer_discriminating",
+    "workbench.set_help_style",
+    "workbench.help_state",
+)
+READER_RW2B_EXTENDED_RPCS = ("workbench.submit", "workbench.leave", "workbench.bind", "workbench.refresh_import")
+# RW2b fix round 5 (items 4-5): the two answer-box submits take the authored
+# reveals on their own (``authoredHints``, optional). Desktop only.
+READER_RW2B_FIX5_EXTENDED_RPCS = ("submit_attempt", "submit_dont_know")
+
+
+def test_rw2b_fix5_authored_hints_is_an_optional_param_of_the_two_submits():
+    from learnloop_sidecar import handlers  # noqa: F401 - populates the registry
+    from learnloop_sidecar.registry import METHOD_REGISTRY
+
+    for name in READER_RW2B_FIX5_EXTENDED_RPCS:
+        # Fix round 12 adds book_counted beside authored_hints, optional too.
+        for key in ("authored_hints", "book_counted"):
+            field = METHOD_REGISTRY[name].params_model.model_fields[key]
+            assert field.default is None and not field.is_required(), (name, key)
+
+
+# Reader workbench RW2c (spec_reader_workbench_v1 §5.10): "Show me a similar
+# example", "another passage", and compare methods' offer and opening (its
+# lines are read through workbench.help_job); help_job and help_state are
+# RW2b's, extended. Desktop only.
+READER_RW2C_RPCS = (
+    "workbench.show_example",
+    "workbench.another_passage",
+    "workbench.compare_offer",
+    "workbench.compare_methods",
+)
+READER_RW2C_EXTENDED_RPCS = ("workbench.help_job", "workbench.help_state", "workbench.request_help")
+
+
+def test_the_pinned_rw2c_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.workbench_rw2c import WORKBENCH_RW2C_RPCS
+
+    assert set(READER_RW2C_RPCS) == set(WORKBENCH_RW2C_RPCS)
+
+
+def test_the_pinned_rw2b_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.workbench_help import WORKBENCH_HELP_RPCS
+
+    assert set(READER_RW2B_RPCS) == set(WORKBENCH_HELP_RPCS)
 
 
 # Adaptive difficulty AD2+AD3 (spec_adaptive_difficulty_v1 §5.12, §9.5): the
@@ -481,12 +660,13 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     "method",
     DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
     + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS + ROUTER_R1_LOGGING_RPCS
-    + LEARNER_TEXT_GAP_RPCS + FACET_IDENTITY_RPCS + CHATGPT_PLAN_RPCS + READER_RW1A_RPCS + READER_RW3A_RPCS
-    + READER_RW2A_RPCS + READER_RW6A_RPCS + READER_RW1B_RPCS + READER_RW4A_RPCS + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS
+    + LEARNER_TEXT_GAP_RPCS + FACET_IDENTITY_RPCS + CHATGPT_PLAN_RPCS + READER_RW1A_RPCS + READER_RW3A_RPCS + READER_RW3B_RPCS
+    + READER_RW2A_RPCS + READER_RW6A_RPCS + READER_RW1B_RPCS + READER_RW4A_RPCS + READER_RW4B_RPCS + READER_RW4D_RPCS + READER_RW7A_RPCS + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS
     + ROUTER_R2A_RPCS + GLM_OCR_RPCS + GLM_OCR_EXTENDED_RPCS + REREAD_SAFETY_RPCS + REREAD_SAFETY_EXTENDED_RPCS
     + READER_PDF_SELECTION_RPCS + READER_PDF_SELECTION_EXTENDED_RPCS + UX_PHASE4_RPCS + UX_PHASE4_EXTENDED_RPCS
     + HINTS_H0_RPCS + HINTS_H0_EXTENDED_RPCS + HINTS_H2A_RPCS + HINTS_H2A_EXTENDED_RPCS
-    + HINTS_H2B_RPCS + AD23_RPCS,
+    + HINTS_H2B_RPCS + READER_RW2B_RPCS + READER_RW2B_EXTENDED_RPCS + READER_RW2B_FIX5_EXTENDED_RPCS
+    + INTENT_RPCS + INTENT_EXTENDED_RPCS + READER_RW5A_RPCS + READER_RW2C_RPCS + READER_RW2C_EXTENDED_RPCS + AD23_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

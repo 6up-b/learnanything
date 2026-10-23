@@ -126,6 +126,13 @@ export interface WorkbenchSessionControls {
   retryImport: () => Promise<void>;
   bind: (practiceItemId: string) => Promise<void>;
   submit: (input: Omit<WorkbenchSubmitInput, "sessionId">) => Promise<WorkbenchSubmitDto>;
+  /** RW2b: the record line after a check or a hint was shown (G62). */
+  applyRecord: (record: WorkbenchRecordDto) => void;
+  /** RW4b fix round 4 (R6): the server's newer view of this problem (an
+   *  exercise's admission: its exposure, its key, its serve) applied to the
+   *  mounted problem. The learner's steps, the book choice and the write
+   *  queue are this window's and stay as they are. */
+  applyServer: (next: WorkbenchSessionDto) => void;
 }
 
 export function useWorkbenchSession(
@@ -152,6 +159,16 @@ export function useWorkbenchSession(
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const failures = useRef(0);
   const closed = useRef(false);
+  // RW4b fix round 5 (R4): the lifecycle's own generation. Each effect setup
+  // takes a new one and its cleanup clears it, so StrictMode's setup,
+  // cleanup, setup leaves the hook live, and an answer to a request sent
+  // under an earlier setup (or after unmount) changes nothing here.
+  const lifeSeq = useRef(0);
+  const live = useRef<number | null>(null);
+  /** The current setup's generation, or null while unmounted. */
+  const liveNow = () => live.current;
+  /** Whether an answer to a request sent under ``sentIn`` may change state. */
+  const stillLive = (sentIn: number | null) => sentIn !== null && live.current === sentIn;
   const frozenRef = useRef(false);
   /** A departure is under way: no edit, step or book change is accepted. */
   const leavingRef = useRef(false);
@@ -255,13 +272,17 @@ export function useWorkbenchSession(
         dequeue(op);
         rejected.current.delete(BOOK_KEY);
         // A later change of the book is still on its way: keep showing it.
-        if (!queue.current.some((queued) => queued.kind === "book")) commitSession(result.session);
-        else setRecord(result.session.record);
+        // The write itself counts whatever happened to the window; only a
+        // live workbench shows its answer (R4).
+        if (live.current !== null) {
+          if (!queue.current.some((queued) => queued.kind === "book")) commitSession(result.session);
+          else setRecord(result.session.record);
+        }
       } else {
         const result = await api.workbenchSaveStep(op.payload!);
         dequeue(op);
         rejected.current.delete(op.key);
-        commitSteps(updateLocal(stepsRef.current, op.key, { serverId: result.step.stepId }));
+        commitSteps(updateLocal(stepsRef.current, op.key, { serverId: result.step.stepId, chainId: result.step.chainId }));
         setRecord(result.record);
         // "Saved" means the stored text is the text in the window: anything
         // typed since this write was sent goes in a new write of its own.
@@ -479,8 +500,9 @@ export function useWorkbenchSession(
     try {
       // "Your steps are kept": every one is saved before the problem closes.
       await persist("this problem was not set aside");
+      const sentIn = liveNow();
       const result = await api.workbenchAbandon({ sessionId: sessionRef.current.sessionId });
-      commitSession(result.session, false);
+      if (stillLive(sentIn)) commitSession(result.session, false);
       return result.session;
     } catch (error) {
       onErrorRef.current(errorMessage(error, "Couldn't set this problem aside."));
@@ -490,8 +512,9 @@ export function useWorkbenchSession(
 
   const reopen = useCallback(async () => {
     try {
+      const sentIn = liveNow();
       const result = await api.workbenchReopen({ sessionId: sessionRef.current.sessionId });
-      commitSession(result.session);
+      if (stillLive(sentIn)) commitSession(result.session);
     } catch (error) {
       onErrorRef.current(errorMessage(error, "Couldn't reopen this problem."));
     }
@@ -499,8 +522,9 @@ export function useWorkbenchSession(
 
   const retryImport = useCallback(async () => {
     try {
+      const sentIn = liveNow();
       const result = await api.workbenchRetryImport({ sessionId: sessionRef.current.sessionId });
-      commitSession(result.session);
+      if (stillLive(sentIn)) commitSession(result.session);
     } catch (error) {
       onErrorRef.current(errorMessage(error, "Couldn't try the setup again."));
     }
@@ -508,8 +532,9 @@ export function useWorkbenchSession(
 
   const bind = useCallback(async (practiceItemId: string) => {
     try {
+      const sentIn = liveNow();
       const result = await api.workbenchBind({ sessionId: sessionRef.current.sessionId, practiceItemId });
-      commitSession(result.session);
+      if (stillLive(sentIn)) commitSession(result.session);
     } catch (error) {
       onErrorRef.current(errorMessage(error, "Couldn't choose that part."));
     }
@@ -517,8 +542,9 @@ export function useWorkbenchSession(
 
   const submit = useCallback(async (input: Omit<WorkbenchSubmitInput, "sessionId">) => {
     await persist("nothing was submitted");
+    const sentIn = liveNow();
     const result = await api.workbenchSubmit({ sessionId: sessionRef.current.sessionId, ...input });
-    commitSession(result.session, false);
+    if (stillLive(sentIn)) commitSession(result.session, false);
     return result;
   }, [commitSession, persist]);
 
@@ -557,8 +583,13 @@ export function useWorkbenchSession(
   useEffect(() => {
     if (!waiting) return undefined;
     const timer = setInterval(() => {
+      const sentIn = liveNow();
       void api.workbenchRefreshImport({ sessionId: sessionRef.current.sessionId })
         .then((result) => {
+          // Sent under an earlier setup, or unmounted since (left, another
+          // problem): a late answer changes nothing here, and is never
+          // handed on (fix rounds 4 and 5, F8, R4).
+          if (!stillLive(sentIn)) return;
           const next = result.session;
           const current = sessionRef.current;
           if (next.importStatus !== current.importStatus || next.practiceItemId !== current.practiceItemId || (next.parts?.length ?? 0) !== (current.parts?.length ?? 0)) {
@@ -575,6 +606,14 @@ export function useWorkbenchSession(
   // Leaving the screen sends every resting edit; the queue finishes on its
   // own. While a vault switch holds these steps, everything was already
   // saved against their vault, and nothing may be sent to the next one.
+  useEffect(() => {
+    lifeSeq.current += 1;
+    live.current = lifeSeq.current;
+    closed.current = false;
+    return () => {
+      live.current = null;
+    };
+  }, []);
   useEffect(() => () => {
     closed.current = true;
     if (frozenRef.current) {
@@ -589,8 +628,24 @@ export function useWorkbenchSession(
     editTimers.current.clear();
   }, [queueEdit]);
 
+  const applyRecord = useCallback((next: WorkbenchRecordDto) => setRecord(next), []);
+
+  const applyServer = useCallback((next: WorkbenchSessionDto) => {
+    const current = sessionRef.current;
+    if (next === current || next.sessionId !== current.sessionId || live.current === null) return;
+    // The server's metadata; this window's steps, book and queue.
+    commitSession({
+      ...next,
+      steps: current.steps,
+      lastEditedStepId: current.lastEditedStepId,
+      sourceVisible: current.sourceVisible,
+      sourceHiddenAt: current.sourceHiddenAt,
+      sourceShownAt: current.sourceShownAt,
+    }, false);
+  }, [commitSession]);
+
   return {
     session, steps, record, save, started, frozen, leaving, setBody, addStep, deleteStep, undoDelete, flushEdits, drained,
-    setBook, leave, abandon, reopen, retryImport, bind, submit,
+    setBook, leave, abandon, reopen, retryImport, bind, submit, applyRecord, applyServer,
   };
 }

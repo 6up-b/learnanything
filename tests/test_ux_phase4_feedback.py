@@ -96,11 +96,11 @@ def test_the_practice_feedback_switch_defaults_to_simple_and_reaches_the_app(tmp
     paths = create_basic_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
     assert vault.config.ui.practice_feedback == "simple"
-    assert config_dto(vault)["ui"] == {"practiceFeedback": "simple"}
+    assert config_dto(vault)["ui"] == {"practiceFeedback": "simple", "shell": "simple"}
 
     with open(paths.root / "learnloop.toml", "a", encoding="utf-8") as handle:
         handle.write('\n[ui]\npractice_feedback = "classic"\n')
-    assert config_dto(load_vault(paths.root))["ui"] == {"practiceFeedback": "classic"}
+    assert config_dto(load_vault(paths.root))["ui"] == {"practiceFeedback": "classic", "shell": "simple"}
 
 
 def test_the_switch_accepts_only_its_two_presentations():

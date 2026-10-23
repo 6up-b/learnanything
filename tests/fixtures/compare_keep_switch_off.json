@@ -1,0 +1,1195 @@
+{
+ "ask": {
+  "anchorSpanIds": [
+   "t3"
+  ],
+  "askId": "la_<ULID0>",
+  "basis": "keyword",
+  "entry": "reader",
+  "expandGraph": true,
+  "expansions": [
+   {
+    "expansion": "prerequisites",
+    "label": "Prerequisite",
+    "learningObjects": [
+     {
+      "demonstrated": false,
+      "keys": [
+       "ext_book:s11"
+      ],
+      "learningObjectId": "lo_vectors",
+      "title": "Vector lists"
+     }
+    ]
+   },
+   {
+    "expansion": "applications",
+    "label": "Application",
+    "learningObjects": [
+     {
+      "demonstrated": null,
+      "keys": [],
+      "learningObjectId": "lo_inner",
+      "title": "Inner products"
+     }
+    ]
+   }
+  ],
+  "exposureEventIds": [
+   "<ULID1>",
+   "<ULID2>",
+   "<ULID3>",
+   "<ULID4>",
+   "<ULID5>",
+   "<ULID6>",
+   "<ULID7>",
+   "<ULID8>",
+   "<ULID9>"
+  ],
+  "extractionId": "ext_text",
+  "groups": {
+   "expansions": [
+    {
+     "expansion": "prerequisites",
+     "keys": [
+      "ext_book:s11"
+     ],
+     "label": "Prerequisite"
+    }
+   ],
+   "sources": [
+    {
+     "groups": [
+      {
+       "group": "Explanation",
+       "keys": [
+        "ext_book:s2",
+        "ext_book:s7",
+        "ext_book:s8",
+        "ext_book:s6",
+        "ext_book:s12"
+       ]
+      }
+     ],
+     "sourceId": "src_book",
+     "sourceTitle": "Linear Algebra Notes"
+    },
+    {
+     "groups": [
+      {
+       "group": "Explanation",
+       "keys": [
+        "ext_text:t2",
+        "ext_text:t3"
+       ]
+      },
+      {
+       "group": "Exercise",
+       "keys": [
+        "ext_text:t9"
+       ]
+      }
+     ],
+     "sourceId": "src_text",
+     "sourceTitle": "Matrix Theory"
+    }
+   ]
+  },
+  "hits": [
+   {
+    "authorship": "source",
+    "expansion": null,
+    "extractionId": "ext_book",
+    "group": "Explanation",
+    "key": "ext_book:s2",
+    "label": "source-authored",
+    "learningObjectIds": [],
+    "page": 3,
+    "role": null,
+    "section": "Chapter 5 Eigenvalues",
+    "sourceId": "src_book",
+    "sourceTitle": "Linear Algebra Notes",
+    "spanId": "s2",
+    "text": "Eigenvalues are the roots of the characteristic polynomial det(A - tI) of a square matrix."
+   },
+   {
+    "authorship": "source",
+    "expansion": null,
+    "extractionId": "ext_book",
+    "group": "Explanation",
+    "key": "ext_book:s7",
+    "label": "source-authored",
+    "learningObjectIds": [],
+    "page": 1,
+    "role": null,
+    "section": "Chapter 3 Determinants",
+    "sourceId": "src_book",
+    "sourceTitle": "Linear Algebra Notes",
+    "spanId": "s7",
+    "text": "The determinant changes sign when two rows of a matrix are swapped."
+   },
+   {
+    "authorship": "source",
+    "expansion": null,
+    "extractionId": "ext_text",
+    "group": "Explanation",
+    "key": "ext_text:t2",
+    "label": "source-authored",
+    "learningObjectIds": [],
+    "page": 7,
+    "role": "ordinary_prose",
+    "section": "Chapter 5 Eigenvalues",
+    "sourceId": "src_text",
+    "sourceTitle": "Matrix Theory",
+    "spanId": "t2",
+    "text": "Eigenvalues are the roots of the characteristic polynomial det(A - tI) of a square matrix."
+   },
+   {
+    "authorship": "source",
+    "expansion": null,
+    "extractionId": "ext_text",
+    "group": "Explanation",
+    "key": "ext_text:t3",
+    "label": "source-authored",
+    "learningObjectIds": [],
+    "page": 7,
+    "role": "ordinary_prose",
+    "section": "Chapter 5 Eigenvalues",
+    "sourceId": "src_text",
+    "sourceTitle": "Matrix Theory",
+    "spanId": "t3",
+    "text": "Swapping two rows of a matrix multiplies its determinant by -1, so the determinant changes sign."
+   },
+   {
+    "authorship": "source",
+    "expansion": null,
+    "extractionId": "ext_text",
+    "group": "Exercise",
+    "key": "ext_text:t9",
+    "label": "source-authored",
+    "learningObjectIds": [],
+    "page": 9,
+    "role": "exercise",
+    "section": "Exercises",
+    "sourceId": "src_text",
+    "sourceTitle": "Matrix Theory",
+    "spanId": "t9",
+    "text": "3. Explain why the determinant changes sign when two rows of a matrix are swapped."
+   },
+   {
+    "authorship": "source",
+    "expansion": null,
+    "extractionId": "ext_book",
+    "group": "Explanation",
+    "key": "ext_book:s8",
+    "label": "source-authored",
+    "learningObjectIds": [],
+    "page": 1,
+    "role": null,
+    "section": "Chapter 3 Determinants",
+    "sourceId": "src_book",
+    "sourceTitle": "Linear Algebra Notes",
+    "spanId": "s8",
+    "text": "Cofactor expansion computes a determinant along any row or column."
+   },
+   {
+    "authorship": "source",
+    "expansion": null,
+    "extractionId": "ext_book",
+    "group": "Explanation",
+    "key": "ext_book:s6",
+    "label": "source-authored",
+    "learningObjectIds": [],
+    "page": 1,
+    "role": null,
+    "section": "Chapter 3 Determinants",
+    "sourceId": "src_book",
+    "sourceTitle": "Linear Algebra Notes",
+    "spanId": "s6",
+    "text": "Chapter 3 Determinants"
+   },
+   {
+    "authorship": "source",
+    "expansion": null,
+    "extractionId": "ext_book",
+    "group": "Explanation",
+    "key": "ext_book:s12",
+    "label": "source-authored",
+    "learningObjectIds": [],
+    "page": 5,
+    "role": null,
+    "section": "Chapter 6 Orthogonality",
+    "sourceId": "src_book",
+    "sourceTitle": "Linear Algebra Notes",
+    "spanId": "s12",
+    "text": "Two vectors are orthogonal when their dot product is zero."
+   },
+   {
+    "authorship": "source",
+    "expansion": "prerequisites",
+    "extractionId": "ext_book",
+    "group": "Prerequisite",
+    "key": "ext_book:s11",
+    "label": "source-authored",
+    "learningObjectIds": [
+     "lo_vectors"
+    ],
+    "page": 5,
+    "role": null,
+    "section": "Chapter 6 Orthogonality",
+    "sourceId": "src_book",
+    "sourceTitle": "Linear Algebra Notes",
+    "spanId": "s11",
+    "text": "Chapter 6 Orthogonality"
+   }
+  ],
+  "labels": {
+   "notes": "notes by LearnLoop's model",
+   "passages": "source-authored"
+  },
+  "learningObjectIds": [
+   "lo_matrices"
+  ],
+  "passageCount": 9,
+  "personalized": true,
+  "policy": "reading",
+  "query": "why does the determinant change sign when two rows are swapped",
+  "sourceCount": 2,
+  "status": "ok"
+ },
+ "contract": {
+  "activeReading": {
+   "foldBlocks": 3
+  },
+  "answerModes": [
+   "answer_directly",
+   "help_me_reason",
+   "ask_me_first"
+  ],
+  "citations": "reuse tutor_qa validated citations; uncited claims are stripped",
+  "context": "reader",
+  "defaultAnswerMode": "answer_directly",
+  "exposureOnCommit": "familiarity.propagate_tutor_exposure (warms revealed cues)",
+  "inquiryEnabled": true,
+  "intent": {
+   "notesPalette": [
+    {
+     "actions": [
+      {
+       "effect": {
+        "answerMode": "answer_directly",
+        "kind": "ask"
+       },
+       "group": "understand",
+       "id": "ask_answer_directly",
+       "intention": "understand",
+       "label": "ask",
+       "model": true
+      },
+      {
+       "effect": {
+        "answerMode": "help_me_reason",
+        "kind": "ask"
+       },
+       "group": "understand",
+       "id": "ask_help_me_reason",
+       "intention": "understand",
+       "label": "ask · help me reason",
+       "model": true
+      },
+      {
+       "effect": {
+        "answerMode": "ask_me_first",
+        "kind": "ask"
+       },
+       "group": "understand",
+       "id": "ask_ask_me_first",
+       "intention": "understand",
+       "label": "ask · ask me first",
+       "model": true
+      }
+     ],
+     "group": "understand",
+     "intention": "understand",
+     "label": "Understand"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "test_me_later"
+       },
+       "group": "consolidate",
+       "id": "test_me_later",
+       "intention": "consolidate",
+       "label": "revisit once (test me later)",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "help_me_remember"
+       },
+       "group": "consolidate",
+       "id": "help_me_remember",
+       "intention": "consolidate",
+       "label": "help me remember",
+       "model": true
+      }
+     ],
+     "group": "consolidate",
+     "intention": "consolidate",
+     "label": "Consolidate"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "connect_it"
+       },
+       "group": "transfer",
+       "id": "connect_it",
+       "intention": "transfer",
+       "label": "connect it",
+       "model": true
+      }
+     ],
+     "group": "transfer",
+     "intention": "transfer",
+     "label": "Transfer"
+    }
+   ],
+   "palette": [
+    {
+     "actions": [
+      {
+       "effect": {
+        "answerMode": "answer_directly",
+        "kind": "ask"
+       },
+       "group": "understand",
+       "id": "ask_answer_directly",
+       "intention": "understand",
+       "label": "ask",
+       "model": true
+      },
+      {
+       "effect": {
+        "answerMode": "help_me_reason",
+        "kind": "ask"
+       },
+       "group": "understand",
+       "id": "ask_help_me_reason",
+       "intention": "understand",
+       "label": "ask · help me reason",
+       "model": true
+      },
+      {
+       "effect": {
+        "answerMode": "ask_me_first",
+        "kind": "ask"
+       },
+       "group": "understand",
+       "id": "ask_ask_me_first",
+       "intention": "understand",
+       "label": "ask · ask me first",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "alt_explanation"
+       },
+       "group": "understand",
+       "id": "alt_explanation",
+       "intention": "understand",
+       "label": "explain differently",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "worked_example"
+       },
+       "group": "understand",
+       "id": "worked_example",
+       "intention": "understand",
+       "label": "worked example",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "ask"
+       },
+       "group": "understand",
+       "id": "ask",
+       "intention": "understand",
+       "label": "research this",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "active_reading",
+        "style": "why_step"
+       },
+       "group": "understand",
+       "id": "why_step",
+       "intention": "understand",
+       "label": "why does this step work?",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "active_reading",
+        "style": "assumptions"
+       },
+       "group": "understand",
+       "id": "assumptions",
+       "intention": "understand",
+       "label": "what does this assume?",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "another_way"
+       },
+       "group": "understand",
+       "id": "another_way",
+       "intention": "understand",
+       "label": "another way to see this",
+       "model": true
+      }
+     ],
+     "group": "understand",
+     "intention": "understand",
+     "label": "Understand"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "kind": "work_through"
+       },
+       "group": "apply",
+       "id": "work_through",
+       "intention": "apply",
+       "label": "work through this",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "active_reading",
+        "style": "next_step"
+       },
+       "group": "apply",
+       "id": "next_step",
+       "intention": "apply",
+       "label": "let me try the next step",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "import_exercise"
+       },
+       "group": "apply",
+       "id": "import_exercise",
+       "intention": "apply",
+       "label": "add this exercise to practice",
+       "model": true
+      }
+     ],
+     "group": "apply",
+     "intention": "apply",
+     "label": "Apply"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "test_me_later"
+       },
+       "group": "consolidate",
+       "id": "test_me_later",
+       "intention": "consolidate",
+       "label": "revisit once (test me later)",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "help_me_remember"
+       },
+       "group": "consolidate",
+       "id": "help_me_remember",
+       "intention": "consolidate",
+       "label": "help me remember",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "active_reading",
+        "style": "reconstruct"
+       },
+       "group": "consolidate",
+       "id": "reconstruct",
+       "intention": "consolidate",
+       "label": "reconstruct this later",
+       "model": true
+      }
+     ],
+     "group": "consolidate",
+     "intention": "consolidate",
+     "label": "Consolidate"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "connect_it"
+       },
+       "group": "transfer",
+       "id": "connect_it",
+       "intention": "transfer",
+       "label": "connect it",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "why_matters"
+       },
+       "group": "transfer",
+       "id": "why_matters",
+       "intention": "transfer",
+       "label": "why this matters",
+       "model": true
+      },
+      {
+       "effect": {
+        "entry": "where_else_explained",
+        "kind": "library_ask"
+       },
+       "group": "transfer",
+       "id": "where_else_explained",
+       "intention": "transfer",
+       "label": "where else is this explained?",
+       "model": true
+      },
+      {
+       "effect": {
+        "entry": "where_is_this_used",
+        "kind": "library_ask"
+       },
+       "group": "transfer",
+       "id": "where_is_this_used",
+       "intention": "transfer",
+       "label": "where is this used?",
+       "model": true
+      }
+     ],
+     "group": "transfer",
+     "intention": "transfer",
+     "label": "Transfer"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "entry": "what_do_i_need_first",
+        "kind": "library_ask"
+       },
+       "group": "orient",
+       "id": "what_do_i_need_first",
+       "intention": "orient",
+       "label": "what do I need first?",
+       "model": true
+      }
+     ],
+     "group": "orient",
+     "intention": "orient",
+     "label": "Orient"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "kind": "highlight"
+       },
+       "group": "mark",
+       "id": "highlight",
+       "intention": null,
+       "label": "highlight",
+       "model": false
+      },
+      {
+       "effect": {
+        "kind": "highlight",
+        "note": true
+       },
+       "group": "mark",
+       "id": "note",
+       "intention": null,
+       "label": "note",
+       "model": false
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "mark_confusing"
+       },
+       "group": "mark",
+       "id": "mark_confusing",
+       "intention": null,
+       "label": "confusing",
+       "model": false
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "not_worth_remembering"
+       },
+       "group": "mark",
+       "id": "not_worth_remembering",
+       "intention": null,
+       "label": "not worth remembering",
+       "model": false
+      }
+     ],
+     "group": "mark",
+     "intention": null,
+     "label": "Mark"
+    }
+   ],
+   "speculateAfterMs": 600,
+   "speculative": true,
+   "timeoutSeconds": 4.0
+  },
+  "libraryAsk": {
+   "compare": true,
+   "expandGraph": true,
+   "personalizedDefault": true
+  },
+  "libraryExercises": {
+   "fallback": false
+  },
+  "manifestIncludes": [
+   "the exact source span(s) in view (block-level span_view text + citation ids)",
+   "the learner question text",
+   "the goal-contract task invariants + required capabilities (read-only head)",
+   "the selected branch's reader ancestors only (most recent 12)",
+   "the chosen answer mode for this ask"
+  ],
+  "manifestNeverIncludes": [
+   "the learner ability / posterior estimate",
+   "any assessment-reserved surface statement or rubric",
+   "any cold administration's in-flight response"
+  ],
+  "mayReveal": [
+   "state facts",
+   "complete a derivation",
+   "give a worked example",
+   "confirm or deny an interpretation"
+  ],
+  "notSocraticByDefault": true,
+  "readerEnabled": true,
+  "readerTutor": {
+   "anotherWay": true,
+   "manifestIncludes": [
+    "passages LearnLoop found in the learner's books for this question (verified; after the selection)",
+    "when personalized, the learner's open questions and recent workbench steps on the passage's learning objects"
+   ],
+   "offers": true,
+   "personalizedDefault": true,
+   "retrieval": true,
+   "tryNextStep": true
+  },
+  "version": "p3-reader-branches-v1"
+ },
+ "proposals": {
+  "source_object_citations": 0,
+  "source_object_relations": 0,
+  "source_object_versions": 0,
+  "source_objects": 0
+ },
+ "rows": [
+  {
+   "anchor_json": {
+    "learning_object_ids": [
+     "lo_matrices"
+    ],
+    "span_ids": [
+     "t3"
+    ]
+   },
+   "caller": "learner",
+   "comparison_id": "scmp_<ULID10>",
+   "entry": "reader",
+   "extraction_id": "ext_text",
+   "id": "la_<ULID0>",
+   "kept_at": null,
+   "kept_json": null,
+   "manifest_json": {
+    "caller": {
+     "context": null,
+     "derived_from": "reader caller with no item bound",
+     "item_id": null,
+     "kind": "reader",
+     "policy": "reading",
+     "ref": "ext_text"
+    },
+    "expansions": [
+     {
+      "expansion": "prerequisites",
+      "from_learning_object_ids": [
+       "lo_matrices"
+      ],
+      "kept": [
+       "ext_book:s11"
+      ],
+      "learning_object_ids": [
+       "lo_vectors"
+      ],
+      "manifest": {
+       "caller": {
+        "kind": "reader",
+        "ref": "ext_text"
+       },
+       "excluded_span_keys": [],
+       "expand": [],
+       "extractions": [
+        {
+         "extraction_id": "ext_book",
+         "revision_id": "rev_book"
+        },
+        {
+         "extraction_id": "ext_exam",
+         "revision_id": "rev_exam"
+        },
+        {
+         "extraction_id": "ext_text",
+         "revision_id": "rev_text"
+        }
+       ],
+       "facet_ids": [],
+       "facets_targeted": [],
+       "intent": "explain",
+       "personalized": true,
+       "policy": "reading",
+       "policy_derived_from": "reader caller with no item bound",
+       "query_hash": "82397678392fb32f1ba23bbd83847f14",
+       "returned": [
+        [
+         "ext_book",
+         "s11"
+        ],
+        [
+         "ext_book",
+         "s7"
+        ],
+        [
+         "ext_text",
+         "t3"
+        ],
+        [
+         "ext_text",
+         "t9"
+        ],
+        [
+         "ext_book",
+         "s8"
+        ],
+        [
+         "ext_book",
+         "s6"
+        ],
+        [
+         "ext_book",
+         "s12"
+        ],
+        [
+         "ext_book",
+         "s9"
+        ]
+       ],
+       "roles": [],
+       "scope": {
+        "excluded_spans": 0,
+        "name": "library",
+        "notes": [],
+        "sources": 3
+       },
+       "search": {
+        "basis": "keyword+provenance",
+        "dense": {
+         "covered": 0,
+         "expected": 0,
+         "model_id": null,
+         "reason": "embeddings are disabled (embedding.enabled = false)",
+         "sources": 0,
+         "sources_covered": 0,
+         "status": "disabled"
+        },
+        "hits": 8,
+        "lists": [
+         "keyword",
+         "provenance"
+        ],
+        "notes": [
+         "embeddings are disabled (embedding.enabled = false)"
+        ],
+        "pool": {
+         "fallback": null,
+         "mode": "hybrid_rrf",
+         "requested": "hybrid_rrf"
+        },
+        "query_embedding": {},
+        "rewrite": {
+         "keywords": 0,
+         "model": null,
+         "reason": "Codex checkout path is not configured. Set LEARNLOOP_CODEX_CHECKOUT_PATH in your global learnloop settings (~/.config/learnloop/settings.env).",
+         "status": "unavailable"
+        },
+        "scope": {
+         "excluded_spans": 0,
+         "name": "library",
+         "notes": [],
+         "sources": 3
+        }
+       },
+       "target_hypotheses": [],
+       "verification": {
+        "label": "unverified: retrieval rank only",
+        "status": "not_requested"
+       },
+       "withheld_answer_overlap": []
+      },
+      "status": "ok"
+     },
+     {
+      "expansion": "applications",
+      "from_learning_object_ids": [
+       "lo_matrices"
+      ],
+      "kept": [],
+      "learning_object_ids": [
+       "lo_inner"
+      ],
+      "manifest": {
+       "caller": {
+        "kind": "reader",
+        "ref": "ext_text"
+       },
+       "excluded_span_keys": [],
+       "expand": [],
+       "extractions": [
+        {
+         "extraction_id": "ext_book",
+         "revision_id": "rev_book"
+        },
+        {
+         "extraction_id": "ext_exam",
+         "revision_id": "rev_exam"
+        },
+        {
+         "extraction_id": "ext_text",
+         "revision_id": "rev_text"
+        }
+       ],
+       "facet_ids": [],
+       "facets_targeted": [],
+       "intent": "explain",
+       "personalized": true,
+       "policy": "reading",
+       "policy_derived_from": "reader caller with no item bound",
+       "query_hash": "82397678392fb32f1ba23bbd83847f14",
+       "returned": [
+        [
+         "ext_book",
+         "s12"
+        ],
+        [
+         "ext_book",
+         "s7"
+        ],
+        [
+         "ext_text",
+         "t3"
+        ],
+        [
+         "ext_text",
+         "t9"
+        ],
+        [
+         "ext_book",
+         "s8"
+        ],
+        [
+         "ext_book",
+         "s6"
+        ],
+        [
+         "ext_book",
+         "s9"
+        ]
+       ],
+       "roles": [],
+       "scope": {
+        "excluded_spans": 0,
+        "name": "library",
+        "notes": [],
+        "sources": 3
+       },
+       "search": {
+        "basis": "keyword+provenance",
+        "dense": {
+         "covered": 0,
+         "expected": 0,
+         "model_id": null,
+         "reason": "embeddings are disabled (embedding.enabled = false)",
+         "sources": 0,
+         "sources_covered": 0,
+         "status": "disabled"
+        },
+        "hits": 7,
+        "lists": [
+         "keyword",
+         "provenance"
+        ],
+        "notes": [
+         "embeddings are disabled (embedding.enabled = false)"
+        ],
+        "pool": {
+         "fallback": null,
+         "mode": "hybrid_rrf",
+         "requested": "hybrid_rrf"
+        },
+        "query_embedding": {},
+        "rewrite": {
+         "keywords": 0,
+         "model": null,
+         "reason": "Codex checkout path is not configured. Set LEARNLOOP_CODEX_CHECKOUT_PATH in your global learnloop settings (~/.config/learnloop/settings.env).",
+         "status": "unavailable"
+        },
+        "scope": {
+         "excluded_spans": 0,
+         "name": "library",
+         "notes": [],
+         "sources": 3
+        }
+       },
+       "target_hypotheses": [],
+       "verification": {
+        "label": "unverified: retrieval rank only",
+        "status": "not_requested"
+       },
+       "withheld_answer_overlap": []
+      },
+      "status": "ok"
+     }
+    ],
+    "main": {
+     "caller": {
+      "kind": "reader",
+      "ref": "ext_text"
+     },
+     "excluded_span_keys": [],
+     "expand": [],
+     "extractions": [
+      {
+       "extraction_id": "ext_book",
+       "revision_id": "rev_book"
+      },
+      {
+       "extraction_id": "ext_exam",
+       "revision_id": "rev_exam"
+      },
+      {
+       "extraction_id": "ext_text",
+       "revision_id": "rev_text"
+      }
+     ],
+     "facet_ids": [],
+     "facets_targeted": [],
+     "intent": "explain",
+     "personalized": true,
+     "policy": "reading",
+     "policy_derived_from": "reader caller with no item bound",
+     "query_hash": "82397678392fb32f1ba23bbd83847f14",
+     "returned": [
+      [
+       "ext_book",
+       "s2"
+      ],
+      [
+       "ext_book",
+       "s7"
+      ],
+      [
+       "ext_text",
+       "t2"
+      ],
+      [
+       "ext_text",
+       "t3"
+      ],
+      [
+       "ext_text",
+       "t9"
+      ],
+      [
+       "ext_book",
+       "s8"
+      ],
+      [
+       "ext_book",
+       "s6"
+      ],
+      [
+       "ext_book",
+       "s12"
+      ]
+     ],
+     "roles": [],
+     "scope": {
+      "excluded_spans": 0,
+      "name": "library",
+      "notes": [],
+      "sources": 3
+     },
+     "search": {
+      "basis": "keyword+provenance",
+      "dense": {
+       "covered": 0,
+       "expected": 0,
+       "model_id": null,
+       "reason": "embeddings are disabled (embedding.enabled = false)",
+       "sources": 0,
+       "sources_covered": 0,
+       "status": "disabled"
+      },
+      "hits": 9,
+      "lists": [
+       "keyword",
+       "provenance"
+      ],
+      "notes": [
+       "embeddings are disabled (embedding.enabled = false)"
+      ],
+      "pool": {
+       "fallback": null,
+       "mode": "hybrid_rrf",
+       "requested": "hybrid_rrf"
+      },
+      "query_embedding": {},
+      "rewrite": {
+       "keywords": 0,
+       "model": null,
+       "reason": "Codex checkout path is not configured. Set LEARNLOOP_CODEX_CHECKOUT_PATH in your global learnloop settings (~/.config/learnloop/settings.env).",
+       "status": "unavailable"
+      },
+      "scope": {
+       "excluded_spans": 0,
+       "name": "library",
+       "notes": [],
+       "sources": 3
+      }
+     },
+     "status": "ok",
+     "target_hypotheses": [],
+     "verification": {
+      "label": "unverified: retrieval rank only",
+      "status": "not_requested"
+     },
+     "withheld_answer_overlap": []
+    },
+    "policy": "reading"
+   },
+   "model": null,
+   "organizer_json": {
+    "status": "not_run"
+   },
+   "personalized": 1,
+   "prompt_version": "library_organizer.v1",
+   "query_hash": "776b0b712c75d73f45a5a7f8298fa669",
+   "query_md": "why does the determinant change sign when two rows are swapped",
+   "question_event_id": null,
+   "requested_perspectives_json": []
+  }
+ ],
+ "table": {
+  "alsoDiscussedIn": [],
+  "askId": "la_<ULID0>",
+  "comparisonId": "scmp_<ULID10>",
+  "droppedLineCount": 0,
+  "droppedPins": [],
+  "exposureEventIds": [
+   "<ULID11>",
+   "<ULID12>"
+  ],
+  "header": "differences kept · each line quotes its own source",
+  "rows": [
+   {
+    "assumes": [],
+    "contributes": [
+     {
+      "authorship": "ai",
+      "line": "Matrix Theory states it its way",
+      "perspective": "its own view",
+      "quote": "Swapping two rows of a matrix"
+     }
+    ],
+    "differs": [
+     {
+      "authorship": "ai",
+      "line": "same idea, different notation",
+      "otherSourceTitle": "Linear Algebra Notes",
+      "quote": "Swapping two rows of a",
+      "relation": "different_notation"
+     }
+    ],
+    "isOpenSource": true,
+    "key": "ext_text:t3",
+    "page": 7,
+    "sourceId": "src_text",
+    "sourceTitle": "Matrix Theory"
+   },
+   {
+    "assumes": [],
+    "contributes": [
+     {
+      "authorship": "ai",
+      "line": "Linear Algebra Notes states it its way",
+      "perspective": "its own view",
+      "quote": "The determinant changes sign when two"
+     }
+    ],
+    "differs": [
+     {
+      "authorship": "ai",
+      "line": "same idea, different notation",
+      "otherSourceTitle": "Matrix Theory",
+      "quote": "The determinant changes sign when",
+      "relation": "different_notation"
+     }
+    ],
+    "isOpenSource": false,
+    "key": "ext_book:s7",
+    "page": 1,
+    "sourceId": "src_book",
+    "sourceTitle": "Linear Algebra Notes"
+   }
+  ],
+  "status": "ok",
+  "unverifiedSources": [],
+  "verification": {
+   "status": "verified",
+   "stopped": null,
+   "verifiedSources": 2
+  }
+ }
+}

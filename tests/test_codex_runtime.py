@@ -65,7 +65,7 @@ def test_codex_runtime_reports_unavailable_without_transport_or_failed_health(tm
     assert failed.message == "down"
 
 
-def test_codex_runtime_ready_when_checkout_revision_and_health_pass(tmp_path):
+def test_codex_runtime_ready_when_checkout_revision_and_health_pass(tmp_path, legacy_codex_http_double):
     checkout = _checkout(tmp_path / "codex", revision="abc123")
 
     report = check_codex_runtime(
@@ -78,7 +78,7 @@ def test_codex_runtime_ready_when_checkout_revision_and_health_pass(tmp_path):
     assert report.ready is True
 
 
-def test_codex_runtime_starts_app_server_after_initial_health_failure(tmp_path):
+def test_codex_runtime_starts_app_server_after_initial_health_failure(tmp_path, legacy_codex_http_double):
     checkout = _checkout(tmp_path / "codex", revision="abc123")
     started: list[Path] = []
 
@@ -101,7 +101,7 @@ def test_codex_runtime_starts_app_server_after_initial_health_failure(tmp_path):
     assert started == [checkout]
 
 
-def test_codex_runtime_reports_startup_timeout(tmp_path):
+def test_codex_runtime_reports_startup_timeout(tmp_path, legacy_codex_http_double):
     checkout = _checkout(tmp_path / "codex", revision="abc123")
 
     report = check_codex_runtime(

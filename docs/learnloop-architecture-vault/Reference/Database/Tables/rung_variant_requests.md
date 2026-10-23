@@ -3,13 +3,13 @@ title: "rung_variant_requests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite rung_variant_requests"
   - "table rung_variant_requests"
-schema_head: 214
+schema_head: 217
 table_name: "rung_variant_requests"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,8 +19,6 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/108_rung_variant_requests.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/ingest_queue.py"
@@ -127,6 +125,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_ingest_jobs.py`
+- `tests/intent_fakes.py`
 - `tests/test_daily_loop_reader_retire.py`
 - `tests/test_ingest_runner.py`
 - `tests/test_question_promotions.py`

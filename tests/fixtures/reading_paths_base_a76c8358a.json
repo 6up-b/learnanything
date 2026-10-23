@@ -1,0 +1,1396 @@
+{
+ "contract": {
+  "activeReading": {
+   "foldBlocks": 3
+  },
+  "answerModes": [
+   "answer_directly",
+   "help_me_reason",
+   "ask_me_first"
+  ],
+  "citations": "reuse tutor_qa validated citations; uncited claims are stripped",
+  "compareKeep": {
+   "library": true,
+   "maxPerspectives": 4,
+   "perspectives": true,
+   "tutor": true
+  },
+  "context": "reader",
+  "defaultAnswerMode": "answer_directly",
+  "exposureOnCommit": "familiarity.propagate_tutor_exposure (warms revealed cues)",
+  "inquiryEnabled": true,
+  "intent": {
+   "notesPalette": [
+    {
+     "actions": [
+      {
+       "effect": {
+        "answerMode": "answer_directly",
+        "kind": "ask"
+       },
+       "group": "understand",
+       "id": "ask_answer_directly",
+       "intention": "understand",
+       "label": "ask",
+       "model": true
+      },
+      {
+       "effect": {
+        "answerMode": "help_me_reason",
+        "kind": "ask"
+       },
+       "group": "understand",
+       "id": "ask_help_me_reason",
+       "intention": "understand",
+       "label": "ask \u00b7 help me reason",
+       "model": true
+      },
+      {
+       "effect": {
+        "answerMode": "ask_me_first",
+        "kind": "ask"
+       },
+       "group": "understand",
+       "id": "ask_ask_me_first",
+       "intention": "understand",
+       "label": "ask \u00b7 ask me first",
+       "model": true
+      }
+     ],
+     "group": "understand",
+     "intention": "understand",
+     "label": "Understand"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "test_me_later"
+       },
+       "group": "consolidate",
+       "id": "test_me_later",
+       "intention": "consolidate",
+       "label": "revisit once (test me later)",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "help_me_remember"
+       },
+       "group": "consolidate",
+       "id": "help_me_remember",
+       "intention": "consolidate",
+       "label": "help me remember",
+       "model": true
+      }
+     ],
+     "group": "consolidate",
+     "intention": "consolidate",
+     "label": "Consolidate"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "connect_it"
+       },
+       "group": "transfer",
+       "id": "connect_it",
+       "intention": "transfer",
+       "label": "connect it",
+       "model": true
+      }
+     ],
+     "group": "transfer",
+     "intention": "transfer",
+     "label": "Transfer"
+    }
+   ],
+   "palette": [
+    {
+     "actions": [
+      {
+       "effect": {
+        "answerMode": "answer_directly",
+        "kind": "ask"
+       },
+       "group": "understand",
+       "id": "ask_answer_directly",
+       "intention": "understand",
+       "label": "ask",
+       "model": true
+      },
+      {
+       "effect": {
+        "answerMode": "help_me_reason",
+        "kind": "ask"
+       },
+       "group": "understand",
+       "id": "ask_help_me_reason",
+       "intention": "understand",
+       "label": "ask \u00b7 help me reason",
+       "model": true
+      },
+      {
+       "effect": {
+        "answerMode": "ask_me_first",
+        "kind": "ask"
+       },
+       "group": "understand",
+       "id": "ask_ask_me_first",
+       "intention": "understand",
+       "label": "ask \u00b7 ask me first",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "alt_explanation"
+       },
+       "group": "understand",
+       "id": "alt_explanation",
+       "intention": "understand",
+       "label": "explain differently",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "worked_example"
+       },
+       "group": "understand",
+       "id": "worked_example",
+       "intention": "understand",
+       "label": "worked example",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "ask"
+       },
+       "group": "understand",
+       "id": "ask",
+       "intention": "understand",
+       "label": "research this",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "active_reading",
+        "style": "why_step"
+       },
+       "group": "understand",
+       "id": "why_step",
+       "intention": "understand",
+       "label": "why does this step work?",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "active_reading",
+        "style": "assumptions"
+       },
+       "group": "understand",
+       "id": "assumptions",
+       "intention": "understand",
+       "label": "what does this assume?",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "another_way"
+       },
+       "group": "understand",
+       "id": "another_way",
+       "intention": "understand",
+       "label": "another way to see this",
+       "model": true
+      }
+     ],
+     "group": "understand",
+     "intention": "understand",
+     "label": "Understand"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "kind": "work_through"
+       },
+       "group": "apply",
+       "id": "work_through",
+       "intention": "apply",
+       "label": "work through this",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "active_reading",
+        "style": "next_step"
+       },
+       "group": "apply",
+       "id": "next_step",
+       "intention": "apply",
+       "label": "let me try the next step",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "import_exercise"
+       },
+       "group": "apply",
+       "id": "import_exercise",
+       "intention": "apply",
+       "label": "add this exercise to practice",
+       "model": true
+      }
+     ],
+     "group": "apply",
+     "intention": "apply",
+     "label": "Apply"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "test_me_later"
+       },
+       "group": "consolidate",
+       "id": "test_me_later",
+       "intention": "consolidate",
+       "label": "revisit once (test me later)",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "help_me_remember"
+       },
+       "group": "consolidate",
+       "id": "help_me_remember",
+       "intention": "consolidate",
+       "label": "help me remember",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "active_reading",
+        "style": "reconstruct"
+       },
+       "group": "consolidate",
+       "id": "reconstruct",
+       "intention": "consolidate",
+       "label": "reconstruct this later",
+       "model": true
+      }
+     ],
+     "group": "consolidate",
+     "intention": "consolidate",
+     "label": "Consolidate"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "connect_it"
+       },
+       "group": "transfer",
+       "id": "connect_it",
+       "intention": "transfer",
+       "label": "connect it",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "why_matters"
+       },
+       "group": "transfer",
+       "id": "why_matters",
+       "intention": "transfer",
+       "label": "why this matters",
+       "model": true
+      },
+      {
+       "effect": {
+        "entry": "where_else_explained",
+        "kind": "library_ask"
+       },
+       "group": "transfer",
+       "id": "where_else_explained",
+       "intention": "transfer",
+       "label": "where else is this explained?",
+       "model": true
+      },
+      {
+       "effect": {
+        "entry": "where_is_this_used",
+        "kind": "library_ask"
+       },
+       "group": "transfer",
+       "id": "where_is_this_used",
+       "intention": "transfer",
+       "label": "where is this used?",
+       "model": true
+      }
+     ],
+     "group": "transfer",
+     "intention": "transfer",
+     "label": "Transfer"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "entry": "what_do_i_need_first",
+        "kind": "library_ask"
+       },
+       "group": "orient",
+       "id": "what_do_i_need_first",
+       "intention": "orient",
+       "label": "what do I need first?",
+       "model": true
+      }
+     ],
+     "group": "orient",
+     "intention": "orient",
+     "label": "Orient"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "kind": "highlight"
+       },
+       "group": "mark",
+       "id": "highlight",
+       "intention": null,
+       "label": "highlight",
+       "model": false
+      },
+      {
+       "effect": {
+        "kind": "highlight",
+        "note": true
+       },
+       "group": "mark",
+       "id": "note",
+       "intention": null,
+       "label": "note",
+       "model": false
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "mark_confusing"
+       },
+       "group": "mark",
+       "id": "mark_confusing",
+       "intention": null,
+       "label": "confusing",
+       "model": false
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "not_worth_remembering"
+       },
+       "group": "mark",
+       "id": "not_worth_remembering",
+       "intention": null,
+       "label": "not worth remembering",
+       "model": false
+      }
+     ],
+     "group": "mark",
+     "intention": null,
+     "label": "Mark"
+    }
+   ],
+   "speculateAfterMs": 600,
+   "speculative": true,
+   "timeoutSeconds": 4.0
+  },
+  "libraryAsk": {
+   "compare": true,
+   "expandGraph": true,
+   "personalizedDefault": true
+  },
+  "libraryExercises": {
+   "fallback": false
+  },
+  "manifestIncludes": [
+   "the exact source span(s) in view (block-level span_view text + citation ids)",
+   "the learner question text",
+   "the goal-contract task invariants + required capabilities (read-only head)",
+   "the selected branch's reader ancestors only (most recent 12)",
+   "the chosen answer mode for this ask"
+  ],
+  "manifestNeverIncludes": [
+   "the learner ability / posterior estimate",
+   "any assessment-reserved surface statement or rubric",
+   "any cold administration's in-flight response"
+  ],
+  "mayReveal": [
+   "state facts",
+   "complete a derivation",
+   "give a worked example",
+   "confirm or deny an interpretation"
+  ],
+  "notSocraticByDefault": true,
+  "readerEnabled": true,
+  "readerTutor": {
+   "anotherWay": true,
+   "manifestIncludes": [
+    "passages LearnLoop found in the learner's books for this question (verified; after the selection)",
+    "when personalized, the learner's open questions and recent workbench steps on the passage's learning objects"
+   ],
+   "offers": true,
+   "personalizedDefault": true,
+   "retrieval": true,
+   "tryNextStep": true
+  },
+  "version": "p3-reader-branches-v1"
+ },
+ "guide": {
+  "cues": {
+   "budgetPerSection": 2,
+   "density": "normal",
+   "discovery": {
+    "heldOut": [],
+    "holdoutRate": 0.1,
+    "planId": "cplan_<ULID>",
+    "suppressed": [],
+    "targets": 0,
+    "targetsKey": "4f53cda18c2baa0c0354bb5f",
+    "targetsPending": false,
+    "tryFirst": true,
+    "valueOrder": true,
+    "version": "rw3b-discovered-cues-v1"
+   },
+   "marks": [],
+   "onePerViewport": true,
+   "sourceOff": false,
+   "version": "rw3a-guide-cues-v1",
+   "withheld": {
+    "density": 0,
+    "heldOut": 0,
+    "holdout": 0,
+    "notRelevant": 0,
+    "sourceOff": 0
+   }
+  },
+  "extractionId": "ext_text",
+  "goalContext": null,
+  "pendingDiagnosisAttemptIds": [],
+  "personalized": true,
+  "sections": [
+   {
+    "endSpanId": "t3",
+    "id": "sec_eigen",
+    "label": "1 Eigenvalues",
+    "question": null,
+    "spanIds": [
+     "t1",
+     "t2",
+     "t3"
+    ],
+    "startSpanId": "t1",
+    "suggestedPassages": [
+     {
+      "anchor": "current",
+      "learnerSignal": "new_material",
+      "learningObjectId": "lo_eigen_basics",
+      "learningObjectTitle": "Eigenvalues",
+      "quote": "Eigenvalues are the roots of the characteristic polynomial det(A - tI) of a square matrix.",
+      "reason": "This is a useful foundation before building on it.",
+      "spanId": "t2"
+     }
+    ]
+   },
+   {
+    "endSpanId": "t5",
+    "id": "sec_spectral",
+    "label": "2 The spectral theorem",
+    "question": null,
+    "spanIds": [
+     "t4",
+     "t5"
+    ],
+    "startSpanId": "t4",
+    "suggestedPassages": [
+     {
+      "anchor": "current",
+      "learnerSignal": "new_material",
+      "learningObjectId": "lo_spectral",
+      "learningObjectTitle": "Spectral Theorem",
+      "quote": "A real symmetric matrix has an orthonormal basis of eigenvectors and real eigenvalues.",
+      "reason": "This is a useful foundation before building on it.",
+      "spanId": "t5"
+     }
+    ]
+   },
+   {
+    "endSpanId": "t8",
+    "id": "sec_diag",
+    "label": "3 Diagonalization",
+    "question": null,
+    "spanIds": [
+     "t6",
+     "t7",
+     "t8"
+    ],
+    "startSpanId": "t6",
+    "suggestedPassages": [
+     {
+      "anchor": "current",
+      "learnerSignal": "new_material",
+      "learningObjectId": "lo_diag",
+      "learningObjectTitle": "Diagonalization",
+      "quote": "A square matrix is diagonalizable when it has a basis of eigenvectors; then A = P D P^-1.",
+      "reason": "This is a useful foundation before building on it.",
+      "spanId": "t7"
+     }
+    ]
+   },
+   {
+    "endSpanId": "t10",
+    "id": "sec_history",
+    "label": "4 A short history",
+    "question": null,
+    "spanIds": [
+     "t9",
+     "t10"
+    ],
+    "startSpanId": "t9",
+    "suggestedPassages": []
+   }
+  ],
+  "selectionBasis": "reviewed boundary placements + local learner state + active goal + source provenance",
+  "sourceId": "src_text",
+  "version": 1
+ },
+ "plan": {
+  "day": {
+   "actualMinutes": 0.0,
+   "complete": false,
+   "displacedItems": 0,
+   "doneItems": 0,
+   "estMinutesDone": 0,
+   "kinds": [
+    "normal"
+   ],
+   "plannedItems": 2,
+   "plannedMinutes": 5.0,
+   "plans": 1,
+   "readingBlocks": 0,
+   "readingBlocksEnded": 0,
+   "skippedItems": 0
+  },
+  "enabled": true,
+  "headlineEnabled": true,
+  "localDate": "2026-10-12",
+  "plan": {
+   "admission": {
+    "admittedCount": 10,
+    "ceilingMinutes": 20.0,
+    "exemptRequests": 0,
+    "floorApplied": false,
+    "override": null,
+    "reviewLoadPerDay": 0.0,
+    "stoppedBy": "daily_cap"
+   },
+   "algorithmVersion": "mvp-0.29",
+   "blockCountEstimate": 4,
+   "blocks": [
+    {
+     "action": "instruct",
+     "chosenBy": "staged",
+     "displacedCount": 0,
+     "endedAt": null,
+     "estMinutes": 5.0,
+     "fallback": false,
+     "id": "<ULID>",
+     "items": [
+      {
+       "doneAt": null,
+       "estMinutes": 2.5,
+       "lane": "new",
+       "learningObjectId": "lo_extra",
+       "learningObjectTitle": "Extra",
+       "origin": "chooser",
+       "practiceItemId": "pi_extra_1",
+       "practiceMode": "short_answer",
+       "promptPreview": "Question pi_extra_1.",
+       "servedAt": null,
+       "state": "planned"
+      },
+      {
+       "doneAt": null,
+       "estMinutes": 2.5,
+       "lane": "new",
+       "learningObjectId": "lo_extra",
+       "learningObjectTitle": "Extra",
+       "origin": "chooser",
+       "practiceItemId": "pi_extra_2",
+       "practiceMode": "short_answer",
+       "promptPreview": "Question pi_extra_2.",
+       "servedAt": null,
+       "state": "planned"
+      }
+     ],
+     "lane": "new",
+     "learningObjectTitles": [
+      "Extra"
+     ],
+     "ordinal": 1,
+     "outcome": null,
+     "reading": null,
+     "startedAt": null,
+     "status": "current",
+     "subtype": null,
+     "why": "Next: Extra.",
+     "whyDetails": "LearnLoop's models aren't set up, so the plan's usual rule chose; no model was asked. Receipt: learnloop router log --decision <ULID>",
+     "whyKind": "computed"
+    }
+   ],
+   "chooser": "router_mixture_v1",
+   "currentBlockId": "<ULID>",
+   "deciding": false,
+   "estimatorVersion": "duration_shrinkage_v1",
+   "firstBlock": {
+    "estMinutes": 5.0,
+    "itemCount": 2,
+    "lane": "new",
+    "reading": false,
+    "title": "Extra"
+   },
+   "id": "<ULID>",
+   "kind": "normal",
+   "localDate": "2026-10-12",
+   "minuteChoices": [
+    10,
+    15,
+    25,
+    40,
+    60
+   ],
+   "minutesBudget": 25.0,
+   "minutesLeft": 20.0,
+   "minutesSource": "carried",
+   "nextStep": {
+    "blockId": "<ULID>",
+    "blockOrdinal": 1,
+    "boundary": true,
+    "estMinutes": 2.5,
+    "kind": "item",
+    "learningObjectId": "lo_extra",
+    "learningObjectTitle": "Extra",
+    "origin": "chooser",
+    "planId": "<ULID>",
+    "practiceItemId": "pi_extra_1",
+    "practiceMode": "short_answer",
+    "presentationId": null,
+    "schedulerCandidateId": null
+   },
+   "parentPlanId": null,
+   "projected": [
+    {
+     "estMinutes": 3.5,
+     "itemCount": 1,
+     "lane": "new",
+     "learningObjectTitles": [
+      "SVD definition"
+     ],
+     "ordinal": 2,
+     "readingTitle": null,
+     "why": "new: 1 new item on SVD definition"
+    },
+    {
+     "estMinutes": 10.5,
+     "itemCount": 3,
+     "lane": "new",
+     "learningObjectTitles": [
+      "Eigenvalues"
+     ],
+     "ordinal": 3,
+     "readingTitle": null,
+     "why": "new: 3 new items on Eigenvalues"
+    },
+    {
+     "estMinutes": 3.5,
+     "itemCount": 1,
+     "lane": "new",
+     "learningObjectTitles": [
+      "Diagonalization"
+     ],
+     "ordinal": 4,
+     "readingTitle": null,
+     "why": "new: 1 new item on Diagonalization"
+    }
+   ],
+   "reentry": null,
+   "rememberedMinutes": 25,
+   "source": "staged_frame_v1",
+   "split": {
+    "lanes": [
+     {
+      "cap": 7.5,
+      "displayMinutes": 0,
+      "lane": "repair",
+      "load": 0.0,
+      "minutes": 0.0,
+      "reason": "repair: nothing to repair today"
+     },
+     {
+      "cap": 15.0,
+      "displayMinutes": 0,
+      "lane": "maintain",
+      "load": 0.0,
+      "minutes": 0.0,
+      "reason": "maintain: no reviews due"
+     },
+     {
+      "cap": 33.0,
+      "displayMinutes": 25,
+      "lane": "new",
+      "load": 33.0,
+      "minutes": 25.0,
+      "reason": "new: about 33 min of new material admitted for today's review load"
+     },
+     {
+      "cap": null,
+      "displayMinutes": 0,
+      "lane": "push",
+      "load": 0.0,
+      "minutes": 0.0,
+      "reason": "push: nothing toward a goal waiting"
+     }
+    ],
+    "lanesAllowed": [
+     "repair",
+     "maintain",
+     "new",
+     "push"
+    ],
+    "line": "25 min \u00b7 new 25",
+    "requestedMinutes": 0.0,
+    "rule": "split_v1"
+   },
+   "status": "open",
+   "stopReason": null,
+   "totals": {
+    "actualMinutes": 0.0,
+    "displacedItems": 0,
+    "doneItems": 0,
+    "estMinutesDone": 0,
+    "plannedItems": 2,
+    "plannedMinutes": 5.0,
+    "readingBlocks": 0,
+    "readingBlocksEnded": 0,
+    "skippedItems": 0
+   },
+   "waiting": null
+  },
+  "streak": {
+   "activeToday": false,
+   "current": 0,
+   "longest": 0
+  },
+  "version": 1
+ },
+ "queue": {
+  "deferredColdChecks": [],
+  "generatedAt": "2026-10-12T09:00:00Z",
+  "reentryRefresherCap": null,
+  "sections": [
+   {
+    "items": [
+     {
+      "components": {
+       "boundaryTarget": 0.0,
+       "conjunctiveFit": 0.0,
+       "conjunctiveStrength": 0.0,
+       "duplicateProbePenalty": 0.0,
+       "expectedSkillGain": 0.01228,
+       "facetWeakness": 0.5,
+       "forgettingRisk": 0.0,
+       "goalFrontier": 0.8,
+       "goalFrontierExposureDiscount": 1.0,
+       "gradientFit": 1.0,
+       "legacyPriority": 0.2,
+       "overloadPenalty": 0.0,
+       "practiceInformation": 0.25,
+       "predictedCorrectness": 0.614,
+       "probeEig": 0.0,
+       "probeEigFacetRecall": 0.3465735902799726,
+       "probeEigHypothesis": 0.0,
+       "probeEigLoMastery": 0.21539145804622709,
+       "probeEigTotal": 0.5619650483261996,
+       "recentError": 0.0,
+       "repairValue": 0.0,
+       "repetitionFatigue": 0.0,
+       "selectionReward": 0.43535,
+       "targetedBoundaryFit": 0.0
+      },
+      "dominantReason": "active goal frontier",
+      "dueAt": null,
+      "dueStatus": "later",
+      "followupKind": null,
+      "isFollowup": false,
+      "isProbe": false,
+      "learningObjectId": "lo_extra",
+      "learningObjectTitle": "Extra",
+      "mastery": 0.5,
+      "masteryVariance": 0.1875,
+      "plainEnglish": [
+       "goal frontier weight 0.80",
+       "selection reward 0.44"
+      ],
+      "practiceItemId": "pi_extra_1",
+      "practiceMode": "short_answer",
+      "priority": 0.2,
+      "readinessFactor": null,
+      "schedulerCandidateId": null,
+      "schedulerSlateId": null,
+      "selectedMode": "short_answer",
+      "subject": "linear-algebra"
+     },
+     {
+      "components": {
+       "boundaryTarget": 0.0,
+       "conjunctiveFit": 0.0,
+       "conjunctiveStrength": 0.0,
+       "duplicateProbePenalty": 0.0,
+       "expectedSkillGain": 0.01228,
+       "facetWeakness": 0.5,
+       "forgettingRisk": 0.0,
+       "goalFrontier": 0.8,
+       "goalFrontierExposureDiscount": 1.0,
+       "gradientFit": 1.0,
+       "legacyPriority": 0.2,
+       "overloadPenalty": 0.0,
+       "practiceInformation": 0.25,
+       "predictedCorrectness": 0.614,
+       "probeEig": 0.0,
+       "probeEigFacetRecall": 0.3465735902799726,
+       "probeEigHypothesis": 0.0,
+       "probeEigLoMastery": 0.21539145804622709,
+       "probeEigTotal": 0.5619650483261996,
+       "recentError": 0.0,
+       "repairValue": 0.0,
+       "repetitionFatigue": 0.0,
+       "selectionReward": 0.43535,
+       "targetedBoundaryFit": 0.0
+      },
+      "dominantReason": "active goal frontier",
+      "dueAt": null,
+      "dueStatus": "later",
+      "followupKind": null,
+      "isFollowup": false,
+      "isProbe": false,
+      "learningObjectId": "lo_extra",
+      "learningObjectTitle": "Extra",
+      "mastery": 0.5,
+      "masteryVariance": 0.1875,
+      "plainEnglish": [
+       "goal frontier weight 0.80",
+       "selection reward 0.44"
+      ],
+      "practiceItemId": "pi_extra_2",
+      "practiceMode": "short_answer",
+      "priority": 0.2,
+      "readinessFactor": null,
+      "schedulerCandidateId": null,
+      "schedulerSlateId": null,
+      "selectedMode": "short_answer",
+      "subject": "linear-algebra"
+     },
+     {
+      "components": {
+       "boundaryTarget": 0.0,
+       "conjunctiveFit": 0.0,
+       "conjunctiveStrength": 0.0,
+       "duplicateProbePenalty": 0.0,
+       "expectedSkillGain": 0.011036469982284039,
+       "facetWeakness": 0.5,
+       "forgettingRisk": 0.0,
+       "goalFrontier": 0.8,
+       "goalFrontierExposureDiscount": 1.0,
+       "gradientFit": 1.0,
+       "legacyPriority": 0.2,
+       "overloadPenalty": 0.0,
+       "practiceInformation": 0.246,
+       "predictedCorrectness": 0.5518234991142019,
+       "probeEig": 0.0,
+       "probeEigFacetRecall": 0.3465735902799726,
+       "probeEigHypothesis": 0.0,
+       "probeEigLoMastery": 0.21539145804622709,
+       "probeEigTotal": 0.5619650483261996,
+       "recentError": 0.0,
+       "repairValue": 0.0,
+       "repetitionFatigue": 0.0,
+       "selectionReward": 0.43379558747785507,
+       "targetedBoundaryFit": 0.0
+      },
+      "dominantReason": "active goal frontier",
+      "dueAt": null,
+      "dueStatus": "later",
+      "followupKind": null,
+      "isFollowup": false,
+      "isProbe": false,
+      "learningObjectId": "lo_svd_definition",
+      "learningObjectTitle": "SVD definition",
+      "mastery": 0.5,
+      "masteryVariance": 0.1875,
+      "plainEnglish": [
+       "goal frontier weight 0.80",
+       "selection reward 0.43"
+      ],
+      "practiceItemId": "pi_svd_define_001",
+      "practiceMode": "short_answer",
+      "priority": 0.2,
+      "readinessFactor": null,
+      "schedulerCandidateId": null,
+      "schedulerSlateId": null,
+      "selectedMode": "short_answer",
+      "subject": "linear-algebra"
+     },
+     {
+      "components": {
+       "boundaryTarget": 0.0,
+       "conjunctiveFit": 0.0,
+       "conjunctiveStrength": 0.0,
+       "duplicateProbePenalty": 0.0,
+       "expectedSkillGain": 0.018631489523872873,
+       "facetWeakness": 0.5,
+       "forgettingRisk": 0.0,
+       "goalFrontier": 0.0,
+       "gradientFit": 0.546063809515891,
+       "legacyPriority": 0.0,
+       "newMaterial": 1.0,
+       "overloadPenalty": 0.0,
+       "placementLayer": 0.0,
+       "placementPredictedSuccess": 0.8175744761936437,
+       "practiceInformation": 0.149,
+       "predictedCorrectness": 0.9315744761936436,
+       "probeEig": 0.0,
+       "probeEigFacetRecall": 0.3465735902799726,
+       "probeEigHypothesis": 0.0,
+       "probeEigLoMastery": 0.21539145804622709,
+       "probeEigTotal": 0.5619650483261996,
+       "recentError": 0.0,
+       "repairValue": 0.0,
+       "repetitionFatigue": 0.0,
+       "selectionReward": 0.2325021238080193,
+       "targetedBoundaryFit": 0.0,
+       "taughtFirst": 0.0
+      },
+      "dominantReason": "best available practice",
+      "dueAt": null,
+      "dueStatus": "later",
+      "followupKind": null,
+      "isFollowup": false,
+      "isProbe": false,
+      "learningObjectId": "lo_eigen_basics",
+      "learningObjectTitle": "Eigenvalues",
+      "mastery": 0.5,
+      "masteryVariance": 0.1875,
+      "plainEnglish": [
+       "new material: starts as learning, no opening probe",
+       "selection reward 0.23"
+      ],
+      "practiceItemId": "pi_eig_easy",
+      "practiceMode": "short_answer",
+      "priority": 0.05,
+      "readinessFactor": null,
+      "schedulerCandidateId": null,
+      "schedulerSlateId": null,
+      "selectedMode": "short_answer",
+      "subject": "linear-algebra"
+     },
+     {
+      "components": {
+       "boundaryTarget": 0.0,
+       "conjunctiveFit": 0.0,
+       "conjunctiveStrength": 0.0,
+       "duplicateProbePenalty": 0.0,
+       "expectedSkillGain": 0.01782599722349382,
+       "facetWeakness": 0.5,
+       "forgettingRisk": 0.0,
+       "goalFrontier": 0.0,
+       "gradientFit": 0.6467503470632723,
+       "legacyPriority": 0.0,
+       "newMaterial": 1.0,
+       "overloadPenalty": 0.0,
+       "placementLayer": 0.0,
+       "placementPredictedSuccess": 0.7772998611746911,
+       "practiceInformation": 0.173,
+       "predictedCorrectness": 0.8912998611746911,
+       "probeEig": 0.0,
+       "probeEigFacetRecall": 0.3465735902799726,
+       "probeEigHypothesis": 0.0,
+       "probeEigLoMastery": 0.21539145804622709,
+       "probeEigTotal": 0.5619650483261996,
+       "recentError": 0.0,
+       "repairValue": 0.0,
+       "repetitionFatigue": 0.0,
+       "selectionReward": 0.2516325659420217,
+       "targetedBoundaryFit": 0.0,
+       "taughtFirst": 0.0
+      },
+      "dominantReason": "best available practice",
+      "dueAt": null,
+      "dueStatus": "later",
+      "followupKind": null,
+      "isFollowup": false,
+      "isProbe": false,
+      "learningObjectId": "lo_diag",
+      "learningObjectTitle": "Diagonalization",
+      "mastery": 0.5,
+      "masteryVariance": 0.1875,
+      "plainEnglish": [
+       "new material: starts as learning, no opening probe",
+       "selection reward 0.25"
+      ],
+      "practiceItemId": "pi_diag_easy",
+      "practiceMode": "short_answer",
+      "priority": 0.05,
+      "readinessFactor": null,
+      "schedulerCandidateId": null,
+      "schedulerSlateId": null,
+      "selectedMode": "short_answer",
+      "subject": "linear-algebra"
+     },
+     {
+      "components": {
+       "boundaryTarget": 0.0,
+       "conjunctiveFit": 0.0,
+       "conjunctiveStrength": 0.0,
+       "duplicateProbePenalty": 0.0,
+       "expectedSkillGain": 0.013523530017715961,
+       "facetWeakness": 0.5,
+       "forgettingRisk": 0.0,
+       "goalFrontier": 0.0,
+       "gradientFit": 1.0,
+       "legacyPriority": 0.0,
+       "newMaterial": 1.0,
+       "overloadPenalty": 0.0,
+       "placementLayer": 0.0,
+       "placementPredictedSuccess": 0.5621765008857981,
+       "practiceInformation": 0.246,
+       "predictedCorrectness": 0.6761765008857981,
+       "probeEig": 0.0,
+       "probeEigFacetRecall": 0.3465735902799726,
+       "probeEigHypothesis": 0.0,
+       "probeEigLoMastery": 0.21539145804622709,
+       "probeEigTotal": 0.5619650483261996,
+       "recentError": 0.0,
+       "repairValue": 0.0,
+       "repetitionFatigue": 0.0,
+       "selectionReward": 0.316904412522145,
+       "targetedBoundaryFit": 0.0,
+       "taughtFirst": 0.0
+      },
+      "dominantReason": "best available practice",
+      "dueAt": null,
+      "dueStatus": "later",
+      "followupKind": null,
+      "isFollowup": false,
+      "isProbe": false,
+      "learningObjectId": "lo_diag",
+      "learningObjectTitle": "Diagonalization",
+      "mastery": 0.5,
+      "masteryVariance": 0.1875,
+      "plainEnglish": [
+       "new material: starts as learning, no opening probe",
+       "selection reward 0.32"
+      ],
+      "practiceItemId": "pi_diag_mid",
+      "practiceMode": "short_answer",
+      "priority": 0.05,
+      "readinessFactor": null,
+      "schedulerCandidateId": null,
+      "schedulerSlateId": null,
+      "selectedMode": "short_answer",
+      "subject": "linear-algebra"
+     },
+     {
+      "components": {
+       "boundaryTarget": 0.0,
+       "conjunctiveFit": 0.0,
+       "conjunctiveStrength": 0.0,
+       "duplicateProbePenalty": 0.0,
+       "expectedSkillGain": 0.01228,
+       "facetWeakness": 0.5,
+       "forgettingRisk": 0.0,
+       "goalFrontier": 0.0,
+       "gradientFit": 1.0,
+       "legacyPriority": 0.0,
+       "newMaterial": 1.0,
+       "overloadPenalty": 0.0,
+       "placementLayer": 0.0,
+       "placementPredictedSuccess": 0.5,
+       "practiceInformation": 0.25,
+       "predictedCorrectness": 0.614,
+       "probeEig": 0.0,
+       "probeEigFacetRecall": 0.3465735902799726,
+       "probeEigHypothesis": 0.0,
+       "probeEigLoMastery": 0.21539145804622709,
+       "probeEigTotal": 0.5619650483261996,
+       "recentError": 0.0,
+       "repairValue": 0.0,
+       "repetitionFatigue": 0.0,
+       "selectionReward": 0.31535,
+       "targetedBoundaryFit": 0.0,
+       "taughtFirst": 0.0
+      },
+      "dominantReason": "best available practice",
+      "dueAt": null,
+      "dueStatus": "later",
+      "followupKind": null,
+      "isFollowup": false,
+      "isProbe": false,
+      "learningObjectId": "lo_eigen_basics",
+      "learningObjectTitle": "Eigenvalues",
+      "mastery": 0.5,
+      "masteryVariance": 0.1875,
+      "plainEnglish": [
+       "new material: starts as learning, no opening probe",
+       "selection reward 0.32"
+      ],
+      "practiceItemId": "pi_eig_mid",
+      "practiceMode": "short_answer",
+      "priority": 0.05,
+      "readinessFactor": null,
+      "schedulerCandidateId": null,
+      "schedulerSlateId": null,
+      "selectedMode": "short_answer",
+      "subject": "linear-algebra"
+     },
+     {
+      "components": {
+       "boundaryTarget": 0.0,
+       "conjunctiveFit": 0.0,
+       "conjunctiveStrength": 0.0,
+       "duplicateProbePenalty": 0.0,
+       "expectedSkillGain": 0.006734002776506176,
+       "facetWeakness": 0.5,
+       "forgettingRisk": 0.0,
+       "goalFrontier": 0.0,
+       "gradientFit": 0.4667503470632719,
+       "legacyPriority": 0.0,
+       "newMaterial": 1.0,
+       "overloadPenalty": 0.25177746927709155,
+       "placementLayer": 0.0,
+       "placementPredictedSuccess": 0.22270013882530884,
+       "practiceInformation": 0.173,
+       "predictedCorrectness": 0.3367001388253088,
+       "probeEig": 0.0,
+       "probeEigFacetRecall": 0.3465735902799726,
+       "probeEigHypothesis": 0.0,
+       "probeEigLoMastery": 0.21539145804622709,
+       "probeEigTotal": 0.5619650483261996,
+       "recentError": 0.0,
+       "repairValue": 0.0,
+       "repetitionFatigue": 0.0,
+       "selectionReward": -0.05000989639380443,
+       "targetedBoundaryFit": 0.0,
+       "taughtFirst": 0.0
+      },
+      "dominantReason": "best available practice",
+      "dueAt": null,
+      "dueStatus": "later",
+      "followupKind": null,
+      "isFollowup": false,
+      "isProbe": false,
+      "learningObjectId": "lo_diag",
+      "learningObjectTitle": "Diagonalization",
+      "mastery": 0.5,
+      "masteryVariance": 0.1875,
+      "plainEnglish": [
+       "new material: starts as learning, no opening probe"
+      ],
+      "practiceItemId": "pi_diag_hard",
+      "practiceMode": "short_answer",
+      "priority": 0.05,
+      "readinessFactor": null,
+      "schedulerCandidateId": null,
+      "schedulerSlateId": null,
+      "selectedMode": "short_answer",
+      "subject": "linear-algebra"
+     },
+     {
+      "components": {
+       "boundaryTarget": 0.0,
+       "conjunctiveFit": 0.0,
+       "conjunctiveStrength": 0.0,
+       "duplicateProbePenalty": 0.0,
+       "expectedSkillGain": 0.005928510476127126,
+       "facetWeakness": 0.5,
+       "forgettingRisk": 0.0,
+       "goalFrontier": 0.0,
+       "gradientFit": 0.3660638095158907,
+       "legacyPriority": 0.0,
+       "newMaterial": 1.0,
+       "overloadPenalty": 0.3412766137636527,
+       "placementLayer": 0.0,
+       "placementPredictedSuccess": 0.18242552380635632,
+       "practiceInformation": 0.149,
+       "predictedCorrectness": 0.2964255238063563,
+       "probeEig": 0.0,
+       "probeEigFacetRecall": 0.3465735902799726,
+       "probeEigHypothesis": 0.0,
+       "probeEigLoMastery": 0.21539145804622709,
+       "probeEigTotal": 0.5619650483261996,
+       "recentError": 0.0,
+       "repairValue": 0.0,
+       "repetitionFatigue": 0.0,
+       "selectionReward": -0.16065321376531566,
+       "targetedBoundaryFit": 0.0,
+       "taughtFirst": 0.0
+      },
+      "dominantReason": "best available practice",
+      "dueAt": null,
+      "dueStatus": "later",
+      "followupKind": null,
+      "isFollowup": false,
+      "isProbe": false,
+      "learningObjectId": "lo_eigen_basics",
+      "learningObjectTitle": "Eigenvalues",
+      "mastery": 0.5,
+      "masteryVariance": 0.1875,
+      "plainEnglish": [
+       "new material: starts as learning, no opening probe"
+      ],
+      "practiceItemId": "pi_eig_hard",
+      "practiceMode": "short_answer",
+      "priority": 0.05,
+      "readinessFactor": null,
+      "schedulerCandidateId": null,
+      "schedulerSlateId": null,
+      "selectedMode": "short_answer",
+      "subject": "linear-algebra"
+     },
+     {
+      "components": {
+       "boundaryTarget": 0.0,
+       "conjunctiveFit": 0.0,
+       "conjunctiveStrength": 0.0,
+       "duplicateProbePenalty": 0.0,
+       "expectedSkillGain": 0.0169011715726001,
+       "facetWeakness": 0.5,
+       "forgettingRisk": 0.0,
+       "goalFrontier": 0.0,
+       "gradientFit": 0.7623535534249878,
+       "legacyPriority": 0.0,
+       "newMaterial": 1.0,
+       "overloadPenalty": 0.0,
+       "placementLayer": 1.0,
+       "placementPredictedSuccess": 0.7310585786300049,
+       "practiceInformation": 0.197,
+       "predictedCorrectness": 0.8450585786300049,
+       "probeEig": 0.0,
+       "probeEigFacetRecall": 0.3465735902799726,
+       "probeEigHypothesis": 0.0,
+       "probeEigLoMastery": 0.21539145804622709,
+       "probeEigTotal": 0.5619650483261996,
+       "recentError": 0.0,
+       "repairValue": 0.0,
+       "repetitionFatigue": 0.0,
+       "selectionReward": 0.2735971751507477,
+       "targetedBoundaryFit": 0.0,
+       "taughtFirst": 0.0
+      },
+      "dominantReason": "best available practice",
+      "dueAt": null,
+      "dueStatus": "later",
+      "followupKind": null,
+      "isFollowup": false,
+      "isProbe": false,
+      "learningObjectId": "lo_spectral",
+      "learningObjectTitle": "Spectral Theorem",
+      "mastery": 0.5,
+      "masteryVariance": 0.1875,
+      "plainEnglish": [
+       "new material: starts as learning, no opening probe",
+       "selection reward 0.27"
+      ],
+      "practiceItemId": "pi_spec_easy",
+      "practiceMode": "short_answer",
+      "priority": 0.05,
+      "readinessFactor": null,
+      "schedulerCandidateId": null,
+      "schedulerSlateId": null,
+      "selectedMode": "short_answer",
+      "subject": "linear-algebra"
+     },
+     {
+      "components": {
+       "boundaryTarget": 0.0,
+       "conjunctiveFit": 0.0,
+       "conjunctiveStrength": 0.0,
+       "duplicateProbePenalty": 0.0,
+       "expectedSkillGain": 0.007658828427399903,
+       "facetWeakness": 0.5,
+       "forgettingRisk": 0.0,
+       "goalFrontier": 0.0,
+       "gradientFit": 0.5823535534249877,
+       "legacyPriority": 0.0,
+       "newMaterial": 1.0,
+       "overloadPenalty": 0.14901906362223302,
+       "placementLayer": 1.0,
+       "placementPredictedSuccess": 0.26894142136999516,
+       "practiceInformation": 0.197,
+       "predictedCorrectness": 0.38294142136999515,
+       "probeEig": 0.0,
+       "probeEigFacetRecall": 0.3465735902799726,
+       "probeEigHypothesis": 0.0,
+       "probeEigLoMastery": 0.21539145804622709,
+       "probeEigTotal": 0.5619650483261996,
+       "recentError": 0.0,
+       "repairValue": 0.0,
+       "repetitionFatigue": 0.0,
+       "selectionReward": 0.07702518259701444,
+       "targetedBoundaryFit": 0.0,
+       "taughtFirst": 0.0
+      },
+      "dominantReason": "best available practice",
+      "dueAt": null,
+      "dueStatus": "later",
+      "followupKind": null,
+      "isFollowup": false,
+      "isProbe": false,
+      "learningObjectId": "lo_spectral",
+      "learningObjectTitle": "Spectral Theorem",
+      "mastery": 0.5,
+      "masteryVariance": 0.1875,
+      "plainEnglish": [
+       "new material: starts as learning, no opening probe",
+       "selection reward 0.08"
+      ],
+      "practiceItemId": "pi_spec_hard",
+      "practiceMode": "short_answer",
+      "priority": 0.05,
+      "readinessFactor": null,
+      "schedulerCandidateId": null,
+      "schedulerSlateId": null,
+      "selectedMode": "short_answer",
+      "subject": "linear-algebra"
+     }
+    ],
+    "title": "Later today"
+   }
+  ],
+  "sessionId": null,
+  "totalItems": 11,
+  "version": 1
+ },
+ "recorded_on": "a76c8358a"
+}

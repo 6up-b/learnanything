@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_214/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_217/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_214" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_217" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 214
+SCHEMA_HEAD = 217
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -106,6 +106,8 @@ ROLE_OUTCOMES: dict[TableRole, str] = {
 
 
 PURPOSE_OVERRIDES: dict[str, str] = {
+    "interactive_figures": "Keeps each explorable figure version the Reader built (reader workbench RW5a): the declarative figure spec the figure author wrote (never code), what was asked for (the selection, a region of a figure and the block whose crop was sent), how it verified (verified, illustrative, failed or unsupported, with the report) and the reuse key (`input_hash`); a \"not right?\" version supersedes an earlier one, which is kept. Paid output: never re-run on rebuild, and nothing that grades, schedules or projects reads it.",
+    "figure_predictions": "Records a learner's prediction on an explorable figure (reader workbench RW5a): the answer, the observed readout before and after the prediction's change, whether it matched (decided by code) and the optional \"what changed?\" line. Formative only: never an attempt or an evidence observation; a missed one is read by learner-text gaps as a `reader_formative` text and listed by \"Last time here\". Append-only by trigger, its one update setting `explanation_text` once.",
     "source_block_fts": "Indexes source block text for FTS5 BM25 keyword search (Slice 2 T6: library search, tutor spans, Quick Add scope); triggers keep it in step with `source_document_blocks` and its one replayer rebuilds it, so it never holds anything the block ledger does not. Hazard: rows are keyed by the blocks' implicit rowid (the block table has a composite key), so a migration that rebuilds `source_document_blocks` must recreate the triggers and rerun the replayer (`learnloop rebuild-derived-state`); deletes also match the block's identity as well as its rowid (migration 177), and `learnloop doctor` reports stale or missing rows.",
     "attempt_completion_work": "Coordinates resumable post-attempt work and freezes its completed route so recovery never needs to regrade an acknowledged answer.",
     "model_call_receipts": "Captures each started model operation and physical request, preserving returned text, failures and available provider usage for later cost and quality analysis.",
@@ -238,7 +240,7 @@ def table_domain(table: str) -> str:
         return "activity-substrate"
     if table.startswith(("source_", "synthesis_", "ingest_", "entity_source", "notation_mapping", "apply_intents")):
         return "sources-and-ingest"
-    if table.startswith(("reader_", "canonical_mapping")):
+    if table.startswith(("reader_", "canonical_mapping", "interactive_figures", "figure_predictions")):
         return "reader"
     if table.startswith(("probe_", "causal_", "diagnostic_", "misconception", "coldness_", "discrimination_", "contrast_pair", "error_hunt", "unresolved_cause", "persona_realism", "hypothesis_recurrence", "recurrence_")):
         return "diagnosis"
@@ -873,23 +875,30 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "hints": "adaptive hints H0: hint telemetry (each authored hint the practice screen reveals recorded as a help_assists row, with its time and a hash and length of the draft, and attached to the attempt at submit): the kill switch; telemetry only, hints_used stays the client's count (no successor); H1: approach maps (hints.maps: a small subgoal map per item built by one background call on route approach_map when the item is served, validated in code and stored in approach_maps; the kill switch, build on serve and the metered daily cap) and the owner's price for metered hint routes; H2a: the hint service (practice.request_hint: a hint written for the learner's work, its kind and level chosen by the Decider on route hint_chooser and sampled with a logged propensity, written on route hint_writer, never on Codex, and checked in code; the kill switch, the chooser's switch, policy and time box, the help style and the metered daily cap); help, never evidence: a shown hint reaches the attempt only through hints_used, primed and a tutor_answer reveal with their existing meaning, and no scoring, scheduling, serving, grading or replay path reads the rows (no successor)",
     "source_service": "canonical sources as a shared instructional service (mvp-0.18/0.19): the master switch, one kill switch per phase (tutor offers, the exercise arm and its key checks, discriminating search, source-first needs, intent-aware grounding, comparisons, tutor tools, intervention records), the interactive verifier's time box, a comparison's prompt-size bound and the money caps",
     "plan": "daily-loop DL1 (mvp-0.14): the finite daily plan's kill switches, remembered minutes, split caps, new-material admission, duration estimates, reading pace and re-entry caps",
+    "intent": "daily-loop DL2: intent (commitments carry it; the successor mvp-0.29 behind its kill switches): the switch, the per-intent recall targets' switch and the target table (Q8) that scales an effective due at serving time only",
+    "capture": "daily-loop capture: DL2's \"Check once\" delay when a test_me_later commitment names no due_hint (DL3 adds the capture box and processor keys)",
     "learner_text_gaps": "learner-text gaps: tutor questions, stuck answers and diagnoses read for named prerequisites and misconceptions (kill switches, the authoritative chooser, the shortlist, edges, created prerequisites and their daily cap, holding-pen sightings, per-text spend caps) and mvp-0.16's sooner check",
     "evsi": "EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off)",
     "reader_inquiry": "reader workbench RW1a: branching Ask, inquiry status with reopen, the return stack and detour strip, the reconnect line with its passage-scoped quick check, and the Reader's funnel activity (content and display only)",
     "workbench": "reader workbench RW2a: the resumable scratchpad (a problem worked in steps beside the source, submitted through the ordinary attempt path with a visible book as one hint-equivalent): the kill switch, and how long an untouched open problem waits before the recap calls it unfinished (a display limit; nothing is closed automatically)",
     "recap": "reader workbench RW6a: \"Last time here\" (the returning card at the head of the Guide) and Wrap up (offered in the rail after activity and once where the learner lands after leaving a source): two kill switches over pure reads of existing ledgers (salience-only events only; no model call, nothing stored)",
-    "cues": "reader workbench RW3a: margin cues from the Guide's own citations (display only): the kill switch, the learner's density per section, at most one mark per screenful, and the books cues are switched off for",
+    "cues": "reader workbench RW3a: margin cues from the Guide's own citations (display only): the kill switch, the learner's density per section, at most one mark per screenful, and the books cues are switched off for; RW3b: discovered cues (passages found per open target by T6 retrieval and one listwise judgment each through ai.routing.passage_cue_judge, in the background; ordered by the probability the target is still open; try this step first on worked examples; a logged holdout with seed and propensity): its switches, the holdout rate, and the judge's per-open call cap and metered daily spend (display only, no successor)",
     "reader_intent": "reader workbench RW1b: the intent box (a small, unfocused box under a selection whose words one typed Decider choice routes to a palette action, run exactly as the palette's own; the palette grouped by the five learner intentions): the kill switch, speculative routing once typing pauses (its switch and pause), the routing's timeout and the route's daily call cap (speculation stops at 80% of it); routing writes ledger rows and salience-only events only",
     "reader_active_reading": "reader workbench RW1b: active reading on a selected derivation or worked example (try the next step with the book's next lines folded, why does this step work, what does this assume, reconstruct this later, another way to see this): the kill switch; the questions are the quick-check producer's formative rows and never an attempt",
     "reader_formative": "reader workbench RW1b: a next-step, why-step or assumption answer the learner marks partly or no becomes reader_formative learner text for learner-text gaps (tier 2: never evidence, mastery or FSRS): the kill switch",
     "library_ask": "reader workbench RW4a: ask your library (Shift+Enter in the library search, Ctrl+Shift+F or a selection's where else / where is this used / what do I need first): verbatim passages from the sources service's find_sources under the Reader caller's derived policy, grouped by source and role, each with one organizer line (one listwise call, route library_organizer) that must cite its own passage: the kill switch, the concept-graph expansion's switch, the personalized chip's default and the organizer's daily metered cap; retrieval is context and the lines are display (no successor)",
+    "figures": "reader workbench RW5a: explorable figures: make this explorable on a selected equation, figure block, passage or region of a figure builds a declarative figure spec (route figure_author, never code), verifies it before it shows (structure and invariants on the parameter grid, shaded areas against an independent integration; every figure is an illustration, the source check is RW5c's) and draws it inline under its passage with predictions and what changed?: the kill switch and the predictions, region and not right? switches, and the author route's metered spend a UTC day at the owner's price; content and formative records (no successor)",
+    "library_exercises": "reader workbench RW4b: exercises from my sources: the Reader's view of the sources service's textbook-exercise candidates in RW4a's practice this question (verbatim statement, source and page, open in the book, use this one through the service's own import in the workbench, the key's honest status), with the service's exposure rule labelling a seen exercise and never offering it as a check on your own, and the learner-initiated fallback search (find_sources, exercise blocks of the teaching scope, the Reader's own import), retired by default once the candidates are live: the kill switch and the fallback's switch; display and a learner's own pick (no successor)",
     "reader_compare": "reader workbench RW4a: the Reader's compare table over the sources service's compare_sources (one row per source, each line quoting its own source, no consensus; display only until RW4d's keep): the kill switch",
+    "roles": "reader workbench RW4e: instructional roles (definition, theorem, explanation, intuition, worked example, exercise, figure, counterexample, contrast, prerequisite, alternative treatment, application), each with a confidence, proposed per passage by the Reader's own judges (ai.routing.library_organizer, ai.routing.passage_cue_judge) at no extra call and by the owner-run batch labeller (learnloop reader label-roles, ai.routing.role_labeller) and stored as source-object proposals: the judges' kill switch, the kill switch of their positive use (find_sources roles and intent lists, RW3b's contrast list, library grouping labelled the model's; roles never exclude) and the batch labeller's per-run metered cap, checked before each batch call (labels on sources, no successor)",
+    "reading_paths": "reader workbench RW7a: reading paths in the Guide: at the depth the learner picks for a book (get the idea, learn to use it, fluency; DL2's Master, Learn, Keep and Light touch on the source preselect it, display-level only), each section core, prerequisite, enrichment, already shown or assumed with a one-line why, read it anyway / skip it, one exercise worth trying per core section and a suggested next line composed without a model; labels from one call per book and depth (ai.routing.reading_path_judge), cached by the depth, the section list and the linked LOs' statuses, already shown and assumed enforced in code: the kill switch and the judge's daily metered cap, checked before the call (display only, no successor)",
+    "reader_tutor": "reader workbench RW1c: a tutor that looks things up in the Reader (its own query through the sources service's find_sources with verification under the Reader caller's derived policy, after the selection and its neighbours; three labelled answer modes with a quote-verified From your books excerpt, abstention when the books don't cover it, another way and that didn't help through the service's intents) and the buttons under its answers (the service's practice and tool requests, fetched when the answer lands and shown on press, and Try the next step first): the two kill switches; retrieval is context and the buttons are learner picks (no successor)",
     "proof_check": "the valid-alternative gate for proofs and explanations, in the grader (mvp-0.20): the kill switch of the own-route rules and the server-side unlocated rule (mvp-0.17's separate route check was removed on 2026-10-13)",
     "voi_stopping": "value-of-information stopping (mvp-0.21): the kill switch and per-site sub-switches that lift four count caps (probe observations per session, further follow-ups per LO, further teach-backs, project probes per day) onto value of information, and the multi-family EVSI study's three switches (the robust completion gate while value decides, the 2-3 check lookahead, the value gate's robust quantile)",
     "adaptive_difficulty": "adaptive difficulty AD1, measure and log (no successor): the master switch; forecast_receipts (at every plan serve, in its transaction, the reading-opportunity sweep into ad_reading_opportunities, the frozen serve inputs of a never-attempted item in item_serve_inputs and the in-process forecasts as item_unassisted_success rows of forecast_receipts, and the first-hint progress marker on the attempt); outside_forecasters (llm_v1:item once per item revision and llm_v3:llm / llm_v3:decider per presentation, in the background on routes ad_forecast_llm and ad_forecast_decider); rating_tap (the optional Felt tap stored on the attempt); feature_audit (one Decider judgment per audited task-feature dimension in judgment_ledger, LLM fallback on ad_feature_audit); the metered daily cap and the owner's price for a metered LLM route; logged only, nothing serving, scoring, scheduling, evidence or certification reads them",
     "decider_routes": "Tier 1, the Decider migration (mvp-0.22, owner 2026-10-13): one kill switch per small judgment the Decider decides with its LLM as fallback, the facet span-support check and the method-explicit required-method statement judgment",
     "required_method": "method-explicit items (mvp-0.25): the kill switch of the own-route rules' required method (own-route-v2: a criterion tied to an item's required method is graded on use of that method)",
-    "ui": "how the desktop presents learner surfaces (docs/specs/ux_learnloop_v1.md §10, display only): UX Phase 4's kill switch of the plain practice card, feedback, short-check results, repair step and session finish (\"classic\" restores the screens exactly)",
+    "ui": "how the desktop presents learner surfaces (docs/specs/ux_learnloop_v1.md §10, display only): UX Phase 4's kill switch of the plain practice card, feedback, short-check results, repair step and session finish (\"classic\" restores the screens exactly), and UX Phase 2's kill switch of the four-place shell, Under the hood, the notices and the palette's > prefix (\"classic\" keeps the ten-tab shell exactly)",
     "eligibility": "one serve/administration eligibility decision (mvp-0.27): the kill switch of every serve path asking the decision submit asks (cold checks, probes, quick-check offers) and of historical writers' bounded auto-prime window",
 }
 
@@ -1344,6 +1353,16 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "sim count only reveals up to their own instant when auto-priming. Off, every path serves "
         "and admits exactly as mvp-0.26. Dormant below the successor; replay reads each attempt's "
         "recorded primed flag, never this switch."
+    ),
+    "intent.enabled": (
+        "Kill switch for daily-loop DL2's successor (mvp-0.29; learnloop.scheduling.intent). On, "
+        "serving reads the learner's intent: Pause, Reference, Let go and an answered \"Check once\" "
+        "keep items out of the queue, requests, follow-up insertion and plans already built; a "
+        "\"Check once\" is served cold only when the one eligibility decision allows it and answered "
+        "only by an attempt it would have served cold; effective dues at the recall targets, push, "
+        "admission, re-entry and reading by intent; the desktop intent control. Off (or below the "
+        "successor) every serve path and plan run the predecessor's code and the control answers "
+        "enabled: false. Replay never reads it."
     ),
     "practice_index.enabled": (
         "Kill switch for find_practice (sidecar RPC, CLI and agent tool). It only proposes items; "
@@ -2034,7 +2053,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_214/state.sqlite",
+                "fixtures/migration_head_217/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

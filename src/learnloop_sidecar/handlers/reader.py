@@ -23,7 +23,7 @@ authority; the handler enforces it rather than trusting the caller.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from learnloop.ai.errors import CodexUnavailable
 from learnloop.content.sources.exam_material import HELD_BACK_REFUSAL, HELD_OUT_REFUSAL, reading_held_back
@@ -104,6 +104,13 @@ class ReaderAskInput(ParamsModel):
     selection_source_quote: str | None = None
     cold_active: bool = False
     cold_attempt_id: str | None = None
+    # RW1c (reader_tutor.retrieval_enabled): "another way" (alternative) and
+    # "that didn't help" (remediate) follow the answer they are under; the
+    # personalized toggle (None: library_ask.personalized_default); the
+    # workbench session the Ask comes from (its item gives assisted_practice).
+    retrieval_intent: Literal["explain", "alternative", "remediate"] = "explain"
+    personalized: bool | None = None
+    workbench_session_id: str | None = None
 
 
 @method("reader.ask", ReaderAskInput)
@@ -119,6 +126,21 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
             f"{provider_label(provider_name)} is unavailable for reader Ask.",
             retryable=True,
         )
+    from learnloop_sidecar.handlers import reader_tutor as RTU
+
+    # RW1c: the question's restriction, derived on the server whatever the
+    # retrieval switch (Codex re-review F2), and the tutor that looks things
+    # up (None while the retrieval switch is off).
+    restricted = RTU.restriction(vault, repository, params)
+    # The workbench binding (its item, guards and accounting) is its own
+    # value, whatever the retrieval switch (fix round 5, R1).
+    binding = RTU.bound_ask(vault, repository, params, restricted)
+    lookup = RTU.build_request(ctx, vault, repository, params, restricted, binding)
+    # A question a workbench session binds to an item reads under
+    # assisted_practice; its tools would read wider, so it writes none there.
+    # During a cold administration -- the client's flag or the server's own
+    # derivation -- every tool is refused (G48, Codex review F2).
+    tools_allowed = not RTU.tools_refused(restricted)
     try:
         result = RD.ask(
             vault,
@@ -140,7 +162,11 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
             learning_object_suggester=suggested_learning_objects,
             # Canonical sources S4: typed tool requests (the Reader spec renders them).
             # None during a cold administration: every tool is refused then (G2).
-            tool_request_handler=None if params.cold_active else _reader_tool_handler(vault),
+            tool_request_handler=_reader_tool_handler(vault) if tools_allowed else None,
+            **({"reader_tutor": lookup} if lookup is not None else {}),
+            **({"reader_binding": binding} if binding is not None else {}),
+            # Stored with the question, so nothing rebuilt from it reads wider.
+            **({"reader_caller": restricted.stored()} if restricted.stored() else {}),
         )
     except QuestionLimitReached as exc:
         raise SidecarError(
@@ -187,11 +213,28 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
     # request; the Reader spec renders it (absent when the offer is off).
     from learnloop_sidecar.handlers.tutor_qa import tutor_practice_request
 
-    practice_request = tutor_practice_request(vault, repository, result["event_id"])
+    # RW1c on (either switch): nothing is offered when the tools are refused,
+    # since the Reader runs a practice request's lookup as the answer lands
+    # (G59); both off, the wire is the base's.
+    practice_request = tutor_practice_request(vault, repository, result["event_id"]) \
+        if tools_allowed or (params.cold_active and not restricted.active) else None
     if result.get("tool_requests"):
         response["tool_requests"] = result["tool_requests"]
         if any(entry.get("tool") == "find_practice" for entry in result["tool_requests"]):
             practice_request = None
+    if "tutor" in result:
+        # RW1c: the answer's modes (absent while reader_tutor.retrieval_enabled is off).
+        response["tutor"] = result["tutor"]
+        RTU.record_excerpt_exposure(repository, result)
+    # No buttons at all during a cold administration (nothing is offered then).
+    cold = restricted.cold
+    offers = None if cold else RTU.offers(vault, repository, result, extraction_id=params.extraction_id)
+    if offers is not None:
+        # RW1c: the Reader's own buttons; and, without the sources service, a
+        # plain "Practice this" on the learner's question (§4.6).
+        if practice_request is None and tools_allowed:
+            practice_request = RTU.fallback_practice_request(vault, params.question, result["event_id"])
+        response["tutor_offers"] = offers
     if practice_request is not None:
         response["practice_request"] = practice_request
     return versioned(response)
@@ -215,8 +258,13 @@ def reader_ask_history(ctx: SidecarContext, params: ReaderAskHistoryInput) -> di
     source_id = _source_id_for_extraction(repository, params.extraction_id)
     if source_id is not None:
         _require_source_reader(repository, source_id)
+    from learnloop_sidecar.handlers import reader_tutor as RTU
+
     return versioned({"exchanges": RD.ask_history(
         repository, extraction_id=params.extraction_id, branches=RD.inquiry_enabled(vault),
+        # RW1c's presentation fields only while the contract enables RW1c
+        # (either switch); both off, the projection is the base's (fix round 5, R4).
+        **({"tutor_views": True} if RTU.retrieval_enabled(vault) or RTU.offers_enabled(vault) else {}),
     )})
 
 
@@ -399,6 +447,29 @@ def reader_prompt_contract(ctx: SidecarContext, _params: ParamsModel) -> dict[st
     from learnloop_sidecar.handlers.library_ask import prompt_contract_fields as library_ask_fields
 
     contract.update(library_ask_fields(vault))
+    # RW1c's tutor that looks things up (absent while both its switches are off).
+    from learnloop_sidecar.handlers.reader_tutor import prompt_contract_fields as reader_tutor_fields
+
+    contract.update(reader_tutor_fields(vault))
+
+    # RW4b's exercises from my sources (absent while its switch is off).
+    from learnloop_sidecar.handlers.library_exercises import prompt_contract_fields as library_exercise_fields
+
+    contract.update(library_exercise_fields(vault))
+
+    # RW4d's kept comparisons (absent while reader_compare.keep_enabled is off).
+    from learnloop_sidecar.handlers.kept_comparisons import prompt_contract_fields as kept_comparison_fields
+
+    contract.update(kept_comparison_fields(vault))
+
+    # RW7a's reading paths in the Guide (absent while reading_paths.enabled is off).
+    from learnloop_sidecar.handlers.reading_paths import prompt_contract_fields as reading_path_fields
+
+    contract.update(reading_path_fields(vault))
+    # RW5a's explorable figures (absent while figures.enabled is off).
+    from learnloop_sidecar.handlers.figures import prompt_contract_fields as figure_fields
+
+    contract.update(figure_fields(vault))
     return versioned(contract)
 
 
@@ -554,7 +625,18 @@ def reader_guide_plan(ctx: SidecarContext, params: ReaderGuidePlanInput) -> dict
     # Reader workbench RW3a: the plan's own misunderstanding passages as margin
     # cues, within the learner's choices. Switched off, the plan is unchanged.
     if RCU.cues_enabled(vault):
-        plan["cues"] = RCU.guide_cues(vault, repository, extraction_id=resolved, plan=plan)
+        from learnloop.source_retrieval import passage_cues as PC
+
+        if PC.discovery_enabled(vault):
+            # Reader workbench RW3b: the discovered cues merged with the
+            # Guide's (value order, holdout, budget); kept for the taps and
+            # impressions of this reading. Off, the cues are RW3a's.
+            from learnloop_sidecar.handlers.reader_cue_discovery import remember
+
+            plan["cues"] = PC.merged_cues(vault, repository, extraction_id=resolved, plan=plan)
+            remember(ctx, resolved, plan["cues"], vault=vault, repository=repository)
+        else:
+            plan["cues"] = RCU.guide_cues(vault, repository, extraction_id=resolved, plan=plan)
     return versioned(plan)
 
 
@@ -1067,10 +1149,20 @@ class ReaderSourceObjectsInput(ParamsModel):
     source_id: str
 
 
+#: Every registered RPC that returns source objects (their versions and
+#: citations) and its read path: each goes through the guarded service call
+#: (exam protection, failing closed) and none reads the repository's raw rows.
+#: tests/test_compare_sources_keep.py enumerates the registered handlers of
+#: every entry point against it (Codex verify of RW4d fix round 2, F2).
+SOURCE_OBJECT_READ_PATHS: dict[str, str] = {"reader.source_objects": "SO.source_objects_for_source(vault, ...)"}
+
+
 @method("reader.source_objects", ReaderSourceObjectsInput)
 def reader_source_objects(ctx: SidecarContext, params: ReaderSourceObjectsInput) -> dict[str, Any]:
-    _vault, repository = _require_reader(ctx)
-    return versioned({"source_objects": SO.source_objects_for_source(repository, source_id=params.source_id)})
+    vault, repository = _require_reader(ctx)
+    # Exam protection, fail closed: an object whose material is held out now is
+    # not returned (its quotes, content and citations; the rows stay).
+    return versioned({"source_objects": SO.source_objects_for_source(vault, repository, source_id=params.source_id)})
 
 
 class ReaderReviewSourceObjectInput(ParamsModel):
@@ -1118,8 +1210,9 @@ class ReaderProposalInboxInput(ParamsModel):
 
 @method("reader.proposal_inbox", ReaderProposalInboxInput)
 def reader_proposal_inbox(ctx: SidecarContext, params: ReaderProposalInboxInput) -> dict[str, Any]:
-    _vault, repository = _require_reader(ctx)
-    return versioned(SO.proposal_inbox(repository, status=params.status, source_object_id=params.source_object_id))
+    vault, repository = _require_reader(ctx)
+    return versioned(SO.proposal_inbox(vault, repository, status=params.status,
+                                       source_object_id=params.source_object_id))
 
 
 class ReaderDecideProposalInput(ParamsModel):

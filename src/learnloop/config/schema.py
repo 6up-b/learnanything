@@ -1364,6 +1364,47 @@ class AIRoutingConfig(BaseModel):
     ad_forecast_llm: str | None = None
     ad_forecast_decider: str | None = None
     ad_feature_audit: str | None = None
+    # Reader workbench RW2b (spec_reader_workbench_v1 §5.2, §5.8): "Check my
+    # work", one structured chat call on the request path (step verdicts,
+    # the step graph, the map node each valid step reaches, the error-kind
+    # guess, the declared symbolic checks). Empty = ai.active_provider.
+    # Codex runs it on the owner's subscription (estimated_only, fix round 1,
+    # F12; the spec's D7 recommends a ChatGPT-plan or fast OpenRouter profile
+    # for latency, reported, not enforced). A metered profile is held to workbench.max_daily_cost_usd at
+    # workbench.price_per_million (unset: refused before sending).
+    workbench_check: str | None = None
+    # Reader workbench RW3b (spec_reader_workbench_v1 §6.2, §6.4): the cue
+    # judge, one listwise call per cue target (a verdict, a quote and the
+    # instructional roles per passage), in the background when a source opens
+    # (never on a request path). Empty = ai.active_provider (Codex by default,
+    # estimated_only); a metered route needs
+    # source_retrieval.llm_price_per_million and is held to
+    # cues.max_daily_cost_usd, or the judgment is skipped and labelled.
+    passage_cue_judge: str | None = None
+    # Reader workbench RW4e (spec_reader_workbench_v1 §7.9): the owner-run
+    # batch role labeller (`learnloop reader label-roles`), one listwise call
+    # per batch of a source's passages in reading order (instructional roles
+    # with a confidence, written as source-object proposals). Never on a
+    # request path. Empty = ai.active_provider (Codex is estimated_only); a
+    # metered route needs source_retrieval.llm_price_per_million and is held
+    # to roles.batch_max_cost_usd per run, checked before each batch.
+    role_labeller: str | None = None
+    # Reader workbench RW7a (spec_reader_workbench_v1 §10.1): the reading-path
+    # judge, one structured call per source and depth over the section list
+    # (labels, roles, the linked LOs' statuses, the depth and the goal's
+    # title), cached by its state key. Empty = ai.active_provider (Codex is
+    # estimated_only); a metered route needs
+    # source_retrieval.llm_price_per_million and is held to
+    # reading_paths.max_daily_cost_usd, checked before the call.
+    reading_path_judge: str | None = None
+    # Reader workbench RW5a (spec_reader_workbench_v1 §8.5): explorable
+    # figures. figure_author writes the declarative figure spec (a chat route;
+    # a region or figure block sends its crop as an image when the profile
+    # lists "image" in input_modalities). RW5a has no verifier route: the
+    # source check is RW5c's. Empty = ai.active_provider (Codex allowed,
+    # estimated_only). Metered calls are held to figures.max_daily_cost_usd at
+    # figures.price_per_million (unset: refused before sending).
+    figure_author: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -2087,12 +2128,41 @@ class CuesConfig(BaseModel):
     remembered here so it holds across devices. ``one_per_viewport`` keeps at
     most one mark per screenful at every density (off: the per-section budget
     alone). ``off_sources`` are the books the learner switched cues off for.
+
+    Reader workbench RW3b (discovered cues, §6.2 items 1-6): with
+    ``discovery_enabled``, passages the Guide's citations miss are found per
+    target (a durable misconception, an open hypothesis, a named learner-text
+    gap, a demonstrated facet) through T6 retrieval over the open source and
+    one listwise judgment per target (``ai.routing.passage_cue_judge``, ledger
+    task ``passage_cue``), in the background when a source opens, at most
+    ``max_calls_per_source_open`` judge calls per open,
+    ``max_calls_per_source_per_day`` judge calls per source per rolling 24
+    hours (UTC) over every open (counted from the durable receipts, the
+    subscription's included; Codex verify F16; the name says "day", the
+    window is a rolling 24 hours so no timezone or DST rule moves it) and ``max_daily_cost_usd`` metered a UTC day
+    (Codex is ``estimated_only``).
+    ``try_first_enabled``: the judge's "try this step first" offers on worked
+    examples and derivations (pressing one opens RW1b's next-step question).
+    ``value_order_enabled``: cues are ordered by the probability their target
+    is still open, then the judge's rank, Guide first on ties (off: the
+    Guide's order, discovered cues after). ``holdout_rate``: the share of
+    eligible discovered cues withheld at random, seed and propensity logged
+    (0 turns the holdout off; Guide cues are never held out). Display only:
+    nothing here reaches evidence, mastery, grading or serving, so no
+    algorithm successor.
     """
 
     enabled: bool = True
     density: Literal["off", "fewer", "normal", "more"] = "normal"
     one_per_viewport: bool = True
     off_sources: list[str] = Field(default_factory=list)
+    discovery_enabled: bool = True
+    try_first_enabled: bool = True
+    value_order_enabled: bool = True
+    holdout_rate: float = Field(default=0.1, ge=0.0, lt=1.0)
+    max_calls_per_source_open: int = Field(default=12, ge=0)
+    max_calls_per_source_per_day: int = Field(default=36, ge=0)
+    max_daily_cost_usd: float = Field(default=0.5, ge=0.0)
 
 
 class WorkbenchConfig(BaseModel):
@@ -2112,6 +2182,48 @@ class WorkbenchConfig(BaseModel):
 
     enabled: bool = True
     open_session_days: int = Field(default=30, ge=1)
+    #: RW2b (spec §5.2-5.5, §5.9): "Check my work", the help ladder and its
+    #: hints through the one hint service (adaptive hints H3). Off: RW2a only
+    #: (no check, no ladder; every RW2a RPC byte-identical).
+    help_enabled: bool = True
+    #: Declared symbolic checks run in the PF-b sandbox (§5.3); off, every
+    #: verdict is the model's reading and the sandbox is never invoked.
+    #: Off by default (RW2b fix round 9, the orchestrator's decision): a
+    #: LaTeX-text checker could not be made to agree with what KaTeX displays;
+    #: on again once the renderer-equivalent (MathML) checker lands, or by the
+    #: owner knowing the limits recorded in the RW2b review.
+    symbolic_checks_enabled: bool = False
+    #: Off: ``discriminating`` is never among the workbench's options and
+    #: rung 1 is an ordinary question (§5.9).
+    discriminate_enabled: bool = True
+    #: Off: no error-kind guess is shown or traced (§5.9).
+    error_kind_enabled: bool = True
+    #: "Compare with the book" under a hint in the Reader (§5.2 bridging): a
+    #: background passage lookup through T6's practice context.
+    bridge_enabled: bool = True
+    #: RW2c (spec §5.10): what helps this learner. The help-outcome lines (a
+    #: pure read of the ledgers) given to the hint writer and the chooser;
+    #: off, both get the request they got before RW2c.
+    help_outcomes_enabled: bool = True
+    #: The worked example that takes the learner's route (the sources spec's
+    #: ``worked_example`` intent): after a level-3+ hint and on "Show me a
+    #: similar example". Absent when the sources spec's S3 is not available.
+    examples_enabled: bool = True
+    #: "Compare with the book's method" after a correct Submit (the reference
+    #: read by id, recorded as a reveal on the item before it is shown).
+    compare_methods_enabled: bool = True
+    #: The logged draw between two or more passages that all passed the judge
+    #: (bridge, worked example); off, the first passage is shown as before.
+    passage_draw_enabled: bool = True
+    #: The workbench's own calls (checks, bridges, examples, comparisons) per problem: a money cap
+    #: counted in calls (§5.8). Hint calls are the hint service's (C8).
+    max_calls_per_session: int = Field(default=24, ge=1)
+    #: The workbench's own metered spend a UTC day (§5.8).
+    max_daily_cost_usd: float = Field(default=1.0, ge=0)
+    #: The owner's price (USD per million tokens) for a METERED
+    #: ``ai.routing.workbench_check`` profile; unset, a metered check is
+    #: refused before it is sent. Codex needs none (estimated_only).
+    price_per_million: float | None = Field(default=None, gt=0)
 
 
 class RecapConfig(BaseModel):
@@ -2233,6 +2345,91 @@ class LibraryAskConfig(BaseModel):
     max_daily_cost_usd: float = Field(default=1.0, ge=0.0)
 
 
+class ReaderTutorConfig(BaseModel):
+    """Reader workbench RW1c: a tutor that looks things up (spec_reader_workbench_v1 §4.6).
+
+    ``retrieval_enabled``: Ask in the Reader retrieves from the learner's
+    books on its own (the sources service's ``find_sources`` with verification
+    under the Reader caller's derived policy, after the selection and its
+    neighbours), answers in three labelled modes (a quote-verified "From your
+    books" excerpt, a grounded explanation, a bridge to the learner's work),
+    says so when the books don't cover the question, and offers "another
+    way" (intent ``alternative``) and "that didn't help" (intent
+    ``remediate``). Off: today's selection-and-neighbours tutor, byte for byte.
+    ``offers_enabled``: the buttons under an answer (the sources service's
+    practice request and tool requests, fetched when the answer lands and
+    shown only when pressed, and "Try the next step first" on a cited
+    derivation or worked example). Off: no buttons under answers in the
+    Reader. Retrieval is context and display, buttons are learner picks (T6's
+    ruling): nothing in scoring, scheduling, projection or serving reads
+    either, so no algorithm successor. A Reader question asked inside a
+    workbench session bound to an item is stored on that item and practice
+    session, so the existing question hint-equivalents and reveals carry it
+    to the attempt, with their existing meaning. The sources service's
+    ``source_service.tutor_tools`` gates the tutor's requests themselves.
+    """
+
+    retrieval_enabled: bool = True
+    offers_enabled: bool = True
+
+
+class LibraryExercisesConfig(BaseModel):
+    """Reader workbench RW4b: exercises from my sources (spec_reader_workbench_v1 §7.4, §7.7).
+
+    ``enabled``: the Reader's view of the sources service's textbook-exercise
+    candidates wherever it lists practice proposals (RW4a's "practice this
+    question"): the verbatim statement, source and page, "open in the book",
+    "use this one" (the sources service's import, inside the workbench) and
+    the key's honest status, with the sources service's exposure rule
+    (``instructional/exposure.py``) labelling a candidate the learner has
+    already seen, which is then never offered as a check on your own. Off:
+    the Reader's practice proposals render exactly as before RW4b and the
+    RPCs refuse. ``fallback_enabled``: the learner-initiated "find an
+    exercise in my sources" when ``find_practice`` finds nothing
+    (``find_sources`` over the question's learning objects, exercise blocks
+    of the teaching scope only, imported with the Reader's own
+    ``import_exercises``). The spec retires it once the sources service's
+    candidates are live, which they are, so it defaults off (§7.4). Both are
+    kill switches over display and a learner's own pick: nothing in scoring,
+    scheduling, projection or serving reads them, so no algorithm successor.
+    """
+
+    enabled: bool = True
+    fallback_enabled: bool = False
+
+
+class FiguresConfig(BaseModel):
+    """Reader workbench RW5a: explorable figures (spec_reader_workbench_v1 §8, §8.6).
+
+    ``enabled``: "make this explorable" on a selected equation, figure block
+    or passage builds a declarative figure spec (route ``figure_author``),
+    verifies it before it shows (structure, invariants and shaded areas; RW5a
+    makes no source claim: every figure is an illustration, the source check
+    is RW5c's), and draws it inline under its passage. Off: the Reader is exactly
+    as before RW5a, the RPCs refuse and no route is called.
+    ``predictions_enabled``: one prediction before the first change, the
+    observed before/after readout and "what changed?" (formative; a missed
+    one is a ``reader_formative`` learner text). ``region_enabled``: a
+    Ctrl+drag region of a figure on the original page, of which only the crop
+    is sent. ``revisions_enabled``: "not right?" asks for a new version with
+    the learner's note (the earlier one is kept).
+
+    Caps (money, W4): two author attempts per request; ``max_daily_cost_usd``
+    meters the author route's metered spend a UTC day at
+    ``price_per_million`` (unset: a metered route is refused before sending;
+    Codex is ``estimated_only``). Content and formative only: nothing in
+    scoring, scheduling, projection or serving reads these keys, so no
+    algorithm successor (§8.6).
+    """
+
+    enabled: bool = True
+    predictions_enabled: bool = True
+    region_enabled: bool = True
+    revisions_enabled: bool = True
+    max_daily_cost_usd: float = Field(default=1.0, ge=0)
+    price_per_million: float | None = Field(default=None, gt=0)
+
+
 class ReaderCompareConfig(BaseModel):
     """Reader workbench RW4a: compare pinned passages (spec_reader_workbench_v1 §7.3).
 
@@ -2240,11 +2437,75 @@ class ReaderCompareConfig(BaseModel):
     (whose own switch is ``source_service.compare`` and whose bounds are
     ``source_service.compare_max_prompt_tokens`` / ``compare_max_cost_usd``):
     a table with one row per source, each cell a quote-verified line, no
-    consensus. Display only until RW4d's keep. ``enabled`` is the kill switch:
-    off, no compare action and the RPC refuses.
+    consensus. ``enabled`` is the kill switch: off, no compare action and the
+    RPC refuses.
+
+    RW4d (§7.8): ``keep_enabled`` is the kill switch of "Keep this
+    comparison" (the kept claims and relations as source-object proposals,
+    the learner's own take, ``⇄`` marks, requested perspectives and Keep on
+    the tutor's comparison). Proposals and display only: nothing becomes a
+    concept edge, facet merge, prerequisite, LO change or evidence. Off, the
+    compare display is RW4a's exactly and the keep RPCs refuse.
     """
 
     enabled: bool = True
+    keep_enabled: bool = True
+
+
+class RolesConfig(BaseModel):
+    """Reader workbench RW4e: instructional roles (spec_reader_workbench_v1 §7.9).
+
+    The Reader's own judges (the library organizer, ``ai.routing.library_organizer``,
+    and the cue judge, ``ai.routing.passage_cue_judge``) propose each passage
+    they judge one or more instructional roles (definition, theorem,
+    explanation, intuition, worked example, exercise, figure, counterexample,
+    contrast, prerequisite, alternative treatment, application), each with a
+    confidence, at no extra call; they are stored as ``source_objects``
+    proposals (authorship ``ai``, status ``proposed``, one citation each).
+    ``on_demand_enabled`` is the kill switch of those writes: off, both judges'
+    requests and outputs are RW4a's and RW3b's exactly and nothing is written.
+    ``positive_filter_enabled`` is the kill switch of every use: the sources
+    service's ``find_sources(roles=...)`` and intent lists matching the
+    proposals as well as ingest's ``role_hint`` (low confidence only when
+    nothing better exists), RW3b preferring contrast and counterexample
+    passages for distinction cues, and library answers grouped by a
+    proposed role labelled "model's label"; off, proposals are ignored and
+    ingest's roles alone apply. ``batch_max_cost_usd`` caps one run of the
+    owner-run batch labeller (``learnloop reader label-roles``, route
+    ``ai.routing.role_labeller``), checked before each batch call (metered
+    routes; Codex is ``estimated_only``). Roles add, never exclude: ingest's
+    ``role_hint`` and item links stay the authority for exclusions. Labels on
+    sources only: nothing in scoring, scheduling, projection or serving reads
+    them, so no algorithm successor.
+    """
+
+    on_demand_enabled: bool = True
+    positive_filter_enabled: bool = True
+    batch_max_cost_usd: float = Field(default=5.0, ge=0.0)
+
+
+class ReadingPathsConfig(BaseModel):
+    """Reader workbench RW7a: reading paths in the Guide (spec_reader_workbench_v1 §10.1).
+
+    At the depth the learner picks for a source (get the idea, learn to use
+    it, fluency; DL2's intent on the source preselects it, display-level
+    only), the Guide's path card labels each section core, prerequisite,
+    enrichment, already shown or assumed with a one-line why, read it anyway
+    / skip it, one exercise worth trying per core section and a suggested
+    next activity composed without a model. The labels come from one call
+    per source and depth (``ai.routing.reading_path_judge``), cached by the
+    depth, the section list and the linked LOs' statuses; "already shown"
+    stands only when every LO the section teaches is demonstrated and
+    "assumed" only with an open assumption, enforced in code. ``enabled`` is
+    the kill switch (off: today's Guide, no call, every RPC refused).
+    ``max_daily_cost_usd`` caps a metered judge route a UTC day (checked
+    before the call; Codex is ``estimated_only``). Display only: nothing in
+    scoring, scheduling, projection or serving reads a path, so no algorithm
+    successor (RW7b, the plan following the path, is a later stage).
+    """
+
+    enabled: bool = True
+    max_daily_cost_usd: float = Field(default=0.5, ge=0.0)
 
 
 class LearnerTextGapsConfig(BaseModel):
@@ -2860,6 +3121,63 @@ class PlanConfig(BaseModel):
         return self
 
 
+#: §5.3 (Q8, accepted 2026-10-12; the owner may override at DL2's checkpoint):
+#: the recall target each depth preset is maintained at, and the uncommitted one.
+DEFAULT_RECALL_TARGETS: dict[str, float] = {
+    "keep_in_touch": 0.80,
+    "remember_key_ideas": 0.85,
+    "work_fluently": 0.90,
+    "master_tasks_like_these": 0.92,
+    "uncommitted": 0.90,
+}
+
+
+class IntentConfig(BaseModel):
+    """Daily-loop DL2: intent (``spec_daily_loop_v1.md`` §5, §11).
+
+    The successor ``mvp-0.29`` behind its kill switches (the DL2 Codex
+    re-review F2: intent changes which items are served as measurements, the
+    2026-10-17 rule; ``docs/reviews/daily-loop-dl2-codex-review.md``): intent is
+    read only when serving, and ``due_at``, FSRS state, evidence and every
+    projection are unchanged. Below the tag these keys are inert.
+
+    ``enabled`` off restores serving exactly as before DL2: commitments are read
+    only for requested items (and staged-owned runs). With it on and no
+    commitment, serving is today's too (every item uncommitted, target 0.90,
+    whose ratio is exactly 1). ``recall_targets_enabled`` off keeps the
+    resolution (exclusion, "Check once", push, admission, re-entry) but serves
+    every item at its stored ``due_at``.
+    """
+
+    enabled: bool = True
+    recall_targets_enabled: bool = True
+    recall_targets: dict[str, float] = Field(default_factory=lambda: dict(DEFAULT_RECALL_TARGETS))
+
+    @model_validator(mode="after")
+    def _targets_are_probabilities(self) -> "IntentConfig":
+        missing = sorted(set(DEFAULT_RECALL_TARGETS) - set(self.recall_targets))
+        if missing:
+            raise ValueError(f"intent.recall_targets is missing {', '.join(missing)}")
+        unknown = sorted(set(self.recall_targets) - set(DEFAULT_RECALL_TARGETS))
+        if unknown:
+            raise ValueError(f"intent.recall_targets has unknown keys: {', '.join(unknown)}")
+        for key, value in self.recall_targets.items():
+            if not 0.5 <= float(value) <= 0.99:
+                raise ValueError(f"intent.recall_targets.{key} must be in [0.5, 0.99]")
+        return self
+
+
+class CaptureConfig(BaseModel):
+    """Daily-loop capture settings (``spec_daily_loop_v1.md`` §10).
+
+    DL2 adds only ``test_me_later_days``: when a "Check once" (the control's,
+    or any ``test_me_later`` commitment without a ``due_hint``) comes due. DL3
+    adds the capture box and processor keys to this section.
+    """
+
+    test_me_later_days: int = Field(default=7, ge=0, le=365)
+
+
 class RouterWeights(BaseModel):
     """The model mixture's component weights (D1: one third each). Normalized
     before use; a model that fails or is not set up gives its weight to
@@ -3066,9 +3384,16 @@ class UiConfig(BaseModel):
     step, the rest behind *details*; ``"classic"`` restores the screens as they
     were before Phase 4 exactly (owner ruling: live changes behind kill
     switches, no shadow stage).
+
+    ``shell`` is the kill switch of UX Phase 2 (the shell, §5, Q17):
+    ``"simple"`` is the four places (Today, Library, Reader, Progress) with
+    *+ Add*, the palette and *⋯*, the demoted screens under the hood, and the
+    notice system; ``"classic"`` keeps the ten-tab shell exactly as it was
+    (meant to stay selectable for a month after Phase 2 lands).
     """
 
     practice_feedback: Literal["simple", "classic"] = "simple"
+    shell: Literal["simple", "classic"] = "simple"
 
 
 class EligibilityConfig(BaseModel):
@@ -3261,6 +3586,8 @@ class LearnLoopConfig(BaseModel):
     router: RouterConfig = Field(default_factory=RouterConfig)
     pf: PFConfig = Field(default_factory=PFConfig)
     plan: PlanConfig = Field(default_factory=PlanConfig)
+    intent: IntentConfig = Field(default_factory=IntentConfig)
+    capture: CaptureConfig = Field(default_factory=CaptureConfig)
     capabilities: CapabilitiesConfig = Field(default_factory=CapabilitiesConfig)
     locks: LocksConfig = Field(default_factory=LocksConfig)
     error_impacts: dict[str, ErrorImpact] = Field(default_factory=dict)
@@ -3283,7 +3610,12 @@ class LearnLoopConfig(BaseModel):
     reader_active_reading: ReaderActiveReadingConfig = Field(default_factory=ReaderActiveReadingConfig)
     reader_formative: ReaderFormativeConfig = Field(default_factory=ReaderFormativeConfig)
     library_ask: LibraryAskConfig = Field(default_factory=LibraryAskConfig)
+    library_exercises: LibraryExercisesConfig = Field(default_factory=LibraryExercisesConfig)
+    figures: FiguresConfig = Field(default_factory=FiguresConfig)
     reader_compare: ReaderCompareConfig = Field(default_factory=ReaderCompareConfig)
+    roles: RolesConfig = Field(default_factory=RolesConfig)
+    reading_paths: ReadingPathsConfig = Field(default_factory=ReadingPathsConfig)
+    reader_tutor: ReaderTutorConfig = Field(default_factory=ReaderTutorConfig)
     proof_check: ProofCheckConfig = Field(default_factory=ProofCheckConfig)
     voi_stopping: VoiStoppingConfig = Field(default_factory=VoiStoppingConfig)
     adaptive_difficulty: AdaptiveDifficultyConfig = Field(default_factory=AdaptiveDifficultyConfig)

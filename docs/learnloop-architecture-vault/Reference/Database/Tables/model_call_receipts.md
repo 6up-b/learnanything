@@ -3,13 +3,13 @@ title: "model_call_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_call_receipts"
   - "table model_call_receipts"
-schema_head: 214
+schema_head: 217
 table_name: "model_call_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -19,14 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/160_model_call_receipts.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/cli/receipts.py"
   - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/db/stores/ingest_queue.py"
   - "src/learnloop/db/stores/learner_gaps.py"
   - "src/learnloop/db/stores/model_calls.py"
   - "src/learnloop/db/stores/practice_index.py"
+  - "src/learnloop/db/stores/source_service.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -127,9 +126,11 @@ None found by exact static reference scan.
 - `src/learnloop/hints/map_report.py`
 - `src/learnloop/hints/report_adaptive.py`
 - `src/learnloop/ops/pf_reports.py`
+- `src/learnloop/source_retrieval/passage_cues.py`
 - `src/learnloop/source_retrieval/timing.py`
 - `src/learnloop/substrate/data_quality.py`
 - `src/learnloop/substrate/model_usage.py`
+- `src/learnloop/workbench/check.py`
 
 ### Direct SQL writers
 
@@ -151,8 +152,6 @@ None found by exact static reference scan.
 - `tests/test_ad1_fix_round7.py`
 - `tests/test_ad1_fix_round8.py`
 - `tests/test_ad1_send_guard.py`
-- `tests/test_ad_guard.py`
-- `tests/test_ad_protected_tables.py`
 - `tests/test_ai_compare.py`
 - `tests/test_approach_maps.py`
 - `tests/test_chatgpt_plan_provider.py`
@@ -164,6 +163,8 @@ None found by exact static reference scan.
 - `tests/test_embedding_backfill.py`
 - `tests/test_facet_identity_composition.py`
 - `tests/test_family_proposals.py`
+- `tests/test_figures_rpc.py`
+- `tests/test_graph_nomination.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -10,11 +10,12 @@
 // check at its top, and the inquiry keys (↑ ↓ move · ↵ expand · f follow-up ·
 // r resolved / done · o reopen · p show passage).
 import type { KeyboardEvent, ReactNode } from "react";
-import type { InquiryResolution, ReaderAnswerMode, TutorCitationDto } from "../../api/dto";
+import type { InquiryResolution, ReaderAnswerMode, ReaderTutorViewDto, TutorCitationDto } from "../../api/dto";
 import { COLOR, Card, Faint, FONT_MONO, Pill } from "../../components/term";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { answerModeLabel } from "./readerShared";
-import { LearnerVoice, MeaningLabel, ModelVoice, SourceVoice } from "./voices";
+import { TutorAnswer, type ExchangeOffers, type TutorRailProps } from "./TutorAnswer";
+import { LearnerVoice, MeaningLabel, SourceVoice } from "./voices";
 
 export interface ReaderExchange {
   id: string;
@@ -34,6 +35,10 @@ export interface ReaderExchange {
   /** RW1a: the exchange's tutor question and its learner-owned resolution. */
   questionEventId?: string | null;
   resolution?: InquiryResolution | null;
+  /** RW1c: the answer's modes (absent while reader_tutor.retrieval_enabled is off). */
+  tutor?: ReaderTutorViewDto | null;
+  /** RW1c: the offers a freshly landed answer carries (never restored from history). */
+  offers?: ExchangeOffers | null;
 }
 
 export type InquiryCommitment = "test_me_later" | "help_me_remember";
@@ -55,6 +60,8 @@ interface Props {
   committed?: (root: ReaderExchange) => Set<InquiryCommitment>;
   /** RW1a: what shows at the top of an inquiry (its reconnect line and quick check). */
   renderInquiryTop?: (root: ReaderExchange) => ReactNode;
+  /** RW1c: another way, that didn't help and the offers (absent while reader_tutor is off). */
+  tutor?: TutorRailProps;
 }
 
 const STATUS_WORDS: Record<InquiryResolution, string> = { open: "open", resolved: "resolved", dismissed: "dismissed" };
@@ -72,6 +79,7 @@ export function ReaderAskBranches({
   onCommit,
   committed,
   renderInquiryTop,
+  tutor,
 }: Props) {
   const byId = new Map(exchanges.map((exchange) => [exchange.id, exchange]));
   const children = new Map<string | null, ReaderExchange[]>();
@@ -208,9 +216,7 @@ export function ReaderAskBranches({
                 <blockquote style={{ margin: 0, fontSize: 11, color: COLOR.textDim }}>{exchange.selectionQuoteMd}</blockquote>
               </SourceVoice>
             ) : null}
-            <ModelVoice first>
-              <MarkdownMath value={exchange.answerMd} />
-            </ModelVoice>
+            <TutorAnswer exchange={exchange} tutor={tutor} />
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               <button type="button" onClick={() => onShowPassage(exchange.spanId)} style={buttonStyle}>show passage</button>
               <button type="button" disabled={busy} onClick={() => onFollowUp(exchange)} style={buttonStyle}>ask follow-up</button>
@@ -223,6 +229,13 @@ export function ReaderAskBranches({
               ) : null}
               {exchange.citations.map((citation, index) => citation.extractionId === exchange.extractionId ? (
                 <button type="button" key={index} onClick={() => onShowPassage(citation.spanId)} style={buttonStyle}>
+                  <span aria-hidden="true">§ </span>source: {citation.label || citation.spanId}
+                </button>
+              ) : citation.sourceId && tutor?.onOpenPassage ? (
+                // RW1c (Codex review F9): a passage from another book opens there.
+                <button type="button" key={index} data-open-citation="" style={buttonStyle} onClick={() => tutor.onOpenPassage?.({
+                  extractionId: citation.extractionId, spanId: citation.spanId, sourceId: citation.sourceId,
+                })}>
                   <span aria-hidden="true">§ </span>source: {citation.label || citation.spanId}
                 </button>
               ) : <span key={index}>{citation.label || citation.spanId}</span>)}

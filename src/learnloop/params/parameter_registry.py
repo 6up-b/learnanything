@@ -957,6 +957,50 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "days before an untouched open workbench problem shows as unfinished; a display limit, no "
         "measurement, scheduling or serving authority (nothing is closed automatically)."),
+    # Reader workbench RW2b: the workbench's own calls ("Check my work", the
+    # bridge to the book) per problem, their metered spend a UTC day and the
+    # owner's price for a metered check route (verdicts are help, recorded in
+    # help_assists; a shown check reaches the attempt only through hints_used
+    # with its existing meaning).
+    _ConfigRule(_exact(
+        "workbench.max_calls_per_session",
+        "workbench.max_daily_cost_usd",
+        "workbench.price_per_million",
+    ), "structural", "operational",
+        "the workbench's own model calls per problem / their metered spend a UTC day / the owner's price "
+        "for a metered check route; money bounds, no measurement authority (a check never grades)."),
+    # Reader workbench RW2b: the kill switches of "Check my work" and the help
+    # ladder and its parts (fix round 1, F11: booleans, so Inventory A's
+    # numeric walk never reaches them; classified here so every new key has
+    # a rule). Off restores RW2a or drops the part; a shown check or hint
+    # reaches the attempt only through hints_used / primed with their
+    # existing meaning, so none changes a measurement.
+    _ConfigRule(_exact(
+        "workbench.help_enabled",
+        "workbench.symbolic_checks_enabled",
+        "workbench.discriminate_enabled",
+        "workbench.error_kind_enabled",
+        "workbench.bridge_enabled",
+    ), "structural", "operational",
+        "kill switches for the workbench's checks and help ladder / the sandboxed symbolic checks / the "
+        "discriminating question / the error-kind guess / the bridge to the book; on-off availability of "
+        "help, no measurement, scheduling or serving authority."),
+    # Reader workbench RW2c (what helps this learner, spec §5.10): the kill
+    # switches of the help-outcome lines (a pure read given to the hint writer
+    # and chooser as context), the worked example in the learner's route,
+    # "Compare with the book's method" (a reveal of an existing kind on the
+    # item, with its existing meaning) and the logged draw between passages
+    # that all passed the judge. Context, display and learner picks: none
+    # changes a measurement.
+    _ConfigRule(_exact(
+        "workbench.help_outcomes_enabled",
+        "workbench.examples_enabled",
+        "workbench.compare_methods_enabled",
+        "workbench.passage_draw_enabled",
+    ), "structural", "operational",
+        "kill switches for the help-outcome lines given to the hint writer and chooser / the worked example "
+        "in the learner's route / compare methods after a correct Submit / the logged passage draw; context, "
+        "display and learner picks, no measurement, scheduling or serving authority."),
     # Reader workbench RW1b: the intent box's router (one Decider choice per
     # routing; verdicts go to judgment_ledger, never evidence): the typing
     # pause before a speculative routing, the routing's deadline and the
@@ -977,6 +1021,132 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "the library answer's organizer's metered spend a UTC day; a money bound, no measurement "
         "authority (its notes are display only)."),
+    # Reader workbench RW1c: the Reader tutor's kill switches (booleans, so
+    # Inventory A's numeric walk never reaches them; classified here so every
+    # new key has a rule). Retrieval is context and display, the offers are
+    # learner picks; off restores today's selection-and-neighbours tutor and
+    # no buttons. A Reader question asked inside a workbench session bound to
+    # an item is stored on that item and practice session (Codex review F1),
+    # so it reaches the attempt only through the existing fields: the
+    # submit's question hint-equivalents and tutor_answer / source_review
+    # reveals on key overlap of everything it showed.
+    _ConfigRule(_exact(
+        "reader_tutor.retrieval_enabled",
+        "reader_tutor.offers_enabled",
+    ), "structural", "operational",
+        "kill switches for the Reader tutor's retrieval, answer modes, abstention, another way and that "
+        "didn't help / the offer buttons under its answers; context and display, no measurement, scheduling "
+        "or serving authority."),
+    # Reader workbench RW4b: the kill switches of the textbook-exercise view and
+    # of its retired fallback search (booleans, so Inventory A's numeric walk
+    # never reaches them; classified here so every new key has a rule, as
+    # RW2b's fix round 1 F11 did). The view only displays the sources
+    # service's candidates and hands a learner's pick to its existing import
+    # and pick paths, so neither changes a measurement.
+    _ConfigRule(_exact(
+        "library_exercises.enabled",
+        "library_exercises.fallback_enabled",
+    ), "structural", "operational",
+        "kill switches for the Reader's view of textbook-exercise candidates / the learner-initiated fallback "
+        "search; on-off availability of display and of the existing import path, no measurement, scheduling "
+        "or serving authority."),
+    # Reader workbench RW3b: discovered cues. The switches are booleans
+    # (classified so every new key has a rule); the holdout rate is the
+    # display experiment's logged draw (a withheld cue is only not shown; its
+    # seed and propensity are receipts, never evidence); the call cap and the
+    # metered daily spend bound the background cue judge.
+    _ConfigRule(_exact(
+        "cues.discovery_enabled",
+        "cues.try_first_enabled",
+        "cues.value_order_enabled",
+    ), "structural", "operational",
+        "kill switches for discovered margin cues / their try-this-step-first offers / their value order; "
+        "display only, no measurement, scheduling or serving authority."),
+    _ConfigRule(_exact(
+        "cues.holdout_rate",
+        "cues.max_calls_per_source_open",
+        "cues.max_calls_per_source_per_day",
+        "cues.max_daily_cost_usd",
+    ), "structural", "operational",
+        "the share of eligible discovered margin cues withheld at random (seed and propensity logged) / the "
+        "cue judge's calls per source open / its calls per source per rolling 24 hours, over every open, counted from "
+        "the durable receipts / its metered spend a UTC day; a display experiment and spend bounds, no "
+        "measurement authority (cues are display only)."),
+    # Reader workbench RW4d: the kill switch of "Keep this comparison" (a
+    # boolean, so Inventory A's numeric walk never reaches it; classified here
+    # so every new key has a rule). Keep writes source-object proposals (P3
+    # §7) and the learner's own take; nothing reads them for grading,
+    # scheduling, serving, replay or evidence, and nothing becomes a concept
+    # edge, facet merge, prerequisite or LO change.
+    _ConfigRule(_exact(
+        "reader_compare.keep_enabled",
+    ), "structural", "operational",
+        "kill switch for keeping a source comparison as source-object proposals (with the learner's take, "
+        "the kept-comparison mark and requested perspectives); proposals and display, no measurement, "
+        "scheduling or serving authority."),
+    # Reader workbench RW4e: instructional roles. The switches are booleans
+    # (classified so every new key has a rule): the judges' role proposals
+    # (source-object proposals, never evidence) and their positive use in
+    # retrieval, cue shortlists and library grouping (roles add, never
+    # exclude); the batch labeller's per-run spend bound.
+    _ConfigRule(_exact(
+        "roles.on_demand_enabled",
+        "roles.positive_filter_enabled",
+    ), "structural", "operational",
+        "kill switches for the Reader judges' instructional-role proposals / their positive use in retrieval, "
+        "cue shortlists and library grouping; labels on sources, no measurement, scheduling or serving "
+        "authority (roles never exclude)."),
+    _ConfigRule(_exact(
+        "roles.batch_max_cost_usd",
+    ), "structural", "operational",
+        "the owner-run batch role labeller's metered spend per run, checked before each batch call; a spend "
+        "bound, no measurement authority (role labels are source-object proposals)."),
+    # Reader workbench RW7a: reading paths in the Guide. The switch is a
+    # boolean (classified so every new key has a rule): the Guide's path card
+    # and its judge (display only; labels, overrides and the depth are read
+    # by no plan, scheduling, projection or serving path); the judge's
+    # metered spend a UTC day.
+    _ConfigRule(_exact(
+        "reading_paths.enabled",
+    ), "structural", "operational",
+        "kill switch for the Guide's reading path (section labels, reasons, overrides, one exercise per core "
+        "section, the suggested next line) and its judge call; display only, no measurement, scheduling or "
+        "serving authority (no algorithm successor)."),
+    _ConfigRule(_exact(
+        "reading_paths.max_daily_cost_usd",
+    ), "structural", "operational",
+        "the reading-path judge's metered spend a UTC day, checked before the call; a spend bound, no "
+        "measurement authority (path labels are display only)."),
+    # Reader workbench RW5a: explorable figures. The kill switches (booleans,
+    # so Inventory A's numeric walk never reaches them; classified so every
+    # new key has a rule) and the two routes' metered spend a UTC day and the
+    # owner's price. Figures are content and their predictions formative:
+    # nothing in scoring, scheduling, projection or serving reads them (W1).
+    _ConfigRule(_exact(
+        "figures.enabled",
+        "figures.predictions_enabled",
+        "figures.region_enabled",
+        "figures.revisions_enabled",
+    ), "structural", "operational",
+        "kill switches for explorable figures / their predictions / region selection / \"not right?\" "
+        "versions; on-off availability of content and formative records, no measurement, scheduling or "
+        "serving authority."),
+    _ConfigRule(_exact(
+        "figures.max_daily_cost_usd",
+        "figures.price_per_million",
+    ), "structural", "operational",
+        "the figure author's and verifier's metered spend a UTC day / the owner's price for a metered figure "
+        "route; money bounds, no measurement authority (a figure never grades)."),
+    # UX Phase 2: the shell's kill switch (a string enum, so Inventory A's
+    # numeric walk never reaches it; classified here so every new key has a
+    # rule, Codex review of ux-phase2-shell F9). Only the app snapshot reads
+    # it; the desktop draws one shell or the other.
+    _ConfigRule(_exact(
+        "ui.shell",
+    ), "structural", "operational",
+        "kill switch for the desktop shell (\"simple\": four places, Under the hood, notices, the palette's "
+        "> prefix; \"classic\": the ten tabs as before); display only, read by the app snapshot alone, no "
+        "measurement, scheduling, serving or replay authority (no algorithm successor)."),
     # Adaptive hints H1: the approach-map builds' (and merges') metered spend a
     # UTC day (maps are stored help, read by no grading, scheduling, serving or
     # replay path; validation verdicts go to judgment_ledger, never evidence).
@@ -1290,6 +1460,18 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "daily-plan budget size, duration-estimate winsorizing or reading pace; sizes the "
         "plan and its labels, no measurement authority."),
+    # Daily-loop DL2 (intent; the successor mvp-0.29 behind intent.enabled and
+    # intent.recall_targets_enabled, Codex re-review F2): the per-intent recall
+    # targets (Q8, owner defaults accepted 2026-10-12, checkpoint open) scale
+    # an effective due at serving time only; due_at is still written at 0.90
+    # and nothing reaches evidence. The "Check once" delay is a timing default.
+    _ConfigRule(_prefix("intent.recall_targets."), "decision", "threshold",
+                "per-intent recall target (spec_daily_loop_v1 §5.3, Q8): when an item is served, as "
+                "effective_due = anchor + (due_at - anchor) x ratio(target); serving only, never "
+                "persisted state or evidence; kill switch intent.recall_targets_enabled."),
+    _ConfigRule(_exact("capture.test_me_later_days"), "decision", "threshold",
+                "how long a \"Check once\" waits before its one cold check when its commitment names no "
+                "due_hint (spec_daily_loop_v1 §5.2); a serving date, never evidence."),
     # Router R2a (mvp-0.23): the learner-state card's size budget (D8) and how
     # long its stored text is kept. Neither decides what is served (the staged
     # frame's choice never reads the card in R2a) nor reaches evidence.

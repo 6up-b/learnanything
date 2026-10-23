@@ -16,7 +16,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { CueDensity, ReaderCueDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
-import { CUE_COPY, CUE_DENSITIES } from "./cues";
+import { CUE_COPY, CUE_DENSITIES, DISCOVERED_COPY, markClass } from "./cues";
+import { observerGeneration } from "./observerGeneration";
 import { LearnerVoice, MeaningLabel, ModelVoice } from "./voices";
 
 export type CueCheckPhase = "idle" | "finding" | "none" | "failed";
@@ -38,12 +39,26 @@ export interface MarginMarkProps {
   onOffBook: () => void;
   onOffEverywhere: () => void;
   /** The mark came into the learner's view (or was hovered, focused or
-   *  opened); the controller counts it once per visit. */
-  onSeen?: () => void;
+   *  opened); the controller counts it once per visit. `planId`: the cue plan
+   *  the sighting was made under (RW3b; null while discovery is off). */
+  onSeen?: (planId?: string | null) => void;
+  /** RW3b: the cue plan served now (absent or null while discovery is off).
+   *  Its observer is rebuilt for each plan and a sighting is sent under the
+   *  plan its observer was built for, never a later one (Codex verify F22). */
+  planId?: string | null;
+  /** RW3b: "try the next step first" on a try-first cue (RW1b's next-step
+   *  question at that line); absent: no such action (W11). */
+  onTryFirst?: () => void;
 }
 
 /** At least this share of the mark in view counts as seen. */
 const SEEN_THRESHOLD = 0.5;
+
+/** The label over the learner's own words a gap was named from (RW3b). */
+function yourWords(kind: string | null | undefined): string {
+  const labels: Record<string, string> = DISCOVERED_COPY.yourWords;
+  return labels[kind ?? ""] ?? DISCOVERED_COPY.yourWords.other;
+}
 
 const ACTION_STYLE = {
   border: 0,
@@ -70,6 +85,8 @@ export function MarginMark({
   onOffBook,
   onOffEverywhere,
   onSeen,
+  onTryFirst,
+  planId = null,
 }: MarginMarkProps) {
   const markRef = useRef<HTMLButtonElement | null>(null);
   const firstActionRef = useRef<HTMLButtonElement | null>(null);
@@ -79,7 +96,9 @@ export function MarginMark({
   const [why, setWhy] = useState("");
   const onSeenRef = useRef(onSeen);
   onSeenRef.current = onSeen;
-  const seen = () => onSeenRef.current?.();
+  const planRef = useRef(planId);
+  planRef.current = planId;
+  const seen = () => onSeenRef.current?.(planRef.current);
 
   // Shown means seen: the mark's own visibility in the reading area, not its
   // placement (review F6). Without IntersectionObserver only the learner's
@@ -87,17 +106,36 @@ export function MarginMark({
   useEffect(() => {
     const node = markRef.current;
     if (!node || typeof IntersectionObserver === "undefined") return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= SEEN_THRESHOLD)) return;
-        observer.disconnect();
-        onSeenRef.current?.();
-      },
-      { threshold: SEEN_THRESHOLD },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [cue.cueId]);
+    if (planId === null) {
+      // Discovery off: RW3a's observer, verbatim, a delivery the browser had
+      // buffered before the disconnect included (Codex verify F23).
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (!entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= SEEN_THRESHOLD)) return;
+          observer.disconnect();
+          onSeenRef.current?.();
+        },
+        { threshold: SEEN_THRESHOLD },
+      );
+      observer.observe(node);
+      return () => observer.disconnect();
+    }
+    // RW3b, discovery on (Codex verify F22): one observer generation per cue
+    // plan. Its callback is bound, in this closure, to the plan it was built
+    // for and to that render's onSeen; a callback delivered after its
+    // observer was disconnected is discarded, and the next plan's observer
+    // measures the mark again.
+    const planForGeneration = planId;
+    const notify = onSeen;
+    const generation = observerGeneration();
+    generation.observe([node], SEEN_THRESHOLD, (entries, observer) => {
+      if (!entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= SEEN_THRESHOLD)) return;
+      generation.disconnect(observer);
+      notify?.(planForGeneration);
+    });
+    return () => generation.disconnectAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cue.cueId, planId]);
 
   // The learner opened it: their act, so focus goes into the popover.
   useEffect(() => {
@@ -114,6 +152,9 @@ export function MarginMark({
     markRef.current?.focus({ preventScroll: true });
   };
   const earlier = cue.earlier;
+  // RW3b: a cue LearnLoop's model found (absent while discovery is off).
+  const discovered = cue.foundBy === "model";
+  const tryFirst = discovered && cue.kind === "try_first" && onTryFirst ? onTryFirst : null;
   const onPage = surface === "pdf";
   // The text view's gutter is the column's left padding; the original's
   // overlay and a transcript's time column place the mark themselves.
@@ -134,9 +175,10 @@ export function MarginMark({
         type="button"
         data-cue-mark={cue.cueId}
         data-cue-span={cue.spanId}
+        {...(discovered ? { "data-cue-kind": cue.kind } : {})}
         aria-label={cue.label}
         aria-expanded={open}
-        className="ll-reader-cue-mark"
+        className={markClass(cue)}
         onClick={() => {
           seen();
           onOpenChange(!open);
@@ -225,8 +267,13 @@ export function MarginMark({
         >
           <span>{cue.note}</span>
           <MeaningLabel>{cue.because}</MeaningLabel>
+          {tryFirst ? (
+            <button ref={firstActionRef} type="button" onClick={tryFirst} style={ACTION_STYLE}>
+              {DISCOVERED_COPY.tryFirst} · {DISCOVERED_COPY.tryFirstHint}
+            </button>
+          ) : null}
           <button
-            ref={firstActionRef}
+            ref={tryFirst ? undefined : firstActionRef}
             type="button"
             aria-expanded={earlierShown}
             onClick={() => {
@@ -237,7 +284,41 @@ export function MarginMark({
           >
             {CUE_COPY.open} · {CUE_COPY.openTitle}
           </button>
-          {earlierShown ? (
+          {earlierShown && discovered ? (
+            <span data-cue-earlier="" style={{ display: "flex", flexDirection: "column", gap: 4, paddingLeft: 8 }}>
+              {cue.quote ? (
+                <span style={{ color: COLOR.textDim }}>
+                  {DISCOVERED_COPY.quoteLabel}: “{cue.quote}”
+                </span>
+              ) : null}
+              {/* The earlier work the target was read from (Codex review F12): the
+                  cited answer and the question it answered, and the learner's own
+                  words a gap was named from, in the learner's voice. */}
+              {earlier.attemptId ? (
+                <MeaningLabel>
+                  {earlier.answeredOn ? `${CUE_COPY.answeredOn} ${earlier.answeredOn}.` : CUE_COPY.answeredUndated}
+                </MeaningLabel>
+              ) : null}
+              {earlier.prompt ? (
+                <span style={{ color: COLOR.textDim }}>
+                  {CUE_COPY.question}: “{earlier.prompt}”
+                </span>
+              ) : null}
+              {earlier.answer ? (
+                <LearnerVoice label={CUE_COPY.yourAnswer}>
+                  <span style={{ whiteSpace: "pre-wrap", fontSize: 11 }}>{earlier.answer}</span>
+                </LearnerVoice>
+              ) : null}
+              {earlier.learnerText ? (
+                <LearnerVoice label={yourWords(earlier.learnerTextKind)}>
+                  <span style={{ whiteSpace: "pre-wrap", fontSize: 11 }}>{earlier.learnerText}</span>
+                </LearnerVoice>
+              ) : null}
+              {earlier.statement ? <ModelVoice note={DISCOVERED_COPY.statementNote}>{earlier.statement}</ModelVoice> : null}
+              <MeaningLabel>{DISCOVERED_COPY.foundBy}</MeaningLabel>
+            </span>
+          ) : null}
+          {earlierShown && !discovered ? (
             <span data-cue-earlier="" style={{ display: "flex", flexDirection: "column", gap: 4, paddingLeft: 8 }}>
               <MeaningLabel>
                 {earlier.answeredOn ? `${CUE_COPY.answeredOn} ${earlier.answeredOn}.` : CUE_COPY.answeredUndated}
@@ -334,12 +415,15 @@ export function CueFooter({
   receipts,
   onDensity,
   onTurnOnBook,
+  discovered,
 }: {
   density: CueDensity;
   bookOff: boolean;
   receipts: readonly CueReceipt[];
   onDensity: (density: CueDensity) => void;
   onTurnOnBook: () => void;
+  /** RW3b: discovered cues are on (the legend names their marks too). */
+  discovered?: { tryFirst: boolean } | null;
 }) {
   const [legend, setLegend] = useState(false);
   return (
@@ -381,6 +465,18 @@ export function CueFooter({
         <span style={{ display: "flex", gap: 8, fontFamily: FONT_MONO, fontSize: 11 }}>
           <span aria-hidden="true" style={{ color: COLOR.purpleText }}>{CUE_COPY.glyph}</span>
           <MeaningLabel>{CUE_COPY.legendRevisit}</MeaningLabel>
+        </span>
+      ) : null}
+      {legend && discovered ? (
+        <span data-cue-legend-discovered="" style={{ display: "flex", flexDirection: "column", gap: 2, fontFamily: FONT_MONO, fontSize: 11 }}>
+          {([["distinction", DISCOVERED_COPY.legendDistinction], ["application", DISCOVERED_COPY.legendApplication],
+            ...(discovered.tryFirst ? [["try_first", DISCOVERED_COPY.legendTryFirst]] : [])] as Array<[keyof typeof DISCOVERED_COPY.glyphs, string]>)
+            .map(([kind, text]) => (
+              <span key={kind} style={{ display: "flex", gap: 8 }}>
+                <span aria-hidden="true" style={{ color: COLOR.purpleText }}>{DISCOVERED_COPY.glyphs[kind]}</span>
+                <MeaningLabel>{text}</MeaningLabel>
+              </span>
+            ))}
         </span>
       ) : null}
     </div>

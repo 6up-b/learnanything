@@ -43,6 +43,8 @@ from learnloop.attempts.blind_grading import blind_grading_context, request_blin
 from learnloop.config import CodexConfig
 from learnloop.diagnosis.offline_review.judge import LinkJudgment
 
+from learnloop.ai.providers.codex_lockdown import catalog_pin_path
+
 from tests.codex_cli_fakes import stub_isolation_probe
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.diagnosis_split_helpers import build_diagnosis_vault, seed_history
@@ -164,6 +166,9 @@ def test_isolated_overrides_switch_the_tools_off(tmp_path, layout):
 def _fake_sdk(monkeypatch, captured: dict[str, Any], *, overrides_field: bool = True):
     class FakeCodex:
         def __init__(self, config):
+            from tests.codex_cli_fakes import FakeSdkClient
+
+            self._client = FakeSdkClient()
             captured["app_config"] = config.kwargs
             workspace = Path(config.kwargs["cwd"])
             captured["workspace_listing"] = sorted(path.name for path in workspace.iterdir())
@@ -207,6 +212,8 @@ def _fake_sdk(monkeypatch, captured: dict[str, Any], *, overrides_field: bool = 
 
     openai_codex = ModuleType("openai_codex")
     openai_codex.Codex = FakeCodex
+    from tests.codex_cli_fakes import FakeApprovalMode
+    openai_codex.ApprovalMode = FakeApprovalMode
     openai_codex.CodexConfig = SdkAppConfig
     types = ModuleType("openai_codex.types")
     types.Personality = SimpleNamespace(pragmatic="pragmatic")
@@ -231,15 +238,21 @@ def test_a_snapshot_turn_runs_under_the_profile_never_the_builtin_sandbox(tmp_pa
     client = _client(tmp_path, monkeypatch)
     workspace = tmp_path / "snapshot"
     workspace.mkdir()
+    (workspace / "INDEX.md").write_text("snapshot index\n", encoding="utf-8")
     assert client.supports(READ_ONLY_WORKSPACE) and client.supports(ISOLATED_TURN)
     client.complete(StructuredRequest(purpose="diagnosis", prompt="p", result_model=LinkJudgment, workspace=workspace, isolated=True))
     overrides = captured["app_config"]["config_overrides"]
-    assert overrides == tuple(isolated_turn_overrides(workspace.resolve(), shell=True, mcp_server_ids=("filesystem",)))
+    # Tool lockdown round 3: the export is inlined; the turn runs tool-free in a scratch directory.
+    root = Path(captured["app_config"]["cwd"])
+    assert root.name.startswith("learnloop-isolated-turn-") and root != workspace.resolve()
+    assert overrides == tuple(isolated_turn_overrides(root, shell=False, mcp_server_ids=("filesystem",),
+                                                      model_catalog=catalog_pin_path(overrides)))
     assert f'default_permissions="{ISOLATED_PROFILE}"' in overrides
-    assert "mcp_servers.filesystem.enabled=false" in overrides
+    assert "mcp_servers.filesystem.enabled=false" in overrides and "features.shell_tool=false" in overrides
     assert "sandbox" not in captured["thread_start"] and "sandbox_policy" not in captured["turn"]
     for cwd in (captured["app_config"]["cwd"], captured["thread_start"]["cwd"], captured["turn"]["cwd"]):
-        assert cwd == str(workspace.resolve())
+        assert cwd == str(root)
+    assert client.workspace_activity() == ["INDEX.md"]
 
 
 def test_an_isolated_turn_without_a_workspace_starts_in_an_empty_directory(tmp_path, monkeypatch):
@@ -255,7 +268,8 @@ def test_an_isolated_turn_without_a_workspace_starts_in_an_empty_directory(tmp_p
     assert not cwd.exists()  # removed after the turn
     overrides = captured["app_config"]["config_overrides"]
     assert "features.shell_tool=false" in overrides and "features.unified_exec=false" in overrides
-    assert overrides == tuple(isolated_turn_overrides(cwd, shell=False, mcp_server_ids=("filesystem",)))
+    assert overrides == tuple(isolated_turn_overrides(cwd, shell=False, mcp_server_ids=("filesystem",),
+                                                      model_catalog=catalog_pin_path(overrides)))
 
 
 def test_an_sdk_that_cannot_take_config_overrides_fails_closed(tmp_path, monkeypatch):
@@ -294,13 +308,21 @@ def test_a_launch_override_gets_the_overrides_before_app_server(tmp_path, monkey
     assert "--config" in launch and f'default_permissions="{ISOLATED_PROFILE}"' in launch
 
 
-def test_non_isolated_turns_are_unchanged(tmp_path, monkeypatch):
+def test_a_turn_that_did_not_ask_for_isolation_never_starts_in_the_vault(tmp_path, monkeypatch):
+    # Security stage 2026-10-21: before it, this turn ran in the vault with no
+    # overrides (cwd == vault_root, config_overrides == ()).
     captured: dict[str, Any] = {}
     _fake_sdk(monkeypatch, captured)
     client = _client(tmp_path, monkeypatch)
     client.complete(StructuredRequest(purpose="tutor", prompt="p", result_model=LinkJudgment))
-    assert captured["app_config"]["cwd"] == str(client.vault_root)
-    assert captured["app_config"]["config_overrides"] == ()
+    root = Path(captured["app_config"]["cwd"])
+    assert root != client.vault_root and client.vault_root not in root.parents
+    assert root.name.startswith("learnloop-isolated-turn-")
+    overrides = captured["app_config"]["config_overrides"]
+    assert overrides == tuple(
+        isolated_turn_overrides(root, shell=False, mcp_server_ids=("filesystem",),
+                                model_catalog=catalog_pin_path(overrides))
+    )
 
 
 class _NoIsolation:
@@ -348,7 +370,8 @@ def test_configured_mcp_servers_are_listed_and_disabled(tmp_path, layout, monkey
     monkeypatch.setenv("CODEX_HOME", env["CODEX_HOME"])
     client = SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex"), sdk_codex_bin=CODEX), vault)
     overrides = client._verified_isolated_overrides(workspace, shell=False)
-    assert overrides == isolated_turn_overrides(workspace, shell=False, mcp_server_ids=("fsserver",))
+    assert overrides == isolated_turn_overrides(workspace, shell=False, mcp_server_ids=("fsserver",),
+                                                model_catalog=catalog_pin_path(overrides))
     args = [CODEX]
     for override in overrides:
         args += ["-c", override]

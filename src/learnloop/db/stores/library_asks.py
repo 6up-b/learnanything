@@ -1,7 +1,9 @@
 """Reader workbench RW4a: ``library_asks`` (migration 209).
 
 Plain SQL over a caller's connection; the caller owns the transaction. The
-only writer is :mod:`learnloop.source_retrieval.library_ask`.
+writers are :mod:`learnloop.source_retrieval.library_ask` and, for RW4d's
+kept comparisons (``kept_json`` / ``kept_at``, a tutor comparison's row),
+:mod:`learnloop.source_retrieval.kept_comparisons`.
 One row per library question: its manifests (the ``find_sources`` calls), the
 organizer's validated lines, and the comparison and tutor exchange it led to
 (WORKFLOW: paid outputs, never re-run on rebuild; replay never reads it).
@@ -17,7 +19,7 @@ from typing import Any
 TABLE = "library_asks"
 #: The columns a later step may set (never the question, its anchor or its time).
 MUTABLE_COLUMNS = frozenset({"organizer_json", "model", "comparison_id", "question_event_id", "kept_json",
-                             "kept_at"})
+                             "kept_at", "requested_perspectives_json"})
 
 
 def insert_ask(connection: sqlite3.Connection, row: Mapping[str, Any]) -> None:
@@ -55,6 +57,71 @@ def ask_row(connection: sqlite3.Connection, ask_id: str) -> dict[str, Any] | Non
             "comparison_id": row[8], "question_event_id": row[9]}
 
 
+def kept_row(connection: sqlite3.Connection, ask_id: str) -> dict[str, Any] | None:
+    """RW4d: the ask's caller, comparison and keep state."""
+
+    row = connection.execute(
+        "SELECT id, caller, entry, query_md, extraction_id, comparison_id, kept_json, kept_at, question_event_id, "
+        "requested_perspectives_json, created_at FROM library_asks WHERE id = ?", (ask_id,)).fetchone()
+    if row is None:
+        return None
+    return {"id": row[0], "caller": row[1], "entry": row[2], "query": row[3], "extraction_id": row[4],
+            "comparison_id": row[5], "kept": json.loads(row[6]) if row[6] else None, "kept_at": row[7],
+            "question_event_id": row[8], "requested_perspectives": json.loads(row[9] or "[]"),
+            "created_at": row[10]}
+
+
+def kept_asks(connection: sqlite3.Connection) -> list[dict[str, Any]]:
+    """RW4d: every ask whose comparison is kept now (``kept_at`` set), newest first."""
+
+    rows = connection.execute(
+        "SELECT id FROM library_asks WHERE kept_at IS NOT NULL AND kept_json IS NOT NULL "
+        "ORDER BY kept_at DESC, id DESC").fetchall()
+    return [found for (ask_id,) in rows if (found := kept_row(connection, ask_id)) is not None]
+
+
+def asks_with_keeps(connection: sqlite3.Connection) -> list[dict[str, Any]]:
+    """RW4d: every ask that has kept a comparison (``kept_json`` set), live or
+    removed since (a removal keeps its snapshot in ``kept_json``'s history)."""
+
+    rows = connection.execute(
+        "SELECT id FROM library_asks WHERE kept_json IS NOT NULL ORDER BY created_at, id").fetchall()
+    return [found for (ask_id,) in rows if (found := kept_row(connection, ask_id)) is not None]
+
+
+def fork_ask(connection: sqlite3.Connection, ask_id: str, *, new_id: str, created_at: str) -> None:
+    """RW4d: a copy of an ask (its question, anchor, caller, manifests and
+    notes) under a new id, with no comparison, keep or tutor exchange: a
+    second comparison of a question whose first is kept gets its own row."""
+
+    connection.execute(
+        "INSERT INTO library_asks (id, caller, entry, query_md, query_hash, extraction_id, anchor_json, "
+        "personalized, requested_perspectives_json, manifest_json, organizer_json, model, prompt_version, "
+        "created_at) SELECT ?, caller, entry, query_md, query_hash, extraction_id, anchor_json, personalized, "
+        "requested_perspectives_json, manifest_json, organizer_json, model, prompt_version, ? "
+        "FROM library_asks WHERE id = ?", (new_id, created_at, ask_id))
+
+
+def asks_for_comparison(connection: sqlite3.Connection, comparison_id: str, *, caller: str) -> list[str]:
+    """RW4d: the asks of ``caller`` that refer to a comparison, oldest first."""
+
+    return [str(row[0]) for row in connection.execute(
+        "SELECT id FROM library_asks WHERE comparison_id = ? AND caller = ? ORDER BY created_at, id",
+        (comparison_id, caller)).fetchall()]
+
+
+def asks_referencing_comparison(connection: sqlite3.Connection, comparison_id: str) -> list[str]:
+    """RW4d fix round 5: every ask that refers to a comparison, oldest first:
+    the asks showing it now (``comparison_id``) and every ask whose keep
+    record names it (its live keep, a removal's snapshot, a contributor). The
+    match on ``kept_json`` is textual, so it may only over-include (callers
+    read more provenance, never less)."""
+
+    return [str(row[0]) for row in connection.execute(
+        "SELECT id FROM library_asks WHERE comparison_id = ? OR instr(COALESCE(kept_json, ''), ?) > 0 "
+        "ORDER BY created_at, id", (comparison_id, json.dumps(str(comparison_id)))).fetchall()]
+
+
 def notes_for_ledger_ids(connection: sqlite3.Connection, ledger_ids: Sequence[str]) -> dict[str, dict[str, Any]]:
     """The validated organizer notes an earlier ask stored for these ledger rows."""
 
@@ -74,4 +141,5 @@ def notes_for_ledger_ids(connection: sqlite3.Connection, ledger_ids: Sequence[st
     return found
 
 
-__all__ = ["MUTABLE_COLUMNS", "TABLE", "ask_row", "insert_ask", "notes_for_ledger_ids", "update_ask"]
+__all__ = ["MUTABLE_COLUMNS", "TABLE", "ask_row", "asks_for_comparison", "asks_with_keeps", "fork_ask", "insert_ask", "kept_asks", "kept_row",
+           "notes_for_ledger_ids", "update_ask"]

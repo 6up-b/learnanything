@@ -3,13 +3,13 @@ title: "ad_reading_opportunities"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ad_reading_opportunities"
   - "table ad_reading_opportunities"
-schema_head: 214
+schema_head: 217
 table_name: "ad_reading_opportunities"
 table_role: "receipt"
 functionality_status: "active"
@@ -19,14 +19,10 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/213_adaptive_difficulty_receipts.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/data_check.py"
-  - "src/learnloop/adaptive_difficulty/material_view.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
-  - "src/learnloop/adaptive_difficulty/replay.py"
-  - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/config/schema.py"
+  - "src/learnloop/db/stores/ad_receipts.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -53,7 +49,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/213_adaptive_difficulty_receipts.sql`.
-- **Schema touched by:** `213_adaptive_difficulty_receipts.sql`, `214_adaptive_difficulty_serving.sql`.
+- **Schema touched by:** `213_adaptive_difficulty_receipts.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -77,7 +73,6 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `sweep` | `TEXT` | yes | — | — | Stored value |
 | `sweep_ref` | `TEXT` | no | — | — | Stored value |
 | `swept_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
-| `protection_epoch` | `TEXT` | yes | `''` | — | Stored value |
 
 ## Relationships and access paths
 
@@ -87,8 +82,8 @@ Indexes and uniqueness:
 
 - `idx_ad_reading_opportunities_written` on `source_written_at`, `id`.
 - `idx_ad_reading_opportunities_lo` on `learning_object_id`, `source_written_at`.
-- `sqlite_autoindex_ad_reading_opportunities_3` on `kind`, `subkind`, `source_table`, `source_id`, `learning_object_id`, `protection_epoch` (unique).
-- `sqlite_autoindex_ad_reading_opportunities_2` on `opportunity_key`, `protection_epoch` (unique).
+- `sqlite_autoindex_ad_reading_opportunities_3` on `kind`, `subkind`, `source_table`, `source_id`, `learning_object_id` (unique).
+- `sqlite_autoindex_ad_reading_opportunities_2` on `opportunity_key` (unique).
 - `sqlite_autoindex_ad_reading_opportunities_1` on `id` (unique).
 
 Database triggers:
@@ -120,22 +115,12 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/ad_fakes.py`
-- `tests/ad_ingest_fakes.py`
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_migration.py`
 - `tests/test_ad1_reading_opportunities.py`
-- `tests/test_ad23_contract.py`
-- `tests/test_ad23_fix_r8.py`
-- `tests/test_ad23_fix_review.py`
-- `tests/test_ad23_migration.py`
-- `tests/test_ad3_dose_arm.py`
-- `tests/test_ad3_reading.py`
-- `tests/test_ad_guard.py`
-- `tests/test_ad_projection.py`
-- `tests/test_ad_protected_readings.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_architecture.py`
-- `tests/test_salience_firewall.py`
+- `tests/test_figure_predictions.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -152,27 +137,32 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 > It captures CHECK constraints and defaults that a column summary can hide. The migration files remain authoritative.
 
 ```sql
-CREATE TABLE "ad_reading_opportunities" (
+CREATE TABLE ad_reading_opportunities (
   id TEXT PRIMARY KEY,
-  opportunity_key TEXT NOT NULL,
+  -- The opportunity's identity inside its cap (a section once per section and
+  -- LO; passage views one per LO per day; tutor exchanges three per LO per day;
+  -- a worked example once; a question once; a verdict once per question).
+  opportunity_key TEXT NOT NULL UNIQUE,
   kind TEXT NOT NULL
     CHECK (kind IN ('reading', 'reader_tutor_exchange', 'worked_example', 'in_passage_question')),
   subkind TEXT NOT NULL,
   source_table TEXT NOT NULL,
   source_id TEXT NOT NULL,
+  -- The source row's write time: replay orders opportunities by it.
   source_written_at TEXT NOT NULL,
   learning_object_id TEXT NOT NULL,
+  -- {facet id: dose in [0, 1]}, as resolved at the sweep.
   facet_doses_json TEXT NOT NULL,
+  -- ad_dose_offers.id when a randomized offer produced it (AD2+AD3; null here).
   dose_offer_id TEXT,
   mapping_version TEXT NOT NULL,
   authority_class TEXT NOT NULL DEFAULT 'salience_only' CHECK (authority_class = 'salience_only'),
+  -- Which sweep recorded it: a serve's (in its transaction, before its
+  -- forecasts) or the one-time history backfill.
   sweep TEXT NOT NULL CHECK (sweep IN ('serve', 'backfill')),
   sweep_ref TEXT,
   swept_at TEXT NOT NULL,
-  -- '' for a receipt recorded before receipts carried an epoch (never in force).
-  protection_epoch TEXT NOT NULL DEFAULT '',
-  UNIQUE (opportunity_key, protection_epoch),
-  UNIQUE (kind, subkind, source_table, source_id, learning_object_id, protection_epoch)
+  UNIQUE (kind, subkind, source_table, source_id, learning_object_id)
 );
 ```
 

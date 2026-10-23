@@ -116,6 +116,17 @@ AITask = Literal[
     "ad_forecast_llm",
     "ad_forecast_decider",
     "ad_feature_audit",
+    # Reader workbench RW2b: "Check my work" (a chat route that never
+    # resolves to Codex, as hint_writer).
+    "workbench_check",
+    # Reader workbench RW3b: the cue judge (a listwise task, background work).
+    "passage_cue_judge",
+    # Reader workbench RW4e: the owner-run batch role labeller (a listwise task).
+    "role_labeller",
+    # Reader workbench RW7a: the reading-path judge (a chat task, one call per source and depth).
+    "reading_path_judge",
+    # Reader workbench RW5a: the figure author (the declarative spec).
+    "figure_author",
 ]
 
 #: Routes served only by a ``decider`` profile. They never fall back to a chat
@@ -224,6 +235,20 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # and one feature-audit dimension judged by the LLM (background work).
     "ad_item_forecast": "ad_forecast_llm",
     "ad_feature_audit": "ad_feature_audit",
+    # Reader workbench RW2b: one check of the learner's steps.
+    "workbench_check": "workbench_check",
+    # Reader workbench RW3b: one listwise judgment of a cue target's
+    # shortlisted passages (background, when a source opens).
+    "passage_cue_judge": "passage_cue_judge",
+    # Reader workbench RW4e: one listwise call labelling a batch of a source's
+    # passages with their instructional roles (owner-run, never on a request path).
+    "role_labeller": "role_labeller",
+    # Reader workbench RW7a: one structured call labelling a source's sections
+    # for the learner's depth (the Guide's path; display only).
+    "reading_path_judge": "reading_path_judge",
+    # Reader workbench RW5a: one figure spec written (an author attempt or a
+    # "not right?" version).
+    "figure_author": "figure_author",
     # Adaptive difficulty AD2+AD3: the relatedness proposal (one call per
     # subject; vault content only, never learner text), on the field harness's
     # frontier route (spec §5.10).

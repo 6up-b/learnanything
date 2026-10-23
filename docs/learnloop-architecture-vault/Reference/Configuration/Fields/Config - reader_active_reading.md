@@ -3,8 +3,8 @@ title: "Config - reader_active_reading"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml reader_active_reading"
@@ -18,19 +18,20 @@ source_paths:
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
+  - "src/learnloop/source_retrieval/passage_cues.py"
   - "src/learnloop_sidecar/handlers/reader_intent.py"
   - "tests/codex_cli_fakes.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
   - "tests/split_live_helpers.py"
-  - "tests/test_ad23_contract.py"
-  - "tests/test_ad23_successor.py"
-  - "tests/test_ad2_model.py"
   - "tests/test_ai_config.py"
   - "tests/test_approach_maps.py"
   - "tests/test_capability_residual.py"
   - "tests/test_chatgpt_plan_provider.py"
+  - "tests/test_cli_ingest.py"
+  - "tests/test_codex_isolation_mcp_check.py"
+  - "tests/test_codex_lockdown_round2.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/reader-active-reading"
@@ -51,7 +52,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `reader_active_reading.enabled` | `true` | boolean | modeled default or validator seed | Turns reader active reading behavior on or off within reader workbench RW1b: active reading on a selected derivation or worked example (try the next step with the book's next lines folded, why does this step work, what does this assume, reconstruct this later, another way to see this): the kill switch; the questions are the quick-check producer's formative rows and never an attempt. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2186`; `src/learnloop_sidecar/handlers/reader_intent.py:81` |
+| `reader_active_reading.enabled` | `true` | boolean | modeled default or validator seed | Turns reader active reading behavior on or off within reader workbench RW1b: active reading on a selected derivation or worked example (try the next step with the book's next lines folded, why does this step work, what does this assume, reconstruct this later, another way to see this): the kill switch; the questions are the quick-check producer's formative rows and never an attempt. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2298`; `src/learnloop/source_retrieval/passage_cues.py:188`; `src/learnloop_sidecar/handlers/reader_intent.py:81` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -65,13 +66,13 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
 - `tests/split_live_helpers.py`
-- `tests/test_ad23_contract.py`
-- `tests/test_ad23_successor.py`
-- `tests/test_ad2_model.py`
 - `tests/test_ai_config.py`
 - `tests/test_approach_maps.py`
 - `tests/test_capability_residual.py`
 - `tests/test_chatgpt_plan_provider.py`
+- `tests/test_cli_ingest.py`
+- `tests/test_codex_isolation_mcp_check.py`
+- `tests/test_codex_lockdown_round2.py`
 
 ## Extension and modification guidance
 

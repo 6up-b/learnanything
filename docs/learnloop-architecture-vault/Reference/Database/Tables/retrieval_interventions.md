@@ -3,13 +3,13 @@ title: "retrieval_interventions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite retrieval_interventions"
   - "table retrieval_interventions"
-schema_head: 214
+schema_head: 217
 table_name: "retrieval_interventions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/193_retrieval_interventions.sql"
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/instructional/interventions.py"
+  - "src/learnloop/workbench/help_outcomes.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -108,6 +109,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/source_service.py`
+- `src/learnloop/workbench/help_outcomes.py`
 
 ### Direct SQL writers
 
@@ -122,7 +124,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-No table-specific test contains the table name or a detected repository method call. The schema/role invariants are still pinned by `tests/test_migrations.py` and `tests/test_table_roles.py`.
+- `tests/test_reader_tutor_offers.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

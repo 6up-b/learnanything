@@ -3,13 +3,13 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
   - "table question_events"
-schema_head: 214
+schema_head: 217
 table_name: "question_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,15 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/019_question_events.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/material_view.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
-  - "src/learnloop/adaptive_difficulty/replay.py"
   - "src/learnloop/attempts/coldness_receipt.py"
-  - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/cli/field_classification.py"
+  - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/diagnosis/followups.py"
+  - "src/learnloop/diagnosis/text_gaps/jobs.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
   - "src/learnloop/instructional/interventions.py"
 tags:
@@ -130,7 +128,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/adaptive_difficulty/material_view.py`
+- `src/learnloop/adaptive_difficulty/reading.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/text_gaps/jobs.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
@@ -156,6 +154,7 @@ Indexes and uniqueness:
 - `src/learnloop/ops/contamination/recipes.py`
 - `src/learnloop/reader/reader_dialogue.py`
 - `src/learnloop/reader/reader_inquiry.py`
+- `src/learnloop/reader/source_objects.py`
 - `src/learnloop/source_retrieval/evaluation.py`
 - `src/learnloop/source_retrieval/library_ask.py`
 - `src/learnloop/source_retrieval/timing.py`
@@ -165,33 +164,32 @@ Indexes and uniqueness:
 - `src/learnloop/tutor/tutor_qa.py`
 - `src/learnloop_sidecar/handlers/capture.py`
 - `src/learnloop_sidecar/handlers/facets.py`
-- `src/learnloop_sidecar/handlers/tutor_qa.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
-- `tests/ad_ingest_fakes.py`
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_fix_round4.py`
 - `tests/test_ad1_migration.py`
-- `tests/test_ad23_contract.py`
-- `tests/test_ad3_relatedness.py`
-- `tests/test_ad_protected_readings.py`
-- `tests/test_ad_protected_tables.py`
 - `tests/test_capture_desktop.py`
 - `tests/test_capture_route_recovery.py`
 - `tests/test_coldness_receipt.py`
+- `tests/test_compare_sources_keep.py`
 - `tests/test_diagnosis_input_provenance.py`
 - `tests/test_diagnosis_input_provenance_landing.py`
 - `tests/test_exam_protection.py`
 - `tests/test_field_signal_production_paths.py`
+- `tests/test_figure_predictions.py`
 - `tests/test_hint_telemetry.py`
 - `tests/test_interaction_signals.py`
 - `tests/test_library_ask.py`
 - `tests/test_migrations.py`
 - `tests/test_probability_prep.py`
+- `tests/test_question_promotions.py`
+- `tests/test_question_signal.py`
+- `tests/test_reader_branches.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

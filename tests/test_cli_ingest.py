@@ -13,6 +13,12 @@ from learnloop.vault.loader import load_vault
 
 from tests.helpers import configure_codex_http, create_basic_vault
 
+import pytest
+
+# The legacy Codex HTTP adapter is refused by the tool lockdown (hardening round 2,
+# H3); these tests drive an in-process HTTP server through it as a provider double.
+pytestmark = pytest.mark.usefixtures("legacy_codex_http_double")
+
 
 def test_cli_ingest_runs_canonical_endpoint_and_reports_json(tmp_path):
     vault_root = tmp_path / "vault"

@@ -28,6 +28,10 @@ from learnloop.vault.loader import load_vault
 from tests.helpers import append_config_toml, create_basic_vault
 from tests.source_retrieval_fakes import seed_source
 
+# The legacy Codex HTTP adapter is refused by the tool lockdown (hardening round 2,
+# H3); these tests drive an in-process HTTP server through it as a provider double.
+pytestmark = pytest.mark.usefixtures("legacy_codex_http_double")
+
 CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, 0, tzinfo=UTC))
 
 LONG = (

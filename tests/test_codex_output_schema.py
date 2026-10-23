@@ -260,6 +260,9 @@ def test_sdk_codex_client_logs_full_prompt_and_response(tmp_path, monkeypatch, c
 
     class FakeCodex:
         def __init__(self, config):
+            from tests.codex_cli_fakes import FakeSdkClient
+
+            self._client = FakeSdkClient()
             captured["app_config"] = config
 
         def __enter__(self):
@@ -302,6 +305,8 @@ def test_sdk_codex_client_logs_full_prompt_and_response(tmp_path, monkeypatch, c
 
     openai_codex = ModuleType("openai_codex")
     openai_codex.Codex = FakeCodex
+    from tests.codex_cli_fakes import FakeApprovalMode
+    openai_codex.ApprovalMode = FakeApprovalMode
     openai_codex.CodexConfig = SdkAppConfig
     openai_codex_types = ModuleType("openai_codex.types")
     openai_codex_types.Personality = SimpleNamespace(pragmatic="pragmatic")
@@ -312,6 +317,9 @@ def test_sdk_codex_client_logs_full_prompt_and_response(tmp_path, monkeypatch, c
     caplog.set_level(logging.DEBUG, logger="learnloop.ai.providers.codex")
 
     client = SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex")), tmp_path)
+    from tests.codex_cli_fakes import stub_isolation_probe
+
+    stub_isolation_probe(monkeypatch, client)  # every Codex turn runs the lockdown's launch check
     response = client._run_structured("full prompt body", {"type": "object"}, purpose="grading")
 
     assert response == '{"summary": "ok"}'
@@ -329,6 +337,9 @@ def test_sdk_codex_turn_timeout_interrupts_and_returns(tmp_path, monkeypatch):
 
     class FakeCodex:
         def __init__(self, config):
+            from tests.codex_cli_fakes import FakeSdkClient
+
+            self._client = FakeSdkClient()
             self.config = config
 
         def __enter__(self):
@@ -371,6 +382,8 @@ def test_sdk_codex_turn_timeout_interrupts_and_returns(tmp_path, monkeypatch):
 
     openai_codex = ModuleType("openai_codex")
     openai_codex.Codex = FakeCodex
+    from tests.codex_cli_fakes import FakeApprovalMode
+    openai_codex.ApprovalMode = FakeApprovalMode
     openai_codex.CodexConfig = SdkAppConfig
     openai_codex_types = ModuleType("openai_codex.types")
     openai_codex_types.Personality = SimpleNamespace(pragmatic="pragmatic")
@@ -383,6 +396,9 @@ def test_sdk_codex_turn_timeout_interrupts_and_returns(tmp_path, monkeypatch):
         CodexConfig(checkout_path=str(tmp_path / "codex"), timeout_seconds=0.05),
         tmp_path,
     )
+    from tests.codex_cli_fakes import stub_isolation_probe
+
+    stub_isolation_probe(monkeypatch, client)  # every turn runs the lockdown's launch check
     started = time.monotonic()
 
     with pytest.raises(CodexTurnTimeout, match="0.05-second deadline"):
@@ -876,7 +892,7 @@ def test_prompt_prose_only_names_context_fields_that_exist(name, function, conte
     )
 
 
-def test_http_adapter_strips_the_usage_envelope_but_not_a_bad_field():
+def test_http_adapter_strips_the_usage_envelope_but_not_a_bad_field(legacy_codex_http_double):
     """The one legitimate superset on this boundary, and only that one.
 
     The adapter contract allows a flat response body *and* an opportunistic

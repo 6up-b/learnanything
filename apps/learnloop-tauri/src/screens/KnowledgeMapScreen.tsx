@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
-import { useCachedQuery } from "../api/useCachedQuery";
+import { useCachedQuery, useReportQueryError } from "../api/useCachedQuery";
+import { simpleShell } from "../app/shell";
 import { TAG } from "../api/queryTags";
 import type { DecayPressureDto, KnowledgeFacetPoint, KnowledgeItemTextNeighbors, KnowledgeMapHistory, KnowledgeMapPoint, KnowledgeMapSnapshot } from "../api/dto";
 import { EntityLink } from "../components/ui";
@@ -12,6 +13,7 @@ import { ASSUMED_LABEL, KnowledgeWellView } from "./KnowledgeWellView";
 import { KnowledgeStrataView } from "./KnowledgeStrataView";
 import { neighborCaption } from "./knowledgeNeighbors";
 import { useElementSize } from "./wire3d";
+import type { ReportError } from "../errors";
 
 // Knowledge map with two complementary read levels:
 //
@@ -27,7 +29,7 @@ import { useElementSize } from "./wire3d";
 
 const FRONTIER_LEVEL = 0.7;
 
-export function KnowledgeMapView({ onInspect, onError }: { onInspect: (id: string) => void; onError: (message: string) => void }) {
+export function KnowledgeMapView({ onInspect, onError }: { onInspect: (id: string) => void; onError: ReportError }) {
   // The map is the most expensive read in the app (pure-Python MDS plus a
   // scheduler pass), so it is cached with generous freshness: returning to
   // the field repaints instantly and revalidates only after five minutes or
@@ -71,11 +73,21 @@ export function KnowledgeMapView({ onInspect, onError }: { onInspect: (id: strin
   // scene fills the pane instead of sitting in a fixed 860-wide letterbox.
   const canvas = useElementSize<HTMLDivElement>();
 
+  // Simple shell: each failed feed is its own error, with its identity (the
+  // query) and a self-contained retry that reads that feed again whatever view
+  // is showing or whether this screen is still mounted (UX Phase 2 F3; fix
+  // rounds 2 and 3). Classic: base's one aggregated report, verbatim (fix
+  // round 4: classic is base by construction).
+  const simple = simpleShell();
+  useReportQueryError(snapshotQuery, onError, simple);
+  useReportQueryError(historyQuery, onError, simple);
+  useReportQueryError(decayQuery, onError, simple);
   // Load failures surface as toasts, as before; whatever was cached stays up.
   const loadError = snapshotQuery.error ?? historyQuery.error ?? decayQuery.error;
   useEffect(() => {
+    if (simple) return;
     if (loadError) onError(loadError.message);
-  }, [loadError, onError]);
+  }, [loadError, onError, simple]);
 
   // Keeps the selection valid for the current field (and picks the first
   // point when nothing is selected yet, including right after the map loads).

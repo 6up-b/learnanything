@@ -3,13 +3,13 @@ title: "entity_source_links"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite entity_source_links"
   - "table entity_source_links"
-schema_head: 214
+schema_head: 217
 table_name: "entity_source_links"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,16 +19,15 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/044_provenance_manifests_apply_intents.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/content/authoring/practice_generation.py"
   - "src/learnloop/content/authoring/practice_leakage.py"
   - "src/learnloop/content/facet_identity/actions.py"
   - "src/learnloop/content/facet_identity/authority.py"
   - "src/learnloop/content/pipeline/reread.py"
   - "src/learnloop/content/proposals/apply_protocol.py"
-  - "src/learnloop/content/pipeline/revision_refresh.py"
+  - "src/learnloop/content/proposals/patches.py"
   - "src/learnloop/content/sources/provenance.py"
+  - "src/learnloop/content/pipeline/revision_refresh.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -115,6 +114,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_block_fts.py`
 - `src/learnloop/ops/doctor.py`
+- `src/learnloop/source_retrieval/reader_tutor.py`
 - `src/learnloop/substrate/dataset.py`
 
 ### Direct SQL writers
@@ -138,6 +138,7 @@ Indexes and uniqueness:
 - `src/learnloop/practice_index/dossiers.py`
 - `src/learnloop/source_retrieval/corpus.py`
 - `src/learnloop/source_retrieval/find_sources.py`
+- `src/learnloop/source_retrieval/passage_cues.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -157,13 +158,13 @@ Indexes and uniqueness:
 - `tests/test_source_sets.py`
 - `tests/test_tutor_citations.py`
 - `tests/test_ad1_reading_opportunities.py`
-- `tests/test_ad23_contract.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_compare_sources.py`
 - `tests/test_exam_protection.py`
 - `tests/test_find_sources_intents.py`
 - `tests/test_prescription_passages.py`
 - `tests/test_provenance_service.py`
+- `tests/test_reread_safety.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

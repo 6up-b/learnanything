@@ -3,8 +3,8 @@ title: "Config - animation"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml animation"
@@ -24,15 +24,15 @@ source_paths:
   - "tests/ad_fakes.py"
   - "tests/approach_map_fakes.py"
   - "tests/codex_cli_fakes.py"
+  - "tests/figure_fixtures.py"
   - "tests/hint_fakes.py"
   - "tests/library_ask_fixtures.py"
   - "tests/marker_fakes.py"
+  - "tests/passage_cue_fakes.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
+  - "tests/reading_path_fixtures.py"
   - "tests/router_model_fakes.py"
-  - "tests/source_retrieval_fakes.py"
-  - "tests/source_service_fakes.py"
-  - "tests/split_live_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/animation"
@@ -80,15 +80,15 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/ad_fakes.py`
 - `tests/approach_map_fakes.py`
 - `tests/codex_cli_fakes.py`
+- `tests/figure_fixtures.py`
 - `tests/hint_fakes.py`
 - `tests/library_ask_fixtures.py`
 - `tests/marker_fakes.py`
+- `tests/passage_cue_fakes.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
+- `tests/reading_path_fixtures.py`
 - `tests/router_model_fakes.py`
-- `tests/source_retrieval_fakes.py`
-- `tests/source_service_fakes.py`
-- `tests/split_live_helpers.py`
 
 ## Extension and modification guidance
 

@@ -936,6 +936,22 @@ def tool_call(connection: sqlite3.Connection, call_id: str) -> dict[str, Any] | 
     return None if row is None else _tool_call(row)
 
 
+def tool_requests_for_result(connection: sqlite3.Connection, result_ref: str) -> list[dict[str, Any]]:
+    """RW4d fix round 5: every tool request one of whose runs produced
+    ``result_ref`` (a tutor comparison's questions), oldest first; a run whose
+    request is missing is returned as itself (its ``caller_ref`` still names
+    the question)."""
+
+    rows = connection.execute(
+        "SELECT run.parent_id, run.id FROM source_tool_calls AS run WHERE run.row_kind = 'run' "
+        "AND run.result_ref = ? ORDER BY run.created_at, run.id", (result_ref,)).fetchall()
+    found: list[dict[str, Any]] = []
+    for parent_id, run_id in rows:
+        row = tool_call(connection, str(parent_id)) if parent_id else None
+        found.append(row if row is not None else (tool_call(connection, str(run_id)) or {}))
+    return found
+
+
 def tool_call_runs(connection: sqlite3.Connection, request_id: str) -> list[dict[str, Any]]:
     rows = connection.execute("SELECT * FROM source_tool_calls WHERE parent_id=? ORDER BY created_at, id",
                               (request_id,)).fetchall()
@@ -1769,6 +1785,7 @@ def spend_since(connection: sqlite3.Connection, since: str, *,
 
 
 __all__ = [
+    "tool_requests_for_result",
     "comparison_row",
     "find_comparison",
     "insert_comparison",

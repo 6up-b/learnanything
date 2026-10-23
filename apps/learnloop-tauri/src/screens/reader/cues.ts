@@ -69,6 +69,33 @@ export const CUE_COPY = {
   close: "close",
 } as const;
 
+/** RW3b: the copy of discovered cues (G16: what connects or what is on offer,
+ *  never what the learner lacks; the note and "because" lines are the
+ *  sidecar's fixed templates). */
+export const DISCOVERED_COPY = {
+  /** The glyph each kind draws (the CSS draws it; this names it for the legend). */
+  glyphs: { revisit: "◌┆", distinction: "◌┆", prerequisite: "◌┆", application: "●┆", try_first: "▹┆" },
+  tryFirst: "try the next step first",
+  tryFirstHint: "the next lines fold while you try; nothing is graded",
+  quoteLabel: "the passage's own words",
+  statementNote: "what LearnLoop's model connected it to",
+  foundBy: "found by LearnLoop's model, not by a test",
+  legendDistinction: "connects to something you worked on (found by LearnLoop's model)",
+  legendApplication: "a new use of something you've shown",
+  legendTryFirst: "try the next step first (on worked examples)",
+  /** "Open" on a discovered cue (Codex review F12): the learner's own words a
+   *  gap was named from, by where they were written. */
+  yourWords: { tutor_question: "your question", workbench_text: "what you wrote", reader_formative: "what you wrote",
+    hint_feedback: "what you wrote", other: "your words" },
+} as const;
+
+/** The mark's class: RW3a's own for a Guide cue (unchanged), a kind class
+ *  added for a discovered one. */
+export function markClass(cue: ReaderCueDto): string {
+  if (cue.foundBy !== "model") return "ll-reader-cue-mark";
+  return `ll-reader-cue-mark ll-reader-cue-mark--${cue.kind === "try_first" ? "try-first" : cue.kind}`;
+}
+
 /** Why a cue the sidecar sent is not drawn (never a holdout: RW3a has none). */
 export type CueSuppression = "skim" | "working" | "restored_line" | "spacing" | "no_place";
 
@@ -87,19 +114,39 @@ export interface CuePlacementInput {
   positionOf: (spanId: string) => number | null;
   /** The reading area's height: one screenful. */
   viewportHeight: number;
+  /** RW3b: the cues the holdout withheld, with their ranks among the marks.
+   *  They go through the same rules as the marks and keep their place (a
+   *  lower-ranked mark within a screenful of one is spaced out, as if it were
+   *  drawn), but are never drawn: the control arm is the cues that would
+   *  have been shown (Codex review F4). */
+  heldOut?: readonly ReaderCueDto[];
 }
 
 export interface CuePlacement {
   /** The marks to draw, in reading order. */
   shown: ReaderCueDto[];
   suppressed: Array<{ cue: ReaderCueDto; reason: CueSuppression }>;
+  /** RW3b (with `heldOut`): held-out cues that would have been drawn. */
+  heldOutPlaced?: ReaderCueDto[];
+  /** RW3b (with `heldOut`): held-out cues the Reader's rules set aside (never controls). */
+  heldOutSuppressed?: Array<{ cue: ReaderCueDto; reason: CueSuppression }>;
 }
 
 /** Which of the sidecar's cues the Reader draws now (pure). */
 export function placeCueMarks(input: CuePlacementInput): CuePlacement {
-  const ranked = [...input.marks].sort((a, b) => a.rank - b.rank);
-  if (input.muted) return { shown: [], suppressed: ranked.map((cue) => ({ cue, reason: "skim" as const })) };
-  if (input.working) return { shown: [], suppressed: ranked.map((cue) => ({ cue, reason: "working" as const })) };
+  const withheld = new Set((input.heldOut ?? []).map((cue) => cue.cueId));
+  const ranked = [...input.marks, ...(input.heldOut ?? [])].sort((a, b) => a.rank - b.rank);
+  const split = (placement: CuePlacement): CuePlacement => {
+    if (input.heldOut === undefined) return placement;
+    return {
+      shown: placement.shown.filter((cue) => !withheld.has(cue.cueId)),
+      suppressed: placement.suppressed.filter((entry) => !withheld.has(entry.cue.cueId)),
+      heldOutPlaced: placement.shown.filter((cue) => withheld.has(cue.cueId)),
+      heldOutSuppressed: placement.suppressed.filter((entry) => withheld.has(entry.cue.cueId)),
+    };
+  };
+  if (input.muted) return split({ shown: [], suppressed: ranked.map((cue) => ({ cue, reason: "skim" as const })) });
+  if (input.working) return split({ shown: [], suppressed: ranked.map((cue) => ({ cue, reason: "working" as const })) });
   const placed: Array<{ cue: ReaderCueDto; y: number }> = [];
   const suppressed: CuePlacement["suppressed"] = [];
   for (const cue of ranked) {
@@ -120,7 +167,7 @@ export function placeCueMarks(input: CuePlacementInput): CuePlacement {
     placed.push({ cue, y });
   }
   placed.sort((a, b) => a.y - b.y || a.cue.rank - b.cue.rank);
-  return { shown: placed.map((entry) => entry.cue), suppressed };
+  return split({ shown: placed.map((entry) => entry.cue), suppressed });
 }
 
 /** The next mark in reading order after (or before) `fromIndex` (Alt+↓ / Alt+↑). */

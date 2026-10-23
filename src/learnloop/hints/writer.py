@@ -199,7 +199,7 @@ def _expected(expected: Any) -> str:
 
 def build_prompt(vault: Any, item: Any, state: Any, target: Target, *, request_text: str | None = None,
                  selection: str | None = None, feedback: Mapping[str, Any] | None = None,
-                 request_id: str | None = None) -> str:
+                 request_id: str | None = None, workbench: Mapping[str, Any] | None = None) -> str:
     current = state.map
     rubric = vault.rubric_for_item(item)
     chosen: dict[str, Any] = {
@@ -262,6 +262,11 @@ def build_prompt(vault: Any, item: Any, state: Any, target: Target, *, request_t
         context["another_instance"] = state.sibling_prompt
     if feedback:
         context["previous_answer_problems"] = dict(feedback)
+    if workbench is not None:
+        # Adaptive hints H3: the workbench's numbered steps, verdicts, about
+        # step and checkpoint (absent on the practice screen, whose prompt is
+        # unchanged).
+        context["workbench"] = dict(workbench)
     return render_structured_prompt("Hint", PROMPT_VERSION, {"instructions": _INSTRUCTIONS, "context": context})
 
 
@@ -335,14 +340,15 @@ class WriterRoute:
 
     _owner_id = "hint"
 
-    def ask(self, prompt: str, *, owner_id: str, metadata: Mapping[str, Any]) -> HintWriterOutputV1:
+    def ask(self, prompt: str, *, owner_id: str, metadata: Mapping[str, Any],
+            result_model: type[HintWriterOutputV1] = HintWriterOutputV1) -> HintWriterOutputV1:
         if self.calls is None:
             self._owner_id = owner_id
             self.open()
         assert self.calls is not None
         self.calls.owner_id = owner_id
         with spend_envelopes(self.envelope):
-            return self.calls.call(self.client, purpose=PURPOSE, prompt=prompt, result_model=HintWriterOutputV1,
+            return self.calls.call(self.client, purpose=PURPOSE, prompt=prompt, result_model=result_model,
                                    output_tokens=self.route.output_tokens, metadata=dict(metadata),
                                    deadline=self.deadline)
 

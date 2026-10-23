@@ -3,8 +3,8 @@ title: "Config - tutor_promotion"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml tutor_promotion"
@@ -49,8 +49,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `tutor_promotion.gap_claim_pseudo_count` | `2.0` | number | modeled default or validator seed | Controls gap claim pseudo count in promotion of learner questions into claims, needs, and practice, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:640`; `src/learnloop/tutor/promotions.py:791` |
 | `tutor_promotion.gap_declaration_solid_likelihood_ratio` | `0.35` | number | modeled default or validator seed | Sets the gap declaration solid likelihood ratio used by promotion of learner questions into claims, needs, and practice. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:641`; `src/learnloop/tutor/question_signal.py:175` |
 | `tutor_promotion.gap_declaration_likelihood_min_samples` | `12` | integer | modeled default or validator seed | Controls gap declaration likelihood min samples in promotion of learner questions into claims, needs, and practice, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:642`; `src/learnloop/tutor/question_signal.py:193` |
-| `tutor_promotion.gap_need_ttl_days` | `21` | integer | modeled default or validator seed | Sets the gap need time-to-live duration in days for promotion of learner questions into claims, needs, and practice. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:643`; `src/learnloop/content/authoring/practice_generation.py:742` |
-| `tutor_promotion.requested_items_per_session` | `1` | integer | modeled default or validator seed | Controls requested items per session in promotion of learner questions into claims, needs, and practice, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:644`; `src/learnloop/daily_plan/engine.py:806`; `src/learnloop/scheduling/scheduler.py:1280` |
+| `tutor_promotion.gap_need_ttl_days` | `21` | integer | modeled default or validator seed | Sets the gap need time-to-live duration in days for promotion of learner questions into claims, needs, and practice. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:643`; `src/learnloop/content/authoring/practice_generation.py:600` |
+| `tutor_promotion.requested_items_per_session` | `1` | integer | modeled default or validator seed | Controls requested items per session in promotion of learner questions into claims, needs, and practice, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:644`; `src/learnloop/daily_plan/engine.py:844`; `src/learnloop/scheduling/scheduler.py:1091` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

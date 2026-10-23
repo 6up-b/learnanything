@@ -130,7 +130,7 @@ it("? focuses the box without typing; Tab opens the palette grouped by intention
   fireEvent.keyDown(box, { key: "Tab" });
   const palette = await screen.findByRole("group", { name: "what do you want to do?" });
   const headings = within(palette).getAllByRole("heading").map((h) => h.textContent);
-  // RW4a landed Orient ("what do I need first?"); RW7a's reading path has not.
+  // Orient: RW4a's "what do I need first?" and RW7a's "what matters here?".
   expect(headings).toEqual(["Understand", "Apply", "Consolidate", "Transfer", "Orient", "Mark"]);
   expect(within(palette).getByRole("button", { name: "let me try the next step" })).toBeTruthy();
   fireEvent.keyDown(box, { key: "Escape" });

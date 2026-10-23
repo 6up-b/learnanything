@@ -5,6 +5,7 @@
 import { useState, type CSSProperties } from "react";
 import type { PendingAddDto, SourceActionKind, SourceLibraryCard, SourceStatusLineDto } from "../api/dto";
 import { COLOR, FONT_MONO } from "./term";
+import { IntentControl } from "./IntentControl";
 
 const linkButton: CSSProperties = {
   background: "none",
@@ -151,6 +152,11 @@ export function BookCard({
             <button type="button" style={linkButton} onClick={onOpenImports}>
               See how it was added and built
             </button>
+          ) : null}
+          {/* Daily-loop DL2: the single intent control over the topics this
+              source teaches (spec §5.2); it shows only once topics exist. */}
+          {ready ? (
+            <IntentControl scopeKind="source" scopeId={card.sourceId} heading={`What you want from this ${noun}`} />
           ) : null}
         </div>
       ) : null}

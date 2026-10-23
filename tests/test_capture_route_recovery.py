@@ -12,6 +12,10 @@ from tests.test_capture_desktop import _capture, _context
 from tests.test_sidecar_quick_add import _seed_extraction
 from tests.test_sidecar_tutor_qa import _TutorServer, _tutor_vault
 
+# The legacy Codex HTTP adapter is refused by the tool lockdown (hardening round 2,
+# H3); these tests drive an in-process HTTP server through it as a provider double.
+pytestmark = pytest.mark.usefixtures("legacy_codex_http_double")
+
 
 @pytest.fixture(params=["card", "quick_add", "tutor"])
 def destination(request, tmp_path, monkeypatch):

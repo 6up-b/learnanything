@@ -34,6 +34,8 @@ import { ClaimSurface, mintVisitId } from "../components/ClaimSurface";
 import { RepairTraceBlocks } from "../components/RepairTrace";
 import type { AttemptTraceDto } from "../api/dto";
 import { algoConfig, masteryTone } from "../app/algoConfig";
+import { CompareMethods } from "./feedback/CompareMethods";
+import { screenLeavesKey } from "../app/keymap";
 import { useNextQueueItem } from "../app/autoAdvance";
 import { nextPlanKeyLabel, useNextPlanStep } from "../app/dailyPlan";
 import type { PlanStepDto } from "../api/dto";
@@ -63,6 +65,8 @@ import {
   type FeedbackNextStep
 } from "./feedback/FeedbackSurface";
 import { PrimaryAction, QuietAction } from "../components/PlainParts";
+import { IntentCheckFeedback } from "../components/IntentCheckFeedback";
+import type { IntentRestorationDto } from "../api/dto";
 
 // ── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -1469,6 +1473,7 @@ export function FeedbackScreen({
   onPaletteEntities,
   onAsk,
   onError,
+  onOpenStudied,
   origin = "today",
   keysSuspended = false,
   answerCovered = false,
@@ -1510,6 +1515,9 @@ export function FeedbackScreen({
   onPaletteEntities?: (ids: { inspectIds: string[]; practiceItemIds: string[] }) => void;
   onAsk: (target: { context: "feedback"; attemptId: string; practiceItemId?: string }) => void;
   onError: (message: string) => void;
+  /** Daily-loop DL2: after a check on your own, the way back to where it was
+   *  studied (rendered only when the check's provenance carries one). */
+  onOpenStudied?: (restoration: IntentRestorationDto) => void;
   /** UX Phase 4: where the attempt started, so Next returns there (the
    *  plan's next step, Today, or the book's passage) and the header says so. */
   origin?: FeedbackOrigin;
@@ -2162,6 +2170,8 @@ export function FeedbackScreen({
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (keysSuspended) return;
+      // Simple shell: Ctrl+O is Add a file, not "open notes" (fix round 2).
+      if (screenLeavesKey(event)) return;
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea") return;
       if (!feedback) {
@@ -2289,6 +2299,7 @@ export function FeedbackScreen({
     return (
       <div className="screen">
         <div className="screen-scroll" style={{ padding: "14px 24px 20px" }}>
+          <IntentCheckFeedback check={f.intentCheck} onOpenStudied={onOpenStudied} />
           <FeedbackSurface
             feedback={f}
             item={item}
@@ -2330,6 +2341,11 @@ export function FeedbackScreen({
             recordAnswerDisplay={api.recordAnswerDisplay}
             answerCovered={answerCovered}
           />
+          {/* Reader RW2c: "compare methods ▸" after a correct workbench Submit,
+              only while workbench.compare_methods_enabled is on. */}
+          {algoConfig().workbenchHelp?.compareMethods ? (
+            <CompareMethods attemptId={f.attemptId} correctness={f.correctness} held={f.heldForReview === true} />
+          ) : null}
 
           {detailsOpen ? (
             <div style={{ marginTop: 22, maxWidth: 900 }} data-testid="feedback-details">
@@ -2846,6 +2862,7 @@ export function FeedbackScreen({
         )}
 
         <FbHeader first>Feedback</FbHeader>
+        <IntentCheckFeedback check={f.intentCheck} onOpenStudied={onOpenStudied} />
 
         {/* ── main card ── */}
         <div style={{ border: `1px solid ${C.border}`, borderRadius: 2, padding: "20px 22px" }}>

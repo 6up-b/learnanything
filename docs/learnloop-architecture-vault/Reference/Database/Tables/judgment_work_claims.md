@@ -3,13 +3,13 @@ title: "judgment_work_claims"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_work_claims"
   - "table judgment_work_claims"
-schema_head: 214
+schema_head: 217
 table_name: "judgment_work_claims"
 table_role: "workflow"
 functionality_status: "active"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/176_recurrence_groups.sql"
   - "src/learnloop/adaptive_difficulty/background.py"
   - "src/learnloop/adaptive_difficulty/claims.py"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/db/stores/judgment_claims.py"
   - "src/learnloop/hints/map_builder.py"
+  - "src/learnloop/hints/outcome.py"
+  - "src/learnloop/matching/judge.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -108,13 +108,14 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_ad1_fix_round5.py`
-- `tests/test_ad_guard.py`
 - `tests/test_approach_maps.py`
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_hint_outcome.py`
 - `tests/test_reader_active_reading.py`
 - `tests/test_reader_formative_texts.py`
+- `tests/test_reading_paths.py`
 - `tests/test_recurrence_merge_composition.py`
+- `tests/test_workbench_text_gaps.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

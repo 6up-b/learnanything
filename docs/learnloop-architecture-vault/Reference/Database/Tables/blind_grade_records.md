@@ -3,13 +3,13 @@ title: "blind_grade_records"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite blind_grade_records"
   - "table blind_grade_records"
-schema_head: 214
+schema_head: 217
 table_name: "blind_grade_records"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,14 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/170_blind_grading_diagnosis_split.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/stuck.py"
   - "src/learnloop/daily_plan/router_teach_back.py"
   - "src/learnloop/db/stores/diagnoses.py"
   - "src/learnloop/db/stores/recurrence.py"
   - "src/learnloop/db/stores/write_provenance.py"
+  - "src/learnloop/diagnosis/split/reports.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -106,6 +105,7 @@ None found by exact static reference scan.
 - `src/learnloop/held_grades.py`
 - `src/learnloop/learner_context.py`
 - `src/learnloop/placement/state.py`
+- `src/learnloop/workbench/help_outcomes.py`
 - `src/learnloop_sidecar/handlers/serializers.py`
 
 ### Direct SQL writers
@@ -122,6 +122,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_diagnosis_input_provenance.py`
+- `tests/test_help_outcomes.py`
 - `tests/test_mvp017_route_check_replay.py`
 - `tests/test_required_method_grading.py`
 - `tests/test_router_r2c_teach_back.py`

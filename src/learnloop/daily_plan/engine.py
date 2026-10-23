@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
@@ -55,11 +56,12 @@ from learnloop.daily_plan.lanes import (
     LegacyLanesSource,
     PoolItem,
     SOURCE_NAME,
+    ScheduledCheck,
     classify_pool,
     reentry_order,
     scheduled_checks,
 )
-from learnloop.daily_plan.reading import next_reading_target, section_start_span
+from learnloop.daily_plan.reading import as_you_read_extraction_ids, next_reading_target, section_start_span
 from learnloop.daily_plan.records import (
     AD_INELIGIBLE,
     ORIGIN_CHOOSER,
@@ -236,6 +238,8 @@ class PoolContext:
     #: Adaptive difficulty AD2+AD3: the day's active AD deferrals this view
     #: excluded (spec §6.1 step 0); the projection holds them fixed.
     ad_deferred: frozenset[str] = frozenset()
+    #: DL2: committed LOs' intent views (empty: every LO uncommitted, as DL1).
+    intent_views: Mapping[str, IntentView] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -628,6 +632,9 @@ class _Pool:
     #: requests under one rule, in pool order. None: the split selects them
     #: from the classified pool (no probe valuation, as before).
     request_ids: tuple[str, ...] | None = None
+    #: DL2: the build's intent view (``learnloop.scheduling.intent.serving``), None when
+    #: intent changes nothing (every branch then DL1's exactly).
+    intent: Any = None
 
 
 def _open_problems(env: PlanEnv) -> tuple[frozenset[str] | None, str]:
@@ -762,9 +769,34 @@ def _classified_pool(
     # and the hold lifts today (``PlanWaiting``).
     estimator = _estimator(env)
     states = env.repository.practice_item_states()
-    requested = env.repository.requested_practice_item_ids()
+    intent = intent_view(env)
     ids = [item.practice_item_id for item in scheduled]
     checks = scheduled_checks(env.vault, env.repository, ids)
+    if intent is None:
+        requested = env.repository.requested_practice_item_ids()
+        push_ids: list[str] = []
+        tiers: dict[str, int] | None = None
+        light_touch: set[str] = set()
+    else:
+        # DL2 (§5.2, §5.3): the same request rule as the scheduler, and each
+        # due "Check once" is a scheduled check in the maintain lane (the
+        # check_once provider), not a requests-first slot. Minutes, not a
+        # count, bound how many are planned (Reader §9.3 item 6).
+        check_items = _check_once_checks(intent, ids)
+        for item_id, check in check_items.items():
+            checks.setdefault(item_id, check)
+        requested = [
+            item_id
+            for item_id in intent.filter_requests(
+                env.repository.requested_practice_item_ids(
+                    skip_commitment_ids=intent.intent_control_request_commitments()
+                )
+            )
+            if item_id not in check_items
+        ]
+        push_ids = [item_id for item_id in ids if intent.pushes(item_id, states.get(item_id))]
+        tiers = {item_id: intent.intent(item_id).tier for item_id in ids}
+        light_touch = {item_id for item_id in ids if intent.intent(item_id).choice == "light_touch"}
     probes_planned = sum(
         1 for record_ in day for item in record_.active_items() if item.check_kind == "project_probe"
     )
@@ -783,9 +815,19 @@ def _classified_pool(
             deadline_learning_object_ids=deadlines,
             open_problem_learning_object_ids=open_problems,
             project_probe_admission=admission,
+            is_due=intent.due if intent is not None else None,
+            push_ids=push_ids,
         )
         if reentry:
-            classified = reentry_order(classified)
+            classified = reentry_order(classified, tiers)
+            if light_touch:
+                # §7: Light touch is left out of re-entry (lapses are fine).
+                classified = [
+                    replace(item, lane=None, reason="light touch: left out of re-entry")
+                    if item.practice_item_id in light_touch
+                    else item
+                    for item in classified
+                ]
         return [item if item.lane in lanes_allowed else replace(item, lane=None) for item in classified]
 
     admission = None
@@ -819,7 +861,7 @@ def _classified_pool(
             # them is conditioned on as the build would have.
             pending = 0.0
             if not record.blocks and not record.receipts:
-                for row in record.split.get("requested") or []:
+                for row in _forced_rows(record.split):
                     pending += float(row.get("est_minutes") or 0.0)
                     held[str(row.get("practice_item_id"))] = voi.REASON_LEARNER_REQUEST
             usable = _usable_probe_minutes(
@@ -846,7 +888,46 @@ def _classified_pool(
         deadlines=deadlines,
         repair_rule=repair_rule,
         request_ids=request_ids,
+        intent=intent,
     )
+
+
+def intent_view(env: PlanEnv) -> Any:
+    """DL2's intent view for this build (None when intent changes nothing)."""
+
+    from learnloop.scheduling.intent.serving import intent_serving
+
+    return intent_serving(env.vault, env.repository, now=env.now())
+
+
+def reading_allowed(env: PlanEnv, intent: Any, extraction_id: str) -> bool:
+    """§6.10 by intent (Codex review F7): a reading's source reads under Learn
+    or Master, or uncommitted. A source's intent is its LOs' (the source
+    control fans out to them, ``intent.control.scope_contents``): it reads
+    while any LO it teaches is uncommitted or under an active Learn or
+    Master; Pause, Reference, Let go, Keep, Light touch and "Check once" on
+    every one of them stop new reading (maintenance only, or nothing)."""
+
+    from learnloop.reader.recap import source_learning_objects
+
+    lo_ids = source_learning_objects(env.vault, env.repository, extraction_id)
+    if not lo_ids:
+        return True
+    for lo_id in lo_ids:
+        resolved = intent.resolution.for_learning_object(lo_id)
+        if resolved.uncommitted:
+            return True
+        if resolved.disposition == "active" and resolved.choice in ("learn", "master"):
+            return True
+    return False
+
+
+def _check_once_checks(intent: Any, item_ids: Sequence[str]) -> dict[str, ScheduledCheck]:
+    """DL2's ``check_once`` provider (``lanes.ScheduledCheck``): the due
+    "Check once" items among the pool, one per check, in pool order. Called
+    with the plan's clock (the registry's providers take none)."""
+
+    return {item_id: ScheduledCheck("check_once") for item_id in intent.check_item_ids(item_ids)}
 
 
 def _project_probe_admission(
@@ -957,7 +1038,10 @@ def _project_probe_admission(
     return admit
 
 
-def _review_items(env: PlanEnv, estimator: Estimator) -> list[ReviewItem]:
+def _review_items(env: PlanEnv, estimator: Estimator, intent: Any = None) -> list[ReviewItem]:
+    """The review-load population (§6.3): items with memory state, at their
+    effective due (DL2, §5.3), in non-excluded intents."""
+
     from learnloop.vault.lifecycle import practice_item_servable
 
     vault = env.vault
@@ -968,11 +1052,23 @@ def _review_items(env: PlanEnv, estimator: Estimator) -> list[ReviewItem]:
         item = vault.practice_items.get(item_id)
         if item is None or item.status != "active" or not practice_item_servable(vault, item):
             continue
+        due_at = state.due_at
+        last_review_at = state.last_attempt_at
+        if intent is not None:
+            if intent.withhold_reason(item_id) is not None:
+                continue
+            effective = intent.effective(item_id, state).due
+            if effective is not None:
+                due_at = effective.strftime("%Y-%m-%dT%H:%M:%SZ")
+            # Codex review F5: the interval runs from the review that set
+            # ``due_at`` (the anchor), not from a later primed retry or
+            # diagnostic that moved only ``last_attempt_at``.
+            last_review_at = intent.last_review_at(item_id, state)
         items.append(
             ReviewItem(
                 practice_item_id=item_id,
-                due_at=state.due_at,
-                last_review_at=state.last_attempt_at,
+                due_at=due_at,
+                last_review_at=last_review_at,
                 est_minutes=estimator.item_minutes(vault, item_id),
             )
         )
@@ -1032,6 +1128,15 @@ class _Prepared:
     admission: Any
     row: dict[str, Any]
     day: list[PlanRecord]
+    #: DL2 fix round 4 (R2): the due "Check once" items planned first.
+    checks: list[PoolItem] = field(default_factory=list)
+
+    @property
+    def forced(self) -> list[PoolItem]:
+        """What the first block places whatever is chosen: the requests (L3),
+        then the due checks (R2)."""
+
+        return [*self.requests, *self.checks]
 
     def record(self, plan_id: str = "preview") -> PlanRecord:
         """The plan as it would be loaded, with no blocks (a dry run)."""
@@ -1085,19 +1190,34 @@ def _prepare_plan(
     else:
         requests, requested_minutes = _select_requests(pool, budget=budget, per_session=per_session)
     request_ids = {item.practice_item_id for item in requests}
-    rest = [item for item in pool if item.practice_item_id not in request_ids]
+    # DL2 fix round 4 (R2): every due "Check once" is the learner's own
+    # request, so it is planned in the first block within the plan's minutes,
+    # its minutes off the budget before the split, as requests are; it stays
+    # a scheduled check in the maintain lane (§5.2, §6.1). One the minutes
+    # cannot hold is recorded (``checks_unplanned``), never left silently.
+    checks: list[PoolItem] = []
+    check_minutes = 0.0
+    checks_unplanned: list[dict[str, Any]] = []
+    if built.intent is not None:
+        checks, check_minutes, checks_unplanned = _select_checks(
+            built.intent, pool, budget=max(budget - requested_minutes, 0.0), taken=request_ids
+        )
+    forced_ids = request_ids | {item.practice_item_id for item in checks}
+    rest = [item for item in pool if item.practice_item_id not in forced_ids]
     loads = {lane: 0.0 for lane in LANES}
     for item in rest:
         if item.lane in loads and item.lane != "new":
             loads[item.lane] += item.est_minutes
-    m = max(budget - requested_minutes, 0.0)
+    m = max(budget - requested_minutes - check_minutes, 0.0)
     new_candidates = [
         NewCandidate(item.practice_item_id, item.est_minutes, requested=item.requested)
         for item in rest
         if item.lane == "new" and item.never_attempted
     ]
+    if built.intent is not None:
+        new_candidates = _intent_admission_order(built.intent, new_candidates)
     review_load = projected_review_load(
-        _review_items(env, built.estimator), now=env.now(), horizon_days=int(config.load_horizon_days)
+        _review_items(env, built.estimator, built.intent), now=env.now(), horizon_days=int(config.load_horizon_days)
     )
     # L is a daily load, so its ceiling is 0.80 of a daily budget: the plan's
     # own M for the day's plan, the remembered budget for an extension or the
@@ -1132,14 +1252,26 @@ def _prepare_plan(
         protected = reading_rule != READING_RULE_DL1
         exam = _exam_material(env.vault, env.repository) if protected else None
         if not (protected and exam is None):
-            reading = next_reading_target(env.repository, from_furthest=from_furthest, exam=exam)
+            # DL2 (Codex review F7, §6.10): only a source under Learn or
+            # Master (or uncommitted) reads; with intent changing nothing the
+            # candidates are DL1's (None: the step reads them itself).
+            extraction_ids = None
+            if built.intent is not None:
+                extraction_ids = [
+                    extraction_id
+                    for extraction_id in as_you_read_extraction_ids(env.repository)
+                    if reading_allowed(env, built.intent, extraction_id)
+                ]
+            reading = next_reading_target(
+                env.repository, extraction_ids=extraction_ids, from_furthest=from_furthest, exam=exam
+            )
         if reading is not None:
             reading_full = built.estimator.reading_minutes(reading.words_left)
     admitted_new_minutes = admission.admitted_minutes + (reading_full or 0.0)
     loads["new"] = admitted_new_minutes
     split = split_v1(
         budget=budget,
-        requested_minutes=requested_minutes,
+        requested_minutes=requested_minutes + check_minutes,
         loads=loads,
         admitted_new_minutes=admitted_new_minutes,
         push_candidates=any(item.lane == "push" for item in rest),
@@ -1177,6 +1309,16 @@ def _prepare_plan(
         "repair_rule": built.repair_rule,
         "new_first": "more_new" if override == "more_new" else ("after_reentry" if after_reentry else None),
     }
+    if built.intent is not None:
+        split_json["checks"] = [
+            {
+                "practice_item_id": item.practice_item_id,
+                "commitment_id": _check_commitment(built.intent, item.practice_item_id),
+                "est_minutes": round(item.est_minutes, 4),
+            }
+            for item in checks
+        ]
+        split_json["checks_unplanned"] = checks_unplanned
     now = env.now_iso()
     row = {
         "local_date": env.today(),
@@ -1198,7 +1340,129 @@ def _prepare_plan(
         "updated_at": now,
         "completed_at": None,
     }
-    return _Prepared(built=built, requests=requests, admission=admission, row=row, day=list(day))
+    return _Prepared(built=built, requests=requests, admission=admission, row=row, day=list(day), checks=checks)
+
+
+#: Why a due "Check once" is not in a plan's first block. Every due,
+#: unanswered, unreplaced check is either planned or recorded with one of
+#: these (DL2 fix round 6, F20), always with its refused candidates' reasons:
+#: the only reason not to serve it for value or cost is that the plan's
+#: minutes cannot hold it (round 4, R2).
+CHECK_MINUTES_EXHAUSTED = "plan_minutes_exhausted"
+#: Every candidate was refused by the one check gate (round 6; F16, F18, F19).
+CHECK_REFUSED_CANDIDATES = "refused_candidates"
+#: The check's servable candidates wait out a time-bounded hold (a reveal
+#: since the check was chosen; F3): it comes back when the hold ends.
+CHECK_CANDIDATES_HELD = "candidates_held"
+#: A servable candidate never reached the plan's pool (never expected:
+#: recorded so a gap is visible, not silent).
+CHECK_NOT_IN_POOL = "not_in_pool"
+#: The check's scope has no practice items yet (round 7, F21): it stays due.
+CHECK_NO_CANDIDATES = "no_candidates"
+#: The learner-facing line of a check with nothing to check yet.
+NO_CANDIDATES_LINE = "Nothing to check yet: this topic has no questions."
+
+
+def _check_commitment(intent: Any, practice_item_id: str) -> str | None:
+    check = intent.check_for(practice_item_id)
+    return check.commitment_id if check is not None else None
+
+
+def _refused_rows(check: Any) -> list[dict[str, Any]]:
+    return [
+        {
+            "practice_item_id": item_id,
+            "constraint_key": str(refusal.get("constraint_key") or ""),
+            "reason": str(refusal.get("reason") or ""),
+        }
+        for item_id, refusal in getattr(check, "refused", ())
+    ]
+
+
+def _select_checks(
+    intent: Any, pool: Sequence[PoolItem], *, budget: float, taken: Iterable[str]
+) -> tuple[list[PoolItem], float, list[dict[str, Any]]]:
+    """DL2 fix round 4 (R2): the due "Check once" items, in pool order, while
+    their estimates fit ``budget`` (what the requests left). Never valued or
+    capped: the learner asked for the check.
+
+    Fix round 6 (orchestrator ruling): a check is exempt from value and count
+    only, never from a mandatory constraint. Its candidates passed the one
+    check gate before they could be selected (``intent.serving.check_feasibility``:
+    held-out material always, assessment reservations, exam pools, the build's
+    admission and the staged frame's mandatory constraints, under every
+    policy), so a pool item marked ``check_once`` is a feasible one. Every
+    due, unanswered, unreplaced check is accounted for: planned, or recorded
+    in ``checks_unplanned`` with its reason (minutes exhausted, every
+    candidate refused, its candidates held, none in the pool, or, round 7,
+    no candidates at all: a scope with no items yet) and every refused
+    candidate's key."""
+
+    taken = set(taken)
+    checks: list[PoolItem] = []
+    minutes = 0.0
+    unplanned: list[dict[str, Any]] = []
+    accounted: set[str] = set()
+    for item in pool:
+        if item.check_kind != "check_once" or item.lane is None:
+            continue
+        check = intent.check_for(item.practice_item_id)
+        commitment_id = check.commitment_id if check is not None else None
+        if item.practice_item_id in taken:
+            if commitment_id is not None:
+                accounted.add(commitment_id)
+            continue
+        if minutes + item.est_minutes > budget + _EPS:
+            if commitment_id is not None:
+                accounted.add(commitment_id)
+            unplanned.append(
+                {
+                    "practice_item_id": item.practice_item_id,
+                    "commitment_id": commitment_id,
+                    "est_minutes": round(item.est_minutes, 4),
+                    "minutes_left": round(max(budget - minutes, 0.0), 4),
+                    "reason": CHECK_MINUTES_EXHAUSTED,
+                    "refused_candidates": _refused_rows(check),
+                }
+            )
+            continue
+        if commitment_id is not None:
+            accounted.add(commitment_id)
+        checks.append(item)
+        minutes += item.est_minutes
+    for check in intent.due_checks():
+        if check.commitment_id in accounted:
+            continue
+        refused = _refused_rows(check)
+        if not check.candidates:
+            reason = CHECK_NO_CANDIDATES
+        elif check.servable:
+            reason = CHECK_NOT_IN_POOL
+        elif check.held:
+            reason = CHECK_CANDIDATES_HELD
+        else:
+            reason = CHECK_REFUSED_CANDIDATES
+        row: dict[str, Any] = {
+            "practice_item_id": None,
+            "commitment_id": check.commitment_id,
+            "reason": reason,
+            "refused_candidates": refused,
+        }
+        if reason == CHECK_CANDIDATES_HELD:
+            row["held_item_ids"] = sorted(check.held)
+        if reason == CHECK_NO_CANDIDATES:
+            row["line"] = NO_CANDIDATES_LINE
+        logging.getLogger(__name__).info("daily plan: due check %s not planned: %s %s", check.commitment_id, reason,
+                                         refused)
+        unplanned.append(row)
+    return checks, minutes, unplanned
+
+
+def _forced_rows(split: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    """The first block's forced items as the split recorded them: the
+    requests (L3), then the due checks (R2)."""
+
+    return [*(split.get("requested") or []), *(split.get("checks") or [])]
 
 
 def simulate_blocks(
@@ -1293,7 +1557,7 @@ def _empty_extension(env: PlanEnv, prepared: _Prepared) -> bool:
     feasible block at its first boundary). Decided by the container's
     feasibility, never by asking the live chooser."""
 
-    if prepared.requests:
+    if prepared.forced:
         return False
     record = prepared.record()
     context = _context(env, record, prepared.built, day=prepared.day)
@@ -1346,7 +1610,7 @@ def build_plan(
     record = _reload(env, plan_id)
     context = _context_from_build(env, record, prepared.built)
     try:
-        _boundary(env, record, context, forced=prepared.requests, forced_origin=ORIGIN_REQUESTED)
+        _boundary(env, record, context, forced=prepared.forced, forced_origin=ORIGIN_REQUESTED)
     except DecisionPending:
         # Router R2b: the first block's models are still out (Today's open is a
         # read). The plan stands without a block; the next call decides it
@@ -1429,7 +1693,13 @@ def _context(env: PlanEnv, record: PlanRecord, built: _Pool, *, day: Sequence[Pl
     reading_row = split.get("reading")
     reading = None
     reading_full = None
-    if reading_row and not any(block.is_reading for block in record.blocks):
+    if (
+        reading_row
+        and not any(block.is_reading for block in record.blocks)
+        # DL2 (Codex review F7): a choice since the plan was built can take
+        # the reading's source out of reading.
+        and (built.intent is None or reading_allowed(env, built.intent, str(reading_row.get("extraction_id") or "")))
+    ):
         reading = ReadingTarget(**{key: reading_row[key] for key in ("source_id", "extraction_id", "section_id", "section_title", "words_left")})
         reading_full = float(split.get("reading_full_minutes") or 0.0)
     gap_row = split.get("reentry_gap") or {}
@@ -1453,6 +1723,7 @@ def _context(env: PlanEnv, record: PlanRecord, built: _Pool, *, day: Sequence[Pl
         held_until=held_until,
         pool_with_held=pool_with_held if held_until else (),
         ad_deferred=deferred,
+        intent_views=_intent_views(env, built, (item.learning_object_id for item in pool)),
     )
 
 
@@ -1598,7 +1869,54 @@ def _items_left(record: PlanRecord, *, forced_items: int = 0) -> int | None:
 
 def _intents(context: PoolContext) -> dict[str, IntentView]:
     los = {item.learning_object_id for item in context.pool}
-    return {lo: IntentView(deadline=context.deadlines.get(lo)) for lo in sorted(los)}
+    views = context.intent_views
+    return {
+        lo: replace(views[lo], deadline=context.deadlines.get(lo)) if lo in views else IntentView(deadline=context.deadlines.get(lo))
+        for lo in sorted(los)
+    }
+
+
+def _intent_admission_order(intent: Any, candidates: Sequence[NewCandidate]) -> list[NewCandidate]:
+    """§6.3 by intent: requests stay exempt and first; then Learn and Master,
+    then uncommitted, each in the scheduler's (Phase 6's) order. Keep and
+    Light touch add no new material of the system's choosing."""
+
+    from learnloop.scheduling.intent.model import TIER_KEEP, TIER_LIGHT, TIER_PUSH
+
+    requested = [candidate for candidate in candidates if candidate.requested]
+    ordinary = [
+        (intent.intent(candidate.practice_item_id).tier, index, candidate)
+        for index, candidate in enumerate(candidates)
+        if not candidate.requested
+    ]
+    kept = [entry for entry in ordinary if entry[0] not in (TIER_KEEP, TIER_LIGHT)]
+    kept.sort(key=lambda entry: (0 if entry[0] == TIER_PUSH else 1, entry[1]))
+    return [*requested, *(candidate for _tier, _index, candidate in kept)]
+
+
+def _intent_views(env: PlanEnv, built: _Pool, learning_object_ids: Iterable[str]) -> dict[str, IntentView]:
+    """§5: each LO's intent as the chooser may read it (committed LOs only;
+    the rest keep DL1's uncommitted default). An LO assumed known (not tested)
+    with no commitment is Keep for its check (§5.6)."""
+
+    intent = built.intent
+    if intent is None:
+        return {}
+    from learnloop.scheduling.intent.model import CHOICE_PRESET
+
+    assumed = {item.learning_object_id for item in built.pool if item.check_kind == "assumed_check"}
+    keep_target = float(env.vault.config.intent.recall_targets.get(CHOICE_PRESET["keep"], 0.85))
+    views: dict[str, IntentView] = {}
+    for lo_id in sorted(set(learning_object_ids)):
+        resolved = intent.resolution.for_learning_object(lo_id)
+        if resolved.uncommitted:
+            if lo_id in assumed:
+                views[lo_id] = IntentView(choice="keep", disposition="active", recall_target=keep_target)
+            continue
+        views[lo_id] = IntentView(
+            choice=resolved.choice, disposition=resolved.disposition, recall_target=resolved.recall_target
+        )
+    return views
 
 
 @dataclass(frozen=True)
@@ -2049,7 +2367,13 @@ def _boundary(
         los = list(dict.fromkeys(item.learning_object_id for item in forced))
         chosen_by = "learner_pick" if forced_origin == ORIGIN_REQUESTED else "lane_quota"
         decision_ref = None
-        detail["why"] = "your requested item comes first" if forced_origin == ORIGIN_REQUESTED else "a follow-up from this session's answer"
+        detail["why"] = (
+            "a follow-up from this session's answer"
+            if forced_origin != ORIGIN_REQUESTED
+            else "the delayed check you asked for comes first"
+            if all(getattr(item, "check_kind", None) == "check_once" for item in forced)
+            else "your requested item comes first"
+        )
     for item, origin in items[: len(forced)]:
         los = list(dict.fromkeys([item.learning_object_id, *los]))
     with env.repository.atomic(), env.repository.connection() as connection:
@@ -2246,6 +2570,11 @@ def reconcile(env: PlanEnv, record: PlanRecord) -> PlanRecord:
     # is served; one a routine display covers is displaced (its task deferred
     # until that coverage ends, when the queue serves it again).
     cold_items = _open_cold_check_items(env)
+    # DL2 (Codex review F1): a choice made after the plan was built (Pause,
+    # Reference, Let go, a "Check once" that now holds an item, an answered
+    # check) applies to the plan's unserved items too; with intent changing
+    # nothing this is None and reconciliation is DL1's.
+    intent = intent_view(env) if any(item.served_at is None for item in open_items) else None
     if open_items:
         earliest = min(item.planned_at for item in open_items)
         ids = sorted({item.practice_item_id for item in open_items})
@@ -2303,6 +2632,15 @@ def reconcile(env: PlanEnv, record: PlanRecord) -> PlanRecord:
                 )
                 item.displaced_at = now
                 continue
+            if (
+                intent is not None
+                and item.served_at is None
+                and item.origin != ORIGIN_LEARNER_PICK
+                and (withheld := intent.withhold_reason(item.practice_item_id)) is not None
+            ):
+                writes.append((item.block_id, "item_displaced", {"practice_item_id": item.practice_item_id, "reason": withheld}))
+                item.displaced_at = now
+                continue
             if item.served_at is None and item.practice_item_id in cold_items:
                 from learnloop.scheduling.scheduler import cold_check_serve_hold
 
@@ -2316,6 +2654,16 @@ def reconcile(env: PlanEnv, record: PlanRecord) -> PlanRecord:
         if block.ended_at is None and not block.is_reading and block.items and all(item.resolved for item in block.items):
             writes.append((block.id, "block_ended", {"outcome": "completed", "minutes_counted": round(block.est_minutes(), 4)}))
             block.ended_at = now
+        elif block.ended_at is None and block.is_reading and block.started_at is None:
+            # DL2 (Codex review F7): a reading block not yet started whose
+            # source a later choice took out of reading (Pause, Reference,
+            # Let go, Keep, Light touch, "Check once") is ended unread; its
+            # minutes are not counted.
+            reading_intent = intent if intent is not None else intent_view(env)
+            extraction = str((block.reading or {}).get("extraction_id") or "")
+            if reading_intent is not None and extraction and not reading_allowed(env, reading_intent, extraction):
+                writes.append((block.id, "block_ended", {"outcome": "displaced", "reason": "intent", "minutes_counted": 0.0}))
+                block.ended_at = now
     if writes:
         with env.repository.atomic(), env.repository.connection() as connection:
             for block_id, kind, detail in writes:
@@ -2835,14 +3183,15 @@ def advance_with_context(
     block = record.current_block()
     if block is None:
         forced_origin = ORIGIN_FOLLOWUP
-        if not record.blocks and not record.receipts and record.split.get("requested"):
+        if not record.blocks and not record.receipts and _forced_rows(record.split):
             # The plan row was written but its first block was not (a crash
-            # between the two writes): place its requests first now, as the
-            # build would have (L3; review F10). Follow-ups wait one step.
+            # between the two writes): place its requests (and due checks,
+            # R2) first now, as the build would have (L3; review F10).
+            # Follow-ups wait one step.
             by_id = {item.practice_item_id: item for item in context.pool}
             forced = [
                 by_id[row["practice_item_id"]]
-                for row in record.split.get("requested") or []
+                for row in _forced_rows(record.split)
                 if row.get("practice_item_id") in by_id
             ]
             forced_origin = ORIGIN_REQUESTED
@@ -3042,9 +3391,14 @@ def _present(
     origin: str,
     candidate_id: str | None,
     served_at: str,
+    strict: bool = False,
 ) -> str | None:
     """Router R2a: the served item's ``plan_presentations`` row, in the serve's
     own transaction (one per block and item: a reopen returns the first).
+
+    ``strict`` (a keyed pick, Reader RW4b fix round 7): the row is required,
+    so a refused insert (or a vault without the table) PROPAGATES and rolls
+    the whole keyed pick back; unkeyed serves keep the logging behaviour.
 
     The router decision that placed the item (its block's, or the
     ``plan_interrupt`` decision that inserted a follow-up: Codex review F1)
@@ -3056,6 +3410,8 @@ def _present(
     from learnloop.db.stores import plan_presentations as presentations
 
     if not presentations.plan_presentations_present(connection):
+        if strict:
+            raise RuntimeError("a keyed learner pick needs its plan presentation, and this vault has no table for it")
         return None
     connection.execute("SAVEPOINT plan_presentation")
     try:
@@ -3082,9 +3438,11 @@ def _present(
                 "served_at": served_at,
             },
         )
-    except Exception:  # noqa: BLE001 - the receipt never blocks serving
+    except Exception:  # noqa: BLE001 - the receipt never blocks serving (unless strict)
         connection.execute("ROLLBACK TO plan_presentation")
         connection.execute("RELEASE plan_presentation")
+        if strict:
+            raise
         import logging
 
         logging.getLogger(__name__).warning("plan presentation of %s not recorded", practice_item_id, exc_info=True)
@@ -3093,8 +3451,10 @@ def _present(
     return presentation_id
 
 
-def _serve(env: PlanEnv, block: PlannedBlock, item: PlannedItem, *, candidate_id: str | None) -> str | None:
-    """Record the item as served; returns its presentation (router R2a)."""
+def _serve(env: PlanEnv, block: PlannedBlock, item: PlannedItem, *, candidate_id: str | None,
+           strict: bool = False) -> str | None:
+    """Record the item as served; returns its presentation (router R2a).
+    ``strict``: a keyed pick's serve, whose presentation is required (fix round 7)."""
 
     now = env.now_iso()
     with env.repository.atomic(), env.repository.connection() as connection:
@@ -3133,6 +3493,7 @@ def _serve(env: PlanEnv, block: PlannedBlock, item: PlannedItem, *, candidate_id
             origin=item.origin,
             candidate_id=candidate_id,
             served_at=item.served_at or now,
+            strict=strict,
         )
         if presentation_id is not None and fresh:
             # Adaptive difficulty AD1 (spec §7.5, §8.1, §5.11): the reading
@@ -3190,8 +3551,45 @@ def _offered_candidate(env: PlanEnv, candidate_id: str | None, practice_item_id:
     return candidate_id
 
 
+#: The keyed receipt of a learner pick made under an idempotency key (Reader
+#: RW4b fix round 6): an ``attention_block_events`` row on the block that
+#: served it, naming the key, the item and the presentation. It is written in
+#: the serve's own transaction, so it exists only once the pick is complete.
+PICK_KEYED = "pick_keyed"
+
+#: Work a keyed pick's caller does in the pick's own transaction (its
+#: proposal's delivery): given the plan record and the step, after the serve.
+WithinPick = Callable[["PlanRecord | None", dict[str, Any]], None]
+
+
+def _keyed_pick_scope(env: PlanEnv, idempotency_key: str | None) -> Any:
+    """A keyed pick's one transaction (fix round 6, F13): the block, the
+    serve, the keyed receipt and the caller's ``within`` commit together or
+    not at all, so no reserved-but-unserved pick can exist. An unkeyed pick
+    keeps its own transactions, as before."""
+
+    from contextlib import nullcontext
+
+    return env.repository.atomic() if idempotency_key else nullcontext()
+
+
+def _record_pick_key(env: PlanEnv, connection: Any, *, block_id: str, practice_item_id: str,
+                     presentation_id: str | None, idempotency_key: str | None) -> None:
+    """The keyed receipt, only ever with the presentation it names (fix
+    round 7): a keyed pick without one refuses, and its transaction rolls back."""
+
+    if idempotency_key and not presentation_id:
+        raise RuntimeError(f"a keyed learner pick of {practice_item_id} has no presentation; nothing is recorded")
+    if idempotency_key:
+        _event(connection, block_id, PICK_KEYED, {"idempotency_key": idempotency_key,
+                                                  "practice_item_id": practice_item_id,
+                                                  "presentation_id": presentation_id,
+                                                  "session_id": env.session_id}, env.now_iso())
+
+
 def learner_pick(
-    env: PlanEnv, practice_item_id: str, *, offer_candidate_id: str | None = None
+    env: PlanEnv, practice_item_id: str, *, offer_candidate_id: str | None = None,
+    idempotency_key: str | None = None, within: WithinPick | None = None,
 ) -> tuple[PlanRecord | None, dict[str, Any]]:
     """§6.1, L3, G12: opening an item from the full list is a one-item block.
 
@@ -3200,11 +3598,27 @@ def learner_pick(
     planned item opened from the list is simply served. A plan that is no
     longer open does not grow: the item is served as an open-list pick.
     ``offer_candidate_id`` is the full list's offer it was picked from.
+
+    ``idempotency_key`` (Reader RW4b fix rounds 5 and 6): a caller that may
+    retry the same pick (a picked exercise's admission) names it. On every
+    branch (a planned item's serve, a new one-item block, an open-list pick
+    after the plan closed) the pick writes a keyed receipt (``PICK_KEYED``)
+    linking the key to the presentation, in ONE transaction with the block,
+    the serve and ``within`` (the caller's delivery). A pick already made
+    under the key, under this plan or an earlier one, is returned as it was
+    made (its original block and presentation), writing nothing.
+    ``within`` is accepted only with a key.
     """
 
     vault = env.vault
     if practice_item_id not in vault.practice_items:
         raise KeyError(practice_item_id)
+    if within is not None and not idempotency_key:
+        raise ValueError("work inside a pick's transaction needs the pick's idempotency key")
+    if idempotency_key:
+        made = picked_under(env, idempotency_key, practice_item_id)
+        if made is not None:
+            return made
     record = get_or_create_today(env)
     assert record is not None
     record = reconcile(env, record)
@@ -3218,19 +3632,32 @@ def learner_pick(
     )
     if planned is not None:
         block = next(b for b in record.blocks if b.id == planned.block_id)
-        presentation_id = _serve(env, block, planned, candidate_id=candidate_id)
-        record = _reload(env, record.id)
-        block = next(b for b in record.blocks if b.id == planned.block_id)
-        return record, _item_step(
-            env, record, block, planned, boundary=False, candidate_id=candidate_id, presentation_id=presentation_id
-        )
+        with _keyed_pick_scope(env, idempotency_key):
+            presentation_id = _serve(env, block, planned, candidate_id=candidate_id,
+                                     strict=bool(idempotency_key))
+            record = _reload(env, record.id)
+            block = next(b for b in record.blocks if b.id == planned.block_id)
+            step = _item_step(
+                env, record, block, planned, boundary=False, candidate_id=candidate_id,
+                presentation_id=presentation_id,
+            )
+            # Fix round 6 (Codex verify F2): the planned branch keys its
+            # EXISTING presentation too, in the serve's transaction.
+            if idempotency_key:
+                with env.repository.connection() as connection:
+                    _record_pick_key(env, connection, block_id=block.id, practice_item_id=practice_item_id,
+                                     presentation_id=presentation_id, idempotency_key=idempotency_key)
+            if within is not None:
+                within(record, step)
+        return record, step
     if not record.is_open:
         # The plan does not grow ("keep going" is the only extension), but the
         # pick is still the learner's choice: an open-list pick receipt keeps
         # its learner_pick / serving_origin record (review F10).
         practice_item = vault.practice_items[practice_item_id]
         est = built.estimator.item_minutes(vault, practice_item_id)
-        with env.repository.atomic(), env.repository.connection() as connection:
+        with _keyed_pick_scope(env, idempotency_key), env.repository.atomic(), \
+                env.repository.connection() as connection:
             receipt_id = _persist_receipt(
                 env,
                 connection,
@@ -3251,6 +3678,7 @@ def learner_pick(
                     "fallback": False,
                     "plan_status": record.status,
                     "candidate_set": [],
+                    **({"idempotency_key": idempotency_key} if idempotency_key else {}),
                 },
             )
             _event(
@@ -3277,18 +3705,25 @@ def learner_pick(
                 origin="open_list",
                 candidate_id=candidate_id,
                 served_at=env.now_iso(),
+                strict=bool(idempotency_key),
             )
-        return _reload(env, record.id), {
-            "kind": "item",
-            "plan_id": None,
-            "block_id": None,
-            "practice_item_id": practice_item_id,
-            "learning_object_id": practice_item.learning_object_id,
-            "scheduler_candidate_id": candidate_id,
-            "presentation_id": presentation_id,
-            "origin": "open_list",
-            "boundary": False,
-        }
+            _record_pick_key(env, connection, block_id=receipt_id, practice_item_id=practice_item_id,
+                             presentation_id=presentation_id, idempotency_key=idempotency_key)
+            record = _reload(env, record.id)
+            step = {
+                "kind": "item",
+                "plan_id": None,
+                "block_id": None,
+                "practice_item_id": practice_item_id,
+                "learning_object_id": practice_item.learning_object_id,
+                "scheduler_candidate_id": candidate_id,
+                "presentation_id": presentation_id,
+                "origin": "open_list",
+                "boundary": False,
+            }
+            if within is not None:
+                within(record, step)
+        return record, step
     pool_item = next((item for item in built.pool if item.practice_item_id == practice_item_id), None)
     est = pool_item.est_minutes if pool_item is not None else built.estimator.item_minutes(vault, practice_item_id)
     practice_item = vault.practice_items[practice_item_id]
@@ -3315,6 +3750,21 @@ def learner_pick(
         est_minutes=est,
         never_attempted=False,
     )
+    with _keyed_pick_scope(env, idempotency_key):
+        return _pick_new_block(
+            env, record, item, practice_item_id=practice_item_id, est=est, lane=lane, lo_id=lo_id,
+            deductions=deductions, lefts=lefts, candidate_id=candidate_id, idempotency_key=idempotency_key,
+            within=within)
+
+
+def _pick_new_block(env: PlanEnv, record: PlanRecord, item: PoolItem, *, practice_item_id: str, est: float,
+                    lane: str | None, lo_id: str, deductions: dict[str, float], lefts: Mapping[str, float],
+                    candidate_id: str | None, idempotency_key: str | None,
+                    within: WithinPick | None) -> tuple[PlanRecord, dict[str, Any]]:
+    """The one-item learner-pick block (L3): its block, its serve and, for a
+    keyed pick, its keyed receipt and ``within`` (one transaction then)."""
+
+    vault = env.vault
     with env.repository.atomic(), env.repository.connection() as connection:
         need = record.minutes_planned() + est - record.budget
         overrun = 0.0
@@ -3338,6 +3788,7 @@ def learner_pick(
             "overrun_minutes": round(max(overrun, 0.0), 4),
             "candidate_set": [],
             "state": {"minutes_left": round(record.minutes_left(), 4), "lane_minutes_left": {k: round(v, 4) for k, v in lefts.items()}},
+            **({"idempotency_key": idempotency_key} if idempotency_key else {}),
         }
         # Router R2a (G9; Codex review F4): the pick is the learner's own block
         # decision, logged (no propensity) in this block's transaction before
@@ -3380,12 +3831,68 @@ def learner_pick(
     record = _reload(env, record.id)
     block = next(b for b in record.blocks if b.id == block_id)
     planned_item = block.items[0]
-    presentation_id = _serve(env, block, planned_item, candidate_id=candidate_id)
+    presentation_id = _serve(env, block, planned_item, candidate_id=candidate_id, strict=bool(idempotency_key))
     record = _reload(env, record.id)
     block = next(b for b in record.blocks if b.id == block_id)
-    return record, _item_step(
+    step = _item_step(
         env, record, block, block.items[0], boundary=False, candidate_id=candidate_id, presentation_id=presentation_id
     )
+    if idempotency_key:
+        with env.repository.connection() as connection:
+            _record_pick_key(env, connection, block_id=block_id, practice_item_id=practice_item_id,
+                             presentation_id=presentation_id, idempotency_key=idempotency_key)
+    if within is not None:
+        within(record, step)
+    return record, step
+
+
+def picked_under(env: PlanEnv, idempotency_key: str,
+                 practice_item_id: str) -> tuple[PlanRecord | None, dict[str, Any]] | None:
+    """The learner pick already made under ``idempotency_key``, as
+    :func:`learner_pick` returned it: its ORIGINAL block, candidate and
+    presentation, found by its keyed receipt (``PICK_KEYED``) under any plan
+    (today's, or one replaced since). None when no pick was made under it;
+    a keyed receipt exists only for a complete pick (fix round 6)."""
+
+    with env.repository.connection() as connection:
+        row = connection.execute(
+            "SELECT e.block_id, b.daily_plan_id, json_extract(e.detail_json, '$.presentation_id') "
+            "FROM attention_block_events e JOIN attention_blocks b ON b.id = e.block_id "
+            "WHERE e.kind = ? AND json_extract(e.detail_json, '$.idempotency_key') = ? "
+            "AND json_extract(e.detail_json, '$.practice_item_id') = ? "
+            "ORDER BY e.created_at, e.id LIMIT 1",
+            (PICK_KEYED, idempotency_key, practice_item_id),
+        ).fetchone()
+        if row is None:
+            return None
+        block_id, plan_id, keyed_presentation = str(row[0]), row[1], row[2]
+        from learnloop.db.stores import plan_presentations as presentations
+
+        presentation = None
+        if presentations.plan_presentations_present(connection):
+            presentation = (presentations.presentation_by_id(connection, str(keyed_presentation))
+                            if keyed_presentation else None) or presentations.presentation_for(
+                connection, block_id, practice_item_id)
+    record = _reload(env, str(plan_id)) if plan_id else None
+    block = next((b for b in record.blocks if b.id == block_id), None) if record is not None else None
+    candidate_id = (presentation or {}).get("scheduler_candidate_id")
+    presentation_id = str(presentation["id"]) if presentation else None
+    if block is not None and block.items:
+        planned = next((item for item in block.items if item.practice_item_id == practice_item_id), block.items[0])
+        return record, _item_step(env, record, block, planned, boundary=False, candidate_id=candidate_id,
+                                  presentation_id=presentation_id)
+    practice_item = env.vault.practice_items[practice_item_id]
+    return record, {
+        "kind": "item",
+        "plan_id": None,
+        "block_id": None,
+        "practice_item_id": practice_item_id,
+        "learning_object_id": practice_item.learning_object_id,
+        "scheduler_candidate_id": candidate_id,
+        "presentation_id": presentation_id,
+        "origin": "open_list",
+        "boundary": False,
+    }
 
 
 # -- minutes, keep going, more new, reading ----------------------------------------
@@ -3427,7 +3934,7 @@ def set_minutes(env: PlanEnv, minutes: int) -> PlanRecord:
         loads = {lane: spent[lane] + pool_loads[lane] for lane in LANES}
         admitted_new = float(split.get("admitted_new_minutes") or 0.0)
         loads["new"] = admitted_new
-        requested_minutes = sum(float(row.get("est_minutes") or 0.0) for row in split.get("requested") or [])
+        requested_minutes = sum(float(row.get("est_minutes") or 0.0) for row in _forced_rows(split))
         new_split = split_v1(
             budget=budget,
             requested_minutes=requested_minutes,
@@ -3520,7 +4027,7 @@ def more_new(env: PlanEnv, *, confirm: bool) -> tuple[PlanRecord | None, dict[st
     )
     draft = prepared.record()
     context = _context(env, draft, prepared.built, day=prepared.day)
-    simulated = simulate_blocks(draft, context, env.policy, forced=prepared.requests)
+    simulated = simulate_blocks(draft, context, env.policy, forced=prepared.forced)
     new_items = [item for _decision, block in simulated for item in block.items if item.new_admitted]
     chosen = [NewCandidate(item.practice_item_id, item.est_minutes) for item in new_items]
     preview = {
@@ -3644,6 +4151,7 @@ __all__ = [
     "keep_going",
     "latest_today",
     "learner_pick",
+    "PICK_KEYED",
     "legacy_source",
     "load_records",
     "load_records_from_connection",

@@ -63,8 +63,11 @@ def _summary(samples: list[float]) -> dict[str, float]:
 def _install_fake_codex_sdk() -> None:
     class FakeCodex:
         def __init__(self, config):
+            from tests.codex_cli_fakes import FakeSdkClient
+
             self._process: subprocess.Popen | None = None
             self._id = 0
+            self._client = FakeSdkClient()  # the seams the locked-down turn replaces
 
         def _call(self, method: str) -> dict:
             assert self._process is not None and self._process.stdin and self._process.stdout
@@ -123,6 +126,9 @@ def _install_fake_codex_sdk() -> None:
 
     sdk = ModuleType("openai_codex")
     sdk.Codex = FakeCodex  # type: ignore[attr-defined]
+    from tests.codex_cli_fakes import FakeApprovalMode
+
+    sdk.ApprovalMode = FakeApprovalMode  # type: ignore[attr-defined]
     sdk.CodexConfig = SdkAppConfig  # type: ignore[attr-defined]
     types = ModuleType("openai_codex.types")
     types.Personality = SimpleNamespace(pragmatic="pragmatic")  # type: ignore[attr-defined]
@@ -175,6 +181,17 @@ def main() -> None:
 
     _install_fake_codex_sdk()
     codex = SdkCodexClient(CodexConfig(checkout_path=str(scratch / "codex")), scratch)
+    # The launch check runs real `codex` probes once per process and config
+    # (then cached); the fake app server is what this measures, so it is
+    # answered in process.
+    from tests.codex_cli_fakes import stub_isolation_probe
+
+    class _Patch:  # stub_isolation_probe's monkeypatch, outside pytest
+        @staticmethod
+        def setattr(target, name, value):
+            setattr(target, name, value)
+
+    stub_isolation_probe(_Patch(), codex)
     timed(codex)
     results["codex_sdk_fake_app_server"] = _summary([timed(codex) for _ in range(max(10, args.calls // 2))])
 

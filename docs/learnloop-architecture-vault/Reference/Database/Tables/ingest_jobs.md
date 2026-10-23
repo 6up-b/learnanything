@@ -3,13 +3,13 @@ title: "ingest_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ingest_jobs"
   - "table ingest_jobs"
-schema_head: 214
+schema_head: 217
 table_name: "ingest_jobs"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/033_durable_ingest_jobs.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/quick_add.py"
-  - "src/learnloop/db/stores/ad_serving.py"
   - "src/learnloop/db/stores/ingest_queue.py"
+  - "src/learnloop/substrate/dataset.py"
+  - "src/learnloop_sidecar/context.py"
+  - "src/learnloop_sidecar/handlers/animation.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -49,7 +49,7 @@ It belongs to the **sources and ingest** navigation family. The family context l
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/033_durable_ingest_jobs.sql`.
-- **Schema touched by:** `033_durable_ingest_jobs.sql`, `078_surface_mint_jobs.sql`, `214_adaptive_difficulty_serving.sql`.
+- **Schema touched by:** `033_durable_ingest_jobs.sql`, `078_surface_mint_jobs.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -115,7 +115,6 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-- `tests/test_ad23_fix_r5.py`
 - `tests/test_build_study_map_routing.py`
 - `tests/test_capture_desktop.py`
 - `tests/test_capture_route_recovery.py`
@@ -135,6 +134,7 @@ None found by exact static reference scan.
 - `tests/test_reading_hardening_verify_fixes.py`
 - `tests/test_reading_request_sweep.py`
 - `tests/test_rebuild_orchestrator.py`
+- `tests/test_required_method_round3_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

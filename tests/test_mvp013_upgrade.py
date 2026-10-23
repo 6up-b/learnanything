@@ -51,7 +51,7 @@ from tests.helpers import NOW, create_basic_vault, set_algorithm_version
 from tests.split_live_helpers import append_config, split_vault
 from tests.test_recurrence_commands import _pass_guard
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_214"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_217"
 CLOCK = FrozenClock(datetime(2026, 9, 1, 12, 0, tzinfo=UTC))
 
 
@@ -67,10 +67,10 @@ def test_stuck_version_is_a_successor_and_keeps_every_predecessor():
     # (mvp-0.22, the latest successor, tests/test_mvp022_upgrade.py) followed
     # it and keep the stuck prompt.
     # Router R2a's staged frame (mvp-0.23) is now the latest.
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.28"
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.30"
     assert SUCCESSOR_CHAIN[-16] == STUCK_PROMPT_ALGORITHM_VERSION
     assert STUCK_PROMPT_VERSIONS == {STUCK_PROMPT_ALGORITHM_VERSION, "mvp-0.14", "mvp-0.15", "mvp-0.16", "mvp-0.17",
-                                     "mvp-0.18", "mvp-0.19", "mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.28"}
+                                     "mvp-0.18", "mvp-0.19", "mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29"}
     assert STUCK_PROMPT_ALGORITHM_VERSION in P0_SUCCESSOR_VERSIONS
     assert STUCK_PROMPT_ALGORITHM_VERSION in P0_PROJECTION_VERSIONS
     # The chain is linear: mvp-0.13 means the split PLUS placement PLUS

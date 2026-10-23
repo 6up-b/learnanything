@@ -3,13 +3,13 @@ title: "attention_block_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attention_block_events"
   - "table attention_block_events"
-schema_head: 214
+schema_head: 217
 table_name: "attention_block_events"
 table_role: "receipt"
 functionality_status: "active"
@@ -19,9 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/096_controller_snapshots.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/material_view.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/estimates.py"
   - "src/learnloop/db/stores/daily_plans.py"
   - "src/learnloop/evsi_calibration/live_report.py"
@@ -49,7 +47,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/096_controller_snapshots.sql`.
-- **Schema touched by:** `096_controller_snapshots.sql`, `180_daily_plans.sql`, `214_adaptive_difficulty_serving.sql`.
+- **Schema touched by:** `096_controller_snapshots.sql`, `180_daily_plans.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -85,6 +83,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/estimates.py`
 - `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/evsi_calibration/live_report.py`
@@ -104,13 +103,13 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-- `tests/ad23_fakes.py`
-- `tests/test_ad23_contract.py`
-- `tests/test_ad2_serving.py`
 - `tests/test_daily_plan_replay.py`
 - `tests/test_daily_plan_review_regressions.py`
+- `tests/test_dl2_rw4b_keyed_pick_check.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_migrations.py`
+- `tests/test_reader_rw4b_admission_idempotency.py`
+- `tests/test_reader_rw4b_fix6.py`
 - `tests/test_router_g4_restraint.py`
 - `tests/test_router_r2a_serving.py`
 - `tests/test_ux_phase4_feedback.py`

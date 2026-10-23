@@ -55,7 +55,10 @@ from typing import Any
 
 from learnloop.attempts.salience_firewall import salience_payload
 from learnloop.clock import Clock, parse_utc, utc_now_iso
+from learnloop.content.sources.exercise_statements import read_exercise_statement
+from learnloop.db.stores import help_assists as assists_store
 from learnloop.db.stores import workbench as store
+from learnloop.db.stores.help_assists import WorkbenchFold
 from learnloop.ids import new_ulid
 from learnloop.substrate.activities import log_interaction_event
 
@@ -88,6 +91,10 @@ SERVER_WORKBENCH_EVENTS: tuple[str, ...] = (
     "workbench_opened", "workbench_resumed", "workbench_left", "workbench_closed",
     "workbench_reopened", "workbench_bound", "book_visibility_changed",
 )
+#: RW2b's payload ``event`` values on ``reader_action_invoked``: the rung the
+#: ladder suggested when Help opened (the Reader's fallback progression reads
+#: it) and the header's help style. Salience only, like RW2a's.
+HELP_WORKBENCH_EVENTS: tuple[str, ...] = ("workbench_help_offered", "help_style_changed")
 SUBJECT_TYPE = "workbench_session"
 
 #: The submit line before an empty "stuck" answer (spec §5.1, UX §5.10).
@@ -238,33 +245,70 @@ def session_hints(session: Mapping[str, Any]) -> int:
     return book_hints(session) + carried_hints(session)
 
 
+def _help_parts(fold: WorkbenchFold) -> list[str]:
+    """The workbench's own assists in plain words (UX §5.5, §5.9; G62)."""
+
+    parts: list[str] = []
+    if fold.checks:
+        parts.append("a check" if fold.checks == 1 else f"{fold.checks} checks")
+    for level, count in zip((1, 2, 3), fold.by_level):
+        if count:
+            noun = {1: "question", 2: "pointer", 3: "hint"}[level]
+            parts.append(f"a level-{level} {noun}" if count == 1 else f"{count} level-{level} {noun}s")
+    if fold.worked:
+        parts.append("worked help ◌" if fold.worked == 1 else f"{fold.worked} worked pieces ◌")
+    return parts
+
+
 def record_line(
-    *, counted: bool, visible: bool, question_hints: int, composed: ComposedAnswer, carried: int = 0
+    *, counted: bool, visible: bool, question_hints: int, composed: ComposedAnswer, carried: int = 0,
+    help_fold: WorkbenchFold | None = None,
 ) -> dict[str, Any]:
     """What the attempt will record, stated before Submit (spec §5.1, G62).
 
     Every assist the submit counts is named here: in RW2a the book, the
     answer box's hints shown before steps, and the tutor questions the
-    existing fold adds. It never promises a later check.
+    existing fold adds; from RW2b each shown check and hint of the problem
+    (``help_fold``, the very count the submit reads), and worked help as
+    *practice with help ◌* through ``primed``. It never promises a later
+    check. With no workbench help the line and its keys are RW2a's.
     """
 
     question_hints = max(0, int(question_hints or 0))
     carried = max(0, int(carried or 0))
-    hints = (1 if counted else 0) + carried + question_hints
+    fold = help_fold if help_fold is not None and not help_fold.empty else None
+    helped = fold.hints if fold is not None else 0
+    hints = (1 if counted else 0) + carried + question_hints + helped
     parts = (
         (["the book"] if counted else [])
         + ([f"{carried} shown on the answer box"] if carried else [])
         + ([f"{question_hints} tutor question{'s' if question_hints != 1 else ''}"] if question_hints else [])
+        + ([part for part in _help_parts(fold) if "◌" not in part] if fold is not None else [])
     )
-    if hints == 0:
+    worked = fold is not None and fold.primed
+    if hints == 0 and not worked:
         line = OWN_ATTEMPT_LINE
     else:
         noun = f"{hints} hint{'s' if hints != 1 else ''}"
         what = f" ({', '.join(parts)})" if len(parts) > 1 or not counted else ""
         lead = "book open · " if counted else ""
+        if worked:
+            noun = f"{noun} and worked help" if hints else "worked help"
+            what = f" ({', '.join(parts)})" if parts and (len(parts) > 1 or not counted) else ""
         line = f"{lead}{noun}{what} → practice with help ◌ (not yet checked on your own)"
-    help_used = f"{carried} hint{'s' if carried != 1 else ''}" if carried else "none"
+    used = ([f"{carried} hint{'s' if carried != 1 else ''}"] if carried else []) + (
+        _help_parts(fold) if fold is not None else [])
+    help_used = ", ".join(used) if used else "none"
     footer = ("book open = 1 hint" if counted else "book hidden" if not visible else "book open") + f" · help used: {help_used}"
+    if fold is not None:
+        return {
+            "book_counted": counted, "book_visible": visible, "hints": hints, "question_hints": question_hints,
+            "carried_hints": carried, "own_attempt": False, "line": line, "footer": footer,
+            "stuck_note": STUCK_NOTE if composed.empty_stuck else None,
+            # RW2b: the problem's own assists (only when it has any).
+            "help": {"checks": fold.checks, "by_level": list(fold.by_level), "worked": fold.worked,
+                     "primed": fold.primed},
+        }
     return {
         "book_counted": counted,
         "book_visible": visible,
@@ -414,6 +458,41 @@ def _serve_changes(serve: Mapping[str, str | None] | None) -> dict[str, Any]:
     return {column: (str(serve[column]) if serve.get(column) else None) for column in SERVE_COLUMNS}
 
 
+def held_parts_on(connection: Any, practice_item_id: str) -> tuple[tuple[tuple[int, int, tuple[str, ...]], ...], bool]:
+    """The help each of the item's open problems holds, read on
+    ``connection`` (a submit's own write transaction may pass its connection:
+    RW2b fix round 1, F1), kept in its parts (fix round 5, items 4-5):
+    ``(book, carried, assist_ids)``, where ``book`` is 1 when the problem
+    counted the book, ``carried`` the answer-box hints carried into its steps
+    (authored reveals a client may send too) and ``assist_ids`` the ids of
+    its shown checks and level 1-3 hints (no client holds them); and whether
+    any problem showed worked help (a level 4-5 hint). The submit joins them
+    with the client's counts by ``learnloop.attempts.hint_fold.combine_held``."""
+
+    sessions = store.sessions_where(
+        connection, column="practice_item_id", value=practice_item_id, statuses=("open",),
+    )
+    # RW2b: the problem's shown checks and hints count too, so a submit
+    # from the answer box records the help the open problem holds.
+    folds = {session["id"]: assists_store.workbench_fold(connection, workbench_session_id=session["id"],
+                                                         practice_item_id=practice_item_id)
+             for session in sessions}
+    parts = tuple((book_hints(session), carried_hints(session),
+                   assists_store.workbench_assist_ids(connection, workbench_session_id=session["id"],
+                                                      practice_item_id=practice_item_id))
+                  for session in sessions)
+    return parts, any(fold.primed for fold in folds.values())
+
+
+def held_on(connection: Any, practice_item_id: str) -> tuple[int, bool]:
+    """The help the item's open problems hold (:func:`held_parts_on`): the
+    largest hint-equivalents one problem holds (its book, carried hints,
+    shown checks and level 1-3 hints) and whether any showed worked help."""
+
+    parts, primed = held_parts_on(connection, practice_item_id)
+    return max((book + carried + len(ids) for book, carried, ids in parts), default=0), primed
+
+
 def held_hints(repository: Any, practice_item_id: str) -> int:
     """The hint-equivalents the item's open problems hold (review F2): the
     book one counted and the answer-box hints it carried. Every submit for the
@@ -422,10 +501,15 @@ def held_hints(repository: Any, practice_item_id: str) -> int:
     clamps it to the hints the item shows today."""
 
     with repository.connection() as connection:
-        sessions = store.sessions_where(
-            connection, column="practice_item_id", value=practice_item_id, statuses=("open",),
-        )
-    return max((session_hints(session) for session in sessions), default=0)
+        return held_on(connection, practice_item_id)[0]
+
+
+def held_primed(repository: Any, practice_item_id: str) -> bool:
+    """Whether an open problem of the item showed worked help (a level 4-5
+    hint): every submit for the item is then primed (RW2b, §5.4)."""
+
+    with repository.connection() as connection:
+        return held_on(connection, practice_item_id)[1]
 
 
 def _resume_existing(
@@ -813,6 +897,134 @@ def import_request(session: Mapping[str, Any]) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
+# -- Reader RW4b: a textbook exercise the learner picked ("use this one") ------------------------------
+
+#: The record a problem opened from a textbook exercise the learner picked in
+#: the Reader keeps inside its stored import request (Reader RW4b, spec §7.4;
+#: Codex review F2): the proposal it came from (None for the fallback's), the
+#: exercise's region, the exposure the server read when it was chosen and when
+#: it was admitted, and ``admitted_at``, set only once the learner pick of the
+#: item the import wrote was delivered. Durable, so a restart or a resume
+#: elsewhere still owes (and never repeats) that pick; no new column.
+EXERCISE_PICK_KEY = "reader_exercise"
+#: The payload ``event`` RW4b adds on ``reader_action_invoked`` (salience only).
+EXERCISE_WORKBENCH_EVENTS: tuple[str, ...] = ("workbench_exercise_admitted",)
+
+
+def exercise_pick(session: Mapping[str, Any]) -> dict[str, Any] | None:
+    """The picked exercise's record, or None for every other problem."""
+
+    value = (import_request(session) or {}).get(EXERCISE_PICK_KEY)
+    return dict(value) if isinstance(value, dict) else None
+
+
+def exercise_pick_due(session: Mapping[str, Any]) -> bool:
+    """The import bound the problem to the item it wrote and the learner pick
+    of that item was not delivered yet: the shell owes it, once."""
+
+    pick = exercise_pick(session)
+    return bool(
+        pick is not None and not pick.get("admitted_at") and session.get("import_status") == "bound"
+        and session.get("practice_item_id") and session.get("status") == "open"
+    )
+
+
+#: The stored import request of a textbook exercise picked from a
+#: ``find_practice`` proposal (the sources service's import, S1).
+SOURCE_EXERCISE_KIND = "source_exercise"
+
+
+def exercise_region(session: Mapping[str, Any]) -> tuple[str, list[str]] | None:
+    """A picked textbook exercise's region (its extraction and spans), from
+    its stored request; None for every other problem."""
+
+    return exercise_request_region(import_request(session))
+
+
+def exercise_request_region(request: Mapping[str, Any] | None) -> tuple[str, list[str]] | None:
+    """The same, from an import request (a stored one, or one about to be queued)."""
+
+    request = dict(request or {})
+    if request.get("kind") == SOURCE_EXERCISE_KIND:
+        return str(request.get("extraction_id") or ""), [str(span) for span in request.get("span_ids") or []]
+    pick = request.get(EXERCISE_PICK_KEY)
+    if isinstance(pick, dict):
+        return str(pick.get("extraction_id") or ""), [str(span) for span in pick.get("span_ids") or []]
+    return None
+
+
+def statement_cleared(vault: Any, repository: Any, session: Mapping[str, Any]) -> bool:
+    """Whether a problem's statement may be shown now (Reader RW4b fix round
+    5, R2): every problem but a picked textbook exercise, and a picked one
+    only while the one statement reader still reads its region (not exam or
+    held-out material now, the predicate readable). The one gate every
+    statement-bearing workbench response passes."""
+
+    region = exercise_region(session)
+    if region is None:
+        return True
+    return read_exercise_statement(vault, repository, region[0], region[1]) is not None
+
+
+def record_admission_stage(repository: Any, session_id: str, stage: Mapping[str, Any]) -> dict[str, Any]:
+    """Keep a step of a picked exercise's admission on the problem (fix round
+    5, R1): ``picked`` (the learner pick made, with its serve and practice
+    session) and ``served``. A retry after a failure completes only what is
+    missing; nothing here marks the pick admitted."""
+
+    with repository.atomic():
+        connection = repository.connection()
+        session = _require(connection, session_id)
+        request = import_request(session) or {}
+        pick = request.get(EXERCISE_PICK_KEY)
+        if not isinstance(pick, dict) or pick.get("admitted_at"):
+            return session
+        pick = {**pick, "admission": {**(pick.get("admission") or {}), **dict(stage)}}
+        request[EXERCISE_PICK_KEY] = pick
+        store.update_session(connection, session_id, {"import_request_json": json.dumps(request, sort_keys=True)})
+        return _require(connection, session_id)
+
+
+def admit_exercise_pick(
+    repository: Any,
+    session_id: str,
+    *,
+    practice_item_id: str,
+    exposure: Mapping[str, Any] | None,
+    serve: Mapping[str, str | None] | None = None,
+    practice_session_id: str | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """Record that the learner pick of the exercise's item was made and served
+    for THIS problem, in one transaction (RW4b fix round 4, R1): the pick's
+    serve (its scheduler offer and plan presentation) stored on this problem,
+    the practice session it was made in, the exposure read again at that
+    moment, and ``admitted_at``. Idempotent: a problem admitted already, one
+    bound to another item, or one that is no exercise is left as it is (an
+    admitted one keeps the serve and session of its admission)."""
+
+    now = utc_now_iso(clock)
+    with repository.atomic():
+        connection = repository.connection()
+        session = _require(connection, session_id)
+        request = import_request(session) or {}
+        pick = request.get(EXERCISE_PICK_KEY)
+        if (not isinstance(pick, dict) or pick.get("admitted_at") or session.get("import_status") != "bound"
+                or session.get("practice_item_id") != practice_item_id or session.get("status") != "open"):
+            return session
+        updated = {**pick, "admitted_at": now, "practice_session_id": practice_session_id}
+        if exposure is not None:
+            updated.update(exposure=dict(exposure), exposure_checked="admission")
+        request[EXERCISE_PICK_KEY] = updated
+        changes: dict[str, Any] = {"import_request_json": json.dumps(request, sort_keys=True), "updated_at": now}
+        changes.update(_serve_changes(serve))
+        store.update_session(connection, session_id, changes)
+        session = _require(connection, session_id)
+        _log(repository, session, "workbench_exercise_admitted", clock,
+             exposed=bool((exposure or {}).get("exposed")))
+    return session
+
+
 def mark_import(
     repository: Any,
     session_id: str,
@@ -895,12 +1107,31 @@ class SubmissionPlan:
     #: The serve the session was opened from (review F13).
     scheduler_candidate_id: str | None = None
     plan_presentation_id: str | None = None
+    #: RW2b: the problem's shown checks and hints (``help_assists``), the
+    #: same count the record line names (G62).
+    help: WorkbenchFold = WorkbenchFold()
 
     @property
     def hints_used(self) -> int:
-        """The session's hint-equivalents: the book's and the carried hints."""
+        """The session's hint-equivalents: the book's, the carried hints, and
+        each shown check and level 1-3 hint (§5.4)."""
+
+        return self.book_hints + self.carried_hints + self.help.hints
+
+    @property
+    def client_hints(self) -> int:
+        """What the submit sends as the client's count: the session's RW2a
+        counts only (the book's, the carried hints). Its shown checks and
+        hints are the server's, added by the held fold exactly once (RW2b fix
+        round 4, item 4: ``learnloop.attempts.hint_fold.combine_held``)."""
 
         return self.book_hints + self.carried_hints
+
+    @property
+    def primed(self) -> bool:
+        """Worked help (a shown level 4-5 hint) primes the attempt (§5.4)."""
+
+        return self.help.primed
 
     @property
     def submission_id(self) -> str:
@@ -923,6 +1154,8 @@ def submission_plan(repository: Any, session_id: str) -> SubmissionPlan:
                 "not_bound", "Submit is available once setup finishes.", {"import_status": session["import_status"]}
             )
         rows = store.steps_for_session(connection, session_id)
+        fold = assists_store.workbench_fold(connection, workbench_session_id=session_id,
+                                            practice_item_id=session["practice_item_id"])
     return SubmissionPlan(
         session_id=session_id,
         practice_item_id=session["practice_item_id"],
@@ -934,7 +1167,49 @@ def submission_plan(repository: Any, session_id: str) -> SubmissionPlan:
         assessment_contract_version_id=session.get("assessment_contract_version_id"),
         scheduler_candidate_id=session.get("scheduler_candidate_id"),
         plan_presentation_id=session.get("plan_presentation_id"),
+        help=fold,
     )
+
+
+def help_fold(repository: Any, session_id: str) -> WorkbenchFold:
+    """The problem's shown checks and hints (the record line's count)."""
+
+    with repository.connection() as connection:
+        session = _require(connection, session_id)
+        return assists_store.workbench_fold(connection, workbench_session_id=session_id,
+                                            practice_item_id=session.get("practice_item_id"))
+
+
+def set_help_style(repository: Any, session_id: str, help_style: str | None, *,
+                   clock: Clock | None = None) -> dict[str, Any]:
+    """The workbench header's help style for this problem (D31): one of the
+    three styles, or None to follow the stored preference again. A stated
+    preference the chooser weighs, never a block."""
+
+    if help_style is not None and help_style not in HELP_STYLES:
+        raise WorkbenchError("validation_error", f"unknown help style {help_style!r}")
+    now = utc_now_iso(clock)
+    with repository.atomic():
+        connection = repository.connection()
+        session = _require(connection, session_id)
+        _require_open(session)
+        if session.get("help_style") == help_style:
+            return session
+        store.update_session(connection, session_id, {"help_style": help_style, "updated_at": now})
+        session = _require(connection, session_id)
+        _log(repository, session, "help_style_changed", clock, help_style=help_style)
+    return session
+
+
+def log_help_offered(repository: Any, session_id: str, *, about_step_id: str | None, offered_level: int,
+                     kind: str, chooser: str, suggestion_id: str | None, clock: Clock | None = None) -> str:
+    """The rung the ladder suggested when Help opened (§5.5): the Reader's
+    fallback progression reads it ("one rung above the last offered")."""
+
+    with repository.connection() as connection:
+        session = _require(connection, session_id)
+    return _log(repository, session, "workbench_help_offered", clock, about_step_id=about_step_id,
+                offered_level=int(offered_level), kind=kind, chooser=chooser, suggestion_id=suggestion_id)
 
 
 def mark_submitted(
@@ -983,6 +1258,9 @@ def session_view(
     with repository.connection() as connection:
         session = _require(connection, session_id)
         rows = store.steps_for_session(connection, session_id)
+        fold = assists_store.workbench_fold(connection, workbench_session_id=session_id,
+                                            practice_item_id=session.get("practice_item_id")) \
+            if session["status"] == "open" else None
     steps = live_steps(rows)
     composed = compose_answer(steps)
     last = max(steps, key=lambda step: (step["edited_at"], step["step_id"])) if steps else None
@@ -1017,6 +1295,7 @@ def session_view(
             counted=book_counted(session), visible=bool(session["source_visible"]),
             question_hints=question_hints, composed=composed,
             carried=carried_hints(session) + max(0, int(server_hints or 0)),
+            help_fold=fold,
         ),
         "parts": None,
         **dict(extra or {}),
@@ -1083,7 +1362,10 @@ __all__ = [
     "ENTRIES",
     "ENTRY_SURFACE_PRACTICE",
     "ENTRY_SURFACE_READER",
+    "EXERCISE_PICK_KEY",
+    "EXERCISE_WORKBENCH_EVENTS",
     "HELP_STYLES",
+    "HELP_WORKBENCH_EVENTS",
     "IMPORT_STATUSES",
     "ORIGINS",
     "SERVER_WORKBENCH_EVENTS",
@@ -1094,6 +1376,12 @@ __all__ = [
     "SubmissionPlan",
     "WorkbenchError",
     "abandon",
+    "SOURCE_EXERCISE_KIND",
+    "admit_exercise_pick",
+    "exercise_region",
+    "exercise_request_region",
+    "record_admission_stage",
+    "statement_cleared",
     "bind",
     "book_counted",
     "book_hints",
@@ -1101,7 +1389,15 @@ __all__ = [
     "compose_answer",
     "default_book_visible",
     "ensure_contract",
+    "exercise_pick",
+    "exercise_pick_due",
+    "held_hints",
+    "held_on",
+    "held_parts_on",
+    "held_primed",
+    "help_fold",
     "import_request",
+    "log_help_offered",
     "leave",
     "live_steps",
     "mark_import",
@@ -1120,6 +1416,7 @@ __all__ = [
     "sessions_for_item",
     "sessions_for_source",
     "set_book",
+    "set_help_style",
     "submission_id_for",
     "submission_plan",
     "workbench_enabled",

@@ -3,13 +3,13 @@ title: "activity_surface_reservations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_surface_reservations"
   - "table activity_surface_reservations"
-schema_head: 214
+schema_head: 217
 table_name: "activity_surface_reservations"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,15 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/065_activity_lineage_substrate.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ops/contamination/recipes.py"
+  - "src/learnloop/scheduling/intent/feasibility.py"
   - "src/learnloop/curriculum/golden_path_confirm.py"
-  - "src/learnloop/daily_plan/staged_frame.py"
   - "src/learnloop/goals/goal_contracts.py"
   - "src/learnloop/learner_protection.py"
   - "src/learnloop/reader/reader_dialogue.py"
+  - "src/learnloop/scheduling/controller_snapshot.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -113,11 +112,12 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/curriculum/golden_path_confirm.py`
-- `src/learnloop/daily_plan/staged_frame.py`
 - `src/learnloop/goals/goal_contracts.py`
 - `src/learnloop/learner_protection.py`
 - `src/learnloop/reader/reader_dialogue.py`
 - `src/learnloop/scheduling/controller_snapshot.py`
+- `src/learnloop/scheduling/frame_constraints.py`
+- `src/learnloop/scheduling/intent/feasibility.py`
 - `src/learnloop/substrate/activities.py`
 
 > [!note] Static-reference boundary
@@ -128,6 +128,7 @@ Indexes and uniqueness:
 - `tests/test_activity_substrate.py`
 - `tests/test_contamination_report.py`
 - `tests/test_golden_path_confirm.py`
+- `tests/test_intent_fix_round5.py`
 - `tests/test_administration_adapters.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

@@ -23,7 +23,11 @@ from learnloop.diagnosis.split.context import (
     RegistryRetriever,
     assemble_diagnosis_context,
 )
-from learnloop.diagnosis.split.contract import diagnosis_prompt, request_diagnosis_proposal
+from learnloop.diagnosis.split.contract import (
+    diagnosis_prompt,
+    diagnosis_prompt_version,
+    request_diagnosis_proposal,
+)
 from learnloop.diagnosis.split.history import HistoryStore
 from learnloop.diagnosis.split.settings import (
     DIAGNOSIS_PROMPT_VERSION,
@@ -83,8 +87,16 @@ def _call(
     workspace: Path | None,
 ) -> tuple[Any, int]:
     prompt_tokens = (len(diagnosis_prompt(assembled).encode("utf-8")) + 3) // 4
+    if workspace is not None and getattr(client, "inlines_workspace", False) is True:
+        # The transport puts the whole export into the prompt (the Codex
+        # transport since the tool lockdown's round 3): admit what it sends.
+        prompt_tokens += (_workspace_bytes(workspace) + 3) // 4
     with (guard("diagnosis", prompt_tokens) if guard is not None else nullcontext()):
         return request_diagnosis_proposal(client, assembled, workspace=workspace), prompt_tokens
+
+
+def _workspace_bytes(root: Path) -> int:
+    return sum(path.stat().st_size for path in Path(root).rglob("*") if path.is_file())
 
 
 def run_diagnosis(
@@ -138,6 +150,7 @@ def run_diagnosis(
                 )
                 outcome.receipt = dict(assembled.receipt)
                 outcome.context_hash = assembled.context_hash
+                outcome.prompt_version = diagnosis_prompt_version(assembled)
                 from learnloop.diagnosis.split.provenance import frozen_record, snapshot_reads, snapshot_record
 
                 # What the context shows, frozen before the diagnoser runs (F3).
@@ -188,6 +201,7 @@ def run_diagnosis(
             )
             outcome.receipt = dict(assembled.receipt)
             outcome.context_hash = assembled.context_hash
+            outcome.prompt_version = diagnosis_prompt_version(assembled)
             outcome.reads = assembled.reads
             from learnloop.diagnosis.split.provenance import frozen_record
 

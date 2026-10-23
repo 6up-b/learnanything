@@ -3,13 +3,13 @@ title: "mobile_request_log"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite mobile_request_log"
   - "table mobile_request_log"
-schema_head: 214
+schema_head: 217
 table_name: "mobile_request_log"
 table_role: "workflow"
 functionality_status: "active"

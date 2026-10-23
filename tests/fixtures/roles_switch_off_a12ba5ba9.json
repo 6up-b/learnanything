@@ -1,0 +1,2539 @@
+{
+ "ask": {
+  "anchorSpanIds": [
+   "t3"
+  ],
+  "askId": "la_<ULID0>",
+  "basis": "keyword",
+  "comparedOn": [],
+  "entry": "reader",
+  "expandGraph": true,
+  "expansions": [
+   {
+    "expansion": "prerequisites",
+    "label": "Prerequisite",
+    "learningObjects": [
+     {
+      "demonstrated": false,
+      "keys": [
+       "ext_book:s11"
+      ],
+      "learningObjectId": "lo_vectors",
+      "title": "Vector lists"
+     }
+    ]
+   },
+   {
+    "expansion": "applications",
+    "label": "Application",
+    "learningObjects": [
+     {
+      "demonstrated": null,
+      "keys": [],
+      "learningObjectId": "lo_inner",
+      "title": "Inner products"
+     }
+    ]
+   }
+  ],
+  "exposureEventIds": [
+   "<ULID1>",
+   "<ULID2>",
+   "<ULID3>",
+   "<ULID4>",
+   "<ULID5>",
+   "<ULID6>",
+   "<ULID7>",
+   "<ULID8>",
+   "<ULID9>"
+  ],
+  "extractionId": "ext_text",
+  "groups": {
+   "expansions": [
+    {
+     "expansion": "prerequisites",
+     "keys": [
+      "ext_book:s11"
+     ],
+     "label": "Prerequisite"
+    }
+   ],
+   "sources": [
+    {
+     "groups": [
+      {
+       "group": "Explanation",
+       "keys": [
+        "ext_book:s2",
+        "ext_book:s7",
+        "ext_book:s8",
+        "ext_book:s6",
+        "ext_book:s12"
+       ]
+      }
+     ],
+     "sourceId": "src_book",
+     "sourceTitle": "Linear Algebra Notes"
+    },
+    {
+     "groups": [
+      {
+       "group": "Explanation",
+       "keys": [
+        "ext_text:t2",
+        "ext_text:t3"
+       ]
+      },
+      {
+       "group": "Exercise",
+       "keys": [
+        "ext_text:t9"
+       ]
+      }
+     ],
+     "sourceId": "src_text",
+     "sourceTitle": "Matrix Theory"
+    }
+   ]
+  },
+  "hits": [
+   {
+    "authorship": "source",
+    "expansion": null,
+    "extractionId": "ext_book",
+    "group": "Explanation",
+    "key": "ext_book:s2",
+    "label": "source-authored",
+    "learningObjectIds": [],
+    "page": 3,
+    "role": null,
+    "section": "Chapter 5 Eigenvalues",
+    "sourceId": "src_book",
+    "sourceTitle": "Linear Algebra Notes",
+    "spanId": "s2",
+    "text": "Eigenvalues are the roots of the characteristic polynomial det(A - tI) of a square matrix."
+   },
+   {
+    "authorship": "source",
+    "expansion": null,
+    "extractionId": "ext_book",
+    "group": "Explanation",
+    "key": "ext_book:s7",
+    "label": "source-authored",
+    "learningObjectIds": [],
+    "page": 1,
+    "role": null,
+    "section": "Chapter 3 Determinants",
+    "sourceId": "src_book",
+    "sourceTitle": "Linear Algebra Notes",
+    "spanId": "s7",
+    "text": "The determinant changes sign when two rows of a matrix are swapped."
+   },
+   {
+    "authorship": "source",
+    "expansion": null,
+    "extractionId": "ext_text",
+    "group": "Explanation",
+    "key": "ext_text:t2",
+    "label": "source-authored",
+    "learningObjectIds": [],
+    "page": 7,
+    "role": "ordinary_prose",
+    "section": "Chapter 5 Eigenvalues",
+    "sourceId": "src_text",
+    "sourceTitle": "Matrix Theory",
+    "spanId": "t2",
+    "text": "Eigenvalues are the roots of the characteristic polynomial det(A - tI) of a square matrix."
+   },
+   {
+    "authorship": "source",
+    "expansion": null,
+    "extractionId": "ext_text",
+    "group": "Explanation",
+    "key": "ext_text:t3",
+    "label": "source-authored",
+    "learningObjectIds": [],
+    "page": 7,
+    "role": "ordinary_prose",
+    "section": "Chapter 5 Eigenvalues",
+    "sourceId": "src_text",
+    "sourceTitle": "Matrix Theory",
+    "spanId": "t3",
+    "text": "Swapping two rows of a matrix multiplies its determinant by -1, so the determinant changes sign."
+   },
+   {
+    "authorship": "source",
+    "expansion": null,
+    "extractionId": "ext_text",
+    "group": "Exercise",
+    "key": "ext_text:t9",
+    "label": "source-authored",
+    "learningObjectIds": [],
+    "page": 9,
+    "role": "exercise",
+    "section": "Exercises",
+    "sourceId": "src_text",
+    "sourceTitle": "Matrix Theory",
+    "spanId": "t9",
+    "text": "3. Explain why the determinant changes sign when two rows of a matrix are swapped."
+   },
+   {
+    "authorship": "source",
+    "expansion": null,
+    "extractionId": "ext_book",
+    "group": "Explanation",
+    "key": "ext_book:s8",
+    "label": "source-authored",
+    "learningObjectIds": [],
+    "page": 1,
+    "role": null,
+    "section": "Chapter 3 Determinants",
+    "sourceId": "src_book",
+    "sourceTitle": "Linear Algebra Notes",
+    "spanId": "s8",
+    "text": "Cofactor expansion computes a determinant along any row or column."
+   },
+   {
+    "authorship": "source",
+    "expansion": null,
+    "extractionId": "ext_book",
+    "group": "Explanation",
+    "key": "ext_book:s6",
+    "label": "source-authored",
+    "learningObjectIds": [],
+    "page": 1,
+    "role": null,
+    "section": "Chapter 3 Determinants",
+    "sourceId": "src_book",
+    "sourceTitle": "Linear Algebra Notes",
+    "spanId": "s6",
+    "text": "Chapter 3 Determinants"
+   },
+   {
+    "authorship": "source",
+    "expansion": null,
+    "extractionId": "ext_book",
+    "group": "Explanation",
+    "key": "ext_book:s12",
+    "label": "source-authored",
+    "learningObjectIds": [],
+    "page": 5,
+    "role": null,
+    "section": "Chapter 6 Orthogonality",
+    "sourceId": "src_book",
+    "sourceTitle": "Linear Algebra Notes",
+    "spanId": "s12",
+    "text": "Two vectors are orthogonal when their dot product is zero."
+   },
+   {
+    "authorship": "source",
+    "expansion": "prerequisites",
+    "extractionId": "ext_book",
+    "group": "Prerequisite",
+    "key": "ext_book:s11",
+    "label": "source-authored",
+    "learningObjectIds": [
+     "lo_vectors"
+    ],
+    "page": 5,
+    "role": null,
+    "section": "Chapter 6 Orthogonality",
+    "sourceId": "src_book",
+    "sourceTitle": "Linear Algebra Notes",
+    "spanId": "s11",
+    "text": "Chapter 6 Orthogonality"
+   }
+  ],
+  "labels": {
+   "notes": "notes by LearnLoop's model",
+   "passages": "source-authored"
+  },
+  "learningObjectIds": [
+   "lo_matrices"
+  ],
+  "passageCount": 9,
+  "personalized": true,
+  "policy": "reading",
+  "query": "why does the determinant change sign when two rows are swapped",
+  "sourceCount": 2,
+  "status": "ok"
+ },
+ "discovered": {
+  "calls": 1,
+  "dry_run": false,
+  "extraction_id": "ext_text",
+  "judged": 1,
+  "open_calls": 1,
+  "source_calls_last_24h": 1,
+  "status": "done",
+  "targets": [
+   {
+    "dropped": [],
+    "id": "<ULID10>:misconception:mis_swap",
+    "kind": "hypothesis",
+    "learning_object_ids": [
+     "lo_matrices"
+    ],
+    "links": [
+     "<LINK0>",
+     "<LINK1>"
+    ],
+    "manifest": {
+     "candidates": 4,
+     "lists": {
+      "keyword": 5
+     },
+     "notes": [],
+     "target": {
+      "id": "<ULID10>:misconception:mis_swap",
+      "kind": "hypothesis",
+      "learning_object_ids": [
+       "lo_matrices"
+      ],
+      "p_open": 0.026471,
+      "p_open_source": "episode_posterior",
+      "state_key": "<STATE0>",
+      "status": "episode:pending_items"
+     },
+     "withheld": {
+      "solution": 1
+     }
+    },
+    "p_open": 0.026471,
+    "p_open_source": "episode_posterior",
+    "state_key": "<STATE0>",
+    "status": "judged"
+   }
+  ],
+  "usage": {
+   "billing": "subscription",
+   "cost_basis": "estimated_only",
+   "judged_targets": 1,
+   "requests": 1,
+   "retries": 0
+  }
+ },
+ "find_sources": {
+  "alternative": {
+   "hits": [],
+   "manifest": {
+    "caller": {
+     "kind": "reader",
+     "ref": null
+    },
+    "exam_withheld": 1,
+    "excluded_span_keys": [],
+    "expand": [],
+    "extractions": [
+     {
+      "extraction_id": "ext_book",
+      "revision_id": "rev_book"
+     },
+     {
+      "extraction_id": "ext_exam",
+      "revision_id": "rev_exam"
+     },
+     {
+      "extraction_id": "ext_text",
+      "revision_id": "rev_text"
+     }
+    ],
+    "facet_ids": [],
+    "facets_targeted": [],
+    "intent": "alternative",
+    "label": "chosen to differ from what you already read",
+    "personalized": true,
+    "personalized_for": {
+     "shown_sources": []
+    },
+    "policy": "reading",
+    "policy_derived_from": "reader caller with no item bound",
+    "query_hash": "515c0d7e7363e3596f1d28510b77cee3",
+    "returned": [],
+    "roles": [],
+    "scope": {
+     "excluded_spans": 0,
+     "name": "library",
+     "notes": [],
+     "sources": 3
+    },
+    "search": {
+     "basis": "keyword",
+     "dense": {
+      "covered": 0,
+      "expected": 0,
+      "model_id": null,
+      "reason": "embeddings are disabled (embedding.enabled = false)",
+      "sources": 0,
+      "sources_covered": 0,
+      "status": "disabled"
+     },
+     "hits": 14,
+     "lists": [
+      "keyword"
+     ],
+     "notes": [
+      "embeddings are disabled (embedding.enabled = false)"
+     ],
+     "pool": {
+      "fallback": null,
+      "mode": "hybrid_rrf",
+      "requested": "hybrid_rrf"
+     },
+     "query_embedding": {},
+     "rewrite": {
+      "status": "not_needed"
+     },
+     "scope": {
+      "excluded_spans": 0,
+      "name": "library",
+      "notes": [],
+      "sources": 3
+     }
+    },
+    "target_hypotheses": [],
+    "verification": {
+     "judged": 13,
+     "picked": 0,
+     "reason": null,
+     "status": "verified"
+    },
+    "withheld_answer_overlap": []
+   },
+   "status": "ok"
+  },
+  "contrast": {
+   "hits": [],
+   "manifest": {
+    "caller": {
+     "kind": "reader",
+     "ref": null
+    },
+    "excluded_span_keys": [],
+    "expand": [],
+    "extractions": [
+     {
+      "extraction_id": "ext_book",
+      "revision_id": "rev_book"
+     },
+     {
+      "extraction_id": "ext_exam",
+      "revision_id": "rev_exam"
+     },
+     {
+      "extraction_id": "ext_text",
+      "revision_id": "rev_text"
+     }
+    ],
+    "facet_ids": [],
+    "facets_targeted": [],
+    "intent": "explain",
+    "personalized": true,
+    "policy": "reading",
+    "policy_derived_from": "reader caller with no item bound",
+    "query_hash": "c0a67e7f47d17c4ca12e3b7e9e7d7ddb",
+    "returned": [],
+    "roles": [
+     "contrast",
+     "definition"
+    ],
+    "scope": {
+     "excluded_spans": 0,
+     "name": "library",
+     "notes": [],
+     "sources": 3
+    },
+    "search": {
+     "basis": "none",
+     "dense": {
+      "covered": 0,
+      "expected": 0,
+      "model_id": null,
+      "reason": "embeddings are disabled (embedding.enabled = false)",
+      "sources": 0,
+      "sources_covered": 0,
+      "status": "disabled"
+     },
+     "hits": 0,
+     "lists": [],
+     "notes": [
+      "embeddings are disabled (embedding.enabled = false)"
+     ],
+     "pool": {
+      "fallback": null,
+      "mode": "hybrid_rrf",
+      "requested": "hybrid_rrf"
+     },
+     "query_embedding": {},
+     "rewrite": {
+      "status": "not_needed"
+     },
+     "role_basis": {
+      "hints": 0,
+      "low_confidence": 0,
+      "proposals": 0
+     },
+     "roles": [
+      "contrast",
+      "definition"
+     ],
+     "scope": {
+      "excluded_spans": 0,
+      "name": "library",
+      "notes": [],
+      "sources": 3
+     }
+    },
+    "target_hypotheses": [],
+    "verification": {
+     "label": "unverified: retrieval rank only",
+     "status": "not_requested"
+    },
+    "withheld_answer_overlap": []
+   },
+   "status": "ok"
+  },
+  "counterexample": {
+   "hits": [],
+   "manifest": {
+    "caller": {
+     "kind": "reader",
+     "ref": null
+    },
+    "excluded_span_keys": [],
+    "expand": [],
+    "extractions": [
+     {
+      "extraction_id": "ext_book",
+      "revision_id": "rev_book"
+     },
+     {
+      "extraction_id": "ext_exam",
+      "revision_id": "rev_exam"
+     },
+     {
+      "extraction_id": "ext_text",
+      "revision_id": "rev_text"
+     }
+    ],
+    "facet_ids": [],
+    "facets_targeted": [],
+    "intent": "explain",
+    "personalized": true,
+    "policy": "reading",
+    "policy_derived_from": "reader caller with no item bound",
+    "query_hash": "7e2e79594d121faa88757080ac53f828",
+    "returned": [],
+    "roles": [
+     "counterexample"
+    ],
+    "scope": {
+     "excluded_spans": 0,
+     "name": "library",
+     "notes": [],
+     "sources": 3
+    },
+    "search": {
+     "basis": "none",
+     "dense": {
+      "covered": 0,
+      "expected": 0,
+      "model_id": null,
+      "reason": "embeddings are disabled (embedding.enabled = false)",
+      "sources": 0,
+      "sources_covered": 0,
+      "status": "disabled"
+     },
+     "hits": 0,
+     "lists": [],
+     "notes": [
+      "embeddings are disabled (embedding.enabled = false)"
+     ],
+     "pool": {
+      "fallback": null,
+      "mode": "hybrid_rrf",
+      "requested": "hybrid_rrf"
+     },
+     "query_embedding": {},
+     "rewrite": {
+      "status": "not_needed"
+     },
+     "role_basis": {
+      "hints": 0,
+      "low_confidence": 0,
+      "proposals": 0
+     },
+     "roles": [
+      "counterexample"
+     ],
+     "scope": {
+      "excluded_spans": 0,
+      "name": "library",
+      "notes": [],
+      "sources": 3
+     }
+    },
+    "target_hypotheses": [],
+    "verification": {
+     "label": "unverified: retrieval rank only",
+     "status": "not_requested"
+    },
+    "withheld_answer_overlap": []
+   },
+   "status": "ok"
+  },
+  "exercise": {
+   "hits": [
+    [
+     "ext_text",
+     "t8",
+     "exercise",
+     null
+    ],
+    [
+     "ext_text",
+     "t7",
+     "exercise",
+     null
+    ],
+    [
+     "ext_text",
+     "t10",
+     "exercise",
+     null
+    ]
+   ],
+   "manifest": {
+    "caller": {
+     "kind": "reader",
+     "ref": null
+    },
+    "excluded_span_keys": [],
+    "expand": [],
+    "extractions": [
+     {
+      "extraction_id": "ext_book",
+      "revision_id": "rev_book"
+     },
+     {
+      "extraction_id": "ext_exam",
+      "revision_id": "rev_exam"
+     },
+     {
+      "extraction_id": "ext_text",
+      "revision_id": "rev_text"
+     }
+    ],
+    "facet_ids": [],
+    "facets_targeted": [],
+    "intent": "explain",
+    "personalized": true,
+    "policy": "reading",
+    "policy_derived_from": "reader caller with no item bound",
+    "query_hash": "ac52d0b64f486277b80abb58947822ef",
+    "returned": [
+     [
+      "ext_text",
+      "t8"
+     ],
+     [
+      "ext_text",
+      "t7"
+     ],
+     [
+      "ext_text",
+      "t10"
+     ]
+    ],
+    "roles": [
+     "exercise"
+    ],
+    "scope": {
+     "excluded_spans": 0,
+     "name": "library",
+     "notes": [],
+     "sources": 3
+    },
+    "search": {
+     "basis": "keyword",
+     "dense": {
+      "covered": 0,
+      "expected": 0,
+      "model_id": null,
+      "reason": "embeddings are disabled (embedding.enabled = false)",
+      "sources": 0,
+      "sources_covered": 0,
+      "status": "disabled"
+     },
+     "hits": 3,
+     "lists": [
+      "keyword"
+     ],
+     "notes": [
+      "embeddings are disabled (embedding.enabled = false)"
+     ],
+     "pool": {
+      "fallback": null,
+      "mode": "hybrid_rrf",
+      "requested": "hybrid_rrf"
+     },
+     "query_embedding": {},
+     "rewrite": {
+      "status": "not_needed"
+     },
+     "role_basis": {
+      "hints": 5,
+      "low_confidence": 0,
+      "proposals": 0
+     },
+     "roles": [
+      "exercise"
+     ],
+     "scope": {
+      "excluded_spans": 0,
+      "name": "library",
+      "notes": [],
+      "sources": 3
+     }
+    },
+    "target_hypotheses": [],
+    "verification": {
+     "label": "unverified: retrieval rank only",
+     "status": "not_requested"
+    },
+    "withheld_answer_overlap": []
+   },
+   "status": "ok"
+  },
+  "explain": {
+   "hits": [
+    [
+     "ext_book",
+     "s2",
+     null,
+     null
+    ],
+    [
+     "ext_text",
+     "t2",
+     "ordinary_prose",
+     null
+    ],
+    [
+     "ext_text",
+     "t8",
+     "exercise",
+     null
+    ],
+    [
+     "ext_book",
+     "s6",
+     null,
+     null
+    ],
+    [
+     "ext_text",
+     "t3",
+     "ordinary_prose",
+     null
+    ],
+    [
+     "ext_book",
+     "s8",
+     null,
+     null
+    ],
+    [
+     "ext_book",
+     "s9",
+     null,
+     null
+    ],
+    [
+     "ext_book",
+     "s7",
+     null,
+     null
+    ]
+   ],
+   "manifest": {
+    "caller": {
+     "kind": "reader",
+     "ref": null
+    },
+    "exam_withheld": 1,
+    "excluded_span_keys": [],
+    "expand": [],
+    "extractions": [
+     {
+      "extraction_id": "ext_book",
+      "revision_id": "rev_book"
+     },
+     {
+      "extraction_id": "ext_exam",
+      "revision_id": "rev_exam"
+     },
+     {
+      "extraction_id": "ext_text",
+      "revision_id": "rev_text"
+     }
+    ],
+    "facet_ids": [],
+    "facets_targeted": [],
+    "intent": "explain",
+    "personalized": true,
+    "policy": "reading",
+    "policy_derived_from": "reader caller with no item bound",
+    "query_hash": "9206df5e7989fcdb4c3ab7a97b1adacc",
+    "returned": [
+     [
+      "ext_book",
+      "s2"
+     ],
+     [
+      "ext_text",
+      "t2"
+     ],
+     [
+      "ext_text",
+      "t8"
+     ],
+     [
+      "ext_book",
+      "s6"
+     ],
+     [
+      "ext_text",
+      "t3"
+     ],
+     [
+      "ext_book",
+      "s8"
+     ],
+     [
+      "ext_book",
+      "s9"
+     ],
+     [
+      "ext_book",
+      "s7"
+     ]
+    ],
+    "roles": [],
+    "scope": {
+     "excluded_spans": 0,
+     "name": "library",
+     "notes": [],
+     "sources": 3
+    },
+    "search": {
+     "basis": "keyword",
+     "dense": {
+      "covered": 0,
+      "expected": 0,
+      "model_id": null,
+      "reason": "embeddings are disabled (embedding.enabled = false)",
+      "sources": 0,
+      "sources_covered": 0,
+      "status": "disabled"
+     },
+     "hits": 20,
+     "lists": [
+      "keyword"
+     ],
+     "notes": [
+      "embeddings are disabled (embedding.enabled = false)"
+     ],
+     "pool": {
+      "fallback": null,
+      "mode": "hybrid_rrf",
+      "requested": "hybrid_rrf"
+     },
+     "query_embedding": {},
+     "rewrite": {
+      "status": "not_needed"
+     },
+     "scope": {
+      "excluded_spans": 0,
+      "name": "library",
+      "notes": [],
+      "sources": 3
+     }
+    },
+    "target_hypotheses": [],
+    "verification": {
+     "label": "unverified: retrieval rank only",
+     "status": "not_requested"
+    },
+    "withheld_answer_overlap": []
+   },
+   "status": "ok"
+  },
+  "intuition": {
+   "hits": [],
+   "manifest": {
+    "caller": {
+     "kind": "reader",
+     "ref": null
+    },
+    "excluded_span_keys": [],
+    "expand": [],
+    "extractions": [
+     {
+      "extraction_id": "ext_book",
+      "revision_id": "rev_book"
+     },
+     {
+      "extraction_id": "ext_exam",
+      "revision_id": "rev_exam"
+     },
+     {
+      "extraction_id": "ext_text",
+      "revision_id": "rev_text"
+     }
+    ],
+    "facet_ids": [],
+    "facets_targeted": [],
+    "intent": "explain",
+    "personalized": true,
+    "policy": "reading",
+    "policy_derived_from": "reader caller with no item bound",
+    "query_hash": "7b49fa9fd3f80245f2f35f668c6eb44c",
+    "returned": [],
+    "roles": [
+     "intuition"
+    ],
+    "scope": {
+     "excluded_spans": 0,
+     "name": "library",
+     "notes": [],
+     "sources": 3
+    },
+    "search": {
+     "basis": "none",
+     "dense": {
+      "covered": 0,
+      "expected": 0,
+      "model_id": null,
+      "reason": "embeddings are disabled (embedding.enabled = false)",
+      "sources": 0,
+      "sources_covered": 0,
+      "status": "disabled"
+     },
+     "hits": 0,
+     "lists": [],
+     "notes": [
+      "embeddings are disabled (embedding.enabled = false)"
+     ],
+     "pool": {
+      "fallback": null,
+      "mode": "hybrid_rrf",
+      "requested": "hybrid_rrf"
+     },
+     "query_embedding": {},
+     "rewrite": {
+      "status": "not_needed"
+     },
+     "role_basis": {
+      "hints": 0,
+      "low_confidence": 0,
+      "proposals": 0
+     },
+     "roles": [
+      "intuition"
+     ],
+     "scope": {
+      "excluded_spans": 0,
+      "name": "library",
+      "notes": [],
+      "sources": 3
+     }
+    },
+    "target_hypotheses": [],
+    "verification": {
+     "label": "unverified: retrieval rank only",
+     "status": "not_requested"
+    },
+    "withheld_answer_overlap": []
+   },
+   "status": "ok"
+  },
+  "practice_bound": {
+   "hits": [],
+   "manifest": {
+    "caller": {
+     "kind": "tutor",
+     "ref": null
+    },
+    "excluded_span_keys": [],
+    "expand": [],
+    "extractions": [
+     {
+      "extraction_id": "ext_book",
+      "revision_id": "rev_book"
+     },
+     {
+      "extraction_id": "ext_text",
+      "revision_id": "rev_text"
+     }
+    ],
+    "facet_ids": [],
+    "facets_targeted": [],
+    "intent": "explain",
+    "personalized": true,
+    "policy": "assisted_practice",
+    "policy_derived_from": "tutor practice context bound to the item",
+    "query_hash": "eac2b1f02e290a81c5901657f7ecaf76",
+    "returned": [],
+    "roles": [
+     "explanation"
+    ],
+    "scope": {
+     "excluded_spans": 9,
+     "name": "teaching",
+     "notes": [
+      "1 source extraction(s) without teaching authority excluded",
+      "9 exercise or solution block(s) excluded"
+     ],
+     "sources": 2
+    },
+    "search": {
+     "basis": "none",
+     "dense": {
+      "covered": 0,
+      "expected": 0,
+      "model_id": null,
+      "reason": "embeddings are disabled (embedding.enabled = false)",
+      "sources": 0,
+      "sources_covered": 0,
+      "status": "disabled"
+     },
+     "hits": 0,
+     "lists": [],
+     "notes": [
+      "embeddings are disabled (embedding.enabled = false)"
+     ],
+     "pool": {
+      "fallback": null,
+      "mode": "hybrid_rrf",
+      "requested": "hybrid_rrf"
+     },
+     "query_embedding": {},
+     "rewrite": {
+      "status": "not_needed"
+     },
+     "role_basis": {
+      "hints": 0,
+      "low_confidence": 0,
+      "proposals": 0
+     },
+     "roles": [
+      "explanation"
+     ],
+     "scope": {
+      "excluded_spans": 9,
+      "name": "teaching",
+      "notes": [
+       "1 source extraction(s) without teaching authority excluded",
+       "9 exercise or solution block(s) excluded"
+      ],
+      "sources": 2
+     }
+    },
+    "target_hypotheses": [],
+    "verification": {
+     "label": "unverified: retrieval rank only",
+     "status": "not_requested"
+    },
+    "withheld_answer_overlap": []
+   },
+   "status": "ok"
+  },
+  "remediate": {
+   "hits": [
+    [
+     "ext_book",
+     "s7",
+     null,
+     "addresses_confusion"
+    ],
+    [
+     "ext_text",
+     "t3",
+     "ordinary_prose",
+     "addresses_confusion"
+    ],
+    [
+     "ext_text",
+     "t9",
+     "exercise",
+     "addresses_confusion"
+    ],
+    [
+     "ext_book",
+     "s8",
+     null,
+     "contrasts"
+    ],
+    [
+     "ext_book",
+     "s9",
+     null,
+     "contrasts"
+    ]
+   ],
+   "manifest": {
+    "caller": {
+     "kind": "reader",
+     "ref": null
+    },
+    "excluded_span_keys": [],
+    "expand": [],
+    "extractions": [
+     {
+      "extraction_id": "ext_book",
+      "revision_id": "rev_book"
+     },
+     {
+      "extraction_id": "ext_exam",
+      "revision_id": "rev_exam"
+     },
+     {
+      "extraction_id": "ext_text",
+      "revision_id": "rev_text"
+     }
+    ],
+    "facet_ids": [],
+    "facets_targeted": [],
+    "intent": "remediate",
+    "personalized": true,
+    "policy": "reading",
+    "policy_derived_from": "reader caller with no item bound",
+    "query_hash": "347c75de6213dcffcf39140d77dbb89e",
+    "returned": [
+     [
+      "ext_book",
+      "s7"
+     ],
+     [
+      "ext_text",
+      "t3"
+     ],
+     [
+      "ext_text",
+      "t9"
+     ],
+     [
+      "ext_book",
+      "s8"
+     ],
+     [
+      "ext_book",
+      "s9"
+     ]
+    ],
+    "roles": [],
+    "scope": {
+     "excluded_spans": 0,
+     "name": "library",
+     "notes": [],
+     "sources": 3
+    },
+    "search": {
+     "basis": "keyword",
+     "dense": {
+      "covered": 0,
+      "expected": 0,
+      "model_id": null,
+      "reason": "embeddings are disabled (embedding.enabled = false)",
+      "sources": 0,
+      "sources_covered": 0,
+      "status": "disabled"
+     },
+     "hits": 6,
+     "lists": [
+      "keyword"
+     ],
+     "notes": [
+      "embeddings are disabled (embedding.enabled = false)"
+     ],
+     "pool": {
+      "fallback": null,
+      "mode": "hybrid_rrf",
+      "requested": "hybrid_rrf"
+     },
+     "query_embedding": {},
+     "rewrite": {
+      "status": "not_needed"
+     },
+     "scope": {
+      "excluded_spans": 0,
+      "name": "library",
+      "notes": [],
+      "sources": 3
+     }
+    },
+    "target_hypotheses": [],
+    "verification": {
+     "judged": 6,
+     "picked": 5,
+     "reason": null,
+     "status": "verified"
+    },
+    "withheld_answer_overlap": []
+   },
+   "status": "ok"
+  },
+  "worked_example": {
+   "hits": [
+    [
+     "ext_text",
+     "t5",
+     "worked_example",
+     "follows_learner_route"
+    ]
+   ],
+   "manifest": {
+    "caller": {
+     "kind": "reader",
+     "ref": null
+    },
+    "excluded_span_keys": [],
+    "expand": [],
+    "extractions": [
+     {
+      "extraction_id": "ext_book",
+      "revision_id": "rev_book"
+     },
+     {
+      "extraction_id": "ext_exam",
+      "revision_id": "rev_exam"
+     },
+     {
+      "extraction_id": "ext_text",
+      "revision_id": "rev_text"
+     }
+    ],
+    "facet_ids": [],
+    "facets_targeted": [],
+    "intent": "worked_example",
+    "personalized": true,
+    "policy": "reading",
+    "policy_derived_from": "reader caller with no item bound",
+    "query_hash": "1ac94d1ecc651699f5e6bc57177da73e",
+    "returned": [
+     [
+      "ext_text",
+      "t5"
+     ]
+    ],
+    "roles": [
+     "worked_example"
+    ],
+    "scope": {
+     "excluded_spans": 0,
+     "name": "library",
+     "notes": [],
+     "sources": 3
+    },
+    "search": {
+     "basis": "keyword",
+     "dense": {
+      "covered": 0,
+      "expected": 0,
+      "model_id": null,
+      "reason": "embeddings are disabled (embedding.enabled = false)",
+      "sources": 0,
+      "sources_covered": 0,
+      "status": "disabled"
+     },
+     "hits": 1,
+     "lists": [
+      "keyword"
+     ],
+     "notes": [
+      "embeddings are disabled (embedding.enabled = false)"
+     ],
+     "pool": {
+      "fallback": null,
+      "mode": "hybrid_rrf",
+      "requested": "hybrid_rrf"
+     },
+     "query_embedding": {},
+     "rewrite": {
+      "status": "not_needed"
+     },
+     "role_basis": {
+      "hints": 2,
+      "low_confidence": 0,
+      "proposals": 0
+     },
+     "roles": [
+      "worked_example"
+     ],
+     "scope": {
+      "excluded_spans": 0,
+      "name": "library",
+      "notes": [],
+      "sources": 3
+     }
+    },
+    "target_hypotheses": [],
+    "verification": {
+     "judged": 1,
+     "picked": 1,
+     "reason": null,
+     "status": "verified"
+    },
+    "withheld_answer_overlap": []
+   },
+   "status": "ok"
+  }
+ },
+ "judge_prompts": [
+  "56a49455012d5cce5c20b21d8b94e05c6e5485d6d6f26be123810d21e0f99f26"
+ ],
+ "ledger": [
+  {
+   "id": "lac_09cf2ce4fd8422fdffc6bed27c2ac1e469745947",
+   "input_hash": "35838abf6eb291c6804bfb8d719d2d972f9b88ff7f416a86cf43d08f0661f90a",
+   "left_id": "la_<ULID0>",
+   "left_kind": "library_ask",
+   "prompt_version": "library_organizer.v1",
+   "right_id": "ext_text:t2",
+   "right_kind": "source_span",
+   "score": 2.0,
+   "task": "library_contribution",
+   "verdict": "contributes"
+  },
+  {
+   "id": "lac_2ae960963d3a2a0d665e91b9bfde430b02373475",
+   "input_hash": "35838abf6eb291c6804bfb8d719d2d972f9b88ff7f416a86cf43d08f0661f90a",
+   "left_id": "la_<ULID0>",
+   "left_kind": "library_ask",
+   "prompt_version": "library_organizer.v1",
+   "right_id": "ext_book:s7",
+   "right_kind": "source_span",
+   "score": 2.0,
+   "task": "library_contribution",
+   "verdict": "contributes"
+  },
+  {
+   "id": "lac_4a33800c8b1447a988afc0786952d49da716b4e6",
+   "input_hash": "35838abf6eb291c6804bfb8d719d2d972f9b88ff7f416a86cf43d08f0661f90a",
+   "left_id": "la_<ULID0>",
+   "left_kind": "library_ask",
+   "prompt_version": "library_organizer.v1",
+   "right_id": "ext_book:s2",
+   "right_kind": "source_span",
+   "score": 2.0,
+   "task": "library_contribution",
+   "verdict": "contributes"
+  },
+  {
+   "id": "lac_53f1611b6d7432268317ca498db4c619d0556dae",
+   "input_hash": "35838abf6eb291c6804bfb8d719d2d972f9b88ff7f416a86cf43d08f0661f90a",
+   "left_id": "la_<ULID0>",
+   "left_kind": "library_ask",
+   "prompt_version": "library_organizer.v1",
+   "right_id": "ext_book:s6",
+   "right_kind": "source_span",
+   "score": 2.0,
+   "task": "library_contribution",
+   "verdict": "contributes"
+  },
+  {
+   "id": "lac_953522588c5493ac1088fbf2364b364ea749f672",
+   "input_hash": "35838abf6eb291c6804bfb8d719d2d972f9b88ff7f416a86cf43d08f0661f90a",
+   "left_id": "la_<ULID0>",
+   "left_kind": "library_ask",
+   "prompt_version": "library_organizer.v1",
+   "right_id": "ext_book:s8",
+   "right_kind": "source_span",
+   "score": 2.0,
+   "task": "library_contribution",
+   "verdict": "contributes"
+  },
+  {
+   "id": "lac_97a4228de019634f82c8e35868db9146d1ba2088",
+   "input_hash": "35838abf6eb291c6804bfb8d719d2d972f9b88ff7f416a86cf43d08f0661f90a",
+   "left_id": "la_<ULID0>",
+   "left_kind": "library_ask",
+   "prompt_version": "library_organizer.v1",
+   "right_id": "ext_book:s12",
+   "right_kind": "source_span",
+   "score": 2.0,
+   "task": "library_contribution",
+   "verdict": "contributes"
+  },
+  {
+   "id": "lac_bb96cae7be81aa692cfd02b4f0e673b3f549317e",
+   "input_hash": "35838abf6eb291c6804bfb8d719d2d972f9b88ff7f416a86cf43d08f0661f90a",
+   "left_id": "la_<ULID0>",
+   "left_kind": "library_ask",
+   "prompt_version": "library_organizer.v1",
+   "right_id": "ext_book:s11",
+   "right_kind": "source_span",
+   "score": 2.0,
+   "task": "library_contribution",
+   "verdict": "contributes"
+  },
+  {
+   "id": "lac_d4dacec83e7314c039c31a4d78209513bc93b5aa",
+   "input_hash": "35838abf6eb291c6804bfb8d719d2d972f9b88ff7f416a86cf43d08f0661f90a",
+   "left_id": "la_<ULID0>",
+   "left_kind": "library_ask",
+   "prompt_version": "library_organizer.v1",
+   "right_id": "ext_text:t9",
+   "right_kind": "source_span",
+   "score": 2.0,
+   "task": "library_contribution",
+   "verdict": "contributes"
+  },
+  {
+   "id": "lac_e49a72a327e48e056f12289d6e862536a088fb04",
+   "input_hash": "35838abf6eb291c6804bfb8d719d2d972f9b88ff7f416a86cf43d08f0661f90a",
+   "left_id": "la_<ULID0>",
+   "left_kind": "library_ask",
+   "prompt_version": "library_organizer.v1",
+   "right_id": "ext_text:t3",
+   "right_kind": "source_span",
+   "score": 2.0,
+   "task": "library_contribution",
+   "verdict": "contributes"
+  },
+  {
+   "id": "pcj_8dd52343335e00464fd3af21eb46dc639433f5df",
+   "input_hash": "c068be4edc214da0a23b883899e5fcdcc116413ab303d27f16ec7f7f605457a6",
+   "left_id": "ext_text|hypothesis:<ULID10>:misconception:mis_swap|<STATE0>",
+   "left_kind": "cue_target",
+   "prompt_version": "passage_cue_judge.v2",
+   "right_id": "ext_text/t10",
+   "right_kind": "reader_span",
+   "score": 0.0,
+   "task": "passage_cue",
+   "verdict": "none"
+  },
+  {
+   "id": "pcj_8fa6feae6fbef3b096a138eeffec758a2c1e7ef5",
+   "input_hash": "c068be4edc214da0a23b883899e5fcdcc116413ab303d27f16ec7f7f605457a6",
+   "left_id": "ext_text|hypothesis:<ULID10>:misconception:mis_swap|<STATE0>",
+   "left_kind": "cue_target",
+   "prompt_version": "passage_cue_judge.v2",
+   "right_id": "ext_text/t3",
+   "right_kind": "reader_span",
+   "score": 1.0,
+   "task": "passage_cue",
+   "verdict": "clarifies_distinction"
+  },
+  {
+   "id": "pcj_b50ee4d5fb999a083c15701650a2ba71baaece79",
+   "input_hash": "c068be4edc214da0a23b883899e5fcdcc116413ab303d27f16ec7f7f605457a6",
+   "left_id": "ext_text|hypothesis:<ULID10>:misconception:mis_swap|<STATE0>",
+   "left_kind": "cue_target",
+   "prompt_version": "passage_cue_judge.v2",
+   "right_id": "ext_text/t9",
+   "right_kind": "reader_span",
+   "score": 1.0,
+   "task": "passage_cue",
+   "verdict": "clarifies_distinction"
+  },
+  {
+   "id": "pcj_d85ffbb48aa953e136666d9eb4a98722cf72614a",
+   "input_hash": "c068be4edc214da0a23b883899e5fcdcc116413ab303d27f16ec7f7f605457a6",
+   "left_id": "ext_text|hypothesis:<ULID10>:misconception:mis_swap|<STATE0>",
+   "left_kind": "cue_target",
+   "prompt_version": "passage_cue_judge.v2",
+   "right_id": "ext_text/t2",
+   "right_kind": "reader_span",
+   "score": 0.0,
+   "task": "passage_cue",
+   "verdict": "none"
+  }
+ ],
+ "links": [
+  {
+   "extraction_id": "ext_text",
+   "id": "<LINK0>",
+   "ledger_id": "pcj_8fa6feae6fbef3b096a138eeffec758a2c1e7ef5",
+   "model": "fake-cue-judge-model",
+   "pick_rank": 1,
+   "prompt_version": "passage_cue_judge.v2",
+   "quote": "Swapping two rows of a matrix multiplies its",
+   "ranks": {
+    "keyword": 1
+   },
+   "relation": "clarifies_distinction",
+   "roles": [
+    {
+     "confidence": "high",
+     "role": "contrast"
+    },
+    {
+     "confidence": "medium",
+     "role": "definition"
+    }
+   ],
+   "span_id": "t3",
+   "state_key": "<STATE0>",
+   "target_facets": [],
+   "target_id": "<ULID10>:misconception:mis_swap",
+   "target_kind": "hypothesis"
+  },
+  {
+   "extraction_id": "ext_text",
+   "id": "<LINK1>",
+   "ledger_id": "pcj_b50ee4d5fb999a083c15701650a2ba71baaece79",
+   "model": "fake-cue-judge-model",
+   "pick_rank": 2,
+   "prompt_version": "passage_cue_judge.v2",
+   "quote": "3. Explain why the determinant changes sign when",
+   "ranks": {
+    "keyword": 2
+   },
+   "relation": "clarifies_distinction",
+   "roles": [
+    {
+     "confidence": "high",
+     "role": "contrast"
+    },
+    {
+     "confidence": "medium",
+     "role": "definition"
+    }
+   ],
+   "span_id": "t9",
+   "state_key": "<STATE0>",
+   "target_facets": [],
+   "target_id": "<ULID10>:misconception:mis_swap",
+   "target_kind": "hypothesis"
+  }
+ ],
+ "notes": {
+  "askId": "la_<ULID0>",
+  "droppedLines": [
+   {
+    "key": "ext_book:s7",
+    "reason": "its line cites another passage"
+   }
+  ],
+  "notes": [
+   {
+    "key": "ext_book:s2",
+    "label": "LearnLoop's model",
+    "ledgerId": "lac_4a33800c8b1447a988afc0786952d49da716b4e6",
+    "line": "adds the passage p1's own point",
+    "roles": [
+     "definition"
+    ],
+    "speaksTo": null,
+    "verdict": "contributes"
+   },
+   {
+    "key": "ext_book:s7",
+    "label": "LearnLoop's model",
+    "ledgerId": "lac_2ae960963d3a2a0d665e91b9bfde430b02373475",
+    "line": null,
+    "roles": [
+     "definition"
+    ],
+    "speaksTo": null,
+    "verdict": "contributes"
+   },
+   {
+    "key": "ext_text:t2",
+    "label": "LearnLoop's model",
+    "ledgerId": "lac_09cf2ce4fd8422fdffc6bed27c2ac1e469745947",
+    "line": "adds the passage p3's own point",
+    "roles": [
+     "definition"
+    ],
+    "speaksTo": null,
+    "verdict": "contributes"
+   },
+   {
+    "key": "ext_text:t3",
+    "label": "LearnLoop's model",
+    "ledgerId": "lac_e49a72a327e48e056f12289d6e862536a088fb04",
+    "line": "adds the passage p4's own point",
+    "roles": [
+     "definition"
+    ],
+    "speaksTo": null,
+    "verdict": "contributes"
+   },
+   {
+    "key": "ext_text:t9",
+    "label": "LearnLoop's model",
+    "ledgerId": "lac_d4dacec83e7314c039c31a4d78209513bc93b5aa",
+    "line": "adds the passage p5's own point",
+    "roles": [
+     "definition"
+    ],
+    "speaksTo": null,
+    "verdict": "contributes"
+   },
+   {
+    "key": "ext_book:s8",
+    "label": "LearnLoop's model",
+    "ledgerId": "lac_953522588c5493ac1088fbf2364b364ea749f672",
+    "line": "adds the passage p6's own point",
+    "roles": [
+     "definition"
+    ],
+    "speaksTo": null,
+    "verdict": "contributes"
+   },
+   {
+    "key": "ext_book:s6",
+    "label": "LearnLoop's model",
+    "ledgerId": "lac_53f1611b6d7432268317ca498db4c619d0556dae",
+    "line": "adds the passage p7's own point",
+    "roles": [
+     "definition"
+    ],
+    "speaksTo": null,
+    "verdict": "contributes"
+   },
+   {
+    "key": "ext_book:s12",
+    "label": "LearnLoop's model",
+    "ledgerId": "lac_97a4228de019634f82c8e35868db9146d1ba2088",
+    "line": "adds the passage p8's own point",
+    "roles": [
+     "definition"
+    ],
+    "speaksTo": null,
+    "verdict": "contributes"
+   },
+   {
+    "key": "ext_book:s11",
+    "label": "LearnLoop's model",
+    "ledgerId": "lac_bb96cae7be81aa692cfd02b4f0e673b3f549317e",
+    "line": "adds the passage p9's own point",
+    "roles": [
+     "definition"
+    ],
+    "speaksTo": null,
+    "verdict": "contributes"
+   }
+  ],
+  "openQuestionsShown": [
+   "misconception:mis_swap"
+  ],
+  "order": [
+   "ext_book:s2",
+   "ext_book:s7",
+   "ext_text:t2",
+   "ext_text:t3",
+   "ext_text:t9",
+   "ext_book:s8",
+   "ext_book:s6",
+   "ext_book:s12",
+   "ext_book:s11"
+  ],
+  "personalized": true,
+  "promptVersion": "library_organizer.v1",
+  "reason": null,
+  "reused": false,
+  "status": "judged",
+  "uncheckedLines": 0
+ },
+ "organizer_prompts": [
+  "3dbe601b4b5fc65e579c912a28976537bbe5b34f3997411fefa6dc6760286300"
+ ],
+ "proposals_written_by_the_run": {
+  "source_object_citations": 0,
+  "source_object_relations": 0,
+  "source_object_versions": 0,
+  "source_objects": 0
+ },
+ "rows": [
+  {
+   "anchor_json": {
+    "learning_object_ids": [
+     "lo_matrices"
+    ],
+    "span_ids": [
+     "t3"
+    ]
+   },
+   "caller": "learner",
+   "comparison_id": null,
+   "entry": "reader",
+   "extraction_id": "ext_text",
+   "id": "la_<ULID0>",
+   "kept_at": null,
+   "kept_json": null,
+   "manifest_json": {
+    "caller": {
+     "context": null,
+     "derived_from": "reader caller with no item bound",
+     "item_id": null,
+     "kind": "reader",
+     "policy": "reading",
+     "ref": "ext_text"
+    },
+    "expansions": [
+     {
+      "expansion": "prerequisites",
+      "from_learning_object_ids": [
+       "lo_matrices"
+      ],
+      "kept": [
+       "ext_book:s11"
+      ],
+      "learning_object_ids": [
+       "lo_vectors"
+      ],
+      "manifest": {
+       "caller": {
+        "kind": "reader",
+        "ref": "ext_text"
+       },
+       "excluded_span_keys": [],
+       "expand": [],
+       "extractions": [
+        {
+         "extraction_id": "ext_book",
+         "revision_id": "rev_book"
+        },
+        {
+         "extraction_id": "ext_exam",
+         "revision_id": "rev_exam"
+        },
+        {
+         "extraction_id": "ext_text",
+         "revision_id": "rev_text"
+        }
+       ],
+       "facet_ids": [],
+       "facets_targeted": [],
+       "intent": "explain",
+       "personalized": true,
+       "policy": "reading",
+       "policy_derived_from": "reader caller with no item bound",
+       "query_hash": "82397678392fb32f1ba23bbd83847f14",
+       "returned": [
+        [
+         "ext_book",
+         "s11"
+        ],
+        [
+         "ext_book",
+         "s7"
+        ],
+        [
+         "ext_text",
+         "t3"
+        ],
+        [
+         "ext_text",
+         "t9"
+        ],
+        [
+         "ext_book",
+         "s8"
+        ],
+        [
+         "ext_book",
+         "s6"
+        ],
+        [
+         "ext_book",
+         "s12"
+        ],
+        [
+         "ext_book",
+         "s9"
+        ]
+       ],
+       "roles": [],
+       "scope": {
+        "excluded_spans": 0,
+        "name": "library",
+        "notes": [],
+        "sources": 3
+       },
+       "search": {
+        "basis": "keyword+provenance",
+        "dense": {
+         "covered": 0,
+         "expected": 0,
+         "model_id": null,
+         "reason": "embeddings are disabled (embedding.enabled = false)",
+         "sources": 0,
+         "sources_covered": 0,
+         "status": "disabled"
+        },
+        "hits": 8,
+        "lists": [
+         "keyword",
+         "provenance"
+        ],
+        "notes": [
+         "embeddings are disabled (embedding.enabled = false)"
+        ],
+        "pool": {
+         "fallback": null,
+         "mode": "hybrid_rrf",
+         "requested": "hybrid_rrf"
+        },
+        "query_embedding": {},
+        "rewrite": {
+         "keywords": 0,
+         "model": null,
+         "reason": "Codex checkout path is not configured. Set LEARNLOOP_CODEX_CHECKOUT_PATH in your global learnloop settings (~/.config/learnloop/settings.env).",
+         "status": "unavailable"
+        },
+        "scope": {
+         "excluded_spans": 0,
+         "name": "library",
+         "notes": [],
+         "sources": 3
+        }
+       },
+       "target_hypotheses": [],
+       "verification": {
+        "label": "unverified: retrieval rank only",
+        "status": "not_requested"
+       },
+       "withheld_answer_overlap": []
+      },
+      "status": "ok"
+     },
+     {
+      "expansion": "applications",
+      "from_learning_object_ids": [
+       "lo_matrices"
+      ],
+      "kept": [],
+      "learning_object_ids": [
+       "lo_inner"
+      ],
+      "manifest": {
+       "caller": {
+        "kind": "reader",
+        "ref": "ext_text"
+       },
+       "excluded_span_keys": [],
+       "expand": [],
+       "extractions": [
+        {
+         "extraction_id": "ext_book",
+         "revision_id": "rev_book"
+        },
+        {
+         "extraction_id": "ext_exam",
+         "revision_id": "rev_exam"
+        },
+        {
+         "extraction_id": "ext_text",
+         "revision_id": "rev_text"
+        }
+       ],
+       "facet_ids": [],
+       "facets_targeted": [],
+       "intent": "explain",
+       "personalized": true,
+       "policy": "reading",
+       "policy_derived_from": "reader caller with no item bound",
+       "query_hash": "82397678392fb32f1ba23bbd83847f14",
+       "returned": [
+        [
+         "ext_book",
+         "s12"
+        ],
+        [
+         "ext_book",
+         "s7"
+        ],
+        [
+         "ext_text",
+         "t3"
+        ],
+        [
+         "ext_text",
+         "t9"
+        ],
+        [
+         "ext_book",
+         "s8"
+        ],
+        [
+         "ext_book",
+         "s6"
+        ],
+        [
+         "ext_book",
+         "s9"
+        ]
+       ],
+       "roles": [],
+       "scope": {
+        "excluded_spans": 0,
+        "name": "library",
+        "notes": [],
+        "sources": 3
+       },
+       "search": {
+        "basis": "keyword+provenance",
+        "dense": {
+         "covered": 0,
+         "expected": 0,
+         "model_id": null,
+         "reason": "embeddings are disabled (embedding.enabled = false)",
+         "sources": 0,
+         "sources_covered": 0,
+         "status": "disabled"
+        },
+        "hits": 7,
+        "lists": [
+         "keyword",
+         "provenance"
+        ],
+        "notes": [
+         "embeddings are disabled (embedding.enabled = false)"
+        ],
+        "pool": {
+         "fallback": null,
+         "mode": "hybrid_rrf",
+         "requested": "hybrid_rrf"
+        },
+        "query_embedding": {},
+        "rewrite": {
+         "keywords": 0,
+         "model": null,
+         "reason": "Codex checkout path is not configured. Set LEARNLOOP_CODEX_CHECKOUT_PATH in your global learnloop settings (~/.config/learnloop/settings.env).",
+         "status": "unavailable"
+        },
+        "scope": {
+         "excluded_spans": 0,
+         "name": "library",
+         "notes": [],
+         "sources": 3
+        }
+       },
+       "target_hypotheses": [],
+       "verification": {
+        "label": "unverified: retrieval rank only",
+        "status": "not_requested"
+       },
+       "withheld_answer_overlap": []
+      },
+      "status": "ok"
+     }
+    ],
+    "main": {
+     "caller": {
+      "kind": "reader",
+      "ref": "ext_text"
+     },
+     "excluded_span_keys": [],
+     "expand": [],
+     "extractions": [
+      {
+       "extraction_id": "ext_book",
+       "revision_id": "rev_book"
+      },
+      {
+       "extraction_id": "ext_exam",
+       "revision_id": "rev_exam"
+      },
+      {
+       "extraction_id": "ext_text",
+       "revision_id": "rev_text"
+      }
+     ],
+     "facet_ids": [],
+     "facets_targeted": [],
+     "intent": "explain",
+     "personalized": true,
+     "policy": "reading",
+     "policy_derived_from": "reader caller with no item bound",
+     "query_hash": "82397678392fb32f1ba23bbd83847f14",
+     "returned": [
+      [
+       "ext_book",
+       "s2"
+      ],
+      [
+       "ext_book",
+       "s7"
+      ],
+      [
+       "ext_text",
+       "t2"
+      ],
+      [
+       "ext_text",
+       "t3"
+      ],
+      [
+       "ext_text",
+       "t9"
+      ],
+      [
+       "ext_book",
+       "s8"
+      ],
+      [
+       "ext_book",
+       "s6"
+      ],
+      [
+       "ext_book",
+       "s12"
+      ]
+     ],
+     "roles": [],
+     "scope": {
+      "excluded_spans": 0,
+      "name": "library",
+      "notes": [],
+      "sources": 3
+     },
+     "search": {
+      "basis": "keyword+provenance",
+      "dense": {
+       "covered": 0,
+       "expected": 0,
+       "model_id": null,
+       "reason": "embeddings are disabled (embedding.enabled = false)",
+       "sources": 0,
+       "sources_covered": 0,
+       "status": "disabled"
+      },
+      "hits": 9,
+      "lists": [
+       "keyword",
+       "provenance"
+      ],
+      "notes": [
+       "embeddings are disabled (embedding.enabled = false)"
+      ],
+      "pool": {
+       "fallback": null,
+       "mode": "hybrid_rrf",
+       "requested": "hybrid_rrf"
+      },
+      "query_embedding": {},
+      "rewrite": {
+       "keywords": 0,
+       "model": null,
+       "reason": "Codex checkout path is not configured. Set LEARNLOOP_CODEX_CHECKOUT_PATH in your global learnloop settings (~/.config/learnloop/settings.env).",
+       "status": "unavailable"
+      },
+      "scope": {
+       "excluded_spans": 0,
+       "name": "library",
+       "notes": [],
+       "sources": 3
+      }
+     },
+     "status": "ok",
+     "target_hypotheses": [],
+     "verification": {
+      "label": "unverified: retrieval rank only",
+      "status": "not_requested"
+     },
+     "withheld_answer_overlap": []
+    },
+    "policy": "reading"
+   },
+   "model": "fake-organizer-model",
+   "organizer_json": {
+    "dropped_lines": [
+     {
+      "key": "ext_book:s7",
+      "reason": "its line cites another passage"
+     }
+    ],
+    "notes": [
+     {
+      "key": "ext_book:s2",
+      "label": "LearnLoop's model",
+      "ledger_id": "lac_4a33800c8b1447a988afc0786952d49da716b4e6",
+      "line": "adds the passage p1's own point",
+      "roles": [
+       "definition"
+      ],
+      "speaks_to": null,
+      "verdict": "contributes"
+     },
+     {
+      "key": "ext_book:s7",
+      "label": "LearnLoop's model",
+      "ledger_id": "lac_2ae960963d3a2a0d665e91b9bfde430b02373475",
+      "line": null,
+      "roles": [
+       "definition"
+      ],
+      "speaks_to": null,
+      "verdict": "contributes"
+     },
+     {
+      "key": "ext_text:t2",
+      "label": "LearnLoop's model",
+      "ledger_id": "lac_09cf2ce4fd8422fdffc6bed27c2ac1e469745947",
+      "line": "adds the passage p3's own point",
+      "roles": [
+       "definition"
+      ],
+      "speaks_to": null,
+      "verdict": "contributes"
+     },
+     {
+      "key": "ext_text:t3",
+      "label": "LearnLoop's model",
+      "ledger_id": "lac_e49a72a327e48e056f12289d6e862536a088fb04",
+      "line": "adds the passage p4's own point",
+      "roles": [
+       "definition"
+      ],
+      "speaks_to": null,
+      "verdict": "contributes"
+     },
+     {
+      "key": "ext_text:t9",
+      "label": "LearnLoop's model",
+      "ledger_id": "lac_d4dacec83e7314c039c31a4d78209513bc93b5aa",
+      "line": "adds the passage p5's own point",
+      "roles": [
+       "definition"
+      ],
+      "speaks_to": null,
+      "verdict": "contributes"
+     },
+     {
+      "key": "ext_book:s8",
+      "label": "LearnLoop's model",
+      "ledger_id": "lac_953522588c5493ac1088fbf2364b364ea749f672",
+      "line": "adds the passage p6's own point",
+      "roles": [
+       "definition"
+      ],
+      "speaks_to": null,
+      "verdict": "contributes"
+     },
+     {
+      "key": "ext_book:s6",
+      "label": "LearnLoop's model",
+      "ledger_id": "lac_53f1611b6d7432268317ca498db4c619d0556dae",
+      "line": "adds the passage p7's own point",
+      "roles": [
+       "definition"
+      ],
+      "speaks_to": null,
+      "verdict": "contributes"
+     },
+     {
+      "key": "ext_book:s12",
+      "label": "LearnLoop's model",
+      "ledger_id": "lac_97a4228de019634f82c8e35868db9146d1ba2088",
+      "line": "adds the passage p8's own point",
+      "roles": [
+       "definition"
+      ],
+      "speaks_to": null,
+      "verdict": "contributes"
+     },
+     {
+      "key": "ext_book:s11",
+      "label": "LearnLoop's model",
+      "ledger_id": "lac_bb96cae7be81aa692cfd02b4f0e673b3f549317e",
+      "line": "adds the passage p9's own point",
+      "roles": [
+       "definition"
+      ],
+      "speaks_to": null,
+      "verdict": "contributes"
+     }
+    ],
+    "open_questions_shown": [
+     "misconception:mis_swap"
+    ],
+    "order": [
+     "ext_book:s2",
+     "ext_book:s7",
+     "ext_text:t2",
+     "ext_text:t3",
+     "ext_text:t9",
+     "ext_book:s8",
+     "ext_book:s6",
+     "ext_book:s12",
+     "ext_book:s11"
+    ],
+    "personalized": true,
+    "prompt_version": "library_organizer.v1",
+    "reason": null,
+    "status": "judged",
+    "unchecked_lines": 0
+   },
+   "personalized": 1,
+   "prompt_version": "library_organizer.v1",
+   "query_hash": "776b0b712c75d73f45a5a7f8298fa669",
+   "query_md": "why does the determinant change sign when two rows are swapped",
+   "question_event_id": null,
+   "requested_perspectives_json": []
+  },
+  {
+   "anchor_json": {
+    "learning_object_ids": [],
+    "span_ids": [
+     "t2"
+    ]
+   },
+   "caller": "learner",
+   "comparison_id": null,
+   "entry": "where_else_explained",
+   "extraction_id": "ext_text",
+   "id": "la_<ULID11>",
+   "kept_at": null,
+   "kept_json": null,
+   "manifest_json": {
+    "caller": {
+     "context": null,
+     "derived_from": "reader caller with no item bound",
+     "item_id": null,
+     "kind": "reader",
+     "policy": "reading",
+     "ref": "ext_text"
+    },
+    "expansions": [],
+    "expansions_skipped": "no learning objects to expand from",
+    "main": {
+     "caller": {
+      "kind": "reader",
+      "ref": "ext_text"
+     },
+     "exam_withheld": 1,
+     "excluded_span_keys": [
+      [
+       "ext_text",
+       "t2"
+      ]
+     ],
+     "expand": [],
+     "extractions": [
+      {
+       "extraction_id": "ext_book",
+       "revision_id": "rev_book"
+      },
+      {
+       "extraction_id": "ext_exam",
+       "revision_id": "rev_exam"
+      },
+      {
+       "extraction_id": "ext_text",
+       "revision_id": "rev_text"
+      }
+     ],
+     "facet_ids": [],
+     "facets_targeted": [],
+     "intent": "explain",
+     "personalized": true,
+     "policy": "reading",
+     "policy_derived_from": "reader caller with no item bound",
+     "query_hash": "7b49fa9fd3f80245f2f35f668c6eb44c",
+     "returned": [
+      [
+       "ext_book",
+       "s2"
+      ],
+      [
+       "ext_text",
+       "t8"
+      ],
+      [
+       "ext_book",
+       "s1"
+      ],
+      [
+       "ext_text",
+       "t1"
+      ],
+      [
+       "ext_text",
+       "t7"
+      ],
+      [
+       "ext_book",
+       "s4"
+      ],
+      [
+       "ext_text",
+       "t10"
+      ],
+      [
+       "ext_text",
+       "t12"
+      ]
+     ],
+     "roles": [],
+     "scope": {
+      "excluded_spans": 0,
+      "name": "library",
+      "notes": [],
+      "sources": 3
+     },
+     "search": {
+      "basis": "keyword",
+      "dense": {
+       "covered": 0,
+       "expected": 0,
+       "model_id": null,
+       "reason": "embeddings are disabled (embedding.enabled = false)",
+       "sources": 0,
+       "sources_covered": 0,
+       "status": "disabled"
+      },
+      "hits": 14,
+      "lists": [
+       "keyword"
+      ],
+      "notes": [
+       "embeddings are disabled (embedding.enabled = false)"
+      ],
+      "pool": {
+       "fallback": null,
+       "mode": "hybrid_rrf",
+       "requested": "hybrid_rrf"
+      },
+      "query_embedding": {},
+      "rewrite": {
+       "status": "not_needed"
+      },
+      "scope": {
+       "excluded_spans": 0,
+       "name": "library",
+       "notes": [],
+       "sources": 3
+      }
+     },
+     "status": "ok",
+     "target_hypotheses": [],
+     "verification": {
+      "label": "unverified: retrieval rank only",
+      "status": "not_requested"
+     },
+     "withheld_answer_overlap": []
+    },
+    "policy": "reading"
+   },
+   "model": null,
+   "organizer_json": {
+    "status": "not_run"
+   },
+   "personalized": 1,
+   "prompt_version": "library_organizer.v1",
+   "query_hash": "339cc135f696bdfb1785ef3a4cd2b566",
+   "query_md": "eigenvalues characteristic polynomial",
+   "question_event_id": null,
+   "requested_perspectives_json": []
+  }
+ ],
+ "where_else": {
+  "anchorSpanIds": [
+   "t2"
+  ],
+  "askId": "la_<ULID11>",
+  "basis": "keyword",
+  "comparedOn": [],
+  "entry": "where_else_explained",
+  "expandGraph": true,
+  "expansions": [],
+  "exposureEventIds": [
+   "<ULID12>",
+   "<ULID13>",
+   "<ULID14>",
+   "<ULID15>",
+   "<ULID16>",
+   "<ULID17>",
+   "<ULID18>",
+   "<ULID19>"
+  ],
+  "extractionId": "ext_text",
+  "groups": {
+   "expansions": [],
+   "sources": [
+    {
+     "groups": [
+      {
+       "group": "Explanation",
+       "keys": [
+        "ext_book:s2",
+        "ext_book:s1",
+        "ext_book:s4"
+       ]
+      }
+     ],
+     "sourceId": "src_book",
+     "sourceTitle": "Linear Algebra Notes"
+    },
+    {
+     "groups": [
+      {
+       "group": "Explanation",
+       "keys": [
+        "ext_text:t1"
+       ]
+      },
+      {
+       "group": "Exercise",
+       "keys": [
+        "ext_text:t8",
+        "ext_text:t7",
+        "ext_text:t10",
+        "ext_text:t12"
+       ]
+      }
+     ],
+     "sourceId": "src_text",
+     "sourceTitle": "Matrix Theory"
+    }
+   ]
+  },
+  "hits": [
+   {
+    "authorship": "source",
+    "expansion": null,
+    "extractionId": "ext_book",
+    "group": "Explanation",
+    "key": "ext_book:s2",
+    "label": "source-authored",
+    "learningObjectIds": [],
+    "page": 3,
+    "role": null,
+    "section": "Chapter 5 Eigenvalues",
+    "sourceId": "src_book",
+    "sourceTitle": "Linear Algebra Notes",
+    "spanId": "s2",
+    "text": "Eigenvalues are the roots of the characteristic polynomial det(A - tI) of a square matrix."
+   },
+   {
+    "authorship": "source",
+    "expansion": null,
+    "extractionId": "ext_text",
+    "group": "Exercise",
+    "key": "ext_text:t8",
+    "label": "source-authored",
+    "learningObjectIds": [],
+    "page": 9,
+    "role": "exercise",
+    "section": "Exercises",
+    "sourceId": "src_text",
+    "sourceTitle": "Matrix Theory",
+    "spanId": "t8",
+    "text": "2. The characteristic polynomial gives 2x + 4 = 10; solve 2x + 4 = 10 for x, the eigenvalue."
+   },
+   {
+    "authorship": "source",
+    "expansion": null,
+    "extractionId": "ext_book",
+    "group": "Explanation",
+    "key": "ext_book:s1",
+    "label": "source-authored",
+    "learningObjectIds": [],
+    "page": 3,
+    "role": null,
+    "section": "Chapter 5 Eigenvalues",
+    "sourceId": "src_book",
+    "sourceTitle": "Linear Algebra Notes",
+    "spanId": "s1",
+    "text": "Chapter 5 Eigenvalues"
+   },
+   {
+    "authorship": "source",
+    "expansion": null,
+    "extractionId": "ext_text",
+    "group": "Explanation",
+    "key": "ext_text:t1",
+    "label": "source-authored",
+    "learningObjectIds": [],
+    "page": 7,
+    "role": "ordinary_prose",
+    "section": "Chapter 5 Eigenvalues",
+    "sourceId": "src_text",
+    "sourceTitle": "Matrix Theory",
+    "spanId": "t1",
+    "text": "Chapter 5 Eigenvalues"
+   },
+   {
+    "authorship": "source",
+    "expansion": null,
+    "extractionId": "ext_text",
+    "group": "Exercise",
+    "key": "ext_text:t7",
+    "label": "source-authored",
+    "learningObjectIds": [],
+    "page": 9,
+    "role": "exercise",
+    "section": "Exercises",
+    "sourceId": "src_text",
+    "sourceTitle": "Matrix Theory",
+    "spanId": "t7",
+    "text": "1. An eigenvalue t satisfies 3t + 5 = 20; solve 3x + 5 = 20 for x to find the eigenvalue."
+   },
+   {
+    "authorship": "source",
+    "expansion": null,
+    "extractionId": "ext_book",
+    "group": "Explanation",
+    "key": "ext_book:s4",
+    "label": "source-authored",
+    "learningObjectIds": [],
+    "page": 4,
+    "role": null,
+    "section": "Chapter 5 Eigenvalues",
+    "sourceId": "src_book",
+    "sourceTitle": "Linear Algebra Notes",
+    "spanId": "s4",
+    "text": "Real symmetric matrices have real eigenvalues and orthogonal eigenvectors."
+   },
+   {
+    "authorship": "source",
+    "expansion": null,
+    "extractionId": "ext_text",
+    "group": "Exercise",
+    "key": "ext_text:t10",
+    "label": "source-authored",
+    "learningObjectIds": [],
+    "page": 9,
+    "role": "exercise",
+    "section": "Exercises",
+    "sourceId": "src_text",
+    "sourceTitle": "Matrix Theory",
+    "spanId": "t10",
+    "text": "4. Compute the eigenvalues of the diagonal matrix [[2,0],[0,3]]."
+   },
+   {
+    "authorship": "source",
+    "expansion": null,
+    "extractionId": "ext_text",
+    "group": "Exercise",
+    "key": "ext_text:t12",
+    "label": "source-authored",
+    "learningObjectIds": [],
+    "page": 30,
+    "role": "solution",
+    "section": "Solutions",
+    "sourceId": "src_text",
+    "sourceTitle": "Matrix Theory",
+    "spanId": "t12",
+    "text": "1. Subtracting 5 gives 3x = 15, so the eigenvalue is x = 5."
+   }
+  ],
+  "labels": {
+   "notes": "notes by LearnLoop's model",
+   "passages": "source-authored"
+  },
+  "learningObjectIds": [],
+  "passageCount": 8,
+  "personalized": true,
+  "policy": "reading",
+  "query": "eigenvalues characteristic polynomial",
+  "sourceCount": 2,
+  "status": "ok"
+ }
+}

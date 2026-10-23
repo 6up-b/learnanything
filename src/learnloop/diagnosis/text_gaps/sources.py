@@ -11,8 +11,14 @@
   next-step, why-step or assumption answer the learner wrote while reading
   and marked *partly* or *no* against the expected answer; read by the
   stuck-text reader with its own task (:data:`~.contract.READER_FORMATIVE_TASK`).
-  ``workbench_text`` (RW2b) is admitted by the schema and read once RW2b
-  builds its adapter.
+* **Workbench text** (RW2b, ``workbench_text``): text the learner wrote while
+  working a problem in steps: a stuck step (its newest version, a
+  ``workbench_steps`` row), a "this doesn't connect" reply with text and an
+  answer to a discriminating question (the workbench's ``help_assists``
+  rows); read by the gap reader with the item, the step, the anchors and the
+  role (``stuck`` | ``hint_feedback`` | ``discriminate_answer``). Read by SQL
+  here, never through the workbench's modules (the import contract
+  ``evidence-never-reads-the-workbench``); the kind is non-serving.
 * **Stuck answer**: a non-empty answer written under "I'm stuck" (the
   stuck prompt, mvp-0.13). ``learnloop.attempts.stuck`` owns the marker
   (``practice_attempts.declared_stuck``) and the read-only views: one stuck
@@ -32,8 +38,10 @@ import json
 from typing import Any, Protocol
 
 from learnloop.attempts import stuck as stuck_module
+from learnloop.content.sources.exam_material import spans_withheld
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
+from learnloop.figure_admission import figures_enabled as _figures_switch
 from learnloop.diagnosis.text_gaps.contract import GapReading, LearnerText
 from learnloop.reader.reader_progression import learning_objects_for_span
 from learnloop.substrate.canonical_projection import held_for_review_attempts
@@ -382,14 +390,215 @@ FORMATIVE_PASSAGE_CHARS = 2_000
 FORMATIVE_EXPECTED_CHARS = 2_000
 
 
+#: Reader RW5a: a figure prediction's id (``figure_predictions``). It shares
+#: the ``reader_formative`` source kind with RW1b's answers, told apart by
+#: this prefix (the figure service writes it).
+FIGURE_PREDICTION_PREFIX = "fpr_"
+#: A missed prediction's "what changed?" written after the prediction's own
+#: reading started: its own text, ``<prediction id>`` + this suffix, read
+#: with the answer; the earlier reading is kept (Codex review F5).
+FIGURE_EXPLANATION_SUFFIX = ":explained"
+#: The words of a direction prediction's answers (the figure service's).
+_DIRECTION_WORDS = {"rises": "it rises", "falls": "it falls", "same": "it stays the same"}
+
+
+def is_figure_prediction(source_id: str) -> bool:
+    return str(source_id or "").startswith(FIGURE_PREDICTION_PREFIX)
+
+
+def figure_prediction_id(source_id: str) -> tuple[str, bool]:
+    """``(prediction id, whether the source is its later explanation)``."""
+
+    source_id = str(source_id or "")
+    if source_id.endswith(FIGURE_EXPLANATION_SUFFIX):
+        return source_id[: -len(FIGURE_EXPLANATION_SUFFIX)], True
+    return source_id, False
+
+
+def figure_prediction_row(repository: Repository, source_id: str) -> dict[str, Any] | None:
+    """A missed figure prediction with an answer, with its figure, or None
+    (for an explanation source, also None until the explanation is written)."""
+
+    prediction_id, explained = figure_prediction_id(source_id)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        tables = {row[0] for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('figure_predictions', 'interactive_figures')")}
+        if tables != {"figure_predictions", "interactive_figures"}:
+            return None
+        row = connection.execute(
+            "SELECT p.id, p.figure_id, p.extraction_id, p.prediction_index, p.learner_answer, p.observed_json, "
+            "p.matched, p.explanation_text, p.created_at, f.spec_json, f.span_ids_json, f.region_json, "
+            "f.input_span_ids_json, f.asset_id "
+            "FROM figure_predictions AS p JOIN interactive_figures AS f ON f.id = p.figure_id WHERE p.id = ?",
+            (prediction_id,)).fetchone()
+    if row is None or int(row[6]) != 0 or not str(row[4] or "").strip():
+        return None
+    if explained and not str(row[7] or "").strip():
+        return None
+    keys = ("id", "figure_id", "extraction_id", "prediction_index", "learner_answer", "observed_json", "matched",
+            "explanation_text", "created_at", "spec_json", "span_ids_json", "region_json", "input_span_ids_json",
+            "asset_id")
+    return {**dict(zip(keys, row)), "source_id": str(source_id)}
+
+
+def figure_input_manifest(row: Mapping[str, Any]) -> list[str] | None:
+    """Every span a figure was built from and its author was sent, or None
+    when the stored lists are unreadable (a caller fails closed): the
+    selection, the region's block, the crop's block and ``input_span_ids``
+    (the paragraphs around it). The figure service rechecks the same list
+    (``figures.service._figure_spans``; Codex review F1)."""
+
+    try:
+        spans = [str(span) for span in json.loads(row.get("span_ids_json") or "[]")]
+        region = json.loads(row.get("region_json") or "null") or {}
+        manifest = json.loads(row.get("input_span_ids_json") or "[]")
+        if not isinstance(region, dict) or not isinstance(manifest, list):
+            return None
+        if region.get("span_id"):
+            spans.append(str(region["span_id"]))
+        if row.get("asset_id"):
+            spans.append(str(row["asset_id"]))
+        spans += [str(span) for span in manifest]
+    except (TypeError, ValueError):
+        return None
+    return list(dict.fromkeys(spans))
+
+
+class SourceWithheld(Exception):
+    """A learner text whose context is held-out material now: nothing of it
+    is built or sent, and its job is skipped (not retried) with this reason."""
+
+
+def figure_prediction_withheld(vault: LoadedVault, repository: Repository, row: Mapping[str, Any]) -> str | None:
+    """Why a missed prediction's text may not be read now, or None: any span
+    of its figure's complete input manifest is held out (the figure service's
+    one predicate, ``exam_material.spans_withheld``), or the manifest is
+    unreadable (fails closed). Fix round 2, F1."""
+
+    manifest = figure_input_manifest(row)
+    if manifest is None:
+        return "the figure's input spans are unreadable"
+    return spans_withheld(vault, repository, str(row["extraction_id"]), manifest)
+
+
+def missed_prediction_ids(repository: Repository) -> list[str]:
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        if not connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'figure_predictions'"
+                                  ).fetchone():
+            return []
+        return [str(row[0]) for row in connection.execute(
+            "SELECT id FROM figure_predictions WHERE matched = 0 AND TRIM(learner_answer) != '' ORDER BY created_at, id")]
+
+
+def explained_predictions(repository: Repository) -> list[tuple[str, str]]:
+    """``(prediction id, its "what changed?" text)`` for every missed
+    prediction with an answer and an explanation, oldest first: what the
+    backlog sweep reconciles (fix round 2, F5)."""
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        if not connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'figure_predictions'"
+                                  ).fetchone():
+            return []
+        return [(str(row[0]), str(row[1]).strip()) for row in connection.execute(
+            "SELECT id, explanation_text FROM figure_predictions WHERE matched = 0 AND TRIM(learner_answer) != '' "
+            "AND TRIM(COALESCE(explanation_text, '')) != '' ORDER BY created_at, id")]
+
+
+def figure_prediction_spans(row: Mapping[str, Any]) -> list[str]:
+    try:
+        spans = [str(span) for span in json.loads(row.get("span_ids_json") or "[]")]
+    except (TypeError, ValueError):
+        spans = []
+    try:
+        region = json.loads(row.get("region_json") or "null") or {}
+    except (TypeError, ValueError):
+        region = {}
+    if isinstance(region, dict) and region.get("span_id"):
+        spans.append(str(region["span_id"]))
+    return list(dict.fromkeys(spans))
+
+
+def figure_prediction_text(vault: LoadedVault, repository: Repository, prediction_id: str) -> LearnerText | None:
+    """RW5a: a missed figure prediction, read by the gap reader.
+
+    The text is the learner's answer and, when they wrote one, their "what
+    changed?" line; the context is the prediction's question, the passage the
+    figure was built from, and what the figure showed (computed by code, not
+    the book's words). The LOs are the passage's provenance-linked ones.
+
+    Before anything is built, the figure's complete input manifest is
+    checked against held-out material now: a figure any of whose spans is
+    held out raises :class:`SourceWithheld`, so neither the passage, the
+    question nor the readout reaches the gap reader (fix round 2, F1)."""
+
+    row = figure_prediction_row(repository, prediction_id)
+    if row is None:
+        return None
+    withheld = figure_prediction_withheld(vault, repository, row)
+    if withheld is not None:
+        raise SourceWithheld(withheld)
+    try:
+        spec = json.loads(row.get("spec_json") or "{}")
+        prediction = (spec.get("predictions") or [])[int(row["prediction_index"])]
+        observed = json.loads(row.get("observed_json") or "{}")
+    except (TypeError, ValueError, IndexError, KeyError):
+        return None
+    answer = str(row["learner_answer"])
+    words = _DIRECTION_WORDS.get(answer, answer)
+    explanation = str(row.get("explanation_text") or "").strip()
+    text = words if not explanation else f"{words}. What changed, in my words: {explanation}"
+    extraction_id = str(row["extraction_id"])
+    spans = figure_prediction_spans(row)
+    los: list[str] = []
+    for span_id in spans:
+        for lo_id in learning_objects_for_span(vault, repository, extraction_id=extraction_id, span_id=span_id):
+            if lo_id in vault.learning_objects and lo_id not in los:
+                los.append(lo_id)
+    los.sort()
+    subjects = {s for lo in los for s in vault.learning_objects[lo].subjects[:1]}
+    correct = observed.get("answer")
+    shown = _DIRECTION_WORDS.get(str(correct), str(correct))
+    context: dict[str, Any] = {
+        "surface": "reader_formative",
+        "style": "figure_prediction",
+        "question": str(prediction.get("prompt") or ""),
+        "passage": _span_texts(repository, extraction_id, spans),
+        "expected_answer": (f"{shown} (the figure's readout went from {observed.get('before')} to "
+                            f"{observed.get('after')})")[:FORMATIVE_EXPECTED_CHARS],
+        "expected_answer_from": "LearnLoop's figure (computed, not the book's words)",
+        "self_check": "missed",
+    }
+    titles = [vault.learning_objects[lo].title for lo in los]
+    if titles:
+        context["learning_objects"] = titles
+    return LearnerText(
+        source_kind="reader_formative",
+        source_id=str(row["source_id"]),
+        text=text,
+        context_judge="gap_reader",
+        created_at=str(row.get("created_at") or ""),
+        subject_id=next(iter(subjects)) if len(subjects) == 1 else None,
+        anchor_learning_object_ids=tuple(los),
+        reading=None,
+        context=context,
+        # Whether this reading reads the "what changed?" (fix round 3): the
+        # backlog reconciles a later explanation by this marker, recorded on
+        # the job, never by searching the text.
+        markers={"explanation_read": bool(explanation)},
+    )
+
+
 def formative_row(repository: Repository, question_id: str) -> dict[str, Any] | None:
     """A missed formative answer (``reader_authored_questions``), or None.
+    A figure prediction id (RW5a) reads :func:`figure_prediction_row`.
 
     Selection-scoped, in a next-step, why-step or assumption style, marked
     partly or no by the learner, with an answer they wrote, and not added to
     practice since (an escalated question's expected answer is an item's key
     now, which no learner text carries)."""
 
+    if is_figure_prediction(question_id):
+        return figure_prediction_row(repository, question_id)
     row = repository.get_reader_authored_question(question_id)
     if row is None or row.get("scope_kind") != "selection" or row.get("question_style") not in FORMATIVE_STYLES:
         return None
@@ -400,10 +609,23 @@ def formative_row(repository: Repository, question_id: str) -> dict[str, Any] | 
     return row
 
 
-def missed_formative_ids(repository: Repository) -> list[str]:
-    """Every missed formative answer (:func:`formative_row`'s rule), oldest
-    first: what the backlog sweep may queue."""
+def figures_enabled(vault: LoadedVault) -> bool:
+    """RW5a's kill switch, ``figures.enabled``: off, no figure prediction or
+    explanation is discovered, reconciled, queued or read. The one predicate
+    (:func:`learnloop.figure_admission.figures_enabled`), one default."""
 
+    return _figures_switch(vault)
+
+
+def missed_formative_ids(repository: Repository, *, figures: bool = True) -> list[str]:
+    """Every missed formative answer (:func:`formative_row`'s rule), oldest
+    first, then, with ``figures`` (:func:`figures_enabled`), every missed
+    figure prediction (RW5a): what the backlog sweep may queue."""
+
+    return _missed_answer_ids(repository) + (missed_prediction_ids(repository) if figures else [])
+
+
+def _missed_answer_ids(repository: Repository) -> list[str]:
     with repository.connection() as connection:
         if "scope_kind" not in {row[1] for row in connection.execute("PRAGMA table_info(reader_authored_questions)")}:
             return []
@@ -435,6 +657,10 @@ def reader_formative_text(vault: LoadedVault, repository: Repository, question_i
     book's or LearnLoop's model's). The LOs are the passage's provenance-linked
     ones, and the subject theirs when they share one."""
 
+    if is_figure_prediction(question_id):
+        # Figures off: no figure-derived text is built (fix round 4; the job
+        # runner defers such a job before it gets here).
+        return figure_prediction_text(vault, repository, question_id) if figures_enabled(vault) else None
     row = formative_row(repository, question_id)
     if row is None:
         return None
@@ -607,6 +833,119 @@ def hint_feedback_text(vault: LoadedVault, repository: Repository, assist_id: st
     )
 
 
+#: Reader workbench RW2b: the three roles of a ``workbench_text`` (spec §5.6).
+WORKBENCH_TEXT_ROLES = ("stuck", "hint_feedback", "discriminate_answer")
+
+
+def _table(connection: Any, name: str) -> bool:
+    return connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (name,)
+                              ).fetchone() is not None
+
+
+def workbench_text_row(repository: Repository, source_id: str) -> dict[str, Any] | None:
+    """A workbench learner text with its role, or None: a stuck step's
+    version (``workbench_steps``, role ``stuck``, not deleted, non-empty), or
+    a workbench ``help_assists`` row with text (a reply, role
+    ``hint_feedback``; an answer to a discriminating question, role
+    ``discriminate_answer``)."""
+
+    with repository.connection() as connection:
+        if _table(connection, "help_assists"):
+            cursor = connection.execute("SELECT * FROM help_assists WHERE id = ? AND surface = 'workbench'",
+                                        (source_id,))
+            raw = cursor.fetchone()
+            if raw is not None:
+                row = dict(zip([column[0] for column in cursor.description], raw))
+                if not str(row.get("feedback_text") or "").strip():
+                    return None
+                if row.get("assist_kind") == "discriminate_answer":
+                    row["role"] = "discriminate_answer"
+                elif row.get("assist_kind") == "hint" and row.get("request") == "feedback":
+                    row["role"] = "hint_feedback"
+                else:
+                    return None
+                row["text"] = str(row["feedback_text"])
+                row["created"] = str(row.get("requested_at") or "")
+                return row
+        if not _table(connection, "workbench_steps"):
+            return None
+        cursor = connection.execute(
+            "SELECT steps.id, steps.session_id, steps.kind, steps.body_md, steps.deleted, steps.created_at, "
+            "sessions.practice_item_id, sessions.attempt_id, sessions.extraction_id, sessions.span_ids_json "
+            "FROM workbench_steps AS steps JOIN workbench_sessions AS sessions ON sessions.id = steps.session_id "
+            "WHERE steps.id = ?", (source_id,))
+        raw = cursor.fetchone()
+        if raw is None:
+            return None
+        row = dict(zip([column[0] for column in cursor.description], raw))
+    if row["kind"] != "stuck" or row["deleted"] or not str(row["body_md"] or "").strip():
+        return None
+    return {**row, "role": "stuck", "text": str(row["body_md"]), "created": str(row["created_at"] or ""),
+            "workbench_session_id": row["session_id"]}
+
+
+def workbench_text(vault: LoadedVault, repository: Repository, source_id: str) -> LearnerText | None:
+    """Reader workbench RW2b: a workbench text read by the gap reader
+    (``workbench_text``). The text is the learner's own; the context is the
+    item's question, its LO, the role and, for a reply or an answer, what the
+    learner was answering (never the answer key or worked help). The item's
+    LO anchors it; the gap row carries the item, so a gap named mid-problem
+    joins the next hint's rivals."""
+
+    row = workbench_text_row(repository, source_id)
+    if row is None:
+        return None
+    item = vault.practice_items.get(str(row.get("practice_item_id") or ""))
+    if item is None:
+        return None
+    lo = vault.learning_objects.get(item.learning_object_id)
+    context: dict[str, Any] = {"surface": "workbench", "role": row["role"], "question": item.prompt}
+    if lo is not None:
+        context["learning_objects"] = [lo.title]
+    if row["role"] == "hint_feedback":
+        answered = _json_field(row.get("options_json")).get("answered_assist_id")
+        hint, level = _assist_text(repository, item, answered)
+        context["hint_replied_to"] = hint or ("worked help (not shown)" if level and level >= 4 else "")
+        if row.get("feedback_shortcut"):
+            context["shortcut"] = str(row["feedback_shortcut"])
+    elif row["role"] == "discriminate_answer":
+        question_id = _json_field(row.get("placement_json")).get("question_assist_id")
+        question, _level = _assist_text(repository, item, question_id)
+        context["question_asked"] = question
+    subject = item.subjects[0] if getattr(item, "subjects", None) else (
+        lo.subjects[0] if lo is not None and lo.subjects else None)
+    return LearnerText(
+        source_kind="workbench_text",
+        source_id=source_id,
+        text=row["text"],
+        context_judge="gap_reader",
+        created_at=row["created"],
+        subject_id=subject,
+        anchor_learning_object_ids=(item.learning_object_id,) if item.learning_object_id else (),
+        practice_item_id=item.id,
+        attempt_id=row.get("attempt_id"),
+        reading=None,
+        context=context,
+    )
+
+
+def workbench_text_ids(repository: Repository) -> list[str]:
+    """Every workbench reply or discriminating answer with text, oldest first
+    (the backlog sweep; stuck steps are queued when they are sent, by
+    version, never swept)."""
+
+    with repository.connection() as connection:
+        if not _table(connection, "help_assists"):
+            return []
+        rows = connection.execute(
+            "SELECT id FROM help_assists WHERE surface = 'workbench' "
+            "AND TRIM(COALESCE(feedback_text, '')) != '' "
+            "AND (assist_kind = 'discriminate_answer' OR (assist_kind = 'hint' AND request = 'feedback')) "
+            "ORDER BY requested_at, id"
+        ).fetchall()
+    return [str(row[0]) for row in rows]
+
+
 def learner_text(
     vault: LoadedVault, repository: Repository, source_kind: str, source_id: str,
     *, stuck_source: StuckTextSource | None = None,
@@ -622,9 +961,7 @@ def learner_text(
     if source_kind == "hint_feedback":
         return hint_feedback_text(vault, repository, source_id)
     if source_kind == "workbench_text":
-        # Admitted by the schema (migration 208); RW2b builds this adapter.
-        # Until then there is nothing to read, so the job is skipped.
-        return None
+        return workbench_text(vault, repository, source_id)
     raise ValueError(f"unknown learner-text source {source_kind!r}")
 
 
@@ -632,9 +969,20 @@ __all__ = [
     "DEFAULT_STUCK_SOURCE",
     "StuckAnswersAdapter",
     "StuckText",
+    "SourceWithheld",
     "StuckTextSource",
     "diagnosis_text",
+    "FIGURE_EXPLANATION_SUFFIX",
+    "FIGURE_PREDICTION_PREFIX",
+    "explained_predictions",
+    "figure_input_manifest",
+    "figures_enabled",
+    "figure_prediction_id",
+    "figure_prediction_row",
+    "figure_prediction_text",
+    "figure_prediction_withheld",
     "formative_row",
+    "is_figure_prediction",
     "hint_feedback_ids",
     "hint_feedback_row",
     "hint_feedback_text",
@@ -647,4 +995,8 @@ __all__ = [
     "stuck_text_for",
     "stuck_texts",
     "tutor_question_text",
+    "WORKBENCH_TEXT_ROLES",
+    "workbench_text",
+    "workbench_text_ids",
+    "workbench_text_row",
 ]

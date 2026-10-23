@@ -200,6 +200,11 @@ class UsageTotals:
     reported_cost_usd: float = 0.0
     estimated_only_tokens: int = 0
     estimated_only_usd: float | None = 0.0
+    #: Every attempt's reported tokens, or its estimate when it reported none,
+    #: whatever the billing (``estimated_only_tokens`` on a subscription). A
+    #: metered run's token estimate (Codex re-review F6 on RW4e): the budget
+    #: charges ``max(estimate, reported)``, never this.
+    usage_tokens: int = 0
     #: Answers recovered (from a checkpoint or a receipt) instead of being paid for again.
     recovered: int = 0
     #: Of those, answers whose checkpoint never committed: recovered from the receipt.
@@ -354,8 +359,14 @@ class PaidCalls:
              metadata: Mapping[str, Any], candidates: int = 0, pairs: int = 0,
              validate: Callable[[Any], Any] | None = None,
              context: Mapping[str, Any] | None = None,
-             deadline: float | None = None) -> Any:
+             deadline: float | None = None,
+             images: tuple[tuple[str, bytes], ...] = (),
+             isolated: bool = False) -> Any:
         """One logical call, retried on provider failure within the retry cap.
+
+        ``isolated`` sends it as an isolated turn (only its prompt: no files,
+        tools, workspace or vault; a transport that cannot isolate refuses it
+        before any request, ``execute_structured_operation``).
 
         ``validate`` may raise ``AIInvalidOutput`` for a semantically unusable
         answer; it is then retried like a provider failure. A validated answer
@@ -366,6 +377,11 @@ class PaidCalls:
         each attempt's request carries the remaining time as its timeout (every
         transport enforces ``StructuredRequest.timeout_seconds``), and no attempt
         starts once it has passed (``AITurnTimeout``, never a retry).
+
+        ``images`` (reader RW5a) go with the prompt to a transport that
+        declares ``image_input`` (refused before sending otherwise). The
+        request identity is the prompt's, so a caller with images names their
+        digests in the prompt: a checkpoint never answers another image.
         """
         key = self.checkpoint_key(purpose=purpose, prompt=prompt, result_model=result_model,
                                   output_tokens=output_tokens)
@@ -408,7 +424,7 @@ class PaidCalls:
                                 requested_reasoning_effort(self.route.reasoning_effort), bound:
                             raw = execute_structured_operation(
                                 client, purpose=purpose, prompt=prompt, result_model=result_model,
-                                timeout_seconds=timeout_seconds,
+                                timeout_seconds=timeout_seconds, images=images, isolated=isolated,
                             )
                     finally:
                         self._reconcile(charge, tokens, events)
@@ -559,8 +575,9 @@ class PaidCalls:
         self.totals.reported_input_tokens += sum(reported_in)
         self.totals.reported_output_tokens += sum(reported_out)
         self.totals.reported_cost_usd += sum(reported_cost)
+        used = reported if reported is not None else tokens_estimate
+        self.totals.usage_tokens += used
         if self.subscription:
-            used = reported if reported is not None else tokens_estimate
             self.totals.estimated_only_tokens += used
             if self.totals.estimated_only_usd is not None and self.price is not None:
                 self.totals.estimated_only_usd += used * self.price / 1_000_000

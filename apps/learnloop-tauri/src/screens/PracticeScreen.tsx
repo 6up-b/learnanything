@@ -40,6 +40,7 @@ import { DifficultyRatingTap } from "./practice/DifficultyRatingTap";
 import { WhyThisItem } from "./practice/WhyThisItem";
 import { useFirstHintProgress } from "./practice/useFirstHintProgress";
 import type { DifficultyRating, FirstHintProgress } from "../api/dto";
+import { screenLeavesKey } from "../app/keymap";
 
 /** RW2a (D9): "Work in steps", remembered once chosen, on this device. */
 const WORK_IN_STEPS_KEY = "ll.workbench.workInSteps";
@@ -843,6 +844,7 @@ export function PracticeScreen({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if (vaultFrozen.current) return;
       // RW2a: in steps, the workbench owns the keys (Esc twice is Leave for now).
       if (stepsMode) return;
@@ -933,10 +935,30 @@ export function PracticeScreen({
   const onYourOwnCheck =
     item?.activeFollowupKind === "cold_retry" || item?.activeFollowupKind === "certification_cold_probe";
 
+  // Daily-loop DL2: a due "Check once" is a check on your own (Reader §9.3
+  // item 10). Help is never blocked: the first press opens the help ladder,
+  // whose header states the consequence before anything is shown; taking a
+  // rung (its button, or the hint key again) is the ladder's ordinary
+  // choose-then-take step, with no confirmation dialog (D42). Until feedback
+  // the header names the book and nothing that locates the exercise (D46).
+  // DL2 fix round 4 (F15): an item served as a diagnostic probe is measured
+  // under the probe's duty; the contract carries the check's view for it
+  // (chosen server-side: no help promised, no ladder header).
+  const intentCheck = (probeActive ? probe?.intentCheck : undefined) ?? item?.intentCheck ?? null;
+  const [checkHelpOpen, setCheckHelpOpen] = useState(false);
+  useEffect(() => setCheckHelpOpen(false), [item?.id]);
+
   function revealHint() {
     if (!practiceReady) return;
     if (simple && onYourOwnCheck) {
       onError("No hints on this one: it's a check on your own.");
+      return;
+    }
+    if (intentCheck?.helpHeader && !checkHelpOpen) {
+      // D42: open the ladder first; its header says what taking help means.
+      // Only on a check served cold: an item whose answer was seen is
+      // practice already (Codex review F3), so help is taken as usual.
+      setCheckHelpOpen(true);
       return;
     }
     if (probeActive) {
@@ -1129,6 +1151,11 @@ export function PracticeScreen({
         attemptType: probeActive ? "diagnostic_probe" : chooseAttemptType(item.attemptTypesAllowed, answerHints),
         // The answer box's hints and a book counted in steps (review F2).
         hintsUsed: answerHints,
+        // RW2b fix round 5: the authored reveals on their own; the server
+        // adds the book and the workbench's help from its own records, once.
+        authoredHints: hintsUsed,
+        // Fix round 12: whether that count holds a book (its own component).
+        bookCounted: bookCarried,
         latencySeconds: elapsedSeconds(),
         primed,
         probePresentationId: probeActive ? probe?.presentationId : null,
@@ -1194,6 +1221,8 @@ export function PracticeScreen({
         sessionId: session.sessionId,
         practiceItemId: submittedItemId,
         hintsUsed: answerHints,
+        authoredHints: hintsUsed,
+        bookCounted: bookCarried,
         latencySeconds: elapsedSeconds(),
         probePresentationId: probeActive ? probe?.presentationId : null,
         answerConfidence,
@@ -1463,6 +1492,12 @@ export function PracticeScreen({
               the factor) this check verifies would point the learner straight at
               the material the check exists to measure them retrieving unaided.
               What it verifies is said afterwards, in the feedback banner. */}
+          {intentCheck?.banner ? (
+            // DL2: the cold banner (Reader §9.3 item 10), provenance-free.
+            <div className="hint-banner" role="status" data-testid="intent-check-banner" style={{ borderColor: COLOR.amber }}>
+              {intentCheck.banner}
+            </div>
+          ) : null}
           {simple && onYourOwnCheck ? (
             // The quiet line (§7.4, Reader doc U11), provenance-free: naming
             // what it checks would hand over the material it measures.
@@ -1497,7 +1532,13 @@ export function PracticeScreen({
           <ItemPresentation presentation={stepsMode && wbSession?.presentation ? wbSession.presentation : item.presentation} />
           {/* Adaptive difficulty AD2+AD3 (§12): why the plan's draw chose this item, one quiet line. */}
           <WhyThisItem planPresentationId={planPresentationId} />
-          {item.canonicalExercise ? (
+          {item.canonicalExercise && intentCheck?.locatorsHidden ? (
+            // DL2 (D46, G61): during a check on your own, the book's name only:
+            // no exercise number, page, section, link or why until feedback.
+            <div className="queue-meta" data-testid="canonical-exercise" style={{ fontSize: 11 }}>
+              <Faint>From {item.canonicalExercise.sourceTitle ?? "your book"}</Faint>
+            </div>
+          ) : item.canonicalExercise ? (
             // Canonical sources S1: where this exercise comes from and how far
             // its answer key has been checked, said plainly.
             <div className="queue-meta" data-testid="canonical-exercise" style={{ fontSize: 11 }}>
@@ -1546,7 +1587,7 @@ export function PracticeScreen({
               }
             />
           ) : null}
-          {item.sourceRefs.length > 0 && !simple ? (
+          {item.sourceRefs.length > 0 && !simple && !intentCheck?.locatorsHidden ? (
             <div style={{ marginTop: 6, fontSize: 11, color: COLOR.textFaint, lineHeight: 1.6 }}>
               {item.sourceRefs.map((ref, index) => (
                 <div
@@ -1859,6 +1900,18 @@ export function PracticeScreen({
                 {simple ? <Pill tone="amber">hint</Pill> : <Pill tone="amber">hint {index + 1}/{item.hints.length}</Pill>} {hint}
               </div>
             ))}
+            {intentCheck?.helpHeader && checkHelpOpen && hintsUsed === 0 && adaptiveHints.entries.length === 0 ? (
+              // DL2 (D42): the help ladder's header states the consequence;
+              // nothing is shown until a rung is taken.
+              <div className="hint-banner" data-testid="intent-check-help" style={{ display: "grid", gap: 6 }}>
+                <div>{intentCheck.helpHeader}</div>
+                <div>
+                  <QuietAction onClick={revealHint} disabled={submitting || adaptiveHints.pending}>
+                    Take a hint
+                  </QuietAction>
+                </div>
+              </div>
+            ) : null}
             {adaptive ? <HintPanel hints={adaptiveHints} answer={answer} helpStyle={helpStyle} /> : null}
             {hintsUsed > item.hints.length ? (
               // Hints seen in steps that the item no longer shows still count (final F2).
@@ -1995,7 +2048,7 @@ export function PracticeScreen({
                   <div>likely to recall now: {item.mastery.mean.toFixed(2)} ±{Math.sqrt(item.mastery.variance).toFixed(2)}</div>
                 ) : null}
                 <div>{answer.length} chars · {answer.split(/\s+/).filter(Boolean).length} words</div>
-                {item.sourceRefs.map((ref, index) => (
+                {intentCheck?.locatorsHidden ? null : item.sourceRefs.map((ref, index) => (
                   <div key={`${ref.refId}:${index}`}>
                     from {ref.displayName} {ref.locator ?? ref.path ?? ref.refType}
                   </div>
@@ -2150,6 +2203,7 @@ function TeachBackConversation({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
         event.preventDefault();
         void send();

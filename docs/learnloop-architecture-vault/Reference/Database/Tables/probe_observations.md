@@ -3,13 +3,13 @@ title: "probe_observations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_observations"
   - "table probe_observations"
-schema_head: 214
+schema_head: 217
 table_name: "probe_observations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,8 +19,6 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/028_probe_episodes.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/config/template.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/evsi_calibration/live_report.py"
@@ -126,11 +124,15 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/figure_fixtures.py`
 - `tests/test_hint_discriminating.py`
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_probe_audit.py`
 - `tests/test_reader_active_reading.py`
 - `tests/test_reader_reconstruct.py`
+- `tests/test_workbench_discriminate.py`
+- `tests/test_workbench_step_graph.py`
+- `tests/test_workbench_text_gaps.py`
 - `tests/test_causal_repair_sidecar_rpcs.py`
 - `tests/test_characterization_probe_regrade.py`
 - `tests/test_characterization_probe_replay.py`
@@ -142,10 +144,6 @@ Indexes and uniqueness:
 - `tests/test_probe_longform_families.py`
 - `tests/test_probe_orchestration_remainder.py`
 - `tests/test_probe_policy.py`
-- `tests/test_probe_robust_cutover.py`
-- `tests/test_stuck_prompt.py`
-- `tests/test_voi_stopping.py`
-- `tests/test_voi_v2.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

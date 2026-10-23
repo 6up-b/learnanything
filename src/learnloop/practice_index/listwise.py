@@ -179,6 +179,7 @@ def judge_listwise(
     clock: Clock | None = None,
     budget: SpendBudget | None = None,
     admit: Callable[[SpendEstimate], None] | None = None,
+    context: Mapping[str, Any] | None = None,
 ) -> ListwiseOutcome[Key]:
     """Judge the pool ``refs`` (prompt ref -> candidate key) and pick at most ``pick_at_most``.
 
@@ -188,7 +189,10 @@ def judge_listwise(
     ``validate`` defaults to :func:`validate_all_judged`; ``budget`` replaces
     the per-call caps with a caller's (a benchmark's command budget), and
     ``admit`` also admits each attempt under the caller's shared caps (after
-    the ledger and checkpoints were found not to answer it).
+    the ledger and checkpoints were found not to answer it). ``context`` is
+    recorded with the paid answer (its checkpoint and its receipt's declared
+    block), so a caller whose rerun plans its requests differently can find
+    the answer again (the role labeller's resume).
     """
 
     keys = list(refs.values())
@@ -220,6 +224,7 @@ def judge_listwise(
             output_tokens=task_output_tokens(task, route), candidates=len(keys), pairs=len(keys),
             metadata={"prompt_version": task.prompt_version, "input_hash": input_hash},
             validate=validate or (lambda value: validate_all_judged(value, refs)), deadline=deadline,
+            context=context,
         )
     except AIInterrupted:
         return ListwiseOutcome("cancelled", usage=calls.report())

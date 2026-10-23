@@ -12,6 +12,7 @@ from datetime import UTC, date, timedelta
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping, Sequence
 
+from learnloop import hint_window
 from learnloop.algorithm_versions import CANONICAL_STATE_VERSIONS
 from learnloop.recurrence import key_for_statement, recurrence_key
 from learnloop.outcome_contract import COLLECTION_VERSION, LABEL_VERSION
@@ -59,6 +60,12 @@ _UNSET: Any = object()  # sentinel: "argument not supplied" vs an explicit None
 OBSERVATION_CHANNEL_BLIND_PROBE = "blind_probe"
 #: A falsifiable expectation extracted from the learner's own tutor question.
 OBSERVATION_CHANNEL_LEARNER_QUESTION = "learner_question_embedded"
+
+#: Question contexts whose hint-equivalent rows count in the item's window
+#: whatever their practice session (``count_hint_equivalent_question_events``):
+#: defined once in ``learnloop.hint_window``, which the learner field's
+#: question-to-attempt link reads too (RW1c fix round 5, R3).
+ITEM_WINDOW_QUESTION_CONTEXTS = hint_window.ITEM_WINDOW_QUESTION_CONTEXTS
 
 #: The undo of one delete intent (reader-pdf-selection): a disposition event
 #: naming the delete it withdraws. ``{delete}`` is the delete event's id and
@@ -130,6 +137,16 @@ def _loads(value: str | None, default: Any) -> Any:
     if value is None:
         return default
     return json.loads(value)
+
+
+def _proposal_item_identity(client_item_id: Any, payload: Any, edited_payload: Any) -> str:
+    """What a proposal item would create: the edited payload's ``id`` when it
+    was edited, else the payload's, else its client id (no ``id`` in either)."""
+
+    effective = edited_payload if isinstance(edited_payload, Mapping) else payload
+    if isinstance(effective, Mapping) and isinstance(effective.get("id"), str) and effective["id"]:
+        return f"id:{effective['id']}"
+    return f"client:{client_item_id or ''}"
 
 
 def _projection_id(prefix: str, *identity: object) -> str:
@@ -4473,12 +4490,25 @@ class Repository(
         *,
         since: str | None = None,
         until: str | None = None,
+        item_window_only: bool = False,
     ) -> int:
         """Substantive questions on this item in the hint-equivalence window.
 
         Questions on this (item, session) newer than ``since`` (typically the
         previous attempt on the item) and, when ``until`` is given, at or before
         it (for reconstructing the count post hoc).
+
+        A Reader question bound to the item by a workbench session
+        (``context = 'reader'`` with an item: only RW1c's server-derived
+        binding writes one, ``ITEM_WINDOW_QUESTION_CONTEXTS``) counts in the
+        ITEM window whatever its practice session, or none: the learner can
+        ask before any practice session is open, or in one that ends before
+        they submit in the next, and the help is still on the item (RW1c fix
+        round 4, F1, the rule RW2b's held help already follows). The window
+        start is the item's last attempt, so whichever attempt of the item
+        commits next counts it once and the window then moves past it.
+        ``item_window_only`` counts only those (a submit that will open its
+        own practice session sees no other session's practice rows).
 
         Deliberately NOT filtered by context. A mechanism question asked from
         the *feedback* screen — where the graded solution is already on screen —
@@ -4493,9 +4523,11 @@ class Repository(
             "WHERE hint_equivalent = 1 AND practice_item_id = ?"
         )
         parameters: list[Any] = [practice_item_id]
-        if session_id is not None:
-            query += " AND session_id = ?"
-            parameters.append(session_id)
+        # The window's session rule, shared with the learner field's link
+        # from a question to the attempt it preceded (fix round 5, R3).
+        clause, clause_parameters = hint_window.session_clause(session_id, item_window_only=item_window_only)
+        query += clause
+        parameters.extend(clause_parameters)
         if since is not None:
             query += " AND created_at > ?"
             parameters.append(since)
@@ -5042,7 +5074,7 @@ class Repository(
             connection.commit()
         return cursor.rowcount > 0
 
-    def requested_practice_item_ids(self) -> list[str]:
+    def requested_practice_item_ids(self, *, skip_commitment_ids: Sequence[str] = ()) -> list[str]:
         """Practice items with a learner request not yet consumed by a later attempt.
 
         *Requested items* (spec §4a) = practice items referenced by a
@@ -5054,8 +5086,17 @@ class Repository(
         A card the learner adopted through a ``help_me_remember`` commitment (the
         reader's "write my own question") is requested too, from the moment the
         commitment first named it as a ``legacy_practice_item`` target, unless
-        the commitment was retired."""
+        the commitment was retired.
 
+        Daily-loop DL2 (intent): ``skip_commitment_ids`` leaves those
+        commitments out of the ``help_me_remember`` branch (the intent
+        control's own commitments: choosing Master or Keep on an item is not a
+        request, spec §5.3). Empty, the query is exactly the one before DL2."""
+
+        skip = [str(value) for value in skip_commitment_ids]
+        skip_clause = (
+            f"\n                    AND commitment.id NOT IN ({','.join('?' for _ in skip)})" if skip else ""
+        )
         with self.connection() as connection:
             rows = connection.execute(
                 """
@@ -5085,7 +5126,7 @@ class Repository(
                     AND NOT EXISTS (
                       SELECT 1 FROM commitment_events event
                       WHERE event.commitment_id = commitment.id AND event.kind = 'retired'
-                    )
+                    )""" + skip_clause + """
                   GROUP BY commitment.id, target.target_ref
                 ),
                 unconsumed AS (
@@ -5102,7 +5143,8 @@ class Repository(
                 FROM unconsumed
                 GROUP BY item_id
                 ORDER BY MIN(requested_at), item_id
-                """
+                """,
+                skip,
             ).fetchall()
         return [row["item_id"] for row in rows]
 
@@ -10722,7 +10764,26 @@ class Repository(
         self,
         batch: Mapping[str, Any],
         items: Iterable[Mapping[str, Any]],
+        *,
+        join_pending: Mapping[str, Any] | None = None,
     ) -> str:
+        """Write one proposal batch and its items.
+
+        ``join_pending`` (a source ref) proposes each item once, however many
+        callers name it (UX Phase 2, Codex review of ux-phase2-shell F6; Phase
+        1 usability round 1: "Proposals grows on every practice, with
+        duplicate error-type proposals"). An item whose ``item_type``,
+        ``operation`` and effective identity already wait (a ``pending`` item;
+        the identity is the edited payload's ``id`` when the item was edited,
+        else the payload's, else the ``client_item_id``) is not written
+        again: the ref joins the waiting item's batch's source refs instead,
+        so that proposal keeps every caller that named it. The check and the
+        write run under one write lock, so two callers at once cannot both
+        write. Returns the new batch's id, or, when every item already waits,
+        the first waiting batch the ref joined. Proposal tables are WORKFLOW:
+        nothing replays or grades from them, so no persisted meaning changes.
+        """
+
         batch_id = str(batch.get("id") or new_ulid())
         item_rows = list(items)
         client_ids = [str(item.get("client_item_id") or "") for item in item_rows]
@@ -10740,6 +10801,63 @@ class Repository(
                 + ", ".join(duplicate_client_ids)
             )
         with self.connection() as connection:
+            if join_pending is not None:
+                if not connection.in_transaction:
+                    # Take the write lock BEFORE reading so the check-and-insert
+                    # is one atomic step even across connections.
+                    connection.execute("BEGIN IMMEDIATE")
+                fresh: list[Mapping[str, Any]] = []
+                joined: list[str] = []
+                for item in item_rows:
+                    # Match by what each waiting item would now create (fix
+                    # round 2, verify 20261021-114726-Jrt7sA item 5): the
+                    # payload editor can change a waiting item's ``id`` while
+                    # its ``client_item_id`` keeps the old one, so the stale
+                    # client id would join the wrong proposal (or miss the
+                    # renamed one). Read under the same write lock as the insert.
+                    identity = _proposal_item_identity(
+                        item.get("client_item_id"), item.get("payload"), item.get("edited_payload")
+                    )
+                    waiting = next(
+                        (
+                            row
+                            for row in connection.execute(
+                                """
+                                SELECT proposed_patch_id, client_item_id, payload_json, edited_payload_json
+                                  FROM proposed_patch_items
+                                 WHERE item_type = ? AND operation = ? AND decision = 'pending'
+                                 ORDER BY created_at, id
+                                """,
+                                (item["item_type"], item["operation"]),
+                            ).fetchall()
+                            if _proposal_item_identity(
+                                row["client_item_id"],
+                                _loads(row["payload_json"], None),
+                                _loads(row["edited_payload_json"], None),
+                            )
+                            == identity
+                        ),
+                        None,
+                    )
+                    if waiting is None:
+                        fresh.append(item)
+                    elif str(waiting["proposed_patch_id"]) not in joined:
+                        joined.append(str(waiting["proposed_patch_id"]))
+                ref = dict(join_pending)
+                for patch_id in joined:
+                    current = connection.execute(
+                        "SELECT source_refs_json FROM proposed_patches WHERE id = ?", (patch_id,)
+                    ).fetchone()
+                    refs = _loads(current["source_refs_json"], []) if current is not None else []
+                    if ref not in refs:
+                        connection.execute(
+                            "UPDATE proposed_patches SET source_refs_json = ?, updated_at = ? WHERE id = ?",
+                            (_json([*refs, ref]), batch.get("updated_at", batch["created_at"]), patch_id),
+                        )
+                if joined and not fresh:
+                    connection.commit()
+                    return joined[0]
+                item_rows = fresh
             connection.execute(
                 """
                 INSERT INTO proposed_patches(
@@ -13763,7 +13881,8 @@ class Repository(
         version_id = new_ulid()
         connection = self.connection()
         try:
-            connection.execute("BEGIN")
+            # IMMEDIATE: the next ordinal is read under the write lock.
+            connection.execute("BEGIN IMMEDIATE")
             ordinal_row = connection.execute(
                 "SELECT COALESCE(MAX(version_ordinal), 0) AS m FROM source_object_versions "
                 "WHERE source_object_id = ?",
@@ -13847,7 +13966,7 @@ class Repository(
     def create_source_object_relation(
         self, *, source_object_id: str, related_object_id: str | None, relation_type: str,
         learner_text: str | None = None, authorship: str = "learner",
-        review_status: str = "proposed", clock: Clock | None = None,
+        review_status: str = "proposed", clock: Clock | None = None, version_ordinal: int = 1,
     ) -> str:
         relation_id = new_ulid()
         with self.connection() as connection:
@@ -13855,14 +13974,21 @@ class Repository(
                 "INSERT INTO source_object_relations("
                 "id, source_object_id, related_object_id, version_ordinal, relation_type, "
                 "learner_text, authorship, review_status, created_at) "
-                "VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)",
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
-                    relation_id, source_object_id, related_object_id, relation_type,
+                    relation_id, source_object_id, related_object_id, int(version_ordinal), relation_type,
                     learner_text, authorship, review_status, utc_now_iso(clock),
                 ),
             )
             connection.commit()
         return relation_id
+
+    def source_object_relation(self, relation_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM source_object_relations WHERE id = ?", (relation_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
 
     def relations_for_object(self, source_object_id: str) -> list[dict[str, Any]]:
         with self.connection() as connection:
@@ -13946,8 +14072,19 @@ class Repository(
     def set_source_object_status(
         self, *, source_object_id: str, status: str, clock: Clock | None = None
     ) -> dict[str, Any]:
-        """Append a status-only successor version carrying the head content forward."""
+        """Append a status-only successor version carrying the head content forward.
 
+        The head is read and its successor appended in one ``BEGIN IMMEDIATE``
+        transaction, so a concurrent proposal version lands wholly before or
+        after the review, never between its read and its write (RW4e Codex
+        review F1)."""
+
+        with self.atomic():
+            return self._set_source_object_status(source_object_id=source_object_id, status=status, clock=clock)
+
+    def _set_source_object_status(
+        self, *, source_object_id: str, status: str, clock: Clock | None = None
+    ) -> dict[str, Any]:
         head = self.source_object_head(source_object_id)
         if head is None or head["version"] is None:
             raise ValueError(f"unknown source object: {source_object_id!r}")

@@ -3,13 +3,13 @@ title: "source_service_spend"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_service_spend"
   - "table source_service_spend"
-schema_head: 214
+schema_head: 217
 table_name: "source_service_spend"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,8 +19,6 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/194_source_service_spend.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/hints/map_builder.py"
   - "src/learnloop/source_retrieval/library_ask.py"
@@ -104,7 +102,9 @@ None found by exact static reference scan.
 
 - `tests/test_approach_maps.py`
 - `tests/test_exam_protection.py`
+- `tests/test_figures_rpc.py`
 - `tests/test_hint_outcome.py`
+- `tests/test_reader_rw3b_review_fixes.py`
 - `tests/test_source_service_spend_accounting.py`
 - `tests/test_source_service_spend_envelopes.py`
 

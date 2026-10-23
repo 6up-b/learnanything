@@ -227,6 +227,11 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("familiarity_kernel_features", TableRole.RECEIPT),
     ("familiarity_kernel_models", TableRole.RAW_LEDGER),
     ("family_evidence_cap_policies", TableRole.RAW_LEDGER),
+    # Reader workbench RW5a (migration 216; spec §8.4, W1): a learner's
+    # prediction on a figure, its observed readout and the optional "what
+    # changed?" text. Formative, never evidence; append-only by trigger (the
+    # only update sets explanation_text once). Replay never reads it.
+    ("figure_predictions", TableRole.RAW_LEDGER),
     ("fitted_parameters", TableRole.RAW_LEDGER),
     ("followup_ratings", TableRole.RAW_LEDGER),
     ("followup_tasks", TableRole.WORKFLOW),
@@ -270,6 +275,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # reached the screen; never the activity_exposure_events burn boundary).
     ("instructional_impressions", TableRole.RAW_LEDGER),
     ("interaction_events", TableRole.RAW_LEDGER),
+    # Reader workbench RW5a (migration 216; spec §8.5, W9): built figure
+    # versions (the declarative spec, its verification, the reuse key). Paid
+    # output: never re-run, cleared or replayed on rebuild.
+    ("interactive_figures", TableRole.WORKFLOW),
     ("intervention_needs", TableRole.WORKFLOW),
     # A measured calibration artifact which may include provider trials and
     # observed evidence.  The deterministic backfill is not its full source.
@@ -354,6 +363,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("parameter_registry", TableRole.RAW_LEDGER),
     ("parameter_registry_manifests", TableRole.RECEIPT),
     ("parameter_sensitivity_certificates", TableRole.RECEIPT),
+    # Reader workbench RW3b (migration 215): the cue judge's picks per target
+    # state and passage (paid outputs, never re-run on rebuild; replay never
+    # reads them; append-only by trigger).
+    ("passage_links", TableRole.WORKFLOW),
     ("persona_realism_runs", TableRole.RECEIPT),
     # PF-b generated candidates: pipeline state only; verdicts are ledgered.
     ("pf_candidates", TableRole.WORKFLOW),
@@ -411,6 +424,16 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("reader_authored_questions", TableRole.WORKFLOW),
     ("reader_background_requests", TableRole.WORKFLOW),
     ("reader_capture_outbox", TableRole.WORKFLOW),
+    # Reader workbench RW3b (migration 215): one row per (visit, cue) the Reader
+    # could show, shown or withheld with its reason, the holdout's seed and
+    # propensity, and the first response (written once); replay never reads it.
+    ("reader_cue_impressions", TableRole.RECEIPT),
+    # Reader workbench RW7a (migration 217): the Guide's depth per source and
+    # the path judge's labels per reading, depth and section (paid outputs,
+    # never re-run on rebuild), with the learner's overrides; display only,
+    # replay never reads them; append-only by trigger.
+    ("reader_path_depths", TableRole.WORKFLOW),
+    ("reader_path_sections", TableRole.WORKFLOW),
     ("reader_section_progress", TableRole.WORKFLOW),
     # What an escalated repair showed (Slice 2 T1 §3.7); append-only.
     ("recurrence_escalations", TableRole.RECEIPT),

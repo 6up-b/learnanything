@@ -1,0 +1,1148 @@
+{
+ "contract": {
+  "activeReading": {
+   "foldBlocks": 3
+  },
+  "answerModes": [
+   "answer_directly",
+   "help_me_reason",
+   "ask_me_first"
+  ],
+  "citations": "reuse tutor_qa validated citations; uncited claims are stripped",
+  "context": "reader",
+  "defaultAnswerMode": "answer_directly",
+  "exposureOnCommit": "familiarity.propagate_tutor_exposure (warms revealed cues)",
+  "inquiryEnabled": true,
+  "intent": {
+   "notesPalette": [
+    {
+     "actions": [
+      {
+       "effect": {
+        "answerMode": "answer_directly",
+        "kind": "ask"
+       },
+       "group": "understand",
+       "id": "ask_answer_directly",
+       "intention": "understand",
+       "label": "ask",
+       "model": true
+      },
+      {
+       "effect": {
+        "answerMode": "help_me_reason",
+        "kind": "ask"
+       },
+       "group": "understand",
+       "id": "ask_help_me_reason",
+       "intention": "understand",
+       "label": "ask · help me reason",
+       "model": true
+      },
+      {
+       "effect": {
+        "answerMode": "ask_me_first",
+        "kind": "ask"
+       },
+       "group": "understand",
+       "id": "ask_ask_me_first",
+       "intention": "understand",
+       "label": "ask · ask me first",
+       "model": true
+      }
+     ],
+     "group": "understand",
+     "intention": "understand",
+     "label": "Understand"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "test_me_later"
+       },
+       "group": "consolidate",
+       "id": "test_me_later",
+       "intention": "consolidate",
+       "label": "revisit once (test me later)",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "help_me_remember"
+       },
+       "group": "consolidate",
+       "id": "help_me_remember",
+       "intention": "consolidate",
+       "label": "help me remember",
+       "model": true
+      }
+     ],
+     "group": "consolidate",
+     "intention": "consolidate",
+     "label": "Consolidate"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "connect_it"
+       },
+       "group": "transfer",
+       "id": "connect_it",
+       "intention": "transfer",
+       "label": "connect it",
+       "model": true
+      }
+     ],
+     "group": "transfer",
+     "intention": "transfer",
+     "label": "Transfer"
+    }
+   ],
+   "palette": [
+    {
+     "actions": [
+      {
+       "effect": {
+        "answerMode": "answer_directly",
+        "kind": "ask"
+       },
+       "group": "understand",
+       "id": "ask_answer_directly",
+       "intention": "understand",
+       "label": "ask",
+       "model": true
+      },
+      {
+       "effect": {
+        "answerMode": "help_me_reason",
+        "kind": "ask"
+       },
+       "group": "understand",
+       "id": "ask_help_me_reason",
+       "intention": "understand",
+       "label": "ask · help me reason",
+       "model": true
+      },
+      {
+       "effect": {
+        "answerMode": "ask_me_first",
+        "kind": "ask"
+       },
+       "group": "understand",
+       "id": "ask_ask_me_first",
+       "intention": "understand",
+       "label": "ask · ask me first",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "alt_explanation"
+       },
+       "group": "understand",
+       "id": "alt_explanation",
+       "intention": "understand",
+       "label": "explain differently",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "worked_example"
+       },
+       "group": "understand",
+       "id": "worked_example",
+       "intention": "understand",
+       "label": "worked example",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "ask"
+       },
+       "group": "understand",
+       "id": "ask",
+       "intention": "understand",
+       "label": "research this",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "active_reading",
+        "style": "why_step"
+       },
+       "group": "understand",
+       "id": "why_step",
+       "intention": "understand",
+       "label": "why does this step work?",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "active_reading",
+        "style": "assumptions"
+       },
+       "group": "understand",
+       "id": "assumptions",
+       "intention": "understand",
+       "label": "what does this assume?",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "another_way"
+       },
+       "group": "understand",
+       "id": "another_way",
+       "intention": "understand",
+       "label": "another way to see this",
+       "model": true
+      }
+     ],
+     "group": "understand",
+     "intention": "understand",
+     "label": "Understand"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "kind": "work_through"
+       },
+       "group": "apply",
+       "id": "work_through",
+       "intention": "apply",
+       "label": "work through this",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "active_reading",
+        "style": "next_step"
+       },
+       "group": "apply",
+       "id": "next_step",
+       "intention": "apply",
+       "label": "let me try the next step",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "import_exercise"
+       },
+       "group": "apply",
+       "id": "import_exercise",
+       "intention": "apply",
+       "label": "add this exercise to practice",
+       "model": true
+      }
+     ],
+     "group": "apply",
+     "intention": "apply",
+     "label": "Apply"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "test_me_later"
+       },
+       "group": "consolidate",
+       "id": "test_me_later",
+       "intention": "consolidate",
+       "label": "revisit once (test me later)",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "help_me_remember"
+       },
+       "group": "consolidate",
+       "id": "help_me_remember",
+       "intention": "consolidate",
+       "label": "help me remember",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "active_reading",
+        "style": "reconstruct"
+       },
+       "group": "consolidate",
+       "id": "reconstruct",
+       "intention": "consolidate",
+       "label": "reconstruct this later",
+       "model": true
+      }
+     ],
+     "group": "consolidate",
+     "intention": "consolidate",
+     "label": "Consolidate"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "connect_it"
+       },
+       "group": "transfer",
+       "id": "connect_it",
+       "intention": "transfer",
+       "label": "connect it",
+       "model": true
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "why_matters"
+       },
+       "group": "transfer",
+       "id": "why_matters",
+       "intention": "transfer",
+       "label": "why this matters",
+       "model": true
+      },
+      {
+       "effect": {
+        "entry": "where_else_explained",
+        "kind": "library_ask"
+       },
+       "group": "transfer",
+       "id": "where_else_explained",
+       "intention": "transfer",
+       "label": "where else is this explained?",
+       "model": true
+      },
+      {
+       "effect": {
+        "entry": "where_is_this_used",
+        "kind": "library_ask"
+       },
+       "group": "transfer",
+       "id": "where_is_this_used",
+       "intention": "transfer",
+       "label": "where is this used?",
+       "model": true
+      }
+     ],
+     "group": "transfer",
+     "intention": "transfer",
+     "label": "Transfer"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "entry": "what_do_i_need_first",
+        "kind": "library_ask"
+       },
+       "group": "orient",
+       "id": "what_do_i_need_first",
+       "intention": "orient",
+       "label": "what do I need first?",
+       "model": true
+      }
+     ],
+     "group": "orient",
+     "intention": "orient",
+     "label": "Orient"
+    },
+    {
+     "actions": [
+      {
+       "effect": {
+        "kind": "highlight"
+       },
+       "group": "mark",
+       "id": "highlight",
+       "intention": null,
+       "label": "highlight",
+       "model": false
+      },
+      {
+       "effect": {
+        "kind": "highlight",
+        "note": true
+       },
+       "group": "mark",
+       "id": "note",
+       "intention": null,
+       "label": "note",
+       "model": false
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "mark_confusing"
+       },
+       "group": "mark",
+       "id": "mark_confusing",
+       "intention": null,
+       "label": "confusing",
+       "model": false
+      },
+      {
+       "effect": {
+        "kind": "preset",
+        "preset": "not_worth_remembering"
+       },
+       "group": "mark",
+       "id": "not_worth_remembering",
+       "intention": null,
+       "label": "not worth remembering",
+       "model": false
+      }
+     ],
+     "group": "mark",
+     "intention": null,
+     "label": "Mark"
+    }
+   ],
+   "speculateAfterMs": 600,
+   "speculative": true,
+   "timeoutSeconds": 4.0
+  },
+  "libraryAsk": {
+   "compare": true,
+   "expandGraph": true,
+   "personalizedDefault": true
+  },
+  "manifestIncludes": [
+   "the exact source span(s) in view (block-level span_view text + citation ids)",
+   "the learner question text",
+   "the goal-contract task invariants + required capabilities (read-only head)",
+   "the selected branch's reader ancestors only (most recent 12)",
+   "the chosen answer mode for this ask"
+  ],
+  "manifestNeverIncludes": [
+   "the learner ability / posterior estimate",
+   "any assessment-reserved surface statement or rubric",
+   "any cold administration's in-flight response"
+  ],
+  "mayReveal": [
+   "state facts",
+   "complete a derivation",
+   "give a worked example",
+   "confirm or deny an interpretation"
+  ],
+  "notSocraticByDefault": true,
+  "readerEnabled": true,
+  "version": "p3-reader-branches-v1"
+ },
+ "events": [
+  {
+   "kind": "reader_answer_submitted",
+   "payload": {
+    "answer_md": "The determinant vanishes there, so t is a root.",
+    "answer_mode": "answer_directly",
+    "authority_class": "salience_only",
+    "citations": [],
+    "extraction_id": "ext_text",
+    "hint_equivalent": false,
+    "manifest": {
+     "ancestor_exchange_ids": [],
+     "answer_mode": "answer_directly",
+     "excluded": [
+      "ability_estimate",
+      "assessment_reserved_surface",
+      "cold_in_flight_response"
+     ],
+     "goal_invariants": null,
+     "omitted_ancestor_count": 0,
+     "parent_exchange_id": null,
+     "prior_exchanges": [],
+     "question_md": "why is an eigenvalue a root?",
+     "selection": {
+      "quote_md": "the roots of the characteristic polynomial",
+      "span_ids": [
+       "t2"
+      ]
+     },
+     "source_spans": [
+      {
+       "extraction_id": "ext_text",
+       "label": "learner selection",
+       "relation": "selected_text",
+       "span_id": "t2",
+       "text": "the roots of the characteristic polynomial"
+      },
+      {
+       "extraction_id": "ext_text",
+       "label": "Eigenvalues are the roots of the characteristic polynomial…",
+       "relation": "in_view",
+       "span_id": "t2",
+       "text": "Eigenvalues are the roots of the characteristic polynomial det(A - tI) of a square matrix."
+      },
+      {
+       "extraction_id": "ext_text",
+       "label": "Chapter 5 Eigenvalues",
+       "offset": -1,
+       "relation": "surrounding",
+       "span_id": "t1",
+       "text": "Chapter 5 Eigenvalues"
+      },
+      {
+       "extraction_id": "ext_text",
+       "label": "Swapping two rows of a matrix multiplies its determinant by…",
+       "offset": 1,
+       "relation": "surrounding",
+       "span_id": "t3",
+       "text": "Swapping two rows of a matrix multiplies its determinant by -1, so the determinant changes sign."
+      },
+      {
+       "extraction_id": "ext_text",
+       "label": "Worked examples",
+       "offset": 2,
+       "relation": "surrounding",
+       "span_id": "t4",
+       "text": "Worked examples"
+      },
+      {
+       "extraction_id": "ext_text",
+       "label": "Example 5.1 Solve 4x + 2 = 14 for the eigenvalue x. Subtrac…",
+       "offset": 3,
+       "relation": "surrounding",
+       "span_id": "t5",
+       "text": "Example 5.1 Solve 4x + 2 = 14 for the eigenvalue x. Subtract 2 and divide by 4, so x = 3."
+      }
+     ],
+     "span": {
+      "extraction_id": "ext_text",
+      "key": "span:ext_text/t2",
+      "span_id": "t2"
+     },
+     "version": "p3-reader-branches-v1"
+    },
+    "model": "fake-tutor-model",
+    "outcome_class": "unknown",
+    "parent_exchange_id": null,
+    "provider": "fake_tutor",
+    "provider_type": "fake",
+    "question_event_id": "<ULID0>",
+    "source_visible": true,
+    "span_id": "t2",
+    "target_key": null
+   }
+  },
+  {
+   "kind": "reader_answer_submitted",
+   "payload": {
+    "answer_md": "The determinant vanishes there, so t is a root.",
+    "answer_mode": "answer_directly",
+    "authority_class": "salience_only",
+    "citations": [],
+    "extraction_id": "ext_text",
+    "hint_equivalent": false,
+    "manifest": {
+     "ancestor_exchange_ids": [
+      "<ULID1>"
+     ],
+     "answer_mode": "answer_directly",
+     "excluded": [
+      "ability_estimate",
+      "assessment_reserved_surface",
+      "cold_in_flight_response"
+     ],
+     "goal_invariants": null,
+     "omitted_ancestor_count": 0,
+     "parent_exchange_id": "<ULID1>",
+     "prior_exchanges": [
+      {
+       "answer_md": "The determinant vanishes there, so t is a root.",
+       "question_md": "why is an eigenvalue a root?"
+      }
+     ],
+     "question_md": "and for a diagonal matrix?",
+     "selection": {
+      "quote_md": "the roots of the characteristic polynomial",
+      "span_ids": [
+       "t2"
+      ]
+     },
+     "source_spans": [
+      {
+       "extraction_id": "ext_text",
+       "label": "learner selection",
+       "relation": "selected_text",
+       "span_id": "t2",
+       "text": "the roots of the characteristic polynomial"
+      },
+      {
+       "extraction_id": "ext_text",
+       "label": "Eigenvalues are the roots of the characteristic polynomial…",
+       "relation": "in_view",
+       "span_id": "t2",
+       "text": "Eigenvalues are the roots of the characteristic polynomial det(A - tI) of a square matrix."
+      },
+      {
+       "extraction_id": "ext_text",
+       "label": "Chapter 5 Eigenvalues",
+       "offset": -1,
+       "relation": "surrounding",
+       "span_id": "t1",
+       "text": "Chapter 5 Eigenvalues"
+      },
+      {
+       "extraction_id": "ext_text",
+       "label": "Swapping two rows of a matrix multiplies its determinant by…",
+       "offset": 1,
+       "relation": "surrounding",
+       "span_id": "t3",
+       "text": "Swapping two rows of a matrix multiplies its determinant by -1, so the determinant changes sign."
+      },
+      {
+       "extraction_id": "ext_text",
+       "label": "Worked examples",
+       "offset": 2,
+       "relation": "surrounding",
+       "span_id": "t4",
+       "text": "Worked examples"
+      },
+      {
+       "extraction_id": "ext_text",
+       "label": "Example 5.1 Solve 4x + 2 = 14 for the eigenvalue x. Subtrac…",
+       "offset": 3,
+       "relation": "surrounding",
+       "span_id": "t5",
+       "text": "Example 5.1 Solve 4x + 2 = 14 for the eigenvalue x. Subtract 2 and divide by 4, so x = 3."
+      }
+     ],
+     "span": {
+      "extraction_id": "ext_text",
+      "key": "span:ext_text/t2",
+      "span_id": "t2"
+     },
+     "version": "p3-reader-branches-v1"
+    },
+    "model": "fake-tutor-model",
+    "outcome_class": "unknown",
+    "parent_exchange_id": "<ULID1>",
+    "provider": "fake_tutor",
+    "provider_type": "fake",
+    "question_event_id": "<ULID2>",
+    "source_visible": true,
+    "span_id": "t2",
+    "target_key": null
+   }
+  },
+  {
+   "kind": "learner_question_asked",
+   "payload": {
+    "extraction_id": "ext_text",
+    "parent_exchange_id": null,
+    "question_md": "why is an eigenvalue a root?",
+    "selection_span_ids": [
+     "t2"
+    ],
+    "span_id": "t2"
+   }
+  },
+  {
+   "kind": "learner_question_asked",
+   "payload": {
+    "extraction_id": "ext_text",
+    "parent_exchange_id": "<ULID1>",
+    "question_md": "and for a diagonal matrix?",
+    "selection_span_ids": [
+     "t2"
+    ],
+    "span_id": "t2"
+   }
+  },
+  {
+   "kind": "reader_answer_mode_set",
+   "payload": {
+    "answer_mode": "answer_directly",
+    "authority_class": "salience_only",
+    "extraction_id": "ext_text",
+    "span_id": "t2"
+   }
+  },
+  {
+   "kind": "reader_answer_mode_set",
+   "payload": {
+    "answer_mode": "answer_directly",
+    "authority_class": "salience_only",
+    "extraction_id": "ext_text",
+    "span_id": "t2"
+   }
+  }
+ ],
+ "follow": {
+  "answerMd": "The determinant vanishes there, so t is a root.",
+  "answerMode": "answer_directly",
+  "burnedSurfaceIds": [],
+  "citations": [],
+  "eventId": "<ULID2>",
+  "hintEquivalent": false,
+  "learnerGap": {
+   "kind": null,
+   "status": "queued"
+  },
+  "manifest": {
+   "ancestorExchangeIds": [
+    "<ULID1>"
+   ],
+   "answerMode": "answer_directly",
+   "excluded": [
+    "ability_estimate",
+    "assessment_reserved_surface",
+    "cold_in_flight_response"
+   ],
+   "goalInvariants": null,
+   "omittedAncestorCount": 0,
+   "parentExchangeId": "<ULID1>",
+   "priorExchanges": [
+    {
+     "answerMd": "The determinant vanishes there, so t is a root.",
+     "questionMd": "why is an eigenvalue a root?"
+    }
+   ],
+   "questionMd": "and for a diagonal matrix?",
+   "selection": {
+    "quoteMd": "the roots of the characteristic polynomial",
+    "spanIds": [
+     "t2"
+    ]
+   },
+   "sourceSpans": [
+    {
+     "extractionId": "ext_text",
+     "label": "learner selection",
+     "relation": "selected_text",
+     "spanId": "t2",
+     "text": "the roots of the characteristic polynomial"
+    },
+    {
+     "extractionId": "ext_text",
+     "label": "Eigenvalues are the roots of the characteristic polynomial…",
+     "relation": "in_view",
+     "spanId": "t2",
+     "text": "Eigenvalues are the roots of the characteristic polynomial det(A - tI) of a square matrix."
+    },
+    {
+     "extractionId": "ext_text",
+     "label": "Chapter 5 Eigenvalues",
+     "offset": -1,
+     "relation": "surrounding",
+     "spanId": "t1",
+     "text": "Chapter 5 Eigenvalues"
+    },
+    {
+     "extractionId": "ext_text",
+     "label": "Swapping two rows of a matrix multiplies its determinant by…",
+     "offset": 1,
+     "relation": "surrounding",
+     "spanId": "t3",
+     "text": "Swapping two rows of a matrix multiplies its determinant by -1, so the determinant changes sign."
+    },
+    {
+     "extractionId": "ext_text",
+     "label": "Worked examples",
+     "offset": 2,
+     "relation": "surrounding",
+     "spanId": "t4",
+     "text": "Worked examples"
+    },
+    {
+     "extractionId": "ext_text",
+     "label": "Example 5.1 Solve 4x + 2 = 14 for the eigenvalue x. Subtrac…",
+     "offset": 3,
+     "relation": "surrounding",
+     "spanId": "t5",
+     "text": "Example 5.1 Solve 4x + 2 = 14 for the eigenvalue x. Subtract 2 and divide by 4, so x = 3."
+    }
+   ],
+   "span": {
+    "extractionId": "ext_text",
+    "key": "span:ext_text/t2",
+    "spanId": "t2"
+   },
+   "version": "p3-reader-branches-v1"
+  },
+  "model": "fake-tutor-model",
+  "parentExchangeId": "<ULID1>",
+  "practiceRequest": {
+   "caller": {
+    "kind": "tutor",
+    "ref": "<ULID2>"
+   },
+   "request": {
+    "excludeItemIds": [],
+    "facetIds": [],
+    "intent": "practice",
+    "kinds": "both",
+    "learningObjectIds": [],
+    "query": "and for a diagonal matrix?"
+   },
+   "version": "tutor_practice_request.v1"
+  },
+  "readerAnswerEventId": "<ULID3>",
+  "remaining": 6,
+  "suggestedLearningObjects": [
+   {
+    "basis": [
+     "keyword"
+    ],
+    "label": "suggestion",
+    "learningObjectId": "lo_matrices",
+    "title": "Matrix computations"
+   },
+   {
+    "basis": [
+     "keyword"
+    ],
+    "label": "suggestion",
+    "learningObjectId": "lo_svd_definition",
+    "title": "SVD definition"
+   }
+  ],
+  "version": 1,
+  "warmedSurfaceIds": []
+ },
+ "history": {
+  "exchanges": [
+   {
+    "answerMd": "The determinant vanishes there, so t is a root.",
+    "answerMode": "answer_directly",
+    "citations": [],
+    "eventId": "<ULID3>",
+    "extractionId": "ext_text",
+    "parentExchangeId": "<ULID1>",
+    "questionEventId": "<ULID2>",
+    "questionMd": "and for a diagonal matrix?",
+    "resolution": "open",
+    "selectionQuoteMd": "the roots of the characteristic polynomial",
+    "selectionSourceQuoteMd": null,
+    "selectionSpanIds": [
+     "t2"
+    ],
+    "spanId": "t2"
+   },
+   {
+    "answerMd": "The determinant vanishes there, so t is a root.",
+    "answerMode": "answer_directly",
+    "citations": [],
+    "eventId": "<ULID1>",
+    "extractionId": "ext_text",
+    "parentExchangeId": null,
+    "questionEventId": "<ULID0>",
+    "questionMd": "why is an eigenvalue a root?",
+    "resolution": "open",
+    "selectionQuoteMd": "the roots of the characteristic polynomial",
+    "selectionSourceQuoteMd": null,
+    "selectionSpanIds": [
+     "t2"
+    ],
+    "spanId": "t2"
+   }
+  ],
+  "version": 1
+ },
+ "prompts": [
+  "learnloop tutor qa\nprompt_version: mvp-0.10-tutor-qa-learner-gap-source-tool-requests\n\nReturn only JSON that matches the provided output schema. Do not include Markdown fences or explanatory prose.\n\n{\"task\": \"You are a LearnLoop tutor answering one learner question. Return a TutorAnswer as schema-valid JSON only. Classify the question as exactly one question_type: `clarification` (what the prompt/wording means), `prerequisite` (background knowledge needed), `mechanism` (why/how something works), `strategy` (how to approach the task), `verification` (is my answer/approach right?), or `other`. Also classify question_channel: `epistemic` when the question signals missing or uncertain knowledge about the content, `interaction_preference` when the learner is instead asking for a different explanation style, pace, scaffold level, more or less detail, or a direct answer (a request about HOW to be tutored, not WHAT is true). Fill `facets` with the subset of context.candidate_facets the question is genuinely about (empty when none apply); never invent facet ids outside that list. Use context.thread as prior conversation turns and stay consistent with them. Write answer_md as concise Markdown (LaTeX math allowed). When context.source_spans is non-empty and a span grounds a claim you make, add it to `citations` as {extraction_id, span_id, label} using ONLY the extraction_id/span_id pairs present in context.source_spans — never invent a span, and cite only spans your answer actually relies on. Leave citations empty when no provided span is relevant. Two fields report on the LEARNER'S QUESTION rather than on your answer. `embedded_prediction`: if the learner's question itself asserts a falsifiable expectation — something they evidently expect to be true, e.g. \\\"learner expects replacing (x+y)e2 with ((x+y)/2)e2 to change the sum\\\" — state that expectation in one sentence. Take it from the question TEXT; do not infer what they probably think, and set it to null when the question asserts nothing (that is the common case). `new_candidate_cause`: set it ONLY when this exchange surfaced a possible cause of the learner's difficulty that their written attempt could not have shown — something they said or asked that reveals it. Write `statement` as plain prose in learner-model terms; there is no vocabulary to fit. Ground it in the learner's words, NEVER in what you just explained: after you have answered, anything you would say about their beliefs describes your own explanation, not them. Null is the correct and usual answer. `learner_gap` reports on the LEARNER'S TEXT, never on your answer. NAME FIRST, in your own words, before choosing a kind: if the text shows knowledge the learner is missing that this material builds on, write `prerequisite_name` (a short name for that knowledge, as a textbook section would title it) and `prerequisite_line` (one line saying what it is); if the text states or presupposes a wrong belief, write `belief_statement` as that belief, stated as what the learner thinks is true. Fill each that applies and leave the others null; do not pick from a list. Then `kind`: `prerequisite` (missing knowledge below this material), `misconception` (a wrong belief), `slip` (a procedural error or lapse they describe), `wording` (a wording or notation problem: what the prompt or a symbol means), or `none` (curiosity, a check of their own work, or nothing missing: the common case). Ground every field in the learner's words. Context: the learner is reading a source span in the reader (U-033). There is NO attempt to protect here, so you are NOT Socratic-by-default: you MAY state facts, complete a derivation, give a worked example, and confirm or deny an interpretation. Ground every claim in the provided source spans and cite them. Support comprehension, inquiry, self-explanation, and goal connection. You are NOT given the learner's ability estimate and MUST NOT tune the answer to a supposed deficit. Answer mode: ANSWER DIRECTLY -- give the complete answer up front, then a brief why. You may also fill `tool_requests` to offer the learner material from their own vault. LearnLoop's code runs each request and shows the result to the LEARNER; nothing comes back to you. `find_practice` asks for practice on what the learner is struggling with (intent `practice`, or `remediate` when they hold a misconception); `find_sources` asks for passages from their books for an intent (`explain`, `remediate`, `alternative`, `worked_example`); `compare_sources` asks how their books treat this question. Give each a one-line `reason` the learner will read. Use only facet ids from context.candidate_facets ([] when none fit) and [] for learning_object_ids unless you know one. No request, query or reason may carry or hint at the current item's answer. Leave `tool_requests` empty when nothing would help.\", \"context\": {\"answer_mode\": \"answer_directly\", \"candidate_facets\": [], \"context\": \"reader\", \"diagnostic_decision\": null, \"expected_answer\": null, \"grading_feedback\": null, \"learner_answer_md\": null, \"learning_object_summaries\": [], \"note_body\": null, \"note_title\": null, \"practice_item_prompt\": null, \"question_md\": \"why is an eigenvalue a root?\", \"rubric\": null, \"source_spans\": [{\"extraction_id\": \"ext_text\", \"label\": \"learner selection\", \"relation\": \"selected_text\", \"span_id\": \"t2\", \"text\": \"the roots of the characteristic polynomial\"}, {\"extraction_id\": \"ext_text\", \"label\": \"Eigenvalues are the roots of the characteristic polynomial…\", \"relation\": \"in_view\", \"span_id\": \"t2\", \"text\": \"Eigenvalues are the roots of the characteristic polynomial det(A - tI) of a square matrix.\"}, {\"extraction_id\": \"ext_text\", \"label\": \"Chapter 5 Eigenvalues\", \"offset\": -1, \"relation\": \"surrounding\", \"span_id\": \"t1\", \"text\": \"Chapter 5 Eigenvalues\"}, {\"extraction_id\": \"ext_text\", \"label\": \"Swapping two rows of a matrix multiplies its determinant by…\", \"offset\": 1, \"relation\": \"surrounding\", \"span_id\": \"t3\", \"text\": \"Swapping two rows of a matrix multiplies its determinant by -1, so the determinant changes sign.\"}, {\"extraction_id\": \"ext_text\", \"label\": \"Worked examples\", \"offset\": 2, \"relation\": \"surrounding\", \"span_id\": \"t4\", \"text\": \"Worked examples\"}, {\"extraction_id\": \"ext_text\", \"label\": \"Example 5.1 Solve 4x + 2 = 14 for the eigenvalue x. Subtrac…\", \"offset\": 3, \"relation\": \"surrounding\", \"span_id\": \"t5\", \"text\": \"Example 5.1 Solve 4x + 2 = 14 for the eigenvalue x. Subtract 2 and divide by 4, so x = 3.\"}], \"thread\": []}}",
+  "learnloop tutor qa\nprompt_version: mvp-0.10-tutor-qa-learner-gap-source-tool-requests\n\nReturn only JSON that matches the provided output schema. Do not include Markdown fences or explanatory prose.\n\n{\"task\": \"You are a LearnLoop tutor answering one learner question. Return a TutorAnswer as schema-valid JSON only. Classify the question as exactly one question_type: `clarification` (what the prompt/wording means), `prerequisite` (background knowledge needed), `mechanism` (why/how something works), `strategy` (how to approach the task), `verification` (is my answer/approach right?), or `other`. Also classify question_channel: `epistemic` when the question signals missing or uncertain knowledge about the content, `interaction_preference` when the learner is instead asking for a different explanation style, pace, scaffold level, more or less detail, or a direct answer (a request about HOW to be tutored, not WHAT is true). Fill `facets` with the subset of context.candidate_facets the question is genuinely about (empty when none apply); never invent facet ids outside that list. Use context.thread as prior conversation turns and stay consistent with them. Write answer_md as concise Markdown (LaTeX math allowed). When context.source_spans is non-empty and a span grounds a claim you make, add it to `citations` as {extraction_id, span_id, label} using ONLY the extraction_id/span_id pairs present in context.source_spans — never invent a span, and cite only spans your answer actually relies on. Leave citations empty when no provided span is relevant. Two fields report on the LEARNER'S QUESTION rather than on your answer. `embedded_prediction`: if the learner's question itself asserts a falsifiable expectation — something they evidently expect to be true, e.g. \\\"learner expects replacing (x+y)e2 with ((x+y)/2)e2 to change the sum\\\" — state that expectation in one sentence. Take it from the question TEXT; do not infer what they probably think, and set it to null when the question asserts nothing (that is the common case). `new_candidate_cause`: set it ONLY when this exchange surfaced a possible cause of the learner's difficulty that their written attempt could not have shown — something they said or asked that reveals it. Write `statement` as plain prose in learner-model terms; there is no vocabulary to fit. Ground it in the learner's words, NEVER in what you just explained: after you have answered, anything you would say about their beliefs describes your own explanation, not them. Null is the correct and usual answer. `learner_gap` reports on the LEARNER'S TEXT, never on your answer. NAME FIRST, in your own words, before choosing a kind: if the text shows knowledge the learner is missing that this material builds on, write `prerequisite_name` (a short name for that knowledge, as a textbook section would title it) and `prerequisite_line` (one line saying what it is); if the text states or presupposes a wrong belief, write `belief_statement` as that belief, stated as what the learner thinks is true. Fill each that applies and leave the others null; do not pick from a list. Then `kind`: `prerequisite` (missing knowledge below this material), `misconception` (a wrong belief), `slip` (a procedural error or lapse they describe), `wording` (a wording or notation problem: what the prompt or a symbol means), or `none` (curiosity, a check of their own work, or nothing missing: the common case). Ground every field in the learner's words. Context: the learner is reading a source span in the reader (U-033). There is NO attempt to protect here, so you are NOT Socratic-by-default: you MAY state facts, complete a derivation, give a worked example, and confirm or deny an interpretation. Ground every claim in the provided source spans and cite them. Support comprehension, inquiry, self-explanation, and goal connection. You are NOT given the learner's ability estimate and MUST NOT tune the answer to a supposed deficit. Answer mode: ANSWER DIRECTLY -- give the complete answer up front, then a brief why. You may also fill `tool_requests` to offer the learner material from their own vault. LearnLoop's code runs each request and shows the result to the LEARNER; nothing comes back to you. `find_practice` asks for practice on what the learner is struggling with (intent `practice`, or `remediate` when they hold a misconception); `find_sources` asks for passages from their books for an intent (`explain`, `remediate`, `alternative`, `worked_example`); `compare_sources` asks how their books treat this question. Give each a one-line `reason` the learner will read. Use only facet ids from context.candidate_facets ([] when none fit) and [] for learning_object_ids unless you know one. No request, query or reason may carry or hint at the current item's answer. Leave `tool_requests` empty when nothing would help.\", \"context\": {\"answer_mode\": \"answer_directly\", \"candidate_facets\": [], \"context\": \"reader\", \"diagnostic_decision\": null, \"expected_answer\": null, \"grading_feedback\": null, \"learner_answer_md\": null, \"learning_object_summaries\": [], \"note_body\": null, \"note_title\": null, \"practice_item_prompt\": null, \"question_md\": \"and for a diagonal matrix?\", \"rubric\": null, \"source_spans\": [{\"extraction_id\": \"ext_text\", \"label\": \"learner selection\", \"relation\": \"selected_text\", \"span_id\": \"t2\", \"text\": \"the roots of the characteristic polynomial\"}, {\"extraction_id\": \"ext_text\", \"label\": \"Eigenvalues are the roots of the characteristic polynomial…\", \"relation\": \"in_view\", \"span_id\": \"t2\", \"text\": \"Eigenvalues are the roots of the characteristic polynomial det(A - tI) of a square matrix.\"}, {\"extraction_id\": \"ext_text\", \"label\": \"Chapter 5 Eigenvalues\", \"offset\": -1, \"relation\": \"surrounding\", \"span_id\": \"t1\", \"text\": \"Chapter 5 Eigenvalues\"}, {\"extraction_id\": \"ext_text\", \"label\": \"Swapping two rows of a matrix multiplies its determinant by…\", \"offset\": 1, \"relation\": \"surrounding\", \"span_id\": \"t3\", \"text\": \"Swapping two rows of a matrix multiplies its determinant by -1, so the determinant changes sign.\"}, {\"extraction_id\": \"ext_text\", \"label\": \"Worked examples\", \"offset\": 2, \"relation\": \"surrounding\", \"span_id\": \"t4\", \"text\": \"Worked examples\"}, {\"extraction_id\": \"ext_text\", \"label\": \"Example 5.1 Solve 4x + 2 = 14 for the eigenvalue x. Subtrac…\", \"offset\": 3, \"relation\": \"surrounding\", \"span_id\": \"t5\", \"text\": \"Example 5.1 Solve 4x + 2 = 14 for the eigenvalue x. Subtract 2 and divide by 4, so x = 3.\"}], \"thread\": [{\"answer_md\": \"The determinant vanishes there, so t is a root.\", \"question_md\": \"why is an eigenvalue a root?\", \"question_type\": \"other\"}]}}"
+ ],
+ "questions": [
+  {
+   "answer_md": "The determinant vanishes there, so t is a root.",
+   "answer_mode": "answer_directly",
+   "answer_status": "answered",
+   "context": "reader",
+   "facets": [],
+   "hint_equivalent": false,
+   "note_id": "span:ext_text/t2",
+   "question_md": "why is an eigenvalue a root?",
+   "source_context": {
+    "candidate_learning_object_ids": [],
+    "extraction_id": "ext_text",
+    "source_spans": [
+     {
+      "extraction_id": "ext_text",
+      "label": "learner selection",
+      "relation": "selected_text",
+      "span_id": "t2",
+      "text": "the roots of the characteristic polynomial"
+     },
+     {
+      "extraction_id": "ext_text",
+      "label": "Eigenvalues are the roots of the characteristic polynomial…",
+      "relation": "in_view",
+      "span_id": "t2",
+      "text": "Eigenvalues are the roots of the characteristic polynomial det(A - tI) of a square matrix."
+     },
+     {
+      "extraction_id": "ext_text",
+      "label": "Chapter 5 Eigenvalues",
+      "offset": -1,
+      "relation": "surrounding",
+      "span_id": "t1",
+      "text": "Chapter 5 Eigenvalues"
+     },
+     {
+      "extraction_id": "ext_text",
+      "label": "Swapping two rows of a matrix multiplies its determinant by…",
+      "offset": 1,
+      "relation": "surrounding",
+      "span_id": "t3",
+      "text": "Swapping two rows of a matrix multiplies its determinant by -1, so the determinant changes sign."
+     },
+     {
+      "extraction_id": "ext_text",
+      "label": "Worked examples",
+      "offset": 2,
+      "relation": "surrounding",
+      "span_id": "t4",
+      "text": "Worked examples"
+     },
+     {
+      "extraction_id": "ext_text",
+      "label": "Example 5.1 Solve 4x + 2 = 14 for the eigenvalue x. Subtrac…",
+      "offset": 3,
+      "relation": "surrounding",
+      "span_id": "t5",
+      "text": "Example 5.1 Solve 4x + 2 = 14 for the eigenvalue x. Subtract 2 and divide by 4, so x = 3."
+     }
+    ],
+    "span_id": "t2",
+    "suggested_learning_objects": [
+     {
+      "basis": [
+       "keyword"
+      ],
+      "label": "suggestion",
+      "learning_object_id": "lo_matrices",
+      "title": "Matrix computations"
+     },
+     {
+      "basis": [
+       "keyword"
+      ],
+      "label": "suggestion",
+      "learning_object_id": "lo_svd_definition",
+      "title": "SVD definition"
+     }
+    ]
+   }
+  },
+  {
+   "answer_md": "The determinant vanishes there, so t is a root.",
+   "answer_mode": "answer_directly",
+   "answer_status": "answered",
+   "context": "reader",
+   "facets": [],
+   "hint_equivalent": false,
+   "note_id": "span:ext_text/t2",
+   "question_md": "and for a diagonal matrix?",
+   "source_context": {
+    "candidate_learning_object_ids": [],
+    "extraction_id": "ext_text",
+    "source_spans": [
+     {
+      "extraction_id": "ext_text",
+      "label": "learner selection",
+      "relation": "selected_text",
+      "span_id": "t2",
+      "text": "the roots of the characteristic polynomial"
+     },
+     {
+      "extraction_id": "ext_text",
+      "label": "Eigenvalues are the roots of the characteristic polynomial…",
+      "relation": "in_view",
+      "span_id": "t2",
+      "text": "Eigenvalues are the roots of the characteristic polynomial det(A - tI) of a square matrix."
+     },
+     {
+      "extraction_id": "ext_text",
+      "label": "Chapter 5 Eigenvalues",
+      "offset": -1,
+      "relation": "surrounding",
+      "span_id": "t1",
+      "text": "Chapter 5 Eigenvalues"
+     },
+     {
+      "extraction_id": "ext_text",
+      "label": "Swapping two rows of a matrix multiplies its determinant by…",
+      "offset": 1,
+      "relation": "surrounding",
+      "span_id": "t3",
+      "text": "Swapping two rows of a matrix multiplies its determinant by -1, so the determinant changes sign."
+     },
+     {
+      "extraction_id": "ext_text",
+      "label": "Worked examples",
+      "offset": 2,
+      "relation": "surrounding",
+      "span_id": "t4",
+      "text": "Worked examples"
+     },
+     {
+      "extraction_id": "ext_text",
+      "label": "Example 5.1 Solve 4x + 2 = 14 for the eigenvalue x. Subtrac…",
+      "offset": 3,
+      "relation": "surrounding",
+      "span_id": "t5",
+      "text": "Example 5.1 Solve 4x + 2 = 14 for the eigenvalue x. Subtract 2 and divide by 4, so x = 3."
+     }
+    ],
+    "span_id": "t2",
+    "suggested_learning_objects": [
+     {
+      "basis": [
+       "keyword"
+      ],
+      "label": "suggestion",
+      "learning_object_id": "lo_matrices",
+      "title": "Matrix computations"
+     },
+     {
+      "basis": [
+       "keyword"
+      ],
+      "label": "suggestion",
+      "learning_object_id": "lo_svd_definition",
+      "title": "SVD definition"
+     }
+    ]
+   }
+  }
+ ],
+ "result_models": [
+  "TutorAnswerWithTools",
+  "TutorAnswerWithTools"
+ ],
+ "root": {
+  "answerMd": "The determinant vanishes there, so t is a root.",
+  "answerMode": "answer_directly",
+  "burnedSurfaceIds": [],
+  "citations": [],
+  "eventId": "<ULID0>",
+  "hintEquivalent": false,
+  "learnerGap": {
+   "kind": null,
+   "status": "queued"
+  },
+  "manifest": {
+   "ancestorExchangeIds": [],
+   "answerMode": "answer_directly",
+   "excluded": [
+    "ability_estimate",
+    "assessment_reserved_surface",
+    "cold_in_flight_response"
+   ],
+   "goalInvariants": null,
+   "omittedAncestorCount": 0,
+   "parentExchangeId": null,
+   "priorExchanges": [],
+   "questionMd": "why is an eigenvalue a root?",
+   "selection": {
+    "quoteMd": "the roots of the characteristic polynomial",
+    "spanIds": [
+     "t2"
+    ]
+   },
+   "sourceSpans": [
+    {
+     "extractionId": "ext_text",
+     "label": "learner selection",
+     "relation": "selected_text",
+     "spanId": "t2",
+     "text": "the roots of the characteristic polynomial"
+    },
+    {
+     "extractionId": "ext_text",
+     "label": "Eigenvalues are the roots of the characteristic polynomial…",
+     "relation": "in_view",
+     "spanId": "t2",
+     "text": "Eigenvalues are the roots of the characteristic polynomial det(A - tI) of a square matrix."
+    },
+    {
+     "extractionId": "ext_text",
+     "label": "Chapter 5 Eigenvalues",
+     "offset": -1,
+     "relation": "surrounding",
+     "spanId": "t1",
+     "text": "Chapter 5 Eigenvalues"
+    },
+    {
+     "extractionId": "ext_text",
+     "label": "Swapping two rows of a matrix multiplies its determinant by…",
+     "offset": 1,
+     "relation": "surrounding",
+     "spanId": "t3",
+     "text": "Swapping two rows of a matrix multiplies its determinant by -1, so the determinant changes sign."
+    },
+    {
+     "extractionId": "ext_text",
+     "label": "Worked examples",
+     "offset": 2,
+     "relation": "surrounding",
+     "spanId": "t4",
+     "text": "Worked examples"
+    },
+    {
+     "extractionId": "ext_text",
+     "label": "Example 5.1 Solve 4x + 2 = 14 for the eigenvalue x. Subtrac…",
+     "offset": 3,
+     "relation": "surrounding",
+     "spanId": "t5",
+     "text": "Example 5.1 Solve 4x + 2 = 14 for the eigenvalue x. Subtract 2 and divide by 4, so x = 3."
+    }
+   ],
+   "span": {
+    "extractionId": "ext_text",
+    "key": "span:ext_text/t2",
+    "spanId": "t2"
+   },
+   "version": "p3-reader-branches-v1"
+  },
+  "model": "fake-tutor-model",
+  "parentExchangeId": null,
+  "practiceRequest": {
+   "caller": {
+    "kind": "tutor",
+    "ref": "<ULID0>"
+   },
+   "request": {
+    "excludeItemIds": [],
+    "facetIds": [],
+    "intent": "practice",
+    "kinds": "both",
+    "learningObjectIds": [],
+    "query": "why is an eigenvalue a root?"
+   },
+   "version": "tutor_practice_request.v1"
+  },
+  "readerAnswerEventId": "<ULID1>",
+  "remaining": 7,
+  "suggestedLearningObjects": [
+   {
+    "basis": [
+     "keyword"
+    ],
+    "label": "suggestion",
+    "learningObjectId": "lo_matrices",
+    "title": "Matrix computations"
+   },
+   {
+    "basis": [
+     "keyword"
+    ],
+    "label": "suggestion",
+    "learningObjectId": "lo_svd_definition",
+    "title": "SVD definition"
+   }
+  ],
+  "version": 1,
+  "warmedSurfaceIds": []
+ }
+}

@@ -29,6 +29,13 @@ MAIN_ASK_RESULT_KEYS = {
 #: "Practice this" request, behind source_service.tutor_offers (not a
 #: reader_inquiry field, so the kill switch leaves it as it is).
 SOURCE_SERVICE_ASK_KEYS = {"practiceRequest"}
+#: Reader workbench RW1c (merged after RW1a): the answer's modes and the
+#: Reader's buttons, behind reader_tutor.retrieval_enabled / offers_enabled
+#: (not reader_inquiry fields, so this kill switch leaves them as they are);
+#: the manifest then records the retrieval's receipt.
+READER_TUTOR_ASK_KEYS = {"tutor", "tutorOffers"}
+READER_TUTOR_MANIFEST_KEYS = {"sourceRetrieval", "delivery"}
+READER_TUTOR_HISTORY_KEYS = {"tutor"}
 MAIN_HISTORY_KEYS = {
     "eventId", "extractionId", "spanId", "questionMd", "answerMd", "answerMode", "citations", "createdAt",
 }
@@ -116,14 +123,14 @@ def test_rpcs_off_answer_exactly_as_before(tmp_path, monkeypatch):
     ])
     first, second, history, contract, refused = (r for r in responses[1:])
     for answer in (first["result"], second["result"]):
-        assert set(answer) - SOURCE_SERVICE_ASK_KEYS == MAIN_ASK_RESULT_KEYS
+        assert set(answer) - SOURCE_SERVICE_ASK_KEYS - READER_TUTOR_ASK_KEYS == MAIN_ASK_RESULT_KEYS
         assert answer["manifest"]["version"] == "p2-reader-v1"
-        assert set(answer["manifest"]) == {
+        assert set(answer["manifest"]) - READER_TUTOR_MANIFEST_KEYS == {
             "version", "span", "selection", "sourceSpans", "questionMd", "answerMode",
             "goalInvariants", "priorExchanges", "excluded",
         }
     assert [t["question_md"] for t in client.contexts[1].thread] == ["Root"]
-    assert all(set(e) == MAIN_HISTORY_KEYS for e in history["result"]["exchanges"])
+    assert all(set(e) - READER_TUTOR_HISTORY_KEYS == MAIN_HISTORY_KEYS for e in history["result"]["exchanges"])
     expected_contract = RD.reader_prompt_contract()
     assert contract["result"]["version"] == expected_contract["version"] == "p2-reader-v1"
     assert "inquiryEnabled" not in contract["result"]
@@ -168,11 +175,12 @@ def test_rpcs_on_add_only_the_branch_fields(tmp_path, monkeypatch):
         {"jsonrpc": "2.0", "id": 2, "method": "reader.ask", "params": params},
         {"jsonrpc": "2.0", "id": 3, "method": "reader.ask_history", "params": {"extractionId": "ext1"}},
     ])[1:])
-    assert set(answer) - MAIN_ASK_RESULT_KEYS - SOURCE_SERVICE_ASK_KEYS == {"parentExchangeId", "model"}
+    assert set(answer) - MAIN_ASK_RESULT_KEYS - SOURCE_SERVICE_ASK_KEYS - READER_TUTOR_ASK_KEYS == {
+        "parentExchangeId", "model"}
     assert answer["parentExchangeId"] is None and answer["model"] == "stub-reader-1"
     assert answer["manifest"]["version"] == "p3-reader-branches-v1"
     (saved,) = history["exchanges"]
-    assert set(saved) - MAIN_HISTORY_KEYS == {
+    assert set(saved) - MAIN_HISTORY_KEYS - READER_TUTOR_HISTORY_KEYS == {
         "parentExchangeId", "selectionSpanIds", "selectionQuoteMd", "selectionSourceQuoteMd",
         "questionEventId", "resolution",
     }

@@ -3,13 +3,13 @@ title: "question_promotions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_promotions"
   - "table question_promotions"
-schema_head: 214
+schema_head: 217
 table_name: "question_promotions"
 table_role: "workflow"
 functionality_status: "active"
@@ -125,6 +125,7 @@ Indexes and uniqueness:
 - `tests/test_migrations.py`
 - `tests/test_question_promotions.py`
 - `tests/test_sidecar_tutor_qa.py`
+- `tests/intent_fakes.py`
 - `tests/test_daily_loop_reader_retire.py`
 - `tests/test_learner_text_gaps.py`
 - `tests/test_question_promotion_jobs.py`

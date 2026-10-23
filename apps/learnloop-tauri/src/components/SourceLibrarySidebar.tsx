@@ -15,6 +15,7 @@ import { COLOR, Faint, FONT_MONO, Pill, TermCheckbox } from "./term";
 import { AddToCollectionPanel } from "./AddToCollection";
 import { StudyMapBriefWizard } from "./StudyMapBriefWizard";
 import { youtubeVideoId } from "./sourceTail";
+import { screenLeavesKey } from "../app/keymap";
 
 // Left-sidebar successor to the legacy "recent ingests" column: the v2
 // source-library cards in compact row form. Mirrors RecentIngestRow's header
@@ -242,6 +243,7 @@ function DeleteSourceDialog({
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      if (screenLeavesKey(e, { modal: true })) return;
       if (e.key === "Escape") onClose();
     }
     window.addEventListener("keydown", onKeyDown);

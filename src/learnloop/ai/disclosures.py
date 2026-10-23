@@ -31,6 +31,10 @@ JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("ad_forecast_llm", "llm", "adaptive_difficulty"),
     ("ad_forecast_decider", "decider", "adaptive_difficulty"),
     ("ad_feature_audit", "llm", "ad_feature_audit"),
+    ("workbench_check", "llm", "workbench_check"),
+    ("passage_cue_judge", "llm", "cues"),
+    ("reading_path_judge", "llm", "reading_paths"),
+    ("figure_author", "llm", "figures"),
 )
 
 _WHEN = {
@@ -135,6 +139,37 @@ _WHEN = {
         "submit an answer you had hints on that was not fully right, on a question with an approach map: the "
         "question, its approach map, your submitted answer and where each hint was aiming, so LearnLoop's model "
         "can say how far along the route your answer got. Measurement only: it never changes your grade."
+    ),
+    "workbench_check": (
+        "While workbench.help_enabled is on, each time you press \"Check my work\" in the workbench: the "
+        "problem, its reference solution and rubric, your steps, and the question's approach map when it has "
+        "one, so LearnLoop's model can say which steps hold. Never sent to Codex. It never grades you."
+    ),
+    "cues": (
+        "While cues.enabled and cues.discovery_enabled are on, in the background when you open a book in the "
+        "Reader: for each of your open questions on what the book teaches (a misunderstanding LearnLoop's "
+        "model named from your answers, an open explanation it is weighing, a gap named from your own words) "
+        "and for each skill you have shown, its statement and passages from that book, so LearnLoop's model "
+        "can say which passages connect to it and quote what they rely on. At most "
+        "cues.max_calls_per_source_open calls per open and cues.max_calls_per_source_per_day per book in any 24 hours; "
+        "never material held out for an exam, never a "
+        "solution. Display only: it never grades you."
+    ),
+    "reading_paths": (
+        "While reading_paths.enabled is on, once per book and depth (and again when the depth, the book's "
+        "sections or your status on what they teach changes), when the Guide shows your reading path: the "
+        "book's section titles in order, each section's instructional roles, the titles of the topics each "
+        "teaches with your status on each (shown on your own, assumed known, learning, new), the depth you "
+        "chose and your active goal's title, so LearnLoop's model can say which sections are core, "
+        "prerequisite or enrichment. No passage text, nothing you wrote, never material held out for an "
+        "exam. Display only: it changes no plan and never grades you."
+    ),
+    "figures": (
+        "While figures.enabled is on, each time you press \"make this explorable\" in the Reader: the selected "
+        "passage, its caption and the paragraphs around it (and the figure's image or your selected region of "
+        "it, when the route can read images), so LearnLoop's model can write an interactive version; with "
+        "figures.revisions_enabled, a \"not right?\" note you write goes with the earlier version. Nothing else "
+        "about you, and never material held out for an exam."
     ),
 }
 

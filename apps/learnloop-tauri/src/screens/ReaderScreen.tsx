@@ -37,6 +37,7 @@ import type {
   ReaderCoachLintDto,
   SourceLibraryCard,
   ReaderAnnotationPlacementDto,
+  ReadingPathExerciseDto,
 } from "../api/dto";
 import { COLOR, Card, Dim, Faint, FONT_MONO, KeyBar, Meta, Pill, TermSelect } from "../components/term";
 import { MarkdownMath } from "../render/MarkdownMath";
@@ -65,7 +66,7 @@ import { YouTubeWatchPanel, type WatchPanelHandle } from "./reader/YouTubeWatchP
 import { useReaderCues, type CueCheckMeRequest, type CueRequestOrigin } from "./reader/useReaderCues";
 import type { PdfPageLayout } from "./reader/cues";
 import { CueFooter, MarginMark } from "./reader/MarginMark";
-import type { ReaderCueDto } from "../api/dto";
+import type { PassageTarget, ReaderCueDto } from "../api/dto";
 
 import { type ReaderExchange } from "./reader/ReaderAskBranches";
 import { DetourStrip } from "./reader/DetourStrip";
@@ -80,7 +81,10 @@ import {
 } from "./reader/activity";
 import { goTo as stackGoTo } from "./reader/returnStack";
 import { AskRail } from "./reader/AskRail";
+import { createTutorOfferStore } from "./reader/TutorOffers";
 import { GuideRail, SectionBoundaryOffer } from "./reader/GuideRail";
+import { ReadingPathCard } from "./reader/ReadingPathCard";
+import { readingPathRefreshKey } from "./reader/readingPath";
 import { useReaderRecap } from "./reader/useReaderRecap";
 import { RecapCard } from "./reader/RecapCard";
 import { WrapUpPanel } from "./reader/WrapUpPanel";
@@ -90,15 +94,22 @@ import { IntentBox } from "./reader/IntentBox";
 import { useIntentBox, type IntentCancel, type IntentRunHandle, type IntentRunHow } from "./reader/useIntentBox";
 import { useActiveReading } from "./reader/useActiveReading";
 import { ActiveReadingCard, NextStepFoldLine } from "./reader/ActiveReadingCard";
+import { FiguresUnder } from "./reader/figures/FigureInline";
+import { useFigures } from "./reader/figures/useFigures";
 import { useLibraryAsk } from "./reader/useLibraryAsk";
 import { LibraryPane } from "./reader/LibraryPane";
+import { CompareKeepContext } from "./reader/compareKeepContext";
+import { KeptMark } from "./reader/KeptMark";
+import { useKeptComparisons } from "./reader/useKeptComparisons";
 import { LibraryAnswer } from "./reader/LibraryAnswer";
 import type { ReaderIntentActionDto } from "../api/dto";
 import { algoConfig } from "../app/algoConfig";
 import { useReaderWorkbench, type ReaderWorkbenchProps } from "./reader/useReaderWorkbench";
-import { Workbench } from "./workbench/Workbench";
+import { exerciseOpenRequest, type ExerciseCandidate, type ReaderWorkbenchExercise } from "./reader/exerciseCandidates";
+import type { LibraryExercisesProps } from "./reader/LibraryAnswer";
+import { ReaderWorkingPosture } from "./reader/ReaderWorkingPosture";
 import { WORKBENCH_COPY, problemTitle } from "./workbench/stepModel";
-import { MIN_WORKBENCH_WIDTH, SPLIT_STEP, clampSplitWidth } from "./workbench/splitWidth";
+import { screenLeavesKey } from "../app/keymap";
 import {
   askGroundingSpans,
   clip,
@@ -181,7 +192,15 @@ export interface ReaderOpenSource {
  *  your own, and the passage to come back to after its feedback. */
 export interface ReaderCheckMeRequest extends CueCheckMeRequest {
   card: SourceLibraryCard;
+  /** RW4b: the sources service's import that wrote the item (an exercise's pick). */
+  importId?: string | null;
+  /** RW4b: an admitted exercise resumes its own problem ("practice_this"). */
+  entry?: "check_me" | "practice_this";
 }
+
+/** RW4b "use this one" on a textbook exercise: the problem to open at once
+ *  on its verbatim statement, in the source it comes from. */
+export type ReaderExerciseRequest = ReaderWorkbenchExercise & { card: SourceLibraryCard };
 
 export function ReaderScreen({
   onError,
@@ -190,10 +209,16 @@ export function ReaderScreen({
   onOpenLibrary,
   shelf,
   onCheckMe,
+  onUseExercise,
   workbench,
   onSkimmingChange,
+  askRequest,
 }: {
   onError: (message: string) => void;
+  /** UX Phase 2: the palette's "Ask the tutor about this" with a book open.
+   *  Each new value opens the rail on Ask and focuses its box; the value the
+   *  Reader mounts with opens nothing. */
+  askRequest?: number;
   /** The source that was open when the Reader last unmounted (hoisted by the shell). */
   initialSource?: ReaderOpenSource | null;
   onSourceChange?: (next: ReaderOpenSource | null) => void;
@@ -206,6 +231,9 @@ export function ReaderScreen({
   /** RW3a: open the item a margin cue's "check me" found, as a learner pick
    *  with the book out of view; absent, the cue offers no check me. */
   onCheckMe?: (request: ReaderCheckMeRequest) => void;
+  /** RW4b: "use this one" on a textbook exercise, a learner pick the shell
+   *  opens in the working posture; absent, the cards offer only the book. */
+  onUseExercise?: (request: ReaderExerciseRequest) => void;
   /** RW2a: the workbench's shell wiring (the practice session, the submit's
    *  hand-off to feedback, back from feedback to the problem). The workbench
    *  itself shows only while workbench.enabled is on. */
@@ -251,6 +279,8 @@ export function ReaderScreen({
   // fixed text as the exercise surface.
   const [editingCapture, setEditingCapture] = useState(false);
   const [railTab, setRailTab] = useState<ReaderRailTab>("guide");
+  // RW7a: bumped by Orient's "what matters here?" (the path card scrolls into view).
+  const [pathFocus, setPathFocus] = useState(0);
   const [annotations, setAnnotations] = useState<MarginAnnotation[]>([]);
   const [note, setNote] = useState("");
   const [answerMode, setAnswerMode] = useState<ReaderAnswerMode>("answer_directly");
@@ -350,6 +380,22 @@ export function ReaderScreen({
   // reader_inquiry on): the intent box, and active reading.
   const intentContract = inquiry && !offline ? contract?.intent ?? null : null;
   const activeReadingOn = inquiry && !offline && Boolean(contract?.activeReading);
+  // RW5a: explorable figures (the contract names them only while figures.enabled is on).
+  const figuresCtl = useFigures({ extractionId: render && !offline ? render.extractionId : null, contract: contract?.figures ?? null });
+  // RW1c: the tutor that looks things up (absent from the contract while both its switches are off).
+  const readerTutor = contract?.readerTutor ?? null;
+  // RW1c: the bound workbench session an Ask comes from (set once the workbench hook runs below).
+  const askWorkbenchSessionRef = useRef<string | null>(null);
+  // RW1c (Codex review F8): the composer's personalized chip, at the vault's
+  // default until the learner switches it; sent with every Ask while the
+  // tutor looks things up.
+  const [askPersonalized, setAskPersonalized] = useState<boolean | null>(null);
+  const askPersonalizedOn = askPersonalized ?? readerTutor?.personalizedDefault ?? true;
+  const askPersonalizedRef = useRef<boolean | null>(null);
+  askPersonalizedRef.current = readerTutor?.retrieval ? askPersonalizedOn : null;
+  // RW1c (Codex review F6): the offers' lookups belong to their exchanges, so
+  // collapsing an answer runs nothing again.
+  const [tutorOfferStore] = useState(createTutorOfferStore);
 
   const blocks: ReaderRenderBlockDto[] = useMemo(
     () => (render?.blocks ?? []).filter((b) => !FURNITURE_BLOCK_TYPES.has(b.blockType ?? "")),
@@ -446,7 +492,8 @@ export function ReaderScreen({
     question, setQuestion, askComposerVersion, parentExchange, setParentExchange, history, visibleAskHistory,
     normalizedAskFind, collapsedAskIds, setCollapsedAskIds, askFindOpen, setAskFindOpen, askFindQuery,
     setAskFindQuery, askFindInputRef, askPhase, askTabMarked, returnStack, returnStackRef, reconnect,
-    inquiryChecks, passageCheckOffered, submitAsk, ask, cancelAsk, setInquiryStatus, markBranchDone, commitInquiry,
+    inquiryChecks, passageCheckOffered, submitAsk, ask, askAnotherWay, askDidntHelp, cancelAsk, setInquiryStatus,
+    markBranchDone, commitInquiry,
     committedFor, openInquiry, startQuickCheck, cancelQuickCheck, dismissInquiryCheck, answerReconnect, inquiryCheckAction,
     escalateInquiryCheck, peekPassage, restoreEntry, onBodyScroll, noteSourceOpened, rememberLeftSource,
     resetInquiryState,
@@ -457,6 +504,8 @@ export function ReaderScreen({
     guideSectionBySpan: progress.guideSectionBySpan, jumpToSpan, onReadingScroll: progress.onReadingScroll,
     jumpGuardRef: progress.jumpGuardRef, bodyRef, askComposerRef, openSourceRef,
     onRestored: progress.noteRestored,
+    workbenchSessionRef: askWorkbenchSessionRef,
+    personalizedRef: askPersonalizedRef,
   });
 
   // RW3a: margin cues from the Guide's own citations (screens/reader/useReaderCues).
@@ -505,13 +554,43 @@ export function ReaderScreen({
     onError,
   });
   const working = wbCtl.active !== null;
+  // RW7a (Codex review F3, re-review F3): what the mounted reading-path card
+  // re-reads on, a landed progress save included.
+  // The Guide being shown again, the plan re-read (a diagnosis landed), a
+  // quick check answered, a workbench problem submitted or set aside, and
+  // each section read through or finished.
+  const [guideShown, setGuideShown] = useState(0);
+  useEffect(() => {
+    if (railTab === "guide" && !railCollapsed) setGuideShown((value) => value + 1);
+  }, [railTab, railCollapsed]);
+  const [guideReads, setGuideReads] = useState(0);
+  useEffect(() => {
+    if (guidePlan) setGuideReads((value) => value + 1);
+  }, [guidePlan]);
+  const pathRefreshKey = readingPathRefreshKey({
+    sections: guidePlan?.sections ?? [],
+    completedSections,
+    sectionSeen,
+    progressSaves: progress.progressSaves,
+    signals: [guideShown, guideReads, answeredSections.length,
+      wbCtl.sessions.map((entry) => `${entry.sessionId}:${entry.status}`).join(",")],
+  });
+  // Sent whenever EITHER RW1c switch is on (fix round 4, F3): the server
+  // derives the bound item's restriction from it (a cold administration
+  // refuses tools and offers), with retrieval off too. `readerTutor` is
+  // in the contract only while one of them is on.
+  askWorkbenchSessionRef.current = readerTutor && wbCtl.active?.session.practiceItemId
+    ? wbCtl.active.session.sessionId : null;
+  const tryFirstRef = useRef<((spanId: string) => void) | null>(null);
   const cueCtl = useReaderCues({
     working,
     render, offline, guidePlan, reloadGuidePlan, skimming: mode === "skim", restoredSpanId: progress.restoredSpan,
     surface: cueSurface, pdfBlocks: pdfView?.blocks ?? null, pdfLayout, bodyRef,
     layoutKey: `${render?.renderViewId ?? ""}:${surface}:${guidePlan?.extractionId ?? ""}:${blocks.length}:${railCollapsed ? 1 : 0}`,
     spanOrder, readingSpan, visitPayload, jumpToSpan, notePlacement: progress.notePlacement,
-    onCheckMe: onCheckMe ? checkMeFromCue : undefined, onError,
+    onCheckMe: onCheckMe ? checkMeFromCue : undefined,
+    // RW3b: "try the next step first" is RW1b's next-step question at that line.
+    onTryFirst: activeReadingOn ? (spanId: string) => tryFirstRef.current?.(spanId) : undefined, onError,
   });
   // RW6a: "Last time here" and Wrap up (screens/reader/useReaderRecap). Off
   // (no `recap` key from the sidecar) it asks nothing and renders nothing.
@@ -580,10 +659,12 @@ export function ReaderScreen({
       onOpenEarlier={() => cueCtl.openEarlier(cue)}
       onCheckMe={() => cueCtl.checkMe(cue)}
       onNotRelevant={(text) => cueCtl.notRelevant(cue, text)}
-      onFewer={cueCtl.fewer}
+      onFewer={() => cueCtl.fewerOn(cue)}
       onOffBook={cueCtl.offBook}
       onOffEverywhere={cueCtl.offEverywhere}
-      onSeen={() => cueCtl.noteSeen(cue)}
+      onSeen={(planId) => cueCtl.noteSeen(cue, planId)}
+      planId={cueCtl.planId}
+      {...(cueCtl.canTryFirst ? { onTryFirst: () => cueCtl.tryFirst(cue) } : {})}
     />
   );
   const cueMarksFor = (markSurface: "pdf" | "watch") =>
@@ -1063,6 +1144,7 @@ export function ReaderScreen({
   useEffect(() => {
     if (!removed) return;
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.key.toLowerCase() !== "z") return;
       const target = event.target;
       if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;
@@ -1160,6 +1242,21 @@ export function ReaderScreen({
   // (and in place on the library page). Off (no `libraryAsk` in the contract)
   // nothing renders and no key does anything new.
   const libraryCtl = useLibraryAsk({ contract, openSourceId: render?.sourceId ?? null, onError });
+  // RW4d: the ⇄ marks of comparisons the learner kept (off: none, nothing read).
+  const keptCtl = useKeptComparisons({ contract, extractionId: render?.extractionId ?? null, sourceId: render?.sourceId ?? null, offline });
+  // RW4d on the original PDF (Codex review F10): the ⇄ marks join the page's
+  // overlay gutter beside the cue marks. They are the learner's own marks:
+  // added after the cue placement, so the density setting never counts them.
+  const pdfMarks = (): ReadonlyMap<string, ReactNode> | null => {
+    const cues = cueMarksFor("pdf");
+    if (working || keptCtl.marks.size === 0) return cues;
+    const merged = new Map<string, ReactNode>(cues ?? []);
+    for (const [spanId, mark] of keptCtl.marks) {
+      const cue = merged.get(spanId);
+      merged.set(spanId, <Fragment key={`kept-${spanId}`}>{cue}<KeptMark mark={mark} surface="pdf" below={Boolean(cue)} /></Fragment>);
+    }
+    return merged;
+  };
   const [libraryCompose, setLibraryCompose] = useState<string | null>(null);
   const comparing = Boolean(render) && !offline && !working && (libraryCtl.open || libraryCompose !== null);
   const askLibraryHere = useCallback((query: string, entry: LibraryAskEntry, spanIds: string[]) => {
@@ -1175,6 +1272,7 @@ export function ReaderScreen({
   useEffect(() => {
     if (!libraryCtl.enabled || !render || offline || working) return;
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if (!(event.ctrlKey || event.metaKey) || !event.shiftKey || event.key.toLowerCase() !== "f") return;
       event.preventDefault();
       libraryCtl.close();
@@ -1367,6 +1465,7 @@ export function ReaderScreen({
       setDomBoxes([]);
     };
     const onKeyDown = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if (event.key === "Control" || event.key === "Meta") setDomArmed(true);
       if (event.key === "Escape" && (domBoxesRef.current.length || domDragRef.current)) clearDomBoxes();
     };
@@ -1521,6 +1620,7 @@ export function ReaderScreen({
   useEffect(() => {
     if (!tagMenu) return;
     const handler = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if (event.key === "Escape") setTagMenu(null);
     };
     window.addEventListener("keydown", handler, true);
@@ -1566,6 +1666,7 @@ export function ReaderScreen({
   useEffect(() => {
     if (!inquiry || !render) return;
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if (event.altKey || event.ctrlKey || event.metaKey) return;
       const target = event.target;
       if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;
@@ -1588,6 +1689,36 @@ export function ReaderScreen({
       /* A per-device preference; reading works without it. */
     }
   }, [railCollapsed]);
+
+  // UX Phase 2 (Codex review F5): the palette's ask opens this Ask, as the
+  // learner asked (D41), with its box focused; it never sends a question.
+  // Fix round 3 (whole-stage verify 20261021-130232-Uk06Al item 4): from any
+  // posture. Comparing hides the rail, so the comparison closes first. The
+  // working posture hides it too, and leaving it is the learner's call (Leave
+  // for now saves the steps, and can be refused), so a visible line in the
+  // workbench says how, and Ask opens once the learner has left.
+  const askRequestSeen = useRef(askRequest);
+  const [askWaitsForWork, setAskWaitsForWork] = useState(false);
+  const revealAskRef = useRef<() => void>(() => undefined);
+  revealAskRef.current = () => {
+    if (libraryCtl.open || libraryCompose !== null) closeLibrary();
+    setRailCollapsed(false);
+    setRailTab("ask");
+    window.setTimeout(() => askComposerRef.current?.focus({ preventScroll: true }), 0);
+  };
+  useEffect(() => {
+    if (askRequest === undefined || askRequest === askRequestSeen.current) return;
+    askRequestSeen.current = askRequest;
+    if (working) setAskWaitsForWork(true);
+    else revealAskRef.current();
+    // `working` is read as it is when the request arrives, not followed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [askRequest]);
+  useEffect(() => {
+    if (working || !askWaitsForWork) return;
+    setAskWaitsForWork(false);
+    revealAskRef.current();
+  }, [working, askWaitsForWork]);
 
   // Palette (§5.2): a preset runs the local-first capture transaction. Commit presets
   // also create a commitment; synthesis is enqueued off the hot path (§5.3, §6).
@@ -1964,6 +2095,70 @@ export function ReaderScreen({
     [enabled, boundaryBlock, onError],
   );
 
+  // RW4a: "open" a library hit: this book jumps to it (a peek crumb); another
+  // book opens in the left pane as a detour (Alt+← comes back here). Defined
+  // before every early return: the library page (no book open) uses it too,
+  // through the exercise cards' actions (RW4b, Codex review F1).
+  const openLibraryHit = (hit: Pick<LibraryHitDto, "sourceId" | "extractionId" | "spanId">) => {
+    if (render && hit.sourceId === render.sourceId) {
+      peekPassage(hit.spanId);
+      return;
+    }
+    const card = (library ?? []).find((candidate) => candidate.sourceId === hit.sourceId);
+    if (!card || opening !== null) return;
+    if (render && !offline) {
+      const spanId = readingSpan ?? activeSpan;
+      rememberLeftSource({
+        id: newActivityId(), kind: "origin", sourceId: render.sourceId, sourceTitle,
+        extractionId: render.extractionId, spanId, selection, railTab, exchangeId: null,
+        label: sourceTitle ?? "where I was", openedAt: Date.now(),
+      });
+    }
+    void openSource(card, hit.spanId, { via: "search", jumpReading: hit.extractionId });
+  };
+  // RW2c review F1: a passage the workbench names (a worked example, a picked
+  // passage) may be in another book. In this book it is a peek, as before;
+  // in another it opens there, as a library hit does (a detour: Alt+← comes
+  // back, and the problem keeps its ✎ resume mark).
+  const peekWorkbenchPassage = (spanId: string, target?: PassageTarget) => {
+    if (target?.sourceId && render && target.sourceId !== render.sourceId) {
+      openLibraryHit({ sourceId: target.sourceId, extractionId: target.extractionId ?? "", spanId });
+      return;
+    }
+    peekPassage(spanId);
+  };
+  // RW4b: the candidate cards (spec §7.4). "Open in the book" is the same
+  // detour as a library hit's "open"; "use this one" is a learner pick the
+  // shell opens in the working posture, in the exercise's own source (opened
+  // as a detour when another book is open, so Alt+← comes back).
+  const exerciseSettings = libraryCtl.enabled ? contract?.libraryExercises ?? null : null;
+  const exerciseCard = (sourceId: string | null) =>
+    (sourceId ? (library ?? []).find((candidate) => candidate.sourceId === sourceId) : undefined)
+    ?? (openCardRef.current && (!sourceId || openCardRef.current.sourceId === sourceId) ? openCardRef.current : undefined);
+  const [openingExercise, setOpeningExercise] = useState<string | null>(null);
+  const useExercise = (candidate: ExerciseCandidate) => {
+    const card = exerciseCard(candidate.sourceId ?? render?.sourceId ?? null);
+    if (!card || !onUseExercise) return;
+    setOpeningExercise(candidate.key);
+    window.setTimeout(() => setOpeningExercise((current) => (current === candidate.key ? null : current)), 1500);
+    onUseExercise({ ...exerciseOpenRequest(candidate), sourceId: card.sourceId, card });
+    if (!render || render.sourceId !== card.sourceId) {
+      openLibraryHit({ sourceId: card.sourceId, extractionId: candidate.extractionId, spanId: candidate.spanIds[0] ?? "" });
+    }
+  };
+  const openExerciseInBook = (candidate: ExerciseCandidate) => {
+    const sourceId = candidate.sourceId ?? render?.sourceId ?? null;
+    if (sourceId) openLibraryHit({ sourceId, extractionId: candidate.extractionId, spanId: candidate.spanIds[0] ?? "" });
+  };
+  const exerciseProps: LibraryExercisesProps | null = exerciseSettings
+    ? {
+        settings: exerciseSettings,
+        // "Use this one" opens the workbench; without it, only the book is offered.
+        onUse: wbCtl.enabled && onUseExercise ? useExercise : null,
+        onOpenInBook: openExerciseInBook,
+        opening: openingExercise,
+      }
+    : null;
   // ── A book still being prepared: its original, at once (UX Phase 1, §6.3) ──
   // On the library page no book is open: the pick is the same learner pick,
   // coming back to the answer's first passage (Codex review F10). With the
@@ -2063,6 +2258,8 @@ export function ReaderScreen({
               </div>
               {libraryCtl.enabled ? <Faint style={{ fontSize: 10 }}>↵ search by meaning · ⇧↵ ask your library</Faint> : null}
               {libraryCtl.open ? (
+                // RW4d: keep and reopen work on the library page too (Codex review F3).
+                <CompareKeepContext.Provider value={keptCtl.context}>
                 <Card style={{ padding: 0 }}>
                   <LibraryAnswer
                     ctl={libraryCtl}
@@ -2072,8 +2269,10 @@ export function ReaderScreen({
                     }}
                     onPracticePick={onCheckMe ? pickLibraryPagePractice : null}
                     onClose={libraryCtl.close}
+                    exercises={exerciseProps}
                   />
                 </Card>
+                </CompareKeepContext.Provider>
               ) : null}
               {searchError ? (
                 <div role="alert" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.red }}>
@@ -2187,6 +2386,16 @@ export function ReaderScreen({
     const title = problemTitle(stem);
     return title === "this problem" ? clip(stem, 48) : title;
   };
+  // RW7a: the reading path's "Try it" -- the exercise in the workbench through
+  // the usual import of a selected problem, with the book open.
+  const tryPathExercise = (exercise: ReadingPathExerciseDto) => {
+    if (!render) return;
+    void wbCtl.openSelection({
+      stemMd: exercise.statement,
+      spanIds: exercise.spanIds,
+      importRequest: { ...exercise.importRequest, renderViewId: render.renderViewId, clientIdempotencyKey: newKey() },
+    });
+  };
   const workThroughSelection = () => {
     if (!render || !selection) return;
     const nodes = selectionNodes(selection);
@@ -2214,6 +2423,8 @@ export function ReaderScreen({
     const last = Math.max(...positions);
     return blocks.slice(last + 1, last + 1 + foldBlocks).flatMap((block) => (block.spanId ? [block.spanId] : []));
   };
+  // RW3b: a try-first cue opens the next-step question at its line (the same act as RW1c's button).
+  tryFirstRef.current = (spanId: string) => void activeCtl.start("next_step", [spanId], localFold([spanId]));
   runIntentRef.current = (action, text, how) => {
     const meta = { intention: action.intention, entry: how.entry };
     const effect = action.effect;
@@ -2254,6 +2465,20 @@ export function ReaderScreen({
         logReaderAction("action_invoked", { ...visitPayload(), action_kind: effect.entry, ...meta });
         askLibraryHere(text || (selection ? (selection.editedText ?? selection.quote) : ""), effect.entry, selectionSpanIds);
         return;
+      case "reading_path":
+        // RW7a: Orient's "what matters here?" opens the Guide's reading path.
+        logReaderAction("action_invoked", { ...visitPayload(), action_kind: "what_matters_here", ...meta });
+        setRailCollapsed(false);
+        setRailTab("guide");
+        setPathFocus((value) => value + 1);
+        return;
+      case "figure": {
+        // RW5a: built in the background; it lands under its passage.
+        logReaderAction("action_invoked", { ...visitPayload(), action_kind: "make_explorable", ...meta });
+        const region = selection?.region ? { spanId: selection.region.spanId, bbox: selection.region.bbox } : null;
+        figuresCtl.request({ spanIds: region ? [] : selectionSpanIds, region });
+        return;
+      }
     }
   };
   // "change" cancels the routed action (spec §4.2; RW1b review F4): an Ask
@@ -2291,29 +2516,11 @@ export function ReaderScreen({
       }
     });
   };
-  const leaveWorkbench = (session: Parameters<typeof wbCtl.close>[0], abandonedNow = false) => {
-    const spanId = wbCtl.close(session, { abandoned: abandonedNow });
+  const leaveWorkbench = (session: Parameters<typeof wbCtl.close>[0], abandonedNow = false, generation?: number) => {
+    // A stale departure (another problem opened since) returns null: nothing jumps (RW4b fix round 5, R5).
+    const spanId = wbCtl.close(session, { abandoned: abandonedNow, ...(generation !== undefined ? { generation } : {}) });
     // Collapse back into ordinary reading at the problem's passage.
     if (spanId) window.setTimeout(() => jumpToSpan(spanId), 0);
-  };
-  // RW4a: "open" a library hit: this book jumps to it (a peek crumb); another
-  // book opens in the left pane as a detour (Alt+← comes back here).
-  const openLibraryHit = (hit: LibraryHitDto) => {
-    if (render && hit.sourceId === render.sourceId) {
-      peekPassage(hit.spanId);
-      return;
-    }
-    const card = (library ?? []).find((candidate) => candidate.sourceId === hit.sourceId);
-    if (!card || opening !== null) return;
-    if (render && !offline) {
-      const spanId = readingSpan ?? activeSpan;
-      rememberLeftSource({
-        id: newActivityId(), kind: "origin", sourceId: render.sourceId, sourceTitle,
-        extractionId: render.extractionId, spanId, selection, railTab, exchangeId: null,
-        label: sourceTitle ?? "where I was", openedAt: Date.now(),
-      });
-    }
-    void openSource(card, hit.spanId, { via: "search", jumpReading: hit.extractionId });
   };
   // RW4a: "practice this ▸" is a learner pick the plan serves (the same path as
   // a cue's check me), with the book out of view.
@@ -2343,6 +2550,7 @@ export function ReaderScreen({
   };
 
   return (
+    <CompareKeepContext.Provider value={keptCtl.context}>
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       <div style={{ flexShrink: 0, borderBottom: `1px solid ${COLOR.border}`, padding: "22px 32px", display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
@@ -2527,9 +2735,15 @@ export function ReaderScreen({
               onTagMenu={setTagMenu}
               onError={onError}
               inlineNote={inlineReconnect && reconnect ? { spanId: reconnect.spanId, node: inlineReconnect } : null}
-              marks={cueMarksFor("pdf")}
+              marks={pdfMarks()}
               onPageLayout={setPdfLayout}
               {...(activeCtl.folded.size ? { coveredSpans: activeCtl.folded } : {})}
+              {...(figuresCtl.enabled ? {
+                inlineNotes: [...new Set([...figuresCtl.figures.map((f) => f.anchorSpanId), ...figuresCtl.pending.map((p) => p.anchorSpanId)])]
+                  .filter((spanId): spanId is string => Boolean(spanId))
+                  .map((spanId) => ({ spanId, node: <FiguresUnder ctl={figuresCtl} spanId={spanId} /> })),
+                regionSelection: Boolean(contract?.figures?.region),
+              } : {})}
             />
           ) : null}
           {removed ? (
@@ -2614,12 +2828,13 @@ export function ReaderScreen({
                   background: block.spanId && annotatedSpans.has(block.spanId) ? "rgba(245, 166, 35, 0.04)" : guidePassage ? COLOR.washPurple : undefined,
                   paddingLeft: 12,
                   // RW3a: a margin mark sits in the column's gutter, beside its passage.
-                  position: cueMark || (block.spanId && wbResumeBySpan.has(block.spanId) && !working) ? "relative" : undefined,
+                  position: cueMark || (block.spanId && (wbResumeBySpan.has(block.spanId) || keptCtl.marks.has(block.spanId)) && !working) ? "relative" : undefined,
                 }}
               >
                 {folded ? null : (<>
                 {cueMark ? renderMark(cueMark, "text") : null}
                 {resumeMark(block.spanId)}
+                {block.spanId && !working && keptCtl.marks.get(block.spanId) ? <KeptMark mark={keptCtl.marks.get(block.spanId)!} /> : null}
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   {guidePassage ? <Pill color="purple">worth a second look</Pill> : null}
                   {BADGED_HEALTH.has(block.health.status) ? (
@@ -2651,6 +2866,7 @@ export function ReaderScreen({
                 </>)}
               </div>
               {inlineReconnect && reconnect && block.spanId === reconnect.spanId ? inlineReconnect : null}
+              {figuresCtl.enabled ? <FiguresUnder ctl={figuresCtl} spanId={block.spanId} /> : null}
               {offerSection ? (
                 <SectionBoundaryOffer
                   section={endSection}
@@ -2669,81 +2885,19 @@ export function ReaderScreen({
         </div>
 
         {working && wbActive ? (
-          <>
-            {wbBookHidden && wbSourceShown ? (
-              // W8: the book hidden so this can be the learner's own attempt.
-              <div
-                data-testid="workbench-book-cover"
-                style={{
-                  position: "absolute", zIndex: 20, background: COLOR.bg, display: "flex", alignItems: "center",
-                  justifyContent: "center", padding: 32, textAlign: "center",
-                  ...(wbStacked ? { left: 0, right: 0, bottom: 0, top: "50%" } : { left: 0, top: 0, bottom: 0, width: `calc(100% - ${wbCtl.width + 6}px)` }),
-                }}
-              >
-                <div style={{ maxWidth: 360, fontFamily: FONT_MONO, fontSize: 12, lineHeight: 1.7, color: COLOR.textDim }}>
-                  <p style={{ margin: 0 }}>{WORKBENCH_COPY.bookHiddenCover}</p>
-                  <p style={{ margin: "10px 0 0" }}>{WORKBENCH_COPY.bookHiddenHow}</p>
-                </div>
-              </div>
-            ) : null}
-            {!wbStacked ? (
-              <div
-                role="separator"
-                aria-orientation="vertical"
-                aria-label="resize the workbench"
-                aria-valuemin={MIN_WORKBENCH_WIDTH}
-                aria-valuemax={clampSplitWidth(Number.MAX_SAFE_INTEGER, window.innerWidth)}
-                aria-valuenow={wbCtl.width}
-                tabIndex={0}
-                onKeyDown={(event) => {
-                  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-                    event.preventDefault();
-                    // The workbench is on the right: dragging the edge left widens it.
-                    wbCtl.resizeBy(event.key === "ArrowLeft" ? SPLIT_STEP : -SPLIT_STEP);
-                  }
-                }}
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  const startX = event.clientX;
-                  const startWidth = wbCtl.width;
-                  const onMove = (move: MouseEvent) => wbCtl.setWidth(startWidth + (startX - move.clientX));
-                  const onUp = () => {
-                    window.removeEventListener("mousemove", onMove);
-                    window.removeEventListener("mouseup", onUp);
-                  };
-                  window.addEventListener("mousemove", onMove);
-                  window.addEventListener("mouseup", onUp);
-                }}
-                style={{ width: 6, flexShrink: 0, cursor: "col-resize", borderLeft: `1px solid ${COLOR.border}`, background: COLOR.bg }}
-              />
-            ) : null}
-            <div
-              data-workbench-pane=""
-              data-layout={wbStacked ? "stacked" : "split"}
-              className="ll-scroll"
-              style={{
-                width: wbStacked ? "100%" : wbCtl.width, flexShrink: 0, minHeight: 0, overflowY: "auto",
-                ...(wbStacked ? { flex: wbSourceShown ? "0 0 50%" : "1 1 auto" } : { height: "100%" }),
-              }}
-            >
-              <Workbench
-                key={wbActive.session.sessionId}
-                initial={wbActive.session}
-                layout={wbStacked ? "stacked" : "split"}
-                readOnly={wbActive.readOnly}
-                autoFocus={wbActive.autoFocus}
-                practiceSessionId={workbench?.practiceSessionId ?? null}
-                schedulerCandidateId={wbActive.schedulerCandidateId}
-                planPresentationId={wbActive.planPresentationId}
-                onSession={wbCtl.update}
-                onLeave={(session) => leaveWorkbench(session)}
-                onAbandoned={(session) => leaveWorkbench(session, true)}
-                onSubmitted={wbCtl.submitted}
-                onShowInBook={() => wbCtl.setSheetOpen(!wbCtl.sheetOpen)}
-                onError={onError}
-              />
-            </div>
-          </>
+          <ReaderWorkingPosture
+            wbCtl={wbCtl}
+            active={wbActive}
+            stacked={wbStacked}
+            bookHidden={wbBookHidden}
+            sourceShown={wbSourceShown}
+            practiceSessionId={workbench?.practiceSessionId ?? null}
+            onLeave={(session, generation) => leaveWorkbench(session, false, generation)}
+            onAbandoned={(session, generation) => leaveWorkbench(session, true, generation)}
+            onPeekPassage={peekWorkbenchPassage}
+            onError={onError}
+            askWaiting={askWaitsForWork ? { onDismiss: () => setAskWaitsForWork(false) } : null}
+          />
         ) : null}
         {comparing && render ? (
           <LibraryPane
@@ -2754,6 +2908,7 @@ export function ReaderScreen({
             onOpenHit={openLibraryHit}
             onPracticePick={onCheckMe ? pickLibraryPractice : null}
             onClose={closeLibrary}
+            exercises={exerciseProps}
           />
         ) : null}
         {/* Right rail: annotation margin + capture + Ask */}
@@ -2908,6 +3063,16 @@ export function ReaderScreen({
             sendQuestionControl={sendQuestionControl}
             disposition={disposition}
             chooseDisposition={chooseDisposition}
+            path={contract?.readingPaths ? (
+              <ReadingPathCard
+                extractionId={render.extractionId}
+                onJump={(spanId) => jumpToSpan(spanId, "start")}
+                onTryExercise={wbCtl.enabled ? tryPathExercise : null}
+                onError={onError}
+                focusToken={pathFocus}
+                refreshKey={pathRefreshKey}
+              />
+            ) : undefined}
             header={recapCtl.wrapUpOpen || (recapCtl.recap && !muted) ? (
               <>
                 {recapCtl.wrapUpOpen ? (
@@ -2952,6 +3117,7 @@ export function ReaderScreen({
                 receipts={cueCtl.receipts}
                 onDensity={cueCtl.setDensity}
                 onTurnOnBook={cueCtl.turnOnBook}
+                discovered={cueCtl.discovered}
               />
             ) : null}
           />
@@ -3072,6 +3238,38 @@ export function ReaderScreen({
             onCommit={(root, preset) => void commitInquiry(root, preset)}
             committed={committedFor}
             renderInquiryTop={renderInquiryTop}
+            {...(readerTutor ? {
+              // RW1c: the tutor looks things up; another way, that didn't
+              // help and the offers under its answers (absent while off).
+              lookingUp: readerTutor.retrieval,
+              personalized: readerTutor.retrieval ? { on: askPersonalizedOn, onToggle: setAskPersonalized } : null,
+              tutor: {
+                anotherWay: readerTutor.anotherWay && inquiry && !offline,
+                offers: readerTutor.offers && !offline,
+                busy: busy || offline,
+                onAnotherWay: askAnotherWay,
+                onDidntHelp: askDidntHelp,
+                onPracticePick: onCheckMe ? (item, proposalId) => pickLibraryPractice(
+                  { practiceItemId: item.practiceItemId, prompt: item.prompt } as ProposedItemDto, proposalId) : null,
+                onTryNextStep: readerTutor.tryNextStep && activeReadingOn
+                  ? (spanId: string) => void activeCtl.start("next_step", [spanId], localFold([spanId]))
+                  : null,
+                // RW1c (Codex review F9): an excerpt or citation opens where
+                // it is (this book peeks; another opens as a detour).
+                onOpenPassage: offline ? null : (passage) => {
+                  if (render && passage.extractionId === render.extractionId) {
+                    peekPassage(passage.spanId);
+                    return;
+                  }
+                  if (passage.sourceId) {
+                    openLibraryHit({ sourceId: passage.sourceId, spanId: passage.spanId, extractionId: passage.extractionId });
+                  }
+                },
+                offerStore: tutorOfferStore,
+                // RW4b: a practice offer's textbook exercises, as RW4a's pane gets them.
+                exercises: exerciseProps,
+              },
+            } : {})}
           />
           {recapCtl.wrapUpOffered && !recapCtl.wrapUpOpen ? (
             // RW6a: offered once the session has activity (D34), never while
@@ -3164,5 +3362,6 @@ export function ReaderScreen({
         right={{ key: "^p", label: "palette" }}
       />
     </div>
+    </CompareKeepContext.Provider>
   );
 }

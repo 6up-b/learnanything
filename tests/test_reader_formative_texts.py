@@ -168,4 +168,7 @@ def test_the_widened_kinds_reach_the_salience_firewall_unchanged():
     from learnloop.diagnosis.text_gaps.contract import READABLE_SOURCE_KINDS, SOURCE_KINDS
 
     assert {"reader_formative", "workbench_text"} <= set(SOURCE_KINDS)
-    assert "workbench_text" not in READABLE_SOURCE_KINDS
+    # RW2b built the workbench_text adapter: readable now, and non-serving.
+    from learnloop.diagnosis.text_gaps.contract import NON_SERVING_SOURCE_KINDS
+
+    assert "workbench_text" in READABLE_SOURCE_KINDS and "workbench_text" in NON_SERVING_SOURCE_KINDS

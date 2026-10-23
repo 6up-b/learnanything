@@ -48,7 +48,7 @@ from learnloop.substrate import administration_adapters
 from learnloop.curriculum import commitments
 from learnloop.learner import familiarity
 from learnloop.tutor import tutor_qa
-from learnloop.tutor.ai_contracts import TutorAnswer, TutorCitation, TutorQAContext
+from learnloop.tutor.ai_contracts import ReaderTutorQAContext, TutorAnswer, TutorCitation, TutorQAContext
 from learnloop.substrate.activities import (
     append_exposure,
     log_interaction_event,
@@ -510,9 +510,31 @@ def ask(
     learning_object_suggester: Any | None = None,
     tool_request_handler: Any | None = None,
     source_span_provider: Any | None = None,
+    reader_tutor: Any | None = None,
+    reader_caller: Mapping[str, Any] | None = None,
+    reader_binding: Any | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Answer a span-grounded reader question (§7.6).
+
+    ``reader_binding`` (RW1c fix round 5, R1: a ``tutor.reader_modes.BoundAsk``
+    the adapter builds whatever the retrieval switch): the workbench item the
+    question is bound to. The tutor stores the question on it and guards the
+    complete delivered context and the thread with it (``tutor_qa``); the
+    manifest records what the tutor was given, and the exchange's
+    ``hint_equivalent`` is the stored row's flag. None changes nothing.
+
+    ``reader_caller`` (RW1c, Codex re-review F2): the restriction the adapter
+    derived on the server (cold, a bound item), stored with the question
+    (``tutor_qa.ask_question``); None stores nothing.
+
+    ``reader_tutor`` (reader workbench RW1c, a
+    ``tutor.reader_modes.ReaderTutorRequest`` the adapter builds): the tutor
+    looks things up. Its retrieved passages join the selection and its
+    neighbours, the answer comes in the three modes with abstention, the
+    manifest records the spans the tutor was given and the retrieval's
+    receipt, and the exchange keeps the answer's modes (``tutor``) for its
+    history. None (the switch off) changes nothing.
 
     ``source_span_provider`` (reader workbench RW4a, "ask the tutor about
     these"): the passages the learner pinned replace the selection's
@@ -656,17 +678,33 @@ def ask(
         learning_object_suggester=learning_object_suggester,
         tool_request_handler=tool_request_handler,
         source_span_provider=source_span_provider,
+        reader_tutor=reader_tutor,
+        reader_caller=reader_caller,
+        reader_binding=reader_binding,
         clock=clock,
     )
-    if source_span_provider is not None:
+    if source_span_provider is not None or "reader_tutor" in result or reader_binding is not None:
         # The manifest's spans are exactly the ones the tutor was given: the
         # pins as delivered (after the context budget), not the anchor's
-        # neighbours.
+        # neighbours; bound, after the item's guard (fix round 5, R1).
         delivered = (repository.question_event(result["event_id"]) or {}).get("source_context") or {}
         manifest["source_spans"] = list(delivered.get("source_spans") or [])
-        manifest["source_retrieval"] = delivered.get("source_retrieval")
+        if source_span_provider is not None or "reader_tutor" in result:
+            manifest["source_retrieval"] = delivered.get("source_retrieval")
         if delivered.get("delivery"):
             manifest["delivery"] = delivered["delivery"]
+    if reader_binding is not None and "bound_thread" in result:
+        # The earlier exchanges exactly as the tutor read them (fix round 7,
+        # R1: the one plan's thread), so the manifest records the delivered
+        # set, never an answer the prompt left out.
+        manifest["prior_exchanges"] = [
+            {"question_md": turn.get("question_md"), "answer_md": turn.get("answer_md")}
+            for turn in result["bound_thread"]
+        ]
+    # One source of truth (R1): bound, the exchange's and the response's
+    # flag is the question row's stored flag; unbound, the base's (the
+    # client's cold flag, which the cold path's practice row carries).
+    hint_equivalent = bool(result["hint_equivalent"]) if reader_binding is not None else bool(cold_active)
 
     # L3 server-side reveal detection: an answer can leak a reserved surface even when
     # the caller forgets to declare it. Derive candidate revealed reserves from the
@@ -714,6 +752,9 @@ def ask(
         burned.append(surface_id)
 
     submitted_payload: dict[str, Any] = {"question_event_id": result["event_id"]}
+    if "reader_tutor" in result:
+        # RW1c: the answer's modes, kept with the exchange for its history.
+        submitted_payload["tutor"] = result["reader_tutor"]
     if branches:
         submitted_payload["parent_exchange_id"] = parent_exchange_id
         if selection_source_quote_md:
@@ -740,7 +781,7 @@ def ask(
             # invariant 10: never ability evidence; routing-prior target only.
             "target_key": target_key,
             "outcome_class": "unknown",
-            "hint_equivalent": bool(cold_active),
+            "hint_equivalent": hint_equivalent,
             "source_visible": True,
         },
         clock=clock,
@@ -756,6 +797,7 @@ def ask(
         cold_hint_event_id = _record_cold_hint_equivalent(
             repository,
             cold_attempt_id=cold_attempt_id,
+            question_event_id=str(result["event_id"]),
             question_md=question_md,
             answer_md=result["answer_md"],
             span_key=span_key,
@@ -777,7 +819,7 @@ def ask(
         "manifest": manifest,
         "warmed_surface_ids": warmed,
         "burned_surface_ids": burned,
-        "hint_equivalent": bool(cold_active),
+        "hint_equivalent": hint_equivalent,
         "cold_hint_event_id": cold_hint_event_id,
         "remaining": result["remaining"],
     })
@@ -786,11 +828,13 @@ def ask(
         response["suggested_learning_objects"] = result["suggested_learning_objects"]
     if "tool_requests" in result:
         response["tool_requests"] = result["tool_requests"]
+    if "reader_tutor" in result:
+        response["tutor"] = result["reader_tutor"]
     return response
 
 
 def ask_history(
-    repository: Repository, *, extraction_id: str, branches: bool = True,
+    repository: Repository, *, extraction_id: str, branches: bool = True, tutor_views: bool = False,
 ) -> list[dict[str, Any]]:
     """Return every completed Reader Ask for one extraction, newest first.
 
@@ -805,6 +849,12 @@ def ask_history(
     resolution is its inquiry's status. The RPC passes False while
     ``reader_inquiry.enabled`` is off, which returns the flat projection of
     before.
+
+    ``tutor_views`` (RW1c fix round 5, R4): each exchange also carries the
+    answer's RW1c presentation (``tutor``: the excerpt, the bridge, the
+    modes). The RPC passes it only while either RW1c switch is on, so with
+    both off a saved RW1c answer projects exactly as the base projects it;
+    the durable event keeps everything.
     """
 
     prefix = f"span:{extraction_id}/"
@@ -833,6 +883,10 @@ def ask_history(
             "citations": list(payload.get("citations") or []),
             "created_at": event.get("created_at"),
         }
+        if tutor_views and payload.get("tutor"):
+            # RW1c: the answer's modes (absent on every exchange before RW1c,
+            # and while both RW1c switches are off).
+            exchange["tutor"] = dict(payload["tutor"])
         if branches:
             selection = manifest.get("selection") or {}
             question_event_id = payload.get("question_event_id")
@@ -859,14 +913,24 @@ def _record_cold_hint_equivalent(
     answer_md: str | None,
     span_key: str,
     clock: Clock | None,
+    question_event_id: str | None = None,
 ) -> str | None:
     """Record the cold reader Ask as a hint-equivalent PRACTICE question_event tied to
     the cold attempt's (item, session), so the practice evidence path counts it (L6).
-    No-op when the attempt cannot be resolved."""
+    No-op when the attempt cannot be resolved.
+
+    RW1c (fix round 4, F1): when the Reader question itself already counts as
+    a hint on the same item (a workbench session bound it: its row carries
+    the hint in the item's window, whatever the practice session), this row
+    is still written, as the link to the cold attempt, with its flag off, so
+    the hint counts once and is not lost when the session changes."""
 
     attempt = repository.fetch_practice_attempt(cold_attempt_id)
     if attempt is None:
         return None
+    asked = repository.question_event(question_event_id) if question_event_id else None
+    carried = bool(asked and asked.get("hint_equivalent")
+                   and asked.get("practice_item_id") == attempt.get("practice_item_id"))
     return repository.insert_question_event(
         {
             "context": "practice",
@@ -876,7 +940,7 @@ def _record_cold_hint_equivalent(
             "question_md": question_md,
             "answer_md": answer_md,
             "question_type": "other",
-            "hint_equivalent": True,
+            "hint_equivalent": not carried,
             "answer_status": "answered",
             "signal_channel": "interaction_preference",
             "provider": "reader",
@@ -1260,7 +1324,9 @@ class StubReaderClient:
         if request.purpose != "tutor_qa":
             raise ValueError(f"unsupported stub reader operation {request.purpose!r}")
         payload = json.loads(request.prompt.rsplit("\n\n", 1)[-1])
-        context = TutorQAContext(**payload["context"])
+        # RW1c: a Reader tutor that looks things up carries ``reader_tutor``.
+        context_type = ReaderTutorQAContext if "reader_tutor" in payload["context"] else TutorQAContext
+        context = context_type(**payload["context"])
         self.contexts.append(context)
         citations = [
             TutorCitation(

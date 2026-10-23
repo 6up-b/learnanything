@@ -3,13 +3,13 @@ title: "model_work_checkpoints"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_work_checkpoints"
   - "table model_work_checkpoints"
-schema_head: 214
+schema_head: 217
 table_name: "model_work_checkpoints"
 table_role: "workflow"
 functionality_status: "active"
@@ -20,13 +20,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/160_model_call_receipts.sql"
   - "src/learnloop/adaptive_difficulty/claims.py"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/ai/spend.py"
   - "src/learnloop/content/facet_identity/judge.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/daily_plan/router_teach_back.py"
   - "src/learnloop/db/stores/model_calls.py"
+  - "src/learnloop/db/stores/practice_index.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -108,9 +107,11 @@ None found by exact static reference scan.
 - `tests/test_model_work_checkpoints.py`
 - `tests/test_practice_index_dossiers.py`
 - `tests/test_practice_index_find.py`
+- `tests/test_reader_rw3b_protection.py`
 - `tests/test_recurrence_benchmarks.py`
 - `tests/test_source_ingestion_v2lite.py`
 - `tests/test_t6_followup_review.py`
+- `tests/test_workbench_text_gaps.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

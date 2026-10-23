@@ -44,6 +44,7 @@ from typing import Any, Iterable
 
 from learnloop.clock import parse_utc
 from learnloop.db.connection import connect
+from learnloop.db.stores.figures import shown_verification
 
 REPORT_VERSION = "reader-report-v1"
 OPEN_AFTER = timedelta(days=7)
@@ -88,13 +89,210 @@ def _when(value: str | None) -> datetime | None:
         return None
 
 
+#: An arm with fewer distinct outcomes than this gets counts, never an estimate.
+HOLDOUT_MIN_PER_ARM = 2
+
+
+def _holdout_estimate(units: list[dict[str, Any]]) -> dict[str, Any]:
+    """Shown vs held-out discovered cues (Codex review F11).
+
+    The experimental unit is the **randomized link**: the holdout draws once
+    per link, so a link's repeated impressions (visits) are one unit, exposed
+    at its first in-window impression in its arm, weighted 1/propensity. Its
+    outcome is the next attempt after that exposure on the target's facets
+    (its learning object when the target names none), kept with its attempt
+    id. Links whose outcome is the same attempt are one cluster: the mean is
+    self-normalized IPS over the links, the variance is computed over the
+    clusters (each cluster's summed weight), and an arm needs
+    ``HOLDOUT_MIN_PER_ARM`` distinct outcome attempts before it gets an
+    estimate, so a repeated outcome never makes a sample. When an outcome
+    attempt counts in both arms the arms are not independent, and the interval
+    (which adds the arms' variances) is withheld with a plain reason: the
+    effect is then a point estimate only (Codex verify F19). Density, spacing
+    and restored-line suppressions never reach here (not a holdout)."""
+
+    arms: dict[str, dict[str, Any]] = {"shown": {}, "held_out": {}}
+    links = {"shown": 0, "held_out": 0}
+    pending = {"shown": 0, "held_out": 0}
+    for index, unit in enumerate(units):
+        arm = "shown" if unit["shown"] else "held_out"
+        if not unit.get("propensity"):
+            continue
+        if unit.get("outcome") is None:
+            pending[arm] += 1
+            continue
+        links[arm] += 1
+        key = unit.get("outcome_attempt_id") or f"unit:{index}"
+        cluster = arms[arm].setdefault(key, {"weight": 0.0, "y": float(unit["outcome"])})
+        cluster["weight"] += 1.0 / float(unit["propensity"])
+
+    def arm_summary(clusters: dict[str, dict[str, Any]]) -> dict[str, Any]:
+        if not clusters:
+            return {"n": 0, "mean": None}
+        total = sum(c["weight"] for c in clusters.values())
+        mean = sum(c["y"] * c["weight"] for c in clusters.values()) / total
+        variance = sum((c["weight"] / total) ** 2 * (c["y"] - mean) ** 2 for c in clusters.values())
+        return {"n": len(clusters), "mean": round(mean, 4), "variance": variance}
+
+    shown, held = arm_summary(arms["shown"]), arm_summary(arms["held_out"])
+    shared = [key for key in arms["shown"] if key in arms["held_out"] and not key.startswith("unit:")]
+    out: dict[str, Any] = {
+        "shown": {"n": shown["n"], "links": links["shown"], "pending": pending["shown"], "mean": shown["mean"]},
+        "held_out": {"n": held["n"], "links": links["held_out"], "pending": pending["held_out"], "mean": held["mean"]},
+        "effect": None, "interval_95": None, "weighting": "1/propensity (self-normalized)",
+        "unit": "randomized link at its first exposure; links sharing an outcome attempt are one cluster",
+        "outcome": "the next attempt on the target's facets (else its learning object) after the first exposure",
+        "shared_outcomes": len(shared), "effect_label": None, "interval_withheld": None,
+    }
+    if shown["n"] >= HOLDOUT_MIN_PER_ARM and held["n"] >= HOLDOUT_MIN_PER_ARM:
+        effect = shown["mean"] - held["mean"]
+        out["effect"] = round(effect, 4)
+        if shared:
+            # The arms' variances add only for independent arms; an attempt
+            # counted in both makes them covary, and this analysis has no
+            # covariance term (Codex verify F19). So no interval is given
+            # rather than a wrong one, and the effect is named for what it is.
+            out["effect_label"] = "point estimate only"
+            out["interval_withheld"] = (
+                f"{len(shared)} outcome attempt{'s' if len(shared) != 1 else ''} counted in both arms: "
+                "LearnLoop can't separate the arms yet, so no interval is given and the effect is a point "
+                "estimate only.")
+        else:
+            half = 1.96 * math.sqrt(shown["variance"] + held["variance"])
+            out["effect_label"] = "point estimate with a 95% interval"
+            out["interval_95"] = [round(effect - half, 4), round(effect + half, 4)]
+    return out
+
+
+def _json_set(raw: Any) -> set[str]:
+    try:
+        values = json.loads(raw) if isinstance(raw, str) else (raw or [])
+    except ValueError:
+        return set()
+    return {str(value) for value in values or [] if value}
+
+
+def _holdout_units(connection: Any, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One unit per (link, arm) from the shown and held-out impressions: its
+    first exposure, its propensity, and the next attempt on its target."""
+
+    units: dict[tuple[str, bool], dict[str, Any]] = {}
+    for row in sorted(rows, key=lambda row: (str(row["created_at"]), str(row["id"]))):
+        units.setdefault((str(row["link_id"]), bool(row["shown"])), row)
+    if not units:
+        return []
+    attempts = [dict(row) for row in connection.execute(
+        "SELECT id, learning_object_id, created_at, correctness, evidence_facets_json FROM practice_attempts "
+        "WHERE correctness IS NOT NULL ORDER BY created_at, id")]
+    out: list[dict[str, Any]] = []
+    for (_link_id, shown), row in units.items():
+        facets = _json_set(row.get("target_facets_json"))
+        outcome = next((attempt for attempt in attempts if str(attempt["created_at"]) > str(row["created_at"]) and (
+            facets & _json_set(attempt.get("evidence_facets_json")) if facets
+            else attempt["learning_object_id"] == row["learning_object_id"])), None)
+        out.append({"link_id": row["link_id"], "shown": shown, "propensity": row["propensity"],
+                    "outcome": None if outcome is None else outcome["correctness"],
+                    "outcome_attempt_id": None if outcome is None else str(outcome["id"])})
+    return out
+
+
+def _discovered_cues(connection: Any, in_window: Any) -> dict[str, Any] | None:
+    """RW3b's impressions (``reader_cue_impressions``): reasons, kinds,
+    responses against marks shown, the share of new-application marks, and the
+    holdout's estimate. None when there are none (the report is as before)."""
+
+    if connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='reader_cue_impressions'").fetchone() is None:
+        return None
+    rows = [dict(row) for row in connection.execute(
+        "SELECT i.*, l.target_facets_json FROM reader_cue_impressions i "
+        "LEFT JOIN passage_links l ON l.id = i.link_id ORDER BY i.created_at, i.id")
+        if in_window(row["created_at"])]
+    if not rows:
+        return None
+    shown = [row for row in rows if row["shown"]]
+    discovered = [row for row in rows if row["link_id"]]
+    marks = Counter(row["kind"] for row in shown)
+    return {
+        "impressions": len(rows),
+        "shown": len(shown),
+        "not_shown": dict(Counter(str(row["suppressed_reason"]) for row in rows if not row["shown"])),
+        "shown_by_kind": dict(marks),
+        "new_application_share": _share(marks.get("application", 0), len(shown)),
+        "responses": {response: _share(sum(1 for row in shown if row["response"] == response), len(shown))
+                      for response in ("opened", "check_me", "try_first", "not_relevant", "fewer")},
+        "holdout": _holdout_estimate(_holdout_units(connection, [
+            row for row in discovered if row["shown"] or row["suppressed_reason"] == "holdout"])),
+    }
+
+
+def _reading_paths(connection: Any, in_window: Any) -> dict[str, Any]:
+    """RW7a (spec §15's reading-path row): judged section labels by kind, the
+    learner's overrides by the label they overrode ("enrichment:read_anyway",
+    "core:skip"), and the Guide's depth choices. Counts only."""
+
+    empty: dict[str, Any] = {"judged_sections": 0, "labels": {}, "overrides": {}, "depth_choices": {}}
+    if connection.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN "
+                          "('reader_path_sections', 'reader_path_depths')").fetchone()[0] != 2:
+        return empty
+    rows = [row for row in connection.execute(
+        "SELECT label, learner_override, created_at FROM reader_path_sections ORDER BY created_at, id")
+        if in_window(row["created_at"])]
+    judged = [row for row in rows if row["learner_override"] is None]
+    chosen = [row for row in rows if row["learner_override"] is not None]
+    depths = [row for row in connection.execute(
+        "SELECT depth, created_at FROM reader_path_depths ORDER BY created_at, id") if in_window(row["created_at"])]
+    return {
+        "judged_sections": len(judged),
+        "labels": dict(sorted(Counter(str(row["label"]) for row in judged).items())),
+        "overrides": dict(sorted(Counter(f"{row['label']}:{row['learner_override']}" for row in chosen).items())),
+        "depth_choices": dict(sorted(Counter(str(row["depth"]) for row in depths).items())),
+    }
+
+
+def _role_counts(versions: list[dict[str, Any]]) -> dict[str, Any]:
+    """RW4e's proposals: one per object (its head's status), by role and
+    confidence; every version by judge; agreement between judges."""
+
+    heads: dict[str, dict[str, Any]] = {}
+    judges: dict[str, set[str]] = {}
+    by_judge: Counter[str] = Counter()
+    for version in versions:
+        heads[version["object_id"]] = version
+        judge = str((version["content"] or {}).get("judge") or "unknown")
+        judges.setdefault(version["object_id"], set()).add(judge)
+        by_judge[judge] += 1
+    live = {object_id: head for object_id, head in heads.items() if head["status"] in ("proposed", "reviewed")}
+    return {
+        "proposals": len(live),
+        "by_role": dict(Counter(str(head["role"]) for head in live.values())),
+        "by_confidence": dict(Counter(str((head["content"] or {}).get("confidence") or "unstated")
+                                      for head in live.values())),
+        "versions_by_judge": dict(by_judge),
+        "agreed": sum(1 for object_id in live if len(judges.get(object_id, ())) >= 2),
+        "reviewed": dict(Counter(str(head["status"]) for head in heads.values())),
+    }
+
+
 def build_reader_report(
     sqlite_path: Path | str,
     *,
     since: str | None = None,
     now: datetime | None = None,
+    reading_paths_enabled: bool = True,
+    figures_enabled: bool = False,
 ) -> dict[str, Any]:
-    """Compute the report from the ledgers (pure read)."""
+    """Compute the report from the ledgers (pure read).
+
+    ``reading_paths_enabled`` is the vault's ``reading_paths.enabled`` (the
+    CLI passes it): off, the report has no ``reading_paths`` key at all and
+    is the report the base before RW7a gives, whatever the path tables hold
+    (orchestrator fix round, ruling 2).
+
+    ``figures_enabled`` is the vault's ``figures.enabled`` (RW5a): only while
+    it is on does the report read the figure tables and carry its
+    ``figures`` block, so with figures off it is the report of before RW5a
+    (fix round 3; the CLI passes the switch)."""
 
     now = (now or datetime.now(UTC)).astimezone(UTC)
     since_at = _when(since) if since else None
@@ -125,6 +323,8 @@ def build_reader_report(
             str(row["id"]): str(row["resolution"] or "open")
             for row in connection.execute("SELECT id, resolution FROM question_events WHERE context = 'reader'")
         }
+        # Reader workbench RW3b: the impressions table (absent: as before).
+        discovered_cues = _discovered_cues(connection, in_window)
         has_scopes = any(
             row[1] == "scope_kind"
             for row in connection.execute("PRAGMA table_info(reader_authored_questions)")
@@ -153,6 +353,28 @@ def build_reader_report(
                 "SELECT created_at FROM learner_text_gap_jobs WHERE source_kind = 'reader_formative'"
             ) if in_window(row["created_at"])
         ] if has_gap_jobs else []
+        # RW5a: figures (migration 216), counted from their rows: by
+        # verification, unsupported requests by kind (RW5b's order and the
+        # deferred generated-code figures read it), versions, predictions.
+        has_figures = figures_enabled and connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'interactive_figures'"
+        ).fetchone() is not None
+        figure_rows = [
+            # A legacy "verified" counts as the illustration it is shown as
+            # (final round, High 2: the figure view's one normalization).
+            {"verification": shown_verification(row["verification"]), "unsupported_kind": row["unsupported_kind"],
+             "revision": row["supersedes_id"] is not None, "region": row["region_json"] is not None}
+            for row in connection.execute(
+                "SELECT verification, unsupported_kind, supersedes_id, region_json, created_at FROM interactive_figures "
+                "ORDER BY created_at, id"
+            ) if in_window(row["created_at"])
+        ] if has_figures else []
+        prediction_rows = [
+            {"matched": bool(row["matched"]), "explained": row["explanation_text"] is not None}
+            for row in connection.execute(
+                "SELECT matched, explanation_text, created_at FROM figure_predictions ORDER BY created_at, id"
+            ) if in_window(row["created_at"])
+        ] if has_figures else []
         # RW4a: library asks (migration 209), counted from their rows; the
         # organizer's lines are counted, never quoted.
         has_asks = connection.execute(
@@ -163,8 +385,33 @@ def build_reader_report(
              "organizer": json.loads(row["organizer_json"] or "{}"), "compared": row["comparison_id"] is not None,
              "tutor": row["question_event_id"] is not None}
             for row in connection.execute(
+                # The learner's asks (RW4d's keep of a tutor comparison records
+                # a row with caller 'tutor'; it is counted under comparisons).
                 "SELECT entry, personalized, organizer_json, comparison_id, question_event_id, created_at "
-                "FROM library_asks ORDER BY created_at, id"
+                "FROM library_asks WHERE caller = 'learner' ORDER BY created_at, id"
+            ) if in_window(row["created_at"])
+        ] if has_asks else []
+        # RW4e: instructional-role proposals (source_objects marked
+        # kind = instructional_role), counted by role, judge and confidence
+        # (labels only: a proposal copies no text).
+        reading_paths = _reading_paths(connection, in_window) if reading_paths_enabled else None
+        role_versions = [
+            {"object_id": str(row["source_object_id"]), "ordinal": int(row["version_ordinal"]),
+             "role": row["authorial_role"], "status": row["status"],
+             "content": json.loads(row["content_json"] or "{}")}
+            for row in connection.execute(
+                "SELECT source_object_id, version_ordinal, authorial_role, status, content_json, created_at "
+                "FROM source_object_versions WHERE json_extract(content_json, '$.kind') = 'instructional_role' "
+                "ORDER BY source_object_id, version_ordinal")
+            if in_window(row["created_at"])
+        ]
+        # RW4d: kept comparisons, counted from kept_json (ids and labels; the
+        # takes are counted, never quoted).
+        kept_comparisons = [
+            {"caller": row["caller"], "kept": json.loads(row["kept_json"]), "live": row["kept_at"] is not None}
+            for row in connection.execute(
+                "SELECT caller, kept_json, kept_at, created_at FROM library_asks WHERE kept_json IS NOT NULL "
+                "ORDER BY created_at, id"
             ) if in_window(row["created_at"])
         ] if has_asks else []
 
@@ -298,7 +545,35 @@ def build_reader_report(
     intent_jobs = [c for c in completions if c["payload"].get("job_kind") == "intent_routing"]
     styles = ("next_step", "why_step", "assumptions", "reconstruct")
 
-    return {
+    # -- the tutor that looks things up (RW1c; spec §15's Tutor and sources row)
+    by_answer = {a["id"]: a for a in answers}
+
+    def root_of(exchange_id: str) -> str:
+        seen: set[str] = set()
+        current = exchange_id
+        while parent_of.get(current) in parent_of and current not in seen:
+            seen.add(current)
+            current = str(parent_of[current])
+        return current
+
+    looked = [a for a in windowed if isinstance(a["payload"].get("tutor"), dict)]
+    follow_ons: dict[str, list[dict[str, Any]]] = {"alternative": [], "remediate": []}
+    for a in looked:
+        intent = a["payload"]["tutor"].get("intent")
+        if intent in follow_ons:
+            follow_ons[intent].append(a)
+
+    def resolved_after(rows: list[dict[str, Any]]) -> dict[str, Any]:
+        roots_of = [by_answer.get(root_of(a["id"])) for a in rows]
+        done = sum(1 for root in roots_of if root is not None and resolutions.get(
+            str(root["payload"].get("question_event_id")), "open") == "resolved")
+        return _share(done, len(rows))
+
+    offers_shown = Counter(str(e["payload"].get("offer_kind") or "unknown") for e in actions("tutor_offer_shown"))
+    offers_pressed = Counter(str(e["payload"].get("offer_kind") or "unknown") for e in actions("tutor_offer_pressed"))
+    press_results = Counter(str(e["payload"].get("offer_result") or "unknown") for e in actions("tutor_offer_pressed"))
+
+    report: dict[str, Any] = {
         "version": REPORT_VERSION,
         "window": {"since": since_at.isoformat() if since_at else None, "until": now.isoformat()},
         "learner_text": False,
@@ -360,6 +635,7 @@ def build_reader_report(
             )),
             "books_switched_off": len(actions("cue_source_off")),
             "books_switched_on": len(actions("cue_source_on")),
+            **({"discovered": discovered_cues} if discovered_cues is not None else {}),
         },
         "waiting": _share(waited_with_activity, len(completions)),
         "visits": {
@@ -408,12 +684,66 @@ def build_reader_report(
             "compared": _share(sum(1 for a in library_asks if a["compared"]), len(library_asks)),
             "tutor_asked": _share(sum(1 for a in library_asks if a["tutor"]), len(library_asks)),
         },
+        # RW4d: comparisons kept (as proposals), by caller; removed; the
+        # learner's takes; kept relations by coarse type and by fine label.
+        "comparisons": {
+            "kept": sum(1 for k in kept_comparisons if k["live"]),
+            "removed": sum(1 for k in kept_comparisons if k["kept"].get("removed")),
+            "by_caller": dict(Counter(k["caller"] for k in kept_comparisons if k["live"])),
+            "takes": sum(len(k["kept"].get("takes") or ()) for k in kept_comparisons if k["live"]),
+            "relations_by_type": dict(Counter(rel.get("relation_type") for k in kept_comparisons if k["live"]
+                                              for rel in k["kept"].get("relations") or ())),
+            "relations_by_label": dict(Counter(rel.get("fine") for k in kept_comparisons if k["live"]
+                                               for rel in k["kept"].get("relations") or ())),
+        },
+        # RW4e: role proposals by role, by judge and by confidence; agreement
+        # (passages two or more judges proposed the same role for).
+        "roles": _role_counts(role_versions),
+        # RW7a: reading-path labels by kind, overrides ("read it anyway" on
+        # enrichment, "skip it" on core) and depth choices. Counts only.
+        # Absent while reading_paths.enabled is off (the base report).
+        **({"reading_paths": reading_paths} if reading_paths_enabled else {}),
+        # RW1c: answers by mode, abstentions and excerpts dropped by quote
+        # verification (a proxy for unsupported content), "another way" and
+        # "that didn't help" rates with whether the inquiry was resolved after,
+        # and the buttons shown and pressed by kind. Counts only.
+        "tutor": {
+            "answers": len(looked),
+            "by_mode": {mode: sum(1 for a in looked if mode in (a["payload"]["tutor"].get("modes") or []))
+                        for mode in ("excerpt", "grounded", "bridge")},
+            "abstained": sum(1 for a in looked if a["payload"]["tutor"].get("abstained") is True),
+            "excerpts_dropped": sum(1 for a in looked if a["payload"]["tutor"].get("dropped_excerpt")),
+            "retrieval": dict(Counter(
+                str((a["payload"]["tutor"].get("retrieval") or {}).get("status") or "unknown") for a in looked)),
+            "another_way": _share(len(follow_ons["alternative"]), len(looked)),
+            "didnt_help": _share(len(follow_ons["remediate"]), len(looked)),
+            "resolved_after": {"another_way": resolved_after(follow_ons["alternative"]),
+                               "didnt_help": resolved_after(follow_ons["remediate"])},
+            "offers": {"shown": dict(offers_shown), "pressed": dict(offers_pressed),
+                       "press_results": dict(press_results)},
+        },
+        # RW5a (spec §8.1): figures built by verification, unsupported requests
+        # by kind, "not right?" versions, region requests, and predictions
+        # (missed, and with a "what changed?" line). Counts only.
+        "figures": {
+            "built": dict(Counter(row["verification"] for row in figure_rows)),
+            "unsupported_by_kind": dict(Counter(str(row["unsupported_kind"] or "unknown") for row in figure_rows
+                                                if row["verification"] == "unsupported")),
+            "revisions": sum(1 for row in figure_rows if row["revision"]),
+            "regions": sum(1 for row in figure_rows if row["region"]),
+            "predictions": len(prediction_rows),
+            "predictions_missed": sum(1 for row in prediction_rows if not row["matched"]),
+            "what_changed": sum(1 for row in prediction_rows if row["explained"]),
+        },
         "routes": [
             {"job_kind": job_kind, "model": model, "prompt_version": version, "n": len(rows),
              "latency_ms": _percentiles(r["payload"].get("latency_ms") for r in rows)}
             for (job_kind, model, version), rows in sorted(routes.items(), key=lambda item: str(item[0]))
         ],
     }
+    if not figures_enabled:
+        del report["figures"]
+    return report
 
 
 __all__ = ["REPORT_VERSION", "build_reader_report"]

@@ -3,13 +3,13 @@ title: "source_object_relations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_object_relations"
   - "table source_object_relations"
-schema_head: 214
+schema_head: 217
 table_name: "source_object_relations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/094_source_objects.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/source_retrieval/kept_comparisons.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/reader/source_objects.py"
 tags:
@@ -83,6 +84,7 @@ Indexes and uniqueness:
 - `Repository.create_source_object_relation()`
 - `Repository.delete_source_artifact()`
 - `Repository.relations_for_object()`
+- `Repository.source_object_relation()`
 
 ### Direct SQL readers
 
@@ -96,13 +98,18 @@ Indexes and uniqueness:
 
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/reader/source_objects.py`
+- `src/learnloop/source_retrieval/kept_comparisons.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
+- `tests/test_compare_keep_switch_off.py`
+- `tests/test_compare_sources_keep.py`
 - `tests/test_reader_compare_table.py`
+- `tests/test_roles_switch_off.py`
+- `tests/test_source_roles.py`
 - `tests/test_ad1_reading_opportunities.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

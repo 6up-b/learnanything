@@ -17,20 +17,34 @@
 // chords itself, so none clash (Ctrl+K stays free for RW2b's check).
 // Nothing a save, a poll or a result does moves focus or opens a dialog.
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import type { WorkbenchSessionDto, WorkbenchSubmitDto } from "../../api/dto";
+import type { PassageTarget, WorkbenchSessionDto, WorkbenchSubmitDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { ItemPresentation } from "../../components/ItemPresentation";
 import { LiveMarkdownEditor, type LiveMarkdownKeyInfo } from "../../render/LiveMarkdownEditor";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { errorMessage, getCommandError } from "../../errors";
 import { LearnerVoice, MeaningLabel, SourceVoice } from "../reader/voices";
-import { WORKBENCH_COPY, liveSteps, problemTitle, savedLabel } from "./stepModel";
+import { EXERCISE_COPY, keyStatusLine } from "../reader/exerciseCandidates";
+import { WORKBENCH_COPY, liveSteps, problemTitle, savedLabel, stepChain } from "./stepModel";
 import { useWorkbenchSession } from "./useWorkbenchSession";
+import { algoConfig } from "../../app/algoConfig";
+import { CheckSummary, QuestionableNote, VerdictCell } from "./CheckColumn";
+import { HelpLadder } from "./HelpLadder";
+import { HelpStyleControl } from "./HelpStyleControl";
+import { HintCard, type StepOption } from "./StepHints";
+import { WhereThisGoes } from "./WhereThisGoes";
+import { HELP_COPY, verdictFor, withLocalEdits } from "./helpModel";
+import { useWorkbenchHelp } from "./useWorkbenchHelp";
+import { PassageExtras, ShowMeExample, useRouteExamples } from "./RouteExample";
 
 export type WorkbenchLayout = "split" | "stacked" | "full";
 
 export interface WorkbenchProps {
   initial: WorkbenchSessionDto;
+  /** RW4b fix round 4 (R6): the server's newer view of this same problem
+   *  (an exercise's admission corrects its exposure and key). Applied to the
+   *  mounted problem; its unsaved steps and write queue stay as they are. */
+  serverSession?: WorkbenchSessionDto;
   layout: WorkbenchLayout;
   /** A submitted problem, shown with its steps and what it recorded (UX S6). */
   readOnly?: boolean;
@@ -54,6 +68,10 @@ export interface WorkbenchProps {
   onAnswerBox?: (session: WorkbenchSessionDto) => void;
   /** The practice card already shows the item's own presentation above. */
   hideProblem?: boolean;
+  /** RW2b: peek a passage of the book ("compare with the book"). */
+  /** ``target``: where the passage is, when the workbench knows (RW2c review
+   *  F1: a worked example may be in another book). */
+  onPeekPassage?: (spanId: string, target?: PassageTarget) => void;
   onError: (message: string) => void;
 }
 
@@ -74,6 +92,11 @@ export function Workbench(props: WorkbenchProps) {
   const { initial, layout, readOnly = false, practiceSessionId = null, onError } = props;
   const wb = useWorkbenchSession(initial, { readOnly, onSession: props.onSession, onError });
   const { session, steps, record } = wb;
+  const serverSession = props.serverSession;
+  const applyServer = wb.applyServer;
+  useEffect(() => {
+    if (serverSession) applyServer(serverSession);
+  }, [serverSession, applyServer]);
   const regionRef = useRef<HTMLElement | null>(null);
   const [focus, setFocus] = useState<{ key: string; n: number } | null>(() => {
     const first = steps[0];
@@ -100,6 +123,78 @@ export function Workbench(props: WorkbenchProps) {
   // Leave or "answer box instead" is under way (round 4, F8): the steps and
   // their actions are read-only, and say so, until it goes or is held.
   const leaving = wb.leaving;
+  // RW2b: checks and the help ladder, only while workbench.help_enabled is
+  // on (null: the workbench is exactly RW2a's); its hints need the hint
+  // service too (adaptive hints).
+  const helpConfig = algoConfig().workbenchHelp;
+  const hintsConfig = algoConfig().adaptiveHints;
+  // RW2c: the worked example in the learner's route and "another passage",
+  // each only while its switch is on (off: the workbench is RW2b's).
+  const rw2c = useRouteExamples({
+    sessionId: session.sessionId,
+    examples: helpConfig?.examples === true,
+    passageDraw: helpConfig?.passageDraw === true,
+    // Fix round 2 (8): the same save-before-help barrier as checks and hints.
+    beforeRequest: async () => {
+      wb.flushEdits();
+      return wb.drained();
+    },
+  });
+  const help = useWorkbenchHelp({
+    sessionId: session.sessionId,
+    enabled: helpConfig !== null,
+    hintsEnabled: helpConfig !== null && hintsConfig !== null,
+    storedHelpStyle: hintsConfig?.helpStyle ?? "balanced",
+    readOnly: readOnly || !open,
+    beforeRequest: async () => {
+      wb.flushEdits();
+      return wb.drained();
+    },
+    onRecord: wb.applyRecord,
+    ...(rw2c.active ? { onExampleJob: rw2c.followExample, onHelpState: rw2c.restore } : {}),
+  });
+  const [focusedKey, setFocusedKey] = useState<string | null>(null);
+  const [confidence, setConfidence] = useState<number | null>(null);
+  const helpOn = helpConfig !== null;
+  const canHelp = helpOn && open && !readOnly && bound && !leaving;
+  const focusedChain = (() => {
+    const step = live.find((candidate) => candidate.key === focusedKey) ?? live[live.length - 1];
+    return step ? stepChain(step) : null;
+  })();
+  const stepOptions: StepOption[] = live.flatMap((step, index) => {
+    const chain = stepChain(step);
+    return chain ? [{ chainId: chain, number: index + 1 }] : [];
+  });
+  // Review F6: the last check against the steps on screen now (an edit dims
+  // its marker at once, with no save or model call).
+  const check = helpOn ? withLocalEdits(help.check, live.map((step) => ({ chainId: stepChain(step), body: step.body }))) : null;
+  // Review F5: help aimed at no saved step (a fresh problem's first move, a
+  // step deleted since) is placed under the problem's steps, never dropped.
+  const liveChains = new Set(stepOptions.map((option) => option.chainId));
+  const onAStep = (stepId: string | null) => stepId !== null && liveChains.has(stepId);
+  const ladderLoose = helpOn && help.ladder.open && !onAStep(help.ladder.focusedStepId ?? focusedChain);
+  const pendingLoose = Boolean(helpOn && help.hintPending && !onAStep(help.hintPending.stepId ?? focusedChain));
+  const noticeLoose = Boolean(helpOn && help.notice && !onAStep(help.notice.stepId ?? focusedChain));
+  const looseHints = helpOn ? help.hints.filter((hint) => !onAStep(hint.aboutStepId)) : [];
+
+  function runCheck() {
+    if (canHelp) void help.runCheck();
+  }
+
+  function openHelp() {
+    if (canHelp && help.hintsEnabled) help.openHelp(focusedChain);
+  }
+
+  function smallerStep() {
+    const waypoint = [...help.hints].reverse().find((hint) => hint.kind === "waypoint" && hint.replies.includes("smaller_step"));
+    if (canHelp && waypoint) void help.smallerStep(waypoint);
+  }
+
+  function peek(spanId: string, target?: PassageTarget) {
+    if (fromBook && open && !session.sourceVisible) void wb.setBook(true);
+    if (target) props.onPeekPassage?.(spanId, target);
+    else props.onPeekPassage?.(spanId);
+  }
 
   function requestFocus(key: string) {
     setFocus((previous) => ({ key, n: (previous?.n ?? 0) + 1 }));
@@ -121,6 +216,7 @@ export function Workbench(props: WorkbenchProps) {
         practiceSessionId,
         ...(named ? { schedulerCandidateId: props.schedulerCandidateId ?? null, planPresentationId: props.planPresentationId ?? null } : {}),
         latencySeconds: Math.max(0, Math.round((Date.now() - openedAt.current) / 1000)),
+        ...(helpOn && confidence !== null ? { answerConfidence: confidence } : {}),
       });
       props.onSubmitted(result);
     } catch (error) {
@@ -212,6 +308,15 @@ export function Workbench(props: WorkbenchProps) {
     } else if (ctrl && event.shiftKey && key.toLowerCase() === "b") {
       handled();
       toggleBook();
+    } else if (helpOn && ctrl && !event.shiftKey && key.toLowerCase() === "k") {
+      handled();
+      runCheck();
+    } else if (helpOn && ctrl && !event.shiftKey && key.toLowerCase() === "h") {
+      handled();
+      openHelp();
+    } else if (helpOn && ctrl && event.shiftKey && key.toLowerCase() === "h") {
+      handled();
+      smallerStep();
     } else if (event.altKey && (key === "ArrowUp" || key === "ArrowDown")) {
       handled();
       const current = steps.find((step) => (event.target as HTMLElement).closest?.(`[data-step-key="${step.key}"]`));
@@ -249,6 +354,12 @@ export function Workbench(props: WorkbenchProps) {
       {layout === "full" && props.onAnswerBox && !readOnly ? (
         <button type="button" onClick={() => void depart((left) => props.onAnswerBox?.(left))} style={{ ...linkStyle, marginLeft: "auto" }}>answer box instead</button>
       ) : null}
+      {helpOn && help.hintsEnabled && open && !readOnly ? (
+        <span style={{ marginLeft: layout === "full" && props.onAnswerBox ? 8 : "auto" }}>
+          <HelpStyleControl value={help.helpStyle} stored={help.storedHelpStyle} disabled={leaving}
+            onChange={(style) => void help.setHelpStyle(style)} />
+        </span>
+      ) : null}
     </div>
   );
 
@@ -275,7 +386,26 @@ export function Workbench(props: WorkbenchProps) {
           <button type="button" style={linkStyle} onClick={() => void wb.retryImport()}>try again ↵</button>
         </MeaningLabel>
       </div>
+    ) : session.importStatus === "bound" && session.sourceExercise ? (
+      // RW4b: a textbook exercise from a proposal says what is verbatim, who
+      // wrote the answer, and the key's honest status (the sources service's).
+      <div data-testid="workbench-key-status">
+        <MeaningLabel style={{ fontSize: 11 }}>
+          {keyStatusLine(session.sourceExercise.keyStatus, session.sourceExercise.keyLabel)}
+        </MeaningLabel>
+      </div>
     ) : null
+  ) : null;
+  // RW4b: a picked exercise seen since it was offered (the server reads the
+  // exposure rule at the pick and again at admission, Codex review F3) says
+  // why, and that it is practice beside the book, not a check on your own.
+  const pickedExposure = session.exercisePick?.exposure ?? null;
+  const exposureNote = !readOnly && session.status !== "submitted" && pickedExposure?.exposed ? (
+    <div data-testid="workbench-exercise-exposure">
+      <MeaningLabel style={{ fontSize: 11 }}>
+        {[pickedExposure.label, EXERCISE_COPY.practiceNotCheck].filter(Boolean).join(" · ")}
+      </MeaningLabel>
+    </div>
   ) : null;
 
   // Bound, the problem is the item's whole frozen presentation (a required
@@ -370,11 +500,54 @@ export function Workbench(props: WorkbenchProps) {
               onBlur={wb.flushEdits}
             />
           );
+          const chain = stepChain(step);
+          const verdict = helpOn && chain ? verdictFor(check, chain) : null;
+          const stepHints = helpOn && chain ? help.hints.filter((hint) => hint.aboutStepId === chain) : [];
+          const ladderHere = helpOn && help.ladder.open && chain !== null && (help.ladder.focusedStepId ?? focusedChain) === chain;
+          const pendingHere = helpOn && help.hintPending && chain !== null && (help.hintPending.stepId ?? focusedChain) === chain;
+          const noticeHere = helpOn && help.notice && chain !== null && (help.notice.stepId ?? focusedChain) === chain;
+          // UX §5.2: focusing a step lightly outlines the steps it depends on (the last check's graph).
+          const focusedVerdict = helpOn && focusedKey ? verdictFor(check, stepChain(live.find((entry) => entry.key === focusedKey) ?? step) ?? "") : null;
+          const outlined = Boolean(chain && focusedVerdict?.dependsOn.includes(chain));
           return (
-            <li key={step.key} data-step-key={step.key} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+            <li key={step.key} data-step-key={step.key} data-depended-on={outlined ? "true" : undefined}
+              style={{ display: "flex", gap: 8, alignItems: "flex-start", ...(outlined ? { outline: `1px dotted ${COLOR.border}` } : {}) }}
+              onFocusCapture={helpOn ? () => setFocusedKey(step.key) : undefined}>
               <span aria-hidden="true" style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.amber, paddingTop: 4, minWidth: 28 }}>{number} ›</span>
               <div style={{ flex: 1, minWidth: 0, opacity: step.kind === "stuck" ? 0.8 : 1 }}>
                 {step.kind === "stuck" ? <LearnerVoice label="you · stuck">{editor}</LearnerVoice> : editor}
+                {helpOn && step.kind === "stuck" && !readOnly ? <WhereThisGoes box="stuck" /> : null}
+                {helpOn && check && chain ? <QuestionableNote check={check} chainId={chain} /> : null}
+                {stepHints.map((hint) => (
+                  <HintCard key={hint.assistId} hint={hint} steps={stepOptions} pending={Boolean(help.hintPending) || !canHelp}
+                    bridge={rw2c.bridgeFor(hint.assistId, help.bridges[hint.assistId])}
+                    onReply={(reply) => void help.reply(hint, reply)} onBookWay={() => void help.bookWay(hint)}
+                    onSmallerStep={() => void help.smallerStep(hint)}
+                    onAnswer={(text) => void help.answerDiscriminating(hint, text)}
+                    onSkip={() => help.openHelp(hint.aboutStepId)} onPeek={props.onPeekPassage ? peek : undefined}
+                    extras={rw2c.active ? <PassageExtras hintAssistId={hint.assistId} rw2c={rw2c}
+                      bridge={rw2c.bridgeFor(hint.assistId, help.bridges[hint.assistId])} onPeek={props.onPeekPassage ? peek : undefined} /> : undefined} />
+                ))}
+                {pendingHere ? (
+                  <div role="status" aria-live="polite">
+                    <MeaningLabel style={{ fontSize: 11 }}><span aria-hidden="true">◐</span> {HELP_COPY.writing}</MeaningLabel>{" "}
+                    <button type="button" style={{ ...linkStyle, fontSize: 10 }} onClick={() => void help.cancelHint()}>cancel</button>
+                  </div>
+                ) : null}
+                {noticeHere && help.notice ? (
+                  <div role="status" aria-live="polite"><MeaningLabel style={{ fontSize: 11 }}>{help.notice.message}</MeaningLabel></div>
+                ) : null}
+                {ladderHere ? (
+                  <HelpLadder ladder={help.ladder} onChoose={help.choose}
+                    onTake={(level) => {
+                      void help.take(level);
+                      requestFocus(step.key);
+                    }}
+                    onClose={() => {
+                      help.closeHelp();
+                      requestFocus(step.key);
+                    }} />
+                ) : null}
                 {step.versions.length > 0 ? (
                   <div style={{ marginTop: 2 }}>
                     <button type="button" style={{ ...linkStyle, fontSize: 10 }} onClick={() => setShowVersions((key) => (key === step.key ? null : step.key))}>
@@ -390,6 +563,7 @@ export function Workbench(props: WorkbenchProps) {
                   </div>
                 ) : null}
               </div>
+              {helpOn && check ? <VerdictCell verdict={verdict} symbolicEnabled={check.symbolicEnabled} /> : null}
               {!readOnly ? (
                 <button type="button" aria-label={`delete step ${number}`} aria-disabled={leaving} style={{ ...linkStyle, fontSize: 10, color: COLOR.textDim }} onClick={() => wb.deleteStep(step.key)}>
                   delete
@@ -399,6 +573,38 @@ export function Workbench(props: WorkbenchProps) {
           );
         })}
       </ol>
+      {looseHints.length || pendingLoose || noticeLoose || ladderLoose ? (
+        <div data-testid="workbench-problem-help" style={{ display: "flex", flexDirection: "column", gap: 4, marginLeft: 36 }}>
+          {looseHints.map((hint) => (
+            <HintCard key={hint.assistId} hint={hint} steps={stepOptions} pending={Boolean(help.hintPending) || !canHelp}
+              bridge={rw2c.bridgeFor(hint.assistId, help.bridges[hint.assistId])}
+              onReply={(reply) => void help.reply(hint, reply)} onBookWay={() => void help.bookWay(hint)}
+              onSmallerStep={() => void help.smallerStep(hint)}
+              onAnswer={(text) => void help.answerDiscriminating(hint, text)}
+              onSkip={() => help.openHelp(hint.aboutStepId)} onPeek={props.onPeekPassage ? peek : undefined}
+              extras={rw2c.active ? <PassageExtras hintAssistId={hint.assistId} rw2c={rw2c}
+                bridge={rw2c.bridgeFor(hint.assistId, help.bridges[hint.assistId])} onPeek={props.onPeekPassage ? peek : undefined} /> : undefined} />
+          ))}
+          {pendingLoose ? (
+            <div role="status" aria-live="polite">
+              <MeaningLabel style={{ fontSize: 11 }}><span aria-hidden="true">◐</span> {HELP_COPY.writing}</MeaningLabel>{" "}
+              <button type="button" style={{ ...linkStyle, fontSize: 10 }} onClick={() => void help.cancelHint()}>cancel</button>
+            </div>
+          ) : null}
+          {noticeLoose && help.notice ? (
+            <div role="status" aria-live="polite"><MeaningLabel style={{ fontSize: 11 }}>{help.notice.message}</MeaningLabel></div>
+          ) : null}
+          {ladderLoose ? (
+            <HelpLadder ladder={help.ladder} onChoose={help.choose}
+              onTake={(level) => void help.take(level)}
+              onClose={() => help.closeHelp()} />
+          ) : null}
+        </div>
+      ) : null}
+      {helpOn && rw2c.available && !readOnly && open && fromBook ? (
+        <ShowMeExample rw2c={rw2c} focusedStepId={focusedChain} disabled={!canHelp}
+          onPeek={props.onPeekPassage ? peek : undefined} />
+      ) : null}
       {!readOnly && open ? (
         <button type="button" aria-disabled={leaving} style={{ ...linkStyle, alignSelf: "flex-start", fontSize: 10 }} onClick={() => { if (!leaving) requestFocus(wb.addStep(live[live.length - 1]?.key ?? null, "step")); }}>
           + a step
@@ -406,6 +612,20 @@ export function Workbench(props: WorkbenchProps) {
       ) : null}
     </div>
   );
+
+  const confidenceRow = helpOn && open && !readOnly && bound ? (
+    <div role="radiogroup" aria-label={HELP_COPY.confidence} data-testid="workbench-confidence"
+      style={{ display: "flex", gap: 6, alignItems: "baseline", fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
+      <span>{HELP_COPY.confidence}</span>
+      {[1, 2, 3, 4, 5].map((value) => (
+        <button key={value} type="button" role="radio" aria-checked={confidence === value}
+          onClick={() => setConfidence((current) => (current === value ? null : value))}
+          style={{ ...linkStyle, textDecoration: "none", color: confidence === value ? COLOR.text : COLOR.textDim }}>
+          {confidence === value ? `[${value}]` : value}
+        </button>
+      ))}
+    </div>
+  ) : null;
 
   const recordLine = (
     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -417,6 +637,18 @@ export function Workbench(props: WorkbenchProps) {
   const actions = !readOnly && open ? (
     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", position: "relative" }}>
       <div role="group" aria-label="workbench actions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {helpOn ? (
+          <button type="button" style={{ ...actionStyle, color: bound ? COLOR.text : COLOR.textDim }} aria-disabled={!bound || leaving || help.checkPending}
+            onClick={runCheck}>
+            {bound ? `${HELP_COPY.check} · ${HELP_COPY.checkKey}` : `${HELP_COPY.check} · ${WORKBENCH_COPY.waitsForSetup}`}
+          </button>
+        ) : null}
+        {helpOn && help.hintsEnabled ? (
+          <button type="button" style={{ ...actionStyle, color: bound ? COLOR.text : COLOR.textDim }} aria-disabled={!bound || leaving}
+            aria-expanded={help.ladder.open} onClick={openHelp}>
+            {bound ? `${HELP_COPY.help} · ${HELP_COPY.helpKey}` : `${HELP_COPY.help} · ${WORKBENCH_COPY.waitsForSetup}`}
+          </button>
+        ) : null}
         <button type="button" style={actionStyle} aria-disabled={leaving} onClick={stuck}>I'm stuck · ctrl+d</button>
         <button
           type="button"
@@ -460,6 +692,7 @@ export function Workbench(props: WorkbenchProps) {
     >
       {header}
       {setup}
+      {exposureNote}
       {props.hideProblem ? null : problem}
       {bookLine}
       {work}
@@ -476,6 +709,8 @@ export function Workbench(props: WorkbenchProps) {
           <MeaningLabel style={{ fontSize: 11, color: COLOR.amber }}>{leaveNote}</MeaningLabel>
         </div>
       ) : null}
+      {helpOn ? <CheckSummary check={check} pending={help.checkPending} notice={help.checkNotice} /> : null}
+      {confidenceRow}
       {recordLine}
       {actions}
       {reopenLine}

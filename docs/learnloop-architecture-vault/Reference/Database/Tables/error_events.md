@@ -3,13 +3,13 @@ title: "error_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite error_events"
   - "table error_events"
-schema_head: 214
+schema_head: 217
 table_name: "error_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,17 +19,15 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/cli/runtime.py"
   - "src/learnloop/cli/sim.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/diagnoses.py"
   - "src/learnloop/db/stores/write_provenance.py"
+  - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/attempts/regrade.py"
   - "src/learnloop/cli/app.py"
-  - "src/learnloop/diagnosis/causal_attribution.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -116,6 +114,7 @@ Indexes and uniqueness:
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/sim/metrics.py`
 - `src/learnloop/sim/runner.py`
+- `src/learnloop/source_retrieval/passage_cues.py`
 
 ### Direct SQL writers
 
@@ -148,6 +147,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/figure_fixtures.py`
 - `tests/mcp_world.py`
 - `tests/source_service_fakes.py`
 - `tests/test_active_errors_overlay.py`
@@ -160,14 +160,13 @@ Indexes and uniqueness:
 - `tests/test_migrations.py`
 - `tests/test_mvp021_upgrade.py`
 - `tests/test_probability_prep.py`
+- `tests/test_reader_rw3b_protection.py`
 - `tests/test_replay.py`
 - `tests/test_simulation.py`
 - `tests/test_stuck_prompt.py`
 - `tests/test_stuck_prompt_replay.py`
 - `tests/test_table_roles.py`
 - `tests/test_voi_stopping.py`
-- `tests/test_agent_runs.py`
-- `tests/test_attempt_ai_flow.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

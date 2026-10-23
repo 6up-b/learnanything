@@ -328,9 +328,13 @@ def _base_contract(vault) -> dict:
 
 
 @pytest.mark.parametrize("toml", [
-    # RW4a's library ask adds its own key; its switch is off here too (G20).
-    "\n[reader_intent]\nenabled = false\n[reader_active_reading]\nenabled = false\n[library_ask]\nenabled = false\n",
-    "\n[reader_inquiry]\nenabled = false\n",
+    # RW4a's library ask, RW1c's tutor, RW4d's keep, RW7a's reading paths and RW5a's figures add their own keys;
+    # their switches are off here too (G20).
+    "\n[reader_intent]\nenabled = false\n[reader_active_reading]\nenabled = false\n[library_ask]\nenabled = false\n"
+    "[reader_tutor]\nretrieval_enabled = false\noffers_enabled = false\n[reader_compare]\nkeep_enabled = false\n"
+    "[reading_paths]\nenabled = false\n[figures]\nenabled = false\n",
+    "\n[reader_inquiry]\nenabled = false\n[reader_tutor]\nretrieval_enabled = false\noffers_enabled = false\n"
+    "[reading_paths]\nenabled = false\n[figures]\nenabled = false\n",
 ])
 def test_switched_off_the_prompt_contract_is_the_bases(tmp_path, toml):
     from learnloop_sidecar.dto import versioned
@@ -346,7 +350,7 @@ def test_switched_on_the_contract_carries_the_grouped_palette(tmp_path):
     vault, _repo = _setup(tmp_path)
     contract = call(context(vault.root), "reader.prompt_contract", {})
     groups = [group["group"] for group in contract["intent"]["palette"]]
-    # orient: RW4a's "what do I need first?" (RW7a's reading path has not landed)
+    # orient: RW4a's "what do I need first?" and RW7a's "what matters here?"
     assert groups == ["understand", "apply", "consolidate", "transfer", "orient", "mark"]
     assert contract["intent"]["speculateAfterMs"] == 600 and contract["intent"]["speculative"] is True
     assert contract["activeReading"] == {"foldBlocks": 3}

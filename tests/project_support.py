@@ -239,7 +239,8 @@ def project_fake(monkeypatch):
 
 
 def install_fake_codex_sdk(monkeypatch, *, final_response: str = '{"grades": []}', spawn: bool = False,
-                           launch_failure_raises: bool = False, turn_seconds: float = 0.0) -> dict[str, Any]:
+                           launch_failure_raises: bool = False, turn_seconds: float = 0.0,
+                           respond: Any = None) -> dict[str, Any]:
     """A stand-in ``openai_codex`` SDK that records what a turn is started with.
 
     It captures the ``CodexConfig`` kwargs (``codex_bin``,
@@ -253,6 +254,7 @@ def install_fake_codex_sdk(monkeypatch, *, final_response: str = '{"grades": []}
     SDK's ``Codex process closed stdout. stderr_tail=...``. With
     ``turn_seconds`` a turn takes that long to answer unless it is
     interrupted (or the app server closed) first, which makes it raise.
+    With ``respond`` (``prompt -> text``) a turn answers what it returns.
     """
 
     import sys
@@ -263,16 +265,23 @@ def install_fake_codex_sdk(monkeypatch, *, final_response: str = '{"grades": []}
     captured: dict[str, Any] = {"turns": []}
     stopped = threading.Event()
 
+    from tests.codex_cli_fakes import FakeApprovalMode, FakeSdkClient
+
     class FakeCodex:
         def __init__(self, config):
             captured["app_config"] = config.kwargs
+            self._client = FakeSdkClient()
+            captured["sdk_client"] = self._client
             stopped.clear()
             if spawn:
                 kwargs = config.kwargs
                 flags = [part for override in kwargs.get("config_overrides", ()) for part in ("--config", override)]
                 command = list(kwargs["launch_args_override"]
                                or [kwargs["codex_bin"], *flags, "app-server", "--listen", "stdio://"])
-                completed = subprocess.run(command, cwd=kwargs["cwd"], capture_output=True, text=True, timeout=60)
+                # The environment as the real SDK builds it: this process's, updated by ``env``.
+                environ = {**os.environ, **(kwargs.get("env") or {})}
+                completed = subprocess.run(command, cwd=kwargs["cwd"], capture_output=True, text=True, timeout=60,
+                                           env=environ)
                 captured["spawned"] = {"command": command, "stdout": completed.stdout, "stderr": completed.stderr,
                                        "returncode": completed.returncode}
                 if launch_failure_raises and completed.returncode != 0:
@@ -294,13 +303,16 @@ def install_fake_codex_sdk(monkeypatch, *, final_response: str = '{"grades": []}
     class FakeThread:
         def turn(self, prompt: str, **kwargs):
             captured["turns"].append({"prompt": prompt, **kwargs})
-            return FakeTurn()
+            return FakeTurn(prompt)
 
     class FakeTurn:
+        def __init__(self, prompt: str = "") -> None:
+            self.prompt = prompt
+
         def run(self):
             if turn_seconds and stopped.wait(timeout=turn_seconds):
                 raise RuntimeError("turn stopped")
-            return SimpleNamespace(final_response=final_response)
+            return SimpleNamespace(final_response=respond(self.prompt) if respond is not None else final_response)
 
         def interrupt(self):
             stopped.set()
@@ -324,6 +336,7 @@ def install_fake_codex_sdk(monkeypatch, *, final_response: str = '{"grades": []}
     module = ModuleType("openai_codex")
     module.Codex = FakeCodex
     module.CodexConfig = SdkAppConfig
+    module.ApprovalMode = FakeApprovalMode
     types_module = ModuleType("openai_codex.types")
     types_module.Personality = SimpleNamespace(pragmatic="pragmatic")
     types_module.ReasoningEffort = ReasoningEffort

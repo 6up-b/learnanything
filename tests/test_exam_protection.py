@@ -426,13 +426,17 @@ def test_a_reader_import_of_held_out_material_is_refused_before_any_model_call(t
     from learnloop.content.pipeline.runner import IngestRunnerError, JobContext, RunnerServices
 
     paths, repository, spans = build_textbook_vault(tmp_path / "vault")
+    # The selection made while it was still practice (RW4b fix round 5: the
+    # one statement reader refuses to read it once it is held out).
+    selection = selection_for_region(repository, "ext_text", [spans["exercises"][1]], vault=load_vault(paths.root))
     save_unit_selection(repository, "ext_text", list(spans), exam_use_modes={"exercises": "held_out_evaluation"})
+    with pytest.raises(Exception, match="cannot be read"):
+        selection_for_region(repository, "ext_text", [spans["exercises"][1]], vault=load_vault(paths.root))
     llm = FakeServiceLLM()
     ctx = JobContext(repo=repository, vault_root=paths.root,
                      job={"id": "job_1", "attempt_count": 1,
                           "payload": {"extraction_id": "ext_text", "source_id": "src_text",
-                                      "raw_selection": selection_for_region(repository, "ext_text",
-                                                                            [spans["exercises"][1]])}},
+                                      "raw_selection": selection}},
                      clock=FrozenClock(datetime(2026, 10, 13, tzinfo=UTC)), worker_id="w",
                      services=RunnerServices(exercise_import_client_factory=lambda _ctx: llm,
                                              background_key_checks=False))

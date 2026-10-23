@@ -3,13 +3,13 @@ title: "agent_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "ea590e192e7d05cf407e35bee338909582716483"
+source_commit_timestamp: "2026-10-22T23:06:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite agent_runs"
   - "table agent_runs"
-schema_head: 214
+schema_head: 217
 table_name: "agent_runs"
 table_role: "receipt"
 functionality_status: "active"
@@ -19,14 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
-  - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/ai/runs.py"
   - "src/learnloop/ai/usage.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/stuck.py"
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
   - "src/learnloop/content/synthesis/synthesis_manifests.py"
+  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/diagnoses.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/attempts/grading.py"
   - "src/learnloop/attempts/regrade.py"
@@ -152,6 +152,7 @@ Indexes and uniqueness:
 - `tests/test_migrations.py`
 - `tests/test_proposal_dependencies.py`
 - `tests/test_question_signal.py`
+- `tests/test_reader_rw3b_protection.py`
 - `tests/test_route_rules_in_grader.py`
 - `tests/test_sim_teach_back.py`
 - `tests/test_source_ingestion.py`
@@ -162,7 +163,6 @@ Indexes and uniqueness:
 - `tests/test_apply_write_ahead.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_codex_attempt_flow.py`
-- `tests/test_coldness_receipt.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
