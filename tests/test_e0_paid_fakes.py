@@ -6,6 +6,7 @@ through the E0 ledger, so budget stops, resume and the incomplete report are
 exercised exactly as a paid run would hit them."""
 from __future__ import annotations
 
+import json
 import socket
 
 import pytest
@@ -97,6 +98,7 @@ def test_resume_pays_only_for_what_is_missing(tmp_path):
     # Same corpus, same run directory: no document and no stored query is re-sent;
     # only the canaries and the online latency's fresh queries go out again.
     snapshot = C.build_snapshot(C.open_copy(tmp_path / "fixtures-local" / "contextual-embeddings" / "vaults" / "e0vault"))
+    first_receipts = len((run_dir / "receipts.jsonl").read_text().splitlines())
     again = FakeEmbeddingTransport(dims=DIMS, int8_models=frozenset({"pplx-embed-context-v1-4b", "pplx-embed-v1-4b"}))
     qwen_again = FakeQwenClient()
     run_paid(snapshot, ledger=ledger, caller=FakeRoleCaller(fake_respond, ledger), run_dir=run_dir, transport=again,
@@ -111,6 +113,11 @@ def test_resume_pays_only_for_what_is_missing(tmp_path):
     # Qwen: only its canary document and canary query; documents, queries and
     # the online measurements are all reused.
     assert qwen_again.calls == [(1, "retrieval-document"), (1, "retrieval-query")]
+    # Every adapter, by its receipts (Perplexity bodies carry no input_type, so
+    # the transport filters above cannot see them): the resumed run sent only canaries.
+    resumed = [json.loads(line) for line in (run_dir / "receipts.jsonl").read_text().splitlines()[first_receipts:]]
+    assert resumed and {row["method"] for row in resumed if row.get("adapter")} <= {"canary", "canary_query"}
+    assert {row["adapter"] for row in resumed if row.get("adapter")} >= {"pplx_context_4b", "pplx_4b"}
 
 
 def test_the_live_caller_admits_each_physical_request_and_resumes_from_checkpoints(tmp_path):

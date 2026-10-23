@@ -29,8 +29,11 @@ The contract every adapter keeps:
   first successful canary output is cached and later canaries are compared
   within a tolerance (``CanaryDrift`` opens a new epoch).
 
-Every provider contract here is UNVERIFIED offline (``pins``). The canary
-(``learnloop experiments e0 contracts``) validates it before any paid run.
+The Perplexity request and response shapes follow the published API
+reference (read 2026-10-23; the Perplexity canary round in
+docs/reviews/experiments-e0-harness-codex-review.md). Every contract is still
+validated by the canary before any bulk work of a paid run. A failed attempt's
+receipt carries ``http_status`` and a safe ``contract_reason``.
 """
 from __future__ import annotations
 
@@ -73,11 +76,18 @@ CANARY_QUERY = "What is a vector space?"
 
 
 class AdapterError(RuntimeError):
-    """An adapter failure; ``kind`` is transient, auth, contract, limit or validation."""
+    """An adapter failure; ``kind`` is transient, auth, contract, limit or validation.
 
-    def __init__(self, message: str, *, kind: str) -> None:
+    ``reason`` is SAFE to record (Perplexity canary round): the message is
+    built here from constants, field paths and counts, never from a response
+    body, a key or the request's text. ``http_status`` is the provider's
+    status when one came back."""
+
+    def __init__(self, message: str, *, kind: str, http_status: int | None = None) -> None:
         super().__init__(message)
         self.kind = kind
+        self.reason = message
+        self.http_status = http_status
 
 
 class WrongMethod(AdapterError):
@@ -120,6 +130,80 @@ class HttpResponse:
     status: int
     body: Any
     request_id: str | None = None
+    #: A non-2xx response's allowlisted error codes (``safe_error_codes``);
+    #: the error body itself is never kept.
+    error_codes: tuple[str, ...] = ()
+
+
+#: Field names an error location may name in a receipt; any other part of a
+#: location becomes ``?`` (a location can name a user-chosen key).
+SAFE_ERROR_FIELDS = frozenset({
+    "body", "query", "header", "path", "input", "inputs", "model", "dimensions", "encoding_format", "input_type",
+    "output_dimension", "output_dtype", "truncation", "data", "embedding", "index", "authorization",
+})
+#: Validation error types a receipt may name (FastAPI/Pydantic's fixed
+#: vocabulary, as Perplexity's documented 422 ``HTTPValidationError`` carries
+#: them); any other value becomes ``other``.
+SAFE_ERROR_TYPES = frozenset({
+    "missing", "extra_forbidden", "enum", "literal_error", "string_type", "int_type", "int_parsing", "int_from_float",
+    "float_type", "float_parsing", "bool_type", "list_type", "dict_type", "model_type", "model_attributes_type",
+    "too_short", "too_long", "string_too_short", "string_too_long", "greater_than", "greater_than_equal",
+    "less_than", "less_than_equal", "value_error", "assertion_error", "json_invalid", "json_type", "union_tag_invalid",
+    "type_error", "value_error.missing", "value_error.extra", "type_error.enum",
+    # The OpenAI-style ``error.type`` / ``error.code`` envelope.
+    "invalid_request_error", "authentication_error", "permission_error", "rate_limit_error", "not_found_error",
+    "server_error", "api_error", "overloaded_error", "insufficient_quota", "invalid_api_key", "invalid_model",
+    "model_not_found", "context_length_exceeded", "bad_request",
+})
+#: At most this many codes and this many error-body bytes are read.
+MAX_ERROR_CODES = 8
+MAX_ERROR_BODY_BYTES = 65_536
+
+
+def safe_error_codes(payload: Any) -> tuple[str, ...]:
+    """A provider error body reduced to allowlisted codes, e.g.
+    ``body.encoding_format:enum``; messages (``msg``, ``message``, a string
+    ``detail``) are never read, so no request text or key can reach a receipt.
+
+    Perplexity documents one error shape for both embedding endpoints: 422
+    ``HTTPValidationError`` = ``{"detail": [{"loc": [...], "msg": ..., "type": ...}]}``
+    (docs.perplexity.ai/api-reference/embeddings-post and
+    .../contextualized-embeddings-post). The OpenAI-style ``{"error": {"type",
+    "code"}}`` envelope is reduced the same way."""
+
+    def kind(value: Any) -> str:
+        return value if isinstance(value, str) and value in SAFE_ERROR_TYPES else "other"
+
+    def place(part: Any) -> str:
+        if isinstance(part, int) and not isinstance(part, bool) and 0 <= part < 1_000_000:
+            return str(part)
+        return part if isinstance(part, str) and part in SAFE_ERROR_FIELDS else "?"
+
+    codes: list[str] = []
+    if isinstance(payload, Mapping):
+        detail = payload.get("detail")
+        if isinstance(detail, list):
+            for item in detail[:MAX_ERROR_CODES]:
+                if isinstance(item, Mapping):
+                    loc = item.get("loc")
+                    where = ".".join(place(part) for part in loc[:8]) if isinstance(loc, list) else "?"
+                    codes.append(f"{where}:{kind(item.get('type'))}")
+        error = payload.get("error")
+        if isinstance(error, Mapping):
+            for field in ("type", "code"):
+                if error.get(field) is not None:
+                    codes.append(f"error.{field}:{kind(error.get(field))}")
+    return tuple(codes[:MAX_ERROR_CODES])
+
+
+def _error_codes(exc: urllib.error.HTTPError) -> tuple[str, ...]:
+    """The allowlisted codes of an HTTP error body, read bounded and dropped."""
+
+    try:
+        raw = exc.read(MAX_ERROR_BODY_BYTES)
+        return safe_error_codes(json.loads(raw.decode("utf-8")))
+    except Exception:  # noqa: BLE001 - an unreadable error body has no codes
+        return ()
 
 
 class Transport(Protocol):
@@ -141,8 +225,9 @@ OPENER = urllib.request.build_opener(NoRedirect)
 
 
 class UrllibTransport:
-    """The real HTTPS transport. Errors carry the status only, never the body
-    (provider error bodies can echo request text). Redirects are never
+    """The real HTTPS transport. Errors carry the status and the body's
+    allowlisted codes only (``safe_error_codes``), never the body (provider
+    error bodies can echo request text). Redirects are never
     followed: a 3xx comes back as its status, a contract failure that is not
     retried (``EmbeddingAdapter._kind``, ``anthropic_api._classify``)."""
 
@@ -158,7 +243,8 @@ class UrllibTransport:
                 request_id = response.headers.get("x-request-id") or response.headers.get("request-id")
                 return HttpResponse(int(response.status), payload, request_id)
         except urllib.error.HTTPError as exc:
-            return HttpResponse(int(exc.code), None, exc.headers.get("x-request-id") if exc.headers else None)
+            return HttpResponse(int(exc.code), None, exc.headers.get("x-request-id") if exc.headers else None,
+                                _error_codes(exc))
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             raise AdapterError(f"network failure ({type(exc).__name__})", kind="transient") from None
 
@@ -227,35 +313,59 @@ def qwen_identity(client: Any, pin: EmbeddingPin) -> dict[str, Any]:
     return identity
 
 
-def decode(values: Any, pin: EmbeddingPin) -> np.ndarray:
-    """A raw output row as the FP32 scoring copy (validated, L2-normalized)."""
+def _type_name(value: Any) -> str:
+    """A JSON type name (safe to record: never the value)."""
+
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, (int, float)):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, list):
+        return "array"
+    if isinstance(value, Mapping):
+        return "object"
+    return "other"
+
+
+def decode(values: Any, pin: EmbeddingPin, *, where: str = "embedding") -> np.ndarray:
+    """A raw output row as the FP32 scoring copy (validated, L2-normalized).
+
+    Int8 pins accept Perplexity's documented ``base64_int8`` string (the
+    signed int8 bytes, base64-encoded; length = ``dimensions``) or a list of
+    integers. ``where`` is the row's field path, for a safe reason."""
 
     if pin.output_format == "int8":
         if isinstance(values, str):
             try:
                 raw = np.frombuffer(base64.b64decode(values, validate=True), dtype=np.int8).astype(np.float32)
             except (ValueError, TypeError):
-                raise AdapterError("int8 output is not valid base64", kind="validation") from None
+                raise AdapterError(f"int8 output is not valid base64 at {where}", kind="validation") from None
         else:
             if not isinstance(values, list) or not all(isinstance(value, int) and not isinstance(value, bool)
                                                        for value in values):
-                raise AdapterError("int8 output is not a list of integers", kind="validation")
+                raise AdapterError(f"int8 output is not a list of integers: unexpected type at {where} "
+                                   f"({_type_name(values)})", kind="validation")
             if any(value < -128 or value > 127 for value in values):
-                raise AdapterError("int8 output is out of range", kind="validation")
+                raise AdapterError(f"int8 output is out of range at {where}", kind="validation")
             raw = np.asarray(values, dtype=np.float32)
     else:
         if not isinstance(values, list) or not all(isinstance(value, (int, float)) and not isinstance(value, bool)
                                                    for value in values):
-            raise AdapterError("float output is not a list of numbers", kind="validation")
+            raise AdapterError(f"float output is not a list of numbers: unexpected type at {where} "
+                               f"({_type_name(values)})", kind="validation")
         raw = np.asarray(values, dtype=np.float64)
     if raw.shape != (pin.dimensions,):
-        raise AdapterError(f"output has {raw.shape[0] if raw.ndim else 0} dimensions, pinned {pin.dimensions}",
-                           kind="contract")
+        raise AdapterError(f"output has {raw.shape[0] if raw.ndim else 0} dimensions at {where}, "
+                           f"pinned {pin.dimensions}", kind="contract")
     if not np.all(np.isfinite(raw)):
-        raise AdapterError("output contains non-finite values", kind="validation")
+        raise AdapterError(f"output contains non-finite values at {where}", kind="validation")
     norm = float(np.linalg.norm(raw))
     if not norm or not math.isfinite(norm):
-        raise AdapterError("output is a zero vector", kind="validation")
+        raise AdapterError(f"output is a zero vector at {where}", kind="validation")
     return (raw / norm).astype(np.float32)
 
 
@@ -264,7 +374,7 @@ class Receipts:
 
     FIELDS = ("at", "arm", "adapter", "endpoint", "model", "method", "input_hash", "items", "estimated_tokens",
               "usage", "billed_usd", "estimated_usd", "status", "attempt", "latency_s", "request_id",
-              "error_kind", "resumed", "identity")
+              "error_kind", "resumed", "identity", "http_status", "contract_reason")
 
     def __init__(self, path: Path | None) -> None:
         self.path = Path(path) if path is not None else None
@@ -458,7 +568,31 @@ class EmbeddingAdapter:
         if problem is not None:
             raise E0PriceUnverified(problem)
 
-    def _send(self, url: str, body: Mapping[str, Any], *, method: str, texts: Sequence[str], items: int) -> Any:
+    @staticmethod
+    def _billed(cost: Any) -> float | None:
+        """The provider's explicit cost: a number, or Perplexity's documented
+        ``usage.cost`` object (``{"input_cost", "total_cost", "currency": "USD"}``,
+        docs.perplexity.ai/api-reference/embeddings-post), whose ``total_cost``
+        in USD is the bill. Anything else is no explicit cost."""
+
+        if isinstance(cost, Mapping):
+            if cost.get("currency", "USD") != "USD":
+                return None
+            return explicit_cost(cost.get("total_cost"))
+        return explicit_cost(cost)
+
+    def _send(self, url: str, body: Mapping[str, Any], *, method: str, texts: Sequence[str], items: int,
+              parse: Callable[[Any], Any] | None = None) -> Any:
+        """One admitted request (and its transient retries); returns
+        ``parse(response_body)`` (the body when ``parse`` is None).
+
+        The parse runs INSIDE the receipt path (Perplexity canary round): a
+        2xx whose body does not parse is settled as billed, and its receipt
+        is ``status: "failed"`` with ``error_kind``, ``http_status`` and a
+        safe ``contract_reason`` (``AdapterError.reason``: field paths, types
+        and counts, never body text). A non-2xx records its status and the
+        error body's allowlisted codes (``safe_error_codes``)."""
+
         self._require_price()
         tokens, usd = self._estimate(texts)
         input_hash = _hash({"url": url, "body": body})
@@ -483,31 +617,53 @@ class EmbeddingAdapter:
                     counts = [count for key in ("total_tokens", "prompt_tokens")
                               if (count := known_tokens(usage.get(key)))]
                     reported_tokens = max(counts) if counts else None
-                    cost = usage.get("cost")
-                    billed = explicit_cost(cost)
+                    billed = self._billed(usage.get("cost"))
                     price = self.pin.price_per_million_upper_bound
                     actual = reconciled_usd({"input_tokens": reported_tokens, "cost": billed},
                                             lambda tokens_in, _out: tokens_in * price / 1_000_000)
-                    charge.settle(actual_usd=actual, usage={"input_tokens": reported_tokens, "cost": cost},
+                    charge.settle(actual_usd=actual, usage={"input_tokens": reported_tokens, "cost": billed},
                                   request_id=response.request_id, latency_s=latency)
-                    self.receipts.write(arm=self.arm, adapter=self.pin.name, endpoint=url, model=self.pin.model,
-                                        method=method, input_hash=input_hash, items=items, estimated_tokens=tokens,
-                                        usage={"tokens": reported_tokens}, billed_usd=billed, estimated_usd=actual,
-                                        status="ok", attempt=attempt, latency_s=round(latency, 4),
-                                        request_id=response.request_id)
-                    return response.body
+                    receipt = dict(arm=self.arm, adapter=self.pin.name, endpoint=url, model=self.pin.model,
+                                   method=method, input_hash=input_hash, items=items, estimated_tokens=tokens,
+                                   usage={"tokens": reported_tokens}, billed_usd=billed, estimated_usd=actual,
+                                   attempt=attempt, latency_s=round(latency, 4), request_id=response.request_id,
+                                   http_status=response.status)
+                    try:
+                        parsed = response.body if parse is None else parse(response.body)
+                    except AdapterError as exc:
+                        self.receipts.write(**receipt, status="failed", error_kind=exc.kind,
+                                            contract_reason=exc.reason)
+                        exc.http_status = response.status
+                        raise
+                    self.receipts.write(**receipt, status="ok")
+                    return parsed
                 kind = error.kind if error is not None else self._kind(response)
+                status = response.status if response is not None else None
+                reason = self._failure_reason(response, error)
                 charge.settle(actual_usd=None, status="failed", latency_s=latency,
                               request_id=response.request_id if response is not None else None)
                 self.receipts.write(arm=self.arm, adapter=self.pin.name, endpoint=url, model=self.pin.model,
                                     method=method, input_hash=input_hash, items=items, estimated_tokens=tokens,
                                     status="failed", attempt=attempt, latency_s=round(latency, 4),
                                     request_id=response.request_id if response is not None else None,
-                                    error_kind=kind)
+                                    error_kind=kind, http_status=status, contract_reason=reason)
             if kind != "transient" or attempt >= pins.TRANSIENT_RETRIES:
-                raise AdapterError(f"{self.pin.name} {method} request failed ({kind})", kind=kind)
+                raise AdapterError(f"{self.pin.name} {method} request failed ({kind}): {reason}", kind=kind,
+                                   http_status=status)
             attempt += 1
             self.sleep(min(30.0, 2.0 ** attempt))
+
+    @staticmethod
+    def _failure_reason(response: HttpResponse | None, error: AdapterError | None) -> str:
+        """A failed attempt's safe reason: ``HTTP 422: body.encoding_format:enum``
+        (allowlisted codes only), or the transport's own safe message."""
+
+        if response is None:
+            return error.reason if error is not None else "no response"
+        if 200 <= response.status < 300:
+            return f"HTTP {response.status}: the body is not a JSON object ({_type_name(response.body)})"
+        codes = ", ".join(response.error_codes)
+        return f"HTTP {response.status}" + (f": {codes}" if codes else "")
 
     @staticmethod
     def _kind(response: HttpResponse | None) -> str:
@@ -569,12 +725,11 @@ class EmbeddingAdapter:
             else:
                 missing.append(document)
         for batch in self._batches(missing):
-            body = self._send(self.pin.document_endpoint, self._document_body(batch), method="document",
-                              texts=[chunk.text for document in batch for chunk in document.chunks],
-                              items=sum(len(document.chunks) for document in batch))
-            rows = self._document_rows(body, batch)
-            for document, document_rows in zip(batch, rows, strict=True):
-                vectors = [decode(row, self.pin).tolist() for row in document_rows]
+            decoded = self._send(self.pin.document_endpoint, self._document_body(batch), method="document",
+                                 texts=[chunk.text for document in batch for chunk in document.chunks],
+                                 items=sum(len(document.chunks) for document in batch),
+                                 parse=lambda body, batch=batch: self._parse_documents(body, batch))
+            for document, (document_rows, vectors) in zip(batch, decoded, strict=True):
                 results[document.document_id] = vectors
                 if document.key:
                     # The raw rows too: decoding is reproducible from what was paid for.
@@ -608,11 +763,10 @@ class EmbeddingAdapter:
         size = max(1, min(self.pin.max_documents_per_request, 128))
         for start in range(0, len(missing), size):
             chunk = list(missing[start:start + size])
-            body = self._send(self.pin.query_endpoint, self._query_body(chunk), method="query",
-                              texts=[query.text for query in chunk], items=len(chunk))
-            rows = self._query_rows(body, len(chunk))
-            for query, row in zip(chunk, rows, strict=True):
-                vector = decode(row, self.pin).tolist()
+            decoded = self._send(self.pin.query_endpoint, self._query_body(chunk), method="query",
+                                 texts=[query.text for query in chunk], items=len(chunk),
+                                 parse=lambda body, count=len(chunk): self._parse_queries(body, count))
+            for query, (row, vector) in zip(chunk, decoded, strict=True):
                 found[query.text] = vector
                 self.store.put(self.query_space, query_vector_key(self.query_encoder_id, query.text), [vector],
                                raw=[row])
@@ -627,24 +781,47 @@ class EmbeddingAdapter:
         through its own method (document and query contracts)."""
 
         document = self._canary_document()
-        body = self._send(self.pin.document_endpoint, self._document_body([document]), method="canary",
-                          texts=[chunk.text for chunk in document.chunks], items=len(document.chunks))
-        self._check_returned_model(body)
-        fresh = self._document_rows(body, [document])[0]
-        vectors = [decode(row, self.pin).tolist() for row in fresh]
+        [(_rows, vectors)] = self._send(self.pin.document_endpoint, self._document_body([document]), method="canary",
+                                        texts=[chunk.text for chunk in document.chunks], items=len(document.chunks),
+                                        parse=lambda body: self._parse_documents(body, [document], check_model=True))
         query = PreparedQuery("canary_query", CANARY_QUERY)
-        query_body = self._send(self.pin.query_endpoint, self._query_body([query]), method="canary_query",
-                                texts=[query.text], items=1)
-        self._check_returned_model(query_body)
-        query_vector = decode(self._query_rows(query_body, 1)[0], self.pin).tolist()
+        [(_row, query_vector)] = self._send(self.pin.query_endpoint, self._query_body([query]), method="canary_query",
+                                            texts=[query.text], items=1,
+                                            parse=lambda body: self._parse_queries(body, 1, check_model=True))
         return vectors, query_vector
+
+    def _parse_documents(self, body: Any, documents: Sequence[Document], *,
+                         check_model: bool = False) -> list[tuple[list[Any], list[Vector]]]:
+        """Each document's raw rows and decoded vectors (inside ``_send``, so
+        a parse failure is on the attempt's receipt)."""
+
+        if check_model:
+            self._check_returned_model(body)
+        decoded = []
+        for position, rows in enumerate(self._document_rows(body, documents)):
+            vectors = [decode(row, self.pin, where=self._row_path(position, chunk)).tolist()
+                       for chunk, row in enumerate(rows)]
+            decoded.append((list(rows), vectors))
+        return decoded
+
+    def _parse_queries(self, body: Any, count: int, *, check_model: bool = False) -> list[tuple[Any, Vector]]:
+        if check_model:
+            self._check_returned_model(body)
+        return [(row, decode(row, self.pin, where=self._row_path(position, 0)).tolist())
+                for position, row in enumerate(self._query_rows(body, count))]
+
+    def _row_path(self, document: int, chunk: int) -> str:
+        """A row's field path in the response (sorted by index)."""
+
+        return f"data[{document}].embedding"
 
     def _check_returned_model(self, body: Any) -> None:
         """A response that names its model must name the pinned one."""
 
         model = body.get("model") if isinstance(body, Mapping) else None
         if model is not None and str(model) != self.pin.model:
-            raise AdapterError("the provider answered with another model than the pinned one", kind="contract")
+            raise AdapterError("the provider answered with another model than the pinned one (at model)",
+                               kind="contract")
 
     def canary(self) -> dict[str, Any]:
         """The route's public contract check, before ANY bulk work (fix round
@@ -675,76 +852,124 @@ class EmbeddingAdapter:
         return {"status": "stable", "min_cosine": round(similarity, 6), "query_checked": True}
 
 
-def _ordered(rows: Any, count: int, what: str) -> list[Any]:
-    """Rows matched to inputs by their ``index``, never by position."""
+def _ordered(rows: Any, count: int, where: str) -> list[Any]:
+    """Rows matched to inputs by their ``index``, never by position.
+    ``where`` is the list's field path (``data``, ``data[1].data``); every
+    error names a path, a JSON type or a count only (a safe reason)."""
 
-    if not isinstance(rows, list) or len(rows) != count:
-        raise AdapterError(f"{what}: expected {count} rows", kind="contract")
+    if rows is None:
+        raise AdapterError(f"missing field {where}", kind="contract")
+    if not isinstance(rows, list):
+        raise AdapterError(f"unexpected type at {where} ({_type_name(rows)}, expected array)", kind="contract")
+    if len(rows) != count:
+        raise AdapterError(f"{where}: expected {count} rows, got {len(rows)}", kind="contract")
     by_index: dict[int, Any] = {}
-    for row in rows:
-        if not isinstance(row, Mapping) or not isinstance(row.get("index"), int) or isinstance(row.get("index"), bool):
-            raise AdapterError(f"{what}: a row has no integer index", kind="contract")
-        if row["index"] in by_index:
-            raise AdapterError(f"{what}: duplicate index", kind="contract")
-        by_index[row["index"]] = row
+    for position, row in enumerate(rows):
+        if not isinstance(row, Mapping):
+            raise AdapterError(f"unexpected type at {where}[{position}] ({_type_name(row)}, expected object)",
+                               kind="contract")
+        index = row.get("index")
+        if index is None:
+            raise AdapterError(f"missing field {where}[{position}].index", kind="contract")
+        if not isinstance(index, int) or isinstance(index, bool):
+            raise AdapterError(f"unexpected type at {where}[{position}].index ({_type_name(index)}, expected "
+                               "integer)", kind="contract")
+        if index in by_index:
+            raise AdapterError(f"{where}: duplicate index", kind="contract")
+        by_index[index] = row
     if sorted(by_index) != list(range(count)):
-        raise AdapterError(f"{what}: indices do not match the inputs", kind="contract")
+        raise AdapterError(f"{where}: indices do not match the inputs", kind="contract")
     return [by_index[index] for index in range(count)]
+
+
+def _embedding(row: Mapping[str, Any], where: str) -> Any:
+    if "embedding" not in row or row.get("embedding") is None:
+        raise AdapterError(f"missing field {where}.embedding", kind="contract")
+    return row["embedding"]
+
+
+def _json_object(body: Any) -> Mapping[str, Any]:
+    if not isinstance(body, Mapping):
+        raise AdapterError(f"unexpected type at the response body ({_type_name(body)}, expected object)",
+                           kind="contract")
+    return body
 
 
 class _GroupedAdapter(EmbeddingAdapter):
     """Contextualized endpoints: nested documents, nested ordered responses."""
 
     def _document_rows(self, body: Any, documents: Sequence[Document]) -> list[list[Any]]:
-        if not isinstance(body, Mapping):
-            raise AdapterError("response is not a JSON object", kind="contract")
-        outer = _ordered(body.get("data"), len(documents), "documents")
+        outer = _ordered(_json_object(body).get("data"), len(documents), "data")
         rows: list[list[Any]] = []
-        for document, entry in zip(documents, outer, strict=True):
-            inner = _ordered(entry.get("data"), len(document.chunks), "chunks")
-            rows.append([row.get("embedding") for row in inner])
+        for position, (document, entry) in enumerate(zip(documents, outer, strict=True)):
+            where = f"data[{position}].data"
+            inner = _ordered(entry.get("data"), len(document.chunks), where)
+            rows.append([_embedding(row, f"{where}[{chunk}]") for chunk, row in enumerate(inner)])
         return rows
 
     def _query_rows(self, body: Any, count: int) -> list[Any]:
         rows = self._document_rows(body, [Document(f"q{index}", (Chunk("q", "q"),)) for index in range(count)])
         return [row[0] for row in rows]
 
+    def _row_path(self, document: int, chunk: int) -> str:
+        return f"data[{document}].data[{chunk}].embedding"
+
 
 class _IndependentAdapter(EmbeddingAdapter):
     def _document_rows(self, body: Any, documents: Sequence[Document]) -> list[list[Any]]:
-        if not isinstance(body, Mapping):
-            raise AdapterError("response is not a JSON object", kind="contract")
-        rows = _ordered(body.get("data"), len(documents), "texts")
-        return [[row.get("embedding")] for row in rows]
+        rows = _ordered(_json_object(body).get("data"), len(documents), "data")
+        return [[_embedding(row, f"data[{position}]")] for position, row in enumerate(rows)]
 
     def _query_rows(self, body: Any, count: int) -> list[Any]:
-        if not isinstance(body, Mapping):
-            raise AdapterError("response is not a JSON object", kind="contract")
-        return [row.get("embedding") for row in _ordered(body.get("data"), count, "queries")]
+        rows = _ordered(_json_object(body).get("data"), count, "data")
+        return [_embedding(row, f"data[{position}]") for position, row in enumerate(rows)]
+
+
+#: Perplexity's documented encoding (both endpoints): ``base64_int8`` (the
+#: default; ``base64_binary`` is the other value). The first paid run sent
+#: ``"int8"``, outside that enum, and every canary got a 422.
+PERPLEXITY_ENCODING = "base64_int8"
 
 
 class PerplexityContextualAdapter(_GroupedAdapter):
-    """``pplx-embed-context-v1-4b``: grouped windows and the singleton control."""
+    """``pplx-embed-context-v1-4b``: grouped windows and the singleton control.
+
+    The documented request (docs.perplexity.ai/api-reference/contextualized-embeddings-post,
+    read 2026-10-23): ``input`` = an array of documents, each an array of its
+    chunk strings; ``model``; optional ``dimensions`` (128-2560 for 4b,
+    default 2560) and ``encoding_format``. There is NO ``input_type``: the
+    documented query method is the same endpoint and model with each query
+    wrapped as a one-chunk document, ``[[query]]``
+    (docs.perplexity.ai/docs/embeddings/contextualized-embeddings). The
+    response nests ``data[]`` per document (``index``) holding ``data[]`` per
+    chunk (``index``, ``embedding`` = a base64 string)."""
 
     def _document_body(self, documents: Sequence[Document]) -> dict[str, Any]:
         return {"model": self.pin.model, "input": [[chunk.text for chunk in document.chunks] for document in documents],
-                "input_type": "document", "dimensions": self.pin.dimensions, "encoding_format": "int8"}
+                "dimensions": self.pin.dimensions, "encoding_format": PERPLEXITY_ENCODING}
 
     def _query_body(self, queries: Sequence[PreparedQuery]) -> dict[str, Any]:
-        return {"model": self.pin.model, "input": [[query.text] for query in queries], "input_type": "query",
-                "dimensions": self.pin.dimensions, "encoding_format": "int8"}
+        return {"model": self.pin.model, "input": [[query.text] for query in queries],
+                "dimensions": self.pin.dimensions, "encoding_format": PERPLEXITY_ENCODING}
 
 
 class PerplexityIndependentAdapter(_IndependentAdapter):
-    """``pplx-embed-v1-4b``: the independent family baseline."""
+    """``pplx-embed-v1-4b``: the independent family baseline.
+
+    The documented request (docs.perplexity.ai/api-reference/embeddings-post,
+    read 2026-10-23): ``input`` = a string or an array of 1-512 strings;
+    ``model``; optional ``dimensions`` and ``encoding_format``. No
+    ``input_type`` and no query prefix: queries and documents go through the
+    same call (docs.perplexity.ai/docs/embeddings/standard-embeddings). The
+    response is ``data[]`` (``index``, ``embedding`` = a base64 string)."""
 
     def _document_body(self, documents: Sequence[Document]) -> dict[str, Any]:
         return {"model": self.pin.model, "input": [document.chunks[0].text for document in documents],
-                "input_type": "document", "dimensions": self.pin.dimensions, "encoding_format": "int8"}
+                "dimensions": self.pin.dimensions, "encoding_format": PERPLEXITY_ENCODING}
 
     def _query_body(self, queries: Sequence[PreparedQuery]) -> dict[str, Any]:
-        return {"model": self.pin.model, "input": [query.text for query in queries], "input_type": "query",
-                "dimensions": self.pin.dimensions, "encoding_format": "int8"}
+        return {"model": self.pin.model, "input": [query.text for query in queries],
+                "dimensions": self.pin.dimensions, "encoding_format": PERPLEXITY_ENCODING}
 
 
 class VoyageContextualAdapter(_GroupedAdapter):

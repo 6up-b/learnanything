@@ -59,7 +59,11 @@ def test_grouped_responses_are_matched_by_index_not_position(tmp_path, cls, pin)
                                          "Proof by the definition.", pin.dimensions), pin)
     assert np.allclose(vectors[0][1], expected, atol=1e-6)
     body = transport.requests[0]["body"]
-    assert body["input_type"] == "document"
+    if pin is PPLX:
+        # The documented Perplexity body has no input_type (Perplexity canary round).
+        assert "input_type" not in body and body["encoding_format"] == "base64_int8"
+    else:
+        assert body["input_type"] == "document"
     assert all(abs(np.linalg.norm(vector) - 1) < 1e-5 for document in vectors for vector in document)
 
 

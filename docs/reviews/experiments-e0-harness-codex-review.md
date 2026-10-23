@@ -658,3 +658,131 @@ Every pytest ran inside `systemd-run --user --scope -p MemoryMax=5G -p MemorySwa
   - `.venv/bin/lint-imports --no-cache` (under `env -i`): **30 kept, 0 broken**.
   - `pytest -n 4` on 31 files: **520 passed, 1 skipped**. The 31 files are the 30 of the previous step plus the new `tests/test_e0_review_round6.py`, with 6 tests. The skip needs the `openai_codex` SDK.
   - Fail-before on `6b203def3`'s `src`, `migrations` and `calibration_bundles` (`git archive`, `pytest -o pythonpath`): the 6 round-6 tests, **6 failed**. M1 failed with `LEARNLOOP_AI_PROVIDER` loaded into the process. L4 tried to send without a gate. L7 went past the run-dir check. L1 found no redirect-refusing opener. M2 found the old allocations.
+
+## The Perplexity canary round (2026-10-23)
+
+The first paid run (plan `e0_a47534fecc49ded5`) was stopped by the orchestrator after the canaries. It spent $0.0004. All three Perplexity canaries failed with `error_kind: "contract"` in about 70 ms, each with a Perplexity request id. Each one wrote a `failed` receipt from inside `_send`, so the failure was a non-2xx status, not a parse error. Everything else passed: Claude Haiku, Sonnet and Opus, Voyage `voyage-context-4` and `voyage-4-large`, the OpenRouter Qwen canaries, and the start of the Qwen service backfill.
+
+### What the API reference says (read 2026-10-23, no other network request)
+
+| Source | What it says |
+|---|---|
+| https://docs.perplexity.ai/api-reference/embeddings-post | **Endpoint:** `POST https://api.perplexity.ai/v1/embeddings`, Bearer auth.<br>**Request** (`EmbeddingsRequest`):<br>• `input`: a string, or an array of 1 to 512 non-empty strings. At most 32K tokens each and 120,000 in total.<br>• `model`: `pplx-embed-v1-0.6b` or `pplx-embed-v1-4b`.<br>• `dimensions`: optional, 128 to 2560 for 4b, default 2560.<br>• `encoding_format`: optional, enum `base64_int8` (the default) or `base64_binary`.<br>• **No `input_type` field.**<br>**200 response** (`EmbeddingsResponse`):<br>• `object` (`list`), `data[]` and `model`.<br>• Each `data[]` item has `object` (`embedding`), `index`, and `embedding`: a **base64 string**. For `base64_int8` it decodes to `dimensions` signed int8 values.<br>• `usage`: `prompt_tokens`, `total_tokens`, and `cost` = `{input_cost, total_cost, currency: "USD"}`.<br>**Errors:** the only documented one is **422** `HTTPValidationError` = `{"detail": [{"loc", "msg", "type"}]}`. |
+| https://docs.perplexity.ai/api-reference/contextualized-embeddings-post | **Endpoint:** `POST https://api.perplexity.ai/v1/contextualizedembeddings`.<br>**Request:**<br>• `input`: an array of 1 to 512 documents. Each document is an array of at least one non-empty chunk string. At most 16,000 chunks in total, 32K tokens per document and 120,000 tokens in total.<br>• `model`: `pplx-embed-context-v1-0.6b` or `pplx-embed-context-v1-4b`.<br>• `dimensions` and `encoding_format`: as above, default `base64_int8`.<br>• **No `input_type` field.**<br>**200 response:**<br>• `data[]` has one entry per document, with `object`, `index` (the document) and `data[]`.<br>• Each inner `data[]` item is one chunk, with `object`, `index` (the chunk) and `embedding` (a base64 string).<br>• `usage` and the errors are as above. |
+| https://docs.perplexity.ai/docs/embeddings/contextualized-embeddings | Queries go to the same contextualized endpoint and model, with each query wrapped as a one-element inner list, `[[query]]`. The example decodes with `np.frombuffer(base64.b64decode(b64), dtype=np.int8)` and ranks by cosine. |
+| https://docs.perplexity.ai/docs/embeddings/standard-embeddings | The standard endpoint has no input type or prefix parameter: queries and documents go through the same call with the same settings. The int8 decoding is the same as above. |
+
+### Field by field
+
+| Field | Sent by the first paid run | Documented | Fixed |
+|---|---|---|---|
+| `encoding_format` | `"int8"` | `base64_int8` or `base64_binary` | **`"base64_int8"`**. `"int8"` is outside the enum: a 422 on both endpoints. This is the cause. |
+| `input_type` | `"document"` or `"query"` | not in either schema | **dropped**. The docs do not say whether an unknown field is rejected; the adapter now sends only documented fields. |
+| `input` (contextualized) | `[[chunk, ...], ...]`, queries `[[query]]` | the same | unchanged |
+| `input` (standard) | `[text, ...]` | a string or an array of strings | unchanged |
+| `model` | `pplx-embed-context-v1-4b` and `pplx-embed-v1-4b` | in the enum | unchanged |
+| `dimensions` | 2560 | 128 to 2560 for 4b, default 2560 | unchanged (the pin) |
+| Response nesting | `data[].index`, `data[].data[].index` and `.embedding` | the same | unchanged; rows are still matched by `index` |
+| `embedding` | parsed as an int8 list or a base64 string | a base64 string (`base64_int8`) | already decoded as signed int8 and length-checked against `dimensions`; now tested on the documented shape |
+| `usage.cost` | an object, so ignored (not a number) | `{input_cost, total_cost, currency: "USD"}` | **`total_cost` in USD is the explicit bill** (`EmbeddingAdapter._billed`). Before, the request was settled on the reported tokens at the pin price. |
+
+The query method is the documented one: `[[query]]` on the contextualized endpoint, and the same call on the standard endpoint. The pins' `query_method` text already said this, so no pin changed (see Resume below).
+
+### Safe contract reasons
+
+- A failed attempt's receipt now has two more fields, `http_status` and `contract_reason`.
+  - On a non-2xx, `contract_reason` is `HTTP <status>`, followed by the error body's allowlisted codes (`adapters.safe_error_codes`). For the first paid run's bodies, that is `HTTP 422: body.input_type:extra_forbidden, body.encoding_format:enum`.
+- How a code is built:
+  - `UrllibTransport` reads the HTTP error body, at most 64 KB, and keeps only the codes; the body is dropped.
+  - A code is `<loc>:<type>`. Each part of the location is an integer or a name from a fixed field list; anything else becomes `?`.
+  - The type comes from a fixed vocabulary (the Pydantic/FastAPI types, plus the OpenAI-style `error.type`/`error.code` values); anything else becomes `other`.
+  - `msg`, `message` and a string `detail` are never read.
+  - At most 8 codes are kept.
+  - Tested: a `msg`, `loc` part, `type` or `error.code` carrying request text never reaches the codes or the receipt.
+- **A 2xx that does not parse is now on the receipt.** The parse and decode run inside `_send`'s receipt path (`parse=`). Before, the receipt said `ok` and the error was raised afterwards.
+  - The request was billed, so its ledger entry is settled on the reported cost.
+  - The receipt is `status: "failed"`, with `error_kind`, `http_status: 200` and a reason built from field paths, JSON types and counts only. Examples: `missing field data[0].data[0].embedding`, `unexpected type at data (object, expected array)`, `output has 1024 dimensions at data[0].data[1].embedding, pinned 2560`, `the provider answered with another model than the pinned one (at model)`.
+- `run_contracts` copies `http_status` and `reason` into the run result's `contracts[arm]`.
+
+### Tests (`tests/test_e0_review_round7.py`, 21 tests)
+
+- **The documented shapes.**
+  - `tests/e0_fakes.perplexity_documented` implements both published request schemas. It enforces them with the documented 422 `detail` (reduced by `safe_error_codes`, as the real transport does) and answers with the documented 200 shapes: `object`, nested `data` with `index`, base64 int8 `embedding`, and `usage.cost`.
+  - `FakeEmbeddingTransport` now routes every Perplexity URL through it, so every fake paid run in the suite exercises the documented contract.
+  - Literal documented responses, with rows out of order, decode by `index`. `usage.cost.total_cost` settles the ledger.
+- **The three canaries that failed live** (`R4_grouped`, `R4_singleton`, `R4_independent`) pass against the documented contract.
+  - The first paid run's bodies get the documented 422 with exactly `body.input_type:extra_forbidden` and `body.encoding_format:enum`.
+  - The receipt records `http_status: 422` and that reason.
+- **Resume checks** for receipts in `test_e0_paid_fakes` and `test_e0_review_round1`. A Perplexity body no longer has `input_type`, so the transport-level "no document re-sent" filters cannot see it. Both tests now also check that the resumed run's receipts are canaries only, for every adapter.
+- **Fail-before** on `e5ea349ab`'s `src` (`git archive`, `pytest -o pythonpath`): **18 failed, 3 passed**.
+  - The three canary tests fail on the 422 path of the documented fake, the live failure. They stop with an AttributeError: the old adapters lack `safe_error_codes`.
+  - The 3 that pass are the resume and fingerprint checks, which pin unchanged behaviour.
+
+### Resume (no live call made by the agent)
+
+- **The plan id is unchanged: `e0_a47534fecc49ded5`.**
+  - The fix is adapter code only. No pin, allocation, harness version or number changed, so `pins_fingerprint()` is still `883d5380…63b6`.
+  - The `env -i` dry run on the same copies printed run `e0_a47534fecc49ded5`. Its plan JSON is identical to the committed artifact apart from the timestamp, and the copies were unchanged by sha256.
+  - A test pins the fingerprint to the artifact.
+- **The rerun reuses the same ledger.**
+  - `authorized_ledger` reopens `fixtures-local/contextual-embeddings/ledger/e0_a47534fecc49ded5.ledger` for the same plan id, whether or not `--new-authorization` is passed.
+  - The authorization recorded on 2026-10-23 is kept. A second reason is ignored, never rewritten.
+  - Everything already committed counts against the $40: $0.00039517 settled, $0.00001586 for the three failed Perplexity canaries (no bill reported, so kept at their reservation), and $0.000073 for the open reservation. That is about $0.00048 in all.
+  - The plan id is unchanged. If it were not, the run would open a new ledger with a fresh $40. That would need `--new-authorization`, and the run refuses without it.
+- **The interrupted request** is the one entry still `reserved`: `R1_service_backfill`, `qwen/qwen3-embedding-8b`, 7,300 estimated tokens, $0.000073, no request key.
+  - Nothing settles or releases it. It counts in full against the cap forever: unknown billing, the conservative reading.
+  - The Qwen service copy's state is `ready` with the same identity, so it is reopened, not rebuilt.
+  - The production backfill checkpoints each successful batch and plans only missing content hashes. So the 7 settled batches are not re-sent.
+  - The interrupted batch's vectors were never checkpointed: its reservation was never settled, so no response was processed. **That one batch is sent again, once, as a new admitted request.** It cannot be skipped: the vectors are missing. It is never sent twice by this rerun.
+  - If the first attempt did reach OpenRouter, the cost of that batch is paid twice, about $0.00002 each. The ledger counts it conservatively: the old full reservation plus the new request's.
+  - LLM role calls carry a request key. An unexplained earlier entry for the same key blocks them, so they are never re-sent.
+
+### The rerun command (for the orchestrator; not run here)
+
+First the preflight, which should print plan `e0_a47534fecc49ded5`:
+
+```
+cd /home/saturn/Documents/thinking/learnanything-e0
+uv run learnloop experiments e0 run \
+  --copy fixtures-local/contextual-embeddings/vaults/linear_algebra-20261021 \
+  --copy fixtures-local/contextual-embeddings/vaults/probability-20261021 \
+  --env-file /home/saturn/.config/learnloop/settings.env \
+  --env-file /home/saturn/Documents/thinking/learnanything/settings.env \
+  --anthropic-key-env ANTHROPIC_API_KEY --openrouter-key-env OPENROUTER_API_KEY \
+  --perplexity-key-env PERPLEXITY_API_KEY --voyage-key-env VOYAGE_API_KEY \
+  --preflight-only
+```
+
+Then the run. Drop `--new-authorization`:
+
+```
+uv run learnloop experiments e0 run \
+  --copy fixtures-local/contextual-embeddings/vaults/linear_algebra-20261021 \
+  --copy fixtures-local/contextual-embeddings/vaults/probability-20261021 \
+  --env-file /home/saturn/.config/learnloop/settings.env \
+  --env-file /home/saturn/Documents/thinking/learnanything/settings.env \
+  --anthropic-key-env ANTHROPIC_API_KEY --openrouter-key-env OPENROUTER_API_KEY \
+  --perplexity-key-env PERPLEXITY_API_KEY --voyage-key-env VOYAGE_API_KEY \
+  --run-dir fixtures-local/contextual-embeddings/runs \
+  --reader-latency-budget-s <SECONDS> \
+  --i-am-authorized-to-spend --json
+```
+
+Why drop it:
+- Without it, the run can only reopen the existing ledger, which already records the owner's reason.
+- If the plan id were somehow different, the run refuses ("another plan's E0 authorization ledger exists") instead of silently opening a fresh $40 budget.
+- Keeping it would be harmless for the same plan id (it is ignored), but it would hide that case.
+
+On the rerun:
+- The canaries go out again: the Anthropic and Voyage canaries compare as `stable` against their cached first outputs, and the Perplexity canaries run for the first time.
+- If a Perplexity canary still fails, its receipt (`runs/e0_a47534fecc49ded5/linear_algebra-20261021/receipts.jsonl`) and the result's `contracts` now carry `http_status` and the allowlisted reason.
+
+### Gate
+
+Every pytest ran inside `systemd-run --user --scope -p MemoryMax=5G -p MemorySwapMax=1G -- uv run pytest -n 4`.
+
+- `.venv/bin/lint-imports --no-cache` (under `env -i`): **30 kept, 0 broken**.
+- `pytest -n 4` on 32 files (the 31 of the previous step plus `tests/test_e0_review_round7.py`): **541 passed, 1 skipped**. The skip needs the `openai_codex` SDK.
+- Dry run under `env -i`, no keys, `network_calls: 0`: plan `e0_a47534fecc49ded5`, $37.84 of $40, unchanged. The artifacts were not refreshed: the plan is identical.
+
+The only network requests of this round were the four documentation reads listed above, plus `docs.perplexity.ai/llms.txt` to find them. One guessed URL (`/api-reference/contextualizedembeddings-post`) returned 404.

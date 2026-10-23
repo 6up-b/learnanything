@@ -5,11 +5,14 @@ small textbook (numbered environments, a cross-section reference, a bare
 equation, an oversized block, an exercise and its solution), a transcript of
 short captions and an exam in the source set. ``FakeEmbeddingTransport``
 answers every hosted endpoint with hash vectors in a SHUFFLED order (rows
-keyed by ``index``), counts requests and can fail on demand.
+keyed by ``index``), counts requests and can fail on demand; a Perplexity
+URL is answered by ``perplexity_documented`` (the published request schema,
+enforced with the documented 422, and the published response shape).
 ``FakeQwenClient`` stands in for the production OpenRouter client.
 """
 from __future__ import annotations
 
+import base64
 from collections.abc import Callable, Mapping
 import hashlib
 import json
@@ -21,6 +24,7 @@ import numpy as np
 import pytest
 
 from learnloop.db.repositories import Repository
+from learnloop.experiments.contextual_embeddings import adapters as _adapters
 from learnloop.experiments.contextual_embeddings.adapters import HttpResponse
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
 from learnloop.vault.loader import load_vault
@@ -143,8 +147,123 @@ def int8_vector(text: str, dims: int) -> list[int]:
     return [int(value) for value in scaled]
 
 
+#: Perplexity's published contracts (read 2026-10-23), per endpoint:
+#: https://docs.perplexity.ai/api-reference/embeddings-post and
+#: https://docs.perplexity.ai/api-reference/contextualized-embeddings-post.
+PPLX_EMBEDDINGS_URL = "https://api.perplexity.ai/v1/embeddings"
+PPLX_CONTEXTUAL_URL = "https://api.perplexity.ai/v1/contextualizedembeddings"
+PPLX_MODELS = {PPLX_EMBEDDINGS_URL: {"pplx-embed-v1-0.6b": 1024, "pplx-embed-v1-4b": 2560},
+               PPLX_CONTEXTUAL_URL: {"pplx-embed-context-v1-0.6b": 1024, "pplx-embed-context-v1-4b": 2560}}
+#: The documented request fields (both endpoints); the docs list no others
+#: (no ``input_type``). Whether the live API rejects an extra field is not
+#: documented; this fake rejects it, the strictest reading.
+PPLX_FIELDS = frozenset({"input", "model", "dimensions", "encoding_format"})
+PPLX_ENCODINGS = ("base64_int8", "base64_binary")
+
+
+def perplexity_violations(url: str, body: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """The documented 422 ``HTTPValidationError.detail`` items for a request
+    body that breaks the published schema (empty: the body is valid)."""
+
+    problems: list[dict[str, Any]] = []
+
+    def bad(loc: list[Any], kind: str, msg: str) -> None:
+        problems.append({"loc": ["body", *loc], "msg": msg, "type": kind})
+
+    for field in sorted(set(body) - PPLX_FIELDS):
+        bad([field], "extra_forbidden", "Extra inputs are not permitted")
+    models = PPLX_MODELS[url]
+    if "model" not in body:
+        bad(["model"], "missing", "Field required")
+    elif body["model"] not in models:
+        bad(["model"], "enum", f"Input should be {', '.join(models)}")
+    if "encoding_format" in body and body["encoding_format"] not in PPLX_ENCODINGS:
+        bad(["encoding_format"], "enum", "Input should be 'base64_int8' or 'base64_binary'")
+    if "dimensions" in body:
+        dimensions = body["dimensions"]
+        if not isinstance(dimensions, int) or isinstance(dimensions, bool):
+            bad(["dimensions"], "int_type", "Input should be a valid integer")
+        elif not 128 <= dimensions <= models.get(body.get("model"), 2560):
+            bad(["dimensions"], "less_than_equal" if dimensions > 128 else "greater_than_equal", "out of range")
+    if "input" not in body:
+        bad(["input"], "missing", "Field required")
+        return problems
+    value = body["input"]
+    if url == PPLX_CONTEXTUAL_URL:
+        if not isinstance(value, list) or not 1 <= len(value) <= 512:
+            bad(["input"], "list_type" if not isinstance(value, list) else "too_long", "1 to 512 documents")
+        else:
+            for position, chunks in enumerate(value):
+                if not isinstance(chunks, list) or not chunks:
+                    bad(["input", position], "list_type" if not isinstance(chunks, list) else "too_short",
+                        "a document is a non-empty array of chunks")
+                elif not all(isinstance(chunk, str) and chunk for chunk in chunks):
+                    bad(["input", position], "string_too_short", "chunks are non-empty strings")
+            if sum(len(chunks) for chunks in value if isinstance(chunks, list)) > 16_000:
+                bad(["input"], "too_long", "at most 16,000 chunks")
+    else:
+        texts = [value] if isinstance(value, str) else value
+        if not isinstance(texts, list) or not 1 <= len(texts) <= 512:
+            bad(["input"], "list_type" if not isinstance(texts, list) else "too_long", "1 to 512 strings")
+        elif not all(isinstance(text, str) and text for text in texts):
+            bad(["input"], "string_too_short", "inputs are non-empty strings")
+    return problems
+
+
+def pplx_base64_int8(values: list[int]) -> str:
+    """The documented ``base64_int8`` encoding: signed int8 bytes, base64."""
+
+    return base64.b64encode(np.asarray(values, dtype=np.int8).tobytes()).decode("ascii")
+
+
+def perplexity_documented(url: str, body: Mapping[str, Any], *, request_id: str,
+                          vector: Callable[[str, str, list[str] | None], list[int]],
+                          shuffle: Callable[[list[Any]], None] = lambda _rows: None,
+                          corrupt: Callable[[list[Any]], list[Any]] | None = None) -> HttpResponse:
+    """A Perplexity endpoint as its API reference documents it: a body that
+    breaks the schema gets the 422 ``HTTPValidationError`` (reduced by
+    ``safe_error_codes`` exactly as ``UrllibTransport`` reduces it); a valid
+    one gets the documented 200 ``EmbeddingsResponse`` /
+    ``ContextualizedEmbeddingsResponse``: ``object``, ``data``, ``model`` and
+    ``usage`` (``prompt_tokens``, ``total_tokens``, ``cost``), each embedding a
+    ``base64_int8`` string of ``dimensions`` signed bytes."""
+
+    problems = perplexity_violations(url, body)
+    if problems:
+        return HttpResponse(422, None, request_id, _adapters.safe_error_codes({"detail": problems}))
+    model = body["model"]
+    dimensions = int(body.get("dimensions") or PPLX_MODELS[url][model])
+
+    def embedding(text: str, context: list[str] | None) -> dict[str, Any]:
+        values = vector(model, text, context)[:dimensions]
+        return {"object": "embedding", "embedding": pplx_base64_int8(values)}
+
+    tokens = 0
+    if url == PPLX_CONTEXTUAL_URL:
+        data = []
+        for index, chunks in enumerate(body["input"]):
+            rows = [{**embedding(text, chunks), "index": position} for position, text in enumerate(chunks)]
+            tokens += sum(len(text.split()) for text in chunks)
+            shuffle(rows)
+            data.append({"object": "list", "index": index, "data": rows})
+    else:
+        texts = [body["input"]] if isinstance(body["input"], str) else body["input"]
+        data = [{**embedding(text, None), "index": index} for index, text in enumerate(texts)]
+        tokens += sum(len(text.split()) for text in texts)
+    shuffle(data)
+    if corrupt is not None:
+        data = corrupt(data)
+    price = 0.05 if url == PPLX_CONTEXTUAL_URL else 0.03
+    cost = round(tokens * price / 1_000_000, 10)
+    return HttpResponse(200, {"object": "list", "data": data, "model": model,
+                              "usage": {"prompt_tokens": tokens, "total_tokens": tokens,
+                                        "cost": {"input_cost": cost, "total_cost": cost, "currency": "USD"}}},
+                        request_id)
+
+
 class FakeEmbeddingTransport:
-    """Hosted embedding endpoints: grouped or flat, shuffled rows, counted."""
+    """Hosted embedding endpoints: grouped or flat, shuffled rows, counted.
+    Perplexity URLs follow the documented contract (``perplexity_documented``)."""
 
     def __init__(self, *, dims: Mapping[str, int], int8_models: frozenset[str] = frozenset(),
                  fail: Callable[[int, dict[str, Any]], int | None] | None = None,
@@ -170,6 +289,12 @@ class FakeEmbeddingTransport:
             status = self.fail(len(self.requests), dict(body))
             if status is not None:
                 return HttpResponse(status, None, f"req-{len(self.requests)}")
+        if url in PPLX_MODELS:
+            return perplexity_documented(
+                url, body, request_id=f"req-{len(self.requests)}", corrupt=self.corrupt, shuffle=self.random.shuffle,
+                vector=lambda model, text, context: int8_vector(text if context is None
+                                                                else text + "\n" + " ".join(context),
+                                                                self.dims.get(model, PPLX_MODELS[url][model])))
         model = body["model"]
         nested = body.get("inputs") if "inputs" in body else body.get("input")
         tokens = 0

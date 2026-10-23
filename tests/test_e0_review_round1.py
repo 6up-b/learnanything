@@ -229,6 +229,8 @@ def test_f4_f11_the_paid_cli_keeps_receipts_in_its_own_repository_and_resumes(tm
     outcome = result["vaults"][paths.root.name]
     assert outcome["records"]["receipts"] > 0 and outcome["records"]["judgments"] > 0
     assert outcome["service_preparation"]["r0"]["how"] == "prepared"
+    [receipts] = list(run_dir.glob("*/*/receipts.jsonl"))
+    first_receipts = len(receipts.read_text().splitlines())
     second = CliRunner().invoke(app, command)
     assert second.exit_code == 0, second.output
     again = json.loads(second.output.strip().splitlines()[-1])["vaults"][paths.root.name]
@@ -238,6 +240,14 @@ def test_f4_f11_the_paid_cli_keeps_receipts_in_its_own_repository_and_resumes(tm
                  if request["body"].get("input_type") == "document" and "vector space is a set with" not in
                  json.dumps(request["body"])]
     assert documents == []  # resumed: no document re-sent
+    # Every adapter, Perplexity included (its documented body has no
+    # input_type, so the filter above cannot see it): the second run's
+    # receipts are canaries only.
+    rows = [json.loads(line) for line in receipts.read_text().splitlines()]
+    canaries = {"canary", "canary_query"}
+    assert any(row["method"] not in canaries for row in rows[:first_receipts] if (row.get("adapter") or "").startswith("pplx"))
+    resumed = [row for row in rows[first_receipts:] if row.get("adapter")]
+    assert resumed and {row["method"] for row in resumed} <= canaries
     assert again["records"]["judgments"] == outcome["records"]["judgments"]  # appended once
 
 

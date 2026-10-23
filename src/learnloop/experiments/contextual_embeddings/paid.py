@@ -203,7 +203,11 @@ def run_contracts(snapshot: CorpusSnapshot, state: PaidState, **adapter_kwargs: 
             state.fail(arm, exc.kind, str(exc))
         except AdapterError as exc:
             state.blocked_arms.update(blocked)
-            state.contracts[arm] = {"status": "failed", "kind": exc.kind}
+            # The status and the safe reason (field paths, types, counts or
+            # allowlisted error codes; never body text): the next failure is
+            # diagnosable from the result and the receipts (Perplexity canary round).
+            state.contracts[arm] = {"status": "failed", "kind": exc.kind, "http_status": exc.http_status,
+                                    "reason": exc.reason}
             state.fail(arm, f"contract_{exc.kind}", str(exc))
     return state.contracts
 
