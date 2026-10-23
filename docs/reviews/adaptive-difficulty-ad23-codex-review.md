@@ -2473,3 +2473,166 @@ The session restarted mid-round. The worktree held the round's complete edits, w
 then tested from scratch. Every Python run outside pytest, including the authorizer probes, ran
 under `env -i` with an empty HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR. No model call was made;
 owner decisions are unchanged.
+
+## Redesign round 7: values derived from other rows (2026-10-22)
+
+Closed-checklist verify 17 reopened with one High and one Low. It confirmed round 6's own items:
+- the incumbent scope;
+- the statement trace;
+- RETURNING poisoning;
+- the named exceptions.
+
+**The High (classes 2 and 1).**
+- What went wrong: a visible block's OWN stored columns carried withheld header text.
+  - Ingest derived `role_hint` and `section_path_json` from the running heading stack, and that
+    stack holds withheld headers.
+  - `worked_example_spans` filtered on the stored hint.
+  - `project_ir` kept the stored path, which `reanchor._context_score` compares (+3).
+- What the verify's probes showed:
+  - A withheld "Worked Examples (continued)" or "Exercises" decided a public block's role, and so
+    the receipt kind and the dose arm's extra example.
+  - In a re-read, H's exact text decided an alias.
+- Why the tests missed it: their "absent" copies kept P's inherited hint and path.
+
+This is the third round on one class: withheld content reaching AD through data derived from it.
+Under the owner's rule, this round fixes the class, not the two columns.
+
+### The audit: every non-reference column of a table that can hold a visible row
+
+**Columns that are derived:**
+
+| Column | Derived at ingest or later from | Treatment |
+|---|---|---|
+| `source_document_blocks.section_path_json` | the extractor's heading stack: Marker's `section_hierarchy`, GLM-OCR's `_Headings` placer, the Markdown heading levels; withheld headers included | **recomputed** by position (`project_ir` → `ingest.block_roles.positional_structure`): the nearest preceding *visible* header |
+| `source_document_blocks.role_hint` | `classify_block_role` over that stored path | **recomputed**: `classify_block_role` over the positional path |
+| `source_document_blocks.ordinal` | position, counting withheld blocks | **recomputed**: dense, in reading order |
+| `source_document_blocks.extractor_block_id` | layout ids that count blocks per page and type (`/page/0/Text/3`, `glm/page/0/region/7`), withheld ones included | **recomputed**: kept only as a caption cue's own time locator (`t=…`), else none |
+| `source_document_blocks.text` | the block's own region text, except GLM-OCR's `_join_split_labels`, which joins a label's number when the NEIGHBOURING labels' numbering vouches for it | **recomputed**: GLM-OCR text and header blocks in the neighbour-free form (`glm_ocr.canonical_label_text`) |
+| `source_document_blocks.content_hash` | a hash of that text | **recomputed** over AD's text |
+| `source_document_units.label`, `locator_json`, `parent_unit_id`, `ordinal`, `semantic_hash`, `page_start`, `page_end` | units at headings (GLM-OCR's `_heading_units`, Markdown's `_units_from_headings`, Marker's table of contents), withheld headings included; the hash and pages over all blocks | **recomputed**: a unit opened by a withheld block is no unit, and its visible blocks join the unit before it (at the start, the one after it); the rest keep their identity and label; ordinal dense; a dropped parent left out; hash and pages over visible blocks |
+| `source_exposure_events.section_path_json` | a copy of the viewed block's stored path | **unread**: AD maps an exposure by its span through the projected IR |
+| `reader_section_progress.spans_seen`, `span_count` | counts over the section's spans, withheld ones included | **unread**: AD reads a section's completion only |
+| `source_span_reanchors.match_kind`, `confidence` (value) | `reanchor_spans` over the full readings | automatic rows are never used; since round 3 AD recomputes aliases from the projected readings. A `manual` row is an owner's decision |
+| `source_extraction_runs.health_json`, `extraction_result_hash` (neutral, metadata) | page counts by block type, and a digest of the whole reading, withheld blocks included | metadata by round 5's rule (counts, hashes), and never consumed by AD: the projection recomputes the IR's health from visible blocks. Classifying them as content was tried and refused every `SELECT *` of a run (88 failures, alias computation first), so they stay readable as counts and a hash |
+
+**Tables AD cannot read at all:** the chunk, full-text, embedding, outline and chunk-map tables
+(heading-prefixed or context-including text, digests that cross blocks). They are not in the
+registry's `ROLES`, so they are unreadable inside an operation.
+
+**Columns that are the row's own and not derived:**
+- `block_type`, `page`, `bbox_json`, `polygon_json` and `asset_ids_json` of a block are its own
+  region.
+- An asset's `caption`, `page`, `geometry`, `media_type`, `path` and `content_hash` are its own.
+- An exposure's `locator`, `page` and `context` are its own.
+- A unit's `unit_id` is an identity, which the Reader's progress rows name. A merged unit's id leaves
+  AD's projection; the Reader's section of that id is already withheld by its withheld heading
+  (`section_withheld`).
+
+**The other value columns are not derived from source rows:**
+- AD's own artefacts are epoch-scoped (round 2).
+- The learner's events and the incumbent's rows (attempts, presentations, plan events, questions,
+  administrations) are resolved by their references.
+- A tutor event's source context is withheld by any withheld key in it (round 4).
+- Generated candidates are withheld by their items and revisions.
+
+### The rule, by construction
+
+- **A new registry kind, `derived_by_position`** (`protected_tables.DERIVED`), with a named
+  treatment per column (`DERIVED_TREATMENT`).
+- **The guard refuses a derived column outside the derivation scope** (`rules("derive")`), even
+  inside the rules. The predicate and the incumbent's named readers are the exceptions.
+- **The rules never hand a derived column out.** Their select lists leave it out (`_select`).
+- **Raw readings are loaded only inside the derivation scope:**
+  - `MaterialView.document_ir` then hands out only `project_ir`'s recomputed reading;
+  - `section_spans` hands out only the Reader's section membership.
+- **`project_ir` derives everything again from visible blocks, for every reading** (withheld or
+  not, so two readings compare alike). It also recomputes the health block counts.
+- **`worked_example_spans` reads the projected reading.** The role is `classify_block_role` over
+  the positional heading, then the incumbent's `effective_hint`; never the stored hint.
+- **Reanchor's inputs are projected readings** (paths, neighbours, hashes, ordinals), via
+  `computed_aliases` since round 3.
+- **A scope change expires prepared statements.** Leaving any rules scope for a narrower one
+  (`derive` back into `view`, or `view` out of the rules) re-installs the authorizer. Before, this
+  happened only at the outermost exit.
+
+**Consequences for AD's behaviour.** These follow from "derived again from visible rows", in every
+book:
+- AD's worked-example map follows the positional heading and the real ingest classifier.
+- A Marker book's blocks under a "Worked Examples" heading are now worked examples for AD. Marker's
+  stored paths are block ids, which never gave ingest a cue, so before this round they were not.
+- A header that names a worked-example unit ("Worked Examples") counts as one, as ingest classifies
+  it.
+
+### The systemic test: "never extracted" by the real ingest derivation
+
+**The builder.** `tests/ad_ingest_fakes.py` emulates only what an extractor reports before ingest
+derives anything:
+- Marker's blocks with the `section_hierarchy` Marker computes from the headers present;
+- GLM-OCR's title and text regions.
+
+It then runs the production converters, `marker.chunk_output_to_ir` and `glm_ocr.responses_to_ir`.
+The never-extracted copy is the document with the withheld elements deleted BEFORE that run; no
+stored derived column is copied. Span ids are given back their element's id, since ingest numbers
+spans by position.
+
+**The outputs compared**, inside an operation, between the protected copy and the never-extracted
+one:
+- `worked_example_spans`;
+- `learning_objects_for_span` for every visible span;
+- `feasible_variants` (the dose arm's extras);
+- the sweep's receipts (kind, subkind, LO and source span);
+- `computed_aliases` between two readings.
+
+**The tests** (`tests/test_ad_never_extracted.py`):
+- **Property, 25 seeds × Marker and GLM-OCR:** withheld header texts (multi-line, double-spaced,
+  continued, unit and section headings), levels and positions, withheld body blocks.
+- **Re-read property, 10 seeds × 2 styles:** a pair that differs only in withheld text, with
+  duplicated public blocks. Its outputs also equal those of the same pair with other withheld text.
+- **The verify's three probes, × 2 styles:**
+  - a withheld "Worked Examples (continued)" or "Exercises" under a visible "Worked Examples",
+    deciding P's role, its receipt and the extra-example offer;
+  - a re-read whose duplicate block sits under H, deciding its alias by H's exact text.
+
+**The existing projection tests' copies now come from the same builder.** These are the mixed
+section, the re-read, the locator-only reference and the withheld heading, by block id and by
+text.
+
+**What the property found during the work:** GLM-OCR's heading units. A section opened by a
+withheld heading moved a public block's span-to-LO mapping (the Reader maps a span by its
+section). That is the unit merge in `project_ir`.
+
+### The Low: a write's own accesses
+
+- **Narrowed allowance.** The foreign-key allowance now covers the declared key columns only: the
+  parents' referenced keys and the children's referencing columns, as `(table, column)` from the
+  schema. A write's own target is read by its METADATA columns only.
+- **Callback evidence** (SQLite 3.53.1). The verify's statement (`DELETE FROM judgment_ledger WHERE
+  id IN (SELECT judgment_id FROM activity_family_membership_events WHERE practice_item_id = ...)`)
+  was already refused on `26923e913`, but only incidentally. SQLite authorizes the foreign-key
+  check's own read of the child after the subquery's SELECT action. That reset the write context,
+  so the read was judged as a protected raw read. Its subquery's `practice_item_id` read had passed.
+- **Now** that read is refused itself.
+- **Fail-before:** the reachable variants reading a target's own content column in a WHERE, or in a
+  subquery on the target, were authorized before and are refused now:
+  - `DELETE FROM model_call_receipts WHERE output_text LIKE ...`;
+  - `... WHERE id IN (SELECT parent_call_id FROM model_call_receipts WHERE input_text LIKE ...)`.
+
+### Fail-before on `26923e913`
+
+17 of the new cases fail there:
+- 6 of the 25 GLM-OCR property seeds;
+- both alias probes (Marker and GLM-OCR);
+- the GLM-OCR role probe;
+- the block-id heading case;
+- the four derived-column guard cases;
+- the two target-content DELETE cases;
+- the registry's treatment test.
+
+Those that pass there are named here:
+- Marker's role probe and Marker's property seeds: Marker's stored paths are header block ids,
+  which never gave ingest a role cue, so H's text could not reach the role there; Marker's aliases
+  could.
+- The re-read property's seeds: the probe pins the alias case.
+- The two protected-table DELETE cases: refused before by later reads, as described above.
+
+The planted-read negative control still fails with the guard off.
