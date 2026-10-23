@@ -182,3 +182,110 @@ contract pins.
 - `5e7822bbd` CLI help snapshot (`ai latency`).
 - This record's commit: `ai compare` help text (F9) and its snapshot, the regenerated references,
   and the stage record's Q2/Q3/Q6 and owner-command note.
+
+## Re-review (2026-10-23)
+
+The re-review (the stage script's Opus fallback; Codex is out of quota until 2026-10-27) confirmed
+F1 [High] fixed and F2 to F9 checked out, and reopened for three new findings: one Medium, two Low.
+Each was reproduced with a test that failed on `d20b33c5f` and passes on the fix. None was
+rejected. No migration, no config key added, no live or paid call, no sign-in, no vault copy.
+
+### Findings
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| RR-F1 | Medium | Every vault load raised the "Use OpenRouter instead" banner: `get_ai_connection` (and `connect_ai`'s readiness check) resolved the build's route without `quiet()` | fixed | `0142c7ef9` | `test_plan_first_transport.py::test_rr_f1_the_connection_status_never_offers_and_shows_a_granted_build` (failed before: `fallbackAvailable` was on the `get_ai_connection` result) |
+| RR-F2 | Low | A `canonical_ingest` grant reached the paid passage checks and exercise imports, which refuse an unpriced metered route by their own setting; their offer could never be honoured | fixed | `0142c7ef9` | `test_rr_f2_a_feature_that_needs_its_own_price_is_not_served_by_another_features_grant` (failed before: no per-feature resolver) |
+| RR-F3 | Low | "Stop using OpenRouter" was shown only right after granting | fixed | `0142c7ef9` | `test_rr_f3_the_plan_status_lists_the_sessions_grants_for_a_lasting_stop`; `ChatGPTPlanSettings.test.tsx` ("keeps Stop using OpenRouter in Settings while the session has a grant", failed before) |
+
+### What changed
+
+- **RR-F1.** `plan_fallback.quiet(honour_grants=True)` is a status read: it makes no offer, but a
+  session grant still shows as the route that serves. `first_run._status_route` resolves the
+  build's route this way for `get_ai_connection` and for `connect_ai`'s readiness check (the
+  `"current"` branch and the payload it returns). The build itself (`add_source`'s job,
+  `default_authoring_route`) still resolves without it and asks. Plain `quiet()` (startup
+  maintenance, the health line) is unchanged: no offer and no grant.
+- **RR-F2.** `plan_fallback.priced_by(*settings)` names the price settings of the feature that is
+  resolving a route. `offer_blocker` checks them as well as the task's own setting. While one is
+  unset, the route makes no offer and honours no grant (the blocker is checked before the grant),
+  and the unavailable message names the setting. `jobs._paid_quick_check_client` resolves the
+  inquiry and selection passage checks under `reader_inquiry.metered_price_per_million` (new
+  constant `RQC.PASSAGE_CHECK_PRICE_SETTING`). `jobs._exercise_import_client` resolves both exercise
+  imports under `source_service.llm_price_per_million`. Once the setting is set, a grant serves
+  them as an ordinary metered request under their own caps. The section quick check is not
+  admitted at a price, so it is unchanged. This closes open question R1 for these two features.
+  Learner-text gaps still fall back to known model prices, as R1 said.
+- **RR-F3.** `chatgpt_plan_status` (and the Settings payload's `chatgptPlan`) now carries
+  `openrouterGrantedTasks`, the session's grants on the open vault. Settings → ChatGPT plan shows an
+  "OpenRouter" row with "Stop using OpenRouter" while any grant exists. The banner's chosen state
+  says where to find it. A vault switch or a sidecar restart still clears grants. This closes open
+  question R3.
+
+Residual (not a finding): under `quiet(honour_grants=True)` the unavailable message still ends with
+the routing layer's offer sentence. The connection sheet may show it with no banner beside it;
+the banner appears when the build itself runs. Left as is, so the health line's runtime payload
+stays as the earlier fix left it.
+
+### Gate (re-review fix step, 2026-10-23; targeted only, owner rule 2026-10-17)
+
+Every pytest/vitest/npm command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G -p
+MemorySwapMax=1G -- ...`, with pytest at `-n 6`, vitest at `--maxWorkers=4`, one run at a time, and
+`TMPDIR=fixtures-local/tmp`. There was no full suite, no whole durability lane and no whole vitest
+run. `/tmp/learnloop-fullsuite.lock` was present: an empty file dated 2026-10-13. Targeted runs need
+no lock, and nothing else was touched.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 30 kept, 0 broken |
+| The three new tests before the fix | 3 failed |
+| The three new tests after the fix | 3 passed |
+| Batch A (20 files, listed below) | 676 passed |
+| Batch B (29 files, listed below) | 538 passed |
+| `npm install`; `npm run typecheck` | ok; exit 0 |
+| `npx vitest run --maxWorkers=4` on `ChatGPTPlanSettings.test.tsx` before the component change | 1 failed, 8 passed |
+| `npx vitest run --maxWorkers=4` on `ChatGPTPlanSettings.test.tsx`, `PlanFallbackOffer.test.tsx`, `copy/denyList.test.tsx`, `ConnectAI.test.tsx` | 4 files, 78 passed |
+| `npm run frontend:build` | built |
+| `cargo check` | not run: nothing under `src-tauri` changed |
+| `db_validate_reference.py` | first run: errors, because source lines cited from `plan_fallback.py` had moved. Ran `db_generate_reference.py` (1006 configuration leaves; only source lines, commit stamps and cited consumers moved), then validated again: `"errors": []` |
+| Durability tests | none due (no migration, no DB or connection code) |
+
+Test files run:
+
+- Batch A: `test_plan_first_transport`, `test_chatgpt_plan_provider`, `test_chatgpt_plan_sidecar`,
+  `test_chatgpt_plan_workspace`, `test_method_phrasing_report`, `test_daily_loop_start_minutes`,
+  `test_decider_landing`, `test_exam_protection_identity`, `test_mobile_allowlist`,
+  `test_ux_phase1_auto_build`, `test_ux_phase1_connect_ai`, `test_ux_phase1_usability_round2`,
+  `test_ux_phase1_landing`, `test_desktop_rpc_contract`, `test_sidecar_serializer_snapshot`,
+  `test_sidecar_contract`, `test_architecture`, `test_coordinated_migrations`,
+  `test_tracked_fixture_databases`, `test_sqlite_file_copies`.
+- Batch B: `test_attach_to_family`, `test_discriminating_search`, `test_exam_protection`,
+  `test_exam_protection_review`, `test_import_split_parity`, `test_library_exercises`,
+  `test_method_explicit_landing`, `test_reader_active_reading`, `test_reader_activity`,
+  `test_reader_formative_texts`, `test_reader_intentions`, `test_reader_passage_check`,
+  `test_reader_reconnect`, `test_reader_reconstruct`, `test_reader_report`, `test_reader_rw1b_review`,
+  `test_reading_hardening_landing`, `test_reference_check_binding`, `test_reference_gate_imports`,
+  `test_source_exercise_import`, `test_source_exercise_rpcs`, `test_source_first_needs`,
+  `test_source_service_spend_envelopes`, `test_ad1_reading_opportunities`, `test_ingest_runner`,
+  `test_reader_quick_check`, `test_required_method_round3`, `test_rw1a_composition`,
+  `test_structured_transport_parity`.
+
+The files were chosen by `git grep` over `tests/` for the changed modules and functions:
+`plan_fallback`, `get_ai_connection`, `connect_ai`, `first_run`, `chatgpt_plan_status` and
+`chatgpt_plan_payload`, `quick_check_client`, `exercise_import_client`, `import_source_exercise`,
+the passage-check and selection jobs, and `reader_quick_check`. The contract pins were added on top.
+
+**Process notes.**
+- No live or paid call, no sign-in and no vault copy. No tracked fixture vault was opened, and
+  `git stash` was not used.
+- The edit scripts (`python3 -I`, importing only `pathlib`) and the reference scripts ran under
+  `env -i`, with an empty HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR. The reference scripts also had
+  `UV_CACHE_DIR` set.
+- `lint-imports` ran under `env -i` with the real HOME, which uv needs for its cache. It only
+  analyses imports and makes no model call.
+
+**Commits** (on top of `d20b33c5f`):
+
+- `0142c7ef9`: the fixes for RR-F1 to RR-F3 and their tests.
+- This record's commit: the regenerated references and this section.
