@@ -310,3 +310,233 @@ If the full suite shows receipt-count drift in Reader hint tests, that is the ca
   RW6b's report may want a facet-filtered query if vaults grow.
 * Figures, tutor exchanges and library asks are not yet help kinds in `help_outcomes` (§2); RW6b's narrative is
   the first consumer that would want them.
+
+## 8. Landing onto main
+
+Landed in the `learnanything-merge2` worktree on branch `merge/rw2c-onto-main`, cut from main at `2cff2c1f4` (the
+second security landing: the Codex tool lockdown and its hardening rounds 2-3, every Codex turn tool-free; migration
+head 217 with `migration_head_217`, which holds 215, 216 and 217 and no 214). The stage tip is `56b8567ab` (base
+`7e7bdff1b`), unchanged. The orchestrator's final verify on `56b8567ab` (an Opus adversarial reviewer; Codex is out of
+quota) was clean. Main was neither fast-forwarded nor pushed here.
+
+### Commits and conflicts
+
+- `1d972a6d1`: the `--no-ff` merge of `reader/rw2c` onto `2cff2c1f4`. **No conflicts.** Since the stage's base, main
+  gained only the security stage (the lockdown in `ai/providers/codex*.py`, `codex_lockdown.py`, its tests and
+  records). The two sides share no file: `config/template.py`, the parameter registry, `test_mobile_allowlist.py`,
+  the CLI help, the RPC pins, the workbench and feedback screens, the hint service, the S5 substrate, `dto.ts` /
+  `client.ts` and `commands.rs` / `main.rs` are RW2c's changes alone.
+- `55faad94d`: **RW2c's comparison lines pinned to the lockdown.** `tests/test_codex_tool_lockdown.py` gains a
+  `compare_methods` shape that drives `CheckRoute.ask` (the workbench check's route object: `PaidCalls`, receipts,
+  caps) with the comparison's own prompt (`compare_methods.build_prompt`) and prompt version
+  (`workbench_compare_methods.v1`), exactly as `compare_methods.compare_lines` asks it, through the locked-down
+  turn: `deny_all` on the thread and turn, the decline-all approval handler, the isolated empty cwd, every tool-bearing
+  feature off (7 shapes pass). RW2c adds no new call path: the worked-example search is the sources spec's existing
+  `source_rerank` path, already covered by the `paid_calls` shape.
+- `395b4bb59`: the regeneration (below). **This is the gate head.**
+- This record (docs only).
+
+### Regeneration (`395b4bb59`)
+
+- **References.** `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**, schema head **217**,
+  **339** table notes, **956** configuration leaves in **69** sections (RW2c's four `[workbench]` switches; the
+  workbench section has 14 leaves, was 10). The two prose counts (`Configuration.md`, `Database.md`) were updated from
+  952. Every other change is the notes' `source_commit` provenance and the new source/test paths on the
+  `help_assists`, `workbench_sessions` and `workbench_steps` notes.
+- **Defaults snapshots.** Template `.pyc` cleared, run with `-B` under `env -i`: all **20** entries already match
+  (`0 mismatches`; the stage recomputed them and main's security stage changed no default). Unchanged.
+- **CLI help snapshot, RPC pins, mobile allowlist, serializer snapshot**: unchanged (their tests pass in the full
+  suite).
+- **`validate_vault.py`**: passes (1,142 notes, 1,140/1,140 reachable).
+- **Known failures from before this stage, not fixed:** `desktop_validate.py` still stops on
+  `components/pdfSelection/testing/syntheticBook.ts`; `module_validate.py` reports **999** issues (987 at the RW5a
+  landing; RW2c's and the security stage's new modules have no module notes).
+
+### Gate
+
+Setup: `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2` (5.14.0); `TMPDIR` was merge2's
+`fixtures-local/tmp`; every later command `uv run --no-sync`. Both suite lanes ran on `395b4bb59` under
+`flock /tmp/learnloop-fullsuite.lock` (logs in `fixtures-local/rw2c-landing/`). Other stages' worktrees and processes
+(T1 in `learnanything-plan` among them, whose test run shared the machine; load average 35-55) were not touched. Every
+test uses fakes. **This is the first full run over RW2c's code.** A first full run was cut by a session restart
+(`fullsuite-cut.log`); the run below is the one that counts.
+
+| Check | Result |
+|---|---|
+| `lint-imports --no-cache` | **30 kept**, 0 broken (as at the second security landing) |
+| full suite `pytest -n auto` | **15,689 passed, 1 failed, 2 skipped, 2 xfailed** (41 min 3 s). The failure, `test_reading_request_sweep.py::test_b_a_start_deferred_behind_a_queued_build_runs_that_build_and_then_acts` ("the deferred request was stranded"), is a `_wait_for` timeout under machine load in the reading-build sweep, which RW2c does not touch: rerun alone 3 times, **14 passed** each time |
+| `pytest -m durability` | **119 passed**, 15,575 deselected (2 min 28 s) |
+| `npm install`, `npm run typecheck` | ok; clean |
+| `npm test` (the whole vitest run) | **173 files, 1,489 tests passed**, no unhandled error (the second security landing: 1,469) |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | ok (RW2c's four passthroughs) |
+| tracked fixtures, worktree | `git status` clean after both lanes and the frontend runs; no `-wal` / `-shm` beside a fixture |
+
+An earlier `-n 8` run of the whole suite (meant as a pin run; `prelim-fullsuite-n8.log`, not under the lock) had one
+different load failure of the same kind, `test_reading_hardening_2_fixes.py::test_f1_a_build_whose_worker_failed_to_start_is_run_by_the_sweep`
+(a 60 s wait): alone 3 times, 5 passed each time. **No real failure, so no landing fix.**
+
+### Parity (backup-API copies; no model call was made)
+
+**Setup.** Scripts in `fixtures-local/landing-rw2c/scripts/`, adapted from the RW5a landing's; new: `ab_rw2c.sh`,
+`c_rw2c.sh`, `rw2c_run.py`, `bind.py`, `ccmp_rw2c.py`, `sdiff.py`, `rowpeek.py`.
+- **Copies.** `fixtures/linear_algebra` and `fixtures/probability` were copied once with `copy_tree_with_databases`
+  from the main checkout into `fixtures-local/landing-rw2c/orig/`; every other copy came from `orig/` or its upgraded
+  copies through the same helper. `arxiv_v2` was not opened. Both start at schema 165, label `mvp-0.8`, 0 receipts.
+- **Code.** Main's is `git archive 2cff2c1f4`; the merge's `git archive 395b4bb59`.
+- **Environment.** `env -i` with only `PATH`, `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`, `TMPDIR` and `LANG`; the
+  three directories empty, and empty afterwards.
+- **Routes.** `neutralize3.py` under each code: every route field to `127.0.0.1:9` (59 on both; RW2c adds no route),
+  the active provider to that loopback profile with no fallback, query rewrite / rerank / dense / embeddings /
+  learner-text gaps off, `build_on_serve` and outcome placement off. `routes.py` resolved 62 `AITask`s on both;
+  nothing outside the loopback profiles except the disabled, keyless `embedding`; `workbench_check`, `hint_writer`
+  and `source_rerank` on `blackhole` (`openai_chat`, `http://127.0.0.1:9/v1`).
+
+**(a) No schema change**
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| open (migrate), main / merge | 165 → 217, 51 applied, on both | the same |
+| schema, main vs merge | **identical**: 1,451 objects each, none on one side only, no SQL differs | **identical** (1,450) |
+| rows of every table (344), all columns | **identical** (16,542 rows); `schema_migrations` 203 rows each, differing only in `applied_at` | **identical** (7,640 rows; the same) |
+| `foreign_key_check` / `integrity_check` | 0 / ok, both | the same |
+| `rebuild --shadow --json` | **0 differences** after normalisation (facet 0, mastery 2, schedule 8 on both); live database unchanged on both | **0 differences** (0 / 1 / 1) |
+| `doctor --json` | **0 differences** after normalisation (57 issues, 1 error) | **0 differences** (101 issues, 48 errors) |
+
+**(b) Nothing served changes.** The merge ran at its defaults (all four RW2c switches **on**), frozen clock 2026-10-19
+09:00 UTC: certification with recipe gaps and curves; the Today queue (no session, session, greedy); the daily plan
+(read, served twice, read again).
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| at `mvp-0.8` | cert (132,860 bytes), Today (504,488), plan (546): **byte-identical** | cert (17,494), Today (709,910), plan (546): **byte-identical** |
+| upgraded by main's code to `mvp-0.27` (`--to mvp-0.9`, `--to mvp-0.27`, `rebuild-derived-state` twice; rc 0), opened by each code | cert (129,651) and Today (528,665) **byte-identical** | cert (17,495) and Today (741,269) **byte-identical** |
+| then to `mvp-0.29` (`--to mvp-0.29`, `rebuild-derived-state` twice; rc 0) | cert and Today **byte-identical** | the same |
+| the daily plan at mvp-0.27 and mvp-0.29 | identical except `router_decisions.card_hash`, `snapshot_hash` and the card hash inside `detail_json`; a second run of main's code on a fresh copy differs from the first in exactly these three fields, and from the merge's in exactly these three (`plan_repeat.sh`): run-to-run noise, as at the earlier landings | the same |
+
+**(c) The real sidecar** over stdio, `SystemClock` frozen at 2026-10-19 09:00 UTC (`sidecar_clock.py`), on copies of
+main's mvp-0.29 vaults; driver `rw2c_run.py`, compared by `ccmp_rw2c.py` (every response, ids, digests, timestamps and
+the vault path normalised) and `sdiff.py`. Runs: (i) `cm` main's code; (ii) `coff` the merge with the four RW2c
+switches off; (iii) `cdef` the merge at its defaults. Items: probability `pi_prob_derive_complement`, linear_algebra
+`pi_axiom_closure_recall_01`.
+- **Phase a** (one sidecar): `initialize`; `get_config`; `set_grading_provider manual`; `start_session`; a Reader
+  workbench problem (`workbench.open` origin `reader`, entry `work_through`) with the steps of a correct answer (3 /
+  2); `workbench.help_state`; `workbench.check` (polled); `workbench.request_help` at level 3 (polled, then its
+  bridge and example jobs when named); `workbench.show_example` on the last step; `workbench.help_state`;
+  `workbench.get`; `workbench.submit`; then the answer box: `submit_attempt` with a full self-grade (correctness 1.0),
+  acknowledged; `workbench.compare_offer` on that attempt; `get_session`; `shutdown`.
+- **Between the phases** (`bind.py`, each side's own code): the workbench problem is marked submitted with that
+  correct attempt through `reader.workbench.mark_submitted`, what `workbench.submit` does after a graded attempt. This
+  stands in for a correct workbench Submit, which needs an AI grader (manual grading refuses
+  `grading_fallback_required`, and every route is unreachable).
+- **Phase b** (a second sidecar): `initialize`; `workbench.compare_offer`; `workbench.compare_methods`, its lines job
+  polled; `workbench.compare_methods` again; `workbench.help_state`; `shutdown`.
+- Then `learnloop hints report --json` and `learnloop hints report --surface workbench --json` on each copy.
+
+| Step | (i) main vs (ii) switches off | (iii) defaults: every difference from (i) |
+|---|---|---|
+| `initialize` | **RW2c's four RPCs register while off** (429 → 433 methods); nothing else | the same |
+| `get_config` | **identical** (the DTO carries no RW2c flag while off) | `workbench.help` gains `examples`, `compareMethods`, `passageDraw` (all true) |
+| `workbench.help_state` (twice) | **identical** | gains `examplesAvailable: true` and `examples: []`; the hint view gains `example: null` |
+| `workbench.check` | **identical**: refused before any request, `unpriced` ("A metered check route needs workbench.price_per_million.") | identical |
+| `workbench.request_help` (level 3) and its bridge | **identical**: the item's authored hint at level 3 (the writer route refused `unpriced`), its bridge `none` ("no matching step in your books for this hint") | the hint result gains `exampleJobId`; that job ends `none` ("no worked example in your books fits this step yet"), with nothing searched beyond the vault's empty retrieval |
+| `workbench.show_example` | (i) `method_not_found`; (ii) refused `examples_unavailable` | a job, `none` (the same line) |
+| `workbench.get`, `workbench.submit` | **identical**: the submit refused `grading_fallback_required`, the problem stays open | identical |
+| the answer-box attempt | **identical** (correctness 1.0) | identical |
+| `workbench.compare_offer`, answer-box attempt | (i) `method_not_found`; (ii) `{available: false, reason: disabled}` | `{available: false, reason: not_a_workbench_submit}` |
+| `workbench.compare_offer`, workbench attempt | (i) `method_not_found`; (ii) `disabled` | `{available: true, referenceKind: item_key, label: "Compare with the book's method"}` |
+| `workbench.compare_methods` (twice) | (i) `method_not_found`; (ii) refused `compare_unavailable` (`reason: disabled`) | the comparison (the item's key beside the learner's steps, `revealId`), its lines job ending **`unpriced`** before any request; the second open returns **the same comparison and reveal** (and starts one more lines job, since the first ended without lines: review F7's rule), which also ends `unpriced` |
+| `hints report --json` (both surfaces) | **identical** | gains the `compare_methods` kind (shown 1, chooser `none`, no attempt), so `totals.shown` 1 → 2 and `totals.unattached` 0 → 1; the `workbench` section is identical |
+
+So (i) and (ii) are identical call by call apart from the method registry and the refusal codes of RW2c's own RPCs.
+
+**Rows the runs added** (over the merge-opened copy, `deltas.py` and `rowpeek.py`), the same on both vaults:
+- **Attempt evidence is unchanged:** the one attempt and its rows in every evidence table (`practice_attempts`,
+  `activity_observations`, `raw_grade_events`, `learning_object_mastery`, the scheduling and certification
+  projections) are identical across (i)-(iii) once ids are normalised.
+- **Reveals:** (i) and (ii) none; (iii) **exactly one**, `answer_display` on the item, `attempt_id` NULL, basis
+  `compare_methods:<assist id>`, stamped 2026-10-19T09:00:01Z (the attempt's second + 1).
+- **`help_assists`:** (i) and (ii) the hint (`authored`, `fallback`, shown, counted by the server) and its bridge (not
+  shown); (iii) those two plus two `example` rows (after the hint and from "show me"; not shown, counted by nothing,
+  no draw logged) and the `compare_methods` row (shown, counted by nothing).
+- No `model_call_receipts`, `judgment_ledger`, `approach_maps` or learner-text gap rows on any run.
+
+**(d) `model_call_receipts`.** 34 learner databases under `landing-rw2c/` carry the table. **No row of any status**
+in any of them (so none completed): every model-backed step was refused before a request (`unpriced`) or found
+nothing to search.
+
+### New findings
+
+1. **No source composition was needed (none).** The merge had no conflict and no landing fix; the only commit beyond
+   the regeneration is the lockdown pin for the comparison lines.
+2. **The hint report counts a comparison as a shown, unattached help row (Low).** `learnloop hints report` lists
+   `compare_methods` as its own kind (labelled, chooser `none`), but adds it to `totals.shown` and
+   `totals.unattached`, which read as hint totals. The workbench section is unchanged. A report that separates
+   comparisons from hints is a follow-up (with L1's adoption of `workbench_unaided_progress` there).
+3. **A second open after failed lines starts another lines job (by design; Low).** Each reopen while the lines are
+   missing tries again on the check's route, inside its per-problem and daily caps; on a refused route nothing is
+   called. The reveal is still written once.
+4. **Load flakes (Low, from before this stage).** Two reading-build sweep tests (`test_reading_request_sweep.py`,
+   `test_reading_hardening_2_fixes.py`) time out their 60 s waits at load average ~50; both pass alone.
+5. **The RW2c RPCs register while off.** Off, each refuses (`examples_unavailable`, `compare_unavailable`) or
+   answers `disabled`, and nothing is searched, called or written; only `initialize`'s method list (and so the
+   refusal codes) differs from main, as for RW5a's and RW7a's RPCs.
+
+### For the owner
+
+- **No migration.** The head stays 217; no table, reveal kind or route is added; your algorithm version is
+  unchanged and there is no successor. Nothing served moves (parity (a), (b)).
+- **What you see.**
+  - In a Reader problem, after a level-3 or higher hint, "a similar example from your books" may appear under the
+    hint once a verified passage that follows your route is found (in the background; the hint never waits). Under
+    your steps, "Show me a similar example" asks for one on the step you are on. An example never shows the answer,
+    an exercise or solution, or exam material, and seeing it counts nothing.
+  - When a bridge or an example has more than one verified passage, the one shown is drawn at random (logged with
+    its probability) and "another passage" shows the next one, with no new search.
+  - After a correct Submit of a workbench problem, the feedback screen offers "Compare with the book's method":
+    your steps beside the item's key (or the book's own solution), then one line per difference, and "Your route is
+    valid — a different method from the reference." when it is. **Opening it records a reveal on the item** (not on
+    your attempt): the next attempt on that item counts as primed, the same as seeing the answer.
+  - Hints in the workbench are written with typed lines about what preceded your recovery before ("associations,
+    not what works"); they never show in the hint.
+- **The switches** (`[workbench]`, all `true`): `help_outcomes_enabled` (the lines to the hint writer and chooser),
+  `examples_enabled` (the worked example and "Show me a similar example"), `compare_methods_enabled` ("Compare with
+  the book's method"), `passage_draw_enabled` (the logged draw and "another passage"). Off, each part is gone and the
+  rest is as before (pinned byte for byte against the stage's base, and in parity (c) against main).
+- **With examples on by default, every shown level-3+ Reader hint starts a background example search** through the
+  sources spec's `propose_sources` (the existing `source_rerank` path, inside the source service's daily cap and the
+  problem's `workbench.max_calls_per_session`).
+- **The comparison's lines use the check's route** (`ai.routing.workbench_check`), its caps and receipts; they run
+  through the Codex lockdown like every other call (pinned at this landing).
+
+### Open questions (defaults taken; §6)
+
+1. Draw size: at most 3 options per draw.
+2. Help-outcome line budget: 3 kinds per facet, 4 in all, plus the goes-off lines.
+3. "Later independent": the next attempt on the facet with no hint and not primed, whatever its surface (one
+   definition; RW6b may want its own label).
+4. Example trigger: level 3 or higher, Reader problems only.
+5. Compare offer: only at correctness ≥ 0.999.
+6. The classic feedback view gets no compare offer.
+
+### Open items
+
+- **L2:** the workbench's per-problem call cap is not cumulative for examples (as for RW2b's bridge); each search is
+  bounded by the source service's daily cap.
+- **L3:** switch-off residue in stored rows (a bridge's `placement.source_id`, the draw columns) and in
+  `session_calls_on`, which still counts example rows made while on; all of it is serialized only while on.
+- **L5:** `help_outcomes` runs synchronously on the hint-request path (n = 1 scale); a facet-filtered or cached read
+  if latency shows.
+- **L7:** cross-book bridge navigation works only with the passage draw on.
+- **L-a:** `workbench.compare_offer` raises `exercise_withheld` (the statement gate) before it checks the switch, so
+  off, a withheld exercise's attempt refuses instead of answering `disabled`.
+- **L-b:** the compare worker does not recheck the exercise's withheld status just before its call (the RPC checked
+  it at open).
+- **L-c, L-d:** conservative asymmetries in the "continued" rules (from the orchestrator's final verify).
+- **Deferred help kinds:** figures, tutor exchanges and library asks are not yet read as help kinds in
+  `help_outcomes` (§2).
+- **Deviation against C13:** the workbench continuation has no "time to the next valid step" (adaptive hints §6.1);
+  the hint report still reports its workbench rows as `workbench_state_unknown` and can adopt the shared function and
+  that time at its next change.
+- **From this landing:** finding 2 (comparisons in the hint report's totals), finding 4 (load flakes in the
+  reading-build sweep tests).
