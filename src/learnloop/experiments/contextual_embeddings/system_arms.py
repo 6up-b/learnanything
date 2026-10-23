@@ -660,7 +660,9 @@ def open_service(root: Path) -> Any:
     # The root AND its database are contained in the service copy before the
     # repository opens (and may migrate) anything (fix round 4, High 1).
     contained_root(root, local=True)
-    vault = load_vault(root)
+    # No dotenv, no ~/.config/learnloop/settings.env, no global overrides: keys come only from the
+    # shell or --env-file, and nothing re-routes the copy mid-run (pre-paid verify M1, 2026-10-22).
+    vault = load_vault(root, load_environment=False)
     database = contained_database(vault.root, vault.config)
     paths = VaultPaths(vault.root, vault.config)
     if Path(paths.sqlite_path).resolve() != database.resolve():

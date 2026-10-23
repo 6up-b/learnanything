@@ -46,7 +46,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from learnloop.experiments.contextual_embeddings import credentials, pins
-from learnloop.experiments.contextual_embeddings.budget import E0ProviderFailure
+from learnloop.experiments.contextual_embeddings.budget import E0BudgetExceeded, E0ProviderFailure
 from learnloop.experiments.contextual_embeddings.pins import RolePin
 
 #: The only keys a request body may carry (the ruling's grammar).
@@ -175,9 +175,12 @@ class AnthropicMessagesClient:
         """ONE admitted POST: the active request gate admits it inside
         ``model_call`` before it is sent and settles it from ``usage``."""
 
-        from learnloop.ai.execution import model_call, report_call_usage
+        from learnloop.ai.execution import active_request_gate, model_call, report_call_usage
 
         check_body(body)
+        if active_request_gate() is None:
+            # Fail closed (pre-paid verify L4): a POST nobody admits is never sent.
+            raise E0BudgetExceeded("no E0 request gate is active; the Messages API request was not sent")
         headers = self._headers()
         with model_call(self, purpose=purpose, prompt=prompt_identity, budget=int(body["max_tokens"])):
             try:

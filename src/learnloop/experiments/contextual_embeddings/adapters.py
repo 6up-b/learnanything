@@ -127,16 +127,33 @@ class Transport(Protocol):
              timeout: float) -> HttpResponse: ...
 
 
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Never follow a redirect: a 3xx would replay the request's key header
+    (``x-api-key`` or ``Authorization``) to another host (pre-paid verify L1).
+    Returning None makes urllib raise the 3xx as an ``HTTPError``."""
+
+    def redirect_request(self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str) -> None:
+        return None
+
+
+#: The opener every E0 HTTPS request uses: urllib's defaults with redirects refused.
+OPENER = urllib.request.build_opener(NoRedirect)
+
+
 class UrllibTransport:
     """The real HTTPS transport. Errors carry the status only, never the body
-    (provider error bodies can echo request text)."""
+    (provider error bodies can echo request text). Redirects are never
+    followed: a 3xx comes back as its status, a contract failure that is not
+    retried (``EmbeddingAdapter._kind``, ``anthropic_api._classify``)."""
+
+    opener = OPENER
 
     def post(self, url: str, *, headers: Mapping[str, str], body: Mapping[str, Any],
              timeout: float) -> HttpResponse:
         data = json.dumps(body).encode("utf-8")
         request = urllib.request.Request(url, data=data, method="POST", headers=dict(headers))
         try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 (fixed https pins)
+            with self.opener.open(request, timeout=timeout) as response:  # noqa: S310 (fixed https pins)
                 payload = json.loads(response.read().decode("utf-8"))
                 request_id = response.headers.get("x-request-id") or response.headers.get("request-id")
                 return HttpResponse(int(response.status), payload, request_id)

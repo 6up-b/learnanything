@@ -885,10 +885,10 @@
  },
  "limits": {
   "allocation_usd": {
-   "answers_verification": 14.0,
-   "drafting_context": 1.5,
-   "embeddings": 0.5,
-   "labels_audits": 24.0
+   "answers_verification": 14.3,
+   "drafting_context": 0.85,
+   "embeddings": 0.25,
+   "labels_audits": 24.6
   },
   "auth_or_contract_retries": 0,
   "bootstrap_resamples": 10000,
@@ -1206,7 +1206,7 @@
    }
   }
  },
- "pins_fingerprint": "0ca2618ddc40e10671eac7fa7631b416f28ab6292bd0470e879a29c984aa2357",
+ "pins_fingerprint": "883d538025568726ead5bf8853428430bc4f535fc78c4ab684450a8fb21663b6",
  "prices": {
   "rule": "a metered request is admitted only on a verified price (source_url, checked_on)",
   "unverified": {
@@ -1309,7 +1309,7 @@
   "R5_independent": "voyage-4-large via the Voyage API",
   "R5_singleton": "voyage-context-4, one chunk per document"
  },
- "run_id": "e0_dec5776aa73cdd5a",
+ "run_id": "e0_a47534fecc49ded5",
  "seed": 20261021,
  "splits": {
   "linear_algebra-20261021": {
@@ -1490,25 +1490,25 @@
   "cap_usd": 40.0,
   "categories": {
    "answers_verification": {
-    "allocation_usd": 14.0,
+    "allocation_usd": 14.3,
     "estimated_usd": 13.6745,
     "fits": true,
     "worst_case_usd": 41.0234
    },
    "drafting_context": {
-    "allocation_usd": 1.5,
+    "allocation_usd": 0.85,
     "estimated_usd": 0.5069,
     "fits": true,
     "worst_case_usd": 1.5207
    },
    "embeddings": {
-    "allocation_usd": 0.5,
+    "allocation_usd": 0.25,
     "estimated_usd": 0.0409,
     "fits": true,
     "worst_case_usd": 0.1211
    },
    "labels_audits": {
-    "allocation_usd": 24.0,
+    "allocation_usd": 24.6,
     "estimated_usd": 23.622,
     "fits": true,
     "worst_case_usd": 70.866

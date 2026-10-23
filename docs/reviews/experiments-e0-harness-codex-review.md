@@ -603,3 +603,58 @@ uv run learnloop experiments e0 run \
 - **Ledger:** `fixtures-local/contextual-embeddings/ledger/e0_dec5776aa73cdd5a.ledger`.
 - **Reader latency budget:** optional; without it, S2 and S4 fail closed.
 - This command supersedes the single-`--env-file` command in the section above.
+
+## Pre-paid verify of `6b203def3`: the small round (2026-10-23)
+
+The verify found no High and judged the harness safe to run. Before the paid run, M1, M2, L1, L4 and L7 are fixed here; L2, L3, L5 and L6 are recorded as open. **No paid, live or network call was made ($0.00).** Neither settings.env was read.
+
+### Fixed
+
+- **M1: no settings or dotenv mid-run.**
+  - The problem: `system_arms.open_service` called `load_vault(root)` with the default `load_environment=True`. That loaded the service copy's `.env` and the machine's `~/.config/learnloop/settings.env` into the process, along with the global AI defaults, so a `LEARNLOOP_AI_PROVIDER` there could re-route the copies' source routes mid-run.
+  - The fix: every E0 vault load now passes `load_environment=False` (`open_service`, `open_copy`, `rebuild_frozen`, `ExperimentRecords`).
+  - The test puts `LEARNLOOP_AI_PROVIDER` in the test's own config dir `settings.env`, and a marker in each copy's `.env`. Neither reaches the process, and the copy's active provider is unchanged.
+- **M2: headroom above one Opus reservation.** The categories were re-allocated within the unchanged $40 cap.
+
+| Category | Was $ | Now $ | Expected $ | Headroom $ |
+|---|---|---|---|---|
+| embeddings | 0.50 | 0.25 | 0.04 | 0.21 |
+| drafting/context | 1.50 | 0.85 | 0.51 | 0.34 |
+| labels/audits | 24.00 | 24.60 | 23.62 | 0.98 |
+| answers/verification | 14.00 | 14.30 | 13.67 | 0.63 |
+
+  - Each category covers its expected spend. Labels and answers now have more headroom than one Opus reservation's output side ($0.33; tested against the committed plan).
+  - **The authorization is the same, regenerated the same way.** The ledger binds an authorization to the plan id, which hashes the pins, allocations included. So the plan id changes, from `e0_dec5776aa73cdd5a` to `e0_a47534fecc49ded5`, and the run opens a new canonical ledger, `fixtures-local/contextual-embeddings/ledger/e0_a47534fecc49ded5.ledger`.
+  - No ledger existed yet (the preflight creates none). The paid-run command keeps `--new-authorization 'owner raised cap to $40 on 2026-10-22'`, which is recorded in the new ledger.
+- **L1: redirects are refused.** `adapters.UrllibTransport` now uses an opener with `NoRedirect` instead of urllib's redirect handler. A 3xx would otherwise replay `x-api-key` or `Authorization` to another host. The 3xx comes back as its status: a contract failure, never retried, both for the Messages API client and for the hosted embedding adapters. The tests use an opener that answers 302: one request, a contract failure, no retry.
+- **L4: no gate, no send.** `AnthropicMessagesClient.send` refuses to send without an active request gate (`E0BudgetExceeded`, fail closed). Tested: nothing is posted.
+- **L7: the run directory stays local.** `run_live` refuses a `--run-dir` outside fixtures-local before anything else. Tested: no run directory or ledger is created.
+
+### Open (recorded, not fixed)
+
+- **L2:** when a response reports both a provider cost and token counts, the provider's cost wins over the tokens priced at the pin. A provider cost below the token price lowers the committed amount.
+- **L3:** a key already set in the shell wins over the env files, silently; the preflight reports it only as `present`.
+- **L5:** the Qwen reservation (`EmbeddingAdapter._estimate`) prices the texts without the production client's instruct prefix for queries. That prefix is about 30 tokens per query: an under-reservation of a few cents' fractions at most.
+- **L6:** the dry-run plan still names Codex in places. Its baseline section reports the frozen copies' own configured routes (`source_rerank`, `source_query_rewrite` and `tutor_qa` on `codex` / `codex_low`, type `codex_sdk`), not the service copies' OpenRouter re-routing. Older prose in this doc and in the stage doc mentions the 600 allowance. The plan's numbers are the current ones: 0 Codex requests, allowance 0.
+
+### Dry run (env -i, no keys, inside a memory-capped scope)
+
+The dry run ran on the existing copies:
+
+- `network_calls: 0`, copies unchanged by sha256 checksum.
+- Artifacts refreshed: run `e0_a47534fecc49ded5`.
+- **$37.84 expected, $113.53 worst case (every request retried twice), against $40: it fits, and every allocation fits.** The per-category figures are in the M2 table above.
+- Codex: 0 planned, allowance 0. No unverified price.
+
+### The commands, with the new plan id
+
+The preflight and paid-run commands in the section above are unchanged. Only the expected plan id changes: the preflight should now print `e0_a47534fecc49ded5`, and the paid run's ledger is `fixtures-local/contextual-embeddings/ledger/e0_a47534fecc49ded5.ledger`.
+
+### Gate
+
+Every pytest ran inside `systemd-run --user --scope -p MemoryMax=5G -p MemorySwapMax=1G -- uv run pytest -n 4`, never `-n auto` (the owner's memory rule, 2026-10-23). The counts are below.
+
+- **Gate results:**
+  - `.venv/bin/lint-imports --no-cache` (under `env -i`): **30 kept, 0 broken**.
+  - `pytest -n 4` on 31 files: **520 passed, 1 skipped**. The 31 files are the 30 of the previous step plus the new `tests/test_e0_review_round6.py`, with 6 tests. The skip needs the `openai_codex` SDK.
+  - Fail-before on `6b203def3`'s `src`, `migrations` and `calibration_bundles` (`git archive`, `pytest -o pythonpath`): the 6 round-6 tests, **6 failed**. M1 failed with `LEARNLOOP_AI_PROVIDER` loaded into the process. L4 tried to send without a gate. L7 went past the run-dir check. L1 found no redirect-refusing opener. M2 found the old allocations.

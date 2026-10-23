@@ -181,9 +181,12 @@ def test_the_key_is_in_one_header_only_and_errors_are_allowlisted(tmp_path, capl
     assert KEY not in json.dumps(server.posts[0]["body"])
     # No key in the environment: refused before anything is sent.
     empty = FakeMessagesServer()
+    from learnloop.ai.execution import gate_model_requests
+
     client = AnthropicMessagesClient(pins.ROLE_PINS["tutor"], environ={}, transport=empty)
-    with pytest.raises(E0ProviderFailure, match="auth"):
-        client.send(client.body("s", "u", 16), purpose="x", prompt_identity="x")
+    with gate_model_requests(E0RequestGate(E0Ledger(tmp_path / "gate"), pins.ROLE_PINS["tutor"])):
+        with pytest.raises(E0ProviderFailure, match="auth"):
+            client.send(client.body("s", "u", 16), purpose="x", prompt_identity="x")
     assert empty.posts == []
 
 
@@ -347,8 +350,8 @@ def test_the_paid_preflight_passes_with_every_pin_verified_zero_codex_and_the_lo
     from learnloop.experiments.contextual_embeddings.runner import dry_run, require_paid_authorization
 
     assert pins.E0_CAP_USD == 40.0
-    assert pins.ALLOCATION_USD == {"embeddings": 0.50, "drafting_context": 1.50, "labels_audits": 24.00,
-                                   "answers_verification": 14.00}
+    assert pins.ALLOCATION_USD == {"embeddings": 0.25, "drafting_context": 0.85, "labels_audits": 24.60,
+                                   "answers_verification": 14.30}  # re-allocated by the pre-paid verify (M2)
     assert sum(pins.ALLOCATION_USD.values()) == pytest.approx(40.0)
     paths, _repository = build_e0_vault(tmp_path)
     plan = dry_run([paths.root], environ={})

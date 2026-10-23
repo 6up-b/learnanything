@@ -1,15 +1,15 @@
-# E0 dry run `e0_dec5776aa73cdd5a`
+# E0 dry run `e0_a47534fecc49ded5`
 
-Harness e0-harness-v2; pins `0ca2618ddc40`; seed 20261021.
+Harness e0-harness-v2; pins `883d53802556`; seed 20261021.
 
 **Estimate:** $37.84 expected, $113.53 worst case (every request retried twice) against the $40 cap: fits; allocations fit.
 
 | Category | Expected $ | Worst case $ | Allocation $ | Fits |
 |---|---|---|---|---|
-| embeddings | 0.0409 | 0.1211 | 0.50 | yes |
-| drafting_context | 0.5069 | 1.5207 | 1.50 | yes |
-| labels_audits | 23.6220 | 70.8660 | 24.00 | yes |
-| answers_verification | 13.6745 | 41.0234 | 14.00 | yes |
+| embeddings | 0.0409 | 0.1211 | 0.25 | yes |
+| drafting_context | 0.5069 | 1.5207 | 0.85 | yes |
+| labels_audits | 23.6220 | 70.8660 | 24.60 | yes |
+| answers_verification | 13.6745 | 41.0234 | 14.30 | yes |
 
 | Embedding arm | Model | Documents | Chunks | Requests | Tokens | Expected $ |
 |---|---|---|---|---|---|---|

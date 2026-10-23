@@ -60,15 +60,15 @@ GENERATOR_RESERVES = {"system": 2_000, "history": 2_000, "output": 2_000}
 #: Owner decision 2026-10-22: the cap rises from $25 to $40 with the re-planned
 #: models kept (a NEW authorization: its own canonical ledger).
 E0_CAP_USD = 40.0
-#: Category sub-caps inside the cap, in proportion to the dry run's expected
-#: spend with headroom (owner, 2026-10-22). The owner proposed embeddings 1.00 and
-#: answers 13.50; answers expect $13.67, so $0.50 moved from embeddings (expected
-#: $0.04, worst case $0.12) to answers, within the $40.
+#: Category sub-caps inside the cap (owner, 2026-10-22), re-allocated by the
+#: pre-paid verify (M2, 2026-10-22) for headroom above one Opus reservation
+#: ($0.33+) in the two large categories: expected spend embeddings $0.04, drafting
+#: $0.51, labels $23.62, answers $13.67; the cap is unchanged.
 ALLOCATION_USD = {
-    "embeddings": 0.50,
-    "drafting_context": 1.50,
-    "labels_audits": 24.00,
-    "answers_verification": 14.00,
+    "embeddings": 0.25,
+    "drafting_context": 0.85,
+    "labels_audits": 24.60,
+    "answers_verification": 14.30,
 }
 #: Retries per request: transient failures only; auth and contract errors none.
 TRANSIENT_RETRIES = 2

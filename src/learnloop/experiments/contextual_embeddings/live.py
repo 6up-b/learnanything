@@ -154,6 +154,11 @@ def run_live(copies: Sequence[Path], *, plan: Mapping[str, Any], run_dir: Path,
     )
     from learnloop.experiments.contextual_embeddings.budget import authorized_ledger
 
+    from learnloop.experiments.contextual_embeddings.corpus import _inside_local_root
+
+    # Private run state stays under fixtures-local (pre-paid verify L7): refused before anything.
+    if not _inside_local_root(Path(run_dir)):
+        raise ValueError("the run directory must be under a fixtures-local directory")
     # No Codex turn of a paid run outside the locked-down transport (55063be64).
     require_codex_lockdown()
     # And none of its roles is a Codex route at all (re-plan 2026-10-22).
