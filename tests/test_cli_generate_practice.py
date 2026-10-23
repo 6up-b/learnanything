@@ -705,7 +705,8 @@ def test_populate_goal_uses_a_15_minute_provider_timeout(tmp_path, monkeypatch):
 def test_provider_timeout_override_reaches_codex_sdk_client(tmp_path):
     client = cli_module._client_for_provider(
         tmp_path,
-        LearnLoopConfig(),
+        # The frozen Codex path is built only with the owner opt-in (T1).
+        LearnLoopConfig.model_validate({"ai": {"agent_harness_opt_in": True}}),
         "codex_medium",
         codex_timeout_seconds=15 * 60,
     )

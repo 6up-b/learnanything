@@ -1101,7 +1101,10 @@ def test_sidecar_dont_know_retains_checkpoint_until_client_acknowledges(tmp_path
     assert repository.fetch_session_checkpoint(session_id) is None
 
 
-def test_sidecar_submit_attempt_falls_back_to_codex_when_routed_ai_unavailable(tmp_path, monkeypatch):
+def test_sidecar_submit_attempt_never_falls_back_to_codex_when_routed_ai_unavailable(tmp_path, monkeypatch):
+    # Plan-first transport T1 (owner, 2026-10-21): Codex is never a fallback,
+    # opt-in or not. A configured `fallback_provider = "codex"` is ignored: the
+    # unavailable grading route asks the learner to grade and Codex gets nothing.
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
@@ -1136,13 +1139,12 @@ def test_sidecar_submit_attempt_falls_back_to_codex_when_routed_ai_unavailable(t
                     },
                 },
             ]
-        )[1]["result"]
+        )[1]
     finally:
         server.stop()
 
-    assert submitted["gradingSource"] == "codex"
-    assert submitted["rubricScore"] == 4
-    assert server.requests[0]["path"] == "/grading-proposal"
+    assert submitted["error"]["data"]["code"] == "grading_fallback_required", submitted
+    assert server.requests == []
 
 
 def test_sidecar_canonical_codex_profile_wins_when_legacy_input_differs(tmp_path):

@@ -35,7 +35,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.required_method import presented_prompt
 from learnloop.vault.yaml_io import write_yaml
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault
+from tests.helpers import NOW, NOW_ISO, create_basic_vault, patch_plan_ready
 from tests.structured_ai import StructuredClientFake, _request_context
 from tests.test_required_method_items import _add_concept_and_lo
 
@@ -404,10 +404,9 @@ def test_f3_an_accepted_repair_writes_no_proposal_only_key(vault_paths):
 
 @pytest.fixture()
 def routed(monkeypatch):
-    """Real route resolution: Codex reads as ready, an offline OpenRouter key."""
+    """Real route resolution: the ChatGPT plan (T1 default) reads as ready, an offline OpenRouter key."""
 
-    monkeypatch.setattr("learnloop.ai.runtime.check_codex_runtime", lambda *a, **k: SimpleNamespace(
-        status="ready", actual_revision=None, message="ok"))
+    patch_plan_ready(monkeypatch)
     monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
     monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
@@ -420,19 +419,19 @@ def test_f4_a_decider_on_the_route_is_never_the_writer(vault_paths, routed):
     assert route.kind == "decider" and route.client.provider_type == "decider"
     # The writer is the serving chat profile (ai.active_provider), never the Decider.
     assert route.writer is not None and getattr(route.writer, "provider_type", None) != "decider"
-    assert route.as_dict()["writer"] == "codex" and route.as_dict()["rewrites"] == "llm"
+    assert route.as_dict()["writer"] == "chatgpt" and route.as_dict()["rewrites"] == "llm"
     # Forcing the LLM judge on a Decider-routed vault reads with the chat profile too.
     llm = resolve_judge(vault, "llm")
     assert llm.kind == "llm" and getattr(llm.client, "provider_type", None) != "decider"
     # A serving chat provider that is not ready: the fallback provider writes.
     vault.config.ai.active_provider = "deepseek_pro"
-    vault.config.ai.fallback_provider = "codex"
+    vault.config.ai.fallback_provider = "chatgpt"
     fallback = resolve_judge(vault)
-    assert fallback.kind == "decider" and fallback.as_dict()["writer"] == "codex"
+    assert fallback.kind == "decider" and fallback.as_dict()["writer"] == "chatgpt"
     # A route naming a chat profile: that profile judges and writes.
-    vault.config.ai.routing.rubric_phrasing_judge = "codex_low"
+    vault.config.ai.routing.rubric_phrasing_judge = "chatgpt_low"
     named = resolve_judge(vault, "llm")
-    assert named.kind == "llm" and named.provider == "codex_low"
+    assert named.kind == "llm" and named.provider == "chatgpt_low"
 
 
 def test_f4_a_failed_rewrite_keeps_the_deciders_paid_flags_with_labelled_drafts(vault_paths):
@@ -550,8 +549,8 @@ def test_f7_the_dry_run_plans_rewrites_and_their_cost(vault_paths, monkeypatch):
     classify, rewrite = decider["steps"]
     assert (classify["step"], classify["provider"], classify["billing"]) == ("classify", "openrouter_decider", "metered")
     assert classify["requests"] == 3 and classify["estimated_usd"] > 0
-    # The writer (ai.active_provider: Codex on the subscription) may rewrite every item.
-    assert (rewrite["step"], rewrite["provider"], rewrite["billing"]) == ("rewrite", "codex", "subscription")
+    # The writer (ai.active_provider: the ChatGPT plan on the subscription, T1) may rewrite every item.
+    assert (rewrite["step"], rewrite["provider"], rewrite["billing"]) == ("rewrite", "chatgpt", "subscription")
     assert rewrite["requests_at_most"] == 3 and rewrite["cost_basis"] == "estimated_only"
     assert rewrite["marginal_usd"] == 0.0 and "subscription" in rewrite["note"]
     assert report["status"] == "dry_run" and report["estimate"]["estimated_usd_upper_bound"] == pytest.approx(
@@ -581,8 +580,8 @@ def test_f7_the_dry_run_plans_rewrites_and_their_cost(vault_paths, monkeypatch):
 
 @pytest.mark.parametrize("route", ["unset", "decider"])
 def test_f11_the_dry_run_prices_the_configured_fallback_writer(vault_paths, monkeypatch, route):
-    """A subscription primary writer (Codex) and a metered fallback (Haiku on
-    OpenRouter): when Codex is unavailable the run writes with the fallback,
+    """A subscription primary writer (the ChatGPT plan, T1) and a metered fallback (Haiku on
+    OpenRouter, configured by the owner): when the plan is unavailable the run writes with the fallback,
     so the dry run plans it too. Without a price it is refused; with one its
     cost is inside the advertised upper bound."""
 
@@ -599,12 +598,12 @@ def test_f11_the_dry_run_prices_the_configured_fallback_writer(vault_paths, monk
     assert refused["status"] == "refused"
     decider, llm, _heuristic = refused["judge_plan"]
     _classify, rewrite, fallback = decider["steps"]
-    assert (rewrite["provider"], rewrite["billing"]) == ("codex", "subscription")
+    assert (rewrite["provider"], rewrite["billing"]) == ("chatgpt", "subscription")
     assert (fallback["step"], fallback["provider"], fallback["billing"], fallback["fallback_for"]) == (
-        "rewrite", "openrouter_haiku", "metered", "codex")
+        "rewrite", "openrouter_haiku", "metered", "chatgpt")
     assert fallback["estimated_usd"] is None and "unknown price" in fallback["refused"]
     assert decider["estimated_usd"] is None and refused["estimate"]["estimated_usd_upper_bound"] is None
-    assert [step["provider"] for step in llm["steps"]] == ["codex", "openrouter_haiku"]
+    assert [step["provider"] for step in llm["steps"]] == ["chatgpt", "openrouter_haiku"]
     assert any("openrouter_haiku" in reason for reason in refused["estimate"]["refused"])
 
     assert priced["status"] == "dry_run"

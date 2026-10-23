@@ -31,7 +31,7 @@ def test_apply_config_updates_preserves_comments_and_unrelated_lines(tmp_path):
     after = path.read_text(encoding="utf-8")
     assert 'active_provider = "openrouter"' in after
     # A known template comment survives, and the untouched neighbouring keys do too.
-    assert "# AI is optional; an unavailable provider keeps today's manual workflow." in after
+    assert "# AI is optional (manual without it); routes use your ChatGPT plan: learnloop ai signin chatgpt." in after
     assert 'fallback_provider = ""' in after
     config = load_config(path)
     assert config.ai.active_provider == "openrouter"
@@ -161,10 +161,10 @@ def test_copy_ai_settings_copies_routing_and_materialized_profiles(tmp_path):
     assert config.ai.providers[name].model == "anthropic/claude-sonnet-4.5"
     assert config.ai.providers[name].api_key_env == "OPENROUTER_API_KEY"
     # Unconfigured use-cases keep the template defaults, template comments
-    # survive, and the codex tables are untouched.
+    # survive, and no Codex table is written (plan-first transport T1).
     text = target_path.read_text(encoding="utf-8")
     assert config.ai.routing.grading == "chatgpt_low"
-    assert "# AI is optional; an unavailable provider keeps today's manual workflow." in text
+    assert "# AI is optional (manual without it); routes use your ChatGPT plan: learnloop ai signin chatgpt." in text
     assert 'checkout_path = ""' not in text
 
 
