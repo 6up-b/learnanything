@@ -336,10 +336,15 @@ def authoring_provider_available(vault: LoadedVault) -> str | None:
     queueing.
     """
 
+    from learnloop.ai import plan_fallback
     from learnloop.ai.routing import ready_client_for_task
 
     try:
-        resolved = ready_client_for_task(vault.root, vault.config, "authoring")
+        # A readiness probe run while Today builds (plan-first transport T1,
+        # landing onto main): no "Use OpenRouter instead" offer, and no grant,
+        # since what it gates is background generation.
+        with plan_fallback.quiet():
+            resolved = ready_client_for_task(vault.root, vault.config, "authoring")
     except Exception:  # pragma: no cover - a broken runtime probe means "not ready"
         return None
     return resolved.provider_name if resolved.ready else None
