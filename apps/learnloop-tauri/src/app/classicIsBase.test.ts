@@ -25,6 +25,19 @@ import { describe, expect, it } from "vitest";
 // with the book's method) is classic's own base (docs/reviews/ux-phase2.md,
 // "Landing onto main").
 const BASE = "a9ae97e34";
+// Plan-first transport T1 landed after UX2 (docs/reviews/
+// ai-plan-first-transport-t1.md, "Landing onto main"). BASE stays a9ae97e34:
+// moving it to main's tip (558e85ab1, which holds UX2) would empty this
+// stage's diff, so the exact-list check and the round-5 guard-file check
+// would compare nothing. Instead, files later landings changed under
+// screens/ and components/ are named in LATER_LANDINGS; none of them is in
+// STAGE_CHANGES or TARGET_RULE_FILES, so every UX2 check reads as before.
+const LATER_LANDINGS: Record<string, string> = {
+  // Both shells: Settings -> ChatGPT plan shows an OpenRouter grant in force and "Stop using OpenRouter".
+  "components/ChatGPTPlanSettings.tsx": "T1",
+  // Both shells (new): the ask-before-OpenRouter banner App.tsx mounts; no window keydown listener.
+  "components/PlanFallbackOffer.tsx": "T1"
+};
 const SRC = join(__dirname, "..");
 const APP_ROOT = join(SRC, "..");
 const REPO_PREFIX = "apps/learnloop-tauri/src/";
@@ -275,7 +288,7 @@ describe("classic is base by construction", () => {
       .split("\n")
       .filter((line) => line && !/\.test\.tsx?$/.test(line) && !line.includes("__snapshots__"))
       .map((line) => line.slice(LOCAL_PREFIX.length));
-    expect([...new Set(changed)].sort()).toEqual([...Object.keys(STAGE_CHANGES), ...TARGET_RULE_FILES].sort());
+    expect([...new Set(changed)].sort()).toEqual([...Object.keys(STAGE_CHANGES), ...TARGET_RULE_FILES, ...Object.keys(LATER_LANDINGS)].sort());
   });
 
   it("runs base's code in each classic branch, unchanged", () => {
