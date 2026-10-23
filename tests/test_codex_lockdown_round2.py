@@ -349,9 +349,16 @@ def _no_network(monkeypatch) -> list[Any]:
 def test_an_http_profile_is_refused_by_the_lockdown(tmp_path, monkeypatch, kind):
     from learnloop.ai.client import make_ai_provider_client_from_profile
 
+    from learnloop.ai.agent_harness import AgentHarnessRefused
+
     reached = _no_network(monkeypatch)
-    with pytest.raises(_lockdown().CodexHttpTransportRefused, match="tool lockdown"):
+    # T1 landing: without ai.agent_harness_opt_in the factory refuses the
+    # agent-harness type first (plan-first transport T1)...
+    with pytest.raises(AgentHarnessRefused):
         make_ai_provider_client_from_profile("codex_http", _http_profile(kind), tmp_path)
+    # ...and with the opt-in the tool lockdown still refuses the legacy transport.
+    with pytest.raises(_lockdown().CodexHttpTransportRefused, match="tool lockdown"):
+        make_ai_provider_client_from_profile("codex_http", _http_profile(kind), tmp_path, agent_harness_opt_in=True)
     assert reached == []
 
 
@@ -413,11 +420,15 @@ def test_the_http_runtime_check_never_runs_its_health_request_or_startup_command
             entry()
     assert launched == [] and reached == [] and not (checkout / "STARTED").exists()
 
-    learnloop = LearnLoopConfig.model_validate({"ai": {"active_provider": "codex", "providers": {
-        "codex": {"type": "http", "checkout_path": str(checkout), "revision": "abc123",
-                  "startup_command": "touch STARTED"}}}})
-    runtime = check_ai_runtime(tmp_path, learnloop)
-    assert runtime.status == "provider_unavailable" and "tool lockdown" in (runtime.message or "")
+    for opt_in, refusal in ((False, "agent harness"), (True, "tool lockdown")):
+        # T1 landing: refused by T1's agent-harness gate without the opt-in, and
+        # by the tool lockdown with it; neither runs a health request or startup.
+        learnloop = LearnLoopConfig.model_validate({"ai": {"active_provider": "codex", "agent_harness_opt_in": opt_in,
+                                                           "providers": {
+            "codex": {"type": "http", "checkout_path": str(checkout), "revision": "abc123",
+                      "startup_command": "touch STARTED"}}}})
+        runtime = check_ai_runtime(tmp_path, learnloop)
+        assert runtime.status == "provider_unavailable" and refusal in (runtime.message or ""), (opt_in, runtime.message)
     assert launched == [] and reached == []
 
 

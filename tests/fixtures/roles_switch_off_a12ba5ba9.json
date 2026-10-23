@@ -1783,7 +1783,7 @@
         "rewrite": {
          "keywords": 0,
          "model": null,
-         "reason": "Codex checkout path is not configured. Set LEARNLOOP_CODEX_CHECKOUT_PATH in your global learnloop settings (~/.config/learnloop/settings.env).",
+         "reason": "Not signed in with ChatGPT on this machine. Run `learnloop ai signin chatgpt`.",
          "status": "unavailable"
         },
         "scope": {
@@ -1904,7 +1904,7 @@
         "rewrite": {
          "keywords": 0,
          "model": null,
-         "reason": "Codex checkout path is not configured. Set LEARNLOOP_CODEX_CHECKOUT_PATH in your global learnloop settings (~/.config/learnloop/settings.env).",
+         "reason": "Not signed in with ChatGPT on this machine. Run `learnloop ai signin chatgpt`.",
          "status": "unavailable"
         },
         "scope": {
@@ -2021,7 +2021,7 @@
       "rewrite": {
        "keywords": 0,
        "model": null,
-       "reason": "Codex checkout path is not configured. Set LEARNLOOP_CODEX_CHECKOUT_PATH in your global learnloop settings (~/.config/learnloop/settings.env).",
+       "reason": "Not signed in with ChatGPT on this machine. Run `learnloop ai signin chatgpt`.",
        "status": "unavailable"
       },
       "scope": {

@@ -58,10 +58,16 @@ def codex(monkeypatch):
         if task not in T6_LLM_ROUTES:
             return real(vault_root, config, task, explicit=explicit, **kwargs)
         state.tasks.append((task, explicit))
+        # The profile the route resolved (T1 landing: a routed plan route now
+        # resolves unpinned, and resolve_client checks it is the planned one).
+        from learnloop.ai.routing import provider_for_task
+
+        name = explicit or provider_for_task(config, task).provider_name
         if not state.ready:
-            return SimpleNamespace(ready=False, client=None,
+            return SimpleNamespace(ready=False, client=None, provider_name=name,
                                    runtime=SimpleNamespace(message="Codex is not signed in"))
-        return SimpleNamespace(ready=True, client=state.client, runtime=SimpleNamespace(message=None))
+        return SimpleNamespace(ready=True, client=state.client, provider_name=name,
+                               runtime=SimpleNamespace(message=None))
 
     monkeypatch.setattr(paid, "ready_client_for_task", fake_ready)
     return state
