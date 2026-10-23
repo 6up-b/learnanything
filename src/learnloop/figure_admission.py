@@ -61,20 +61,50 @@ def offers_enabled(vault: Any) -> bool:
     return figures_enabled(config) and bool(getattr(config.figures, "offers_enabled", False))
 
 
-#: The block types an offer may name (an equation, or a figure the figure
-#: author may crop), and the ingest roles that mean the same.
+#: The block types an offer may name: an equation, or a figure the figure
+#: author may crop (the figure service's own figure block types).
 OFFER_BLOCK_TYPES = frozenset({"Equation", "Figure", "FigureGroup", "Picture", "PictureGroup"})
-OFFER_ROLES = frozenset({"equation", "figure"})
 #: The judgment's two answers; anything else (an old output without the
 #: field included) reads as no.
 EXPLORABLE = ("yes", "no")
 
 
-def offerable(block_type: Any, role: Any = None) -> bool:
+def offerable(block_type: Any) -> bool:
     """Whether a cited block is one "make this explorable" may be offered on:
-    code decides the block, the judge only whether it could support a figure."""
+    code decides the block (by its extracted type), the judge only whether it
+    could support a figure."""
 
-    return str(block_type or "") in OFFER_BLOCK_TYPES or str(role or "") in OFFER_ROLES
+    return str(block_type or "") in OFFER_BLOCK_TYPES
+
+
+def offer_kind(block_type: Any) -> str | None:
+    """``equation`` | ``figure`` for an offerable block, else None."""
+
+    if not offerable(block_type):
+        return None
+    return "equation" if str(block_type) == "Equation" else "figure"
+
+
+def offerable_blocks(repository: Any, keys: Any) -> dict[tuple[str, str], str]:
+    """Which of these ``(extraction_id, span_id)`` blocks an offer may name,
+    each with its kind (:func:`offer_kind`), read from the stored blocks."""
+
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.source_block_fts import blocks_by_key
+
+    wanted = list(dict.fromkeys((str(key[0]), str(key[1])) for key in keys))
+    if not wanted:
+        return {}
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        blocks = blocks_by_key(connection, wanted)
+    found: dict[tuple[str, str], str] = {}
+    for key in wanted:
+        kind = offer_kind(blocks[key].block_type) if key in blocks else None
+        if kind is not None:
+            found[key] = kind
+    return found
 
 
 def explorable_yes(value: Any) -> bool:
@@ -173,11 +203,12 @@ __all__ = [
     "FiguresChanged",
     "FiguresGate",
     "OFFER_BLOCK_TYPES",
-    "OFFER_ROLES",
     "advanced_panels_enabled",
     "explorable_yes",
     "figures_enabled",
+    "offer_kind",
     "offerable",
+    "offerable_blocks",
     "offers_enabled",
     "text_key",
 ]

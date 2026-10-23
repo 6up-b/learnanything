@@ -25,6 +25,7 @@ from typing import Any
 
 import pytest
 
+from learnloop.ai.execution import model_call
 from learnloop.figure_admission import FiguresChanged, FiguresGate, explorable_yes, offerable
 from learnloop.figures import routes as R
 from learnloop.figures import service as FS
@@ -46,11 +47,21 @@ from tests.figure_fixtures import (
     set_config,
 )
 from tests.figure_panels_corpus import gradient_field
+
 from tests.pf_fakes import prompt_context
 
 NOW = "2026-10-23T10:00:00Z"
 #: ext_prob's §5.4: p2 prose, p3 the density's equation, p4 its figure, p5 the caption.
 KEYS = [f"{EXTRACTION}:{span}" for span in ("p2", "p3", "p4", "p5")]
+
+
+class GatedAuthor(AuthorFake):
+    """An author that answers inside ``model_call``, as a real provider does, so
+    the build's FiguresGate admits (or refuses) each physical request."""
+
+    def complete(self, request):
+        with model_call(self, purpose=request.purpose, prompt=request.prompt):
+            return super().complete(request)
 
 
 class ExplorableOrganizer:
@@ -91,8 +102,12 @@ class ExplorableOrganizer:
                                                     "picks": [c["ref"] for c in context["candidates"]]})
 
 
-def _vault(tmp_path, **figures: Any):
+def _vault(tmp_path, *, roles: bool = False, **figures: Any):
+    """The figure vault; RW4e's on-demand roles off unless asked (so the organizer
+    request is RW4a's base and its explorable twin)."""
+
     paths, repository = build_figure_vault(tmp_path / "vault")
+    set_config(paths, "roles", on_demand_enabled=roles)
     if figures:
         set_config(paths, "figures", **figures)
     return paths, repository
@@ -119,8 +134,8 @@ def _organize(paths, repository, fake, keys=KEYS):
 # --- the rule -------------------------------------------------------------------------------------
 
 def test_code_decides_the_block_and_only_yes_is_a_yes():
-    assert offerable("Equation") and offerable("Figure") and offerable("Picture") and offerable("Text", "equation")
-    assert not offerable("Text") and not offerable("ListGroup", "definition") and not offerable(None)
+    assert offerable("Equation") and offerable("Figure") and offerable("Picture") and offerable("FigureGroup")
+    assert not offerable("Text") and not offerable("ListGroup") and not offerable(None)
     assert explorable_yes("yes") and explorable_yes(" YES ")
     assert not any(explorable_yes(value) for value in ("no", "", None, "maybe", True))
 
@@ -200,8 +215,7 @@ def test_a_stored_answer_with_offers_is_shown_without_them_once_offers_are_off(t
 
 
 def test_the_roles_request_composes_with_explorable(tmp_path):
-    paths, repository = _vault(tmp_path)
-    set_config(paths, "roles", on_demand_enabled=True)
+    paths, repository = _vault(tmp_path, roles=True)
     fake = ExplorableOrganizer()
     result = _organize(paths, repository, fake)
     assert fake.models == ["OrganizerRolesExplorableResult"]
@@ -397,7 +411,7 @@ def test_an_offered_build_stops_when_offers_are_switched_off_before_its_request(
     paths, repository = _vault(tmp_path)
     vault = load_vault(paths.root)
     request = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"], origin="library")
-    author = AuthorFake()
+    author = GatedAuthor()
     # The switch flips between the build's start and its first physical request.
     original = R.FigureRoute.ask
 
@@ -418,7 +432,7 @@ def test_an_offered_build_stops_when_offers_are_switched_off_before_its_request(
 def test_a_selection_build_does_not_stop_for_the_offers_switch(tmp_path):
     paths, repository = _vault(tmp_path)
     vault = load_vault(paths.root)
-    author = AuthorFake()
+    author = GatedAuthor()
     original = R.FigureRoute.ask
 
     def flip_then_ask(self, *args, **kwargs):
@@ -436,7 +450,7 @@ def test_a_selection_build_does_not_stop_for_the_offers_switch(tmp_path):
 def test_a_build_stops_when_the_advanced_panels_are_switched_off_mid_build(tmp_path):
     paths, repository = _vault(tmp_path)
     vault = load_vault(paths.root)
-    author = AuthorFake()
+    author = GatedAuthor()
     original = R.FigureRoute.ask
 
     def flip_then_ask(self, *args, **kwargs):

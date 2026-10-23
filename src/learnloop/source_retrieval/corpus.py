@@ -34,7 +34,6 @@ from learnloop.db.stores.source_block_fts import (
     HintRow,
     assessment_link_locators,
     block_content_hashes,
-    blocks_by_key,
     entity_link_locators,
     extraction_hint_rows,
     extraction_source_ids,
@@ -433,27 +432,6 @@ def block_roles(connection, keys: Iterable[tuple[str, str]]) -> dict[tuple[str, 
 #: Effective roles a model reader never receives (spec §5.3, SC3).
 MODEL_WITHHELD_ROLES = frozenset({"solution"})
 
-
-
-def offerable_blocks(repository: Repository, keys: Sequence[tuple[str, str]]) -> dict[tuple[str, str], str]:
-    """RW5b: which of these blocks "make this explorable" may be offered on
-    (``equation`` | ``figure``, code's rule: :func:`learnloop.figure_admission.offerable`)."""
-
-    from learnloop.figure_admission import offerable
-
-    wanted = list(dict.fromkeys((str(key[0]), str(key[1])) for key in keys))
-    if not wanted:
-        return {}
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        blocks = blocks_by_key(connection, wanted)
-        roles = block_roles(connection, [key for key in wanted if key in blocks]) if blocks else {}
-    found: dict[tuple[str, str], str] = {}
-    for key in wanted:
-        block = blocks.get(key)
-        if block is None or not offerable(block.block_type, roles.get(key)):
-            continue
-        found[key] = "equation" if block.block_type == "Equation" or roles.get(key) == "equation" else "figure"
-    return found
 
 
 def model_reader_withheld(vault: LoadedVault, repository: Repository,

@@ -34,6 +34,15 @@ refuse a figure any of whose spans is held out now (Codex review F1).
 was selected and the route reads images (a region needs it), and, for a "not
 right?" version, the earlier spec and the learner's note. No learner data.
 
+**RW5b** (spec §8.7). With ``figures.advanced_panels_enabled`` the author
+is told of heat maps, vector fields, trajectories and iterated maps (its own
+prompt version, so RW5a's reuse keys are unchanged while the panels are off);
+off, it may not emit them, and a stored figure that uses one is shown as
+"can't draw this yet" (:func:`advanced_off_row`). With
+``figures.offers_enabled`` a build may start from an offer (origin
+``library`` | ``tutor``): the same pipeline, its gate also watching the
+offers switch (:func:`offer_build_key`).
+
 **Predictions** (:func:`record_prediction`): formative only (W1, tier 2).
 Code decides ``matched`` from the observed readout before and after the
 prediction's change; a missed one is queued for learner-text gaps as a

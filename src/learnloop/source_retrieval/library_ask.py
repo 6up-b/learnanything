@@ -52,6 +52,13 @@ caller, never by what the follow-up request names (Codex review F4); a
 question about held-out material is refused before anything is retrieved
 (F1); the organizer's daily cap is a durable, atomic reservation (F5).
 
+RW5b (``figures.offers_enabled``): when an equation or a figure block is
+among the passages, the organizer's same call also answers ``explorable:
+yes | no`` on each (its own prompt version per request; code names the
+blocks, an old output without the field reads as no), and a note on such a
+block carries ``explorable: true`` for "make this explorable". Off, or with
+no such block, the request and the notes are RW4a's/RW4e's, key for key.
+
 Retrieval is context and the lines and the table are display (T6's ruling):
 nothing here writes an attempt, evidence, mastery, certification, FSRS or a
 plan, and replay never reads ``library_asks``. Kill switches:
@@ -83,14 +90,13 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_gaps as gap_store
 from learnloop.db.stores import library_asks as ask_store
 from learnloop.db.stores.source_block_fts import blocks_by_key
-from learnloop.figure_admission import EXPLORABLE, explorable_yes, offerable, offers_enabled
+from learnloop.figure_admission import EXPLORABLE, explorable_yes, offer_kind, offers_enabled
 from learnloop.goals.goal_certification import lo_certification
 from learnloop.ids import new_ulid
 from learnloop.practice_index.listwise import ListwiseTask, judge_listwise, listwise_caps, task_output_tokens
 from learnloop.practice_index.paid import checkpoint_key, plan_route, receipt_answer
 from learnloop.reader import source_roles as RS
 from learnloop.reader.reader_progression import learning_objects_for_span
-from learnloop.source_retrieval.corpus import block_roles
 from learnloop.source_retrieval.find_sources import EXPANSIONS, expanded_learning_objects
 from learnloop.source_retrieval.service_spend import SharedDailyEnvelope, midnight
 from learnloop.substrate.activities import log_interaction_event
@@ -328,10 +334,7 @@ def organizer_task(vault: LoadedVault) -> ListwiseTask:
 def offerable_kind(passage: Mapping[str, Any]) -> str | None:
     """``equation`` | ``figure`` for a block an offer may name (code decides), else None."""
 
-    if not offerable(passage.get("block_type"), passage.get("role")):
-        return None
-    return "equation" if (str(passage.get("block_type") or "") == "Equation"
-                          or str(passage.get("role") or "") == "equation") else "figure"
+    return offer_kind(passage.get("block_type"))
 
 
 def shown_organizer(vault: LoadedVault, organizer: Mapping[str, Any]) -> dict[str, Any]:
@@ -753,18 +756,18 @@ class _OrganizerAdmission:
 def _passages(vault: LoadedVault, repository: Repository, keys: Sequence[str], *,
               with_kinds: bool = False) -> dict[str, dict[str, Any]]:
     """The passages' text and page; ``with_kinds`` (RW5b's offers): their block
-    type and effective role too, so code can tell an equation or a figure."""
+    type too, so code can tell an equation or a figure."""
 
     parsed = [tuple(key.split(":", 1)) for key in keys]
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         blocks = blocks_by_key(connection, parsed)
-        roles = block_roles(connection, [pair for pair in parsed if pair in blocks]) if blocks and with_kinds else {}
     out = {}
     for key, pair in zip(keys, parsed):
         block = blocks.get(pair)
         if block is not None:
-            out[key] = {"text": " ".join(str(block.text).split()), "page": block.page,
-                        "block_type": block.block_type, "role": roles.get(pair)}
+            out[key] = {"text": " ".join(str(block.text).split()), "page": block.page}
+            if with_kinds:
+                out[key]["block_type"] = block.block_type
     return out
 
 

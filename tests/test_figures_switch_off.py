@@ -62,7 +62,8 @@ def test_figures_on_adds_only_its_key_and_its_action(tmp_path):
         pytest.skip("the golden is written by the switch-off case")
     recorded = _record(tmp_path, enabled=True)["contract"]
     golden = json.loads(GOLDEN.read_text(encoding="utf-8"))["contract"]
-    assert recorded.pop("figures") == {"predictions": True, "region": True, "revisions": True}
+    # RW5b adds offers (figures.offers_enabled, on by default).
+    assert recorded.pop("figures") == {"predictions": True, "region": True, "revisions": True, "offers": True}
     added = []
     for group in recorded["intent"]["palette"]:
         kept = [action for action in group["actions"] if action["effect"] != {"kind": "figure"}]

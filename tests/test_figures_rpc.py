@@ -40,7 +40,8 @@ def test_the_prompt_contract_and_the_intent_box_carry_figures_while_on(tmp_path)
     paths, _repository = _vault(tmp_path)
     ctx = context(paths.root)
     contract = call(ctx, "reader.prompt_contract", {})
-    assert contract["figures"] == {"predictions": True, "region": True, "revisions": True}
+    # RW5b adds offers (figures.offers_enabled, on by default).
+    assert contract["figures"] == {"predictions": True, "region": True, "revisions": True, "offers": True}
     actions = {action["id"]: action for group in contract["intent"]["palette"] for action in group["actions"]}
     assert actions["make_explorable"]["effect"] == {"kind": "figure"}
     assert actions["make_explorable"]["intention"] == "understand"

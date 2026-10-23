@@ -47,7 +47,8 @@ from learnloop.content.sources.exam_material import held_out_material
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.ingest.block_roles import lead_role
-from learnloop.source_retrieval.corpus import block_roles, item_exclusions, offerable_blocks
+from learnloop.figure_admission import offerable_blocks
+from learnloop.source_retrieval.corpus import block_roles, item_exclusions
 from learnloop.source_retrieval.find_sources import QUESTION_CHARS
 from learnloop.source_retrieval.queries import MAX_QUERY_CHARS
 from learnloop.source_retrieval.tutor import ITEM_BOUND_LEAD_ROLES

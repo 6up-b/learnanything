@@ -24,7 +24,9 @@ Desktop only (pinned in tests/test_mobile_allowlist.py). Kill switches:
 ``figures.enabled`` (off: every RPC here refuses, the prompt contract has no
 ``figures`` key, the intent box has no "make this explorable" and no route
 is called), ``figures.predictions_enabled``, ``figures.region_enabled``,
-``figures.revisions_enabled``. Nothing here writes an attempt, evidence,
+``figures.revisions_enabled``, and RW5b's ``figures.offers_enabled`` (off:
+no ``offers`` in the contract and an offered request is refused) and
+``figures.advanced_panels_enabled``. Nothing here writes an attempt, evidence,
 mastery, certification, FSRS, scheduler state or a plan.
 """
 from __future__ import annotations
@@ -161,7 +163,7 @@ def offered_spans(vault: Any, repository: Any, origin: str, offer_ref: str | Non
     answer (RW1c), as stored. Read from the stored outputs only: the press
     makes no model call, and a block the judge did not offer is refused."""
 
-    from learnloop.source_retrieval.reader_tutor import offerable_blocks
+    from learnloop.figure_admission import offerable_blocks
 
     if not offer_ref:
         return set()

@@ -1691,7 +1691,7 @@ def _reader_lookup_context(
     # only when an equation or figure block is among the delivered passages:
     # with nothing to judge, the request is RW1c's, byte for byte.
     if explorable:
-        from learnloop.source_retrieval.corpus import offerable_blocks
+        from learnloop.figure_admission import offerable_blocks
 
         explorable = bool(offerable_blocks(repository, [
             (str(span.get("extraction_id")), str(span.get("span_id"))) for span in kept
