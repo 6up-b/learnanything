@@ -2636,3 +2636,27 @@ Those that pass there are named here:
 - The two protected-table DELETE cases: refused before by later reads, as described above.
 
 The planted-read negative control still fails with the guard off.
+
+### Gate (round 7, run once after the last change)
+
+The gate ran under the owner's 2026-10-23 memory rule: every pytest command inside `systemd-run
+--user --scope -p MemoryMax=5G -p MemorySwapMax=1G`, with `-n 6`, one command at a time. The 300
+targeted files ran as three sequential thirds.
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 27 kept, 0 broken |
+| targeted pytest: round 6's files, plus `test_ad_never_extracted.py` and every file naming `glm_ocr`, `block_roles`, `project_ir` or `extraction_sections` | **11,862 passed, 38 xfailed, 1 failed** (1,943 + 1,989 + 7,930) |
+| the one failure | `test_voi_v2.py::test_in_the_real_probe_vault_the_gate_no_longer_ends_a_paying_episode`, which touches no AD code. It passed alone and with its file (39 passed) on the same tree: a flake under load |
+| `--durable-sqlite`: guard, epoch, projection, never-extracted, `test_ad23_migration.py`, `test_ad1_migration.py` | 147 passed |
+| migration 214, head fixture | unchanged |
+| references, under `env -i` | regenerated (9ca3f1c56); `db_validate_reference.py` 0 errors; `module_validate.py` and `validate_vault.py` pass |
+
+Sizes of the round-7 code commit (8b66d516b):
+- production: +262 / -77 (6 files);
+- tests: +100 / -27 (3 files), plus the new `ad_ingest_fakes.py` and `test_ad_never_extracted.py`.
+
+Three session restarts interrupted the round. Each time the worktree held the real edits and the
+regenerated references, and nothing else: no temporary outputs. Progress was committed before this
+gate. Every Python run outside pytest ran under `env -i` with an empty HOME, CODEX_HOME and
+LEARNLOOP_CONFIG_DIR. No model call was made; owner decisions are unchanged.
