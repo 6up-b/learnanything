@@ -3,8 +3,8 @@ title: "Config - storage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "cd43cb64ccebc923410bc094d8518f0b0e6b8591"
-source_commit_timestamp: "2026-10-22T17:09:49-04:00"
+source_commit: "26923e913a375e196f5d1fcef869d143401bf453"
+source_commit_timestamp: "2026-10-22T17:12:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml storage"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/vault/paths.py"
   - "tests/ad23_fakes.py"
   - "tests/ad_fakes.py"
+  - "tests/ad_ingest_fakes.py"
   - "tests/approach_map_fakes.py"
   - "tests/conftest.py"
   - "tests/daily_plan_fakes.py"
@@ -31,7 +32,6 @@ source_paths:
   - "tests/pf_fakes.py"
   - "tests/source_retrieval_fakes.py"
   - "tests/split_live_helpers.py"
-  - "tests/test_activity_backfill.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/storage"
@@ -63,6 +63,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/ad23_fakes.py`
 - `tests/ad_fakes.py`
+- `tests/ad_ingest_fakes.py`
 - `tests/approach_map_fakes.py`
 - `tests/conftest.py`
 - `tests/daily_plan_fakes.py`
@@ -72,7 +73,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/pf_fakes.py`
 - `tests/source_retrieval_fakes.py`
 - `tests/split_live_helpers.py`
-- `tests/test_activity_backfill.py`
 
 ## Extension and modification guidance
 

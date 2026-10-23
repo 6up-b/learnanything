@@ -3,8 +3,8 @@ title: "source_document_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "cd43cb64ccebc923410bc094d8518f0b0e6b8591"
-source_commit_timestamp: "2026-10-22T17:09:49-04:00"
+source_commit: "26923e913a375e196f5d1fcef869d143401bf453"
+source_commit_timestamp: "2026-10-22T17:12:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_blocks"
@@ -20,13 +20,14 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/032_source_layer.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
-  - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/content/sources/span_aliases.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_block_fts.py"
+  - "src/learnloop/db/stores/source_service.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/practice_leakage.py"
   - "src/learnloop/content/pipeline/exam_marking.py"
@@ -107,7 +108,6 @@ Database triggers:
 
 ### Direct SQL readers
 
-- `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/content/sources/span_aliases.py`
@@ -149,6 +149,7 @@ Database triggers:
 ## Tests that define behavior
 
 - `tests/test_ad_guard.py`
+- `tests/test_ad_protected_tables.py`
 - `tests/test_exam_protection.py`
 - `tests/test_exam_protection_review.py`
 - `tests/test_exercise_arm.py`
@@ -167,7 +168,6 @@ Database triggers:
 - `tests/test_facet_authority_review.py`
 - `tests/test_facet_reword_confirm.py`
 - `tests/test_ingest_m3.py`
-- `tests/test_ingest_runner.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

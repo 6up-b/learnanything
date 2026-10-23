@@ -3,8 +3,8 @@ title: "source_revisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "cd43cb64ccebc923410bc094d8518f0b0e6b8591"
-source_commit_timestamp: "2026-10-22T17:09:49-04:00"
+source_commit: "26923e913a375e196f5d1fcef869d143401bf453"
+source_commit_timestamp: "2026-10-22T17:12:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_revisions"
@@ -144,6 +144,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/ad_ingest_fakes.py`
 - `tests/helpers.py`
 - `tests/reader_fixtures.py`
 - `tests/source_retrieval_fakes.py`
@@ -163,7 +164,6 @@ Indexes and uniqueness:
 - `tests/test_source_deletion.py`
 - `tests/test_source_inventory.py`
 - `tests/test_source_retrieval_guards.py`
-- `tests/test_source_retrieval_rereview.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

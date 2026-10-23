@@ -3,8 +3,8 @@ title: "ad_selections"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "cd43cb64ccebc923410bc094d8518f0b0e6b8591"
-source_commit_timestamp: "2026-10-22T17:09:49-04:00"
+source_commit: "26923e913a375e196f5d1fcef869d143401bf453"
+source_commit_timestamp: "2026-10-22T17:12:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ad_selections"
@@ -132,6 +132,7 @@ None found by exact static reference scan.
 - `tests/test_ad23_migration.py`
 - `tests/test_ad2_model.py`
 - `tests/test_ad2_serving.py`
+- `tests/test_ad_guard.py`
 - `tests/test_architecture.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

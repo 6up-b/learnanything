@@ -3,8 +3,8 @@ title: "Config - ai"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "cd43cb64ccebc923410bc094d8518f0b0e6b8591"
-source_commit_timestamp: "2026-10-22T17:09:49-04:00"
+source_commit: "26923e913a375e196f5d1fcef869d143401bf453"
+source_commit_timestamp: "2026-10-22T17:12:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml ai"
@@ -32,6 +32,7 @@ source_paths:
   - "src/learnloop/params/parameter_registry.py"
   - "tests/ad23_fakes.py"
   - "tests/ad_fakes.py"
+  - "tests/ad_ingest_fakes.py"
   - "tests/approach_map_fakes.py"
   - "tests/chatgpt_plan_fakes.py"
   - "tests/codex_cli_fakes.py"
@@ -41,7 +42,6 @@ source_paths:
   - "tests/diagnosis_fakes.py"
   - "tests/diagnosis_split_helpers.py"
   - "tests/embedding_fakes.py"
-  - "tests/facet_identity_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/ai"
@@ -308,6 +308,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/ad23_fakes.py`
 - `tests/ad_fakes.py`
+- `tests/ad_ingest_fakes.py`
 - `tests/approach_map_fakes.py`
 - `tests/chatgpt_plan_fakes.py`
 - `tests/codex_cli_fakes.py`
@@ -317,7 +318,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/diagnosis_fakes.py`
 - `tests/diagnosis_split_helpers.py`
 - `tests/embedding_fakes.py`
-- `tests/facet_identity_fakes.py`
 
 ## Extension and modification guidance
 
