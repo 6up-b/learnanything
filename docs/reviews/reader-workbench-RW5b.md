@@ -81,7 +81,9 @@ animates.
   region) or it is refused `not_offered` before any job or call. It then runs RW5a's pipeline unchanged
   (held-out refusal, the selection plus two blocks each side as context — "retrieval supplies the equation,
   figure and assumptions" — the author's two attempts, verification steps 1-2), stores that origin, and
-  reuses by input hash (spec version `ifs-v1`; the hash already carried the origin).
+  reuses by input hash (spec version `ifs-v1`). The hash names no origin (Codex review F2: a block is one
+  figure whatever offered it) and a shown figure of the same input under the other prompt version is reused
+  when it can be drawn now; see `reader-rw5b-codex-review.md`.
 - **One admission point.** The offer button makes no call. Every figure-derived request goes through RW5a's
   `FiguresGate`; an offered build's key (`offer_build_key`) adds `figures.offers_enabled`, and every build's
   key adds `figures.advanced_panels_enabled` (the author's prompt depends on it). A "not right?" version of
