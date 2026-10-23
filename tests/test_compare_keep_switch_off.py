@@ -6,6 +6,9 @@ what the base tree (``3988cf778``, the RW4b landing, before any RW4d code)
 produced for the same faked comparison. The golden file was recorded on that
 tree (``RW4D_WRITE_GOLDEN=1`` with the base's ``src`` first on the path);
 ULIDs are replaced by their order of appearance and times are left out.
+Plan-first transport T1 edited only the three unavailable-route ``reason``
+strings by hand (the default route is now the signed-out ChatGPT plan, not an
+unconfigured Codex checkout); nothing else was re-recorded.
 """
 from __future__ import annotations
 

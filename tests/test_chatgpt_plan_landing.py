@@ -80,8 +80,10 @@ def test_a_snapshot_diagnosis_on_the_plan_records_what_it_served_with_its_row_an
     wrong = submit(vault, repository, ReviewFakeClient(), answer=WRONG, when=at(20))
 
     server.default_reply = lambda body: Reply(events=_diagnosis_answer(body))
+    # Tools mode, explicitly: this pins what the plan serves file by file
+    # (inline is the default since plan-first transport T1).
     plan = ChatGPTPlanProviderClient("chatgpt", ChatGPTPlanProviderConfig(
-        model="gpt-test-fast", base_url=server.base_url, timeout_seconds=10))
+        model="gpt-test-fast", base_url=server.base_url, timeout_seconds=10, workspace_mode="tools"))
     observed: dict = {}
     real = jobs_module.record_diagnosis_forecasts
 
