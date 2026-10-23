@@ -167,6 +167,7 @@ export function TutorAnswer({ exchange, tutor }: { exchange: ReaderExchange; tut
           onPracticePick={tutor.onPracticePick ?? null}
           onTryNextStep={tutor.onTryNextStep ?? null}
           onMakeExplorable={tutor.onMakeExplorable ?? null}
+          offerRef={exchange.questionEventId ?? null}
           {...(tutor.offerStore ? { store: tutor.offerStore } : {})}
           {...(tutor.exercises ? { exercises: tutor.exercises } : {})}
         />

@@ -379,18 +379,32 @@ export function ReaderScreen({
   // this book at once, in another once that book is open (a detour).
   const figureOffersOn = Boolean(contract?.figures?.offers) && !offline;
   const [offeredFigure, setOfferedFigure] = useState<{ fromExtractionId: string | null; extractionId: string; spanId: string; origin: "library" | "tutor"; offerRef: string } | null>(null);
+  // Codex review F6: the press hears whether it built or lapsed, so its
+  // button never says "building" for a build that will not run.
+  const offeredSettleRef = useRef<((built: boolean) => void) | null>(null);
+  const settleOffered = useCallback((built: boolean) => {
+    const settle = offeredSettleRef.current;
+    offeredSettleRef.current = null;
+    settle?.(built);
+  }, []);
   useEffect(() => {
     if (!offeredFigure) return;
     const open = render?.extractionId ?? null;
     if (open !== offeredFigure.extractionId) {
-      // Another book opened instead (or the detour failed): the press lapses.
-      if (open !== offeredFigure.fromExtractionId) setOfferedFigure(null);
+      // Another book opened instead, or the hit's book opened on another
+      // reading (its span ids are not this reading's, and the judgment named
+      // that reading's block): the press lapses, and says so.
+      if (open !== offeredFigure.fromExtractionId) {
+        setOfferedFigure(null);
+        settleOffered(false);
+      }
       return;
     }
     if (!figuresCtl.enabled) return;
     figuresCtl.request({ spanIds: [offeredFigure.spanId], origin: offeredFigure.origin, offerRef: offeredFigure.offerRef });
     setOfferedFigure(null);
-  }, [offeredFigure, figuresCtl, render]);
+    settleOffered(true);
+  }, [offeredFigure, figuresCtl, render, settleOffered]);
   // RW1c: the tutor that looks things up (absent from the contract while both its switches are off).
   const readerTutor = contract?.readerTutor ?? null;
   // RW1c: the bound workbench session an Ask comes from (set once the workbench hook runs below).
@@ -2088,10 +2102,17 @@ export function ReaderScreen({
     void openSource(card, hit.spanId, { via: "search", jumpReading: hit.extractionId });
   };
   // RW5b: an offered figure's press (see offeredFigure above).
-  const makeExplorable = (target: Pick<LibraryHitDto, "sourceId" | "extractionId" | "spanId">, origin: "library" | "tutor", offerRef: string) => {
-    if (!figureOffersOn) return;
+  // It resolves true once the build is requested, false when the press lapses.
+  const makeExplorable = (target: Pick<LibraryHitDto, "sourceId" | "extractionId" | "spanId">, origin: "library" | "tutor", offerRef: string): Promise<boolean> => {
+    if (!figureOffersOn) return Promise.resolve(false);
+    // A passage of another reading of the book open now: opening it again
+    // opens this reading, where the offered block is not (Codex review F6).
+    if (render && target.sourceId === render.sourceId && target.extractionId !== render.extractionId) return Promise.resolve(false);
+    settleOffered(false); // an earlier press still waiting is replaced
+    const settled = new Promise<boolean>((resolve) => { offeredSettleRef.current = resolve; });
     setOfferedFigure({ fromExtractionId: render?.extractionId ?? null, extractionId: target.extractionId, spanId: target.spanId, origin, offerRef });
     if (!render || target.extractionId !== render.extractionId) openLibraryHit(target);
+    return settled;
   };
   // RW2c review F1: a passage the workbench names (a worked example, a picked
   // passage) may be in another book. In this book it is a peek, as before;
@@ -3216,7 +3237,7 @@ export function ReaderScreen({
                   : null,
                 // RW5b: a cited equation or figure of this book the tutor judged explorable.
                 onMakeExplorable: figureOffersOn && render
-                  ? (spanId: string, offerRef: string) => makeExplorable({ sourceId: render.sourceId, extractionId: render.extractionId, spanId }, "tutor", offerRef)
+                  ? (spanId: string, offerRef: string) => { void makeExplorable({ sourceId: render.sourceId, extractionId: render.extractionId, spanId }, "tutor", offerRef); }
                   : null,
                 // RW1c (Codex review F9): an excerpt or citation opens where
                 // it is (this book peeks; another opens as a detour).

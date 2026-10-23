@@ -124,7 +124,7 @@ function Harness({ contract = CONTRACT }: { contract?: FiguresContract }) {
   return (
     <div>
       <div data-span="p3"><FiguresUnder ctl={ctl} spanId="p3" /></div>
-      <TutorOffers exchangeId="qe_1" extractionId="ext_prob" toolRequests={[]}
+      <TutorOffers exchangeId="ia_1" offerRef="qe_1" extractionId="ext_prob" toolRequests={[]}
         buttons={[{ kind: "make_explorable", extractionId: "ext_prob", spanId: "p3", label: "make this explorable", role: "equation" },
           { kind: "make_explorable", extractionId: "ext_other", spanId: "x1", label: "make this explorable", role: "figure" }]}
         onMakeExplorable={(spanId, offerRef) => ctl.request({ spanIds: [spanId], origin: "tutor", offerRef })} />
@@ -165,9 +165,17 @@ it("with offers off in the contract an offered press builds nothing", async () =
 });
 
 it("no onMakeExplorable, no button (the Reader passes none while offers are off)", () => {
-  render(<TutorOffers exchangeId="qe_2" extractionId="ext_prob" toolRequests={[]}
+  render(<TutorOffers exchangeId="ia_2" offerRef="qe_2" extractionId="ext_prob" toolRequests={[]}
     buttons={[{ kind: "make_explorable", extractionId: "ext_prob", spanId: "p3", label: "make this explorable", role: "equation" }]} />);
   expect(screen.queryByRole("button", { name: OFFER_COPY.makeExplorable })).toBeNull();
+});
+
+it("no question event to name as the offer, no button (Codex review F1)", () => {
+  const pressed = vi.fn();
+  render(<TutorOffers exchangeId="ia_3" offerRef={null} extractionId="ext_prob" toolRequests={[]} onMakeExplorable={pressed}
+    buttons={[{ kind: "make_explorable", extractionId: "ext_prob", spanId: "p3", label: "make this explorable", role: "equation" }]} />);
+  expect(screen.queryByRole("button", { name: OFFER_COPY.makeExplorable })).toBeNull();
+  expect(pressed).not.toHaveBeenCalled();
 });
 
 const LIBRARY_HIT: LibraryHitDto = {
@@ -222,5 +230,26 @@ it("with offers off (no explorable field, no handler) the library answer has no 
   expect(screen.queryByRole("button", { name: LIBRARY_EXPLORABLE_COPY.make })).toBeNull();
   cleanup();
   render(<LibraryAnswer ctl={libraryCtl([LIBRARY_NOTE])} onOpenHit={null} onPracticePick={null} onClose={vi.fn()} />);
+  expect(screen.queryByRole("button", { name: LIBRARY_EXPLORABLE_COPY.make })).toBeNull();
+});
+
+it("a library press that lapses goes back to its button and says nothing was built (Codex review F6)", async () => {
+  // The Reader settles a press false when the hit's book opened on another
+  // reading (or another book opened first): nothing builds.
+  const pressed = vi.fn(() => Promise.resolve(false));
+  render(<LibraryAnswer ctl={libraryCtl([LIBRARY_NOTE])} onOpenHit={null} onPracticePick={null} onClose={vi.fn()} onMakeExplorable={pressed} />);
+  fireEvent.click(screen.getByRole("button", { name: LIBRARY_EXPLORABLE_COPY.make }));
+  expect(pressed).toHaveBeenCalledTimes(1);
+  expect(await screen.findByText(LIBRARY_EXPLORABLE_COPY.lapsed)).toBeTruthy();
+  expect(screen.queryByText(LIBRARY_EXPLORABLE_COPY.building)).toBeNull();
+  expect(screen.getByRole("button", { name: LIBRARY_EXPLORABLE_COPY.make })).toBeTruthy();
+});
+
+it("a library press that builds keeps saying so", async () => {
+  const pressed = vi.fn(() => Promise.resolve(true));
+  render(<LibraryAnswer ctl={libraryCtl([LIBRARY_NOTE])} onOpenHit={null} onPracticePick={null} onClose={vi.fn()} onMakeExplorable={pressed} />);
+  fireEvent.click(screen.getByRole("button", { name: LIBRARY_EXPLORABLE_COPY.make }));
+  await act(async () => { await Promise.resolve(); });
+  expect(screen.getByText(LIBRARY_EXPLORABLE_COPY.building)).toBeTruthy();
   expect(screen.queryByRole("button", { name: LIBRARY_EXPLORABLE_COPY.make })).toBeNull();
 });

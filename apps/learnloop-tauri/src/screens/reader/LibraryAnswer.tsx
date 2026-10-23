@@ -45,6 +45,9 @@ const linkStyle = {
 export const LIBRARY_EXPLORABLE_COPY = {
   make: "make this explorable",
   building: "building it under the passage",
+  // Codex review F6: the book opened on another reading (or another book
+  // opened first), so nothing was built.
+  lapsed: "not built: the book opened on another reading of this passage; select it there instead",
 } as const;
 
 const headStyle = { fontFamily: FONT_MONO, fontSize: 10, letterSpacing: "0.12em", color: COLOR.textDim, textTransform: "uppercase" as const };
@@ -75,9 +78,16 @@ function HitBlock({
   onPeek: () => void;
   onPin: () => void;
   onOpen: (() => void) | null;
-  onExplorable?: (() => void) | null;
+  onExplorable?: (() => Promise<boolean> | void) | null;
 }) {
-  const [built, setBuilt] = useState(false);
+  // "building" once pressed; back to the button, said, if the press lapsed.
+  const [offer, setOffer] = useState<"idle" | "building" | "lapsed">("idle");
+  const pressOffer = () => {
+    if (!onExplorable) return;
+    setOffer("building");
+    const settled = onExplorable();
+    if (settled) void settled.then((built) => setOffer(built ? "building" : "lapsed"), () => setOffer("lapsed"));
+  };
   const modelRole = note?.roles?.length && hit.role !== note.roles[0] ? note.roles[0].replace(/_/g, " ") : null;
   return (
     <div
@@ -106,12 +116,15 @@ function HitBlock({
         <button type="button" onClick={onPin} style={linkStyle} aria-pressed={pinned}>{pinned ? "pinned ✓" : "pin"}</button>
         {onOpen ? <button type="button" onClick={onOpen} style={linkStyle}>open</button> : null}
         {note?.explorable === true && onExplorable ? (
-          built ? (
+          offer === "building" ? (
             <MeaningLabel style={{ fontSize: 10 }}>{LIBRARY_EXPLORABLE_COPY.building}</MeaningLabel>
           ) : (
-            <button type="button" data-library-explorable={hit.key} onClick={() => { setBuilt(true); onExplorable(); }} style={linkStyle}>
-              {LIBRARY_EXPLORABLE_COPY.make}
-            </button>
+            <>
+              {offer === "lapsed" ? <MeaningLabel style={{ fontSize: 10 }}>{LIBRARY_EXPLORABLE_COPY.lapsed}</MeaningLabel> : null}
+              <button type="button" data-library-explorable={hit.key} onClick={pressOffer} style={linkStyle}>
+                {LIBRARY_EXPLORABLE_COPY.make}
+              </button>
+            </>
           )
         ) : null}
       </div>
@@ -221,7 +234,7 @@ export function LibraryAnswer({
   /** Open a hit in the left pane (a crumb: Alt+← comes back). */
   onOpenHit: ((hit: LibraryHitDto) => void) | null;
   /** RW5b: build an offered figure of a hit (`offerRef`: this library question). Absent: no offer shown. */
-  onMakeExplorable?: ((hit: LibraryHitDto, offerRef: string) => void) | null;
+  onMakeExplorable?: ((hit: LibraryHitDto, offerRef: string) => Promise<boolean> | void) | null;
   /** A learner pick of a practice proposal (the plan serves it). */
   onPracticePick: ((item: ProposedItemDto, proposalId: string | null) => void) | null;
   onClose: () => void;

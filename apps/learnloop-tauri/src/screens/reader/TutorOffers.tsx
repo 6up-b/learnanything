@@ -168,9 +168,14 @@ export interface TutorOffersProps {
   onPracticePick?: ((item: OfferItem, proposalId: string | null) => void) | null;
   /** RW1b's next-step question at a cited line; absent: no such button. */
   onTryNextStep?: ((spanId: string) => void) | null;
-  /** RW5b: build the figure of a cited block the tutor judged explorable
-   *  (`offerRef` is the answer's event); absent: no such button. */
+  /** RW5b: build the figure of a cited block the tutor judged explorable;
+   *  absent: no such button. */
   onMakeExplorable?: ((spanId: string, offerRef: string) => void) | null;
+  /** RW5b (Codex review F1): the judgment an explorable press names, the
+   *  answer's QUESTION event (where the tutor's view is stored), never
+   *  `exchangeId` (its reader_answer_submitted interaction event, which the
+   *  server cannot resolve to the judgment). Absent: no such button. */
+  offerRef?: string | null;
   /** Where the exchange's offer state lives (the screen's; else a module default). */
   store?: TutorOfferStore;
   /** RW4b: the textbook-exercise view (absent while library_exercises is off). */
@@ -204,7 +209,7 @@ function offersFor(props: TutorOffersProps): Offer[] {
         toolCallId: null, button });
     }
   }
-  if (props.onMakeExplorable) {
+  if (props.onMakeExplorable && props.offerRef) {
     for (const button of props.buttons ?? []) {
       if (button.kind !== "make_explorable" || button.extractionId !== props.extractionId) continue;
       offers.push({ key: `explorable:${button.spanId}`, kind: "make_explorable", label: OFFER_COPY.makeExplorable, reason: null,
@@ -412,11 +417,11 @@ export function TutorOffers(props: TutorOffersProps) {
       props.onTryNextStep?.(offer.button.spanId);
       return;
     }
-    if (offer.kind === "make_explorable" && offer.button) {
+    if (offer.kind === "make_explorable" && offer.button && props.offerRef) {
       // The press is the learner's: it builds under the passage (one press, one build).
       state.pressed = new Set(state.pressed).add(offer.key);
       notify(state);
-      props.onMakeExplorable?.(offer.button.spanId, props.exchangeId);
+      props.onMakeExplorable?.(offer.button.spanId, props.offerRef);
       return;
     }
     state.pressed = new Set(state.pressed).add(offer.key);

@@ -51,7 +51,7 @@ export function LibraryPane({
   /** RW4b's candidate view (absent while library_exercises is off). */
   exercises?: LibraryExercisesProps | null;
   /** RW5b: an offered figure's press (absent while figures.offers_enabled is off). */
-  onMakeExplorable?: ((hit: LibraryHitDto, offerRef: string) => void) | null;
+  onMakeExplorable?: ((hit: LibraryHitDto, offerRef: string) => Promise<boolean> | void) | null;
 }) {
   const [width, setWidth] = useState(() => clampSplitWidth(readWidth() ?? Math.floor(window.innerWidth / 2), window.innerWidth));
   const inputRef = useRef<HTMLInputElement | null>(null);
