@@ -1523,7 +1523,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # live-behind-kill-switches ruling). Every snapshot moves only because
     # the effective config gains the key; all of them were recomputed from
     # the composed defaults (defaults_fingerprint_for_version).
-    "mvp-0.9":"06bdc8118870daf5dbeda1d8f2085a5e2c88a80fcc3a0f099031ccaf2b531446",
+    "mvp-0.9": "5298ae9c06e8dcac17b3c68f1365a4888e20a4c633b2e7912848cd4e41ff287e",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1581,7 +1581,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
-    "mvp-0.10": "47994a1dcea67063af419ead36cff23c746cf3c736c1ef622dc0eed0369edc72",
+    "mvp-0.10": "ac080d403573377335562c4e0bfc29adbcb930f26493f8f0327ea8f0b0c768aa",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1647,7 +1647,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
-    "mvp-0.11": "65921b9d637d1780daee4bfe55e955ca0a825078272a683d6ebe50626ad11c87",
+    "mvp-0.11": "c5f9644f9bbcc365d3594f13a547bab3057434d3930572b46d1e6556683cb5f7",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1707,7 +1707,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
-    "mvp-0.12": "b66e299071f72d9b636b35b818df61057e97008c0c14be182204338775eeb0d0",
+    "mvp-0.12": "0081842a03a4571349bc894752c9a0ea45fc1e7d74891f5df96bcdc7cbe71360",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1762,7 +1762,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
-    "mvp-0.13": "110e2a15a490f490cb3bcb44037479be665d18fe21fd7979285769dbbaac0386",
+    "mvp-0.13": "13269c076e3cbee07303e9cb5e65412fb69859b34b80e69ec8d2e1e9cbee315e",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1816,7 +1816,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
-    "mvp-0.14": "b5a3c58ad983e513df29ae3cb828e78721d47151526709870b4695a91feabba9",
+    "mvp-0.14": "455b87e9882fe7440afdd0e354237e6ba03127d3a9b8b641e6cb6c2973b371e3",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1868,7 +1868,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
-    "mvp-0.15": "d039fa1fdaa03f4f24edcc1c41a820a29bf01e4818448f1a69c0aff286ee57a0",
+    "mvp-0.15": "e520ea0c4233f44c4b4fa30eb2137f193a00931c9aec88c0e6d97e5d7242388f",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1927,7 +1927,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
-    "mvp-0.16": "f2e70d538b4f72bce77a94dd318e142640e5fa52c38667c45fb10e206a260f81",
+    "mvp-0.16": "6d3c8358c14dbe46de07ce346c18d04a4b159a762f897023dc7936470a51b9e2",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1982,7 +1982,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
-    "mvp-0.17": "83d5afa1a9f01366685fe50c0ef29fa0e80c2491c7fd3f99c0f5b03c1a145f63",
+    "mvp-0.17": "87cc6cdc3e56f70c004f5bdf2ac17dcb857701161a3955df0d38766eab349830",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -2030,7 +2030,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
-    "mvp-0.18": "19ba9d1eb363d86a69a234283509a70f1bab945970e8ba8f69548c72b6ffa035",
+    "mvp-0.18": "9139d7e916bf338bb16db107a98e1b2a6474463fc7db3805e53a5d31b5fd79d4",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -2078,7 +2078,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
-    "mvp-0.19": "e0054a4cec0cec82b910b3776762f7ee02d951fc65bfc00a656f8e382e9d42ec",
+    "mvp-0.19": "476721abf01f22243fa24c9d3e709fce665ce48e94f0cb5dd343dcb3b3f71559",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -2122,7 +2122,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
-    "mvp-0.20": "b0de18315e43b0177889bf00fcc4ad849c8a523ec95ef015b07250cbd87d4d6e",
+    "mvp-0.20": "22752c601ff92bafd59297cb2029125beef2e3c9aefd704d221316e87c22463e",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -2175,7 +2175,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
-    "mvp-0.21": "8e0a540d3d6d53d469962062be1151846127e3cefae822cddea08fd75cd918cf",
+    "mvp-0.21": "65b9b9f22453d69de5976f9e7aabb66c7cb9d35311f51cc70ef86b6a748a9c68",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -2220,7 +2220,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
-    "mvp-0.22": "2727ad2f06c5ed2090533bbf142389e22365ec004f5123df45fa2f1382a51680",
+    "mvp-0.22": "e31adb56167876f7d0548e473dea1cf26ca5118b0b46e7b4d09387148ea8f751",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -2260,7 +2260,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
-    "mvp-0.23": "22dc9560832600a79b06308067fbe37ef06cbaad4224b2f251bcf3cf208b8966",
+    "mvp-0.23": "f909f0633ebcb269a9fe03bb2e5ea242b99b38f3f694bf5145f6cea66dc4fa15",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -2297,7 +2297,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
-    "mvp-0.24": "1d6b71acff69ff9cb595fcbd7cd3c59abcbd33e4ec3bacdc1a254eb6cdbd4d0d",
+    "mvp-0.24": "bbceb99adcc24cb773d1c370316822971c033ab5ce6a3043826ebe07cac071a1",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -2332,7 +2332,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
-    "mvp-0.25": "9e62817300c76e30448dda0fedd2d62cb3366c1330d084760ad9fd6a5245cc4f",
+    "mvp-0.25": "ec644c4339c7c89c666784211fa108ff8ada3e73d28ac24ef1f7252963f2b76a",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -2366,7 +2366,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
-    "mvp-0.26": "6cedbadefb98205287ec47a089847a6cc3fb8d846a6cf843261e23601c6e6221",
+    "mvp-0.26": "d84a12889ab74c004c1bcd3a1b0f80235fd25809c649c727658b5a80153af662",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -2400,7 +2400,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
-    "mvp-0.27": "f30fa09ee09f53af4b3d4611fe2fd338fa8e1f5ccf72d5a9184a793b9bbe1e52",
+    "mvp-0.27": "bc7b69af97b89ec732066b4558dd74b629f6d10df9d140cf1e7614b6778e4b24",
     # mvp-0.29 (daily-loop DL2, the learner's intent; docs/reviews/
     # daily-loop-dl2.md and its Codex re-review F2): the predecessor plus
     # serving by intent (an excluded item is never served, requested or
@@ -2423,7 +2423,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
-    "mvp-0.29": "4e7780ebf185898b47a7a213c75865fb6af921bc8fd24ed18a8676c6ad1875c2",
+    "mvp-0.29": "cefd9f0541c69d5fd90fa9bafd3c3635c6787964939e9e3136c50384fdd917b1",
 }
 
 
