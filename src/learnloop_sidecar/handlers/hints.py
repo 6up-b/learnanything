@@ -107,6 +107,12 @@ class HintJobs:
             while len(self._kept) > MAX_KEPT_JOBS:
                 self._kept.pop(next(iter(self._kept)))
 
+        # T1 landing review: the learner started this job, so it carries their grant,
+        # captured here in their request (a worker thread never inherits one).
+        from learnloop.ai import plan_fallback as _plan_fallback
+
+        grant = _plan_fallback.capture_grant(_vault.root)
+
         def cancelled() -> bool:
             with job.lock:
                 return job.cancelled
@@ -117,7 +123,7 @@ class HintJobs:
 
             # Plan-first transport T1: the job's thread has no RPC collector;
             # it keeps its own offers and the read that finds it done relays them.
-            with plan_fallback.collecting() as offers:
+            with plan_fallback.job_grant(grant), plan_fallback.collecting() as offers:
                 try:
                     worker_repo = Repository.attach(sqlite_path)
                     # Receipts are owned as the serial loop owns an RPC's; the

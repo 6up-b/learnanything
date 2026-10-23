@@ -69,6 +69,7 @@ from learnloop.ai.routing import (
     MANUAL_PROVIDER,
     AIProviderSelection,
     AITask,
+    fallback_provider_for,
     is_plan_profile,
     provider_for_task,
     ready_client_for_task,
@@ -179,11 +180,17 @@ def _granted_provider(vault: LoadedVault, task: AITask, selection: AIProviderSel
     profile's (a granted OpenRouter call is metered, held to every cap; never
     "subscription"). Mirrors routing's ``_plan_unavailable``: a routed plan
     route only (a pinned selection is never replaced), a configured offer, no
-    blocker (the feature's price is set), a grant (none inside a readiness
-    probe), and a plan that is not ready (a ready plan always serves first).
+    blocker (the feature's price is set), a grant (only in the learner's
+    request or a job carrying their grant: ``plan_fallback.is_granted``; none
+    inside a readiness probe), no ``manual`` fallback, and a plan that is not
+    ready (a ready plan always serves first).
     The plan's readiness reads local files only, so planning stays offline.
     """
     if not _routed_plan(vault, task, selection):
+        return None
+    if fallback_provider_for(vault.config, selection) == MANUAL_PROVIDER:
+        # ``ai.fallback_provider = "manual"``: routing answers manual before any
+        # grant (``ready_client_for_task``), so the paid path does too.
         return None
     offered = plan_fallback.offer_profile(vault.config)
     if offered is None or plan_fallback.offer_blocker(vault.config, task) is not None:

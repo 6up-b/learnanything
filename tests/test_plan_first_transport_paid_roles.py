@@ -56,6 +56,17 @@ def isolated(tmp_path, monkeypatch):
     plan_fallback.revoke_all()
 
 
+@pytest.fixture(autouse=True)
+def learner_request():
+    """Each test resolves routes as one learner request does (the sidecar's RPC
+    dispatch and the CLI command set ``plan_fallback.interactive()``): since the
+    T1 landing review a grant counts only there, or in a job carrying it
+    (tests/test_plan_first_transport_grant_scope.py pins both sides)."""
+
+    with plan_fallback.interactive():
+        yield
+
+
 def _priced_vault(tmp_path: Path) -> Path:
     """A vault with every feature price set, so no task's offer is blocked (review F2)."""
 

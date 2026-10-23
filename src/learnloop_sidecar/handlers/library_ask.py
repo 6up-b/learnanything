@@ -211,6 +211,12 @@ class LibraryJobs:
         _vault, repository = ctx.require_vault()
         sqlite_path = repository.sqlite_path
 
+        # T1 landing review: the learner started this job, so it carries their grant,
+        # captured here in their request (a worker thread never inherits one).
+        from learnloop.ai import plan_fallback as _plan_fallback
+
+        grant = _plan_fallback.capture_grant(_vault.root)
+
         def run() -> None:
             from learnloop.ai import plan_fallback
             from learnloop.ai.execution import record_model_calls
@@ -218,7 +224,7 @@ class LibraryJobs:
 
             # Plan-first transport T1: the job's thread has no RPC collector;
             # it keeps its own offers and the read that finds it done relays them.
-            with plan_fallback.collecting() as offers:
+            with plan_fallback.job_grant(grant), plan_fallback.collecting() as offers:
                 try:
                     worker_repo = Repository.attach(sqlite_path)
                     # Receipts are owned as the serial loop owns an RPC's (server._observed_model_calls).

@@ -42,6 +42,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping, Sequence
 
 from learnloop.clock import Clock, SystemClock, utc_now_iso
+from learnloop.ai import plan_fallback
 from learnloop.ai.execution import record_model_calls
 from learnloop.ai.transport import interrupt_callback
 from learnloop.db.checkpoint import checkpoint_wal
@@ -651,6 +652,10 @@ class IngestRunner:
                     raise IngestRunnerError(f"invalid dependency index {dep_index}.")
                 self.repo.add_ingest_job_dependency(job_ids[ordinal], job_ids[dep_index])
         self._refresh_batch(batch_id)
+        # T1 landing review: a batch the learner started (enqueued in their
+        # request, or by a job carrying their grant) carries the grant captured
+        # now; any other batch runs without one, on the plan.
+        plan_fallback.remember_batch_grant(batch_id, plan_fallback.capture_grant(self.vault_root))
         return batch_id
 
     # -- recovery / drive --------------------------------------------------
@@ -920,7 +925,8 @@ class IngestRunner:
                     ctx._held = held
                     with guard_ingest_writes(
                         self.repo.sqlite_path, job["id"], self.worker_id, job["attempt_count"]
-                    ), record_model_calls(self.repo, owner_kind="ingest_job", owner_id=job["id"]):
+                    ), record_model_calls(self.repo, owner_kind="ingest_job", owner_id=job["id"]), \
+                            plan_fallback.job_grant(plan_fallback.batch_grant(batch_id)):
                         result = handler(ctx)
             finally:
                 ctx._held = None

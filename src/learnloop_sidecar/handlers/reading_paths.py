@@ -99,6 +99,12 @@ def _start(ctx: SidecarContext, vault: Any, repository: Any, extraction_id: str,
     client = getattr(ctx, "reading_path_judge_client", None)
     sqlite_path = repository.sqlite_path
 
+    # T1 landing review: the learner started this job, so it carries their grant,
+    # captured here in their request (a worker thread never inherits one).
+    from learnloop.ai import plan_fallback as _plan_fallback
+
+    grant = _plan_fallback.capture_grant(vault.root)
+
     def run() -> None:
         from learnloop.ai import plan_fallback
         from learnloop.ai.execution import record_model_calls
@@ -107,7 +113,7 @@ def _start(ctx: SidecarContext, vault: Any, repository: Any, extraction_id: str,
         outcome: dict[str, Any] | None
         # Plan-first transport T1: the judgment's thread has no RPC collector;
         # it keeps its own offers and each read of the failed state relays them.
-        with plan_fallback.collecting() as offers:
+        with plan_fallback.job_grant(grant), plan_fallback.collecting() as offers:
             try:
                 worker = Repository.attach(sqlite_path)
                 with record_model_calls(worker, owner_kind="sidecar_rpc",

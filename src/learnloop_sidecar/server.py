@@ -76,7 +76,10 @@ def _handle(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
     try:
         raw_params = request.get("params")
         params = spec.params_model.model_validate({} if raw_params is None else raw_params)
-        with plan_fallback.collecting() as offers, _observed_model_calls(ctx, method_name, params):
+        # A foreground RPC is the learner's request: only here (and in a job
+        # carrying the learner's grant) does a grant count (T1 landing review).
+        with plan_fallback.interactive(), plan_fallback.collecting() as offers, \
+                _observed_model_calls(ctx, method_name, params):
             try:
                 result = spec.handler(ctx, params)
             except SidecarError as exc:

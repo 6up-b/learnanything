@@ -313,6 +313,12 @@ class CueDiscoveryJobs:
             current = provider()
             return current is None or not PC.discovery_enabled(current)
 
+        # T1 landing review: the learner started this job, so it carries their grant,
+        # captured here in their request (a worker thread never inherits one).
+        from learnloop.ai import plan_fallback as _plan_fallback
+
+        grant = _plan_fallback.capture_grant(vault.root)
+
         def run() -> None:
             from learnloop.ai import plan_fallback
             from learnloop.ai.execution import record_model_calls
@@ -320,7 +326,7 @@ class CueDiscoveryJobs:
 
             # Plan-first transport T1: the job's thread has no RPC collector;
             # it keeps its own offers and the read that finds it done relays them.
-            with plan_fallback.collecting() as offers:
+            with plan_fallback.job_grant(grant), plan_fallback.collecting() as offers:
                 try:
                     worker_repo = Repository.attach(sqlite_path)
                     # One job of this source at a time, on the open's one budget

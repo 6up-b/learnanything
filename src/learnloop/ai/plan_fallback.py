@@ -328,10 +328,118 @@ _OFFERED: dict[str, set[str]] = {}
 _GRANTS_LOCK = threading.Lock()
 #: Set by :func:`command_grant` for one CLI command's context only.
 _COMMAND_GRANT: ContextVar[bool] = ContextVar("learnloop_plan_fallback_command_grant", default=False)
+#: Set by :func:`interactive`: the thread serving one learner request (the
+#: sidecar's RPC dispatch, the CLI command). Holds that thread's ident, so a
+#: copied context run on another thread (a worker started with
+#: ``copy_context()``) is not interactive either.
+_INTERACTIVE: ContextVar[int | None] = ContextVar("learnloop_plan_fallback_interactive", default=None)
+#: Set by :func:`job_grant`: the grant a learner-started job carries, with the
+#: worker thread it was entered on.
+_JOB_GRANT: ContextVar[tuple["GrantToken", int] | None] = ContextVar("learnloop_plan_fallback_job_grant",
+                                                                     default=None)
+#: Per batch id: the token an ingest batch enqueued in a learner request carries (process memory only:
+#: after a restart a batch runs without one, on the plan).
+_BATCH_GRANTS: dict[str, "GrantToken"] = {}
 
 
 def _vault_key(vault_root: Any) -> str:
     return str(Path(vault_root).resolve())
+
+
+@dataclass(frozen=True)
+class GrantToken:
+    """A learner's grant captured when they started a job (:func:`capture_grant`).
+
+    It names the vault and the tasks granted at that moment (or, for a CLI
+    command's ``LEARNLOOP_AI_FALLBACK``, every task). At use, a session task
+    must still be granted, so "Stop using OpenRouter" ends it for the job's
+    next route.
+    """
+
+    vault_key: str
+    tasks: frozenset[str]
+    command: bool = False
+
+
+def _here() -> int:
+    return threading.get_ident()
+
+
+@contextmanager
+def interactive() -> Iterator[None]:
+    """Serve one learner request on this thread: a grant counts only here (or under :func:`job_grant`).
+
+    Set by the sidecar's RPC dispatch and the CLI's entry point (landing
+    review of T1: a grant never serves background work, by construction).
+    Every other thread, now and in the future, starts without it, and a
+    context copied to another thread does not carry it (it is bound to this
+    thread's ident).
+    """
+
+    token = _INTERACTIVE.set(_here())
+    try:
+        yield
+    finally:
+        _INTERACTIVE.reset(token)
+
+
+def is_interactive() -> bool:
+    return _INTERACTIVE.get() == _here() and not _QUIET.get()
+
+
+def _job_token() -> "GrantToken | None":
+    entry = _JOB_GRANT.get()
+    if entry is None or entry[1] != _here():
+        return None
+    return entry[0]
+
+
+def capture_grant(vault_root: Any) -> GrantToken | None:
+    """The grant a job started now may carry: only inside a learner request (or a job carrying one).
+
+    ``None`` outside a learner request, inside a readiness probe, or when
+    nothing is granted on this vault. The caller keeps it with the job and
+    runs the job under :func:`job_grant`; nothing is inherited implicitly.
+    """
+
+    if _QUIET.get() or vault_root is None:
+        return None
+    key = _vault_key(vault_root)
+    carried = _job_token()
+    if carried is not None:
+        return carried if carried.vault_key == key else None
+    if not is_interactive():
+        return None
+    if _COMMAND_GRANT.get():
+        return GrantToken(key, frozenset(), command=True)
+    with _GRANTS_LOCK:
+        tasks = frozenset(_GRANTS.get(key, set()))
+    return GrantToken(key, tasks) if tasks else None
+
+
+@contextmanager
+def job_grant(token: GrantToken | None) -> Iterator[None]:
+    """Run a learner-started job's work (on its worker thread) under the grant it carries."""
+
+    if token is None:
+        yield
+        return
+    entry = _JOB_GRANT.set((token, _here()))
+    try:
+        yield
+    finally:
+        _JOB_GRANT.reset(entry)
+
+
+def remember_batch_grant(batch_id: str, token: GrantToken | None) -> None:
+    if token is not None:
+        with _GRANTS_LOCK:
+            _BATCH_GRANTS[batch_id] = token
+
+
+def batch_grant(batch_id: str | None) -> GrantToken | None:
+    with _GRANTS_LOCK:
+        return _BATCH_GRANTS.get(batch_id or "")
 
 
 @contextmanager
@@ -348,7 +456,11 @@ def command_grant(*, host: bool = False) -> Iterator[bool]:
     chosen = not host and (os.environ.get(FALLBACK_ENV) or "").strip().lower() == FALLBACK_KIND
     token = _COMMAND_GRANT.set(chosen)
     try:
-        yield chosen
+        if host:
+            yield chosen
+        else:
+            with interactive():  # the command is the learner's request
+                yield chosen
     finally:
         _COMMAND_GRANT.reset(token)
 
@@ -390,6 +502,7 @@ def revoke(vault_root: Any | None = None) -> None:
         if vault_root is None:
             _GRANTS.clear()
             _OFFERED.clear()
+            _BATCH_GRANTS.clear()
         else:
             _GRANTS.pop(_vault_key(vault_root), None)
 
@@ -404,12 +517,30 @@ def granted_tasks(vault_root: Any) -> list[str]:
 
 
 def is_granted(task: str, vault_root: Any) -> bool:
+    """Whether OpenRouter may serve ``task`` here: a learner request or a job carrying the learner's grant.
+
+    Never inside a readiness probe (:func:`quiet`), never on a thread that is
+    neither (a background thread, a worker given a copied context): a grant
+    serves only what the learner asked for (landing review of T1).
+    """
+
     if _QUIET.get():
+        return False
+    key = _vault_key(vault_root)
+    token = _job_token()
+    if token is not None:
+        if token.vault_key != key:
+            return False
+        if token.command:
+            return True
+        with _GRANTS_LOCK:
+            return task in token.tasks and task in _GRANTS.get(key, set())
+    if not is_interactive():
         return False
     if _COMMAND_GRANT.get():
         return True
     with _GRANTS_LOCK:
-        return task in _GRANTS.get(_vault_key(vault_root), set())
+        return task in _GRANTS.get(key, set())
 
 
 __all__ = [
@@ -418,7 +549,14 @@ __all__ = [
     "METERED_PRICE_SETTINGS",
     "OfferCollector",
     "collecting",
+    "GrantToken",
+    "batch_grant",
+    "capture_grant",
     "command_grant",
+    "interactive",
+    "is_interactive",
+    "job_grant",
+    "remember_batch_grant",
     "current_hint",
     "grant",
     "granted_tasks",
