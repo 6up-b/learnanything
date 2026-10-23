@@ -460,8 +460,8 @@
     "sha256": "e68540eac9a1bff1e814b399824c89509fb403494542c0a92c06edc8cd807adf"
   },
   "experiments e0": {
-    "bytes": 1758,
-    "sha256": "5109a18d19f67ff4014a339b83b55613005a8ff11be8597ec7ee64e79ba6466c"
+    "bytes": 1843,
+    "sha256": "91724bdc22b090b812de0efc33f3c25a9fd06ef4c0f977bd310ebde1e543f723"
   },
   "experiments e0 prepare": {
     "bytes": 1550,
@@ -472,8 +472,8 @@
     "sha256": "3ddf338cbcd8148a2541d0e7174065e1e3153958eb92cd07bcc90b5a2d43b34c"
   },
   "experiments e0 run": {
-    "bytes": 5126,
-    "sha256": "a007d5c3fea6cb7eedba43bb28810358a5bc1b44332ae2f5de5ee0f6bed9a1fe"
+    "bytes": 6057,
+    "sha256": "c0e6ddca3781e9aa2630424c28fddc56b744c48240a0aa2594f0b35e5a1b45d8"
   },
   "facet-candidates": {
     "bytes": 1369,

@@ -219,16 +219,20 @@ def migration_head(handle: CopyHandle) -> int | None:
     return None if value is None or value[0] is None else int(value[0])
 
 
-def dry_run(copies: Sequence[Path], *, key_envs: Mapping[str, str] | None = None, env_file: Path | None = None,
+def dry_run(copies: Sequence[Path], *, key_envs: Mapping[str, str] | None = None,
+            env_file: Path | Sequence[Path] | None = None,
             reserve_share: float = 0.0, environ: Mapping[str, str] | None = None) -> dict[str, Any]:
-    """The frozen plan and its estimate, with no network and no writes."""
+    """The frozen plan and its estimate, with no network and no writes.
+    ``env_file``: one dotenv file or several (``--env-file`` repeated), loaded
+    by name only, a variable with two different values refused."""
 
     key_envs = dict(pins.DEFAULT_KEY_ENVS | dict(key_envs or {}))
+    env_files = [env_file] if isinstance(env_file, (str, Path)) else list(env_file or [])
     roots = [Path(copy) for copy in copies]
     before = {str(root): tree_digest(root) for root in roots}
     with network_guard() as guard:
-        if env_file is not None:
-            keys = credentials.load_env_file(env_file, key_envs.values())
+        if env_files:
+            keys = credentials.load_env_files(env_files, key_envs.values())
         else:
             keys = credentials.availability(key_envs.values(), environ=environ)
         snapshots: list[CorpusSnapshot] = []
@@ -480,5 +484,75 @@ def require_paid_authorization(*, authorized: bool, dry_run_ok: bool,
                               "{source_url, checked_on} from the provider's published price page first")
 
 
+
+
+def preflight(copies: Sequence[Path], *, key_envs: Mapping[str, str] | None = None,
+              env_file: Path | Sequence[Path] | None = None, reserve_share: float = 0.0) -> dict[str, Any]:
+    """``--preflight-only``: everything the paid run checks before it spends,
+    with ZERO network calls and no value printed (owner, 2026-10-22).
+
+    It loads the env files (by name only), builds the frozen plan exactly as
+    the dry run does (the socket guard counts every attempted connection),
+    and reports: each required key variable as ``present`` or ``absent``;
+    every metered pin's price verified; zero planned Codex requests against
+    the paid ledger's Codex allowance of zero; no role on Codex; the Codex
+    tool lockdown present; the cap and allocations and whether the plan fits
+    them; the plan id and its canonical ledger; and each copy's tree
+    checksum (before and after, equal). ``ready`` is true only when every
+    check passes and every key is present."""
+
+    from learnloop.experiments.contextual_embeddings.boundary import require_codex_lockdown, require_no_codex_roles
+    from learnloop.experiments.contextual_embeddings.budget import canonical_ledger_dir
+
+    key_envs = dict(pins.DEFAULT_KEY_ENVS | dict(key_envs or {}))
+    roots = [Path(copy) for copy in copies]
+    before = {root.name: tree_digest(root) for root in roots}
+    plan = dry_run(roots, key_envs=key_envs, env_file=env_file, reserve_share=reserve_share)
+    with network_guard() as guard:
+        checks: dict[str, Any] = {}
+        try:
+            checks["codex_lockdown"] = require_codex_lockdown()["codex_lockdown"]
+        except PermissionError as exc:
+            checks["codex_lockdown"] = f"missing: {type(exc).__name__}"
+        try:
+            require_no_codex_roles()
+            checks["no_codex_roles"] = True
+        except PermissionError:
+            checks["no_codex_roles"] = False
+        attempts = guard.attempts
+    after = {root.name: tree_digest(root) for root in roots}
+    unverified = plan["prices"]["unverified"]
+    codex = plan["subscription_requests"]
+    totals = plan["totals"]
+    keys = {name: plan["keys"].get(name, "absent") for name in key_envs.values()}
+    passed = {
+        "prices_verified": not any(unverified.values()),
+        "codex_requests_planned_zero": codex["planned"] == 0,
+        "codex_allowance_zero": pins.PAID_RUN_SUBSCRIPTION_ALLOWANCE == 0 and codex["allowance"] == 0,
+        "no_codex_roles": checks["no_codex_roles"],
+        "codex_lockdown_present": checks["codex_lockdown"] == "active",
+        "fits_cap": bool(totals["fits_cap"]),
+        "fits_allocations": bool(totals["fits_allocations"]),
+        "zero_network_calls": int(plan["checks"]["network_calls"]) == 0 and attempts == 0,
+        "copies_unchanged": before == after,
+    }
+    return {
+        "status": "preflight", "ready": all(passed.values()) and all(state == "present" for state in keys.values()),
+        "checks": passed, "keys": keys,
+        "unverified_prices": unverified,
+        "codex": {"planned": codex["planned"], "allowance": codex["allowance"]},
+        "cap_usd": totals["cap_usd"],
+        "allocations": {name: {"allocation_usd": category["allocation_usd"],
+                               "expected_usd": category["estimated_usd"], "worst_case_usd": category["worst_case_usd"]}
+                        for name, category in totals["categories"].items()},
+        "estimated_usd": totals["estimated_usd"], "worst_case_usd": totals["worst_case_usd"],
+        "run_id": plan["run_id"],
+        "ledger": str(canonical_ledger_dir(roots) / f"{plan['run_id']}.ledger"),
+        "copies_sha256": {"before": before, "after": after},
+        "network_calls": int(plan["checks"]["network_calls"]) + attempts,
+    }
+
+
 __all__: Sequence[str] = ("NetworkForbidden", "config_allowlist", "dry_run", "freeze", "network_guard",
-                          "render_markdown", "require_paid_authorization", "split_strata", "tree_digest")
+                          "preflight", "render_markdown", "require_paid_authorization", "split_strata",
+                          "tree_digest")

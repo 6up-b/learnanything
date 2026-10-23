@@ -57,8 +57,12 @@ def e0_prepare(
 def e0_run(
     copy: Annotated[list[Path], typer.Option("--copy", help="A prepared vault copy (repeatable).")],
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan only: no network, nothing written to the copies.")] = False,
-    env_file: Annotated[Path | None, typer.Option(
-        "--env-file", help="Load only the named key variables from this dotenv file (never printed).")] = None,
+    env_file: Annotated[list[Path] | None, typer.Option(
+        "--env-file", help="Load only the named key variables from this dotenv file (repeatable; never printed; a "
+                           "variable with different values in two files is refused).")] = None,
+    preflight_only: Annotated[bool, typer.Option(
+        "--preflight-only", help="Load the env files and report the paid run's checks (keys present/absent only); "
+                                 "no network, nothing spent.")] = False,
     perplexity_key_env: Annotated[str, typer.Option("--perplexity-key-env")] = "PERPLEXITY_API_KEY",
     voyage_key_env: Annotated[str, typer.Option("--voyage-key-env")] = "VOYAGE_API_KEY",
     openrouter_key_env: Annotated[str, typer.Option("--openrouter-key-env")] = "OPENROUTER_API_KEY",
@@ -79,7 +83,7 @@ def e0_run(
         "--new-authorization",
         help="The orchestrator's reason for a new plan's budget while another plan's ledger exists.")] = None,
 ) -> None:
-    """Plan (--dry-run) or run E0 on prepared copies within the $25 cap."""
+    """Plan (--dry-run), check (--preflight-only) or run E0 on prepared copies within the $40 cap."""
 
     from learnloop.experiments.contextual_embeddings.runner import dry_run as plan_dry_run, render_markdown
 
@@ -88,9 +92,17 @@ def e0_run(
     try:
         from learnloop.experiments.contextual_embeddings.runner import require_paid_authorization
 
+        if preflight_only:
+            from learnloop.experiments.contextual_embeddings.runner import preflight
+
+            report = preflight(copy, key_envs=key_envs, env_file=env_file or [], reserve_share=reserve_share)
+            typer.echo(json.dumps(report, sort_keys=True, indent=None if json_output else 2, default=str))
+            if not report["ready"]:
+                raise typer.Exit(code=1)
+            return
         if not dry_run and not authorized:
             require_paid_authorization(authorized=False, dry_run_ok=False)
-        plan = plan_dry_run(copy, key_envs=key_envs, env_file=env_file, reserve_share=reserve_share)
+        plan = plan_dry_run(copy, key_envs=key_envs, env_file=env_file or [], reserve_share=reserve_share)
         if out is not None:
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text(json.dumps(plan, sort_keys=True, indent=1, default=str) + "\n", encoding="utf-8")

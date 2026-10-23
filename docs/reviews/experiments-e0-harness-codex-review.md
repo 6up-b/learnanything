@@ -533,3 +533,73 @@ uv run learnloop experiments e0 run \
   - the ledger-mechanics tests in `tests/test_e0_budget.py` are now checked against a fixed $25 envelope with a $2 embeddings category, independent of the pins;
   - the cap assertions now expect $40;
   - the round-5 OpenRouter assertions now expect a verified price.
+
+## Two env files and a preflight-only mode (owner, 2026-10-22)
+
+The keys live in two files that no agent reads:
+
+- the owner's `/home/saturn/.config/learnloop/settings.env` (the Anthropic API key);
+- the repo-root `/home/saturn/Documents/thinking/learnanything/settings.env` (OpenRouter).
+
+The Perplexity and Voyage keys may be in either file. The code loads them only through `--env-file`.
+
+- **`--env-file` is repeatable.**
+  - `credentials.load_env_files` loads only the named variables (`ANTHROPIC_API_KEY` or the `--anthropic-key-env` name, and the OpenRouter, Perplexity and Voyage names), in order, and never overrides a value the shell already set.
+  - A later file never silently overrides an earlier one. A variable set to different values in two files, or twice in one file, is refused, and nothing is loaded. The error names the variable only, never a value, prefix, length or hash. The same value in both files is accepted.
+- **`--preflight-only`** loads the env files, then builds the frozen plan exactly as the dry run does, with the socket guard counting every attempted connection. It reports:
+  - each required key variable, as `present` or `absent` only;
+  - whether every metered pin's price is verified;
+  - planned Codex requests (0) against the paid ledger's Codex allowance (0), and that no role is on Codex;
+  - whether the Codex tool lockdown is present;
+  - the $40 cap and each allocation with its expected and worst-case spend, and whether the plan fits them;
+  - the plan id and its canonical ledger path (nothing is created);
+  - each copy's sha256 tree checksum before and after (equal);
+  - the network call count (0).
+- **Output and exit code.** It prints no value. It exits 0 only when every check passes and every key is present (`ready`); otherwise it exits 1 with the same report.
+- **Tests** cover two files loading by name, the conflict refusal naming the variable only (two files, and twice in one file), and the CLI preflight with fake values: no value appears in the output, every key is `present`, every check passes, 0 network calls, no ledger created. They also cover an absent key reported by name, with exit 1.
+
+### Step 1: the preflight (zero network, prints no value)
+
+Run it from the worktree, or the merged tree, with the app's normal environment:
+
+```bash
+cd /home/saturn/Documents/thinking/learnanything-e0
+uv run learnloop experiments e0 run \
+  --copy fixtures-local/contextual-embeddings/vaults/linear_algebra-20261021 \
+  --copy fixtures-local/contextual-embeddings/vaults/probability-20261021 \
+  --env-file /home/saturn/.config/learnloop/settings.env \
+  --env-file /home/saturn/Documents/thinking/learnanything/settings.env \
+  --anthropic-key-env ANTHROPIC_API_KEY \
+  --openrouter-key-env OPENROUTER_API_KEY \
+  --perplexity-key-env PERPLEXITY_API_KEY \
+  --voyage-key-env VOYAGE_API_KEY \
+  --preflight-only
+```
+
+Expected: `"ready": true`, every key `present`, every check `true`, `network_calls: 0`, and the before and after checksums equal. The plan id should be `e0_dec5776aa73cdd5a`, the committed dry run's (the copies and pins are unchanged).
+
+### Step 2: the paid run (the orchestrator executes it; never run by an agent)
+
+```bash
+cd /home/saturn/Documents/thinking/learnanything-e0
+uv run learnloop experiments e0 run \
+  --copy fixtures-local/contextual-embeddings/vaults/linear_algebra-20261021 \
+  --copy fixtures-local/contextual-embeddings/vaults/probability-20261021 \
+  --env-file /home/saturn/.config/learnloop/settings.env \
+  --env-file /home/saturn/Documents/thinking/learnanything/settings.env \
+  --anthropic-key-env ANTHROPIC_API_KEY \
+  --openrouter-key-env OPENROUTER_API_KEY \
+  --perplexity-key-env PERPLEXITY_API_KEY \
+  --voyage-key-env VOYAGE_API_KEY \
+  --run-dir fixtures-local/contextual-embeddings/runs \
+  --reader-latency-budget-s <SECONDS> \
+  --new-authorization 'owner raised cap to $40 on 2026-10-22' \
+  --i-am-authorized-to-spend \
+  --json
+```
+
+- **Quoting:** keep the single quotes; double quotes would expand `$4`.
+- **Caps:** fixed in `pins.py` and enforced by the ledger, with no flag: $40.00 total; embeddings 0.50, drafting/context 1.50, labels/audits 24.00, answers/verification 14.00; Codex allowance 0; 6,000 metered requests; 6 h wall time.
+- **Ledger:** `fixtures-local/contextual-embeddings/ledger/e0_dec5776aa73cdd5a.ledger`.
+- **Reader latency budget:** optional; without it, S2 and S4 fail closed.
+- This command supersedes the single-`--env-file` command in the section above.

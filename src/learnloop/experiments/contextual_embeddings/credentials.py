@@ -10,7 +10,7 @@ prefix, a length or a hash of one.
 """
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, MutableMapping
+from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 import os
 from pathlib import Path
 import re
@@ -41,11 +41,12 @@ def load_env_file(path: Path | str, names: Iterable[str], *,
     text is never echoed); unnamed variables are never loaded.
     """
 
-    environ = os.environ if environ is None else environ
-    wanted = [str(name) for name in names]
-    for name in wanted:
-        if not _NAME.match(name):
-            raise EnvFileError("environment variable names must be identifiers")
+    return load_env_files([path], names, environ=environ)
+
+
+def _parse(path: Path | str, wanted: Sequence[str]) -> dict[str, str]:
+    """The named, non-empty assignments of one dotenv file (no other line is read back)."""
+
     file_path = Path(path)
     try:
         text = file_path.read_text(encoding="utf-8")
@@ -61,11 +62,40 @@ def load_env_file(path: Path | str, names: Iterable[str], *,
             continue
         value = _value(match.group(2))
         if value:
-            found[match.group(1)] = value
-    for name, value in found.items():
+            name = match.group(1)
+            if name in found and found[name] != value:
+                raise EnvFileError(f"{name} is set twice with different values in one env file; refusing")
+            found[name] = value
+    return found
+
+
+def load_env_files(paths: Sequence[Path | str], names: Iterable[str], *,
+                   environ: MutableMapping[str, str] | None = None) -> dict[str, str]:
+    """Load the named variables from every file of ``paths`` (``--env-file``
+    given more than once) into ``environ`` (default ``os.environ``), never
+    overriding a value the shell already set. A later file never silently
+    overrides an earlier one: a variable set with DIFFERENT values in two
+    files is refused, naming the variable only (never a value, a prefix, a
+    length or a hash); the same value twice is accepted. Returns each name's
+    availability (``present`` / ``absent``) after loading, nothing else."""
+
+    environ = os.environ if environ is None else environ
+    wanted = [str(name) for name in names]
+    for name in wanted:
+        if not _NAME.match(name):
+            raise EnvFileError("environment variable names must be identifiers")
+    merged: dict[str, str] = {}
+    for index, path in enumerate(paths, start=1):
+        for name, value in _parse(path, wanted).items():
+            if name in merged and merged[name] != value:
+                merged.clear()
+                raise EnvFileError(f"{name} is set to different values in two env files (file {index} and an "
+                                   "earlier one); refusing, nothing was loaded")
+            merged[name] = value
+    for name, value in merged.items():
         if not environ.get(name):
             environ[name] = value
-    del found
+    merged.clear()
     return availability(wanted, environ=environ)
 
 

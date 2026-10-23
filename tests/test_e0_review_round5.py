@@ -360,3 +360,83 @@ def test_the_paid_preflight_passes_with_every_pin_verified_zero_codex_and_the_lo
     require_no_codex_roles()
     assert require_codex_lockdown()["codex_lockdown"] == "active"
     assert set(plan["keys"].values()) == {"absent"}
+
+
+# -- several env files and the preflight-only mode (owner, 2026-10-22) --------------------
+
+FAKE = {"ANTHROPIC_API_KEY": "sk-ant-fake-value-one-1111111111", "OPENROUTER_API_KEY": "sk-or-fake-value-2222222222",
+        "PERPLEXITY_API_KEY": "pplx-fake-value-3333333333", "VOYAGE_API_KEY": "pa-fake-value-4444444444"}
+
+
+@pytest.fixture
+def clean_environ(monkeypatch):
+    """A process environment without the four key names (restored after)."""
+
+    import os
+
+    environ = {key: value for key, value in os.environ.items() if key not in FAKE}
+    monkeypatch.setattr(os, "environ", environ)
+    return environ
+
+
+def _env(path, values):
+    path.write_text("".join(f"{name}={value}\n" for name, value in values.items()), encoding="utf-8")
+    return path
+
+
+def test_several_env_files_load_by_name_and_a_conflict_is_refused_naming_the_variable_only(tmp_path,
+                                                                                           clean_environ):
+    from learnloop.experiments.contextual_embeddings.credentials import EnvFileError, load_env_files
+
+    first = _env(tmp_path / "home.env", {"ANTHROPIC_API_KEY": FAKE["ANTHROPIC_API_KEY"]})
+    second = _env(tmp_path / "repo.env", {"OPENROUTER_API_KEY": FAKE["OPENROUTER_API_KEY"],
+                                          "ANTHROPIC_API_KEY": FAKE["ANTHROPIC_API_KEY"]})  # the same value twice
+    availability = load_env_files([first, second], FAKE)
+    assert availability == {"ANTHROPIC_API_KEY": "present", "OPENROUTER_API_KEY": "present",
+                            "PERPLEXITY_API_KEY": "absent", "VOYAGE_API_KEY": "absent"}
+    clean_environ.clear()
+    conflicting = _env(tmp_path / "other.env", {"ANTHROPIC_API_KEY": "sk-ant-a-different-value-5555"})
+    with pytest.raises(EnvFileError) as raised:
+        load_env_files([first, conflicting], FAKE)
+    message = str(raised.value)
+    assert "ANTHROPIC_API_KEY" in message and FAKE["ANTHROPIC_API_KEY"] not in message
+    assert "different-value" not in message and "ANTHROPIC_API_KEY" not in clean_environ  # nothing loaded
+    twice = tmp_path / "twice.env"
+    twice.write_text("VOYAGE_API_KEY=pa-one-value-0000\nVOYAGE_API_KEY=pa-two-value-9999\n", encoding="utf-8")
+    with pytest.raises(EnvFileError, match="VOYAGE_API_KEY") as raised:
+        load_env_files([twice], FAKE)
+    assert "one-value" not in str(raised.value) and "two-value" not in str(raised.value)
+
+
+def test_preflight_only_reports_names_and_checks_with_zero_network_and_no_value(tmp_path, clean_environ):
+    from typer.testing import CliRunner
+
+    from learnloop.cli import app
+
+    paths, _repository = build_e0_vault(tmp_path)
+    home = _env(tmp_path / "home.env", {"ANTHROPIC_API_KEY": FAKE["ANTHROPIC_API_KEY"]})
+    repo = _env(tmp_path / "repo.env", {name: FAKE[name] for name in
+                                        ("OPENROUTER_API_KEY", "PERPLEXITY_API_KEY", "VOYAGE_API_KEY")})
+    command = ["experiments", "e0", "run", "--copy", str(paths.root), "--preflight-only", "--json",
+               "--env-file", str(home), "--env-file", str(repo), "--anthropic-key-env", "ANTHROPIC_API_KEY"]
+    result = CliRunner().invoke(app, command)
+    assert result.exit_code == 0, result.output
+    for value in FAKE.values():
+        assert value not in result.output
+    report = json.loads(result.output.strip().splitlines()[-1])
+    assert report["ready"] is True and all(report["checks"].values()), report["checks"]
+    assert report["keys"] == {name: "present" for name in FAKE}
+    assert report["network_calls"] == 0
+    assert report["codex"] == {"planned": 0, "allowance": 0}
+    assert report["unverified_prices"] == {"embeddings": [], "roles": []}
+    assert report["cap_usd"] == 40.0 and set(report["allocations"]) == set(pins.ALLOCATION_USD)
+    assert report["copies_sha256"]["before"] == report["copies_sha256"]["after"]
+    assert report["ledger"].endswith(f"contextual-embeddings/ledger/{report['run_id']}.ledger")
+    assert not (tmp_path / "fixtures-local" / "contextual-embeddings" / "ledger").exists()  # nothing created
+    # A key absent from both files: reported absent by name, not ready (exit 1), still no value printed.
+    clean_environ.clear()
+    result = CliRunner().invoke(app, command[:-6] + ["--env-file", str(repo)])
+    assert result.exit_code == 1
+    report = json.loads(result.output.strip().splitlines()[-1])
+    assert report["keys"]["ANTHROPIC_API_KEY"] == "absent" and report["ready"] is False
+    assert all(value not in result.output for value in FAKE.values())
