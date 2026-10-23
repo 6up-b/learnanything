@@ -437,3 +437,215 @@ The orchestrator named the root cause: screens' global key listeners act on keys
 **StrictMode follow-up (the round-6 verify of `f89221c94`: CLEAN, one Low).** Under React.StrictMode, which the owner's dev app runs, React runs each effect's cleanup once right after mounting. App's mount-only cleanup therefore set the rendered-shell mirror to null right after the first commit, and `activeShell()` fell back to the config's "simple" while the classic loading frame was drawn. The App still sets the mirror while rendering, and now also sets it in an effect keyed on the shell (`useEffect(() => { setRenderedShell(shell); return () => setRenderedShell(null); }, [shell])`). `App.fixRound3.test.tsx` gains a loading-frame test rendered inside `<React.StrictMode>`: after the first commit, `activeShell()` is classic, `screenLeavesKey` leaves nothing and `keyScope` draws nothing. It failed before the fix ("expected 'simple' to be 'classic'"). Gate for this follow-up: typecheck clean; the touched vitest files (App.fixRound2–5, App.shell, classicIsBase, keymap, intentBoxInShell: 8 files) 75 passed; frontend:build built.
 
 **Rule notes.** No Python ran outside pytest except the reference validation, under `env -i`. No `git stash`, no model call, no network, no vault opened, no process killed.
+
+## 16. Landing onto main
+
+Landed in the `learnanything-merge2` worktree on branch `merge/ux2-onto-main`, cut from main at `a9ae97e34` (the RW2c
+landing; migration head 217 with `migration_head_217`, which holds 215, 216 and 217 and no 214). The stage tip is
+`a8dcb6540` (base `c80c54cbb`, RW7a), unchanged. The orchestrator's final verifies (Opus; Codex is out of quota) were
+round 5 (whole stage, regression-focused; its High fixed in round 6) and round 6 (CLEAN, its StrictMode Low fixed in
+`a8dcb6540`). Main was neither fast-forwarded nor pushed here.
+
+### Commits and conflicts
+
+- `ea590e192`: the `--no-ff` merge of `ux/phase2-shell` onto `a9ae97e34`. Since the stage's base, main gained RW5a
+  (figures), both security landings (the Codex lockdown) and RW2c (the workbench's help, "Compare with the book's
+  method"). Conflicts, composed so both sides survive:
+  - `apps/learnloop-tauri/src/app/algoConfig.ts`: the config type keeps main's `workbench.help` keys (`examples`,
+    `compareMethods`, `passageDraw`) and gains UX2's `ui.shell`.
+  - `screens/FeedbackScreen.tsx`: main's `CompareMethods` import and UX2's `screenLeavesKey` import, both kept.
+  - `params/parameter_registry.py`: RW5a's two `figures.*` rules and UX2's `ui.shell` rule, both kept.
+  - `config/template.py`: 20 snapshot entries, each with both sides' comment lines (RW5a's and RW2c's, then UX2's);
+    the fingerprints were recomputed in the next commit.
+  - 409 generated reference notes: main's side, then regenerated.
+  - Auto-merged without conflict: `config/schema.py`, `learnloop_sidecar/context.py`, `db_generate_reference.py`.
+- **The target-rule guard on main's new screens.** Main added no `window` or `document` keydown listener after
+  `c80c54cbb`: RW5a's figures and RW2c's workbench example and compare offer use element `onKeyDown` handlers or
+  none, and the screens they render in (Reader, Workbench, Feedback) already carry UX2's guard. `keymap.test.ts`'s
+  scan ("requires screenLeavesKey in every window and document keydown listener", and the chord-key scan) passes on
+  the merged tree unchanged. No `keyScope` mark was needed: UX2's rule makes a screen own the controls drawn inside
+  it, and RW2c's compare offer and RW5a's figures are parts of their screens (see new finding 1).
+- **`classicIsBase.test.ts`: the base became main's pre-merge tip.** The test compared the tree with `c80c54cbb`. On
+  the merged tree that diff also holds main's own later work, so it failed twice: 15 files main changed
+  (`PdfReaderPane.tsx`, `pdfSelection/model.ts`, the figures, `CompareMethods.tsx`, the workbench files and others)
+  showed up as unlisted, and `PdfReaderPane.tsx`'s RW5a lines failed the guard-file line check. `BASE` is now
+  `a9ae97e34`, the merge's first parent (main as it was before UX2), with a comment saying why. Nothing it checks was
+  weakened or changed: the manifest (`STAGE_CHANGES`, `TARGET_RULE_FILES`) is the same, the file list must still
+  equal UX2's diff exactly, the guard files may still differ only by the guard lines, key-scope spreads and their
+  imports, the classic branches' verbatim snippets and base's palette must still be in that base. UX2's diff against
+  `a9ae97e34` is the stage's own diff plus the two import resolutions above. All 6 tests pass.
+- `09cf14a8c`: the regeneration (below). **This is the gate head.**
+- This record (docs only).
+
+### Regeneration (`09cf14a8c`)
+
+- **Defaults snapshots.** Template `.pyc` cleared; recomputed and checked with `-B` under `env -i` (empty `HOME`,
+  `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`): all **20** entries were rewritten (main's RW5a and RW2c defaults with UX2's
+  `ui.shell`), then **0 mismatches**. The `mvp-0.9` line takes the spaced format of its neighbours.
+- **References.** `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**, schema head **217**,
+  **339** table notes, **957** configuration leaves in **69** sections (`ui.shell`; `Config - ui` has 2 leaves). The
+  two prose counts (`Configuration.md`, `Database.md`) were updated from 956. The rest is `source_commit` provenance
+  and shifted `schema.py` line anchors.
+- **CLI help snapshot, RPC pins, serializer snapshot, mobile allowlist**: unchanged (their tests pass, targeted and in
+  the full suite).
+- **`validate_vault.py`**: passes (1,142 notes, 1,140/1,140 reachable).
+- **Known failures from before this stage, not fixed:** `desktop_validate.py` still stops on
+  `components/pdfSelection/testing/syntheticBook.ts`; `module_validate.py` reports **999** issues (as at the RW2c
+  landing).
+
+### Gate
+
+Setup: `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2` (5.14.0); `TMPDIR` was merge2's
+`fixtures-local/tmp`; every later command `uv run --no-sync`. Logs in `fixtures-local/ux2-landing/`. Two first full
+runs were cut by session restarts and a third (`-n auto`, unscoped) was stopped by this agent when the owner's memory
+rule arrived (`fullsuite-cut*.log`). The runs below are the ones that count. They follow the memory rule of
+2026-10-23: each test, npm and cargo command ran alone in a `systemd-run --user --scope` with `MemoryMax`, the suite
+lanes at 10G / 2G swap under `flock /tmp/learnloop-fullsuite.lock`, everything else at 5G / 1G. Other stages'
+worktrees and processes were not touched; load average reached 230 during the suite. Every test uses fakes. **This is
+the first full run over UX2's code.**
+
+| Check | Result |
+|---|---|
+| `lint-imports --no-cache` | **30 kept**, 0 broken |
+| full suite `pytest -n 8` (10G scope) | **15,700 passed, 2 failed, 2 skipped, 2 xfailed** (2 h 18 min under load). The failures, `test_reading_hardening_2_fixes.py::test_f1_a_build_whose_worker_failed_to_start_is_run_by_the_sweep` and `test_reading_request_sweep.py::test_b_a_start_deferred_behind_a_queued_build_runs_that_build_and_then_acts`, are 60 s `_wait_for` timeouts in the reading-build sweep, which UX2 does not touch (the same two flakes as at the RW2c landing). Both files alone, 3 times (5G scope): **19 passed** each time |
+| `pytest -m durability -n 8` (10G scope) | **119 passed** |
+| `npm install`, `npm run typecheck` (5G) | ok; clean |
+| `npm test -- --maxWorkers=4` (the whole vitest run, 5G) | **197 files, 1,658 tests passed**, no unhandled error, no snapshot written (RW2c's landing: 1,489) |
+| `npm run frontend:build` (5G) | built (the usual chunk-size warning) |
+| `cargo check --manifest-path src-tauri/Cargo.toml` (5G) | ok |
+| tracked fixtures, worktree | `git status` clean after every lane; no `-wal` / `-shm` beside a fixture |
+
+**No real failure, so no landing fix.**
+
+### Parity (backup-API copies; no model call was made)
+
+**Setup.** Scripts in `fixtures-local/landing-ux2/scripts/`, adapted from the RW2c landing's (`ab_ux2.sh`,
+`plan_repeat.sh`); new: `c_ux2.sh`, `ux2_run.py`, `ccmp_ux2.py`, and the `E` wrapper. Each script ran in a 5G
+`systemd-run` scope.
+- **Copies.** `fixtures/linear_algebra` and `fixtures/probability` were copied once with `copy_tree_with_databases`
+  from the main checkout into `fixtures-local/landing-ux2/orig/`; every other copy came from `orig/` or its upgraded
+  copies through the same helper. `arxiv_v2` was not opened. Both start at schema 165, label `mvp-0.8`, 0 receipts.
+- **Code.** Main's is `git archive a9ae97e34`; the merge's `git archive 09cf14a8c`.
+- **Environment.** `env -i` with only `PATH`, `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`, `TMPDIR` and `LANG`; the
+  three directories empty, and empty afterwards.
+- **Routes.** `neutralize3.py` under each code: every route field to `127.0.0.1:9` (59 on both), the active provider
+  to that loopback profile with no fallback, rewrite / rerank / dense / embeddings / learner-text gaps off,
+  `build_on_serve` and outcome placement off. `routes.py` resolved 62 `AITask`s on both, nothing outside the loopback
+  profiles except the disabled, keyless `embedding`.
+
+**(a) No schema change**
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| open (migrate), main / merge | 165 → 217, 51 applied, on both | the same |
+| schema, main vs merge | **identical**: 1,451 objects each, none on one side only, no SQL differs | **identical** (1,450) |
+| rows of every table (344), all columns | **identical** (16,542 rows); `schema_migrations` 203 rows each, differing only in `applied_at` | **identical** (7,640 rows; the same) |
+| `foreign_key_check` / `integrity_check` | 0 / ok, both | the same |
+| `rebuild --shadow --json` | **0 differences** after normalisation (facet 0, mastery 2, schedule 8 on both); live database unchanged on both | **0 differences** (0 / 1 / 1) |
+| `doctor --json` | **0 differences** after normalisation (57 issues, 1 error) | **0 differences** (101 issues, 48 errors) |
+
+**(b) Nothing served changes** (frozen clock 2026-10-19 09:00 UTC; the merge at its defaults, `ui.shell = "simple"`)
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| at `mvp-0.8` | cert (132,860 bytes), Today (504,488), plan (546): **byte-identical** | cert (17,494), Today (709,910), plan (546): **byte-identical** |
+| upgraded by main's code to `mvp-0.27` (`--to mvp-0.9`, `--to mvp-0.27`, `rebuild-derived-state` twice; rc 0), opened by each code | cert (129,651) and Today (528,665) **byte-identical** | cert (17,495) and Today (741,269) **byte-identical** |
+| then to `mvp-0.29` (`--to mvp-0.29`, `rebuild-derived-state` twice; rc 0) | cert and Today **byte-identical** | the same |
+| the daily plan at mvp-0.27 and mvp-0.29 | identical except `router_decisions.card_hash`, `snapshot_hash` and the card hash inside `detail_json`; a second run of main's code on a fresh copy differs from the first in exactly these three fields, and from the merge's in exactly these three (`plan_repeat.sh`): run-to-run noise, as at the earlier landings | the same |
+
+**(c) The real sidecar** over stdio, `SystemClock` frozen at 2026-10-19 09:00 UTC (`sidecar_clock.py`), driver
+`ux2_run.py`, compared call by call by `ccmp_ux2.py` (ids, digests, timestamps and the vault path normalised). Runs on
+fresh copies of main's migrated mvp-0.8 copy and of main's mvp-0.29 copy, `cm` under main's code and `cmg` under the
+merge's: `initialize`; `load_vault` (the app snapshot); `get_config`; `get_today_queue`; `get_today_headline`; the
+Data screen's reads (`sqlite_tables` on `state.sqlite`: 344 tables; `sqlite_table` first pages of
+`schema_migrations`, `practice_attempts`, `model_call_receipts`); `start_session`; the practice serve
+(`get_practice_item` on the queue's first item: `pi_what_makes_function_axiom_strategy` and
+`pi_three_independent_birthd`, served on both); `get_session`; `shutdown`.
+
+| Label | linear_algebra | probability |
+|---|---|---|
+| mvp-0.8 | 13 calls each: **11 identical**; `load_vault` gains `config.ui.shell: "simple"`, `get_config` gains `ui.shell: "simple"`, nothing else | the same |
+| mvp-0.29 | the same | the same |
+
+So the only difference is the one new config key, **`ui.shell`** (in the app snapshot and `get_config`). The Data
+screen's read-only default is the desktop's (`editGate`); the sidecar's `sqlite_*` reads are unchanged. **F6's writer
+change** (a grading-named error type already waiting as a proposal joins that proposal instead of a new batch) is
+recorded as accepted by the round-2 ruling; it needs a grading model to run, so no copy exercised it (the full suite's
+`tests/test_ux_phase2_error_type_proposals.py` covers it).
+
+**(d) Frontend and receipts.**
+- With the shell at classic, the whole vitest run passes (197 files, 1,658 tests), including `classicIsBase.test.ts`
+  (6) against the merged main, `App.shell.test.tsx` (14) and `ShellNav.test.tsx` (8) with their classic snapshots
+  recorded on `c80c54cbb`, and the keymap scan (`keymap.test.ts`, 15).
+- **The simple shell's tests:** UX2's 24 new or changed vitest files hold **169 tests**, all passed (list in
+  `fixtures-local/ux2-landing/ux2-test-results.txt`); the Python side (`test_ux_phase2_shell.py`,
+  `test_ux_phase2_error_type_proposals.py`, `test_ux_phase4_feedback.py`) passed in the full suite.
+- `model_call_receipts`: 34 learner databases under `landing-ux2/` carry the table; **no row of any status** in any
+  of them, so none completed.
+
+### New findings
+
+1. **Enter on "Compare with the book's method" advances instead of comparing (Low, main's, both shells).** The
+   feedback screen's window listener takes Enter (and `n`) as "next" for any focused control except a field, and calls
+   `preventDefault`, so a keyboard Enter on RW2c's compare button moves on and the button never activates. This is
+   base's Feedback behaviour, unchanged by UX2: by UX2's rule the screen owns the controls drawn in it. A
+   `keyScope("compare")` on the offer (simple shell only, like the wrap-up line) would leave the key to the button; a
+   Reader/Feedback follow-up, not done at this landing. Mouse use is unaffected.
+2. **`classicIsBase.test.ts` will fail again at the next landing that touches `src/screens` or `src/components`.** Its
+   file list must equal UX2's diff against a fixed base, so each later stage's changes show up as unlisted. At each
+   such landing the base should move to that landing's first parent (as here), or the test should compare UX2's own
+   commits (for example `git diff <base> <ux2 tip>` for the manifest plus a classic-branch check on the tree).
+3. **Load flakes (Low, from before this stage).** The two reading-build sweep tests time out at heavy load; both pass
+   alone.
+
+### For the owner
+
+- **No migration.** The head stays 217; no table, route or successor; your algorithm version is unchanged. Nothing
+  served moves (parity (a), (b)); the sidecar answers byte for byte as main's, apart from `ui.shell` in the config
+  (parity (c)).
+- **What you see** (the default, `[ui] shell = "simple"`):
+  - The bar is four places: `Today · Library · Reader · Progress`, then `+ Add`, `^K` (the palette) and `⋯`
+    (Settings, Under the hood, Switch library, Keyboard & help). Alt+1…4 go to the places; the old Alt+5…0 open the
+    matching Under-the-hood tool. The last place and the open book are remembered per machine.
+  - Under the hood lists the old tabs' tools under plain titles (Imports & builds, Study-map changes, Data, Files,
+    and the rest). Data opens read-only, with *allow edits* to change rows.
+  - Errors are one red sentence with *Try again* when it can retry and *details ▸* with the code; small notices sit at
+    the bottom edge and clear themselves once resolved. While a book is open in the Reader no notice shows; they wait
+    for you to leave it.
+  - The palette lists plain commands first; the learnloop shell and CLI commands need a leading `>`.
+  - Screens no longer act on a key aimed at a button or field that is not theirs (Enter on the wrap-up line opens the
+    wrap-up and starts no session), and after a mouse click on the bar the focus goes back to the page.
+  - An error type a grading names that is already waiting as a proposal joins that proposal instead of adding another
+    (F6), so Study-map changes no longer grow on every practice.
+- **How to switch shells.** Set `[ui] shell = "classic"` in the library's `learnloop.toml` and restart the app: the
+  ten tabs, the vault and settings chips, the red toast and the palette's plain-word CLI pass-through come back
+  exactly as before (pinned against `c80c54cbb`, and since this landing against main). `"simple"` (or no key) is the
+  new shell.
+- **Notes from the stage's verifies:** Low 1, a keyboard activation keeps the focus on the chrome control, so the
+  screen leaves keys aimed at it until the focus moves (Tab, a click on the page); Low 2, chrome controls that stay
+  mounted (+ Add, ^K, the ⋯ button, a notice's buttons) keep the focus after a click, with the same effect; identical
+  errors with no source stack; Settings drops an error's *Try again*; screens read `simpleShell()` from the config
+  while key scopes read the drawn shell (they differ only while no snapshot is loaded).
+
+### Open questions (defaults taken; §9, with the Codex review's answers)
+
+1. Q1: Today without a session shows Start until Phase 3 (as built).
+2. Q2: the Library keeps *Notes & files* beside Under the hood → Files (kept).
+3. Q3: the database and lock files leave the simple shell's file trees, and Data opens read-only behind *allow
+   edits* (answered by the Codex review fix round, spec Q18's default).
+4. Q4: the writer no longer duplicates waiting error-type proposals (F6, accepted at the writer).
+5. Q5: place keys work while typing in the simple shell (on).
+6. Q6: errors raised while reading still show once you leave the book (yes).
+7. Q7: notice timing: 5 s once on screen, at most three (as built).
+8. Q8: keep the `"classic"` switch; retiring it is a later, owner-approved change.
+9. Q9: the health line covers grading only (Phase 6 adds tutoring).
+
+### Open items
+
+- Low 1 and Low 2 (focus kept on a chrome control after a keyboard activation, and on mounted chrome controls after a
+  click).
+- Identical sourceless errors stack; Settings drops an error's *Try again*.
+- Screens read `simpleShell()` from the config while key scopes read the drawn shell (they differ only while no
+  snapshot is loaded).
+- **From this landing:** finding 1 (Enter on the compare offer), finding 2 (`classicIsBase.test.ts`'s base must move
+  at each later landing that touches screens or components), finding 3 (load flakes in the reading-build sweep tests).
