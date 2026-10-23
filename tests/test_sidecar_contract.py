@@ -2780,8 +2780,10 @@ def test_sidecar_set_grading_provider_switch_and_health(tmp_path):
     baseline = responses[1]["result"]["ai"]
     assert baseline["manualGrading"] is False
     assert baseline["gradingProviderOverride"] is None
-    # Dropdown options ship with the health dto: configured providers + codex + manual.
-    assert {"codex", "deepseek_flash", "deepseek_pro", "manual"} <= set(baseline["availableGradingProviders"])
+    # Dropdown options ship with the health dto: configured providers + manual; a Codex
+    # profile only with ai.agent_harness_opt_in (plan-first transport T1, review F9).
+    assert {"chatgpt", "deepseek_flash", "deepseek_pro", "manual"} <= set(baseline["availableGradingProviders"])
+    assert not {"codex", "codex_low", "codex_medium"} & set(baseline["availableGradingProviders"])
     assert baseline["availableGradingProviders"][-1] == "manual"
 
     switched = responses[2]["result"]
@@ -2879,7 +2881,7 @@ def test_sidecar_set_grading_provider_rejects_unknown_provider(tmp_path):
     error = response[1]["error"]
     assert error["data"]["code"] == "invalid_provider"
     assert "gpt99" in error["message"]
-    for option in ("codex", "deepseek_flash", "deepseek_pro", "manual"):
+    for option in ("chatgpt", "deepseek_flash", "deepseek_pro", "manual"):
         assert option in error["message"]
     assert "manual" in error["data"]["details"]["available_providers"]
     # A rejected switch leaves the override untouched.

@@ -434,7 +434,14 @@ def test_inline_mode_serves_a_workspace_over_its_budget_in_tools_mode(server, wo
     (workspace / "big.md").write_text("w" * 20_000, encoding="utf-8")
     server.replies.extend([Reply(events=tool_call_events([_read("INDEX.md")], response_id="r1")),
                            Reply(events=ANSWER)])
-    client = _client(server, workspace_mode="inline", max_workspace_chars=10_000)
+    # The default inline mode (workspace_mode not written): an explicit "inline" is
+    # honoured as written and refuses instead (plan-first transport T1, review F7).
+    explicit = _client(server, workspace_mode="inline", max_workspace_chars=10_000)
+    with pytest.raises(AIProviderUnavailable, match="max_workspace_chars"):
+        _ask(explicit, workspace)
+    assert server.requests == []
+    client = ChatGPTPlanProviderClient("chatgpt", ChatGPTPlanProviderConfig(
+        model="gpt-test-fast", base_url=server.base_url, timeout_seconds=10, max_workspace_chars=10_000))
     assert _ask(client, workspace).note == "done"
     bodies = [request["body"] for request in server.requests]
     assert len(bodies) == 2 and all(body["tools"] == [ServedWorkspace.namespace_tool()] for body in bodies)

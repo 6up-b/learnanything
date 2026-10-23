@@ -172,7 +172,7 @@ class UseFallbackParams(ParamsModel):
     provider: Literal["openrouter"]
     # The tasks the feature's hint named (``fallback_tasks``).
     tasks: list[str] = Field(default_factory=list)
-    # True: stop using OpenRouter for every task this session.
+    # True: stop using OpenRouter for every task granted on this vault (review F8).
     stop: bool = False
 
 

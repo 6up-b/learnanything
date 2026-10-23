@@ -241,7 +241,18 @@ def test_usage_limit_mid_stream_pauses_the_plan_and_routes_fall_back(server, tmp
     report = check_ai_runtime(vault, load_config(vault / "learnloop.toml"), provider_name="chatgpt")
     assert report.status == "provider_unavailable" and "usage exhausted" in report.message
     config = load_config(vault / "learnloop.toml")
-    resolved = ready_client_for_task(vault, config, "tutor_qa")
+    # Plan-first transport T1 (review F1): a configured metered fallback_provider is never
+    # used silently for a plan route; the plan's offer asks, and only the learner's grant routes there.
+    from learnloop.ai import plan_fallback
+
+    asked = ready_client_for_task(vault, config, "tutor_qa")
+    assert not asked.ready and asked.provider_name == "chatgpt" and asked.runtime.fallback_available == "openrouter"
+    plan_fallback.remember_offer(vault, {"fallback_tasks": ["tutor_qa"]})
+    plan_fallback.grant(vault, ["tutor_qa"])
+    try:
+        resolved = ready_client_for_task(vault, config, "tutor_qa")
+    finally:
+        plan_fallback.revoke_all()
     assert resolved.fallback_from == "chatgpt" and resolved.provider_name == "openrouter"
     pinned = ready_client_for_task(vault, config, "tutor_qa", explicit="chatgpt")
     assert not pinned.ready and pinned.provider_name == "chatgpt"
