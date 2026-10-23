@@ -891,6 +891,16 @@ def _number(text: str) -> tuple[int, ...]:
     return tuple(int(part) for part in text.split("."))
 
 
+def canonical_label_text(text: str) -> str:
+    """A block's text with a split label number joined WHATEVER its neighbours ("1. 11
+    definition" -> "1.11 definition"; a joined one is unchanged). :func:`_join_split_labels`
+    joins one only when the document's numbering around it vouches for it, so whether a visible
+    label was joined can depend on a neighbouring label's number; this form cannot (the AD23
+    redesign round 7: the adaptive-difficulty projection reads GLM-OCR text through it)."""
+
+    return _SPLIT_LABEL.sub(lambda match: f"{match['lead']}{match['major']}.{match['minor']}", text, count=1)
+
+
 def _join_split_labels(blocks: list[tuple[str, str]]) -> list[str]:
     """The texts of the Text and SectionHeader blocks, (type, text) in
     reading order, with each label's number the recognition model split
@@ -1514,6 +1524,7 @@ __all__ = [
     "MAP_VERSION",
     "TextSegment",
     "UNAVAILABLE_MESSAGE",
+    "canonical_label_text",
     "estimate",
     "glm_api_key",
     "is_glm_document",

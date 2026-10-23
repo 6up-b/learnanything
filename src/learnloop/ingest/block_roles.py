@@ -9,6 +9,8 @@ and "Worked Example" are recognizable deterministically.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from dataclasses import dataclass
 import re
 
@@ -150,6 +152,26 @@ def classify_block_role(
             return role
 
     return "ordinary_prose"
+
+
+def positional_structure(blocks: Iterable[tuple[str, str]]) -> list[tuple[list[str], str]]:
+    """Each block's ``(section_path, role_hint)`` derived from the given blocks alone, by
+    POSITION: the section path is the nearest preceding ``SectionHeader``'s text (whitespace
+    normalized), and the role is :func:`classify_block_role` over that path, as ingest classifies.
+
+    ``blocks`` is ``(block_type, text)`` in reading order. Nothing else is read: no stored path, no
+    extractor heading stack, no outline. The adaptive-difficulty projection derives both with it
+    from the VISIBLE blocks of a reading, so a withheld header is nobody's heading, exactly as when
+    it was never extracted (the AD23 redesign round 7)."""
+
+    out: list[tuple[list[str], str]] = []
+    heading: str | None = None
+    for block_type, text in blocks:
+        path = [] if heading is None else [heading]
+        out.append((path, classify_block_role(block_type, path, text)))
+        if (block_type or "").replace(" ", "") == "SectionHeader":
+            heading = " ".join(str(text or "").split()) or None
+    return out
 
 
 # --- numbered environments and references to them -------------------------

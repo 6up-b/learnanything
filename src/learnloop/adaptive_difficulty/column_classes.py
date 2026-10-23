@@ -459,6 +459,10 @@ _CLASSES: dict[str, tuple[str, str]] = {
     "source_exposure_events": (
         "id extraction_id span_id revision_id source_id entity_type entity_id page created_at",
         "context locator section_path_json"),
+    # A run's health counts its blocks by page and type, and its result hash digests the whole
+    # reading, withheld blocks included (round 7's audit): counts and a hash, metadata by the
+    # round-5 rule, never consumed by AD (the projection recomputes the IR's health from visible
+    # blocks). Refusing them would refuse every ``SELECT *`` of a run (the alias computation's).
     "source_extraction_runs": (
         "id revision_id parent_extraction_id extractor extractor_version model_versions_json config_json "
         "page_selection_json ir_schema_version extraction_request_hash extraction_result_hash status "

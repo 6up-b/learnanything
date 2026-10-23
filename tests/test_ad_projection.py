@@ -29,6 +29,7 @@ from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
 
 from tests.ad23_fakes import LO, ad23_vault
+from tests.ad_ingest_fakes import GLM, MARKER, Element, ingest_ir, never_extracted
 from tests.helpers import write_yaml
 
 EXT = "ext_f48"
@@ -68,20 +69,28 @@ def _mixed_section(tmp_path, *, absent: bool):
         connection.execute("INSERT INTO source_revisions(id, source_id, asset_hash, created_at) "
                            "VALUES ('rev_f48', 'src_f48', 'sha256:f48', ?)", (made,))
         connection.commit()
-    spans = [P] if absent else [P, H]
-    blocks = [DocumentBlock.build(span_id=span, block_type="Text", text=f"Teaching text of {span}.", ordinal=index,
-                                  page=1, section_path=["sec_mixed"]) for index, span in enumerate(spans)]
-    units = [DocumentUnit(unit_id="sec_mixed", label="sec_mixed", ordinal=0, semantic_hash="sha256:sec_mixed",
-                          page_start=1, page_end=1, span_ids=list(spans))]
+    elements = [Element(span, "text", f"Teaching text of {span}.") for span in (P, H)]
+    # Built by the real ingest derivation (round 7), H deleted before it in the absent copy.
+    ir = _one_section(ingest_ir(never_extracted(elements, {H}) if absent else elements, style=MARKER), "sec_mixed")
     repository = Repository(paths.sqlite_path)
-    _persist(repository, DocumentIR(extractor="marker", extractor_version="1", units=units, blocks=blocks, assets=[],
-                                    health=ExtractionHealth()), revision_id="rev_f48", extraction_id=EXT)
+    _persist(repository, ir, revision_id="rev_f48", extraction_id=EXT)
     _cite(paths, LO, P)
     _cite(paths, HELD_LO, H)
     repository.insert_source_exposure_event(
         {"context": "reader", "extraction_id": EXT, "span_id": P, "revision_id": "rev_f48", "source_id": "src_f48",
          "entity_type": "reader", "entity_id": "visit_f48", "created_at": _iso(T0 - timedelta(hours=5))})
     return paths
+
+
+def _one_section(ir, unit_id: str):
+    """The ingested reading as one section named ``unit_id`` (a section's identity, like a span's,
+    is renamed; nothing derived is copied)."""
+
+    from learnloop.ingest.ir import DocumentUnit
+
+    spans = [block.span_id for block in ir.blocks]
+    unit = DocumentUnit(unit_id=unit_id, label=unit_id, ordinal=1, semantic_hash="sha256:" + unit_id, span_ids=spans)
+    return ir.model_copy(update={"units": [unit]})
 
 
 def _hold_h(monkeypatch) -> None:
@@ -222,13 +231,11 @@ def _reread(tmp_path, *, absent: bool):
             "dup_x": "Repeated public text.", "dup_y": "Repeated public text."}
     layouts = {OLD: ["h_before", "dup_old", "h_after"], NEW: ["h_before", "dup_x", "h_after", "dup_y"]}
     for version, (extraction, spans) in enumerate(layouts.items(), start=1):
-        spans = [span for span in spans if not (absent and span in HELD_SPANS)]
-        blocks = [DocumentBlock.build(span_id=span, block_type="Text", text=text[span], ordinal=index,
-                                      section_path=["sec_r3"]) for index, span in enumerate(spans)]
-        units = [DocumentUnit(unit_id="sec_r3", label="sec_r3", ordinal=0, semantic_hash="sha256:sec_r3",
-                              span_ids=list(spans))]
-        _persist(repository, DocumentIR(extractor="marker", extractor_version=str(version), units=units, blocks=blocks,
-                                        assets=[], health=ExtractionHealth()), revision_id="rev_r3",
+        elements = [Element(span, "text", text[span]) for span in spans]
+        if absent:
+            elements = never_extracted(elements, HELD_SPANS)
+        ir = _one_section(ingest_ir(elements, style=MARKER), "sec_r3")
+        _persist(repository, ir.model_copy(update={"extractor_version": str(version)}), revision_id="rev_r3",
                  extraction_id=extraction)
     record_aliases(repository, OLD, NEW)
     path = paths.learning_object_path("linear-algebra", LO)
@@ -370,17 +377,12 @@ def _worked_examples_heading(tmp_path, *, absent: bool, heading: str = "Worked E
         connection.execute("INSERT INTO source_revisions(id, source_id, asset_hash, created_at) "
                            "VALUES ('rev_f48', 'src_f48', 'sha256:f48', ?)", (made,))
         connection.commit()
-    header = DocumentBlock.build(span_id=H, block_type="SectionHeader", text=heading, ordinal=0, page=1,
-                                 extractor_block_id=HEADER_ID, section_path=[])
-    path = ([] if absent else [heading]) if by_text else [HEADER_ID]
-    public = DocumentBlock.build(span_id=P, block_type="Text", text="Consider the matrix A and compute its determinant.",
-                                 ordinal=1, page=1, section_path=path, role_hint="worked_example")
-    blocks = [public] if absent else [header, public]
-    units = [DocumentUnit(unit_id="sec_mixed", label="sec_mixed", ordinal=0, semantic_hash="sha256:sec_mixed",
-                          page_start=1, page_end=1, span_ids=[block.span_id for block in blocks])]
+    # Built by the real ingest derivation (round 7): Marker's block-id paths, or GLM-OCR's heading
+    # text paths (``by_text``); the absent copy has H deleted BEFORE ingest derives P's path and hint.
+    elements = [Element(H, "header", heading), Element(P, "text", "Consider the matrix A and compute its determinant.")]
+    ir = ingest_ir(never_extracted(elements, {H}) if absent else elements, style=GLM if by_text else MARKER)
     repository = Repository(paths.sqlite_path)
-    _persist(repository, DocumentIR(extractor="marker", extractor_version="1", units=units, blocks=blocks, assets=[],
-                                    health=ExtractionHealth()), revision_id="rev_f48", extraction_id=EXT)
+    _persist(repository, _one_section(ir, "sec_mixed"), revision_id="rev_f48", extraction_id=EXT)
     _cite(paths, LO, P)
     repository.insert_source_exposure_event(
         {"context": "reader", "extraction_id": EXT, "span_id": P, "revision_id": "rev_f48", "source_id": "src_f48",
@@ -403,7 +405,7 @@ def test_a_withheld_heading_named_by_text_never_gives_a_public_block_its_role(tm
     vault, repository = load_vault(protected_paths.root), Repository(protected_paths.sqlite_path)
     with ad_operation(vault, repository) as op, closing(connect(protected_paths.sqlite_path,
                                                                 read_only=True)) as connection:
-        assert op.view.worked_example_spans(connection, EXT) == {P}  # H public: P is a worked example
+        assert op.view.worked_example_spans(connection, EXT) == {H, P}  # H public: P is a worked example (and so is H, as ingest classifies it)
     _hold_h(monkeypatch)
     spans = {}
     for name, paths in (("protected", protected_paths), ("absent", absent_paths)):
@@ -429,7 +431,7 @@ def test_a_withheld_heading_never_gives_a_public_block_its_role(tmp_path, monkey
     vault, repository = load_vault(protected_paths.root), Repository(protected_paths.sqlite_path)
     with ad_operation(vault, repository) as op, closing(connect(protected_paths.sqlite_path,
                                                                 read_only=True)) as connection:
-        assert op.view.worked_example_spans(connection, EXT) == {P}  # H public: P is a worked example
+        assert op.view.worked_example_spans(connection, EXT) == {H, P}  # H public: P is a worked example (and so is H, as ingest classifies it)
     _hold_h(monkeypatch)
     spans = {}
     for name, paths in (("protected", protected_paths), ("absent", absent_paths)):

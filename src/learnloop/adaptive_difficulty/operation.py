@@ -96,7 +96,7 @@ class Guard:
     #: The schema's trigger names (read at install, before the guard is on).
     triggers: frozenset[str] = frozenset()
     #: Per AD-writable table, the tables its declared foreign keys read (parents and children).
-    constraints: dict[str, frozenset[str]] = field(default_factory=dict)
+    constraints: dict[str, frozenset[tuple[str, str]]] = field(default_factory=dict)
     #: Set by the first denial (deny mode): the operation is unavailable from then on (every later
     #: AD read of a non-neutral table and every write is refused, and its exit raises), so a
     #: swallowed refusal can never authorize output (the AD23 redesign round 2, class 6).
@@ -140,11 +140,11 @@ class Guard:
             return sqlite3.SQLITE_OK
         if action == _READ:
             table = str(arg1)
-            if self._writing is not None and (
-                    table == self._writing or table in self.constraints.get(self._writing, ())):
-                # A permitted write's own accesses: its WHERE on its own target (a prune, an update
-                # by key) and its declared foreign keys (parents and children). Nothing else: a
-                # subquery's read of another table is judged as any read, whatever the callback order.
+            if self._writing is not None and self._write_access(table, None if arg2 is None else str(arg2)):
+                # A permitted write's own accesses: its WHERE on its own target's metadata (a prune,
+                # an update by key) and its declared foreign keys' key columns (round 7). Nothing
+                # else: a subquery's read of another table, or of any other column, is judged as a
+                # read, whatever the callback order.
                 return sqlite3.SQLITE_OK
             if table == _OWN_WRITE.get():
                 return sqlite3.SQLITE_OK
@@ -163,6 +163,13 @@ class Guard:
             self._writing = None
         return sqlite3.SQLITE_OK
 
+    def _write_access(self, table: str, column: str | None) -> bool:
+        from learnloop.adaptive_difficulty import column_classes as C
+
+        if (table, str(column or "")) in self.constraints.get(str(self._writing), ()):
+            return True
+        return table == self._writing and C.column_class(table, column) == C.METADATA
+
     def _read(self, table: str, database: Any, column: str | None = None) -> int:
         from learnloop.adaptive_difficulty import column_classes as C
         from learnloop.adaptive_difficulty import protected_tables as T
@@ -177,10 +184,17 @@ class Guard:
         # In the incumbent's scope only its named readers read content (round 6).
         raw_content = (rules is None or (rules == T.INCUMBENT and reader not in T.INCUMBENT_READERS)) \
             and C.column_class(table, column) == C.CONTENT
+        # A column derived from other rows (``protected_tables.DERIVED``; round 7) is read only where
+        # it is derived again from visible rows (the projection's ``rules("derive")``), by the
+        # predicate, or by the incumbent's named readers; the rules never hand it out.
+        derived = T.COLUMNS.get(table, {}).get(str(column or "")) == T.DERIVED and rules not in (
+            DERIVE, "predicate") and not (rules == T.INCUMBENT and reader in T.INCUMBENT_READERS)
         if kind == T.NEUTRAL and not raw_content:
             return sqlite3.SQLITE_OK
         if self.poisoned:
             return self._deny("read", table, POISONED, reader)
+        if derived:
+            return self._deny("read", table, f"{DERIVED_READ} ({table}.{column})", reader)
         if kind == T.NEUTRAL:
             return self._deny("read", table, f"{CONTENT_READ} ({table}.{column})", reader)
         if rules not in (None, T.INCUMBENT) and kind != T.PREDICATE:
@@ -273,17 +287,22 @@ def _bare_sql(sql: str) -> str:
     return _SQL_NOISE_RE.sub(" ", sql)
 
 
+#: The derivation scope (round 7): the projection reads a derived column only to derive it again.
+DERIVE = "derive"
+DERIVED_READ = "a column derived from other rows read outside its derivation"
 #: Why a raw read of a content column is refused (``column_classes``; round 5).
 CONTENT_READ = "a content column read outside the rules"
 #: Why a statement is refused after the operation's first denial.
 POISONED = "the operation was made unavailable by an earlier denial"
 
-_SCHEMA_FACTS: dict[tuple[str, int], tuple[frozenset[str], dict[str, frozenset[str]]]] = {}
+_SCHEMA_FACTS: dict[tuple[str, int], tuple[frozenset[str], dict[str, frozenset[tuple[str, str]]]]] = {}
 
 
-def _schema_facts(raw: Any, database: Path) -> tuple[frozenset[str], dict[str, frozenset[str]]]:
-    """The schema's trigger names, and per AD-writable table the tables its declared foreign keys
-    read: its parents, and the children whose keys reference it (cached per schema version)."""
+def _schema_facts(raw: Any, database: Path) -> tuple[frozenset[str], dict[str, frozenset[tuple[str, str]]]]:
+    """The schema's trigger names, and per AD-writable table the KEY COLUMNS its declared foreign
+    keys read, as ``(table, column)``: its parents' referenced keys, and the children's referencing
+    columns (cached per schema version). Round 7: only these, never a child's other columns, so a
+    DELETE's WHERE subquery reading a referencing table by anything but its key is judged as a read."""
 
     from learnloop.adaptive_difficulty import protected_tables as T
 
@@ -293,14 +312,22 @@ def _schema_facts(raw: Any, database: Path) -> tuple[frozenset[str], dict[str, f
         triggers = frozenset(str(row[0]) for row in raw.execute("SELECT name FROM sqlite_master WHERE type = 'trigger'"))
         tables = [str(row[0]) for row in raw.execute(
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")]
-        parents: dict[str, set[str]] = {}
+        def primary_key(table: str) -> list[str]:
+            return [str(row[1]) for row in raw.execute(f"PRAGMA table_info('{table}')") if row[5]]
+
+        # table -> [(parent, the table's referencing column, the parent's referenced column)]
+        references: dict[str, list[tuple[str, str, str]]] = {}
         for table in tables:
             for row in raw.execute(f"PRAGMA foreign_key_list('{table}')"):
-                parents.setdefault(table, set()).add(str(row[2]))
+                parent = str(row[2])
+                to = [str(row[4])] if row[4] is not None else primary_key(parent)
+                references.setdefault(table, []).extend((parent, str(row[3]), column) for column in to)
         constraints = {}
         for table in T.AD_WRITABLE:
-            children = {child for child, refs in parents.items() if table in refs}
-            constraints[table] = frozenset(parents.get(table, set()) | children)
+            keys = {(parent, to) for parent, _from, to in references.get(table, ())}
+            keys |= {(child, from_) for child, refs in references.items() for parent, from_, _to in refs
+                     if parent == table}
+            constraints[table] = frozenset(keys)
         _SCHEMA_FACTS[key] = (triggers, constraints)
     return _SCHEMA_FACTS[key]
 
@@ -386,7 +413,9 @@ def rules(name: str) -> Iterator[None]:
         yield
     finally:
         _IN_RULES.reset(token)
-        if outer is None:
+        if outer != name:
+            # Leaving any scope for a narrower one (the rules, or the derivation scope back into
+            # the rules: round 7) expires what was prepared inside it.
             op = _CURRENT.get()
             if op is not None:
                 op.guard.refresh()

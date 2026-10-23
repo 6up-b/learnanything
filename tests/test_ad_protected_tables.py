@@ -22,7 +22,7 @@ from tests.ad23_fakes import ad23_vault
 
 KINDS = {"value", "item", "revision", "attempt", "presentation", "note", "reader_question", "question_event",
          "facet", "dose_draw", "selection", "receipt", "administration", "surface", "extraction", "self",
-         "epoch"}
+         "epoch", "derived_by_position"}
 WITH_COLUMN = {"span", "section", "spans", "entity", "served_item", "source", "plan_detail"}
 
 
@@ -112,3 +112,24 @@ def test_every_column_of_every_readable_table_is_metadata_or_content(tmp_path):
     assert C.column_class("model_call_receipts", "cost") == C.METADATA
     assert C.column_class("assessment_contract_versions", "contract_json") == C.CONTENT
     assert C.column_class("assessment_contract_versions", "practice_item_id") == C.METADATA
+
+
+def test_every_derived_column_has_a_treatment(tmp_path):
+    """Round 7: every column classified ``derived_by_position`` (a visible row's value ingest derived
+    from other rows) names how AD reads it: recomputed by a named projection function that exists,
+    or unread with a reason; and every treatment names a derived column."""
+
+    import importlib
+
+    derived = {(table, column) for table, columns in T.COLUMNS.items() for column, kind in columns.items()
+               if kind == T.DERIVED}
+    assert derived and derived == set(T.DERIVED_TREATMENT)
+    for key, treatment in T.DERIVED_TREATMENT.items():
+        kind, _sep, rest = treatment.partition(":")
+        assert kind in ("recomputed", "unread"), (key, treatment)
+        if kind == "recomputed":
+            module, _dot, name = rest.rpartition(".")
+            assert callable(getattr(importlib.import_module(module), name)), (key, treatment)
+        else:
+            assert rest.strip(), (key, "an unread column says why")
+    assert {("source_document_blocks", "role_hint"), ("source_document_blocks", "section_path_json")} <= derived

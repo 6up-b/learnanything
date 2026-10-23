@@ -44,6 +44,7 @@ The operation's projected vault and document IR (:meth:`MaterialView.projected_v
 from __future__ import annotations
 
 import json
+import re
 import logging
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
@@ -61,11 +62,6 @@ _UNSET = object()
 _VALUE = _T.VALUE
 #: The attempt types that never close a reading window (as the replay reads them, §5.6, D8).
 NON_WINDOW_TYPES = ("skip", "self_report")
-
-
-#: The one section-path element ``worked_example_spans`` hands ``effective_hint``: the block's
-#: positional heading (round 6).
-_POSITIONAL_HEADING = "ad:positional-heading"
 
 
 def _has_table(connection: Any, table: str) -> bool:
@@ -104,24 +100,113 @@ def _replaced(vault: Any, **fields: Any) -> Any:
 
 
 def project_ir(ir: Any, withheld: Any) -> Any:
-    """``ir`` without the blocks whose span ``withheld(span)`` is true, and without their spans in
-    any unit or asset (an asset only withheld blocks show is dropped)."""
+    """``ir`` as AD reads it: the blocks whose span ``withheld(span)`` is true removed, and every
+    value ingest DERIVED from other blocks derived again from the VISIBLE blocks alone, by position
+    (the AD23 redesign round 7; ``protected_tables.DERIVED_TREATMENT``), so the result is what the
+    reading would give had the withheld blocks never been extracted. Applied to every reading,
+    withheld material or not, so two readings always compare alike.
 
-    blocks = [block for block in ir.blocks if not withheld(block.span_id)]
-    if len(blocks) == len(ir.blocks):
-        return ir
-    gone = {block.span_id for block in ir.blocks} - {block.span_id for block in blocks}
-    shown = {asset for block in blocks for asset in block.asset_ids}
-    hidden = {asset for block in ir.blocks if block.span_id in gone for asset in block.asset_ids} - shown
-    units = [unit.model_copy(update={"span_ids": [span for span in unit.span_ids if span not in gone]})
-             for unit in ir.units]
+    * blocks: ``section_path`` and ``role_hint`` (``ingest.block_roles.positional_structure``: the
+      nearest preceding visible header, and ``classify_block_role`` over it), ``ordinal`` (dense,
+      in reading order), ``extractor_block_id`` (kept only as a caption cue's own time locator: a
+      layout id counts blocks, withheld ones too), GLM-OCR text (its split-label join, which reads
+      a neighbouring label's number, in its neighbour-free form) and ``content_hash`` over it;
+    * units: a unit opened by a withheld block (its heading) is no unit: its visible blocks join the
+      unit before it (at the start, the one after it), as ingest would have placed them; the rest
+      keep their identity, label and locator (opened by a visible heading), with their visible
+      spans; a unit left with none dropped; ``ordinal`` dense; a dropped parent left out;
+      ``page_start``/``page_end`` and ``semantic_hash`` over the visible blocks;
+    * assets without a withheld block's spans (an asset only withheld blocks show dropped);
+    * health: each page's block counts over the visible blocks."""
+
+    from learnloop.ingest.block_roles import positional_structure
+    from learnloop.ingest.hashing import semantic_hash
+    from learnloop.ingest.ir import block_content_hash
+
+    ordered = sorted(ir.blocks, key=lambda block: (block.ordinal, block.span_id))
+    visible = [block for block in ordered if not withheld(block.span_id)]
+    gone = {block.span_id for block in ordered} - {block.span_id for block in visible}
+    texts = [_canonical_text(ir.extractor, block) for block in visible]
+    structure = positional_structure([(block.block_type, text) for block, text in zip(visible, texts)])
+    blocks = []
+    for index, (block, text, (path, role)) in enumerate(zip(visible, texts, structure), start=1):
+        cue = block.extractor_block_id if _TIME_CUE.match(str(block.extractor_block_id or "")) else None
+        blocks.append(block.model_copy(update={
+            "text": text, "content_hash": block_content_hash(text), "section_path": path, "role_hint": role,
+            "ordinal": index, "extractor_block_id": cue}))
+    by_span = {block.span_id: block for block in blocks}
+    first = {block.span_id: block.ordinal for block in ordered}
+    # A unit is opened by its first block (its heading). One opened by a withheld block is a
+    # section boundary only withheld material makes: its visible blocks belong to the unit before
+    # it (or, at the start, the one after it), as when that heading was never extracted.
+    merged: list[tuple[Any, list[str]]] = []
+    pending: list[str] = []
+    for unit in sorted(ir.units, key=lambda unit: (unit.ordinal, unit.unit_id)):
+        spans = [span for span in unit.span_ids if span not in gone]
+        opening = min(unit.span_ids, key=lambda span: first.get(span, 0)) if unit.span_ids else None
+        if opening is not None and opening in gone:
+            if merged:
+                merged[-1][1].extend(spans)
+            else:
+                pending.extend(spans)
+            continue
+        merged.append((unit, pending + spans))
+        pending = []
+    if pending and merged:
+        merged[-1][1].extend(pending)
+    units = []
+    for unit, spans in merged:
+        if unit.span_ids and not spans:
+            continue
+        spans = sorted(dict.fromkeys(spans), key=lambda span: first.get(span, 0))
+        shown = [by_span[span] for span in spans if span in by_span]
+        pages = [block.page for block in shown if block.page is not None]
+        units.append(unit.model_copy(update={
+            "span_ids": spans, "semantic_hash": semantic_hash(shown), "page_start": min(pages) if pages else None,
+            "page_end": max(pages) if pages else None}))
+    kept = {unit.unit_id for unit in units}
+    units = [unit.model_copy(update={"ordinal": index, "parent_unit_id": unit.parent_unit_id
+                                     if unit.parent_unit_id in kept else None})
+             for index, unit in enumerate(units, start=1)]
+    shown_assets = {asset for block in blocks for asset in block.asset_ids}
+    hidden_assets = {asset for block in ordered if block.span_id in gone for asset in block.asset_ids} - shown_assets
     assets = []
     for asset in ir.assets:
         neighbours = [span for span in asset.neighboring_span_ids if span not in gone]
-        if asset.id in hidden or (asset.neighboring_span_ids and not neighbours):
+        if asset.id in hidden_assets or (asset.neighboring_span_ids and not neighbours):
             continue
         assets.append(asset.model_copy(update={"neighboring_span_ids": neighbours}))
-    return ir.model_copy(update={"blocks": blocks, "units": units, "assets": assets})
+    counts: dict[Any, dict[str, int]] = {}
+    for block in blocks:
+        page = counts.setdefault(block.page, {})
+        page[block.block_type] = page.get(block.block_type, 0) + 1
+    health = ir.health.model_copy(update={"pages": [
+        page.model_copy(update={"block_counts": counts.get(page.page, {})}) for page in ir.health.pages]})
+    return ir.model_copy(update={"blocks": blocks, "units": units, "assets": assets, "health": health})
+
+
+#: A caption cue's own time locator (``t=12.5-14``): the one ``extractor_block_id`` AD keeps.
+_TIME_CUE = re.compile(r"^t=\d+(?:\.\d+)?(?:-\d+(?:\.\d+)?)?$")
+
+
+def _canonical_text(extractor: str, block: Any) -> str:
+    """A block's text as AD reads it: GLM-OCR's label text in its neighbour-free form."""
+
+    from learnloop.ingest.extractors.glm_ocr import EXTRACTOR_NAME, canonical_label_text
+
+    if extractor == EXTRACTOR_NAME and block.block_type in ("Text", "SectionHeader"):
+        return canonical_label_text(block.text)
+    return block.text
+
+
+def _select(table: str) -> str:
+    """A protected table's columns the rules read and hand out: all but the derived ones
+    (``protected_tables.DERIVED``; the guard refuses those outside the derivation scope)."""
+
+    columns = _columns(table)
+    if _T.DERIVED not in columns.values():
+        return "*"
+    return ", ".join(column for column, kind in columns.items() if kind != _T.DERIVED)
 
 
 def _stamp(row: Mapping[str, Any], rule: str) -> Any:
@@ -270,8 +355,7 @@ class MaterialView:
 
         if not self.available or not _has_table(connection, table):
             return []
-        _columns(table)
-        sql = f"/* ad-rules */ SELECT * FROM {table}" + (f" WHERE {where}" if where else "") + (
+        sql = f"/* ad-rules */ SELECT {_select(table)} FROM {table}" + (f" WHERE {where}" if where else "") + (
             f" ORDER BY {order}" if order else "")
         return self.filter(connection, table, _rows(connection, sql, args))
 
@@ -300,9 +384,9 @@ class MaterialView:
 
         if not _has_table(connection, table):
             return "missing", None
-        _columns(table)
-        return self._status(connection, table, _rows(connection, f"/* ad-rules */ SELECT * FROM {table} WHERE {where}",
-                                                     args), stale_as_missing=stale_as_missing)
+        return self._status(connection, table, _rows(
+            connection, f"/* ad-rules */ SELECT {_select(table)} FROM {table} WHERE {where}", args),
+            stale_as_missing=stale_as_missing)
 
     def _status(self, connection: Any, table: str, found: list[dict[str, Any]], *,
                 stale_as_missing: bool = False) -> tuple[str, dict[str, Any] | None]:
@@ -340,7 +424,7 @@ class MaterialView:
             return False
         selfs = False
         for column, kind in _columns(table).items():
-            if kind in (_VALUE, "epoch"):
+            if kind in (_VALUE, "epoch", _T.DERIVED):
                 continue
             if kind == "self":
                 selfs = True
@@ -414,7 +498,8 @@ class MaterialView:
         memo = self._memo if self._memo is not None else {}
         if (kind, str(value)) not in memo:
             table, key = _ENTITY_TABLES[kind]
-            found = _rows(connection, f"/* ad-rules */ SELECT * FROM {table} WHERE {key} = ?", (str(value),)) \
+            found = _rows(connection, f"/* ad-rules */ SELECT {_select(table)} FROM {table} WHERE {key} = ?",
+                          (str(value),)) \
                 if _has_table(connection, table) else []
             memo[(kind, str(value))] = any(not self.keep(connection, table, row) for row in found)
         return memo[(kind, str(value))]
@@ -1004,36 +1089,25 @@ class MaterialView:
         return {**row, "contract": _json(row.get("contract_json"), {})}
 
     def worked_example_spans(self, connection: Any, extraction_id: str) -> set[str]:
-        """The extraction's worked-example spans, by the incumbent's effective role
-        (``source_retrieval.corpus.effective_hint``, as ``role_keys`` applies it) computed over the
-        PROJECTION (the AD23 redesign rounds 5 and 6): only visible blocks are classified, and a
-        block's heading is resolved by POSITION, as the nearest preceding visible ``SectionHeader``
-        of its reading (by ordinal). A withheld header is never anyone's heading, exactly as when it
-        was never extracted. Nothing in this path compares text: the stored section path (whose
-        elements may be header ids or header text, spaced however the extractor spaced it) is not
-        read; ``effective_hint`` is handed a path rebuilt from the visible header by position."""
+        """The extraction's worked-example spans: the incumbent's effective role
+        (``source_retrieval.corpus.effective_hint``, as ``role_keys`` applies it) over the PROJECTED
+        reading (:func:`project_ir`; the AD23 redesign rounds 5 to 7). The role is the one the
+        projection derives with ``classify_block_role`` from the block's own text and its
+        positional heading (the nearest preceding visible header), never the stored hint, which
+        ingest derived from a heading stack that may hold withheld headers."""
 
         from learnloop.db.stores.source_block_fts import HintRow
         from learnloop.source_retrieval.corpus import effective_hint
 
-        if not self.available or self.material_withheld(extraction_id):
+        ir = self.document_ir(self.repository, extraction_id)
+        if ir is None:
             return set()
-        rows = connection.execute(
-            "/* ad-rules */ SELECT span_id, block_type, role_hint, text FROM source_document_blocks "
-            "WHERE extraction_id = ? ORDER BY ordinal, span_id", (extraction_id,)).fetchall()
         found: set[str] = set()
-        heading: str | None = None
-        for span_id, block_type, role_hint, text in rows:
-            if self.material_withheld(extraction_id, str(span_id)):
-                continue  # neither classified nor anyone's heading
-            path = [] if heading is None else [_POSITIONAL_HEADING]
-            hint = HintRow(str(extraction_id), str(span_id), str(block_type), None if role_hint is None else str(role_hint),
-                           str(text or ""), json.dumps(path))
-            if hint.role_hint == "worked_example" and effective_hint(
-                    hint, {} if heading is None else {_POSITIONAL_HEADING: heading}) == "worked_example":
+        for block in ir.blocks:
+            hint = HintRow(str(extraction_id), str(block.span_id), str(block.block_type), block.role_hint,
+                           str(block.text or ""), json.dumps(list(block.section_path)))
+            if hint.role_hint == "worked_example" and effective_hint(hint, {}) == "worked_example":
                 found.add(hint.span_id)
-            if str(block_type) == "SectionHeader":
-                heading = " ".join(str(text or "").split())
         return found
 
     def plan_feedback_events(self, connection: Any) -> list[dict[str, Any]]:
@@ -1241,9 +1315,12 @@ class MaterialView:
 
         if not self.available or self.material_withheld(extraction_id):
             return None
-        ir = repository.load_document_ir(extraction_id)
-        if ir is None or getattr(self.protection.material, "empty", False):
-            return ir
+        from learnloop.adaptive_difficulty.operation import DERIVE, rules
+
+        with rules(DERIVE):
+            ir = repository.load_document_ir(extraction_id)
+        if ir is None:
+            return None
         return project_ir(ir, lambda span: self.material_withheld(extraction_id, span))
 
     def projected_vault(self) -> Any:
@@ -1358,9 +1435,13 @@ class MaterialView:
         if extraction_id not in self._section_spans:
             from learnloop.reader.reader_guidance import extraction_sections
 
+            from learnloop.adaptive_difficulty.operation import DERIVE, rules
+
             sections: dict[str, list[str]] = {}
             try:
-                ir = self.repository.load_document_ir(extraction_id)
+                # Only the sections' span membership leaves this scope (no derived value).
+                with rules(DERIVE):
+                    ir = self.repository.load_document_ir(extraction_id)
                 if ir is not None:
                     rows, _blocks, _map = extraction_sections(ir)
                     sections = {str(row["id"]): [str(span) for span in row["span_ids"]] for row in rows}
@@ -1473,7 +1554,8 @@ class MaterialView:
             if table in _T.COLUMNS and table != "ad_reading_opportunities":
                 if not _has_table(connection, table):
                     return False
-                found = _rows(connection, f"/* ad-rules */ SELECT * FROM {table} WHERE id = ?", (source,))
+                found = _rows(connection, f"/* ad-rules */ SELECT {_select(table)} FROM {table} WHERE id = ?",
+                              (source,))
                 return any(not self.keep(connection, table, found_row) for found_row in found)
         except Exception:  # noqa: BLE001 - an unreadable source is withheld (fail closed)
             LOG.warning("AD reading source %s/%s unresolved: withheld", table, source, exc_info=True)

@@ -156,11 +156,19 @@ if len(ROLES) != len(_ROLES):  # pragma: no cover - a registry edit error
     raise RuntimeError("a table is classified twice in protected_tables")
 
 
-def _table(refs: Mapping[str, str], *, values: str) -> Mapping[str, str]:
-    return MappingProxyType({**dict(refs), **{column: VALUE for column in values.split()}})
+def _table(refs: Mapping[str, str], *, values: str, derived: str = "") -> Mapping[str, str]:
+    return MappingProxyType({**dict(refs), **{column: VALUE for column in values.split()},
+                             **{column: DERIVED for column in derived.split()}})
 
 
 VALUE = "value"
+#: A visible row's column whose stored value was DERIVED, at ingest or later, from OTHER rows'
+#: content (the heading stack, a role from a heading, an order counting withheld blocks, a hash or
+#: a count over a whole section, a normalizer judging a block by its neighbours): it can carry
+#: withheld material although its row is visible (the AD23 redesign round 7). The guard refuses it
+#: outside the derivation scope (``operation.rules("derive")``), the rules never hand it out, and AD
+#: reads only the value the projection recomputes from visible rows (:data:`DERIVED_TREATMENT`).
+DERIVED = "derived_by_position"
 
 #: Every column of every PROTECTED table, classified (``tests/test_ad_protected_tables.py`` checks
 #: the head schema against it: a migration adding a column fails until it is classified here).
@@ -186,7 +194,8 @@ VALUE = "value"
 #: * ``epoch``: the protection epoch the row was computed under (an AD artefact's stamp,
 #:   :data:`EPOCH`): a row of another epoch is, for AD, never written;
 #: * ``dose_extra@C``: a dose draw's chosen extra (its question or its example span), by variant ``C``;
-#: * ``plan_detail@C``: a plan block event's detail (its item, its attempt, its serve in block ``C``).
+#: * ``plan_detail@C``: a plan block event's detail (its item, its attempt, its serve in block ``C``);
+#: * ``derived_by_position``: :data:`DERIVED` (a value derived from other rows; never read as stored).
 #:
 #: A JSON column holding a draw's frame (a selection's support and exclusions, a receipt's inputs)
 #: is a ``value``: it is recorded, never read back as a learner input, and the row stands or falls
@@ -318,7 +327,7 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
                "answered_at created_at updated_at scope_kind question_style inquiry_root_event_id self_check "
                "answer_basis"),
     "reader_section_progress": _table({"extraction_id": "extraction", "section_id": "section@extraction_id"},
-        values="spans_seen span_count revealed_at completed_at generation_batch_id updated_at"),
+        values="revealed_at completed_at generation_batch_id updated_at", derived="spans_seen span_count"),
     "reveal_events": _table({
         "practice_item_id": "item", "attempt_id": "attempt", "question_event_id": "question_event",
     },
@@ -328,14 +337,15 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
     },
         values="id media_type content_hash path caption page geometry_json"),
     "source_document_blocks": _table({"extraction_id": "extraction", "span_id": "span@extraction_id"},
-        values="extractor_block_id block_type role_hint page bbox_json polygon_json section_path_json text "
-               "content_hash asset_ids_json ordinal"),
+        values="block_type page bbox_json polygon_json asset_ids_json",
+        derived="extractor_block_id role_hint section_path_json text content_hash ordinal"),
     "source_document_units": _table({"extraction_id": "extraction", "span_ids_json": "spans@extraction_id"},
-        values="unit_id parent_unit_id label ordinal locator_json semantic_hash page_start page_end"),
+        values="unit_id",
+        derived="parent_unit_id label ordinal locator_json semantic_hash page_start page_end"),
     "source_exposure_events": _table({
         "extraction_id": "extraction", "span_id": "span@extraction_id", "entity_id": "entity@entity_type",
     },
-        values="id context revision_id source_id entity_type page locator section_path_json created_at"),
+        values="id context revision_id source_id entity_type page locator created_at", derived="section_path_json"),
     "source_span_reanchors": _table({
         "from_extraction_id": "extraction", "from_span_id": "span@from_extraction_id",
         "to_extraction_id": "extraction", "to_span_id": "span@to_extraction_id",
@@ -416,6 +426,32 @@ CARVE_OUTS: Mapping[str, frozenset[str]] = MappingProxyType({
     "item_parameter_state": frozenset({"learnloop.adaptive_difficulty.forecasters"}),
 })
 
+#: How AD reads each :data:`DERIVED` column (the round-7 audit; the review records the derivation
+#: sources): ``recomputed:<function>`` (the projection rebuilds it from visible rows by position)
+#: or ``unread: <why>`` (never handed out; refused outside the derivation scope).
+_PROJECT_IR = "recomputed:learnloop.adaptive_difficulty.material_view.project_ir"
+DERIVED_TREATMENT: Mapping[tuple[str, str], str] = MappingProxyType({
+    ("source_document_blocks", "section_path_json"): _PROJECT_IR,
+    ("source_document_blocks", "role_hint"): _PROJECT_IR,
+    ("source_document_blocks", "ordinal"): _PROJECT_IR,
+    ("source_document_blocks", "extractor_block_id"): _PROJECT_IR,
+    ("source_document_blocks", "text"): _PROJECT_IR,
+    ("source_document_blocks", "content_hash"): _PROJECT_IR,
+    ("source_document_units", "parent_unit_id"): _PROJECT_IR,
+    ("source_document_units", "label"): _PROJECT_IR,
+    ("source_document_units", "ordinal"): _PROJECT_IR,
+    ("source_document_units", "locator_json"): _PROJECT_IR,
+    ("source_document_units", "semantic_hash"): _PROJECT_IR,
+    ("source_document_units", "page_start"): _PROJECT_IR,
+    ("source_document_units", "page_end"): _PROJECT_IR,
+    ("source_exposure_events", "section_path_json"): "unread: the viewed block's stored path; AD maps an "
+                                                     "exposure by its span through the projected IR",
+    ("reader_section_progress", "spans_seen"): "unread: counts over the section's spans, withheld ones included; "
+                                               "AD reads a section's completion only",
+    ("reader_section_progress", "span_count"): "unread: counts over the section's spans, withheld ones included; "
+                                               "AD reads a section's completion only",
+})
+
 _WHY = {PROTECTED: "a protected table read outside the rules",
         PREDICATE: "the predicate's input read outside the predicate",
         DENIED: "the incumbent's derived state read inside an AD operation"}
@@ -450,5 +486,6 @@ def write_verdict(table: str) -> str | None:
     return "a write to a table AD does not own"
 
 
-__all__ = ["AD_WRITABLE", "CARVE_OUTS", "COLUMNS", "DENIED", "ENTITY_KINDS", "EPOCH", "INCUMBENT", "INCUMBENT_READERS",
+__all__ = ["AD_WRITABLE", "CARVE_OUTS", "COLUMNS", "DENIED", "DERIVED", "DERIVED_TREATMENT", "ENTITY_KINDS", "EPOCH",
+           "INCUMBENT", "INCUMBENT_READERS",
            "NEUTRAL", "PREDICATE", "PROTECTED", "ROLES", "VALUE", "read_verdict", "role", "write_verdict"]

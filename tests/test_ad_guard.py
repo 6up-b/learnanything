@@ -575,6 +575,56 @@ def test_a_write_context_never_outlives_its_statement(tmp_path):
                 connection.execute("UPDATE item_forecast_scores SET forecaster = detail_json WHERE forecaster = 'f_r6'")
 
 
+@pytest.mark.parametrize("sql", [
+    # The target's own content column in a WHERE (and in a subquery on the target itself): authorized
+    # before, since every column of the target passed while it was written.
+    "DELETE FROM model_call_receipts WHERE id IN (SELECT parent_call_id FROM model_call_receipts "
+    "WHERE input_text LIKE '%held%')",
+    "DELETE FROM model_call_receipts WHERE output_text LIKE '%held%'",
+    # A parent's non-key column.
+    "DELETE FROM ad_commission_results WHERE selection_id IN (SELECT id FROM ad_selections "
+    "WHERE support_json LIKE '%pi_e1%')",
+    # The verify's: a referencing child's non-key column. On SQLite 3.53.1 the statement was refused
+    # before too, but only by the foreign-key check's own read, which SQLite authorizes after the
+    # subquery's SELECT (round 6's statement shape); now the subquery's read is refused itself.
+    "DELETE FROM judgment_ledger WHERE id IN (SELECT judgment_id FROM activity_family_membership_events "
+    "WHERE practice_item_id = 'pi_e1')",
+])
+def test_a_writes_foreign_key_allowance_covers_its_key_columns_only(tmp_path, sql):
+    """Round 7 (Low): while a write is authorized, its target is read by its metadata columns only
+    and a table its declared foreign keys reach by the key columns only (the parent's referenced
+    key, the child's referencing column); a DELETE whose WHERE, or WHERE subquery, reads anything
+    else is refused (failed before: the target's every column passed, so the first two cases ran;
+    the last two were refused on SQLite 3.53.1 only by a read SQLite authorizes after them)."""
+
+    paths, vault, repository = _vault(tmp_path)
+    with repository.atomic():
+        connection = repository.connection()
+        with contextlib.suppress(_POISONED), O.ad_operation(vault, repository):
+            with pytest.raises(sqlite3.DatabaseError, match=DENIED):
+                connection.execute(sql)
+
+
+@pytest.mark.parametrize("column", ["role_hint", "section_path_json", "ordinal", "text"])
+def test_the_rules_never_read_a_derived_column_outside_its_derivation(tmp_path, column):
+    """Round 7: inside the rules a block's derived columns (its stored role hint, section path,
+    ordinal, text) are refused; its own span id is read; in the derivation scope they are read
+    (failed before: the rules read every column of a protected table)."""
+
+    paths, vault, repository = _vault(tmp_path)
+    with repository.atomic():
+        connection = repository.connection()
+        with O.ad_operation(vault, repository):
+            with O.rules("view"):
+                connection.execute("/* ad-rules */ SELECT span_id FROM source_document_blocks").fetchall()
+            with O.rules(O.DERIVE if hasattr(O, "DERIVE") else "derive"):
+                connection.execute(f"/* ad-rules */ SELECT {column} FROM source_document_blocks").fetchall()
+        with contextlib.suppress(_POISONED), O.ad_operation(vault, repository):
+            with O.rules("view"):
+                with pytest.raises(sqlite3.DatabaseError, match=DENIED):
+                    connection.execute(f"/* ad-rules */ SELECT {column} FROM source_document_blocks").fetchall()
+
+
 def _planted_dose_read(tmp_path, monkeypatch):
     """The dose decision's forecast covariate (caught by its broad except) reads a protected table raw."""
 
