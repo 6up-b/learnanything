@@ -94,7 +94,7 @@ import { useIntentBox, type IntentCancel, type IntentRunHandle, type IntentRunHo
 import { useActiveReading } from "./reader/useActiveReading";
 import { ActiveReadingCard, NextStepFoldLine } from "./reader/ActiveReadingCard";
 import { FiguresUnder } from "./reader/figures/FigureInline";
-import { useFigures } from "./reader/figures/useFigures";
+import { useFigures, type FigureRequestOutcome } from "./reader/figures/useFigures";
 import { useLibraryAsk } from "./reader/useLibraryAsk";
 import { LibraryPane } from "./reader/LibraryPane";
 import { CompareKeepContext } from "./reader/compareKeepContext";
@@ -105,7 +105,7 @@ import type { ReaderIntentActionDto } from "../api/dto";
 import { algoConfig } from "../app/algoConfig";
 import { useReaderWorkbench, type ReaderWorkbenchProps } from "./reader/useReaderWorkbench";
 import { exerciseOpenRequest, type ExerciseCandidate, type ReaderWorkbenchExercise } from "./reader/exerciseCandidates";
-import type { LibraryExercisesProps } from "./reader/LibraryAnswer";
+import type { ExplorableOutcome, LibraryExercisesProps } from "./reader/LibraryAnswer";
 import { ReaderWorkingPosture } from "./reader/ReaderWorkingPosture";
 import { WORKBENCH_COPY, problemTitle } from "./workbench/stepModel";
 import {
@@ -152,6 +152,26 @@ const HEALTH_COLOR: Record<string, "green" | "amber" | "pink" | "slate"> = {
 // Page furniture is real extraction data but noise in a reading flow: running
 // heads repeat every page and the book's own ToC interleaves mid-prose.
 const FURNITURE_BLOCK_TYPES = new Set(["PageHeader", "PageFooter", "TableOfContents"]);
+
+/** How opening a book ended (an offer's press waiting on it settles on this). */
+type OpenOutcome = "opened" | "preparing" | "not_opened";
+
+/** RW5b: "make this explorable" pressed on an offer, waiting for its passage's
+ *  book; `settle` tells the press how it ended (fix round 2, F9). */
+interface OfferedPress {
+  fromExtractionId: string | null;
+  sourceId: string | null;
+  extractionId: string;
+  spanId: string;
+  origin: "library" | "tutor";
+  offerRef: string;
+  settle: (outcome: ExplorableOutcome) => void;
+}
+
+/** The press's outcome for each way a figure request can end. */
+const OFFER_OUTCOME: Record<FigureRequestOutcome, ExplorableOutcome> = {
+  shown: "built", not_shown: "not_built", cancelled: "stopped", skipped: "figures_off",
+};
 
 // "unknown" just means no health row was computed for this extraction — badging
 // it on every block reads as an error state; only suspect/failed warrant a pill.
@@ -378,33 +398,45 @@ export function ReaderScreen({
   // figures.offers_enabled is on). The build runs where its passage is: in
   // this book at once, in another once that book is open (a detour).
   const figureOffersOn = Boolean(contract?.figures?.offers) && !offline;
-  const [offeredFigure, setOfferedFigure] = useState<{ fromExtractionId: string | null; extractionId: string; spanId: string; origin: "library" | "tutor"; offerRef: string } | null>(null);
-  // Codex review F6: the press hears whether it built or lapsed, so its
-  // button never says "building" for a build that will not run.
-  const offeredSettleRef = useRef<((built: boolean) => void) | null>(null);
-  const settleOffered = useCallback((built: boolean) => {
-    const settle = offeredSettleRef.current;
-    offeredSettleRef.current = null;
-    settle?.(built);
+  // A press waiting for its passage's book (`waitingOfferRef` is the one that
+  // may still dispatch: a newer press, or a lapse, replaces it).
+  const [offeredFigure, setOfferedFigure] = useState<OfferedPress | null>(null);
+  const waitingOfferRef = useRef<OfferedPress | null>(null);
+  // Codex review F6, fix round 2 F9: the press hears how it ended -- built,
+  // or why not (the book did not open, another opened, figures are off, the
+  // build was refused) -- so its button never says "building" for a build
+  // that will not run or has ended.
+  const lapseOffered = useCallback((press: OfferedPress, outcome: ExplorableOutcome) => {
+    if (waitingOfferRef.current !== press) return;
+    waitingOfferRef.current = null;
+    setOfferedFigure((current) => (current === press ? null : current));
+    press.settle(outcome);
   }, []);
   useEffect(() => {
-    if (!offeredFigure) return;
+    const press = offeredFigure;
+    if (!press || waitingOfferRef.current !== press) return;
     const open = render?.extractionId ?? null;
-    if (open !== offeredFigure.extractionId) {
+    if (open !== press.extractionId) {
       // Another book opened instead, or the hit's book opened on another
       // reading (its span ids are not this reading's, and the judgment named
-      // that reading's block): the press lapses, and says so.
-      if (open !== offeredFigure.fromExtractionId) {
-        setOfferedFigure(null);
-        settleOffered(false);
+      // that reading's block): the press lapses, and says so. With no book
+      // on screen (the library page, a book being prepared) the open's own
+      // outcome settles it (makeExplorable).
+      if (open !== null && open !== press.fromExtractionId) {
+        lapseOffered(press, render?.sourceId === press.sourceId ? "another_reading" : "another_book");
       }
       return;
     }
-    if (!figuresCtl.enabled) return;
-    figuresCtl.request({ spanIds: [offeredFigure.spanId], origin: offeredFigure.origin, offerRef: offeredFigure.offerRef });
+    if (!figuresCtl.enabled || !figuresCtl.contract?.offers) {
+      lapseOffered(press, "figures_off");
+      return;
+    }
+    waitingOfferRef.current = null;
     setOfferedFigure(null);
-    settleOffered(true);
-  }, [offeredFigure, figuresCtl, render, settleOffered]);
+    // Settled on the build's own outcome, not on its dispatch.
+    void figuresCtl.request({ spanIds: [press.spanId], origin: press.origin, offerRef: press.offerRef })
+      .then((outcome) => press.settle(OFFER_OUTCOME[outcome]));
+  }, [offeredFigure, figuresCtl, render, lapseOffered]);
   // RW1c: the tutor that looks things up (absent from the contract while both its switches are off).
   const readerTutor = contract?.readerTutor ?? null;
   // RW1c: the bound workbench session an Ask comes from (set once the workbench hook runs below).
@@ -507,7 +539,7 @@ export function ReaderScreen({
 
   // RW1a's inquiry: the Ask and its branches, the return stack, the reconnect
   // line, inquiry status and the passage quick check (screens/reader/useReaderInquiry).
-  const openSourceRef = useRef<((card: SourceLibraryCard, jumpSpan?: string, options?: { via?: "search" | "restore"; handoff?: ReadingPosition | null; jumpReading?: string | null }) => Promise<void>) | null>(null);
+  const openSourceRef = useRef<((card: SourceLibraryCard, jumpSpan?: string, options?: { via?: "search" | "restore"; handoff?: ReadingPosition | null; jumpReading?: string | null }) => Promise<OpenOutcome>) | null>(null);
   const {
     question, setQuestion, askComposerVersion, parentExchange, setParentExchange, history, visibleAskHistory,
     normalizedAskFind, collapsedAskIds, setCollapsedAskIds, askFindOpen, setAskFindOpen, askFindQuery,
@@ -836,7 +868,7 @@ export function ReaderScreen({
       // return); another reading's span is translated, never opened as a span
       // of the reading the book opens on now (Codex review F8).
       options: { via?: "search" | "restore"; handoff?: ReadingPosition | null; jumpReading?: string | null } = {},
-    ) => {
+    ): Promise<OpenOutcome> => {
       const handoff = options.handoff ?? null;
       progress.handoffRef.current = handoff;
       if (card.readiness !== "ready") {
@@ -845,7 +877,7 @@ export function ReaderScreen({
         setRender(null);
         setPreparingCard(card);
         onSourceChange?.({ card, spanId: null });
-        return;
+        return "preparing";
       }
       // A book handed over from the preparing view keeps its original on screen
       // until the full Reader is ready (usability round 2: a list of books
@@ -918,12 +950,14 @@ export function ReaderScreen({
               if (current()) setPdfViewPending(false);
             });
         }
+        return "opened";
       } catch (error) {
         setPreparingCard(null);
         onError(errorMessage(error));
         // A source that no longer opens (deleted, re-extracted away) must not
         // be resumed on every return to this tab.
         onSourceChange?.(null);
+        return "not_opened";
       } finally {
         openingRef.current = null;
         setOpening(null);
@@ -2084,13 +2118,14 @@ export function ReaderScreen({
   // book opens in the left pane as a detour (Alt+← comes back here). Defined
   // before every early return: the library page (no book open) uses it too,
   // through the exercise cards' actions (RW4b, Codex review F1).
-  const openLibraryHit = (hit: Pick<LibraryHitDto, "sourceId" | "extractionId" | "spanId">) => {
+  // It resolves to how the open ended (an offer's press settles on it, F9).
+  const openLibraryHit = (hit: Pick<LibraryHitDto, "sourceId" | "extractionId" | "spanId">): Promise<OpenOutcome> => {
     if (render && hit.sourceId === render.sourceId) {
       peekPassage(hit.spanId);
-      return;
+      return Promise.resolve("opened");
     }
     const card = (library ?? []).find((candidate) => candidate.sourceId === hit.sourceId);
-    if (!card || opening !== null) return;
+    if (!card || opening !== null) return Promise.resolve("not_opened");
     if (render && !offline) {
       const spanId = readingSpan ?? activeSpan;
       rememberLeftSource({
@@ -2099,19 +2134,32 @@ export function ReaderScreen({
         label: sourceTitle ?? "where I was", openedAt: Date.now(),
       });
     }
-    void openSource(card, hit.spanId, { via: "search", jumpReading: hit.extractionId });
+    return openSource(card, hit.spanId, { via: "search", jumpReading: hit.extractionId });
   };
-  // RW5b: an offered figure's press (see offeredFigure above).
-  // It resolves true once the build is requested, false when the press lapses.
-  const makeExplorable = (target: Pick<LibraryHitDto, "sourceId" | "extractionId" | "spanId">, origin: "library" | "tutor", offerRef: string): Promise<boolean> => {
-    if (!figureOffersOn) return Promise.resolve(false);
+  // RW5b: an offered figure's press (see offeredFigure above). It resolves to
+  // how the press ended: built, or why nothing was (fix round 2, F9).
+  const makeExplorable = (target: Pick<LibraryHitDto, "sourceId" | "extractionId" | "spanId">, origin: "library" | "tutor", offerRef: string): Promise<ExplorableOutcome> => {
+    if (!figureOffersOn) return Promise.resolve("figures_off");
     // A passage of another reading of the book open now: opening it again
     // opens this reading, where the offered block is not (Codex review F6).
-    if (render && target.sourceId === render.sourceId && target.extractionId !== render.extractionId) return Promise.resolve(false);
-    settleOffered(false); // an earlier press still waiting is replaced
-    const settled = new Promise<boolean>((resolve) => { offeredSettleRef.current = resolve; });
-    setOfferedFigure({ fromExtractionId: render?.extractionId ?? null, extractionId: target.extractionId, spanId: target.spanId, origin, offerRef });
-    if (!render || target.extractionId !== render.extractionId) openLibraryHit(target);
+    if (render && target.sourceId === render.sourceId && target.extractionId !== render.extractionId) return Promise.resolve("another_reading");
+    // An earlier press still waiting for its book is replaced.
+    if (waitingOfferRef.current) lapseOffered(waitingOfferRef.current, "replaced");
+    let settle: (outcome: ExplorableOutcome) => void = () => undefined;
+    const settled = new Promise<ExplorableOutcome>((resolve) => { settle = resolve; });
+    const press: OfferedPress = {
+      fromExtractionId: render?.extractionId ?? null, sourceId: target.sourceId, extractionId: target.extractionId,
+      spanId: target.spanId, origin, offerRef, settle,
+    };
+    waitingOfferRef.current = press;
+    setOfferedFigure(press);
+    if (!render || target.extractionId !== render.extractionId) {
+      // The detour: a book that did not open (or is still being prepared)
+      // lapses the press at once; one that opened builds in the effect above.
+      void openLibraryHit(target).then((opened) => {
+        if (opened !== "opened") lapseOffered(press, opened);
+      });
+    }
     return settled;
   };
   // RW2c review F1: a passage the workbench names (a worked example, a picked

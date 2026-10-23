@@ -186,9 +186,17 @@ def offered_spans(vault: Any, repository: Any, origin: str, offer_ref: str | Non
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
             ledger = judgments_by_ids(connection, [str(note.get("ledger_id") or "") for note in notes
                                                    if note.get("ledger_id")])
+        # The note's ledger row is the judgment (fix round 2, F8): the
+        # organizer's own task, on this very block, recording yes. Its left id
+        # is not compared with this ask: a second identical ask is answered
+        # from the ledger (rows keyed by the request, never the ask), and
+        # RW4d's fork copies the notes under a new id, so a row's left id is
+        # the ask that first paid for the judgment, not every ask showing it.
         said = {(str(note["key"]).split(":", 1)[0], str(note["key"]).split(":", 1)[1]) for note in notes
                 if LA.ledger_explorable(found := ledger.get(str(note.get("ledger_id") or "")))
-                and str(found.get("right_id")) == str(note["key"]) and str(found.get("left_id")) == str(offer_ref)}
+                and found.get("task") == LA.ORGANIZER_TASK.ledger_task
+                and found.get("left_kind") == LA.ORGANIZER_TASK.left_kind
+                and str(found.get("right_id")) == str(note["key"])}
     else:
         event = repository.question_event(offer_ref)
         view = ((event or {}).get("source_context") or {}).get("reader_tutor") or {}

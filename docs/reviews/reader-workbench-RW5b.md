@@ -229,3 +229,67 @@ routes (`test_exam_protection`, `test_exam_protection_review`, `test_judge_route
 (defaults snapshot), `test_registry_audit`, `test_cli_help_snapshot`, `test_sidecar_serializer_snapshot`,
 `test_desktop_rpc_contract`, `test_mobile_allowlist`, `test_architecture`, `test_table_roles`,
 `test_coordinated_migrations`, `test_tracked_fixture_databases`, `test_sqlite_file_copies`).
+
+## 7. Fix round 2 (orchestrator)
+
+The re-review of the Codex fix round (on `dc88795a0`) found F1-F7 clean and three new issues, all fixed
+here, each with a test that failed on `dc88795a0`. No migration, no successor, no model call (fakes only).
+
+- **F8 [Medium], a regression from F3's fix: a library offer on a repeated or forked ask was refused
+  `not_offered` on every press.** `offered_spans` required the note's ledger row's `left_id` to be this
+  ask, but listwise ledger ids are derived from the request (input hash and passage key), never the ask: a
+  second identical ask is answered from the ledger (`cached`) and its notes name the first ask's rows, and
+  RW4d's `fork_ask` copies `organizer_json` under a new id. **Chosen: drop the `left_id` comparison** and
+  pin the row structurally instead: the note's `ledger_id` row must be the organizer's own task and kind
+  (`task == library_contribution`, `left_kind == library_ask`, i.e. `ORGANIZER_TASK.ledger_task` /
+  `.left_kind`), on this very block (`right_id == note key`), recording `explorable: yes`. Not chosen:
+  recomputing the ledger id from this ask's request, because the id hashes the prompt as built at ask
+  time together with the route's model, output budget and reasoning effort; recomputing at press time
+  would refuse whenever any of those drifted since (a config change, a re-routed model), the same false
+  refusal in another form, and a fork has no request of its own to recompute. The task check matters now
+  that F10 puts the tutor's verdict in its rationale: a tutor `figure_explorable` yes on the same block
+  cannot stand in for the organizer's row.
+  Tests (`tests/test_figures_rw5b_fix_round2.py`): the same question asked twice, pressed on the second
+  ask (one organizer call; the note's row has the first ask's `left_id`; builds); a forked ask pressed on
+  the fork (builds); a note pointed at the tutor's yes row on the same block is refused (a guard for the
+  new check; it also passed before, where the `left_id` and the empty rationale refused it).
+- **F9 [Low]: a library press could say "building it under the passage" forever.** The Reader settled the
+  press `true` at dispatch, and never when the detour's book did not open (`openLibraryHit` returned
+  early, or `openSource` caught its error) or figures were off when the book opened (the effect returned
+  and kept waiting; it would even build later, unseen, if they came back on). Now `useFigures.request`
+  resolves to the build's outcome (`shown | not_shown | cancelled | skipped`); `openSource` and
+  `openLibraryHit` resolve to how the open ended (`opened | preparing | not_opened`); each press carries its
+  own `settle`, and the Reader settles it on what actually happened. The hit says `built under the
+  passage`, or goes back to its button with a line naming the outcome: refused or failed, stopped,
+  another reading, another book opened first, another passage pressed first, that book did not open, still
+  being prepared, figures switched off (`LIBRARY_EXPLORABLE_COPY.lapsed`, typed against
+  `ExplorableOutcome`). With no book on screen (the library page) the open's own outcome settles the press.
+  Tests: `src/screens/reader/figures/libraryOfferSettle.test.tsx` (new, the Reader end to end: a press in
+  this book the server refuses `not_offered`; a press in this book that builds says building until the
+  figure lands, then built; a detour whose book fails to open; a detour that opens after figures went off,
+  then figures come back on: no build, the line says figures are off). All four failed on `dc88795a0`'s
+  sources (the hit kept "building it under the passage"). `advancedPanels.test.tsx`: the F6 lapse test and
+  the "keeps saying so" test moved to the outcome API, plus one case per lapsed outcome (8).
+- **F10 [Low]: the tutor's `figure_explorable` ledger rows hashed the verdict into `input_hash`**, so
+  `ai/agreement.py` (which pairs by input hash) could never pair an owner or verifier label with them, and
+  the rationale was `""`. Now `input_hash = content_key([prompt_version, event_id, extraction_id,
+  span_id])[:40]` (the input only) and `rationale = {"explorable": "yes"|"no"}`. The row id
+  (`tutor_explorable_judgment_id`) is unchanged, so the F1 tutor press path reads the same rows (it checks
+  task, left id and verdict); a test presses a tutor offer through it. Tests: the hash and rationale for a
+  yes and a no verdict; the tutor press still builds from its rows.
+
+Changed source: `src/learnloop_sidecar/handlers/figures.py` (`offered_spans`), `src/learnloop/tutor/tutor_qa.py`
+(`_record_explorable_verdicts`), `ReaderScreen.tsx`, `reader/LibraryAnswer.tsx`, `reader/LibraryPane.tsx`,
+`reader/figures/useFigures.ts`, `reader/useReaderInquiry.ts` (its `openSourceRef` type returns `Promise<unknown>`).
+
+Gate (memory rule: every pytest/vitest/npm command under `systemd-run --user --scope -p MemoryMax=5G
+-p MemorySwapMax=1G`, pytest `-n 6`, vitest `--maxWorkers=4`, `TMPDIR=fixtures-local/tmp`, one at a time):
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` (under `env -i`, empty HOME/CODEX_HOME/LEARNLOOP_CONFIG_DIR) | **30 kept, 0 broken** |
+| targeted pytest: §6's list plus `test_figures_rw5b_review`, `test_figures_rw5b_fix_round2`, `test_decider_agreement` (72 files) | **2,224 passed, 1 skipped** (the pre-existing golden-writer skip), 247 s |
+| targeted vitest: `src/screens/reader` (all), `src/screens/ReaderScreen.*`, `src/app/App.wrapUpSkim.test.tsx`, `src/screens/attentionBudget.test.tsx` | **81 files, 778 passed** |
+| `npm run typecheck` | ok, no errors |
+| `npm run frontend:build` | ok (the existing chunk-size warning only) |
+| `cargo check`, DB reference, durability lane | not run: nothing under `src-tauri`, no migration, no schema or connection change |

@@ -193,8 +193,13 @@ def _record_explorable_verdicts(repository: Repository, event_id: str, answer: A
                     connection, id=ids[key], task=TUTOR_EXPLORABLE_TASK, left_kind="question_event",
                     left_id=str(event_id), right_kind="source_span", right_id=f"{key[0]}:{key[1]}", judge="llm",
                     judge_model=model or "unspecified", prompt_version=prompt_version,
-                    input_hash=content_key([str(event_id), *key, verdict])[:40], verdict=verdict,
-                    score=1.0 if verdict == "yes" else 0.0, rationale="", created_at=utc_now_iso(clock))
+                    # The input only (fix round 2, F10): an owner or verifier
+                    # label on the same answer and block pairs with this row
+                    # (ai/agreement.py matches on input_hash); the verdict is
+                    # the row's verdict, and its rationale says it.
+                    input_hash=content_key([prompt_version, str(event_id), *key])[:40], verdict=verdict,
+                    score=1.0 if verdict == "yes" else 0.0, rationale=json.dumps({"explorable": verdict}),
+                    created_at=utc_now_iso(clock))
     except Exception as exc:  # noqa: BLE001 - offers are optional
         logger.warning("tutor explorable verdicts not recorded: %s", type(exc).__name__)
 

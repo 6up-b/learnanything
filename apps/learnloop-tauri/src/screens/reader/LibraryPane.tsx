@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import type { LibraryHitDto, ProposedItemDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { MIN_WORKBENCH_WIDTH, SPLIT_STEP, clampSplitWidth } from "../workbench/splitWidth";
-import { LibraryAnswer, type LibraryExercisesProps } from "./LibraryAnswer";
+import { LibraryAnswer, type ExplorableOutcome, type LibraryExercisesProps } from "./LibraryAnswer";
 import { LIBRARY_COPY, type LibraryAskController } from "./useLibraryAsk";
 
 const WIDTH_KEY = "ll.library.splitWidth";
@@ -51,7 +51,7 @@ export function LibraryPane({
   /** RW4b's candidate view (absent while library_exercises is off). */
   exercises?: LibraryExercisesProps | null;
   /** RW5b: an offered figure's press (absent while figures.offers_enabled is off). */
-  onMakeExplorable?: ((hit: LibraryHitDto, offerRef: string) => Promise<boolean> | void) | null;
+  onMakeExplorable?: ((hit: LibraryHitDto, offerRef: string) => Promise<ExplorableOutcome> | void) | null;
 }) {
   const [width, setWidth] = useState(() => clampSplitWidth(readWidth() ?? Math.floor(window.innerWidth / 2), window.innerWidth));
   const inputRef = useRef<HTMLInputElement | null>(null);

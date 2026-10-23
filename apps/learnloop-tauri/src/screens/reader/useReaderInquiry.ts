@@ -151,7 +151,7 @@ export interface ReaderInquiryInput {
   /** The screen's openSource (a restore may reopen the source a detour left). */
   openSourceRef: MutableRefObject<
     ((card: SourceLibraryCard, jumpSpan?: string,
-      options?: { via?: "search" | "restore"; jumpReading?: string | null }) => Promise<void>) | null
+      options?: { via?: "search" | "restore"; jumpReading?: string | null }) => Promise<unknown>) | null
   >;
 }
 

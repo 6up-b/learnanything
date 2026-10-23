@@ -234,22 +234,35 @@ it("with offers off (no explorable field, no handler) the library answer has no 
 });
 
 it("a library press that lapses goes back to its button and says nothing was built (Codex review F6)", async () => {
-  // The Reader settles a press false when the hit's book opened on another
-  // reading (or another book opened first): nothing builds.
-  const pressed = vi.fn(() => Promise.resolve(false));
+  // The Reader settles a press with what happened: here the hit's book opened
+  // on another reading, so nothing builds.
+  const pressed = vi.fn(() => Promise.resolve("another_reading" as const));
   render(<LibraryAnswer ctl={libraryCtl([LIBRARY_NOTE])} onOpenHit={null} onPracticePick={null} onClose={vi.fn()} onMakeExplorable={pressed} />);
   fireEvent.click(screen.getByRole("button", { name: LIBRARY_EXPLORABLE_COPY.make }));
   expect(pressed).toHaveBeenCalledTimes(1);
-  expect(await screen.findByText(LIBRARY_EXPLORABLE_COPY.lapsed)).toBeTruthy();
+  expect(await screen.findByText(LIBRARY_EXPLORABLE_COPY.lapsed.another_reading)).toBeTruthy();
   expect(screen.queryByText(LIBRARY_EXPLORABLE_COPY.building)).toBeNull();
   expect(screen.getByRole("button", { name: LIBRARY_EXPLORABLE_COPY.make })).toBeTruthy();
 });
 
-it("a library press that builds keeps saying so", async () => {
-  const pressed = vi.fn(() => Promise.resolve(true));
+it("a library press says building until its build ends, then that it was built (fix round 2, F9)", async () => {
+  let finish: (outcome: "built") => void = () => undefined;
+  const pressed = vi.fn(() => new Promise<"built">((resolve) => { finish = resolve; }));
   render(<LibraryAnswer ctl={libraryCtl([LIBRARY_NOTE])} onOpenHit={null} onPracticePick={null} onClose={vi.fn()} onMakeExplorable={pressed} />);
   fireEvent.click(screen.getByRole("button", { name: LIBRARY_EXPLORABLE_COPY.make }));
   await act(async () => { await Promise.resolve(); });
   expect(screen.getByText(LIBRARY_EXPLORABLE_COPY.building)).toBeTruthy();
   expect(screen.queryByRole("button", { name: LIBRARY_EXPLORABLE_COPY.make })).toBeNull();
+  await act(async () => { finish("built"); });
+  expect(screen.getByText(LIBRARY_EXPLORABLE_COPY.built)).toBeTruthy();
+  expect(screen.queryByText(LIBRARY_EXPLORABLE_COPY.building)).toBeNull();
+});
+
+it.each(Object.entries(LIBRARY_EXPLORABLE_COPY.lapsed))("a press that ended %s says so and offers the button again (fix round 2, F9)", async (outcome, line) => {
+  const pressed = vi.fn(() => Promise.resolve(outcome as keyof typeof LIBRARY_EXPLORABLE_COPY.lapsed));
+  render(<LibraryAnswer ctl={libraryCtl([LIBRARY_NOTE])} onOpenHit={null} onPracticePick={null} onClose={vi.fn()} onMakeExplorable={pressed} />);
+  fireEvent.click(screen.getByRole("button", { name: LIBRARY_EXPLORABLE_COPY.make }));
+  expect(await screen.findByText(line)).toBeTruthy();
+  expect(screen.queryByText(LIBRARY_EXPLORABLE_COPY.building)).toBeNull();
+  expect(screen.getByRole("button", { name: LIBRARY_EXPLORABLE_COPY.make })).toBeTruthy();
 });
