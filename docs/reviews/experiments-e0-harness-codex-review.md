@@ -786,3 +786,140 @@ Every pytest ran inside `systemd-run --user --scope -p MemoryMax=5G -p MemorySwa
 - Dry run under `env -i`, no keys, `network_calls: 0`: plan `e0_a47534fecc49ded5`, $37.84 of $40, unchanged. The artifacts were not refreshed: the plan is identical.
 
 The only network requests of this round were the four documentation reads listed above, plus `docs.perplexity.ai/llms.txt` to find them. One guessed URL (`/api-reference/contextualizedembeddings-post`) returned 404.
+
+## Paid run 2: the incomplete rerun's three failures (2026-10-23)
+
+The rerun of plan `e0_a47534fecc49ded5` used the same ledger and exited 0 with status INCOMPLETE.
+- It committed $1.38 of $40: labels 0.92, drafting 0.29, answers 0.14, embeddings 0.03.
+- It made 640 requests, with 0 refusals, 0 overages and 0 Codex.
+- Every embedding arm ran, Perplexity included.
+
+Both vaults stopped their labels on `provider failure (invalid_output)`, so no answers were made. R3 failed `truncated` in both vaults. In probability, one Qwen backfill batch was rejected.
+
+### How each was diagnosed (no body, key or model text read or printed)
+
+The sources were:
+- the ledger;
+- the `.failed.json` markers in `runs/.../llm/`, which map a failed checkpoint key to its ledger entries;
+- the safe columns of `model_call_receipts`;
+- a validation run over the stored outputs that printed only JSON types, counts, allowlisted field names and pydantic `loc:type` codes.
+
+| Failure | Role / model | Finding |
+|---|---|---|
+| linear_algebra labels | `label_a`, Claude Haiku 5.5 | **Cause:** valid JSON (1,582 chars) with one extra top-level key, a misspelled duplicate of `answerable` (`aswerable`). `LabelPass` (`extra="forbid"`) rejected it as `?:extra_forbidden`. **Usage:** output 1,994 of 8,192 tokens, `end_turn`, so the answer was not truncated. |
+| probability labels | `label_b`, Claude Sonnet 5.5 | **Cause:** 202 chars holding two different valid `SufficiencyPass` objects with 83 chars of prose between them (the model revised its answer). The old parse sliced from the first `{` to the last `}`: `json Extra data at char 70`. **Usage:** 95 output tokens, `end_turn`. |
+| R3, both vaults | `context`, Claude Haiku 5.5 | **Cause:** a 40-ref window stopped at `max_tokens` 16,384 (`stop_reason: max_tokens`). **Evidence:** the visible text was about 18 KB, about 5,000 tokens, so most of the output tokens were thinking. Visible chars per output token were 1.1-1.6 on context calls, about 0.8 on Haiku labels and about 1.9 on Sonnet labels. Adaptive thinking is the documented default for Haiku, Sonnet and Opus 5.5, and it counts in `output_tokens` and against `max_tokens` (Claude API reference, Thinking & Effort). The successful windows had up to 43 refs at 11,096 output tokens, so how much a window thinks varies. |
+| probability Qwen backfill | the production `openai_embedding` client | **Cause:** a paid 200 (the 6th receipt reported 1,654 input tokens against 2,600-3,300 for the full batches before it) whose vectors failed the production contract check. The client raised `ValueError`; the backfill reports `provider_failed` and does not save or retry the batch. **Gap:** E0's report kept only `status/records/embedded/reason`, so the error class and the exact check were not visible. **Ruled out**, offline on a scratch copy of the service copy: an oversized or empty input. The 177 pending records are at most 3,398 UTF-8 bytes; the client's limit is 32,768. |
+
+### Fixes
+
+1. **Labels (`anthropic_api.parse_answer`, one repair).**
+   - The parse decodes every top-level JSON object in the text blocks of the documented response (`content[]` of type `text`; `thinking` blocks are skipped).
+   - Exactly one object that validates is the answer. Prose or a fence around it is tolerated, and duplicates that are equal are accepted.
+   - Otherwise the failure is `invalid_output` with a safe reason. Examples: `validation ?:extra_forbidden`, `2 different JSON objects validate`, `json <decoder message> at char N`, `no JSON object`.
+   - An `invalid_output` gets **one admitted repair**: the same system prompt and `max_tokens`, with the model's own answer and the safe reason. This is the production providers' JSON-repair pattern. It is a separate POST, admitted by the same request gate, so it is reserved at its hard maximum before it is sent.
+   - A `max_tokens` or `refusal` stop is never repaired.
+   - The spec's "zero retries for contract errors" covers transport and contract failures. A repair is a regeneration of an unusable answer, and every paid attempt counts.
+   - The bounds are unchanged (label A and B 8,192; adjudicator 16,384). Those calls used at most about 2,000 output tokens, and changing a pin would change the plan id and re-key every checkpoint.
+2. **R3 (`retrieval.generate_contexts`).**
+   - A window request that stops at `max_tokens` is split into halves of its refs, down to one ref.
+   - Each half shows the whole window excerpt and lists `only_refs`.
+   - The whole-window prompt is unchanged byte for byte, so every window that succeeded reuses its checkpoint.
+   - A single ref that still fails (`truncated`, `invalid_output` or `refusal`) leaves that unit without a context, counted in `context_missing` and `context_requests_failed`. It no longer blocks R3 for every window.
+   - **No re-send at the same bound:** `LiveRoleCaller` refuses to send a request again that is known to have truncated at that `max_tokens`. That is known from the new failure record, or, for the first paid run's markers, from a ledger entry whose `output_tokens` reached the bound. The split then takes over.
+   - The `context` pin's 16,384 is unchanged, for the same plan-id reason.
+   - The admission maths stay conservative: `max_tokens` already reserves the whole output side, thinking included.
+3. **One item's unusable answer no longer stops the step.**
+   - In `label_all`, the audits and the answer schedule, an `E0ProviderFailure` classified `invalid_output`, `refusal` or `truncated` fails that question or pair only. It is counted (`labels_failed`, `labels_<kind>`, `audit_<kind>`, `answer_<kind>`, `answers_missing`) and the step goes on.
+   - Auth, budget, transient-past-retries and every other failure still stop the step.
+4. **Qwen backfill (`system_arms.backfill_service_copy`).**
+   - The `ProtectedTextGuard` wrapper records the production client's `ValueError` by its fixed message. The messages are allowlisted (`EMBEDDING_CONTRACT_ERRORS`), anything else is `other ValueError`, and a test pins every message to the production source.
+   - The guard also names the backfill's own wrong-count/width check.
+   - The report keeps `error_type`, `provider_error`, `invalid_reasons`, `remaining` and `pass`.
+   - A pass that ends `provider_failed` gets **one more pass** in the same run. The production backfill re-plans only the missing vectors, so only the unsaved batch is sent again, and it is admitted.
+5. **Diagnosable failures.**
+   - `E0ProviderFailure` now carries a safe `reason` and `details`: `stop_reason` (allowlisted), `output_tokens`, `input_tokens`, `max_tokens`, the content block types, and `repaired`.
+   - Its message is `provider failure (<kind>: <reason>)`, and that message reaches `results.json`'s failures.
+   - Each failed role call's `.failed.json` is now `{"reservations": [...], "failure": {role, classification, reason, status_code, request_id, details}}`. The first run's bare list is still read.
+
+### Tests (`tests/test_e0_review_round8.py`, 16, documented Messages shapes)
+
+The fake responses carry a `thinking` block with empty text, then the `text` block, a `stop_reason`, and `usage.output_tokens` that includes thinking.
+
+The tests cover:
+- the misspelled-key answer, named safely and repaired once (two admitted entries, same `max_tokens` and system prompt);
+- the two-object answer;
+- a single object in prose or a fence, with no repair;
+- a failed repair, with both reasons and no model text;
+- `max_tokens` and `refusal`, never repaired, with their details;
+- the failure record on disk;
+- the known-truncated request not re-sent, including from the first run's marker format via the ledger;
+- R3 splitting until every unit has a context, with the window's original prompt unchanged;
+- a single ref that still truncates, counted, not a stop;
+- labels going on past one question's failure, while auth still stops them;
+- the backfill reporting its reason and finishing coverage on the extra pass;
+- the allowlisted messages and an unknown message reduced to `other ValueError`;
+- the plan id unchanged.
+
+### Resume (no live call made by the agent)
+
+- **Same plan, same ledger.**
+  - No pin changed: `pins_fingerprint()` is still `883d5380…63b6`.
+  - The `env -i` dry run on the same copies printed run `e0_a47534fecc49ded5`, with a plan JSON identical to the committed artifact apart from the timestamp.
+  - The rerun reopens `fixtures-local/contextual-embeddings/ledger/e0_a47534fecc49ded5.ledger`, and its $1.38 counts against the $40.
+- **What is reused:**
+  - every settled role call by its checkpoint: the 121 label passes, the writer drafts, and the 32 context windows that finished;
+  - the judgments already recorded (`judgment_ledger` appends are idempotent);
+  - the receipts;
+  - every stored embedding vector and query vector;
+  - the cached first canary outputs (the canaries go out again and compare `stable`);
+  - both service copies (state `ready`, same identity: reopened, not rebuilt);
+  - the Qwen vectors already saved.
+- **What is sent again, once:**
+  - the two failed label calls (label A in linear_algebra, label B in probability), plus at most one repair each;
+  - the probability backfill's missing records: 177 of 337, the rejected batch and the batches after it (about $0.0002);
+  - the halves of the truncated linear_algebra context window. The window's own request is not re-sent: its ledger entry reports 16,384 output tokens at a 16,384 bound;
+  - everything never reached: 67 questions' labels, the audits, and every answer.
+- **Never re-sent:** a request with an admitted but unexplained entry (no checkpoint, no failure record) is still blocked (fix round 4, Medium 11).
+
+### Expected additional spend
+
+The dry run prices the whole plan; it has no remaining-work mode. Two estimates:
+
+- **Plan-based upper estimate: about $32.**
+  - Labels and audits: 67 of 86 questions remain, so about $18.4 of the plan's $23.62.
+  - Answers and verification: none made yet, so the plan's $13.67.
+  - Drafting: under $0.10 (the split R3 halves).
+  - Embeddings: under $0.01.
+  - With the $1.38 committed, that totals about $33.5 of $40. It fits.
+- **Observed-rate estimate: about $8-12.**
+  - The plan's per-request estimates are far above what this run measured. Label passes cost about $0.048 per question (121 calls, $0.91), so 67 questions are about $3.2.
+  - The Opus audits come to about $0.07 each.
+  - The Haiku tutor and judges come to about $0.006 per pair.
+- **Not in the plan:** the repair requests. Each is admitted at its hard maximum, so the cap still holds.
+
+### The rerun command (for the orchestrator; not run here). No `--new-authorization`.
+
+```
+cd /home/saturn/Documents/thinking/learnanything-e0
+uv run learnloop experiments e0 run \
+  --copy fixtures-local/contextual-embeddings/vaults/linear_algebra-20261021 \
+  --copy fixtures-local/contextual-embeddings/vaults/probability-20261021 \
+  --env-file /home/saturn/.config/learnloop/settings.env \
+  --env-file /home/saturn/Documents/thinking/learnanything/settings.env \
+  --anthropic-key-env ANTHROPIC_API_KEY --openrouter-key-env OPENROUTER_API_KEY \
+  --perplexity-key-env PERPLEXITY_API_KEY --voyage-key-env VOYAGE_API_KEY \
+  --run-dir fixtures-local/contextual-embeddings/runs \
+  --reader-latency-budget-s <SECONDS> \
+  --i-am-authorized-to-spend --json
+```
+
+### Gate
+
+Every pytest ran inside `systemd-run --user --scope -p MemoryMax=5G -p MemorySwapMax=1G -- uv run pytest -n 4`.
+
+- **pytest:** 33 files (the 32 of the previous round plus `tests/test_e0_review_round8.py`): **557 passed, 1 skipped**.
+  - One test expectation changed: `test_the_label_passes_never_reach_a_codex_turn`. Its fake answer does not validate, so each pass now also makes its one repair POST. The routing it checks (Haiku, then Sonnet, never Codex) is unchanged.
+- **lint-imports** (`env -i`): **30 kept, 0 broken**.
+- **Fail-before** on `1bb7b87bd`'s `src`: `tests/test_e0_review_round8.py` does not import (`parse_answer` does not exist there).
+- **Dry run:** unchanged, so the artifacts were not refreshed.
