@@ -3,8 +3,8 @@ title: "Config - reader_compare"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "87c9b9a4a94630287dd2e9fa6ecb7cd6544f9f1a"
-source_commit_timestamp: "2026-10-21T10:09:53-04:00"
+source_commit: "50126c457357ee8fd2d876b30e573f9204f21575"
+source_commit_timestamp: "2026-10-23T11:30:49-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml reader_compare"
@@ -31,7 +31,7 @@ source_paths:
   - "tests/test_chatgpt_plan_provider.py"
   - "tests/test_cli_ingest.py"
   - "tests/test_codex_isolation_mcp_check.py"
-  - "tests/test_compare_keep_switch_off.py"
+  - "tests/test_codex_tool_lockdown.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/reader-compare"
@@ -52,8 +52,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `reader_compare.enabled` | `true` | boolean | modeled default or validator seed | Turns reader compare behavior on or off within reader workbench RW4a: the Reader's compare table over the sources service's compare_sources (one row per source, each line quoting its own source, no consensus; display only until RW4d's keep): the kill switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2437`; `src/learnloop/source_retrieval/kept_comparisons.py:133`; `src/learnloop/source_retrieval/library_ask.py:165` |
-| `reader_compare.keep_enabled` | `true` | boolean | modeled default or validator seed | Turns keep behavior on or off within reader workbench RW4a: the Reader's compare table over the sources service's compare_sources (one row per source, each line quoting its own source, no consensus; display only until RW4d's keep): the kill switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2438`; `src/learnloop/source_retrieval/kept_comparisons.py:124` |
+| `reader_compare.enabled` | `true` | boolean | modeled default or validator seed | Turns reader compare behavior on or off within reader workbench RW4a: the Reader's compare table over the sources service's compare_sources (one row per source, each line quoting its own source, no consensus; display only until RW4d's keep): the kill switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2498`; `src/learnloop/source_retrieval/kept_comparisons.py:133`; `src/learnloop/source_retrieval/library_ask.py:165` |
+| `reader_compare.keep_enabled` | `true` | boolean | modeled default or validator seed | Turns keep behavior on or off within reader workbench RW4a: the Reader's compare table over the sources service's compare_sources (one row per source, each line quoting its own source, no consensus; display only until RW4d's keep): the kill switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2499`; `src/learnloop/source_retrieval/kept_comparisons.py:124` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -73,7 +73,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_chatgpt_plan_provider.py`
 - `tests/test_cli_ingest.py`
 - `tests/test_codex_isolation_mcp_check.py`
-- `tests/test_compare_keep_switch_off.py`
+- `tests/test_codex_tool_lockdown.py`
 
 ## Extension and modification guidance
 
