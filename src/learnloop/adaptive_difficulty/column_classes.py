@@ -203,6 +203,9 @@ _CLASSES: dict[str, tuple[str, str]] = {
     "facet_registry_saves": (
         "id created_at status judgment_ids_json action_ids_json applied_at abandoned_at",
         "facets_json settle_detail_json"),
+    "figure_predictions": (
+        "id figure_id extraction_id prediction_index matched created_at",
+        "learner_answer observed_json explanation_text"),
     "fitted_parameters": (
         "id scope fitted_at algorithm_version training_rows_count active deactivated_at created_at",
         "params_json training_data_through metrics_json"),
@@ -271,6 +274,10 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "activity_id payload_hash client_idempotency_key producer_version app_version policy_version "
         "supersedes_event_id",
         "payload_json actor locator_json privacy_locality consent_context"),
+    "interactive_figures": (
+        "id extraction_id span_ids_json asset_id input_span_ids_json origin supersedes_id spec_version kind "
+        "verification unsupported_kind model prompt_version input_hash created_at",
+        "region_json revision_note spec_json verification_report_json"),
     "item_forecast_payloads": (
         "id owner_key forecaster kind content_hash created_at",
         "content_json"),
@@ -340,6 +347,10 @@ _CLASSES: dict[str, tuple[str, str]] = {
     "outcome_schemas": (
         "id slug kind created_at",
         ""),
+    "passage_links": (
+        "id extraction_id span_id target_kind target_id relation pick_rank ledger_id state_key model "
+        "prompt_version created_at",
+        "quote ranks_json roles_json target_facets_json"),
     "pf_candidates": (
         "id run_id mint_request_id family_id parent_item_id learning_object_id prompt_version "
         "content_hash status difficulty difficulty_source published_item_id published_at created_at "
@@ -422,6 +433,17 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "answered_at practice_item_id created_at updated_at scope_kind anchor_span_ids_json "
         "inquiry_root_event_id",
         "question_md expected_answer_md response_md question_style self_check answer_basis"),
+    "reader_cue_impressions": (
+        "id cue_id link_id extraction_id span_id learning_object_id kind visit_id shown suppressed_reason "
+        "propensity seed p_open p_open_source density response created_at responded_at response_text_hash",
+        ""),
+    "reader_path_depths": (
+        "id source_id depth created_at",
+        ""),
+    "reader_path_sections": (
+        "id extraction_id depth section_id label learner_override exercise_span_id ledger_id state_key model "
+        "prompt_version created_at",
+        "reason"),
     "reader_section_progress": (
         "extraction_id section_id spans_seen span_count revealed_at completed_at generation_batch_id "
         "updated_at",

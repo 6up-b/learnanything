@@ -80,6 +80,7 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("facet_merges", NEUTRAL),
     ("facet_recall_state", DENIED),
     ("facet_registry_saves", NEUTRAL),
+    ("figure_predictions", PROTECTED),
     ("fitted_parameters", DENIED),
     ("followup_tasks", DENIED),
     ("forecast_receipts", PROTECTED),
@@ -94,6 +95,7 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("ingest_job_dependencies", NEUTRAL),
     ("ingest_jobs", NEUTRAL),
     ("interaction_events", PROTECTED),
+    ("interactive_figures", PROTECTED),
     ("item_forecast_payloads", PROTECTED),
     ("item_forecast_scores", PROTECTED),
     ("item_parameter_state", DENIED),
@@ -111,6 +113,7 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("model_work_checkpoints", NEUTRAL),
     ("outcome_schema_versions", NEUTRAL),
     ("outcome_schemas", NEUTRAL),
+    ("passage_links", PROTECTED),
     ("pf_candidates", PROTECTED),
     ("plan_presentations", PROTECTED),
     ("practice_attempts", PROTECTED),
@@ -127,6 +130,9 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("queue_state", NEUTRAL),
     ("raw_grade_events", DENIED),
     ("reader_authored_questions", PROTECTED),
+    ("reader_cue_impressions", PROTECTED),
+    ("reader_path_depths", NEUTRAL),
+    ("reader_path_sections", PROTECTED),
     ("reader_section_progress", PROTECTED),
     ("reveal_events", PROTECTED),
     ("rung_variant_requests", DENIED),
@@ -287,9 +293,28 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
         values="id receipt_key presentation_kind probe_presentation_id scheduler_candidate_id learning_object_id "
                "served_at stamped_features_json task_feature_schema audit_json resolved_features_json signals_json "
                "z_v1_recalibration pre_exposed resolution_version loadings_json coupling_version created_at"),
+    # Main's RW5a (migration 216; the compose round): a figure built over a reading's spans and the
+    # learner's predictions on it are READING rows; the built spec and its check, from the spans sent
+    # (a tutor or library figure can send spans of other readings), are never read as stored.
+    "figure_predictions": _table({"extraction_id": "extraction"},
+        values="id figure_id prediction_index learner_answer observed_json matched explanation_text created_at"),
+    "interactive_figures": _table({
+        "extraction_id": "extraction", "span_ids_json": "spans@extraction_id",
+        "input_span_ids_json": "spans@extraction_id",
+    },
+        values="id region_json asset_id origin supersedes_id revision_note spec_version kind verification "
+               "unsupported_kind model prompt_version input_hash created_at",
+        derived="spec_json verification_report_json"),
     "judgment_ledger": _table({"left_id": "entity@left_kind", "right_id": "entity@right_kind"},
         values="id created_at supersedes_id task left_kind right_kind judge judge_model prompt_version input_hash "
                "verdict score rationale"),
+    # Main's RW3b (migration 215; the compose round): a cue is a reading's passage picked for one of
+    # the incumbent's diagnosis targets (a recurrence group, a hypothesis, a misconception, a gap, a
+    # demonstrated facet, an unchecked claim) and ranked against other passages: a READING row whose
+    # target, ranks and judged roles are the incumbent's state and other readings, never read as stored.
+    "passage_links": _table({"extraction_id": "extraction", "span_id": "span@extraction_id"},
+        values="id quote ledger_id model prompt_version created_at",
+        derived="target_kind target_id relation pick_rank ranks_json roles_json target_facets_json state_key"),
     "pf_candidates": _table({"parent_item_id": "item", "published_item_id": "item", "content_hash": "revision"},
         values="id run_id mint_request_id round tier family_id learning_object_id generation_path declared_relation "
                "final_relation proposer_model prompt_version payload_json verification verification_check status "
@@ -330,6 +355,19 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
         values="section_id source_id question_md expected_answer_md prompt_version provider model status response_md "
                "answered_at created_at updated_at scope_kind question_style inquiry_root_event_id self_check "
                "answer_basis"),
+    # RW3b's impressions: a READING row per visit and cue; the cue's target and its open-propensity
+    # (the learner model's) and the holdout's draw are never read as stored.
+    "reader_cue_impressions": _table({"extraction_id": "extraction", "span_id": "span@extraction_id"},
+        values="id cue_id link_id visit_id shown seed response response_text_hash created_at responded_at",
+        derived="kind learning_object_id suppressed_reason propensity p_open p_open_source density"),
+    # Main's RW7a (migration 217; the compose round): the path judge's label per reading, depth and
+    # learner state is a READING row; the label, its reason and the state key it was judged under
+    # (the incumbent's learner state) are never read as stored.
+    "reader_path_sections": _table({
+        "extraction_id": "extraction", "section_id": "section@extraction_id", "exercise_span_id": "span@extraction_id",
+    },
+        values="id depth learner_override ledger_id model prompt_version created_at",
+        derived="label reason state_key"),
     "reader_section_progress": _table({"extraction_id": "extraction", "section_id": "section@extraction_id"},
         values="revealed_at completed_at generation_batch_id updated_at", derived="spans_seen span_count"),
     "reveal_events": _table({
@@ -410,6 +448,9 @@ INCUMBENT_READERS = frozenset({
     "learnloop.scheduling.controller_ownership",
     "learnloop.scheduling.controller_snapshot",
     "learnloop.scheduling.controller_store",
+    # Main's DL2 moved the staged frame's mandatory-set evaluation (``evaluate_mandatory``) out of
+    # ``daily_plan.staged_frame`` into its own module: the same incumbent constraint code (the compose round).
+    "learnloop.scheduling.frame_constraints",
     "learnloop.scheduling.serving_exclusions",
 })
 
@@ -447,6 +488,18 @@ DERIVED_TREATMENT: Mapping[tuple[str, str], str] = MappingProxyType({
                                                "section's completion only",
     ("reader_section_progress", "span_count"): "unread: counts over the section's spans; AD reads a "
                                                "section's completion only",
+    # The compose round (main 558e85ab1): AD reads none of RW3b's, RW5a's or RW7a's tables.
+    **{("interactive_figures", column): "unread: a model's figure from the spans sent, which can cite other "
+                                        "readings; AD reads no figure" for column in ("spec_json", "verification_report_json")},
+    **{("passage_links", column): "unread: the cue judge's pick for an incumbent diagnosis target, ranked "
+                                  "against other passages; AD reads no cue" for column in (
+        "target_kind", "target_id", "relation", "pick_rank", "ranks_json", "roles_json", "target_facets_json",
+        "state_key")},
+    **{("reader_cue_impressions", column): "unread: the cue's target and the learner model's open-propensity "
+                                           "and the holdout's draw; AD reads no impression" for column in (
+        "kind", "learning_object_id", "suppressed_reason", "propensity", "p_open", "p_open_source", "density")},
+    **{("reader_path_sections", column): "unread: the path judge's label under the incumbent's learner state; "
+                                         "AD reads no reading path" for column in ("label", "reason", "state_key")},
 })
 
 #: The READING tables (round 8, Option B): rows that describe a reading's structure or a reading
@@ -461,6 +514,9 @@ READING = frozenset({
     "source_document_blocks", "source_document_units", "source_document_assets", "source_exposure_events",
     "reader_section_progress", "reader_authored_questions", "question_events", "source_span_reanchors",
     "ad_reading_opportunities", "ad_dose_offers", "interaction_events",
+    # The compose round (main 558e85ab1): RW3b's cues and impressions, RW5a's figures and predictions,
+    # RW7a's path labels (none is attempt evidence).
+    "passage_links", "reader_cue_impressions", "interactive_figures", "figure_predictions", "reader_path_sections",
 })
 #: Tables with extraction-like references that are ITEM provenance, not reading: judged by the
 #: withheld material itself, as before (an item's own sources), each with why.

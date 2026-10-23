@@ -12,7 +12,7 @@ read the AD2/AD3 report on a backup copy (spec §10.4, §14).
 
 ## 0. Plan (written before any code or replay)
 
-**What AD2+AD3 is.** One algorithm successor (the next free tag, `mvp-0.28`): AD's own posterior
+**What AD2+AD3 is.** One algorithm successor (`mvp-0.30`: built as the next free tag `mvp-0.28` and renumbered after DL2's `mvp-0.29` at the compose round; `mvp-0.28` is never used): AD's own posterior
 (§5) in two views (`subject`, `lo:<id>`), practice draws in the band over the slot support of a
 planned new-material slot (§6.1-6.2), commission draws and the generation contract (§7.1, §7.4),
 the subject view steering live with learned relatedness (§5.10) and reading (§5.11), the readiness
@@ -42,7 +42,7 @@ Outside the successor, in the same stage: the randomized dose offers in the Read
   - `successor.py` (the version gate and the six switches).
 - `src/learnloop/sim/ad_synthetic.py` (synthetic learners, vaults with known structure, synthetic
   readers; drives the real `model.py` and `selection.py`).
-- `src/learnloop/ad_successor_upgrade.py` (`learnloop upgrade --to mvp-0.28`).
+- `src/learnloop/ad_successor_upgrade.py` (`learnloop upgrade --to mvp-0.30`).
 - `src/learnloop/db/stores/ad_serving.py` (the only SQL writer of migration 214's tables).
 - `migrations/214_adaptive_difficulty_serving.sql`.
 - Sidecar: `handlers/adaptive_difficulty.py` (the Reader's dose offer and its uptake; the readiness
@@ -61,7 +61,7 @@ slot draw, `item_substituted`, `item_displaced` with `ad_ineligible`, the exclus
 `content/authoring/practice_generation.py` (the generation contract under the successor);
 `daily_plan/router_card.py` / `router/card.py` (the AD fields); `scheduling/randomization_layer.py`
 (the `feature_overlap` and `reading_dose` designs); `config/schema.py`, `config/template.py`,
-`params/parameter_registry.py`; `algorithm_versions.py`, `cli/app.py` (`--to mvp-0.28`),
+`params/parameter_registry.py`; `algorithm_versions.py`, `cli/app.py` (`--to mvp-0.30`),
 `cli/ad.py` (`ad report`, `ad relatedness`, `ad eval`); `db/table_roles.py`,
 `substrate/rebuild_orchestrator.py`; the head fixture `migration_head_213` -> `migration_head_214`
 and every path naming it; the spec (Q8 record, amendments) and dated notes in
@@ -79,12 +79,12 @@ and every path naming it; the spec (Q8 record, amendments) and dated notes in
 - `item_substituted` and `item_displaced` (`ad_ineligible`) are block events in the existing
   `attention_block_events` (free-text kind and detail): no migration.
 
-**Successor and switches.** `mvp-0.28`, one upgrade function chained from `mvp-0.27` (and from
-`mvp-0.9`..`mvp-0.26` through the chain), one defaults snapshot. Six switches inside it
+**Successor and switches.** `mvp-0.30` (renumbered from `mvp-0.28` at the compose round), one upgrade function chained from `mvp-0.29` (from `mvp-0.27` before the compose round; and from
+`mvp-0.9`..`mvp-0.27` through the chain), one defaults snapshot. Six switches inside it
 (`selection`, `generation_contract`, `promoted_predictor`, `learned_coupling`,
 `reading_opportunities`, `reading_self_check`), each false restoring its part exactly, composing as
 §11.1 states; `reading_dose_offers` outside it. Below the tag every AD2/AD3 path is off whatever
-the switches say, so `mvp-0.27` stays byte-identical.
+the switches say, so the predecessor (`mvp-0.29` since the compose round) stays byte-identical.
 
 **Spend caps and model routes.** The relatedness proposal is AD2/AD3's only paid call: on the
 field harness's frontier route `ai.routing.llm_probability_llm` (empty: the active provider; Codex
@@ -746,13 +746,13 @@ regenerated references.
 
 ## 8. Owner-run commands (on a backup copy; dry-run first; never on the working vaults)
 
-From the main checkout after the branch is available, with the vault at `mvp-0.27`:
+From the main checkout after the branch is available, with the vault at `mvp-0.29` (the owner's chain: `--to mvp-0.9`, `--to mvp-0.27`, `--to mvp-0.29`, then this):
 
 ```bash
 # 0. a backup-API copy of the vault
 uv run python -c "from pathlib import Path; from learnloop.db.copies import copy_tree_with_databases as c; c(Path('fixtures/linear_algebra'), Path('fixtures-local/la_ad23'))"
 # 1. the successor on the copy (AD's DERIVED state is prepared before the rename; no model call)
-uv run learnloop upgrade --vault fixtures-local/la_ad23 --to mvp-0.28
+uv run learnloop upgrade --vault fixtures-local/la_ad23 --to mvp-0.30
 # 2. AD1's reading backfill if not yet run (the report's reading lines need it), dry-run first
 uv run learnloop ad backfill --vault fixtures-local/la_ad23 --reading --dry-run --json
 uv run learnloop ad backfill --vault fixtures-local/la_ad23 --reading
@@ -781,7 +781,7 @@ uv run python -c "from pathlib import Path; from learnloop.ops.settings_store im
 uv run learnloop ad relatedness --vault fixtures-local/la_ad23 --shadow --json
 uv run learnloop ad relatedness --vault fixtures-local/la_ad23 --adopt --confirm-reinterpretation
 # 6. the playbook's shadow rebuild against the predecessor and with the six switches off
-uv run learnloop rebuild --shadow --json --vault fixtures-local/la_ad23 --set algorithms.algorithm_version=mvp-0.27
+uv run learnloop rebuild --shadow --json --vault fixtures-local/la_ad23 --set algorithms.algorithm_version=mvp-0.29
 uv run learnloop rebuild --shadow --json --vault fixtures-local/la_ad23 \
   --set adaptive_difficulty.selection=false --set adaptive_difficulty.generation_contract=false \
   --set adaptive_difficulty.promoted_predictor=false --set adaptive_difficulty.learned_coupling=false \
