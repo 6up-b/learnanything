@@ -262,7 +262,7 @@ def _job_payload(job: _Job) -> dict[str, Any]:
         return versioned({**base, "state": "pending", "result": None})
     from learnloop.ai import plan_fallback
 
-    plan_fallback.relay_hint(job.fallback_offer)
+    plan_fallback.relay_job_offer(job)
     if job.error is not None:
         raise job.error
     result = job.result

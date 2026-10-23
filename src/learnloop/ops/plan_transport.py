@@ -26,6 +26,7 @@ from learnloop.config.schema import (
     CHATGPT_MEDIUM_PROVIDER,
     CODEX_PROVIDER_NAMES,
     CODEX_TO_PLAN_PROFILE,
+    LEGACY_CODEX_TASK_ROUTES,
 )
 
 FINDING_CODE = "ai:codex_route_pinned"
@@ -48,9 +49,17 @@ def _is_codex(config: LearnLoopConfig, name: str) -> bool:
     return name in CODEX_PROVIDER_NAMES or is_agent_harness_profile(config.ai.providers.get(name))
 
 
-def _plan_profile_for(config: LearnLoopConfig, name: str) -> str:
-    """The plan profile of the same tier as Codex profile ``name``."""
+def _plan_profile_for(config: LearnLoopConfig, name: str, task: str | None = None) -> str:
+    """The plan profile of the same tier as Codex profile ``name`` (on route ``task``).
 
+    A legacy ``routing.<task> = "codex"`` means that task's Codex tier
+    (``LEGACY_CODEX_TASK_ROUTES``: medium for ingest, authoring and
+    animation), so it maps through that tier (review F5), never to the plain
+    ``chatgpt`` profile's low effort.
+    """
+
+    if name == "codex" and task in LEGACY_CODEX_TASK_ROUTES:
+        name = LEGACY_CODEX_TASK_ROUTES[task]
     if name in CODEX_TO_PLAN_PROFILE:
         return CODEX_TO_PLAN_PROFILE[name]
     profile = config.ai.providers.get(name)
@@ -90,11 +99,11 @@ def codex_pins(root: Path, config: LearnLoopConfig) -> list[CodexPin]:
             if isinstance(value, str):
                 if value.strip() and _is_codex(config, value.strip()):
                     pins.append(CodexPin(f"ai.routing.{task}", ("ai", "routing", task), value,
-                                         _plan_profile_for(config, value.strip())))
+                                         _plan_profile_for(config, value.strip(), task)))
             elif isinstance(value, list) and any(isinstance(entry, str) and _is_codex(config, entry.strip())
                                                  for entry in value):
                 rewritten = list(dict.fromkeys(
-                    _plan_profile_for(config, entry.strip())
+                    _plan_profile_for(config, entry.strip(), task)
                     if isinstance(entry, str) and _is_codex(config, entry.strip()) else entry
                     for entry in value
                 ))
@@ -112,6 +121,42 @@ def finding_message(pin: CodexPin) -> str:
     )
 
 
+METERED_FALLBACK_CODE = "ai:plan_metered_fallback"
+
+
+def metered_fallback_message(config: LearnLoopConfig) -> str | None:
+    """Why ``ai.fallback_provider`` is not used while the ChatGPT plan serves, or ``None`` (review F1).
+
+    A plan route never falls back silently to a metered profile (owner
+    2026-10-21: "ASK ... never fall back silently"): routing ignores the
+    setting for plan routes, and LearnLoop offers ``ai.plan_fallback_profile``
+    instead, used only when the learner chooses it.
+    """
+
+    from learnloop.ai.routing import MANUAL_PROVIDER, is_plan_profile
+
+    fallback = (config.ai.fallback_provider or "").strip()
+    if not fallback or fallback == MANUAL_PROVIDER or is_plan_profile(config, fallback):
+        return None
+    if _is_codex(config, fallback):
+        return None  # ai:codex_route_pinned reports it
+    plan_routes = [entry["name"] for entry in _plan_entries(config) if entry["in_use"]]
+    if not plan_routes:
+        return None
+    return (
+        f"ai.fallback_provider = {fallback!r} is not used for ChatGPT-plan routes ({', '.join(plan_routes)}): "
+        "LearnLoop never sends work to a metered provider without asking. While the plan is unavailable it "
+        "offers ai.plan_fallback_profile instead (\"Use OpenRouter instead\" on the desktop, "
+        "LEARNLOOP_AI_FALLBACK=openrouter for one command). Remove the setting, or keep it for non-plan routes."
+    )
+
+
+def _plan_entries(config: LearnLoopConfig) -> list[dict[str, Any]]:
+    from learnloop.ai.chatgpt_plan.routes import plan_profiles
+
+    return plan_profiles(config)
+
+
 def fix_codex_pins(root: Path, config: LearnLoopConfig, *, dry_run: bool = False) -> dict[str, Any]:
     """Rewrite every :func:`codex_pins` setting in place (comments and layout kept)."""
 
@@ -123,4 +168,12 @@ def fix_codex_pins(root: Path, config: LearnLoopConfig, *, dry_run: bool = False
     return {"dry_run": dry_run, "rewritten": [pin.as_dict() for pin in pins]}
 
 
-__all__ = ["CodexPin", "FINDING_CODE", "codex_pins", "finding_message", "fix_codex_pins"]
+__all__ = [
+    "CodexPin",
+    "FINDING_CODE",
+    "METERED_FALLBACK_CODE",
+    "codex_pins",
+    "finding_message",
+    "fix_codex_pins",
+    "metered_fallback_message",
+]

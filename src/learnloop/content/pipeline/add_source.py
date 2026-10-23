@@ -559,24 +559,28 @@ def pending_upload_flow(repo, *, source_id: str | None = None, batch_id: str | N
 
 def authoring_route_for(vault_root: Path, config) -> AuthoringRoute:
     """The route that would write questions for a build, and whether it is
-    ready, the way the build resolves it (routed provider, else the fallback)."""
+    ready, the way the build resolves it.
 
-    from learnloop.ai.routing import provider_for_task, runtime_for_provider
+    Resolved through routing's one path (review F3, F6): the routed provider,
+    else ``ai.fallback_provider`` under :func:`~learnloop.ai.routing.configured_fallback`
+    (never Codex, never a silent metered fallback for the ChatGPT plan); a
+    plan that cannot serve offers OpenRouter (the request's hint) and a
+    learner's grant of ``canonical_ingest`` routes the build there. The route
+    named is the one that serves, so the build is priced (and consented) as
+    that profile: a granted OpenRouter build is metered, never "subscription".
+    """
+
+    from learnloop.ai.routing import ready_client_for_task
     from learnloop.ai.spend import is_subscription_transport
 
-    name = provider_for_task(config, "canonical_ingest").provider_name
-    report = runtime_for_provider(vault_root, config, name, task="canonical_ingest")
-    chosen, ready, message = name, report.ready, report.message
-    fallback = (config.ai.fallback_provider or "").strip()
-    if not ready and fallback and fallback != name:
-        backup = runtime_for_provider(vault_root, config, fallback, task="canonical_ingest")
-        if backup.ready:
-            chosen, ready, message = fallback, True, None
+    resolved = ready_client_for_task(vault_root, config, "canonical_ingest")
+    chosen = resolved.provider_name
+    ready = bool(resolved.ready)
     profile = config.ai.providers.get(chosen)
     return AuthoringRoute(
         provider=chosen,
         ready=ready,
-        message=None if ready else message,
+        message=None if ready else resolved.runtime.message,
         subscription=is_subscription_transport(profile=profile),
         consent_key=consent_key(config, chosen),
     )

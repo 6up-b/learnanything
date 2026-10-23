@@ -121,6 +121,11 @@ class SidecarContext:
         if self.vault_root is not None and target != self.vault_root:
             # A switch: the previous vault's map builds stop before anything of the new one opens.
             self.map_builds.close()
+            # Plan-first transport T1 (review F4): "Use OpenRouter instead" was
+            # the previous vault's; the new one is asked again.
+            from learnloop.ai import plan_fallback
+
+            plan_fallback.revoke_all()
         # Adaptive difficulty AD1 (Codex review F10): a reload of the same
         # vault compares its items with these, to prepare new revisions.
         previous = self.vault if self.vault_root is not None and target == self.vault_root else None
@@ -728,15 +733,27 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
 
 
 def available_grading_providers(vault: LoadedVault) -> list[str]:
-    """Selectable grading backends: configured AI providers, legacy codex, manual.
+    """Selectable grading backends: configured AI providers, manual.
 
     Embedding-only and decision-model profiles have no completion transport
-    and are never offered.
+    and are never offered. A Codex (agent-harness) profile, and the legacy
+    ``codex`` name, are offered only with ``ai.agent_harness_opt_in``
+    (plan-first transport T1, review F9): without it they are always refused.
     """
 
+    from learnloop.ai.agent_harness import is_agent_harness_profile
+    from learnloop.config import CODEX_PROVIDER_NAMES
+
     config = vault.config
-    providers = {name for name in config.ai.providers if is_generation_profile(config, name)}
-    return sorted(providers | {"codex"}) + ["manual"]
+    opt_in = bool(config.ai.agent_harness_opt_in)
+    providers = {
+        name for name in config.ai.providers
+        if is_generation_profile(config, name)
+        and (opt_in or not (name in CODEX_PROVIDER_NAMES or is_agent_harness_profile(config.ai.providers[name])))
+    }
+    if opt_in:
+        providers.add("codex")
+    return sorted(providers) + ["manual"]
 
 
 def runtime_health(

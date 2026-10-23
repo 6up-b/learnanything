@@ -95,6 +95,9 @@ logger = logging.getLogger(__name__)
 
 PROVIDER_TYPE = "chatgpt_plan"
 DEFAULT_TIMEOUT_SECONDS = 180.0
+#: A tools-mode workspace turn's input in all (every round resends the
+#: history), as a multiple of the profile's ``max_workspace_chars`` (review F7).
+TURN_INPUT_FACTOR = 4
 _MAX_ATTEMPTS = 3
 _BACKOFF_SECONDS = (1.0, 2.0)
 _MIN_ATTEMPT_SECONDS = 1.0
@@ -154,6 +157,10 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
         # Plan-first transport T1: inline by default (one request); an export
         # over max_workspace_chars is served in tools mode instead.
         self.workspace_mode = getattr(profile, "workspace_mode", None) or "inline"
+        # Review F7: a workspace_mode the owner wrote is honoured as written.
+        # Only the default inline mode serves an oversized export in tools
+        # mode; an explicit "inline" refuses it (no tools key is ever sent).
+        self.inline_explicit = "workspace_mode" in (getattr(profile, "model_fields_set", None) or set())
         self.max_tool_rounds = int(getattr(profile, "max_tool_rounds", None) or 16)
         self.max_entry_chars = int(getattr(profile, "max_entry_chars", None) or 24_000)
         self.max_workspace_chars = int(getattr(profile, "max_workspace_chars", None) or 400_000)
@@ -300,6 +307,10 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
             try:
                 block = workspace.inline_block()
             except WorkspaceTooLarge as exc:
+                if self.inline_explicit:
+                    # The owner chose inline: no function tools are ever sent
+                    # (review F7), so an oversized export is refused.
+                    raise AIProviderUnavailable(f"{self.provider_name}: {exc}") from None
                 # Plan-first transport T1 (orchestrator decision): an export
                 # too large to inline is served in tools mode, every round its
                 # own admitted request, rather than refused.
@@ -330,10 +341,17 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
         text_format = self._text_format(model_type)
         reasoning = effort or self.profile.reasoning_effort or None
         carried = 0
+        # Review F7: ``store: false`` resends the whole history every round,
+        # so the turn's input is capped in all (TURN_INPUT_FACTOR times
+        # max_workspace_chars); past it the model is asked to answer now.
+        input_cap = TURN_INPUT_FACTOR * self.max_workspace_chars
+        sent_chars = 0
+        exhausted_round: int | None = None
         for round_index in range(1, self.max_tool_rounds + 3):
             self._stop_if_due(deadline)
             body = request_body(model=str(self.model), instructions=instructions, input_items=items,
                                 text_format=text_format, reasoning_effort=reasoning, tools=tools)
+            sent_chars += len(instructions) + len(json.dumps(items, ensure_ascii=False))
             # The files this request carries to the model for the first time.
             carries = [entry.path for entry in workspace.served[carried:]]
             carried = len(workspace.served)
@@ -343,12 +361,14 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
             calls = function_calls(result.output)
             if not calls:
                 return result.text.strip()
-            if round_index > self.max_tool_rounds + 1:
+            if exhausted_round is not None and round_index > exhausted_round:
                 raise AIInvalidOutput(
-                    f"{self.provider_name} kept calling workspace functions after {self.max_tool_rounds} rounds "
-                    "and a request to answer."
+                    f"{self.provider_name} kept calling workspace functions after "
+                    f"{exhausted_round - 1} rounds and a request to answer."
                 )
-            exhausted = round_index > self.max_tool_rounds
+            if exhausted_round is None and (round_index > self.max_tool_rounds or sent_chars >= input_cap):
+                exhausted_round = round_index
+            exhausted = exhausted_round is not None
             items.extend(echo_items(result.output))
             for call in calls:
                 call_id = call.get("call_id")

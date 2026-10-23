@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from learnloop.ai.plan_fallback import collecting as plan_fallback_offers
+from learnloop.ai.plan_fallback import command_grant as plan_fallback_command_grant
 from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.cli.receipts import command_receipts
 from learnloop.cli.runtime import *  # noqa: F401,F403
@@ -30,6 +31,10 @@ def _record_command_model_calls(ctx: typer.Context) -> None:
     # Plan-first transport T1: offers to use OpenRouter while the ChatGPT plan
     # is unavailable are collected for the command's JSON (cli.render._dump).
     ctx.with_resource(plan_fallback_offers())
+    # LEARNLOOP_AI_FALLBACK=openrouter is the learner's choice for this one
+    # command, read here and nowhere else (review F4); a long-lived host
+    # (`learnloop mcp serve`) is not one command and never takes it.
+    ctx.with_resource(plan_fallback_command_grant(host=ctx.invoked_subcommand in {"mcp"}))
 
 
 @app.command()

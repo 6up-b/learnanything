@@ -1126,10 +1126,12 @@ class ChatGPTPlanProviderConfig(AIProviderConfig):
     LearnLoop itself (``learnloop.ai.chatgpt_plan.workspace``):
     ``workspace_mode = "inline"`` (the default since plan-first transport T1:
     every file in the one request; an export over ``max_workspace_chars`` is
-    served in tools mode instead, each round its own admitted request) or
+    served in tools mode instead, each round its own admitted request, unless
+    the owner wrote ``workspace_mode = "inline"``, which then refuses it) or
     ``"tools"`` (Responses function calling: at most ``max_tool_rounds``
     rounds of calls, ``max_entry_chars`` per read and ``max_workspace_chars``
-    served in all).
+    served in all; the turn's resent input is capped at four times
+    ``max_workspace_chars``, past which the model is asked to answer).
     """
 
     model_config = ConfigDict(extra="ignore")

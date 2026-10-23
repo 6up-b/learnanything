@@ -13,11 +13,21 @@ silently:
   :class:`OfferCollector`; the sidecar attaches the typed hint
   (``fallback_available: "openrouter"``, ``fallback_tasks``,
   ``fallback_profile``) to the RPC's error or result, the CLI to its JSON.
+* An offer is made only when OpenRouter could actually do the work
+  (:func:`offer_blocker`, review F2): a feature that refuses a metered route
+  until its price is set (``hints.price_per_million`` and the like), or that
+  needs a capability OpenRouter lacks (a snapshot diagnosis's workspace),
+  says why instead of offering.
 * Only a **grant** routes a task to OpenRouter: the desktop's "Use OpenRouter
-  instead" (RPC ``ai_use_fallback``) grants the feature's tasks for this
-  sidecar session; ``LEARNLOOP_AI_FALLBACK=openrouter`` grants every task for
-  one CLI command. A granted request is an ordinary metered request on that
-  profile, so every feature's existing spend caps apply to it.
+  instead" (RPC ``ai_use_fallback``) grants the tasks of the feature that
+  asked, validated against what this vault was offered, for this sidecar
+  session and this vault only (a vault switch clears them; review F4);
+  ``LEARNLOOP_AI_FALLBACK=openrouter`` grants every task for one CLI command,
+  read by the CLI's entry point alone (:func:`command_grant`) and held in
+  that command's context, so a long-lived host (the sidecar, the phone or MCP
+  host) or a background thread in a fresh context never sees it. A granted
+  request is an ordinary metered request on that profile, so every feature's
+  existing spend caps apply to it.
 
 Nothing here sends anything; it is bookkeeping between routing and the
 adapters.
@@ -29,6 +39,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 import os
+from pathlib import Path
 import threading
 from typing import Any
 
@@ -53,6 +64,54 @@ def offer_profile(config: LearnLoopConfig) -> str | None:
         return None
     key_env = getattr(profile, "api_key_env", None) or _DEFAULT_KEY_ENV
     return name if os.environ.get(key_env) else None
+
+
+#: The price a feature needs before it sends anything on a metered route
+#: (unset: refused before sending). OpenRouter is offered for these tasks only
+#: once the setting is set, so a grant is never a promise the feature refuses.
+METERED_PRICE_SETTINGS: dict[str, str] = {
+    "hint_writer": "hints.price_per_million",
+    "hint_outcome": "hints.price_per_million",
+    "approach_map": "hints.price_per_million",
+    "workbench_check": "workbench.price_per_million",
+    "figure_author": "figures.price_per_million",
+    "ad_forecast_llm": "adaptive_difficulty.price_per_million",
+    "ad_feature_audit": "adaptive_difficulty.price_per_million",
+    "library_organizer": "source_retrieval.llm_price_per_million",
+    "passage_cue_judge": "source_retrieval.llm_price_per_million",
+    "role_labeller": "source_retrieval.llm_price_per_million",
+    "reading_path_judge": "source_retrieval.llm_price_per_million",
+    "source_query_rewrite": "source_retrieval.llm_price_per_million",
+    "source_rerank": "source_retrieval.llm_price_per_million",
+    "source_solution_match": "source_service.llm_price_per_million",
+    "source_compare": "source_service.llm_price_per_million",
+    "exercise_discrimination": "source_service.llm_price_per_million",
+    "worked_example_equivalence": "source_service.llm_price_per_million",
+}
+
+
+def _setting(config: LearnLoopConfig, dotted: str) -> Any:
+    value: Any = config
+    for part in dotted.split("."):
+        value = getattr(value, part)
+    return value
+
+
+def offer_blocker(config: LearnLoopConfig, task: str) -> str | None:
+    """Why OpenRouter could not do ``task`` if the learner chose it, or ``None`` (review F2).
+
+    The offer is then not made (no "Use OpenRouter instead" that the feature
+    would refuse anyway); the unavailable message says what to set instead.
+    """
+
+    setting = METERED_PRICE_SETTINGS.get(task)
+    if setting is not None and _setting(config, setting) is None:
+        return (f"OpenRouter could do this once {setting} is set (the price it is held to); "
+                "until then nothing is offered or sent.")
+    if task == "diagnosis" and config.diagnosis.history_mode == "snapshot":
+        return ("OpenRouter can't do a snapshot diagnosis (diagnosis.history_mode = \"snapshot\" reads a "
+                "workspace only the ChatGPT plan serves), so it isn't offered.")
+    return None
 
 
 def offer_sentence() -> str:
@@ -163,6 +222,20 @@ def relay_hint(hint: dict[str, Any] | None) -> None:
         _merge_into(collector, hint)
 
 
+def relay_job_offer(job: Any) -> None:
+    """Relay a finished job's offer on the first read that finds it, then forget it (review F8).
+
+    A later read of the same failed job (a poll, the learner reopening the
+    view after "Not now") brings no banner back; a new attempt makes its own
+    offer.
+    """
+
+    hint = getattr(job, "fallback_offer", None)
+    if hint:
+        job.fallback_offer = None
+        relay_hint(hint)
+
+
 def start_collecting() -> OfferCollector:
     """Collect for the rest of this context (one CLI process)."""
 
@@ -202,43 +275,104 @@ def note_plan_failure(*, signed_out: bool = False) -> None:
 # The learner's choice
 # ---------------------------------------------------------------------------
 
-_GRANTS: set[str] = set()
+#: Per vault (its resolved root): the tasks the learner granted, and the
+#: tasks a request on that vault was offered (a grant must name only those).
+_GRANTS: dict[str, set[str]] = {}
+_OFFERED: dict[str, set[str]] = {}
 _GRANTS_LOCK = threading.Lock()
+#: Set by :func:`command_grant` for one CLI command's context only.
+_COMMAND_GRANT: ContextVar[bool] = ContextVar("learnloop_plan_fallback_command_grant", default=False)
 
 
-def grant(tasks: Iterable[str]) -> list[str]:
-    """Use OpenRouter for ``tasks`` while the plan is unavailable, for this process (the session)."""
+def _vault_key(vault_root: Any) -> str:
+    return str(Path(vault_root).resolve())
 
-    chosen = sorted({str(task) for task in tasks if str(task).strip()})
+
+@contextmanager
+def command_grant(*, host: bool = False) -> Iterator[bool]:
+    """The CLI's ``LEARNLOOP_AI_FALLBACK=openrouter``: every task, for this command only.
+
+    Read here, by the CLI's entry point, and nowhere else (review F4): the
+    sidecar and the phone and MCP hosts never call this, so the variable in
+    the shell that started them grants nothing, and a background thread
+    started in a fresh context does not inherit it. ``host``: the command
+    starts a long-lived host (`learnloop mcp serve`), which grants nothing.
+    """
+
+    chosen = not host and (os.environ.get(FALLBACK_ENV) or "").strip().lower() == FALLBACK_KIND
+    token = _COMMAND_GRANT.set(chosen)
+    try:
+        yield chosen
+    finally:
+        _COMMAND_GRANT.reset(token)
+
+
+def remember_offer(vault_root: Any, hint: dict[str, Any] | None) -> None:
+    """Record what a request on ``vault_root`` was offered (the sidecar, as it sends the hint)."""
+
+    tasks = [str(task) for task in (hint or {}).get("fallback_tasks") or [] if str(task).strip()]
+    if vault_root is None or not tasks:
+        return
     with _GRANTS_LOCK:
-        _GRANTS.update(chosen)
+        _OFFERED.setdefault(_vault_key(vault_root), set()).update(tasks)
+
+
+def offered_tasks(vault_root: Any) -> list[str]:
+    with _GRANTS_LOCK:
+        return sorted(_OFFERED.get(_vault_key(vault_root), set()))
+
+
+def grant(vault_root: Any, tasks: Iterable[str]) -> list[str]:
+    """Use OpenRouter for ``tasks`` on this vault while the plan is unavailable, for this session.
+
+    Only tasks this vault was offered are granted (the caller reports the
+    rest); returns the tasks granted by this call.
+    """
+
+    key = _vault_key(vault_root)
+    with _GRANTS_LOCK:
+        offered = _OFFERED.get(key, set())
+        chosen = sorted({str(task) for task in tasks if str(task) in offered})
+        _GRANTS.setdefault(key, set()).update(chosen)
     return chosen
 
 
+def revoke(vault_root: Any | None = None) -> None:
+    """Stop using OpenRouter: for one vault, or (``None``) for every vault, offers included."""
+
+    with _GRANTS_LOCK:
+        if vault_root is None:
+            _GRANTS.clear()
+            _OFFERED.clear()
+        else:
+            _GRANTS.pop(_vault_key(vault_root), None)
+
+
 def revoke_all() -> None:
+    revoke(None)
+
+
+def granted_tasks(vault_root: Any) -> list[str]:
     with _GRANTS_LOCK:
-        _GRANTS.clear()
+        return sorted(_GRANTS.get(_vault_key(vault_root), set()))
 
 
-def granted_tasks() -> list[str]:
-    with _GRANTS_LOCK:
-        return sorted(_GRANTS)
-
-
-def is_granted(task: str) -> bool:
+def is_granted(task: str, vault_root: Any) -> bool:
     if _QUIET.get():
         return False
-    if (os.environ.get(FALLBACK_ENV) or "").strip().lower() == FALLBACK_KIND:
+    if _COMMAND_GRANT.get():
         return True
     with _GRANTS_LOCK:
-        return task in _GRANTS
+        return task in _GRANTS.get(_vault_key(vault_root), set())
 
 
 __all__ = [
     "FALLBACK_ENV",
     "FALLBACK_KIND",
+    "METERED_PRICE_SETTINGS",
     "OfferCollector",
     "collecting",
+    "command_grant",
     "current_hint",
     "grant",
     "granted_tasks",
@@ -246,10 +380,15 @@ __all__ = [
     "note_plan_failure",
     "note_plan_route",
     "note_unavailable",
+    "offer_blocker",
     "offer_profile",
     "offer_sentence",
+    "offered_tasks",
     "quiet",
     "relay_hint",
+    "relay_job_offer",
+    "remember_offer",
+    "revoke",
     "revoke_all",
     "start_collecting",
 ]

@@ -424,10 +424,34 @@ def fallback_provider_for(config: LearnLoopConfig, selection: AIProviderSelectio
     fallback: it is asked (``learnloop.ai.plan_fallback``).
     """
 
-    fallback = (config.ai.fallback_provider or "").strip() or None
-    if selection.explicit or selection.from_env or fallback == selection.provider_name:
+    if selection.explicit or selection.from_env:
         return None
-    if fallback is not None and is_agent_harness_profile(config.ai.providers.get(fallback)):
+    return configured_fallback(config, selection.provider_name)
+
+
+def configured_fallback(config: LearnLoopConfig, primary: str | None) -> str | None:
+    """``ai.fallback_provider`` as a fallback for ``primary``, or ``None`` when it may not be one.
+
+    The one rule for every reader of the setting (routing, the question
+    build's route, the method-phrasing writer; review F6):
+
+    * never ``primary`` itself, and never an agent-harness (Codex) profile,
+      opt-in or not (owner 2026-10-21);
+    * never a silent metered fallback for the ChatGPT plan (review F1, owner
+      2026-10-21: "ASK ... never fall back silently"): when ``primary`` is a
+      plan profile, only ``manual`` or another plan profile is used as
+      configured; anything else (OpenRouter, an API key) is reached only
+      through the plan's offer and the learner's grant
+      (:mod:`learnloop.ai.plan_fallback`), and `learnloop doctor` reports
+      the setting (``ai:plan_metered_fallback``).
+    """
+
+    fallback = (config.ai.fallback_provider or "").strip() or None
+    if fallback is None or fallback == primary:
+        return None
+    if is_agent_harness_profile(config.ai.providers.get(fallback)):
+        return None
+    if is_plan_profile(config, primary) and not (fallback == MANUAL_PROVIDER or is_plan_profile(config, fallback)):
         return None
     return fallback
 
@@ -615,7 +639,7 @@ def ready_client_for_task(
             # If this plan route's call then fails for availability, the
             # request's hint offers OpenRouter for it too.
             offered = plan_fallback.offer_profile(config)
-            if offered is not None:
+            if offered is not None and plan_fallback.offer_blocker(config, task) is None:
                 plan_fallback.note_plan_route(task, offered)
         return primary
 
@@ -669,7 +693,13 @@ def _plan_unavailable(
     offered = plan_fallback.offer_profile(config)
     if offered is None:
         return primary
-    if plan_fallback.is_granted(task):
+    blocker = plan_fallback.offer_blocker(config, task)
+    if blocker is not None:
+        # OpenRouter could not do this feature's work as configured (review
+        # F2): say why, and make no offer a grant could not honour.
+        message = " ".join(part for part in (primary.runtime.message, blocker) if part)
+        return replace(primary, runtime=replace(primary.runtime, message=message))
+    if plan_fallback.is_granted(task, vault_root):
         candidate = _resolve_selected_provider(
             vault_root,
             config,
@@ -766,6 +796,7 @@ __all__ = [
     "TURN_DEADLINE_PROFILE_TYPES",
     "WORKSPACE_PROFILE_TYPES",
     "client_for_provider",
+    "configured_fallback",
     "fallback_provider_for",
     "is_decider_profile",
     "is_plan_profile",

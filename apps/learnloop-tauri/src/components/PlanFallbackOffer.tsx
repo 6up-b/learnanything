@@ -44,6 +44,20 @@ export function PlanFallbackOffer({ onContinueWithChatGPT }: { onContinueWithCha
 
   if (!offer) return null;
 
+  const stopOpenRouter = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      // Review F8: the grant can be taken back; the next unavailable feature asks again.
+      await api.aiUseFallback({ provider: "openrouter", tasks: [], stop: true });
+      clearFallbackOffer();
+    } catch (failure) {
+      setError(plainError(failure, "LearnLoop couldn't stop using OpenRouter.").line);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const useOpenRouter = async () => {
     setBusy(true);
     setError(null);
@@ -84,9 +98,24 @@ export function PlanFallbackOffer({ onContinueWithChatGPT }: { onContinueWithCha
       {chosen ? (
         <>
           <div style={{ color: COLOR.text }}>OpenRouter will do this for the rest of this session. Try it again.</div>
-          <button type="button" style={{ ...button, alignSelf: "flex-end" }} onClick={clearFallbackOffer}>
-            OK
-          </button>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              style={{ ...button, border: "none", color: COLOR.amberLink }}
+              disabled={busy}
+              onClick={() => void stopOpenRouter()}
+            >
+              Stop using OpenRouter
+            </button>
+            <button type="button" style={button} disabled={busy} onClick={clearFallbackOffer}>
+              OK
+            </button>
+          </div>
+          {error ? (
+            <div role="alert" style={{ color: COLOR.amber }}>
+              {error}
+            </div>
+          ) : null}
         </>
       ) : (
         <>

@@ -31,10 +31,24 @@ it("reads the typed hint from an error's details or a result, and nothing else",
   expect(extractFallbackOffer(null)).toBeNull();
 });
 
-it("merges the tasks of several features into one offer", () => {
+it("answers only the feature that asked last: a newer offer replaces the shown one (review F4)", () => {
   noteFallbackOffer(errorWithHint);
   noteFallbackOffer({ fallbackAvailable: "openrouter", fallbackTasks: ["grading"], fallbackProfile: "openrouter" });
-  expect(currentFallbackOffer()).toMatchObject({ tasks: ["grading", "tutor_qa"], planSignedOut: true });
+  expect(currentFallbackOffer()).toMatchObject({ tasks: ["grading"], planSignedOut: false });
+});
+
+it("takes the grant back with Stop using OpenRouter (review F8)", async () => {
+  api.aiUseFallback.mockResolvedValue({ version: 1, provider: "openrouter", profile: "openrouter", grantedTasks: ["tutor_qa"], scope: "session" });
+  render(<PlanFallbackOffer onContinueWithChatGPT={vi.fn()} />);
+  act(() => noteFallbackOffer(errorWithHint));
+  fireEvent.click(screen.getByRole("button", { name: "Use OpenRouter instead" }));
+  await screen.findByText(/OpenRouter will do this for the rest of this session/);
+  api.aiUseFallback.mockResolvedValue({ version: 1, provider: "openrouter", profile: "openrouter", grantedTasks: [], scope: "session" });
+  fireEvent.click(screen.getByRole("button", { name: "Stop using OpenRouter" }));
+  await waitFor(() =>
+    expect(api.aiUseFallback).toHaveBeenLastCalledWith({ provider: "openrouter", tasks: [], stop: true })
+  );
+  await waitFor(() => expect(currentFallbackOffer()).toBeNull());
 });
 
 it("shows nothing without an offer", () => {

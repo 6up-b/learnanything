@@ -51,17 +51,16 @@ export function extractFallbackOffer(value: unknown): PlanFallbackOffer | null {
   return fromRecord(record);
 }
 
-/** Publish the offer an RPC response carries (no-op without one). */
+/** Publish the offer an RPC response carries (no-op without one).
+ *
+ * The banner answers the feature that asked last, and only it (review F4):
+ * a newer offer replaces the shown one instead of merging every feature
+ * that asked during an outage, so one click never grants another feature's
+ * tasks. */
 export function noteFallbackOffer(value: unknown): void {
   const offer = extractFallbackOffer(value);
   if (!offer) return;
-  if (current) {
-    // Several features may ask during one outage: one banner names them all.
-    const tasks = Array.from(new Set([...current.tasks, ...offer.tasks])).sort();
-    current = { ...offer, tasks, planSignedOut: current.planSignedOut || offer.planSignedOut };
-  } else {
-    current = offer;
-  }
+  current = offer;
   for (const listener of listeners) listener(current);
 }
 

@@ -182,34 +182,38 @@ def ai_use_fallback(ctx: SidecarContext, params: UseFallbackParams) -> dict[str,
 
     While the ChatGPT plan is unavailable, the named tasks run on the
     configured OpenRouter profile (``ai.plan_fallback_profile``) for the rest
-    of this session: that feature, not every feature, and only while the plan
-    cannot serve it (a ready plan route is always used first). A granted
-    request is an ordinary metered request, so every feature's spend caps
-    apply. Refused when no OpenRouter profile with a key is configured: the
-    offer is never shown then.
+    of this session, on this vault only (a vault switch clears the grant):
+    the tasks of the feature that asked, and only those this vault was
+    offered (review F4), and only while the plan cannot serve them (a ready
+    plan route is always used first). A granted request is an ordinary
+    metered request, so every feature's spend caps apply. Refused when no
+    OpenRouter profile with a key is configured: the offer is never shown
+    then. ``stop: true`` revokes every grant on this vault.
     """
 
-    from typing import get_args
-
     from learnloop.ai import plan_fallback
-    from learnloop.ai.routing import AITask
 
     vault, _repository = ctx.require_vault()
     if params.stop:
-        plan_fallback.revoke_all()
+        plan_fallback.revoke(vault.root)
         return versioned({"provider": params.provider, "profile": plan_fallback.offer_profile(vault.config),
                           "granted_tasks": [], "scope": "session"})
-    known = set(get_args(AITask))
-    unknown = sorted(task for task in params.tasks if task not in known)
-    if unknown or not params.tasks:
-        raise SidecarError("unknown_task", f"Name the tasks from the hint's fallback_tasks; unknown: {', '.join(unknown) or 'none given'}.")
+    offered = set(plan_fallback.offered_tasks(vault.root))
+    not_offered = sorted({task for task in params.tasks if task not in offered})
+    if not_offered or not params.tasks:
+        raise SidecarError(
+            "not_offered",
+            "Name the tasks of the offer you are answering (its fallback_tasks); "
+            f"not offered on this vault: {', '.join(not_offered) or 'none given'}.",
+            details={"offered_tasks": sorted(offered)},
+        )
     profile = plan_fallback.offer_profile(vault.config)
     if profile is None:
         raise SidecarError("fallback_unavailable",
                            "OpenRouter isn't set up on this computer. Add an OpenRouter key in Settings first.")
-    plan_fallback.grant(params.tasks)
+    plan_fallback.grant(vault.root, params.tasks)
     return versioned({"provider": params.provider, "profile": profile,
-                      "granted_tasks": plan_fallback.granted_tasks(), "scope": "session"})
+                      "granted_tasks": plan_fallback.granted_tasks(vault.root), "scope": "session"})
 
 
 __all__ = ["ATTEMPTS", "SignInAttempts", "chatgpt_plan_payload"]

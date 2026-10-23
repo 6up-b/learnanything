@@ -236,7 +236,7 @@ def _job_payload(ctx: SidecarContext, job: _HintJob) -> dict[str, Any]:
             return versioned({**base, "state": "cancelled", "result": None})
         if not job.done.is_set():
             return versioned({**base, "state": "pending", "result": None})
-        plan_fallback.relay_hint(job.fallback_offer)
+        plan_fallback.relay_job_offer(job)
         if job.error is not None:
             raise job.error
         result = dict(job.result or {})

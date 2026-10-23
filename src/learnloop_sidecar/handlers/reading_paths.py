@@ -192,8 +192,9 @@ def _view(ctx: SidecarContext, vault: Any, repository: Any, extraction_id: str, 
     if current.get("state") == "failed":
         from learnloop.ai import plan_fallback
 
+        # Relayed once (review F8): the next read of this failed state shows no banner again.
         with judgments.lock:
-            offer = judgments.offers.get(state_key)
+            offer = judgments.offers.pop(state_key, None)
         plan_fallback.relay_hint(offer)
     return RP.path_view(vault, repository, extraction_id, inputs=RP.path_inputs(vault, repository, extraction_id),
                         judging=current or None)

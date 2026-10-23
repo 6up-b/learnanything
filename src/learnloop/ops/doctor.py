@@ -252,12 +252,22 @@ def _check_codex_pins(root: Path, config: LearnLoopConfig, issues: list[HealthIs
     same tier. Settings written in the file only (never a code default).
     """
 
-    from learnloop.ops.plan_transport import FINDING_CODE, codex_pins, finding_message
+    from learnloop.ops.plan_transport import (
+        FINDING_CODE,
+        METERED_FALLBACK_CODE,
+        codex_pins,
+        finding_message,
+        metered_fallback_message,
+    )
 
     path = root / "learnloop.toml"
     for pin in codex_pins(root, config):
         issues.append(_issue("warning", FINDING_CODE, finding_message(pin), path,
                              details={**pin.as_dict(), "fix": "doctor --fix"}))
+    metered = metered_fallback_message(config)
+    if metered is not None:
+        issues.append(_issue("warning", METERED_FALLBACK_CODE, metered, path,
+                             details={"setting": "ai.fallback_provider", "value": config.ai.fallback_provider}))
 
 
 def _check_chatgpt_plan_routes(root: Path, config: LearnLoopConfig, issues: list[HealthIssue], *,
