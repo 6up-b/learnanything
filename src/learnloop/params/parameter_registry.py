@@ -1131,6 +1131,15 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switches for explorable figures / their predictions / region selection / \"not right?\" "
         "versions; on-off availability of content and formative records, no measurement, scheduling or "
         "serving authority."),
+    # Reader workbench RW5b: the advanced panels (heat maps, vector fields,
+    # trajectories, iterated maps) and figures offered by the organizer and
+    # the tutor in the calls they already make. Kill switches over content.
+    _ConfigRule(_exact(
+        "figures.advanced_panels_enabled",
+        "figures.offers_enabled",
+    ), "structural", "operational",
+        "kill switches for RW5b's figure panels / \"make this explorable\" offers on organizer and tutor "
+        "citations; on-off availability of content, no measurement, scheduling or serving authority."),
     _ConfigRule(_exact(
         "figures.max_daily_cost_usd",
         "figures.price_per_million",

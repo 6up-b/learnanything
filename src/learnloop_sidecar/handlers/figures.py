@@ -1,7 +1,9 @@
 """Reader workbench RW5a RPCs: explorable figures (spec_reader_workbench_v1 §8; UX §4.7, W11).
 
 * ``reader.figure_request``: "make this explorable" on a selection (an
-  equation, a figure block, a short passage) or a region of a figure. Checked
+  equation, a figure block, a short passage) or a region of a figure; RW5b:
+  or on an offer (``origin`` ``library`` | ``tutor`` with ``offer_ref``, the
+  block the organizer's or the tutor's stored judgment said was explorable). Checked
   at once on the request path (the switches; exam and held-out material is
   refused before any job or model call, the one predicate); then the build
   runs off the request path as a job (RW4a's runner): reuse by input hash,
@@ -28,7 +30,7 @@ mastery, certification, FSRS, scheduler state or a plan.
 from __future__ import annotations
 
 from contextlib import closing
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field
 
@@ -53,12 +55,17 @@ FIGURE_RPCS: tuple[str, ...] = (
 
 
 def prompt_contract_fields(vault: Any) -> dict[str, Any]:
-    """What the Reader's prompt contract adds for RW5a (absent while off)."""
+    """What the Reader's prompt contract adds for RW5a (absent while off).
+    RW5b adds ``offers: true`` only while ``figures.offers_enabled`` is on, so
+    with it off the contract is RW5a's, key for key."""
 
     if not FS.enabled(vault):
         return {}
-    return {"figures": {"predictions": FS.predictions_enabled(vault), "region": FS.region_enabled(vault),
-                        "revisions": FS.revisions_enabled(vault)}}
+    figures: dict[str, Any] = {"predictions": FS.predictions_enabled(vault), "region": FS.region_enabled(vault),
+                               "revisions": FS.revisions_enabled(vault)}
+    if FS.figure_offers_enabled(vault):
+        figures["offers"] = True
+    return {"figures": figures}
 
 
 def _require(ctx: SidecarContext):
@@ -141,6 +148,40 @@ class FigureRequestInput(ParamsModel):
     extraction_id: str
     span_ids: list[str] = Field(default_factory=list, max_length=40)
     region: RegionInput | None = None
+    #: RW5b: "make this explorable" pressed on an offer (``library`` | ``tutor``);
+    #: ``offer_ref`` names the judgment that offered it (the library question,
+    #: or the tutor answer's question event).
+    origin: Literal["selection", "library", "tutor"] = "selection"
+    offer_ref: str | None = Field(default=None, max_length=200)
+
+
+def offered_spans(vault: Any, repository: Any, origin: str, offer_ref: str | None) -> set[tuple[str, str]]:
+    """The ``(extraction_id, span_id)`` blocks the judgment ``offer_ref`` said
+    were explorable: the library organizer's notes (RW4a) or the Reader tutor's
+    answer (RW1c), as stored. Read from the stored outputs only: the press
+    makes no model call, and a block the judge did not offer is refused."""
+
+    from learnloop.source_retrieval.reader_tutor import offerable_blocks
+
+    if not offer_ref:
+        return set()
+    if origin == "library":
+        from learnloop.source_retrieval import library_ask as LA
+
+        try:
+            row = LA.ask_row(repository, offer_ref)
+        except LA.LibraryAskError:
+            return set()
+        notes = (row.get("organizer") or {}).get("notes") or ()
+        said = {(str(note["key"]).split(":", 1)[0], str(note["key"]).split(":", 1)[1]) for note in notes
+                if isinstance(note, dict) and note.get("explorable") is True and ":" in str(note.get("key") or "")}
+    else:
+        event = repository.question_event(offer_ref)
+        view = ((event or {}).get("source_context") or {}).get("reader_tutor") or {}
+        said = {(str(entry.get("extraction_id")), str(entry.get("span_id"))) for entry in view.get("explorable") or ()
+                if isinstance(entry, dict)}
+    # Code's rule on top of the judgment: only an equation or a figure block.
+    return set(offerable_blocks(repository, sorted(said)))
 
 
 @method("reader.figure_request", FigureRequestInput)
@@ -150,13 +191,21 @@ def reader_figure_request(ctx: SidecarContext, params: FigureRequestInput) -> di
 
     vault, repository = _require(ctx)
     region = {"span_id": params.region.span_id, "bbox": list(params.region.bbox)} if params.region else None
+    if params.origin != "selection":
+        # RW5b: an offered figure is one block the judgment offered, no region.
+        if not FS.figure_offers_enabled(vault):
+            raise SidecarError("offers_disabled", "Offered figures are switched off (figures.offers_enabled).")
+        offered = offered_spans(vault, repository, params.origin, params.offer_ref)
+        wanted = {(params.extraction_id, str(span)) for span in params.span_ids}
+        if region is not None or len(wanted) != 1 or not wanted <= offered:
+            raise SidecarError("not_offered", "That passage was not offered as an explorable figure.")
     try:
         request = FS.check_request(vault, repository, FS.FigureRequest(
-            extraction_id=params.extraction_id, span_ids=list(params.span_ids), region=region, origin="selection"))
+            extraction_id=params.extraction_id, span_ids=list(params.span_ids), region=region, origin=params.origin))
     except FS.FigureRefused as exc:
         raise _refused(exc) from exc
     _event(repository, "figure_requested", {"extraction_id": request.extraction_id,
-                                            "span_count": len(request.span_ids), "via": "selection"},
+                                            "span_count": len(request.span_ids), "via": params.origin},
            extraction_id=request.extraction_id)
     if request.region is not None:
         _event(repository, "figure_region_selected", {"extraction_id": request.extraction_id,

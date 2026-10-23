@@ -6,7 +6,11 @@ package: evidence-side code may use it without importing ``learnloop.figures``
 (the ``evidence-never-reads-figures`` contract).
 
 * :func:`figures_enabled` is the ONE switch predicate (``figures.enabled``),
-  with ONE default: off when a config has no ``figures`` section.
+  with ONE default: off when a config has no ``figures`` section. RW5b's
+  :func:`advanced_panels_enabled` and :func:`offers_enabled` sit under it, and
+  :func:`offerable` is the one rule for which cited blocks an offer may name
+  (the library organizer and the tutor use it without importing the figure
+  package).
 * :class:`FiguresGate` is a :class:`~learnloop.ai.execution.RequestGate`. It
   records a key of the configuration when a unit of work starts (a build:
   the vault, the switch, the author route, the day's cap and the price; a
@@ -38,6 +42,45 @@ def figures_enabled(vault: Any) -> bool:
 
     config = getattr(vault, "config", vault)
     return bool(getattr(getattr(config, "figures", None), "enabled", False))
+
+
+def advanced_panels_enabled(vault: Any) -> bool:
+    """RW5b: ``figures.advanced_panels_enabled`` under ``figures.enabled``
+    (heat maps, vector fields, trajectories and iterated maps)."""
+
+    config = getattr(vault, "config", vault)
+    return figures_enabled(config) and bool(getattr(config.figures, "advanced_panels_enabled", False))
+
+
+def offers_enabled(vault: Any) -> bool:
+    """RW5b: ``figures.offers_enabled`` under ``figures.enabled``: the library
+    organizer and the Reader tutor judge ``explorable`` on a cited equation or
+    figure block in the call they already make. Off, neither asks nor shows."""
+
+    config = getattr(vault, "config", vault)
+    return figures_enabled(config) and bool(getattr(config.figures, "offers_enabled", False))
+
+
+#: The block types an offer may name (an equation, or a figure the figure
+#: author may crop), and the ingest roles that mean the same.
+OFFER_BLOCK_TYPES = frozenset({"Equation", "Figure", "FigureGroup", "Picture", "PictureGroup"})
+OFFER_ROLES = frozenset({"equation", "figure"})
+#: The judgment's two answers; anything else (an old output without the
+#: field included) reads as no.
+EXPLORABLE = ("yes", "no")
+
+
+def offerable(block_type: Any, role: Any = None) -> bool:
+    """Whether a cited block is one "make this explorable" may be offered on:
+    code decides the block, the judge only whether it could support a figure."""
+
+    return str(block_type or "") in OFFER_BLOCK_TYPES or str(role or "") in OFFER_ROLES
+
+
+def explorable_yes(value: Any) -> bool:
+    """The judge said yes (an old output with no field, or anything else, is no)."""
+
+    return str(value or "").strip().lower() == "yes"
 
 
 def text_key(vault: Any) -> Hashable:
@@ -125,4 +168,16 @@ class FiguresGate:
             self._outer.settle(admission, usage)
 
 
-__all__ = ["FiguresChanged", "FiguresGate", "figures_enabled", "text_key"]
+__all__ = [
+    "EXPLORABLE",
+    "FiguresChanged",
+    "FiguresGate",
+    "OFFER_BLOCK_TYPES",
+    "OFFER_ROLES",
+    "advanced_panels_enabled",
+    "explorable_yes",
+    "figures_enabled",
+    "offerable",
+    "offers_enabled",
+    "text_key",
+]

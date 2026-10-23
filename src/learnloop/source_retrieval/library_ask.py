@@ -62,7 +62,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import closing
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 import json
 from typing import Any, Literal
@@ -83,12 +83,14 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_gaps as gap_store
 from learnloop.db.stores import library_asks as ask_store
 from learnloop.db.stores.source_block_fts import blocks_by_key
+from learnloop.figure_admission import EXPLORABLE, explorable_yes, offerable, offers_enabled
 from learnloop.goals.goal_certification import lo_certification
 from learnloop.ids import new_ulid
 from learnloop.practice_index.listwise import ListwiseTask, judge_listwise, listwise_caps, task_output_tokens
 from learnloop.practice_index.paid import checkpoint_key, plan_route, receipt_answer
 from learnloop.reader import source_roles as RS
 from learnloop.reader.reader_progression import learning_objects_for_span
+from learnloop.source_retrieval.corpus import block_roles
 from learnloop.source_retrieval.find_sources import EXPANSIONS, expanded_learning_objects
 from learnloop.source_retrieval.service_spend import SharedDailyEnvelope, midnight
 from learnloop.substrate.activities import log_interaction_event
@@ -237,10 +239,113 @@ ORGANIZER_ROLES_TASK = ListwiseTask(
 )
 
 
-def organizer_task(vault: LoadedVault) -> ListwiseTask:
-    """RW4a's organizer request, or RW4e's while ``roles.on_demand_enabled`` is on."""
+# ---------------------------------------------------------------------------
+# RW5b: "make this explorable" offered by the organizer's own judgment
+# ---------------------------------------------------------------------------
 
-    return ORGANIZER_ROLES_TASK if RS.on_demand_enabled(vault) else ORGANIZER_TASK
+#: RW5b (``figures.offers_enabled``): the same request, plus ``explorable``
+#: on each judged passage; its own prompt version per base request.
+EXPLORABLE_SUFFIX = "-explorable"
+
+
+def _tolerate_explorable(data: Any) -> Any:
+    """A missing or unknown ``explorable`` reads as no (old outputs included)."""
+
+    if isinstance(data, Mapping):
+        value = str(data.get("explorable") or "").strip().lower()
+        if value not in EXPLORABLE:
+            data = {**data, "explorable": "no"}
+    return data
+
+
+class OrganizerExplorableNote(OrganizerNote):
+    #: RW5b: could this equation or figure block become an explorable figure?
+    #: (``no`` for any other passage; code decides which blocks count.)
+    explorable: Literal["yes", "no"]
+
+    @model_validator(mode="before")
+    @classmethod
+    def _tolerate(cls, data: Any) -> Any:
+        return _tolerate_explorable(data)
+
+
+class OrganizerExplorableResult(WireModel):
+    judgments: list[OrganizerExplorableNote]
+    picks: list[str]
+
+
+class OrganizerRoleExplorableNote(OrganizerRoleNote):
+    explorable: Literal["yes", "no"]
+
+    @model_validator(mode="before")
+    @classmethod
+    def _tolerate(cls, data: Any) -> Any:
+        return _tolerate_explorable(RS.tolerate_roles(data))
+
+
+class OrganizerRolesExplorableResult(WireModel):
+    judgments: list[OrganizerRoleExplorableNote]
+    picks: list[str]
+
+
+def _explorable_twin(task: ListwiseTask, result_model: type[WireModel]) -> ListwiseTask:
+    return replace(task, prompt_version=task.prompt_version + EXPLORABLE_SUFFIX, result_model=result_model)
+
+
+ORGANIZER_EXPLORABLE_TASK = _explorable_twin(ORGANIZER_TASK, OrganizerExplorableResult)
+ORGANIZER_ROLES_EXPLORABLE_TASK = _explorable_twin(ORGANIZER_ROLES_TASK, OrganizerRolesExplorableResult)
+#: Which base request each explorable twin extends.
+_BASE_OF = {ORGANIZER_EXPLORABLE_TASK.prompt_version: ORGANIZER_TASK,
+            ORGANIZER_ROLES_EXPLORABLE_TASK.prompt_version: ORGANIZER_ROLES_TASK}
+
+
+def explorable_task(task: ListwiseTask) -> bool:
+    return task.prompt_version in _BASE_OF
+
+
+def base_task(task: ListwiseTask) -> ListwiseTask:
+    return _BASE_OF.get(task.prompt_version, task)
+
+
+_EXPLORABLE_SENTENCE = (
+    " Some candidates are an equation or a figure (their block says which). For each of those, also answer "
+    "explorable: yes when the passage could become an explorable figure a learner changes with sliders (a "
+    "function, density, distribution, map, field, landscape or dynamical system with parameters whose effect "
+    "can be computed and seen), no otherwise; answer explorable: no for every other candidate."
+)
+
+
+def organizer_task(vault: LoadedVault) -> ListwiseTask:
+    """RW4a's organizer request, or RW4e's while ``roles.on_demand_enabled`` is
+    on; either with RW5b's ``explorable`` while ``figures.offers_enabled`` is on."""
+
+    task = ORGANIZER_ROLES_TASK if RS.on_demand_enabled(vault) else ORGANIZER_TASK
+    if offers_enabled(vault):
+        return ORGANIZER_ROLES_EXPLORABLE_TASK if task is ORGANIZER_ROLES_TASK else ORGANIZER_EXPLORABLE_TASK
+    return task
+
+
+def offerable_kind(passage: Mapping[str, Any]) -> str | None:
+    """``equation`` | ``figure`` for a block an offer may name (code decides), else None."""
+
+    if not offerable(passage.get("block_type"), passage.get("role")):
+        return None
+    return "equation" if (str(passage.get("block_type") or "") == "Equation"
+                          or str(passage.get("role") or "") == "equation") else "figure"
+
+
+def shown_organizer(vault: LoadedVault, organizer: Mapping[str, Any]) -> dict[str, Any]:
+    """The organizer's output as it may be shown now: with offers off, no note
+    carries ``explorable`` (a stored one from while they were on included), so
+    the output is RW4a's/RW4e's, key for key."""
+
+    if offers_enabled(vault):
+        return dict(organizer)
+    notes = organizer.get("notes")
+    if not isinstance(notes, list) or not any(isinstance(note, Mapping) and "explorable" in note for note in notes):
+        return dict(organizer)
+    return {**organizer, "notes": [{key: value for key, value in note.items() if key != "explorable"}
+                                   if isinstance(note, Mapping) else note for note in notes]}
 
 _INSTRUCTIONS = (
     "A learner asked a question of their own library. Each candidate is a verbatim passage from one of "
@@ -645,15 +750,21 @@ class _OrganizerAdmission:
             self.envelope.unreserve(handle)
 
 
-def _passages(vault: LoadedVault, repository: Repository, keys: Sequence[str]) -> dict[str, dict[str, Any]]:
+def _passages(vault: LoadedVault, repository: Repository, keys: Sequence[str], *,
+              with_kinds: bool = False) -> dict[str, dict[str, Any]]:
+    """The passages' text and page; ``with_kinds`` (RW5b's offers): their block
+    type and effective role too, so code can tell an equation or a figure."""
+
     parsed = [tuple(key.split(":", 1)) for key in keys]
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         blocks = blocks_by_key(connection, parsed)
+        roles = block_roles(connection, [pair for pair in parsed if pair in blocks]) if blocks and with_kinds else {}
     out = {}
     for key, pair in zip(keys, parsed):
         block = blocks.get(pair)
         if block is not None:
-            out[key] = {"text": " ".join(str(block.text).split()), "page": block.page}
+            out[key] = {"text": " ".join(str(block.text).split()), "page": block.page,
+                        "block_type": block.block_type, "role": roles.get(pair)}
     return out
 
 
@@ -671,7 +782,10 @@ def organizer_prompt(query: str, candidates: Sequence[Mapping[str, Any]],
                                "candidates": list(candidates)}
     if personalized and questions:
         context["open_questions"] = [{"id": q["id"], "statement": q["statement"]} for q in questions]
-    instructions = _INSTRUCTIONS if task is ORGANIZER_TASK else _INSTRUCTIONS.replace(_ROLES_V1, _ROLES_V2)
+    base = base_task(task)
+    instructions = _INSTRUCTIONS if base is ORGANIZER_TASK else _INSTRUCTIONS.replace(_ROLES_V1, _ROLES_V2)
+    if explorable_task(task):
+        instructions += _EXPLORABLE_SENTENCE
     return render_structured_prompt(
         "Library answer notes", task.prompt_version,
         {"instructions": instructions + (_PERSONAL if personalized and questions else ""), "context": context},
@@ -716,9 +830,9 @@ def organize(
     # Reused once judged, unless a line could not be checked (it may be
     # recoverable now: its paid answer is kept, and nothing is paid again).
     if stored.get("status") in ("judged", "cached") and not stored.get("unchecked_lines"):
-        return {"ask_id": ask_id, **stored, "reused": True}
+        return {"ask_id": ask_id, **shown_organizer(vault, stored), "reused": True}
     keys = _shown_keys(row)
-    passages = _passages(vault, repository, keys)
+    passages = _passages(vault, repository, keys, with_kinds=explorable_task(organizer_task(vault)))
     keys = [key for key in keys if key in passages]
     if not keys:
         organizer = {"status": "empty_pool", "notes": [], "order": []}
@@ -735,8 +849,16 @@ def organize(
                     los.append(lo_id)
         los.extend(lo for lo in (row["anchor"] or {}).get("learning_object_ids") or () if lo not in los)
     questions = open_questions(vault, repository, los) if personalized else []
-    candidates = [{"ref": ref, "passage": passages[key]["text"][:ORGANIZER_PASSAGE_CHARS]} for ref, key in refs.items()]
     task = organizer_task(vault)
+    explorable = explorable_task(task)
+    candidates = [{"ref": ref, "passage": passages[key]["text"][:ORGANIZER_PASSAGE_CHARS]} for ref, key in refs.items()]
+    if explorable:
+        # RW5b: code names which candidates are equation or figure blocks; the
+        # judge only answers whether each could become an explorable figure.
+        for candidate, key in zip(candidates, refs.values()):
+            kind = offerable_kind(passages[key])
+            if kind is not None:
+                candidate["block"] = kind
     prompt = organizer_prompt(row["query"], candidates, questions, personalized=personalized, task=task)
     question_ids = {q["id"] for q in questions}
     allowed = set(VERDICTS)
@@ -812,6 +934,9 @@ def organize(
             if before is not None:
                 note.update({"line": before.get("line"), "roles": list(before.get("roles") or []),
                              "speaks_to": before.get("speaks_to") if personalized else None})
+                if explorable:
+                    note["explorable"] = (before.get("explorable") is True
+                                          and offerable_kind(passages[key]) is not None)
                 if note["speaks_to"] is not None:
                     if speaks_given or (note["speaks_to"] or {}).get("id") not in question_ids:
                         note["speaks_to"] = None
@@ -829,9 +954,14 @@ def organize(
                 note["line"] = str(line).strip()
             elif line:
                 dropped.append({"key": key, "reason": "its line cites another passage"})
+            if explorable:
+                # A yes counts only on a block code names an equation or a
+                # figure, and only with the passage's own line kept.
+                note["explorable"] = bool(judgment is not None and explorable_yes(getattr(judgment, "explorable", None))
+                                          and offerable_kind(passages[key]) is not None and note["line"])
             if judgment is not None:
                 note["roles"] = ([role for role in dict.fromkeys(judgment.roles) if role in ROLES]
-                                 if task is ORGANIZER_TASK else
+                                 if base_task(task) is ORGANIZER_TASK else
                                  [entry["role"] for entry in RS.clean_roles(judgment.roles)])
                 target = str(judgment.speaks_to or "").strip()
                 if personalized and target and target in question_ids and not speaks_given and note["line"]:
@@ -843,7 +973,7 @@ def organize(
     if personalized:
         order += [key for key in keys if key not in order]
     proposals = None
-    if task is not ORGANIZER_TASK and captured and outcome_status in ("judged", "cached"):
+    if base_task(task) is not ORGANIZER_TASK and captured and outcome_status in ("judged", "cached"):
         # RW4e: every judged passage's roles become source-object proposals
         # (no extra call; positive use only, G44). The passages are the
         # answer's own (the reading policy's, exam material withheld); the
@@ -867,7 +997,7 @@ def organize(
     _event(repository, "library_notes", {
         "extraction_id": row["extraction_id"], "status": outcome_status, "span_count": len(notes),
     }, subject_id=row["extraction_id"], clock=clock)
-    return {"ask_id": ask_id, **organizer, "reused": False}
+    return {"ask_id": ask_id, **shown_organizer(vault, organizer), "reused": False}
 
 
 # ---------------------------------------------------------------------------

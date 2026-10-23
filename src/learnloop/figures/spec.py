@@ -732,7 +732,7 @@ def _sum_terms(node: G.Node, parameters: Sequence[Parameter],
 
     lower = _bound_range(node.args[1], parameters, ranges)
     upper = _bound_range(node.args[2], parameters, ranges)
-    if lower is None or upper is None:
+    if lower is None or upper is None or not all(math.isfinite(value) for value in (*lower, *upper)):
         return None
     low = math.ceil(lower[0] - 1e-9)
     high = math.floor(upper[1] + 1e-9)

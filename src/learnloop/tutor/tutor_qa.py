@@ -57,12 +57,17 @@ from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.content.sources.exam_material import held_out_among, held_out_material, held_out_refusal
 from learnloop.ai.transport import OperationClient, execute_structured_operation
 from learnloop.tutor.ai_contracts import (
+    READER_TUTOR_EXPLORABLE_PROMPT_VERSION,
+    READER_TUTOR_EXPLORABLE_TOOLS_PROMPT_VERSION,
     READER_TUTOR_PROMPT_VERSION,
     READER_TUTOR_TOOLS_PROMPT_VERSION,
     TUTOR_QA_PROMPT_VERSION,
     TUTOR_QA_TOOLS_PROMPT_VERSION,
     ReaderTutorAnswer,
     ReaderTutorAnswerWithTools,
+    ReaderTutorExplorableAnswer,
+    ReaderTutorExplorableAnswerWithTools,
+    ReaderTutorExplorableQAContext,
     ReaderTutorQAContext,
     TutorAnswer,
     TutorAnswerWithTools,
@@ -141,15 +146,31 @@ def request_tutor_answer(
 
 
 def _answer_model(context: TutorQAContext, *, tools: bool) -> type[TutorAnswer]:
+    if isinstance(context, ReaderTutorExplorableQAContext):
+        # RW5b: with figure offers on, the answer judges its cited equation and figure blocks.
+        return ReaderTutorExplorableAnswerWithTools if tools else ReaderTutorExplorableAnswer
     if isinstance(context, ReaderTutorQAContext):
         return ReaderTutorAnswerWithTools if tools else ReaderTutorAnswer
     return TutorAnswerWithTools if tools else TutorAnswer
 
 
 def _prompt_version(context: TutorQAContext, *, tools: bool) -> str:
+    if isinstance(context, ReaderTutorExplorableQAContext):
+        return READER_TUTOR_EXPLORABLE_TOOLS_PROMPT_VERSION if tools else READER_TUTOR_EXPLORABLE_PROMPT_VERSION
     if isinstance(context, ReaderTutorQAContext):
         return READER_TUTOR_TOOLS_PROMPT_VERSION if tools else READER_TUTOR_PROMPT_VERSION
     return TUTOR_QA_TOOLS_PROMPT_VERSION if tools else TUTOR_QA_PROMPT_VERSION
+
+
+def tutor_explorable_enabled(vault: LoadedVault) -> bool:
+    """RW5b: the Reader tutor judges ``explorable`` on cited equation and
+    figure blocks only while figure offers are on and RW1c's offers (the
+    buttons under an answer, where "make this explorable" shows) are on."""
+
+    from learnloop.figure_admission import offers_enabled
+
+    section = getattr(vault.config, "reader_tutor", None)
+    return offers_enabled(vault) and bool(getattr(section, "offers_enabled", False))
 
 
 def reader_span_key(extraction_id: str, span_id: str) -> str:
@@ -1531,6 +1552,7 @@ def _build_context(
                 answer_mode=answer_mode, withheld=reader_withheld, delivery_receipt=delivery_receipt,
                 budget_tokens=settings.context_token_budget, expanded=settings.expanded_delivery,
                 guard=reader_binding.context_guard if reader_binding is not None else None, guarded=guarded,
+                explorable=tutor_explorable_enabled(vault),
             )
         if delivery_receipt is not None and guarded:
             delivery_receipt["item_bound_withheld"] = dict(sorted(guarded.items()))
@@ -1626,6 +1648,7 @@ def _reader_lookup_context(
     expanded: bool,
     guard: Any = None,
     guarded: Mapping[str, int] | None = None,
+    explorable: bool = False,
 ) -> ReaderTutorQAContext:
     """RW1c's Reader context: the selection and its neighbours first, then the
     retrieved passages (each its complete canonical block unless
@@ -1663,7 +1686,10 @@ def _reader_lookup_context(
         if receipt.get("trimmed") or receipt.get("dropped"):
             delivery_receipt["lookup_budget"] = {key: receipt[key] for key in
                                                  ("budget_tokens", "used_tokens", "trimmed", "dropped")}
-    return ReaderTutorQAContext(
+    # RW5b: with figure offers on, the same context asks for the explorable
+    # judgment (its own prompt version and answer model; no new field).
+    context_type = ReaderTutorExplorableQAContext if explorable else ReaderTutorQAContext
+    return context_type(
         context="reader",
         question_md=question_md,
         candidate_facets=[],
