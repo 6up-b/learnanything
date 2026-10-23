@@ -325,7 +325,7 @@ def test_token_budgets_preflight_emits_per_stage_estimates(tmp_path):
         assert stage.ceiling > 0
     payload = plan.as_dict()
     assert payload["totals"]["calls"] == sum(stage.calls for stage in plan.stages)
-    assert payload["provider"] == "codex_medium"
+    assert payload["provider"] == "chatgpt_medium"
 
 
 def test_build_plan_routes_create_vs_update(tmp_path):

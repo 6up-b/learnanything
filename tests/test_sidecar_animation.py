@@ -61,7 +61,7 @@ def test_animation_runtime_reports_probe_and_routed_model(tmp_path, monkeypatch)
     assert result["enabled"] is True
     assert result["manimAvailable"] is True
     assert "0.18.1" in result["manimVersion"]
-    assert result["provider"] == "codex_medium"
+    assert result["provider"] == "chatgpt_medium"
     assert result["timeoutSeconds"] == 600
     assert result["renderer"] == "manim"
     assert result["videoReady"] is False

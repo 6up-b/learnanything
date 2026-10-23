@@ -47,7 +47,9 @@ def test_cli_propose_without_file_reports_codex_unavailable(tmp_path):
 
     assert result.exit_code == 1
     payload = json.loads(result.output)
-    assert payload["error"] == "codex_missing"
+    # Plan-first transport T1: the default route is the ChatGPT plan, signed
+    # out in tests, so the CLI reports its sign-in state.
+    assert payload["error"] == "provider_auth_required"
 
 
 def test_cli_propose_context_stats_does_not_require_codex_runtime(tmp_path):

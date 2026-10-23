@@ -29,7 +29,7 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.context import _settings_ready, available_grading_providers
-from tests.helpers import create_basic_vault
+from tests.helpers import create_basic_vault, patch_plan_ready
 from tests.test_settings_sidecar import _settings_rpc
 
 
@@ -39,6 +39,8 @@ def codex_ready(monkeypatch):
         "learnloop.ai.runtime.check_codex_runtime",
         lambda *args, **kwargs: SimpleNamespace(status="ready", actual_revision=None, message="ok"),
     )
+    # Plan-first transport T1: the default routes name the plan; a ready learner is signed in.
+    patch_plan_ready(monkeypatch)
     monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
 
@@ -143,7 +145,7 @@ def test_decider_readiness_is_key_presence_without_network(vault, monkeypatch):
 def test_grading_providers_and_settings_health_ignore_judgment_routes(vault, monkeypatch):
     assert "openrouter_decider" not in available_grading_providers(vault)
     assert "openrouter_embedding" not in available_grading_providers(vault)
-    # A fresh Codex vault without an OpenRouter key is healthy: the router
+    # A fresh plan vault (T1) without an OpenRouter key is healthy: the router
     # routes have no consumer and the llm_probability harness is off.
     vault.config.ai.routing.router_decider = "openrouter_decider"
     vault.config.ai.routing.llm_probability_decider = "openrouter_decider"
@@ -180,7 +182,8 @@ def test_settings_payload_discloses_each_judgment_route(tmp_path, monkeypatch, c
     # Router R2b: the router routes send the learner state card from mvp-0.24.
     assert "From mvp-0.24" in judges["router_llm"]["disclosure"]
     assert "Never a reference answer" in judges["router_llm"]["disclosure"]
-    assert "ChatGPT subscription" in judges["router_llm"]["disclosure"]
+    # Plan-first transport T1: the default chat route is the tool-free ChatGPT plan.
+    assert "through your ChatGPT plan" in judges["router_llm"]["disclosure"]
     names = {provider["name"]: provider["type"] for provider in response["result"]["ai"]["providers"]}
     assert names["openrouter_decider"] == "decider"
 
@@ -371,11 +374,12 @@ def test_migration_175_preserves_every_judgment_and_its_references(tmp_path, mig
             )
 
 
-def test_codex_judge_runs_on_the_subscription_route_by_default(monkeypatch, tmp_path):
+def test_the_llm_judge_runs_on_the_subscription_route_by_default(monkeypatch, tmp_path):
     from learnloop.ai.client import make_ai_provider_client
 
     config = LearnLoopConfig()
-    assert provider_for_task(config, "llm_probability_llm").provider_name == "codex"
+    # Plan-first transport T1: the subscription route is the ChatGPT plan, not Codex.
+    assert provider_for_task(config, "llm_probability_llm").provider_name == "chatgpt"
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     with pytest.raises(AIProviderUnavailable, match="OPENROUTER_API_KEY"):
         # The decider client requires its key; nothing is built silently.

@@ -52,8 +52,8 @@ def test_config_and_settings_report_ai_routes(tmp_path, monkeypatch):
 
     config = responses[0]["result"]
     settings = responses[1]["result"]
-    assert config["ai"]["routing"]["authoring"] == "codex_medium"
-    assert settings["ai"]["routing"]["grading"] == "codex_low"
+    assert config["ai"]["routing"]["authoring"] == "chatgpt_medium"
+    assert settings["ai"]["routing"]["grading"] == "chatgpt_low"
     assert settings["ai"]["envProviderOverride"] is None
     assert sorted(settings["ai"]["useCases"]) == ["animation", "diagnosis", "grading", "ingest", "tutor", "video"]
     assert "openrouter" in {
@@ -162,7 +162,7 @@ def test_update_ai_settings_rejects_unknown_values_without_persisting(tmp_path, 
         "invalid_use_case",
         "invalid_model",
     ]
-    assert load_config(vault_root / "learnloop.toml").ai.routing.grading == "codex_low"
+    assert load_config(vault_root / "learnloop.toml").ai.routing.grading == "chatgpt_low"
 
 
 def test_set_openrouter_key_writes_global_env_without_echoing_secret(
@@ -246,7 +246,7 @@ def test_new_vault_inherits_ai_routes_but_existing_vault_is_untouched(
         new_config.ai.providers["openrouter_ingest"].model
         == "anthropic/claude-sonnet-4.5"
     )
-    assert existing_config.ai.routing.authoring == "codex_medium"
+    assert existing_config.ai.routing.authoring == "chatgpt_medium"
 
 
 def test_get_settings_reports_ingest_budgets_and_provider_limits(tmp_path, monkeypatch):
@@ -267,7 +267,7 @@ def test_get_settings_reports_ingest_budgets_and_provider_limits(tmp_path, monke
     # `[ingest.providers.*]` is commented out by default, which is exactly the
     # state that silently disables the build plan's context checks.
     limits = settings["ingest"]["providerLimits"]
-    assert limits["provider"] == "codex_medium"
+    assert limits["provider"] == "chatgpt_medium"
     assert limits["contextTokens"] is None
 
 
@@ -300,8 +300,8 @@ def test_update_ingest_settings_persists_budgets_and_provider_limits(tmp_path, m
     assert config.ingest.budgets.synthesis_total_input_ceiling == 120000
     # Untouched ceilings keep their defaults, so one row can be applied alone.
     assert config.ingest.budgets.inventory_input_tokens == 20000
-    assert config.ingest.providers["codex_medium"].context_tokens == 128000
-    assert config.ingest.providers["codex_medium"].max_output_tokens == 32768
+    assert config.ingest.providers["chatgpt_medium"].context_tokens == 128000
+    assert config.ingest.providers["chatgpt_medium"].max_output_tokens == 32768
 
 
 def test_update_ingest_settings_rejects_bad_budgets_without_persisting(tmp_path, monkeypatch):
@@ -473,7 +473,7 @@ def test_get_settings_reports_native_modality_readiness(tmp_path, monkeypatch):
         assert entry["requested"] is False
         assert entry["ready"] is False
         assert entry["reason"] == "provider_not_chat"
-        assert entry["providerName"] == "codex_medium"
+        assert entry["providerName"] == "chatgpt_medium"
     assert native["fallbackWhenUnavailable"] is False
     assert native["maxPdfMb"] == 32 and native["maxAudioMb"] == 20
     assert native["knownModalities"] == ["audio", "pdf", "image", "video"]

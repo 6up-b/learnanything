@@ -77,13 +77,13 @@ def test_sidecar_config_reports_ai_routing(tmp_path):
 
     routing = config["ai"]["routing"]
     # Default vault: legacy codex routes upgraded to workload-specific profiles.
-    assert routing["grading"] == "codex_low"
-    assert routing["canonicalIngest"] == "codex_medium"
-    assert routing["canonicalIngestRetry"] == "codex_medium"
-    assert routing["authoring"] == "codex_medium"
-    assert routing["tutorQa"] == "codex_low"
-    assert routing["teachBack"] == "codex_low"
-    assert routing["rungVariant"] == "codex_low"
+    assert routing["grading"] == "chatgpt_low"
+    assert routing["canonicalIngest"] == "chatgpt_medium"
+    assert routing["canonicalIngestRetry"] == "chatgpt_medium"
+    assert routing["authoring"] == "chatgpt_medium"
+    assert routing["tutorQa"] == "chatgpt_low"
+    assert routing["teachBack"] == "chatgpt_low"
+    assert routing["rungVariant"] == "chatgpt_low"
 
 
 def test_sidecar_initialize_start_session_and_queue(tmp_path):
@@ -3171,7 +3171,7 @@ def test_sidecar_create_vault_inherits_ai_settings_from_active_vault(tmp_path, m
     assert config.ai.routing.authoring == "openrouter_ingest"
     assert config.ai.providers["openrouter_ingest"].model == "anthropic/claude-sonnet-4.5"
     # Unconfigured use-cases keep the template default.
-    assert config.ai.routing.grading == "codex_low"
+    assert config.ai.routing.grading == "chatgpt_low"
 
 
 def test_sidecar_create_vault_reopen_does_not_touch_existing_ai_settings(tmp_path, monkeypatch):
@@ -3195,7 +3195,7 @@ def test_sidecar_create_vault_reopen_does_not_touch_existing_ai_settings(tmp_pat
     assert all("result" in response for response in responses)
 
     config = load_config(existing_root / "learnloop.toml")
-    assert config.ai.routing.canonical_ingest == "codex_medium"
+    assert config.ai.routing.canonical_ingest == "chatgpt_medium"
     assert "openrouter_ingest" not in config.ai.providers
 
 
@@ -3222,8 +3222,8 @@ def test_get_settings_reports_routing_providers_and_key_presence(tmp_path, monke
 
     result = _settings_rpc(vault_root, ("get_settings", {}))[0]["result"]
 
-    assert result["ai"]["activeProvider"] == "codex"
-    assert result["ai"]["routing"]["grading"] == "codex_low"
+    assert result["ai"]["activeProvider"] == "chatgpt"
+    assert result["ai"]["routing"]["grading"] == "chatgpt_low"
     assert result["ai"]["envProviderOverride"] is None
     provider_names = [p["name"] for p in result["ai"]["providers"]]
     # Provider names arrive verbatim (list form), never camel-mangled.
@@ -3283,7 +3283,7 @@ def test_update_ai_settings_expands_ingest_use_case(tmp_path, monkeypatch):
     assert routing["canonicalIngestRetry"] == "openrouter_ingest"
     assert routing["authoring"] == "openrouter_ingest"
     # Untouched use-cases keep their defaults.
-    assert routing["grading"] == "codex_low"
+    assert routing["grading"] == "chatgpt_low"
 
 
 def test_update_ai_settings_clears_session_grading_override(tmp_path, monkeypatch):
@@ -3330,7 +3330,7 @@ def test_update_ai_settings_rejects_unknown_provider_use_case_and_slug(tmp_path,
     # Nothing persisted by the rejected calls.
     from learnloop.config import load_config
 
-    assert load_config(vault_root / "learnloop.toml").ai.routing.grading == "codex_low"
+    assert load_config(vault_root / "learnloop.toml").ai.routing.grading == "chatgpt_low"
 
 
 def test_set_openrouter_api_key_writes_global_settings_env_and_environ(tmp_path, monkeypatch):
