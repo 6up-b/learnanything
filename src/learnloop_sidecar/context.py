@@ -847,12 +847,16 @@ def _ai_health(vault: LoadedVault, grading_override: str | None) -> dict[str, An
             **base,
             "manual_grading": True,
         }
-    resolved = ready_client_for_task(
-        vault.root,
-        vault.config,
-        "grading",
-        explicit=grading_override,
-    )
+    from learnloop.ai.plan_fallback import quiet
+
+    # A health line, not a feature the learner used: no OpenRouter offer.
+    with quiet():
+        resolved = ready_client_for_task(
+            vault.root,
+            vault.config,
+            "grading",
+            explicit=grading_override,
+        )
     ai_report = resolved.runtime
     return {
         "ready": True if resolved.manual else ai_report.ready,

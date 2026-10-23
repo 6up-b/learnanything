@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict
 from learnloop.config.schema import (
     DEFAULT_CODEX_MODEL,
     DEFAULT_CODEX_REASONING_EFFORT,
-    DEFAULT_CODEX_TASK_ROUTES,
+    LEGACY_CODEX_TASK_ROUTES,
     LEGACY_CODEX_MODEL,
     OPENROUTER_TRANSCRIPTION_PROVIDER,
     AIProviderConfig,
@@ -305,7 +305,7 @@ def _normalize_codex_aliases(ai: dict[str, Any]) -> dict[str, Any]:
     routing = normalized.get("routing")
     if isinstance(routing, dict):
         routing = dict(routing)
-        for task, default_provider in DEFAULT_CODEX_TASK_ROUTES.items():
+        for task, default_provider in LEGACY_CODEX_TASK_ROUTES.items():
             if routing.get(task) == "codex":
                 routing[task] = default_provider
         normalized["routing"] = routing

@@ -135,6 +135,9 @@ CHATGPT_PLAN_RPCS = (
     "chatgpt_plan_signout",
     "chatgpt_plan_acknowledge_welcome",
     "chatgpt_plan_resume",
+    # Plan-first transport T1: "Use OpenRouter instead" while the plan is
+    # unavailable (the learner's choice for this desktop session).
+    "ai_use_fallback",
 )
 
 # Router R1 (mvp-0.15) adds no RPC. It extends these: a published Today offer

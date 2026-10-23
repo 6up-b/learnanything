@@ -3102,6 +3102,15 @@ export interface ConceptInspectorDetail {
   }>;
 }
 
+/** Plan-first transport T1: the reply to ai_use_fallback ("Use OpenRouter instead"). */
+export interface AiUseFallbackDto {
+  version: number;
+  provider: "openrouter";
+  profile: string | null;
+  grantedTasks: string[];
+  scope: "session";
+}
+
 export interface CommandError {
   code: string;
   message: string;

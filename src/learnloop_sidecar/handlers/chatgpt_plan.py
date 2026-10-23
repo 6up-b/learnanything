@@ -7,14 +7,18 @@ start cancels the previous one. Cancel waits briefly for the attempt to end, so
 its reply is usually final; a callback that is already being finished is
 refused at commit, so a cancelled attempt never saves. The sign-in is machine-global (it lives in
 the LearnLoop config directory, never in a vault), so none of these needs a
-vault, and none returns a token. Desktop only: never phone-allowed.
+vault, and none returns a token. ``ai_use_fallback`` (plan-first transport T1)
+records the learner's "Use OpenRouter instead" for the open vault's session. Desktop
+only: never phone-allowed.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 import threading
 import time
-from typing import Any
+from typing import Any, Literal
+
+from pydantic import Field
 
 from learnloop.ai.chatgpt_plan.oauth import SignInError
 from learnloop.ai.chatgpt_plan.routes import plan_profiles
@@ -161,6 +165,51 @@ def chatgpt_plan_acknowledge_welcome(ctx: SidecarContext, _params: EmptyParams) 
 def chatgpt_plan_resume(ctx: SidecarContext, _params: EmptyParams) -> dict[str, Any]:
     PlanSession().resume()
     return versioned(chatgpt_plan_payload(ctx))
+
+
+class UseFallbackParams(ParamsModel):
+    # The one fallback the owner approved (2026-10-21).
+    provider: Literal["openrouter"]
+    # The tasks the feature's hint named (``fallback_tasks``).
+    tasks: list[str] = Field(default_factory=list)
+    # True: stop using OpenRouter for every task this session.
+    stop: bool = False
+
+
+@method("ai_use_fallback", UseFallbackParams)
+def ai_use_fallback(ctx: SidecarContext, params: UseFallbackParams) -> dict[str, Any]:
+    """The learner chose "Use OpenRouter instead" (plan-first transport T1).
+
+    While the ChatGPT plan is unavailable, the named tasks run on the
+    configured OpenRouter profile (``ai.plan_fallback_profile``) for the rest
+    of this session: that feature, not every feature, and only while the plan
+    cannot serve it (a ready plan route is always used first). A granted
+    request is an ordinary metered request, so every feature's spend caps
+    apply. Refused when no OpenRouter profile with a key is configured: the
+    offer is never shown then.
+    """
+
+    from typing import get_args
+
+    from learnloop.ai import plan_fallback
+    from learnloop.ai.routing import AITask
+
+    vault, _repository = ctx.require_vault()
+    if params.stop:
+        plan_fallback.revoke_all()
+        return versioned({"provider": params.provider, "profile": plan_fallback.offer_profile(vault.config),
+                          "granted_tasks": [], "scope": "session"})
+    known = set(get_args(AITask))
+    unknown = sorted(task for task in params.tasks if task not in known)
+    if unknown or not params.tasks:
+        raise SidecarError("unknown_task", f"Name the tasks from the hint's fallback_tasks; unknown: {', '.join(unknown) or 'none given'}.")
+    profile = plan_fallback.offer_profile(vault.config)
+    if profile is None:
+        raise SidecarError("fallback_unavailable",
+                           "OpenRouter isn't set up on this computer. Add an OpenRouter key in Settings first.")
+    plan_fallback.grant(params.tasks)
+    return versioned({"provider": params.provider, "profile": profile,
+                      "granted_tasks": plan_fallback.granted_tasks(), "scope": "session"})
 
 
 __all__ = ["ATTEMPTS", "SignInAttempts", "chatgpt_plan_payload"]

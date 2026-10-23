@@ -223,6 +223,9 @@ class _Job:
     result: dict[str, Any] | None = None
     error: SidecarError | None = None
     cancelled: bool = False
+    #: Plan-first transport T1: the OpenRouter offer the job's requests made
+    #: (a ``plan_fallback`` hint), relayed by the read that finds it done.
+    fallback_offer: dict[str, Any] | None = None
 
 
 @dataclass
@@ -311,24 +314,29 @@ class CueDiscoveryJobs:
             return current is None or not PC.discovery_enabled(current)
 
         def run() -> None:
+            from learnloop.ai import plan_fallback
             from learnloop.ai.execution import record_model_calls
             from learnloop.db.repositories import Repository
 
-            try:
-                worker_repo = Repository.attach(sqlite_path)
-                # One job of this source at a time, on the open's one budget
-                # and under the source's daily cap (F16).
-                with source_lock, record_model_calls(worker_repo, owner_kind="sidecar_rpc",
-                                                     owner_id=f"reader.cue_discovery:{job.job_id}"):
-                    opened.cancelled = cancelled
-                    job.result = PC.discover(vault, worker_repo, extraction_id, client=client, embedder=embedder,
-                                             cancelled=cancelled, budget=opened.budget)
-            except BaseException as exc:  # noqa: BLE001 - every failure answers the job, never the loop
-                LOG.warning("cue discovery failed: %s", type(exc).__name__, exc_info=exc)
-                job.error = SidecarError("internal_error", "LearnLoop couldn't look for margin notes just now.",
-                                         retryable=True)
-            finally:
-                job.done.set()
+            # Plan-first transport T1: the job's thread has no RPC collector;
+            # it keeps its own offers and the read that finds it done relays them.
+            with plan_fallback.collecting() as offers:
+                try:
+                    worker_repo = Repository.attach(sqlite_path)
+                    # One job of this source at a time, on the open's one budget
+                    # and under the source's daily cap (F16).
+                    with source_lock, record_model_calls(worker_repo, owner_kind="sidecar_rpc",
+                                                         owner_id=f"reader.cue_discovery:{job.job_id}"):
+                        opened.cancelled = cancelled
+                        job.result = PC.discover(vault, worker_repo, extraction_id, client=client,
+                                                 embedder=embedder, cancelled=cancelled, budget=opened.budget)
+                except BaseException as exc:  # noqa: BLE001 - every failure answers the job, never the loop
+                    LOG.warning("cue discovery failed: %s", type(exc).__name__, exc_info=exc)
+                    job.error = SidecarError("internal_error", "LearnLoop couldn't look for margin notes just now.",
+                                             retryable=True)
+                finally:
+                    job.fallback_offer = offers.hint()
+                    job.done.set()
 
         if getattr(ctx, "cue_discovery_inline", False):
             run()
@@ -353,6 +361,9 @@ def _job_payload(job: _Job) -> dict[str, Any]:
     base = {"job_id": job.job_id, "extraction_id": job.extraction_id}
     if not job.done.is_set():
         return versioned({**base, "state": "pending", "result": None})
+    from learnloop.ai import plan_fallback
+
+    plan_fallback.relay_hint(job.fallback_offer)
     if job.error is not None:
         raise job.error
     result = job.result or {}

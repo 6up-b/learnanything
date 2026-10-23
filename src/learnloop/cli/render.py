@@ -99,6 +99,15 @@ class _AsciiSpinner:
 
 def _dump(value: object) -> str:
     value = _plain(value)
+    if isinstance(value, dict) and "fallback_available" not in value:
+        # Plan-first transport T1: when this command met an unavailable
+        # ChatGPT-plan route and OpenRouter could serve it, the JSON says so
+        # (typed, never acted on: LEARNLOOP_AI_FALLBACK=openrouter chooses it).
+        from learnloop.ai.plan_fallback import current_hint
+
+        hint = current_hint()
+        if hint is not None:
+            value = {**value, **hint}
     return jsonlib.dumps(value, indent=2, sort_keys=True, default=str)
 
 def _plain(value: object) -> object:

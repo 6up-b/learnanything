@@ -149,7 +149,8 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
     if config is None:
         return DoctorReport(root=vault_root, issues=issues)
     _check_retired_config(vault_root, issues)
-    _check_chatgpt_plan_routes(vault_root, config, issues)
+    _check_codex_pins(vault_root, config, issues)
+    _check_chatgpt_plan_routes(vault_root, config, issues, machine_state=ai)
     codex_runtime, ai_runtime = _requested_ai_runtimes(vault_root, config, ai=ai, ai_provider=ai_provider)
 
     paths = VaultPaths(vault_root, config)
@@ -243,11 +244,35 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
     )
 
 
-def _check_chatgpt_plan_routes(root: Path, config: LearnLoopConfig, issues: list[HealthIssue]) -> None:
-    """Warn when a route uses a ``chatgpt_plan`` profile this machine cannot serve.
+def _check_codex_pins(root: Path, config: LearnLoopConfig, issues: list[HealthIssue]) -> None:
+    """Plan-first transport T1: every learnloop.toml setting that still names a Codex profile.
+
+    Without ``ai.agent_harness_opt_in`` such a route reads unavailable;
+    ``learnloop doctor --fix`` rewrites it to the ChatGPT-plan profile of the
+    same tier. Settings written in the file only (never a code default).
+    """
+
+    from learnloop.ops.plan_transport import FINDING_CODE, codex_pins, finding_message
+
+    path = root / "learnloop.toml"
+    for pin in codex_pins(root, config):
+        issues.append(_issue("warning", FINDING_CODE, finding_message(pin), path,
+                             details={**pin.as_dict(), "fix": "doctor --fix"}))
+
+
+def _check_chatgpt_plan_routes(root: Path, config: LearnLoopConfig, issues: list[HealthIssue], *,
+                               machine_state: bool = False) -> None:
+    """Warn when a route uses a ``chatgpt_plan`` profile that cannot serve it.
 
     Reads the profile and the machine's sign-in status files only: no network,
     no token, no provider process. A profile no route uses is not checked.
+    Configuration is always checked: a missing model, a disabled profile, and
+    a model the signed-in account does not list (the list
+    ``learnloop ai models chatgpt`` last fetched). The machine's sign-in and
+    pause state is checked under ``doctor --ai`` (``machine_state``) only:
+    since plan-first transport T1 every vault uses the plan, so a signed-out
+    machine is not a problem of each vault (``learnloop ai status chatgpt``
+    and the desktop's "Continue with ChatGPT" report it).
     """
 
     from learnloop.ai.chatgpt_plan.routes import plan_profiles
@@ -256,7 +281,12 @@ def _check_chatgpt_plan_routes(root: Path, config: LearnLoopConfig, issues: list
     profiles = [entry for entry in plan_profiles(config) if entry["in_use"]]
     if not profiles:
         return
-    status = PlanSession().status()
+    session = PlanSession()
+    status = session.status()
+    try:
+        listed = session.listed_models() if status.signed_in else None
+    except Exception:  # noqa: BLE001 - an unreadable store lists nothing
+        listed = None
     path = root / "learnloop.toml"
     for entry in profiles:
         uses = entry["routes"] + (["active_provider"] if entry["active_provider"] else []) + (
@@ -272,6 +302,18 @@ def _check_chatgpt_plan_routes(root: Path, config: LearnLoopConfig, issues: list
                                  f"ai.providers.{entry['name']} is disabled (enabled = false) but "
                                  f"{', '.join(uses)} still name it; those routes fall back or stay unavailable.",
                                  path, details=details))
+            continue
+        if listed is not None and entry["model"] not in listed["slugs"]:
+            shown = ", ".join(listed["slugs"][:12]) or "none"
+            issues.append(_issue(
+                "warning", "ai:chatgpt_plan_model_not_listed",
+                f"ai.providers.{entry['name']} uses model {entry['model']!r}, which your ChatGPT account does not "
+                f"list (it lists: {shown}; checked {listed.get('at')} by `learnloop ai models chatgpt`). "
+                f"{', '.join(uses)} would be refused. Set the slug under [ai.providers.{entry['name']}] model "
+                "(the chatgpt_low and chatgpt_medium tiers copy [ai.providers.chatgpt]).",
+                path, details={**details, "model": entry["model"], "listed": listed["slugs"]}))
+            continue
+        if not machine_state:
             continue
         state, message = status.readiness(pause_minutes=entry["usage_limit_pause_minutes"])
         if state != "ready":

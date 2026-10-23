@@ -69,9 +69,12 @@ from learnloop.ai.chatgpt_plan.workspace import (
 from learnloop.ai.chatgpt_plan.session import (
     MANAGE_USAGE_URL,
     ChatGPTPlanNotEligible,
+    ChatGPTPlanNotEnabled,
     ChatGPTPlanUsageExhausted,
+    ChatGPTSignInRequired,
     PlanSession,
 )
+from learnloop.ai.plan_fallback import note_plan_failure
 from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIOutputTruncated, AIProviderUnavailable, AITurnTimeout
 from learnloop.ai.execution import model_call, report_call_usage, single_request_active
 from learnloop.ai.isolation import TOOL_FREE
@@ -124,6 +127,13 @@ class ChatGPTPlanUnauthorized(AIProviderUnavailable):
     """The access token was not accepted (401); the next request refreshes it first."""
 
 
+#: Availability failures of the plan itself (not of one request's shape):
+#: signed out, plan usage not granted, paused or exhausted, ineligible, a
+#: token the plan refused after its one refresh.
+_PLAN_UNAVAILABLE = (ChatGPTSignInRequired, ChatGPTPlanNotEnabled, ChatGPTPlanUsageExhausted, ChatGPTPlanNotEligible,
+                     ChatGPTPlanUnauthorized)
+
+
 class ChatGPTPlanProviderClient(TokenUsageAccounting):
     provider_type = PROVIDER_TYPE
 
@@ -141,7 +151,9 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
         self.default_base_url = self.base_url
         self.response_format = getattr(profile, "response_format", None) or "json_schema"
         self.pause_minutes = int(getattr(profile, "usage_limit_pause_minutes", None) or 15)
-        self.workspace_mode = getattr(profile, "workspace_mode", None) or "tools"
+        # Plan-first transport T1: inline by default (one request); an export
+        # over max_workspace_chars is served in tools mode instead.
+        self.workspace_mode = getattr(profile, "workspace_mode", None) or "inline"
         self.max_tool_rounds = int(getattr(profile, "max_tool_rounds", None) or 16)
         self.max_entry_chars = int(getattr(profile, "max_entry_chars", None) or 24_000)
         self.max_workspace_chars = int(getattr(profile, "max_workspace_chars", None) or 400_000)
@@ -180,8 +192,10 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
         workspace = self._workspace
         if workspace is None:
             return None
+        mode = "tools" if workspace.overflowed_inline else self.workspace_mode
         return {
-            "mode": self.workspace_mode,
+            "mode": mode,
+            **({"inline_overflow": True} if mode != self.workspace_mode else {}),
             **workspace.summary(),
             "served": [entry.as_dict() for entry in workspace.served],
             "calls": [call.as_dict() for call in workspace.calls],
@@ -207,12 +221,18 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
         # A route's requested effort (ai.route_reasoning_effort) replaces the
         # profile's for this request, as on Codex and OpenRouter.
         effort = getattr(request, "reasoning_effort", None) or None
-        if request.workspace is not None:
-            text = self._workspace_turn(Path(request.workspace), self._instructions(model_type), prompt, model_type,
-                                        deadline=deadline, effort=effort, budget=budget)
-        else:
-            text = self._respond(self._instructions(model_type), prompt, model_type, deadline=deadline,
-                                 effort=effort, budget=budget)
+        try:
+            if request.workspace is not None:
+                text = self._workspace_turn(Path(request.workspace), self._instructions(model_type), prompt,
+                                            model_type, deadline=deadline, effort=effort, budget=budget)
+            else:
+                text = self._respond(self._instructions(model_type), prompt, model_type, deadline=deadline,
+                                     effort=effort, budget=budget)
+        except _PLAN_UNAVAILABLE as failure:
+            # Plan-first transport T1: the request's hint may offer OpenRouter
+            # for this route (asked, never automatic).
+            note_plan_failure(signed_out=isinstance(failure, (ChatGPTSignInRequired, ChatGPTPlanNotEnabled)))
+            raise
         try:
             return model_type.model_validate_json(text)
         except (ValidationError, ValueError) as first:
@@ -222,8 +242,12 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
             # workspace. It is sent with the budget of the request it repairs
             # (the same sentence, the same recorded allowance): the repaired
             # answer is the same complete JSON response (final verification F9).
-            repaired = self._respond(_JSON_ONLY, _with_budget(_repair_prompt(text, model_type), budget), model_type,
-                                     deadline=deadline, effort=effort, budget=budget)
+            try:
+                repaired = self._respond(_JSON_ONLY, _with_budget(_repair_prompt(text, model_type), budget),
+                                         model_type, deadline=deadline, effort=effort, budget=budget)
+            except _PLAN_UNAVAILABLE as failure:
+                note_plan_failure(signed_out=isinstance(failure, (ChatGPTSignInRequired, ChatGPTPlanNotEnabled)))
+                raise
             try:
                 return model_type.model_validate_json(repaired)
             except (ValidationError, ValueError) as second:
@@ -276,10 +300,18 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
             try:
                 block = workspace.inline_block()
             except WorkspaceTooLarge as exc:
-                raise AIProviderUnavailable(f"{self.provider_name}: {exc}") from None
-            return self._respond(f"{instructions}\n\n{INSTRUCTIONS_INLINE}", f"{prompt}\n\n{block}", model_type,
-                                 deadline=deadline, effort=effort, budget=budget,
-                                 extra={"workspace": {"mode": "inline", "served": workspace.activity()}})
+                # Plan-first transport T1 (orchestrator decision): an export
+                # too large to inline is served in tools mode, every round its
+                # own admitted request, rather than refused.
+                logger.info("ChatGPT plan %s: %s; serving the workspace in tools mode.", self.provider_name, exc)
+                workspace = ServedWorkspace(root, max_entry_chars=self.max_entry_chars,
+                                            max_workspace_chars=self.max_workspace_chars)
+                workspace.overflowed_inline = True
+                self._workspace = workspace
+            else:
+                return self._respond(f"{instructions}\n\n{INSTRUCTIONS_INLINE}", f"{prompt}\n\n{block}",
+                                     model_type, deadline=deadline, effort=effort, budget=budget,
+                                     extra={"workspace": {"mode": "inline", "served": workspace.activity()}})
         return self._tool_loop(workspace, f"{instructions}\n\n{INSTRUCTIONS_TOOLS}", prompt, model_type,
                                deadline=deadline, effort=effort, budget=budget)
 
@@ -561,11 +593,17 @@ def list_plan_models(base_url: str = CHATGPT_PLAN_API_BASE_URL, *, session: Plan
         models = None
     if not isinstance(models, list):
         raise AIProviderUnavailable("The model list had no `models` array.")
-    return [
+    listed = [
         {"slug": str(model["slug"]), "display_name": str(model.get("display_name") or model["slug"])}
         for model in models
         if isinstance(model, dict) and model.get("visibility") == "list" and model.get("slug")
     ]
+    # `learnloop doctor` compares the configured slugs with this list.
+    try:
+        session.note_listed_models([model["slug"] for model in listed])
+    except Exception:  # noqa: BLE001 - remembering the list is best effort
+        logger.warning("could not remember the ChatGPT plan's model list", exc_info=True)
+    return listed
 
 
 def _count(value: Any) -> int | None:

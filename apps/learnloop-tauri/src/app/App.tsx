@@ -6,6 +6,7 @@ import type { AddSourceItemDto, AiConnectionDto, AppSnapshot, AttemptProgress, C
 import { AskOverlay, type AskTarget } from "../components/AskOverlay";
 import { AddPopover, DropOverlay, useAddSource } from "../components/AddSource";
 import { ConnectAISheet } from "../components/ConnectAI";
+import { PlanFallbackOffer } from "../components/PlanFallbackOffer";
 import { pickSourceFiles, useSourceFileDrop } from "../components/useSourceFileDrop";
 import { LibraryPlace, type LibraryView } from "../screens/LibraryPlace";
 import { useGlobalAdd } from "./useGlobalAdd";
@@ -1724,6 +1725,8 @@ export function App() {
           }}
         />
       ) : null}
+      {/* Plan-first transport T1: the ChatGPT plan is unavailable and OpenRouter could serve. */}
+      <PlanFallbackOffer onContinueWithChatGPT={() => setConnectOpen(true)} />
       {fileDragging ? <DropOverlay /> : null}
       <SessionFinishHud summary={finishSummary} onDismiss={() => setFinishSummary(null)} />
       <CommandPalette
