@@ -100,11 +100,14 @@ _QUIET: ContextVar[bool] = ContextVar("learnloop_plan_fallback_quiet", default=F
 
 @contextmanager
 def quiet() -> Iterator[None]:
-    """Make no offer for routes resolved in this block.
+    """Make no offer, and honour no grant, for routes resolved in this block.
 
     For readiness probes (the snapshot's health line, startup maintenance):
     they report the plan's state themselves, and the learner is asked about
-    OpenRouter only when a feature they used could not run.
+    OpenRouter only when a feature they used could not run. A grant is for
+    the feature the learner used, never for background work: a deferred
+    regrade backlog found at startup waits for the plan even while
+    "grading" is granted for the session.
     """
 
     token = _QUIET.set(True)
@@ -223,6 +226,8 @@ def granted_tasks() -> list[str]:
 
 
 def is_granted(task: str) -> bool:
+    if _QUIET.get():
+        return False
     if (os.environ.get(FALLBACK_ENV) or "").strip().lower() == FALLBACK_KIND:
         return True
     with _GRANTS_LOCK:

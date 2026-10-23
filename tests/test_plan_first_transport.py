@@ -629,6 +629,17 @@ def test_unavailable_offers_openrouter_only_when_configured_and_sends_nothing_un
     monkeypatch.delenv("LEARNLOOP_AI_PROVIDER")
     other = ready_client_for_task(vault, config, "grading")  # not chosen: still asked
     assert not other.ready and other.runtime.fallback_available == "openrouter"
+    # A grant is for the feature the learner used, never for background work:
+    # startup maintenance (a quiet probe) finds a granted task's plan route
+    # unavailable and leaves the deferred-regrade backlog for the plan.
+    plan_fallback.grant(["grading"])
+    with plan_fallback.quiet():
+        background = ready_client_for_task(vault, config, "grading")
+    assert not background.ready and background.provider_name == "chatgpt_low"
+    monkeypatch.setenv("LEARNLOOP_AI_FALLBACK", "openrouter")
+    with plan_fallback.quiet():
+        assert not ready_client_for_task(vault, config, "grading").ready
+    monkeypatch.delenv("LEARNLOOP_AI_FALLBACK")
     plan_fallback.revoke_all()
     # The CLI's one-command choice.
     monkeypatch.setenv("LEARNLOOP_AI_FALLBACK", "openrouter")
