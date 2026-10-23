@@ -3,8 +3,8 @@ title: "forecast_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea590e192e7d05cf407e35bee338909582716483"
-source_commit_timestamp: "2026-10-22T23:06:34-04:00"
+source_commit: "e3cb586a7d6eea0ab684df2ede124bc141a05aec"
+source_commit_timestamp: "2026-10-23T18:42:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite forecast_receipts"
@@ -21,12 +21,12 @@ source_paths:
   - "migrations/206_forecast_receipts.sql"
   - "src/learnloop/adaptive_difficulty/__init__.py"
   - "src/learnloop/adaptive_difficulty/backfill.py"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/data_check.py"
   - "src/learnloop/adaptive_difficulty/forecasters.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/outside.py"
-  - "src/learnloop/adaptive_difficulty/reading.py"
-  - "src/learnloop/adaptive_difficulty/serve.py"
-  - "src/learnloop/adaptive_difficulty/serve_inputs.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -50,7 +50,7 @@ It belongs to the **goals and exams** navigation family. The family context live
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/206_forecast_receipts.sql`.
-- **Schema touched by:** `206_forecast_receipts.sql`, `213_adaptive_difficulty_receipts.sql`.
+- **Schema touched by:** `206_forecast_receipts.sql`, `213_adaptive_difficulty_receipts.sql`, `214_adaptive_difficulty_serving.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -120,10 +120,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
-- `src/learnloop/adaptive_difficulty/backfill.py`
 - `src/learnloop/adaptive_difficulty/data_check.py`
-- `src/learnloop/adaptive_difficulty/outside.py`
-- `src/learnloop/adaptive_difficulty/serve.py`
 
 ### Direct SQL writers
 
@@ -142,6 +139,12 @@ None found by exact static reference scan.
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_migration.py`
 - `tests/test_ad1_reading_opportunities.py`
+- `tests/test_ad23_contract.py`
+- `tests/test_ad23_fix_r8.py`
+- `tests/test_ad23_fix_review.py`
+- `tests/test_ad2_model.py`
+- `tests/test_ad3_subject_view.py`
+- `tests/test_ad_epoch.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_architecture.py`
 - `tests/test_chatgpt_plan_landing.py`

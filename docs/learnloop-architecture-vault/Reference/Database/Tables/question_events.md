@@ -3,8 +3,8 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea590e192e7d05cf407e35bee338909582716483"
-source_commit_timestamp: "2026-10-22T23:06:34-04:00"
+source_commit: "e3cb586a7d6eea0ab684df2ede124bc141a05aec"
+source_commit_timestamp: "2026-10-23T18:42:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
@@ -19,13 +19,15 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/019_question_events.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
+  - "src/learnloop/adaptive_difficulty/replay.py"
   - "src/learnloop/attempts/coldness_receipt.py"
+  - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/cli/field_classification.py"
-  - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/diagnosis/followups.py"
-  - "src/learnloop/diagnosis/text_gaps/jobs.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
   - "src/learnloop/instructional/interventions.py"
 tags:
@@ -128,7 +130,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/adaptive_difficulty/reading.py`
+- `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/text_gaps/jobs.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
@@ -170,9 +172,14 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/ad_ingest_fakes.py`
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_fix_round4.py`
 - `tests/test_ad1_migration.py`
+- `tests/test_ad23_contract.py`
+- `tests/test_ad3_relatedness.py`
+- `tests/test_ad_protected_readings.py`
+- `tests/test_ad_protected_tables.py`
 - `tests/test_capture_desktop.py`
 - `tests/test_capture_route_recovery.py`
 - `tests/test_coldness_receipt.py`
@@ -185,11 +192,6 @@ Indexes and uniqueness:
 - `tests/test_hint_telemetry.py`
 - `tests/test_interaction_signals.py`
 - `tests/test_library_ask.py`
-- `tests/test_migrations.py`
-- `tests/test_probability_prep.py`
-- `tests/test_question_promotions.py`
-- `tests/test_question_signal.py`
-- `tests/test_reader_branches.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

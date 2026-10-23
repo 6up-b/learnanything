@@ -3,8 +3,8 @@ title: "reader_authored_questions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea590e192e7d05cf407e35bee338909582716483"
-source_commit_timestamp: "2026-10-22T23:06:34-04:00"
+source_commit: "e3cb586a7d6eea0ab684df2ede124bc141a05aec"
+source_commit_timestamp: "2026-10-23T18:42:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_authored_questions"
@@ -19,15 +19,16 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/105_reader_authored_questions.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
+  - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/text_gaps/provenance.py"
-  - "src/learnloop/diagnosis/text_gaps/sources.py"
-  - "src/learnloop/reader/reader_guidance.py"
-  - "src/learnloop/reader/reader_observations.py"
-  - "src/learnloop/reader/reader_quick_check.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/sources/source_deletion.py"
+  - "src/learnloop/diagnosis/text_gaps/sources.py"
   - "src/learnloop/reader/active_reading.py"
 tags:
   - "learnloop/database/table"
@@ -115,7 +116,6 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/adaptive_difficulty/reading.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
@@ -143,12 +143,16 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/ad_ingest_fakes.py`
+- `tests/test_ad_protected_tables.py`
 - `tests/test_figure_predictions.py`
 - `tests/test_learner_text_source_widening.py`
 - `tests/test_reader_active_reading.py`
 - `tests/test_reader_passage_check.py`
 - `tests/test_reader_reconnect.py`
+- `tests/test_salience_firewall.py`
 - `tests/test_ad1_reading_opportunities.py`
+- `tests/test_ad23_contract.py`
 - `tests/test_reader_quick_check.py`
 - `tests/test_reader_rw1b_review.py`
 - `tests/test_reading_hardening_landing.py`

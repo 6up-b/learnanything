@@ -3,8 +3,8 @@ title: "practice_item_snapshots"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea590e192e7d05cf407e35bee338909582716483"
-source_commit_timestamp: "2026-10-22T23:06:34-04:00"
+source_commit: "e3cb586a7d6eea0ab684df2ede124bc141a05aec"
+source_commit_timestamp: "2026-10-23T18:42:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_snapshots"
@@ -21,12 +21,12 @@ source_paths:
   - "migrations/164_item_snapshots_and_adjudication_fk.sql"
   - "src/learnloop/adaptive_difficulty/__init__.py"
   - "src/learnloop/adaptive_difficulty/backfill.py"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/feature_audit.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/protection.py"
-  - "src/learnloop/adaptive_difficulty/serve_inputs.py"
-  - "src/learnloop/attempts/attempts.py"
-  - "src/learnloop/db/repositories.py"
-  - "src/learnloop/db/stores/ad_receipts.py"
+  - "src/learnloop/adaptive_difficulty/replay.py"
   - "src/learnloop/scheduling/scheduler.py"
 tags:
   - "learnloop/database/table"
@@ -90,7 +90,7 @@ Database triggers:
 
 ### Direct SQL readers
 
-- `src/learnloop/adaptive_difficulty/backfill.py`
+- `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/field/item_content.py`
 - `src/learnloop/field/outcomes.py`
@@ -111,6 +111,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_ad1_codex_review_fixes.py`
+- `tests/test_ad23_contract.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_architecture.py`
 - `tests/test_collection_dataset.py`

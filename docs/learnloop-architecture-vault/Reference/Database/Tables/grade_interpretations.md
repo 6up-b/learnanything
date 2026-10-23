@@ -3,8 +3,8 @@ title: "grade_interpretations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea590e192e7d05cf407e35bee338909582716483"
-source_commit_timestamp: "2026-10-22T23:06:34-04:00"
+source_commit: "e3cb586a7d6eea0ab684df2ede124bc141a05aec"
+source_commit_timestamp: "2026-10-23T18:42:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grade_interpretations"
@@ -19,6 +19,8 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/066_grader_channel.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/effective_observation.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/observation_ledger.py"
@@ -126,6 +128,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_ad23_fix_review.py`
 - `tests/test_event_sufficiency.py`
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_observation_ledger_bulk.py`

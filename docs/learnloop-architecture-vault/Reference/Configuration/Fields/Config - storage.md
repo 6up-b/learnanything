@@ -3,8 +3,8 @@ title: "Config - storage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea590e192e7d05cf407e35bee338909582716483"
-source_commit_timestamp: "2026-10-22T23:06:34-04:00"
+source_commit: "e3cb586a7d6eea0ab684df2ede124bc141a05aec"
+source_commit_timestamp: "2026-10-23T18:42:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml storage"
@@ -20,7 +20,9 @@ source_paths:
   - "tests/test_config_refactor.py"
   - "src/learnloop/content/proposals/apply_protocol.py"
   - "src/learnloop/vault/paths.py"
+  - "tests/ad23_fakes.py"
   - "tests/ad_fakes.py"
+  - "tests/ad_ingest_fakes.py"
   - "tests/approach_map_fakes.py"
   - "tests/conftest.py"
   - "tests/daily_plan_fakes.py"
@@ -30,8 +32,6 @@ source_paths:
   - "tests/intent_fakes.py"
   - "tests/pf_fakes.py"
   - "tests/reading_path_fixtures.py"
-  - "tests/rw2b_fix10_base_sequence.py"
-  - "tests/rw2b_fix11_base_sequence.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/storage"
@@ -61,7 +61,9 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/ad23_fakes.py`
 - `tests/ad_fakes.py`
+- `tests/ad_ingest_fakes.py`
 - `tests/approach_map_fakes.py`
 - `tests/conftest.py`
 - `tests/daily_plan_fakes.py`
@@ -71,8 +73,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/intent_fakes.py`
 - `tests/pf_fakes.py`
 - `tests/reading_path_fixtures.py`
-- `tests/rw2b_fix10_base_sequence.py`
-- `tests/rw2b_fix11_base_sequence.py`
 
 ## Extension and modification guidance
 

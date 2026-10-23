@@ -3,8 +3,8 @@ title: "Config - facet_identity"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea590e192e7d05cf407e35bee338909582716483"
-source_commit_timestamp: "2026-10-22T23:06:34-04:00"
+source_commit: "e3cb586a7d6eea0ab684df2ede124bc141a05aec"
+source_commit_timestamp: "2026-10-23T18:42:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml facet_identity"
@@ -29,10 +29,10 @@ source_paths:
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
   - "tests/split_live_helpers.py"
+  - "tests/test_ad23_contract.py"
+  - "tests/test_ad23_successor.py"
+  - "tests/test_ad2_model.py"
   - "tests/test_ai_compare.py"
-  - "tests/test_ai_config.py"
-  - "tests/test_ai_single_request.py"
-  - "tests/test_ai_tool_isolation.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/facet-identity"
@@ -83,10 +83,10 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
 - `tests/split_live_helpers.py`
+- `tests/test_ad23_contract.py`
+- `tests/test_ad23_successor.py`
+- `tests/test_ad2_model.py`
 - `tests/test_ai_compare.py`
-- `tests/test_ai_config.py`
-- `tests/test_ai_single_request.py`
-- `tests/test_ai_tool_isolation.py`
 
 ## Extension and modification guidance
 

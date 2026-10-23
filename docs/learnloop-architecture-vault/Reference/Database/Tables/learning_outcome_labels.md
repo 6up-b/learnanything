@@ -3,8 +3,8 @@ title: "learning_outcome_labels"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea590e192e7d05cf407e35bee338909582716483"
-source_commit_timestamp: "2026-10-22T23:06:34-04:00"
+source_commit: "e3cb586a7d6eea0ab684df2ede124bc141a05aec"
+source_commit_timestamp: "2026-10-23T18:42:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learning_outcome_labels"
@@ -123,6 +123,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_ad23_contract.py`
 - `tests/test_migrations.py`
 - `tests/test_observation_ledger_bulk.py`
 - `tests/test_rebuild_orchestrator.py`

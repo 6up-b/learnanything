@@ -3,8 +3,8 @@ title: "source_artifacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea590e192e7d05cf407e35bee338909582716483"
-source_commit_timestamp: "2026-10-22T23:06:34-04:00"
+source_commit: "e3cb586a7d6eea0ab684df2ede124bc141a05aec"
+source_commit_timestamp: "2026-10-23T18:42:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_artifacts"
@@ -19,12 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/032_source_layer.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/content/facet_identity/span_support.py"
   - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/source_retrieval/role_labeller.py"
-  - "src/learnloop_sidecar/handlers/serializers.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/pipeline/acquisition_preview.py"
   - "src/learnloop/content/pipeline/jobs.py"
@@ -135,11 +136,14 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/ad_ingest_fakes.py`
 - `tests/figure_fixtures.py`
 - `tests/helpers.py`
 - `tests/reader_fixtures.py`
 - `tests/source_retrieval_fakes.py`
 - `tests/source_service_fakes.py`
+- `tests/test_ad23_contract.py`
+- `tests/test_ad_projection.py`
 - `tests/test_decider_landing.py`
 - `tests/test_glm_ocr.py`
 - `tests/test_ingest_runner.py`
@@ -152,9 +156,6 @@ Indexes and uniqueness:
 - `tests/test_sidecar_reader_pdf_view.py`
 - `tests/test_source_deletion.py`
 - `tests/test_source_inventory.py`
-- `tests/test_source_retrieval_guards.py`
-- `tests/test_source_retrieval_rereview.py`
-- `tests/test_tutor_delivery_fixes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

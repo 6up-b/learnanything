@@ -3,8 +3,8 @@ title: "reader_section_progress"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea590e192e7d05cf407e35bee338909582716483"
-source_commit_timestamp: "2026-10-22T23:06:34-04:00"
+source_commit: "e3cb586a7d6eea0ab684df2ede124bc141a05aec"
+source_commit_timestamp: "2026-10-23T18:42:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_section_progress"
@@ -19,13 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/106_reader_section_progress.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
+  - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/daily_plan/reading.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_service.py"
-  - "src/learnloop/instructional/exposure.py"
-  - "src/learnloop/reader/reader_progression.py"
-  - "src/learnloop/reader/recap.py"
   - "src/learnloop/content/pipeline/reread.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/source_retrieval/reading_paths.py"
@@ -96,7 +97,6 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/adaptive_difficulty/reading.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/instructional/exposure.py`
@@ -119,8 +119,14 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/ad_ingest_fakes.py`
 - `tests/test_ad1_migration.py`
 - `tests/test_ad1_reading_opportunities.py`
+- `tests/test_ad23_contract.py`
+- `tests/test_ad23_fix_r8.py`
+- `tests/test_ad3_reading.py`
+- `tests/test_ad_guard.py`
+- `tests/test_salience_firewall.py`
 - `tests/test_daily_plan_reading.py`
 - `tests/test_reading_paths.py`
 - `tests/test_reread_safety.py`

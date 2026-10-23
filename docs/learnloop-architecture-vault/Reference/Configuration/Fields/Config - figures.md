@@ -3,8 +3,8 @@ title: "Config - figures"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea590e192e7d05cf407e35bee338909582716483"
-source_commit_timestamp: "2026-10-22T23:06:34-04:00"
+source_commit: "e3cb586a7d6eea0ab684df2ede124bc141a05aec"
+source_commit_timestamp: "2026-10-23T18:42:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml figures"
@@ -28,11 +28,11 @@ source_paths:
   - "tests/split_live_helpers.py"
   - "tests/test_ad1_codex_review_fixes.py"
   - "tests/test_ad1_outside_and_cli.py"
+  - "tests/test_ad23_contract.py"
+  - "tests/test_ad23_successor.py"
+  - "tests/test_ad2_model.py"
   - "tests/test_ai_config.py"
   - "tests/test_approach_maps.py"
-  - "tests/test_capability_residual.py"
-  - "tests/test_chatgpt_plan_provider.py"
-  - "tests/test_cli_ingest.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/figures"
@@ -74,11 +74,11 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/split_live_helpers.py`
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_outside_and_cli.py`
+- `tests/test_ad23_contract.py`
+- `tests/test_ad23_successor.py`
+- `tests/test_ad2_model.py`
 - `tests/test_ai_config.py`
 - `tests/test_approach_maps.py`
-- `tests/test_capability_residual.py`
-- `tests/test_chatgpt_plan_provider.py`
-- `tests/test_cli_ingest.py`
 
 ## Extension and modification guidance
 

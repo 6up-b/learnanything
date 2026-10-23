@@ -3,8 +3,8 @@ title: "model_call_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea590e192e7d05cf407e35bee338909582716483"
-source_commit_timestamp: "2026-10-22T23:06:34-04:00"
+source_commit: "e3cb586a7d6eea0ab684df2ede124bc141a05aec"
+source_commit_timestamp: "2026-10-23T18:42:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_call_receipts"
@@ -19,13 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/160_model_call_receipts.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/cli/receipts.py"
   - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/db/stores/ingest_queue.py"
   - "src/learnloop/db/stores/learner_gaps.py"
   - "src/learnloop/db/stores/model_calls.py"
   - "src/learnloop/db/stores/practice_index.py"
-  - "src/learnloop/db/stores/source_service.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -152,6 +153,8 @@ None found by exact static reference scan.
 - `tests/test_ad1_fix_round7.py`
 - `tests/test_ad1_fix_round8.py`
 - `tests/test_ad1_send_guard.py`
+- `tests/test_ad_guard.py`
+- `tests/test_ad_protected_tables.py`
 - `tests/test_ai_compare.py`
 - `tests/test_approach_maps.py`
 - `tests/test_chatgpt_plan_provider.py`
@@ -163,8 +166,6 @@ None found by exact static reference scan.
 - `tests/test_embedding_backfill.py`
 - `tests/test_facet_identity_composition.py`
 - `tests/test_family_proposals.py`
-- `tests/test_figures_rpc.py`
-- `tests/test_graph_nomination.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -3,13 +3,13 @@ title: "item_forecast_scores"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
-source_commit_timestamp: "2026-10-23T16:56:37-04:00"
+source_commit: "e3cb586a7d6eea0ab684df2ede124bc141a05aec"
+source_commit_timestamp: "2026-10-23T18:42:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite item_forecast_scores"
   - "table item_forecast_scores"
-schema_head: 214
+schema_head: 217
 table_name: "item_forecast_scores"
 table_role: "derived"
 functionality_status: "active"

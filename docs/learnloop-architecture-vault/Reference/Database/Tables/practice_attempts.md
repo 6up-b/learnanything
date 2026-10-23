@@ -3,8 +3,8 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea590e192e7d05cf407e35bee338909582716483"
-source_commit_timestamp: "2026-10-22T23:06:34-04:00"
+source_commit: "e3cb586a7d6eea0ab684df2ede124bc141a05aec"
+source_commit_timestamp: "2026-10-23T18:42:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
@@ -19,14 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
-  - "src/learnloop/adaptive_difficulty/backfill.py"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/data_check.py"
-  - "src/learnloop/adaptive_difficulty/outside.py"
-  - "src/learnloop/adaptive_difficulty/serve_inputs.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/adaptive_difficulty/scoring.py"
   - "src/learnloop/algorithm_versions.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/coldness_receipt.py"
-  - "src/learnloop/attempts/stuck.py"
   - "src/learnloop/attempts/attempt_trace.py"
   - "src/learnloop/attempts/calibration_streams.py"
   - "src/learnloop/attempts/clarification.py"
@@ -180,10 +180,8 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/adaptive_difficulty/backfill.py`
 - `src/learnloop/adaptive_difficulty/data_check.py`
-- `src/learnloop/adaptive_difficulty/outside.py`
-- `src/learnloop/adaptive_difficulty/serve_inputs.py`
+- `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/attempts/stuck.py`
 - `src/learnloop/cli/router.py`
 - `src/learnloop/content/proposals/method_phrasing.py`
@@ -299,14 +297,14 @@ Indexes and uniqueness:
 - `tests/test_ad1_codex_rereview_fixes.py`
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_migration.py`
-- `tests/test_adaptive_difficulty_ad1.py`
-- `tests/test_answer_calibration_duel.py`
-- `tests/test_apply_write_ahead.py`
-- `tests/test_approach_map_replay.py`
-- `tests/test_approach_maps_schema.py`
-- `tests/test_assumed_known.py`
-- `tests/test_blind_grading_contract.py`
-- `tests/test_characterization_probe_regrade.py`
+- `tests/test_ad23_contract.py`
+- `tests/test_ad23_migration.py`
+- `tests/test_ad2_model.py`
+- `tests/test_ad3_relatedness.py`
+- `tests/test_ad_epoch.py`
+- `tests/test_ad_guard.py`
+- `tests/test_ad_projection.py`
+- `tests/test_ad_protected_readings.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

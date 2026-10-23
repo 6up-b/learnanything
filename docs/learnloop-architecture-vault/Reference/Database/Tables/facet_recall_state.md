@@ -3,8 +3,8 @@ title: "facet_recall_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea590e192e7d05cf407e35bee338909582716483"
-source_commit_timestamp: "2026-10-22T23:06:34-04:00"
+source_commit: "e3cb586a7d6eea0ab684df2ede124bc141a05aec"
+source_commit_timestamp: "2026-10-23T18:42:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_recall_state"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/037_canonical_facet_state.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/learner/facet_evidence_timeline.py"
   - "src/learnloop/learner/facet_state_reader.py"
   - "src/learnloop/learner/recall_coverage.py"
-  - "src/learnloop/ops/doctor.py"
-  - "src/learnloop/sim/metrics.py"
   - "src/learnloop/content/facet_identity/actions.py"
   - "src/learnloop/goals/certification_cold_probe.py"
   - "src/learnloop/goals/exam_readiness.py"
@@ -131,6 +131,10 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/figure_fixtures.py`
+- `tests/test_ad23_contract.py`
+- `tests/test_ad2_model.py`
+- `tests/test_ad3_reading.py`
+- `tests/test_ad3_subject_view.py`
 - `tests/test_assumed_known.py`
 - `tests/test_deferred_regrade.py`
 - `tests/test_doctor.py`
@@ -146,10 +150,6 @@ Indexes and uniqueness:
 - `tests/test_shadow_rebuild.py`
 - `tests/test_workbench_discriminate.py`
 - `tests/test_workbench_text_gaps.py`
-- `tests/test_anti_double_count.py`
-- `tests/test_contract_frontier_coverage.py`
-- `tests/test_curriculum_locks.py`
-- `tests/test_facet_identity_actions.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

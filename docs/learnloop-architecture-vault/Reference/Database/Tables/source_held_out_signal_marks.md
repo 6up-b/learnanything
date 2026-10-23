@@ -3,8 +3,8 @@ title: "source_held_out_signal_marks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea590e192e7d05cf407e35bee338909582716483"
-source_commit_timestamp: "2026-10-22T23:06:34-04:00"
+source_commit: "e3cb586a7d6eea0ab684df2ede124bc141a05aec"
+source_commit_timestamp: "2026-10-23T18:42:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_held_out_signal_marks"
@@ -19,6 +19,8 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/204_source_held_out_signal_marks.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/held_out_signals.py"
@@ -109,9 +111,11 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_ad_protected_tables.py`
 - `tests/test_coordinated_migrations.py`
 - `tests/test_exam_protection_identity.py`
 - `tests/test_ad1_reading_opportunities.py`
+- `tests/test_ad_protected_readings.py`
 - `tests/test_exam_protection_review.py`
 - `tests/test_reread_safety.py`
 

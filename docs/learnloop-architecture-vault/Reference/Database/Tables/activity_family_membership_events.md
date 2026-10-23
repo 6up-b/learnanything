@@ -3,8 +3,8 @@ title: "activity_family_membership_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea590e192e7d05cf407e35bee338909582716483"
-source_commit_timestamp: "2026-10-22T23:06:34-04:00"
+source_commit: "e3cb586a7d6eea0ab684df2ede124bc141a05aec"
+source_commit_timestamp: "2026-10-23T18:42:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_family_membership_events"
@@ -19,6 +19,8 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/168_activity_family_membership.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/stores/families.py"
   - "src/learnloop/substrate/families.py"
 tags:
@@ -109,6 +111,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_activity_families.py`
+- `tests/test_ad_guard.py`
 - `tests/test_attach_to_family.py`
 - `tests/test_family_proposals.py`
 - `tests/test_judge_routes.py`

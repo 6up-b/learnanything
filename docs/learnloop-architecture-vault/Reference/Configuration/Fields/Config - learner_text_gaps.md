@@ -3,8 +3,8 @@ title: "Config - learner_text_gaps"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea590e192e7d05cf407e35bee338909582716483"
-source_commit_timestamp: "2026-10-22T23:06:34-04:00"
+source_commit: "e3cb586a7d6eea0ab684df2ede124bc141a05aec"
+source_commit_timestamp: "2026-10-23T18:42:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml learner_text_gaps"
@@ -34,9 +34,9 @@ source_paths:
   - "tests/rw2c_base_sequence.py"
   - "tests/split_live_helpers.py"
   - "tests/test_ad1_codex_review_fixes.py"
-  - "tests/test_adaptive_difficulty_ad1.py"
-  - "tests/test_ai_config.py"
-  - "tests/test_approach_map_replay.py"
+  - "tests/test_ad23_contract.py"
+  - "tests/test_ad23_fix_review.py"
+  - "tests/test_ad23_successor.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/learner-text-gaps"
@@ -91,9 +91,9 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/rw2c_base_sequence.py`
 - `tests/split_live_helpers.py`
 - `tests/test_ad1_codex_review_fixes.py`
-- `tests/test_adaptive_difficulty_ad1.py`
-- `tests/test_ai_config.py`
-- `tests/test_approach_map_replay.py`
+- `tests/test_ad23_contract.py`
+- `tests/test_ad23_fix_review.py`
+- `tests/test_ad23_successor.py`
 
 ## Extension and modification guidance
 

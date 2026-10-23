@@ -3,8 +3,8 @@ title: "Config - intent"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea590e192e7d05cf407e35bee338909582716483"
-source_commit_timestamp: "2026-10-22T23:06:34-04:00"
+source_commit: "e3cb586a7d6eea0ab684df2ede124bc141a05aec"
+source_commit_timestamp: "2026-10-23T18:42:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml intent"
@@ -27,13 +27,13 @@ source_paths:
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
   - "tests/split_live_helpers.py"
+  - "tests/test_ad23_contract.py"
+  - "tests/test_ad23_successor.py"
+  - "tests/test_ad2_model.py"
   - "tests/test_ai_config.py"
   - "tests/test_approach_maps.py"
   - "tests/test_capability_residual.py"
   - "tests/test_causal_p2_acceptance.py"
-  - "tests/test_chatgpt_plan_provider.py"
-  - "tests/test_cli_ingest.py"
-  - "tests/test_codex_isolation_mcp_check.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/intent"
@@ -56,11 +56,11 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 |---|---|---|---|---|---|---|
 | `intent.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for daily-loop DL2's successor (mvp-0.29; learnloop.scheduling.intent). On, serving reads the learner's intent: Pause, Reference, Let go and an answered "Check once" keep items out of the queue, requests, follow-up insertion and plans already built; a "Check once" is served cold only when the one eligibility decision allows it and answered only by an attempt it would have served cold; effective dues at the recall targets, push, admission, re-entry and reading by intent; the desktop intent control. Off (or below the successor) every serve path and plan run the predecessor's code and the control answers enabled: false. Replay never reads it. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3152` |
 | `intent.recall_targets_enabled` | `true` | boolean | modeled default or validator seed | Turns recall targets behavior on or off within daily-loop DL2: intent (commitments carry it; the successor mvp-0.29 behind its kill switches): the switch, the per-intent recall targets' switch and the target table (Q8) that scales an effective due at serving time only. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3153`; `src/learnloop/daily_plan/intent_cost.py:72`; `src/learnloop/intent/report.py:27` |
-| `intent.recall_targets.keep_in_touch` | `0.8` | number | modeled default or validator seed | Controls keep in touch in daily-loop DL2: intent (commitments carry it; the successor mvp-0.29 behind its kill switches): the switch, the per-intent recall targets' switch and the target table (Q8) that scales an effective due at serving time only, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3154`; `src/learnloop/daily_plan/engine.py:1865`; `src/learnloop/intent/deadline.py:114` |
-| `intent.recall_targets.remember_key_ideas` | `0.85` | number | modeled default or validator seed | Controls remember key ideas in daily-loop DL2: intent (commitments carry it; the successor mvp-0.29 behind its kill switches): the switch, the per-intent recall targets' switch and the target table (Q8) that scales an effective due at serving time only, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3154`; `src/learnloop/daily_plan/engine.py:1865`; `src/learnloop/intent/deadline.py:114` |
-| `intent.recall_targets.work_fluently` | `0.9` | number | modeled default or validator seed | Controls work fluently in daily-loop DL2: intent (commitments carry it; the successor mvp-0.29 behind its kill switches): the switch, the per-intent recall targets' switch and the target table (Q8) that scales an effective due at serving time only, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3154`; `src/learnloop/daily_plan/engine.py:1865`; `src/learnloop/intent/deadline.py:114` |
-| `intent.recall_targets.master_tasks_like_these` | `0.92` | number | modeled default or validator seed | Controls master tasks like these in daily-loop DL2: intent (commitments carry it; the successor mvp-0.29 behind its kill switches): the switch, the per-intent recall targets' switch and the target table (Q8) that scales an effective due at serving time only, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3154`; `src/learnloop/daily_plan/engine.py:1865`; `src/learnloop/intent/deadline.py:114` |
-| `intent.recall_targets.uncommitted` | `0.9` | number | modeled default or validator seed | Controls uncommitted in daily-loop DL2: intent (commitments carry it; the successor mvp-0.29 behind its kill switches): the switch, the per-intent recall targets' switch and the target table (Q8) that scales an effective due at serving time only, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3154`; `src/learnloop/daily_plan/engine.py:1865`; `src/learnloop/intent/deadline.py:114` |
+| `intent.recall_targets.keep_in_touch` | `0.8` | number | modeled default or validator seed | Controls keep in touch in daily-loop DL2: intent (commitments carry it; the successor mvp-0.29 behind its kill switches): the switch, the per-intent recall targets' switch and the target table (Q8) that scales an effective due at serving time only, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3154`; `src/learnloop/daily_plan/engine.py:1908`; `src/learnloop/intent/deadline.py:114` |
+| `intent.recall_targets.remember_key_ideas` | `0.85` | number | modeled default or validator seed | Controls remember key ideas in daily-loop DL2: intent (commitments carry it; the successor mvp-0.29 behind its kill switches): the switch, the per-intent recall targets' switch and the target table (Q8) that scales an effective due at serving time only, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3154`; `src/learnloop/daily_plan/engine.py:1908`; `src/learnloop/intent/deadline.py:114` |
+| `intent.recall_targets.work_fluently` | `0.9` | number | modeled default or validator seed | Controls work fluently in daily-loop DL2: intent (commitments carry it; the successor mvp-0.29 behind its kill switches): the switch, the per-intent recall targets' switch and the target table (Q8) that scales an effective due at serving time only, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3154`; `src/learnloop/daily_plan/engine.py:1908`; `src/learnloop/intent/deadline.py:114` |
+| `intent.recall_targets.master_tasks_like_these` | `0.92` | number | modeled default or validator seed | Controls master tasks like these in daily-loop DL2: intent (commitments carry it; the successor mvp-0.29 behind its kill switches): the switch, the per-intent recall targets' switch and the target table (Q8) that scales an effective due at serving time only, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3154`; `src/learnloop/daily_plan/engine.py:1908`; `src/learnloop/intent/deadline.py:114` |
+| `intent.recall_targets.uncommitted` | `0.9` | number | modeled default or validator seed | Controls uncommitted in daily-loop DL2: intent (commitments carry it; the successor mvp-0.29 behind its kill switches): the switch, the per-intent recall targets' switch and the target table (Q8) that scales an effective due at serving time only, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3154`; `src/learnloop/daily_plan/engine.py:1908`; `src/learnloop/intent/deadline.py:114` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -74,13 +74,13 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
 - `tests/split_live_helpers.py`
+- `tests/test_ad23_contract.py`
+- `tests/test_ad23_successor.py`
+- `tests/test_ad2_model.py`
 - `tests/test_ai_config.py`
 - `tests/test_approach_maps.py`
 - `tests/test_capability_residual.py`
 - `tests/test_causal_p2_acceptance.py`
-- `tests/test_chatgpt_plan_provider.py`
-- `tests/test_cli_ingest.py`
-- `tests/test_codex_isolation_mcp_check.py`
 
 ## Extension and modification guidance
 

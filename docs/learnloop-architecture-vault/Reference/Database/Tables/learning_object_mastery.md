@@ -3,8 +3,8 @@ title: "learning_object_mastery"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea590e192e7d05cf407e35bee338909582716483"
-source_commit_timestamp: "2026-10-22T23:06:34-04:00"
+source_commit: "e3cb586a7d6eea0ab684df2ede124bc141a05aec"
+source_commit_timestamp: "2026-10-23T18:42:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learning_object_mastery"
@@ -19,12 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ops/debug_time.py"
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/placement/predictor.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
-  - "src/learnloop/substrate/shadow_rebuild.py"
   - "src/learnloop/adaptive_difficulty/forecasters.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/cli/app.py"
@@ -125,6 +126,10 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_ad23_contract.py`
+- `tests/test_ad2_model.py`
+- `tests/test_ad3_reading.py`
+- `tests/test_ad3_subject_view.py`
 - `tests/test_assumed_known.py`
 - `tests/test_facet_outcome_view.py`
 - `tests/test_learner_text_gaps.py`
@@ -141,10 +146,6 @@ Indexes and uniqueness:
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_attempts.py`
 - `tests/test_calibration.py`
-- `tests/test_cli_attempt.py`
-- `tests/test_cli_generate_practice.py`
-- `tests/test_codex_attempt_flow.py`
-- `tests/test_contract_commissioning.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
