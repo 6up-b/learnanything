@@ -408,3 +408,226 @@ opened; `git status` is clean apart from the commits below.
   fakes; delete `test_codex_*` lockdown/runtime files and `codex_cli_fakes.py`. Start with the
   tests T1 opted in explicitly (`git grep -l "use_codex_harness\|agent_harness_opt_in.*True" tests`),
   then drop `use_codex_harness` and `patch_plan_ready`'s Codex counterpart fixtures.
+
+## Landing onto main (2026-10-23)
+
+Landed in worktree `learnanything-merge2`, branch `merge/t1-onto-main`, from main `558e85ab1` (UX2 on top of
+the security hardening rounds 2-3, RW2c and RW5a). Main is not fast-forwarded here; the orchestrator lands it.
+No migration (head **217**, head fixture `migration_head_217` unchanged) and no algorithm successor.
+
+### Commits and conflicts
+
+- `b60e146f0` the merge of `ai/plan-first-transport` (`536b78419`). Conflicts:
+  - `config/template.py`: the 20 `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries, each keeping both sides' comment
+    lines (main's RW2c and UX2, then T1's), main's fingerprints in place until the regeneration;
+  - 412 generated reference notes: main's side, then regenerated.
+  - Everything else merged without conflict: `config/schema.py`, the parameter registry (main's `figures.*`,
+    `workbench.*`, `ui.shell` keys beside T1's `ai.*` keys), `ai/routing.py`, `ai/client.py` (T1's
+    agent-harness refusal first, then main's round-2 `refuse_legacy_http_transport` for `http`/`http_adapter`),
+    the Codex provider and lockdown modules (main's; T1 does not touch them), `App.tsx`, `dto.ts`,
+    `client.ts`, `commands.rs`, `main.rs`. T1 adds no window keydown listener (`PlanFallbackOffer.tsx` and
+    `ChatGPTPlanSettings.tsx` have none), so the `screenLeavesKey` guard has nothing new to cover.
+- `bb279900e` `classicIsBase.test.ts`. T1 changes `components/ChatGPTPlanSettings.tsx` and adds
+  `components/PlanFallbackOffer.tsx` (both shells), so the exact-list check failed. **Deviation from the brief:**
+  moving `BASE` to main's tip (`558e85ab1`, which already holds UX2) would empty UX2's own diff, so the exact-list
+  check and the round-5 guard-file check (`added.length > 0`) would fail or compare nothing. `BASE` stays
+  `a9ae97e34` with a comment, and a new `LATER_LANDINGS` map names T1's two files; `STAGE_CHANGES`,
+  `TARGET_RULE_FILES` and every check are unchanged. Failed before, 6/6 after.
+- `0ecc600ea` **New finding, fixed: the paid roles never asked about OpenRouter.** See below.
+- `df739a1c9` the regeneration.
+- `91565a346` gate fixes (three tests and one golden; see the gate).
+
+### Finding at the landing: the paid roles (fixed, `0ecc600ea`)
+
+The brief asked to prove that RW2c's comparison lines and example search and RW5a's figure routes resolve to
+the plan and go through the ask-before-OpenRouter path. They resolve to the plan, but they never asked: every paid
+role plans a `PaidRoute` (`practice_index.paid.plan_route`) and builds it with `resolve_client`, which resolved
+**pinned** (`explicit=route.provider`). Routing never replaces a pinned selection and makes no offer for one. So
+hints (`hint_writer`, `hint_outcome`, `approach_map`), the workbench check and RW2c's comparison lines
+(`workbench_check`), the example search (`source_query_rewrite`, `source_rerank` and the other source-retrieval
+roles), figures (`figure_author`), the AD LLM routes, the practice-index judges and the source-service judges
+reported the plan as unavailable but never offered OpenRouter, and no grant could serve them. T1's tests resolved
+those tasks through `ready_client_for_task` (unpinned), not through the paid path, so they did not see it. The
+gap was already on T1's own base for hints, RW2b's check and RW5a; RW2c's lines ride the same `CheckRoute`.
+
+The fix is in `practice_index/paid.py` only:
+
+- `plan_route` names the OpenRouter profile when all of these hold: the learner granted the task; the feature's
+  price is set (`offer_blocker` is `None`); the route is a routed, not pinned, plan route; no readiness probe is
+  running (`quiet()` honours no grant); and the plan is not ready. Plan readiness reads local files only. The
+  route's billing is then `metered` and every cap applies; it is never `subscription`.
+- `resolve_client` resolves a routed plan route through routing's unpinned path. That path makes the offer, and
+  a ready route is noted so that a mid-call availability failure also offers. `resolve_client` refuses any
+  profile other than the planned one: a grant given after planning, or a configured fallback. A route planned
+  under a grant that has since ended ("Stop using OpenRouter") is refused too. Pinned selections
+  (`LEARNLOOP_AI_PROVIDER`, embedding, deciders, `field_question_classifier`) resolve as before.
+
+`tests/test_plan_first_transport_paid_roles.py` extends T1's route-resolution property (test 1) to the paid path.
+It covers **every `AITask` on the merged tree** (`get_args(AITask)`; main added no `AITask` after `55063be64`, so
+its features ride existing tasks, which the test names). It checks, in the paused and signed-out states:
+
+- each routed task plans onto a plan profile billed as the subscription;
+- `resolve_client` returns no client and makes exactly the offer `ready_client_for_task` makes;
+- probes and pinned selections ask nothing;
+- a grant plans and builds OpenRouter as metered;
+- a revoke refuses a route planned under the grant;
+- a ready plan always comes first;
+- nothing is sent to the plan or OpenRouter.
+
+It failed before the fix (first routed task, then the revoke case) and passes after.
+
+### Regeneration (`df739a1c9`)
+
+- **Defaults snapshots.** The template `.pyc` was cleared, and the snapshots were recomputed and checked with
+  `-B` under `env -i` (empty `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`). All **20** entries were rewritten
+  (main's RW2c/UX2 defaults plus T1's plan profiles and `ai.*` keys), then **0 mismatches**.
+- **References.** `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**, schema head **217**,
+  **339** table notes, **1,011** configuration leaves in **69** sections (main 957 + T1's 54). The two prose
+  counts (`Configuration.md`, `Database.md`) were updated from 957.
+- **Unchanged, with their tests passing:** the CLI help snapshot, the RPC pins, the serializer snapshot and the
+  mobile allowlist. Their tests (`test_cli_help_snapshot`, `test_mobile_allowlist`, `test_sidecar_transport`,
+  `test_sidecar_serializer_snapshot`, `test_required_method_items`, `test_config_refactor`,
+  `test_settings_store`) and every test file reading `DEFAULTS_SNAPSHOT_BY_ALGORITHM` gave 318 + 531 passed.
+- **`validate_vault.py`**: passes (1,142 notes, 1,140/1,140 reachable).
+- **Failing before this stage, not fixed:**
+  - `desktop_validate.py` still stops on `components/pdfSelection/testing/syntheticBook.ts`;
+  - `module_validate.py` reports **1,005** issues (999 at the UX2 landing; the 6 new ones are T1's new modules
+    without notes, such as `ai/agent_harness.md` and `ai/chatgpt_plan/*`).
+
+### Gate
+
+Setup: `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` (5.14.0), `TMPDIR` = merge2's
+`fixtures-local/tmp`, every later command `uv run --no-sync`. Every pytest, vitest, npm and cargo command ran in
+a `systemd-run --user --scope` (pytest 10G/2G with `-n 8`, never `-n auto`; vitest and the rest 5G/1G), one test
+command at a time, with the full suite and durability under `flock /tmp/learnloop-fullsuite.lock`. Logs are in
+`fixtures-local/landing-t1/out/`.
+
+| Step | Result |
+|---|---|
+| `lint-imports --no-cache` | **31 kept**, 0 broken: main's 30 plus T1's `serving-never-imports-the-codex-provider`, beside the security branch's `codex-sdk-only-in-its-provider` |
+| full suite at `df739a1c9` (`-n 8`, 44 min) | **15,755 passed**, 8 failed, 3 skipped, 2 xfailed. Six were real composition failures, fixed in `91565a346` (below). Two were load flakes that passed alone 3 times out of 3: `test_reading_hardening_2_fixes::test_f1_a_build_whose_worker_failed_to_start_is_run_by_the_sweep` and `test_reading_request_sweep::test_b_a_start_deferred_behind_a_queued_build_runs_that_build_and_then_acts` |
+| the six, after `91565a346` (with the paid-role tests) | 46 passed |
+| durability (`-m durability`, at `91565a346`) | **119 passed** |
+| `npm install`; `npm run typecheck` | ok; clean |
+| `npm test -- --maxWorkers=4` (the whole vitest run) | **198 files, 1,665 tests passed**, no unhandled error, no snapshot written (UX2's landing: 197 / 1,658) |
+| `npm run frontend:build` | built |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | finished |
+
+The six composition failures, fixed in `91565a346`:
+
+- `test_codex_lockdown_round2.py` (3: an `http`/`http_adapter` profile, the http runtime check). T1's
+  agent-harness gate now refuses these before main's tool lockdown is reached. **Both layers are kept and
+  pinned**: without `ai.agent_harness_opt_in` T1 refuses; with it, the lockdown still refuses. Neither runs a
+  health request or a startup command.
+- `test_roles_switch_off.py` (RW4e's switch-off golden). The three `rewrite.reason` strings of an unavailable
+  route are now the signed-out plan's, not the missing Codex checkout's. The golden was edited by hand (exactly
+  three strings), as T1 did for `compare_keep_switch_off.json`.
+- `test_source_retrieval_codex_unavailable.py` (2). The test's fake `ResolvedClient` now names the profile it
+  resolved, because `resolve_client` checks that profile against the planned one (the paid-role fix).
+
+### Parity (backup-API copies; `fixtures-local/landing-t1/`)
+
+**Setup.**
+
+- `fixtures/linear_algebra` and `fixtures/probability` were copied from the **main checkout** with
+  `learnloop.db.copies` (both at `mvp-0.8`). `arxiv_v2` was never opened.
+- Every run used `env -i` with an empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`, so the plan was signed
+  out.
+- (a) and (b): every route was on a 127.0.0.1:9 profile or off (`neutralize3.py`). Learner-text gaps,
+  `build_on_serve` and outcome placement were off.
+- (c): every chat route was on a `chatgpt_plan` profile; every provider `base_url`, the plan's and OpenRouter's
+  included, was 127.0.0.1:9 (`planify.py`).
+- (d): the vaults' own Codex pins were kept, with every `base_url` at 127.0.0.1:9 (`dprep.py`).
+- `run.py` installs an audit hook that logs every process start and **refuses** any whose arguments mention
+  Codex.
+
+| Check | Result |
+|---|---|
+| (a) schema and rows, main vs merge, `mvp-0.8` copies opened by each code | both migrate 51 to head **217**. 1,451 / 1,450 schema objects identical, 0 SQL differences, every row identical (16,542 / 7,640 rows in 344 tables). `schema_migrations` differ only in `applied_at`. `foreign_key_check` 0, `integrity_check` ok, WAL |
+| (a) `rebuild --shadow`, `doctor` | identical after normalisation (both vaults) |
+| (b) certification, recipe gaps, curves, Today, daily plan at a frozen clock, at `mvp-0.8` | **byte-identical** (both vaults) |
+| (b) the same after main's upgrades to `mvp-0.27` and `mvp-0.29` | certification and Today **byte-identical**. The daily plan is identical except `router_decisions.card_hash`, `snapshot_hash` and the card hash inside `detail_json`. A second run of main's code on a fresh copy differs from the first in exactly these three fields, and from the merge's in exactly these three (`plan_repeat.sh`): run-to-run noise, as at the earlier landings |
+| (c) the real sidecar, main vs merge, at `mvp-0.8` (migrated) and `mvp-0.29`, both vaults, no key and a FAKE `OPENROUTER_API_KEY` (16 runs, 12 calls each) | see the differences below |
+| (d) `doctor` on the vaults' own settings | main reports no Codex finding. The merge reports `ai:codex_route_pinned` (warning): **8** on linear_algebra (`ai.active_provider` and 7 routes) and **9** on probability (`ai.active_provider` and 8 routes, `animation` included). Every other issue is identical to main's |
+| (d) `doctor --fix` on a SECOND copy (the merge) | `--fix --dry-run` writes nothing. `--fix` rewrites `active_provider = "codex"` to `"chatgpt"` and each `codex_low` / `codex_medium` route to `chatgpt_low` / `chatgpt_medium` (comments kept; diffs in `out/d/*_fix.diff`). Afterwards `doctor` reports exactly main's issues |
+| no Codex process, no live call | the audit log is **empty**: no process of any kind was started, so none was refused. **0** `model_call_receipts` rows of any status on all 48 copy databases |
+
+The differences in (c), every one listed:
+
+- `initialize` and `load_vault`:
+  - `capabilities.methods` has 433 entries on main and 434 on the merge (`ai_use_fallback`);
+  - `availableGradingProviders` has 11 entries on main and 10 on the merge (Codex profiles are no longer
+    offered: T1 review F9);
+  - `health.codex.status` is `provider_missing_config` on main and `provider_unavailable` on the merge (refused
+    by T1's gate);
+  - the merge's config lists the `chatgpt_low`, `chatgpt_medium` and `chatgpt_luna` profiles.
+- `get_config`: the same three profiles.
+- `get_ai_connection`: **identical** on both codes, with and without the key: `needs: "connect"`, "Not signed in
+  with ChatGPT on this machine", no `fallbackAvailable` (a status read makes no offer).
+- `chatgpt_plan_status`: `signed_out` on both. The merge lists 4 profiles (main 1) and adds
+  `openrouterGrantedTasks: []`.
+- No key: Today, the practice serve and the tutor question are identical. The tutor question is refused
+  `provider_unavailable` on both, and there is no offer anywhere.
+- Fake key:
+  - the merge's tutor error carries `details: {fallback_available: "openrouter", fallback_tasks: ["tutor_qa"],
+    plan_signed_out: true}` (the offer is shown, nothing is sent);
+  - on **linear_algebra**, `get_today_queue` gains the top-level hint `fallbackAvailable: "openrouter",
+    fallbackTasks: ["authoring", "teach_back"], planSignedOut: true`. The queue itself is identical.
+- Certification and plan (in (b)) and the Today queue's content are byte-identical.
+
+**New finding (Low, open): the Today read raises the OpenRouter banner.** The Today queue resolves
+`teach_back` (the `_TeachBackReadiness` filter of unready teach-back items in `handlers/queue.py`) and
+`authoring` outside `plan_fallback.quiet()`. So with an OpenRouter key and the plan unavailable, opening Today on a
+vault with teach-back items shows "ChatGPT isn't available right now. Use OpenRouter instead" for `authoring` and
+`teach_back`, although the learner used no AI feature. Granting would make teach-back items servable on
+OpenRouter, so the offer is not false, but it is a readiness probe asking. The fix would wrap that readiness in
+`quiet()` (or `quiet(honour_grants=True)`). It is left as found for the owner's call.
+
+### Owner notes
+
+- **No migration** (head 217) and no successor: only the served model changes (Codex to the plan's models),
+  which the owner approved.
+- **What the learner sees:**
+  - every serving route defaults to the tool-free ChatGPT plan (`chatgpt`, `chatgpt_low`, `chatgpt_medium`,
+    `chatgpt_luna`);
+  - Codex is refused unless `ai.agent_harness_opt_in = true`, and is never a fallback;
+  - while the plan is unavailable, each feature shows its own unavailable state. If OpenRouter is set up, one
+    banner offers "Use OpenRouter instead" (and "Continue with ChatGPT" when signed out). Nothing is sent to
+    OpenRouter until the learner chooses, and a grant never serves background work. Since this landing that
+    includes hints, the workbench check and "Compare with the book's method", worked examples and figures,
+    each once its price is set;
+  - Settings shows "Stop using OpenRouter" while a grant holds.
+- **The owner's vaults pin Codex** (`active_provider = "codex"`, `codex_low`/`codex_medium` routes). Until
+  `learnloop doctor --fix` runs on them, their AI features read "unavailable" (refused), with the doctor
+  warning naming each setting.
+- **Owner-run commands:**
+  - `learnloop ai signin chatgpt` (or desktop Settings, then "Continue with ChatGPT");
+  - after **2026-10-27**, `learnloop ai models chatgpt` (confirms `gpt-5.6-sol` / `gpt-6-luna`; doctor
+    remembers the list);
+  - `learnloop ai latency --provider chatgpt` on a copy (synthetic prompts);
+  - `learnloop doctor --fix --dry-run`, then `learnloop doctor --fix`, on each vault.
+- The plan likely reads as unavailable or paused until the shared usage resets on **2026-10-27** (Q5 assumes
+  it shares the Codex pool). Meanwhile the ask-OpenRouter path serves: the desktop banner, or
+  `LEARNLOOP_AI_FALLBACK=openrouter` for one CLI command.
+
+### Open questions (defaults in force)
+
+Q1-Q7 above, unchanged:
+
+- Q1, slugs: the defaults, and doctor names any unlisted slug;
+- Q2, grant duration: per feature, per vault, for the sidecar session;
+- Q3, a non-Codex `fallback_provider`: asked, never used silently;
+- Q4: `json_schema`;
+- Q5: the usage pool is assumed shared;
+- Q6: inline is the default; tools mode applies only for an oversized export under the unwritten default;
+- Q7: no post-attempt push.
+
+### Open items
+
+- The Today read's banner for `authoring` / `teach_back` (above): wrap the queue's readiness in `quiet()`?
+- `module_validate.py` (1,005) and `desktop_validate.py` (`syntheticBook.ts`) fail as before. T1's new modules
+  have no module notes.
+- The full suite ran at `df739a1c9`. `91565a346` changes three tests and one golden only, verified by the
+  targeted run and by the durability lane at that head.
+- T2 (retire the Codex serving path) as listed above. Main's round-2 lockdown tests now pin both layers. When T2
+  deletes the Codex modules, they go with them.
