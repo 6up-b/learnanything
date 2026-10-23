@@ -111,7 +111,8 @@ LABELS = {
 class FigureRefused(Exception):
     """A request the Reader may not make (``code``: ``figures_disabled``,
     ``exam_material``, ``region_disabled``, ``revisions_disabled``,
-    ``predictions_disabled``, ``offers_disabled`` (RW5b), ``not_found``, ``validation_error``, ``no_image_input``,
+    ``predictions_disabled``, ``offers_disabled`` and ``advanced_disabled``
+    (RW5b), ``not_found``, ``validation_error``, ``no_image_input``,
     ``region_unreadable``) or a route that cannot be called (``capped``,
     ``unpriced``, ``unrouted``, ``unavailable``, ``models_off``)."""
 
@@ -345,6 +346,17 @@ PROPERTY_CHECKS = ("values_finite", "integrates_to_one", "sums_to_one", "nonnega
                    "monotone_nondecreasing", "shaded_areas")
 
 
+def _advanced_kinds(row: Mapping[str, Any]) -> list[str]:
+    """The RW5b panel kinds a stored figure's spec uses (none when it has no spec)."""
+
+    if not row.get("spec_json"):
+        return []
+    try:
+        return list(S.advanced_kinds(json.loads(row["spec_json"])))
+    except (TypeError, ValueError, AttributeError):
+        return []
+
+
 def advanced_off_row(vault: Any, row: Mapping[str, Any]) -> Mapping[str, Any]:
     """RW5b: a shown figure that uses a heat map, vector field, trajectory or
     iterated map, while ``figures.advanced_panels_enabled`` is off, is the
@@ -450,19 +462,45 @@ def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, v
 # Build
 # ---------------------------------------------------------------------------
 
+#: The origin every reuse key names (RW5b Codex review F2). A figure of a
+#: block is the same figure whether the learner selected it or a library or
+#: tutor offer named it (the author is sent the same input), so it is built
+#: and paid for once; the row keeps its own ``origin``. RW5a's keys were all
+#: made under ``selection``, so they are unchanged.
+REUSE_ORIGIN = "selection"
+
+
 def request_hash(request: FigureRequest, context: SourceContext, image_digest: str | None, *,
                  advanced: bool = False) -> str:
     """The reuse key: the spec and prompt versions (RW5b's panels have their
     own prompt version, so RW5a's hashes are unchanged while they are off)
-    and everything the author is sent."""
+    and everything the author is sent (never the origin: :data:`REUSE_ORIGIN`)."""
 
     return content_key({
         "spec_version": S.SPEC_VERSION, "prompt_version": R.author_prompt_version(advanced=advanced),
         "extraction_id": request.extraction_id,
-        "span_ids": list(request.span_ids), "region": request.region, "origin": request.origin,
+        "span_ids": list(request.span_ids), "region": request.region, "origin": REUSE_ORIGIN,
         "passage": context.passage, "around": context.around, "image_sha256": image_digest,
         "supersedes_id": request.supersedes_id, "revision_note": request.revision_note,
     })
+
+
+def _reusable(vault: Any, connection: Any, input_hash: str, other_hash: str) -> dict[str, Any] | None:
+    """The figure a build reuses: this input's under the current prompt
+    version, else (Codex review F2) a SHOWN one of the same input under the
+    other prompt version when it can be drawn now. RW5a's figures are drawable
+    with the panels on, and a panels-era figure with none of the new kinds is
+    drawable with them off; so switching the panels never pays again for a
+    figure already on the page. Another version's "can't draw this yet" is
+    never reused: it was that prompt's verdict (the panels may draw it now)."""
+
+    found = store.reusable(connection, input_hash, S.SPEC_VERSION)
+    if found is not None:
+        return found
+    other = store.reusable(connection, other_hash, S.SPEC_VERSION)
+    if other is None or other["verification"] not in store.SHOWN or advanced_off_row(vault, other) is not other:
+        return None
+    return other
 
 
 def _validated_request(vault: Any, repository: Repository, request: FigureRequest) -> FigureRequest:
@@ -508,6 +546,13 @@ def check_request(vault: Any, repository: Repository, request: FigureRequest) ->
             raise FigureRefused("not_found", "That figure is not on this source.")
         if withheld_message(vault, repository, base["extraction_id"], _figure_spans(base)) is not None:
             raise FigureRefused("exam_material", "That figure's passage is held out now.")
+        if not advanced_enabled(vault) and _advanced_kinds(base):
+            # Codex review F4: a figure that uses a panel kind switched off
+            # (listed as "can't draw this yet", or a failed attempt at one) is
+            # not revised: its spec would be sent under RW5a's prompt, which
+            # can only re-emit what is refused, two paid calls for nothing.
+            raise FigureRefused("advanced_disabled", "That figure uses a panel kind that is switched off "
+                                                     "(figures.advanced_panels_enabled).")
     return request
 
 
@@ -577,8 +622,9 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
     digest = hashlib.sha256(image[1]).hexdigest() if image is not None else None
     advanced = advanced_enabled(vault)
     input_hash = request_hash(request, context, digest, advanced=advanced)
+    other_hash = request_hash(request, context, digest, advanced=not advanced)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        reused = store.reusable(connection, input_hash, S.SPEC_VERSION)
+        reused = _reusable(vault, connection, input_hash, other_hash)
         seen = store.latest_for_input(connection, input_hash, S.SPEC_VERSION)
     if reused is not None:
         return _reused(vault, repository, reused)
@@ -589,7 +635,7 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
             # Reread inside the lock (fix round 2, F7): a build that committed
             # between the reads above left `reused` empty but `seen` naming
             # its row, so only this read can tell its figure is reusable.
-            reused = store.reusable(connection, input_hash, S.SPEC_VERSION)
+            reused = _reusable(vault, connection, input_hash, other_hash)
             latest = store.latest_for_input(connection, input_hash, S.SPEC_VERSION)
             generation = store.builds_for_input(connection, input_hash, S.SPEC_VERSION)
         if reused is not None:
@@ -805,7 +851,10 @@ def list_figures(vault: Any, repository: Repository, extraction_id: str) -> list
     views = []
     for chain in chains.values():
         shown = [row for row in chain if row["verification"] in store.SHOWN]
-        pick = (shown or chain)[-1]
+        # Codex review F5: with the panels off, the newest version that can
+        # still be drawn, before one that would list as "can't draw this yet".
+        drawable = [row for row in shown if advanced_off_row(vault, row) is row]
+        pick = (drawable or shown or chain)[-1]
         if withheld_message(vault, repository, pick["extraction_id"], _figure_spans(pick)) is not None:
             continue
         try:
