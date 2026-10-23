@@ -99,106 +99,6 @@ def _replaced(vault: Any, **fields: Any) -> Any:
     return out
 
 
-def project_ir(ir: Any, withheld: Any) -> Any:
-    """``ir`` as AD reads it: the blocks whose span ``withheld(span)`` is true removed, and every
-    value ingest DERIVED from other blocks derived again from the VISIBLE blocks alone, by position
-    (the AD23 redesign round 7; ``protected_tables.DERIVED_TREATMENT``), so the result is what the
-    reading would give had the withheld blocks never been extracted. Applied to every reading,
-    withheld material or not, so two readings always compare alike.
-
-    * blocks: ``section_path`` and ``role_hint`` (``ingest.block_roles.positional_structure``: the
-      nearest preceding visible header, and ``classify_block_role`` over it), ``ordinal`` (dense,
-      in reading order), ``extractor_block_id`` (kept only as a caption cue's own time locator: a
-      layout id counts blocks, withheld ones too), GLM-OCR text (its split-label join, which reads
-      a neighbouring label's number, in its neighbour-free form) and ``content_hash`` over it;
-    * units: a unit opened by a withheld block (its heading) is no unit: its visible blocks join the
-      unit before it (at the start, the one after it), as ingest would have placed them; the rest
-      keep their identity, label and locator (opened by a visible heading), with their visible
-      spans; a unit left with none dropped; ``ordinal`` dense; a dropped parent left out;
-      ``page_start``/``page_end`` and ``semantic_hash`` over the visible blocks;
-    * assets without a withheld block's spans (an asset only withheld blocks show dropped);
-    * health: each page's block counts over the visible blocks."""
-
-    from learnloop.ingest.block_roles import positional_structure
-    from learnloop.ingest.hashing import semantic_hash
-    from learnloop.ingest.ir import block_content_hash
-
-    ordered = sorted(ir.blocks, key=lambda block: (block.ordinal, block.span_id))
-    visible = [block for block in ordered if not withheld(block.span_id)]
-    gone = {block.span_id for block in ordered} - {block.span_id for block in visible}
-    texts = [_canonical_text(ir.extractor, block) for block in visible]
-    structure = positional_structure([(block.block_type, text) for block, text in zip(visible, texts)])
-    blocks = []
-    for index, (block, text, (path, role)) in enumerate(zip(visible, texts, structure), start=1):
-        cue = block.extractor_block_id if _TIME_CUE.match(str(block.extractor_block_id or "")) else None
-        blocks.append(block.model_copy(update={
-            "text": text, "content_hash": block_content_hash(text), "section_path": path, "role_hint": role,
-            "ordinal": index, "extractor_block_id": cue}))
-    by_span = {block.span_id: block for block in blocks}
-    first = {block.span_id: block.ordinal for block in ordered}
-    # A unit is opened by its first block (its heading). One opened by a withheld block is a
-    # section boundary only withheld material makes: its visible blocks belong to the unit before
-    # it (or, at the start, the one after it), as when that heading was never extracted.
-    merged: list[tuple[Any, list[str]]] = []
-    pending: list[str] = []
-    for unit in sorted(ir.units, key=lambda unit: (unit.ordinal, unit.unit_id)):
-        spans = [span for span in unit.span_ids if span not in gone]
-        opening = min(unit.span_ids, key=lambda span: first.get(span, 0)) if unit.span_ids else None
-        if opening is not None and opening in gone:
-            if merged:
-                merged[-1][1].extend(spans)
-            else:
-                pending.extend(spans)
-            continue
-        merged.append((unit, pending + spans))
-        pending = []
-    if pending and merged:
-        merged[-1][1].extend(pending)
-    units = []
-    for unit, spans in merged:
-        if unit.span_ids and not spans:
-            continue
-        spans = sorted(dict.fromkeys(spans), key=lambda span: first.get(span, 0))
-        shown = [by_span[span] for span in spans if span in by_span]
-        pages = [block.page for block in shown if block.page is not None]
-        units.append(unit.model_copy(update={
-            "span_ids": spans, "semantic_hash": semantic_hash(shown), "page_start": min(pages) if pages else None,
-            "page_end": max(pages) if pages else None}))
-    kept = {unit.unit_id for unit in units}
-    units = [unit.model_copy(update={"ordinal": index, "parent_unit_id": unit.parent_unit_id
-                                     if unit.parent_unit_id in kept else None})
-             for index, unit in enumerate(units, start=1)]
-    shown_assets = {asset for block in blocks for asset in block.asset_ids}
-    hidden_assets = {asset for block in ordered if block.span_id in gone for asset in block.asset_ids} - shown_assets
-    assets = []
-    for asset in ir.assets:
-        neighbours = [span for span in asset.neighboring_span_ids if span not in gone]
-        if asset.id in hidden_assets or (asset.neighboring_span_ids and not neighbours):
-            continue
-        assets.append(asset.model_copy(update={"neighboring_span_ids": neighbours}))
-    counts: dict[Any, dict[str, int]] = {}
-    for block in blocks:
-        page = counts.setdefault(block.page, {})
-        page[block.block_type] = page.get(block.block_type, 0) + 1
-    health = ir.health.model_copy(update={"pages": [
-        page.model_copy(update={"block_counts": counts.get(page.page, {})}) for page in ir.health.pages]})
-    return ir.model_copy(update={"blocks": blocks, "units": units, "assets": assets, "health": health})
-
-
-#: A caption cue's own time locator (``t=12.5-14``): the one ``extractor_block_id`` AD keeps.
-_TIME_CUE = re.compile(r"^t=\d+(?:\.\d+)?(?:-\d+(?:\.\d+)?)?$")
-
-
-def _canonical_text(extractor: str, block: Any) -> str:
-    """A block's text as AD reads it: GLM-OCR's label text in its neighbour-free form."""
-
-    from learnloop.ingest.extractors.glm_ocr import EXTRACTOR_NAME, canonical_label_text
-
-    if extractor == EXTRACTOR_NAME and block.block_type in ("Text", "SectionHeader"):
-        return canonical_label_text(block.text)
-    return block.text
-
-
 def _select(table: str) -> str:
     """A protected table's columns the rules read and hand out: all but the derived ones
     (``protected_tables.DERIVED``; the guard refuses those outside the derivation scope)."""
@@ -293,6 +193,7 @@ class MaterialView:
         self.reason = None if self.available else UNAVAILABLE
         self._revisions: dict[str, Any] = {}
         self._section_spans: dict[str, dict[str, list[str]]] = {}
+        self._touched: frozenset[str] | None = None
         self._universe: set[str] | None = None
         self._answered: dict[str, tuple[str, ...]] | None = None
         self._frozen: dict[str, str] | None = None
@@ -466,17 +367,31 @@ class MaterialView:
         if base == "facet":
             canonical = getattr(self.vault, "canonical_facet_id", lambda v: v)
             return canonical(str(value)) in self.protected_only_facets(connection)
+        reading = table in _T.READING
         if base == "extraction":
-            return self.material_withheld(value)
+            # A reading table's row is withheld with its reading (round 8); an item's provenance link
+            # by the withheld material itself.
+            return self.reading_withheld(value) if reading else self.material_withheld(value)
         if base == "span":
+            if reading:
+                return self.reading_withheld(row.get(arg))
             return self.keys_withheld(*reference_keys({"extraction_id": row.get(arg), "span_id": value})) \
                 or self.material_withheld(row.get(arg), value)
         if base == "section":
-            return self.section_withheld(str(row.get(arg)), str(value))
+            return self.reading_withheld(row.get(arg))
         if base == "spans":
+            if reading:
+                return self.reading_withheld(row.get(arg))
             spans = value if isinstance(value, list) else _spans(value)
             return any(self.material_withheld(row.get(arg), span) for span in spans) or self.keys_withheld(
                 *reference_keys({"extraction_id": row.get(arg), "span_ids": [str(span) for span in spans]}))
+        if base == "reading_payload":
+            # A Reader event names its reading in its payload (or its locator): it is a reading
+            # event of every reading it names (round 8, Option B).
+            payload = value if isinstance(value, (Mapping, list)) else _json(value, {})
+            keys, whole = reference_keys(payload)
+            return any(self.reading_withheld(extraction) for extraction, _span in keys) or any(
+                self.reading_withheld(extraction) for extraction in whole)
         if base == "note":
             return self._note_ref_withheld(connection, value)
         if base == "source":
@@ -811,7 +726,7 @@ class MaterialView:
             # from current content, and the offer record stands (as a frozen dose does, F30).
             return self._entity_withheld(connection, "reader_question", content.get("question_id"))
         if variant == "extra_worked_example":
-            return self.material_withheld(content.get("extraction_id"), content.get("span_id"))
+            return self.reading_withheld(content.get("extraction_id"))
         return False
 
     def dose_draw_withheld(self, connection: Any, row: Mapping[str, Any]) -> bool:
@@ -1089,26 +1004,46 @@ class MaterialView:
         return {**row, "contract": _json(row.get("contract_json"), {})}
 
     def worked_example_spans(self, connection: Any, extraction_id: str) -> set[str]:
-        """The extraction's worked-example spans: the incumbent's effective role
-        (``source_retrieval.corpus.effective_hint``, as ``role_keys`` applies it) over the PROJECTED
-        reading (:func:`project_ir`; the AD23 redesign rounds 5 to 7). The role is the one the
-        projection derives with ``classify_block_role`` from the block's own text and its
-        positional heading (the nearest preceding visible header), never the stored hint, which
-        ingest derived from a heading stack that may hold withheld headers."""
+        """The extraction's worked-example spans, exactly as the incumbent finds them
+        (``source_retrieval.corpus.role_keys``: the stored role through ``effective_hint``), for a
+        reading no withheld block touches; none for any other (round 8). The stored role is read
+        inside the derivation scope, the one place a derived column is read."""
 
-        from learnloop.db.stores.source_block_fts import HintRow
-        from learnloop.source_retrieval.corpus import effective_hint
+        from learnloop.adaptive_difficulty.operation import DERIVE, rules
+        from learnloop.source_retrieval.corpus import role_keys
+
+        if not self.available or self.reading_withheld(extraction_id):
+            return set()
+        with rules(DERIVE):
+            keys = role_keys(connection, [extraction_id], ("worked_example",))
+        return {str(span) for extraction, span in keys if extraction == extraction_id}
+
+    def reading_order(self, extraction_id: str) -> dict[str, int]:
+        """The visible reading's spans by their stored ordinal (round 8, F2: candidates are taken in
+        reading order, never by span id); empty for a withheld reading."""
 
         ir = self.document_ir(self.repository, extraction_id)
-        if ir is None:
-            return set()
-        found: set[str] = set()
-        for block in ir.blocks:
-            hint = HintRow(str(extraction_id), str(block.span_id), str(block.block_type), block.role_hint,
-                           str(block.text or ""), json.dumps(list(block.section_path)))
-            if hint.role_hint == "worked_example" and effective_hint(hint, {}) == "worked_example":
-                found.add(hint.span_id)
-        return found
+        return {} if ir is None else {str(block.span_id): int(block.ordinal) for block in ir.blocks}
+
+    def protected_reading_counts(self, connection: Any) -> dict[str, int]:
+        """What ``ad report`` says Option B leaves out (round 8): the readings the withheld material
+        touches, and the reading events recorded on them that AD does not use."""
+
+        if not self.available:
+            return {"readings": 0, "events": 0}
+        material = self.protection.material
+        touched = sorted(str(extraction) for extraction in getattr(material, "touched", ()) or ())
+        if not touched:
+            return {"readings": 0, "events": 0}
+        marks = ",".join("?" for _ in touched)
+        readings = connection.execute(
+            f"/* ad-rules */ SELECT COUNT(*) FROM source_extraction_runs WHERE id IN ({marks})", touched).fetchone()[0]
+        events = 0
+        for table in ("source_exposure_events", "reader_section_progress", "reader_authored_questions"):
+            if _has_table(connection, table):
+                events += int(connection.execute(
+                    f"/* ad-rules */ SELECT COUNT(*) FROM {table} WHERE extraction_id IN ({marks})", touched).fetchone()[0])
+        return {"readings": int(readings), "events": events}
 
     def plan_feedback_events(self, connection: Any) -> list[dict[str, Any]]:
         """The plan's ``item_done`` and ``item_served`` events AD's candidate estimates may pair (the
@@ -1306,22 +1241,37 @@ class MaterialView:
             return False
         return bool(material.covers(str(extraction_id), None if span_id is None else str(span_id)))
 
-    def document_ir(self, repository: Any, extraction_id: str) -> Any:
-        """An extraction's document IR as AD may read it (the operation repository's loader; the
-        AD23 redesign, step 4): every held-out block removed, and with it its span from every unit
-        and asset, so whatever reads the IR (the Reader's section mapping, span aliases, a section's
-        spans) computes from what remains, as if the material had never been extracted (Codex
-        verify F48). An extraction held out whole, or the predicate unavailable, reads as none."""
+    def reading_withheld(self, extraction_id: Any) -> bool:
+        """Whether a READING (an extraction) is withheld for AD's reading signals (the AD23 redesign
+        round 8, Option B): the withheld material touches it, wholly or in one block, or the predicate
+        is unavailable (fail closed). Such a reading is, for its structure (blocks, units, sections,
+        roles, aliases) and its reading events (exposures, section completions, Reader and tutor
+        questions, dose offers), as if it had never been extracted. Practice items made from its
+        visible parts are judged by their own sources, as before (``withheld``, ``covers``). It
+        reveals one bit per reading, never what or where."""
 
-        if not self.available or self.material_withheld(extraction_id):
+        if not self.available:
+            return True
+        material = self.protection.material
+        if getattr(material, "empty", False) or extraction_id is None:
+            return False
+        if self._touched is None:
+            self._touched = frozenset(str(extraction) for extraction in material.touched)
+        return str(extraction_id) in self._touched
+
+    def document_ir(self, repository: Any, extraction_id: str) -> Any:
+        """An extraction's document IR as AD may read it (the operation repository's loader, the one
+        chokepoint for reading structure): none for a reading the withheld material touches
+        (:meth:`reading_withheld`; the AD23 redesign round 8), else the stored IR exactly as
+        ingest wrote it, which is then derived from that reading's own blocks, all visible (the
+        Reader's and AD1's reading)."""
+
+        if not self.available or self.reading_withheld(extraction_id):
             return None
         from learnloop.adaptive_difficulty.operation import DERIVE, rules
 
         with rules(DERIVE):
-            ir = repository.load_document_ir(extraction_id)
-        if ir is None:
-            return None
-        return project_ir(ir, lambda span: self.material_withheld(extraction_id, span))
+            return repository.load_document_ir(extraction_id)
 
     def projected_vault(self) -> Any:
         """The vault an AD operation hands its readers (``op.vault``; the AD23 redesign, step 4):
@@ -1413,7 +1363,7 @@ class MaterialView:
           ``Repository.insert_span_reanchor``) is an owner's own decision, kept when both its
           endpoints are visible, and it overrides the computed alias of its span."""
 
-        if not self.available or self.material_withheld(from_extraction_id) or self.material_withheld(to_extraction_id):
+        if not self.available or self.reading_withheld(from_extraction_id) or self.reading_withheld(to_extraction_id):
             return []
         from learnloop.content.sources.span_aliases import computed_aliases
         from learnloop.ingest.reanchor import MANUAL
@@ -1432,16 +1382,15 @@ class MaterialView:
             for span, (to_span, kind, confidence) in sorted(computed.items()) if span not in overridden]
 
     def section_spans(self, extraction_id: str, section_id: str) -> list[str]:
+        """A Reader section's spans, read only through :meth:`document_ir` (round 8, F3): none for
+        a reading the withheld material touches."""
+
         if extraction_id not in self._section_spans:
             from learnloop.reader.reader_guidance import extraction_sections
 
-            from learnloop.adaptive_difficulty.operation import DERIVE, rules
-
             sections: dict[str, list[str]] = {}
             try:
-                # Only the sections' span membership leaves this scope (no derived value).
-                with rules(DERIVE):
-                    ir = self.repository.load_document_ir(extraction_id)
+                ir = self.document_ir(self.repository, extraction_id)
                 if ir is not None:
                     rows, _blocks, _map = extraction_sections(ir)
                     sections = {str(row["id"]): [str(span) for span in row["span_ids"]] for row in rows}
@@ -1451,8 +1400,10 @@ class MaterialView:
         return self._section_spans[extraction_id].get(section_id, [])
 
     def section_withheld(self, extraction_id: str, section_id: str) -> bool:
-        return self.material_withheld(extraction_id) or any(
-            self.material_withheld(extraction_id, span) for span in self.section_spans(extraction_id, section_id))
+        """A Reader section is withheld with its reading (round 8): a section of a reading no
+        withheld block touches has none."""
+
+        return self.reading_withheld(extraction_id)
 
     def question_event_withheld(self, connection: Any, question_id: Any) -> bool:
         """The one protection reader of a tutor question (``question_events``; Codex verify F46, fix
@@ -1490,18 +1441,25 @@ class MaterialView:
         except (TypeError, ValueError):
             return True
         # Every reference shape in it (spans, anchors, locators, hrefs, retrieval keys), located by
-        # the one key function (round 4).
-        return self.keys_withheld(*reference_keys(context))
+        # the one key function (round 4); a context citing a reading the withheld material touches is
+        # a reading event of that reading (round 8).
+        keys, whole = reference_keys(context)
+        return self.keys_withheld(keys, whole) or any(
+            self.reading_withheld(extraction) for extraction, _span in keys) or any(
+            self.reading_withheld(extraction) for extraction in whole)
 
     def question_withheld(self, row: Mapping[str, Any]) -> bool:
         """A Reader question is withheld when its extraction, or any span it is anchored on or cites,
         is held out (Codex verify F23)."""
 
         extraction = row.get("extraction_id")
-        if extraction is None or self.material_withheld(extraction):
+        if extraction is None or self.reading_withheld(extraction):
             return True
         spans = _spans(row.get("anchor_span_ids_json")) + _spans(row.get("span_ids_json"))
-        return self.keys_withheld(*reference_keys({"extraction_id": extraction, "span_ids": spans}))
+        keys, whole = reference_keys({"extraction_id": extraction, "span_ids": spans})
+        # A question cites its own reading's spans; one citing another reading is judged by it.
+        return any(self.reading_withheld(key_extraction) for key_extraction, _span in keys) or any(
+            self.reading_withheld(name) for name in whole)
 
     def answered_questions(self, connection: Any, styles: Sequence[str]) -> list[dict[str, Any]]:
         """Answered, undismissed Reader questions of these styles that are not withheld."""
@@ -1547,10 +1505,8 @@ class MaterialView:
         table, source, kind = str(row.get("source_table")), str(row.get("source_id") or ""), str(row.get("kind"))
         try:
             if table == "reader_section_progress":
-                extraction, _sep, rest = source.partition("/")
-                if kind == "worked_example":
-                    return self.material_withheld(extraction, rest)
-                return self.section_withheld(extraction, rest)
+                extraction, _sep, _rest = source.partition("/")
+                return self.reading_withheld(extraction)
             if table in _T.COLUMNS and table != "ad_reading_opportunities":
                 if not _has_table(connection, table):
                     return False

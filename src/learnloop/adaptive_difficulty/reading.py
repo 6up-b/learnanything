@@ -180,9 +180,13 @@ class VaultReadingMap:
                 self._examples[extraction_id] = set()
         return self._examples[extraction_id]
 
+    def reading_order(self, extraction_id: str) -> dict[str, int]:
+        return self.view.reading_order(extraction_id)
+
     def withheld(self, extraction_id: str, span_id: str | None) -> bool:
-        # Held-out material, or everything while the predicate is unavailable (fail closed).
-        return self.view.material_withheld(extraction_id, span_id)
+        # Held-out material, a reading the withheld material touches (round 8), or everything while
+        # the predicate is unavailable (fail closed).
+        return self.view.reading_withheld(extraction_id) or self.view.material_withheld(extraction_id, span_id)
 
     def note_withheld(self, note_id: str) -> bool:
         """Whether a note is withheld (a held-out source's canonical note; fix round 13, F43)."""

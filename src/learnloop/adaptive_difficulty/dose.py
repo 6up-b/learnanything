@@ -146,7 +146,12 @@ def feasible_variants(vault: Any, repository: Any, connection: Any, boundary: Bo
     studied = _studied_examples(connection, view, learning_object_ids)
     section_spans = set(mapping.section_spans(boundary.extraction_id, boundary.section_id))
     example = None
-    for span in sorted(mapping.worked_example_spans(boundary.extraction_id)):
+    # In reading order (the stored ordinal), never by span id (round 8, F2: span ids are positional
+    # strings, "s10" before "s9").
+    order = getattr(mapping, "reading_order", None)
+    ordinals = order(boundary.extraction_id) if order is not None else {}
+    for span in sorted(mapping.worked_example_spans(boundary.extraction_id),
+                       key=lambda span: (ordinals.get(span, float("inf")), span)):
         key = f"{boundary.extraction_id}/{span}"
         if key in studied or span in section_spans or mapping.withheld(boundary.extraction_id, span) \
                 or view.material_withheld(boundary.extraction_id, span):
@@ -249,9 +254,11 @@ def decide(vault: Any, repository: Any, boundary: Boundary, *, clock: Clock | No
     view = material_view(vault, repository, view)
     if not view.available:
         return DoseDecision(False, "protection_unavailable")
-    if view.section_withheld(boundary.extraction_id, boundary.section_id):
-        # The originating section is withheld (Codex verify F47, fix round 14): it is not mapped and no
-        # draw is made at it; a draw made there earlier is returned with no offer.
+    if view.reading_withheld(boundary.extraction_id):
+        # The boundary's reading is one the withheld material touches (round 8, Option B: absent for
+        # reading signals; Codex verify F47 before it): ineligible BEFORE the draw, so the
+        # propensities of every draw made stay exact; a draw made there earlier is returned with no
+        # offer.
         with repository.atomic():
             connection = repository.connection()
             status, existing = view.stored_status(connection, store.DOSE_OFFERS, store.dose_draw_by_key,
@@ -260,7 +267,7 @@ def decide(vault: Any, repository: Any, boundary: Boundary, *, clock: Clock | No
             # A draw made here earlier: withheld with its section, so it is returned with no offer and
             # nothing of it but its id.
             return DoseDecision(True, "withheld", str((existing or {}).get("id")), NONE, {}, None)
-        return DoseDecision(False, "withheld_section")
+        return DoseDecision(False, "protected_reading")
     mapping = reading_map or VaultReadingMap(vault, repository, view)
     los = list(mapping.los_for_section(boundary.extraction_id, boundary.section_id))
     if not los:

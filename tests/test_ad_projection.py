@@ -1,17 +1,20 @@
-"""AD23 redesign, step 4: what an operation reads of protected material equals what it reads with
-that material physically absent, blocks included.
+"""What an AD operation reads of protected material equals what it reads with that material absent
+(the AD23 redesign; since round 8, Option B).
 
-* F48 (Codex verify): a public span P and a held-out span H share one section; an LO cites only H.
-  A view of P maps, in AD, to the LOs citing visible material only, exactly as when H was never
-  extracted (failed before: the Reader's whole-section mapping resolved provenance against every
-  block of the section, H included, and assigned P's exposure to H's LO);
-* the projected document IR and vault: with H held out they equal the copy without H (blocks, units,
-  the Reader's section mapping, the LO's provenance);
+Since round 8 a reading that holds any withheld block is ABSENT for AD's reading signals: its
+structure and its reading events read as none (``MaterialView.reading_withheld``). The oracle is a
+row deletion (``tests.ad_ingest_fakes.delete_reading``). The full property over production-built
+readings is ``test_ad_protected_readings.py``; this file keeps:
+
+* a mixed section (F48): no AD reading signal of that reading at all, as in the deleted copy; the
+  vault's projection still drops an LO reference into the withheld block (items and LOs keep the
+  block-level rule), and a locator-only one too (round 4);
+* a whole extraction held out reads as no extraction;
 * every protected table's rows as the operation's view reads them, on the contract's two copies (A:
-  every class of protected material present and protected; B: absent), equal B's, but for the
-  tables whose rows are scoped by the protection epoch instead (``test_ad_epoch.py``).
+  every class of protected material present and protected; B: the reading deleted), equal B's, but
+  for the tables whose rows are scoped by the protection epoch instead (``test_ad_epoch.py``);
+* the shared reference key function.
 
-The F48 case uses only production entry points (the sweep), so it runs on the pre-redesign tree.
 Fakes only: no network, no model call.
 """
 
@@ -21,7 +24,6 @@ import json
 from contextlib import closing
 from datetime import UTC, datetime, timedelta
 
-import pytest
 import yaml
 
 from learnloop.db.connection import connect
@@ -29,39 +31,36 @@ from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
 
 from tests.ad23_fakes import LO, ad23_vault
-from tests.ad_ingest_fakes import GLM, MARKER, Element, ingest_ir, never_extracted
+from tests.ad_ingest_fakes import MARKER, Element, delete_reading, ingest_ir
 from tests.helpers import write_yaml
 
 EXT = "ext_f48"
-P, H = "p_span", "h_span"
 HELD_LO = "lo_f48_held"
+QUOTE = "Teaching text of the public passage"
 T0 = datetime(2026, 10, 12, 9, 0, tzinfo=UTC)
+#: The production span ids of the mixed section's two blocks (ingest numbers them s1, s2).
+P, H = "s1", "s2"
 
 
 def _iso(moment: datetime) -> str:
     return moment.isoformat().replace("+00:00", "Z")
 
 
-def _cite(paths, lo: str, span: str) -> None:
+def _cite(paths, lo: str, refs) -> None:
     path = paths.learning_object_path("linear-algebra", lo)
     payload = yaml.safe_load(path.read_text(encoding="utf-8"))
-    payload["provenance"] = {"origin": "human", "source_refs": [{
-        "ref_type": "canonical_source", "ref_id": "src_f48", "source_id": "src_f48", "extraction_id": EXT,
-        "span_ids": [span], "locator": f"span:{EXT}/{span}"}]}
+    payload["provenance"] = {"origin": "human", "source_refs": list(refs)}
     write_yaml(path, payload)
 
 
-def _mixed_section(tmp_path, *, absent: bool):
-    """One extraction, one section holding P and (unless ``absent``) H. ``LO`` cites P, ``HELD_LO``
-    cites H (in both copies: an LO is not protected material, its reference into H is). One reader
-    view of P."""
-
-    from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
+def _mixed_section(tmp_path, name: str = "protected"):
+    """One extraction, built by Marker's production converter: public P and held-out H. ``LO``
+    cites P, ``HELD_LO`` cites H (once by span id, once by its locator alone with a quote P's text
+    holds). One Reader view of P."""
 
     from tests.test_source_inventory import _persist
 
-    paths = ad23_vault(tmp_path / ("absent" if absent else "protected"), items=("pi_m1a",),
-                       learning_objects={HELD_LO: ("pi_f48",)})
+    paths = ad23_vault(tmp_path / name, items=("pi_m1a",), learning_objects={HELD_LO: ("pi_f48",)})
     made = _iso(T0 - timedelta(days=7))
     with closing(connect(paths.sqlite_path)) as connection:
         connection.execute("INSERT INTO source_artifacts(id, acquisition_kind, canonical_uri, created_at, updated_at) "
@@ -69,28 +68,17 @@ def _mixed_section(tmp_path, *, absent: bool):
         connection.execute("INSERT INTO source_revisions(id, source_id, asset_hash, created_at) "
                            "VALUES ('rev_f48', 'src_f48', 'sha256:f48', ?)", (made,))
         connection.commit()
-    elements = [Element(span, "text", f"Teaching text of {span}.") for span in (P, H)]
-    # Built by the real ingest derivation (round 7), H deleted before it in the absent copy.
-    ir = _one_section(ingest_ir(never_extracted(elements, {H}) if absent else elements, style=MARKER), "sec_mixed")
+    ir = ingest_ir([Element("text", f"{QUOTE}."), Element("text", "The held-out exercise.")], style=MARKER)
     repository = Repository(paths.sqlite_path)
     _persist(repository, ir, revision_id="rev_f48", extraction_id=EXT)
-    _cite(paths, LO, P)
-    _cite(paths, HELD_LO, H)
+    ref = {"ref_type": "canonical_source", "ref_id": "src_f48", "source_id": "src_f48"}
+    _cite(paths, LO, [{**ref, "extraction_id": EXT, "span_ids": [P], "locator": f"span:{EXT}/{P}"}])
+    _cite(paths, HELD_LO, [{**ref, "extraction_id": EXT, "span_ids": [H], "locator": f"span:{EXT}/{H}"},
+                           {**ref, "locator": f"span:{EXT}/{H}", "quote": QUOTE}])
     repository.insert_source_exposure_event(
         {"context": "reader", "extraction_id": EXT, "span_id": P, "revision_id": "rev_f48", "source_id": "src_f48",
          "entity_type": "reader", "entity_id": "visit_f48", "created_at": _iso(T0 - timedelta(hours=5))})
     return paths
-
-
-def _one_section(ir, unit_id: str):
-    """The ingested reading as one section named ``unit_id`` (a section's identity, like a span's,
-    is renamed; nothing derived is copied)."""
-
-    from learnloop.ingest.ir import DocumentUnit
-
-    spans = [block.span_id for block in ir.blocks]
-    unit = DocumentUnit(unit_id=unit_id, label=unit_id, ordinal=1, semantic_hash="sha256:" + unit_id, span_ids=spans)
-    return ir.model_copy(update={"units": [unit]})
 
 
 def _hold_h(monkeypatch) -> None:
@@ -110,48 +98,35 @@ def _swept(paths) -> list[tuple[str, str, str, str]]:
             "SELECT kind, subkind, source_table, learning_object_id FROM ad_reading_opportunities"))
 
 
-def test_a_public_span_in_a_mixed_section_maps_only_to_visible_provenance(tmp_path, monkeypatch):
-    """F48: the reader view of P records a reading opportunity for exactly the LOs it records when H
-    was never extracted (failed before: also for ``HELD_LO``, whose only citation is H)."""
+def test_a_mixed_reading_gives_no_reading_signal_as_if_deleted(tmp_path, monkeypatch):
+    """F48 under Option B: the reading holds withheld H, so P's view records nothing and the
+    reading's structure reads as none, exactly as in the copy with that reading deleted; the vault's
+    projection still drops both of ``HELD_LO``'s references into H (the span id and the locator-only
+    one, round 4), while ``LO``'s reference to visible P stands (items and LOs keep the block rule)."""
 
-    _hold_h(monkeypatch)
-    protected = _swept(_mixed_section(tmp_path, absent=False))
-    absent = _swept(_mixed_section(tmp_path, absent=True))
-    assert protected == absent
-    assert ("reading", "passage_viewed", "source_exposure_events", LO) in absent
-    assert all(row[3] != HELD_LO for row in protected)
-
-
-def test_the_projected_ir_and_vault_equal_the_copy_without_the_held_out_block(tmp_path, monkeypatch):
     from learnloop.adaptive_difficulty.operation import ad_operation
-    from learnloop.reader.reader_progression import learning_objects_for_section, learning_objects_for_span
+    from learnloop.reader.reader_progression import learning_objects_for_span
 
     _hold_h(monkeypatch)
-    seen = {}
-    for absent in (False, True):
-        paths = _mixed_section(tmp_path, absent=absent)
+    protected = _mixed_section(tmp_path)
+    deleted = _mixed_section(tmp_path, "deleted")
+    delete_reading(deleted.sqlite_path, EXT)
+    for paths in (protected, deleted):
         vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
         with ad_operation(vault, repository) as op:
             ir = op.repository.load_document_ir(EXT)
-            if not absent:
-                # A's projection drops the LO's only reference (into H); B keeps it dangling.
-                assert op.vault.learning_objects[HELD_LO].provenance.source_refs == []
-            seen[absent] = {
-                "blocks": [block.span_id for block in ir.blocks],
-                "units": [unit.span_ids for unit in ir.units],
-                "section": learning_objects_for_section(op.vault, op.repository, extraction_id=EXT,
-                                                        section_id="sec_mixed"),
-                "span": learning_objects_for_span(op.vault, op.repository, extraction_id=EXT, span_id=P),
-            }
-    assert seen[False] == seen[True]
-    assert seen[True]["blocks"] == [P] and seen[True]["section"] == [LO]
+            assert ir is None or ir.blocks == []
+            assert learning_objects_for_span(op.vault, op.repository, extraction_id=EXT, span_id=P) == []
+            assert op.vault.learning_objects[HELD_LO].provenance.source_refs == []
+            assert [ref.span_ids for ref in op.vault.learning_objects[LO].provenance.source_refs] == [[P]]
+    assert _swept(protected) == _swept(deleted) == []
 
 
 def test_a_whole_extraction_held_out_reads_as_no_extraction(tmp_path, monkeypatch):
     from learnloop.adaptive_difficulty.operation import ad_operation
     from learnloop.content.sources import exam_material
 
-    paths = _mixed_section(tmp_path, absent=False)
+    paths = _mixed_section(tmp_path)
     material = exam_material.Material(extractions=frozenset({EXT}))
     monkeypatch.setattr(exam_material, "held_out_material", lambda *_args, **_kwargs: material)
     with ad_operation(load_vault(paths.root), Repository(paths.sqlite_path)) as op:
@@ -200,135 +175,6 @@ def test_every_protected_table_reads_as_in_the_absent_copy(tmp_path, monkeypatch
     assert raw > len(seen["protected"]["practice_attempts"]) > 0
 
 
-# -- round 3 (verify 20261021-104418-6QARfA, finding 1): span aliases from the projected IR ----------
-
-OLD, NEW = "ext_r3_old", "ext_r3_new"
-HELD_SPANS = ("h_before", "h_after")
-
-
-def _reread(tmp_path, *, absent: bool):
-    """A book read twice. The old reading has [h_before, dup_old, h_after]; the new one has
-    [h_before, dup_x, h_after, dup_y], ``dup_*`` being one duplicated public text. With the held-out
-    neighbours present, ``dup_old`` re-anchors uniquely onto ``dup_x`` (its neighbours match); without
-    them it is ambiguous between ``dup_x`` and ``dup_y``. ``LO`` cites ``dup_old``; the Reader viewed
-    ``dup_x``. The re-read recorded its aliases as the incumbent does (``record_aliases``)."""
-
-    from learnloop.content.sources.span_aliases import record_aliases
-    from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
-
-    from tests.test_source_inventory import _persist
-
-    paths = ad23_vault(tmp_path / ("absent" if absent else "protected"), items=("pi_m1a",))
-    made = _iso(T0 - timedelta(days=7))
-    with closing(connect(paths.sqlite_path)) as connection:
-        connection.execute("INSERT INTO source_artifacts(id, acquisition_kind, canonical_uri, created_at, updated_at) "
-                           "VALUES ('src_r3', 'pdf', 'file:///r3.pdf', ?, ?)", (made, made))
-        connection.execute("INSERT INTO source_revisions(id, source_id, asset_hash, created_at) "
-                           "VALUES ('rev_r3', 'src_r3', 'sha256:r3', ?)", (made,))
-        connection.commit()
-    repository = Repository(paths.sqlite_path)
-    text = {"h_before": "Held text before.", "h_after": "Held text after.", "dup_old": "Repeated public text.",
-            "dup_x": "Repeated public text.", "dup_y": "Repeated public text."}
-    layouts = {OLD: ["h_before", "dup_old", "h_after"], NEW: ["h_before", "dup_x", "h_after", "dup_y"]}
-    for version, (extraction, spans) in enumerate(layouts.items(), start=1):
-        elements = [Element(span, "text", text[span]) for span in spans]
-        if absent:
-            elements = never_extracted(elements, HELD_SPANS)
-        ir = _one_section(ingest_ir(elements, style=MARKER), "sec_r3")
-        _persist(repository, ir.model_copy(update={"extractor_version": str(version)}), revision_id="rev_r3",
-                 extraction_id=extraction)
-    record_aliases(repository, OLD, NEW)
-    path = paths.learning_object_path("linear-algebra", LO)
-    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
-    payload["provenance"] = {"origin": "human", "source_refs": [{
-        "ref_type": "canonical_source", "ref_id": "src_r3", "source_id": "src_r3", "extraction_id": OLD,
-        "span_ids": ["dup_old"], "locator": f"span:{OLD}/dup_old"}]}
-    write_yaml(path, payload)
-    repository.insert_source_exposure_event(
-        {"context": "reader", "extraction_id": NEW, "span_id": "dup_x", "revision_id": "rev_r3", "source_id": "src_r3",
-         "entity_type": "reader", "entity_id": "visit_r3", "created_at": _iso(T0 - timedelta(hours=5))})
-    return paths
-
-
-def _hold_neighbours(monkeypatch) -> None:
-    from learnloop.content.sources import exam_material
-
-    material = exam_material.Material(spans=frozenset((extraction, span) for extraction in (OLD, NEW)
-                                                      for span in HELD_SPANS))
-    monkeypatch.setattr(exam_material, "held_out_material", lambda *_args, **_kwargs: material)
-
-
-def test_span_aliases_are_recomputed_from_the_projected_ir(tmp_path, monkeypatch):
-    """Round 3, finding 1: the re-read's recorded alias ``dup_old -> dup_x`` was matched by its
-    held-out neighbours. Inside an operation the aliases are those of the projected readings
-    (``dup_old`` is ambiguous there), exactly as in the copy where the neighbours were never
-    extracted: the view of ``dup_x`` records no reading opportunity for ``LO`` in either copy
-    (failed before: the persisted alias, both of whose endpoints are public, was used)."""
-
-    from learnloop.adaptive_difficulty.operation import ad_operation
-    from learnloop.content.sources.span_aliases import SpanTranslator
-
-    _hold_neighbours(monkeypatch)
-    protected_paths, absent_paths = _reread(tmp_path, absent=False), _reread(tmp_path, absent=True)
-    raw = Repository(protected_paths.sqlite_path)
-    assert SpanTranslator(raw, NEW).resolve(OLD, "dup_old").span_id == "dup_x"  # the incumbent's alias
-    resolved = {}
-    for name, paths in (("protected", protected_paths), ("absent", absent_paths)):
-        vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
-        with ad_operation(vault, repository) as op:
-            resolved[name] = SpanTranslator(op.repository, NEW).resolve(OLD, "dup_old").as_dict()
-    assert resolved["protected"] == resolved["absent"]
-    assert resolved["absent"]["span_id"] is None
-    protected, absent = _swept(protected_paths), _swept(absent_paths)
-    assert protected == absent
-    assert all(row[3] != LO for row in protected if row[2] == "source_exposure_events")
-
-
-# -- round 4 (verify 20261021-112836-xjtGDx, finding 1): locator-only references ---------------------
-
-QUOTE = "Teaching text of p_span"
-
-
-def _locator_only(tmp_path, *, absent: bool):
-    """``HELD_LO``'s only citation names H by its locator alone (``span:ext/H``, no span ids) and
-    carries a quote that public P's text contains. In the absent copy H was never extracted and the
-    reference into it (protected material too) was never made."""
-
-    paths = _mixed_section(tmp_path, absent=absent)
-    path = paths.learning_object_path("linear-algebra", HELD_LO)
-    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
-    payload["provenance"] = {"origin": "human", "source_refs": [] if absent else [{
-        "ref_type": "canonical_source", "ref_id": "src_f48", "source_id": "src_f48",
-        "locator": f"span:{EXT}/{H}", "quote": QUOTE}]}
-    write_yaml(path, payload)
-    return paths
-
-
-def test_a_locator_only_reference_into_held_out_material_is_withheld(tmp_path, monkeypatch):
-    """Round 4, finding 1: the projection locates a reference through ``source_ref_keys`` (its
-    extraction, span ids AND the span its locator names) before judging it, and removes one with any
-    withheld key; the quote it keeps can then restore nothing. The view of P records exactly the
-    opportunities of the copy without H and without the reference into it, none for ``HELD_LO``
-    (failed before: the locator was ignored, the reference kept, and the Reader's quote fallback
-    mapped P to ``HELD_LO``)."""
-
-    from learnloop.adaptive_difficulty.operation import ad_operation
-    from learnloop.reader.reader_progression import learning_objects_for_span
-
-    _hold_h(monkeypatch)
-    protected_paths, absent_paths = _locator_only(tmp_path, absent=False), _locator_only(tmp_path, absent=True)
-    mapped = {}
-    for name, paths in (("protected", protected_paths), ("absent", absent_paths)):
-        vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
-        with ad_operation(vault, repository) as op:
-            assert op.vault.learning_objects[HELD_LO].provenance.source_refs == []
-            mapped[name] = learning_objects_for_span(op.vault, op.repository, extraction_id=EXT, span_id=P)
-    assert mapped["protected"] == mapped["absent"] == [LO]
-    protected, absent = _swept(protected_paths), _swept(absent_paths)
-    assert protected == absent
-    assert all(row[3] != HELD_LO for row in protected)
-
-
 def test_every_recorded_reference_shape_is_located_through_the_shared_key_function():
     """Round 4: the shapes AD reads references in (a provenance ref's extraction, span ids and
     locator; a recorded mapping's ``extraction_id``/``span_id``/``span_ids``/``locator``/``href``,
@@ -351,95 +197,3 @@ def test_every_recorded_reference_shape_is_located_through_the_shared_key_functi
     assert reference_keys({"extraction_id": "e6"}) == (set(), {"e6"})
 
 
-# -- round 5 (verify 20261021-130727-0eZbnv, finding 1): roles over the projection --------------------
-
-HEADER_ID = "/page/1/SectionHeader/0"
-
-
-def _worked_examples_heading(tmp_path, *, absent: bool, heading: str = "Worked Examples", by_text: bool = False):
-    """One extraction: a section header H "Worked Examples" and a public block P under it (its
-    section path names H's block id) whose stored role hint, inherited from that heading, is
-    ``worked_example``; P's own text has no lead cue. ``LO`` cites P; the Reader viewed P. In the
-    absent copy H was never extracted. ``by_text``: P's section path names H by its text, spaced as
-    the extractor spaced it (GLM-OCR's multi-line and double-spaced headings), and in the absent copy
-    nothing names it."""
-
-    from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
-
-    from tests.test_source_inventory import _persist
-
-    paths = ad23_vault(tmp_path / ("absent" if absent else "protected") / str(abs(hash((heading, by_text)))),
-                       items=("pi_m1a",))
-    made = _iso(T0 - timedelta(days=7))
-    with closing(connect(paths.sqlite_path)) as connection:
-        connection.execute("INSERT INTO source_artifacts(id, acquisition_kind, canonical_uri, created_at, updated_at) "
-                           "VALUES ('src_f48', 'pdf', 'file:///f48.pdf', ?, ?)", (made, made))
-        connection.execute("INSERT INTO source_revisions(id, source_id, asset_hash, created_at) "
-                           "VALUES ('rev_f48', 'src_f48', 'sha256:f48', ?)", (made,))
-        connection.commit()
-    # Built by the real ingest derivation (round 7): Marker's block-id paths, or GLM-OCR's heading
-    # text paths (``by_text``); the absent copy has H deleted BEFORE ingest derives P's path and hint.
-    elements = [Element(H, "header", heading), Element(P, "text", "Consider the matrix A and compute its determinant.")]
-    ir = ingest_ir(never_extracted(elements, {H}) if absent else elements, style=GLM if by_text else MARKER)
-    repository = Repository(paths.sqlite_path)
-    _persist(repository, _one_section(ir, "sec_mixed"), revision_id="rev_f48", extraction_id=EXT)
-    _cite(paths, LO, P)
-    repository.insert_source_exposure_event(
-        {"context": "reader", "extraction_id": EXT, "span_id": P, "revision_id": "rev_f48", "source_id": "src_f48",
-         "entity_type": "reader", "entity_id": "visit_r5", "created_at": _iso(T0 - timedelta(hours=5))})
-    return paths
-
-
-@pytest.mark.parametrize("heading", ["Worked Examples", "Worked\nExamples", "Worked  Examples"])
-def test_a_withheld_heading_named_by_text_never_gives_a_public_block_its_role(tmp_path, monkeypatch, heading):
-    """Round 6 (the Opus verify's High): P's section path names the withheld header by its text,
-    spaced as GLM-OCR spaces it. The heading is resolved by position (the nearest preceding visible
-    header), never by text, so in every spacing the view of P equals the copy without H (failed
-    before for the multi-line and double-spaced headings: the normalized-text blanking missed the
-    raw path element and H's text gave P its role)."""
-
-    from learnloop.adaptive_difficulty.operation import ad_operation
-
-    protected_paths = _worked_examples_heading(tmp_path, absent=False, heading=heading, by_text=True)
-    absent_paths = _worked_examples_heading(tmp_path, absent=True, heading=heading, by_text=True)
-    vault, repository = load_vault(protected_paths.root), Repository(protected_paths.sqlite_path)
-    with ad_operation(vault, repository) as op, closing(connect(protected_paths.sqlite_path,
-                                                                read_only=True)) as connection:
-        assert op.view.worked_example_spans(connection, EXT) == {H, P}  # H public: P is a worked example (and so is H, as ingest classifies it)
-    _hold_h(monkeypatch)
-    spans = {}
-    for name, paths in (("protected", protected_paths), ("absent", absent_paths)):
-        vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
-        with ad_operation(vault, repository) as op, closing(connect(paths.sqlite_path, read_only=True)) as connection:
-            spans[name] = op.view.worked_example_spans(connection, EXT)
-    assert spans["protected"] == spans["absent"] == set()
-    protected, absent = _swept(protected_paths), _swept(absent_paths)
-    assert protected == absent
-    assert all(row[0] != "worked_example" for row in protected)
-
-
-def test_a_withheld_heading_never_gives_a_public_block_its_role(tmp_path, monkeypatch):
-    """Round 5, finding 1: the worked-example role is computed over the projection: P's inherited
-    hint stands only if a VISIBLE heading (or P's own lead) supports it. With H held out the view of
-    P is the same plain passage view as in the copy without H, and P is no worked example there
-    (failed before: the role helper read H's text, and the exposure became ``worked_example/shown``)."""
-
-    from learnloop.adaptive_difficulty.operation import ad_operation
-
-    protected_paths, absent_paths = (_worked_examples_heading(tmp_path, absent=False),
-                                     _worked_examples_heading(tmp_path, absent=True))
-    vault, repository = load_vault(protected_paths.root), Repository(protected_paths.sqlite_path)
-    with ad_operation(vault, repository) as op, closing(connect(protected_paths.sqlite_path,
-                                                                read_only=True)) as connection:
-        assert op.view.worked_example_spans(connection, EXT) == {H, P}  # H public: P is a worked example (and so is H, as ingest classifies it)
-    _hold_h(monkeypatch)
-    spans = {}
-    for name, paths in (("protected", protected_paths), ("absent", absent_paths)):
-        vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
-        with ad_operation(vault, repository) as op, closing(connect(paths.sqlite_path, read_only=True)) as connection:
-            spans[name] = op.view.worked_example_spans(connection, EXT)
-    assert spans["protected"] == spans["absent"] == set()
-    protected, absent = _swept(protected_paths), _swept(absent_paths)
-    assert protected == absent
-    assert ("reading", "passage_viewed", "source_exposure_events", LO) in absent
-    assert all(row[0] != "worked_example" for row in protected)

@@ -166,8 +166,10 @@ VALUE = "value"
 #: content (the heading stack, a role from a heading, an order counting withheld blocks, a hash or
 #: a count over a whole section, a normalizer judging a block by its neighbours): it can carry
 #: withheld material although its row is visible (the AD23 redesign round 7). The guard refuses it
-#: outside the derivation scope (``operation.rules("derive")``), the rules never hand it out, and AD
-#: reads only the value the projection recomputes from visible rows (:data:`DERIVED_TREATMENT`).
+#: outside the derivation scope (``operation.rules("derive")``) and the rules never hand it out.
+#: Since round 8 (Option B) the scope is entered only at the reading chokepoint, for a reading no
+#: withheld block touches, whose stored structure is then derived from visible blocks alone
+#: (:data:`DERIVED_TREATMENT`); the kind stays live as the guard's proof that no other reader exists.
 DERIVED = "derived_by_position"
 
 #: Every column of every PROTECTED table, classified (``tests/test_ad_protected_tables.py`` checks
@@ -195,7 +197,9 @@ DERIVED = "derived_by_position"
 #:   :data:`EPOCH`): a row of another epoch is, for AD, never written;
 #: * ``dose_extra@C``: a dose draw's chosen extra (its question or its example span), by variant ``C``;
 #: * ``plan_detail@C``: a plan block event's detail (its item, its attempt, its serve in block ``C``);
-#: * ``derived_by_position``: :data:`DERIVED` (a value derived from other rows; never read as stored).
+#: * ``derived_by_position``: :data:`DERIVED` (a value derived from other rows; never read as stored);
+#: * ``reading_payload``: a recorded event's payload or locator naming a reading (a Reader visit, a
+#:   cue-density change): withheld when any reading it names is withheld (round 8, Option B).
 #:
 #: A JSON column holding a draw's frame (a selection's support and exclusions, a receipt's inputs)
 #: is a ``value``: it is recorded, never read back as a learner input, and the row stands or falls
@@ -261,11 +265,11 @@ COLUMNS: Mapping[str, Mapping[str, str]] = MappingProxyType({
                "parameters_json versions_json status algorithm_version created_at received_at"),
     "interaction_events": _table({
         "administration_id": "administration", "surface_id": "surface", "attempt_id": "attempt",
-        "subject_id": "entity@subject_type",
+        "subject_id": "entity@subject_type", "payload_json": "reading_payload", "locator_json": "reading_payload",
     },
-        values="id kind subject_type affect_tap_kind attempt_duration_ms payload_json origin created_at occurred_at "
+        values="id kind subject_type affect_tap_kind attempt_duration_ms origin created_at occurred_at "
                "received_at actor client_id session_id visit_id payload_schema_version source_id revision_id "
-               "render_view_id locator_json annotation_id commitment_id activity_id payload_hash "
+               "render_view_id annotation_id commitment_id activity_id payload_hash "
                "client_idempotency_key privacy_locality consent_context producer_version app_version policy_version "
                "supersedes_event_id"),
     "item_forecast_payloads": _table({"content_hash": "revision"},
@@ -426,30 +430,39 @@ CARVE_OUTS: Mapping[str, frozenset[str]] = MappingProxyType({
     "item_parameter_state": frozenset({"learnloop.adaptive_difficulty.forecasters"}),
 })
 
-#: How AD reads each :data:`DERIVED` column (the round-7 audit; the review records the derivation
-#: sources): ``recomputed:<function>`` (the projection rebuilds it from visible rows by position)
-#: or ``unread: <why>`` (never handed out; refused outside the derivation scope).
-_PROJECT_IR = "recomputed:learnloop.adaptive_difficulty.material_view.project_ir"
+#: How AD reads each :data:`DERIVED` column (the round-7 audit, revised by round 8's Option B):
+#: ``chokepoint: ...`` (read as stored, inside ``rules("derive")``, only through the reading
+#: chokepoint ``MaterialView.document_ir`` or the incumbent's role reader, and only for a reading no
+#: withheld block touches; a reading the withheld material touches is absent) or ``unread: <why>``.
+_CHOKEPOINT = ("chokepoint: read as stored only for a reading no withheld block touches, through "
+               "MaterialView.document_ir (or role_keys); a reading the withheld material touches is absent")
 DERIVED_TREATMENT: Mapping[tuple[str, str], str] = MappingProxyType({
-    ("source_document_blocks", "section_path_json"): _PROJECT_IR,
-    ("source_document_blocks", "role_hint"): _PROJECT_IR,
-    ("source_document_blocks", "ordinal"): _PROJECT_IR,
-    ("source_document_blocks", "extractor_block_id"): _PROJECT_IR,
-    ("source_document_blocks", "text"): _PROJECT_IR,
-    ("source_document_blocks", "content_hash"): _PROJECT_IR,
-    ("source_document_units", "parent_unit_id"): _PROJECT_IR,
-    ("source_document_units", "label"): _PROJECT_IR,
-    ("source_document_units", "ordinal"): _PROJECT_IR,
-    ("source_document_units", "locator_json"): _PROJECT_IR,
-    ("source_document_units", "semantic_hash"): _PROJECT_IR,
-    ("source_document_units", "page_start"): _PROJECT_IR,
-    ("source_document_units", "page_end"): _PROJECT_IR,
+    **{("source_document_blocks", column): _CHOKEPOINT for column in (
+        "section_path_json", "role_hint", "ordinal", "extractor_block_id", "text", "content_hash")},
+    **{("source_document_units", column): _CHOKEPOINT for column in (
+        "parent_unit_id", "label", "ordinal", "locator_json", "semantic_hash", "page_start", "page_end")},
     ("source_exposure_events", "section_path_json"): "unread: the viewed block's stored path; AD maps an "
-                                                     "exposure by its span through the projected IR",
-    ("reader_section_progress", "spans_seen"): "unread: counts over the section's spans, withheld ones included; "
-                                               "AD reads a section's completion only",
-    ("reader_section_progress", "span_count"): "unread: counts over the section's spans, withheld ones included; "
-                                               "AD reads a section's completion only",
+                                                     "exposure by its span through the reading chokepoint",
+    ("reader_section_progress", "spans_seen"): "unread: counts over the section's spans; AD reads a "
+                                               "section's completion only",
+    ("reader_section_progress", "span_count"): "unread: counts over the section's spans; AD reads a "
+                                               "section's completion only",
+})
+
+#: The READING tables (round 8, Option B): rows that describe a reading's structure or a reading
+#: event on it. Their ``extraction``, ``span``, ``spans`` and ``section`` references resolve against
+#: the READING (``MaterialView.reading_withheld``): a row of a reading the withheld material touches
+#: is withheld, whatever block it names. Self-ruled reading tables apply the same rule in their own
+#: rule (Reader questions, tutor questions, dose draws); a reading receipt by its source row.
+READING = frozenset({
+    "source_document_blocks", "source_document_units", "source_document_assets", "source_exposure_events",
+    "reader_section_progress", "reader_authored_questions", "question_events", "source_span_reanchors",
+    "ad_reading_opportunities", "ad_dose_offers", "interaction_events",
+})
+#: Tables with extraction-like references that are ITEM provenance, not reading: judged by the
+#: withheld material itself, as before (an item's own sources), each with why.
+ITEM_PROVENANCE: Mapping[str, str] = MappingProxyType({
+    "entity_source_links": "an entity's (an item's, an LO's) own source citations: judged block by block",
 })
 
 _WHY = {PROTECTED: "a protected table read outside the rules",
@@ -487,5 +500,5 @@ def write_verdict(table: str) -> str | None:
 
 
 __all__ = ["AD_WRITABLE", "CARVE_OUTS", "COLUMNS", "DENIED", "DERIVED", "DERIVED_TREATMENT", "ENTITY_KINDS", "EPOCH",
-           "INCUMBENT", "INCUMBENT_READERS",
+           "INCUMBENT", "INCUMBENT_READERS", "ITEM_PROVENANCE", "READING",
            "NEUTRAL", "PREDICATE", "PROTECTED", "ROLES", "VALUE", "read_verdict", "role", "write_verdict"]

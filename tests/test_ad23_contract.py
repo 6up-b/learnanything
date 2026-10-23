@@ -16,7 +16,8 @@ the per-reader regressions of fix rounds 8-14 that still apply. One vault is bui
   events; a commission result, band-mode selection and commission of the protected-only facet's
   cell; reading receipts, Reader questions and dose offers on held-out spans; relatedness loadings
   onto the protected-only facet; a grounding link to a held-out span);
-* **B, absent**: that material does not exist at all (never written, so nothing derived from it).
+* **B, absent**: that material does not exist at all (never written, so nothing derived from it),
+  and, since round 8 (Option B), the reading that held it is deleted with its reading events.
 
 AD's whole pipeline then runs on each copy, at one shared root path, under identical deterministic ids
 and one frozen clock. Asserted: every captured prompt, every new row of every table but the
@@ -54,6 +55,7 @@ from tests.daily_plan_fakes import MovableClock, make_env, scheduled
 from tests.helpers import write_yaml
 
 EXT = "ext_r9"
+EXT_CLEAN = "ext_r9_clean"
 HELD = ("h1", "h2", "h3", "h4", "h5", "h6")
 T0 = datetime(2026, 10, 12, 9, 0, tzinfo=UTC)
 RUN = T0 + timedelta(minutes=30)
@@ -102,7 +104,9 @@ COMPARED_THROUGH_VIEW: dict[str, str] = {
     "practice_item_state": "out['item_states']: MaterialView.item_states, what AD's admission and generation read",
 }
 #: The report's protection disclosure: what the view withheld (it differs by construction).
-DISCLOSURE = ("protection", "generated_at")
+DISCLOSURE = ("protection", "generated_at", "protected_readings")
+#: (Round 8: ``protected_readings`` counts the reading events Option B leaves out; the deleted copy
+#: has none to count.)
 #: The incumbent's live forecast (AD1's ``mastery_ekf`` receipt): AD records the non-AD system's own
 #: mastery state verbatim as its comparator. That state is evidence the incumbent owns (an exam
 #: answer is evidence there by design), it trains and selects nothing in AD, and it quotes no
@@ -263,11 +267,22 @@ def _base_r12(paths) -> None:
                                   page_start=1, page_end=1, span_ids=list(spans)))
     _persist(repository, DocumentIR(extractor="marker", extractor_version="1", units=units, blocks=blocks, assets=[],
                                     health=ExtractionHealth()), revision_id="rev_r9", extraction_id=EXT)
+    # A second, CLEAN reading of the book (round 8, Option B): no withheld block touches it, so AD
+    # reads it in both copies and the run's reading stages have an effect to compare.
+    clean = [DocumentBlock.build(span_id="clean_span", block_type="Text", text="Clean public teaching text.",
+                                 ordinal=0, page=1, section_path=["clean_sec"])]
+    _persist(repository, DocumentIR(extractor="marker", extractor_version="2", blocks=clean, assets=[],
+                                    units=[DocumentUnit(unit_id="clean_sec", label="clean_sec", ordinal=0,
+                                                        semantic_hash="sha256:clean_sec", page_start=1, page_end=1,
+                                                        span_ids=["clean_span"])],
+                                    health=ExtractionHealth()), revision_id="rev_r9", extraction_id=EXT_CLEAN)
     lo_path = paths.learning_object_path("linear-algebra", LO)
     payload = yaml.safe_load(lo_path.read_text(encoding="utf-8"))
     payload["provenance"] = {"origin": "human", "source_refs": [{
         "ref_type": "canonical_source", "ref_id": "src_r9", "source_id": "src_r9", "extraction_id": EXT,
-        "span_ids": ["public_span"], "locator": f"span:{EXT}/public_span"}]}
+        "span_ids": ["public_span"], "locator": f"span:{EXT}/public_span"}, {
+        "ref_type": "canonical_source", "ref_id": "src_r9", "source_id": "src_r9", "extraction_id": EXT_CLEAN,
+        "span_ids": ["clean_span"], "locator": f"span:{EXT_CLEAN}/clean_span"}]}
     write_yaml(lo_path, payload)
     goals = yaml.safe_load(paths.goals_path.read_text(encoding="utf-8"))
     goals["goals"].append({
@@ -281,6 +296,10 @@ def _base_r12(paths) -> None:
          "created_at": _iso(T0 - timedelta(hours=5))})
     repository.upsert_reader_section_progress(extraction_id=EXT, section_id="sec2", spans_seen=1, span_count=1,
                                               completed=True, clock=_Frozen(T0 - timedelta(hours=4)))
+    repository.insert_source_exposure_event(
+        {"context": "reader", "extraction_id": EXT_CLEAN, "span_id": "clean_span", "revision_id": "rev_r9",
+         "source_id": "src_r9", "entity_type": "reader", "entity_id": "visit_clean",
+         "created_at": _iso(T0 - timedelta(hours=5, minutes=30))})
     point = {"complexity": 1, "transfer": "same_context", "scaffolding": "cue", "span": "single_step",
              "response": "short_constructed"}
     with closing(connect(paths.sqlite_path)) as connection:
@@ -1189,17 +1208,23 @@ def _run(paths, monkeypatch) -> dict[str, Any]:
     _reset_ids(monkeypatch, 4)
     dose_view = material_view(vault, repository)
     # The production Reader mapping (fix round 12, F42): no stand-in.
-    fresh = D.decide(vault, repository, D.Boundary(visit_id="visit_new", extraction_id=EXT, section_id="sec1"),
-                     clock=_OP, view=dose_view)
-    old = D.decide(vault, repository, D.Boundary(visit_id="visit_old", extraction_id=EXT, section_id="sec1"),
-                   clock=_OP, view=dose_view)
+    fresh = D.decide(vault, repository, D.Boundary(visit_id="visit_new", extraction_id=EXT_CLEAN,
+                                                   section_id="clean_sec"), clock=_OP, view=dose_view)
+    old = D.decide(vault, repository, D.Boundary(visit_id="visit_old", extraction_id=EXT_CLEAN,
+                                                 section_id="clean_sec"), clock=_OP, view=dose_view)
+    # The mixed reading's boundary: ineligible before any draw in both copies (Option B, round 8).
+    out["dose_mixed"] = D.decide(vault, repository, D.Boundary(visit_id="visit_mixed", extraction_id=EXT,
+                                                               section_id="sec1"), clock=_OP, view=dose_view).as_dict()
     out["dose"] = [fresh.as_dict()]
     out["dose_old_boundary"] = old.as_dict()
     # A late uptake callback for each earlier offer (protected in one copy, absent in the other).
     out["uptake"] = [D.record_uptake(vault, repository, f"{DOSE_DRAW_ID}_{k}", "taken", clock=_OP)
                      if _has_draw(paths, f"{DOSE_DRAW_ID}_{k}") else None for k in range(3)]
-    # The public offer's delivery (a dose delivery the run must make in both copies).
-    out["delivery"] = D.record_uptake(vault, repository, PUBLIC_DRAW, "delivered", clock=_OP)
+    # The public offer's delivery. Its reading holds withheld blocks, so (Option B, round 8) the draw
+    # is withheld in the protected copy and deleted with its reading in the absent one: no delivery
+    # is recorded in either.
+    out["delivery"] = D.record_uptake(vault, repository, PUBLIC_DRAW, "delivered", clock=_OP) \
+        if _has_draw(paths, PUBLIC_DRAW) else None
 
     # The reading sweep (a backfill: every source).
     _reset_ids(monkeypatch, 5)
@@ -1303,6 +1328,12 @@ def make_copies(tmp_path, *, coupled: bool):
     _protected_offers(protected_paths, seeded["question"])
     _per_copy(absent_paths, protected=False)
     _per_copy(protected_paths, protected=True)
+    # Option B (round 8): the protected copy's one reading holds withheld blocks, so it is absent
+    # for AD's reading signals; the absent copy is the row deletion of that reading (its blocks,
+    # units, assets and reading events; its items kept).
+    from tests.ad_ingest_fakes import delete_reading
+
+    delete_reading(absent_paths.sqlite_path, EXT)
     # AD's own seeded rows were written under each copy's protection as it stands now (round 2).
     for paths in (protected_paths, absent_paths):
         restamp(paths, _epoch(paths))
@@ -1384,7 +1415,8 @@ def _contract(copies, monkeypatch) -> None:
     # The serves' sweeps and the backfill: receipts written in the run (the serve's sweep records the
     # public events first, so the backfill may find nothing left).
     assert seen["writes"]["ad_reading_opportunities"], ("the reading sweeps wrote receipts", seen["sweep"])
-    assert seen["delivery"], "the public offer's delivery was recorded"
+    # The public offer sits on the mixed reading: no delivery in either copy (Option B, round 8).
+    assert seen["delivery"] is None
     if "learned_coupling = true" in (protected.root / "learnloop.toml").read_text(encoding="utf-8"):
         assert seen["relatedness"] == "ok" and seen["writes"]["ad_relatedness_runs"], "a relatedness run was recorded"
     else:
@@ -1401,10 +1433,11 @@ def _contract(copies, monkeypatch) -> None:
     assert 0.0 < seen["card"]["p_band_next"] < seen["card"]["p_bar_at_top"] < 0.6
     assert seen["card"]["p_bar_at_top"] == cells[("recall", "retrieval")]["p_bar_at_top"]
     assert [(d["eligible"], d["reason"]) for d in [*seen["dose"], seen["dose_old_boundary"]]] == [(True, None)] * 2
+    assert (seen["dose_mixed"]["eligible"], seen["dose_mixed"]["reason"]) == (False, "protected_reading")
     # The draws the operation under test persisted (fix round 14, F42), each pinned with its outcome:
     # the row written now, at its boundary, with its recorded propensities and chosen variant.
     draws = {row[0]: row for row in seen["writes"]["ad_dose_offers"] if row[1] == "draw"}
-    for decision, key in ((seen["dose"][0], f"visit_new:{EXT}:sec1"), (seen["dose_old_boundary"], f"visit_old:{EXT}:sec1")):
+    for decision, key in ((seen["dose"][0], f"visit_new:{EXT_CLEAN}:clean_sec"), (seen["dose_old_boundary"], f"visit_old:{EXT_CLEAN}:clean_sec")):
         row = draws.get(decision["draw_id"])
         assert row is not None and row[3] == key, (decision, sorted(draws))
         assert json.loads(row[12]) == {"none": 1.0} and row[15] == "none" and decision["offer"] is None, row
@@ -2007,10 +2040,10 @@ def test_a_tutor_exchange_on_a_protected_canonical_note_enters_no_prediction(cop
 
 
 def test_a_protected_receipt_occupies_no_daily_cap_slot(copies, monkeypatch):
-    """F44: a passage-view receipt from a held-out span holds the LO's one daily passage slot under
-    the old key scheme. The day's public passage view is still admitted: occupancy is counted over
-    the receipts the view sees, and its key names its own source event, so it never collides
-    (failed before: the raw slot was full and the public view was dropped)."""
+    """F44, under Option B (round 8): a passage-view receipt from a held-out span held the LO's one
+    daily passage slot under the old key scheme. The reading that holds the held-out span is now
+    absent for reading signals, so no passage view of it is admitted at all, the public one
+    included: no slot is occupied by anything AD may not read."""
 
     from learnloop.adaptive_difficulty.material_view import detached_view as material_view
     from learnloop.adaptive_difficulty.reading import sweep
@@ -2020,10 +2053,12 @@ def test_a_protected_receipt_occupies_no_daily_cap_slot(copies, monkeypatch):
     vault, repository = load_vault(protected.root), Repository(protected.sqlite_path)
     sweep(vault, repository, as_of=_iso(RUN), sweep_kind="backfill", view=material_view(vault, repository))
     with closing(connect(protected.sqlite_path, read_only=True)) as connection:
-        keys = [row[0] for row in connection.execute(
-            "SELECT opportunity_key FROM ad_reading_opportunities WHERE kind = 'reading' AND subkind = 'passage_viewed' "
-            "AND source_table = 'source_exposure_events' AND source_id != 'sxe_held_r13'")]
-    assert len(keys) == 1 and keys[0].startswith(f"reading:passage_viewed:{LO}:2026-10-12:source_exposure_events:")
+        extractions = [row[0] for row in connection.execute(
+            "SELECT e.extraction_id FROM ad_reading_opportunities o JOIN source_exposure_events e ON e.id = o.source_id "
+            "WHERE o.kind = 'reading' AND o.subkind = 'passage_viewed' AND o.source_id != 'sxe_held_r13'")]
+    # Only the clean reading's view: the mixed reading gives none, held-out or public (the seeded
+    # held-out receipt aside, which the view withholds).
+    assert extractions == [EXT_CLEAN]
 
 
 # -- fix round 14: the per-reader regressions ------------------------------------------------------------
@@ -2074,7 +2109,7 @@ def test_a_dose_draw_at_a_protected_origin_is_a_draw_never_made(copies, monkeypa
     assert D.record_uptake(vault, repository, "dose_origin_r14", "taken", clock=_Frozen(RUN)) is None
     decision = D.decide(vault, repository, D.Boundary(visit_id="visit_origin2", extraction_id=EXT, section_id="sec5"),
                         clock=_Frozen(RUN), view=view)
-    assert decision.reason == "withheld_section" and decision.draw_id is None
+    assert decision.reason == "protected_reading" and decision.draw_id is None
 
 
 def test_the_background_scheduler_sees_a_run_whose_recorded_context_is_protected(tmp_path, monkeypatch):

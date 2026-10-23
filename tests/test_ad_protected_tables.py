@@ -22,7 +22,7 @@ from tests.ad23_fakes import ad23_vault
 
 KINDS = {"value", "item", "revision", "attempt", "presentation", "note", "reader_question", "question_event",
          "facet", "dose_draw", "selection", "receipt", "administration", "surface", "extraction", "self",
-         "epoch", "derived_by_position"}
+         "epoch", "derived_by_position", "reading_payload"}
 WITH_COLUMN = {"span", "section", "spans", "entity", "served_item", "source", "plan_detail"}
 
 
@@ -126,10 +126,26 @@ def test_every_derived_column_has_a_treatment(tmp_path):
     assert derived and derived == set(T.DERIVED_TREATMENT)
     for key, treatment in T.DERIVED_TREATMENT.items():
         kind, _sep, rest = treatment.partition(":")
-        assert kind in ("recomputed", "unread"), (key, treatment)
-        if kind == "recomputed":
-            module, _dot, name = rest.rpartition(".")
-            assert callable(getattr(importlib.import_module(module), name)), (key, treatment)
-        else:
-            assert rest.strip(), (key, "an unread column says why")
+        assert kind in ("chokepoint", "unread"), (key, treatment)
+        assert rest.strip(), (key, "a treatment says how")
+    from learnloop.adaptive_difficulty.material_view import MaterialView
+
+    assert callable(MaterialView.document_ir) and callable(MaterialView.reading_withheld)
+    assert importlib.import_module("learnloop.adaptive_difficulty.material_view")
     assert {("source_document_blocks", "role_hint"), ("source_document_blocks", "section_path_json")} <= derived
+
+
+def test_every_table_with_a_reading_reference_is_a_reading_or_item_provenance(tmp_path):
+    """Round 8 (Option B): every registry table that references a reading (an ``extraction``,
+    ``span``, ``spans`` or ``section`` kind, a reading payload, a reading receipt's source, or a
+    self rule over a reading's rows) is a READING table, whose references resolve against the
+    reading, or named ITEM_PROVENANCE with why; a migration adding one fails here until classified."""
+
+    reading_kinds = {"extraction", "span", "spans", "section", "reading_payload", "source"}
+    self_reading = {"reader_authored_questions", "question_events", "ad_dose_offers"}
+    referencing = {table for table, columns in T.COLUMNS.items()
+                   if any(kind.partition("@")[0] in reading_kinds for kind in columns.values())} | self_reading
+    assert referencing <= T.READING | set(T.ITEM_PROVENANCE), sorted(referencing - T.READING - set(T.ITEM_PROVENANCE))
+    assert not T.READING & set(T.ITEM_PROVENANCE)
+    assert all(reason.strip() for reason in T.ITEM_PROVENANCE.values())
+    assert T.READING <= set(T.COLUMNS)

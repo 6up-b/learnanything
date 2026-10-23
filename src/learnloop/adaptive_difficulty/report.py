@@ -589,6 +589,9 @@ def build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] =
         # The AD guard's refusals so far (owner decision 2026-10-21: logged, counted here, no UI
         # notice; each left AD unavailable for its operation, and the incumbent served).
         "guard": {"denials": denial_count(repository.sqlite_path)},
+        # Option B (round 8): the readings the withheld material touches are absent for AD's reading
+        # signals; how many, and how many reading events on them AD did not use. No UI notice.
+        "protected_readings": view.protected_reading_counts(connection),
         "field_coverage": log["field_coverage"],
         "auto_flags": flags,
         "honest_lines": lines,
@@ -621,6 +624,11 @@ def render_markdown(report: Mapping[str, Any]) -> str:
     if guard:
         lines += ["", f"AD's guard refused {guard} read(s) or write(s) so far: each left AD unavailable for that "
                       "operation, and the incumbent served (ad_guard_denials.jsonl beside the database)."]
+    protected = report.get("protected_readings") or {}
+    if protected.get("readings"):
+        lines += ["", f"Readings with protected material: {protected['readings']}; their reading events not used: "
+                      f"{protected.get('events', 0)} (AD reads no structure or reading activity of a reading that "
+                      "holds held-out material; practice items from its visible parts are used as before)."]
     lines += ["", "## Is it helping?"]
     lines += [f"- {line}" for line in report["honest_lines"]]
     lines += ["", "## Scores (first attempts at never-seen topics first)"]

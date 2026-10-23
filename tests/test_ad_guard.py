@@ -62,6 +62,7 @@ def test_the_ad_pipeline_runs_with_zero_denials(tmp_path, monkeypatch, observed)
                  "ad_slot.slot_operation"):
         assert any(name in entry for entry in entries), (name, sorted(entries))
     reads = {table for op in observed for table in op.guard.reads}
+    # Its mixed reading is absent (Option B, round 8); its clean reading is read, as stored.
     assert {"practice_attempts", "plan_presentations", "ad_reading_opportunities", "source_document_blocks"} <= reads
 
 

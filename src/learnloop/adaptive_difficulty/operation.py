@@ -193,6 +193,10 @@ class Guard:
             return sqlite3.SQLITE_OK
         if self.poisoned:
             return self._deny("read", table, POISONED, reader)
+        if kind is None:
+            # An unclassified table is refused in every scope, the rules' included (round 8, F4):
+            # nothing reads what the registry has not judged.
+            return self._deny("read", table, "an unclassified table", reader)
         if derived:
             return self._deny("read", table, f"{DERIVED_READ} ({table}.{column})", reader)
         if kind == T.NEUTRAL:
