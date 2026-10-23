@@ -523,3 +523,28 @@ def test_a_practice_interaction_event_is_not_a_reading_event(tmp_path):
     assert "ie_practice" in kept and "ie_reader" not in kept
     # L2: the report's count includes the Reader event (and the reading's exposures).
     assert counts["events"] >= 1 + len(Repository(paths.sqlite_path).load_document_ir(EXT).blocks)
+
+
+def test_a_reader_question_anchored_by_note_on_a_mixed_reading_is_withheld(tmp_path):
+    """Round 8 follow-up (L1): a Reader question anchored on a VISIBLE block of a mixed reading by
+    its note id alone (``span:ext/span``, no recorded context) is a reading event of that reading:
+    withheld; the same anchor on a practice question is attempt evidence: kept (failed before at
+    c4e119060: the anchor was judged by its block, so the Reader question passed)."""
+
+    import sqlite3
+
+    from learnloop.adaptive_difficulty.operation import ad_operation
+
+    elements = [Element("header", "Chapter 2 Matrices", 1, 0), Element("text", TEXTS[3], 1, 0),
+                Element("header", "Exercises", 1, 1), Element("text", "Exercise 1. Invert C.", 1, 1)]
+    paths = _copy(tmp_path, MARKER, elements, reread=False)
+    visible = next(b.span_id for b in Repository(paths.sqlite_path).load_document_ir(EXT).blocks if b.text == TEXTS[3])
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        for row_id, context in (("qe_reader_l1", "reader"), ("qe_practice_l1", "practice")):
+            connection.execute("INSERT INTO question_events(id, context, note_id, question_md, created_at) "
+                               "VALUES (?, ?, ?, 'Why?', '2026-10-12T08:00:00Z')", (row_id, context, f"span:{EXT}/{visible}"))
+    _mark(paths, unit=_units(paths, EXT)[-1].unit_id)
+    with ad_operation(load_vault(paths.root), Repository(paths.sqlite_path)) as op, \
+            closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        assert op.view.question_event_withheld(connection, "qe_reader_l1")
+        assert not op.view.question_event_withheld(connection, "qe_practice_l1")
