@@ -53,6 +53,12 @@ interrupted run's uncommitted work (kept: config, refusal, offer bookkeeping, do
 desktop banner); this session added the import contract, the type-only imports, the probe
 silencing, the connect-sheet tiers, the registry rule, every test, and this record.
 
+Resumed again on 2026-10-23 (after further memory kills, the worktree held ~45 uncommitted files
+and no gate had run). That session committed the work first (`42ab0bc90`, WIP), then: moved the
+existing suite to the T1 defaults (it had been left on the Codex defaults: ~100 failures in 35
+files of the Codex-touching set), closed one gap (a grant served background work; see the
+OpenRouter section), regenerated the references, and ran the gate below.
+
 ### Configuration (`config/schema.py`, `config/template.py`, `config/compat.py`)
 
 - Code-default profiles `chatgpt` (type `chatgpt_plan`, `model = "gpt-5.6-sol"`, effort `low`),
@@ -138,6 +144,11 @@ silencing, the connect-sheet tiers, the registry rule, every test, and this reco
   is unchanged. The post-attempt worker and exam grading copy the RPC's context, but their offers
   land after that RPC has answered: a deferred diagnosis or exam grade reports through its own
   state, and the next feature RPC that meets the plan asks (open question Q7).
+- **A grant never serves background work** (fixed 2026-10-23). `plan_fallback.quiet()` (readiness
+  probes, startup maintenance) now also honours no grant, session or CLI: before the fix, a
+  desktop session that had granted "grading" would, on a vault switch, have run startup
+  maintenance's deferred-regrade backlog on OpenRouter, which the learner never chose. That
+  backlog now waits for the plan. Pinned in `test_unavailable_offers_openrouter_only_when_configured_and_sends_nothing_unasked`.
 - `ai_use_fallback` is desktop-only (pinned in `tests/test_mobile_allowlist.py`), registered in
   `src-tauri` (`commands.rs`, `main.rs`) and `api/client.ts` (`aiUseFallback`).
 - Desktop: `api/client.ts` notes any hint on a result or error into `app/planFallback.ts`; one shell
@@ -194,6 +205,14 @@ silencing, the connect-sheet tiers, the registry rule, every test, and this reco
    told apart from the default, so an oversized export is served in tools mode either way (it was
    refused before).
 5. **Doctor's signed-out finding moved under `--ai`** (see Doctor).
+6. **Existing Codex-double tests opt in rather than move to plan fakes.** About 60 existing tests
+   drive features through the frozen Codex doubles (`install_fake_codex_sdk`, the legacy HTTP
+   double, `check_codex_runtime` patches). Rather than rewrite them in T1, they now say so:
+   `tests/helpers.py::use_codex_harness(vault_root)` restores the pre-T1 configuration (active
+   provider `codex`, `codex_low`/`codex_medium` tiers) with `ai.agent_harness_opt_in = true`, and
+   `configure_codex_http` calls it. Readiness-only tests whose fixture meant "the default route is
+   ready" use `patch_plan_ready(monkeypatch)` instead (the plan reads signed in; nothing is built or
+   sent). T2 moves the opted-in tests to plan fakes (listed below).
 
 ## Tests that prove the property (`tests/test_plan_first_transport.py`)
 
@@ -248,6 +267,42 @@ default route moved), `test_ux_phase1_connect_ai.py` (tiers kept), `test_config_
 Desktop: `src/components/PlanFallbackOffer.test.tsx` (hint parsing, merge, nothing sent until
 chosen, exact tasks granted, "Continue with ChatGPT" only when signed out, "Not now").
 
+### Existing tests moved to the T1 defaults (2026-10-23)
+
+Each change follows an owner decision; none relaxes an assertion about prompts, parsing or meaning.
+
+- **Default pins** (route and profile names, `codex_low`/`codex_medium`/`codex` to
+  `chatgpt_low`/`chatgpt_medium`/`chatgpt`, only on `assert` lines of the failing tests):
+  `test_ai_config.py`, `test_settings_sidecar.py`, `test_settings_store.py` (also the new template
+  comment), `test_sidecar_contract.py`, `test_sidecar_animation.py`, `test_project_cli.py`,
+  `test_probability_prep.py`, `test_ingest_m3.py`, `test_ingest_runner.py`, `test_ingest_jobs.py`,
+  `test_judge_routes.py` (and the plan's disclosure text), `test_embedding_route_isolation.py`,
+  `test_method_phrasing_report.py` (the writer is the plan), `test_family_proposals.py` (dry run on
+  the plan), `test_source_retrieval_codex_unavailable.py` (T6 routes follow the active plan
+  profile), `test_provider_resolution_parity.py` (the matrix's default row is the plan; its named
+  row a `chatgpt_plan` profile).
+- **Signed-out plan, not a missing checkout:** `test_cli_propose.py`, `test_cli_json.py`
+  (`provider_auth_required` replaces `codex_missing`).
+- **Codex never a fallback:** `test_sidecar_contract.py::test_sidecar_submit_attempt_never_falls_back_to_codex_when_routed_ai_unavailable`
+  (was `..._falls_back_to_codex_...`): a configured `fallback_provider = "codex"` is ignored, the
+  learner is asked to grade (`grading_fallback_required`), the Codex double receives nothing.
+- **Explicit opt-in for the frozen path:** `use_codex_harness` / `agent_harness_opt_in=True` in
+  `test_cli_ingest.py`, `test_codex_runtime.py`, `test_cli_generate_practice.py`,
+  `test_ingest_runner.py`, `test_family_proposals.py`, `test_provider_resolution_parity.py`,
+  `test_ai_config.py`, and every `configure_codex_http` user (`test_cli_attempt.py`,
+  `test_cli_propose.py`, `test_deferred_regrade.py`, `test_model_call_receipt_owners.py`,
+  `test_sidecar_teach_back.py`, `test_sidecar_tutor_qa.py`, `test_tui_feedback.py`, ...).
+  `test_facet_identity_composition.py` now pins both sides: `codex_luna` refused without the
+  opt-in, admitted with it.
+- **Tools mode pinned where a test scripts workspace rounds:** `test_ai_compare.py` (its two plan
+  profiles) and `test_chatgpt_plan_landing.py` (what the plan served file by file). Inline, the
+  new default, is covered by `test_plan_first_transport.py` and `test_chatgpt_plan_workspace.py`.
+- **Goldens, only the keys this stage moves:** `tests/fixtures/figures_switch_off_backlog.json` and
+  `figures_switch_off_queued_job.json` re-recorded with `RW5A_WRITE_GOLDEN=1` (the diff is only the
+  route names); `tests/fixtures/compare_keep_switch_off.json` edited by hand (three
+  unavailable-route `reason` strings; regenerating on this tree would have pulled in later
+  stages' keys).
+
 ## Owner-run commands (after the stage lands; none was run here)
 
 ```bash
@@ -262,6 +317,61 @@ low/medium tiers follow it) and `[ai.providers.chatgpt_luna] model`; `learnloop 
 Codex quota is exhausted until 2026-10-27 and Q5 assumes the plan shares that pool, so the plan
 likely reads paused/unavailable until then: the unavailable state plus "Use OpenRouter instead"
 (desktop) / `LEARNLOOP_AI_FALLBACK=openrouter` (CLI) is what serves meanwhile.
+
+## Gate (implement step, 2026-10-23; targeted only, owner rule 2026-10-17)
+
+Every pytest/vitest/npm/cargo command ran inside `systemd-run --user --scope --quiet -p MemoryMax=5G
+-p MemorySwapMax=1G -- ...` (pytest `-n 6` at most, vitest `--maxWorkers=4`, one run at a time), with
+`TMPDIR=fixtures-local/tmp`. No full suite, no whole durability lane, no whole vitest run. No
+migration and no DB/connection change, so no durability tests were due. Another stage's landing
+full suite (merge2) ran on the machine meanwhile; nothing of it was touched.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 30 kept, 0 broken (includes `serving-never-imports-the-codex-provider`) |
+| `tests/test_plan_first_transport.py` | 38 passed |
+| Every `tests/test_*.py` naming Codex (207 files), first run | 97 failed (35 files), the rest passed; after the moves above every failing file reran green (the last 13 files: 345 passed) |
+| Every other test file exercising a changed module or routing (202 files: handlers hints/library_ask/cue discovery/reading paths/first_run/chatgpt_plan, doctor, startup, regrade, render, registry, sidecar context/server, compat, readiness/routing callers) | 3,077 passed, 2 xfailed, 7 failed (3 files); after the tools-mode pins and the golden edit: 34 passed in those 3 files |
+| Contract pins and snapshots after all edits (`test_cli_help_snapshot`, `test_sidecar_serializer_snapshot`, `test_desktop_rpc_contract`, `test_mobile_allowlist`, `test_architecture`, `test_table_roles`, `test_coordinated_migrations`, `test_tracked_fixture_databases`, `test_sqlite_file_copies`, `test_config_refactor`, the six `test_chatgpt_plan_*` files, `test_ux_phase1_connect_ai`, `test_plan_first_transport`, and the three defaults-snapshot files not in the sets above) | 513 passed |
+| Startup maintenance and grant tests after the `quiet()` fix (5 files) | 334 passed |
+| `npm install`; `npm run typecheck` | ok; clean |
+| `npx vitest run --maxWorkers=4` on `PlanFallbackOffer.test.tsx`, `ConnectAI.test.tsx`, `ChatGPTPlanSettings.test.tsx`, `App.wrapUpSkim.test.tsx`, `autoAdvance.test.tsx`, `dailyPlan.test.tsx`, `queryCache.test.ts` | 7 files, 37 passed |
+| `npm run frontend:build` | built |
+| `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml` | finished |
+| `db_generate_reference.py`, `db_validate_reference.py` | regenerated (1,006 configuration leaves in 69 sections, head 217); 0 errors after updating the two prose leaf counts (952 -> 1,006) in `Configuration.md` and `Database.md` |
+| `validate_vault.py` | passed (1,142 notes) |
+
+`module_validate.py` (895 missing module notes, 474/959 coverage) and `desktop_validate.py`
+(an unclassified `components/pdfSelection/testing/syntheticBook.ts`) fail on files this stage
+never touched; they are not part of this stage's gate and were left as found.
+
+The test-file lists are reproducible: `git grep -l codex -- 'tests/test_*.py'` (the first set);
+the second set is the files matching the changed modules' names (`handlers.(hints|library_ask|
+reader_cue_discovery|reading_paths|first_run|chatgpt_plan)`, `request_hint`, `hint_job`,
+`library_job`, `cue_discovery`, `reading_path`, `ops.doctor`, `run_doctor`, `ops.startup`,
+`startup_maintenance`, `chatgpt_plan`, `plan_fallback`, `cli.render`, `attempts.regrade`,
+`parameter_registry`, `learnloop_sidecar.context`/`.server`, `config.compat`) or the routing entry
+points (`active_provider`, `fallback_provider`, `ready_client_for_task`, `check_ai_runtime`,
+`make_ai_provider_client`, `runtime_for_provider`, `provider_for_task`), minus the first set.
+About 450 test files ran in all; the landing gate's full suite covers the rest (notably files that
+reach the default route only indirectly).
+
+**Process notes.** No live or paid call, no sign-in, no run on any vault copy (no smoke run was
+needed: every behaviour is pinned with fakes). Every Python run outside pytest used `env -i` with an
+empty HOME/CODEX_HOME/LEARNLOOP_CONFIG_DIR (the reference scripts, edit scripts), except one early
+2026-10-23 edit script that rewrote `tests/test_ai_config.py` with plain `python3`: it imported
+only `pathlib` (no LearnLoop module, no network, no credential read). No tracked fixture vault was
+opened; `git status` is clean apart from the commits below.
+
+**Commits on `ai/plan-first-transport`** (from `55063be64`), then this record's commit:
+
+- `42ab0bc90` WIP T1 plan-first transport: resumed partial work (config profiles, Codex refusal, OpenRouter offer, doctor fix, sidecar RPC, desktop banner, tests)
+- `dbefcfbad` T1: move existing tests to the plan-first defaults (use_codex_harness opt-in helper for frozen Codex doubles, patch_plan_ready for readiness-only tests, default route pins on the plan tiers)
+- `d35c9982b` T1: existing tests follow the owner decisions (Codex never a fallback, plan defaults in pins and goldens, opt-in for the frozen Codex doubles)
+- `50126c457` T1: a grant never serves background work (quiet probes and startup maintenance honour no grant; a deferred regrade backlog waits for the plan)
+- `35a258d3b` T1: regenerate the references (1006 configuration leaves in 69 sections: the four ChatGPT-plan profiles, ai.agent_harness_opt_in, ai.plan_fallback_profile; schema head 217 unchanged; 0 validation errors)
+- `9d3f7bca3` T1: compare and landing tests pin tools mode explicitly (they script workspace rounds; inline is the default); the compare-keep golden's three unavailable reasons edited by hand
 
 ## Open questions (defaults in force)
 
@@ -291,4 +401,6 @@ likely reads paused/unavailable until then: the unavailable state plus "Use Open
   and the security branch's `codex-sdk-only-in-its-provider`.
 - Tests: about 86 files with Codex doubles (`install_fake_codex_sdk`, `legacy_codex_http_double`,
   `stub_isolation_probe`, `check_codex_runtime` patches) move to `StructuredClientFake` or the plan
-  fakes; delete `test_codex_*` lockdown/runtime files and `codex_cli_fakes.py`.
+  fakes; delete `test_codex_*` lockdown/runtime files and `codex_cli_fakes.py`. Start with the
+  tests T1 opted in explicitly (`git grep -l "use_codex_harness\|agent_harness_opt_in.*True" tests`),
+  then drop `use_codex_harness` and `patch_plan_ready`'s Codex counterpart fixtures.
