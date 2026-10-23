@@ -64,7 +64,16 @@ from learnloop.ai.output_budget import (
     output_ceiling,
     reasoning_effort,
 )
-from learnloop.ai.routing import MANUAL_PROVIDER, AITask, provider_for_task, ready_client_for_task
+from learnloop.ai import plan_fallback
+from learnloop.ai.routing import (
+    MANUAL_PROVIDER,
+    AIProviderSelection,
+    AITask,
+    is_plan_profile,
+    provider_for_task,
+    ready_client_for_task,
+    runtime_for_provider,
+)
 from learnloop.ai.spend import SpendBudget, SpendEstimate, SpendLimitExceeded
 from learnloop.ai.transport import (
     BOUNDED_STRUCTURED_COMPLETION,
@@ -146,7 +155,7 @@ def plan_route(vault: LoadedVault, task: AITask, client: Any | None = None) -> P
         return PaidRoute(task, provider, profile_type, model, billing_for(profile_type),
                          output_budget(vault.config, task, provider=provider), effort)
     selection = provider_for_task(vault.config, task)
-    provider = selection.provider_name or None
+    provider = _granted_provider(vault, task, selection) or selection.provider_name or None
     if provider in (None, MANUAL_PROVIDER):
         return PaidRoute(task, None, None, None, "metered", output_budget(vault.config, task), effort)
     profile = providers.get(provider)
@@ -156,11 +165,63 @@ def plan_route(vault: LoadedVault, task: AITask, client: Any | None = None) -> P
                      output_budget(vault.config, task, provider=provider), effort)
 
 
+def _routed_plan(vault: LoadedVault, task: AITask, selection: AIProviderSelection) -> bool:
+    """Whether ``selection`` is a routed (not pinned) ChatGPT-plan route."""
+    return (not (selection.explicit or selection.from_env)
+            and is_plan_profile(vault.config, selection.provider_name))
+
+
+def _granted_provider(vault: LoadedVault, task: AITask, selection: AIProviderSelection) -> str | None:
+    """The OpenRouter profile when the learner chose it for ``task`` and the plan cannot serve, else None.
+
+    Plan-first transport T1, landing onto main: a paid role plans its route
+    here, so the route names the profile that serves and its billing is that
+    profile's (a granted OpenRouter call is metered, held to every cap; never
+    "subscription"). Mirrors routing's ``_plan_unavailable``: a routed plan
+    route only (a pinned selection is never replaced), a configured offer, no
+    blocker (the feature's price is set), a grant (none inside a readiness
+    probe), and a plan that is not ready (a ready plan always serves first).
+    The plan's readiness reads local files only, so planning stays offline.
+    """
+    if not _routed_plan(vault, task, selection):
+        return None
+    offered = plan_fallback.offer_profile(vault.config)
+    if offered is None or plan_fallback.offer_blocker(vault.config, task) is not None:
+        return None
+    if not plan_fallback.is_granted(task, vault.root):
+        return None
+    if runtime_for_provider(vault.root, vault.config, selection.provider_name, task=task).ready:
+        return None
+    return offered
+
+
 def resolve_client(vault: LoadedVault, route: PaidRoute) -> tuple[Any | None, str | None]:
-    """Build the planned route's client, pinned: no silent fallback to another model."""
+    """Build the planned route's client, pinned: no silent fallback to another model.
+
+    A routed ChatGPT-plan route resolves through routing's unpinned path
+    (T1, landing onto main), so an unavailable plan reports "unavailable"
+    and asks about OpenRouter like every other route, and a ready one notes
+    its route for a mid-call availability failure. Whatever that path picks
+    must be the planned profile: a grant planned onto OpenRouter arrives
+    here as that profile (pinned), and anything else (a grant given after
+    planning, a configured fallback) is refused rather than served under the
+    planned route's billing.
+    """
     if not route.available:
         return None, f"No provider is routed for {route.task}; set ai.routing.{route.task} or ai.active_provider."
-    resolved = ready_client_for_task(vault.root, vault.config, route.task, explicit=route.provider)
+    selection = provider_for_task(vault.config, route.task)
+    if selection.provider_name == route.provider and _routed_plan(vault, route.task, selection):
+        resolved = ready_client_for_task(vault.root, vault.config, route.task)
+        if resolved.ready and resolved.provider_name != route.provider:
+            return None, (f"{route.task} was planned on {route.provider} but would be served by "
+                          f"{resolved.provider_name}; try again.")
+    else:
+        if (route.provider != selection.provider_name and _routed_plan(vault, route.task, selection)
+                and _granted_provider(vault, route.task, selection) != route.provider):
+            # Planned onto OpenRouter under a grant that has since ended (or a
+            # plan that is ready again): never served on the old plan.
+            return None, f"{route.task} was planned on {route.provider}, which no longer serves it; try again."
+        resolved = ready_client_for_task(vault.root, vault.config, route.task, explicit=route.provider)
     if not resolved.ready or resolved.client is None:
         return None, resolved.runtime.message or f"{route.provider} is not ready"
     problem = transport_problem(route, resolved.client)
