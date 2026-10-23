@@ -55,8 +55,9 @@ class ReaderTutorQAContext(TutorQAContext):
 @dataclass(frozen=True)
 class ReaderTutorExplorableQAContext(ReaderTutorQAContext):
     """RW5b: :class:`ReaderTutorQAContext` while figure offers are on (no new
-    fields, so the context renders the same; the prompt adds the
-    ``explorable`` judgment and carries its own version)."""
+    fields; the prompt adds the ``explorable`` judgment and carries its own
+    version, and each delivered equation or figure block carries ``block``:
+    Codex review F7)."""
 
 
 @dataclass(frozen=True)
@@ -583,11 +584,12 @@ _TUTOR_QA_READER_LOOKUP_TASK = (
 
 #: RW5b: the explorable judgment (added only to an explorable context's task).
 _TUTOR_QA_READER_EXPLORABLE_TASK = (
-    " `explorable`: for each passage you cite (in `citations` or the excerpt) that is an equation or a figure, "
+    " `explorable`: for each passage you cite (in `citations` or the excerpt) that carries `block` "
+    "(`equation` or `figure`: LearnLoop marks them; a figure's text may be only its caption), "
     "one entry {extraction_id, span_id, explorable}: yes when it could become an explorable figure a learner "
     "changes with sliders (a function, density, distribution, map, field, landscape or dynamical system with "
     "parameters whose effect can be computed and seen), no otherwise. Leave it empty when you cite no equation "
-    "or figure."
+    "or figure, and never name a passage without `block`."
 )
 
 

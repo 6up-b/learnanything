@@ -160,10 +160,17 @@ class FigureRequestInput(ParamsModel):
 def offered_spans(vault: Any, repository: Any, origin: str, offer_ref: str | None) -> set[tuple[str, str]]:
     """The ``(extraction_id, span_id)`` blocks the judgment ``offer_ref`` said
     were explorable: the library organizer's notes (RW4a) or the Reader tutor's
-    answer (RW1c), as stored. Read from the stored outputs only: the press
-    makes no model call, and a block the judge did not offer is refused."""
+    answer (RW1c), as stored, each confirmed by the verdict's own
+    ``judgment_ledger`` row (Codex review F3: the append-only ledger, not the
+    output's JSON alone, says what the judge decided). Read from stored
+    outputs only: the press makes no model call, and a block the judge did not
+    offer is refused."""
 
-    from learnloop.figure_admission import offerable_blocks
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.practice_index import judgments_by_ids
+    from learnloop.figure_admission import offerable_blocks, tutor_explorable_yes
 
     if not offer_ref:
         return set()
@@ -174,14 +181,20 @@ def offered_spans(vault: Any, repository: Any, origin: str, offer_ref: str | Non
             row = LA.ask_row(repository, offer_ref)
         except LA.LibraryAskError:
             return set()
-        notes = (row.get("organizer") or {}).get("notes") or ()
+        notes = [note for note in (row.get("organizer") or {}).get("notes") or ()
+                 if isinstance(note, dict) and note.get("explorable") is True and ":" in str(note.get("key") or "")]
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            ledger = judgments_by_ids(connection, [str(note.get("ledger_id") or "") for note in notes
+                                                   if note.get("ledger_id")])
         said = {(str(note["key"]).split(":", 1)[0], str(note["key"]).split(":", 1)[1]) for note in notes
-                if isinstance(note, dict) and note.get("explorable") is True and ":" in str(note.get("key") or "")}
+                if LA.ledger_explorable(found := ledger.get(str(note.get("ledger_id") or "")))
+                and str(found.get("right_id")) == str(note["key"]) and str(found.get("left_id")) == str(offer_ref)}
     else:
         event = repository.question_event(offer_ref)
         view = ((event or {}).get("source_context") or {}).get("reader_tutor") or {}
         said = {(str(entry.get("extraction_id")), str(entry.get("span_id"))) for entry in view.get("explorable") or ()
                 if isinstance(entry, dict)}
+        said &= tutor_explorable_yes(repository, offer_ref, sorted(said))
     # Code's rule on top of the judgment: only an equation or a figure block.
     return set(offerable_blocks(repository, sorted(said)))
 

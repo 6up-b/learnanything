@@ -885,8 +885,10 @@ def ask_history(
         }
         if tutor_views and payload.get("tutor"):
             # RW1c: the answer's modes (absent on every exchange before RW1c,
-            # and while both RW1c switches are off).
-            exchange["tutor"] = dict(payload["tutor"])
+            # and while both RW1c switches are off). RW5b's ``explorable`` is
+            # never projected (Codex review): offers are this visit's only, so
+            # history is RW1c's whether figure offers are on or off.
+            exchange["tutor"] = {key: value for key, value in dict(payload["tutor"]).items() if key != "explorable"}
         if branches:
             selection = manifest.get("selection") or {}
             question_event_id = payload.get("question_event_id")

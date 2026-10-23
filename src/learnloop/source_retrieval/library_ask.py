@@ -295,7 +295,23 @@ class OrganizerRolesExplorableResult(WireModel):
 
 
 def _explorable_twin(task: ListwiseTask, result_model: type[WireModel]) -> ListwiseTask:
-    return replace(task, prompt_version=task.prompt_version + EXPLORABLE_SUFFIX, result_model=result_model)
+    # The verdict goes to the ledger row with the rest of the judgment (Codex
+    # review F3): the offer is read back from there, never from notes alone.
+    return replace(task, prompt_version=task.prompt_version + EXPLORABLE_SUFFIX, result_model=result_model,
+                   ledger_fields=("explorable",))
+
+
+def ledger_explorable(ledger: Mapping[str, Any] | None) -> bool:
+    """Whether a ``library_contribution`` ledger row records the organizer's
+    ``explorable: yes`` (rows of any other request record none: no)."""
+
+    if not ledger:
+        return False
+    try:
+        details = json.loads(ledger.get("rationale") or "{}")
+    except (TypeError, ValueError):
+        return False
+    return isinstance(details, dict) and explorable_yes(details.get("explorable"))
 
 
 ORGANIZER_EXPLORABLE_TASK = _explorable_twin(ORGANIZER_TASK, OrganizerExplorableResult)
@@ -942,7 +958,7 @@ def organize(
                 note.update({"line": before.get("line"), "roles": list(before.get("roles") or []),
                              "speaks_to": before.get("speaks_to") if personalized else None})
                 if explorable:
-                    note["explorable"] = (before.get("explorable") is True
+                    note["explorable"] = (before.get("explorable") is True and ledger_explorable(ledger)
                                           and offerable_kind(passages[key]) is not None)
                 if note["speaks_to"] is not None:
                     if speaks_given or (note["speaks_to"] or {}).get("id") not in question_ids:
@@ -964,7 +980,8 @@ def organize(
             if explorable:
                 # A yes counts only on a block code names an equation or a
                 # figure, and only with the passage's own line kept.
-                note["explorable"] = bool(judgment is not None and explorable_yes(getattr(judgment, "explorable", None))
+                # The yes is the ledger row's (Codex review F3), the judgment's own.
+                note["explorable"] = bool(judgment is not None and ledger_explorable(ledger)
                                           and offerable_kind(passages[key]) is not None and note["line"])
             if judgment is not None:
                 note["roles"] = ([role for role in dict.fromkeys(judgment.roles) if role in ROLES]
@@ -1231,6 +1248,7 @@ __all__ = [
     "compare_enabled",
     "compare_table",
     "group_hits",
+    "ledger_explorable",
     "library_ask_enabled",
     "open_questions",
     "organize",

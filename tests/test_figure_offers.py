@@ -315,11 +315,23 @@ def test_the_tutor_context_asks_for_explorable_only_with_a_block_to_judge(tmp_pa
 # --- the press: RW5a's pipeline with the origin -------------------------------------------------------
 
 def _tutor_event(repository, explorable) -> str:
-    """A Reader tutor answer as stored (its question event), its view naming ``explorable``."""
+    """A Reader tutor answer as stored (its question event), its view naming
+    ``explorable``, and the tutor's verdicts in the ledger as the answer path
+    records them (Codex review F3)."""
 
-    return repository.insert_question_event({
+    from types import SimpleNamespace
+
+    from learnloop.tutor import tutor_qa as TQ
+
+    event_id = repository.insert_question_event({
         "context": "reader", "note_id": f"span:{EXTRACTION}/p2", "question_md": "what is f?", "answer_md": "a",
         "source_context": {"reader_tutor": {"explorable": explorable}}, "created_at": NOW})
+    answer = SimpleNamespace(explorable=[C.ExplorableCitation(extraction_id=entry["extraction_id"],
+                                                              span_id=entry["span_id"], explorable="yes")
+                                         for entry in explorable])
+    TQ._record_explorable_verdicts(repository, event_id, answer, model="fake-tutor-model",
+                                   prompt_version=C.READER_TUTOR_EXPLORABLE_PROMPT_VERSION, clock=None)
+    return event_id
 
 
 def test_pressing_a_library_offer_builds_through_rw5a_with_origin_library(tmp_path):

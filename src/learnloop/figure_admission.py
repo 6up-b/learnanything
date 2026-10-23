@@ -113,6 +113,41 @@ def explorable_yes(value: Any) -> bool:
     return str(value or "").strip().lower() == "yes"
 
 
+#: RW5b (Codex review F3): the ``judgment_ledger`` task of the Reader tutor's
+#: ``explorable`` verdicts, one row per judged block of an answer (left: the
+#: answer's question event; right: the block). The library organizer's verdict
+#: is in its ``library_contribution`` row's rationale.
+TUTOR_EXPLORABLE_TASK = "figure_explorable"
+
+
+def tutor_explorable_judgment_id(question_event_id: str, extraction_id: str, span_id: str) -> str:
+    """The ledger id of the tutor's verdict on one block of one answer: derived,
+    so the press reads it back without a search, and an answer judges a block once."""
+
+    from learnloop.ai.execution import content_key
+
+    return "fxj_" + content_key([str(question_event_id), str(extraction_id), str(span_id)])[:40]
+
+
+def tutor_explorable_yes(repository: Any, question_event_id: str, keys: Any) -> set[tuple[str, str]]:
+    """Which of these ``(extraction_id, span_id)`` blocks the tutor's ledger
+    rows for this answer record as ``explorable: yes``."""
+
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.practice_index import judgments_by_ids
+
+    ids = {tutor_explorable_judgment_id(question_event_id, *key): (str(key[0]), str(key[1])) for key in keys}
+    if not ids:
+        return set()
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        rows = judgments_by_ids(connection, list(ids))
+    return {ids[found] for found, row in rows.items()
+            if row.get("task") == TUTOR_EXPLORABLE_TASK and row.get("left_id") == str(question_event_id)
+            and explorable_yes(row.get("verdict"))}
+
+
 def text_key(vault: Any) -> Hashable:
     """What a figure prediction's learner-text reading depends on: the vault
     and the switch (its money cap is ``learner_text_gaps``'s, as on main)."""
@@ -203,6 +238,7 @@ __all__ = [
     "FiguresChanged",
     "FiguresGate",
     "OFFER_BLOCK_TYPES",
+    "TUTOR_EXPLORABLE_TASK",
     "advanced_panels_enabled",
     "explorable_yes",
     "figures_enabled",
@@ -211,4 +247,6 @@ __all__ = [
     "offerable_blocks",
     "offers_enabled",
     "text_key",
+    "tutor_explorable_judgment_id",
+    "tutor_explorable_yes",
 ]
