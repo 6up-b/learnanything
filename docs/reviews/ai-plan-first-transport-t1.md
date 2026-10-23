@@ -436,6 +436,7 @@ No migration (head **217**, head fixture `migration_head_217` unchanged) and no 
 - `0ecc600ea` **New finding, fixed: the paid roles never asked about OpenRouter.** See below.
 - `df739a1c9` the regeneration.
 - `91565a346` gate fixes (three tests and one golden; see the gate).
+- `f07dcd338` this record; `172113ce7` the Today fix (below, after the orchestrator's review of the first record).
 
 ### Finding at the landing: the paid roles (fixed, `0ecc600ea`)
 
@@ -507,6 +508,9 @@ command at a time, with the full suite and durability under `flock /tmp/learnloo
 | `lint-imports --no-cache` | **31 kept**, 0 broken: main's 30 plus T1's `serving-never-imports-the-codex-provider`, beside the security branch's `codex-sdk-only-in-its-provider` |
 | full suite at `df739a1c9` (`-n 8`, 44 min) | **15,755 passed**, 8 failed, 3 skipped, 2 xfailed. Six were real composition failures, fixed in `91565a346` (below). Two were load flakes that passed alone 3 times out of 3: `test_reading_hardening_2_fixes::test_f1_a_build_whose_worker_failed_to_start_is_run_by_the_sweep` and `test_reading_request_sweep::test_b_a_start_deferred_behind_a_queued_build_runs_that_build_and_then_acts` |
 | the six, after `91565a346` (with the paid-role tests) | 46 passed |
+| after `172113ce7` (the Today fix; targeted, no full rerun): the new test, the three `test_plan_first_transport*` files, the teach-back, daily-plan, probe-pool, router-offer and queue-serialization files, and every test file naming `authoring_provider_available` / `teach_back_offerable` / `reconcile_empty_probe_pools` / `filter_unready_teach_back` (22 files) | **303 passed** |
+| after `172113ce7`: every test file naming `get_today_queue`, `next_plan_item` or `start_teach_back` (32 files) | **849 passed** |
+| `lint-imports` after `172113ce7` | 31 kept, 0 broken |
 | durability (`-m durability`, at `91565a346`) | **119 passed** |
 | `npm install`; `npm run typecheck` | ok; clean |
 | `npm test -- --maxWorkers=4` (the whole vitest run) | **198 files, 1,665 tests passed**, no unhandled error, no snapshot written (UX2's landing: 197 / 1,658) |
@@ -575,13 +579,50 @@ The differences in (c), every one listed:
     fallbackTasks: ["authoring", "teach_back"], planSignedOut: true`. The queue itself is identical.
 - Certification and plan (in (b)) and the Today queue's content are byte-identical.
 
-**New finding (Low, open): the Today read raises the OpenRouter banner.** The Today queue resolves
-`teach_back` (the `_TeachBackReadiness` filter of unready teach-back items in `handlers/queue.py`) and
-`authoring` outside `plan_fallback.quiet()`. So with an OpenRouter key and the plan unavailable, opening Today on a
-vault with teach-back items shows "ChatGPT isn't available right now. Use OpenRouter instead" for `authoring` and
-`teach_back`, although the learner used no AI feature. Granting would make teach-back items servable on
-OpenRouter, so the offer is not false, but it is a readiness probe asking. The fix would wrap that readiness in
-`quiet()` (or `quiet(honour_grants=True)`). It is left as found for the owner's call.
+**New finding: the Today read raised the OpenRouter banner (fixed, `172113ce7`).** At `f07dcd338`, with an
+OpenRouter key and the plan unavailable, Today raised the "Use OpenRouter instead" banner for `authoring` and
+`teach_back`. Both `get_today_queue` and the daily plan's `next_plan_item` (found by the sweep below) carried the
+hint, although the learner had used no AI feature. Today ran two readiness probes outside `plan_fallback.quiet()`:
+
+- the teach-back filter (`teach_back_offerable`, for the queue's and the daily plan's unready teach-back items);
+- the empty probe-pool sweep (`diagnostic_surface_supply.authoring_provider_available`, called from
+  `build_due_queue`).
+
+Owner rule: ask only when a feature the learner USED could not run. The fix:
+
+- `teach_back_offerable` runs under `quiet(honour_grants=True)`. It makes no offer, but a grant still counts, so
+  once the learner chose OpenRouter for teach-back, Today offers teach-back items again.
+- `authoring_provider_available` runs under `quiet()`. It makes no offer and honours no grant, because what it
+  gates is background generation.
+- `start_teach_back` (the feature, used) resolves its provider itself and still asks.
+
+`tests/test_plan_first_transport_today_quiet.py` failed on `f07dcd338` (both tests) and passes after. It checks:
+
+- `load_vault`, `get_ai_connection`, `get_runtime_health`, `get_today_headline`, `get_start_summary` and
+  `get_today_queue` (with and without a session) carry no offer;
+- the teach-back item is still filtered out while its AI is down;
+- `start_teach_back` reports `provider_unavailable` with `fallback_tasks: ["teach_back"]`;
+- after a grant of `teach_back` and `grading`, Today serves the teach-back item and still asks nothing;
+- the probe-pool sweep makes no offer and honours no grant;
+- nothing is sent.
+
+**Sweep of the desktop's load and Today RPCs.** These are the RPCs `App.tsx`, `TodayScreen.tsx` and
+`StartScreen.tsx` call:
+
+- `initialize`, `load_vault`, `get_ai_connection`, `get_runtime_health`, `get_review_counts`,
+  `get_source_library`, `chatgpt_plan_status`;
+- `get_start_summary`, `get_today_headline`, `get_queue_revision`, `get_reentry_summary`, `get_decay_pressure`,
+  `get_overconfidence_list`, `goals_list`, `get_goal_report`, `list_ingest_batches`;
+- `get_today_queue`, `start_session`, `next_plan_item`, then `get_today_queue` again.
+
+They were driven through the merge's `_handle` on fresh copies of the four parity vaults (c8 and c29, both
+fixtures, planified, fake OpenRouter key), with a hook printing the stack of every offer noted (`today_probe.py`).
+
+- At `f07dcd338` the only offers came from these two probes: `get_today_queue` and `next_plan_item` on
+  linear_algebra.
+- After the fix, **no call on any copy carries an offer**. `get_overconfidence_list` and `get_goal_report`
+  answered a parameter error to the empty params; neither made an offer.
+- 0 receipts and no process start.
 
 ### Owner notes
 
@@ -624,10 +665,10 @@ Q1-Q7 above, unchanged:
 
 ### Open items
 
-- The Today read's banner for `authoring` / `teach_back` (above): wrap the queue's readiness in `quiet()`?
 - `module_validate.py` (1,005) and `desktop_validate.py` (`syntheticBook.ts`) fail as before. T1's new modules
   have no module notes.
 - The full suite ran at `df739a1c9`. `91565a346` changes three tests and one golden only, verified by the
-  targeted run and by the durability lane at that head.
+  targeted run and by the durability lane at that head. `172113ce7` (two readiness probes made quiet) was verified
+  by the targeted runs above, not by a full rerun (orchestrator's instruction).
 - T2 (retire the Codex serving path) as listed above. Main's round-2 lockdown tests now pin both layers. When T2
   deletes the Codex modules, they go with them.
