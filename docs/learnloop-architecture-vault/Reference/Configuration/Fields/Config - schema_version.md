@@ -3,8 +3,8 @@ title: "Config - schema_version"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5022f7eba249238fdedc71631bb13cc6716b4815"
-source_commit_timestamp: "2026-10-23T15:50:57-04:00"
+source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
+source_commit_timestamp: "2026-10-23T16:56:37-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml schema_version"
@@ -30,8 +30,8 @@ source_paths:
   - "tests/test_ad1_fix_round4.py"
   - "tests/test_ad23_contract.py"
   - "tests/test_ad_guard.py"
+  - "tests/test_ad_protected_readings.py"
   - "tests/test_administration_adapters.py"
-  - "tests/test_ai_runtime.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/schema-version"
@@ -81,8 +81,8 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ad1_fix_round4.py`
 - `tests/test_ad23_contract.py`
 - `tests/test_ad_guard.py`
+- `tests/test_ad_protected_readings.py`
 - `tests/test_administration_adapters.py`
-- `tests/test_ai_runtime.py`
 
 ## Extension and modification guidance
 

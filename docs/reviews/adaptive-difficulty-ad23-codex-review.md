@@ -2807,3 +2807,109 @@ thirds.
 
 The branch touches no ingest file against main. Every Python run outside pytest ran under `env -i`
 with an empty HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR. No model call was made.
+
+## Round 8 follow-up: B scoped to reading events (2026-10-23)
+
+The closing verify confirmed checklist items 1, 2, 3 and 5. It found the builders faithful to
+production. It confirmed that rule 4 (the book-level widening) is the predicate's existing
+behaviour on main. It reopened on one High that is outside Option B's leak class: round 8 applied
+B's rule to non-reading events, so items were over-withheld (checklist item 4).
+
+### F1 (High): practice-time help is attempt evidence, not a reading event
+
+**The problem:**
+- Round 8's `question_event_withheld` applied `reading_withheld` to every tutor question. That
+  included practice-context help bound to an attempt (`context='practice'`, `attempt_id` set),
+  whose `source_context.delivery` cites the item's own source spans.
+- Marking another unit of the reading dropped that question and its reveal. That changed:
+  - the replay's help-shaped outcome category;
+  - `view.reveals`, pre-exposure and warmth;
+  - the recent-reveal exclusion, and so selection;
+  - the dose offer outcomes;
+  - the assessment-contract lookup.
+- The oracle had the same misclassification: `delete_reading` deleted every question whose
+  context names the reading.
+
+**The fix:**
+- `reading_withheld` applies in `question_event_withheld` only for a READING question
+  (`context IN ('reader', 'library')`, `READING_QUESTION_CONTEXTS`).
+- A practice or feedback question keeps the pre-round-8 block rule: its note, its item, and
+  `keys_withheld` over its context.
+- `delete_reading` keeps practice and feedback questions.
+
+**The test:** `test_attempt_evidence_from_a_visible_span_of_a_mixed_reading_is_unchanged`, four
+styles. The setup:
+- an item on a visible span;
+- its attempt with a practice question whose delivery cites that span;
+- the question's reveal;
+- an assessment contract the question names.
+
+Marking another unit held out changes none of the following:
+- the question's verdict;
+- `view.reveals`;
+- the replay's attempt (category, eligibility, input status);
+- the contract;
+- the item's verdict.
+
+On `c4e119060` it fails in all four styles.
+
+### The sweep for other non-reading rows round 8 withheld by reading
+
+**Fixed:**
+- **`interaction_events`:** only a Reader or library event is a reading event
+  (`READING_EVENT_PREFIXES`: `reader_`, `library_`). Any other kind's payload is a value again, as
+  before round 8. `delete_reading` follows.
+  - Test: `test_a_practice_interaction_event_is_not_a_reading_event`, which fails on `c4e119060`.
+  - `learner_question_asked` (a Reader-dialogue kind without the prefix) is not read through the
+    view by AD; field reads it outside AD.
+
+**Already right:**
+- **`reveal_events`:** withheld by its item, attempt or question only, so it follows the question
+  fix. It has no reading rule of its own.
+- **`source_exposure_events`:** AD reads only the reading contexts (`EXPOSURE_CONTEXTS`: the
+  Reader, the library, tutor citations, provenance and remediation views). Those are reading
+  signals, and nothing else of it is read.
+- **These tables are reading by definition:** `ad_reading_opportunities`, `ad_dose_offers`,
+  `reader_authored_questions`, `reader_section_progress`, `source_span_reanchors`, and the blocks,
+  units and assets.
+- **`activity_administrations`** (owner-placed reading-phase questions): not a reading table. It is
+  judged by its item and its attempts. Only the Reader answer event about it (`reader_answer_submitted`)
+  is a reading receipt.
+- **`help_assists`, `workbench_sessions`, `workbench_steps`:** unclassified, so AD does not read
+  them at all (refused in every scope since F4). AD's help timing comes from `question_events` and
+  `reveal_events`.
+- **Attempts, presentations, plan events, forecast receipts, serve inputs and selections:** no
+  reading rule.
+- **`entity_source_links` and the projected vault's LO and facet references:** the block rule
+  (`ITEM_PROVENANCE`; round 4).
+
+### The Lows
+
+- **L1:** a READING question's note-id anchor is judged by its reading
+  (`reading_withheld(parsed[0])`); a practice question's by its block.
+  - Test: `test_a_reader_question_anchored_by_note_on_a_mixed_reading_is_withheld`, which fails on
+    `c4e119060`.
+- **L2:** `protected_reading_counts` also counts:
+  - dose draws on such readings;
+  - reading questions whose anchor or context names one;
+  - Reader and library interaction events naming one.
+
+  The interaction-event test asserts the count.
+- **L3:** a GLM-OCR style with the PDF's embedded outline (`GLM_OUTLINE`: one bookmark per header,
+  which the `_Headings` placer ranks by) joins every property. The absence property now runs over
+  25 seeds × 4 styles.
+
+### Gate (round-8 follow-up, run once after the last change)
+
+Under the memory rule (`systemd-run ... MemoryMax=5G`, `-n 6`, one command at a time, three
+sequential thirds of the round-8 gate set):
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 27 kept, 0 broken |
+| targeted pytest | **11,938 passed, 38 xfailed, 0 failed** (2,018 + 1,989 + 7,931) |
+| `--durable-sqlite`: guard, epoch, projection, protected readings, both migration tests | 221 passed |
+| migration 214, head fixture | unchanged |
+| references, under `env -i` | regenerated; 0 errors; both vault validators pass |
+
+No ingest file is touched. Every Python run outside pytest ran under `env -i`. No model call was made.

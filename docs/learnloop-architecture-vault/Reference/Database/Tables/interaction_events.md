@@ -3,8 +3,8 @@ title: "interaction_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5022f7eba249238fdedc71631bb13cc6716b4815"
-source_commit_timestamp: "2026-10-23T15:50:57-04:00"
+source_commit: "7e324fcc1f7b3d2bd30ec3c50ac49e31e58bd0f4"
+source_commit_timestamp: "2026-10-23T16:56:37-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interaction_events"
@@ -20,13 +20,13 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/065_activity_lineage_substrate.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/adaptive_difficulty/report.py"
   - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/cli/field_classification.py"
   - "src/learnloop/cli/surfaces.py"
-  - "src/learnloop/db/repositories.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/content/authoring/rung_variants.py"
@@ -128,6 +128,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/cli/field_classification.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_service.py`
@@ -168,6 +169,7 @@ Indexes and uniqueness:
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_ad23_contract.py`
 - `tests/test_ad23_fix_review.py`
+- `tests/test_ad_protected_readings.py`
 - `tests/test_exam_protection.py`
 - `tests/test_grading_cli.py`
 - `tests/test_hint_feedback_texts.py`
@@ -181,7 +183,6 @@ Indexes and uniqueness:
 - `tests/test_reader_formative_texts.py`
 - `tests/test_reader_inquiry_status.py`
 - `tests/test_reader_intent.py`
-- `tests/test_reader_recap.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
