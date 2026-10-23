@@ -427,3 +427,99 @@ def test_probe_candidates_are_taken_in_reading_order_not_span_id_order(tmp_path)
             vault, repository, connection, D.Boundary(visit_id="v_f2", extraction_id=CLEAN, section_id="u_none"),
             [LO], reading_map=mapping, view=op.view)
     assert content["extra_worked_example"]["span_id"] == first
+
+
+@pytest.mark.parametrize("style", STYLES)
+def test_attempt_evidence_from_a_visible_span_of_a_mixed_reading_is_unchanged(tmp_path, style):
+    """Round 8 follow-up (F1): an item on a visible span of a reading; its attempt had practice-time
+    help (a tutor question bound to the attempt, whose delivery cites the item's own source span),
+    a reveal from that help, and an assessment contract the help names. Marking ANOTHER unit of the
+    reading held out (the reading becomes mixed) changes none of it: the question, its reveal, the
+    replay's attempt (its help-shaped outcome category) and the contract are what they were while
+    the reading was clean (failed before at c4e119060: the practice question was withheld as a
+    reading event, and its reveal, the outcome category and the contract with it)."""
+
+    import json
+    import sqlite3
+
+    from learnloop.adaptive_difficulty import replay as RP
+    from learnloop.adaptive_difficulty.operation import ad_operation
+
+    from tests.ad23_fakes import answer, set_item
+
+    elements = [Element("header", "Chapter 2 Matrices", 1, 0), Element("text", TEXTS[3], 1, 0),
+                Element("header", "Exercises", 1, 1), Element("text", "Exercise 1. Invert C.", 1, 1)]
+    paths = _copy(tmp_path, style, elements, reread=False)
+    blocks = Repository(paths.sqlite_path).load_document_ir(EXT).blocks
+    visible = next(b.span_id for b in blocks if b.text == TEXTS[3])
+    set_item(paths, "pi_m1a", canonical_exercise={"source_id": "src_mixed", "extraction_id": EXT,
+                                                  "span_ids": [visible]})
+    attempt = answer(paths, "pi_m1a", correct=True)
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        answered = connection.execute("SELECT created_at FROM practice_attempts WHERE id = ?", (attempt,)).fetchone()[0]
+        connection.execute("INSERT INTO assessment_contract_versions(id, practice_item_id, contract_hash, contract_json, "
+                           "schema_version, created_at) VALUES ('acv_f1', 'pi_m1a', 'h', '{}', 1, ?)", (answered,))
+        context = {"delivery": {"spans": [{"extraction_id": EXT, "span_id": visible, "relation": "primary"}]},
+                   "source_spans": [{"extraction_id": EXT, "span_id": visible}]}
+        connection.execute(
+            "INSERT INTO question_events(id, context, practice_item_id, attempt_id, question_md, answer_md, "
+            "answer_status, source_context_json, assessment_contract_version_id, created_at, answered_at) "
+            "VALUES ('qe_f1', 'practice', 'pi_m1a', ?, 'How do I start?', 'Look at the trace.', 'answered', ?, "
+            "'acv_f1', ?, ?)", (attempt, json.dumps(context), answered, answered))
+        connection.execute("INSERT INTO reveal_events(id, practice_item_id, learning_object_id, source_kind, amount, "
+                           "basis, question_event_id, created_at) VALUES ('rv_f1', 'pi_m1a', ?, 'tutor_answer', 1.0, "
+                           "'overlap', 'qe_f1', ?)", (LO, answered))
+
+    def evidence() -> dict:
+        RP.clear_cache()
+        vault = load_vault(paths.root)
+        with ad_operation(vault, Repository(paths.sqlite_path)) as op, \
+                closing(connect(paths.sqlite_path, read_only=True)) as connection:
+            events = RP.load_events(connection, vault, Repository(paths.sqlite_path))
+            return {
+                "question": op.view.question_event_withheld(connection, "qe_f1"),
+                "reveals": sorted(str(row["id"]) for row in op.view.reveals(connection)),
+                "contract": (op.view.assessment_contract(connection, "acv_f1") or {}).get("id"),
+                "attempt": [(event.attempt_id, event.category, event.eligible, event.input_status)
+                            for event in events.attempts if event.attempt_id == attempt],
+                "item": op.view.withheld("pi_m1a"),
+            }
+
+    clean = evidence()
+    _mark(paths, unit=next(u.unit_id for u in _units(paths, EXT)
+                           if any(b.text == "Exercise 1. Invert C." and b.span_id in u.span_ids for b in blocks)))
+    from learnloop.adaptive_difficulty.material_view import detached_view
+
+    assert detached_view(load_vault(paths.root), Repository(paths.sqlite_path)).reading_withheld(EXT)
+    assert evidence() == clean
+    assert clean["question"] is False and clean["reveals"] == ["rv_f1"] and clean["contract"] == "acv_f1"
+
+
+def test_a_practice_interaction_event_is_not_a_reading_event(tmp_path):
+    """Round 8 follow-up: only a Reader or library interaction event is a reading event; a
+    practice-time event whose payload names the reading is not withheld with it (failed before at
+    c4e119060: every event naming the reading was)."""
+
+    import json
+    import sqlite3
+
+    from learnloop.adaptive_difficulty.operation import ad_operation
+
+    elements = [Element("header", "Chapter 2 Matrices", 1, 0), Element("text", TEXTS[3], 1, 0),
+                Element("header", "Exercises", 1, 1), Element("text", "Exercise 1. Invert C.", 1, 1)]
+    paths = _copy(tmp_path, MARKER, elements, reread=False)
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        for row_id, kind in (("ie_reader", "reader_view_opened"), ("ie_practice", "affect_tap")):
+            connection.execute(
+                "INSERT INTO interaction_events(id, kind, subject_type, subject_id, payload_json, origin, created_at, "
+                "occurred_at, received_at) VALUES (?, ?, 'visit', 'v1', ?, 'learner', ?, ?, ?)",
+                (row_id, kind, json.dumps({"extraction_id": EXT}), "2026-10-12T08:00:00Z", "2026-10-12T08:00:00Z",
+                 "2026-10-12T08:00:00Z"))
+    _mark(paths, unit=_units(paths, EXT)[-1].unit_id)
+    with ad_operation(load_vault(paths.root), Repository(paths.sqlite_path)) as op, \
+            closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        kept = {str(row["id"]) for row in op.view.rows(connection, "interaction_events")}
+        counts = op.view.protected_reading_counts(connection)
+    assert "ie_practice" in kept and "ie_reader" not in kept
+    # L2: the report's count includes the Reader event (and the reading's exposures).
+    assert counts["events"] >= 1 + len(Repository(paths.sqlite_path).load_document_ir(EXT).blocks)

@@ -453,7 +453,10 @@ DERIVED_TREATMENT: Mapping[tuple[str, str], str] = MappingProxyType({
 #: event on it. Their ``extraction``, ``span``, ``spans`` and ``section`` references resolve against
 #: the READING (``MaterialView.reading_withheld``): a row of a reading the withheld material touches
 #: is withheld, whatever block it names. Self-ruled reading tables apply the same rule in their own
-#: rule (Reader questions, tutor questions, dose draws); a reading receipt by its source row.
+#: rule (Reader questions, dose draws; a reading receipt by its source row). Two tables hold reading
+#: events beside attempt evidence and apply it to their reading rows only (round 8 follow-up): a
+#: tutor question asked in the Reader or the library (a practice or feedback one keeps the block
+#: rule), and a Reader or library interaction event (any other kind's payload is a value).
 READING = frozenset({
     "source_document_blocks", "source_document_units", "source_document_assets", "source_exposure_events",
     "reader_section_progress", "reader_authored_questions", "question_events", "source_span_reanchors",

@@ -33,8 +33,8 @@ from learnloop.db.repositories import Repository
 from tests.helpers import write_yaml
 
 T0 = datetime(2026, 10, 12, 9, 0, tzinfo=UTC)
-MARKER, GLM, MARKDOWN = "marker", "glm", "markdown"
-STYLES = (MARKER, GLM, MARKDOWN)
+MARKER, GLM, MARKDOWN, GLM_OUTLINE = "marker", "glm", "markdown", "glm_outline"
+STYLES = (MARKER, GLM, MARKDOWN, GLM_OUTLINE)
 
 
 @dataclass(frozen=True)
@@ -71,7 +71,7 @@ def marker_ir(elements: Sequence[Element]) -> Any:
     return marker.chunk_output_to_ir(blocks=blocks, metadata={"table_of_contents": toc}, extractor_version="1")
 
 
-def glm_ir(elements: Sequence[Element]) -> Any:
+def glm_ir(elements: Sequence[Element], *, outline: bool = False) -> Any:
     from learnloop.ingest.extractors import glm_ocr
 
     pages = sorted({element.page for element in elements}) or [0]
@@ -85,7 +85,11 @@ def glm_ir(elements: Sequence[Element]) -> Any:
         layout[element.page].append(region)
     result = {"layout_details": [layout[page] for page in pages],
               "data_info": {"pages": [{"width": 1224, "height": 1584} for _ in pages]}}
-    return glm_ocr.responses_to_ir([(result, pages)], sizes=[(612.0, 792.0)] * (max(pages) + 1), outline=[],
+    # ``outline``: the PDF's embedded bookmarks, one per header present (the placer then ranks
+    # headings by them, as for a book with an outline).
+    bookmarks = [{"title": element.text, "heading_level": element.level, "page_id": element.page}
+                 for element in elements if element.kind == "header"] if outline else []
+    return glm_ocr.responses_to_ir([(result, pages)], sizes=[(612.0, 792.0)] * (max(pages) + 1), outline=bookmarks,
                                    version="v")
 
 
@@ -99,7 +103,8 @@ def markdown_ir(elements: Sequence[Element]) -> Any:
     return markdown_to_ir("\n".join(lines), title="Book", extractor_name="markdown")
 
 
-BUILDERS = {MARKER: marker_ir, GLM: glm_ir, MARKDOWN: markdown_ir}
+BUILDERS = {MARKER: marker_ir, GLM: glm_ir, MARKDOWN: markdown_ir,
+            GLM_OUTLINE: lambda elements: glm_ir(elements, outline=True)}
 
 
 def ingest_ir(elements: Sequence[Element], *, style: str) -> Any:
@@ -181,10 +186,13 @@ def delete_reading(sqlite_path, extraction_id: str) -> None:
                 connection.execute(f"DELETE FROM {table} WHERE {column} = ?", (extraction_id,))
         like = f'%"{extraction_id}"%'
         if "question_events" in tables:
-            connection.execute("DELETE FROM question_events WHERE note_id LIKE ? OR source_context_json LIKE ?",
-                               (f"span:{extraction_id}/%", like))
+            # Reading questions only: a practice or feedback question is attempt evidence, kept with
+            # the items (round 8 follow-up, F1).
+            connection.execute("DELETE FROM question_events WHERE context IN ('reader', 'library') AND "
+                               "(note_id LIKE ? OR source_context_json LIKE ?)", (f"span:{extraction_id}/%", like))
         if "interaction_events" in tables:
-            connection.execute("DELETE FROM interaction_events WHERE payload_json LIKE ? OR locator_json LIKE ?",
+            connection.execute("DELETE FROM interaction_events WHERE (kind LIKE 'reader\\_%' ESCAPE '\\' OR "
+                               "kind LIKE 'library\\_%' ESCAPE '\\') AND (payload_json LIKE ? OR locator_json LIKE ?)",
                                (like, like))
         if "ad_dose_offers" in tables:
             drawn = [row[0] for row in connection.execute(
@@ -204,5 +212,5 @@ def delete_reading(sqlite_path, extraction_id: str) -> None:
         connection.commit()
 
 
-__all__ = ["BUILDERS", "Element", "GLM", "MARKDOWN", "MARKER", "STYLES", "T0", "build_vault", "delete_reading",
+__all__ = ["BUILDERS", "Element", "GLM", "GLM_OUTLINE", "MARKDOWN", "MARKER", "STYLES", "T0", "build_vault", "delete_reading",
            "glm_ir", "ingest_ir", "markdown_ir", "marker_ir"]

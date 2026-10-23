@@ -64,6 +64,13 @@ _VALUE = _T.VALUE
 NON_WINDOW_TYPES = ("skip", "self_report")
 
 
+#: The tutor-question contexts that are reading events (round 8 follow-up): a question asked in
+#: the Reader or the library. A practice or feedback question is attempt evidence.
+READING_QUESTION_CONTEXTS = frozenset({"reader", "library"})
+#: The interaction-event kinds that are reading events (a Reader or library visit, action or answer).
+READING_EVENT_PREFIXES = ("reader_", "library_")
+
+
 def _has_table(connection: Any, table: str) -> bool:
     return connection.execute(
         "/* ad-rules */ SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)).fetchone() is not None
@@ -387,7 +394,10 @@ class MaterialView:
                 *reference_keys({"extraction_id": row.get(arg), "span_ids": [str(span) for span in spans]}))
         if base == "reading_payload":
             # A Reader event names its reading in its payload (or its locator): it is a reading
-            # event of every reading it names (round 8, Option B).
+            # event of every reading it names (round 8, Option B). Any other event (a practice-time
+            # one) is not a reading event, and its payload a value, as before (round 8 follow-up).
+            if not str(row.get("kind") or "").startswith(READING_EVENT_PREFIXES):
+                return False
             payload = value if isinstance(value, (Mapping, list)) else _json(value, {})
             keys, whole = reference_keys(payload)
             return any(self.reading_withheld(extraction) for extraction, _span in keys) or any(
@@ -1043,7 +1053,42 @@ class MaterialView:
             if _has_table(connection, table):
                 events += int(connection.execute(
                     f"/* ad-rules */ SELECT COUNT(*) FROM {table} WHERE extraction_id IN ({marks})", touched).fetchone()[0])
+        if _has_table(connection, "ad_dose_offers"):
+            events += int(connection.execute(
+                f"/* ad-rules */ SELECT COUNT(*) FROM ad_dose_offers WHERE row_kind = 'draw' AND extraction_id IN ({marks})",
+                touched).fetchone()[0])
+        # Reading questions and Reader events name their reading in their recorded context or
+        # payload (round 8 follow-up, L2): each one that names a withheld reading is counted once.
+        if _has_table(connection, "question_events"):
+            contexts = ",".join("?" for _ in READING_QUESTION_CONTEXTS)
+            events += sum(1 for (question_id,) in connection.execute(
+                f"/* ad-rules */ SELECT id FROM question_events WHERE context IN ({contexts})",
+                tuple(READING_QUESTION_CONTEXTS)).fetchall()
+                if self._names_withheld_reading(connection, "question_events", question_id))
+        if _has_table(connection, "interaction_events"):
+            events += sum(1 for row in _rows(
+                connection, "/* ad-rules */ SELECT id, kind, payload_json, locator_json FROM interaction_events")
+                if str(row.get("kind") or "").startswith(READING_EVENT_PREFIXES)
+                and any(self._ref_withheld(connection, "interaction_events", row, "reading_payload", row.get(column))
+                        for column in ("payload_json", "locator_json")))
         return {"readings": int(readings), "events": events}
+
+    def _names_withheld_reading(self, connection: Any, table: str, row_id: Any) -> bool:
+        """Whether a reading question's recorded anchor or context names a withheld reading."""
+
+        found = connection.execute(
+            "/* ad-rules */ SELECT note_id, source_context_json FROM question_events WHERE id = ?",
+            (str(row_id),)).fetchone()
+        if found is None:
+            return False
+        from learnloop.ingest.locators import parse_block_span
+
+        parsed = parse_block_span(str(found[0] or ""))
+        if parsed is not None and self.reading_withheld(parsed[0]):
+            return True
+        keys, whole = reference_keys(_json(found[1], {}))
+        return any(self.reading_withheld(extraction) for extraction, _span in keys) or any(
+            self.reading_withheld(extraction) for extraction in whole)
 
     def plan_feedback_events(self, connection: Any) -> list[dict[str, Any]]:
         """The plan's ``item_done`` and ``item_served`` events AD's candidate estimates may pair (the
@@ -1422,15 +1467,19 @@ class MaterialView:
         columns = {str(row[1]) for row in connection.execute("PRAGMA table_info(question_events)")}
         context_column = "source_context_json" if "source_context_json" in columns else "NULL"
         found = connection.execute(
-            f"/* ad-rules */ SELECT note_id, practice_item_id, {context_column} FROM question_events WHERE id = ?",
-            (str(question_id),)).fetchone()
+            f"/* ad-rules */ SELECT note_id, practice_item_id, {context_column}, context FROM question_events "
+            "WHERE id = ?", (str(question_id),)).fetchone()
         if found is None:
             return False
         note_id, item_id, raw = found[0], found[1], found[2]
+        # Only a READING question (asked in the Reader or the library) is a reading event, withheld
+        # with any reading it names (round 8, Option B). A practice or feedback question is attempt
+        # evidence (help timing, its reveals): it keeps the block rule (round 8 follow-up, F1).
+        reading = str(found[3] or "") in READING_QUESTION_CONTEXTS
         if note_id:
             parsed = parse_block_span(str(note_id))
             if parsed is not None:
-                if self.material_withheld(parsed[0], parsed[1]):
+                if self.reading_withheld(parsed[0]) if reading else self.material_withheld(parsed[0], parsed[1]):
                     return True
             elif self.note_withheld(connection, note_id):
                 return True
@@ -1444,9 +1493,10 @@ class MaterialView:
         # the one key function (round 4); a context citing a reading the withheld material touches is
         # a reading event of that reading (round 8).
         keys, whole = reference_keys(context)
-        return self.keys_withheld(keys, whole) or any(
-            self.reading_withheld(extraction) for extraction, _span in keys) or any(
-            self.reading_withheld(extraction) for extraction in whole)
+        if self.keys_withheld(keys, whole):
+            return True
+        return reading and (any(self.reading_withheld(extraction) for extraction, _span in keys) or any(
+            self.reading_withheld(extraction) for extraction in whole))
 
     def question_withheld(self, row: Mapping[str, Any]) -> bool:
         """A Reader question is withheld when its extraction, or any span it is anchored on or cites,
