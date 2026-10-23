@@ -2789,3 +2789,21 @@ The other AD tests now use the same oracle:
 file, the F4 guard test and the `READING` completeness test). For most this is meaningful (wrong
 outputs). For property 4 it is only because `reading_withheld` did not exist; the item judgment
 itself was already correct.
+
+### Gate (round 8, run once after the last change)
+
+Under the memory rule: every pytest command inside `systemd-run --user --scope -p MemoryMax=5G -p
+MemorySwapMax=1G`, `-n 6`, one at a time. The test set is round 7's files, with
+`test_ad_protected_readings.py` in place of `test_ad_never_extracted.py`, run in three sequential
+thirds.
+
+| Step | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 27 kept, 0 broken |
+| targeted pytest | **11,896 passed, 38 xfailed, 0 failed** (1,976 + 1,989 + 7,931) |
+| `--durable-sqlite`: guard, epoch, projection, protected readings, `test_ad23_migration.py`, `test_ad1_migration.py` | 179 passed |
+| migration 214, head fixture | unchanged |
+| references, under `env -i` | regenerated; `db_validate_reference.py` 0 errors; `module_validate.py` and `validate_vault.py` pass |
+
+The branch touches no ingest file against main. Every Python run outside pytest ran under `env -i`
+with an empty HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR. No model call was made.
