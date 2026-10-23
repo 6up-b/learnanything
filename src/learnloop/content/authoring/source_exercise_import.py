@@ -1064,10 +1064,16 @@ def _run_time_boxed(function: Callable[[], LadderResult], seconds: float | None,
     if seconds is None:
         return function()
     box: dict[str, Any] = {}
+    # T1 landing review: the check is part of the import that started it, so it
+    # carries that request's grant explicitly (a copied context carries none).
+    from learnloop.ai import plan_fallback
+
+    grant = plan_fallback.capture_grant(pending.root)
 
     def runner() -> None:
         try:
-            box["result"] = function()
+            with plan_fallback.job_grant(grant):
+                box["result"] = function()
         except Exception as exc:  # noqa: BLE001 - recorded as an unchecked key
             box["result"] = LadderResult("model_answer", "skipped", skip_reason=f"failed: {type(exc).__name__}")
         with pending.lock:

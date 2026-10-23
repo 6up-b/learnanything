@@ -356,3 +356,30 @@ def test_an_ingest_batch_carries_the_grant_only_when_the_learner_enqueued_it(tmp
     token = plan_fallback.batch_grant(pressed)
     assert token is not None and "canonical_ingest" in token.tasks
     assert plan_fallback.batch_grant(background) is None
+
+
+def test_the_imports_time_boxed_key_check_carries_its_requests_grant(tmp_path, fake_openai):
+    """The primed retry's import (in the learner's request) checks its key on a
+    time-boxed thread with a copied context: it carries the request's grant
+    explicitly; the same check started off any request carries none."""
+
+    import learnloop.content.authoring.source_exercise_import as SEI
+
+    root = _priced_vault(tmp_path)
+    _grant_all(root, [KEY_TASK])
+
+    def check_in(pending_root: Path) -> str | None:
+        seen: list[str | None] = []
+
+        def function():
+            seen.append(_planned(pending_root)[0])
+            return SEI.LadderResult("model_answer", "skipped", skip_reason="t1-landing")
+
+        pending = SEI._Pending(root=pending_root)
+        SEI._run_time_boxed(function, 30.0, pending, lambda: None)
+        return seen[0]
+
+    with plan_fallback.interactive():
+        assert check_in(root) == "openrouter"
+    assert check_in(root) in CHATGPT_PLAN_PROVIDER_NAMES
+    assert _in_thread(lambda: check_in(root)) in CHATGPT_PLAN_PROVIDER_NAMES
