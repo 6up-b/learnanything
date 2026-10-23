@@ -2913,3 +2913,18 @@ sequential thirds of the round-8 gate set):
 | references, under `env -i` | regenerated; 0 errors; both vault validators pass |
 
 No ingest file is touched. Every Python run outside pytest ran under `env -i`. No model call was made.
+
+## AD follow-up (post-landing)
+
+The follow-up verify of `a757d663e` is CLEAN: items 1-4 hold. It recorded five Lows. They are
+deliberately not fixed before the landing, and are queued for a later AD follow-up:
+
+- **L1:** make the reading-event rule fail closed. An unknown interaction-event kind, or an unknown
+  tutor-question context, should be treated as a reading event when it names a withheld reading,
+  not as attempt evidence.
+- **L2:** the item-4 test should use a hint-equivalent help question, so that the outcome category
+  genuinely differs between the withheld and kept cases.
+- **L3:** `protected_reading_counts` misses some withheld rows, so the report's count is low.
+- **L4:** one constant for the reading contexts, shared by the sweep's `TUTOR_CONTEXTS`, the
+  view's `READING_QUESTION_CONTEXTS` and the oracle.
+- **L5:** the oracle (`delete_reading`) misses `ext:span` retrieval keys in recorded contexts.
