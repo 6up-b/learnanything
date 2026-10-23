@@ -186,3 +186,44 @@ animates.
    offers). Default: no; new questions carry them.
 
 ## 6. Gate (implement step; owner rule 2026-10-17: targeted only)
+
+Run on `eadd382a7` (the tree this section is committed on adds only this section), with
+`TMPDIR=fixtures-local/tmp`; every pytest/npm/vitest command inside
+`systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G -- …` (the 2026-10-23 memory rule),
+pytest `-n 6`, vitest `--maxWorkers=4`, one test command at a time. No model was called; no vault copy was run.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **30 kept, 0 broken** |
+| targeted pytest, 80 files (list below) | **2,204 passed, 1 skipped** (a pre-existing golden-writer skip in `test_figures_switch_off.py`), 243 s |
+| `npm install`; `npm run typecheck` | ok, no errors |
+| targeted vitest: `src/screens/reader` (all), `src/screens/ReaderScreen.*`, `src/app/App.wrapUpSkim.test.tsx`, `src/screens/attentionBudget.test.tsx` | **79 files, 762 passed** |
+| `npm run frontend:build` | ok (the existing chunk-size warning only) |
+| `cargo check` | not run: nothing under `src-tauri` changed |
+| DB reference generate/validate; durability lane | not run: no migration, no schema or connection change |
+
+New tests: `tests/test_figure_panels.py` 49, `tests/test_figure_offers.py` 28, `figurePanels.test.ts` 32,
+`advancedPanels.test.tsx` 12. Changed pins: `tests/test_figures_rpc.py` (16), `tests/test_figures_switch_off.py`,
+`tests/test_reader_tutor_switch_off.py`, `tests/test_reading_paths.py`.
+
+Pytest files run (for reading the landing gate against): the figure files
+(`test_figure_grammar`, `test_figure_offers`, `test_figure_panels`, `test_figure_predictions`,
+`test_figure_region`, `test_figure_revisions`, `test_figure_verification`, `test_figures_codex_review`,
+`test_figures_final_round`, `test_figures_fix_round2`..`5`, `test_figures_migration`, `test_figures_rpc`,
+`test_figures_scope_redesign`, `test_figures_switch_off`); library ask (`test_library_ask`,
+`test_library_ask_expand`, `test_library_ask_review`, `test_library_asks_migration`); the Reader tutor
+(`test_reader_tutor_offers`, `test_reader_tutor_retrieval`, `test_reader_tutor_switch_off`, `test_tutor_qa`,
+`test_tutor_citations`, `test_tutor_tool_requests`, `test_tutor_delivery_fixes`, `test_source_retrieval_tutor`,
+`test_source_retrieval_search`, `test_reader_rw1c_review`); the organizer and roles (`test_roles_judges`,
+`test_roles_switch_off`, `test_rw4_kill_switches`, `test_source_roles`, `test_reader_find_sources_callers`,
+`test_rw4d_rw3b_composition`, `test_compare_sources_keep`, `test_compare_keep_switch_off`,
+`test_rw2c_switch_off`, `test_reading_paths`, `test_reading_step_switch`); the report and sidecar
+(`test_reader_report`, `test_reader_cues_cli_report`, `test_sidecar_reader`, `test_sidecar_source_retrieval`,
+`test_sidecar_registry`, `test_reader_inquiry_kill_switch`, `test_reader_intent`); exam protection and
+routes (`test_exam_protection`, `test_exam_protection_review`, `test_judge_routes`, `test_codex_tool_lockdown`,
+`test_codex_lockdown_round2`, `test_codex_lockdown_round3`, `test_codex_output_schema`,
+`test_ai_tool_isolation`, `test_structured_transport_parity`); and the contract pins (`test_config_refactor`
+(defaults snapshot), `test_registry_audit`, `test_cli_help_snapshot`, `test_sidecar_serializer_snapshot`,
+`test_desktop_rpc_contract`, `test_mobile_allowlist`, `test_architecture`, `test_table_roles`,
+`test_coordinated_migrations`, `test_tracked_fixture_databases`, `test_sqlite_file_copies`).
