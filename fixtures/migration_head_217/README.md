@@ -1,13 +1,8 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-<<<<<<<< HEAD:fixtures/migration_head_214/README.md
-214. Migration 167 adds the learner-field F1 read model
-========
-217 (214 is held by adaptive difficulty AD2+AD3 on its own branch; the
-runner has no contiguity rule, so this fixture has 215, 216 and 217 but no
-214). Migration 167 adds the learner-field F1 read model
->>>>>>>> main:fixtures/migration_head_217/README.md
+217, adaptive difficulty AD2+AD3's 214 included (the runner is set-based, so 214
+applied after 215-217 at the compose round). Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -229,9 +224,8 @@ indexes and no-update and no-delete triggers) and `item_forecast_payloads`
 migration 206's `forecast_receipts`, no table of their own. The new tables
 are empty here.
 
-<<<<<<<< HEAD:fixtures/migration_head_214/README.md
 Migration 214 comes from adaptive difficulty AD2+AD3 (`adaptive-difficulty/ad23`,
-practice in the band and the subject view live, one successor `mvp-0.28`;
+practice in the band and the subject view live, one successor `mvp-0.30` on DL2's `mvp-0.29`;
 docs/reviews/adaptive-difficulty-ad23.md): it adds `ad_selections` and
 `ad_dose_offers` (RAW_LEDGER), `ad_commission_results`, `ad_relatedness_runs`
 and `ad_coupling_versions` (RECEIPT; each of the five append-only by trigger,
@@ -243,21 +237,8 @@ commission was drawn in (its expiry starts when that job finishes) and
 commission expired (both added inside 214 at the stage's fix round 5, Codex
 verify F14 and F15); at fix round 6 `ad_commission_results` gained
 `features_match` and its uniqueness became `UNIQUE(practice_item_id)` (one
-owner per landed item, verify F15 and F16). At the AD23 redesign's round 2 (2026-10-21) every AD artefact table AD reads back gained `protection_epoch` (the protection epoch its row was computed under): `ad_selections`, `ad_commission_results` and `ad_dose_offers` (a last column inside 214), `item_serve_inputs` (an added column), and `ad_reading_opportunities`, rebuilt with the same columns, indexes and triggers plus `protection_epoch`, its two uniqueness constraints gaining the epoch (a receipt of another epoch is swept again under the current projection). Existing rows keep a null epoch. The new tables are empty here.
+owner per landed item, verify F15 and F16). At the AD23 redesign's round 2 (2026-10-21) every AD artefact table AD reads back gained `protection_epoch` (the protection epoch its row was computed under): `ad_selections`, `ad_commission_results` and `ad_dose_offers` (a last column inside 214), `item_serve_inputs` (an added column), and `ad_reading_opportunities`, rebuilt with the same columns, indexes and triggers plus `protection_epoch`, its two uniqueness constraints gaining the epoch (a receipt of another epoch is swept again under the current projection). Existing rows read the empty epoch. The new tables are empty here.
 
-Built as a backup-API copy of the base's `migration_head_213` (git
-`29a49b5e6`, the committed head extracted from git) with only 214 applied,
-through `learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade
-allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
-`journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
-`foreign_key_check` empty), copied into place with the backup API, with no
-companion files; `migration_head_213` was renamed to this directory. Rebuilt
-the same way at fix rounds 5 and 6 and at the redesign's round 2 (the columns and uniqueness above, inside 214; round 2 under the test-helper allowance, `UPGRADE_TEST_HELPER`, the same base blob): the
-base's `migration_head_213` of git `29a49b5e6`, only 214 applied,
-`wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`, header bytes 1/1,
-`integrity_check` ok, `foreign_key_check` empty, no companion files.
-`migration_head_213` was built as a backup-API copy of the base's `migration_head_212` (git
-========
 Migration 215 comes from reader workbench RW3b (`reader/rw3b`, discovered
 cues, docs/reviews/reader-workbench-RW3b.md): it adds `passage_links`
 (WORKFLOW, append-only by trigger: the cue judge's picks per target state and
@@ -285,7 +266,14 @@ readout and the one-time "what changed?", unique per figure and prediction,
 an index, and the no-delete and explanation-once triggers). Nothing is
 altered. Both tables are empty here.
 
-Rebuilt at the RW5a landing (`merge/rw5a-onto-main`) as a backup-API copy of
+Rebuilt at adaptive difficulty AD2+AD3's compose round (`adaptive-difficulty/ad23`, the merge
+of main `558e85ab1`) as a backup-API copy of main's `migration_head_217` with only 214 applied,
+through `learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade allowance
+(`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`, header
+bytes 1/1, `integrity_check` ok, `foreign_key_check` empty), copied into place with the backup
+API, with no companion files. The directory keeps its name: the highest version present is still
+217. The branch's own `migration_head_214` was not kept.
+Before that, rebuilt at the RW5a landing (`merge/rw5a-onto-main`) as a backup-API copy of
 main's `migration_head_217` (git `c80c54cbb`) with only 216 applied, through
 `learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade
 allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
@@ -310,13 +298,12 @@ allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
 `foreign_key_check` empty), copied into place with the backup API, with no
 companion files; `migration_head_213` was renamed to that directory.
 `migration_head_213` was itself a backup-API copy of the base's `migration_head_212` (git
->>>>>>>> main:fixtures/migration_head_217/README.md
 `16a0071f2`) with only 213 applied, through
 `learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade
 allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
 `journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
 `foreign_key_check` empty), copied into place with the backup API, with no
-companion files; `migration_head_212` was renamed to that directory. Rebuilt
+companion files; `migration_head_212` was renamed to this directory. Rebuilt
 the same way at AD1 fix round 4 (V5, `answer_mode` added inside 213): the
 same `migration_head_212` of git `16a0071f2`, only 213 applied,
 `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`, header bytes
