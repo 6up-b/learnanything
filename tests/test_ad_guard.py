@@ -655,3 +655,23 @@ def test_a_planted_read_swallowed_in_the_dose_decision_yields_no_decision_and_no
     assert O.is_denial(raised.value), raised.value
     with sqlite3.connect(paths.sqlite_path) as connection:
         assert connection.execute("SELECT COUNT(*) FROM ad_dose_offers").fetchone()[0] == 0
+
+
+def test_an_unclassified_table_is_refused_in_every_scope(tmp_path):
+    """Round 8 (F4): a table the registry has not classified is refused inside an operation in every
+    scope, the rules' included (failed before at 8c404d2b2: the rules' scopes read it)."""
+
+    from learnloop.adaptive_difficulty import protected_tables as T
+
+    paths, vault, repository = _vault(tmp_path)
+    with sqlite3.connect(paths.sqlite_path) as raw:
+        table = next(str(row[0]) for row in raw.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+            if str(row[0]) not in T.ROLES)
+    for scope in ("view", "predicate", O.DERIVE):
+        with repository.atomic():
+            connection = repository.connection()
+            with contextlib.suppress(_POISONED), O.ad_operation(vault, repository):
+                with O.rules(scope):
+                    with pytest.raises(sqlite3.DatabaseError, match=DENIED):
+                        connection.execute(f"/* ad-rules */ SELECT COUNT(*) FROM {table}").fetchone()

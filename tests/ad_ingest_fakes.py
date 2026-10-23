@@ -108,38 +108,44 @@ def ingest_ir(elements: Sequence[Element], *, style: str) -> Any:
 
 def build_vault(root, readings: dict[str, tuple[str, Sequence[Element]]], *, learning_object: str,
                 cite: Sequence[tuple[str, str]] = (), viewed: Sequence[tuple[str, str]] = (),
-                completed: Sequence[tuple[str, str]] = (), items: Sequence[str] = ("pi_m1a",)):
-    """A vault whose source has ``readings`` (extraction id -> (style, elements)), each persisted
-    from the production converter; ``learning_object`` cites ``cite`` (extraction, span id as
-    ingest numbered it), the Reader viewed ``viewed`` and completed the sections ``completed``."""
+                completed: Sequence[tuple[str, str]] = (), items: Sequence[str] = ("pi_m1a",),
+                books: dict[str, str] | None = None):
+    """A vault whose sources have ``readings`` (extraction id -> (style, elements)), each persisted
+    from the production converter as a reading of its book (``books``: extraction id -> book; by
+    default one book, so its readings are readings of one revision); ``learning_object`` cites
+    ``cite`` (extraction, span id as ingest numbered it), the Reader viewed ``viewed`` and completed
+    the sections ``completed``."""
 
     from tests.ad23_fakes import ad23_vault
     from tests.test_source_inventory import _persist
 
     paths = ad23_vault(root, items=tuple(items))
     made = _iso(T0 - timedelta(days=7))
+    book_of = {extraction: (books or {}).get(extraction, "pr") for extraction in readings}
     with closing(connect(paths.sqlite_path)) as connection:
-        connection.execute("INSERT INTO source_artifacts(id, acquisition_kind, canonical_uri, created_at, updated_at) "
-                           "VALUES ('src_pr', 'pdf', 'file:///pr.pdf', ?, ?)", (made, made))
-        connection.execute("INSERT INTO source_revisions(id, source_id, asset_hash, created_at) "
-                           "VALUES ('rev_pr', 'src_pr', 'sha256:pr', ?)", (made,))
+        for book in sorted(set(book_of.values())):
+            connection.execute("INSERT INTO source_artifacts(id, acquisition_kind, canonical_uri, created_at, "
+                               "updated_at) VALUES (?, 'pdf', ?, ?, ?)", (f"src_{book}", f"file:///{book}.pdf", made, made))
+            connection.execute("INSERT INTO source_revisions(id, source_id, asset_hash, created_at) VALUES (?, ?, ?, ?)",
+                               (f"rev_{book}", f"src_{book}", f"sha256:{book}", made))
         connection.commit()
     repository = Repository(paths.sqlite_path)
     for version, (extraction, (style, elements)) in enumerate(readings.items(), start=1):
         ir = ingest_ir(elements, style=style)
         ir = ir.model_copy(update={"extractor_version": f"{ir.extractor_version}.{version}"})
-        _persist(repository, ir, revision_id="rev_pr", extraction_id=extraction)
+        _persist(repository, ir, revision_id=f"rev_{book_of[extraction]}", extraction_id=extraction)
     if cite:
         path = paths.learning_object_path("linear-algebra", learning_object)
         payload = yaml.safe_load(path.read_text(encoding="utf-8"))
         payload["provenance"] = {"origin": "human", "source_refs": [{
-            "ref_type": "canonical_source", "ref_id": "src_pr", "source_id": "src_pr", "extraction_id": extraction,
-            "span_ids": [span], "locator": f"span:{extraction}/{span}"} for extraction, span in cite]}
+            "ref_type": "canonical_source", "ref_id": f"src_{book_of[extraction]}", "source_id": f"src_{book_of[extraction]}",
+            "extraction_id": extraction, "span_ids": [span], "locator": f"span:{extraction}/{span}"}
+            for extraction, span in cite]}
         write_yaml(path, payload)
     for number, (extraction, span) in enumerate(viewed):
         repository.insert_source_exposure_event(
-            {"context": "reader", "extraction_id": extraction, "span_id": span, "revision_id": "rev_pr",
-             "source_id": "src_pr", "entity_type": "reader", "entity_id": f"visit_pr_{number}",
+            {"context": "reader", "extraction_id": extraction, "span_id": span, "revision_id": f"rev_{book_of[extraction]}",
+             "source_id": f"src_{book_of[extraction]}", "entity_type": "reader", "entity_id": f"visit_pr_{number}",
              "created_at": _iso(T0 - timedelta(hours=5, minutes=number))})
     for extraction, section in completed:
         repository.upsert_reader_section_progress(extraction_id=extraction, section_id=section, spans_seen=1,
