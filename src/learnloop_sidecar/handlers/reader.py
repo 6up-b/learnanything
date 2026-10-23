@@ -1896,6 +1896,8 @@ def enqueue_exercise_import(ctx: SidecarContext, vault, repository, params: Read
     and the workbench's "work through this" on a selection (RW2a, UX S2),
     which opens the problem at once and binds it when this job lands."""
 
+    from learnloop.ai import plan_fallback
+    from learnloop.content.authoring.source_exercise_import import PRICE_SETTING
     from learnloop.content.sources.source_outline import resolve_extraction_id as _resolve
     from learnloop_sidecar.handlers.ai_providers import ready_canonical_ingest_provider
 
@@ -1913,8 +1915,10 @@ def enqueue_exercise_import(ctx: SidecarContext, vault, repository, params: Read
 
     # Gate on the same canonical_ingest route the exercise-import job resolves
     # (RunnerServices.exercise_import_client), so readiness honors the configured
-    # provider instead of hardcoding Codex.
-    _provider, runtime, client = ready_canonical_ingest_provider(vault)
+    # provider instead of hardcoding Codex. It is resolved under the import's
+    # own price, as the job is (fix round L1): no offer or grant the job refuses.
+    with plan_fallback.priced_by(PRICE_SETTING):
+        _provider, runtime, client = ready_canonical_ingest_provider(vault)
     if client is None:
         raise SidecarError(
             "provider_unavailable",
@@ -2187,7 +2191,12 @@ def reader_reconnect_answer(ctx: SidecarContext, params: ReaderReconnectAnswerIn
             response["status"] = "exists"
             response["question"] = _inquiry_question_payload(vault, repository, existing)
         else:
-            _provider, runtime, client = ready_canonical_ingest_provider(vault)
+            from learnloop.ai import plan_fallback
+
+            # Under the passage check's own price, as its job resolves it (fix
+            # round L1): no offer or grant the job would refuse.
+            with plan_fallback.priced_by(RQC.PASSAGE_CHECK_PRICE_SETTING):
+                _provider, runtime, client = ready_canonical_ingest_provider(vault)
             if client is None:
                 response["status"] = "provider_unavailable"
                 response["message"] = (

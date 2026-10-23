@@ -1223,7 +1223,12 @@ def _import_source_exercise(
                          "text": solution["text"][:4000], "instructions": _BOOK_SOLUTION_INSTRUCTIONS}
     author_client = clients.get("authoring")
     if author_client is None:
-        resolved = ready_client_for_task(Path(root), vault.config, "authoring")
+        from learnloop.ai import plan_fallback
+
+        # Held to the import's price, as the job's client is (fix round L1):
+        # no offer or grant the authoring admission would refuse.
+        with plan_fallback.priced_by(PRICE_SETTING):
+            resolved = ready_client_for_task(Path(root), vault.config, "authoring")
         if not resolved.ready or resolved.client is None:
             return fail("failed", f"no authoring route is ready: {getattr(resolved.runtime, 'message', '')}")
         author_client = resolved.client

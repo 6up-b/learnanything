@@ -711,6 +711,10 @@ def _plan_unavailable(
         )
         if candidate.runtime.ready:
             return candidate
+    if plan_fallback.offers_suppressed():
+        # A status read or readiness probe makes no offer (fix round L2), so
+        # its message points at no "Use OpenRouter instead" banner either.
+        return primary
     plan_fallback.note_unavailable(task, offered,
                                    signed_out=primary.runtime.status == "provider_auth_required")
     message = " ".join(part for part in (primary.runtime.message, plan_fallback.offer_sentence()) if part)

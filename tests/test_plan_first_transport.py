@@ -1238,3 +1238,159 @@ def test_rr_f3_the_plan_status_lists_the_sessions_grants_for_a_lasting_stop(tmp_
     assert rpc.chatgpt_plan_status(ctx, EmptyParams())["openrouterGrantedTasks"] == ["grading", "tutor_qa"]
     plan_fallback.revoke(vault)
     assert rpc.chatgpt_plan_status(ctx, EmptyParams())["openrouterGrantedTasks"] == []
+
+
+def _rpc_on(root: Path):
+    """A loaded sidecar and a JSON-RPC caller that goes through the server (offers attached as the desktop sees them)."""
+
+    from learnloop_sidecar import handlers  # noqa: F401 - populates the registry
+    from learnloop_sidecar.context import SidecarContext
+    from learnloop_sidecar.server import _handle
+
+    ctx = SidecarContext()
+    ctx.load(root, maintenance=False)
+
+    def rpc(method_name: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        return _handle(ctx, {"jsonrpc": "2.0", "id": 1, "method": method_name, "params": params or {}})
+
+    return ctx, rpc
+
+
+def _gate_outcome(response: dict[str, Any]) -> tuple[str, str, bool]:
+    """(status, message, offered) of a priced feature's RPC gate, whether it raised or degraded."""
+
+    if "error" in response:
+        data = response["error"]["data"]
+        details = data.get("details") or {}
+        return data["code"], response["error"]["message"], "fallback_available" in details
+    result = response["result"]
+    return str(result["status"]), str(result.get("message") or ""), "fallbackAvailable" in result
+
+
+@pytest.mark.parametrize("feature", ["exercise_import", "inquiry_quick_check", "selection_question"])
+def test_fix_l1_the_rpc_gates_of_priced_features_offer_and_honour_no_grant_their_job_would_refuse(
+        tmp_path, monkeypatch, feature):
+    """Fix round L1: reader.import_exercise, reader.reconnect_answer (quick check) and
+    reader.active_question resolve their gate under their own price, as their jobs do."""
+
+    from types import SimpleNamespace
+
+    from learnloop.content.pipeline.jobs import DurableIngestJobs
+    from learnloop.reader import reader_dialogue as RD
+    from learnloop_sidecar.handlers import reader as reader_handlers
+    from tests.openai_fakes import install_fake_openai
+    from tests.test_reader_guidance import _setup as guide_setup
+    from tests.test_sidecar_reader import _setup as reader_setup
+
+    fake_openai = install_fake_openai(monkeypatch, '{"ok": true, "note": "openrouter"}')
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-never-sent")
+    queued: list[str] = []
+    for name in ("enqueue_reader_exercise_import", "enqueue_reader_inquiry_check",
+                 "enqueue_reader_selection_check"):
+        monkeypatch.setattr(DurableIngestJobs, name,
+                            lambda self, _name=name, **_kwargs: queued.append(_name) or "batch_fix_l1")
+    monkeypatch.setattr(reader_handlers, "ready_tutor_qa_provider",
+                        lambda vault: ("stub", SimpleNamespace(ready=True), RD.StubReaderClient()))
+    if feature == "selection_question":
+        root = guide_setup(tmp_path)[0].root
+        setting = "reader_inquiry.metered_price_per_million"
+    else:
+        root = reader_setup(tmp_path)
+        setting = ("source_service.llm_price_per_million" if feature == "exercise_import"
+                   else "reader_inquiry.metered_price_per_million")
+    asks: list[int] = []
+
+    def call(rpc) -> tuple[str, str, bool]:
+        if feature == "exercise_import":
+            response = rpc("reader.import_exercise", {"extractionId": "ext1", "rawSelection": {
+                "nodes": [{"spanId": "s1", "start": 0, "end": 10}]}})
+        elif feature == "selection_question":
+            response = rpc("reader.active_question", {"extractionId": "ext1", "spanIds": ["s1"], "style": "why_step"})
+        else:
+            asks.append(len(asks))
+            asked = rpc("reader.ask", {"extractionId": "ext1", "spanId": "s1", "question": f"Root {len(asks)}?"})
+            response = rpc("reader.reconnect_answer", {"extractionId": "ext1",
+                                                       "exchangeId": asked["result"]["readerAnswerEventId"],
+                                                       "answer": "quick_check", "via": "rail"})
+        return _gate_outcome(response)
+
+    _ctx, rpc = _rpc_on(root)
+    # Unpriced: no "Use OpenRouter instead" the job would refuse, and the setting is named.
+    status, message, offered = call(rpc)
+    assert status == "provider_unavailable" and not offered, message
+    assert setting in message and "can do this instead" not in message, message
+    assert "canonical_ingest" not in plan_fallback.offered_tasks(root)
+    # The question build's grant does not open the gate either: the job would refuse it.
+    _grant(root, ["canonical_ingest"])
+    status, message, _offered = call(rpc)
+    assert status == "provider_unavailable" and setting in message, message
+    assert queued == []
+    # Priced: the offer is made, and once granted the gate passes (an ordinary metered request).
+    plan_fallback.revoke_all()
+    document = tomlkit.parse((root / "learnloop.toml").read_text(encoding="utf-8"))
+    section, key = setting.split(".")
+    if section not in document:
+        document[section] = tomlkit.table()
+    document[section][key] = 1.0
+    (root / "learnloop.toml").write_text(tomlkit.dumps(document), encoding="utf-8")
+    _ctx, rpc = _rpc_on(root)
+    status, message, offered = call(rpc)
+    assert status == "provider_unavailable" and offered and "can do this instead" in message, message
+    _grant(root, ["canonical_ingest"])
+    status, message, _offered = call(rpc)
+    assert status == "queued" and len(queued) == 1, message
+    assert all(instance.requests == [] for instance in fake_openai.instances)  # built, never called
+
+
+def test_fix_l1_an_exercise_imports_own_authoring_route_is_held_to_its_price(tmp_path, monkeypatch):
+    """Fix round L1: a harvest or need import resolves authoring itself (no client passed);
+    it makes no offer and takes no grant while source_service.llm_price_per_million is unset."""
+
+    from learnloop.content.authoring import source_exercise_import as SEI
+    from tests.openai_fakes import install_fake_openai
+    from tests.source_service_fakes import build_textbook_vault, set_config
+
+    fake_openai = install_fake_openai(monkeypatch, '{"ok": true, "note": "openrouter"}')
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-never-sent")
+    paths, repository, spans = build_textbook_vault(tmp_path / "textbook")
+    set_config(paths, "source_service", exercise_verification=False)
+
+    def run(span):
+        with plan_fallback.collecting() as offers:
+            result = SEI.import_source_exercise(paths.root, repository, extraction_id="ext_text", span_ids=[span],
+                                                caller="harvest", clients={})
+        return result, offers.hint()
+
+    result, hint = run(spans["exercises"][1])
+    assert result["status"] == "failed" and hint is None, (result, hint)
+    assert "no authoring route is ready" in result["reason"]
+    assert "source_service.llm_price_per_million" in result["reason"]
+    _grant(paths.root, ["authoring"])
+    result, _hint = run(spans["exercises"][2])
+    assert result["status"] == "failed" and "no authoring route is ready" in result["reason"], result
+    assert all(instance.requests == [] for instance in fake_openai.instances)
+
+
+def test_fix_l2_a_quiet_status_read_never_points_at_an_offer_it_did_not_make(tmp_path, monkeypatch):
+    """Fix round L2: under quiet() (either kind) the unavailable message carries no
+    "Use OpenRouter instead" sentence and the runtime no fallback fields; a real offer keeps both."""
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-never-sent")
+    vault = _vault(tmp_path)
+    config = load_config(vault / "learnloop.toml")
+    sentence = plan_fallback.offer_sentence()
+    for quiet in (plan_fallback.quiet(), plan_fallback.quiet(honour_grants=True)):
+        with quiet:
+            resolved = ready_client_for_task(vault, config, "canonical_ingest")
+        assert not resolved.ready
+        assert sentence not in (resolved.runtime.message or "") and "OpenRouter" not in (resolved.runtime.message or "")
+        assert resolved.runtime.fallback_available is None and "fallback_available" not in resolved.runtime.as_dict()
+    with plan_fallback.collecting() as offers:
+        offered = ready_client_for_task(vault, config, "canonical_ingest")
+    assert sentence in offered.runtime.message and offered.runtime.fallback_available == "openrouter"
+    assert offers.hint()["fallback_tasks"] == ["canonical_ingest"]
+    # The connection sheet (a quiet status read on every vault load) says nothing about a banner.
+    _ctx, rpc = _rpc_on(vault)
+    status = rpc("get_ai_connection")["result"]
+    assert status["canAuthor"] is False and "fallbackAvailable" not in status
+    assert "OpenRouter" not in (status["message"] or ""), status["message"]

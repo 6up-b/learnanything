@@ -213,7 +213,17 @@ def quiet(*, honour_grants: bool = False) -> Iterator[None]:
 
 
 def _collector() -> OfferCollector | None:
-    return None if _QUIET.get() or _NO_OFFERS.get() else _COLLECTOR.get()
+    return None if offers_suppressed() else _COLLECTOR.get()
+
+
+def offers_suppressed() -> bool:
+    """True inside :func:`quiet` (either kind): routes resolved here make no offer.
+
+    The unavailable message then says nothing about "Use OpenRouter
+    instead" either (fix round L2): no banner shows beside a status read.
+    """
+
+    return _QUIET.get() or _NO_OFFERS.get()
 
 
 @contextmanager
@@ -420,6 +430,7 @@ __all__ = [
     "offer_profile",
     "offer_sentence",
     "offered_tasks",
+    "offers_suppressed",
     "priced_by",
     "quiet",
     "relay_hint",
