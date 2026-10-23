@@ -68,6 +68,10 @@ vi.mock("../screens/ReviewScreen", () => ({ ReviewScreen: stub("review-stub") })
 vi.mock("../screens/reader/WrapUpOffer", () => ({ WrapUpOffer: () => null }));
 
 import { App } from "./App";
+import { StrictMode } from "react";
+import { activeShell } from "./algoConfig";
+import { keyScope } from "./keyScope";
+import { screenLeavesKey } from "./keymap";
 
 let store: Map<string, string>;
 
@@ -350,6 +354,24 @@ describe("the loading and startup-error frames are classic through and through (
     await screen.findByRole("navigation", { name: "Places" });
     expect(document.querySelector(".titlebar")?.getAttribute("data-key-scope")).toBe("window");
   });
+
+  // Round-6 verify (Low): under React.StrictMode, as the owner runs the dev
+  // app, the mount-only cleanup cleared the rendered-shell mirror right after
+  // the first commit, so the classic loading frame's key scopes and target
+  // rule fell back to the config's simple shell.
+  it("keeps the loading frame classic under React.StrictMode, after its first commit too", async () => {
+    stubs.loadGate = new Promise<void>(() => undefined);
+    render(
+      <StrictMode>
+        <App />
+      </StrictMode>
+    );
+    await flush();
+    expect(activeShell()).toBe("classic");
+    expect(screenLeavesKey(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }))).toBe(false);
+    expect(keyScope("window")).toEqual({});
+  });
+
 
   it("draws no data-key-scope in the startup-error frame", async () => {
     stubs.loadFails = true;

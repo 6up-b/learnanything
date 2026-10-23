@@ -322,9 +322,15 @@ export function App() {
   const shell: ShellMode = snapshot ? algoConfig().shell : "classic";
   // Mirrored for what follows the shell on screen (key scopes, the screens'
   // target rule), so the loading and startup-error frames are classic too
-  // (fix round 6). Idempotent; cleared when the App unmounts.
+  // (fix round 6). Set while rendering, so children drawn in the same pass
+  // read it, and again after each commit: React.StrictMode (the dev app)
+  // runs every effect's cleanup once right after mounting, and a mount-only
+  // effect then left the mirror cleared. Cleared when the App unmounts.
   setRenderedShell(shell);
-  useEffect(() => () => setRenderedShell(null), []);
+  useEffect(() => {
+    setRenderedShell(shell);
+    return () => setRenderedShell(null);
+  }, [shell]);
   const shellRef = useRef<ShellMode>(shell);
   shellRef.current = shell;
   const simple = shell === "simple";
