@@ -13,6 +13,7 @@ import { PageRangeSelector, pageSelectionError } from "../components/PageRangeSe
 import { useSourceFileDrop } from "../components/useSourceFileDrop";
 import { AsciiLoadingBar } from "../components/AsciiLoadingBar";
 import { errorMessage } from "../errors";
+import { screenLeavesKey } from "../app/keymap";
 
 // Ingest screen — single merged surface over durable ingest v2 (§5.7/§6).
 // One entry point: paste a source, canonical imports go through the durable
@@ -962,6 +963,7 @@ function IngestHome({
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
+      if (screenLeavesKey(event)) return;
       // The outline modal owns the keyboard while it is open (its own esc steps
       // plan → outline → close); don't also run the ingest screen's shortcuts.
       if (overlayActive) return;

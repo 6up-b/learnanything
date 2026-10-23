@@ -35,6 +35,7 @@ import { RepairTraceBlocks } from "../components/RepairTrace";
 import type { AttemptTraceDto } from "../api/dto";
 import { algoConfig, masteryTone } from "../app/algoConfig";
 import { CompareMethods } from "./feedback/CompareMethods";
+import { screenLeavesKey } from "../app/keymap";
 import { useNextQueueItem } from "../app/autoAdvance";
 import { nextPlanKeyLabel, useNextPlanStep } from "../app/dailyPlan";
 import type { PlanStepDto } from "../api/dto";
@@ -2169,6 +2170,8 @@ export function FeedbackScreen({
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (keysSuspended) return;
+      // Simple shell: Ctrl+O is Add a file, not "open notes" (fix round 2).
+      if (screenLeavesKey(event)) return;
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea") return;
       if (!feedback) {

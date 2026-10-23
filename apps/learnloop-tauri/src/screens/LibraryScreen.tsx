@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { api } from "../api/client";
-import { useCachedQuery } from "../api/useCachedQuery";
+import { useCachedQuery, useReportQueryError } from "../api/useCachedQuery";
 import { TAG } from "../api/queryTags";
 import type {
   CoverageRollupDto,
@@ -17,6 +17,9 @@ import { highlightFor } from "../components/highlight";
 import { ProvenancePanel } from "../components/ProvenancePanel";
 import { LiveMarkdownEditor } from "../render/LiveMarkdownEditor";
 import { SqliteBrowser } from "./SqliteBrowser";
+import { shellMode, simpleShell, type ShellMode } from "../app/shell";
+import { screenLeavesKey } from "../app/keymap";
+import type { ReportError } from "../errors";
 
 // A vault selection is either an on-disk file or a (virtual) proposal payload doc.
 type Selection =
@@ -82,6 +85,51 @@ function firstFilePath(nodes: VaultTreeNode[]): string | null {
   return null;
 }
 
+// UX Phase 2 (usability round 1, m8: "Notes & files opens previewing
+// vault.lock"): the tree lists directories first, so a vault's first file is
+// a machine file. The simple shell opens on the first note a person wrote,
+// else the first file that isn't a lock or a database; classic keeps the
+// first file.
+function isMachineFile(node: VaultTreeNode): boolean {
+  return node.kind === "sqlite" || /\.lock$|\.sqlite(?:3)?(?:-wal|-shm|-journal)?$|\.db$/i.test(node.name);
+}
+
+function firstMatchingPath(nodes: VaultTreeNode[], test: (node: VaultTreeNode) => boolean): string | null {
+  for (const node of nodes) {
+    if (node.type === "file" && test(node)) return node.path;
+    if (node.children) {
+      const nested = firstMatchingPath(node.children, test);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+// UX Phase 2, Codex review F1 (spec Q18: "editing the live database from a
+// file browser is a footgun"): in the simple shell the learner's tree does
+// not list the library's databases or their journals; Under the hood → Data
+// opens them, read-only by default. Classic keeps the tree exactly.
+function isDatabaseFile(node: VaultTreeNode): boolean {
+  return node.type === "file" && (node.kind === "sqlite" || /\.(?:sqlite3?|db)(?:-wal|-shm|-journal)?$/i.test(node.name));
+}
+
+export function learnerTree(nodes: VaultTreeNode[], shell: ShellMode): VaultTreeNode[] {
+  if (shell === "classic") return nodes;
+  const prune = (list: VaultTreeNode[]): VaultTreeNode[] =>
+    list
+      .filter((node) => !isDatabaseFile(node))
+      .map((node) => (node.children ? { ...node, children: prune(node.children) } : node));
+  return prune(nodes);
+}
+
+export function initialFilePath(nodes: VaultTreeNode[], shell: ShellMode): string | null {
+  if (shell === "classic") return firstFilePath(nodes);
+  return (
+    firstMatchingPath(nodes, (node) => /\.(md|markdown)$/i.test(node.name)) ??
+    firstMatchingPath(nodes, (node) => !isMachineFile(node))
+  );
+}
+
 function dirPaths(nodes: VaultTreeNode[], acc: string[] = []): string[] {
   for (const node of nodes) {
     if (node.type === "dir") {
@@ -129,7 +177,7 @@ export function LibraryScreen({
   onNoteSelected,
   onInspect
 }: {
-  onError: (message: string) => void;
+  onError: ReportError;
   focus?: { patchId: string; itemId: string } | null;
   onFocusConsumed?: () => void;
   /** Vault-relative file to select on open (feedback "View in Library" jump). */
@@ -144,7 +192,12 @@ export function LibraryScreen({
   // Per-set coverage rollups stay lazy (CoverageSection) so a long library
   // does not fan out N heavy coverage calls on mount.
   const treeQuery = useCachedQuery(["get_vault_tree"], () => api.getVaultTree(), { tags: [TAG.library] });
-  const snapshot: VaultTreeSnapshot | null = treeQuery.data ?? null;
+  // The simple shell's tree leaves the databases out (F1, Q18); classic's is the snapshot itself.
+  const snapshot: VaultTreeSnapshot | null = useMemo(() => {
+    const data = treeQuery.data ?? null;
+    if (!data || shellMode() === "classic") return data;
+    return { ...data, tree: learnerTree(data.tree, "simple") };
+  }, [treeQuery.data]);
   const proposalsQuery = useCachedQuery(["get_proposals"], () => api.getProposals(), { tags: [TAG.proposals] });
   const proposals: ProposalsSnapshot | null = proposalsQuery.data ?? null;
   const sourceSetsQuery = useCachedQuery(["list_source_sets"], () => api.listSourceSets(), { tags: [TAG.sources] });
@@ -179,13 +232,26 @@ export function LibraryScreen({
       const deep = dirPaths(snapshot.tree).filter((path) => path.includes("/"));
       setCollapsed(new Set(deep));
     }
-    setSelected((current) => current ?? (firstFilePath(snapshot.tree) ? { kind: "file", path: firstFilePath(snapshot.tree)! } : null));
+    setSelected((current) => {
+      if (current) return current;
+      const first = initialFilePath(snapshot.tree, shellMode());
+      return first ? { kind: "file", path: first } : null;
+    });
   }, [snapshot]);
 
+  // Simple shell: each failed read is its own error, with its identity (the
+  // query) and a self-contained retry of that read, whatever this screen shows
+  // or whether it is still mounted (UX Phase 2 F3; fix rounds 2 and 3).
+  // Classic: base's one aggregated report, verbatim (fix round 4).
+  const simple = simpleShell();
+  useReportQueryError(treeQuery, onError, simple);
+  useReportQueryError(proposalsQuery, onError, simple);
+  useReportQueryError(sourceSetsQuery, onError, simple);
   const loadError = treeQuery.error ?? proposalsQuery.error ?? sourceSetsQuery.error;
   useEffect(() => {
+    if (simple) return;
     if (loadError) onError(loadError.message);
-  }, [loadError, onError]);
+  }, [loadError, onError, simple]);
 
   const reloadProposals = () => {
     proposalsQuery.refetch().catch((error) => onError((error as Error).message));
@@ -405,6 +471,9 @@ export function LibraryScreen({
         return;
       }
       if (inField) return;
+      // Simple shell: Ctrl+K is the palette, not "up" (fix round 2). Ctrl+S
+      // above is the Library's own chord and keeps working.
+      if (screenLeavesKey(event)) return;
       // SqliteBrowser owns its grid navigation while focus is inside it. Without
       // this boundary, j/k and the arrow keys would also move the Library tree.
       if (inSqliteBrowser) return;
@@ -1360,6 +1429,7 @@ function ProposalEditor({
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if (!item) return;
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
         event.preventDefault();

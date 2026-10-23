@@ -6,6 +6,7 @@ import { MarkdownMath } from "../render/MarkdownMath";
 import { ProbeBlockResult } from "./ProbeBlockResult";
 import { COLOR, FONT_MONO, Faint } from "./term";
 import { Card, Pill, SectionHeader } from "./ui";
+import { screenLeavesKey } from "../app/keymap";
 
 // Dialogue microprobe UI (probe redesign §8.1/§12): a short block of committed
 // turns — commit → decisive reason → minimally-changed case → counterexample —
@@ -204,6 +205,7 @@ export function DialogueProbePanel({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { modal: true })) return;
       if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && phase === "asking") {
         event.preventDefault();
         void submitTurn(false);

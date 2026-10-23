@@ -39,6 +39,7 @@ import { RecipeTreeEditor } from "./recipeedit/RecipeTreeEditor";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { ItemPresentation } from "./ItemPresentation";
 import { CommandOverlayFrame, commandOverlayActionStyle, learnloopShowOverlayWidth } from "./CommandOverlayFrame";
+import { screenLeavesKey } from "../app/keymap";
 import {
   CausalEpisodeInspector,
   formatCausalTarget,
@@ -122,6 +123,7 @@ export function InspectorOverlay({
   useEffect(() => {
     if (!entityId) return;
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { modal: true })) return;
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       const isInput = tag === "input" || tag === "textarea";
       if (event.key === "Escape") {

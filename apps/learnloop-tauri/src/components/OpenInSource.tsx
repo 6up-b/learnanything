@@ -7,6 +7,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
 import type { SpanNeighborDto, SpanViewDto } from "../api/dto";
 import { COLOR, Faint, FONT_MONO, Pill } from "./term";
+import { screenLeavesKey } from "../app/keymap";
 
 export function OpenInSource({
   extractionId,
@@ -30,6 +31,7 @@ export function OpenInSource({
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (screenLeavesKey(e, { modal: true })) return;
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", handler, true);

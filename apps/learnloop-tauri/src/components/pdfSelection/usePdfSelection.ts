@@ -22,6 +22,7 @@
 //   own click on a page, which focuses the pages.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { screenLeavesKey } from "../../app/keymap";
 import {
   blockAt,
   blockRange,
@@ -538,6 +539,7 @@ export function usePdfSelection(options: PdfSelectionOptions) {
   // Releasing Ctrl commits the union; Esc abandons it.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if (event.key === "Control" || event.key === "Meta") setMarqueeArmed(true);
       if (event.key === "Escape" && (marqueeBoxesRef.current.length || marqueeDragRef.current)) clearMarquee();
     };
@@ -575,6 +577,7 @@ export function usePdfSelection(options: PdfSelectionOptions) {
   useEffect(() => {
     if (!pressing && !sweeping) return;
     const onEscape = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event)) return;
       if (event.key !== "Escape") return;
       event.preventDefault();
       event.stopPropagation();

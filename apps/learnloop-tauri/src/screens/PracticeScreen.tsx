@@ -39,6 +39,7 @@ import { useAdaptiveHints } from "./practice/useAdaptiveHints";
 import { DifficultyRatingTap } from "./practice/DifficultyRatingTap";
 import { useFirstHintProgress } from "./practice/useFirstHintProgress";
 import type { DifficultyRating, FirstHintProgress } from "../api/dto";
+import { screenLeavesKey } from "../app/keymap";
 
 /** RW2a (D9): "Work in steps", remembered once chosen, on this device. */
 const WORK_IN_STEPS_KEY = "ll.workbench.workInSteps";
@@ -842,6 +843,7 @@ export function PracticeScreen({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if (vaultFrozen.current) return;
       // RW2a: in steps, the workbench owns the keys (Esc twice is Leave for now).
       if (stepsMode) return;
@@ -2198,6 +2200,7 @@ function TeachBackConversation({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
         event.preventDefault();
         void send();

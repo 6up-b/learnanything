@@ -1137,6 +1137,16 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "the figure author's and verifier's metered spend a UTC day / the owner's price for a metered figure "
         "route; money bounds, no measurement authority (a figure never grades)."),
+    # UX Phase 2: the shell's kill switch (a string enum, so Inventory A's
+    # numeric walk never reaches it; classified here so every new key has a
+    # rule, Codex review of ux-phase2-shell F9). Only the app snapshot reads
+    # it; the desktop draws one shell or the other.
+    _ConfigRule(_exact(
+        "ui.shell",
+    ), "structural", "operational",
+        "kill switch for the desktop shell (\"simple\": four places, Under the hood, notices, the palette's "
+        "> prefix; \"classic\": the ten tabs as before); display only, read by the app snapshot alone, no "
+        "measurement, scheduling, serving or replay authority (no algorithm successor)."),
     # Adaptive hints H1: the approach-map builds' (and merges') metered spend a
     # UTC day (maps are stored help, read by no grading, scheduling, serving or
     # replay path; validation verdicts go to judgment_ledger, never evidence).

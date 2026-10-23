@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { listRecentVaults, samePath, vaultName, vaultNameWithParent } from "../app/recentVaults";
+import { SimpleNav, type SimpleNavProps } from "./ShellNav";
+import { keyScope } from "../app/keyScope";
 
 // Visibility gate, not a removal. The Golden Path run flow is structurally
 // broken end to end — the measuring stage has no workspace, triage fabricates a
@@ -30,7 +32,9 @@ const allNavTabs = [
 export const navTabs = allNavTabs.filter((tab) => tab.id !== "golden" || SHOW_GOLDEN_PATH);
 
 // `errors` and `settings` are overlay-only navigation targets, not visible tabs.
-export type TopTab = (typeof allNavTabs)[number]["id"] | "errors" | "settings";
+// `underhood` is the simple shell's Under-the-hood screen (UX Phase 2), on a
+// tool that is not one of the old tabs; it has no classic tab.
+export type TopTab = (typeof allNavTabs)[number]["id"] | "errors" | "settings" | "underhood";
 
 function getAppWindow(): ReturnType<typeof getCurrentWindow> | null {
   try {
@@ -54,7 +58,7 @@ export function Titlebar() {
   }, [appWindow]);
 
   return (
-    <div className="titlebar" data-tauri-drag-region>
+    <div className="titlebar" data-tauri-drag-region {...keyScope("window")}>
       <span className="titlebar-brand" data-tauri-drag-region>LearnLoop</span>
       <div className="window-controls">
         <button className="win-btn" type="button" aria-label="Minimize" onClick={() => appWindow?.minimize()}>
@@ -246,7 +250,9 @@ export function TerminalFrame({
   onSelectVault,
   settingsOpen = false,
   badges,
-  onAdd
+  onAdd,
+  shell = "classic",
+  simpleNav
 }: {
   active: TopTab;
   onTab: (tab: TopTab) => void;
@@ -259,7 +265,23 @@ export function TerminalFrame({
   badges?: NavBadgeCounts;
   /** UX Phase 1 (§6.2): the one verb to start, from anywhere. */
   onAdd?: () => void;
+  /** UX Phase 2's kill switch (`[ui] shell`): "simple" draws the four
+   *  places (needs `simpleNav`); "classic", the default here, the ten tabs
+   *  exactly as they were. */
+  shell?: "simple" | "classic";
+  simpleNav?: SimpleNavProps;
 }) {
+  if (shell === "simple" && simpleNav) {
+    return (
+      <div className="desktop-shell">
+        <div className="terminal-frame">
+          <Titlebar />
+          <SimpleNav {...simpleNav} vaultRoot={vaultRoot} onSelectVault={onSelectVault} onAdd={onAdd} />
+          <main className="frame-body">{children}</main>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="desktop-shell">
       <div className="terminal-frame">

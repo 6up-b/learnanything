@@ -27,6 +27,7 @@ import { EntityLink } from "./ui";
 import { COLOR, Faint, FONT_MONO, Meta, Pill, SectionHeader, TermSelect } from "./term";
 import { roleLabel } from "./RewordConfirms";
 import { FacetEvidenceReceipt } from "./KnowledgeModel";
+import { screenLeavesKey } from "../app/keymap";
 
 export function FacetInspector({
   facetId,
@@ -72,6 +73,7 @@ export function FacetInspector({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { modal: true })) return;
       if (event.key === "Escape") {
         event.stopPropagation();
         onClose();

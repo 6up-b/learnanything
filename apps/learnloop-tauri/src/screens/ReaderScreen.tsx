@@ -108,6 +108,7 @@ import { exerciseOpenRequest, type ExerciseCandidate, type ReaderWorkbenchExerci
 import type { LibraryExercisesProps } from "./reader/LibraryAnswer";
 import { ReaderWorkingPosture } from "./reader/ReaderWorkingPosture";
 import { WORKBENCH_COPY, problemTitle } from "./workbench/stepModel";
+import { screenLeavesKey } from "../app/keymap";
 import {
   askGroundingSpans,
   clip,
@@ -208,8 +209,13 @@ export function ReaderScreen({
   onUseExercise,
   workbench,
   onSkimmingChange,
+  askRequest,
 }: {
   onError: (message: string) => void;
+  /** UX Phase 2: the palette's "Ask the tutor about this" with a book open.
+   *  Each new value opens the rail on Ask and focuses its box; the value the
+   *  Reader mounts with opens nothing. */
+  askRequest?: number;
   /** The source that was open when the Reader last unmounted (hoisted by the shell). */
   initialSource?: ReaderOpenSource | null;
   onSourceChange?: (next: ReaderOpenSource | null) => void;
@@ -1132,6 +1138,7 @@ export function ReaderScreen({
   useEffect(() => {
     if (!removed) return;
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.key.toLowerCase() !== "z") return;
       const target = event.target;
       if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;
@@ -1259,6 +1266,7 @@ export function ReaderScreen({
   useEffect(() => {
     if (!libraryCtl.enabled || !render || offline || working) return;
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if (!(event.ctrlKey || event.metaKey) || !event.shiftKey || event.key.toLowerCase() !== "f") return;
       event.preventDefault();
       libraryCtl.close();
@@ -1451,6 +1459,7 @@ export function ReaderScreen({
       setDomBoxes([]);
     };
     const onKeyDown = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if (event.key === "Control" || event.key === "Meta") setDomArmed(true);
       if (event.key === "Escape" && (domBoxesRef.current.length || domDragRef.current)) clearDomBoxes();
     };
@@ -1605,6 +1614,7 @@ export function ReaderScreen({
   useEffect(() => {
     if (!tagMenu) return;
     const handler = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if (event.key === "Escape") setTagMenu(null);
     };
     window.addEventListener("keydown", handler, true);
@@ -1650,6 +1660,7 @@ export function ReaderScreen({
   useEffect(() => {
     if (!inquiry || !render) return;
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if (event.altKey || event.ctrlKey || event.metaKey) return;
       const target = event.target;
       if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;
@@ -1672,6 +1683,36 @@ export function ReaderScreen({
       /* A per-device preference; reading works without it. */
     }
   }, [railCollapsed]);
+
+  // UX Phase 2 (Codex review F5): the palette's ask opens this Ask, as the
+  // learner asked (D41), with its box focused; it never sends a question.
+  // Fix round 3 (whole-stage verify 20261021-130232-Uk06Al item 4): from any
+  // posture. Comparing hides the rail, so the comparison closes first. The
+  // working posture hides it too, and leaving it is the learner's call (Leave
+  // for now saves the steps, and can be refused), so a visible line in the
+  // workbench says how, and Ask opens once the learner has left.
+  const askRequestSeen = useRef(askRequest);
+  const [askWaitsForWork, setAskWaitsForWork] = useState(false);
+  const revealAskRef = useRef<() => void>(() => undefined);
+  revealAskRef.current = () => {
+    if (libraryCtl.open || libraryCompose !== null) closeLibrary();
+    setRailCollapsed(false);
+    setRailTab("ask");
+    window.setTimeout(() => askComposerRef.current?.focus({ preventScroll: true }), 0);
+  };
+  useEffect(() => {
+    if (askRequest === undefined || askRequest === askRequestSeen.current) return;
+    askRequestSeen.current = askRequest;
+    if (working) setAskWaitsForWork(true);
+    else revealAskRef.current();
+    // `working` is read as it is when the request arrives, not followed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [askRequest]);
+  useEffect(() => {
+    if (working || !askWaitsForWork) return;
+    setAskWaitsForWork(false);
+    revealAskRef.current();
+  }, [working, askWaitsForWork]);
 
   // Palette (§5.2): a preset runs the local-first capture transaction. Commit presets
   // also create a commitment; synthesis is enqueued off the hot path (§5.3, §6).
@@ -2849,6 +2890,7 @@ export function ReaderScreen({
             onAbandoned={(session, generation) => leaveWorkbench(session, true, generation)}
             onPeekPassage={peekWorkbenchPassage}
             onError={onError}
+            askWaiting={askWaitsForWork ? { onDismiss: () => setAskWaitsForWork(false) } : null}
           />
         ) : null}
         {comparing && render ? (

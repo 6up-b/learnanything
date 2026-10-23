@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import type { CommandError } from "./dto";
+import { RETRY_RAN, type ErrorReport, type NoticeRetry } from "../errors";
 import {
   EMPTY_STATE,
   getOrFetch,
@@ -34,6 +35,18 @@ export interface CachedQuery<T> {
    * surfaced as a red "query is disabled" banner on every tab).
    */
   readonly refetch: () => Promise<T | undefined>;
+  /**
+   * What the shell needs to retry this query after it failed (UX Phase 2 fix
+   * round 3): its identity (`query:` plus the key's hash) and a self-contained
+   * retry. The retry is bound when this is called, to the key, fetcher and
+   * options of that render, and forces a fetch through the cache for that key.
+   * It ignores whether the hook is enabled, which view is showing and whether
+   * the screen is still mounted. `refetch`, by contrast, resolves without a
+   * request while the query is turned off. It resolves `RETRY_RAN` once that
+   * request succeeded and rejects with the request's error otherwise. Null
+   * without a key.
+   */
+  readonly retryReport: () => { source: string; retry: NoticeRetry } | null;
 }
 
 export interface CachedQueryOptions {
@@ -106,9 +119,44 @@ export function useCachedQuery<T>(
   }, [enabled, hash, start, state.invalidatedAt]);
 
   const refetch = useCallback(() => start(true), [start]);
+  const retryReport = useCallback((): { source: string; retry: NoticeRetry } | null => {
+    const failedKey = keyRef.current;
+    if (!failedKey) return null;
+    const fetcherNow = fetcherRef.current;
+    const { tags, staleAfterMs } = optionsRef.current;
+    return {
+      source: `query:${hashKey(failedKey)}`,
+      retry: () => getOrFetch(failedKey, () => fetcherNow(), { tags, staleAfterMs, force: true }).then(() => RETRY_RAN)
+    };
+  }, []);
 
   const loading = enabled && hash !== null && state.data === undefined && state.error === null;
   const stale = state.data !== undefined && (state.fetching || isStale(state, optionsRef.current.staleAfterMs));
   const refreshing = state.data !== undefined && state.fetching && state.invalidatedAt > state.updatedAt;
-  return { data: state.data, loading, stale, refreshing, error: state.error, refetch };
+  return { data: state.data, loading, stale, refreshing, error: state.error, refetch, retryReport };
+}
+
+/**
+ * Hand a query's failure to the shell as one actionable error (UX Phase 2 fix
+ * round 3): the error itself (its code, whether it is retryable), its identity
+ * (the query) and the query's self-contained retry (`retryReport`), bound
+ * when the failure is reported. Every screen wiring a read's failure to
+ * Try again goes through here, so none can hand over a retry that depends
+ * on the screen's mode or on its still being mounted.
+ */
+export function useReportQueryError(
+  query: Pick<CachedQuery<unknown>, "error" | "retryReport">,
+  onError: (message: string, report?: ErrorReport) => void,
+  /** False in the classic shell, where the screen keeps base's one aggregated
+   *  report instead (fix round 4). */
+  enabled = true
+): void {
+  const queryRef = useRef(query);
+  queryRef.current = query;
+  const error = query.error;
+  useEffect(() => {
+    if (!enabled || !error) return;
+    const report = queryRef.current.retryReport();
+    onError(error.message, report ? { error, ...report } : { error });
+  }, [error, onError, enabled]);
 }

@@ -632,7 +632,9 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
             "practice": {"stuck_prompt": stuck_prompt_active(vault)},
             # UX Phase 4's kill switch (display only): "simple" practice and
             # feedback surfaces, or "classic" for the screens as they were.
-            "ui": {"practice_feedback": config.ui.practice_feedback},
+            # UX Phase 2's kill switch (display only): the four-place shell,
+            # or "classic" for the ten-tab shell as it was.
+            "ui": {"practice_feedback": config.ui.practice_feedback, "shell": config.ui.shell},
             # Reader workbench RW2a's kill switch: present only while on, so
             # with it off the snapshot is exactly what it was before RW2a.
             # Reader workbench RW2b's kill switch rides inside it: "Check my

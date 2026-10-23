@@ -3384,9 +3384,16 @@ class UiConfig(BaseModel):
     step, the rest behind *details*; ``"classic"`` restores the screens as they
     were before Phase 4 exactly (owner ruling: live changes behind kill
     switches, no shadow stage).
+
+    ``shell`` is the kill switch of UX Phase 2 (the shell, §5, Q17):
+    ``"simple"`` is the four places (Today, Library, Reader, Progress) with
+    *+ Add*, the palette and *⋯*, the demoted screens under the hood, and the
+    notice system; ``"classic"`` keeps the ten-tab shell exactly as it was
+    (meant to stay selectable for a month after Phase 2 lands).
     """
 
     practice_feedback: Literal["simple", "classic"] = "simple"
+    shell: Literal["simple", "classic"] = "simple"
 
 
 class EligibilityConfig(BaseModel):

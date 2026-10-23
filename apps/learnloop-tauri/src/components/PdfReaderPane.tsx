@@ -37,6 +37,7 @@ import { operatorWords, type PdfFontInfo } from "./pdfSelection/geometry";
 import { blockAt, rangeRects, SelectionModel, type Box, type GlyphItem, type GlyphWord, type SelectionPayload, type TextStyles } from "./pdfSelection/model";
 import { PdfSelectionLayer } from "./pdfSelection/PdfSelectionLayer";
 import { usePdfSelection, type HeldSelection, type PagePoint } from "./pdfSelection/usePdfSelection";
+import { screenLeavesKey } from "../app/keymap";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -352,6 +353,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
   // Standard chrome keys while the pane is mounted: ctrl+f find, ctrl+±/0 zoom.
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       const modifier = event.ctrlKey || event.metaKey;
       if (modifier && event.key.toLowerCase() === "f") {
         event.preventDefault();
