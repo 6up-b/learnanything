@@ -29,8 +29,9 @@ from learnloop.db.table_roles import TableRole, role_for_table
 from tests.test_figures_migration import RW5A_ADDED_OBJECTS
 from tests.test_reader_rw7a_migration import RW7A_ADDED_OBJECTS
 from tests.test_t1_batch_origin_migration import T1_ALTERED_TABLES
+from tests.test_rw2d_receipts_migration import RW2D_ADDED_OBJECTS
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_218" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_219" / "state.sqlite"
 NOW = "2026-10-20T10:00:00Z"
 #: What 215 adds: the earlier migrations' "nothing else changed" diffs on the
 #: way to head read these.
@@ -71,9 +72,9 @@ def _upgrade(tmp_path: Path) -> Path:
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
     # Reader RW5a's 216 and RW7a's 217 (their own two tables each, altering nothing) follow on the way to head.
-    assert [migration.version for migration in applied] == [215, 216, 217, 218]  # and T1's 218
+    assert [migration.version for migration in applied] == [215, 216, 217, 218, 219]  # and T1's 218, RW2d's 219
     after = _schema(database)
-    assert set(after) - set(before) - RW5A_ADDED_OBJECTS - RW7A_ADDED_OBJECTS == RW3B_ADDED_OBJECTS
+    assert set(after) - set(before) - RW5A_ADDED_OBJECTS - RW7A_ADDED_OBJECTS - RW2D_ADDED_OBJECTS == RW3B_ADDED_OBJECTS
     assert {name for name in before if before[name] != after.get(name)} - T1_ALTERED_TABLES == set(), "215 alters nothing"
     return database
 
@@ -181,7 +182,7 @@ def test_the_head_fixture_is_at_head_in_rollback_mode_with_empty_rw3b_tables(tmp
 
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     # RW7a's 217 is the head now (tests/test_reader_rw7a_migration.py).
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 218
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 219
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
         for table in ("passage_links", "reader_cue_impressions"):

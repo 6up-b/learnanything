@@ -74,7 +74,7 @@ from tests.helpers import NOW, append_config_toml, create_placement_vault, set_a
 from tests.split_live_helpers import split_vault
 from tests.test_recurrence_commands import _pass_guard
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_218"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_219"
 CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, tzinfo=UTC))
 
 
@@ -83,10 +83,10 @@ def test_the_route_rules_successor_keeps_every_predecessor():
     # Value-of-information stopping (mvp-0.21), Tier 1's Decider judgments
     # (mvp-0.22) and router R2a's staged frame (mvp-0.23, the latest
     # successor) followed it.
-    assert SUCCESSOR_CHAIN[-9] == ROUTE_RULES_ALGORITHM_VERSION
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.29"
-    assert SUCCESSOR_CHAIN[-10] == SOURCE_FIRST_NEEDS_ALGORITHM_VERSION
-    assert ROUTE_RULES_VERSIONS == frozenset({"mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29"})
+    assert SUCCESSOR_CHAIN[-10] == ROUTE_RULES_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.31"
+    assert SUCCESSOR_CHAIN[-11] == SOURCE_FIRST_NEEDS_ALGORITHM_VERSION
+    assert ROUTE_RULES_VERSIONS == frozenset({"mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.31"})
     # The chain is linear: mvp-0.20 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan PLUS probe ties
     # PLUS the sooner check PLUS the answer-key gate PLUS source-first needs
@@ -235,7 +235,7 @@ def test_upgrade_command_defaults_to_the_latest(tmp_path):
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
     assert f"mvp-0.19 -> {LATEST_ALGORITHM_VERSION}" in result.output
-    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.29"
+    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.31"
     explicit = create_placement_vault(tmp_path / "explicit", version="mvp-0.17")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(explicit.root), "--to", "mvp-0.20"])
     assert result.exit_code == 0, result.output
@@ -251,7 +251,7 @@ def test_new_vaults_start_at_a_successor_with_the_route_rules(tmp_path):
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     fresh = load_vault(tmp_path / "fresh")
-    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.29"
+    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.31"
     assert route_rules_active(fresh) and gap_sooner_checks_active(fresh) and probe_ties_admitted(fresh.config)
 
 

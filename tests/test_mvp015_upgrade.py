@@ -61,7 +61,7 @@ from tests.helpers import NOW, append_config_toml, create_placement_vault, set_a
 from tests.split_live_helpers import split_vault
 from tests.test_recurrence_commands import _pass_guard
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_218"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_219"
 CLOCK = FrozenClock(datetime(2026, 10, 12, 12, 0, tzinfo=UTC))
 
 
@@ -73,9 +73,9 @@ def test_probe_tie_successor_keeps_every_predecessor():
     # value-of-information stopping (mvp-0.21) and Tier 1's Decider judgments
     # (mvp-0.22) followed it and keep it.
     # Router R2a's staged frame (mvp-0.23) followed them.
-    assert SUCCESSOR_CHAIN[-14] == PROBE_TIE_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-15] == PROBE_TIE_ALGORITHM_VERSION
     assert PROBE_TIE_VERSIONS == frozenset(
-        {"mvp-0.15", "mvp-0.16", "mvp-0.17", "mvp-0.18", "mvp-0.19", "mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29"}
+        {"mvp-0.15", "mvp-0.16", "mvp-0.17", "mvp-0.18", "mvp-0.19", "mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.31"}
     )
     # The chain is linear: mvp-0.15 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan PLUS probe ties.

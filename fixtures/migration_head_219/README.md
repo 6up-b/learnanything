@@ -1,9 +1,9 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-218 (214 is held by adaptive difficulty AD2+AD3 on its own branch; the
-runner has no contiguity rule, so this fixture has 215, 216, 217 and 218 but
-no 214). Migration 167 adds the learner-field F1 read model
+219 (214 is held by adaptive difficulty AD2+AD3 on its own branch; the
+runner has no contiguity rule, so this fixture has 215, 216, 217, 218 and 219
+but no 214). Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -248,6 +248,25 @@ allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
 `journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
 `foreign_key_check` empty), copied into place with the backup API, with no
 companion files; `migration_head_217` was renamed to this directory.
+
+Migration 219 comes from reader workbench RW2d (`reader/rw2d`, workbench
+signals in the learner field, docs/reviews/reader-workbench-RW2d.md): it adds
+`field_signal_receipts` (RECEIPT, append-only by trigger: what the
+predecessor's field derivation and placement rule would have decided where
+the workbench signals changed a fast-track or quick-check decision, with its
+LO index and its no-update and no-delete triggers). Nothing is altered; the
+table is empty here.
+
+Rebuilt at RW2d as a backup-API copy of this directory's
+`migration_head_218` (git `bd0bb7267`) with only 219 applied, through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade
+allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
+`foreign_key_check` empty), copied into place with the backup API, with no
+companion files; `migration_head_218` was renamed to this directory. A
+landing that composes this branch after adaptive difficulty AD2+AD3 (which
+rebuilds the 218 head with its 214) rebuilds it the same way from main's
+head with only 219 applied.
 
 Migration 217 comes from reader workbench RW7a (`reader/rw7a`, reading paths
 in the Guide, docs/reviews/reader-workbench-RW7a.md): it adds

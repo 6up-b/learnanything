@@ -137,15 +137,15 @@ def _projection(repository):
 
 
 def test_the_route_rules_follow_the_route_check_and_value_of_information_stopping_follows_them():
-    assert SUCCESSOR_CHAIN[-9] == VERSION == "mvp-0.20"
+    assert SUCCESSOR_CHAIN[-10] == VERSION == "mvp-0.20"
     # Value-of-information stopping (mvp-0.21), Tier 1's Decider judgments
     # (mvp-0.22) and router R2a's staged frame (mvp-0.23, the latest)
     # followed the rules and keep them.
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.29"
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.31"
     # Canonical sources' mvp-0.18 and mvp-0.19 sit between the check and the rules.
-    assert SUCCESSOR_CHAIN[-10] == SOURCE_FIRST_NEEDS_ALGORITHM_VERSION == "mvp-0.19"
-    assert SUCCESSOR_CHAIN[-12] == PROOF_ROUTE_CHECK_ALGORITHM_VERSION == "mvp-0.17"
-    assert ROUTE_RULES_VERSIONS == frozenset({VERSION, "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29"})
+    assert SUCCESSOR_CHAIN[-11] == SOURCE_FIRST_NEEDS_ALGORITHM_VERSION == "mvp-0.19"
+    assert SUCCESSOR_CHAIN[-13] == PROOF_ROUTE_CHECK_ALGORITHM_VERSION == "mvp-0.17"
+    assert ROUTE_RULES_VERSIONS == frozenset({VERSION, "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.31"})
 
 
 def test_active_only_at_the_successor_with_the_switch_on(tmp_path):
@@ -598,10 +598,10 @@ def test_migration_186_keeps_its_trigger_which_nothing_writes_now(tmp_path):
     from learnloop.db.copies import copy_tree_with_databases
     from learnloop.db.migrate import discover_migrations
 
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_218"
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_219"
     root = tmp_path / "head"
     copy_tree_with_databases(head, root)
-    assert max(m.version for m in discover_migrations()) == 218
+    assert max(m.version for m in discover_migrations()) == 219
     with connect(root / "state.sqlite") as connection:
         sql = connection.execute(
             "SELECT sql FROM sqlite_master WHERE name = 'grading_clarifications'").fetchone()[0]

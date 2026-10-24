@@ -26,9 +26,10 @@ def table_present(connection: sqlite3.Connection) -> bool:
 def insert_receipt(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool:
     """Insert once per ``receipt_key``; True when a new row was written."""
 
+    # Only a repeated key is skipped (``OR IGNORE`` would also swallow a CHECK).
     cursor = connection.execute(
-        f"INSERT OR IGNORE INTO field_signal_receipts ({','.join(_COLUMNS)}) "
-        f"VALUES ({','.join('?' for _ in _COLUMNS)})",
+        f"INSERT INTO field_signal_receipts ({','.join(_COLUMNS)}) "
+        f"VALUES ({','.join('?' for _ in _COLUMNS)}) ON CONFLICT(receipt_key) DO NOTHING",
         tuple(row.get(column) for column in _COLUMNS),
     )
     return cursor.rowcount == 1
