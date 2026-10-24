@@ -118,7 +118,12 @@ def make_env(
     vault = load_vault(root)
     repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
     requested_ids = list(requested)
-    repository.requested_practice_item_ids = lambda: list(requested_ids)  # type: ignore[method-assign]
+    # The real signature (``Repository.requested_practice_item_ids``): DL2's intent passes the
+    # commitments whose requests its control owns; the fake's requests belong to none of them.
+    def requested_practice_item_ids(*, skip_commitment_ids: Sequence[str] = ()) -> list[str]:
+        return list(requested_ids)
+
+    repository.requested_practice_item_ids = requested_practice_item_ids  # type: ignore[method-assign]
     supplier = items if callable(items) else (lambda: list(items))
     return PlanEnv(
         vault=vault,
