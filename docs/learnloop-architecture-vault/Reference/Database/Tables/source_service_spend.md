@@ -3,13 +3,13 @@ title: "source_service_spend"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "daf2875e1b59642a0800b2595201106f0682f3e9"
-source_commit_timestamp: "2026-10-24T00:01:14-04:00"
+source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
+source_commit_timestamp: "2026-10-24T10:03:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_service_spend"
   - "table source_service_spend"
-schema_head: 217
+schema_head: 218
 table_name: "source_service_spend"
 table_role: "workflow"
 functionality_status: "active"
