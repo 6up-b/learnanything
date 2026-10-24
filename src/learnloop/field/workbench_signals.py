@@ -45,13 +45,15 @@ meet the attempt rows). An open or abandoned session gives the LO of the
 assessment contract it froze when it opened on (or bound to) its item
 (``workbench_sessions.assessment_contract_version_id``), never today's item:
 an item later moved to another LO, or removed, leaves the signal on the LO
-the learner was working on (review F3). The subject is not on record for an
-unsubmitted session; it is the label the item gives that LO now (as a submit
-would record it) when the item still targets it, else the LO's own first
-subject, else ``default``. Live routing blocks per LO only. A session without
-a readable contract for its own item (not yet bound, its import pending or
-failed, or opened before contracts were snapshotted) has no target and is
-counted as unmapped.
+the learner was working on (review F3). Its subject is the one recorded with
+that contract (``workbench_sessions.contract_subject_id``, migration 219: what
+a submit then would have recorded), never today's label (re-review F3); a
+session whose subject was never recorded (its contract frozen before 219) has
+the explicit ``SUBJECT_UNRECORDED``, which no subject-aware check matches, and
+is counted (``workbench_subject_unrecorded_sessions``). Live routing blocks
+per LO only, so it still blocks there. A session without a readable contract
+for its own item (not yet bound, its import pending or failed, or opened
+before contracts were snapshotted) has no target and is counted as unmapped.
 
 The workbench tables are read by SQL here, never through the workbench's
 modules (the ``evidence-never-reads-the-workbench`` import contract), and only
@@ -82,6 +84,11 @@ HELP_PREFIX = "workbench_help:"
 #: work, an answer to a discriminating question, a reply about a hint and a
 #: method comparison after a correct answer are not requests for help.
 HELP_ASSIST_KINDS: tuple[str, ...] = ("hint", "bridge", "example")
+#: ``subject_id`` of an unsubmitted session's row whose subject was never
+#: recorded with its contract (frozen before migration 219): missing
+#: provenance, said as such, never today's label (re-review F3). Not a
+#: subject id any vault can name, so no subject-aware check matches it.
+SUBJECT_UNRECORDED = "workbench:subject-unrecorded"
 
 
 def workbench_field_signals_live(vault: Any) -> bool:
@@ -169,23 +176,24 @@ def derive_workbench_signals(
     assists: Iterable[Mapping[str, Any]],
     *,
     attempts: Mapping[str, Mapping[str, Any]],
-    contract_targets: Mapping[str, tuple[str, str]],
+    contract_targets: Mapping[str, str],
     diagnostics: dict[str, Any] | None = None,
 ) -> tuple[SignalRow, ...]:
     """The two workbench sources as zero-mass signal rows (pure).
 
     ``sessions`` are ``workbench_sessions`` rows (``id``, ``practice_item_id``,
-    ``attempt_id``, ``assessment_contract_version_id``); ``steps``
+    ``attempt_id``, ``assessment_contract_version_id``, ``contract_subject_id``); ``steps``
     ``workbench_steps`` rows; ``assists`` the workbench's ``help_assists``
     rows (``id``, ``workbench_session_id``, ``assist_kind``,
     ``step_snapshot_json``, ``requested_at``). ``attempts`` maps an attempt id
     to its ``learning_object_id`` and ``subject``; ``contract_targets`` a
-    contract version id to ``(lo, subject)``, the LO frozen in that contract
-    (only contracts snapshotted for the session's own item).
+    contract version id to the LO frozen in that contract (only contracts
+    snapshotted for the session's own item).
     """
 
     targets: dict[str, tuple[str, str]] = {}
     unmapped = 0
+    unrecorded: set[str] = set()
     for session in sessions:
         session_id = str(session["id"])
         attempt = attempts.get(str(session.get("attempt_id") or ""))
@@ -193,7 +201,10 @@ def derive_workbench_signals(
         if attempt is not None:
             targets[session_id] = (str(attempt["learning_object_id"]), str(attempt.get("subject") or "default"))
         elif contract and contract in contract_targets:
-            targets[session_id] = contract_targets[contract]
+            subject = str(session.get("contract_subject_id") or "")
+            if not subject:
+                unrecorded.add(session_id)
+            targets[session_id] = (str(contract_targets[contract]), subject or SUBJECT_UNRECORDED)
         else:
             unmapped += 1
     signals: list[SignalRow] = []
@@ -237,6 +248,7 @@ def derive_workbench_signals(
             workbench_stuck_rows=sum(s.signal_id.startswith(STUCK_PREFIX) for s in signals),
             workbench_help_before_work_rows=sum(s.signal_id.startswith(HELP_PREFIX) for s in signals),
             workbench_unmapped_sessions=unmapped,
+            workbench_subject_unrecorded_sessions=len(unrecorded),
         )
     return tuple(signals)
 
@@ -260,9 +272,15 @@ def load_workbench_signals(
 
     if not workbench_field_signals_live(vault) or not _table_present(connection, "workbench_sessions"):
         return ()
+    # The successor runs on a migrated vault; a database without 219's column
+    # (never written by the app) reads every subject as unrecorded.
+    subject_column = "contract_subject_id" if any(
+        row[1] == "contract_subject_id" for row in connection.execute("PRAGMA table_info(workbench_sessions)")
+    ) else "NULL AS contract_subject_id"
     sessions = _rows(
         connection,
-        "SELECT id, practice_item_id, attempt_id, assessment_contract_version_id FROM workbench_sessions",
+        "SELECT id, practice_item_id, attempt_id, assessment_contract_version_id, "
+        f"{subject_column} FROM workbench_sessions",
     )
     if not sessions:
         if diagnostics is not None:
@@ -288,19 +306,18 @@ def load_workbench_signals(
             attempts[str(row[0])] = {"learning_object_id": row[1], "subject": row[2]}
     return derive_workbench_signals(
         sessions, steps, assists, attempts=attempts,
-        contract_targets=_contract_targets(connection, vault, sessions, attempts), diagnostics=diagnostics,
+        contract_targets=_contract_targets(connection, sessions, attempts), diagnostics=diagnostics,
     )
 
 
 def _contract_targets(
-    connection: Any, vault: Any, sessions: Iterable[Mapping[str, Any]], attempts: Mapping[str, Any],
-) -> dict[str, tuple[str, str]]:
-    """``(lo, subject)`` per contract version an unsubmitted session froze (review F3).
+    connection: Any, sessions: Iterable[Mapping[str, Any]], attempts: Mapping[str, Any],
+) -> dict[str, str]:
+    """The LO per contract version an unsubmitted session froze (review F3).
 
-    The LO is the contract's own ``learning_object_id``, read only from a
-    contract snapshotted for the session's item; the subject (not on record
-    before a submit) is the label the item gives that LO now, else the LO's
-    first subject, else ``default``."""
+    The contract's own ``learning_object_id``, read only from a contract
+    snapshotted for the session's item; nothing here reads today's vault (the
+    subject is the one recorded with the contract, re-review F3)."""
 
     wanted: dict[str, str] = {}
     for session in sessions:
@@ -310,9 +327,7 @@ def _contract_targets(
     if not wanted or not _table_present(connection, "assessment_contract_versions"):
         return {}
     ids = sorted(wanted)
-    items = getattr(vault, "practice_items", {}) or {}
-    objects = getattr(vault, "learning_objects", {}) or {}
-    targets: dict[str, tuple[str, str]] = {}
+    targets: dict[str, str] = {}
     for start in range(0, len(ids), 500):
         chunk = ids[start:start + 500]
         for version_id, item_id, raw in connection.execute(
@@ -326,18 +341,13 @@ def _contract_targets(
             lo = contract.get("learning_object_id") if isinstance(contract, Mapping) else None
             if str(item_id) != wanted[str(version_id)] or not lo:
                 continue
-            item = items.get(str(item_id))
-            if item is not None and str(getattr(item, "learning_object_id", "")) == str(lo) \
-                    and hasattr(vault, "subjects_for_item"):
-                subjects = list(vault.subjects_for_item(item) or [])
-            else:
-                subjects = list(getattr(objects.get(str(lo)), "subjects", None) or [])
-            targets[str(version_id)] = (str(lo), str(subjects[0]) if subjects else "default")
+            targets[str(version_id)] = str(lo)
     return targets
 
 
 __all__ = [
     "HELP_ASSIST_KINDS",
+    "SUBJECT_UNRECORDED",
     "WORKBENCH_HELP_SIGNAL",
     "WORKBENCH_SIGNAL_VERSION",
     "derive_workbench_signals",

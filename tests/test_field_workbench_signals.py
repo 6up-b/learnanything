@@ -90,9 +90,15 @@ def _contract(path, item_id, lo, *, tag):
     return version_id
 
 
-def _session(path, session_id, item_id, *, minutes, attempt_id=None, status=None, lo=None, contract=True):
+#: The placement vault's subject (its LOs' first; its items name none).
+SUBJECT = "linear-algebra"
+
+
+def _session(path, session_id, item_id, *, minutes, attempt_id=None, status=None, lo=None, contract=True,
+             subject=SUBJECT):
     """A workbench session; bound to ``item_id`` it froze its contract (the
-    item's LO, or ``lo``) as the sidecar's open does, unless ``contract`` is false."""
+    item's LO, or ``lo``) and the subject with it (``subject``; None: not on
+    record) as the sidecar's open does, unless ``contract`` is false."""
 
     status = status or ("submitted" if attempt_id else "open")
     version_id = None
@@ -101,10 +107,11 @@ def _session(path, session_id, item_id, *, minutes, attempt_id=None, status=None
     with closing(_db(path)) as db, db:
         db.execute(
             "INSERT INTO workbench_sessions (id, practice_item_id, stem_md, import_status, origin, entry, "
-            "status, attempt_id, client_idempotency_key, created_at, updated_at, assessment_contract_version_id) "
-            "VALUES (?, ?, 'A problem.', ?, 'reader', 'work_through', ?, ?, ?, ?, ?, ?)",
+            "status, attempt_id, client_idempotency_key, created_at, updated_at, assessment_contract_version_id, "
+            "contract_subject_id) "
+            "VALUES (?, ?, 'A problem.', ?, 'reader', 'work_through', ?, ?, ?, ?, ?, ?, ?)",
             (session_id, item_id, "bound" if item_id else "pending", status, attempt_id,
-             f"key-{session_id}", _iso(minutes), _iso(minutes), version_id),
+             f"key-{session_id}", _iso(minutes), _iso(minutes), version_id, subject if version_id else None),
         )
 
 
@@ -170,11 +177,13 @@ def _early_help_on_diag(paths, *, minutes=1):
 def _derive(sessions, steps=(), assists=(), *, attempts=None, diagnostics=None):
     from learnloop.field.workbench_signals import derive_workbench_signals
 
-    # A session bound to pi_a froze contract cv_a (on lo_a) unless it names its own.
-    sessions = [{"assessment_contract_version_id": "cv_a" if s.get("practice_item_id") else None, **s}
+    # A session bound to pi_a froze contract cv_a (on lo_a) and its subject
+    # unless it names its own.
+    sessions = [{"assessment_contract_version_id": "cv_a" if s.get("practice_item_id") else None,
+                 "contract_subject_id": "subj" if s.get("practice_item_id") else None, **s}
                 for s in sessions]
     return derive_workbench_signals(
-        sessions, steps, assists, attempts=attempts or {}, contract_targets={"cv_a": ("lo_a", "subj")},
+        sessions, steps, assists, attempts=attempts or {}, contract_targets={"cv_a": "lo_a"},
         diagnostics=diagnostics,
     )
 
@@ -390,6 +399,81 @@ def test_review_f3_an_edited_or_removed_item_keeps_the_signal_on_the_frozen_lo(t
     assert "lo_eigen_basics" not in _blocking(paths, vault)
     del vault.practice_items["pi_diag_easy"]
     assert rows() == [("workbench_stuck:st_f3", "lo_diag")]
+
+
+def test_rereview_f3_the_subject_is_the_one_frozen_with_the_contract(tmp_path):
+    """Re-review F3: an unsubmitted session's subject is the one recorded when
+    it froze its contract, so editing the item's (or its LO's) subject changes
+    no historical row, and the subject-aware check keeps its verdict. A session
+    whose subject was never recorded says so (``SUBJECT_UNRECORDED``), never
+    today's label; per-LO routing still blocks it."""
+
+    from learnloop.field.signals import confusion_blocks_fast_track
+    from learnloop.field.workbench_signals import SUBJECT_UNRECORDED
+
+    paths, vault, repository = _vault(tmp_path)
+    _session(paths.sqlite_path, "wb_s", "pi_diag_easy", minutes=1, status="abandoned")
+    _step(paths.sqlite_path, "wb_s", "st_s", "stuck", "Why is P invertible?", minutes=2)
+    _session(paths.sqlite_path, "wb_u", "pi_eig_easy", minutes=1, status="abandoned", subject=None)
+    _step(paths.sqlite_path, "wb_u", "st_u", "stuck", "Lost at the eigenvectors.", minutes=2)
+    as_of = _iso(10)
+    expected = [("workbench_stuck:st_s", "lo_diag", SUBJECT),
+                ("workbench_stuck:st_u", "lo_eigen_basics", SUBJECT_UNRECORDED)]
+
+    def rows(diagnostics=None):
+        with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+            signals = load_interaction_signals(connection, vault, _attempt_rows(load_answers(connection)),
+                                               diagnostics=diagnostics)
+        return signals, sorted((s.signal_id, s.lo_id, s.subject_id) for s in signals
+                               if s.signal_id.startswith("workbench_"))
+
+    diagnostics: dict = {}
+    signals, before = rows(diagnostics)
+    assert before == expected
+    assert diagnostics["workbench_subject_unrecorded_sessions"] == 1
+    assert confusion_blocks_fast_track(signals, lo_id="lo_diag", as_of=as_of, subject_id=SUBJECT)
+    for item_id in ("pi_diag_easy", "pi_eig_easy"):
+        vault.practice_items[item_id] = vault.practice_items[item_id].model_copy(update={"subjects": ["physics"]})
+    for lo_id in ("lo_diag", "lo_eigen_basics"):
+        vault.learning_objects[lo_id] = vault.learning_objects[lo_id].model_copy(update={"subjects": ["physics"]})
+    signals, after = rows()
+    assert after == expected
+    assert confusion_blocks_fast_track(signals, lo_id="lo_diag", as_of=as_of, subject_id=SUBJECT)
+    assert not confusion_blocks_fast_track(signals, lo_id="lo_diag", as_of=as_of, subject_id="physics")
+    assert not confusion_blocks_fast_track(signals, lo_id="lo_eigen_basics", as_of=as_of, subject_id="physics")
+    blocking = _blocking(paths, vault)
+    assert "workbench_stuck:st_s" in blocking["lo_diag"]
+    assert "workbench_stuck:st_u" in blocking["lo_eigen_basics"]
+
+
+def test_rereview_f3_the_sidecar_records_the_subject_with_the_contract(tmp_path):
+    """Re-review F3: the open that freezes a session's contract records the
+    subject a submit would then have recorded; a resume after the item's
+    subject changed keeps it, and a bind to another item clears both."""
+
+    from learnloop.reader import workbench as WB
+    from tests.test_reader_workbench_rw2a import ITEM, _context, _open, _vault as _rw2a_vault
+
+    paths, repository = _rw2a_vault(tmp_path)
+    ctx = _context(paths.root)
+    item = ctx.vault.practice_items[ITEM]
+    (frozen, *_) = ctx.vault.subjects_for_item(item)
+    session = _open(ctx)
+    assert session["assessmentContractVersionId"]
+
+    def recorded(session_id):
+        return WB.session_row(repository, session_id)["contract_subject_id"]
+
+    assert recorded(session["sessionId"]) == frozen
+    ctx.vault.practice_items[ITEM] = item.model_copy(update={"subjects": ["physics"]})
+    again = _open(ctx)
+    assert again["sessionId"] == session["sessionId"]
+    assert recorded(session["sessionId"]) == frozen
+    with closing(_db(repository.sqlite_path)) as db, db:
+        db.execute("UPDATE workbench_sessions SET import_status = 'pending' WHERE id = ?", (session["sessionId"],))
+    WB.bind(repository, session["sessionId"], "pi_transpose_001")
+    row = WB.session_row(repository, session["sessionId"])
+    assert row["assessment_contract_version_id"] is None and row["contract_subject_id"] is None
 
 
 def test_review_f4_a_long_autosaved_history_resolves_in_linear_time():

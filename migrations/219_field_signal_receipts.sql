@@ -30,6 +30,20 @@
 -- scoring, scheduling, projection, serving or replay path, never written or
 -- cleared by a rebuild. Kill switch: workbench.field_signals_enabled (off, or
 -- below the tag, no row is written).
+-- It also records, on workbench_sessions, the subject the session's problem
+-- gave its LO when the session froze its assessment contract (review F3 of
+-- the RW2d re-review): an unsubmitted session's field signals take their
+-- subject from here, never from today's item, and a session whose subject
+-- was never recorded (NULL: no contract yet, or frozen before 219) says so.
+--
+-- contract_subject_id: what a submit then would have recorded as the
+-- attempt's subject (the item's first subject, else its LO's), or 'default'
+-- (the field's id for an attempt without one) when there was none. Set with
+-- assessment_contract_version_id, once; cleared with it when a bind moves the
+-- session to another item. LIFECYCLE state on a WORKFLOW table, as the
+-- contract id is; nothing but the field's workbench derivation reads it.
+ALTER TABLE workbench_sessions ADD COLUMN contract_subject_id TEXT;
+
 CREATE TABLE field_signal_receipts (
   id TEXT PRIMARY KEY,
   -- Idempotency: <decision_kind>:<decision_ref>:<lo>:<sha256 of the

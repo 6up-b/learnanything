@@ -254,8 +254,10 @@ signals in the learner field, docs/reviews/reader-workbench-RW2d.md): it adds
 `field_signal_receipts` (RECEIPT, append-only by trigger: what the
 predecessor's field derivation and placement rule would have decided where
 the workbench signals changed a fast-track or quick-check decision, with its
-LO index and its no-update and no-delete triggers). Nothing is altered; the
-table is empty here.
+LO index and its no-update and no-delete triggers) and, since the RW2d
+re-review's F3, the `workbench_sessions.contract_subject_id` column (the
+subject recorded with a session's frozen assessment contract; NULL on every
+session from before 219). The table is empty here.
 
 Rebuilt at RW2d as a backup-API copy of this directory's
 `migration_head_218` (git `bd0bb7267`) with only 219 applied, through
@@ -263,7 +265,11 @@ Rebuilt at RW2d as a backup-API copy of this directory's
 allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
 `journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
 `foreign_key_check` empty), copied into place with the backup API, with no
-companion files; `migration_head_218` was renamed to this directory. A
+companion files; `migration_head_218` was renamed to this directory. Rebuilt
+again at the re-review fix (F3, the added column) the same way from the 218
+database at git `eab475869~1` with only the amended 219 applied (under
+`UPGRADE_TEST_HELPER`; `journal_mode=DELETE`, header bytes 1/1,
+`integrity_check` ok, `foreign_key_check` empty, no companion files). A
 landing that composes this branch after adaptive difficulty AD2+AD3 (which
 rebuilds the 218 head with its 214) rebuilds it the same way from main's
 head with only 219 applied.
