@@ -83,9 +83,9 @@ def test_voi_successor_keeps_every_predecessor():
     # Tier 1's Decider judgments (mvp-0.22, tests/test_mvp022_upgrade.py) and
     # router R2a's staged frame (mvp-0.23, the latest successor,
     # tests/test_mvp023_upgrade.py) followed it.
-    assert SUCCESSOR_CHAIN[-8] == VOI_STOPPING_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-9] == VOI_STOPPING_ALGORITHM_VERSION
     assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.30"
-    assert SUCCESSOR_CHAIN[-9] == ROUTE_RULES_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-10] == ROUTE_RULES_ALGORITHM_VERSION
     assert VOI_STOPPING_VERSIONS == frozenset({"mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30"})
     # The chain is linear: mvp-0.21 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan PLUS probe ties

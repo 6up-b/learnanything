@@ -149,8 +149,8 @@ def test_the_head_fixture_is_at_217_in_rollback_mode_with_empty_rw7a_tables(tmp_
 
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 217
-    # RW5a's 216 landed after RW7a; AD2+AD3's 214 has not.
-    assert {215, 216, 217} <= set(applied_versions(HEAD)) and 214 not in applied_versions(HEAD)
+    # RW5a's 216 landed after RW7a; AD2+AD3's 214 joined them at its compose round.
+    assert {214, 215, 216, 217} <= set(applied_versions(HEAD))
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
         for table in ("reader_path_sections", "reader_path_depths"):
