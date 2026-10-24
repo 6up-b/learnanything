@@ -270,3 +270,33 @@ def test_m3_a_press_drained_in_its_own_request_shows_the_offer_on_its_response(b
     pressed = _handle(ctx, "source_action", {"sourceId": source_id, "action": "build_now"})
     assert pressed["result"].get("fallbackOrigin") == "source_action"
     assert "fallbackAvailable" not in _handle(ctx, "get_source_library", {})["result"]
+
+
+def test_m3_any_response_that_reports_a_batch_shows_its_offer_once(harness):
+    """Every frontend caller that starts a batch and polls a status read (an ingest batch or job,
+    the activity list, a rung variant, an animation, a promotion, an import): the dispatch relays
+    the offer of a batch the response names (``batchId``, ``batch_id``, ``buildBatchId``, a batch
+    row), once, as the batch's own action."""
+
+    from learnloop.content.pipeline.runner import JobSpec
+
+    def unavailable(job_ctx) -> dict[str, Any]:
+        ready_client_for_task(job_ctx.vault_root, load_root_config(job_ctx.vault_root), "rung_variant")
+        return {}
+
+    harness.runner.handlers["t1_unavailable"] = unavailable
+    batches: list[str] = []
+    harness.stub("request_rung_variant", work=lambda _ctx: batches.append(harness.runner.enqueue_batch(
+        "t1_r5", [JobSpec(job_type="t1_unavailable", payload={})])))
+    for shape in ({"request": {"batch_id": None}}, {"rows": [{"id": None, "workflow_type": "t1_r5"}]},
+                  {"status": {"buildBatchId": None}}):
+        harness.call("request_rung_variant")
+        harness.drain()
+        batch = batches[-1]
+        named = {key: ({k: (batch if v is None else v) for k, v in value.items()} if isinstance(value, dict)
+                       else [{k: (batch if v is None else v) for k, v in row.items()} for row in value])
+                 for key, value in shape.items()}
+        harness.stub("get_rung_variant_status", work=lambda _ctx, named=named: named)
+        first = harness.call("get_rung_variant_status")
+        assert harness.hint(first)["fallbackOrigin"] == "request_rung_variant", shape
+        assert harness.hint(harness.call("get_rung_variant_status")) is None, shape  # once

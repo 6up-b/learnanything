@@ -163,6 +163,9 @@ def _reported_batches(value: Any, depth: int = 0) -> list[str]:
     if depth > 8:
         return found
     if isinstance(value, dict):
+        # A batch row itself (``list_ingest_batches``, ``get_ingest_batch``).
+        if ("workflow_type" in value or "workflowType" in value) and isinstance(value.get("id"), str):
+            found.append(value["id"])
         for key, child in value.items():
             if key in _BATCH_KEYS and isinstance(child, str) and child:
                 found.append(child)
