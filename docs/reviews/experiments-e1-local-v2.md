@@ -275,6 +275,75 @@ This is a pin change, so it makes a new plan:
 
 Steps 2-5 in §7 are unchanged apart from the plan file, which is refreshed in place (`docs/reviews/artifacts/experiments-e1/frozen-plan.json`), and the results path in step 5: `runs/e1_eaa8d20e4af40e3f/`.
 
+## 7b The GPU runs (2026-10-24, owner-approved; plan `e1_eaa8d20e4af40e3f`)
+
+Every run went through the CLI and the GPU meter, one at a time, under `flock /tmp/learnloop-fullsuite.lock`. The second run waited for a merge2 full suite to release the lock.
+
+**Run 01 (the coordinator's) failed after 10 s** with only `failed: AttributeError` recorded. 15 s were charged to the meter. The worker now keeps the full traceback, the message and the failed step in `out.json`, and the worker's stdout and stderr go to `worker.stderr.log` (`fd1a415b5`).
+
+**Root cause** (`5bcead897`). I reproduced it on CPU in the separate environment with a tiny random-weight `PplxContextualModel`; no real weights and no GPU were involved.
+
+- The pinned remote code's `tokenizer` property calls `AutoTokenizer.from_pretrained(config._name_or_path, revision=config._commit_hash)`. transformers 5.18's config has no `_commit_hash`, and `nn.Module.__getattr__` masks the inner AttributeError as "no attribute 'tokenizer'".
+- The fix loads the tokenizer from the model directory (offline, `padding_side="right"`) and sets it through the remote code's own setter. The model's `encode` and `encode_queries` are unchanged.
+
+The same probe found a second, silent problem:
+
+- `_keep_in_fp32_modules` is **not** honoured when `dtype=bfloat16` is passed: the projection arrived in BF16. The worker would have refused that at its fp32 check.
+- The fix reads the exact FP32 checkpoint tensor from `contextual_head.safetensors` and restores the module to FP32, then checks equality with the file.
+
+The host-RAM concern from run 01 was **page cache, not a host-RAM load**:
+
+- run 01's device use reached 16.5 GB, so the shards were going straight to the GPU;
+- in the later runs `RssAnon` peaked at 1.85-1.96 GiB, while `VmRSS` (13.0 GB) and the scope's `memory.peak` (exactly the 12G cap) count the mapped shard pages, which the cgroup reclaims.
+
+The worker now advises the kernel to drop the shards' cache after load, samples `RssAnon` apart from `VmRSS`, closes stdin, and clears cuBLAS workspaces before measuring unload. A `--smoke-only` local mode was added: metered, stores nothing, no plan change.
+
+Fake-based tests cover the 5.18 surface (a failing tokenizer getter, a BF16 projection), the traceback and the stderr log.
+
+**Run 02, smoke only (30 s charged):** every check passed.
+
+| Check | Result |
+|---|---|
+| Widths and order | (3, 2048), (3, 2048), (1, 2048); forward equals reversed |
+| Context sensitivity | central chunk: context A vs B cos 0.748, A vs alone 0.925, B vs alone 0.763 |
+| Methods separate | query vs document encoding of the same text: cos 0.702 |
+| Decoding | int8-valued, unnormalized (min norm 1,692.7) |
+| Finite, nonzero | yes |
+| Padding/batch invariance | document min cos 0.99991, query 0.99991 (tolerance 0.995) |
+| Deterministic | yes |
+| No truncation | 13,233-token probe refused (limit 8,192) |
+| Dtypes | 8,392,695,024 parameters BF16; 8,388,608 FP32 (the projection, restored from its checkpoint) |
+| Kernels | the pure-torch fallbacks for causal-conv1d and flash-linear-attention, as expected |
+| Peaks | load 24.8 s; device 16.85 GB after load, 17.15 GB reserved at peak; host MemAvailable never below 20.7 GB; anon RSS 1.85 GiB |
+| Unload | 32 MiB left allocated: the cuBLAS workspace, which is now cleared |
+
+**Run 03, the full local stage (53 s wall).**
+
+- **Status:** complete; smoke all passed again; unload complete (0 bytes after).
+- **Documents:** 734 encoded and stored, 734 planned, with 0 errors: 37 grouped windows plus 697 singletons, 87,179 measured tokens. Per-document latency p50 0.019 s, p95 0.046 s.
+- **Queries:** 116 encoded and stored, 116 planned: the 118 effective queries less 2 identical texts, encoded once per text. Batch-one latency p50 0.018 s, p95 0.027 s.
+- **Profiling:** no OOM at any size.
+
+  | Size | Real tokens | Latency | Device reserved |
+  |---|---|---|---|
+  | "2k" | 1,351 | 0.149 s | 17.26 GB |
+  | "4k" | 2,926 | 0.310 s | 17.70 GB |
+  | "8k" | 5,603 | 0.65 s | 18.43 GB |
+
+  The profiling documents were built from byte/3 *estimates*, so the real token counts fall below the nominal sizes. A true 8,192-token profile remains to do.
+- **Peaks:** device 18.43 GB reserved (target 20); host MemAvailable never below 20.7 GB; anon RSS 1.96 GiB.
+
+**GPU-hours used:** 0.0279 of 4 (three processes: failed, exited, exited); 3.972 h remain.
+
+**Labels dry run (no network):**
+
+| Copy | New candidates | Questions with new | Most per question | Expected | Every question audited |
+|---|---|---|---|---|---|
+| linear_algebra | 35 | 17 | 7 | $1.23 | $1.58 |
+| probability | 31 | 18 | 4 | $1.31 | $1.69 |
+
+In all: **$2.54 expected, $3.27 with every question audited**, against the $5 cap (fits). No voyage-context-4 fill is needed. The paid labels stage is left to the coordinator.
+
 ## 8 Open questions (the defaults in force)
 
 1. **Host RAM.** The worker refuses below 14 GiB MemAvailable, and 10.5 GiB is available now, with 20.7 GiB of swap in use. Default: the owner frees memory for the slot. The alternative is to lower `MIN_HOST_AVAILABLE_GIB` and `SCOPE_MEMORY_MAX` after one measured load; that is a new plan.

@@ -155,6 +155,9 @@ def test_the_whole_pilot_with_fakes(e0_run, tmp_path, monkeypatch):
     # The labels stage: exact counts first, without network or spend.
     priced = e1.run_labels(plan, layout, dry_run_only=True)
     assert priced["status"] == "dry_run" and priced["counts"][e0_run["label"]]["new_candidates"] > 0
+    estimate = priced["counts"][e0_run["label"]]["estimate"]
+    assert estimate["questions"] == priced["counts"][e0_run["label"]]["questions_with_new"] > 0
+    assert 0 < priced["expected_usd"] <= priced["all_audited_usd"] and priced["cap_usd"] == 5.0
     with pytest.raises(e1.PlanRefused, match="authorized"):
         e1.run_labels(plan, layout)
     clients: list = []

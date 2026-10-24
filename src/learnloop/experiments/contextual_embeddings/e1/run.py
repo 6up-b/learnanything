@@ -282,6 +282,31 @@ def v2_rankings(replayed: Replayed, store: VectorStore) -> tuple[dict[str, dict[
     return rankings, missing
 
 
+def label_estimate(per_question: Sequence[int], replayed: Replayed) -> dict[str, Any]:
+    """Dollars for the supplementary labels of these real counts (the plan's token model)."""
+
+    import math
+
+    from learnloop.experiments.contextual_embeddings.e1 import plan as plan_module
+
+    a = e1_pins.ASSUMPTIONS
+    units = replayed.snapshot.units
+    size = (sum(pins.token_estimate(unit.text) for unit in units) / len(units) if units else 0) \
+        + plan_module._CANDIDATE_OVERHEAD
+    passes = audits = 0.0
+    asked = [count for count in per_question if count]
+    for new in asked:
+        tokens_in = plan_module._FRAME_TOKENS + plan_module._QUESTION_TOKENS + (a.judged_context_units + new) * size
+        out = new * a.label_output_tokens_per_candidate + a.set_output_tokens + a.thinking_tokens[
+            plan_module._SONNET.model]
+        passes += 2 * plan_module._call_usd(plan_module._SONNET, tokens_in, out)
+        audits += plan_module._call_usd(plan_module._OPUS, tokens_in + 16 * new, out - a.thinking_tokens[
+            plan_module._SONNET.model] + a.thinking_tokens[plan_module._OPUS.model])
+    expected = passes + audits * a.adjudicated_share
+    return {"questions": len(asked), "pass_usd": round(passes, 4), "audit_usd_all": round(audits, 4),
+            "expected_usd": round(expected, 4), "all_audited_usd": round(passes + audits, 4)}
+
+
 def _priority(question: Any) -> tuple[int, str]:
     from learnloop.experiments.contextual_embeddings.paid import NON_PRIMARY_STRATA
 
@@ -316,13 +341,22 @@ def run_labels(plan: Mapping[str, Any], layout: ImportLayout, *, authorized: boo
         rankings, missing = v2_rankings(replayed, store)
         if set(rankings) != set(e1_pins.V2_ARMS):
             raise PlanRefused(f"{replayed.label}: the v2 arms are not fully encoded ({missing}); run the local stage")
-        pending = sum(len(new_candidates(question, replayed.labels.get(question.query_id), rankings))
-                      for question in replayed.questions)
+        per_question = [len(new_candidates(question, replayed.labels.get(question.query_id), rankings))
+                        for question in replayed.questions]
+        pending = sum(per_question)
         fill = sorted(set((replayed.gaps.get("arms_missing") or {})) & set(e1_pins.FILLABLE_ARMS))
-        counts[replayed.label] = {"new_candidates": pending, "hosted_fill_arms": fill}
+        counts[replayed.label] = {"new_candidates": pending, "hosted_fill_arms": fill,
+                                  "questions_with_new": sum(1 for count in per_question if count),
+                                  "max_new_per_question": max(per_question, default=0),
+                                  "estimate": label_estimate(per_question, replayed)}
         work.append((replayed, rankings, fill))
     if dry_run_only:
-        return {"status": "dry_run", "counts": counts}
+        expected = round(sum(item["estimate"]["expected_usd"] for item in counts.values()), 4)
+        worst = round(sum(item["estimate"]["all_audited_usd"] for item in counts.values()), 4)
+        return {"status": "dry_run", "counts": counts, "expected_usd": expected, "all_audited_usd": worst,
+                "cap_usd": e1_pins.E1_CAP_USD, "fits": worst <= e1_pins.E1_CAP_USD,
+                "basis": "the real new candidates per question at the plan's per-call token model and verified "
+                         "prices; expected audits at the plan's share, the bound with every question audited"}
     if not authorized:
         raise PlanRefused("the labels stage spends money: it needs --i-am-authorized-to-spend")
     if env_file:
