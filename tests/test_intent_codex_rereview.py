@@ -217,9 +217,11 @@ def test_f2_the_chain_ends_at_the_intent_successor():
     )
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
 
-    assert INTENT_ALGORITHM_VERSION == "mvp-0.29" == LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1]
-    assert SUCCESSOR_CHAIN[-2] == PREDECESSOR
-    assert INTENT_VERSIONS == frozenset({"mvp-0.29"})
+    # Reader workbench RW2d's field signals (built as mvp-0.31) followed it and keep it.
+    assert INTENT_ALGORITHM_VERSION == "mvp-0.29" == SUCCESSOR_CHAIN[-2]
+    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.31"
+    assert SUCCESSOR_CHAIN[-3] == PREDECESSOR
+    assert INTENT_VERSIONS == frozenset({"mvp-0.29", "mvp-0.31"})
     assert "mvp-0.29" in ELIGIBILITY_DECISION_VERSIONS and "mvp-0.29" in P0_PROJECTION_VERSIONS
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.29"] == defaults_fingerprint_for_version("mvp-0.29")
 
@@ -239,6 +241,7 @@ def test_f2_the_gate_reads_the_version_and_the_switch(tmp_path):
 def test_f2_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest(tmp_path):
     from typer.testing import CliRunner
 
+    from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
     from learnloop.cli.app import app
     from learnloop.intent_upgrade import upgrade_to_mvp029
     from learnloop.vault.loader import load_vault
@@ -264,7 +267,8 @@ def test_f2_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest(
     cli = create_placement_vault(tmp_path / "cli", version=PREDECESSOR)
     invoked = CliRunner().invoke(app, ["upgrade", "--vault", str(cli.root)])
     assert invoked.exit_code == 0, invoked.output
-    assert f"{PREDECESSOR} -> mvp-0.29" in invoked.output
+    # The default is the latest successor (RW2d's), through this step.
+    assert f"{PREDECESSOR} -> {LATEST_ALGORITHM_VERSION}" in invoked.output
 
 
 def test_f2_new_vaults_start_at_the_successor_with_intent_live(tmp_path):
@@ -273,5 +277,5 @@ def test_f2_new_vaults_start_at_the_successor_with_intent_live(tmp_path):
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     config = load_vault(tmp_path / "fresh").config
-    assert config.algorithms.algorithm_version == "mvp-0.29"
+    assert config.algorithms.algorithm_version == "mvp-0.31"  # RW2d's successor keeps intent
     assert intent_enabled(config)

@@ -227,6 +227,20 @@ def test_the_successor_vocabulary_is_one_constant_after_its_predecessor():
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM[TAG] == defaults_fingerprint_for_version(TAG)
 
 
+def test_the_switch_is_on_by_default_and_classified():
+    from learnloop.config.schema import WorkbenchConfig
+    from learnloop.field.workbench_signals import workbench_field_signals_live
+    from learnloop.params import parameter_registry as registry
+
+    assert WorkbenchConfig().field_signals_enabled is True
+    assert registry.classify_config_path("workbench.field_signals_enabled") is not None
+    config = type("C", (), {"algorithms": type("A", (), {"algorithm_version": TAG})(),
+                            "workbench": WorkbenchConfig()})()
+    assert workbench_field_signals_live(type("V", (), {"config": config})())
+    config.algorithms.algorithm_version = PREDECESSOR
+    assert not workbench_field_signals_live(type("V", (), {"config": config})())
+
+
 # ── the kill switch: the predecessor exactly ─────────────────────────────────
 
 
