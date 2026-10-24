@@ -437,6 +437,7 @@ No migration (head **217**, head fixture `migration_head_217` unchanged) and no 
 - `df739a1c9` the regeneration.
 - `91565a346` gate fixes (three tests and one golden; see the gate).
 - `f07dcd338` this record; `172113ce7` the Today fix (below, after the orchestrator's review of the first record).
+- `84a3f8947` and `4a8868f09`: the grant-scope fix from the verify of `0ecc600ea` / `172113ce7` (below).
 
 ### Finding at the landing: the paid roles (fixed, `0ecc600ea`)
 
@@ -511,6 +512,10 @@ command at a time, with the full suite and durability under `flock /tmp/learnloo
 | after `172113ce7` (the Today fix; targeted, no full rerun): the new test, the three `test_plan_first_transport*` files, the teach-back, daily-plan, probe-pool, router-offer and queue-serialization files, and every test file naming `authoring_provider_available` / `teach_back_offerable` / `reconcile_empty_probe_pools` / `filter_unready_teach_back` (22 files) | **303 passed** |
 | after `172113ce7`: every test file naming `get_today_queue`, `next_plan_item` or `start_teach_back` (32 files) | **849 passed** |
 | `lint-imports` after `172113ce7` | 31 kept, 0 broken |
+| after `84a3f8947` (grant scope): the four `test_plan_first_transport*` files, the lockdown and `test_chatgpt_plan_*` files | **225 passed** |
+| after `84a3f8947`: the job and worker files touched (ingest runner/jobs, hints, library ask, cue discovery, reading paths, item authoring, sidecar context and transport, and every file naming the job classes or `IngestRunner(`; 44 files) | **901 passed**; `lint-imports` 31 kept |
+| after `4a8868f09`: every file naming the key-check ladder, imports or `exercise_verification` (14 files) | **535 passed** |
+| **full suite at `4a8868f09`** (`-n 8`, 10G scope, under the lock; the dispatch and the runner core changed) | **15,775 passed**, 0 failed, 3 skipped, 2 xfailed (33 min) |
 | durability (`-m durability`, at `91565a346`) | **119 passed** |
 | `npm install`; `npm run typecheck` | ok; clean |
 | `npm test -- --maxWorkers=4` (the whole vitest run) | **198 files, 1,665 tests passed**, no unhandled error, no snapshot written (UX2's landing: 197 / 1,658) |
@@ -624,6 +629,100 @@ fixtures, planified, fake OpenRouter key), with a hook printing the stack of eve
   answered a parameter error to the empty params; neither made an offer.
 - 0 receipts and no process start.
 
+### Verify of `0ecc600ea` and `172113ce7`: a grant served background work (fixed, `84a3f8947`, `4a8868f09`)
+
+The verify **reopened with one Medium** (no High). It confirmed the rest:
+
+- nothing is sent without a grant;
+- grants stay per task;
+- a ready plan always comes first;
+- billing and caps are correct;
+- pinning holds;
+- Codex is unreachable;
+- the Today fix holds.
+
+**The Medium, a regression from `0ecc600ea`.** `paid.plan_route` / `_granted_provider` honoured any session grant
+not under `quiet()`. A grant was process-wide, so background threads used it:
+
+- the import-key-check recovery started on every `load()` (`context.py`, `import-key-check-recovery`);
+- the Reader import's background key check (`jobs._verify_quietly`, `reader-import-key-check`);
+- the edit re-check (`item_authoring`, `edit-key-recheck`).
+
+Example: a learner who granted `source_solution_match` in a primed retry had those checks served by OpenRouter
+from then on. The same risk was latent in `build_on_serve`, hint outcome placement and AD preparation.
+
+**The fix, by construction** (`learnloop/ai/plan_fallback.py`):
+
+- **`interactive()`** marks the thread serving one learner request. It is set by the sidecar's RPC dispatch
+  (`server._handle`) and by the CLI command (`command_grant`; not for `learnloop mcp serve`). The flag holds that
+  thread's ident, so a context copied to another thread (`copy_context()` workers) is not interactive.
+- **`is_granted`** honours a session or command grant only on that thread, or under a job token (below). Never
+  inside `quiet()`, which is unchanged. Every other thread, now and in the future, defaults to no grant.
+- **Per-job tokens.** `capture_grant(vault_root)` returns a token, but only inside a learner request (or a job
+  that carries one) and never under `quiet()`. The token names the vault and the tasks granted then.
+  `job_grant(token)` enters it on the worker. At use, a session task must still be granted, so "Stop using
+  OpenRouter" ends a running job's use at its next route.
+- **The jobs that carry a token,** each because the learner pressed the feature and its retry after "Use
+  OpenRouter instead" runs off the RPC thread:
+  - the sidecar's four feature jobs whose offers T1 relays: hints (`HintJobs`, also the workbench's help, the
+    worked example and "Compare with the book's method"); the library ask/notes/compare/tutor jobs
+    (`LibraryJobs`, also the figure build and revise); margin-note discovery; and the Guide's reading path;
+  - every ingest batch enqueued in a learner request, or by a job carrying a token
+    (`runner._enqueue_batch` captures, `_run_claimed` enters). This covers the add-source build (review F3),
+    Reader quick and inquiry checks, exercise imports and the other runner jobs the learner starts. The token
+    lives in process memory, so after a restart a batch runs on the plan;
+  - the import's time-boxed key check (`source_exercise_import._run_time_boxed`). It runs on a copied-context
+    thread inside the primed retry's import, and it carries that request's token (`4a8868f09`).
+- **Nothing else carries a token** and nothing inherits one implicitly:
+  - the three key-check threads above, which are fresh threads;
+  - the shared background launcher (`BackgroundBuilds.launch`, a fresh `contextvars.Context()`), which serves
+    `build_on_serve`, hint outcome placement and AD preparation;
+  - the post-attempt worker and exam grading, which copy the RPC's context to another thread (so a deferred
+    diagnosis waits for the plan, consistent with Q7);
+  - the daily-plan router's parallel components and the teach-back summary (copied contexts).
+- **Low, fixed:** with `ai.fallback_provider = "manual"`, `_granted_provider` returns `None`, because routing
+  answers manual before any grant.
+- **In-request paths that still use a grant:** the primed retry's `import_source_exercise` (synchronous in the
+  RPC, with its time-boxed check carrying the token); the workbench check (synchronous); hints, compare,
+  examples and figures (token jobs); `start_teach_back` (synchronous). The existing T1 grant tests now resolve
+  inside `interactive()`, through an autouse `learner_request` fixture in `test_plan_first_transport.py` and
+  `test_plan_first_transport_paid_roles.py`, and one wrap in `test_chatgpt_plan_provider.py`.
+
+**Tests** (`tests/test_plan_first_transport_grant_scope.py`, 10 tests). Every test fails on `091a7cfcb`. That
+was shown by running the file against an export of that tree with a shim that adds the new names (`interactive`
+as a no-op, and so on) over the old behaviour. All pass after the fix.
+
+- the property over every paid `AITask`:
+  - outside a request, no grant serves;
+  - inside one, exactly routing's grants serve;
+  - a fresh thread and a copied context plan nothing onto OpenRouter;
+  - a job with the request's token plans exactly the request's routes;
+  - `quiet()` honours nothing;
+  - a revoke ends a carried token;
+- the CLI command's grant: its own thread only, or a captured token; none for a host;
+- `fallback_provider = "manual"`: never replaced;
+- with `source_solution_match` granted, the startup recovery, the Reader import's background check (started
+  from inside a job carrying the grant) and the edit re-check each plan onto the plan profile, billed as the
+  subscription, and build no client;
+- the shared background launcher (`build_on_serve`, hint outcome, AD) plans `approach_map`, `hint_outcome`,
+  `ad_forecast_llm`, `ad_feature_audit` and `hint_writer` onto the plan under a grant;
+- a hint job started in the request carries its grant, and one started off a request does not;
+- an ingest batch carries the token only when the learner enqueued it;
+- the import's time-boxed check carries its request's grant, and the same check off any request does not.
+
+Nothing is sent in any of these tests.
+
+**Lows recorded, not fixed:**
+
+- a configured plan-to-plan `fallback_provider` cannot serve a paid role: `resolve_client` refuses a profile
+  other than the planned one (`paid.py`);
+- the CLI eval tasks without a `METERED_PRICE_SETTINGS` entry get an offer that their command may then refuse;
+- revoking a grant does not stop a multi-call job between routes. A token job stops at its next route, but a
+  call already running finishes;
+- Today needs both the `teach_back` and the `grading` grants before it shows teach-back items again;
+- the daily-plan router's parallel components run in copied contexts, so they carry no grant, while the first,
+  inline one does.
+
 ### Owner notes
 
 - **No migration** (head 217) and no successor: only the served model changes (Codex to the plan's models),
@@ -669,6 +768,12 @@ Q1-Q7 above, unchanged:
   have no module notes.
 - The full suite ran at `df739a1c9`. `91565a346` changes three tests and one golden only, verified by the
   targeted run and by the durability lane at that head. `172113ce7` (two readiness probes made quiet) was verified
-  by the targeted runs above, not by a full rerun (orchestrator's instruction).
+  by the targeted runs above. After the grant-scope fix, the full suite ran again at `4a8868f09` and was green.
+  One earlier attempt at `84a3f8947` was stopped at 98%: one xdist worker was stuck in
+  `test_reading_request_sweep::test_b_…` at a load average of about 190 (another stage's suite was also running).
+  That file and `test_reading_hardening_2_fixes.py` then passed alone (19 passed). The durability lane was not
+  rerun (no database or connection change since `91565a346`).
+- The Lows recorded in the verify section above (plan-to-plan fallback for paid roles, CLI eval offers, revoke
+  mid-call, Today's two grants for teach-back, the router's parallel components).
 - T2 (retire the Codex serving path) as listed above. Main's round-2 lockdown tests now pin both layers. When T2
   deletes the Codex modules, they go with them.
