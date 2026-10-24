@@ -112,7 +112,7 @@ def import_inputs(layout: Any, replays: Sequence[Any]) -> dict[str, Any]:
             "units": len(snapshot.units), "windows": len(snapshot.windows), "unit_tokens": unit_tokens,
             "grouped_tokens": tokens["V2_grouped"], "singleton_tokens": tokens["V2_singleton"],
             "queries": len(texts), "query_tokens": sum(pins.token_estimate(text) for text in texts.values()),
-            "labelled_questions": len(replayed.labels),
+            "labelled_questions": len(replayed.labels), "novelty": e0_novelty(replayed),
             "unit_tokens_avg": round(unit_tokens / len(snapshot.units), 1) if snapshot.units else 0.0,
         }
         gaps[replayed.label] = dict(replayed.gaps)
@@ -120,6 +120,39 @@ def import_inputs(layout: Any, replays: Sequence[Any]) -> dict[str, Any]:
     block = _e0_block(state, plan)
     block["import_manifest_sha"] = _sha(manifest)
     return {"source": "import", "e0": block, "vaults": vaults, "gaps": gaps, "verification": verification}
+
+
+#: The hosted contextual arms whose novelty proxies a new contextual arm's.
+NOVELTY_ARMS = ("R4_grouped", "R5_grouped", "R4_singleton", "R5_singleton")
+
+
+def e0_novelty(replayed: Any) -> dict[str, Any]:
+    """How often one of E0's contextual arms ranked, in its top 10, a unit no
+    other replayed arm put in its top 20 (nor the writer's proposals): the
+    expected new-candidate rate of one more contextual arm. Conservative: E0's
+    system arms are left out, and they only add to the pool."""
+
+    from learnloop.experiments.contextual_embeddings.bank import unit_refs
+
+    by_ref = {ref: unit.unit_id for unit in replayed.snapshot.units for ref in unit_refs(unit)}
+    counts: list[int] = []
+    for question in replayed.questions:
+        labels = replayed.labels.get(question.query_id)
+        if labels is None or labels.unresolved:
+            continue
+        for arm in NOVELTY_ARMS:
+            if arm not in replayed.rankings:
+                continue
+            others = {unit for name, ranked in replayed.rankings.items() if name != arm
+                      for unit in ranked.get(question.query_id, [])[: pins.POOL_DEPTH]}
+            others |= set(question.proposed_units)
+            others |= {by_ref[ref] for evidence in question.evidence_sets for ref in evidence.required if ref in by_ref}
+            top = replayed.rankings[arm].get(question.query_id, [])[: e1_pins.SUPPLEMENT_DEPTH]
+            counts.append(sum(1 for unit in top if unit not in others))
+    with_new = [count for count in counts if count]
+    return {"questions": len(counts), "p_any": round(len(with_new) / len(counts), 4) if counts else None,
+            "mean_new_given_any": round(sum(with_new) / len(with_new), 3) if with_new else 0.0,
+            "arms": [arm for arm in NOVELTY_ARMS if arm in replayed.rankings]}
 
 
 def gpu_estimate(vaults: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
@@ -155,19 +188,32 @@ def money_estimate(vaults: Mapping[str, Mapping[str, Any]], gaps: Mapping[str, M
     for label, item in vaults.items():
         questions = int(item["labelled_questions"])
         size = float(item["unit_tokens_avg"]) + _CANDIDATE_OVERHEAD
-        for case, share, adjudicated in (("expected", a.new_candidate_share, a.adjudicated_share),
-                                         ("worst", 1.0, 1.0)):
-            new = math.ceil(slots * share)
+        novelty = item.get("novelty") or {}
+        # Expected: E0's measured novelty of a contextual arm (leave that arm
+        # out of the pool) for each v2 arm, when the import has it; else the
+        # stated prior. Worst: every v2 top-10 slot new, every question audited.
+        if novelty.get("questions"):
+            p_any = 1.0 - (1.0 - float(novelty["p_any"])) ** len(e1_pins.V2_ARMS)
+            share = len(e1_pins.V2_ARMS) * float(novelty["mean_new_given_any"]) / slots
+        else:
+            p_any, share = 1.0, a.new_candidate_share
+        for case, share, adjudicated, reached in (("expected", share, a.adjudicated_share, p_any),
+                                                  ("worst", 1.0, 1.0, 1.0)):
+            new = max(1, math.ceil(slots * share))
+            asked = math.ceil(questions * reached)
             tokens_in = _FRAME_TOKENS + _QUESTION_TOKENS + (a.judged_context_units + new) * size
             pass_out = new * a.label_output_tokens_per_candidate + a.set_output_tokens \
                 + a.thinking_tokens[_SONNET.model]
             judge_in = tokens_in + 2 * new * 8
             judge_out = new * a.label_output_tokens_per_candidate + a.set_output_tokens + a.thinking_tokens[_OPUS.model]
-            passes = 2 * questions * _call_usd(_SONNET, tokens_in, pass_out)
-            audits = math.ceil(questions * adjudicated) * _call_usd(_OPUS, judge_in, judge_out)
+            passes = 2 * asked * _call_usd(_SONNET, tokens_in, pass_out)
+            audits = math.ceil(asked * adjudicated) * _call_usd(_OPUS, judge_in, judge_out)
             target = expected if case == "expected" else worst
             target["labels_audits"] += passes + audits
-            rows.setdefault(label, {})[case] = {"questions": questions, "new_candidates_per_question": new,
+            rows.setdefault(label, {})[case] = {"questions": questions, "questions_with_new": asked,
+                                                "new_candidates_per_question": new,
+                                                "basis": "measured_e0_novelty" if novelty.get("questions")
+                                                and case == "expected" else "prior",
                                                 "pass_usd": round(passes, 4), "audit_usd": round(audits, 4)}
     canaries = _call_usd(_SONNET, 200, 50) + _call_usd(_OPUS, 200, 50)
     for target in (expected, worst):

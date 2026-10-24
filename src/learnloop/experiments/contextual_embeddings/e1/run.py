@@ -37,7 +37,7 @@ KEY_ENVS = {"anthropic": pins.ANTHROPIC_KEY_ENV, "voyage": "VOYAGE_API_KEY"}
 VERSION_PROBE = (
     "import json, importlib.metadata as m\n"
     "out = {}\n"
-    "for name in ('torch', 'transformers', 'safetensors', 'numpy', 'accelerate'):\n"
+    "for name in ('torch', 'transformers', 'accelerate', 'safetensors', 'numpy', 'tqdm', 'huggingface-hub'):\n"
     "    try:\n        out[name] = m.version(name)\n    except Exception:\n        out[name] = None\n"
     "try:\n    from transformers import Qwen3_5Model\n    out['qwen3_5_model'] = True\n"
     "except Exception:\n    out['qwen3_5_model'] = False\n"

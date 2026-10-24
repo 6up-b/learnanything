@@ -1,0 +1,273 @@
+{
+ "arms": {
+  "e0_replayed": [
+   "R1",
+   "R2",
+   "R3",
+   "R4_grouped",
+   "R4_singleton",
+   "R4_independent",
+   "R5_grouped",
+   "R5_singleton",
+   "R5_independent"
+  ],
+  "v2": {
+   "V2_grouped": {
+    "description": "pplx-embed-v2-context-9b-preview BF16, E0's 4,096-token grouped windows",
+    "encoding": "grouped",
+    "recipe": "plain"
+   },
+   "V2_singleton": {
+    "description": "the same model, one chunk per document (the same-model context control)",
+    "encoding": "singleton",
+    "recipe": "plain"
+   }
+  }
+ },
+ "assumptions": {
+  "adjudicated_share": 0.6,
+  "judged_context_units": 5,
+  "label_output_tokens_per_candidate": 12,
+  "load_s": 600.0,
+  "new_candidate_share": 0.3,
+  "query_s": 2.0,
+  "seconds_per_1k_tokens": 1.0,
+  "set_output_tokens": 200,
+  "smoke_s": 180.0,
+  "thinking_tokens": {
+   "claude-opus-5-5": 2000,
+   "claude-sonnet-5-5": 1500
+  }
+ },
+ "bounds": {
+  "allocation_usd": {
+   "embeddings": 0.2,
+   "labels_audits": 4.8
+  },
+  "cap_usd": 5.0,
+  "device_peak_target_gib": 20.0,
+  "gpu_hours_cap": 4.0,
+  "host_floor_gib": 3.0,
+  "max_document_tokens": 8192,
+  "max_gpu_utilization_pct": 15,
+  "max_other_gpu_process_mib": 1024,
+  "min_free_vram_gib": 22.0,
+  "min_host_available_gib": 14.0,
+  "profile_tokens": [
+   2048,
+   4096,
+   8192
+  ],
+  "residency": "none: one batch process, unload, exit",
+  "scope_memory_max": "12G",
+  "scope_swap_max": "0",
+  "supplement_depth": 10
+ },
+ "budget": {
+  "cap_usd": 5.0,
+  "carried_from": [],
+  "carried_usd": 0.0,
+  "categories": {
+   "embeddings": {
+    "allocation_usd": 0.2,
+    "carried_usd": 0.0,
+    "estimated_usd": 0.0,
+    "fits": true,
+    "remaining_usd": 0.2
+   },
+   "labels_audits": {
+    "allocation_usd": 4.8,
+    "carried_usd": 0.0,
+    "estimated_usd": 6.7132,
+    "fits": false,
+    "remaining_usd": 4.8
+   }
+  },
+  "estimated_usd": 6.7132,
+  "fits": false,
+  "remaining_usd": 5.0,
+  "worst_case_usd": 10.2127
+ },
+ "checks": {
+  "inputs_changed": 0,
+  "network_calls": 0,
+  "settings_file_read": false,
+  "torch_imported": false
+ },
+ "decision_rules": {
+  "noninferiority_margin": 0.02,
+  "retain_gain_min": 0.05,
+  "rule": "retain local work only for >= 5 points Complete Evidence@10 over the best frozen finalist with the paired 95% CI excluding 0; a non-inferior result (lower bound above -0.02) is kept only for a cost/latency benefit the owner names; otherwise stop. Hosted v1 is a model baseline, not a numerical reference.",
+  "supplement_kappa_min": 0.6,
+  "v2_completion_min": 0.95
+ },
+ "e0": {
+  "S1": {
+   "linear_algebra-20261021": "labels_ok",
+   "probability-20261021": "labels_ok"
+  },
+  "complete": true,
+  "copies": [
+   "linear_algebra-20261021",
+   "probability-20261021"
+  ],
+  "finalists": {
+   "linear_algebra-20261021": {
+    "R4": "R4_grouped",
+    "R5": "R5_grouped",
+    "one_model": "R1"
+   },
+   "probability-20261021": {
+    "R4": "R4_singleton",
+    "R5": "R5_grouped",
+    "one_model": "R1"
+   }
+  },
+  "pins_fingerprint": "b25a6b5d25ed91c78294059e586b654ae7413a986df5e00dbeb358c3e6eadecd",
+  "plan_sha": "70318dc0731a352805d28c5e377358bc161d771fb45038e8df9ace8206bdaadb",
+  "results_sha": {
+   "linear_algebra-20261021": "b463ef5f84eaf2bc8bbb2cc0d31c3aa7c1172308af21c9a2cbc9b9296f2d34b6",
+   "probability-20261021": "d4334d77ff76c9f325fa985454c7d34262108a96ec01d3d9f1f9283d5ab611c2"
+  },
+  "run_id": "e0_e6a077cd391c5421",
+  "status": {
+   "linear_algebra-20261021": "complete",
+   "probability-20261021": "complete"
+  }
+ },
+ "e1_pins_fingerprint": "c0cb04dc9cceb36623f92dff4d5e237692e08c602afd8781e7eec5494de1916e",
+ "gpu": {
+  "basis": "upper estimates for a pure-torch linear-attention fallback; the meter stops at the cap",
+  "cap_hours": 4.0,
+  "document_tokens": 118514,
+  "expected_hours": 0.327,
+  "fits": true,
+  "processes_expected": 1,
+  "queries": 118,
+  "steps": {
+   "documents_s": 118.5,
+   "load_s": 600.0,
+   "profile_s": 43.0,
+   "queries_s": 236.0,
+   "smoke_s": 180.0
+  },
+  "worst_case_hours": 0.654
+ },
+ "harness": "e1-harness-v1",
+ "keys": {
+  "ANTHROPIC_API_KEY": "absent",
+  "VOYAGE_API_KEY": "absent"
+ },
+ "model": {
+  "deferred_precisions": {
+   "fp8": "only if measured BF16 memory/latency pressure warrants it (new plan)",
+   "llm_int8": "deferred behind an FP8 failure (spec \u00a79)"
+  },
+  "dimensions": 2048,
+  "disk_bytes": 33624493388,
+  "environment": {
+   "python": "3.12",
+   "requirements": [
+    "torch==2.14.0",
+    "transformers==5.18.0",
+    "accelerate==1.15.0",
+    "safetensors==0.8.0",
+    "numpy==2.5.3",
+    "tqdm==4.70.1"
+   ]
+  },
+  "license": "mit (model card metadata; no LICENSE file; not gated)",
+  "parameters": 8401083632,
+  "precision": "bf16",
+  "remote_code": [
+   "configuration_pplx_contextual.py",
+   "modeling_pplx_contextual.py"
+  ],
+  "repo": "perplexity-ai/pplx-embed-v2-context-9b-preview",
+  "revision": "e2c06a779d45e8db53066735be1b98ffe3412ca3"
+ },
+ "money": {
+  "basis": "token estimates (bytes/3) at the verified Anthropic and Voyage prices; admission reserves each request's hard maximum (max_tokens) before it is sent",
+  "by_vault": {
+   "linear_algebra-20261021": {
+    "expected": {
+     "audit_usd": 1.5709,
+     "basis": "prior",
+     "new_candidates_per_question": 6,
+     "pass_usd": 2.0579,
+     "questions": 47,
+     "questions_with_new": 47
+    },
+    "worst": {
+     "audit_usd": 2.9939,
+     "basis": "prior",
+     "new_candidates_per_question": 20,
+     "pass_usd": 2.4637,
+     "questions": 47,
+     "questions_with_new": 47
+    }
+   },
+   "probability-20261021": {
+    "expected": {
+     "audit_usd": 1.3282,
+     "basis": "prior",
+     "new_candidates_per_question": 6,
+     "pass_usd": 1.7534,
+     "questions": 39,
+     "questions_with_new": 39
+    },
+    "worst": {
+     "audit_usd": 2.5884,
+     "basis": "prior",
+     "new_candidates_per_question": 20,
+     "pass_usd": 2.1485,
+     "questions": 39,
+     "questions_with_new": 39
+    }
+   }
+  },
+  "cap_usd": 5.0,
+  "expected": {
+   "embeddings": 0.0,
+   "labels_audits": 6.7132
+  },
+  "expected_usd": 6.7132,
+  "priority": "primary development questions first, then logged, then the other development strata; past the cap the rest stays unknown (pool-relative completeness, reported)",
+  "worst_case": {
+   "embeddings": 0.0154,
+   "labels_audits": 10.1973
+  },
+  "worst_case_usd": 10.2127
+ },
+ "plan_id": "e1_1da6d5e1246d42d7",
+ "replay": {
+  "gaps": {},
+  "verification": {}
+ },
+ "source": "manifests",
+ "status": "provisional",
+ "vaults": {
+  "linear_algebra-20261021": {
+   "grouped_tokens": 26137,
+   "labelled_questions": 47,
+   "queries": 63,
+   "query_tokens": 5394,
+   "singleton_tokens": 26137,
+   "unit_tokens": 23241,
+   "unit_tokens_avg": 64.2,
+   "units": 362,
+   "windows": 10
+  },
+  "probability-20261021": {
+   "grouped_tokens": 33120,
+   "labelled_questions": 39,
+   "queries": 55,
+   "query_tokens": 4709,
+   "singleton_tokens": 33120,
+   "unit_tokens": 30440,
+   "unit_tokens_avg": 90.9,
+   "units": 335,
+   "windows": 27
+  }
+ }
+}

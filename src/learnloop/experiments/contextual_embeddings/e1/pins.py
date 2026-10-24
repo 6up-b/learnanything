@@ -77,7 +77,8 @@ DOWNLOAD_FREE_DISK_GIB = 45.0
 #: runs in its own virtual environment with these exact pins (both releases
 #: are over two weeks old; 5.18.0 is contemporaneous with the model's code).
 LOCAL_PYTHON = "3.12"
-LOCAL_REQUIREMENTS = ("torch==2.14.0", "transformers==5.18.0", "safetensors", "numpy", "tqdm")
+LOCAL_REQUIREMENTS = ("torch==2.14.0", "transformers==5.18.0", "accelerate==1.15.0", "safetensors==0.8.0",
+                      "numpy==2.5.3", "tqdm==4.70.1")
 LOCAL_MIN_TRANSFORMERS = (5, 4, 0)
 
 # -- precision (spec §8: BF16 first; FP8 only if measured pressure warrants; LLM.int8 deferred)

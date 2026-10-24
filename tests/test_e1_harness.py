@@ -86,6 +86,10 @@ def test_the_replay_reproduces_e0_without_any_call_and_the_plan_is_frozen(e0_run
     assert plan["keys"] == {"ANTHROPIC_API_KEY": "absent", "VOYAGE_API_KEY": "absent"}
     assert plan["gpu"]["fits"] and plan["gpu"]["cap_hours"] == 4.0
     assert plan["budget"]["cap_usd"] == 5.0 and plan["money"]["expected_usd"] > 0
+    # The frozen plan prices labels from E0's own measured novelty, not the prior.
+    assert plan["vaults"][e0_run["label"]]["novelty"]["questions"] > 0
+    assert plan["money"]["by_vault"][e0_run["label"]]["expected"]["basis"] == "measured_e0_novelty"
+    assert plan["money"]["worst_case_usd"] >= plan["money"]["expected_usd"]
     # The same import always rebuilds to the same plan id.
     assert dry_run(import_dir=layout.root, environ={})["plan_id"] == plan["plan_id"]
 
@@ -263,3 +267,40 @@ def test_the_cli_plans_from_e0_manifests_offline(e0_run, tmp_path):
     plan = json.loads(out.read_text())
     assert plan["status"] == "provisional" and plan["checks"]["network_calls"] == 0
     assert "GPU: expected" in result.output
+
+
+def test_preflight_reports_every_check_and_is_not_ready_without_the_model(e0_run, tmp_path):
+    from learnloop.experiments.contextual_embeddings.e1 import run as e1
+
+    layout = _import(e0_run)
+    plan = e1.dry_run(import_dir=layout.root, environ={})
+    healthy = {"ok": True, "problems": [], "host_available_gib": 24.0}
+    report = e1.preflight(plan, layout, model_dir=tmp_path / "no-model", env_python=tmp_path / "python",
+                          resources=lambda: healthy, versions=lambda _python: {"ok": True})
+    checks = report["checks"]
+    assert not report["ready"] and not checks["model_files"]["ok"]
+    assert checks["plan"]["ok"] and checks["import"]["ok"] and checks["replay"]["ok"] and checks["gpu_meter"]["ok"]
+    assert checks["environment"] == {"ok": False, "error": "no interpreter at --env-python"}
+
+
+def test_the_separate_environment_must_carry_the_pinned_versions(tmp_path):
+    from types import SimpleNamespace
+
+    from learnloop.experiments.contextual_embeddings.e1.run import environment_versions
+
+    wanted = dict(item.split("==") for item in e1_pins.LOCAL_REQUIREMENTS)
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append((command, kwargs["env"]))
+        return SimpleNamespace(returncode=0, stdout=json.dumps({**wanted, "qwen3_5_model": True}) + "\n")
+
+    assert environment_versions(tmp_path / "python", run=run)["ok"]
+    assert calls[0][0][1] == "-I" and set(calls[0][1]) == {"PATH", "HOME"}
+
+    def old(command, **kwargs):
+        return SimpleNamespace(returncode=0, stdout=json.dumps({**wanted, "transformers": "4.57.6",
+                                                                "qwen3_5_model": False}))
+
+    result = environment_versions(tmp_path / "python", run=old)
+    assert not result["ok"] and result["mismatched"] == ["transformers"]
