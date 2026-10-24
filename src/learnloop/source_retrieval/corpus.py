@@ -433,6 +433,7 @@ def block_roles(connection, keys: Iterable[tuple[str, str]]) -> dict[tuple[str, 
 MODEL_WITHHELD_ROLES = frozenset({"solution"})
 
 
+
 def model_reader_withheld(vault: LoadedVault, repository: Repository,
                           keys: Iterable[tuple[str, str]]) -> dict[tuple[str, str], str]:
     """The spans a result returned to a MODEL must drop, each with its reason.

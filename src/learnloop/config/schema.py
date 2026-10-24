@@ -2414,6 +2414,17 @@ class FiguresConfig(BaseModel):
     is sent. ``revisions_enabled``: "not right?" asks for a new version with
     the learner's note (the earlier one is kept).
 
+    RW5b (§8.7): ``advanced_panels_enabled``: heat maps, vector fields,
+    trajectories (fixed-step RK4) and iterated maps in the same declarative
+    grammar; off, the author is not told of them and may not emit them, and a
+    stored figure that uses one shows as "can't draw this yet".
+    ``offers_enabled``: the library organizer (RW4a) and the Reader tutor
+    (RW1c) judge, in the call they already make, whether a cited equation or
+    figure block could become an explorable figure, and a yes adds "make this
+    explorable" to that passage or answer (pressing it builds through the same
+    pipeline, origin ``library`` | ``tutor``); off, their prompts, outputs and
+    what the Reader shows are as before RW5b.
+
     Caps (money, W4): two author attempts per request; ``max_daily_cost_usd``
     meters the author route's metered spend a UTC day at
     ``price_per_million`` (unset: a metered route is refused before sending;
@@ -2426,6 +2437,8 @@ class FiguresConfig(BaseModel):
     predictions_enabled: bool = True
     region_enabled: bool = True
     revisions_enabled: bool = True
+    advanced_panels_enabled: bool = True
+    offers_enabled: bool = True
     max_daily_cost_usd: float = Field(default=1.0, ge=0)
     price_per_million: float | None = Field(default=None, gt=0)
 
