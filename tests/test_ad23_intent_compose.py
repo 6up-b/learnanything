@@ -129,13 +129,8 @@ def test_the_incumbent_hands_ad_only_verdicts(tmp_path, monkeypatch):
     # The paused sibling is no member of the plan's admitted pool (round 2: membership, not a re-check).
     assert all("pi_e1" not in verdicts.pool and "pi_e1" not in verdicts.refusals for verdicts in seen)
     assert all(all(isinstance(i, str) for i in verdicts.pool) for verdicts in seen)
-    # The incumbent's scope is entered in the slot only by its two verdict functions.
-    source = Path(ad_slot.__file__).read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    entering = {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
-                and any(isinstance(sub, ast.Name) and sub.id == "incumbent_constraints" for sub in ast.walk(node))}
-    assert entering == {"_exclusions", "incumbent_verdicts"}, entering
-    assert "StagedFrame" not in source.split("def incumbent_verdicts", 1)[0]
+    # Entry to the incumbent's scope is enforced at runtime (the compose fix round 3,
+    # tests/test_ad23_scope_boundary.py), no longer pinned by a static scan of this module.
 
 
 def _cases(seed: int) -> list[tuple[str, str, str, tuple[str, ...]]]:

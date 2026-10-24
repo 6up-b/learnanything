@@ -1661,7 +1661,7 @@ def day_ad_deferrals(env: PlanEnv, record: PlanRecord | None = None) -> dict[str
 
 
 def _context(env: PlanEnv, record: PlanRecord, built: _Pool, *, day: Sequence[PlanRecord],
-             released: Iterable[str] = ()) -> PoolContext:
+             released: Iterable[str] = (), unclaimed: Iterable[str] = ()) -> PoolContext:
     """The source's view at one boundary: the plan's universe minus what it took."""
 
     split = record.split
@@ -1674,6 +1674,7 @@ def _context(env: PlanEnv, record: PlanRecord, built: _Pool, *, day: Sequence[Pl
     # re-reads its checks and clears it (none exist with ``selection`` off).
     deferred = frozenset(day_ad_deferrals(env, record) if _ad_selection(env) else ()) - frozenset(released)
     taken |= deferred
+    taken -= frozenset(unclaimed)
     pool = tuple(
         item
         for item in built.pool
@@ -1893,34 +1894,37 @@ def new_material_candidates(intent: Any, pool: Iterable[PoolItem]) -> list[NewCa
 
 
 def admitted_new_material_ids(
-    env: PlanEnv, record: PlanRecord, built: _Pool, *, released: Iterable[str] = (),
-    item_states: Mapping[str, Any] | None = None,
+    env: PlanEnv,
+    record: PlanRecord,
+    *,
+    scheduled: Sequence[Any],
+    item_states: Mapping[str, Any],
+    released: Iterable[str] = (),
+    unclaimed: Iterable[str] = (),
 ) -> frozenset[str]:
-    """The plan's admitted pool of new material at this boundary, as ids (the compose fix round 2):
-    the pool every stage of this build produced (``built.pool``: the scheduler's queue after its
-    per-item predicate and its set-level stages, teach-back value admission and caps among them),
-    within the plan's universe, less what the plan took (planned, skipped, AD-deferred unless
-    ``released``, held), through :func:`new_material_candidates`. Adaptive difficulty's candidates
-    are members of this set or nothing: AD reorders or chooses within the plan's own pool and never
-    adds to it, so a set-level stage the build gains applies to AD with nothing kept in sync.
+    """The plan's admitted pool of new material at this boundary, as ids (the compose fix rounds 2
+    and 3): ``scheduled`` (the scheduler's queue this advance's build produced, after its per-item
+    predicate and its set-level stages, teach-back value admission and caps among them) classified
+    into lanes reading ``item_states`` (AD's material view's: fix round 12's rule for every
+    incumbent verdict AD receives, so an item whose only history is a withheld answer is new
+    material exactly as with that answer absent, A8), within the plan's universe, less what the plan
+    took (planned, skipped, held, AD-deferred unless ``released``), through
+    :func:`new_material_candidates`. ``unclaimed``: planned items not counted as taken (a slot's own
+    item, whose place is the one AD fills: it passes the same rule as its siblings, round 3).
+    Adaptive difficulty's candidates are members of this set or nothing: AD reorders or chooses
+    within the plan's own pool and never adds to it."""
 
-    ``item_states``: the states AD's material view reads (fix round 12's rule for every incumbent
-    verdict AD receives): the build's own scheduler output is classified again with them, so an item
-    whose only history is a withheld answer is new material here exactly as it is with that answer
-    absent (A8). None: the plan's own classification."""
-
-    if item_states is not None:
-        built = _classified_pool(
-            env,
-            minutes=record.budget,
-            lanes_allowed=record.lanes_allowed,
-            day=day_records(env),
-            reentry=record.kind == "reentry",
-            record=record,
-            scheduled_items=built.scheduled,
-            item_states=item_states,
-        )
-    context = _context(env, record, built, day=(), released=released)
+    built = _classified_pool(
+        env,
+        minutes=record.budget,
+        lanes_allowed=record.lanes_allowed,
+        day=day_records(env),
+        reentry=record.kind == "reentry",
+        record=record,
+        scheduled_items=scheduled,
+        item_states=item_states,
+    )
+    context = _context(env, record, built, day=(), released=released, unclaimed=unclaimed)
     return frozenset(candidate.practice_item_id for candidate in new_material_candidates(built.intent, context.pool))
 
 

@@ -498,18 +498,22 @@ def test_an_incumbent_model_calls_text_is_unreadable_raw_while_its_accounting_is
 
 
 def test_in_the_incumbent_scope_only_its_named_readers_read_content(tmp_path):
-    """Round 6 (Low): inside ``incumbent_constraints()`` a module that is not one of the named
-    incumbent readers reads a content column raw: refused; a metadata column stays readable (failed
-    before: the incumbent scope skipped the column check for every reader)."""
+    """Round 6 (Low), as the compose fix round 3 closes it: code outside the incumbent cannot be in
+    the incumbent's scope at all. Opening it from anywhere but its two pinned entry functions (here a
+    test, as round 6 did) is refused and poisons the operation, and outside the scope the content
+    column stays refused while the metadata column stays readable."""
 
     paths, vault, repository = _vault(tmp_path)
     with repository.atomic():
         connection = repository.connection()
-        with contextlib.suppress(_POISONED), O.ad_operation(vault, repository):
-            with O.incumbent_constraints():
-                connection.execute("SELECT status FROM model_call_receipts").fetchall()
-                with pytest.raises(sqlite3.DatabaseError, match=DENIED):
+        with contextlib.suppress(_POISONED), O.ad_operation(vault, repository) as op:
+            connection.execute("SELECT status FROM model_call_receipts").fetchall()
+            with pytest.raises(O.GuardDenied, match="incumbent's scope refused"):
+                with O.incumbent_constraints():
                     connection.execute("SELECT output_text FROM model_call_receipts").fetchall()
+            assert op.guard.poisoned
+            with pytest.raises(sqlite3.DatabaseError, match=DENIED):
+                connection.execute("SELECT output_text FROM model_call_receipts").fetchall()
 
 
 _DRAW = ("INSERT INTO ad_dose_offers(row_kind, draw_key, created_at) VALUES ('draw', 'k_r6', '2026-10-21T00:00:00Z')")

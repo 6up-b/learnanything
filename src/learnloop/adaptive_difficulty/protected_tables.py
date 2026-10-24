@@ -451,12 +451,27 @@ ENTITY_KINDS: Mapping[str, str] = MappingProxyType({
 #: reached inside the scope is an incumbent reader, except AD's own code (:data:`AD_MODULES`), which
 #: reads there as it reads outside any scope, and a reader outside LearnLoop. Hand-listing the
 #: modules failed three times as the incumbent's path grew (DL2's commitments, intent's checks,
-#: the scheduler's request set). The guarantee is at the scope's boundary instead:
-#: ``daily_plan.ad_slot`` enters the scope in exactly two functions (``_exclusions`` and
-#: ``incumbent_verdicts``, a test pins it). They call incumbent code alone and return verdicts alone
-#: (item ids and reason strings, validated), so whatever the incumbent reads, only a pass or a named
-#: refusal per candidate, and the plan's admitted pool as ids, reaches AD.
+#: the scheduler's request set). The guarantee is at the scope's boundary instead, enforced at
+#: runtime since the compose fix round 3 (``operation.incumbent_answer``): the scope opens only from
+#: the two pinned entry functions (:data:`INCUMBENT_ENTRIES`, checked on the live caller frame), runs
+#: only a registered incumbent question (:data:`INCUMBENT_QUESTIONS`) over the operation's own handles
+#: and a request of plain, immutable data (no callable, no AD-owned object), refuses every write and
+#: every read whose stack holds AD code or a callback from outside LearnLoop, and returns plain data
+#: (item ids and reason strings), so only a pass or a named refusal per candidate, and the plan's
+#: admitted pool as ids, reaches AD.
 AD_MODULES = ("learnloop.adaptive_difficulty", "learnloop.daily_plan.ad_slot")
+#: The only functions that may open the incumbent's scope (``operation.incumbent_answer`` checks the
+#: live caller frame: module, name, globals and file; the compose fix round 3).
+INCUMBENT_ENTRIES = frozenset({
+    ("learnloop.daily_plan.ad_slot", "_exclusions"),
+    ("learnloop.daily_plan.ad_slot", "incumbent_verdicts"),
+})
+#: The only questions asked inside the scope: functions of an incumbent module, given the
+#: operation's own handles and a plain request, answering plain data.
+INCUMBENT_QUESTIONS = frozenset({
+    ("learnloop.daily_plan.incumbent_answers", "routine_exclusions"),
+    ("learnloop.daily_plan.incumbent_answers", "slot_admission"),
+})
 
 
 def incumbent_reader(module: str) -> bool:
@@ -571,5 +586,5 @@ def write_verdict(table: str) -> str | None:
 
 
 __all__ = ["AD_WRITABLE", "CARVE_OUTS", "COLUMNS", "DENIED", "DERIVED", "DERIVED_TREATMENT", "ENTITY_KINDS", "EPOCH",
-           "AD_MODULES", "INCUMBENT", "ITEM_PROVENANCE", "READING", "incumbent_reader",
+           "AD_MODULES", "INCUMBENT", "INCUMBENT_ENTRIES", "INCUMBENT_QUESTIONS", "ITEM_PROVENANCE", "READING", "incumbent_reader",
            "NEUTRAL", "PREDICATE", "PROTECTED", "ROLES", "VALUE", "read_verdict", "role", "write_verdict"]

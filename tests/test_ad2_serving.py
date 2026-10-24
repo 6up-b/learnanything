@@ -438,17 +438,22 @@ def test_support_respects_constraints_reversibility_and_admission(tmp_path, monk
     items = ("pi_h", "pi_refused", "pi_cold", "pi_reserved", "pi_planned", "pi_cost", "pi_ok")
     paths, env, _clock, record = _plan(tmp_path, items, features={"pi_h": HARD}, config=ROUTER_STAGED,
                                        minutes={"pi_cost": 2.4})
-    real_material = staged_frame.StagedFrame.material
+    # The incumbent's verdicts, adjusted at the scope's boundary (the compose fix round 3: no test
+    # double runs inside the incumbent's scope; the stack rule refuses one that reads there).
+    real_verdicts = ad_slot.incumbent_verdicts
 
-    def material(self: Any, candidates: Any) -> Any:
+    def verdicts(*args: Any, **kwargs: Any) -> Any:
         from dataclasses import replace
 
-        found = real_material(self, candidates)
-        return replace(found, refusals={**dict(found.refusals), "pi_refused": ({"constraint": "fake_refusal"},)},
+        found = real_verdicts(*args, **kwargs)
+        refusals = {**dict(found.refusals)}
+        if "pi_refused" in found.pool:
+            refusals["pi_refused"] = (*refusals.get("pi_refused", ()), "constraint:fake_refusal")
+        return replace(found, refusals=refusals,
                        cold_items=frozenset(set(found.cold_items or ()) | {"pi_cold"}),
                        reserved_items=frozenset(set(found.reserved_items or ()) | {"pi_reserved"}))
 
-    monkeypatch.setattr(staged_frame.StagedFrame, "material", material)
+    monkeypatch.setattr(ad_slot, "incumbent_verdicts", verdicts)
     real_build = ad_slot.build_request
 
     class _Planned:
@@ -514,15 +519,18 @@ def test_support_rechecked_at_draw_slot_item_included(tmp_path, monkeypatch, cha
     elif change == "pre_exposure":
         reveal(paths, target, amount=0.5, at=iso(clock.now() - timedelta(days=3)))
     else:
-        real_material = staged_frame.StagedFrame.material
+        # A fresh refusal, at the scope's boundary (the compose fix round 3).
+        real_verdicts = ad_slot.incumbent_verdicts
 
-        def material(self: Any, candidates: Any) -> Any:
+        def verdicts(*args: Any, **kwargs: Any) -> Any:
             from dataclasses import replace
 
-            found = real_material(self, candidates)
-            return replace(found, refusals={**dict(found.refusals), target: ({"constraint": "fresh_refusal"},)})
+            found = real_verdicts(*args, **kwargs)
+            refusals = {**dict(found.refusals)}
+            refusals[target] = (*refusals.get(target, ()), "constraint:fresh_refusal")
+            return replace(found, refusals=refusals)
 
-        monkeypatch.setattr(staged_frame.StagedFrame, "material", material)
+        monkeypatch.setattr(ad_slot, "incumbent_verdicts", verdicts)
     _record, step = advance(env, serve=True)
     (row,) = _serve_rows(paths)
     assert target not in {entry["ref"] for entry in row["support"]}

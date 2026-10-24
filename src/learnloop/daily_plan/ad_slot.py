@@ -50,6 +50,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
+from types import MappingProxyType
 from typing import Any
 
 from learnloop.daily_plan.admission import new_item_daily_cost
@@ -62,6 +63,11 @@ _EPS = 1e-9
 class AdUnavailable(RuntimeError):
     """AD cannot decide this slot safely (the held-out predicate or the routine exclusions could
     not be computed): the plan serves its planned item as the incumbent does."""
+
+
+class SlotNotAdmitted(AdUnavailable):
+    """The slot's own item is no longer in the plan's admitted pool: AD refuses the slot and the
+    incumbent's own handling decides (the compose fix round 3)."""
 
 
 @contextmanager
@@ -115,23 +121,25 @@ def _exclusions(env: Any, view: Any) -> Any:
     belonging to an answer given to a held-out revision) excludes nothing. The incumbent's own
     exclusions are unchanged."""
 
-    from learnloop.adaptive_difficulty.operation import incumbent_constraints
+    from learnloop.adaptive_difficulty.operation import incumbent_answer, is_denial
     from learnloop.attempts.attempts import COLD_FOLLOWUP_TASK_KINDS
+    from learnloop.daily_plan import incumbent_answers as IA
     from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
-    from learnloop.scheduling.serving_exclusions import out_of_timing_serving_exclusions
 
     try:
         with env.repository.connection() as connection:
             withheld = view.withheld_reveal_ids(connection)
-        # The incumbent's own exclusions, asked in its scope (the registry's named incumbent readers).
-        with incumbent_constraints():
-            return out_of_timing_serving_exclusions(env.vault, env.repository,
-                                                    cold_followup_kinds=COLD_FOLLOWUP_TASK_KINDS,
-                                                    reveal_window=COLD_RETRIEVAL_DELAY, clock=env.clock,
-                                                    exclude_reveal_ids=withheld)
+        # Plain data only crosses into the incumbent's scope (the compose fix round 3): the instant is
+        # read here, under AD's own rules, never inside the scope.
+        request = IA.ExclusionsRequest(now=env.now(), cold_followup_kinds=tuple(sorted(COLD_FOLLOWUP_TASK_KINDS)),
+                                       reveal_window=COLD_RETRIEVAL_DELAY,
+                                       withheld_reveal_ids=frozenset(str(i) for i in withheld))
+        return incumbent_answer(IA.routine_exclusions, request)
     except AdUnavailable:
         raise
-    except Exception as exc:  # noqa: BLE001 - the routine exclusions failed: AD is unavailable (F22)
+    except Exception as exc:  # noqa: BLE001
+        if is_denial(exc):
+            raise AdUnavailable(f"the AD guard refused the routine exclusions: {exc}") from exc
         raise AdUnavailable(f"serving exclusions failed: {exc}") from exc
 
 
@@ -224,54 +232,59 @@ def incumbent_verdicts(env: Any, items: Sequence[Any], *, pool: Mapping[str, Poo
                        item_states: Any, record: Any, built: Any, slot_item_id: str | None = None,
                        released: Iterable[str] = ()) -> IncumbentVerdicts:
     """The incumbent's admission of AD's candidates, asked in its scope and returned as
-    :class:`IncumbentVerdicts` alone.
+    :class:`IncumbentVerdicts` alone (the compose fix rounds 2 and 3).
 
-    First the membership (the compose fix round 2): the plan's admitted pool at this boundary
-    (``engine.admitted_new_material_ids`` over ``built``, the build this advance made and the plan
-    serves from; ``released``: AD deferrals being re-read), with the slot's own planned item. A
-    candidate outside it is no candidate. A per-item predicate is not the whole pool: the build's
-    set-level stages (teach-back value admission and caps, the Keep and Light-touch new-material
-    rule, and whatever comes next) decide membership, and AD reads their output, never re-derives
-    them. Then, for the members, the staged frame's admission on a fresh controller snapshot and the
-    plan pool's per-item predicate (``scheduler.pool_admission``), re-asked in the serve transaction
-    so a choice made since the build counts. ``item_states``: the states as AD's material view reads
-    them (fix round 12)."""
+    Built here, under AD's own rules, as plain data (``incumbent_answers.SlotAdmissionRequest``): the
+    instant, the plan's id, this advance's scheduler queue deep-frozen, the item states as AD's
+    material view reads them, the candidates as the plan's pool items, the slot's own item and the
+    released deferrals. The incumbent (``incumbent_answers.slot_admission``) then answers, inside
+    its scope through ``operation.incumbent_answer``: first the membership (the plan's admitted pool
+    at this boundary, the slot's own item judged as its siblings); then, for the members, the staged
+    frame's admission on a fresh controller snapshot and the plan pool's per-item predicate. No
+    object of AD's, and nothing callable, crosses into the scope."""
 
-    from learnloop.adaptive_difficulty.operation import incumbent_constraints
-    from learnloop.daily_plan.engine import admitted_new_material_ids
-    from learnloop.daily_plan.policy import router_active
-    from learnloop.daily_plan.staged_frame import StagedFrame
-    from learnloop.scheduling.scheduler import pool_admission
+    from learnloop.adaptive_difficulty.operation import incumbent_answer
+    from learnloop.daily_plan import incumbent_answers as IA
 
-    with incumbent_constraints():
-        admitted = set(admitted_new_material_ids(env, record, built, released=released, item_states=item_states))
-        if slot_item_id is not None:
-            admitted.add(str(slot_item_id))
-        members = [item for item in items if str(item.id) in admitted]
-        candidates = [_pool_item(item, est_minutes=est.get(str(item.id), 0.0), existing=pool.get(str(item.id)))
-                      for item in members]
-        material = StagedFrame(env.vault, env.repository, clock=env.clock,
-                               item_states=lambda: item_states).material(candidates)
-        refuse = pool_admission(env.vault, env.repository, now=env.now(), item_states=item_states)
-        pooled = {str(item.id): refuse(str(item.id)) for item in members}
-    staged = router_active(env.vault)
-    refusals: dict[str, tuple[str, ...]] = {}
-    for item in members:
-        item_id = str(item.id)
-        reasons: list[str] = []
-        if staged:
-            for reason in material.refusals.get(item_id, ()):
-                reasons.append(f"constraint:{reason.get('constraint') or reason.get('key') or 'refused'}")
-        if pooled[item_id] is not None:
-            reasons.append(f"pool:{pooled[item_id]}")
-        refusals[item_id] = tuple(str(reason) for reason in reasons)
-    cold = material.cold_items
-    return IncumbentVerdicts(
-        pool=frozenset(str(item_id) for item_id in admitted),
-        refusals=refusals,
-        cold_items=None if cold is None else frozenset(str(item_id) for item_id in cold),
-        reserved_items=frozenset(str(item_id) for item_id in material.reserved_items),
+    candidates = tuple(_frozen(_pool_item(item, est_minutes=est.get(str(item.id), 0.0), existing=pool.get(str(item.id))))
+                       for item in items)
+    request = IA.SlotAdmissionRequest(
+        now=env.now(),
+        session_id=None if env.session_id is None else str(env.session_id),
+        plan_id=str(record.id),
+        scheduled=tuple(_frozen(item) for item in built.scheduled),
+        item_states=MappingProxyType({str(k): _frozen(v) for k, v in dict(item_states).items()}),
+        candidates=candidates,
+        slot_item_id=None if slot_item_id is None else str(slot_item_id),
+        released=frozenset(str(item_id) for item_id in released),
     )
+    answer = incumbent_answer(IA.slot_admission, request)
+    return IncumbentVerdicts(
+        pool=answer.pool,
+        refusals=dict(answer.refusals),
+        cold_items=answer.cold_items,
+        reserved_items=answer.reserved_items,
+    )
+
+
+def _frozen(value: Any) -> Any:
+    """``value`` as plain, immutable data for the incumbent's scope: mappings read-only, lists and
+    sets as tuples and frozensets, frozen dataclasses with their fields frozen in turn."""
+
+    import dataclasses
+
+    if isinstance(value, Mapping) and not isinstance(value, MappingProxyType):
+        return MappingProxyType({key: _frozen(element) for key, element in value.items()})
+    if isinstance(value, MappingProxyType):
+        return MappingProxyType({key: _frozen(element) for key, element in value.items()})
+    if isinstance(value, list | tuple):
+        return tuple(_frozen(element) for element in value)
+    if isinstance(value, set | frozenset):
+        return frozenset(_frozen(element) for element in value)
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        changes = {item.name: _frozen(getattr(value, item.name)) for item in dataclasses.fields(value) if item.init}
+        return dataclasses.replace(value, **changes)
+    return value
 
 
 def admission_failures(env: Any, items: Sequence[Any], *, pool: Mapping[str, PoolItem],
@@ -335,6 +348,12 @@ def build_request(env: Any, record: Any, block: Any, slot: Any, built: Any, *, d
     est[str(slot_item.id)] = float(slot.est_minutes)
     admission, admitted = admission_failures(env, [slot_item, *siblings], pool=pool, est=est, view=view,
                                              record=record, built=built, slot_item_id=str(slot_item.id))
+    if str(slot_item.id) not in admitted:
+        # The slot's own item passes the same membership rule as its siblings (the compose fix round
+        # 3): a slot whose item the plan no longer admits as new material (a choice since it was
+        # planned, a teach-back value admission now leaves out) is not AD's to decide. AD refuses it
+        # and the incumbent's own handling serves or displaces the item, as with AD off.
+        raise SlotNotAdmitted(f"the slot's item {slot_item.id} is no longer in the plan's admitted pool")
     items = [slot_item, *(item for item in siblings if str(item.id) in admitted)]
     failures = {str(item.id): eligibility_failures(env, item, slot_facets=slot_facets, capability=capability,
                                                     exclusions=exclusions, view=view) for item in items}
@@ -449,5 +468,5 @@ def router_propensity(record: Any, block: Any) -> float:
     return float(value) if value is not None else 1.0
 
 
-__all__ = ["AdUnavailable", "IncumbentVerdicts", "admission_failures", "incumbent_verdicts", "build_request", "deferrals_to_clear", "eligibility_failures",
+__all__ = ["AdUnavailable", "IncumbentVerdicts", "SlotNotAdmitted", "admission_failures", "incumbent_verdicts", "build_request", "deferrals_to_clear", "eligibility_failures",
            "router_propensity", "slot_operation"]

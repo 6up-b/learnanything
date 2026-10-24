@@ -48,6 +48,7 @@ import hashlib
 import inspect
 import json
 import logging
+import os
 import re
 import sqlite3
 import sys
@@ -55,7 +56,9 @@ from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 LOG = logging.getLogger(__name__)
@@ -112,6 +115,9 @@ class Guard:
     #: The statement being authorized has an UPDATE action (round 6: a later SELECT in it is an
     #: ``UPDATE ... FROM`` or an ``UPDATE ... SET (subquery)``).
     _update_seen: bool = False
+    #: The incumbent scope's last stack verdict: (statement site frame, its instruction, the scope's
+    #: entry frame, the verdict); cleared when the scope closes.
+    _scope_cache: Any = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
         self._hook = self.authorize
@@ -180,15 +186,18 @@ class Guard:
         rules = _IN_RULES.get()
         kind = T.role(table)
         if rules == T.INCUMBENT:
-            # The incumbent's scope (the compose fix round 2): its readers are derived, every LearnLoop
-            # module reached inside it but AD's own (``protected_tables.incumbent_reader``), and read
-            # anything, classified or not; only verdicts leave the scope (``ad_slot.IncumbentVerdicts``).
-            # AD's own code, or an unknown reader, inside it reads as outside any scope.
-            if T.incumbent_reader(reader):
-                if self.poisoned:
-                    return self._deny("read", table, POISONED, reader)
-                return sqlite3.SQLITE_OK
-            rules = None
+            # The incumbent's scope (the compose fix rounds 2 and 3): entered only by
+            # :func:`incumbent_answer`, it runs one registered incumbent question over plain data.
+            # Its readers are derived (every LearnLoop module but AD's own), and a read is allowed
+            # only while no AD frame and no callback from outside LearnLoop lies between the read
+            # and the scope's entry (:meth:`_scope_violation`): AD code run inside the scope (a
+            # callback, lambda, method or generator) is refused and poisons the operation.
+            if self.poisoned:
+                return self._deny("read", table, POISONED, reader)
+            violation = self._scope_violation()
+            if violation is not None:
+                return self._deny("read", table, violation, reader)
+            return sqlite3.SQLITE_OK
         # Column-aware (round 5): outside the rules' scopes (the material view's rules, the
         # predicate's, the incumbent's constraints) only a table's metadata columns are read raw; a
         # content column (text, JSON or blob that can carry material) is the rules' to resolve.
@@ -220,6 +229,42 @@ class Guard:
             return sqlite3.SQLITE_OK
         return self._deny("read", table, verdict, reader)
 
+    def _scope_violation(self) -> str | None:
+        """Why a read in the incumbent's scope may not run, or None: the frames between it and the
+        scope's entry (:func:`incumbent_answer`'s own frame) must all be incumbent code, LearnLoop
+        modules outside AD or the Python installation's own (the standard library, installed
+        packages); an AD frame or a frame from anywhere else (a test's or a planted callback) is
+        refused. Cached per statement site (the frame that prepared it and its instruction)."""
+
+        entry = _SCOPE_ENTRY.get()
+        if entry is None:
+            return "a read in the incumbent's scope with no entry"
+        frame = sys._getframe(2)
+        while frame is not None and frame.f_globals.get("__name__") == __name__:
+            frame = frame.f_back
+        if frame is None:
+            return "a read in the incumbent's scope outside its entry"
+        cached = self._scope_cache
+        if cached is not None and cached[0] is frame and cached[1] == frame.f_lasti and cached[2] is entry:
+            return cached[3]
+        site, lasti = frame, frame.f_lasti
+        verdict: str | None = "a read in the incumbent's scope outside its entry"
+        while frame is not None:
+            if frame is entry:
+                verdict = None
+                break
+            name = str(frame.f_globals.get("__name__", ""))
+            where = f"{name}.{frame.f_code.co_name}"
+            if _ad_owned(name):
+                verdict = f"AD code inside the incumbent's scope ({where})"
+                break
+            if not _trusted_frame(name, frame.f_code.co_filename):
+                verdict = f"a callback from outside LearnLoop inside the incumbent's scope ({where})"
+                break
+            frame = frame.f_back
+        self._scope_cache = (site, lasti, entry, verdict)
+        return verdict
+
     def _write(self, table: str, verb: str) -> int:
         from learnloop.adaptive_difficulty import protected_tables as T
 
@@ -227,6 +272,9 @@ class Guard:
         self.writes.setdefault(table, set()).add(reader)
         if self.poisoned:
             return self._deny(verb, table, POISONED, reader)
+        if _IN_RULES.get() == T.INCUMBENT:
+            # The incumbent's scope writes nothing, AD's own tables included (the compose fix round 3).
+            return self._deny(verb, table, "a write inside the incumbent's scope", reader)
         read_only = _READ_ONLY.get()
         if read_only is not None:
             return self._deny(verb, table, f"the read-only AD entry point {read_only} writes nothing", reader)
@@ -421,6 +469,11 @@ def rules(name: str) -> Iterator[None]:
     cache is expired (re-installing the authorizer does it, SQLite's fact 1 of the redesign §3.6),
     so no statement a helper prepared inside the rules is reused outside them unchecked."""
 
+    from learnloop.adaptive_difficulty import protected_tables as T
+
+    if name == T.INCUMBENT and not _ENTERING_SCOPE.get():
+        # The incumbent's scope opens only through :func:`incumbent_answer` (the compose fix round 3).
+        _refuse_entry("rules('incumbent') called directly")
     outer = _IN_RULES.get()
     token = _IN_RULES.set(name)
     try:
@@ -455,16 +508,212 @@ def own_write(table: str) -> Iterator[None]:
             op.guard.refresh()
 
 
+_SCOPE_ENTRY: ContextVar[Any] = ContextVar("ad_incumbent_scope_entry", default=None)
+_ENTERING_SCOPE: ContextVar[bool] = ContextVar("ad_incumbent_scope_entering", default=False)
+
+
+@dataclass(frozen=True)
+class IncumbentHandles:
+    """The operation's own handles on the vault and the database, the only objects that reach an
+    incumbent question besides its plain request (never anything AD passed)."""
+
+    vault: Any
+    repository: Any
+
+
+def incumbent_answer(question: Callable[[IncumbentHandles, Any], Any], request: Any) -> Any:
+    """Ask the incumbent one question inside the incumbent's scope, and return its plain answer
+    (the compose fix round 3, by construction):
+
+    * the caller is one of the two pinned entry functions (``protected_tables.INCUMBENT_ENTRIES``),
+      checked on the live frame: any other entry (by ``getattr``, an alias, another module, a
+      function forged with the entry's name) is refused and poisons the operation;
+    * ``question`` is one of the registered incumbent questions (``INCUMBENT_QUESTIONS``: functions of
+      an incumbent module, checked on their code), so only incumbent code runs in the scope;
+    * ``request`` is plain, immutable data (:func:`require_plain`): no callable and no AD-owned
+      object crosses into the scope, so nothing AD defined can run there through its arguments; and
+      a read whose stack holds AD code or a callback from outside LearnLoop is refused anyway
+      (``Guard._scope_violation``);
+    * the question receives the operation's own handles (:class:`IncumbentHandles`), runs with every
+      write refused, and its answer is checked plain on the way out."""
+
+    from learnloop.adaptive_difficulty import protected_tables as T
+
+    caller = sys._getframe(1)
+    if not _pinned_entry(caller):
+        _refuse_entry(f"an entry from {caller.f_globals.get('__name__', '?')}.{caller.f_code.co_name}")
+    if not _registered_question(question):
+        _refuse_entry(f"an unregistered question {getattr(question, '__qualname__', question)!r}")
+    op = _CURRENT.get()
+    if op is None:
+        raise GuardDenied("the incumbent's scope opens only inside an AD operation")
+    problem = plain_problem(request)
+    if problem is not None:
+        _refuse_entry(f"a request that is not plain data ({problem})")
+    handles = IncumbentHandles(vault=op.raw_vault, repository=op.raw_repository)
+    entering = _ENTERING_SCOPE.set(True)
+    try:
+        scope = rules(T.INCUMBENT)
+        scope.__enter__()
+    finally:
+        _ENTERING_SCOPE.reset(entering)
+    entry_token = _SCOPE_ENTRY.set(sys._getframe(0))
+    try:
+        answer = question(handles, request)
+    except BaseException:
+        _SCOPE_ENTRY.reset(entry_token)
+        op.guard._scope_cache = None
+        scope.__exit__(*sys.exc_info())
+        raise
+    _SCOPE_ENTRY.reset(entry_token)
+    op.guard._scope_cache = None
+    scope.__exit__(None, None, None)
+    if op.guard.poisoned:
+        raise OperationPoisoned("the AD guard refused a read or write in the incumbent's scope")
+    problem = plain_problem(answer)
+    if problem is not None:
+        _refuse_entry(f"an answer that is not plain data ({problem})")
+    return answer
+
+
 @contextmanager
 def incumbent_constraints() -> Iterator[None]:
-    """The incumbent's serve-time constraints, asked of a visible candidate inside an operation (the
-    slot's routine exclusions, staged-frame admission, pool predicate and admitted pool): read by
-    every LearnLoop module reached inside it but AD's own (``protected_tables.incumbent_reader``),
-    never written; entered only by ``daily_plan.ad_slot``'s two verdict functions, which return ids
-    and reason strings alone."""
+    """Refused (the compose fix round 3): the incumbent's scope opens only through
+    :func:`incumbent_answer`, from a pinned entry function. Kept so a stale caller fails loudly."""
 
-    with rules("incumbent"):
-        yield
+    _refuse_entry("incumbent_constraints() called directly")
+    yield  # pragma: no cover - never reached
+
+
+def _refuse_entry(why: str) -> None:
+    op = _CURRENT.get()
+    if op is not None:
+        op.guard._deny("enter", "(incumbent scope)", f"the incumbent's scope refused: {why}", _reader())
+    raise GuardDenied(f"the incumbent's scope refused: {why}")
+
+
+def _pinned_entry(frame: Any) -> bool:
+    from learnloop.adaptive_difficulty import protected_tables as T
+
+    name = frame.f_globals.get("__name__", "")
+    module = sys.modules.get(str(name))
+    return bool(
+        (name, frame.f_code.co_name) in T.INCUMBENT_ENTRIES
+        and module is not None
+        and frame.f_globals is module.__dict__
+        and frame.f_code.co_filename == getattr(module, "__file__", None)
+        and frame.f_code.co_qualname == frame.f_code.co_name
+    )
+
+
+def _registered_question(question: Any) -> bool:
+    from learnloop.adaptive_difficulty import protected_tables as T
+
+    code = getattr(question, "__code__", None)
+    module_name = getattr(question, "__module__", None)
+    module = sys.modules.get(str(module_name))
+    return bool(
+        code is not None
+        and (module_name, getattr(question, "__qualname__", None)) in T.INCUMBENT_QUESTIONS
+        and module is not None
+        and code.co_filename == getattr(module, "__file__", None)
+        and getattr(question, "__globals__", None) is module.__dict__
+    )
+
+
+def _ad_owned(module: str) -> bool:
+    from learnloop.adaptive_difficulty import protected_tables as T
+
+    return any(module == prefix or module.startswith(prefix + ".") for prefix in T.AD_MODULES)
+
+
+def _trusted_frame(module: str, filename: str) -> bool:
+    """A frame of incumbent code (a LearnLoop module outside AD) or of the Python installation."""
+
+    if filename.startswith("<"):
+        # Generated code (a dataclass's methods, frozen importlib): judged by the module it runs in.
+        return module.startswith("learnloop.") or not module or module in sys.stdlib_module_names or \
+            module.split(".")[0] in sys.stdlib_module_names
+    path = os.path.abspath(filename)
+    return any(path.startswith(root) for root in _trusted_roots())
+
+
+_ROOTS: list[tuple[str, ...]] = []
+
+
+def _trusted_roots() -> tuple[str, ...]:
+    if not _ROOTS:
+        import sysconfig
+
+        import learnloop
+
+        roots = {os.path.join(os.path.abspath(os.path.dirname(learnloop.__file__)), "")}
+        for key in ("stdlib", "platstdlib", "purelib", "platlib"):
+            path = sysconfig.get_paths().get(key)
+            if path:
+                roots.add(os.path.join(os.path.abspath(path), ""))
+        _ROOTS.append(tuple(sorted(roots)))
+    return _ROOTS[0]
+
+
+_PLAIN_SCALARS = (type(None), bool, int, float, str, datetime, date, timedelta)
+
+
+def plain_problem(value: Any, *, _path: str = "request", _depth: int = 0, _seen: set[int] | None = None) -> str | None:
+    """Why ``value`` is not plain, immutable data, or None (the incumbent scope's boundary): a
+    scalar (None, bool, int, float, str, date, datetime, timedelta), a tuple or frozenset of plain
+    data, a read-only mapping (``types.MappingProxyType``) of plain keys to plain values, or an
+    instance of a FROZEN dataclass of an incumbent module (LearnLoop, outside AD) whose every field
+    is plain. Nothing else: no callable, no generator, no mutable container, no AD-owned object."""
+
+    if _depth > 24:
+        return f"{_path}: nested too deeply"
+    if isinstance(value, _PLAIN_SCALARS) and type(value) in _PLAIN_SCALARS:
+        return None
+    seen = _seen if _seen is not None else set()
+    if id(value) in seen:
+        return None
+    seen.add(id(value))
+    kind = type(value)
+    if kind in (tuple, frozenset):
+        for index, element in enumerate(value):
+            problem = plain_problem(element, _path=f"{_path}[{index}]", _depth=_depth + 1, _seen=seen)
+            if problem is not None:
+                return problem
+        return None
+    if kind is MappingProxyType:
+        for key, element in value.items():
+            problem = plain_problem(key, _path=f"{_path} key", _depth=_depth + 1, _seen=seen) or plain_problem(
+                element, _path=f"{_path}[{key!r}]", _depth=_depth + 1, _seen=seen)
+            if problem is not None:
+                return problem
+        return None
+    import dataclasses
+
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        module = str(getattr(kind, "__module__", ""))
+        if _ad_owned(module) or not module.startswith("learnloop."):
+            return f"{_path}: a {kind.__qualname__} from {module} (only incumbent dataclasses cross)"
+        if not kind.__dataclass_params__.frozen:  # type: ignore[attr-defined]
+            return f"{_path}: a mutable {kind.__qualname__}"
+        for item in dataclasses.fields(value):
+            problem = plain_problem(getattr(value, item.name), _path=f"{_path}.{item.name}", _depth=_depth + 1,
+                                    _seen=seen)
+            if problem is not None:
+                return problem
+        extra = set(getattr(value, "__dict__", {})) - {item.name for item in dataclasses.fields(value)}
+        if extra:
+            return f"{_path}: a {kind.__qualname__} with attributes beyond its fields ({sorted(extra)})"
+        return None
+    if callable(value):
+        return f"{_path}: a callable ({kind.__qualname__})"
+    return f"{_path}: a {kind.__module__}.{kind.__qualname__}"
+
+
+def require_plain(value: Any, *, what: str = "request") -> None:
+    problem = plain_problem(value, _path=what)
+    if problem is not None:
+        raise GuardDenied(f"not plain data: {problem}")
 
 
 @contextmanager
@@ -770,5 +1019,5 @@ def _is_protection(value: Any) -> bool:
 
 
 __all__ = ["EPOCH_VERSION", "GuardDenied", "OBSERVERS", "Operation", "OperationPoisoned", "RULES_MARKER", "ad_operation", "current",
-           "denial_count", "entry", "epoch_of", "incumbent_constraints", "is_denial", "optional_operation",
+           "IncumbentHandles", "denial_count", "entry", "epoch_of", "incumbent_answer", "incumbent_constraints", "is_denial", "optional_operation",
            "own_write", "rules", "suspended"]
