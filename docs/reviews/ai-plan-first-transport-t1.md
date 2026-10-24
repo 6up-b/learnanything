@@ -438,6 +438,7 @@ No migration (head **217**, head fixture `migration_head_217` unchanged) and no 
 - `91565a346` gate fixes (three tests and one golden; see the gate).
 - `f07dcd338` this record; `172113ce7` the Today fix (below, after the orchestrator's review of the first record).
 - `84a3f8947` and `4a8868f09`: the grant-scope fix from the verify of `0ecc600ea` / `172113ce7` (below).
+- `88b466d96` (WIP) and `0ee2cebb5`: round 2, from the verify of `84a3f8947` / `4a8868f09` (below).
 
 ### Finding at the landing: the paid roles (fixed, `0ecc600ea`)
 
@@ -722,6 +723,108 @@ Nothing is sent in any of these tests.
 - Today needs both the `teach_back` and the `grading` grants before it shows teach-back items again;
 - the daily-plan router's parallel components run in copied contexts, so they carry no grant, while the first,
   inline one does.
+
+### Verify of `84a3f8947` and `4a8868f09`: only a press carries a grant into queued work (fixed, `0ee2cebb5`)
+
+The Opus verify **reopened with one Medium and two Lows**. The orchestrator's ruling: the Medium stands, because
+scrolling is not pressing.
+
+**The Medium.** Every RPC counted as a learner request, including the RPCs the desktop sends by itself:
+
+- `reader.mark_section_progress`, sent on scroll (`useReadingProgress.ts`), handles a first reach of a section
+  through `keep_ahead_for_reader`, which leads to `act_on_reading_request` / `request_auto_build` and then
+  `runner.enqueue_batch`;
+- a completed section is handled by `enqueue_practice_expansion`.
+
+Both enqueues ran inside `interactive()`, and `runner._enqueue_batch` captured a token for **every** task granted on
+the vault. The token also chained: `after_auto_build` and child batches re-captured it through
+`JobContext.enqueue_batch`. So a learner who granted `canonical_ingest` on "Create study map" queued keep-ahead and
+practice-expansion builds on OpenRouter merely by scrolling. The reading sweep acting on the same request ran on
+the plan, which was inconsistent.
+
+**The fix, by construction:**
+
+- **(a) Opt-in at the presses.** `learnloop_sidecar/pressed.py` names `PRESSED_RPCS`, the RPCs a learner press
+  sends, each with its feature, and the dispatch (`server._handle`) enters `plan_fallback.pressed(vault, feature)`
+  for them alone. The presses, by feature:
+  - **build:** Add, the book card's actions (Build now, Build the whole book, Retry, Allow upload, Read again with
+    OCR), Create study map, Quick add, Import, Inventory, Extraction repair, Resume batch;
+  - **Reader check:** the section question, the selection check, the inquiry answer;
+  - **exercise import:** the Reader's import, the textbook import, the workbench retry, the primed retry;
+  - **the rung variant**, **the animation** and **question promotion**;
+  - **practice:** create goal, starter practice, commissioning practice;
+  - **hints and workbench:** request hint, Check my work, request help, Compare, Show example;
+  - **library:** ask, notes, tutor, compare, figure request and revise, Find exercises;
+  - **the reading path,** only on its retry.
+
+  `runner.enqueue_batch` never captures. A batch carries a token only through an explicit `grant=`, or from the
+  press around the call (`plan_fallback.pressed_token`). An AST test pins that `plan_fallback.pressed(` is entered
+  only by the dispatch.
+- **(b) Narrowed tokens.** A token names `plan_fallback.FEATURE_TASKS[feature]` ∩ the vault's grants, never every
+  granted task. For example, a build carries `canonical_ingest`, `canonical_ingest_retry` and `authoring` at most.
+- **(c) Children.** `JobContext.enqueue_batch` passes a token on only with `inherit_grant=True`, which is used once:
+  the planner's own planned build (`run_auto_study_map`). `after_auto_build`'s keep-ahead and every other follow-up
+  inherit nothing. `job_grant` is now always entered by a job's runner, token or not. Inside a job, neither the
+  learner request nor a press around it counts: a job drained in the pressed request's own thread is still a job.
+- **(d) A second guard.** `mark_section_progress` runs its keep-ahead and practice-expansion enqueues under `quiet()`.
+- **The sidecar jobs.** The four feature jobs (hints and the workbench, the library and figures, margin notes, the
+  reading path) take their token from the press around their start, narrowed to its feature. A job that no press
+  started runs under `quiet()`: margin-note discovery on open, the reading path on open, a workbench suggestion, the
+  library's exercise candidates. It asks nothing, because a grant could never serve it.
+- **The CLI.** The command with `LEARNLOOP_AI_FALLBACK=openrouter` is its own press, with every task on any vault.
+  The work it queues and drains carries that grant; a host (`learnloop mcp serve`) carries none.
+- **In-request (synchronous) calls are unchanged.** In any RPC they use a grant the learner gave, because they are
+  that request.
+
+**Low 1, fixed:**
+
+- `runner.resume_batch` refreshes the batch's token from a press (a pressed Retry: `source_action` retry,
+  `retry_build`, `resume_ingest_batch`, the workbench retry), narrowed. Otherwise (startup, a sweep, a job) it drops
+  the token.
+- `revoke(vault)` drops that vault's batch tokens, so a later re-grant revives nothing.
+
+**Low 2, fixed:**
+
+- a batch runs through `_run_claimed`, with `job_grant` entered only for a pressed enqueue;
+- the dispatch's own marker is pinned.
+
+**What carries a token now, and why:** a batch enqueued by a pressed RPC, or the pressed planner's own planned build;
+a sidecar job started by a pressed RPC; the import's time-boxed key check inside a pressed import or a job carrying
+a token; the CLI command with the variable set. Each is narrowed to its feature. Nothing else carries one.
+
+**Tests** (`tests/test_plan_first_transport_pressed_grants.py`, 8 tests). They fail on `47ba994e7`, shown by running
+the file against an export of that tree with the new names shimmed over the old behaviour
+(`fixtures-local/landing-t1/out/r2-fail-before-shim.log`). The frontend-enumeration test there fails only on the
+export's missing `client.ts`, since it is a property of the new table. All pass after. The tests:
+
+- scrolling a book (`mark_section_progress` through `_handle`: first reach and completion of two sections) queues
+  keep-ahead builds, none of which carries a token;
+- "Build the whole book" (`source_action`) carries a token narrowed to the build's tasks;
+- `_run_claimed` grants a pressed batch's job, and neither an unpressed-request batch nor a background one;
+- a child carries a token only when told to, and a job drained in the pressed thread sees no press;
+- a resume refreshes from a press or drops the token, and `revoke(vault)` clears it with no revival on re-grant;
+- the dispatch marks every RPC interactive and only `PRESSED_RPCS` pressed. Every registered RPC, dispatched with a
+  stub that enqueues, carries a token exactly when it is a press, narrowed to its feature;
+- no RPC the desktop calls (from `api/client.ts`) that it sends by itself is a press: job polls, `get_`/`list_`
+  reads, progress, status, margin-note discovery, the workbench opening and suggesting, the exercise candidates,
+  the daily plan's next item, vault load and the AI connection;
+- only the dispatch enters a press, and only audited sites pass `inherit_grant`.
+
+The existing tests now start their jobs inside their presses: `test_plan_first_transport.py` (the background-jobs
+offer test, plus a check that an unpressed job asks nothing) and `test_plan_first_transport_grant_scope.py`.
+
+| Run | Result |
+|---|---|
+| the five `test_plan_first_transport*` files, the lockdown and `test_chatgpt_plan_*` files | **234 passed** |
+| every ingest/runner/reader/reading/UX-phase-1/workbench/hint/library/figure/cue/first-run file and every file naming `mark_section_progress`, `enqueue_batch`, `resume_batch`, `source_action`, `IngestRunner(`, the job classes or `plan_fallback` | **3,341 passed**, 1 skipped |
+| `lint-imports` | 31 kept, 0 broken |
+| full suite at `0ee2cebb5` (`-n 8`, 10G scope, under the lock; the runner core and the dispatch changed) | **15,782 passed**, 1 failed, 3 skipped, 2 xfailed (33 min). The one failure is the known load flake `test_reading_hardening_2_fixes::test_f1_a_build_whose_worker_failed_to_start_is_run_by_the_sweep` (it also failed in the first gate at `df739a1c9`, before any grant change); it passed alone 3 times out of 3 |
+
+**Lows recorded, not fixed:**
+
+- `PRESSED_RPCS` is maintained by hand. A new press must be added there, or its queued work runs on the plan (the
+  safe default). The table's tests catch an automatic sender added to it, but not a press left out of it.
+- `source_action`'s `allow_upload` resumes the add batch as a press (`build`); the learner pressed it.
 
 ### Owner notes
 
