@@ -24,7 +24,7 @@ from tests.test_figures_migration import RW5A_ADDED_OBJECTS
 from tests.test_reader_rw3b_migration import RW3B_ADDED_OBJECTS
 from tests.test_reader_rw7a_migration import RW7A_ADDED_OBJECTS
 from tests.test_t1_batch_origin_migration import T1_ALTERED_TABLES
-from tests.test_rw2d_receipts_migration import RW2D_ADDED_OBJECTS
+from tests.test_rw2d_receipts_migration import RW2D_ADDED_OBJECTS, RW2D_ALTERED_TABLES
 
 HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_219" / "state.sqlite"
 NOW = "2026-10-18T09:00:00Z"
@@ -68,9 +68,9 @@ def _upgrade(tmp_path: Path) -> Path:
     # 212 rebuilds the two learner-text tables (their source_kind CHECK only).
     # Adaptive difficulty AD1's 213 adds two practice_attempts columns on the way.
     assert {name: sql for name, sql in after.items()
-            if name in before and not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES} \
+            if name in before and not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | RW2D_ALTERED_TABLES} \
         == {name: sql for name, sql in before.items()
-            if not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES}  # nothing else changed
+            if not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES | RW2D_ALTERED_TABLES}  # nothing else changed
     return database
 
 

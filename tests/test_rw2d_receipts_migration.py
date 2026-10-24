@@ -2,8 +2,9 @@
 
 One RECEIPT table, append-only by trigger: what the predecessor's field
 derivation and placement rule would have decided where RW2d's workbench
-signals changed a fast-track or quick-check decision. Nothing else is added
-or altered.
+signals changed a fast-track or quick-check decision; and one column,
+``workbench_sessions.contract_subject_id``, the subject recorded with a
+session's frozen contract (re-review F3). Nothing else is added or altered.
 """
 from __future__ import annotations
 
@@ -29,6 +30,8 @@ RW2D_ADDED_OBJECTS = frozenset({
     "field_signal_receipts_no_delete", "sqlite_autoindex_field_signal_receipts_1",
     "sqlite_autoindex_field_signal_receipts_2",
 })
+#: What 219 alters: one added column (the earlier migrations' "nothing else changed" diffs read this).
+RW2D_ALTERED_TABLES = frozenset({"workbench_sessions"})
 
 
 def _database_at(tmp_path: Path, version: int) -> Path:
@@ -60,16 +63,28 @@ def _receipt(**overrides):
     return row
 
 
-def test_219_adds_the_receipt_table_and_nothing_else(tmp_path):
+def test_219_adds_the_receipt_table_and_the_subject_column_and_nothing_else(tmp_path):
     database = _database_at(tmp_path, 218)
+    with closing(sqlite3.connect(database)) as connection, connection:
+        connection.execute(
+            "INSERT INTO workbench_sessions (id, practice_item_id, stem_md, origin, entry, status, created_at, "
+            "updated_at, assessment_contract_version_id) "
+            "VALUES ('wb_old', 'pi', 'A problem.', 'reader', 'work_through', 'open', 't', 't', 'acv')"
+        )
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
     assert [migration.version for migration in applied] == [219]
     after = _schema(database)
     assert set(after) - set(before) == RW2D_ADDED_OBJECTS
-    assert {name for name in before if before[name] != after[name]} == set()
+    assert {name for name in before if before[name] != after[name]} == RW2D_ALTERED_TABLES
     assert role_for_table("field_signal_receipts") is TableRole.RECEIPT
+    with closing(sqlite3.connect(database)) as connection:
+        columns = [row[1] for row in connection.execute("PRAGMA table_info(workbench_sessions)")]
+        assert columns[-1] == "contract_subject_id"
+        # A session from before 219 has no subject on record: the field says so.
+        assert connection.execute(
+            "SELECT contract_subject_id FROM workbench_sessions WHERE id = 'wb_old'").fetchone() == (None,)
 
 
 def test_the_receipts_are_append_only_and_keyed_once(tmp_path):
@@ -93,6 +108,7 @@ def test_the_head_fixture_is_at_219_in_rollback_mode():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
     with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as connection:
         assert connection.execute("SELECT COUNT(*) FROM field_signal_receipts").fetchone() == (0,)
+        assert "contract_subject_id" in [row[1] for row in connection.execute("PRAGMA table_info(workbench_sessions)")]
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
     for suffix in ("-wal", "-shm", "-journal"):
         assert not HEAD.with_name(HEAD.name + suffix).exists()

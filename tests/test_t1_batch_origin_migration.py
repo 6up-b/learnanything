@@ -19,7 +19,7 @@ from learnloop.db.migrate import (
     upgrade_allowance,
 )
 
-from tests.test_rw2d_receipts_migration import RW2D_ADDED_OBJECTS
+from tests.test_rw2d_receipts_migration import RW2D_ADDED_OBJECTS, RW2D_ALTERED_TABLES
 
 HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_219" / "state.sqlite"
 #: What 218 alters: the earlier migrations' "nothing else changed" diffs on the way to head read this.
@@ -52,11 +52,11 @@ def test_218_adds_the_batch_origin_column_and_nothing_else(tmp_path):
         connection.commit()
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    # RW2d's 219 (its own receipt table, altering nothing) follows on the way to head.
+    # RW2d's 219 (its receipt table, and a workbench_sessions column) follows on the way to head.
     assert [migration.version for migration in applied] == [218, 219]
     after = _schema(database)
     assert set(after) - RW2D_ADDED_OBJECTS == set(before)
-    assert {name for name in before if before[name] != after[name]} == T1_ALTERED_TABLES
+    assert {name for name in before if before[name] != after[name]} == T1_ALTERED_TABLES | RW2D_ALTERED_TABLES
     with closing(sqlite3.connect(database)) as connection:
         columns = [row[1] for row in connection.execute("PRAGMA table_info(ingest_batches)")]
         assert columns[-1] == "origin_method"

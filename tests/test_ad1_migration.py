@@ -28,7 +28,7 @@ from tests.test_figures_migration import RW5A_ADDED_OBJECTS
 from tests.test_reader_rw3b_migration import RW3B_ADDED_OBJECTS
 from tests.test_reader_rw7a_migration import RW7A_ADDED_OBJECTS
 from tests.test_t1_batch_origin_migration import T1_ALTERED_TABLES
-from tests.test_rw2d_receipts_migration import RW2D_ADDED_OBJECTS
+from tests.test_rw2d_receipts_migration import RW2D_ADDED_OBJECTS, RW2D_ALTERED_TABLES
 
 HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_219" / "state.sqlite"
 #: What 213 adds and alters: the earlier migrations' "nothing else changed"
@@ -87,7 +87,7 @@ def _upgrade(tmp_path: Path) -> Path:
     assert set(after) - set(before) - RW3B_ADDED_OBJECTS - RW5A_ADDED_OBJECTS - RW7A_ADDED_OBJECTS - RW2D_ADDED_OBJECTS == {name for name in NEW_OBJECTS if not name.startswith("sqlite_autoindex")} | {
         name for name in after if name.startswith("sqlite_autoindex") and name.split("_autoindex_")[1].rsplit("_", 1)[0]
         in NEW_TABLES}
-    changed = {name for name in before if before[name] != after.get(name)} - T1_ALTERED_TABLES
+    changed = {name for name in before if before[name] != after.get(name)} - T1_ALTERED_TABLES - RW2D_ALTERED_TABLES
     assert changed == AD1_ALTERED_TABLES, (
         "213 alters practice_attempts (two columns) and question_events (answered_at, answer_mode) and nothing else")
     assert "item_forecasts" not in after
