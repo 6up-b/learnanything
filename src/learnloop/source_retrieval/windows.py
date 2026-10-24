@@ -201,6 +201,18 @@ def extraction_windows(vault: LoadedVault, repository: Repository, extraction_id
     return build_windows(extraction_id, rows, variant)
 
 
+def windows_by_extraction(vault: LoadedVault, repository: Repository, extraction_ids: Sequence[str],
+                          variants: Sequence[str] = VARIANTS) -> dict[tuple[str, str], list[Window]]:
+    """``{(extraction_id, variant): windows}`` under the current policy (one policy read)."""
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        keys = [(block.extraction_id, block.span_id) for extraction_id in extraction_ids
+                for block in extraction_blocks(connection, extraction_id) if embeddable(block)]
+    classes = policy_classes(vault, repository, keys)
+    return {(extraction_id, variant): extraction_windows(vault, repository, extraction_id, variant, classes=classes)
+            for extraction_id in extraction_ids for variant in variants}
+
+
 def expected_keys(space_id: str, windows: Sequence[Window]) -> dict[str, list[tuple[str, int]]]:
     """``{span_id: [(vector key, tokens)]}``: one key per (window, block); a
     split block has one key per part (all must exist), weighted by its tokens."""
@@ -237,4 +249,5 @@ __all__ = [
     "policy_classes",
     "token_estimate",
     "window_key",
+    "windows_by_extraction",
 ]
