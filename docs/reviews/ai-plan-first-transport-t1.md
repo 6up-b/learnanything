@@ -439,7 +439,24 @@ No migration (head **217**, head fixture `migration_head_217` unchanged) and no 
 - `f07dcd338` this record; `172113ce7` the Today fix (below, after the orchestrator's review of the first record).
 - `84a3f8947` and `4a8868f09`: the grant-scope fix from the verify of `0ecc600ea` / `172113ce7` (below).
 - `88b466d96` (WIP) and `0ee2cebb5`: round 2, from the verify of `84a3f8947` / `4a8868f09` (below).
-- `9c0fd2b8c`-style WIP commits, then the record: redesign D (below), which replaces round 2's press table.
+- Redesign D (below), which replaces round 2's press table:
+  - `19f4131f6`: the tests; S1-S5 fail on `b5d8e0f01`;
+  - `8227fa6c6`: the redesign;
+  - `2488b4653`: the existing tests moved to offers and actions;
+  - `127327ea5`: the desktop;
+  - `aac4307b2`: this record.
+- `daf2875e1`: **the merge of main `b7e0444b5` (RW5b: more figure kinds and offered figures, no migration)**. Conflicts:
+  - `config/template.py`: the 20 snapshot hunks, both sides' comments kept;
+  - `classicIsBase.test.ts`: taken from main. RW5b's landing shape compares BASE with `UX2_LANDED = "558e85ab1"`
+    in the two diff checks, so T1's components no longer need the `LATER_LANDINGS` map, which is dropped;
+  - 412 generated reference notes: main's side, then regenerated.
+- `0b84e4538`: the regeneration after the merge.
+  - The 20 defaults snapshots were recomputed (0 mismatches), adding RW5b's `figures.*` keys and T1's plan profiles
+    and `ai.*` keys.
+  - The references give **1,013** configuration leaves in 69 sections (main's 959 plus T1's 54), schema head 217,
+    0 validation errors. The two prose counts were updated.
+  - `validate_vault.py` passes.
+- `9d36c9c01`: RW5b's AI callers checked against redesign D (P7, below).
 
 ### Finding at the landing: the paid roles (fixed, `0ecc600ea`)
 
@@ -971,7 +988,30 @@ The other edges, as the proposal names them:
 | every ingest/runner/reader/reading/UX-phase-1/workbench/hint/library/figure/cue/first-run/teach-back/daily-plan/router-offer file and every file naming the grant API, the batch reads or the status reads | **3,521 passed**, 1 skipped, 1 failed. The failure is the known load flake `test_reading_request_sweep::test_b_…`, which passed alone 3 times out of 3 |
 | `lint-imports` | 31 kept, 0 broken |
 | `PlanFallbackOffer`, `ChatGPTPlanSettings`, `classicIsBase` vitest; `npm run typecheck` | 23 passed; clean |
-| FINAL_GATE_D |  |
+| full suite at `aac4307b2` (before the RW5b merge; 10G scope, under the lock) | **15,787 passed**, 1 failed (`test_voi_v2::test_at_their_restore_values_…`, a load flake that passed alone 3 times out of 3), 3 skipped, 2 xfailed |
+
+**On the merged tree (after RW5b).**
+
+RW5b's new AI callers all resolve through the existing paths, so the plan profiles and redesign D's offer path apply
+without new code:
+
+- the figure author for offered and explorable figures, through the figures route (`practice_index.paid`), inside
+  the library job that `reader.figure_request` starts. The offer button's build is `reader.figure_request` with
+  `origin` / `offerRef`;
+- the library organizer's explorable verdicts, inside the `reader.library_ask` job;
+- the tutor's figure offers, inside the tutor request.
+
+Each asks as the RPC that started it. **P7** (`test_p7_rw5b_figures_ask_as_the_rpc_that_asked`) pins it: a figure
+build's offer, relayed by the poll, is minted for `reader.figure_request`, and its yes serves that action's later
+builds, never the library ask or the tutor. P1 re-ran over the merged registry.
+
+| Run (merged tree) | Result |
+|---|---|
+| `test_plan_first_transport_offer_grants.py` (14, with P1 over the merged `METHOD_REGISTRY` and P7) | **14 passed** |
+| the T1 files, lockdown, `test_chatgpt_plan_*`, the mobile allowlist, every test file RW5b changed, and the figure/library-ask/reader-tutor/tutor files (44 files) | **1,038 passed**, 1 failed: `test_reader_tutor_retrieval::test_that_didnt_help_remediates_the_inquirys_named_gaps`, a `learner_text_gaps` UNIQUE race under load. It passed alone 3 times out of 3 and in its file under `-n 4` twice, and has no grant or offer in it |
+| `lint-imports` | 31 kept, 0 broken |
+| `npm install`, typecheck, the whole vitest run (`--maxWorkers=4`), `frontend:build`, `cargo check` | ok; **202 files, 1,727 tests passed**, no unhandled error; built; finished |
+| **full suite at the merged tip `9d36c9c01`** (10G scope, `-n 8`, under the lock) | **15,889 passed**, 1 failed: the known load flake `test_reading_hardening_2_fixes::test_f1_a_build_whose_worker_failed_to_start_is_run_by_the_sweep` (it also failed at the first gate, `df739a1c9`, before any grant change), which passed alone 3 times out of 3; 3 skipped, 2 xfailed (41 min) |
 
 ### Owner notes
 
