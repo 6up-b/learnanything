@@ -1,0 +1,260 @@
+"""Local contextual retrieval P0/P1a: the moved worker, the true-token profile,
+the launcher's scope and locks, the meter, setup and the index job (fakes only:
+no process, no GPU, no download)."""
+from __future__ import annotations
+
+import hashlib
+import json
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+from learnloop.db.connection import connect
+from learnloop.db.stores.retrieval_spaces import spaces
+from learnloop.local_embeddings import launcher, pins, setup, worker
+from learnloop.local_embeddings.cache import VectorCache, cache_path
+from learnloop.local_embeddings.gpu_meter import GpuBudgetExceeded, GpuMeter
+from learnloop.source_retrieval import local_index
+from tests.helpers import append_config_toml
+from tests.local_embeddings_fakes import (
+    FakeLocalModel,
+    InProcessLauncher,
+    no_locks,
+    run_fake_job,
+    set_up_data_root,
+)
+from tests.source_retrieval_fakes import build_retrieval_vault, loaded
+
+
+@pytest.fixture
+def data_root(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+    root = pins.data_root()
+    root.mkdir(parents=True)
+    return root
+
+
+def _local_vault(tmp_path):
+    paths, repository = build_retrieval_vault(tmp_path / "vault")
+    append_config_toml(paths.root, "[embedding.local]\nenabled = true\n")
+    return paths, repository
+
+
+def test_the_moved_pins_equal_e1s():
+    from learnloop.experiments.contextual_embeddings.e1 import pins as e1
+
+    for name in ("MODEL_REPO", "MODEL_REVISION", "MODEL_DIMENSIONS", "MODEL_FILES", "REMOTE_CODE_FILES",
+                 "LOCAL_PYTHON", "LOCAL_REQUIREMENTS", "PRECISION", "ATTENTION_IMPLEMENTATION", "FP32_MODULES",
+                 "SCOPE_MEMORY_MAX", "SCOPE_SWAP_MAX", "SCOPE_MEMORY_MAX_BYTES", "MIN_HOST_AVAILABLE_GIB",
+                 "MIN_FREE_VRAM_GIB", "MAX_OTHER_GPU_PROCESS_MIB", "MAX_OTHER_GPU_TOTAL_MIB",
+                 "FORBIDDEN_GPU_WORKLOADS", "MAX_GPU_UTILIZATION_PCT", "HOST_FLOOR_GIB", "DEVICE_PEAK_TARGET_GIB",
+                 "MAX_DOCUMENT_TOKENS", "BATCH_INVARIANCE_MIN_COS", "CONTEXT_SENSITIVITY_MAX_COS",
+                 "SMOKE_CONTEXT", "SMOKE_QUERY", "PROFILE_TOKENS", "PROFILE_REPEATS", "DOWNLOAD_FREE_DISK_GIB"):
+        assert getattr(pins, name) == getattr(e1, name), name
+    from learnloop.source_retrieval import windows
+
+    assert windows.MAX_DOCUMENT_TOKENS == pins.MAX_DOCUMENT_TOKENS
+
+
+def test_the_production_worker_imports_only_the_standard_library_and_numpy():
+    import ast
+
+    tree = ast.parse(Path(worker.__file__).read_text(encoding="utf-8"))
+    top = {alias.name.split(".")[0] for node in tree.body if isinstance(node, ast.Import) for alias in node.names}
+    top |= {node.module.split(".")[0] for node in tree.body if isinstance(node, ast.ImportFrom) and node.module}
+    assert top <= {"__future__", "argparse", "collections", "gc", "hashlib", "json", "os", "pathlib", "platform",
+                   "socket", "subprocess", "sys", "threading", "time", "traceback", "typing", "numpy"}
+
+
+def test_the_profile_is_fitted_to_the_true_token_count():
+    model = FakeLocalModel()
+    pool = [f"sentence number {index} has seven words" for index in range(100)]
+    chunks, tokens = worker.fit_window(model, pool, 200)
+    assert tokens == model.count_tokens(chunks) and 195 <= tokens <= 200  # within one word of the target
+    job = {"profile": {"200": {"pool": pool, "target": 200}, "100": pool[:3]}, "profile_repeats": 1,
+           "max_document_tokens": 8192}
+    result = worker.profile(model, job)
+    assert result["200"]["fitted"] and result["200"]["target"] == 200 and 195 <= result["200"]["tokens"] <= 200
+    assert "fitted" not in result["100"]  # a list is profiled as given (E1's form)
+
+
+def test_the_profile_pools_hold_teaching_text_only(tmp_path):
+    paths, repository = _local_vault(tmp_path)
+    pools = local_index.profile_pools(loaded(paths), repository, "ext_book", (50,))
+    assert pools["50"]["target"] == 50 and pools["50"]["pool"]
+    assert local_index.profile_pools(loaded(paths), repository, "ext_exam", (50,))["50"]["pool"] == []
+
+
+def test_the_worker_encodes_the_canaries_with_every_batch():
+    job, _targets = local_index.build_job([], manifest={"model_dir": "/x"}, plan_id="local_0")
+    output = run_fake_job(job, FakeLocalModel())
+    assert output["status"] == "complete", output.get("reason")
+    canaries = output["canaries"]
+    assert len(canaries["documents"]) == len(pins.CANARY_DOCUMENTS) and len(canaries["queries"]) == len(pins.CANARY_QUERIES)
+    assert local_index.canary_check(canaries, canaries)["ok"]
+    drifted = run_fake_job(job, FakeLocalModel(salt="other"))["canaries"]
+    assert not local_index.canary_check(drifted, canaries)["ok"]
+
+
+def test_the_worker_runs_in_its_own_capped_scope_and_the_locks_are_never_broken(tmp_path):
+    command = launcher.scope_command(Path("/env/bin/python"), Path("j"), Path("o"), Path("h"), unit="u")
+    assert command[:4] == ["systemd-run", "--user", "--scope", "--quiet"]
+    assert "MemoryMax=12G" in command and "MemorySwapMax=0" in command
+    assert command[command.index("--") + 1:command.index("--") + 3] == ["/env/bin/python", "-I"]
+    assert Path(command[command.index("--") + 3]) == Path(worker.__file__).resolve()
+    locks = (tmp_path / "gpu.lock", tmp_path / "suite.lock")
+    with launcher.gpu_locks(locks):
+        with pytest.raises(launcher.LocksBusy):
+            with launcher.gpu_locks(locks):
+                pass
+    with launcher.gpu_locks(locks):  # released after the block
+        pass
+
+
+def test_the_meter_meters_production_uncapped_and_refuses_a_second_live_worker(tmp_path):
+    meter = GpuMeter(tmp_path / "meter")
+    entry, deadline = meter.open(plan_id="p", label="a", min_slot_s=0)
+    assert deadline is None
+    with pytest.raises(GpuBudgetExceeded):
+        meter.open(plan_id="p", label="b", min_slot_s=0)
+    meter.close(entry, status="exited", returncode=0)
+    assert meter.report()["cap_hours"] is None and meter.report()["processes"] == 1
+    capped = GpuMeter(tmp_path / "capped", cap_hours=0.1)
+    with pytest.raises(GpuBudgetExceeded):
+        capped.open(plan_id="p", label="c")  # below the 15-minute minimum slot
+
+
+def test_setup_verifies_the_files_records_the_epoch_and_adopts_without_moving(tmp_path, monkeypatch):
+    files = {"config.json": b"{}", "configuration_pplx_contextual.py": b"# reviewed\n",
+             "modeling_pplx_contextual.py": b"# reviewed too\n"}
+    monkeypatch.setattr(pins, "MODEL_FILES", {name: (len(body), hashlib.sha256(body).hexdigest())
+                                              for name, body in files.items()})
+    root = tmp_path / "data"
+    calls: list[list[str]] = []
+
+    def fake_run(command, **_kwargs):
+        calls.append(list(command))
+        if command[:2] == ["uv", "venv"]:
+            python = Path(command[-1]) / "bin" / "python"
+            python.parent.mkdir(parents=True, exist_ok=True)
+            python.write_text("", encoding="utf-8")
+        elif "snapshot_download" in " ".join(command):
+            target = Path(command[-1])
+            target.mkdir(parents=True, exist_ok=True)
+            for name, body in files.items():
+                (target / name).write_bytes(body)
+        stdout = json.dumps({"torch": "2.14.0+cu130", "transformers": "5.18.0", "cuda": "13.0"})
+        return SimpleNamespace(returncode=0, stdout=stdout)
+
+    report = setup.run_setup(root=root, run=fake_run, disk_free=lambda _p: 100 * 1024 ** 3)
+    assert report["status"] == "ready" and report["software_epoch"]["torch"] == "2.14.0+cu130"
+    assert [command[:2] for command in calls][:2] == [["uv", "venv"], ["uv", "pip"]]
+    manifest, reason = setup.load_manifest(root)
+    assert reason is None and manifest["revision"] == pins.MODEL_REVISION
+    # A wrong file is refused before anything is recorded.
+    (Path(manifest["model_dir"]) / "modeling_pplx_contextual.py").write_bytes(b"# changed\n")
+    with pytest.raises(RuntimeError, match="does not match the pins"):
+        setup.run_setup(root=tmp_path / "other", run=fake_run, adopt_model_dir=Path(manifest["model_dir"]),
+                        adopt_env_python=Path(manifest["env_python"]))
+    # Not enough disk: refused before any process.
+    calls.clear()
+    with pytest.raises(RuntimeError, match="GiB free"):
+        setup.run_setup(root=tmp_path / "small", run=fake_run, disk_free=lambda _p: 1)
+    assert calls == []
+
+
+def test_the_index_job_caches_both_variants_and_registers_the_spaces(tmp_path, data_root):
+    paths, repository = _local_vault(tmp_path)
+    set_up_data_root(data_root)
+    vault = loaded(paths)
+    model = FakeLocalModel()
+    report = local_index.run_local_index(vault, repository, launcher=InProcessLauncher(model), preflight=lambda: [],
+                                         locks=no_locks, force=True)
+    assert report["status"] == "complete", report
+    assert report["windows_stored"] > 0 and report["canaries"]["first"]
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        known = spaces(connection)
+    assert {row["name"] for row in known.values()} == {"local:grouped", "local:singleton"}
+    assert all(row["status"] == "active" and row["canaries"] for row in known.values())
+    for space in report["spaces"].values():
+        assert VectorCache(cache_path(paths.root, space)).report()["rows"] > 0
+    # Exam windows are their own class: never joined to teaching text.
+    exam_texts = [chunks for chunks in model.documents if any("Exam question" in chunk for chunk in chunks)]
+    assert exam_texts and all(len(chunks) == 1 for chunks in exam_texts)
+    again = local_index.run_local_index(vault, repository, launcher=InProcessLauncher(FakeLocalModel()),
+                                        preflight=lambda: [], locks=no_locks, force=True)
+    assert again["status"] == "complete" and again["windows_stored"] == 0 and again["owed_windows"] == 0
+
+
+def test_a_moved_canary_stores_nothing_and_marks_epoch_drift(tmp_path, data_root):
+    paths, repository = _local_vault(tmp_path)
+    set_up_data_root(data_root)
+    vault = loaded(paths)
+    first = local_index.run_local_index(vault, repository, launcher=InProcessLauncher(FakeLocalModel()),
+                                        preflight=lambda: [], locks=no_locks, force=True)
+    cache_path(paths.root, first["spaces"]["local:grouped"]).unlink()
+    drifted = local_index.run_local_index(vault, repository, launcher=InProcessLauncher(FakeLocalModel(salt="x")),
+                                          preflight=lambda: [], locks=no_locks, force=True)
+    assert drifted["status"] == "epoch_drift" and "canary" in drifted["reason"]
+    assert not cache_path(paths.root, first["spaces"]["local:grouped"]).exists()
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        assert {row["status"] for row in spaces(connection).values()} == {"epoch_drift"}
+    blocked = local_index.run_local_index(vault, repository, launcher=InProcessLauncher(FakeLocalModel()),
+                                          preflight=lambda: [], locks=no_locks, force=True)
+    assert blocked["status"] == "epoch_drift"
+
+
+def test_a_job_that_cannot_start_is_waiting_never_failed(tmp_path, data_root):
+    paths, repository = _local_vault(tmp_path)
+    set_up_data_root(data_root)
+    vault = loaded(paths)
+    run = InProcessLauncher(FakeLocalModel())
+    gpu = local_index.run_local_index(vault, repository, launcher=run, locks=no_locks, force=True,
+                                      preflight=lambda: ["free VRAM 3.0 GiB is below 22.0 GiB"])
+    assert gpu["status"] == "waiting_for_gpu" and "VRAM" in gpu["reason"] and run.jobs == []
+
+    def busy():
+        raise launcher.LocksBusy("the GPU lock is held")
+
+    held = local_index.run_local_index(vault, repository, launcher=run, preflight=lambda: [], force=True,
+                                       locks=busy)
+    assert held["status"] == "waiting_for_gpu" and run.jobs == []
+    completed = local_index._completed_at(repository, "ext_book") or datetime.now(timezone.utc)
+    young = local_index.run_local_index(vault, repository, launcher=run, preflight=lambda: [], locks=no_locks,
+                                        now=completed + timedelta(minutes=1))
+    assert young["status"] == "waiting_for_batch" and run.jobs == []
+    old = local_index.run_local_index(vault, repository, launcher=run, preflight=lambda: [], locks=no_locks,
+                                      now=completed + timedelta(minutes=16))
+    assert old["status"] == "complete" and len(run.jobs) == 1
+
+
+def test_the_local_space_is_off_until_enabled_and_set_up(tmp_path, data_root):
+    paths, repository = build_retrieval_vault(tmp_path / "vault")
+    off = local_index.run_local_index(loaded(paths), repository, launcher=InProcessLauncher(FakeLocalModel()))
+    assert off == {"job": "local_source_index", "status": "disabled", "reason": "embedding.local.enabled is false"}
+    append_config_toml(paths.root, "[embedding.local]\nenabled = true\n")
+    unset = local_index.run_local_index(loaded(paths), repository, launcher=InProcessLauncher(FakeLocalModel()))
+    assert unset["status"] == "disabled" and "not set up" in unset["reason"]
+
+
+def test_extraction_queues_the_index_jobs_only_while_their_switches_are_on(tmp_path):
+    from learnloop.config.loader import load_config
+    from learnloop.content.pipeline.jobs import queue_contextual_indexes
+
+    paths, repository = build_retrieval_vault(tmp_path / "vault")
+    queued: list[tuple[str, list]] = []
+    ctx = SimpleNamespace(repo=repository, enqueue_batch=lambda kind, jobs: queued.append((kind, jobs)) or f"b{len(queued)}")
+    config = load_config(paths.root / "learnloop.toml", load_environment=False)
+    assert queue_contextual_indexes(ctx, config, "ext_book") == [] and queued == []
+    append_config_toml(paths.root, "[embedding.local]\nenabled = true\n\n" + """
+[ai.providers.voyage_context]
+type = "voyage_contextual_embedding"
+
+[embedding.fallback]
+enabled = true
+""")
+    config = load_config(paths.root / "learnloop.toml", load_environment=False)
+    assert len(queue_contextual_indexes(ctx, config, "ext_book")) == 2
+    assert [kind for kind, _jobs in queued] == ["local_source_index", "source_fallback_backfill"]
