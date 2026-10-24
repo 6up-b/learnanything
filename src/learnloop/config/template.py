@@ -1546,7 +1546,14 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # version and add no route. Every snapshot moves only because the
     # effective config gains the keys; all of them were recomputed from the
     # composed defaults (defaults_fingerprint_for_version).
-    "mvp-0.9": "ecf1cf9f6043a190975d610530cdfa9f7028cd2ca45da10f91b028953e1c8187",
+    # Local contextual retrieval P1 (spec_local_contextual_retrieval_v1; docs/reviews/
+    # retrieval-local-p1.md) adds [embedding.local] (enabled = false until the owner runs
+    # `learnloop embeddings local setup`), [embedding.fallback] (the Voyage space, enabled =
+    # false, $1 per run keep cap) and [embedding.source_space] (default qwen, learned_fusion and
+    # exploration off): modelled defaults only, left out of the decision-only template. With
+    # them at their defaults retrieval is exactly today's (no scoring, scheduling, projection
+    # or serving change); every snapshot moves only because the effective config gains them.
+    "mvp-0.9": "a4f9ebb401e8fc964e1c2c103aeca6e8b2229380f5a6823e50a1dd3e03fd3d6a",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1606,7 +1613,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
-    "mvp-0.10": "1f5dffd44864b1fe974560eda1a5a1522d78378240fd716b5261ed9719c9e968",
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
+    "mvp-0.10": "1073a833034f293288b77ff1e69184a598e3ff4af2712e3e1b5c29a482e09780",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1674,7 +1682,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
-    "mvp-0.11": "07cba9a1cbea542753a9c51b99d4c34c0f8c4caef008b0f5e3661424f7dcfc11",
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
+    "mvp-0.11": "21e8b0a229b27e6bb9a0a962324d4e0c59f1235461520e2088101e38e039b0f8",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1736,7 +1745,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
-    "mvp-0.12": "cfefe12e40740a0941024d44cc41ba11e2673ecd9016cc22316fe5a76aa273a0",
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
+    "mvp-0.12": "54804bfa79f9c28d856d5948d9ff659055adcdd73cc1803af2f85048528fc520",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1793,7 +1803,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
-    "mvp-0.13": "3e84dd7ec217f080c190bd47d70c80a89f85096919db338ea9932f7420f56fe1",
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
+    "mvp-0.13": "751aeae39b0a419c2718dafdf1f111981427e5ab05f3e06dfd25836ce7a17f56",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1849,7 +1860,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
-    "mvp-0.14": "2ab3815067ac3dceab91c618c8b6e6091b1a8beb74346710c258ca1501c266f6",
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
+    "mvp-0.14": "1d82ac26c6c960a83ae105e7a8a6a7883c14aa21372624ae136eb6309de3a5d5",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1903,7 +1915,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
-    "mvp-0.15": "221ba85c0851c63e718530532932fbc07c8a9fd3ad6aa0feed21d150090eb50d",
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
+    "mvp-0.15": "1a29c7bc8c7565b9836e617c959a7e87c409c0ab57d55d871b1a776119ecdfab",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1964,7 +1977,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
-    "mvp-0.16": "18bb80f98e040928cacb46d246a5158a17c7b639b14fb4fbb33291296928cdbe",
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
+    "mvp-0.16": "fb90991406346553f8035a6a6eda41d481f22e2e1003afce71fe35b146253b6e",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -2021,7 +2035,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
-    "mvp-0.17": "85c8a16655c26b249356c8ae6dac38c8aeae4cda6fa7d24e46afe2c8fe2a3434",
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
+    "mvp-0.17": "6d524f8be95ded62e489bdd3efc4ef6cbdbe7fc27936477f43ec77cfa47b3c2b",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -2071,7 +2086,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
-    "mvp-0.18": "db801adeb49cb8bac406a986add595d3a0fc2c5d1cea8615fde94fa9803105c4",
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
+    "mvp-0.18": "779dc536d09f58a2a41b9bb1043783d760a8c985a81151954fb794b74a604541",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -2121,7 +2137,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
-    "mvp-0.19": "b91b2e710e6f5feab31cbc15d4483c21fc2cf86e1145ce8df419eff6de5c1a11",
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
+    "mvp-0.19": "283419386b6f54d78e1d9e47a3e54aa167c1a85f197ae63ef9a268456017f342",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -2167,7 +2184,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
-    "mvp-0.20": "ed1e61e58661383de2c21e7656ceb9c9481324c9b79962d780bfb776a3cc696c",
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
+    "mvp-0.20": "ec370343c99a0bd1046c9d3d6d68f98a2842e5073289da9fdb117ee19ac0a834",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -2222,7 +2240,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
-    "mvp-0.21": "eb3217711060350cc8de127284aa51a70072a3aec16fd648a871e0fcb538d17a",
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
+    "mvp-0.21": "2cf25f6b80124eeab2e48deccbd7218624d25014502e1b38bb4800e1ecd04bca",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -2269,7 +2288,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
-    "mvp-0.22": "784978b4ebf538e6da435d858595577609bbc1b5115c1e9977f8be45f84d1cca",
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
+    "mvp-0.22": "035d56984670be060b9c6de6a28168f8c27fcee0a31815e8a267158f61371a27",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -2311,7 +2331,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
-    "mvp-0.23": "c026df8e7dbf8c3afa629debb119ecf5db7ff9448949200140927514882cd582",
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
+    "mvp-0.23": "d081a71848b4d78a2fb617e0ceb939bd74f678cf343d26439ee0f10e529807a7",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -2350,7 +2371,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
-    "mvp-0.24": "a41f9b4baa1d8bc0662f819bdee19e818cf46d8db86b6163249df4380bf129c1",
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
+    "mvp-0.24": "6f1aea410da5c698b0b5320aefdab454bdb7ca910fe9c9e50a8d2b639064194e",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -2387,7 +2409,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
-    "mvp-0.25": "304dedb39e07213376c1ee365b5bab85a388250a16018aae7e6c43b6d40c567e",
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
+    "mvp-0.25": "500e1b86707b929e0b978b72172e254ee8f59d161bee4559c90e8f184a112a70",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -2423,7 +2446,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
-    "mvp-0.26": "93ef887bde11f494f9e3a475b1c22b344c198dd49720d3d87ebfe3eb2bfe24f7",
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
+    "mvp-0.26": "6c509b711bcfa0c6c37bfdec6a79120683fe8b604b902f6087676fd0856a4478",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -2459,7 +2483,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
-    "mvp-0.27": "69b5ed1953e98403f53acebd875b8252db5d6bdc81836bfe80b173bdc01c7daf",
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
+    "mvp-0.27": "fdefa155019ff146374dec925a3f36dca6c874003bc15c9f7663b68bb5b47697",
     # mvp-0.29 (daily-loop DL2, the learner's intent; docs/reviews/
     # daily-loop-dl2.md and its Codex re-review F2): the predecessor plus
     # serving by intent (an excluded item is never served, requested or
@@ -2484,7 +2509,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
     # Plan-first transport T1's ChatGPT-plan defaults move it too (see mvp-0.9; the served model changes, no successor).
     # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
-    "mvp-0.29": "5c68c2b3ef0b9743400de5e076fbe2601201a4d72f38356945b29d98a627ec98",
+    # Local contextual retrieval P1's [embedding.local], [embedding.fallback] and [embedding.source_space] move it too (see mvp-0.9; off or at the seed: no serving change).
+    "mvp-0.29": "3d6c85565d665d93131a138ee0caeb269180a8f54cf3c36695decc70c17be505",
 }
 
 

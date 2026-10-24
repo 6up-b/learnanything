@@ -356,8 +356,8 @@
     "sha256": "c87d9f038c2a9e26925aac07c2ece0d4292c693b4eb9fa52b9ea1b89f77d2608"
   },
   "embeddings": {
-    "bytes": 2097,
-    "sha256": "ae0b5ef47c794d4422a4858238925761b30c44d1169251d16974b969058e334c"
+    "bytes": 2522,
+    "sha256": "a8a4d824dcc561edde03a9a92dd6e628aa81dcd3e9e3bc47a2ff9d4cd96778f6"
   },
   "embeddings adjudicate": {
     "bytes": 3984,
@@ -370,6 +370,42 @@
   "embeddings compare": {
     "bytes": 13849,
     "sha256": "a94d2157176e283a39767b773f6a0ddf2fcd6c2ce149d3e4af633ca5fa8ea6ff"
+  },
+  "embeddings fallback": {
+    "bytes": 1757,
+    "sha256": "9d9794325cb369c687808e82b723a6f3f19bd486511bb264df06922e77fe7b5c"
+  },
+  "embeddings fallback backfill": {
+    "bytes": 1716,
+    "sha256": "03825ef60b417c682f9d8f1a3f036929a5e04aaa04352d0c147dd747aaa44df5"
+  },
+  "embeddings fusion": {
+    "bytes": 1587,
+    "sha256": "e1222a50170b288029a3460a3fb92814aacfb11def57973ee11d252e34a5880f"
+  },
+  "embeddings fusion refit": {
+    "bytes": 1125,
+    "sha256": "66f43132a9fd731b8bbdbe64b858021e084046337740dc7835a2bbb827039763"
+  },
+  "embeddings local": {
+    "bytes": 2097,
+    "sha256": "07f5de3c160c81424f4012fdcf8b7f4e8a0ad6e098cffdad08fc3ae1ac741273"
+  },
+  "embeddings local index": {
+    "bytes": 1789,
+    "sha256": "126a4f231750200fcc0312bbf18a659ab1e89c9e23a5bff00f12c3da3126fff6"
+  },
+  "embeddings local profile": {
+    "bytes": 1963,
+    "sha256": "26d34705ad50326e82fcd5448e8610150a27f58b1b8c607b526b1f78279c2c4c"
+  },
+  "embeddings local setup": {
+    "bytes": 2556,
+    "sha256": "de18180bd8071626809d0b60bb771c99c013f286efe2fd7f129adc6a63ad687f"
+  },
+  "embeddings local status": {
+    "bytes": 1210,
+    "sha256": "68d78d4b74eb90c74946e0e2871a9a69b11d73c73968834c40b7767f35ba45df"
   },
   "embeddings nomination-report": {
     "bytes": 3651,
