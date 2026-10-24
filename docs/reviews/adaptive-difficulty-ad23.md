@@ -767,7 +767,7 @@ uv run learnloop ad report --vault fixtures-local/la_ad23 --json > ad23-report.j
 # 4. the relatedness proposal. learned_coupling is OFF by default (owner decision 2026-10-19) and the
 #    proposal runs only with it on, so turn it on in the copy first (tomlkit keeps the file's other keys):
 uv run python -c "from pathlib import Path; from learnloop.ops.settings_store import apply_config_updates as a; a(Path('fixtures-local/la_ad23/learnloop.toml'), {('adaptive_difficulty', 'learned_coupling'): True})"
-#    dry-run first (one call per subject on ai.routing.llm_probability_llm), then the proposal alone,
+#    dry-run first (one call per subject on ai.routing.ad_relatedness), then the proposal alone,
 #    with no adoption: spot-check its loadings and couplings in the JSON (and in judgment_ledger,
 #    task ad_relatedness) before adopting
 uv run learnloop ad relatedness --vault fixtures-local/la_ad23 --dry-run --json
@@ -792,8 +792,9 @@ uv run python -m learnloop.sim.ad_gates
 
 Running the proposal again with `--adopt` after the spot-check proposes nothing new (only units whose
 fingerprint changed are re-proposed) and adopts what is in force. The relatedness proposal is the
-stage's only paid call: one per subject on the field harness's
-frontier route (empty: the active provider; Codex `estimated_only`), inside
+stage's only paid call: one per subject on its own route `ai.routing.ad_relatedness` (since the compose
+onto T1, C4: the ChatGPT plan's `chatgpt_medium` tier by default; it used to ride the field harness's
+`llm_probability_llm`), inside
 `adaptive_difficulty.daily_spend_cap_usd` ($0.50); a metered route needs
 `adaptive_difficulty.price_per_million` or is refused before sending. After adoption, a reload
 re-proposes only the units whose content changed (at most 2 subjects a trigger).

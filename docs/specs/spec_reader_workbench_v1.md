@@ -1426,6 +1426,12 @@ The three experiments the dialogue proposes map as follows:
 | | *Added by the adaptive-hints fold-in (§20.11):* | |
 | D47 | Hints in the workbench | From the adaptive-hints spec's hint service (its phase H3): its kinds per level, waypoints with a horizon, labelled subgoal plans and approach maps; one writer (`hint_writer`), one chooser (`hint_chooser`) and one assists table (`help_assists`, with a `surface` column) for every surface. The Reader keeps the ladder and its levels, the reconciliation contract (with placement and kind rules added), the evidence mapping and the presentation. A waypoint is never shown unasked, and after one, "a smaller step toward this goal" is one key away |
 
+**Owner confirmations, 2026-10-20** (queued at the RW1c landing, recorded in this spec at the AD2+AD3 landing, 2026-10-24; the owner: *"q1: no switch, q44: end it honestly with no replacement, q45: yes it ends the check. for rw6a yes to defaults"*):
+- **Q1** (`docs/reviews/regrade-contract-replay.md`): no kill switch for the mvp-0.26 regrade; rollback means restoring the backup.
+- **Q44** (`docs/reviews/serve-eligibility-decision.md`): a withdrawn cold check ends honestly, with no replacement surface.
+- **Q45** (the same record): practice after a check is scheduled ends the check, as built.
+- **RW6a** (`docs/reviews/reader-workbench-RW6a.md` §6): all six defaults confirmed, and abandoned problems stay on the recap card (`reader-rw6a-codex-review.md` F8).
+
 ---
 
 ## 17. Deferred, with triggers
