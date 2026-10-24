@@ -170,7 +170,12 @@ def _base(tmp_path, *, coupled: bool = True) -> Any:
     _owner_defaults(paths)
     _goal(paths)
     _attempt(paths, "pi_hist", at=T0 - timedelta(days=2), latency=90, correct=False)
-    env, _clock = env_for(paths, items=PUBLIC)
+    # P4 is in the plan's queue and universe (the compose fix round 2): AD's candidates are members of
+    # the plan's admitted pool, so a candidate whose only history is a withheld answer must be a member
+    # in both copies alike. With the pool classified from the raw item states it is a member only with
+    # the answer absent (6 violations); classified with AD's view's states, as every incumbent verdict
+    # AD receives, it is a member in both.
+    env, _clock = env_for(paths, items=(*PUBLIC, P4))
     from learnloop.daily_plan.engine import build_plan
 
     build_plan(env, kind="normal", budget=9.0, remembered=9, minutes_source="chip")
@@ -1064,7 +1069,7 @@ def _run(paths, monkeypatch) -> dict[str, Any]:
     monkeypatch.setattr(ad_slot, "build_request", spy)
     vault = load_vault(paths.root)
     clock = MovableClock(_now())
-    env = make_env(paths.root, [scheduled(item, LO, forgetting_risk=0.6) for item in PUBLIC], clock=clock,
+    env = make_env(paths.root, [scheduled(item, LO, forgetting_risk=0.6) for item in (*PUBLIC, P4)], clock=clock,
                    session_id=None)
     steps = []
     presentations: list[str] = []

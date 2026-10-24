@@ -743,8 +743,14 @@ def _classified_pool(
     reentry: bool,
     record: PlanRecord | None = None,
     minutes_left: float | None = None,
+    scheduled_items: Sequence[Any] | None = None,
+    item_states: Mapping[str, Any] | None = None,
 ) -> _Pool:
     """The scheduler's ranked list, classified into lanes (§6.1).
+
+    ``scheduled_items`` and ``item_states`` (adaptive difficulty's membership, the compose fix
+    round 2): classify a list this advance's build already produced, reading the item states given
+    (AD's material view's) instead of the repository's; both None for the plan's own build.
 
     ``record`` is the open plan on a refresh (None on a build). At mvp-0.21
     the due project probes are valued together against the minutes the plan
@@ -762,13 +768,13 @@ def _classified_pool(
     can still take are valued (F10, :func:`_plan_availability`).
     """
 
-    scheduled = env.build_eligible(minutes)
+    scheduled = env.build_eligible(minutes) if scheduled_items is None else list(scheduled_items)
     # UX Phase 4 rounds 5 to 7: a cold check a routine display covers stays in
     # the pool (and the plan's universe); the boundary leaves it out while the
     # hold lasts (``_context``), and waits for it when it is all that is left
     # and the hold lifts today (``PlanWaiting``).
     estimator = _estimator(env)
-    states = env.repository.practice_item_states()
+    states = env.repository.practice_item_states() if item_states is None else item_states
     intent = intent_view(env)
     ids = [item.practice_item_id for item in scheduled]
     checks = scheduled_checks(env.vault, env.repository, ids)
@@ -1887,7 +1893,8 @@ def new_material_candidates(intent: Any, pool: Iterable[PoolItem]) -> list[NewCa
 
 
 def admitted_new_material_ids(
-    env: PlanEnv, record: PlanRecord, built: _Pool, *, released: Iterable[str] = ()
+    env: PlanEnv, record: PlanRecord, built: _Pool, *, released: Iterable[str] = (),
+    item_states: Mapping[str, Any] | None = None,
 ) -> frozenset[str]:
     """The plan's admitted pool of new material at this boundary, as ids (the compose fix round 2):
     the pool every stage of this build produced (``built.pool``: the scheduler's queue after its
@@ -1895,8 +1902,24 @@ def admitted_new_material_ids(
     within the plan's universe, less what the plan took (planned, skipped, AD-deferred unless
     ``released``, held), through :func:`new_material_candidates`. Adaptive difficulty's candidates
     are members of this set or nothing: AD reorders or chooses within the plan's own pool and never
-    adds to it, so a set-level stage the build gains applies to AD with nothing kept in sync."""
+    adds to it, so a set-level stage the build gains applies to AD with nothing kept in sync.
 
+    ``item_states``: the states AD's material view reads (fix round 12's rule for every incumbent
+    verdict AD receives): the build's own scheduler output is classified again with them, so an item
+    whose only history is a withheld answer is new material here exactly as it is with that answer
+    absent (A8). None: the plan's own classification."""
+
+    if item_states is not None:
+        built = _classified_pool(
+            env,
+            minutes=record.budget,
+            lanes_allowed=record.lanes_allowed,
+            day=day_records(env),
+            reentry=record.kind == "reentry",
+            record=record,
+            scheduled_items=built.scheduled,
+            item_states=item_states,
+        )
     context = _context(env, record, built, day=(), released=released)
     return frozenset(candidate.practice_item_id for candidate in new_material_candidates(built.intent, context.pool))
 

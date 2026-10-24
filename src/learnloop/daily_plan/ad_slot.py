@@ -244,7 +244,7 @@ def incumbent_verdicts(env: Any, items: Sequence[Any], *, pool: Mapping[str, Poo
     from learnloop.scheduling.scheduler import pool_admission
 
     with incumbent_constraints():
-        admitted = set(admitted_new_material_ids(env, record, built, released=released))
+        admitted = set(admitted_new_material_ids(env, record, built, released=released, item_states=item_states))
         if slot_item_id is not None:
             admitted.add(str(slot_item_id))
         members = [item for item in items if str(item.id) in admitted]
