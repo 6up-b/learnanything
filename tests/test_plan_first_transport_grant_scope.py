@@ -121,8 +121,10 @@ def test_a_grant_counts_only_in_the_learners_request_or_a_job_carrying_it(tmp_pa
         for task in tasks:
             planned = plan_route(vault, task).provider  # type: ignore[arg-type]
             assert (planned == "openrouter") == (task in served), task
-        token = plan_fallback.capture_grant(root)
-        assert token is not None and set(token.tasks) == set(tasks)
+        # A request that is not a press captures nothing (round 2); a job's
+        # token (as a press would capture it, here for every task) is explicit.
+        assert plan_fallback.capture_grant(root) is None
+        token = plan_fallback.GrantToken(plan_fallback._vault_key(root), frozenset(tasks))
 
         def plans() -> set[str]:
             return {task for task in tasks if plan_route(vault, task).provider == "openrouter"}  # type: ignore[arg-type]
@@ -251,8 +253,8 @@ def test_the_reader_imports_background_key_check_never_uses_the_grant(tmp_path, 
     seen, done, record = _recorder()
     monkeypatch.setattr(SEI, "record_reader_import", lambda *_a, **_k: [{"practice_item_id": "pi_x"}])
     monkeypatch.setattr(SEI, "verify_item_key", record)
-    with plan_fallback.interactive():
-        token = plan_fallback.capture_grant(root)
+    with plan_fallback.interactive(), plan_fallback.pressed(root, "exercise_import") as token:
+        pass  # the learner pressed "Import this exercise"
     ctx = SimpleNamespace(vault_root=root, repo=Repository.attach(_paths(root).sqlite_path),
                           services=RunnerServices(), clock=SystemClock())
     # Inside the Reader-import job, which carries the learner's grant: its background check does not.
@@ -334,11 +336,14 @@ def test_a_hint_job_started_in_the_request_carries_its_grant_and_a_background_on
     def work(_repository: Any, _cancelled: Callable[[], bool]) -> dict[str, Any]:
         return {"provider": _planned(root, "hint_writer")[0]}
 
-    with plan_fallback.interactive():
+    with plan_fallback.interactive(), plan_fallback.pressed(root, "hints"):
         pressed = hint_rpcs.HintJobs().start(ctx, "item_1", work)
+    with plan_fallback.interactive():  # an RPC that is not a press (a suggestion)
+        unpressed = hint_rpcs.HintJobs().start(ctx, "item_1", work)
     background = hint_rpcs.HintJobs().start(ctx, "item_1", work)
-    assert pressed.done.wait(30) and background.done.wait(30)
+    assert pressed.done.wait(30) and background.done.wait(30) and unpressed.done.wait(30)
     assert pressed.result == {"provider": "openrouter"}
+    assert unpressed.result["provider"] in CHATGPT_PLAN_PROVIDER_NAMES
     assert background.result["provider"] in CHATGPT_PLAN_PROVIDER_NAMES
 
 
@@ -350,7 +355,7 @@ def test_an_ingest_batch_carries_the_grant_only_when_the_learner_enqueued_it(tmp
     _grant_all(root, ["canonical_ingest"])
     runner = IngestRunner(Repository.attach(_paths(root).sqlite_path), vault_root=root, worker_id="t1-landing",
                           handlers={})
-    with plan_fallback.interactive():
+    with plan_fallback.interactive(), plan_fallback.pressed(root, "build"):
         pressed = runner.enqueue_batch("t1_landing", [JobSpec(job_type="noop", payload={})])
     background = runner.enqueue_batch("t1_landing", [JobSpec(job_type="noop", payload={})])
     token = plan_fallback.batch_grant(pressed)
@@ -379,7 +384,9 @@ def test_the_imports_time_boxed_key_check_carries_its_requests_grant(tmp_path, f
         SEI._run_time_boxed(function, 30.0, pending, lambda: None)
         return seen[0]
 
-    with plan_fallback.interactive():
+    with plan_fallback.interactive(), plan_fallback.pressed(root, "exercise_import"):  # start_primed_retry
         assert check_in(root) == "openrouter"
+    with plan_fallback.interactive():  # a request that is not that press
+        assert check_in(root) in CHATGPT_PLAN_PROVIDER_NAMES
     assert check_in(root) in CHATGPT_PLAN_PROVIDER_NAMES
     assert _in_thread(lambda: check_in(root)) in CHATGPT_PLAN_PROVIDER_NAMES

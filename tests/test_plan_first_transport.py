@@ -774,8 +774,11 @@ def test_a_background_jobs_offer_reaches_the_read_that_finds_it_done(tmp_path, m
             raise SidecarError("ai_unavailable", resolved.runtime.message or "unavailable")
         return work
 
-    library_job = library_rpcs.LibraryJobs().start(ctx, "ask", None, unavailable("tutor_qa"))
-    hint_job = hint_rpcs.HintJobs().start(ctx, "item_1", unavailable("hint_writer"))
+    # Started by the learner's press (round 2: a job nobody pressed asks nothing).
+    with plan_fallback.pressed(vault, "library"):
+        library_job = library_rpcs.LibraryJobs().start(ctx, "ask", None, unavailable("tutor_qa"))
+    with plan_fallback.pressed(vault, "hints"):
+        hint_job = hint_rpcs.HintJobs().start(ctx, "item_1", unavailable("hint_writer"))
     assert library_job.done.wait(10) and hint_job.done.wait(10)
     # Polled from an RPC that resolved nothing itself: the job's offer is relayed.
     with plan_fallback.collecting() as offers:
@@ -793,8 +796,14 @@ def test_a_background_jobs_offer_reaches_the_read_that_finds_it_done(tmp_path, m
     assert offers.hint() is None
     # Without a key no job offers anything.
     monkeypatch.delenv("OPENROUTER_API_KEY")
-    quiet_job = library_rpcs.LibraryJobs().start(ctx, "ask", None, unavailable("tutor_qa"))
+    with plan_fallback.pressed(vault, "library"):
+        quiet_job = library_rpcs.LibraryJobs().start(ctx, "ask", None, unavailable("tutor_qa"))
     assert quiet_job.done.wait(10) and quiet_job.fallback_offer is None
+    # A job no press started (opening margin notes, a suggestion) asks nothing either (round 2).
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-never-sent")
+    unpressed = library_rpcs.LibraryJobs().start(ctx, "ask", None, unavailable("tutor_qa"))
+    assert unpressed.done.wait(10) and unpressed.fallback_offer is None
+    monkeypatch.delenv("OPENROUTER_API_KEY")
     # A nested collector (a job run inline) hands its offers to the enclosing one.
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-never-sent")
     with plan_fallback.collecting() as outer:
