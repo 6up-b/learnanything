@@ -3,8 +3,8 @@ title: "Config - trace_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b74c1a38f9b8047f82aa433014cf4644fae56cdd"
-source_commit_timestamp: "2026-10-24T10:24:15-04:00"
+source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
+source_commit_timestamp: "2026-10-24T14:22:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml trace_evidence"
@@ -18,6 +18,7 @@ source_paths:
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
+  - "src/learnloop/ai/plan_fallback.py"
   - "tests/test_conjunctive_instruments.py"
   - "tests/test_ux_phase4_feedback.py"
 tags:
@@ -40,8 +41,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `trace_evidence.elicitation_enabled` | `true` | boolean | modeled default or validator seed | Turns elicitation behavior on or off within opportunistic trace evidence and learner-burden limits. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1772` |
-| `trace_evidence.max_elicitations_per_session` | `2` | integer | modeled default or validator seed | Caps elicitations per session allowed by opportunistic trace evidence and learner-burden limits. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1773` |
+| `trace_evidence.elicitation_enabled` | `true` | boolean | modeled default or validator seed | Turns elicitation behavior on or off within opportunistic trace evidence and learner-burden limits. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1848`; `src/learnloop/ai/plan_fallback.py:123` |
+| `trace_evidence.max_elicitations_per_session` | `2` | integer | modeled default or validator seed | Caps elicitations per session allowed by opportunistic trace evidence and learner-burden limits. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1849`; `src/learnloop/ai/plan_fallback.py:123` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

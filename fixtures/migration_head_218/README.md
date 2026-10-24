@@ -1,8 +1,8 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-217, adaptive difficulty AD2+AD3's 214 included (the runner is set-based, so 214
-applied after 215-217 at the compose round). Migration 167 adds the learner-field F1 read model
+218, adaptive difficulty AD2+AD3's 214 included (the runner is set-based, so 214
+applied after 215-218 at AD2+AD3's compose rounds). Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -248,6 +248,27 @@ pick rank, retrieval ranks and proposed roles) and `reader_cue_impressions`
 holdout's seed and propensity, `p_open` and its source, and the learner's
 first response, written once by trigger). Both tables are empty here.
 
+Migration 218 comes from plan-first transport T1 (`merge/t1-onto-main`,
+redesign D round 5, docs/reviews/ai-plan-first-transport-t1.md): it adds the
+nullable `ingest_batches.origin_method` (the action, an RPC method, whose
+request created the batch, so a batch resumed after a sidecar restart asks
+again as its action; grants and tokens stay per session). Nothing else is
+altered; the column is NULL on every batch here.
+
+Rebuilt at adaptive difficulty AD2+AD3's compose onto T1 (`adaptive-difficulty/ad23`, the merge of
+main `bd0bb7267`) as a backup-API copy of main's `migration_head_218` with only 214 applied, through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade allowance
+(`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`, header bytes
+1/1, `integrity_check` ok, `foreign_key_check` empty), copied into place with the backup API, with no
+companion files. The directory keeps its name: the highest version present is still 218.
+Before that, rebuilt at T1's round as a backup-API copy of this directory's
+`migration_head_217` (git `ad6dad0c4`) with only 218 applied, through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade
+allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
+`foreign_key_check` empty), copied into place with the backup API, with no
+companion files; `migration_head_217` was renamed to this directory.
+
 Migration 217 comes from reader workbench RW7a (`reader/rw7a`, reading paths
 in the Guide, docs/reviews/reader-workbench-RW7a.md): it adds
 `reader_path_sections` (WORKFLOW, append-only by trigger: the path judge's
@@ -266,14 +287,7 @@ readout and the one-time "what changed?", unique per figure and prediction,
 an index, and the no-delete and explanation-once triggers). Nothing is
 altered. Both tables are empty here.
 
-Rebuilt at adaptive difficulty AD2+AD3's compose round (`adaptive-difficulty/ad23`, the merge
-of main `558e85ab1`) as a backup-API copy of main's `migration_head_217` with only 214 applied,
-through `learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade allowance
-(`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`, header
-bytes 1/1, `integrity_check` ok, `foreign_key_check` empty), copied into place with the backup
-API, with no companion files. The directory keeps its name: the highest version present is still
-217. The branch's own `migration_head_214` was not kept.
-Before that, rebuilt at the RW5a landing (`merge/rw5a-onto-main`) as a backup-API copy of
+Rebuilt at the RW5a landing (`merge/rw5a-onto-main`) as a backup-API copy of
 main's `migration_head_217` (git `c80c54cbb`) with only 216 applied, through
 `learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade
 allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),

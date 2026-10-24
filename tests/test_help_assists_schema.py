@@ -35,9 +35,10 @@ from tests.test_ad23_migration import AD23_ADDED_OBJECTS
 from tests.test_figures_migration import RW5A_ADDED_OBJECTS
 from tests.test_reader_rw3b_migration import RW3B_ADDED_OBJECTS
 from tests.test_reader_rw7a_migration import RW7A_ADDED_OBJECTS
+from tests.test_t1_batch_origin_migration import T1_ALTERED_TABLES
 
 NOW = "2026-10-17T10:00:00.000Z"
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_217" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_218" / "state.sqlite"
 
 #: spec_adaptive_hints_v1 §9, "This spec's columns".
 HINTS_SPEC_COLUMNS = {
@@ -147,9 +148,9 @@ def _upgrade(tmp_path: Path) -> Path:
     # (their source_kind CHECK only; tests/test_hint_feedback_widening.py).
     # Adaptive difficulty AD1's 213 adds two practice_attempts columns on the way.
     assert {name: sql for name, sql in after.items()
-            if name in before and not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES} \
+            if name in before and not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES} \
         == {name: sql for name, sql in before.items()
-            if not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES}  # nothing else changed
+            if not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES | T1_ALTERED_TABLES}  # nothing else changed
     return database
 
 
@@ -361,6 +362,6 @@ def test_help_assists_is_a_raw_ledger():
 
 def test_the_head_fixture_is_at_head_in_rollback_mode():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 217
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 218
     for suffix in ("-wal", "-shm", "-journal"):
         assert not HEAD.with_name(HEAD.name + suffix).exists()

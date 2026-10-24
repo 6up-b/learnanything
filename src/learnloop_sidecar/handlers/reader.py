@@ -1787,11 +1787,16 @@ def reader_mark_section_progress(
                     section_id=params.section_id,
                     learning_object_ids=lo_ids,
                 )
-                batch_id = ctx.ingest_jobs.enqueue_practice_expansion(
-                    learning_object_ids=lo_ids,
-                    reason=f"reader_section_completed:{params.section_id}",
-                    source_refs=source_refs,
-                )
+                from learnloop.ai import plan_fallback
+
+                # Reading progress is not a press (T1 landing review round 2):
+                # the expansion asks nothing and carries no grant.
+                with plan_fallback.quiet():
+                    batch_id = ctx.ingest_jobs.enqueue_practice_expansion(
+                        learning_object_ids=lo_ids,
+                        reason=f"reader_section_completed:{params.section_id}",
+                        source_refs=source_refs,
+                    )
                 repository.set_section_generation_batch(
                     extraction_id=resolved, section_id=params.section_id, batch_id=batch_id
                 )
@@ -1804,9 +1809,13 @@ def reader_mark_section_progress(
     # below: it never fails the Reader (a failure is kept and retried).
     if keep_ahead:
         try:
+            from learnloop.ai import plan_fallback
             from learnloop.content.pipeline import add_source as auto_build
 
-            auto_build.keep_ahead_for_reader(ctx.ingest_jobs, resolved, params.section_id)
+            # Scrolling is not pressing (round 2): keep-ahead asks nothing and
+            # carries no grant (a second guard; this RPC is no press).
+            with plan_fallback.quiet():
+                auto_build.keep_ahead_for_reader(ctx.ingest_jobs, resolved, params.section_id)
         except Exception:  # pragma: no cover - background planning boundary
             import logging
 
@@ -1896,6 +1905,8 @@ def enqueue_exercise_import(ctx: SidecarContext, vault, repository, params: Read
     and the workbench's "work through this" on a selection (RW2a, UX S2),
     which opens the problem at once and binds it when this job lands."""
 
+    from learnloop.ai import plan_fallback
+    from learnloop.content.authoring.source_exercise_import import PRICE_SETTING
     from learnloop.content.sources.source_outline import resolve_extraction_id as _resolve
     from learnloop_sidecar.handlers.ai_providers import ready_canonical_ingest_provider
 
@@ -1913,8 +1924,10 @@ def enqueue_exercise_import(ctx: SidecarContext, vault, repository, params: Read
 
     # Gate on the same canonical_ingest route the exercise-import job resolves
     # (RunnerServices.exercise_import_client), so readiness honors the configured
-    # provider instead of hardcoding Codex.
-    _provider, runtime, client = ready_canonical_ingest_provider(vault)
+    # provider instead of hardcoding Codex. It is resolved under the import's
+    # own price, as the job is (fix round L1): no offer or grant the job refuses.
+    with plan_fallback.priced_by(PRICE_SETTING):
+        _provider, runtime, client = ready_canonical_ingest_provider(vault)
     if client is None:
         raise SidecarError(
             "provider_unavailable",
@@ -1948,6 +1961,10 @@ def reader_exercise_import_status(
     jobs = repository.ingest_jobs_for_batch(params.batch_id)
     if not jobs:
         raise SidecarError("batch_not_found", f"No jobs found for batch {params.batch_id!r}.")
+    from learnloop.ai import plan_fallback
+
+    # Redesign D: the batch's own offer (its action's, never this read's), once.
+    plan_fallback.relay_batch_offer(params.batch_id)
     job = jobs[0]
     if job.get("status") == "completed" and ctx.ingest_jobs.needs_reload(job["id"]):
         ctx.reload(maintenance=False)
@@ -2187,7 +2204,12 @@ def reader_reconnect_answer(ctx: SidecarContext, params: ReaderReconnectAnswerIn
             response["status"] = "exists"
             response["question"] = _inquiry_question_payload(vault, repository, existing)
         else:
-            _provider, runtime, client = ready_canonical_ingest_provider(vault)
+            from learnloop.ai import plan_fallback
+
+            # Under the passage check's own price, as its job resolves it (fix
+            # round L1): no offer or grant the job would refuse.
+            with plan_fallback.priced_by(RQC.PASSAGE_CHECK_PRICE_SETTING):
+                _provider, runtime, client = ready_canonical_ingest_provider(vault)
             if client is None:
                 response["status"] = "provider_unavailable"
                 response["message"] = (

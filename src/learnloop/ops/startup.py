@@ -1,16 +1,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
+from learnloop.ai.plan_fallback import quiet as plan_fallback_quiet
 from learnloop.ai.routing import ready_client_for_task, runtime_for_provider
 from learnloop.ai.runtime import AIRuntimeReport
 from learnloop.clock import Clock
-from learnloop.ai.providers.codex import CodexRuntimeReport
 from learnloop.config import CODEX_PROVIDER_NAMES
 from learnloop.db.repositories import Repository
 from learnloop.attempts.regrade import DeferredRegradeResult, run_deferred_ai_regrades, run_deferred_regrades
 from learnloop.projects.capture import auto_sweep
 from learnloop.vault.models import LoadedVault
+
+if TYPE_CHECKING:  # pragma: no cover
+    # Type only (plan-first transport T1): serving code never imports the
+    # Codex provider at run time; the client factory loads it behind the opt-in.
+    from learnloop.ai.providers.codex import CodexRuntimeReport
 
 
 @dataclass(frozen=True)
@@ -59,7 +65,10 @@ def run_startup_maintenance(
     # It cannot raise, so it can never break startup (gate G1).
     auto_sweep(vault.root, vault.config, clock=clock, trigger="app_start")
     codex_runtime = runtime_for_provider(vault.root, vault.config, "codex")
-    resolved = ready_client_for_task(vault.root, vault.config, "grading")
+    # Maintenance, not a feature the learner used: no OpenRouter offer
+    # (plan-first transport T1); a deferred regrade waits for the plan.
+    with plan_fallback_quiet():
+        resolved = ready_client_for_task(vault.root, vault.config, "grading")
     provider_name, runtime, client = (
         resolved.provider_name,
         resolved.runtime,

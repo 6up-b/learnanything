@@ -48,12 +48,12 @@
     "sha256": "692d42454f465c21a71dc35a05914822ce842797c0701224c406ebce0fabeb5a"
   },
   "ai compare": {
-    "bytes": 6345,
-    "sha256": "a288e3031055f428c5b453ea3db9733a438e14e0d39ea223b013493b83b13c58"
+    "bytes": 6517,
+    "sha256": "c8759b0ed285d0284e72581ccbabb46af204ad6952a249d097f2588c6258fb96"
   },
   "ai latency": {
-    "bytes": 4319,
-    "sha256": "0fb2d972e9bd0e20fec0eb1b3bbba383b2be9d7ec166bea412a0f1e99657babe"
+    "bytes": 4491,
+    "sha256": "44a5032a6c166cba748b3ade314e425d220bf1624d46e0c8f25e31e00f5ad457"
   },
   "ai models": {
     "bytes": 1921,
@@ -360,8 +360,8 @@
     "sha256": "e5dd5d5ede091c324d2b56f5918432dc87e68d6a34311ed5af039e1c907a3069"
   },
   "doctor": {
-    "bytes": 2068,
-    "sha256": "9dfcc5f7b9269d2fb3c9e5ca4b6ea723af26ee9338b257f8a323d1f04486bf6e"
+    "bytes": 2578,
+    "sha256": "01234a821b0dd0890c465178cdd7f92207bac1df93597e15fefef71af7797df8"
   },
   "edit-proposal-item": {
     "bytes": 1678,

@@ -1,0 +1,20 @@
+-- Plan-first transport T1, landing redesign D, round 5 (Codex verify of
+-- ad6dad0c4, Medium 2; docs/reviews/ai-plan-first-transport-t1.md):
+-- the action (RPC method) whose request created an ingest batch.
+--
+-- Numbered 218: adaptive difficulty AD2+AD3 holds 214 on its own branch,
+-- and the migration runner has no contiguity rule.
+--
+-- "Use OpenRouter instead" answers an offer that names the action that
+-- asked. A batch keeps asking as its action when it runs and meets an
+-- unavailable ChatGPT plan; before this column the action lived in sidecar
+-- memory only, so a batch resumed after a restart could never ask again.
+-- Only the action is durable: grants, tokens and offers stay per session
+-- (owner decision 2026-10-21). NULL: the batch belongs to no action
+-- (automatic work: keep-ahead, sweeps, startup) or predates this column; it
+-- never asks and never uses OpenRouter.
+--
+-- Nothing reads it but the plan fallback's batch unit: no plan, scheduling,
+-- projection, grading, serving or replay path. Not part of any desktop
+-- payload (the queue store's batch decoder leaves it out).
+ALTER TABLE ingest_batches ADD COLUMN origin_method TEXT;

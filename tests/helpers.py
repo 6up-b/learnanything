@@ -220,14 +220,78 @@ def append_config_toml(vault_root: Path, fragment: str) -> None:
     config_path.write_text(updated, encoding="utf-8")
 
 
+def patch_plan_ready(monkeypatch) -> None:  # noqa: ANN001 - pytest's MonkeyPatch
+    """Report every ChatGPT-plan profile ready, as a signed-in machine would.
+
+    Plan-first transport T1: the default routes name the plan, which is signed
+    out in tests (``LEARNLOOP_CONFIG_DIR`` is isolated). Readiness-only tests
+    use this; it builds no client and sends nothing (tests that call the plan
+    use ``tests.chatgpt_plan_fakes``).
+    """
+
+    from learnloop.ai import runtime
+
+    def ready(selected: str, profile) -> runtime.AIRuntimeReport:  # noqa: ANN001
+        return runtime.AIRuntimeReport(status="ready", active_provider=selected, provider_type="chatgpt_plan",
+                                       model=profile.model, message="ok")
+
+    monkeypatch.setattr(runtime, "_chatgpt_plan_runtime", ready)
+
+
+def use_codex_harness(vault_root: Path) -> None:
+    """Put a template vault back on the frozen Codex path, explicitly opted in.
+
+    Plan-first transport T1 (owner, 2026-10-21): new vaults route every
+    serving task to the tool-free ChatGPT plan, and a Codex profile is refused
+    unless ``ai.agent_harness_opt_in`` is set. Tests that exercise the frozen
+    Codex provider through its doubles (``install_fake_codex_sdk``, the legacy
+    HTTP double) call this to restore the pre-T1 configuration (active
+    provider ``codex``, the ``codex_low`` / ``codex_medium`` tiers) with the
+    opt-in. T2 retires the Codex path and moves these tests to plan fakes.
+    Idempotent.
+    """
+
+    config_path = vault_root / "learnloop.toml"
+    text = config_path.read_text(encoding="utf-8")
+    ai_match = re.search(r"(?ms)^\[ai\]\n(.*?)(?=^\[|\Z)", text)
+    if ai_match is None:
+        text = f'{text.rstrip()}\n\n[ai]\nactive_provider = "codex"\nagent_harness_opt_in = true\n'
+    else:
+        body = re.sub(r"(?m)^agent_harness_opt_in = .*\n", "", ai_match.group(1))
+        body, count = re.subn(r"(?m)^active_provider = .*$", 'active_provider = "codex"', body, count=1)
+        if count == 0:
+            body = 'active_provider = "codex"\n' + body
+        body = body.replace(
+            'active_provider = "codex"\n', 'active_provider = "codex"\nagent_harness_opt_in = true\n', 1
+        )
+        text = text[: ai_match.start(1)] + body + text[ai_match.end(1) :]
+    text = text.replace(
+        '[ai.providers.chatgpt]\ntype = "chatgpt_plan"\n', '[ai.providers.codex]\ntype = "codex_sdk"\n', 1
+    )
+    routing_match = re.search(r"(?ms)^\[ai\.routing\]\n(.*?)(?=^\[|\Z)", text)
+    if routing_match is not None:
+        routes = routing_match.group(1)
+        for plan_profile, codex_profile in (
+            ("chatgpt_low", "codex_low"),
+            ("chatgpt_medium", "codex_medium"),
+            ("chatgpt_luna", "codex_luna"),
+        ):
+            routes = routes.replace(f'"{plan_profile}"', f'"{codex_profile}"')
+        text = text[: routing_match.start(1)] + routes + text[routing_match.end(1) :]
+    tomllib.loads(text)
+    config_path.write_text(text, encoding="utf-8")
+
+
 def configure_codex_http(vault_root: Path, checkout: Path, base_url: str) -> None:
     """Configure the canonical Codex profile for an in-process HTTP test server.
 
     The schema-v2 template deliberately omits machine-local Codex fields, so
     there are no template lines to edit and tests replace the whole provider
-    table.
+    table. The vault is first put on the frozen Codex path with the explicit
+    opt-in (``use_codex_harness``; plan-first transport T1).
     """
 
+    use_codex_harness(vault_root)
     config_path = vault_root / "learnloop.toml"
     text = config_path.read_text(encoding="utf-8")
     replacement = (

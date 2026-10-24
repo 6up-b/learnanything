@@ -177,6 +177,9 @@ class _Job:
     #: Revalidates the kept result at each delivery (exercise jobs: the
     #: statement reader's withholding gate); None for a job that needs none.
     deliver: Deliver | None = None
+    #: Plan-first transport T1: the OpenRouter offer the job's requests made
+    #: (a ``plan_fallback`` hint), relayed by the read that finds it done.
+    fallback_offer: dict[str, Any] | None = None
 
 
 def _as_sidecar_error(exc: BaseException) -> SidecarError:
@@ -208,20 +211,33 @@ class LibraryJobs:
         _vault, repository = ctx.require_vault()
         sqlite_path = repository.sqlite_path
 
+        # T1 landing (redesign D): the job belongs to the action whose request started it,
+        # and carries that action's token when it is granted (taken here, in the request).
+        from learnloop.ai import plan_fallback as _plan_fallback
+
+        grant, origin = _plan_fallback.unit_token(_vault.root), _plan_fallback.unit_origin()
+        stamp = _plan_fallback.unit_stamp(_vault.root)  # its vault and epoch, now
+        _plan_fallback.note_unit("job", job.job_id)
+
         def run() -> None:
+            from learnloop.ai import plan_fallback
             from learnloop.ai.execution import record_model_calls
             from learnloop.db.repositories import Repository
 
-            try:
-                worker_repo = Repository.attach(sqlite_path)
-                # Receipts are owned as the serial loop owns an RPC's (server._observed_model_calls).
-                with record_model_calls(worker_repo, owner_kind="sidecar_rpc",
-                                        owner_id=f"reader.library_{kind}:{job.job_id}"):
-                    job.result = work(worker_repo)
-            except BaseException as exc:  # noqa: BLE001 - every failure answers the job, never the loop
-                job.error = _as_sidecar_error(exc)
-            finally:
-                job.done.set()
+            # Plan-first transport T1: the job's thread has no RPC collector;
+            # it keeps its own offers and the read that finds it done relays them.
+            with plan_fallback.unit(grant, origin, stamp) as offers:
+                try:
+                    worker_repo = Repository.attach(sqlite_path)
+                    # Receipts are owned as the serial loop owns an RPC's (server._observed_model_calls).
+                    with record_model_calls(worker_repo, owner_kind="sidecar_rpc",
+                                            owner_id=f"reader.library_{kind}:{job.job_id}"):
+                        job.result = work(worker_repo)
+                except BaseException as exc:  # noqa: BLE001 - every failure answers the job, never the loop
+                    job.error = _as_sidecar_error(exc)
+                finally:
+                    job.fallback_offer = offers.hint()
+                    job.done.set()
 
         if getattr(ctx, "library_ask_inline", False):
             run()
@@ -252,6 +268,9 @@ def _job_payload(job: _Job) -> dict[str, Any]:
         return versioned({**base, "state": "cancelled", "result": None})
     if not job.done.is_set():
         return versioned({**base, "state": "pending", "result": None})
+    from learnloop.ai import plan_fallback
+
+    plan_fallback.relay_job_offer(job)
     if job.error is not None:
         raise job.error
     result = job.result

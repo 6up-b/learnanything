@@ -106,13 +106,18 @@ def test_settings_payload_lists_plan_profiles_and_their_routes(tmp_path, server)
     config = root / "learnloop.toml"
     text = config.read_text(encoding="utf-8").replace(
         "[ai.routing]\n", '[ai.routing]\nsource_query_rewrite = "chatgpt"\n', 1)
-    config.write_text(text + f'\n[ai.providers.chatgpt]\ntype = "chatgpt_plan"\nmodel = "gpt-test-fast"\n'
-                      f'base_url = "{server.base_url}"\n', encoding="utf-8")
+    # The template already holds [ai.providers.chatgpt] (plan-first transport T1).
+    text = text.replace('[ai.providers.chatgpt]\ntype = "chatgpt_plan"\nmodel = "gpt-5.6-sol"\n',
+                        f'[ai.providers.chatgpt]\ntype = "chatgpt_plan"\nmodel = "gpt-test-fast"\n'
+                        f'base_url = "{server.base_url}"\n', 1)
+    config.write_text(text, encoding="utf-8")
     ctx = SidecarContext()
     ctx.load(root, maintenance=False)
     settings = get_settings(ctx, EmptyParams())
     block = settings["chatgptPlan"]
     assert block["state"] == "signed_out" and block["usingPlan"] is True
-    (profile,) = block["profiles"]
-    assert profile["name"] == "chatgpt" and profile["routes"] == ["source_query_rewrite"]
+    # Plan-first transport T1: the code-default tiers are listed too.
+    assert {entry["name"] for entry in block["profiles"]} >= {"chatgpt", "chatgpt_low", "chatgpt_medium"}
+    profile = next(entry for entry in block["profiles"] if entry["name"] == "chatgpt")
+    assert profile["routes"] == ["source_query_rewrite"]
     assert "chatgpt" in {provider["name"] for provider in settings["ai"]["providers"]}

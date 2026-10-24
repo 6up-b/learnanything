@@ -310,13 +310,15 @@ def writer_names(vault: LoadedVault) -> list[str]:
     writer.
     """
 
-    from learnloop.ai.routing import MANUAL_PROVIDER, is_generation_profile
+    from learnloop.ai.routing import MANUAL_PROVIDER, configured_fallback, is_generation_profile
 
     primary = writer_name(vault)
     names = [primary] if primary else []
     configured = (getattr(vault.config.ai.routing, ROUTE, None) or "").strip()
     _decider, chat = _route_names(vault)
-    fallback = (vault.config.ai.fallback_provider or "").strip()
+    # Routing's one rule for the setting (review F6): never Codex, never a
+    # silent metered fallback for the ChatGPT plan.
+    fallback = configured_fallback(vault.config, primary) or ""
     if chat is not None or not fallback or fallback in names or fallback == MANUAL_PROVIDER:
         return names
     if not is_generation_profile(vault.config, fallback):
@@ -360,7 +362,7 @@ def _ready_writer(vault: LoadedVault, injected: Mapping[str, Any]) -> tuple[Any 
     provider explicitly, then the fallback provider when that is not ready.
     """
 
-    from learnloop.ai.routing import is_generation_profile, ready_client_for_task
+    from learnloop.ai.routing import configured_fallback, is_generation_profile, ready_client_for_task
 
     name = writer_name(vault)
     if "llm" in injected:
@@ -375,7 +377,8 @@ def _ready_writer(vault: LoadedVault, injected: Mapping[str, Any]) -> tuple[Any 
             client = _ready(vault, chat)
         else:
             client = _ready(vault, name)
-            fallback = (vault.config.ai.fallback_provider or "").strip()
+            # Routing's one rule for the setting (review F6).
+            fallback = configured_fallback(vault.config, name) or ""
             if client is None and fallback and fallback != name and is_generation_profile(vault.config, fallback):
                 client, name = _ready(vault, fallback), fallback
     if not can_write(client):

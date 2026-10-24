@@ -14,7 +14,7 @@ from learnloop.ai.routing import client_for_provider, ready_client_for_task, run
 from learnloop.config import load_config
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.context import _settings_ready, available_grading_providers
-from tests.helpers import create_basic_vault
+from tests.helpers import create_basic_vault, patch_plan_ready
 from tests.openai_fakes import install_fake_openai
 from tests.test_settings_sidecar import _settings_rpc
 
@@ -27,6 +27,8 @@ def codex_ready(monkeypatch):
         "learnloop.ai.runtime.check_codex_runtime",
         lambda *args, **kwargs: SimpleNamespace(status="ready", actual_revision=None, message="ok"),
     )
+    # Plan-first transport T1: the default routes name the plan; a ready learner is signed in.
+    patch_plan_ready(monkeypatch)
     monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
 
@@ -42,7 +44,7 @@ def vault(tmp_path, monkeypatch):
 
 
 def test_disabled_embedding_route_does_not_fail_settings_health(vault, codex_ready, monkeypatch):
-    # A Codex-only learner without an OpenRouter key: a fresh template vault is healthy.
+    # A plan-only learner (T1 default) without an OpenRouter key: a fresh template vault is healthy.
     assert not vault.config.embedding.enabled
     assert _settings_ready(vault)
     # Opting in makes the embedding route count, and its key is then required.
@@ -65,8 +67,8 @@ def test_settings_health_checks_each_route_under_its_own_task(vault, codex_ready
 def test_settings_health_checks_each_profile_of_a_pf_list_route(vault, codex_ready, monkeypatch):
     # Phase 5a's list routes (ensemble proposers, solver panel) are checked
     # profile by profile; a list must not break the health payload.
-    vault.config.ai.routing.pf_proposers = ["codex", "openrouter"]
-    vault.config.ai.routing.pf_solver_panel = ["codex_low"]
+    vault.config.ai.routing.pf_proposers = ["chatgpt", "openrouter"]
+    vault.config.ai.routing.pf_solver_panel = ["chatgpt_low"]
     assert not _settings_ready(vault)  # the OpenRouter proposer has no key
     monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
     assert _settings_ready(vault)
@@ -151,8 +153,8 @@ def test_sidecar_never_offers_or_persists_an_embedding_profile_for_generation(va
         "invalid_provider",
     ]
     persisted = load_config(vault.root / "learnloop.toml")
-    assert persisted.ai.active_provider == "codex"
-    assert persisted.ai.routing.grading == "codex_low"
+    assert persisted.ai.active_provider == "chatgpt"
+    assert persisted.ai.routing.grading == "chatgpt_low"
     assert EMBEDDING_PROFILE not in responses[3]["result"]["ai"]["availableGradingProviders"]
 
 

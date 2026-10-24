@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from learnloop.ai.plan_fallback import collecting as plan_fallback_offers
+from learnloop.ai.plan_fallback import command_grant as plan_fallback_command_grant
 from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.cli.receipts import command_receipts
 from learnloop.cli.runtime import *  # noqa: F401,F403
@@ -26,6 +28,13 @@ def _record_command_model_calls(ctx: typer.Context) -> None:
     # Every model call a command makes leaves a receipt owned by this run.
     # (A docstring here would replace the application help text.)
     ctx.with_resource(command_receipts(ctx.invoked_subcommand or "learnloop"))
+    # Plan-first transport T1: offers to use OpenRouter while the ChatGPT plan
+    # is unavailable are collected for the command's JSON (cli.render._dump).
+    ctx.with_resource(plan_fallback_offers())
+    # LEARNLOOP_AI_FALLBACK=openrouter is the learner's choice for this one
+    # command, read here and nowhere else (review F4); a long-lived host
+    # (`learnloop mcp serve`) is not one command and never takes it.
+    ctx.with_resource(plan_fallback_command_grant(host=ctx.invoked_subcommand in {"mcp"}))
 
 
 @app.command()
@@ -1389,6 +1398,12 @@ def doctor(
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
     fix_state: Annotated[bool, typer.Option("--fix-state", help="Safely sync derived SQLite state.")] = False,
+    fix: Annotated[bool, typer.Option(
+        "--fix",
+        help="Rewrite learnloop.toml settings doctor can fix safely: routes, the active provider and the "
+        "fallback that still name a Codex profile move to the ChatGPT-plan profile of the same tier "
+        "(ai:codex_route_pinned). Run with --dry-run first.",
+    )] = False,
     ai: Annotated[bool, typer.Option("--ai", help="Include active AI provider health.")] = False,
     ai_provider: Annotated[str | None, typer.Option("--ai-provider", help="AI provider profile to check.")] = None,
     data_quality: Annotated[bool, typer.Option("--data-quality", help="Report collection coverage from a read-only snapshot transaction.")] = False,
@@ -1398,17 +1413,25 @@ def doctor(
         "criterion of the item (criterion:unknown_dependency). A criterion that depends on itself is "
         "reported, not changed. Run with --dry-run first.",
     )] = False,
-    dry_run: Annotated[bool, typer.Option("--dry-run", help="With --fix-content: list the edits, write nothing.")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="With --fix or --fix-content: list the edits, write nothing.")] = False,
 ) -> None:
     if data_quality:
         from learnloop.substrate.data_quality import data_quality_report
         loaded = _load_vault_or_exit(_root(vault), json_output=True)
         typer.echo(_dump(data_quality_report(VaultPaths(loaded.root, loaded.config).sqlite_path)))
         return
-    if dry_run and not fix_content:
-        typer.echo("--dry-run applies only with --fix-content.", err=True)
+    if dry_run and not (fix_content or fix):
+        typer.echo("--dry-run applies only with --fix or --fix-content.", err=True)
         raise typer.Exit(code=2)
     fix_report = None
+    config_fix_report = None
+    if fix:
+        from learnloop.config import load_config as _load_config
+        from learnloop.ops.plan_transport import fix_codex_pins
+
+        # Before the report, so it describes the rewritten configuration.
+        fix_root = _root(vault)
+        config_fix_report = fix_codex_pins(fix_root, _load_config(fix_root / "learnloop.toml"), dry_run=dry_run)
     if fix_content:
         from learnloop.ops.content_fixes import fix_criterion_dependencies
 
@@ -1420,6 +1443,8 @@ def doctor(
         payload = report.as_dict()
         if fix_report is not None:
             payload["fix_content"] = fix_report
+        if config_fix_report is not None:
+            payload["fix"] = config_fix_report
         payload["dense_retrieval"] = dense
         typer.echo(_dump(payload))
         if not report.clean:
@@ -1427,6 +1452,13 @@ def doctor(
         return
     if fix_report is not None:
         _echo_fix_content(fix_report)
+    if config_fix_report is not None:
+        verb = "Would set" if config_fix_report["dry_run"] else "Set"
+        for change in config_fix_report["rewritten"]:
+            target = change["replacement"] if change["replacement"] != "" else "(unset)"
+            typer.echo(f"{verb} {change['setting']}: {change['value']!r} -> {target!r}")
+        if not config_fix_report["rewritten"]:
+            typer.echo("No learnloop.toml setting names a Codex profile.")
     if report.storage is not None:
         typer.echo(_storage_line(report.storage))
     if dense is not None:

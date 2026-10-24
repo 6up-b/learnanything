@@ -605,6 +605,14 @@ def _operation(vault: Any, repository: Any, *, protected: Any = None, connection
 
     pinned = getattr(getattr(raw_repository, "_pin", None), "connection", None)
     guarded = [c for c in (pinned, *connections) if c is not None]
+    from learnloop.ai import plan_fallback
+
+    # AD's model calls are background work (preparation, forecasts, relatedness, audits; the compose
+    # onto T1, item C4): inside an operation no route raises an OpenRouter offer and no grant serves
+    # one; with the plan unavailable the call reports unavailable and AD waits or skips, as T1's
+    # background builds do.
+    quiet = plan_fallback.quiet()
+    quiet.__enter__()
     token = _CURRENT.set(op)
     failed = False
     try:
@@ -619,6 +627,7 @@ def _operation(vault: Any, repository: Any, *, protected: Any = None, connection
                 raise
     finally:
         _CURRENT.reset(token)
+        quiet.__exit__(None, None, None)
         for connection in guarded:
             guard.remove(connection)
         guard.connections = []

@@ -705,6 +705,39 @@ forbidden_modules = ["learnloop.field.predictors", "learnloop.field.evaluation",
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
+id = "serving-never-imports-the-codex-provider"
+name = "No serving package imports the Codex provider (plan-first transport T1)"
+type = "forbidden"
+# Owner decision 2026-10-21: every serving route uses the tool-free ChatGPT
+# plan, and the Codex agent harness serves nothing without
+# ai.agent_harness_opt_in. The frozen Codex modules are reached only through
+# the single client factory and the readiness check, each after the opt-in
+# refusal (learnloop.ai.agent_harness), with a function-local import. T2
+# deletes the modules and this exemption list.
+source_modules = ["learnloop", "learnloop_sidecar", "learnloop_mobile", "learnloop_mcp"]
+forbidden_modules = [
+    "learnloop.ai.providers.codex",
+    "learnloop.ai.providers.codex_http",
+    "learnloop.ai.providers.codex_lockdown",
+]
+ignore_imports = [
+    # The single client factory: after require_harness_opt_in (opt-in only).
+    "learnloop.ai.client -> learnloop.ai.providers.codex",
+    "learnloop.ai.client -> learnloop.ai.providers.codex_http",
+    # Readiness: the Codex health check, after harness_refusal (opt-in only).
+    "learnloop.ai.runtime -> learnloop.ai.providers.codex",
+    # Type-only imports (under TYPE_CHECKING; never executed).
+    "learnloop.attempts.attempts -> learnloop.ai.providers.codex",
+    "learnloop.attempts.regrade -> learnloop.ai.providers.codex",
+    "learnloop.ops.startup -> learnloop.ai.providers.codex",
+    # The frozen Codex modules among themselves.
+    "learnloop.ai.providers.codex -> learnloop.ai.providers.codex_http",
+    "learnloop.ai.providers.codex -> learnloop.ai.providers.codex_lockdown",
+    "learnloop.ai.providers.codex_http -> learnloop.ai.providers.codex",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
 id = "frozen-cross-package-cycles"
 name = "Existing deferred cross-package cycles are frozen"
 type = "acyclic_siblings"

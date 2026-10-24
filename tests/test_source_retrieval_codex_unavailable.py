@@ -58,10 +58,16 @@ def codex(monkeypatch):
         if task not in T6_LLM_ROUTES:
             return real(vault_root, config, task, explicit=explicit, **kwargs)
         state.tasks.append((task, explicit))
+        # The profile the route resolved (T1 landing: a routed plan route now
+        # resolves unpinned, and resolve_client checks it is the planned one).
+        from learnloop.ai.routing import provider_for_task
+
+        name = explicit or provider_for_task(config, task).provider_name
         if not state.ready:
-            return SimpleNamespace(ready=False, client=None,
+            return SimpleNamespace(ready=False, client=None, provider_name=name,
                                    runtime=SimpleNamespace(message="Codex is not signed in"))
-        return SimpleNamespace(ready=True, client=state.client, runtime=SimpleNamespace(message=None))
+        return SimpleNamespace(ready=True, client=state.client, provider_name=name,
+                               runtime=SimpleNamespace(message=None))
 
     monkeypatch.setattr(paid, "ready_client_for_task", fake_ready)
     return state
@@ -73,16 +79,17 @@ def _source_relevance_rows(repository) -> int:
             "SELECT COUNT(*) FROM judgment_ledger WHERE task = 'source_relevance'").fetchone()[0]
 
 
-def test_the_unset_t6_routes_follow_the_active_codex_profile(tmp_path):
+def test_the_unset_t6_routes_follow_the_active_plan_profile(tmp_path):
     from learnloop.practice_index.paid import plan_route
 
     paths, _repository = setup(tmp_path, embed=False)
     vault = loaded(paths)
-    assert vault.config.ai.active_provider == "codex"
+    # Plan-first transport T1: the active profile is the tool-free ChatGPT plan.
+    assert vault.config.ai.active_provider == "chatgpt"
     for task in T6_LLM_ROUTES:
         assert getattr(vault.config.ai.routing, task) is None
         route = plan_route(vault, task)
-        assert route.provider == "codex" and route.billing == "subscription"
+        assert route.provider == "chatgpt" and route.billing == "subscription"
 
 
 def test_an_exhausted_codex_leaves_the_tutor_on_its_linked_spans(tmp_path, codex):

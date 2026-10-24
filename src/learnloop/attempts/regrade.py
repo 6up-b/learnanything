@@ -3,14 +3,13 @@ from __future__ import annotations
 import logging
 
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from learnloop.ai.client import AIProviderClient
 from learnloop.ai.runtime import AIRuntimeReport
 from learnloop.algorithm_versions import REGRADE_CONTRACT_VERSIONS, SOURCE_REFERENCE_GATE_VERSIONS
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.ai.errors import CodexUnavailable
-from learnloop.ai.providers.codex import CodexRuntimeReport
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_service import bind_replacement_grade
 from learnloop.ids import new_ulid
@@ -42,6 +41,11 @@ from learnloop.tutor.teach_back import (
     restrict_grading_context_to_criteria,
 )
 from learnloop.vault.models import LoadedVault
+
+if TYPE_CHECKING:  # pragma: no cover
+    # Type only (plan-first transport T1): serving code never imports the
+    # Codex provider at run time; the client factory loads it behind the opt-in.
+    from learnloop.ai.providers.codex import CodexRuntimeReport
 
 
 LOGGER = logging.getLogger(__name__)

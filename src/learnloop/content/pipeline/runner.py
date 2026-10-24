@@ -42,6 +42,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping, Sequence
 
 from learnloop.clock import Clock, SystemClock, utc_now_iso
+from learnloop.ai import plan_fallback
 from learnloop.ai.execution import record_model_calls
 from learnloop.ai.transport import interrupt_callback
 from learnloop.db.checkpoint import checkpoint_wal
@@ -340,6 +341,24 @@ def _job_defaults() -> Any:
     return jobs
 
 
+@contextmanager
+def _batch_unit(runner: "IngestRunner", batch_id: str) -> Iterator[None]:
+    """Run one job of ``batch_id`` as its unit: its token, its action; it may ask only when it has an
+    action (the offer is kept with the batch and relayed by a read that shows the batch).
+
+    The action is durable (``ingest_batches.origin_method``, migration 218;
+    round 5, Medium 2): a batch resumed after a sidecar restart asks again as
+    its origin. Grants and tokens stay session-only."""
+
+    origin = plan_fallback.batch_origin(batch_id) or runner.batch_origin_method(batch_id)
+    stamp = plan_fallback.batch_stamp(batch_id, runner.vault_root)
+    with plan_fallback.unit(plan_fallback.batch_grant(batch_id), origin, stamp) as offers:
+        try:
+            yield
+        finally:
+            plan_fallback.keep_batch_offer(batch_id, offers.hint())
+
+
 @dataclass
 class JobContext:
     """What a handler is handed: repository, vault root, payload, and the
@@ -439,6 +458,17 @@ class JobContext:
 
         if self._enqueue_batch is None:
             raise IngestRunnerError("this job context cannot enqueue follow-up work.")
+        # T1 landing (redesign D): a follow-up belongs to this job's action, and
+        # carries its token, only when the caller says it is this job's own work
+        # (its planned build); keep-ahead and other follow-ups belong to no
+        # action (no token, no offer).
+        inherit = bool(kwargs.pop("inherit_grant", False))
+        if inherit:
+            from learnloop.ai import plan_fallback
+
+            parent = self.job.get("batch_id")
+            kwargs["grant"] = plan_fallback.batch_grant(parent)
+            kwargs["origin"] = plan_fallback.batch_origin(parent) or self.repo.ingest_batch_origin(str(parent))
         with self.repo.atomic():
             if self._cancel_requested():
                 raise JobCancelled()
@@ -603,7 +633,14 @@ class IngestRunner:
         source_set_id: str | None = None,
         priority: int = 0,
         batch_id: str | None = None,
+        grant: "plan_fallback.GrantToken | None" = None,
+        origin: str | None = None,
     ) -> str:
+        """``grant`` / ``origin``: a job's own child build
+        (:meth:`JobContext.enqueue_batch` with ``inherit_grant``); otherwise the
+        batch belongs to the request around this call (``plan_fallback.unit_origin``)
+        and carries its token when that action is granted (``unit_token``)."""
+
         # The batch, jobs and dependency graph form one enqueue receipt. A
         # stable identity lets interrupted callers recover without a second batch.
         with self.repo.atomic():
@@ -611,13 +648,15 @@ class IngestRunner:
                 return batch_id
             return self._enqueue_batch(
                 workflow_type, jobs, subject_id=subject_id,
-                source_set_id=source_set_id, priority=priority, batch_id=batch_id,
+                source_set_id=source_set_id, priority=priority, batch_id=batch_id, grant=grant,
+                origin=origin,
             )
 
     def _enqueue_batch(
         self, workflow_type: str, jobs: Sequence[JobSpec], *,
         subject_id: str | None, source_set_id: str | None, priority: int,
-        batch_id: str | None,
+        batch_id: str | None, grant: "plan_fallback.GrantToken | None" = None,
+        origin: str | None = None,
     ) -> str:
         if not jobs:
             raise IngestRunnerError("a batch needs at least one job.")
@@ -625,6 +664,13 @@ class IngestRunner:
             if not spec.job_type:
                 raise IngestRunnerError("every job needs a job_type.")
         batch_id = batch_id or f"batch_{new_ulid()}"
+        # T1 landing (redesign D): the batch belongs to the action that created
+        # it (the request's method, or its parent's for a job's own planned
+        # build) and carries that action's token when it is granted; a batch
+        # made under quiet() or off any request belongs to no action. The
+        # action is durable (migration 218); the token is per session.
+        if grant is None and origin is None:
+            grant, origin = plan_fallback.unit_token(self.vault_root), plan_fallback.unit_origin()
         self.repo.insert_ingest_batch(
             id=batch_id,
             workflow_type=workflow_type,
@@ -632,6 +678,7 @@ class IngestRunner:
             source_set_id=source_set_id,
             priority=priority,
             clock=self.clock,
+            origin_method=origin,
         )
         job_ids: list[str] = []
         for ordinal, spec in enumerate(jobs):
@@ -651,7 +698,19 @@ class IngestRunner:
                     raise IngestRunnerError(f"invalid dependency index {dep_index}.")
                 self.repo.add_ingest_job_dependency(job_ids[ordinal], job_ids[dep_index])
         self._refresh_batch(batch_id)
+        # The request's offer lists it, so answering that offer tokens it.
+        plan_fallback.remember_batch_grant(batch_id, grant, origin, self.vault_root)
+        if origin is not None:
+            plan_fallback.note_unit("batch", batch_id)
         return batch_id
+
+    def batch_origin_method(self, batch_id: str) -> str | None:
+        """The batch's durable action (migration 218), for a batch from before a sidecar restart."""
+
+        try:
+            return self.repo.ingest_batch_origin(batch_id)
+        except Exception:  # noqa: BLE001 - a schema without the column: the batch belongs to no action
+            return None
 
     # -- recovery / drive --------------------------------------------------
 
@@ -863,6 +922,9 @@ class IngestRunner:
                         )
                 self.repo.requeue_ingest_job(job["id"], clock=self.clock)
         self._refresh_batch(batch_id)
+        # Redesign D: a resume never changes a batch's token or origin (it keeps
+        # what it got at creation or from its answered offer; a stop kills it
+        # through the epoch). A batch with no token asks through its own offer.
 
     def requeue_failed_unless_cancelled(self, batch_id: str, *, error_code: str) -> bool:
         """Requeue the batch's jobs that failed with ``error_code``, only while the batch is
@@ -945,7 +1007,8 @@ class IngestRunner:
                     ctx._held = held
                     with guard_ingest_writes(
                         self.repo.sqlite_path, job["id"], self.worker_id, job["attempt_count"]
-                    ), record_model_calls(self.repo, owner_kind="ingest_job", owner_id=job["id"]):
+                    ), record_model_calls(self.repo, owner_kind="ingest_job", owner_id=job["id"]), \
+                            _batch_unit(self, batch_id):
                         result = handler(ctx)
             finally:
                 ctx._held = None

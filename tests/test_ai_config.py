@@ -24,7 +24,15 @@ def test_default_config_contains_ai_codex_profile(tmp_path):
     # reveal accounting, the blind-grading split, placement and recurrence
     # groups, all on the unchanged mvp-0.8 projection namespace).
     assert config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION
-    assert config.ai.active_provider == "codex"
+    # Plan-first transport T1 (owner, 2026-10-21): the tool-free ChatGPT plan
+    # serves every route; the Codex profiles stay defined (frozen, opt-in only).
+    assert config.ai.active_provider == "chatgpt"
+    assert config.ai.agent_harness_opt_in is False
+    assert config.ai.providers["chatgpt"].type == "chatgpt_plan"
+    assert config.ai.providers["chatgpt"].model == "gpt-5.6-sol"
+    assert config.ai.providers["chatgpt"].reasoning_effort == "low"
+    assert config.ai.providers["chatgpt_low"].reasoning_effort == "low"
+    assert config.ai.providers["chatgpt_medium"].reasoning_effort == "medium"
     assert config.ai.providers["codex"].type == "codex_sdk"
     assert config.ai.providers["codex"].model == "gpt-5.6-sol"
     assert config.ai.providers["codex"].reasoning_effort == "low"
@@ -39,12 +47,12 @@ def test_default_config_contains_ai_codex_profile(tmp_path):
     assert config.ai.providers["deepseek_pro"].model == "deepseek-v4-pro"
     assert config.ai.providers["deepseek_pro"].thinking == "enabled"
     assert config.ai.providers["openrouter"].type == "openrouter"
-    assert config.ai.routing.grading == "codex_low"
-    assert config.ai.routing.tutor_qa == "codex_low"
-    assert config.ai.routing.teach_back == "codex_low"
-    assert config.ai.routing.authoring == "codex_medium"
-    assert config.ai.routing.canonical_ingest == "codex_medium"
-    assert config.ai.routing.canonical_ingest_retry == "codex_medium"
+    assert config.ai.routing.grading == "chatgpt_low"
+    assert config.ai.routing.tutor_qa == "chatgpt_low"
+    assert config.ai.routing.teach_back == "chatgpt_low"
+    assert config.ai.routing.authoring == "chatgpt_medium"
+    assert config.ai.routing.canonical_ingest == "chatgpt_medium"
+    assert config.ai.routing.canonical_ingest_retry == "chatgpt_medium"
 
 
 def test_default_config_contains_audio_and_native_ingest(tmp_path):
@@ -79,7 +87,7 @@ def test_animation_config_and_routing_parity(tmp_path):
     in_memory = LearnLoopConfig()
 
     for config in (loaded, in_memory):
-        assert config.ai.routing.animation == "codex_medium"
+        assert config.ai.routing.animation == "chatgpt_medium"
         animation = config.animation
         assert animation.enabled is True
         assert animation.quality == "qm"
@@ -102,12 +110,15 @@ def test_canonical_ingest_retry_follows_ingest_for_non_codex():
     assert config.ai.routing.canonical_ingest_retry == "openrouter"
 
 
-def test_canonical_ingest_retry_defaults_codex_for_codex_vault():
-    # No regression for codex vaults: the retry route still resolves to the
-    # medium codex tier.
+def test_canonical_ingest_retry_defaults_to_the_medium_tier():
+    # The retry route resolves to the medium tier: the plan's by default, the
+    # legacy Codex one for a vault that still names Codex (opt-in only, T1).
     config = LearnLoopConfig()
-    assert config.ai.routing.canonical_ingest == "codex_medium"
-    assert config.ai.routing.canonical_ingest_retry == "codex_medium"
+    assert config.ai.routing.canonical_ingest == "chatgpt_medium"
+    assert config.ai.routing.canonical_ingest_retry == "chatgpt_medium"
+    legacy = LearnLoopConfig.model_validate({"ai": {"active_provider": "codex", "agent_harness_opt_in": True}})
+    assert legacy.ai.routing.canonical_ingest == "codex_medium"
+    assert legacy.ai.routing.canonical_ingest_retry == "codex_medium"
 
 
 def test_pdf_native_engine_and_input_modalities_parse():
@@ -152,7 +163,8 @@ def test_default_config_seeds_openrouter_profile(tmp_path):
 
 
 def test_global_ai_timeout_is_applied_to_codex_sdk_profiles(tmp_path):
-    config = LearnLoopConfig()
+    # The frozen Codex path is reachable only with the owner opt-in (T1).
+    config = LearnLoopConfig.model_validate({"ai": {"agent_harness_opt_in": True}})
     config.ai.timeout_seconds = 17
     config.ai.providers["codex_medium"].timeout_seconds = None
 
@@ -187,8 +199,8 @@ def test_in_memory_defaults_match_persisted_algorithm_and_codex_profile(tmp_path
         assert config.ai.providers["codex"].reasoning_effort == "low"
         assert config.ai.providers["codex_low"].reasoning_effort == "low"
         assert config.ai.providers["codex_medium"].reasoning_effort == "medium"
-        assert config.ai.routing.authoring == "codex_medium"
-        assert config.ai.routing.grading == "codex_low"
+        assert config.ai.routing.authoring == "chatgpt_medium"
+        assert config.ai.routing.grading == "chatgpt_low"
 
 
 def test_default_config_ships_blank_codex_checkout_path(tmp_path):

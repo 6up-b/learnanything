@@ -3,13 +3,13 @@ title: "ingest_batches"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b74c1a38f9b8047f82aa433014cf4644fae56cdd"
-source_commit_timestamp: "2026-10-24T10:24:15-04:00"
+source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
+source_commit_timestamp: "2026-10-24T14:22:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ingest_batches"
   - "table ingest_batches"
-schema_head: 217
+schema_head: 218
 table_name: "ingest_batches"
 table_role: "workflow"
 functionality_status: "active"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/cli/__init__.py"
   - "src/learnloop/content/pipeline/jobs.py"
+  - "src/learnloop/content/pipeline/runner.py"
   - "src/learnloop/db/stores/ad_serving.py"
   - "src/learnloop/db/stores/ingest_queue.py"
-  - "src/learnloop/substrate/dataset.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -52,7 +52,7 @@ It belongs to the **sources and ingest** navigation family. The family context l
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/033_durable_ingest_jobs.sql`.
-- **Schema touched by:** `033_durable_ingest_jobs.sql`, `048_ingest_batch_priority.sql`, `117_question_promotion_jobs_and_queue_revision.sql`.
+- **Schema touched by:** `033_durable_ingest_jobs.sql`, `048_ingest_batch_priority.sql`, `117_question_promotion_jobs_and_queue_revision.sql`, `218_ingest_batch_origin.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -72,6 +72,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `finished_at` | `TEXT` | no | — | — | Timestamp (ISO-8601 UTC text) |
 | `cancel_requested` | `INTEGER` | yes | `0` | — | Stored value |
 | `priority` | `INTEGER` | yes | `0` | — | Stored value |
+| `origin_method` | `TEXT` | no | — | — | Stored value |
 
 ## Relationships and access paths
 
@@ -107,10 +108,13 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/ad23_fakes.py`
+- `tests/test_ad1_migration.py`
 - `tests/test_auto_build_spend_report.py`
 - `tests/test_capture_route_recovery.py`
 - `tests/test_ingest_queue_store.py`
 - `tests/test_migrations.py`
+- `tests/test_plan_first_transport_offer_grants_r5.py`
+- `tests/test_t1_batch_origin_migration.py`
 - `tests/test_ux_phase1_usability_round2.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
@@ -141,7 +145,7 @@ CREATE TABLE ingest_batches (
   started_at TEXT,
   finished_at TEXT,
   cancel_requested INTEGER NOT NULL DEFAULT 0
-, priority INTEGER NOT NULL DEFAULT 0);
+, priority INTEGER NOT NULL DEFAULT 0, origin_method TEXT);
 ```
 
 ## Related notes

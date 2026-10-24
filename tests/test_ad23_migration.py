@@ -8,7 +8,7 @@ stamps with the protection epoch (the AD23 redesign, round 2: ``item_serve_input
 ``ad_coupling_versions`` (RECEIPT, append-only), ``ad_state`` and
 ``ad_attempt_trace`` (DERIVED, the AD replayer) and ``item_forecast_scores``
 (DERIVED, the forecast-score replayer). Every pre-existing row is unchanged.
-The head fixture (migration_head_217) holds 214 with main's 215-217, in rollback mode; the durability lane runs the same
+The head fixture (migration_head_218) holds 214 with main's 215-218, in rollback mode; the durability lane runs the same
 upgrade under WAL; the FK check is clean.
 """
 
@@ -25,7 +25,7 @@ from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_mi
     upgrade_allowance
 from learnloop.db.table_roles import TableRole, role_for_table
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_217" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_218" / "state.sqlite"
 NEW_TABLES = {"ad_selections", "ad_commission_results", "ad_dose_offers", "ad_relatedness_runs",
               "ad_coupling_versions", "ad_state", "ad_attempt_trace", "item_forecast_scores"}
 #: What 214 adds (the earlier migrations' "nothing else changed" diffs on the way to head read it).
@@ -87,8 +87,8 @@ def _upgrade(tmp_path: Path) -> Path:
         connection.commit()
     before = _schema(database)
     rows_before = _rows(database)
-    # Through 214 only: main's 215-217 follow it (and the runner is set-based, so a vault at 217
-    # without 214 gets it too: test_a_vault_at_217_without_214_gets_it).
+    # Through 214 only: main's 215-217 follow it (and the runner is set-based, so a vault at 218
+    # without 214 gets it too: test_a_vault_at_218_without_214_gets_it).
     through = tmp_path / "through_214"
     through.mkdir()
     for migration in discover_migrations():
@@ -175,9 +175,9 @@ def test_the_tables_are_classified() -> None:
         assert role_for_table(table) is role, table
 
 
-def test_head_fixture_at_217_with_214_in_rollback_mode() -> None:
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 217
-    assert {213, 214, 215, 216, 217} <= applied_versions(HEAD)
+def test_head_fixture_at_218_with_214_in_rollback_mode() -> None:
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 218
+    assert {213, 214, 215, 216, 217, 218} <= applied_versions(HEAD)
     header = HEAD.read_bytes()[:20]
     assert (header[18], header[19]) == (1, 1)  # rollback journal, no WAL companion
     for suffix in ("-wal", "-shm"):
@@ -188,9 +188,9 @@ def test_head_fixture_at_217_with_214_in_rollback_mode() -> None:
     assert NEW_TABLES <= tables
 
 
-def test_a_vault_at_217_without_214_gets_it(tmp_path) -> None:
-    """The compose round: main's vaults reach 215-217 before AD's 214; the set-based runner applies
-    214 after them, and it alters only what it alters on 213."""
+def test_a_vault_at_218_without_214_gets_it(tmp_path) -> None:
+    """The compose rounds: main's vaults reach 215-218 (T1's 218 last) before AD's 214; the set-based
+    runner applies 214 after them, adding exactly AD's objects and altering only what it alters on 213."""
 
     database = tmp_path / "state.sqlite"
     through = tmp_path / "without_214"
@@ -199,7 +199,7 @@ def test_a_vault_at_217_without_214_gets_it(tmp_path) -> None:
         if migration.version != 214:
             (through / migration.path.name).write_text(migration.path.read_text(encoding="utf-8"), encoding="utf-8")
     apply_migrations(database, migrations_dir=through)
-    assert 214 not in applied_versions(database) and max(applied_versions(database)) == 217
+    assert 214 not in applied_versions(database) and max(applied_versions(database)) == 218
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)

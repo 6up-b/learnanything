@@ -202,7 +202,8 @@ def _backlog_dry_run(root: Path) -> dict:
 
 def test_figures_off_backlog_dry_run_is_the_base_output(tmp_path):
     """Recorded on an export of e14b4e4ff (RW5A_WRITE_GOLDEN=1, -o pythonpath=<export>/src). Here the vault
-    also holds an unread missed prediction with its explanation (no job), which figures off never sees."""
+    also holds an unread missed prediction with its explanation (no job), which figures off never sees.
+    Plan-first transport T1 re-recorded only the route names (codex_* tiers -> chatgpt_* tiers)."""
 
     from tests.test_reader_report import _seed
 
@@ -286,7 +287,8 @@ def test_an_already_queued_figure_job_with_figures_off_is_the_base_output(tmp_pa
     """Recorded on an export of e14b4e4ff (RW5A_WRITE_GOLDEN=1, -o pythonpath=<export>/src): a vault
     with a queued reader_formative/fpr_ job. Here the vault also holds that prediction's rows and
     figures are off: `learnloop gaps run --backlog --dry-run --json` and the processing run
-    (`learnloop gaps run --json`) both equal main's."""
+    (`learnloop gaps run --json`) both equal main's. Plan-first transport T1 re-recorded only the
+    route names (codex_* tiers -> chatgpt_* tiers)."""
 
     from learnloop.diagnosis.text_gaps.jobs import enqueue
     from tests.test_reader_report import _seed

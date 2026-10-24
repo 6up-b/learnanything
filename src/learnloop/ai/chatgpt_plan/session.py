@@ -605,6 +605,25 @@ class PlanSession:
     def note_not_eligible(self, *, code: str, request_id: str | None) -> None:
         self.store.update_state(not_eligible={"code": code, "at": _now_iso(self._clock()), "request_id": request_id})
 
+    def note_listed_models(self, slugs: list[str]) -> None:
+        """Remember the account's model list (``learnloop ai models chatgpt``) for `learnloop doctor`."""
+
+        status = self.status()
+        self.store.update_state(listed_models={
+            "slugs": list(slugs), "at": _now_iso(self._clock()), "subject": status.subject,
+        })
+
+    def listed_models(self) -> dict[str, Any] | None:
+        """The last model list of the signed-in account, or ``None`` (never listed, or another account)."""
+
+        record = self.store.load_state().get("listed_models")
+        if not isinstance(record, dict) or not isinstance(record.get("slugs"), list):
+            return None
+        subject = self.status().subject
+        if record.get("subject") and subject and record.get("subject") != subject:
+            return None
+        return record
+
     def resume(self) -> None:
         """Clear the usage-limit pause so the next request tries the plan again."""
 

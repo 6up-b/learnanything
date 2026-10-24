@@ -1,9 +1,10 @@
 """Learned relatedness and implication: the proposal and its structure (spec_adaptive_difficulty_v1 §5.10, D19).
 
-**The proposal** (``ad-relatedness-v1``): per subject, a frontier LLM on the
-field harness's route ``ai.routing.llm_probability_llm`` (empty: the active
-provider; Codex on the subscription is ``estimated_only``) proposes the prior
-means of two sparse sets of shared terms:
+**The proposal** (``ad-relatedness-v1``): per subject, a frontier LLM on AD's
+own route ``ai.routing.ad_relatedness`` (empty: the ChatGPT plan's medium tier
+under plan-first transport T1, the compose onto T1; a background call that
+never raises an OpenRouter offer nor rides a grant) proposes the prior means of
+two sparse sets of shared terms:
 
 * **soft loadings**: for each item, at most 3 facets of its subject outside
   its own that answering it implies knowledge of, each ``weak`` (0.25),
@@ -68,7 +69,7 @@ LOG = logging.getLogger(__name__)
 
 TASK = "ad_relatedness"
 PROMPT_VERSION = "ad-relatedness-v1"
-ROUTE = "llm_probability_llm"
+ROUTE = "ad_relatedness"
 OWNER_KIND = "ad_relatedness"
 STRENGTHS = {"weak": 0.25, "moderate": 0.5, "strong": 1.0}
 STEM_LIMIT = 400
@@ -465,7 +466,7 @@ def propose_subject(vault: Any, repository: Any, subject: str, *, client: Any = 
             price = vault.config.adaptive_difficulty.price_per_million
             if route.billing != "subscription" and price is None:
                 outcome.status, outcome.reason = "refused_spend", (
-                    "a metered llm_probability_llm route needs adaptive_difficulty.price_per_million")
+                    "a metered ad_relatedness route needs adaptive_difficulty.price_per_million")
                 return outcome
             envelope = ad_spend.ad_envelope(vault, worker.base, clock=clock)
             text = prompt(inputs)

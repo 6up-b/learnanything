@@ -7,10 +7,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterator, Literal
 
+from learnloop.ai import plan_fallback
+from learnloop.ai.agent_harness import harness_refusal, is_agent_harness_profile
 from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.config import LearnLoopConfig
 from learnloop.config.schema import (
-    DECIDER_PROFILE_TYPE, DEFAULT_DECIDER_PROVIDER, DEFAULT_EMBEDDING_PROVIDER,
+    CHATGPT_PLAN_PROFILE_TYPE, DECIDER_PROFILE_TYPE, DEFAULT_DECIDER_PROVIDER, DEFAULT_EMBEDDING_PROVIDER,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -116,6 +118,8 @@ AITask = Literal[
     "ad_forecast_llm",
     "ad_forecast_decider",
     "ad_feature_audit",
+    # Adaptive difficulty AD2+AD3: the relatedness proposal (background work).
+    "ad_relatedness",
     # Reader workbench RW2b: "Check my work" (a chat route that never
     # resolves to Codex, as hint_writer).
     "workbench_check",
@@ -250,9 +254,9 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # "not right?" version).
     "figure_author": "figure_author",
     # Adaptive difficulty AD2+AD3: the relatedness proposal (one call per
-    # subject; vault content only, never learner text), on the field harness's
-    # frontier route (spec §5.10).
-    "ad_relatedness": "llm_probability_llm",
+    # subject; vault content only, never learner text), on AD's own route (the
+    # compose onto T1: the plan's medium tier by default, spec §5.10).
+    "ad_relatedness": "ad_relatedness",
     # Slice 2 T4 shadow contamination flags (owner-run report only).
     "contamination_leak_judgment": "contamination_judge",
     "contamination_reveal_judgment": "contamination_judge",
@@ -418,10 +422,51 @@ def provider_for_operation(
 
 
 def fallback_provider_for(config: LearnLoopConfig, selection: AIProviderSelection) -> str | None:
+    """The configured readiness fallback for ``selection``, or ``None``.
+
+    Never an agent-harness (Codex) profile, opt-in or not (plan-first
+    transport T1, owner 2026-10-21): a configured Codex fallback is ignored
+    (`learnloop doctor` reports it). The plan's OpenRouter offer is not a
+    fallback: it is asked (``learnloop.ai.plan_fallback``).
+    """
+
+    if selection.explicit or selection.from_env:
+        return None
+    return configured_fallback(config, selection.provider_name)
+
+
+def configured_fallback(config: LearnLoopConfig, primary: str | None) -> str | None:
+    """``ai.fallback_provider`` as a fallback for ``primary``, or ``None`` when it may not be one.
+
+    The one rule for every reader of the setting (routing, the question
+    build's route, the method-phrasing writer; review F6):
+
+    * never ``primary`` itself, and never an agent-harness (Codex) profile,
+      opt-in or not (owner 2026-10-21);
+    * never a silent metered fallback for the ChatGPT plan (review F1, owner
+      2026-10-21: "ASK ... never fall back silently"): when ``primary`` is a
+      plan profile, only ``manual`` or another plan profile is used as
+      configured; anything else (OpenRouter, an API key) is reached only
+      through the plan's offer and the learner's grant
+      (:mod:`learnloop.ai.plan_fallback`), and `learnloop doctor` reports
+      the setting (``ai:plan_metered_fallback``).
+    """
+
     fallback = (config.ai.fallback_provider or "").strip() or None
-    if selection.explicit or selection.from_env or fallback == selection.provider_name:
+    if fallback is None or fallback == primary:
+        return None
+    if is_agent_harness_profile(config.ai.providers.get(fallback)):
+        return None
+    if is_plan_profile(config, primary) and not (fallback == MANUAL_PROVIDER or is_plan_profile(config, fallback)):
         return None
     return fallback
+
+
+def is_plan_profile(config: LearnLoopConfig, provider_name: str | None) -> bool:
+    """Whether ``provider_name`` is a ChatGPT-plan (``chatgpt_plan``) profile."""
+
+    profile = config.ai.providers.get(provider_name or "")
+    return profile is not None and profile.type.strip().lower() == CHATGPT_PLAN_PROFILE_TYPE
 
 
 def route_profile_mismatch(
@@ -460,7 +505,9 @@ def route_profile_mismatch(
             f"{provider_name!r} is a decision-model profile; it answers typed questions "
             f"only and cannot serve {task or 'generation'} work."
         )
-    return None
+    # Plan-first transport T1: the Codex agent harness serves nothing
+    # without the owner's explicit opt-in.
+    return harness_refusal(provider_name, profile, opt_in=config.ai.agent_harness_opt_in)
 
 
 def is_embedding_profile(config: LearnLoopConfig, provider_name: str) -> bool:
@@ -593,24 +640,93 @@ def ready_client_for_task(
         timeout_seconds=timeout_seconds,
     )
     if primary.runtime.ready or task == "embedding" or task in DECIDER_TASKS:
+        if (primary.runtime.ready and is_plan_profile(config, primary.provider_name)
+                and not (selection.explicit or selection.from_env)):
+            # If this plan route's call then fails for availability, the
+            # request's hint offers OpenRouter for it too.
+            offered = plan_fallback.offer_profile(config)
+            if offered is not None and plan_fallback.offer_blocker(config, task) is None:
+                plan_fallback.note_plan_route(task, offered)
         return primary
 
     fallback = fallback_provider_for(config, selection)
-    if fallback in {None, ""}:
-        return primary
     if fallback == MANUAL_PROVIDER:
         return _manual_resolution(selection, fallback_from=selection.provider_name)
+    if fallback not in {None, ""}:
+        candidate = _resolve_selected_provider(
+            vault_root,
+            config,
+            selection,
+            fallback,
+            task=task,
+            timeout_seconds=timeout_seconds,
+            fallback_from=selection.provider_name,
+        )
+        if candidate.runtime.ready:
+            return candidate
+    if is_plan_profile(config, primary.provider_name):
+        return _plan_unavailable(vault_root, config, selection, primary, task=task,
+                                 timeout_seconds=timeout_seconds)
+    return primary
 
-    candidate = _resolve_selected_provider(
-        vault_root,
-        config,
-        selection,
-        fallback,
-        task=task,
-        timeout_seconds=timeout_seconds,
-        fallback_from=selection.provider_name,
-    )
-    return candidate if candidate.runtime.ready else primary
+
+def _plan_unavailable(
+    vault_root: Path,
+    config: LearnLoopConfig,
+    selection: AIProviderSelection,
+    primary: ResolvedClient,
+    *,
+    task: AITask,
+    timeout_seconds: int | None,
+) -> ResolvedClient:
+    """The plan cannot serve ``task``: ask about OpenRouter, or use it when the learner chose so.
+
+    Owner decision 2026-10-21: report "unavailable" through the existing
+    degrade path and ASK; never fall back silently. Without the learner's
+    grant the primary (unavailable) resolution is returned with the offer
+    recorded on it; with the grant, the configured OpenRouter profile serves
+    the request (``fallback_from`` names the plan profile; receipts record
+    the provider and model that answered).
+    """
+
+    from dataclasses import replace
+
+    if selection.explicit or selection.from_env:
+        # A pinned selection (a command's named profile, such as `ai
+        # compare`'s, or LEARNLOOP_AI_PROVIDER) is never replaced: it reports
+        # unavailable, like any pinned selection without a fallback.
+        return primary
+    offered = plan_fallback.offer_profile(config)
+    if offered is None:
+        return primary
+    blocker = plan_fallback.offer_blocker(config, task)
+    if blocker is not None:
+        # OpenRouter could not do this feature's work as configured (review
+        # F2): say why, and make no offer a grant could not honour.
+        message = " ".join(part for part in (primary.runtime.message, blocker) if part)
+        return replace(primary, runtime=replace(primary.runtime, message=message))
+    if plan_fallback.is_granted(task, vault_root):
+        candidate = _resolve_selected_provider(
+            vault_root,
+            config,
+            selection,
+            offered,
+            task=task,
+            timeout_seconds=timeout_seconds,
+            fallback_from=primary.provider_name,
+        )
+        if candidate.runtime.ready:
+            return candidate
+    if plan_fallback.offers_suppressed():
+        # A status read or readiness probe makes no offer (fix round L2), so
+        # its message points at no "Use OpenRouter instead" banner either.
+        return primary
+    plan_fallback.note_unavailable(task, offered,
+                                   signed_out=primary.runtime.status == "provider_auth_required")
+    message = " ".join(part for part in (primary.runtime.message, plan_fallback.offer_sentence()) if part)
+    runtime = replace(primary.runtime, fallback_available=plan_fallback.FALLBACK_KIND,
+                      fallback_profile=offered, message=message)
+    return replace(primary, runtime=runtime)
 
 
 def _resolve_selected_provider(
@@ -690,8 +806,10 @@ __all__ = [
     "TURN_DEADLINE_PROFILE_TYPES",
     "WORKSPACE_PROFILE_TYPES",
     "client_for_provider",
+    "configured_fallback",
     "fallback_provider_for",
     "is_decider_profile",
+    "is_plan_profile",
     "is_embedding_profile",
     "is_generation_profile",
     "provider_for_operation",
