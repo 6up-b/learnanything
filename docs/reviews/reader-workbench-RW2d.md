@@ -29,10 +29,13 @@ workbench modules: the `evidence-never-reads-the-workbench` import contract stan
   comparison are not help requests.
 * **Targets**: the submitted attempt's LO and subject (so the rows meet the attempt rows); otherwise the LO of the
   assessment contract the session froze when it opened on or bound to its item (Codex review F3: an item later moved
-  to another LO, or removed, never moves or drops the signal). No subject is on record before a submit: it is the
-  label the item gives that LO now when the item still targets it, else the LO's first subject, else `default`
-  (live routing blocks per LO). A session without a readable contract for its own item has none and is counted as
-  unmapped in the derivation's diagnostics.
+  to another LO, or removed, never moves or drops the signal). Its subject is the one recorded with that contract
+  (`workbench_sessions.contract_subject_id`, added by migration 219 in the re-review's F3: the item's first subject,
+  else its LO's, else `default`, as a submit then would have recorded it), never today's label; a session whose
+  subject was never recorded has the explicit `workbench:subject-unrecorded`, which no subject-aware check matches,
+  and is counted (`workbench_subject_unrecorded_sessions`); live routing blocks per LO, so it still blocks there. A
+  session without a readable contract for its own item has none and is counted as unmapped in the derivation's
+  diagnostics.
 * **Abandoned sessions** contribute only through these two sources, never as a failure.
 
 **Never the record (F2).** Both rows carry no outcome, no mass and no attempt link:
@@ -94,9 +97,10 @@ predecessor's blocking set (`placement.signals.blocking_with_predecessor`) is ch
 **Migration 219** (`field_signal_receipts`, RECEIPT, append-only by trigger, one LO index) is the one departure from
 the spec's "RW2d needs no migration" (§11, now amended there): a withheld fast-track writes no
 `assumption_decisions` row (the old rule would have; the new one does not), so no existing receipt can hold "the
-old rule would have fired". The head fixture moves to `fixtures/migration_head_219` (a backup-API copy of the 218
+old rule would have fired". 219 also adds `workbench_sessions.contract_subject_id` (Codex re-review F3): the subject
+recorded with a session's frozen contract, so an unsubmitted session's rows never take today's label. The head fixture moves to `fixtures/migration_head_219` (a backup-API copy of the 218
 head with only 219 applied; checkpoint (0, 0, 0), `journal_mode=DELETE`, header 1/1, integrity ok, no FK errors);
-every "nothing else changed" migration test subtracts `RW2D_ADDED_OBJECTS`; the references are regenerated at
+every "nothing else changed" migration test subtracts `RW2D_ADDED_OBJECTS` and `RW2D_ALTERED_TABLES`; the references are regenerated at
 schema head 219 (340 table notes, 1,014 config leaves; 0 validation errors).
 
 ## 4. G41 evidence
@@ -120,7 +124,8 @@ schema head 219 (340 table notes, 1,014 config leaves; 0 validation errors).
   rule and the kinds), the vocabulary, the snapshot, the switch's default and classification, the upgrade (direct,
   chained, refused, CLI default).
 
-`tests/test_rw2d_receipts_migration.py`: 219 adds the table and nothing else; append-only and keyed once (a CHECK is
+`tests/test_rw2d_receipts_migration.py`: 219 adds the table and the subject column and nothing else (a session from
+before 219 has none on record); append-only and keyed once (a CHECK is
 not swallowed: the insert is `ON CONFLICT(receipt_key) DO NOTHING`, not `OR IGNORE`); the head fixture at 219 in
 rollback mode; the durability lane (WAL).
 
@@ -156,8 +161,8 @@ The 159 files: `test_ad1_codex_review_fixes.py`, `test_ad1_migration.py`, `test_
    existing payloads, leaves a withheld fast-track without any record of what the old rule would have done.
 2. **Target of an unsubmitted session** (resolved by Codex review F3): the LO of the session's frozen assessment
    contract, so an item moved to another LO or removed later leaves an abandoned session's rows where they were.
-   The subject is still today's label for that LO (no subject is recorded before a submit; recording one needs a
-   column and is left to the owner); live routing blocks per LO, and only report 2's per-subject simulation reads it.
+   The subject is the one frozen with the contract (`workbench_sessions.contract_subject_id`, Codex re-review F3,
+   in migration 219); a session frozen without one says `workbench:subject-unrecorded`, never today's label.
 3. **Empty stuck steps** are no signal (the stuck answer's ruling), and help before the first step counts a stuck
    step as no work. Either can flip by owner decision without a new table.
 4. **Report strata**: the workbench rows are left out of `preceded_by_question` (the field's report-2 strata) so
