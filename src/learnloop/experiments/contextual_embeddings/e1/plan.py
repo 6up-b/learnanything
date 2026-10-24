@@ -267,6 +267,8 @@ def build_plan(inputs: Mapping[str, Any], *, keys: Mapping[str, str], prior: Map
                    "min_host_available_gib": e1_pins.MIN_HOST_AVAILABLE_GIB,
                    "min_free_vram_gib": e1_pins.MIN_FREE_VRAM_GIB, "host_floor_gib": e1_pins.HOST_FLOOR_GIB,
                    "max_other_gpu_process_mib": e1_pins.MAX_OTHER_GPU_PROCESS_MIB,
+                   "max_other_gpu_total_mib": e1_pins.MAX_OTHER_GPU_TOTAL_MIB,
+                   "forbidden_gpu_workloads": list(e1_pins.FORBIDDEN_GPU_WORKLOADS),
                    "max_gpu_utilization_pct": e1_pins.MAX_GPU_UTILIZATION_PCT,
                    "profile_tokens": list(e1_pins.PROFILE_TOKENS), "max_document_tokens": e1_pins.MAX_DOCUMENT_TOKENS,
                    "residency": "none: one batch process, unload, exit",

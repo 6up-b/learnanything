@@ -87,7 +87,7 @@ Code: `src/learnloop/experiments/contextual_embeddings/e1/`. CLI: `learnloop exp
    - it is inside a `.scope` cgroup whose `memory.max` is set and ≤ 12 GiB, with `memory.swap.max` ≤ 0;
    - MemAvailable is ≥ 14 GiB;
    - free VRAM is ≥ 22 GiB;
-   - no other compute process uses more than 1 GiB, and utilization is ≤ 15%;
+   - no concurrent **substantial** GPU workload (amended 2026-10-23, see below), and utilization is ≤ 15%;
    - the model files have the pinned sizes, and the remote code has the pinned digests.
 
 While the worker runs, a 1-second sampler:
@@ -140,8 +140,8 @@ Hosted v1 is a baseline, never a numerical reference.
 
 Both dry runs ran under `env -i` (empty HOME, CODEX_HOME and LEARNLOOP_CONFIG_DIR; no key; `OPENROUTER_BASE_URL=http://127.0.0.1:9`) inside the 5 GiB scope. Both had **zero network calls** (socket guard), did not import torch, and read no settings file. The inputs were unchanged before and after, by tree digest.
 
-- **Provisional, from E0's frozen manifests** (`docs/reviews/artifacts/experiments-e1/dry-run-plan.{json,md}`, plan `e1_1da6d5e1246d42d7`): this was made while the relabel run was still finishing. It uses the stated prior, under which 30% of the v2 top-10 slots are new for every question: **$6.71 expected, $10.21 worst case**. That does not fit $5, so the frozen plan replaces the prior with E0's measured novelty.
-- **Frozen, from the import** (`docs/reviews/artifacts/experiments-e1/frozen-plan.{json,md}`, plan **`e1_297eff695d89ac0c`**):
+- **Provisional, from E0's frozen manifests** (`docs/reviews/artifacts/experiments-e1/dry-run-plan.{json,md}`, plan `e1_a52f2ed638293705`): this was made while the relabel run was still finishing. It uses the stated prior, under which 30% of the v2 top-10 slots are new for every question: **$6.71 expected, $10.21 worst case**. That does not fit $5, so the frozen plan replaces the prior with E0's measured novelty.
+- **Frozen, from the import** (`docs/reviews/artifacts/experiments-e1/frozen-plan.{json,md}`, plan **`e1_eaa8d20e4af40e3f`**):
   - **The replay reproduced E0:** 216/216 metric values per copy matched with zero mismatches (9 arms × primary/development/logged × 8 metrics), as did both κ values. E0's run id was rebuilt and the import digests are unchanged.
   - **Measured novelty:** this is how often one of E0's hosted contextual arms ranked, in its top 10, a unit no other replayed arm had in its top 20. It is conservative, because E0's system arms are left out. Linear algebra: 23.9% of question-arm pairs, 1.51 units when any. Probability: 29.5%, 1.61.
   - **Cost:** $2.94 expected (labels and audits $2.94 plus about $0.0003 of canaries) and $10.21 worst case (every slot new, every question audited) against the $5.00 cap. **Admission stops at $5.00**, in a frozen priority order: primary development first, then logged, then the rest. Anything left over stays unknown and is reported.
@@ -180,9 +180,9 @@ Both dry runs ran under `env -i` (empty HOME, CODEX_HOME and LEARNLOOP_CONFIG_DI
 
 ## 6 Tests and gate
 
-**New tests: 43, all with fakes.** No torch, no GPU, no download, no network (a socket guard is in every file).
+**New tests: 49, all with fakes.** No torch, no GPU, no download, no network (a socket guard is in every file).
 
-- `tests/test_e1_worker.py` (21): the worker is standalone, and `python -I worker.py --help` runs from `/`. It covers every start refusal: scope, `memory.max`, a cap above the plan, swap, MemAvailable, VRAM, another GPU process, utilization, a remote-code digest, a spent allowance. It also covers the full smoke, int8 rows, an over-limit document refused rather than truncated, a failing context-sensitivity check and a failing method-separation check (each indexes nothing), an OOM at 4k skipping 8k, a host-floor abort keeping partial results, the cgroup, meminfo and nvidia-smi parsers, model-file checks, the network guard, and `main`'s offline environment.
+- `tests/test_e1_worker.py` (27): the worker is standalone, and `python -I worker.py --help` runs from `/`. It covers every start refusal: scope, `memory.max`, a cap above the plan, swap, MemAvailable, VRAM, another GPU process, utilization, a remote-code digest, a spent allowance. It also covers the full smoke, int8 rows, an over-limit document refused rather than truncated, a failing context-sensitivity check and a failing method-separation check (each indexes nothing), an OOM at 4k skipping 8k, a host-floor abort keeping partial results, the cgroup, meminfo and nvidia-smi parsers, model-file checks, the network guard, and `main`'s offline environment.
 - `tests/test_e1_gpu_meter.py` (5): cumulative charging across plans, failed loads included; the minimum slot; a live worker blocking a second one; a crashed orchestrator charged up to its heartbeat; a cap mismatch; a real child process stopped at a 2-second cap; return codes.
 - `tests/test_e1_supplement.py` (5): new means unjudged and in a v2 top 10; blinding; mandatory audits; malformed and background-member sets; unresolved candidates stay unknown; E0's role pins with E1 prompt versions.
 - `tests/test_e1_harness.py` (12):
@@ -195,6 +195,7 @@ Both dry runs ran under `env -i` (empty HOME, CODEX_HOME and LEARNLOOP_CONFIG_DI
 
 - **Run 1, after the main build:** `tests/test_e0_*.py`, `tests/test_e1_*.py`, `test_architecture`, `test_cli_help_snapshot`, `test_sqlite_file_copies`, `test_tracked_fixture_databases`, `test_cli_entrypoint` and `test_cli_commands`: **342 passed**.
 - **Final run, after the replay fixes (same selection):** **346 passed**.
+- **After the GPU-workload amendment:** the E1 tests plus `test_cli_help_snapshot`, `test_e0_isolation` and `test_architecture`: **72 passed**; lint-imports 30 kept.
 - **lint-imports:** **30 kept, 0 broken**.
 - **Help snapshot:** `tests/cli_help_snapshot.json` gained the six `experiments e1` entries plus the `experiments` group; nothing else changed.
 
@@ -246,11 +247,33 @@ systemd-run --user --scope --quiet -p MemoryMax=5G -p MemorySwapMax=1G -- \
 # 5. Score and report (aggregates only)
 ... uv run learnloop experiments e1 run --stage score --import <same> --plan <same>
 ... uv run learnloop experiments e1 report \
-      --results fixtures-local/contextual-embeddings/e1/runs/e1_297eff695d89ac0c/results.json \
+      --results fixtures-local/contextual-embeddings/e1/runs/e1_eaa8d20e4af40e3f/results.json \
       --out docs/reviews/experiments-e1-report.md
 ```
 
 In steps 4 and 5, `...` stands for the same `systemd-run … env -i …` prefix as step 2.
+
+## 7a Amendment 2026-10-23: "no concurrent substantial GPU workload"
+
+The coordinator's `preflight --verify-weights` passed everything except resources. MemAvailable was 12.31 GiB, which the coordinator will wait out. The owner's desktop also keeps 5 small GPU processes that will never go away: sunshine (~560 MiB) and zathura, obsidian/electron, zed and chromium (24-90 MiB each), about 1.8 GiB in all with 30.4 GiB free.
+
+The spec means no concurrent **substantial** workload, so the rule is now (`worker.workload_problems`, applied by both the preflight and the worker) that the start is refused when any of these holds:
+
+- **(a)** another process uses more than 1 GiB, **or** all other processes together use more than 3 GiB (`MAX_OTHER_GPU_TOTAL_MIB = 3072`);
+- **(b)** another process is a python, torch or GLM-OCR/marker worker, whatever its size (`FORBIDDEN_GPU_WORKLOADS`). The match looks at the executable and every non-option argument: a script, a module after `-m`, a subcommand. It never looks at a `--flag` value, because a browser's feature list could spell anything; the tests include a chromium flag containing "Marker" and "Python".
+
+The worker's own pid is excluded. The ≥22 GiB free-VRAM check, the ≤15% utilization check and the 20 GiB run-time abort are unchanged.
+
+The receipt records the other processes as **name and MiB only**: never a pid or a command line. nvidia-smi names Electron GPU helpers by their whole command line, so the name is the executable's basename.
+
+Probed after the amendment, the resources passed: 17.55 GiB available, 30,412 MiB free, and other processes `sunshine 562, zathura 27, electron 68, zed-editor 90, chromium 24`.
+
+This is a pin change, so it makes a new plan:
+
+- frozen **`e1_eaa8d20e4af40e3f`** (replay 216/216 per copy, E0's run id rebuilt, $2.94 expected, 0.33 GPU-hours);
+- provisional `e1_a52f2ed638293705`.
+
+Steps 2-5 in §7 are unchanged apart from the plan file, which is refreshed in place (`docs/reviews/artifacts/experiments-e1/frozen-plan.json`), and the results path in step 5: `runs/e1_eaa8d20e4af40e3f/`.
 
 ## 8 Open questions (the defaults in force)
 

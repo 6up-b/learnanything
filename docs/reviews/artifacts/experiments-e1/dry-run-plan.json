@@ -46,11 +46,20 @@
   },
   "cap_usd": 5.0,
   "device_peak_target_gib": 20.0,
+  "forbidden_gpu_workloads": [
+   "python",
+   "torch",
+   "glmocr",
+   "glm-ocr",
+   "glm_ocr",
+   "marker"
+  ],
   "gpu_hours_cap": 4.0,
   "host_floor_gib": 3.0,
   "max_document_tokens": 8192,
   "max_gpu_utilization_pct": 15,
   "max_other_gpu_process_mib": 1024,
+  "max_other_gpu_total_mib": 3072,
   "min_free_vram_gib": 22.0,
   "min_host_available_gib": 14.0,
   "profile_tokens": [
@@ -135,7 +144,7 @@
    "probability-20261021": "complete"
   }
  },
- "e1_pins_fingerprint": "c0cb04dc9cceb36623f92dff4d5e237692e08c602afd8781e7eec5494de1916e",
+ "e1_pins_fingerprint": "9a6e17bc496a0fce403086e7ca8b8f657c4edc9a5bd31141919f0f1ce38e1196",
  "gpu": {
   "basis": "upper estimates for a pure-torch linear-attention fallback; the meter stops at the cap",
   "cap_hours": 4.0,
@@ -239,7 +248,7 @@
   },
   "worst_case_usd": 10.2127
  },
- "plan_id": "e1_1da6d5e1246d42d7",
+ "plan_id": "e1_a52f2ed638293705",
  "replay": {
   "gaps": {},
   "verification": {}

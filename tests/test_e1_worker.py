@@ -73,7 +73,7 @@ def test_a_complete_job_runs_every_smoke_check_and_stores_int8_rows_without_trun
 @pytest.mark.parametrize("changes, expected", [
     ({"meminfo": lambda: {"MemAvailable": 8 * GIB}}, "MemAvailable"),
     ({"gpu": lambda: HEALTHY_GPU | {"free_mib": 12_000}}, "free VRAM"),
-    ({"gpu": lambda: HEALTHY_GPU | {"processes": [{"pid": 999_999, "used_mib": 9_000}]}}, "other GPU compute"),
+    ({"gpu": lambda: HEALTHY_GPU | {"processes": [{"pid": 999_999, "used_mib": 9_000}]}}, "other GPU process"),
     ({"gpu": lambda: HEALTHY_GPU | {"utilization_pct": 80}}, "utilization"),
     ({"scope": lambda: HEALTHY_SCOPE | {"scope": False}}, "systemd scope"),
     ({"scope": lambda: HEALTHY_SCOPE | {"memory_max": None}}, "memory.max"),
@@ -147,11 +147,71 @@ def test_gpu_state_parses_nvidia_smi():
     def run(arguments):
         if any("query-gpu" in item for item in arguments):
             return "NVIDIA GeForce RTX 5090, 615.78.08, 32607, 2200, 30407, 3\n"
-        return "4242, 1800\n"
+        return "4242, /usr/bin/sunshine, 560\n"
 
-    state = worker.gpu_state(run)
+    state = worker.gpu_state(run, cmdline=lambda pid: "sunshine --config x")
     assert state["free_mib"] == 30407 and state["utilization_pct"] == 3
-    assert state["processes"] == [{"pid": 4242, "used_mib": 1800}]
+    assert state["processes"] == [{"pid": 4242, "name": "sunshine", "used_mib": 560, "cmdline": "sunshine --config x"}]
+
+
+#: The owner's desktop GPU set (2026-10-23): a streamer, a viewer, editors, a browser.
+DESKTOP = [(2101, "/usr/bin/sunshine", 560, "sunshine"), (2102, "/usr/bin/zathura", 24, "zathura paper.pdf"),
+           (2103, "/opt/Obsidian/obsidian", 90, "/opt/Obsidian/obsidian --type=gpu-process"),
+           (2104, "/usr/lib/zed/zed-editor", 61, "zed-editor"),
+           (2105, "/usr/lib/chromium/chromium --type=gpu-process --enable-features=SpellingMarkerPython", 85,
+            "/usr/lib/chromium/chromium --type=gpu-process --enable-features=SpellingMarkerPython")]
+
+
+def _smi(processes):
+    rows = "".join(f"{pid}, {name}, {mib}\n" for pid, name, mib, _cmd in processes)
+    commands = {pid: command for pid, _name, _mib, command in processes}
+
+    def run(arguments):
+        if any("query-gpu" in item for item in arguments):
+            return "NVIDIA GeForce RTX 5090, 615.78.08, 32607, 1840, 30400, 4\n"
+        return rows
+
+    return worker.gpu_state(run, cmdline=lambda pid: commands.get(pid, ""))
+
+
+def test_the_owners_desktop_gpu_set_is_no_concurrent_workload():
+    gpu = _smi(DESKTOP)
+    assert worker.start_problems(limits(), meminfo=HEALTHY_MEMINFO, scope=HEALTHY_SCOPE, gpu=gpu) == []
+    receipt = worker.other_processes(gpu)
+    assert receipt == [{"name": "sunshine", "used_mib": 560}, {"name": "zathura", "used_mib": 24},
+                       {"name": "obsidian", "used_mib": 90}, {"name": "zed-editor", "used_mib": 61},
+                       {"name": "chromium", "used_mib": 85}]
+    output = run_fake_job(_job(), FakeV2Model(), gpu=lambda: gpu)
+    assert output["status"] == "complete"
+    assert output["start_check"]["gpu"]["other_processes"] == receipt
+
+
+@pytest.mark.parametrize("extra, expected", [
+    ((3001, "/usr/bin/python3.12", 300, "python3.12 -m glmocr.serve"), "matches 'python'"),
+    ((3002, "/home/o/.venv/bin/worker", 40, "/home/o/.venv/bin/worker --engine marker"), "matches 'marker'"),
+    ((3003, "/usr/bin/blender", 1500, "blender"), "above 1024 MiB"),
+])
+def test_a_concurrent_gpu_workload_is_refused_whatever_the_desktop(extra, expected):
+    gpu = _smi([*DESKTOP, extra])
+    problems = worker.start_problems(limits(), meminfo=HEALTHY_MEMINFO, scope=HEALTHY_SCOPE, gpu=gpu)
+    assert len(problems) == 1 and expected in problems[0]
+    model = FakeV2Model()
+    loads = []
+    output = run_fake_job(_job(), model, gpu=lambda: gpu, model_factory=lambda *_a: loads.append(1) or model)
+    assert output["status"] == "refused" and loads == []
+
+
+def test_many_small_processes_past_the_total_are_refused():
+    many = [(4000 + index, f"/usr/bin/app{index}", 400, f"app{index}") for index in range(8)]
+    problems = worker.start_problems(limits(), meminfo=HEALTHY_MEMINFO, scope=HEALTHY_SCOPE, gpu=_smi(many))
+    assert problems == ["other GPU processes use 3200 MiB together, above 3072 MiB"]
+
+
+def test_the_worker_itself_is_never_its_own_concurrent_workload():
+    own = (5000, "/x/e1/env/bin/python", 17_000, "python -I worker.py --job j")
+    gpu = _smi([*DESKTOP, own])
+    assert worker.start_problems(limits(), meminfo=HEALTHY_MEMINFO, scope=HEALTHY_SCOPE, gpu=gpu,
+                                 own_pids=(5000,)) == []
 
 
 def test_model_files_are_checked_by_size_and_the_remote_code_by_digest(tmp_path):

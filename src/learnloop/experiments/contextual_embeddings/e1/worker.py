@@ -125,18 +125,37 @@ def run_nvidia_smi(arguments: Sequence[str]) -> str:
                           timeout=20).stdout
 
 
-def gpu_state(run: Callable[[Sequence[str]], str] = run_nvidia_smi) -> dict[str, Any]:
-    """Device 0's memory and utilization and every compute process, from nvidia-smi."""
+def process_cmdline(pid: int) -> str:
+    """A process's command line (for matching only; never recorded)."""
+
+    try:
+        return Path(f"/proc/{int(pid)}/cmdline").read_bytes().replace(b"\0", b" ").decode("utf-8", "replace")
+    except OSError:
+        return ""
+
+
+def gpu_state(run: Callable[[Sequence[str]], str] = run_nvidia_smi,
+              cmdline: Callable[[int], str] = process_cmdline) -> dict[str, Any]:
+    """Device 0's memory and utilization and every compute process (pid,
+    executable name, MiB), from nvidia-smi; each process's command line is
+    read for the workload match only."""
 
     line = run(["--query-gpu=name,driver_version,memory.total,memory.used,memory.free,utilization.gpu",
                 "--format=csv,noheader,nounits", "--id=0"]).strip().splitlines()[0]
     name, driver, total, used, free, utilization = [part.strip() for part in line.split(",")]
     processes = []
-    for row in run(["--query-compute-apps=pid,used_memory", "--format=csv,noheader,nounits",
+    for row in run(["--query-compute-apps=pid,process_name,used_memory", "--format=csv,noheader,nounits",
                     "--id=0"]).strip().splitlines():
         if row.strip():
-            pid, memory = [part.strip() for part in row.split(",")[:2]]
-            processes.append({"pid": int(pid), "used_mib": int(memory) if memory.isdigit() else None})
+            pid, rest = row.split(",", 1)
+            process_name, _sep, memory = rest.rpartition(",")
+            pid, memory = pid.strip(), memory.strip()
+            # nvidia-smi names some processes by their whole command line (Electron's
+            # GPU helpers): the executable is its first word.
+            executable = (process_name.strip().split() or [""])[0]
+            processes.append({"pid": int(pid), "name": Path(executable).name,
+                              "used_mib": int(memory) if memory.isdigit() else None,
+                              "cmdline": cmdline(int(pid))})
     return {"name": name, "driver": driver, "total_mib": int(total), "used_mib": int(used), "free_mib": int(free),
             "utilization_pct": int(utilization) if utilization.isdigit() else None, "processes": processes}
 
@@ -172,17 +191,56 @@ def start_problems(limits: Mapping[str, Any], *, meminfo: Mapping[str, int], sco
     else:
         if gpu["free_mib"] * MIB < float(limits["min_free_vram_gib"]) * GIB:
             problems.append(f"free VRAM {gpu['free_mib'] / 1024:.1f} GiB is below {limits['min_free_vram_gib']} GiB")
-        others = [item for item in gpu.get("processes") or [] if item["pid"] not in set(own_pids)
-                  and (item.get("used_mib") or 0) > int(limits["max_other_gpu_process_mib"])]
-        if others:
-            problems.append(f"{len(others)} other GPU compute process(es) above "
-                            f"{limits['max_other_gpu_process_mib']} MiB (no concurrent GLM-OCR or GPU workload)")
+        problems.extend(workload_problems(gpu, limits, own_pids=own_pids))
         utilization = gpu.get("utilization_pct")
         if utilization is not None and utilization > int(limits["max_gpu_utilization_pct"]):
             problems.append(f"GPU utilization {utilization}% is above {limits['max_gpu_utilization_pct']}%")
     deadline = limits.get("deadline_unix")
     if deadline is not None and time.time() >= float(deadline):
         problems.append("the GPU-hours allowance is spent")
+    return problems
+
+
+def workload_match(item: Mapping[str, Any], patterns: Sequence[str]) -> str | None:
+    """The workload pattern a process's name or command line matches, else None."""
+
+    # The executable and every argument that is not an option (a script, a
+    # module after -m, a subcommand): never a --flag's value, where browser
+    # feature lists could spell anything.
+    words = [str(item.get("name") or ""), *str(item.get("cmdline") or "").split()]
+    names = [Path(word).name.lower() for word in words if word and not word.startswith("-")]
+    return next((pattern for pattern in patterns for name in names if pattern in name), None)
+
+
+def other_processes(gpu: Mapping[str, Any], own_pids: Sequence[int] = ()) -> list[dict[str, Any]]:
+    """The other GPU processes as a receipt records them: name and MiB only."""
+
+    return [{"name": item.get("name"), "used_mib": item.get("used_mib")} for item in gpu.get("processes") or []
+            if item["pid"] not in set(own_pids)]
+
+
+def workload_problems(gpu: Mapping[str, Any], limits: Mapping[str, Any], *, own_pids: Sequence[int] = ()) -> list[str]:
+    """No concurrent SUBSTANTIAL GPU workload (spec §8, D2). The owner's
+    desktop (a streamer, a viewer, editors, a browser: tens to hundreds of
+    MiB each) is not one. Refused: another process above the per-process
+    limit, all others together above the total limit, or any other process
+    that is a python, torch or GLM-OCR/marker worker, whatever its size."""
+
+    others = [item for item in gpu.get("processes") or [] if item["pid"] not in set(own_pids)]
+    problems = []
+    large = [item for item in others if (item.get("used_mib") or 0) > int(limits["max_other_gpu_process_mib"])]
+    if large:
+        problems.append(f"{len(large)} other GPU process(es) above {limits['max_other_gpu_process_mib']} MiB: "
+                        + ", ".join(f"{item.get('name')} {item.get('used_mib')} MiB" for item in large))
+    total = sum(item.get("used_mib") or 0 for item in others)
+    if total > int(limits["max_other_gpu_total_mib"]):
+        problems.append(f"other GPU processes use {total} MiB together, above {limits['max_other_gpu_total_mib']} MiB")
+    workers = [(item, match) for item in others
+               if (match := workload_match(item, limits["forbidden_gpu_workloads"])) is not None]
+    if workers:
+        problems.append("a concurrent GPU workload is running (" + ", ".join(
+            f"{item.get('name')} {item.get('used_mib')} MiB, matches {match!r}" for item, match in workers)
+            + "): no concurrent GLM-OCR, marker, torch or python GPU job")
     return problems
 
 
@@ -607,7 +665,8 @@ def run_job(job: Mapping[str, Any], *, model_factory: Callable[[Path, Mapping[st
     output["start_check"] = {"problems": [*problems, *model_problems], "scope": dict(scope_now),
                              "gpu": None if gpu_now is None else {key: gpu_now[key] for key in
                                                                    ("name", "driver", "total_mib", "free_mib",
-                                                                    "used_mib", "utilization_pct")},
+                                                                    "used_mib", "utilization_pct")}
+                             | {"other_processes": other_processes(gpu_now, (os.getpid(),))},
                              "host_available": meminfo().get("MemAvailable")}
     if problems or model_problems:
         output.update(status="refused", reason="; ".join([*problems, *model_problems]), ended_unix=time.time())

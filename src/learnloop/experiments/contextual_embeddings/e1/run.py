@@ -186,7 +186,7 @@ def resources_now(*, meminfo: Callable[[], Mapping[str, int]] = worker_module.re
             "gpu": None if state is None else {key: state[key] for key in ("name", "driver", "total_mib",
                                                                            "free_mib", "used_mib",
                                                                            "utilization_pct")},
-            "other_gpu_processes": None if state is None else len(state.get("processes") or [])}
+            "other_gpu_processes": None if state is None else worker_module.other_processes(state)}
 
 
 def preflight(plan: Mapping[str, Any], layout: ImportLayout, *, model_dir: Path, env_python: Path,

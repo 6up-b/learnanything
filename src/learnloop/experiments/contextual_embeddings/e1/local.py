@@ -80,6 +80,8 @@ def limits(*, deadline_unix: float | None = None) -> dict[str, Any]:
     return {"memory_max_bytes": e1_pins.SCOPE_MEMORY_MAX_BYTES, "swap_max_bytes": int(e1_pins.SCOPE_SWAP_MAX),
             "min_host_available_gib": e1_pins.MIN_HOST_AVAILABLE_GIB, "min_free_vram_gib": e1_pins.MIN_FREE_VRAM_GIB,
             "max_other_gpu_process_mib": e1_pins.MAX_OTHER_GPU_PROCESS_MIB,
+            "max_other_gpu_total_mib": e1_pins.MAX_OTHER_GPU_TOTAL_MIB,
+            "forbidden_gpu_workloads": list(e1_pins.FORBIDDEN_GPU_WORKLOADS),
             "max_gpu_utilization_pct": e1_pins.MAX_GPU_UTILIZATION_PCT, "host_floor_gib": e1_pins.HOST_FLOOR_GIB,
             "device_peak_target_gib": e1_pins.DEVICE_PEAK_TARGET_GIB,
             "sample_interval_s": e1_pins.SAMPLE_INTERVAL_S, "hard_abort_grace_s": e1_pins.KILL_GRACE_S,

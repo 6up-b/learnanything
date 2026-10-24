@@ -1,4 +1,4 @@
-# E1 plan e1_297eff695d89ac0c (frozen)
+# E1 plan e1_eaa8d20e4af40e3f (frozen)
 
 Source: import; E0 run e0_e6a077cd391c5421 (complete: True).
 Model: perplexity-ai/pplx-embed-v2-context-9b-preview @ e2c06a77, bf16, 33.6 GB on disk.

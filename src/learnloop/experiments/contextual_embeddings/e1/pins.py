@@ -103,9 +103,16 @@ SCOPE_MEMORY_MAX_BYTES = 12 * 1024 ** 3
 #: The worker refuses to start below these measured values.
 MIN_HOST_AVAILABLE_GIB = 14.0
 MIN_FREE_VRAM_GIB = 22.0
-#: No other substantial GPU workload (GLM-OCR, a game, a stream): any other
-#: compute process above this, or utilization above that, refuses the start.
+#: No other SUBSTANTIAL GPU workload (GLM-OCR, a training job, a game): any
+#: other compute process above this, all others above the total below, a
+#: python/torch/GLM-OCR/marker process, or utilization above that, refuses the
+#: start. The owner's desktop apps (tens to hundreds of MiB each) pass.
 MAX_OTHER_GPU_PROCESS_MIB = 1024
+#: All other GPU processes together (the owner's desktop set is ~1.8 GiB).
+MAX_OTHER_GPU_TOTAL_MIB = 3072
+#: Any other GPU process whose name or command line contains one of these is a
+#: concurrent GPU workload, refused whatever its size (no GLM-OCR or other job).
+FORBIDDEN_GPU_WORKLOADS = ("python", "torch", "glmocr", "glm-ocr", "glm_ocr", "marker")
 MAX_GPU_UTILIZATION_PCT = 15
 #: During the run: host MemAvailable below this aborts at once (protects the
 #: owner's session even inside the scope's limit).
@@ -215,7 +222,8 @@ def e1_pins_fingerprint() -> str:
         "harness": E1_HARNESS_VERSION, "model": [MODEL_REPO, MODEL_REVISION, MODEL_DIMENSIONS, MODEL_FILES],
         "env": [LOCAL_PYTHON, LOCAL_REQUIREMENTS], "precision": PRECISION, "attention": ATTENTION_IMPLEMENTATION,
         "bounds": [GPU_HOURS_CAP, DEVICE_PEAK_TARGET_GIB, SCOPE_MEMORY_MAX, SCOPE_SWAP_MAX, MIN_HOST_AVAILABLE_GIB,
-                   MIN_FREE_VRAM_GIB, MAX_OTHER_GPU_PROCESS_MIB, MAX_GPU_UTILIZATION_PCT, HOST_FLOOR_GIB],
+                   MIN_FREE_VRAM_GIB, MAX_OTHER_GPU_PROCESS_MIB, MAX_OTHER_GPU_TOTAL_MIB, FORBIDDEN_GPU_WORKLOADS,
+                   MAX_GPU_UTILIZATION_PCT, HOST_FLOOR_GIB],
         "work": [PROFILE_TOKENS, PROFILE_REPEATS, MAX_DOCUMENT_TOKENS, INDEX_BATCH_SIZE, QUERY_BATCH_SIZE,
                  BATCH_INVARIANCE_MIN_COS, CONTEXT_SENSITIVITY_MAX_COS, SMOKE_CONTEXT, SMOKE_QUERY],
         "money": [E1_CAP_USD, E1_ALLOCATION_USD, E1_MAX_PAID_REQUESTS, SUPPLEMENT_DEPTH, SUPPLEMENT_PROMPT_VERSION,

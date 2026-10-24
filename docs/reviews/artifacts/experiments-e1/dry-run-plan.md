@@ -1,4 +1,4 @@
-# E1 plan e1_1da6d5e1246d42d7 (provisional)
+# E1 plan e1_a52f2ed638293705 (provisional)
 
 Source: manifests; E0 run e0_e6a077cd391c5421 (complete: True).
 Model: perplexity-ai/pplx-embed-v2-context-9b-preview @ e2c06a77, bf16, 33.6 GB on disk.
