@@ -1048,9 +1048,10 @@ export const api = {
   setOpenrouterApiKey: (apiKey: string) =>
     mutating([TAG.settings], call<OpenrouterKeyResult>("set_openrouter_api_key", { apiKey })),
   chatgptPlanStatus: () => call<ChatGPTPlanDto>("chatgpt_plan_status", { input: {} }),
-  // Plan-first transport T1: the learner's "Use OpenRouter instead" for the
-  // tasks a feature's hint named, for this session (stop: every task off).
-  aiUseFallback: (input: { provider: "openrouter"; tasks: string[]; stop?: boolean }) =>
+  // Plan-first transport T1 (redesign D): the learner's "Use OpenRouter instead"
+  // answers one offer (its id): the action that asked uses OpenRouter for this
+  // session (stop: every grant on this vault ends).
+  aiUseFallback: (input: { provider: "openrouter"; offerId?: string; stop?: boolean }) =>
     mutating([TAG.settings], call<AiUseFallbackDto>("ai_use_fallback", { input })),
   chatgptPlanSigninStart: (input: { consent?: boolean; newAccount?: boolean } = {}) =>
     mutating([TAG.settings], call<ChatGPTPlanDto>("chatgpt_plan_signin_start", { input })),

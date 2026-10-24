@@ -131,7 +131,7 @@ export function ChatGPTPlanSettings({
   const granted = plan.openrouterGrantedTasks ?? [];
   const stopOpenRouter = () =>
     run("stop-openrouter", async () => {
-      await api.aiUseFallback({ provider: "openrouter", tasks: [], stop: true });
+      await api.aiUseFallback({ provider: "openrouter", stop: true });
       return api.chatgptPlanStatus();
     });
 

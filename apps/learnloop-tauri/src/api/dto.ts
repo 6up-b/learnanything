@@ -224,6 +224,7 @@ export interface ChatGPTPlanDto {
   usingPlan: boolean;
   /** Tasks the learner's "Use OpenRouter instead" covers on this vault this session (re-review F3). */
   openrouterGrantedTasks?: string[];
+  openrouterGrantedActions?: string[];
   authorizeUrl?: string;
   cancelled?: boolean;
   signout?: { signedOut: boolean; revoked: boolean | null; message: string };
@@ -3110,6 +3111,10 @@ export interface AiUseFallbackDto {
   provider: "openrouter";
   profile: string | null;
   grantedTasks: string[];
+  /** The actions (RPC methods) said yes to on this vault (redesign D). */
+  grantedActions?: string[];
+  offerId?: string;
+  action?: string;
   scope: "session";
 }
 

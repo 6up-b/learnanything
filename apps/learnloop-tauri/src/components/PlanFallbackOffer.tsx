@@ -10,6 +10,7 @@ import { api } from "../api/client";
 import {
   clearFallbackOffer,
   currentFallbackOffer,
+  declineFallbackOffer,
   subscribeFallbackOffer,
   type PlanFallbackOffer as Offer
 } from "../app/planFallback";
@@ -49,7 +50,7 @@ export function PlanFallbackOffer({ onContinueWithChatGPT }: { onContinueWithCha
     setError(null);
     try {
       // Review F8: the grant can be taken back; the next unavailable feature asks again.
-      await api.aiUseFallback({ provider: "openrouter", tasks: [], stop: true });
+      await api.aiUseFallback({ provider: "openrouter", stop: true });
       clearFallbackOffer();
     } catch (failure) {
       setError(plainError(failure, "LearnLoop couldn't stop using OpenRouter.").line);
@@ -62,10 +63,13 @@ export function PlanFallbackOffer({ onContinueWithChatGPT }: { onContinueWithCha
     setBusy(true);
     setError(null);
     try {
-      await api.aiUseFallback({ provider: "openrouter", tasks: offer.tasks });
+      // Redesign D: the answer names the offer (the action that asked), never tasks.
+      await api.aiUseFallback({ provider: "openrouter", offerId: offer.offerId ?? "" });
       setChosen(true);
     } catch (failure) {
-      setError(plainError(failure, "LearnLoop couldn't switch to OpenRouter.").line);
+      const code = (failure as { code?: string } | null)?.code;
+      setError(code === "not_offered" ? "That choice is no longer open. Try it again."
+        : plainError(failure, "LearnLoop couldn't switch to OpenRouter.").line);
     } finally {
       setBusy(false);
     }
@@ -142,7 +146,11 @@ export function PlanFallbackOffer({ onContinueWithChatGPT }: { onContinueWithCha
                 Continue with ChatGPT
               </button>
             ) : null}
-            <button type="button" style={{ ...button, border: "none", color: COLOR.amberLink }} onClick={clearFallbackOffer}>
+            <button
+              type="button"
+              style={{ ...button, border: "none", color: COLOR.amberLink }}
+              onClick={() => declineFallbackOffer(offer.origin)}
+            >
               Not now
             </button>
           </div>

@@ -6,6 +6,12 @@
 // `fallback_profile`) or to a degraded result (camelCase). This store keeps
 // the latest offer so one shell banner can show it; nothing is sent to
 // OpenRouter until the learner chooses "Use OpenRouter instead".
+//
+// Redesign D (owner Q1-Q3, 2026-10-23): the offer is the grant. Each offer
+// carries its id (`fallback_offer_id`, what the banner answers) and the action
+// that asked (`fallback_origin`, the RPC method). A yes covers that action for
+// the session; "Not now" mutes that action's question for the session (each
+// action asks once), and other actions still ask.
 
 export interface PlanFallbackOffer {
   provider: "openrouter";
@@ -13,12 +19,18 @@ export interface PlanFallbackOffer {
   tasks: string[];
   /** The plan needs a sign-in: "Continue with ChatGPT" is offered too. */
   planSignedOut: boolean;
+  /** The offer the banner answers (redesign D). */
+  offerId: string | null;
+  /** The action that asked (an RPC method); "Not now" mutes it. */
+  origin: string | null;
 }
 
 type Listener = (offer: PlanFallbackOffer | null) => void;
 
 let current: PlanFallbackOffer | null = null;
 const listeners = new Set<Listener>();
+/** Actions whose question the learner muted with "Not now" (this session). */
+const declinedOrigins = new Set<string>();
 
 function stringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string" && entry !== "") : [];
@@ -31,11 +43,15 @@ function fromRecord(record: Record<string, unknown>): PlanFallbackOffer | null {
   if (tasks.length === 0) return null;
   const profile = record.fallback_profile ?? record.fallbackProfile;
   const signedOut = (record.plan_signed_out ?? record.planSignedOut) === true;
+  const offerId = record.fallback_offer_id ?? record.fallbackOfferId;
+  const origin = record.fallback_origin ?? record.fallbackOrigin;
   return {
     provider: "openrouter",
     profile: typeof profile === "string" && profile ? profile : "openrouter",
     tasks,
-    planSignedOut: signedOut
+    planSignedOut: signedOut,
+    offerId: typeof offerId === "string" && offerId ? offerId : null,
+    origin: typeof origin === "string" && origin ? origin : null
   };
 }
 
@@ -60,12 +76,25 @@ export function extractFallbackOffer(value: unknown): PlanFallbackOffer | null {
 export function noteFallbackOffer(value: unknown): void {
   const offer = extractFallbackOffer(value);
   if (!offer) return;
+  // Q2: an action the learner answered "Not now" asks no more this session.
+  if (offer.origin && declinedOrigins.has(offer.origin)) return;
   current = offer;
   for (const listener of listeners) listener(current);
 }
 
 export function currentFallbackOffer(): PlanFallbackOffer | null {
   return current;
+}
+
+/** "Not now": mute this action's question for the session, and close the banner. */
+export function declineFallbackOffer(origin: string | null): void {
+  if (origin) declinedOrigins.add(origin);
+  clearFallbackOffer();
+}
+
+/** Tests: forget the muted actions (a new session). */
+export function resetDeclinedFallbackOrigins(): void {
+  declinedOrigins.clear();
 }
 
 export function clearFallbackOffer(): void {

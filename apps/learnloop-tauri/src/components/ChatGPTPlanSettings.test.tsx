@@ -190,7 +190,7 @@ it("keeps Stop using OpenRouter in Settings while the session has a grant (re-re
   expect(screen.getByText(/OpenRouter is standing in for ChatGPT/)).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Stop using OpenRouter" }));
   await waitFor(() =>
-    expect(api.aiUseFallback).toHaveBeenCalledWith({ provider: "openrouter", tasks: [], stop: true })
+    expect(api.aiUseFallback).toHaveBeenCalledWith({ provider: "openrouter", stop: true })
   );
   await waitFor(() => expect(screen.queryByRole("button", { name: "Stop using OpenRouter" })).toBeNull());
   expect(api.chatgptPlanStatus).toHaveBeenCalled();
