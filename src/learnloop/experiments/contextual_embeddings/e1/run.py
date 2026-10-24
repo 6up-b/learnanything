@@ -125,8 +125,7 @@ def dry_run(*, e0_run_dir: Path | None = None, import_dir: Path | None = None,
                     inputs["verification"][label] = {**inputs["verification"][label], "ok": False}
             extra = {"import_problems": problems, "e0_run_id_rebuilt": identity_ok}
             anchor = Path(import_dir)
-            problems_after = verify_import(layout)
-            if problems_after:
+            if verify_import(layout) != problems:
                 raise RuntimeError("the dry run changed the import")
         plan = build_plan(inputs, keys=keys, prior=_prior(anchor))
         plan.update(extra)

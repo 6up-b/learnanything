@@ -587,7 +587,8 @@ def run_job(job: Mapping[str, Any], *, model_factory: Callable[[Path, Mapping[st
             scope: Callable[[], Mapping[str, Any]] = scope_limits,
             gpu: Callable[[], Mapping[str, Any] | None] = gpu_state, heartbeat: Path | None = None,
             write_partial: Callable[[Mapping[str, Any]], None] | None = None,
-            hard_exit: Callable[[int], None] = os._exit) -> dict[str, Any]:
+            hard_exit: Callable[[int], None] = os._exit,
+            model_check: Callable[[Mapping[str, Any]], list[str]] | None = None) -> dict[str, Any]:
     """One worker process's whole job; always returns the output record."""
 
     lock = threading.Lock()
@@ -601,7 +602,8 @@ def run_job(job: Mapping[str, Any], *, model_factory: Callable[[Path, Mapping[st
         gpu_now = None
     scope_now = scope()
     problems = start_problems(limits, meminfo=meminfo(), scope=scope_now, gpu=gpu_now, own_pids=(os.getpid(),))
-    model_problems = model_dir_problems(Path(job["model_dir"]), job["model_files"], job["remote_code"])
+    model_problems = (model_check(job) if model_check is not None
+                      else model_dir_problems(Path(job["model_dir"]), job["model_files"], job["remote_code"]))
     output["start_check"] = {"problems": [*problems, *model_problems], "scope": dict(scope_now),
                              "gpu": None if gpu_now is None else {key: gpu_now[key] for key in
                                                                    ("name", "driver", "total_mib", "free_mib",
