@@ -293,3 +293,212 @@ Gate (memory rule: every pytest/vitest/npm command under `systemd-run --user --s
 | `npm run typecheck` | ok, no errors |
 | `npm run frontend:build` | ok (the existing chunk-size warning only) |
 | `cargo check`, DB reference, durability lane | not run: nothing under `src-tauri`, no migration, no schema or connection change |
+
+## 8. Landing onto main
+
+Landed in the `learnanything-merge4` worktree on branch `merge/rw5b-onto-main`, cut from main at `558e85ab1` (the UX2
+landing record; migration head 217 with `migration_head_217`, which holds 215, 216 and 217 and no 214). The stage tip
+is `33f2002b5` (base `a9ae97e34`, the RW2c landing), unchanged; the orchestrator's final verify (Opus) on it was
+CLEAN. Main was neither fast-forwarded nor pushed here. T1 has not landed and is not part of this merge.
+
+### Commits and conflicts
+
+- `3c53842db`: the `--no-ff` merge of `reader/rw5b` onto `558e85ab1`. Since the stage's base, main gained only UX
+  Phase 2 (the simple shell, `ui.shell`, the `screenLeavesKey` guard, `classicIsBase.test.ts`). One file conflicted:
+  - `config/template.py`: 20 snapshot entries, each with both sides' comment lines (UX2's, then RW5b's) and main's
+    fingerprint for now; the fingerprints were recomputed in the regeneration commit.
+  - Auto-merged without conflict, both sides present: `params/parameter_registry.py` (RW5b's two `figures.*` rules
+    and UX2's `ui.shell` rule), `config/schema.py` (`FiguresConfig`'s two switches and `UiConfig.shell`),
+    `ReaderScreen.tsx`, `reader/LibraryPane.tsx` and `reader/useReaderInquiry.ts` (UX2's guards on every listener,
+    RW5b's offer press, settle and `Promise<unknown>` open).
+  - `LibraryAnswer.tsx`, `useFigures.ts`, `TutorOffers.tsx`, `dto.ts` and `client.ts` were changed by RW5b only.
+- **Routing.** Main changed nothing under `src/learnloop/ai`, `figures`, `tutor` or the library ask since `a9ae97e34`,
+  and RW5b changed nothing under `ai/` (no route, no task). So `figure_author`, `library_organizer` and `tutor_qa`,
+  and the build behind the offer button (RW5a's `FiguresGate` path), resolve exactly as main's equivalent tasks do,
+  tool-free under the Codex lockdown. Re-run on the merged tree (5G scope, `-n 6`): `test_figure_offers`,
+  `test_figures_scope_redesign` (the `FiguresGate` files), `test_codex_tool_lockdown`, `test_codex_lockdown_frozen`,
+  `test_codex_lockdown_round2`, `_round3`, `test_codex_output_schema`, `test_ai_tool_isolation`, `test_judge_routes`,
+  `test_structured_transport_parity`, the figure RPC and RW5b review files and the contract pins: **1,061 passed,
+  1 skipped** (the pre-existing golden-writer skip).
+- **Keydown guard.** RW5b adds no `window` or `document` keydown listener (`git diff a9ae97e34 reader/rw5b` adds no
+  `addEventListener` or `onKey` line under `src/`); `keymap.test.ts`'s scan passes on the merged tree unchanged.
+- `4127892e6`: **`classicIsBase.test.ts`.** On the merged tree it failed twice: nine RW5b files under `screens/`
+  (the figures, `LibraryAnswer`, `TutorAnswer`, `TutorOffers`) showed up as unlisted, and `LibraryPane.tsx`'s new
+  `ExplorableOutcome` import failed the guard-file line check. The brief said to move `BASE` to this merge's first
+  parent (`558e85ab1`); that cannot pass with the manifest unchanged, since the tree's diff against main is RW5b's,
+  not UX2's, and the palette and classic-verbatim checks need the pre-UX2 base. So `BASE` stays `a9ae97e34`
+  (classic's base) and the two diff checks (the file list, and "the guard files change only by the guard lines")
+  compare `BASE` with a new `UX2_LANDED = "558e85ab1"`, this merge's first parent (UX2 landed and recorded, nothing
+  after it). They check exactly UX2's changes, as before, and need no move at later landings (UX2's landing finding
+  2). The manifest and every check are unchanged; the file-list check no longer adds untracked files, since it
+  compares two commits. The checks that read the tree (gates present, classic snippets verbatim in tree and base,
+  the classic palette, the unfocusable frame body) still read it. All 6 pass.
+- `b5a276a6c`: the regeneration (below). **This is the gate head.**
+- This record (docs only).
+
+### Regeneration (`b5a276a6c`)
+
+- **Defaults snapshots.** Template `.pyc` cleared; recomputed and checked with `-B` under `env -i` (empty `HOME`,
+  `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`): all **20** entries rewritten (main's `ui.shell` plus RW5b's two switches),
+  then **0 mismatches**.
+- **References.** `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**, schema head **217**,
+  **339** table notes, **959** configuration leaves in **69** sections (`Config - figures` 6 → 8 leaves). The two
+  prose counts (`Configuration.md`, `Database.md`) were updated from 957. The rest is `source_commit` provenance and
+  shifted `schema.py` line anchors (410 reference files).
+- **CLI help snapshot, RPC pins, serializer snapshot, mobile allowlist**: unchanged (their tests pass, targeted and in
+  the full suite). No RPC method was added; `reader.figure_request` gains the optional `origin` / `offerRef`.
+- **`validate_vault.py`**: passes (1,142 notes, 1,140/1,140 reachable).
+- **Known failures from before this stage, not fixed:** `desktop_validate.py` still stops on
+  `components/pdfSelection/testing/syntheticBook.ts`; `module_validate.py` reports **999** issues (as at the UX2
+  landing).
+
+### Gate
+
+Setup: `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2` (5.14.0); `TMPDIR` was merge4's
+`fixtures-local/tmp`; every later command `uv run --no-sync`. Logs in `fixtures-local/landing-rw5b/logs/`. Every
+test, npm and cargo command ran alone in a `systemd-run --user --scope` (the suite lanes at 10G / 2G swap under
+`flock /tmp/learnloop-fullsuite.lock`, `-n 8`; everything else at 5G / 1G, pytest at most `-n 6`, vitest
+`--maxWorkers=4`). Other stages' worktrees and processes were not touched. Every test uses fakes. **This is the first
+full run over RW5b's code.**
+
+| Check | Result |
+|---|---|
+| `lint-imports --no-cache` (under `env -i`) | **30 kept**, 0 broken |
+| full suite `pytest -n 8` (10G scope) | **15,802 passed, 1 failed, 2 skipped, 2 xfailed** (50 min). The failure, `test_reading_hardening_2_fixes.py::test_f1_a_build_whose_worker_failed_to_start_is_run_by_the_sweep`, is the 60 s `_wait_for` timeout in the reading-build sweep that RW5b does not touch (the same load flake as at the RW2c and UX2 landings). The file alone, 3 times (5G scope): **5 passed** each time |
+| `pytest -m durability -n 8` (10G scope) | **119 passed** |
+| `npm install`, `npm run typecheck` (5G) | ok; clean |
+| `npm test -- --maxWorkers=4` (the whole vitest run, 5G) | **201 files, 1,718 tests passed**, no unhandled error, no snapshot written (UX2's landing: 1,658) |
+| `npm run frontend:build` (5G) | built (the usual chunk-size warning) |
+| `cargo check --manifest-path src-tauri/Cargo.toml` (5G) | ok |
+| tracked fixtures, worktree | `git status` clean after every lane; no `-wal` / `-shm` beside a fixture |
+
+**No real failure, so no landing fix.**
+
+### Parity (backup-API copies; no model call was made)
+
+**Setup.** Scripts in `fixtures-local/landing-rw5b/scripts/`, adapted from the UX2 landing's (`ab_rw5b.sh`,
+`plan_repeat.sh`, `neutralize3.py`, `routes.py`, the dump and compare scripts, the `E` wrapper); new: `c_rw5b.sh`,
+`rw5b_run.py`, `ccmp_rw5b.py`, `ccmp2_rw5b.py`. Each script ran in a 5G `systemd-run` scope.
+- **Copies.** `fixtures/linear_algebra` and `fixtures/probability` were copied once with `copy_tree_with_databases`
+  from the main checkout into `fixtures-local/landing-rw5b/orig/`; every other copy came from `orig/` or its upgraded
+  copies through the same helper. `arxiv_v2` was not opened. Both start at schema 165, label `mvp-0.8`, 0 receipts.
+- **Code.** Main's is `git archive 558e85ab1`; the merge's `git archive b5a276a6c` (both without `fixtures/`,
+  `docs/`, `apps/`).
+- **Environment.** `env -i` with only `PATH`, `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`, `TMPDIR` and `LANG`; the
+  three directories empty (afterwards `HOME` holds only uv's cache from the lint run; `CODEX_HOME` and the config
+  directory are empty).
+- **Routes.** `neutralize3.py` under each code: every route field to `127.0.0.1:9` (59 on both), the active provider
+  to that loopback profile with no fallback, rewrite / rerank / dense / embeddings / learner-text gaps off,
+  `build_on_serve` and outcome placement off. `routes.py` resolved 62 `AITask`s on both, nothing outside the loopback
+  profiles except the disabled, keyless `embedding`.
+
+**(a) No schema change**
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| open (migrate), main / merge | 165 → 217, 51 applied, on both | the same |
+| schema, main vs merge | **identical**: 1,451 objects each, none on one side only, no SQL differs | **identical** (1,450) |
+| rows of every table (344), all columns | **identical** (16,542 rows); `schema_migrations` 203 rows each, differing only in `applied_at` | **identical** (7,640 rows; the same) |
+| `foreign_key_check` / `integrity_check` | 0 / ok, both | the same |
+| `rebuild --shadow --json` | **0 differences** after normalisation (facet 0, mastery 2, schedule 8 on both); live database unchanged on both | **0 differences** (0 / 1 / 1) |
+| `doctor --json` | **0 differences** after normalisation (57 issues, 1 error) | **0 differences** (101 issues, 48 errors) |
+
+**(b) Nothing served changes** (frozen clock 2026-10-19 09:00 UTC; the merge at its defaults, both RW5b switches on)
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| at `mvp-0.8` | cert (132,860 bytes), Today (504,488), plan (546): **byte-identical** | cert (17,494), Today (709,910), plan (546): **byte-identical** |
+| upgraded by main's code to `mvp-0.27` (`--to mvp-0.9`, `--to mvp-0.27`, `rebuild-derived-state` twice; rc 0), opened by each code | cert (129,651) and Today (528,665) **byte-identical** | cert (17,495) and Today (741,269) **byte-identical** |
+| then to `mvp-0.29` (`--to mvp-0.29`, `rebuild-derived-state` twice; rc 0) | cert and Today **byte-identical** | the same |
+| the daily plan at mvp-0.27 and mvp-0.29 | identical except `router_decisions.card_hash`, `snapshot_hash` and the card hash inside `detail_json`; a second run of main's code on a fresh copy differs from the first in exactly these three fields, and from the merge's in exactly these three (`plan_repeat.sh`): run-to-run noise, as at the earlier landings | the same |
+
+**(c) The real sidecar** over stdio, `SystemClock` frozen at 2026-10-19 09:00 UTC (`sidecar_clock.py`), driver
+`rw5b_run.py`, on fresh copies of main's mvp-0.29 copy: (i) `cm`, main's code; (ii) `coff`, the merge with
+`[figures] advanced_panels_enabled = false` and `offers_enabled = false`; (iii) `cdef`, the merge at its defaults.
+Calls: `initialize`; `reader.prompt_contract`; `reader.figures` on the passage's extraction; `reader.library_ask` on
+an **equation** block (probability `ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY:s38`, linear_algebra
+`ext_01KY2YGNVCCVEQCGCE4RH3BWHQ:s52`), polled with `reader.library_job`, then `reader.library_ask_notes`, polled;
+`reader.ask` (the Reader tutor) on the same block; `reader.figure_request` on that selection, polled with
+`reader.figure_job`; `reader.figures` again; `shutdown`. Then `learnloop reader report --json` (its `figures` block)
+on each copy. Compared call by call by `ccmp2_rw5b.py` (ids, digests, timestamps and the vault path normalised; each
+run of job polls collapsed to its last response, since the number of polls is timing).
+
+| Call | (i) vs (ii) | (i) vs (iii) |
+|---|---|---|
+| `initialize`, `reader.figures` (both), `library_ask` (pending, then done) | identical | identical |
+| `reader.prompt_contract` | identical | `figures` gains `offers: true` (RW5a's three keys otherwise) |
+| the notes job (the organizer) | identical | `promptVersion` `library_organizer.v2` → `library_organizer.v2-explorable` (an equation block among the passages, so the same single call carries the yes/no judgment); the call is unavailable at the loopback on all three, `notes: []` on all three |
+| `reader.ask` | identical: refused `provider_unavailable` before any call | the same refusal |
+| `reader.figure_request` → `reader.figure_job` | identical: the build fails `unpriced` (RW5a's metered-route rule) before any call | the same |
+| `learnloop reader report --json` | identical apart from `window.until` (the CLI's wall clock) | `figures.offered = {library: {}, tutor: {}}` added (only while offers are on), and `window.until` |
+| rows added over the copy opened by the merge (`deltas.py`) | the same rows on all three runs: `library_asks` 1, `interaction_events` 3, `source_exposure_events` 14, and the replayed facet rows (probability 1 / 2; linear_algebra 36 / 76 / 30 `practice_item_state`) | the same |
+
+Apart from the JSON-RPC request ids (which count the polls), (i) and (ii) are **byte-identical** on both copies.
+**Method registration:** no RPC method was added or removed (the figures handler's method list is RW5a's); the only
+contract change is `reader.figure_request`'s optional `origin` / `offerRef`, which (i)-(iii) did not send. **No
+figure row, no `judgment_ledger` row and no model call appeared** on any run.
+
+**(d) Frontend and receipts.**
+- The whole vitest run passes (201 files, 1,718 tests), including `classicIsBase.test.ts` (6), the keymap scan
+  (`keymap.test.ts`, 15), `figurePanels.test.ts` (32), `advancedPanels.test.tsx` (23), `libraryOfferSettle.test.tsx`
+  (4) and `tutorOfferPress.test.tsx` (1).
+- `model_call_receipts`: 34 learner databases under `landing-rw5b/` carry the table; **no row of any status** in any
+  of them, so none completed.
+
+### New findings
+
+1. **`classicIsBase.test.ts`'s base question is settled.** The brief's "move `BASE` to main" cannot pass once a later
+   stage changes `screens/` or `components/`; the diff checks now compare UX2's own landed range
+   (`a9ae97e34..558e85ab1`), so no later landing needs to move anything. The orchestrator may prefer a different
+   shape; the manifest and checks are as UX2 left them.
+2. **The organizer's prompt version moves at defaults whenever an equation or figure block is among a library ask's
+   passages**, even when its call then fails (parity (c)): `library_organizer.v2-explorable` instead of `.v2`. This is
+   the designed behaviour (§1.4, deviation 4), recorded so the owner reads it as expected; it also means a ledger hit
+   from an earlier `.v2` ask on the same passages is not reused once offers are on.
+3. **Load flake (Low, from before this stage).** The reading-build sweep test timed out under the full suite again
+   and passes alone.
+4. **The brief counts six open questions; §5 lists five.** The five are recorded below; no sixth was found in this
+   document or in `reader-rw5b-codex-review.md`.
+
+### For the owner
+
+- **No migration.** The head stays 217; no table, route, RPC method or successor; your algorithm version is unchanged.
+  Nothing served moves (parity (a), (b)); with both switches off the sidecar answers byte for byte as main's
+  (parity (c)).
+- **What you see** (the defaults):
+  - **New figure kinds.** Besides RW5a's curves and shaded areas, a figure can now be a heat map (one colour that
+    deepens with the value, with contour lines), a vector field (arrows, over an optional heat map), a trajectory
+    (a path from a marked start, stepped with RK4) or an iterated map (the points of a recurrence). A path that leaves
+    its plot is drawn up to the edge and labelled as stopped there; one that blows up or starts outside is refused.
+    Every panel has a values table. Nothing animates. Every figure is still an AI-built illustration; nothing says
+    "checked".
+  - **Make this explorable.** When a library answer or a Reader tutor answer cites an equation or figure block, a
+    *make this explorable* button can appear under it (the judge says yes or no in the call it already makes, and
+    only equation and figure blocks qualify). Pressing it builds the figure under the passage (in another book, it
+    opens that book first; Alt+← goes back). The line under the button says when it was built, or why not (refused,
+    stopped, another reading or book opened first, figures off). A block already built from a selection is reused,
+    whatever offered it.
+- **The switches** (`[figures]` in the library's `learnloop.toml`): `advanced_panels_enabled = false` returns the
+  author to RW5a's prompt and shows stored figures that use a new kind as "can't draw this yet";
+  `offers_enabled = false` removes every *make this explorable* button and returns the organizer's and tutor's
+  calls to theirs byte for byte. Both default to on; `figures.enabled = false` still turns figures off altogether.
+- **Notes.** A press is one figure build inside `figures.max_daily_cost_usd`; the judgment costs a few output tokens in
+  a call already made. A metered figure route still needs `figures.price_per_million` (as with RW5a).
+
+### Open questions (defaults taken; §5)
+
+1. Library offers on another book open it as a detour (Alt+← back): yes.
+2. Offers only on equation and figure blocks by extracted type: yes.
+3. Heat-map colour is one hue by opacity, not a diverging map: one hue.
+4. A path that leaves its plot is shown cut and labelled, not refused: shown.
+5. Old library answers are not re-judged when offers come on: no; new questions carry offers.
+
+### Open items
+
+- **Low:** "not built: the build was stopped" is shown when a generation change or a replaced run loses track of a
+  build that actually continues (`useFigures.ts:141-157` and the `OFFER_OUTCOME` mapping; the request key has no
+  origin).
+- The tutor offer's own label still settles at dispatch (the library press settles on its outcome since F9).
+- Copy: pressing B during A's detour says "that book did not open".
+- **From this landing:** findings 1 (the `classicIsBase` shape, for the orchestrator to confirm), 2 (the organizer's
+  prompt version with offers on, expected) and 3 (the load flake).
