@@ -96,3 +96,18 @@ def test_the_head_fixture_is_at_219_in_rollback_mode():
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
     for suffix in ("-wal", "-shm", "-journal"):
         assert not HEAD.with_name(HEAD.name + suffix).exists()
+
+
+@pytest.mark.durability
+def test_219_on_the_durability_lane(tmp_path):
+    from learnloop.db.stores import field_signal_receipts as store
+
+    database = _database_at(tmp_path, 218)
+    with upgrade_allowance(UPGRADE_TEST_HELPER):
+        assert [migration.version for migration in apply_migrations(database)] == [219]
+    with closing(sqlite3.connect(database)) as connection:
+        assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+        with connection:
+            assert store.insert_receipt(connection, _receipt())
+        with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+            connection.execute("DELETE FROM field_signal_receipts")
