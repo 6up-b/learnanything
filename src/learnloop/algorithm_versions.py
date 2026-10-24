@@ -386,6 +386,29 @@ ELIGIBILITY_DECISION_ALGORITHM_VERSION = "mvp-0.27"
 # the desktop control answers ``enabled: false``).
 INTENT_ALGORITHM_VERSION = "mvp-0.29"
 
+# mvp-0.31 (reader workbench RW2d, workbench signals in the learner field;
+# spec_reader_workbench_v1 §5.11, G41; docs/reviews/reader-workbench-RW2d.md),
+# on top of its predecessor (the chain stays linear: this tag means everything
+# its predecessor means PLUS this). Built on main at mvp-0.29 while adaptive
+# difficulty AD2+AD3 holds mvp-0.30 and lands first, so the landing merge
+# chains this tag after it; the tag lives in this ONE constant (the upgrade,
+# the CLI and the gates all read it), so a landing that finds another number
+# free renumbers it here. The field's interaction-signal derivation gains two
+# sources from the workbench ledgers: a mid-work stuck step with text (a
+# ``stuck_confusion`` row, like a stuck answer the grader read as confusion)
+# and help asked for before the first step (a help-before-work row). Both
+# carry no outcome and no mass and are linked to no attempt, so they never
+# lower the record, an attempt's assistance or a predictor's state (F2); they
+# block fast-track and teach the LO first, which changes what is SERVED
+# (Phase 6's fast-track, the quick check's split, new-material order and the
+# plans built on them; F3), not the projection, so it is another successor
+# tag on the mvp-0.8 namespace. Receipts (``field_signal_receipts``, migration
+# 219) record what the predecessor's derivation and rule would have decided
+# wherever they differ. Kill switch: ``workbench.field_signals_enabled``
+# (off: the derivation, Phase 6 serving and every plan build exactly as the
+# predecessor).
+WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION = "mvp-0.31"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -414,6 +437,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     REGRADE_CONTRACT_ALGORITHM_VERSION,
     ELIGIBILITY_DECISION_ALGORITHM_VERSION,
     INTENT_ALGORITHM_VERSION,
+    WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION,
 )
 
 
@@ -536,6 +560,12 @@ ELIGIBILITY_DECISION_VERSIONS: frozenset[str] = successors_from(ELIGIBILITY_DECI
 # ``intent.enabled``; daily-loop DL2). Every later successor keeps it; gates
 # must use this set, never equality.
 INTENT_VERSIONS: frozenset[str] = successors_from(INTENT_ALGORITHM_VERSION)
+
+# Versions whose field derivation reads the workbench's stuck steps and help
+# before the first step (behind ``workbench.field_signals_enabled``; reader
+# workbench RW2d). Every later successor keeps it; gates must use this set,
+# never equality.
+WORKBENCH_FIELD_SIGNALS_VERSIONS: frozenset[str] = successors_from(WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

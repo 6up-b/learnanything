@@ -1009,6 +1009,18 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switches for the help-outcome lines given to the hint writer and chooser / the worked example "
         "in the learner's route / compare methods after a correct Submit / the logged passage draw; context, "
         "display and learner picks, no measurement, scheduling or serving authority."),
+    # Reader workbench RW2d (spec §5.11, G41): the kill switch of the successor
+    # whose field derivation reads mid-work stuck steps and help before the
+    # first step. A boolean (classified so every new key has a rule); the rows
+    # it adds carry no outcome and no mass, so there is no weight to learn:
+    # they only feed the field's existing fast-track blocking rule. Off
+    # restores the predecessor's derivation, serving and plans exactly.
+    _ConfigRule(_exact(
+        "workbench.field_signals_enabled",
+    ), "structural", "operational",
+        "kill switch for RW2d's successor: workbench stuck steps and help before the first step as field "
+        "signals that keep an LO out of fast-track and teach it first; zero-mass rows that never reach the "
+        "record; off, the predecessor's derivation, Phase 6 serving and plans."),
     # Reader workbench RW1b: the intent box's router (one Decider choice per
     # routing; verdicts go to judgment_ledger, never evidence): the typing
     # pause before a speculative routing, the routing's deadline and the

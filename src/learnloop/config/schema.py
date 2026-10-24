@@ -2278,6 +2278,14 @@ class WorkbenchConfig(BaseModel):
     #: The logged draw between two or more passages that all passed the judge
     #: (bridge, worked example); off, the first passage is shown as before.
     passage_draw_enabled: bool = True
+    #: RW2d (spec §5.11, G41): the kill switch of the successor
+    #: (``WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION``) whose field derivation
+    #: reads mid-work stuck steps and help asked for before the first step.
+    #: They never lower the record (no outcome, no mass, no attempt link);
+    #: they keep the LO out of fast-track and teach it first. Off, or below
+    #: the tag: the derivation, Phase 6 serving and every plan build exactly
+    #: as the predecessor (no workbench table is read).
+    field_signals_enabled: bool = True
     #: The workbench's own calls (checks, bridges, examples, comparisons) per problem: a money cap
     #: counted in calls (§5.8). Hint calls are the hint service's (C8).
     max_calls_per_session: int = Field(default=24, ge=1)

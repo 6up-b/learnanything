@@ -29,6 +29,7 @@ from typing import Any
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.repositories import ProbeCalibrationSessionRecord, Repository
+from learnloop.db.stores import field_signal_receipts
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.db.stores.placement import (
     bind_quick_check_item,
@@ -47,7 +48,8 @@ from learnloop.placement.rules import (
     known_probability,
     theta_known,
 )
-from learnloop.placement.signals import blocking_signals_by_lo
+from learnloop.placement.field_receipts import fast_track_side, receipt_row
+from learnloop.placement.signals import blocking_with_predecessor
 from learnloop.placement.state import (
     INTENT_MAINTENANCE,
     PlacementState,
@@ -359,7 +361,9 @@ def reconcile_fast_track(
         )
         if not candidates:
             return []
-        blocking = blocking_signals_by_lo(connection, vault, answers_by_lo)
+        # RW2d: the predecessor's blocking too (the same mapping unless the
+        # workbench signals are live), for the receipts below.
+        blocking, predecessor_blocking = blocking_with_predecessor(connection, vault, answers_by_lo)
         # The existing independence rule, evaluated only for the candidates'
         # answers: a clean answer given after a revealed solution never counts.
         for lo in candidates:
@@ -375,6 +379,11 @@ def reconcile_fast_track(
                     min_correct=placement.fast_track_min_correct, q=placement.fast_track_q,
                     known_threshold=known,
                 )
+                if blocking.get(lo, ()) != predecessor_blocking.get(lo, ()):
+                    _fast_track_receipt(
+                        vault, connection, lo, answers, region, verdict, now_iso=now_iso,
+                        blocking=blocking.get(lo, ()), predecessor_blocking=predecessor_blocking.get(lo, ()),
+                    )
                 if not verdict.fires:
                     continue
                 if connection.execute(
@@ -398,6 +407,35 @@ def reconcile_fast_track(
     if written:
         repository.bump_queue_revision(clock=clock)
     return written
+
+
+def _fast_track_receipt(
+    vault: LoadedVault,
+    connection: Any,
+    lo: str,
+    answers: Sequence[AnswerFacts],
+    region: RegionEstimate | None,
+    verdict: Any,
+    *,
+    now_iso: str,
+    blocking: Sequence[str],
+    predecessor_blocking: Sequence[str],
+) -> None:
+    """RW2d: the old rule's verdict on the predecessor's blocking signals, beside this one's."""
+
+    if not field_signal_receipts.table_present(connection):
+        return
+    placement = vault.config.placement
+    predecessor = fast_track_verdict(
+        answers, blocking_signal_ids=predecessor_blocking, region=region,
+        min_correct=placement.fast_track_min_correct, q=placement.fast_track_q,
+        known_threshold=theta_known(placement.known_probability),
+    )
+    field_signal_receipts.insert_receipt(connection, receipt_row(
+        algorithm_version=vault.config.algorithms.algorithm_version, decision_kind="fast_track",
+        decision_ref=None, learning_object_id=lo, blocking=blocking, predecessor_blocking=predecessor_blocking,
+        verdict=fast_track_side(verdict), predecessor_verdict=fast_track_side(predecessor), now_iso=now_iso,
+    ))
 
 
 def reconcile_predictor_assumptions(
@@ -611,9 +649,16 @@ def finish_quick_check_split(
             connection, active=placement_active(vault), diagnosis_live=diagnosis_can_arrive(vault),
             now_iso=now_iso,
         )
-        blocking = blocking_signals_by_lo(connection, vault, load_answers(connection))
+        blocking, predecessor_blocking = blocking_with_predecessor(connection, vault, load_answers(connection))
     predictor = active_predictor(vault, repository, now_iso=now_iso)
     split = quick_check_split(vault, predictor, scope=scope, answers_by_lo=answers, blocking=blocking, state=state)
+    # RW2d: the split the predecessor's blocking signals give (the same split
+    # unless the workbench signals changed a scoped LO's blocking).
+    predecessor_split = split if all(
+        blocking.get(lo, ()) == predecessor_blocking.get(lo, ()) for lo in scope
+    ) else quick_check_split(
+        vault, predictor, scope=scope, answers_by_lo=answers, blocking=predecessor_blocking, state=state,
+    )
     placement = vault.config.placement
     known = theta_known(placement.known_probability)
     decisions: list[str] = []
@@ -641,6 +686,19 @@ def finish_quick_check_split(
                     insert_assumption_decision(connection, decision)
                     decisions.append(decision["id"])
                     verdict["assumption_id"] = decision["id"]
+            if predecessor_split is not split and field_signal_receipts.table_present(connection):
+                for lo in sorted(split):
+                    side = {k: split[lo].get(k) for k in ("verdict", "reason", "p")}
+                    old_side = {k: predecessor_split[lo].get(k) for k in ("verdict", "reason", "p")}
+                    if (side["verdict"], side["reason"]) == (old_side["verdict"], old_side["reason"]):
+                        continue
+                    field_signal_receipts.insert_receipt(connection, receipt_row(
+                        algorithm_version=vault.config.algorithms.algorithm_version,
+                        decision_kind="quick_check", decision_ref=calibration_session_id,
+                        learning_object_id=lo, blocking=blocking.get(lo, ()),
+                        predecessor_blocking=predecessor_blocking.get(lo, ()),
+                        verdict=side, predecessor_verdict=old_side, now_iso=now_iso,
+                    ))
             outcome = {
                 "split": split,
                 "answers": {

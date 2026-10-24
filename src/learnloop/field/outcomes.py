@@ -704,15 +704,18 @@ def fsrs_predicted_retrievability(
     )
 
 
-def load_effective_replay_rows(connection, vault: LoadedVault, *, legacy_fallback=None):
+def load_effective_replay_rows(connection, vault: LoadedVault, *, legacy_fallback=None, include_workbench=True):
     """``(attempts, facets, signals)`` with the complete coldness derivation.
 
     The one place interaction signals (linked leak telemetry, help before work)
     are folded into replay rows. Evaluation and the family-memory projection
     both read it, so they fold the same effective history (review F7).
+    ``include_workbench`` false (the family-memory rebuild) leaves RW2d's
+    workbench rows out of ``signals``; the folded attempt and facet rows are
+    the same either way (those rows link to no attempt).
     """
     attempts, facets = load_replay_rows(connection, vault, legacy_fallback=legacy_fallback)
-    signals = load_interaction_signals(connection, vault, attempts)
+    signals = load_interaction_signals(connection, vault, attempts, include_workbench=include_workbench)
     return enrich_attempts(attempts, signals), enrich_attempts(facets, signals), signals
 
 
