@@ -439,6 +439,11 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "assessment_contract_version_id answered_at answer_mode",
         "context question_md answer_md facets_json preceding_tutor_move warning_state "
         "question_opportunity attempt_progress signal_channel resolution source_context_json"),
+    "question_promotions": (
+        "question_event_id intent question_nature attempted_in_thread learner_claim_id intervention_need_id "
+        "proposed_patch_id saved_note_id existing_practice_item_id created_practice_item_id "
+        "created_learning_object_id route created_at updated_at",
+        "attributed_facets_json"),
     "queue_state": (
         "singleton revision updated_at",
         ""),

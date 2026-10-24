@@ -1,6 +1,6 @@
 """Adaptive difficulty AD2+AD3: the ``mvp-0.30`` successor (spec §11.1; docs/algorithm-change-playbook.md).
 
-One successor, six switches, each restoring its part of ``mvp-0.27`` exactly and
+One successor, six switches, each restoring its part of ``mvp-0.29`` exactly and
 composing as §11.1 states; the dose arm outside it. With every switch false, or
 below the tag, what is served is the predecessor's (pinned on fixture copies).
 Fails before AD2+AD3: there was no ``mvp-0.30``. Fakes only; no model is called.
@@ -27,7 +27,7 @@ from learnloop.clock import FrozenClock
 from learnloop.db.copies import copy_tree_with_databases
 from learnloop.vault.loader import load_vault
 
-from tests.ad23_fakes import COUPLED, ad23_vault, selections
+from tests.ad23_fakes import COUPLED, ad23_vault, commit, selections
 from tests.helpers import append_config_toml, create_placement_vault, set_algorithm_version
 
 T0 = datetime(2026, 10, 12, 9, 0, tzinfo=UTC)
@@ -47,7 +47,7 @@ def test_the_successor_is_the_next_link_with_its_defaults_snapshot():
 
 
 def test_below_the_tag_every_switch_reads_off_whatever_the_config_says(tmp_path):
-    paths = ad23_vault(tmp_path, version="mvp-0.27", ad=COUPLED)
+    paths = ad23_vault(tmp_path, version="mvp-0.29", ad=COUPLED)
     vault = load_vault(paths.root)
     assert all(getattr(vault.config.adaptive_difficulty, name) for name in SC.SWITCHES)
     assert not SC.successor_active(vault.config)
@@ -208,14 +208,19 @@ QUIET_ROUTES = ("[adaptive_difficulty]\noutside_forecasters = []\nfeature_audit 
 @pytest.mark.parametrize("fixture", WORKING_FIXTURES)
 def test_every_switch_false_serves_the_predecessor_on_fixture_copies(tmp_path, monkeypatch, fixture):
     """At ``mvp-0.30`` with the six switches false, Today, the plan and every served step are
-    ``mvp-0.27``'s exactly, and no AD2+AD3 row is written (the pin of orchestrator note 4)."""
+    ``mvp-0.29``'s exactly (DL2's intent, with an active commitment on both copies so intent is not
+    inert: the compose fix round, L4), and no AD2+AD3 row is written (the pin of orchestrator note 4)."""
 
     if not (FIXTURES / fixture / "state.sqlite").exists():
         pytest.skip(f"{fixture} fixture absent")
     monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: T0)
     monkeypatch.setenv("LEARNLOOP_AD_MODELS", "off")
-    before, _root_b = _copy(tmp_path, fixture, "pred", version="mvp-0.27", toml=QUIET_ROUTES)
+    before, root_b = _copy(tmp_path, fixture, "pred", version="mvp-0.29", toml=QUIET_ROUTES)
     after, root_a = _copy(tmp_path, fixture, "succ", version="mvp-0.30", toml=QUIET_ROUTES + ALL_OFF)
+    lo = sorted(load_vault(root_b).learning_objects)[0]
+    for root in (root_b, root_a):
+        commit(type("Paths", (), {"root": root, "sqlite_path": root / "state.sqlite"})(),
+               [("learning_object", lo, "master")])
     reads = []
     for ctx in (before, after):
         sequence = [_volatile_free(_call(ctx, "get_today_queue", {})), _volatile_free(_call(ctx, "get_daily_plan", {}))]
@@ -235,7 +240,7 @@ def test_below_the_tag_a_rebuild_writes_no_ad_state(tmp_path):
     from learnloop.db.repositories import Repository
     from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 
-    paths = ad23_vault(tmp_path, version="mvp-0.27")
+    paths = ad23_vault(tmp_path, version="mvp-0.29")
     repository = Repository(paths.sqlite_path)
     rebuild_all_derived_state(load_vault(paths.root), repository)
     with repository.connection() as connection:
@@ -245,7 +250,7 @@ def test_below_the_tag_a_rebuild_writes_no_ad_state(tmp_path):
     rebuild_all_derived_state(load_vault(paths.root), repository)
     with repository.connection() as connection:
         assert connection.execute("SELECT COUNT(*) FROM ad_state").fetchone()[0] > 0
-    set_algorithm_version(paths, "mvp-0.27")
+    set_algorithm_version(paths, "mvp-0.29")
     rebuild_all_derived_state(load_vault(paths.root), repository)
     with repository.connection() as connection:
         assert connection.execute("SELECT COUNT(*) FROM ad_state").fetchone()[0] == 0

@@ -123,6 +123,37 @@ def env_for(paths: Any, *, clock: MovableClock | None = None, items: Sequence[st
     return env, clock
 
 
+def intent_gated(env: Any) -> Any:
+    """``env`` with its scheduled supplier gated by DL2's intent as the scheduler's due queue gates
+    every item (``admission_reason``'s intent gate): the fakes' supplier stands in for that queue,
+    so without this an item intent withholds would reach the plan's pool."""
+
+    import dataclasses
+
+    from learnloop.scheduling.intent.serving import intent_serving
+
+    supplier = env.eligible
+
+    def eligible(minutes: Any) -> list[Any]:
+        serving = intent_serving(env.vault, env.repository, now=env.now())
+        return [item for item in supplier(minutes)
+                if serving is None or serving.withhold_reason(item.practice_item_id) is None]
+
+    return dataclasses.replace(env, eligible=eligible)
+
+
+def commit(paths: Any, choices: Sequence[tuple[str, str, str]], *, clock: Any = None) -> None:
+    """Apply DL2 intent choices ``(scope kind, scope id, choice)`` to the vault (its commitments)."""
+
+    from learnloop.db.repositories import Repository
+    from learnloop.intent.control import Scope, apply_choice
+
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    for kind, ref, choice in choices:
+        apply_choice(vault, repository, Scope(kind, ref), choice, clock=clock or MovableClock())
+
+
 def answer(paths: Any, item_id: str, *, correct: bool = True, presentation_id: str | None = None,
            session_id: str | None = "s1", hints: int = 0, clock: Any = None, points: float | None = None,
            first_hint_progress: str | None = None) -> str:

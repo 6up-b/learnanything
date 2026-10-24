@@ -28,7 +28,9 @@ from tests.ad23_fakes import (
     ad23_vault,
     answer,
     block_events,
+    commit,
     env_for,
+    intent_gated,
     reveal,
     rows,
     selections,
@@ -120,7 +122,7 @@ def test_generation_prompt_has_no_band_language_under_successor(tmp_path):
     (commission,) = selections(paths, kind="commission")
     assert commission["id"] == target.ad_commission_id and commission["chosen_point"]
     # Below the tag, or with the switch off, today's prompt exactly.
-    for name, version, ad in (("below", "mvp-0.27", ""), ("off", "mvp-0.30", "generation_contract = false\n")):
+    for name, version, ad in (("below", "mvp-0.29", ""), ("off", "mvp-0.30", "generation_contract = false\n")):
         other = ad23_vault(tmp_path / name, items=("pi_g1",), version=version, ad=ad)
         plan_b, text_b = _generation_prompt(other)
         assert plan_b.targets[0].ad_commission_id is None
@@ -133,11 +135,18 @@ def test_generation_prompt_has_no_band_language_under_successor(tmp_path):
 # -- G-AD2-21 -----------------------------------------------------------------------------------
 
 
-def _served_sequence(tmp_path, name: str, *, version: str, ad: str) -> list[Any]:
+#: An active DL2 commitment for the identity runs (the compose fix round, L4): the LO under Master and
+#: one sibling paused, so intent orders admission and withholds an item (it is not inert).
+IDENTITY_COMMITMENTS = (("learning_object", LO, "master"), ("practice_item", "pi_e3", "pause"))
+
+
+def _served_sequence(tmp_path, name: str, *, version: str, ad: str, commitments=()) -> list[Any]:
     items = ("pi_h", "pi_e1", "pi_e2", "pi_e3")
     paths = ad23_vault(tmp_path / name, items=items, features={"pi_h": HARD}, version=version,
                        config=ROUTER_OFF, ad=ad)
+    commit(paths, commitments)
     env, clock = env_for(paths, items=items)
+    env = intent_gated(env)
     build_plan(env, kind="normal", budget=3.0, remembered=3, minutes_source="chip")
     sequence = []
     for _ in range(6):
@@ -155,13 +164,17 @@ def _served_sequence(tmp_path, name: str, *, version: str, ad: str) -> list[Any]
 
 def test_selection_switch_off_restores_lane_order(tmp_path):
     """With ``selection = false`` the plan, its order and every served item are the predecessor's
-    (``mvp-0.27``) exactly, and no draw is written; with it on, AD substitutes the hard slot."""
+    (``mvp-0.29``, DL2's intent) exactly, with an active commitment so intent is not inert, and no
+    draw is written; with it on, AD substitutes the hard slot."""
 
-    before = _served_sequence(tmp_path, "pred", version="mvp-0.27", ad="")
-    off = _served_sequence(tmp_path, "off", version="mvp-0.30", ad="selection = false\n")
-    on = _served_sequence(tmp_path, "on", version="mvp-0.30", ad="")
+    kw = {"commitments": IDENTITY_COMMITMENTS}
+    before = _served_sequence(tmp_path, "pred", version="mvp-0.29", ad="", **kw)
+    off = _served_sequence(tmp_path, "off", version="mvp-0.30", ad="selection = false\n", **kw)
+    on = _served_sequence(tmp_path, "on", version="mvp-0.30", ad="", **kw)
     assert off[:2] == before[:2] and not off[2] and not before[2]
     assert on[2] and on[0][0]["practice_item_id"] != before[0][0]["practice_item_id"]
+    # Intent acts in all three: the paused sibling is never served.
+    assert all(step["practice_item_id"] != "pi_e3" for run in (before, off, on) for step in run[0])
 
 
 # -- G-AD2-22 -----------------------------------------------------------------------------------

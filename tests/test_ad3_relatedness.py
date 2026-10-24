@@ -227,7 +227,7 @@ def test_no_proposal_call_with_learned_coupling_off_or_below_the_tag(tmp_path):
     llm = ProposalLLM()
     assert _propose(off, llm).status == "disabled" and not llm.prompts
     below = _vault(tmp_path / "below")
-    set_algorithm_version(below, "mvp-0.27")
+    set_algorithm_version(below, "mvp-0.29")
     assert _propose(below, llm).status == "disabled" and not llm.prompts
 
 

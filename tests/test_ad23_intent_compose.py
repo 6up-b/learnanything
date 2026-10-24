@@ -28,7 +28,7 @@ from learnloop.daily_plan.engine import advance, build_plan
 from learnloop.intent.control import Scope, apply_choice
 from learnloop.scheduling.intent.serving import intent_serving
 
-from tests.ad23_fakes import LO, ad23_vault, env_for, selections
+from tests.ad23_fakes import LO, ad23_vault, env_for, intent_gated, selections
 
 HARD = {"complexity": 3, "transfer": "far", "scaffolding": "none", "span": "multi_step",
         "response": "long_constructed", "tools": ["closed_book"]}
@@ -52,22 +52,9 @@ def _denials(observed):
 def _vault(tmp_path, router: str, ad: str = ""):
     paths = ad23_vault(tmp_path, items=ITEMS, features={"pi_h": HARD}, config=ROUTERS[router], ad=ad)
     env, clock = env_for(paths, items=ITEMS)
-    return paths, _intent_pool(env), clock
-
-
-def _intent_pool(env):
-    """The fakes' scheduled supplier stands in for the scheduler's due queue, which applies DL2's
-    intent gate to every item (``admission_reason``); this one applies it too, so an item intent
-    withholds reaches a served step only through AD (the property's subject)."""
-
-    supplier = env.eligible
-
-    def eligible(minutes):
-        serving = intent_serving(env.vault, env.repository, now=env.now())
-        return [item for item in supplier(minutes)
-                if serving is None or serving.withhold_reason(item.practice_item_id) is None]
-
-    return dataclasses.replace(env, eligible=eligible)
+    # The fakes' supplier gated as the scheduler's due queue is, so an item intent withholds reaches
+    # a served step only through AD (the property's subject).
+    return paths, intent_gated(env), clock
 
 
 @pytest.mark.parametrize("router", sorted(ROUTERS))
@@ -199,3 +186,60 @@ def test_property_ad_never_serves_or_clears_what_the_incumbent_withholds(tmp_pat
         assert not set(cleared) & held, (cleared, held)
     # (i) zero guard denials over every operation.
     assert _denials(observed) == [], _denials(observed)[:5]
+
+
+REAL_CHOICES = (
+    (("learning_object", LO, "master"),),
+    (("learning_object", LO, "learn"), ("practice_item", "pi_k2", "pause")),
+    (("practice_item", "pi_k2", "let_go"),),
+    (("practice_item", "pi_k2", "check_once"),),
+    (("learning_object", LO, "check_once"),),
+)
+
+
+@pytest.mark.parametrize("router", sorted(ROUTERS))
+@pytest.mark.parametrize("choices", REAL_CHOICES, ids=["+".join(c[2] for c in cs) for cs in REAL_CHOICES])
+def test_the_real_scheduler_lane_with_commitments(tmp_path, monkeypatch, observed, router, choices):
+    """The AD lane through the sidecar's plan RPCs and the real scheduler (no fake pool), with DL2
+    commitments: zero guard denials, AD draws (a serve selection or a commission), and no served
+    step is an item intent withholds. The fake-pool lanes above missed the scheduler's own reads
+    (its request set reads ``question_promotions``): this lane is the one that found them."""
+
+    import learnloop_sidecar.handlers  # noqa: F401 - registers the RPCs
+    from datetime import UTC, datetime
+
+    from learnloop import clock as clock_module
+    from learnloop_sidecar.context import SidecarContext
+    from learnloop_sidecar.registry import METHOD_REGISTRY
+
+    from tests.ad23_fakes import commit
+
+    items = ("pi_k1", "pi_k2", "pi_k3")
+    paths = ad23_vault(tmp_path, items=items, features={"pi_k1": HARD}, config=ROUTERS[router])
+    monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: datetime(2026, 10, 12, 9, 0, tzinfo=UTC))
+    commit(paths, choices)
+
+    def call(ctx, name, params):
+        spec = METHOD_REGISTRY[name]
+        return spec.handler(ctx, spec.params_model.model_validate(params))
+
+    ctx = SidecarContext()
+    ctx.load(paths.root)
+    ctx.ad_commission_enqueue = lambda *_args: None
+    try:
+        session_id = call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
+        for _ in range(3):
+            from learnloop.vault.loader import load_vault
+            from learnloop.db.repositories import Repository
+
+            serving = intent_serving(load_vault(paths.root), Repository(paths.sqlite_path),
+                                     now=datetime(2026, 10, 12, 9, 0, tzinfo=UTC))
+            step = call(ctx, "next_plan_item", {"sessionId": session_id, "serve": True})["step"]
+            if step.get("kind") != "item":
+                break
+            served = step.get("practiceItemId") or step.get("practice_item_id")
+            assert serving is None or serving.withhold_reason(str(served)) is None, (served, choices)
+    finally:
+        ctx.map_builds.close()
+    assert _denials(observed) == [], _denials(observed)[:5]
+    assert observed, "AD opened no operation"

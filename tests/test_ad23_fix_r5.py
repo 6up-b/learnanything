@@ -30,7 +30,7 @@ from learnloop.db.stores import ad_serving
 from learnloop.vault.loader import load_vault
 
 from tests.ad23_fakes import COUPLED, LO, ProposalLLM, ad23_vault, answer, block_events, env_for, reveal, selections
-from tests.ad23_fakes import set_item
+from tests.ad23_fakes import commit, intent_gated, set_item
 from tests.daily_plan_fakes import MovableClock, iso, make_env, scheduled
 from tests.helpers import set_algorithm_version
 
@@ -212,6 +212,7 @@ def _today(root, instant: datetime, *, selection_off: bool) -> tuple[list[dict[s
     item_los = {item: vault.practice_items[item].learning_object_id for item in PLAN_ITEMS}
     env = make_env(root, [scheduled(item, item_los[item], forgetting_risk=0.6) for item in PLAN_ITEMS],
                    clock=MovableClock(instant), session_id="s1")
+    env = intent_gated(env)  # the scheduler's due queue applies DL2's intent gate; so does this pool
     if selection_off:
         env.vault.config.adaptive_difficulty.selection = False
     record, _step, context = E.advance_with_context(env, serve=False)
@@ -222,17 +223,21 @@ def _today(root, instant: datetime, *, selection_off: bool) -> tuple[list[dict[s
 def test_with_the_kill_switch_off_today_projects_the_predecessors_blocks(tmp_path):
     """F13 parity: on copies of a vault holding AD rows (draws and an ``ad_ineligible``
     displacement), Today's projected blocks with ``selection = false`` equal the predecessor's
-    (``mvp-0.27``, which reads no AD row), and the once-deferred item is projected again."""
+    (``mvp-0.29``, which reads no AD row), and the once-deferred item is projected again. Both copies
+    carry an active DL2 commitment (the other LO under Master, one of its items paused), so intent
+    is not inert (the compose fix round, L4)."""
 
     paths, _env, clock = _deferred(tmp_path)
     assert selections(paths)
+    commit(paths, [("learning_object", "lo_other", "master"), ("practice_item", "pi_o2", "pause")], clock=clock)
     off_root, pred_root = tmp_path / "copies" / "off", tmp_path / "copies" / "pred"
     copy_tree_with_databases(paths.root, off_root)
     copy_tree_with_databases(paths.root, pred_root)
-    set_algorithm_version(SimpleNamespace(root=pred_root), "mvp-0.27")
+    set_algorithm_version(SimpleNamespace(root=pred_root), "mvp-0.29")
     off = _today(off_root, clock.now(), selection_off=True)
     pred = _today(pred_root, clock.now(), selection_off=False)
     assert off == pred
+    assert all("pi_o2" not in items for items in off[1])
     assert any("pi_a" in items for items in off[1])
 
 

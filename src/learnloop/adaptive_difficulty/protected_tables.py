@@ -134,6 +134,7 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("proposed_patch_items", PROTECTED),
     ("proposed_patches", NEUTRAL),
     ("question_events", PROTECTED),
+    ("question_promotions", DENIED),
     ("queue_state", NEUTRAL),
     ("raw_grade_events", DENIED),
     ("reader_authored_questions", PROTECTED),
@@ -470,6 +471,8 @@ INCUMBENT_READERS = frozenset({
     "learnloop.params.fitted_params",
     "learnloop.placement.predictor",
     "learnloop.scheduling.intent.resolution",
+    # ``scheduler.pool_admission`` itself (the build's request set: tutor promotions, DL2's skips).
+    "learnloop.scheduling.scheduler",
     "learnloop.scheduling.serving_exclusions",
 })
 
