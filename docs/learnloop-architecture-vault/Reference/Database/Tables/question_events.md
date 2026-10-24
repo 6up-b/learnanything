@@ -3,13 +3,13 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "c05eae57933f963158a782836b8d6b88af5d80a2"
+source_commit_timestamp: "2026-10-24T15:05:22-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
   - "table question_events"
-schema_head: 218
+schema_head: 219
 table_name: "question_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -27,7 +27,7 @@ source_paths:
   - "src/learnloop/diagnosis/followups.py"
   - "src/learnloop/diagnosis/text_gaps/jobs.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
-  - "src/learnloop/instructional/interventions.py"
+  - "src/learnloop/experiments/contextual_embeddings/bank.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -148,6 +148,7 @@ Indexes and uniqueness:
 - `src/learnloop/cli/field_classification.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
+- `src/learnloop/experiments/contextual_embeddings/bank.py`
 - `src/learnloop/instructional/interventions.py`
 - `src/learnloop/instructional/policy.py`
 - `src/learnloop/learner/facet_diagnostics.py`
@@ -163,7 +164,6 @@ Indexes and uniqueness:
 - `src/learnloop/tutor/question_signal.py`
 - `src/learnloop/tutor/tutor_qa.py`
 - `src/learnloop_sidecar/handlers/capture.py`
-- `src/learnloop_sidecar/handlers/facets.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

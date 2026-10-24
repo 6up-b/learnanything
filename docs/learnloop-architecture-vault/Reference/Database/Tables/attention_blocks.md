@@ -3,13 +3,13 @@ title: "attention_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "c05eae57933f963158a782836b8d6b88af5d80a2"
+source_commit_timestamp: "2026-10-24T15:05:22-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attention_blocks"
   - "table attention_blocks"
-schema_head: 218
+schema_head: 219
 table_name: "attention_blocks"
 table_role: "workflow"
 functionality_status: "active"

@@ -3,8 +3,8 @@ title: "Config - storage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "c05eae57933f963158a782836b8d6b88af5d80a2"
+source_commit_timestamp: "2026-10-24T15:05:22-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml storage"
@@ -25,13 +25,13 @@ source_paths:
   - "tests/conftest.py"
   - "tests/daily_plan_fakes.py"
   - "tests/diagnosis_split_helpers.py"
+  - "tests/e0_fakes.py"
   - "tests/helpers.py"
   - "tests/hint_fakes.py"
   - "tests/intent_fakes.py"
   - "tests/pf_fakes.py"
   - "tests/reading_path_fixtures.py"
   - "tests/rw2b_fix10_base_sequence.py"
-  - "tests/rw2b_fix11_base_sequence.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/storage"
@@ -66,13 +66,13 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/conftest.py`
 - `tests/daily_plan_fakes.py`
 - `tests/diagnosis_split_helpers.py`
+- `tests/e0_fakes.py`
 - `tests/helpers.py`
 - `tests/hint_fakes.py`
 - `tests/intent_fakes.py`
 - `tests/pf_fakes.py`
 - `tests/reading_path_fixtures.py`
 - `tests/rw2b_fix10_base_sequence.py`
-- `tests/rw2b_fix11_base_sequence.py`
 
 ## Extension and modification guidance
 

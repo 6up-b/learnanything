@@ -3,13 +3,13 @@ title: "model_call_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "c05eae57933f963158a782836b8d6b88af5d80a2"
+source_commit_timestamp: "2026-10-24T15:05:22-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_call_receipts"
   - "table model_call_receipts"
-schema_head: 218
+schema_head: 219
 table_name: "model_call_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -123,6 +123,7 @@ None found by exact static reference scan.
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/diagnosis/split/legacy_view.py`
 - `src/learnloop/diagnosis/split/reports.py`
+- `src/learnloop/experiments/contextual_embeddings/records.py`
 - `src/learnloop/hints/map_report.py`
 - `src/learnloop/hints/report_adaptive.py`
 - `src/learnloop/ops/pf_reports.py`
@@ -160,11 +161,11 @@ None found by exact static reference scan.
 - `tests/test_diagnose_review.py`
 - `tests/test_diagnosis_pipeline.py`
 - `tests/test_diagnosis_reports.py`
+- `tests/test_e0_review_round4.py`
 - `tests/test_embedding_backfill.py`
 - `tests/test_facet_identity_composition.py`
 - `tests/test_family_proposals.py`
 - `tests/test_figures_rpc.py`
-- `tests/test_graph_nomination.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

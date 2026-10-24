@@ -3,13 +3,13 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "c05eae57933f963158a782836b8d6b88af5d80a2"
+source_commit_timestamp: "2026-10-24T15:05:22-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
   - "table judgment_ledger"
-schema_head: 218
+schema_head: 219
 table_name: "judgment_ledger"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -133,6 +133,7 @@ None found by exact static reference scan.
 - `src/learnloop/diagnosis/text_gaps/pipeline.py`
 - `src/learnloop/diagnosis/text_gaps/report.py`
 - `src/learnloop/diagnosis/text_gaps/tier1.py`
+- `src/learnloop/experiments/contextual_embeddings/records.py`
 - `src/learnloop/field/probability_prep.py`
 - `src/learnloop/hints/map_builder.py`
 - `src/learnloop/hints/map_report.py`

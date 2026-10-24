@@ -3,13 +3,13 @@ title: "source_document_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "c05eae57933f963158a782836b8d6b88af5d80a2"
+source_commit_timestamp: "2026-10-24T15:05:22-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_blocks"
   - "table source_document_blocks"
-schema_head: 218
+schema_head: 219
 table_name: "source_document_blocks"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -25,7 +25,7 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_block_fts.py"
   - "src/learnloop/db/stores/source_service.py"
-  - "src/learnloop/hints/state.py"
+  - "src/learnloop/experiments/contextual_embeddings/system_arms.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/practice_leakage.py"
@@ -113,11 +113,13 @@ Database triggers:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_block_fts.py`
 - `src/learnloop/db/stores/source_service.py`
+- `src/learnloop/experiments/contextual_embeddings/system_arms.py`
 - `src/learnloop/source_retrieval/evaluation.py`
 
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/experiments/contextual_embeddings/system_arms.py`
 
 ### Upstream callers of the repository access surface
 
@@ -148,6 +150,10 @@ Database triggers:
 ## Tests that define behavior
 
 - `tests/test_compare_sources_keep.py`
+- `tests/test_e0_corpus.py`
+- `tests/test_e0_isolation.py`
+- `tests/test_e0_relabel_round.py`
+- `tests/test_e0_review_round1.py`
 - `tests/test_exam_protection.py`
 - `tests/test_exam_protection_review.py`
 - `tests/test_exercise_arm.py`
@@ -163,10 +169,6 @@ Database triggers:
 - `tests/test_tutor_delivery_fixes.py`
 - `tests/helpers.py`
 - `tests/test_ad1_reading_opportunities.py`
-- `tests/test_daily_plan_reading.py`
-- `tests/test_exam_protection_identity.py`
-- `tests/test_facet_authority_review.py`
-- `tests/test_facet_reword_confirm.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
