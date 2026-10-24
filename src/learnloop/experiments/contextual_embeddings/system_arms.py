@@ -227,11 +227,17 @@ def _normalize(text: str) -> str:
 
 
 class ProtectedTextGuard:
-    """An embedding client wrapper that refuses any batch carrying protected text."""
+    """An embedding client wrapper that refuses any batch carrying protected text.
+
+    A probe of :data:`GUARD_PROBE_CHARS` characters matches any input that
+    contains it (each input's windows of that length, looked up in a set);
+    a shorter probe (a whole short withheld block) is searched for directly."""
 
     def __init__(self, client: Any, probes: Sequence[str]) -> None:
         self._client = client
         self._probes = [probe for probe in probes if probe]
+        self._windows = frozenset(probe for probe in self._probes if len(probe) == GUARD_PROBE_CHARS)
+        self._short = [probe for probe in self._probes if len(probe) != GUARD_PROBE_CHARS]
         self.refused = 0
         #: The production client's own contract errors, by their fixed message
         #: (allowlisted; paid-run round 2): the backfill reports only the class.
@@ -240,10 +246,18 @@ class ProtectedTextGuard:
     def __getattr__(self, name: str) -> Any:
         return getattr(self._client, name)
 
+    def carries_protected(self, text: str) -> bool:
+        if any(probe in text for probe in self._short):
+            return True
+        if not self._windows:
+            return False
+        return any(text[start:start + GUARD_PROBE_CHARS] in self._windows
+                   for start in range(0, max(0, len(text) - GUARD_PROBE_CHARS) + 1))
+
     def embed(self, inputs: list[Any], task_prefix: str) -> Any:
         for value in inputs:
             text = _normalize(value if isinstance(value, str) else getattr(value, "text", "") or "")
-            if any(probe in text for probe in self._probes):
+            if self.carries_protected(text):
                 self.refused += 1
                 raise ProtectedTextRefused("an embedding request carried protected text; nothing was sent")
         try:
@@ -281,20 +295,67 @@ BACKFILL_EXTRA_PASSES = 1
 #: production report's fixed reason, the exception class names, the
 #: allowlisted contract-error messages).
 BACKFILL_REPORT_KEYS = ("status", "records", "embedded", "remaining", "reason", "error_type", "provider_error",
-                        "invalid_reasons", "pass")
+                        "invalid_reasons", "pass", "withheld_records")
+
+
+#: Distinct windows start this many characters apart, so any leaked run of
+#: ``GUARD_PROBE_CHARS + GUARD_PROBE_STEP`` withheld characters holds a whole window.
+GUARD_PROBE_STEP = GUARD_PROBE_CHARS // 2
+#: A withheld block shorter than this (normalized) is not probed (too generic).
+GUARD_MIN_CHARS = 16
+
+
+def probe_plan(snapshot: CorpusSnapshot) -> tuple[list[str], dict[str, int]]:
+    """The guard's probes and their counts (relabel round, 2026-10-23).
+
+    A probe is a piece of a withheld block's normalized text that NO
+    permitted block contains: every window of :data:`GUARD_PROBE_CHARS`
+    characters, :data:`GUARD_PROBE_STEP` apart plus the last one (a block
+    shorter than a window is one probe, whole). A window that permitted text
+    also contains is not protected text: the permitted block is sent anyway,
+    by policy. Paid run 3's probability backfill was refused because the
+    old probe (the first 48 characters only) of one withheld 19-character
+    assessment-lane heading was text that seven permitted blocks contained.
+    Every distinctive window is probed, so a leaked tail is refused as well
+    as a leaked head. A withheld block whose whole text lies inside permitted
+    text has no probe and is counted (``withheld_inside_permitted``); the
+    record-level check in :func:`backfill_service_copy` still refuses to embed
+    it as a record of its own."""
+
+    permitted = "\x00".join(_normalize(block.text) for extraction_id, blocks in snapshot.blocks.items()
+                            for block in blocks if snapshot.policy.permitted(extraction_id, block.span_id))
+    probes: list[str] = []
+    counts = {"withheld_blocks": 0, "probed_blocks": 0, "withheld_inside_permitted": 0, "too_short": 0}
+    for extraction_id, blocks in snapshot.blocks.items():
+        for block in blocks:
+            if not snapshot.policy.verdict(extraction_id, block.span_id):
+                continue
+            counts["withheld_blocks"] += 1
+            text = _normalize(block.text)
+            if len(text) < GUARD_MIN_CHARS:
+                counts["too_short"] += 1
+                continue
+            if len(text) <= GUARD_PROBE_CHARS:
+                windows = [text]
+            else:
+                starts = list(range(0, len(text) - GUARD_PROBE_CHARS + 1, GUARD_PROBE_STEP))
+                if starts[-1] != len(text) - GUARD_PROBE_CHARS:
+                    starts.append(len(text) - GUARD_PROBE_CHARS)
+                windows = [text[start:start + GUARD_PROBE_CHARS] for start in starts]
+            distinct = [window for window in dict.fromkeys(windows) if window not in permitted]
+            if distinct:
+                counts["probed_blocks"] += 1
+                probes.extend(distinct)
+            else:
+                counts["withheld_inside_permitted"] += 1
+    counts["probes"] = len(set(probes))
+    return sorted(set(probes)), counts
 
 
 def protected_probes(snapshot: CorpusSnapshot) -> list[str]:
-    """Leading normalized characters of every withheld block long enough to probe."""
+    """The guard's probes (:func:`probe_plan`)."""
 
-    probes = []
-    for extraction_id, blocks in snapshot.blocks.items():
-        for block in blocks:
-            if snapshot.policy.verdict(extraction_id, block.span_id):
-                text = _normalize(block.text)
-                if len(text) >= 16:
-                    probes.append(text[:GUARD_PROBE_CHARS])
-    return probes
+    return probe_plan(snapshot)[0]
 
 
 def guarded_factory(factory: Callable[[], Any], snapshot: CorpusSnapshot) -> Callable[[], Any]:
@@ -645,14 +706,38 @@ def rank_system(handle: Any, snapshot: CorpusSnapshot, questions: Sequence[BankQ
 # -- the service copies -------------------------------------------------------------------
 
 
-def backfill_service_copy(handle: Any, ledger: E0Ledger, *, client_factory: Any = None) -> list[dict[str, Any]]:
+def withheld_records(handle: Any, extraction_id: str, policy: PolicySnapshot) -> int:
+    """How many of the backfill's planned records for ``extraction_id`` are
+    blocks the policy withholds (zero on a redacted copy: a blank block is not
+    embeddable). Read-only; no text leaves this function."""
+
+    from learnloop.source_retrieval.recipes import split_record_id
+    from learnloop.source_retrieval.source_vectors import source_block_records, target_extraction
+
+    _source, current = target_extraction(handle.repository, extraction_id)
+    if current is None:
+        return 0
+    return sum(1 for record in source_block_records(handle.repository, current)
+               if policy.verdict(*split_record_id(record.record_id)))
+
+
+def backfill_service_copy(handle: Any, ledger: E0Ledger, *, client_factory: Any = None,
+                          policy: PolicySnapshot | None = None) -> list[dict[str, Any]]:
     """The production source backfill on a REDACTED service copy, under the E0 ledger.
 
     Every physical embedding request is admitted by ``SystemRequestGate``
     (the transport's per-request gate) at its hard maximum: the input token
     upper bound of the exact texts sent, at the Qwen pin's VERIFIED price,
     from a client whose model is the pin's (fix round 4, High 2 and 4). The
-    production ``SpendBudget`` keeps its own copy-local caps."""
+    production ``SpendBudget`` keeps its own copy-local caps.
+
+    With ``policy`` (relabel round): before anything is sent, every
+    extraction's planned records are checked by identity; when any of them is
+    a withheld block (the copy was not redacted), the whole backfill is
+    refused before any request (``refused_unredacted``), whatever the text. The coverage
+    denominator stays the production one: the embeddable blocks of the
+    redacted copy, so withheld blocks are outside it (reported as the
+    redaction's ``blanked_blocks``)."""
 
     from learnloop.experiments.contextual_embeddings.boundary import quiet_provider_logs
     from learnloop.source_retrieval.source_vectors import backfill_source_vectors
@@ -668,7 +753,16 @@ def backfill_service_copy(handle: Any, ledger: E0Ledger, *, client_factory: Any 
 
     reports = []
     with quiet_provider_logs(), gate_model_requests(gate):
-        for extraction_id in _current(handle):
+        extractions = _current(handle)
+        withheld = {extraction_id: withheld_records(handle, extraction_id, policy)
+                    for extraction_id in extractions} if policy is not None else {}
+        if any(withheld.values()):
+            # Not redacted: nothing of this copy is sent, for any extraction.
+            return [{"extraction_id": extraction_id, "status": "refused_unredacted",
+                     "withheld_records": withheld[extraction_id], "embedded": 0, "pass": 1,
+                     "reason": "the service copy's planned records include withheld blocks; nothing was sent"}
+                    for extraction_id in extractions]
+        for extraction_id in extractions:
             passes = 0
             while True:
                 guards.clear()
@@ -807,9 +901,11 @@ def prepare_service_copies(frozen_root: Path, service_root: Path, ledger: E0Ledg
         if factory_for_config is None:
             from learnloop.experiments.contextual_embeddings.live import qwen_factory as factory_for_config
         client_factory = factory_for_config(qwen.vault.config)
-    backfilled = backfill_service_copy(qwen, ledger, client_factory=guarded_factory(client_factory, snapshot))
+    backfilled = backfill_service_copy(qwen, ledger, client_factory=guarded_factory(client_factory, snapshot),
+                                       policy=snapshot.policy)
     coverage = dense_coverage_complete(qwen)
     report = {"r0": {"how": r0_how, "redaction": state["r0"].get("redaction")},
               "qwen": {"how": qwen_how, "redaction": state["qwen"].get("redaction"), "coverage": coverage,
+                       "guard": probe_plan(snapshot)[1],
                        "backfill": [{key: item.get(key) for key in BACKFILL_REPORT_KEYS} for item in backfilled]}}
     return {"R0": r0, "R1_service": qwen}, report
