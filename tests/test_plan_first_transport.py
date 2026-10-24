@@ -79,14 +79,18 @@ def isolated(tmp_path, monkeypatch):
     plan_fallback.revoke_all()
 
 
+#: The action each test's resolutions run as (redesign D: a grant names the action that asked).
+LEARNER = "test.learner_request"
+
+
 @pytest.fixture(autouse=True)
 def learner_request():
-    """Each test resolves routes as one learner request does (the sidecar's RPC
-    dispatch and the CLI command set ``plan_fallback.interactive()``): since the
-    T1 landing review a grant counts only there, or in a job carrying it
-    (tests/test_plan_first_transport_grant_scope.py pins both sides)."""
+    """Each test resolves routes as one request of action ``LEARNER`` does (the
+    sidecar's dispatch opens ``plan_fallback.request`` per RPC): since redesign D
+    a grant counts only in a request of the granted action, or in a unit it
+    created (tests/test_plan_first_transport_offer_grants.py pins the property)."""
 
-    with plan_fallback.interactive():
+    with plan_fallback.request(None, LEARNER):
         yield
 
 
@@ -126,10 +130,9 @@ def _vault(tmp_path: Path, *, opt_in: bool = False, extra: dict[str, Any] | None
 
 
 def _grant(vault: Path, tasks: list[str]) -> None:
-    """The learner answers an offer: the sidecar records the offer, then the grant."""
+    """The learner answers this action's offer (redesign D: the grant names the action, not tasks)."""
 
-    plan_fallback.remember_offer(vault, {"fallback_tasks": tasks})
-    assert plan_fallback.grant(vault, tasks) == sorted(tasks)
+    plan_fallback.grant_origin(vault, LEARNER, tasks)
 
 
 def _set_state(state: str, server) -> None:
@@ -649,7 +652,8 @@ def test_unavailable_offers_openrouter_only_when_configured_and_sends_nothing_un
     monkeypatch.setenv("LEARNLOOP_AI_PROVIDER", "chatgpt")
     assert ready_client_for_task(vault, config, "tutor_qa").provider_name == "chatgpt"
     monkeypatch.delenv("LEARNLOOP_AI_PROVIDER")
-    other = ready_client_for_task(vault, config, "grading")  # not chosen: still asked
+    with plan_fallback.request(None, "test.another_action"):  # another action: still asked (redesign D)
+        other = ready_client_for_task(vault, config, "grading")
     assert not other.ready and other.runtime.fallback_available == "openrouter"
     # A grant is for the feature the learner used, never for background work:
     # startup maintenance (a quiet probe) finds a granted task's plan route
@@ -722,23 +726,22 @@ def test_the_sidecar_attaches_the_typed_hint_and_ai_use_fallback_records_the_cho
     response = rpc("test.t1_feature")
     assert response["error"]["data"]["code"] == "ai_unavailable"
     assert "fallback_available" not in response["error"]["data"].get("details", {})
-    refused = rpc("ai_use_fallback", {"provider": "openrouter", "tasks": ["tutor_qa"]})
+    refused = rpc("ai_use_fallback", {"provider": "openrouter", "offerId": "fo_none"})
     assert refused["error"]["data"]["code"] == "fallback_unavailable"
-    # A key: the error carries the typed hint.
+    # A key: the error carries the typed hint, the offer's id and the action that asked.
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-never-sent")
     response = rpc("test.t1_feature")
     details = response["error"]["data"]["details"]
     assert (details["fallback_available"], details["fallback_tasks"], details["fallback_profile"]) == (
         "openrouter", ["tutor_qa"], "openrouter")
-    # The desktop's "Use OpenRouter instead".
-    unknown = rpc("ai_use_fallback", {"provider": "openrouter", "tasks": ["not_a_task"]})
+    assert details["fallback_origin"] == "test.t1_feature" and details["fallback_offer_id"]
+    assert "fallback_units" not in details
+    # The desktop's "Use OpenRouter instead" answers that offer; an unknown one answers nothing.
+    unknown = rpc("ai_use_fallback", {"provider": "openrouter", "offerId": "fo_not_an_offer"})
     assert unknown["error"]["data"]["code"] == "not_offered"
-    # Only what this vault was offered can be granted (review F4).
-    unoffered = rpc("ai_use_fallback", {"provider": "openrouter", "tasks": ["tutor_qa", "grading"]})
-    assert unoffered["error"]["data"]["code"] == "not_offered"
-    assert unoffered["error"]["data"]["details"]["offered_tasks"] == ["tutor_qa"]
-    chosen = rpc("ai_use_fallback", {"provider": "openrouter", "tasks": ["tutor_qa"]})
-    assert chosen["result"]["grantedTasks"] == ["tutor_qa"] and chosen["result"]["scope"] == "session"
+    chosen = rpc("ai_use_fallback", {"provider": "openrouter", "offerId": details["fallback_offer_id"]})
+    assert chosen["result"]["grantedActions"] == ["test.t1_feature"] and chosen["result"]["scope"] == "session"
+    assert chosen["result"]["grantedTasks"] == ["tutor_qa"]
     assert rpc("test.t1_feature")["result"] == {"provider": "openrouter"}
     stopped = rpc("ai_use_fallback", {"provider": "openrouter", "stop": True})
     assert stopped["result"]["grantedTasks"] == []
@@ -774,10 +777,10 @@ def test_a_background_jobs_offer_reaches_the_read_that_finds_it_done(tmp_path, m
             raise SidecarError("ai_unavailable", resolved.runtime.message or "unavailable")
         return work
 
-    # Started by the learner's press (round 2: a job nobody pressed asks nothing).
-    with plan_fallback.pressed(vault, "library"):
+    # Started in a request: the job belongs to that action and asks as it (redesign D).
+    if True:
         library_job = library_rpcs.LibraryJobs().start(ctx, "ask", None, unavailable("tutor_qa"))
-    with plan_fallback.pressed(vault, "hints"):
+    if True:
         hint_job = hint_rpcs.HintJobs().start(ctx, "item_1", unavailable("hint_writer"))
     assert library_job.done.wait(10) and hint_job.done.wait(10)
     # Polled from an RPC that resolved nothing itself: the job's offer is relayed.
@@ -796,12 +799,13 @@ def test_a_background_jobs_offer_reaches_the_read_that_finds_it_done(tmp_path, m
     assert offers.hint() is None
     # Without a key no job offers anything.
     monkeypatch.delenv("OPENROUTER_API_KEY")
-    with plan_fallback.pressed(vault, "library"):
+    if True:
         quiet_job = library_rpcs.LibraryJobs().start(ctx, "ask", None, unavailable("tutor_qa"))
     assert quiet_job.done.wait(10) and quiet_job.fallback_offer is None
     # A job no press started (opening margin notes, a suggestion) asks nothing either (round 2).
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-never-sent")
-    unpressed = library_rpcs.LibraryJobs().start(ctx, "ask", None, unavailable("tutor_qa"))
+    with plan_fallback.quiet():  # started by automatic work: it belongs to no action
+        unpressed = library_rpcs.LibraryJobs().start(ctx, "ask", None, unavailable("tutor_qa"))
     assert unpressed.done.wait(10) and unpressed.fallback_offer is None
     monkeypatch.delenv("OPENROUTER_API_KEY")
     # A nested collector (a job run inline) hands its offers to the enclosing one.
@@ -1051,8 +1055,8 @@ def test_f4_grants_are_per_vault_per_offer_and_the_env_grant_is_the_cli_commands
         thread.join(10)
         assert seen == [False]
     monkeypatch.delenv("LEARNLOOP_AI_FALLBACK")
-    # (c) Only offered tasks can be granted.
-    assert plan_fallback.grant(vault, ["grading"]) == []
+    # (c) Only an offer the dispatch minted can be answered (redesign D).
+    assert plan_fallback.answer_offer(vault, "fo_never_minted") is None
     _grant(vault, ["grading"])
     assert plan_fallback.granted_tasks(vault) == ["grading"]
     # (b) Per vault, and a vault switch clears them.
@@ -1062,7 +1066,7 @@ def test_f4_grants_are_per_vault_per_offer_and_the_env_grant_is_the_cli_commands
     ctx.load(vault)
     _grant(vault, ["grading"])
     ctx.load(other)
-    assert plan_fallback.granted_tasks(vault) == [] and plan_fallback.offered_tasks(vault) == []
+    assert plan_fallback.granted_tasks(vault) == [] and plan_fallback.granted_origins(vault) == []
 
 
 def test_f5_doctor_fix_keeps_the_tier_of_a_legacy_codex_route_value(tmp_path):
@@ -1154,7 +1158,9 @@ def test_f8_an_error_that_is_not_a_sidecar_error_keeps_the_offer(tmp_path, monke
     response = _handle(ctx, {"jsonrpc": "2.0", "id": 1, "method": "test.t1_crash", "params": {}})
     details = response["error"]["data"]["details"]
     assert details["outcome"] == "unknown" and details["fallback_tasks"] == ["tutor_qa"]
-    assert plan_fallback.offered_tasks(vault) == ["tutor_qa"]  # so the banner's click can be granted
+    # So the banner's click can be answered: the offer is minted for the action that crashed.
+    assert details["fallback_origin"] == "test.t1_crash"
+    assert plan_fallback.answer_offer(vault, details["fallback_offer_id"]).origin == "test.t1_crash"
 
 
 def test_f9_refused_codex_profiles_are_not_offered_as_grading_providers(tmp_path):
@@ -1192,16 +1198,15 @@ def test_rr_f1_the_connection_status_never_offers_and_shows_a_granted_build(tmp_
     status = rpc("get_ai_connection")["result"]
     assert status["canAuthor"] is False and "fallbackAvailable" not in status
     # Nothing was offered, so nothing can be granted from it.
-    assert plan_fallback.offered_tasks(vault) == []
     refused = rpc("connect_ai", {"provider": "current"})["error"]["data"]
     assert refused["code"] == "ai_not_connected" and "fallback_available" not in refused.get("details", {})
-    assert plan_fallback.offered_tasks(vault) == []
     # The build itself still asks.
     with plan_fallback.collecting() as offers:
         assert not authoring_route_for(vault, ctx.vault.config).ready
     assert offers.hint()["fallback_tasks"] == ["canonical_ingest"]
-    # Once the learner chose OpenRouter for the build, the status says what the build will use.
-    _grant(vault, ["canonical_ingest"])
+    # Once the learner chose OpenRouter for Add (the action whose offer it answered), the
+    # status says what Add will use (redesign D).
+    plan_fallback.grant_origin(vault, "add_source")
     granted = rpc("get_ai_connection")["result"]
     assert granted["canAuthor"] is True and granted["provider"] == "openrouter"
     assert "fallbackAvailable" not in granted
@@ -1339,9 +1344,10 @@ def test_fix_l1_the_rpc_gates_of_priced_features_offer_and_honour_no_grant_their
     status, message, offered = call(rpc)
     assert status == "provider_unavailable" and not offered, message
     assert setting in message and "can do this instead" not in message, message
-    assert "canonical_ingest" not in plan_fallback.offered_tasks(root)
-    # The question build's grant does not open the gate either: the job would refuse it.
-    _grant(root, ["canonical_ingest"])
+    # Even a yes to this very action does not open the gate: the job would refuse it.
+    gate = {"exercise_import": "reader.import_exercise", "inquiry_quick_check": "reader.reconnect_answer",
+            "selection_question": "reader.active_question"}[feature]
+    plan_fallback.grant_origin(root, gate)
     status, message, _offered = call(rpc)
     assert status == "provider_unavailable" and setting in message, message
     assert queued == []
@@ -1356,7 +1362,7 @@ def test_fix_l1_the_rpc_gates_of_priced_features_offer_and_honour_no_grant_their
     _ctx, rpc = _rpc_on(root)
     status, message, offered = call(rpc)
     assert status == "provider_unavailable" and offered and "can do this instead" in message, message
-    _grant(root, ["canonical_ingest"])
+    plan_fallback.grant_origin(root, gate)  # the learner's yes to this action
     status, message, _offered = call(rpc)
     assert status == "queued" and len(queued) == 1, message
     assert all(instance.requests == [] for instance in fake_openai.instances)  # built, never called
@@ -1399,7 +1405,7 @@ def test_fix_l2_a_quiet_status_read_never_points_at_an_offer_it_did_not_make(tmp
     vault = _vault(tmp_path)
     config = load_config(vault / "learnloop.toml")
     sentence = plan_fallback.offer_sentence()
-    for quiet in (plan_fallback.quiet(), plan_fallback.quiet(honour_grants=True)):
+    for quiet in (plan_fallback.quiet(), plan_fallback.status_as(LEARNER)):
         with quiet:
             resolved = ready_client_for_task(vault, config, "canonical_ingest")
         assert not resolved.ready

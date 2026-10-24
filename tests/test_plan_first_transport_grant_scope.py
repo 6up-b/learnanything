@@ -5,7 +5,7 @@ Owner decision 2026-10-21: "Use OpenRouter instead" serves that one request
 By construction (``learnloop.ai.plan_fallback``):
 
 * a grant counts only on the thread serving a learner request
-  (``plan_fallback.interactive()``: the sidecar's RPC dispatch, the CLI
+  (``plan_fallback.request(vault, action)``: the sidecar's RPC dispatch, the CLI
   command), bound to that thread, so a fresh thread or a context copied to
   another thread has none;
 * a job the learner started carries the grant explicitly: a token captured in
@@ -66,9 +66,12 @@ def _paths(root: Path):
     return VaultPaths(root, load_config(root / "learnloop.toml"))
 
 
+#: The action these tests' learner said yes to (redesign D: a grant names the action that asked).
+ACTION = "test.granted_action"
+
+
 def _grant_all(root: Path, tasks: list[str]) -> None:
-    plan_fallback.remember_offer(root, {"fallback_tasks": tasks})
-    plan_fallback.grant(root, tasks)
+    plan_fallback.grant_origin(root, ACTION, tasks)
 
 
 def _in_thread(fn: Callable[[], Any], *, copied: bool = False) -> Any:
@@ -112,19 +115,18 @@ def test_a_grant_counts_only_in_the_learners_request_or_a_job_carrying_it(tmp_pa
     for task in tasks:
         assert plan_route(vault, task).provider in CHATGPT_PLAN_PROVIDER_NAMES, task  # type: ignore[arg-type]
         assert not ready_client_for_task(root, vault.config, task).provider_name == "openrouter", task  # type: ignore[arg-type]
-    assert plan_fallback.capture_grant(root) is None
+    assert plan_fallback.unit_token(root) is None
 
-    with plan_fallback.interactive():
+    with plan_fallback.request(root, ACTION):
         served = {task for task in tasks
                   if ready_client_for_task(root, vault.config, task).provider_name == "openrouter"}  # type: ignore[arg-type]
         assert len(served) >= 40
         for task in tasks:
             planned = plan_route(vault, task).provider  # type: ignore[arg-type]
             assert (planned == "openrouter") == (task in served), task
-        # A request that is not a press captures nothing (round 2); a job's
-        # token (as a press would capture it, here for every task) is explicit.
-        assert plan_fallback.capture_grant(root) is None
-        token = plan_fallback.GrantToken(plan_fallback._vault_key(root), frozenset(tasks))
+        # A request of the granted action: a unit created now carries its token.
+        assert plan_fallback.unit_token(root) is not None
+        token = plan_fallback.unit_token(root)  # what a unit created in this request carries
 
         def plans() -> set[str]:
             return {task for task in tasks if plan_route(vault, task).provider == "openrouter"}  # type: ignore[arg-type]
@@ -142,7 +144,7 @@ def test_a_grant_counts_only_in_the_learners_request_or_a_job_carrying_it(tmp_pa
         # A readiness probe in the request honours no grant.
         with plan_fallback.quiet():
             assert plans() == set()
-            assert plan_fallback.capture_grant(root) is None
+            assert plan_fallback.unit_token(root) is None
 
     # "Stop using OpenRouter" ends a carried token at the job's next route.
     plan_fallback.revoke(root)
@@ -161,7 +163,7 @@ def test_the_cli_commands_grant_is_its_own_threads_only(tmp_path, monkeypatch, f
         assert _planned(root)[0] == "openrouter"
         assert _in_thread(lambda: _planned(root)[0]) in CHATGPT_PLAN_PROVIDER_NAMES
         assert _in_thread(lambda: _planned(root)[0], copied=True) in CHATGPT_PLAN_PROVIDER_NAMES
-        token = plan_fallback.capture_grant(root)
+        token = plan_fallback.unit_token(root)
 
         def carried() -> str | None:
             with plan_fallback.job_grant(token):
@@ -181,7 +183,7 @@ def test_a_manual_fallback_is_never_replaced_by_a_grant(tmp_path, fake_openai):
     document["ai"]["fallback_provider"] = "manual"
     path.write_text(tomlkit.dumps(document), encoding="utf-8")
     _grant_all(root, [KEY_TASK, "tutor_qa"])
-    with plan_fallback.interactive():
+    with plan_fallback.request(root, ACTION):
         vault = load_vault(root)
         # Routing answers manual before any grant; the paid path does the same.
         assert ready_client_for_task(root, vault.config, KEY_TASK).provider_name != "openrouter"
@@ -233,7 +235,7 @@ def test_startup_recovery_of_import_key_checks_never_uses_the_grant(tmp_path, mo
     seen, done, record = _recorder()
     monkeypatch.setattr(SEI, "pending_import_checks", lambda *_a, **_k: True)
     monkeypatch.setattr(SEI, "recover_import_checks", lambda root, _repository: record(root))
-    with plan_fallback.interactive():  # load() runs inside an RPC (select_vault)
+    with plan_fallback.request(root, ACTION):  # load() runs inside an RPC (select_vault)
         assert _planned(root)[0] == "openrouter"  # the grant is real in the request itself
         ctx = SidecarContext()
         ctx.load(root, maintenance=False)
@@ -253,8 +255,8 @@ def test_the_reader_imports_background_key_check_never_uses_the_grant(tmp_path, 
     seen, done, record = _recorder()
     monkeypatch.setattr(SEI, "record_reader_import", lambda *_a, **_k: [{"practice_item_id": "pi_x"}])
     monkeypatch.setattr(SEI, "verify_item_key", record)
-    with plan_fallback.interactive(), plan_fallback.pressed(root, "exercise_import") as token:
-        pass  # the learner pressed "Import this exercise"
+    with plan_fallback.request(root, ACTION):
+        token = plan_fallback.unit_token(root)  # the learner's "Import this exercise", said yes to
     ctx = SimpleNamespace(vault_root=root, repo=Repository.attach(_paths(root).sqlite_path),
                           services=RunnerServices(), clock=SystemClock())
     # Inside the Reader-import job, which carries the learner's grant: its background check does not.
@@ -283,7 +285,7 @@ def test_the_edit_recheck_never_uses_the_grant(tmp_path, monkeypatch, fake_opena
     ctx = SidecarContext()
     ctx.load(root, maintenance=False)
     item_id = next(iter(ctx.require_vault()[0].practice_items))
-    with plan_fallback.interactive():  # queued by the edit RPC
+    with plan_fallback.request(root, ACTION):  # queued by the edit RPC
         assert item_authoring._queue_key_recheck(ctx, item_id) == "queued"
     _assert_on_the_plan(seen, done)
 
@@ -312,7 +314,7 @@ def test_the_background_build_launcher_never_uses_the_grant(tmp_path, fake_opena
 
         return run
 
-    with plan_fallback.interactive():  # launched from a learner request (a serve, a submit)
+    with plan_fallback.request(root, ACTION):  # launched from a learner request (a serve, a submit)
         assert plan_route(vault, "approach_map").provider == "openrouter"
         thread = builds.launch(_paths(root).sqlite_path, work, name="t1-landing-grant-scope")
     assert thread is not None and done.wait(30)
@@ -336,9 +338,9 @@ def test_a_hint_job_started_in_the_request_carries_its_grant_and_a_background_on
     def work(_repository: Any, _cancelled: Callable[[], bool]) -> dict[str, Any]:
         return {"provider": _planned(root, "hint_writer")[0]}
 
-    with plan_fallback.interactive(), plan_fallback.pressed(root, "hints"):
+    with plan_fallback.request(root, ACTION):
         pressed = hint_rpcs.HintJobs().start(ctx, "item_1", work)
-    with plan_fallback.interactive():  # an RPC that is not a press (a suggestion)
+    with plan_fallback.request(root, "test.another_action"):  # an action nobody said yes to
         unpressed = hint_rpcs.HintJobs().start(ctx, "item_1", work)
     background = hint_rpcs.HintJobs().start(ctx, "item_1", work)
     assert pressed.done.wait(30) and background.done.wait(30) and unpressed.done.wait(30)
@@ -355,11 +357,11 @@ def test_an_ingest_batch_carries_the_grant_only_when_the_learner_enqueued_it(tmp
     _grant_all(root, ["canonical_ingest"])
     runner = IngestRunner(Repository.attach(_paths(root).sqlite_path), vault_root=root, worker_id="t1-landing",
                           handlers={})
-    with plan_fallback.interactive(), plan_fallback.pressed(root, "build"):
+    with plan_fallback.request(root, ACTION):
         pressed = runner.enqueue_batch("t1_landing", [JobSpec(job_type="noop", payload={})])
     background = runner.enqueue_batch("t1_landing", [JobSpec(job_type="noop", payload={})])
     token = plan_fallback.batch_grant(pressed)
-    assert token is not None and "canonical_ingest" in token.tasks
+    assert token is not None and token.origin == ACTION
     assert plan_fallback.batch_grant(background) is None
 
 
@@ -384,9 +386,9 @@ def test_the_imports_time_boxed_key_check_carries_its_requests_grant(tmp_path, f
         SEI._run_time_boxed(function, 30.0, pending, lambda: None)
         return seen[0]
 
-    with plan_fallback.interactive(), plan_fallback.pressed(root, "exercise_import"):  # start_primed_retry
+    with plan_fallback.request(root, ACTION):  # start_primed_retry, said yes to
         assert check_in(root) == "openrouter"
-    with plan_fallback.interactive():  # a request that is not that press
+    with plan_fallback.request(root, "test.another_action"):  # another action
         assert check_in(root) in CHATGPT_PLAN_PROVIDER_NAMES
     assert check_in(root) in CHATGPT_PLAN_PROVIDER_NAMES
     assert _in_thread(lambda: check_in(root)) in CHATGPT_PLAN_PROVIDER_NAMES

@@ -56,14 +56,18 @@ def isolated(tmp_path, monkeypatch):
     plan_fallback.revoke_all()
 
 
+#: The action each test's resolutions run as (redesign D: a grant names the action that asked).
+LEARNER = "test.learner_request"
+
+
 @pytest.fixture(autouse=True)
 def learner_request():
-    """Each test resolves routes as one learner request does (the sidecar's RPC
-    dispatch and the CLI command set ``plan_fallback.interactive()``): since the
-    T1 landing review a grant counts only there, or in a job carrying it
-    (tests/test_plan_first_transport_grant_scope.py pins both sides)."""
+    """Each test resolves routes as one request of action ``LEARNER`` does (the
+    sidecar's dispatch opens ``plan_fallback.request`` per RPC): a grant counts
+    only in a request of the granted action, or in a unit it created
+    (tests/test_plan_first_transport_offer_grants.py pins the property)."""
 
-    with plan_fallback.interactive():
+    with plan_fallback.request(None, LEARNER):
         yield
 
 
@@ -147,8 +151,7 @@ def test_a_grant_routes_a_paid_role_to_openrouter_priced_as_metered_and_a_ready_
         vault = load_vault(root)
         config = vault.config
         tasks = _routed_tasks(config)
-        plan_fallback.remember_offer(root, {"fallback_tasks": tasks})
-        plan_fallback.grant(root, tasks)
+        plan_fallback.grant_origin(root, LEARNER, tasks)
         served = 0
         for task in tasks:
             routed = ready_client_for_task(root, config, task)  # type: ignore[arg-type]
@@ -173,8 +176,7 @@ def test_a_grant_routes_a_paid_role_to_openrouter_priced_as_metered_and_a_ready_
         plan_fallback.revoke(root)
         client, message = resolve_client(vault, planned)
         assert client is None and "no longer serves it" in (message or "")
-        plan_fallback.remember_offer(root, {"fallback_tasks": tasks})
-        plan_fallback.grant(root, tasks)
+        plan_fallback.grant_origin(root, LEARNER, tasks)
         # A ready plan always serves first, granted or not.
         sign_in(PlanSession(), server)
         for task in MAIN_FEATURE_TASKS:

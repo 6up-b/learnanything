@@ -8,9 +8,9 @@ down) and the empty probe-pool sweep (``authoring_provider_available``:
 generation needs are queued only while authoring is ready). Neither is a
 feature the learner used, so neither makes an offer:
 
-* the teach-back filter honours a grant (``quiet(honour_grants=True)``): once
-  the learner chose OpenRouter for teach-back, Today offers teach-back items
-  again, served there;
+* the teach-back filter is a status read of the teach-back action
+  (``status_as("start_teach_back")``, redesign D): once the learner said yes to
+  the teach-back's own offer, Today offers teach-back items again, served there;
 * the probe-pool sweep queues background generation, so it honours no grant
   (``quiet()``; a grant never serves background work).
 
@@ -108,9 +108,11 @@ def test_opening_today_never_asks_and_using_teach_back_still_does(tmp_path, monk
     started = rpc("start_teach_back", {"sessionId": session_id, "practiceItemId": "pi_svd_teach_back"})
     assert started["error"]["data"]["code"] == "provider_unavailable"
     assert started["error"]["data"]["details"]["fallback_tasks"] == ["teach_back"]
-    # The learner chose OpenRouter for teach-back (and its grader): Today serves teach-back again, asking nothing.
-    plan_fallback.remember_offer(paths.root, {"fallback_tasks": ["teach_back", "grading"]})
-    plan_fallback.grant(paths.root, ["teach_back", "grading"])
+    # The learner answered that offer ("Use OpenRouter instead"): Today serves teach-back again, asking nothing.
+    details = started["error"]["data"]["details"]
+    assert details["fallback_origin"] == "start_teach_back"
+    answered = rpc("ai_use_fallback", {"provider": "openrouter", "offerId": details["fallback_offer_id"]})
+    assert answered["result"]["grantedActions"] == ["start_teach_back"]
     granted = rpc("get_today_queue", {"sessionId": session_id})
     assert _offers(granted) == {}
     assert "pi_svd_teach_back" in _served(granted)
@@ -126,9 +128,8 @@ def test_the_probe_pool_sweep_asks_nothing_and_honours_no_grant(tmp_path):
     with plan_fallback.collecting() as offers:
         assert authoring_provider_available(vault) is None
     assert offers.hint() is None
-    # Background generation is never served by a grant.
-    plan_fallback.remember_offer(paths.root, {"fallback_tasks": ["authoring"]})
-    plan_fallback.grant(paths.root, ["authoring"])
-    with plan_fallback.collecting() as offers:
+    # Background generation is never served by a grant, not even a yes to the action that runs the sweep.
+    plan_fallback.grant_origin(paths.root, "get_today_queue", ["authoring"])
+    with plan_fallback.request(paths.root, "get_today_queue"), plan_fallback.collecting() as offers:
         assert authoring_provider_available(vault) is None
     assert offers.hint() is None

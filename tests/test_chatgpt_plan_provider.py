@@ -247,10 +247,9 @@ def test_usage_limit_mid_stream_pauses_the_plan_and_routes_fall_back(server, tmp
 
     asked = ready_client_for_task(vault, config, "tutor_qa")
     assert not asked.ready and asked.provider_name == "chatgpt" and asked.runtime.fallback_available == "openrouter"
-    plan_fallback.remember_offer(vault, {"fallback_tasks": ["tutor_qa"]})
-    plan_fallback.grant(vault, ["tutor_qa"])
+    plan_fallback.grant_origin(vault, "test.tutor_question", ["tutor_qa"])
     try:
-        with plan_fallback.interactive():  # the learner's request (T1 landing review: grants count only there)
+        with plan_fallback.request(vault, "test.tutor_question"):  # a request of the action said yes to
             resolved = ready_client_for_task(vault, config, "tutor_qa")
     finally:
         plan_fallback.revoke_all()
