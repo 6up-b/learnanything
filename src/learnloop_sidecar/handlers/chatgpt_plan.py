@@ -18,7 +18,6 @@ import threading
 import time
 from typing import Any, Literal
 
-from pydantic import Field
 
 from learnloop.ai.chatgpt_plan.oauth import SignInError
 from learnloop.ai.chatgpt_plan.routes import plan_profiles
@@ -125,9 +124,10 @@ def chatgpt_plan_payload(ctx: SidecarContext) -> dict[str, Any]:
     from learnloop.ai import plan_fallback
 
     granted = plan_fallback.granted_tasks(ctx.vault_root) if ctx.vault_root is not None else []
+    actions = plan_fallback.granted_origins(ctx.vault_root) if ctx.vault_root is not None else []
     return {**status, "attempt": ATTEMPTS.snapshot(), "profiles": profiles,
             "using_plan": any(entry["in_use"] and entry["enabled"] for entry in profiles),
-            "openrouter_granted_tasks": granted}
+            "openrouter_granted_tasks": granted, "openrouter_granted_actions": actions}
 
 
 @method("chatgpt_plan_status", EmptyParams)
@@ -177,25 +177,27 @@ def chatgpt_plan_resume(ctx: SidecarContext, _params: EmptyParams) -> dict[str, 
 class UseFallbackParams(ParamsModel):
     # The one fallback the owner approved (2026-10-21).
     provider: Literal["openrouter"]
-    # The tasks the feature's hint named (``fallback_tasks``).
-    tasks: list[str] = Field(default_factory=list)
-    # True: stop using OpenRouter for every task granted on this vault (review F8).
+    # The offer being answered (the hint's ``fallback_offer_id``; redesign D).
+    offer_id: str | None = None
+    # True: stop using OpenRouter on this vault (review F8): every grant ends and the epoch moves on.
     stop: bool = False
 
 
 @method("ai_use_fallback", UseFallbackParams)
 def ai_use_fallback(ctx: SidecarContext, params: UseFallbackParams) -> dict[str, Any]:
-    """The learner chose "Use OpenRouter instead" (plan-first transport T1).
+    """The learner chose "Use OpenRouter instead" on one offer (plan-first transport T1, redesign D).
 
-    While the ChatGPT plan is unavailable, the named tasks run on the
-    configured OpenRouter profile (``ai.plan_fallback_profile``) for the rest
-    of this session, on this vault only (a vault switch clears the grant):
-    the tasks of the feature that asked, and only those this vault was
-    offered (review F4), and only while the plan cannot serve them (a ready
-    plan route is always used first). A granted request is an ordinary
-    metered request, so every feature's spend caps apply. Refused when no
-    OpenRouter profile with a key is configured: the offer is never shown
-    then. ``stop: true`` revokes every grant on this vault.
+    The offer is the grant (owner Q1-Q3, 2026-10-23): it grants the action
+    that asked (the RPC method that raised the offer) on this vault for the
+    rest of this session, including the times LearnLoop runs that action by
+    itself, never another action or background work; and the units of work
+    the offer lists (a queued batch) carry it. While the plan cannot serve
+    (a ready plan route is always used first), that action's requests run on
+    the configured OpenRouter profile (``ai.plan_fallback_profile``), as
+    ordinary metered requests under every feature's spend caps. An unknown or
+    stale offer (one shown before a stop) answers nothing: ``not_offered``.
+    ``stop: true`` ends every grant on this vault and kills every token
+    captured so far (the epoch moves on).
     """
 
     from learnloop.ai import plan_fallback
@@ -204,23 +206,18 @@ def ai_use_fallback(ctx: SidecarContext, params: UseFallbackParams) -> dict[str,
     if params.stop:
         plan_fallback.revoke(vault.root)
         return versioned({"provider": params.provider, "profile": plan_fallback.offer_profile(vault.config),
-                          "granted_tasks": [], "scope": "session"})
+                          "granted_tasks": [], "granted_actions": [], "scope": "session"})
     profile = plan_fallback.offer_profile(vault.config)
     if profile is None:
         raise SidecarError("fallback_unavailable",
                            "OpenRouter isn't set up on this computer. Add an OpenRouter key in Settings first.")
-    offered = set(plan_fallback.offered_tasks(vault.root))
-    not_offered = sorted({task for task in params.tasks if task not in offered})
-    if not_offered or not params.tasks:
-        raise SidecarError(
-            "not_offered",
-            "Name the tasks of the offer you are answering (its fallback_tasks); "
-            f"not offered on this vault: {', '.join(not_offered) or 'none given'}.",
-            details={"offered_tasks": sorted(offered)},
-        )
-    plan_fallback.grant(vault.root, params.tasks)
-    return versioned({"provider": params.provider, "profile": profile,
-                      "granted_tasks": plan_fallback.granted_tasks(vault.root), "scope": "session"})
+    offer = plan_fallback.answer_offer(vault.root, params.offer_id)
+    if offer is None:
+        raise SidecarError("not_offered", "That choice is no longer open. Try it again.",
+                           details={"offer_id": params.offer_id})
+    return versioned({"provider": params.provider, "profile": profile, "offer_id": offer.id,
+                      "action": offer.origin, "granted_tasks": plan_fallback.granted_tasks(vault.root),
+                      "granted_actions": plan_fallback.granted_origins(vault.root), "scope": "session"})
 
 
 __all__ = ["ATTEMPTS", "SignInAttempts", "chatgpt_plan_payload"]

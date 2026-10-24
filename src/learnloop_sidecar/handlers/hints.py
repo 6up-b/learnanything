@@ -35,8 +35,6 @@ the submitted answer; it moves no posterior and writes no probe observation.
 
 from __future__ import annotations
 
-from contextlib import nullcontext
-
 from dataclasses import dataclass, field
 import logging
 import threading
@@ -109,14 +107,12 @@ class HintJobs:
             while len(self._kept) > MAX_KEPT_JOBS:
                 self._kept.pop(next(iter(self._kept)))
 
-        # T1 landing review: the learner started this job, so it carries their grant,
-        # captured here in their request (a worker thread never inherits one).
+        # T1 landing (redesign D): the job belongs to the action whose request started it,
+        # and carries that action's token when it is granted (taken here, in the request).
         from learnloop.ai import plan_fallback as _plan_fallback
 
-        grant = _plan_fallback.capture_grant(_vault.root)
-        # Round 2: a job the learner did not press (opening a book's margin notes or
-        # reading path, a suggestion) asks nothing either: a grant could never serve it.
-        asked = _plan_fallback.is_pressed()
+        grant, origin = _plan_fallback.unit_token(_vault.root), _plan_fallback.unit_origin()
+        _plan_fallback.note_unit("job", job.job_id)
 
         def cancelled() -> bool:
             with job.lock:
@@ -128,8 +124,7 @@ class HintJobs:
 
             # Plan-first transport T1: the job's thread has no RPC collector;
             # it keeps its own offers and the read that finds it done relays them.
-            with plan_fallback.job_grant(grant), \
-                (nullcontext() if asked else plan_fallback.quiet()), plan_fallback.collecting() as offers:
+            with plan_fallback.unit(grant, origin) as offers:
                 try:
                     worker_repo = Repository.attach(sqlite_path)
                     # Receipts are owned as the serial loop owns an RPC's; the

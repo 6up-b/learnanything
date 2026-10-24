@@ -309,14 +309,15 @@ def teach_back_offerable(vault, *, grading_provider_override: str | None = None)
     A readiness probe (the Today queue's and the daily plan's teach-back
     filter), not the feature: it makes no "Use OpenRouter instead" offer
     (plan-first transport T1, landing onto main: the owner asks only when a
-    feature the learner used could not run), but a learner's grant still
-    counts, so a granted teach-back is offered again. ``start_teach_back``
-    resolves its provider itself and asks.
+    feature the learner used could not run), but a yes to starting a
+    teach-back (redesign D: the action ``start_teach_back``) still counts, so
+    a granted teach-back is offered again. ``start_teach_back`` resolves its
+    provider itself and asks.
     """
 
     from learnloop.ai import plan_fallback
 
-    with plan_fallback.quiet(honour_grants=True):
+    with plan_fallback.status_as("start_teach_back"):
         _provider, runtime, client = ready_teach_back_provider(vault)
         if runtime.ready and client is not None:
             _grader, grading_runtime, grading_client = ready_grading_provider(

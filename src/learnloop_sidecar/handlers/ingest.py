@@ -366,6 +366,10 @@ def get_ingest_batch(ctx: SidecarContext, params: IngestBatchInput) -> dict[str,
     if batch is None:
         raise SidecarError("ingest_batch_not_found", f"Batch '{params.batch_id}' was not found.")
     _reload_applied_batches(ctx, [batch])
+    from learnloop.ai import plan_fallback
+
+    # Redesign D: the batch's own offer (its action's, never this read's), once.
+    plan_fallback.relay_batch_offer(params.batch_id)
     return versioned(batch)
 
 

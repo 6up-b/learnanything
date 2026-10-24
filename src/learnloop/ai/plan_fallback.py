@@ -18,11 +18,12 @@ silently:
   until its price is set (``hints.price_per_million`` and the like), or that
   needs a capability OpenRouter lacks (a snapshot diagnosis's workspace),
   says why instead of offering.
-* Only a **grant** routes a task to OpenRouter: the desktop's "Use OpenRouter
-  instead" (RPC ``ai_use_fallback``) grants the tasks of the feature that
-  asked, validated against what this vault was offered, for this sidecar
-  session and this vault only (a vault switch clears them; review F4);
-  ``LEARNLOOP_AI_FALLBACK=openrouter`` grants every task for one CLI command,
+* Only a **grant** routes to OpenRouter, and the offer is the grant (landing
+  redesign D, owner Q1-Q3): the desktop's "Use OpenRouter instead" (RPC
+  ``ai_use_fallback {offerId}``) answers one offer, which grants the ACTION
+  that asked (its RPC method) for this sidecar session and this vault only
+  (a vault switch clears it), and the units of work the offer lists; see
+  "The learner's choice" below. ``LEARNLOOP_AI_FALLBACK=openrouter`` grants one CLI command,
   read by the CLI's entry point alone (:func:`command_grant`) and held in
   that command's context, so a long-lived host (the sidecar, the phone or MCP
   host) or a background thread in a fresh context never sees it. A granted
@@ -163,6 +164,12 @@ class OfferCollector:
     plan_failed: bool = False
     #: The plan needs a sign-in (the desktop also offers "Continue with ChatGPT").
     signed_out: bool = False
+    #: The action this collector's offers belong to (a request's method, a unit's origin).
+    origin: str | None = None
+    #: An offer relayed from a job or batch keeps that unit's origin (never the poll's).
+    relayed_origin: str | None = None
+    #: Units created here, or named by a relayed offer: answering tokens the batches.
+    units: list[tuple[str, str]] = field(default_factory=list)
 
     def hint(self) -> dict[str, Any] | None:
         """The typed hint for the adapter, or ``None`` when nothing was offered."""
@@ -173,43 +180,45 @@ class OfferCollector:
                 tasks.setdefault(task, profile)
         if not tasks:
             return None
-        return {
+        hint: dict[str, Any] = {
             "fallback_available": FALLBACK_KIND,
             "fallback_profile": sorted(set(tasks.values()))[0],
             "fallback_tasks": sorted(tasks),
             "plan_signed_out": self.signed_out,
         }
+        origin = self.relayed_origin or self.origin
+        if origin:
+            hint["fallback_origin"] = origin
+        if self.units:
+            hint["fallback_units"] = [list(unit) for unit in self.units]
+        return hint
 
 
 _COLLECTOR: ContextVar[OfferCollector | None] = ContextVar("learnloop_plan_fallback_offers", default=None)
 #: Set inside :func:`quiet`: a readiness probe, not a feature the learner used.
 _QUIET: ContextVar[bool] = ContextVar("learnloop_plan_fallback_quiet", default=False)
-#: Set inside ``quiet(honour_grants=True)``: a status read that makes no offer.
+#: Set inside :func:`status_as`: a status read that makes no offer.
 _NO_OFFERS: ContextVar[bool] = ContextVar("learnloop_plan_fallback_no_offers", default=False)
 
 
 @contextmanager
-def quiet(*, honour_grants: bool = False) -> Iterator[None]:
-    """Make no offer, and (by default) honour no grant, for routes resolved in this block.
+def quiet() -> Iterator[None]:
+    """Make no offer and honour no grant for routes resolved in this block; units made here have no origin.
 
-    For readiness probes (the snapshot's health line, startup maintenance):
-    they report the plan's state themselves, and the learner is asked about
-    OpenRouter only when a feature they used could not run. A grant is for
-    the feature the learner used, never for background work: a deferred
-    regrade backlog found at startup waits for the plan even while
-    "grading" is granted for the session.
-
-    ``honour_grants``: a status read that shows what a feature would use
-    (the AI connection sheet, read on every vault load: re-review F1) makes
-    no offer but reports a granted route as the one that serves; it sends
-    nothing itself.
+    For readiness probes (the snapshot's health line, startup maintenance)
+    and automatic work (keep-ahead on reading progress): they report the
+    plan's state themselves, and the learner is asked about OpenRouter only
+    when a feature they used could not run. A grant is never for background
+    work: a deferred regrade backlog found at startup waits for the plan even
+    while "grading" is granted for the session. A status read of what an
+    action would use is :func:`status_as`.
     """
 
-    token = (_NO_OFFERS if honour_grants else _QUIET).set(True)
+    token = _QUIET.set(True)
     try:
         yield
     finally:
-        (_NO_OFFERS if honour_grants else _QUIET).reset(token)
+        _QUIET.reset(token)
 
 
 def _collector() -> OfferCollector | None:
@@ -227,15 +236,16 @@ def offers_suppressed() -> bool:
 
 
 @contextmanager
-def collecting() -> Iterator[OfferCollector]:
-    """Collect the offers made while the block runs (one RPC, or one background job).
+def collecting(origin: str | None = None) -> Iterator[OfferCollector]:
+    """Collect the offers made while the block runs (one RPC, or one unit's work), as action ``origin``.
 
-    A nested block (a job run inline inside its RPC) also hands its offers
-    to the enclosing collector when it ends, so neither loses them.
+    A nested block also hands its offers to the enclosing collector when it
+    ends, so neither loses them (a unit's runner clears the request's
+    collector first: :func:`job_grant`).
     """
 
     parent = _COLLECTOR.get()
-    collector = OfferCollector()
+    collector = OfferCollector(origin=origin)
     token = _COLLECTOR.set(collector)
     try:
         yield collector
@@ -252,6 +262,11 @@ def _merge_into(collector: OfferCollector, hint: dict[str, Any] | None) -> None:
     for task in hint.get("fallback_tasks") or []:
         collector.unavailable.setdefault(str(task), profile)
     collector.signed_out = collector.signed_out or bool(hint.get("plan_signed_out"))
+    relayed = hint.get("fallback_origin")
+    if relayed and relayed != collector.origin and collector.relayed_origin is None:
+        collector.relayed_origin = str(relayed)
+    for unit in hint.get("fallback_units") or []:
+        collector.units.append((str(unit[0]), str(unit[1])))
 
 
 def relay_hint(hint: dict[str, Any] | None) -> None:
@@ -291,8 +306,13 @@ def start_collecting() -> OfferCollector:
 
 
 def current_hint() -> dict[str, Any] | None:
+    """The hint of this context's collector (the CLI's JSON), without its unit list."""
+
     collector = _COLLECTOR.get()
-    return collector.hint() if collector is not None else None
+    hint = collector.hint() if collector is not None else None
+    if hint is not None:
+        hint.pop("fallback_units", None)
+    return hint
 
 
 def note_unavailable(task: str, profile: str, *, signed_out: bool = False) -> None:
@@ -318,227 +338,232 @@ def note_plan_failure(*, signed_out: bool = False) -> None:
 
 
 # ---------------------------------------------------------------------------
-# The learner's choice
+# The learner's choice (landing redesign D, owner Q1-Q3 2026-10-23: the offer is the grant)
 # ---------------------------------------------------------------------------
+#
+# A grant names the ACTION THAT ASKED: the RPC method whose request raised the
+# offer (for an offer relayed from a job or a batch, the method that started
+# it). Never a task, never a feature table. It is honoured only in
+#
+# * a REQUEST of that method (``request``: the dispatch opens one per RPC), or
+# * a WORK UNIT created in one (an ingest batch, a sidecar job, the import's
+#   time-boxed check: each takes ``unit_token()`` when it is created), or named
+#   by the answered offer (its ``units``),
+#
+# and only while the vault's EPOCH is the one the grant was given in: "Stop
+# using OpenRouter" (``revoke``) bumps it, so no token captured earlier (a
+# waiting worker, a queued batch) ever revives, even after a new yes. Q1: a
+# granted action keeps using OpenRouter for the session, including when
+# LearnLoop runs it by itself; never another action, never background work.
+# Q2: each action asks once ("Not now" mutes it, in the desktop).
 
-#: Per vault (its resolved root): the tasks the learner granted, and the
-#: tasks a request on that vault was offered (a grant must name only those).
-_GRANTS: dict[str, set[str]] = {}
-_OFFERED: dict[str, set[str]] = {}
+#: Per vault: the granted origins, and the tasks their offers named (display only).
+_GRANTS: dict[str, dict[str, set[str]]] = {}
+#: Per vault: its epoch (a stop bumps it); ``_GLOBAL`` is bumped by revoke_all.
+_EPOCH: dict[str, int] = {}
+_GLOBAL = {"epoch": 0}
+_SEQ = {"n": 0}
+#: Offers minted by the dispatch, by id.
+_OFFERS: dict[str, "Offer"] = {}
+#: Per batch id: its token, its origin (the action that created it) and the offer it keeps.
+_BATCH_GRANTS: dict[str, "GrantToken"] = {}
+_BATCH_ORIGIN: dict[str, str] = {}
+_BATCH_OFFERS: dict[str, dict[str, Any]] = {}
 _GRANTS_LOCK = threading.Lock()
 #: Set by :func:`command_grant` for one CLI command's context only.
 _COMMAND_GRANT: ContextVar[bool] = ContextVar("learnloop_plan_fallback_command_grant", default=False)
-#: Set by :func:`interactive`: the thread serving one learner request (the
-#: sidecar's RPC dispatch, the CLI command). Holds that thread's ident, so a
-#: copied context run on another thread (a worker started with
-#: ``copy_context()``) is not interactive either.
-_INTERACTIVE: ContextVar[int | None] = ContextVar("learnloop_plan_fallback_interactive", default=None)
-#: Set by :func:`job_grant`: running a job's work on this thread, with the
-#: grant it carries (``None``: none), and the thread it was entered on. Inside a
-#: job no learner request and no press counts, only the job's own token.
-_JOB_GRANT: ContextVar[tuple["GrantToken | None", int] | None] = ContextVar("learnloop_plan_fallback_job_grant",
-                                                                            default=None)
-#: Set by :func:`pressed`: the learner pressed a feature in this request, with
-#: the token captured for it (narrowed to the feature's tasks) and the thread.
-_PRESSED: ContextVar[tuple["GrantToken | None", int] | None] = ContextVar("learnloop_plan_fallback_pressed",
-                                                                          default=None)
-#: Per batch id: the token an ingest batch the learner pressed carries (process memory only: after a
-#: restart a batch runs without one, on the plan).
-_BATCH_GRANTS: dict[str, "GrantToken"] = {}
-
-#: The tasks each pressed feature's queued work may use a grant for (T1 landing
-#: review round 2: a token names the feature's own tasks, never every task
-#: granted on the vault). A feature's offer names its own tasks, so its grant is
-#: within this set.
-FEATURE_TASKS: dict[str, frozenset[str]] = {
-    # Add source / Create study map / Append / Quick add / import / inventory /
-    # extraction repair / build retry: the question build (review F3).
-    "build": frozenset({"canonical_ingest", "canonical_ingest_retry", "authoring"}),
-    # The Reader's paid passage, selection and inquiry checks.
-    "reader_check": frozenset({"canonical_ingest", "authoring"}),
-    # Exercise imports (Reader, textbook, workbench, the primed retry) and their key checks.
-    "exercise_import": frozenset({"canonical_ingest", "authoring", "source_solution_match",
-                                  "exercise_discrimination", "worked_example_equivalence"}),
-    "rung_variant": frozenset({"rung_variant"}),
-    "animation": frozenset({"animation"}),
-    "question_promotion": frozenset({"tutor_qa", "authoring"}),
-    # Goal population, starter and commissioning practice.
-    "practice": frozenset({"canonical_ingest", "authoring"}),
-    # Hints and the workbench (check, help, the worked example, compare).
-    "hints": frozenset({"hint_writer", "hint_outcome", "approach_map", "workbench_check", "source_query_rewrite",
-                        "source_rerank", "source_relevance_judge", "source_query_writer"}),
-    # The library ask / notes / compare / tutor, figures, exercise search.
-    "library": frozenset({"library_organizer", "tutor_qa", "source_compare", "source_query_rewrite",
-                          "source_rerank", "source_relevance_judge", "source_query_writer", "figure_author",
-                          "exercise_discrimination"}),
-    "reading_path": frozenset({"reading_path_judge"}),
-}
+#: Set by :func:`request`: (origin, thread ident) of the request this thread serves.
+_REQUEST: ContextVar[tuple[str, int] | None] = ContextVar("learnloop_plan_fallback_request", default=None)
+#: Set by :func:`job_grant`: (origin, token, thread ident) of the work unit this thread runs.
+_JOB: ContextVar[tuple[str | None, "GrantToken | None", int] | None] = ContextVar(
+    "learnloop_plan_fallback_job", default=None)
+#: Set by :func:`status_as`: (origin, thread ident): a status read of what that action would use.
+_STATUS_AS: ContextVar[tuple[str, int] | None] = ContextVar("learnloop_plan_fallback_status_as", default=None)
 
 
 def _vault_key(vault_root: Any) -> str:
     return str(Path(vault_root).resolve())
 
 
-@dataclass(frozen=True)
-class GrantToken:
-    """A learner's grant captured when they started a job (:func:`capture_grant`).
-
-    It names the vault and the tasks granted at that moment (or, for a CLI
-    command's ``LEARNLOOP_AI_FALLBACK``, every task). At use, a session task
-    must still be granted, so "Stop using OpenRouter" ends it for the job's
-    next route.
-    """
-
-    vault_key: str
-    tasks: frozenset[str]
-    #: The CLI's ``LEARNLOOP_AI_FALLBACK``: these tasks without a session grant.
-    command: bool = False
-    #: The CLI command's own press: every task, any vault (``vault_key == "*"``).
-    every: bool = False
-
-    def covers(self, task: str, key: str) -> bool:
-        return self.vault_key in (key, "*") and (self.every or task in self.tasks)
-
-
 def _here() -> int:
     return threading.get_ident()
 
 
-@contextmanager
-def interactive() -> Iterator[None]:
-    """Serve one learner request on this thread: a grant counts only here (or under :func:`job_grant`).
+def _epoch(key: str) -> tuple[int, int]:
+    return (_GLOBAL["epoch"], _EPOCH.get(key, 0))
 
-    Set by the sidecar's RPC dispatch and the CLI's entry point (landing
-    review of T1: a grant never serves background work, by construction).
-    Every other thread, now and in the future, starts without it, and a
-    context copied to another thread does not carry it (it is bound to this
-    thread's ident).
-    """
 
-    token = _INTERACTIVE.set(_here())
-    try:
-        yield
-    finally:
-        _INTERACTIVE.reset(token)
+def _next() -> int:
+    _SEQ["n"] += 1
+    return _SEQ["n"]
+
+
+@dataclass(frozen=True)
+class GrantToken:
+    """A unit's grant: the action it belongs to, in the epoch it was given (:func:`unit_token`)."""
+
+    vault_key: str
+    origin: str
+    epoch: tuple[int, int] = (0, 0)
+    #: The CLI's ``LEARNLOOP_AI_FALLBACK``: the command's own grant, any vault, every task.
+    command: bool = False
+
+    def live(self, key: str) -> bool:
+        if self.command:
+            return True
+        with _GRANTS_LOCK:
+            return (self.vault_key == key and self.epoch == _epoch(key)
+                    and self.origin in _GRANTS.get(key, {}))
+
+
+@dataclass(frozen=True)
+class Offer:
+    """One "Use OpenRouter instead" the dispatch showed: answering it grants ``origin``."""
+
+    id: str
+    vault_key: str
+    origin: str
+    tasks: tuple[str, ...]
+    units: tuple[tuple[str, str], ...]
+    epoch: tuple[int, int]
+
+
+def _request_origin() -> str | None:
+    entry = _REQUEST.get()
+    if entry is None or entry[1] != _here() or _in_job():
+        return None
+    return entry[0]
+
+
+def _job_here() -> tuple[str | None, "GrantToken | None"] | None:
+    entry = _JOB.get()
+    if entry is None or entry[2] != _here():
+        return None
+    return entry[0], entry[1]
 
 
 def _in_job() -> bool:
-    entry = _JOB_GRANT.get()
-    return entry is not None and entry[1] == _here()
-
-
-def is_interactive() -> bool:
-    """On the thread serving a learner request, outside a probe and outside any job's work."""
-
-    return _INTERACTIVE.get() == _here() and not _QUIET.get() and not _in_job()
-
-
-def _job_token() -> "GrantToken | None":
-    entry = _JOB_GRANT.get()
-    if entry is None or entry[1] != _here():
-        return None
-    return entry[0]
-
-
-def _narrowed(token: GrantToken | None, tasks: Iterable[str] | None, key: str) -> GrantToken | None:
-    if token is None or token.vault_key not in (key, "*"):
-        return None
-    if tasks is None:
-        return token
-    kept = frozenset(tasks) if token.every else token.tasks & frozenset(tasks)
-    return GrantToken(key, kept, command=token.command) if kept else None
-
-
-def _capture_now(key: str, tasks: frozenset[str]) -> GrantToken | None:
-    if _COMMAND_GRANT.get():
-        return GrantToken(key, tasks, command=True)
-    with _GRANTS_LOCK:
-        kept = frozenset(_GRANTS.get(key, set())) & tasks
-    return GrantToken(key, kept) if kept else None
+    return _job_here() is not None
 
 
 @contextmanager
-def pressed(vault_root: Any, feature: str) -> Iterator[GrantToken | None]:
-    """The learner pressed ``feature`` in this request: queued work may carry their grant.
+def request(vault_root: Any, origin: str) -> Iterator[None]:
+    """Serve one request of action ``origin`` on this thread (the sidecar's dispatch, per RPC).
 
-    Entered by the sidecar's dispatch for the RPCs a learner press sends
-    (``learnloop_sidecar.pressed.PRESSED_RPCS``) and nowhere else (T1 landing
-    review round 2: scrolling, polling, Today and status reads are not a
-    press). The token is captured now, narrowed to ``FEATURE_TASKS[feature]``;
-    ``None`` outside a learner request, inside a probe or a job, or when none
-    of the feature's tasks is granted.
+    Bound to this thread: a fresh thread, or a context copied to another
+    thread, is not in it. ``vault_root`` is informational (grants are read
+    per vault at use).
     """
 
-    token = None
-    if vault_root is not None and is_interactive():
-        token = _capture_now(_vault_key(vault_root), FEATURE_TASKS[feature])
-    entry = _PRESSED.set((token, _here()))
+    token = _REQUEST.set((origin, _here()))
     try:
-        yield token
+        yield
     finally:
-        _PRESSED.reset(entry)
+        _REQUEST.reset(token)
 
 
-def is_pressed() -> bool:
-    """Inside a learner's press on this thread (whether or not anything is granted), outside any job."""
+def unit_origin() -> str | None:
+    """The action a unit of work created now belongs to: the request's, outside any job and any probe."""
 
-    entry = _PRESSED.get()
-    return entry is not None and entry[1] == _here() and not _in_job() and not _QUIET.get()
-
-
-def pressed_token(vault_root: Any = None) -> GrantToken | None:
-    """The token of the press around this call, on its own thread, outside any job's work."""
-
-    entry = _PRESSED.get()
-    if entry is None or entry[1] != _here() or entry[0] is None or _in_job() or _QUIET.get():
+    if _QUIET.get():
         return None
-    if vault_root is not None and entry[0].vault_key not in (_vault_key(vault_root), "*"):
-        return None
-    return entry[0]
+    return _request_origin()
 
 
-def capture_grant(vault_root: Any, tasks: Iterable[str] | None = None) -> GrantToken | None:
-    """The grant a job started now may carry: the press around it, or the job it runs in.
+def unit_token(vault_root: Any) -> GrantToken | None:
+    """The token a unit created now carries (or the time-boxed check runs under).
 
-    ``None`` outside a press and outside a job carrying a token (a request
-    that is not a press, a background thread), inside a readiness probe, or
-    when none of ``tasks`` is granted. ``tasks`` narrows further (a job keeps
-    only its own). The caller keeps it with the job and runs the job under
-    :func:`job_grant`; nothing is inherited implicitly.
+    In a request of a granted action: that action's token, in the current
+    epoch. In a job: the job's own token. ``None`` otherwise, under
+    :func:`quiet`, or with no vault.
     """
 
     if _QUIET.get() or vault_root is None:
         return None
     key = _vault_key(vault_root)
-    if _in_job():
-        return _narrowed(_job_token(), tasks, key)
-    return _narrowed(pressed_token(vault_root), tasks, key)
+    job = _job_here()
+    if job is not None:
+        token = job[1]
+        return token if token is not None and (token.command or token.vault_key == key) else None
+    origin = _request_origin()
+    if origin is None:
+        return None
+    if _COMMAND_GRANT.get():
+        return GrantToken("*", origin, command=True)
+    with _GRANTS_LOCK:
+        if origin not in _GRANTS.get(key, {}):
+            return None
+        return GrantToken(key, origin, _epoch(key))
+
+
+def note_unit(kind: str, unit_id: str) -> None:
+    """Record a unit created in this request, so its offer lists it (answering tokens it)."""
+
+    collector = _COLLECTOR.get()
+    if collector is not None and not offers_suppressed() and not _in_job():
+        collector.units.append((kind, str(unit_id)))
 
 
 @contextmanager
-def job_grant(token: GrantToken | None) -> Iterator[None]:
-    """Run a job's work on this thread under the grant it carries (``None``: none).
+def job_grant(token: GrantToken | None, origin: str | None = None, *,
+              keep_collector: bool = False) -> Iterator[None]:
+    """Run a unit's work on this thread under its token (``None``: none), as action ``origin``.
 
-    Always entered by a job's runner, token or not: inside it neither the
-    learner request nor a press around it counts (a job drained in the
-    request's own thread is still a job), only this token.
+    Always entered by a unit's runner. Inside it the request around it (a
+    batch drained inline) does not count, and that request's collector is
+    cleared: the unit opens its own (``collecting(origin=...)``) when it may
+    ask. ``keep_collector``: the unit is part of the request that waits on it
+    (the import's time-boxed check), so its offers stay that request's.
     """
 
-    entry = _JOB_GRANT.set((token, _here()))
+    entry = _JOB.set((origin, token, _here()))
+    collector = _COLLECTOR.set(_COLLECTOR.get() if keep_collector else None)
     try:
         yield
     finally:
-        _JOB_GRANT.reset(entry)
+        _COLLECTOR.reset(collector)
+        _JOB.reset(entry)
 
 
-def remember_batch_grant(batch_id: str, token: GrantToken | None) -> None:
-    """Keep ``token`` with ``batch_id``; ``None`` drops any token the batch had."""
+@contextmanager
+def unit(token: GrantToken | None, origin: str | None) -> Iterator[OfferCollector]:
+    """A unit's work (a sidecar job, a batch's job): :func:`job_grant`, and its own collector.
+
+    A unit that belongs to no action (made under :func:`quiet` or off any
+    request) asks nothing; one that does collects its offers as its action,
+    for the read that finds it to relay.
+    """
+
+    with job_grant(token, origin):
+        if origin is None:
+            with quiet(), collecting() as offers:
+                yield offers
+        else:
+            with collecting(origin=origin) as offers:
+                yield offers
+
+
+@contextmanager
+def status_as(origin: str) -> Iterator[None]:
+    """A status read of what action ``origin`` would use: no offer, and its grant counts (in a request)."""
+
+    token = _STATUS_AS.set((origin, _here()))
+    quiet_token = _NO_OFFERS.set(True)
+    try:
+        yield
+    finally:
+        _NO_OFFERS.reset(quiet_token)
+        _STATUS_AS.reset(token)
+
+
+def remember_batch_grant(batch_id: str, token: GrantToken | None, origin: str | None = None) -> None:
+    """Keep a new batch's token and origin. Never replaces a token a batch already has."""
 
     with _GRANTS_LOCK:
-        if token is None:
-            _BATCH_GRANTS.pop(batch_id, None)
-        else:
+        if token is not None and batch_id not in _BATCH_GRANTS:
             _BATCH_GRANTS[batch_id] = token
+        if origin is not None:
+            _BATCH_ORIGIN.setdefault(batch_id, origin)
 
 
 def batch_grant(batch_id: str | None) -> GrantToken | None:
@@ -546,15 +571,39 @@ def batch_grant(batch_id: str | None) -> GrantToken | None:
         return _BATCH_GRANTS.get(batch_id or "")
 
 
+def batch_origin(batch_id: str | None) -> str | None:
+    with _GRANTS_LOCK:
+        return _BATCH_ORIGIN.get(batch_id or "")
+
+
+def keep_batch_offer(batch_id: str, hint: dict[str, Any] | None) -> None:
+    """A batch's run met the unavailable plan: keep its offer for the next read of the batch."""
+
+    if hint:
+        with _GRANTS_LOCK:
+            _BATCH_OFFERS[batch_id] = {**hint, "fallback_units": [["batch", batch_id]]}
+
+
+def relay_batch_offer(batch_id: str | None) -> None:
+    """Relay (once) the offer a batch kept, on the read of that batch (never from a list)."""
+
+    with _GRANTS_LOCK:
+        hint = _BATCH_OFFERS.pop(batch_id or "", None)
+    if hint:
+        relay_hint(hint)
+
+
 @contextmanager
 def command_grant(*, host: bool = False) -> Iterator[bool]:
-    """The CLI's ``LEARNLOOP_AI_FALLBACK=openrouter``: every task, for this command only.
+    """The CLI's ``LEARNLOOP_AI_FALLBACK=openrouter``: the command's own grant, for this command only.
 
     Read here, by the CLI's entry point, and nowhere else (review F4): the
     sidecar and the phone and MCP hosts never call this, so the variable in
     the shell that started them grants nothing, and a background thread
     started in a fresh context does not inherit it. ``host``: the command
     starts a long-lived host (`learnloop mcp serve`), which grants nothing.
+    The command is one request (``origin = "cli"``); the work it queues
+    carries its grant.
     """
 
     chosen = not host and (os.environ.get(FALLBACK_ENV) or "").strip().lower() == FALLBACK_KIND
@@ -563,137 +612,164 @@ def command_grant(*, host: bool = False) -> Iterator[bool]:
         if host:
             yield chosen
         else:
-            # The command is the learner's request, and with the variable set
-            # its own press: the work it queues (and drains) carries the grant.
-            press = _PRESSED.set((GrantToken("*", frozenset(), command=True, every=True), _here())
-                                 if chosen else None)
+            entry = _REQUEST.set(("cli", _here()))
             try:
-                with interactive():
-                    yield chosen
+                yield chosen
             finally:
-                _PRESSED.reset(press)
+                _REQUEST.reset(entry)
     finally:
         _COMMAND_GRANT.reset(token)
 
 
-def remember_offer(vault_root: Any, hint: dict[str, Any] | None) -> None:
-    """Record what a request on ``vault_root`` was offered (the sidecar, as it sends the hint)."""
+def mint_offer(vault_root: Any, hint: dict[str, Any], origin: str,
+               units: Iterable[tuple[str, str]] = ()) -> str | None:
+    """Record the offer one response shows; its id is what "Use OpenRouter instead" answers."""
 
-    tasks = [str(task) for task in (hint or {}).get("fallback_tasks") or [] if str(task).strip()]
-    if vault_root is None or not tasks:
-        return
+    if vault_root is None:
+        return None
+    key = _vault_key(vault_root)
     with _GRANTS_LOCK:
-        _OFFERED.setdefault(_vault_key(vault_root), set()).update(tasks)
+        offer = Offer(id=f"fo_{_next()}_{abs(hash((key, origin))) % 10**8}", vault_key=key, origin=origin,
+                      tasks=tuple(sorted(str(task) for task in hint.get("fallback_tasks") or [])),
+                      units=tuple((str(kind), str(unit)) for kind, unit in units), epoch=_epoch(key))
+        _OFFERS[offer.id] = offer
+    return offer.id
 
 
-def offered_tasks(vault_root: Any) -> list[str]:
-    with _GRANTS_LOCK:
-        return sorted(_OFFERED.get(_vault_key(vault_root), set()))
+def answer_offer(vault_root: Any, offer_id: str | None) -> Offer | None:
+    """The learner chose "Use OpenRouter instead" on offer ``offer_id``: grant its action, token its units.
 
-
-def grant(vault_root: Any, tasks: Iterable[str]) -> list[str]:
-    """Use OpenRouter for ``tasks`` on this vault while the plan is unavailable, for this session.
-
-    Only tasks this vault was offered are granted (the caller reports the
-    rest); returns the tasks granted by this call.
+    ``None`` for an unknown, foreign-vault or stale (pre-stop) offer.
     """
 
     key = _vault_key(vault_root)
     with _GRANTS_LOCK:
-        offered = _OFFERED.get(key, set())
-        chosen = sorted({str(task) for task in tasks if str(task) in offered})
-        _GRANTS.setdefault(key, set()).update(chosen)
-    return chosen
+        offer = _OFFERS.get(str(offer_id or ""))
+        if offer is None or offer.vault_key != key or offer.epoch != _epoch(key):
+            return None
+        _GRANTS.setdefault(key, {}).setdefault(offer.origin, set()).update(offer.tasks)
+        for kind, unit in offer.units:
+            if kind == "batch":
+                _BATCH_GRANTS[unit] = GrantToken(key, offer.origin, offer.epoch)
+                _BATCH_ORIGIN.setdefault(unit, offer.origin)
+    return offer
+
+
+def grant_origin(vault_root: Any, origin: str, tasks: Iterable[str] = ()) -> None:
+    """Grant action ``origin`` on this vault for the session (``answer_offer``'s effect; tests use it)."""
+
+    with _GRANTS_LOCK:
+        _GRANTS.setdefault(_vault_key(vault_root), {}).setdefault(origin, set()).update(tasks)
 
 
 def revoke(vault_root: Any | None = None) -> None:
-    """Stop using OpenRouter: for one vault, or (``None``) for every vault, offers included."""
+    """Stop using OpenRouter: for one vault, or (``None``) for every vault.
+
+    Bumps the epoch, so every token captured earlier is dead, even after a
+    new yes; drops the vault's grants, offers and batch tokens.
+    """
 
     with _GRANTS_LOCK:
         if vault_root is None:
             _GRANTS.clear()
-            _OFFERED.clear()
+            _OFFERS.clear()
             _BATCH_GRANTS.clear()
-        else:
-            key = _vault_key(vault_root)
-            _GRANTS.pop(key, None)
-            # Its batches' tokens too: a later grant never revives a queued one (round 2, Low 1).
-            for batch_id in [batch for batch, token in _BATCH_GRANTS.items() if token.vault_key == key]:
-                del _BATCH_GRANTS[batch_id]
+            _BATCH_OFFERS.clear()
+            _GLOBAL["epoch"] += 1
+            return
+        key = _vault_key(vault_root)
+        _GRANTS.pop(key, None)
+        _EPOCH[key] = _EPOCH.get(key, 0) + 1
+        for offer_id in [offer.id for offer in _OFFERS.values() if offer.vault_key == key]:
+            del _OFFERS[offer_id]
+        for batch_id in [batch for batch, token in _BATCH_GRANTS.items() if token.vault_key == key]:
+            del _BATCH_GRANTS[batch_id]
 
 
 def revoke_all() -> None:
     revoke(None)
 
 
-def granted_tasks(vault_root: Any) -> list[str]:
+def granted_origins(vault_root: Any) -> list[str]:
     with _GRANTS_LOCK:
-        return sorted(_GRANTS.get(_vault_key(vault_root), set()))
+        return sorted(_GRANTS.get(_vault_key(vault_root), {}))
+
+
+def granted_tasks(vault_root: Any) -> list[str]:
+    """The tasks the answered offers named (display: Settings' "Stop using OpenRouter")."""
+
+    with _GRANTS_LOCK:
+        return sorted({task for tasks in _GRANTS.get(_vault_key(vault_root), {}).values() for task in tasks})
 
 
 def is_granted(task: str, vault_root: Any) -> bool:
-    """Whether OpenRouter may serve ``task`` here: a learner request or a job carrying the learner's grant.
+    """Whether OpenRouter may serve ``task`` here (redesign D).
 
-    Never inside a readiness probe (:func:`quiet`), never on a thread that is
-    neither (a background thread, a worker given a copied context): a grant
-    serves only what the learner asked for (landing review of T1).
+    Not under :func:`quiet`. In a unit's work: its token is live (its action
+    still granted, in the epoch it was given). Otherwise in a request of a
+    granted action (or a status read as one, in a request), or the CLI
+    command's own grant. Nothing else counts, on any thread.
     """
 
     if _QUIET.get():
         return False
     key = _vault_key(vault_root)
-    if _in_job():
-        token = _job_token()
-        if token is None or not token.covers(task, key):
-            return False
-        if token.command:
-            return True
-        with _GRANTS_LOCK:
-            return task in _GRANTS.get(key, set())
-    if not is_interactive():
+    job = _job_here()
+    if job is not None:
+        token = job[1]
+        return token is not None and token.live(key)
+    origin = _request_origin()
+    if origin is None:
         return False
     if _COMMAND_GRANT.get():
         return True
+    status = _STATUS_AS.get()
+    if status is not None and status[1] == _here():
+        origin = status[0]
     with _GRANTS_LOCK:
-        return task in _GRANTS.get(key, set())
+        return origin in _GRANTS.get(key, {})
 
 
 __all__ = [
     "FALLBACK_ENV",
     "FALLBACK_KIND",
     "METERED_PRICE_SETTINGS",
-    "OfferCollector",
-    "collecting",
-    "FEATURE_TASKS",
     "GrantToken",
+    "Offer",
+    "OfferCollector",
+    "answer_offer",
     "batch_grant",
-    "capture_grant",
+    "batch_origin",
+    "collecting",
     "command_grant",
-    "interactive",
-    "is_interactive",
-    "job_grant",
-    "is_pressed",
-    "pressed",
-    "pressed_token",
-    "remember_batch_grant",
     "current_hint",
-    "grant",
+    "grant_origin",
+    "granted_origins",
     "granted_tasks",
     "is_granted",
+    "job_grant",
+    "keep_batch_offer",
+    "mint_offer",
     "note_plan_failure",
     "note_plan_route",
     "note_unavailable",
+    "note_unit",
     "offer_blocker",
     "offer_profile",
     "offer_sentence",
-    "offered_tasks",
     "offers_suppressed",
     "priced_by",
     "quiet",
+    "relay_batch_offer",
     "relay_hint",
     "relay_job_offer",
-    "remember_offer",
+    "remember_batch_grant",
+    "request",
     "revoke",
     "revoke_all",
     "start_collecting",
+    "status_as",
+    "unit",
+    "unit_origin",
+    "unit_token",
 ]

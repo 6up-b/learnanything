@@ -330,6 +330,10 @@ def _import_job(ctx: SidecarContext, repository, batch_id: str) -> dict[str, Any
     jobs = repository.ingest_jobs_for_batch(batch_id)
     if not jobs:
         return None
+    from learnloop.ai import plan_fallback
+
+    # Redesign D: the batch's own offer (its action's, never this read's), once.
+    plan_fallback.relay_batch_offer(batch_id)
     job = jobs[0]
     if job.get("status") == "completed" and ctx.ingest_jobs.needs_reload(job["id"]):
         ctx.reload(maintenance=False)

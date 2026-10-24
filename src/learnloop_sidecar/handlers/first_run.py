@@ -51,13 +51,14 @@ def _status_route(vault) -> core.AuthoringRoute:
 
     ``get_ai_connection`` runs on every vault load and ``connect_ai`` checks
     readiness; neither is the learner using a feature, so neither asks. A
-    session grant of the build still shows as the route that serves it. The
-    build itself (``add_source``'s job) resolves without this and asks.
+    grant of "Add" (redesign D: the action that asked) still shows as the
+    route that serves it. The build itself (``add_source``) resolves without
+    this and asks.
     """
 
     from learnloop.ai import plan_fallback
 
-    with plan_fallback.quiet(honour_grants=True):
+    with plan_fallback.status_as("add_source"):
         return authoring_route_for(vault)
 
 

@@ -19,7 +19,6 @@ from learnloop_sidecar.dto import to_camel
 from learnloop_sidecar.errors import SidecarError, json_rpc_error, sidecar_error
 from learnloop_sidecar.handlers.practice import submission_key
 from learnloop_sidecar.logging import log_event
-from learnloop_sidecar.pressed import pressed_feature
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
 LOG = logging.getLogger(__name__)
@@ -77,24 +76,23 @@ def _handle(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
     try:
         raw_params = request.get("params")
         params = spec.params_model.model_validate({} if raw_params is None else raw_params)
-        # A foreground RPC is the learner's request: only here (and in a job
-        # carrying the learner's grant) does a grant count (T1 landing review).
-        # Queued work carries it only when the RPC is a press of a feature
-        # (learnloop_sidecar.pressed; round 2: scrolling is not pressing).
-        feature = pressed_feature(method_name, params)
-        with plan_fallback.interactive(), \
-                (plan_fallback.pressed(getattr(ctx, "vault_root", None), feature) if feature else nullcontext()), \
-                plan_fallback.collecting() as offers, _observed_model_calls(ctx, method_name, params):
+        # T1 landing redesign D (owner Q1-Q3): every RPC is one request of the
+        # action ``method_name``. A grant names the action that asked, so it
+        # counts here only when this method's own offer was answered; the
+        # work this request creates belongs to it and is listed on its offer.
+        with plan_fallback.request(getattr(ctx, "vault_root", None), method_name), \
+                plan_fallback.collecting(origin=method_name) as offers, \
+                _observed_model_calls(ctx, method_name, params):
             try:
                 result = spec.handler(ctx, params)
             except SidecarError as exc:
-                _attach_fallback_offer(exc, _offered(ctx, offers.hint()))
+                _attach_fallback_offer(exc, _offered(ctx, offers, method_name))
                 raise
             except BaseException:
                 # Review F8: an error that is not a SidecarError keeps the offer too.
-                offer = _offered(ctx, offers.hint())
+                offer = _offered(ctx, offers, method_name)
                 raise
-        result = _with_fallback_offer(result, _offered(ctx, offers.hint()))
+        result = _with_fallback_offer(result, _offered(ctx, offers, method_name))
     except ValidationError as exc:
         log_event("rpc.error", method=method_name, id=request_id, code="validation_error",
                   duration_ms=_elapsed_ms(started))
@@ -127,12 +125,24 @@ def _handle(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
     return {"jsonrpc": "2.0", "id": request_id, "result": result if result is not None else {"ok": True}}
 
 
-def _offered(ctx: SidecarContext, hint: dict[str, Any] | None) -> dict[str, Any] | None:
-    """Record what this vault was offered (a grant may name only those tasks), and pass it on."""
+def _offered(ctx: SidecarContext, offers: plan_fallback.OfferCollector, method_name: str) -> dict[str, Any] | None:
+    """Mint this response's offer (redesign D): the action that asked, its units, the vault's epoch.
 
-    if hint is not None:
-        plan_fallback.remember_offer(getattr(ctx, "vault_root", None), hint)
-    return hint
+    The action is this request's method, or, for an offer relayed from a job
+    or a batch, the method that started it (never the poll's). The hint the
+    desktop gets carries ``fallback_offer_id`` (what "Use OpenRouter instead"
+    answers) and ``fallback_origin`` ("Not now" mutes that action).
+    """
+
+    hint = offers.hint()
+    if hint is None:
+        return None
+    origin = str(hint.get("fallback_origin") or method_name)
+    units = [(str(kind), str(unit)) for kind, unit in hint.pop("fallback_units", None) or []]
+    offer_id = plan_fallback.mint_offer(getattr(ctx, "vault_root", None), hint, origin, units)
+    if offer_id is None:
+        return None
+    return {**hint, "fallback_origin": origin, "fallback_offer_id": offer_id}
 
 
 def _attach_fallback_offer(exc: SidecarError, hint: dict[str, Any] | None) -> None:

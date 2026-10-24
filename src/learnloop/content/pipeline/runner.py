@@ -341,6 +341,18 @@ def _job_defaults() -> Any:
     return jobs
 
 
+@contextmanager
+def _batch_unit(batch_id: str) -> Iterator[None]:
+    """Run one job of ``batch_id`` as its unit: its token, its action; it may ask only when it has an
+    action (the offer is kept with the batch and relayed by the read of that batch)."""
+
+    with plan_fallback.unit(plan_fallback.batch_grant(batch_id), plan_fallback.batch_origin(batch_id)) as offers:
+        try:
+            yield
+        finally:
+            plan_fallback.keep_batch_offer(batch_id, offers.hint())
+
+
 @dataclass
 class JobContext:
     """What a handler is handed: repository, vault root, payload, and the
@@ -440,14 +452,17 @@ class JobContext:
 
         if self._enqueue_batch is None:
             raise IngestRunnerError("this job context cannot enqueue follow-up work.")
-        # T1 landing review round 2: a follow-up carries this job's grant only
-        # when the caller says it is this pressed job's own work (its planned
-        # build); keep-ahead and other follow-ups never inherit one.
+        # T1 landing (redesign D): a follow-up belongs to this job's action, and
+        # carries its token, only when the caller says it is this job's own work
+        # (its planned build); keep-ahead and other follow-ups belong to no
+        # action (no token, no offer).
         inherit = bool(kwargs.pop("inherit_grant", False))
         if inherit:
             from learnloop.ai import plan_fallback
 
-            kwargs["grant"] = plan_fallback.batch_grant(self.job.get("batch_id"))
+            parent = self.job.get("batch_id")
+            kwargs["grant"] = plan_fallback.batch_grant(parent)
+            kwargs["origin"] = plan_fallback.batch_origin(parent)
         with self.repo.atomic():
             if self._cancel_requested():
                 raise JobCancelled()
@@ -613,11 +628,12 @@ class IngestRunner:
         priority: int = 0,
         batch_id: str | None = None,
         grant: "plan_fallback.GrantToken | None" = None,
+        origin: str | None = None,
     ) -> str:
-        """``grant``: an explicit token (a pressed job's own child build,
-        :meth:`JobContext.enqueue_batch` with ``inherit_grant``); otherwise the
-        batch carries the token of the learner's press around this call, if
-        any (``plan_fallback.pressed_token``). Nothing else is captured."""
+        """``grant`` / ``origin``: a job's own child build
+        (:meth:`JobContext.enqueue_batch` with ``inherit_grant``); otherwise the
+        batch belongs to the request around this call (``plan_fallback.unit_origin``)
+        and carries its token when that action is granted (``unit_token``)."""
 
         # The batch, jobs and dependency graph form one enqueue receipt. A
         # stable identity lets interrupted callers recover without a second batch.
@@ -627,12 +643,14 @@ class IngestRunner:
             return self._enqueue_batch(
                 workflow_type, jobs, subject_id=subject_id,
                 source_set_id=source_set_id, priority=priority, batch_id=batch_id, grant=grant,
+                origin=origin,
             )
 
     def _enqueue_batch(
         self, workflow_type: str, jobs: Sequence[JobSpec], *,
         subject_id: str | None, source_set_id: str | None, priority: int,
         batch_id: str | None, grant: "plan_fallback.GrantToken | None" = None,
+        origin: str | None = None,
     ) -> str:
         if not jobs:
             raise IngestRunnerError("a batch needs at least one job.")
@@ -666,11 +684,16 @@ class IngestRunner:
                     raise IngestRunnerError(f"invalid dependency index {dep_index}.")
                 self.repo.add_ingest_job_dependency(job_ids[ordinal], job_ids[dep_index])
         self._refresh_batch(batch_id)
-        # T1 landing review (round 2): a batch carries a grant only when the
-        # learner pressed it (the press's token, narrowed to its feature) or a
-        # pressed job queues its own planned build (``grant``); any other batch
-        # runs without one, on the plan.
-        plan_fallback.remember_batch_grant(batch_id, grant or plan_fallback.pressed_token(self.vault_root))
+        # T1 landing (redesign D): the batch belongs to the action that created
+        # it (the request's method, or its parent's for a job's own planned
+        # build) and carries that action's token when it is granted; a batch
+        # made under quiet() or off any request belongs to no action. The
+        # request's offer lists it, so answering that offer tokens it.
+        if grant is None and origin is None:
+            grant, origin = plan_fallback.unit_token(self.vault_root), plan_fallback.unit_origin()
+        plan_fallback.remember_batch_grant(batch_id, grant, origin)
+        if origin is not None:
+            plan_fallback.note_unit("batch", batch_id)
         return batch_id
 
     # -- recovery / drive --------------------------------------------------
@@ -883,9 +906,9 @@ class IngestRunner:
                         )
                 self.repo.requeue_ingest_job(job["id"], clock=self.clock)
         self._refresh_batch(batch_id)
-        # Round 2, Low 1: a pressed Retry carries a fresh token (narrowed to its
-        # feature); any other resume (startup, a sweep, a job) drops the old one.
-        plan_fallback.remember_batch_grant(batch_id, plan_fallback.pressed_token(self.vault_root))
+        # Redesign D: a resume never changes a batch's token or origin (it keeps
+        # what it got at creation or from its answered offer; a stop kills it
+        # through the epoch). A batch with no token asks through its own offer.
 
     # -- internals ---------------------------------------------------------
 
@@ -944,7 +967,7 @@ class IngestRunner:
                     with guard_ingest_writes(
                         self.repo.sqlite_path, job["id"], self.worker_id, job["attempt_count"]
                     ), record_model_calls(self.repo, owner_kind="ingest_job", owner_id=job["id"]), \
-                            plan_fallback.job_grant(plan_fallback.batch_grant(batch_id)):
+                            _batch_unit(batch_id):
                         result = handler(ctx)
             finally:
                 ctx._held = None

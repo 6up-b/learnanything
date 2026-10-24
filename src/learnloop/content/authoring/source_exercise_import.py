@@ -1068,11 +1068,11 @@ def _run_time_boxed(function: Callable[[], LadderResult], seconds: float | None,
     # carries that request's grant explicitly (a copied context carries none).
     from learnloop.ai import plan_fallback
 
-    grant = plan_fallback.capture_grant(pending.root)
+    grant, origin = plan_fallback.unit_token(pending.root), plan_fallback.unit_origin()
 
     def runner() -> None:
         try:
-            with plan_fallback.job_grant(grant):
+            with plan_fallback.job_grant(grant, origin, keep_collector=True):
                 box["result"] = function()
         except Exception as exc:  # noqa: BLE001 - recorded as an unchecked key
             box["result"] = LadderResult("model_answer", "skipped", skip_reason=f"failed: {type(exc).__name__}")

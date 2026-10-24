@@ -1961,6 +1961,10 @@ def reader_exercise_import_status(
     jobs = repository.ingest_jobs_for_batch(params.batch_id)
     if not jobs:
         raise SidecarError("batch_not_found", f"No jobs found for batch {params.batch_id!r}.")
+    from learnloop.ai import plan_fallback
+
+    # Redesign D: the batch's own offer (its action's, never this read's), once.
+    plan_fallback.relay_batch_offer(params.batch_id)
     job = jobs[0]
     if job.get("status") == "completed" and ctx.ingest_jobs.needs_reload(job["id"]):
         ctx.reload(maintenance=False)
