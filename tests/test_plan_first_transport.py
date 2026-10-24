@@ -490,6 +490,11 @@ HTTP_MODULES = {
     "learnloop/ai/providers/decider.py": "the Decider on OpenRouter",
     "learnloop/ai/providers/openai_embedding.py": "embeddings on OpenRouter",
     "learnloop/ingest/transcription.py": "OpenRouter/OpenAI transcription",
+    # Local contextual retrieval P1b: the Voyage fallback space's embeddings
+    # (an opt-in profile no AI task can route to; inside model_call; redirects refused).
+    "learnloop/ai/providers/voyage_contextual.py": "Voyage contextual embeddings (source fallback space only)",
+    # E0's metered harness (experiments; owner-run, dry-run first, spend-capped).
+    "learnloop/experiments/contextual_embeddings/adapters.py": "E0 harness: Voyage/Perplexity embeddings (experiment)",
     "learnloop/ai/providers/codex.py": "FROZEN Codex (opt-in only; T2 deletes)",
     "learnloop/ai/providers/codex_http.py": "FROZEN Codex HTTP adapter (opt-in only; T2 deletes)",
     # not a route's model request

@@ -347,6 +347,24 @@ def _inject_one_stale_row_per_derived_table(repository: Repository) -> None:
             "cold_outcome_state": "right_censored_pending",
             "outcome_version": "stale",
         },
+        # Local contextual retrieval P1: a posterior for a context no feedback names.
+        "retrieval_fusion_posteriors": {
+            "context_key": "stale|context",
+            "consumer": "stale",
+            "query_kind": "stale",
+            "lists_json": "[]",
+            "mean_json": "[]",
+            "covariance_json": "[]",
+            "intercepts_json": "{}",
+            "examination_json": "{}",
+            "rrf_k": 60.0,
+            "observations": 0,
+            "signals": 0,
+            "prior_basis_json": "{}",
+            "fit_version": "stale",
+            "input_digest": "stale",
+            "fitted_at": at,
+        },
     }
     assert set(rows) == set(tables_for_role(TableRole.DERIVED))
     with connect(repository.sqlite_path) as connection:

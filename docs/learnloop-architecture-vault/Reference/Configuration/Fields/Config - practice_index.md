@@ -3,8 +3,8 @@ title: "Config - practice_index"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c05eae57933f963158a782836b8d6b88af5d80a2"
-source_commit_timestamp: "2026-10-24T15:05:22-04:00"
+source_commit: "0b9bbe94499576bc36997040254b29356d441526"
+source_commit_timestamp: "2026-10-24T19:21:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml practice_index"
@@ -25,6 +25,7 @@ source_paths:
   - "src/learnloop/practice_index/evaluation.py"
   - "src/learnloop/practice_index/dossiers.py"
   - "tests/codex_cli_fakes.py"
+  - "tests/local_embeddings_fakes.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
@@ -35,7 +36,6 @@ source_paths:
   - "tests/test_apply_write_ahead.py"
   - "tests/test_approach_maps.py"
   - "tests/test_assessment_enforcement.py"
-  - "tests/test_authoring_context.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/practice-index"
@@ -79,6 +79,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/codex_cli_fakes.py`
+- `tests/local_embeddings_fakes.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
@@ -89,7 +90,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_apply_write_ahead.py`
 - `tests/test_approach_maps.py`
 - `tests/test_assessment_enforcement.py`
-- `tests/test_authoring_context.py`
 
 ## Extension and modification guidance
 

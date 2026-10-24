@@ -3,8 +3,8 @@ title: "Config - learner_text_gaps"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c05eae57933f963158a782836b8d6b88af5d80a2"
-source_commit_timestamp: "2026-10-24T15:05:22-04:00"
+source_commit: "0b9bbe94499576bc36997040254b29356d441526"
+source_commit_timestamp: "2026-10-24T19:21:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml learner_text_gaps"
@@ -26,6 +26,7 @@ source_paths:
   - "src/learnloop/cli/gaps.py"
   - "tests/codex_cli_fakes.py"
   - "tests/conftest.py"
+  - "tests/local_embeddings_fakes.py"
   - "tests/mcp_world.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
@@ -35,7 +36,6 @@ source_paths:
   - "tests/test_ad1_codex_review_fixes.py"
   - "tests/test_adaptive_difficulty_ad1.py"
   - "tests/test_ai_config.py"
-  - "tests/test_approach_map_replay.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/learner-text-gaps"
@@ -83,6 +83,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/codex_cli_fakes.py`
 - `tests/conftest.py`
+- `tests/local_embeddings_fakes.py`
 - `tests/mcp_world.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
@@ -92,7 +93,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_ai_config.py`
-- `tests/test_approach_map_replay.py`
 
 ## Extension and modification guidance
 

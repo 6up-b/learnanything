@@ -201,6 +201,31 @@ def test_signals_join_their_delivery_and_the_posterior_replays_byte_identically(
     assert once == twice and set(once) >= {"global"}
 
 
+def test_the_tutor_citation_hook_does_nothing_with_the_switches_off_and_joins_its_delivery_when_on(
+        tmp_path, monkeypatch):
+    from learnloop.tutor import tutor_qa
+
+    paths, repository = _vault(tmp_path)
+
+    touched: list[str] = []
+
+    class _Watched:
+        def connection(self):  # the off path must not even read (the hook swallows errors, so record)
+            touched.append("connection")
+            return repository.connection()
+
+    context = {"source_retrieval": {"owner_id": "tq_7"}}
+    tutor_qa._record_retrieval_citations(loaded(paths), _Watched(), context,
+                                         [{"extraction_id": "ext_book", "span_id": "any"}])
+    assert touched == []
+    _fallback(paths, monkeypatch)
+    first = _search(paths, repository, owner_id="tq_7", consumer="tutor").hits[0]
+    tutor_qa._record_retrieval_citations(loaded(paths), repository, context,
+                                         [{"extraction_id": first.extraction_id, "span_id": first.span_id}])
+    cited = [row for row in _feedback(repository) if row["event"] == "cited"]
+    assert [(row["owner_id"], row["span_id"]) for row in cited] == [("tq_7", first.span_id)]
+
+
 def test_the_seed_serves_while_the_learned_rule_is_only_logged(tmp_path, monkeypatch):
     paths, repository = _vault(tmp_path)
     client = _fallback(paths, monkeypatch)

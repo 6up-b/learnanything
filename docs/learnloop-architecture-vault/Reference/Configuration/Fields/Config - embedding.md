@@ -3,8 +3,8 @@ title: "Config - embedding"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c05eae57933f963158a782836b8d6b88af5d80a2"
-source_commit_timestamp: "2026-10-24T15:05:22-04:00"
+source_commit: "0b9bbe94499576bc36997040254b29356d441526"
+source_commit_timestamp: "2026-10-24T19:21:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml embedding"
@@ -29,6 +29,7 @@ source_paths:
   - "src/learnloop/source_retrieval/fallback_space.py"
   - "src/learnloop/local_embeddings/fusion.py"
   - "src/learnloop/source_retrieval/search.py"
+  - "src/learnloop/tutor/tutor_qa.py"
   - "tests/ad_fakes.py"
   - "tests/approach_map_fakes.py"
   - "tests/chatgpt_plan_fakes.py"
@@ -79,7 +80,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `embedding.source_space.default` | `"qwen"` | string | modeled default or validator seed | Controls default in opt-in embedding substrate, model identity, backfill consent, and privacy disclosure, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2870`; `src/learnloop/local_embeddings/fusion.py:370`; `src/learnloop/source_retrieval/source_vectors.py:265` |
 | `embedding.source_space.learned_fusion` | `false` | boolean | modeled default or validator seed | Turns learned fusion behavior on or off within opt-in embedding substrate, model identity, backfill consent, and privacy disclosure. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2871`; `src/learnloop/source_retrieval/source_vectors.py:266`; `src/learnloop/source_retrieval/spaces.py:281` |
 | `embedding.source_space.exploration` | `false` | boolean | modeled default or validator seed | Turns exploration behavior on or off within opt-in embedding substrate, model identity, backfill consent, and privacy disclosure. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2872`; `src/learnloop/source_retrieval/search.py:562`; `src/learnloop/source_retrieval/source_vectors.py:267` |
-| `embedding.source_space.log_feedback` | `true` | boolean | modeled default or validator seed | Turns log feedback behavior on or off within opt-in embedding substrate, model identity, backfill consent, and privacy disclosure. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2873`; `src/learnloop/source_retrieval/search.py:583` |
+| `embedding.source_space.log_feedback` | `true` | boolean | modeled default or validator seed | Turns log feedback behavior on or off within opt-in embedding substrate, model identity, backfill consent, and privacy disclosure. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2873`; `src/learnloop/source_retrieval/search.py:583`; `src/learnloop/tutor/tutor_qa.py:1073` |
 | `embedding.privacy_disclosure` | `"When enabled, remote embeddings send canonical or learner-derived text to the configured endpoint (by default OpenRouter and its upstream provider). Requests ask for OpenRouter data_collection=deny; custom endpoints may ignore that option, so verify their retention policy. Vectors approximate plaintext: protect them like practice attempts in backups, exports and sync; never share them across vaults."` | string | modeled default or validator seed | Read-only disclosure computed by the schema and shown in Settings and `config effective`; setting it in learnloop.toml has no effect. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3675`; `src/learnloop/ai/plan_fallback.py:122` |
 
 > [!warning] Omitted does not mean frozen in the file
