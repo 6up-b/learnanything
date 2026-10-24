@@ -1309,3 +1309,120 @@ out of it is exactly what teach-back value admission or a cap does.
 - Durability (`--durable-sqlite`) on `test_ad_guard`, `test_ad_epoch`, `test_ad_protected_tables`,
   `test_ad_protected_readings`, both compose files and `test_ad23_migration`: **314 passed**.
 - `lint-imports --no-cache`: 30 kept, 0 broken.
+
+
+## Compose fix round 3 (scope boundary)
+
+Codex verified `7cf22da4d..dd35cf5fc` (job `20261023-231423-iIWmX0`) and reopened the round with one
+High and one Medium.
+
+- **High:** protected content could escape the incumbent scope through non-AD helpers.
+  - The guard judged only the innermost reader module. So a callback planted in `env.now`, and
+    invoked inside `incumbent_verdicts`, called `reader.recap._attempts()` and captured
+    `WITHHELD_SENTINEL`. The verdict still validated, and the guard recorded zero denials.
+  - Anyone could open the scope at runtime (`getattr(operation, "incumbent_constraints")()`).
+  - Writes to AD-owned tables were allowed inside it.
+- **Medium:** `admitted.add(slot_item_id)` restored the slot's own item to the pool unconditionally.
+
+**The boundary, by construction.**
+
+- **(c) One runtime-enforced entry.** `operation.incumbent_answer(question, request)` is now the only
+  way in.
+  - It checks the live caller frame against `protected_tables.INCUMBENT_ENTRIES`: `ad_slot._exclusions`
+    and `ad_slot.incumbent_verdicts`, matched by module, name, the module's own globals and its file.
+  - Entry by `getattr`, by an alias, from another module, or from a function forged with the entry's
+    name in `ad_slot`'s namespace is refused. So are `incumbent_constraints()` and `rules('incumbent')`.
+    Each refusal poisons the operation.
+  - The question must be registered (`INCUMBENT_QUESTIONS`, checked on its code): a function of the new
+    incumbent-side module `daily_plan.incumbent_answers`, either `routine_exclusions` or
+    `slot_admission`. Only incumbent code runs in the scope, and no AD frame sits between its reads
+    and the entry.
+- **(b) Data only across the boundary.**
+  - The request must be plain, immutable data, per `operation.plain_problem`. That allows scalars,
+    dates, datetimes and timedeltas; tuples and frozensets; read-only mappings; and frozen
+    dataclasses of an incumbent module, with every field plain.
+  - Callables of every kind, generators, mutable containers, AD-owned objects and foreign objects
+    are all refused.
+  - Each entry builds its request outside the scope, under AD's own rules. `env.now()` is read there,
+    so a planted callback runs where the guard refuses its read. The entry deep-freezes the
+    scheduler's queue, the item states and the candidates (`ad_slot._frozen`).
+  - The question receives the operation's own handles (`IncumbentHandles`: the raw vault and
+    repository the operation captured), never an object AD passed.
+  - The answer is checked plain. The slot's answer, `SlotAdmission`, becomes `IncumbentVerdicts`,
+    which is validated again.
+- **(a) The stack rule.** A read inside the scope is refused, and poisons the operation, when any frame
+  between it and the scope's entry (`incumbent_answer`'s own frame) is either:
+  - AD-owned (`learnloop.adaptive_difficulty.*`, `daily_plan.ad_slot`), or
+  - from outside LearnLoop and the Python installation (a test's or a planted callback).
+
+  This is `Guard._scope_violation`. Generated code (dataclass methods) is judged by its module, and
+  the verdict is cached per statement site (the preparing frame and its instruction). The derived
+  reader rule from round 2 stays.
+- **(d) No writes.** The scope refuses every write, AD's own tables included.
+
+**The slot's own item (the Medium).** `engine.admitted_new_material_ids(..., unclaimed=)` no longer
+counts the slot's planned item as taken, so the item faces exactly its siblings' rule. If it is not a
+member, `build_request` raises `SlotNotAdmitted`, an `AdUnavailable`. AD then draws nothing for the
+slot, and the incumbent's own handling serves or displaces the item, exactly as with AD off.
+
+That covers a slot planned as new material and then set to Keep or Light touch, and one that the
+queue's stages now leave out (a teach-back that value admission rejects). I applied the conservative
+reading: a slot whose own item left the pool is refused even when a sibling is a member. A slot the
+plan no longer grants as new material is not AD's to fill. The orchestrator may relax this to "no
+admitted candidate".
+
+**Tests** (`tests/test_ad23_scope_boundary.py`; fakes only):
+
+- **Codex's capture probe:** `env.now` as a callback reading whole attempt rows through
+  `reader.recap._attempts` while AD runs. The read is refused and nothing is captured.
+- **A capture planted inside the scope:** the pool predicate replaced by a callback that reads through
+  the same helper and then delegates. It is planted twice: as test code, and as code running in an AD
+  module's namespace. Both are refused with the stack rule's reason, the operation is poisoned,
+  nothing is captured, and the planned item is served.
+- **Dynamic entry:** `getattr(operation, "incumbent_constraints")()`, `getattr(operation,
+  "incumbent_answer")`, an alias imported in another module, `rules("incumbent")`, a forged entry, and
+  a forged entry with an unregistered question. All are refused, and each poisons the operation.
+- **A write in the scope:** an `ad_dose_offers` insert by code in an incumbent module's namespace,
+  inside the scope. It is refused, nothing is written, and the planned item is served.
+- **The property (40 seeds).** Each seed draws a bad value: a lambda, function, bound method, partial,
+  callable object, generator, dict, list, set, an AD-owned frozen dataclass, a foreign frozen
+  dataclass, a mutable incumbent object, or a frozen incumbent dataclass carrying a callable. It nests
+  the value at a random depth (tuples, read-only mappings, frozen incumbent dataclasses' fields) and
+  smuggles it into a random field of the slot's request through the entry's own freezing. Asserts:
+  - the validator refuses each value alone;
+  - the request is refused before any question runs ("not plain data");
+  - no smuggled callable is ever invoked (zero leaked values);
+  - nothing is drawn, and the planned item is served.
+- **The slot's own item:** Keep, Light touch, and left out of the queue after planning, under both
+  router settings. AD draws nothing for the slot, and the served step equals AD off's. A control
+  (no change) still draws.
+- **Fail-first** (`dd35cf5fc`'s `src/` checked out over the tests, then restored): 56 of 58 failed and
+  the 2 controls passed.
+  - The probes and the slot cases fail on behaviour: the sentinel captured three times, AD drawing
+    six slots, unpoisoned dynamic entries, and the write landing.
+  - The 40 property cases fail there because the boundary API did not exist.
+- **Updated tests:**
+  - Two `test_ad2_serving` doubles that wrapped `StagedFrame.material` (test code running inside the
+    scope, which the stack rule now refuses) adjust the verdicts at the boundary instead.
+  - The round-6 guard test asserts the refused entry and the poisoned operation.
+  - The static AST pin in `test_ad23_intent_compose` gives way to the runtime refusal tests.
+
+**What the boundary cannot do.** It closes every channel through the scope's arguments, its return
+value, AD-defined or foreign code running inside it, its entry, and writes. It is still an in-process
+boundary. Code that monkeypatches the incumbent's own modules, or the operation's handles, with
+builtins alone (a `functools.partial` of a list's `append` set as a repository method, say) runs no
+frame for the stack rule to see. Python offers no isolation against that inside one process. If the
+owner needs that guarantee, it is the Opus re-eval's question: run the incumbent's answers in a
+separate process over a read-only connection.
+
+**Gate (memory-capped scopes, at most -n 6, one at a time; no full suite).**
+
+- The full AD file set (every `tests/test_ad*.py`, including the three compose files, plus
+  `test_span_reanchor` and `test_salience_firewall`): **6,252 passed, 36 xfailed** (-n 6, 17 min).
+- DL2's intent, commitment and frame files, the daily-plan and router R2a files, and every file that
+  uses the plan fakes, `check_admission`, `requested_practice_item_ids`, `_classified_pool`,
+  `admit_new_material` or `serving_exclusions` (64 files with the scheduler, CLI help, sidecar
+  serializer and mobile allowlist pins): **1,777 passed**.
+- Durability (`--durable-sqlite`) on `test_ad_guard`, `test_ad_epoch`, `test_ad_protected_tables`,
+  `test_ad_protected_readings`, the three compose files and `test_ad23_migration`: **372 passed**.
+- `lint-imports --no-cache`: 30 kept, 0 broken.
