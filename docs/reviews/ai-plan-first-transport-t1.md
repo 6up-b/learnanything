@@ -382,7 +382,7 @@ opened; `git status` is clean apart from the commits below.
 | # | Question | Default |
 |---|---|---|
 | Q1 | Slugs: does the account list `gpt-5.6-sol` and `gpt-6-luna`? | the defaults; doctor names any unlisted slug |
-| Q2 | Grant scope: the feature's tasks for the desktop session (vs. one request) | session, per feature, per vault, only tasks that vault was offered (review F4) |
+| Q2 | Grant scope: the feature's tasks for the desktop session (vs. one request) | **superseded by redesign D (owner Q1-Q3, 2026-10-23):** only the action that asked, after the learner's yes, for the session, per vault; see "Redesign D" below |
 | Q3 | A `fallback_provider` the owner wrote (non-Codex) still serves an unavailable plan route silently; should it ask instead? | **closed by review F1:** it asks. For a plan route a metered `fallback_provider` is never used; doctor reports it (`ai:plan_metered_fallback`) |
 | Q4 | Strict `json_schema` on the plan (never verified live) | `json_schema`; flip to `json_object` per profile if `ai latency` says so |
 | Q5 | Shared usage pool with the Codex CLI | assumed shared |
@@ -439,6 +439,7 @@ No migration (head **217**, head fixture `migration_head_217` unchanged) and no 
 - `f07dcd338` this record; `172113ce7` the Today fix (below, after the orchestrator's review of the first record).
 - `84a3f8947` and `4a8868f09`: the grant-scope fix from the verify of `0ecc600ea` / `172113ce7` (below).
 - `88b466d96` (WIP) and `0ee2cebb5`: round 2, from the verify of `84a3f8947` / `4a8868f09` (below).
+- `9c0fd2b8c`-style WIP commits, then the record: redesign D (below), which replaces round 2's press table.
 
 ### Finding at the landing: the paid roles (fixed, `0ecc600ea`)
 
@@ -826,6 +827,152 @@ offer test, plus a check that an unpressed job asks nothing) and `test_plan_firs
   safe default). The table's tests catch an automatic sender added to it, but not a press left out of it.
 - `source_action`'s `allow_upload` resumes the add batch as a press (`build`); the learner pressed it.
 
+### Redesign D (owner Q1-Q3): the offer is the grant
+
+Codex's verify of `b5d8e0f01` (job `20261023-215936-waR3uD`) **reopened with 4 Medium and 1 Low**, the third round
+in the same class:
+
+- `reader.author_section_question` is sent automatically at 60% of a section but was marked pressed;
+- `retry_synthesis` was missing from the table, and `resume_batch` nulled its token;
+- `resume_ingest_batch` narrowed every resumed batch to the build's tasks, so `rung_variant` and `animation` lost
+  theirs;
+- `workbench.open` is both automatic and an explicit "Work through this" / "Try it", and its import lost the grant;
+- Low: a re-grant revived tokens captured by waiting workers.
+
+Under the escalation rule, an Opus architecture re-evaluation (`scratchpad/t1-architecture-proposal.md`) replaced
+further point fixes. Its diagnosis: a grant keyed by **task** forces every point of use to decide again "is this what
+the learner asked for", which needs hand-kept sender and feature tables. Each round's Mediums were mismatches between
+such a table and reality. **Option D**, adopted by the owner, keys the grant by the action that asked.
+
+**The rule** (Q3: it replaces "only a press", and the next verify checks against it): **only the action that asked,
+after your yes.**
+
+- A grant names the **origin**: the RPC method whose request raised the offer. For an offer relayed from a job or a
+  batch, that is the method that started it, never the poll's. A grant never names a task.
+- `server._handle` opens `plan_fallback.request(vault, method)` for every RPC and collects its offers as that action.
+  When the response carries a hint, the dispatch mints `Offer{id, vault, origin, tasks, units, epoch}`, and the hint
+  gains `fallback_offer_id` and `fallback_origin`.
+- `ai_use_fallback {offerId}` answers one offer. It grants `(vault, origin)` for the session (Q1: including the times
+  LearnLoop runs that action by itself, never another action or background work) and tokens the batches the offer
+  lists. An unknown or stale (pre-stop) id gives `not_offered`, which the desktop shows as "Try it again".
+- OpenRouter serves only in three places:
+  - a request of a granted method;
+  - a unit created in one, which takes `unit_token()` and `unit_origin()` at creation: an ingest batch, a sidecar
+    job, the import's time-boxed check;
+  - a unit named by the answered offer.
+
+  In each case only while the vault's **epoch** is the one the grant was given in.
+- **A resume never replaces a batch's token.** Retry, a sweep, any RPC, an inline drain: the batch keeps what it got
+  at creation or from its answered offer. "Stop using OpenRouter" bumps the epoch and drops the vault's grants,
+  offers and batch tokens, so no token captured earlier (a waiting worker, a queued batch) ever revives, even after a
+  new yes.
+- **A batch asks on its own.** A batch's job runs as its unit (`job_grant`, which clears the request's collector).
+  When the batch has an origin, its offer is kept with the batch and relayed, once, by the read of that batch:
+  `get_ingest_batch`, `reader.exercise_import_status`, the workbench's import read. Never from a list. A batch with no
+  origin runs under `quiet()` and asks nothing: made under `quiet()`, off any request, or a job's follow-up other
+  than its own planned build.
+- **Deleted:**
+  - `learnloop_sidecar/pressed.py` (`PRESSED_RPCS`);
+  - `plan_fallback.FEATURE_TASKS`, `pressed()`, `is_pressed()`, `pressed_token()`;
+  - the narrowing, `capture_grant`, `interactive()`;
+  - the task-keyed `grant()` / `offered_tasks()` / `remember_offer()`;
+  - the resume refresh/drop.
+- **Kept:**
+  - `quiet()` (it now controls only asking and background work);
+  - `priced_by` / `offer_blocker`;
+  - the one `inherit_grant=True` site, the planner's own planned build in `run_auto_study_map`, AST-pinned;
+  - `command_grant`: the CLI command is its own request, `origin = "cli"`.
+- **Status reads** ask as the action they report on: `status_as("add_source")` for `get_ai_connection`'s build
+  route, and `status_as("start_teach_back")` for the Today and daily-plan teach-back filter. Neither makes an offer.
+- **The desktop:**
+  - `planFallback.ts` reads `fallbackOfferId` and `fallbackOrigin`;
+  - "Use OpenRouter instead" sends `{provider, offerId}`;
+  - **"Not now" mutes that action's question for the session** (Q2: each action asks once), while other actions
+    still ask;
+  - Settings' "Stop using OpenRouter" sends `{provider, stop: true}`;
+  - `chatgpt_plan_status` adds `openrouterGrantedActions`.
+
+**How the round-3 findings come out:**
+
+1. The 60% quick check uses OpenRouter only after a quick-check offer itself was answered. A build, import or
+   practice yes never reaches it. Q1 confirmed that its automatic sends then use it too.
+2. `retry_synthesis` and every resume keep the batch's token.
+3. Nothing is narrowed, so a rung-variant or animation batch keeps its own action's token.
+4. `workbench.open` is its own action: its import batch asks once and then carries the grant.
+5. The epoch kills the tokens that waiting workers captured.
+
+**Residual-risk audit** (the proposal's named risk: a granted action's handler that queues other work in the same
+request passes its token on):
+
+- **`create_goal`** queues exactly one batch, the goal's population, which belongs to the same action.
+- **`source_action` "Build the whole book"** queues one planner batch (`request_auto_build`, then
+  `enqueue_auto_build`). Its planned build inherits at the audited site, which is the same action. The keep-ahead that
+  `after_auto_build` queues afterwards is a job follow-up with no origin: no token and no offer.
+- **`build_study_map`** queues one batch (a build or an append), and nothing else in the request.
+
+So the three named handlers queue no side work beyond their own action. Two consequences are recorded rather than
+changed:
+
+- every sub-action of one method shares its yes. `source_action`'s Build now, Build the whole book, Retry, Allow
+  upload and Read again with OCR are one action, and `reader.reading_path` is the same action on open and on retry.
+  That is Q1's "that action";
+- a follow-up a job queues without inheriting (for example the build after "Read again with OCR" of a never-read
+  book, or keep-ahead) asks nothing and waits for the plan.
+
+The other edges, as the proposal names them:
+
+- a request that relays a job's offer and also raises its own mints one offer, for the relayed action;
+- a batch drained inline in a request no longer adds its offer to that request: it keeps its own batch offer.
+
+**Tests:**
+
+- **`tests/test_plan_first_transport_offer_grants.py`** (13 tests, replacing `..._pressed_grants.py`).
+  - **Codex's five scenarios** (S1-S5) run through the real dispatch, with stub handlers under real method names:
+    - a build yes never reaches the automatic quick check;
+    - a resume by `retry_synthesis` keeps the grant;
+    - `resume_ingest_batch` keeps a rung-variant batch on its own grant;
+    - `workbench.open`'s import carries its grant after its own yes;
+    - a re-grant never revives a waiting hint job's token.
+
+    All five **fail on `b5d8e0f01`**, run as is, since the helper answers with the round-2 task list when a hint has
+    no offer id (`out/d-fail-before-b5d8.log`). All pass here.
+  - **P1:** every method in `METHOD_REGISTRY` (more than 300) is dispatched with a stub that resolves `tutor_qa`,
+    enqueues a batch and starts a hint job. Before any answer, nothing plans onto OpenRouter. After answering one
+    method's offer, only that method's requests, its batches and its jobs do; the batch its first offer listed is
+    tokened too.
+  - **P2:** a hint job's offer, relayed by `practice.hint_job`, is minted for `practice.request_hint`.
+  - **P3:**
+    - answering tokens the listed batch;
+    - `resume_ingest_batch`, `retry_synthesis`, `source_action`, `reader.mark_section_progress` and an off-request
+      sweep each keep the token;
+    - a batch made under `quiet()` has no origin and no token;
+    - a batch created before any yes asks through its own offer, relayed once by the batch read, and answering it
+      tokens it.
+  - **P4:** a stop kills a queued batch's and a captured token, even after a new yes; a pre-stop offer id answers
+    nothing.
+  - **P5:** scrolling (`mark_section_progress`, first reach and completion of two sections, through `_handle`) after a
+    `build_study_map` yes queues keep-ahead and expansion with no token, no origin and no offer.
+  - **P6:** the quick check uses OpenRouter only after its own yes, never after an `add_source` or
+    `reader.import_exercise` yes.
+  - **An AST pin:** only the dispatch opens `plan_fallback.request(`, only the audited site passes `inherit_grant`,
+    and `pressed.py` is gone.
+- **The existing T1 tests** now run as one request of a test action and answer offers by id: `test_plan_first_transport`
+  (55), `..._paid_roles`, `..._grant_scope` (10), `..._today_quiet` (the teach-back offer answered through
+  `ai_use_fallback`) and `test_chatgpt_plan_provider`.
+- **vitest:**
+  - the banner sends the offer id;
+  - "Not now" mutes that action, and another action's offer still shows;
+  - a stale id shows "Try it again" and grants nothing;
+  - Settings' stop sends `{stop: true}`.
+
+| Run | Result |
+|---|---|
+| `test_plan_first_transport*` (5 files), lockdown, `test_chatgpt_plan_*`, `test_mobile_allowlist` | **498 passed** |
+| every ingest/runner/reader/reading/UX-phase-1/workbench/hint/library/figure/cue/first-run/teach-back/daily-plan/router-offer file and every file naming the grant API, the batch reads or the status reads | **3,521 passed**, 1 skipped, 1 failed. The failure is the known load flake `test_reading_request_sweep::test_b_…`, which passed alone 3 times out of 3 |
+| `lint-imports` | 31 kept, 0 broken |
+| `PlanFallbackOffer`, `ChatGPTPlanSettings`, `classicIsBase` vitest; `npm run typecheck` | 23 passed; clean |
+| FINAL_GATE_D |  |
+
 ### Owner notes
 
 - **No migration** (head 217) and no successor: only the served model changes (Codex to the plan's models),
@@ -858,7 +1005,7 @@ offer test, plus a check that an unpressed job asks nothing) and `test_plan_firs
 Q1-Q7 above, unchanged:
 
 - Q1, slugs: the defaults, and doctor names any unlisted slug;
-- Q2, grant duration: per feature, per vault, for the sidecar session;
+- Q2, grant duration: **the rule is now "only the action that asked, after your yes"** (redesign D, owner Q1-Q3): the action (RPC method) whose offer was answered, per vault, for the sidecar session, including its automatic sends; "Not now" mutes that action for the session;
 - Q3, a non-Codex `fallback_provider`: asked, never used silently;
 - Q4: `json_schema`;
 - Q5: the usage pool is assumed shared;
