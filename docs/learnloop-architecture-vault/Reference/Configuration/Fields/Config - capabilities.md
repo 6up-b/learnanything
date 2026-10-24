@@ -3,8 +3,8 @@ title: "Config - capabilities"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "4127892e64c242fa624a3ee76efda08076f7da9c"
-source_commit_timestamp: "2026-10-23T22:20:26-04:00"
+source_commit: "daf2875e1b59642a0800b2595201106f0682f3e9"
+source_commit_timestamp: "2026-10-24T00:01:14-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml capabilities"
@@ -18,6 +18,7 @@ source_paths:
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
+  - "src/learnloop/ai/plan_fallback.py"
   - "src/learnloop/substrate/canonical_projection.py"
   - "tests/test_capability_residual.py"
 tags:
@@ -40,12 +41,12 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `capabilities.residual_activation_enabled` | `false` | boolean | modeled default or validator seed | Turns residual activation behavior on or off within optional capability-residual activation and shrinkage. | **DORMANT** — Capability residuals ship behind residual_activation_enabled=false. | `src/learnloop/config/schema.py:1739`; `src/learnloop/substrate/canonical_projection.py:1159` |
-| `capabilities.residual_divergence_threshold` | `0.2` | number | modeled default or validator seed | Sets the decision cutoff for residual divergence in optional capability-residual activation and shrinkage. | **DORMANT** — Capability residuals ship behind residual_activation_enabled=false. | `src/learnloop/config/schema.py:1742`; `src/learnloop/substrate/canonical_projection.py:1162` |
-| `capabilities.residual_min_independent_mass` | `2.0` | number | modeled default or validator seed | Controls residual min independent mass in optional capability-residual activation and shrinkage, using the typed value shown here as the fresh-vault default. | **DORMANT** — Capability residuals ship behind residual_activation_enabled=false. | `src/learnloop/config/schema.py:1745`; `src/learnloop/substrate/canonical_projection.py:1163` |
-| `capabilities.residual_min_independent_groups` | `2` | integer | modeled default or validator seed | Controls residual min independent groups in optional capability-residual activation and shrinkage, using the typed value shown here as the fresh-vault default. | **DORMANT** — Capability residuals ship behind residual_activation_enabled=false. | `src/learnloop/config/schema.py:1746`; `src/learnloop/substrate/canonical_projection.py:1164` |
-| `capabilities.residual_episode_divergence_threshold` | `0.12` | number | modeled default or validator seed | Sets the decision cutoff for residual episode divergence in optional capability-residual activation and shrinkage. | **DORMANT** — Capability residuals ship behind residual_activation_enabled=false. | `src/learnloop/config/schema.py:1749`; `src/learnloop/substrate/canonical_projection.py:1165` |
-| `capabilities.residual_shrinkage_pseudo_count` | `4.0` | number | modeled default or validator seed | Controls residual shrinkage pseudo count in optional capability-residual activation and shrinkage, using the typed value shown here as the fresh-vault default. | **DORMANT** — Capability residuals ship behind residual_activation_enabled=false. | `src/learnloop/config/schema.py:1752`; `src/learnloop/substrate/canonical_projection.py:1166` |
+| `capabilities.residual_activation_enabled` | `false` | boolean | modeled default or validator seed | Turns residual activation behavior on or off within optional capability-residual activation and shrinkage. | **DORMANT** — Capability residuals ship behind residual_activation_enabled=false. | `src/learnloop/config/schema.py:1802`; `src/learnloop/ai/plan_fallback.py:122`; `src/learnloop/substrate/canonical_projection.py:1159` |
+| `capabilities.residual_divergence_threshold` | `0.2` | number | modeled default or validator seed | Sets the decision cutoff for residual divergence in optional capability-residual activation and shrinkage. | **DORMANT** — Capability residuals ship behind residual_activation_enabled=false. | `src/learnloop/config/schema.py:1805`; `src/learnloop/ai/plan_fallback.py:122`; `src/learnloop/substrate/canonical_projection.py:1162` |
+| `capabilities.residual_min_independent_mass` | `2.0` | number | modeled default or validator seed | Controls residual min independent mass in optional capability-residual activation and shrinkage, using the typed value shown here as the fresh-vault default. | **DORMANT** — Capability residuals ship behind residual_activation_enabled=false. | `src/learnloop/config/schema.py:1808`; `src/learnloop/ai/plan_fallback.py:122`; `src/learnloop/substrate/canonical_projection.py:1163` |
+| `capabilities.residual_min_independent_groups` | `2` | integer | modeled default or validator seed | Controls residual min independent groups in optional capability-residual activation and shrinkage, using the typed value shown here as the fresh-vault default. | **DORMANT** — Capability residuals ship behind residual_activation_enabled=false. | `src/learnloop/config/schema.py:1809`; `src/learnloop/ai/plan_fallback.py:122`; `src/learnloop/substrate/canonical_projection.py:1164` |
+| `capabilities.residual_episode_divergence_threshold` | `0.12` | number | modeled default or validator seed | Sets the decision cutoff for residual episode divergence in optional capability-residual activation and shrinkage. | **DORMANT** — Capability residuals ship behind residual_activation_enabled=false. | `src/learnloop/config/schema.py:1812`; `src/learnloop/ai/plan_fallback.py:122`; `src/learnloop/substrate/canonical_projection.py:1165` |
+| `capabilities.residual_shrinkage_pseudo_count` | `4.0` | number | modeled default or validator seed | Controls residual shrinkage pseudo count in optional capability-residual activation and shrinkage, using the typed value shown here as the fresh-vault default. | **DORMANT** — Capability residuals ship behind residual_activation_enabled=false. | `src/learnloop/config/schema.py:1815`; `src/learnloop/ai/plan_fallback.py:122`; `src/learnloop/substrate/canonical_projection.py:1166` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
