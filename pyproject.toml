@@ -434,6 +434,7 @@ source_modules = [
     "learnloop.learner_context",
     "learnloop.learner_protection",
     "learnloop.learner_text_gap_upgrade",
+    "learnloop.local_embeddings",
     "learnloop.matching",
     "learnloop.method_explicit_upgrade",
     "learnloop.migration_coordinator",

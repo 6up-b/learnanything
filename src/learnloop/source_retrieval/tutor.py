@@ -283,7 +283,7 @@ def tutor_pool(
         deep=True, rewrite=rewrite, extra_lists=lists, embedder=embedder,
         rewrite_client=rewrite_client, owner_id=owner_id, deadline=deadline,
         pool_dense=config.tutor_candidate_pool + WITHHOLD_SPARE, query_vectors=query_vectors,
-        rewritten=rewritten, pool=pool, pool_extras=pool_extras,
+        rewritten=rewritten, pool=pool, pool_extras=pool_extras, consumer="tutor",
     )
     hits = list(search.hits)
     withheld: list[str] = []

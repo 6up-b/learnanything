@@ -269,7 +269,7 @@ def _compare_sources(
                 extra[f"perspective:{perspective}"] = keys
         search = search_spans(vault, repository, query, sub, limit=KEYS_PER_SOURCE * 2, deep=bool(vectors),
                               rewrite=False, extra_lists=extra, query_vectors=vectors or None, owner_id=owner_id,
-                              deadline=deadline)
+                              deadline=deadline, consumer="compare")
         hits = [hit for hit in search.hits if not (derived == "assisted_practice" and item is not None
                                                    and span_leaks_expected(hit.text, item.expected_answer))]
         if hits:

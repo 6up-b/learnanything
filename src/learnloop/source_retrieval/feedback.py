@@ -28,10 +28,10 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.retrieval_spaces import (
     append_feedback,
-    deliveries_for_owner,
     delivery_for_receipt,
     feedback_rows,
     has_tables,
+    record_citation_signals,
     replace_fusion_posteriors,
 )
 from learnloop.ids import new_ulid
@@ -75,17 +75,11 @@ def record_citations(repository: Repository, *, consumer: str, owner_id: str,
                      citations: Sequence[Mapping[str, Any]]) -> int:
     """``cited`` rows for validated citations of spans this owner's search delivered."""
 
-    keys = [(str(item.get("extraction_id")), str(item.get("span_id"))) for item in citations]
-    if not owner_id or not keys:
+    if not owner_id or not citations:
         return 0
     try:
         with repository.connection() as connection:
-            delivered = deliveries_for_owner(connection, consumer=consumer, owner_id=owner_id, keys=keys)
-            rows = [{"receipt_id": found["receipt_id"], "event": "cited", "consumer": consumer,
-                     "query_kind": found["query_kind"], "owner_id": owner_id, "extraction_id": key[0],
-                     "span_id": key[1], "position": found["position"], "payload": {"signal": "validated_citation"}}
-                    for key, found in sorted(delivered.items())]
-            return append_feedback(connection, rows) if rows else 0
+            return record_citation_signals(connection, consumer=consumer, owner_id=owner_id, citations=citations)
     except Exception:  # noqa: BLE001 - a signal never fails the answer
         logger.warning("retrieval citations could not be logged", exc_info=True)
         return 0

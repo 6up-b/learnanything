@@ -1,5 +1,9 @@
 """The local document index job (spec_local_contextual_retrieval_v1 §4.1, §4.3, §7.2).
 
+It lives in source_retrieval (windows, the policy predicates, the corpus) and
+drives learnloop.local_embeddings (the worker, the meter, the cache), which
+never imports source_retrieval back.
+
 Batch, deferred, no residency. ``run_local_index`` takes every owed window of
 the vault (both variants, grouped and singleton), and when the batch rule,
 the start checks and the locks allow it launches ONE worker in its own capped

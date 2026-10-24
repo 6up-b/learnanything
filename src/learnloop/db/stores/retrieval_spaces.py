@@ -134,6 +134,20 @@ def deliveries_for_owner(connection: sqlite3.Connection, *, consumer: str, owner
     return found
 
 
+def record_citation_signals(connection: sqlite3.Connection, *, consumer: str, owner_id: str,
+                            citations: Sequence[Mapping[str, Any]], now: str | None = None) -> int:
+    """``cited`` rows for validated citations of spans this owner's search
+    delivered (the newest delivery of each span); 0 when none was logged."""
+
+    keys = [(str(item.get("extraction_id")), str(item.get("span_id"))) for item in citations]
+    delivered = deliveries_for_owner(connection, consumer=consumer, owner_id=owner_id, keys=keys)
+    rows = [{"receipt_id": found["receipt_id"], "event": "cited", "consumer": consumer,
+             "query_kind": found["query_kind"], "owner_id": owner_id, "extraction_id": key[0], "span_id": key[1],
+             "position": found["position"], "payload": {"signal": "validated_citation"}}
+            for key, found in sorted(delivered.items())]
+    return append_feedback(connection, rows, now=now) if rows else 0
+
+
 def delivery_for_receipt(connection: sqlite3.Connection, receipt_id: str,
                          key: tuple[str, str]) -> dict[str, Any] | None:
     if not has_tables(connection):
@@ -190,6 +204,7 @@ __all__ = [
     "feedback_rows",
     "fusion_posteriors",
     "has_tables",
+    "record_citation_signals",
     "register_space",
     "replace_fusion_posteriors",
     "set_space_canaries",

@@ -2306,6 +2306,7 @@ def queue_source_vectors(ctx: JobContext, extraction_id: str, *, title: str | No
         config = load_config(Path(ctx.vault_root) / "learnloop.toml", load_environment=False)
     except Exception:  # noqa: BLE001 - no readable config: nothing to queue
         return None
+    queue_contextual_indexes(ctx, config, extraction_id, title=title)
     if auto_backfill_reason(config) is not None:
         return None
     try:
@@ -2326,6 +2327,116 @@ def queue_source_vectors(ctx: JobContext, extraction_id: str, *, title: str | No
             details={"extraction_id": extraction_id, "error_type": type(exc).__name__},
             retryable=True,
         ) from exc
+
+
+def queue_contextual_indexes(ctx: JobContext, config: Any, extraction_id: str, *, title: str | None = None) -> list[str]:
+    """Local contextual retrieval P1a/P1b (spec §4.1, §8): a completed
+    extraction queues the local index job and the Voyage fallback backfill.
+
+    Each acts only while its switch is on (``embedding.local.enabled`` with
+    ``index_on_extract``; the fallback's ``enabled`` with ``maintain_index``
+    and ``embedding.enabled``): with both off, the defaults, nothing is queued.
+    One live local index job indexes everything owed, so a second is not
+    queued; a fallback backfill is queued once per current extraction. The
+    obligation is each space's own coverage, so a failure to queue never
+    fails the import (``learnloop embeddings local index`` and
+    ``learnloop embeddings fallback backfill`` catch up)."""
+
+    from learnloop.source_retrieval.fallback_space import FALLBACK_JOB, fallback_reason
+    from learnloop.source_retrieval.local_index import INDEX_JOB
+    from learnloop.source_retrieval.source_vectors import LIVE_JOB_STATUSES, target_extraction
+
+    queued: list[str] = []
+    embedding = config.embedding
+    want_local = embedding.local.enabled and embedding.local.index_on_extract
+    want_fallback = fallback_reason(config) is None and embedding.fallback.maintain_index
+    if not (want_local or want_fallback):
+        return queued
+    try:
+        _source_id, current = target_extraction(ctx.repo, extraction_id)
+        if current is None:
+            return queued
+        live = [job for job in ctx.repo.ingest_jobs_by_types((INDEX_JOB, FALLBACK_JOB))
+                if job.get("status") in LIVE_JOB_STATUSES]
+        payload: dict[str, Any] = {"extraction_id": extraction_id, "current_extraction_id": current}
+        if title:
+            payload["title"] = title
+        if want_local and not any(job.get("job_type") == INDEX_JOB for job in live):
+            queued.append(ctx.enqueue_batch(INDEX_JOB, [JobSpec(INDEX_JOB, payload)]))
+        if want_fallback and not any(job.get("job_type") == FALLBACK_JOB
+                                     and (job.get("payload") or {}).get("current_extraction_id") == current
+                                     for job in live):
+            queued.append(ctx.enqueue_batch(FALLBACK_JOB, [JobSpec(FALLBACK_JOB, payload)]))
+    except JobCancelled:
+        raise
+    except Exception as exc:  # noqa: BLE001 - coverage keeps the obligation; the import never fails for it
+        logging.getLogger(__name__).warning("contextual index jobs could not be queued (%s)", type(exc).__name__)
+    return queued
+
+
+#: ``run_local_index`` statuses that end the job without a failure: the work
+#: is done, off, or waiting for the GPU or the batch (coverage keeps the debt).
+_LOCAL_INDEX_DONE = frozenset({"complete", "partial", "disabled", "waiting_for_gpu", "waiting_for_batch",
+                               "epoch_drift"})
+
+
+def handle_local_source_index(ctx: JobContext) -> dict[str, Any]:
+    """local_source_index: index every owed window in one 9B worker batch.
+
+    Waiting for the GPU or the batch is not a failure: the job completes with
+    its reason and coverage stays partial (the resolver uses another space)."""
+
+    from learnloop.source_retrieval.local_index import run_local_index
+    from learnloop.vault.loader import load_vault
+
+    ctx.report("acquired", message="Indexing sources on the local model")
+    report = run_local_index(load_vault(ctx.vault_root), ctx.repo)
+    status = str(report.get("status") or "")
+    if status not in _LOCAL_INDEX_DONE:
+        raise IngestRunnerError(f"The local index worker ended with status {status!r}: {report.get('reason')}.",
+                                code="local_index_failed", details={key: report.get(key) for key in (
+                                    "status", "owed_extractions", "owed_windows")}, retryable=True)
+    messages = {"complete": "Local meaning index updated", "partial": "Local meaning index partly updated",
+                "disabled": f"Not indexed locally: {report.get('reason')}",
+                "waiting_for_gpu": f"Waiting for the GPU: {report.get('reason')}",
+                "waiting_for_batch": f"Waiting for the batch: {report.get('reason')}",
+                "epoch_drift": f"Local index paused: {report.get('reason')}"}
+    ctx.report("applied", message=messages[status])
+    return {key: value for key, value in report.items() if key != "worker"}
+
+
+def handle_source_fallback_backfill(ctx: JobContext) -> dict[str, Any]:
+    """source_fallback_backfill: the Voyage fallback space's windows for one
+    source (capped, receipted; an aggregate report, never block text)."""
+
+    from learnloop.source_retrieval.dense import clear_cache
+    from learnloop.source_retrieval.fallback_space import backfill_fallback_vectors
+    from learnloop.vault.loader import load_vault
+
+    extraction_id = str(ctx.payload.get("current_extraction_id") or ctx.payload.get("extraction_id") or "").strip()
+    if not extraction_id:
+        raise IngestRunnerError("source_fallback_backfill requires an 'extraction_id'.")
+    ctx.report("acquired", message="Indexing the source in the fallback space")
+    report = backfill_fallback_vectors(load_vault(ctx.vault_root), ctx.repo, extraction_id, cancelled=ctx.cancelled)
+    status = str(report.get("status") or "")
+    if report.get("embedded_windows"):
+        clear_cache()
+    if status == "cancelled":
+        raise JobCancelled()
+    if status in {"complete", "disabled"}:
+        ctx.report("applied", message="Fallback index updated" if status == "complete"
+                   else f"Not indexed in the fallback space: {report.get('reason')}; nothing was sent")
+        return report
+    details = {key: report.get(key) for key in ("status", "extraction_id", "space_id", "missing_windows",
+                                               "embedded_windows", "remaining_windows", "charged", "error_type")}
+    if status == "over_budget":
+        raise IngestRunnerError(
+            "Indexing this source in the fallback space would exceed embedding.fallback.max_cost_usd_per_run; "
+            "raise the cap and retry, or run `learnloop embeddings fallback backfill`.",
+            code="over_budget", details=details, retryable=False)
+    raise IngestRunnerError(f"The fallback backfill ended with status {status!r}; retry to index the rest "
+                            "(saved windows are not bought again).",
+                            code="fallback_backfill_incomplete", details=details, retryable=True)
 
 
 #: ``backfill_source_vectors`` statuses that end the job without a failure.
@@ -3558,6 +3669,8 @@ DEFAULT_HANDLERS: dict[str, Handler] = {
     "rung_variant": handle_rung_variant,
     "concept_animation": handle_concept_animation,
     "source_embedding_backfill": handle_source_embedding_backfill,
+    "local_source_index": handle_local_source_index,
+    "source_fallback_backfill": handle_source_fallback_backfill,
 }
 
 

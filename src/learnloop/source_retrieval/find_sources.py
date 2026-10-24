@@ -740,6 +740,7 @@ def find_sources(
         vault, repository, query_text, span_scope, limit=max(int(limit) * 4, 40), deep=True, rewrite=rewrite,
         extra_lists=extra, embedder=embedder, rewrite_client=rewrite_client, owner_id=owner_id or query_hash,
         deadline=deadline, roles=effective_roles, pool=POOL_HYBRID_RRF, eligible=eligibility,
+        consumer=f"find_sources:{intent}",
         **({} if depth is None else {"list_depth": depth}),
     )
     pool = [hit for hit in search.hits if hit.key not in excluded]

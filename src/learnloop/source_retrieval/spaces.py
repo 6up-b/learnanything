@@ -181,7 +181,7 @@ def _contextual_vectors(read: Callable[[str, Mapping[str, Sequence[tuple[str, in
 def _local_states(vault: LoadedVault, repository: Repository, windows: Mapping[tuple[str, str], Sequence[Any]],
                   known: Mapping[str, Mapping[str, Any]]) -> dict[str, SpaceState]:
     from learnloop.local_embeddings.cache import CacheUnreadable, VectorCache, cache_path
-    from learnloop.local_embeddings.index import LIST_NAMES, local_reason, local_spaces
+    from learnloop.source_retrieval.local_index import LIST_NAMES, local_reason, local_spaces
     from learnloop.source_retrieval.windows import mean_vector
 
     names = (LOCAL_GROUPED, LOCAL_SINGLETON)

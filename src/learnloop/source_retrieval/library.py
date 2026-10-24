@@ -133,7 +133,7 @@ def search_library(
         vault, repository, needle, scope, limit=limit, deep=deep, include_substring=True,
         prefix_last=not deep, embedder=embedder, rewrite_client=rewrite_client,
         owner_id="library", deadline=(time.monotonic() + config.retrieval_timeout_seconds) if deep else None,
-        budget=budget,
+        budget=budget, consumer="library",
     )
     hits = [{
         "source_id": hit.source_id,
