@@ -1633,3 +1633,87 @@ Round 1's `scheduler.pool_admission` and round 2's membership (`new_material_can
 - The defaults snapshots, CLI help, table roles and registry tests after the merge passed (729, one
   registry test updated).
 - `lint-imports --no-cache`: **33 kept**, 0 broken (30 plus the three new contracts).
+
+
+## Compose onto T1 (main bd0bb7267)
+
+The final round was verified CLEAN (Codex job `20261024-142301-glI6Tb`). This section records the last
+compose: main `bd0bb7267` brings plan-first transport T1 (redesign D, "the offer is the grant"), its
+migration 218 (`ingest_batches.origin_method`) and `fixtures/migration_head_218`. The merge is
+`da6ccfae1` (`git merge --no-ff main`).
+
+**Conflicts, composed:**
+- `src/learnloop/config/template.py`: 20 snapshot hunks. Main's T1 notes were kept, AD's line added to
+  each version, and AD's `mvp-0.30` entry kept. Every fingerprint was recomputed from the composed
+  defaults: 21 versions, 0 mismatches. The successor chain stays `mvp-0.29 -> mvp-0.30`.
+- `fixtures/migration_head_218` (main renamed `migration_head_217`): rebuilt as a backup-API copy of
+  main's fixture with only 214 applied, under the scratch-copy allowance.
+  - Checks: `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`, header bytes 1/1,
+    `integrity_check` ok, `foreign_key_check` empty, no companion files.
+  - It holds every migration through 218. Its README was composed: main's text, AD's 214 paragraph,
+    and this rebuild's record.
+- `tests/test_ad1_migration.py` and `tests/test_reader_rw7a_migration.py`: main's head 218 and T1's
+  altered table, with AD's 214 on the way to head. `test_ad23_migration` moves to the composed head,
+  and its set-based test becomes `test_a_vault_at_218_without_214_gets_it`: a vault at 218 without 214
+  gets exactly AD's objects, and only AD1's two receipts are altered.
+- The generated references took main's side and were regenerated: 1,033 configuration leaves in 69
+  sections, 347 table notes, schema head 218. `db_validate_reference` reports 0 errors, and
+  `validate_vault` passed.
+
+**C4: AD's model routes under T1.**
+- **The plan-first route table** (`config.schema.DEFAULT_SERVING_TASK_ROUTES`) gains three entries:
+
+  | Route | Plan tier | Serves |
+  |---|---|---|
+  | `ad_forecast_llm` | `chatgpt_low` | the `ad_item_forecast` task |
+  | `ad_feature_audit` | `chatgpt_low` | the feature audit |
+  | `ad_relatedness` | `chatgpt_medium` | the relatedness proposal |
+
+  - The legacy Codex table gets the same three on Codex's tiers. Codex stays refused unless
+    `ai.agent_harness_opt_in`.
+  - `ad_relatedness` now has its own route key, `ai.routing.ad_relatedness`. It used to ride the field
+    harness's opt-in `llm_probability_llm`; `relatedness.ROUTE`, the operation map and the refusal text
+    follow.
+  - `ad_forecast_decider` stays a decider-only route on its code-default decider profile. A plan
+    profile is not a decider; its calls are, as before, held to AD's daily cap.
+- **Prices.** T1's `METERED_PRICE_SETTINGS` already priced `ad_forecast_llm` and `ad_feature_audit`
+  at `adaptive_difficulty.price_per_million`; `ad_relatedness` gets the same entry. While the price is
+  unset, nothing is offered or sent.
+- **Quiet background work.** Every AD operation now runs under `plan_fallback.quiet()`
+  (`operation._operation`). Inside one:
+  - no route raises an OpenRouter offer;
+  - no grant serves a route, the paid path's `_granted_provider` included;
+  - with the plan unavailable, the call reports unavailable, and AD waits or skips, as T1's background
+    builds do.
+
+  This covers preparation, forecasts, relatedness and audits on a request path as well as in the
+  background.
+- **Tests** (`tests/test_ad23_t1_routes.py`):
+  - the table entries, the operation map and the prices;
+  - under code defaults each AD route is a plan profile billed as the subscription, and a Codex route is
+    refused;
+  - inside an AD operation, with the plan paused, OpenRouter set up, every price set and every AD task
+    granted to the request: no offer and no grant, the paid route stays on the plan, and nothing is
+    sent. The same tasks outside the operation do ask, and the grant would serve them.
+  - With `quiet()` replaced by a no-op, the operation test fails.
+
+**Gate (memory-capped scopes, at most -n 6, one at a time; no full suite).**
+
+- The full AD file set (every `tests/test_ad*.py`, including `test_ad23_t1_routes`, plus
+  `test_span_reanchor` and `test_salience_firewall`): **6,292 passed, 36 xfailed** (14 min 14 s). One
+  more test failed: `test_ad_protected_tables`' column registry, on T1's new
+  `ingest_batches.origin_method`. It is now classified as metadata (an RPC method name), and the file
+  passes (6 passed).
+- The second run covered 164 files: DL2's intent, commitment and frame files, the daily-plan and router
+  R2a files, RW5b's figure files, T1's files (`test_plan_first_transport*.py` with the METHOD_REGISTRY
+  property and the route-resolution properties, the Codex lockdown files,
+  `test_t1_batch_origin_migration`), every file that uses the plan fakes, `check_admission`,
+  `requested_practice_item_ids`, `_classified_pool`, `admit_new_material`, `serving_exclusions`, a head
+  fixture or `apply_migrations`, and the scheduler, CLI help, sidecar serializer and mobile allowlist
+  pins. Result: **3,553 passed, 1 skipped** and one load flake
+  (`test_voi_v2::test_at_their_restore_values_the_switches_reproduce_the_branchs_decisions_exactly`),
+  which passes alone 3 of 3.
+- Durability (`--durable-sqlite`) on the guard, epoch, protected-table and protected-reading files, the
+  four compose files, `test_coordinated_migrations`, `test_tracked_fixture_databases` and every
+  migration test that reads a head fixture or applies migrations (11 files): **507 passed**.
+- `lint-imports --no-cache`: **34 kept**, 0 broken.
