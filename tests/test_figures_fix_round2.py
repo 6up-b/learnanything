@@ -224,10 +224,10 @@ def test_f7_a_build_committed_between_the_reads_is_reused_inside_the_lock(tmp_pa
     # other build committed (empty), its `latest_for_input` read after (the
     # committed row), so `seen` is that row and `latest == seen` in the lock.
     real = figure_store.reusable
-    reads: list[bool] = []
+    reads: list[str] = []
 
     def before_the_commit(connection, input_hash, spec_version):
-        reads.append(True)
+        reads.append(input_hash)
         return None if len(reads) == 1 else real(connection, input_hash, spec_version)
 
     monkeypatch.setattr(figure_store, "reusable", before_the_commit)
@@ -235,7 +235,9 @@ def test_f7_a_build_committed_between_the_reads_is_reused_inside_the_lock(tmp_pa
     second = FS.build_figure(vault, Repository.attach(repository.sqlite_path), request, author_client=author)
     assert author.calls == 0  # no second paid generation
     assert second.reused is True and second.view["figure_id"] == first.view["figure_id"]
-    assert len(reads) == 2 and len(rows(repository, "interactive_figures")) == 1
+    # This input's reads (RW5b review F2 also looks, once per read, under the
+    # other prompt version: never this input's key).
+    assert reads.count(reads[0]) == 2 and len(rows(repository, "interactive_figures")) == 1
 
 
 # ---------------------------------------------------------------------------

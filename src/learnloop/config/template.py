@@ -1523,8 +1523,19 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # live-behind-kill-switches ruling). Every snapshot moves only because
     # the effective config gains the key; all of them were recomputed from
     # the composed defaults (defaults_fingerprint_for_version).
+    # Reader workbench RW5b (more figure kinds and offered figures;
+    # docs/reviews/reader-workbench-RW5b.md) adds [figures]
+    # advanced_panels_enabled and offers_enabled (true; modelled defaults,
+    # left out of the decision-only template): heat maps, vector fields,
+    # trajectories and iterated maps in the figure grammar, and "make this
+    # explorable" judged by the library organizer and the Reader tutor in the
+    # calls they already make. Content and display: no scoring, scheduling,
+    # projection or serving change and no successor; they act at every
+    # version and add no route. Every snapshot moves only because the
+    # effective config gains the keys; all of them were recomputed from the
+    # composed defaults (defaults_fingerprint_for_version).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.9": "8cdee15b73abee36fe7bab2de0f7dfb36b8a9334a116c287b2d06f99505e43d6",
+    "mvp-0.9": "5bb519ef48350401a9f6604fc721003fa77b93112eb07b5ded1d9dd62aa72c40",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1582,8 +1593,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.10": "bb765e3e2539f03f36ef6ff021a1be0eee80fd80703c62f61ea74ae90518e642",
+    "mvp-0.10": "b2ea72cc9447c39dae450ea9bc27794fecca1aecf6093178c3e879d745e1cce3",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1649,8 +1661,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.11": "27dcbd6f5b31fe022bd1e0b3f418eda712e92d60af19f2b889ff60cdfce61902",
+    "mvp-0.11": "25059dc5d55334f485a39c1bfe9139d25e9d45f07022b6ed1f1ad7a9a9c9d5ef",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1710,8 +1723,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.12": "84a694f05aa40abfb19cc954a396a18bd30641c7b9628466aa01c24468740ad2",
+    "mvp-0.12": "e10c9f5bef5cbf282a6314468e0990a5173aaedff674f4f30ae870f51834a1a1",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1766,8 +1780,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.13": "99bfa2d835e2bf25825bdb3cebd3d70bb562238570d843244368a832c0cd3502",
+    "mvp-0.13": "bfd8b27bc2350f5d2d41f8632eec63774d80e16f20865585fd35801c0af9eaa4",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1821,8 +1836,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.14": "adf9feb866ff1363e565c1fd3e6a419e44e640cc6dbbdc4bb10f5cf6edf55138",
+    "mvp-0.14": "1ecb2999046f1fb9ec566fbdfb3572f9e1c25c66e18e5ffa19ee5c5b1421cbfd",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1874,8 +1890,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.15": "d41f56be3dc087a05c67b717637d8731938e33de575d902aa157982edd72eacb",
+    "mvp-0.15": "79ab2f6177626c15c777e9c0c736c405e9fcf19109207a537ed59738a5c297d0",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1934,8 +1951,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.16": "e00a28b81d392f2c07512671579f8b799c727a76f0762464ce475c2bd64c47f3",
+    "mvp-0.16": "f54de41dc532cff55ea4d905788746fdf795c94d13d590cfc505f3ff6ddc136e",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1990,8 +2008,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.17": "57086431acc5b8d370904b9b99789aaed8a97105a6799a2531b6f0c88891f307",
+    "mvp-0.17": "dcc98403b99470dcac9fd2affdf81292f238e649da603adb0ee828b1053d4fc8",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -2039,8 +2058,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.18": "1a5ee82ccb3ecc78db7096f8fcb7a17738da21f50778c7a5e37ea4ace0119f39",
+    "mvp-0.18": "9fea58ff3641c98f8a5d21706e709f90a16282113f625f8b7139f57871fa3775",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -2088,8 +2108,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.19": "a0fa7a11aa54a18a5d8f9ee4e01e3e5861bb51b84f73c986388bef32c7782b73",
+    "mvp-0.19": "17c7999012e0f84a4718be432469eefe6c8f99ae2e7bd5a0ad04e6f9e1dc1ec0",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -2133,8 +2154,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.20": "bafbe574bc01808ae2f007452f5286eb83a89c4b26f00c941586413190d779fc",
+    "mvp-0.20": "95e57df44dec8cd3bb6d996d86db48b85896b58604233659b95d8e40dc5c1fc6",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -2187,8 +2209,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.21": "b5cce7700d63d06bb39d75d7dcf0a210dd01c5e6a8bbc559645603139b44c31b",
+    "mvp-0.21": "a3b2a010483324cacc8261cd205572cdaad6fd9fbe471b2880de9cd6e84c7691",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -2233,8 +2256,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.22": "7f93de748b8290793e81ee9798e05001769641b81ed8cdf2c037f86300030010",
+    "mvp-0.22": "6af0239106774d02a9fcde053d044a87a2847e549ce00d3e234bbc0a53d2f470",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -2274,8 +2298,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.23": "9c3c5f5291f9e7ed0ef9bc65132fdfe75430c27846bcec4cb3d4ae83c890e69d",
+    "mvp-0.23": "1cb43df1b178094fe267a9f73d40d4db98908d3b2c6c99dca4165012f99b09ca",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -2312,8 +2337,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.24": "75f0dbaa5bc9911ec44a583ede2e9fd0b63d1c7721e31e48405fce57217112fc",
+    "mvp-0.24": "66a5152428573e920e483a422d4865ec7ac84dba59b2bb44d26c2cc4007a4d9c",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -2348,8 +2374,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.25": "ed10c3d80411f6666f7f03d1b4f968ada33d3b0085bd0d753497873b76d2f9cc",
+    "mvp-0.25": "f225a17234c669adc1d46739368f853f306a2e8ea7e3eafb457ced19caee6458",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -2383,8 +2410,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.26": "94afdf8fcf70bc16ba2ec4a3f318d0c871bdc83d45cc8f81a49df194fbefa822",
+    "mvp-0.26": "0cde6d8bd58919d417bf4ad46d8bacee051e5daf50396fe2df2b45e4e85eef58",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -2418,8 +2446,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.27": "623e77e7eb5f89eda30d810c5555b67cce7e0a9acaf67655d89b02cf50680073",
+    "mvp-0.27": "646d3b8d71db053dc8188e0c185c8c41b22658becf3e5284f606d810c0d51485",
     # mvp-0.29 (daily-loop DL2, the learner's intent; docs/reviews/
     # daily-loop-dl2.md and its Codex re-review F2): the predecessor plus
     # serving by intent (an excluded item is never served, requested or
@@ -2442,8 +2471,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW5a's [figures] and its route move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2c's [workbench] help-outcome, example, compare and draw switches move it too (see mvp-0.9; no serving change).
     # UX Phase 2's [ui] shell moves it too (see mvp-0.9; display only).
+    # Reader workbench RW5b's [figures] advanced_panels_enabled and offers_enabled move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD2+AD3's [adaptive_difficulty] switches and constants move it too (see mvp-0.30; dormant below it).
-    "mvp-0.29": "9663280715ea418b6321b0a490f0b4532d6a022ebf23c20ce152ebe4409f487c",
+    "mvp-0.29": "6e6134c18b54eea65509c170ac04702cd9663289b53f652b7fac3d96f4337f58",
     # mvp-0.30 (adaptive difficulty AD2+AD3, owner 2026-10-18;
     # docs/reviews/adaptive-difficulty-ad23.md): mvp-0.29 plus AD's draw at a
     # planned new-material slot (practice in the 70-80% band, calibration within
@@ -2463,8 +2493,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # mvp-0.29, or from mvp-0.9 onwards through the chain (mvp-0.28 is never
     # used: AD2+AD3 lands after DL2, orchestrator decision 2026-10-20). New vaults start
     # here (the template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
-    "mvp-0.30": "2d7c85beadb15f4cbb7f26570d3d3ca08d0690e5f5f5fbc843669d55c5764236",
-
+    "mvp-0.30": "7ee44452b9533c498c0ac67ac768a0228221569b5a715e8c87db76ff7ccba8c6",
 }
 
 

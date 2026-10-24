@@ -3,8 +3,8 @@ title: "question_promotions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e3cb586a7d6eea0ab684df2ede124bc141a05aec"
-source_commit_timestamp: "2026-10-23T18:42:18-04:00"
+source_commit: "b74c1a38f9b8047f82aa433014cf4644fae56cdd"
+source_commit_timestamp: "2026-10-24T10:24:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_promotions"
@@ -19,6 +19,8 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/027_question_promotions.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/tutor/promotions.py"
   - "src/learnloop/tutor/question_queue.py"
@@ -122,6 +124,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_ad23_intent_compose.py`
 - `tests/test_migrations.py`
 - `tests/test_question_promotions.py`
 - `tests/test_sidecar_tutor_qa.py`

@@ -3,8 +3,8 @@ title: "interactive_figures"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e3cb586a7d6eea0ab684df2ede124bc141a05aec"
-source_commit_timestamp: "2026-10-23T18:42:18-04:00"
+source_commit: "b74c1a38f9b8047f82aa433014cf4644fae56cdd"
+source_commit_timestamp: "2026-10-24T10:24:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interactive_figures"
@@ -122,6 +122,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_architecture.py`
+- `tests/test_figure_offers.py`
 - `tests/test_figure_region.py`
 - `tests/test_figure_revisions.py`
 - `tests/test_figure_verification.py`
@@ -130,6 +131,7 @@ None found by exact static reference scan.
 - `tests/test_figures_fix_round2.py`
 - `tests/test_figures_migration.py`
 - `tests/test_figures_rpc.py`
+- `tests/test_figures_rw5b_review.py`
 - `tests/test_figures_scope_redesign.py`
 - `tests/test_figures_switch_off.py`
 

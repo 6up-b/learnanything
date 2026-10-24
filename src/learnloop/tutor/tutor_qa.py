@@ -57,12 +57,17 @@ from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.content.sources.exam_material import held_out_among, held_out_material, held_out_refusal
 from learnloop.ai.transport import OperationClient, execute_structured_operation
 from learnloop.tutor.ai_contracts import (
+    READER_TUTOR_EXPLORABLE_PROMPT_VERSION,
+    READER_TUTOR_EXPLORABLE_TOOLS_PROMPT_VERSION,
     READER_TUTOR_PROMPT_VERSION,
     READER_TUTOR_TOOLS_PROMPT_VERSION,
     TUTOR_QA_PROMPT_VERSION,
     TUTOR_QA_TOOLS_PROMPT_VERSION,
     ReaderTutorAnswer,
     ReaderTutorAnswerWithTools,
+    ReaderTutorExplorableAnswer,
+    ReaderTutorExplorableAnswerWithTools,
+    ReaderTutorExplorableQAContext,
     ReaderTutorQAContext,
     TutorAnswer,
     TutorAnswerWithTools,
@@ -141,15 +146,73 @@ def request_tutor_answer(
 
 
 def _answer_model(context: TutorQAContext, *, tools: bool) -> type[TutorAnswer]:
+    if isinstance(context, ReaderTutorExplorableQAContext):
+        # RW5b: with figure offers on, the answer judges its cited equation and figure blocks.
+        return ReaderTutorExplorableAnswerWithTools if tools else ReaderTutorExplorableAnswer
     if isinstance(context, ReaderTutorQAContext):
         return ReaderTutorAnswerWithTools if tools else ReaderTutorAnswer
     return TutorAnswerWithTools if tools else TutorAnswer
 
 
 def _prompt_version(context: TutorQAContext, *, tools: bool) -> str:
+    if isinstance(context, ReaderTutorExplorableQAContext):
+        return READER_TUTOR_EXPLORABLE_TOOLS_PROMPT_VERSION if tools else READER_TUTOR_EXPLORABLE_PROMPT_VERSION
     if isinstance(context, ReaderTutorQAContext):
         return READER_TUTOR_TOOLS_PROMPT_VERSION if tools else READER_TUTOR_PROMPT_VERSION
     return TUTOR_QA_TOOLS_PROMPT_VERSION if tools else TUTOR_QA_PROMPT_VERSION
+
+
+def _record_explorable_verdicts(repository: Repository, event_id: str, answer: Any, *, model: str | None,
+                                prompt_version: str, clock: Clock | None) -> None:
+    """RW5b (Codex review F3): the tutor's ``explorable`` verdicts, one
+    ``judgment_ledger`` row per judged block (task ``figure_explorable``), as
+    every LLM verdict is. The press reads its offer back from these rows and
+    the stored view together. Bookkeeping: a failure is logged, never raised,
+    and costs the learner only that answer's offers."""
+
+    from learnloop.ai.execution import content_key
+    from learnloop.db.stores.judgments import append_judgment
+    from learnloop.db.stores.practice_index import judgments_by_ids
+    from learnloop.figure_admission import TUTOR_EXPLORABLE_TASK, explorable_yes, tutor_explorable_judgment_id
+
+    judged: dict[tuple[str, str], str] = {}
+    for entry in list(getattr(answer, "explorable", None) or ())[:40]:
+        key = (str(getattr(entry, "extraction_id", "") or ""), str(getattr(entry, "span_id", "") or ""))
+        if all(key) and key not in judged:
+            judged[key] = "yes" if explorable_yes(getattr(entry, "explorable", None)) else "no"
+    if not judged:
+        return
+    try:
+        with repository.connection() as connection:
+            ids = {key: tutor_explorable_judgment_id(event_id, *key) for key in judged}
+            existing = judgments_by_ids(connection, list(ids.values()))
+            for key, verdict in judged.items():
+                if ids[key] in existing:
+                    continue
+                append_judgment(
+                    connection, id=ids[key], task=TUTOR_EXPLORABLE_TASK, left_kind="question_event",
+                    left_id=str(event_id), right_kind="source_span", right_id=f"{key[0]}:{key[1]}", judge="llm",
+                    judge_model=model or "unspecified", prompt_version=prompt_version,
+                    # The input only (fix round 2, F10): an owner or verifier
+                    # label on the same answer and block pairs with this row
+                    # (ai/agreement.py matches on input_hash); the verdict is
+                    # the row's verdict, and its rationale says it.
+                    input_hash=content_key([prompt_version, str(event_id), *key])[:40], verdict=verdict,
+                    score=1.0 if verdict == "yes" else 0.0, rationale=json.dumps({"explorable": verdict}),
+                    created_at=utc_now_iso(clock))
+    except Exception as exc:  # noqa: BLE001 - offers are optional
+        logger.warning("tutor explorable verdicts not recorded: %s", type(exc).__name__)
+
+
+def tutor_explorable_enabled(vault: LoadedVault) -> bool:
+    """RW5b: the Reader tutor judges ``explorable`` on cited equation and
+    figure blocks only while figure offers are on and RW1c's offers (the
+    buttons under an answer, where "make this explorable" shows) are on."""
+
+    from learnloop.figure_admission import offers_enabled
+
+    section = getattr(vault.config, "reader_tutor", None)
+    return offers_enabled(vault) and bool(getattr(section, "offers_enabled", False))
 
 
 def reader_span_key(extraction_id: str, span_id: str) -> str:
@@ -835,6 +898,9 @@ def ask_question(
         # sweep stamps the exchange by it; Codex review F4).
         answered_at=utc_now_iso(clock),
     )
+    if reader_view is not None and "explorable" in reader_view:
+        _record_explorable_verdicts(repository, event_id, answer, model=getattr(client, "model", None),
+                                    prompt_version=_prompt_version(ai_context, tools=tools), clock=clock)
     if item is not None:
         record_reveal(
             repository,
@@ -1531,6 +1597,7 @@ def _build_context(
                 answer_mode=answer_mode, withheld=reader_withheld, delivery_receipt=delivery_receipt,
                 budget_tokens=settings.context_token_budget, expanded=settings.expanded_delivery,
                 guard=reader_binding.context_guard if reader_binding is not None else None, guarded=guarded,
+                explorable=tutor_explorable_enabled(vault),
             )
         if delivery_receipt is not None and guarded:
             delivery_receipt["item_bound_withheld"] = dict(sorted(guarded.items()))
@@ -1626,6 +1693,7 @@ def _reader_lookup_context(
     expanded: bool,
     guard: Any = None,
     guarded: Mapping[str, int] | None = None,
+    explorable: bool = False,
 ) -> ReaderTutorQAContext:
     """RW1c's Reader context: the selection and its neighbours first, then the
     retrieved passages (each its complete canonical block unless
@@ -1663,7 +1731,26 @@ def _reader_lookup_context(
         if receipt.get("trimmed") or receipt.get("dropped"):
             delivery_receipt["lookup_budget"] = {key: receipt[key] for key in
                                                  ("budget_tokens", "used_tokens", "trimmed", "dropped")}
-    return ReaderTutorQAContext(
+    # RW5b: with figure offers on, the same context asks for the explorable
+    # judgment (its own prompt version and answer model; no new field), and
+    # only when an equation or figure block is among the delivered passages:
+    # with nothing to judge, the request is RW1c's, byte for byte.
+    if explorable:
+        from learnloop.figure_admission import offerable_blocks
+
+        kinds = offerable_blocks(repository, [
+            (str(span.get("extraction_id")), str(span.get("span_id"))) for span in kept
+            if span.get("extraction_id") and span.get("span_id")])
+        explorable = bool(kinds)
+        if explorable:
+            # Codex review F7: each equation or figure block is marked
+            # (``block``), as the organizer marks its candidates, so a figure
+            # whose text is only its caption is still judged.
+            kept = [{**span, "block": kinds[key]} if (key := (str(span.get("extraction_id")),
+                                                               str(span.get("span_id")))) in kinds else span
+                    for span in kept]
+    context_type = ReaderTutorExplorableQAContext if explorable else ReaderTutorQAContext
+    return context_type(
         context="reader",
         question_md=question_md,
         candidate_facets=[],

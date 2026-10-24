@@ -3,8 +3,8 @@ title: "commitments"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e3cb586a7d6eea0ab684df2ede124bc141a05aec"
-source_commit_timestamp: "2026-10-23T18:42:18-04:00"
+source_commit: "b74c1a38f9b8047f82aa433014cf4644fae56cdd"
+source_commit_timestamp: "2026-10-24T10:24:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitments"
@@ -123,6 +123,10 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/ad23_fakes.py`
+- `tests/daily_plan_fakes.py`
+- `tests/test_ad23_intent_compose.py`
+- `tests/test_ad2_serving.py`
 - `tests/test_causal_attribution_p1.py`
 - `tests/test_commitment_arcs.py`
 - `tests/test_commitments.py`
@@ -139,10 +143,6 @@ Indexes and uniqueness:
 - `tests/test_golden_path_assessment.py`
 - `tests/test_golden_path_confirm.py`
 - `tests/test_intent_checks.py`
-- `tests/test_intent_codex_rereview.py`
-- `tests/test_intent_codex_review.py`
-- `tests/test_intent_exclusion.py`
-- `tests/test_intent_fix_round4.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
