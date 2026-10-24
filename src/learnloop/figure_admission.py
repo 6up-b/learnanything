@@ -6,7 +6,11 @@ package: evidence-side code may use it without importing ``learnloop.figures``
 (the ``evidence-never-reads-figures`` contract).
 
 * :func:`figures_enabled` is the ONE switch predicate (``figures.enabled``),
-  with ONE default: off when a config has no ``figures`` section.
+  with ONE default: off when a config has no ``figures`` section. RW5b's
+  :func:`advanced_panels_enabled` and :func:`offers_enabled` sit under it, and
+  :func:`offerable` is the one rule for which cited blocks an offer may name
+  (the library organizer and the tutor use it without importing the figure
+  package).
 * :class:`FiguresGate` is a :class:`~learnloop.ai.execution.RequestGate`. It
   records a key of the configuration when a unit of work starts (a build:
   the vault, the switch, the author route, the day's cap and the price; a
@@ -38,6 +42,110 @@ def figures_enabled(vault: Any) -> bool:
 
     config = getattr(vault, "config", vault)
     return bool(getattr(getattr(config, "figures", None), "enabled", False))
+
+
+def advanced_panels_enabled(vault: Any) -> bool:
+    """RW5b: ``figures.advanced_panels_enabled`` under ``figures.enabled``
+    (heat maps, vector fields, trajectories and iterated maps)."""
+
+    config = getattr(vault, "config", vault)
+    return figures_enabled(config) and bool(getattr(config.figures, "advanced_panels_enabled", False))
+
+
+def offers_enabled(vault: Any) -> bool:
+    """RW5b: ``figures.offers_enabled`` under ``figures.enabled``: the library
+    organizer and the Reader tutor judge ``explorable`` on a cited equation or
+    figure block in the call they already make. Off, neither asks nor shows."""
+
+    config = getattr(vault, "config", vault)
+    return figures_enabled(config) and bool(getattr(config.figures, "offers_enabled", False))
+
+
+#: The block types an offer may name: an equation, or a figure the figure
+#: author may crop (the figure service's own figure block types).
+OFFER_BLOCK_TYPES = frozenset({"Equation", "Figure", "FigureGroup", "Picture", "PictureGroup"})
+#: The judgment's two answers; anything else (an old output without the
+#: field included) reads as no.
+EXPLORABLE = ("yes", "no")
+
+
+def offerable(block_type: Any) -> bool:
+    """Whether a cited block is one "make this explorable" may be offered on:
+    code decides the block (by its extracted type), the judge only whether it
+    could support a figure."""
+
+    return str(block_type or "") in OFFER_BLOCK_TYPES
+
+
+def offer_kind(block_type: Any) -> str | None:
+    """``equation`` | ``figure`` for an offerable block, else None."""
+
+    if not offerable(block_type):
+        return None
+    return "equation" if str(block_type) == "Equation" else "figure"
+
+
+def offerable_blocks(repository: Any, keys: Any) -> dict[tuple[str, str], str]:
+    """Which of these ``(extraction_id, span_id)`` blocks an offer may name,
+    each with its kind (:func:`offer_kind`), read from the stored blocks."""
+
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.source_block_fts import blocks_by_key
+
+    wanted = list(dict.fromkeys((str(key[0]), str(key[1])) for key in keys))
+    if not wanted:
+        return {}
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        blocks = blocks_by_key(connection, wanted)
+    found: dict[tuple[str, str], str] = {}
+    for key in wanted:
+        kind = offer_kind(blocks[key].block_type) if key in blocks else None
+        if kind is not None:
+            found[key] = kind
+    return found
+
+
+def explorable_yes(value: Any) -> bool:
+    """The judge said yes (an old output with no field, or anything else, is no)."""
+
+    return str(value or "").strip().lower() == "yes"
+
+
+#: RW5b (Codex review F3): the ``judgment_ledger`` task of the Reader tutor's
+#: ``explorable`` verdicts, one row per judged block of an answer (left: the
+#: answer's question event; right: the block). The library organizer's verdict
+#: is in its ``library_contribution`` row's rationale.
+TUTOR_EXPLORABLE_TASK = "figure_explorable"
+
+
+def tutor_explorable_judgment_id(question_event_id: str, extraction_id: str, span_id: str) -> str:
+    """The ledger id of the tutor's verdict on one block of one answer: derived,
+    so the press reads it back without a search, and an answer judges a block once."""
+
+    from learnloop.ai.execution import content_key
+
+    return "fxj_" + content_key([str(question_event_id), str(extraction_id), str(span_id)])[:40]
+
+
+def tutor_explorable_yes(repository: Any, question_event_id: str, keys: Any) -> set[tuple[str, str]]:
+    """Which of these ``(extraction_id, span_id)`` blocks the tutor's ledger
+    rows for this answer record as ``explorable: yes``."""
+
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.practice_index import judgments_by_ids
+
+    ids = {tutor_explorable_judgment_id(question_event_id, *key): (str(key[0]), str(key[1])) for key in keys}
+    if not ids:
+        return set()
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        rows = judgments_by_ids(connection, list(ids))
+    return {ids[found] for found, row in rows.items()
+            if row.get("task") == TUTOR_EXPLORABLE_TASK and row.get("left_id") == str(question_event_id)
+            and explorable_yes(row.get("verdict"))}
 
 
 def text_key(vault: Any) -> Hashable:
@@ -125,4 +233,20 @@ class FiguresGate:
             self._outer.settle(admission, usage)
 
 
-__all__ = ["FiguresChanged", "FiguresGate", "figures_enabled", "text_key"]
+__all__ = [
+    "EXPLORABLE",
+    "FiguresChanged",
+    "FiguresGate",
+    "OFFER_BLOCK_TYPES",
+    "TUTOR_EXPLORABLE_TASK",
+    "advanced_panels_enabled",
+    "explorable_yes",
+    "figures_enabled",
+    "offer_kind",
+    "offerable",
+    "offerable_blocks",
+    "offers_enabled",
+    "text_key",
+    "tutor_explorable_judgment_id",
+    "tutor_explorable_yes",
+]

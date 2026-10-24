@@ -3,8 +3,8 @@ title: "library_asks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0ecc600eaf8899a2a2ca18e2a38eff4c870c8f1d"
-source_commit_timestamp: "2026-10-23T16:27:57-04:00"
+source_commit: "4127892e64c242fa624a3ee76efda08076f7da9c"
+source_commit_timestamp: "2026-10-23T22:20:26-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite library_asks"
@@ -115,6 +115,8 @@ None found by exact static reference scan.
 - `tests/test_architecture.py`
 - `tests/test_compare_keep_switch_off.py`
 - `tests/test_compare_sources_keep.py`
+- `tests/test_figures_rw5b_fix_round2.py`
+- `tests/test_figures_rw5b_review.py`
 - `tests/test_library_ask_expand.py`
 - `tests/test_library_asks_migration.py`
 - `tests/test_rw4_kill_switches.py`

@@ -47,6 +47,7 @@ from learnloop.content.sources.exam_material import held_out_material
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.ingest.block_roles import lead_role
+from learnloop.figure_admission import offerable_blocks
 from learnloop.source_retrieval.corpus import block_roles, item_exclusions
 from learnloop.source_retrieval.find_sources import QUESTION_CHARS
 from learnloop.source_retrieval.queries import MAX_QUERY_CHARS
@@ -556,6 +557,19 @@ def next_step_buttons(repository: Repository, *, extraction_id: str,
     return buttons
 
 
+def explorable_buttons(repository: Repository, *, extraction_id: str,
+                       explorable: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """RW5b: "make this explorable" on each block of the open source the tutor
+    judged explorable (the answer view's ``explorable``) that is an equation or
+    a figure. The button makes no call; pressing it builds the figure."""
+
+    keys = [(str(entry.get("extraction_id")), str(entry.get("span_id"))) for entry in explorable
+            if str(entry.get("extraction_id")) == extraction_id and entry.get("span_id")]
+    kinds = offerable_blocks(repository, keys)
+    return [{"kind": "make_explorable", "extraction_id": key[0], "span_id": key[1],
+             "label": "make this explorable", "role": kinds[key]} for key in dict.fromkeys(keys) if key in kinds]
+
+
 def citation_dicts(raw: Any) -> list[dict[str, Any]]:
     """Citations as plain dicts whatever their stored shape."""
 
@@ -580,7 +594,9 @@ __all__ = [
     "inquiry_exchanges",
     "learner_work",
     "named_gap_hypotheses",
+    "explorable_buttons",
     "next_step_buttons",
+    "offerable_blocks",
     "offer_shown_span_keys",
     "passage_learning_objects",
     "reader_query",

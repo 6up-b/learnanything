@@ -25,19 +25,17 @@ import { describe, expect, it } from "vitest";
 // with the book's method) is classic's own base (docs/reviews/ux-phase2.md,
 // "Landing onto main").
 const BASE = "a9ae97e34";
-// Plan-first transport T1 landed after UX2 (docs/reviews/
-// ai-plan-first-transport-t1.md, "Landing onto main"). BASE stays a9ae97e34:
-// moving it to main's tip (558e85ab1, which holds UX2) would empty this
-// stage's diff, so the exact-list check and the round-5 guard-file check
-// would compare nothing. Instead, files later landings changed under
-// screens/ and components/ are named in LATER_LANDINGS; none of them is in
-// STAGE_CHANGES or TARGET_RULE_FILES, so every UX2 check reads as before.
-const LATER_LANDINGS: Record<string, string> = {
-  // Both shells: Settings -> ChatGPT plan shows an OpenRouter grant in force and "Stop using OpenRouter".
-  "components/ChatGPTPlanSettings.tsx": "T1",
-  // Both shells (new): the ask-before-OpenRouter banner App.tsx mounts; no window keydown listener.
-  "components/PlanFallbackOffer.tsx": "T1"
-};
+// At RW5b's landing (docs/reviews/reader-workbench-RW5b.md, "Landing onto
+// main"), the first later stage to change screens/ and components/, the
+// stage's diff stopped being "the tree against BASE": the tree now holds
+// RW5b's changes too. The two diff checks below compare BASE with
+// UX2_LANDED instead, the main RW5b's landing merge was cut from (558e85ab1,
+// that merge's first parent: UX2 landed and recorded, nothing after it), so
+// they keep checking exactly UX2's own changes and need no move at later
+// landings. The manifest and every check are unchanged; the checks that
+// read the tree (gates, classic verbatim in tree and base, the palette)
+// still read it.
+const UX2_LANDED = "558e85ab1";
 const SRC = join(__dirname, "..");
 const APP_ROOT = join(SRC, "..");
 const REPO_PREFIX = "apps/learnloop-tauri/src/";
@@ -261,7 +259,7 @@ function git(command: string): string | null {
   }
 }
 
-const baseReachable = git(`cat-file -e ${BASE}^{commit}`) !== null;
+const baseReachable = git(`cat-file -e ${BASE}^{commit}`) !== null && git(`cat-file -e ${UX2_LANDED}^{commit}`) !== null;
 
 function baseFile(path: string): string {
   const text = git(`show ${BASE}:${REPO_PREFIX}${path}`);
@@ -283,12 +281,11 @@ describe("classic is base by construction", () => {
 
   it("lists exactly the files this stage changed under screens/ and components/", () => {
     if (!baseReachable) return; // a checkout without the base commit has nothing to compare against
-    const changed = (git(`diff --relative --name-only ${BASE} -- src/screens src/components`) ?? "")
-      .concat(git(`ls-files --others --exclude-standard -- src/screens src/components`) ?? "")
+    const changed = (git(`diff --relative --name-only ${BASE} ${UX2_LANDED} -- src/screens src/components`) ?? "")
       .split("\n")
       .filter((line) => line && !/\.test\.tsx?$/.test(line) && !line.includes("__snapshots__"))
       .map((line) => line.slice(LOCAL_PREFIX.length));
-    expect([...new Set(changed)].sort()).toEqual([...Object.keys(STAGE_CHANGES), ...TARGET_RULE_FILES, ...Object.keys(LATER_LANDINGS)].sort());
+    expect([...new Set(changed)].sort()).toEqual([...Object.keys(STAGE_CHANGES), ...TARGET_RULE_FILES].sort());
   });
 
   it("runs base's code in each classic branch, unchanged", () => {
@@ -306,7 +303,7 @@ describe("classic is base by construction", () => {
   it("changes nothing but the target rule and key scopes in the round-5 guard files", () => {
     if (!baseReachable) return;
     for (const file of TARGET_RULE_FILES) {
-      const diff = git(`diff -U0 ${BASE} -- ${LOCAL_PREFIX}${file}`) ?? "";
+      const diff = git(`diff -U0 ${BASE} ${UX2_LANDED} -- ${LOCAL_PREFIX}${file}`) ?? "";
       const removed = diff.split("\n").filter((line) => line.startsWith("-") && !line.startsWith("---")).map((line) => line.slice(1));
       const added = diff.split("\n").filter((line) => line.startsWith("+") && !line.startsWith("+++")).map((line) => line.slice(1));
       expect(added.length, `${file} changed`).toBeGreaterThan(0);

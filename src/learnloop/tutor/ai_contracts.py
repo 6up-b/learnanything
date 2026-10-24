@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from learnloop.ai.schemas import CandidateCause, WireModel
 from learnloop.ai.tool_requests import ToolRequest
@@ -50,6 +50,14 @@ class ReaderTutorQAContext(TutorQAContext):
     learning objects (``learner_work``)."""
 
     reader_tutor: dict = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ReaderTutorExplorableQAContext(ReaderTutorQAContext):
+    """RW5b: :class:`ReaderTutorQAContext` while figure offers are on (no new
+    fields; the prompt adds the ``explorable`` judgment and carries its own
+    version, and each delivered equation or figure block carries ``block``:
+    Codex review F7)."""
 
 
 @dataclass(frozen=True)
@@ -182,6 +190,35 @@ class ReaderTutorAnswerWithTools(TutorAnswerWithTools):
     bridge_md: str | None = None
 
 
+class ExplorableCitation(WireModel):
+    """RW5b: whether one cited equation or figure block could become an
+    explorable figure (the tutor's judgment, in the call that answers)."""
+
+    extraction_id: str
+    span_id: str
+    explorable: Literal["yes", "no"] = "no"
+
+    # Anything but "yes" reads as no: the offer is only ever a yes.
+    @model_validator(mode="before")
+    @classmethod
+    def _tolerate(cls, data: Any) -> Any:
+        if isinstance(data, dict) and str(data.get("explorable") or "").strip().lower() not in ("yes", "no"):
+            data = {**data, "explorable": "no"}
+        return data
+
+
+class ReaderTutorExplorableAnswer(ReaderTutorAnswer):
+    """RW5b (``figures.offers_enabled``): :class:`ReaderTutorAnswer` with
+    ``explorable`` on each cited equation or figure block; an output without
+    the field reads as no offers."""
+
+    explorable: list[ExplorableCitation] = Field(default_factory=list)
+
+
+class ReaderTutorExplorableAnswerWithTools(ReaderTutorAnswerWithTools):
+    explorable: list[ExplorableCitation] = Field(default_factory=list)
+
+
 class TeachBackQuestion(WireModel):
     question_md: str
 
@@ -225,6 +262,10 @@ TUTOR_QA_TOOLS_PROMPT_VERSION = "mvp-0.10-tutor-qa-learner-gap-source-tool-reque
 #: ``reader_tutor.retrieval_enabled``; off, the Reader's prompt is one of the two above.
 READER_TUTOR_PROMPT_VERSION = "mvp-0.11-tutor-qa-reader-modes"
 READER_TUTOR_TOOLS_PROMPT_VERSION = "mvp-0.11-tutor-qa-reader-modes-source-tool-requests"
+#: RW5b (``figures.offers_enabled`` with RW1c's lookup and offers): the same
+#: prompts plus the ``explorable`` judgment on cited equation and figure blocks.
+READER_TUTOR_EXPLORABLE_PROMPT_VERSION = READER_TUTOR_PROMPT_VERSION + "-explorable"
+READER_TUTOR_EXPLORABLE_TOOLS_PROMPT_VERSION = READER_TUTOR_TOOLS_PROMPT_VERSION + "-explorable"
 TEACH_BACK_PROMPT_VERSION = "mvp-0.4-teach-back"
 TEACH_BACK_AUTHORING_PROMPT_VERSION = "mvp-0.2-source-item-quest-transfer-criteria-by-fact"
 PROMOTION_ANALYSIS_PROMPT_VERSION = "mvp-0.1-promotion-analysis"
@@ -541,6 +582,17 @@ _TUTOR_QA_READER_LOOKUP_TASK = (
 )
 
 
+#: RW5b: the explorable judgment (added only to an explorable context's task).
+_TUTOR_QA_READER_EXPLORABLE_TASK = (
+    " `explorable`: for each passage you cite (in `citations` or the excerpt) that carries `block` "
+    "(`equation` or `figure`: LearnLoop marks them; a figure's text may be only its caption), "
+    "one entry {extraction_id, span_id, explorable}: yes when it could become an explorable figure a learner "
+    "changes with sliders (a function, density, distribution, map, field, landscape or dynamical system with "
+    "parameters whose effect can be computed and seen), no otherwise. Leave it empty when you cite no equation "
+    "or figure, and never name a passage without `block`."
+)
+
+
 def tutor_qa_prompt(context: TutorQAContext, *, tools: bool = False) -> str:
     opening = not context.question_md.strip() and context.diagnostic_decision is not None
     task = _TUTOR_QA_CONTEXT_TASKS.get(context.context, _TUTOR_QA_CONTEXT_TASKS["library"])
@@ -553,7 +605,10 @@ def tutor_qa_prompt(context: TutorQAContext, *, tools: bool = False) -> str:
     # RW1c: only a ReaderTutorQAContext (reader_tutor.retrieval_enabled) adds
     # the three answer modes; every other context renders exactly as before.
     lookup = isinstance(context, ReaderTutorQAContext) and not opening
-    if lookup:
+    if lookup and isinstance(context, ReaderTutorExplorableQAContext):
+        version = READER_TUTOR_EXPLORABLE_TOOLS_PROMPT_VERSION if with_tools else READER_TUTOR_EXPLORABLE_PROMPT_VERSION
+        task = task + _TUTOR_QA_READER_LOOKUP_TASK + _TUTOR_QA_READER_EXPLORABLE_TASK
+    elif lookup:
         version = READER_TUTOR_TOOLS_PROMPT_VERSION if with_tools else READER_TUTOR_PROMPT_VERSION
         task = task + _TUTOR_QA_READER_LOOKUP_TASK
     else:

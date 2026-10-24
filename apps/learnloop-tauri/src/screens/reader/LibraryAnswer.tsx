@@ -14,6 +14,10 @@
 // RW4e: a passage whose role LearnLoop's model proposed carries it in its
 // locator as "counterexample (model's label)" (roleLabel.ts); without one the
 // locator is RW4a's.
+// RW5b: a passage the organizer's own judgment called explorable (an equation
+// or a figure; note.explorable, present only while figures.offers_enabled is
+// on) carries "make this explorable"; pressing it builds the figure under that
+// passage in its book (the button itself calls nothing).
 // Nothing here takes focus, animates or opens a modal (G54).
 import { useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { CompareTableDto, LibraryHitDto, LibraryNoteDto, ProposedItemDto } from "../../api/dto";
@@ -38,6 +42,36 @@ const linkStyle = {
   textUnderlineOffset: 2,
 } as const;
 
+/** How an offer's press ended (fix round 2, F9): the Reader settles it on what
+ *  happened, never at dispatch, so "building" never outlives its build. */
+export type ExplorableOutcome =
+  | "built" // the figure is under its passage
+  | "not_built" // the build was refused, failed or did not verify
+  | "stopped" // the build was cancelled (or its book closed)
+  | "another_reading" // the book opened on another reading (Codex review F6)
+  | "another_book" // another book opened before the hit's
+  | "replaced" // another offer was pressed while this one waited for its book
+  | "not_opened" // the hit's book did not open
+  | "preparing" // the hit's book is still being prepared
+  | "figures_off"; // figures or their offers are switched off
+
+export const LIBRARY_EXPLORABLE_COPY = {
+  make: "make this explorable",
+  building: "building it under the passage",
+  built: "built under the passage",
+  // Every other outcome: nothing was built, and the line says why.
+  lapsed: {
+    not_built: "not built: the build was refused or failed",
+    stopped: "not built: the build was stopped",
+    another_reading: "not built: the book opened on another reading of this passage; select it there instead",
+    another_book: "not built: another book opened first",
+    replaced: "not built: another passage was pressed first",
+    not_opened: "not built: that book did not open",
+    preparing: "not built: that book is still being prepared; try again once it is ready",
+    figures_off: "not built: explorable figures are switched off",
+  } satisfies Record<Exclude<ExplorableOutcome, "built">, string>,
+} as const;
+
 const headStyle = { fontFamily: FONT_MONO, fontSize: 10, letterSpacing: "0.12em", color: COLOR.textDim, textTransform: "uppercase" as const };
 
 function locator(hit: LibraryHitDto): string {
@@ -57,6 +91,7 @@ function HitBlock({
   onPeek,
   onPin,
   onOpen,
+  onExplorable = null,
 }: {
   hit: LibraryHitDto;
   note: LibraryNoteDto | undefined;
@@ -65,7 +100,17 @@ function HitBlock({
   onPeek: () => void;
   onPin: () => void;
   onOpen: (() => void) | null;
+  onExplorable?: (() => Promise<ExplorableOutcome> | void) | null;
 }) {
+  // "building" once pressed, until the Reader says how it ended: built, or
+  // back to the button with what happened (fix round 2, F9).
+  const [offer, setOffer] = useState<"idle" | "building" | ExplorableOutcome>("idle");
+  const pressOffer = () => {
+    if (!onExplorable) return;
+    setOffer("building");
+    const settled = onExplorable();
+    if (settled) void settled.then(setOffer, () => setOffer("not_built"));
+  };
   const modelRole = note?.roles?.length && hit.role !== note.roles[0] ? note.roles[0].replace(/_/g, " ") : null;
   return (
     <div
@@ -93,6 +138,18 @@ function HitBlock({
         <button type="button" onClick={onPeek} style={linkStyle} aria-label={`peek at ${hit.sourceTitle ?? "this passage"}`}>peek</button>
         <button type="button" onClick={onPin} style={linkStyle} aria-pressed={pinned}>{pinned ? "pinned ✓" : "pin"}</button>
         {onOpen ? <button type="button" onClick={onOpen} style={linkStyle}>open</button> : null}
+        {note?.explorable === true && onExplorable ? (
+          offer === "building" || offer === "built" ? (
+            <MeaningLabel style={{ fontSize: 10 }}>{LIBRARY_EXPLORABLE_COPY[offer]}</MeaningLabel>
+          ) : (
+            <>
+              {offer !== "idle" ? <MeaningLabel style={{ fontSize: 10 }}>{LIBRARY_EXPLORABLE_COPY.lapsed[offer]}</MeaningLabel> : null}
+              <button type="button" data-library-explorable={hit.key} onClick={pressOffer} style={linkStyle}>
+                {LIBRARY_EXPLORABLE_COPY.make}
+              </button>
+            </>
+          )
+        ) : null}
       </div>
     </div>
   );
@@ -194,10 +251,13 @@ export function LibraryAnswer({
   onPracticePick,
   onClose,
   exercises = null,
+  onMakeExplorable = null,
 }: {
   ctl: LibraryAskController;
   /** Open a hit in the left pane (a crumb: Alt+← comes back). */
   onOpenHit: ((hit: LibraryHitDto) => void) | null;
+  /** RW5b: build an offered figure of a hit (`offerRef`: this library question). Absent: no offer shown. */
+  onMakeExplorable?: ((hit: LibraryHitDto, offerRef: string) => Promise<ExplorableOutcome> | void) | null;
   /** A learner pick of a practice proposal (the plan serves it). */
   onPracticePick: ((item: ProposedItemDto, proposalId: string | null) => void) | null;
   onClose: () => void;
@@ -251,6 +311,7 @@ export function LibraryAnswer({
         onPeek={() => void ctl.peek(key)}
         onPin={() => ctl.togglePin(key)}
         onOpen={onOpenHit ? () => onOpenHit(hit) : null}
+        onExplorable={onMakeExplorable && ask?.askId ? () => onMakeExplorable(hit, ask.askId) : null}
       />
     );
   };

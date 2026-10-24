@@ -69,6 +69,10 @@ class ListwiseTask:
     route_label: str = ""
     #: A pick whose own verdict is one of these is not kept (T6: ``unrelated``).
     drop_pick_verdicts: frozenset[str] = frozenset()
+    #: Further judgment fields recorded in each ledger row's rationale (RW5b:
+    #: the organizer's ``explorable``), so every verdict the call returns is
+    #: in ``judgment_ledger``. Empty: the rationale is ``text`` and ``pick_rank``.
+    ledger_fields: tuple[str, ...] = ()
 
 
 @dataclass
@@ -253,13 +257,15 @@ def judge_listwise(
                 continue
             verdict = str(getattr(judgment, task.verdict_field))
             rank = picks.index(key) + 1 if key in picks else None
+            details: dict[str, Any] = {"text": judgment.rationale.strip()[:600], "pick_rank": rank}
+            for name in task.ledger_fields:
+                details[name] = getattr(judgment, name, None)
             append_judgment(
                 connection, id=judgment_id, task=task.ledger_task, left_kind=task.left_kind,
                 left_id=left_id, right_kind=task.right_kind, right_id=right_id(key), judge="llm",
                 judge_model=model, prompt_version=task.prompt_version, input_hash=input_hash,
                 verdict=verdict, score=task.scores[verdict],
-                rationale=json.dumps({"text": judgment.rationale.strip()[:600], "pick_rank": rank},
-                                     ensure_ascii=False, sort_keys=True),
+                rationale=json.dumps(details, ensure_ascii=False, sort_keys=True),
                 created_at=utc_now_iso(clock) if clock is not None else None,
             )
         rows = judgments_by_ids(connection, ids.values())

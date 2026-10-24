@@ -6669,7 +6669,7 @@ export interface ReaderPromptContractDto {
   /** RW4b: exercises from my sources (present only while library_exercises.enabled and the library answer are on). */
   libraryExercises?: { fallback: boolean };
   /** Reader workbench RW5a: explorable figures (absent while figures.enabled is off). */
-  figures?: { predictions: boolean; region: boolean; revisions: boolean };
+  figures?: { predictions: boolean; region: boolean; revisions: boolean; offers?: boolean };
   /** RW1c: the tutor that looks things up (present only while reader_tutor.retrieval_enabled or offers_enabled is on). */
   readerTutor?: ReaderTutorContractDto;
   /** RW4d: keep a comparison (present only while reader_compare.keep_enabled and compare are on). */
@@ -6854,7 +6854,8 @@ export interface ReaderTutorViewDto {
 }
 /** RW1c: a button the Reader decides itself ("Try the next step first" on a cited derivation or worked example). */
 export interface ReaderTutorButtonDto {
-  kind: "try_next_step";
+  /** RW5b adds "make_explorable" (a cited equation or figure the tutor judged explorable). */
+  kind: "try_next_step" | "make_explorable";
   extractionId: string;
   spanId: string;
   label: string;
@@ -8772,6 +8773,8 @@ export interface LibraryNoteDto {
   roles: string[];
   speaksTo: { id: string; statement: string } | null;
   label: string;
+  /** RW5b: the organizer judged this equation or figure block explorable (present only while figures.offers_enabled is on). */
+  explorable?: boolean;
 }
 
 export interface LibraryNotesDto {

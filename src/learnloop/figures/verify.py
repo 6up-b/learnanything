@@ -16,6 +16,14 @@ Run in the sidecar, on the compiled spec, before anything is stored as shown:
    (:func:`independent_integral`: 10-point Gauss-Legendre on 200 panels per
    piece, split at the piecewise breakpoints of the series) within 1e-6.
 
+RW5b's panels (§8.7) pass the same two steps. Step 1 reads every value they
+show (a heat map's grid, a field's arrows and its heat map, a path's points)
+and their scales; a path that stops being finite or starts outside its plot
+at a grid point fails it (:func:`path_problems`: nothing garbage is drawn,
+and a path is cut where it leaves its padded plot, saying so). Their caps on
+computation are the compiler's (:data:`spec.MAX_PANEL_WORK` and the grid,
+step and iteration maxima), so verification stays bounded.
+
 Step 3, the source match ("matches the book's equation (checked)"), is not in
 RW5a: the owner shipped RW5a with every figure an illustration (2026-10-21)
 and deferred the claim to RW5c, code-owned labels designed first. A
@@ -120,7 +128,7 @@ def _leaves(value: Any, where: str, into: list[tuple[str, Any]]) -> None:
 
     if isinstance(value, dict):
         for key, item in value.items():
-            if key == "highlight" and item is None:
+            if key in OPTIONAL_PARTS and item is None:
                 continue
             name = f"{where} {item['label']!r}" if isinstance(item, dict) and "label" in item else f"{where} {key}"
             _leaves(item, name, into)
@@ -129,6 +137,11 @@ def _leaves(value: Any, where: str, into: list[tuple[str, Any]]) -> None:
             _leaves(item, where if isinstance(item, dict) and "label" in item else f"{where}[{index}]", into)
     elif value is None or (isinstance(value, (int, float)) and not isinstance(value, bool)):
         into.append((where, value))
+
+
+#: Keys whose None means "absent", never a value that is not finite (a PMF
+#: with no highlight, a field with no heat map, a path that ran every step).
+OPTIONAL_PARTS = frozenset({"highlight", "heatmap", "stopped"})
 
 
 #: The renderer pads a plot's value range by 5% a side and a map's reach by
@@ -155,8 +168,22 @@ def _extents(panel: Mapping[str, Any], where: str) -> list[tuple[str, Any]]:
         numbers = [v for series in panel["series"] for v in series["p"] if v is not None]
     elif panel["kind"] == "linear_map_2d":
         numbers = [v for point in panel["square"] for v in point if v is not None]
+    elif panel["kind"] == "heatmap_2d":
+        numbers = [v for row in panel["z"] for v in row if v is not None]
+    elif panel["kind"] == "vector_field_2d":
+        # The arrows are scaled by the longest (FigurePanels.tsx).
+        numbers = [v for grid in (panel["u"], panel["v"]) for row in grid for v in row if v is not None]
+        overlay = panel.get("heatmap")
+        extra = [] if overlay is None else _extents({"kind": "heatmap_2d", **overlay}, f"{where} heat map")
+        return extra + _spread(numbers, where)
+    elif panel["kind"] in ("trajectory_2d", "iterate_2d"):
+        numbers = [*panel["x"], *panel["y"]]
     else:
         return []
+    return _spread(numbers, where)
+
+
+def _spread(numbers: Sequence[float], where: str) -> list[tuple[str, Any]]:
     if not numbers:
         return []
     low, high = min(numbers), max(numbers)
@@ -164,6 +191,22 @@ def _extents(panel: Mapping[str, Any], where: str) -> list[tuple[str, Any]]:
     reach = max(abs(low), abs(high)) * RENDER_PADDING
     return [(f"{where} value range", spread if math.isfinite(spread) else None),
             (f"{where} reach", reach if math.isfinite(reach) else None)]
+
+
+def path_problems(data: Mapping[str, Any], point: Mapping[str, float]) -> list[str]:
+    """RW5b: a path that stops being finite, or starts outside its plot, at a
+    grid point (one that leaves its padded plot is cut there and says so)."""
+
+    problems = []
+    for index, panel in enumerate(data["panels"]):
+        if panel["kind"] not in ("trajectory_2d", "iterate_2d"):
+            continue
+        where = f"panel {index + 1} ({panel['kind']})"
+        if panel.get("stopped") == S.STOP_NOT_FINITE:
+            problems.append(f"{where}: the path's values are not finite at {_point(point)}")
+        elif panel.get("stopped") == S.STOP_OUTSIDE:
+            problems.append(f"{where}: the path starts outside its plot at {_point(point)}")
+    return problems
 
 
 def structural(compiled: S.CompiledFigure, grid: Sequence[Mapping[str, float]]) -> list[str]:
@@ -176,6 +219,8 @@ def structural(compiled: S.CompiledFigure, grid: Sequence[Mapping[str, float]]) 
             if value is None or not math.isfinite(value):
                 problems.append(f"{where} is not finite at {_point(point)}")
                 break
+        if not problems:
+            problems += path_problems(data, point)[:1]
         if problems:
             break
     return problems
@@ -409,6 +454,7 @@ __all__ = [
     "decidable_predictions",
     "independent_integral",
     "parameter_grid",
+    "path_problems",
     "quote_in",
     "verified_assumptions",
     "verify_numerics",

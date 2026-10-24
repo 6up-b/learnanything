@@ -1626,7 +1626,7 @@ export const api = {
   // this explorable", "not right?") answers at once with a job (the author,
   // the verifier and the sandbox run off the request path): read it with
   // readerFigureJob. Exam and held-out material is refused before any call.
-  readerFigureRequest: (input: { extractionId: string; spanIds: string[]; region?: { spanId: string; bbox: number[] } | null }) =>
+  readerFigureRequest: (input: { extractionId: string; spanIds: string[]; region?: { spanId: string; bbox: number[] } | null; origin?: "selection" | "library" | "tutor"; offerRef?: string | null }) =>
     call<LibraryJobDto<FigureBuildResultDto>>("reader_figure_request", { input }),
   readerFigureRevise: (input: { figureId: string; note: string }) =>
     call<LibraryJobDto<FigureBuildResultDto>>("reader_figure_revise", { input }),

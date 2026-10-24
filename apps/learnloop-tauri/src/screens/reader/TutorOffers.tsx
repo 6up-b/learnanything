@@ -8,7 +8,10 @@
 //   request) and "how do your books treat this?" (a comparison), each with
 //   the tutor's one-line reason, labelled as LearnLoop's.
 // * The Reader's own: "try the next step first" on a cited derivation or
-//   worked example (RW1b's next-step question at that line).
+//   worked example (RW1b's next-step question at that line), and RW5b's
+//   "make this explorable" on a cited equation or figure the tutor's own
+//   answer judged explorable (the press builds the figure under its passage;
+//   the button itself calls nothing).
 //
 // Fetch early, show on press. The practice and passage lookups start when the
 // answer lands, so a press shows the result at once; pressed sooner, the
@@ -61,6 +64,8 @@ export const OFFER_COPY = {
   passages: "from your books",
   compare: "how do your books treat this?",
   nextStep: "try the next step first",
+  makeExplorable: "make this explorable",
+  explorableBuilding: "building an interactive version under the passage",
   looking: "looking in your books",
   comparing: "comparing",
   nothing: "nothing in your practice or books fits this yet",
@@ -75,7 +80,7 @@ export const OFFER_COPY = {
 /** The proposals a practice offer shows (and the impression names). */
 export const MAX_SHOWN = 3;
 
-export type OfferKind = "practice" | "passages" | "compare" | "try_next_step";
+export type OfferKind = "practice" | "passages" | "compare" | "try_next_step" | "make_explorable";
 
 /** One proposal the practice offer shows. */
 export interface OfferItem {
@@ -163,6 +168,14 @@ export interface TutorOffersProps {
   onPracticePick?: ((item: OfferItem, proposalId: string | null) => void) | null;
   /** RW1b's next-step question at a cited line; absent: no such button. */
   onTryNextStep?: ((spanId: string) => void) | null;
+  /** RW5b: build the figure of a cited block the tutor judged explorable;
+   *  absent: no such button. */
+  onMakeExplorable?: ((spanId: string, offerRef: string) => void) | null;
+  /** RW5b (Codex review F1): the judgment an explorable press names, the
+   *  answer's QUESTION event (where the tutor's view is stored), never
+   *  `exchangeId` (its reader_answer_submitted interaction event, which the
+   *  server cannot resolve to the judgment). Absent: no such button. */
+  offerRef?: string | null;
   /** Where the exchange's offer state lives (the screen's; else a module default). */
   store?: TutorOfferStore;
   /** RW4b: the textbook-exercise view (absent while library_exercises is off). */
@@ -193,6 +206,13 @@ function offersFor(props: TutorOffersProps): Offer[] {
     for (const button of props.buttons ?? []) {
       if (button.kind !== "try_next_step" || button.extractionId !== props.extractionId) continue;
       offers.push({ key: `next:${button.spanId}`, kind: "try_next_step", label: OFFER_COPY.nextStep, reason: null,
+        toolCallId: null, button });
+    }
+  }
+  if (props.onMakeExplorable && props.offerRef) {
+    for (const button of props.buttons ?? []) {
+      if (button.kind !== "make_explorable" || button.extractionId !== props.extractionId) continue;
+      offers.push({ key: `explorable:${button.spanId}`, kind: "make_explorable", label: OFFER_COPY.makeExplorable, reason: null,
         toolCallId: null, button });
     }
   }
@@ -390,11 +410,18 @@ export function TutorOffers(props: TutorOffersProps) {
     logReaderAction("tutor_offer_pressed", {
       extraction_id: props.extractionId, exchange_id: props.exchangeId, offer_kind: offer.kind,
       tool_call_id: offer.toolCallId,
-      offer_result: offer.kind === "try_next_step" ? "opened" : lookup?.phase === "ready" ? "shown"
+      offer_result: offer.kind === "try_next_step" || offer.kind === "make_explorable" ? "opened" : lookup?.phase === "ready" ? "shown"
         : lookup?.phase === "loading" ? "looking" : lookup?.phase === "empty" ? "empty" : "run",
     });
     if (offer.kind === "try_next_step" && offer.button) {
       props.onTryNextStep?.(offer.button.spanId);
+      return;
+    }
+    if (offer.kind === "make_explorable" && offer.button && props.offerRef) {
+      // The press is the learner's: it builds under the passage (one press, one build).
+      state.pressed = new Set(state.pressed).add(offer.key);
+      notify(state);
+      props.onMakeExplorable?.(offer.button.spanId, props.offerRef);
       return;
     }
     state.pressed = new Set(state.pressed).add(offer.key);
@@ -413,6 +440,14 @@ export function TutorOffers(props: TutorOffersProps) {
           return (
             <span key={offer.key} data-offer-empty={offer.kind}>
               <MeaningLabel>{OFFER_COPY.nothing}</MeaningLabel>
+            </span>
+          );
+        }
+        if (offer.kind === "make_explorable" && isPressed) {
+          // RW5b: the build shows under its passage (RW5a's pending line), not here.
+          return (
+            <span key={offer.key} data-offer={offer.kind} data-offer-pressed="">
+              <MeaningLabel>{OFFER_COPY.explorableBuilding}</MeaningLabel>
             </span>
           );
         }
