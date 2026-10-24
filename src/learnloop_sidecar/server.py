@@ -10,10 +10,12 @@ from typing import Any, TextIO
 from pydantic import ValidationError
 
 import learnloop_sidecar.handlers  # noqa: F401
+from learnloop.ai import plan_fallback
 from learnloop.ai.execution import record_model_calls
 from learnloop.attempts.completion_lock import AttemptCompletionBusy
 from learnloop.ids import new_ulid
 from learnloop_sidecar.context import SidecarContext
+from learnloop_sidecar.dto import to_camel
 from learnloop_sidecar.errors import SidecarError, json_rpc_error, sidecar_error
 from learnloop_sidecar.handlers.practice import submission_key
 from learnloop_sidecar.logging import log_event
@@ -70,11 +72,32 @@ def _handle(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
         }
     started = time.perf_counter()
     log_event("rpc.request", method=method_name, id=request_id)
+    offer: dict[str, Any] | None = None
     try:
         raw_params = request.get("params")
         params = spec.params_model.model_validate({} if raw_params is None else raw_params)
-        with _observed_model_calls(ctx, method_name, params):
-            result = spec.handler(ctx, params)
+        # T1 landing redesign D (owner Q1-Q3): every RPC is one request of the
+        # action ``method_name``. A grant names the action that asked, so it
+        # counts here only when this method's own offer was answered; the
+        # work this request creates belongs to it and is listed on its offer.
+        with plan_fallback.request(getattr(ctx, "vault_root", None), method_name), \
+                plan_fallback.collecting(origin=method_name) as offers, \
+                _observed_model_calls(ctx, method_name, params):
+            try:
+                result = spec.handler(ctx, params)
+                # Round 5, Medium 3: a response that reports a batch shows that
+                # batch's queued offer (once), so a press whose work runs later
+                # (a book card's build) asks on the read that follows it.
+                plan_fallback.relay_batch_offers(_reported_batches(result))
+            except SidecarError as exc:
+                plan_fallback.relay_batch_offers(_reported_batches(exc.details))
+                _attach_fallback_offer(exc, _offered(ctx, offers, method_name))
+                raise
+            except BaseException:
+                # Review F8: an error that is not a SidecarError keeps the offer too.
+                offer = _offered(ctx, offers, method_name)
+                raise
+        result = _with_fallback_offer(result, _offered(ctx, offers, method_name))
     except ValidationError as exc:
         log_event("rpc.error", method=method_name, id=request_id, code="validation_error",
                   duration_ms=_elapsed_ms(started))
@@ -95,16 +118,87 @@ def _handle(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
     except (sqlite3.OperationalError, AttemptCompletionBusy) as exc:
         busy = _busy_error(exc)
         if busy is None:
-            return _internal_error(request_id, method_name, started)
+            return _internal_error(request_id, method_name, started, offer=offer)
         log_event("rpc.error", method=method_name, id=request_id, code=busy.code,
                   message=busy.message, duration_ms=_elapsed_ms(started))
         return {"jsonrpc": "2.0", "id": request_id, "error": sidecar_error(busy)}
     except Exception:
-        return _internal_error(request_id, method_name, started)
+        return _internal_error(request_id, method_name, started, offer=offer)
     log_event("rpc.response", method=method_name, id=request_id, duration_ms=_elapsed_ms(started))
     if request_id is None:
         return None
     return {"jsonrpc": "2.0", "id": request_id, "result": result if result is not None else {"ok": True}}
+
+
+def _offered(ctx: SidecarContext, offers: plan_fallback.OfferCollector, method_name: str) -> dict[str, Any] | None:
+    """Mint this response's offer (redesign D): the action that asked, its units, the vault's epoch.
+
+    The action is this request's method, or, for an offer relayed from a job
+    or a batch, the method that started it (never the poll's). The hint the
+    desktop gets carries ``fallback_offer_id`` (what "Use OpenRouter instead"
+    answers) and ``fallback_origin`` ("Not now" mutes that action).
+    """
+
+    hint, vault_key = plan_fallback.take_offer(offers, getattr(ctx, "vault_root", None))
+    if hint is None or vault_key is None:
+        return None
+    hint.pop("fallback_vault", None)
+    hint.pop("fallback_epoch", None)
+    origin = str(hint.get("fallback_origin") or method_name)
+    units = [(str(kind), str(unit)) for kind, unit in hint.pop("fallback_units", None) or []]
+    offer_id = plan_fallback.mint_offer(vault_key, hint, origin, units)
+    if offer_id is None:
+        return None
+    return {**hint, "fallback_origin": origin, "fallback_offer_id": offer_id}
+
+
+_BATCH_KEYS = frozenset({"batch_id", "batchId", "build_batch_id", "buildBatchId", "import_batch_id",
+                         "importBatchId", "generation_batch_id", "generationBatchId"})
+
+
+def _reported_batches(value: Any, depth: int = 0) -> list[str]:
+    """The ingest batch ids a response reports, in order (bounded walk)."""
+
+    found: list[str] = []
+    if depth > 8:
+        return found
+    if isinstance(value, dict):
+        # A batch row itself (``list_ingest_batches``, ``get_ingest_batch``).
+        if ("workflow_type" in value or "workflowType" in value) and isinstance(value.get("id"), str):
+            found.append(value["id"])
+        for key, child in value.items():
+            if key in _BATCH_KEYS and isinstance(child, str) and child:
+                found.append(child)
+            elif isinstance(child, (dict, list)):
+                found.extend(_reported_batches(child, depth + 1))
+    elif isinstance(value, list):
+        for child in value[:500]:
+            found.extend(_reported_batches(child, depth + 1))
+    return found
+
+
+def _attach_fallback_offer(exc: SidecarError, hint: dict[str, Any] | None) -> None:
+    """Plan-first transport T1: an unavailable ChatGPT-plan route offers OpenRouter.
+
+    The typed hint (``fallback_available``, ``fallback_tasks``,
+    ``fallback_profile``) rides on the error's details; the desktop shows
+    "Use OpenRouter instead", which calls ``ai_use_fallback``. An offer only.
+    """
+
+    if hint is not None and "fallback_available" not in exc.details:
+        exc.details = {**exc.details, **hint}
+
+
+def _with_fallback_offer(result: Any, hint: dict[str, Any] | None) -> Any:
+    """The same hint on a result that degraded instead of failing (a dict result only).
+
+    Results are camelCase (``versioned``): ``fallbackAvailable``,
+    ``fallbackTasks``, ``fallbackProfile``; error details keep snake_case.
+    """
+
+    if hint is None or not isinstance(result, dict) or "fallbackAvailable" in result:
+        return result
+    return {**result, **to_camel(hint)}
 
 
 def _observed_model_calls(ctx: SidecarContext, method_name: str, params: Any):
@@ -143,7 +237,8 @@ def _busy_error(exc: Exception) -> SidecarError | None:
     return None
 
 
-def _internal_error(request_id: Any, method_name: str, started: float) -> dict[str, Any]:
+def _internal_error(request_id: Any, method_name: str, started: float, *,
+                    offer: dict[str, Any] | None = None) -> dict[str, Any]:
     LOG.exception("handler failed")
     log_event("rpc.error", level=logging.ERROR, method=method_name, id=request_id,
               code="internal", duration_ms=_elapsed_ms(started))
@@ -155,7 +250,7 @@ def _internal_error(request_id: Any, method_name: str, started: float) -> dict[s
             _INTERNAL_ERROR_MESSAGE,
             stable_code="internal",
             retryable=False,
-            details={"method": method_name, "outcome": "unknown"},
+            details={"method": method_name, "outcome": "unknown", **(offer or {})},
         ),
     }
 

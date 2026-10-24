@@ -238,7 +238,7 @@ def ai_models(
 @ai_app.command("latency")
 def ai_latency(
     vault: Annotated[Path, typer.Option("--vault", help="Vault whose provider profiles to compare (receipts land here; use a fixtures-local copy).")],
-    provider: Annotated[list[str], typer.Option("--provider", help="A provider profile to time; repeatable (e.g. chatgpt and codex_low).")],
+    provider: Annotated[list[str], typer.Option("--provider", help="A provider profile to time; repeatable (e.g. chatgpt and openrouter; a Codex profile needs ai.agent_harness_opt_in).")],
     runs: Annotated[int, typer.Option("--runs", min=1, max=20, help="Calls per provider.")] = 3,
     timeout: Annotated[float, typer.Option("--timeout", min=5, max=600, help="Seconds per call.")] = 120.0,
     price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help="USD per million tokens; required for a metered profile.")] = None,
@@ -439,7 +439,7 @@ def ai_latency(
 @ai_app.command("compare")
 def ai_compare(
     vault: Annotated[Path, typer.Option("--vault", help="A backup-API copy of a vault (receipts land here); with --copy-from, the new copy's directory.")],
-    profiles: Annotated[list[str], typer.Option("--profiles", help="Subscription profiles to compare, comma-separated or repeated (e.g. codex,chatgpt).")],
+    profiles: Annotated[list[str], typer.Option("--profiles", help="Subscription profiles to compare, comma-separated or repeated (e.g. chatgpt,chatgpt_luna; a Codex profile needs ai.agent_harness_opt_in).")],
     copy_from: Annotated[Path | None, typer.Option("--copy-from", help="Copy this vault to --vault first (backup API; also with --dry-run); the original is only read.")] = None,
     attempts: Annotated[int, typer.Option("--attempts", min=0, max=20, help="Attempts to blind-grade per profile (latest non-pass and pass first).")] = 3,
     attempt_id: Annotated[list[str] | None, typer.Option("--attempt", help="An attempt to grade (repeatable; replaces the automatic choice).")] = None,

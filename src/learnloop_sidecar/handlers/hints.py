@@ -43,6 +43,7 @@ from typing import Any, Callable, Literal
 
 from pydantic import Field
 
+from learnloop.ai import plan_fallback
 from learnloop.hints import service as hint_service
 from learnloop.hints.map_builder import schedule_merge_after_hint
 from learnloop.hints.service import HintRequestError, HintRequestV1, adaptive_enabled
@@ -79,6 +80,9 @@ class _HintJob:
     error: SidecarError | None = None
     cancelled: bool = False
     delivered: bool = False
+    #: Plan-first transport T1: the OpenRouter offer the job's requests made
+    #: (a ``plan_fallback`` hint), relayed by the read that finds it done.
+    fallback_offer: dict[str, Any] | None = None
     #: A ready hint the read could not deliver (H2a review F1): the
     #: delivery outcome, and the job answers without the hint from then on.
     refused: str | None = None
@@ -103,6 +107,14 @@ class HintJobs:
             while len(self._kept) > MAX_KEPT_JOBS:
                 self._kept.pop(next(iter(self._kept)))
 
+        # T1 landing (redesign D): the job belongs to the action whose request started it,
+        # and carries that action's token when it is granted (taken here, in the request).
+        from learnloop.ai import plan_fallback as _plan_fallback
+
+        grant, origin = _plan_fallback.unit_token(_vault.root), _plan_fallback.unit_origin()
+        stamp = _plan_fallback.unit_stamp(_vault.root)  # its vault and epoch, now
+        _plan_fallback.note_unit("job", job.job_id)
+
         def cancelled() -> bool:
             with job.lock:
                 return job.cancelled
@@ -111,17 +123,21 @@ class HintJobs:
             from learnloop.ai.execution import record_model_calls
             from learnloop.db.repositories import Repository
 
-            try:
-                worker_repo = Repository.attach(sqlite_path)
-                # Receipts are owned as the serial loop owns an RPC's; the
-                # chooser's and writer's own observers name their owner kinds.
-                with record_model_calls(worker_repo, owner_kind="sidecar_rpc",
-                                        owner_id=f"practice.request_hint:{job.job_id}"):
-                    job.result = work(worker_repo, cancelled)
-            except BaseException as exc:  # noqa: BLE001 - every failure answers the job, never the loop
-                job.error = _as_sidecar_error(exc)
-            finally:
-                job.done.set()
+            # Plan-first transport T1: the job's thread has no RPC collector;
+            # it keeps its own offers and the read that finds it done relays them.
+            with plan_fallback.unit(grant, origin, stamp) as offers:
+                try:
+                    worker_repo = Repository.attach(sqlite_path)
+                    # Receipts are owned as the serial loop owns an RPC's; the
+                    # chooser's and writer's own observers name their owner kinds.
+                    with record_model_calls(worker_repo, owner_kind="sidecar_rpc",
+                                            owner_id=f"practice.request_hint:{job.job_id}"):
+                        job.result = work(worker_repo, cancelled)
+                except BaseException as exc:  # noqa: BLE001 - every failure answers the job, never the loop
+                    job.error = _as_sidecar_error(exc)
+                finally:
+                    job.fallback_offer = offers.hint()
+                    job.done.set()
 
         if getattr(ctx, "hints_inline", False):
             run()
@@ -228,6 +244,7 @@ def _job_payload(ctx: SidecarContext, job: _HintJob) -> dict[str, Any]:
             return versioned({**base, "state": "cancelled", "result": None})
         if not job.done.is_set():
             return versioned({**base, "state": "pending", "result": None})
+        plan_fallback.relay_job_offer(job)
         if job.error is not None:
             raise job.error
         result = dict(job.result or {})

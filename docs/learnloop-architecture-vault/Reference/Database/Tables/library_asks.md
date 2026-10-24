@@ -3,13 +3,13 @@ title: "library_asks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "87c9b9a4a94630287dd2e9fa6ecb7cd6544f9f1a"
-source_commit_timestamp: "2026-10-21T10:09:53-04:00"
+source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
+source_commit_timestamp: "2026-10-24T10:03:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite library_asks"
   - "table library_asks"
-schema_head: 217
+schema_head: 218
 table_name: "library_asks"
 table_role: "workflow"
 functionality_status: "active"
@@ -115,6 +115,8 @@ None found by exact static reference scan.
 - `tests/test_architecture.py`
 - `tests/test_compare_keep_switch_off.py`
 - `tests/test_compare_sources_keep.py`
+- `tests/test_figures_rw5b_fix_round2.py`
+- `tests/test_figures_rw5b_review.py`
 - `tests/test_library_ask_expand.py`
 - `tests/test_library_asks_migration.py`
 - `tests/test_rw4_kill_switches.py`

@@ -1064,10 +1064,16 @@ def _run_time_boxed(function: Callable[[], LadderResult], seconds: float | None,
     if seconds is None:
         return function()
     box: dict[str, Any] = {}
+    # T1 landing review: the check is part of the import that started it, so it
+    # carries that request's grant explicitly (a copied context carries none).
+    from learnloop.ai import plan_fallback
+
+    grant, origin = plan_fallback.unit_token(pending.root), plan_fallback.unit_origin()
 
     def runner() -> None:
         try:
-            box["result"] = function()
+            with plan_fallback.job_grant(grant, origin, keep_collector=True):
+                box["result"] = function()
         except Exception as exc:  # noqa: BLE001 - recorded as an unchecked key
             box["result"] = LadderResult("model_answer", "skipped", skip_reason=f"failed: {type(exc).__name__}")
         with pending.lock:
@@ -1223,7 +1229,12 @@ def _import_source_exercise(
                          "text": solution["text"][:4000], "instructions": _BOOK_SOLUTION_INSTRUCTIONS}
     author_client = clients.get("authoring")
     if author_client is None:
-        resolved = ready_client_for_task(Path(root), vault.config, "authoring")
+        from learnloop.ai import plan_fallback
+
+        # Held to the import's price, as the job's client is (fix round L1):
+        # no offer or grant the authoring admission would refuse.
+        with plan_fallback.priced_by(PRICE_SETTING):
+            resolved = ready_client_for_task(Path(root), vault.config, "authoring")
         if not resolved.ready or resolved.client is None:
             return fail("failed", f"no authoring route is ready: {getattr(resolved.runtime, 'message', '')}")
         author_client = resolved.client

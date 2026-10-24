@@ -374,7 +374,7 @@ function FigureBody({ figure, ctl, compiled }: { figure: FigureViewDto; ctl: Fig
         <PredictionResult figure={figure} prediction={answeredPrediction} ctl={ctl} format={readoutFormat} />
       ) : null}
       {data.panels.map((panel, index) => (
-        <FigurePanel key={index} data={panel} showTable={showTable}
+        <FigurePanel key={index} data={panel} showTable={showTable} model={compiled.spec.panels[index]}
           label={compiled.spec.panels[index]?.kind === "linear_map_2d" ? (compiled.spec.panels[index] as { label?: string }).label : undefined} />
       ))}
       {compiled.parameters.length ? (

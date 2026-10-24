@@ -819,6 +819,8 @@ sidecar_passthrough!(chatgpt_plan_signin_cancel, "chatgpt_plan_signin_cancel");
 sidecar_passthrough!(chatgpt_plan_signout, "chatgpt_plan_signout");
 sidecar_passthrough!(chatgpt_plan_acknowledge_welcome, "chatgpt_plan_acknowledge_welcome");
 sidecar_passthrough!(chatgpt_plan_resume, "chatgpt_plan_resume");
+// Plan-first transport T1: "Use OpenRouter instead" while the plan is unavailable.
+sidecar_passthrough!(ai_use_fallback, "ai_use_fallback");
 sidecar_passthrough!(detect_provider_capabilities, "detect_provider_capabilities");
 sidecar_passthrough!(update_provider_modalities, "update_provider_modalities");
 
@@ -1359,6 +1361,11 @@ sidecar_passthrough!(workbench_cancel_help, "workbench.cancel_help");
 sidecar_passthrough!(workbench_answer_discriminating, "workbench.answer_discriminating");
 sidecar_passthrough!(workbench_set_help_style, "workbench.set_help_style");
 sidecar_passthrough!(workbench_help_state, "workbench.help_state");
+// Reader workbench RW2c (what helps this learner): desktop only.
+sidecar_passthrough!(workbench_show_example, "workbench.show_example");
+sidecar_passthrough!(workbench_another_passage, "workbench.another_passage");
+sidecar_passthrough!(workbench_compare_offer, "workbench.compare_offer");
+sidecar_passthrough!(workbench_compare_methods, "workbench.compare_methods");
 // Reader workbench RW6a ("Last time here" and Wrap up): desktop only.
 sidecar_passthrough!(reader_recap, "reader.recap");
 sidecar_passthrough!(reader_recap_event, "reader.recap_event");

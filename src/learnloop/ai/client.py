@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, TypeAlias
 
+from learnloop.ai.agent_harness import require_harness_opt_in
 from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.ai.transport import OperationClient
 from learnloop.config import AIProviderConfig, LearnLoopConfig
@@ -34,14 +35,26 @@ def make_ai_provider_client(
         profile = profile.model_copy(update={"timeout_seconds": timeout_seconds})
     elif profile.timeout_seconds is None:
         profile = profile.model_copy(update={"timeout_seconds": config.ai.timeout_seconds})
-    return make_ai_provider_client_from_profile(selected, profile, vault_root)
+    return make_ai_provider_client_from_profile(
+        selected, profile, vault_root, agent_harness_opt_in=config.ai.agent_harness_opt_in,
+    )
 
 
 def make_ai_provider_client_from_profile(
     provider_name: str,
     profile: AIProviderConfig,
     vault_root: Path,
+    *,
+    agent_harness_opt_in: bool = False,
 ) -> AIProviderClient:
+    """Build one client for ``profile``: the single AI client factory.
+
+    A Codex agent-harness profile (``codex_sdk``, legacy ``http``) is refused
+    here, before its module is imported or any process starts, unless the
+    owner opted in (``ai.agent_harness_opt_in``; plan-first transport T1).
+    """
+
+    require_harness_opt_in(provider_name, profile, opt_in=agent_harness_opt_in)
     provider_type = profile.type.lower()
     if provider_type == "openai_embedding":
         from learnloop.ai.providers.openai_embedding import OpenAIEmbeddingProviderClient
@@ -60,6 +73,11 @@ def make_ai_provider_client_from_profile(
 
         return CodexSDKProviderClient(provider_name, profile, vault_root)
     if provider_type in {"http", "http_adapter"}:
+        # The legacy Codex HTTP transport is refused by the tool lockdown
+        # (hardening round 2, H3): typed, naming the lockdown.
+        from learnloop.ai.providers import codex_lockdown
+
+        codex_lockdown.refuse_legacy_http_transport(f"AI provider {provider_name!r} of type {profile.type!r}")
         from learnloop.ai.providers.codex_http import HttpAdapterProviderClient
 
         return HttpAdapterProviderClient(provider_name, profile)

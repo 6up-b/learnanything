@@ -84,7 +84,7 @@ def _record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, offers: bool = F
                                                "maxPerspectives": 4}
         # RW5a (explorable figures, on by default) likewise adds its key and
         # its one intent-box action; RW1c's pins are unchanged otherwise.
-        assert contract.pop("figures") == {"predictions": True, "region": True, "revisions": True}
+        assert contract.pop("figures") == {"predictions": True, "region": True, "revisions": True, "offers": True}
         for group in contract["intent"]["palette"]:
             group["actions"] = [action for action in group["actions"] if action["effect"] != {"kind": "figure"}]
     events = [

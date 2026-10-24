@@ -3,13 +3,13 @@ title: "blind_grade_records"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "87c9b9a4a94630287dd2e9fa6ecb7cd6544f9f1a"
-source_commit_timestamp: "2026-10-21T10:09:53-04:00"
+source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
+source_commit_timestamp: "2026-10-24T10:03:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite blind_grade_records"
   - "table blind_grade_records"
-schema_head: 217
+schema_head: 218
 table_name: "blind_grade_records"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -105,6 +105,7 @@ None found by exact static reference scan.
 - `src/learnloop/held_grades.py`
 - `src/learnloop/learner_context.py`
 - `src/learnloop/placement/state.py`
+- `src/learnloop/workbench/help_outcomes.py`
 - `src/learnloop_sidecar/handlers/serializers.py`
 
 ### Direct SQL writers
@@ -121,6 +122,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_diagnosis_input_provenance.py`
+- `tests/test_help_outcomes.py`
 - `tests/test_mvp017_route_check_replay.py`
 - `tests/test_required_method_grading.py`
 - `tests/test_router_r2c_teach_back.py`

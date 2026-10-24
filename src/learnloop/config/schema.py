@@ -1124,10 +1124,14 @@ class ChatGPTPlanProviderConfig(AIProviderConfig):
 
     A read-only workspace (a snapshot diagnosis's as-of export) is served by
     LearnLoop itself (``learnloop.ai.chatgpt_plan.workspace``):
-    ``workspace_mode = "tools"`` (Responses function calling: at most
-    ``max_tool_rounds`` rounds of calls, ``max_entry_chars`` per read and
-    ``max_workspace_chars`` served in all) or ``"inline"`` (every file in the
-    request; refused when the files exceed ``max_workspace_chars``).
+    ``workspace_mode = "inline"`` (the default since plan-first transport T1:
+    every file in the one request; an export over ``max_workspace_chars`` is
+    served in tools mode instead, each round its own admitted request, unless
+    the owner wrote ``workspace_mode = "inline"``, which then refuses it) or
+    ``"tools"`` (Responses function calling: at most ``max_tool_rounds``
+    rounds of calls, ``max_entry_chars`` per read and ``max_workspace_chars``
+    served in all; the turn's resent input is capped at four times
+    ``max_workspace_chars``, past which the model is asked to answer).
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -1136,7 +1140,7 @@ class ChatGPTPlanProviderConfig(AIProviderConfig):
     enabled: bool = True
     response_format: Literal["json_schema", "json_object"] = "json_schema"
     usage_limit_pause_minutes: int = Field(default=15, ge=1, le=24 * 60)
-    workspace_mode: Literal["tools", "inline"] = "tools"
+    workspace_mode: Literal["tools", "inline"] = "inline"
     max_tool_rounds: int = Field(default=16, ge=1, le=64)
     max_entry_chars: int = Field(default=24_000, ge=1_000, le=1_000_000)
     max_workspace_chars: int = Field(default=400_000, ge=10_000, le=4_000_000)
@@ -1452,8 +1456,22 @@ class AIConsentRecord(BaseModel):
 
 
 class AIConfig(BaseModel):
-    active_provider: str = "codex"
+    # Plan-first transport T1 (owner, 2026-10-21): the tool-free ChatGPT plan.
+    active_provider: str = "chatgpt"
+    # A configured readiness fallback for routes that allow one. Never an
+    # agent-harness (Codex) profile: such a fallback is ignored.
     fallback_provider: str | None = None
+    # Owner opt-in for the Codex agent harness (codex_sdk / http profiles).
+    # False (default): every such profile is refused for every task before
+    # any process starts, and `learnloop doctor` reports routes that pin one.
+    agent_harness_opt_in: bool = False
+    # The OpenRouter profile offered when the ChatGPT plan is unavailable
+    # (signed out, paused, usage limit, refresh failure). LearnLoop only ASKS:
+    # nothing is sent to it until the learner chooses "Use OpenRouter instead"
+    # (desktop: that feature for this session) or sets
+    # LEARNLOOP_AI_FALLBACK=openrouter (CLI: that command). No offer without
+    # its API key; "" never offers.
+    plan_fallback_profile: str = "openrouter"
     timeout_seconds: int = 180
     providers: dict[str, AIProviderProfile] = Field(default_factory=dict)
     routing: AIRoutingConfig = Field(default_factory=AIRoutingConfig)
@@ -1537,7 +1555,44 @@ OPENROUTER_HAIKU_PROVIDER = "openrouter_haiku"
 OPENROUTER_HAIKU_MODEL = "anthropic/claude-haiku-5.5"
 OPENROUTER_TRANSCRIPTION_PROVIDER = "openrouter_transcription"
 
-DEFAULT_CODEX_TASK_ROUTES = {
+#: Profile types that run an agent harness (the Codex app-server, or the
+#: retired HTTP adapter in front of it). Plan-first transport T1 (owner,
+#: 2026-10-21): refused for every serving task unless
+#: ``ai.agent_harness_opt_in`` is set, and never a fallback.
+AGENT_HARNESS_PROFILE_TYPES = frozenset({"codex_sdk", "http", "http_adapter"})
+
+# Plan-first transport T1 (owner, 2026-10-21): every serving route defaults to
+# LearnLoop's own tool-free ChatGPT-plan client (one POST /v1/responses per
+# admitted request, store=false, no tools). The slugs are the ones the Codex
+# profiles served; the owner confirms them with `learnloop ai models chatgpt`
+# and sets [ai.providers.chatgpt] model (the low/medium copies follow it).
+CHATGPT_PLAN_PROVIDER = "chatgpt"
+CHATGPT_LOW_PROVIDER = "chatgpt_low"
+CHATGPT_MEDIUM_PROVIDER = "chatgpt_medium"
+CHATGPT_LUNA_PROVIDER = "chatgpt_luna"
+DEFAULT_CHATGPT_PLAN_MODEL = DEFAULT_CODEX_MODEL
+CHATGPT_LUNA_MODEL = CODEX_LUNA_MODEL
+CHATGPT_PLAN_PROVIDER_NAMES = frozenset({
+    CHATGPT_PLAN_PROVIDER, CHATGPT_LOW_PROVIDER, CHATGPT_MEDIUM_PROVIDER, CHATGPT_LUNA_PROVIDER,
+})
+
+#: The code-default route of each task that names a tiered profile (an unset
+#: route of a vault whose active provider is the plan).
+DEFAULT_SERVING_TASK_ROUTES = {
+    "grading": CHATGPT_LOW_PROVIDER,
+    "canonical_ingest": CHATGPT_MEDIUM_PROVIDER,
+    "canonical_ingest_retry": CHATGPT_MEDIUM_PROVIDER,
+    "authoring": CHATGPT_MEDIUM_PROVIDER,
+    "tutor_qa": CHATGPT_LOW_PROVIDER,
+    "teach_back": CHATGPT_LOW_PROVIDER,
+    "rung_variant": CHATGPT_LOW_PROVIDER,
+    "animation": CHATGPT_MEDIUM_PROVIDER,
+    "facet_identity_judge": CHATGPT_LUNA_PROVIDER,
+}
+#: The pre-T1 table: the routes of a vault whose active provider is Codex
+#: (served only with ``ai.agent_harness_opt_in``; `learnloop doctor` reports
+#: them otherwise). Also the meaning of a legacy ``routing.<task> = "codex"``.
+LEGACY_CODEX_TASK_ROUTES = {
     "grading": CODEX_LOW_PROVIDER,
     "canonical_ingest": CODEX_MEDIUM_PROVIDER,
     "canonical_ingest_retry": CODEX_MEDIUM_PROVIDER,
@@ -1547,6 +1602,14 @@ DEFAULT_CODEX_TASK_ROUTES = {
     "rung_variant": CODEX_LOW_PROVIDER,
     "animation": CODEX_MEDIUM_PROVIDER,
     "facet_identity_judge": CODEX_LUNA_PROVIDER,
+}
+#: `learnloop doctor --fix`: the plan profile that replaces each code-default
+#: Codex profile (no silent aliasing at load: receipts key on provider+model).
+CODEX_TO_PLAN_PROFILE = {
+    "codex": CHATGPT_PLAN_PROVIDER,
+    CODEX_LOW_PROVIDER: CHATGPT_LOW_PROVIDER,
+    CODEX_MEDIUM_PROVIDER: CHATGPT_MEDIUM_PROVIDER,
+    CODEX_LUNA_PROVIDER: CHATGPT_LUNA_PROVIDER,
 }
 
 
@@ -2201,7 +2264,21 @@ class WorkbenchConfig(BaseModel):
     #: "Compare with the book" under a hint in the Reader (§5.2 bridging): a
     #: background passage lookup through T6's practice context.
     bridge_enabled: bool = True
-    #: The workbench's own calls (checks, bridges) per problem: a money cap
+    #: RW2c (spec §5.10): what helps this learner. The help-outcome lines (a
+    #: pure read of the ledgers) given to the hint writer and the chooser;
+    #: off, both get the request they got before RW2c.
+    help_outcomes_enabled: bool = True
+    #: The worked example that takes the learner's route (the sources spec's
+    #: ``worked_example`` intent): after a level-3+ hint and on "Show me a
+    #: similar example". Absent when the sources spec's S3 is not available.
+    examples_enabled: bool = True
+    #: "Compare with the book's method" after a correct Submit (the reference
+    #: read by id, recorded as a reveal on the item before it is shown).
+    compare_methods_enabled: bool = True
+    #: The logged draw between two or more passages that all passed the judge
+    #: (bridge, worked example); off, the first passage is shown as before.
+    passage_draw_enabled: bool = True
+    #: The workbench's own calls (checks, bridges, examples, comparisons) per problem: a money cap
     #: counted in calls (§5.8). Hint calls are the hint service's (C8).
     max_calls_per_session: int = Field(default=24, ge=1)
     #: The workbench's own metered spend a UTC day (§5.8).
@@ -2400,6 +2477,17 @@ class FiguresConfig(BaseModel):
     is sent. ``revisions_enabled``: "not right?" asks for a new version with
     the learner's note (the earlier one is kept).
 
+    RW5b (§8.7): ``advanced_panels_enabled``: heat maps, vector fields,
+    trajectories (fixed-step RK4) and iterated maps in the same declarative
+    grammar; off, the author is not told of them and may not emit them, and a
+    stored figure that uses one shows as "can't draw this yet".
+    ``offers_enabled``: the library organizer (RW4a) and the Reader tutor
+    (RW1c) judge, in the call they already make, whether a cited equation or
+    figure block could become an explorable figure, and a yes adds "make this
+    explorable" to that passage or answer (pressing it builds through the same
+    pipeline, origin ``library`` | ``tutor``); off, their prompts, outputs and
+    what the Reader shows are as before RW5b.
+
     Caps (money, W4): two author attempts per request; ``max_daily_cost_usd``
     meters the author route's metered spend a UTC day at
     ``price_per_million`` (unset: a metered route is refused before sending;
@@ -2412,6 +2500,8 @@ class FiguresConfig(BaseModel):
     predictions_enabled: bool = True
     region_enabled: bool = True
     revisions_enabled: bool = True
+    advanced_panels_enabled: bool = True
+    offers_enabled: bool = True
     max_daily_cost_usd: float = Field(default=1.0, ge=0)
     price_per_million: float | None = Field(default=None, gt=0)
 
@@ -3370,9 +3460,16 @@ class UiConfig(BaseModel):
     step, the rest behind *details*; ``"classic"`` restores the screens as they
     were before Phase 4 exactly (owner ruling: live changes behind kill
     switches, no shadow stage).
+
+    ``shell`` is the kill switch of UX Phase 2 (the shell, §5, Q17):
+    ``"simple"`` is the four places (Today, Library, Reader, Progress) with
+    *+ Add*, the palette and *⋯*, the demoted screens under the hood, and the
+    notice system; ``"classic"`` keeps the ten-tab shell exactly as it was
+    (meant to stay selectable for a month after Phase 2 lands).
     """
 
     practice_feedback: Literal["simple", "classic"] = "simple"
+    shell: Literal["simple", "classic"] = "simple"
 
 
 class EligibilityConfig(BaseModel):
@@ -3570,6 +3667,23 @@ class LearnLoopConfig(BaseModel):
                 update={"model": CODEX_LUNA_MODEL, "reasoning_effort": "low"}
             ),
         )
+        # Plan-first transport T1: the ChatGPT-plan profiles every default
+        # route names. The tiers copy the vault's `chatgpt` profile (its slug,
+        # base URL and switches), so the owner sets one model for all three.
+        self.ai.providers.setdefault(CHATGPT_PLAN_PROVIDER, default_chatgpt_plan_provider())
+        plan_profile = self.ai.providers[CHATGPT_PLAN_PROVIDER]
+        if not isinstance(plan_profile, ChatGPTPlanProviderConfig):
+            plan_profile = default_chatgpt_plan_provider()
+        self.ai.providers.setdefault(
+            CHATGPT_LOW_PROVIDER, plan_profile.model_copy(update={"reasoning_effort": "low"}),
+        )
+        self.ai.providers.setdefault(
+            CHATGPT_MEDIUM_PROVIDER, plan_profile.model_copy(update={"reasoning_effort": "medium"}),
+        )
+        self.ai.providers.setdefault(
+            CHATGPT_LUNA_PROVIDER,
+            plan_profile.model_copy(update={"model": CHATGPT_LUNA_MODEL, "reasoning_effort": "low"}),
+        )
         self.ai.providers.setdefault("deepseek_flash", deepseek_flash_provider())
         self.ai.providers.setdefault("deepseek_pro", deepseek_pro_provider())
         self.ai.providers.setdefault("openrouter", openrouter_provider())
@@ -3579,24 +3693,29 @@ class LearnLoopConfig(BaseModel):
         self.ai.providers.setdefault(DEFAULT_EMBEDDING_PROVIDER, openrouter_embedding_provider())
         self.ai.providers.setdefault(DEFAULT_DECIDER_PROVIDER, openrouter_decider_provider())
         self.ai.providers.setdefault(OPENROUTER_HAIKU_PROVIDER, openrouter_haiku_provider())
-        for task, default_provider in DEFAULT_CODEX_TASK_ROUTES.items():
+        # An unset tiered route follows the active provider: the plan's tiers
+        # when it is the plan, the legacy Codex tiers when a vault still names
+        # Codex (refused without ai.agent_harness_opt_in; doctor reports it),
+        # else the active provider itself.
+        tier_routes = (
+            DEFAULT_SERVING_TASK_ROUTES if self.ai.active_provider == CHATGPT_PLAN_PROVIDER
+            else LEGACY_CODEX_TASK_ROUTES if self.ai.active_provider == "codex"
+            else None
+        )
+        for task in DEFAULT_SERVING_TASK_ROUTES:
             if task == "canonical_ingest_retry":
                 # Resolved after the loop so it can mirror the (possibly
-                # non-codex) canonical_ingest route once that is settled.
+                # non-plan) canonical_ingest route once that is settled.
                 continue
             routed = getattr(self.ai.routing, task)
             if not routed:
                 setattr(
                     self.ai.routing,
                     task,
-                    (
-                        default_provider
-                        if self.ai.active_provider == "codex"
-                        else self.ai.active_provider
-                    ),
+                    tier_routes[task] if tier_routes is not None else self.ai.active_provider,
                 )
         # canonical_ingest_retry defaults to the primary canonical_ingest route
-        # so every provider, not only codex, gets one ingest retry pass.
+        # so every provider gets one ingest retry pass.
         retry_route = getattr(self.ai.routing, "canonical_ingest_retry", "")
         if not retry_route:
             self.ai.routing.canonical_ingest_retry = self.ai.routing.canonical_ingest
@@ -3647,6 +3766,19 @@ def default_codex_provider() -> CodexSDKProviderConfig:
         teach_back_path="/teach-back",
         teach_back_authoring_path="/teach-back-authoring",
         misconception_match_path="/misconception-match",
+    )
+
+
+def default_chatgpt_plan_provider() -> ChatGPTPlanProviderConfig:
+    """The code-default ChatGPT-plan profile (plan-first transport T1).
+
+    The slug is a config value (``[ai.providers.chatgpt] model``); the owner
+    confirms it against ``learnloop ai models chatgpt`` after signing in.
+    """
+
+    return ChatGPTPlanProviderConfig(
+        model=DEFAULT_CHATGPT_PLAN_MODEL,
+        reasoning_effort=DEFAULT_CODEX_REASONING_EFFORT,
     )
 
 

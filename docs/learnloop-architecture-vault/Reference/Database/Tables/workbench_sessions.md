@@ -3,13 +3,13 @@ title: "workbench_sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "87c9b9a4a94630287dd2e9fa6ecb7cd6544f9f1a"
-source_commit_timestamp: "2026-10-21T10:09:53-04:00"
+source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
+source_commit_timestamp: "2026-10-24T10:03:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite workbench_sessions"
   - "table workbench_sessions"
-schema_head: 217
+schema_head: 218
 table_name: "workbench_sessions"
 table_role: "workflow"
 functionality_status: "active"
@@ -24,6 +24,7 @@ source_paths:
   - "src/learnloop/hints/report.py"
   - "src/learnloop/reader/recap.py"
   - "src/learnloop/source_retrieval/reader_tutor.py"
+  - "src/learnloop/workbench/help_outcomes.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -110,6 +111,7 @@ None found by exact static reference scan.
 - `src/learnloop/hints/report.py`
 - `src/learnloop/reader/recap.py`
 - `src/learnloop/source_retrieval/reader_tutor.py`
+- `src/learnloop/workbench/help_outcomes.py`
 
 ### Direct SQL writers
 
@@ -125,6 +127,8 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_architecture.py`
+- `tests/test_compare_methods.py`
+- `tests/test_help_outcomes.py`
 - `tests/test_hint_telemetry.py`
 - `tests/test_library_ask_review.py`
 - `tests/test_library_exercises.py`

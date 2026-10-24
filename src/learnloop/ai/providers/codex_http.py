@@ -1,4 +1,13 @@
-"""Legacy endpoint-per-operation Codex HTTP adapter."""
+"""Legacy endpoint-per-operation Codex HTTP adapter: refused by the tool lockdown.
+
+Hardening round 2 of the security stage codex-tool-lockdown (H3): the adapter
+posts to an app server LearnLoop does not launch, whose approvals, tools, MCP
+servers and permission profile it cannot set, verify or observe, so every
+entry (construction, ``supports``, each legacy operation, the POST itself)
+refuses with :class:`~learnloop.ai.providers.codex_lockdown.CodexHttpTransportRefused`.
+The class stays only as the e2e tests' in-process provider double (their
+fixture stands in for the refusal; nothing a user configures can).
+"""
 
 from __future__ import annotations
 
@@ -11,6 +20,7 @@ from pydantic import BaseModel, ValidationError
 
 from learnloop.ai.errors import AIInvalidOutput, AIProviderUnavailable, CodexUnavailable
 from learnloop.ai.execution import report_call_usage
+from learnloop.ai.providers import codex_lockdown as _lockdown
 from learnloop.ai.providers.codex import _log_codex_debug, codex_config_from_ai_profile
 from learnloop.ai.schemas import describe_wire_validation_error
 from learnloop.ai.transport import StructuredRequest, WireResult, prompt_safe
@@ -31,14 +41,19 @@ class HttpCodexClient(TokenUsageAccounting):
     """
 
     def __init__(self, config: CodexConfig):
+        _lockdown.refuse_legacy_http_transport("HttpCodexClient")
         self.config = config
         self.provider_name = "codex"
         self.provider_type = "http_adapter"
         self.model = config.model
 
     def supports(self, capability: str) -> bool:
-        """Declare only the eight endpoint operations this adapter implements."""
+        """Declare only the eight endpoint operations this adapter implements (none, while refused)."""
 
+        try:
+            _lockdown.refuse_legacy_http_transport("supports")
+        except _lockdown.CodexHttpTransportRefused:
+            return False
         return capability in _HTTP_OPERATIONS
 
     def complete_legacy(
@@ -55,6 +70,7 @@ class HttpCodexClient(TokenUsageAccounting):
         """
 
         purpose = request.purpose
+        _lockdown.refuse_legacy_http_transport(f"operation {purpose!r}")
         if purpose not in _HTTP_OPERATIONS:
             raise AIProviderUnavailable(
                 f"Legacy HTTP adapter does not support structured operation {purpose!r}"
@@ -96,6 +112,7 @@ class HttpCodexClient(TokenUsageAccounting):
             ) from exc
 
     def _post(self, path: str, payload: dict, *, purpose: str, timeout_seconds: float | None = None) -> dict:
+        _lockdown.refuse_legacy_http_transport(f"POST {path}")
         url = _url(self.config.base_url, path)
         _log_codex_debug(
             "codex.http.request",

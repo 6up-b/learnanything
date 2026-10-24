@@ -23,6 +23,7 @@ import { OpenInSource } from "./OpenInSource";
 import { notifyQueueChanged } from "../queueEvents";
 import { suggestionLine } from "./askSuggestions";
 import { SourceOffers } from "./SourceOffers";
+import { screenLeavesKey } from "../app/keymap";
 
 /**
  * The Reader exchange a continued dialogue attaches to, when the sidecar
@@ -382,6 +383,7 @@ export function AskOverlay({
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { modal: true })) return;
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();

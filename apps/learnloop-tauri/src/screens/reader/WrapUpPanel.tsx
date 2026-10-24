@@ -10,6 +10,7 @@ import { COLOR, FONT_MONO } from "../../components/term";
 import { Quoted, RecapLink } from "./RecapCard";
 import { RECAP_COPY, observationLine } from "./recapCopy";
 import { MeaningLabel } from "./voices";
+import { screenLeavesKey } from "../../app/keymap";
 
 export interface WrapUpPanelProps {
   wrapUp: ReaderWrapUpDto;
@@ -43,6 +44,7 @@ export function WrapUpPanel({ wrapUp, where, onAction, onClose, isDone }: WrapUp
   const [kept, setKept] = useState<Set<string>>(new Set());
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { scopes: ["wrap-up", "screen"] })) return;
       if (event.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);

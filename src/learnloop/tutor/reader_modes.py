@@ -671,6 +671,20 @@ def finalize(answer: Any, spans: Sequence[Mapping[str, Any]], citations: list[di
     }
     if repeated:
         view["repeated_citations"] = len(repeated)
+    judged = getattr(answer, "explorable", None)
+    if judged is not None:
+        # RW5b (an explorable answer model only, so off the view is RW1c's):
+        # the blocks the tutor judged explorable among those it shows as cited
+        # (never on abstention, never one it did not cite). Code decides later
+        # which are equation or figure blocks.
+        cited = {(str(c.get("extraction_id")), str(c.get("span_id"))) for c in citations}
+        if excerpt is not None:
+            cited.add((str(excerpt["extraction_id"]), str(excerpt["span_id"])))
+        yes = [] if abstained else [
+            {"extraction_id": str(entry.extraction_id), "span_id": str(entry.span_id)}
+            for entry in judged if str(getattr(entry, "explorable", "")).lower() == "yes"
+            and (str(entry.extraction_id), str(entry.span_id)) in cited]
+        view["explorable"] = list({(e["extraction_id"], e["span_id"]): e for e in yes}.values())
     displayed = [] if abstained else list(citations)
     if abstained and citations:
         view["withheld_citations"] = len(citations)

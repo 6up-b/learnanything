@@ -118,9 +118,15 @@ def test_continue_with_chatgpt_routes_every_use_case_to_the_plan(tmp_path, monke
     profile = config.ai.providers["chatgpt"]
     assert (profile.type, profile.model) == ("chatgpt_plan", "gpt-test-fast")
     routing = config.ai.routing
+    # Plan-first transport T1: each use case at the effort tier of its default
+    # route; the tiers copy [ai.providers.chatgpt], so they serve the chosen slug.
+    from learnloop.config.schema import DEFAULT_SERVING_TASK_ROUTES
+
     for task in ("grading", "diagnosis", "canonical_ingest", "canonical_ingest_retry", "authoring",
                  "tutor_qa", "teach_back", "rung_variant"):
-        assert getattr(routing, task) == "chatgpt", task
+        assert getattr(routing, task) == DEFAULT_SERVING_TASK_ROUTES.get(task, "chatgpt"), task
+        served = config.ai.providers[getattr(routing, task)]
+        assert (served.type, served.model) == ("chatgpt_plan", "gpt-test-fast"), task
     assert set(_consent(root)) == {"chatgpt"}
     assert out["consented"] is True
     # A library made later on this machine inherits both the routes and the OK.
@@ -128,7 +134,7 @@ def test_continue_with_chatgpt_routes_every_use_case_to_the_plan(tmp_path, monke
     assert raw_defaults["ai"]["consent"]["chatgpt"]["granted_at"]
     later = create_vault(tmp_path / "Later").root
     later_config = load_vault(later).config
-    assert later_config.ai.routing.canonical_ingest == "chatgpt"
+    assert later_config.ai.routing.canonical_ingest == "chatgpt_medium"
     assert "chatgpt" in later_config.ai.consent
 
 
@@ -189,7 +195,8 @@ def test_quick_add_reads_the_recorded_ok_instead_of_asking_per_build(tmp_path):
 
     before = synthesis_consent()
     assert before["granted"] is False
-    grant_consent(root, "codex")
+    # Plan-first transport T1: a new library's builds route to the plan's tiers (one "chatgpt" OK).
+    grant_consent(root, "chatgpt")
     after = synthesis_consent()
     assert after["granted"] is True
     assert after["granted_at"] == "2026-10-13T09:00:00Z"

@@ -92,7 +92,10 @@ def workspace(tmp_path):
 
 
 def _client(server, **profile) -> ChatGPTPlanProviderClient:
-    settings = {"model": "gpt-test-fast", "base_url": server.base_url, "timeout_seconds": 10, **profile}
+    # Tools mode unless a test asks otherwise: most tests here exercise the
+    # function-call rounds (inline is the profile default since plan-first T1).
+    settings = {"model": "gpt-test-fast", "base_url": server.base_url, "timeout_seconds": 10,
+                "workspace_mode": "tools", **profile}
     return ChatGPTPlanProviderClient("chatgpt", ChatGPTPlanProviderConfig(**settings))
 
 
@@ -423,12 +426,33 @@ def test_inline_mode_sends_every_file_and_records_every_file(server, workspace):
         "mode": "inline", "served": ["INDEX.md", "attempts/a.md", "attempts/b.md"]}
 
 
-def test_inline_mode_refuses_a_workspace_over_its_budget_before_sending(server, workspace):
+def test_inline_mode_serves_a_workspace_over_its_budget_in_tools_mode(server, workspace):
+    """Plan-first transport T1 (orchestrator decision): inline is the default; an
+    export too large to inline is served by function calls, each round its own
+    admitted request, instead of being refused."""
+
     (workspace / "big.md").write_text("w" * 20_000, encoding="utf-8")
-    client = _client(server, workspace_mode="inline", max_workspace_chars=10_000)
+    server.replies.extend([Reply(events=tool_call_events([_read("INDEX.md")], response_id="r1")),
+                           Reply(events=ANSWER)])
+    # The default inline mode (workspace_mode not written): an explicit "inline" is
+    # honoured as written and refuses instead (plan-first transport T1, review F7).
+    explicit = _client(server, workspace_mode="inline", max_workspace_chars=10_000)
     with pytest.raises(AIProviderUnavailable, match="max_workspace_chars"):
-        _ask(client, workspace)
-    assert server.requests == [] and client.workspace_activity() == []
+        _ask(explicit, workspace)
+    assert server.requests == []
+    client = ChatGPTPlanProviderClient("chatgpt", ChatGPTPlanProviderConfig(
+        model="gpt-test-fast", base_url=server.base_url, timeout_seconds=10, max_workspace_chars=10_000))
+    assert _ask(client, workspace).note == "done"
+    bodies = [request["body"] for request in server.requests]
+    assert len(bodies) == 2 and all(body["tools"] == [ServedWorkspace.namespace_tool()] for body in bodies)
+    assert bodies[0]["instructions"].endswith(INSTRUCTIONS_TOOLS)
+    record = client.workspace_record()
+    assert record["mode"] == "tools" and record["inline_overflow"] is True
+    assert client.workspace_activity() == ["INDEX.md"]
+
+
+def test_the_profile_default_is_inline():
+    assert ChatGPTPlanProviderConfig(model="m").workspace_mode == "inline"
 
 
 # -- a snapshot diagnosis end to end ----------------------------------------------------------
@@ -557,11 +581,13 @@ def test_the_plan_serves_a_workspace_and_takes_the_callers_deadline(server, tmp_
     assert client_for_provider(vault, config, "chatgpt").profile.timeout_seconds == 10
 
 
-def test_active_chatgpt_falls_back_to_codex_while_the_plan_is_paused(server, tmp_path, monkeypatch):
+def test_a_paused_plan_never_falls_back_to_codex(server, tmp_path, monkeypatch):
+    """Plan-first transport T1 (owner, 2026-10-21): Codex is never a fallback,
+    opt-in or not; a paused plan reports unavailable (and asks about OpenRouter
+    when one is configured: tests/test_plan_first_transport.py)."""
+
     monkeypatch.setattr("learnloop.ai.runtime.check_codex_runtime", lambda *a, **k: SimpleNamespace(
         status="ready", actual_revision=None, message="ok"))
-    # The switch-over: the active provider, and the routes a vault's
-    # learnloop.toml pins to Codex profiles (the template writes eight).
     pinned_routes = {task: "chatgpt" for task in ("grading", "canonical_ingest", "canonical_ingest_retry",
                                                   "authoring", "tutor_qa", "teach_back", "rung_variant",
                                                   "animation")}
@@ -572,17 +598,12 @@ def test_active_chatgpt_falls_back_to_codex_while_the_plan_is_paused(server, tmp
         assert (resolved.provider_name, resolved.fallback_from) == ("chatgpt", None), task
         assert resolved.client.provider_type == "chatgpt_plan"
     PlanSession().note_usage_limit(code="subscription_sharing_usage_limit_exceeded", request_id="r")
-    resolved = ready_client_for_task(vault, config, "diagnosis", timeout_seconds=300)
-    assert (resolved.provider_name, resolved.fallback_from) == ("codex", "chatgpt")
-    assert resolved.client.provider_type == "codex_sdk" and resolved.client.supports(READ_ONLY_WORKSPACE)
-    # A route that [ai.routing] points at the plan falls back too (a routed
-    # selection is not an explicit one)...
-    routed = ready_client_for_task(vault, config, "grading", timeout_seconds=300)
-    assert (routed.provider_name, routed.fallback_from) == ("codex", "chatgpt")
-    # ...while an explicit selection of the plan (a command's named profile,
-    # such as `ai compare`'s) never falls back.
-    explicit = ready_client_for_task(vault, config, "diagnosis", explicit="chatgpt")
-    assert not explicit.ready and explicit.fallback_from is None
+    for opt_in in (False, True):
+        config.ai.agent_harness_opt_in = opt_in
+        for task in ("diagnosis", "grading"):
+            resolved = ready_client_for_task(vault, config, task, timeout_seconds=300)  # type: ignore[arg-type]
+            assert (resolved.provider_name, resolved.fallback_from, resolved.client) == ("chatgpt", None, None)
+            assert not resolved.ready and "usage" in resolved.runtime.message
     PlanSession().resume()
     assert ready_client_for_task(vault, config, "diagnosis").provider_name == "chatgpt"
 
@@ -618,7 +639,7 @@ def test_the_profile_validates_its_workspace_settings():
         ChatGPTPlanProviderConfig(model="m", max_tool_rounds=0)
     profile = ChatGPTPlanProviderConfig(model="m")
     assert (profile.workspace_mode, profile.max_tool_rounds, profile.max_entry_chars,
-            profile.max_workspace_chars) == ("tools", 16, 24_000, 400_000)
+            profile.max_workspace_chars) == ("inline", 16, 24_000, 400_000)  # inline since plan-first T1
 
 
 def test_the_workspace_never_reaches_outside_its_root(tmp_path):

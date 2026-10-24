@@ -50,6 +50,7 @@ import {
 import type { CueCheckPhase, CueReceipt } from "./MarginMark";
 import { useCueDiscovery } from "./useCueDiscovery";
 import { useCueImpressions } from "./useCueImpressions";
+import { screenLeavesKey } from "../../app/keymap";
 
 /** What "check me" hands the shell: the item to open, as a learner pick. */
 export interface CueCheckMeRequest {
@@ -349,6 +350,7 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
   useEffect(() => {
     if (!cues || !render) return;
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
       if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
       const target = event.target;

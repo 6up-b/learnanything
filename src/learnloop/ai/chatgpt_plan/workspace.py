@@ -145,6 +145,9 @@ class ServedWorkspace:
         self.served: list[ServedEntry] = []
         self.calls: list[CallRecord] = []
         self.served_chars = 0
+        #: Set when an inline turn's files exceeded the inline limit and this
+        #: workspace serves them by function calls instead (plan-first T1).
+        self.overflowed_inline = False
         self._texts: dict[str, str] = {}
 
     # -- the request side ---------------------------------------------------------

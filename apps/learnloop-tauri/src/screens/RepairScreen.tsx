@@ -33,6 +33,7 @@ import { OpenInSource } from "../components/OpenInSource";
 import { COLOR, Divider, Faint, FONT_MONO, Pill } from "../components/term";
 import { FIX_MIX_UP_LABEL, simplePracticeFeedback } from "../app/practiceFeedback";
 import { DetailsToggle, PrimaryAction, quietLine } from "../components/PlainParts";
+import { screenLeavesKey } from "../app/keymap";
 
 const shortFacet = (facetId: string): string => facetId.replace(/^facet_/, "");
 
@@ -155,6 +156,7 @@ export function RepairScreen({
   // first (capture) and never passed on to the screen underneath.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (screenLeavesKey(e, { modal: true })) return;
       if (e.key === "Escape" && !openSpan) {
         e.stopPropagation();
         onClose();
@@ -553,6 +555,7 @@ function SimpleRepairStep({
   // to the screen underneath, which would otherwise advance on the same key.
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { modal: true })) return;
       if (openSpan || event.key !== "Enter") return;
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea") return;

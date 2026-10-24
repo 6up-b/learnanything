@@ -628,6 +628,9 @@ _SYMBOLIC_READERS = (
     "src/learnloop/diagnosis/split/live.py",
     "src/learnloop_sidecar/handlers/workbench_help.py",
     "src/learnloop/hints/workbench.py",
+    # Reader RW2c's help outcomes read which steps a check found valid only
+    # through the hint service's per-help outcome (review F4:
+    # hints.report_workbench.workbench_unaided_progress, listed above).
 )
 
 

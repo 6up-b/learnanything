@@ -6,10 +6,12 @@
 // table, its data-table equivalent for screen readers (the `t` toggle). Series
 // and areas differ by line style and pattern as well as colour, so they
 // survive greyscale. Nothing here animates: motion is only ever a parameter
-// the learner set or played (FigureInline).
+// the learner set or played (FigureInline). RW5b's heat maps, vector fields,
+// trajectories and iterated maps are drawn by AdvancedPanels.tsx.
 import type { CSSProperties } from "react";
 import { COLOR, FONT_MONO } from "../../../components/term";
-import type { FunctionPlotData, LinearMapData, PanelData, PmfBarsData, ReadoutData } from "./figureSpec";
+import { HeatmapPanelView, PathPanelView, VectorFieldPanelView } from "./AdvancedPanels";
+import type { FigurePanel as FigurePanelModel, FunctionPlotData, LinearMapData, PanelData, PmfBarsData, ReadoutData } from "./figureSpec";
 
 const W = 600;
 const H = 220;
@@ -252,9 +254,16 @@ function Readout({ data }: { data: ReadoutData }) {
   );
 }
 
-export function FigurePanel({ data, label, showTable }: { data: PanelData; label?: string; showTable: boolean }) {
+export function FigurePanel({ data, label, showTable, model }: { data: PanelData; label?: string; showTable: boolean; model?: FigurePanelModel }) {
   if (data.kind === "function_plot") return <FunctionPlot data={data} showTable={showTable} />;
   if (data.kind === "pmf_bars") return <PmfBars data={data} showTable={showTable} />;
   if (data.kind === "linear_map_2d") return <LinearMap data={data} label={label ?? ""} showTable={showTable} />;
+  // RW5b (AdvancedPanels.tsx).
+  if (data.kind === "heatmap_2d") return <HeatmapPanelView data={data} showTable={showTable} />;
+  if (data.kind === "vector_field_2d") return <VectorFieldPanelView data={data} showTable={showTable} />;
+  if (data.kind === "trajectory_2d" || data.kind === "iterate_2d") {
+    const axes = model && (model.kind === "trajectory_2d" || model.kind === "iterate_2d") ? { x: model.x, y: model.y } : null;
+    return <PathPanelView data={data} axes={axes} showTable={showTable} />;
+  }
   return <Readout data={data} />;
 }

@@ -24,6 +24,12 @@ from tests.helpers import (
     create_basic_vault,
 )
 
+import pytest
+
+# The legacy Codex HTTP adapter is refused by the tool lockdown (hardening round 2,
+# H3); these tests drive an in-process HTTP server through it as a provider double.
+pytestmark = pytest.mark.usefixtures("legacy_codex_http_double")
+
 
 def test_generate_practice_dry_run_targets_completed_probe(tmp_path):
     vault_root = tmp_path / "vault"
@@ -705,7 +711,8 @@ def test_populate_goal_uses_a_15_minute_provider_timeout(tmp_path, monkeypatch):
 def test_provider_timeout_override_reaches_codex_sdk_client(tmp_path):
     client = cli_module._client_for_provider(
         tmp_path,
-        LearnLoopConfig(),
+        # The frozen Codex path is built only with the owner opt-in (T1).
+        LearnLoopConfig.model_validate({"ai": {"agent_harness_opt_in": True}}),
         "codex_medium",
         codex_timeout_seconds=15 * 60,
     )

@@ -7,6 +7,7 @@ import { ProbeBlockResult } from "../components/ProbeBlockResult";
 import { COLOR, KeyBar } from "../components/term";
 import { Card, SectionHeader } from "../components/ui";
 import { MarkdownMath } from "../render/MarkdownMath";
+import { screenLeavesKey } from "../app/keymap";
 
 // §5.7/§12 unified Diagnostic Check review: replaces the single-attempt
 // FeedbackScreen when an attempt just closed a diagnostic block — releases
@@ -111,6 +112,7 @@ export function DiagnosticReviewScreen({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event)) return;
       if (keysSuspended) return;
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea") return;

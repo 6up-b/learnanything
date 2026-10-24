@@ -73,14 +73,15 @@ def test_all_six_entry_point_paths_delegate_to_the_composition_root(
 @pytest.mark.parametrize(
     ("payload", "unavailable", "expected"),
     (
-        ({}, set(), ("codex_low", "codex_sdk", "gpt-5.6-sol", "codex_low", None)),
+        # Plan-first transport T1: the code defaults route grading to the plan's low tier.
+        ({}, set(), ("chatgpt_low", "chatgpt_plan", "gpt-5.6-sol", "chatgpt_low", None)),
         (
             {
                 "ai": {
                     "routing": {"grading": "named"},
                     "providers": {
                         "named": {
-                            "type": "codex_sdk",
+                            "type": "chatgpt_plan",
                             "model": "named-model",
                             "reasoning_effort": "high",
                         }
@@ -88,7 +89,7 @@ def test_all_six_entry_point_paths_delegate_to_the_composition_root(
                 }
             },
             set(),
-            ("named", "codex_sdk", "named-model", "named", None),
+            ("named", "chatgpt_plan", "named-model", "named", None),
         ),
         (
             {
@@ -115,7 +116,7 @@ def test_all_six_entry_point_paths_delegate_to_the_composition_root(
             ("backup", "openai_chat", "backup-model", "primary", "primary"),
         ),
     ),
-    ids=("codex-only", "named-profile", "openrouter-active", "fallback"),
+    ids=("plan-default", "named-profile", "openrouter-active", "fallback"),
 )
 def test_provider_resolution_config_matrix_is_uniform(
     tmp_path,
@@ -168,7 +169,7 @@ def test_provider_resolution_config_matrix_is_uniform(
                 "ai": {
                     "routing": {"grading": "named", "canonical_ingest": "named"},
                     "providers": {
-                        "named": {"type": "codex_sdk", "model": "named-model"}
+                        "named": {"type": "chatgpt_plan", "model": "named-model"}
                     },
                 }
             },
@@ -214,7 +215,7 @@ def test_provider_resolution_config_matrix_is_uniform(
             set(),
         ),
     ),
-    ids=("codex-only", "named-profile", "openrouter-active", "fallback", "manual"),
+    ids=("plan-default", "named-profile", "openrouter-active", "fallback", "manual"),
 )
 def test_config_matrix_executes_all_six_production_resolution_paths(
     tmp_path,
@@ -432,10 +433,11 @@ def test_operation_routes_include_semantic_diagnostic_grading():
 
 
 def test_named_codex_profile_identity_survives_provider_construction(tmp_path):
-    config = LearnLoopConfig()
+    # The frozen Codex path is built only with the owner opt-in (T1).
+    config = LearnLoopConfig.model_validate({"ai": {"agent_harness_opt_in": True}})
     profile = config.ai.providers["codex_medium"]
 
-    client = make_ai_provider_client_from_profile("codex_medium", profile, tmp_path)
+    client = make_ai_provider_client_from_profile("codex_medium", profile, tmp_path, agent_harness_opt_in=True)
 
     assert client.provider_name == "codex_medium"
     assert client.provider_type == "codex_sdk"

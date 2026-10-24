@@ -19,7 +19,17 @@ export const FIGURE_POLL_MS = 1500;
 export interface FigureRequestInput {
   spanIds: string[];
   region?: { spanId: string; bbox: number[] } | null;
+  /** RW5b: an offered figure (the organizer's or the tutor's judgment named in `offerRef`). */
+  origin?: "selection" | "library" | "tutor";
+  offerRef?: string | null;
 }
+
+/** How a request ended (fix round 2, F9: an offer's press settles on this, not
+ *  on its dispatch): `shown` a figure landed under its passage; `not_shown`
+ *  the build was refused, failed, or did not verify (its line under the
+ *  passage says why); `cancelled` the learner stopped it or the source
+ *  changed; `skipped` nothing was sent (figures or offers are off). */
+export type FigureRequestOutcome = "shown" | "not_shown" | "cancelled" | "skipped";
 
 /** A build in flight or one that could not run, shown as a line under its passage. */
 export interface FigurePending {
@@ -39,6 +49,8 @@ export interface FiguresContract {
   predictions: boolean;
   region: boolean;
   revisions: boolean;
+  /** RW5b: "make this explorable" offers (present only while figures.offers_enabled is on). */
+  offers?: boolean;
 }
 
 export interface FiguresCtl {
@@ -48,7 +60,8 @@ export interface FiguresCtl {
   pending: FigurePending[];
   expandedId: string | null;
   setExpanded: (figureId: string | null) => void;
-  request: (input: FigureRequestInput) => void;
+  /** Resolves once the build has ended (never rejects). */
+  request: (input: FigureRequestInput) => Promise<FigureRequestOutcome>;
   revise: (figure: FigureViewDto, note: string) => void;
   predict: (figure: FigureViewDto, index: number, answer: string) => Promise<FigurePredictionResultDto | null>;
   explain: (figure: FigureViewDto, predictionId: string, text: string) => Promise<FigurePredictionResultDto | null>;
@@ -106,29 +119,29 @@ export function useFigures({
   }, []);
 
   const run = useCallback(
-    (key: string, anchorSpanId: string, start: () => Promise<LibraryJobDto<FigureBuildResultDto>>) => {
+    (key: string, anchorSpanId: string, start: () => Promise<LibraryJobDto<FigureBuildResultDto>>): Promise<FigureRequestOutcome> => {
       const mine = generation.current;
       const token = {};
       runs.current.set(key, token);
       const live = () => generation.current === mine && runs.current.get(key) === token;
       let jobId: string | null = null;
-      const retry = () => run(key, anchorSpanId, start);
+      const retry = () => { void run(key, anchorSpanId, start); };
       const cancel = () => {
         runs.current.delete(key);
         setPending((list) => list.filter((item) => item.key !== key));
         if (jobId) void Promise.resolve(api.readerFigureJobCancel({ jobId })).catch(() => undefined);
       };
       setPending((list) => [...list.filter((item) => item.key !== key), { key, anchorSpanId, state: "pending", message: null, code: null, retry, cancel }]);
-      void (async () => {
+      return (async (): Promise<FigureRequestOutcome> => {
         try {
           let job = await start();
           jobId = job.jobId;
           while (job.state === "pending") {
             await sleep(FIGURE_POLL_MS);
-            if (!live()) return;
+            if (!live()) return "cancelled";
             job = await api.readerFigureJob({ jobId: job.jobId });
           }
-          if (!live()) return;
+          if (!live()) return "cancelled";
           setPending((list) => list.filter((item) => item.key !== key));
           const figure = job.state === "done" ? job.result?.figure ?? null : null;
           const shown = figure !== null && (figure.verification === "verified" || figure.verification === "illustrative");
@@ -139,12 +152,14 @@ export function useFigures({
             land(figure);
             onBuiltRef.current?.(figure);
           }
+          return shown ? "shown" : "not_shown";
         } catch (error) {
-          if (!live()) return;
+          if (!live()) return "cancelled";
           const command = getCommandError(error);
           setPending((list) => list.map((item) => item.key === key
             ? { ...item, state: "failed", message: errorMessage(error), code: command?.code ?? null }
             : item));
+          return "not_shown";
         }
       })();
     },
@@ -152,13 +167,19 @@ export function useFigures({
   );
 
   const request = useCallback(
-    (input: FigureRequestInput) => {
-      if (!enabled || !extractionId) return;
+    (input: FigureRequestInput): Promise<FigureRequestOutcome> => {
+      if (!enabled || !extractionId) return Promise.resolve("skipped");
       const spanIds = [...new Set(input.spanIds)];
       const anchor = spanIds[spanIds.length - 1] ?? input.region?.spanId ?? "";
       const region = input.region && contract?.region ? input.region : null;
       const key = `req:${anchor}:${spanIds.join(",")}:${region ? region.bbox.join(",") : ""}`;
-      run(key, anchor, () => api.readerFigureRequest({ extractionId, spanIds, region }));
+      const origin = input.origin ?? "selection";
+      if (origin !== "selection") {
+        // RW5b: an offer builds only while offers are on (the server checks the offer too).
+        if (!contract?.offers) return Promise.resolve("skipped");
+        return run(key, anchor, () => api.readerFigureRequest({ extractionId, spanIds, origin, offerRef: input.offerRef ?? null }));
+      }
+      return run(key, anchor, () => api.readerFigureRequest({ extractionId, spanIds, region }));
     },
     [enabled, extractionId, contract, run],
   );
@@ -166,7 +187,7 @@ export function useFigures({
   const revise = useCallback(
     (figure: FigureViewDto, note: string) => {
       if (!enabled || !contract?.revisions) return;
-      run(`rev:${figure.figureId}`, figure.anchorSpanId ?? "", () => api.readerFigureRevise({ figureId: figure.figureId, note }));
+      void run(`rev:${figure.figureId}`, figure.anchorSpanId ?? "", () => api.readerFigureRevise({ figureId: figure.figureId, note }));
     },
     [enabled, contract, run],
   );

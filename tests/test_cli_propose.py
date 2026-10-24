@@ -12,6 +12,12 @@ from learnloop.vault.loader import load_vault
 
 from tests.helpers import configure_codex_http, create_basic_vault
 
+import pytest
+
+# The legacy Codex HTTP adapter is refused by the tool lockdown (hardening round 2,
+# H3); these tests drive an in-process HTTP server through it as a provider double.
+pytestmark = pytest.mark.usefixtures("legacy_codex_http_double")
+
 
 def test_cli_propose_import_persists_and_accept_applies(tmp_path):
     vault_root = tmp_path / "vault"
@@ -47,7 +53,9 @@ def test_cli_propose_without_file_reports_codex_unavailable(tmp_path):
 
     assert result.exit_code == 1
     payload = json.loads(result.output)
-    assert payload["error"] == "codex_missing"
+    # Plan-first transport T1: the default route is the ChatGPT plan, signed
+    # out in tests, so the CLI reports its sign-in state.
+    assert payload["error"] == "provider_auth_required"
 
 
 def test_cli_propose_context_stats_does_not_require_codex_runtime(tmp_path):

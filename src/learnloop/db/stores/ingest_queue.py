@@ -49,6 +49,9 @@ def _json(data: Any) -> str:
 def _decode_ingest_batch(row: sqlite3.Row) -> dict[str, Any]:
     data = dict(row)
     data["cancel_requested"] = bool(data.get("cancel_requested"))
+    # Migration 218: the batch's action is read by the plan fallback alone
+    # (``ingest_batch_origin``), never sent to the desktop.
+    data.pop("origin_method", None)
     return data
 
 
@@ -80,6 +83,7 @@ class IngestQueueStoreMixin:
         status: str = "queued",
         priority: int = 0,
         clock: Clock | None = None,
+        origin_method: str | None = None,
     ) -> None:
         now = utc_now_iso(clock)
         with self.connection() as connection:
@@ -87,9 +91,9 @@ class IngestQueueStoreMixin:
                 """
                 INSERT INTO ingest_batches(
                   id, workflow_type, payload_schema_version, subject_id,
-                  source_set_id, status, priority, created_at, cancel_requested
+                  source_set_id, status, priority, created_at, cancel_requested, origin_method
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
                 """,
                 (
                     id,
@@ -100,9 +104,19 @@ class IngestQueueStoreMixin:
                     status,
                     priority,
                     now,
+                    origin_method,
                 ),
             )
             connection.commit()
+
+    def ingest_batch_origin(self, batch_id: str) -> str | None:
+        """The action (RPC method) that created the batch (migration 218), or None."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT origin_method FROM ingest_batches WHERE id = ?", (batch_id,)
+            ).fetchone()
+        return str(row[0]) if row is not None and row[0] else None
 
     def get_ingest_batch(self, batch_id: str) -> dict[str, Any] | None:
         with self.connection() as connection:

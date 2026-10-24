@@ -49,6 +49,7 @@ import { cachedSourceRead } from "./readerCache";
 import { clip, selectionNodes, type MarginAnnotation, type ReaderSelection } from "./readerShared";
 import { encodeReadingPlace, readingPositionKey } from "./useReadingProgress";
 import type { ReaderVisit } from "./useReaderVisit";
+import { screenLeavesKey } from "../../app/keymap";
 import {
   back as stackBack,
   EMPTY_STACK,
@@ -151,7 +152,7 @@ export interface ReaderInquiryInput {
   /** The screen's openSource (a restore may reopen the source a detour left). */
   openSourceRef: MutableRefObject<
     ((card: SourceLibraryCard, jumpSpan?: string,
-      options?: { via?: "search" | "restore"; jumpReading?: string | null }) => Promise<void>) | null
+      options?: { via?: "search" | "restore"; jumpReading?: string | null }) => Promise<unknown>) | null
   >;
 }
 
@@ -540,6 +541,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
   useEffect(() => {
     if (!inquiry || !render) return;
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
       if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
       const stack = returnStackRef.current;
@@ -1142,6 +1144,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
   useEffect(() => {
     if (railTab !== "ask") return;
     const onFind = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
         event.preventDefault();
         event.stopImmediatePropagation();

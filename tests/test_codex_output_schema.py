@@ -892,7 +892,7 @@ def test_prompt_prose_only_names_context_fields_that_exist(name, function, conte
     )
 
 
-def test_http_adapter_strips_the_usage_envelope_but_not_a_bad_field():
+def test_http_adapter_strips_the_usage_envelope_but_not_a_bad_field(legacy_codex_http_double):
     """The one legitimate superset on this boundary, and only that one.
 
     The adapter contract allows a flat response body *and* an opportunistic

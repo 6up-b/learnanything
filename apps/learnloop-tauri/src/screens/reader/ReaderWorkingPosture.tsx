@@ -5,12 +5,15 @@
 // stacked below the 1,040 px breakpoint). The workbench itself (steps,
 // checks, the help ladder) is the shared Workbench component the practice
 // screen's "Work in steps" uses too.
-import type { WorkbenchSessionDto } from "../../api/dto";
+import type { PassageTarget, WorkbenchSessionDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { Workbench } from "../workbench/Workbench";
 import { WORKBENCH_COPY } from "../workbench/stepModel";
 import { MIN_WORKBENCH_WIDTH, SPLIT_STEP, clampSplitWidth } from "../workbench/splitWidth";
 import type { ActiveWorkbench, ReaderWorkbench } from "./useReaderWorkbench";
+
+/** The palette's ask while a problem is open (UX Phase 2 fix round 3). */
+export const WORKING_ASK_WAITS = "Ask the tutor is beside the book. Leave for now (your steps are kept) and Ask opens.";
 
 export function ReaderWorkingPosture({
   wbCtl,
@@ -23,6 +26,7 @@ export function ReaderWorkingPosture({
   onAbandoned,
   onPeekPassage,
   onError,
+  askWaiting = null,
 }: {
   wbCtl: ReaderWorkbench;
   active: ActiveWorkbench;
@@ -34,8 +38,13 @@ export function ReaderWorkingPosture({
   onLeave: (session: WorkbenchSessionDto, generation: number) => void;
   onAbandoned: (session: WorkbenchSessionDto, generation: number) => void;
   /** RW2b: "compare with the book" peeks its passage in the source pane. */
-  onPeekPassage: (spanId: string) => void;
+  /** RW2c review F1: ``target`` names the passage's book when the workbench knows it. */
+  onPeekPassage: (spanId: string, target?: PassageTarget) => void;
   onError: (message: string) => void;
+  /** UX Phase 2 fix round 3: the palette asked for the tutor while this
+   *  problem is open. Ask sits beside the book, which this posture hides, so
+   *  a line says how to get there; leaving is the learner's call. */
+  askWaiting?: { onDismiss: () => void } | null;
 }) {
   return (
     <>
@@ -95,6 +104,18 @@ export function ReaderWorkingPosture({
           ...(stacked ? { flex: sourceShown ? "0 0 50%" : "1 1 auto" } : { height: "100%" }),
         }}
       >
+        {askWaiting ? (
+          <div
+            role="status"
+            data-testid="workbench-ask-waiting"
+            style={{ display: "flex", gap: 10, alignItems: "baseline", margin: "10px 14px 0", padding: "8px 10px", border: `1px solid ${COLOR.border}`, fontFamily: FONT_MONO, fontSize: 12, color: COLOR.textDim }}
+          >
+            <span style={{ flex: 1 }}>{WORKING_ASK_WAITS}</span>
+            <button type="button" aria-label="Dismiss" onClick={askWaiting.onDismiss} style={{ border: 0, background: "transparent", color: COLOR.textDim, cursor: "pointer", fontFamily: FONT_MONO }}>
+              ×
+            </button>
+          </div>
+        ) : null}
         <Workbench
           key={active.session.sessionId}
           initial={active.session}

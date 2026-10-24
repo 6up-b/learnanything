@@ -2824,6 +2824,36 @@ def _passage_span_ids(repository: Repository, extraction_id: str, anchors: Seque
     return [*anchors, *(str(block["span_id"]) for block in view["blocks"])]
 
 
+def _paid_quick_check_client(ctx: JobContext) -> Any:
+    """The client of a paid passage check (an inquiry's or a selection's), resolved for that feature.
+
+    It rides ``canonical_ingest`` but is held to its own price (re-review
+    F2): while ``reader_inquiry.metered_price_per_million`` is unset, an
+    unavailable plan offers nothing here and a grant of the question build
+    does not serve it; the unavailable error names the setting.
+    """
+
+    from learnloop.ai import plan_fallback
+
+    with plan_fallback.priced_by(RQC.PASSAGE_CHECK_PRICE_SETTING):
+        return ctx.services.quick_check_client(ctx)
+
+
+def _exercise_import_client(ctx: JobContext) -> Any:
+    """The authoring client of an exercise import, resolved for that feature (re-review F2).
+
+    Admitted at ``source_service.llm_price_per_million`` on a metered route,
+    so, like a passage check, it makes no offer and takes no other
+    feature's grant of ``canonical_ingest`` while that price is unset.
+    """
+
+    from learnloop.ai import plan_fallback
+    from learnloop.content.authoring.source_exercise_import import PRICE_SETTING
+
+    with plan_fallback.priced_by(PRICE_SETTING):
+        return ctx.services.exercise_import_client(ctx)
+
+
 def _passage_check_spend(ctx: JobContext) -> RQC.PassageCheckSpend:
     """The vault's admission settings for one passage check ([reader_inquiry])."""
 
@@ -2887,7 +2917,7 @@ def _handle_reader_inquiry_check(ctx: JobContext) -> dict[str, Any]:
         return {"question_id": existing["id"], "deduplicated": True}
     ctx.report("authoring", message="Authoring a quick check for this passage")
     try:
-        client = ctx.services.quick_check_client(ctx)
+        client = _paid_quick_check_client(ctx)
     except IngestRunnerError as exc:
         raise IngestRunnerError(str(exc), code="provider_unavailable") from exc
     bind = getattr(ctx, "bind_interruptible", None)
@@ -2960,7 +2990,7 @@ def _handle_reader_selection_check(ctx: JobContext) -> dict[str, Any]:
         return {"question_id": existing["id"], "deduplicated": True}
     ctx.report("authoring", message="Writing the question for this passage")
     try:
-        client = ctx.services.quick_check_client(ctx)
+        client = _paid_quick_check_client(ctx)
     except IngestRunnerError as exc:
         raise IngestRunnerError(str(exc), code="provider_unavailable") from exc
     bind = getattr(ctx, "bind_interruptible", None)
@@ -3034,7 +3064,7 @@ def handle_reader_exercise_import(ctx: JobContext) -> dict[str, Any]:
             "This passage is held out for evaluation (an exam you'll sit later), so it can't become practice.",
             code="exam_material", details={"extraction_id": extraction_id, "span_ids": held})
     ctx.report("authoring", message="Authoring the selected exercise(s) into practice items")
-    client = ctx.services.exercise_import_client(ctx)
+    client = _exercise_import_client(ctx)
     source_id = str(payload.get("source_id") or "") or None
     revision_id = str(payload.get("revision_id") or "") or None
     try:
@@ -3138,7 +3168,7 @@ def handle_source_exercise_import(ctx: JobContext) -> dict[str, Any]:
     result = SEI.import_source_exercise(
         ctx.vault_root, ctx.repo, extraction_id=extraction_id, span_ids=span_ids,
         caller=str(payload.get("caller") or "learner"), proposal_id=payload.get("proposal_id"),
-        clients={"authoring": ctx.services.exercise_import_client(ctx)},
+        clients={"authoring": _exercise_import_client(ctx)},
         time_box_seconds=float(vault.config.source_service.verify_timeout_seconds),
         import_id=payload.get("import_id"), label=payload.get("label"),
         learning_object_hint=payload.get("learning_object_hint"), clock=ctx.clock,

@@ -34,6 +34,15 @@ refuse a figure any of whose spans is held out now (Codex review F1).
 was selected and the route reads images (a region needs it), and, for a "not
 right?" version, the earlier spec and the learner's note. No learner data.
 
+**RW5b** (spec §8.7). With ``figures.advanced_panels_enabled`` the author
+is told of heat maps, vector fields, trajectories and iterated maps (its own
+prompt version, so RW5a's reuse keys are unchanged while the panels are off);
+off, it may not emit them, and a stored figure that uses one is shown as
+"can't draw this yet" (:func:`advanced_off_row`). With
+``figures.offers_enabled`` a build may start from an offer (origin
+``library`` | ``tutor``): the same pipeline, its gate also watching the
+offers switch (:func:`offer_build_key`).
+
 **Predictions** (:func:`record_prediction`): formative only (W1, tier 2).
 Code decides ``matched`` from the observed readout before and after the
 prediction's change; a missed one is queued for learner-text gaps as a
@@ -48,6 +57,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 import sqlite3
 import threading
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -62,7 +72,13 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import figures as store
 from learnloop.db.stores.judgments import append_judgment
-from learnloop.figure_admission import FiguresChanged, FiguresGate, figures_enabled
+from learnloop.figure_admission import (
+    FiguresChanged,
+    FiguresGate,
+    advanced_panels_enabled,
+    figures_enabled,
+    offers_enabled,
+)
 from learnloop.figures import grammar as G
 from learnloop.figures import routes as R
 from learnloop.figures import spec as S
@@ -70,6 +86,8 @@ from learnloop.figures import verify as V
 from learnloop.ids import new_ulid
 
 ORIGINS = ("selection", "library", "tutor")
+#: RW5b: the origins an offer builds with (``figures.offers_enabled``).
+OFFER_ORIGINS = ("library", "tutor")
 FIGURE_BLOCK_TYPES = frozenset({"Figure", "FigureGroup", "Picture", "PictureGroup"})
 #: Paragraphs on each side of the selection sent as context.
 CONTEXT_BLOCKS = 2
@@ -93,7 +111,8 @@ LABELS = {
 class FigureRefused(Exception):
     """A request the Reader may not make (``code``: ``figures_disabled``,
     ``exam_material``, ``region_disabled``, ``revisions_disabled``,
-    ``predictions_disabled``, ``not_found``, ``validation_error``, ``no_image_input``,
+    ``predictions_disabled``, ``offers_disabled`` and ``advanced_disabled``
+    (RW5b), ``not_found``, ``validation_error``, ``no_image_input``,
     ``region_unreadable``) or a route that cannot be called (``capped``,
     ``unpriced``, ``unrouted``, ``unavailable``, ``models_off``)."""
 
@@ -132,13 +151,33 @@ def enabled(vault: Any) -> bool:
 def build_key(vault: Any) -> tuple[Any, ...]:
     """What a build depends on, compared before every request it makes
     (:class:`~learnloop.figure_admission.FiguresGate`): the vault, the switch,
-    the author route as configured, the day's cap and the price."""
+    the author route as configured, the day's cap and the price, and (RW5b)
+    whether the advanced panels are on (the author's prompt depends on it)."""
 
     from learnloop.practice_index.paid import plan_route
 
     section = getattr(vault.config, "figures", None)
     return (str(vault.root), figures_enabled(vault), plan_route(vault, R.AUTHOR_TASK, None),
-            getattr(section, "max_daily_cost_usd", None), getattr(section, "price_per_million", None))
+            getattr(section, "max_daily_cost_usd", None), getattr(section, "price_per_million", None),
+            advanced_panels_enabled(vault))
+
+
+def offer_build_key(vault: Any) -> tuple[Any, ...]:
+    """An offered build's key (origin ``library`` | ``tutor``): :func:`build_key`
+    and ``figures.offers_enabled``, so switching offers off stops it."""
+
+    return (*build_key(vault), offers_enabled(vault))
+
+
+def offered(request: "FigureRequest") -> bool:
+    """A build an offer started (a "not right?" version of an offered figure
+    is a revision: ``figures.revisions_enabled`` governs it, not the offers)."""
+
+    return request.origin in OFFER_ORIGINS and request.supersedes_id is None
+
+
+def key_for(request: "FigureRequest"):
+    return offer_build_key if offered(request) else build_key
 
 
 def _switch(vault: Any, name: str) -> bool:
@@ -155,6 +194,22 @@ def region_enabled(vault: Any) -> bool:
 
 def revisions_enabled(vault: Any) -> bool:
     return _switch(vault, "revisions_enabled")
+
+
+def advanced_enabled(vault: Any) -> bool:
+    """RW5b's panels (``figures.advanced_panels_enabled``)."""
+
+    return advanced_panels_enabled(vault)
+
+
+def figure_offers_enabled(vault: Any) -> bool:
+    """RW5b's offers (``figures.offers_enabled``)."""
+
+    return offers_enabled(vault)
+
+
+#: What a stored figure that uses an RW5b panel shows while the panels are off.
+ADVANCED_OFF_KIND = "a panel kind that is switched off (figures.advanced_panels_enabled)"
 
 
 # ---------------------------------------------------------------------------
@@ -291,6 +346,35 @@ PROPERTY_CHECKS = ("values_finite", "integrates_to_one", "sums_to_one", "nonnega
                    "monotone_nondecreasing", "shaded_areas")
 
 
+def _advanced_kinds(row: Mapping[str, Any]) -> list[str]:
+    """The RW5b panel kinds a stored figure's spec uses (none when it has no spec)."""
+
+    if not row.get("spec_json"):
+        return []
+    try:
+        return list(S.advanced_kinds(json.loads(row["spec_json"])))
+    except (TypeError, ValueError, AttributeError):
+        return []
+
+
+def advanced_off_row(vault: Any, row: Mapping[str, Any]) -> Mapping[str, Any]:
+    """RW5b: a shown figure that uses a heat map, vector field, trajectory or
+    iterated map, while ``figures.advanced_panels_enabled`` is off, is the
+    unsupported-kind state ("can't draw this yet"); its spec never goes out."""
+
+    if advanced_enabled(vault) or row.get("verification") not in store.SHOWN or not row.get("spec_json"):
+        return row
+    try:
+        kinds = S.advanced_kinds(json.loads(row["spec_json"]))
+    except (TypeError, ValueError):
+        return row
+    if not kinds:
+        return row
+    report = dict(row.get("verification_report") or {})
+    return {**row, "verification": V.UNSUPPORTED, "unsupported_kind": ADVANCED_OFF_KIND, "spec_json": None,
+            "verification_report": {**report, "reason": f"{', '.join(dict.fromkeys(kinds))} is switched off"}}
+
+
 def property_checks(report: Mapping[str, Any]) -> list[str]:
     """The closed keys of the checks a shown figure passed (§8.3 steps 1-2)."""
 
@@ -329,7 +413,7 @@ def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, v
     answer is never sent before the learner answers it. A stored "verified"
     shows as an illustration (:func:`shown_row`)."""
 
-    row = shown_row(row)
+    row = advanced_off_row(vault, shown_row(row))
     region = row.get("region") or {}
     view: dict[str, Any] = {
         "figure_id": row["id"], "extraction_id": row["extraction_id"], "span_ids": list(row.get("span_ids") or ()),
@@ -378,14 +462,45 @@ def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, v
 # Build
 # ---------------------------------------------------------------------------
 
-def request_hash(request: FigureRequest, context: SourceContext, image_digest: str | None) -> str:
+#: The origin every reuse key names (RW5b Codex review F2). A figure of a
+#: block is the same figure whether the learner selected it or a library or
+#: tutor offer named it (the author is sent the same input), so it is built
+#: and paid for once; the row keeps its own ``origin``. RW5a's keys were all
+#: made under ``selection``, so they are unchanged.
+REUSE_ORIGIN = "selection"
+
+
+def request_hash(request: FigureRequest, context: SourceContext, image_digest: str | None, *,
+                 advanced: bool = False) -> str:
+    """The reuse key: the spec and prompt versions (RW5b's panels have their
+    own prompt version, so RW5a's hashes are unchanged while they are off)
+    and everything the author is sent (never the origin: :data:`REUSE_ORIGIN`)."""
+
     return content_key({
-        "spec_version": S.SPEC_VERSION, "prompt_version": R.AUTHOR_PROMPT_VERSION,
+        "spec_version": S.SPEC_VERSION, "prompt_version": R.author_prompt_version(advanced=advanced),
         "extraction_id": request.extraction_id,
-        "span_ids": list(request.span_ids), "region": request.region, "origin": request.origin,
+        "span_ids": list(request.span_ids), "region": request.region, "origin": REUSE_ORIGIN,
         "passage": context.passage, "around": context.around, "image_sha256": image_digest,
         "supersedes_id": request.supersedes_id, "revision_note": request.revision_note,
     })
+
+
+def _reusable(vault: Any, connection: Any, input_hash: str, other_hash: str) -> dict[str, Any] | None:
+    """The figure a build reuses: this input's under the current prompt
+    version, else (Codex review F2) a SHOWN one of the same input under the
+    other prompt version when it can be drawn now. RW5a's figures are drawable
+    with the panels on, and a panels-era figure with none of the new kinds is
+    drawable with them off; so switching the panels never pays again for a
+    figure already on the page. Another version's "can't draw this yet" is
+    never reused: it was that prompt's verdict (the panels may draw it now)."""
+
+    found = store.reusable(connection, input_hash, S.SPEC_VERSION)
+    if found is not None:
+        return found
+    other = store.reusable(connection, other_hash, S.SPEC_VERSION)
+    if other is None or other["verification"] not in store.SHOWN or advanced_off_row(vault, other) is not other:
+        return None
+    return other
 
 
 def _validated_request(vault: Any, repository: Repository, request: FigureRequest) -> FigureRequest:
@@ -393,6 +508,8 @@ def _validated_request(vault: Any, repository: Repository, request: FigureReques
         raise FigureRefused("figures_disabled", "Explorable figures are switched off (figures.enabled).")
     if request.origin not in ORIGINS:
         raise FigureRefused("validation_error", f"Unknown figure origin {request.origin!r}.")
+    if offered(request) and not figure_offers_enabled(vault):
+        raise FigureRefused("offers_disabled", "Offered figures are switched off (figures.offers_enabled).")
     spans = [str(span) for span in dict.fromkeys(request.span_ids) if span][:40]
     if not spans and not request.region:
         raise FigureRefused("validation_error", "Select a passage, an equation or a figure first.")
@@ -429,6 +546,13 @@ def check_request(vault: Any, repository: Repository, request: FigureRequest) ->
             raise FigureRefused("not_found", "That figure is not on this source.")
         if withheld_message(vault, repository, base["extraction_id"], _figure_spans(base)) is not None:
             raise FigureRefused("exam_material", "That figure's passage is held out now.")
+        if not advanced_enabled(vault) and _advanced_kinds(base):
+            # Codex review F4: a figure that uses a panel kind switched off
+            # (listed as "can't draw this yet", or a failed attempt at one) is
+            # not revised: its spec would be sent under RW5a's prompt, which
+            # can only re-emit what is refused, two paid calls for nothing.
+            raise FigureRefused("advanced_disabled", "That figure uses a panel kind that is switched off "
+                                                     "(figures.advanced_panels_enabled).")
     return request
 
 
@@ -496,9 +620,11 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
     if clipped is not None and request.region is not None:
         request.region = {**request.region, "bbox": [round(float(value), 2) for value in clipped]}
     digest = hashlib.sha256(image[1]).hexdigest() if image is not None else None
-    input_hash = request_hash(request, context, digest)
+    advanced = advanced_enabled(vault)
+    input_hash = request_hash(request, context, digest, advanced=advanced)
+    other_hash = request_hash(request, context, digest, advanced=not advanced)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        reused = store.reusable(connection, input_hash, S.SPEC_VERSION)
+        reused = _reusable(vault, connection, input_hash, other_hash)
         seen = store.latest_for_input(connection, input_hash, S.SPEC_VERSION)
     if reused is not None:
         return _reused(vault, repository, reused)
@@ -509,7 +635,7 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
             # Reread inside the lock (fix round 2, F7): a build that committed
             # between the reads above left `reused` empty but `seen` naming
             # its row, so only this read can tell its figure is reusable.
-            reused = store.reusable(connection, input_hash, S.SPEC_VERSION)
+            reused = _reusable(vault, connection, input_hash, other_hash)
             latest = store.latest_for_input(connection, input_hash, S.SPEC_VERSION)
             generation = store.builds_for_input(connection, input_hash, S.SPEC_VERSION)
         if reused is not None:
@@ -523,12 +649,13 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
         # generation, so "try again" asks afresh.
         request_id = content_key({"input_hash": input_hash, "generation": generation})
         author.bind_owner(f"figure:{request_id}")
-        gate = FiguresGate(vault, build_key, live_vault=live_vault)
+        gate = FiguresGate(vault, key_for(request), live_vault=live_vault)
         try:
             with gate_model_requests(gate):
                 return _author_and_store(vault, repository, request, context, author, previous=previous,
                                          versions=versions, image=image, asset_id=asset_id, digest=digest,
-                                         input_hash=input_hash, request_id=request_id, clock=clock, gate=gate)
+                                         input_hash=input_hash, request_id=request_id, clock=clock, gate=gate,
+                                         advanced=advanced)
         except FiguresChanged as exc:
             raise FigureRefused("figures_changed", str(exc)) from exc
 
@@ -567,21 +694,24 @@ def _reused(vault: Any, repository: Repository, row: Mapping[str, Any]) -> Build
 def _author_and_store(vault: Any, repository: Repository, request: FigureRequest, context: SourceContext,
                       author: R.FigureRoute, *, previous: Mapping[str, Any] | None, versions: int,
                       image: tuple[str, bytes] | None, asset_id: str | None, digest: str | None, input_hash: str,
-                      request_id: str, clock: Clock | None, gate: FiguresGate) -> BuildOutcome:
+                      request_id: str, clock: Clock | None, gate: FiguresGate,
+                      advanced: bool = False) -> BuildOutcome:
     problem = author.problem()
     if problem is not None:
         raise FigureRefused(problem.reason, problem.message)
     images = (image,) if image is not None else ()
+    prompt_version = R.author_prompt_version(advanced=advanced)
     problems: list[str] = []
     compiled: S.CompiledFigure | None = None
     report = V.Report()
     output: Any = None
     unsupported: tuple[str, str] | None = None
     for attempt in range(R.MAX_AUTHOR_ATTEMPTS):
-        prompt = R.author_prompt(_author_context(request, context, digest, previous, problems, request_id=request_id))
+        prompt = R.author_prompt(_author_context(request, context, digest, previous, problems, request_id=request_id),
+                                 advanced=advanced)
         try:
             output = author.ask(prompt, R.FigureAuthorOutputV1, images=images,
-                                metadata={"attempt": attempt + 1, "prompt_version": R.AUTHOR_PROMPT_VERSION})
+                                metadata={"attempt": attempt + 1, "prompt_version": prompt_version})
         except FiguresChanged:
             raise  # the configuration changed: nothing more is asked, nothing stored
         except R.FigureUnavailable as exc:
@@ -604,7 +734,8 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
                            " ".join(str(output.unsupported_reason or "").split())[:400])
             break
         try:
-            compiled = S.parse_spec(output.spec_json)
+            # Off, RW5b's panels are refused (the author was not told of them).
+            compiled = S.parse_spec(output.spec_json, advanced=advanced)
         except S.SpecError as exc:
             problems, compiled = exc.problems, None
             continue
@@ -622,7 +753,7 @@ def _author_and_store(vault: Any, repository: Repository, request: FigureRequest
         "input_span_ids": list(dict.fromkeys([*context.span_texts, *([asset_id] if asset_id else [])])),
         "origin": request.origin,
         "supersedes_id": request.supersedes_id, "revision_note": request.revision_note,
-        "spec_version": S.SPEC_VERSION, "model": author.model, "prompt_version": R.AUTHOR_PROMPT_VERSION,
+        "spec_version": S.SPEC_VERSION, "model": author.model, "prompt_version": prompt_version,
         "input_hash": input_hash, "created_at": utc_now_iso(clock), "spec_json": None, "kind": None,
         "unsupported_kind": None,
     }
@@ -720,7 +851,10 @@ def list_figures(vault: Any, repository: Repository, extraction_id: str) -> list
     views = []
     for chain in chains.values():
         shown = [row for row in chain if row["verification"] in store.SHOWN]
-        pick = (shown or chain)[-1]
+        # Codex review F5: with the panels off, the newest version that can
+        # still be drawn, before one that would list as "can't draw this yet".
+        drawable = [row for row in shown if advanced_off_row(vault, row) is row]
+        pick = (drawable or shown or chain)[-1]
         if withheld_message(vault, repository, pick["extraction_id"], _figure_spans(pick)) is not None:
             continue
         try:
@@ -740,6 +874,8 @@ def shown_figure(vault: Any, repository: Repository, figure_id: str) -> tuple[di
         raise FigureRefused("not_found", "That figure is no longer kept.")
     if row["verification"] not in store.SHOWN or row["spec_version"] != S.SPEC_VERSION or not row.get("spec_json"):
         raise FigureRefused("not_found", "That figure is not shown.")
+    if advanced_off_row(vault, row) is not row:
+        raise FigureRefused("not_found", "That figure uses a panel kind that is switched off.")
     if withheld_message(vault, repository, row["extraction_id"], _figure_spans(row)) is not None:
         raise FigureRefused("exam_material", "That figure's passage is held out now.")
     return row, S.parse_spec(row["spec_json"])

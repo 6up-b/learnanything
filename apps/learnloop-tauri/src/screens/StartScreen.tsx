@@ -35,6 +35,7 @@ import { CliffordBackdrop } from "./startBackdrops/CliffordBackdrop";
 import { PendulumBackdrop } from "./startBackdrops/PendulumBackdrop";
 import { ThreeBodyBackdrop } from "./startBackdrops/ThreeBodyBackdrop";
 import { BLACK, mixRgb, prefersReducedMotion, readPaletteColors, rgba } from "./startBackdrops/shared";
+import { screenLeavesKey } from "../app/keymap";
 import {
   FULLSCREEN_CANVAS_STYLE,
   MonospaceGlyphAtlas,
@@ -1750,6 +1751,7 @@ export function StartScreen({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event)) return;
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea") return;
       // A key an overlay already handled (the inspector's ←/→) is not ours.

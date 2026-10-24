@@ -8,7 +8,7 @@
 // lands later beneath. Earlier hints stay where they landed. Nothing here
 // moves focus, animates or opens a modal.
 import { useState, type KeyboardEvent, type ReactNode } from "react";
-import type { HintShortcut, WorkbenchHintViewDto } from "../../api/dto";
+import type { HintShortcut, PassageTarget, WorkbenchHintViewDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { quietLine, quietLink } from "../../components/PlainParts";
 import { MarkdownMath } from "../../render/MarkdownMath";
@@ -128,6 +128,7 @@ export function HintCard({
   onAnswer,
   onSkip,
   onPeek,
+  extras,
 }: {
   hint: WorkbenchHintViewDto;
   steps: StepOption[];
@@ -138,7 +139,11 @@ export function HintCard({
   onSmallerStep: () => void;
   onAnswer: (text: string) => void;
   onSkip: () => void;
-  onPeek?: (spanId: string) => void;
+  /** RW2c review F1: a picked passage in another book names that book. */
+  onPeek?: (spanId: string, target?: PassageTarget) => void;
+  /** Reader RW2c: "another passage" and the worked example in the learner's
+   *  route, under the bridge (absent while RW2c's switches are off). */
+  extras?: ReactNode;
 }) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   // Fix round 13: the app's CURRENT symbolic switch, AND the hint's own.
@@ -187,10 +192,17 @@ export function HintCard({
         {bridge?.status === "pending" ? <MeaningLabel>{HELP_COPY.bridging}</MeaningLabel> : null}
         {bridge?.status === "ready" && bridge.line ? (
           <button type="button" data-testid="workbench-bridge" style={{ ...quietLink, fontSize: 11 }}
-            onClick={() => (bridge.spanId && onPeek ? onPeek(bridge.spanId) : undefined)}>
+            onClick={() => {
+              if (!bridge.spanId || !onPeek) return;
+              // RW2c review F1: only a picked passage that names its book says
+              // where it is; RW2b's bridge peeks exactly as before.
+              if (bridge.sourceId) onPeek(bridge.spanId, { extractionId: bridge.extractionId ?? null, sourceId: bridge.sourceId });
+              else onPeek(bridge.spanId);
+            }}>
             {bridge.line}
           </button>
         ) : null}
+        {extras}
       </Voice>
     </div>
   );

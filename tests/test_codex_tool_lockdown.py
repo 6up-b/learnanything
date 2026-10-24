@@ -36,6 +36,7 @@ import pytest
 from learnloop.ai.errors import AIProviderUnavailable, CodexUnavailable
 from learnloop.ai.execution import observe_model_calls
 from learnloop.ai.providers.codex import SdkCodexClient, isolated_turn_overrides
+from learnloop.ai.providers.codex_lockdown import catalog_pin_path
 from learnloop.ai.transport import StructuredRequest, execute_structured_operation
 from learnloop.config import CodexConfig
 from learnloop.diagnosis.offline_review.judge import LinkJudgment
@@ -178,73 +179,29 @@ def _plain(client, purpose: str = "tutor_qa"):
 
 # -- 1. every call site that can start a Codex turn ---------------------------------------
 
-_TURN_STARTERS = {"thread_start", "thread_resume", "thread_fork"}
-
-
-def _python_sources() -> list[Path]:
-    return sorted(path for path in SRC.rglob("*.py") if "__pycache__" not in path.parts)
-
-
-def _enclosing_functions(tree: ast.AST) -> dict[ast.AST, str]:
-    owner: dict[ast.AST, str] = {}
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            for child in ast.walk(node):
-                owner.setdefault(child, node.name) if child is not node else None
-    # The innermost definition wins: walk again, overwriting with deeper ones.
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            for child in ast.walk(node):
-                if child is not node:
-                    owner[child] = node.name
-    return owner
-
-
-def _passes_deny_all(call: ast.Call) -> bool:
-    for keyword in call.keywords:
-        if keyword.arg == "approval_mode":
-            value = keyword.value
-            return (isinstance(value, ast.Name) and value.id == "deny_all") or (
-                isinstance(value, ast.Attribute) and value.attr == "deny_all"
-            )
-    return False
-
-
 def test_every_codex_turn_starter_in_the_source_passes_deny_all_inside_the_locked_down_turn():
-    """A new call site that starts a Codex thread or turn without the profile fails here."""
+    """A new call site that starts a Codex thread or turn without the profile fails here.
 
-    starters: list[tuple[str, int, str, bool]] = []
-    constructions: list[tuple[str, int, str]] = []
-    for path in _python_sources():
-        text = path.read_text(encoding="utf-8")
-        if not any(name in text for name in (*_TURN_STARTERS, "Codex(", ".turn(")):
-            continue
-        tree = ast.parse(text)
-        owners = _enclosing_functions(tree)
-        relative = str(path.relative_to(SRC))
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Call):
-                continue
-            func = node.func
-            if isinstance(func, ast.Attribute) and func.attr in _TURN_STARTERS:
-                starters.append((relative, node.lineno, owners.get(node, "<module>"), _passes_deny_all(node)))
-            elif isinstance(func, ast.Attribute) and func.attr in {"turn", "run"} and isinstance(func.value, ast.Name) \
-                    and func.value.id == "thread":
-                starters.append((relative, node.lineno, owners.get(node, "<module>"), _passes_deny_all(node)))
-            elif isinstance(func, ast.Name) and func.id in {"Codex", "AsyncCodex", "CodexClient"}:
-                constructions.append((relative, node.lineno, owners.get(node, "<module>")))
+    The sweep itself (every module, SDK import aliases, turns on any name, the
+    HTTP and subprocess launch paths) is
+    ``tests/test_codex_lockdown_round2.py::test_every_codex_turn_app_server_and_transport_in_the_source_is_the_locked_down_one``
+    (hardening round 2, L5: this test's earlier sweep had a textual prefilter,
+    missed ``sdk.Codex(...)`` and saw ``.turn()`` only on a variable named
+    ``thread``). What stays here: the order inside the one turn."""
+
     codex_py = "learnloop/ai/providers/codex.py"
-    assert {(path, owner) for path, _line, owner, _ok in starters} == {(codex_py, "_run_sdk_turn")}, starters
-    assert [where for where in starters if not where[3]] == [], "a thread/turn start without approval_mode=deny_all"
-    assert {(path, owner) for path, _line, owner in constructions} == {(codex_py, "_run_sdk_turn")}, constructions
-
-    # Inside it, the decline handler and notification tap go in before the thread starts.
     source = (SRC / codex_py).read_text(encoding="utf-8")
-    body = source[source.index("    def _run_sdk_turn("):source.index("    def _report_turn_usage(")]
+    # Inside it, the decline handler and notification tap go in before the thread starts.
+    body = source[source.index("    def _run_verified_sdk_turn("):source.index("    def _report_turn_usage(")]
     assert body.index("install_on_sdk(codex, lockdown)") < body.index("codex.thread_start(")
+    # The launch check runs before the turn, in the function that calls it.
+    outer = source[source.index("    def _run_sdk_turn("):source.index("    def _run_verified_sdk_turn(")]
+    assert outer.index("self._verified_isolated_overrides(") < outer.index("self._run_verified_sdk_turn(")
     # And the one turn path always asks for the isolated turn.
     run_structured = source[source.index("    def _run_structured("):source.index("    def _run_sdk_turn(")]
-    assert "isolated=True, workspace=workspace" in run_structured and "self.vault_root\n" not in run_structured
+    # Round 3: a workspace is inlined and the turn itself never gets one (no shell on any route).
+    assert "isolated=True, workspace=None" in run_structured and "self._inline_workspace(" in run_structured
+    assert "self.vault_root\n" not in run_structured
 
 
 # -- 2. every request shape: deny_all, the decline handler, the profile, never the vault ----
@@ -276,6 +233,29 @@ def _figure_author_call(client):
     return route.ask(figure_routes.author_prompt({"passage": "p"}), LinkJudgment)
 
 
+def _compare_methods_call(client):
+    """Reader RW2c's "Compare methods" lines, through the workbench check's own
+    route object (``CheckRoute.ask``: PaidCalls, receipts, the check's caps) with
+    the comparison's prompt and prompt version, exactly as
+    ``compare_methods.compare_lines`` asks it (landing composition). The
+    session count reads the vault, so it is held at zero here."""
+
+    from unittest import mock
+
+    from learnloop.config import LearnLoopConfig
+    from learnloop.workbench import check, compare_methods
+
+    vault = SimpleNamespace(config=LearnLoopConfig())
+    route = check.CheckRoute(vault, None, client=client, envelope=None, workbench_session_id="t")
+    assert route.route.task == "workbench_check" and route.subscription
+    prompt = compare_methods.build_prompt(
+        SimpleNamespace(prompt="p"), {"kind": "answer_display", "text": "r"},
+        [{"number": 1, "kind": "step", "body_md": "s"}], request_id="a")
+    with mock.patch.object(check, "session_calls", return_value=0):
+        return route.ask(prompt, assist_id="a", result_model=LinkJudgment,
+                         prompt_version=compare_methods.PROMPT_VERSION)
+
+
 SHAPES = {
     # The callers that never asked for isolation (finding 2).
     "tutor_qa": lambda client, tmp: execute_structured_operation(
@@ -284,6 +264,9 @@ SHAPES = {
     # Reader RW5a's figure author (on main after the stage's base): isolated=True
     # through PaidCalls; the lockdown applies to it like to every other caller.
     "figure_author": lambda client, tmp: _figure_author_call(client),
+    # Reader RW2c's comparison lines (on the stage's branch, built before the
+    # lockdown): CheckRoute.ask through PaidCalls; locked down like every caller.
+    "compare_methods": lambda client, tmp: _compare_methods_call(client),
     "plain_request": lambda client, tmp: _plain(client, "passage_cue_judge"),
     # The ones that did.
     "isolated": lambda client, tmp: client.complete(StructuredRequest(
@@ -299,6 +282,7 @@ def test_every_request_runs_the_locked_down_profile_with_approvals_denied(tmp_pa
     client = _client(tmp_path, monkeypatch)
     workspace = tmp_path / "snapshot"
     workspace.mkdir()
+    (workspace / "INDEX.md").write_text("# history\n", encoding="utf-8")
     SHAPES[shape](client, workspace)
 
     # Approvals: deny_all on the thread and on the turn.
@@ -311,15 +295,19 @@ def test_every_request_runs_the_locked_down_profile_with_approvals_denied(tmp_pa
     assert sdk.server_request("item/commandExecution/requestApproval", {}) == {"decision": "decline"}
     assert sdk.server_request("item/fileChange/requestApproval", {}) == {"decision": "decline"}
 
-    # Never the vault: an empty directory of its own, or the snapshot workspace.
+    # Never the vault: always an empty directory of its own (round 3: the
+    # snapshot workspace is inlined into the prompt, never the turn's cwd).
     roots = {captured["app_config"]["cwd"], captured["thread_start"]["cwd"], captured["turns"][0]["cwd"]}
     (root,) = roots
     root = Path(root)
     assert root != client.vault_root and client.vault_root not in root.parents
-    shell = shape == "workspace"
-    assert root == (workspace.resolve() if shell else root) and (shell or root.name.startswith("learnloop-isolated-turn-"))
+    shell = False
+    assert root.name.startswith("learnloop-isolated-turn-")
+    if shape == "workspace":
+        assert '<workspace_file path="INDEX.md">' in captured["turns"][0]["prompt"]
     overrides = list(captured["app_config"]["config_overrides"])
-    assert overrides == isolated_turn_overrides(root, shell=shell, mcp_server_ids=("node_repl",))
+    assert overrides == isolated_turn_overrides(root, shell=shell, mcp_server_ids=("node_repl",),
+                                                model_catalog=catalog_pin_path(overrides))
     lockdown = _lockdown()
     for override in ("agents.enabled=false", "tools.experimental_request_user_input.enabled=false",
                      "tools.update_plan.enabled=false", "features.multi_agent=false", "features.multi_agent_v2=false",
@@ -472,9 +460,11 @@ def test_an_item_without_a_type_is_never_text(tmp_path, monkeypatch):
         _plain(_client(tmp_path, monkeypatch))
 
 
-@pytest.mark.parametrize("kind, refused", [("commandExecution", False), ("fileChange", True),
+@pytest.mark.parametrize("kind, refused", [("commandExecution", True), ("fileChange", True),
                                            ("collabAgentToolCall", True), ("mcpToolCall", True)])
 def test_a_workspace_turn_may_only_add_commands(tmp_path, monkeypatch, kind, refused):
+    """Round 3: not even commands any more; a workspace turn is inlined and tool-free like every other."""
+
     _fake_sdk(monkeypatch, items=[{"type": kind, "command": "cat INDEX.md"}, *TEXT_ITEMS], usage=_usage(300, 100))
     workspace = tmp_path / "snapshot"
     workspace.mkdir()
@@ -743,7 +733,7 @@ def test_a_passed_check_is_cached_per_config_fingerprint(tmp_path, monkeypatch):
     client = _check_client(tmp_path, program)
     _turn(client)
     first = _probe_count(log)
-    assert first == 4  # mcp list, mcp list (pinned), features list, debug models
+    assert first == 6  # mcp list, mcp list (pinned), features list, debug models --bundled, debug models, prompt-input
     _turn(client)
     assert _probe_count(log) == first  # cached: same CLI, same config layers
     launches = _launched(log)
@@ -890,41 +880,26 @@ def _project_layer(workspace: Path, *servers: str) -> None:
         "".join(f'[mcp_servers.{name}]\ncommand = "/bin/true"\n\n' for name in servers), encoding="utf-8")
 
 
-def test_editing_a_workspace_project_layer_runs_the_check_again(tmp_path, monkeypatch):
-    """F2: the edit adds an MCP server; the next turn must pin it off, not reuse the cached list."""
+def test_a_workspaces_own_project_layer_never_reaches_the_turn(tmp_path, monkeypatch):
+    """Round 3 supersedes F2 (a workspace-local MCP server and a cached check):
+    the workspace is inlined, the turn runs in a fresh scratch directory, so the
+    workspace's own `.codex/config.toml` is never a layer of the turn at all."""
 
     home = tmp_path / "codex-home"
     home.mkdir()
     monkeypatch.setenv("CODEX_HOME", str(home))
     program, log = write_fake_codex(tmp_path / "bin")
-    install_fake_codex_sdk(monkeypatch, final_response=ANSWER, spawn=True)
+    captured = install_fake_codex_sdk(monkeypatch, final_response=ANSWER, spawn=True)
     client = _check_client(tmp_path, program)
     workspace = tmp_path / "trusted-workspace"
-    _project_layer(workspace, "docs")
-    _workspace_turn(client, workspace)
-    assert "mcp_servers.docs.enabled=false" in _launched(log)[-1]
-    probes = _probe_count(log)
     _project_layer(workspace, "docs", "shell_bridge")
+    (workspace / "INDEX.md").write_text("# history\n", encoding="utf-8")
     _workspace_turn(client, workspace)
-    assert _probe_count(log) > probes, "the edited project layer reused the cached check"
-    launched = _launched(log)[-1]
-    assert "mcp_servers.docs.enabled=false" in launched and "mcp_servers.shell_bridge.enabled=false" in launched
-
-
-def test_a_sibling_workspace_with_other_mcp_servers_gets_its_own_check(tmp_path, monkeypatch):
-    home = tmp_path / "codex-home"
-    home.mkdir()
-    monkeypatch.setenv("CODEX_HOME", str(home))
-    program, log = write_fake_codex(tmp_path / "bin")
-    install_fake_codex_sdk(monkeypatch, final_response=ANSWER, spawn=True)
-    client = _check_client(tmp_path, program)
-    first, second = tmp_path / "workspaces" / "one", tmp_path / "workspaces" / "two"
-    _project_layer(first, "docs")
-    _project_layer(second, "fetcher")
-    _workspace_turn(client, first)
-    _workspace_turn(client, second)
-    launched = _launched(log)[-1]
-    assert "mcp_servers.fetcher.enabled=false" in launched and "mcp_servers.docs.enabled=false" not in launched
+    root = Path(captured["app_config"]["cwd"])
+    assert root.name.startswith("learnloop-isolated-turn-") and root != workspace.resolve()
+    assert json.loads(captured["spawned"]["stdout"])["servers_on"] == []
+    assert not [override for override in _launched(log)[-1] if "docs" in override or "shell_bridge" in override]
+    assert '<workspace_file path="INDEX.md">' in captured["turns"][0]["prompt"]
 
 
 def test_fresh_workspaces_without_a_project_layer_still_share_one_check(tmp_path, monkeypatch):
@@ -940,7 +915,7 @@ def test_fresh_workspaces_without_a_project_layer_still_share_one_check(tmp_path
         export = tmp_path / "exports" / f"learnloop-diagnosis-snapshot-{index}"
         export.mkdir(parents=True)
         _workspace_turn(client, export)
-    assert _probe_count(log) == 3  # mcp list, features list, debug models: once
+    assert _probe_count(log) == 5  # mcp list, features list, debug models (twice), prompt-input: once
 
 
 def _gate(settled: list[dict[str, Any]]):
@@ -960,13 +935,11 @@ def _finishes(events: list[tuple[str, dict[str, Any]]], purpose: str) -> list[di
 
 
 def _two_command_rounds(sdk) -> None:
-    """A diagnosis workspace turn: two model requests (cumulative usage), a command between them."""
+    """One answered model request (round 3: every turn is tool-free, so a second request or a
+    command would be a violation; F3 is about an ordinary failure, without one)."""
 
-    sdk.notify("thread/tokenUsage/updated", threadId="thr_parent", turnId="turn_parent",
-               tokenUsage={"total": {"inputTokens": 1000, "outputTokens": 50, "totalTokens": 1050,
-                                     "cachedInputTokens": 200}})
     sdk.notify("item/completed", threadId="thr_parent", turnId="turn_parent",
-               item={"type": "commandExecution", "command": "cat INDEX.md"})
+               item={"type": "agentMessage", "phase": "final_answer", "text": ANSWER})
     sdk.notify("thread/tokenUsage/updated", threadId="thr_parent", turnId="turn_parent",
                tokenUsage={"total": {"inputTokens": 2300, "outputTokens": 120, "totalTokens": 2420,
                                      "cachedInputTokens": 900}})
@@ -974,7 +947,7 @@ def _two_command_rounds(sdk) -> None:
 
 @pytest.mark.parametrize("ending", ["sdk_timeout", "connection_closed", "learner_interrupt", "request_deadline"])
 def test_tokens_reported_before_an_ordinary_failure_reach_the_receipt_and_the_settle(tmp_path, monkeypatch, ending):
-    """F3: a workspace turn spends two requests, then fails without any lockdown violation."""
+    """F3: a turn spends a request, then fails without any lockdown violation."""
 
     events: list[tuple[str, dict[str, Any]]] = []
     settled: list[dict[str, Any]] = []
@@ -1003,7 +976,6 @@ def test_tokens_reported_before_an_ordinary_failure_reach_the_receipt_and_the_se
         client.complete(request)
     (finish,) = _finishes(events, "diagnosis:sdk_turn")
     assert (finish["input_tokens"], finish["output_tokens"], finish["cached_input_tokens"]) == (2300, 120, 900)
-    assert finish["model_requests"] == 2
     (settle,) = [entry for entry in settled if entry["admission"] == "diagnosis:sdk_turn"]
     assert (settle["input_tokens"], settle["output_tokens"]) == (2300, 120)
     assert (client._usage_input_tokens, client._usage_output_tokens) == (2300, 120)

@@ -6,13 +6,18 @@ import type { AddSourceItemDto, AiConnectionDto, AppSnapshot, AttemptProgress, C
 import { AskOverlay, type AskTarget } from "../components/AskOverlay";
 import { AddPopover, DropOverlay, useAddSource } from "../components/AddSource";
 import { ConnectAISheet } from "../components/ConnectAI";
+import { PlanFallbackOffer } from "../components/PlanFallbackOffer";
 import { pickSourceFiles, useSourceFileDrop } from "../components/useSourceFileDrop";
 import { LibraryPlace, type LibraryView } from "../screens/LibraryPlace";
 import { useGlobalAdd } from "./useGlobalAdd";
-import { CommandPalette } from "../components/CommandPalette";
+import { CommandPalette, type PaletteCommand } from "../components/CommandPalette";
+import { KeyboardHelp } from "../components/KeyboardHelp";
+import { NoticeHost } from "../components/NoticeHost";
+import { UnderTheHoodScreen } from "../screens/UnderTheHoodScreen";
+import { CalibrationTool, DataTool, InspectorTool, MistakesTool, SpendTool } from "../screens/underhood/tools";
 import { InspectorOverlay } from "../components/InspectorOverlay";
 import { SessionFinishHud } from "../components/SessionFinishHud";
-import { EmptyPlaceholder, SHOW_GOLDEN_PATH, TerminalFrame, type NavBadgeCounts, type TopTab, navTabs } from "../components/ui";
+import { EmptyPlaceholder, SHOW_GOLDEN_PATH, TerminalFrame, type NavBadgeCounts, type TopTab } from "../components/ui";
 import { CalibrationScreen } from "../screens/CalibrationScreen";
 import { DiagnosticReviewScreen } from "../screens/DiagnosticReviewScreen";
 import { FeedbackScreen } from "../screens/FeedbackScreen";
@@ -22,7 +27,27 @@ import { PracticeScreen } from "../screens/PracticeScreen";
 import { RepairScreen } from "../screens/RepairScreen";
 import { ReviewScreen } from "../screens/ReviewScreen";
 import { StartScreen } from "../screens/StartScreen";
-import { NEEDS_SESSION, noticeAfterSessionBegins } from "./notices";
+import { NEEDS_SESSION, addNotice, dismissNotice, noticeAfterSessionBegins, resolveNotices, sessionNotice, type NoticeInput, type ShellNotice } from "./notices";
+import { matchShellKey, type KeyAction } from "./keymap";
+import { ShellChromeRoot } from "./ShellChromeRoot";
+import {
+  isTabTool,
+  placeOfTab,
+  rememberBook,
+  rememberPlace,
+  rememberTool,
+  rememberedBook,
+  rememberedPlace,
+  rememberedTool,
+  tabForPlace,
+  uthTool,
+  uthToolOfTab,
+  visibleUthTools,
+  type Place,
+  type ShellMode,
+  type UthToolId
+} from "./shell";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { TodayScreen } from "../screens/TodayScreen";
 import { OpenInSource } from "../components/OpenInSource";
 import { QuickAddDialog } from "../components/QuickAddDialog";
@@ -31,7 +56,7 @@ import { GoldenPathSetup } from "../components/goldenpath/GoldenPathSetup";
 import type { ReaderCheckMeRequest, ReaderExerciseRequest, ReaderOpenSource } from "../screens/ReaderScreen";
 import { keepReaderReturn, readerCheckOffer, returnsToReader, type ReaderReturn } from "./readerCheck";
 import { consumeShown, readerTargetBack, readerWorkbenchCheck, sessionAfterWorkbenchSubmit, workbenchReturn } from "./readerWorkbench";
-import { algoConfig } from "./algoConfig";
+import { algoConfig, setRenderedShell } from "./algoConfig";
 import type { ReaderWorkbenchCheck, ReaderWorkbenchProps } from "../screens/reader/useReaderWorkbench";
 import { ExemplarConfirmDialog } from "../components/ExemplarConfirmDialog";
 import { WhyDiagnosisOverlay } from "../components/WhyDiagnosisOverlay";
@@ -59,7 +84,7 @@ import { restoredPracticeDraft, type PracticeDraftMirror } from "./practiceDraft
 import { ScreenErrorBoundary } from "./ScreenErrorBoundary";
 import { recordRecentVault, removeRecentVault } from "./recentVaults";
 import { feedbackOrigin, simplePracticeFeedback } from "./practiceFeedback";
-import { errorMessage } from "../errors";
+import { RETRY_RAN, errorMessage, getCommandError, type ErrorReport, type NoticeRetry } from "../errors";
 import { wrapUpOfferArmed, type WrapUpLanding } from "./wrapUpOffer";
 import { WrapUpOffer } from "../screens/reader/WrapUpOffer";
 
@@ -78,6 +103,9 @@ const ExamScreen = lazy(() => import("../screens/ExamScreen").then((module) => (
 const ProposalsScreen = lazy(() => import("../screens/ProposalsScreen").then((module) => ({ default: module.ProposalsScreen })));
 const RegistryReviewScreen = lazy(() => import("../screens/RegistryReviewScreen").then((module) => ({ default: module.RegistryReviewScreen })));
 const GoldenPathScreen = lazy(() => import("../screens/GoldenPathScreen").then((module) => ({ default: module.GoldenPathScreen })));
+// UX Phase 2: Under the hood's Analyst views and Files mount these unchanged.
+const KnowledgeMapView = lazy(() => import("../screens/KnowledgeMapScreen").then((module) => ({ default: module.KnowledgeMapView })));
+const LibraryScreen = lazy(() => import("../screens/LibraryScreen").then((module) => ({ default: module.LibraryScreen })));
 
 type TodayStage = "queue" | "practice" | "feedback" | "blockReview";
 
@@ -112,17 +140,26 @@ export function App() {
     const previous = previousTabRef.current;
     previousTabRef.current = tab;
     if (previous === tab) return;
-    const armed = wrapUpOfferArmed(previous, tab) && !readerSkimmingRef.current;
-    setWrapUpLanding(armed ? { tab: tab as WrapUpLanding, seq: Date.now() } : null);
+    // UX Phase 2: in the simple shell Start is Today (until Phase 3 merges
+    // them), so leaving the Reader for it lands on Today.
+    const landing = shellRef.current === "simple" && tab === "start" ? "today" : tab;
+    const armed = wrapUpOfferArmed(previous, landing) && !readerSkimmingRef.current;
+    setWrapUpLanding(armed ? { tab: landing as WrapUpLanding, seq: Date.now() } : null);
   }, [tab]);
   // Registry review (§5.7) + Open-in-source (§9.2) + Quick add (§1) surfaces.
   const [registrySubjectId, setRegistrySubjectId] = useState<string | null>(null);
   // The Reader unmounts on every tab switch; the open source is kept here so
   // returning to the tab resumes it (its reads come from the query cache).
   const [readerSource, setReaderSource] = useState<ReaderOpenSource | null>(null);
+  // The book open now, for the startup restore (it must not replace a book
+  // the learner opened while the library list was loading).
+  const readerSourceRef = useRef<ReaderOpenSource | null>(null);
+  readerSourceRef.current = readerSource;
   // Bumped when the shell opens a book on purpose (Add, the shelf's Continue),
   // so a Reader already showing another book remounts on the new one.
   const [readerOpenSeq, setReaderOpenSeq] = useState(0);
+  // Each request from the palette to open the Reader's Ask (Codex review F5).
+  const [readerAskRequest, setReaderAskRequest] = useState(0);
   // UX Phase 1 (docs/specs/ux_learnloop_v1.md §6): Add, the shelf, connect once.
   const [libraryView, setLibraryView] = useState<LibraryView>("books");
   const [addOpen, setAddOpen] = useState(false);
@@ -202,6 +239,12 @@ export function App() {
   const [paletteEntityIds, setPaletteEntityIds] = useState<string[]>([]);
   const [palettePracticeItemIds, setPalettePracticeItemIds] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
+  // UX Phase 2 (§7.9): the simple shell's notices; classic keeps `toast`.
+  const [notices, setNotices] = useState<ShellNotice[]>([]);
+  // UX Phase 2 (§5.2): the Under-the-hood tool on screen when it isn't one
+  // of the old tabs (those are their own tab), and Keyboard & help.
+  const [uthToolState, setUthToolState] = useState<UthToolId>(() => rememberedTool());
+  const [keysHelpOpen, setKeysHelpOpen] = useState(false);
   const [finishSummary, setFinishSummary] = useState<SessionEndSummary | null>(null);
   const [askTarget, setAskTarget] = useState<AskTarget | null>(null);
   // Today unmounts when navigating to another tab. Keep this dismissal at the
@@ -271,7 +314,97 @@ export function App() {
     []
   );
 
-  const onError = useCallback((message: string) => setToast(message), []);
+  // UX Phase 2's switch, read from the snapshot. Until the current library's
+  // snapshot has named it, the app is the base shell exactly (classic): its
+  // nav, its keys and its toast (fix round 3, whole-stage verify
+  // 20261021-130232-Uk06Al item 3). A per-machine cache of the last shell let
+  // a stale "simple" run simple keys before a classic library had loaded, so
+  // there is none: only the snapshot is authoritative.
+  const shell: ShellMode = snapshot ? algoConfig().shell : "classic";
+  // Mirrored for what follows the shell on screen (key scopes, the screens'
+  // target rule), so the loading and startup-error frames are classic too
+  // (fix round 6). Set while rendering, so children drawn in the same pass
+  // read it, and again after each commit: React.StrictMode (the dev app)
+  // runs every effect's cleanup once right after mounting, and a mount-only
+  // effect then left the mirror cleared. Cleared when the App unmounts.
+  setRenderedShell(shell);
+  useEffect(() => {
+    setRenderedShell(shell);
+    return () => setRenderedShell(null);
+  }, [shell]);
+  const shellRef = useRef<ShellMode>(shell);
+  shellRef.current = shell;
+  const simple = shell === "simple";
+
+  const pushNotice = useCallback((input: NoticeInput) => setNotices((list) => addNotice(list, input)), []);
+  // An error: classic's red toast, or the simple shell's red error. A screen
+  // may hand over the rejection and a retry (Codex review F3): the error then
+  // shows its code under details, and Try again when the sidecar said it is
+  // retryable. Classic shows the sentence, as before.
+  const onError = useCallback(
+    (message: string, report?: ErrorReport) => {
+      if (shellRef.current === "classic") {
+        setToast(message);
+        return;
+      }
+      const command = report?.error === undefined ? null : getCommandError(report.error);
+      const code = command?.code ?? null;
+      // Try again only for a retryable failure whose report names its source
+      // and a self-contained retry (fix round 3).
+      if (command?.retryable && report?.retry && report.source) {
+        pushNotice({ kind: "error", text: message, code, retry: report.retry, source: report.source });
+      } else {
+        pushNotice({ kind: "error", text: message, code, source: report?.source ?? null });
+      }
+    },
+    [pushNotice]
+  );
+  // A notice: classic's toast (as before), or a neutral notice that leaves
+  // by itself and waits while the Reader has a book open.
+  const notify = useCallback(
+    (message: string) => {
+      if (shellRef.current === "classic") setToast(message);
+      else pushNotice({ kind: "notice", text: message });
+    },
+    [pushNotice]
+  );
+  // An error from an action the shell can run again: Try again when the
+  // sidecar says it is retryable (simple shell). Classic shows the message.
+  const reportError = useCallback(
+    (error: unknown, fallback: string, action?: { source: string; retry: NoticeRetry }) => {
+      const message = errorMessage(error, fallback);
+      if (shellRef.current === "classic") {
+        setToast(message);
+        return;
+      }
+      const command = getCommandError(error);
+      const code = command?.code ?? null;
+      if (command?.retryable && action) pushNotice({ kind: "error", text: message, code, retry: action.retry, source: action.source });
+      else pushNotice({ kind: "error", text: message, code, source: action?.source ?? null });
+    },
+    [pushNotice]
+  );
+  // "Start a session first": resolved, and gone, once a session begins.
+  const needSession = useCallback(
+    (need: keyof typeof NEEDS_SESSION) => {
+      if (shellRef.current === "classic") setToast(NEEDS_SESSION[need]);
+      else pushNotice(sessionNotice(need));
+    },
+    [pushNotice]
+  );
+  // Settings shows one message, the newest. Closing Settings or clicking that
+  // message dismisses only it (fix round 2, whole-stage verify
+  // 20261021-114726-Jrt7sA item 2): the queue keeps every unresolved error
+  // and every notice not yet delivered. Classic clears its one toast, as before.
+  const settingsNotice: ShellNotice | null = simple ? notices[notices.length - 1] ?? null : null;
+  const settingsNoticeId = settingsNotice?.id ?? null;
+  const dismissSettingsNotice = useCallback(() => {
+    if (shellRef.current === "classic") {
+      setToast(null);
+      return;
+    }
+    if (settingsNoticeId) setNotices((list) => dismissNotice(list, settingsNoticeId));
+  }, [settingsNoticeId]);
   const onPaletteEntities = useCallback((ids: { inspectIds: string[]; practiceItemIds: string[] }) => {
     setPaletteEntityIds(ids.inspectIds);
     setPalettePracticeItemIds(ids.practiceItemIds);
@@ -296,6 +429,39 @@ export function App() {
     }
   }, []);
 
+  // UX Phase 2: open where the learner was last (simple shell, per machine).
+  const restoreLastPlace = useCallback(async (appSnapshot: AppSnapshot) => {
+    const place = rememberedPlace();
+    if (place === "underhood") {
+      const tool = rememberedTool();
+      setUthToolState(tool);
+      setTab(isTabTool(tool) ? tool : "underhood");
+    } else if (place === "reader") {
+      setTab("reader");
+    } else if (place) {
+      setTab(tabForPlace(place, Boolean(appSnapshot.activeSession)));
+    }
+    // The book open in the Reader comes back whatever the landing place (fix
+    // round 4, whole-stage verify 20261021-134216-8mdDfN item 3): restarting
+    // on Progress, Alt+3 and "Continue reading" open the last book, not the
+    // shelf. Only a Reader that has not been given a book yet takes it.
+    const root = appSnapshot.vault?.root;
+    const sourceId = root ? rememberedBook(root) : null;
+    if (!sourceId) return;
+    try {
+      const card = (await api.getSourceLibrary()).sources.find((entry) => entry.sourceId === sourceId);
+      if (card) {
+        if (!readerSourceRef.current) {
+          setReaderSource({ card, spanId: null });
+          setReaderOpenSeq((seq) => seq + 1);
+        }
+      }
+    } catch {
+      /* The Reader shows the shelf instead. */
+    }
+  }, []);
+
+
   const loadInitialVault = useCallback(async () => {
     setStartupError(null);
     try {
@@ -312,11 +478,14 @@ export function App() {
           setTodayStage("practice");
         }
       }
-      if (!checkpoint?.currentPracticeItemId) void landOnLibraryIfEmpty(appSnapshot);
+      if (!checkpoint?.currentPracticeItemId) {
+        if (algoConfig().shell === "simple") void restoreLastPlace(appSnapshot);
+        void landOnLibraryIfEmpty(appSnapshot);
+      }
     } catch (error) {
       setStartupError(errorMessage(error, "Could not load the LearnLoop vault."));
     }
-  }, [landOnLibraryIfEmpty, refreshAiConnection]);
+  }, [landOnLibraryIfEmpty, refreshAiConnection, restoreLastPlace]);
 
   useEffect(() => {
     if (startupStartedRef.current) return;
@@ -431,6 +600,33 @@ export function App() {
     localStorage.setItem("learnloop.tab", tab);
   }, [tab]);
 
+  // UX Phase 2 (§10 2.1): remember the last place, the tool and the book.
+  const hasSnapshot = snapshot !== null;
+  useEffect(() => {
+    if (!simple || !hasSnapshot) return;
+    const place = placeOfTab(tab);
+    if (place) rememberPlace(place);
+    if (place === "underhood") {
+      const tool = uthToolOfTab(tab, uthToolState);
+      if (tool !== uthToolState) setUthToolState(tool);
+      rememberTool(tool);
+    }
+  }, [simple, hasSnapshot, tab, uthToolState]);
+  // The book open in the Reader, per library. Closing it (back to the shelf)
+  // forgets it, so the next start does not reopen a book the learner put
+  // down (fix round 5); a library switch does not count as closing.
+  const rememberedBookRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!simple || !vaultRoot) return;
+    if (readerSource) {
+      rememberBook(vaultRoot, readerSource.card.sourceId);
+      rememberedBookRef.current = vaultRoot;
+    } else if (rememberedBookRef.current === vaultRoot) {
+      rememberBook(vaultRoot, null);
+      rememberedBookRef.current = null;
+    }
+  }, [simple, vaultRoot, readerSource]);
+
   // Record every activated vault (startup load, chip switches, NewVaultWizard —
   // all update snapshot.vault.root) into the nav chip's recents dropdown. Uses
   // the canonical root the backend returned, not the raw picked string.
@@ -439,32 +635,22 @@ export function App() {
     if (root) recordRecentVault(root);
   }, [snapshot?.vault?.root]);
 
+  // UX Phase 2: the shell's keys come from the one shared key map
+  // (app/keymap.ts); classic's bindings there are the base shell's exactly.
+  const runKeyActionRef = useRef<(action: KeyAction) => void>(() => undefined);
+  runKeyActionRef.current = (action: KeyAction) => {
+    if (action.kind === "palette") setPaletteOpen(true);
+    else if (action.kind === "settings") setSettingsOpen(true);
+    else if (action.kind === "tab") gotoTab(action.tab);
+    else if (action.kind === "place") gotoPlace(action.place);
+    else if (action.kind === "tool") selectUthTool(action.tool);
+  };
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      const textTarget = isTypingTarget(event.target);
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "p") {
-        event.preventDefault();
-        setPaletteOpen(true);
-        return;
-      }
-      if (event.altKey && event.key.toLowerCase() === "s") {
-        event.preventDefault();
-        setSettingsOpen(true);
-        return;
-      }
-      if (!textTarget && event.key === ":") {
-        event.preventDefault();
-        setPaletteOpen(true);
-        return;
-      }
-      if (textTarget) return;
-      if (event.altKey && /^[0-9]$/.test(event.key)) {
-        const next = navTabs.find((candidate) => candidate.key === event.key);
-        if (next) {
-          gotoTab(next.id);
-          event.preventDefault();
-        }
-      }
+      const binding = matchShellKey(event, shellRef.current, isTypingTarget(event.target));
+      if (!binding) return;
+      event.preventDefault();
+      runKeyActionRef.current(binding.action);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -500,40 +686,53 @@ export function App() {
     setSnapshot((current) => (current ? { ...current, health } : current));
   }, []);
 
+  // The action itself, throwing on failure: its Try again runs exactly this
+  // (fix round 3: a retry is self-contained and reports a request that ran).
+  const applyGradingProvider = useCallback(
+    async (provider: string) => {
+      const result = await api.setGradingProvider(provider);
+      setSnapshot((current) =>
+        current
+          ? {
+              ...current,
+              health: {
+                ...current.health,
+                ai: {
+                  ...current.health.ai,
+                  activeProvider: result.activeProvider,
+                  ready: result.ready,
+                  manualGrading: result.manualGrading,
+                  availableGradingProviders: result.availableProviders
+                }
+              }
+            }
+          : current
+      );
+      notify(`grading → ${result.manualGrading ? "manual (self-grade)" : result.activeProvider}`);
+    },
+    [notify]
+  );
   const changeGradingProvider = useCallback(
     async (provider: string) => {
       try {
-        const result = await api.setGradingProvider(provider);
-        setSnapshot((current) =>
-          current
-            ? {
-                ...current,
-                health: {
-                  ...current.health,
-                  ai: {
-                    ...current.health.ai,
-                    activeProvider: result.activeProvider,
-                    ready: result.ready,
-                    manualGrading: result.manualGrading,
-                    availableGradingProviders: result.availableProviders
-                  }
-                }
-              }
-            : current
-        );
-        setToast(`grading → ${result.manualGrading ? "manual (self-grade)" : result.activeProvider}`);
+        await applyGradingProvider(provider);
       } catch (error) {
-        onError(errorMessage(error, "Could not change the grading provider."));
+        reportError(error, "Could not change the grading provider.", {
+          source: "shell:set-grading-provider",
+          retry: () => applyGradingProvider(provider).then(() => RETRY_RAN)
+        });
       }
     },
-    [onError]
+    [applyGradingProvider, reportError]
   );
 
   function beginSession(next: SessionSnapshot, firstStep?: PlanStepDto | null) {
     setTodayNoGoalBannerDismissed(false);
     setSession(next);
-    // A notice that asked for a session is resolved now (usability round 2).
-    setToast(noticeAfterSessionBegins);
+    // A notice that asked for a session is resolved now (usability round 2;
+    // UX Phase 2's notices drop every notice a session resolves).
+    if (shellRef.current === "classic") setToast(noticeAfterSessionBegins);
+    else setNotices((list) => resolveNotices(list, "session"));
     setTab("today");
     // RW3a: a Reader check waiting on a session opens now, as a learner pick.
     if (pendingCheckMe) {
@@ -605,7 +804,7 @@ export function App() {
     setReaderReturn((current) => keepReaderReturn(current, id));
     if (!session) {
       setTab("start");
-      setToast(NEEDS_SESSION.practice);
+      needSession("practice");
       return;
     }
     setPrimedRetry(false);
@@ -708,7 +907,7 @@ export function App() {
     if (!session) {
       setPendingExercise(request);
       setTab("start");
-      setToast(NEEDS_SESSION.exercise);
+      needSession("exercise");
       return;
     }
     openReaderExercise(request);
@@ -718,7 +917,7 @@ export function App() {
     if (!session) {
       setPendingCheckMe(request);
       setTab("start");
-      setToast(NEEDS_SESSION.checkMe);
+      needSession("checkMe");
       return;
     }
     void pickCheckMe(request, session.sessionId);
@@ -741,36 +940,50 @@ export function App() {
   }
 
   // Daily-loop DL1 (§6.10): a reading step opens the reader at its section.
+  // Each is the action, throwing on failure, and its reporting wrapper; the
+  // Try again runs the action itself (fix round 3).
+  async function openPlanReadingNow(reading: PlanReadingDto, estMinutes: number | null) {
+    const library = await api.getSourceLibrary();
+    const target = readerTargetForReading(reading, library.sources);
+    if (!target) {
+      onError("The source for this reading block is no longer in the library.");
+      return;
+    }
+    setReaderSource(target);
+    setPlanReading({ reading, estMinutes });
+    setTab("reader");
+  }
   async function openPlanReading(reading: PlanReadingDto, estMinutes: number | null = null) {
     try {
-      const library = await api.getSourceLibrary();
-      const target = readerTargetForReading(reading, library.sources);
-      if (!target) {
-        onError("The source for this reading block is no longer in the library.");
-        return;
-      }
-      setReaderSource(target);
-      setPlanReading({ reading, estMinutes });
-      setTab("reader");
+      await openPlanReadingNow(reading, estMinutes);
     } catch (error) {
-      onError(errorMessage(error, "Could not open the reader for today's plan."));
+      reportError(error, "Could not open the reader for today's plan.", {
+        source: "shell:open-plan-reading",
+        retry: () => openPlanReadingNow(reading, estMinutes).then(() => RETRY_RAN)
+      });
     }
   }
 
   // Daily-loop DL2 (Reader §9.3 item 9): "Back to where you studied this"
   // after a check on your own. A link the learner follows, never a jump.
+  async function openStudiedNow(restoration: IntentRestorationDto) {
+    const library = await api.getSourceLibrary();
+    const target = readerTargetForRestoration(restoration, library.sources);
+    if (!target) {
+      onError("The source you studied this in is no longer in the library.");
+      return;
+    }
+    setReaderSource(target);
+    setTab("reader");
+  }
   async function openStudied(restoration: IntentRestorationDto) {
     try {
-      const library = await api.getSourceLibrary();
-      const target = readerTargetForRestoration(restoration, library.sources);
-      if (!target) {
-        onError("The source you studied this in is no longer in the library.");
-        return;
-      }
-      setReaderSource(target);
-      setTab("reader");
+      await openStudiedNow(restoration);
     } catch (error) {
-      onError(errorMessage(error, "Could not open the reader."));
+      reportError(error, "Could not open the reader.", {
+        source: "shell:open-studied",
+        retry: () => openStudiedNow(restoration).then(() => RETRY_RAN)
+      });
     }
   }
 
@@ -794,7 +1007,7 @@ export function App() {
     setPracticeOffer(null);
     if (!session) {
       setTab("start");
-      setToast(NEEDS_SESSION.practice);
+      needSession("practice");
       return;
     }
     setPrimedRetry(true);
@@ -813,7 +1026,7 @@ export function App() {
       // and resume it when a session begins (mirrors pendingPrimedItemId).
       setPendingRedo(redo);
       setTab("start");
-      setToast(NEEDS_SESSION.redo);
+      needSession("redo");
       return;
     }
     setPrimedRetry(true);
@@ -841,7 +1054,7 @@ export function App() {
   // Learner field F2: "Check what I already know" from the LO inspector.
   async function startQuickCheck(learningObjectIds: string[]) {
     if (!session) {
-      setToast(NEEDS_SESSION.quickCheck);
+      needSession("quickCheck");
       return;
     }
     try {
@@ -937,6 +1150,34 @@ export function App() {
     if (next !== "today") setTodayStage("queue");
   }
 
+  // UX Phase 2 (§5.1): a place is a view over the tabs.
+  function gotoPlace(place: Place) {
+    gotoTab(tabForPlace(place, Boolean(session)));
+  }
+
+  // UX Phase 2 (§5.2): open a tool under the hood. The old tabs are their own
+  // tools; the rest show on the Under-the-hood tab.
+  function selectUthTool(tool: UthToolId, options: { openOverlay?: boolean } = {}) {
+    setUthToolState(tool);
+    gotoTab(isTabTool(tool) ? tool : "underhood");
+    // The mistake history is the `learnloop diff` overlay: picking it opens
+    // it at once; coming back to Under the hood on it does not (harness walk).
+    if (tool === "mistakes" && options.openOverlay !== false) setReviewOpen(true);
+  }
+
+  function openUnderTheHood() {
+    selectUthTool(uthToolOfTab(tab, uthToolState), { openOverlay: false });
+  }
+
+  async function openAnotherLibrary() {
+    try {
+      const selected = await openDialog({ directory: true, multiple: false, defaultPath: snapshot?.vault?.root ?? undefined });
+      if (typeof selected === "string" && selected !== snapshot?.vault?.root) await changeVault(selected);
+    } catch {
+      /* changeVault has said why */
+    }
+  }
+
   // Launch the F6 Repair flow (§4.10) for a misconception. Shared entry point
   // for Review's working hypotheses and (once wired) Feedback / Today.
   function openRepair(misconceptionId: string) {
@@ -978,11 +1219,11 @@ export function App() {
     if (tab === "today" && todayStage === "practice" && practiceItemId && session) {
       if (teachBackActiveRef.current) {
         // The tutor could leak answers into the graded transcript.
-        setToast("ask-tutor is disabled during a teach-back conversation.");
+        notify("ask-tutor is disabled during a teach-back conversation.");
         return false;
       }
       if (!practiceAskAllowedRef.current) {
-        setToast("ask-tutor is unavailable until diagnostic safeguards are verified, and stays disabled during diagnostic checks.");
+        notify("ask-tutor is unavailable until diagnostic safeguards are verified, and stays disabled during diagnostic checks.");
         return false;
       }
       setAskTarget({
@@ -1002,11 +1243,16 @@ export function App() {
       return true;
     }
     return false;
-  }, [tab, todayStage, practiceItemId, attemptId, session, libraryNoteId]);
+  }, [tab, todayStage, practiceItemId, attemptId, session, libraryNoteId, notify]);
 
   // Handoff from the Proposals screen: open the proposal's payload in the Library editor.
   function gotoLibraryProposal(patchId: string, itemId: string) {
     setLibraryFocus({ patchId, itemId });
+    // UX Phase 2: the payload editor is under the hood → Files.
+    if (simple) {
+      selectUthTool("files");
+      return;
+    }
     setLibraryView("files");
     setTab("library");
   }
@@ -1029,7 +1275,7 @@ export function App() {
         setTab("library");
         return;
       }
-      if (item.status === "existing" && item.message) setToast(item.message);
+      if (item.status === "existing" && item.message) notify(item.message);
       let card: SourceLibraryCard | undefined;
       try {
         card = (await api.getSourceLibrary()).sources.find((entry) => entry.sourceId === item.sourceId);
@@ -1057,7 +1303,7 @@ export function App() {
         }
       );
     },
-    [openBook]
+    [openBook, notify]
   );
   const adder = useAddSource({ onOpened: (item) => void openAddedItem(item) });
   const addSources = adder.add;
@@ -1119,6 +1365,8 @@ export function App() {
     setOpenWhenReady(null);
     setLibraryView("books");
     setTodayStage("queue");
+    setNotices([]);
+    setKeysHelpOpen(false);
     setTab("start");
   }
 
@@ -1174,6 +1422,19 @@ export function App() {
     [onError, landOnLibraryIfEmpty, refreshAiConnection]
   );
 
+  // The Library screen's props: its vault tree is the Library's Notes &
+  // files and, in the simple shell, Under the hood → Files too.
+  const libraryFilesProps = {
+    onError,
+    focus: libraryFocus,
+    onFocusConsumed: () => setLibraryFocus(null),
+    focusFilePath: libraryFilePath,
+    onFileFocusConsumed: () => setLibraryFilePath(null),
+    onAsk: setAskTarget,
+    onNoteSelected: setLibraryNoteId,
+    onInspect: setInspectorId
+  };
+
   // The Library place; with no book open, the Reader shows its shelf too
   // (spec K5, usability round 2: one shelf, not a second list of books).
   function libraryPlace(booksOnly = false) {
@@ -1182,16 +1443,7 @@ export function App() {
         view={booksOnly ? "books" : libraryView}
         onViewChange={setLibraryView}
         booksOnly={booksOnly}
-        filesProps={{
-          onError,
-          focus: libraryFocus,
-          onFocusConsumed: () => setLibraryFocus(null),
-          focusFilePath: libraryFilePath,
-          onFileFocusConsumed: () => setLibraryFilePath(null),
-          onAsk: setAskTarget,
-          onNoteSelected: setLibraryNoteId,
-          onInspect: setInspectorId
-        }}
+        filesProps={libraryFilesProps}
         aiConnection={aiConnection}
         onOpenBook={openBook}
         onConnectAi={() => setConnectOpen(true)}
@@ -1206,6 +1458,83 @@ export function App() {
         onOpenedWhenReady={() => setOpenWhenReady(null)}
       />
     );
+  }
+
+  // UX Phase 2 (§7.8): one plain line in the bar, only when grading — which
+  // the learner uses — is down: not a manual choice, and an AI is connected.
+  const gradingTrouble =
+    simple &&
+    snapshot !== null &&
+    !manualGrading &&
+    aiConnection !== null &&
+    aiConnection.needs !== "connect" &&
+    !(snapshot.health.ai?.ready ?? snapshot.health.codex.ready ?? false);
+
+  // UX Phase 2 (§7.9): while the Reader has a book open, notices wait (errors show).
+  const readerHolding =
+    simple && tab === "reader" && readerSource !== null && !examGoalId && !calibrationSessionId && !(goldenRunId && SHOW_GOLDEN_PATH);
+
+  // UX Phase 2 (§5.1, §10 2.4): the palette's plain commands, first.
+  function paletteCommands(): PaletteCommand[] {
+    const current = uthTool(uthToolOfTab(tab, uthToolState));
+    return [
+      { id: "add", label: "Add a book, paper or video", keys: "Ctrl+O", keywords: ["import", "file", "link", "pdf", "arxiv", "youtube"], run: () => setAddOpen(true) },
+      {
+        id: "continue",
+        label: "Continue reading",
+        hint: readerSource ? readerSource.card.title : "choose a book on the Library shelf",
+        keywords: ["reader", "book", "read"],
+        run: () => {
+          if (readerSource) {
+            gotoPlace("reader");
+          } else {
+            setLibraryView("books");
+            gotoPlace("library");
+          }
+        }
+      },
+      { id: "plan", label: "Start today's plan", hint: session ? "Today" : "Today · ↵ Begin", keywords: ["today", "begin", "session", "practice", "plan"], run: () => gotoPlace("today") },
+      {
+        id: "check",
+        label: "Check what I already know",
+        hint: "on Progress: pick a topic, then Check what I already know",
+        keywords: ["quick check", "placement", "know"],
+        run: () => gotoPlace("progress")
+      },
+      { id: "settings", label: "Open settings", keys: "Ctrl+,", keywords: ["preferences", "ai", "connect"], run: () => setSettingsOpen(true) },
+      { id: "underhood", label: "Under the hood", hint: current.title, keywords: ["tools", "advanced"], run: openUnderTheHood },
+      { id: "place:today", label: "Go to Today", keys: "Alt+1", run: () => gotoPlace("today") },
+      { id: "place:library", label: "Go to Library", keys: "Alt+2", run: () => gotoPlace("library") },
+      { id: "place:reader", label: "Go to Reader", keys: "Alt+3", run: () => gotoPlace("reader") },
+      { id: "place:progress", label: "Go to Progress", keys: "Alt+4", keywords: ["graph", "well"], run: () => gotoPlace("progress") },
+      {
+        id: "ask",
+        label: "Ask the tutor about this",
+        keywords: ["ask", "tutor", "question"],
+        run: () => {
+          const practicing = tab === "today" && todayStage === "practice";
+          // On a question the shell already says why it can't (teach-back, checks).
+          if (askCurrentContext() || practicing) return;
+          // With a book open, the Reader's own Ask opens, its box focused
+          // (Codex review F5: a notice held while reading did nothing there).
+          if (tab === "reader" && readerSource) {
+            setReaderAskRequest((count) => count + 1);
+            return;
+          }
+          notify("Nothing here to ask about: open a question, feedback or a note first.");
+        }
+      },
+      { id: "keys", label: "Keyboard & help", keywords: ["keys", "shortcuts", "help"], run: () => setKeysHelpOpen(true) },
+      { id: "library:open", label: "Open another library…", keywords: ["switch", "vault", "folder"], run: () => void openAnotherLibrary() },
+      { id: "library:new", label: "New library…", keywords: ["create", "vault"], run: () => setNewVaultOpen(true) },
+      ...visibleUthTools().map((tool) => ({
+        id: `tool:${tool.id}`,
+        label: tool.title,
+        hint: `under the hood · was ${tool.was}`,
+        keywords: tool.keywords,
+        run: () => selectUthTool(tool.id)
+      }))
+    ];
   }
 
   // The one dim, self-dismissing wrap-up line (RW6a): only on the first view
@@ -1278,7 +1607,7 @@ export function App() {
       );
     }
     if (tab === "start") {
-      return (
+      const start = (
         <StartScreen
           onBegin={beginSession}
           onError={onError}
@@ -1287,6 +1616,8 @@ export function App() {
           onNewVault={() => setNewVaultOpen(true)}
         />
       );
+      // UX Phase 2: Start is Today's no-session view in the simple shell.
+      return simple ? <>{wrapUpLine("today")}{start}</> : start;
     }
     if (tab === "today") {
       if (todayStage === "practice" && session && practiceItemId) {
@@ -1427,7 +1758,7 @@ export function App() {
           onOpenPlanReading={(reading) => void openPlanReading(reading)}
           onRequireSession={() => {
             setTab("start");
-            setToast(NEEDS_SESSION.plan);
+            needSession("plan");
           }}
           onBeginSession={beginSession}
           onError={onError}
@@ -1439,8 +1770,36 @@ export function App() {
     if (tab === "graph") {
       return <GraphScreen onInspect={setInspectorId} onError={onError} />;
     }
-    if (tab === "ingest") {
+    // UX Phase 2 (§5.2): the demoted tabs, and the tools that had none, under
+    // the hood. Each tool's screen mounts exactly as before.
+    if (simple && placeOfTab(tab) === "underhood") {
+      const tool = uthToolOfTab(tab, uthToolState);
       return (
+        <UnderTheHoodScreen tool={tool} onSelectTool={selectUthTool} counts={{ proposals: navBadges.proposals, maintain: navBadges.maintain }}>
+          {renderUthTool(tool)}
+        </UnderTheHoodScreen>
+      );
+    }
+    if (tab === "ingest") {
+      return renderIngest();
+    }
+    if (tab === "library") {
+      return <>{wrapUpLine("library")}{libraryPlace()}</>;
+    }
+    if (tab === "proposals") {
+      return renderProposals();
+    }
+    if (tab === "registry") {
+      return renderRegistry();
+    }
+    if (tab === "golden") {
+      return renderGolden();
+    }
+    return renderAfterGolden();
+  }
+
+  function renderIngest() {
+    return (
         <IngestScreen
           jobId={ingestJobId}
           onJobIdChange={setIngestJobId}
@@ -1454,11 +1813,10 @@ export function App() {
           onDismissGuide={() => setIngestGuideActive(false)}
         />
       );
-    }
-    if (tab === "library") {
-      return <>{wrapUpLine("library")}{libraryPlace()}</>;
-    }
-    if (tab === "proposals") {
+  }
+
+  function renderProposals() {
+      if (!snapshot) return null;
       return (
         <ProposalsScreen
           authoringReady={snapshot.health.ai.ready}
@@ -1471,8 +1829,9 @@ export function App() {
           onFocusConsumed={() => setProposalFocusPatchId(null)}
         />
       );
-    }
-    if (tab === "registry") {
+  }
+
+  function renderRegistry() {
       return (
         <RegistryReviewScreen
           subjectId={registrySubjectId}
@@ -1485,8 +1844,9 @@ export function App() {
           }
         />
       );
-    }
-    if (tab === "golden") {
+  }
+
+  function renderGolden() {
       // The real front door: discovery → compose → review → confirm. The
       // offline fixture demo stays reachable behind an explicit toggle.
       if (goldenDemo) {
@@ -1507,7 +1867,53 @@ export function App() {
           onError={onError}
         />
       );
+  }
+
+  function renderMaintain() {
+      return (
+        <MaintenanceScreen
+          subjects={subjectOptions}
+          onError={onError}
+          onInspect={setInspectorId}
+          onOpenAdjudication={() => setAdjudicateOpen(true)}
+        />
+      );
+  }
+
+  // UX Phase 2 (§5.2): one tool's screen, unchanged inside.
+  function renderUthTool(tool: UthToolId) {
+    switch (tool) {
+      case "ingest":
+        return renderIngest();
+      case "proposals":
+        return renderProposals();
+      case "registry":
+        return renderRegistry();
+      case "maintain":
+        return renderMaintain();
+      case "golden":
+        return renderGolden();
+      case "graph-editor":
+        return <GraphScreen onInspect={setInspectorId} onError={onError} />;
+      case "analyst":
+        return <KnowledgeMapView onInspect={setInspectorId} onError={onError} />;
+      case "mistakes":
+        return <MistakesTool onOpen={() => setReviewOpen(true)} />;
+      case "calibration":
+        return <CalibrationTool session={session} onOpenCalibration={(id) => openCalibration(id)} onError={onError} />;
+      case "data":
+        return <DataTool onError={onError} />;
+      case "files":
+        return <LibraryScreen {...libraryFilesProps} />;
+      case "inspector":
+        return <InspectorTool recentIds={unique([practiceItemId, attemptId, ...paletteEntityIds])} onInspect={setInspectorId} />;
+      case "spend":
+        return <SpendTool onOpenSettings={() => setSettingsOpen(true)} />;
     }
+  }
+
+  function renderAfterGolden() {
+    if (!snapshot) return null;
     if (tab === "reader") {
       if (planReading) {
         return (
@@ -1523,26 +1929,19 @@ export function App() {
               }}
               onError={onError}
             />
-            <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />
+            <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />
           </div>
         );
       }
-      return <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />;
+      return <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />;
     }
     if (tab === "maintain") {
-      return (
-        <MaintenanceScreen
-          subjects={subjectOptions}
-          onError={onError}
-          onInspect={setInspectorId}
-          onOpenAdjudication={() => setAdjudicateOpen(true)}
-        />
-      );
+      return renderMaintain();
     }
     return <EmptyPlaceholder title={tab} />;
   }
 
-  return (
+  const shellTree = (
     <>
       <TerminalFrame
         active={tab}
@@ -1554,13 +1953,25 @@ export function App() {
         settingsOpen={settingsOpen}
         badges={navBadges}
         onAdd={snapshot ? () => setAddOpen(true) : undefined}
+        shell={shell}
+        simpleNav={{
+          active: placeOfTab(tab),
+          onPlace: gotoPlace,
+          onPalette: () => setPaletteOpen(true),
+          onSettings: () => gotoTab("settings"),
+          onUnderTheHood: openUnderTheHood,
+          onKeyboardHelp: () => setKeysHelpOpen(true),
+          onNewLibrary: () => setNewVaultOpen(true),
+          gradingTrouble,
+          onFixGrading: () => gotoTab("settings")
+        }}
       >
-        {toast && !settingsOpen ? (
+        {!simple && toast && !settingsOpen ? (
           <div className="toast" role="status" aria-live="polite" aria-atomic="true" onClick={() => setToast(null)}>
             {toast}
           </div>
         ) : null}
-        <ScreenErrorBoundary resetKey={tab}>
+        <ScreenErrorBoundary resetKey={simple && tab === "underhood" ? `underhood:${uthToolState}` : tab}>
           <Suspense fallback={<div role="status">Loading…</div>}>{renderBody()}</Suspense>
         </ScreenErrorBoundary>
       </TerminalFrame>
@@ -1569,15 +1980,15 @@ export function App() {
           manualGrading={manualGrading}
           onSelectGradingProvider={changeGradingProvider}
           onHealthChanged={applyHealth}
-          onToast={setToast}
+          onToast={notify}
           onError={onError}
           onClose={() => {
             setSettingsOpen(false);
-            setToast(null);
+            dismissSettingsNotice();
             refreshAiConnection();
           }}
-          notification={toast}
-          onDismissNotification={() => setToast(null)}
+          notification={simple ? (settingsNotice?.text ?? null) : toast}
+          onDismissNotification={dismissSettingsNotice}
         />
       ) : null}
       {reviewOpen ? (
@@ -1604,7 +2015,7 @@ export function App() {
       <AskOverlay
         target={askTarget}
         onClose={() => setAskTarget(null)}
-        onToast={setToast}
+        onToast={notify}
         onOpenPractice={(practiceItemId, origin) => openPractice(practiceItemId, null, origin ?? null)}
       />
       {openSource ? (
@@ -1634,7 +2045,7 @@ export function App() {
             setIngestGuideActive(true);
             setIngestJobId(null);
             setTab("ingest");
-            setToast("Study map building — track it in Ingest");
+            notify(simple ? "Study map building — follow it here, in Imports & builds." : "Study map building — track it in Ingest");
           }}
         />
       ) : null}
@@ -1650,7 +2061,7 @@ export function App() {
             setQuickAddOpen(true);
           }}
           onGotoTab={gotoTab}
-          onToast={setToast}
+          onToast={notify}
           onError={onError}
         />
       ) : null}
@@ -1667,7 +2078,7 @@ export function App() {
               setPendingPrimedItemId(practiceItemId);
               setRepairMisconceptionId(null);
               setTab("start");
-              setToast(NEEDS_SESSION.primed);
+              needSession("primed");
               return;
             }
             setRepairMisconceptionId(null);
@@ -1724,7 +2135,11 @@ export function App() {
           }}
         />
       ) : null}
+      {/* Plan-first transport T1: the ChatGPT plan is unavailable and OpenRouter could serve. */}
+      <PlanFallbackOffer onContinueWithChatGPT={() => setConnectOpen(true)} />
       {fileDragging ? <DropOverlay /> : null}
+      {simple && !settingsOpen ? <NoticeHost notices={notices} holding={readerHolding} onChange={setNotices} /> : null}
+      {keysHelpOpen ? <KeyboardHelp shell={shell} onClose={() => setKeysHelpOpen(false)} /> : null}
       <SessionFinishHud summary={finishSummary} onDismiss={() => setFinishSummary(null)} />
       <CommandPalette
         open={paletteOpen}
@@ -1740,9 +2155,13 @@ export function App() {
         onInspect={setInspectorId}
         onAsk={askCurrentContext}
         onError={onError}
+        shell={shell}
+        {...(simple ? { plainCommands: paletteCommands() } : {})}
       />
     </>
   );
+  // Simple shell: its chrome is a key-isolated region (fix round 4).
+  return simple ? <ShellChromeRoot>{shellTree}</ShellChromeRoot> : shellTree;
 }
 
 function unique(values: Array<string | null>): string[] {

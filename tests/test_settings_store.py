@@ -24,14 +24,14 @@ def _config_path(tmp_path):
 def test_apply_config_updates_preserves_comments_and_unrelated_lines(tmp_path):
     path = _config_path(tmp_path)
     before = path.read_text(encoding="utf-8")
-    assert 'active_provider = "codex"' in before
+    assert 'active_provider = "chatgpt"' in before
 
     apply_config_updates(path, {("ai", "active_provider"): "openrouter"})
 
     after = path.read_text(encoding="utf-8")
     assert 'active_provider = "openrouter"' in after
     # A known template comment survives, and the untouched neighbouring keys do too.
-    assert "# AI is optional; an unavailable provider keeps today's manual workflow." in after
+    assert "# AI is optional (manual without it); routes use your ChatGPT plan: learnloop ai signin chatgpt." in after
     assert 'fallback_provider = ""' in after
     config = load_config(path)
     assert config.ai.active_provider == "openrouter"
@@ -161,10 +161,10 @@ def test_copy_ai_settings_copies_routing_and_materialized_profiles(tmp_path):
     assert config.ai.providers[name].model == "anthropic/claude-sonnet-4.5"
     assert config.ai.providers[name].api_key_env == "OPENROUTER_API_KEY"
     # Unconfigured use-cases keep the template defaults, template comments
-    # survive, and the codex tables are untouched.
+    # survive, and no Codex table is written (plan-first transport T1).
     text = target_path.read_text(encoding="utf-8")
-    assert config.ai.routing.grading == "codex_low"
-    assert "# AI is optional; an unavailable provider keeps today's manual workflow." in text
+    assert config.ai.routing.grading == "chatgpt_low"
+    assert "# AI is optional (manual without it); routes use your ChatGPT plan: learnloop ai signin chatgpt." in text
     assert 'checkout_path = ""' not in text
 
 
@@ -175,9 +175,9 @@ def test_copy_ai_settings_default_source_is_semantic_noop(tmp_path):
     copy_ai_settings(source_path, target_path)
 
     config = load_config(target_path)
-    assert config.ai.active_provider == "codex"
-    assert config.ai.routing.canonical_ingest == "codex_medium"
-    assert config.ai.routing.grading == "codex_low"
+    assert config.ai.active_provider == "chatgpt"
+    assert config.ai.routing.canonical_ingest == "chatgpt_medium"
+    assert config.ai.routing.grading == "chatgpt_low"
 
 
 def test_save_ai_settings_to_creates_target_and_seeds_new_vault(tmp_path):
@@ -212,7 +212,7 @@ def test_copy_ai_settings_errors_on_missing_or_invalid_source(tmp_path):
         copy_ai_settings(bad, target_path)
     assert excinfo.value.code == "config_unreadable"
     # The failed copies never touched the target.
-    assert load_config(target_path).ai.routing.canonical_ingest == "codex_medium"
+    assert load_config(target_path).ai.routing.canonical_ingest == "chatgpt_medium"
 
 
 def test_upsert_env_var_appends_and_replaces_preserving_other_lines(tmp_path):

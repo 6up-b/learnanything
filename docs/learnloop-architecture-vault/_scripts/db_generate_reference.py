@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_217/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_218/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_217" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_218" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 217
+SCHEMA_HEAD = 218
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -898,7 +898,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "adaptive_difficulty": "adaptive difficulty AD1, measure and log (no successor): the master switch; forecast_receipts (at every plan serve, in its transaction, the reading-opportunity sweep into ad_reading_opportunities, the frozen serve inputs of a never-attempted item in item_serve_inputs and the in-process forecasts as item_unassisted_success rows of forecast_receipts, and the first-hint progress marker on the attempt); outside_forecasters (llm_v1:item once per item revision and llm_v3:llm / llm_v3:decider per presentation, in the background on routes ad_forecast_llm and ad_forecast_decider); rating_tap (the optional Felt tap stored on the attempt); feature_audit (one Decider judgment per audited task-feature dimension in judgment_ledger, LLM fallback on ad_feature_audit); the metered daily cap and the owner's price for a metered LLM route; logged only, nothing serving, scoring, scheduling, evidence or certification reads them",
     "decider_routes": "Tier 1, the Decider migration (mvp-0.22, owner 2026-10-13): one kill switch per small judgment the Decider decides with its LLM as fallback, the facet span-support check and the method-explicit required-method statement judgment",
     "required_method": "method-explicit items (mvp-0.25): the kill switch of the own-route rules' required method (own-route-v2: a criterion tied to an item's required method is graded on use of that method)",
-    "ui": "how the desktop presents learner surfaces (docs/specs/ux_learnloop_v1.md §10, display only): UX Phase 4's kill switch of the plain practice card, feedback, short-check results, repair step and session finish (\"classic\" restores the screens exactly)",
+    "ui": "how the desktop presents learner surfaces (docs/specs/ux_learnloop_v1.md §10, display only): UX Phase 4's kill switch of the plain practice card, feedback, short-check results, repair step and session finish (\"classic\" restores the screens exactly), and UX Phase 2's kill switch of the four-place shell, Under the hood, the notices and the palette's > prefix (\"classic\" keeps the ten-tab shell exactly)",
     "eligibility": "one serve/administration eligibility decision (mvp-0.27): the kill switch of every serve path asking the decision submit asks (cold checks, probes, quick-check offers) and of historical writers' bounded auto-prime window",
 }
 
@@ -2053,7 +2053,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_217/state.sqlite",
+                "fixtures/migration_head_218/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

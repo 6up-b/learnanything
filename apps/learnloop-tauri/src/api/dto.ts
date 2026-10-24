@@ -222,6 +222,9 @@ export interface ChatGPTPlanDto {
   attempt: ChatGPTPlanAttemptDto | null;
   profiles: ChatGPTPlanProfileDto[];
   usingPlan: boolean;
+  /** Tasks the learner's "Use OpenRouter instead" covers on this vault this session (re-review F3). */
+  openrouterGrantedTasks?: string[];
+  openrouterGrantedActions?: string[];
   authorizeUrl?: string;
   cancelled?: boolean;
   signout?: { signedOut: boolean; revoked: boolean | null; message: string };
@@ -3100,6 +3103,19 @@ export interface ConceptInspectorDetail {
     knowledgeType: string;
     status: string;
   }>;
+}
+
+/** Plan-first transport T1: the reply to ai_use_fallback ("Use OpenRouter instead"). */
+export interface AiUseFallbackDto {
+  version: number;
+  provider: "openrouter";
+  profile: string | null;
+  grantedTasks: string[];
+  /** The actions (RPC methods) said yes to on this vault (redesign D). */
+  grantedActions?: string[];
+  offerId?: string;
+  action?: string;
+  scope: "session";
 }
 
 export interface CommandError {
@@ -6653,7 +6669,7 @@ export interface ReaderPromptContractDto {
   /** RW4b: exercises from my sources (present only while library_exercises.enabled and the library answer are on). */
   libraryExercises?: { fallback: boolean };
   /** Reader workbench RW5a: explorable figures (absent while figures.enabled is off). */
-  figures?: { predictions: boolean; region: boolean; revisions: boolean };
+  figures?: { predictions: boolean; region: boolean; revisions: boolean; offers?: boolean };
   /** RW1c: the tutor that looks things up (present only while reader_tutor.retrieval_enabled or offers_enabled is on). */
   readerTutor?: ReaderTutorContractDto;
   /** RW4d: keep a comparison (present only while reader_compare.keep_enabled and compare are on). */
@@ -6838,7 +6854,8 @@ export interface ReaderTutorViewDto {
 }
 /** RW1c: a button the Reader decides itself ("Try the next step first" on a cited derivation or worked example). */
 export interface ReaderTutorButtonDto {
-  kind: "try_next_step";
+  /** RW5b adds "make_explorable" (a cited equation or figure the tutor judged explorable). */
+  kind: "try_next_step" | "make_explorable";
   extractionId: string;
   spanId: string;
   label: string;
@@ -8756,6 +8773,8 @@ export interface LibraryNoteDto {
   roles: string[];
   speaksTo: { id: string; statement: string } | null;
   label: string;
+  /** RW5b: the organizer judged this equation or figure block explorable (present only while figures.offers_enabled is on). */
+  explorable?: boolean;
 }
 
 export interface LibraryNotesDto {
@@ -9220,11 +9239,22 @@ export interface WorkbenchHelpResultDto {
   /** Fix round 11: workbench.symbolic_checks_enabled at read time. */
   symbolicEnabled?: boolean;
   bridgeJobId?: string | null;
-  /** A bridge (bridge jobs). */
+  /** RW2c: the worked example looked for after a level-3+ hint (absent while
+   *  workbench.examples_enabled is off; null when it does not apply). */
+  exampleJobId?: string | null;
+  /** A bridge (bridge jobs), or RW2c's worked example (example jobs). */
   line?: string;
   spanId?: string | null;
   extractionId?: string | null;
+  /** RW2c review F1: the book the example is in (it may be another book). */
+  sourceId?: string | null;
   label?: string | null;
+  /** RW2c: the passages a logged draw kept one click away ("another passage"). */
+  alternatives?: number;
+  /** RW2c's example: follows_learner_route | worked_example. */
+  verdict?: string | null;
+  trigger?: string | null;
+  aboutStepId?: string | null;
   /** The record line and footer after a delivered check or hint (G62). */
   record?: WorkbenchRecordDto;
 }
@@ -9232,7 +9262,7 @@ export interface WorkbenchHelpResultDto {
 export interface WorkbenchHelpJobDto {
   version: number;
   jobId: string | null;
-  kind?: "check" | "suggest" | "hint" | "bridge";
+  kind?: "check" | "suggest" | "hint" | "bridge" | "example" | "compare";
   state: "pending" | "done" | "cancelled";
   result: WorkbenchHelpResultDto | null;
 }
@@ -9248,7 +9278,13 @@ export interface WorkbenchHintViewDto {
   stepLine: string;
   replies: string[];
   discriminatingAnswer: { answerMd: string; message: string } | null;
-  bridge: { assistId: string; line: string; spanId: string | null; extractionId: string | null; label: string | null } | null;
+  bridge: ({ assistId: string; line: string; spanId: string | null; extractionId: string | null; label: string | null;
+    /** RW2c fix round 2 (7): the book a drawn or picked passage is in (only
+     *  while workbench.passage_draw_enabled is on). */
+    sourceId?: string | null } & WorkbenchPassageDrawDto) | null;
+  /** RW2c: the worked example under this hint (key absent while
+   *  workbench.examples_enabled is off). */
+  example?: WorkbenchExampleViewDto | null;
   /** The hint's own checkable claims as verified (Reader §5.3, review F14). */
   claims?: HintClaimDto[];
   /** Fix round 10: workbench.symbolic_checks_enabled now; off, no claim shows ✓. */
@@ -9272,6 +9308,88 @@ export interface WorkbenchHelpStateDto {
   helpStyle: HelpStyle | null;
   storedHelpStyle: HelpStyle;
   hintsEnabled: boolean;
+  /** RW2c: "Show me a similar example" can run here (both keys absent while
+   *  workbench.examples_enabled is off). */
+  examplesAvailable?: boolean;
+  /** RW2c: the shown "Show me a similar example" results, not under a hint. */
+  examples?: WorkbenchExampleViewDto[];
+}
+
+/** RW2c review F1: where a passage the workbench names is: its reading and
+ *  book, so a passage in another book opens there, not in the book open now. */
+export interface PassageTarget {
+  extractionId?: string | null;
+  sourceId?: string | null;
+}
+
+/** RW2c: a passage shown by a logged draw keeps the others one click away. */
+export interface WorkbenchPassageDrawDto {
+  alternatives?: number;
+  optionId?: string;
+  drawAssistId?: string;
+}
+
+/** RW2c: a worked example that takes the learner's route (no passage text:
+ *  it opens in the book). */
+export interface WorkbenchExampleViewDto extends WorkbenchPassageDrawDto {
+  assistId: string;
+  line: string;
+  spanId: string | null;
+  extractionId: string | null;
+  /** RW2c review F1: the book the passage is in (the Reader opens it there
+   *  when it is not the book open now). */
+  sourceId?: string | null;
+  label: string | null;
+  verdict: string | null;
+  trigger: string | null;
+  aboutStepId: string | null;
+  hintAssistId: string | null;
+}
+
+export interface WorkbenchAnotherPassageDto {
+  version: number;
+  kind: "bridge" | "example";
+  passage: WorkbenchExampleViewDto;
+}
+
+export interface WorkbenchCompareOfferDto {
+  version: number;
+  available: boolean;
+  reason: string | null;
+  referenceKind?: "item_key" | "book_solution";
+  label?: string;
+}
+
+export interface WorkbenchCompareLinesDto {
+  differences: { kind: string; learnerStep: number | null; line: string }[];
+  routeLine: string | null;
+  sameMethod: boolean;
+  learnerRouteValid: boolean;
+  dropped: number;
+  label: string;
+}
+
+export interface WorkbenchComparisonDto {
+  assistId: string;
+  revealId: string | null;
+  learner: { label: string; steps: { number: number; kind: string; bodyMd: string }[] };
+  reference: { kind: "item_key" | "book_solution"; label: string; text: string; extractionId?: string; spanIds?: string[]; page?: number | null };
+  lines: WorkbenchCompareLinesDto | null;
+}
+
+export interface WorkbenchCompareMethodsDto {
+  version: number;
+  comparison: WorkbenchComparisonDto;
+  linesJobId: string | null;
+}
+
+/** RW2c: the compare job's result (read with workbenchHelpJob). */
+export interface WorkbenchCompareJobResultDto {
+  status: string;
+  assistId?: string;
+  lines?: WorkbenchCompareLinesDto;
+  reason?: string;
+  message?: string;
 }
 
 export interface WorkbenchRequestHelpInput {

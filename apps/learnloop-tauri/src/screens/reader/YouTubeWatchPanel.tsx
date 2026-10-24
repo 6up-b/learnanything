@@ -6,6 +6,7 @@ import { COLOR, Card, Faint, FONT_MONO, Meta, Pill } from "../../components/term
 import { SecondaryButton } from "../../components/goldenpath/shared";
 import type { TagMenuRequest } from "../../components/PdfReaderPane";
 import { SEEN_SETTLE_MS } from "./useReadingProgress";
+import { screenLeavesKey } from "../../app/keymap";
 
 // The playing cue is the one with the latest start at most this far ahead of
 // the player's time.
@@ -365,6 +366,7 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   useEffect(() => {
     if (!findShortcutEnabled) return;
     const handler = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
         event.preventDefault();
         openFind();

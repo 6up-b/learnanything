@@ -84,7 +84,23 @@ dev = [
 
 [tool.importlinter]
 root_packages = ["learnloop", "learnloop_sidecar", "learnloop_mobile", "learnloop_mcp"]
-include_external_packages = false
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+id = "codex-sdk-only-in-its-provider"
+name = "Only the Codex provider imports the Codex SDK and its bundled CLI (security stage codex-tool-lockdown)"
+type = "forbidden"
+# Every Codex turn must run the locked-down profile, which only
+# learnloop.ai.providers.codex puts in force (approvals deny_all, the decline
+# handler, the verified launch overrides). A second importer of the SDK could
+# start a thread or an app server without them.
+source_modules = ["learnloop", "learnloop_sidecar", "learnloop_mobile", "learnloop_mcp"]
+forbidden_modules = ["openai_codex", "codex_cli_bin"]
+ignore_imports = [
+    "learnloop.ai.providers.codex -> openai_codex",
+    "learnloop.ai.providers.codex -> codex_cli_bin",
+]
+allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 id = "infrastructure-does-not-import-domains"
@@ -736,6 +752,39 @@ source_modules = [
     "learnloop.substrate.state_sync",
 ]
 forbidden_modules = ["learnloop.field.predictors", "learnloop.field.evaluation", "learnloop.field.memory"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+id = "serving-never-imports-the-codex-provider"
+name = "No serving package imports the Codex provider (plan-first transport T1)"
+type = "forbidden"
+# Owner decision 2026-10-21: every serving route uses the tool-free ChatGPT
+# plan, and the Codex agent harness serves nothing without
+# ai.agent_harness_opt_in. The frozen Codex modules are reached only through
+# the single client factory and the readiness check, each after the opt-in
+# refusal (learnloop.ai.agent_harness), with a function-local import. T2
+# deletes the modules and this exemption list.
+source_modules = ["learnloop", "learnloop_sidecar", "learnloop_mobile", "learnloop_mcp"]
+forbidden_modules = [
+    "learnloop.ai.providers.codex",
+    "learnloop.ai.providers.codex_http",
+    "learnloop.ai.providers.codex_lockdown",
+]
+ignore_imports = [
+    # The single client factory: after require_harness_opt_in (opt-in only).
+    "learnloop.ai.client -> learnloop.ai.providers.codex",
+    "learnloop.ai.client -> learnloop.ai.providers.codex_http",
+    # Readiness: the Codex health check, after harness_refusal (opt-in only).
+    "learnloop.ai.runtime -> learnloop.ai.providers.codex",
+    # Type-only imports (under TYPE_CHECKING; never executed).
+    "learnloop.attempts.attempts -> learnloop.ai.providers.codex",
+    "learnloop.attempts.regrade -> learnloop.ai.providers.codex",
+    "learnloop.ops.startup -> learnloop.ai.providers.codex",
+    # The frozen Codex modules among themselves.
+    "learnloop.ai.providers.codex -> learnloop.ai.providers.codex_http",
+    "learnloop.ai.providers.codex -> learnloop.ai.providers.codex_lockdown",
+    "learnloop.ai.providers.codex_http -> learnloop.ai.providers.codex",
+]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]

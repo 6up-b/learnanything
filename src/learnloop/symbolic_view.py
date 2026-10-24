@@ -99,6 +99,15 @@ def verdict_records(row: Mapping[str, Any] | None, *, enabled: bool) -> list[dic
     return out
 
 
+def has_verdict_record(row: Mapping[str, Any] | None) -> bool:
+    """Whether a row recorded step verdicts at all (an empty record
+    included): a help's unaided progress needs the verdicts standing at its
+    delivery, and none on record is not "none valid" (Reader RW2c fix round
+    3, M1)."""
+
+    return (row or {}).get("step_verdicts_json") is not None
+
+
 def symbolic_outcomes(placement: Any, *, enabled: bool) -> list[dict[str, Any]]:
     """A check row's stored symbolic outcomes (``placement_json``), each
     ``method`` as read now (with the switch off a decided ``holds`` is not shown)."""
@@ -170,6 +179,7 @@ def hint_result_view(result: Mapping[str, Any], *, enabled: bool) -> dict[str, A
 
 
 __all__ = [
+    "has_verdict_record",
     "MODEL",
     "MODEL_LABEL",
     "SYMBOLIC_METHODS",

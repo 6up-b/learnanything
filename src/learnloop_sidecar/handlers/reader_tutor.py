@@ -314,7 +314,8 @@ def tools_refused(restricted: ReaderRestriction) -> bool:
 
 
 def offers(vault: Any, repository: Any, result: dict[str, Any], *, extraction_id: str) -> dict[str, Any] | None:
-    """The Reader's own buttons under an answer (None while ``offers_enabled`` is off)."""
+    """The Reader's own buttons under an answer (None while ``offers_enabled`` is off):
+    RW1c's "try the next step first" and RW5b's "make this explorable"."""
 
     if not offers_enabled(vault):
         return None
@@ -330,6 +331,15 @@ def offers(vault: Any, repository: Any, result: dict[str, Any], *, extraction_id
         if excerpt:
             cited.insert(0, excerpt)
         buttons = RT.next_step_buttons(repository, extraction_id=extraction_id, cited=cited)
+    explorable = (result.get("tutor") or {}).get("explorable")
+    if explorable:
+        # RW5b: present only while figure offers are on (the answer model that
+        # judges it is used only then); the press builds, the button calls nothing.
+        from learnloop.figure_admission import offers_enabled as figure_offers_enabled
+
+        if figure_offers_enabled(vault):
+            buttons = [*buttons, *RT.explorable_buttons(repository, extraction_id=extraction_id,
+                                                        explorable=explorable)]
     return {"buttons": buttons}
 
 

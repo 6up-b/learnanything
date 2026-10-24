@@ -479,7 +479,12 @@ def reader_active_question(ctx: SidecarContext, params: ReaderActiveQuestionInpu
         response["status"] = "exists"
         response["question"] = _question_payload(vault, repository, existing)
         return versioned(response)
-    _provider, runtime, client = ready_canonical_ingest_provider(vault)
+    from learnloop.ai import plan_fallback
+
+    # Under the passage check's own price, as its job resolves it (fix round
+    # L1): no offer or grant the job would refuse.
+    with plan_fallback.priced_by(RQC.PASSAGE_CHECK_PRICE_SETTING):
+        _provider, runtime, client = ready_canonical_ingest_provider(vault)
     if client is None:
         response["status"] = "provider_unavailable"
         response["message"] = getattr(runtime, "message", None) or "LearnLoop's model is unavailable for this question."

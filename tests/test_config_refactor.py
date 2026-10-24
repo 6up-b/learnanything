@@ -116,7 +116,12 @@ def test_minimal_template_preserves_non_provider_effective_defaults() -> None:
 
     old_ai = _parsed(LEGACY_DEFAULT_CONFIG_TEXT).ai
     new_ai = _parsed(default_config_text(legacy_version)).ai
-    assert new_ai.active_provider == old_ai.active_provider
+    # Plan-first transport T1 (owner, 2026-10-21): the decision-only template
+    # moved every route from the Codex tiers to the ChatGPT-plan tiers of the
+    # same effort and slug; the frozen legacy before-image keeps Codex.
+    from learnloop.config.schema import CODEX_TO_PLAN_PROFILE
+
+    assert old_ai.active_provider == "codex" and new_ai.active_provider == "chatgpt"
     assert new_ai.fallback_provider == old_ai.fallback_provider
     assert new_ai.timeout_seconds == old_ai.timeout_seconds
     for route in (
@@ -129,7 +134,11 @@ def test_minimal_template_preserves_non_provider_effective_defaults() -> None:
         "rung_variant",
         "animation",
     ):
-        assert getattr(new_ai.routing, route) == getattr(old_ai.routing, route)
+        assert getattr(new_ai.routing, route) == CODEX_TO_PLAN_PROFILE[getattr(old_ai.routing, route)]
+    for codex_name, plan_name in CODEX_TO_PLAN_PROFILE.items():
+        assert new_ai.providers[plan_name].type == "chatgpt_plan"
+        assert new_ai.providers[plan_name].model == old_ai.providers[codex_name].model
+        assert new_ai.providers[plan_name].reasoning_effort == old_ai.providers[codex_name].reasoning_effort
     for name in ("codex", "codex_low", "codex_medium", "openrouter"):
         assert new_ai.providers[name].type == old_ai.providers[name].type
         assert new_ai.providers[name].model == old_ai.providers[name].model

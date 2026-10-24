@@ -281,6 +281,7 @@ def build_reader_report(
     now: datetime | None = None,
     reading_paths_enabled: bool = True,
     figures_enabled: bool = False,
+    figure_offers_enabled: bool = False,
 ) -> dict[str, Any]:
     """Compute the report from the ledgers (pure read).
 
@@ -292,7 +293,9 @@ def build_reader_report(
     ``figures_enabled`` is the vault's ``figures.enabled`` (RW5a): only while
     it is on does the report read the figure tables and carry its
     ``figures`` block, so with figures off it is the report of before RW5a
-    (fix round 3; the CLI passes the switch)."""
+    (fix round 3; the CLI passes the switch). ``figure_offers_enabled``
+    (RW5b, ``figures.offers_enabled`` under it) adds the figures built from
+    an offer, by origin; off, the block is RW5a's."""
 
     now = (now or datetime.now(UTC)).astimezone(UTC)
     since_at = _when(since) if since else None
@@ -363,9 +366,11 @@ def build_reader_report(
             # A legacy "verified" counts as the illustration it is shown as
             # (final round, High 2: the figure view's one normalization).
             {"verification": shown_verification(row["verification"]), "unsupported_kind": row["unsupported_kind"],
-             "revision": row["supersedes_id"] is not None, "region": row["region_json"] is not None}
+             "revision": row["supersedes_id"] is not None, "region": row["region_json"] is not None,
+             "origin": row["origin"]}
             for row in connection.execute(
-                "SELECT verification, unsupported_kind, supersedes_id, region_json, created_at FROM interactive_figures "
+                "SELECT verification, unsupported_kind, supersedes_id, region_json, origin, created_at "
+                "FROM interactive_figures "
                 "ORDER BY created_at, id"
             ) if in_window(row["created_at"])
         ] if has_figures else []
@@ -743,6 +748,13 @@ def build_reader_report(
     }
     if not figures_enabled:
         del report["figures"]
+    elif figure_offers_enabled:
+        # RW5b: figures built from an offer ("make this explorable" on the
+        # organizer's or the tutor's judgment), by origin and verification.
+        report["figures"]["offered"] = {
+            origin: dict(Counter(row["verification"] for row in figure_rows if row["origin"] == origin
+                                 and not row["revision"]))
+            for origin in ("library", "tutor")}
     return report
 
 

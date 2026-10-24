@@ -61,6 +61,11 @@ WORKBENCH_HELP_RPCS: tuple[str, ...] = (
     "workbench.help_state",
 )
 CHECK, SUGGEST, HINT, BRIDGE = "check", "suggest", "hint", "bridge"
+#: Reader RW2c's job kinds (read through ``workbench.help_job`` too): the
+#: worked example in the learner's route, and compare methods' lines.
+EXAMPLE, COMPARE = "example", "compare"
+#: The searched passages, shown when their job is read (counted by neither).
+PASSAGE_JOBS = (BRIDGE, EXAMPLE)
 
 
 @dataclass
@@ -429,6 +434,16 @@ def _payload(ctx: SidecarContext, job_id: str) -> dict[str, Any]:
         if meta.kind == BRIDGE and not job.delivered and not bool(_vault.config.workbench.bridge_enabled):
             # F13: the bridge's switch went off while it searched.
             job.cancelled = True
+        if meta.kind == EXAMPLE and not job.delivered and not bool(_vault.config.workbench.examples_enabled):
+            # RW2c: the example's switch went off while it searched (F13's rule).
+            job.cancelled = True
+        if meta.kind == COMPARE and not job.delivered:
+            # RW2c review F8: compare methods' switch went off while its lines
+            # were written: nothing is delivered (F13's rule).
+            from learnloop.workbench.compare_methods import compare_enabled
+
+            if not compare_enabled(_vault):
+                job.cancelled = True
         if job.cancelled and not job.delivered:
             return versioned({**base, "state": "cancelled", "result": None})
         if not job.done.is_set():
@@ -445,6 +460,22 @@ def _payload(ctx: SidecarContext, job_id: str) -> dict[str, Any]:
                 if meta.kind == HINT:
                     result["bridge_job_id"] = _start_bridge(ctx, meta, str(result["assist_id"]))
                     job.result = {**(job.result or {}), "bridge_job_id": result["bridge_job_id"]}
+                    if bool(_vault.config.workbench.examples_enabled):
+                        # RW2c: the worked example in the learner's route, in
+                        # the background after a level-3+ hint (key absent
+                        # while the switch is off).
+                        from learnloop_sidecar.handlers.workbench_rw2c import start_example_after_hint
+
+                        try:
+                            result["example_job_id"] = start_example_after_hint(
+                                ctx, meta, result, after_job_id=result["bridge_job_id"])
+                        except Exception as exc:  # noqa: BLE001 - fix round 3 (L8): the hint is delivered
+                            # An example that cannot start never fails the read
+                            # of a delivered hint: logged, recorded as none.
+                            log_event("workbench_example_start_failed", practice_item_id=meta.practice_item_id,
+                                      error=type(exc).__name__)
+                            result["example_job_id"] = None
+                        job.result = {**(job.result or {}), "example_job_id": result["example_job_id"]}
             elif outcome == hint_service.REVEAL_NOT_RECORDED:
                 result = hint_service.undelivered_result(str(result["assist_id"]), outcome).as_dict()
             else:
@@ -454,8 +485,8 @@ def _payload(ctx: SidecarContext, job_id: str) -> dict[str, Any]:
         result["shown"] = job.delivered if meta.kind in (CHECK, HINT) else None
         if meta.kind == CHECK and (job.delivered or result.get("status") == "unchanged"):
             result = _check_payload(ctx, meta, result)
-        if meta.kind == BRIDGE and result.get("status") == "ready" and not job.delivered:
-            job.delivered = _show_bridge(repository, str(result["assist_id"]))
+        if meta.kind in PASSAGE_JOBS and result.get("status") == "ready" and not job.delivered:
+            job.delivered = _show_bridge(repository, str(result["assist_id"]), kind=meta.kind)
             result["shown"] = job.delivered
         if meta.kind == CHECK and job.delivered:
             # The record line and footer name the check (G62).
@@ -468,7 +499,27 @@ def _payload(ctx: SidecarContext, job_id: str) -> dict[str, Any]:
             from learnloop.symbolic_view import hint_result_view, switch
 
             result = hint_result_view(result, enabled=switch(_vault))
+        result = _rw2c_fields_now(_vault, meta.kind, result)
     return versioned({**base, "state": "done", "result": to_camel(result)})
+
+
+def _rw2c_fields_now(vault: Any, kind: str, result: dict[str, Any]) -> dict[str, Any]:
+    """RW2c fix round 2 (3): a cached job result carries RW2c's fields only
+    while their switches are on NOW (a reload may have turned them off since
+    the job finished): a hint's example job, a bridge's draw and book, an
+    example's draw. Off, the payload is the base code's."""
+
+    from learnloop.workbench import route_example
+
+    if kind == HINT and not route_example.examples_enabled(vault):
+        result.pop("example_job_id", None)
+    if not help_module.passage_draw_enabled(vault):
+        if kind == BRIDGE:
+            for name in help_module.RW2C_BRIDGE_FIELDS:
+                result.pop(name, None)
+        elif kind == EXAMPLE:
+            result.pop("alternatives", None)
+    return result
 
 
 def _record(ctx: SidecarContext, session_id: str) -> dict[str, Any]:
@@ -551,19 +602,23 @@ def _start_bridge(ctx: SidecarContext, meta: _JobMeta, hint_assist_id: str) -> s
         return bridge_for_hint(vault, worker_repo, workbench_session_id=meta.session_id,
                                hint_assist_id=hint_assist_id, item=item, provider=provider,
                                envelope=check_module.daily_envelope(vault, worker_repo),
-                               max_calls=int(vault.config.workbench.max_calls_per_session))
+                               max_calls=int(vault.config.workbench.max_calls_per_session),
+                               # RW2c: the logged draw between verified passages.
+                               draw_enabled=bool(vault.config.workbench.passage_draw_enabled),
+                               seed=getattr(ctx, "passage_draw_seed", None))
 
     job = _jobs(ctx).start(ctx, item.id, work)
     _meta(ctx)[job.job_id] = _JobMeta(BRIDGE, meta.session_id, item.id)
     return job.job_id
 
 
-def _show_bridge(repository: Any, assist_id: str) -> bool:
+def _show_bridge(repository: Any, assist_id: str, *, kind: str = BRIDGE) -> bool:
     from learnloop.clock import utc_now_iso
     from learnloop.db.stores.help_assists import mark_bridge_shown
 
     with repository.atomic():
-        return mark_bridge_shown(repository.connection(), assist_id, shown_at=utc_now_iso())
+        return mark_bridge_shown(repository.connection(), assist_id, shown_at=utc_now_iso(),
+                                 kind="example" if kind == EXAMPLE else "bridge")
 
 
 # -- the discriminating answer, the help style, the restored state --------------------------
@@ -638,7 +693,20 @@ def help_state(ctx: SidecarContext, params: WorkbenchHelpStateInput) -> dict[str
         "help_style": session.get("help_style"),
         "stored_help_style": vault.config.hints.help_style,
         "hints_enabled": adaptive_enabled(vault.config),
+        # RW2c: "Show me a similar example" and its results, only while
+        # workbench.examples_enabled is on (absent: the state is as before).
+        **_example_state(vault, repository, session),
     }))
+
+
+def _example_state(vault: Any, repository: Any, session: dict[str, Any]) -> dict[str, Any]:
+    from learnloop.workbench import route_example
+
+    if not route_example.examples_enabled(vault):
+        return {}
+    available = route_example.s3_available(vault)[0] and session.get("origin") == "reader"
+    return {"examples_available": available,
+            "examples": help_module.standalone_examples(vault, repository, str(session["id"]))}
 
 
 __all__ = ["WORKBENCH_HELP_RPCS"]

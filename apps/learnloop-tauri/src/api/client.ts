@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { invalidate, invalidateAll, setQueryData, type QueryTag } from "./queryCache";
 import { READER_PREFIX, TAG } from "./queryTags";
+import { noteFallbackOffer } from "../app/planFallback";
 import type {
   DifficultyRating,
   FirstHintProgress,
@@ -27,6 +28,9 @@ import type {
   WorkbenchSummaryDto,
   WorkbenchHelpJobDto,
   WorkbenchHelpStateDto,
+  WorkbenchAnotherPassageDto,
+  WorkbenchCompareMethodsDto,
+  WorkbenchCompareOfferDto,
   WorkbenchRequestHelpInput,
   ReaderRecapDto,
   ReaderRecapEvent,
@@ -57,6 +61,7 @@ import type {
   AddSourceInput,
   AddSourceResultDto,
   AiConnectionDto,
+  AiUseFallbackDto,
   SourceActionKind,
   SourceActionResultDto,
   AppSnapshot,
@@ -365,11 +370,18 @@ async function call<T>(command: string, args: Record<string, unknown> = {}): Pro
     rpcCounts.set(command, count);
     console.debug(`[rpc ${count}] ${command}`);
   }
+  let result: T;
   try {
-    return await invoke<T>(command, args);
+    result = await invoke<T>(command, args);
   } catch (error) {
-    throw normalizeError(error);
+    const normalized = normalizeError(error);
+    // Plan-first transport T1: an unavailable ChatGPT-plan route may offer
+    // OpenRouter; the shell banner asks (nothing is sent until chosen).
+    noteFallbackOffer(normalized);
+    throw normalized;
   }
+  noteFallbackOffer(result);
+  return result;
 }
 
 function normalizeError(error: unknown): CommandError {
@@ -1036,6 +1048,11 @@ export const api = {
   setOpenrouterApiKey: (apiKey: string) =>
     mutating([TAG.settings], call<OpenrouterKeyResult>("set_openrouter_api_key", { apiKey })),
   chatgptPlanStatus: () => call<ChatGPTPlanDto>("chatgpt_plan_status", { input: {} }),
+  // Plan-first transport T1 (redesign D): the learner's "Use OpenRouter instead"
+  // answers one offer (its id): the action that asked uses OpenRouter for this
+  // session (stop: every grant on this vault ends).
+  aiUseFallback: (input: { provider: "openrouter"; offerId?: string; stop?: boolean }) =>
+    mutating([TAG.settings], call<AiUseFallbackDto>("ai_use_fallback", { input })),
   chatgptPlanSigninStart: (input: { consent?: boolean; newAccount?: boolean } = {}) =>
     mutating([TAG.settings], call<ChatGPTPlanDto>("chatgpt_plan_signin_start", { input })),
   chatgptPlanSigninCancel: () =>
@@ -1609,7 +1626,7 @@ export const api = {
   // this explorable", "not right?") answers at once with a job (the author,
   // the verifier and the sandbox run off the request path): read it with
   // readerFigureJob. Exam and held-out material is refused before any call.
-  readerFigureRequest: (input: { extractionId: string; spanIds: string[]; region?: { spanId: string; bbox: number[] } | null }) =>
+  readerFigureRequest: (input: { extractionId: string; spanIds: string[]; region?: { spanId: string; bbox: number[] } | null; origin?: "selection" | "library" | "tutor"; offerRef?: string | null }) =>
     call<LibraryJobDto<FigureBuildResultDto>>("reader_figure_request", { input }),
   readerFigureRevise: (input: { figureId: string; note: string }) =>
     call<LibraryJobDto<FigureBuildResultDto>>("reader_figure_revise", { input }),
@@ -1698,6 +1715,18 @@ export const api = {
   workbenchSetHelpStyle: (input: { sessionId: string; helpStyle: HelpStyle | null }) =>
     call<{ version: number; helpStyle: HelpStyle | null; storedHelpStyle: HelpStyle }>("workbench_set_help_style", { input }),
   workbenchHelpState: (input: { sessionId: string }) => call<WorkbenchHelpStateDto>("workbench_help_state", { input }),
+  // Reader workbench RW2c: "Show me a similar example" (a job, read with
+  // workbenchHelpJob), "another passage" (a learner pick, no search), and
+  // "Compare with the book's method" after a correct Submit (its reveal on the
+  // item is written before the reference comes back). Desktop only.
+  workbenchShowExample: (input: { sessionId: string; focusedStepId?: string | null }) =>
+    call<WorkbenchHelpJobDto>("workbench_show_example", { input }),
+  workbenchAnotherPassage: (input: { sessionId: string; assistId: string }) =>
+    call<WorkbenchAnotherPassageDto>("workbench_another_passage", { input }),
+  workbenchCompareOffer: (input: { attemptId: string }) =>
+    call<WorkbenchCompareOfferDto>("workbench_compare_offer", { input }),
+  workbenchCompareMethods: (input: { attemptId: string }) =>
+    call<WorkbenchCompareMethodsDto>("workbench_compare_methods", { input }),
   // Reader workbench RW6a: "Last time here" and Wrap up (pure reads), and the
   // three events (recap_shown, recap_dismissed, wrap_up_opened). Desktop only.
   readerRecap: (input: { extractionId: string; visitId?: string | null }) =>

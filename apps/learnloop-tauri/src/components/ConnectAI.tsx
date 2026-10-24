@@ -9,6 +9,7 @@ import { api } from "../api/client";
 import type { AiConnectionDto } from "../api/dto";
 import { plainError } from "../copy/ingestErrors";
 import { COLOR, FONT_MONO } from "./term";
+import { screenLeavesKey } from "../app/keymap";
 
 const POLL_MS = 1000;
 
@@ -76,6 +77,7 @@ export function ConnectAISheet({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { modal: true })) return;
       if (event.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);

@@ -16,7 +16,7 @@ from learnloop.db.repositories import Repository
 from learnloop.ops.family_proposals import FamilyVerdict, propose_families
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
-from tests.helpers import create_basic_vault
+from tests.helpers import create_basic_vault, use_codex_harness
 
 
 class Judge:
@@ -322,10 +322,11 @@ def test_codex_route_dry_run_shows_an_estimate_without_a_price(vault, monkeypatc
     monkeypatch.setattr("learnloop.ops.family_proposals.ready_client_for_task", forbidden)
     _, _, paths = vault
     before = paths.sqlite_path.read_bytes()
-    # The default pf_family_judge route falls back to the active Codex profile.
+    # The default pf_family_judge route falls back to the active profile: the
+    # ChatGPT plan since plan-first transport T1, a subscription route too.
     report = propose_families(vault[0], dry_run=True, caps=SpendCaps(
         max_total_tokens=1, max_estimated_usd=0))
-    assert report["status"] == "dry_run" and report["provider"] == "codex"
+    assert report["status"] == "dry_run" and report["provider"] == "chatgpt"
     assert report["billing"] == "subscription" and report["cost_basis"] == "estimated_only"
     assert report["physical_request_bound"] is False
     assert report["caps_in_force"]["not_enforced"] == ["max_total_tokens", "max_estimated_usd"]
@@ -343,6 +344,8 @@ def test_codex_route_dry_run_shows_an_estimate_without_a_price(vault, monkeypatc
 
 
 def test_fake_codex_run_succeeds_and_receipts_carry_estimated_only(vault, monkeypatch):
+    use_codex_harness(vault[2].root)  # the frozen Codex route, explicitly opted in (T1)
+    vault = (load_vault(vault[2].root), vault[1], vault[2])
     judge = CodexJudge("same")
     seen = _codex_route(vault, monkeypatch, judge)
     # Token and dollar caps are not enforced and the price is unknown;

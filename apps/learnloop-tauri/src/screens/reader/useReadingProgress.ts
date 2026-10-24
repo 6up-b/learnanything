@@ -33,6 +33,7 @@ import type {
 import type { PassageAlign, PdfReaderPaneHandle } from "../../components/PdfReaderPane";
 import { checkOffer, type CheckSurface } from "./checkOffer";
 import { useGuideDiagnosisRefresh } from "./guidePlan";
+import { screenLeavesKey } from "../../app/keymap";
 import {
   pagePositionAt,
   resumeSpanFromHistory,
@@ -1055,6 +1056,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
   useEffect(() => {
     if (!render) return;
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea") return;
       // An Alt chord is never a scroll key: Alt+↓ / Alt+↑ move between margin

@@ -23,6 +23,12 @@ from tests.helpers import (
     seed_due_item,
 )
 
+import pytest
+
+# The legacy Codex HTTP adapter is refused by the tool lockdown (hardening round 2,
+# H3); these tests drive an in-process HTTP server through it as a provider double.
+pytestmark = pytest.mark.usefixtures("legacy_codex_http_double")
+
 
 def _rpc(messages: list[dict]) -> list[dict]:
     stdin = io.StringIO("".join(json.dumps(message) + "\n" for message in messages))

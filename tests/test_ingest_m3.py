@@ -298,8 +298,8 @@ def test_legacy_openrouter_audio_translation_preserves_consent_surface(tmp_path)
 
 def _config_with_provider(context_tokens=None, max_output_tokens=None) -> LearnLoopConfig:
     config = LearnLoopConfig()
-    # Canonical ingest now routes to the workload-specific "codex_medium" profile.
-    config.ingest.providers["codex_medium"] = IngestProviderLimits(
+    # Canonical ingest routes to the workload-specific "chatgpt_medium" profile (T1).
+    config.ingest.providers["chatgpt_medium"] = IngestProviderLimits(
         context_tokens=context_tokens, max_output_tokens=max_output_tokens
     )
     return config
@@ -325,7 +325,7 @@ def test_token_budgets_preflight_emits_per_stage_estimates(tmp_path):
         assert stage.ceiling > 0
     payload = plan.as_dict()
     assert payload["totals"]["calls"] == sum(stage.calls for stage in plan.stages)
-    assert payload["provider"] == "codex_medium"
+    assert payload["provider"] == "chatgpt_medium"
 
 
 def test_build_plan_routes_create_vs_update(tmp_path):

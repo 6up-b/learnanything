@@ -23,6 +23,7 @@ import { QuickAddDialog } from "./QuickAddDialog";
 import { STARTING_LEVELS } from "./StudyMapBriefWizard";
 import { PageRangeSelector, pageSelectionError } from "./PageRangeSelector";
 import { pickSourceFile, useSourceFileDrop } from "./useSourceFileDrop";
+import { screenLeavesKey } from "../app/keymap";
 
 const STEP_LABELS = ["vault"];
 
@@ -267,6 +268,7 @@ export function NewVaultWizard({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { modal: true })) return;
       if (goalWizardOpen || quickAddOpen) return; // nested overlays own the keyboard
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       const isInput = tag === "input" || tag === "textarea";

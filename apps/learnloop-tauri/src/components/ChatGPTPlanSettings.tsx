@@ -126,6 +126,15 @@ export function ChatGPTPlanSettings({
     openExternal(plan.manageUsageUrl).catch((error: unknown) => onError(errorMessage(error)));
   };
 
+  // Plan-first transport T1 (re-review F3): while the learner's "Use OpenRouter
+  // instead" is in force on this vault, Settings keeps a way to take it back.
+  const granted = plan.openrouterGrantedTasks ?? [];
+  const stopOpenRouter = () =>
+    run("stop-openrouter", async () => {
+      await api.aiUseFallback({ provider: "openrouter", stop: true });
+      return api.chatgptPlanStatus();
+    });
+
   const line = stateLine(plan);
   const needsSignIn = plan.state === "signed_out" || plan.state === "plan_usage_disabled" || plan.state === "store_error";
   const continueStyle = {
@@ -221,6 +230,27 @@ export function ChatGPTPlanSettings({
           <span style={styles.label}>in use</span>
           <span style={{ flex: 1, fontSize: 11 }}>Using ChatGPT plan</span>
           <button type="button" style={linkStyle} onClick={manageUsage}>Manage usage</button>
+        </div>
+      ) : null}
+
+      {granted.length > 0 ? (
+        <div style={styles.row}>
+          <span style={styles.label}>
+            OpenRouter
+            <div style={styles.hint}>chosen while ChatGPT was unavailable</div>
+          </span>
+          <span style={{ flex: 1, fontSize: 11 }}>
+            OpenRouter is standing in for ChatGPT for the rest of this session ({granted.join(", ")}); it charges
+            your OpenRouter account.
+          </span>
+          <button
+            type="button"
+            style={styles.button(busy === null)}
+            disabled={busy !== null}
+            onClick={() => void stopOpenRouter()}
+          >
+            Stop using OpenRouter
+          </button>
         </div>
       ) : null}
 

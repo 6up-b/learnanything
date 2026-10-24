@@ -112,8 +112,9 @@ def test_status_models_resume_and_signout(server, monkeypatch, tmp_path):
     vault = _vault(tmp_path, server, {"source_query_rewrite": "chatgpt", "source_rerank": "chatgpt"})
     status = json.loads(runner.invoke(app, ["ai", "status", "chatgpt", "--vault", str(vault), "--json"]).stdout)
     assert status["state"] == "ready" and status["email"] == "learner@example.com"
-    (profile,) = status["profiles"]
-    assert profile["name"] == "chatgpt" and profile["ready"]
+    # Plan-first transport T1: the code-default tiers are plan profiles too.
+    profile = next(entry for entry in status["profiles"] if entry["name"] == "chatgpt")
+    assert profile["ready"]
     assert profile["routes"] == ["source_query_rewrite", "source_rerank"]
     assert "access-" not in json.dumps(status)
 
@@ -160,16 +161,26 @@ def test_latency_dry_run_then_a_timed_run(server, tmp_path):
 
 def test_doctor_warns_when_a_route_uses_a_plan_this_machine_cannot_serve(server, tmp_path):
     vault = _vault(tmp_path, server, {"source_query_rewrite": "chatgpt"})
-    codes = {issue.code for issue in run_doctor(vault).issues}
+    # Plan-first transport T1: every vault uses the plan, so the machine's
+    # sign-in is checked under `doctor --ai` (not reported for every vault).
+    assert "ai:chatgpt_plan_signed_out" not in {issue.code for issue in run_doctor(vault).issues}
+    codes = {issue.code for issue in run_doctor(vault, ai=True).issues}
     assert "ai:chatgpt_plan_signed_out" in codes
     sign_in(PlanSession(), server)
-    codes = {issue.code for issue in run_doctor(vault).issues}
+    codes = {issue.code for issue in run_doctor(vault, ai=True).issues}
     assert not {code for code in codes if code.startswith("ai:chatgpt_plan")}
 
 
 def test_doctor_ignores_an_unrouted_plan_profile(server, tmp_path):
-    vault = _vault(tmp_path, server, {})
-    codes = {issue.code for issue in run_doctor(vault).issues}
+    from learnloop.config.schema import DEFAULT_SERVING_TASK_ROUTES
+
+    # Every route the code defaults put on the plan moved elsewhere.
+    vault = _vault(tmp_path, server, {task: "openrouter" for task in DEFAULT_SERVING_TASK_ROUTES})
+    path = vault / "learnloop.toml"
+    document = tomlkit.parse(path.read_text(encoding="utf-8"))
+    document["ai"]["active_provider"] = "openrouter"
+    path.write_text(tomlkit.dumps(document), encoding="utf-8")
+    codes = {issue.code for issue in run_doctor(vault, ai=True).issues}
     assert not {code for code in codes if code.startswith("ai:chatgpt_plan")}
 
 

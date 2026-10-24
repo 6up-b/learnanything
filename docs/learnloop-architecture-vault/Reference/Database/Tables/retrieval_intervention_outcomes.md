@@ -3,13 +3,13 @@ title: "retrieval_intervention_outcomes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "87c9b9a4a94630287dd2e9fa6ecb7cd6544f9f1a"
-source_commit_timestamp: "2026-10-21T10:09:53-04:00"
+source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
+source_commit_timestamp: "2026-10-24T10:03:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite retrieval_intervention_outcomes"
   - "table retrieval_intervention_outcomes"
-schema_head: 217
+schema_head: 218
 table_name: "retrieval_intervention_outcomes"
 table_role: "derived"
 functionality_status: "active"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/substrate/intervention_outcomes.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
+  - "src/learnloop/workbench/help_outcomes.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/derived"
@@ -108,8 +109,10 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_help_outcomes.py`
 - `tests/test_intervention_outcomes_replayer.py`
 - `tests/test_rebuild_orchestrator.py`
+- `tests/test_rw2c_fix_round2.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

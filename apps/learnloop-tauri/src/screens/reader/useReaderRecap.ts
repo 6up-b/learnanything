@@ -19,6 +19,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
 import type { ReaderRecapCardDto, ReaderRecapEvent, ReaderWrapUpDto } from "../../api/dto";
 import { errorMessage } from "../../errors";
+import { screenLeavesKey } from "../../app/keymap";
 
 export interface ReaderRecapInput {
   /** recap.enabled, with a real source open. */
@@ -196,6 +197,7 @@ export function useReaderRecap({
   useEffect(() => {
     if (!wrapUpEnabled || !wrapUpAvailable || !extractionId || suspended) return;
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       if (event.key !== "w" || event.altKey || event.ctrlKey || event.metaKey) return;
       const target = event.target;
       if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;

@@ -631,7 +631,7 @@ def test_harness_routes_follow_the_vault_config_not_the_env_override(seeded, mon
     loaded, _paths = seeded
     monkeypatch.setenv("LEARNLOOP_AI_PROVIDER", "deepseek_pro")
     llm = resolve_route(loaded, "llm", price_per_million=None, output_tokens=64)
-    assert (llm.provider, llm.subscription) == ("codex", True)
+    assert (llm.provider, llm.subscription) == ("chatgpt", True)
     decider = resolve_route(loaded, "decider", price_per_million=None, output_tokens=64)
     assert decider.provider == "openrouter_decider" and decider.price_per_million == 0.02
     loaded.config.ai.routing.llm_probability_llm = "openrouter_decider"

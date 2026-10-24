@@ -383,7 +383,7 @@ def test_structured_providers_expose_no_feature_named_methods():
     } == {"run_media_markdown", "run_media_transcription"}
 
 
-def test_legacy_http_supports_exactly_eight_operations_and_degrades_the_rest(monkeypatch):
+def test_legacy_http_supports_exactly_eight_operations_and_degrades_the_rest(monkeypatch, legacy_codex_http_double):
     client = LegacyHttpOperations(CodexConfig(base_url="http://127.0.0.1:1"))
     expected_supported = {case.purpose for case in OPERATIONS if case.legacy_method is not None}
 

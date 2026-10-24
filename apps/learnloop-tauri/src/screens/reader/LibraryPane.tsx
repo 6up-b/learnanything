@@ -7,8 +7,9 @@ import { useEffect, useRef, useState } from "react";
 import type { LibraryHitDto, ProposedItemDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { MIN_WORKBENCH_WIDTH, SPLIT_STEP, clampSplitWidth } from "../workbench/splitWidth";
-import { LibraryAnswer, type LibraryExercisesProps } from "./LibraryAnswer";
+import { LibraryAnswer, type ExplorableOutcome, type LibraryExercisesProps } from "./LibraryAnswer";
 import { LIBRARY_COPY, type LibraryAskController } from "./useLibraryAsk";
+import { screenLeavesKey } from "../../app/keymap";
 
 const WIDTH_KEY = "ll.library.splitWidth";
 
@@ -38,6 +39,7 @@ export function LibraryPane({
   onPracticePick,
   onClose,
   exercises = null,
+  onMakeExplorable = null,
 }: {
   ctl: LibraryAskController;
   /** The ask box's text while composing (null: an answer is shown). */
@@ -49,6 +51,8 @@ export function LibraryPane({
   onClose: () => void;
   /** RW4b's candidate view (absent while library_exercises is off). */
   exercises?: LibraryExercisesProps | null;
+  /** RW5b: an offered figure's press (absent while figures.offers_enabled is off). */
+  onMakeExplorable?: ((hit: LibraryHitDto, offerRef: string) => Promise<ExplorableOutcome> | void) | null;
 }) {
   const [width, setWidth] = useState(() => clampSplitWidth(readWidth() ?? Math.floor(window.innerWidth / 2), window.innerWidth));
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -59,6 +63,7 @@ export function LibraryPane({
   }, [composing]);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event)) return;
       if (event.key !== "Escape" || event.defaultPrevented) return;
       event.preventDefault();
       if (ctl.state?.peek) ctl.closePeek();
@@ -122,7 +127,8 @@ export function LibraryPane({
             <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textDim }}>↵ ask · {LIBRARY_COPY.close}</span>
           </form>
         ) : null}
-        <LibraryAnswer ctl={ctl} onOpenHit={onOpenHit} onPracticePick={onPracticePick} onClose={onClose} exercises={exercises} />
+        <LibraryAnswer ctl={ctl} onOpenHit={onOpenHit} onPracticePick={onPracticePick} onClose={onClose} exercises={exercises}
+          onMakeExplorable={onMakeExplorable} />
       </div>
     </>
   );

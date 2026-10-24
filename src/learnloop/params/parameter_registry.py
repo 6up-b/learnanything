@@ -900,6 +900,14 @@ _CONFIG_RULES: list[_ConfigRule] = [
     _ConfigRule(_exact("schema_version"), "structural", "version",
                 "schema version int; enum, not a decision knob."),
     # --- structural: operational / infra (no measurement authority, §9.3) ---
+    # Plan-first transport T1 (owner, 2026-10-21): which transport may serve,
+    # never what is measured. agent_harness_opt_in admits the frozen Codex
+    # harness (default false: refused for every task, never a fallback);
+    # plan_fallback_profile names the OpenRouter profile LearnLoop may OFFER
+    # while the ChatGPT plan is unavailable (used only on the learner's choice).
+    _ConfigRule(_exact("ai.agent_harness_opt_in", "ai.plan_fallback_profile"), "structural", "operational",
+                "transport admission (Codex agent-harness opt-in; the asked-for OpenRouter offer while the "
+                "ChatGPT plan is unavailable); selects who answers, never what is measured."),
     _ConfigRule(_prefix("ai.", "codex.", "ingest.", "animation."), "structural", "operational",
                 "AI/codex/ingest/animation infra knob (timeout/port/token ceiling); no "
                 "measurement authority."),
@@ -985,6 +993,22 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switches for the workbench's checks and help ladder / the sandboxed symbolic checks / the "
         "discriminating question / the error-kind guess / the bridge to the book; on-off availability of "
         "help, no measurement, scheduling or serving authority."),
+    # Reader workbench RW2c (what helps this learner, spec §5.10): the kill
+    # switches of the help-outcome lines (a pure read given to the hint writer
+    # and chooser as context), the worked example in the learner's route,
+    # "Compare with the book's method" (a reveal of an existing kind on the
+    # item, with its existing meaning) and the logged draw between passages
+    # that all passed the judge. Context, display and learner picks: none
+    # changes a measurement.
+    _ConfigRule(_exact(
+        "workbench.help_outcomes_enabled",
+        "workbench.examples_enabled",
+        "workbench.compare_methods_enabled",
+        "workbench.passage_draw_enabled",
+    ), "structural", "operational",
+        "kill switches for the help-outcome lines given to the hint writer and chooser / the worked example "
+        "in the learner's route / compare methods after a correct Submit / the logged passage draw; context, "
+        "display and learner picks, no measurement, scheduling or serving authority."),
     # Reader workbench RW1b: the intent box's router (one Decider choice per
     # routing; verdicts go to judgment_ledger, never evidence): the typing
     # pause before a speculative routing, the routing's deadline and the
@@ -1115,12 +1139,31 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switches for explorable figures / their predictions / region selection / \"not right?\" "
         "versions; on-off availability of content and formative records, no measurement, scheduling or "
         "serving authority."),
+    # Reader workbench RW5b: the advanced panels (heat maps, vector fields,
+    # trajectories, iterated maps) and figures offered by the organizer and
+    # the tutor in the calls they already make. Kill switches over content.
+    _ConfigRule(_exact(
+        "figures.advanced_panels_enabled",
+        "figures.offers_enabled",
+    ), "structural", "operational",
+        "kill switches for RW5b's figure panels / \"make this explorable\" offers on organizer and tutor "
+        "citations; on-off availability of content, no measurement, scheduling or serving authority."),
     _ConfigRule(_exact(
         "figures.max_daily_cost_usd",
         "figures.price_per_million",
     ), "structural", "operational",
         "the figure author's and verifier's metered spend a UTC day / the owner's price for a metered figure "
         "route; money bounds, no measurement authority (a figure never grades)."),
+    # UX Phase 2: the shell's kill switch (a string enum, so Inventory A's
+    # numeric walk never reaches it; classified here so every new key has a
+    # rule, Codex review of ux-phase2-shell F9). Only the app snapshot reads
+    # it; the desktop draws one shell or the other.
+    _ConfigRule(_exact(
+        "ui.shell",
+    ), "structural", "operational",
+        "kill switch for the desktop shell (\"simple\": four places, Under the hood, notices, the palette's "
+        "> prefix; \"classic\": the ten tabs as before); display only, read by the app snapshot alone, no "
+        "measurement, scheduling, serving or replay authority (no algorithm successor)."),
     # Adaptive hints H1: the approach-map builds' (and merges') metered spend a
     # UTC day (maps are stored help, read by no grading, scheduling, serving or
     # replay path; validation verdicts go to judgment_ledger, never evidence).

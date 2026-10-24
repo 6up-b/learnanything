@@ -63,4 +63,5 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     vault,
     workbench,
     workbench_help,
+    workbench_rw2c,
 )

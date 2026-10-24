@@ -3,13 +3,13 @@ title: "interactive_figures"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "87c9b9a4a94630287dd2e9fa6ecb7cd6544f9f1a"
-source_commit_timestamp: "2026-10-21T10:09:53-04:00"
+source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
+source_commit_timestamp: "2026-10-24T10:03:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interactive_figures"
   - "table interactive_figures"
-schema_head: 217
+schema_head: 218
 table_name: "interactive_figures"
 table_role: "workflow"
 functionality_status: "active"
@@ -120,6 +120,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_architecture.py`
+- `tests/test_figure_offers.py`
 - `tests/test_figure_region.py`
 - `tests/test_figure_revisions.py`
 - `tests/test_figure_verification.py`
@@ -128,6 +129,7 @@ None found by exact static reference scan.
 - `tests/test_figures_fix_round2.py`
 - `tests/test_figures_migration.py`
 - `tests/test_figures_rpc.py`
+- `tests/test_figures_rw5b_review.py`
 - `tests/test_figures_scope_redesign.py`
 - `tests/test_figures_switch_off.py`
 

@@ -1353,3 +1353,176 @@ button { color: inherit; }
 .ll-reader-cue-mark--try-first::before {
   content: "▹┆";
 }
+
+/* ── UX Phase 2: the shell (docs/specs/ux_learnloop_v1.md §5, §7.7, §7.9) ── */
+
+/* The four places: plain labels, sentence case, keys in the tooltip (Q10). */
+.simple-nav button { font-size: 13px; padding-left: clamp(12px, 1.2vw, 20px); padding-right: clamp(12px, 1.2vw, 20px); }
+.simple-nav .nav-status { gap: 10px; }
+.top-nav .nav-palette,
+.top-nav .nav-more {
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  padding: 3px 9px;
+  background: transparent;
+  color: var(--dim);
+  font-size: 12px;
+  border-bottom-width: 1px;
+}
+.top-nav .nav-more { font-size: 14px; line-height: 1; padding: 4px 10px; }
+.top-nav .nav-palette:hover, .top-nav .nav-palette:focus-visible,
+.top-nav .nav-more:hover, .top-nav .nav-more:focus-visible,
+.top-nav .nav-more.active { color: var(--text); border-color: var(--amber); background: var(--wash-amber); }
+.top-nav .nav-trouble { border: 0; background: transparent; color: var(--red); font-size: 12px; padding: 3px 4px; white-space: nowrap; }
+.top-nav .nav-trouble:hover, .top-nav .nav-trouble:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
+.more-menu-wrap { position: relative; display: flex; align-items: center; align-self: stretch; }
+.more-menu { min-width: 230px; }
+.more-menu kbd { color: var(--faint); font: inherit; font-size: 11px; margin-left: 10px; }
+.more-menu-label { padding: 8px 12px 3px; margin-top: 4px; border-top: 1px solid var(--border); color: var(--faint); font-size: 11px; }
+.vault-menu .more-menu-library { padding-left: 22px; }
+.vault-menu .more-menu-sep { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px; }
+
+/* Notices and errors at the bottom edge (§7.9): errors red and staying,
+   notices neutral, small, gone after a few seconds. */
+.shell-notices {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 180;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: min(680px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.shell-notice {
+  pointer-events: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  max-width: 100%;
+  padding: 7px 10px 7px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--elev);
+  color: var(--text);
+  font-size: 12px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+}
+.shell-notice-error { border-color: var(--red); color: var(--red); font-size: 13px; }
+.shell-notice-text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.shell-notice button { background: transparent; border: 0; font: inherit; cursor: pointer; padding: 0; }
+.shell-notice-action { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.shell-notice-details { color: var(--dim); font-size: 11px; }
+.shell-notice-dismiss { color: var(--dim); font-size: 14px; line-height: 1; }
+.shell-notice button:hover, .shell-notice button:focus-visible { color: var(--amber); }
+.shell-notice-code { flex-basis: 100%; color: var(--dim); font-size: 11px; }
+
+/* Under the hood (§7.7, §8.5): the tool list, and the tool's own screen. */
+.uth { flex: 1; min-height: 0; display: flex; }
+.uth-list {
+  flex: 0 0 210px;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 0;
+  border-right: 1px solid var(--border);
+  background: var(--bg);
+  overflow-y: auto;
+}
+.uth-list-title { padding: 0 16px 10px; color: var(--faint); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.uth-tool {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 16px;
+  border: 0;
+  border-left: 2px solid transparent;
+  background: transparent;
+  color: var(--dim);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.uth-tool:hover, .uth-tool:focus-visible { color: var(--text); background: var(--elev); outline: none; }
+.uth-tool.active { color: var(--text); border-left-color: var(--amber); background: var(--elev); }
+.uth-tool-title { flex: 1; min-width: 0; }
+.uth-tool-count { color: var(--dim); font-size: 11px; }
+.uth-pane { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.uth-pane-header { display: flex; align-items: baseline; gap: 12px; padding: 10px 24px 8px; border-bottom: 1px solid var(--border); flex: 0 0 auto; }
+.uth-pane-header h2 { margin: 0; font-size: 13px; font-weight: 600; color: var(--text); }
+.uth-was { color: var(--faint); font-size: 11px; }
+.uth-pane-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.uth-note { color: var(--dim); font-size: 12px; line-height: 1.6; }
+.uth-form { padding: 22px 24px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.uth-form input {
+  background: var(--input);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 8px;
+  width: min(420px, 60vw);
+}
+.uth-faint { color: var(--faint); font-size: 12px; }
+.uth-button {
+  border: 1px solid var(--amber);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--amber);
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.uth-button:hover, .uth-button:focus-visible { background: var(--wash-amber); color: var(--text); }
+.uth-button:disabled { opacity: 0.5; cursor: default; }
+.uth-recent { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; }
+.uth-link { border: 0; background: transparent; color: var(--amber-link); font: inherit; font-size: 12px; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+
+/* The palette's plain commands (§5.1). */
+.palette-list { max-height: min(52vh, 420px); overflow-y: auto; padding: 6px 0; }
+.palette-option {
+  display: grid;
+  grid-template-columns: minmax(0, auto) 1fr auto;
+  gap: 14px;
+  align-items: baseline;
+  padding: 6px 16px;
+  border-left: 2px solid transparent;
+  cursor: pointer;
+}
+.palette-option.selected { background: var(--wash-amber); border-left-color: var(--amber); }
+.palette-label { color: var(--text); font-size: 13px; }
+.palette-option.selected .palette-label { color: var(--amber); }
+.palette-hint { color: var(--dim); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.palette-keys { color: var(--faint); font: inherit; font-size: 11px; }
+.palette-miss { padding: 14px 16px; color: var(--dim); font-size: 12px; line-height: 1.6; }
+.palette-foot { padding: 6px 16px 9px; color: var(--faint); font-size: 11px; border-top: 1px solid var(--border); }
+
+/* Keyboard & help (⋯). */
+.keys-help-backdrop { position: fixed; inset: 0; z-index: 210; background: rgba(0, 0, 0, 0.55); display: flex; align-items: flex-start; justify-content: center; padding: 8vh 16px 16px; }
+.keys-help {
+  width: min(640px, 100%);
+  max-height: 80vh;
+  overflow-y: auto;
+  background: var(--elev);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 16px 22px 20px;
+  outline: none;
+  font-size: 12px;
+  color: var(--text);
+}
+.keys-help-header { display: flex; align-items: baseline; }
+.keys-help-header h2 { margin: 0; font-size: 14px; font-weight: 600; flex: 1; }
+.keys-help h3 { margin: 18px 0 6px; font-size: 12px; font-weight: 600; color: var(--dim); }
+.keys-help-close { border: 0; background: transparent; color: var(--dim); font-size: 16px; cursor: pointer; }
+.keys-help-note { color: var(--dim); line-height: 1.6; }
+.keys-help-table { border-collapse: collapse; width: 100%; }
+.keys-help-table td { padding: 4px 12px 4px 0; vertical-align: baseline; }
+.keys-help-table td:first-child { white-space: nowrap; width: 1%; }
+.keys-help kbd { border: 1px solid var(--border-strong); border-radius: 3px; padding: 0 5px; font: inherit; font-size: 11px; color: var(--text); background: var(--input); }
+.keys-help-was { color: var(--faint); font-size: 11px; }

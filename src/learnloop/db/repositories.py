@@ -139,6 +139,16 @@ def _loads(value: str | None, default: Any) -> Any:
     return json.loads(value)
 
 
+def _proposal_item_identity(client_item_id: Any, payload: Any, edited_payload: Any) -> str:
+    """What a proposal item would create: the edited payload's ``id`` when it
+    was edited, else the payload's, else its client id (no ``id`` in either)."""
+
+    effective = edited_payload if isinstance(edited_payload, Mapping) else payload
+    if isinstance(effective, Mapping) and isinstance(effective.get("id"), str) and effective["id"]:
+        return f"id:{effective['id']}"
+    return f"client:{client_item_id or ''}"
+
+
 def _projection_id(prefix: str, *identity: object) -> str:
     """Content-addressed identity for a row recreated by deterministic replay."""
 
@@ -10754,7 +10764,26 @@ class Repository(
         self,
         batch: Mapping[str, Any],
         items: Iterable[Mapping[str, Any]],
+        *,
+        join_pending: Mapping[str, Any] | None = None,
     ) -> str:
+        """Write one proposal batch and its items.
+
+        ``join_pending`` (a source ref) proposes each item once, however many
+        callers name it (UX Phase 2, Codex review of ux-phase2-shell F6; Phase
+        1 usability round 1: "Proposals grows on every practice, with
+        duplicate error-type proposals"). An item whose ``item_type``,
+        ``operation`` and effective identity already wait (a ``pending`` item;
+        the identity is the edited payload's ``id`` when the item was edited,
+        else the payload's, else the ``client_item_id``) is not written
+        again: the ref joins the waiting item's batch's source refs instead,
+        so that proposal keeps every caller that named it. The check and the
+        write run under one write lock, so two callers at once cannot both
+        write. Returns the new batch's id, or, when every item already waits,
+        the first waiting batch the ref joined. Proposal tables are WORKFLOW:
+        nothing replays or grades from them, so no persisted meaning changes.
+        """
+
         batch_id = str(batch.get("id") or new_ulid())
         item_rows = list(items)
         client_ids = [str(item.get("client_item_id") or "") for item in item_rows]
@@ -10772,6 +10801,63 @@ class Repository(
                 + ", ".join(duplicate_client_ids)
             )
         with self.connection() as connection:
+            if join_pending is not None:
+                if not connection.in_transaction:
+                    # Take the write lock BEFORE reading so the check-and-insert
+                    # is one atomic step even across connections.
+                    connection.execute("BEGIN IMMEDIATE")
+                fresh: list[Mapping[str, Any]] = []
+                joined: list[str] = []
+                for item in item_rows:
+                    # Match by what each waiting item would now create (fix
+                    # round 2, verify 20261021-114726-Jrt7sA item 5): the
+                    # payload editor can change a waiting item's ``id`` while
+                    # its ``client_item_id`` keeps the old one, so the stale
+                    # client id would join the wrong proposal (or miss the
+                    # renamed one). Read under the same write lock as the insert.
+                    identity = _proposal_item_identity(
+                        item.get("client_item_id"), item.get("payload"), item.get("edited_payload")
+                    )
+                    waiting = next(
+                        (
+                            row
+                            for row in connection.execute(
+                                """
+                                SELECT proposed_patch_id, client_item_id, payload_json, edited_payload_json
+                                  FROM proposed_patch_items
+                                 WHERE item_type = ? AND operation = ? AND decision = 'pending'
+                                 ORDER BY created_at, id
+                                """,
+                                (item["item_type"], item["operation"]),
+                            ).fetchall()
+                            if _proposal_item_identity(
+                                row["client_item_id"],
+                                _loads(row["payload_json"], None),
+                                _loads(row["edited_payload_json"], None),
+                            )
+                            == identity
+                        ),
+                        None,
+                    )
+                    if waiting is None:
+                        fresh.append(item)
+                    elif str(waiting["proposed_patch_id"]) not in joined:
+                        joined.append(str(waiting["proposed_patch_id"]))
+                ref = dict(join_pending)
+                for patch_id in joined:
+                    current = connection.execute(
+                        "SELECT source_refs_json FROM proposed_patches WHERE id = ?", (patch_id,)
+                    ).fetchone()
+                    refs = _loads(current["source_refs_json"], []) if current is not None else []
+                    if ref not in refs:
+                        connection.execute(
+                            "UPDATE proposed_patches SET source_refs_json = ?, updated_at = ? WHERE id = ?",
+                            (_json([*refs, ref]), batch.get("updated_at", batch["created_at"]), patch_id),
+                        )
+                if joined and not fresh:
+                    connection.commit()
+                    return joined[0]
+                item_rows = fresh
             connection.execute(
                 """
                 INSERT INTO proposed_patches(

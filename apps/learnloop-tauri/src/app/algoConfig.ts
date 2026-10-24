@@ -21,6 +21,9 @@ export interface AlgoDisplayConfig {
    *  simple practice card, feedback, short-check results, repair step and
    *  session finish, or "classic" for the screens exactly as they were. */
   practiceFeedback: "simple" | "classic";
+  /** UX Phase 2's kill switch (`[ui] shell`, display only): the four-place
+   *  shell, or "classic" for the ten-tab shell exactly as it was. */
+  shell: "simple" | "classic";
   /** Reader workbench RW2a's kill switch (`workbench.enabled`): the sidecar
    *  sends a `workbench` key only while it is on, so false until it says so,
    *  and off leaves every screen exactly as before RW2a. */
@@ -47,7 +50,18 @@ export interface AlgoDisplayConfig {
    *  sidecar sends `workbench.help` only while it is on, so null until it
    *  says so, and null leaves the workbench exactly as RW2a drew it. The
    *  ladder's hints need the hint service too (`adaptiveHints`). */
-  workbenchHelp: { bridge: boolean; symbolic: boolean } | null;
+  workbenchHelp: WorkbenchHelpConfig | null;
+}
+
+export interface WorkbenchHelpConfig {
+  bridge: boolean;
+  symbolic: boolean;
+  /** Reader RW2c's switches (`workbench.examples_enabled`,
+   *  `.compare_methods_enabled`, `.passage_draw_enabled`): each key is present
+   *  only while the sidecar sends it on, so off the config is RW2b's. */
+  examples?: true;
+  compareMethods?: true;
+  passageDraw?: true;
 }
 
 export type HelpStyleValue = "let_me_struggle" | "balanced" | "guide_me";
@@ -66,6 +80,7 @@ const DEFAULTS: AlgoDisplayConfig = {
   gateScoreThreshold: 0.5,
   stuckPrompt: false,
   practiceFeedback: "simple",
+  shell: "simple",
   workbench: false,
   recap: false,
   wrapUp: false,
@@ -76,14 +91,16 @@ const DEFAULTS: AlgoDisplayConfig = {
 };
 
 let current: AlgoDisplayConfig = { ...DEFAULTS };
+// The shell the App draws (fix round 6; see `activeShell` below).
+let renderedShell: "simple" | "classic" | null = null;
 
 export function setAlgoConfig(config: unknown): void {
   const root = (config ?? {}) as {
     mastery?: { displayStrongThreshold?: unknown; displayDevelopingThreshold?: unknown };
     scheduler?: { followup?: { tauFollowupNats?: unknown; gateScoreThreshold?: unknown } };
     practice?: { stuckPrompt?: unknown };
-    ui?: { practiceFeedback?: unknown };
-    workbench?: { enabled?: unknown; help?: { enabled?: unknown; bridge?: unknown; symbolic?: unknown } };
+    ui?: { practiceFeedback?: unknown; shell?: unknown };
+    workbench?: { enabled?: unknown; help?: { enabled?: unknown; bridge?: unknown; symbolic?: unknown; examples?: unknown; compareMethods?: unknown; passageDraw?: unknown } };
     recap?: { enabled?: unknown; wrapUpEnabled?: unknown };
     hints?: { adaptiveEnabled?: unknown; authoredOfferAfterSeconds?: unknown; helpStyle?: unknown };
     adaptiveDifficulty?: { ratingTap?: unknown; firstHintProgress?: unknown };
@@ -96,6 +113,7 @@ export function setAlgoConfig(config: unknown): void {
     stuckPrompt: root.practice?.stuckPrompt === true,
     // The sidecar's default; only its other value turns it off.
     practiceFeedback: root.ui?.practiceFeedback === "classic" ? "classic" : "simple",
+    shell: root.ui?.shell === "classic" ? "classic" : "simple",
     workbench: root.workbench?.enabled === true,
     recap: root.recap?.enabled === true,
     wrapUp: root.recap?.wrapUpEnabled === true,
@@ -108,9 +126,16 @@ export function setAlgoConfig(config: unknown): void {
     ratingTap: root.adaptiveDifficulty?.ratingTap === true,
     firstHintProgress: root.adaptiveDifficulty?.firstHintProgress === true,
     workbenchHelp: root.workbench?.enabled === true && root.workbench.help?.enabled === true
-      ? { bridge: root.workbench.help.bridge === true, symbolic: root.workbench.help.symbolic === true }
+      ? {
+          bridge: root.workbench.help.bridge === true, symbolic: root.workbench.help.symbolic === true,
+          ...(root.workbench.help.examples === true ? { examples: true as const } : {}),
+          ...(root.workbench.help.compareMethods === true ? { compareMethods: true as const } : {}),
+          ...(root.workbench.help.passageDraw === true ? { passageDraw: true as const } : {})
+        }
       : null
   };
+  // A new snapshot names the shell again; the App mirrors what it draws next.
+  renderedShell = null;
   for (const listener of listeners) listener();
 }
 
@@ -165,4 +190,21 @@ function asNumber(value: unknown, fallback: number): number {
  *  gates every symbolic mark with it (AND each view's own symbolicEnabled). */
 export function useSymbolicChecksLive(): boolean {
   return useSyncExternalStore(subscribeAlgoConfig, () => current.workbenchHelp?.symbolic === true);
+}
+
+// ── The shell on screen (UX Phase 2 fix round 6) ──────────────────────────
+// Before the library's snapshot has named a shell the App draws the base
+// (classic) shell, but this module's default is the sidecar's (simple). The
+// App mirrors the shell it actually draws here, so what follows the drawn
+// shell (key scopes, the screens' target rule) is classic in the loading and
+// startup-error frames. Unset (no App mounted: a screen rendered on its own),
+// it is the config's shell.
+
+export function setRenderedShell(shell: "simple" | "classic" | null): void {
+  renderedShell = shell;
+}
+
+/** The shell on screen: what the App draws, else the config's. */
+export function activeShell(): "simple" | "classic" {
+  return renderedShell ?? current.shell;
 }

@@ -15,6 +15,7 @@ import { RepairTraceBlocks } from "../components/RepairTrace";
 import { masteryTone } from "../app/algoConfig";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { MathLiveEditor } from "../render/MathLiveEditor";
+import { screenLeavesKey } from "../app/keymap";
 
 type Phase = "loading" | "error" | "exam" | "finishing" | "report";
 
@@ -137,6 +138,7 @@ export function ExamScreen({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
       const ctrl = event.ctrlKey || event.metaKey;
       if (phase === "exam" && ctrl && event.key === "Enter") {
         event.preventDefault();

@@ -3,13 +3,13 @@ title: "exam_pool_items"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "87c9b9a4a94630287dd2e9fa6ecb7cd6544f9f1a"
-source_commit_timestamp: "2026-10-21T10:09:53-04:00"
+source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
+source_commit_timestamp: "2026-10-24T10:03:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite exam_pool_items"
   - "table exam_pool_items"
-schema_head: 217
+schema_head: 218
 table_name: "exam_pool_items"
 table_role: "workflow"
 functionality_status: "active"
@@ -105,6 +105,7 @@ Indexes and uniqueness:
 - `src/learnloop/goals/exam_session.py`
 - `src/learnloop/learner_protection.py`
 - `src/learnloop/scheduling/controller_ownership.py`
+- `src/learnloop/workbench/compare_methods.py`
 - `src/learnloop_sidecar/handlers/goals.py`
 
 > [!note] Static-reference boundary
