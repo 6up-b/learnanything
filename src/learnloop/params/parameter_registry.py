@@ -198,6 +198,16 @@ MODULE_INVENTORY: dict[str, str] = {
     # still honest, so they are decision parameters rather than magic numbers.
     "conjunctive_items": "src/learnloop/content/authoring/conjunctive_items.py",
     "clarification": "src/learnloop/attempts/clarification.py",
+    # Local contextual retrieval P1 (spec_local_contextual_retrieval_v1 §9.5,
+    # §9.6): the local space's pins and guardrails, the window rule, the
+    # fallback client's limits and the fusion core's numerical budgets. No
+    # ranking weight or margin is a constant here: those are learned (fusion).
+    "local_pins": "src/learnloop/local_embeddings/pins.py",
+    "local_fusion": "src/learnloop/local_embeddings/fusion.py",
+    "source_windows": "src/learnloop/source_retrieval/windows.py",
+    "fallback_space": "src/learnloop/source_retrieval/fallback_space.py",
+    "local_index": "src/learnloop/source_retrieval/local_index.py",
+    "voyage_contextual": "src/learnloop/ai/providers/voyage_contextual.py",
 }
 
 # Runtime imports are derived from the same source inventory so a module move
@@ -235,6 +245,76 @@ def _reg_const(
         )
     )
 
+
+# Local contextual retrieval P1 module constants (all keep: identities, guardrails, budgets).
+_reg_const("local_pins:MODEL_DIMENSIONS", "version", kind="structural", owner="local_pins",
+           rationale="keep: the pinned model's output width (identity: a change is a new space).")
+_reg_const("local_pins:DOWNLOAD_FREE_DISK_GIB", "constraint", kind="structural", owner="local_pins",
+           rationale="keep: disk guardrail for the owner-run 33.6 GB download (files plus partial copies).")
+_reg_const("local_pins:MIN_HOST_AVAILABLE_GIB", "operational", kind="structural", owner="local_pins",
+           rationale="keep: memory floor the 9B worker needs to start (E1 measured; oomd killed the owner's terminal three times).")
+_reg_const("local_pins:MIN_FREE_VRAM_GIB", "operational", kind="structural", owner="local_pins",
+           rationale="keep: free-VRAM floor the 9B worker needs to start (E1 measured 18.4 GB reserved at peak).")
+_reg_const("local_pins:MAX_OTHER_GPU_PROCESS_MIB", "operational", kind="structural", owner="local_pins",
+           rationale="keep: the workload rule (owner, 2026-10-23): the owner's desktop GPU use comes first.")
+_reg_const("local_pins:MAX_OTHER_GPU_TOTAL_MIB", "operational", kind="structural", owner="local_pins",
+           rationale="keep: the workload rule (owner, 2026-10-23): the owner's desktop GPU use comes first.")
+_reg_const("local_pins:MAX_GPU_UTILIZATION_PCT", "operational", kind="structural", owner="local_pins",
+           rationale="keep: the workload rule (owner, 2026-10-23): no load while the GPU is busy.")
+_reg_const("local_pins:HOST_FLOOR_GIB", "operational", kind="structural", owner="local_pins",
+           rationale="keep: runtime abort floor protecting the owner's session inside the scope's limit.")
+_reg_const("local_pins:DEVICE_PEAK_TARGET_GIB", "operational", kind="structural", owner="local_pins",
+           rationale="keep: runtime abort above the 20 GiB device target on the shared GPU.")
+_reg_const("local_pins:SAMPLE_INTERVAL_S", "operational", kind="structural", owner="local_pins",
+           rationale="keep: the worker sampler's period (operational).")
+_reg_const("local_pins:HEARTBEAT_GRACE_S", "version", kind="structural", owner="local_pins",
+           rationale="keep: how long a silent worker is still charged to the GPU meter (operational).")
+_reg_const("local_pins:KILL_GRACE_S", "operational", kind="structural", owner="local_pins",
+           rationale="keep: SIGTERM-to-SIGKILL grace for the worker the caller started (operational).")
+_reg_const("local_pins:MAX_DOCUMENT_TOKENS", "version", kind="structural", owner="local_pins",
+           rationale="keep: the longest window the worker encodes, by the model's own count; never a truncation.")
+_reg_const("local_pins:INDEX_BATCH_SIZE", "version", kind="structural", owner="local_pins",
+           rationale="keep: one window per forward pass (padding never enters the index; identity).")
+_reg_const("local_pins:QUERY_BATCH_SIZE", "version", kind="structural", owner="local_pins",
+           rationale="keep: one query per forward pass (identity).")
+_reg_const("local_pins:BATCH_INVARIANCE_MIN_COS", "version", kind="structural", owner="local_pins",
+           rationale="keep: smoke check: padding and batch invariance (E1 measured 0.99991); an identity check, not quality.")
+_reg_const("local_pins:CONTEXT_SENSITIVITY_MAX_COS", "version", kind="structural", owner="local_pins",
+           rationale="keep: smoke check: a chunk in two contexts must differ (the model is contextual); identity.")
+_reg_const("local_pins:CANARY_MIN_COS", "version", kind="structural", owner="local_pins",
+           rationale="keep: canary identity check (E1 measured invariance at 0.99991): below it the computation changed (epoch drift).")
+_reg_const("local_pins:PROFILE_TOKENS", "version", kind="structural", owner="local_pins",
+           rationale="keep: P0 profiling sizes (2k/4k/8k), measurement points, not decisions.")
+_reg_const("local_pins:PROFILE_REPEATS", "version", kind="structural", owner="local_pins",
+           rationale="keep: repeats per profiling size (measurement).")
+_reg_const("local_fusion:NEWTON_STEPS", "numerical", kind="structural", owner="local_fusion",
+           rationale="keep: the MAP fit's iteration ceiling (numerical, not a model parameter).")
+_reg_const("local_fusion:NEWTON_TOLERANCE", "numerical", kind="structural", owner="local_fusion",
+           rationale="keep: the MAP fit's convergence tolerance (numerical).")
+_reg_const("local_fusion:PROPENSITY_DRAWS", "numerical", kind="structural", owner="local_fusion",
+           rationale="keep: Monte Carlo draws behind an explored delivery's propensities (a computation budget).")
+_reg_const("local_fusion:RRF_K_GRID", "numerical", kind="structural", owner="local_fusion",
+           rationale="keep: octave grid around the seeded rrf_k searched by marginal likelihood (resolution of the search, not a weight).")
+_reg_const("source_windows:WINDOW_TOKENS", "version", kind="structural", owner="source_windows",
+           rationale="keep: the window rule's identity (w4096-section-policy-v1; E0's corpus rule): a change is a new space.")
+_reg_const("source_windows:CHUNK_MARKER_TOKENS", "version", kind="structural", owner="source_windows",
+           rationale="keep: tokens counted per chunk marker inside a window (the window rule's identity).")
+_reg_const("source_windows:MAX_DOCUMENT_TOKENS", "version", kind="structural", owner="source_windows",
+           rationale="keep: a block alone above this estimate is split by offsets (the window rule's identity).")
+_reg_const("fallback_space:MAX_RETRIES", "operational", kind="structural", owner="fallback_space",
+           rationale="keep: retries a capped fallback backfill reserves room for (the Qwen backfill's); spend stays under max_cost_usd_per_run.")
+_reg_const("local_index:PROFILE_POOL_FACTOR", "operational", kind="structural", owner="local_index",
+           rationale="keep: the P0 profile pool's estimated size per target (E1 measured 0.68 model tokens per estimated token); the worker fits the true size by its own count, so this only guarantees enough text.")
+_reg_const("voyage_contextual:MAX_INPUTS_PER_REQUEST", "constraint", kind="structural", owner="voyage_contextual",
+           rationale="keep: Voyage's documented inputs per request (provider limit).")
+_reg_const("voyage_contextual:MAX_CHUNKS_PER_REQUEST", "constraint", kind="structural", owner="voyage_contextual",
+           rationale="keep: Voyage's documented chunks per request (provider limit).")
+_reg_const("voyage_contextual:MAX_TOKENS_PER_REQUEST", "constraint", kind="structural", owner="voyage_contextual",
+           rationale="keep: Voyage's documented tokens per request (provider limit).")
+_reg_const("voyage_contextual:MAX_TOKENS_PER_DOCUMENT", "constraint", kind="structural", owner="voyage_contextual",
+           rationale="keep: Voyage's documented tokens per chunk (provider limit).")
+_reg_const("voyage_contextual:REQUEST_TIMEOUT_S", "constraint", kind="structural", owner="voyage_contextual",
+           rationale="keep: one request's timeout when no retrieval time box applies (operational).")
 
 # probe_families
 _reg_const("probe_families:ORDINAL_VOCABULARY", "likelihood", owner="probe_families",
@@ -1213,6 +1293,18 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "tutor context token budget / automatic source-block embedding backfill dollar cap; context and "
         "spend bounds, no measurement authority (delivery is context for one answer; vectors rank retrieval "
         "candidates only)."),
+    # Local contextual retrieval P1 (spec_local_contextual_retrieval_v1 §9.6):
+    # the local index batch wait, the fallback's per-run spend cap and its
+    # published price. All keep: an operational default the owner tunes, the
+    # owner's spending authority and a measured provider rate; none ranks.
+    _ConfigRule(_exact(
+        "embedding.local.index_batch_minutes",
+        "embedding.fallback.max_cost_usd_per_run",
+        "embedding.fallback.price_per_million",
+    ), "structural", "operational",
+        "keep: the local index batch wait (how soon a new book is indexed, never ranking) / the Voyage fallback "
+        "backfill's dollar cap per run (the owner's spending authority) / Voyage's published price per million "
+        "tokens, admitted in full; no measurement or serving authority."),
     _ConfigRule(_prefix("project."), "structural", "operational",
                 "Project-understanding M1 knob (probe delay/count, context window, sweep "
                 "throttle); it acts only on the standalone projects/project_store.sqlite, "

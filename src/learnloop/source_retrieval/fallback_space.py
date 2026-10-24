@@ -35,6 +35,11 @@ import numpy as np
 from learnloop.ai.embedding import embedding_request_timeout
 from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
 from learnloop.ai.execution import observe_model_calls
+from learnloop.ai.providers.voyage_contextual import (
+    MAX_CHUNKS_PER_REQUEST,
+    MAX_INPUTS_PER_REQUEST,
+    MAX_TOKENS_PER_REQUEST,
+)
 from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded
 from learnloop.config.schema import VOYAGE_CONTEXTUAL_PROFILE_TYPE, LearnLoopConfig
 from learnloop.db.connection import connect
@@ -64,10 +69,9 @@ QUERY_RECORD_KIND = "source_query"
 QUERY_TASK_PREFIX = "retrieval-query"
 #: The backfill job (its own ingest batch, like ``source_embedding_backfill``).
 FALLBACK_JOB = "source_fallback_backfill"
-#: keep (provider limit): a request's documents (windows), chunks and token bound.
-MAX_WINDOWS_PER_REQUEST = 1_000
-MAX_CHUNKS_PER_REQUEST = 16_000
-MAX_TOKENS_PER_REQUEST = 120_000
+#: keep (provider limits, the client's): windows, chunks and tokens per request.
+MAX_WINDOWS_PER_REQUEST = MAX_INPUTS_PER_REQUEST
+#: keep (operational): retries a capped backfill reserves room for (the Qwen backfill's).
 MAX_RETRIES = 2
 
 

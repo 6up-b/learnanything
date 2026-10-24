@@ -236,7 +236,7 @@ def source_coverage(vault: LoadedVault, repository: Repository) -> dict[str, Any
                                    "the others rank by keyword only")
     else:
         effective, reason = True, "every source has a complete set of block vectors"
-    return {
+    report = {
         "model_id": model_id, "effective": effective, "reason": reason, "switches": switches,
         "auto_backfill": auto_backfill_reason(config) or "on",
         "sources": sources,
@@ -244,6 +244,38 @@ def source_coverage(vault: LoadedVault, repository: Repository) -> dict[str, Any
                    "blocks": sum(source["blocks"] for source in sources),
                    "covered": sum(source["covered"] for source in sources)},
     }
+    from learnloop.source_retrieval.spaces import resolver_active
+
+    if resolver_active(config):
+        # Local contextual retrieval P1: the new spaces, only while one is on.
+        report["source_spaces"] = source_spaces_note(vault, repository)
+    return report
+
+
+def source_spaces_note(vault: LoadedVault, repository: Repository) -> dict[str, Any]:
+    """Doctor's per-space note: the local spaces' cache and canaries, the
+    fallback's switch and coverage, and the feedback receipts' counts."""
+
+    from learnloop.source_retrieval.fallback_space import coverage as fallback_coverage
+    from learnloop.source_retrieval.fallback_space import fallback_reason
+    from learnloop.source_retrieval.feedback import feedback_summary
+    from learnloop.source_retrieval.local_index import coverage_report
+    from learnloop.source_retrieval.windows import windows_by_extraction
+
+    note: dict[str, Any] = {"local": coverage_report(vault, repository), "default": vault.config.embedding.source_space.default,
+                            "learned_fusion": vault.config.embedding.source_space.learned_fusion,
+                            "exploration": vault.config.embedding.source_space.exploration}
+    reason = fallback_reason(vault.config)
+    if reason is None:
+        extractions = sorted(current_extractions(repository))
+        windows = windows_by_extraction(vault, repository, extractions, ("grouped",))
+        covered = fallback_coverage(vault, repository, extractions,
+                                    lambda extraction_id: windows[(extraction_id, "grouped")])
+        note["fallback"] = {"enabled": True, "covered_sources": len(covered), "sources": len(extractions)}
+    else:
+        note["fallback"] = {"enabled": False, "reason": reason}
+    note["feedback"] = feedback_summary(repository)
+    return note
 
 
 def coverage_line(coverage: Mapping[str, Any]) -> str:
@@ -251,10 +283,26 @@ def coverage_line(coverage: Mapping[str, Any]) -> str:
 
     totals = coverage.get("totals") or {}
     state = "on" if coverage.get("effective") else "off"
-    return (f"Dense source retrieval: {state} ({coverage.get('reason')}); "
+    line = (f"Dense source retrieval: {state} ({coverage.get('reason')}); "
             f"{totals.get('complete', 0)} of {totals.get('sources', 0)} sources complete, "
             f"{totals.get('covered', 0)} of {totals.get('blocks', 0)} blocks embedded "
             f"({coverage.get('model_id')}); automatic backfill after extraction: {coverage.get('auto_backfill')}.")
+    spaces = coverage.get("source_spaces")
+    if not spaces:
+        return line
+    local = spaces.get("local") or {}
+    if local.get("enabled"):
+        parts = [f"{name} {row['covered_sources']}/{row['sources']} sources ({row['status']}, canaries "
+                 f"{row['canaries']})" for name, row in sorted((local.get("spaces") or {}).items())]
+        local_text = "; ".join(parts)
+    else:
+        local_text = f"off ({local.get('reason')})"
+    fallback = spaces.get("fallback") or {}
+    fallback_text = (f"{fallback.get('covered_sources')}/{fallback.get('sources')} sources" if fallback.get("enabled")
+                     else f"off ({fallback.get('reason')})")
+    weights = "learned" if spaces.get("learned_fusion") else f"seed (full weight on {spaces.get('default')})"
+    return (line + f"\nSource spaces: local {local_text}; Voyage fallback {fallback_text}; serving weights {weights}; "
+            f"exploration {'on' if spaces.get('exploration') else 'off'}.")
 
 
 __all__ = [

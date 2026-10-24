@@ -357,6 +357,23 @@ def explore(order: Sequence[str], features: Mapping[str, np.ndarray], posterior:
     return served, info
 
 
+def refit_posteriors(vault: Any, repository: Any) -> dict[str, Any]:
+    """Recompute ``retrieval_fusion_posteriors`` from every feedback row, in
+    order (the replayer's body and ``learnloop embeddings fusion refit``)."""
+
+    from learnloop.db.stores.retrieval_spaces import feedback_rows, has_tables, replace_fusion_posteriors
+
+    with repository.connection() as connection:
+        if not has_tables(connection):
+            return {"written": 0, "rows": 0}
+        rows = feedback_rows(connection)
+        fitted = refit(rows, default=vault.config.embedding.source_space.default,
+                       rrf_k_seed=float(vault.config.source_retrieval.rrf_k))
+        written = replace_fusion_posteriors(connection, fitted)
+    return {"written": written, "rows": len(rows), "contexts": [row["context_key"] for row in fitted],
+            "signals": sum(int(row["signals"]) for row in fitted if row["context_key"] == GLOBAL)}
+
+
 def rng_seed(receipt_id: str) -> int:
     """The draw's seed, keyed by the query receipt (a replay is reproducible)."""
 
@@ -365,4 +382,4 @@ def rng_seed(receipt_id: str) -> int:
 
 __all__ = ["FIT_VERSION", "GLOBAL", "PRIOR_BASIS", "SIGNAL_TYPES", "SPACE_LISTS", "examination_seed", "explore",
            "feature_row", "fit_examination", "learned_weights", "parse_feedback", "posterior_for", "refit",
-           "rng_seed", "seed_weights"]
+           "refit_posteriors", "rng_seed", "seed_weights"]

@@ -183,6 +183,11 @@ DERIVED_STATE_REPLAYERS: tuple[DerivedStateReplayer, ...] = (
     DerivedStateReplayer(
         "retrieval_intervention_outcomes", frozenset({"retrieval_intervention_outcomes"}), ("learning_state",),
     ),
+    # Local contextual retrieval P1a (migration 219): the fusion posterior per
+    # context, refitted from the append-only retrieval_feedback receipts in
+    # order (deterministic: no random step, fitted_at from the inputs). It
+    # reads receipts only, never learner state, and changes no evidence.
+    DerivedStateReplayer("retrieval_fusion_posteriors", frozenset({"retrieval_fusion_posteriors"})),
 )
 
 # A shorter public alias is useful to introspection/CI without obscuring the
@@ -548,6 +553,17 @@ def _run_retrieval_intervention_outcomes(
                           rows_processed=report["written"], details=report)
 
 
+def _run_retrieval_fusion_posteriors(
+    spec: DerivedStateReplayer, context: _ReplayContext
+) -> ReplayerResult:
+    from learnloop.local_embeddings.fusion import refit_posteriors
+
+    # Whole-vault: one learner's signals are pooled across every context.
+    report = refit_posteriors(context.vault, context.repository)
+    return ReplayerResult(spec.name, tuple(sorted(spec.owned_tables)),
+                          rows_processed=report["written"], details=report)
+
+
 _RUNNERS = {
     "activity_substrate": _run_activity_substrate,
     "recurrence_groups": _run_recurrence_groups,
@@ -560,6 +576,7 @@ _RUNNERS = {
     "source_block_fts": _run_source_block_fts,
     "router_outcomes": _run_router_outcomes,
     "retrieval_intervention_outcomes": _run_retrieval_intervention_outcomes,
+    "retrieval_fusion_posteriors": _run_retrieval_fusion_posteriors,
 }
 
 

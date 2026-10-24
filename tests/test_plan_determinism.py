@@ -595,7 +595,7 @@ def test_replay_never_reads_the_switch(tmp_path):
 
     from tests.helpers import _set_algorithm_version_at
 
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_218"
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_219"
     clock = FrozenClock(datetime(2026, 10, 14, 12, 0, tzinfo=_UTC))
     root = tmp_path / "head"
     copy_tree_with_databases(head, root)

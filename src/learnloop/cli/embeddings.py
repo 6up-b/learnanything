@@ -329,3 +329,183 @@ def embeddings_adjudicate(
         raise typer.Exit(code=130)
     if report["status"] not in {"dry_run", "complete"}:
         raise typer.Exit(code=1)
+
+
+# -- Local contextual retrieval P0/P1a/P1b (spec_local_contextual_retrieval_v1) -----------
+local_app = typer.Typer(no_args_is_help=True, help="The local pplx v2 9B source space (owner-run, off by default).")
+embeddings_app.add_typer(local_app, name="local")
+fallback_app = typer.Typer(no_args_is_help=True, help="The hosted Voyage fallback source space (opt-in, capped).")
+embeddings_app.add_typer(fallback_app, name="fallback")
+fusion_app = typer.Typer(no_args_is_help=True, help="The learned fusion of source spaces (logged; seed weights serve).")
+embeddings_app.add_typer(fusion_app, name="fusion")
+
+
+def _vault_and_repository(vault: Path, *, write: bool):
+    from learnloop.cli.receipts import bind_command_repository, bind_command_vault
+    from learnloop.db.repositories import Repository
+    from learnloop.vault.paths import VaultPaths
+    from learnloop.vault.repository import open_vault_repository
+
+    if not (vault / "learnloop.toml").is_file():
+        raise ValueError("--vault must name a vault containing learnloop.toml")
+    loaded = load_vault(vault)
+    bind_command_vault(loaded.root)
+    sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
+    if not write:
+        return loaded, Repository.attach(sqlite_path, read_only=True)
+    repository = open_vault_repository(loaded.root, sqlite_path)
+    bind_command_repository(repository)
+    return loaded, repository
+
+
+def _emit(report: dict, json_output: bool, ok: frozenset[str]) -> None:
+    typer.echo(json.dumps(report, sort_keys=True, default=str, indent=None if json_output else 2))
+    if report.get("status") not in ok:
+        raise typer.Exit(code=1)
+
+
+@local_app.command("setup")
+def local_setup(
+    data_root: Annotated[Path | None, typer.Option("--data-root", help="Default ~/.local/share/learnloop.")] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show the paths, pins and disk check; start nothing.")] = False,
+    download: Annotated[bool, typer.Option(
+        "--i-understand-this-downloads-33-gb", help="Required to create the env and download the model.")] = False,
+    adopt_model_dir: Annotated[Path | None, typer.Option(
+        "--adopt-model-dir", help="Record an existing model directory (verified; nothing moved).")] = None,
+    adopt_env_python: Annotated[Path | None, typer.Option(
+        "--adopt-env-python", help="Record an existing environment's interpreter (nothing moved).")] = None,
+    skip_weight_digests: Annotated[bool, typer.Option(
+        "--skip-weight-digests", help="Check shard sizes only (the remote code is always hashed).")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Create the separate environment, download the pinned model and verify it (owner-run).
+
+    Only this command creates ~/.local/share/learnloop/{envs,models}. Then set
+    embedding.local.enabled = true in the vault and run `embeddings local index`."""
+
+    from learnloop.local_embeddings.setup import run_setup, setup_plan
+
+    try:
+        if dry_run:
+            report = {"status": "dry_run", **setup_plan(data_root)}
+        else:
+            adopting = adopt_model_dir is not None
+            if not adopting and not download:
+                raise ValueError("pass --i-understand-this-downloads-33-gb (or --adopt-model-dir); run --dry-run first")
+            report = run_setup(root=data_root, adopt_model_dir=adopt_model_dir, adopt_env_python=adopt_env_python,
+                               verify_weights=not skip_weight_digests)
+    except (ValueError, RuntimeError, OSError) as exc:
+        report = {"status": "invalid", "reason": str(exc)}
+    _emit(report, json_output, frozenset({"dry_run", "ready"}))
+
+
+@local_app.command("index")
+def local_index(
+    vault: Annotated[Path, typer.Option("--vault", help="Explicit vault root.")],
+    now: Annotated[bool, typer.Option("--now", help="Ignore the batch wait (embedding.local.index_batch_minutes).")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Count the owed windows; launch nothing.")] = False,
+    data_root: Annotated[Path | None, typer.Option("--data-root")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Index every owed window (grouped and singleton) in ONE capped 9B worker batch.
+
+    The worker runs in its own systemd scope (MemoryMax=12G, swap 0) under the
+    GPU and full-suite locks and refuses to start under the memory and GPU
+    floors; waiting is not a failure."""
+
+    from learnloop.source_retrieval.local_index import run_local_index
+
+    try:
+        loaded, repository = _vault_and_repository(vault, write=not dry_run)
+        report = run_local_index(loaded, repository, root=data_root, force=now, dry_run=dry_run)
+    except ValueError as exc:
+        report = {"status": "invalid", "reason": str(exc)}
+    _emit(report, json_output, frozenset({"complete", "dry_run", "waiting_for_gpu", "waiting_for_batch"}))
+
+
+@local_app.command("profile")
+def local_profile(
+    vault: Annotated[Path, typer.Option("--vault", help="A vault copy whose teaching text fills the windows.")],
+    extraction_id: Annotated[str, typer.Option("--extraction-id", help="The source extraction to profile on.")],
+    tokens: Annotated[list[int] | None, typer.Option("--tokens", help="Sizes by the model's own count (repeatable).")] = None,
+    data_root: Annotated[Path | None, typer.Option("--data-root")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """P0: the true 8,192-token profile (one metered worker; nothing indexed).
+
+    Windows are fitted by the model's own tokenizer (E1's were estimates and
+    reached 5,603 tokens). Teaching text only; aggregates only in the output."""
+
+    from learnloop.source_retrieval.local_index import run_profile
+
+    try:
+        loaded, repository = _vault_and_repository(vault, write=False)
+        report = run_profile(loaded, repository, extraction_id, root=data_root,
+                             **({"sizes": tuple(tokens)} if tokens else {}))
+    except ValueError as exc:
+        report = {"status": "invalid", "reason": str(exc)}
+    _emit(report, json_output, frozenset({"complete"}))
+
+
+@local_app.command("status")
+def local_status(
+    vault: Annotated[Path, typer.Option("--vault", help="Explicit vault root.")],
+    data_root: Annotated[Path | None, typer.Option("--data-root")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Per local space: cache rows, covered sources, epoch and canary status."""
+
+    from learnloop.source_retrieval.local_index import coverage_report
+
+    try:
+        loaded, repository = _vault_and_repository(vault, write=False)
+        report = {"status": "ok", **coverage_report(loaded, repository, data_root)}
+    except ValueError as exc:
+        report = {"status": "invalid", "reason": str(exc)}
+    _emit(report, json_output, frozenset({"ok"}))
+
+
+@fallback_app.command("backfill")
+def fallback_backfill(
+    vault: Annotated[Path, typer.Option("--vault", help="Explicit vault root; use a fixtures-local copy.")],
+    extraction_id: Annotated[list[str] | None, typer.Option(
+        "--extraction-id", help="Repeatable; default every current extraction.")] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Windows, requests and the dollar bound; send nothing.")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Embed the Voyage fallback space's missing windows (each source capped at
+    embedding.fallback.max_cost_usd_per_run, admitted at the full price)."""
+
+    from learnloop.source_retrieval.corpus import current_extractions
+    from learnloop.source_retrieval.fallback_space import backfill_fallback_vectors
+
+    try:
+        loaded, repository = _vault_and_repository(vault, write=not dry_run)
+        targets = list(extraction_id or sorted(current_extractions(repository)))
+        with _cancellation() as stop:
+            reports = [backfill_fallback_vectors(loaded, repository, target, cancelled=stop.is_set, dry_run=dry_run)
+                       for target in targets]
+        statuses = {report["status"] for report in reports}
+        status = ("dry_run" if dry_run else "complete" if statuses <= {"complete"} else
+                  "disabled" if statuses == {"disabled"} else "incomplete")
+        report = {"status": status, "sources": reports}
+    except ValueError as exc:
+        report = {"status": "invalid", "reason": str(exc)}
+    _emit(report, json_output, frozenset({"dry_run", "complete"}))
+
+
+@fusion_app.command("refit")
+def fusion_refit(
+    vault: Annotated[Path, typer.Option("--vault", help="Explicit vault root.")],
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Refit the fusion posterior from the feedback receipts (no model call)."""
+
+    from learnloop.local_embeddings.fusion import refit_posteriors
+
+    try:
+        loaded, repository = _vault_and_repository(vault, write=True)
+        report = {"status": "complete", **refit_posteriors(loaded, repository)}
+    except ValueError as exc:
+        report = {"status": "invalid", "reason": str(exc)}
+    _emit(report, json_output, frozenset({"complete"}))

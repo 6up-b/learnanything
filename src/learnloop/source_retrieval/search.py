@@ -520,7 +520,8 @@ def _resolved_meaning(vault: LoadedVault, repository: Repository, scope: Scope, 
     space ranks its own extractions, the rankings fuse by rank. With Qwen the
     only contributor the lists are exactly today's."""
 
-    from learnloop.source_retrieval import feedback, fusion
+    from learnloop.local_embeddings import fusion
+    from learnloop.source_retrieval import feedback
     from learnloop.source_retrieval.spaces import meaning_lists, resolve_source_spaces, space_ranks
 
     resolution = resolve_source_spaces(vault, repository, scope, consumer=consumer, query_kind=kind,

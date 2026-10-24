@@ -96,9 +96,7 @@ CANARY_MIN_COS = 0.999
 #: P0: the true 8,192-token profile (sizes by the model's own token count).
 PROFILE_TOKENS = (2048, 4096, 8192)
 PROFILE_REPEATS = 3
-#: keep (operational, §9.6): an index batch waits until its oldest owed
-#: extraction is this old, so a burst of re-extractions loads the 9B once.
-INDEX_BATCH_MINUTES = 15.0
+#: The index batch wait is ``embedding.local.index_batch_minutes`` (config, keep).
 
 #: Public text only (no vault text): the smoke checks and the fixed canary set.
 SMOKE_CONTEXT = {

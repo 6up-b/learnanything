@@ -1,8 +1,8 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-218 (214 is held by adaptive difficulty AD2+AD3 on its own branch; the
-runner has no contiguity rule, so this fixture has 215, 216, 217 and 218 but
+219 (214 is held by adaptive difficulty AD2+AD3 on its own branch; the
+runner has no contiguity rule, so this fixture has 215, 216, 217, 218 and 219 but
 no 214). Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
@@ -233,6 +233,25 @@ pick rank, retrieval ranks and proposed roles) and `reader_cue_impressions`
 (RECEIPT: one row per visit and cue, shown or not with its reason, the
 holdout's seed and propensity, `p_open` and its source, and the learner's
 first response, written once by trigger). Both tables are empty here.
+
+Migration 219 comes from local contextual retrieval P1a/P1b
+(`retrieval/local-p1`, docs/reviews/retrieval-local-p1.md,
+spec_local_contextual_retrieval_v1 §4.4, §9.2): it adds `embedding_spaces`
+(WORKFLOW: each embedding space a vault has used for source retrieval, its
+pins, status and stored canaries), `retrieval_feedback` (RECEIPT, append-only
+by trigger: one `query` row per logged search, one `delivered` row per span,
+and the `cited` / `opened` / `anchored` signals naming the query receipt they
+answer) and `retrieval_fusion_posteriors` (DERIVED, one replayer
+`retrieval_fusion_posteriors`: the fusion posterior per context, refitted
+from the feedback in order). All three are empty here.
+
+Rebuilt at that stage from this directory's `migration_head_218` (git
+`5cefbd3c1`) with only 219 applied, through the vault's migration coordinator
+(`learnloop.migration_coordinator.migrate_vault`) in an `env -i` shell
+(`journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok); every other
+table's row count is unchanged (only `schema_migrations` gained its row), and
+there are no companion files. `migration_head_218` was renamed to this
+directory.
 
 Migration 218 comes from plan-first transport T1 (`merge/t1-onto-main`,
 redesign D round 5, docs/reviews/ai-plan-first-transport-t1.md): it adds the

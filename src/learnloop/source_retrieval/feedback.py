@@ -14,8 +14,9 @@ position). Signals name the delivery they answer:
 * **anchored**: the teacher's grounded anchors, when the teacher lands.
 
 A logging failure never fails the search or the answer it rides on.
-``refit_posteriors`` is the replayer's body and the refit command's: it
-recomputes the whole DERIVED table from the receipts in order.
+``local_embeddings.fusion.refit_posteriors`` (re-exported here) is the
+replayer's body and the refit command's: it recomputes the whole DERIVED
+table from the receipts in order.
 """
 from __future__ import annotations
 
@@ -32,11 +33,9 @@ from learnloop.db.stores.retrieval_spaces import (
     feedback_rows,
     has_tables,
     record_citation_signals,
-    replace_fusion_posteriors,
 )
 from learnloop.ids import new_ulid
-from learnloop.source_retrieval import fusion
-from learnloop.vault.models import LoadedVault
+from learnloop.local_embeddings.fusion import refit_posteriors
 
 logger = logging.getLogger(__name__)
 
@@ -101,21 +100,6 @@ def record_open(repository: Repository, *, receipt_id: str, extraction_id: str, 
     except Exception:  # noqa: BLE001
         logger.warning("a result open could not be logged", exc_info=True)
         return False
-
-
-def refit_posteriors(vault: LoadedVault, repository: Repository) -> dict[str, Any]:
-    """Recompute ``retrieval_fusion_posteriors`` from every feedback row, in order."""
-
-    with repository.connection() as connection:
-        if not has_tables(connection):
-            return {"written": 0, "rows": 0}
-        rows = feedback_rows(connection)
-        fitted = fusion.refit(rows, default=vault.config.embedding.source_space.default,
-                              rrf_k_seed=float(vault.config.source_retrieval.rrf_k))
-        written = replace_fusion_posteriors(connection, fitted)
-    return {"written": written, "rows": len(rows),
-            "contexts": [row["context_key"] for row in fitted],
-            "signals": sum(int(row["signals"]) for row in fitted if row["context_key"] == fusion.GLOBAL)}
 
 
 def feedback_summary(repository: Repository) -> dict[str, Any]:

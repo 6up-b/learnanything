@@ -44,7 +44,7 @@ import numpy as np
 
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
-from learnloop.source_retrieval import fusion
+from learnloop.local_embeddings import fusion
 from learnloop.source_retrieval.corpus import Scope
 from learnloop.source_retrieval.recipes import block_record_id, split_record_id
 from learnloop.vault.models import LoadedVault
