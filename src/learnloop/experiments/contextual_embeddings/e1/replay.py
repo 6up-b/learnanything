@@ -230,6 +230,7 @@ class ReplayRoleCaller(LiveRoleCaller):
         super().__init__(handle.root, handle.vault.config, zero_ledger(scratch), checkpoints=checkpoints,
                          key_envs={"anthropic": pins.ANTHROPIC_KEY_ENV}, environ={})
         self.replayed = 0
+        self.inferred_truncations = 0
         self.misses: list[str] = []
 
     def call(self, role: str, *, prompt: str, result_model: Any, arm: str | None = None) -> Any:
@@ -244,6 +245,16 @@ class ReplayRoleCaller(LiveRoleCaller):
         if known:
             raise E0ProviderFailure(str(known.get("classification") or "unknown"), reason=known.get("reason"),
                                     status_code=known.get("status_code"), details=known.get("details") or {})
+        if self.checkpoints.failed_reservations(key):
+            # The first paid run's failure records name reservations only. E0's
+            # caller then inferred a truncation from its ledger's output tokens
+            # (``LiveRoleCaller.call``): the only path that leaves such a key with
+            # neither a result nor a classified failure. Replayed as that
+            # truncation; a wrong inference misses the split requests' checkpoints
+            # and fails the verification against E0's published slices.
+            self.inferred_truncations += 1
+            raise E0ProviderFailure("truncated", reason="replayed: E0 inferred a truncation for this request",
+                                    details={"inferred_from": "a reservations-only failure record"})
         self.misses.append(role)
         raise ReplayMiss(f"no E0 checkpoint for a {role} request")
 
@@ -407,7 +418,25 @@ def replay_copy(layout: ImportLayout, label: str, *, scratch: Path, store: Any =
     labels = replay_labels(snapshot, questions, layout.pools(label), caller, gaps)
     if caller.misses:
         gaps["checkpoint_misses"] = len(caller.misses)
+    if caller.inferred_truncations:
+        gaps["inferred_truncations"] = caller.inferred_truncations
     return Replayed(label, handle, snapshot, smoke, questions, headers, rankings, labels, layout.results(label), gaps)
+
+
+def e0_strata(plan: Mapping[str, Any], label: str) -> dict[str, int]:
+    """A copy's frozen development strata IN E0's ORDER.
+
+    ``bank.plan_seeds`` takes strata in the dict's iteration order (after
+    the distant and deictic strata): E0's live run used its in-memory plan,
+    whose strata follow ``pins.DEV_STRATA`` (``runner.split_strata``), while
+    the frozen ``run_plan.json`` is written with sorted keys. Rebuilding the
+    bank from the JSON order would change every seed after the deictic ones
+    (and the run id), so the order is restored from ``DEV_STRATA``."""
+
+    frozen = dict((((plan.get("bank") or {}).get("vaults") or {}).get(label) or {}).get("development_strata") or {})
+    ordered = {name: frozen[name] for name in pins.DEV_STRATA if name in frozen}
+    ordered.update({name: value for name, value in frozen.items() if name not in ordered})
+    return ordered
 
 
 def rebuild_copy(layout: ImportLayout, label: str) -> tuple[CopyHandle, CorpusSnapshot, dict[str, int]]:
@@ -423,7 +452,7 @@ def rebuild_copy(layout: ImportLayout, label: str) -> tuple[CopyHandle, CorpusSn
         raise PlanMismatch("E0's pins changed since its plan was frozen: this checkout cannot replay it")
     handle = open_copy(layout.vault(label), load_environment=False)
     snapshot = build_snapshot(handle, reserve_share=float(plan["reserve_share"]))
-    strata = dict((((plan.get("bank") or {}).get("vaults") or {}).get(label) or {}).get("development_strata") or {})
+    strata = e0_strata(plan, label)
     if not strata:
         raise PlanMismatch(f"E0's plan has no frozen strata for {label}")
     if dict(sorted(snapshot.family_status.items())) != (plan.get("splits") or {}).get(label):
@@ -440,8 +469,7 @@ def run_identity(layout: ImportLayout) -> str:
     plan = layout.plan()
     handles = [open_copy(layout.vault(label), load_environment=False) for label in layout.labels]
     snapshots = [build_snapshot(handle, reserve_share=float(plan["reserve_share"])) for handle in handles]
-    strata = {handle.label: dict(((plan.get("bank") or {}).get("vaults") or {}).get(handle.label, {})
-                                 .get("development_strata") or {}) for handle in handles}
+    strata = {handle.label: e0_strata(plan, handle.label) for handle in handles}
     return str(plan_identity(handles, snapshots, strata)["run_id"])
 
 

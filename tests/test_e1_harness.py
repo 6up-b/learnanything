@@ -304,3 +304,44 @@ def test_the_separate_environment_must_carry_the_pinned_versions(tmp_path):
 
     result = environment_versions(tmp_path / "python", run=old)
     assert not result["ok"] and result["mismatched"] == ["transformers"]
+
+
+def test_the_replay_restores_e0s_strata_order_from_the_sorted_json_plan():
+    from learnloop.experiments.contextual_embeddings.e1.replay import e0_strata
+
+    frozen = {name: 1 for name in sorted(pins.DEV_STRATA)}
+    plan = json.loads(json.dumps({"bank": {"vaults": {"v": {"development_strata": frozen}}}}, sort_keys=True))
+    assert list(e0_strata(plan, "v")) == list(pins.DEV_STRATA)
+    assert list(plan["bank"]["vaults"]["v"]["development_strata"]) != list(pins.DEV_STRATA)
+
+
+def test_the_replay_caller_serves_checkpoints_reproduces_failures_and_never_sends(tmp_path):
+    from learnloop.experiments.contextual_embeddings import corpus as C
+    from learnloop.experiments.contextual_embeddings.budget import E0ProviderFailure
+    from learnloop.experiments.contextual_embeddings.callers import Checkpoints, checkpoint_key
+    from learnloop.experiments.contextual_embeddings.e1.replay import ReplayMiss, ReplayRoleCaller
+    from learnloop.experiments.contextual_embeddings.retrieval import GeneratedContexts
+
+    paths, _repository = build_e0_vault(tmp_path)
+    handle = C.open_copy(paths.root)
+    store = Checkpoints(tmp_path / "fixtures-local" / "llm")
+    caller = ReplayRoleCaller(handle, store, tmp_path / "fixtures-local" / "scratch")
+    pin = pins.ROLE_PINS["context"]
+    identity = caller._client(pin)[1]
+
+    def key(prompt):
+        return checkpoint_key(pin, prompt, GeneratedContexts, identity=identity, output_bound=caller.output_bound(pin))
+
+    store.put(key("hit"), {"result": {"contexts": [{"ref": "p1", "context": "c"}]}, "latency_s": 1.0, "receipts": []})
+    assert caller.call("context", prompt="hit", result_model=GeneratedContexts).contexts[0].ref == "p1"
+    store.mark_failed(key("classified"), ["r1"], failure={"classification": "refusal", "reason": "x"})
+    with pytest.raises(E0ProviderFailure) as refused:
+        caller.call("context", prompt="classified", result_model=GeneratedContexts)
+    assert refused.value.classification == "refusal"
+    (store.directory / f".{key('old')}.failed.json").write_text(json.dumps(["r2"]))
+    with pytest.raises(E0ProviderFailure) as truncated:
+        caller.call("context", prompt="old", result_model=GeneratedContexts)
+    assert truncated.value.classification == "truncated" and caller.inferred_truncations == 1
+    with pytest.raises(ReplayMiss):
+        caller.call("context", prompt="never", result_model=GeneratedContexts)
+    assert caller.ledger.report()["requests"] == 0
