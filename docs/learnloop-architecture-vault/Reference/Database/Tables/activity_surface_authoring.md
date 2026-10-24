@@ -3,13 +3,13 @@ title: "activity_surface_authoring"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "4dd2c18f2b40c157ce538768c5252d6304c0dc26"
+source_commit_timestamp: "2026-10-24T15:18:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_surface_authoring"
   - "table activity_surface_authoring"
-schema_head: 218
+schema_head: 219
 table_name: "activity_surface_authoring"
 table_role: "raw_ledger"
 functionality_status: "active"

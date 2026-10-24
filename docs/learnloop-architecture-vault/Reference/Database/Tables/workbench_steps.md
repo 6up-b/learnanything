@@ -3,13 +3,13 @@ title: "workbench_steps"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "4dd2c18f2b40c157ce538768c5252d6304c0dc26"
+source_commit_timestamp: "2026-10-24T15:18:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite workbench_steps"
   - "table workbench_steps"
-schema_head: 218
+schema_head: 219
 table_name: "workbench_steps"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/207_workbench.sql"
   - "src/learnloop/db/stores/workbench.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
+  - "src/learnloop/field/workbench_signals.py"
   - "src/learnloop/reader/recap.py"
   - "src/learnloop/source_retrieval/reader_tutor.py"
 tags:
@@ -93,6 +94,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/diagnosis/text_gaps/sources.py`
+- `src/learnloop/field/workbench_signals.py`
 - `src/learnloop/reader/recap.py`
 - `src/learnloop/source_retrieval/reader_tutor.py`
 
@@ -110,6 +112,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_architecture.py`
+- `tests/test_field_workbench_signals.py`
 - `tests/test_library_exercises.py`
 - `tests/test_reader_rw1c_review.py`
 - `tests/test_reader_tutor_retrieval.py`
