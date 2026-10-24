@@ -1426,3 +1426,210 @@ separate process over a read-only connection.
 - Durability (`--durable-sqlite`) on `test_ad_guard`, `test_ad_epoch`, `test_ad_protected_tables`,
   `test_ad_protected_readings`, the three compose files and `test_ad23_migration`: **372 passed**.
 - `lint-imports --no-cache`: 30 kept, 0 broken.
+
+
+## Final round: inversion (owner, 2026-10-24)
+
+The owner decided on 2026-10-24: "just do the inversion as the final round and finish this instead of
+wasting time on holding a trivial harmless standard."
+
+Codex verified round 3 (job `20261024-000326-w2R4PR`) and found two Highs and a Low:
+- **High 1:** exceptions carried protected content across the boundary. `AdUnavailable(...) from exc`
+  kept the incumbent's error, a malformed stored JSON whose `doc` quotes held-out text, and logged it
+  with its traceback at WARNING.
+- **High 2:** any `rules()` name other than `"incumbent"` (`"view"`, `"derive"` or a typo) granted
+  reads unchecked.
+- **Low:** the test doubles moved to the boundary.
+
+The Opus re-evaluation (`scratchpad-backup/ad23-boundary-proposal.md`) proposed (C), the inversion, plus
+a closed rules boundary (R). The owner said yes to its three questions:
+1. The plan answers first and hands AD ids, codes and numbers.
+2. The plan discards a pick it would not admit.
+3. Boundary log lines show the type and a code, with the traceback at DEBUG only.
+
+R was kept to its cheap part.
+
+**The bar from this round on (orchestrator).** Only two things block landing:
+- (a) protected or withheld material can change what AD picks or serves;
+- (b) it can reach the learner's screen or logs at the default log level.
+
+Everything else is a Low. The accepted residuals stay:
+- the queue-level residual under E1;
+- deliberate monkeypatching;
+- in-memory channels with no ordinary code path.
+
+**The inversion: four phases in the serve transaction** (`engine._ad_slot_serve`;
+`engine._ad_deferrals_cleared` for the deferrals):
+
+1. **AD lists what its view shows.** `ad_slot.open_slot` / `open_deferrals` open an AD operation and
+   return `SlotInputs` with:
+   - the slot item and its never-attempted visible siblings at its capability (or the deferred items);
+   - their LOs and AD's estimates;
+   - the view's item states and withheld reveals.
+
+   The view is kept for phase 3.
+2. **The plan computes its own verdicts, with no AD operation open and no AD frame on the stack**
+   (`daily_plan.slot_facts.for_slot` / `for_deferrals`, incumbent code). It computes:
+   - the admitted pool, from round 2's membership with view-state classification (the slot's own item
+     judged as its siblings);
+   - the staged frame's admission and the pool's per-item predicate for the members;
+   - the routine exclusions;
+   - checks 2-4's numbers: planned counts, slack, the admission scalars, and the router's decision and
+     propensity.
+
+   They are returned as a `SlotFacts` record. Every exception from phase 2 is caught in `engine`
+   (`_incumbent_facts`) and logged as its type plus `incumbent_facts_failed`, with the traceback only
+   at DEBUG. AD is then unavailable for the slot and the incumbent serves.
+3. **AD decides on the decoded facts and its projected vault only** (`ad_slot.decide` /
+   `deferrals_cleared`, an AD operation reusing phase 1's view).
+   - The facts arrive as canonical JSON and are decoded against `daily_plan.slot_facts_schema` (a
+     neutral module importing only the standard library).
+   - Unknown or missing keys, wrong types, non-finite numbers and bad timestamps are refused.
+   - Every item id is projected onto AD's view, and the slot's LO id onto the LOs phase 1 saw.
+   - Every reason maps onto a closed vocabulary: `constraint:<key>` / `pool:<reason>`, with unknown
+     ones becoming `…:other`. That vocabulary is cross-checked against the code by a test.
+
+   Checks 0-4 then run from the facts and AD's own view, and `decide_slot` draws.
+4. **The plan re-checks AD's pick** (`slot_facts.accept` / `accept_cleared`) inside a savepoint shared
+   with phase 3.
+   - A substitute must be a member with no refusal, held by no cold check or reserved surface, outside
+     the routine exclusions, and planned nowhere else.
+   - Every cleared deferral must be such a member.
+   - Otherwise `ChoiceRejected` (`ad_choice_rejected`) rolls back AD's `ad_selections` row, and the
+     planned item is served.
+
+A slot whose own item left the pool (`slot_admitted: false`, round 3's `SlotNotAdmitted`) returns to the
+incumbent before phase 3. AD never receives `env`, the plan record, the pool, the block or the day's
+plans, and runs none of the plan's code.
+
+**Deleted** (`32eee1da9..b74c1a38f`): 870 lines of source deleted and 951 added, across 19 files.
+
+- `operation.py` (284 lines deleted): `incumbent_answer`, `incumbent_constraints`, `IncumbentHandles`,
+  the pinned-entry and registered-question checks, `plain_problem` / `require_plain`, the incumbent
+  stack rule and its cache, the `INCUMBENT` branches of `Guard._read` and `Guard._write`, and the
+  scope-entry ContextVars.
+- `protected_tables.py` (43): `INCUMBENT`, `INCUMBENT_ENTRIES`, `INCUMBENT_QUESTIONS`, `AD_MODULES`,
+  `incumbent_reader`, and `read_verdict`'s incumbent branch.
+- `daily_plan/incumbent_answers.py` (129, the whole file).
+- `ad_slot.py`'s `IncumbentVerdicts`, `incumbent_verdicts`, `_frozen`, `_exclusions`,
+  `admission_failures`, `build_request`, `deferrals_to_clear` and `slot_operation` (358 lines deleted,
+  273 added in the phases).
+
+Added:
+- `slot_facts_schema.py` (256 lines) and `slot_facts.py` (172);
+- `adaptive_difficulty/logs.py` (23);
+- the engine's phase orchestration (+116).
+
+Round 1's `scheduler.pool_admission` and round 2's membership (`new_material_candidates`,
+`admitted_new_material_ids` with view-state classification) are kept and called directly by the plan.
+
+**R, the cheap part.**
+
+- **A closed scope.** `operation.Scope` is an Enum (`VIEW`, `DERIVE`, `PREDICATE`). `rules()` accepts
+  only a member; any other value raises `TypeError` and poisons the operation.
+- **A codec at every scope exit.** `operation.scoped(scope, run)` is used by every view reader
+  (`_in_rules`), the two DERIVE sites and the two predicate sites.
+  - An exception leaving a scope becomes `ViewFailure(kind, type name)`, or `ViewDenied`, which is
+    still a denial.
+  - It is raised outside the `except` clause, so it has no `__cause__`, no `__context__` and no inner
+    frame. (`raise … from None` would still set `__context__`.)
+  - The slot phases' own failures are coded the same way (`ad_slot._guarded`), and so is the denial
+    in `eligibility_failures`.
+- **Default-level logs.** All 23 of AD's `LOG.warning(…, exc_info=True)` lines now go through
+  `logs.warn_failure`: the failure's type at WARNING, the traceback only at DEBUG.
+
+**Skipped by the owner's decision, recorded as Lows (post-landing follow-ups):**
+- **R-L1:** pinned openers per scope. `rules(Scope.VIEW)` may still be opened by any code inside an
+  operation.
+- **R-L2:** the per-read stack walk on every rules read. A callback handed to a view reader runs with
+  the scope's privilege.
+- **R-L3:** `stored()` pinned to its declared table. The `dose.py` lambda remains.
+- **R-L4:** `own_write`'s openers pinned, with its reader restricted to `db.stores`.
+- **R-L5:** an audit of the `except` clauses around view calls. With the codec they now see
+  `ViewFailure`, not the original type. Tests pass, but a clause catching a specific type would no
+  longer match.
+- **R-L6:** the egress `suspended()` (owner decision E1's boundary): a pinned opener, and the codec at
+  `_sending`'s exit.
+- **R-L7:** process-level memoization in incumbent modules that AD imports, to be audited.
+- **R-L8:** `MaterialView.rows(where=…)` takes free SQL; a WHERE reading a second table is read under
+  VIEW.
+
+**Tests.**
+- **New file, `tests/test_ad23_inversion.py`** (it replaces `test_ad23_scope_boundary.py`). It holds
+  Codex's two Highs, the codec, the incumbent-privilege and schema checks, a buggy-decider property,
+  the static check, the vocabulary cross-check, and round 3's slot cases (both scenarios, both routers,
+  against AD off).
+- **High 1:** a cold retry whose stored context is malformed JSON quoting the sentinel, under both
+  router settings. The test searches every log record at INFO and above (message, `exc_info` and
+  `exc_text`), including each exception's args, attributes such as `.doc`, cause and context chains,
+  and every traceback frame's locals. It asserts:
+  - nothing of the sentinel is found;
+  - AD's `decide` never runs;
+  - the planned item is served;
+  - `incumbent_facts_failed` is logged.
+- **High 2:** `rules()` with `view`, `derive`, `predicate`, `typo`, `incumbent`, `""` and `VIEW`. Each
+  raises and poisons, and the protected row is not read.
+- **The codec:** a view delegate fails with the sentinel in its message, `.doc` and locals. It leaves
+  as `ViewFailure("error", "Leaky")` with no cause or context, and nothing of the sentinel anywhere in
+  its graph.
+- **No incumbent privilege:** the plan's routine exclusions, `pool_admission`, and Codex's
+  `recap._attempts` probe, each called inside an AD operation, are refused, the operation is poisoned,
+  and nothing comes back.
+- **The wire:** the valid facts round-trip. A 48-seed fuzz (unknown or missing keys, free-text
+  reasons, ids outside the view, NaN, inf, bad timestamps, nested objects, long ids, wrong types, an
+  LO id with spaces, non-JSON) is refused or projected, and never carries the sentinel. A sentinel the
+  plan plants as a member, a refusal, an exclusion or the slot's LO never reaches AD's decoded facts,
+  its rows or the step (both routers).
+- **The buggy decider (16 seeds):** phase 3 substitutes a member, a paused non-member, an unknown item
+  or the slot itself. The served item is the pick only when the plan's facts admit it; otherwise it is
+  the planned item, with no selection row and no substitution.
+- **The Low, with real incumbent state** (`ad23_fakes.cold_followup`, `close_followups`,
+  `pending_variant`):
+  - `test_ad2_serving`'s support test uses a real pending variant request (`pool:rung_variant_hold`)
+    and a real open cold retry (`cold_check_reserved`). The reserved surface is a staged-frame double,
+    now at the incumbent's own frame in phase 2.
+  - Its re-check test uses the same real states for `refused` and `cold_followup`. The deferral
+    readmission test uses a real cold retry, consumed later; it is held twice over (both the routine
+    exclusions and the frame's cold check).
+  - The exam reservation stays a double, of the incumbent's `out_of_timing_serving_exclusions`: a real
+    reservation also withholds the item from AD's view, which is a different path.
+- **Kept:** round 2's membership property (32 seeds) and its scenarios, and round 1's commitments
+  property and real-scheduler lane, are unchanged in behaviour.
+- **Updated:**
+  - the deferral calls now go through `engine._ad_deferrals_cleared`;
+  - the facts test spies on `decode`;
+  - the contract's spy moves to `ad_slot._request`;
+  - the guard tests use `Scope` members, plant their raw read in phase 3, and expect the `open_slot`
+    and `decide` entries.
+- **Static:** three new import contracts (the schema is neutral; the plan's facts never import AD;
+  AD's slot never imports the plan's internals), and a test that no `ad_slot` function takes `env`,
+  `record`, `built`, `block`, `day` or `context`.
+- **Fail-first on `32eee1da9`:** `src/` checked out over the new tests, then restored. Nine of the ten
+  High tests failed. High 1 failed in both router settings, where the decoder's error escaped as
+  `AdUnavailable`'s cause. The codec test failed. High 2 failed for six names; `"incumbent"` was
+  already refused in round 3.
+
+**Compose with main `b7e0444b5` (RW5b),** `git merge --no-ff main`:
+- `template.py`'s 20 snapshot hunks were composed: RW5b's `[figures]` notes, AD's line, and AD's
+  `mvp-0.30` entry. All fingerprints were recomputed: 21 versions, 0 mismatches.
+- The references were regenerated: 978 configuration leaves in 69 sections, 347 table notes, schema
+  head 217. `db_validate_reference` reports 0 errors, and `validate_vault` passed.
+- `classicIsBase.test.ts` is identical to main's (`BASE` `a9ae97e34` + `UX2_LANDED`).
+- RW5b brings no migration and no new table.
+
+**Gate (memory-capped scopes, at most -n 6, one at a time; no full suite).**
+
+- The full AD file set (every `tests/test_ad*.py`, including `test_ad23_inversion`, plus
+  `test_span_reanchor` and `test_salience_firewall`): **6,290 passed, 36 xfailed** in **17 min 6 s**
+  (-n 6). Round 3 took 16 min 36 s, so the inversion is time-neutral: the incumbent stack walk is
+  gone, one more operation runs per slot, and the view is reused.
+- DL2's intent, commitment and frame files, the daily-plan and router R2a files, RW5b's figure files,
+  and every file that uses the plan fakes, `check_admission`, `requested_practice_item_ids`,
+  `_classified_pool`, `admit_new_material` or `serving_exclusions` (84 files with the scheduler, CLI
+  help, sidecar serializer and mobile allowlist pins): **2,172 passed**.
+- Durability (`--durable-sqlite`) on `test_ad_guard`, `test_ad_epoch`, `test_ad_protected_tables`,
+  `test_ad_protected_readings`, the three compose files, `test_ad23_migration`,
+  `test_coordinated_migrations` and `test_tracked_fixture_databases`: **432 passed**.
+- The defaults snapshots, CLI help, table roles and registry tests after the merge passed (729, one
+  registry test updated).
+- `lint-imports --no-cache`: **33 kept**, 0 broken (30 plus the three new contracts).

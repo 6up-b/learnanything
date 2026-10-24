@@ -2946,3 +2946,9 @@ recorded here, not fixed. They are numbered C1-C4 so they don't collide with L1-
 - **C4 (T1 note):** when AD composes onto T1 (the plan-first transport), AD's model routes
   (`ad_relatedness`, `ad_feature_audit`, `ad_forecast_llm`; also `ad_forecast_decider`, and the
   `ad_item_forecast` task's route) need entries in T1's plan-first route table. T1 lands first, so expect another main merge after T1 and RW5b.
+- **R-L1..R-L8 (the final round, skipped by the owner's decision, 2026-10-24):** pinned openers per
+  rules scope; the per-read stack walk on rules reads; `stored()` pinned to its declared table (the
+  `dose.py` lambda); `own_write`'s openers and store-only reader; an audit of the `except` clauses
+  around view calls under the codec; the egress `suspended()` (E1); process-level memoization in
+  incumbent modules AD imports; `MaterialView.rows(where=…)`'s free SQL. Detail in
+  `adaptive-difficulty-ad23.md`, "Final round: inversion".
