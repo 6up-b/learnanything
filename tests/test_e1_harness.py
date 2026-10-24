@@ -345,3 +345,22 @@ def test_the_replay_caller_serves_checkpoints_reproduces_failures_and_never_send
     with pytest.raises(ReplayMiss):
         caller.call("context", prompt="never", result_model=GeneratedContexts)
     assert caller.ledger.report()["requests"] == 0
+
+
+def test_a_smoke_only_local_run_loads_checks_and_stores_nothing(e0_run, tmp_path):
+    from learnloop.experiments.contextual_embeddings.adapters import VectorStore
+    from learnloop.experiments.contextual_embeddings.e1 import run as e1
+
+    layout = _import(e0_run)
+    plan = e1.dry_run(import_dir=layout.root, environ={})
+    launcher = InProcessLauncher(FakeV2Model())
+    summary = e1.run_local(plan, layout, model_dir=tmp_path / "model", launcher=launcher, smoke_only=True)
+    assert summary["status"] == "complete" and summary["smoke_only"] and summary["smoke"]["all_ok"]
+    assert summary["planned"] == {"documents": 0, "queries": 0} and summary["profile"] == {}
+    job = launcher.jobs[0]
+    assert job["documents"] == [] and job["queries"] == [] and job["profile"] == {}
+    root = layout.root.parent.parent / "runs" / plan["plan_id"]
+    assert not list((root / "vectors").glob("*.jsonl")) if (root / "vectors").exists() else True
+    # The full stage still has everything to encode afterwards.
+    full = e1.run_local(plan, layout, model_dir=tmp_path / "model", launcher=launcher)
+    assert full["planned"]["documents"] > 0 and full["stored"]["documents_stored"] == full["planned"]["documents"]

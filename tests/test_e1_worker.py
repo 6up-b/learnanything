@@ -292,3 +292,67 @@ def test_the_supervised_worker_writes_its_stderr_to_the_log(tmp_path):
               meter=GpuMeter(tmp_path / "meter"), plan_id="e1_a", label="01", heartbeat=tmp_path / "hb.json",
               poll_s=0.05, min_slot_s=0, log=log)
     assert "boom traceback" in log.read_text()
+
+
+class _Projection:
+    def __init__(self, dtype):
+        self.weight = type("W", (), {"dtype": dtype})()
+
+
+class _FiveEighteenModel:
+    """The pinned remote code's surface under transformers 5.18: its
+    ``tokenizer`` getter fails (no ``config._commit_hash``) until the setter
+    has run, and the projection arrives in BF16."""
+
+    def __init__(self):
+        self._tokenizer = None
+        self.contextual_projection = _Projection("torch.bfloat16")
+
+    @property
+    def tokenizer(self):
+        if self._tokenizer is None:
+            raise AttributeError("'PplxContextualConfig' object has no attribute '_commit_hash'")
+        return self._tokenizer
+
+    @tokenizer.setter
+    def tokenizer(self, value):
+        self._tokenizer = value
+
+
+def test_the_post_load_repairs_set_the_tokenizer_and_restore_the_fp32_projection(tmp_path):
+    (tmp_path / "model.safetensors.index.json").write_text(json.dumps(
+        {"weight_map": {"contextual_projection.weight": "contextual_head.safetensors"}}))
+    model = _FiveEighteenModel()
+    with pytest.raises(AttributeError):
+        model.tokenizer  # noqa: B018 - the failure the first GPU run hit
+    reads, restored = [], []
+
+    def restore(module, tensor):
+        restored.append(tensor)
+        module.weight.dtype = "torch.float32"
+        return True
+
+    facts = worker.repair_loaded_model(
+        model, tmp_path, fp32_modules=["contextual_projection"], tokenizer_factory=lambda directory: ("tok", directory),
+        read_tensor=lambda path, key: reads.append((path.name, key)) or "fp32-tensor", restore_fp32=restore)
+    assert model.tokenizer == ("tok", tmp_path)
+    assert reads == [("contextual_head.safetensors", "contextual_projection.weight")] and restored == ["fp32-tensor"]
+    assert facts["fp32_restore"] == {"contextual_projection": "restored_from_checkpoint"}
+    # Already fp32: nothing is read again.
+    again = worker.repair_loaded_model(model, tmp_path, fp32_modules=["contextual_projection"],
+                                       tokenizer_factory=lambda directory: "tok", read_tensor=None, restore_fp32=None)
+    assert again["fp32_restore"] == {"contextual_projection": "already_fp32"}
+
+
+def test_a_restore_that_does_not_match_the_checkpoint_is_reported(tmp_path):
+    (tmp_path / "model.safetensors.index.json").write_text(json.dumps(
+        {"weight_map": {"contextual_projection.weight": "contextual_head.safetensors"}}))
+    facts = worker.repair_loaded_model(_FiveEighteenModel(), tmp_path, fp32_modules=["contextual_projection"],
+                                       tokenizer_factory=lambda directory: "tok", read_tensor=lambda *_a: "t",
+                                       restore_fp32=lambda *_a: False)
+    assert facts["fp32_restore"] == {"contextual_projection": "restore_mismatch"}
+
+
+def test_drop_page_cache_advises_existing_files_only(tmp_path):
+    (tmp_path / "a.safetensors").write_bytes(b"x" * 10)
+    assert worker.drop_page_cache([tmp_path / "a.safetensors", tmp_path / "missing.safetensors"]) == 1

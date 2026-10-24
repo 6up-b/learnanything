@@ -156,7 +156,7 @@ def supervise(command: Sequence[str], *, meter: GpuMeter, plan_id: str, label: s
         # warnings), else nowhere.
         sink = open(log, "ab") if log is not None else subprocess.DEVNULL  # noqa: SIM115 - closed below
         try:
-            process = popen(list(command), env=env, stdout=sink, stderr=sink)
+            process = popen(list(command), env=env, stdin=subprocess.DEVNULL, stdout=sink, stderr=sink)
         finally:
             if log is not None:
                 sink.close()

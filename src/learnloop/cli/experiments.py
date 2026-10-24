@@ -253,6 +253,8 @@ def e1_run(
     authorized: Annotated[bool, typer.Option(
         "--i-am-authorized-to-spend", help="The orchestrator's authorization (labels stage, <= $5).")] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="labels: exact counts and estimate, no network.")] = False,
+    smoke_only: Annotated[bool, typer.Option(
+        "--smoke-only", help="local: load, the smoke checks, unload; no profiling or encoding (metered).")] = False,
     env_file: Annotated[list[Path] | None, typer.Option("--env-file", help="Load only the named keys.")] = None,
     new_authorization: Annotated[str | None, typer.Option("--new-authorization")] = None,
 ) -> None:
@@ -274,7 +276,7 @@ def e1_run(
                 typer.echo(json.dumps(ready, sort_keys=True, indent=2, default=str))
                 raise typer.Exit(code=1)
             result = e1.run_local(plan, layout, model_dir=model_dir, launcher=ScopedLauncher(env_python),
-                                  check_plan=False)
+                                  check_plan=False, smoke_only=smoke_only)
         elif stage == "labels":
             result = e1.run_labels(plan, layout, authorized=authorized, dry_run_only=dry_run,
                                    env_file=env_file or [], new_authorization=new_authorization)

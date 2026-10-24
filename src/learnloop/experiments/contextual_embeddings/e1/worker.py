@@ -292,6 +292,63 @@ KERNEL_HINTS = ("fast path", "flash-linear-attention", "flash_linear_attention",
                 "fla ", "kernel", "falling back", "fallback")
 
 
+def repair_loaded_model(model: Any, model_dir: Path, *, fp32_modules: Sequence[str],
+                        tokenizer_factory: Callable[[Path], Any],
+                        read_tensor: Callable[[Path, str], Any],
+                        restore_fp32: Callable[[Any, Any], bool]) -> dict[str, Any]:
+    """Two post-load repairs for the pinned remote code under transformers 5.18
+    (found on the first GPU run and reproduced on CPU with a tiny random model):
+
+    * **The tokenizer.** The remote ``tokenizer`` property calls
+      ``AutoTokenizer.from_pretrained(config._name_or_path,
+      revision=config._commit_hash)``; transformers 5.18's config has no
+      ``_commit_hash``, and ``nn.Module.__getattr__`` masks that
+      AttributeError as "no attribute 'tokenizer'". The tokenizer is loaded
+      here from the same local directory (offline) and set through the remote
+      code's own setter, so its ``encode`` methods run unchanged.
+    * **The fp32 projection.** ``_keep_in_fp32_modules`` is not honoured when
+      ``dtype=bfloat16`` is passed: the projection arrives in BF16. Its exact
+      FP32 checkpoint tensor (33.5 MB) is read again from its shard and the
+      module restored to FP32; equality with the file is checked.
+    """
+
+    facts: dict[str, Any] = {}
+    model.tokenizer = tokenizer_factory(Path(model_dir))
+    facts["tokenizer"] = "loaded from the model directory (remote getter needs config._commit_hash)"
+    index = json.loads((Path(model_dir) / "model.safetensors.index.json").read_text(encoding="utf-8"))["weight_map"]
+    restored = {}
+    for name in fp32_modules:
+        key = f"{name}.weight"
+        module = getattr(model, name)
+        if str(module.weight.dtype) in ("torch.float32", "float32"):
+            restored[name] = "already_fp32"
+            continue
+        tensor = read_tensor(Path(model_dir) / index[key], key)
+        restored[name] = "restored_from_checkpoint" if restore_fp32(module, tensor) else "restore_mismatch"
+    facts["fp32_restore"] = restored
+    return facts
+
+
+def drop_page_cache(paths: Sequence[Path]) -> int:
+    """Advise the kernel to drop the shards' cached pages once they are on the
+    device (page cache counts toward the scope's memory.max). Returns files advised."""
+
+    done = 0
+    for path in paths:
+        try:
+            descriptor = os.open(path, os.O_RDONLY)
+        except OSError:
+            continue
+        try:
+            os.posix_fadvise(descriptor, 0, 0, os.POSIX_FADV_DONTNEED)
+            done += 1
+        except (OSError, AttributeError):
+            pass
+        finally:
+            os.close(descriptor)
+    return done
+
+
 class TransformersModel:
     """pplx v2 through its own reviewed ``encode``/``encode_queries`` (never a
     reimplementation), loaded BF16 with shards straight onto device 0."""
@@ -300,9 +357,10 @@ class TransformersModel:
         import logging
         import warnings
 
+        from safetensors import safe_open
         import torch
         import transformers
-        from transformers import AutoModel
+        from transformers import AutoModel, AutoTokenizer
 
         if precision != "bf16":
             raise Refused(f"precision {precision!r} is not in this plan (BF16 first; FP8 needs a new plan)")
@@ -324,6 +382,23 @@ class TransformersModel:
                     str(model_dir), trust_remote_code=True, local_files_only=True, dtype=torch.bfloat16,
                     device_map={"": 0}, attn_implementation=attention)
                 self.model.eval()
+
+                def read_tensor(path: Path, key: str) -> Any:
+                    with safe_open(str(path), "pt", device="cpu") as handle:
+                        return handle.get_tensor(key)
+
+                def restore_fp32(module: Any, tensor: Any) -> bool:
+                    module.to(torch.float32)
+                    with torch.no_grad():
+                        module.weight.copy_(tensor.to(module.weight.device))
+                    return bool(torch.equal(module.weight.detach().cpu(), tensor))
+
+                repairs = repair_loaded_model(
+                    self.model, Path(model_dir), fp32_modules=fp32_modules,
+                    tokenizer_factory=lambda directory: AutoTokenizer.from_pretrained(
+                        str(directory), local_files_only=True, padding_side="right", trust_remote_code=True),
+                    read_tensor=read_tensor, restore_fp32=restore_fp32)
+                repairs["page_cache_dropped_files"] = drop_page_cache(sorted(Path(model_dir).glob("*.safetensors")))
                 # One tiny forward so lazily chosen kernels report themselves.
                 self.model.encode([["warm up"]], batch_size=1)
                 torch.cuda.synchronize()
@@ -337,6 +412,7 @@ class TransformersModel:
         fp32_ok = {name: str(getattr(self.model, name).weight.dtype) == "torch.float32" for name in fp32_modules}
         self.info = {
             "load_s": round(time.monotonic() - started, 3), "parameter_dtypes": dtypes, "fp32_modules": fp32_ok,
+            "repairs": repairs,
             "attention": attention, "precision": precision,
             "kernel_messages": sorted({message[:200] for message in messages
                                        if any(hint in message.lower() for hint in KERNEL_HINTS)}),
@@ -416,7 +492,8 @@ class Sampler(threading.Thread):
         self.on_hard_abort = on_hard_abort
         self.step = "start"
         self.abort_reason: str | None = None
-        self.peaks: dict[str, Any] = {"host_available_min": None, "rss_max": None, "scope_current_max": None,
+        self.peaks: dict[str, Any] = {"host_available_min": None, "rss_max": None, "rss_anon_max": None,
+                                      "scope_current_max": None,
                                       "scope_peak": None, "gpu_used_mib_max": None, "device_reserved_max": None,
                                       "samples": 0}
         self._stop = threading.Event()
@@ -433,6 +510,7 @@ class Sampler(threading.Thread):
                                       or available < self.peaks["host_available_min"]):
             self.peaks["host_available_min"] = available
         self._max("rss_max", _own_rss())
+        self._max("rss_anon_max", _own_rss("RssAnon:"))
         scope = self.scope()
         self._max("scope_current_max", scope.get("memory_current"))
         self._max("scope_peak", scope.get("memory_peak"))
@@ -478,10 +556,12 @@ class Sampler(threading.Thread):
         self._stop.set()
 
 
-def _own_rss() -> int | None:
+def _own_rss(field: str = "VmRSS:") -> int | None:
+    """Resident memory (VmRSS includes mapped shard pages; RssAnon does not)."""
+
     try:
         for line in Path("/proc/self/status").read_text(encoding="ascii").splitlines():
-            if line.startswith("VmRSS:"):
+            if line.startswith(field):
                 return int(line.split()[1]) * 1024
     except OSError:
         return None

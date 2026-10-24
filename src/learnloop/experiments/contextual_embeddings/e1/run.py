@@ -227,8 +227,10 @@ def preflight(plan: Mapping[str, Any], layout: ImportLayout, *, model_dir: Path,
 
 # -- local (GPU) -------------------------------------------------------------------------------
 def run_local(plan: Mapping[str, Any], layout: ImportLayout, *, model_dir: Path, launcher: Any,
-              check_plan: bool = True) -> dict[str, Any]:
-    """ONE scoped worker for every missing v2 document and query (resumable)."""
+              check_plan: bool = True, smoke_only: bool = False) -> dict[str, Any]:
+    """ONE scoped worker for every missing v2 document and query (resumable).
+    ``smoke_only``: load, the smoke checks, unload and exit (no profiling, no
+    document or query; nothing stored); metered like any worker."""
 
     from learnloop.experiments.contextual_embeddings.e1.local import build_job, measurements, store_outputs
     from learnloop.experiments.contextual_embeddings.e1.replay import question_texts
@@ -242,7 +244,10 @@ def run_local(plan: Mapping[str, Any], layout: ImportLayout, *, model_dir: Path,
     store = VectorStore(root / "vectors")
     job, index = build_job(plan["plan_id"], [(item.label, item.snapshot, question_texts(item)) for item in replays],
                            store, model_dir=Path(model_dir))
-    if not job["documents"] and not job["queries"]:
+    if smoke_only:
+        job.update(documents=[], queries=[], profile={})
+        index = {"documents": {}, "queries": {}}
+    elif not job["documents"] and not job["queries"]:
         return {"status": "nothing_to_encode", "stored": {}}
     attempts = sorted(path for path in (root / "local").glob("*") if path.is_dir()) if (root / "local").exists() else []
     workdir = root / "local" / f"{len(attempts) + 1:02d}"
@@ -250,7 +255,7 @@ def run_local(plan: Mapping[str, Any], layout: ImportLayout, *, model_dir: Path,
     output = launcher(job, workdir, meter=meter, plan_id=plan["plan_id"])
     stored = store_outputs(output, index, store)
     summary = measurements(output)
-    summary.update(stored=stored, supervised=output.get("supervised"),
+    summary.update(stored=stored, supervised=output.get("supervised"), smoke_only=smoke_only,
                    planned={"documents": len(job["documents"]), "queries": len(job["queries"])})
     (workdir).mkdir(parents=True, exist_ok=True)
     (workdir / "measurements.json").write_text(json.dumps(summary, sort_keys=True, indent=1, default=str),

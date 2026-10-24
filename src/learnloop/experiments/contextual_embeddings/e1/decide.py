@@ -90,6 +90,7 @@ def decide_e1(plan: Mapping[str, Any], copies: Mapping[str, Mapping[str, Any]], 
     if not all(item["replay_ok"] for item in per_copy.values()):
         reasons.append("the replay did not reproduce E0")
     smoke_ok = any(((item.get("smoke") or {}).get("all_ok")) for item in measured)
+    measured = [item for item in measured if not item.get("smoke_only")] or list(measured)
     if not smoke_ok:
         reasons.append("no worker passed the smoke checks")
     thin = sorted(f"{label}:{arm}" for label, item in per_copy.items() for arm, share in item["v2_completion"].items()
