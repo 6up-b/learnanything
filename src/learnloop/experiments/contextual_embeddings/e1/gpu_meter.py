@@ -140,7 +140,7 @@ def supervise(command: Sequence[str], *, meter: GpuMeter, plan_id: str, label: s
               env: dict[str, str] | None = None, popen: Callable[..., Any] = subprocess.Popen,
               poll_s: float = 5.0, sleep: Callable[[float], None] = time.sleep,
               kill_grace_s: float = e1_pins.KILL_GRACE_S, min_slot_s: float = MIN_SLOT_S,
-              on_open: Callable[[float], None] | None = None) -> dict[str, Any]:
+              on_open: Callable[[float], None] | None = None, log: Path | None = None) -> dict[str, Any]:
     """Run one worker under the meter. ``on_open(deadline_unix)`` runs after
     the entry opens and before the spawn (it writes the deadline into the
     job). Returns the return code, the charged seconds and whether the cap
@@ -152,7 +152,14 @@ def supervise(command: Sequence[str], *, meter: GpuMeter, plan_id: str, label: s
     process = None
     status, stopped_at_cap = "failed_to_start", False
     try:
-        process = popen(list(command), env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # The worker's stdout and stderr go to ``log`` (its traceback, library
+        # warnings), else nowhere.
+        sink = open(log, "ab") if log is not None else subprocess.DEVNULL  # noqa: SIM115 - closed below
+        try:
+            process = popen(list(command), env=env, stdout=sink, stderr=sink)
+        finally:
+            if log is not None:
+                sink.close()
         status = "running"
         signalled_at: float | None = None
         while process.poll() is None:

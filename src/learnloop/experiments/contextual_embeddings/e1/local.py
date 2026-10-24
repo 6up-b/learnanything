@@ -208,7 +208,8 @@ def measurements(output: Mapping[str, Any]) -> dict[str, Any]:
     from learnloop.experiments.contextual_embeddings.metrics import latency_summary
 
     return {
-        "status": output.get("status"), "reason": output.get("reason"),
+        "status": output.get("status"), "reason": output.get("reason"), "failed_step": output.get("failed_step"),
+        "traceback": output.get("traceback"),
         "start_check": {key: value for key, value in (output.get("start_check") or {}).items() if key != "scope"},
         "scope": {key: value for key, value in ((output.get("start_check") or {}).get("scope") or {}).items()
                   if key != "cgroup"},
@@ -272,7 +273,8 @@ class ScopedLauncher:
         kwargs: dict[str, Any] = {} if self.popen is None else {"popen": self.popen}
         supervised = supervise(scope_command(self.env_python, job_path, out_path, heartbeat, unit=unit),
                                meter=meter, plan_id=plan_id, label=workdir.name, heartbeat=heartbeat,
-                               env=launch_environment(workdir / "home"), on_open=write_job, **kwargs)
+                               env=launch_environment(workdir / "home"), on_open=write_job,
+                               log=workdir / "worker.stderr.log", **kwargs)
         output = (json.loads(out_path.read_text(encoding="utf-8")) if out_path.is_file()
                   else {"status": "no_output", "reason": f"the worker wrote no output ({supervised['status']})",
                         "documents": {}, "queries": {}})

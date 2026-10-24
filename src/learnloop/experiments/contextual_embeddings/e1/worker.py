@@ -46,6 +46,7 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
 from typing import Any, Protocol
 
 import numpy as np
@@ -705,8 +706,13 @@ def run_job(job: Mapping[str, Any], *, model_factory: Callable[[Path, Mapping[st
         output.update(status="failed", reason=f"oom: {exc}")
     except Refused as exc:
         output.update(status="refused", reason=str(exc))
-    except Exception as exc:  # noqa: BLE001 - the type only (library messages can carry paths)
-        output.update(status="failed", reason=f"failed: {type(exc).__name__}")
+    except Exception as exc:  # noqa: BLE001 - recorded whole: the worker holds no key or provider text
+        # The full traceback goes to the private output and to stderr (the
+        # launcher keeps it in worker.stderr.log): a first GPU run that kept
+        # only the class name could not be diagnosed.
+        output.update(status="failed", reason=f"failed: {type(exc).__name__}: {str(exc)[:500]}",
+                      traceback=traceback.format_exc(), failed_step=sampler.step)
+        print(traceback.format_exc(), file=sys.stderr, flush=True)
     finally:
         sampler.step = "unload"
         if model is not None:

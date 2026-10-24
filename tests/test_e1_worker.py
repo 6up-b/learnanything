@@ -271,3 +271,24 @@ def test_main_writes_its_output_and_a_heartbeat(tmp_path, monkeypatch):
     import os
 
     assert os.environ["HF_HUB_OFFLINE"] == "1" and os.environ["HF_MODULES_CACHE"].startswith(str(tmp_path))
+
+
+def test_a_load_failure_keeps_its_full_traceback_and_step(capsys):
+    def broken(*_args):
+        raise AttributeError("'PplxContextualModel' object has no attribute 'example'")
+
+    output = run_fake_job(_job(), FakeV2Model(), model_factory=broken)
+    assert output["status"] == "failed" and output["failed_step"] == "load"
+    assert output["reason"].startswith("failed: AttributeError: 'PplxContextualModel'")
+    assert "Traceback (most recent call last)" in output["traceback"] and "def broken" not in output["reason"]
+    assert "AttributeError" in capsys.readouterr().err
+
+
+def test_the_supervised_worker_writes_its_stderr_to_the_log(tmp_path):
+    from learnloop.experiments.contextual_embeddings.e1.gpu_meter import GpuMeter, supervise
+
+    log = tmp_path / "worker.stderr.log"
+    supervise([sys.executable, "-c", "import sys; print('boom traceback', file=sys.stderr); raise SystemExit(3)"],
+              meter=GpuMeter(tmp_path / "meter"), plan_id="e1_a", label="01", heartbeat=tmp_path / "hb.json",
+              poll_s=0.05, min_slot_s=0, log=log)
+    assert "boom traceback" in log.read_text()
