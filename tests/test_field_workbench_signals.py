@@ -41,6 +41,7 @@ from learnloop.vault.loader import load_vault
 from tests.helpers import NOW, append_config_toml, create_placement_vault, set_algorithm_version
 from tests.test_assumed_known import EVIDENCE_TABLES, LOW_Q, _answer, _at, _decisions, _queue, _snapshot
 from tests.test_quick_check import _answer_target, _progress, _start
+from tests.workbench_help_fakes import call, help_rows, run_job
 
 TAG = WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION
 #: The predecessor as the upgrade names it (one constant; the landing renumbers).
@@ -70,15 +71,40 @@ def _db(path) -> sqlite3.Connection:
     return connection
 
 
-def _session(path, session_id, item_id, *, minutes, attempt_id=None, status=None):
+#: The placement vault's items and their LOs (the contract a session freezes).
+ITEM_LOS = {"pi_diag_easy": "lo_diag", "pi_diag_mid": "lo_diag", "pi_diag_hard": "lo_diag",
+            "pi_eig_easy": "lo_eigen_basics"}
+
+
+def _contract(path, item_id, lo, *, tag):
+    """An assessment-contract snapshot for ``item_id`` naming ``lo`` (its id)."""
+
+    version_id = f"acv_{tag}"
+    with closing(_db(path)) as db, db:
+        db.execute(
+            "INSERT INTO assessment_contract_versions (id, practice_item_id, contract_hash, contract_json, "
+            "schema_version, created_at) VALUES (?, ?, ?, ?, 1, ?)",
+            (version_id, item_id, f"test:{tag}", json.dumps({"practice_item_id": item_id, "learning_object_id": lo}),
+             _iso(0)),
+        )
+    return version_id
+
+
+def _session(path, session_id, item_id, *, minutes, attempt_id=None, status=None, lo=None, contract=True):
+    """A workbench session; bound to ``item_id`` it froze its contract (the
+    item's LO, or ``lo``) as the sidecar's open does, unless ``contract`` is false."""
+
     status = status or ("submitted" if attempt_id else "open")
+    version_id = None
+    if item_id and contract:
+        version_id = _contract(path, item_id, lo or ITEM_LOS[item_id], tag=session_id)
     with closing(_db(path)) as db, db:
         db.execute(
             "INSERT INTO workbench_sessions (id, practice_item_id, stem_md, import_status, origin, entry, "
-            "status, attempt_id, client_idempotency_key, created_at, updated_at) "
-            "VALUES (?, ?, 'A problem.', ?, 'reader', 'work_through', ?, ?, ?, ?, ?)",
+            "status, attempt_id, client_idempotency_key, created_at, updated_at, assessment_contract_version_id) "
+            "VALUES (?, ?, 'A problem.', ?, 'reader', 'work_through', ?, ?, ?, ?, ?, ?)",
             (session_id, item_id, "bound" if item_id else "pending", status, attempt_id,
-             f"key-{session_id}", _iso(minutes), _iso(minutes)),
+             f"key-{session_id}", _iso(minutes), _iso(minutes), version_id),
         )
 
 
@@ -144,8 +170,11 @@ def _early_help_on_diag(paths, *, minutes=1):
 def _derive(sessions, steps=(), assists=(), *, attempts=None, diagnostics=None):
     from learnloop.field.workbench_signals import derive_workbench_signals
 
+    # A session bound to pi_a froze contract cv_a (on lo_a) unless it names its own.
+    sessions = [{"assessment_contract_version_id": "cv_a" if s.get("practice_item_id") else None, **s}
+                for s in sessions]
     return derive_workbench_signals(
-        sessions, steps, assists, attempts=attempts or {}, item_targets={"pi_a": ("lo_a", "subj")},
+        sessions, steps, assists, attempts=attempts or {}, contract_targets={"cv_a": ("lo_a", "subj")},
         diagnostics=diagnostics,
     )
 
@@ -172,24 +201,79 @@ def test_a_stuck_step_with_text_is_one_zero_mass_confusion_row_per_chain():
     assert blocks_fast_track(signal)
 
 
-def test_no_row_for_an_empty_stuck_step_a_stuck_answer_or_an_unbound_problem():
+def test_no_row_for_an_empty_stuck_step_or_an_unbound_problem():
     sessions = [
         {"id": "s1", "practice_item_id": "pi_a", "attempt_id": None},
-        {"id": "s2", "practice_item_id": "pi_a", "attempt_id": "at_stuck"},
         {"id": "s3", "practice_item_id": None, "attempt_id": None},
+        # Bound, but no contract on record (opened before contracts were frozen).
+        {"id": "s4", "practice_item_id": "pi_a", "attempt_id": None, "assessment_contract_version_id": None},
     ]
     steps = [
         _row("a", "stuck", "", "2026-05-19T12:01:00Z", session="s1"),
-        # s2 was submitted with no ordinary step: its stuck text IS the stuck
-        # answer, which the derivation already reads through the grader.
-        _row("b", "stuck", "No idea where to begin.", "2026-05-19T12:01:00Z", session="s2"),
         _row("c", "stuck", "Lost.", "2026-05-19T12:01:00Z", session="s3"),
+        _row("d", "stuck", "Lost.", "2026-05-19T12:01:00Z", session="s4"),
     ]
     diagnostics: dict = {}
-    attempts = {"at_stuck": {"learning_object_id": "lo_a", "subject": "subj", "declared_stuck": True}}
-    assert _derive(sessions, steps, attempts=attempts, diagnostics=diagnostics) == ()
-    assert diagnostics["workbench_unmapped_sessions"] == 1
+    assert _derive(sessions, steps, diagnostics=diagnostics) == ()
+    assert diagnostics["workbench_unmapped_sessions"] == 2
     assert diagnostics["workbench_stuck_rows"] == 0
+
+
+def test_review_f2_a_stuck_answer_keeps_the_step_time_row_through_delete_submit_and_grading():
+    """Review F2: a stuck step with text, deleted, then the empty workbench
+    submitted (``declared_stuck``) or graded later: the row the step made
+    stays, from the step's own time, before and after the submit."""
+
+    steps = [
+        _row("b", "stuck", "No idea where to begin.", "2026-05-19T12:01:00Z", session="s2"),
+        _row("b2", "stuck", "No idea where to begin.", "2026-05-19T12:02:00Z", session="s2", supersedes="b",
+             deleted=1),
+    ]
+    open_session = [{"id": "s2", "practice_item_id": "pi_a", "attempt_id": None}]
+    before = _derive(open_session, steps)
+    submitted = [{"id": "s2", "practice_item_id": "pi_a", "attempt_id": "at_stuck"}]
+    for attempt in ({"learning_object_id": "lo_a", "subject": "subj", "declared_stuck": True},
+                    {"learning_object_id": "lo_a", "subject": "subj", "declared_stuck": True,
+                     "graded_at": "2026-05-19T15:00:00Z"}):
+        after = _derive(submitted, steps, attempts={"at_stuck": attempt})
+        assert after == before == (SignalRow(
+            signal_id="workbench_stuck:b", lo_id="lo_a", observed_at="2026-05-19T12:01:00Z",
+            signal_type=STUCK_CONFUSION_SIGNAL, subject_id="subj",
+        ),)
+
+
+def test_review_f2_the_row_survives_the_submit_on_the_vault(tmp_path):
+    """The same transition through the loader: the step-time row and its
+    blocking are unchanged by submitting the (now empty) workbench."""
+
+    paths, vault, repository = _vault(tmp_path)
+    _session(paths.sqlite_path, "wb_s", "pi_diag_easy", minutes=1)
+    _step(paths.sqlite_path, "wb_s", "st_s", "stuck", "I don't see why P is invertible.", minutes=2)
+    _step(paths.sqlite_path, "wb_s", "st_s2", "stuck", "I don't see why P is invertible.", minutes=3,
+          supersedes="st_s", deleted=1)
+
+    def workbench_rows():
+        return [(s.signal_id, s.lo_id, s.observed_at) for s in _signals(paths, vault) if s.signal_id.startswith("workbench_")]
+
+    before = workbench_rows()
+    assert before == [("workbench_stuck:st_s", "lo_diag", _iso(2))]
+    from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+
+    # The submit of the now-empty bench: the existing empty stuck answer.
+    answered = complete_self_graded_attempt(
+        vault, repository,
+        AttemptDraft(practice_item_id="pi_diag_easy", learner_answer_md="", attempt_type="independent_attempt",
+                     declared_stuck=True),
+        SelfGradeInput(criterion_points={"correctness": 0.0}, confidence=1), clock=_at(5),
+    )
+    with closing(_db(paths.sqlite_path)) as db:
+        assert db.execute("SELECT declared_stuck FROM practice_attempts WHERE id = ?",
+                          (answered.attempt_id,)).fetchone()[0] == 1
+    with closing(_db(paths.sqlite_path)) as db, db:
+        db.execute("UPDATE workbench_sessions SET status = 'submitted', attempt_id = ? WHERE id = 'wb_s'",
+                   (answered.attempt_id,))
+    assert workbench_rows() == before
+    assert "workbench_stuck:st_s" in _blocking(paths, vault)["lo_diag"]
 
 
 def test_help_before_the_first_step_comes_only_from_the_logged_snapshot():
@@ -215,6 +299,115 @@ def test_help_before_the_first_step_comes_only_from_the_logged_snapshot():
     ]
     assert all(s.outcome is None and s.effective_mass == 0.0 and s.attempt_id is None for s in signals)
     assert all(blocks_fast_track(s) for s in signals)
+
+
+def test_review_f1_an_identity_only_snapshot_is_read_through_its_step_rows():
+    """Review F1: the worked example logs each step's identity only (chain,
+    step row id, number, hash). Its entries are read through the immutable
+    step rows they name; an entry whose row is not found is unknown, never
+    "no work"."""
+
+    sessions = [{"id": f"s{n}", "practice_item_id": "pi_a", "attempt_id": None} for n in range(1, 5)]
+    steps = [
+        _row("w1", "step", "Let X be the CDF.", "2026-05-19T12:01:00Z", session="s1"),
+        _row("k2", "stuck", "Lost", "2026-05-19T12:01:00Z", session="s2"),
+        _row("w3", "step", "Let X be the CDF.", "2026-05-19T12:01:00Z", session="s3"),
+    ]
+
+    def example(aid, session, step_ids):
+        snapshot = [{"chain_id": sid, "step_id": sid, "number": n, "hash": "h"} for n, sid in enumerate(step_ids, 1)]
+        return {"id": aid, "workbench_session_id": session, "assist_kind": "example",
+                "requested_at": "2026-05-19T12:05:00Z", "step_snapshot_json": json.dumps(snapshot)}
+
+    signals = _derive(sessions, steps, assists=[
+        example("e1", "s1", ["w1"]),             # ordinary work on record: not early
+        example("e2", "s2", ["k2"]),             # only a stuck step: early
+        example("e3", "s3", ["gone", "w3"]),     # work found beside an unknown entry: not early
+        example("e4", "s4", ["gone"]),           # unknown entry, no work found: unknown, no row
+    ])
+    early = [s.signal_id for s in signals if s.signal_id.startswith("workbench_help:")]
+    assert early == ["workbench_help:s2"]
+
+
+def test_review_f1_a_worked_example_after_real_work_is_not_early_help(tmp_path):
+    """Review F1 through the real producer: the learner writes ordinary steps,
+    then asks for a similar worked example; its logged snapshot (identity only)
+    holds work, so no help-before-work row is derived, and the session's
+    frozen contract gives the target."""
+
+    from learnloop.field.workbench_signals import load_workbench_signals
+    from tests.test_workbench_route_example import OTHER, ROUTE, FindFake
+    from tests.workbench_help_fakes import open_problem, sidecar
+
+    paths, ctx, _practice = sidecar(tmp_path)
+    set_algorithm_version(paths, TAG)  # the hint vault is pinned below the successor
+    ctx.load(paths.root)
+    ctx.workbench_example_find = FindFake([OTHER, ROUTE])
+    ctx.passage_draw_seed = "seed-ex"
+    wb, _chains = open_problem(ctx, origin="reader", entry="work_through")
+    vault, _repository = ctx.require_vault()
+    assert vault.config.algorithms.algorithm_version == TAG
+    shown = run_job(ctx, call(ctx, "workbench.show_example", {"sessionId": wb}))
+    assert shown["status"] == "ready"
+    [row] = [row for row in help_rows(paths, wb) if row["assist_kind"] == "example"]
+    entries = json.loads(row["step_snapshot_json"])
+    assert entries and all("kind" not in e and "body_md" not in e for e in entries)  # the production format
+    diagnostics: dict = {}
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        signals = load_workbench_signals(connection, vault, diagnostics=diagnostics)
+    assert not [s for s in signals if s.help_before_work]
+    assert diagnostics["workbench_unmapped_sessions"] == 0
+
+    # Control: the same request with no work on the bench is early help.
+    with closing(_db(paths.sqlite_path)) as db, db:
+        db.execute("UPDATE help_assists SET step_snapshot_json = '[]' WHERE id = ?", (row["id"],))
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        signals = load_workbench_signals(connection, vault)
+    assert [s.signal_id for s in signals if s.help_before_work] == [f"workbench_help:{wb}"]
+
+
+def test_review_f3_an_edited_or_removed_item_keeps_the_signal_on_the_frozen_lo(tmp_path):
+    """Review F3: an abandoned session's signal stays on the LO of the contract
+    it froze; moving the item to another LO, or removing it, changes nothing."""
+
+    from learnloop.learner.assessment_contracts import snapshot_for_presentation
+
+    paths, vault, repository = _vault(tmp_path)
+    version_id = snapshot_for_presentation(repository, vault, vault.practice_items["pi_diag_easy"])
+    _session(paths.sqlite_path, "wb_f3", "pi_diag_easy", minutes=1, status="abandoned", contract=False)
+    with closing(_db(paths.sqlite_path)) as db, db:
+        db.execute("UPDATE workbench_sessions SET assessment_contract_version_id = ? WHERE id = 'wb_f3'",
+                   (version_id,))
+    _step(paths.sqlite_path, "wb_f3", "st_f3", "stuck", "Why is P invertible?", minutes=2)
+
+    def rows():
+        return [(s.signal_id, s.lo_id) for s in _signals(paths, vault) if s.signal_id.startswith("workbench_")]
+
+    assert rows() == [("workbench_stuck:st_f3", "lo_diag")]
+    original = vault.practice_items["pi_diag_easy"]
+    vault.practice_items["pi_diag_easy"] = original.model_copy(update={"learning_object_id": "lo_eigen_basics"})
+    assert rows() == [("workbench_stuck:st_f3", "lo_diag")]
+    assert "lo_eigen_basics" not in _blocking(paths, vault)
+    del vault.practice_items["pi_diag_easy"]
+    assert rows() == [("workbench_stuck:st_f3", "lo_diag")]
+
+
+def test_review_f4_a_long_autosaved_history_resolves_in_linear_time():
+    """Review F4: thousands of autosaved versions of ordinary and stuck steps
+    resolve once each (memoized roots); the old walk was cubic."""
+
+    import time
+
+    steps = [_row("o0", "step", "x = 0", "2026-05-19T12:00:00Z")]
+    for n in range(1, 4000):
+        steps.append(_row(f"o{n}", "step", f"x = {n}", "2026-05-19T12:00:00Z", supersedes=f"o{n - 1}"))
+    steps.append(_row("k0", "stuck", "", "2026-05-19T12:00:01Z"))
+    for n in range(1, 3000):
+        steps.append(_row(f"k{n}", "stuck", f"why {n}", "2026-05-19T12:00:01Z", supersedes=f"k{n - 1}"))
+    started = time.perf_counter()
+    (signal,) = _derive([{"id": "s1", "practice_item_id": "pi_a", "attempt_id": None}], steps)
+    assert time.perf_counter() - started < 2.0
+    assert signal.signal_id == "workbench_stuck:k0"
 
 
 def test_the_successor_vocabulary_is_one_constant_after_its_predecessor():
@@ -476,9 +669,10 @@ def _fixture_copy(tmp_path, fixture, name, *, version, toml=None):
     item = sorted(ctx.vault.practice_items)[0]
     path = root / "state.sqlite"
     # The same workbench history on every copy: a stuck step and early help.
-    _session(path, "wb_g41", item, minutes=1, status="abandoned")
+    lo = ctx.vault.practice_items[item].learning_object_id
+    _session(path, "wb_g41", item, minutes=1, status="abandoned", lo=lo)
     _step(path, "wb_g41", "st_g41", "stuck", "I don't follow the second line.", minutes=2)
-    _session(path, "wb_g41h", item, minutes=3)
+    _session(path, "wb_g41h", item, minutes=3, lo=lo)
     _assist(path, "ha_g41", "wb_g41h", minutes=4, snapshot=[], item_id=item)
     ctx.load(root)
     return ctx, root

@@ -12,16 +12,24 @@ Two sources join the field's interaction-signal derivation
   held text: the ledger is append-only, so a later edit or delete never
   takes back that the learner was stuck then. An empty stuck step says
   nothing about understanding (the owner's ruling for an empty stuck answer,
-  2026-10-12), so it is no signal. A session submitted with no ordinary step
-  submitted its stuck text AS the stuck answer (``declared_stuck``), which the
-  derivation already reads through the grader's reading; its steps are not
-  read again here.
+  2026-10-12), so it is no signal. The row stands whatever the session's
+  submit later says (review F2): a session submitted as a stuck answer
+  (``declared_stuck``) keeps its step-time row, from the step's own time, so
+  what blocked routing before the submit still blocks it after (a deleted
+  stuck step leaves an empty stuck answer, which says nothing, and never
+  erases what the step said). The stuck answer's own grader row
+  (``stuck:<attempt>``) is the predecessor's and stays beside it unchanged;
+  both are zero-mass and blocking is per LO, so nothing is counted twice.
 * **Help before the first step.** A help request on the workbench (a hint,
   the bridge to the book, a worked example) whose logged step snapshot
   (``help_assists.step_snapshot_json``, the steps as they stood at the
   request) holds no ordinary step with text. One per session, at its first
   such request. As for the practice screen, only the logged snapshot counts:
-  a row without one is not evidence of help before work.
+  a row without one is not evidence of help before work. A snapshot entry
+  that carries no kind and text (the worked example logs identity only:
+  chain, step row id, number, hash) is read through the step row it names,
+  which the append-only ledger never changes; an entry whose row cannot be
+  found leaves the snapshot unknown, never "no work" (review F1).
 
 **Never the record (F2).** Each row has no outcome, no mass and no attempt
 link: no predictor observes it, no attempt's hint outcome or assistance is
@@ -33,9 +41,16 @@ answers alone; "I know this" still works. Abandoned sessions contribute only
 through these two sources, never as a failure.
 
 **Targets.** A submitted session's attempt gives the LO and subject (the rows
-meet the attempt rows). An open or abandoned session bound to an item gives
-the item's own LO and first subject, as a submit would record them; a session
-not yet bound to an item (its import pending or failed) has no target and is
+meet the attempt rows). An open or abandoned session gives the LO of the
+assessment contract it froze when it opened on (or bound to) its item
+(``workbench_sessions.assessment_contract_version_id``), never today's item:
+an item later moved to another LO, or removed, leaves the signal on the LO
+the learner was working on (review F3). The subject is not on record for an
+unsubmitted session; it is the label the item gives that LO now (as a submit
+would record it) when the item still targets it, else the LO's own first
+subject, else ``default``. Live routing blocks per LO only. A session without
+a readable contract for its own item (not yet bound, its import pending or
+failed, or opened before contracts were snapshotted) has no target and is
 counted as unmapped.
 
 The workbench tables are read by SQL here, never through the workbench's
@@ -90,24 +105,39 @@ def _has_text(value: Any) -> bool:
     return bool(str(value or "").strip())
 
 
-def _chain_roots(steps: Iterable[Mapping[str, Any]]) -> dict[str, str]:
-    """Each step row's chain root: an edit, tombstone or undo supersedes the head."""
+def _chain_roots(steps: Iterable[Mapping[str, Any]], wanted: Iterable[str]) -> dict[str, str]:
+    """The chain root of each ``wanted`` step row: an edit, tombstone or undo
+    supersedes the head. Memoized with path compression, so a long autosaved
+    history costs linear time in the rows walked (review F4); a cycle (never
+    written by the ledger) stops at the first repeated row."""
 
     parent = {str(step["id"]): (str(step["supersedes_id"]) if step.get("supersedes_id") else None)
               for step in steps}
     roots: dict[str, str] = {}
-    for step_id in parent:
-        seen = []
+    for step_id in wanted:
+        path: list[str] = []
+        on_path: set[str] = set()
         current = step_id
-        while parent.get(current) and current not in seen:
-            seen.append(current)
+        while current not in roots and parent.get(current) and current not in on_path:
+            path.append(current)
+            on_path.add(current)
             current = parent[current]  # type: ignore[assignment]
-        roots[step_id] = current
+        root = roots.get(current, current)
+        for node in path:
+            roots[node] = root
+        roots.setdefault(current, root)
     return roots
 
 
-def _snapshot_has_work(raw: Any) -> bool | None:
-    """Whether a logged step snapshot holds an ordinary step with text; None if unreadable."""
+def _snapshot_has_work(raw: Any, step_rows: Mapping[str, Mapping[str, Any]] | None = None) -> bool | None:
+    """Whether a logged step snapshot holds an ordinary step with text.
+
+    An entry with its own ``kind`` and ``body_md`` (a hint's or a check's
+    snapshot) is read as logged. An identity-only entry (the worked example's:
+    ``chain_id``, ``step_id``, ``number``, ``hash``) is read through the
+    immutable step row its ``step_id`` names in ``step_rows``. True as soon as
+    one entry is work; None (unknown, never "no work") when the snapshot is
+    unreadable or an entry that is not work could not be read (review F1)."""
 
     try:
         entries = json.loads(raw) if isinstance(raw, str) else raw
@@ -115,8 +145,22 @@ def _snapshot_has_work(raw: Any) -> bool | None:
         return None
     if not isinstance(entries, list):
         return None
-    return any(isinstance(entry, Mapping) and entry.get("kind") == "step" and _has_text(entry.get("body_md"))
-               for entry in entries)
+    unknown = False
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            unknown = True
+            continue
+        if "kind" in entry and "body_md" in entry:
+            kind, body = entry.get("kind"), entry.get("body_md")
+        else:
+            row = (step_rows or {}).get(str(entry.get("step_id") or ""))
+            if row is None:
+                unknown = True
+                continue
+            kind, body = row.get("kind"), row.get("body_md")
+        if kind == "step" and _has_text(body):
+            return True
+    return None if unknown else False
 
 
 def derive_workbench_signals(
@@ -125,46 +169,47 @@ def derive_workbench_signals(
     assists: Iterable[Mapping[str, Any]],
     *,
     attempts: Mapping[str, Mapping[str, Any]],
-    item_targets: Mapping[str, tuple[str, str]],
+    contract_targets: Mapping[str, tuple[str, str]],
     diagnostics: dict[str, Any] | None = None,
 ) -> tuple[SignalRow, ...]:
     """The two workbench sources as zero-mass signal rows (pure).
 
     ``sessions`` are ``workbench_sessions`` rows (``id``, ``practice_item_id``,
-    ``attempt_id``); ``steps`` ``workbench_steps`` rows; ``assists`` the
-    workbench's ``help_assists`` rows (``id``, ``workbench_session_id``,
-    ``assist_kind``, ``step_snapshot_json``, ``requested_at``). ``attempts``
-    maps an attempt id to its ``learning_object_id``, ``subject`` and
-    ``declared_stuck``; ``item_targets`` an item id to ``(lo, subject)``.
+    ``attempt_id``, ``assessment_contract_version_id``); ``steps``
+    ``workbench_steps`` rows; ``assists`` the workbench's ``help_assists``
+    rows (``id``, ``workbench_session_id``, ``assist_kind``,
+    ``step_snapshot_json``, ``requested_at``). ``attempts`` maps an attempt id
+    to its ``learning_object_id`` and ``subject``; ``contract_targets`` a
+    contract version id to ``(lo, subject)``, the LO frozen in that contract
+    (only contracts snapshotted for the session's own item).
     """
 
     targets: dict[str, tuple[str, str]] = {}
-    stuck_answer_sessions: set[str] = set()
     unmapped = 0
     for session in sessions:
         session_id = str(session["id"])
         attempt = attempts.get(str(session.get("attempt_id") or ""))
+        contract = str(session.get("assessment_contract_version_id") or "")
         if attempt is not None:
             targets[session_id] = (str(attempt["learning_object_id"]), str(attempt.get("subject") or "default"))
-            if attempt.get("declared_stuck"):
-                stuck_answer_sessions.add(session_id)
-        elif session.get("practice_item_id") and str(session["practice_item_id"]) in item_targets:
-            targets[session_id] = item_targets[str(session["practice_item_id"])]
+        elif contract and contract in contract_targets:
+            targets[session_id] = contract_targets[contract]
         else:
             unmapped += 1
     signals: list[SignalRow] = []
     steps = sorted(steps, key=lambda s: (str(s["created_at"]), str(s["id"])))
-    roots = _chain_roots(steps)
+    step_rows = {str(step["id"]): step for step in steps}
+    # Only the chains a stuck step with text is on are resolved (review F4).
+    stuck_steps = [step for step in steps if step.get("kind") == "stuck" and not step.get("deleted")
+                   and _has_text(step.get("body_md"))]
+    roots = _chain_roots(steps, (str(step["id"]) for step in stuck_steps))
     first_stuck: dict[str, Mapping[str, Any]] = {}
-    for step in steps:
-        root = roots[str(step["id"])]
-        if (root not in first_stuck and step.get("kind") == "stuck" and not step.get("deleted")
-                and _has_text(step.get("body_md"))):
-            first_stuck[root] = step
+    for step in stuck_steps:
+        first_stuck.setdefault(roots[str(step["id"])], step)
     for root, step in sorted(first_stuck.items(), key=lambda pair: (str(pair[1]["created_at"]), pair[0])):
         session_id = str(step["session_id"])
         target = targets.get(session_id)
-        if target is None or session_id in stuck_answer_sessions:
+        if target is None:
             continue
         signals.append(SignalRow(
             signal_id=f"{STUCK_PREFIX}{root}", lo_id=target[0], observed_at=str(step["created_at"]),
@@ -176,7 +221,7 @@ def derive_workbench_signals(
         if (not session_id or session_id in early or assist.get("assist_kind") not in HELP_ASSIST_KINDS
                 or assist.get("step_snapshot_json") is None):
             continue
-        if _snapshot_has_work(assist["step_snapshot_json"]) is False:
+        if _snapshot_has_work(assist["step_snapshot_json"], step_rows) is False:
             early[session_id] = assist
     for session_id, assist in early.items():
         target = targets.get(session_id)
@@ -215,10 +260,13 @@ def load_workbench_signals(
 
     if not workbench_field_signals_live(vault) or not _table_present(connection, "workbench_sessions"):
         return ()
-    sessions = _rows(connection, "SELECT id, practice_item_id, attempt_id FROM workbench_sessions")
+    sessions = _rows(
+        connection,
+        "SELECT id, practice_item_id, attempt_id, assessment_contract_version_id FROM workbench_sessions",
+    )
     if not sessions:
         if diagnostics is not None:
-            derive_workbench_signals((), (), (), attempts={}, item_targets={}, diagnostics=diagnostics)
+            derive_workbench_signals((), (), (), attempts={}, contract_targets={}, diagnostics=diagnostics)
         return ()
     steps = _rows(
         connection,
@@ -229,28 +277,63 @@ def load_workbench_signals(
         "SELECT id, workbench_session_id, assist_kind, step_snapshot_json, requested_at FROM help_assists "
         "WHERE surface = 'workbench' AND workbench_session_id IS NOT NULL",
     ) if _table_present(connection, "help_assists") else []
-    stuck_column = any(row[1] == "declared_stuck" for row in connection.execute("PRAGMA table_info(practice_attempts)"))
     attempt_ids = sorted({str(s["attempt_id"]) for s in sessions if s.get("attempt_id")})
     attempts: dict[str, dict[str, Any]] = {}
     for start in range(0, len(attempt_ids), 500):
         chunk = attempt_ids[start:start + 500]
         for row in connection.execute(
-            f"SELECT id, learning_object_id, subject, {'declared_stuck' if stuck_column else '0'} "
+            "SELECT id, learning_object_id, subject "
             f"FROM practice_attempts WHERE id IN ({','.join('?' for _ in chunk)})", chunk,
         ):
-            attempts[str(row[0])] = {"learning_object_id": row[1], "subject": row[2], "declared_stuck": bool(row[3])}
-    item_targets: dict[str, tuple[str, str]] = {}
-    items = getattr(vault, "practice_items", {}) or {}
-    for session in sessions:
-        item_id = session.get("practice_item_id")
-        item = items.get(str(item_id)) if item_id else None
-        if item is None or not getattr(item, "learning_object_id", None):
-            continue
-        subjects = vault.subjects_for_item(item) if hasattr(vault, "subjects_for_item") else []
-        item_targets[str(item_id)] = (str(item.learning_object_id), str(subjects[0]) if subjects else "default")
+            attempts[str(row[0])] = {"learning_object_id": row[1], "subject": row[2]}
     return derive_workbench_signals(
-        sessions, steps, assists, attempts=attempts, item_targets=item_targets, diagnostics=diagnostics,
+        sessions, steps, assists, attempts=attempts,
+        contract_targets=_contract_targets(connection, vault, sessions, attempts), diagnostics=diagnostics,
     )
+
+
+def _contract_targets(
+    connection: Any, vault: Any, sessions: Iterable[Mapping[str, Any]], attempts: Mapping[str, Any],
+) -> dict[str, tuple[str, str]]:
+    """``(lo, subject)`` per contract version an unsubmitted session froze (review F3).
+
+    The LO is the contract's own ``learning_object_id``, read only from a
+    contract snapshotted for the session's item; the subject (not on record
+    before a submit) is the label the item gives that LO now, else the LO's
+    first subject, else ``default``."""
+
+    wanted: dict[str, str] = {}
+    for session in sessions:
+        contract = session.get("assessment_contract_version_id")
+        if contract and session.get("practice_item_id") and str(session.get("attempt_id") or "") not in attempts:
+            wanted[str(contract)] = str(session["practice_item_id"])
+    if not wanted or not _table_present(connection, "assessment_contract_versions"):
+        return {}
+    ids = sorted(wanted)
+    items = getattr(vault, "practice_items", {}) or {}
+    objects = getattr(vault, "learning_objects", {}) or {}
+    targets: dict[str, tuple[str, str]] = {}
+    for start in range(0, len(ids), 500):
+        chunk = ids[start:start + 500]
+        for version_id, item_id, raw in connection.execute(
+            "SELECT id, practice_item_id, contract_json FROM assessment_contract_versions "
+            f"WHERE id IN ({','.join('?' for _ in chunk)})", chunk,
+        ):
+            try:
+                contract = json.loads(raw) if isinstance(raw, str) else None
+            except ValueError:
+                contract = None
+            lo = contract.get("learning_object_id") if isinstance(contract, Mapping) else None
+            if str(item_id) != wanted[str(version_id)] or not lo:
+                continue
+            item = items.get(str(item_id))
+            if item is not None and str(getattr(item, "learning_object_id", "")) == str(lo) \
+                    and hasattr(vault, "subjects_for_item"):
+                subjects = list(vault.subjects_for_item(item) or [])
+            else:
+                subjects = list(getattr(objects.get(str(lo)), "subjects", None) or [])
+            targets[str(version_id)] = (str(lo), str(subjects[0]) if subjects else "default")
+    return targets
 
 
 __all__ = [

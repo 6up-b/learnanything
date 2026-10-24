@@ -16,16 +16,23 @@ workbench modules: the `evidence-never-reads-the-workbench` import contract stan
   The ledger is append-only, so a later edit, delete or undo never takes back that the learner was stuck then.
   * An empty stuck step is no signal: the owner's 2026-10-12 ruling for an empty stuck answer ("says nothing about
     understanding beyond could not write anything").
-  * A session submitted with no ordinary step submitted its stuck text AS the stuck answer (`declared_stuck`), which
-    the derivation already reads through the grader's reading; its steps are not read a second time.
+  * The row stands whatever the submit later says (Codex review F2): a session submitted as a stuck answer
+    (`declared_stuck`) keeps its step-time row from the step's own time, and a stuck step deleted before an empty
+    submit is never erased by it. The stuck answer's own grader row (`stuck:<attempt>`) is the predecessor's and
+    stays beside it unchanged; both are zero-mass and blocking is per LO, so nothing counts twice.
 * **Help before the first step**: a workbench `help_assists` row of kind `hint`, `bridge` or `example` whose logged
   `step_snapshot_json` holds no ordinary step with text. One row per session, at its first such request, with
-  `help_before_work = true`. As on the practice screen, only the logged fact counts: a row without a snapshot is
+  `help_before_work = true`. An identity-only snapshot entry (the worked example logs chain, step row id, number and
+  hash, never the text) is read through the immutable step row it names; an entry whose row is not found leaves the
+  snapshot unknown, never "no work" (Codex review F1). As on the practice screen, only the logged fact counts: a row without a snapshot is
   not evidence of help before work; a check, a discriminating answer, a "doesn't connect" reply and a method
   comparison are not help requests.
-* **Targets**: the submitted attempt's LO and subject (so the rows meet the attempt rows); otherwise the bound
-  item's own LO and first subject (as a submit would record them); a session not yet bound to an item has none and
-  is counted as unmapped in the derivation's diagnostics.
+* **Targets**: the submitted attempt's LO and subject (so the rows meet the attempt rows); otherwise the LO of the
+  assessment contract the session froze when it opened on or bound to its item (Codex review F3: an item later moved
+  to another LO, or removed, never moves or drops the signal). No subject is on record before a submit: it is the
+  label the item gives that LO now when the item still targets it, else the LO's first subject, else `default`
+  (live routing blocks per LO). A session without a readable contract for its own item has none and is counted as
+  unmapped in the derivation's diagnostics.
 * **Abandoned sessions** contribute only through these two sources, never as a failure.
 
 **Never the record (F2).** Both rows carry no outcome, no mass and no attempt link:
@@ -147,9 +154,10 @@ The 159 files: `test_ad1_codex_review_fixes.py`, `test_ad1_migration.py`, `test_
 
 1. **Migration 219** departs from the spec's "no migration" for RW2d (§3 above). The alternative, receipts only in
    existing payloads, leaves a withheld fast-track without any record of what the old rule would have done.
-2. **Target of an unsubmitted session**: the bound item's current LO (the item's own field, not a facet mapping).
-   If an item moves to another LO later, an abandoned session's rows follow it. A snapshot-bound target (the
-   session's assessment contract or the item snapshot) would pin it; not done here.
+2. **Target of an unsubmitted session** (resolved by Codex review F3): the LO of the session's frozen assessment
+   contract, so an item moved to another LO or removed later leaves an abandoned session's rows where they were.
+   The subject is still today's label for that LO (no subject is recorded before a submit; recording one needs a
+   column and is left to the owner); live routing blocks per LO, and only report 2's per-subject simulation reads it.
 3. **Empty stuck steps** are no signal (the stuck answer's ruling), and help before the first step counts a stuck
    step as no work. Either can flip by owner decision without a new table.
 4. **Report strata**: the workbench rows are left out of `preceded_by_question` (the field's report-2 strata) so
