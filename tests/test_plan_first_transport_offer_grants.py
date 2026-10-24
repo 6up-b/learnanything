@@ -454,3 +454,48 @@ def test_the_dispatch_alone_opens_a_request_and_one_site_inherits():
     assert requests == {"learnloop_sidecar/server.py"}, requests
     assert inherits == {("learnloop/content/pipeline/add_source.py", "run_auto_study_map")}, inherits
     assert not (src / "learnloop_sidecar" / "pressed.py").exists()
+
+
+def test_p7_rw5b_figures_ask_as_the_rpc_that_asked(harness):
+    """RW5b on the merged tree: the offer button's build (``reader.figure_request`` with
+    origin/offerRef) runs its figure author in a library job; its offer, relayed by the
+    poll, is minted for ``reader.figure_request``. Answering it serves that action's
+    later builds, never the library ask (whose organizer judges explorable blocks) or
+    the tutor."""
+
+    from learnloop.practice_index.paid import plan_route, resolve_client
+    from learnloop.vault.loader import load_vault
+    from learnloop_sidecar.handlers import library_ask as library_rpcs
+
+    jobs = library_rpcs.LibraryJobs()
+    started: list[Any] = []
+
+    def figure_author_route(_worker_repo) -> dict[str, Any]:
+        vault = load_vault(harness.root)
+        route = plan_route(vault, "figure_author")
+        client, _message = resolve_client(vault, route)
+        return {"provider": route.provider, "client": getattr(client, "provider_name", None)}
+
+    harness.stub("reader.figure_request",
+                 work=lambda ctx: started.append(jobs.start(ctx, "figure_build", None, figure_author_route)) or "ok")
+
+    def poll(_ctx) -> dict[str, Any]:
+        job = started[-1]
+        assert job.done.wait(30)
+        plan_fallback.relay_job_offer(job)
+        return job.result
+
+    harness.stub("reader.library_job", work=poll)
+    harness.stub("reader.library_ask", resolve="library_organizer")
+    harness.stub("ask_tutor_question", resolve="tutor_qa")
+    harness.call("reader.figure_request", {})
+    relayed = harness.call("reader.library_job", {})
+    hint = harness.hint(relayed)
+    assert hint is not None and hint.get("fallbackOrigin") == "reader.figure_request"
+    assert harness.out(relayed)["work"]["client"] is None  # unavailable, asked, nothing built
+    harness.answer(relayed)
+    harness.call("reader.figure_request", {})
+    built = harness.call("reader.library_job", {})
+    assert harness.out(built)["work"] == {"provider": "openrouter", "client": "openrouter"}
+    for other in ("reader.library_ask", "ask_tutor_question"):
+        assert harness.out(harness.call(other))["provider"] != "openrouter", other
