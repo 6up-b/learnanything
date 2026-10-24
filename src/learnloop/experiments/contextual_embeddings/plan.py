@@ -395,3 +395,111 @@ def subscription_requests(roles: Sequence[Mapping[str, Any]], systems: Sequence[
             "system_arms": dict(sorted(system_calls.items())),
             "basis": "E0 makes no Codex call: every role is metered (Anthropic Messages API) and the service "
                      "copies' source routes go to OpenRouter"}
+
+
+# -- reuse of an earlier run (relabel round, 2026-10-23) ---------------------------------
+
+#: The roles a relabel re-sends in full: every label pass and every audit.
+RELABEL_ROLES = ("label_a", "label_b", "adjudicator")
+#: Assumptions of the reuse estimate (each one is in the plan).
+REUSE_ASSUMPTIONS = {
+    #: Label pools may grow (the probability copy's three Qwen service arms
+    #: were blocked in run 3; once backfilled, their top-20s join the pools).
+    "label_pool_growth": 0.15,
+    #: The whole frozen rubric is counted as extra input on every label and
+    #: audit request (an over-count: it replaces the old, shorter definitions).
+    "rubric_tokens_per_call": "token_estimate(bank.RELEVANCE_RUBRIC)",
+    #: Worst case for the answers: every finalist changes, so every finalist
+    #: D1 answer (tutor, both judges, their adjudication) is made again; the
+    #: D0-D3 delivery answers do not depend on labels and are reused.
+    "finalist_answers_redone_share": 1.0,
+    #: The system arms run again (their LLM requests may miss the production
+    #: caches), and the probability copy's three Qwen service arms run for the
+    #: first time: at most as much again as run 3's system requests.
+    "system_requests_factor": 2.0,
+    #: The model and route canaries go out again on every run.
+    "canaries_usd_per_category": 0.01,
+}
+
+
+def reuse_estimate(predecessor_ledger: Mapping[str, Any]) -> dict[str, Any]:
+    """The offline estimate of a relabel that reuses an earlier run (what
+    the dry run cannot price from the inventory: most work is reused).
+
+    From the earlier run's own ledger entries (their reported tokens):
+    every label and audit request is re-sent and re-priced at TODAY'S pins
+    (label A's Haiku tokens at Sonnet's prices, conservatively keeping
+    Haiku's own output token counts, thinking included), plus the frozen
+    rubric's tokens per request and the pool growth margin; the answers'
+    worst case (every finalist changes); the system arms twice; every
+    embedding again as an upper bound (the vectors are reused); canaries.
+    No network, no write."""
+
+    from learnloop.experiments.contextual_embeddings.bank import RELEVANCE_RUBRIC
+
+    rubric = token_estimate(RELEVANCE_RUBRIC)
+    roles: dict[str, dict[str, Any]] = {}
+    finalist_usd = system_usd = embeddings_usd = 0.0
+    for entry in (predecessor_ledger.get("entries") or {}).values():
+        committed = float(entry["actual_usd"] if entry.get("actual_usd") is not None else entry.get("reserved_usd") or 0)
+        role = str(entry.get("purpose") or "").split(":")[0]
+        arm = str(entry.get("arm") or "")
+        usage = entry.get("usage") or {}
+        if entry.get("category") == "labels_audits" and role in RELABEL_ROLES and arm != "canary":
+            row = roles.setdefault(role, {"calls": 0, "input_tokens": 0, "output_tokens": 0,
+                                          "observed_model": entry.get("route"), "observed_usd": 0.0})
+            row["calls"] += 1
+            row["input_tokens"] += int(usage.get("input_tokens") or 0)
+            row["output_tokens"] += int(usage.get("output_tokens") or 0)
+            row["observed_usd"] += committed
+        elif entry.get("category") == "answers_verification" and arm.endswith(":D1"):
+            finalist_usd += committed
+        elif role == "system" and entry.get("category") == "answers_verification":
+            system_usd += committed
+        elif entry.get("category") == "embeddings":
+            embeddings_usd += committed
+    growth = 1.0 + float(REUSE_ASSUMPTIONS["label_pool_growth"])
+    labels_usd = 0.0
+    for role, row in roles.items():
+        pin = pins.ROLE_PINS[role]
+        tokens_in = row["input_tokens"] * growth + rubric * row["calls"]
+        tokens_out = row["output_tokens"] * growth
+        input_price, output_price = pin.input_price_per_million, pin.output_price_per_million
+        row.update(model=pin.model, repriced_usd=round((tokens_in * input_price + tokens_out * output_price)
+                                                       / 1_000_000, 4), observed_usd=round(row["observed_usd"], 4))
+        labels_usd += row["repriced_usd"]
+    canary = float(REUSE_ASSUMPTIONS["canaries_usd_per_category"])
+    categories = {
+        "labels_audits": round(labels_usd + canary, 4),
+        "answers_verification": round(finalist_usd * float(REUSE_ASSUMPTIONS["finalist_answers_redone_share"])
+                                      + system_usd * float(REUSE_ASSUMPTIONS["system_requests_factor"]) + canary, 4),
+        "embeddings": round(embeddings_usd + canary, 4),
+        "drafting_context": round(canary, 4),
+    }
+    return {"roles": dict(sorted(roles.items())), "categories": categories,
+            "estimated_usd": round(sum(categories.values()), 4),
+            "observed": {"finalist_answers_usd": round(finalist_usd, 4), "system_usd": round(system_usd, 4),
+                         "embeddings_usd": round(embeddings_usd, 4)},
+            "rubric_tokens_per_call": rubric, "assumptions": dict(REUSE_ASSUMPTIONS),
+            "basis": "the earlier run's reported tokens re-priced at today's verified pins; reused work is $0"}
+
+
+def budget_check(estimate: Mapping[str, float], prior: Mapping[str, Any]) -> dict[str, Any]:
+    """Whether ``estimate`` (``{category: usd}``) fits the CUMULATIVE cap and
+    allocations after ``prior`` (``budget.prior_spend``: every other
+    authorization's committed spend)."""
+
+    carried = float(prior.get("total_usd") or 0.0)
+    by_category = prior.get("by_category") or {}
+    categories = {}
+    for name, allocation in pins.ALLOCATION_USD.items():
+        left = round(allocation - float(by_category.get(name, 0.0)), 6)
+        categories[name] = {"allocation_usd": allocation, "carried_usd": round(float(by_category.get(name, 0.0)), 6),
+                            "remaining_usd": left, "estimated_usd": round(float(estimate.get(name, 0.0)), 6),
+                            "fits": float(estimate.get(name, 0.0)) <= left}
+    total = round(sum(float(value) for value in estimate.values()), 6)
+    remaining = round(pins.E0_CAP_USD - carried, 6)
+    return {"cap_usd": pins.E0_CAP_USD, "carried_usd": round(carried, 6), "remaining_usd": remaining,
+            "carried_from": sorted((prior.get("plans") or {})), "estimated_usd": total, "categories": categories,
+            "fits": total <= remaining and all(item["fits"] for item in categories.values())}
+

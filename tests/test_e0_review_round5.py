@@ -193,9 +193,11 @@ def test_the_key_is_in_one_header_only_and_errors_are_allowlisted(tmp_path, capl
 # -- the roles ----------------------------------------------------------------------------
 
 
-def test_two_different_labellers_a_different_adjudicator_and_no_codex_role():
+def test_two_independent_labellers_a_different_adjudicator_and_no_codex_role():
     role = pins.ROLE_PINS
-    assert role["label_a"].model == "claude-haiku-5-5" and role["label_b"].model == "claude-sonnet-5-5"
+    # Relabel round (owner 2026-10-23, "Sonnet both + rubric"): both label passes
+    # are Sonnet 5.5 (independent requests, own orders); the adjudicator differs.
+    assert role["label_a"].model == role["label_b"].model == "claude-sonnet-5-5"
     for adjudicator in ("adjudicator", "judge_adjudicator"):
         assert role[adjudicator].model == "claude-opus-5-5"
         assert role[adjudicator].model not in {role["label_a"].model, role["label_b"].model}
@@ -327,7 +329,7 @@ def test_a_role_call_goes_through_the_messages_api_transport(tmp_path):
     prompt = B.label_prompt(question, {"c1": B.label_context(snapshot, unit)}, 0)
     result = caller.call("label_a", prompt=prompt, result_model=B.LabelPass)
     assert isinstance(result, B.LabelPass)
-    assert [post["body"]["model"] for post in server.posts] == ["claude-haiku-5-5"]
+    assert [post["body"]["model"] for post in server.posts] == ["claude-sonnet-5-5"]  # relabel round
 
 
 def test_production_never_imports_the_messages_api_transport():
@@ -350,15 +352,17 @@ def test_the_paid_preflight_passes_with_every_pin_verified_zero_codex_and_the_lo
     from learnloop.experiments.contextual_embeddings.runner import dry_run, require_paid_authorization
 
     assert pins.E0_CAP_USD == 40.0
-    assert pins.ALLOCATION_USD == {"embeddings": 0.25, "drafting_context": 0.85, "labels_audits": 24.60,
-                                   "answers_verification": 14.30}  # re-allocated by the pre-paid verify (M2)
+    # Re-split for the cumulative cap by the relabel round (2026-10-23).
+    assert pins.ALLOCATION_USD == {"embeddings": 0.25, "drafting_context": 0.85, "labels_audits": 33.00,
+                                   "answers_verification": 5.90}
     assert sum(pins.ALLOCATION_USD.values()) == pytest.approx(40.0)
     paths, _repository = build_e0_vault(tmp_path)
     plan = dry_run([paths.root], environ={})
     assert plan["totals"]["cap_usd"] == 40.0 and plan["totals"]["fits_cap"] and plan["totals"]["fits_allocations"]
     assert plan["prices"]["unverified"] == {"embeddings": [], "roles": []}
     assert plan["subscription_requests"]["planned"] == 0
-    require_paid_authorization(authorized=True, dry_run_ok=bool(plan["totals"]["fits_cap"]),
+    assert plan["budget"]["fits"] and plan["budget"]["carried_usd"] == 0.0
+    require_paid_authorization(authorized=True, dry_run_ok=bool(plan["budget"]["fits"]),
                                unverified_prices=plan["prices"]["unverified"])
     require_no_codex_roles()
     assert require_codex_lockdown()["codex_lockdown"] == "active"

@@ -173,5 +173,6 @@ def test_the_label_passes_never_reach_a_codex_turn(tmp_path, monkeypatch):
         client, _identity = caller._client(pins.ROLE_PINS[role])
         assert not isinstance(client, provider.SdkCodexClient)
     # The fake answer does not validate: each pass makes its one admitted JSON repair (paid run 2).
-    assert posts == ["claude-haiku-5-5", "claude-haiku-5-5", "claude-sonnet-5-5", "claude-sonnet-5-5"]
+    # Relabel round (owner 2026-10-23, "Sonnet both + rubric"): both passes are Sonnet 5.5.
+    assert posts == ["claude-sonnet-5-5"] * 4
     assert started == []

@@ -64,11 +64,22 @@ E0_CAP_USD = 40.0
 #: pre-paid verify (M2, 2026-10-22) for headroom above one Opus reservation
 #: ($0.33+) in the two large categories: expected spend embeddings $0.04, drafting
 #: $0.51, labels $23.62, answers $13.67; the cap is unchanged.
+#:
+#: Relabel round (owner 2026-10-23, "Sonnet both + rubric"): the cap and every
+#: allocation are E0-WIDE and CUMULATIVE across authorizations (a new
+#: authorization's ledger carries every earlier one's committed spend:
+#: ``budget.authorized_ledger``). Paid run 3 committed $14.149 (labels $11.302,
+#: answers $2.447, drafting $0.365, embeddings $0.035), and the relabel
+#: re-sends every label pass and audit (offline estimate $19.3 conservative,
+#: answers at most $1.93 if every finalist changes), so the $40 is re-split
+#: toward labels: labels 24.60 -> 33.00, answers 14.30 -> 5.90 (embeddings and
+#: drafting unchanged). Remaining for the relabel: labels $21.70, answers $3.45,
+#: drafting $0.49, embeddings $0.22; $25.85 in all.
 ALLOCATION_USD = {
     "embeddings": 0.25,
     "drafting_context": 0.85,
-    "labels_audits": 24.60,
-    "answers_verification": 14.30,
+    "labels_audits": 33.00,
+    "answers_verification": 5.90,
 }
 #: Retries per request: transient failures only; auth and contract errors none.
 TRANSIENT_RETRIES = 2
@@ -137,6 +148,11 @@ TOP_K = 10
 POOL_DEPTH = 20
 
 # -- labels and stop rules (spec §5.2, §7) -------------------------------------------
+#: The frozen relevance rubric v2 (``bank.RELEVANCE_RUBRIC``, revised on the
+#: development slice only, relabel round 2026-10-23): its SHA-256. ``bank``
+#: refuses to load when the text differs, and the hash is in the pins
+#: fingerprint, so a rubric edit is a new plan id and a relabel.
+LABEL_RUBRIC_SHA256 = "b48ddc203b82495e14e5359f292ca87141520cbb381a626e765b6ce2830a8b33"
 KAPPA_MIN = 0.60
 #: An arm scored on fewer than this share of its questions is "materially incomplete" (S1).
 ARM_COMPLETION_MIN = 0.95
@@ -404,11 +420,16 @@ ROLE_PINS: dict[str, RolePin] = {
     "writer": _anthropic("writer", "sonnet", "drafting_context", 4_000, 16_384, "e0-writer-v1"),
     # R3's 50-100-token chunk context, generated once without benchmark queries.
     "context": _anthropic("context", "haiku", "drafting_context", 4_000, 16_384, "e0-context-v1"),
-    # Two independent label passes, two DIFFERENT models, blinded and reordered.
-    "label_a": _anthropic("label_a", "haiku", "labels_audits", 2_000, 8_192, "e0-label-v1"),
-    "label_b": _anthropic("label_b", "sonnet", "labels_audits", 2_000, 8_192, "e0-label-v1"),
-    # The strong adjudicator: a model different from both labellers.
-    "adjudicator": _anthropic("adjudicator", "opus", "labels_audits", 2_000, 16_384, "e0-adjudicate-v1"),
+    # Two independent label passes (owner 2026-10-23, "Sonnet both + rubric"):
+    # both Claude Sonnet 5.5, each its own request, blinded to arm, with its own
+    # candidate order and refs (``bank.label_question``), under the frozen
+    # relevance rubric v2 (``LABEL_RUBRIC_SHA256``). Paid run 3's label A was
+    # Haiku 5.5; kappa 0.444 and 0.490 stopped verdicts (S1).
+    "label_a": _anthropic("label_a", "sonnet", "labels_audits", 2_000, 8_192, "e0-label-v2"),
+    "label_b": _anthropic("label_b", "sonnet", "labels_audits", 2_000, 8_192, "e0-label-v2"),
+    # The strong adjudicator: a model different from both labellers (unchanged;
+    # its instructions carry the same rubric, hence v2).
+    "adjudicator": _anthropic("adjudicator", "opus", "labels_audits", 2_000, 16_384, "e0-adjudicate-v2"),
     # The same tutor for every delivery and retrieval arm.
     "tutor": _anthropic("tutor", "haiku", "answers_verification", 2_000, 8_192, "e0-tutor-v1"),
     "judge_a": _anthropic("judge_a", "haiku", "answers_verification", 1_000, 8_192, "e0-judge-v1"),
@@ -515,6 +536,7 @@ def pins_fingerprint() -> str:
             "max_paid_requests": MAX_PAID_REQUESTS, "max_subscription_requests": MAX_SUBSCRIPTION_REQUESTS,
             "paid_run_subscription_allowance": PAID_RUN_SUBSCRIPTION_ALLOWANCE,
         },
+        "label_rubric_sha256": LABEL_RUBRIC_SHA256,
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
 

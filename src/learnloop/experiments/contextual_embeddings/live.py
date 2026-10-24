@@ -131,11 +131,37 @@ def _write_outcome(vault_dir: Path, outcome: Mapping[str, Any]) -> None:
     (vault_dir / "report.md").write_text(render(outcome), encoding="utf-8")
 
 
+def reused_store(run_dir: Path, plan: Mapping[str, Any], snapshots: Sequence[Any], reuse_run: str) -> Path:
+    """The earlier run directory whose stores a plan reuses (relabel round).
+
+    Every store there is content-keyed (role checkpoints by pin, identity,
+    output bound, prompt and schema; vectors by document space and content;
+    service copies by frozen tree, policy and harness; latency by query
+    encoder and question), so a changed request misses and only an identical
+    one is reused. Refused unless the earlier run froze the SAME corpus:
+    its frozen splits and candidate maps must equal this plan's."""
+
+    store = Path(run_dir) / reuse_run
+    frozen = store / "frozen"
+    if not (frozen / "run_plan.json").is_file() or not (frozen / "candidate_maps.json").is_file():
+        raise PlanMismatch("the reused run has no frozen plan under the run directory; nothing was spent")
+    earlier = json.loads((frozen / "run_plan.json").read_text(encoding="utf-8"))
+    if earlier.get("splits") != plan.get("splits"):
+        raise PlanMismatch("the reused run froze other splits; nothing was spent")
+    maps = {snapshot.vault_label: [{"unit": unit.unit_id, "extraction": unit.extraction_id,
+                                    "members": [[m.span_id, m.start, m.end] for m in unit.members]}
+                                   for unit in snapshot.units] for snapshot in snapshots}
+    if json.loads((frozen / "candidate_maps.json").read_text(encoding="utf-8")) != json.loads(
+            json.dumps(maps, sort_keys=True, default=str)):
+        raise PlanMismatch("the reused run froze other candidate maps; nothing was spent")
+    return store
+
+
 def run_live(copies: Sequence[Path], *, plan: Mapping[str, Any], run_dir: Path,
              key_envs: Mapping[str, str], reader_latency_budget_s: float | None = None,
              factories: LiveFactories | None = None,
              bind_receipts: Callable[[Any], None] | None = None,
-             new_authorization: str | None = None) -> dict[str, Any]:
+             new_authorization: str | None = None, reuse_run: str | None = None) -> dict[str, Any]:
     """The paid run (see the module docstring).
 
     One budget per authorization (fix round 4, High 3): the ledger is the
@@ -145,7 +171,13 @@ def run_live(copies: Sequence[Path], *, plan: Mapping[str, Any], run_dir: Path,
     whole run (High 8). Each copy's route canaries run BEFORE its service
     backfill (Medium 9). Any failure still writes that copy's aggregate
     failure report (Medium 12); a halted ledger (an overage) stops every
-    later copy at once (High 2)."""
+    later copy at once (High 2).
+
+    ``reuse_run`` (relabel round, 2026-10-23): the earlier run whose
+    content-keyed stores this plan reads and extends (:func:`reused_store`);
+    this plan's frozen manifests and results go to its own directory, and
+    the earlier run's results stay as they were. Its ledger is carried and
+    sealed by the new authorization (``budget.authorized_ledger``)."""
 
     from learnloop.experiments.contextual_embeddings.boundary import (
         quiet_provider_logs,
@@ -167,8 +199,10 @@ def run_live(copies: Sequence[Path], *, plan: Mapping[str, Any], run_dir: Path,
     from learnloop.experiments.contextual_embeddings.adapters import Receipts, VectorStore
 
     factories = factories or default_factories()
-    run_dir = Path(run_dir) / str(plan["run_id"])
+    root = Path(run_dir)
+    run_dir = root / str(plan["run_id"])
     handles, snapshots, strata = rebuild_frozen(copies, plan)
+    store_dir = reused_store(root, plan, snapshots, reuse_run) if reuse_run else run_dir
     ledger = authorized_ledger(copies, str(plan["run_id"]), new_authorization=new_authorization)
     ledger.start_clock(pins.MAX_WALL_S)
     freeze(run_dir / "frozen", plan, snapshots)
@@ -179,7 +213,9 @@ def run_live(copies: Sequence[Path], *, plan: Mapping[str, Any], run_dir: Path,
         for handle, snapshot in zip(handles, snapshots, strict=True):
             from learnloop.experiments.contextual_embeddings.system_arms import prepare_service_copies
 
-            vault_dir = run_dir / handle.label
+            # The stores (content-keyed) and this plan's outcome may live apart (reuse).
+            vault_dir = store_dir / handle.label
+            out_dir = run_dir / handle.label
             halted = ledger.halted()
             if halted:
                 results["vaults"][handle.label] = {"status": "not_run", "reason": "the ledger is halted"}
@@ -226,7 +262,9 @@ def run_live(copies: Sequence[Path], *, plan: Mapping[str, Any], run_dir: Path,
                 outcome = _failure_outcome(plan, handle, ledger, exc, preparation)
             if outcome.get("status") != "complete":
                 results["status"] = "incomplete"
-            _write_outcome(vault_dir, outcome)
+            if reuse_run:
+                outcome["reused_run"] = reuse_run
+            _write_outcome(out_dir, outcome)
             results["vaults"][handle.label] = outcome
     results["ledger"] = ledger.report()
     return results

@@ -688,14 +688,61 @@ def write_questions(snapshot: CorpusSnapshot, seeds: Sequence[Seed], caller: Any
 
 # -- labels ----------------------------------------------------------------------------
 
-LABEL_INSTRUCTIONS = (
-    "Judge each candidate passage for the question. relevance: required (states the answer or a condition the "
-    "answer needs), helpful (useful support that is not required), background (on topic, not needed), "
-    "unrelated. Then list every SUFFICIENT evidence set: a minimal list of refs that together contain the "
-    "answer and every condition it needs (AND within a set); give alternative sets for other valid proofs "
-    "(OR across sets). Background never completes a set. If no set suffices, answerable is false. Judge only "
+#: The relevance rubric, v2 (owner 2026-10-23: "Sonnet both + rubric"; spec
+#: §5.2 "revise on development and relabel consistently"). Revised from the
+#: DEVELOPMENT slice's label disagreements of paid run 3 only (no arm outcome
+#: and no logged question was read): the largest cell by far was pass A
+#: "background" where pass B said "unrelated" (350 of 2,068 dev pairs in
+#: probability, 414 of 2,334 in linear_algebra), on passages that share only
+#: the chapter, the section or the broad subject with the question (another
+#: counting problem, another theorem about subspaces, an exercise list, a
+#: notation fragment). Next came helpful against required (45 and 62) and
+#: background against helpful (67 and 133). v2 judges relevance against the
+#: question's SPECIFIC subject, says that sharing the area is not background,
+#: ties "required" to membership of a sufficient set, and breaks a tie toward
+#: the lower label. Frozen: its SHA-256 is ``pins.LABEL_RUBRIC_SHA256`` (part
+#: of the pins fingerprint, so of the plan id), checked when this module loads.
+RELEVANCE_RUBRIC = (
+    "Judge each candidate passage against the question's specific subject: the particular concept, result, "
+    "example, object or step the question asks about (with a selected passage, what the question asks about "
+    "that passage), not the broad topic, chapter or section it comes from. relevance: "
+    "required: the passage states the answer, or a definition, fact, step or condition without which the answer "
+    "would be wrong or incomplete; every member of a sufficient evidence set is required, and a passage that "
+    "belongs to no sufficient set is at most helpful. "
+    "helpful: the passage is about the question's specific subject and gives content an answer could use or "
+    "cite (an example, a restatement, an intuition, a consequence), but a complete answer does not need it. "
+    "background: the passage is about the question's specific subject, or names it or describes its immediate "
+    "setting, but gives nothing an answer would use or cite. "
+    "unrelated: everything else. Sharing the chapter, the section, the broad subject or some vocabulary is not "
+    "enough for background: another problem, example, exercise, theorem, definition or notation from the same "
+    "area that does not address the question's specific subject is unrelated, and so is a fragment (a heading, "
+    "a label, an isolated formula) that says nothing about it. When no passage addresses the specific subject, "
+    "most or all are unrelated. Between two adjacent labels, give the lower one unless the passage meets the "
+    "whole definition of the higher one."
+)
+LABEL_RUBRIC_VERSION = "e0-relevance-rubric-v2"
+
+
+def check_rubric_frozen(rubric: str = RELEVANCE_RUBRIC) -> str:
+    """The rubric's SHA-256, or ``RuntimeError`` when it is not the frozen one
+    (``pins.LABEL_RUBRIC_SHA256``). Run when this module loads."""
+
+    digest = hashlib.sha256(rubric.encode("utf-8")).hexdigest()
+    if digest != pins.LABEL_RUBRIC_SHA256:
+        raise RuntimeError("the E0 relevance rubric differs from its frozen hash (pins.LABEL_RUBRIC_SHA256): a "
+                           "revised rubric is a new pin, a new plan and a relabel, never a silent edit")
+    return digest
+
+
+check_rubric_frozen()
+
+SETS_RULE = (
+    "Then list every SUFFICIENT evidence set: a minimal list of refs that together contain the answer and every "
+    "condition it needs (AND within a set); give alternative sets for other valid proofs (OR across sets). "
+    "Background and unrelated passages never belong to a set. If no set suffices, answerable is false. Judge only "
     "from the passages shown."
 )
+LABEL_INSTRUCTIONS = RELEVANCE_RUBRIC + " " + SETS_RULE
 
 
 class CandidateLabel(WireModel):
@@ -717,18 +764,17 @@ class AdjudicatedLabels(WireModel):
 
 
 RELEVANCE_ONLY_INSTRUCTIONS = (
-    "Judge each candidate passage for the question. relevance: required (states the answer or a condition the "
-    "answer needs), helpful (useful support that is not required), background (on topic, not needed), "
-    "unrelated. This is one batch of a larger pool: judge relevance only; sufficient evidence sets are decided "
-    "afterwards over every supporting passage together, so leave sufficient_sets empty here. Judge only from "
-    "the passages shown."
+    RELEVANCE_RUBRIC + " This is one batch of a larger pool: judge relevance only; sufficient evidence sets are "
+    "decided afterwards over every supporting passage together, so leave sufficient_sets empty here. Judge only "
+    "from the passages shown."
 )
 SUFFICIENCY_INSTRUCTIONS = (
     "These are every passage a first reading judged required or helpful for the question, from the whole "
     "pool. List every SUFFICIENT evidence set: a minimal list of refs that together contain the answer and "
     "every condition it needs (AND within a set; passages from different parts of the pool may be needed "
-    "together); give alternative sets for other valid proofs (OR across sets). If no set suffices, answerable "
-    "is false. Judge only from the passages shown."
+    "together); give alternative sets for other valid proofs (OR across sets). A passage belongs to a set only "
+    "if the answer would be wrong or incomplete without it. If no set suffices, answerable is false. Judge only "
+    "from the passages shown."
 )
 
 

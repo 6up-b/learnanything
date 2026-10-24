@@ -19,6 +19,18 @@ second run of the same plan shares it, so another ``--run-dir`` cannot get a
 fresh $25. A ledger for a different plan id, while another authorization's
 ledger exists, needs an explicit ``--new-authorization <reason>``.
 
+**One cumulative cap across authorizations (relabel round, 2026-10-23).**
+The owner's cap is E0-wide: a new authorization's ledger CARRIES every
+earlier ledger's own committed spend (reconciled charges plus outstanding
+reservations, per category) into its admission, and SEALS those ledgers
+(``superseded`` and ``halted``, so even an older checkout's code refuses any
+further request on them). Admission then holds carried plus own plus this
+request under the $40 and under each category's E0-wide allocation: a new
+plan's hard cap is $40 minus everything already committed. The earlier
+ledgers' entries stay readable through the new one (``entries_for``), so a
+request known to have truncated, or admitted without a recorded result,
+under an earlier plan is still never re-sent blindly.
+
 **A hard cap (fix round 4, High 2).** A settlement above its reservation
 means the reservation was not a hard maximum: the ledger records the
 overage, marks itself HALTED and refuses every later request in every
@@ -255,15 +267,31 @@ class E0Ledger:
             os.close(directory)
 
     # -- authorization ------------------------------------------------------------
-    def bind_authorization(self, plan_id: str, reason: str | None) -> dict[str, Any]:
+    def bind_authorization(self, plan_id: str, reason: str | None,
+                           carried: Mapping[str, Mapping[str, Any]] | None = None) -> dict[str, Any]:
         """Record (once) which plan this ledger's budget belongs to; refuse
-        another plan's id."""
+        another plan's id. ``carried``: the earlier authorizations' own
+        committed spend (``{plan_id: {committed_usd, by_category, file}}``),
+        recorded with the authorization and counted by every admission."""
 
         with self._locked() as state:
             current = state.get("authorization")
             if current is None:
                 current = {"plan_id": plan_id, "reason": reason or "first authorization", "at": _now()}
                 state["authorization"] = current
+                if carried:
+                    by_category: dict[str, Decimal] = {}
+                    for item in carried.values():
+                        for key, value in (item.get("by_category") or {}).items():
+                            by_category[key] = by_category.get(key, Decimal(0)) + _d(value)
+                    state["carried"] = {
+                        "plans": {key: dict(value) for key, value in sorted(carried.items())},
+                        "total_usd": str(sum((_d(item["committed_usd"]) for item in carried.values()), Decimal(0))),
+                        "by_category": {key: str(value) for key, value in sorted(by_category.items())},
+                    }
+                    total, _by_category, _requests = self._totals(state)
+                    if total + _d(state["carried"]["total_usd"]) > self.cap:
+                        raise PermissionError("the earlier authorizations already committed the whole E0 cap")
             elif current.get("plan_id") != plan_id:
                 raise PermissionError("this E0 ledger belongs to another plan's authorization")
         return dict(current)
@@ -292,6 +320,14 @@ class E0Ledger:
         return total, by_category, requests
 
     @staticmethod
+    def _carried(state: Mapping[str, Any]) -> tuple[Decimal, dict[str, Decimal]]:
+        """What earlier authorizations committed, carried into this one."""
+
+        carried = state.get("carried") or {}
+        by_category = {key: _d(value) for key, value in (carried.get("by_category") or {}).items()}
+        return _d(carried.get("total_usd") or 0), by_category
+
+    @staticmethod
     def _subscription_count(state: Mapping[str, Any]) -> int:
         return sum(1 for entry in state["entries"].values() if entry.get("billing") == "subscription")
 
@@ -309,6 +345,10 @@ class E0Ledger:
         error: type[E0BudgetExceeded] = E0BudgetExceeded
         with self._locked() as state:
             total, by_category, requests = self._totals(state)
+            carried, carried_by_category = self._carried(state)
+            total += carried
+            for key, value in carried_by_category.items():
+                by_category[key] = by_category.get(key, Decimal(0)) + value
             allowance = int(state.get("subscription_allowance", self._subscription_allowance))
             reason = None
             if state.get("halted"):
@@ -406,17 +446,33 @@ class E0Ledger:
             return state.get("halted")
 
     def entries_for(self, request_key: str) -> list[dict[str, Any]]:
-        """Every entry admitted under one complete request identity."""
+        """Every entry admitted under one complete request identity, the
+        carried (sealed) ledgers' included."""
 
         with self._locked() as state:
-            return [dict(entry, reservation=key) for key, entry in state["entries"].items()
-                    if entry.get("request_key") == request_key]
+            own = [dict(entry, reservation=key) for key, entry in state["entries"].items()
+                   if entry.get("request_key") == request_key]
+            files = [str(item.get("file")) for item in ((state.get("carried") or {}).get("plans") or {}).values()
+                     if item.get("file")]
+        earlier = [dict(entry, reservation=key) for name in files
+                   for key, entry in self._sealed_entries(name).items() if entry.get("request_key") == request_key]
+        return earlier + own
+
+    def _sealed_entries(self, name: str) -> dict[str, Any]:
+        """A carried ledger's entries (sealed: read once, kept)."""
+
+        cache = self.__dict__.setdefault("_sealed_cache", {})
+        if name not in cache:
+            path = self.directory / Path(name).name
+            cache[name] = (json.loads(path.read_text(encoding="utf-8")).get("entries") or {}) if path.exists() else {}
+        return cache[name]
 
     # -- reports ------------------------------------------------------------------
     def remaining(self) -> float:
         with self._locked() as state:
             total, _by_category, _requests = self._totals(state)
-        return float(max(Decimal(0), self.cap - total))
+            carried, _carried_by_category = self._carried(state)
+        return float(max(Decimal(0), self.cap - carried - total))
 
     def report(self) -> dict[str, Any]:
         with self._locked() as state:
@@ -427,6 +483,8 @@ class E0Ledger:
             halted = state.get("halted")
             allowance = int(state.get("subscription_allowance", self._subscription_allowance))
             authorization = state.get("authorization")
+            carried, carried_by_category = self._carried(state)
+            carried_plans = sorted(((state.get("carried") or {}).get("plans") or {}))
         outstanding = sum((_d(entry["reserved_usd"]) for entry in entries if entry.get("actual_usd") is None),
                           Decimal(0))
         by_arm: dict[str, dict[str, Any]] = {}
@@ -448,9 +506,13 @@ class E0Ledger:
         return {
             "cap_usd": float(self.cap),
             "committed_usd": float(total),
+            "carried_usd": float(carried),
+            "carried_from": carried_plans,
+            "cumulative_committed_usd": float(total + carried),
             "outstanding_reservations_usd": float(outstanding),
-            "remaining_usd": float(max(Decimal(0), self.cap - total)),
+            "remaining_usd": float(max(Decimal(0), self.cap - carried - total)),
             "by_category": {key: {"committed_usd": float(by_category.get(key, Decimal(0))),
+                                  "carried_usd": float(carried_by_category.get(key, Decimal(0))),
                                   "allocation_usd": float(value)} for key, value in self.allocation.items()},
             "requests": len(entries),
             "metered_requests": requests,
@@ -464,7 +526,8 @@ class E0Ledger:
                          for item in overages],
             "authorization": None if not authorization else {"plan_id": authorization.get("plan_id")},
             "by_arm": by_arm,
-            "basis": "reconciled charges plus outstanding reservations (unknown billing stays reserved)",
+            "basis": "reconciled charges plus outstanding reservations (unknown billing stays reserved); the cap and "
+                     "allocations hold carried plus own spend",
         }
 
 
@@ -502,15 +565,90 @@ def authorized_ledger(copies: Sequence[Path], plan_id: str, *, new_authorization
     directory = canonical_ledger_dir(copies)
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / f"{plan_id}.ledger"
+    carried: dict[str, dict[str, Any]] = {}
     if not path.exists():
-        others = sorted(item.name for item in directory.glob("e0_*.ledger") if item != path)
+        others = sorted(item for item in directory.glob("e0_*.ledger") if item != path)
         if others and not (new_authorization and new_authorization.strip()):
             raise PermissionError("another plan's E0 authorization ledger exists; a different plan needs "
                                   "--new-authorization <reason> from the orchestrator")
+        # The cap is cumulative (relabel round): every earlier ledger is sealed
+        # and its own committed spend carried into this authorization.
+        for other in others:
+            carried[other.name[: -len(".ledger")]] = seal_ledger(other, superseded_by=plan_id)
     # The paid run makes no Codex call: its ledger's Codex allowance is zero (re-plan 2026-10-22).
     ledger = E0Ledger(file=path, max_subscription_requests=pins.PAID_RUN_SUBSCRIPTION_ALLOWANCE)
-    ledger.bind_authorization(plan_id, new_authorization.strip() if new_authorization else None)
+    ledger.bind_authorization(plan_id, new_authorization.strip() if new_authorization else None, carried=carried)
     return ledger
+
+
+def ledger_spend(path: Path) -> dict[str, Any]:
+    """One ledger file's OWN committed spend (reconciled charges plus
+    outstanding reservations), per category, read-only."""
+
+    state = json.loads(Path(path).read_text(encoding="utf-8"))
+    total = Decimal(0)
+    by_category: dict[str, Decimal] = {}
+    for entry in (state.get("entries") or {}).values():
+        committed = E0Ledger._committed(entry)
+        total += committed
+        by_category[entry["category"]] = by_category.get(entry["category"], Decimal(0)) + committed
+    return {"committed_usd": str(total), "by_category": {key: str(value) for key, value in sorted(by_category.items())},
+            "entries": len(state.get("entries") or {}), "file": Path(path).name,
+            "superseded": state.get("superseded")}
+
+
+def prior_spend(copies: Sequence[Path], *, exclude: str | None = None) -> dict[str, Any]:
+    """Every authorization ledger's own committed spend under the copies'
+    canonical ledger directory (read-only; ``exclude``: a plan id), with the
+    total and per category: what a new authorization would carry."""
+
+    directory = canonical_ledger_dir(copies)
+    plans = {}
+    for path in sorted(directory.glob("e0_*.ledger")) if directory.exists() else []:
+        plan_id = path.name[: -len(".ledger")]
+        if plan_id != exclude:
+            plans[plan_id] = ledger_spend(path)
+    by_category: dict[str, Decimal] = {}
+    for item in plans.values():
+        for key, value in item["by_category"].items():
+            by_category[key] = by_category.get(key, Decimal(0)) + _d(value)
+    return {"plans": plans, "total_usd": float(sum((_d(item["committed_usd"]) for item in plans.values()), Decimal(0))),
+            "by_category": {key: float(value) for key, value in sorted(by_category.items())}}
+
+
+def seal_ledger(path: Path, *, superseded_by: str) -> dict[str, Any]:
+    """Seal an earlier authorization's ledger under its own lock: mark it
+    ``superseded`` and ``halted`` (every later request on it is refused, by
+    this code and by any older checkout's), and return its own committed
+    spend for the new authorization to carry. Idempotent."""
+
+    path = Path(path)
+    lock_path = path.with_name(path.name + ".lock")
+    with _PROCESS_LOCK, open(lock_path, "a+") as handle:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        try:
+            state = json.loads(path.read_text(encoding="utf-8"))
+            if not state.get("superseded"):
+                state["superseded"] = {"by": superseded_by, "at": _now()}
+            if not state.get("halted"):
+                state["halted"] = {"reason": f"superseded by {state['superseded']['by']}: this ledger's spend is "
+                                             "carried into that authorization's cumulative cap",
+                                   "at": state["superseded"]["at"]}
+            temporary = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+            with open(temporary, "w", encoding="utf-8") as out:
+                json.dump(state, out, sort_keys=True, indent=1)
+                out.flush()
+                os.fsync(out.fileno())
+            os.replace(temporary, path)
+            directory = os.open(path.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    spend = ledger_spend(path)
+    return {key: spend[key] for key in ("committed_usd", "by_category", "entries", "file")}
 
 
 def known_tokens(value: Any) -> int | None:

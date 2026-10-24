@@ -81,7 +81,12 @@ def e0_run(
     json_output: Annotated[bool, typer.Option("--json")] = False,
     new_authorization: Annotated[str | None, typer.Option(
         "--new-authorization",
-        help="The orchestrator's reason for a new plan's budget while another plan's ledger exists.")] = None,
+        help="The orchestrator's reason for a new plan's budget while another plan's ledger exists (that "
+             "ledger is sealed and its spend carried: the cap is cumulative).")] = None,
+    reuse_run: Annotated[str | None, typer.Option(
+        "--reuse-run",
+        help="An earlier run id under --run-dir whose content-keyed stores this plan reuses (checkpoints, "
+             "vectors, service copies, records); its ledger prices the remaining work.")] = None,
 ) -> None:
     """Plan (--dry-run), check (--preflight-only) or run E0 on prepared copies within the $40 cap."""
 
@@ -95,14 +100,16 @@ def e0_run(
         if preflight_only:
             from learnloop.experiments.contextual_embeddings.runner import preflight
 
-            report = preflight(copy, key_envs=key_envs, env_file=env_file or [], reserve_share=reserve_share)
+            report = preflight(copy, key_envs=key_envs, env_file=env_file or [], reserve_share=reserve_share,
+                               reuse_run=reuse_run)
             typer.echo(json.dumps(report, sort_keys=True, indent=None if json_output else 2, default=str))
             if not report["ready"]:
                 raise typer.Exit(code=1)
             return
         if not dry_run and not authorized:
             require_paid_authorization(authorized=False, dry_run_ok=False)
-        plan = plan_dry_run(copy, key_envs=key_envs, env_file=env_file or [], reserve_share=reserve_share)
+        plan = plan_dry_run(copy, key_envs=key_envs, env_file=env_file or [], reserve_share=reserve_share,
+                            reuse_run=reuse_run)
         if out is not None:
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text(json.dumps(plan, sort_keys=True, indent=1, default=str) + "\n", encoding="utf-8")
@@ -116,13 +123,16 @@ def e0_run(
 
             # Every E0 Codex turn must be the locked-down one (security lockdown 55063be64).
             require_codex_lockdown()
-            require_paid_authorization(authorized=authorized, dry_run_ok=bool(plan["totals"]["fits_cap"]),
+            # The estimate must fit what is left of the CUMULATIVE cap (relabel round).
+            budget = plan.get("budget") or {"fits": plan["totals"]["fits_cap"]}
+            require_paid_authorization(authorized=authorized, dry_run_ok=bool(budget["fits"]),
                                        unverified_prices=plan.get("prices", {}).get("unverified"))
             # Receipts go to each copy's experiment repository, never to a vault
             # found from the working directory (Codex review F4).
             result = run_live(copy, plan=plan, run_dir=run_dir, key_envs=key_envs,
                               reader_latency_budget_s=reader_latency_budget_s,
-                              bind_receipts=bind_command_repository, new_authorization=new_authorization)
+                              bind_receipts=bind_command_repository, new_authorization=new_authorization,
+                              reuse_run=reuse_run)
             typer.echo(json.dumps(result, sort_keys=True, indent=None if json_output else 2, default=str))
             return
     except typer.Exit:

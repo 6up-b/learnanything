@@ -73,20 +73,28 @@ def test_m1_no_e0_vault_load_reads_settings_env_or_a_copy_dotenv(tmp_path, monke
 
 
 def test_m2_the_allocation_covers_each_expected_spend_with_headroom_above_an_opus_reservation():
+    """Since the relabel round (2026-10-23) the cap and allocations are
+    cumulative across authorizations, and the committed dry run (with
+    ``--reuse-run``) prices the relabel from run 3's ledger: what is left of
+    each category after run 3's spend covers its estimate with headroom above
+    one Opus reservation in the two large categories."""
+
     assert pins.E0_CAP_USD == 40.0
-    assert pins.ALLOCATION_USD == {"embeddings": 0.25, "drafting_context": 0.85, "labels_audits": 24.60,
-                                   "answers_verification": 14.30}
+    assert pins.ALLOCATION_USD == {"embeddings": 0.25, "drafting_context": 0.85, "labels_audits": 33.00,
+                                   "answers_verification": 5.90}
     assert sum(pins.ALLOCATION_USD.values()) == pytest.approx(40.0)
     plan = json.loads(ARTIFACT.read_text(encoding="utf-8"))
     assert plan["totals"]["cap_usd"] == 40.0
+    budget = plan["budget"]
+    assert budget["basis"] == "reuse_estimate" and budget["fits"]
     opus = pins.ROLE_PINS["adjudicator"]
     one_reservation = pins.ROLE_PINS["adjudicator"].max_output_tokens * opus.output_price_per_million / 1e6
-    for name, category in plan["totals"]["categories"].items():
+    for name, category in budget["categories"].items():
         assert category["allocation_usd"] == pins.ALLOCATION_USD[name]  # the committed plan is current
-        assert category["estimated_usd"] <= category["allocation_usd"], name
+        assert category["estimated_usd"] <= category["remaining_usd"], name
     for name in ("labels_audits", "answers_verification"):
-        category = plan["totals"]["categories"][name]
-        assert category["allocation_usd"] - category["estimated_usd"] > one_reservation, name
+        category = budget["categories"][name]
+        assert category["remaining_usd"] - category["estimated_usd"] > one_reservation, name
 
 
 # -- L1 -----------------------------------------------------------------------------------

@@ -221,10 +221,18 @@ def migration_head(handle: CopyHandle) -> int | None:
 
 def dry_run(copies: Sequence[Path], *, key_envs: Mapping[str, str] | None = None,
             env_file: Path | Sequence[Path] | None = None,
-            reserve_share: float = 0.0, environ: Mapping[str, str] | None = None) -> dict[str, Any]:
+            reserve_share: float = 0.0, environ: Mapping[str, str] | None = None,
+            reuse_run: str | None = None) -> dict[str, Any]:
     """The frozen plan and its estimate, with no network and no writes.
     ``env_file``: one dotenv file or several (``--env-file`` repeated), loaded
-    by name only, a variable with two different values refused."""
+    by name only, a variable with two different values refused.
+
+    ``plan["budget"]`` (relabel round) is what authorizes the spend: the
+    estimate against the CUMULATIVE cap and allocations, after every other
+    authorization's committed spend (read-only from the canonical ledgers).
+    Without ``reuse_run`` the estimate is the whole plan's; with it (a plan
+    that reuses an earlier run's stores, ``--reuse-run``) it is
+    :func:`plan.reuse_estimate` from that run's own ledger."""
 
     key_envs = dict(pins.DEFAULT_KEY_ENVS | dict(key_envs or {}))
     env_files = [env_file] if isinstance(env_file, (str, Path)) else list(env_file or [])
@@ -348,7 +356,49 @@ def dry_run(copies: Sequence[Path], *, key_envs: Mapping[str, str] | None = None
         raise RuntimeError(f"the dry run changed {len(changed)} copies")
     plan["checks"] = {"network_calls": network_attempts, "copies_changed": 0,
                       "copy_tree_digests_equal": True, "settings_file_read": False, "database_mode": "read_only"}
+    plan["budget"] = authorization_budget(roots, plan, reuse_run=reuse_run)
     return plan
+
+
+def authorization_budget(roots: Sequence[Path], plan: Mapping[str, Any], *,
+                         reuse_run: str | None = None) -> dict[str, Any]:
+    """The plan's estimate against what is left of the cumulative E0 cap
+    (relabel round): every other authorization's committed spend is carried
+    (``budget.prior_spend``, read-only). ``reuse_run``: the earlier run whose
+    stores this plan reuses; its ledger prices the relabel
+    (``plan.reuse_estimate``). A missing ledger fails closed (``fits`` false)."""
+
+    from learnloop.experiments.contextual_embeddings.budget import canonical_ledger_dir, prior_spend
+    from learnloop.experiments.contextual_embeddings.plan import budget_check, reuse_estimate
+
+    notes: list[str] = []
+    try:
+        prior = prior_spend(roots, exclude=str(plan["run_id"]))
+        directory: Path | None = canonical_ledger_dir(roots)
+    except ValueError:
+        prior, directory = {}, None
+        notes.append("the copies are outside one fixtures-local root: no canonical ledger directory")
+    reuse: dict[str, Any] | None = None
+    if reuse_run:
+        path = None if directory is None else directory / f"{reuse_run}.ledger"
+        if path is None or not path.exists():
+            reuse = {"run": reuse_run, "error": "the reused run's ledger is not in the canonical ledger directory"}
+        else:
+            reuse = {"run": reuse_run, **reuse_estimate(json.loads(path.read_text(encoding="utf-8")))}
+    if reuse is not None and "categories" in reuse:
+        estimate = dict(reuse["categories"])
+    else:
+        estimate = {name: float(category["estimated_usd"])
+                    for name, category in plan["totals"]["categories"].items()}
+    result = budget_check(estimate, prior)
+    result["basis"] = "reuse_estimate" if reuse is not None else "whole_plan_estimate"
+    if reuse is not None:
+        result["reuse"] = reuse
+        if "error" in reuse:
+            result["fits"] = False
+            notes.append(reuse["error"])
+    result["notes"] = notes
+    return result
 
 
 def _count(values: Any) -> dict[str, int]:
@@ -487,7 +537,8 @@ def require_paid_authorization(*, authorized: bool, dry_run_ok: bool,
 
 
 def preflight(copies: Sequence[Path], *, key_envs: Mapping[str, str] | None = None,
-              env_file: Path | Sequence[Path] | None = None, reserve_share: float = 0.0) -> dict[str, Any]:
+              env_file: Path | Sequence[Path] | None = None, reserve_share: float = 0.0,
+              reuse_run: str | None = None) -> dict[str, Any]:
     """``--preflight-only``: everything the paid run checks before it spends,
     with ZERO network calls and no value printed (owner, 2026-10-22).
 
@@ -507,7 +558,7 @@ def preflight(copies: Sequence[Path], *, key_envs: Mapping[str, str] | None = No
     key_envs = dict(pins.DEFAULT_KEY_ENVS | dict(key_envs or {}))
     roots = [Path(copy) for copy in copies]
     before = {root.name: tree_digest(root) for root in roots}
-    plan = dry_run(roots, key_envs=key_envs, env_file=env_file, reserve_share=reserve_share)
+    plan = dry_run(roots, key_envs=key_envs, env_file=env_file, reserve_share=reserve_share, reuse_run=reuse_run)
     with network_guard() as guard:
         checks: dict[str, Any] = {}
         try:
@@ -524,6 +575,7 @@ def preflight(copies: Sequence[Path], *, key_envs: Mapping[str, str] | None = No
     unverified = plan["prices"]["unverified"]
     codex = plan["subscription_requests"]
     totals = plan["totals"]
+    budget = plan["budget"]
     keys = {name: plan["keys"].get(name, "absent") for name in key_envs.values()}
     passed = {
         "prices_verified": not any(unverified.values()),
@@ -531,8 +583,11 @@ def preflight(copies: Sequence[Path], *, key_envs: Mapping[str, str] | None = No
         "codex_allowance_zero": pins.PAID_RUN_SUBSCRIPTION_ALLOWANCE == 0 and codex["allowance"] == 0,
         "no_codex_roles": checks["no_codex_roles"],
         "codex_lockdown_present": checks["codex_lockdown"] == "active",
-        "fits_cap": bool(totals["fits_cap"]),
-        "fits_allocations": bool(totals["fits_allocations"]),
+        # Against the CUMULATIVE cap and allocations, after every other
+        # authorization's spend (relabel round).
+        "fits_cap": budget["estimated_usd"] <= budget["remaining_usd"],
+        "fits_allocations": all(item["fits"] for item in budget["categories"].values()),
+        "reuse_ready": budget.get("basis") != "reuse_estimate" or "error" not in (budget.get("reuse") or {}),
         "zero_network_calls": int(plan["checks"]["network_calls"]) == 0 and attempts == 0,
         "copies_unchanged": before == after,
     }
@@ -542,10 +597,17 @@ def preflight(copies: Sequence[Path], *, key_envs: Mapping[str, str] | None = No
         "unverified_prices": unverified,
         "codex": {"planned": codex["planned"], "allowance": codex["allowance"]},
         "cap_usd": totals["cap_usd"],
+        "carried_usd": budget["carried_usd"], "carried_from": budget["carried_from"],
+        "remaining_usd": budget["remaining_usd"], "budget_basis": budget["basis"],
         "allocations": {name: {"allocation_usd": category["allocation_usd"],
-                               "expected_usd": category["estimated_usd"], "worst_case_usd": category["worst_case_usd"]}
-                        for name, category in totals["categories"].items()},
-        "estimated_usd": totals["estimated_usd"], "worst_case_usd": totals["worst_case_usd"],
+                               "carried_usd": category["carried_usd"], "remaining_usd": category["remaining_usd"],
+                               "expected_usd": category["estimated_usd"]}
+                        for name, category in budget["categories"].items()},
+        "estimated_usd": budget["estimated_usd"],
+        "whole_plan": {"estimated_usd": totals["estimated_usd"], "worst_case_usd": totals["worst_case_usd"]},
+        "reuse_run": reuse_run,
+        "new_authorization_needed": bool(budget["carried_from"]) and not Path(
+            str(canonical_ledger_dir(roots) / f"{plan['run_id']}.ledger")).exists(),
         "run_id": plan["run_id"],
         "ledger": str(canonical_ledger_dir(roots) / f"{plan['run_id']}.ledger"),
         "copies_sha256": {"before": before, "after": after},
