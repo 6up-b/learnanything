@@ -79,8 +79,15 @@ def test_the_registry_names_real_tables_and_roles(tmp_path):
     for table in T.CARVE_OUTS:
         assert T.ROLES[table] == T.DENIED, table
     assert set(T.ENTITY_KINDS.values()) <= KINDS
-    for module in sorted(T.INCUMBENT_READERS):
+    # The incumbent scope's readers are derived (the compose fix round 2): every LearnLoop module but
+    # AD's own, and no reader outside LearnLoop.
+    for module in T.AD_MODULES:
         importlib.import_module(module)
+        assert not T.incumbent_reader(module) and not T.incumbent_reader(module + ".x")
+    assert not T.incumbent_reader("<outside learnloop>") and not T.incumbent_reader("tests.test_ad_guard")
+    for module in ("learnloop.scheduling.scheduler", "learnloop.scheduling.intent.serving",
+                   "learnloop.daily_plan.engine", "learnloop.daily_plan.staged_frame"):
+        assert T.incumbent_reader(module), module
     # The predicate's own inputs are readable only while it is computed; AD's tables are protected.
     assert {T.ROLES[t] for t in ("source_unit_selections", "source_held_out_signal_marks", "exam_pool_items")} == {
         T.PREDICATE}

@@ -106,7 +106,7 @@ def test_the_incumbent_hands_ad_only_verdicts(tmp_path, monkeypatch):
     from learnloop.daily_plan import ad_slot
 
     assert {field.name for field in dataclasses.fields(ad_slot.IncumbentVerdicts)} == {
-        "refusals", "cold_items", "reserved_items"}
+        "pool", "refusals", "cold_items", "reserved_items"}
     seen = []
     real = ad_slot.incumbent_verdicts
 
@@ -126,7 +126,9 @@ def test_the_incumbent_hands_ad_only_verdicts(tmp_path, monkeypatch):
             assert isinstance(item_id, str) and all(isinstance(reason, str) for reason in reasons)
         assert verdicts.cold_items is None or all(isinstance(i, str) for i in verdicts.cold_items)
         assert all(isinstance(i, str) for i in verdicts.reserved_items)
-    assert any("pool:intent_paused" in verdicts.refusals.get("pi_e1", ()) for verdicts in seen)
+    # The paused sibling is no member of the plan's admitted pool (round 2: membership, not a re-check).
+    assert all("pi_e1" not in verdicts.pool and "pi_e1" not in verdicts.refusals for verdicts in seen)
+    assert all(all(isinstance(i, str) for i in verdicts.pool) for verdicts in seen)
     # The incumbent's scope is entered in the slot only by its two verdict functions.
     source = Path(ad_slot.__file__).read_text(encoding="utf-8")
     tree = ast.parse(source)
@@ -182,7 +184,7 @@ def test_property_ad_never_serves_or_clears_what_the_incumbent_withholds(tmp_pat
     _context, built = _live_context(env, record)
     held = withheld()
     if held:
-        cleared = ad_slot.deferrals_to_clear(env, {item: {} for item in held}, built=built)
+        cleared = ad_slot.deferrals_to_clear(env, {item: {} for item in held}, built=built, record=record)
         assert not set(cleared) & held, (cleared, held)
     # (i) zero guard denials over every operation.
     assert _denials(observed) == [], _denials(observed)[:5]

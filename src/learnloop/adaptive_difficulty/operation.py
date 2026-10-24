@@ -24,7 +24,8 @@ the AD **guard**, an authorizer:
   computed; a read of a *denied* table (the incumbent's derived state) is refused, except by the
   named ``mastery_ekf`` carve-out;
 * the incumbent's serve-time constraints asked of a visible candidate run in
-  :func:`incumbent_constraints`, readable only by the registry's named incumbent readers;
+  :func:`incumbent_constraints`, whose readers are every LearnLoop module reached inside it but
+  AD's own (``protected_tables.incumbent_reader``), and from which only verdicts leave;
 * a write is allowed only to an AD-owned table (with the write's own checks: its foreign keys, its
   WHERE on its own target, the schema's triggers, and a store writer's idempotency read in
   :func:`own_write`);
@@ -178,17 +179,26 @@ class Guard:
         self.reads.setdefault(table, set()).add(reader)
         rules = _IN_RULES.get()
         kind = T.role(table)
+        if rules == T.INCUMBENT:
+            # The incumbent's scope (the compose fix round 2): its readers are derived, every LearnLoop
+            # module reached inside it but AD's own (``protected_tables.incumbent_reader``), and read
+            # anything, classified or not; only verdicts leave the scope (``ad_slot.IncumbentVerdicts``).
+            # AD's own code, or an unknown reader, inside it reads as outside any scope.
+            if T.incumbent_reader(reader):
+                if self.poisoned:
+                    return self._deny("read", table, POISONED, reader)
+                return sqlite3.SQLITE_OK
+            rules = None
         # Column-aware (round 5): outside the rules' scopes (the material view's rules, the
         # predicate's, the incumbent's constraints) only a table's metadata columns are read raw; a
         # content column (text, JSON or blob that can carry material) is the rules' to resolve.
         # In the incumbent's scope only its named readers read content (round 6).
-        raw_content = (rules is None or (rules == T.INCUMBENT and reader not in T.INCUMBENT_READERS)) \
-            and C.column_class(table, column) == C.CONTENT
+        raw_content = rules is None and C.column_class(table, column) == C.CONTENT
         # A column derived from other rows (``protected_tables.DERIVED``; round 7) is read only where
         # it is derived again from visible rows (the projection's ``rules("derive")``), by the
         # predicate, or by the incumbent's named readers; the rules never hand it out.
         derived = T.COLUMNS.get(table, {}).get(str(column or "")) == T.DERIVED and rules not in (
-            DERIVE, "predicate") and not (rules == T.INCUMBENT and reader in T.INCUMBENT_READERS)
+            DERIVE, "predicate")
         if kind == T.NEUTRAL and not raw_content:
             return sqlite3.SQLITE_OK
         if self.poisoned:
@@ -201,7 +211,7 @@ class Guard:
             return self._deny("read", table, f"{DERIVED_READ} ({table}.{column})", reader)
         if kind == T.NEUTRAL:
             return self._deny("read", table, f"{CONTENT_READ} ({table}.{column})", reader)
-        if rules not in (None, T.INCUMBENT) and kind != T.PREDICATE:
+        if rules is not None and kind != T.PREDICATE:
             return sqlite3.SQLITE_OK
         verdict = T.read_verdict(table, rules=rules, reader=reader, stack=_stack_modules())
         if verdict is None and raw_content:
@@ -448,9 +458,10 @@ def own_write(table: str) -> Iterator[None]:
 @contextmanager
 def incumbent_constraints() -> Iterator[None]:
     """The incumbent's serve-time constraints, asked of a visible candidate inside an operation (the
-    slot's routine exclusions and staged-frame admission): read only by the registry's named
-    incumbent readers (``protected_tables.INCUMBENT_READERS``), never written. Named, not closed:
-    see the registry."""
+    slot's routine exclusions, staged-frame admission, pool predicate and admitted pool): read by
+    every LearnLoop module reached inside it but AD's own (``protected_tables.incumbent_reader``),
+    never written; entered only by ``daily_plan.ad_slot``'s two verdict functions, which return ids
+    and reason strings alone."""
 
     with rules("incumbent"):
         yield

@@ -444,37 +444,27 @@ ENTITY_KINDS: Mapping[str, str] = MappingProxyType({
 
 #: The incumbent's serve-time constraints AD's slot asks of a visible candidate (would the incumbent
 #: serve it now: the routine and out-of-timing exclusions, the staged frame's admission on a fresh
-#: controller snapshot). Read only in the operation's ``incumbent_constraints()`` scope, only by these
-#: modules, never written; what reaches AD is a pass or a named refusal per visible candidate. Named,
-#: not closed (the AD23 redesign's boundary list): the incumbent's own state is what it constrains with.
-INCUMBENT_READERS = frozenset({
-    "learnloop.content.sources.exam_material",
-    "learnloop.daily_plan.staged_frame",
-    "learnloop.goals.exam_pool",
-    "learnloop.placement.state",
-    "learnloop.scheduling.constraint_engine",
-    "learnloop.scheduling.controller_ownership",
-    "learnloop.scheduling.controller_snapshot",
-    "learnloop.scheduling.controller_store",
-    # Main's DL2 moved the staged frame's mandatory-set evaluation (``evaluate_mandatory``) out of
-    # ``daily_plan.staged_frame`` into its own module: the same incumbent constraint code (the compose round).
-    "learnloop.scheduling.frame_constraints",
-    # The compose fix round (intent; Opus composition verify F1, F2): the rest of the incumbent's frame,
-    # snapshot and pool-predicate path, enumerated by a trace of every incumbent-scope read with DL2
-    # commitments under both router settings and over the contract harness, not by hand. The
-    # snapshot's commitment heads (``curriculum.commitments``), DL2's intent resolution, and the pool
-    # predicate's build gates (placement's state and predictor, the facet states, the fitted
-    # parameters, the LO mastery claims). Each answers AD a verdict only (``ad_slot.IncumbentVerdicts``).
-    "learnloop.curriculum.commitments",
-    "learnloop.learner.facet_state_reader",
-    "learnloop.learner.mastery",
-    "learnloop.params.fitted_params",
-    "learnloop.placement.predictor",
-    "learnloop.scheduling.intent.resolution",
-    # ``scheduler.pool_admission`` itself (the build's request set: tutor promotions, DL2's skips).
-    "learnloop.scheduling.scheduler",
-    "learnloop.scheduling.serving_exclusions",
-})
+#: controller snapshot, the plan pool's per-item predicate and the plan's admitted pool). They run in
+#: the operation's ``incumbent_constraints()`` scope, never written.
+#:
+#: The scope's readers are derived, not listed (the compose fix round 2): every LearnLoop module
+#: reached inside the scope is an incumbent reader, except AD's own code (:data:`AD_MODULES`), which
+#: reads there as it reads outside any scope, and a reader outside LearnLoop. Hand-listing the
+#: modules failed three times as the incumbent's path grew (DL2's commitments, intent's checks,
+#: the scheduler's request set). The guarantee is at the scope's boundary instead:
+#: ``daily_plan.ad_slot`` enters the scope in exactly two functions (``_exclusions`` and
+#: ``incumbent_verdicts``, a test pins it). They call incumbent code alone and return verdicts alone
+#: (item ids and reason strings, validated), so whatever the incumbent reads, only a pass or a named
+#: refusal per candidate, and the plan's admitted pool as ids, reaches AD.
+AD_MODULES = ("learnloop.adaptive_difficulty", "learnloop.daily_plan.ad_slot")
+
+
+def incumbent_reader(module: str) -> bool:
+    """Whether ``module`` reads as the incumbent inside ``incumbent_constraints()``."""
+
+    if not module.startswith("learnloop."):
+        return False
+    return not any(module == prefix or module.startswith(prefix + ".") for prefix in AD_MODULES)
 
 #: Tables an operation may write: AD's own, and the receipts and accounting its jobs write.
 AD_WRITABLE = frozenset({
@@ -564,7 +554,7 @@ def read_verdict(table: str, *, rules: str | None, reader: str = "", stack: tupl
     if kind is None:
         return "an unclassified table"
     if rules == INCUMBENT:
-        return None if reader in INCUMBENT_READERS else "a read in the incumbent's scope by another module"
+        return None if incumbent_reader(reader) else "a read in the incumbent's scope by another module"
     if kind == PREDICATE:
         return None if rules == "predicate" else _WHY[kind]
     if rules is not None:
@@ -581,5 +571,5 @@ def write_verdict(table: str) -> str | None:
 
 
 __all__ = ["AD_WRITABLE", "CARVE_OUTS", "COLUMNS", "DENIED", "DERIVED", "DERIVED_TREATMENT", "ENTITY_KINDS", "EPOCH",
-           "INCUMBENT", "INCUMBENT_READERS", "ITEM_PROVENANCE", "READING",
+           "AD_MODULES", "INCUMBENT", "ITEM_PROVENANCE", "READING", "incumbent_reader",
            "NEUTRAL", "PREDICATE", "PROTECTED", "ROLES", "VALUE", "read_verdict", "role", "write_verdict"]

@@ -187,45 +187,72 @@ def _pool_item(item: Any, *, est_minutes: float, existing: PoolItem | None) -> P
 
 @dataclass(frozen=True)
 class IncumbentVerdicts:
-    """What the incumbent's scope hands AD's slot for a set of candidates: verdicts, never state
-    (the compose fix round, (b)). ``refusals``: per candidate, the reasons the incumbent would not
-    serve it (the staged frame's constraint refusals, router on; the plan pool's own per-item
-    predicate, ``pool:<reason>``, under both router settings); ``cold_items``: the items an open
-    cold check holds (None: unreadable, every candidate held); ``reserved_items``: the items a
-    reserved assessment surface holds. Ids and reason strings only."""
+    """What the incumbent's scope hands AD's slot: verdicts, never state (the compose fix rounds).
 
+    ``pool``: the plan's admitted pool of new material for this slot, as ids
+    (``engine.admitted_new_material_ids``: the output of the build the plan used, after every one of
+    its stages, plus the slot's own planned item); AD's candidates are its members or nothing.
+    ``refusals``: per member candidate, the reasons the incumbent would not serve it now (the staged
+    frame's constraint refusals, router on; the plan pool's per-item predicate, ``pool:<reason>``,
+    re-asked in the serve transaction). ``cold_items``: the items an open cold check holds (None:
+    unreadable, every candidate held). ``reserved_items``: the items a reserved assessment surface
+    holds. Item ids and reason strings only, checked here, so nothing else the incumbent read
+    leaves its scope."""
+
+    pool: frozenset[str]
     refusals: Mapping[str, tuple[str, ...]]
     cold_items: frozenset[str] | None
     reserved_items: frozenset[str]
 
+    def __post_init__(self) -> None:
+        ids = [*self.pool, *self.refusals, *self.reserved_items, *(self.cold_items or ())]
+        reasons = [reason for found in self.refusals.values() for reason in found]
+        if not isinstance(self.pool, frozenset) or not isinstance(self.reserved_items, frozenset) or not (
+                self.cold_items is None or isinstance(self.cold_items, frozenset)):
+            raise TypeError("incumbent verdicts carry frozensets of ids")
+        if not all(isinstance(value, str) for value in ids + reasons) or not all(
+                isinstance(found, tuple) for found in self.refusals.values()):
+            raise TypeError("incumbent verdicts carry item ids and reason strings only")
 
-def incumbent_verdicts(env: Any, candidates: Sequence[PoolItem], *, item_states: Any) -> IncumbentVerdicts:
-    """The incumbent's admission of AD's candidates, asked in its scope (the registry's named
-    incumbent readers) and returned as :class:`IncumbentVerdicts` alone.
 
-    Two incumbent questions, each the incumbent's own code: the staged frame's admission on a fresh
-    controller snapshot (its constraint engine, cold checks and reservations), and the plan pool's
-    per-item predicate (``scheduler.pool_admission``: the routine gate, DL2's intent gate and the
-    build's gates, the one predicate ``build_due_queue`` asks of every item). An AD candidate is
-    one the build did not necessarily put in the pool, so it is asked the pool's question here, in
-    the serve transaction (the compose fix round, F2): a rule the build adds to that predicate (as
-    DL2 added intent) applies to AD with nothing kept in sync. ``item_states``: the states as AD's
-    material view reads them (fix round 12), for both questions."""
+def incumbent_verdicts(env: Any, items: Sequence[Any], *, pool: Mapping[str, PoolItem], est: Mapping[str, float],
+                       item_states: Any, record: Any, built: Any, slot_item_id: str | None = None,
+                       released: Iterable[str] = ()) -> IncumbentVerdicts:
+    """The incumbent's admission of AD's candidates, asked in its scope and returned as
+    :class:`IncumbentVerdicts` alone.
+
+    First the membership (the compose fix round 2): the plan's admitted pool at this boundary
+    (``engine.admitted_new_material_ids`` over ``built``, the build this advance made and the plan
+    serves from; ``released``: AD deferrals being re-read), with the slot's own planned item. A
+    candidate outside it is no candidate. A per-item predicate is not the whole pool: the build's
+    set-level stages (teach-back value admission and caps, the Keep and Light-touch new-material
+    rule, and whatever comes next) decide membership, and AD reads their output, never re-derives
+    them. Then, for the members, the staged frame's admission on a fresh controller snapshot and the
+    plan pool's per-item predicate (``scheduler.pool_admission``), re-asked in the serve transaction
+    so a choice made since the build counts. ``item_states``: the states as AD's material view reads
+    them (fix round 12)."""
 
     from learnloop.adaptive_difficulty.operation import incumbent_constraints
+    from learnloop.daily_plan.engine import admitted_new_material_ids
     from learnloop.daily_plan.policy import router_active
     from learnloop.daily_plan.staged_frame import StagedFrame
     from learnloop.scheduling.scheduler import pool_admission
 
-    ids = [str(candidate.practice_item_id) for candidate in candidates]
     with incumbent_constraints():
+        admitted = set(admitted_new_material_ids(env, record, built, released=released))
+        if slot_item_id is not None:
+            admitted.add(str(slot_item_id))
+        members = [item for item in items if str(item.id) in admitted]
+        candidates = [_pool_item(item, est_minutes=est.get(str(item.id), 0.0), existing=pool.get(str(item.id)))
+                      for item in members]
         material = StagedFrame(env.vault, env.repository, clock=env.clock,
                                item_states=lambda: item_states).material(candidates)
         refuse = pool_admission(env.vault, env.repository, now=env.now(), item_states=item_states)
-        pooled = {item_id: refuse(item_id) for item_id in ids}
+        pooled = {str(item.id): refuse(str(item.id)) for item in members}
     staged = router_active(env.vault)
     refusals: dict[str, tuple[str, ...]] = {}
-    for item_id in ids:
+    for item in members:
+        item_id = str(item.id)
         reasons: list[str] = []
         if staged:
             for reason in material.refusals.get(item_id, ()):
@@ -235,6 +262,7 @@ def incumbent_verdicts(env: Any, candidates: Sequence[PoolItem], *, item_states:
         refusals[item_id] = tuple(str(reason) for reason in reasons)
     cold = material.cold_items
     return IncumbentVerdicts(
+        pool=frozenset(str(item_id) for item_id in admitted),
         refusals=refusals,
         cold_items=None if cold is None else frozenset(str(item_id) for item_id in cold),
         reserved_items=frozenset(str(item_id) for item_id in material.reserved_items),
@@ -242,33 +270,29 @@ def incumbent_verdicts(env: Any, candidates: Sequence[PoolItem], *, item_states:
 
 
 def admission_failures(env: Any, items: Sequence[Any], *, pool: Mapping[str, PoolItem],
-                       est: Mapping[str, float], view: Any) -> dict[str, list[str]]:
-    """Check 1: the admission the slot passed, on a fresh snapshot, plus reversibility, and the plan
-    pool's own per-item predicate (:func:`incumbent_verdicts`)."""
+                       est: Mapping[str, float], view: Any, record: Any, built: Any,
+                       slot_item_id: str | None = None,
+                       released: Iterable[str] = ()) -> tuple[dict[str, list[str]], frozenset[str]]:
+    """Check 1 (:func:`incumbent_verdicts`): ``(failures by member candidate, the admitted pool)``.
+    Only members of the plan's admitted pool are candidates; the caller intersects with it."""
 
-    from learnloop.daily_plan.policy import router_active
-
-    candidates = [_pool_item(item, est_minutes=est.get(str(item.id), 0.0), existing=pool.get(str(item.id)))
-                  for item in items]
-    failed: dict[str, list[str]] = {str(item.id): [] for item in items}
     # The item states as AD's material view reads them (fix round 12): an item whose history holds a
     # withheld answer reads as never scheduled, so that answer moves no due date AD's admission sees.
     with env.repository.connection() as connection:
         item_states = view.item_states(connection)
-    verdicts = incumbent_verdicts(env, candidates, item_states=item_states)
-    staged = router_active(env.vault)
+    verdicts = incumbent_verdicts(env, items, pool=pool, est=est, item_states=item_states, record=record,
+                                  built=built, slot_item_id=slot_item_id, released=released)
+    failed: dict[str, list[str]] = {}
     for item in items:
         item_id = str(item.id)
-        failed[item_id].extend(verdicts.refusals.get(item_id, ()))
-        if not staged:
-            existing = pool.get(item_id)
-            if existing is None or existing.lane != "new" or not existing.never_attempted:
-                failed[item_id].append("not_new_lane")
+        if item_id not in verdicts.pool:
+            continue
+        failed[item_id] = list(verdicts.refusals.get(item_id, ()))
         if verdicts.cold_items is None or item_id in verdicts.cold_items:
             failed[item_id].append("open_cold_check")
         if item_id in verdicts.reserved_items:
             failed[item_id].append("reserved_surface")
-    return failed
+    return failed, verdicts.pool
 
 
 @dataclass(frozen=True)
@@ -295,18 +319,22 @@ def build_request(env: Any, record: Any, block: Any, slot: Any, built: Any, *, d
     capability = PR.capability(slot_item)
     slot_facets = tuple(PR.facet_weights(vault, slot_item))
     attempted = _attempted(env, view)
-    others = [item for item in view.items(learning_object_id=slot_item.learning_object_id)
-              if str(item.id) != str(slot_item.id) and str(item.id) not in attempted
-              and PR.capability(item) == capability]
-    items = [slot_item, *others]
+    # AD's sibling enumeration (the slot's LO at its capability, never attempted, visible) is never
+    # the source of truth: it is intersected with the plan's admitted pool (the compose fix round 2).
+    siblings = [item for item in view.items(learning_object_id=slot_item.learning_object_id)
+                if str(item.id) != str(slot_item.id) and str(item.id) not in attempted
+                and PR.capability(item) == capability]
     pool = {item.practice_item_id: item for item in built.pool}
     estimator = _estimator(env, view)
-    est = {str(item.id): float(estimator.item_minutes(vault, str(item.id))) for item in items}
+    est = {str(item.id): float(estimator.item_minutes(vault, str(item.id))) for item in [slot_item, *siblings]}
     est[str(slot_item.id)] = float(slot.est_minutes)
+    admission, admitted = admission_failures(env, [slot_item, *siblings], pool=pool, est=est, view=view,
+                                             record=record, built=built, slot_item_id=str(slot_item.id))
+    items = [slot_item, *(item for item in siblings if str(item.id) in admitted)]
     failures = {str(item.id): eligibility_failures(env, item, slot_facets=slot_facets, capability=capability,
                                                     exclusions=exclusions, view=view) for item in items}
-    for item_id, extra in admission_failures(env, items, pool=pool, est=est, view=view).items():
-        failures[item_id].extend(extra)
+    for item in items:
+        failures[str(item.id)].extend(admission.get(str(item.id), ()))
     # Check 2: planned in any of today's plans (the slot item: in no slot but its own).
     planned: dict[str, int] = {}
     for plan in [record, *[p for p in day if p.id != record.id]]:
@@ -364,9 +392,11 @@ def build_request(env: Any, record: Any, block: Any, slot: Any, built: Any, *, d
                        router_propensity=router_propensity, now=env.now_iso())
 
 
-def deferrals_to_clear(env: Any, deferrals: Mapping[str, Mapping[str, Any]], *, built: Any) -> list[str]:
+def deferrals_to_clear(env: Any, deferrals: Mapping[str, Mapping[str, Any]], *, built: Any,
+                       record: Any) -> list[str]:
     """§6.1 step 0: the AD deferrals whose failed checks all pass now (check 0's sources and check 1
-    on a fresh snapshot). Pre-exposure is never a deferral reason."""
+    on a fresh snapshot), each a member of the plan's admitted pool were it released (the slot's own
+    membership rule, the compose fix round 2). Pre-exposure is never a deferral reason."""
 
     from learnloop.adaptive_difficulty import predict as PR
 
@@ -374,13 +404,14 @@ def deferrals_to_clear(env: Any, deferrals: Mapping[str, Mapping[str, Any]], *, 
         return []
     try:
         with slot_operation(env) as view:
-            return _deferrals_to_clear(env, deferrals, built=built, view=view)
+            return _deferrals_to_clear(env, deferrals, built=built, record=record, view=view)
     except AdUnavailable:
         # Fail closed: with AD unavailable no deferral is released (nothing is re-admitted).
         return []
 
 
-def _deferrals_to_clear(env: Any, deferrals: Mapping[str, Mapping[str, Any]], *, built: Any, view: Any) -> list[str]:
+def _deferrals_to_clear(env: Any, deferrals: Mapping[str, Mapping[str, Any]], *, built: Any, record: Any,
+                        view: Any) -> list[str]:
     from learnloop.adaptive_difficulty import predict as PR
 
     exclusions = _exclusions(env, view)
@@ -389,9 +420,12 @@ def _deferrals_to_clear(env: Any, deferrals: Mapping[str, Mapping[str, Any]], *,
     present = [item for item in items if item is not None]
     estimator = _estimator(env, view)
     est = {str(item.id): float(estimator.item_minutes(env.vault, str(item.id))) for item in present}
-    admission = admission_failures(env, present, pool=pool, est=est, view=view) if present else {}
+    admission, admitted = admission_failures(env, present, pool=pool, est=est, view=view, record=record,
+                                             built=built, released=deferrals) if present else ({}, frozenset())
     cleared = []
     for item in present:
+        if str(item.id) not in admitted:
+            continue
         failed = eligibility_failures(env, item, slot_facets=tuple(PR.facet_weights(env.vault, item)),
                                       capability=PR.capability(item), exclusions=exclusions, view=view)
         failed = [f for f in failed if f != "pre_exposed"] + [f for f in admission.get(str(item.id), [])

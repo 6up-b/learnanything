@@ -1209,13 +1209,7 @@ def _prepare_plan(
         if item.lane in loads and item.lane != "new":
             loads[item.lane] += item.est_minutes
     m = max(budget - requested_minutes - check_minutes, 0.0)
-    new_candidates = [
-        NewCandidate(item.practice_item_id, item.est_minutes, requested=item.requested)
-        for item in rest
-        if item.lane == "new" and item.never_attempted
-    ]
-    if built.intent is not None:
-        new_candidates = _intent_admission_order(built.intent, new_candidates)
+    new_candidates = new_material_candidates(built.intent, rest)
     review_load = projected_review_load(
         _review_items(env, built.estimator, built.intent), now=env.now(), horizon_days=int(config.load_horizon_days)
     )
@@ -1874,6 +1868,37 @@ def _intents(context: PoolContext) -> dict[str, IntentView]:
         lo: replace(views[lo], deadline=context.deadlines.get(lo)) if lo in views else IntentView(deadline=context.deadlines.get(lo))
         for lo in sorted(los)
     }
+
+
+def new_material_candidates(intent: Any, pool: Iterable[PoolItem]) -> list[NewCandidate]:
+    """THE plan's new-material candidates from a pool (§6.3): its never-attempted new-lane items, in
+    intent's admission order (Keep and Light touch add no new material of the system's choosing;
+    requests stay exempt). The plan's build admits from these; adaptive difficulty's slot draw may
+    choose only among them (:func:`admitted_new_material_ids`), so a rule added here applies to both."""
+
+    candidates = [
+        NewCandidate(item.practice_item_id, item.est_minutes, requested=item.requested)
+        for item in pool
+        if item.lane == "new" and item.never_attempted
+    ]
+    if intent is not None:
+        candidates = _intent_admission_order(intent, candidates)
+    return candidates
+
+
+def admitted_new_material_ids(
+    env: PlanEnv, record: PlanRecord, built: _Pool, *, released: Iterable[str] = ()
+) -> frozenset[str]:
+    """The plan's admitted pool of new material at this boundary, as ids (the compose fix round 2):
+    the pool every stage of this build produced (``built.pool``: the scheduler's queue after its
+    per-item predicate and its set-level stages, teach-back value admission and caps among them),
+    within the plan's universe, less what the plan took (planned, skipped, AD-deferred unless
+    ``released``, held), through :func:`new_material_candidates`. Adaptive difficulty's candidates
+    are members of this set or nothing: AD reorders or chooses within the plan's own pool and never
+    adds to it, so a set-level stage the build gains applies to AD with nothing kept in sync."""
+
+    context = _context(env, record, built, day=(), released=released)
+    return frozenset(candidate.practice_item_id for candidate in new_material_candidates(built.intent, context.pool))
 
 
 def _intent_admission_order(intent: Any, candidates: Sequence[NewCandidate]) -> list[NewCandidate]:
@@ -3204,7 +3229,7 @@ def advance_with_context(
             if active:
                 from learnloop.daily_plan import ad_slot
 
-                cleared = ad_slot.deferrals_to_clear(env, active, built=built)
+                cleared = ad_slot.deferrals_to_clear(env, active, built=built, record=record)
                 ad_deferrals = {"applied": sorted(set(active) - set(cleared)), "cleared": sorted(cleared)}
                 context = _context(env, record, built, day=(), released=cleared)
         try:
