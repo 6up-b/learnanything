@@ -103,6 +103,35 @@ ignore_imports = [
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
+id = "ad-slot-facts-schema-is-neutral"
+name = "AD's slot facts schema imports nothing of LearnLoop (the final round: inversion)"
+type = "forbidden"
+# The wire between the plan and adaptive difficulty: dataclasses and the codec only.
+source_modules = ["learnloop.daily_plan.slot_facts_schema"]
+forbidden_modules = ["learnloop.adaptive_difficulty", "learnloop.daily_plan.engine", "learnloop.daily_plan.ad_slot",
+                     "learnloop.daily_plan.slot_facts", "learnloop.scheduling", "learnloop.db"]
+
+[[tool.importlinter.contracts]]
+id = "ad-slot-facts-are-the-incumbents"
+name = "The plan's slot facts never import adaptive difficulty (the final round: inversion)"
+type = "forbidden"
+# Phase 2 is the incumbent's own code: it runs with no AD operation open and no AD frame on the stack.
+source_modules = ["learnloop.daily_plan.slot_facts"]
+forbidden_modules = ["learnloop.adaptive_difficulty", "learnloop.daily_plan.ad_slot"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+id = "ad-slot-never-imports-the-plan"
+name = "AD's slot phases never import the plan's internals (the final round: inversion)"
+type = "forbidden"
+# AD receives the plan's facts as a JSON record, never the plan's objects or code.
+source_modules = ["learnloop.daily_plan.ad_slot"]
+forbidden_modules = ["learnloop.daily_plan.engine", "learnloop.daily_plan.slot_facts",
+                     "learnloop.daily_plan.staged_frame", "learnloop.scheduling.scheduler",
+                     "learnloop.scheduling.serving_exclusions", "learnloop.scheduling.intent"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
 id = "infrastructure-does-not-import-domains"
 name = "Persistence and AI stay below domain policy"
 type = "forbidden"

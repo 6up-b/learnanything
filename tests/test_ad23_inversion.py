@@ -474,3 +474,19 @@ def test_the_codes_vocabulary_covers_the_incumbents_reasons():
     keys |= {staged_policy.OWNERSHIP_REFUSAL_KEY, frame_constraints.CONSTRAINTS_UNAVAILABLE_KEY}
     keys |= set(re.findall(r'"constraint_key": "([a-z_]+)"', inspect.getsource(frame_constraints)))
     assert keys <= SF.CONSTRAINT_CODES, keys - SF.CONSTRAINT_CODES
+
+
+def test_ad_never_takes_the_plans_objects():
+    """Static: no function in AD's slot module takes the plan's objects (``env``, a plan record, the
+    pool, a block, the day's plans); AD reads the plan only through its facts record."""
+
+    import ast
+    from pathlib import Path
+
+    from learnloop.daily_plan import ad_slot
+
+    tree = ast.parse(Path(ad_slot.__file__).read_text(encoding="utf-8"))
+    forbidden = {"env", "record", "built", "block", "day", "context"}
+    taken = {(node.name, arg.arg) for node in ast.walk(tree) if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+             for arg in (*node.args.args, *node.args.kwonlyargs) if arg.arg in forbidden}
+    assert taken == set(), taken
