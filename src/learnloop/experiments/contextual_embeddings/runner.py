@@ -485,6 +485,28 @@ def render_markdown(plan: Mapping[str, Any]) -> str:
               f"{'fits' if codex.get('fits') else 'DOES NOT FIT'}).",
               "", "**Unverified prices (admission refuses each; the orchestrator fills `price_verified` from the "
               "providers' price pages):** " + (", ".join(pending) if pending else "none") + "."]
+    budget = plan.get("budget")
+    if budget:
+        basis = ("the reuse estimate from run `" + str((budget.get("reuse") or {}).get("run")) + "`'s ledger"
+                 if budget["basis"] == "reuse_estimate" else "the whole plan's estimate")
+        lines += ["", f"**Authorization budget (cumulative cap):** ${budget['estimated_usd']:.2f} by {basis} "
+                  f"against ${budget['remaining_usd']:.2f} left of the ${budget['cap_usd']:.0f} cap after "
+                  f"${budget['carried_usd']:.3f} carried from {', '.join(budget['carried_from']) or 'no earlier ledger'}"
+                  f": {'fits' if budget['fits'] else 'DOES NOT FIT'}.",
+                  "", "| Category | Allocation $ | Carried $ | Left $ | Estimate $ | Fits |", "|---|---|---|---|---|---|"]
+        for name, category in budget["categories"].items():
+            lines.append(f"| {name} | {category['allocation_usd']:.2f} | {category['carried_usd']:.4f} | "
+                         f"{category['remaining_usd']:.4f} | {category['estimated_usd']:.4f} | "
+                         f"{'yes' if category['fits'] else 'no'} |")
+        reuse = budget.get("reuse") or {}
+        if reuse.get("roles"):
+            lines += ["", "| Relabelled role | Model now | Calls | Input tokens | Output tokens | Observed $ | Re-priced $ |",
+                      "|---|---|---|---|---|---|---|"]
+            for role, row in reuse["roles"].items():
+                lines.append(f"| {role} | {row['model']} | {row['calls']:,} | {row['input_tokens']:,} | "
+                             f"{row['output_tokens']:,} | {row['observed_usd']:.4f} | {row['repriced_usd']:.4f} |")
+        for note in budget.get("notes") or []:
+            lines.append(f"- {note}")
     lines += ["", "Keys: " + ", ".join(f"{name} {state}" for name, state in sorted(plan["keys"].items())),
               f"Checks: {json.dumps(plan.get('checks', {}), sort_keys=True)}"]
     return "\n".join(lines) + "\n"

@@ -318,12 +318,107 @@
    }
   }
  },
+ "budget": {
+  "basis": "reuse_estimate",
+  "cap_usd": 40.0,
+  "carried_from": [
+   "e0_a47534fecc49ded5"
+  ],
+  "carried_usd": 14.149122,
+  "categories": {
+   "answers_verification": {
+    "allocation_usd": 5.9,
+    "carried_usd": 2.447339,
+    "estimated_usd": 1.4249,
+    "fits": true,
+    "remaining_usd": 3.452661
+   },
+   "drafting_context": {
+    "allocation_usd": 0.85,
+    "carried_usd": 0.364516,
+    "estimated_usd": 0.01,
+    "fits": true,
+    "remaining_usd": 0.485484
+   },
+   "embeddings": {
+    "allocation_usd": 0.25,
+    "carried_usd": 0.034913,
+    "estimated_usd": 0.0449,
+    "fits": true,
+    "remaining_usd": 0.215087
+   },
+   "labels_audits": {
+    "allocation_usd": 33.0,
+    "carried_usd": 11.302354,
+    "estimated_usd": 19.8888,
+    "fits": true,
+    "remaining_usd": 21.697646
+   }
+  },
+  "estimated_usd": 21.3686,
+  "fits": true,
+  "notes": [],
+  "remaining_usd": 25.850878,
+  "reuse": {
+   "assumptions": {
+    "canaries_usd_per_category": 0.01,
+    "finalist_answers_redone_share": 1.0,
+    "label_pool_growth": 0.15,
+    "rubric_tokens_per_call": "token_estimate(bank.RELEVANCE_RUBRIC)",
+    "system_requests_factor": 2.0
+   },
+   "basis": "the earlier run's reported tokens re-priced at today's verified pins; reused work is $0",
+   "categories": {
+    "answers_verification": 1.4249,
+    "drafting_context": 0.01,
+    "embeddings": 0.0449,
+    "labels_audits": 19.8888
+   },
+   "estimated_usd": 21.3686,
+   "observed": {
+    "embeddings_usd": 0.0349,
+    "finalist_answers_usd": 1.1267,
+    "system_usd": 0.1441
+   },
+   "roles": {
+    "adjudicator": {
+     "calls": 86,
+     "input_tokens": 1135686,
+     "model": "claude-opus-5-5",
+     "observed_model": "claude-opus-5-5",
+     "observed_usd": 7.0295,
+     "output_tokens": 124336,
+     "repriced_usd": 8.2531
+    },
+    "label_a": {
+     "calls": 277,
+     "input_tokens": 1346917,
+     "model": "claude-sonnet-5-5",
+     "observed_model": "claude-haiku-5-5",
+     "observed_usd": 0.2821,
+     "output_tokens": 294804,
+     "repriced_usd": 6.7607
+    },
+    "label_b": {
+     "calls": 281,
+     "input_tokens": 1356733,
+     "model": "claude-sonnet-5-5",
+     "observed_model": "claude-sonnet-5-5",
+     "observed_usd": 3.99,
+     "output_tokens": 127649,
+     "repriced_usd": 4.865
+    }
+   },
+   "rubric_tokens_per_call": 492,
+   "run": "e0_a47534fecc49ded5"
+  }
+ },
  "by_provider": {
   "anthropic_api:claude-haiku-5-5": {
    "billing": "metered",
-   "estimated_usd": 2.416774,
-   "requests": 1553,
-   "tokens": 15067484
+   "estimated_usd": 1.94308,
+   "requests": 1123,
+   "tokens": 12643604
   },
   "anthropic_api:claude-opus-5-5": {
    "billing": "metered",
@@ -333,9 +428,9 @@
   },
   "anthropic_api:claude-sonnet-5-5": {
    "billing": "metered",
-   "estimated_usd": 12.033944,
-   "requests": 442,
-   "tokens": 2725836
+   "estimated_usd": 23.657816,
+   "requests": 872,
+   "tokens": 5364716
   },
   "openrouter:anthropic/claude-haiku-5.5 (system arms)": {
    "estimated_usd": 1.298,
@@ -885,10 +980,10 @@
  },
  "limits": {
   "allocation_usd": {
-   "answers_verification": 14.3,
+   "answers_verification": 5.9,
    "drafting_context": 0.85,
    "embeddings": 0.25,
-   "labels_audits": 24.6
+   "labels_audits": 33.0
   },
   "auth_or_contract_retries": 0,
   "bootstrap_resamples": 10000,
@@ -946,15 +1041,15 @@
    "calls": 430,
    "category": "labels_audits",
    "detail": "",
-   "estimated_usd": 0.473694,
+   "estimated_usd": 11.623872,
    "input_tokens": 1845616,
-   "model": "claude-haiku-5-5",
-   "output_tokens": 578264,
-   "reserved_at_max_usd": 1.945842,
+   "model": "claude-sonnet-5-5",
+   "output_tokens": 793264,
+   "reserved_at_max_usd": 38.916832,
    "role": "label_a",
-   "thinking_tokens_estimated": 430000,
+   "thinking_tokens_estimated": 645000,
    "transport": "anthropic_api",
-   "worst_case_usd": 1.421081
+   "worst_case_usd": 34.871616
   },
   {
    "arm": null,
@@ -1128,7 +1223,7 @@
     "billing": "metered",
     "category": "labels_audits",
     "model": "claude-opus-5-5",
-    "prompt_version": "e0-adjudicate-v1",
+    "prompt_version": "e0-adjudicate-v2",
     "provider_profile": "e0_anthropic_opus",
     "transport": "anthropic_api"
    },
@@ -1167,16 +1262,16 @@
    "label_a": {
     "billing": "metered",
     "category": "labels_audits",
-    "model": "claude-haiku-5-5",
-    "prompt_version": "e0-label-v1",
-    "provider_profile": "e0_anthropic_haiku",
+    "model": "claude-sonnet-5-5",
+    "prompt_version": "e0-label-v2",
+    "provider_profile": "e0_anthropic_sonnet",
     "transport": "anthropic_api"
    },
    "label_b": {
     "billing": "metered",
     "category": "labels_audits",
     "model": "claude-sonnet-5-5",
-    "prompt_version": "e0-label-v1",
+    "prompt_version": "e0-label-v2",
     "provider_profile": "e0_anthropic_sonnet",
     "transport": "anthropic_api"
    },
@@ -1206,7 +1301,7 @@
    }
   }
  },
- "pins_fingerprint": "883d538025568726ead5bf8853428430bc4f535fc78c4ab684450a8fb21663b6",
+ "pins_fingerprint": "b25a6b5d25ed91c78294059e586b654ae7413a986df5e00dbeb358c3e6eadecd",
  "prices": {
   "rule": "a metered request is admitted only on a verified price (source_url, checked_on)",
   "unverified": {
@@ -1281,13 +1376,13 @@
  },
  "prompts": {
   "versions": {
-   "adjudicator": "e0-adjudicate-v1",
+   "adjudicator": "e0-adjudicate-v2",
    "context": "e0-context-v1",
    "judge_a": "e0-judge-v1",
    "judge_adjudicator": "e0-judge-adjudicate-v1",
    "judge_b": "e0-judge-v1",
-   "label_a": "e0-label-v1",
-   "label_b": "e0-label-v1",
+   "label_a": "e0-label-v2",
+   "label_b": "e0-label-v2",
    "system_verifier": "production-source-routes",
    "tutor": "e0-tutor-v1",
    "writer": "e0-writer-v1"
@@ -1309,7 +1404,7 @@
   "R5_independent": "voyage-4-large via the Voyage API",
   "R5_singleton": "voyage-context-4, one chunk per document"
  },
- "run_id": "e0_a47534fecc49ded5",
+ "run_id": "e0_e6a077cd391c5421",
  "seed": 20261021,
  "splits": {
   "linear_algebra-20261021": {
@@ -1490,9 +1585,9 @@
   "cap_usd": 40.0,
   "categories": {
    "answers_verification": {
-    "allocation_usd": 14.3,
+    "allocation_usd": 5.9,
     "estimated_usd": 13.6745,
-    "fits": true,
+    "fits": false,
     "worst_case_usd": 41.0234
    },
    "drafting_context": {
@@ -1508,17 +1603,20 @@
     "worst_case_usd": 0.1211
    },
    "labels_audits": {
-    "allocation_usd": 24.6,
-    "estimated_usd": 23.622,
-    "fits": true,
-    "worst_case_usd": 70.866
+    "allocation_usd": 33.0,
+    "estimated_usd": 34.7722,
+    "fits": false,
+    "worst_case_usd": 104.3165
    }
   },
-  "estimated_usd": 37.8443,
-  "fits_allocations": true,
-  "fits_cap": true,
-  "overflowing_categories": [],
+  "estimated_usd": 48.9945,
+  "fits_allocations": false,
+  "fits_cap": false,
+  "overflowing_categories": [
+   "answers_verification",
+   "labels_audits"
+  ],
   "subscription_estimated_only_tokens": 0,
-  "worst_case_usd": 113.5312
+  "worst_case_usd": 146.9817
  }
 }

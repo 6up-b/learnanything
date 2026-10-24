@@ -473,3 +473,52 @@ def test_a_reused_run_with_other_candidate_maps_is_refused_before_anything_is_se
     with pytest.raises(live.PlanMismatch, match="no frozen plan"):
         live.run_live([paths.root], plan=plan, run_dir=run_dir, key_envs={}, factories=_factories([]),
                       new_authorization="relabel", reuse_run="e0_2222222222222222")
+
+
+# -- 6. the committed relabel plan and the paid CLI's flags ---------------------------------
+
+
+def test_the_committed_relabel_plan_is_current_and_fits_what_is_left():
+    import json
+    from pathlib import Path
+
+    from learnloop.experiments.contextual_embeddings import pins
+
+    artifact = json.loads((Path(__file__).resolve().parents[1] / "docs" / "reviews" / "artifacts" / "experiments-e0"
+                           / "dry-run-plan.json").read_text())
+    assert artifact["run_id"] == "e0_e6a077cd391c5421" and artifact["pins_fingerprint"] == pins.pins_fingerprint()
+    budget = artifact["budget"]
+    assert budget["basis"] == "reuse_estimate" and budget["reuse"]["run"] == "e0_a47534fecc49ded5"
+    assert budget["carried_from"] == ["e0_a47534fecc49ded5"] and budget["fits"] is True
+    assert budget["remaining_usd"] == pytest.approx(pins.E0_CAP_USD - budget["carried_usd"])
+    assert artifact["checks"]["network_calls"] == 0 and set(artifact["keys"].values()) == {"absent"}
+
+
+def test_the_paid_cli_passes_reuse_run_and_authorizes_on_the_cumulative_budget(tmp_path, monkeypatch):
+    from typer.testing import CliRunner
+
+    from learnloop.cli import app
+    from learnloop.experiments.contextual_embeddings import boundary, live, runner
+
+    seen = {}
+    monkeypatch.setattr(boundary, "require_codex_lockdown", lambda: {"codex_lockdown": "active"})
+
+    def fake_dry_run(*_args, **kwargs):
+        seen["dry_run"] = kwargs.get("reuse_run")
+        return {"totals": {"fits_cap": False}, "budget": {"fits": seen.get("fits", True)},
+                "prices": {"unverified": {}}}
+
+    monkeypatch.setattr(runner, "dry_run", fake_dry_run)
+    monkeypatch.setattr(live, "run_live", lambda *args, **kwargs: seen.update(run=kwargs) or {"status": "ok"})
+    copy = tmp_path / "fixtures-local" / "contextual-embeddings" / "vaults" / "v"
+    arguments = ["experiments", "e0", "run", "--copy", str(copy), "--i-am-authorized-to-spend",
+                 "--reuse-run", "e0_a47534fecc49ded5", "--new-authorization", "owner: Sonnet both + rubric", "--json"]
+    result = CliRunner().invoke(app, arguments)
+    assert result.exit_code == 0, result.output
+    assert seen["dry_run"] == "e0_a47534fecc49ded5" and seen["run"]["reuse_run"] == "e0_a47534fecc49ded5"
+    assert seen["run"]["new_authorization"] == "owner: Sonnet both + rubric"
+    # The whole plan does not fit, but the cumulative budget is what authorizes; it refuses when it does not fit.
+    seen.clear()
+    seen["fits"] = False
+    refused = CliRunner().invoke(app, arguments)
+    assert refused.exit_code == 1 and "run" not in seen

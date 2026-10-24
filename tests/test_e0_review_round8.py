@@ -386,4 +386,5 @@ def test_this_round_keeps_the_plan_id():
 
     artifact = json.loads((Path(__file__).resolve().parents[1] / "docs" / "reviews" / "artifacts" / "experiments-e0"
                            / "dry-run-plan.json").read_text())
-    assert artifact["run_id"] == "e0_a47534fecc49ded5" and pins.pins_fingerprint() == artifact["pins_fingerprint"]
+    # The relabel round (2026-10-23) made a new plan on purpose (label pins, rubric).
+    assert artifact["run_id"] == "e0_e6a077cd391c5421" and pins.pins_fingerprint() == artifact["pins_fingerprint"]

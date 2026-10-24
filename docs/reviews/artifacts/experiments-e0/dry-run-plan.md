@@ -1,15 +1,15 @@
-# E0 dry run `e0_a47534fecc49ded5`
+# E0 dry run `e0_e6a077cd391c5421`
 
-Harness e0-harness-v2; pins `883d53802556`; seed 20261021.
+Harness e0-harness-v2; pins `b25a6b5d25ed`; seed 20261021.
 
-**Estimate:** $37.84 expected, $113.53 worst case (every request retried twice) against the $40 cap: fits; allocations fit.
+**Estimate:** $48.99 expected, $146.98 worst case (every request retried twice) against the $40 cap: DOES NOT FIT; allocations overflow: answers_verification, labels_audits.
 
 | Category | Expected $ | Worst case $ | Allocation $ | Fits |
 |---|---|---|---|---|
 | embeddings | 0.0409 | 0.1211 | 0.25 | yes |
 | drafting_context | 0.5069 | 1.5207 | 0.85 | yes |
-| labels_audits | 23.6220 | 70.8660 | 24.60 | yes |
-| answers_verification | 13.6745 | 41.0234 | 14.30 | yes |
+| labels_audits | 34.7722 | 104.3165 | 33.00 | no |
+| answers_verification | 13.6745 | 41.0234 | 5.90 | no |
 
 | Embedding arm | Model | Documents | Chunks | Requests | Tokens | Expected $ |
 |---|---|---|---|---|---|---|
@@ -27,7 +27,7 @@ Harness e0-harness-v2; pins `883d53802556`; seed 20261021.
 |---|---|---|---|---|---|---|
 | writer | claude-sonnet-5-5 | metered | 12 | 57,436 | 29,520 | 0.4101 |
 | context | claude-haiku-5-5 | metered | 37 | 86,330 | 176,400 | 0.0968 |
-| label_a | claude-haiku-5-5 | metered | 430 | 1,845,616 | 578,264 | 0.4737 |
+| label_a | claude-sonnet-5-5 | metered | 430 | 1,845,616 | 793,264 | 11.6239 |
 | label_b | claude-sonnet-5-5 | metered | 430 | 1,845,616 | 793,264 | 11.6239 |
 | adjudicator | claude-opus-5-5 | metered | 86 | 1,365,788 | 303,064 | 11.5244 |
 | tutor | claude-haiku-5-5 | metered | 362 | 4,730,292 | 579,200 | 0.7626 |
@@ -45,6 +45,21 @@ Harness e0-harness-v2; pins `883d53802556`; seed 20261021.
 **Codex requests:** 0 planned; the paid ledger's Codex allowance is 0 (E0 makes no Codex call: fits).
 
 **Unverified prices (admission refuses each; the orchestrator fills `price_verified` from the providers' price pages):** none.
+
+**Authorization budget (cumulative cap):** $21.37 by the reuse estimate from run `e0_a47534fecc49ded5`'s ledger against $25.85 left of the $40 cap after $14.149 carried from e0_a47534fecc49ded5: fits.
+
+| Category | Allocation $ | Carried $ | Left $ | Estimate $ | Fits |
+|---|---|---|---|---|---|
+| embeddings | 0.25 | 0.0349 | 0.2151 | 0.0449 | yes |
+| drafting_context | 0.85 | 0.3645 | 0.4855 | 0.0100 | yes |
+| labels_audits | 33.00 | 11.3024 | 21.6976 | 19.8888 | yes |
+| answers_verification | 5.90 | 2.4473 | 3.4527 | 1.4249 | yes |
+
+| Relabelled role | Model now | Calls | Input tokens | Output tokens | Observed $ | Re-priced $ |
+|---|---|---|---|---|---|---|
+| adjudicator | claude-opus-5-5 | 86 | 1,135,686 | 124,336 | 7.0295 | 8.2531 |
+| label_a | claude-sonnet-5-5 | 277 | 1,346,917 | 294,804 | 0.2821 | 6.7607 |
+| label_b | claude-sonnet-5-5 | 281 | 1,356,733 | 127,649 | 3.9900 | 4.8650 |
 
 Keys: ANTHROPIC_API_KEY absent, OPENROUTER_API_KEY absent, PERPLEXITY_API_KEY absent, VOYAGE_API_KEY absent
 Checks: {"copies_changed": 0, "copy_tree_digests_equal": true, "database_mode": "read_only", "network_calls": 0, "settings_file_read": false}

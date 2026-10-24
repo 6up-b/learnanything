@@ -310,11 +310,12 @@ def test_a_canary_failure_reaches_the_contracts_result_with_its_reason(tmp_path,
 
 
 def test_this_round_keeps_the_frozen_plans_pins_fingerprint():
-    """No pin changed: the plan id of the stopped run (e0_a47534fecc49ded5) is unchanged
-    for the same copies, so the rerun reopens its ledger (the fix is in adapter code only)."""
+    """This round changed no pin (its rerun reopened e0_a47534fecc49ded5's ledger).
+    The relabel round (2026-10-23) changed the label pins on purpose: the
+    committed artifact is now the relabel plan, still current with the pins."""
 
     artifact = json.loads(ARTIFACT.read_text())
-    assert artifact["run_id"] == "e0_a47534fecc49ded5"
+    assert artifact["run_id"] == "e0_e6a077cd391c5421"
     assert pins.pins_fingerprint() == artifact["pins_fingerprint"]
 
 

@@ -923,3 +923,174 @@ Every pytest ran inside `systemd-run --user --scope -p MemoryMax=5G -p MemorySwa
 - **lint-imports** (`env -i`): **30 kept, 0 broken**.
 - **Fail-before** on `1bb7b87bd`'s `src`: `tests/test_e0_review_round8.py` does not import (`parse_answer` does not exist there).
 - **Dry run:** unchanged, so the artifacts were not refreshed.
+
+## Relabel round (owner: Sonnet both + rubric), 2026-10-23
+
+Paid run 3 (plan `e0_a47534fecc49ded5`) completed with **$14.149 committed of $40** and 0 refusals. S1 stopped verdicts on both copies:
+
+- linear_algebra: κ 0.444 (weighted 0.574), n=3,012.
+- probability: κ 0.490 (weighted 0.629), n=2,256. It was also INCOMPLETE: the Qwen backfill of the service copy was refused, so R1_pool_verify, R1_service_pool and R1_service_rrf were blocked.
+
+The owner decided **"Sonnet both + rubric"**. **No paid, live or network call was made in this round ($0.00).** No settings or credential file was read. The run-3 artefacts under `fixtures-local/` were read (they are copies), but none of their text is committed or quoted here.
+
+### Diagnosis
+
+**Labels.** This uses the development slice only, from run 3's `judgment_ledger` (pass 1 = label A, Haiku 5.5; pass 2 = label B, Sonnet 5.5). The logged questions were counted and set aside. Arm outcomes were not opened. Rows are label A and columns are label B, in the order unrelated, background, helpful, required:
+
+| Copy (development slice) | n | Confusion |
+|---|---|---|
+| probability (36 questions) | 2,068 | `[[983, 77, 4, 0], [350, 303, 67, 6], [2, 40, 101, 45], [0, 4, 18, 68]]` |
+| linear_algebra (36 questions) | 2,334 | `[[851, 128, 12, 2], [414, 449, 133, 12], [9, 62, 108, 62], [0, 4, 13, 75]]` |
+
+The largest cell by far is **A background / B unrelated** (350 and 414). The examples read for the revision were a seeded sample of dev pairs, read locally and not recorded. In them, label A called "background" any passage that shares the chapter, section or broad subject with the question. Examples of such passages: another counting problem, another theorem about subspaces, an exercise list, an R-vector example, a notation fragment. Label B called these "unrelated" unless they addressed the question's specific concept. The next boundaries are helpful / required (45 and 62) and background / helpful (67 and 133). Both of these reduce to "is this content the answer needs, or could use?".
+
+**The probability backfill (`ProtectedTextRefused`, 177 of 337 records left).** This was counted offline on the run's own frozen and service copies. No text was printed.
+
+- Redaction was correct. The service copy has 0 non-blank withheld blocks, and none of the 337 + 15 planned records is a withheld block.
+- The guard's probes were the first 48 normalized characters of each withheld block. That gave 105 probes, 97 of them unique. One of them is a withheld **assessment-lane SectionHeader of 19 normalized characters**. Seven **permitted** Text blocks of the same extraction contain its whole text.
+- The guard therefore refused permitted text. The first such record is index 177, so batch 6 (records 160–191) was refused before sending. The production backfill stops at a failed batch, which left records 160–336 (177) unembedded. The extra pass met the same refusal.
+- **Correction to the paid-run-2 diagnosis.** That diagnosis blamed a "contract check" on a paid 200 of 1,654 input tokens. A refusal raises before anything is sent, so it leaves no receipt. The 1,654-token receipt is most likely the 15-record fourth extraction, which completed. Run 2's report did not keep the error class, so its true cause was most likely this same refusal.
+
+### Rubric v2 (frozen before any relabel spend)
+
+`bank.RELEVANCE_RUBRIC`, SHA-256 `b48ddc203b82495e14e5359f292ca87141520cbb381a626e765b6ce2830a8b33`.
+
+- The hash is pinned as `pins.LABEL_RUBRIC_SHA256` and is part of the pins fingerprint, so of the plan id.
+- `bank.check_rubric_frozen()` refuses to load an edited text.
+- Prompt versions: `e0-label-v2` and `e0-adjudicate-v2`. The adjudicator's instructions carry the same rubric.
+- The spec's new §12 amendment log records it.
+
+Before (v1, in both the one-call and relevance-only prompts):
+
+> relevance: required (states the answer or a condition the answer needs), helpful (useful support that is not required), background (on topic, not needed), unrelated. … Background never completes a set.
+
+After (v2; the sets rule follows it in `LABEL_INSTRUCTIONS`):
+
+> Judge each candidate passage against the question's specific subject: the particular concept, result, example, object or step the question asks about (with a selected passage, what the question asks about that passage), not the broad topic, chapter or section it comes from. relevance: required: the passage states the answer, or a definition, fact, step or condition without which the answer would be wrong or incomplete; every member of a sufficient evidence set is required, and a passage that belongs to no sufficient set is at most helpful. helpful: the passage is about the question's specific subject and gives content an answer could use or cite (an example, a restatement, an intuition, a consequence), but a complete answer does not need it. background: the passage is about the question's specific subject, or names it or describes its immediate setting, but gives nothing an answer would use or cite. unrelated: everything else. Sharing the chapter, the section, the broad subject or some vocabulary is not enough for background: another problem, example, exercise, theorem, definition or notation from the same area that does not address the question's specific subject is unrelated, and so is a fragment (a heading, a label, an isolated formula) that says nothing about it. When no passage addresses the specific subject, most or all are unrelated. Between two adjacent labels, give the lower one unless the passage meets the whole definition of the higher one.
+
+The sets rule now reads "Background and unrelated passages never belong to a set". The joint sufficiency review adds "A passage belongs to a set only if the answer would be wrong or incomplete without it".
+
+| Rubric change | Development-slice disagreement it targets |
+|---|---|
+| Judge against the question's specific subject, not the area | A background / B unrelated (350 and 414) |
+| "Sharing the chapter … is not enough for background", with the kinds of same-area passage named | The same cell's examples |
+| "Required" means membership of a sufficient set; outside every set, at most helpful | Helpful / required (45 and 62) |
+| Helpful gives content an answer could use; background gives nothing an answer would use | Background / helpful (67 and 133) |
+| A tie goes to the lower label | Every adjacent boundary |
+
+**Label A is Claude Sonnet 5.5** (`claude-sonnet-5-5`), the same model as label B, and remains an independent pass:
+
+- It is its own request.
+- It is blinded to arm: no arm, rank or score is in the prompt.
+- It has its own candidate order and refs (`stable_order` salted by pass) and its own pass number.
+- It never sees the other pass.
+
+`test_the_two_passes_stay_independent_requests_in_different_orders` pins this. The Opus 5.5 adjudication rule is unchanged.
+
+### The backfill fix (fails closed)
+
+1. **The guard probes only text distinctive to withheld blocks** (`system_arms.probe_plan`).
+   - It probes every window of 48 characters of a withheld block's normalized text, 24 apart, plus the last window. A block shorter than 48 characters is one probe, whole. A block shorter than 16 characters is not probed, as before.
+   - A window is dropped when some permitted block contains it. That text is sent anyway as the permitted block, by policy.
+   - This is stronger for real protected text than the old guard. A leaked tail is refused as well as a leaked head; the old guard probed the head only.
+   - A withheld block lying wholly inside permitted text has no probe and is counted (`withheld_inside_permitted`).
+   - Probability now has **906 probes**: 104 blocks probed, 1 inside permitted text, 21 too short. The 352 planned records give **0 guard hits**. linear_algebra has 22 probes and 0 hits.
+2. **Record-level refusal.** `backfill_service_copy(..., policy=)` first checks every planned record of every extraction by identity. If any record is a withheld block (an unredacted copy), it sends nothing for the whole copy (`refused_unredacted`), whatever the text.
+3. **Coverage.** The coverage denominator is unchanged and honest. It is the production one: the embeddable blocks of the redacted copy. The 111 blanked withheld blocks are outside it and reported as `redaction.blanked_blocks`. The guard's counts are now reported as `service_preparation.qwen.guard`.
+
+Failing-first tests are in `tests/test_e0_relabel_round.py`, with fakes:
+- A permitted block containing a withheld block's whole text reproduced `['ProtectedTextRefused', 'ProtectedTextRefused', …]` on `43b34769b`'s code. It is now embedded and coverage completes.
+- A withheld tail is refused. It `DID NOT RAISE` before.
+- An unredacted copy sends nothing.
+
+### Reuse plan
+
+The new plan is **`e0_e6a077cd391c5421`**. The pins changed (label A, prompt versions, rubric hash, allocations), so the plan id changed on purpose. `--reuse-run e0_a47534fecc49ded5` points it at run 3's directory for every **content-keyed** store:
+
+- role checkpoints, keyed by pin, resolved identity, output bound, prompt and schema;
+- vectors, keyed by document space and content;
+- latency measurements, keyed by query encoder and question;
+- the service copies, keyed by frozen tree, policy and harness;
+- the experiment records.
+
+How the reuse is held safe:
+- **Only identical requests are reused.** A changed request misses its key.
+- **The corpus must match.** `live.reused_store` refuses unless run 3 froze the same splits and candidate maps.
+- **Separate outputs.** This plan's frozen manifests and results go to `runs/e0_e6a077cd391c5421/`. Run 3's results stay as they are.
+- **Earlier admissions stay visible.** The new ledger's `entries_for` also reads run 3's sealed ledger. So a request that truncated, or was admitted without a recorded result, under run 3 is still never re-sent blindly.
+
+| Reused ($0) | Re-sent or recomputed, and why |
+|---|---|
+| The bank (the writer's 12 calls), every question's frozen context, smoke and logged slices | Every **label pass** (both copies, all slices). Label A's pin and both prompts changed. |
+| R3's contexts (window and split checkpoints), every document and query vector of R1–R5 | Every **adjudication**. Its prompt carries the rubric and the new passes. |
+| The D0–D3 delivery answers and their judges and adjudications. They depend on the selection, not the labels. | The **metrics, finalists, S1–S4 decisions and reports**. They follow from the labels. |
+| The finalists' D1 answers and online latencies, when a finalist is unchanged (same checkpoint key) | **A finalist that changes** gets its D1 answers, judges and online latency once. Finalist choice depends on the labels. |
+| Both service copies (reopened: same identity) and run 3's 160 + 15 saved Qwen vectors | The probability backfill's **177 missing records** (now admitted). For the first time, probability's **three Qwen service arms** run and their top-20s join its label pools. |
+| | **R0 and the service arms** are not checkpointed by E0, so they run again. Their production verification and query embeddings may hit the copies' own caches. |
+| | The **model and route canaries**, as on every run. |
+
+**Incidental finding (Low, not fixed).** `bank.plan_seeds` takes strata in the iteration order of the dict it is given. The CLI path always passes the in-memory `split_strata`, in `DEV_STRATA` order, so its seeds are stable. A plan's strata re-read from its JSON (sorted keys) gives other seeds for the later strata. An offline replay must reorder them. Fixing it would change the bank and every downstream key.
+
+### The cumulative cap and the cost estimate
+
+- **One cumulative cap.** When the relabel's ledger is created, `budget.authorized_ledger` **seals** run 3's ledger and **carries** its own committed spend into every admission. Run 3's ledger gets `superseded` and `halted`, which every earlier version of this code also refuses on. The spend carried is $14.149: reconciled charges plus outstanding reservations, per category.
+- **What admission holds.** Carried plus own plus each request stays under $40 and under each **E0-wide** allocation. The relabel's hard cap is therefore **$40 − $14.149 = $25.851**, enforced before each send.
+- **Allocations re-split** within the $40: labels/audits 24.60 → **33.00**, answers/verification 14.30 → **5.90**, drafting/context 0.85 and embeddings 0.25 unchanged.
+- **What is left:** labels $21.70, answers $3.45, drafting $0.49, embeddings $0.22.
+- **The dry run.** It now reports `plan["budget"]`: the estimate against what is left of the cumulative cap. The paid CLI authorizes on that. The whole-plan estimate ($48.99) no longer fits $40 and no longer applies when work is reused. With `--reuse-run` the estimate is `plan.reuse_estimate`, built from run 3's own ledger.
+
+The offline estimate re-prices run 3's `labels_audits` tokens. Prices: Sonnet 5.5 $2/$10, Opus 5.5 $4/$20, Haiku 5.5 $0.10/$0.50 per 1M.
+
+| Role | Run 3 calls | Input tokens | Output tokens | Run 3 $ | Re-priced, plain $ | Conservative $ (+ rubric 492 tok/call, +15% pools) |
+|---|---|---|---|---|---|---|
+| label_a (Haiku → Sonnet) | 277 | 1,346,917 | 294,804 | 0.282 | 5.642 | 6.761 |
+| label_b (Sonnet) | 281 | 1,356,733 | 127,649 | 3.990 | 3.990 | 4.865 |
+| adjudicator (Opus) | 86 | 1,135,686 | 124,336 | 7.030 | 7.029 | 8.253 |
+| **labels/audits** | | | | 11.302 | **16.66** | **19.89** (with $0.01 canaries) |
+
+The other categories, and the total:
+- **Answers/verification:** $1.42 at worst, if every finalist changes (run 3's finalist answers cost $1.127) and the system arms cost twice run 3's $0.144.
+- **Embeddings:** at most $0.045.
+- **Drafting:** $0.01.
+- **Total, conservative: $21.37.** That is against $25.85 left, with every category inside what is left of it. Labels/audits leaves $1.81 of headroom, more than one Opus reservation.
+- **Central estimate: about $16.** This uses label A at Sonnet's own observed output rate, no pool growth, and unchanged finalists.
+
+Committed aggregate: `docs/reviews/artifacts/experiments-e0/dry-run-plan.{json,md}`.
+- It was refreshed under `env -i`, with no key and with `OPENROUTER_BASE_URL`/`OPENAI_BASE_URL` set to `http://127.0.0.1:9`.
+- Network calls 0; copy trees unchanged; run 3's ledger byte-identical afterwards (sha256 `dbaa4d85…`).
+- The preflight without env files passed every check, `reuse_ready` included. It was not ready only because the keys are absent. `new_authorization_needed: true`.
+
+### The commands (for the orchestrator; not run here)
+
+`$E` is an empty scratch root, as before. **`--new-authorization` is needed.** The plan id changed, because the label pins, prompt versions, rubric hash and allocations are part of it. Another plan's ledger exists, so `authorized_ledger` refuses without the flag. Creating the new ledger seals run 3's and carries its $14.149. Keep the single quotes, so the shell does not expand `$40`. `--reader-latency-budget-s` stays optional; without it S2 and S4 fail closed.
+
+(a) Preflight only. Zero network; no value printed. Expect `"ready": true`, `run_id` `e0_e6a077cd391c5421`, `carried_usd` 14.149, `remaining_usd` 25.851, `estimated_usd` 21.37, `new_authorization_needed: true`:
+
+```
+cd learnanything-e0 && systemd-run --user --scope --quiet -p MemoryMax=6G -p MemorySwapMax=1G -- env -i PATH=$PATH HOME=$E/h CODEX_HOME=$E/c LEARNLOOP_CONFIG_DIR=$E/l UV_CACHE_DIR=/home/saturn/.cache/uv uv run --no-sync learnloop experiments e0 run --copy fixtures-local/contextual-embeddings/vaults/linear_algebra-20261021 --copy fixtures-local/contextual-embeddings/vaults/probability-20261021 --env-file /home/saturn/.config/learnloop/settings.env --env-file /home/saturn/Documents/thinking/learnanything/settings.env --anthropic-key-env ANTHROPIC_API_KEY --openrouter-key-env OPENROUTER_API_KEY --perplexity-key-env PERPLEXITY_API_KEY --voyage-key-env VOYAGE_API_KEY --reuse-run e0_a47534fecc49ded5 --preflight-only --json
+```
+
+(b) The paid relabel run:
+
+```
+cd learnanything-e0 && systemd-run --user --scope --quiet -p MemoryMax=6G -p MemorySwapMax=1G -- env -i PATH=$PATH HOME=$E/h CODEX_HOME=$E/c LEARNLOOP_CONFIG_DIR=$E/l UV_CACHE_DIR=/home/saturn/.cache/uv uv run --no-sync learnloop experiments e0 run --copy fixtures-local/contextual-embeddings/vaults/linear_algebra-20261021 --copy fixtures-local/contextual-embeddings/vaults/probability-20261021 --env-file /home/saturn/.config/learnloop/settings.env --env-file /home/saturn/Documents/thinking/learnanything/settings.env --anthropic-key-env ANTHROPIC_API_KEY --openrouter-key-env OPENROUTER_API_KEY --perplexity-key-env PERPLEXITY_API_KEY --voyage-key-env VOYAGE_API_KEY --run-dir fixtures-local/contextual-embeddings/runs --reuse-run e0_a47534fecc49ded5 --new-authorization 'owner 2026-10-23: Sonnet both + rubric relabel; cumulative $40 cap' --i-am-authorized-to-spend --json
+```
+
+Results are written to:
+- `fixtures-local/contextual-embeddings/runs/e0_e6a077cd391c5421/<copy>/results.json`;
+- the ledger: `fixtures-local/contextual-embeddings/ledger/e0_e6a077cd391c5421.ledger`.
+
+### Gate
+
+Every test command ran inside `systemd-run --user --scope -p MemoryMax=5G -p MemorySwapMax=1G`, one at a time, with `-n 6`. No full suite was run.
+
+- **pytest:** 34 files, **572 passed, 1 skipped**. The skip needs the `openai_codex` SDK. The 34 files are:
+  - the 33 of the previous round;
+  - the new `tests/test_e0_relabel_round.py` (15 tests).
+- **lint-imports** (`env -i`): **30 kept, 0 broken**.
+- **Tests updated for the owner's decision:**
+  - label A is Sonnet in `test_e0_review_round4_followup.py` and `test_e0_review_round5.py`;
+  - the re-split allocations, and authorization on `plan["budget"]`, in `test_e0_review_round5.py` and `test_e0_review_round6.py`;
+  - the committed plan id is now the relabel plan, in `test_e0_review_round7.py` and `test_e0_review_round8.py`;
+  - the CLI help snapshot has the `run` entry's new `--reuse-run` option.
+- **Fail-before:** the backfill tests above, on `43b34769b`.
