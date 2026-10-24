@@ -201,8 +201,11 @@ def evaluate_mandatory(
     clock: Any = None,
     block_for: Callable[[Any, str], Any],
     log_prefix: str = "router R2a: the staged frame",
+    item_states: Callable[[], Any] | None = None,
 ) -> FrameEvaluation:
-    """The mandatory verdicts of ``items`` (those the vault knows), fail closed."""
+    """The mandatory verdicts of ``items`` (those the vault knows), fail closed. ``item_states``: a
+    reader of the item states to evaluate with in place of the repository's (adaptive difficulty
+    passes its material view's: AD2+AD3 fix round 12)."""
 
     from learnloop.scheduling import constraint_engine as ce
     from learnloop.scheduling import controller_snapshot as cs
@@ -211,7 +214,7 @@ def evaluate_mandatory(
     manifest_hash = ce.manifest()["manifest_hash"]
     errors: list[str] = []
     try:
-        states = repository.practice_item_states()
+        states = item_states() if item_states is not None else repository.practice_item_states()
         surfaces = surfaces_by_item(repository)
         reserved_rows = repository.reserved_assessment_surfaces()
     except Exception as exc:  # noqa: BLE001 - fail closed: nothing can be established

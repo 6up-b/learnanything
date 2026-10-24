@@ -234,8 +234,14 @@ def select_rung(
     evidence_count: int = 0,
     claimed_level: float | None = None,
     commitment_id: str | None = None,
+    episode_hypotheses: bool = True,
 ) -> RungTarget:
     """Pick the generation waypoint for one learning object.
+
+    ``episode_hypotheses`` (default on): read a completed probe episode's top
+    hypothesis. Adaptive difficulty's commissioned path turns it off, because
+    that hypothesis is the incumbent's evidence and may count answers AD
+    withholds (A8; Codex verify F21, fix round 10).
 
     Commitment path: project the commitment's next reviewed milestone contract.
     Default path: mastery-band keyed entry on :data:`DEFAULT_TRAJECTORY` —
@@ -258,7 +264,7 @@ def select_rung(
     # learner's actual gap, which locates the entry rung far better than the
     # scalar mastery band (a "procedure_without_selection" learner belongs at
     # select_method practice even while scalar mastery is still climbing).
-    hypothesis_slug = _rung_from_episode_hypothesis(repository, learning_object_id)
+    hypothesis_slug = _rung_from_episode_hypothesis(repository, learning_object_id) if episode_hypotheses else None
     if hypothesis_slug is not None:
         return _waypoint_target(_WAYPOINT_BY_SLUG[hypothesis_slug], schema_version_id)
 

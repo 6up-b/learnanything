@@ -208,11 +208,12 @@ def test_a_unit_held_out_while_the_backfill_runs_refuses_its_later_forecasts(tmp
 
 def test_with_nothing_protected_the_pair_is_unchanged(tmp_path, monkeypatch):
     """Control (passes before and after): the predicate is read again before
-    each request, and with nothing of the forecast protected (another span
-    marked held out mid-pair) both forecasts are sent exactly and recorded."""
+    each request, and with nothing protected (protection unchanged mid-pair; an
+    unrelated span held out mid-pair now expires the pair, the AD23 redesign's
+    E2: tests/test_ad_epoch.py) both forecasts are sent exactly and recorded."""
 
     paths, step = _served_with_history(tmp_path)
-    llm = _HoldingOutLLM(monkeypatch, ["some_other_span"], p_correct=0.4)
+    llm = _HoldingOutLLM(monkeypatch, [], p_correct=0.4)
     decider = AuditDecider(p_yes=0.6)
     outcomes = _forecast(paths, step, llm, decider)
     assert {name: (outcome.status, outcome.p) for name, outcome in outcomes.items()} == {

@@ -29,6 +29,8 @@ from tests.test_reader_rw3b_migration import RW3B_ADDED_OBJECTS
 from tests.test_reader_rw7a_migration import RW7A_ADDED_OBJECTS
 from tests.test_t1_batch_origin_migration import T1_ALTERED_TABLES
 
+from tests.test_ad23_migration import AD23_ADDED_OBJECTS
+
 HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_218" / "state.sqlite"
 #: What 213 adds and alters: the earlier migrations' "nothing else changed"
 #: diffs on the way to head read these (tests/test_approach_maps_schema.py,
@@ -79,11 +81,12 @@ def _upgrade(tmp_path: Path) -> Path:
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    # Reader RW3b's 215, RW5a's 216 and RW7a's 217 (their own tables, altering nothing) follow on the way to head.
-    # ... and T1's 218 (ingest_batches.origin_method).
-    assert [migration.version for migration in applied] == [213, 215, 216, 217, 218]
+    # Adaptive difficulty AD2+AD3's 214, Reader RW3b's 215, RW5a's 216 and RW7a's 217 (their own
+    # tables; 214 alters AD1's two receipts) follow on the way to head, and T1's 218
+    # (ingest_batches.origin_method).
+    assert [migration.version for migration in applied] == [213, 214, 215, 216, 217, 218]
     after = _schema(database)
-    assert set(after) - set(before) - RW3B_ADDED_OBJECTS - RW5A_ADDED_OBJECTS - RW7A_ADDED_OBJECTS == {name for name in NEW_OBJECTS if not name.startswith("sqlite_autoindex")} | {
+    assert set(after) - set(before) - AD23_ADDED_OBJECTS - RW3B_ADDED_OBJECTS - RW5A_ADDED_OBJECTS - RW7A_ADDED_OBJECTS == {name for name in NEW_OBJECTS if not name.startswith("sqlite_autoindex")} | {
         name for name in after if name.startswith("sqlite_autoindex") and name.split("_autoindex_")[1].rsplit("_", 1)[0]
         in NEW_TABLES}
     changed = {name for name in before if before[name] != after.get(name)} - T1_ALTERED_TABLES

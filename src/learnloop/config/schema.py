@@ -1368,6 +1368,11 @@ class AIRoutingConfig(BaseModel):
     ad_forecast_llm: str | None = None
     ad_forecast_decider: str | None = None
     ad_feature_audit: str | None = None
+    # Adaptive difficulty AD2+AD3 (spec §5.10): the relatedness proposal, one call per subject (vault
+    # content only, never learner text); background work, owner-run while learned_coupling is off.
+    # Empty: the ChatGPT plan's medium tier (plan-first transport T1); a metered route is held to
+    # adaptive_difficulty.daily_spend_cap_usd at adaptive_difficulty.price_per_million.
+    ad_relatedness: str | None = None
     # Reader workbench RW2b (spec_reader_workbench_v1 §5.2, §5.8): "Check my
     # work", one structured chat call on the request path (step verdicts,
     # the step graph, the map node each valid step reaches, the error-kind
@@ -1588,6 +1593,11 @@ DEFAULT_SERVING_TASK_ROUTES = {
     "rung_variant": CHATGPT_LOW_PROVIDER,
     "animation": CHATGPT_MEDIUM_PROVIDER,
     "facet_identity_judge": CHATGPT_LUNA_PROVIDER,
+    # Adaptive difficulty (the compose onto T1, item C4): its background calls on the plan's tiers.
+    # Every AD operation runs under ``plan_fallback.quiet()``: no offer, no grant, the plan or nothing.
+    "ad_forecast_llm": CHATGPT_LOW_PROVIDER,
+    "ad_feature_audit": CHATGPT_LOW_PROVIDER,
+    "ad_relatedness": CHATGPT_MEDIUM_PROVIDER,
 }
 #: The pre-T1 table: the routes of a vault whose active provider is Codex
 #: (served only with ``ai.agent_harness_opt_in``; `learnloop doctor` reports
@@ -1602,6 +1612,9 @@ LEGACY_CODEX_TASK_ROUTES = {
     "rung_variant": CODEX_LOW_PROVIDER,
     "animation": CODEX_MEDIUM_PROVIDER,
     "facet_identity_judge": CODEX_LUNA_PROVIDER,
+    "ad_forecast_llm": CODEX_LOW_PROVIDER,
+    "ad_feature_audit": CODEX_LOW_PROVIDER,
+    "ad_relatedness": CODEX_MEDIUM_PROVIDER,
 }
 #: `learnloop doctor --fix`: the plan profile that replaces each code-default
 #: Codex profile (no silent aliasing at load: receipts key on provider+model).
@@ -3531,6 +3544,44 @@ class AdaptiveDifficultyConfig(BaseModel):
     * ``price_per_million``: the owner's price (USD per million tokens) for a
       METERED LLM route of these roles; unset, a metered LLM call is refused
       before it is sent. The Decider is priced at its profile's listed price.
+
+    AD2+AD3 (``mvp-0.30``, one successor; §11.1; dormant below the tag), each
+    switch false restoring its part of ``mvp-0.29`` exactly:
+
+    * ``selection``: a planned new-material slot is served by AD's draw over its
+      support (practice in the band, calibration within acceptable difficulty,
+      exact logged propensities); an empty support displaces the slot and defers
+      its item until its blocking condition clears (§6.1). Off: no draw, no
+      substitution, no deferral.
+    * ``generation_contract``: generation asks for an item AT a commissioned
+      feature point, with no difficulty band (§7.1). Off: today's prompt and band
+      check.
+    * ``promoted_predictor``: live decisions and the readiness numbers read the
+      subject view (§6.1, §9.5, §10.1). Off: each LO's own view, and no AD
+      readiness numbers.
+    * ``learned_coupling``: the subject view's learned loadings and couplings and
+      their proposal (§5.10). Off: uniform sharing, no proposal call. **Off by
+      default** (owner decision 2026-10-19): on only after the owner has
+      spot-checked the relatedness proposal and adopted a coupling version.
+    * ``reading_opportunities``: reading raises the subject view's predicted level
+      (§5.11). Off: no reading transitions.
+    * ``reading_self_check``: the self-check verdict term (D22). Off: removed.
+
+    ``history_fallback`` (owner decision 2026-10-19): how AD's replay reads a
+    historical attempt whose exact item revision was not saved.
+    ``"current_content"`` (the default) reads it against today's item text;
+    ``"exclude"`` leaves it out. AD's own setting: ``field.legacy_fallback``,
+    which the field harness and its projections read, is unchanged.
+
+    Outside the successor, at every version: ``reading_dose_offers`` (D21, live by
+    owner decision): at an eligible section boundary the Reader may offer one
+    extra worked example or question with probability ``dose_floor`` each
+    (exact, logged propensities), at most one per section and
+    ``dose_daily_offers`` a day (§5.12). Off: today's Reader exactly.
+
+    The selection constants (§6.1, D6) and the versioned priors, grid and ladder
+    (§5.5, §5.10, §9.1) are recorded so a snapshot names them; the
+    pre-registration is ``docs/reviews/adaptive-difficulty-ad23.md`` §1.
     """
 
     enabled: bool = True
@@ -3542,6 +3593,33 @@ class AdaptiveDifficultyConfig(BaseModel):
     feature_audit: bool = True
     daily_spend_cap_usd: float = Field(default=0.50, ge=0.0)
     price_per_million: float | None = Field(default=None, gt=0)
+    selection: bool = True
+    generation_contract: bool = True
+    promoted_predictor: bool = True
+    learned_coupling: bool = False
+    reading_opportunities: bool = True
+    reading_self_check: bool = True
+    reading_dose_offers: bool = True
+    dose_floor: float = Field(default=0.10, gt=0.0, le=1.0 / 3.0)
+    dose_daily_offers: int = Field(default=3, ge=0)
+    practice_band: tuple[float, float] = (0.70, 0.80)
+    overlap_band: tuple[float, float] = (0.55, 0.90)
+    overlap_share: float = Field(default=0.10, ge=0.0, le=1.0)
+    near_tie_margin: float = Field(default=0.05, ge=0.0, le=1.0)
+    calibrate_below: float = Field(default=0.25, ge=0.0, le=1.0)
+    ready_threshold: float = Field(default=0.8, gt=0.0, lt=1.0)
+    history_fallback: Literal["exclude", "current_content"] = "current_content"
+    priors: Literal["ad_priors_v1"] = "ad_priors_v1"
+    hyper: Literal["ad_hyper_v1"] = "ad_hyper_v1"
+    ladder: Literal["ad_ladder_v1"] = "ad_ladder_v1"
+
+    @field_validator("practice_band", "overlap_band")
+    @classmethod
+    def _ordered_band(cls, value: tuple[float, float]) -> tuple[float, float]:
+        low, high = float(value[0]), float(value[1])
+        if not 0.0 < low < high < 1.0:
+            raise ValueError("a band is (low, high) with 0 < low < high < 1")
+        return (low, high)
 
     @field_validator("outside_forecasters", mode="before")
     @classmethod

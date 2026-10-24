@@ -217,9 +217,11 @@ def test_f2_the_chain_ends_at_the_intent_successor():
     )
     from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, defaults_fingerprint_for_version
 
-    assert INTENT_ALGORITHM_VERSION == "mvp-0.29" == LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1]
-    assert SUCCESSOR_CHAIN[-2] == PREDECESSOR
-    assert INTENT_VERSIONS == frozenset({"mvp-0.29"})
+    # Adaptive difficulty AD2+AD3 (mvp-0.30) follows it as the latest (the compose round).
+    assert INTENT_ALGORITHM_VERSION == "mvp-0.29" == SUCCESSOR_CHAIN[-2]
+    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.30"
+    assert SUCCESSOR_CHAIN[-3] == PREDECESSOR
+    assert INTENT_VERSIONS == frozenset({"mvp-0.29", "mvp-0.30"})
     assert "mvp-0.29" in ELIGIBILITY_DECISION_VERSIONS and "mvp-0.29" in P0_PROJECTION_VERSIONS
     assert DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.29"] == defaults_fingerprint_for_version("mvp-0.29")
 
@@ -262,7 +264,9 @@ def test_f2_the_upgrade_takes_the_predecessor_or_the_chain_and_refuses_the_rest(
     assert load_vault(old.root).config.algorithms.algorithm_version == "mvp-0.8"
 
     cli = create_placement_vault(tmp_path / "cli", version=PREDECESSOR)
-    invoked = CliRunner().invoke(app, ["upgrade", "--vault", str(cli.root)])
+    # The CLI's default is the latest successor (adaptive difficulty's mvp-0.30) since the compose
+    # round; DL2's own step is --to mvp-0.29.
+    invoked = CliRunner().invoke(app, ["upgrade", "--vault", str(cli.root), "--to", "mvp-0.29"])
     assert invoked.exit_code == 0, invoked.output
     assert f"{PREDECESSOR} -> mvp-0.29" in invoked.output
 
@@ -273,5 +277,6 @@ def test_f2_new_vaults_start_at_the_successor_with_intent_live(tmp_path):
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     config = load_vault(tmp_path / "fresh").config
-    assert config.algorithms.algorithm_version == "mvp-0.29"
+    # The latest successor (adaptive difficulty's mvp-0.30) keeps intent live.
+    assert config.algorithms.algorithm_version == "mvp-0.30"
     assert intent_enabled(config)

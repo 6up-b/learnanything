@@ -3,8 +3,8 @@ title: "grading_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
+source_commit_timestamp: "2026-10-24T14:22:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_evidence"
@@ -19,14 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/grade_resolution.py"
   - "src/learnloop/attempts/grading_support.py"
   - "src/learnloop/attempts/regrade.py"
   - "src/learnloop/attempts/stuck.py"
   - "src/learnloop/cli/app.py"
-  - "src/learnloop/cli/grading.py"
-  - "src/learnloop/cli/runtime.py"
-  - "src/learnloop/daily_plan/router_teach_back.py"
   - "src/learnloop/attempts/attempt_trace.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/clarification.py"
@@ -172,6 +172,10 @@ Indexes and uniqueness:
 - `tests/figure_fixtures.py`
 - `tests/mcp_world.py`
 - `tests/source_service_fakes.py`
+- `tests/test_ad23_fix_review.py`
+- `tests/test_ad2_model.py`
+- `tests/test_ad3_reading.py`
+- `tests/test_ad3_subject_view.py`
 - `tests/test_answer_signal_arms.py`
 - `tests/test_assumed_known.py`
 - `tests/test_characterization_certification_ledger.py`
@@ -185,10 +189,6 @@ Indexes and uniqueness:
 - `tests/test_facet_outcome_view.py`
 - `tests/test_family_memory_projection.py`
 - `tests/test_field_signal_production_paths.py`
-- `tests/test_field_split_outcomes.py`
-- `tests/test_forecast_receipts.py`
-- `tests/test_help_outcomes.py`
-- `tests/test_learner_text_gaps.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

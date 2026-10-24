@@ -66,7 +66,9 @@ def _schema(database: Path) -> dict[str, str]:
 
 
 def _upgrade(tmp_path: Path) -> Path:
-    database = _database_at(tmp_path, 213)
+    # From 214 (adaptive difficulty AD2+AD3's, composed onto main at its compose round; it alters
+    # AD1's two receipts, so the "215 alters nothing" diff starts after it).
+    database = _database_at(tmp_path, 214)
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)

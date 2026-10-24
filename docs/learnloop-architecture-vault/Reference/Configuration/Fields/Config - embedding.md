@@ -3,8 +3,8 @@ title: "Config - embedding"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
+source_commit_timestamp: "2026-10-24T14:22:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml embedding"
@@ -24,7 +24,9 @@ source_paths:
   - "src/learnloop/ai/client.py"
   - "src/learnloop_sidecar/handlers/item_text_neighbors.py"
   - "src/learnloop/source_retrieval/source_vectors.py"
+  - "tests/ad23_fakes.py"
   - "tests/ad_fakes.py"
+  - "tests/ad_ingest_fakes.py"
   - "tests/approach_map_fakes.py"
   - "tests/chatgpt_plan_fakes.py"
   - "tests/codex_cli_fakes.py"
@@ -34,8 +36,6 @@ source_paths:
   - "tests/diagnosis_fakes.py"
   - "tests/embedding_fakes.py"
   - "tests/facet_identity_fakes.py"
-  - "tests/figure_fixtures.py"
-  - "tests/helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/embedding"
@@ -56,14 +56,14 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `embedding.enabled` | `false` | boolean | explicit template decision | Master switch for remote embeddings. While false, the embedding route resolves to no client, so no consumer can send text, and the disabled route does not affect settings health. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2795`; `src/learnloop/ai/plan_fallback.py:122`; `src/learnloop/ai/routing.py:618` |
-| `embedding.backfill_enabled` | `false` | boolean | explicit template decision | Separate consent for `learnloop embeddings backfill` paid runs; dry-run estimates work without it. Both switches must be true before any request is sent. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2796`; `src/learnloop/ai/plan_fallback.py:122`; `src/learnloop/ops/embedding_backfill.py:239` |
-| `embedding.model` | `"qwen/qwen3-embedding-8b"` | string | explicit template decision | The embedding model id to request and to key stored vectors by; authoritative over the embedding profile's own model field. Changing it backfills a new model beside the old vectors. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2797`; `src/learnloop/ai/client.py:31`; `src/learnloop/ai/plan_fallback.py:122` |
-| `embedding.dimensions` | `4096` | integer | explicit template decision | Stored vector width for embedding.model (MRL truncation, then L2-normalization). Fixed per model once vectors exist; consumers may request a narrower renormalized view at query time. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2798`; `src/learnloop/ai/client.py:32`; `src/learnloop/ai/plan_fallback.py:122` |
-| `embedding.map_neighbors_enabled` | `true` | boolean | modeled default or validator seed | Display-only kill switch for the knowledge map: while true, an item whose current stem has a stored vector for the ranking model takes its four shown neighbours from item-text similarity; false keeps the facet/concept-graph neighbours. The ranking model is embedding.model once its stored vectors cover every current stem another stored model covers; until a replacement's backfill catches up, the previous model keeps ranking (Slice 2 §4). Reads stored vectors only (no calls) and never moves map coordinates or learner state. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2803`; `src/learnloop/ai/plan_fallback.py:122`; `src/learnloop_sidecar/handlers/item_text_neighbors.py:88` |
-| `embedding.backfill_sources_on_extract` | `true` | boolean | modeled default or validator seed | Turns backfill sources on extract behavior on or off within opt-in embedding substrate, model identity, backfill consent, and privacy disclosure. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2812`; `src/learnloop/ai/plan_fallback.py:122`; `src/learnloop/source_retrieval/source_vectors.py:82` |
-| `embedding.source_backfill_max_cost_usd` | `1.0` | number | modeled default or validator seed | Controls source backfill max cost usd in opt-in embedding substrate, model identity, backfill consent, and privacy disclosure, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2813`; `src/learnloop/ai/plan_fallback.py:122`; `src/learnloop/source_retrieval/source_vectors.py:153` |
-| `embedding.privacy_disclosure` | `"When enabled, remote embeddings send canonical or learner-derived text to the configured endpoint (by default OpenRouter and its upstream provider). Requests ask for OpenRouter data_collection=deny; custom endpoints may ignore that option, so verify their retention policy. Vectors approximate plaintext: protect them like practice attempts in backups, exports and sync; never share them across vaults."` | string | modeled default or validator seed | Read-only disclosure computed by the schema and shown in Settings and `config effective`; setting it in learnloop.toml has no effect. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3587`; `src/learnloop/ai/plan_fallback.py:122` |
+| `embedding.enabled` | `false` | boolean | explicit template decision | Master switch for remote embeddings. While false, the embedding route resolves to no client, so no consumer can send text, and the disabled route does not affect settings health. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2808`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/ai/routing.py:624` |
+| `embedding.backfill_enabled` | `false` | boolean | explicit template decision | Separate consent for `learnloop embeddings backfill` paid runs; dry-run estimates work without it. Both switches must be true before any request is sent. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2809`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/ops/embedding_backfill.py:239` |
+| `embedding.model` | `"qwen/qwen3-embedding-8b"` | string | explicit template decision | The embedding model id to request and to key stored vectors by; authoritative over the embedding profile's own model field. Changing it backfills a new model beside the old vectors. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2810`; `src/learnloop/ai/client.py:31`; `src/learnloop/ai/plan_fallback.py:123` |
+| `embedding.dimensions` | `4096` | integer | explicit template decision | Stored vector width for embedding.model (MRL truncation, then L2-normalization). Fixed per model once vectors exist; consumers may request a narrower renormalized view at query time. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2811`; `src/learnloop/ai/client.py:32`; `src/learnloop/ai/plan_fallback.py:123` |
+| `embedding.map_neighbors_enabled` | `true` | boolean | modeled default or validator seed | Display-only kill switch for the knowledge map: while true, an item whose current stem has a stored vector for the ranking model takes its four shown neighbours from item-text similarity; false keeps the facet/concept-graph neighbours. The ranking model is embedding.model once its stored vectors cover every current stem another stored model covers; until a replacement's backfill catches up, the previous model keeps ranking (Slice 2 §4). Reads stored vectors only (no calls) and never moves map coordinates or learner state. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2816`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop_sidecar/handlers/item_text_neighbors.py:88` |
+| `embedding.backfill_sources_on_extract` | `true` | boolean | modeled default or validator seed | Turns backfill sources on extract behavior on or off within opt-in embedding substrate, model identity, backfill consent, and privacy disclosure. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2825`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/source_retrieval/source_vectors.py:82` |
+| `embedding.source_backfill_max_cost_usd` | `1.0` | number | modeled default or validator seed | Controls source backfill max cost usd in opt-in embedding substrate, model identity, backfill consent, and privacy disclosure, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2826`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/source_retrieval/source_vectors.py:153` |
+| `embedding.privacy_disclosure` | `"When enabled, remote embeddings send canonical or learner-derived text to the configured endpoint (by default OpenRouter and its upstream provider). Requests ask for OpenRouter data_collection=deny; custom endpoints may ignore that option, so verify their retention policy. Vectors approximate plaintext: protect them like practice attempts in backups, exports and sync; never share them across vaults."` | string | modeled default or validator seed | Read-only disclosure computed by the schema and shown in Settings and `config effective`; setting it in learnloop.toml has no effect. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3665`; `src/learnloop/ai/plan_fallback.py:123` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -72,7 +72,9 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/ad23_fakes.py`
 - `tests/ad_fakes.py`
+- `tests/ad_ingest_fakes.py`
 - `tests/approach_map_fakes.py`
 - `tests/chatgpt_plan_fakes.py`
 - `tests/codex_cli_fakes.py`
@@ -82,8 +84,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/diagnosis_fakes.py`
 - `tests/embedding_fakes.py`
 - `tests/facet_identity_fakes.py`
-- `tests/figure_fixtures.py`
-- `tests/helpers.py`
 
 ## Extension and modification guidance
 

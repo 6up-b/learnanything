@@ -34,12 +34,13 @@ SERVE_INPUT_COLUMNS = (
     "scheduler_candidate_id", "practice_item_id", "learning_object_id", "content_hash", "served_at",
     "stamped_features_json", "task_feature_schema", "audit_json", "resolved_features_json", "signals_json",
     "z_v1_recalibration", "pre_exposed", "resolution_version", "loadings_json", "coupling_version", "created_at",
+    "protection_epoch",
 )
 
 READING_COLUMNS = (
     "id", "opportunity_key", "kind", "subkind", "source_table", "source_id", "source_written_at",
     "learning_object_id", "facet_doses_json", "dose_offer_id", "mapping_version", "authority_class",
-    "sweep", "sweep_ref", "swept_at",
+    "sweep", "sweep_ref", "swept_at", "protection_epoch",
 )
 
 
@@ -140,6 +141,8 @@ def insert_reading_opportunity(connection: sqlite3.Connection, row: Mapping[str,
     values = dict(row)
     values.setdefault("id", new_ulid())
     values.setdefault("authority_class", "salience_only")
+    # A receipt with no protection epoch is never in force ('' keeps its identity unique).
+    values["protection_epoch"] = values.get("protection_epoch") or ""
     if "facet_doses" in values:
         values["facet_doses_json"] = _dumps(values.pop("facet_doses"))
     unknown = sorted(set(values) - set(READING_COLUMNS))

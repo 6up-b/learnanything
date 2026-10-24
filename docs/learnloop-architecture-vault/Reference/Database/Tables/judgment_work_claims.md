@@ -3,8 +3,8 @@ title: "judgment_work_claims"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
+source_commit_timestamp: "2026-10-24T14:22:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_work_claims"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/176_recurrence_groups.sql"
   - "src/learnloop/adaptive_difficulty/background.py"
   - "src/learnloop/adaptive_difficulty/claims.py"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/db/stores/judgment_claims.py"
   - "src/learnloop/hints/map_builder.py"
-  - "src/learnloop/hints/outcome.py"
-  - "src/learnloop/matching/judge.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -108,6 +108,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_ad1_fix_round5.py`
+- `tests/test_ad_guard.py`
 - `tests/test_approach_maps.py`
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_hint_outcome.py`

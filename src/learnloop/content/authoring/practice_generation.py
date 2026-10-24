@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from math import log
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from learnloop.content.proposals.ai_contracts import PRACTICE_GENERATION_PROMPT_VERSION
 
@@ -90,6 +90,10 @@ class PracticeExpansionTarget:
     # authoring model as targets, exactly as `commissioned_cells` does, rather
     # than sitting in a report a human might one day read.
     contrast_pair_requests: list[dict[str, Any]] = field(default_factory=list)
+    # Adaptive difficulty AD2+AD3 (spec §7.1, switch generation_contract): the
+    # commission draw that named this target's feature point. Set, the payload
+    # carries no difficulty band: difficulty is measured from the answers.
+    ad_commission_id: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -107,6 +111,18 @@ class PracticeExpansionTarget:
             "blueprint_components": self.blueprint_components,
             "existing_surface_families": self.existing_surface_families,
         }
+        if self.ad_commission_id is not None:
+            # Under the generation contract the difficulty is AD's commissioned point (§7.1): the
+            # band and the incumbent's ability estimate it inverts are not given to the writer. The
+            # estimate is also the incumbent's live state, which counts answers AD withholds, so
+            # leaving it out keeps the commissioned request what it would be without them (A8,
+            # fix round 9's contract).
+            payload.pop("recommended_difficulty_band")
+            payload.pop("mastery_mean")
+            # The probe counts are the incumbent's evidence too (fix round 10).
+            payload.pop("probe_attempts_completed")
+            payload.pop("probe_attempts_target")
+            payload["ad_commission_id"] = self.ad_commission_id
         if self.commissioned_cells:
             payload["commissioned_cells"] = self.commissioned_cells
         if self.contract_capabilities:
@@ -129,6 +145,10 @@ class PracticeExpansionTarget:
 @dataclass(frozen=True)
 class PracticeExpansionPlan:
     targets: list[PracticeExpansionTarget]
+    #: Adaptive difficulty's material view when the plan was built under the generation contract
+    #: (A8): the authoring request is then built from the vault it sees and revalidated before it
+    #: is sent (fix round 9, R2). None on the predecessor's path; never serialized.
+    material_view: Any = field(default=None, repr=False, compare=False)
 
     @property
     def requested_new_items(self) -> int:
@@ -283,13 +303,24 @@ def build_practice_expansion_plan(
     require_completed_probe: bool = True,
     exclude_item_ids: set[str] | None = None,
     force_named_targets: bool = True,
+    ad_commission_id: str | None = None,
 ) -> PracticeExpansionPlan:
+    """``ad_commission_id``: a serve-time adaptive difficulty commission this plan generates for
+    (its LO's target is written at that commission's point, §6.1, §7.1)."""
     if target_items_per_lo <= 0:
         raise PracticeExpansionError("target_items_per_lo must be positive")
     if max_new_per_lo <= 0:
         raise PracticeExpansionError("max_new_per_lo must be positive")
     _validate_mode_mix(mode_mix)
     named_lo_ids = list(dict.fromkeys(learning_object_ids or []))
+    # Adaptive difficulty AD2+AD3 (A8; Codex verify F21, fix round 9 R2): under the generation
+    # contract, with the held-out predicate available, the whole plan reads the vault as AD's
+    # material view sees it (withheld items removed): contract and contrast reachability, the
+    # targets' counts (and so the deficit), facets and surface families. With the contract off, or
+    # the view unavailable, the predecessor's reads exactly.
+    ad_view = _ad_material_view(vault, repository)
+    if ad_view is not None:
+        vault = ad_view.vault_view()
     # Stage 5.1: 3.1's reachability report, resolved into rung-correct authoring
     # targets. One static pass over vault content (no attempts, no provider), and
     # it is what makes the contract — rather than the learner's mastery band — the
@@ -306,9 +337,17 @@ def build_practice_expansion_plan(
     )
     subject_filter = set(subjects or [])
     concept_filter = set(focus_concepts or [])
-    item_counts = _active_practice_item_counts(vault, repository, exclude_item_ids=exclude_item_ids)
-    facet_unions = _active_evidence_facet_unions(vault, repository)
-    surface_families = _active_surface_families(vault, repository)
+    ad_items = ad_view.items() if ad_view is not None else None
+    ad_counts: dict[str, int] = {}
+    ad_states = None
+    if ad_view is not None:
+        with repository.connection() as connection:
+            ad_counts = ad_view.graded_counts(connection)
+            ad_states = ad_view.item_states(connection)
+    item_counts = _active_practice_item_counts(vault, repository, exclude_item_ids=exclude_item_ids, items=ad_items,
+                                               states=ad_states)
+    facet_unions = _active_evidence_facet_unions(vault, repository, items=ad_items, states=ad_states)
+    surface_families = _active_surface_families(vault, repository, items=ad_items, states=ad_states)
     # Meas §3.A4: the identifiability findings a contrast pair can close, keyed by
     # the facets they name. One static pass, no provider, and it reuses the SAME
     # `analyze_identifiability` the doctor runs -- a request here and a finding
@@ -361,15 +400,25 @@ def build_practice_expansion_plan(
             # An explicitly forced LO or an unresolved contract commission past
             # the count target still needs one focused item.
             requested = 1
-        mastery = repository.mastery_state(learning_object.id)
-        mastery_mean = display_mastery(mastery).mastery_mean if mastery is not None else None
-        # With no mastery state at all, the learner claim (if any) sets both the
-        # rung entry point and the ability the difficulty band inverts around. A
-        # claim-seeded mastery state already carries the claim in mastery_mean.
-        claimed_level: float | None = None
-        if mastery is None:
+        if ad_view is not None:
+            # Adaptive difficulty's commissioned path reads no incumbent mastery or evidence (A8;
+            # Codex verify F21, fix round 10): the incumbent's state counts answers AD withholds.
+            # The rung is selected from the learner's claim and the view's own count of graded
+            # answers (the rung's default prior otherwise), never from mastery_ekf.
+            mastery = None
+            mastery_mean = None
             claim = covering_learner_claim(vault, repository, learning_object.id)
             claimed_level = float(claim["claimed_level"]) if claim is not None else None
+        else:
+            mastery = repository.mastery_state(learning_object.id)
+            mastery_mean = display_mastery(mastery).mastery_mean if mastery is not None else None
+            # With no mastery state at all, the learner claim (if any) sets both the
+            # rung entry point and the ability the difficulty band inverts around. A
+            # claim-seeded mastery state already carries the claim in mastery_mean.
+            claimed_level: float | None = None
+            if mastery is None:
+                claim = covering_learner_claim(vault, repository, learning_object.id)
+                claimed_level = float(claim["claimed_level"]) if claim is not None else None
         # Rung-correct generation (Stage 5.1 / Meas §5.8.2): when this LO's own
         # blueprint names cells no authored item can observe, the CONTRACT sets the
         # waypoint — the head of the commissioning queue for this LO, honouring
@@ -386,9 +435,17 @@ def build_practice_expansion_plan(
                 repository,
                 learning_object_id=learning_object.id,
                 mastery_mean=mastery_mean,
-                evidence_count=(mastery.evidence_count if mastery is not None else 0),
+                evidence_count=(ad_counts.get(learning_object.id, 0) if ad_view is not None
+                                else mastery.evidence_count if mastery is not None else 0),
                 claimed_level=claimed_level,
+                **({"episode_hypotheses": False} if ad_view is not None else {}),
             )
+        # Adaptive difficulty AD2+AD3 (spec §6.1, §7.1; switch generation_contract,
+        # dormant below mvp-0.30): AD's commission draw names the feature point at
+        # the waypoint's capability; the target carries no difficulty band.
+        rung, target_commission_id = _ad_commissioned_rung(
+            vault, repository, learning_object.id, rung, commission_id=ad_commission_id, view=ad_view
+        )
         ability = mastery_mean if mastery_mean is not None else claimed_level
         targets.append(
             PracticeExpansionTarget(
@@ -419,6 +476,7 @@ def build_practice_expansion_plan(
                 contrast_pair_requests=_contrast_pair_requests_for(
                     pair_requests_by_facet, learning_object
                 ),
+                ad_commission_id=target_commission_id,
             )
         )
     # Target order follows the commissioning queue: an LO whose best unreachable
@@ -436,7 +494,91 @@ def build_practice_expansion_plan(
     )
     if max_los is not None:
         targets = targets[:max_los]
-    return PracticeExpansionPlan(targets=targets)
+    return PracticeExpansionPlan(targets=targets, material_view=ad_view)
+
+
+def _ad_gate_vault(plan: Any, vault: LoadedVault) -> LoadedVault:
+    """The vault the post-generation gates compare a commissioned batch against: AD's material view
+    of it (fix round 10), so a withheld item's surface family or facet never decides whether a
+    commissioned item is kept. The predecessor's plan (no view) uses the vault as loaded."""
+
+    view = getattr(plan, "material_view", None)
+    return view.vault_view() if view is not None else vault
+
+
+def _ad_request_options(plan: Any, *, grounding: Sequence[tuple[Any, Any]] = ()) -> dict[str, Any]:
+    """The authoring call's AD options (fix round 9, R2): with a plan built through AD's material
+    view, the authoring context is built from the vault that view sees (re-read at send time), and
+    the serialized request is revalidated before it is sent; a request quoting withheld material
+    is refused. ``grounding``: the source spans the instructions quote (cross-source grounding),
+    revalidated at every dispatch, repairs included (fix round 11, F34). The predecessor's call (no
+    view) is unchanged."""
+
+    if getattr(plan, "material_view", None) is None:
+        return {}
+    from learnloop.adaptive_difficulty.generation import CommissionedRequestGuard
+
+    guard = CommissionedRequestGuard()
+    guard.ground(grounding)
+    return {"vault_view": guard.vault_view, "request_guard": guard}
+
+
+def _ad_material_view(vault: LoadedVault, repository: Repository) -> Any:
+    """AD's material view for this plan (computed once), or None when the generation contract is
+    off or the held-out predicate is unavailable: then the predecessor's target path runs."""
+
+    import learnloop.adaptive_difficulty.generation as ad_generation
+
+    if not ad_generation.contract_on(vault.config):
+        return None
+    from learnloop.adaptive_difficulty.material_view import detached_view
+
+    # The incumbent's generation boundary (E1, the AD23 redesign): generation runs outside an AD
+    # operation (it writes the incumbent's tables) and keeps the protections built for it.
+    view = detached_view(vault, repository)
+    return view if view.available else None
+
+
+def _ad_commissioned_rung(
+    vault: LoadedVault, repository: Repository, learning_object_id: str, rung: RungTarget | None,
+    *, commission_id: str | None = None, view: Any = None,
+) -> tuple[RungTarget | None, str | None]:
+    """The generation contract's waypoint (adaptive difficulty §7.1): with the contract off,
+    nothing commissioned, or no material view (the predicate unavailable), the incumbent's rung
+    exactly. ``commission_id``: the serve-time commission a background job generates for (its
+    point, whatever the incumbent's capability). ``view``: the plan's AD material view."""
+
+    import learnloop.adaptive_difficulty.generation as ad_generation
+
+    if rung is None or view is None or not ad_generation.contract_on(vault.config):
+        return rung, None
+    from learnloop.clock import utc_now_iso
+
+    from learnloop.adaptive_difficulty.operation import is_denial
+
+    try:
+        commissioned = ad_generation.commission_point(
+            vault, repository, learning_object_id=learning_object_id, incumbent=rung, now=utc_now_iso(),
+            selection_id=commission_id, view=view,
+        )
+    except Exception as exc:
+        if not is_denial(exc):
+            raise
+        return rung, None  # the AD guard refused something: the incumbent's rung exactly
+    if commissioned is None:
+        return rung, None
+    features, capability, selection_id = commissioned
+    return (
+        RungTarget(
+            waypoint_slug=ad_generation.SOURCE,
+            capability=capability,
+            task_features=dict(features),
+            task_feature_bounds={dim: {"target": value, "max": value} for dim, value in features.items()},
+            task_feature_schema_version_id=rung.task_feature_schema_version_id,
+            source=ad_generation.SOURCE,
+        ),
+        selection_id,
+    )
 
 
 def build_diagnostic_practice_plan(
@@ -769,6 +911,7 @@ def generate_post_probe_practice_proposal(
     mode_mix: dict[str, int] | None = None,
     require_completed_probe: bool = True,
     source_refs: list[dict[str, Any]] | None = None,
+    ad_commission_id: str | None = None,
 ) -> PracticeExpansionResult:
     vault = load_vault(root)
     repository = vault_repository(VaultPaths(vault.root, vault.config))
@@ -784,6 +927,7 @@ def generate_post_probe_practice_proposal(
         learning_object_ids=learning_object_ids,
         mode_mix=mode_mix,
         require_completed_probe=require_completed_probe,
+        ad_commission_id=ad_commission_id,
     )
     if not plan.targets:
         raise PracticeExpansionError("No completed probe Learning Objects need more Practice Items.")
@@ -795,7 +939,7 @@ def generate_post_probe_practice_proposal(
     # SAME target band the rung gate already uses (`success_band_difficulty`'s
     # inversion), so "the target difficulty band" means one thing in this vault.
     gates = build_instrument_gates(
-        vault,
+        _ad_gate_vault(plan, vault),
         repository,
         grading_client=codex_client,
         rung_gate=rung_gate,
@@ -823,6 +967,7 @@ def generate_post_probe_practice_proposal(
         codex_revision=codex_revision,
         merge_context_source_refs=bool(source_refs),
         row_transform=gates,
+        **_ad_request_options(plan),
     )
     violations: list[str] = []
     warnings: list[str] = []
@@ -866,7 +1011,11 @@ def build_goal_practice_plan(
 
     from learnloop.goals.goal_projection import goal_report, resolve_goal_scope
 
-    scope = resolve_goal_scope(vault, goal, repository)
+    # Adaptive difficulty's generation contract (Codex verify F37, fix round 12): the goal's scope is
+    # resolved on the vault AD's material view sees, before planning, so a facet only a withheld
+    # item measures brings no LO into the plan; the LO-to-facet mapping is kept for the focus.
+    ad_view = _ad_material_view(vault, repository)
+    scope = resolve_goal_scope(ad_view.vault_view() if ad_view is not None else vault, goal, repository)
     if not scope:
         raise PracticeExpansionError(f"Goal {goal.id} has no active learning objects in scope.")
     reserved = repository.reserved_exam_pool_item_ids()
@@ -880,6 +1029,13 @@ def build_goal_practice_plan(
         exclude_item_ids=reserved,
         force_named_targets=False,
     )
+    if plan.material_view is not None:
+        # Adaptive difficulty's generation contract (Codex verify F37, fix round 11): the focus is
+        # AD's own forecast on visible evidence, never the incumbent's goal projection.
+        from learnloop.adaptive_difficulty.generation import goal_focus_facets
+
+        return plan, goal_focus_facets(vault, repository, scope=scope, target_recall=goal.target_recall,
+                                       view=plan.material_view)
     report = goal_report(vault, repository, goal)
     at_risk_facets = sorted({facet.facet_id for facet in report.facets if not facet.on_track})
     return plan, at_risk_facets
@@ -934,7 +1090,7 @@ def generate_goal_practice_proposal(
     # Meas §3.0 (see `generate_post_probe_practice_proposal` for the tier note);
     # Meas §3.A4 band note ditto. One shared composition: `authoring_gates`.
     gates = build_instrument_gates(
-        vault,
+        _ad_gate_vault(plan, vault),
         repository,
         grading_client=codex_client,
         rung_gate=rung_gate,
@@ -959,6 +1115,7 @@ def generate_goal_practice_proposal(
         focus_facets=at_risk_facets or None,
         codex_revision=codex_revision,
         row_transform=gates,
+        **_ad_request_options(plan),
     )
     return PracticeExpansionResult(
         patch_id=patch_id,
@@ -1036,6 +1193,27 @@ def _blueprint_shaping(vault: LoadedVault, learning_object) -> list[dict[str, An
     return families
 
 
+def _cross_source_difficulty_lines(plan: Any) -> tuple[str, ...]:
+    contract, _banded = _contract(plan)
+    if not contract:
+        return (
+            "Calibrate difficulty to each target's recommended_difficulty_band (~70-85% expected success). "
+            "For each target, create exactly requested_new_items Practice Items.",
+            "Depth waypoint: each target names a depth waypoint (waypoint_slug, capability, target_task_features). "
+            "Author every item AT that waypoint: set `capability` to the target capability exactly and every "
+            "task_features dimension to the target value (a deterministic gate rejects overshoot). Keep "
+            "retrieval_demand/transfer_distance/scaffold_level inside float_proxy_bands. Difficulty varies WITHIN "
+            "the waypoint - never change the waypoint to change difficulty.",
+        )
+    return (
+        _ad_contract_lines()[0] + " For each target, create exactly requested_new_items Practice Items.",
+        "Depth waypoint: each target names a depth waypoint (waypoint_slug, capability, target_task_features). "
+        "Author every item AT that waypoint: set `capability` to the target capability exactly and every "
+        "task_features dimension to the target value (a deterministic gate rejects overshoot). Keep "
+        "retrieval_demand/transfer_distance/scaffold_level inside float_proxy_bands. " + _ad_waypoint_line(),
+    )
+
+
 def _cross_source_instructions(
     plan: PracticeExpansionPlan,
     context_by_lo: dict[str, list[dict[str, Any]]],
@@ -1060,13 +1238,7 @@ def _cross_source_instructions(
         "surface. An item that echoes held-out material is blocked and cannot be applied.",
         "Reuse existing facet ids from each target's existing_evidence_facets; mint a new facet id only "
         "when no existing facet covers the item.",
-        "Calibrate difficulty to each target's recommended_difficulty_band (~70-85% expected success). "
-        "For each target, create exactly requested_new_items Practice Items.",
-        "Depth waypoint: each target names a depth waypoint (waypoint_slug, capability, target_task_features). "
-        "Author every item AT that waypoint: set `capability` to the target capability exactly and every "
-        "task_features dimension to the target value (a deterministic gate rejects overshoot). Keep "
-        "retrieval_demand/transfer_distance/scaffold_level inside float_proxy_bands. Difficulty varies WITHIN "
-        "the waypoint - never change the waypoint to change difficulty.",
+        *_cross_source_difficulty_lines(plan),
         _CONSTRUCTED_RESPONSE_RULE,
         _BLUEPRINT_SPREAD_RULE,
         _CONJUNCTIVE_ITEM_RULE,
@@ -1195,7 +1367,7 @@ def generate_cross_source_practice_proposal(
     # additionally runs its leakage gate FIRST, as a `leading` hook on the one
     # shared composition.
     gates = build_instrument_gates(
-        vault,
+        _ad_gate_vault(plan, vault),
         repository,
         grading_client=codex_client,
         rung_gate=rung_gate,
@@ -1221,6 +1393,8 @@ def generate_cross_source_practice_proposal(
         codex_revision=codex_revision,
         prompt_version=PRACTICE_GENERATION_PROMPT_VERSION,
         row_transform=gates,
+        **_ad_request_options(plan, grounding=[(span["extraction_id"], span["span_id"])
+                                               for spans in context_by_lo.values() for span in spans]),
     )
     return CrossSourcePracticeResult(
         patch_id=patch_id,
@@ -1384,6 +1558,8 @@ class _RungGate:
         self._band_by_lo: dict[str, tuple[float, float]] = {
             target.learning_object_id: target.recommended_difficulty_band
             for target in plan.targets
+            # Adaptive difficulty §7.1: no band check under the generation contract.
+            if target.ad_commission_id is None
         }
         self.violations: list[str] = []
         self.warnings: list[str] = []
@@ -1583,11 +1759,15 @@ def _active_practice_item_counts(
     repository: Repository,
     *,
     exclude_item_ids: set[str] | None = None,
+    items: Any = None,
+    states: Any = None,
 ) -> dict[str, int]:
-    states = repository.practice_item_states()
+    """``items``/``states``: AD's material view's items and item states under the generation
+    contract (fix round 12); None reads the vault and the repository."""
+    states = states if states is not None else repository.practice_item_states()
     excluded = exclude_item_ids or set()
     counts: dict[str, int] = {}
-    for item in vault.practice_items.values():
+    for item in (items if items is not None else vault.practice_items.values()):
         if item.id in excluded:
             continue
         state = states.get(item.id)
@@ -1638,13 +1818,14 @@ def _blueprint_components(learning_object) -> list[dict[str, Any]]:
 
 
 def _active_surface_families(
-    vault: LoadedVault, repository: Repository
+    vault: LoadedVault, repository: Repository, *, items: Any = None, states: Any = None
 ) -> dict[str, list[str]]:
-    """Surface families already in use per LO, so a batch cannot re-run them."""
+    """Surface families already in use per LO, so a batch cannot re-run them. ``items``/``states``:
+    AD's material view's items and item states under the generation contract; None reads the vault."""
 
-    states = repository.practice_item_states()
+    states = states if states is not None else repository.practice_item_states()
     families: dict[str, set[str]] = {}
-    for item in vault.practice_items.values():
+    for item in (items if items is not None else vault.practice_items.values()):
         state = states.get(item.id)
         if state is not None and not state.active:
             continue
@@ -1653,7 +1834,8 @@ def _active_surface_families(
     return {lo_id: sorted(values) for lo_id, values in families.items()}
 
 
-def _active_evidence_facet_unions(vault: LoadedVault, repository: Repository) -> dict[str, list[str]]:
+def _active_evidence_facet_unions(vault: LoadedVault, repository: Repository, *,
+                                  items: Any = None, states: Any = None) -> dict[str, list[str]]:
     """Canonical facet vocabulary available to each Learning Object.
 
     Blueprints remain authoritative even before the first Practice Item exists;
@@ -1663,7 +1845,7 @@ def _active_evidence_facet_unions(vault: LoadedVault, repository: Repository) ->
     """
     from learnloop.vault.models import learning_object_facet_union
 
-    states = repository.practice_item_states()
+    states = states if states is not None else repository.practice_item_states()
     unions: dict[str, set[str]] = {
         learning_object.id: {
             vault.canonical_facet_id(str(facet))
@@ -1671,7 +1853,8 @@ def _active_evidence_facet_unions(vault: LoadedVault, repository: Repository) ->
         }
         for learning_object in vault.learning_objects.values()
     }
-    for item in vault.practice_items.values():
+    # ``items``: AD's material view's items under the generation contract; None reads the vault.
+    for item in (items if items is not None else vault.practice_items.values()):
         state = states.get(item.id)
         if state is not None and not state.active:
             continue
@@ -1902,6 +2085,55 @@ def _ladder_capabilities(target: "PracticeExpansionTarget") -> int:
     return len(capabilities)
 
 
+_BAND_LINES = (
+    "Calibrate each item's difficulty to its target's recommended_difficulty_band (~70-85% expected success - effortful but usually successful, the desirable-difficulty band), and set difficulty and difficulty_source='llm_estimate' accordingly. At most one item per target may be a harder transfer item above the band, and only when corrective feedback makes the challenge productive.",
+    "Estimate each item's expected_minutes: the minutes a learner at the target band needs to read the prompt and write the answer, not counting reading feedback (about 1 for a one-line recall, 3 for a short explanation or calculation, 8 or more for a multi-step derivation). It only sizes the daily plan; it is never evidence.",
+)
+_BAND_WAYPOINT_LINE = "Difficulty varies WITHIN the waypoint - use surface, content, and specificity to hit the difficulty band. NEVER change the waypoint (capability, response form, transfer, span, scaffolding) to change difficulty."
+
+
+def _ad_contract_lines() -> tuple[str, ...]:
+    from learnloop.adaptive_difficulty.generation import CONTRACT_TEXT
+
+    return (
+        CONTRACT_TEXT + " Set difficulty_source='llm_estimate'.",
+        "Estimate each item's expected_minutes: the minutes a learner studying this topic needs to read the prompt and write the answer, not counting reading feedback (about 1 for a one-line recall, 3 for a short explanation or calculation, 8 or more for a multi-step derivation). It only sizes the daily plan; it is never evidence.",
+    )
+
+
+def _ad_waypoint_line() -> str:
+    from learnloop.adaptive_difficulty.generation import WAYPOINT_CLAUSE
+
+    return WAYPOINT_CLAUSE
+
+
+def _contract(plan: Any) -> tuple[bool, bool]:
+    """Adaptive difficulty §7.1: ``(some target is written to the contract, some carries a band)``.
+    With the contract off no target is commissioned, and the prompt is today's exactly."""
+
+    targets = list(getattr(plan, "targets", ()) or ())
+    commissioned = [getattr(target, "ad_commission_id", None) is not None for target in targets]
+    return any(commissioned), (not targets) or not all(commissioned)
+
+
+def _difficulty_lines(plan: Any) -> tuple[str, ...]:
+    contract, banded = _contract(plan)
+    if not contract:
+        return _BAND_LINES
+    lines = _ad_contract_lines()
+    if banded:
+        lines = (lines[0], "For a target that carries a recommended_difficulty_band instead: " + _BAND_LINES[0],
+                 lines[1])
+    return lines
+
+
+def _waypoint_line(plan: Any) -> str:
+    contract, banded = _contract(plan)
+    if not contract:
+        return _BAND_WAYPOINT_LINE
+    return _ad_waypoint_line()
+
+
 def _practice_expansion_instructions(
     plan: PracticeExpansionPlan,
     *,
@@ -1917,10 +2149,9 @@ def _practice_expansion_instructions(
         "Use review_route='review_required' unless a direct note or canonical source reference in the supplied context supports auto_apply.",
         "Avoid duplicating existing prompts in context; vary prompt surface and expected answer shape.",
         "Facet vocabulary: each target lists existing_evidence_facets, the facet ids already established for that Learning Object. When an item probes knowledge one of those facets names, reuse that exact facet id in evidence_facets/evidence_weights/criterion_facet_weights. Mint a new facet id only when the item probes knowledge no existing facet covers; never restate an existing facet under a new name.",
-        "Calibrate each item's difficulty to its target's recommended_difficulty_band (~70-85% expected success - effortful but usually successful, the desirable-difficulty band), and set difficulty and difficulty_source='llm_estimate' accordingly. At most one item per target may be a harder transfer item above the band, and only when corrective feedback makes the challenge productive.",
-        "Estimate each item's expected_minutes: the minutes a learner at the target band needs to read the prompt and write the answer, not counting reading feedback (about 1 for a one-line recall, 3 for a short explanation or calculation, 8 or more for a multi-step derivation). It only sizes the daily plan; it is never evidence.",
+        *_difficulty_lines(plan),
         "Depth waypoint: each target names a depth waypoint (waypoint_slug, capability, target_task_features). Author every item AT that waypoint: set the item's `capability` to the target capability exactly, and set every dimension in `task_features` to the target's value (a deterministic gate rejects items that overshoot the waypoint). Keep retrieval_demand/transfer_distance/scaffold_level inside the target's float_proxy_bands.",
-        "Difficulty varies WITHIN the waypoint - use surface, content, and specificity to hit the difficulty band. NEVER change the waypoint (capability, response form, transfer, span, scaffolding) to change difficulty.",
+        _waypoint_line(plan),
         _CONSTRUCTED_RESPONSE_RULE,
         _BLUEPRINT_SPREAD_RULE,
         _CONJUNCTIVE_ITEM_RULE,

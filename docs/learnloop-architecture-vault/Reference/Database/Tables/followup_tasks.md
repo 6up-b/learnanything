@@ -3,8 +3,8 @@ title: "followup_tasks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
+source_commit_timestamp: "2026-10-24T14:22:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_tasks"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/058_remediation_episodes.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/evsi_calibration/forecast_report.py"
   - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/goals/certification_cold_probe.py"
-  - "src/learnloop/scheduling/intent/serving.py"
-  - "src/learnloop/scheduling/scheduler.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/staged_frame.py"
@@ -153,6 +153,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/ad23_fakes.py`
 - `tests/mcp_world.py`
 - `tests/test_causal_cold_outcomes.py`
 - `tests/test_coldness_receipt.py`
@@ -172,7 +173,6 @@ Indexes and uniqueness:
 - `tests/test_followup_diagnostic_selection.py`
 - `tests/test_guided_redo.py`
 - `tests/test_instrument_servability_journeys.py`
-- `tests/test_intent_codex_rereview.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

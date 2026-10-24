@@ -347,6 +347,26 @@ def _inject_one_stale_row_per_derived_table(repository: Repository) -> None:
             "cold_outcome_state": "right_censored_pending",
             "outcome_version": "stale",
         },
+        # Adaptive difficulty AD2+AD3: a view, a trace and a score of nothing.
+        "ad_state": {
+            "view": "lo:stale_lo",
+            "part": "summary",
+            "payload_json": "{}",
+            "state_hash": "stale",
+            "versions_json": "{}",
+        },
+        "ad_attempt_trace": {
+            "attempt_id": "stale_attempt",
+            "view": "subject",
+            "input_status": "excluded",
+            "detail_json": "{}",
+        },
+        "item_forecast_scores": {
+            "receipt_id": "stale_receipt",
+            "forecaster": "stale",
+            "status": "pending",
+            "detail_json": "{}",
+        },
     }
     assert set(rows) == set(tables_for_role(TableRole.DERIVED))
     with connect(repository.sqlite_path) as connection:
@@ -434,6 +454,12 @@ def test_golden_projection_survives_one_umbrella_rebuild_exactly_and_stale_rows_
 
     with repository.connection() as connection:
         rebuild_outcome_view(connection, vault)
+    # Adaptive difficulty AD2+AD3's two replayers, through their direct APIs.
+    from learnloop.adaptive_difficulty.replay import rebuild as rebuild_ad_state
+    from learnloop.adaptive_difficulty.scoring import rebuild as rebuild_ad_scores
+
+    rebuild_ad_state(vault, repository)
+    rebuild_ad_scores(vault, repository)
     expected = _projection_snapshot(repository, derived)
     with connect(repository.sqlite_path, read_only=True) as connection:
         receipts_before = int(

@@ -3,8 +3,8 @@ title: "Config - schema_version"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
+source_commit_timestamp: "2026-10-24T14:22:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml schema_version"
@@ -28,10 +28,10 @@ source_paths:
   - "tests/practice_index_fakes.py"
   - "tests/test_activity_contract_extensions.py"
   - "tests/test_ad1_fix_round4.py"
+  - "tests/test_ad23_contract.py"
+  - "tests/test_ad_guard.py"
+  - "tests/test_ad_protected_readings.py"
   - "tests/test_administration_adapters.py"
-  - "tests/test_ai_runtime.py"
-  - "tests/test_capability_residual.py"
-  - "tests/test_card_lineage.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/schema-version"
@@ -52,7 +52,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `schema_version` | `2` | integer | explicit template decision | Selects the accepted learnloop.toml schema and activates one-way normalization for older schema-1 input. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3566`; `src/learnloop/ai/providers/codex_http.py:79`; `src/learnloop/ingest/extractors/glm_ocr.py:292` |
+| `schema_version` | `2` | integer | explicit template decision | Selects the accepted learnloop.toml schema and activates one-way normalization for older schema-1 input. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3644`; `src/learnloop/ai/providers/codex_http.py:79`; `src/learnloop/ingest/extractors/glm_ocr.py:292` |
 
 ## Compatibility-only inputs
 
@@ -79,10 +79,10 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/practice_index_fakes.py`
 - `tests/test_activity_contract_extensions.py`
 - `tests/test_ad1_fix_round4.py`
+- `tests/test_ad23_contract.py`
+- `tests/test_ad_guard.py`
+- `tests/test_ad_protected_readings.py`
 - `tests/test_administration_adapters.py`
-- `tests/test_ai_runtime.py`
-- `tests/test_capability_residual.py`
-- `tests/test_card_lineage.py`
 
 ## Extension and modification guidance
 

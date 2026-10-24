@@ -8,8 +8,9 @@ sweeps the whole history once. Rows go to ``ad_reading_opportunities``
 the source row's id and write time, the facets and doses the mapping resolved
 at the sweep, the mapping version and the authority class ``salience_only``.
 
-**Only the listed sources** (:data:`SOURCES`, the carve-out's allowlist the
-AD2+AD3 stage moves into ``attempts/salience_firewall.py``):
+**Only the listed sources** (:data:`SOURCES`: the reading-signal firewall's
+carve-out allowlist, ``attempts.salience_firewall.LEARNING_OPPORTUNITY_SOURCES``,
+moved there by the AD2+AD3 stage so the sweep and the carve-out read one list):
 
 * ``reading``: a section completed in the Reader
   (``reader_section_progress.completed_at``, stamped once: ``section_read``),
@@ -45,10 +46,14 @@ times only, and the receipt has no column that could hold one. No model call.
 serve's sweep; replay orders opportunities by their source write time, so it
 rebuilds the state each serve saw. A later deletion of the source (its
 extraction removed with ``delete_source_artifact``) leaves the receipts.
-Nothing reads them until the AD2+AD3 firewall carve-out (A12).
+The AD replayer reads them only through the firewall's carve-out
+(``salience_firewall.learning_opportunity_events``, A12).
 """
 
 from __future__ import annotations
+
+from learnloop.adaptive_difficulty.logs import warn_failure
+from learnloop.adaptive_difficulty.operation import entry
 
 import json
 import logging
@@ -58,6 +63,13 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any, Protocol
 
+from learnloop.attempts.salience_firewall import (
+    IN_PASSAGE_STYLES,
+    LEARNING_OPPORTUNITY_KINDS,
+    LEARNING_OPPORTUNITY_SOURCES,
+    TUTOR_ANSWER_MODES,
+    UNKNOWN_ANSWER_MODE,
+)
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.stores import ad_receipts as store
 
@@ -66,8 +78,7 @@ from learnloop.adaptive_difficulty.switches import receipts_enabled
 LOG = logging.getLogger(__name__)
 
 MAPPING_VERSION = "ad_reading_map_v1"
-KINDS = ("reading", "reader_tutor_exchange", "worked_example", "in_passage_question")
-IN_PASSAGE_STYLES = ("recall", "next_step", "why_step", "assumptions")
+KINDS = LEARNING_OPPORTUNITY_KINDS
 SELF_CHECK_TASK = "reader_quick_check_self_check"
 SELF_CHECK_CLASSES = {"matches": "self_check:matched", "partly": "self_check:missed", "no": "self_check:missed"}
 #: The span-view contexts that are the learner reading (the Guide, the Reader,
@@ -77,10 +88,6 @@ SELF_CHECK_CLASSES = {"matches": "self_check:matched", "partly": "self_check:mis
 EXPOSURE_CONTEXTS = ("reader", "reader_restoration", "library", "tutor_citation", "provenance", "provenance_panel",
                      "remediation", "remediation_delivery", "other")
 TUTOR_CONTEXTS = ("reader", "library")
-#: A reader tutor question's answer modes (``tutor.tutor_qa.READER_ANSWER_MODES``),
-#: each a tutor exchange's subkind; a question with none stored is ``unknown``.
-TUTOR_ANSWER_MODES = ("answer_directly", "help_me_reason", "ask_me_first")
-UNKNOWN_ANSWER_MODE = "unknown"
 PASSAGES_PER_LO_PER_DAY = 1
 TUTOR_EXCHANGES_PER_LO_PER_DAY = 3
 #: A serve's sweep re-reads this far behind the newest recorded source time,
@@ -88,21 +95,9 @@ TUTOR_EXCHANGES_PER_LO_PER_DAY = 3
 #: after it (a tutor answer completing, a clock skew) is still recorded once.
 SWEEP_OVERLAP = timedelta(hours=1)
 
-#: The carve-out's allowlist: (kind, subkind, source table). One list.
-SOURCES: tuple[tuple[str, str, str], ...] = (
-    ("reading", "section_read", "reader_section_progress"),
-    ("reading", "passage_viewed", "source_exposure_events"),
-    # §5.11: a tutor exchange's subkind is its answer mode (fix round 4, V5);
-    # ``unknown`` where none was stored (outside the Reader, or before 213).
-    *(("reader_tutor_exchange", mode, "question_events") for mode in TUTOR_ANSWER_MODES),
-    ("reader_tutor_exchange", UNKNOWN_ANSWER_MODE, "question_events"),
-    ("worked_example", "shown", "source_exposure_events"),
-    ("worked_example", "in_completed_section", "reader_section_progress"),
-    *(("in_passage_question", style, "reader_authored_questions") for style in IN_PASSAGE_STYLES),
-    ("in_passage_question", "owner_placed", "interaction_events"),
-    ("in_passage_question", "self_check:matched", "judgment_ledger"),
-    ("in_passage_question", "self_check:missed", "judgment_ledger"),
-)
+#: The carve-out's allowlist: (kind, subkind, source table). One list, the
+#: firewall's (AD2+AD3 moved it there; G-AD3-13).
+SOURCES: tuple[tuple[str, str, str], ...] = LEARNING_OPPORTUNITY_SOURCES
 
 
 def _stamp(value: Any) -> str | None:
@@ -133,16 +128,19 @@ class ReadingMap(Protocol):
 class VaultReadingMap:
     """The default map: ``reader.reader_progression``'s section/span -> LO rule,
     worked examples by role (``source_retrieval.corpus.role_keys``), facets by
-    the LO's facet union, held-out material withheld (A8). Cached per sweep."""
+    the LO's facet union. Items, facets and held-out material come from the
+    operation's material view (A8; Codex verify F19): a withheld item maps to no
+    LO and names no facet, and held-out spans are withheld. Cached per sweep."""
 
-    def __init__(self, vault: Any, repository: Any) -> None:
+    def __init__(self, vault: Any, repository: Any, view: Any = None) -> None:
+        from learnloop.adaptive_difficulty.material_view import material_view
+
         self.vault = vault
         self.repository = repository
+        self.view = material_view(vault, repository, view)
         self._sections: dict[tuple[str, str], list[str]] = {}
         self._spans: dict[tuple[str, str], list[str]] = {}
-        self._section_spans: dict[str, dict[str, list[str]]] = {}
         self._examples: dict[str, set[str]] = {}
-        self._held: Any = None
 
     def los_for_section(self, extraction_id: str, section_id: str) -> list[str]:
         from learnloop.reader.reader_progression import learning_objects_for_section
@@ -169,68 +167,53 @@ class VaultReadingMap:
         return self._spans[key]
 
     def section_spans(self, extraction_id: str, section_id: str) -> list[str]:
-        if extraction_id not in self._section_spans:
-            from learnloop.reader.reader_guidance import extraction_sections
-
-            sections: dict[str, list[str]] = {}
-            try:
-                ir = self.repository.load_document_ir(extraction_id)
-                if ir is not None:
-                    rows, _blocks, _map = extraction_sections(ir)
-                    sections = {str(row["id"]): [str(span) for span in row["span_ids"]] for row in rows}
-            except Exception:  # noqa: BLE001
-                sections = {}
-            self._section_spans[extraction_id] = sections
-        return self._section_spans[extraction_id].get(section_id, [])
+        return self.view.section_spans(extraction_id, section_id)
 
     def worked_example_spans(self, extraction_id: str) -> set[str]:
         if extraction_id not in self._examples:
             from learnloop.db.connection import connect
-            from learnloop.source_retrieval.corpus import role_keys
 
             try:
                 with closing(connect(self.repository.sqlite_path, read_only=True)) as connection:
-                    keys = role_keys(connection, [extraction_id], ("worked_example",))
+                    self._examples[extraction_id] = self.view.worked_example_spans(connection, extraction_id)
             except Exception:  # noqa: BLE001
-                keys = set()
-            self._examples[extraction_id] = {str(span) for extraction, span in keys if extraction == extraction_id}
+                warn_failure(LOG, "worked examples of %s unreadable: none", extraction_id)
+                self._examples[extraction_id] = set()
         return self._examples[extraction_id]
 
-    def withheld(self, extraction_id: str, span_id: str | None) -> bool:
-        if self._held is None:
-            from learnloop.content.sources.exam_material import held_out_material
+    def reading_order(self, extraction_id: str) -> dict[str, int]:
+        return self.view.reading_order(extraction_id)
 
-            try:
-                self._held = held_out_material(self.vault, self.repository)
-            except Exception:  # noqa: BLE001 - fail closed: nothing of an unreadable protection is read
-                LOG.warning("held-out material unavailable: reading sources withheld", exc_info=True)
-                self._held = False
-        if self._held is False:
-            return True
-        return bool(self._held.covers(extraction_id, span_id))
+    def withheld(self, extraction_id: str, span_id: str | None) -> bool:
+        # Held-out material, a reading the withheld material touches (round 8), or everything while
+        # the predicate is unavailable (fail closed).
+        return self.view.reading_withheld(extraction_id) or self.view.material_withheld(extraction_id, span_id)
+
+    def note_withheld(self, note_id: str) -> bool:
+        """Whether a note is withheld (a held-out source's canonical note; fix round 13, F43)."""
+
+        from learnloop.db.connection import connect
+
+        with closing(connect(self.repository.sqlite_path, read_only=True)) as connection:
+            return self.view.note_withheld(connection, note_id)
 
     def los_for_note(self, note_id: str) -> list[str]:
+        # Read through the material view (F43): a withheld note maps to no LO.
+        if self.note_withheld(note_id):
+            return []
         note = getattr(self.vault, "notes", {}).get(note_id)
         return [str(lo) for lo in getattr(note, "related_los", None) or []] if note is not None else []
 
     def lo_for_item(self, practice_item_id: str) -> str | None:
-        item = getattr(self.vault, "practice_items", {}).get(practice_item_id)
-        return str(item.learning_object_id) if item is not None else None
+        # A withheld item (an owner-placed or tutor question on it) maps to no LO (Codex verify F19).
+        return self.view.lo_for_item(practice_item_id)
 
     def facets_for_lo(self, learning_object_id: str) -> list[str]:
-        from learnloop.vault.models import learning_object_facet_union
-
         lo = getattr(self.vault, "learning_objects", {}).get(learning_object_id)
         if lo is None:
             return []
-        facets = [self.vault.canonical_facet_id(str(facet)) for facet in learning_object_facet_union(lo)]
-        if not facets:
-            # An LO without blueprints: the facets its active items measure.
-            facets = [self.vault.canonical_facet_id(str(facet))
-                      for item in getattr(self.vault, "practice_items", {}).values()
-                      if item.learning_object_id == learning_object_id and getattr(item, "status", "active") == "active"
-                      for facet in item.evidence_facets]
-        return sorted(dict.fromkeys(facets))
+        # The LO's authored facets, else its visible active items' (Codex verify F19).
+        return self.view.lo_facets(lo)
 
 
 @dataclass(frozen=True)
@@ -272,26 +255,28 @@ def _in_window(stamp: str | None, lower: str | None, upper: str) -> bool:
     return stamp is not None and stamp <= upper and (lower is None or stamp > lower)
 
 
-def _recorded(connection: Any, kind: str, subkind: str, table: str, source_id: str) -> bool:
-    """An earlier sweep recorded this source row: it is not mapped again (a
-    serve's sweep re-reads its overlap window, never re-resolves it)."""
+def _recorded(connection: Any, kind: str, subkind: str, table: str, source_id: str, *, view: Any) -> bool:
+    """An earlier sweep recorded this source row: it is not mapped again (a serve's sweep re-reads its
+    overlap window, never re-resolves it). A receipt AD may not read counts as recorded; one of another
+    protection epoch does not: the source is mapped again under the current projection (round 2,
+    class 3b)."""
 
-    return store.source_recorded(connection, kind=kind, subkind=subkind, source_table=table, source_id=source_id)
+    return view.lookup(connection, store.READING, "kind = ? AND subkind = ? AND source_table = ? AND source_id = ?",
+                       (kind, subkind, table, source_id), stale_as_missing=True)[0] != "missing"
 
 
-def _section_events(connection: Any, reading_map: ReadingMap, lower: str | None, upper: str) -> list[_Event]:
+def _section_events(connection: Any, reading_map: ReadingMap, lower: str | None, upper: str,
+                    view: Any = None) -> list[_Event]:
     events: list[_Event] = []
-    if not store.has_table(connection, "reader_section_progress"):
-        return events
-    for extraction_id, section_id, completed_at in connection.execute(
-        "SELECT extraction_id, section_id, completed_at FROM reader_section_progress WHERE completed_at IS NOT NULL"
-    ):
+    # The registry's rule withholds a section with any held-out span in it (the view's rows).
+    for row in view.rows(connection, "reader_section_progress", "completed_at IS NOT NULL"):
+        extraction_id, section_id, completed_at = row["extraction_id"], row["section_id"], row["completed_at"]
         stamp = _stamp(completed_at)
         if not _in_window(stamp, lower, upper):
             continue
         extraction_id, section_id = str(extraction_id), str(section_id)
         if _recorded(connection, "reading", "section_read", "reader_section_progress",
-                     f"{extraction_id}/{section_id}"):
+                     f"{extraction_id}/{section_id}", view=view):
             continue
         spans = reading_map.section_spans(extraction_id, section_id)
         if reading_map.withheld(extraction_id, None) or any(reading_map.withheld(extraction_id, span) for span in spans):
@@ -312,19 +297,19 @@ def _section_events(connection: Any, reading_map: ReadingMap, lower: str | None,
     return events
 
 
-def _exposure_events(connection: Any, reading_map: ReadingMap, lower: str | None, upper: str) -> list[_Event]:
+def _exposure_events(connection: Any, reading_map: ReadingMap, lower: str | None, upper: str,
+                     view: Any = None) -> list[_Event]:
     events: list[_Event] = []
     marks = ",".join("?" for _ in EXPOSURE_CONTEXTS)
-    for row_id, extraction_id, span_id, created_at in connection.execute(
-        f"SELECT id, extraction_id, span_id, created_at FROM source_exposure_events WHERE context IN ({marks})",
-        EXPOSURE_CONTEXTS,
-    ):
+    for row in view.rows(connection, "source_exposure_events", f"context IN ({marks})", EXPOSURE_CONTEXTS):
+        row_id, extraction_id, span_id, created_at = row["id"], row["extraction_id"], row["span_id"], row["created_at"]
         stamp = _stamp(created_at)
         if not _in_window(stamp, lower, upper):
             continue
         extraction_id, span_id = str(extraction_id), str(span_id)
-        if (_recorded(connection, "reading", "passage_viewed", "source_exposure_events", str(row_id))
-                or _recorded(connection, "worked_example", "shown", "source_exposure_events", str(row_id))):
+        if (_recorded(connection, "reading", "passage_viewed", "source_exposure_events", str(row_id), view=view)
+                or _recorded(connection, "worked_example", "shown", "source_exposure_events", str(row_id),
+                             view=view)):
             continue
         if reading_map.withheld(extraction_id, span_id):
             continue
@@ -340,10 +325,6 @@ def _exposure_events(connection: Any, reading_map: ReadingMap, lower: str | None
     return events
 
 
-def _has_column(connection: Any, table: str, column: str) -> bool:
-    return any(str(row[1]) == column for row in connection.execute(f"PRAGMA table_info({table})"))
-
-
 def _named_facets(raw: Any) -> tuple[str, ...]:
     try:
         value = json.loads(raw) if raw else []
@@ -354,7 +335,17 @@ def _named_facets(raw: Any) -> tuple[str, ...]:
     return tuple(str(facet) for facet in value if isinstance(facet, str)) if isinstance(value, list) else ()
 
 
-def _tutor_events(connection: Any, reading_map: ReadingMap, lower: str | None, upper: str) -> list[_Event]:
+def _note_withheld(connection: Any, reading_map: Any, view: Any, note_id: str) -> bool:
+    """A note's protection for the sweep: the map's own rule when it has one, else the view's (every
+    note while the view is unavailable)."""
+
+    if hasattr(reading_map, "note_withheld"):
+        return bool(reading_map.note_withheld(note_id))
+    return bool(view is not None and view.note_withheld(connection, note_id))
+
+
+def _tutor_events(connection: Any, reading_map: ReadingMap, lower: str | None, upper: str,
+                  view: Any = None) -> list[_Event]:
     from learnloop.ingest.locators import parse_block_span
 
     events: list[_Event] = []
@@ -363,18 +354,18 @@ def _tutor_events(connection: Any, reading_map: ReadingMap, lower: str | None, u
     # on completion, migration 213), never by when it was asked; a row
     # written already answered has its completion time in ``created_at``.
     # Every answered row not yet recorded is read, whatever the window's
-    # lower bound, so a slow completion is never missed.
-    answered = ("COALESCE(answered_at, created_at)" if _has_column(connection, "question_events", "answered_at")
-                else "created_at")
-    # The subkind is the answer mode stored at the ask (§5.11; fix round 4,
-    # V5), never the context.
-    mode = "q.answer_mode" if _has_column(connection, "question_events", "answer_mode") else "NULL"
-    for row_id, answer_mode, note_id, item_id, facets_json, available_at in connection.execute(
-        f"SELECT q.id, {mode}, q.note_id, q.practice_item_id, q.facets_json, {answered} FROM question_events q "
-        "WHERE q.context IN ('reader', 'library') AND q.answer_status = 'answered' AND NOT EXISTS ("
-        f"SELECT 1 FROM {store.READING} r WHERE r.kind = 'reader_tutor_exchange' AND r.source_table = "
-        "'question_events' AND r.source_id = q.id)"
-    ):
+    # lower bound, so a slow completion is never missed. The registry's rule withholds a question
+    # whose complete recorded source context is held out (Codex verify F46), before any mapping.
+    for row in view.rows(connection, "question_events", "context IN ('reader', 'library') AND "
+                         "answer_status = 'answered'"):
+        row_id, note_id, item_id, facets_json = row["id"], row.get("note_id"), row.get("practice_item_id"), \
+            row.get("facets_json")
+        # The subkind is the answer mode stored at the ask (§5.11; fix round 4, V5), never the context.
+        answer_mode = row.get("answer_mode")
+        available_at = row.get("answered_at") or row.get("created_at")
+        if view.lookup(connection, store.READING, "kind = 'reader_tutor_exchange' AND source_table = "
+                       "'question_events' AND source_id = ?", (str(row_id),), stale_as_missing=True)[0] != "missing":
+            continue
         stamp = _stamp(available_at)
         if not _in_window(stamp, None, upper):
             continue
@@ -385,6 +376,9 @@ def _tutor_events(connection: Any, reading_map: ReadingMap, lower: str | None, u
                 continue
             los = reading_map.los_for_span(parsed[0], parsed[1])
         elif note_id:
+            # A question on a withheld note is rejected before any fallback to its item (F43).
+            if _note_withheld(connection, reading_map, view, str(note_id)):
+                continue
             los = reading_map.los_for_note(str(note_id))
         if not los and item_id:
             lo = reading_map.lo_for_item(str(item_id))
@@ -411,19 +405,18 @@ def _question_los(reading_map: ReadingMap, extraction_id: str, section_id: str, 
     return tuple(los)
 
 
-def _question_events(connection: Any, reading_map: ReadingMap, lower: str | None, upper: str) -> list[_Event]:
+def _question_events(connection: Any, reading_map: ReadingMap, lower: str | None, upper: str,
+                     view: Any = None) -> list[_Event]:
     events: list[_Event] = []
-    if not store.has_table(connection, "reader_authored_questions"):
-        return events
-    marks = ",".join("?" for _ in IN_PASSAGE_STYLES)
-    for row_id, extraction_id, section_id, style, anchors, answered_at in connection.execute(
-        "SELECT id, extraction_id, section_id, question_style, anchor_span_ids_json, answered_at "
-        f"FROM reader_authored_questions WHERE answered_at IS NOT NULL AND status != 'dismissed' "
-        f"AND question_style IN ({marks})", IN_PASSAGE_STYLES,
-    ):
+    if view is None:
+        return events  # no material view, no question read (fail closed)
+    for question in view.answered_questions(connection, IN_PASSAGE_STYLES):
+        row_id, extraction_id, section_id = question["id"], question["extraction_id"], question["section_id"]
+        style, anchors, answered_at = (question["question_style"], question["anchor_span_ids_json"],
+                                       question["answered_at"])
         stamp = _stamp(answered_at)
         if not _in_window(stamp, lower, upper) or _recorded(connection, "in_passage_question", str(style),
-                                                            "reader_authored_questions", str(row_id)):
+                                                            "reader_authored_questions", str(row_id), view=view):
             continue
         los = _question_los(reading_map, str(extraction_id), str(section_id), anchors)
         if not los:
@@ -433,17 +426,15 @@ def _question_events(connection: Any, reading_map: ReadingMap, lower: str | None
     return events
 
 
-def _owner_placed_events(connection: Any, reading_map: ReadingMap, lower: str | None, upper: str) -> list[_Event]:
+def _owner_placed_events(connection: Any, reading_map: ReadingMap, lower: str | None, upper: str,
+                         view: Any = None) -> list[_Event]:
     events: list[_Event] = []
-    for row_id, administration_id, created_at, item_id in connection.execute(
-        "SELECT e.id, e.administration_id, e.created_at, s.legacy_practice_item_id FROM interaction_events e "
-        "LEFT JOIN activity_administrations a ON a.id = e.administration_id "
-        "LEFT JOIN activity_surfaces s ON s.id = a.surface_id "
-        "WHERE e.kind = 'reader_answer_submitted'"
-    ):
+    for row in view.rows(connection, "interaction_events", "kind = 'reader_answer_submitted'"):
+        row_id, administration_id, created_at = row["id"], row.get("administration_id"), row.get("created_at")
+        item_id = view.administration_item(connection, administration_id)
         stamp = _stamp(created_at)
         if not _in_window(stamp, lower, upper) or not item_id or _recorded(
-                connection, "in_passage_question", "owner_placed", "interaction_events", str(row_id)):
+                connection, "in_passage_question", "owner_placed", "interaction_events", str(row_id), view=view):
             continue
         lo = reading_map.lo_for_item(str(item_id))
         if not lo:
@@ -453,15 +444,15 @@ def _owner_placed_events(connection: Any, reading_map: ReadingMap, lower: str | 
     return events
 
 
-def _verdict_events(connection: Any, reading_map: ReadingMap, lower: str | None, upper: str) -> list[_Event]:
+def _verdict_events(connection: Any, reading_map: ReadingMap, lower: str | None, upper: str,
+                    view: Any = None) -> list[_Event]:
     events: list[_Event] = []
-    if not store.has_table(connection, "reader_authored_questions"):
-        return events
+    if view is None:
+        return events  # no material view, no question read (fail closed)
     first: dict[str, tuple[str, str, str]] = {}
-    for row_id, question_id, verdict, created_at in connection.execute(
-        "SELECT id, left_id, verdict, created_at FROM judgment_ledger WHERE task = ? AND left_kind = "
-        "'reader_authored_question' ORDER BY created_at, rowid", (SELF_CHECK_TASK,),
-    ):
+    for row in view.rows(connection, "judgment_ledger", "task = ? AND left_kind = 'reader_authored_question'",
+                         (SELF_CHECK_TASK,), order="created_at, rowid"):
+        row_id, question_id, verdict, created_at = row["id"], row["left_id"], row["verdict"], row["created_at"]
         stamp = _stamp(created_at)
         if stamp is None:
             continue
@@ -471,15 +462,13 @@ def _verdict_events(connection: Any, reading_map: ReadingMap, lower: str | None,
     for question_id, (row_id, verdict, stamp) in sorted(first.items()):
         subkind = SELF_CHECK_CLASSES.get(verdict)
         if subkind is None or not _in_window(stamp, lower, upper) or _recorded(
-                connection, "in_passage_question", subkind, "judgment_ledger", row_id):
+                connection, "in_passage_question", subkind, "judgment_ledger", row_id, view=view):
             continue
-        question = connection.execute(
-            "SELECT extraction_id, section_id, question_style, anchor_span_ids_json FROM reader_authored_questions "
-            "WHERE id = ?", (question_id,),
-        ).fetchone()
-        if question is None or str(question[2]) not in IN_PASSAGE_STYLES:
+        question = view.question(connection, question_id)
+        if question is None or str(question["question_style"]) not in IN_PASSAGE_STYLES:
             continue
-        los = _question_los(reading_map, str(question[0]), str(question[1]), question[3])
+        los = _question_los(reading_map, str(question["extraction_id"]), str(question["section_id"]),
+                            question["anchor_span_ids_json"])
         if not los:
             continue
         events.append(_Event("in_passage_question", subkind, "judgment_ledger", row_id, stamp, los,
@@ -487,27 +476,50 @@ def _verdict_events(connection: Any, reading_map: ReadingMap, lower: str | None,
     return events
 
 
-_COLLECTORS: tuple[Callable[[Any, ReadingMap, str | None, str], list[_Event]], ...] = (
+_COLLECTORS: tuple[Callable[..., list[_Event]], ...] = (
     _section_events, _exposure_events, _tutor_events, _question_events, _owner_placed_events, _verdict_events,
 )
 
 
-def _keys(connection: Any, event: _Event, lo_id: str) -> str | None:
-    """The opportunity's key inside its cap, or None when the cap is full."""
+def _capped(kind: str, subkind: str) -> tuple[str, int] | None:
+    """A capped kind's occupancy bucket and its cap per LO and day (§5.11), or None."""
+
+    if kind == "reading" and subkind == "passage_viewed":
+        return "reading:passage_viewed", PASSAGES_PER_LO_PER_DAY
+    if kind == "reader_tutor_exchange":
+        return "reader_tutor_exchange", TUTOR_EXCHANGES_PER_LO_PER_DAY
+    return None
+
+
+def occupancy(connection: Any, view: Any) -> dict[tuple[str, str, str], int]:
+    """Each capped bucket's occupancy, ``(bucket, LO, day) -> receipts``, counted over the receipts
+    AD's material view sees (Codex verify F44, fix round 13): a receipt from withheld material is,
+    for AD, a receipt never written, so it occupies no slot of a daily cap."""
+
+    counts: dict[tuple[str, str, str], int] = {}
+    for row in view.reading_opportunities(connection):
+        capped = _capped(str(row.get("kind")), str(row.get("subkind")))
+        if capped is not None:
+            key = (capped[0], str(row.get("learning_object_id")), str(row.get("source_written_at") or "")[:10])
+            counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+def _keys(connection: Any, event: _Event, lo_id: str, occupied: dict[tuple[str, str, str], int]) -> str | None:
+    """The opportunity's key inside its cap, or None when the cap is full.
+
+    A capped kind's occupancy is the view's (``occupied``, counted by :func:`occupancy` and kept up
+    to date as the sweep writes), and its key names the source event (fix round 13, F44): keys
+    never collide, so a public event is admitted beside a withheld receipt's existing key."""
 
     day = event.written_at[:10]
-    if event.kind == "reading" and event.subkind == "passage_viewed":
-        for slot in range(1, PASSAGES_PER_LO_PER_DAY + 1):
-            key = f"reading:passage_viewed:{lo_id}:{day}:{slot}"
-            if not store.reading_opportunity_exists(connection, opportunity_key=key):
-                return key
-        return None
-    if event.kind == "reader_tutor_exchange":
-        for slot in range(1, TUTOR_EXCHANGES_PER_LO_PER_DAY + 1):
-            key = f"reader_tutor_exchange:{lo_id}:{day}:{slot}"
-            if not store.reading_opportunity_exists(connection, opportunity_key=key):
-                return key
-        return None
+    capped = _capped(event.kind, event.subkind)
+    if capped is not None:
+        bucket, cap = capped
+        if occupied.get((bucket, lo_id, day), 0) >= cap:
+            return None
+        occupied[(bucket, lo_id, day)] = occupied.get((bucket, lo_id, day), 0) + 1
+        return f"{bucket}:{lo_id}:{day}:{event.source_table}:{event.source_id}"
     if event.kind == "reading":
         return f"reading:section_read:{event.identity}:{lo_id}"
     if event.kind == "worked_example":
@@ -517,8 +529,29 @@ def _keys(connection: Any, event: _Event, lo_id: str) -> str | None:
     return f"in_passage_question:{event.identity}:{lo_id}"
 
 
+def _taken_offers(connection: Any, view: Any) -> dict[str, str]:
+    from learnloop.db.stores import ad_serving
+
+    if not ad_serving.has_table(connection, ad_serving.DOSE_OFFERS):
+        return {}
+    from learnloop.adaptive_difficulty.dose import taken_offers
+
+    return taken_offers(connection, view=view)
+
+
+def _offer_for(offers: Mapping[str, str], event: "_Event") -> str | None:
+    if not offers:
+        return None
+    if event.source_table == "reader_authored_questions":
+        return offers.get(f"question:{event.source_id}")
+    if event.kind == "worked_example":
+        return offers.get(f"span:{event.identity}")
+    return None
+
+
+@entry(savepoint=True)
 def sweep(vault: Any, repository: Any, *, as_of: str, sweep_kind: str = "serve", sweep_ref: str | None = None,
-          reading_map: ReadingMap | None = None, clock: Clock | None = None) -> SweepResult:
+          reading_map: ReadingMap | None = None, clock: Clock | None = None, view: Any = None) -> SweepResult:
     """Record every listed opportunity written no later than ``as_of``.
 
     Call it inside the deciding transaction (the serve's) or let it open its
@@ -534,7 +567,15 @@ def sweep(vault: Any, repository: Any, *, as_of: str, sweep_kind: str = "serve",
     upper = _stamp(as_of)
     if upper is None:
         raise ValueError(f"unreadable sweep instant {as_of!r}")
-    mapping = reading_map or VaultReadingMap(vault, repository)
+    from learnloop.adaptive_difficulty.material_view import material_view
+
+    material = material_view(vault, repository, view if view is not None else getattr(reading_map, "view", None))
+    mapping = reading_map or VaultReadingMap(vault, repository, material)
+    if not material.available:
+        # The held-out predicate is unavailable: nothing is recorded now (fail closed). The rows
+        # stay unrecorded, so the next sweep that can tell reads them (its window starts from the
+        # newest recorded source).
+        return result
     swept_at = utc_now_iso(clock)
     with repository.atomic():
         connection = repository.connection()
@@ -542,27 +583,38 @@ def sweep(vault: Any, repository: Any, *, as_of: str, sweep_kind: str = "serve",
             return result
         lower = None
         if sweep_kind == "serve":
-            newest = parse_utc(store.latest_source_written_at(connection) or "") if store.latest_source_written_at(
-                connection) else None
+            # The newest VISIBLE receipt's source time (fix round 12, found by the hardened contract):
+            # a receipt from withheld material moves no window, so a later protected receipt never
+            # hides an earlier public event from the serve's sweep.
+            visible = [row.get("source_written_at") for row in material.reading_opportunities(connection)
+                       if row.get("source_written_at")]
+            newest = parse_utc(max(visible)) if visible else None
             lower = _stamp((newest - SWEEP_OVERLAP).isoformat()) if newest is not None else None
         events: list[_Event] = []
         for collect in _COLLECTORS:
-            events.extend(collect(connection, mapping, lower, upper))
+            events.extend(collect(connection, mapping, lower, upper, view=material))
         events.sort(key=lambda event: (event.written_at, event.source_table, event.source_id, event.subkind))
         result.considered = len(events)
+        # AD2+AD3 (§5.12): a taken dose offer's extra carries the offer's id on its receipt.
+        offers = _taken_offers(connection, material)
+        occupied = occupancy(connection, material)
         for event in events:
             for lo_id in event.learning_object_ids:
-                if store.reading_opportunity_exists(
-                        connection, identity=(event.kind, event.subkind, event.source_table, event.source_id, lo_id)):
+                if material.lookup(connection, store.READING, "kind = ? AND subkind = ? AND source_table = ? AND "
+                                   "source_id = ? AND learning_object_id = ?",
+                                   (event.kind, event.subkind, event.source_table, event.source_id, lo_id),
+                                   stale_as_missing=True)[0] != "missing":
                     continue
-                key = _keys(connection, event, lo_id)
+                key = _keys(connection, event, lo_id, occupied)
                 if key is None:
                     continue
                 written = store.insert_reading_opportunity(connection, {
+                    "protection_epoch": material.epoch,
                     "opportunity_key": key, "kind": event.kind, "subkind": event.subkind,
                     "source_table": event.source_table, "source_id": event.source_id,
                     "source_written_at": event.written_at, "learning_object_id": lo_id,
-                    "facet_doses": _doses(mapping, lo_id, event.named_facets), "dose_offer_id": None,
+                    "facet_doses": _doses(mapping, lo_id, event.named_facets),
+                    "dose_offer_id": _offer_for(offers, event),
                     "mapping_version": MAPPING_VERSION, "sweep": sweep_kind, "sweep_ref": sweep_ref,
                     "swept_at": swept_at,
                 })

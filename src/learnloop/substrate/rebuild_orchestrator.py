@@ -183,6 +183,15 @@ DERIVED_STATE_REPLAYERS: tuple[DerivedStateReplayer, ...] = (
     DerivedStateReplayer(
         "retrieval_intervention_outcomes", frozenset({"retrieval_intervention_outcomes"}), ("learning_state",),
     ),
+    # Adaptive difficulty AD2+AD3 (migration 214; spec §5.6, §11.3): AD's
+    # posterior in both views and its per-attempt trace, from the attempt
+    # ledger, AD's receipts (the reading receipt through the firewall's
+    # carve-out), the audit and relatedness ledger rows and the claims; zero
+    # model calls. It writes only these two tables (A2).
+    DerivedStateReplayer("adaptive_difficulty", frozenset({"ad_state", "ad_attempt_trace"})),
+    # Spec §8.3: each item forecast receipt joined to its bound attempt and
+    # scored, with §5.3's event read as the AD replayer reads it.
+    DerivedStateReplayer("item_forecast_scores", frozenset({"item_forecast_scores"})),
 )
 
 # A shorter public alias is useful to introspection/CI without obscuring the
@@ -548,6 +557,26 @@ def _run_retrieval_intervention_outcomes(
                           rows_processed=report["written"], details=report)
 
 
+def _run_adaptive_difficulty(
+    spec: DerivedStateReplayer, context: _ReplayContext
+) -> ReplayerResult:
+    from learnloop.adaptive_difficulty.replay import rebuild as rebuild_ad_state
+
+    report = rebuild_ad_state(context.vault, context.repository)
+    return ReplayerResult(spec.name, tuple(sorted(spec.owned_tables)), rows_processed=report.get("written", 0),
+                          details={key: value for key, value in report.items() if key != "accounted_attempt_ids"})
+
+
+def _run_item_forecast_scores(
+    spec: DerivedStateReplayer, context: _ReplayContext
+) -> ReplayerResult:
+    from learnloop.adaptive_difficulty.scoring import rebuild as rebuild_scores
+
+    report = rebuild_scores(context.vault, context.repository)
+    return ReplayerResult(spec.name, tuple(sorted(spec.owned_tables)), rows_processed=report.get("written", 0),
+                          details=report)
+
+
 _RUNNERS = {
     "activity_substrate": _run_activity_substrate,
     "recurrence_groups": _run_recurrence_groups,
@@ -560,6 +589,8 @@ _RUNNERS = {
     "source_block_fts": _run_source_block_fts,
     "router_outcomes": _run_router_outcomes,
     "retrieval_intervention_outcomes": _run_retrieval_intervention_outcomes,
+    "adaptive_difficulty": _run_adaptive_difficulty,
+    "item_forecast_scores": _run_item_forecast_scores,
 }
 
 

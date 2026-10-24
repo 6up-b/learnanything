@@ -3,8 +3,8 @@ title: "reveal_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
+source_commit_timestamp: "2026-10-24T14:22:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reveal_events"
@@ -19,13 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/154_reveal_ledger.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/attempts/reveal_ledger.py"
   - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/db/stores/practice_index.py"
-  - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/diagnosis/quick_check.py"
   - "src/learnloop/diagnosis/remediation.py"
   - "src/learnloop/reveal_coverage.py"
@@ -98,6 +99,7 @@ Database triggers:
 
 ### Direct SQL readers
 
+- `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/practice_index.py`
 - `src/learnloop/db/stores/source_service.py`
@@ -130,7 +132,11 @@ Database triggers:
 
 ## Tests that define behavior
 
+- `tests/ad23_fakes.py`
 - `tests/hint_fakes.py`
+- `tests/test_ad23_contract.py`
+- `tests/test_ad2_model.py`
+- `tests/test_ad_protected_readings.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_contamination_report.py`
 - `tests/test_diagnosis_card.py`
@@ -146,10 +152,6 @@ Database triggers:
 - `tests/test_mcp_tools.py`
 - `tests/test_reader_rw1c_review.py`
 - `tests/test_reader_tutor_offers.py`
-- `tests/test_reader_tutor_retrieval.py`
-- `tests/test_recurrence_live.py`
-- `tests/test_reveal_ledger.py`
-- `tests/test_router_coldness_covariates.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

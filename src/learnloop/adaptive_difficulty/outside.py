@@ -54,6 +54,8 @@ history card.
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.operation import entry
+
 import json
 import logging
 from collections.abc import Callable, Mapping
@@ -86,6 +88,7 @@ from learnloop.adaptive_difficulty.forecasters import EVENT, INCUMBENT, receipt_
 from learnloop.adaptive_difficulty.protection import guard
 from learnloop.adaptive_difficulty.sending import ProtectedContent, SendGuard, refusal_status
 from learnloop.adaptive_difficulty.switches import LLM_V1, LLM_V3_DECIDER, LLM_V3_LLM, outside_forecasters
+from learnloop.adaptive_difficulty.material_view import current_view
 
 LOG = logging.getLogger(__name__)
 
@@ -172,32 +175,27 @@ def source_identity(item: Any, practice_item_id: str | None = None) -> dict[str,
             "whole": sorted(str(extraction) for extraction in whole)}
 
 
-def history_card(vault: Any, connection: Any, item: Any, *, served_at: str, protected: frozenset[str],
-                 incumbent: Mapping[str, Any] | None,
-                 identities: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-    """The learner's history on the item's LO and its prerequisites, as of the serve.
-
-    ``identities``, when given, receives the :func:`source_identity` of each
-    attempt's item the card includes (Codex re-review F11)."""
+def history_card(vault: Any, connection: Any, item: Any, *, served_at: str, view: Any,
+                 incumbent: Mapping[str, Any] | None) -> dict[str, Any]:
+    """The learner's history on the item's LO and its prerequisites, as of the serve, read through
+    the serve's material view (no withheld item's attempt is ever on the card). The card is frozen
+    with the view's protection epoch: it is sent only at that epoch (the AD23 redesign, E2)."""
 
     lo = vault.learning_objects.get(item.learning_object_id)
     scope = [item.learning_object_id, *[str(prerequisite) for prerequisite in (getattr(lo, "prerequisites", None) or [])]]
     scope = list(dict.fromkeys(scope))
     served = parse_utc(served_at)
-    marks = ",".join("?" for _ in scope)
-    rows = connection.execute(
-        "SELECT id, practice_item_id, learning_object_id, attempt_type, correctness, hints_used, primed, created_at "
-        f"FROM practice_attempts WHERE learning_object_id IN ({marks}) AND attempt_type != 'self_report' "
-        "ORDER BY created_at DESC, id DESC", scope,
-    ).fetchall()
+    found = [attempt for attempt in view.attempts(connection)
+             if str(attempt.get("learning_object_id")) in scope and attempt.get("attempt_type") != "self_report"]
+    found.sort(key=lambda attempt: (str(attempt.get("created_at") or ""), str(attempt["id"])), reverse=True)
+    rows = [(a["id"], a["practice_item_id"], a["learning_object_id"], a.get("attempt_type"), a.get("correctness"),
+             a.get("hints_used"), a.get("primed"), a.get("created_at")) for a in found]
     attempts = []
     for row in rows:
         stamp = parse_utc(str(row[7])) if row[7] else None
-        if stamp is None or served is None or stamp >= served or str(row[1]) in protected:
+        if stamp is None or served is None or stamp >= served:
             continue
-        past = vault.practice_items.get(str(row[1]))
-        if identities is not None:
-            identities.append(source_identity(past, str(row[1])))
+        past = view.item(row[1])
         attempts.append({
             "item": _excerpt(past.prompt, HISTORY_STEM_LIMIT) if past is not None else "(an item no longer in the vault)",
             "topic": (vault.learning_objects[str(row[2])].title if str(row[2]) in vault.learning_objects else str(row[2])),
@@ -320,9 +318,8 @@ def _receipt(*, key: str, forecaster: str, version: str, scope: str, decision_ki
 
 
 def _existing(connection: Any, key: str) -> bool:
-    return connection.execute(
-        "SELECT 1 FROM forecast_receipts WHERE receipt_key = ? LIMIT 1", (key,),
-    ).fetchone() is not None
+    # A receipt AD may not read counts as written: nothing is forecast again over it.
+    return current_view().lookup(connection, "forecast_receipts", "receipt_key = ?", (key,))[0] != "missing"
 
 
 def _verdict_text(p: float) -> str:
@@ -369,7 +366,8 @@ def _write(repository: Any, vault: Any, receipt: ForecastReceipt, *, created_at:
     from learnloop.db.stores.judgments import append_judgment
 
     receipt = replace(receipt, columns={**dict(receipt.columns),
-                                        "algorithm_version": vault.config.algorithms.algorithm_version})
+                                        "algorithm_version": vault.config.algorithms.algorithm_version},
+                      versions={**dict(receipt.versions or {}), "protection_epoch": current_view().epoch})
     with repository.atomic():
         if admit is not None:
             admit()
@@ -401,6 +399,7 @@ def item_prompt(vault: Any, item: Any) -> str:
     })
 
 
+@entry(durable="it sends to a model: its claim, spend and receipts commit per unit")
 def forecast_item(vault: Any, repository: Any, item: Any, *, clients: Clients | None = None,
                   clock: Clock | None = None, protected: Any = None, fence: Any = None,
                   live_vault: Callable[[], Any] | None = None) -> ForecastOutcome:
@@ -500,23 +499,16 @@ def _forecast_item(vault: Any, worker: Any, item: Any, client: Any, *, content_h
     outcome.status, outcome.p = status, p
 
 
-def _presentation(connection: Any, presentation_id: str) -> dict[str, Any] | None:
-    row = connection.execute("SELECT * FROM plan_presentations WHERE id = ?", (presentation_id,)).fetchone()
-    return dict(row) if row is not None else None
-
-
-def _incumbent_inputs(connection: Any, presentation_id: str) -> dict[str, Any] | None:
+def _incumbent_inputs(connection: Any, presentation_id: str, view: Any = None) -> dict[str, Any] | None:
     key = receipt_key("plan_presentation", presentation_id, INCUMBENT)
-    row = connection.execute(
-        "SELECT p, inputs_json FROM forecast_receipts WHERE receipt_key = ?", (key,),
-    ).fetchone()
+    status, row = (view or current_view()).lookup(connection, "forecast_receipts", "receipt_key = ?", (key,))
     if row is None:
         return None
     try:
-        inputs = json.loads(row[1] or "{}")
+        inputs = json.loads(row.get("inputs_json") or "{}")
     except (TypeError, ValueError):
         inputs = {}
-    return {"p_success": row[0], "mastery_state": inputs.get("mastery_state")}
+    return {"p_success": row.get("p"), "mastery_state": inputs.get("mastery_state")}
 
 
 #: The ``item_forecast_payloads`` owner key of a presentation's frozen
@@ -530,7 +522,7 @@ def frozen_state_key(presentation_id: str) -> str:
 
 
 def freeze_presentation_inputs(vault: Any, connection: Any, item: Any, *, presentation_id: str, served_at: str,
-                               protected: Any) -> str | None:
+                               protected: Any, view: Any) -> str | None:
     """In the serve transaction: the exact ``llm_v3`` request inputs of one presentation.
 
     Codex review F2: the background forecasters run after the serve, when an
@@ -550,37 +542,42 @@ def freeze_presentation_inputs(vault: Any, connection: Any, item: Any, *, presen
 
     if not ({LLM_V3_LLM, LLM_V3_DECIDER} & set(outside_forecasters(vault.config))):
         return None
+    from learnloop.adaptive_difficulty.operation import epoch_of
+
     content_hash, _json = item_revision(item)
-    history: list[dict[str, Any]] = []
     state = {"item": item_view(vault, item),
-             "learner": history_card(vault, connection, item, served_at=served_at, protected=protected,
-                                     incumbent=_incumbent_inputs(connection, presentation_id), identities=history)}
+             "learner": history_card(vault, connection, item, served_at=served_at, view=view,
+                                     incumbent=_incumbent_inputs(connection, presentation_id, view))}
     key = frozen_state_key(presentation_id)
     store.insert_payload(connection, owner_key=key, forecaster=FROZEN_STATE_FORECASTER, kind="request", content={
         "state": state, "state_version": STATE_VERSION, "state_hash": content_key(state),
         "practice_item_id": str(item.id), "learning_object_id": item.learning_object_id,
         "content_hash": content_hash, "inputs_as_of": served_at,
-        "protection_identities": {"target": source_identity(item), "history": history},
+        # The protection epoch the state was read under (E2): sent only while it is unchanged, so no
+        # history attempt or revision needs judging again (it replaces fix round 10's re-judgment).
+        "protection_epoch": epoch_of(view),
+        "protection_identities": {"target": source_identity(item)},
     }, created_at=served_at)
     return key
 
 
 def _frozen_inputs(connection: Any, presentation_id: str) -> dict[str, Any] | None:
-    rows = store.payloads(connection, [frozen_state_key(presentation_id)])
+    rows = current_view().stored(connection, store.PAYLOADS, store.payloads, [frozen_state_key(presentation_id)])
     for row in rows:
         content = row.get("content")
         if row.get("kind") == "request" and isinstance(content, dict) and isinstance(content.get("state"), dict):
             identities = content.get("protection_identities")
-            # Without the identities of what the state quotes, the frozen
-            # inputs cannot be revalidated, so they are never sent (F11).
+            # Without its target's identity and the epoch it was frozen at, the state cannot be
+            # revalidated, so it is never sent (F11; E2).
             if not (isinstance(identities, dict) and isinstance(identities.get("target"), dict)
-                    and isinstance(identities.get("history"), list)):
+                    and isinstance(content.get("protection_epoch"), str)):
                 continue
             if content.get("state_hash") == content_key(content["state"]):
                 return content
     return None
 
 
+@entry(durable="it sends to a model: its claim, spend and receipts commit per unit")
 def forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, clients: Clients | None = None,
                           clock: Clock | None = None, fence: Any = None,
                           live_vault: Callable[[], Any] | None = None) -> list[ForecastOutcome]:
@@ -599,9 +596,12 @@ def forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, 
     chosen = [name for name in (LLM_V3_LLM, LLM_V3_DECIDER) if name in outside_forecasters(vault.config)]
     if not chosen:
         return []
+    from learnloop.adaptive_difficulty.material_view import material_view
+
+    view = material_view(vault, repository)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        presentation = _presentation(connection, presentation_id)
-        if presentation is None:
+        found, presentation = view.presentation_status(connection, presentation_id)
+        if found == "missing":
             return [ForecastOutcome(name, "not_found") for name in chosen]
         frozen = _frozen_inputs(connection, presentation_id)
         pending = [name for name in chosen
@@ -609,9 +609,16 @@ def forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, 
     if not pending:
         return []
     if frozen is None:
-        return [ForecastOutcome(name, "no_frozen_inputs") for name in pending]
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            expired = view.lookup(connection, store.PAYLOADS, "owner_key = ? AND kind = 'request'",
+                                  (frozen_state_key(presentation_id),))[0] == "withheld"
+        # Frozen at another protection epoch: expired, never sent (E2; round 2, class 3b).
+        return [ForecastOutcome(name, "protected" if expired else "no_frozen_inputs") for name in pending]
+    if presentation is None:
+        # Its item is withheld now (A8): nothing of it is read or sent.
+        return [ForecastOutcome(name, "protected") for name in pending]
     item_id = str(presentation["practice_item_id"])
-    item = vault.practice_items.get(item_id)
+    item = view.item(item_id)
     outcomes: list[ForecastOutcome] = []
     try:
         with claimed(repository, presentation_key(presentation_id), fence=fence) as worker:
@@ -620,14 +627,15 @@ def forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, 
             with closing(connect(repository.sqlite_path, read_only=True)) as connection:
                 pending = [name for name in pending
                            if not _existing(connection, receipt_key("plan_presentation", presentation_id, name))]
-            # The current item, and every revision the frozen state quotes,
-            # revalidated against the predicate as it stands immediately
-            # before EACH request of the pair (each forecaster, each retry)
-            # and before each record, not once for the pair (Codex re-review
-            # F11): a refusal refuses the rest of the job.
+            # The current item, the served revision and the frozen state's epoch, revalidated against
+            # the predicate as it stands immediately before EACH request of the pair (each
+            # forecaster, each retry) and before each record (Codex re-review F11): a protection
+            # change since the serve expires the frozen inputs (E2), and a refusal refuses the rest
+            # of the job.
             identities = frozen["protection_identities"]
             send = SendGuard(vault, repository, items=[item], item_ids=[item_id],
-                             identities=[identities["target"], *identities["history"]], live_vault=live_vault)
+                             identities=[identities["target"]], epoch=frozen["protection_epoch"],
+                             live_vault=live_vault)
             try:
                 send.check("the presentation forecasts")
             except ProtectedContent as exc:

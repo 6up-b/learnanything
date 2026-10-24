@@ -17,9 +17,11 @@ The guard reads the held-out predicate afresh each time
 predicate a caller computed earlier), from the vault that is loaded *now*
 (the job's ``live_vault`` provider: a same-vault reload's source sets and
 exam scopes, not the ones the job started with; fix round 4, V1), and asks
-it of everything the job's requests quote: the item ids, the current revisions, and the frozen
-identities of the revisions a frozen state quotes
-(:meth:`~learnloop.adaptive_difficulty.protection.Protection.covers_identity`).
+it of everything the job's requests quote: the item ids, the current revisions, the frozen
+identity of the served revision
+(:meth:`~learnloop.adaptive_difficulty.protection.Protection.covers_identity`), and, for frozen
+inputs, the protection epoch they were read under (the AD23 redesign, E2: a frozen state is sent
+only at it, which replaces judging its history again).
 Its first refusal refuses every later request of the job, which reports
 ``protected``. Requests already sent keep their accounting (their model-call
 receipts and spend), and the job records nothing built on its model output
@@ -86,7 +88,8 @@ class SendGuard:
     current item, an audited snapshot). ``item_ids``: ids that must not be
     protected. ``identities``: frozen
     :func:`~learnloop.adaptive_difficulty.outside.source_identity` records
-    (a frozen state's target and history). ``protected``: the caller's
+    (a frozen state's target). ``epoch``: the protection epoch frozen inputs
+    were read under (E2: they are sent only at it). ``protected``: the caller's
     earlier predicate or id set, whose ids stay protected (an earlier
     predicate can only add to today's; it never replaces it). ``live_vault``:
     the provider of the vault loaded now (the sidecar's context's vault at
@@ -98,14 +101,19 @@ class SendGuard:
 
     def __init__(self, vault: Any, repository: Any, *, items: Iterable[Any] = (), item_ids: Iterable[str] = (),
                  identities: Iterable[Mapping[str, Any]] = (), protected: Any = None,
-                 live_vault: Callable[[], Any] | None = None) -> None:
-        self._vault = vault
+                 live_vault: Callable[[], Any] | None = None, epoch: str | None = None) -> None:
+        # The vault and repository as loaded, never an operation's projection of them: the guard
+        # judges protection afresh, on everything (the AD23 redesign, round 2).
+        self._vault = getattr(vault, "_ad_raw_vault", vault)
         self._live_vault = live_vault
-        self._repository = repository
+        self._repository = getattr(repository, "_ad_raw_repository", repository)
         self._items = [item for item in items if item is not None]
         self._item_ids = frozenset(str(value) for value in item_ids) | frozenset(
             str(getattr(item, "id", "")) for item in self._items)
         self._identities = [identity for identity in identities]
+        #: The protection epoch frozen inputs were read under (the AD23 redesign, E2): sent only while
+        #: the vault's epoch is still it (None: no frozen inputs).
+        self._epoch = epoch
         caller = getattr(protected, "ids", protected)
         self._earlier = frozenset(str(value) for value in (caller or ()))
         self._lock = threading.Lock()
@@ -215,6 +223,7 @@ class SendGuard:
         for _attempt in range(1 + RELOAD_RETRIES):
             try:
                 vault, before = self._snapshot()
+                vault = getattr(vault, "_ad_raw_vault", vault)
             except Exception:  # noqa: BLE001 - an unreadable provider protects everything
                 return "the loaded vault could not be read", None, StaleSnapshot
             if vault is None:
@@ -234,8 +243,18 @@ class SendGuard:
         from learnloop.adaptive_difficulty.protection import Protection, protection
 
         current = protection(vault, self._repository)
+        if current.material is None:
+            # The predicate is unavailable: nothing is sent or recorded, whatever the job quotes
+            # (Codex verify F32; before, an empty item list let the request through).
+            return "the held-out predicate is unavailable"
+        if self._epoch is not None:
+            from learnloop.adaptive_difficulty.material_view import MaterialView
+
+            if MaterialView(vault, self._repository, current).epoch != self._epoch:
+                # E2: frozen inputs are sent only at the epoch they were read under.
+                return "the protection changed since the inputs were frozen"
         if self._earlier:
-            current = Protection(current.ids | self._earlier, current.material)
+            current = Protection(current.ids | self._earlier, current.material, current.reserved)
         for item_id in sorted(self._item_ids):
             if item_id in current:
                 return f"item {item_id} is protected"
@@ -315,9 +334,13 @@ class _GuardGate:
 
 @contextmanager
 def _sending(guard: SendGuard, envelope: Any) -> Iterator[None]:
+    from learnloop.adaptive_difficulty.operation import suspended
+
     token = _DISPATCH.set({"guard": guard})
     try:
-        with spend_envelopes(envelope), gate_model_requests(_GuardGate(guard, active_request_gate())):
+        # The egress leaves the AD operation (the AD23 redesign): the guard's checks re-read the
+        # predicate afresh by design, and the request runs as the incumbent's work.
+        with suspended(), spend_envelopes(envelope), gate_model_requests(_GuardGate(guard, active_request_gate())):
             yield
     finally:
         _DISPATCH.reset(token)

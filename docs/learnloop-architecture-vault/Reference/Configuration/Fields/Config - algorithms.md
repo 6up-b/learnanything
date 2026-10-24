@@ -3,8 +3,8 @@ title: "Config - algorithms"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
+source_commit_timestamp: "2026-10-24T14:22:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml algorithms"
@@ -18,20 +18,20 @@ source_paths:
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
+  - "src/learnloop/ad_successor_upgrade.py"
   - "src/learnloop/adaptive_difficulty/outside.py"
-  - "src/learnloop/adaptive_difficulty/serve.py"
   - "tests/helpers.py"
   - "tests/intent_fakes.py"
   - "tests/mcp_world.py"
+  - "tests/test_ad23_contract.py"
+  - "tests/test_ad23_fix_r6.py"
+  - "tests/test_ad23_migration.py"
+  - "tests/test_ad23_owner_decisions.py"
+  - "tests/test_ad23_successor.py"
   - "tests/test_administration_adapters.py"
   - "tests/test_ai_config.py"
   - "tests/test_answer_calibration_duel.py"
   - "tests/test_assessment_enforcement.py"
-  - "tests/test_assumed_known.py"
-  - "tests/test_attempt_completion.py"
-  - "tests/test_canonical_projection_rollout.py"
-  - "tests/test_causal_activity_policy.py"
-  - "tests/test_causal_attribution_p2.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/algorithms"
@@ -52,7 +52,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `algorithms.algorithm_version` | `"mvp-0.29"` | string | explicit template decision | Pins the replay/defaults namespace so historical evidence is interpreted by the algorithm that produced it. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:18`; `src/learnloop/adaptive_difficulty/outside.py:372`; `src/learnloop/adaptive_difficulty/serve.py:93` |
+| `algorithms.algorithm_version` | `"mvp-0.30"` | string | explicit template decision | Pins the replay/defaults namespace so historical evidence is interpreted by the algorithm that produced it. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:18`; `src/learnloop/ad_successor_upgrade.py:71`; `src/learnloop/adaptive_difficulty/outside.py:369` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -64,15 +64,15 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/helpers.py`
 - `tests/intent_fakes.py`
 - `tests/mcp_world.py`
+- `tests/test_ad23_contract.py`
+- `tests/test_ad23_fix_r6.py`
+- `tests/test_ad23_migration.py`
+- `tests/test_ad23_owner_decisions.py`
+- `tests/test_ad23_successor.py`
 - `tests/test_administration_adapters.py`
 - `tests/test_ai_config.py`
 - `tests/test_answer_calibration_duel.py`
 - `tests/test_assessment_enforcement.py`
-- `tests/test_assumed_known.py`
-- `tests/test_attempt_completion.py`
-- `tests/test_canonical_projection_rollout.py`
-- `tests/test_causal_activity_policy.py`
-- `tests/test_causal_attribution_p2.py`
 
 ## Extension and modification guidance
 

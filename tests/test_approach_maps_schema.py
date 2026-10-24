@@ -20,6 +20,7 @@ from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, applied_
 from learnloop.db.stores import approach_maps as store
 from learnloop.db.table_roles import TableRole, role_for_table
 from tests.test_ad1_migration import AD1_ADDED_OBJECTS, AD1_ALTERED_TABLES
+from tests.test_ad23_migration import AD23_ADDED_OBJECTS
 from tests.test_figures_migration import RW5A_ADDED_OBJECTS
 from tests.test_reader_rw3b_migration import RW3B_ADDED_OBJECTS
 from tests.test_reader_rw7a_migration import RW7A_ADDED_OBJECTS
@@ -61,8 +62,8 @@ def _upgrade(tmp_path: Path) -> Path:
     assert [migration.version for migration in applied][0] == 211
     after = _schema(database)
     # Adaptive difficulty AD1's 213 (its receipts) follows on the way to head.
-    # ... and Reader RW3b's 215, RW5a's 216 and RW7a's 217 (their two tables each).
-    assert set(after) - set(before) - AD1_ADDED_OBJECTS - RW3B_ADDED_OBJECTS - RW5A_ADDED_OBJECTS - RW7A_ADDED_OBJECTS == {"approach_maps", "idx_approach_maps_item", "idx_approach_maps_family",
+    # ... and adaptive difficulty's 214, Reader RW3b's 215, RW5a's 216 and RW7a's 217 (their two tables each).
+    assert set(after) - set(before) - AD1_ADDED_OBJECTS - AD23_ADDED_OBJECTS - RW3B_ADDED_OBJECTS - RW5A_ADDED_OBJECTS - RW7A_ADDED_OBJECTS == {"approach_maps", "idx_approach_maps_item", "idx_approach_maps_family",
                                         "approach_maps_no_update", "approach_maps_no_delete"}
     # 212 rebuilds the two learner-text tables (their source_kind CHECK only).
     # Adaptive difficulty AD1's 213 adds two practice_attempts columns on the way.

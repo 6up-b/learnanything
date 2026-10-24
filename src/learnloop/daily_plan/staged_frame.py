@@ -173,10 +173,16 @@ class StagedFrame:
     that appeared mid-plan). Projection reads share it, so the view's
     projected blocks drop the same items without another snapshot."""
 
-    def __init__(self, vault: Any, repository: Any, *, clock: Any = None) -> None:
+    def __init__(self, vault: Any, repository: Any, *, clock: Any = None,
+                 item_states: Any = None) -> None:
+        """``item_states``: a reader of the item states the frame's constraints read in place of
+        the repository's (adaptive difficulty passes its material view's, fix round 12); None
+        reads the repository, as the plan does."""
+
         self.vault = vault
         self.repository = repository
         self.clock = clock
+        self._item_states = item_states
         self._material: FrameMaterial | None = None
         self._pool: dict[str, PoolItem] = {}
 
@@ -223,7 +229,8 @@ class StagedFrame:
         from learnloop.scheduling.frame_constraints import evaluate_mandatory
 
         evaluated = frozenset(item.practice_item_id for item in pool)
-        evaluation = evaluate_mandatory(self.vault, self.repository, pool, clock=self.clock, block_for=self._block)
+        evaluation = evaluate_mandatory(self.vault, self.repository, pool, clock=self.clock, block_for=self._block,
+                                        item_states=self._item_states)
         if evaluation.inputs_error is not None:
             return FrameMaterial(
                 manifest_hash=evaluation.manifest_hash,

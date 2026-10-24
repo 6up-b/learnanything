@@ -30,6 +30,7 @@ A claim that cannot be taken (another worker's live lease) yields None.
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.logs import warn_failure
 import logging
 import time
 from collections.abc import Iterator
@@ -161,7 +162,7 @@ class FencedRepository:
                 "id": event.get("id"), "finished_at": utc_now_iso(), "status": "interrupted",
                 "error_type": type(refusal).__name__}, owner_kind=owner_kind, owner_id=owner_id)
         except Exception:  # noqa: BLE001 - logged; the refusal, not this, is what the caller sees
-            LOG.warning("AD: could not close the refused request's receipt %s", event.get("id"), exc_info=True)
+            warn_failure(LOG, "AD: could not close the refused request's receipt %s", event.get("id"))
 
     # A model checkpoint is domain output, not accounting (fix round 4, V3):
     # the base repository writes it on a separate connection that allows late

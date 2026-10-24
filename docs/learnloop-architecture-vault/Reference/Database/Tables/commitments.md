@@ -3,8 +3,8 @@ title: "commitments"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
+source_commit_timestamp: "2026-10-24T14:22:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitments"
@@ -19,15 +19,16 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/072_commitments.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/curriculum/commitment_arcs.py"
   - "src/learnloop/curriculum/commitments.py"
   - "src/learnloop/curriculum/depth_edge_authoring.py"
   - "src/learnloop/curriculum/depth_rungs.py"
-  - "src/learnloop/curriculum/depth_transition.py"
-  - "src/learnloop/curriculum/golden_path_confirm.py"
   - "src/learnloop/content/authoring/rung_variants.py"
+  - "src/learnloop/curriculum/golden_path_confirm.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/intent/control.py"
 tags:
@@ -122,6 +123,10 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/ad23_fakes.py`
+- `tests/daily_plan_fakes.py`
+- `tests/test_ad23_intent_compose.py`
+- `tests/test_ad2_serving.py`
 - `tests/test_causal_attribution_p1.py`
 - `tests/test_commitment_arcs.py`
 - `tests/test_commitments.py`
@@ -138,10 +143,6 @@ Indexes and uniqueness:
 - `tests/test_golden_path_assessment.py`
 - `tests/test_golden_path_confirm.py`
 - `tests/test_intent_checks.py`
-- `tests/test_intent_codex_rereview.py`
-- `tests/test_intent_codex_review.py`
-- `tests/test_intent_exclusion.py`
-- `tests/test_intent_fix_round4.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -3,8 +3,8 @@ title: "Config - stuck_prompt"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
+source_commit_timestamp: "2026-10-24T14:22:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml stuck_prompt"
@@ -25,13 +25,13 @@ source_paths:
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
   - "tests/split_live_helpers.py"
+  - "tests/test_ad23_contract.py"
+  - "tests/test_ad23_successor.py"
+  - "tests/test_ad2_model.py"
   - "tests/test_ai_config.py"
   - "tests/test_approach_maps.py"
   - "tests/test_capability_residual.py"
   - "tests/test_chatgpt_plan_provider.py"
-  - "tests/test_cli_ingest.py"
-  - "tests/test_codex_isolation_mcp_check.py"
-  - "tests/test_codex_lockdown_round2.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/stuck-prompt"
@@ -52,7 +52,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `stuck_prompt.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for mvp-0.13's "I'm stuck" control (write what you can, or what's confusing you). On, a stuck answer is an ordinary attempt at the standard mass: graded and diagnosed when it has text, scored 0 with no model call and no error tag when empty. Off, an mvp-0.13 vault shows "I don't know" and records dont_know exactly as mvp-0.12. Dormant below mvp-0.13; replay reads practice_attempts.declared_stuck, never this switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2034`; `src/learnloop/ai/plan_fallback.py:122`; `src/learnloop/attempts/stuck.py:81` |
+| `stuck_prompt.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for mvp-0.13's "I'm stuck" control (write what you can, or what's confusing you). On, a stuck answer is an ordinary attempt at the standard mass: graded and diagnosed when it has text, scored 0 with no model call and no error tag when empty. Off, an mvp-0.13 vault shows "I don't know" and records dont_know exactly as mvp-0.12. Dormant below mvp-0.13; replay reads practice_attempts.declared_stuck, never this switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2047`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/attempts/stuck.py:81` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -66,13 +66,13 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
 - `tests/split_live_helpers.py`
+- `tests/test_ad23_contract.py`
+- `tests/test_ad23_successor.py`
+- `tests/test_ad2_model.py`
 - `tests/test_ai_config.py`
 - `tests/test_approach_maps.py`
 - `tests/test_capability_residual.py`
 - `tests/test_chatgpt_plan_provider.py`
-- `tests/test_cli_ingest.py`
-- `tests/test_codex_isolation_mcp_check.py`
-- `tests/test_codex_lockdown_round2.py`
 
 ## Extension and modification guidance
 

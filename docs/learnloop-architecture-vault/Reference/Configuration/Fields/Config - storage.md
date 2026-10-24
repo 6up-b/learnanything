@@ -3,8 +3,8 @@ title: "Config - storage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
+source_commit_timestamp: "2026-10-24T14:22:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml storage"
@@ -20,7 +20,9 @@ source_paths:
   - "tests/test_config_refactor.py"
   - "src/learnloop/ai/plan_fallback.py"
   - "src/learnloop/content/proposals/apply_protocol.py"
+  - "tests/ad23_fakes.py"
   - "tests/ad_fakes.py"
+  - "tests/ad_ingest_fakes.py"
   - "tests/approach_map_fakes.py"
   - "tests/conftest.py"
   - "tests/daily_plan_fakes.py"
@@ -30,8 +32,6 @@ source_paths:
   - "tests/intent_fakes.py"
   - "tests/pf_fakes.py"
   - "tests/reading_path_fixtures.py"
-  - "tests/rw2b_fix10_base_sequence.py"
-  - "tests/rw2b_fix11_base_sequence.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/storage"
@@ -52,7 +52,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `storage.sqlite_path` | `"state.sqlite"` | string | explicit template decision | Locates the vault's SQLite machine-state file relative to the vault root unless an absolute path is supplied. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:10`; `src/learnloop/ai/plan_fallback.py:122`; `src/learnloop/content/proposals/apply_protocol.py:257` |
+| `storage.sqlite_path` | `"state.sqlite"` | string | explicit template decision | Locates the vault's SQLite machine-state file relative to the vault root unless an absolute path is supplied. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:10`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/content/proposals/apply_protocol.py:257` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -61,7 +61,9 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/ad23_fakes.py`
 - `tests/ad_fakes.py`
+- `tests/ad_ingest_fakes.py`
 - `tests/approach_map_fakes.py`
 - `tests/conftest.py`
 - `tests/daily_plan_fakes.py`
@@ -71,8 +73,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/intent_fakes.py`
 - `tests/pf_fakes.py`
 - `tests/reading_path_fixtures.py`
-- `tests/rw2b_fix10_base_sequence.py`
-- `tests/rw2b_fix11_base_sequence.py`
 
 ## Extension and modification guidance
 

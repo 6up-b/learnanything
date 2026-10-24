@@ -3181,6 +3181,86 @@ def handle_source_exercise_import(ctx: JobContext) -> dict[str, Any]:
     return result
 
 
+def ad_commission_batch_id(commission_id: str) -> str:
+    """The one durable batch of an adaptive difficulty commission's generation (the store's
+    name for it: a commission's expiry reads its job, Codex review F5)."""
+
+    from learnloop.db.stores.ad_serving import commission_batch_id
+
+    return commission_batch_id(commission_id)
+
+
+#: A commission's job that ran with ``LEARNLOOP_AD_MODELS=off``: failed retryable, requeued by
+#: the next schedule with models on unless its batch was cancelled (Codex re-review F10, verify
+#: F11). Its commission stays open meanwhile (the store's ``MODELS_OFF_CODE``).
+AD_MODELS_OFF_CODE = "ad_models_off"
+
+
+def _handle_ad_commission(ctx: JobContext, lo_ids: list[str], commission_id: str) -> dict[str, Any]:
+    """One item at an open AD commission's point, through the ordinary generation path and
+    its gates (spec_adaptive_difficulty_v1 §6.1 "runs in the background", §7.1, §7.4). A
+    commission that has landed, or that the generation contract no longer applies to, is a
+    no-op success."""
+
+    from learnloop.adaptive_difficulty.generation import contract_on
+    from learnloop.content.authoring.practice_generation import (
+        PracticeExpansionError,
+        generate_post_probe_practice_proposal,
+    )
+    from learnloop.vault.loader import load_vault
+
+    vault = load_vault(ctx.vault_root)
+    if not contract_on(vault.config):
+        return {"generated": 0, "skipped_reason": "generation_contract off"}
+    from learnloop.adaptive_difficulty.operation import ad_operation
+
+    # The commission is open as AD's material view sees it (a withheld landing closes nothing);
+    # with the held-out predicate unavailable none is, and nothing is generated (A8). Read inside
+    # one AD operation (the AD23 redesign); the generation itself runs outside it (E1).
+    from learnloop.adaptive_difficulty.operation import is_denial
+
+    try:
+        # The savepoint form (round 4): the operation inside its savepoint, rolled back on poison.
+        with ad_operation(vault, ctx.repo, savepoint=True) as op:
+            view = op.view
+            open_ids = {str(row["id"]) for row in view.open_commissions(ctx.repo.connection(),
+                                                                         now=utc_now_iso(ctx.clock))} \
+                if view.available else set()
+    except Exception as exc:
+        if not is_denial(exc):
+            raise
+        open_ids = set()  # the AD guard refused something: no commission is open for this job
+    if commission_id not in open_ids:
+        return {"generated": 0, "skipped_reason": "commission no longer open"}
+    from learnloop.adaptive_difficulty.spend import models_off
+
+    # Codex re-review F10: work queued before the switch went off still makes no model call.
+    # Only an explicitly injected client (a test's fake) runs with models off. The job fails
+    # retryable rather than completing, so its batch stays resumable and the commission open.
+    if models_off() and ctx.services.synthesis_client_factory is None:
+        raise IngestRunnerError(
+            "Adaptive difficulty's models are off, so this question waits until they are back on.",
+            code=AD_MODELS_OFF_CODE, retryable=True, details={"ad_commission_id": commission_id},
+        )
+    ctx.report("generation", message="Writing a question at the level adaptive difficulty asked for")
+    client = ctx.services.synthesis_client(ctx)
+    try:
+        result = generate_post_probe_practice_proposal(
+            ctx.vault_root, client, learning_object_ids=lo_ids, require_completed_probe=False,
+            target_items_per_lo=1, max_new_per_lo=1, ad_commission_id=commission_id,
+        )
+    except PracticeExpansionError as exc:
+        return {"generated": 0, "skipped_reason": str(exc)}
+    commissioned = [t for t in result.plan.targets if t.ad_commission_id == commission_id]
+    return {
+        "patch_id": result.patch_id,
+        "generated": result.plan.requested_new_items,
+        "ad_commission_id": commission_id,
+        "commissioned_targets": len(commissioned),
+        "rung_violations": result.rung_violations,
+    }
+
+
 def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:
     """practice_expansion: per-LO item generation (reader-first seeding).
 
@@ -3200,6 +3280,8 @@ def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:
     source_refs = [ref for ref in (payload.get("source_refs") or []) if isinstance(ref, dict)]
     if not lo_ids:
         raise IngestRunnerError("practice_expansion job requires 'learning_object_ids'.")
+    if payload.get("ad_commission_id"):
+        return _handle_ad_commission(ctx, lo_ids, str(payload["ad_commission_id"]))
     ctx.report("generation", message=f"Generating practice for {len(lo_ids)} learning object(s)")
     client = ctx.services.synthesis_client(ctx)
     try:
@@ -4455,26 +4537,50 @@ class DurableIngestJobs:
         subject_id: str | None = None,
         reason: str | None = None,
         source_refs: list[dict[str, Any]] | None = None,
+        ad_commission_id: str | None = None,
     ) -> str:
         """Enqueue per-LO practice generation (reader-first progressive seeding).
 
         Background priority (default band): generation after a section completes
-        must never starve reader quick-checks or interactive quick-add builds."""
+        must never starve reader quick-checks or interactive quick-add builds.
+
+        ``ad_commission_id``: an adaptive difficulty serve-time commission
+        (spec_adaptive_difficulty_v1 §6.1, §7.1): one item at its point. The
+        batch id is the commission's, so enqueuing it again (a retried
+        schedule, a restart) finds the same durable batch, never a second
+        generation. A job of that batch that ran with adaptive difficulty's models off
+        (``AD_MODELS_OFF_CODE``) is requeued here once they are on again (Codex re-review F10),
+        but only while its batch is uncancelled: the check and the requeue are one
+        transaction, and an explicit cancellation stays until the user resumes the batch
+        (Codex verify F11)."""
 
         runner = self._require_runner()
+        if ad_commission_id:
+            from learnloop.adaptive_difficulty.spend import models_off
+
+            existing = ad_commission_batch_id(ad_commission_id)
+            waiting = [
+                job for job in runner.repo.ingest_jobs_for_batch(existing)
+                if job.get("status") == "failed" and (job.get("error") or {}).get("code") == AD_MODELS_OFF_CODE
+            ]
+            if waiting:
+                if not models_off() and runner.requeue_failed_unless_cancelled(
+                    existing, error_code=AD_MODELS_OFF_CODE
+                ):
+                    self._ensure_worker()
+                return existing
+        payload: dict[str, Any] = {
+            "learning_object_ids": list(learning_object_ids),
+            "reason": reason or ("ad_commission" if ad_commission_id else "reader_section_completed"),
+            "source_refs": list(source_refs or []),
+        }
+        if ad_commission_id:
+            payload["ad_commission_id"] = str(ad_commission_id)
         batch_id = runner.enqueue_batch(
             "practice_expansion",
-            [
-                JobSpec(
-                    "practice_expansion",
-                    {
-                        "learning_object_ids": list(learning_object_ids),
-                        "reason": reason or "reader_section_completed",
-                        "source_refs": list(source_refs or []),
-                    },
-                )
-            ],
+            [JobSpec("practice_expansion", payload)],
             subject_id=subject_id,
+            batch_id=ad_commission_batch_id(ad_commission_id) if ad_commission_id else None,
         )
         self._ensure_worker()
         return batch_id

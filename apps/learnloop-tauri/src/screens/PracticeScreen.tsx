@@ -37,6 +37,7 @@ import { Workbench } from "./workbench/Workbench";
 import { HintPanel } from "./practice/HintPanel";
 import { useAdaptiveHints } from "./practice/useAdaptiveHints";
 import { DifficultyRatingTap } from "./practice/DifficultyRatingTap";
+import { WhyThisItem } from "./practice/WhyThisItem";
 import { useFirstHintProgress } from "./practice/useFirstHintProgress";
 import type { DifficultyRating, FirstHintProgress } from "../api/dto";
 import { screenLeavesKey } from "../app/keymap";
@@ -1529,6 +1530,8 @@ export function PracticeScreen({
           {/* In steps, the problem as the session froze it (RW2a review F1):
               the statement and required method it is graded against. */}
           <ItemPresentation presentation={stepsMode && wbSession?.presentation ? wbSession.presentation : item.presentation} />
+          {/* Adaptive difficulty AD2+AD3 (§12): why the plan's draw chose this item, one quiet line. */}
+          <WhyThisItem planPresentationId={planPresentationId} />
           {item.canonicalExercise && intentCheck?.locatorsHidden ? (
             // DL2 (D46, G61): during a check on your own, the book's name only:
             // no exercise number, page, section, link or why until feedback.

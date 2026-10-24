@@ -144,6 +144,15 @@ def _lo_line(lo_id: str, row: Mapping[str, Any]) -> str:
         )
     if row.get("last_attempt_at"):
         bits.append(f"last {str(row['last_attempt_at'])[:10]}")
+    ad = row.get("adaptive_difficulty")
+    if ad:
+        # Adaptive difficulty AD2+AD3 (spec §10.1): readiness numbers, predictions.
+        if ad.get("untested"):
+            bits.append(f"AD prediction: {float(ad.get('p_band_next') or 0):.2f} chance the next level lands in the "
+                        "practice band; untested")
+        else:
+            bits.append(f"AD prediction: {float(ad.get('p_band_next') or 0):.2f} chance the next level lands in the "
+                        f"practice band; {float(ad.get('p_bar_at_top') or 0):.2f} predicted at the top level")
     return "; ".join(bits)
 
 
@@ -223,9 +232,19 @@ def render_text(card: Mapping[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+#: The card's version when it carries adaptive difficulty's fields (spec §10.1:
+#: the card's version moves with them; without them the card is unchanged).
+AD_CARD_VERSION = CARD_VERSION + "+ad23"
+
+
+def _card_version(inputs: CardInputs) -> str:
+    return AD_CARD_VERSION if any(
+        "adaptive_difficulty" in row for row in (inputs.learning_objects or {}).values()) else CARD_VERSION
+
+
 def _assemble(inputs: CardInputs, work: list[dict[str, Any]], truncation: Mapping[str, Any]) -> dict[str, Any]:
     return {
-        "card_version": CARD_VERSION,
+        "card_version": _card_version(inputs),
         "decision": dict(inputs.decision),
         "session": dict(inputs.session),
         "intent": {key: dict(value) for key, value in sorted(inputs.intent.items())},
@@ -280,7 +299,7 @@ def build_card(inputs: CardInputs, *, token_budget: int = DEFAULT_TOKEN_BUDGET) 
     text = render_text(card)
     digest = hashlib.sha256(canonical_json({"json": card, "text": text}).encode("utf-8")).hexdigest()
     return LearnerStateCard(
-        card_version=CARD_VERSION,
+        card_version=_card_version(inputs),
         json=card,
         text=text,
         card_hash=digest,

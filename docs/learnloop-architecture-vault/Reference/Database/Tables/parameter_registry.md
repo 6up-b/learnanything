@@ -3,8 +3,8 @@ title: "parameter_registry"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
+source_commit_timestamp: "2026-10-24T14:22:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite parameter_registry"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/069_parameter_registry.sql"
+  - "src/learnloop/ad_successor_upgrade.py"
   - "src/learnloop/cli/registry.py"
   - "src/learnloop/content/sources/block_health.py"
   - "src/learnloop/daily_plan_upgrade.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/decider_upgrade.py"
   - "src/learnloop/diagnosis/recurrence/upgrade.py"
-  - "src/learnloop/eligibility_decision_upgrade.py"
   - "src/learnloop/cli/grading.py"
   - "src/learnloop/params/parameter_registry.py"
   - "src/learnloop/params/sensitivity_certificates.py"
@@ -119,6 +119,8 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_ad1_codex_review_fixes.py`
+- `tests/test_ad23_owner_decisions.py`
+- `tests/test_ad23_successor.py`
 - `tests/test_architecture.py`
 - `tests/test_constraint_engine.py`
 - `tests/test_grading_cli.py`

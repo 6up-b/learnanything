@@ -30,6 +30,9 @@ a serve, §7.5).
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.logs import warn_failure
+from learnloop.adaptive_difficulty.operation import entry
+
 import hashlib
 import json
 import logging
@@ -200,13 +203,11 @@ def canonical_audits(connection: Any, content_hash: str, *, as_of: str | None = 
     ``as_of`` limits it to judgments written no later than that instant (a
     historical resolution, §7.5)."""
 
-    if not store.has_table(connection, "judgment_ledger"):
-        return {}
-    rows = connection.execute(
-        "SELECT id, right_id, verdict, judge, created_at FROM judgment_ledger WHERE task = ? AND prompt_version = ? "
-        "AND left_kind = ? AND left_id = ? AND right_kind = ? ORDER BY created_at, rowid",
-        (TASK, version, LEFT_KIND, content_hash, RIGHT_KIND),
-    ).fetchall()
+    from learnloop.adaptive_difficulty.material_view import current_view
+
+    rows = [(row["id"], row["right_id"], row["verdict"], row["judge"], row["created_at"]) for row in current_view().rows(
+        connection, "judgment_ledger", "task = ? AND prompt_version = ? AND left_kind = ? AND left_id = ? AND "
+        "right_kind = ?", (TASK, version, LEFT_KIND, content_hash, RIGHT_KIND), order="created_at, rowid")]
     limit = parse_utc(as_of) if as_of else None
     found: dict[str, dict[str, Any]] = {}
     for row in rows:
@@ -263,6 +264,7 @@ def _remaining(repository: Any, content_hash: str) -> list[str]:
     return [dimension for dimension in DIMENSIONS if dimension not in done]
 
 
+@entry(durable="it sends to a model: its claim, spend and receipts commit per unit")
 def audit_revision(vault: Any, repository: Any, item: Any, *, decider_factory: Callable[[], Any] | None = None,
                    llm_client: Any | None = None, clock: Clock | None = None,
                    protected: Any = None, fence: Any = None,
@@ -392,7 +394,7 @@ def _audit(vault: Any, worker: Any, item: Any, item_json: str, content_hash: str
         except AIProviderUnavailable:
             status = "unavailable"
         except Exception:  # noqa: BLE001 - a failed Decider hands the dimensions to the LLM
-            LOG.warning("feature audit: the Decider failed for %s", item_id, exc_info=True)
+            warn_failure(LOG, "feature audit: the Decider failed for %s", item_id)
             status = "failed"
         outcome.decider_status = status
         try:

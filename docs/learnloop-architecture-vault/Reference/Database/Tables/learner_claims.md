@@ -3,8 +3,8 @@ title: "learner_claims"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
+source_commit_timestamp: "2026-10-24T14:22:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_claims"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/adaptive_difficulty/replay.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/field/priors.py"
-  - "src/learnloop/learner/learner_profile.py"
-  - "src/learnloop/learner/mastery.py"
-  - "src/learnloop/ops/debug_time.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/content/authoring/rung_variants.py"
@@ -92,6 +92,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/adaptive_difficulty/replay.py`
 - `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/field/priors.py`
@@ -118,11 +119,15 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_ad23_fix_review.py`
+- `tests/test_ad2_model.py`
+- `tests/test_ad_guard.py`
 - `tests/test_assumed_known.py`
 - `tests/test_field_priors.py`
 - `tests/test_init.py`
 - `tests/test_question_promotions.py`
 - `tests/test_tutor_promotion_service.py`
+- `tests/test_ad23_fix_r8.py`
 - `tests/test_agent_runs.py`
 - `tests/test_anti_double_count.py`
 - `tests/test_attempt_ai_flow.py`
@@ -134,7 +139,6 @@ Indexes and uniqueness:
 - `tests/test_show.py`
 - `tests/test_source_ingestion.py`
 - `tests/test_state_sync.py`
-- `tests/test_tutor_promotion_w2.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

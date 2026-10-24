@@ -78,6 +78,7 @@ METERED_PRICE_SETTINGS: dict[str, str] = {
     "figure_author": "figures.price_per_million",
     "ad_forecast_llm": "adaptive_difficulty.price_per_million",
     "ad_feature_audit": "adaptive_difficulty.price_per_million",
+    "ad_relatedness": "adaptive_difficulty.price_per_million",
     "library_organizer": "source_retrieval.llm_price_per_million",
     "passage_cue_judge": "source_retrieval.llm_price_per_million",
     "role_labeller": "source_retrieval.llm_price_per_million",

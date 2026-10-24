@@ -20,6 +20,7 @@ and logged; the serve proceeds.
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.logs import warn_failure
 import hashlib
 import json
 import logging
@@ -89,11 +90,13 @@ def _features(vault: Any, item: Any, served_at: str) -> Any:
     )
 
 
-def _challenger(vault: Any, connection: Any, item: Any, served_at: str) -> tuple[float, dict[str, Any], str]:
-    from learnloop.field.outcomes import load_attempt_rows
+def _challenger(vault: Any, connection: Any, item: Any, served_at: str, *,
+                view: Any) -> tuple[float, dict[str, Any], str]:
     from learnloop.field.predictors import create_predictor
 
-    rows = load_attempt_rows(connection, vault, as_of=served_at)
+    # The history it rebuilds on comes through the serve's material view (Codex verify F24): an
+    # answer on a withheld item never trains the challenger, whatever the served item is.
+    rows = view.field_rows(connection, as_of=served_at)
     predictor = create_predictor(CHALLENGER, config=vault.config.mastery)
     predictor.rebuild(rows)
     features = _features(vault, item, served_at)
@@ -113,7 +116,7 @@ def _challenger(vault: Any, connection: Any, item: Any, served_at: str) -> tuple
 
 
 def in_process_receipts(vault: Any, repository: Any, connection: Any, item: Any, *, presentation_kind: str,
-                        presentation_id: str, served_at: str) -> list[ForecastReceipt]:
+                        presentation_id: str, served_at: str, view: Any) -> list[ForecastReceipt]:
     """The two in-process forecasts of one presentation (each skipped alone on failure)."""
 
     receipts: list[ForecastReceipt] = []
@@ -123,10 +126,10 @@ def in_process_receipts(vault: Any, repository: Any, connection: Any, item: Any,
                 p, inputs, version_hash = _incumbent(vault, repository, item, served_at)
                 version = INCUMBENT_VERSION
             else:
-                p, inputs, version_hash = _challenger(vault, connection, item, served_at)
+                p, inputs, version_hash = _challenger(vault, connection, item, served_at, view=view)
                 version = CHALLENGER_VERSION
         except Exception:  # noqa: BLE001 - a forecaster that cannot compute is skipped, never the serve
-            LOG.warning("AD1 in-process forecaster %s skipped for %s", forecaster, item.id, exc_info=True)
+            warn_failure(LOG, "AD1 in-process forecaster %s skipped for %s", forecaster, item.id)
             continue
         p = min(max(float(p), 0.0), 1.0)
         receipts.append(ForecastReceipt(

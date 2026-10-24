@@ -3,8 +3,8 @@ title: "ingest_batches"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
+source_commit_timestamp: "2026-10-24T14:22:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ingest_batches"
@@ -19,11 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/033_durable_ingest_jobs.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/cli/__init__.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/runner.py"
+  - "src/learnloop/db/stores/ad_serving.py"
   - "src/learnloop/db/stores/ingest_queue.py"
-  - "src/learnloop/substrate/dataset.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -105,6 +107,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/ad23_fakes.py`
 - `tests/test_ad1_migration.py`
 - `tests/test_auto_build_spend_report.py`
 - `tests/test_capture_route_recovery.py`

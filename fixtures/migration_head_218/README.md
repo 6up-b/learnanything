@@ -1,9 +1,8 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-218 (214 is held by adaptive difficulty AD2+AD3 on its own branch; the
-runner has no contiguity rule, so this fixture has 215, 216, 217 and 218 but
-no 214). Migration 167 adds the learner-field F1 read model
+218, adaptive difficulty AD2+AD3's 214 included (the runner is set-based, so 214
+applied after 215-218 at AD2+AD3's compose rounds). Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -225,6 +224,21 @@ indexes and no-update and no-delete triggers) and `item_forecast_payloads`
 migration 206's `forecast_receipts`, no table of their own. The new tables
 are empty here.
 
+Migration 214 comes from adaptive difficulty AD2+AD3 (`adaptive-difficulty/ad23`,
+practice in the band and the subject view live, one successor `mvp-0.30` on DL2's `mvp-0.29`;
+docs/reviews/adaptive-difficulty-ad23.md): it adds `ad_selections` and
+`ad_dose_offers` (RAW_LEDGER), `ad_commission_results`, `ad_relatedness_runs`
+and `ad_coupling_versions` (RECEIPT; each of the five append-only by trigger,
+with its indexes), and `ad_state`, `ad_attempt_trace` (DERIVED, the AD
+replayer) and `item_forecast_scores` (DERIVED, the forecast-score replayer).
+`ad_selections.generating_job_id` names the durable job a generation-origin
+commission was drawn in (its expiry starts when that job finishes) and
+`ad_commission_results.landed_after_expiry` marks a landing recorded after its
+commission expired (both added inside 214 at the stage's fix round 5, Codex
+verify F14 and F15); at fix round 6 `ad_commission_results` gained
+`features_match` and its uniqueness became `UNIQUE(practice_item_id)` (one
+owner per landed item, verify F15 and F16). At the AD23 redesign's round 2 (2026-10-21) every AD artefact table AD reads back gained `protection_epoch` (the protection epoch its row was computed under): `ad_selections`, `ad_commission_results` and `ad_dose_offers` (a last column inside 214), `item_serve_inputs` (an added column), and `ad_reading_opportunities`, rebuilt with the same columns, indexes and triggers plus `protection_epoch`, its two uniqueness constraints gaining the epoch (a receipt of another epoch is swept again under the current projection). Existing rows read the empty epoch. The new tables are empty here.
+
 Migration 215 comes from reader workbench RW3b (`reader/rw3b`, discovered
 cues, docs/reviews/reader-workbench-RW3b.md): it adds `passage_links`
 (WORKFLOW, append-only by trigger: the cue judge's picks per target state and
@@ -241,7 +255,13 @@ request created the batch, so a batch resumed after a sidecar restart asks
 again as its action; grants and tokens stay per session). Nothing else is
 altered; the column is NULL on every batch here.
 
-Rebuilt at that round as a backup-API copy of this directory's
+Rebuilt at adaptive difficulty AD2+AD3's compose onto T1 (`adaptive-difficulty/ad23`, the merge of
+main `bd0bb7267`) as a backup-API copy of main's `migration_head_218` with only 214 applied, through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade allowance
+(`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`, header bytes
+1/1, `integrity_check` ok, `foreign_key_check` empty), copied into place with the backup API, with no
+companion files. The directory keeps its name: the highest version present is still 218.
+Before that, rebuilt at T1's round as a backup-API copy of this directory's
 `migration_head_217` (git `ad6dad0c4`) with only 218 applied, through
 `learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade
 allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),

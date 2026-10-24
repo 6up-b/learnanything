@@ -7,6 +7,37 @@ projections carry authority class ``salience_only`` and NEVER enter mastery,
 posterior, readiness, certification, or scheduling. There is no numeric conversion
 path from a reading signal to correctness/mastery/diagnosis/certification.
 
+**The one confirmed exception** (owner 2026-10-15, D20, amended 2026-10-17 by
+D22; spec_adaptive_difficulty_v1 A12 and §5.11; the P3 reader spec's Q8 is
+resolved by it): adaptive difficulty's *predicted* level may read discrete
+reading opportunities as learning opportunities, under four limits:
+
+1. **Only discrete events**: the listed kinds and sources of
+   :data:`LEARNING_OPPORTUNITY_SOURCES` (a section read and a passage viewed,
+   collated as ``reading``; a tutor exchange while reading; a worked example
+   studied; an in-passage question answered), each the fact that it happened,
+   with a dose. No magnitude ever passes: no dwell, scroll, highlight, skip,
+   visibility segment, active time, answer text or salience projection. The one
+   typed value admitted is the learner's self-check verdict class on an answered
+   in-passage question (``self_check:matched`` / ``self_check:missed``, read from
+   ``judgment_ledger``), as its own learned term (D22).
+2. **Prediction and selection only**, never evidence or certification: AD's
+   subject view, its draws, forecasts and readiness numbers. Nothing here passes
+   the evidence chokepoint (``reject_salience`` in ``attempts.apply_attempt``):
+   every record :func:`learning_opportunity_events` returns stays stamped
+   ``salience_only``, so the chokepoint still refuses it.
+3. **Learned weights**: each kind's dose curve is latent state with a-priori,
+   versioned priors, learned per vault; nothing is hand-set.
+4. **Its own kill switch and auto-flag**: ``adaptive_difficulty.
+   reading_opportunities`` (and ``reading_self_check`` for the verdict term),
+   with the AD report's reading and verdict auto-flags.
+
+The carve-out is :func:`learning_opportunity_events`, beside
+:func:`proposal_priority_signal`: the only path from reading records (AD1's
+``ad_reading_opportunities`` receipt) to AD's state. It admits exactly the
+allowlist and nothing else; AD1's sweep records only these sources and reads
+the same list from here.
+
 Enforcement has three parts (design §C):
 
 1. **Typed authority class at the source.** Every reader/reading event payload and
@@ -20,8 +51,9 @@ Enforcement has three parts (design §C):
    over the full reader ``kind`` vocabulary asserting each is rejected by the
    evidence APIs and that the belief modules never import this module.
 
-The ONE allowed downstream is proposal PRIORITY (§8.2): highlights/dwell may only
-reorder proposals. ``proposal_priority_signal`` is that single accepting path.
+The allowed downstreams are proposal PRIORITY (§8.2): highlights/dwell may only
+reorder proposals (``proposal_priority_signal``), and the confirmed exception
+above (``learning_opportunity_events``).
 """
 
 from __future__ import annotations
@@ -232,3 +264,100 @@ def salience_projection_v1(events: list[Mapping[str, Any]]) -> dict[str, Any]:
         "proposal_priority": priority,
         "depth_suggestion": depth_suggestion,
     })
+
+
+# -- the confirmed exception: learning opportunities (spec_adaptive_difficulty_v1 A12, §5.11) ----
+
+#: A reader tutor question's answer modes, each a tutor exchange's subkind;
+#: ``unknown`` where none was stored (before migration 213, or outside the Reader).
+TUTOR_ANSWER_MODES: tuple[str, ...] = ("answer_directly", "help_me_reason", "ask_me_first")
+UNKNOWN_ANSWER_MODE = "unknown"
+#: The in-passage question styles that are learning opportunities (``reconstruct``
+#: questions are escalated to practice items, which AD reads as attempts).
+IN_PASSAGE_STYLES: tuple[str, ...] = ("recall", "next_step", "why_step", "assumptions")
+#: D22's verdict classes: the one typed value the carve-out admits.
+SELF_CHECK_SUBKINDS: tuple[str, ...] = ("self_check:matched", "self_check:missed")
+
+#: The carve-out's allowlist, ``(kind, subkind, source table)``: the only sources
+#: whose records may reach AD's state (§5.11's table). One list: AD1's sweep
+#: records only these.
+LEARNING_OPPORTUNITY_SOURCES: tuple[tuple[str, str, str], ...] = (
+    ("reading", "section_read", "reader_section_progress"),
+    ("reading", "passage_viewed", "source_exposure_events"),
+    *(("reader_tutor_exchange", mode, "question_events") for mode in TUTOR_ANSWER_MODES),
+    ("reader_tutor_exchange", UNKNOWN_ANSWER_MODE, "question_events"),
+    ("worked_example", "shown", "source_exposure_events"),
+    ("worked_example", "in_completed_section", "reader_section_progress"),
+    *(("in_passage_question", style, "reader_authored_questions") for style in IN_PASSAGE_STYLES),
+    ("in_passage_question", "owner_placed", "interaction_events"),
+    *(("in_passage_question", subkind, "judgment_ledger") for subkind in SELF_CHECK_SUBKINDS),
+)
+LEARNING_OPPORTUNITY_KINDS: tuple[str, ...] = ("reading", "reader_tutor_exchange", "worked_example",
+                                               "in_passage_question")
+#: The only fields a learning-opportunity record carries: ids, times, the LO,
+#: the facets and their doses. No magnitude field exists.
+LEARNING_OPPORTUNITY_FIELDS: tuple[str, ...] = (
+    "opportunity_id", "kind", "subkind", "source_table", "source_id", "source_written_at",
+    "learning_object_id", "facet_doses", "dose_offer_id", "authority_class",
+)
+_ALLOWED = frozenset(LEARNING_OPPORTUNITY_SOURCES)
+
+
+def _doses(value: Any) -> dict[str, float]:
+    import json
+
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except ValueError:
+            return {}
+    if not isinstance(value, Mapping):
+        return {}
+    doses: dict[str, float] = {}
+    for facet, dose in value.items():
+        try:
+            number = float(dose)
+        except (TypeError, ValueError):
+            continue
+        if 0.0 < number <= 1.0:
+            doses[str(facet)] = number
+    return doses
+
+
+def learning_opportunity_events(rows: Any) -> list[dict[str, Any]]:
+    """The confirmed exception's only path (A12, §5.11): learning opportunities, never evidence.
+
+    ``rows`` are ``ad_reading_opportunities`` rows (mappings). Exactly the
+    sources of :data:`LEARNING_OPPORTUNITY_SOURCES` pass; any other reading
+    kind, salience projection or source table returns nothing. Each record
+    carries only :data:`LEARNING_OPPORTUNITY_FIELDS` (no dwell, active or idle
+    seconds, scroll, highlight or revisit count, outcome class or answer text;
+    the only typed value is the verdict class in the subkind), and stays
+    stamped ``salience_only``, so :func:`reject_salience` and
+    ``attempts.apply_attempt`` still refuse it."""
+
+    out: list[dict[str, Any]] = []
+    for row in rows or ():
+        if not isinstance(row, Mapping):
+            continue
+        key = (row.get("kind"), row.get("subkind"), row.get("source_table"))
+        if key not in _ALLOWED:
+            continue
+        if row.get("authority_class", SALIENCE_ONLY) != SALIENCE_ONLY:
+            continue
+        doses = _doses(row.get("facet_doses", row.get("facet_doses_json")))
+        if not doses or not row.get("learning_object_id") or not row.get("source_written_at"):
+            continue
+        out.append({
+            "opportunity_id": str(row.get("id") or row.get("opportunity_id") or ""),
+            "kind": str(key[0]),
+            "subkind": str(key[1]),
+            "source_table": str(key[2]),
+            "source_id": str(row.get("source_id") or ""),
+            "source_written_at": str(row["source_written_at"]),
+            "learning_object_id": str(row["learning_object_id"]),
+            "facet_doses": doses,
+            "dose_offer_id": row.get("dose_offer_id"),
+            "authority_class": SALIENCE_ONLY,
+        })
+    return out

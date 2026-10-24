@@ -3,8 +3,8 @@ title: "source_document_units"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
+source_commit_timestamp: "2026-10-24T14:22:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_units"
@@ -19,11 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/032_source_layer.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_block_fts.py"
   - "src/learnloop/db/stores/source_service.py"
-  - "src/learnloop/adaptive_difficulty/reading.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/practice_leakage.py"
   - "src/learnloop/content/pipeline/exam_marking.py"
@@ -104,7 +106,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/adaptive_difficulty/reading.py`
+- `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/content/authoring/exercise_authoring.py`
 - `src/learnloop/content/authoring/practice_leakage.py`
 - `src/learnloop/content/pipeline/exam_marking.py`
@@ -130,9 +132,12 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/ad_ingest_fakes.py`
 - `tests/test_migrations.py`
 - `tests/helpers.py`
 - `tests/test_ad1_reading_opportunities.py`
+- `tests/test_ad_projection.py`
+- `tests/test_ad_protected_readings.py`
 - `tests/test_daily_plan_reading.py`
 - `tests/test_exam_protection.py`
 - `tests/test_exam_protection_identity.py`
@@ -147,9 +152,6 @@ Indexes and uniqueness:
 - `tests/test_reading_hardening_landing.py`
 - `tests/test_reread_safety.py`
 - `tests/test_sidecar_ingest_m3.py`
-- `tests/test_sidecar_quick_add.py`
-- `tests/test_sidecar_span_view.py`
-- `tests/test_source_block_fts.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

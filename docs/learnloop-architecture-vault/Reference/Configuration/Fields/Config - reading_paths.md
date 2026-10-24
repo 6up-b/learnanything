@@ -3,8 +3,8 @@ title: "Config - reading_paths"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
+source_commit_timestamp: "2026-10-24T14:22:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml reading_paths"
@@ -26,13 +26,13 @@ source_paths:
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
   - "tests/split_live_helpers.py"
+  - "tests/test_ad23_contract.py"
+  - "tests/test_ad23_successor.py"
+  - "tests/test_ad2_model.py"
   - "tests/test_ai_config.py"
   - "tests/test_approach_maps.py"
   - "tests/test_capability_residual.py"
   - "tests/test_chatgpt_plan_provider.py"
-  - "tests/test_cli_ingest.py"
-  - "tests/test_codex_isolation_mcp_check.py"
-  - "tests/test_codex_lockdown_round2.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/reading-paths"
@@ -53,8 +53,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `reading_paths.enabled` | `true` | boolean | modeled default or validator seed | Turns reading paths behavior on or off within reader workbench RW7a: reading paths in the Guide: at the depth the learner picks for a book (get the idea, learn to use it, fluency; DL2's Master, Learn, Keep and Light touch on the source preselect it, display-level only), each section core, prerequisite, enrichment, already shown or assumed with a one-line why, read it anyway / skip it, one exercise worth trying per core section and a suggested next line composed without a model; labels from one call per book and depth (ai.routing.reading_path_judge), cached by the depth, the section list and the linked LOs' statuses, already shown and assumed enforced in code: the kill switch and the judge's daily metered cap, checked before the call (display only, no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2583`; `src/learnloop/ai/plan_fallback.py:122`; `src/learnloop/cli/reader.py:58` |
-| `reading_paths.max_daily_cost_usd` | `0.5` | number | modeled default or validator seed | Caps daily cost usd allowed by reader workbench RW7a: reading paths in the Guide: at the depth the learner picks for a book (get the idea, learn to use it, fluency; DL2's Master, Learn, Keep and Light touch on the source preselect it, display-level only), each section core, prerequisite, enrichment, already shown or assumed with a one-line why, read it anyway / skip it, one exercise worth trying per core section and a suggested next line composed without a model; labels from one call per book and depth (ai.routing.reading_path_judge), cached by the depth, the section list and the linked LOs' statuses, already shown and assumed enforced in code: the kill switch and the judge's daily metered cap, checked before the call (display only, no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2584`; `src/learnloop/ai/plan_fallback.py:122`; `src/learnloop/source_retrieval/reading_paths.py:629` |
+| `reading_paths.enabled` | `true` | boolean | modeled default or validator seed | Turns reading paths behavior on or off within reader workbench RW7a: reading paths in the Guide: at the depth the learner picks for a book (get the idea, learn to use it, fluency; DL2's Master, Learn, Keep and Light touch on the source preselect it, display-level only), each section core, prerequisite, enrichment, already shown or assumed with a one-line why, read it anyway / skip it, one exercise worth trying per core section and a suggested next line composed without a model; labels from one call per book and depth (ai.routing.reading_path_judge), cached by the depth, the section list and the linked LOs' statuses, already shown and assumed enforced in code: the kill switch and the judge's daily metered cap, checked before the call (display only, no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2596`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/cli/reader.py:58` |
+| `reading_paths.max_daily_cost_usd` | `0.5` | number | modeled default or validator seed | Caps daily cost usd allowed by reader workbench RW7a: reading paths in the Guide: at the depth the learner picks for a book (get the idea, learn to use it, fluency; DL2's Master, Learn, Keep and Light touch on the source preselect it, display-level only), each section core, prerequisite, enrichment, already shown or assumed with a one-line why, read it anyway / skip it, one exercise worth trying per core section and a suggested next line composed without a model; labels from one call per book and depth (ai.routing.reading_path_judge), cached by the depth, the section list and the linked LOs' statuses, already shown and assumed enforced in code: the kill switch and the judge's daily metered cap, checked before the call (display only, no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2597`; `src/learnloop/ai/plan_fallback.py:123`; `src/learnloop/source_retrieval/reading_paths.py:629` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -68,13 +68,13 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
 - `tests/split_live_helpers.py`
+- `tests/test_ad23_contract.py`
+- `tests/test_ad23_successor.py`
+- `tests/test_ad2_model.py`
 - `tests/test_ai_config.py`
 - `tests/test_approach_maps.py`
 - `tests/test_capability_residual.py`
 - `tests/test_chatgpt_plan_provider.py`
-- `tests/test_cli_ingest.py`
-- `tests/test_codex_isolation_mcp_check.py`
-- `tests/test_codex_lockdown_round2.py`
 
 ## Extension and modification guidance
 

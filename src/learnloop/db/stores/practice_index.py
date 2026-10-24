@@ -5,7 +5,7 @@ Nothing here is evidence; nothing here is derived; rebuild clears none of it.
 """
 from __future__ import annotations
 
-from collections.abc import Collection, Mapping
+from collections.abc import Collection, Iterable, Mapping
 from dataclasses import dataclass
 import json
 import sqlite3
@@ -344,21 +344,26 @@ def attempts_after(connection: sqlite3.Connection, *, practice_item_ids: Collect
 
 
 def items_revealed_between(connection: sqlite3.Connection, *, since: str,
-                           until: str) -> set[str]:
+                           until: str, exclude_ids: Iterable[str] | None = None) -> set[str]:
     """Items whose answer the reveal ledger recorded in (since, until]; a
     routine full-answer display by its coverage instead: from the renewal
     grace before ``since``, and also when stamped after ``until`` (the clock
-    went back), ``learnloop.reveal_coverage`` (UX Phase 4 round 4)."""
+    went back), ``learnloop.reveal_coverage`` (UX Phase 4 round 4).
+
+    ``exclude_ids``: reveal rows not to read (adaptive difficulty's withheld
+    reveals); None or empty reads every row exactly as before."""
     if not table_exists(connection, "reveal_events"):
         return set()
     from learnloop.reveal_coverage import routine_coverage_sql, routine_window_start
 
     routine, routine_parameters = routine_coverage_sql(routine_window_start(since))
-    return {str(row[0]) for row in connection.execute(
-        "SELECT DISTINCT practice_item_id FROM reveal_events "
-        f"WHERE (created_at > ? AND created_at <= ?) OR {routine}",
-        (since, until, *routine_parameters),
-    )}
+    skip = sorted({str(value) for value in (exclude_ids or ())})
+    sql = ("SELECT DISTINCT practice_item_id FROM reveal_events "
+           f"WHERE (created_at > ? AND created_at <= ?) OR {routine}")
+    if skip:
+        sql = (f"SELECT DISTINCT practice_item_id FROM reveal_events WHERE ((created_at > ? AND created_at <= ?) "
+               f"OR {routine}) AND id NOT IN ({', '.join('?' for _ in skip)})")
+    return {str(row[0]) for row in connection.execute(sql, (since, until, *routine_parameters, *skip))}
 
 
 def stored_vector_hashes(connection: sqlite3.Connection, *, record_kind: str, field: str,

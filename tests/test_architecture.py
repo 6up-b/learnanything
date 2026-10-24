@@ -101,6 +101,11 @@ REGISTERED_SQL_OWNERS = frozenset(
         # item_forecast_payloads workflow rows, and the served revision's
         # practice_item_snapshots row.
         "src/learnloop/db/stores/ad_receipts.py",
+        # Adaptive difficulty AD2+AD3 (migration 214): the append-only
+        # ad_selections, ad_commission_results, ad_dose_offers,
+        # ad_relatedness_runs and ad_coupling_versions, and the DERIVED
+        # ad_state, ad_attempt_trace and item_forecast_scores.
+        "src/learnloop/db/stores/ad_serving.py",
         # Reader workbench RW2a: workbench_sessions (lifecycle) and the
         # append-only workbench_steps (migration 207).
         "src/learnloop/db/stores/workbench.py",

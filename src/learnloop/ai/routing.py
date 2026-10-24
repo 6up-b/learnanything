@@ -118,6 +118,8 @@ AITask = Literal[
     "ad_forecast_llm",
     "ad_forecast_decider",
     "ad_feature_audit",
+    # Adaptive difficulty AD2+AD3: the relatedness proposal (background work).
+    "ad_relatedness",
     # Reader workbench RW2b: "Check my work" (a chat route that never
     # resolves to Codex, as hint_writer).
     "workbench_check",
@@ -251,6 +253,10 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # Reader workbench RW5a: one figure spec written (an author attempt or a
     # "not right?" version).
     "figure_author": "figure_author",
+    # Adaptive difficulty AD2+AD3: the relatedness proposal (one call per
+    # subject; vault content only, never learner text), on AD's own route (the
+    # compose onto T1: the plan's medium tier by default, spec §5.10).
+    "ad_relatedness": "ad_relatedness",
     # Slice 2 T4 shadow contamination flags (owner-run report only).
     "contamination_leak_judgment": "contamination_judge",
     "contamination_reveal_judgment": "contamination_judge",

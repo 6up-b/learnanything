@@ -40,11 +40,38 @@ class TableRole(str, Enum):
 # instead of silently keeping the last declaration.
 _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("ability_transition_events", TableRole.DERIVED),
+    # Adaptive difficulty AD2+AD3 (migration 214; spec §5.6, §11.2): the AD
+    # replayer's per-attempt trace in both views; cleared and rebuilt with zero
+    # model calls.
+    ("ad_attempt_trace", TableRole.DERIVED),
+    # Adaptive difficulty AD2+AD3 (migration 214; spec §7.4): a landed
+    # commission's re-forecast, append-only by trigger.
+    ("ad_commission_results", TableRole.RECEIPT),
+    # Adaptive difficulty AD2+AD3 (migration 214; spec §5.10 "As of"): each
+    # adopted coupling version per subject, append-only. Replay reads which
+    # relatedness proposal applies to the whole history from it.
+    ("ad_coupling_versions", TableRole.RECEIPT),
+    # Adaptive difficulty AD2+AD3 (migration 214; spec §5.12, D21): the
+    # Reader's randomized dose offers and their uptake, append-only; the
+    # draw's propensities are replay and report inputs.
+    ("ad_dose_offers", TableRole.RAW_LEDGER),
     # Adaptive difficulty AD1 (migration 213; spec §5.11, D20, D22): reading
     # and other learning opportunities frozen per (opportunity, LO), authority
     # class salience_only, append-only by trigger. Nothing reads them until the
     # AD2+AD3 firewall carve-out; replay never writes or clears them.
     ("ad_reading_opportunities", TableRole.RECEIPT),
+    # Adaptive difficulty AD2+AD3 (migration 214; spec §5.10): one row per
+    # relatedness proposal run (the units it covered and the judgment_ledger
+    # rows it appended), append-only.
+    ("ad_relatedness_runs", TableRole.RECEIPT),
+    # Adaptive difficulty AD2+AD3 (migration 214; spec §6.1, A7): every serve
+    # and commission draw with its support, scores, exact propensities and
+    # seed, written before the item is served; append-only by trigger.
+    ("ad_selections", TableRole.RAW_LEDGER),
+    # Adaptive difficulty AD2+AD3 (migration 214; spec §5.6, §11.2): the AD
+    # replayer's current posterior per view; cleared and rebuilt with zero
+    # model calls.
+    ("ad_state", TableRole.DERIVED),
     ("activity_administrations", TableRole.RAW_LEDGER),
     ("activity_card_authoring", TableRole.RAW_LEDGER),
     # The scheduling head and its only historical review stream are co-located
@@ -263,6 +290,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # fallback). Pruned after router.payload_retention_days; the receipts keep
     # the hash and replay never reads it.
     ("item_forecast_payloads", TableRole.WORKFLOW),
+    # Adaptive difficulty AD2+AD3 (migration 214; spec §8.3): each valid item
+    # forecast receipt joined to its bound attempt and scored; the forecast-score
+    # replayer owns it.
+    ("item_forecast_scores", TableRole.DERIVED),
     ("item_misconception_discrimination", TableRole.RAW_LEDGER),
     ("item_parameter_state", TableRole.DERIVED),
     # Adaptive difficulty AD1 (migration 213; spec §7.5): the features and

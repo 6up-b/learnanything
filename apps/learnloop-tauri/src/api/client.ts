@@ -1639,6 +1639,25 @@ export const api = {
     call<FigurePredictionResultDto>("reader_figure_predict", { input }),
   readerFigureExplain: (input: { predictionId: string; text: string }) =>
     call<FigurePredictionResultDto>("reader_figure_explain", { input }),
+  // Adaptive difficulty AD2+AD3: the Reader's dose offer and its uptake rows
+  // (an offer's row is written before it is shown), an LO's readiness lines,
+  // and "why this item" for a served plan item. Desktop only.
+  readerDoseOffer: (input: {
+    extractionId: string;
+    sectionId: string;
+    visitId: string;
+    boundaryChecksAvailable: boolean;
+    cueDensityOff: boolean;
+    skim: boolean;
+    restoredSection: boolean;
+    showingQuestionId?: string | null;
+  }) => call<import("./dto").ReaderDoseOfferDto>("reader_dose_offer", { input }),
+  readerDoseOfferEvent: (input: { drawId: string; event: import("./dto").ReaderDoseOfferEvent }) =>
+    call<{ version: number; rowId: string | null; event: string; recorded: boolean }>("reader_dose_offer_event", { input }),
+  adaptiveDifficultyReadiness: (input: { learningObjectId: string }) =>
+    call<import("./dto").AdaptiveReadinessDto>("adaptive_difficulty_readiness", { input }),
+  adaptiveDifficultyWhyItem: (input: { planPresentationId: string }) =>
+    call<import("./dto").AdaptiveWhyItemDto>("adaptive_difficulty_why_item", { input }),
   // Reader workbench RW3a: a tap on a margin cue (open, check me, not relevant
   // and its undo) and the learner's cue preferences (density, a book off).
   readerCueAction: (input: { extractionId: string; cueId: string; action: ReaderCueAction; text?: string | null }) =>

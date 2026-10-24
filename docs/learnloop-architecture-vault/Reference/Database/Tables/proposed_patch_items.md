@@ -3,8 +3,8 @@ title: "proposed_patch_items"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
+source_commit_timestamp: "2026-10-24T14:22:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite proposed_patch_items"
@@ -19,13 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/content/authoring/persona_gate.py"
   - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
   - "src/learnloop/curriculum/concepts.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/ops/doctor.py"
-  - "src/learnloop/substrate/dataset.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/authoring/practice_generation.py"
   - "src/learnloop/content/authoring/rung_variants.py"
@@ -125,6 +126,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/curriculum/concepts.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/ad_serving.py`
 - `src/learnloop_sidecar/handlers/app.py`
 
 ### Direct SQL writers
@@ -160,6 +162,8 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_ad23_owner_decisions.py`
+- `tests/test_ad_epoch.py`
 - `tests/test_patch_applier.py`
 - `tests/test_ux_phase2_error_type_proposals.py`
 - `tests/test_agent_runs.py`
@@ -178,8 +182,6 @@ Indexes and uniqueness:
 - `tests/test_facet_rewords.py`
 - `tests/test_graph_edit_proposals.py`
 - `tests/test_ingest_instrument_gates.py`
-- `tests/test_method_phrasing_report.py`
-- `tests/test_missing_vocabulary_notes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

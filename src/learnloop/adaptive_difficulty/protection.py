@@ -22,6 +22,7 @@ F11 fix round 3), never only the one it computed when it started.
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.logs import warn_failure
 import logging
 from dataclasses import dataclass
 from typing import Any
@@ -41,6 +42,8 @@ class Protection:
 
     ids: frozenset[str]
     material: Any | None
+    #: The items a goal's held-out exam reserves (part of :attr:`ids`; the operation's epoch).
+    reserved: frozenset[str] = frozenset()
 
     def __contains__(self, practice_item_id: object) -> bool:
         return self.material is None or str(practice_item_id) in self.ids
@@ -55,7 +58,7 @@ class Protection:
         try:
             return bool(held_out_item_ids([item], self.material))
         except Exception:  # noqa: BLE001 - an unreadable revision is protected
-            LOG.warning("held-out check of a revision failed: treated as protected", exc_info=True)
+            warn_failure(LOG, "held-out check of a revision failed: treated as protected")
             return True
 
     def covers_identity(self, identity: Any) -> bool:
@@ -76,7 +79,7 @@ class Protection:
             return any(self.material.covers(*key) for key in keys) or any(
                 self.material.covers(extraction) for extraction in whole)
         except Exception:  # noqa: BLE001 - an unreadable identity is protected
-            LOG.warning("held-out check of a frozen revision failed: treated as protected", exc_info=True)
+            warn_failure(LOG, "held-out check of a frozen revision failed: treated as protected")
             return True
 
 
@@ -85,15 +88,20 @@ def protection(vault: Any, repository: Any) -> Protection:
 
     from learnloop.content.sources.exam_material import held_out_item_ids, held_out_material
 
+    from learnloop.adaptive_difficulty.operation import Scope, scoped
+
     try:
-        material = held_out_material(vault, repository)
+        # The predicate's own inputs (the AD guard's PREDICATE tables), through the scope's codec.
+        material = scoped(Scope.PREDICATE, lambda: held_out_material(vault, repository))
         items = list(getattr(vault, "practice_items", {}).values())
         held = set(held_out_item_ids(items, material)) if items else set()
-        held.update(str(item_id) for item_id in repository.reserved_exam_pool_item_ids())
+        reserved = scoped(Scope.PREDICATE, lambda: frozenset(
+            str(item_id) for item_id in repository.reserved_exam_pool_item_ids()))
+        held.update(reserved)
     except Exception:  # noqa: BLE001 - an unreadable predicate protects everything
-        LOG.warning("held-out predicate unavailable: every item treated as protected", exc_info=True)
+        warn_failure(LOG, "held-out predicate unavailable: every item treated as protected")
         return Protection(frozenset(getattr(vault, "practice_items", {}) or {}), None)
-    return Protection(frozenset(held), material)
+    return Protection(frozenset(held), material, reserved)
 
 
 def guard(vault: Any, repository: Any, protected: Any = None) -> Protection:
@@ -103,7 +111,7 @@ def guard(vault: Any, repository: Any, protected: Any = None) -> Protection:
         return protected
     fresh = protection(vault, repository)
     if protected:
-        return Protection(fresh.ids | frozenset(str(value) for value in protected), fresh.material)
+        return Protection(fresh.ids | frozenset(str(value) for value in protected), fresh.material, fresh.reserved)
     return fresh
 
 

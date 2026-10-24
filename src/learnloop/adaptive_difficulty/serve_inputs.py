@@ -30,7 +30,6 @@ from typing import Any
 
 from learnloop.clock import parse_utc
 from learnloop.db.stores import ad_receipts as store
-from learnloop.db.stores import forecast_receipts as receipt_store
 
 from learnloop.adaptive_difficulty.feature_audit import DIMENSIONS, canonical_audits, item_revision
 from learnloop.adaptive_difficulty.switches import LLM_V1
@@ -60,24 +59,54 @@ def _before(value: Any, served_at: str) -> bool:
     return stamp is not None and served is not None and stamp <= served
 
 
-def never_attempted(connection: Any, practice_item_id: str, served_at: str) -> bool:
-    """No attempt of any kind on the item before (or at) the serve."""
+def never_attempted(connection: Any, practice_item_id: str, served_at: str, *, view: Any) -> bool:
+    """No attempt of any kind on the item before (or at) the serve (read through the operation's
+    material view: the served item is visible, or nothing reaches here)."""
 
-    for (created_at,) in connection.execute(
-        "SELECT created_at FROM practice_attempts WHERE practice_item_id = ?", (practice_item_id,)
-    ):
-        if _before(created_at, served_at):
+    for row in view.attempts(connection):
+        if str(row.get("practice_item_id")) == str(practice_item_id) and _before(row.get("created_at"), served_at):
             return False
     return True
 
 
-def pre_exposed(repository: Any, item: Any, served_at: str) -> bool:
-    """§5.3: the item's reveal sum before ``served_at`` already reaches the auto-prime threshold."""
+def pre_exposed(repository: Any, item: Any, served_at: str, *, view: Any, connection: Any = None) -> bool:
+    """§5.3: the item's reveal sum before ``served_at`` already reaches the auto-prime threshold.
 
-    from learnloop.serve_eligibility import gather, submit_exposure
+    Read through the operation's material view (Codex verify F20, fix round 11): the reveals are
+    the view's (a reveal belonging to an answer given to a held-out revision is not one) and the
+    "last attempt" that opens the window is the item's last visible attempt, so a withheld answer
+    neither adds exposure nor resets it. The rule itself is the incumbent's
+    (``serve_eligibility.submit_exposure``); the incumbent's own reader is unchanged."""
 
-    inputs = gather(repository, practice_item_id=str(item.id), learning_object_id=item.learning_object_id,
-                    at=served_at, window_until=served_at)
+    from contextlib import closing
+
+    from learnloop.serve_eligibility import EligibilityInputs, RevealRow, submit_exposure
+
+    def read(conn: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        reveals = [row for row in view.reveals(conn)
+                   if str(row.get("practice_item_id") or "") == str(item.id)
+                   or str(row.get("learning_object_id") or "") == str(item.learning_object_id)]
+        attempts = [row for row in view.attempts(conn)
+                    if str(row.get("practice_item_id")) == str(item.id) and _before(row.get("created_at"), served_at)]
+        return reveals, attempts
+
+    if connection is not None:
+        reveals, attempts = read(connection)
+    else:
+        from learnloop.db.connection import connect
+
+        with closing(connect(repository.sqlite_path, read_only=True)) as conn:
+            reveals, attempts = read(conn)
+    last = None
+    for row in attempts:  # oldest first: the last one at the latest stamp, as the repository's read
+        if last is None or str(row["created_at"]) >= str(last["created_at"]):
+            last = row
+    # The incumbent's inputs record, built from the view's rows alone (``gather`` would read the
+    # raw attempts and tasks; the exposure rule reads only the reveals and the last attempt).
+    inputs = EligibilityInputs(practice_item_id=str(item.id), learning_object_id=item.learning_object_id,
+                               at=served_at, reveals=tuple(RevealRow.from_row(row) for row in reveals),
+                               last_attempt=(str(last["id"]), str(last["created_at"])) if last is not None else None,
+                               tasks=(), window_until=served_at)
     return bool(submit_exposure(inputs).primed_by_ledger)
 
 
@@ -109,10 +138,11 @@ def _z_panel(connection: Any, item: Any, served_at: str) -> dict[str, Any]:
         return {"value": None, "available": False, "why": "no_panel_rates"}
     import json
 
-    row = connection.execute(
-        "SELECT id, panel_json, published_at FROM pf_candidates WHERE published_item_id = ? AND status = 'published' "
-        "ORDER BY published_at DESC, id DESC LIMIT 1", (str(item.id),),
-    ).fetchone()
+    from learnloop.adaptive_difficulty.material_view import current_view
+
+    found = current_view().rows(connection, "pf_candidates", "published_item_id = ? AND status = 'published'",
+                                (str(item.id),), order="published_at DESC, id DESC")
+    row = (found[0]["id"], found[0]["panel_json"], found[0]["published_at"]) if found else None
     if row is None:
         return {"value": None, "available": False, "why": "no_panel_rates"}
     if not _before(row[2], served_at):
@@ -128,47 +158,56 @@ def _z_panel(connection: Any, item: Any, served_at: str) -> dict[str, Any]:
             "received_at": str(row[2]), "source": "pf_candidates.panel_json"}
 
 
-def _outcome_of_first_presentation(connection: Any, content_hash: str, served_at: str) -> float | None:
+def _outcome_of_first_presentation(connection: Any, content_hash: str, served_at: str, *,
+                                   attempts: Any) -> float | None:
     """§5.3's binary event on a revision's first bound plan presentation, if it
-    completed before ``served_at``; None when there is none or it was pre-exposed."""
+    completed before ``served_at``; None when there is none or it was pre-exposed.
+    ``attempts``: the material view's visible attempts, by presentation id."""
 
-    rows = connection.execute(
-        "SELECT plan_presentation_id, served_at, pre_exposed FROM item_serve_inputs WHERE content_hash = ? "
-        "AND plan_presentation_id IS NOT NULL ORDER BY served_at, id", (content_hash,),
-    ).fetchall()
+    from learnloop.adaptive_difficulty.material_view import current_view
+
+    rows = [(row["plan_presentation_id"], row["served_at"], row["pre_exposed"]) for row in current_view().rows(
+        connection, "item_serve_inputs", "content_hash = ? AND plan_presentation_id IS NOT NULL", (content_hash,),
+        order="served_at, id")]
     for presentation_id, presentation_served, exposed in rows:
         if not _before(presentation_served, served_at):
             return None
-        attempt = connection.execute(
-            "SELECT correctness, hints_used, primed, created_at FROM practice_attempts WHERE plan_presentation_id = ? "
-            "ORDER BY created_at, id LIMIT 1", (presentation_id,),
-        ).fetchone()
+        attempt = attempts.get(str(presentation_id))
         if attempt is None:
             continue
-        if exposed or not _before(attempt[3], served_at) or attempt[0] is None:
+        if exposed or not _before(attempt.get("created_at"), served_at) or attempt.get("correctness") is None:
             return None
-        success = float(attempt[0]) >= _SUCCESS and int(attempt[1] or 0) == 0 and not bool(attempt[2])
+        success = (float(attempt["correctness"]) >= _SUCCESS and int(attempt.get("hints_used") or 0) == 0
+                   and not bool(attempt.get("primed")))
         return 1.0 if success else 0.0
     return None
 
 
-def z_v1_recalibration(connection: Any, served_at: str, *, exclude_hash: str | None = None) -> dict[str, Any]:
+def z_v1_recalibration(connection: Any, served_at: str, *, view: Any, exclude_hash: str | None = None
+                       ) -> dict[str, Any]:
     """The logit intercept fitted on past items only: item-scoped ``llm_v1:item``
     receipts received before the serve whose revision's first presentation was
-    answered before it."""
+    answered before it. Its observations come through the operation's material view (Codex
+    verify F24): a forecast or answer on an item or revision withheld now is never one, whatever
+    the current target's protection."""
 
     from learnloop.field.probability_arms import fit_intercept
 
+    first: dict[str, dict[str, Any]] = {}
+    for row in view.attempts(connection):
+        if row.get("plan_presentation_id"):
+            first.setdefault(str(row["plan_presentation_id"]), row)
     logits: list[float] = []
     outcomes: list[float] = []
-    for receipt in receipt_store.list_receipts(connection, kind="item_unassisted_success"):
+    for receipt in view.forecast_receipts(connection, kind="item_unassisted_success"):
         if receipt["scope"] != "item" or receipt["forecaster"] != LLM_V1 or receipt.get("status") != "ok":
             continue
         if receipt.get("p") is None or receipt.get("item_content_hash") in (None, exclude_hash):
             continue
         if not _before(receipt.get("received_at") or receipt.get("created_at"), served_at):
             continue
-        outcome = _outcome_of_first_presentation(connection, str(receipt["item_content_hash"]), served_at)
+        outcome = _outcome_of_first_presentation(connection, str(receipt["item_content_hash"]), served_at,
+                                                 attempts=first)
         if outcome is None:
             continue
         logits.append(_logit(float(receipt["p"])))
@@ -177,9 +216,10 @@ def z_v1_recalibration(connection: Any, served_at: str, *, exclude_hash: str | N
     return {"version": Z_V1_RECALIBRATION, "intercept": round(intercept, 8), "n": len(logits)}
 
 
-def _z_v1(connection: Any, content_hash: str, served_at: str, recalibration: Mapping[str, Any]) -> dict[str, Any]:
+def _z_v1(connection: Any, content_hash: str, served_at: str, recalibration: Mapping[str, Any], *,
+          view: Any) -> dict[str, Any]:
     receipts = [
-        receipt for receipt in receipt_store.list_receipts(connection, kind="item_unassisted_success")
+        receipt for receipt in view.forecast_receipts(connection, kind="item_unassisted_success")
         if receipt["scope"] == "item" and receipt["forecaster"] == LLM_V1
         and receipt.get("item_content_hash") == content_hash
     ]
@@ -202,12 +242,14 @@ def _z_origin(item: Any) -> dict[str, Any]:
             "source": "canonical_exercise" if canonical else "generated"}
 
 
-def signal_vector(connection: Any, item: Any, content_hash: str, served_at: str) -> tuple[dict[str, Any], str]:
-    recalibration = z_v1_recalibration(connection, served_at, exclude_hash=content_hash)
+def signal_vector(connection: Any, item: Any, content_hash: str, served_at: str, *,
+                  view: Any) -> tuple[dict[str, Any], str]:
+    recalibration = z_v1_recalibration(connection, served_at, view=view, exclude_hash=content_hash)
     signals = {
         "z_llm": _z_llm(item),
         "z_panel": _z_panel(connection, item, served_at),
-        "z_v1": {**_z_v1(connection, content_hash, served_at, recalibration), "recalibration": recalibration},
+        "z_v1": {**_z_v1(connection, content_hash, served_at, recalibration, view=view),
+                 "recalibration": recalibration},
         "z_origin": _z_origin(item),
     }
     return signals, str(recalibration["version"])
@@ -238,11 +280,11 @@ def feature_inputs(connection: Any, item: Any, content_hash: str, served_at: str
 
 
 def build_row(repository: Any, connection: Any, item: Any, *, presentation_kind: str, presentation_id: str,
-              served_at: str, created_at: str) -> dict[str, Any]:
+              served_at: str, created_at: str, view: Any) -> dict[str, Any]:
     content_hash, item_json = item_revision(item)
     store.insert_item_snapshot(connection, content_hash_value=content_hash, practice_item_id=str(item.id),
                                item_json=item_json, created_at=created_at)
-    signals, recalibration = signal_vector(connection, item, content_hash, served_at)
+    signals, recalibration = signal_vector(connection, item, content_hash, served_at, view=view)
     row: dict[str, Any] = {
         "receipt_key": f"{presentation_kind}:{presentation_id}",
         "presentation_kind": presentation_kind,
@@ -253,7 +295,7 @@ def build_row(repository: Any, connection: Any, item: Any, *, presentation_kind:
         "served_at": served_at,
         "signals": signals,
         "z_v1_recalibration": recalibration,
-        "pre_exposed": pre_exposed(repository, item, served_at),
+        "pre_exposed": pre_exposed(repository, item, served_at, view=view, connection=connection),
         "resolution_version": RESOLUTION_VERSION,
         "loadings": None,
         "coupling_version": None,

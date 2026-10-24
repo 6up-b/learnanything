@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { api } from "../api/client";
+import { ReadinessLine } from "./ReadinessLine";
 import { masteryTone } from "../app/algoConfig";
 import { simplePracticeFeedback } from "../app/practiceFeedback";
 import type {
@@ -623,6 +624,8 @@ function LearningObjectBody({
       <InspectorRow label="status">
         <Pill color={detail.status === "active" ? "green" : "slate"}>{detail.status}</Pill>
       </InspectorRow>
+      {/* Adaptive difficulty AD2+AD3 (§9.5): the readiness line, labelled as a prediction. */}
+      <ReadinessLine learningObjectId={detail.id} />
       {detail.difficultyPrior != null ? (
         <InspectorRow label="difficulty_prior">
           <BlockBar value={detail.difficultyPrior} width={10} />

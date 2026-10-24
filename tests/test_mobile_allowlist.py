@@ -483,6 +483,19 @@ def test_the_pinned_rw2b_rpcs_are_all_of_them():
     assert set(READER_RW2B_RPCS) == set(WORKBENCH_HELP_RPCS)
 
 
+# Adaptive difficulty AD2+AD3 (spec_adaptive_difficulty_v1 §5.12, §9.5): the
+# Reader's randomized dose offer and its uptake rows, and an LO's readiness
+# lines from the subject view. Desktop only.
+AD23_RPCS = ("reader.dose_offer", "reader.dose_offer_event", "adaptive_difficulty.readiness",
+             "adaptive_difficulty.why_item")
+
+
+def test_the_pinned_ad23_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.adaptive_difficulty import AD23_RPCS as registered
+
+    assert set(AD23_RPCS) == set(registered)
+
+
 # Canonical sources (spec_source_practice_and_probes_v1, G16): the service's
 # own RPCs and the ones it extends (find_practice's caller and intents,
 # record_practice_usage's learner text, plan_learner_pick's proposal link,
@@ -656,7 +669,7 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     + READER_PDF_SELECTION_RPCS + READER_PDF_SELECTION_EXTENDED_RPCS + UX_PHASE4_RPCS + UX_PHASE4_EXTENDED_RPCS
     + HINTS_H0_RPCS + HINTS_H0_EXTENDED_RPCS + HINTS_H2A_RPCS + HINTS_H2A_EXTENDED_RPCS
     + HINTS_H2B_RPCS + READER_RW2B_RPCS + READER_RW2B_EXTENDED_RPCS + READER_RW2B_FIX5_EXTENDED_RPCS
-    + INTENT_RPCS + INTENT_EXTENDED_RPCS + READER_RW5A_RPCS + READER_RW2C_RPCS + READER_RW2C_EXTENDED_RPCS,
+    + INTENT_RPCS + INTENT_EXTENDED_RPCS + READER_RW5A_RPCS + READER_RW2C_RPCS + READER_RW2C_EXTENDED_RPCS + AD23_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

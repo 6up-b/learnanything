@@ -1,15 +1,15 @@
 {
   "<root>": {
     "bytes": 25117,
-    "sha256": "e5e1f393644e593865e778e22c8faf87a1a7288e5b5165bf9586262647cc952e"
+    "sha256": "b28eb2e7e54ae445ad96a2e4e79920fc1b37d479506a21dd617ac39d73a4ab25"
   },
   "accept": {
     "bytes": 1593,
     "sha256": "91451586bee3b80244dc9f3d10bb0a265f4c3d1f6237644853d4fe15dea3e9bf"
   },
   "ad": {
-    "bytes": 2013,
-    "sha256": "e7d0819d97ec225797bbf69b4fdf05043ba7adfa3ec506d66a742012c23692d4"
+    "bytes": 3631,
+    "sha256": "ae0799697bc6b399cd0b1c498c2752f4553cd2b16a605f600e9aea6815c92ae7"
   },
   "ad backfill": {
     "bytes": 1975,
@@ -18,6 +18,18 @@
   "ad data-check": {
     "bytes": 1373,
     "sha256": "edf28da4f606a6f11bd7db5338f18fe49ba8cd64e6634380da123ab414954785"
+  },
+  "ad eval": {
+    "bytes": 1378,
+    "sha256": "5f5292e730164c0e9d2365fec4db878bf53e9fe5adb3ac071a0f1214b014d4ed"
+  },
+  "ad relatedness": {
+    "bytes": 2713,
+    "sha256": "5a80a03982259f745207eda7fd4fbf2674efbd93f78f8111eaf65d1a63f96412"
+  },
+  "ad report": {
+    "bytes": 1965,
+    "sha256": "bc0812da3d77fa84a54876edf388c4de4b1bc3e20679bc0f3474d2f4a781fa49"
   },
   "add-note": {
     "bytes": 2188,
@@ -1208,8 +1220,8 @@
     "sha256": "a07b81bb87d512abc37e080c985c0d5087e51241f04a64d1462f20116e169976"
   },
   "upgrade": {
-    "bytes": 8602,
-    "sha256": "0e5f20112e089c96175bf0e7e34d6faea9724171b138baaa4ed9aef2e52ff588"
+    "bytes": 9331,
+    "sha256": "561223057a641b61b4e1915974965970a86567b627c1ac473f2c8154215657ff"
   },
   "usage": {
     "bytes": 1546,

@@ -34,7 +34,9 @@ def test_nothing_in_src_consults_the_retired_keep_local():
 
     readers = {"src/learnloop/db/repositories.py", "src/learnloop/ops/doctor.py"}
     prose = {"src/learnloop/content/pipeline/add_source.py",
-             "src/learnloop/content/facet_identity/span_support.py"}
+             "src/learnloop/content/facet_identity/span_support.py",
+             # The AD guard's column registry names every column (AD23 redesign round 5); it reads nothing.
+             "src/learnloop/adaptive_difficulty/column_classes.py"}
     mentions: dict[str, list[str]] = {}
     for path in sorted(SRC.rglob("*.py")):
         text = path.read_text(encoding="utf-8")

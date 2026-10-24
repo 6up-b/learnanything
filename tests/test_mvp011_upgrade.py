@@ -50,7 +50,7 @@ def test_placement_successor_keeps_the_split_and_the_p0_projection_namespace():
     # Router R2a's staged frame (mvp-0.23, after value-of-information
     # stopping's mvp-0.21 and the Decider's mvp-0.22) is the latest
     # successor; it keeps placement.
-    assert LATEST_ALGORITHM_VERSION == "mvp-0.29"
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.30"
     assert PLACEMENT_ALGORITHM_VERSION in P0_SUCCESSOR_VERSIONS
     assert PLACEMENT_ALGORITHM_VERSION in P0_PROJECTION_VERSIONS
     assert PLACEMENT_ALGORITHM_VERSION in CANONICAL_STATE_VERSIONS
@@ -58,11 +58,11 @@ def test_placement_successor_keeps_the_split_and_the_p0_projection_namespace():
     # mvp-0.11 and later; mvp-0.9 has neither.
     assert DIAGNOSIS_SPLIT_VERSIONS == frozenset(
         {"mvp-0.10", "mvp-0.11", "mvp-0.12", "mvp-0.13", "mvp-0.14", "mvp-0.15", "mvp-0.16", "mvp-0.17",
-         "mvp-0.18", "mvp-0.19", "mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29"}
+         "mvp-0.18", "mvp-0.19", "mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30"}
     )
     assert PLACEMENT_VERSIONS == frozenset(
         {"mvp-0.11", "mvp-0.12", "mvp-0.13", "mvp-0.14", "mvp-0.15", "mvp-0.16", "mvp-0.17", "mvp-0.18",
-         "mvp-0.19", "mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29"}
+         "mvp-0.19", "mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30"}
     )
 
 
@@ -179,7 +179,7 @@ def test_new_vaults_start_at_the_latest_version(tmp_path):
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     fresh = load_vault(tmp_path / "fresh")
-    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.29"
+    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.30"
     assert placement_active(fresh) and split_grading_active(fresh) and recurrence_active(fresh)
     assert stuck_prompt_active(fresh) and plan_active(fresh)
     from learnloop.attempts.grading_support import route_rules_active

@@ -1,7 +1,7 @@
 """P4 step 4 -- the single randomization layer (U-024, spec §9.3, design §B step 4).
 
 ALL policy experimentation runs through here. There is no separate crossover
-machinery. Four (and only four) admissible designs (:data:`ADMISSIBLE_DESIGNS`):
+machinery. Six (and only six) admissible designs (:data:`ADMISSIBLE_DESIGNS`):
 
 - ``mrt_reversible`` -- micro-randomized decisions among REVERSIBLE, near-equivalent
   feasible candidates;
@@ -14,7 +14,19 @@ machinery. Four (and only four) admissible designs (:data:`ADMISSIBLE_DESIGNS`):
   Decider's and the router LLM's distributions, mixed with a uniform floor
   ``router.epsilon_min`` (its own floor: the dormant :data:`PROPENSITY_FLOOR` never
   clips it). The seed, weights, components and the exact propensity are logged on the
-  ``router_decisions`` row in the block's own transaction (:func:`model_mixture`).
+  ``router_decisions`` row in the block's own transaction (:func:`model_mixture`);
+- ``feature_overlap`` -- adaptive difficulty's practice draw (spec_adaptive_difficulty_v1
+  §6.1, §10.1): inside a block the router already drew, the near-tie set of the band
+  rule (or the calibrate rule's) mixed with a uniform overlap share ``q`` over the
+  items of acceptable predicted success; its own floor ``q/|O|`` (the dormant
+  :data:`PROPENSITY_FLOOR` never clips it). The caller logs the support, scores, seed
+  and exact propensities on its ``ad_selections`` row before the item is served
+  (:func:`feature_overlap_propensities`);
+- ``reading_dose`` -- the Reader's randomized dose offers (spec §5.12, D21):
+  ``π(v) = (1 - k·ε)·base(v) + ε`` over the ``k`` feasible variants with its own floor
+  ``ε``; logged on ``ad_dose_offers`` before anything is shown
+  (:func:`reading_dose_propensities`). Drawn outside any block, so it never enters
+  a pair propensity.
 
 Every random draw logs its **seed + true propensity BEFORE selection** so an off-policy
 IPS/DR join is valid (§9.3). Randomization is INERT unless a decision is genuinely
@@ -54,7 +66,10 @@ PROPENSITY_FLOOR = 0.05
 
 _GRADES = ("experimental", "hypothesis_grade")
 MODEL_MIXTURE = "model_mixture"
-ADMISSIBLE_DESIGNS: tuple[str, ...] = ("mrt_reversible", "epsilon_tiebreak", "commitment_parallel", MODEL_MIXTURE)
+FEATURE_OVERLAP = "feature_overlap"
+READING_DOSE = "reading_dose"
+ADMISSIBLE_DESIGNS: tuple[str, ...] = ("mrt_reversible", "epsilon_tiebreak", "commitment_parallel", MODEL_MIXTURE,
+                                       FEATURE_OVERLAP, READING_DOSE)
 
 
 def _seed_int(seed: str) -> int:
@@ -342,3 +357,49 @@ def open_outcome_window(
         anchor_kind=anchor_kind, anchor_ref=anchor_ref,
         due_at=next_spaced_cold_review_at, hypothesis_grade=hypothesis_grade, clock=clock,
     )
+
+
+# -- adaptive difficulty's two designs (spec_adaptive_difficulty_v1 §6.1, §5.12) ------------
+
+def feature_overlap_propensities(refs: Sequence[str], tied: Sequence[str], overlap: Sequence[str],
+                                 q: float) -> dict[str, float]:
+    """``π(i) = (1 - q)·1[i∈T]/|T| + q·1[i∈O]/|O|`` (``q = 0`` when ``O`` is empty): exact."""
+
+    share = float(q) if overlap else 0.0
+    pi = {str(ref): 0.0 for ref in refs}
+    for ref in tied:
+        pi[str(ref)] += (1.0 - share) / len(tied)
+    for ref in overlap:
+        pi[str(ref)] += share / len(overlap)
+    return pi
+
+
+def reading_dose_propensities(feasible: Sequence[str], base: Mapping[str, float], floor: float) -> dict[str, float]:
+    """``π(v) = (1 - k·ε)·base(v) + ε`` over the ``k`` feasible variants (its own floor ``ε``).
+
+    ``base`` is renormalized over the feasible variants (an infeasible variant has
+    no mass), so every feasible variant keeps at least ``ε`` and the ``π`` sum to 1."""
+
+    variants = list(dict.fromkeys(str(v) for v in feasible))
+    if not variants:
+        return {}
+    k = len(variants)
+    epsilon = float(floor)
+    if k * epsilon > 1.0 + 1e-12:
+        raise ValueError("the floor times the feasible variants exceeds 1")
+    mass = {v: max(float(base.get(v, 0.0)), 0.0) for v in variants}
+    total = sum(mass.values())
+    normalized = {v: (mass[v] / total if total > 0 else 1.0 / k) for v in variants}
+    return {v: (1.0 - k * epsilon) * normalized[v] + epsilon for v in variants}
+
+
+def draw_from(propensities: Mapping[str, float], u: float) -> str:
+    """Invert the propensities' CDF over the variants in sorted order."""
+
+    cumulative = 0.0
+    refs = sorted(ref for ref, p in propensities.items() if p > 0)
+    for ref in refs:
+        cumulative += propensities[ref]
+        if u < cumulative:
+            return ref
+    return refs[-1]

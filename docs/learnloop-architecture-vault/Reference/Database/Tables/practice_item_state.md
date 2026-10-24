@@ -3,8 +3,8 @@ title: "practice_item_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
+source_commit_timestamp: "2026-10-24T14:22:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_state"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/content/proposals/patches.py"
   - "src/learnloop/content/synthesis/coverage_rollup.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/diagnosis/causal_orchestrator.py"
-  - "src/learnloop/diagnosis/probe_remint.py"
-  - "src/learnloop/diagnosis/remediation.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/content/authoring/practice_generation.py"
@@ -107,6 +107,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/authoring/item_authoring.py`
@@ -126,13 +127,16 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/diagnostic_surface_supply.py`
 - `src/learnloop/diagnosis/followups.py`
-- `src/learnloop/diagnosis/probe_dialogue.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
+- `tests/test_ad23_contract.py`
+- `tests/test_ad2_model.py`
+- `tests/test_ad3_reading.py`
+- `tests/test_ad3_subject_view.py`
 - `tests/test_assumed_known.py`
 - `tests/test_attempts.py`
 - `tests/test_card_lineage.py`
@@ -149,10 +153,6 @@ Indexes and uniqueness:
 - `tests/test_event_sufficiency.py`
 - `tests/test_exam_seeding.py`
 - `tests/test_family_memory_projection.py`
-- `tests/test_field_cli.py`
-- `tests/test_held_grade_evidence.py`
-- `tests/test_hot_path_eligibility_cutover.py`
-- `tests/test_intent_codex_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

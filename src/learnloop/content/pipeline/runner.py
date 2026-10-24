@@ -926,6 +926,31 @@ class IngestRunner:
         # what it got at creation or from its answered offer; a stop kills it
         # through the epoch). A batch with no token asks through its own offer.
 
+    def requeue_failed_unless_cancelled(self, batch_id: str, *, error_code: str) -> bool:
+        """Requeue the batch's jobs that failed with ``error_code``, only while the batch is
+        not cancelled. An automatic retry, never a resume: it never clears a cancellation,
+        which only an explicit :meth:`resume_batch` does (Codex verify F11).
+
+        The cancellation check and the requeue are one transaction, so a cancel that
+        commits first leaves every job as it was, and one that commits after finds the
+        requeued jobs and cancels them as usual. Returns whether anything was requeued."""
+
+        requeued = False
+        with self.repo.atomic():
+            batch = self.repo.get_ingest_batch(batch_id)
+            if batch is None or batch.get("cancel_requested"):
+                return False
+            for job in self.repo.ingest_jobs_for_batch(batch_id):
+                if job.get("cancel_requested") or job.get("status") != "failed":
+                    continue
+                if (job.get("error") or {}).get("code") != error_code:
+                    continue
+                self.repo.requeue_ingest_job(job["id"], clock=self.clock)
+                requeued = True
+        if requeued:
+            self._refresh_batch(batch_id)
+        return requeued
+
     # -- internals ---------------------------------------------------------
 
     def _run_claimed(self, job: dict[str, Any]) -> None:

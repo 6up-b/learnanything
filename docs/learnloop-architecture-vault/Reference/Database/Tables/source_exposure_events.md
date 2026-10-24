@@ -3,8 +3,8 @@ title: "source_exposure_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
+source_commit_timestamp: "2026-10-24T14:22:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_exposure_events"
@@ -19,15 +19,17 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/049_source_exposure_events.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/attempts/coldness_receipt.py"
+  - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/content/sources/source_outcome_analytics.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/db/stores/source_service.py"
-  - "src/learnloop/instructional/exposure.py"
-  - "src/learnloop/instructional/interventions.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/diagnosis/remediation.py"
+  - "src/learnloop/instructional/interventions.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -97,7 +99,6 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/adaptive_difficulty/reading.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/instructional/exposure.py`
@@ -126,6 +127,10 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/ad_ingest_fakes.py`
+- `tests/test_ad23_contract.py`
+- `tests/test_ad3_reading.py`
+- `tests/test_ad_protected_readings.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_exam_protection.py`
 - `tests/test_exam_protection_review.py`
@@ -142,10 +147,6 @@ Indexes and uniqueness:
 - `tests/test_retrieval_interventions_write_points.py`
 - `tests/test_router_coldness_covariates.py`
 - `tests/test_rw4_kill_switches.py`
-- `tests/test_sidecar_span_view.py`
-- `tests/test_source_outcome_analytics.py`
-- `tests/test_span_view.py`
-- `tests/test_ad1_codex_review_fixes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

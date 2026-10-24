@@ -630,6 +630,21 @@ correctness, mastery, capability evidence, diagnosis, or certification.
 “I already know this” creates a low-authority learner claim usable to prioritize
 a cheap cold check; it does not mark the target demonstrated.
 
+*Dated note (2026-10-19, adaptive difficulty AD2+AD3 stage; owner decisions D20 of
+2026-10-15 and D22 of 2026-10-17; `spec_adaptive_difficulty_v1.md` A12, §5.11, Q8):*
+one confirmed exception, scoped to adaptive difficulty's prediction and selection.
+Discrete reading opportunities (a section read or passage viewed, a tutor exchange
+while reading, a worked example studied, an in-passage question answered; each the
+fact that it happened, with a dose) and the learner's self-check verdict class on
+an answered in-passage question may shift AD's *predicted* level through learned,
+saturating weights. No salience magnitude passes (no dwell, scroll, highlight,
+skip, visibility, active time, answer text or projector output); nothing passes
+the evidence chokepoint; nothing reaches mastery, posterior evidence, FSRS,
+certification or levels; the exception has its own kill switches
+(`adaptive_difficulty.reading_opportunities`, `reading_self_check`) and auto-flags.
+Its only path is `attempts.salience_firewall.learning_opportunity_events`, beside
+proposal priority, with the allowlist and its own test (G-AD3-13).
+
 ---
 
 ## 9. Learner authoring and in-review maintenance
@@ -939,6 +954,15 @@ Attempt to feed every reading event and salience projection into mastery,
 probe, readiness, and certification APIs; each must reject or assign zero
 evidence by type. Highlights/dwell may reorder proposals only. “Already know”
 may schedule a cold check but cannot mark a cell demonstrated.
+
+*Dated note (2026-10-19, AD2+AD3; §8.2's note, `spec_adaptive_difficulty_v1.md`
+A12, G-AD3-13):* every check above stands and every existing firewall test passes
+unchanged. The confirmed exception adds one test: `learning_opportunity_events`
+admits exactly the listed reading-opportunity sources (and D22's verdict class from
+`judgment_ledger`), returns nothing for any other reading kind, salience projection
+or source table, carries no magnitude field, and every record it returns stays
+`salience_only`, so `reject_salience` and `apply_attempt` still refuse it. AD's
+predicted readiness numbers read it; evidence, mastery and certification never do.
 
 ### 15.5 Authoring and maintenance
 

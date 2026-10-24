@@ -162,17 +162,36 @@ def load_duration_evidence(
     repository: Any,
     *,
     latency_cap_minutes: float,
+    attempt_rows: Any = None,
+    event_visible: Any = None,
+    event_rows: Any = None,
 ) -> DurationEvidence:
-    """Read own latencies (by item and by mode) and plan feedback dwell."""
+    """Read own latencies (by item and by mode) and plan feedback dwell.
+
+    ``attempt_rows``: the ``practice_attempts`` rows to read latencies from
+    instead of the whole table. Adaptive difficulty passes its material view's
+    rows (A8; Codex verify F28), so a withheld answer's duration never moves an
+    AD candidate's estimate; None reads the table, as the plan does.
+    ``event_visible(kind, detail, block_id)``: which plan events the feedback dwell may
+    pair (adaptive difficulty passes its material view's rule, Codex verify F28
+    round 10); None pairs every event, as the plan does. ``event_rows``: the plan's
+    ``item_done``/``item_served`` events already read (``plan_id``, ``block_id``,
+    ``kind``, ``detail``, ``created_at``, in the plan's order); adaptive difficulty
+    passes its material view's (the AD23 redesign: its operation never reads the
+    raw events), None reads them here."""
 
     by_item: dict[str, list[float]] = defaultdict(list)
     by_mode: dict[str, list[float]] = defaultdict(list)
     dwell: list[float] = []
     with repository.connection() as connection:
-        for row in connection.execute(
+        rows = connection.execute(
             "SELECT practice_item_id, practice_mode, latency_seconds FROM practice_attempts "
             "WHERE latency_seconds IS NOT NULL AND latency_seconds > 0"
-        ):
+        ) if attempt_rows is None else [
+            row for row in attempt_rows
+            if row.get("latency_seconds") is not None and float(row["latency_seconds"]) > 0
+        ]
+        for row in rows:
             minutes = winsorize_minutes(row["latency_seconds"], latency_cap_minutes)
             by_item[str(row["practice_item_id"])].append(minutes)
             by_mode[str(row["practice_mode"])].append(minutes)
@@ -180,7 +199,7 @@ def load_duration_evidence(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'daily_plans'"
         ).fetchone()
         if has_plans is not None:
-            dwell = _feedback_dwell(connection)
+            dwell = _feedback_dwell(connection, event_visible=event_visible, event_rows=event_rows)
     return DurationEvidence(
         latencies_by_item={key: tuple(values) for key, values in by_item.items()},
         latencies_by_mode={key: tuple(values) for key, values in by_mode.items()},
@@ -188,7 +207,7 @@ def load_duration_evidence(
     )
 
 
-def _feedback_dwell(connection: Any) -> list[float]:
+def _feedback_dwell(connection: Any, *, event_visible: Any = None, event_rows: Any = None) -> list[float]:
     """item_done -> the next item_served in the same plan, capped at five minutes.
 
     Only the plan's numbered blocks count: a pick served after the plan closed
@@ -198,8 +217,9 @@ def _feedback_dwell(connection: Any) -> list[float]:
 
     import json
 
-    rows = connection.execute(
-        "SELECT b.daily_plan_id AS plan_id, e.kind AS kind, e.detail_json AS detail, e.created_at AS created_at "
+    rows = event_rows if event_rows is not None else connection.execute(
+        "SELECT b.daily_plan_id AS plan_id, e.block_id AS block_id, e.kind AS kind, e.detail_json AS detail, "
+        "e.created_at AS created_at "
         "FROM attention_block_events e JOIN attention_blocks b ON b.id = e.block_id "
         "WHERE b.daily_plan_id IS NOT NULL AND b.plan_ordinal IS NOT NULL "
         "AND e.kind IN ('item_done', 'item_served') "
@@ -210,6 +230,10 @@ def _feedback_dwell(connection: Any) -> list[float]:
     for row in rows:
         plan_id = str(row["plan_id"])
         detail = json.loads(row["detail"]) if row["detail"] else {}
+        if event_visible is not None and not event_visible(row["kind"], detail, str(row["block_id"])):
+            # A withheld event is skipped as if it had never been written (A8's "protected ==
+            # absent"): it neither starts, ends nor breaks a pair.
+            continue
         if row["kind"] == "item_done":
             pending_done[plan_id] = parse_utc(detail.get("done_at") or row["created_at"])
             continue

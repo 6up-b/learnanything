@@ -63,6 +63,7 @@ from learnloop.daily_plan.lanes import (
 )
 from learnloop.daily_plan.reading import as_you_read_extraction_ids, next_reading_target, section_start_span
 from learnloop.daily_plan.records import (
+    AD_INELIGIBLE,
     ORIGIN_CHOOSER,
     ORIGIN_FOLLOWUP,
     ORIGIN_LEARNER_PICK,
@@ -234,6 +235,9 @@ class PoolContext:
     #: The pool with those items still in it, in pool order (round 8: what
     #: the boundary could choose from once a hold lifts).
     pool_with_held: tuple[PoolItem, ...] = ()
+    #: Adaptive difficulty AD2+AD3: the day's active AD deferrals this view
+    #: excluded (spec §6.1 step 0); the projection holds them fixed.
+    ad_deferred: frozenset[str] = frozenset()
     #: DL2: committed LOs' intent views (empty: every LO uncommitted, as DL1).
     intent_views: Mapping[str, IntentView] = field(default_factory=dict)
 
@@ -739,8 +743,14 @@ def _classified_pool(
     reentry: bool,
     record: PlanRecord | None = None,
     minutes_left: float | None = None,
+    scheduled_items: Sequence[Any] | None = None,
+    item_states: Mapping[str, Any] | None = None,
 ) -> _Pool:
     """The scheduler's ranked list, classified into lanes (§6.1).
+
+    ``scheduled_items`` and ``item_states`` (adaptive difficulty's membership, the compose fix
+    round 2): classify a list this advance's build already produced, reading the item states given
+    (AD's material view's) instead of the repository's; both None for the plan's own build.
 
     ``record`` is the open plan on a refresh (None on a build). At mvp-0.21
     the due project probes are valued together against the minutes the plan
@@ -758,13 +768,13 @@ def _classified_pool(
     can still take are valued (F10, :func:`_plan_availability`).
     """
 
-    scheduled = env.build_eligible(minutes)
+    scheduled = env.build_eligible(minutes) if scheduled_items is None else list(scheduled_items)
     # UX Phase 4 rounds 5 to 7: a cold check a routine display covers stays in
     # the pool (and the plan's universe); the boundary leaves it out while the
     # hold lasts (``_context``), and waits for it when it is all that is left
     # and the hold lifts today (``PlanWaiting``).
     estimator = _estimator(env)
-    states = env.repository.practice_item_states()
+    states = env.repository.practice_item_states() if item_states is None else item_states
     intent = intent_view(env)
     ids = [item.practice_item_id for item in scheduled]
     checks = scheduled_checks(env.vault, env.repository, ids)
@@ -1205,13 +1215,7 @@ def _prepare_plan(
         if item.lane in loads and item.lane != "new":
             loads[item.lane] += item.est_minutes
     m = max(budget - requested_minutes - check_minutes, 0.0)
-    new_candidates = [
-        NewCandidate(item.practice_item_id, item.est_minutes, requested=item.requested)
-        for item in rest
-        if item.lane == "new" and item.never_attempted
-    ]
-    if built.intent is not None:
-        new_candidates = _intent_admission_order(built.intent, new_candidates)
+    new_candidates = new_material_candidates(built.intent, rest)
     review_load = projected_review_load(
         _review_items(env, built.estimator, built.intent), now=env.now(), horizon_days=int(config.load_horizon_days)
     )
@@ -1485,7 +1489,11 @@ def simulate_blocks(
     reading_used = any(block.is_reading for block in sim.blocks)
     pending = list(forced)
     for _ in range(max_blocks):
-        taken = sim.planned_ids() | {item.practice_item_id for item in sim.items() if item.skipped}
+        # The plan's planned and skipped items, plus adaptive difficulty AD2+AD3's
+        # deferrals (spec §6.1 step 0) only as the switch-aware context states them:
+        # none with ``selection`` off, less what a boundary released (Codex verify
+        # F13). Held fixed by the projection.
+        taken = sim.exclusion_ids() | set(context.ad_deferred)
         taken |= {item.practice_item_id for item in pending}  # forced: never packed again (re-review F11)
         view = replace(
             context,
@@ -1624,7 +1632,36 @@ def _context_from_build(env: PlanEnv, record: PlanRecord, built: _Pool) -> PoolC
     return _context(env, record, built, day=day_records(env))
 
 
-def _context(env: PlanEnv, record: PlanRecord, built: _Pool, *, day: Sequence[PlanRecord]) -> PoolContext:
+def _ad_selection(env: PlanEnv) -> bool:
+    from learnloop.adaptive_difficulty.successor import selection_on
+
+    return selection_on(env.vault.config)
+
+
+def day_ad_deferrals(env: PlanEnv, record: PlanRecord | None = None) -> dict[str, dict[str, Any]]:
+    """The day's active AD deferrals (spec §6.1 step 0): every plan of the day, its blocks in
+    creation order (a later plan of the same day starts with them)."""
+
+    plans = list(day_records(env))
+    if record is not None and all(plan.id != record.id for plan in plans):
+        plans.append(record)
+    plans = [record if record is not None and plan.id == record.id else plan for plan in plans]
+    blocks = sorted(((block.created_at, block.ordinal, block) for plan in plans for block in plan.blocks),
+                    key=lambda entry: (entry[0], entry[1]))
+    active: dict[str, dict[str, Any]] = {}
+    for _created, _ordinal, block in blocks:
+        for item_id in ((block.chosen or {}).get("ad_deferrals") or {}).get("cleared") or ():
+            active.pop(str(item_id), None)
+        for item in block.items:
+            if item.displaced and item.displaced_reason == AD_INELIGIBLE and item.displaced_at:
+                detail = item.displaced_detail or {}
+                active.setdefault(item.practice_item_id, {"since": item.displaced_at,
+                                                          "failed": list(detail.get("failed") or [])})
+    return active
+
+
+def _context(env: PlanEnv, record: PlanRecord, built: _Pool, *, day: Sequence[PlanRecord],
+             released: Iterable[str] = (), unclaimed: Iterable[str] = ()) -> PoolContext:
     """The source's view at one boundary: the plan's universe minus what it took."""
 
     split = record.split
@@ -1632,6 +1669,12 @@ def _context(env: PlanEnv, record: PlanRecord, built: _Pool, *, day: Sequence[Pl
     taken = record.planned_ids()
     # Skipped items stay out of this plan (the learner skipped them).
     taken |= {item.practice_item_id for item in record.items() if item.skipped}
+    # Adaptive difficulty AD2+AD3 (spec §6.1 step 0): an item AD displaced as
+    # ineligible stays out of every pool of the day's plans until a boundary
+    # re-reads its checks and clears it (none exist with ``selection`` off).
+    deferred = frozenset(day_ad_deferrals(env, record) if _ad_selection(env) else ()) - frozenset(released)
+    taken |= deferred
+    taken -= frozenset(unclaimed)
     pool = tuple(
         item
         for item in built.pool
@@ -1680,6 +1723,7 @@ def _context(env: PlanEnv, record: PlanRecord, built: _Pool, *, day: Sequence[Pl
         deadlines=built.deadlines,
         held_until=held_until,
         pool_with_held=pool_with_held if held_until else (),
+        ad_deferred=deferred,
         intent_views=_intent_views(env, built, (item.learning_object_id for item in pool)),
     )
 
@@ -1831,6 +1875,57 @@ def _intents(context: PoolContext) -> dict[str, IntentView]:
         lo: replace(views[lo], deadline=context.deadlines.get(lo)) if lo in views else IntentView(deadline=context.deadlines.get(lo))
         for lo in sorted(los)
     }
+
+
+def new_material_candidates(intent: Any, pool: Iterable[PoolItem]) -> list[NewCandidate]:
+    """THE plan's new-material candidates from a pool (§6.3): its never-attempted new-lane items, in
+    intent's admission order (Keep and Light touch add no new material of the system's choosing;
+    requests stay exempt). The plan's build admits from these; adaptive difficulty's slot draw may
+    choose only among them (:func:`admitted_new_material_ids`), so a rule added here applies to both."""
+
+    candidates = [
+        NewCandidate(item.practice_item_id, item.est_minutes, requested=item.requested)
+        for item in pool
+        if item.lane == "new" and item.never_attempted
+    ]
+    if intent is not None:
+        candidates = _intent_admission_order(intent, candidates)
+    return candidates
+
+
+def admitted_new_material_ids(
+    env: PlanEnv,
+    record: PlanRecord,
+    *,
+    scheduled: Sequence[Any],
+    item_states: Mapping[str, Any],
+    released: Iterable[str] = (),
+    unclaimed: Iterable[str] = (),
+) -> frozenset[str]:
+    """The plan's admitted pool of new material at this boundary, as ids (the compose fix rounds 2
+    and 3): ``scheduled`` (the scheduler's queue this advance's build produced, after its per-item
+    predicate and its set-level stages, teach-back value admission and caps among them) classified
+    into lanes reading ``item_states`` (AD's material view's: fix round 12's rule for every
+    incumbent verdict AD receives, so an item whose only history is a withheld answer is new
+    material exactly as with that answer absent, A8), within the plan's universe, less what the plan
+    took (planned, skipped, held, AD-deferred unless ``released``), through
+    :func:`new_material_candidates`. ``unclaimed``: planned items not counted as taken (a slot's own
+    item, whose place is the one AD fills: it passes the same rule as its siblings, round 3).
+    Adaptive difficulty's candidates are members of this set or nothing: AD reorders or chooses
+    within the plan's own pool and never adds to it."""
+
+    built = _classified_pool(
+        env,
+        minutes=record.budget,
+        lanes_allowed=record.lanes_allowed,
+        day=day_records(env),
+        reentry=record.kind == "reentry",
+        record=record,
+        scheduled_items=scheduled,
+        item_states=item_states,
+    )
+    context = _context(env, record, built, day=(), released=released, unclaimed=unclaimed)
+    return frozenset(candidate.practice_item_id for candidate in new_material_candidates(built.intent, context.pool))
 
 
 def _intent_admission_order(intent: Any, candidates: Sequence[NewCandidate]) -> list[NewCandidate]:
@@ -2188,6 +2283,7 @@ def _boundary(
     *,
     forced: Sequence[PoolItem] = (),
     forced_origin: str = ORIGIN_REQUESTED,
+    ad_deferrals: Mapping[str, Any] | None = None,
 ) -> str | None:
     """Choose and persist the next block, or close the plan. Returns the block id."""
 
@@ -2252,6 +2348,11 @@ def _boundary(
             for item in forced
         ],
     }
+    if ad_deferrals:
+        # Adaptive difficulty (spec §6.1 step 0): the AD deferrals this boundary
+        # applied and the ones it cleared, so each decision's pool rebuilds.
+        detail["ad_deferrals"] = {"applied": list(ad_deferrals.get("applied") or []),
+                                  "cleared": list(ad_deferrals.get("cleared") or [])}
     voi_decisions = [dict(item.voi) for item in context.pool if item.voi is not None]
     if voi_decisions:
         # mvp-0.21: the value-of-information decisions on today's due project
@@ -3146,8 +3247,19 @@ def advance_with_context(
                 if row.get("practice_item_id") in by_id
             ]
             forced_origin = ORIGIN_REQUESTED
+        ad_deferrals = None
+        if _ad_selection(env):
+            # Adaptive difficulty (spec §6.1 step 0): at each boundary the day's
+            # AD deferrals are re-read with the draw's own checks; those that
+            # pass rejoin the pool here, and the decision records both.
+            active = day_ad_deferrals(env, record)
+            if active:
+                cleared = _ad_deferrals_cleared(env, record, built, active)
+                ad_deferrals = {"applied": sorted(set(active) - set(cleared)), "cleared": sorted(cleared)}
+                context = _context(env, record, built, day=(), released=cleared)
         try:
-            block_id = _boundary(env, record, context, forced=forced, forced_origin=forced_origin)
+            block_id = _boundary(env, record, context, forced=forced, forced_origin=forced_origin,
+                                 ad_deferrals=ad_deferrals)
         except DecisionPending:
             # Router R2b: the decision's models are still out on a read. No
             # step yet: the view says the next block is being chosen.
@@ -3172,6 +3284,18 @@ def advance_with_context(
     item = block.next_item()
     if item is None:  # pragma: no cover - an unfinished item block has an open item
         return record, _done_step(record), context
+    if serve and item.served_at is None and _ad_selection(env):
+        from learnloop.adaptive_difficulty.serving import slot_applies
+
+        if slot_applies(env.vault.config, item):
+            served = _ad_slot_serve(env, record, block, item, built, context, boundary=boundary)
+            if served is None:
+                # Displaced as ineligible (spec §6.1 step 0): the plan's rules pick the next step.
+                return advance_with_context(env, serve=serve)
+            if served is not _AD_UNAVAILABLE:
+                return served
+            # AD is unavailable for this slot (A8, fail closed; Codex verify F22): the planned item
+            # is served below exactly as the incumbent serves it.
     eligibility = None
     if serve and item.served_at is None:
         held, eligibility = _held_cold_check(env, block, item)
@@ -3195,6 +3319,172 @@ def advance_with_context(
     if serve:
         step["presentation_id"] = _serve(env, block, item, candidate_id=candidate_id)
         record = _reload(env, record.id)
+    return record, step, context
+
+
+#: ``_ad_slot_serve``'s answer when AD cannot decide the slot safely (the held-out predicate or
+#: the routine exclusions could not be computed): the incumbent serves the planned item.
+_AD_UNAVAILABLE: Any = object()
+
+import logging as _logging
+
+_AD_LOG = _logging.getLogger(__name__)
+
+
+def _code(exc: BaseException) -> str:
+    """An AD failure's code (its only argument), never its text beyond that."""
+
+    value = exc.args[0] if exc.args else None
+    return value if isinstance(value, str) and len(value) < 64 and value.replace(":", "").replace("_", "").isalnum() \
+        else type(exc).__name__
+
+
+def _ad_phase(run: Any, where: str) -> Any:
+    """An AD phase (``ad_slot``): its result, or None when AD is unavailable (logged with its code)."""
+
+    from learnloop.daily_plan import ad_slot
+
+    code = None
+    try:
+        return run()
+    except ad_slot.AdUnavailable as exc:
+        code = _code(exc)
+    _AD_LOG.warning("adaptive difficulty unavailable for %s (%s): the incumbent decides", where, code)
+    return None
+
+
+def _incumbent_facts(run: Any, where: str) -> Any:
+    """Phase 2: the plan's own facts, or None. Any failure of the plan's code is caught here, in the
+    incumbent, and logged as its type and a code at the default level (owner Q3, 2026-10-24); the
+    traceback, which can quote what the plan read, only at DEBUG. Nothing of it reaches AD."""
+
+    from learnloop.daily_plan.slot_facts import FACTS_FAILED
+
+    name = None
+    try:
+        return run()
+    except Exception as exc:  # noqa: BLE001 - the plan's facts failed: AD is unavailable, the incumbent serves
+        name = type(exc).__name__
+        _AD_LOG.debug("adaptive difficulty: the plan's facts for %s failed", where, exc_info=True)
+    _AD_LOG.warning("adaptive difficulty unavailable for %s (%s, %s): the incumbent decides", where, name,
+                    FACTS_FAILED)
+    return None
+
+
+def _ad_deferrals_cleared(env: PlanEnv, record: PlanRecord, built: _Pool, active: Mapping[str, Any]) -> list[str]:
+    """§6.1 step 0 by the four phases: the AD deferrals whose checks all pass now, each a member of the
+    plan's admitted pool were it released; none on any failure (nothing re-admitted)."""
+
+    from learnloop.daily_plan import ad_slot, slot_facts
+    from learnloop.daily_plan.slot_facts_schema import encode
+
+    with env.repository.atomic():
+        session = _ad_phase(lambda: ad_slot.open_deferrals(env.vault, env.repository, active), "deferrals")
+        if session is None or not session.inputs.candidate_ids:
+            return []
+        facts = _incumbent_facts(lambda: slot_facts.for_deferrals(env, record, built, session.inputs, active),
+                                 "deferrals")
+        if facts is None:
+            return []
+        cleared: list[str] | None = None
+        code = None
+        try:
+            with env.repository.atomic():
+                found = ad_slot.deferrals_cleared(env.vault, env.repository, encode(facts), session=session)
+                cleared = slot_facts.accept_cleared(facts, found)
+        except ad_slot.AdUnavailable as exc:
+            code = _code(exc)
+        except slot_facts.ChoiceRejected:
+            code = slot_facts.CHOICE_REJECTED
+        if cleared is None:
+            _AD_LOG.warning("adaptive difficulty unavailable for deferrals (%s): none is cleared", code)
+            return []
+        return cleared
+
+
+def _ad_slot_serve(
+    env: PlanEnv, record: PlanRecord, block: PlannedBlock, item: PlannedItem, built: _Pool, context: PoolContext,
+    *, boundary: bool,
+) -> Any:
+    """Adaptive difficulty AD2+AD3 (spec §6.1): the slot's support, AD's draw, its
+    ``ad_selections`` row, any ``item_substituted`` event and ``item_served``, in one
+    transaction (a propensity is never recomputed after the draw). None when the slot
+    was displaced as ineligible; :data:`_AD_UNAVAILABLE` (nothing of AD's written) when AD
+    is unavailable for it, or the plan does not admit its choice.
+
+    The final round (inversion, owner decision 2026-10-24): phase 1, AD lists what its view
+    shows (``ad_slot.open_slot``); phase 2, the plan computes its verdicts itself, here, with no
+    AD operation open (``slot_facts.for_slot``); phase 3, AD decides from those facts, decoded
+    against their schema (``ad_slot.decide``); phase 4, the plan re-checks AD's choice
+    (``slot_facts.accept``), rolling AD's row back and serving the planned item if it would not
+    admit it. AD never receives the plan's objects; the plan's exceptions never reach AD."""
+
+    from learnloop.daily_plan import ad_slot, slot_facts
+    from learnloop.daily_plan.slot_facts_schema import encode
+
+    with env.repository.atomic():
+        day = day_records(env)  # the plan's own records
+        session = _ad_phase(lambda: ad_slot.open_slot(env.vault, env.repository, slot_item_id=item.practice_item_id),
+                            f"slot {block.id}/{item.position}")
+        if session is None:
+            return _AD_UNAVAILABLE
+        facts = _incumbent_facts(lambda: slot_facts.for_slot(env, record, block, item, built, day, session.inputs),
+                                 f"slot {block.id}/{item.position}")
+        if facts is None:
+            return _AD_UNAVAILABLE
+        if session.inputs.slot_visible and not facts.slot_admitted:
+            # The slot's own item left the plan's admitted pool (a choice since it was planned, a stage
+            # of the queue): the incumbent's own handling decides, as with AD off (compose fix round 3).
+            _AD_LOG.info("adaptive difficulty: slot %s/%s is not in the plan's admitted pool (slot_not_admitted); "
+                         "the planned item is served", block.id, item.position)
+            return _AD_UNAVAILABLE
+        wire = encode(facts)
+        outcome = None
+        code = None
+        try:
+            with env.repository.atomic():  # a savepoint: AD's row and the plan's re-check stand or fall together
+                decision, request = ad_slot.decide(env.vault, env.repository, wire, session=session)
+                slot_facts.accept(facts, decision.action, decision.chosen_item_id)
+                outcome = (decision, request)
+        except ad_slot.AdUnavailable as exc:
+            code = _code(exc)
+        except slot_facts.ChoiceRejected:
+            code = slot_facts.CHOICE_REJECTED
+        if outcome is None:
+            _AD_LOG.warning("adaptive difficulty unavailable for slot %s/%s (%s): the planned item is served",
+                            block.id, item.position, code)
+            return _AD_UNAVAILABLE
+        decision, request = outcome
+        now = env.now_iso()
+        with env.repository.connection() as connection:
+            if decision.action == "displace":
+                _event(connection, block.id, "item_displaced", {
+                    "practice_item_id": item.practice_item_id, "reason": AD_INELIGIBLE,
+                    "failed": list(decision.slot_failed), "selection_id": decision.selection_id,
+                }, now)
+                return None
+            if decision.action == "substitute" and decision.chosen_item_id:
+                drawn = next((c for c in request.candidates if c.practice_item_id == decision.chosen_item_id), None)
+                _event(connection, block.id, "item_substituted", {
+                    "practice_item_id": decision.chosen_item_id, "slot_item_id": item.practice_item_id,
+                    "learning_object_id": item.learning_object_id,
+                    "est_minutes": round(float(drawn.est_minutes if drawn else item.est_minutes), 4),
+                    "slot_est_minutes": round(float(item.est_minutes), 4),
+                    "selection_id": decision.selection_id,
+                }, now)
+        record = _reload(env, record.id)
+        block = next(b for b in record.blocks if b.id == block.id)
+        served = next((planned for planned in block.items
+                       if planned.position == item.position and not planned.resolved), None)
+        if served is None:  # pragma: no cover - the slot always holds the drawn item
+            return None
+        candidate_id = context.candidate_ids.get(served.practice_item_id)
+        step = _item_step(env, record, block, served, boundary=boundary, candidate_id=candidate_id)
+        detail = decision.step_detail()
+        if detail is not None:
+            step["adaptive_difficulty"] = detail
+        step["presentation_id"] = _serve(env, block, served, candidate_id=candidate_id)
+    record = _reload(env, record.id)
     return record, step, context
 
 

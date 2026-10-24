@@ -3,8 +3,8 @@ title: "interaction_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
+source_commit_timestamp: "2026-10-24T14:22:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interaction_events"
@@ -19,13 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/065_activity_lineage_substrate.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/material_view.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
+  - "src/learnloop/adaptive_difficulty/report.py"
   - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/cli/field_classification.py"
   - "src/learnloop/cli/surfaces.py"
-  - "src/learnloop/db/repositories.py"
-  - "src/learnloop/db/stores/source_service.py"
-  - "src/learnloop/field/signals.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/content/authoring/rung_variants.py"
@@ -127,7 +128,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/adaptive_difficulty/reading.py`
+- `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/cli/field_classification.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_service.py`
@@ -163,9 +164,13 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/ad_ingest_fakes.py`
 - `tests/recap_fixtures.py`
 - `tests/test_activity_substrate.py`
 - `tests/test_ad1_reading_opportunities.py`
+- `tests/test_ad23_contract.py`
+- `tests/test_ad23_fix_review.py`
+- `tests/test_ad_protected_readings.py`
 - `tests/test_compare_keep_switch_off.py`
 - `tests/test_compare_sources_keep.py`
 - `tests/test_exam_protection.py`
@@ -179,10 +184,6 @@ Indexes and uniqueness:
 - `tests/test_reader_capture.py`
 - `tests/test_reader_cues.py`
 - `tests/test_reader_dialogue.py`
-- `tests/test_reader_formative_texts.py`
-- `tests/test_reader_inquiry_status.py`
-- `tests/test_reader_intent.py`
-- `tests/test_reader_recap.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

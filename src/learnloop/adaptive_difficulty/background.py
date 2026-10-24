@@ -27,6 +27,9 @@ vault-copy run) starts nothing.
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.logs import warn_failure
+from learnloop.adaptive_difficulty.operation import entry
+
 import logging
 import threading
 from collections.abc import Callable, Iterable
@@ -89,7 +92,7 @@ def _launch(sqlite_path: Any, key: str, job: Callable[[Any], None], *, builds: A
                         # close, as the map builds' writes do.
                         job(fence)
                 except Exception:  # noqa: BLE001 - a background job never reaches the serve
-                    LOG.warning("adaptive difficulty background job %s failed", key, exc_info=True)
+                    warn_failure(LOG, "adaptive difficulty background job %s failed", key)
                 finally:
                     with _GUARD:
                         _INFLIGHT.discard(candidate)
@@ -99,7 +102,7 @@ def _launch(sqlite_path: Any, key: str, job: Callable[[Any], None], *, builds: A
         started = thread is not None
         return thread
     except Exception:  # noqa: BLE001 - scheduling never fails a serve
-        LOG.warning("adaptive difficulty job %s not scheduled", key, exc_info=True)
+        warn_failure(LOG, "adaptive difficulty job %s not scheduled", key)
         return None
     finally:
         if not started:
@@ -132,10 +135,11 @@ def schedule_presentation_forecasts(vault: Any, sqlite_path: Any, presentation_i
         return _launch(sqlite_path, f"presentation:{presentation_id}", job, builds=builds,
                        name=f"learnloop-ad-forecast-{presentation_id}")
     except Exception:  # noqa: BLE001
-        LOG.warning("AD presentation forecasts not scheduled", exc_info=True)
+        warn_failure(LOG, "AD presentation forecasts not scheduled")
         return None
 
 
+@entry(durable="it sends to a model: its claim, spend and receipts commit per unit")
 def prepare_items(vault: Any, repository: Any, item_ids: Iterable[str], *, clients: Clients | None = None,
                   decider_factory: Callable[[], Any] | None = None, clock: Any = None,
                   fence: Any = None, limit: int = PREPARE_LIMIT,
@@ -147,16 +151,37 @@ def prepare_items(vault: Any, repository: Any, item_ids: Iterable[str], *, clien
     (Codex review F5, F6): a revision another job or process is preparing is
     ``busy`` here and left to it."""
 
-    ids = list(dict.fromkeys(str(value) for value in item_ids))[:limit]
-    items = [vault.practice_items.get(item_id) for item_id in ids]
-    return _prepare(vault, repository, [item for item in items if item is not None], clients=clients,
-                    decider_factory=decider_factory, clock=clock, fence=fence, live_vault=live_vault)
+    from learnloop.adaptive_difficulty.material_view import material_view
+
+    # Read through a material view (A8): a withheld id is handed on as withheld, never as content,
+    # and the run reports it ``protected``. The limit counts visible revisions only, so protected
+    # inventory never decides which public revisions are prepared (Codex verify F49).
+    view = material_view(vault, repository)
+    units: list[Any] = []
+    visible = 0
+    for item_id in dict.fromkeys(str(value) for value in item_ids):
+        if view.withheld(item_id):
+            units.append(_Withheld(item_id))
+        elif visible < limit:
+            visible += 1
+            units.append(view.item(item_id))
+    return _prepare(vault, repository, [unit for unit in units if unit is not None], clients=clients,
+                    decider_factory=decider_factory, clock=clock, fence=fence, live_vault=live_vault,
+                    view=view if live_vault is None else None)
+
+
+@dataclass(frozen=True)
+class _Withheld:
+    """An item id the material view withholds: prepared as ``protected``, its content never read."""
+
+    id: str
+    content_hash: str | None = None
 
 
 def _prepare(vault: Any, repository: Any, items: list[Any], *, clients: Clients | None,
              decider_factory: Callable[[], Any] | None, clock: Any, fence: Any,
              live_vault: Callable[[], Any] | None,
-             results: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+             results: list[dict[str, Any]] | None = None, view: Any = None) -> list[dict[str, Any]]:
     """Prepare exactly these revisions (each an item as it was found), in order.
 
     Each visited revision's entry is appended to ``results`` as soon as it is
@@ -165,21 +190,40 @@ def _prepare(vault: Any, repository: Any, items: list[Any], *, clients: Clients 
     that sees an exception knows which revisions were visited."""
 
     from learnloop.adaptive_difficulty.feature_audit import audit_revision, item_revision
-    from learnloop.adaptive_difficulty.protection import protection
+    from learnloop.adaptive_difficulty.material_view import material_view
+    from learnloop.adaptive_difficulty.operation import epoch_of
 
     def live() -> bool:
         return fence is None or fence.live()
 
     results = results if results is not None else []
     current = live_vault() if live_vault is not None else vault
-    protected = protection(current if current is not None else vault, repository)
+    # The run's material view of the vault as it is now (A8; fix round 8): computed once per run.
+    view = material_view(current if current is not None else vault, repository, view)
+    protected = view.protection
+    # A revision is done for this protection epoch only (the AD23 redesign, E2; Codex verify F50):
+    # once protection changes it is judged, and prepared, again.
+    epoch = epoch_of(view)
     for item in items:
         if not live():
             break
         item_id = str(item.id)
+        if isinstance(item, _Withheld) or view.withheld(item_id) or view.covers(item):
+            # Terminal: a withheld item is never audited or forecast (A8). A revision queued while it
+            # was visible keeps its queue key (its hash), so it leaves the queue settled.
+            content_hash = item.content_hash if isinstance(item, _Withheld) else item_revision(item)[0]
+            entry = {"practice_item_id": item_id, "content_hash": content_hash, "settled": True}
+            if feature_audit_enabled(vault.config):
+                entry["audit"] = {"status": "protected"}
+            if LLM_V1 in outside_forecasters(vault.config):
+                entry["llm_v1"] = {"status": "protected"}
+            results.append(entry)
+            if content_hash is not None and epoch is not None:
+                with _GUARD:
+                    _PREPARED.add((str(Path(repository.sqlite_path)), epoch, item_id, content_hash))
+            continue
         content_hash = item_revision(item)[0]
-        loaded = current if current is not None else vault
-        if getattr(item, "status", "active") != "active" or item_id not in (loaded.practice_items or {}):
+        if getattr(item, "status", "active") != "active" or view.item(item_id) is None:
             # Terminal: retrying an ineligible or removed item changes nothing.
             results.append({"practice_item_id": item_id, "content_hash": content_hash, "status": "ineligible",
                             "settled": True})
@@ -203,22 +247,23 @@ def _prepare(vault: Any, repository: Any, items: list[Any], *, clients: Clients 
             # run before anything was recorded, so every trigger retried it
             # first and the revisions behind it never ran. It is visited and
             # unsettled (retried later, at the back), and the run goes on.
-            LOG.warning("AD preparation of %s failed", item_id, exc_info=True)
+            warn_failure(LOG, "AD preparation of %s failed", item_id)
             entry.update(status="failed", error=type(exc).__name__)
             entry["settled"] = False
             results.append(entry)
             continue
         entry["settled"] = _settled(entry)
         results.append(entry)
-        if entry["settled"]:
+        if entry["settled"] and epoch is not None:
             with _GUARD:
-                _PREPARED.add((str(Path(repository.sqlite_path)), item_id, entry["content_hash"]))
+                _PREPARED.add((str(Path(repository.sqlite_path)), epoch, item_id, entry["content_hash"]))
     return results
 
 
-#: Item revisions this process has prepared to the end (audited or current,
-#: forecast or current, or protected): a plan read never schedules them again.
-_PREPARED: set[tuple[str, str, str]] = set()
+#: Item revisions this process has prepared to the end (audited or current, forecast or current, or
+#: protected), per database and protection epoch: a run admits none of them again at that epoch,
+#: and every one of them again at another (Codex verify F50).
+_PREPARED: set[tuple[str, str, str, str]] = set()
 #: Settled: done (ok, audited in full), already done (current), or terminal
 #: (protected: the content is held out in the snapshot judged; the switch
 #: off). Everything else (refused_spend, busy, unavailable, failed, an audit
@@ -238,11 +283,11 @@ def _settled(entry: dict[str, Any]) -> bool:
 @dataclass
 class _Queue:
     """One vault's preparation queue (fix round 4, V2): the revisions waiting,
-    in arrival order, each the item as it was found (Codex re-review F12: an
-    edit mid-run queues the new revision beside the old one), and whether its
-    one worker is running."""
+    in arrival order, as ``(item id, revision hash)`` keys only (the AD23 redesign: never content;
+    Codex re-review F12: an edit mid-run queues the new revision beside the old one), and whether
+    its one worker is running."""
 
-    pending: dict[tuple[str, str], Any] = field(default_factory=dict)
+    pending: dict[tuple[str, str], None] = field(default_factory=dict)
     taken: set[tuple[str, str]] = field(default_factory=set)
     running: bool = False
     #: The latest scheduler's vault, clients and live-vault provider: a run
@@ -283,6 +328,9 @@ def schedule_item_preparation(vault: Any, sqlite_path: Any, item_ids: Iterable[s
         if ad_spend.models_off() and not _injected(clients):
             return None
         path = str(Path(sqlite_path))
+        # The protection epoch now: a revision done at it is not queued again (the run's admission,
+        # inside its operation, decides again); at another epoch it is (Codex verify F50).
+        epoch = _epoch_now(vault, sqlite_path)
         with _GUARD:
             queue = _QUEUES.setdefault(path, _Queue())
             for value in item_ids:
@@ -290,29 +338,101 @@ def schedule_item_preparation(vault: Any, sqlite_path: Any, item_ids: Iterable[s
                 if item is None:
                     continue
                 key = (str(value), item_revision(item)[0])
-                if (path, *key) in _PREPARED or key in queue.pending or key in queue.taken:
+                if (epoch is not None and (path, epoch, *key) in _PREPARED) or key in queue.pending \
+                        or key in queue.taken:
                     continue
-                queue.pending[key] = item
+                queue.pending[key] = None
             queue.vault, queue.clients, queue.clock = vault, clients, clock
             queue.live_vault = live_vault
         return _start_run(sqlite_path, queue, builds=builds, limit=max(0, min(int(limit), PREPARE_LIMIT)))
     except Exception:  # noqa: BLE001
-        LOG.warning("AD item preparation not scheduled", exc_info=True)
+        warn_failure(LOG, "AD item preparation not scheduled")
         return None
 
 
+def _epoch_now(vault: Any, sqlite_path: Any) -> str | None:
+    """The vault's protection epoch now (None when the predicate cannot be computed)."""
+
+    from learnloop.db.repositories import Repository
+
+    from learnloop.adaptive_difficulty.material_view import detached_view
+
+    try:
+        return detached_view(vault, Repository.attach(Path(sqlite_path))).epoch
+    except Exception:  # noqa: BLE001 - unknown: nothing is skipped at the queue
+        return None
+
+
+def _resolve(op: Any, connection: Any, key: tuple[str, str]) -> Any:
+    """A queued key as the operation sees it: the current item when its revision is the key's, else
+    the saved revision; :class:`_Withheld` when withheld; None when it is gone."""
+
+    from learnloop.adaptive_difficulty.feature_audit import item_revision
+
+    item_id, content_hash = key
+    view = op.view
+    if view.withheld(item_id):
+        return _Withheld(item_id, content_hash)
+    item = view.item(item_id)
+    if item is not None and item_revision(item)[0] == content_hash:
+        return item
+    if view.revision_hash_withheld(connection, content_hash):
+        return _Withheld(item_id, content_hash)
+    return view.revision(connection, content_hash)
+
+
+def _admit(queue: _Queue, op: Any, path: str, limit: int, results: list[dict[str, Any]]) -> list[tuple[Any, Any]]:
+    """The run's batch, chosen inside its operation (the AD23 redesign; Codex verify F49, F50): every
+    pending key already done at this epoch leaves the queue; a protected or gone one is settled
+    without counting; the first ``limit`` visible ones are taken. The rest wait."""
+
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+
+    from learnloop.adaptive_difficulty.operation import epoch_of
+
+    epoch = epoch_of(op.view)
+    with _GUARD:
+        keys = list(queue.pending)
+    batch: list[tuple[Any, Any]] = []
+    done: list[tuple[str, str]] = []
+    visible = 0
+    with closing(connect(op.raw_repository.sqlite_path, read_only=True)) as connection:
+        for key in keys:
+            if epoch is not None and (path, epoch, *key) in _PREPARED:
+                done.append(key)
+                continue
+            unit = _resolve(op, connection, key)
+            if unit is None:
+                results.append({"practice_item_id": key[0], "content_hash": key[1], "status": "ineligible",
+                                "settled": True})
+                done.append(key)
+                continue
+            protected = isinstance(unit, _Withheld) or op.view.covers(unit)
+            if not protected:
+                if visible >= limit:
+                    continue
+                visible += 1
+            batch.append((key, unit))
+    with _GUARD:
+        for key in done:
+            queue.pending.pop(key, None)
+        for key, _unit in batch:
+            queue.pending.pop(key, None)
+        queue.taken = {key for key, _unit in batch}
+    return batch
+
+
 def _start_run(sqlite_path: Any, queue: _Queue, *, builds: Any, limit: int) -> threading.Thread | None:
-    """One run of at most ``limit`` revisions, unless the queue's worker is running."""
+    """One run of at most ``limit`` visible revisions, unless the queue's worker is running."""
 
     with _GUARD:
         if queue.running or not queue.pending or limit <= 0:
             return None
-        batch = list(queue.pending.items())[:limit]
-        for key, _item in batch:
-            del queue.pending[key]
-        queue.taken = {key for key, _item in batch}
         queue.running = True
         vault, clients, clock, live_vault = queue.vault, queue.clients, queue.clock, queue.live_vault
+    batch: list[tuple[Any, Any]] = []
 
     def finish(results: list[dict[str, Any]]) -> None:
         """Only settled revisions leave the queue (fix round 5, V2).
@@ -331,9 +451,9 @@ def _start_run(sqlite_path: Any, queue: _Queue, *, builds: Any, limit: int) -> t
         visited = {(entry["practice_item_id"], entry["content_hash"]): bool(entry.get("settled"))
                    for entry in results}
         with _GUARD:
-            unvisited = {key: item for key, item in batch if key not in visited}
-            retry = {key: item for key, item in batch if visited.get(key) is False}
-            waiting = {key: item for key, item in queue.pending.items() if key not in unvisited and key not in retry}
+            unvisited = {key: None for key, _unit in batch if key not in visited}
+            retry = {key: None for key, _unit in batch if visited.get(key) is False}
+            waiting = {key: None for key in queue.pending if key not in unvisited and key not in retry}
             queue.pending = {**unvisited, **waiting, **retry}
             queue.taken = set()
             queue.running = False
@@ -345,12 +465,20 @@ def _start_run(sqlite_path: Any, queue: _Queue, *, builds: Any, limit: int) -> t
                 if fence.live():
                     from learnloop.db.repositories import Repository
 
+                    from learnloop.adaptive_difficulty.operation import ad_operation
+
                     repository = Repository.attach(Path(sqlite_path))
-                    _prepare(vault, repository, [item for _key, item in batch], clients=clients,
-                             decider_factory=None, clock=clock, fence=fence, live_vault=live_vault,
-                             results=results)
+                    current = live_vault() if live_vault is not None else None
+                    # The run's one AD operation, on the vault loaded now (A8; the AD23 redesign): its
+                    # batch is admitted inside it. Durable form (round 4, ``entry``'s ``durable``): it
+                    # sends to a model, so its claims, spend and receipts commit per unit.
+                    with ad_operation(current if current is not None else vault, repository) as op:
+                        batch.extend(_admit(queue, op, str(Path(sqlite_path)), limit, results))
+                        _prepare(op.vault, op.repository, [unit for _key, unit in batch], clients=clients,
+                                 decider_factory=None, clock=clock, fence=fence, live_vault=live_vault,
+                                 results=results, view=op.view)
             except Exception:  # noqa: BLE001 - a background job never reaches the serve
-                LOG.warning("adaptive difficulty preparation run failed", exc_info=True)
+                warn_failure(LOG, "adaptive difficulty preparation run failed")
             finally:
                 finish(results)
         return run
@@ -358,7 +486,7 @@ def _start_run(sqlite_path: Any, queue: _Queue, *, builds: Any, limit: int) -> t
     try:
         thread = _registry(builds).launch(sqlite_path, work, name="learnloop-ad-prepare")
     except Exception:  # noqa: BLE001 - scheduling never fails a serve
-        LOG.warning("adaptive difficulty preparation run not started", exc_info=True)
+        warn_failure(LOG, "adaptive difficulty preparation run not started")
         thread = None
     if thread is None:
         finish([])
@@ -402,7 +530,7 @@ def schedule_new_revisions(previous: Any, vault: Any, sqlite_path: Any, *, item_
         return schedule_item_preparation(vault, sqlite_path, ids, clients=clients, builds=builds,
                                          live_vault=live_vault)
     except Exception:  # noqa: BLE001 - preparation never blocks a reload
-        LOG.warning("AD preparation of new revisions not scheduled", exc_info=True)
+        warn_failure(LOG, "AD preparation of new revisions not scheduled")
         return None
 
 

@@ -181,12 +181,16 @@ def legacy_place_origin(repository: Any, extraction_id: str) -> str | None:
 
 
 _MEMO_LIMIT = 64
-_memo: OrderedDict[tuple[str, str, str], dict[str, _Alias]] = OrderedDict()
+_memo: OrderedDict[tuple[str, str, str, str], dict[str, _Alias]] = OrderedDict()
 _memo_lock = threading.Lock()
 
 
-def _memo_key(repository: Any, from_extraction_id: str, to_extraction_id: str) -> tuple[str, str, str]:
-    return (str(getattr(repository, "sqlite_path", "")), from_extraction_id, to_extraction_id)
+def _memo_key(repository: Any, from_extraction_id: str, to_extraction_id: str) -> tuple[str, str, str, str]:
+    # The repository's own projection key (an adaptive-difficulty operation's repository reads the IR
+    # with held-out blocks removed, so its aliases are kept apart, per protection epoch; the AD23
+    # redesign): "" for the plain repository.
+    return (str(getattr(repository, "sqlite_path", "")), str(getattr(repository, "projection_key", "") or ""),
+            from_extraction_id, to_extraction_id)
 
 
 def _computed(repository: Any, from_extraction_id: str, to_extraction_id: str) -> dict[str, _Alias]:
@@ -220,6 +224,14 @@ def _computed(repository: Any, from_extraction_id: str, to_extraction_id: str) -
         while len(_memo) > _MEMO_LIMIT:
             _memo.popitem(last=False)
     return found
+
+
+def computed_aliases(repository: Any, from_extraction_id: str, to_extraction_id: str) -> dict[str, _Alias]:
+    """The aliases computed from the two readings' IR as ``repository`` loads it, never the persisted
+    ones: an adaptive-difficulty operation's aliases, from its projected readings (cached per
+    protection epoch by the repository's ``projection_key``)."""
+
+    return _computed(repository, from_extraction_id, to_extraction_id)
 
 
 def alias_map(repository: Any, from_extraction_id: str, to_extraction_id: str) -> dict[str, _Alias]:

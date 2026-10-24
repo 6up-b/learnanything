@@ -3,8 +3,8 @@ title: "daily_plans"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b07f28cf51243d7da8452e6cbf5726513533aba5"
-source_commit_timestamp: "2026-10-24T10:03:03-04:00"
+source_commit: "40fbcac235d562ca079d4d342bf788123321b5c8"
+source_commit_timestamp: "2026-10-24T14:22:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite daily_plans"
@@ -19,13 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/180_daily_plans.sql"
+  - "src/learnloop/adaptive_difficulty/column_classes.py"
+  - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/estimates.py"
   - "src/learnloop/daily_plan/lanes.py"
   - "src/learnloop/daily_plan/records.py"
   - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/daily_plan_upgrade.py"
-  - "src/learnloop/db/stores/daily_plans.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -118,6 +119,8 @@ None found by exact static reference scan.
 
 - `tests/figure_fixtures.py`
 - `tests/source_service_fakes.py`
+- `tests/test_ad23_contract.py`
+- `tests/test_ad_guard.py`
 - `tests/test_architecture.py`
 - `tests/test_daily_plan_kill_switch.py`
 - `tests/test_daily_plan_reading.py`
