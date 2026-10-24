@@ -111,3 +111,20 @@ def test_a_database_before_219_reads_as_empty(tmp_path):
     with closing(sqlite3.connect(database)) as connection:
         assert not has_tables(connection)
         assert spaces(connection) == {} and feedback_rows(connection) == []
+
+
+@pytest.mark.durability
+def test_219_on_the_durability_lane(tmp_path):
+    from learnloop.db.connection import connect
+
+    database = _database_at(tmp_path, 218)
+    with upgrade_allowance(UPGRADE_TEST_HELPER):
+        assert [migration.version for migration in apply_migrations(database)] == [219]
+    with closing(sqlite3.connect(database)) as connection:
+        assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+    with closing(connect(database)) as connection:
+        append_feedback(connection, [{"receipt_id": "rq_d", "event": "query", "consumer": "c", "query_kind": "k"}])
+        connection.commit()
+        with pytest.raises(sqlite3.DatabaseError, match="append-only"):
+            connection.execute("DELETE FROM retrieval_feedback")
+        assert len(feedback_rows(connection)) == 1

@@ -258,3 +258,28 @@ enabled = true
     config = load_config(paths.root / "learnloop.toml", load_environment=False)
     assert len(queue_contextual_indexes(ctx, config, "ext_book")) == 2
     assert [kind for kind, _jobs in queued] == ["local_source_index", "source_fallback_backfill"]
+
+
+def test_the_commands_dry_run_without_starting_anything(tmp_path, data_root, monkeypatch):
+    from typer.testing import CliRunner
+
+    from learnloop.cli import app
+
+    def refuse(*_args, **_kwargs):
+        raise AssertionError("a process was started")
+
+    monkeypatch.setattr("subprocess.run", refuse)
+    monkeypatch.setattr("subprocess.Popen", refuse)
+    runner = CliRunner()
+    plan = runner.invoke(app, ["embeddings", "local", "setup", "--dry-run", "--json"])
+    assert plan.exit_code == 0, plan.output
+    planned = json.loads(plan.output)
+    assert planned["status"] == "dry_run" and planned["model"]["revision"] == pins.MODEL_REVISION
+    assert not pins.manifest_path().exists()
+    refused = runner.invoke(app, ["embeddings", "local", "setup", "--json"])
+    assert refused.exit_code == 1 and "33-gb" in json.loads(refused.output)["reason"]
+    paths, _repository = _local_vault(tmp_path)
+    set_up_data_root(data_root)
+    owed = runner.invoke(app, ["embeddings", "local", "index", "--vault", str(paths.root), "--dry-run", "--json"])
+    assert owed.exit_code == 0, owed.output
+    assert json.loads(owed.output)["status"] == "dry_run" and json.loads(owed.output)["owed_windows"] > 0
