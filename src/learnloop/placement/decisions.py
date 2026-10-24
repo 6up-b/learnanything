@@ -17,7 +17,9 @@ grading evidence, mastery, facet state, certification, coldness or FSRS state
 (F2, G7): the only writes are ``assumption_decisions``, ``assumption_returns``,
 the ledger verdicts, the quick check's queue rows, the practice draft of a card
 the learner skipped with "I know this", and the queue revision so Today
-refreshes.
+refreshes; and, at reader workbench RW2d's successor, ``field_signal_receipts``
+(what the predecessor's derivation and rule would have decided where the
+workbench signals changed a fast-track or quick-check verdict).
 """
 from __future__ import annotations
 
