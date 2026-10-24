@@ -1019,3 +1019,129 @@ from `daily_plan.staged_frame`, a named incumbent reader. The moved module joins
 3. AD reads none of RW3b's, RW5a's or RW7a's tables. Figure predictions and cue responses are
    candidate reading events for AD3's reading signal (§5.11). Adding them would be a spec decision,
    with their weights learned, and is not part of this merge.
+
+
+## Compose fix round (intent)
+
+The Opus composition verify of `a84767d65` reopened the compose round with one High and one Medium.
+Both arise where DL2's intent controls meet AD for the first time. Both are fixed by construction,
+and the Low L4 with them. The verify's three other Lows and its T1 note are recorded as
+post-landing follow-ups (`adaptive-difficulty-ad23-codex-review.md`, "AD follow-up
+(post-landing)").
+
+**F1 (High): any DL2 choice turned AD's slot draw off.** The staged frame's admission
+(`StagedFrame.material`) reaches `frame_constraints.evaluate_mandatory`, then
+`controller_snapshot.build_snapshot` / `_commitment_summary`, then `curriculum.commitments`, which
+reads `commitment_versions`. That module was not a named incumbent reader, so its read was denied,
+the operation poisoned and the planned item served, with no selection written. Behind it,
+`controller_snapshot` read `depth_policy_versions` and `depth_envelope_versions`, which were
+unclassified. `deferrals_to_clear` failed closed the same way. The AD lanes had no commitments, and
+the plan fakes' `requested_practice_item_ids` was a zero-argument lambda that crashed as soon as
+intent was active.
+
+**F2 (Medium): AD's candidates ignored DL2's intent rule.** The slot's never-attempted siblings were
+checked against neither intent's `withhold_reason` nor anything else the plan's pool asks. The plan
+revalidates only unserved planned items, and AD substitutes and serves in one transaction. So with
+F1 patched by readers alone, AD would serve a paused, let-go or check-held sibling.
+
+**The fix, by construction.**
+
+- **One shared incumbent check: `scheduler.pool_admission`.** It is `build_due_queue`'s own per-item
+  loop question (`admission_reason`, ruling R1), asked of one item outside a build over the same
+  reads as `check_admission`; `_outside_build_admission` is now shared by both, and nothing is
+  written. The question covers:
+  - the routine gate;
+  - DL2's intent gate, with intent's view built and its checks split by this admission, as the
+    build does it;
+  - the build's gates (freshness reserve, placement, cold start, the probe episodes);
+  - requests, taken from the build's own request set (DL2's skips and the checks' candidates
+    included).
+
+  It reads the item states as AD's material view reads them (fix round 12). AD's candidates are not
+  necessarily in the pool, so they are asked the pool's question. A rule the build adds to that
+  predicate, as DL2 added intent, then reaches AD with no second list kept in sync.
+- **Verdicts only: `ad_slot.incumbent_verdicts`.** This is the one place check 1 enters the
+  incumbent's scope. It asks the staged frame's admission and the pool predicate there, and returns
+  `IncumbentVerdicts`: `refusals` (constraint refusals with the router on, `pool:<reason>` under
+  both settings), `cold_items` and `reserved_items`, as ids and reason strings only.
+  `admission_failures` consumes it. That covers both the slot's candidates (inside the serve
+  transaction, `engine._ad_slot_serve`'s `atomic()` block, at the draw that substitutes) and
+  `deferrals_to_clear`, so a deferral the pool would refuse is never cleared.
+- **The registry, from a trace, not by hand.** A trace recorded every read in the incumbent's scope:
+  every intent scope and choice under both router settings (the property's cases), the contract
+  harness, and the real scheduler through the sidecar RPCs with commitments.
+
+| Table | Role | Columns (content) | Why |
+|---|---|---|---|
+| `depth_policy_versions` | NEUTRAL | `body_json` | A content-addressed curriculum depth policy: no learner material, nothing derived from answers. |
+| `depth_envelope_versions` | NEUTRAL | `bounds_json reviewed_edges_json` | A content-addressed depth envelope, the same. |
+| `assumption_decisions` | DENIED | `interval_json config_json inputs_json` | Placement's decisions, from the learner field's predictor over answers. |
+| `assumption_returns` | DENIED | none | Placement's returns of those assumptions. |
+| `learner_gap_check_advances` | DENIED | none | Learner-text-gap receipts (from answers' text). |
+| `learner_gap_commitments` | DENIED | none | The same. |
+| `learner_text_gap_reversals` | DENIED | `detail_json` | Gap reversals (diagnosis state). |
+| `question_promotions` | DENIED | `attributed_facets_json` | The tutor's promote-to-practice workflow, read for the build's request set. |
+
+New named incumbent readers (`INCUMBENT_READERS`):
+
+- `learnloop.curriculum.commitments` (the snapshot's commitment heads);
+- `learnloop.scheduling.intent.resolution` (DL2's resolution);
+- `learnloop.scheduling.scheduler` (`pool_admission` and its request set);
+- `learnloop.placement.predictor`, `learnloop.learner.facet_state_reader`, `learnloop.learner.mastery`
+  and `learnloop.params.fitted_params` (the build gates).
+
+Each answers AD through `IncumbentVerdicts` or the routine exclusions' id sets, never as state. The
+commitment tables were already DENIED, and incumbent readers read them only in the incumbent's scope.
+
+**Tests** (`tests/test_ad23_intent_compose.py`; fakes only):
+
+- The verifier's two probes, without their patches:
+  - `test_f1_a_commitment_never_turns_the_slot_draw_off`: LO under Learn or Master, both router
+    settings; one serve selection and zero denials.
+  - `test_f2_ad_never_serves_an_item_intent_withholds`: the siblings paused, let go or under a
+    "Check once"; AD's support excludes them, and the served step is never one of them.
+- `test_the_incumbent_hands_ad_only_verdicts`: the verdict type's fields are exactly `refusals`,
+  `cold_items` and `reserved_items`, with id and string values. `pool:intent_paused` reaches a paused
+  sibling. The slot enters the incumbent's scope only in `_exclusions` and `incumbent_verdicts`.
+- The property: 30 seeded cases over intent scope (learning_object or practice_item with a random
+  item subset), choice (learn, master, pause, let_go, check_once) and router setting. In each:
+  - zero guard denials over every operation;
+  - no served step is an item intent withholds at that step;
+  - `deferrals_to_clear` clears no withheld item.
+- `test_the_real_scheduler_lane_with_commitments`: the plan RPCs through the real scheduler (no fake
+  pool), five commitment sets under both router settings; zero denials, AD opens its operation, no
+  withheld item is served. This lane found the scheduler's own reads, which the fake-pool lanes
+  never reached.
+- Fail-first: on `a84767d65` (with the fake's signature fixed), 38 of the first 43 failed, every one
+  on the F1 denial. All pass now.
+- The plan fakes' `requested_practice_item_ids` takes the real signature (`skip_commitment_ids`).
+- The fake pools that stand in for the scheduler's due queue are gated by intent as that queue is
+  (`ad23_fakes.intent_gated`). With AD off, the ungated fake pool re-planned a paused item: a fake
+  artifact, not AD.
+
+**L4.** The kill-switch identity tests now compare against mvp-0.29 (DL2's intent) instead of
+mvp-0.27. Those are `selection = false` and the generation contract (`test_ad2_serving`), the switches
+below the tag, the fixture-copy identity and the rebuild (`test_ad23_successor`), the projection
+parity (`test_ad23_fix_r5`), and the relatedness proposal below the tag (`test_ad3_relatedness`).
+Each identity holds with an active commitment, so intent is not inert:
+
+- `test_ad2_serving`: the LO under Master and a sibling paused;
+- `test_ad23_fix_r5`: the other LO under Master and one of its items paused;
+- the fixture copies: their first LO under Master.
+
+Each asserts that intent acted (the paused item is never served or projected).
+
+**Gate (memory-capped scopes, at most -n 6, one at a time; no full suite).**
+
+- The full AD file set (all `tests/test_ad*.py` with the new `test_ad23_intent_compose`, plus
+  `test_span_reanchor` and `test_salience_firewall`): **6,152 passed, 36 xfailed** (-n 6, 19 min).
+  - An intermediate run failed one test, `test_ad23_fix_review`'s sidecar commission test. On the
+    real scheduler, the scheduler's own read of `question_promotions` was denied.
+  - Tracing the real-scheduler lane found it, along with the scheduler reader, and both are
+    classified above.
+- DL2's intent, commitment and frame files, the daily-plan and router R2a files, and every file that
+  uses the plan fakes, `check_admission` or `requested_practice_item_ids` (63 files with the
+  scheduler, CLI help, sidecar serializer and mobile allowlist pins): **1,749 passed**.
+- Durability (`--durable-sqlite`) on `test_ad_guard`, `test_ad_epoch`, `test_ad_protected_tables`,
+  `test_ad_protected_readings`, `test_ad23_intent_compose` and `test_ad23_migration`: **272 passed**.
+- `lint-imports --no-cache`: 30 kept, 0 broken.

@@ -2928,3 +2928,21 @@ deliberately not fixed before the landing, and are queued for a later AD follow-
 - **L4:** one constant for the reading contexts, shared by the sweep's `TUTOR_CONTEXTS`, the
   view's `READING_QUESTION_CONTEXTS` and the oracle.
 - **L5:** the oracle (`delete_reading`) misses `ext:span` retrieval keys in recorded contexts.
+
+From the Opus composition verify of `a84767d65` (the compose round; its High and Medium are fixed
+in the compose fix round, see `adaptive-difficulty-ad23.md`). Its Lows L1-L3 and a T1 note are
+recorded here, not fixed. They are numbered C1-C4 so they don't collide with L1-L5 above.
+
+- **C1 (verify L1):** in `reader_cue_impressions`, `shown`, `seed` and `link_id` act as value proxies
+  for a cue's suppression and its passage link. AD reads neither table today. If AD ever adds a
+  reader there, `passage_links` should arguably be DENIED rather than a READING table with
+  derived-unread columns.
+- **C2 (verify L2):** `reader_path_depths` (NEUTRAL, all metadata) records Reader activity, the
+  Guide's depth choice per source. Reclassify it if a reader appears.
+- **C3 (verify L3):** unmapped judgment kinds (`practice_attempt`, `source_span`,
+  `interactive_figure`, `library_ask`, `help_assist`, `workbench_step`) fail open: they name nothing
+  withheld for a `judgment_ledger` reader. Fold this into L1's fail-closed follow-up, so that an
+  unmapped kind withholds.
+- **C4 (T1 note):** when AD composes onto T1 (the plan-first transport), AD's model routes
+  (`ad_relatedness`, `ad_feature_audit`, `ad_forecast_llm`; also `ad_forecast_decider`, and the
+  `ad_item_forecast` task's route) need entries in T1's plan-first route table. T1 lands first, so expect another main merge after T1 and RW5b.
