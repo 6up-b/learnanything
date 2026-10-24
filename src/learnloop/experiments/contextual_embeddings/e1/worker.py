@@ -466,9 +466,15 @@ class TransformersModel:
         del self.model
         gc.collect()
         cuda.synchronize()
+        # cuBLAS keeps a per-handle workspace in the caching allocator (32 MiB
+        # on the first GPU smoke run): cleared so "complete" means no model memory.
+        clear = getattr(self.torch._C, "_cuda_clearCublasWorkspaces", None)
+        if clear is not None:
+            clear()
         cuda.empty_cache()
         allocated, reserved = cuda.memory_allocated(0), cuda.memory_reserved(0)
-        return {"allocated_after": allocated, "reserved_after": reserved, "complete": allocated == 0}
+        return {"allocated_after": allocated, "reserved_after": reserved, "complete": allocated == 0,
+                "cublas_workspaces_cleared": clear is not None}
 
 
 def load_model(model_dir: Path, job: Mapping[str, Any]) -> LoadedModel:
