@@ -270,7 +270,7 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "input_fingerprint"),
     "ingest_batches": (
         "id workflow_type payload_schema_version subject_id source_set_id status created_at started_at "
-        "finished_at cancel_requested priority",
+        "finished_at cancel_requested priority origin_method",  # origin_method: T1's 218, an RPC method name
         ""),
     "ingest_job_dependencies": (
         "job_id depends_on_job_id",
