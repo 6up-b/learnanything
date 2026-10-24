@@ -787,16 +787,17 @@ def test_a_background_jobs_offer_reaches_the_read_that_finds_it_done(tmp_path, m
     with plan_fallback.collecting() as offers:
         with pytest.raises(SidecarError):
             library_rpcs._job_payload(library_job)
-    assert offers.hint()["fallback_tasks"] == ["tutor_qa"]
+    # Relayed as the job's own offer (its action, vault and epoch: round 5), what the dispatch mints.
+    assert plan_fallback.take_offer(offers, vault)[0]["fallback_tasks"] == ["tutor_qa"]
     with plan_fallback.collecting() as offers:
         with pytest.raises(SidecarError):
             hint_rpcs._job_payload(ctx, hint_job)
-    assert offers.hint()["fallback_tasks"] == ["hint_writer"]
+    assert plan_fallback.take_offer(offers, vault)[0]["fallback_tasks"] == ["hint_writer"]
     # Relayed once (review F8): a later read of the same failed job brings no banner back.
     with plan_fallback.collecting() as offers:
         with pytest.raises(SidecarError):
             library_rpcs._job_payload(library_job)
-    assert offers.hint() is None
+    assert plan_fallback.take_offer(offers, vault) == (None, None)
     # Without a key no job offers anything.
     monkeypatch.delenv("OPENROUTER_API_KEY")
     if True:
