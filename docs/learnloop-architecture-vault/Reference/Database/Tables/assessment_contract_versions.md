@@ -3,8 +3,8 @@ title: "assessment_contract_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "4dd2c18f2b40c157ce538768c5252d6304c0dc26"
-source_commit_timestamp: "2026-10-24T15:18:15-04:00"
+source_commit: "0c0349bdaeae1bba20f10ba6c0bd3c9c898bbbfd"
+source_commit_timestamp: "2026-10-24T19:21:28-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite assessment_contract_versions"
@@ -103,6 +103,7 @@ Indexes and uniqueness:
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/field/probability_states.py`
+- `src/learnloop/field/workbench_signals.py`
 - `src/learnloop/learner_context.py`
 - `src/learnloop/learner_protection.py`
 - `src/learnloop/placement/state.py`
@@ -130,6 +131,7 @@ Indexes and uniqueness:
 - `tests/mcp_world.py`
 - `tests/test_collection_dataset.py`
 - `tests/test_diagnosis_input_provenance_landing.py`
+- `tests/test_field_workbench_signals.py`
 - `tests/test_mcp_c1a_narrow.py`
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_mcp_runtime.py`

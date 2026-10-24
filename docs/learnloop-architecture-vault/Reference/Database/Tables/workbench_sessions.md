@@ -3,8 +3,8 @@ title: "workbench_sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "4dd2c18f2b40c157ce538768c5252d6304c0dc26"
-source_commit_timestamp: "2026-10-24T15:18:15-04:00"
+source_commit: "0c0349bdaeae1bba20f10ba6c0bd3c9c898bbbfd"
+source_commit_timestamp: "2026-10-24T19:21:28-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite workbench_sessions"
@@ -49,7 +49,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/207_workbench.sql`.
-- **Schema touched by:** `207_workbench.sql`, `210_help_assists.sql`.
+- **Schema touched by:** `207_workbench.sql`, `210_help_assists.sql`, `219_field_signal_receipts.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -85,6 +85,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
 | `updated_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
 | `closed_at` | `TEXT` | no | — | — | Timestamp (ISO-8601 UTC text) |
+| `contract_subject_id` | `TEXT` | no | — | — | Application-validated soft reference |
 
 ## Relationships and access paths
 
@@ -140,6 +141,8 @@ None found by exact static reference scan.
 - `tests/test_reader_rw1c_review.py`
 - `tests/test_reader_tutor_retrieval.py`
 - `tests/test_reader_workbench_rw2a.py`
+- `tests/test_rw2d_receipts_migration.py`
+- `tests/test_t1_batch_origin_migration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -213,7 +216,7 @@ CREATE TABLE workbench_sessions (
   client_idempotency_key TEXT UNIQUE,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  closed_at TEXT,
+  closed_at TEXT, contract_subject_id TEXT,
   CHECK ((status = 'submitted') = (attempt_id IS NOT NULL)),
   CHECK ((import_status = 'bound') <= (practice_item_id IS NOT NULL))
 );
