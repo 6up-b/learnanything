@@ -1658,6 +1658,9 @@ def run_auto_study_map(ctx) -> dict[str, Any]:
         source_set_id=source_set_id,
         priority=BUILD_PRIORITY,
         batch_id=child_batch_id(ctx.job_id),
+        # The planned build is this pressed planner's own work: it carries the
+        # planner's grant, if any (T1 landing review round 2).
+        inherit_grant=True,
     )
     return {**outcome, "build_batch_id": build_batch_id}
 

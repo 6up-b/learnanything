@@ -19,6 +19,7 @@ from learnloop_sidecar.dto import to_camel
 from learnloop_sidecar.errors import SidecarError, json_rpc_error, sidecar_error
 from learnloop_sidecar.handlers.practice import submission_key
 from learnloop_sidecar.logging import log_event
+from learnloop_sidecar.pressed import pressed_feature
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
 LOG = logging.getLogger(__name__)
@@ -78,8 +79,12 @@ def _handle(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
         params = spec.params_model.model_validate({} if raw_params is None else raw_params)
         # A foreground RPC is the learner's request: only here (and in a job
         # carrying the learner's grant) does a grant count (T1 landing review).
-        with plan_fallback.interactive(), plan_fallback.collecting() as offers, \
-                _observed_model_calls(ctx, method_name, params):
+        # Queued work carries it only when the RPC is a press of a feature
+        # (learnloop_sidecar.pressed; round 2: scrolling is not pressing).
+        feature = pressed_feature(method_name, params)
+        with plan_fallback.interactive(), \
+                (plan_fallback.pressed(getattr(ctx, "vault_root", None), feature) if feature else nullcontext()), \
+                plan_fallback.collecting() as offers, _observed_model_calls(ctx, method_name, params):
             try:
                 result = spec.handler(ctx, params)
             except SidecarError as exc:

@@ -19,6 +19,8 @@ scheduler state or anything served.
 """
 from __future__ import annotations
 
+from contextlib import nullcontext
+
 import logging
 import threading
 from typing import Any
@@ -104,6 +106,9 @@ def _start(ctx: SidecarContext, vault: Any, repository: Any, extraction_id: str,
     from learnloop.ai import plan_fallback as _plan_fallback
 
     grant = _plan_fallback.capture_grant(vault.root)
+    # Round 2: a job the learner did not press (opening a book's margin notes or
+    # reading path, a suggestion) asks nothing either: a grant could never serve it.
+    asked = _plan_fallback.is_pressed()
 
     def run() -> None:
         from learnloop.ai import plan_fallback
@@ -113,7 +118,8 @@ def _start(ctx: SidecarContext, vault: Any, repository: Any, extraction_id: str,
         outcome: dict[str, Any] | None
         # Plan-first transport T1: the judgment's thread has no RPC collector;
         # it keeps its own offers and each read of the failed state relays them.
-        with plan_fallback.job_grant(grant), plan_fallback.collecting() as offers:
+        with plan_fallback.job_grant(grant), \
+            (nullcontext() if asked else plan_fallback.quiet()), plan_fallback.collecting() as offers:
             try:
                 worker = Repository.attach(sqlite_path)
                 with record_model_calls(worker, owner_kind="sidecar_rpc",

@@ -1787,11 +1787,16 @@ def reader_mark_section_progress(
                     section_id=params.section_id,
                     learning_object_ids=lo_ids,
                 )
-                batch_id = ctx.ingest_jobs.enqueue_practice_expansion(
-                    learning_object_ids=lo_ids,
-                    reason=f"reader_section_completed:{params.section_id}",
-                    source_refs=source_refs,
-                )
+                from learnloop.ai import plan_fallback
+
+                # Reading progress is not a press (T1 landing review round 2):
+                # the expansion asks nothing and carries no grant.
+                with plan_fallback.quiet():
+                    batch_id = ctx.ingest_jobs.enqueue_practice_expansion(
+                        learning_object_ids=lo_ids,
+                        reason=f"reader_section_completed:{params.section_id}",
+                        source_refs=source_refs,
+                    )
                 repository.set_section_generation_batch(
                     extraction_id=resolved, section_id=params.section_id, batch_id=batch_id
                 )
@@ -1804,9 +1809,13 @@ def reader_mark_section_progress(
     # below: it never fails the Reader (a failure is kept and retried).
     if keep_ahead:
         try:
+            from learnloop.ai import plan_fallback
             from learnloop.content.pipeline import add_source as auto_build
 
-            auto_build.keep_ahead_for_reader(ctx.ingest_jobs, resolved, params.section_id)
+            # Scrolling is not pressing (round 2): keep-ahead asks nothing and
+            # carries no grant (a second guard; this RPC is no press).
+            with plan_fallback.quiet():
+                auto_build.keep_ahead_for_reader(ctx.ingest_jobs, resolved, params.section_id)
         except Exception:  # pragma: no cover - background planning boundary
             import logging
 

@@ -45,6 +45,8 @@ refuses with ``cues_disabled`` and the guide plan is RW3a's, byte for byte.
 """
 from __future__ import annotations
 
+from contextlib import nullcontext
+
 import copy
 import hashlib
 import logging
@@ -318,6 +320,9 @@ class CueDiscoveryJobs:
         from learnloop.ai import plan_fallback as _plan_fallback
 
         grant = _plan_fallback.capture_grant(vault.root)
+        # Round 2: a job the learner did not press (opening a book's margin notes or
+        # reading path, a suggestion) asks nothing either: a grant could never serve it.
+        asked = _plan_fallback.is_pressed()
 
         def run() -> None:
             from learnloop.ai import plan_fallback
@@ -326,7 +331,8 @@ class CueDiscoveryJobs:
 
             # Plan-first transport T1: the job's thread has no RPC collector;
             # it keeps its own offers and the read that finds it done relays them.
-            with plan_fallback.job_grant(grant), plan_fallback.collecting() as offers:
+            with plan_fallback.job_grant(grant), \
+                (nullcontext() if asked else plan_fallback.quiet()), plan_fallback.collecting() as offers:
                 try:
                     worker_repo = Repository.attach(sqlite_path)
                     # One job of this source at a time, on the open's one budget

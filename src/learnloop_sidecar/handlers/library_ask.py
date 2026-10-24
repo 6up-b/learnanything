@@ -27,6 +27,8 @@ another source, peeking or saving meanwhile is answered at once.
 """
 from __future__ import annotations
 
+from contextlib import nullcontext
+
 import copy
 import logging
 import threading
@@ -216,6 +218,9 @@ class LibraryJobs:
         from learnloop.ai import plan_fallback as _plan_fallback
 
         grant = _plan_fallback.capture_grant(_vault.root)
+        # Round 2: a job the learner did not press (opening a book's margin notes or
+        # reading path, a suggestion) asks nothing either: a grant could never serve it.
+        asked = _plan_fallback.is_pressed()
 
         def run() -> None:
             from learnloop.ai import plan_fallback
@@ -224,7 +229,8 @@ class LibraryJobs:
 
             # Plan-first transport T1: the job's thread has no RPC collector;
             # it keeps its own offers and the read that finds it done relays them.
-            with plan_fallback.job_grant(grant), plan_fallback.collecting() as offers:
+            with plan_fallback.job_grant(grant), \
+                (nullcontext() if asked else plan_fallback.quiet()), plan_fallback.collecting() as offers:
                 try:
                     worker_repo = Repository.attach(sqlite_path)
                     # Receipts are owned as the serial loop owns an RPC's (server._observed_model_calls).

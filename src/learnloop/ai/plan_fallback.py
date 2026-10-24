@@ -333,13 +333,46 @@ _COMMAND_GRANT: ContextVar[bool] = ContextVar("learnloop_plan_fallback_command_g
 #: copied context run on another thread (a worker started with
 #: ``copy_context()``) is not interactive either.
 _INTERACTIVE: ContextVar[int | None] = ContextVar("learnloop_plan_fallback_interactive", default=None)
-#: Set by :func:`job_grant`: the grant a learner-started job carries, with the
-#: worker thread it was entered on.
-_JOB_GRANT: ContextVar[tuple["GrantToken", int] | None] = ContextVar("learnloop_plan_fallback_job_grant",
-                                                                     default=None)
-#: Per batch id: the token an ingest batch enqueued in a learner request carries (process memory only:
-#: after a restart a batch runs without one, on the plan).
+#: Set by :func:`job_grant`: running a job's work on this thread, with the
+#: grant it carries (``None``: none), and the thread it was entered on. Inside a
+#: job no learner request and no press counts, only the job's own token.
+_JOB_GRANT: ContextVar[tuple["GrantToken | None", int] | None] = ContextVar("learnloop_plan_fallback_job_grant",
+                                                                            default=None)
+#: Set by :func:`pressed`: the learner pressed a feature in this request, with
+#: the token captured for it (narrowed to the feature's tasks) and the thread.
+_PRESSED: ContextVar[tuple["GrantToken | None", int] | None] = ContextVar("learnloop_plan_fallback_pressed",
+                                                                          default=None)
+#: Per batch id: the token an ingest batch the learner pressed carries (process memory only: after a
+#: restart a batch runs without one, on the plan).
 _BATCH_GRANTS: dict[str, "GrantToken"] = {}
+
+#: The tasks each pressed feature's queued work may use a grant for (T1 landing
+#: review round 2: a token names the feature's own tasks, never every task
+#: granted on the vault). A feature's offer names its own tasks, so its grant is
+#: within this set.
+FEATURE_TASKS: dict[str, frozenset[str]] = {
+    # Add source / Create study map / Append / Quick add / import / inventory /
+    # extraction repair / build retry: the question build (review F3).
+    "build": frozenset({"canonical_ingest", "canonical_ingest_retry", "authoring"}),
+    # The Reader's paid passage, selection and inquiry checks.
+    "reader_check": frozenset({"canonical_ingest", "authoring"}),
+    # Exercise imports (Reader, textbook, workbench, the primed retry) and their key checks.
+    "exercise_import": frozenset({"canonical_ingest", "authoring", "source_solution_match",
+                                  "exercise_discrimination", "worked_example_equivalence"}),
+    "rung_variant": frozenset({"rung_variant"}),
+    "animation": frozenset({"animation"}),
+    "question_promotion": frozenset({"tutor_qa", "authoring"}),
+    # Goal population, starter and commissioning practice.
+    "practice": frozenset({"canonical_ingest", "authoring"}),
+    # Hints and the workbench (check, help, the worked example, compare).
+    "hints": frozenset({"hint_writer", "hint_outcome", "approach_map", "workbench_check", "source_query_rewrite",
+                        "source_rerank", "source_relevance_judge", "source_query_writer"}),
+    # The library ask / notes / compare / tutor, figures, exercise search.
+    "library": frozenset({"library_organizer", "tutor_qa", "source_compare", "source_query_rewrite",
+                          "source_rerank", "source_relevance_judge", "source_query_writer", "figure_author",
+                          "exercise_discrimination"}),
+    "reading_path": frozenset({"reading_path_judge"}),
+}
 
 
 def _vault_key(vault_root: Any) -> str:
@@ -358,7 +391,13 @@ class GrantToken:
 
     vault_key: str
     tasks: frozenset[str]
+    #: The CLI's ``LEARNLOOP_AI_FALLBACK``: these tasks without a session grant.
     command: bool = False
+    #: The CLI command's own press: every task, any vault (``vault_key == "*"``).
+    every: bool = False
+
+    def covers(self, task: str, key: str) -> bool:
+        return self.vault_key in (key, "*") and (self.every or task in self.tasks)
 
 
 def _here() -> int:
@@ -383,8 +422,15 @@ def interactive() -> Iterator[None]:
         _INTERACTIVE.reset(token)
 
 
+def _in_job() -> bool:
+    entry = _JOB_GRANT.get()
+    return entry is not None and entry[1] == _here()
+
+
 def is_interactive() -> bool:
-    return _INTERACTIVE.get() == _here() and not _QUIET.get()
+    """On the thread serving a learner request, outside a probe and outside any job's work."""
+
+    return _INTERACTIVE.get() == _here() and not _QUIET.get() and not _in_job()
 
 
 def _job_token() -> "GrantToken | None":
@@ -394,36 +440,90 @@ def _job_token() -> "GrantToken | None":
     return entry[0]
 
 
-def capture_grant(vault_root: Any) -> GrantToken | None:
-    """The grant a job started now may carry: only inside a learner request (or a job carrying one).
+def _narrowed(token: GrantToken | None, tasks: Iterable[str] | None, key: str) -> GrantToken | None:
+    if token is None or token.vault_key not in (key, "*"):
+        return None
+    if tasks is None:
+        return token
+    kept = frozenset(tasks) if token.every else token.tasks & frozenset(tasks)
+    return GrantToken(key, kept, command=token.command) if kept else None
 
-    ``None`` outside a learner request, inside a readiness probe, or when
-    nothing is granted on this vault. The caller keeps it with the job and
-    runs the job under :func:`job_grant`; nothing is inherited implicitly.
+
+def _capture_now(key: str, tasks: frozenset[str]) -> GrantToken | None:
+    if _COMMAND_GRANT.get():
+        return GrantToken(key, tasks, command=True)
+    with _GRANTS_LOCK:
+        kept = frozenset(_GRANTS.get(key, set())) & tasks
+    return GrantToken(key, kept) if kept else None
+
+
+@contextmanager
+def pressed(vault_root: Any, feature: str) -> Iterator[GrantToken | None]:
+    """The learner pressed ``feature`` in this request: queued work may carry their grant.
+
+    Entered by the sidecar's dispatch for the RPCs a learner press sends
+    (``learnloop_sidecar.pressed.PRESSED_RPCS``) and nowhere else (T1 landing
+    review round 2: scrolling, polling, Today and status reads are not a
+    press). The token is captured now, narrowed to ``FEATURE_TASKS[feature]``;
+    ``None`` outside a learner request, inside a probe or a job, or when none
+    of the feature's tasks is granted.
+    """
+
+    token = None
+    if vault_root is not None and is_interactive():
+        token = _capture_now(_vault_key(vault_root), FEATURE_TASKS[feature])
+    entry = _PRESSED.set((token, _here()))
+    try:
+        yield token
+    finally:
+        _PRESSED.reset(entry)
+
+
+def is_pressed() -> bool:
+    """Inside a learner's press on this thread (whether or not anything is granted), outside any job."""
+
+    entry = _PRESSED.get()
+    return entry is not None and entry[1] == _here() and not _in_job() and not _QUIET.get()
+
+
+def pressed_token(vault_root: Any = None) -> GrantToken | None:
+    """The token of the press around this call, on its own thread, outside any job's work."""
+
+    entry = _PRESSED.get()
+    if entry is None or entry[1] != _here() or entry[0] is None or _in_job() or _QUIET.get():
+        return None
+    if vault_root is not None and entry[0].vault_key not in (_vault_key(vault_root), "*"):
+        return None
+    return entry[0]
+
+
+def capture_grant(vault_root: Any, tasks: Iterable[str] | None = None) -> GrantToken | None:
+    """The grant a job started now may carry: the press around it, or the job it runs in.
+
+    ``None`` outside a press and outside a job carrying a token (a request
+    that is not a press, a background thread), inside a readiness probe, or
+    when none of ``tasks`` is granted. ``tasks`` narrows further (a job keeps
+    only its own). The caller keeps it with the job and runs the job under
+    :func:`job_grant`; nothing is inherited implicitly.
     """
 
     if _QUIET.get() or vault_root is None:
         return None
     key = _vault_key(vault_root)
-    carried = _job_token()
-    if carried is not None:
-        return carried if carried.vault_key == key else None
-    if not is_interactive():
-        return None
-    if _COMMAND_GRANT.get():
-        return GrantToken(key, frozenset(), command=True)
-    with _GRANTS_LOCK:
-        tasks = frozenset(_GRANTS.get(key, set()))
-    return GrantToken(key, tasks) if tasks else None
+    if _in_job():
+        return _narrowed(_job_token(), tasks, key)
+    return _narrowed(pressed_token(vault_root), tasks, key)
 
 
 @contextmanager
 def job_grant(token: GrantToken | None) -> Iterator[None]:
-    """Run a learner-started job's work (on its worker thread) under the grant it carries."""
+    """Run a job's work on this thread under the grant it carries (``None``: none).
 
-    if token is None:
-        yield
-        return
+    Always entered by a job's runner, token or not: inside it neither the
+    learner request nor a press around it counts (a job drained in the
+    request's own thread is still a job), only this token.
+    """
+
     entry = _JOB_GRANT.set((token, _here()))
     try:
         yield
@@ -432,8 +532,12 @@ def job_grant(token: GrantToken | None) -> Iterator[None]:
 
 
 def remember_batch_grant(batch_id: str, token: GrantToken | None) -> None:
-    if token is not None:
-        with _GRANTS_LOCK:
+    """Keep ``token`` with ``batch_id``; ``None`` drops any token the batch had."""
+
+    with _GRANTS_LOCK:
+        if token is None:
+            _BATCH_GRANTS.pop(batch_id, None)
+        else:
             _BATCH_GRANTS[batch_id] = token
 
 
@@ -459,8 +563,15 @@ def command_grant(*, host: bool = False) -> Iterator[bool]:
         if host:
             yield chosen
         else:
-            with interactive():  # the command is the learner's request
-                yield chosen
+            # The command is the learner's request, and with the variable set
+            # its own press: the work it queues (and drains) carries the grant.
+            press = _PRESSED.set((GrantToken("*", frozenset(), command=True, every=True), _here())
+                                 if chosen else None)
+            try:
+                with interactive():
+                    yield chosen
+            finally:
+                _PRESSED.reset(press)
     finally:
         _COMMAND_GRANT.reset(token)
 
@@ -504,7 +615,11 @@ def revoke(vault_root: Any | None = None) -> None:
             _OFFERED.clear()
             _BATCH_GRANTS.clear()
         else:
-            _GRANTS.pop(_vault_key(vault_root), None)
+            key = _vault_key(vault_root)
+            _GRANTS.pop(key, None)
+            # Its batches' tokens too: a later grant never revives a queued one (round 2, Low 1).
+            for batch_id in [batch for batch, token in _BATCH_GRANTS.items() if token.vault_key == key]:
+                del _BATCH_GRANTS[batch_id]
 
 
 def revoke_all() -> None:
@@ -527,14 +642,14 @@ def is_granted(task: str, vault_root: Any) -> bool:
     if _QUIET.get():
         return False
     key = _vault_key(vault_root)
-    token = _job_token()
-    if token is not None:
-        if token.vault_key != key:
+    if _in_job():
+        token = _job_token()
+        if token is None or not token.covers(task, key):
             return False
         if token.command:
             return True
         with _GRANTS_LOCK:
-            return task in token.tasks and task in _GRANTS.get(key, set())
+            return task in _GRANTS.get(key, set())
     if not is_interactive():
         return False
     if _COMMAND_GRANT.get():
@@ -549,6 +664,7 @@ __all__ = [
     "METERED_PRICE_SETTINGS",
     "OfferCollector",
     "collecting",
+    "FEATURE_TASKS",
     "GrantToken",
     "batch_grant",
     "capture_grant",
@@ -556,6 +672,9 @@ __all__ = [
     "interactive",
     "is_interactive",
     "job_grant",
+    "is_pressed",
+    "pressed",
+    "pressed_token",
     "remember_batch_grant",
     "current_hint",
     "grant",

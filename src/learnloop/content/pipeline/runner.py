@@ -440,6 +440,14 @@ class JobContext:
 
         if self._enqueue_batch is None:
             raise IngestRunnerError("this job context cannot enqueue follow-up work.")
+        # T1 landing review round 2: a follow-up carries this job's grant only
+        # when the caller says it is this pressed job's own work (its planned
+        # build); keep-ahead and other follow-ups never inherit one.
+        inherit = bool(kwargs.pop("inherit_grant", False))
+        if inherit:
+            from learnloop.ai import plan_fallback
+
+            kwargs["grant"] = plan_fallback.batch_grant(self.job.get("batch_id"))
         with self.repo.atomic():
             if self._cancel_requested():
                 raise JobCancelled()
@@ -604,7 +612,13 @@ class IngestRunner:
         source_set_id: str | None = None,
         priority: int = 0,
         batch_id: str | None = None,
+        grant: "plan_fallback.GrantToken | None" = None,
     ) -> str:
+        """``grant``: an explicit token (a pressed job's own child build,
+        :meth:`JobContext.enqueue_batch` with ``inherit_grant``); otherwise the
+        batch carries the token of the learner's press around this call, if
+        any (``plan_fallback.pressed_token``). Nothing else is captured."""
+
         # The batch, jobs and dependency graph form one enqueue receipt. A
         # stable identity lets interrupted callers recover without a second batch.
         with self.repo.atomic():
@@ -612,13 +626,13 @@ class IngestRunner:
                 return batch_id
             return self._enqueue_batch(
                 workflow_type, jobs, subject_id=subject_id,
-                source_set_id=source_set_id, priority=priority, batch_id=batch_id,
+                source_set_id=source_set_id, priority=priority, batch_id=batch_id, grant=grant,
             )
 
     def _enqueue_batch(
         self, workflow_type: str, jobs: Sequence[JobSpec], *,
         subject_id: str | None, source_set_id: str | None, priority: int,
-        batch_id: str | None,
+        batch_id: str | None, grant: "plan_fallback.GrantToken | None" = None,
     ) -> str:
         if not jobs:
             raise IngestRunnerError("a batch needs at least one job.")
@@ -652,10 +666,11 @@ class IngestRunner:
                     raise IngestRunnerError(f"invalid dependency index {dep_index}.")
                 self.repo.add_ingest_job_dependency(job_ids[ordinal], job_ids[dep_index])
         self._refresh_batch(batch_id)
-        # T1 landing review: a batch the learner started (enqueued in their
-        # request, or by a job carrying their grant) carries the grant captured
-        # now; any other batch runs without one, on the plan.
-        plan_fallback.remember_batch_grant(batch_id, plan_fallback.capture_grant(self.vault_root))
+        # T1 landing review (round 2): a batch carries a grant only when the
+        # learner pressed it (the press's token, narrowed to its feature) or a
+        # pressed job queues its own planned build (``grant``); any other batch
+        # runs without one, on the plan.
+        plan_fallback.remember_batch_grant(batch_id, grant or plan_fallback.pressed_token(self.vault_root))
         return batch_id
 
     # -- recovery / drive --------------------------------------------------
@@ -868,6 +883,9 @@ class IngestRunner:
                         )
                 self.repo.requeue_ingest_job(job["id"], clock=self.clock)
         self._refresh_batch(batch_id)
+        # Round 2, Low 1: a pressed Retry carries a fresh token (narrowed to its
+        # feature); any other resume (startup, a sweep, a job) drops the old one.
+        plan_fallback.remember_batch_grant(batch_id, plan_fallback.pressed_token(self.vault_root))
 
     # -- internals ---------------------------------------------------------
 
