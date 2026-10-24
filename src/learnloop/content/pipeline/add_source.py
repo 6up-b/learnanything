@@ -496,6 +496,14 @@ class AuthoringRoute:
     message: str | None = None
     subscription: bool = True
     consent_key: str = "codex"
+    #: Served through the learner's "Use OpenRouter instead" for this action
+    #: (T1 redesign D): that yes is their consent for it (round 5, Medium 4).
+    granted: bool = False
+
+    def consented(self, config) -> bool:
+        """The learner's OK to send this build to the provider: recorded, or the yes on its offer."""
+
+        return self.consent_key in config.ai.consent or self.granted
 
 
 def consent_key(config, provider_name: str) -> str:
@@ -573,16 +581,22 @@ def authoring_route_for(vault_root: Path, config) -> AuthoringRoute:
     from learnloop.ai.routing import ready_client_for_task
     from learnloop.ai.spend import is_subscription_transport
 
+    from learnloop.ai import plan_fallback
+    from learnloop.ai.routing import is_plan_profile
+
     resolved = ready_client_for_task(vault_root, config, "canonical_ingest")
     chosen = resolved.provider_name
     ready = bool(resolved.ready)
     profile = config.ai.providers.get(chosen)
+    granted = bool(ready and resolved.fallback_from and is_plan_profile(config, resolved.fallback_from)
+                   and chosen == plan_fallback.offer_profile(config))
     return AuthoringRoute(
         provider=chosen,
         ready=ready,
         message=None if ready else resolved.runtime.message,
         subscription=is_subscription_transport(profile=profile),
         consent_key=consent_key(config, chosen),
+        granted=granted,
     )
 
 
@@ -1496,7 +1510,7 @@ def preview_auto_build(vault_root: Path, repo, source_id: str, *, whole_book: bo
     status = "would_build"
     if not route.ready:
         status = "needs_ai"
-    elif route.consent_key not in config.ai.consent:
+    elif not route.consented(config):
         status = "needs_ok"
     elif cost.pause == "budget_used":
         status = "would_stop_budget_used"
@@ -1567,7 +1581,7 @@ def run_auto_study_map(ctx) -> dict[str, Any]:
     if not route.ready:
         return {"outcome": "waiting", "reason": "no_ai", "provider": route.provider,
                 "message": route.message, **plan_info, **base}
-    if route.consent_key not in config.ai.consent:
+    if not route.consented(config):
         return {"outcome": "waiting", "reason": "needs_consent", "provider": route.provider,
                 "consent_key": route.consent_key, **plan_info, **base}
 

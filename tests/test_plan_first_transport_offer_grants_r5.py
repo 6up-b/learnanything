@@ -170,6 +170,8 @@ def test_m2_a_batch_resumed_after_a_restart_asks_again_as_its_origin(harness):
         resolved = ready_client_for_task(job_ctx.vault_root, load_root_config(job_ctx.vault_root),
                                          "canonical_ingest")
         harness.seen[job_ctx.job["batch_id"]] = resolved.provider_name == "openrouter"
+        if resolved.provider_name != "openrouter":
+            raise RuntimeError("the plan is unavailable")  # the job fails, so a Retry runs it again
         return {}
 
     harness.runner.handlers["t1_unavailable"] = unavailable
@@ -181,6 +183,7 @@ def test_m2_a_batch_resumed_after_a_restart_asks_again_as_its_origin(harness):
     # A sidecar restart: every session-only record is gone (grants, tokens, offers, origins in memory).
     plan_fallback.revoke_all()
     plan_fallback._BATCH_ORIGIN.clear()
+    plan_fallback._BATCH_STAMP.clear()
     harness.drain()  # the resumed batch runs, meets the unavailable plan, and asks as its origin
     harness.stub("get_ingest_batch", work=lambda _ctx: plan_fallback.relay_batch_offer(batch))
     read = harness.call("get_ingest_batch")
@@ -230,10 +233,17 @@ def _planner_outcome(ctx, batch_id: str) -> dict[str, Any]:
 
 
 def test_m3_build_now_surfaces_its_offer_on_the_library_read(book, fake_openai):  # noqa: F811
+    import threading
+
     _root, ctx, source_id = book
+    ctx.ingest_jobs._ensure_worker = lambda: None  # type: ignore[method-assign]  # the worker runs it later
     pressed = _handle(ctx, "source_action", {"sourceId": source_id, "action": "build_now"})
     assert "result" in pressed, pressed.get("error")
+    assert "fallbackAvailable" not in pressed["result"]  # nothing has met the plan yet
     batch = pressed["result"]["batchId"]
+    worker = threading.Thread(target=ctx.ingest_jobs._runner.drain)
+    worker.start()
+    worker.join(60)
     assert _planner_outcome(ctx, batch).get("reason") == "no_ai"
     # The card's refresh: the library read shows the build's offer, once, as the action that asked.
     library = _handle(ctx, "get_source_library", {})["result"]
@@ -250,3 +260,13 @@ def test_m4_the_yes_is_the_builds_consent(book, fake_openai):  # noqa: F811
     outcome = _planner_outcome(ctx, pressed["result"]["batchId"])
     assert outcome.get("reason") != "needs_consent", outcome
     assert outcome.get("outcome") == "building" and outcome.get("provider") == "openrouter", outcome
+
+
+def test_m3_a_press_drained_in_its_own_request_shows_the_offer_on_its_response(book, fake_openai):  # noqa: F811
+    """A foreground drain (the CLI-like inline runner): the press's own response reports its batch, and so
+    shows the batch's offer at once (once: the library read then shows nothing)."""
+
+    _root, ctx, source_id = book
+    pressed = _handle(ctx, "source_action", {"sourceId": source_id, "action": "build_now"})
+    assert pressed["result"].get("fallbackOrigin") == "source_action"
+    assert "fallbackAvailable" not in _handle(ctx, "get_source_library", {})["result"]

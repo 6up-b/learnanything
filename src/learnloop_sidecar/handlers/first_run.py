@@ -127,9 +127,12 @@ def _connection_payload(ctx: SidecarContext) -> dict[str, Any]:
     # here: the one OK says so in the words Settings uses (Tier 1, D6).
     decider_note = connection_note(vault.config)
     what_leaves = core.what_leaves(label)
+    # T1 redesign D, round 5: the learner's yes on Add's offer is their OK for
+    # that action (it shows as consented while the grant stands).
+    consented = record is not None or route.granted
     if not route.ready:
         needs: str | None = "connect"
-    elif record is None:
+    elif not consented:
         needs = "consent"
     else:
         needs = None
@@ -138,7 +141,7 @@ def _connection_payload(ctx: SidecarContext) -> dict[str, Any]:
         "provider": route.provider,
         "provider_label": label,
         "consent_key": route.consent_key,
-        "consented": record is not None,
+        "consented": consented,
         "consented_at": record.granted_at if record is not None else None,
         "needs": needs,
         "message": None if route.ready else route.message,

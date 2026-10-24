@@ -216,6 +216,7 @@ class LibraryJobs:
         from learnloop.ai import plan_fallback as _plan_fallback
 
         grant, origin = _plan_fallback.unit_token(_vault.root), _plan_fallback.unit_origin()
+        stamp = _plan_fallback.unit_stamp(_vault.root)  # its vault and epoch, now
         _plan_fallback.note_unit("job", job.job_id)
 
         def run() -> None:
@@ -225,7 +226,7 @@ class LibraryJobs:
 
             # Plan-first transport T1: the job's thread has no RPC collector;
             # it keeps its own offers and the read that finds it done relays them.
-            with plan_fallback.unit(grant, origin) as offers:
+            with plan_fallback.unit(grant, origin, stamp) as offers:
                 try:
                     worker_repo = Repository.attach(sqlite_path)
                     # Receipts are owned as the serial loop owns an RPC's (server._observed_model_calls).

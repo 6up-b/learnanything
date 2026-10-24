@@ -170,6 +170,13 @@ class OfferCollector:
     relayed_origin: str | None = None
     #: Units created here, or named by a relayed offer: answering tokens the batches.
     units: list[tuple[str, str]] = field(default_factory=list)
+    #: A unit's collector: the vault and epoch the unit was created in (round 5,
+    #: Medium 1): its offer is minted for them, or not at all.
+    vault_key: str | None = None
+    epoch: tuple[int, int] | None = None
+    #: An offer relayed into this request from a job or batch, and how to put it
+    #: back when this request's own offer shows instead (it waits for the next read).
+    relayed: tuple[dict[str, Any], Any] | None = None
 
     def hint(self) -> dict[str, Any] | None:
         """The typed hint for the adapter, or ``None`` when nothing was offered."""
@@ -191,6 +198,9 @@ class OfferCollector:
             hint["fallback_origin"] = origin
         if self.units:
             hint["fallback_units"] = [list(unit) for unit in self.units]
+        if self.vault_key is not None:
+            hint["fallback_vault"] = self.vault_key
+            hint["fallback_epoch"] = list(self.epoch or (0, 0))
         return hint
 
 
@@ -236,7 +246,7 @@ def offers_suppressed() -> bool:
 
 
 @contextmanager
-def collecting(origin: str | None = None) -> Iterator[OfferCollector]:
+def collecting(origin: str | None = None, stamp: tuple[str, tuple[int, int]] | None = None) -> Iterator[OfferCollector]:
     """Collect the offers made while the block runs (one RPC, or one unit's work), as action ``origin``.
 
     A nested block also hands its offers to the enclosing collector when it
@@ -246,13 +256,19 @@ def collecting(origin: str | None = None) -> Iterator[OfferCollector]:
 
     parent = _COLLECTOR.get()
     collector = OfferCollector(origin=origin)
+    if stamp is not None:
+        collector.vault_key, collector.epoch = stamp
     token = _COLLECTOR.set(collector)
     try:
         yield collector
     finally:
         _COLLECTOR.reset(token)
         if parent is not None:
-            _merge_into(parent, collector.hint())
+            hint = collector.hint()
+            if collector.origin is not None and collector.origin != parent.origin:
+                _relay_into(parent, hint)  # another action's unit, inline: it asks as itself
+            else:
+                _merge_into(parent, hint)
 
 
 def _merge_into(collector: OfferCollector, hint: dict[str, Any] | None) -> None:
@@ -269,18 +285,30 @@ def _merge_into(collector: OfferCollector, hint: dict[str, Any] | None) -> None:
         collector.units.append((str(unit[0]), str(unit[1])))
 
 
-def relay_hint(hint: dict[str, Any] | None) -> None:
-    """Offer again, in the current request, what a background job's request offered.
+def _relay_into(collector: OfferCollector, hint: dict[str, Any] | None, restore: Any = None) -> bool:
+    if not hint or collector.relayed is not None:
+        return False
+    collector.relayed = (dict(hint), restore)
+    return True
+
+
+def relay_hint(hint: dict[str, Any] | None, restore: Any = None) -> bool:
+    """Offer again, in the current request, what a unit (a job, a batch) offered.
 
     A job (a hint, a library ask, margin notes, a reading path) runs in its
     own thread with its own collector (:func:`collecting`) and keeps its
     hint; the RPC that reads the finished job relays it here, so the typed
-    hint reaches the desktop on that read.
+    hint reaches the desktop on that read. It stays the unit's own offer: its
+    action, units, vault and epoch (round 5); the dispatch mints it only for
+    the vault and epoch it was made in. One relay per request; ``restore``
+    puts it back when this request shows its own offer instead. False when
+    nothing was relayed.
     """
 
     collector = _collector()
-    if collector is not None:
-        _merge_into(collector, hint)
+    if collector is None:
+        return False
+    return _relay_into(collector, hint, restore)
 
 
 def relay_job_offer(job: Any) -> None:
@@ -292,9 +320,38 @@ def relay_job_offer(job: Any) -> None:
     """
 
     hint = getattr(job, "fallback_offer", None)
-    if hint:
+    if hint and relay_hint(hint, restore=lambda: setattr(job, "fallback_offer", hint)):
         job.fallback_offer = None
-        relay_hint(hint)
+
+
+def take_offer(collector: OfferCollector, current_vault: Any) -> tuple[dict[str, Any] | None, str | None]:
+    """What one response may show: (the hint, its vault key), or (None, None).
+
+    The request's own offer first (its vault is the session's), and a relayed
+    one waits (restored for the next read). Otherwise the relayed offer, only
+    when its unit's vault is the session's vault and its epoch is current
+    (round 5, Medium 1): a relay from another vault or from before a stop
+    shows nothing, and is dropped.
+    """
+
+    own = collector.hint()
+    key = _vault_key(current_vault) if current_vault is not None else None
+    if own is not None:
+        if collector.relayed is not None and collector.relayed[1] is not None:
+            collector.relayed[1]()
+        return own, key
+    if collector.relayed is None:
+        return None, None
+    hint = dict(collector.relayed[0])
+    vault = hint.pop("fallback_vault", None)
+    epoch = hint.pop("fallback_epoch", None)
+    if key is None or (vault is not None and vault != key):
+        return None, None
+    with _GRANTS_LOCK:
+        current = _epoch(key)
+    if epoch is not None and tuple(epoch) != current:
+        return None, None
+    return hint, key
 
 
 def start_collecting() -> OfferCollector:
@@ -369,6 +426,7 @@ _OFFERS: dict[str, "Offer"] = {}
 _BATCH_GRANTS: dict[str, "GrantToken"] = {}
 _BATCH_ORIGIN: dict[str, str] = {}
 _BATCH_OFFERS: dict[str, dict[str, Any]] = {}
+_BATCH_STAMP: dict[str, tuple[str, tuple[int, int]]] = {}
 _GRANTS_LOCK = threading.Lock()
 #: Set by :func:`command_grant` for one CLI command's context only.
 _COMMAND_GRANT: ContextVar[bool] = ContextVar("learnloop_plan_fallback_command_grant", default=False)
@@ -525,13 +583,25 @@ def job_grant(token: GrantToken | None, origin: str | None = None, *,
         _JOB.reset(entry)
 
 
+def unit_stamp(vault_root: Any) -> tuple[str, tuple[int, int]] | None:
+    """The vault and epoch a unit is created in (taken at its creation; round 5, Medium 1)."""
+
+    if vault_root is None:
+        return None
+    key = _vault_key(vault_root)
+    with _GRANTS_LOCK:
+        return key, _epoch(key)
+
+
 @contextmanager
-def unit(token: GrantToken | None, origin: str | None) -> Iterator[OfferCollector]:
+def unit(token: GrantToken | None, origin: str | None,
+         stamp: tuple[str, tuple[int, int]] | None) -> Iterator[OfferCollector]:
     """A unit's work (a sidecar job, a batch's job): :func:`job_grant`, and its own collector.
 
     A unit that belongs to no action (made under :func:`quiet` or off any
     request) asks nothing; one that does collects its offers as its action,
-    for the read that finds it to relay.
+    stamped with the vault and epoch it was created in (``unit_stamp``), for
+    the read that finds it to relay.
     """
 
     with job_grant(token, origin):
@@ -539,7 +609,7 @@ def unit(token: GrantToken | None, origin: str | None) -> Iterator[OfferCollecto
             with quiet(), collecting() as offers:
                 yield offers
         else:
-            with collecting(origin=origin) as offers:
+            with collecting(origin=origin, stamp=stamp) as offers:
                 yield offers
 
 
@@ -556,14 +626,18 @@ def status_as(origin: str) -> Iterator[None]:
         _STATUS_AS.reset(token)
 
 
-def remember_batch_grant(batch_id: str, token: GrantToken | None, origin: str | None = None) -> None:
-    """Keep a new batch's token and origin. Never replaces a token a batch already has."""
+def remember_batch_grant(batch_id: str, token: GrantToken | None, origin: str | None = None,
+                         vault_root: Any = None) -> None:
+    """Keep a new batch's token, origin and creation stamp. Never replaces what a batch already has."""
 
+    stamp = unit_stamp(vault_root)
     with _GRANTS_LOCK:
         if token is not None and batch_id not in _BATCH_GRANTS:
             _BATCH_GRANTS[batch_id] = token
         if origin is not None:
             _BATCH_ORIGIN.setdefault(batch_id, origin)
+            if stamp is not None:
+                _BATCH_STAMP.setdefault(batch_id, stamp)
 
 
 def batch_grant(batch_id: str | None) -> GrantToken | None:
@@ -577,20 +651,48 @@ def batch_origin(batch_id: str | None) -> str | None:
 
 
 def keep_batch_offer(batch_id: str, hint: dict[str, Any] | None) -> None:
-    """A batch's run met the unavailable plan: keep its offer for the next read of the batch."""
+    """A batch's run met the unavailable plan: keep its offer for the next read that shows the batch."""
 
     if hint:
         with _GRANTS_LOCK:
             _BATCH_OFFERS[batch_id] = {**hint, "fallback_units": [["batch", batch_id]]}
 
 
-def relay_batch_offer(batch_id: str | None) -> None:
-    """Relay (once) the offer a batch kept, on the read of that batch (never from a list)."""
+def batch_stamp(batch_id: str, vault_root: Any) -> tuple[str, tuple[int, int]] | None:
+    """The vault and epoch the batch was created in (in memory), else now (a batch from before a restart)."""
+
+    with _GRANTS_LOCK:
+        stamp = _BATCH_STAMP.get(batch_id)
+    return stamp if stamp is not None else unit_stamp(vault_root)
+
+
+def relay_batch_offer(batch_id: str | None) -> bool:
+    """Relay (once) the offer a batch kept, on a read that shows that batch.
+
+    Kept for the next read when this response shows another offer.
+    """
 
     with _GRANTS_LOCK:
         hint = _BATCH_OFFERS.pop(batch_id or "", None)
-    if hint:
-        relay_hint(hint)
+    if not hint:
+        return False
+
+    def restore() -> None:
+        with _GRANTS_LOCK:
+            _BATCH_OFFERS.setdefault(str(batch_id), hint)
+
+    if relay_hint(hint, restore=restore):
+        return True
+    restore()
+    return False
+
+
+def relay_batch_offers(batch_ids: Iterable[str | None]) -> None:
+    """Relay the first pending offer among the batches a response shows (one offer per response)."""
+
+    for batch_id in batch_ids:
+        if batch_id and relay_batch_offer(str(batch_id)):
+            return
 
 
 @contextmanager
@@ -760,7 +862,11 @@ __all__ = [
     "offers_suppressed",
     "priced_by",
     "quiet",
+    "batch_stamp",
     "relay_batch_offer",
+    "relay_batch_offers",
+    "take_offer",
+    "unit_stamp",
     "relay_hint",
     "relay_job_offer",
     "remember_batch_grant",

@@ -582,6 +582,20 @@ def get_source_library(ctx: SidecarContext, _params) -> dict[str, Any]:
                 "status_line": auto.source_status_line(repository, vault, artifact["id"]),
             }
         )
+    # Round 5, Medium 3 (T1 redesign D): a book card's press ("Build now",
+    # "Build the whole book", Retry, Add) queues work that meets the plan
+    # later; the shelf's refresh shows that work's offer, once, as the action
+    # that asked: the newest add, plan and build batch of each card.
+    from learnloop.ai import plan_fallback
+
+    shown: list[str] = []
+    for artifact in repository.all_source_artifacts():
+        source_id = str(artifact["id"])
+        planner, outcome = auto.latest_planner(repository, source_id)
+        shown.extend(batch for batch in (auto.latest_add_batch(repository, source_id),
+                                         (planner or {}).get("batch_id"), (outcome or {}).get("build_batch_id"),
+                                         auto.latest_build_batch(repository, source_id)) if batch)
+    plan_fallback.relay_batch_offers(shown)
     return versioned({"sources": cards, "pending": auto.pending_adds(repository)})
 
 

@@ -85,7 +85,12 @@ def _handle(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
                 _observed_model_calls(ctx, method_name, params):
             try:
                 result = spec.handler(ctx, params)
+                # Round 5, Medium 3: a response that reports a batch shows that
+                # batch's queued offer (once), so a press whose work runs later
+                # (a book card's build) asks on the read that follows it.
+                plan_fallback.relay_batch_offers(_reported_batches(result))
             except SidecarError as exc:
+                plan_fallback.relay_batch_offers(_reported_batches(exc.details))
                 _attach_fallback_offer(exc, _offered(ctx, offers, method_name))
                 raise
             except BaseException:
@@ -134,15 +139,39 @@ def _offered(ctx: SidecarContext, offers: plan_fallback.OfferCollector, method_n
     answers) and ``fallback_origin`` ("Not now" mutes that action).
     """
 
-    hint = offers.hint()
-    if hint is None:
+    hint, vault_key = plan_fallback.take_offer(offers, getattr(ctx, "vault_root", None))
+    if hint is None or vault_key is None:
         return None
+    hint.pop("fallback_vault", None)
+    hint.pop("fallback_epoch", None)
     origin = str(hint.get("fallback_origin") or method_name)
     units = [(str(kind), str(unit)) for kind, unit in hint.pop("fallback_units", None) or []]
-    offer_id = plan_fallback.mint_offer(getattr(ctx, "vault_root", None), hint, origin, units)
+    offer_id = plan_fallback.mint_offer(vault_key, hint, origin, units)
     if offer_id is None:
         return None
     return {**hint, "fallback_origin": origin, "fallback_offer_id": offer_id}
+
+
+_BATCH_KEYS = frozenset({"batch_id", "batchId", "build_batch_id", "buildBatchId", "import_batch_id",
+                         "importBatchId", "generation_batch_id", "generationBatchId"})
+
+
+def _reported_batches(value: Any, depth: int = 0) -> list[str]:
+    """The ingest batch ids a response reports, in order (bounded walk)."""
+
+    found: list[str] = []
+    if depth > 8:
+        return found
+    if isinstance(value, dict):
+        for key, child in value.items():
+            if key in _BATCH_KEYS and isinstance(child, str) and child:
+                found.append(child)
+            elif isinstance(child, (dict, list)):
+                found.extend(_reported_batches(child, depth + 1))
+    elif isinstance(value, list):
+        for child in value[:500]:
+            found.extend(_reported_batches(child, depth + 1))
+    return found
 
 
 def _attach_fallback_offer(exc: SidecarError, hint: dict[str, Any] | None) -> None:
