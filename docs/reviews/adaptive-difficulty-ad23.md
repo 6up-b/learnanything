@@ -1145,3 +1145,167 @@ Each asserts that intent acted (the paused item is never served or projected).
 - Durability (`--durable-sqlite`) on `test_ad_guard`, `test_ad_epoch`, `test_ad_protected_tables`,
   `test_ad_protected_readings`, `test_ad23_intent_compose` and `test_ad23_migration`: **272 passed**.
 - `lint-imports --no-cache`: 30 kept, 0 broken.
+
+
+## Compose fix round 2 (pool membership)
+
+Codex verified `a84767d65..7cf22da4d` and reopened the round with one High and two Mediums:
+
+- **High:** a due "Check once" disabled AD for every slot, even on other LOs and with an empty
+  attempt ledger. Intent's view is built inside the incumbent scope (`scheduler.pool_admission`), and
+  once a check is due, `scheduling.intent.serving` reads its attempts. That module was not a named
+  reader, so the read was refused and the operation poisoned.
+- **Medium:** a never-attempted sibling under Keep or Light touch passed `withhold_reason` and the
+  per-item predicate, but the plan excludes it from new material it chooses itself
+  (`_intent_admission_order`). AD could still substitute it.
+- **Medium:** with the router on, AD did not require membership in the scheduler's queue, so it
+  could bring back a teach-back that value admission (or the legacy count cap) had removed.
+
+The orchestrator diagnosed one class behind all three: a per-item predicate is not the whole pool.
+The build applies set-level stages after it, and the list of named readers had to grow with every
+new incumbent path. Both are now fixed by construction.
+
+**(1) Membership, not re-derivation.**
+
+- `engine.new_material_candidates(intent, pool)` is the plan's new-material rule: never-attempted
+  new-lane items, in intent's admission order. The plan's build now calls it, and
+  `engine.admitted_new_material_ids(env, record, built, released=())` calls it as well, over the
+  boundary's pool.
+- That pool is `built.pool`, the build this advance made and the plan serves from. It is the
+  scheduler's queue after its per-item predicate and its set-level stages (teach-back value admission
+  and caps among them), taken within the plan's universe, less what the plan took: planned, skipped,
+  held, and AD-deferred unless released. This is `engine._context`'s own pool.
+- `ad_slot.incumbent_verdicts` asks it inside the incumbent scope and adds the slot's own planned
+  item. It returns the result as `IncumbentVerdicts.pool`, ids only. Construction validates every
+  field as frozensets of ids, or tuples of reason strings.
+- AD's sibling enumeration (the slot's LO at its capability, never attempted, visible through the
+  material view) is no longer the source of truth. `build_request` intersects it with the pool.
+- The staged frame's admission and the pool predicate (`pool:<reason>`) are asked only of members,
+  in the serve transaction. That re-check catches a choice made since the build.
+- `deferrals_to_clear` now takes the plan record and applies the same membership rule, with the
+  deferrals released. A deferral outside the pool is never cleared.
+- With the router off, the old `not_new_lane` check is subsumed: a member is a never-attempted
+  new-lane item.
+
+**Membership reads AD's view of item states (A8).** The full AD set found a problem with taking
+membership straight from `built.pool`, through the contract test
+(`test_protected_material_is_indistinguishable_from_absent_material`).
+
+The plan classifies lanes from the raw item states. An item whose only history is a withheld answer
+(the contract's `P4`) is therefore "repair" with that answer present and "new" with it absent.
+Membership taken straight from the pool would make AD's support differ between the contract's
+copies. With `P4` in the plan's universe that is 6 violations, across `ad_selections`' support, the
+slot's candidates and the report's prior sensitivity.
+
+The fix:
+
+- `engine._classified_pool` takes the advance's own scheduler output and the states to read
+  (`scheduled_items`, `item_states`). It never re-runs the scheduler.
+- `admitted_new_material_ids(..., item_states=)` re-classifies with AD's view's states, fix round
+  12's rule for every incumbent verdict AD receives: 0 violations.
+- The contract's base plan and serve queue now hold `P4`. Without it, `P4` sat outside the plan's
+  universe and under membership was no candidate at all. Its F20 checks (exposure and recent reveal
+  on a withheld history) need it as a candidate.
+
+**Residual, named, not decided here.** The scheduler's queue itself is the incumbent's output, and
+its set-level stages can depend on protected material. Teach-back value admission, for example,
+values each teach-back by information computed from the learner's raw state. AD now honours the
+queue's membership, so such a dependency reaches AD as a membership verdict. That is the same
+standing as every incumbent verdict since the AD23 redesign ("a pass or a named refusal per visible
+candidate"). The contract fixes the queue (its fakes), so it cannot see a queue-level dependency. If
+the owner wants A8 to cover the incumbent's queue too, that is the Opus architecture question: run
+the scheduler's build on AD's view, not a point fix.
+
+**One judgment call, which is the orchestrator's to overrule.** I read "admitted pool" as the
+candidates the plan's new-material admission decides over, after every stage that removes items. I
+did not read it as `admit_new_material`'s output, the few items the plan already planned.
+Restricting AD to those planned items would leave nothing to choose: check 2 already excludes an
+item planned elsewhere, so AD could never substitute.
+
+The admission's count and load are a budget, not a membership stage. AD swaps one for one within
+the slot, and check 4 (no admission load the plan did not grant) keeps that budget. Check 3 (the
+block's minutes) does the same for the block. Those two checks are the remaining places where AD
+reasons about the plan's budget. Every stage that decides which items may be served is now read,
+not re-derived.
+
+**(2) The incumbent scope's readers are derived, not listed.**
+
+- `protected_tables.incumbent_reader(module)` is true for every LearnLoop module except AD's own
+  (`AD_MODULES`: `learnloop.adaptive_difficulty`, `learnloop.daily_plan.ad_slot`) and readers outside
+  LearnLoop.
+- Inside `incumbent_constraints()`, such a reader reads any table, classified or not, including
+  content and derived columns. AD's own code, or an unknown reader, reads there as it does outside
+  any scope, so round 6's rule still holds (`test_in_the_incumbent_scope_only_its_named_readers_read_content`
+  passes unchanged). `INCUMBENT_READERS` is gone.
+
+I chose this over a completeness trace. A trace proves coverage only for the state it generates.
+Three rounds in a row, the incumbent's path grew past the traced states: DL2's commitments, then the
+scheduler's request set, then intent's due checks.
+
+The guarantee now sits at the scope's boundary rather than on the reader list:
+
+- `daily_plan.ad_slot` enters the scope in exactly two functions, `_exclusions` and
+  `incumbent_verdicts`; `test_the_incumbent_hands_ad_only_verdicts` pins this by AST.
+- Both call incumbent code alone. The only AD data passed in is the precomputed item-state mapping.
+- Both return verdicts alone: `IncumbentVerdicts` (validated) and the routine exclusions' id sets.
+- The scope never writes: the write rule is unchanged, so any write outside AD's tables is refused.
+
+So whatever the incumbent reads, only a pass, a named refusal or a membership id reaches AD. A
+verdict can depend on the incumbent's own state, including protected material. It always could:
+that is the incumbent's admission. AD's material view still withholds protected items on top
+(check 0), unconditionally.
+
+The tables classified in the last round keep their classes. They no longer gate the incumbent scope,
+but they still govern every other scope.
+
+**(3) Tests** (`tests/test_ad23_pool_membership.py`; fakes only). Each "queue" is the scheduler's
+queue after its stages, through the fakes' supplier gated by intent as that queue is. An item left
+out of it is exactly what teach-back value admission or a cap does.
+
+- **The High, as a test:** `test_h_a_due_check_once_leaves_ad_drawing`. A "Check once" on another LO
+  (LO scope, or one of its items), the clock past its date (`capture.test_me_later_days` + 1), and
+  an empty ledger, under both router settings. Asserts that the check is due, that there are zero
+  denials, and that AD draws.
+- **The first Medium, as a test:** `test_m1_keep_and_light_touch_siblings_get_no_new_material_from_ad`.
+  Both siblings under Keep or Light touch, under both settings. They appear in no support, and
+  neither is served.
+- **The second Medium, as a test:** `test_m2_a_sibling_the_build_left_out_never_returns`. `pi_e1` is
+  absent from the queue, under both settings. It appears in no support, and is never served.
+- **Fail-first** (7cf22da4d's `src/` checked out over the tests, then restored): 9 of 10 failed,
+  namely all four High cases, all four first-Medium cases, and the second Medium with the router on.
+  The router-off left-out case already held there, because the legacy path required lane membership.
+- **The property:** `test_property_every_ad_choice_is_a_member_of_the_plans_admitted_pool`, 32
+  seeded cases. Each case draws a choice (learn, master, keep, light_touch, pause, let_go,
+  check_once), with check_once both before and after its date. It draws a random scope (either LO,
+  or one to three items across both LOs), and a teach-back sibling either kept or dropped from the
+  queue (below the value bar). Both router settings are covered. It serves four steps, answering
+  each. Asserts:
+  - zero denials;
+  - AD drew at least once (a vacuity guard; AD draws 2-4 times in every case);
+  - each draw's whole support is in the oracle's allowed set, and so is every substitution and every
+    cleared deferral;
+  - a dropped sibling is never served and never in a support.
+
+  The oracle is built from independent pieces: the queue, attempts, intent's withhold and its
+  Keep/Light tier.
+- On 7cf22da4d, 5 property cases failed on those membership assertions: a non-member substituted or
+  held in a support. The rest failed on the new `deferrals_to_clear` signature, which is not a
+  behaviour signal.
+- `test_ad23_intent_compose` follows the interface. The verdict fields gain `pool`. A paused sibling
+  is now no member at all, where before it was a member refused `pool:intent_paused`.
+  `test_ad_protected_tables` checks the derived reader rule instead of the list.
+
+**Gate (memory-capped scopes, at most -n 6, one at a time; no full suite).**
+
+- The full AD file set (every `tests/test_ad*.py` including both compose files, plus
+  `test_span_reanchor` and `test_salience_firewall`): **6,194 passed, 36 xfailed** (-n 6, 26 min).
+  - An intermediate run failed one test, the contract's stage-ran check: `P4` was no longer a
+    candidate.
+  - That failure led to the A8 finding and its fix above.
+- DL2's intent, commitment and frame files, the daily-plan and router R2a files, and every file that
+  uses the plan fakes, `check_admission`, `requested_practice_item_ids`, `_classified_pool` or
+  `admit_new_material` (63 files with the scheduler, CLI help, sidecar serializer and mobile allowlist
+  pins): **1,749 passed**.
+- Durability (`--durable-sqlite`) on `test_ad_guard`, `test_ad_epoch`, `test_ad_protected_tables`,
+  `test_ad_protected_readings`, both compose files and `test_ad23_migration`: **314 passed**.
+- `lint-imports --no-cache`: 30 kept, 0 broken.
