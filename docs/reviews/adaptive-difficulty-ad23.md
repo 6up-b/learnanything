@@ -867,3 +867,155 @@ embeddings off, learner-text gaps off), API-key variables unset, empty `HOME` / 
 - **Time to usable** is the binding finding (§3.2): any AD4/AD5 work that leans on band mode inherits it.
 
 **The targeted run's 186 files:** test_ad1_codex_rereview_fixes.py, test_ad1_codex_review_fixes.py, test_ad1_fix_round4.py, test_ad1_fix_round9.py, test_ad1_migration.py, test_ad1_outside_and_cli.py, test_ad1_reading_opportunities.py, test_ad1_send_guard.py, test_ad23_migration.py, test_ad23_sim.py, test_ad23_successor.py, test_ad2_model.py, test_ad2_serving.py, test_ad3_dose_arm.py, test_ad3_monitoring.py, test_ad3_reading.py, test_ad3_relatedness.py, test_ad3_subject_view.py, test_adaptive_difficulty_ad1.py, test_ai_config.py, test_ai_tool_isolation.py, test_approach_map_replay.py, test_approach_maps_schema.py, test_architecture.py, test_assumed_known.py, test_block_chooser_interface.py, test_card_lineage.py, test_chatgpt_plan_provider.py, test_chatgpt_plan_workspace.py, test_cli_help_snapshot.py, test_config_refactor.py, test_constraint_engine.py, test_contract_commissioning.py, test_coordinated_migrations.py, test_daily_plan_build.py, test_daily_plan_composition.py, test_daily_plan_kill_switch.py, test_daily_plan_owner_decisions.py, test_daily_plan_reentry.py, test_daily_plan_replay.py, test_daily_plan_review_regressions.py, test_daily_plan_rpc.py, test_decider_client.py, test_decider_landing.py, test_desktop_rpc_contract.py, test_diagnosis_context.py, test_diagnosis_history_modes.py, test_diagnosis_input_provenance.py, test_diagnosis_replay.py, test_diagnostic_pack.py, test_difficulty_band_guards.py, test_embedding_store.py, test_eval_harness.py, test_evsi_router_composition.py, test_evsi_staged_binding.py, test_exam_protection_landing.py, test_exam_protection_review.py, test_facet_diagnostics_v03.py, test_facet_identity_actions.py, test_family_memory_projection.py, test_field_config.py, test_forecast_receipts.py, test_forecast_receipts_landing.py, test_goal_scope_material.py, test_grading_cli.py, test_held_grade_composition.py, test_held_grade_evidence.py, test_help_assists_schema.py, test_hint_feedback_widening.py, test_hint_telemetry.py, test_ingest_instrument_gates.py, test_ingest_runner.py, test_intervention_outcomes_replayer.py, test_item_fingerprints.py, test_judge_routes.py, test_kinship_feature.py, test_km2_activation.py, test_learner_pick_proposal.py, test_learner_text_gaps_flow.py, test_learner_text_source_widening.py, test_library_ask.py, test_library_asks_migration.py, test_mcp_c1a_landing.py, test_mcp_c1a_narrow.py, test_mcp_tools.py, test_method_explicit_landing.py, test_method_explicit_upgrade.py, test_migrations.py, test_mobile_allowlist.py, test_mvp010_upgrade.py, test_mvp011_upgrade.py, test_mvp013_upgrade.py, test_mvp014_upgrade.py, test_mvp015_upgrade.py, test_mvp016_upgrade.py, test_mvp017_route_check_replay.py, test_mvp017_upgrade.py, test_mvp018_upgrade.py, test_mvp020_upgrade.py, test_mvp021_upgrade.py, test_mvp022_upgrade.py, test_mvp023_upgrade.py, test_mvp024_upgrade.py, test_mvp09_upgrade.py, test_open_world_gate.py, test_openai_embedding_client.py, test_p0_cutover_mvp08.py, test_p3_journeys.py, test_persona_gate.py, test_pfc_unassessed_readers.py, test_pfc_unverified_unassessed.py, test_plan_determinism.py, test_plan_determinism_landing.py, test_practice_index_dossiers.py, test_practice_item_quality_gates.py, test_practice_leakage.py, test_predictor_interface.py, test_probability_arms.py, test_probability_cli.py, test_probability_prep.py, test_project_cli.py, test_project_experiment_store.py, test_project_probes.py, test_project_report.py, test_randomization_layer.py, test_reader_active_reading.py, test_reader_activity.py, test_reader_authoring.py, test_reader_cues.py, test_reader_dialogue.py, test_reader_formative_texts.py, test_reader_intent.py, test_reader_progression.py, test_reader_recap_review_r3.py, test_reader_reconstruct.py, test_reader_restoration.py, test_reader_workbench_rw2a.py, test_reading_step_switch.py, test_rebuild_orchestrator.py, test_recall_coverage_interventions.py, test_recurrence_commands.py, test_recurrence_live.py, test_recurrence_merge_composition.py, test_registry_audit.py, test_regrade_contract_replay.py, test_regrade_contract_successor.py, test_regrade_contract_upgrade.py, test_required_method_authority.py, test_required_method_grading.py, test_reread_safety_landing.py, test_route_rules_in_grader.py, test_router_card.py, test_router_coldness_covariates.py, test_router_g1_feasibility.py, test_router_g4_restraint.py, test_router_g7_fallback.py, test_router_offer_log.py, test_router_outcomes.py, test_router_presentations.py, test_router_r1_composition.py, test_router_r2a_landing.py, test_router_r2a_serving.py, test_router_r2b_serving.py, test_router_r2c_retrieval.py, test_router_r2c_teach_back.py, test_router_why_copy.py, test_salience_firewall.py, test_sensitivity_certificates.py, test_serve_eligibility.py, test_serve_eligibility_review.py, test_shadow_rebuild.py, test_sidecar_serializer_snapshot.py, test_source_block_fts.py, test_sqlite_wal_lifecycle.py, test_stuck_prompt.py, test_stuck_prompt_replay.py, test_success_head_cli.py, test_table_roles.py, test_tier1_decider.py, test_tracked_fixture_databases.py, test_tutor_promotion_w2.py, test_ux_phase4_feedback.py, test_ux_phase4_landing.py, test_voi_merge_composition.py, test_voi_stopping.py, test_voi_v2.py.
+
+
+## Compose round (main 558e85ab1)
+
+Before the landing, main (`558e85ab1`: DL2, RW3b, RW4d, RW4e, RW5a, RW7a, RW2c and UX2 since the
+branch base `29a49b5e6`) was merged into `adaptive-difficulty/ad23` with `git merge --no-ff main`
+(no rebase; merge commit `bf930ea08`), and every conflict was composed so both sides survive.
+
+**The merge.** 521 conflicted paths: 333 generated reference tables and 62 configuration notes
+(main's side taken, then regenerated), the head fixtures, 36 tests, 8 source files, 5 desktop-app
+files and 3 docs. The source compositions:
+
+- `algorithm_versions.py`: DL2's `INTENT_ALGORITHM_VERSION = "mvp-0.29"`, then AD's
+  `ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION = "mvp-0.30"`; the chain ends `..., mvp-0.27, mvp-0.29,
+  mvp-0.30` and stays linear; both version sets are kept.
+- `config/template.py`: main's note on every defaults snapshot with AD's line ("AD2+AD3's
+  `[adaptive_difficulty]` switches and constants move it too"), the mvp-0.29 entry and AD's mvp-0.30
+  entry; every fingerprint recomputed from the composed defaults with
+  `defaults_fingerprint_for_version` (21 versions, 0 mismatches).
+- `daily_plan/staged_frame.py` and `scheduling/frame_constraints.py`: main's `evaluate_mandatory`
+  (DL2 moved it to its own module) gains AD's `item_states` reader, passed through from the staged
+  frame, so the frame reads AD's item states rather than the repository's own read.
+- `daily_plan/engine.py`: the plan view keeps AD's `ad_deferred` and DL2's `intent_views`.
+- `ai/routing.py`: main's routes and AD's `ad_relatedness`.
+- Desktop app: `commands.rs`, `main.rs` and `client.ts` carry both sides' passthroughs; `dto.ts` both
+  sides' types; `PracticeScreen.tsx` AD's "why this item" beside DL2's check-on-your-own locator.
+
+**The successor renumber.** AD2+AD3 lands as `mvp-0.30` with predecessor `mvp-0.29` (orchestrator
+decision at the DL2 landing; `mvp-0.28` is never used). `ad_successor_upgrade.upgrade_to_mvp030`
+(`PREDECESSOR = INTENT_ALGORITHM_VERSION`) chains earlier versions through DL2's
+`upgrade_to_mvp029`. `learnloop upgrade --to mvp-0.30` is the CLI's new default. The help text,
+docstrings, `adaptive_difficulty/successor.py`, `config/schema.py`, `ai/disclosures.py`,
+`content/authoring/practice_generation.py`, the parameter registry note, every AD test, the
+latest-version assertions (`test_intent_codex_rereview`, `test_serve_eligibility_review`,
+`test_regrade_contract_upgrade`, `test_recurrence_commands`, the mvp-0.14..0.23 upgrade tests),
+`Algorithm Versions and Reproducibility.md` (a `mvp-0.30` row; every successor set reaches it) and
+this review's current-state lines and owner commands were all renamed. Historical records in this
+review (the round logs, the backup-copy run in §9) keep `mvp-0.28`, which is what ran then.
+`test_ad23_successor` gains the owner's chain from `mvp-0.8`: `--to mvp-0.9`, `--to mvp-0.27`,
+`--to mvp-0.29`, `--to mvp-0.30`, each exit 0, ending at `mvp-0.30`. It also refuses `mvp-0.8`
+directly ("only 'mvp-0.29'"). The CLI help snapshot was regenerated (the `upgrade` help).
+
+**Migration 214 on a head of 217.** The runner is set-based, so main's vaults at 215-217 get 214
+after them. `fixtures/migration_head_217` (the name kept) was rebuilt as a backup-API copy of main's
+fixture, with only 214 applied through `apply_migrations` under `UPGRADE_SCRATCH_COPY`:
+`wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
+`foreign_key_check` empty. It was copied into place with the backup API and has no companion files.
+It now holds every migration through 217, 214 included. The branch's own `migration_head_213`/`migration_head_214` were removed.
+
+- Its README was composed: main's text, AD's 214 paragraph (now naming `mvp-0.30` on `mvp-0.29`) and
+  the rebuild record.
+- `test_ad23_migration` points at the composed head and asserts 213-217 present.
+- It upgrades 213 to 214 through a directory capped at 214, and gains
+  `test_a_vault_at_217_without_214_gets_it`. That test adds exactly `AD23_ADDED_OBJECTS` and alters
+  only the two AD1 receipts it stamps.
+- Main's migration tests subtract `AD23_ADDED_OBJECTS` beside RW3b/RW5a/RW7a's sets:
+  `test_ad1_migration`, `test_approach_maps_schema`, `test_help_assists_schema`,
+  `test_library_asks_migration` and `test_route_rules_in_grader`.
+- `table_roles` already classified 214's tables. `test_coordinated_migrations`,
+  `test_tracked_fixture_databases` and `test_table_roles` pass.
+- References were regenerated: 976 configuration leaves in 69 sections, 347 table notes, schema head
+  217. `db_validate_reference` reports 0 errors and `validate_vault` passed.
+
+**Classification of what main added (the AD guard's registry).** Main's chain since the branch base
+added six tables (migrations 215-217). It altered no classified table: the only classified tables
+whose columns changed are AD1's two receipts, which 214 itself changes. Option B applies: a table
+that references a reading is READING unless it is attempt evidence. AD reads none of the six. Where
+a READING row also carries the incumbent's state or material from other readings, those columns are
+`derived_by_position` with an `unread:` treatment. The guard then refuses them in every scope except
+`derive`, and the rules never hand them out.
+
+| Table (migration) | Role | READING | References | Derived (unread) | Why |
+|---|---|---|---|---|---|
+| `passage_links` (215, RW3b) | PROTECTED | yes | `extraction_id` extraction, `span_id` span | `target_kind target_id relation pick_rank ranks_json roles_json target_facets_json state_key` | A reading's passage picked for an incumbent diagnosis target (recurrence group, hypothesis, misconception, gap, demonstrated facet, unchecked claim) and ranked against other passages. |
+| `reader_cue_impressions` (215, RW3b) | PROTECTED | yes | `extraction_id`, `span_id` | `kind learning_object_id suppressed_reason propensity p_open p_open_source density` | Per visit and cue. The cue's target, the learner model's open-propensity and the holdout's draw are the incumbent's state. The learner's response is a value. |
+| `interactive_figures` (216, RW5a) | PROTECTED | yes | `extraction_id`, `span_ids_json` and `input_span_ids_json` spans | `spec_json verification_report_json` | A model's figure over a reading. A tutor or library figure can send spans from other readings. |
+| `figure_predictions` (216, RW5a) | PROTECTED | yes | `extraction_id` | none | The learner's predictions on a figure in the Reader: a reading event, not attempt evidence. |
+| `reader_path_sections` (217, RW7a) | PROTECTED | yes | `extraction_id`, `section_id` section, `exercise_span_id` span | `label reason state_key` | The path judge's label per reading, depth and learner-state key. |
+| `reader_path_depths` (217, RW7a) | NEUTRAL | no | none (a source id, not a reading) | none | The Guide's depth choice per source. Every column is metadata. |
+
+Every column of every new table is `metadata` or `content` in `column_classes` (free text and
+model JSON are content). The completeness, derived-treatment and reading-reference tests in
+`test_ad_protected_tables` pass.
+
+The other candidates were judged as follows:
+
+- **Existing tables.** `workbench_sessions`/`workbench_steps`, `help_assists`, `approach_maps`,
+  `library_asks`, DL2's commitment/intent tables, `source_objects` and the RW4e proposals existed at
+  the branch base. They keep their earlier decisions: unclassified tables are refused in every
+  scope; `commitments`, `commitment_*_versions`, `commitment_events` and `submission_intents` are
+  DENIED.
+- **`source_roles` and T1's grant state** are not tables at `558e85ab1`. T1 is not on main yet.
+- **New interaction kinds.** Main's `interaction_events` kind is `reader_action_invoked` (cues,
+  workbench, reader authoring). It already matches `READING_EVENT_PREFIXES`, and the cue and
+  workbench payloads name their `extraction_id`, so the `reading_payload` rule withholds them with
+  their reading. A reader-authoring coach response names no reading; it is a value, as before.
+- **New question contexts.** Main adds none. Its new `source_exposure_events` contexts (`library`,
+  `tutor_citation`) are judged by their spans, since the table is READING.
+- **`judgment_ledger` rows from main's new tasks** stay under the table's PROTECTED rule. The new
+  tasks are `figure_author`, `figure_verified`, `passage_cue_judge`, `reading_path_judge`,
+  `reading_path_role`, `role_labeller`, `library_organizer`, `instructional_roles`, the workbench
+  checks and `hint_fit`.
+  - AD's three `judgment_ledger` reads are each filtered to AD's own tasks (`ad_feature_audit`,
+    `ad_relatedness`, and the Reader self-check task with `left_kind = 'reader_authored_question'`),
+    so these rows are never selected.
+  - Their new kinds (`interactive_figure`, `library_ask`, `help_assist`, `source_span`,
+    `workbench_step`, `practice_attempt`) are not in `ENTITY_KINDS`, so for a reader they name
+    nothing withheld. See open item 2.
+
+**A composition fix the gate found.** On the merged tree, 42 AD tests failed. Among them was
+`test_the_ad_pipeline_runs_with_zero_denials`, whose denial was "a read in the incumbent's scope by
+another module" from `learnloop.scheduling.frame_constraints`. DL2 moved `evaluate_mandatory` there
+from `daily_plan.staged_frame`, a named incumbent reader. The moved module joins
+`INCUMBENT_READERS` (the same incumbent constraint code, with a comment), and all 42 pass.
+
+**Gate (memory-capped scopes, at most -n 6, one at a time; no full suite).**
+
+- The full AD file set (`tests/test_ad*.py`, `test_ad_protected_readings`, `test_ad23_contract`,
+  `test_span_reanchor`, `test_salience_firewall`): first run 42 failed, all from the moved
+  incumbent reader above. After the fix: **6,099 passed, 36 xfailed** (-n 6, 25 min).
+- Durability (`--durable-sqlite`) on `test_ad_guard`, `test_ad_epoch`, `test_ad23_migration`,
+  `test_ad1_migration`, `test_ad_protected_tables`, `test_ad_protected_readings`,
+  `test_coordinated_migrations` and `test_tracked_fixture_databases`: **246 passed**.
+- Contract pins and every test file main's side changed (184 files: the defaults-snapshot tests,
+  CLI help snapshot, sidecar serializer snapshot, desktop RPC contract, mobile allowlist, vault
+  template, table roles, migrations, and main's figures, workbench, reading-path, cue, hint, intent,
+  RW2c and UX2 tests).
+  - First run: 22 failed, 9,717 passed, 2 skipped. Every failure was a composed expectation:
+    - main's chain-shape tests, whose `SUCCESSOR_CHAIN[-N]` indexes, slices and explicit version
+      sets end at `mvp-0.29`;
+    - the CLI default now reaching `mvp-0.30`;
+    - RW3b's "215 alters nothing" diff, measured from 213 and so now crossing 214;
+    - RW7a's assertion that the head lacks 214.
+  - The fixes: every index was recomputed from the real chain; the slices shift by one; the sets
+    gain `mvp-0.30`; RW3b's diff starts at 214; RW7a's head holds 214; DL2's CLI check names
+    `--to mvp-0.29`.
+  - The 18 affected files then passed (111 + 264 in two runs), as did the 11 remaining files that
+    name the chain or the head (267).
+- `lint-imports --no-cache`: 30 kept, 0 broken. `npm run typecheck`: ok. `cargo check`: ok. Vitest
+  on the composed practice, intent and API files: 20 files, 156 passed.
+- `db_validate_reference`: 0 errors. `validate_vault`: passed (1,150 notes).
+
+**Open items (not decided here).**
+
+1. The registry's AD guard tests, not the landing gate's full suite, are what prove the
+   classification. The full suite and durability lane run in the landing gate.
+2. `ENTITY_KINDS` leaves main's new judgment kinds unmapped (fail open for a reader of
+   `judgment_ledger`). No AD reader selects them today. Making an unmapped kind fail closed belongs
+   with the post-landing follow-up's L1 (the event-kind and question-context rule failing closed).
+3. AD reads none of RW3b's, RW5a's or RW7a's tables. Figure predictions and cue responses are
+   candidate reading events for AD3's reading signal (§5.11). Adding them would be a spec decision,
+   with their weights learned, and is not part of this merge.
