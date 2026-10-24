@@ -3,8 +3,8 @@ title: "Config - cues"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea590e192e7d05cf407e35bee338909582716483"
-source_commit_timestamp: "2026-10-22T23:06:34-04:00"
+source_commit: "4127892e64c242fa624a3ee76efda08076f7da9c"
+source_commit_timestamp: "2026-10-23T22:20:26-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml cues"
@@ -23,6 +23,7 @@ source_paths:
   - "tests/codex_cli_fakes.py"
   - "tests/figure_corpus.py"
   - "tests/figure_fixtures.py"
+  - "tests/figure_panels_corpus.py"
   - "tests/hint_fakes.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
@@ -30,7 +31,6 @@ source_paths:
   - "tests/router_model_fakes.py"
   - "tests/split_live_helpers.py"
   - "tests/test_ai_config.py"
-  - "tests/test_approach_map_boundaries.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/cues"
@@ -74,6 +74,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/codex_cli_fakes.py`
 - `tests/figure_corpus.py`
 - `tests/figure_fixtures.py`
+- `tests/figure_panels_corpus.py`
 - `tests/hint_fakes.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
@@ -81,7 +82,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/router_model_fakes.py`
 - `tests/split_live_helpers.py`
 - `tests/test_ai_config.py`
-- `tests/test_approach_map_boundaries.py`
 
 ## Extension and modification guidance
 

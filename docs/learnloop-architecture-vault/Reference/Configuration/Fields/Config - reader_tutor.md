@@ -3,8 +3,8 @@ title: "Config - reader_tutor"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea590e192e7d05cf407e35bee338909582716483"
-source_commit_timestamp: "2026-10-22T23:06:34-04:00"
+source_commit: "4127892e64c242fa624a3ee76efda08076f7da9c"
+source_commit_timestamp: "2026-10-23T22:20:26-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml reader_tutor"
@@ -19,6 +19,11 @@ source_paths:
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
   - "src/learnloop_sidecar/handlers/reader_tutor.py"
+  - "src/learnloop/tutor/tutor_qa.py"
+  - "tests/test_figure_offers.py"
+  - "tests/test_figures_rpc.py"
+  - "tests/test_figures_rw5b_review.py"
+  - "tests/test_figures_switch_off.py"
   - "tests/test_reader_inquiry_kill_switch.py"
   - "tests/test_reader_rw1c_review.py"
   - "tests/test_reader_tutor_offers.py"
@@ -44,7 +49,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
 | `reader_tutor.retrieval_enabled` | `true` | boolean | modeled default or validator seed | Turns retrieval behavior on or off within reader workbench RW1c: a tutor that looks things up in the Reader (its own query through the sources service's find_sources with verification under the Reader caller's derived policy, after the selection and its neighbours; three labelled answer modes with a quote-verified From your books excerpt, abstention when the books don't cover it, another way and that didn't help through the service's intents) and the buttons under its answers (the service's practice and tool requests, fetched when the answer lands and shown on press, and Try the next step first): the two kill switches; retrieval is context and the buttons are learner picks (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2372`; `src/learnloop_sidecar/handlers/reader_tutor.py:41` |
-| `reader_tutor.offers_enabled` | `true` | boolean | modeled default or validator seed | Turns offers behavior on or off within reader workbench RW1c: a tutor that looks things up in the Reader (its own query through the sources service's find_sources with verification under the Reader caller's derived policy, after the selection and its neighbours; three labelled answer modes with a quote-verified From your books excerpt, abstention when the books don't cover it, another way and that didn't help through the service's intents) and the buttons under its answers (the service's practice and tool requests, fetched when the answer lands and shown on press, and Try the next step first): the two kill switches; retrieval is context and the buttons are learner picks (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2373`; `src/learnloop_sidecar/handlers/reader_tutor.py:46` |
+| `reader_tutor.offers_enabled` | `true` | boolean | modeled default or validator seed | Turns offers behavior on or off within reader workbench RW1c: a tutor that looks things up in the Reader (its own query through the sources service's find_sources with verification under the Reader caller's derived policy, after the selection and its neighbours; three labelled answer modes with a quote-verified From your books excerpt, abstention when the books don't cover it, another way and that didn't help through the service's intents) and the buttons under its answers (the service's practice and tool requests, fetched when the answer lands and shown on press, and Try the next step first): the two kill switches; retrieval is context and the buttons are learner picks (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2373`; `src/learnloop/tutor/tutor_qa.py:215`; `src/learnloop_sidecar/handlers/reader_tutor.py:46` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -53,6 +58,10 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/test_figure_offers.py`
+- `tests/test_figures_rpc.py`
+- `tests/test_figures_rw5b_review.py`
+- `tests/test_figures_switch_off.py`
 - `tests/test_reader_inquiry_kill_switch.py`
 - `tests/test_reader_rw1c_review.py`
 - `tests/test_reader_tutor_offers.py`

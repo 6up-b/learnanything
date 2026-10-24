@@ -3,8 +3,8 @@ title: "Config - reader_compare"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea590e192e7d05cf407e35bee338909582716483"
-source_commit_timestamp: "2026-10-22T23:06:34-04:00"
+source_commit: "4127892e64c242fa624a3ee76efda08076f7da9c"
+source_commit_timestamp: "2026-10-23T22:20:26-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml reader_compare"
@@ -52,8 +52,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `reader_compare.enabled` | `true` | boolean | modeled default or validator seed | Turns reader compare behavior on or off within reader workbench RW4a: the Reader's compare table over the sources service's compare_sources (one row per source, each line quoting its own source, no consensus; display only until RW4d's keep): the kill switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2451`; `src/learnloop/source_retrieval/kept_comparisons.py:133`; `src/learnloop/source_retrieval/library_ask.py:165` |
-| `reader_compare.keep_enabled` | `true` | boolean | modeled default or validator seed | Turns keep behavior on or off within reader workbench RW4a: the Reader's compare table over the sources service's compare_sources (one row per source, each line quoting its own source, no consensus; display only until RW4d's keep): the kill switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2452`; `src/learnloop/source_retrieval/kept_comparisons.py:124` |
+| `reader_compare.enabled` | `true` | boolean | modeled default or validator seed | Turns reader compare behavior on or off within reader workbench RW4a: the Reader's compare table over the sources service's compare_sources (one row per source, each line quoting its own source, no consensus; display only until RW4d's keep): the kill switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2464`; `src/learnloop/source_retrieval/kept_comparisons.py:133`; `src/learnloop/source_retrieval/library_ask.py:173` |
+| `reader_compare.keep_enabled` | `true` | boolean | modeled default or validator seed | Turns keep behavior on or off within reader workbench RW4a: the Reader's compare table over the sources service's compare_sources (one row per source, each line quoting its own source, no consensus; display only until RW4d's keep): the kill switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2465`; `src/learnloop/source_retrieval/kept_comparisons.py:124` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
