@@ -413,7 +413,9 @@ opened; `git status` is clean apart from the commits below.
 
 Landed in worktree `learnanything-merge2`, branch `merge/t1-onto-main`, from main `558e85ab1` (UX2 on top of
 the security hardening rounds 2-3, RW2c and RW5a). Main is not fast-forwarded here; the orchestrator lands it.
-No migration (head **217**, head fixture `migration_head_217` unchanged) and no algorithm successor.
+No algorithm successor. Through redesign D, no migration (head **217**). Round 5 (below) adds **migration 218**
+(`ingest_batches.origin_method`, one nullable column), so the head is now **218** and the head fixture is
+`migration_head_218`.
 
 ### Commits and conflicts
 
@@ -457,6 +459,14 @@ No migration (head **217**, head fixture `migration_head_217` unchanged) and no 
     0 validation errors. The two prose counts were updated.
   - `validate_vault.py` passes.
 - `9d36c9c01`: RW5b's AI callers checked against redesign D (P7, below).
+- `ad6dad0c4`: the redesign D record.
+- Round 5, from the verify of `ad6dad0c4` (below):
+  - `3e818852d`: the tests;
+  - `207bb0738`: the four fixes;
+  - `35f7a2aeb` and `b07f28cf5`: migration 218, the head fixture and the head pins;
+  - `c07001a0b`: the references at head 218;
+  - `5de3ec27b` and `5b52ac504`: the relay through reported batches, and the tests;
+  - this record.
 
 ### Finding at the landing: the paid roles (fixed, `0ecc600ea`)
 
@@ -1013,9 +1023,128 @@ builds, never the library ask or the tutor. P1 re-ran over the merged registry.
 | `npm install`, typecheck, the whole vitest run (`--maxWorkers=4`), `frontend:build`, `cargo check` | ok; **202 files, 1,727 tests passed**, no unhandled error; built; finished |
 | **full suite at the merged tip `9d36c9c01`** (10G scope, `-n 8`, under the lock) | **15,889 passed**, 1 failed: the known load flake `test_reading_hardening_2_fixes::test_f1_a_build_whose_worker_failed_to_start_is_run_by_the_sweep` (it also failed at the first gate, `df739a1c9`, before any grant change), which passed alone 3 times out of 3; 3 skipped, 2 xfailed (41 min) |
 
+### Verify of `ad6dad0c4` (round 5): four edges inside D
+
+Codex's verify of `b5d8e0f01..ad6dad0c4` (job `20261024-093024-2xxRr8`) **reopened with four Medium findings**. The
+core rule held: no paid work for an action the learner did not approve. All four are edges inside D, so this was a
+normal fix round.
+
+1. **A stale job hint authorized the wrong vault.**
+   - The dispatch minted a relayed hint for the session's current vault and epoch, and retained jobs were read
+     without a vault check. So a figure job that failed in vault A, polled after a switch to B, offered a grant of
+     `reader.figure_request` in B.
+   - **Fix:** every unit records its vault and epoch at creation (`plan_fallback.unit_stamp`).
+     - The four sidecar job families take the stamp in `start()`.
+     - A batch takes it at enqueue (`_BATCH_STAMP`). After a restart it is the stamp of the run.
+     - `unit(token, origin, stamp)` puts the stamp on the unit's collector, so its hint carries `fallback_vault`
+       and `fallback_epoch`.
+   - A relayed offer is kept apart from the request's own offer (`OfferCollector.relayed`). The dispatch's
+     `take_offer` mints it only for the unit's vault, when that is the session's, and its epoch, when that is
+     current. Otherwise it mints nothing and drops the relay.
+   - The request's own offer always wins, and a relayed one is put back for the next read. This also closes the
+     proposal's documented edge: one response no longer mixes a relayed action with its own units.
+2. **A batch restarted after a sidecar restart lost its origin and could never ask again.**
+   - **Fix:** `ingest_batches.origin_method` is durable. It is written at enqueue and read by the batch unit when
+     memory has none (`IngestRunner.batch_origin_method`), and by a child's inheritance.
+   - The queue store's batch decoder leaves it out of every payload, so the desktop DTOs and the serializer
+     snapshot are unchanged.
+   - Grants, tokens and offers stay per session, as decided. A batch resumed after a restart asks again as its
+     origin, and the yes on that offer serves it.
+   - **Migration decision:** a migration was needed, because no durable field on the batch row exists
+     (`ingest_batches` has no JSON column, and writing the action into job payloads would change handler inputs and
+     their hashes).
+     - The number is **218**: the next free after 217, since AD23 holds 214 and the runner has no contiguity rule.
+     - It is one nullable column and no new table, so `table_roles` is unchanged.
+     - The head fixture was rebuilt as a backup-API copy with only 218 applied (scratch-copy allowance; checkpoint
+       (0, 0, 0), `journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok, `foreign_key_check` empty, no
+       companions) and renamed from `migration_head_217` to `migration_head_218`.
+     - The README, the 34 test and script references, the head pins and the follow-on lists of the earlier
+       migration tests (209, 210, 211, 213, 215, 217 and 186, each now allowing `T1_ALTERED_TABLES = {ingest_batches}`)
+       were updated, along with both reference scripts' `SCHEMA_HEAD`.
+     - New test file: `tests/test_t1_batch_origin_migration.py`.
+3. **A book card's build never surfaced its queued offer.**
+   - "Build now" and "Build the whole book" ended at "Questions need an AI connection" with no OpenRouter choice.
+     The offer stayed on the batch, and the card's refresh (`get_source_library`) never relayed it.
+   - **Fix:**
+     - `get_source_library` relays the offer of each card's newest add, plan and build batch, once.
+     - The dispatch relays, once, the offer of any batch a response reports: `batch_id` / `batchId`,
+       `build_batch_id`, `import_batch_id`, `generation_batch_id`, or a batch row with `id` and `workflow_type`, as
+       in `list_ingest_batches`.
+     - One offer per response; the others wait.
+   - **The frontend callers that start a batch,** audited:
+     - **covered by the library read:** `LibraryPlace` / `PreparingView` / `AddSource` / `SourceLibrarySidebar`
+       (`get_source_library`);
+     - **covered by the reported-batch relay:**
+       - `QuickAddDialog` (`get_ingest_batch`);
+       - `IngestScreen` (`get_ingest_job(s)`);
+       - `IngestActivity` (`list_ingest_batches`);
+       - `CardControls` (rung variant), `ConceptAnimationSection` (animation) and the promotion reads (their rows
+         carry `batch_id`);
+       - the Reader import (`reader.exercise_import_status`) and the workbench (`workbench.refresh_import`), which
+         also relay explicitly;
+     - **no follow-up read of their batch:** `GoalWizard` (create goal, starter practice), the Maintenance
+       screen's commissioning practice, and the GoldenPath rung request. Their offer shows on the next read that
+       reports the batch (the Ingest screen's activity list or the library), or not at all; this is recorded as an
+       open item.
+4. **Accepting a build offer still waited on provider consent.**
+   - A vault only ever connected to ChatGPT returned `waiting/needs_consent` after the yes.
+   - **Ruling:** the yes on the offer is the learner's consent for that action. **Fix:**
+     - `AuthoringRoute.granted` (served through a grant: OpenRouter, falling back from a plan profile) and
+       `AuthoringRoute.consented(config)` (a recorded OK or the yes);
+     - the build planner's gate and the preview's `needs_ok` use it;
+     - `get_ai_connection` shows `consented` while the grant stands.
+   - **The other gates on the paid path,** checked:
+     - `priced_by` / `offer_blocker` make no offer a feature would refuse, so a yes always meets a priced feature;
+     - the upload consent (native media) is an explicit, pinned selection the plan never serves;
+     - Quick add's `external_ai_consent` list is the confirmation dialog's information, not a gate.
+
+**Tests:**
+
+- **`tests/test_plan_first_transport_offer_grants_r5.py`** (9 tests). All nine **fail on `ad6dad0c4`**, run against an
+  export of that tree (`out/r5-fail-before-ad6dad0c4.log`), and pass here:
+  - **M1** (four tests):
+    - the delayed figure poll after a vault switch mints nothing;
+    - a relay from before a stop mints nothing;
+    - every relay path (hints, library and figures, batches) relays its unit's own vault and epoch, or nothing;
+    - an AST pin that every `plan_fallback.unit(` opens with a stamp, which covers margin notes, the reading path
+      and the runner.
+  - **M2:** a batch resumed after a simulated restart asks as `build_study_map`, and the yes then serves it. Its
+    first version failed on the missing hint; the final one also clears the new in-memory stamp store.
+  - **M3** (three tests):
+    - "Build now" through `_handle` with the worker running later: the next `get_source_library` shows the offer,
+      as `source_action`, once;
+    - drained inline, the press's own response shows it;
+    - every reported-batch shape relays once.
+  - **M4:** after a yes to `source_action`, "Build now" on a vault with no OpenRouter consent plans `building` on
+    `openrouter`.
+- **`tests/test_t1_batch_origin_migration.py`** (3 tests):
+  - 218 adds the column and nothing else;
+  - the head fixture is at 218 in rollback mode;
+  - the origin never reaches a payload.
+
+| Run | Result |
+|---|---|
+| the round-5 file, `..._offer_grants.py` and the 218 migration test | **26 passed** |
+| the T1 files, lockdown, `test_chatgpt_plan_*`, mobile allowlist, every migration and head-fixture test, table roles, coordinated migrations, tracked fixtures, sqlite copies, architecture, serializer, CLI help, desktop RPC contract (75 files) | **1,361 passed**, 2 xfailed. One adaptation: `test_plan_first_transport.py`'s background-jobs test reads relayed offers through `take_offer` |
+| every ingest/runner/reader/reading/UX-phase-1/workbench/hint/library/figure/cue/first-run/teach-back/daily-plan/router-offer/quick-add/add-source file and every file naming the grant API, the batch reads, the status reads, the library read or the consent gate | **3,639 passed**, 1 skipped, 2 failed. The failures are the two known sweep load flakes; both passed alone 3 times out of 3 |
+| **durability lane** (`-m durability`; migration 218) | **119 passed** |
+| `lint-imports` | 31 kept, 0 broken |
+| typecheck, the whole vitest run, `frontend:build` (no frontend change this round) | clean; 202 files, 1,727 passed; built |
+| **full suite at `5b52ac504`** (10G scope, `-n 8`, under the lock) | **15,899 passed**, 3 failed, 3 skipped, 2 xfailed (41 min). The three failures are load flakes that passed alone 3 times out of 3: the two known sweep tests (`test_reading_hardening_2_fixes::test_f1_…`, failing since the first gate at `df739a1c9`, and `test_reading_request_sweep::test_the_sweep_acts_once_the_books_work_ends_on_the_sidecars_own_worker`) and `test_apply_write_ahead::test_crash_between_rename_and_applied_mark_recovers` |
+
+**Open items from this round:**
+
+- Parity (a) ("no schema change") was run before migration 218. The schema now differs from main by that one
+  nullable column, which nothing but the batch unit reads. Parity (b)-(d) are unaffected.
+- Batch-starting callers with no follow-up read of their batch (`GoalWizard`, commissioning practice, the
+  GoldenPath rung request) surface their offer only on a later read that reports the batch.
+- A queued batch created before a stop asks nothing for the rest of the session: its epoch is stale. After a
+  restart it asks again.
+
 ### Owner notes
 
-- **No migration** (head 217) and no successor: only the served model changes (Codex to the plan's models),
+- **Migration 218** (round 5): one nullable column, `ingest_batches.origin_method`, applied by the usual
+  coordinated migration when a vault opens. No successor: only the served model changes (Codex to the plan's models),
   which the owner approved.
 - **What the learner sees:**
   - every serving route defaults to the tool-free ChatGPT plan (`chatgpt`, `chatgpt_low`, `chatgpt_medium`,
