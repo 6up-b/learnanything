@@ -54,6 +54,8 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("ad_state", PROTECTED),
     ("agent_runs", NEUTRAL),
     ("assessment_contract_versions", NEUTRAL),
+    ("assumption_decisions", DENIED),
+    ("assumption_returns", DENIED),
     ("attempt_diagnoses", DENIED),
     ("attention_block_events", PROTECTED),
     ("attention_blocks", NEUTRAL),
@@ -69,6 +71,8 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("controller_ownership", DENIED),
     ("daily_plans", NEUTRAL),
     ("decision_features", DENIED),
+    ("depth_envelope_versions", NEUTRAL),
+    ("depth_policy_versions", NEUTRAL),
     ("derived_state_rebuilds", NEUTRAL),
     ("diagnosis_context_receipts", DENIED),
     ("diagnosis_feedback", DENIED),
@@ -104,6 +108,9 @@ _ROLES: tuple[tuple[str, str], ...] = (
     ("judgment_ledger", PROTECTED),
     ("judgment_work_claims", NEUTRAL),
     ("learner_claims", NEUTRAL),
+    ("learner_gap_check_advances", DENIED),
+    ("learner_gap_commitments", DENIED),
+    ("learner_text_gap_reversals", DENIED),
     ("learning_object_mastery", DENIED),
     ("lo_probe_state", DENIED),
     ("measurement_contract_corrections", NEUTRAL),
@@ -451,6 +458,18 @@ INCUMBENT_READERS = frozenset({
     # Main's DL2 moved the staged frame's mandatory-set evaluation (``evaluate_mandatory``) out of
     # ``daily_plan.staged_frame`` into its own module: the same incumbent constraint code (the compose round).
     "learnloop.scheduling.frame_constraints",
+    # The compose fix round (intent; Opus composition verify F1, F2): the rest of the incumbent's frame,
+    # snapshot and pool-predicate path, enumerated by a trace of every incumbent-scope read with DL2
+    # commitments under both router settings and over the contract harness, not by hand. The
+    # snapshot's commitment heads (``curriculum.commitments``), DL2's intent resolution, and the pool
+    # predicate's build gates (placement's state and predictor, the facet states, the fitted
+    # parameters, the LO mastery claims). Each answers AD a verdict only (``ad_slot.IncumbentVerdicts``).
+    "learnloop.curriculum.commitments",
+    "learnloop.learner.facet_state_reader",
+    "learnloop.learner.mastery",
+    "learnloop.params.fitted_params",
+    "learnloop.placement.predictor",
+    "learnloop.scheduling.intent.resolution",
     "learnloop.scheduling.serving_exclusions",
 })
 

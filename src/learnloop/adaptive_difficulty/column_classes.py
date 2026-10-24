@@ -104,6 +104,13 @@ _CLASSES: dict[str, tuple[str, str]] = {
     "assessment_contract_versions": (
         "id practice_item_id contract_hash schema_version created_at",
         "contract_json"),
+    "assumption_decisions": (
+        "id learning_object_id source trigger_kind trigger_ref p q_used theta_known predictor predictor_version "
+        "first_review_due quick_check_session_id algorithm_version created_at",
+        "interval_json config_json inputs_json"),
+    "assumption_returns": (
+        "id assumption_id learning_object_id reason trigger_ref algorithm_version created_at",
+        ""),
     "attempt_diagnoses": (
         "id attempt_id blind_grade_record_id agent_run_id diagnosis_prompt_version provider model mode "
         "history_mode status latency_seconds supersedes_id created_at",
@@ -160,6 +167,12 @@ _CLASSES: dict[str, tuple[str, str]] = {
     "decision_features": (
         "id decision_id decision_type algorithm_version created_at",
         "ability_vector_json item_demand_vector_json context_json"),
+    "depth_envelope_versions": (
+        "id envelope_version content_hash created_at",
+        "bounds_json reviewed_edges_json"),
+    "depth_policy_versions": (
+        "id policy content_hash created_at",
+        "body_json"),
     "derived_state_rebuilds": (
         "id scope learning_object_ids_json algorithm_version rebuilt_learning_objects replayed_attempts "
         "created_at canonical_projection_version coverage_denominator_version",
@@ -309,6 +322,15 @@ _CLASSES: dict[str, tuple[str, str]] = {
         "id claim_type scope_type scope_id evidence_family claimed_level prior_pseudo_count source "
         "created_at",
         ""),
+    "learner_gap_check_advances": (
+        "id gap_id learning_object_id intent assumption_id original_due advanced_due algorithm_version created_at",
+        ""),
+    "learner_gap_commitments": (
+        "id gap_id learning_object_id practice_item_id first_review_due algorithm_version created_at",
+        ""),
+    "learner_text_gap_reversals": (
+        "id gap_id reversal actor created_at",
+        "detail_json"),
     "learning_object_mastery": (
         "learning_object_id logit_mean logit_variance evidence_count last_evidence_at algorithm_version "
         "updated_at",

@@ -3345,11 +3345,70 @@ def check_admission(
     the same reads, with no session and nothing written, each read on first
     use. Returns ``admits_check_candidate``."""
 
+    admission = _outside_build_admission(vault, repository, now=now, intent_view=intent_view)
+    # ``reasons``: the refusal reason (or None) the one check gate keeps.
+    return admission.check_candidate_refusal if reasons else admission.admits_check_candidate
+
+
+def pool_admission(
+    vault: LoadedVault, repository: Repository, *, now: datetime, item_states: Any = None
+) -> Any:
+    """THE plan pool's per-item predicate asked of one item outside a queue
+    build: ``refusal(item_id) -> reason | None``.
+
+    It is ``build_due_queue``'s own loop question (``admission_reason``,
+    orchestrator ruling R1) over the same reads: the routine gate, DL2's
+    intent gate (intent's view built as the build builds it, its checks split
+    by this admission), and the build's gates (freshness reserve, placement,
+    the cold-start gate, the probe-episode gates), each item a request
+    exactly when the build's request set holds it. A selector that serves an
+    item the build did not put in its pool asks it (adaptive difficulty's
+    slot draw, in the serve transaction), so a rule the build adds to that
+    predicate applies to the selector with no second list kept in sync.
+    ``item_states``: the states the predicate reads (default the
+    repository's); nothing is written."""
+
+    intent_view = _intent_serving(vault, repository, now)
+    admission = _outside_build_admission(
+        vault, repository, now=now, intent_view=intent_view, item_states=item_states
+    )
+    if intent_view is None:
+        requested = repository.requested_practice_item_ids()
+    else:
+        requested = repository.requested_practice_item_ids(
+            skip_commitment_ids=intent_view.intent_control_request_commitments()
+        )
+        intent_view.bind_admission(admission.check_candidate_refusal)
+        requested = intent_view.filter_requests(requested)
+    requested_ids = frozenset(requested)
+    intent_gate = intent_view.withhold_reason if intent_view is not None else None
+
+    def refusal(item_id: str) -> str | None:
+        item = vault.practice_items.get(item_id)
+        if item is None:
+            return "unknown_item"
+        state = admission.item_states().get(item_id)
+        return admission_reason(
+            vault,
+            item,
+            state,
+            admission.exclusions(),
+            admission,
+            requested=item_id in requested_ids,
+            intent_gate=intent_gate,
+        )
+
+    return refusal
+
+
+def _outside_build_admission(
+    vault: LoadedVault, repository: Repository, *, now: datetime, intent_view: Any, item_states: Any = None
+) -> "_BuildAdmission":
     from learnloop.clock import FrozenClock
 
     clock = FrozenClock(now)
     config = vault.config
-    item_states = _Once(repository.practice_item_states)
+    item_states = _Once(repository.practice_item_states) if item_states is None else _Once.of(item_states)
     exclusions = _Once(lambda: routine_serving_exclusions(vault, repository))
 
     def placement() -> Any:
@@ -3430,8 +3489,7 @@ def check_admission(
         episode_posterior_cache={},
         episode_eligible_cache={},
     )
-    # ``reasons``: the refusal reason (or None) the one check gate keeps.
-    return admission.check_candidate_refusal if reasons else admission.admits_check_candidate
+    return admission
 
 
 def _goal_frontier(vault: LoadedVault, item: PracticeItem, entry) -> float:

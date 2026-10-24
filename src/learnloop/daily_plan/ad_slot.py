@@ -17,7 +17,11 @@ the block's admission (the slot item gets no exemption):
 1. *the admission the slot item passed*: under the staged frame (router on)
    the constraint engine admits it on a fresh controller snapshot; with the
    router off, the predecessor's new-lane pool rule; and in both, reversible
-   (no open cold check, no reserved assessment surface);
+   (no open cold check, no reserved assessment surface) and admitted by the
+   plan pool's own per-item predicate (``scheduler.pool_admission``: the
+   routine gate, DL2's intent gate, the build's gates), asked in the serve
+   transaction (the compose fix round, F2). The incumbent answers all of
+   check 1 as verdicts only (:class:`IncumbentVerdicts`);
 2. not planned in any of today's plans (the slot item: in no slot but its own);
 3. fits the block: ``est(i) <= est(slot) + slack``, ``slack = max(0,
    min(BLOCK_MAX - block minutes, plan minutes left, new-lane minutes left))``;
@@ -181,44 +185,88 @@ def _pool_item(item: Any, *, est_minutes: float, existing: PoolItem | None) -> P
                     never_attempted=True)
 
 
-def admission_failures(env: Any, items: Sequence[Any], *, pool: Mapping[str, PoolItem],
-                       est: Mapping[str, float], view: Any) -> dict[str, list[str]]:
-    """Check 1: the admission the slot passed, on a fresh snapshot, plus reversibility."""
+@dataclass(frozen=True)
+class IncumbentVerdicts:
+    """What the incumbent's scope hands AD's slot for a set of candidates: verdicts, never state
+    (the compose fix round, (b)). ``refusals``: per candidate, the reasons the incumbent would not
+    serve it (the staged frame's constraint refusals, router on; the plan pool's own per-item
+    predicate, ``pool:<reason>``, under both router settings); ``cold_items``: the items an open
+    cold check holds (None: unreadable, every candidate held); ``reserved_items``: the items a
+    reserved assessment surface holds. Ids and reason strings only."""
 
+    refusals: Mapping[str, tuple[str, ...]]
+    cold_items: frozenset[str] | None
+    reserved_items: frozenset[str]
+
+
+def incumbent_verdicts(env: Any, candidates: Sequence[PoolItem], *, item_states: Any) -> IncumbentVerdicts:
+    """The incumbent's admission of AD's candidates, asked in its scope (the registry's named
+    incumbent readers) and returned as :class:`IncumbentVerdicts` alone.
+
+    Two incumbent questions, each the incumbent's own code: the staged frame's admission on a fresh
+    controller snapshot (its constraint engine, cold checks and reservations), and the plan pool's
+    per-item predicate (``scheduler.pool_admission``: the routine gate, DL2's intent gate and the
+    build's gates, the one predicate ``build_due_queue`` asks of every item). An AD candidate is
+    one the build did not necessarily put in the pool, so it is asked the pool's question here, in
+    the serve transaction (the compose fix round, F2): a rule the build adds to that predicate (as
+    DL2 added intent) applies to AD with nothing kept in sync. ``item_states``: the states as AD's
+    material view reads them (fix round 12), for both questions."""
+
+    from learnloop.adaptive_difficulty.operation import incumbent_constraints
     from learnloop.daily_plan.policy import router_active
     from learnloop.daily_plan.staged_frame import StagedFrame
+    from learnloop.scheduling.scheduler import pool_admission
+
+    ids = [str(candidate.practice_item_id) for candidate in candidates]
+    with incumbent_constraints():
+        material = StagedFrame(env.vault, env.repository, clock=env.clock,
+                               item_states=lambda: item_states).material(candidates)
+        refuse = pool_admission(env.vault, env.repository, now=env.now(), item_states=item_states)
+        pooled = {item_id: refuse(item_id) for item_id in ids}
+    staged = router_active(env.vault)
+    refusals: dict[str, tuple[str, ...]] = {}
+    for item_id in ids:
+        reasons: list[str] = []
+        if staged:
+            for reason in material.refusals.get(item_id, ()):
+                reasons.append(f"constraint:{reason.get('constraint') or reason.get('key') or 'refused'}")
+        if pooled[item_id] is not None:
+            reasons.append(f"pool:{pooled[item_id]}")
+        refusals[item_id] = tuple(str(reason) for reason in reasons)
+    cold = material.cold_items
+    return IncumbentVerdicts(
+        refusals=refusals,
+        cold_items=None if cold is None else frozenset(str(item_id) for item_id in cold),
+        reserved_items=frozenset(str(item_id) for item_id in material.reserved_items),
+    )
+
+
+def admission_failures(env: Any, items: Sequence[Any], *, pool: Mapping[str, PoolItem],
+                       est: Mapping[str, float], view: Any) -> dict[str, list[str]]:
+    """Check 1: the admission the slot passed, on a fresh snapshot, plus reversibility, and the plan
+    pool's own per-item predicate (:func:`incumbent_verdicts`)."""
+
+    from learnloop.daily_plan.policy import router_active
 
     candidates = [_pool_item(item, est_minutes=est.get(str(item.id), 0.0), existing=pool.get(str(item.id)))
                   for item in items]
     failed: dict[str, list[str]] = {str(item.id): [] for item in items}
     # The item states as AD's material view reads them (fix round 12): an item whose history holds a
     # withheld answer reads as never scheduled, so that answer moves no due date AD's admission sees.
-    def states() -> Any:
-        with env.repository.connection() as connection:
-            return view.item_states(connection)
-
-    from learnloop.adaptive_difficulty.operation import incumbent_constraints
-
-    item_states = states()
-    # The incumbent's admission on a fresh snapshot, asked in its scope (the registry's named incumbent
-    # readers): what reaches AD is each visible candidate's refusals.
-    with incumbent_constraints():
-        material = StagedFrame(env.vault, env.repository, clock=env.clock,
-                               item_states=lambda: item_states).material(candidates)
+    with env.repository.connection() as connection:
+        item_states = view.item_states(connection)
+    verdicts = incumbent_verdicts(env, candidates, item_states=item_states)
     staged = router_active(env.vault)
     for item in items:
         item_id = str(item.id)
-        if staged:
-            for reason in material.refusals.get(item_id, ()):
-                failed[item_id].append(f"constraint:{reason.get('constraint') or reason.get('key') or 'refused'}")
-        else:
+        failed[item_id].extend(verdicts.refusals.get(item_id, ()))
+        if not staged:
             existing = pool.get(item_id)
             if existing is None or existing.lane != "new" or not existing.never_attempted:
                 failed[item_id].append("not_new_lane")
-        cold = material.cold_items
-        if cold is None or item_id in cold:
+        if verdicts.cold_items is None or item_id in verdicts.cold_items:
             failed[item_id].append("open_cold_check")
-        if item_id in material.reserved_items:
+        if item_id in verdicts.reserved_items:
             failed[item_id].append("reserved_surface")
     return failed
 
@@ -362,5 +410,5 @@ def router_propensity(record: Any, block: Any) -> float:
     return float(value) if value is not None else 1.0
 
 
-__all__ = ["AdUnavailable", "admission_failures", "build_request", "deferrals_to_clear", "eligibility_failures",
+__all__ = ["AdUnavailable", "IncumbentVerdicts", "admission_failures", "incumbent_verdicts", "build_request", "deferrals_to_clear", "eligibility_failures",
            "router_propensity", "slot_operation"]
