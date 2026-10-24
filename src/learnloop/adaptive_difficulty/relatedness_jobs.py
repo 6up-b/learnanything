@@ -16,6 +16,7 @@ version through the playbook. Nothing runs below the tag, with
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.logs import warn_failure
 from learnloop.adaptive_difficulty.operation import entry
 
 import logging
@@ -91,7 +92,7 @@ def schedule_reproposals(vault: Any, sqlite_path: Any, *, client: Any = None, bu
                 threads.append(thread)
         return threads
     except Exception:  # noqa: BLE001 - a re-proposal never blocks a reload
-        LOG.warning("AD relatedness re-proposals not scheduled", exc_info=True)
+        warn_failure(LOG, "AD relatedness re-proposals not scheduled")
         return []
 
 

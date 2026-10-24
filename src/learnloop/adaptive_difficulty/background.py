@@ -27,6 +27,7 @@ vault-copy run) starts nothing.
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.logs import warn_failure
 from learnloop.adaptive_difficulty.operation import entry
 
 import logging
@@ -91,7 +92,7 @@ def _launch(sqlite_path: Any, key: str, job: Callable[[Any], None], *, builds: A
                         # close, as the map builds' writes do.
                         job(fence)
                 except Exception:  # noqa: BLE001 - a background job never reaches the serve
-                    LOG.warning("adaptive difficulty background job %s failed", key, exc_info=True)
+                    warn_failure(LOG, "adaptive difficulty background job %s failed", key)
                 finally:
                     with _GUARD:
                         _INFLIGHT.discard(candidate)
@@ -101,7 +102,7 @@ def _launch(sqlite_path: Any, key: str, job: Callable[[Any], None], *, builds: A
         started = thread is not None
         return thread
     except Exception:  # noqa: BLE001 - scheduling never fails a serve
-        LOG.warning("adaptive difficulty job %s not scheduled", key, exc_info=True)
+        warn_failure(LOG, "adaptive difficulty job %s not scheduled", key)
         return None
     finally:
         if not started:
@@ -134,7 +135,7 @@ def schedule_presentation_forecasts(vault: Any, sqlite_path: Any, presentation_i
         return _launch(sqlite_path, f"presentation:{presentation_id}", job, builds=builds,
                        name=f"learnloop-ad-forecast-{presentation_id}")
     except Exception:  # noqa: BLE001
-        LOG.warning("AD presentation forecasts not scheduled", exc_info=True)
+        warn_failure(LOG, "AD presentation forecasts not scheduled")
         return None
 
 
@@ -246,7 +247,7 @@ def _prepare(vault: Any, repository: Any, items: list[Any], *, clients: Clients 
             # run before anything was recorded, so every trigger retried it
             # first and the revisions behind it never ran. It is visited and
             # unsettled (retried later, at the back), and the run goes on.
-            LOG.warning("AD preparation of %s failed", item_id, exc_info=True)
+            warn_failure(LOG, "AD preparation of %s failed", item_id)
             entry.update(status="failed", error=type(exc).__name__)
             entry["settled"] = False
             results.append(entry)
@@ -345,7 +346,7 @@ def schedule_item_preparation(vault: Any, sqlite_path: Any, item_ids: Iterable[s
             queue.live_vault = live_vault
         return _start_run(sqlite_path, queue, builds=builds, limit=max(0, min(int(limit), PREPARE_LIMIT)))
     except Exception:  # noqa: BLE001
-        LOG.warning("AD item preparation not scheduled", exc_info=True)
+        warn_failure(LOG, "AD item preparation not scheduled")
         return None
 
 
@@ -477,7 +478,7 @@ def _start_run(sqlite_path: Any, queue: _Queue, *, builds: Any, limit: int) -> t
                                  decider_factory=None, clock=clock, fence=fence, live_vault=live_vault,
                                  results=results, view=op.view)
             except Exception:  # noqa: BLE001 - a background job never reaches the serve
-                LOG.warning("adaptive difficulty preparation run failed", exc_info=True)
+                warn_failure(LOG, "adaptive difficulty preparation run failed")
             finally:
                 finish(results)
         return run
@@ -485,7 +486,7 @@ def _start_run(sqlite_path: Any, queue: _Queue, *, builds: Any, limit: int) -> t
     try:
         thread = _registry(builds).launch(sqlite_path, work, name="learnloop-ad-prepare")
     except Exception:  # noqa: BLE001 - scheduling never fails a serve
-        LOG.warning("adaptive difficulty preparation run not started", exc_info=True)
+        warn_failure(LOG, "adaptive difficulty preparation run not started")
         thread = None
     if thread is None:
         finish([])
@@ -529,7 +530,7 @@ def schedule_new_revisions(previous: Any, vault: Any, sqlite_path: Any, *, item_
         return schedule_item_preparation(vault, sqlite_path, ids, clients=clients, builds=builds,
                                          live_vault=live_vault)
     except Exception:  # noqa: BLE001 - preparation never blocks a reload
-        LOG.warning("AD preparation of new revisions not scheduled", exc_info=True)
+        warn_failure(LOG, "AD preparation of new revisions not scheduled")
         return None
 
 

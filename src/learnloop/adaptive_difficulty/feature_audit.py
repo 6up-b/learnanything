@@ -30,6 +30,7 @@ a serve, §7.5).
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.logs import warn_failure
 from learnloop.adaptive_difficulty.operation import entry
 
 import hashlib
@@ -393,7 +394,7 @@ def _audit(vault: Any, worker: Any, item: Any, item_json: str, content_hash: str
         except AIProviderUnavailable:
             status = "unavailable"
         except Exception:  # noqa: BLE001 - a failed Decider hands the dimensions to the LLM
-            LOG.warning("feature audit: the Decider failed for %s", item_id, exc_info=True)
+            warn_failure(LOG, "feature audit: the Decider failed for %s", item_id)
             status = "failed"
         outcome.decider_status = status
         try:

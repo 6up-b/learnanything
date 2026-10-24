@@ -27,6 +27,7 @@ serve, in the background (:mod:`learnloop.adaptive_difficulty.background`).
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.logs import warn_failure
 from learnloop.adaptive_difficulty.operation import entry
 
 import logging
@@ -133,7 +134,7 @@ def record_plan_serve(vault: Any, repository: Any, *, presentation_id: str, prac
                 vault, connection, item, presentation_id=presentation_id, served_at=served_at, protected=protected,
                 view=view)
     except Exception:  # noqa: BLE001 - AD's logging never breaks the serve
-        LOG.warning("AD1 serve receipts for presentation %s not recorded", presentation_id, exc_info=True)
+        warn_failure(LOG, "AD1 serve receipts for presentation %s not recorded", presentation_id)
         record.skipped = "failed"
     return record
 

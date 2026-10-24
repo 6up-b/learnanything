@@ -22,6 +22,7 @@ row is never mutated.
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.logs import warn_failure
 from learnloop.adaptive_difficulty.operation import entry, own_write
 
 import logging
@@ -293,7 +294,7 @@ def schedule_commission_generation(vault: Any, repository: Any,
     try:
         rows = _queueable_commissions(vault, repository)
     except Exception:  # noqa: BLE001 - scheduling never fails a serve
-        LOG.warning("AD commissions not read for generation", exc_info=True)
+        warn_failure(LOG, "AD commissions not read for generation")
         return []
     # The queue (and, in the foreground, its worker: the generation boundary, E1) runs outside the
     # operation that chose what to queue: the generator writes the incumbent's tables.
@@ -303,7 +304,7 @@ def schedule_commission_generation(vault: Any, repository: Any,
             enqueue(str(row["id"]), str(row["learning_object_id"]))
             queued.append(str(row["id"]))
         except Exception:  # noqa: BLE001 - the next call retries it
-            LOG.warning("AD commission %s not queued for generation", row["id"], exc_info=True)
+            warn_failure(LOG, "AD commission %s not queued for generation", row["id"])
     return queued
 
 

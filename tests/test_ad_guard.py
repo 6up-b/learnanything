@@ -59,7 +59,7 @@ def test_the_ad_pipeline_runs_with_zero_denials(tmp_path, monkeypatch, observed)
     for name in ("serve.record_plan_serve", "reading.sweep", "background.prepare_items",
                  "outside.forecast_presentation", "generation.commission_point", "dose.decide",
                  "dose.record_uptake", "readiness.lo_readiness", "replay.snapshot", "report.build",
-                 "ad_slot.slot_operation"):
+                 "ad_slot.open_slot", "ad_slot.decide"):
         assert any(name in entry for entry in entries), (name, sorted(entries))
     reads = {table for op in observed for table in op.guard.reads}
     # Its mixed reading is absent (Option B, round 8); its clean reading is read, as stored.
@@ -67,8 +67,8 @@ def test_the_ad_pipeline_runs_with_zero_denials(tmp_path, monkeypatch, observed)
 
 
 def _slot_serve(tmp_path, monkeypatch, *, plant: bool):
-    """One plan serve; with ``plant`` the slot's request builder first reads ``practice_attempts``
-    raw on the serve's pinned connection."""
+    """One plan serve; with ``plant`` AD's request builder (phase 3, inside its operation) first reads
+    ``practice_attempts`` raw on the serve's pinned connection."""
 
     from learnloop.daily_plan import ad_slot
     from learnloop.daily_plan.engine import advance, build_plan
@@ -80,13 +80,13 @@ def _slot_serve(tmp_path, monkeypatch, *, plant: bool):
     env, _clock = env_for(paths, items=items)
     build_plan(env, kind="normal", budget=3.0, remembered=3, minutes_source="chip")
     if plant:
-        real = ad_slot.build_request
+        real = ad_slot._request
 
-        def planted(env, *args, **kwargs):
-            env.repository.connection().execute("SELECT * FROM practice_attempts").fetchall()
-            return real(env, *args, **kwargs)
+        def planted(vault, repository, *args, **kwargs):
+            repository.connection().execute("SELECT * FROM practice_attempts").fetchall()
+            return real(vault, repository, *args, **kwargs)
 
-        monkeypatch.setattr(ad_slot, "build_request", planted)
+        monkeypatch.setattr(ad_slot, "_request", planted)
     _record, step = advance(env, serve=True)
     return paths, step, selections(paths, kind="serve")
 
@@ -151,7 +151,7 @@ def test_the_pinned_connection_carries_the_guard_only_inside_the_operation(tmp_p
             with pytest.raises(sqlite3.DatabaseError, match=DENIED):
                 connection.execute("SELECT COUNT(*) FROM practice_attempts").fetchone()
         with pytest.raises(O.OperationPoisoned), O.ad_operation(vault, repository):
-            with O.rules("view"):
+            with O.rules(O.Scope.VIEW):
                 connection.execute("/* ad-rules */ SELECT COUNT(*) FROM practice_attempts").fetchone()
             with pytest.raises(sqlite3.DatabaseError, match=DENIED):
                 # A statement prepared inside the rules is not reused unchecked outside them.
@@ -441,7 +441,7 @@ def test_the_rules_read_a_content_column_inside_an_operation(tmp_path):
     with repository.atomic():
         connection = repository.connection()
         with O.ad_operation(vault, repository):
-            with O.rules("test"):
+            with O.rules(O.Scope.VIEW):
                 connection.execute("/* ad-rules */ SELECT contract_json FROM assessment_contract_versions").fetchall()
 
 
@@ -498,18 +498,18 @@ def test_an_incumbent_model_calls_text_is_unreadable_raw_while_its_accounting_is
 
 
 def test_in_the_incumbent_scope_only_its_named_readers_read_content(tmp_path):
-    """Round 6 (Low), as the compose fix round 3 closes it: code outside the incumbent cannot be in
-    the incumbent's scope at all. Opening it from anywhere but its two pinned entry functions (here a
-    test, as round 6 did) is refused and poisons the operation, and outside the scope the content
-    column stays refused while the metadata column stays readable."""
+    """Round 6 (Low), as the final round closes it: there is no incumbent scope. ``rules`` takes only
+    a ``Scope`` member, so the retired ``"incumbent"`` (or any string) raises and poisons the
+    operation; the content column stays refused and the metadata column readable."""
 
     paths, vault, repository = _vault(tmp_path)
+    assert not any(name.startswith("incumbent") for name in dir(O))
     with repository.atomic():
         connection = repository.connection()
         with contextlib.suppress(_POISONED), O.ad_operation(vault, repository) as op:
             connection.execute("SELECT status FROM model_call_receipts").fetchall()
-            with pytest.raises(O.GuardDenied, match="incumbent's scope refused"):
-                with O.incumbent_constraints():
+            with pytest.raises(TypeError):
+                with O.rules("incumbent"):
                     connection.execute("SELECT output_text FROM model_call_receipts").fetchall()
             assert op.guard.poisoned
             with pytest.raises(sqlite3.DatabaseError, match=DENIED):
@@ -620,12 +620,12 @@ def test_the_rules_never_read_a_derived_column_outside_its_derivation(tmp_path, 
     with repository.atomic():
         connection = repository.connection()
         with O.ad_operation(vault, repository):
-            with O.rules("view"):
+            with O.rules(O.Scope.VIEW):
                 connection.execute("/* ad-rules */ SELECT span_id FROM source_document_blocks").fetchall()
-            with O.rules(O.DERIVE if hasattr(O, "DERIVE") else "derive"):
+            with O.rules(O.Scope.DERIVE):
                 connection.execute(f"/* ad-rules */ SELECT {column} FROM source_document_blocks").fetchall()
         with contextlib.suppress(_POISONED), O.ad_operation(vault, repository):
-            with O.rules("view"):
+            with O.rules(O.Scope.VIEW):
                 with pytest.raises(sqlite3.DatabaseError, match=DENIED):
                     connection.execute(f"/* ad-rules */ SELECT {column} FROM source_document_blocks").fetchall()
 
@@ -672,7 +672,7 @@ def test_an_unclassified_table_is_refused_in_every_scope(tmp_path):
         table = next(str(row[0]) for row in raw.execute(
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
             if str(row[0]) not in T.ROLES)
-    for scope in ("view", "predicate", O.DERIVE):
+    for scope in (O.Scope.VIEW, O.Scope.PREDICATE, O.Scope.DERIVE):
         with repository.atomic():
             connection = repository.connection()
             with contextlib.suppress(_POISONED), O.ad_operation(vault, repository):

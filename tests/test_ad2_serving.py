@@ -28,9 +28,12 @@ from tests.ad23_fakes import (
     ad23_vault,
     answer,
     block_events,
+    close_followups,
+    cold_followup,
     commit,
     env_for,
     intent_gated,
+    pending_variant,
     reveal,
     rows,
     selections,
@@ -180,21 +183,31 @@ def test_selection_switch_off_restores_lane_order(tmp_path):
 # -- G-AD2-22 -----------------------------------------------------------------------------------
 
 
+def _reserve_exam(monkeypatch, item_ids):
+    """The plan's routine exclusions with ``item_ids`` exam-reserved: a double of the incumbent's own
+    function, which the plan calls in its phase 2, outside any AD operation (the final round). A real
+    reservation would also withhold the item from AD's view (protection), a different path."""
+
+    from dataclasses import replace
+
+    from learnloop.scheduling import serving_exclusions as SE
+
+    real = SE.out_of_timing_serving_exclusions
+
+    def reserved(*args: Any, **kwargs: Any) -> Any:
+        found = real(*args, **kwargs)
+        return replace(found, reserved_exam_item_ids=found.reserved_exam_item_ids | set(item_ids))
+
+    monkeypatch.setattr(SE, "out_of_timing_serving_exclusions", reserved)
+
+
 def test_exam_reserved_and_retired_items_never_selected(tmp_path, monkeypatch):
     """An exam-reserved and a retired candidate are never in the support (check 0)."""
 
     paths, env, _clock, _record = _plan(tmp_path, ("pi_h", "pi_e1", "pi_e2", "pi_e3"), features={"pi_h": HARD})
     set_item(paths, "pi_e3", status="retired")
     env.vault = load_vault(paths.root)
-    real = ad_slot._exclusions
-
-    def reserved(env_: Any, view: Any) -> Any:
-        from dataclasses import replace
-
-        found = real(env_, view)
-        return replace(found, reserved_exam_item_ids=found.reserved_exam_item_ids | {"pi_e1"})
-
-    monkeypatch.setattr(ad_slot, "_exclusions", reserved)
+    _reserve_exam(monkeypatch, {"pi_e1"})
     _record, step = advance(env, serve=True)
     (row,) = _serve_rows(paths)
     refs = {entry["ref"] for entry in row["support"]}
@@ -259,7 +272,7 @@ def test_joint_propensity_logged_with_router_block(tmp_path):
     block = record.blocks[0]
     _record, _step = advance(env, serve=True)
     (row,) = _serve_rows(paths)
-    expected = ad_slot.router_propensity(record, block)
+    expected = float((block.chosen or {}).get("propensity") or 1.0)
     assert row["router_propensity"] == pytest.approx(expected)
     assert row["pair_propensity"] == pytest.approx(expected * row["propensity"])
     assert row["block_id"] == block.id and row["slot_position"] == block.items[0].position
@@ -429,32 +442,30 @@ def test_item_over_block_budget_not_in_support(tmp_path):
 
 
 def test_support_respects_constraints_reversibility_and_admission(tmp_path, monkeypatch):
-    """An item the constraint engine refuses, one holding an open cold check or a reserved
-    surface, one planned in another of today's plans, and a costlier item for a floor-admitted
-    slot are never in ``S``."""
+    """An item the incumbent refuses on a fresh admission, one an open cold follow-up holds, one
+    holding a reserved surface, one planned in another of today's plans, and a costlier item for a
+    floor-admitted slot are never in ``S``. The refusal and the cold hold are real incumbent state
+    (a learner's variant request still being authored; an open cold retry), computed by the plan in
+    its phase 2 (the final round's Low: no double at a boundary)."""
 
-    from learnloop.daily_plan import staged_frame
+    from learnloop.daily_plan import slot_facts, staged_frame
 
     items = ("pi_h", "pi_refused", "pi_cold", "pi_reserved", "pi_planned", "pi_cost", "pi_ok")
-    paths, env, _clock, record = _plan(tmp_path, items, features={"pi_h": HARD}, config=ROUTER_STAGED,
-                                       minutes={"pi_cost": 2.4})
-    # The incumbent's verdicts, adjusted at the scope's boundary (the compose fix round 3: no test
-    # double runs inside the incumbent's scope; the stack rule refuses one that reads there).
-    real_verdicts = ad_slot.incumbent_verdicts
+    paths, env, clock, record = _plan(tmp_path, items, features={"pi_h": HARD}, config=ROUTER_STAGED,
+                                      minutes={"pi_cost": 2.4})
+    pending_variant(paths, "pi_refused")
+    cold_followup(paths, "pi_cold", clock=clock)
+    # The frame's surface reservation, at the incumbent's own frame (phase 2 runs with no AD operation).
+    real_material = staged_frame.StagedFrame.material
 
-    def verdicts(*args: Any, **kwargs: Any) -> Any:
+    def material(self: Any, candidates: Any) -> Any:
         from dataclasses import replace
 
-        found = real_verdicts(*args, **kwargs)
-        refusals = {**dict(found.refusals)}
-        if "pi_refused" in found.pool:
-            refusals["pi_refused"] = (*refusals.get("pi_refused", ()), "constraint:fake_refusal")
-        return replace(found, refusals=refusals,
-                       cold_items=frozenset(set(found.cold_items or ()) | {"pi_cold"}),
-                       reserved_items=frozenset(set(found.reserved_items or ()) | {"pi_reserved"}))
+        found = real_material(self, candidates)
+        return replace(found, reserved_items=frozenset(set(found.reserved_items or ()) | {"pi_reserved"}))
 
-    monkeypatch.setattr(ad_slot, "incumbent_verdicts", verdicts)
-    real_build = ad_slot.build_request
+    monkeypatch.setattr(staged_frame.StagedFrame, "material", material)
+    real_for_slot = slot_facts.for_slot
 
     class _Planned:
         def __init__(self, item_id: str) -> None:
@@ -467,18 +478,17 @@ def test_support_respects_constraints_reversibility_and_admission(tmp_path, monk
         def items() -> list[Any]:
             return [_Planned("pi_planned")]
 
-    def build(env_: Any, record_: Any, block: Any, slot: Any, built: Any, **kwargs: Any) -> Any:
+    def for_slot(env_: Any, record_: Any, block: Any, slot: Any, built: Any, day: Any, inputs: Any) -> Any:
         record_.row["admission"] = {**record_.admission, "floor_applied": True}  # the slot came in by the floor
-        kwargs["day"] = [*list(kwargs.get("day") or ()), _OtherPlan()]
-        return real_build(env_, record_, block, slot, built, **kwargs)
+        return real_for_slot(env_, record_, block, slot, built, [*list(day or ()), _OtherPlan()], inputs)
 
-    monkeypatch.setattr(ad_slot, "build_request", build)
+    monkeypatch.setattr(slot_facts, "for_slot", for_slot)
     advance(env, serve=True)
     (row,) = _serve_rows(paths)
     failed = {entry["ref"]: entry["failed"] for entry in row["excluded"]}
     support = {entry["ref"] for entry in row["support"]}
-    assert any(f.startswith("constraint:") for f in failed["pi_refused"])
-    assert "open_cold_check" in failed["pi_cold"] and "reserved_surface" in failed["pi_reserved"]
+    assert "pool:rung_variant_hold" in failed["pi_refused"]
+    assert "cold_check_reserved" in failed["pi_cold"] and "reserved_surface" in failed["pi_reserved"]
     assert "planned_elsewhere" in failed["pi_planned"] and "admission_load" in failed["pi_cost"]
     assert not support & {"pi_refused", "pi_cold", "pi_reserved", "pi_planned", "pi_cost"}
     assert "pi_ok" in support
@@ -503,41 +513,23 @@ def test_support_rechecked_at_draw_slot_item_included(tmp_path, monkeypatch, cha
     paths, env, clock, record = _plan(tmp_path, items, features={"pi_h": HARD},
                                       config=ROUTER_STAGED if change == "refused" else ROUTER_OFF)
     target = "pi_h" if who == "slot" else "pi_e1"
-    if change == "exam_reserved" or change == "cold_followup":
-        real = ad_slot._exclusions
-        field = "reserved_exam_item_ids" if change == "exam_reserved" else "cold_check_reserved_item_ids"
-
-        def changed(env_: Any, view: Any) -> Any:
-            from dataclasses import replace
-
-            found = real(env_, view)
-            return replace(found, **{field: getattr(found, field) | {target}})
-
-        monkeypatch.setattr(ad_slot, "_exclusions", changed)
+    if change == "exam_reserved":
+        _reserve_exam(monkeypatch, {target})
+    elif change == "cold_followup":
+        cold_followup(paths, target, clock=clock)  # real incumbent state: an open cold retry holds it
     elif change == "recent_reveal":
         reveal(paths, target, amount=0.1, at=iso(clock.now() - timedelta(hours=1)))
     elif change == "pre_exposure":
         reveal(paths, target, amount=0.5, at=iso(clock.now() - timedelta(days=3)))
     else:
-        # A fresh refusal, at the scope's boundary (the compose fix round 3).
-        real_verdicts = ad_slot.incumbent_verdicts
-
-        def verdicts(*args: Any, **kwargs: Any) -> Any:
-            from dataclasses import replace
-
-            found = real_verdicts(*args, **kwargs)
-            refusals = {**dict(found.refusals)}
-            refusals[target] = (*refusals.get(target, ()), "constraint:fresh_refusal")
-            return replace(found, refusals=refusals)
-
-        monkeypatch.setattr(ad_slot, "incumbent_verdicts", verdicts)
+        pending_variant(paths, target)  # real incumbent state: a fresh refusal by the pool's predicate
     _record, step = advance(env, serve=True)
     (row,) = _serve_rows(paths)
     assert target not in {entry["ref"] for entry in row["support"]}
     failed = {entry["ref"]: entry["failed"] for entry in row["excluded"]}
     expected = {"exam_reserved": "exam_reserved", "cold_followup": "cold_check_reserved",
                 "recent_reveal": "recent_reveal", "pre_exposure": "pre_exposed"}.get(change)
-    assert (expected in failed[target]) if expected else any(f.startswith("constraint:") for f in failed[target])
+    assert (expected in failed[target]) if expected else "pool:rung_variant_hold" in failed[target]
     if who == "other":
         assert step["kind"] == "item" and step["practice_item_id"] == "pi_h"
     elif change == "pre_exposure":
@@ -663,23 +655,13 @@ def test_cold_followup_hold_readmits_once_the_task_closes(tmp_path, monkeypatch)
     closes (the hold re-read with the draw's own check)."""
 
     paths, env, clock = _readmission_env(tmp_path)
-    held = {"open": True}
-    real = ad_slot._exclusions
-
-    def exclusions(env_: Any, view: Any) -> Any:
-        from dataclasses import replace
-
-        found = real(env_, view)
-        if held["open"]:
-            return replace(found, cold_check_reserved_item_ids=found.cold_check_reserved_item_ids | {"pi_a"})
-        return found
-
-    monkeypatch.setattr(ad_slot, "_exclusions", exclusions)
+    cold_followup(paths, "pi_a", clock=clock)  # real incumbent state: an open cold retry holds pi_a
     first = _serve_until(env, paths, clock, 3)
     assert "pi_a" not in first
     (event,) = block_events(paths, "item_displaced")
-    assert event["detail"]["failed"] == ["cold_check_reserved"]
-    held["open"] = False  # the follow-up served its item or was cancelled
+    # The real retry holds it twice over: the routine exclusions' and the staged frame's cold check.
+    assert set(event["detail"]["failed"]) == {"cold_check_reserved", "open_cold_check"}
+    close_followups(paths)  # the follow-up served its item
     later = _serve_until(env, paths, clock, 6)
     assert any(detail["cleared"] == ["pi_a"] for detail in _deferral_details(env)) and "pi_a" in later
 

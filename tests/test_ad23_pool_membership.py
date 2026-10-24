@@ -173,8 +173,7 @@ def _allowed(env, queue: set[str], attempted: set[str]) -> set[str]:
                               for r, c, d, sc, dr in CASES])
 def test_property_every_ad_choice_is_a_member_of_the_plans_admitted_pool(tmp_path, observed, router, choice,
                                                                          past_due, scope, dropped):
-    from learnloop.daily_plan import ad_slot
-    from learnloop.daily_plan.engine import _live_context, day_records
+    from learnloop.daily_plan.engine import _ad_deferrals_cleared, _live_context, day_records
 
     queue = tuple(item for item in ITEMS + OTHER if item != dropped)
     paths, env, clock = _setup(tmp_path, router, queue=queue, choices=[(*s, choice) for s in scope],
@@ -207,7 +206,7 @@ def test_property_every_ad_choice_is_a_member_of_the_plans_admitted_pool(tmp_pat
     if records:
         _context, built = _live_context(env, records[-1])
         candidates = {item: {} for item in ITEMS + OTHER if item not in attempted}
-        cleared = ad_slot.deferrals_to_clear(env, candidates, built=built, record=records[-1])
+        cleared = _ad_deferrals_cleared(env, records[-1], built, candidates)
         assert set(cleared) <= _allowed(env, set(queue), attempted), cleared
     assert _denials(observed) == [], _denials(observed)[:5]
     assert dropped is None or dropped not in _support(paths)

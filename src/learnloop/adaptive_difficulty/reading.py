@@ -52,6 +52,7 @@ The AD replayer reads them only through the firewall's carve-out
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.logs import warn_failure
 from learnloop.adaptive_difficulty.operation import entry
 
 import json
@@ -176,7 +177,7 @@ class VaultReadingMap:
                 with closing(connect(self.repository.sqlite_path, read_only=True)) as connection:
                     self._examples[extraction_id] = self.view.worked_example_spans(connection, extraction_id)
             except Exception:  # noqa: BLE001
-                LOG.warning("worked examples of %s unreadable: none", extraction_id, exc_info=True)
+                warn_failure(LOG, "worked examples of %s unreadable: none", extraction_id)
                 self._examples[extraction_id] = set()
         return self._examples[extraction_id]
 

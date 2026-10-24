@@ -1059,14 +1059,14 @@ def _run(paths, monkeypatch) -> dict[str, Any]:
 
     # Serves: the slot draw (with its candidates' estimates), the serve hook, an answer, a second serve.
     requests: list[Any] = []
-    real_build = ad_slot.build_request
+    real_build = ad_slot._request
 
     def spy(*args, **kwargs):
         request = real_build(*args, **kwargs)
         requests.append([(c.practice_item_id, list(c.failed), c.est_minutes) for c in request.candidates])
         return request
 
-    monkeypatch.setattr(ad_slot, "build_request", spy)
+    monkeypatch.setattr(ad_slot, "_request", spy)
     vault = load_vault(paths.root)
     clock = MovableClock(_now())
     env = make_env(paths.root, [scheduled(item, LO, forgetting_risk=0.6) for item in (*PUBLIC, P4)], clock=clock,
@@ -1082,7 +1082,7 @@ def _run(paths, monkeypatch) -> dict[str, Any]:
             clock.advance(3)
             _attempt(paths, step["practice_item_id"], at=clock.now(), latency=120, presentation_id=step["presentation_id"])
             clock.advance(1)
-    monkeypatch.setattr(ad_slot, "build_request", real_build)
+    monkeypatch.setattr(ad_slot, "_request", real_build)
     out["steps"], out["estimates"] = steps, requests
 
     # The replay, its rebuild and the forecast-score rebuild.

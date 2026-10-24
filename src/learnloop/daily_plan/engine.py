@@ -3254,9 +3254,7 @@ def advance_with_context(
             # pass rejoin the pool here, and the decision records both.
             active = day_ad_deferrals(env, record)
             if active:
-                from learnloop.daily_plan import ad_slot
-
-                cleared = ad_slot.deferrals_to_clear(env, active, built=built, record=record)
+                cleared = _ad_deferrals_cleared(env, record, built, active)
                 ad_deferrals = {"applied": sorted(set(active) - set(cleared)), "cleared": sorted(cleared)}
                 context = _context(env, record, built, day=(), released=cleared)
         try:
@@ -3328,6 +3326,81 @@ def advance_with_context(
 #: the routine exclusions could not be computed): the incumbent serves the planned item.
 _AD_UNAVAILABLE: Any = object()
 
+import logging as _logging
+
+_AD_LOG = _logging.getLogger(__name__)
+
+
+def _code(exc: BaseException) -> str:
+    """An AD failure's code (its only argument), never its text beyond that."""
+
+    value = exc.args[0] if exc.args else None
+    return value if isinstance(value, str) and len(value) < 64 and value.replace(":", "").replace("_", "").isalnum() \
+        else type(exc).__name__
+
+
+def _ad_phase(run: Any, where: str) -> Any:
+    """An AD phase (``ad_slot``): its result, or None when AD is unavailable (logged with its code)."""
+
+    from learnloop.daily_plan import ad_slot
+
+    code = None
+    try:
+        return run()
+    except ad_slot.AdUnavailable as exc:
+        code = _code(exc)
+    _AD_LOG.warning("adaptive difficulty unavailable for %s (%s): the incumbent decides", where, code)
+    return None
+
+
+def _incumbent_facts(run: Any, where: str) -> Any:
+    """Phase 2: the plan's own facts, or None. Any failure of the plan's code is caught here, in the
+    incumbent, and logged as its type and a code at the default level (owner Q3, 2026-10-24); the
+    traceback, which can quote what the plan read, only at DEBUG. Nothing of it reaches AD."""
+
+    from learnloop.daily_plan.slot_facts import FACTS_FAILED
+
+    name = None
+    try:
+        return run()
+    except Exception as exc:  # noqa: BLE001 - the plan's facts failed: AD is unavailable, the incumbent serves
+        name = type(exc).__name__
+        _AD_LOG.debug("adaptive difficulty: the plan's facts for %s failed", where, exc_info=True)
+    _AD_LOG.warning("adaptive difficulty unavailable for %s (%s, %s): the incumbent decides", where, name,
+                    FACTS_FAILED)
+    return None
+
+
+def _ad_deferrals_cleared(env: PlanEnv, record: PlanRecord, built: _Pool, active: Mapping[str, Any]) -> list[str]:
+    """§6.1 step 0 by the four phases: the AD deferrals whose checks all pass now, each a member of the
+    plan's admitted pool were it released; none on any failure (nothing re-admitted)."""
+
+    from learnloop.daily_plan import ad_slot, slot_facts
+    from learnloop.daily_plan.slot_facts_schema import encode
+
+    with env.repository.atomic():
+        session = _ad_phase(lambda: ad_slot.open_deferrals(env.vault, env.repository, active), "deferrals")
+        if session is None or not session.inputs.candidate_ids:
+            return []
+        facts = _incumbent_facts(lambda: slot_facts.for_deferrals(env, record, built, session.inputs, active),
+                                 "deferrals")
+        if facts is None:
+            return []
+        cleared: list[str] | None = None
+        code = None
+        try:
+            with env.repository.atomic():
+                found = ad_slot.deferrals_cleared(env.vault, env.repository, encode(facts), session=session)
+                cleared = slot_facts.accept_cleared(facts, found)
+        except ad_slot.AdUnavailable as exc:
+            code = _code(exc)
+        except slot_facts.ChoiceRejected:
+            code = slot_facts.CHOICE_REJECTED
+        if cleared is None:
+            _AD_LOG.warning("adaptive difficulty unavailable for deferrals (%s): none is cleared", code)
+            return []
+        return cleared
+
 
 def _ad_slot_serve(
     env: PlanEnv, record: PlanRecord, block: PlannedBlock, item: PlannedItem, built: _Pool, context: PoolContext,
@@ -3336,28 +3409,52 @@ def _ad_slot_serve(
     """Adaptive difficulty AD2+AD3 (spec §6.1): the slot's support, AD's draw, its
     ``ad_selections`` row, any ``item_substituted`` event and ``item_served``, in one
     transaction (a propensity is never recomputed after the draw). None when the slot
-    was displaced as ineligible; :data:`_AD_UNAVAILABLE` (nothing written) when AD is
-    unavailable for it."""
+    was displaced as ineligible; :data:`_AD_UNAVAILABLE` (nothing of AD's written) when AD
+    is unavailable for it, or the plan does not admit its choice.
 
-    from learnloop.adaptive_difficulty.serving import decide_slot
-    from learnloop.daily_plan import ad_slot
+    The final round (inversion, owner decision 2026-10-24): phase 1, AD lists what its view
+    shows (``ad_slot.open_slot``); phase 2, the plan computes its verdicts itself, here, with no
+    AD operation open (``slot_facts.for_slot``); phase 3, AD decides from those facts, decoded
+    against their schema (``ad_slot.decide``); phase 4, the plan re-checks AD's choice
+    (``slot_facts.accept``), rolling AD's row back and serving the planned item if it would not
+    admit it. AD never receives the plan's objects; the plan's exceptions never reach AD."""
 
-    import logging
+    from learnloop.daily_plan import ad_slot, slot_facts
+    from learnloop.daily_plan.slot_facts_schema import encode
 
     with env.repository.atomic():
-        try:
-            # One AD operation for the support and the draw (the AD23 redesign); a refusal inside it
-            # rolls its savepoint back, so nothing of AD's is written and the planned item is served.
-            day = day_records(env)  # the plan's own records, read before AD's operation opens
-            with ad_slot.slot_operation(env) as view:
-                request = ad_slot.build_request(env, record, block, item, built, day=day,
-                                                router_propensity=ad_slot.router_propensity(record, block), view=view)
-                decision = decide_slot(env.vault, env.repository, request, view=view)
-        except ad_slot.AdUnavailable:
-            logging.getLogger(__name__).warning(
-                "adaptive difficulty unavailable for slot %s/%s: the planned item is served", block.id,
-                item.position, exc_info=True)
+        day = day_records(env)  # the plan's own records
+        session = _ad_phase(lambda: ad_slot.open_slot(env.vault, env.repository, slot_item_id=item.practice_item_id),
+                            f"slot {block.id}/{item.position}")
+        if session is None:
             return _AD_UNAVAILABLE
+        facts = _incumbent_facts(lambda: slot_facts.for_slot(env, record, block, item, built, day, session.inputs),
+                                 f"slot {block.id}/{item.position}")
+        if facts is None:
+            return _AD_UNAVAILABLE
+        if session.inputs.slot_visible and not facts.slot_admitted:
+            # The slot's own item left the plan's admitted pool (a choice since it was planned, a stage
+            # of the queue): the incumbent's own handling decides, as with AD off (compose fix round 3).
+            _AD_LOG.info("adaptive difficulty: slot %s/%s is not in the plan's admitted pool (slot_not_admitted); "
+                         "the planned item is served", block.id, item.position)
+            return _AD_UNAVAILABLE
+        wire = encode(facts)
+        outcome = None
+        code = None
+        try:
+            with env.repository.atomic():  # a savepoint: AD's row and the plan's re-check stand or fall together
+                decision, request = ad_slot.decide(env.vault, env.repository, wire, session=session)
+                slot_facts.accept(facts, decision.action, decision.chosen_item_id)
+                outcome = (decision, request)
+        except ad_slot.AdUnavailable as exc:
+            code = _code(exc)
+        except slot_facts.ChoiceRejected:
+            code = slot_facts.CHOICE_REJECTED
+        if outcome is None:
+            _AD_LOG.warning("adaptive difficulty unavailable for slot %s/%s (%s): the planned item is served",
+                            block.id, item.position, code)
+            return _AD_UNAVAILABLE
+        decision, request = outcome
         now = env.now_iso()
         with env.repository.connection() as connection:
             if decision.action == "displace":

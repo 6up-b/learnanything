@@ -20,6 +20,7 @@ and logged; the serve proceeds.
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.logs import warn_failure
 import hashlib
 import json
 import logging
@@ -128,7 +129,7 @@ def in_process_receipts(vault: Any, repository: Any, connection: Any, item: Any,
                 p, inputs, version_hash = _challenger(vault, connection, item, served_at, view=view)
                 version = CHALLENGER_VERSION
         except Exception:  # noqa: BLE001 - a forecaster that cannot compute is skipped, never the serve
-            LOG.warning("AD1 in-process forecaster %s skipped for %s", forecaster, item.id, exc_info=True)
+            warn_failure(LOG, "AD1 in-process forecaster %s skipped for %s", forecaster, item.id)
             continue
         p = min(max(float(p), 0.0), 1.0)
         receipts.append(ForecastReceipt(

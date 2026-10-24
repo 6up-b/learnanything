@@ -154,6 +154,58 @@ def commit(paths: Any, choices: Sequence[tuple[str, str, str]], *, clock: Any = 
         apply_choice(vault, repository, Scope(kind, ref), choice, clock=clock or MovableClock())
 
 
+def cold_followup(paths: Any, item_id: str, *, clock: Any = None, context_json: str | None = None) -> str:
+    """Real incumbent state: an open cold retry holding ``item_id`` (``followup_tasks``). ``context_json``
+    replaces the task's stored context verbatim (a malformed one is the boundary probe's)."""
+
+    from learnloop.db.repositories import Repository
+
+    repository = Repository(paths.sqlite_path)
+    task = repository.create_followup_task(kind="cold_retry", case_kind="diagnosis", case_ref=f"case-{item_id}",
+                                           not_before="2026-01-01T00:00:00Z", selected_item_id=item_id,
+                                           clock=clock)
+    if context_json is not None:
+        import sqlite3
+        from contextlib import closing as _closing
+
+        with _closing(sqlite3.connect(paths.sqlite_path)) as connection:
+            connection.execute("UPDATE followup_tasks SET context_json = ? WHERE id = ?", (context_json, task["id"]))
+            connection.commit()
+    return str(task["id"])
+
+
+def close_followups(paths: Any) -> None:
+    """The open follow-ups served their items (``consumed``)."""
+
+    import sqlite3
+    from contextlib import closing as _closing
+
+    with _closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        connection.execute("UPDATE followup_tasks SET status = 'consumed' WHERE status IN ('pending', 'served')")
+        connection.commit()
+
+
+def pending_variant(paths: Any, item_id: str, *, lo: str = LO) -> None:
+    """Real incumbent state: a learner's easier-variant request for ``item_id`` still being authored
+    (a live ``rung_variant`` job), which holds the item (the routine gate's ``rung_variant_hold``)."""
+
+    import sqlite3
+    from contextlib import closing as _closing
+
+    at = "2026-10-12T09:00:00Z"
+    with _closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        connection.execute("INSERT INTO ingest_batches(id, workflow_type, status, created_at) VALUES (?, 'rung_variant', "
+                           "'running', ?)", (f"b_{item_id}", at))
+        connection.execute("INSERT INTO ingest_jobs(id, batch_id, ordinal, job_type, status, created_at) VALUES "
+                           "(?, ?, 0, 'rung_variant', 'running', ?)", (f"j_{item_id}", f"b_{item_id}", at))
+        connection.execute(
+            "INSERT INTO rung_variant_requests(id, source_practice_item_id, learning_object_id, direction, "
+            "source_waypoint_slug, target_waypoint_slug, target_rung_json, status, batch_id, created_at, updated_at) "
+            "VALUES (?, ?, ?, 'easier', 'w1', 'w0', '{}', 'generating', ?, ?, ?)",
+            (f"rv_{item_id}", item_id, lo, f"b_{item_id}", at, at))
+        connection.commit()
+
+
 def answer(paths: Any, item_id: str, *, correct: bool = True, presentation_id: str | None = None,
            session_id: str | None = "s1", hints: int = 0, clock: Any = None, points: float | None = None,
            first_hint_progress: str | None = None) -> str:

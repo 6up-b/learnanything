@@ -43,6 +43,7 @@ The operation's projected vault and document IR (:meth:`MaterialView.projected_v
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.logs import warn_failure
 import json
 import re
 import logging
@@ -912,7 +913,7 @@ class MaterialView:
                     if row.item_snapshot_hash:
                         answered.setdefault(str(row.attempt_id), set()).add(str(row.item_snapshot_hash))
             except Exception:  # noqa: BLE001 - an unresolvable history keeps its frozen revisions only
-                LOG.warning("field revision resolution failed: attempts judged by frozen revisions", exc_info=True)
+                warn_failure(LOG, "field revision resolution failed: attempts judged by frozen revisions")
             self._answered = {key: tuple(sorted(values)) for key, values in answered.items()}
         return self._answered
 
@@ -1019,13 +1020,12 @@ class MaterialView:
         reading no withheld block touches; none for any other (round 8). The stored role is read
         inside the derivation scope, the one place a derived column is read."""
 
-        from learnloop.adaptive_difficulty.operation import DERIVE, rules
+        from learnloop.adaptive_difficulty.operation import Scope, scoped
         from learnloop.source_retrieval.corpus import role_keys
 
         if not self.available or self.reading_withheld(extraction_id):
             return set()
-        with rules(DERIVE):
-            keys = role_keys(connection, [extraction_id], ("worked_example",))
+        keys = scoped(Scope.DERIVE, lambda: role_keys(connection, [extraction_id], ("worked_example",)))
         return {str(span) for extraction, span in keys if extraction == extraction_id}
 
     def reading_order(self, extraction_id: str) -> dict[str, int]:
@@ -1313,10 +1313,9 @@ class MaterialView:
 
         if not self.available or self.reading_withheld(extraction_id):
             return None
-        from learnloop.adaptive_difficulty.operation import DERIVE, rules
+        from learnloop.adaptive_difficulty.operation import Scope, scoped
 
-        with rules(DERIVE):
-            return repository.load_document_ir(extraction_id)
+        return scoped(Scope.DERIVE, lambda: repository.load_document_ir(extraction_id))
 
     def projected_vault(self) -> Any:
         """The vault an AD operation hands its readers (``op.vault``; the AD23 redesign, step 4):
@@ -1564,23 +1563,23 @@ class MaterialView:
                               (source,))
                 return any(not self.keep(connection, table, found_row) for found_row in found)
         except Exception:  # noqa: BLE001 - an unreadable source is withheld (fail closed)
-            LOG.warning("AD reading source %s/%s unresolved: withheld", table, source, exc_info=True)
+            warn_failure(LOG, "AD reading source %s/%s unresolved: withheld", table, source)
             return True
         return True
 
 
 def _in_rules(method: Any) -> Any:
     """Run a view reader in the rules' read scope (the AD guard lets the rules read protected
-    tables; their SQL carries the rules marker)."""
+    tables; their SQL carries the rules marker), through the scope's codec: a failure inside it
+    leaves as a ``ViewFailure`` of its kind and type only (the final round)."""
 
     import functools
 
-    from learnloop.adaptive_difficulty.operation import rules
+    from learnloop.adaptive_difficulty.operation import Scope, scoped
 
     @functools.wraps(method)
     def reader(*args: Any, **kwargs: Any) -> Any:
-        with rules("view"):
-            return method(*args, **kwargs)
+        return scoped(Scope.VIEW, lambda: method(*args, **kwargs))
 
     return reader
 

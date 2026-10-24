@@ -30,6 +30,7 @@ else the slot LO's own view, exactly.
 
 from __future__ import annotations
 
+from learnloop.adaptive_difficulty.logs import warn_failure
 from learnloop.adaptive_difficulty.operation import entry
 
 import logging
@@ -201,7 +202,7 @@ def decide_slot(vault: Any, repository: Any, request: SlotRequest, *, view: Any 
 
             if is_denial(exc):
                 raise  # the guard's refusal: AD is unavailable for the slot (owner Q3)
-            LOG.warning("AD reading sweep before draw %s failed", request.decision_key, exc_info=True)
+            warn_failure(LOG, "AD reading sweep before draw %s failed", request.decision_key)
     constants = S.constants_from_config(vault.config)
     support = [c for c in request.candidates if not c.failed]
     excluded = [{"ref": c.practice_item_id, "failed": list(c.failed)} for c in request.candidates if c.failed]

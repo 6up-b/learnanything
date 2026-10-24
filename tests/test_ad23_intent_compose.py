@@ -8,7 +8,7 @@
   (``scheduler.pool_admission``: the routine gate, DL2's intent gate and the build's gates), asked
   in the serve transaction, so AD never serves, nor clears the deferral of, an item the incumbent
   would withhold.
-* The incumbent hands AD only verdicts (``ad_slot.IncumbentVerdicts``: refusals, cold items and
+* The incumbent hands AD only a facts record (``slot_facts_schema.SlotFacts``: members, refusals, cold items and
   reserved items).
 * A property: for seeded random intent scopes, choices and items, under both router settings, the
   pipeline runs with zero denials and AD never serves or clears an item the incumbent withholds.
@@ -97,40 +97,36 @@ def test_f2_ad_never_serves_an_item_intent_withholds(tmp_path, observed, choice,
 
 
 def test_the_incumbent_hands_ad_only_verdicts(tmp_path, monkeypatch):
-    """(b): what the incumbent's scope returns to AD's slot is refusals, cold items and reserved items,
-    as ids and reason strings, and the slot reads the incumbent's frame nowhere else."""
-
-    import ast
-    from pathlib import Path
+    """(b), as the final round constructs it: what AD reads of the plan is the facts record it decodes
+    (``slot_facts_schema.decode``) from JSON: ids, codes from the closed vocabulary, numbers; a
+    paused sibling is no member of the plan's admitted pool."""
 
     from learnloop.daily_plan import ad_slot
+    from learnloop.daily_plan import slot_facts_schema as SF
 
-    assert {field.name for field in dataclasses.fields(ad_slot.IncumbentVerdicts)} == {
-        "pool", "refusals", "cold_items", "reserved_items"}
     seen = []
-    real = ad_slot.incumbent_verdicts
+    real = SF.decode
 
-    def spy(*args, **kwargs):
-        verdicts = real(*args, **kwargs)
-        seen.append(verdicts)
-        return verdicts
+    def spy(wire, **kwargs):
+        assert isinstance(wire, str)
+        facts = real(wire, **kwargs)
+        seen.append(facts)
+        return facts
 
-    monkeypatch.setattr(ad_slot, "incumbent_verdicts", spy)
+    monkeypatch.setattr(ad_slot, "decode", spy)
     paths, env, clock = _vault(tmp_path, "staged")
     apply_choice(env.vault, env.repository, Scope("practice_item", "pi_e1"), "pause", clock=clock)
     build_plan(env, kind="normal", budget=3.0, remembered=3, minutes_source="chip")
     advance(env, serve=True)
     assert seen
-    for verdicts in seen:
-        for item_id, reasons in verdicts.refusals.items():
-            assert isinstance(item_id, str) and all(isinstance(reason, str) for reason in reasons)
-        assert verdicts.cold_items is None or all(isinstance(i, str) for i in verdicts.cold_items)
-        assert all(isinstance(i, str) for i in verdicts.reserved_items)
-    # The paused sibling is no member of the plan's admitted pool (round 2: membership, not a re-check).
-    assert all("pi_e1" not in verdicts.pool and "pi_e1" not in verdicts.refusals for verdicts in seen)
-    assert all(all(isinstance(i, str) for i in verdicts.pool) for verdicts in seen)
-    # Entry to the incumbent's scope is enforced at runtime (the compose fix round 3,
-    # tests/test_ad23_scope_boundary.py), no longer pinned by a static scan of this module.
+    for facts in seen:
+        for item_id, codes in facts.refusals.items():
+            assert isinstance(item_id, str)
+            for code in codes:
+                prefix, _sep, name = code.partition(":")
+                assert name in (SF.CONSTRAINT_CODES if prefix == "constraint" else SF.POOL_CODES), code
+        assert all(isinstance(i, str) for i in (*facts.members, *facts.reserved_items, *(facts.cold_items or ())))
+    assert all("pi_e1" not in facts.members and "pi_e1" not in facts.refusals for facts in seen)
 
 
 def _cases(seed: int) -> list[tuple[str, str, str, tuple[str, ...]]]:
@@ -152,8 +148,7 @@ CASES = _cases(20261023) + _cases(20261024)[:10]
                          ids=[f"{r}-{k}-{c}-{'+'.join(i) or 'lo'}" for r, k, c, i in CASES])
 def test_property_ad_never_serves_or_clears_what_the_incumbent_withholds(tmp_path, observed, router, kind,
                                                                           choice, chosen):
-    from learnloop.daily_plan import ad_slot
-    from learnloop.daily_plan.engine import _live_context, day_records
+    from learnloop.daily_plan.engine import _ad_deferrals_cleared, _live_context, day_records
 
     paths, env, clock = _vault(tmp_path, router)
     if kind == "learning_object":
@@ -179,7 +174,7 @@ def test_property_ad_never_serves_or_clears_what_the_incumbent_withholds(tmp_pat
     _context, built = _live_context(env, record)
     held = withheld()
     if held:
-        cleared = ad_slot.deferrals_to_clear(env, {item: {} for item in held}, built=built, record=record)
+        cleared = _ad_deferrals_cleared(env, record, built, {item: {} for item in held})
         assert not set(cleared) & held, (cleared, held)
     # (i) zero guard denials over every operation.
     assert _denials(observed) == [], _denials(observed)[:5]

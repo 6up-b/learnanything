@@ -29,8 +29,6 @@ NEUTRAL = "neutral"
 PROTECTED = "protected"
 PREDICATE = "predicate"
 DENIED = "denied"
-#: The scope name of the incumbent's serve-time constraints (``operation.incumbent_constraints``).
-INCUMBENT = "incumbent"
 
 _ROLES: tuple[tuple[str, str], ...] = (
     ("activity_administrations", PROTECTED),
@@ -442,44 +440,11 @@ ENTITY_KINDS: Mapping[str, str] = MappingProxyType({
     "source_note": "note",
 })
 
-#: The incumbent's serve-time constraints AD's slot asks of a visible candidate (would the incumbent
-#: serve it now: the routine and out-of-timing exclusions, the staged frame's admission on a fresh
-#: controller snapshot, the plan pool's per-item predicate and the plan's admitted pool). They run in
-#: the operation's ``incumbent_constraints()`` scope, never written.
-#:
-#: The scope's readers are derived, not listed (the compose fix round 2): every LearnLoop module
-#: reached inside the scope is an incumbent reader, except AD's own code (:data:`AD_MODULES`), which
-#: reads there as it reads outside any scope, and a reader outside LearnLoop. Hand-listing the
-#: modules failed three times as the incumbent's path grew (DL2's commitments, intent's checks,
-#: the scheduler's request set). The guarantee is at the scope's boundary instead, enforced at
-#: runtime since the compose fix round 3 (``operation.incumbent_answer``): the scope opens only from
-#: the two pinned entry functions (:data:`INCUMBENT_ENTRIES`, checked on the live caller frame), runs
-#: only a registered incumbent question (:data:`INCUMBENT_QUESTIONS`) over the operation's own handles
-#: and a request of plain, immutable data (no callable, no AD-owned object), refuses every write and
-#: every read whose stack holds AD code or a callback from outside LearnLoop, and returns plain data
-#: (item ids and reason strings), so only a pass or a named refusal per candidate, and the plan's
-#: admitted pool as ids, reaches AD.
-AD_MODULES = ("learnloop.adaptive_difficulty", "learnloop.daily_plan.ad_slot")
-#: The only functions that may open the incumbent's scope (``operation.incumbent_answer`` checks the
-#: live caller frame: module, name, globals and file; the compose fix round 3).
-INCUMBENT_ENTRIES = frozenset({
-    ("learnloop.daily_plan.ad_slot", "_exclusions"),
-    ("learnloop.daily_plan.ad_slot", "incumbent_verdicts"),
-})
-#: The only questions asked inside the scope: functions of an incumbent module, given the
-#: operation's own handles and a plain request, answering plain data.
-INCUMBENT_QUESTIONS = frozenset({
-    ("learnloop.daily_plan.incumbent_answers", "routine_exclusions"),
-    ("learnloop.daily_plan.incumbent_answers", "slot_admission"),
-})
-
-
-def incumbent_reader(module: str) -> bool:
-    """Whether ``module`` reads as the incumbent inside ``incumbent_constraints()``."""
-
-    if not module.startswith("learnloop."):
-        return False
-    return not any(module == prefix or module.startswith(prefix + ".") for prefix in AD_MODULES)
+#: There is no incumbent scope (the final round: inversion, owner decision 2026-10-24). The plan
+#: computes its own verdicts about a slot before AD runs, outside any operation
+#: (``daily_plan.slot_facts``), and AD reads them as a schema-checked facts record; incumbent code
+#: called inside an operation has no privilege at all, so its reads of protected or denied tables
+#: are refused and the operation is poisoned (fail closed).
 
 #: Tables an operation may write: AD's own, and the receipts and accounting its jobs write.
 AD_WRITABLE = frozenset({
@@ -568,8 +533,6 @@ def read_verdict(table: str, *, rules: str | None, reader: str = "", stack: tupl
         return None
     if kind is None:
         return "an unclassified table"
-    if rules == INCUMBENT:
-        return None if incumbent_reader(reader) else "a read in the incumbent's scope by another module"
     if kind == PREDICATE:
         return None if rules == "predicate" else _WHY[kind]
     if rules is not None:
@@ -586,5 +549,5 @@ def write_verdict(table: str) -> str | None:
 
 
 __all__ = ["AD_WRITABLE", "CARVE_OUTS", "COLUMNS", "DENIED", "DERIVED", "DERIVED_TREATMENT", "ENTITY_KINDS", "EPOCH",
-           "AD_MODULES", "INCUMBENT", "INCUMBENT_ENTRIES", "INCUMBENT_QUESTIONS", "ITEM_PROVENANCE", "READING", "incumbent_reader",
+           "ITEM_PROVENANCE", "READING",
            "NEUTRAL", "PREDICATE", "PROTECTED", "ROLES", "VALUE", "read_verdict", "role", "write_verdict"]
