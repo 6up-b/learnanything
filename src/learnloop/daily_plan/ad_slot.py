@@ -4,10 +4,15 @@ When a planned new-material slot comes up to be served, the plan builds the
 draw's support here and hands it to ``adaptive_difficulty.serving.decide_slot``
 in the serve transaction. AD never builds or reorders blocks (§10.1).
 
-**The candidates**: the slot item and every other never-attempted item of the
-slot item's LO at the slot item's capability. **The support** is the
-candidates that pass every check, each re-read at the draw, never taken from
-the block's admission (the slot item gets no exemption):
+**The candidates**: the slot item and the other never-attempted items of the
+slot item's LO at its capability that are MEMBERS of the plan's admitted pool
+at this boundary (``engine.admitted_new_material_ids``: the output of the build
+the plan used, after every stage of it, including the scheduler's teach-back
+value admission and caps and the plan's Keep and Light-touch new-material rule;
+the compose fix round 2). AD reorders or chooses within the plan's own pool and
+never adds to it; its own sibling enumeration only intersects with it. **The
+support** is the candidates that pass every check, each re-read at the draw,
+never taken from the block's admission (the slot item gets no exemption):
 
 0. *still eligible*: in the cell pool now for some facet of the slot item
    (exam reservation, retirement, held-out derivation, pre-exposure, the depth
