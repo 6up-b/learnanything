@@ -359,3 +359,74 @@ def test_f5_a_rung_request_claim_still_precedes_its_same_second_attempt(tmp_path
     live = _mastery(repository)
 
     assert _mastery(_rebuild(paths)) == pytest.approx(live, rel=1e-12, abs=1e-12)
+
+
+# ── F6: the review that resolves "I know this" says so, once ────────────────
+
+
+def _call(ctx, name, params):
+    import learnloop_sidecar.handlers  # noqa: F401 -- populate METHOD_REGISTRY
+    from learnloop_sidecar.registry import METHOD_REGISTRY
+
+    spec = METHOD_REGISTRY[name]
+    return spec.handler(ctx, spec.params_model.model_validate(params))
+
+
+CHECK_MINUTES = 14 * 24 * 60 + 5  # after the default first-review interval
+
+
+def _known_then_reviews(tmp_path, *, version=TAG, toml=None, points=4.0):
+    from learnloop.placement.decisions import record_self_report
+
+    paths, vault, repository = _vault(tmp_path, version=version, toml=toml)
+    record_self_report(vault, repository, learning_object_ids=["lo_diag"], report="know_this",
+                       clock=FrozenClock(NOW + timedelta(minutes=1)))
+    unrelated = _answer(vault, repository, ITEM, 4.0, minutes=CHECK_MINUTES - 1).attempt_id
+    resolving = _answer(vault, repository, "pi_diag_mid", points, minutes=CHECK_MINUTES).attempt_id
+    later = _answer(vault, repository, "pi_diag_hard", 4.0, minutes=CHECK_MINUTES + 5).attempt_id
+    return paths, vault, repository, (unrelated, resolving, later)
+
+
+@pytest.mark.parametrize(("points", "word"), [(4.0, "passed"), (1.0, "missed")])
+def test_f6_the_resolving_review_carries_one_quiet_claim_line_and_no_other_does(tmp_path, points, word):
+    from learnloop.placement.claim_check import claim_check
+    from learnloop.placement.state import load_placement_state
+
+    _paths, vault, repository, (unrelated, resolving, later) = _known_then_reviews(tmp_path, points=points)
+    (assumption,) = load_placement_state(vault, repository).assumptions
+    assert assumption.resolving_attempt_id == resolving
+    assert claim_check(vault, repository, resolving) == {
+        "claim": "marked_known", "check": word, "line": f"You marked this as known; this check: {word}.",
+    }
+    assert claim_check(vault, repository, unrelated) is None
+    assert claim_check(vault, repository, later) is None
+
+
+def test_f6_get_feedback_attaches_the_line_to_the_resolving_review_only(tmp_path, monkeypatch):
+    import learnloop.clock as clock_module
+    from learnloop_sidecar.context import SidecarContext
+
+    paths, _vault_, _repository, (unrelated, resolving, later) = _known_then_reviews(tmp_path)
+    monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: NOW + timedelta(minutes=CHECK_MINUTES + 10))
+    ctx = SidecarContext()
+    ctx.load(paths.root)
+
+    bundle = _call(ctx, "get_feedback", {"attemptId": resolving, "recordOpen": False})
+    assert bundle["claimCheck"] == {
+        "claim": "marked_known", "check": "passed", "line": "You marked this as known; this check: passed.",
+    }
+    for attempt_id in (unrelated, later):
+        assert "claimCheck" not in _call(ctx, "get_feedback", {"attemptId": attempt_id, "recordOpen": False})
+    # Display only: the grade the review recorded never read the claim.
+    attempt = Repository(paths.sqlite_path).fetch_practice_attempt(resolving)
+    assert "marked this as known" not in str(attempt)
+
+
+@pytest.mark.parametrize("variant", ["switch_off", "below_tag"])
+def test_f6_off_no_claim_line(tmp_path, variant):
+    from learnloop.placement.claim_check import claim_check
+
+    _paths, vault, repository, (_unrelated, resolving, _later) = _known_then_reviews(
+        tmp_path, version=PREDECESSOR if variant == "below_tag" else TAG, toml=OFF if variant == "switch_off" else None,
+    )
+    assert claim_check(vault, repository, resolving) is None

@@ -206,6 +206,13 @@ def get_feedback(ctx: SidecarContext, params: FeedbackInput) -> dict[str, Any]:
     check = answered_check(vault, repository, params.attempt_id)
     if check is not None:
         bundle["intentCheck"] = to_camel(check)
+    # LP-min (a), LPQ9: the review that resolves an "I know this" says so in
+    # one quiet line (display only, read after grading). Absent otherwise.
+    from learnloop.placement.claim_check import claim_check
+
+    claim_line = claim_check(vault, repository, params.attempt_id)
+    if claim_line is not None:
+        bundle["claimCheck"] = to_camel(claim_line)
     log_event(
         "feedback_shown",
         session_id=session_id,
