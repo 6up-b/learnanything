@@ -1,6 +1,6 @@
 # Deliverable curriculum: one deliverable, across all your books (v1)
 
-**Status:** draft for owner review, 2026-10-25. Specification only: no code changed, no model or paid call made, nothing run.
+**Status:** draft, 2026-10-25. **Every owner question (Q1–Q15, §14) is DECIDED 2026-10-25**: the recommended answers were adopted, with one change, to Q5: the notes allowlist also covers `~/org`. Specification only: no code changed, no model or paid call made, nothing run.
 - **Base:** `main` at `fa2eb72f8` (migration head 220). RW7b is read on its branch (`reader/rw7b` in `learnanything-dl2`, head `9cd119e41` plus uncommitted review fixes), because this spec builds directly on it.
 - **Companion:** `docs/specs/ux_reader_compare_ask_v1.md` (branch `docs/reader-compare-ask-ux`) designs how skim-and-jump and Compare-from-anywhere look and feel. **This spec owns the shared backbone** those surfaces read, the curated path, and the notes link. Where the two touch, this spec names the data and the read API, and the UX spec names the presentation.
 - Code paths are under `src/learnloop/` unless they say otherwise. "Owner principles" are the binding ones in §2.
@@ -377,7 +377,7 @@ An amendment to `spec_teacher_v1.md`, recorded there when C4 lands:
 
 ### 9.1 Scoping never reads protected material
 
-- A scope input that is a span runs `exam_withheld` first; a withheld span is refused (§5.2). A syllabus added as a source **must not carry the `exam` role**, or rule 1 withholds it whole. C3 adds a `syllabus` source role with assessment-alignment authority only (`role_authority.py`'s matrix: `(False, True)`), never practice and never protected (owner question Q2).
+- A scope input that is a span runs `exam_withheld` first; a withheld span is refused (§5.2). A syllabus added as a source **must not carry the `exam` role**, or rule 1 withholds it whole. C3 adds a `syllabus` source role with assessment-alignment authority only (`role_authority.py`'s matrix: `(False, True)`), never practice and never protected (Q2, DECIDED 2026-10-25).
 - The resolver never sees a held-out unit, an exam-reserved item, or any exam question text.
 
 ### 9.2 What exam material may contribute
@@ -409,7 +409,8 @@ An amendment to `spec_teacher_v1.md`, recorded there when C4 lands:
 ### 10.1 Adapters
 
 - **One adapter: `tend`** (`curriculum/notes_tend.py`). It calls `tend search -k K --json [--words] QUERY` and `tend serve`'s `read` op as subprocesses, with a timeout. (`tend`'s SPEC names the `read` op for opening remote hits; C2 confirms its output shape first, and falls back to reading the heading's line range from the file, inside the allowlist.) LearnLoop never parses Org or Obsidian Markdown itself and never builds a note index. Through `tend` this covers grove (Org), Obsidian vaults, Markdown notes under `~/Documents/thinking`, and **Pocket Notes** (3DS handwriting transcribed into Quicknote by Pocket Notes' worker).
-- **An allowlist** (`notes.tend.paths`) limits which of `tend`'s folders LearnLoop may use. Its default is grove notes, Quicknote and the Obsidian vaults. `~/org` (agenda, proposals, mail digests, the owner's profile) and project repositories are excluded by default (Q5). A hit outside the allowlist is dropped before anything is stored or sent.
+- **An allowlist** (`notes.tend.paths`) limits which of `tend`'s folders LearnLoop may use. Its default is grove notes, Quicknote, the Obsidian vaults and **`~/org`**, the owner's planning notes (Q5, DECIDED 2026-10-25). `~/org` is reached as `tend` indexes it (`tend`'s corpus names `~/org/*.org`). Whether a file there, such as the profile `me.md`, is reachable is `tend`'s corpus setting, not LearnLoop's. **Project repositories stay excluded.** A hit outside the allowlist is dropped before anything is stored or sent.
+- **`~/org` is private planning text, and the privacy rules apply to it unchanged** (§10.2, §10.4). Only the ChatGPT plan model reads its text. Only linked sections are stored. A planning note is never a source and never evidence, exactly like any other note.
 - **Later: phone photos** of handwritten notes, through `image_transcription` (mobile M2b / `spec_image_dropin_ingest.md`). The transcript is shown for the learner to correct before it is kept, as that spec requires (§13).
 - When `tend` is absent (a contributor's machine), the notes features are hidden. Nothing else depends on them.
 
@@ -431,8 +432,8 @@ A linked note is the learner's own text:
 ### 10.4 Privacy
 
 - Notes stay on carson. Candidates are read from `tend` on carson; snapshots live in the vault, which lives in the private data root on the hub and is backed up encrypted (`spec_storage_sync_v1.md` §6). No note text is ever in the public repository: tests use synthetic notes, and G8 (`test_public_tip_guards.py`) already rejects tracked databases.
-- **A model reads note text only on `chatgpt_plan`**, and only in `note_link_judge` and (C4) the teacher's `read_note`. Note linking is background-only, so it is never offered OpenRouter: if the plan is down, it waits. The teacher's `read_note`, inside a pressed lesson that has an OpenRouter grant, follows the lesson's grant (owner question Q6).
-- **`tend`'s meaning search embeds its query through Voyage**, `tend`'s documented choice. LearnLoop's queries are LO titles and section titles, never passages or note text. With `notes.tend.lexical_only = true`, LearnLoop uses `--words` and nothing leaves the machine (Q7).
+- **A model reads note text only on `chatgpt_plan`**, and only in `note_link_judge` and (C4) the teacher's `read_note`. Note linking is background-only, so it is never offered OpenRouter: if the plan is down, it waits. The teacher's `read_note`, inside a pressed lesson that has an OpenRouter grant, follows the lesson's grant (Q6, DECIDED 2026-10-25).
+- **`tend`'s meaning search embeds its query through Voyage**, `tend`'s documented choice. LearnLoop's queries are LO titles and section titles, never passages or note text. With `notes.tend.lexical_only = true`, LearnLoop uses `--words` and nothing leaves the machine (Q7, DECIDED 2026-10-25).
 
 ---
 
@@ -464,7 +465,7 @@ An n = 1 alternating design (half the deliverable's LOs on the curated path, hal
 | **C2: notes linked** | `learner_notes` and `learner_note_links` (RAW_LEDGER; one migration); the `tend` adapter and allowlist; route `note_link_judge`; margin `›` marks, path lines, *use as my take* | None (display; learner-voice records) | `notes.enabled`, `notes.tend.lexical_only` |
 | **C3: exam scoping from a syllabus** | The `syllabus` source role (Q2); practice-available exam units' LO mappings in resolution (§9.2); G-C1..C3 hardened on a fixture with every kind of exam material | None | `curriculum.exam_units_in_scope` |
 | **C4: the teacher reads the deliverable** | §8.2's `LessonBriefV1` amendment; `read_note` | TE1's successor carries it if TE1 is unlanded; else none (context only) | `teacher.brief.use_deliverable` |
-| **C5: notes as learner text** | `learner_text_gaps.source_kind` widened with `learner_note` (a FK-safe rebuild, as migrations 208 and 212 did); only linked notes; *ⓘ where this goes* | None (tier 2, the learner-text-gaps precedent) | `notes.gaps_enabled` (default off: opt-in, Q9) |
+| **C5: notes as learner text** | `learner_text_gaps.source_kind` widened with `learner_note` (a FK-safe rebuild, as migrations 208 and 212 did); only linked notes; *ⓘ where this goes* | None (tier 2, the learner-text-gaps precedent) | `notes.gaps_enabled` (default off: opt-in, Q9, DECIDED 2026-10-25) |
 
 **The smallest valuable first slice is C0 for one deliverable.** It answers both owner questions on day one: what to read across all books for this goal (the path), and where else each section is treated (the correspondents for skim-and-jump). It changes no plan and no evidence. If C0 is too large for one stage, split it at the seam: **C0a** coverage plus `reader.correspondents` (unblocks the companion UX spec), then **C0b** scope resolution plus the path.
 
@@ -512,26 +513,28 @@ An n = 1 alternating design (half the deliverable's LOs on the curated path, hal
 | **Promoting coverage to provenance** | The existing proposal review, writing `source_refs` / `entity_source_links` from learner-confirmed coverage | Coverage corrections stay rare for a month *and* a provenance-reading feature (practice generation, certification scope) is measured to miss sections coverage finds |
 | **Alternating-treatments experiment** (curated path vs book order) | §11's design; withholds curation from half the LOs | The owner opts in |
 | **Practice from your own notes** (Matuschak's "the mnemonic medium can be extended to one's personal notes", `docs/specs/spec_andymatusnotes.md:448`) | A note-sourced item path with its own provenance and leakage rule (a note may copy an exam question, §9.3), learner review before an item exists, and the learner-text label | The owner asks, *and* C2's links are kept more often than hidden |
-| **Notes outside `tend`'s allowlisted folders** (e.g. `~/org` planning notes) | An owner decision per folder | The owner asks |
+| **Notes outside `tend`'s allowlisted folders** (e.g. Markdown docs inside project repositories, which Q5 keeps excluded) | An owner decision per folder | The owner asks |
 
 ---
 
-## 14. Owner questions (each with a recommended answer)
+## 14. Owner questions (all DECIDED 2026-10-25)
 
-| # | Question | Recommended answer |
+The owner adopted every recommended answer on 2026-10-25, with one change, to Q5 (`~/org` added to the allowlist).
+
+| # | Question | Decision |
 |---|---|---|
-| Q1 | Should a deliverable just be a goal (with your words and an optional deadline), rather than a new kind of object? | **Yes.** Goals already hold your sentence, scope, deadline and exam. Quest, exam and project are shown from what the goal has |
-| Q2 | How should a syllabus come in? | **Typed or pasted text in C0; a `syllabus` source role in C3** that is used to scope but never taught from and never protected. A syllabus must not be given the `exam` role, or it is hidden whole |
-| Q3 | Build correspondences only for what a deliverable needs, or for the whole library in the background? | **Only on demand**, plus an owner-run command for a whole book. Whole-library coverage spends plan headroom on sections nobody reads |
-| Q4 | When two books treat a topic equally well, should LearnLoop sometimes pick the other one on purpose, to learn which suits you? | **Not in v1.** The model's pick, with *use this one instead*. Exploration comes with the learned preference (§13) |
-| Q5 | Which of your notes may LearnLoop read? | **Grove notes, Quicknote (Pocket Notes) and the Obsidian vaults.** Not `~/org` (agenda, mail digests, your profile) and not project repos, unless you add them |
-| Q6 | May the plan's model read your note text to link it? And may a lesson running on an OpenRouter grant read a note? | **Yes to the plan** for linking. **Yes for a lesson** you started and granted, since you pressed it; background linking never uses OpenRouter |
-| Q7 | `tend`'s meaning search sends the query (a topic title, never a passage or a note) to Voyage, as `tend` already does for your notes. OK? | **Yes**, with words-only search when offline, and a setting to make it words-only always |
-| Q8 | Store copies of the notes that get linked, inside the vault? | **Yes, linked notes only**, refreshed when the note changes. The vault is private and backed up encrypted |
-| Q9 | Should LearnLoop read linked notes for gaps in your understanding (like your Reader questions)? | **Later and opt-in (C5).** Off by default; it only ever steers what to suggest, never grades you |
-| Q10 | When you say "I already know this" on a path section, should it ask for a cold check later? | **Yes**: *I know this — check me later* schedules one check and takes the section off the plan until then. Plain *skip it* stays too |
-| Q11 | With several deliverables at once, which does the plan follow? | **The nearest-due one** (the existing nearest-goal rule). The others still show their paths in the Guide |
-| Q12 | "Am I ready?" before RW6b lands: how many checks? | **One per topic you haven't shown yet, dated by forgetting, never after the deadline.** RW6b takes over the choosing when it lands |
-| Q13 | In a book that's part of a deliverable, should the Guide show the deliverable's slice by default? | **Yes, with *this book alone*** one tap away |
-| Q14 | Should the Guide's switch also turn off the plan following the deliverable (as RW7b does)? | **Yes**, so the plan never follows a path you can't see |
-| Q15 | First slice: C0 whole, or C0a (correspondents) first so the skim-and-jump UX can be built sooner? | **C0a first if the UX spec is ready to build; otherwise C0 whole** |
+| Q1 | Should a deliverable just be a goal (with your words and an optional deadline), rather than a new kind of object? | DECIDED 2026-10-25: **Yes.** Goals already hold your sentence, scope, deadline and exam. Quest, exam and project are shown from what the goal has |
+| Q2 | How should a syllabus come in? | DECIDED 2026-10-25: **Typed or pasted text in C0; a `syllabus` source role in C3** that is used to scope but never taught from and never protected. A syllabus must not be given the `exam` role, or it is hidden whole |
+| Q3 | Build correspondences only for what a deliverable needs, or for the whole library in the background? | DECIDED 2026-10-25: **Only on demand**, plus an owner-run command for a whole book. Whole-library coverage spends plan headroom on sections nobody reads |
+| Q4 | When two books treat a topic equally well, should LearnLoop sometimes pick the other one on purpose, to learn which suits you? | DECIDED 2026-10-25: **Not in v1.** The model's pick, with *use this one instead*. Exploration comes with the learned preference (§13) |
+| Q5 | Which of your notes may LearnLoop read? | **DECIDED 2026-10-25 (changed from the recommendation): grove notes, Quicknote (Pocket Notes), the Obsidian vaults and `~/org`** (your planning notes, including `me.md` as far as `tend` indexes it). Project repos stay excluded. The privacy rules are unchanged for `~/org`: only the plan model reads note text, only linked notes are stored, and a note is never a source or evidence (§10.1) |
+| Q6 | May the plan's model read your note text to link it? And may a lesson running on an OpenRouter grant read a note? | DECIDED 2026-10-25: **Yes to the plan** for linking. **Yes for a lesson** you started and granted, since you pressed it; background linking never uses OpenRouter |
+| Q7 | `tend`'s meaning search sends the query (a topic title, never a passage or a note) to Voyage, as `tend` already does for your notes. OK? | **DECIDED 2026-10-25 (confirmed as recommended): yes**, with words-only search when offline, and a setting to make it words-only always |
+| Q8 | Store copies of the notes that get linked, inside the vault? | DECIDED 2026-10-25: **Yes, linked notes only**, refreshed when the note changes. The vault is private and backed up encrypted |
+| Q9 | Should LearnLoop read linked notes for gaps in your understanding (like your Reader questions)? | DECIDED 2026-10-25: **Later and opt-in (C5).** Off by default; it only ever steers what to suggest, never grades you |
+| Q10 | When you say "I already know this" on a path section, should it ask for a cold check later? | DECIDED 2026-10-25: **Yes**: *I know this — check me later* schedules one check and takes the section off the plan until then. Plain *skip it* stays too |
+| Q11 | With several deliverables at once, which does the plan follow? | DECIDED 2026-10-25: **The nearest-due one** (the existing nearest-goal rule). The others still show their paths in the Guide |
+| Q12 | "Am I ready?" before RW6b lands: how many checks? | DECIDED 2026-10-25: **One per topic you haven't shown yet, dated by forgetting, never after the deadline.** RW6b takes over the choosing when it lands |
+| Q13 | In a book that's part of a deliverable, should the Guide show the deliverable's slice by default? | DECIDED 2026-10-25: **Yes, with *this book alone*** one tap away |
+| Q14 | Should the Guide's switch also turn off the plan following the deliverable (as RW7b does)? | DECIDED 2026-10-25: **Yes**, so the plan never follows a path you can't see |
+| Q15 | First slice: C0 whole, or C0a (correspondents) first so the skim-and-jump UX can be built sooner? | DECIDED 2026-10-25: **C0a first if the UX spec is ready to build; otherwise C0 whole** |
