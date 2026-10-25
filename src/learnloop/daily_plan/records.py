@@ -99,6 +99,13 @@ class PlannedItem:
         return "planned"
 
 
+#: RW7b (Codex review F1): the ``block_ended`` reason of a staged, unstarted
+#: reading block the reading path chose, ended unread when the path's switch
+#: was turned off after the build. It counts no minutes and is no reading of
+#: the day (the plan's reading goes back to the predecessor's).
+READING_PATH_OFF = "reading_path_off"
+
+
 @dataclass
 class PlannedBlock:
     id: str
@@ -117,6 +124,9 @@ class PlannedBlock:
     started_at: str | None = None
     ended_at: str | None = None
     outcome: str | None = None
+    #: the ``block_ended`` event's ``reason`` (DL2's ``intent``, RW7b's
+    #: :data:`READING_PATH_OFF`), when it has one.
+    ended_reason: str | None = None
     reading_progress: tuple[int, int] | None = None
     simulated: bool = False
     #: Router R2c: follow-ups the restraint decided while this block ran,
@@ -131,6 +141,12 @@ class PlannedBlock:
     @property
     def is_reading(self) -> bool:
         return self.reading is not None
+
+    @property
+    def withdrawn_path_reading(self) -> bool:
+        """A path reading the RW7b switch took back unread (F1)."""
+
+        return self.is_reading and self.outcome == "displaced" and self.ended_reason == READING_PATH_OFF
 
     def deferred_followups(self) -> set[str]:
         """Follow-ups the restraint let wait for the next block (R2c)."""
@@ -148,9 +164,12 @@ class PlannedBlock:
             section_title=str(self.reading.get("section_title") or ""),
             words_left=int(self.reading.get("words_left") or 0),
             partial=bool(self.reading.get("partial")),
+            path_label=self.reading.get("path_label") or None,
         )
 
     def est_minutes(self) -> float:
+        if self.withdrawn_path_reading:
+            return 0.0
         if self.is_reading:
             return float(self.budget_minutes)
         return sum(item.est_minutes for item in self.items if not item.displaced)
@@ -448,6 +467,7 @@ def _apply_event(block: PlannedBlock, by_item: dict[str, PlannedItem], event: Ma
     elif kind == "block_ended":
         block.ended_at = created_at
         block.outcome = detail.get("outcome")
+        block.ended_reason = detail.get("reason")
     elif kind == "reading_progress":
         block.reading_progress = (int(detail.get("spans_seen") or 0), int(detail.get("span_count") or 0))
     elif kind == "followup_deferred" and item_id:
@@ -470,6 +490,7 @@ __all__ = [
     "ORIGIN_LEARNER_PICK",
     "ORIGIN_REQUESTED",
     "PlanRecord",
+    "READING_PATH_OFF",
     "RECEIPT_OPEN_LIST_PICK",
     "RECEIPT_STOP",
     "PlannedBlock",

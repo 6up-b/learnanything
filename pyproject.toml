@@ -501,6 +501,7 @@ source_modules = [
     "learnloop.projects",
     "learnloop.proof_check_upgrade",
     "learnloop.reader",
+    "learnloop.reading_path_plan_upgrade",
     "learnloop.recurrence",
     "learnloop.regrade_contract_upgrade",
     "learnloop.remote",

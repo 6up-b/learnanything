@@ -18,11 +18,20 @@ section words x (1 - spans seen / span count) from ``reader_section_progress``.
 Section completion still triggers item generation as today, and those items
 enter the new lane on later days. Nothing from an unread section reaches the
 maintain lane.
+
+Reader workbench RW7b (spec_reader_workbench_v1 §10.2, a successor):
+``section_filter`` narrows, per reading, which sections the step may open
+(the reading path's core and prerequisite sections), after the order and the
+exam filter above; ``None`` for a reading keeps that order's own choice. The
+engine passes it only at RW7b's tag with ``reading_paths.plan_uses_path`` on
+(``engine.reading_path_plan_active``); without it this module is DL1's and
+U4's exactly.
 """
 
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from typing import Any
 
 from learnloop.content.sources.front_matter import is_front_matter_label
@@ -64,9 +73,14 @@ def _section_words(ir: Any, span_ids: list[str]) -> int:
     return sum(len(str(by_span[span].text or "").split()) for span in span_ids if span in by_span)
 
 
+#: Per reading, the sections the step may open (RW7b's reading path), or None
+#: for the order's own choice.
+SectionFilter = Callable[[str], Callable[[str], bool] | None]
+
+
 def next_reading_target(
     repository: Any, *, extraction_ids: list[str] | None = None, from_furthest: bool = True,
-    exam: Any = None,
+    exam: Any = None, section_filter: SectionFilter | None = None,
 ) -> ReadingTarget | None:
     """The as-you-read section to continue: the most recently progressed source's
     next unfinished section, else the newest import's first unfinished one.
@@ -79,7 +93,13 @@ def next_reading_target(
     off exam material in either order (the setting orders the step only;
     exam protection by extraction identity, final verify F15): a section
     with an exam span (a ``held_out_evaluation`` unit) is never the step to
-    read, and an exam extraction (a reading held back whole) offers none."""
+    read, and an exam extraction (a reading held back whole) offers none.
+
+    ``section_filter`` (RW7b): asked once per reading visited, it returns
+    the predicate of sections the step may open there (the path's core and
+    prerequisite sections) or None to keep the order's choice; a reading
+    whose predicate admits no unfinished section offers none, and the next
+    reading is tried."""
 
     candidates = extraction_ids if extraction_ids is not None else as_you_read_extraction_ids(repository)
     if not candidates:
@@ -102,9 +122,12 @@ def next_reading_target(
         ),
     )
     for extraction_id in ordered:
+        if exam is not None and extraction_id in exam.extractions:
+            continue  # offers none whatever the path says (and its path is never read)
+        plannable = section_filter(extraction_id) if section_filter is not None else None
         target = _first_unfinished(
             repository, extraction_id, progress_by_extraction.get(extraction_id, {}), from_furthest=from_furthest,
-            exam=exam,
+            exam=exam, plannable=plannable,
         )
         if target is not None:
             return target
@@ -118,7 +141,7 @@ def _desc(value: str) -> str:
 
 def _first_unfinished(
     repository: Any, extraction_id: str, progress: dict[str, dict[str, Any]], *, from_furthest: bool = True,
-    exam: Any = None,
+    exam: Any = None, plannable: Callable[[str], bool] | None = None,
 ) -> ReadingTarget | None:
     if exam is not None and extraction_id in exam.extractions:
         return None
@@ -149,6 +172,11 @@ def _first_unfinished(
         ]
         start = max(touched) if touched else 0
         ordered = candidates[start:] + candidates[:start]
+    if plannable is not None:
+        # RW7b: the order above (where the learner left off, book order),
+        # then only the path's sections; "continue from the furthest" still
+        # counts every section read into, skipped enrichment included.
+        ordered = [section for section in ordered if plannable(str(section["id"]))]
     for section in ordered:
         row = progress.get(str(section["id"]))
         if row is not None and row.get("completed_at"):
@@ -189,6 +217,7 @@ def section_start_span(repository: Any, extraction_id: str, section_id: str) -> 
 
 
 __all__ = [
+    "SectionFilter",
     "as_you_read_extraction_ids",
     "next_reading_target",
     "section_start_span",

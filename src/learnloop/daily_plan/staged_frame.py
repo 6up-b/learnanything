@@ -108,10 +108,15 @@ from learnloop.scheduling.frame_constraints import (  # noqa: E402, F401 - re-ex
 _FALL_THROUGH_RULES = frozenset({"no_positive_value_stop", "goal_satisfied"})
 
 
-def reason_code(lane: str, items: Sequence[PoolItem], *, reading: bool = False) -> str:
-    """The plain-"why" code of a block (:data:`learnloop.router.why.SENTENCES`)."""
+def reason_code(lane: str, items: Sequence[PoolItem], *, reading: bool = False,
+                path_label: str | None = None) -> str:
+    """The plain-"why" code of a block (:data:`learnloop.router.why.SENTENCES`).
+    ``path_label``: a reading block's label on the reading path when the
+    path chose it (RW7b), else None (DL1's "reading")."""
 
     if reading:
+        if path_label in ("core", "prerequisite"):
+            return f"reading_path_{path_label}"
         return "reading"
     if lane == "repair":
         if any(item.followup for item in items):
@@ -356,7 +361,8 @@ class StagedFrameSource:
         fired = min(rungs, key=lambda rung: rung["fired_rung"])["fired"] if rungs else None
         titles = [self.titles.get(lo, lo) for lo in candidate.learning_object_ids]
         annotations: dict[str, Any] = {
-            "reason_code": reason_code(candidate.lane, items, reading=candidate.reading is not None),
+            "reason_code": reason_code(candidate.lane, items, reading=candidate.reading is not None,
+                                       path_label=candidate.reading.path_label if candidate.reading else None),
             "topic": router_why.topic_phrase(titles),
             "reversible": not irreversible,
             "ladder": {"eligible": eligible, "fired": fired},

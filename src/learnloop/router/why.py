@@ -40,6 +40,10 @@ SENTENCES: Mapping[str, str] = {
     "scheduled_checks": "A few short checks on {topic}.",
     "new_material": "Next: {topic}.",
     "reading": "Next: reading {section}.",
+    # Reader workbench RW7b (UX §4.11): the block names the section the
+    # reading path chose and why.
+    "reading_path_core": "Next on your reading path: {section}, central at the depth you chose.",
+    "reading_path_prerequisite": "Next on your reading path: {section}, which the sections after it build on.",
     "goal_step": "A step toward your goal: {topic}.",
     "requested": "You asked for this.",
     "followup_only": "Following up today's mistakes.",

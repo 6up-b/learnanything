@@ -54,11 +54,20 @@ def reader_report(
             raise ValueError("--vault must contain learnloop.toml")
         loaded = load_vault(vault, load_environment=False)
         path = VaultPaths(loaded.root, loaded.config).sqlite_path
+        skipped_section_los = None
+        if loaded.config.reading_paths.enabled:
+            # RW7b (§15's reading-path row): the skipped sections' LOs, read
+            # through a read-only attach (the report's reader has no vault).
+            from learnloop.db.repositories import Repository
+            from learnloop.source_retrieval.reading_paths import skipped_section_learning_objects
+
+            skipped_section_los = skipped_section_learning_objects(loaded, Repository.attach(path, read_only=True))
         report = build_reader_report(path, since=_since(since, now), now=now,
                                      reading_paths_enabled=loaded.config.reading_paths.enabled,
                                      figures_enabled=bool(loaded.config.figures.enabled),
                                      figure_offers_enabled=bool(loaded.config.figures.enabled
-                                                                and loaded.config.figures.offers_enabled))
+                                                                and loaded.config.figures.offers_enabled),
+                                     skipped_section_los=skipped_section_los)
         report["reader_inquiry"] = loaded.config.reader_inquiry.model_dump(mode="json")
         typer.echo(json.dumps(report, sort_keys=True, indent=None if json_output else 2))
     except (ValueError, OSError, sqlite3.Error) as exc:

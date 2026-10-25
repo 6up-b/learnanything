@@ -3,8 +3,8 @@ title: "attention_block_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e821b00def1604485708ab22d056f785fd075560"
-source_commit_timestamp: "2026-10-25T02:47:07-04:00"
+source_commit: "7316581d80ff3285df1f27f0cc35b69b3ec9db27"
+source_commit_timestamp: "2026-10-25T14:44:42-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attention_block_events"
@@ -113,10 +113,12 @@ None found by exact static reference scan.
 - `tests/test_dl2_rw4b_keyed_pick_check.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_migrations.py`
+- `tests/test_plan_follows_path.py`
 - `tests/test_reader_rw4b_admission_idempotency.py`
 - `tests/test_reader_rw4b_fix6.py`
 - `tests/test_router_g4_restraint.py`
 - `tests/test_router_r2a_serving.py`
+- `tests/test_rw7b_codex_review_fixes.py`
 - `tests/test_ux_phase4_feedback.py`
 - `tests/test_voi_merge_composition.py`
 
