@@ -49,6 +49,8 @@ import {
 } from "./shell";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { TodayScreen } from "../screens/TodayScreen";
+import { TodayPlace } from "../screens/today/TodayPlace";
+import { implicitSessionMinutes } from "./todayPlan";
 import { OpenInSource } from "../components/OpenInSource";
 import { QuickAddDialog } from "../components/QuickAddDialog";
 import { NewVaultWizard } from "../components/NewVaultWizard";
@@ -57,7 +59,7 @@ import type { ReaderCheckMeRequest, ReaderExerciseRequest, ReaderOpenSource } fr
 import { keepReaderReturn, readerCheckOffer, returnsToReader, type ReaderReturn } from "./readerCheck";
 import { consumeShown, readerTargetBack, readerWorkbenchCheck, sessionAfterWorkbenchSubmit, workbenchReturn } from "./readerWorkbench";
 import { algoConfig, setRenderedShell } from "./algoConfig";
-import type { ReaderWorkbenchCheck, ReaderWorkbenchProps } from "../screens/reader/useReaderWorkbench";
+import type { ReaderWorkbenchCheck, ReaderWorkbenchProps, ReaderWorkbenchResume } from "../screens/reader/useReaderWorkbench";
 import { ExemplarConfirmDialog } from "../components/ExemplarConfirmDialog";
 import { WhyDiagnosisOverlay } from "../components/WhyDiagnosisOverlay";
 import { AdjudicationOverlay } from "../components/AdjudicationOverlay";
@@ -72,7 +74,7 @@ import { todayQueueInput } from "./autoAdvance";
 import { planStepAction, readerTargetForReading, useDailyPlan } from "./dailyPlan";
 import { readerTargetForRestoration } from "./intentCheck";
 import { PlanReadingBanner } from "../components/PlanReadingBanner";
-import type { IntentRestorationDto, PlanReadingDto, PlanStepDto } from "../api/dto";
+import type { IntentRestorationDto, PlanReadingDto, PlanStepDto, WorkbenchOpenProblemDto } from "../api/dto";
 import {
   planPresentationForServe,
   proposalOriginForServe,
@@ -158,6 +160,8 @@ export function App() {
   // Bumped when the shell opens a book on purpose (Add, the shelf's Continue),
   // so a Reader already showing another book remounts on the new one.
   const [readerOpenSeq, setReaderOpenSeq] = useState(0);
+  // UX Phase 3: Today's "resume ▸" on an unfinished problem, for the Reader.
+  const [readerResume, setReaderResume] = useState<ReaderWorkbenchResume | null>(null);
   // Each request from the palette to open the Reader's Ask (Codex review F5).
   const [readerAskRequest, setReaderAskRequest] = useState(0);
   // UX Phase 1 (docs/specs/ux_learnloop_v1.md §6): Add, the shelf, connect once.
@@ -335,6 +339,13 @@ export function App() {
   const shellRef = useRef<ShellMode>(shell);
   shellRef.current = shell;
   const simple = shell === "simple";
+  // UX Phase 3 (§7.1, §10 3.2): sessions are implicit in the simple shell.
+  // The session the shell knows now, ahead of the render that shows it (an
+  // implicit start or Begin sets it at once), so a continuation never starts
+  // a second one.
+  const sessionRef = useRef<SessionSnapshot | null>(session);
+  sessionRef.current = session;
+  const implicitStartRef = useRef<Promise<SessionSnapshot | null> | null>(null);
 
   const pushNotice = useCallback((input: NoticeInput) => setNotices((list) => addNotice(list, input)), []);
   // An error: classic's red toast, or the simple shell's red error. A screen
@@ -728,6 +739,7 @@ export function App() {
 
   function beginSession(next: SessionSnapshot, firstStep?: PlanStepDto | null) {
     setTodayNoGoalBannerDismissed(false);
+    sessionRef.current = next;
     setSession(next);
     // A notice that asked for a session is resolved now (usability round 2;
     // UX Phase 2's notices drop every notice a session resolves).
@@ -789,6 +801,48 @@ export function App() {
     setTodayStage("queue");
   }
 
+  // UX Phase 3 (§7.1, §10 3.2): an implicit session. The first practice
+  // action with no session open starts one with the remembered minutes (the
+  // plan's, as Today's Begin uses) and then carries on; no "start a session
+  // first" notice. One start at a time: a second action waits for the same
+  // one. Starting a session changes nothing about what is served: it is the
+  // session the learner's Begin would have opened.
+  function implicitSession(): Promise<SessionSnapshot | null> {
+    if (sessionRef.current) return Promise.resolve(sessionRef.current);
+    if (implicitStartRef.current) return implicitStartRef.current;
+    const started = (async () => {
+      try {
+        const minutes = await implicitSessionMinutes();
+        if (minutes === null) {
+          onError("Couldn't start practice just now.");
+          return null;
+        }
+        const next = await api.startSession({ availableMinutes: minutes });
+        sessionRef.current = next;
+        setTodayNoGoalBannerDismissed(false);
+        setSession(next);
+        setNotices((list) => resolveNotices(list, "session"));
+        return next;
+      } catch (error) {
+        reportError(error, "Couldn't start practice just now.");
+        return null;
+      } finally {
+        implicitStartRef.current = null;
+      }
+    })();
+    implicitStartRef.current = started;
+    return started;
+  }
+
+  function showPractice(id: string) {
+    setPrimedRetry(false);
+    setRedoContext(null);
+    setAskTarget(null);
+    setPracticeItemId(id);
+    setTab("today");
+    setTodayStage("practice");
+  }
+
   function openPractice(
     id: string,
     schedulerCandidateId?: string | null,
@@ -803,16 +857,17 @@ export function App() {
     });
     setReaderReturn((current) => keepReaderReturn(current, id));
     if (!session) {
+      if (shellRef.current === "simple") {
+        void implicitSession().then((started) => {
+          if (started) showPractice(id);
+        });
+        return;
+      }
       setTab("start");
       needSession("practice");
       return;
     }
-    setPrimedRetry(false);
-    setRedoContext(null);
-    setAskTarget(null);
-    setPracticeItemId(id);
-    setTab("today");
-    setTodayStage("practice");
+    showPractice(id);
   }
 
   // RW3a (spec §6.1, D40): "check me" on a margin cue opens one item as an
@@ -888,6 +943,9 @@ export function App() {
         // RW4b fix round 4 (R1): an exercise's admission may have started the
         // practice session its pick was made in.
         onPracticeSession: (practiceSession) => setSession((current) => sessionAfterWorkbenchSubmit(current, practiceSession)),
+        ...(simple
+          ? { resumeProblem: readerResume, onResumeShown: (shown: ReaderWorkbenchResume) => setReaderResume((current) => (current === shown ? null : current)) }
+          : {}),
       }
     : undefined;
 
@@ -904,6 +962,12 @@ export function App() {
   }
 
   function exerciseFromReader(request: ReaderExerciseRequest) {
+    if (!session && shellRef.current === "simple") {
+      void implicitSession().then((started) => {
+        if (started) openReaderExercise(request);
+      });
+      return;
+    }
     if (!session) {
       setPendingExercise(request);
       setTab("start");
@@ -914,6 +978,12 @@ export function App() {
   }
 
   function checkMeFromReader(request: ReaderCheckMeRequest) {
+    if (!session && shellRef.current === "simple") {
+      void implicitSession().then((started) => {
+        if (started) void pickCheckMe(request, started.sessionId);
+      });
+      return;
+    }
     if (!session) {
       setPendingCheckMe(request);
       setTab("start");
@@ -964,6 +1034,35 @@ export function App() {
     }
   }
 
+  // UX Phase 3 (§7.1 threads): an open question opens in its book at its
+  // passage; an unfinished problem opens there and resumes (Reader K6).
+  async function openPassageNow(sourceId: string, spanId: string | null) {
+    const library = await api.getSourceLibrary();
+    const card = library.sources.find((entry) => entry.sourceId === sourceId);
+    if (!card) {
+      onError("That book is no longer in the library.");
+      return false;
+    }
+    setReaderSource({ card, spanId });
+    setReaderOpenSeq((seq) => seq + 1);
+    setTab("reader");
+    return true;
+  }
+  async function openPassage(sourceId: string, spanId: string | null) {
+    try {
+      await openPassageNow(sourceId, spanId);
+    } catch (error) {
+      reportError(error, "Couldn't open the book.", {
+        source: "shell:open-passage",
+        retry: () => openPassageNow(sourceId, spanId).then(() => RETRY_RAN)
+      });
+    }
+  }
+  function resumeProblem(problem: WorkbenchOpenProblemDto) {
+    setReaderResume({ sessionId: problem.sessionId, sourceId: problem.sourceId });
+    void openPassage(problem.sourceId, problem.spanIds[0] ?? null);
+  }
+
   // Daily-loop DL2 (Reader §9.3 item 9): "Back to where you studied this"
   // after a check on your own. A link the learner follows, never a jump.
   async function openStudiedNow(restoration: IntentRestorationDto) {
@@ -1005,11 +1104,21 @@ export function App() {
 
   function openPrimedRetry(id: string) {
     setPracticeOffer(null);
+    if (!session && shellRef.current === "simple") {
+      void implicitSession().then((started) => {
+        if (started) showPrimed(id);
+      });
+      return;
+    }
     if (!session) {
       setTab("start");
       needSession("practice");
       return;
     }
+    showPrimed(id);
+  }
+
+  function showPrimed(id: string) {
     setPrimedRetry(true);
     setRedoContext(null);
     setAskTarget(null);
@@ -1021,6 +1130,12 @@ export function App() {
   // Fix 3: reuse the primed-retry plumbing, but carry the redo context so
   // PracticeScreen locks the preserved prefix and submits the composed answer.
   function openGuidedRedo(redo: GuidedRedoDto) {
+    if (!session && shellRef.current === "simple") {
+      void implicitSession().then((started) => {
+        if (started) showGuidedRedo(redo);
+      });
+      return;
+    }
     if (!session) {
       // The redo's episode is already committed server-side; stash the context
       // and resume it when a session begins (mirrors pendingPrimedItemId).
@@ -1029,6 +1144,10 @@ export function App() {
       needSession("redo");
       return;
     }
+    showGuidedRedo(redo);
+  }
+
+  function showGuidedRedo(redo: GuidedRedoDto) {
     setPrimedRetry(true);
     setRedoContext(redo);
     setAskTarget(null);
@@ -1053,14 +1172,16 @@ export function App() {
 
   // Learner field F2: "Check what I already know" from the LO inspector.
   async function startQuickCheck(learningObjectIds: string[]) {
-    if (!session) {
-      needSession("quickCheck");
+    let current = session;
+    if (!current && shellRef.current === "simple") current = await implicitSession();
+    if (!current) {
+      if (shellRef.current === "classic") needSession("quickCheck");
       return;
     }
     try {
       // One identity per start: a retried request returns the same check.
       const requestId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
-      const progress = await api.startQuickCheck({ sessionId: session.sessionId, learningObjectIds, requestId });
+      const progress = await api.startQuickCheck({ sessionId: current.sessionId, learningObjectIds, requestId });
       setInspectorId(null);
       openCalibration(progress.calibrationSessionId, { quickCheck: true });
     } catch (error) {
@@ -1606,6 +1727,28 @@ export function App() {
         />
       );
     }
+    // UX Phase 3 (§7.1, §10 3.1): in the simple shell Start and Today are one
+    // place, the finite plan in minutes. Classic keeps both screens as they were.
+    const todayPlace = () => (
+      <TodayPlace
+        key={snapshot.vault?.root}
+        session={session}
+        streak={snapshot.streak}
+        onBeginSession={beginSession}
+        onOpenPractice={openPractice}
+        onOpenPlanReading={(reading) => void openPlanReading(reading)}
+        onEndSession={endSession}
+        onAdd={() => setAddOpen(true)}
+        onOpenPassage={(sourceId, spanId) => void openPassage(sourceId, spanId)}
+        onResumeProblem={resumeProblem}
+        onAsk={setAskTarget}
+        onTakeExam={openExam}
+        subjects={subjectOptions}
+        wrapUp={wrapUpLine("today")}
+        onError={onError}
+      />
+    );
+    if (simple && tab === "start") return todayPlace();
     if (tab === "start") {
       const start = (
         <StartScreen
@@ -1733,6 +1876,7 @@ export function App() {
           />
         );
       }
+      if (simple) return todayPlace();
       const today = (
         <TodayScreen
           key={snapshot.vault?.root}
@@ -2074,6 +2218,12 @@ export function App() {
             // Check the session BEFORE unmounting the overlay: openPrimedRetry
             // bails without a session, and losing the primed item id here used
             // to strand the freshly committed episode in `treatment`.
+            if (!session && shellRef.current === "simple") {
+              // UX Phase 3: an implicit session, then the primed retry.
+              setRepairMisconceptionId(null);
+              openPrimedRetry(practiceItemId);
+              return;
+            }
             if (!session) {
               setPendingPrimedItemId(practiceItemId);
               setRepairMisconceptionId(null);

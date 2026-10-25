@@ -283,13 +283,13 @@ describe("the simple shell's chrome is key-isolated (item 1)", () => {
     const { startSession } = screenApis();
     render(<App />);
     // The real Start screen, ready to begin on Enter.
-    expect(await screen.findByText(/begin session · \d+ min/)).toBeTruthy();
+    expect(await screen.findByText(/\d+ minutes today/)).toBeTruthy();
     // The real listener is live: Enter on the page begins (proved, then undone by a fresh mount below).
     const backToStart = async () => {
       await closeOverlays();
-      if (!screen.queryByText(/begin session · \d+ min/)) {
+      if (!screen.queryByText(/\d+ minutes today/)) {
         await press({ key: "1", altKey: true });
-        await screen.findByText(/begin session · \d+ min/);
+        await screen.findByText(/\d+ minutes today/);
       }
     };
     const forbidden = () => expect(startSession).not.toHaveBeenCalled();
@@ -324,7 +324,7 @@ describe("the simple shell's chrome is key-isolated (item 1)", () => {
           if (screen.queryByTestId("settings-stub")) {
             cleanup();
             render(<App />);
-            await screen.findByText(/begin session · \d+ min/);
+            await screen.findByText(/\d+ minutes today/);
             return;
           }
           await backToStart();
@@ -344,14 +344,14 @@ describe("the simple shell's chrome is key-isolated (item 1)", () => {
     });
     stubs.api.getKnowledgeMap = map;
     render(<App />);
-    await screen.findByText(/begin session · \d+ min/);
+    await screen.findByText(/\d+ minutes today/);
     // An Analyst views read fails; back on Start, its error waits with its controls.
     await press({ key: "0", altKey: true });
     await screen.findByTestId("maintain-stub");
     fireEvent.click(screen.getByRole("button", { name: "Analyst views" }));
     await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
     await press({ key: "1", altKey: true });
-    await screen.findByText(/begin session · \d+ min/);
+    await screen.findByText(/\d+ minutes today/);
     const alert = () => screen.getByRole("alert");
     const forbidden = () => expect(startSession).not.toHaveBeenCalled();
     await sweep(
@@ -382,12 +382,13 @@ describe("the simple shell's chrome is key-isolated (item 1)", () => {
     render(<App />);
     await screen.findByRole("navigation", { name: "Places" });
     await press({ key: "1", altKey: true });
-    expect(await screen.findAllByText("Item 1")).toBeTruthy();
+    // UX Phase 3: Today is one place, the plan (here off) in minutes.
+    expect(await screen.findByText(/minutes today: starting with Item 1/)).toBeTruthy();
     const backToToday = async () => {
       await closeOverlays();
-      if (!screen.queryAllByText("Item 1").length) {
+      if (!screen.queryByText(/minutes today: starting with Item 1/)) {
         await press({ key: "1", altKey: true });
-        await screen.findAllByText("Item 1");
+        await screen.findByText(/minutes today: starting with Item 1/);
       }
     };
     await sweep(
@@ -403,7 +404,7 @@ describe("the simple shell's chrome is key-isolated (item 1)", () => {
       },
       backToToday
     );
-    // Today's own Enter still opens the focused item from the page.
+    // Today's own Enter still opens the first item from the page.
     await press({ key: "Enter" });
     expect(await screen.findByTestId("practice-stub")).toBeTruthy();
   });
@@ -411,7 +412,7 @@ describe("the simple shell's chrome is key-isolated (item 1)", () => {
   it("under the hood: the tool list's buttons take their keys to themselves", async () => {
     screenApis();
     render(<App />);
-    await screen.findByText(/begin session · \d+ min/);
+    await screen.findByText(/\d+ minutes today/);
     await press({ key: "0", altKey: true });
     await screen.findByTestId("maintain-stub");
     const list = () => screen.getByRole("navigation", { name: "Under the hood" });
@@ -429,7 +430,7 @@ describe("the simple shell's chrome is key-isolated (item 1)", () => {
   it("keeps every simple-shell control inside a chrome part", async () => {
     screenApis();
     render(<App />);
-    await screen.findByText(/begin session · \d+ min/);
+    await screen.findByText(/\d+ minutes today/);
     for (const button of within(screen.getByRole("navigation", { name: "Places" })).getAllByRole("button")) {
       expect(button.closest("[data-shell-chrome]"), button.textContent ?? "").not.toBeNull();
     }
@@ -529,7 +530,7 @@ describe("the plan view under the chrome (item 1)", () => {
     render(<App />);
     await screen.findByRole("navigation", { name: "Places" });
     await press({ key: "1", altKey: true });
-    await screen.findByTestId("daily-plan");
+    await screen.findByTestId("today-place");
     await sweep(
       [
         { name: "Today", get: () => navButton("Today") },
@@ -539,9 +540,9 @@ describe("the plan view under the chrome (item 1)", () => {
       () => expect(nextPlanItem).not.toHaveBeenCalled(),
       async () => {
         await closeOverlays();
-        if (!screen.queryByTestId("daily-plan")) {
+        if (!screen.queryByTestId("today-place")) {
           await press({ key: "1", altKey: true });
-          await screen.findByTestId("daily-plan");
+          await screen.findByTestId("today-place");
         }
       }
     );

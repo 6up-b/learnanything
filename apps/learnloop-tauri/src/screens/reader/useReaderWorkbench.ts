@@ -95,6 +95,17 @@ export interface ReaderWorkbenchProps {
   initialAttemptId?: string | null;
   /** The read-only problem was shown (the shell forgets the attempt). */
   onInitialAttemptShown?: () => void;
+  /** UX Phase 3: Today's "resume ▸" on an unfinished problem, to reopen once
+   *  its source is the one open (the simple shell only). */
+  resumeProblem?: ReaderWorkbenchResume | null;
+  /** That resume was asked for: the shell forgets THIS one, by identity. */
+  onResumeShown?: (shown: ReaderWorkbenchResume) => void;
+}
+
+/** UX Phase 3: an open problem Today's threads resume, and the book it is on. */
+export interface ReaderWorkbenchResume {
+  sessionId: string;
+  sourceId: string;
 }
 
 export interface ActiveWorkbench {
@@ -424,6 +435,20 @@ export function useReaderWorkbench(input: {
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, exercise, extractionId, card?.sourceId]);
+
+  // UX Phase 3: Today's "resume ▸" (the shell asked for it): once the
+  // problem's source is open, the one explicit resume, by the problem's id.
+  // Consumed by identity, as a check and an exercise are.
+  const resumeRequest = props?.resumeProblem ?? null;
+  const resumedRef = useRef<{ request: ReaderWorkbenchResume; generation: number } | null>(null);
+  useEffect(() => {
+    if (!enabled || !resumeRequest || !extractionId || !card || card.sourceId !== resumeRequest.sourceId) return;
+    if (resumedRef.current?.request === resumeRequest && resumedRef.current.generation === generation.current) return;
+    resumedRef.current = { request: resumeRequest, generation: generation.current };
+    propsRef.current?.onResumeShown?.(resumeRequest);
+    void resume(resumeRequest.sessionId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, resumeRequest, extractionId, card?.sourceId]);
 
   const reopenAbandoned = useCallback(async () => {
     if (!abandoned) return;

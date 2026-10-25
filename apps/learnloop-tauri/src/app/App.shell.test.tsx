@@ -66,6 +66,8 @@ vi.mock("../screens/ReaderScreen", async () => {
 vi.mock("../screens/LibraryPlace", () => ({ LibraryPlace: stub("library-stub") }));
 vi.mock("../screens/StartScreen", () => ({ StartScreen: stub("start-stub") }));
 vi.mock("../screens/TodayScreen", () => ({ TodayScreen: stub("today-stub") }));
+// UX Phase 3: the simple shell's Today (Start and Today merged).
+vi.mock("../screens/today/TodayPlace", () => ({ TodayPlace: stub("today-place-stub") }));
 vi.mock("../screens/GraphScreen", () => ({ GraphScreen: stub("graph-stub") }));
 vi.mock("../screens/KnowledgeMapScreen", async () => {
   const React = await import("react");
@@ -122,7 +124,8 @@ afterEach(() => {
 
 async function launch() {
   render(<App />);
-  await screen.findByTestId("start-stub");
+  // Classic opens on Start; the simple shell on Today (UX Phase 3).
+  await screen.findByTestId(/^(start|today-place)-stub$/);
 }
 
 async function press(init: KeyboardEventInit) {
@@ -173,7 +176,7 @@ describe("simple (the default)", () => {
     await press({ key: "3", altKey: true });
     expect(await screen.findByTestId("reader-stub")).toBeTruthy();
     await press({ key: "1", altKey: true });
-    expect(await screen.findByTestId("start-stub")).toBeTruthy();
+    expect(await screen.findByTestId("today-place-stub")).toBeTruthy();
   });
 
   it("opens Under the hood from ⋯, on the last tool used, with the demoted screens unchanged", async () => {
@@ -186,7 +189,7 @@ describe("simple (the default)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Imports & builds" }));
     expect(await screen.findByTestId("ingest-stub")).toBeTruthy();
     await press({ key: "1", altKey: true });
-    await screen.findByTestId("start-stub");
+    await screen.findByTestId("today-place-stub");
     fireEvent.click(screen.getByRole("button", { name: "⋯" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Under the hood" }));
     expect(await screen.findByTestId("ingest-stub")).toBeTruthy();
@@ -205,7 +208,7 @@ describe("simple (the default)", () => {
     fireEvent.click(await screen.findByTestId("review-stub"));
     expect(screen.queryByTestId("review-stub")).toBeNull();
     await press({ key: "1", altKey: true });
-    await screen.findByTestId("start-stub");
+    await screen.findByTestId("today-place-stub");
     fireEvent.click(screen.getByRole("button", { name: "⋯" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Under the hood" }));
     expect(await screen.findByRole("button", { name: "open mistake history" })).toBeTruthy();

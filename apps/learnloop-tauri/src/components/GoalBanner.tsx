@@ -41,7 +41,7 @@ function dueTone(dueAt: string | null): string {
   return COLOR.textDim;
 }
 
-function statusOf(attainment: number | null): { label: string; color: string } {
+export function statusOf(attainment: number | null): { label: string; color: string } {
   const f = attainment ?? 0;
   if (f >= 0.97) return { label: "ON TRACK", color: COLOR.green };
   if (f >= 0.8) return { label: "CLOSING IN", color: COLOR.amber };

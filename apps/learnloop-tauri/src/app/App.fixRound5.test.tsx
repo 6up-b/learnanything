@@ -336,7 +336,7 @@ describe("the global-listener target rule (item 1)", () => {
       readerRecapEvent: vi.fn(async () => ({}))
     });
     render(<App />);
-    await screen.findByText(/begin session · \d+ min/);
+    await screen.findByText(/\d+ minutes today/);
     // Leave the Reader for Today (Start until a session is open): the line shows.
     await press({ key: "3", altKey: true });
     await screen.findByTestId("reader-stub");
@@ -361,7 +361,7 @@ describe("focus after a pointer activation (item 2)", () => {
   it("click Today, press Enter: the plan begins", async () => {
     const { startSession } = screenApis();
     render(<App />);
-    await screen.findByText(/begin session · \d+ min/);
+    await screen.findByText(/\d+ minutes today/);
     await pointerActivate(navButton("Today"));
     expect(document.activeElement).toBe(document.body);
     await pressFocused("Enter");
@@ -371,21 +371,25 @@ describe("focus after a pointer activation (item 2)", () => {
   it("a keyboard activation keeps the focus on the control", async () => {
     screenApis();
     render(<App />);
-    await screen.findByText(/begin session · \d+ min/);
+    await screen.findByText(/\d+ minutes today/);
     const today = navButton("Today");
     await pressOn(today, "Enter");
     expect(document.activeElement).toBe(today);
   });
 
-  it("click Today, then Today's numbered keys open the item", async () => {
+  it("click Today, then Today's list keys open the item", async () => {
     stubs.session = { sessionId: "s1", availableMinutes: 25, energy: null, startedAt: "2026-10-21T10:00:00Z", checkpoint: null };
     screenApis();
     render(<App />);
     await screen.findByRole("navigation", { name: "Places" });
     await pointerActivate(navButton("Today"));
-    await screen.findAllByText("Item 2");
+    await screen.findByTestId("today-place");
     expect(document.activeElement).toBe(document.body);
-    await pressFocused("2");
+    // UX Phase 3: the plain list (`l`), then j and Enter on its second item.
+    await pressFocused("l");
+    await screen.findAllByText("Item 2");
+    await pressFocused("j");
+    await pressFocused("Enter");
     expect(await screen.findByTestId("practice-stub")).toBeTruthy();
   });
 
@@ -395,7 +399,7 @@ describe("focus after a pointer activation (item 2)", () => {
     render(<App />);
     await screen.findByRole("navigation", { name: "Places" });
     await pointerActivate(navButton("Today"));
-    await screen.findAllByText("Item 2");
+    await screen.findByTestId("today-place");
     await pointerActivate(navButton("⋯"));
     await pointerActivate(within(screen.getByRole("menu")).getByRole("menuitem", { name: /Keyboard & help/ }));
     // Keyboard & help takes the focus; closing it with the mouse returns to the page.
@@ -403,7 +407,10 @@ describe("focus after a pointer activation (item 2)", () => {
       fireEvent.click(document.querySelector(".keys-help-backdrop") as HTMLElement);
     });
     (document.activeElement as HTMLElement | null)?.blur();
-    await pressFocused("2");
+    await pressFocused("l");
+    await screen.findAllByText("Item 2");
+    await pressFocused("j");
+    await pressFocused("Enter");
     expect(await screen.findByTestId("practice-stub")).toBeTruthy();
   });
 
@@ -451,7 +458,7 @@ describe("focus after a pointer activation (item 2)", () => {
     const acceptProposalItems = vi.fn(async () => proposals);
     Object.assign(stubs.api, { getProposals: vi.fn(async () => proposals), acceptProposalItems });
     render(<App />);
-    await screen.findByText(/begin session · \d+ min/);
+    await screen.findByText(/\d+ minutes today/);
     await press({ key: "0", altKey: true });
     await screen.findByTestId("maintain-stub");
     const list = screen.getByRole("navigation", { name: "Under the hood" });
@@ -467,7 +474,7 @@ describe("the lows (item 3)", () => {
   it("lets Control, Meta, Alt and Shift keyups pass through the chrome", async () => {
     screenApis();
     render(<App />);
-    await screen.findByText(/begin session · \d+ min/);
+    await screen.findByText(/\d+ minutes today/);
     const ups: string[] = [];
     const record = (event: KeyboardEvent) => ups.push(event.key);
     window.addEventListener("keyup", record);
