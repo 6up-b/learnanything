@@ -134,3 +134,36 @@ def test_the_fit_recovers_relevance_under_a_known_position_bias():
         p = 1.0 / (1.0 + np.exp(-(x @ theta)))
         theta += np.linalg.solve(x.T @ (x * (w * p * (1 - p))[:, None]), x.T @ (w * (y - p)))
     assert abs(theta[2] - gamma) > 3 * errors[2]
+
+
+def test_the_selection_propensity_is_the_policys_joint_probability():
+    """Codex re-review F18: the probability logged for a query's selection is
+    the JOINT probability that the resolver's policy, applied to a Thompson
+    draw under the posterior's own covariance, selects exactly that set
+    (forced fallback included), not a product of marginal ``P(beta > 0)``."""
+
+    import math
+
+    lists = ["qwen", "voyage"]
+
+    def resolver(positive):
+        # Both lists cover everything; with no positive weight the cheapest
+        # covering list (Qwen) is forced in (the resolver's stand-in rule).
+        return frozenset(positive) or frozenset({"qwen"})
+
+    independent = {"lists": lists, "mean": [0.0, 0.0], "covariance": [[1.0, 0.0], [0.0, 1.0]], "signals": 3}
+    p_qwen, marginals = fusion.selection_propensity(independent, lists, resolver, frozenset({"qwen"}), seed=1)
+    assert abs(p_qwen - 0.5) < 0.03  # Q > 0 >= V (1/4) plus both <= 0, forced to Qwen (1/4)
+    assert abs(marginals["qwen"] - 0.75) < 0.03 and abs(marginals["voyage"] - 0.5) < 0.03
+    correlated = {**independent, "covariance": [[1.0, 0.99], [0.99, 1.0]]}
+    both = 0.25 + math.asin(0.99) / (2 * math.pi)  # the bivariate normal's positive orthant
+    p_both, _ = fusion.selection_propensity(correlated, lists, resolver, frozenset(lists), seed=1)
+    assert abs(p_both - both) < 0.03
+    p_voyage, _ = fusion.selection_propensity(correlated, lists, resolver, frozenset({"voyage"}), seed=1)
+    assert p_voyage < 0.05  # a rare selection stays rare (never the marginals' 1/4)
+    assert fusion.selection_propensity(None, lists, resolver, frozenset({"qwen"}), seed=1) == (1.0, {})
+    # The fit divides by the logged joint probability, as recorded.
+    payload = {"query_set_propensity": p_both, "query_propensity": {"qwen": 0.5, "voyage": 0.5},
+               "lists_available": lists, "queried": lists}
+    assert fusion._set_propensity(payload, lists, set(lists)) == p_both
+    assert fusion._set_propensity({}, lists, {"qwen"}) == 1.0  # the seed's selection is not random

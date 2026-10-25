@@ -403,6 +403,7 @@ def test_a_deferred_index_job_is_woken_at_its_retry_time(tmp_path, data_root):
     assert repository.transition_unleased_ingest_job(job["id"], status="completed", result=deferred)
     started: list[int] = []
     host = SimpleNamespace(_runner=runner, _stop=threading.Event(), reading_now=lambda: due - timedelta(seconds=1),
+                           _background=True, _lock=threading.Lock(), _worker_thread=None,
                            _ensure_worker=lambda: started.append(1))
     assert DurableIngestJobs.resume_contextual_index(host) is None and started == []  # not due yet
     host.reading_now = lambda: due + timedelta(seconds=1)
@@ -410,10 +411,51 @@ def test_a_deferred_index_job_is_woken_at_its_retry_time(tmp_path, data_root):
     assert batch is not None and started == [1]
     [queued] = repository.ingest_jobs_for_batch(batch)
     assert queued["status"] == "queued" and queued["job_type"] == local_index.INDEX_JOB
+    host._worker_thread = SimpleNamespace(is_alive=lambda: True)  # the worker started above is running
     assert DurableIngestJobs.resume_contextual_index(host) is None  # the newest job is live: nothing twice
+    assert started == [1]
     # A finished index (or one switched off) wakes nothing.
     assert repository.transition_unleased_ingest_job(queued["id"], status="completed", result={"status": "complete"})
     assert DurableIngestJobs.resume_contextual_index(host) is None
+
+
+def test_a_queued_index_job_whose_worker_never_started_is_started_by_the_sweep(tmp_path):
+    """Codex re-review F4: the obligation was queued but starting the worker
+    failed. Every later pass of the host's sweep sees the runnable index job
+    with no worker running and starts one (once a worker runs, nothing)."""
+
+    import threading
+
+    from learnloop.content.pipeline.jobs import DurableIngestJobs
+    from learnloop.content.pipeline.runner import IngestRunner, JobSpec
+    from learnloop.db.repositories import Repository
+
+    paths, repository = _local_vault(tmp_path)
+    runner = IngestRunner(Repository(repository.sqlite_path), vault_root=paths.root, worker_id="test")
+    starts: list[int] = []
+
+    def ensure_worker():
+        starts.append(1)
+        if len(starts) == 1:
+            raise RuntimeError("the worker thread could not start")
+
+    host = SimpleNamespace(_runner=runner, _stop=threading.Event(), _background=True, _lock=threading.Lock(),
+                           _worker_thread=None, reading_now=lambda: datetime.now(timezone.utc),
+                           _ensure_worker=ensure_worker)
+    batch = runner.enqueue_batch(local_index.INDEX_JOB, [JobSpec(local_index.INDEX_JOB, {"extraction_id": "ext_book"})])
+    with pytest.raises(RuntimeError):
+        host._ensure_worker()  # the enqueue's own start, which failed
+    assert DurableIngestJobs.resume_contextual_index(host) is None  # nothing new queued...
+    assert starts == [1, 1]  # ...but the worker is started for the queued job
+    [job] = repository.ingest_jobs_for_batch(batch)
+    assert job["status"] == "queued"
+    host._worker_thread = SimpleNamespace(is_alive=lambda: True)
+    DurableIngestJobs.resume_contextual_index(host)
+    assert starts == [1, 1]  # a running worker is left to claim it
+    host._worker_thread = None
+    host._background = False  # a foreground host drains on its own
+    DurableIngestJobs.resume_contextual_index(host)
+    assert starts == [1, 1]
 
 
 def test_an_index_obligation_that_cannot_be_queued_fails_the_extraction_retryably(tmp_path):

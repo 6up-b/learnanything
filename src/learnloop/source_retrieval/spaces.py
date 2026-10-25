@@ -54,6 +54,10 @@ LOCAL_GROUPED = "local:grouped"
 LOCAL_SINGLETON = "local:singleton"
 VOYAGE = "voyage"
 USABLE = ("ok", "partial")
+#: structural: the spaces whose query embedding is a paid request (the local
+#: space's encoder runs on this machine): a caller's shared budget makes room
+#: for each of them (Codex re-review F17).
+PAID_QUERY_SPACES = (QWEN, VOYAGE)
 
 
 class LocalQueryEncoder:
@@ -512,6 +516,6 @@ def space_ranks(per_space: Mapping[str, Mapping[str, Sequence[str]]], key: str =
     return ranks
 
 
-__all__ = ["LOCAL_GROUPED", "LOCAL_QUERY_ENCODER", "LOCAL_SINGLETON", "LocalQueryEncoder", "QWEN", "Resolution",
+__all__ = ["LOCAL_GROUPED", "LOCAL_QUERY_ENCODER", "LOCAL_SINGLETON", "LocalQueryEncoder", "PAID_QUERY_SPACES", "QWEN", "Resolution",
            "SpaceState", "VOYAGE", "meaning_lists", "query_kind", "resolve_source_spaces", "resolver_active",
            "space_ranks"]

@@ -482,3 +482,93 @@ def test_the_open_rpc_records_nothing_with_the_switches_off(tmp_path):
     serve(io.StringIO("".join(json.dumps(message) + "\n" for message in messages)), stdout)
     responses = [json.loads(line) for line in stdout.getvalue().splitlines()]
     assert responses[1]["result"]["recorded"] is False and _feedback(repository) == []
+
+
+def test_an_unknown_rewrite_is_planned_at_its_largest_encoding_and_never_found_cached(tmp_path, monkeypatch):
+    """Codex re-review F2: a dry run cannot know the rewrite's text, so both
+    query embeddings plan it at MAX_QUERY_CHARS code points of four UTF-8
+    bytes (a valid 2,000-character CJK rewrite admits under the plan, never
+    2,000 ASCII bytes), and a placeholder is never looked up in a cache."""
+
+    from learnloop.ops.embedding_backfill import estimated_tokens
+    from learnloop.source_retrieval import library
+    from learnloop.source_retrieval.queries import MAX_QUERY_CHARS
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-never-sent")  # the route reads as ready; nothing is sent
+    paths, repository = _vault(tmp_path)
+    _fallback(paths, monkeypatch)
+    question = "why do all bases of a vector space have the same length"
+    plan = library.plan_library_search(loaded(paths), repository, query=question, deep=True)
+    assert plan["rewrite"]["status"] == "would_call", plan["rewrite"]
+    largest = "\U0001d400" * MAX_QUERY_CHARS  # four UTF-8 bytes each
+    cjk = "基" * MAX_QUERY_CHARS  # a valid rewrite of the reviewer's probe
+    fallback = plan["fallback_query_embedding"]
+    assert fallback["estimated_tokens"] == (fallback_space.token_upper_bound(question)
+                                            + fallback_space.token_upper_bound(largest))
+    assert fallback_space.token_upper_bound(cjk) <= fallback["estimated_tokens"] - fallback_space.token_upper_bound(question)
+    embedding = plan["query_embedding"]
+    assert embedding["estimated_tokens"] == estimated_tokens(question) + estimated_tokens(largest)
+    # Even with every text "cached", the unknown rewrite is still a pending request.
+    monkeypatch.setattr(fallback_space, "_cached_queries",
+                        lambda _repository, _space, wanted: {key: np.zeros(4) for key in wanted})
+    monkeypatch.setattr(library, "cached_query_vectors",
+                        lambda _repository, _model, texts, **_kw: {key: np.zeros(4) for key in texts})
+    cached = library.plan_library_search(loaded(paths), repository, query=question, deep=True)
+    assert cached["fallback_query_embedding"]["pending"] == 1 and cached["fallback_query_embedding"]["calls"] == 1
+    assert cached["fallback_query_embedding"]["estimated_tokens"] == fallback_space.token_upper_bound(largest)
+    assert cached["query_embedding"]["pending"] == 1 and cached["query_embedding"]["calls"] == 1
+    assert cached["query_embedding"]["estimated_tokens"] == estimated_tokens(largest)
+
+
+def test_a_cli_budget_has_room_for_every_query_encoder_and_the_rewrite(tmp_path, monkeypatch):
+    """Codex re-review F17: the rewrite (one candidate), Qwen's query and its
+    rewrite (two), then Voyage's two for a source only it covers, all under
+    one roomy ``learnloop sources search`` budget: Voyage is admitted."""
+
+    from learnloop.ai.spend import SpendBudget, SpendEstimate
+    from learnloop.source_retrieval.library import deep_search_caps
+    from learnloop.source_retrieval.queries import Rewrite
+
+    paths, repository = _vault(tmp_path)
+    seed_source(repository, source_id="src_new", revision_id="rev_new", extraction_id="ext_new",
+                title="Bases Notes", units=NEW_BOOK)
+    client = _fallback(paths, monkeypatch)
+    assert fallback_space.backfill_fallback_vectors(loaded(paths), repository, "ext_new", client=client)["status"] == "complete"
+    budget = SpendBudget(deep_search_caps(max_calls=5, max_tokens=50_000, max_cost_usd=0.05))
+    with budget.request(SpendEstimate(candidates=1, calls=1, total_tokens=600, estimated_usd=0.0)):
+        pass  # the rewrite's call
+    clear_cache()
+    result = search_spans(loaded(paths), repository, "what is a basis of a vector space", library_scope(repository),
+                          deep=True, embedder=HashingEmbedder(), pool="hybrid_rrf", consumer="library", budget=budget,
+                          rewritten=Rewrite("rewritten", passage="A basis is a linearly independent spanning list."))
+    voyage = result.space_selection["spaces"]["voyage"]["query"]
+    assert voyage["status"] == "embedded", voyage
+    assert budget.used.candidates == 5 and budget.used.calls == 3 and len(client.query_calls) == 1
+
+
+def test_the_logged_selection_probability_is_the_resolvers_joint_one(tmp_path, monkeypatch):
+    """Codex re-review F18, through the resolver: under a zero-mean posterior
+    with independent coefficients, the selection logged with each query is
+    the joint probability of the set it chose, the forced cheapest fallback
+    included (Qwen alone: 1/2; Voyage alone or both: 1/4), and the fit's
+    query propensity is that number."""
+
+    paths, repository = _vault(tmp_path)
+    client = _fallback(paths, monkeypatch, extra="\n\n[embedding.source_space]\nlearned_fusion = true")
+    fallback_space.backfill_fallback_vectors(loaded(paths), repository, "ext_book", client=client)
+    ids = _identities(paths, repository)
+    flat = {"global": {"lists": [ids["qwen"], ids["voyage"]], "mean": [0.0, 0.0], "signals": 3, "rrf_k": 60.0,
+                       "covariance": [[1.0, 0.0], [0.0, 1.0]], "context_key": "global"}}
+    monkeypatch.setattr("learnloop.db.stores.retrieval_spaces.fusion_posteriors", lambda _c: flat)
+    expected = {("qwen",): 0.5, ("voyage",): 0.25, ("qwen", "voyage"): 0.25}
+    seen = set()
+    for _ in range(8):
+        selection = _search(paths, repository).space_selection
+        chosen = tuple(selection["contributing"])
+        recorded = selection["weights"]["query_set_propensity"]
+        assert abs(recorded - expected[chosen]) < 0.03, (chosen, recorded)
+        seen.add(chosen)
+        rows = [row for row in _feedback(repository)
+                if row["receipt_id"] == selection["receipt_id"] and row["event"] == "query"]
+        assert rows and fusion._set_propensity(rows[0]["payload"], [ids["qwen"], ids["voyage"]], set()) == recorded
+    assert len(seen) >= 2

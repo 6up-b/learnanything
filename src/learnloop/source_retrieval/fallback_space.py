@@ -46,7 +46,7 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.embedding_vectors import get_vector, put_vector
 from learnloop.local_embeddings.identity import hosted_space_pins, space_id as make_space_id
-from learnloop.source_retrieval.queries import QUERY_EMBEDDING_CAPS
+from learnloop.source_retrieval.queries import LARGEST_QUERY_TEXT, QUERY_EMBEDDING_CAPS
 from learnloop.source_retrieval.recipes import (
     DOC_TASK_PREFIX,
     SOURCE_BLOCK_FIELD,
@@ -338,10 +338,15 @@ def _cached_queries(repository: Repository, space: str, wanted: Mapping[str, str
     return found
 
 
-def plan_query(vault: LoadedVault, repository: Repository, texts: Mapping[str, str]) -> dict[str, Any]:
+def plan_query(vault: LoadedVault, repository: Repository, texts: Mapping[str, str], *,
+               unknown: int = 0) -> dict[str, Any]:
     """The dry run of :func:`query_vectors` at its worst case (Codex review F2):
     whether the fallback space may be queried for this search, and the one
-    request's token and dollar bound. Read-only: no client, nothing sent."""
+    request's token and dollar bound. Read-only: no client, nothing sent.
+
+    ``unknown`` counts the texts a dry run cannot know yet (the rewrite's):
+    each is pending and planned at its largest encoding, ``LARGEST_QUERY_TEXT``
+    (Codex re-review F2), never looked up in the cache."""
 
     reason = fallback_reason(vault.config)
     if reason is not None:
@@ -350,9 +355,12 @@ def plan_query(vault: LoadedVault, repository: Repository, texts: Mapping[str, s
     wanted = {key: _query_text(text) for key, text in texts.items() if text.strip()}
     pending = {key: text for key, text in wanted.items() if key not in _cached_queries(repository, space, wanted)}
     price = float(vault.config.embedding.fallback.price_per_million)
-    tokens = sum(token_upper_bound(text) for text in pending.values())
-    return {"status": "may_call" if pending else "cached", "space_id": space, "texts": len(wanted),
-            "pending": len(pending), "calls": 1 if pending else 0, "estimated_tokens": tokens,
+    unknown = max(0, int(unknown))
+    tokens = (sum(token_upper_bound(text) for text in pending.values())
+              + unknown * token_upper_bound(_query_text(LARGEST_QUERY_TEXT)))
+    waiting = len(pending) + unknown
+    return {"status": "may_call" if waiting else "cached", "space_id": space, "texts": len(wanted) + unknown,
+            "pending": waiting, "calls": 1 if waiting else 0, "estimated_tokens": tokens,
             "estimated_usd": round(tokens * price / 1_000_000, 8), "price_per_million": price,
             "cost_basis": "worst case: queried whenever it serves a source in scope (admitted at the full price)",
             "billing": "metered"}
