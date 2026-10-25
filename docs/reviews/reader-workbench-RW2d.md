@@ -170,3 +170,221 @@ The 159 files: `test_ad1_codex_review_fixes.py`, `test_ad1_migration.py`, `test_
 5. **No shadow rebuild on a fixture copy**: the tracked fixtures are at schema 155 and an old tag, and
    `rebuild --shadow` does not migrate; the G41 fixture test runs through the sidecar's load (which migrates) and
    compares the served reads instead. A rebuild never reads the workbench tables, so its projection cannot move.
+
+## Landing onto main
+
+Landed in `learnanything-merge2` on `merge/rw2d-onto-main`, from main `e25739a96` (AD2+AD3 at `mvp-0.30`, migration
+214 under head 218) and `reader/rw2d` at `203d85803`. The orchestrator's rulings stand: Codex review F1 (High), F2
+and F4 confirmed fixed; F3's residual is non-blocking (open items below).
+
+### Commits and conflicts
+
+- `a766a4264`: the merge (`--no-ff`). **445 files conflicted**:
+  - 412 generated references, plus `tests/cli_help_snapshot.json`: main's side taken, then regenerated.
+  - `algorithm_versions.py`: both successors kept, `mvp-0.31` chained after `mvp-0.30`.
+  - `cli/app.py`: both `--to` branches; the help names `mvp-0.30` and the tag.
+  - `config/template.py`: both comment lines on all 20 earlier snapshots; the `mvp-0.30` and `mvp-0.31` entries.
+  - The concept note *Algorithm Versions and Reproducibility*: the `mvp-0.31` row, and every gate set extended.
+    The branch's `DECIDER_TIER1_VERSIONS` "to `mvp-0.27`" was a typo; main's text was kept.
+  - `fixtures/migration_head_219/{README.md,state.sqlite}`: README composed, database rebuilt (below).
+  - 26 test files: chain pins composed, and the "nothing else changed" migration diffs now subtract both
+    `AD23_ADDED_OBJECTS` and `RW2D_*`.
+- `2842badae`: chain pins and the CLI help snapshot.
+  - Hunks that merged cleanly had kept main's `SUCCESSOR_CHAIN[-N]` positions. Each moved back one (15 lines over
+    14 files), and two `METHOD_EXPLICIT_VERSIONS` pins gained `mvp-0.30`.
+  - `test_intent_codex_rereview`'s CLI test had merged into an inconsistent mix. It now keeps main's explicit
+    `--to mvp-0.29` and checks the default upgrade separately.
+  - `test_ad23_successor`: AD's tag is now `SUCCESSOR_CHAIN[-2]`, its gate set is `{mvp-0.30, mvp-0.31}`, and new
+    vaults start at `mvp-0.31`.
+  - `test_ad23_migration`: the head is 219, and a vault at head without 214 now holds 215-219.
+- `fac9ca330`: references regenerated.
+
+The source files both sides changed outside the conflicts are `field/outcomes.py`, `scheduling/scheduler.py`,
+`substrate/rebuild_orchestrator.py`, `params/parameter_registry.py`, `db/table_roles.py` and `config/schema.py`.
+Each composed with no overlap. AD reads no field interaction signal, so the workbench rows never reach AD's state or
+a rebuild.
+
+### Renumber and chain
+
+- `WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION = "mvp-0.31"`, after `ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION` in
+  `SUCCESSOR_CHAIN`. The chain is linear, 22 tags, ending `mvp-0.27 -> mvp-0.29 -> mvp-0.30 -> mvp-0.31`, and
+  `LATEST_ALGORITHM_VERSION` = `mvp-0.31`.
+- `workbench_field_signals_upgrade`: `PREDECESSOR = ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION` and
+  `_upgrade_to_predecessor = upgrade_to_mvp030`. AD's own step prepares AD's DERIVED state when the chain passes
+  through it.
+- Docstrings and the CLI docstring follow. `test_field_workbench_signals` pins the predecessor as `mvp-0.30` and
+  chains from both `mvp-0.27` and `mvp-0.29`.
+- `DEFAULTS_SNAPSHOT_BY_ALGORITHM`: all **22** entries recomputed with `defaults_fingerprint_for_version`, template
+  `.pyc` cleared. A rerun gives **0 mismatches**.
+- Chain check on placement vaults (`fixtures-local/landing-rw2d/scripts/chain_check.py`):
+  - `--to mvp-0.31` from `mvp-0.9`, `mvp-0.27`, `mvp-0.29` and `mvp-0.30`: rc 0, label `mvp-0.31`.
+  - From `mvp-0.8`: refused directly, as at every successor since `mvp-0.9`. Then `--to mvp-0.9` and
+    `--to mvp-0.31`: rc 0.
+  - Bare `upgrade` from `mvp-0.30`: rc 0, to `mvp-0.31`.
+- The 59 test files that pin the chain, a snapshot, a head or the tag pass in the full suite.
+
+### Head fixture
+
+`fixtures/migration_head_219` was rebuilt as a backup-API copy of main's `migration_head_218` (which holds 214), with
+only 219 applied under `UPGRADE_SCRATCH_COPY`, then copied into place with the backup API.
+- Checks: `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
+  `foreign_key_check` empty, no companion files.
+- Against main's 218 it adds exactly 219's six objects (the table, its index, two autoindexes and two triggers), and
+  only `workbench_sessions` changes (`contract_subject_id`). All seven are identical to the branch's head.
+- `migration_head_218` is gone (the branch had renamed it, as T1 renamed 217 to 218).
+- The README was composed: main's text, the branch's 219 paragraph, and this rebuild.
+- Hard-coded paths: the head is named in the tests (`test_ad23_migration` was the one left on 218) and in the two
+  `db_*_reference.py` scripts (three times in `db_generate_reference.py`).
+- Local retrieval P1 (`learnanything-lr1`) will renumber its migration to 220; it was not touched.
+
+### Regeneration
+
+- **References.** `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**, schema head **219**,
+  **348** table notes, **1,034** configuration leaves (main 347 and 1,033).
+  - The hand-written counts in `Database.md` and `Configuration.md` were updated; the validator flags them
+    otherwise.
+- **Defaults snapshots**: recomputed (above).
+- **CLI help snapshot**: regenerated (the `upgrade` help).
+- **RPC pins** (serializer snapshot, desktop RPC contract, mobile allowlist): their tests pass; no file changed.
+- **`validate_vault.py`**: passes (1,151 notes, 1,149/1,149 reachable).
+- **Failing before this stage, not fixed:**
+  - `desktop_validate.py` still stops on `components/pdfSelection/testing/syntheticBook.ts`.
+  - `module_validate.py` reports **1,079** issues (1,071 at AD2+AD3's landing). The new ones are RW2d's modules
+    without module notes.
+
+### Gate
+
+Setup and rules:
+- `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2` (5.14.0), with `TMPDIR` = merge2's
+  `fixtures-local/tmp`. Every later command ran as `uv run --no-sync` under `env -i`, with empty `HOME`,
+  `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`.
+- pytest lanes: 10G/2G scopes, `-n 8`, under `flock /tmp/learnloop-fullsuite.lock`. Everything else: 5G/1G.
+- Gate head `fac9ca330`. Logs: `fixtures-local/rw2d-landing-*.log`.
+
+| Step | Result |
+|---|---|
+| `lint-imports --no-cache` | **34 kept**, 0 broken |
+| full suite (`pytest -n 8`, 48 min 35 s) | **22,057 passed**, 1 failed, 3 skipped, 38 xfailed |
+| the one failure, alone, 3 times | `test_reading_hardening_2_fixes::test_f1_a_build_whose_worker_failed_to_start_is_run_by_the_sweep`: **3/3 passed** (5 s each). A known load flake (the parity runs shared the machine); no RW2d code is on its path |
+| durability (`-m durability`) | **121 passed** |
+| `npm install`; `npm run typecheck` | ok; clean |
+| `npm test -- --maxWorkers=4` (the whole vitest run) | **206 files, 1,737 tests passed** |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | finished |
+| worktree, tracked fixtures | `git status` clean after every lane; no non-empty `-wal` beside a fixture |
+
+No real failure, so no landing fix.
+
+### Parity (backup-API copies; no model call)
+
+**Setup.** Scripts are in `fixtures-local/landing-rw2d/scripts/`, outputs in `out/`.
+- **Copies.** The owner's backups `fixtures-local/vault-backups-20261024-mvp029/{linear_algebra,probability}`
+  (`mvp-0.29`, schema 218 without 214, 0 `model_call_receipts`, no workbench session, step or help row) were each
+  copied once, as whole trees, with `copy_tree_with_databases` into `landing-rw2d/orig/`. Every other copy came from
+  those through the same helper.
+- **Not opened:** the main checkout's `fixtures/linear_algebra`, `fixtures/probability` and `fixtures/arxiv_v2`.
+- **Code.** Main's code is `git archive main` (`e25739a96`) and the merge's is `git archive fac9ca330`, each first
+  on `sys.path`. An audit hook refuses any Codex process start; none was attempted, and no process start was
+  logged at all.
+- **Environment.** `env -i`, with empty `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`.
+- **Routes.** Every route went to `127.0.0.1:9` through unset-key loopback profiles (63 tasks resolved; nothing
+  else but the disabled, keyless `embedding`). Rewrite, rerank, dense, embeddings and learner-text gaps were off;
+  `build_on_serve` and outcome placement off.
+- **Clock.** Frozen at 2026-10-19 09:00 UTC.
+
+**(a) At `mvp-0.30`.**
+- **Upgrade.** `upgrade --to mvp-0.30` plus `rebuild-derived-state` twice, with main's code (`u30`) and with the
+  merge's (`m30`): rc 0 on both vaults.
+- **Schema, main vs merge** (`u30` vs `m30`, and `u30` opened by each code): only 219's six objects are added, and
+  `workbench_sessions` gains `contract_subject_id` (NULL on every row). Nothing is only on main.
+- **Rows** (352 common tables; LA 17,990 rows, probability 8,139):
+  - Copies of the same mvp-0.30 vault opened by each code: identical. `schema_migrations` has 219 extra; common
+    rows are identical.
+  - The two upgrade runs, ULIDs and timestamps normalised: identical. Ten tables differ only in the ids and
+    timestamps each run mints, among them `parameter_registry` and its manifests (the same keys: RW2d registers no
+    numeric parameter).
+  - The new table is empty. FK 0, integrity ok, 0 `model_call_receipts`.
+- **`rebuild --shadow` and `doctor`.** 0 differences after normalisation, main vs merge, on both the merge's own
+  upgrade and main's vault opened by the merge.
+  - Shadow 0 / 0 / 0 with the live database unchanged.
+  - Doctor shows LA 57 issues / 1 error and probability 101 / 48, the same on both codes.
+- **Served reads.** Certification and curves, and the Today queue (no session, a session, greedy), are
+  **byte-identical** (LA cert 129,651 bytes, queue 43, 528,665 bytes; probability 17,495 bytes, queue 67, 741,269
+  bytes).
+  - The daily plan (read, serve, serve again, read) is identical except `card_hash`, `snapshot_hash` and the card
+    hash inside `detail_json`, which differ between any two runs (as recorded at DL2's, T1's and AD2+AD3's
+    landings).
+
+**(b) `upgrade --to mvp-0.31`** (the merge's code).
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| on main's mvp-0.30 copy | rc 0, "mvp-0.30 -> mvp-0.31" | the same |
+| bare `upgrade` on another copy | rc 0, "mvp-0.30 -> mvp-0.31" | the same |
+| rows vs the copy just before | **no row removed or changed** once ULIDs, timestamps and the version stamp are masked. Raw, only the `algorithm_version` stamp of `facet_capability_evidence` (36) and `facet_recall_state` (76) (DERIVED) and the refreshed `parameter_registry` rows differ. Added: `derived_state_rebuilds` +1, `parameter_registry_manifests` +1 | the same (1 and 2 stamped rows) |
+| `rebuild --shadow` right after the upgrade | facet 0, mastery 21 (the `mastery_state` version stamp), schedule 0; live database unchanged | 0 / 18 (stamp) / 0 |
+| after `rebuild-derived-state` twice | shadow **0 / 0 / 0**; `doctor` as at mvp-0.30 | the same |
+| straight from the mvp-0.29 backup, `--to mvp-0.31` (chains through AD2+AD3's step) | rc 0, "mvp-0.29 -> mvp-0.31". Every pre-existing row is kept up to stamps and ids; AD's `ad_state` +9 and `ad_attempt_trace` +90 are prepared; `parameter_registry` +9 (AD's keys). After the rebuilds, shadow 0 / 0 / 0 and doctor unchanged | the same (`ad_state` +2, `ad_attempt_trace` +3) |
+| the owner's two steps, `--to mvp-0.30` then `--to mvp-0.31`, rebuild | rc 0 each; shadow 0 / 0 / 0 | the same |
+
+`rebuild-derived-state` itself appends its measurement and grade-interpretation rows and repacks the FTS index, as at
+every tag; the upgrade alone does neither.
+
+**(c) The kill switch.** `k31` is a copy of the upgraded and rebuilt mvp-0.31 vault with
+`[workbench] field_signals_enabled = false`. It was compared with `base30`, main's mvp-0.30 vault opened by the
+merge.
+- Today (no session, a session, greedy): **byte-identical**.
+- Certification and curves: identical apart from the version label.
+- The placement reads (`ft_dump.py`: the field derivation and per-LO blocking set, the fast-track verdict for every
+  LO with answers, the quick check's split over them, the sidecar's Today queue (default and 25 minutes) and Start,
+  then the persisting `reconcile_fast_track`): identical apart from the label.
+- The plan: identical apart from the four `algorithmVersion` fields and the decision row's stamp and run hashes.
+- The same holds with the G41 test's workbench history seeded on both copies (`s30` vs `sk31`: a stuck step with
+  text on an abandoned session, and a hint before the first step).
+
+**(d) Defaults at `mvp-0.31`.**
+- **On these vaults as they are:** nothing changes. Neither copy holds a workbench session, step or help row, so
+  `d31` reads exactly like `base30` (the same comparisons as (c)), and no `field_signal_receipts` row is written.
+- **With the seeded history** (`s30` vs `son31`):
+  - The seeded LO gains the two blocking rows (`workbench_stuck:st_rw2d_landing`, `workbench_help:wb_rw2d_landing_h`).
+  - On LA, the LO's fast-track verdict reason becomes `blocked_by_signal` (it was `below_threshold`, so it
+    withholds either way). One `field_signal_receipts` row records both sides.
+  - On probability, the LO's new item is taught first in Today, the 25-minute queue and every build. The item card
+    reads "taught first: you asked about this topic or needed help on it", with `taught_first_predecessor` 0.0 as
+    the receipt.
+  - Certification, curves and the plan are unchanged apart from the label.
+- **No served change elsewhere.** On these copies no LO's fast-track fired before, so none is withheld, and no
+  quick check was open.
+
+**Calls.** `model_call_receipts` has 0 rows in all 49 parity databases (no COMPLETED row, no row at all), and no
+process was started. Spend: $0.
+
+### Owner notes
+
+- Upgrade with `learnloop upgrade --to mvp-0.31`, or the bare `learnloop upgrade` (the default target). Before
+  running it: take a backup, and close the app, MCP and the mobile host.
+  - From `mvp-0.30` it is one step. From `mvp-0.29`, or `mvp-0.9` to `mvp-0.27`, it chains through AD2+AD3's step.
+    From `mvp-0.8`, run `--to mvp-0.9` first.
+  - Then run `rebuild-derived-state` (it clears the version-stamp-only shadow differences).
+- **What the learner sees:** nothing new on screen. Routing changes only, and only once the workbench holds a stuck
+  step or help asked for before the first step: that LO is not fast-tracked or assumed known by the quick check, and
+  its new material is taught first, with the "taught first" reason on the card. The record never changes.
+- **Kill switch:** `[workbench] field_signals_enabled = false`. Serving and plans are then the predecessor's, and
+  no workbench table is read.
+
+### Open items
+
+1. **F3 (Low, ruled non-blocking under the proportionate bar).** Once a session's attempt exists, the attempt's
+   subject (taken from today's item at submit) overrides the subject frozen with the contract. This only matters if
+   the item's subject is edited between the session and the submit; per-LO routing is unaffected.
+2. **Rulings at their defaults** (§7):
+   - Migration 219 accepted.
+   - Empty stuck steps are not signals.
+   - Workbench rows are not counted as questions in report 2.
+   - The frozen-subject design stands.
+   - A declared-stuck session keeps its step-time confusion row whatever the grader reads (first review, open
+     question 2).
+3. `desktop_validate.py` and `module_validate.py` fail as before this stage (above).
+4. During parity setup a read-only open of the backups left empty `state.sqlite-wal` and `-shm` files beside both
+   backup databases in the main checkout's `fixtures-local/vault-backups-20261024-mvp029/`. They are harmless and
+   were left in place.
